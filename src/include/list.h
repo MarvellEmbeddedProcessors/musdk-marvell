@@ -1,0 +1,249 @@
+/**************************************************************************//**
+	Copyright (C) 2016 Marvell International Ltd.
+*//***************************************************************************/
+
+#ifndef __LIST_H__
+#define __LIST_H__
+
+#include "std.h"
+
+
+/**
+ * A list structure
+ */
+struct list {
+	struct list *next;  /**< A pointer to the next list object		*/
+	struct list *prev;  /**< A pointer to the previous list object	*/
+};
+
+
+/**************************************************************************//**
+ @Function		LIST_FIRST/LIST_LAST/LIST_NEXT/LIST_PREV
+
+ @Description	Macro to get first/last/next/previous entry in a list.
+
+ @Param[in]		_lst - A pointer to a list.
+*//***************************************************************************/
+#define LIST_FIRST(_lst)	(_lst)->next
+#define LIST_LAST(_lst)		(_lst)->prev
+#define LIST_NEXT			LIST_FIRST
+#define LIST_PREV			LIST_LAST
+
+/**
+ * Macro to declare of a list.
+ *
+ * @param[in]	_lst_name	The list object name.
+ */
+#define LIST(_lst_name)	struct list _lst_name = LIST_INIT(_lst_name)
+
+/**
+ * Macro for initialization of a list struct.
+ *
+ * @param[in]	_lst	The struct list object to initialize.
+ */
+#define LIST_INIT(_lst)	{&(_lst), &(_lst)}
+
+/**
+ * Macro to initialize a list pointer.
+ *
+ * @param[in]	_lst	The list pointer.
+ */
+#define INIT_LIST(_lst)   LIST_FIRST(_lst) = LIST_LAST(_lst) = (_lst)
+
+/**
+ * Macro to get the struct (object) for this entry.
+ *
+ * @param[in]	_lst	The list pointer.
+ * @param[in]	_type	The type of the struct (object) this list is embedded in.
+ * @param[in]	_member	The name of the struct list object within the struct.
+ *
+ * @return	The structure pointer for this entry.
+ */
+#define LIST_OBJECT(_lst, _type, _member) \
+	((_type *)((char *)(_lst)-MEMBER_OFFSET(_type, _member)))
+
+/**
+ * Macro to iterate over a list.
+ *
+ * @param[in]	_pos	A pointer to a list to use as a loop counter.
+ * @param[in]	_head	A pointer to the head for your list pointer.
+ *
+ * @caution	You can't delete items with this routine. For deletion,
+ *			use LIST_FOR_EACH_SAFE().
+ */
+#define LIST_FOR_EACH(_pos, _head) \
+	for (_pos = LIST_FIRST(_head); _pos != (_head); _pos = LIST_NEXT(_pos))
+
+/**
+ * Macro to iterate over a list safe against removal of list entry.
+ *
+ * @param[in]	_pos	A pointer to a list to use as a loop counter.
+ * @param[in]	_tmp	Another pointer to a list to use as temporary storage.
+ * @param[in]	_head	A pointer to the head for your list pointer.
+ */
+#define LIST_FOR_EACH_SAFE(_pos, _tmp, _head)				\
+	for (_pos = LIST_FIRST(_head), _tmp = LIST_FIRST(_pos);	\
+		_pos != (_head);									\
+		_pos = _tmp, _tmp = LIST_NEXT(_pos))
+
+/**
+ * Macro to iterate over list of given type safely.
+ *
+ * @param[in]	_pos	A pointer to a list to use as a loop counter.
+ * @param[in]	_tmp	Another pointer to a list to use as temporary storage.
+ * @param[in]	_type	The type of the struct this is embedded in.
+ * @param[in]	_head	A pointer to the head for your list pointer.
+ * @param[in]	_member	The name of the list_struct within the struct.
+ */
+#define LIST_FOR_EACH_OBJECT_SAFE(_pos, _tmp, _head, _type, _member)	\
+	for (_pos = LIST_OBJECT(LIST_FIRST(_head), _type, _member),			\
+		 _tmp = LIST_OBJECT(LIST_FIRST(&_pos->_member), _type, _member);\
+		 &_pos->_member != (_head);										\
+		 _pos = _tmp,													\
+		 _tmp = LIST_OBJECT(LIST_FIRST(&_pos->_member), _type, _member))
+
+/**
+ * Macro to iterate over list of given type.
+ *
+ * @param[in]	_pos	A pointer to a list to use as a loop counter.
+ * @param[in]	_type	The type of the struct this is embedded in.
+ * @param[in]	_head	A pointer to the head for your list pointer.
+ * @param[in]	_member	The name of the list_struct within the struct.
+ *
+ * @caution	You can't delete items with this routine. For deletion,
+ *			use LIST_FOR_EACH_OBJECT_SAFE().
+ */
+#define LIST_FOR_EACH_OBJECT(_pos, _type, _head, _member)		\
+	for (_pos = LIST_OBJECT(LIST_FIRST(_head), _type, _member);	\
+		 &_pos->_member != (_head);								\
+		 _pos = LIST_OBJECT(LIST_FIRST(&(_pos->_member)), _type, _member))
+
+
+/**
+ * Add a new entry to a (head of a) list.
+ *
+ * Insert a new entry after the specified head.
+ * This is good for implementing stacks.
+ *
+ * @param[in]	new_lst	A pointer to a new list entry to be added.
+ * @param[in]	head	A pointer to a list head to add it after.
+ *
+ * @retval	none
+ */
+static __inline__ void list_add(struct list *new_lst, struct list *head)
+{
+	LIST_PREV(LIST_NEXT(head))	= new_lst;
+	LIST_NEXT(new_lst)			= LIST_NEXT(head);
+	LIST_PREV(new_lst)			= head;
+	LIST_NEXT(head)				= new_lst;
+}
+
+/**
+ * Add a new entry to a (tail of a) list.
+ *
+ * Insert a new entry before the specified head.
+ * This is good for implementing queues.
+ *
+ * @param[in]	new_lst	A pointer to a new list entry to be added.
+ * @param[in]	head	A pointer to a list head to add it before.
+ *
+ * @retval	none
+ */
+static __inline__ void list_add_to_tail(struct list *new_lst, struct list *head)
+{
+	LIST_NEXT(LIST_PREV(head))	= new_lst;
+	LIST_PREV(new_lst)			= LIST_PREV(head);
+	LIST_NEXT(new_lst)			= head;
+	LIST_PREV(head)				= new_lst;
+}
+
+/**
+ * Deletes entry from a list.
+ *
+ * @param[in]	ent		A pointer to the element to delete from the list.
+ *
+ * @retval	none
+ *
+ * @caution	list_is_empty() on entry does not return true after this,
+ *			the entry is in an undefined state.
+ */
+static __inline__ void list_del(struct list *ent)
+{
+	LIST_PREV(LIST_NEXT(ent)) = LIST_PREV(ent);
+	LIST_NEXT(LIST_PREV(ent)) = LIST_NEXT(ent);
+}
+
+/**
+ * Deletes entry from list and reinitialize it.
+ *
+ * @param[in]	ent		A pointer to the element to delete from the list.
+ *
+ * @retval	none
+ */
+static __inline__ void list_del_init(struct list *ent)
+{
+	list_del(ent);
+	INIT_LIST(ent);
+}
+
+/**
+ * Delete from one list and add as another's head.
+ *
+ * @param[in]	ent		A pointer to the entry to move.
+ * @param[in]	head	A pointer to the list head that will follow our entry.
+ *
+ * @retval	none
+ */
+static __inline__ void list_move(struct list *ent, struct list *head)
+{
+	list_del(ent);
+	list_add(ent, head);
+}
+
+/**
+ * Delete from one list and add as another's tail.
+ *
+ * @param[in]	ent		A pointer to the entry to move.
+ * @param[in]	head	A pointer to the list head that will follow our entry.
+ *
+ * @retval	none
+ */
+static __inline__ void list_move_to_tail(struct list *ent, struct list *head)
+{
+	list_del(ent);
+	list_add_to_tail(ent, head);
+}
+
+/**
+ * Check whether a list is empty.
+ *
+ * @param[in]	lst		A pointer to the list to test.
+ *
+ * @retval	1 if the list is empty.
+ * @retval	0 if the list is not empty.
+ */
+static __inline__ int list_is_empty(struct list *lst)
+{
+	return (LIST_FIRST(lst) == lst);
+}
+
+/**
+ * Join two lists.
+ *
+ * @param[in]	new_lst		A pointer to the new list to add.
+ * @param[in]	head		A pointer to the place to add it in the first list.
+ *
+ * @retval	none
+ */
+void list_append(struct list *new_lst, struct list *head);
+
+/**
+ * Count number of objects in the list.
+ *
+ * @param[in]	lst		A pointer to the list which objects are to be counted.
+ *
+ * @retval	Number of objects in the list.
+ */
+int list_num_objs(struct list *lst);
+
+#endif /* __LIST_H__ */
