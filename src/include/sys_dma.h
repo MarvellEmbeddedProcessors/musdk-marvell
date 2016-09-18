@@ -14,6 +14,7 @@
  * implemented as inlines.
  */
 extern phys_addr_t __dma_phys_base;
+extern void *__dma_virt_base;
 
 
 /**
@@ -55,7 +56,7 @@ void mv_sys_dma_mem_free(void *ptr, size_t size);
  */
 static __inline__ void * mv_sys_dma_mem_phys2virt(phys_addr_t pa)
 {
-    return UINT_TO_PTR(pa - __dma_phys_base);
+	return (void *)((unsigned long)(pa - __dma_phys_base) + (unsigned long)__dma_virt_base);
 }
 
 /**
@@ -68,7 +69,7 @@ static __inline__ void * mv_sys_dma_mem_phys2virt(phys_addr_t pa)
  */
 static __inline__ phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
-    return (phys_addr_t)(PTR_TO_UINT(va) + __dma_phys_base);
+	return __dma_phys_base + ((unsigned long)va - (unsigned long)__dma_virt_base);
 }
 
 #endif /* __SYS_DMA_H__ */

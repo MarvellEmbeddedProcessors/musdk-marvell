@@ -5,7 +5,9 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
-#include <inttypes.h>
+//#include <inttypes.h>
+#include <stdint.h>
+#include <stddef.h>
 
 typedef uint8_t		u8;
 typedef uint16_t	u16;
