@@ -15,5 +15,6 @@ int main (int argc, char *argv[])
 	if ((err = mv_sys_dma_mem_init(16*1024*1024)) != 0)
 		return err;
 
+	printf("bye ...\n");
 	return 0;
 }

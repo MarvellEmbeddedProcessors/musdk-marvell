@@ -10,6 +10,7 @@
 #include "int/cmplr.h"
 #include "int/gen.h"
 #include "int/io.h"
+#include "int/spinlock.h"
 #include "int/dbg.h"
 
 #endif /* __STD_H__ */

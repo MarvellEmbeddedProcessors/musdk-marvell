@@ -1,11 +1,17 @@
 ###############################################################################
-#########################  lib-of LIBRARY   ###################################
+############################  Basic Use-Case LIBRARY   ###########################
 ###############################################################################
-OBJ :=  sys_spinlock.o sys_dma.o mem_mng.o
+O_TARGETS += dmauc
+EXOBJ :=  lmusdk.o dma_uc.o
+OBJ := dma_mem.o
 INC := $(TOPINC)
 DEF := $(TOPDEF)
 
-lsys.o: $(OBJ)
+dma_uc.o: $(OBJ)
+	@(echo "(LD)  $@ <= $^")
+	@($(LD) -r -o $@ -Map $*.map $^)
+
+dmauc.o: $(EXOBJ)
 	@(echo "(LD)  $@ <= $^")
 	@($(LD) -r -o $@ -Map $*.map $^)
 
