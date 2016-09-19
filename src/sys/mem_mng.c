@@ -325,7 +325,7 @@ static u64 get_greater_align(mm_t *mm, u64 size, u64 alignment, char* name)
 
 
 /**********************************************************************
- *					 MM API routines set							*
+ *			 MM API routines set			      *
  **********************************************************************/
 
 int mem_mng_init(u64 base, u64 size, struct mem_mng **mm)
