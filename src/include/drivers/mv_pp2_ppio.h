@@ -1,6 +1,34 @@
-/**************************************************************************//**
+/*******************************************************************************
 	Copyright (C) 2016 Marvell International Ltd.
-*//***************************************************************************/
+
+	If you received this File from Marvell, you may opt to use, redistribute
+	and/or modify this File under the following licensing terms.
+	Redistribution and use in source and binary forms, with or without
+	modification, are permitted provided that the following conditions are met:
+
+		* Redistributions of source code must retain the above copyright notice,
+		  this list of conditions and the following disclaimer.
+
+		* Redistributions in binary form must reproduce the above copyright
+		  notice, this list of conditions and the following disclaimer in the
+		  documentation and/or other materials provided with the distribution.
+
+		* Neither the name of Marvell nor the names of its contributors may be
+		  used to endorse or promote products derived from this software without
+		  specific prior written permission.
+
+	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+	ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+	LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+	CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+	SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+	INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+	CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+	ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+	POSSIBILITY OF SUCH DAMAGE.
+*******************************************************************************/
 
 #ifndef __MV_PP2_PPIO_H__
 #define __MV_PP2_PPIO_H__
@@ -26,7 +54,7 @@ struct pp2_ppio;
 
 typedef u8 eth_addr_t[ETH_ADDR_NUM_OCTETS];
 
-/* TODO: don’t expose this yet! */
+/* TODO: don't expose this yet! */
 enum pp2_ppio_type {
 	PP2_PPIO_T_LOG = 0, /* Logical-port is only a set of Out-Qs and In-TCs (i.e. no link, l2-filters) */
 	PP2_PPIO_T_NIC /* NIC is a logical-port with link and l2-filters */
@@ -42,52 +70,53 @@ enum pp2_ppio_outqs_sched_mode {
 };
 
 struct pp2_ppio_inq_params {
-	u32	size; /* Q size – number of dewcriptors */
+	u32 size; /* Q size - number of descriptors */
 };
 
 struct pp2_ppio_tc_params {
-	int							 use_hash;
-	u16							 pkt_offset;    /* Must be multiple of 32 bytes.*/
-	u16							 num_in_qs;
-	struct pp2_ppio_inq_params	*inqs_params;
-	struct pp2_bpool			*pools[PP2_PPIO_TC_MAX_POOLS];
+	int use_hash;
+	/* TODO: add parameter for hash_weights */
+	u16 pkt_offset;    /* Must be multiple of 32 bytes.*/
+	u16 num_in_qs;
+	struct pp2_ppio_inq_params *inqs_params;
+	struct pp2_bpool *pools[PP2_PPIO_TC_MAX_POOLS];
 /* TODO: future:
 	int							 qos;
 */
 };
 
-/* TODO: decide if “InQ” or “RxQ”; and then decide if “recv” or “rx”. */
+/* TODO: decide if "InQ" or "RxQ"; and then decide if "recv" or "rx". */
 struct pp2_ppio_inqs_params {
-	u16							 num_tcs;
-	struct pp2_ppio_tc_params	 tcs_params[PP2_PPIO_MAX_NUM_TCS];
-	enum pp2_ppio_hash_type		 hash_type[PP2_PPIO_MAX_NUM_HASH];
-/* hash engine may be seleceted only according to “parser-results”; therefore, we put hash selection on a per port basis. */
+	u16 num_tcs;
+	struct pp2_ppio_tc_params tcs_params[PP2_PPIO_MAX_NUM_TCS];
+	enum pp2_ppio_hash_type hash_type[PP2_PPIO_MAX_NUM_HASH];
+/* hash engine may be selected only according to "parser-results"; therefore, we put hash selection on a per port basis. */
 };
 
 struct pp2_ppio_outq_params {
-	u32	size; /* Q size – number of dewcriptors */
-	u8	weight; /* The weight is relative among the PP-IO out-Qs */
+	u32 size; /* Q size - number of descriptors */
+	u8 weight; /* The weight is relative among the PP-IO out-Qs */
 
 /* TODO: add rate-limit (burst, throughput) */
 };
 
 struct pp2_ppio_outqs_params {
-	u16							num_outqs;
-	struct pp2_ppio_outq_params	outqs_params[PP2_PPIO_MAX_NUM_OUTQS];
+	u16 num_outqs;
+	struct pp2_ppio_outq_params outqs_params[PP2_PPIO_MAX_NUM_OUTQS];
 
 /* TODO: scheduling mode and parameters (WRR/Strict) */
 enum pp2_ppio_outqs_sched_mode	sched_mode;
 };
 
 struct pp2_ppio_params {
-	/* Used for DTS acc to find appropriate “physical” PP-IO obj;
-		E.g. “<marvell,mv-pp22>0:eth0” means PPv2[0],port[0] */
-	char							*match;
+	/* Used for DTS acc to find appropriate "physical" PP-IO obj;
+		E.g. "<marvell,mv-pp22>0:eth0" means PPv2[0],port[0] */
+	char *match;
 
-	enum pp2_ppio_type				 type; /* TODO: support only “NIC” type for short-term! */
-	struct pp2_ppio_inqs_params		 inqs_params;
-	struct pp2_ppio_outqs_params	 outqs_params;
-/* TODO: do we need extra pools per port? 
+	enum pp2_ppio_type type; /* TODO: support only "NIC" type for short-term! */
+	struct pp2_ppio_inqs_params inqs_params;
+	struct pp2_ppio_outqs_params outqs_params;
+/* TODO: do we need extra pools per port?
 	struct pp2_bpool				*pools[PP2_PPIO_TC_MAX_POOLS];
 */
 };
@@ -100,10 +129,10 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio);
 *//***************************************************************************/
 
 #define PP2_PPIO_DESC_NUM_WORDS	8
-#define PP2_PPIO_DESC_NUM_FRAGS	16 /* TODO: check if there’s HW limitation */
+#define PP2_PPIO_DESC_NUM_FRAGS	16 /* TODO: check if there is HW limitation */
 
 struct pp2_ppio_desc {
-	u32	cmds[PP2_PPIO_DESC_NUM_WORDS];
+	u32 cmds[PP2_PPIO_DESC_NUM_WORDS];
 };
 
 enum pp2_outq_l3_type {
@@ -158,13 +187,13 @@ void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64 cookie);
 void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool);
 
 void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc,
-									   enum pp2_outq_l3_type l3_type,
-									   enum pp2_outq_l4_type l4_type,
-									   u8  l3_offset,
-									   u8 l4_offset,
-									   int gen_l3_chk,
-									   int gen_l4_chk
-									   );
+				       enum pp2_outq_l3_type l3_type,
+				       enum pp2_outq_l4_type l4_type,
+				       u8  l3_offset,
+				       u8 l4_offset,
+				       int gen_l3_chk,
+				       int gen_l4_chk
+				       );
 void pp2_ppio_outq_desc_set_dsa_tag(struct pp2_ppio_desc *desc);
 
 void pp2_ppio_outq_desc_set_pkt_offset(struct pp2_ppio_desc *desc, u8  offset);
@@ -191,19 +220,19 @@ enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *d
 /* pp2_ppio_send
 It is assumed that the BM-Pool is either free by HW (by appropriate desc setter) or by the MUSDK client SW.
 */
-int pp2_ppio_send(struct pp2_ppio		*ppio,
-				  struct pp2_hif		*hif,
-				  int					 qid,
-				  struct pp2_ppio_desc	*desc);
-int pp2_ppio_send_sg(struct pp2_ppio		*ppio,
-					 struct pp2_hif			*hif,
-					 int					 qid,
-					 int					 num_frags,
-					 struct pp2_ppio_desc	**desc);
-int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
-							   struct pp2_hif	*hif,
-							   int				 qid,
-							   int				*num);
+int pp2_ppio_send(struct pp2_ppio *ppio,
+		  struct pp2_hif  *hif,
+		  int qid,
+		  struct pp2_ppio_desc	*desc);
+int pp2_ppio_send_sg(struct pp2_ppio *ppio,
+		     struct pp2_hif *hif,
+		     int qid,
+		     int num_frags,
+		     struct pp2_ppio_desc **desc);
+int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,
+			       struct pp2_hif *hif,
+			       int qid,
+			       int *num);
 int pp2_ppio_recv(struct pp2_ppio *ppio, int tc, int qid, struct pp2_ppio_desc *desc);
 
 

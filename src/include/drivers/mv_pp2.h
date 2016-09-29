@@ -30,75 +30,29 @@
 	POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
-#ifndef __OF_H__
-#define __OF_H__
+#ifndef __MV_PP2_H__
+#define __MV_PP2_H__
 
-#include <stdint.h>
-#include <limits.h> /* PATH_MAX */
-
-
-typedef u32	phandle;
+#include "std.h"
 
 
-struct device_node {
-	char	*name;
-	char	 full_name[PATH_MAX];
+#define PP2_NUM_PKT_PROC 2
+#define PP2_NUM_ETH_PPIO 3
 
-	u8		 _property[64];
+
+struct ppio_init_params {
+	int		is_enabled; /**/
+	u32		first_inq;
+};
+
+struct pp2_init_params {
+	u16 hif_reserved_map; /* Bitmap of reserved HIF objects (0-8), that may not be used by MUSDK. bit0=hif0, etc. */
+	u16 bm_pool_reserved_map; /* Bitmap of reserved bm_pools (0-15). The pools are reserved in all packet_processors. */
+	u8  rss_tbl_reserved_map; /* Bitmap of RSS Tables (0-7). The tables are reserved in all packet_processors. */
+	struct ppio_init_params ppio[PP2_NUM_PKT_PROC][PP2_NUM_ETH_PPIO];
 };
 
 
-struct device_node *of_get_parent(const struct device_node *dev_node);
+int pp2_init(struct pp2_init_params *params);
 
-void *of_get_property(struct device_node *from, const char *name, size_t *lenp)
-	__attribute__((nonnull(2)));
-
-u32 of_n_addr_cells(const struct device_node *dev_node);
-u32 of_n_size_cells(const struct device_node *dev_node);
-const void *of_get_mac_address(struct device_node *dev_node);
-
-const u32 *of_get_address(
-	struct device_node	*dev_node,
-	size_t				 index,
-	u64					*size,
-	u32					*flags);
-
-u64 of_translate_address(
-	struct device_node	*dev_node,
-	const u32			*addr)
-	__attribute__((nonnull));
-
-struct device_node *of_find_compatible_node(
-	const struct device_node	*from,
-	const char					*type,
-	const char					*compatible)
-	__attribute__((nonnull(3)));
-
-struct device_node *of_find_compatible_node_by_indx(
-	const struct device_node	*from,
-	const int					 indx,
-	const char					*type,
-	const char					*compatible)
-	__attribute__((nonnull(4)));
-
-#define for_each_compatible_node(_dev_node, _type, _compatible)				\
-	int local_index_node;													\
-	for (local_index_node = 1,												\
-		 _dev_node = of_find_compatible_node_by_indx(NULL,					\
-													 local_index_node,		\
-													 _type, _compatible);	\
-		 _dev_node != NULL;													\
-		 _dev_node = of_find_compatible_node_by_indx(NULL,					\
-													++local_index_node,		\
-													_type, _compatible))
-
-
-struct device_node *of_find_node_by_phandle(phandle ph);
-
-int of_device_is_available(struct device_node *dev_node);
-int of_device_is_compatible(
-	struct device_node *dev_node,
-	const char *compatible);
-
-
-#endif  /*  __OF_H__ */
+#endif /* __MV_PP2_H__ */
