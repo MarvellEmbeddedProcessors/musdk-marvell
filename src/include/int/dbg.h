@@ -59,13 +59,13 @@
 	printf("%s: %d\n",__FUNCTION__,__LINE__);
 
 #define BUG	abort
-#define BUG_ON(_cond)						\
-	do {									\
-		if (_cond) {						\
+#define BUG_ON(_cond)					\
+	do {						\
+		if (_cond) {				\
 			pr_crit("[%s:%d] found BUG!\n",	\
-					__FILE__, __LINE__); 	\
-			BUG(); 							\
-	} 										\
+				__FILE__, __LINE__); 	\
+			BUG(); 				\
+	} 						\
 } while(0)
 
 #endif /* __DBG_H__ */

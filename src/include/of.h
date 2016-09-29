@@ -44,7 +44,7 @@ struct device_node {
 	char	*name;
 	char	 full_name[PATH_MAX];
 
-	u8		 _property[64];
+	u8	 _property[64];
 };
 
 
@@ -59,38 +59,38 @@ const void *of_get_mac_address(struct device_node *dev_node);
 
 const u32 *of_get_address(
 	struct device_node	*dev_node,
-	size_t				 index,
-	u64					*size,
-	u32					*flags);
+	size_t			 index,
+	u64			*size,
+	u32			*flags);
 
 u64 of_translate_address(
 	struct device_node	*dev_node,
-	const u32			*addr)
+	const u32		*addr)
 	__attribute__((nonnull));
 
 struct device_node *of_find_compatible_node(
 	const struct device_node	*from,
-	const char					*type,
-	const char					*compatible)
+	const char			*type,
+	const char			*compatible)
 	__attribute__((nonnull(3)));
 
 struct device_node *of_find_compatible_node_by_indx(
 	const struct device_node	*from,
-	const int					 indx,
-	const char					*type,
-	const char					*compatible)
+	const int			 indx,
+	const char			*type,
+	const char			*compatible)
 	__attribute__((nonnull(4)));
 
 #define for_each_compatible_node(_dev_node, _type, _compatible)				\
-	int local_index_node;													\
-	for (local_index_node = 1,												\
-		 _dev_node = of_find_compatible_node_by_indx(NULL,					\
-													 local_index_node,		\
-													 _type, _compatible);	\
-		 _dev_node != NULL;													\
-		 _dev_node = of_find_compatible_node_by_indx(NULL,					\
-													++local_index_node,		\
-													_type, _compatible))
+	int local_index_node;								\
+	for (local_index_node = 1,							\
+		 _dev_node = of_find_compatible_node_by_indx(NULL,			\
+							     local_index_node,		\
+							     _type, _compatible);	\
+		 _dev_node != NULL;							\
+		 _dev_node = of_find_compatible_node_by_indx(NULL,			\
+							     ++local_index_node,	\
+							     _type, _compatible))
 
 
 struct device_node *of_find_node_by_phandle(phandle ph);

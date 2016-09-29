@@ -48,8 +48,8 @@ enum pp2_bpool_cookie_type {
 
 
 struct pp2_bpool_params {
-	/* Used for DTS acc to find appropriate “physical” BM-Pool obj;
-	 * E.g. “pool-0:0” means PPv2[0],pool[0] */
+	/* Used for DTS acc to find appropriate "physical" BM-Pool obj;
+	 * E.g. "pool-0:0" means PPv2[0],pool[0] */
 	char				*match;
 	u32				 max_num_buffs;
 	u32				 buff_len;

@@ -90,7 +90,7 @@ struct pp2_ppio_tc_params {
 struct pp2_ppio_inqs_params {
 	u16				 num_tcs;
 	struct pp2_ppio_tc_params	 tcs_params[PP2_PPIO_MAX_NUM_TCS];
-	/** hash engine may be seleceted only according to “parser-results”;
+	/** hash engine may be seleceted only according to "parser-results";
 	 * therefore, we put hash selection on a per port basis. */
 	enum pp2_ppio_hash_type		 hash_type[PP2_PPIO_MAX_NUM_HASH];
 };
@@ -112,11 +112,11 @@ struct pp2_ppio_outqs_params {
 };
 
 struct pp2_ppio_params {
-	/* Used for DTS acc to find appropriate “physical” PP-IO obj;
-	 * E.g. “eth-0:0” means PPv2[0],port[0] */
+	/* Used for DTS acc to find appropriate "physical" PP-IO obj;
+	 * E.g. "eth-0:0" means PPv2[0],port[0] */
 	char				*match;
 
-	enum pp2_ppio_type		 type; /* TODO: support only “NIC” type for short-term! */
+	enum pp2_ppio_type		 type; /* TODO: support only "NIC" type for short-term! */
 	struct pp2_ppio_inqs_params	 inqs_params;
 	struct pp2_ppio_outqs_params	 outqs_params;
 /* TODO: do we need extra pools per port? 

@@ -40,7 +40,7 @@
  * A list structure
  */
 struct list {
-	struct list *next;  /**< A pointer to the next list object		*/
+	struct list *next;  /**< A pointer to the next list object	*/
 	struct list *prev;  /**< A pointer to the previous list object	*/
 };
 
@@ -54,8 +54,8 @@ struct list {
 *//***************************************************************************/
 #define LIST_FIRST(_lst)	(_lst)->next
 #define LIST_LAST(_lst)		(_lst)->prev
-#define LIST_NEXT			LIST_FIRST
-#define LIST_PREV			LIST_LAST
+#define LIST_NEXT		LIST_FIRST
+#define LIST_PREV		LIST_LAST
 
 /**
  * Macro to declare of a list.
@@ -109,9 +109,9 @@ struct list {
  * @param[in]	_tmp	Another pointer to a list to use as temporary storage.
  * @param[in]	_head	A pointer to the head for your list pointer.
  */
-#define LIST_FOR_EACH_SAFE(_pos, _tmp, _head)				\
+#define LIST_FOR_EACH_SAFE(_pos, _tmp, _head)			\
 	for (_pos = LIST_FIRST(_head), _tmp = LIST_FIRST(_pos);	\
-		_pos != (_head);									\
+		_pos != (_head);				\
 		_pos = _tmp, _tmp = LIST_NEXT(_pos))
 
 /**
@@ -123,11 +123,11 @@ struct list {
  * @param[in]	_head	A pointer to the head for your list pointer.
  * @param[in]	_member	The name of the list_struct within the struct.
  */
-#define LIST_FOR_EACH_OBJECT_SAFE(_pos, _tmp, _head, _type, _member)	\
-	for (_pos = LIST_OBJECT(LIST_FIRST(_head), _type, _member),			\
+#define LIST_FOR_EACH_OBJECT_SAFE(_pos, _tmp, _head, _type, _member)		\
+	for (_pos = LIST_OBJECT(LIST_FIRST(_head), _type, _member),		\
 		 _tmp = LIST_OBJECT(LIST_FIRST(&_pos->_member), _type, _member);\
-		 &_pos->_member != (_head);										\
-		 _pos = _tmp,													\
+		 &_pos->_member != (_head);					\
+		 _pos = _tmp,							\
 		 _tmp = LIST_OBJECT(LIST_FIRST(&_pos->_member), _type, _member))
 
 /**
@@ -143,7 +143,7 @@ struct list {
  */
 #define LIST_FOR_EACH_OBJECT(_pos, _type, _head, _member)		\
 	for (_pos = LIST_OBJECT(LIST_FIRST(_head), _type, _member);	\
-		 &_pos->_member != (_head);								\
+		 &_pos->_member != (_head);				\
 		 _pos = LIST_OBJECT(LIST_FIRST(&(_pos->_member)), _type, _member))
 
 
@@ -161,9 +161,9 @@ struct list {
 static __inline__ void list_add(struct list *new_lst, struct list *head)
 {
 	LIST_PREV(LIST_NEXT(head))	= new_lst;
-	LIST_NEXT(new_lst)			= LIST_NEXT(head);
-	LIST_PREV(new_lst)			= head;
-	LIST_NEXT(head)				= new_lst;
+	LIST_NEXT(new_lst)		= LIST_NEXT(head);
+	LIST_PREV(new_lst)		= head;
+	LIST_NEXT(head)			= new_lst;
 }
 
 /**
@@ -180,9 +180,9 @@ static __inline__ void list_add(struct list *new_lst, struct list *head)
 static __inline__ void list_add_to_tail(struct list *new_lst, struct list *head)
 {
 	LIST_NEXT(LIST_PREV(head))	= new_lst;
-	LIST_PREV(new_lst)			= LIST_PREV(head);
-	LIST_NEXT(new_lst)			= head;
-	LIST_PREV(head)				= new_lst;
+	LIST_PREV(new_lst)		= LIST_PREV(head);
+	LIST_NEXT(new_lst)		= head;
+	LIST_PREV(head)			= new_lst;
 }
 
 /**
