@@ -65,6 +65,7 @@ enum pp2_ppio_hash_type {
 	PP2_PPIO_HASH_T_NONE = 0,	/**< Invalid hash type */
 	PP2_PPIO_HASH_T_2_TUPLE,	/**< IP-src, IP-dst */
 	PP2_PPIO_HASH_T_5_TUPLE,	/**< IP-src, IP-dst, IP-Prot, L4-src, L4-dst */
+	PP2_PPIO_HASH_T_OUT_OF_RANGE
 };
 
 enum pp2_ppio_outqs_sched_mode {
