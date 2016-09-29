@@ -112,7 +112,7 @@ struct pp2_ppio_outqs_params {
 };
 
 struct pp2_ppio_params {
-	/* Used for DTS acc to find appropriate "physical" PP-IO obj;
+	/** Used for DTS acc to find appropriate "physical" PP-IO obj;
 	 * E.g. "eth-0:0" means PPv2[0],port[0] */
 	char				*match;
 
