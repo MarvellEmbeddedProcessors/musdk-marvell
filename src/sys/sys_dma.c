@@ -7,6 +7,8 @@
 #include "mem_mng.h"
 #include "sys_dma.h"
 
+#include "musdk_uio_ioctls.h"
+
 
 struct sys_dma {
 	struct mem_mng		*mm;
