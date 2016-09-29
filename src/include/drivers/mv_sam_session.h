@@ -33,7 +33,7 @@
 #ifndef __MV_SAM_SESSION_H__
 #define __MV_SAM_SESSION_H__
 
-#include "std.h"
+#include "mvstd.h"
 
 
 struct sam_sa;

@@ -33,7 +33,7 @@
 #ifndef __SYS_DMA_H__
 #define __SYS_DMA_H__
 
-#include "std.h"
+#include "mvstd.h"
 
 /**
  * Internal physical base-address.

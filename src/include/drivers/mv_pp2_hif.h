@@ -33,7 +33,7 @@
 #ifndef __MV_PP2_HIF_H__
 #define __MV_PP2_HIF_H__
 
-#include "std.h"
+#include "mvstd.h"
 
 
 struct pp2_hif;

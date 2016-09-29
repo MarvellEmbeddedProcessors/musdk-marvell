@@ -33,7 +33,7 @@
 #ifndef __MV_PP2_H__
 #define __MV_PP2_H__
 
-#include "std.h"
+#include "mvstd.h"
 
 
 #define PP2_NUM_PKT_PROC	2
