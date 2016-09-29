@@ -30,7 +30,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
-#include "mvstd.h"
+#include "mv_std.h"
 #include "sys_dma.h"
 #include "mv_pp2.h"
 
