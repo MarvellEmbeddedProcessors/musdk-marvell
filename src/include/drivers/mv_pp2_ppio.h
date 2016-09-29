@@ -73,7 +73,7 @@ enum pp2_ppio_outqs_sched_mode {
 };
 
 struct pp2_ppio_inq_params {
-	u32	size; /**< Q size – number of dewcriptors */
+	u32	size; /**< Q size – number of descriptors */
 };
 
 struct pp2_ppio_tc_params {
@@ -90,13 +90,13 @@ struct pp2_ppio_tc_params {
 struct pp2_ppio_inqs_params {
 	u16				 num_tcs;
 	struct pp2_ppio_tc_params	 tcs_params[PP2_PPIO_MAX_NUM_TCS];
-	/** hash engine may be seleceted only according to "parser-results";
+	/** hash engine may be selected only according to "parser-results";
 	 * therefore, we put hash selection on a per port basis. */
 	enum pp2_ppio_hash_type		 hash_type[PP2_PPIO_MAX_NUM_HASH];
 };
 
 struct pp2_ppio_outq_params {
-	u32	size;	/**< Q size – number of dewcriptors */
+	u32	size;	/**< Q size – number of descriptors */
 	u8	weight; /**< The weight is relative among the PP-IO out-Qs */
 
 /* TODO: add rate-limit (burst, throughput) */
