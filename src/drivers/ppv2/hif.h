@@ -5,7 +5,7 @@
 #ifndef __HIF_H__
 #define __HIF_H__
 
-#include "mvstd.h"
+#include "mv_std.h"
 
 #include "mv_pp2_hif.h"
 
