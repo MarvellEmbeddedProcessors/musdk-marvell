@@ -52,17 +52,19 @@ struct pp2_ppio;
 #define PP2_PPIO_TC_MAX_POOLS	2
 #define PP2_PPIO_MAX_NUM_HASH	4
 
+
 typedef u8 eth_addr_t[ETH_ADDR_NUM_OCTETS];
 
-/* TODO: don't expose this yet! */
+
 enum pp2_ppio_type {
-	PP2_PPIO_T_LOG = 0, /* Logical-port is only a set of Out-Qs and In-TCs (i.e. no link, l2-filters) */
-	PP2_PPIO_T_NIC /* NIC is a logical-port with link and l2-filters */
+	PP2_PPIO_T_LOG = 0,	/**< Logical-port is only a set of Out-Qs and In-TCs (i.e. no link, l2-filters) */
+	PP2_PPIO_T_NIC		/**< NIC is a logical-port with link and l2-filters */
 };
 
 enum pp2_ppio_hash_type {
-	PP2_PPIO_HASH_T_2_TUPLE = 0, /* IP-src, IP-dst */
-	PP2_PPIO_HASH_T_5_TUPLE, /* IP-src, IP-dst, IP-Prot, L4-src, L4-dst */
+	PP2_PPIO_HASH_T_NONE = 0,	/**< Invalid hash type */
+	PP2_PPIO_HASH_T_2_TUPLE,	/**< IP-src, IP-dst */
+	PP2_PPIO_HASH_T_5_TUPLE,	/**< IP-src, IP-dst, IP-Prot, L4-src, L4-dst */
 };
 
 enum pp2_ppio_outqs_sched_mode {
@@ -70,56 +72,57 @@ enum pp2_ppio_outqs_sched_mode {
 };
 
 struct pp2_ppio_inq_params {
-	u32 size; /* Q size - number of descriptors */
+	u32	size; /**< Q size – number of dewcriptors */
 };
 
 struct pp2_ppio_tc_params {
-	int use_hash;
-	/* TODO: add parameter for hash_weights */
-	u16 pkt_offset;    /* Must be multiple of 32 bytes.*/
-	u16 num_in_qs;
-	struct pp2_ppio_inq_params *inqs_params;
-	struct pp2_bpool *pools[PP2_PPIO_TC_MAX_POOLS];
+	int				 use_hash;
+	u16				 pkt_offset;    /* Must be multiple of 32 bytes.*/
+	u16				 num_in_qs;
+	struct pp2_ppio_inq_params	*inqs_params;
+	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
 /* TODO: future:
-	int							 qos;
+	int				 qos;
 */
 };
 
-/* TODO: decide if "InQ" or "RxQ"; and then decide if "recv" or "rx". */
 struct pp2_ppio_inqs_params {
-	u16 num_tcs;
-	struct pp2_ppio_tc_params tcs_params[PP2_PPIO_MAX_NUM_TCS];
-	enum pp2_ppio_hash_type hash_type[PP2_PPIO_MAX_NUM_HASH];
-/* hash engine may be selected only according to "parser-results"; therefore, we put hash selection on a per port basis. */
+	u16				 num_tcs;
+	struct pp2_ppio_tc_params	 tcs_params[PP2_PPIO_MAX_NUM_TCS];
+	/** hash engine may be seleceted only according to “parser-results”;
+	 * therefore, we put hash selection on a per port basis. */
+	enum pp2_ppio_hash_type		 hash_type[PP2_PPIO_MAX_NUM_HASH];
 };
 
 struct pp2_ppio_outq_params {
-	u32 size; /* Q size - number of descriptors */
-	u8 weight; /* The weight is relative among the PP-IO out-Qs */
+	u32	size;	/**< Q size – number of dewcriptors */
+	u8	weight; /**< The weight is relative among the PP-IO out-Qs */
 
 /* TODO: add rate-limit (burst, throughput) */
 };
 
 struct pp2_ppio_outqs_params {
-	u16 num_outqs;
-	struct pp2_ppio_outq_params outqs_params[PP2_PPIO_MAX_NUM_OUTQS];
+	u16				 num_outqs;
+	struct pp2_ppio_outq_params	 outqs_params[PP2_PPIO_MAX_NUM_OUTQS];
 
-/* TODO: scheduling mode and parameters (WRR/Strict) */
-enum pp2_ppio_outqs_sched_mode	sched_mode;
+/* TODO: scheduling mode and parameters (WRR/Strict)
+	enum pp2_ppio_outqs_sched_mode	sched_mode;
+*/
 };
 
 struct pp2_ppio_params {
-	/* Used for DTS acc to find appropriate "physical" PP-IO obj;
-		E.g. "<marvell,mv-pp22>0:eth0" means PPv2[0],port[0] */
-	char *match;
+	/* Used for DTS acc to find appropriate “physical” PP-IO obj;
+	 * E.g. “eth-0:0” means PPv2[0],port[0] */
+	char				*match;
 
-	enum pp2_ppio_type type; /* TODO: support only "NIC" type for short-term! */
-	struct pp2_ppio_inqs_params inqs_params;
-	struct pp2_ppio_outqs_params outqs_params;
-/* TODO: do we need extra pools per port?
-	struct pp2_bpool				*pools[PP2_PPIO_TC_MAX_POOLS];
+	enum pp2_ppio_type		 type; /* TODO: support only “NIC” type for short-term! */
+	struct pp2_ppio_inqs_params	 inqs_params;
+	struct pp2_ppio_outqs_params	 outqs_params;
+/* TODO: do we need extra pools per port? 
+	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
 */
 };
+
 
 int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio);
 
@@ -129,10 +132,11 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio);
 *//***************************************************************************/
 
 #define PP2_PPIO_DESC_NUM_WORDS	8
-#define PP2_PPIO_DESC_NUM_FRAGS	16 /* TODO: check if there is HW limitation */
+#define PP2_PPIO_DESC_NUM_FRAGS	16 /* TODO: check if there’s HW limitation */
+
 
 struct pp2_ppio_desc {
-	u32 cmds[PP2_PPIO_DESC_NUM_WORDS];
+	u32	cmds[PP2_PPIO_DESC_NUM_WORDS];
 };
 
 enum pp2_outq_l3_type {
@@ -140,6 +144,7 @@ enum pp2_outq_l3_type {
 	PP2_OUTQ_L3_TYPE_IPV6,
 	PP2_OUTQ_L3_TYPE_OTHER
 };
+
 enum pp2_outq_l4_type {
 	PP2_OUTQ_L4_TYPE_TCP = 0,
 	PP2_OUTQ_L4_TYPE_UDP
@@ -176,9 +181,9 @@ enum pp2_inq_desc_status {
 /*NOTE: Following functions must be called
 	pp2_ppio_outq_desc_reset ()
 	pp2_ppio_outq_desc_set_phys_addr()
-	pp2_ppio_ outq_desc_set_proto_info()
-	pp2_ppio_ outq_desc_set_pkt_len()
- */
+	pp2_ppio_outq_desc_set_proto_info()
+	pp2_ppio_outq_desc_set_pkt_len()
+*/
 
 void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc);
 void pp2_ppio_outq_desc_set_phys_addr(struct pp2_ppio_desc *desc, dma_addr_t addr);
@@ -193,7 +198,7 @@ void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc,
 				       u8 l4_offset,
 				       int gen_l3_chk,
 				       int gen_l4_chk
-				       );
+				      );
 void pp2_ppio_outq_desc_set_dsa_tag(struct pp2_ppio_desc *desc);
 
 void pp2_ppio_outq_desc_set_pkt_offset(struct pp2_ppio_desc *desc, u8  offset);
@@ -220,19 +225,19 @@ enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *d
 /* pp2_ppio_send
 It is assumed that the BM-Pool is either free by HW (by appropriate desc setter) or by the MUSDK client SW.
 */
-int pp2_ppio_send(struct pp2_ppio *ppio,
-		  struct pp2_hif  *hif,
-		  int qid,
+int pp2_ppio_send(struct pp2_ppio	*ppio,
+		  struct pp2_hif	*hif,
+		  int			 qid,
 		  struct pp2_ppio_desc	*desc);
-int pp2_ppio_send_sg(struct pp2_ppio *ppio,
-		     struct pp2_hif *hif,
-		     int qid,
-		     int num_frags,
-		     struct pp2_ppio_desc **desc);
-int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,
-			       struct pp2_hif *hif,
-			       int qid,
-			       int *num);
+int pp2_ppio_send_sg(struct pp2_ppio		*ppio,
+		     struct pp2_hif		*hif,
+		     int			 qid,
+		     int			 num_frags,
+		     struct pp2_ppio_desc	**desc);
+int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
+			       struct pp2_hif	*hif,
+			       int		 qid,
+			       int		*num);
 int pp2_ppio_recv(struct pp2_ppio *ppio, int tc, int qid, struct pp2_ppio_desc *desc);
 
 
@@ -245,7 +250,7 @@ int pp2_ppio_disable(struct pp2_ppio *ppio);
 
 int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
 int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr);
-int pp2_ppio_set_mtu(struct pp2_ppio *ppio, u16 mtu); /*For debug only, check mtu during  pkt_send() */
+int pp2_ppio_set_mtu(struct pp2_ppio *ppio, u16 mtu); /* For debug only, check mtu during  pkt_send() */
 int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu);
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len);
 int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len);
@@ -254,8 +259,8 @@ int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en);
 int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en);
 int pp2_ppio_get_mc_promisc(struct pp2_ppio *ppio, int *en);
 int pp2_ppio_add_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
-int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr); /*Allows to remove the mac_address set  by pp2_ppio_set_mac_addr() */
-int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc); /*Does not flush the mac_address set  by pp2_ppio_set_mac_addr() */
+int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr); /* Allows to remove the mac_address set  by pp2_ppio_set_mac_addr() */
+int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc); /* Does not flush the mac_address set  by pp2_ppio_set_mac_addr() */
 
 int pp2_ppio_get_phys_in_q(struct pp2_ppio *ppio, int tc, int qid, int *pq);
 int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, int qid);

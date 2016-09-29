@@ -36,8 +36,8 @@
 #include "std.h"
 
 
-#define PP2_NUM_PKT_PROC 2
-#define PP2_NUM_ETH_PPIO 3
+#define PP2_NUM_PKT_PROC	2
+#define PP2_NUM_ETH_PPIO	3
 
 
 struct ppio_init_params {
@@ -46,13 +46,24 @@ struct ppio_init_params {
 };
 
 struct pp2_init_params {
-	u16 hif_reserved_map; /* Bitmap of reserved HIF objects (0-8), that may not be used by MUSDK. bit0=hif0, etc. */
-	u16 bm_pool_reserved_map; /* Bitmap of reserved bm_pools (0-15). The pools are reserved in all packet_processors. */
-	u8  rss_tbl_reserved_map; /* Bitmap of RSS Tables (0-7). The tables are reserved in all packet_processors. */
-	struct ppio_init_params ppio[PP2_NUM_PKT_PROC][PP2_NUM_ETH_PPIO];
+	/** Bitmap of reserved HIF objects (0-8), that may not be used by MUSDK. bit0=hif0, etc. */
+	u16			hif_reserved_map;
+	/** Bitmap of reserved bm_pools (0-15). The pools are reserved in all packet_processors. */
+	u16			bm_pool_reserved_map;
+	/** Bitmap of RSS Tables (0-7). The tables are reserved in all packet_processors. */
+	u8			rss_tbl_reserved_map;
+	struct ppio_init_params	ppios[PP2_NUM_PKT_PROC][PP2_NUM_ETH_PPIO];
 };
 
 
+/**
+ * Initialize the global PPv2x
+ *
+ * @param[in]	params	A pointer to structure that contains all relevant parameters.
+ *
+ * @retval	A pointer to a DMA memory on success
+ * @retval	<0 on failure
+ */
 int pp2_init(struct pp2_init_params *params);
 
 #endif /* __MV_PP2_H__ */

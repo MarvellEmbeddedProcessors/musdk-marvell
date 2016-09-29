@@ -35,6 +35,7 @@
 
 #include "std.h"
 
+
 struct sam_sa;
 
 enum sam_opt {
@@ -51,21 +52,23 @@ enum sam_alg {
 	SAM_ALG_SHA1
 };
 
+
 struct sam_session_params {
 	enum sam_opt	 opt;
 	enum sam_alg	 alg;
-	int				 keylen;
-	int				 mackeylen;
-	char			 key[32];
-	char			 mackey[64];
-	int				 mlen;
-	char			*iv;
-	char			 mac_inner[64];
-	char			 mac_outer[64];
+	int		 keylen;
+	int		 mackeylen;
+	char		 key[32];
+	char		 mackey[64];
+	int		 mlen;
+	char		*iv;
+	char		 mac_inner[64];
+	char		 mac_outer[64];
 	enum sam_alg	 auth_alg;
 };
 
-int sam_session_create_session(struct sam_session_params *params, struct sam_sa **sa);
-int sam_session_destroy_session(struct sam_sa *sa);
+
+int sam_session_create(struct sam_session_params *params, struct sam_sa **sa);
+int sam_session_destroy(struct sam_sa *sa);
 
 #endif /* __MV_SAM_SESSION_H__ */

@@ -39,10 +39,12 @@
 struct pp2_hif;
 
 struct pp2_hif_params {
-	/** Used for DTS acc to find appropriate "physical" H-IF obj */
-	char *match;
-	u32 out_size; /* TX-Agg Q size */
+	/** Used for DTS acc to find appropriate "physical" H-IF obj;
+	 * E.g. “hif-0” means PPv2,HIF[0] */
+	char	*match;
+	u32	 out_size; /**< TX-Agg Q size */
 };
+
 
 int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif);
 
