@@ -41,19 +41,12 @@
 struct pp2_bpool;
 
 
-enum pp2_bpool_cookie_type {
-	PP2_BPOOL_COOKIE_T_32B = 0,
-	PP2_BPOOL_COOKIE_T_64B
-};
-
-
 struct pp2_bpool_params {
 	/** Used for DTS acc to find appropriate "physical" BM-Pool obj;
 	 * E.g. "pool-0:0" means PPv2[0],pool[0] */
 	char				*match;
 	u32				 max_num_buffs;
 	u32				 buff_len;
-	enum pp2_bpool_cookie_type	 cookie_type;
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ
 	int				 (*empty_cb) (void *arg, u32 status);
 	void				 *emty_cb_arg;
@@ -67,8 +60,14 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool);
 
 
 struct pp2_buff_inf {
+	/**< Note: in 64bits systems and user would like to use only 32bits,
+	 * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B */
 	dma_addr_t	addr;
+#if CONF_PP2_BPOOL_COOKIE_SIZE == 32
+	u32		cookie;
+#elif CONF_PP2_BPOOL_COOKIE_SIZE == 64
 	u64		cookie;
+#endif /* CONF_PP2_BPOOL_COOKIE_SIZE == 0 */
 };
 
 
