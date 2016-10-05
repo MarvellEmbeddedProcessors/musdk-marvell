@@ -233,13 +233,15 @@ enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *d
 /**
  * Send a batch of frames (single dscriptor) on an OutQ of PP-IO.
  *
- * The routine assumes that the BM-Pool is either free by HW (by appropriate desc setter) or by the MUSDK client SW.
+ * The routine assumes that the BM-Pool is either free by HW (by appropriate desc
+ * setter) or by the MUSDK client SW.
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
  * @param[in]		hif	TODO
  * @param[in]		qid	out-Q id on which to send the frames.
- * @param[in]		descs	A pointer to an array of descriptors represents the frames to be sent.
- * @param[in/out]	num	out-Q id on which to send the frames.
+ * @param[in]		descs	A pointer to an array of descriptors represents the
+ * 				frames to be sent.
+ * @param[in/out]	num	Number of frames to be sent; output: number of frames sent.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
@@ -249,15 +251,59 @@ int pp2_ppio_send(struct pp2_ppio	*ppio,
 		  u8			 qid,
 		  struct pp2_ppio_desc	*descs,
 		  u16			*num);
+
+/**
+ * Send a batch of S/G frames (single or multiple dscriptors) on an OutQ of PP-IO.
+ *
+ * The routine assumes that the BM-Pool is either free by HW (by appropriate desc
+ * setter) or by the MUSDK client SW.
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		hif	TODO
+ * @param[in]		qid	out-Q id on which to send the frames.
+ * @param[in]		descs	A pointer to an array of S/G-descriptors represents the
+ * 				frames to be sent.
+ * @param[in/out]	num	Number of frames to be sent; output: number of frames sent.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_send_sg(struct pp2_ppio		*ppio,
 		     struct pp2_hif		*hif,
 		     u8			 qid,
 		     struct pp2_ppio_sg_desc	*descs,
 		     u16			*num);
+
+/**
+ * TODO
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		hif	TODO
+ * @param[in]		qid	out-Q id on which to send the frames.
+ * @param[out]		num	Number of frames that were sent.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
 			       struct pp2_hif	*hif,
 			       u8		 qid,
 			       u16		*num);
+
+/**
+ * TODO
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		tc	traffic class on which to recieve frames
+ * @param[in]		qid	out-Q id on which to recieve the frames.
+ * @param[in]		descs	A pointer to an array of descriptors represents the
+ * 				recieved frames.
+ * @param[in/out]	num	Number of frames to recieve (as max);
+ * 				output: number of frames recieved.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_recv(struct pp2_ppio	*ppio,
 		  u8			 tc,
 		  u8			 qid,
