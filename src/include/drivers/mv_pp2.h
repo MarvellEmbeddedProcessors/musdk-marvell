@@ -66,4 +66,6 @@ struct pp2_init_params {
  */
 int pp2_init(struct pp2_init_params *params);
 
+void pp2_deinit();
+
 #endif /* __MV_PP2_H__ */
