@@ -83,7 +83,7 @@ struct pp2_ppio_tc_params {
 	struct pp2_ppio_inq_params	*inqs_params;
 	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
 /* TODO: future:
-	int				 qos;
+	u8				 qos;
 */
 };
 
@@ -141,7 +141,7 @@ struct pp2_ppio_desc {
 };
 
 struct pp2_ppio_sg_desc {
-	int			 num_frags;
+	u8			 num_frags;
 	struct pp2_ppio_desc	 descs[PP2_PPIO_DESC_NUM_FRAGS];
 };
 
@@ -244,23 +244,23 @@ enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *d
  */
 int pp2_ppio_send(struct pp2_ppio	*ppio,
 		  struct pp2_hif	*hif,
-		  int			 qid,
+		  u8			 qid,
 		  struct pp2_ppio_desc	*descs,
-		  int			*num);
+		  u16			*num);
 int pp2_ppio_send_sg(struct pp2_ppio		*ppio,
 		     struct pp2_hif		*hif,
-		     int			 qid,
+		     u8			 qid,
 		     struct pp2_ppio_sg_desc	*descs,
-		     int			*num);
+		     u16			*num);
 int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
 			       struct pp2_hif	*hif,
-			       int		 qid,
-			       int		*num);
+			       u8		 qid,
+			       u16		*num);
 int pp2_ppio_recv(struct pp2_ppio	*ppio,
-		  int			 tc,
-		  int			 qid,
+		  u8			 tc,
+		  u8			 qid,
 		  struct pp2_ppio_desc	*descs,
-		  int			*num);
+		  u16			*num);
 
 
 /**************************************************************************//**
@@ -284,8 +284,8 @@ int pp2_ppio_add_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
 int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr); /* Allows to remove the mac_address set  by pp2_ppio_set_mac_addr() */
 int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc); /* Does not flush the mac_address set  by pp2_ppio_set_mac_addr() */
 
-int pp2_ppio_get_phys_in_q(struct pp2_ppio *ppio, int tc, int qid, int *pq);
-int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, int qid);
+int pp2_ppio_get_phys_in_q(struct pp2_ppio *ppio, u8 tc, u8 qid, u8 *pq);
+int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid);
 
 /*TODO: VLAN filters ????*/
 /*TODO: link state ???*/
