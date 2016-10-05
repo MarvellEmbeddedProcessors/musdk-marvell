@@ -38,27 +38,43 @@
 
 #ifndef pr_fmt
 #define pr_fmt(fmt) fmt
-#endif
+#endif /* !pr_fmt */
 
+#ifndef pr_crit
 #define pr_crit(fmt, ...) \
 	printf("[CRITICAL] " pr_fmt(fmt), ##__VA_ARGS__)
+#endif /* !pr_crit */
+#ifndef pr_err
 #define pr_err(fmt, ...) \
 	printf("[ERROR] " pr_fmt(fmt), ##__VA_ARGS__)
+#endif /* !pr_err */
+#ifndef pr_warning
 #define pr_warning(fmt, ...) \
 	printf("[WARN]  " pr_fmt(fmt), ##__VA_ARGS__)
+#endif /* !pr_warning */
+#ifndef pr_info
 #define pr_info(fmt, ...) \
 	printf(pr_fmt(fmt), ##__VA_ARGS__)
+#endif /* !pr_info */
 #ifdef DEBUG
+#ifndef pr_debug
 #define pr_debug(fmt, ...) \
 	printf("[DBG]   " pr_fmt(fmt), ##__VA_ARGS__)
 #else
 #define pr_debug(fmt, ...)
+#endif /* !pr_debug */
 #endif /* DEBUG */
 
+#ifndef pr_line
 #define pr_line	\
 	printf("%s: %d\n",__FUNCTION__,__LINE__);
+#endif /* !pr_line */
 
+#ifndef BUG
 #define BUG	abort
+#endif /* !BUG */
+
+#ifndef BUG_ON
 #define BUG_ON(_cond)					\
 	do {						\
 		if (_cond) {				\
@@ -67,5 +83,6 @@
 			BUG(); 				\
 	} 						\
 } while(0)
+#endif /* !BUG_ON */
 
 #endif /* __DBG_H__ */

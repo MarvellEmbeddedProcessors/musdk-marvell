@@ -38,6 +38,8 @@
 #include "int/io.h"
 
 
+#ifndef spinlock_t
+
 #define spinlock_t		pthread_mutex_t
 
 spinlock_t * spin_lock_create(void);
@@ -71,5 +73,7 @@ void spin_lock_destroy(spinlock_t *lock);
 		local_irq_restore(_flags);	\
 		spin_unlock(_lock);		\
 	} while (0)
+
+#endif /* !spinlock_t */
 
 #endif /* __SPINLOCK_H__ */
