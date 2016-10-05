@@ -48,4 +48,6 @@ struct pp2_hif_params {
 
 int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif);
 
+void pp2_hif_deinit(struct pp2_hif *hif);
+
 #endif /* __MV_PP2_HIF_H__ */

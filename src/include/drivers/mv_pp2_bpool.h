@@ -58,6 +58,8 @@ struct pp2_bpool_params {
 
 int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool);
 
+void pp2_bpool_deinit(params, struct pp2_bpool *bpool);
+
 
 struct pp2_buff_inf {
 	/**< Note: in 64bits systems and user would like to use only 32bits,
