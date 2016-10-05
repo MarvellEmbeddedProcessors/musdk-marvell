@@ -37,35 +37,40 @@ int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
 int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc);
 
 
-int pp2_ppio_send(struct pp2_ppio		*ppio,
-				  struct pp2_hif		*hif,
-				  int					 qid,
-				  struct pp2_ppio_desc	*desc)
+int pp2_ppio_send(struct pp2_ppio	*ppio,
+		  struct pp2_hif	*hif,
+		  u8			 qid,
+		  struct pp2_ppio_desc	*descs,
+		  u16			*num)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUPP;
 }
 
 int pp2_ppio_send_sg(struct pp2_ppio		*ppio,
-					 struct pp2_hif			*hif,
-					 int					 qid,
-					 int					 num_frags,
-					 struct pp2_ppio_desc	**desc)
+		     struct pp2_hif		*hif,
+		     u8			 qid,
+		     struct pp2_ppio_sg_desc	*descs,
+		     u16			*num)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUPP;
 }
 
 int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
-							   struct pp2_hif	*hif,
-							   int				 qid,
-							   int				*num)
+			       struct pp2_hif	*hif,
+			       u8		 qid,
+			       u16		*num)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUPP;
 }
 
-int pp2_ppio_recv(struct pp2_ppio *ppio, int tc, int qid, struct pp2_ppio_desc *desc)
+int pp2_ppio_recv(struct pp2_ppio	*ppio,
+		  u8			 tc,
+		  u8			 qid,
+		  struct pp2_ppio_desc	*descs,
+		  u16			*num)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUPP;
