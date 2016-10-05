@@ -137,7 +137,12 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio);
 
 
 struct pp2_ppio_desc {
-	u32	cmds[PP2_PPIO_DESC_NUM_WORDS];
+	u32			 cmds[PP2_PPIO_DESC_NUM_WORDS];
+};
+
+struct pp2_ppio_sg_desc {
+	int			 num_frags;
+	struct pp2_ppio_desc	 descs[PP2_PPIO_DESC_NUM_FRAGS];
 };
 
 enum pp2_outq_l3_type {
@@ -223,23 +228,39 @@ struct pp2_bpool * pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc);
 
 enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *desc);
 
-/* pp2_ppio_send
-It is assumed that the BM-Pool is either free by HW (by appropriate desc setter) or by the MUSDK client SW.
-*/
+/**
+ * Send a batch of frames (single dscriptor) on an OutQ of PP-IO.
+ *
+ * The routine assumes that the BM-Pool is either free by HW (by appropriate desc setter) or by the MUSDK client SW.
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		hif	TODO
+ * @param[in]		qid	out-Q id on which to send the frames.
+ * @param[in]		descs	A pointer to an array of descriptors represents the frames to be sent.
+ * @param[in/out]	num	out-Q id on which to send the frames.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_send(struct pp2_ppio	*ppio,
 		  struct pp2_hif	*hif,
 		  int			 qid,
-		  struct pp2_ppio_desc	*desc);
+		  struct pp2_ppio_desc	*descs,
+		  int			*num);
 int pp2_ppio_send_sg(struct pp2_ppio		*ppio,
 		     struct pp2_hif		*hif,
 		     int			 qid,
-		     int			 num_frags,
-		     struct pp2_ppio_desc	**desc);
+		     struct pp2_ppio_sg_desc	*descs,
+		     int			*num);
 int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
 			       struct pp2_hif	*hif,
 			       int		 qid,
 			       int		*num);
-int pp2_ppio_recv(struct pp2_ppio *ppio, int tc, int qid, struct pp2_ppio_desc *desc);
+int pp2_ppio_recv(struct pp2_ppio	*ppio,
+		  int			 tc,
+		  int			 qid,
+		  struct pp2_ppio_desc	*descs,
+		  int			*num);
 
 
 /**************************************************************************//**
