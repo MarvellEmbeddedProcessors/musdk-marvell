@@ -2,7 +2,7 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include "list.h"
+#include "lib/list.h"
 
 
 void list_append(struct list *new_lst, struct list *head)

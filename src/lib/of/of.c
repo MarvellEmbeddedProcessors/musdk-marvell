@@ -9,7 +9,7 @@
 
 #include "mv_std.h"
 
-#include "of.h"
+#include "lib/of.h"
 
 
 #define OF_DEFAULT_NA 1
