@@ -49,7 +49,7 @@ struct pp2_bpool_params {
 	u32				 buff_len;
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ
 	int				 (*empty_cb) (void *arg, u32 status);
-	void				 *emty_cb_arg;
+	void			 *emty_cb_arg;
 	u16				 threashold_hi;
 	u16				 threashold_lo;
 */
@@ -62,8 +62,9 @@ void pp2_bpool_deinit(struct pp2_bpool *bpool);
 
 
 struct pp2_buff_inf {
-	/**< Note: in 64bits systems and user would like to use only 32bits,
-	 * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B */
+	/** NOTE: in 64bits systems, the real addr may be efectivally 32bits;
+	 * please, refer to xflags.h file for further info about relevant flag for
+	 * performance optimizations */
 	dma_addr_t	addr;
 #if CONF_PP2_BPOOL_COOKIE_SIZE == 32
 	u32		cookie;

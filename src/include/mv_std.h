@@ -30,8 +30,8 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-#ifndef __MVSTD_H__
-#define __MVSTD_H__
+#ifndef __MV_STD_H__
+#define __MV_STD_H__
 
 #include "int/types.h"
 #include "int/errno.h"
@@ -41,4 +41,4 @@
 #include "int/spinlock.h"
 #include "int/dbg.h"
 
-#endif /* __MVSTD_H__ */
+#endif /* __MV_STD_H__ */
