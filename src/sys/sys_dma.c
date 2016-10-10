@@ -3,17 +3,20 @@
 *//***************************************************************************/
 
 #include <string.h>
+#include <errno.h>
 
 #include "mem_mng.h"
 #include "sys_dma.h"
+#include "pp2_cma.h"
 
-#include "musdk_uio_ioctls.h"
+//#include "musdk_uio_ioctls.h"
 
 
 struct sys_dma {
-	struct mem_mng		*mm;
-	void				*dma_virt_base;
-	phys_addr_t			 dma_phys_base;
+	struct mem_mng	*mm;
+	void		*dma_virt_base;
+	phys_addr_t	dma_phys_base;
+	uintptr_t       cma_ptr;
 };
 
 
@@ -22,18 +25,20 @@ void *__dma_virt_base = NULL;
 struct sys_dma	*sys_dma = NULL;
 
 
-/* TODO: Temporary place holder until we'll have UIO/VFIO mechanism
- * to allocate big contigous memory
- */
+/* TODO: Update pp_cma_calloc to accept u64 */
 static int init_mem_simple_us(struct sys_dma *sdma, u64 size)
 {
 	BUG_ON(!sdma);
-	sdma->dma_virt_base = malloc(size);
-	if (!sdma->dma_virt_base) {
+	uintptr_t cma_ptr;
+
+	cma_ptr = pp2_cma_calloc((size_t)size);
+	if (!cma_ptr) {
 		pr_err("Failed to allocate DMA memory!\n");
 		return -ENOMEM;
 	}
-	sdma->dma_phys_base = (u64)sdma->dma_virt_base;
+	sdma->dma_virt_base = (void *)pp2_cma_vaddr(cma_ptr);
+	sdma->dma_phys_base = (phys_addr_t)pp2_cma_paddr(cma_ptr);
+	sdma->cma_ptr = cma_ptr;
 	return 0;
 }
 
@@ -42,14 +47,14 @@ static void free_mem_simple_us(struct sys_dma *sdma)
 	BUG_ON(!sdma);
 	if (!sdma->dma_virt_base)
 		return;
-	free(sdma->dma_virt_base);
+	pp2_cma_free(sdma->cma_ptr);
 }
 
 
 int mv_sys_dma_mem_init(u64 size)
 {
 	struct sys_dma	*i_sys_dma;
-	int				 err;
+	int err;
 
 	i_sys_dma = (struct sys_dma *)malloc(sizeof(struct sys_dma));
 	if (!i_sys_dma) {

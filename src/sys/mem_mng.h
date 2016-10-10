@@ -77,7 +77,7 @@ void mem_mng_free(struct mem_mng *mm);
  * @retval	base address of an allocated block.
  * @retval	MEM_MNG_ILLEGAL_BASE if can't allocate a block.
  */
-u64 mem_mng_get(struct mem_mng *mm, u64 size, u64 alignment, char *name);
+u64 mem_mng_get(struct mem_mng *mm, u64 size, u64 alignment, const char *name);
 
 /**
  * Puts a block of memory of the given base address back to the memory.

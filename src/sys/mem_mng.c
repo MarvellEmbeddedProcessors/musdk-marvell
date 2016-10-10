@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "mv_std.h"
 
@@ -40,7 +41,7 @@ typedef struct mem_mng {
 } mm_t;
 
 
-static busy_mem_blk_t * create_busy_blk(u64 base, u64 size, char *name)
+static busy_mem_blk_t * create_busy_blk(u64 base, u64 size, const char *name)
 {
 	busy_mem_blk_t	*busy_blk;
 	u32		 n;
@@ -276,7 +277,7 @@ static void add_busy_blk(mm_t *mm, busy_mem_blk_t *new_blk)
 		mm->busy_blks = new_blk;
 }
 
-static u64 get_greater_align(mm_t *mm, u64 size, u64 alignment, char* name)
+static u64 get_greater_align(mm_t *mm, u64 size, u64 alignment, const char* name)
 {
 	free_mem_blk_t	*free_blk;
 	busy_mem_blk_t	*new_blk;
@@ -429,7 +430,7 @@ void mem_mng_free(struct mem_mng *mm)
 	free(mm);
 }
 
-u64 mem_mng_get(struct mem_mng *mm, u64 size, u64 alignment, char *name)
+u64 mem_mng_get(struct mem_mng *mm, u64 size, u64 alignment, const char *name)
 {
 	free_mem_blk_t	*free_blk;
 	busy_mem_blk_t	*new_blk;
