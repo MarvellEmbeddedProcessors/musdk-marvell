@@ -5,13 +5,17 @@
 #ifndef __HIF_H__
 #define __HIF_H__
 
-#include "mv_std.h"
 
-#include "mv_pp2_hif.h"
+#include "drivers/mv_pp2_hif.h"
 
+struct pp2_hif {
+	int regspace_slot;
+};
 
-#define MVPP2_MAX_CPUS	9
-
+#if 0
+struct pp2_io_base_addr {
+    uintptr_t va;
+};
 
 struct mv_pp2x_hw {
 	/* Shared registers' base addresses */
@@ -20,5 +24,7 @@ struct mv_pp2x_hw {
 				 */
 	void __iomem *cpu_base[MVPP2_MAX_CPUS];
 };
+#endif
+
 
 #endif /* __HIF_H__ */
