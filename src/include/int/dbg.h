@@ -56,8 +56,8 @@
 #define pr_info(fmt, ...) \
 	printf(pr_fmt(fmt), ##__VA_ARGS__)
 #endif /* !pr_info */
-#ifdef DEBUG
 #ifndef pr_debug
+#ifdef DEBUG
 #define pr_debug(fmt, ...) \
 	printf("[DBG]   " pr_fmt(fmt), ##__VA_ARGS__)
 #else

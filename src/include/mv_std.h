@@ -33,12 +33,16 @@
 #ifndef __MV_STD_H__
 #define __MV_STD_H__
 
+#include "int/xflags.h"
 #include "int/types.h"
+#include "int/dbg.h"
+#include "int/sys_misc.h"
+#include "int/spinlock.h"
+#if 0
 #include "int/errno.h"
 #include "int/cmplr.h"
 #include "int/gen.h"
 #include "int/io.h"
-#include "int/spinlock.h"
-#include "int/dbg.h"
+#endif
 
 #endif /* __MV_STD_H__ */
