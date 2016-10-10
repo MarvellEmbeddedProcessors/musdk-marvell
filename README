@@ -1,0 +1,57 @@
+libppdk -- light-wight user I/O driver for Marvell Packet Processor
+
+---------------------------------------------------
+
+libppdk is a light-weight user I/O driver for Marvell Packet Processor.
+The purpose of this driver library is to create a wrapper for the
+native implementation of Open Data Plane for Armada 8K Packet Processor.
+
+Coding style:
+Linux Kernel Coding Style
+https://www.kernel.org/doc/Documentation/CodingStyle
+
+checkpatch.pl that can be used to test for
+adhering to the coding style rule.
+
+i.e.
+./checkpatch.pl -f --no-tree ../../libs/libppdk/apps/pp_app.c
+
+Steps to build and run the PPDK library:
+
+1. Built the UIO kernel module and install the UIO headers
+
+> cd <your_path>/armada-ppdk/modules/uio
+> export LDFLAGS=""
+> make -C <path_to_kernel_source> M=$PWD
+> DESTDIR=~/target/sdk make dev_install
+
+2. Build the UIO library and install it
+
+> cd <your_path>/armada-ppdk/libs/libuio-0.2.1
+> ./autogen.sh
+> ./configure --host=aarch64-poky-linux
+> make -j8
+> DESTDIR=~/target/sdk make install
+
+3. Build the PPDK and install it
+> cd <your_path/armada-ppdk/libs/libppdk
+> ./autogen.sh
+> ./configure --host=aarch64-poky-linux
+> make -j8
+> DESTDIR=~/target/sdk make install
+
+4. For running PPDK apps, insert <mv_pp_uio.ko> in a
+running kernel and run the application
+
+ppdk_generator - spawns 2 x generator threads on 2 x interfaces
+ppdk_rx_test   - spawns 1 x receiver thread on 1 interface
+ppdx_tx_test   - spawns 1 x generator thread on 1 x interface
+ppdk_swf       - validates packet correctness by spawning
+                 1 x generator thread and 1 x receiver thread
+                 on 1 x interface configured in loopback
+ppdk_bm_test   - validates bm implementation
+ppdk_cma_test  - validates cma implementation
+
+NOTE: See PPDK.txt for PPDK functional layout by source files
+NOTE: At this stage, the PPDK functions with slowpath kernel driver
+      disabled
