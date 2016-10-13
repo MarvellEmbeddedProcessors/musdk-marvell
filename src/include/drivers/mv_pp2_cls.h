@@ -133,6 +133,6 @@ int pp2_cls_tbl_modify_rule(struct pp2_cls_tbl			*tbl,
 			    struct pp2_cls_tbl_rule		*rule,
 			    struct pp2_cls_tbl_entry_action	*action);
 int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl			*tbl,
-			    struct pp2_cls_tbl_entry_action	*action);
+			    struct pp2_cls_tbl_rule		*rule);
 
 #endif /* __MV_PP2_CLS_H__ */
