@@ -94,23 +94,36 @@ static int main_loop(struct glob_arg *garg)
 	while (1) {
 		num = BURST_SIZE;
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
+
 		for (i=0; i<num; i++) {
 			char *buff = (uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
-//printf("va: %p, pa: %llx\n",buff,pa);
-			mem_disp(buff, len);
+//			printf("packet:\n"); mem_disp(buff, len);
 			swap_l2(buff);
 			swap_l3(buff);
-mem_disp(&descs[i], 32);
+/*
+printf("rx-desc:\n");
+printf("desc@0:\n\t%08X %08X %08X %08X\n\t\%08X %08X %08X %08X\n",
+descs[i].cmds[0],
+descs[i].cmds[1],
+descs[i].cmds[2],
+descs[i].cmds[3],
+descs[i].cmds[4],
+descs[i].cmds[5],
+descs[i].cmds[6],
+descs[i].cmds[7]);
+*/
 			pp2_ppio_outq_desc_reset(&descs[i]);
 			pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
+			pp2_ppio_outq_desc_set_cookie(&descs[i], 0);
 			pp2_ppio_outq_desc_set_cookie(&descs[i], buff-PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_offset(&descs[i], PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
+			pp2_ppio_outq_desc_set_pool(&descs[i], garg->pool);
 
 /* TODO: all the below should be done by the driver!!! */
-#define DM_TXD_SET_FL(desc, data)		((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FL_MASK) | (data << 28 & TXD_FL_MASK))
+#define DM_TXD_SET_FL(desc, data)		((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FL_MASK) | ((data << 28) & TXD_FL_MASK))
 #define DM_TXD_SET_GEN_L4_CHK(desc, data)	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
 #define DM_TXD_SET_GEN_IP_CHK(desc, data)	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_IP_CHK_MASK) | (data << 15 & TXD_GEN_IP_CHK_MASK))
 #define DM_TXD_SET_FORMAT(desc, data)		((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FORMAT_MASK) | (data << 30 & TXD_FORMAT_MASK))
@@ -122,12 +135,26 @@ mem_disp(&descs[i], 32);
            /* These are packets, not buffers from a packet (i.e. not fragmented) */
            DM_TXD_SET_FORMAT(&descs[i], 0x01);
            /* Destination physical queue ID */
-           DM_TXD_SET_DEST_QID(&descs[i], 0);
-	   DM_TXD_SET_FL(&descs[i], 1);
-mem_disp(&descs[i], 32);
+           DM_TXD_SET_DEST_QID(&descs[i], 128);
+	   DM_TXD_SET_FL(&descs[i], 0x3);
+/*
+printf("tx-desc:\n");
+printf("desc@0:\n\t%08X %08X %08X %08X\n\t\%08X %08X %08X %08X\n",
+descs[i].cmds[0],
+descs[i].cmds[1],
+descs[i].cmds[2],
+descs[i].cmds[3],
+descs[i].cmds[4],
+descs[i].cmds[5],
+descs[i].cmds[6],
+descs[i].cmds[7]);
+*/
 		}
 
 		if (num && ((err = pp2_ppio_send(garg->port, garg->hif, 0, descs, &num)) != 0))
+			return err;
+
+		if ((err = pp2_ppio_get_num_outq_done(garg->port, garg->hif, 0, &num)) != 0)
 			return err;
 	}
 
