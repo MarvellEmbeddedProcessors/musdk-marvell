@@ -10,7 +10,7 @@ AC_INIT([MUSDK Access Library],
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 
-AC_CONFIG_SRCDIR([src/drivers/ppv2/pp2.h])
+AC_CONFIG_SRCDIR([src])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -47,7 +47,7 @@ AC_SUBST(LOCATION)
 
 AC_CONFIG_FILES([
 	Makefile
-	src/drivers/ppv2/Makefile
+	src/Makefile
     apps/Makefile
 ])
 
