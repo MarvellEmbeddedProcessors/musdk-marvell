@@ -10,7 +10,7 @@
 #ifndef _PP2_H_
 #define _PP2_H_
 
-#include <uio_helper.h>
+#include "lib/uio_helper.h"
 #include "drivers/mv_pp2.h"
 #include "drivers/mv_pp2_bpool.h"
 #include "drivers/mv_pp2_hif.h"

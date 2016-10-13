@@ -2,12 +2,17 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include "assert.h"
 #include "mv_std.h"
+
+#include "lib/misc.h"
+
+#include "assert.h"
 #include "bpool.h"
 #include "pp2.h"
 #include "pp2_bm.h"
 #include "hif.h"
+
+
 static struct pp2_bpool pp2_bpool[PP2_MAX_NUM_PACKPROCS][PP2_NUM_BMPOOLS];
 
 
@@ -84,7 +89,7 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 #ifdef CONF_PP2_BPOOL_COOKIE_SIZE
 	vaddr = pp2_reg_read(cpu_slot, MVPP2_BM_VIRT_ALLOC_REG);
 #endif
-#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(CONFIG_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
+#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
 	{
 		u64 high_addr_reg;
 
@@ -94,7 +99,7 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 		vaddr |= ((high_addr_reg & MVPP22_BM_VIRT_HIGH_ALLOC_MASK) << (32 - MVPP22_BM_VIRT_HIGH_ALLOC_OFFSET));
 #endif
 
-#if (defined(CONFIG_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B))
+#if (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B))
 		paddr |= ((high_addr_reg & MVPP22_BM_PHY_HIGH_ALLOC_MASK) <<  (32 - MVPP22_BM_PHY_HIGH_ALLOC_OFFSET));
 #endif
 	}
@@ -139,7 +144,7 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	* Lastly, write phys lo to BM_PHYS_RLS to trigger the BM release */
 
 
-#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(CONFIG_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
+#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
 	{
 		u32 high_addr_reg = 0;
 
@@ -147,7 +152,7 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 		u32 virt_hi = vaddr >> 32;
 		high_addr_reg |= (virt_hi << MVPP22_BM_VIRT_HIGH_RLS_OFFST);
 #endif
-#if (defined(CONFIG_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B))
+#if (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B))
 		u32 phys_hi = paddr >> 32;
 		high_addr_reg |= (phys_hi << MVPP22_BM_PHY_HIGH_RLS_OFFSET);
 #endif

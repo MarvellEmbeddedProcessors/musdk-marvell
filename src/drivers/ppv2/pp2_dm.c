@@ -8,8 +8,8 @@
 
 #include "mv_pp2x_hw_type.h"
 #include "pp2.h"
-#include <pp2_dm.h>
-#include <pp2_port.h>
+#include "pp2_dm.h"
+#include "pp2_port.h"
 
 /* Internal. Creates a DM object */
 int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc)

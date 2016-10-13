@@ -5,11 +5,11 @@
  */
 #include <stdint.h>
 
-#include <pp2.h>
-#include <pp2_cma.h>
-#include <pp2_bm.h>
-#include <pp2_port.h>
-#include <pp2_print.h>
+#include "pp2.h"
+#include "pp2_cma.h"
+#include "pp2_bm.h"
+#include "pp2_port.h"
+#include "pp2_print.h"
 
 #if PP2_BM_BUF_DEBUG
 /* Debug and helpers */

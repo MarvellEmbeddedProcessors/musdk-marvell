@@ -4323,7 +4323,7 @@ static int mv_pp2x_prs_double_vlan_add(struct pp2_hw *hw,
 		}
 
 		if (tid >= tid_aux) {
-			ret = -ERANGE;
+			ret = -EINVAL;
 			goto error;
 		}
 

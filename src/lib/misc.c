@@ -30,24 +30,79 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-#ifndef __MV_PP2_HIF_H__
-#define __MV_PP2_HIF_H__
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>	// isprint()
 
 #include "mv_std.h"
+#include "lib/misc.h"
 
 
-struct pp2_hif;
+int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[])
+{
+	char tmp_str[MAX_OBJ_STRING];
+	char *tok;
 
-struct pp2_hif_params {
-	/** Used for DTS acc to find appropriate "physical" H-IF obj;
-	 * E.g. "hif-0" means PPv2,HIF[0] */
-	const char	*match;
-	u32		 out_size; /**< TX-Agg Q size */
-};
+	if (hierarchy_level > 2) {
+		pr_err("Maximum 3 levels of hierarchy supported (given %d)!\n", hierarchy_level);
+		return(-1);
+	}
 
+	memcpy(tmp_str, match, strlen(match));
+	tmp_str[strlen(match)] = '\0';
+	tok = strtok(tmp_str, "-");
+	if (!tok) {
+		pr_err("Illegal match str (%s)!\n",tok);
+		return -1;
+	}
 
-int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif);
+	if (strcmp(obj_type, tok)) {
+		pr_err("String {%s} does not match obj_type {%s}\n", tok, obj_type);
+		return(-1);
+	}
 
-void pp2_hif_deinit(struct pp2_hif *hif);
+	if (hierarchy_level == 1) {
+		tok = strtok(NULL, "");
+		if (!tok) {
+			pr_err("Illegal match str (%s)!\n", tok);
+			return -1;
+		}
+		id[0] = atoi(tok);
+	} else if (hierarchy_level == 2) {
+		tok = strtok(NULL, ":");
+		if (!tok) {
+			pr_err("Illegal match str (%s)!\n",tok);
+			return -1;
+		}
+		id[0] = atoi(tok);
+		tok = strtok(NULL, "");
+		if (!tok) {
+			pr_err("Illegal match str (%s)!\n",tok);
+			return -1;
+		}
+		id[1] = atoi(tok);
+	}
 
-#endif /* __MV_PP2_HIF_H__ */
+	return 0;
+}
+
+void mem_disp(const char *_p, int len)
+{
+	char buf[128];
+	int i, j, i0;
+	const unsigned char *p = (const unsigned char *)_p;
+
+	/* hexdump routine */
+	for (i = 0; i < len; ) {
+		memset(buf, sizeof(buf), ' ');
+		sprintf(buf, "%5d: ", i);
+		i0 = i;
+		for (j=0; j < 16 && i < len; i++, j++)
+			sprintf(buf+7+j*3, "%02x ", (uint8_t)(p[i]));
+		i = i0;
+		for (j=0; j < 16 && i < len; i++, j++)
+			sprintf(buf+7+j + 48, "%c",
+				isprint(p[i]) ? p[i] : '.');
+		printf("%s\n", buf);
+	}
+}

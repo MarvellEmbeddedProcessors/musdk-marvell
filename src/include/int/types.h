@@ -46,12 +46,12 @@ typedef uint32_t	u32;
 typedef uint64_t	u64;
 
 
-#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+#ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
 typedef u64 dma_addr_t;
 typedef u64 phys_addr_t;
 #else
 typedef u32 dma_addr_t;
 typedef u32 phys_addr_t;
-#endif /* CONFIG_ARCH_DMA_ADDR_T_64BIT */
+#endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
 
 #endif /* __TYPES_H__ */

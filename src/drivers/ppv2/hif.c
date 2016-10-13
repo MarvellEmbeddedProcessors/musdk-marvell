@@ -1,15 +1,10 @@
 /**************************************************************************//**
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-
 #include "mv_std.h"
+
+#include "lib/misc.h"
+
 #include "hif.h"
 #include "pp2.h"
 #include "pp2_dm.h"

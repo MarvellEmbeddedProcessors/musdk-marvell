@@ -10,9 +10,9 @@
 #include "mv_pp2x_hw_type.h"
 #include "pp2.h"
 #include "bpool.h"
-#include <pp2_dm.h>
-#include <pp2_port.h>
-#include <pp2_bm.h>
+#include "pp2_dm.h"
+#include "pp2_port.h"
+#include "pp2_bm.h"
 #include "pp2_qos.h"
 #include "pp2_gop_dbg.h"
 
@@ -546,7 +546,7 @@ pp2_port_rxqs_init(struct pp2_port *port)
 static void
 pp2_port_rxqs_create(struct pp2_port *port)
 {
-   uint32_t qid, tc;
+   uint32_t qid, tc, id=0;
 
    for (tc = 0; tc < port->num_tcs; tc++) {
        for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
@@ -558,6 +558,8 @@ pp2_port_rxqs_create(struct pp2_port *port)
            rxq->id = port->tc[tc].tc_config.first_rxq + qid;
            rxq->log_id = port->tc[tc].first_log_rxq + qid;
            rxq->desc_total = port->tc[tc].rx_ring_size;
+           /*TODO: are we really serializing the queue????? */
+	   port->rxqs[id++] = rxq;
        }
    }
 }
@@ -614,8 +616,10 @@ pp2_rxq_get_desc(struct pp2_rx_queue *rxq,
         rxq->desc_next_idx = (((rx_idx + *num_recv) == rxq->desc_total)? 0: (rx_idx + *num_recv));
     }
 
+/*
     pp2_dbg("%s\tdesc array: cur_idx=%d\tlast_idx=%d\n",__func__, rx_idx, rxq->desc_last_idx);
     pp2_dbg("%s\tdesc array: num_recv=%d\textra_num=%d\n",__func__,*num_recv, *extra_num);
+*/
 
     return (rxq->desc_virt_arr + rx_idx);
 }
@@ -994,7 +998,6 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
    struct pp2_port *port;
    struct pp2_hw *hw;
 
-
    inst = pp2->pp2_inst[pp2_id];
 
 
@@ -1020,7 +1023,9 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
         port->tc[i].tc_config.first_rxq = first_rxq;
 
         for (j = 0;j < PP2_PPIO_TC_MAX_POOLS; j++) {
-            port->tc[i].tc_config.pools[j] = param->inqs_params.tcs_params[i].pools[j]->id;
+		if (!param->inqs_params.tcs_params[i].pools[j])
+			break;
+		port->tc[i].tc_config.pools[j] = param->inqs_params.tcs_params[i].pools[j]->id;
         }
         total_num_in_qs += num_in_qs;
         first_rxq += num_in_qs;

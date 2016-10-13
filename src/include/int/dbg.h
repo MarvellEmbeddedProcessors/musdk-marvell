@@ -36,32 +36,40 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifndef pr_fmt
-#define pr_fmt(fmt) fmt
-#endif /* !pr_fmt */
+#define MV_DBG_L_CRIT	1
+#define MV_DBG_L_ERR	2
+#define MV_DBG_L_WARN	3
+#define MV_DBG_L_INFO	4
+#define MV_DBG_L_DBG	5
+
+#define mv_print(_level, ...) 		\
+do {					\
+	if ((_level) <= (MV_DBG_LEVEL))	\
+		printf(__VA_ARGS__);	\
+} while (0)
 
 #ifndef pr_crit
-#define pr_crit(fmt, ...) \
-	printf("[CRITICAL] " pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_crit(...) \
+	mv_print(MV_DBG_L_CRIT, "[CRITICAL] " __VA_ARGS__)
 #endif /* !pr_crit */
 #ifndef pr_err
-#define pr_err(fmt, ...) \
-	printf("[ERROR] " pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_err(...) \
+	mv_print(MV_DBG_L_CRIT, "[ERROR] " __VA_ARGS__)
 #endif /* !pr_err */
 #ifndef pr_warning
-#define pr_warning(fmt, ...) \
-	printf("[WARN]  " pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_warning(...) \
+	mv_print(MV_DBG_L_CRIT, "[WARN] " __VA_ARGS__)
 #endif /* !pr_warning */
 #ifndef pr_info
-#define pr_info(fmt, ...) \
-	printf(pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_info(...) \
+	mv_print(MV_DBG_L_CRIT, __VA_ARGS__)
 #endif /* !pr_info */
 #ifndef pr_debug
 #ifdef DEBUG
-#define pr_debug(fmt, ...) \
-	printf("[DBG]   " pr_fmt(fmt), ##__VA_ARGS__)
+#define pr_debug(...) \
+	mv_print(MV_DBG_L_CRIT, "[DBG] " __VA_ARGS__)
 #else
-#define pr_debug(fmt, ...)
+#define pr_debug(...)
 #endif /* !pr_debug */
 #endif /* DEBUG */
 

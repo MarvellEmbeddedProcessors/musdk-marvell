@@ -36,7 +36,17 @@
 #define __iomem
 
 /* TODO: add wmb, rmb, mb */
-/* TODO: add writel, readl, etc. */
+
+/* TODO: improve writel/readl */
+static inline void writel(uint32_t data, uintptr_t addr)
+{
+	*(volatile uint32_t *)addr = data;
+}
+
+static inline uint32_t readl(uintptr_t addr)
+{
+	return *(volatile uint32_t *)addr;
+}
 
 #define local_irq_disable()	do{;} while(0)
 #define local_irq_enable()	do{;} while(0)

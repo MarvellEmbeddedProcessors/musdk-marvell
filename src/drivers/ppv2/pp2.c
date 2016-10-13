@@ -7,14 +7,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "../../modules/include/mv_pp_uio.h"
 
-#include <mv_pp_uio.h>
-
+#include "lib/uio_helper.h"
 #include "drivers/mv_pp2.h"
 #include "pp2.h"
-#include <pp2_dm.h>
-#include <pp2_port.h>
-#include <pp2_bm.h>
+#include "pp2_dm.h"
+#include "pp2_port.h"
+#include "pp2_bm.h"
 
 #include "pp2_gop_dbg.h"
 #include "pp2_qos.h"
@@ -402,6 +402,7 @@ static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
       inst->ports[i] = port;
    }
 
+   inst->parent = pp2;
    inst->id = pp2_id;
 
    /* Get static device tree data */
@@ -460,15 +461,7 @@ int pp2_init(struct pp2_init_params *params)
     pp2_ptr->pp2_common.hif_slot_map = pp2_ptr->init.hif_reserved_map;
     pp2_ptr->pp2_common.rss_tbl_map = pp2_ptr->init.rss_tbl_reserved_map;
 
-
     /* TODO: Check first_inq params are valid */
-
-    /* Initialize the contiguous memory allocator */
-    if (pp2_cma_init()) {
-        pp2_err("PPDK: %s CMA init failure\n",__func__);
-        free(pp2_ptr);
-        return -ENOMEM;
-    }
 
     /* Initialize in an opaque manner from client,
      * depending on HW, one or two packet processors.
@@ -485,7 +478,6 @@ int pp2_init(struct pp2_init_params *params)
                 /* Also destroy the previous instance */
                 pp2_destroy(pp2_ptr->pp2_inst[PP2_ID0]);
             }
-            pp2_cma_deinit();
             free(pp2_ptr);
 
             return -ENOMEM;
@@ -493,13 +485,13 @@ int pp2_init(struct pp2_init_params *params)
         /* Store the PPDK handle as parent and store
          * this instance as child handle for the PPDK
          */
-        inst->parent = pp2_ptr;
         pp2_ptr->pp2_inst[pp2_id] = inst;
 
         /* Initialize this packet processor */
         pp2_inst_init(inst);
         pp2_ptr->num_pp2_inst++;
     }
+
     pp2_dbg("PPDK: PackProcs   %2u\n", PP2_SOC_NUM_PACKPROCS);
     pp2_dbg("PPDK:   Ports     %2u\n", PP2_NUM_PORTS);
     pp2_dbg("PPDK:   Regspaces %2u\n", PP2_NUM_REGSPACES);
@@ -515,9 +507,6 @@ void pp2_deinit(void)
 
 		pp2_destroy(inst);
 	}
-
-	/* De-initialize the contiguous memory allocator */
-	pp2_cma_deinit();
 
     /* Destroy the PPDK handle */
 	free(pp2_ptr);

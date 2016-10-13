@@ -6,7 +6,7 @@
 #define PP2_INFO (3)
 #define PP2_DBG  (4)
 
-#define PP2_INFO_LEVEL (PP2_ERR)
+#define PP2_INFO_LEVEL (PP2_DBG)
 
 #define pp2_print(_level, ...) \
 do { \

@@ -12,7 +12,9 @@
 
 #include "mv_std.h"
 
+#include "lib/misc.h"
 #include "drivers/mv_pp2_ppio.h"
+
 #include "hif.h"
 #include "pp2.h"
 #include "pp2_port.h"
@@ -62,11 +64,21 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 		pr_err("[%s] ppio already exists.\n", __FUNCTION__);
 		return(-EEXIST);
 	}
+
 	rc = pp2_port_open(pp2_ptr, params, pp2_id, port_id, &(ppio_array[pp2_id][port_id].port));
 	if (!rc) {
 		*ppio = &ppio_array[pp2_id][port_id];
 	}
+
+	pp2_port_config_inq((*ppio)->port);
+	pp2_port_config_outq((*ppio)->port);
+
 	return rc;
+}
+
+void pp2_ppio_deinit(struct pp2_ppio *ppio)
+{
+	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 }
 
 
@@ -75,6 +87,7 @@ int pp2_ppio_enable(struct pp2_ppio *ppio)
 	pp2_port_start(ppio->port, PP2_TRAFFIC_INGRESS_EGRESS);
 	return (0);
 }
+
 int pp2_ppio_disable(struct pp2_ppio *ppio)
 {
 	pp2_port_stop(ppio->port);
@@ -143,9 +156,11 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 		if (unlikely(recv_req > rxq->desc_received)) {
 			recv_req = rxq->desc_received;
 			*num = recv_req;
+			rxq->desc_received = 0;
 			rc = -1;
 		}
 	}
+
 	/* TODO : Make pp2_rxq_get_desc inline */
 	rx_desc = pp2_rxq_get_desc(rxq, &recv_req, &extra_rx_desc, &extra_num);
 	memcpy(descs, rx_desc, recv_req * sizeof(*descs));
@@ -155,6 +170,7 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 	}
 	/*  Update HW */
 	pp2_port_inq_update(port, log_rxq, recv_req, recv_req);
+	rxq->desc_received -= *num;
 
 	return rc;
 }
@@ -192,8 +208,8 @@ int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len)
 }
 int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	pp2_port_set_uc_promisc(ppio->port, en);
+	return (0);
 }
 int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en)
 {
@@ -202,9 +218,10 @@ int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en)
 }
 int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	pp2_port_set_mc_promisc(ppio->port, en);
+	return (0);
 }
+
 int pp2_ppio_get_mc_promisc(struct pp2_ppio *ppio, int *en)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);

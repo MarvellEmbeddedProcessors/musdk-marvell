@@ -11,7 +11,9 @@
 
 #include <sys/mman.h>
 
-#include <mv_pp_uio.h>
+#include "../../modules/include/mv_pp_uio.h"
+
+#include "lib/uio_helper.h"
 
 #include "pp2_cma.h"
 #include "pp2_print.h"

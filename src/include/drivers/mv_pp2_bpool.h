@@ -45,7 +45,7 @@ struct pp2_bpool;
 struct pp2_bpool_params {
 	/** Used for DTS acc to find appropriate "physical" BM-Pool obj;
 	 * E.g. "pool-0:0" means PPv2[0],pool[0] */
-	char				*match;
+	const char			*match;
 	u32				 max_num_buffs;
 	u32				 buff_len;
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ

@@ -30,24 +30,14 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-#ifndef __MV_PP2_HIF_H__
-#define __MV_PP2_HIF_H__
+#ifndef __SYSMISC_H__
+#define __SYSMISC_H__
 
-#include "mv_std.h"
+/* TODO: Replace Q&D with for_loop, 20 is hardcoded in sscanf */
+#define MAX_OBJ_STRING 20
 
+int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[]);
 
-struct pp2_hif;
+void mem_disp(const char *_p, int len);
 
-struct pp2_hif_params {
-	/** Used for DTS acc to find appropriate "physical" H-IF obj;
-	 * E.g. "hif-0" means PPv2,HIF[0] */
-	const char	*match;
-	u32		 out_size; /**< TX-Agg Q size */
-};
-
-
-int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif);
-
-void pp2_hif_deinit(struct pp2_hif *hif);
-
-#endif /* __MV_PP2_HIF_H__ */
+#endif /* __SYSMISC_H__ */

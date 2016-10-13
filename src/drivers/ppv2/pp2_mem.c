@@ -2,8 +2,7 @@
 #include <fcntl.h>
 #include <stropts.h>
 
-#include <uio_helper.h>
-#include <mv_pp_uio.h>
+#include "lib/uio_helper.h"
 #include "pp2_mem.h"
 #include "pp2_types.h"
 #include "pp2.h"

@@ -189,17 +189,6 @@ enum gop_port_flags { NOT_CREATED, CREATED, UNDER_RESET, ENABLED };
 #define PP2_SGMII_TX_FIFO_MIN_TH		(0x5)
 #define PP2_SGMII2_5_TX_FIFO_MIN_TH	(0xB)
 
-/** GOP register I/O */
-static inline void writel(uint32_t data, uintptr_t addr)
-{
-	*(volatile uint32_t *)addr = data;
-}
-
-static inline uint32_t readl(uintptr_t addr)
-{
-	return *(volatile uint32_t *)addr;
-}
-
 static inline uint32_t pp2_gop_gen_read(uintptr_t base, uint32_t offset)
 {
 	uintptr_t reg_ptr = base + offset;

@@ -114,7 +114,7 @@ struct pp2_ppio_outqs_params {
 struct pp2_ppio_params {
 	/** Used for DTS acc to find appropriate "physical" PP-IO obj;
 	 * E.g. "eth-0:0" means PPv2[0],port[0] */
-	char				*match;
+	const char			*match;
 
 	enum pp2_ppio_type		 type; /* TODO: support only "NIC" type for short-term! */
 	struct pp2_ppio_inqs_params	 inqs_params;
@@ -193,9 +193,60 @@ enum pp2_inq_desc_status {
 	pp2_ppio_outq_desc_set_pkt_len()
 */
 
-void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc);
-void pp2_ppio_outq_desc_set_phys_addr(struct pp2_ppio_desc *desc, dma_addr_t addr);
-void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64 cookie);
+/******************** TxQ-desc *****************/
+/* cmd 0 */
+#define TXD_L_MASK                 (0x10000000)
+#define TXD_F_MASK                 (0x20000000)
+#define TXD_FL_MASK                (TXD_F_MASK | TXD_L_MASK)
+#define TXD_FORMAT_MASK            (0x40000000)
+#define TXD_PKT_OFF_EXT_MASK       (0x00100000)
+#define TXD_POOL_ID_MASK           (0x000F0000)
+#define TXD_GEN_L4_CHK_MASK        (0x00006000)
+#define TXD_GEN_IP_CHK_MASK        (0x00008000)
+/* cmd 1 */
+#define TXD_PKT_OFF_MASK           (0x000000FF)
+#define TXD_DEST_QID_MASK          (0x0000FF00)
+#define TXD_BYTE_COUNT_MASK        (0xFFFF0000)
+/* cmd 4 */
+#define TXD_BUF_PHYS_LO_MASK       (0xFFFFFFFF)
+/* cmd 5 */
+#define TXD_BUF_PHYS_HI_MASK       (0x000000FF)
+#define TXD_PTP_DESC_MASK          (0xFFFFFF00)
+/* cmd 6 */
+#define TXD_BUF_VIRT_LO_MASK       (0xFFFFFFFF)
+/* cmd 7 */
+#define TXD_BUF_VIRT_HI_MASK       (0x000000FF)
+
+/******************** RxQ-desc *****************/
+/* cmd 1 */
+#define RXD_BYTE_COUNT_MASK        (0xFFFF0000)
+/* cmd 4 */
+#define RXD_BUF_PHYS_LO_MASK       (0xFFFFFFFF)
+/* cmd 5 */
+#define RXD_BUF_PHYS_HI_MASK       (0x000000FF)
+#define RXD_KEY_HASH_MASK          (0xFFFFFF00)
+/* cmd 6 */
+#define RXD_BUF_VIRT_LO_MASK       (0xFFFFFFFF)
+/* cmd 7 */
+#define RXD_BUF_VIRT_HI_MASK       (0x000000FF)
+
+static inline void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc)
+{
+	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] = 
+	desc->cmds[5] = desc->cmds[7] = 0;
+}
+
+static inline void pp2_ppio_outq_desc_set_phys_addr(struct pp2_ppio_desc *desc, dma_addr_t addr)
+{
+	desc->cmds[4] = (u32)addr;
+	desc->cmds[5] = (desc->cmds[5] & ~TXD_BUF_PHYS_HI_MASK) | ((u64)addr >> 32 & TXD_BUF_PHYS_HI_MASK);
+}
+
+static inline void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64 cookie)
+{
+	desc->cmds[6] = (u32)cookie;
+	desc->cmds[7] = (desc->cmds[7] & ~TXD_BUF_PHYS_HI_MASK) | (cookie >> 32 & TXD_BUF_PHYS_HI_MASK);
+}
 
 void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool);
 
@@ -209,19 +260,39 @@ void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc,
 				      );
 void pp2_ppio_outq_desc_set_dsa_tag(struct pp2_ppio_desc *desc);
 
-void pp2_ppio_outq_desc_set_pkt_offset(struct pp2_ppio_desc *desc, u8  offset);
-void pp2_ppio_outq_desc_set_pkt_len(struct pp2_ppio_desc *desc , u16 len);
+static inline void pp2_ppio_outq_desc_set_pkt_offset(struct pp2_ppio_desc *desc, u8  offset)
+{
+	desc->cmds[1] = (u32)offset << 20;
+}
+
+static inline void pp2_ppio_outq_desc_set_pkt_len(struct pp2_ppio_desc *desc , u16 len)
+{
+	desc->cmds[1] = (desc->cmds[1] & ~TXD_BYTE_COUNT_MASK) | (len << 16 & TXD_BYTE_COUNT_MASK);
+}
 
 /******** RXQ  ********/
 
 /* TODO: Timestamp, L4IChk */
 
-dma_addr_t pp2_ppio_inq_desc_get_phys_addr(struct pp2_ppio_desc *desc);
-u64 pp2_ppio_inq_desc_get_cookie(struct pp2_ppio_desc *desc);
+static inline dma_addr_t pp2_ppio_inq_desc_get_phys_addr(struct pp2_ppio_desc *desc)
+{
+	return ((u64)((desc->cmds[5] & RXD_BUF_PHYS_HI_MASK) >> 0) << 32) |
+		((u64)((desc->cmds[4] & RXD_BUF_PHYS_LO_MASK) >> 0));
+}
+
+static inline u64 pp2_ppio_inq_desc_get_cookie(struct pp2_ppio_desc *desc)
+{
+	return ((u64)((desc->cmds[7] & RXD_BUF_VIRT_HI_MASK) >> 0) << 32) |
+		((u64)((desc->cmds[6] & RXD_BUF_VIRT_LO_MASK) >> 0));
+}
 
 struct pp2_ppio * pp2_ppio_inq_desc_get_pp_io(struct pp2_ppio_desc *desc); /*Note: under _DEBUG_*/
 
-u16 pp2_ppio_inq_desc_get_pkt_len(struct pp2_ppio_desc *desc);
+static inline u16 pp2_ppio_inq_desc_get_pkt_len(struct pp2_ppio_desc *desc)
+{
+	return ((desc->cmds[1] & RXD_BYTE_COUNT_MASK) >> 16);
+}
+
 void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enum pp2_inq_l3_type *type, u8 *offset);
 void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enum pp2_inq_l4_type *type, u8 *offset);
 int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc);
