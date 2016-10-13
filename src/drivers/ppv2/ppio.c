@@ -132,7 +132,7 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,
 	return 0;
 }
 
-
+int aaaaa=0;
 int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *descs, u16 *num)
 {
 	struct pp2_port *port = ppio->port;
@@ -147,11 +147,10 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 	rxq = port->rxqs[log_rxq];
 
 	if (recv_req > rxq->desc_received) {
-		rxq->desc_received = pp2_rxq_received(port, rxq_id);
+		rxq->desc_received += pp2_rxq_received(port, rxq_id);
 		if (unlikely(recv_req > rxq->desc_received)) {
 			recv_req = rxq->desc_received;
 			*num = recv_req;
-			rxq->desc_received = 0;
 			rc = -1;
 		}
 	}
@@ -163,9 +162,9 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 		memcpy(&descs[recv_req], extra_rx_desc, extra_num * sizeof(*descs));
 		recv_req += extra_num; /* Put the split numbers back together */
 	}
+	rxq->desc_received -= recv_req;
 	/*  Update HW */
 	pp2_port_inq_update(port, log_rxq, recv_req, recv_req);
-	rxq->desc_received -= *num;
 
 	return rc;
 }
