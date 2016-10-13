@@ -31,7 +31,8 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 
-#include "mv_pp_uio.h"
+#include "../include/mv_pp_uio.h"
+
 
 #define _D(fmt, ...) \
 	pr_debug("%s -> %s: " fmt, DRIVER_NAME, __func__, __VA_ARGS__)
