@@ -3,7 +3,7 @@
  *
  * Buffer management and manipulation routines
  */
-#include <stdint.h>
+#include "pp2_types.h"
 
 #include "pp2.h"
 #include "pp2_cma.h"
