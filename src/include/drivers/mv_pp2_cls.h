@@ -69,7 +69,6 @@ enum pp2_cls_tbl_act {
 struct cls_cos_desc {
 	struct pp2_ppio	*ppio;
 	u8		 tc;
-	u8		 qid;
 };
 
 struct pp2_cls_tbl_entry_action {

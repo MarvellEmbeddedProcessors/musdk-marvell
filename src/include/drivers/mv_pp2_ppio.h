@@ -233,8 +233,17 @@ enum pp2_inq_desc_status {
 
 static inline void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc)
 {
+#define DM_TXD_SET_GEN_L4_CHK(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
+#define DM_TXD_SET_GEN_IP_CHK(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_IP_CHK_MASK) | (data << 15 & TXD_GEN_IP_CHK_MASK))
+
 	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] = 
 	desc->cmds[5] = desc->cmds[7] = 0;
+
+	/* Do not generate L4 nor IPv4 header checksum by default */
+	DM_TXD_SET_GEN_IP_CHK(desc, 0x01);
+	DM_TXD_SET_GEN_L4_CHK(desc, 0x02);
 }
 
 static inline void pp2_ppio_outq_desc_set_phys_addr(struct pp2_ppio_desc *desc, dma_addr_t addr)
@@ -251,6 +260,7 @@ static inline void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64
 
 static inline void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool)
 {
+	/* TODO: we write here the pool hardcoded!!! */
 	desc->cmds[0] = (desc->cmds[0] & ~(TXD_POOL_ID_MASK | TXD_BUFMODE_MASK)) |
 		(0 << 16 & TXD_POOL_ID_MASK) | 
 		(1 << 7 & TXD_BUFMODE_MASK);
