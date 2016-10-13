@@ -1,10 +1,10 @@
-#include <stdint.h>
 #include <fcntl.h>
-#include <stropts.h>
+#include <string.h>
+
+#include "pp2_types.h"
 
 #include "lib/uio_helper.h"
 #include "pp2_mem.h"
-#include "pp2_types.h"
 #include "pp2.h"
 
 /**
