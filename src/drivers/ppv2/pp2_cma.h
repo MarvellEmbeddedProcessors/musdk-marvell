@@ -8,7 +8,7 @@
 #ifndef _PP2_CMA_H_
 #define _PP2_CMA_H_
 
-#include <stdint.h>
+#include "pp2_types.h"
 
 /**
  * Initialization routine for pp contiguous memory allocator
