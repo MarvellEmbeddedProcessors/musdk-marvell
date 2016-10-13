@@ -44,6 +44,8 @@
 #define BURST_SIZE	1
 #define PKT_OFFS	64
 #define PKT_EFEC_OFFS	(PKT_OFFS+2)
+//#define USE_APP_PREFETCH
+#define PREFETCH_SHIFT	2
 
 
 struct glob_arg {
@@ -56,6 +58,12 @@ struct glob_arg {
 
 static struct glob_arg garg = {};
 
+#ifdef USE_APP_PREFETCH
+static inline void prefetch(const void *ptr)
+{
+	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
+}
+#endif /* USE_APP_PREFETCH */
 
 static inline void swap_l2(char *buf)
 {
@@ -99,43 +107,25 @@ static int main_loop(struct glob_arg *garg)
 			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
-//			printf("packet:\n"); mem_disp(buff, len);
+#ifdef USE_APP_PREFETCH
+			if (num-i > PREFETCH_SHIFT) {
+				char *tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+PREFETCH_SHIFT]);
+				tmp_buff += PKT_EFEC_OFFS;
+				prefetch(tmp_buff);
+			}
+#endif /* USE_APP_PREFETCH */
+
+//printf("packet:\n"); mem_disp(buff, len);
 			swap_l2(buff);
 			swap_l3(buff);
-/*
-printf("rx-desc:\n");
-printf("desc@0:\n\t%08X %08X %08X %08X\n\t\%08X %08X %08X %08X\n",
-descs[i].cmds[0],
-descs[i].cmds[1],
-descs[i].cmds[2],
-descs[i].cmds[3],
-descs[i].cmds[4],
-descs[i].cmds[5],
-descs[i].cmds[6],
-descs[i].cmds[7]);
-*/
+//printf("packet:\n"); mem_disp(buff, len);
+
 			pp2_ppio_outq_desc_reset(&descs[i]);
 			pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff-PKT_EFEC_OFFS));
 			pp2_ppio_outq_desc_set_pkt_offset(&descs[i], PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 			pp2_ppio_outq_desc_set_pool(&descs[i], garg->pool);
-
-/* TODO: all the below should be done by the driver!!! */
-#define DM_TXD_SET_FL(desc, data)		((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FL_MASK) | ((data << 28) & TXD_FL_MASK))
-#define DM_TXD_SET_GEN_L4_CHK(desc, data)	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
-#define DM_TXD_SET_GEN_IP_CHK(desc, data)	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_IP_CHK_MASK) | (data << 15 & TXD_GEN_IP_CHK_MASK))
-#define DM_TXD_SET_FORMAT(desc, data)		((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FORMAT_MASK) | (data << 30 & TXD_FORMAT_MASK))
-#define DM_TXD_SET_DEST_QID(desc, data)		((desc)->cmds[1] = ((desc)->cmds[1] & ~TXD_DEST_QID_MASK) | (data << 8 & TXD_DEST_QID_MASK))
-
-           /* Do not generate L4 nor IPv4 header checksum */
-           DM_TXD_SET_GEN_IP_CHK(&descs[i], 0x01);
-           DM_TXD_SET_GEN_L4_CHK(&descs[i], 0x02);
-           /* These are packets, not buffers from a packet (i.e. not fragmented) */
-           DM_TXD_SET_FORMAT(&descs[i], 0x01);
-           /* Destination physical queue ID */
-           DM_TXD_SET_DEST_QID(&descs[i], 128);
-	   DM_TXD_SET_FL(&descs[i], 0x3);
 /*
 printf("tx-desc:\n");
 printf("desc@0:\n\t%08X %08X %08X %08X\n\t\%08X %08X %08X %08X\n",
@@ -153,8 +143,10 @@ descs[i].cmds[7]);
 		if (num && ((err = pp2_ppio_send(garg->port, garg->hif, 0, descs, &num)) != 0))
 			return err;
 
+/*
 		if ((err = pp2_ppio_get_num_outq_done(garg->port, garg->hif, 0, &num)) != 0)
 			return err;
+*/
 	}
 
 	return 0;
