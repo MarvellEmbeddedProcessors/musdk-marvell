@@ -1,19 +1,17 @@
 ###############################################################################
-#########################  Basic Use-Case LIBRARY   ###########################
+########################  Pkt-Echo Use-Case LIBRARY   #########################
 ###############################################################################
-SUBDIRS := ppv2
-
-O_TARGETS += baseuc
-EXOBJ :=  lmusdk.o base_uc.o
-OBJ := hello.o
+O_TARGETS += pkt-echo
+EXOBJ :=  lmusdk.o pkt-echo_uc.o
+OBJ := pkt_echo.o
 INC := $(TOPINC)
 DEF := $(TOPDEF)
 
-base_uc.o: $(OBJ)
+pkt-echo_uc.o: $(OBJ)
 	@(echo "(LD)  $@ <= $^")
 	@($(LD) -r -o $@ -Map $*.map $^)
 
-baseuc.o: $(EXOBJ)
+pkt-echo.o: $(EXOBJ)
 	@(echo "(LD)  $@ <= $^")
 	@($(LD) -r -o $@ -Map $*.map $^)
 
