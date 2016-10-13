@@ -39,6 +39,7 @@ uintptr_t pp2_cma_calloc(size_t size)
 	struct cma_admin *ptr;
 	uint64_t param;
 	void *ret;
+	int err;
 
 	if (fd < 0)
 		return 0;
@@ -48,9 +49,9 @@ uintptr_t pp2_cma_calloc(size_t size)
 
 	param = size;
 
-	if (ioctl(fd, PP_UIO_IOC_KEY | PP_IOC_CMA_ALLOC, &param) == -1) {
+	if ((err = ioctl(fd, PP_UIO_IOC_KEY | PP_IOC_CMA_ALLOC, &param)) != 0) {
 		pp2_err("CMA: ioctl(PP_IOC_CMA_ALLOC) for size=%lu failed with "
-                "error %s \n", size, strerror(errno));
+                "error %d \n", size, err);
 		return 0;
 	}
 
@@ -58,7 +59,7 @@ uintptr_t pp2_cma_calloc(size_t size)
 	ret = mmap(NULL, CMA_PAGE_SIZE, PROT_READ , MAP_SHARED, fd, param);
 
 	if (ret == MAP_FAILED) {
-		pp2_err("CMA: mmap() failed (%s)\n", strerror(errno));
+		pp2_err("CMA: mmap() failed (%d)\n", (int)(uintptr_t)ret);
 		return 0;
 	}
 	ptr = (struct cma_admin *)ret;
@@ -70,7 +71,7 @@ uintptr_t pp2_cma_calloc(size_t size)
 			fd, param);
 
 	if (ret == MAP_FAILED) {
-		pp2_err("CMA: mmap() payload failed (%s)\n", strerror(errno));
+		pp2_err("CMA: mmap() payload failed (%d)\n", (int)(uintptr_t)ret);
 		return 0;
 	}
 
@@ -84,6 +85,7 @@ void pp2_cma_free(uintptr_t buf)
 {
 	struct cma_admin *ptr = (struct cma_admin *) buf;
 	uint64_t kvaddr;
+	int err;
 
 	if (!buf || fd < 0)
 		return;
@@ -96,12 +98,8 @@ void pp2_cma_free(uintptr_t buf)
 	munmap((void *)ptr->uvaddr, ptr->size - CMA_PAGE_SIZE);
 	munmap((void *)ptr, sizeof(*ptr));
 
-	errno = 0;
-	if (ioctl(fd, PP_UIO_IOC_KEY | PP_IOC_CMA_FREE, &kvaddr)) {
-		if (errno) {
-			pp2_err("CMA: ioctl() PP_IOC_CMA_FREE failed\n");
-		}
-	}
+	if ((err = ioctl(fd, PP_UIO_IOC_KEY | PP_IOC_CMA_FREE, &kvaddr)) != 0)
+		pp2_err("CMA: ioctl() PP_IOC_CMA_FREE failed (%d)\n", err);
 }
 
 void pp2_cma_deinit(void)

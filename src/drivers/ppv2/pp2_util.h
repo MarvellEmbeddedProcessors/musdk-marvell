@@ -23,6 +23,8 @@
 	(((uint16_t)(x) & (uint16_t)0x00ffU) << 8) |	\
 	(((uint16_t)(x) & (uint16_t)0xff00U) >> 8)))
 
+#define roundup(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
+
 /*
 * min()/max()/clamp() macros that also do
 * strict type-checking.. See the
@@ -33,6 +35,11 @@
 	typeof(y) _min2 = (y);		\
 	(void)(&_min1 == &_min2);	\
 	_min1 < _min2 ? _min1 : _min2; })
+
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
 
 /*
  * Return number of array's elements

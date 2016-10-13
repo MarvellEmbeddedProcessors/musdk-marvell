@@ -6,7 +6,7 @@
 
 #include <string.h>
 #include <unistd.h>
-#include <sys/param.h>
+//#include <sys/param.h>
 
 #include "pp2_types.h"
 
@@ -1199,7 +1199,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
    if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
        uint32_t val, res_request;
 
-       res_request = MAX((num_txds - txq_dm_if->desc_rsrvd), MVPP2_CPU_DESC_CHUNK); //TODO: Make chunk_request dynamic.
+       res_request = max((num_txds - txq_dm_if->desc_rsrvd), MVPP2_CPU_DESC_CHUNK); //TODO: Make chunk_request dynamic.
 
        val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_request);
        pp2_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, val);
