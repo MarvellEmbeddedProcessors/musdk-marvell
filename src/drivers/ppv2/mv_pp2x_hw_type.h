@@ -39,7 +39,7 @@
 #define MVPP2_ADDR_SPACE_SIZE			(64*1024)
 
 /* TCLK Frequency */
-#define PP2_TCLK_FREQ 25000000
+#define PP2_TCLK_FREQ 333000000
 
 /*TODO*/
 /*AXI_BRIDGE*/
