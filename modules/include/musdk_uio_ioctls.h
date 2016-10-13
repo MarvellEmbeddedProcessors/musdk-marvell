@@ -20,12 +20,14 @@
 #ifndef __MUSDK_UIO_IOCTLS_H___
 #define __MUSDK_UIO_IOCTLS_H___
 
+#include <asm/ioctl.h>
+
 /**
  * @Collection	MUSDK IOCTL device ('/dev') definitions
  */
 
 /** defines the IOCTL type for all the MUSDK Linux module commands */
-#define MUSDK_IOC_TYPE_BASE		0x22
+#define MUSDK_IOC_TYPE_BASE		0x23
 /** Name of the MUSDK-UIO chardev */
 #define DEV_MUSDK_NAME			"musdk_uio"
 #define DEV_MUSDK_MINOR_BASE	0
