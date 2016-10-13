@@ -105,4 +105,5 @@ void mem_disp(const char *_p, int len)
 				isprint(p[i]) ? p[i] : '.');
 		printf("%s\n", buf);
 	}
+	printf("\n");
 }
