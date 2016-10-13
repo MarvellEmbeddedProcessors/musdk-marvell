@@ -34,11 +34,6 @@
 #include "../include/musdk_uio_ioctls.h"
 
 
-#define _D(fmt, ...) \
-	pr_debug("%s -> %s: " fmt, DRIVER_NAME, __func__, __VA_ARGS__)
-#define _E(fmt, ...) \
-	pr_err("%s -> %s: " fmt, DRIVER_NAME, __func__, __VA_ARGS__)
-
 #define DRIVER_NAME	"musdk_uio_drv"
 #define DRIVER_VERSION	"1.3"
 #define DRIVER_AUTHOR	"ENEA AB"
@@ -88,12 +83,12 @@ static const struct file_operations musdk_misc_fops;
 static int cma_check_buf(struct cma_admin *ptr)
 {
 	if (!ptr) {
-		_E("This addr %p is not valid\n", ptr);
+		pr_err("This addr %p is not valid\n", ptr);
 		return -EFAULT;
 	}
 
 	if (ptr->magic != CMA_MAGIC_NUMBER) {
-		_E("Wrong magic number detected: %p (%X)", ptr, ptr->magic);
+		pr_err("Wrong magic number detected: %p (%X)", ptr, ptr->magic);
 		return -EFAULT;
 	}
 
@@ -113,7 +108,7 @@ static int cma_calloc(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 	struct cma_ctx *ctx = &uio_pdrv_musdk->cma_client;
 
 	if (copy_from_user(&size, argp, sizeof(size))) {
-		_E("Copy size arg %p from user failed", argp);
+		pr_err("Copy size arg %p from user failed", argp);
 		return -EFAULT;
 	}
 
@@ -123,7 +118,7 @@ static int cma_calloc(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 	ptr = dma_zalloc_coherent(uio_pdrv_musdk->dev, size, &paddr,
 			GFP_KERNEL | GFP_DMA);
 	if (!ptr) {
-		_E("Not enough CMA memory to alloc %lld bytes", size);
+		pr_err("Not enough CMA memory to alloc %lld bytes", size);
 		return -ENOMEM;
 	}
 
@@ -134,14 +129,14 @@ static int cma_calloc(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 
 	param = (u64)ptr;
 
-	_D("Alloc %p = %lld Bytes\n", (void *)ptr, size);
+	pr_debug("Alloc %p = %lld Bytes\n", (void *)ptr, size);
 
 	if (copy_to_user(argp, &param, sizeof(param)))
 	{
 		dma_free_coherent(uio_pdrv_musdk->dev, ptr->size,
 				(void *)ptr->kvaddr,
 				ptr->paddr);
-		_E("Return physical address of buffer (%p) to user failed",
+		pr_err("Return physical address of buffer (%p) to user failed",
 				(void *)param);
 		return -EFAULT;
 	}
@@ -171,7 +166,7 @@ static int _cma_free(struct uio_pdrv_musdk_info *uio_pdrv_musdk,
 	/* To avoid double free on the same buffer */
 	ptr->magic = ~CMA_MAGIC_NUMBER;
 
-	_D("CMA released: %p = %ld Bytes\n", (void *)ptr->paddr, ptr->size);
+	pr_debug("CMA released: %p = %ld Bytes\n", (void *)ptr->paddr, ptr->size);
 
 	atomic_inc(&ctx->buf_free);
 	list_del(&ptr->list);
@@ -245,7 +240,7 @@ static int cma_mmap(struct file *filp, struct vm_area_struct *vma)
 		}
 		else {
 			ptr->uvaddr = vma->vm_start;
-			_D("Mapped payload vaddr: %p, paddr: %p = %ld Bytes\n",
+			pr_debug("Mapped payload vaddr: %p, paddr: %p = %ld Bytes\n",
 					(void *)ptr->uvaddr,
 					(void *)ptr->kvaddr,
 					ptr->size);
@@ -259,7 +254,7 @@ static int cma_mmap(struct file *filp, struct vm_area_struct *vma)
 		if (err) {
 			return err;
 		}
-		_D("Mapped admin %p = %d Bytes\n", (void *)ptr->paddr,
+		pr_debug("Mapped admin %p = %d Bytes\n", (void *)ptr->paddr,
 				CMA_PAGE_SIZE);
 	}
 
@@ -280,7 +275,7 @@ static long cma_ioctl(struct file *filp,
 	int err = 0;
 
 	if (_IOC_TYPE(cmd) != MUSDK_IOC_TYPE_BASE)
-		_E("ioctl(): bad command type 0x%x (should be 0x%x)\n",
+		pr_err("ioctl(): bad command type 0x%x (should be 0x%x)\n",
 		   _IOC_TYPE(cmd), MUSDK_IOC_TYPE_BASE);
 
 	switch (cmd) {
@@ -292,7 +287,7 @@ static long cma_ioctl(struct file *filp,
 			err = cma_free(uio_pdrv_musdk, argp);
 			break;
 		default:
-			_E("Unknown ioctl {0x%x} received.\n", cmd);
+			pr_err("Unknown ioctl {0x%x} received.\n", cmd);
 			return -EINVAL;
 	}
 
@@ -317,7 +312,7 @@ static int cma_release(struct inode *inode, struct file *filp)
 	list_for_each_safe(node, q, &uio_pdrv_musdk->cma_client.list) {
 		adm = list_entry(node, struct cma_admin, list);
 		if (_cma_free(uio_pdrv_musdk, adm)) {
-			_E("Buffer corrupt detected %p", adm);
+			pr_err("Buffer corrupt detected %p", adm);
 			break;
 		}
 		garbage++;
@@ -326,11 +321,11 @@ static int cma_release(struct inode *inode, struct file *filp)
 	int free = atomic_read(&uio_pdrv_musdk->cma_client.buf_free);
 	int alloc = atomic_read(&uio_pdrv_musdk->cma_client.buf_alloc);
 
-	_D("CMA: total alloc %d, total free: %d (garbage %d)",
+	pr_debug("CMA: total alloc %d, total free: %d (garbage %d)",
 			alloc, free, garbage);
 
 	if (free != alloc) {
-		_E("There are %d  alien buffers", alloc - free);
+		pr_err("There are %d  alien buffers", alloc - free);
 	}
 
 	return 0;
@@ -403,7 +398,7 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	}
 
 	uio_pdrv_musdk->map_num = mem_cnt;
-	_E("Registered %d uio devices, having %d register maps attached\n",
+	pr_err("Registered %d uio devices, having %d register maps attached\n",
 	   uio_pdrv_musdk->uio_num + 1, uio_pdrv_musdk->map_num);
 
 	struct miscdevice *misc;
@@ -428,7 +423,7 @@ static int musdk_uio_probe(struct platform_device *pdev)
 		atomic_set(&ctx->buf_free, 0);
 
 		INIT_LIST_HEAD(&ctx->list);
-		_D("Registered cma device: %s\n", misc->name);
+		pr_debug("Registered cma device: %s\n", misc->name);
 	}
 	platform_set_drvdata(pdev, uio_pdrv_musdk);
 
@@ -462,7 +457,7 @@ static int musdk_uio_remove(struct platform_device *pdev)
 	if (uio_pdrv_musdk->map_num > 0)
 		misc_deregister(&uio_pdrv_musdk->misc);
 
-	_E("Detached -> uio: {%s} devices and misc: {%s} device",
+	pr_err("Detached -> uio: {%s} devices and misc: {%s} device",
 	   uio_pdrv_musdk->uio[0].name, uio_pdrv_musdk->misc.name);
 
 	platform_set_drvdata(pdev, NULL);
