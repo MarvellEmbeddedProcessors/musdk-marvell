@@ -2,15 +2,10 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <errno.h>
 
-#include "mv_std.h"
+#include "pp2_types.h"
+#define ENOTSUP	(524)
 
 #include "lib/misc.h"
 #include "drivers/mv_pp2_ppio.h"
