@@ -50,6 +50,7 @@
 
 struct glob_arg {
 	int			 verbose;
+	int			 running;
 	struct pp2_hif		*hif;
 	struct pp2_bpool	*pool;
 	struct pp2_ppio		*port;
@@ -57,6 +58,7 @@ struct glob_arg {
 
 
 static struct glob_arg garg = {};
+
 
 #ifdef USE_APP_PREFETCH
 static inline void prefetch(const void *ptr)
@@ -99,7 +101,7 @@ static int main_loop(struct glob_arg *garg)
 	int			 err;
 	u16			 i,num;
 
-	while (1) {
+	while (garg->running) {
 		num = BURST_SIZE;
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
 
@@ -107,6 +109,7 @@ static int main_loop(struct glob_arg *garg)
 			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
+
 #ifdef USE_APP_PREFETCH
 			if (num-i > PREFETCH_SHIFT) {
 				char *tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+PREFETCH_SHIFT]);
@@ -273,6 +276,8 @@ int main (int argc, char *argv[])
 
 	if ((err = init_local_modules(&garg)) != 0)
 		return err;
+
+	garg.running = 1;
 
 	if ((err = main_loop(&garg)) != 0)
 		return err;
