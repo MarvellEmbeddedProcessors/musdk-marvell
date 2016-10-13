@@ -39,7 +39,7 @@ int pp2_cls_tbl_modify_rule(struct pp2_cls_tbl			*tbl,
 }
 
 int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl			*tbl,
-			    struct pp2_cls_tbl_entry_action	*action)
+			    struct pp2_cls_tbl_rule		*rule)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUPP;
