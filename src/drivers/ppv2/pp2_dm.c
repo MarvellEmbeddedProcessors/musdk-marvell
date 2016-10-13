@@ -3,8 +3,7 @@
  *
  * Descriptor management and manipulation routines
  */
-#include <stdint.h>
-#include <pthread.h>
+#include "pp2_types.h"
 
 #include "mv_pp2x_hw_type.h"
 #include "pp2.h"
