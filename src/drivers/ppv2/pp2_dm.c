@@ -10,6 +10,12 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 
+/* TODO: temporary we add the prototypes here until we use the musdk ones */
+uintptr_t cma_calloc(size_t size);
+void cma_free(uintptr_t buf);
+uintptr_t cma_get_vaddr(uintptr_t buf);
+uintptr_t cma_get_paddr(uintptr_t buf);
+
 /* Internal. Creates a DM object */
 int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc)
 {
@@ -28,21 +34,21 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
     dm_if->desc_total = num_desc;
 
     /* Allocate a region via CMA for TXDs and setup their addresses */
-    dm_if->cma_hdl = pp2_cma_calloc(num_desc * MVPP2_DESC_ALIGNED_SIZE);
+    dm_if->cma_hdl = cma_calloc(num_desc * MVPP2_DESC_ALIGNED_SIZE);
     if (unlikely(!dm_if->cma_hdl)) {
         pp2_err("DM: cannot allocate DM region\n");
         free(dm_if);
         return -ENOMEM;
     }
-    dm_if->desc_phys_arr = pp2_cma_paddr(dm_if->cma_hdl);
+    dm_if->desc_phys_arr = cma_get_paddr(dm_if->cma_hdl);
     if (!IS_ALIGNED(dm_if->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
         pp2_err("DM: Descriptor array must be %u-byte aligned\n",
                 MVPP2_DESC_Q_ALIGN);
-        pp2_cma_free(dm_if->cma_hdl);
+        cma_free(dm_if->cma_hdl);
         free(dm_if);
         return -EPERM;
     }
-    dm_if->desc_virt_arr = (struct pp2_desc *)pp2_cma_vaddr(dm_if->cma_hdl);
+    dm_if->desc_virt_arr = (struct pp2_desc *)cma_get_vaddr(dm_if->cma_hdl);
     /* Get register address space slot for this DM object */
     dm_if->cpu_slot = inst->hw.base[dm_id].va;
 
@@ -81,7 +87,7 @@ void pp2_dm_if_deinit(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id)
     /* TODO: Destroy AQ in HW */
 
     pp2_dbg("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
-    pp2_cma_free(dm_if->cma_hdl);
+    cma_free(dm_if->cma_hdl);
     free(dm_if);
     inst->num_dm_ifs--;
     inst->dm_ifs[dm_id] = NULL;

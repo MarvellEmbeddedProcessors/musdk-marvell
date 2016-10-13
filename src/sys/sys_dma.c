@@ -9,7 +9,7 @@
 #include "sys_dma.h"
 
 #ifdef MVCONF_SYS_DMA_UIO
-#include "../drivers/ppv2/pp2_cma.h"
+#include "cma.h"
 //#include "musdk_uio_ioctls.h"
 #endif /* MVCONF_SYS_DMA_UIO */
 
@@ -38,21 +38,21 @@ static int init_mem(struct sys_dma *sdma, u64 size)
 
 	if (!sdma->en) {
 		int err;
-		if ((err = pp2_cma_init()) != 0) {
+		if ((err = cma_init()) != 0) {
 			pr_err("Failed to init DMA memory (%d)!\n", err);
 			return err;
 		}
 		sdma->en = 1;
 	}
 
-	cma_ptr = pp2_cma_calloc((size_t)size);
+	cma_ptr = cma_calloc((size_t)size);
 	if (!cma_ptr) {
 		pr_err("Failed to allocate DMA memory!\n");
 		return -ENOMEM;
 	}
 
-	sdma->dma_virt_base = (void *)pp2_cma_vaddr(cma_ptr);
-	sdma->dma_phys_base = (phys_addr_t)pp2_cma_paddr(cma_ptr);
+	sdma->dma_virt_base = (void *)cma_get_vaddr(cma_ptr);
+	sdma->dma_phys_base = (phys_addr_t)cma_get_paddr(cma_ptr);
 	sdma->cma_ptr = cma_ptr;
 	return 0;
 }
@@ -62,7 +62,7 @@ static void free_mem(struct sys_dma *sdma)
 	BUG_ON(!sdma);
 	if (!sdma->dma_virt_base)
 		return;
-	pp2_cma_free(sdma->cma_ptr);
+	cma_free(sdma->cma_ptr);
 }
 
 #else

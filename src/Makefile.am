@@ -24,7 +24,6 @@ noinst_HEADERS  = drivers/ppv2/pp2_util.h
 noinst_HEADERS += drivers/ppv2/pp2.h
 noinst_HEADERS += drivers/ppv2/pp2_mem.h
 noinst_HEADERS += drivers/ppv2/pp2_gop.h
-noinst_HEADERS += drivers/ppv2/pp2_cma.h
 noinst_HEADERS += drivers/ppv2/mv_pp2x_hw_type.h
 noinst_HEADERS += drivers/ppv2/pp2_print.h
 #noinst_HEADERS += drivers/ppv2/pp2_locks.h
@@ -49,6 +48,7 @@ libmusdk_la_SOURCES += lib/uio/uio_single_mmap.c
 libmusdk_la_SOURCES += lib/uio/uio_find_mem_byname.c
 
 libmusdk_la_SOURCES += sys/sys_spinlock.c
+libmusdk_la_SOURCES += sys/cma.c
 libmusdk_la_SOURCES += sys/sys_dma.c
 libmusdk_la_SOURCES += sys/mem_mng.c
 
@@ -57,7 +57,6 @@ libmusdk_la_SOURCES += drivers/ppv2/pp2_bm.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_dm.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_port.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_mem.c
-libmusdk_la_SOURCES += drivers/ppv2/pp2_cma.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_gop.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_gop_dbg.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_qos.c

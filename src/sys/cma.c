@@ -1,4 +1,3 @@
-#include "pp2_types.h"
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -12,29 +11,33 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../../modules/include/mv_pp_uio.h"
+#include "mv_std.h"
+
+#include "../../modules/include/musdk_uio_ioctls.h"
 
 #include "lib/uio_helper.h"
 
-#include "pp2_cma.h"
-#include "pp2_print.h"
+#include "cma.h"
+
 
 #define UIO_CMA_DEV "/dev/uio-cma"
 
+
 static volatile int fd = -1;
 
-int pp2_cma_init(void)
+
+int cma_init(void)
 {
 	fd = open(UIO_CMA_DEV, O_RDWR);
 	if (fd < 0) {
-		pp2_err("CMA: open() failed\n");
+		pr_err("CMA: open() failed\n");
 		return -1;
 	}
 	else
 		return 0;
 }
 
-uintptr_t pp2_cma_calloc(size_t size)
+uintptr_t cma_calloc(size_t size)
 {
 	struct cma_admin *ptr;
 	uint64_t param;
@@ -49,8 +52,8 @@ uintptr_t pp2_cma_calloc(size_t size)
 
 	param = size;
 
-	if ((err = ioctl(fd, PP_UIO_IOC_KEY | PP_IOC_CMA_ALLOC, &param)) != 0) {
-		pp2_err("CMA: ioctl(PP_IOC_CMA_ALLOC) for size=%lu failed with "
+	if ((err = ioctl(fd, MUSDK_IOC_CMA_ALLOC, &param)) != 0) {
+		pr_err("CMA: ioctl(MUSDK_IOC_CMA_ALLOC) for size=%lu failed with "
                 "error %d \n", size, err);
 		return 0;
 	}
@@ -59,7 +62,7 @@ uintptr_t pp2_cma_calloc(size_t size)
 	ret = mmap(NULL, CMA_PAGE_SIZE, PROT_READ , MAP_SHARED, fd, param);
 
 	if (ret == MAP_FAILED) {
-		pp2_err("CMA: mmap() failed (%d)\n", (int)(uintptr_t)ret);
+		pr_err("CMA: mmap() failed (%d)\n", (int)(uintptr_t)ret);
 		return 0;
 	}
 	ptr = (struct cma_admin *)ret;
@@ -71,17 +74,17 @@ uintptr_t pp2_cma_calloc(size_t size)
 			fd, param);
 
 	if (ret == MAP_FAILED) {
-		pp2_err("CMA: mmap() payload failed (%d)\n", (int)(uintptr_t)ret);
+		pr_err("CMA: mmap() payload failed (%d)\n", (int)(uintptr_t)ret);
 		return 0;
 	}
 
-	pp2_info("%p mapped to virt address = %lX\n", (void *)ptr->paddr,
+	pr_info("%p mapped to virt address = %lX\n", (void *)ptr->paddr,
 			ptr->uvaddr);
 
 	return (uintptr_t) ptr;
 }
 
-void pp2_cma_free(uintptr_t buf)
+void cma_free(uintptr_t buf)
 {
 	struct cma_admin *ptr = (struct cma_admin *) buf;
 	uint64_t kvaddr;
@@ -90,7 +93,7 @@ void pp2_cma_free(uintptr_t buf)
 	if (!buf || fd < 0)
 		return;
 
-	pp2_info("free %p of %lu bytes\n", ptr, ptr->size);
+	pr_info("free %p of %lu bytes\n", ptr, ptr->size);
 
 	/* Save kernel logical address before unmap buffer admin area */
 	kvaddr = ptr->kvaddr;
@@ -98,11 +101,11 @@ void pp2_cma_free(uintptr_t buf)
 	munmap((void *)ptr->uvaddr, ptr->size - CMA_PAGE_SIZE);
 	munmap((void *)ptr, sizeof(*ptr));
 
-	if ((err = ioctl(fd, PP_UIO_IOC_KEY | PP_IOC_CMA_FREE, &kvaddr)) != 0)
-		pp2_err("CMA: ioctl() PP_IOC_CMA_FREE failed (%d)\n", err);
+	if ((err = ioctl(fd, MUSDK_IOC_CMA_FREE, &kvaddr)) != 0)
+		pr_err("CMA: ioctl() MUSDK_IOC_CMA_FREE failed (%d)\n", err);
 }
 
-void pp2_cma_deinit(void)
+void cma_deinit(void)
 {
 	if (fd >= 0) {
 		close(fd);
@@ -110,19 +113,19 @@ void pp2_cma_deinit(void)
 	}
 }
 
-uintptr_t pp2_cma_vaddr(uintptr_t buf)
+uintptr_t cma_get_vaddr(uintptr_t buf)
 {
 	struct cma_admin *ptr = (struct cma_admin *) buf;
 
 	/* Take in consideration the size of admin area */
 	uintptr_t ret = (!ptr) ? (uintptr_t)0 : (uintptr_t) ptr->uvaddr;
 
-	pp2_info("%p va %p\n", ptr, (void *)ret);
+	pr_info("%p va %p\n", ptr, (void *)ret);
 
 	return ret;
 }
 
-uintptr_t pp2_cma_paddr(uintptr_t buf)
+uintptr_t cma_get_paddr(uintptr_t buf)
 {
 	struct cma_admin *ptr = (struct cma_admin *) buf;
 
@@ -130,7 +133,7 @@ uintptr_t pp2_cma_paddr(uintptr_t buf)
 	uintptr_t ret = (!ptr) ? (uintptr_t)0 :
 		(uintptr_t)((uint8_t *)ptr->paddr + sizeof(*ptr));
 
-	pp2_info("%p pa %p\n", ptr, (void *)ret);
+	pr_info("%p pa %p\n", ptr, (void *)ret);
 
 	return ret;
 }

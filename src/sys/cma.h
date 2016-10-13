@@ -1,14 +1,14 @@
 /**
- * @file pp2_cma.h
+ * @file cma.h
  *
  * Contiguous memory allocator
  *
  */
 
-#ifndef _PP2_CMA_H_
-#define _PP2_CMA_H_
+#ifndef __CMA_H__
+#define __CMA_H__
 
-#include "pp2_types.h"
+#include "mv_std.h"
 
 /**
  * Initialization routine for pp contiguous memory allocator
@@ -17,7 +17,13 @@
  * @retval non-0 Failure.
  *
  */
-int pp2_cma_init(void);
+int cma_init(void);
+
+/**
+ * De-initialization routine for pp contiguous memory allocator
+ *
+ */
+void cma_deinit(void);
 
 /**
  * Allocates physical zeroed contiguous memory
@@ -28,7 +34,7 @@ int pp2_cma_init(void);
  * @retval NULL Failure.
  *
  */
-uintptr_t pp2_cma_calloc(size_t size);
+uintptr_t cma_calloc(size_t size);
 
 /**
  * Free physical memory
@@ -36,13 +42,7 @@ uintptr_t pp2_cma_calloc(size_t size);
  * @param    buf             Handle to buff
  *
  */
-void pp2_cma_free(uintptr_t buf);
-
-/**
- * De-initialization routine for pp contiguous memory allocator
- *
- */
-void pp2_cma_deinit(void);
+void cma_free(uintptr_t buf);
 
 /**
  * Get virtual address from pp CMA
@@ -53,7 +53,7 @@ void pp2_cma_deinit(void);
  * @retval NULL Failure.
  *
  */
-uintptr_t pp2_cma_vaddr(uintptr_t buf);
+uintptr_t cma_get_vaddr(uintptr_t buf);
 
 /**
  * Get physical address from pp CMA
@@ -64,6 +64,6 @@ uintptr_t pp2_cma_vaddr(uintptr_t buf);
  * @retval NULL Failure.
  *
  */
-uintptr_t pp2_cma_paddr(uintptr_t buf);
+uintptr_t cma_get_paddr(uintptr_t buf);
 
-#endif /* _PP2_CMA_H_ */
+#endif /* __CMA_H__ */

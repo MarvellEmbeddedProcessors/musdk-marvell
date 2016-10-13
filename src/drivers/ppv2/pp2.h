@@ -20,7 +20,6 @@
 
 #include "mv_pp2x_hw_type.h"
 #include "pp2_gop.h"
-#include "pp2_cma.h"
 #include "pp2_util.h"
 #include "pp2_plat.h"
 #include "pp2_mem.h"

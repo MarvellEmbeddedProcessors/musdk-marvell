@@ -6,10 +6,15 @@
 #include "pp2_types.h"
 
 #include "pp2.h"
-#include "pp2_cma.h"
 #include "pp2_bm.h"
 #include "pp2_port.h"
 #include "pp2_print.h"
+
+/* TODO: temporary we add the prototypes here until we use the musdk ones */
+uintptr_t cma_calloc(size_t size);
+void cma_free(uintptr_t buf);
+uintptr_t cma_get_vaddr(uintptr_t buf);
+uintptr_t cma_get_paddr(uintptr_t buf);
 
 #if PP2_BM_BUF_DEBUG
 /* Debug and helpers */
@@ -188,20 +193,20 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
     pp2_dbg("BM: pool=%u buf_num %u bppe_num %u bppe_region_size %u\n",
             bm_pool->bm_pool_id, bm_pool->bm_pool_buf_num, bppe_num, bppe_region_size);
 
-    bm_pool->bppe_mem = pp2_cma_calloc(bppe_region_size);
+    bm_pool->bppe_mem = cma_calloc(bppe_region_size);
     if (unlikely(!bm_pool->bppe_mem)) {
         pp2_err("BM: cannot allocate region for pool BPPEs\n");
         free(bm_pool);
         return -ENOMEM;
     }
 
-    bm_pool->bm_pool_phys_base = (uintptr_t)pp2_cma_paddr(bm_pool->bppe_mem);
-    bm_pool->bm_pool_virt_base = (uintptr_t)pp2_cma_vaddr(bm_pool->bppe_mem);
+    bm_pool->bm_pool_phys_base = (uintptr_t)cma_get_paddr(bm_pool->bppe_mem);
+    bm_pool->bm_pool_virt_base = (uintptr_t)cma_get_vaddr(bm_pool->bppe_mem);
 
     if (!IS_ALIGNED(bm_pool->bm_pool_phys_base, MVPP2_BM_POOL_PTR_ALIGN)) {
         pp2_err("BM: pool=%u is not %u bytes aligned", param->id,
                 MVPP2_BM_POOL_PTR_ALIGN);
-        pp2_cma_free(bm_pool->bppe_mem);
+        cma_free(bm_pool->bppe_mem);
         free(bm_pool);
         return -EIO;
     }
@@ -216,7 +221,7 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
     if (pp2_bm_hw_pool_create(cpu_slot, bm_pool->bm_pool_id,
                 bppe_num, bm_pool->bm_pool_phys_base)) {
         pp2_err("BM: could not initialize hardware pool%u\n", bm_pool->bm_pool_id);
-        pp2_cma_free(bm_pool->bppe_mem);
+        cma_free(bm_pool->bppe_mem);
         free(bm_pool);
         return -EIO;
     }
@@ -291,7 +296,7 @@ int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
 
     pp2_bm_hw_pool_destroy(bm_if->cpu_slot, pool_id);
 
-    pp2_cma_free(bm_pool->bppe_mem);
+    cma_free(bm_pool->bppe_mem);
 
     free(bm_pool);
 
