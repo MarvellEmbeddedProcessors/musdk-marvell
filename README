@@ -1,8 +1,7 @@
-libppdk -- light-wight user I/O driver for Marvell Packet Processor
-
+Marvell (c) Linux User-Space SDK
 ---------------------------------------------------
 
-libppdk is a light-weight user I/O driver for Marvell Packet Processor.
+musdk is a light-weight user I/O driver for Marvell Packet Processor.
 The purpose of this driver library is to create a wrapper for the
 native implementation of Open Data Plane for Armada 8K Packet Processor.
 
@@ -14,44 +13,34 @@ checkpatch.pl that can be used to test for
 adhering to the coding style rule.
 
 i.e.
-./checkpatch.pl -f --no-tree ../../libs/libppdk/apps/pp_app.c
+./checkpatch.pl -f --no-tree ../../libs/musdk/apps/pp_app.c
 
-Steps to build and run the PPDK library:
+Steps to build and run the MUSDK library:
+
+0. Build Linux:
+
+a. Make sure the Linux is build with the following configuration flags:
+	CONFIG_MVPP2X=m
+	CONFIG_UIO=y
+b. Apply all patches found <musdk-src-dir>/patches/linux
 
 1. Built the UIO kernel module and install the UIO headers
 
-> cd <your_path>/armada-ppdk/modules/uio
+> cd <musdk-src-dir>/modules/uio
 > export LDFLAGS=""
-> make -C <path_to_kernel_source> M=$PWD
-> DESTDIR=~/target/sdk make dev_install
+> make -C $KDIR M=$PWD
+> make DESTDIR=~/target/sdk install
 
-2. Build the UIO library and install it
-
-> cd <your_path>/armada-ppdk/libs/libuio-0.2.1
+2. Build the MUSDK and install it
+> cd <musdk-src-dir>
 > ./autogen.sh
 > ./configure --host=aarch64-poky-linux
 > make -j8
-> DESTDIR=~/target/sdk make install
+> make DESTDIR=~/target/sdk install
 
-3. Build the PPDK and install it
-> cd <your_path/armada-ppdk/libs/libppdk
-> ./autogen.sh
-> ./configure --host=aarch64-poky-linux
-> make -j8
-> DESTDIR=~/target/sdk make install
+3. Running MUSDK apps:
 
-4. For running PPDK apps, insert <mv_pp_uio.ko> in a
-running kernel and run the application
+insert <mv_pp_uio.ko> in a running kernel and run the application
 
-ppdk_generator - spawns 2 x generator threads on 2 x interfaces
-ppdk_rx_test   - spawns 1 x receiver thread on 1 interface
-ppdx_tx_test   - spawns 1 x generator thread on 1 x interface
-ppdk_swf       - validates packet correctness by spawning
-                 1 x generator thread and 1 x receiver thread
-                 on 1 x interface configured in loopback
-ppdk_bm_test   - validates bm implementation
-ppdk_cma_test  - validates cma implementation
-
-NOTE: See PPDK.txt for PPDK functional layout by source files
-NOTE: At this stage, the PPDK functions with slowpath kernel driver
-      disabled
+musdk_pkt_echo - TBD
+musdk_dma_mem  - validates cma implementation
