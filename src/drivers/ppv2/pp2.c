@@ -4,8 +4,9 @@
  * PPDK container structures and packet processor initialization
  */
 
-#include <stdint.h>
-#include <stdlib.h>
+#include <string.h>
+
+#include "pp2_types.h"
 
 #include "../../modules/include/mv_pp_uio.h"
 
@@ -18,7 +19,7 @@
 
 #include "pp2_gop_dbg.h"
 #include "pp2_qos.h"
-#include "int/xflags.h"
+//#include "int/xflags.h"
 
 
 struct pp2 * pp2_ptr;

@@ -10,13 +10,14 @@
 #ifndef _PP2_H_
 #define _PP2_H_
 
+#include "pp2_types.h"
+
 #include "lib/uio_helper.h"
 #include "drivers/mv_pp2.h"
 #include "drivers/mv_pp2_bpool.h"
 #include "drivers/mv_pp2_hif.h"
 #include "drivers/mv_pp2_ppio.h"
 
-#include "pp2_types.h"
 #include "mv_pp2x_hw_type.h"
 #include "pp2_gop.h"
 #include "pp2_cma.h"
