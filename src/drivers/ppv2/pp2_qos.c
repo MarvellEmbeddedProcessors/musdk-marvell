@@ -1,4 +1,6 @@
-#include <stdint.h>
+#include <string.h>
+
+#include "pp2_types.h"
 
 #include "pp2.h"
 #include "pp2_print.h"

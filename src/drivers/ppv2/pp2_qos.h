@@ -9,8 +9,9 @@
 #ifndef _PP2_QOS_H_
 #define _PP2_QOS_H_
 
-#include <stdint.h>
 #include <netinet/in.h>
+
+#include "pp2_types.h"
 
 #include "mv_pp2x_hw_type.h"
 
