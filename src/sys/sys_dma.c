@@ -9,7 +9,7 @@
 #include "sys_dma.h"
 
 #ifdef MVCONF_SYS_DMA_UIO
-#include "drivers/ppv2/pp2_cma.h"
+#include "../drivers/ppv2/pp2_cma.h"
 //#include "musdk_uio_ioctls.h"
 #endif /* MVCONF_SYS_DMA_UIO */
 
