@@ -21,9 +21,9 @@ LD= $(CROSS_COMPILE)ld
 
 CL_FLAGS ?=
 
-M_BASIC_FLAGS = -gdwarf-2 -g2 -Wall -Wl,--stack,0x800000 \
-		-Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common \
-		-fomit-frame-pointer -fsigned-char -pipe -ffixed-r2 -Wno-unused-function
+M_BASIC_FLAGS = -g3 -g -O2 -pthread -Wall -Wunused-variable -Wunused-function \
+	-Wpointer-arith -Wcast-qual -Wcast-align -Wundef -Wwrite-strings -Wstrict-prototypes \
+	-Wmissing-prototypes -Wmissing-declarations -Wold-style-definition
 M_FLAGS = $(M_BASIC_FLAGS) -isystem -I$(TOPLIBGCC)/include
 
 CFLAGS = $(M_FLAGS)

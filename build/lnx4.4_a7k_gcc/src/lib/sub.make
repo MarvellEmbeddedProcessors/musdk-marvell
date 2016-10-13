@@ -3,7 +3,7 @@
 ###############################################################################
 SUBDIRS := of uio
 
-OBJ := list.o
+OBJ := list.o misc.o
 INC := $(TOPINC)
 DEF := $(TOPDEF)
 
