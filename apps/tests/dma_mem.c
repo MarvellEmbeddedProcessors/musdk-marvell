@@ -48,7 +48,7 @@ int main (int argc, char *argv[])
 
 	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
 
-	if ((err = mv_sys_dma_mem_init(16*1024*1024)) != 0)
+	if ((err = mv_sys_dma_mem_init(1*1024*1024)) != 0)
 		return err;
 
 	for (i=0; i<10; i++) {
