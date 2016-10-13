@@ -96,7 +96,7 @@ static int main_loop(struct glob_arg *garg)
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
 
 		for (i=0; i<num; i++) {
-			char *buff = (uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
+			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 //			printf("packet:\n"); mem_disp(buff, len);
@@ -116,8 +116,7 @@ descs[i].cmds[7]);
 */
 			pp2_ppio_outq_desc_reset(&descs[i]);
 			pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-			pp2_ppio_outq_desc_set_cookie(&descs[i], 0);
-			pp2_ppio_outq_desc_set_cookie(&descs[i], buff-PKT_EFEC_OFFS);
+			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff-PKT_EFEC_OFFS));
 			pp2_ppio_outq_desc_set_pkt_offset(&descs[i], PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 			pp2_ppio_outq_desc_set_pool(&descs[i], garg->pool);
