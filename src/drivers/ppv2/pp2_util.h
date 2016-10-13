@@ -8,12 +8,7 @@
 #ifndef __PP2_UTIL_H__
 #define __PP2_UTIL_H__
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <time.h>
+#include "pp2_types.h"
 
 /* TODO: Keep these until classifier phase */
 #pragma GCC diagnostic ignored "-Wunused-function"
