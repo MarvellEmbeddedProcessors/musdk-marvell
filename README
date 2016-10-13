@@ -24,17 +24,23 @@ a. Make sure the Linux is build with the following configuration flags:
 	CONFIG_UIO=y
 b. Apply all patches found <musdk-src-dir>/patches/linux
 
-1. Built the UIO kernel module and install the UIO headers
+1. Built the PP2-tmp kernel module and install it
 
-> cd <musdk-src-dir>/modules/uio
+> cd <musdk-src-dir>/modules/pp2_tmp
 > export LDFLAGS=""
 > make -C $KDIR M=$PWD
+> make DESTDIR=~/target/sdk install
+
+1. Built the UIO kernel module and install it
+
+> cd <musdk-src-dir>/modules/uio
+> make
 > make DESTDIR=~/target/sdk install
 
 2. Build the MUSDK and install it
 > cd <musdk-src-dir>
 > ./autogen.sh
-> ./configure --host=aarch64-poky-linux
+> ./configure --host=aarch64-linux-gnu
 > make -j8
 > make DESTDIR=~/target/sdk install
 
