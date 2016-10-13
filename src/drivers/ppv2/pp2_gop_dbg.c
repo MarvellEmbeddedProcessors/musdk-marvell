@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "pp2_types.h"
 
 #include "mv_pp2x_hw_type.h"
 #include "pp2_mem.h"

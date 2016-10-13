@@ -8,11 +8,8 @@
 #ifndef _PP2_GOP_DBG_H_
 #define _PP2_GOP_DBG_H_
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <unistd.h>
+#include "pp2_types.h"
+
 
 void pp2_gop_register_bases_dump(struct gop_hw *gop);
 void pp2_gop_gmac_regs_dump(struct gop_hw *gop, int port);

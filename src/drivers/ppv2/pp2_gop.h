@@ -13,14 +13,9 @@
  *      or move this under a separate header file
  */
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <unistd.h>
+#include "pp2_types.h"
 
 #include "pp2_print.h"
-#include "pp2_types.h"
 
 #if (PP2_DBG <= PP2_INFO_LEVEL)
 #define PP2_GOP_DEBUG 1

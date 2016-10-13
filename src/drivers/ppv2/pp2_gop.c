@@ -1,4 +1,6 @@
-#include <stdint.h>
+#include <unistd.h>
+
+#include "pp2_types.h"
 
 #include "mv_pp2x_hw_type.h"
 #include "pp2.h"
