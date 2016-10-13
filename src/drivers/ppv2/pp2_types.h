@@ -8,10 +8,9 @@
 #ifndef _PP2_TYPES_H_
 #define _PP2_TYPES_H_
 
-#include <stdint.h>
 #include <stdbool.h>
 
-typedef uint64_t phys_addr_t;
+#include "mv_std.h"
 
 struct base_addr {
 	uintptr_t va;
