@@ -10,7 +10,6 @@ OBJ := hif.o \
 	pp2_dm.o \
 	pp2_port.o \
 	pp2_mem.o \
-	pp2_cma.o \
 	pp2_gop.o \
 	pp2_gop_dbg.o \
 	pp2_qos.o
