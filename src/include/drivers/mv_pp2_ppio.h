@@ -203,6 +203,7 @@ enum pp2_inq_desc_status {
 #define TXD_POOL_ID_MASK           (0x000F0000)
 #define TXD_GEN_L4_CHK_MASK        (0x00006000)
 #define TXD_GEN_IP_CHK_MASK        (0x00008000)
+#define TXD_BUFMODE_MASK           (0x00000080)
 /* cmd 1 */
 #define TXD_PKT_OFF_MASK           (0x000000FF)
 #define TXD_DEST_QID_MASK          (0x0000FF00)
@@ -248,7 +249,12 @@ static inline void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64
 	desc->cmds[7] = (desc->cmds[7] & ~TXD_BUF_PHYS_HI_MASK) | (cookie >> 32 & TXD_BUF_PHYS_HI_MASK);
 }
 
-void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool);
+static inline void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool)
+{
+	desc->cmds[0] = (desc->cmds[0] & ~(TXD_POOL_ID_MASK | TXD_BUFMODE_MASK)) |
+		(0 << 16 & TXD_POOL_ID_MASK) | 
+		(1 << 7 & TXD_BUFMODE_MASK);
+}
 
 void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc,
 				       enum pp2_outq_l3_type l3_type,
@@ -262,7 +268,7 @@ void pp2_ppio_outq_desc_set_dsa_tag(struct pp2_ppio_desc *desc);
 
 static inline void pp2_ppio_outq_desc_set_pkt_offset(struct pp2_ppio_desc *desc, u8  offset)
 {
-	desc->cmds[1] = (u32)offset << 20;
+	desc->cmds[1] = (u32)offset;
 }
 
 static inline void pp2_ppio_outq_desc_set_pkt_len(struct pp2_ppio_desc *desc , u16 len)
