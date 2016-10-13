@@ -3,8 +3,12 @@
  *
  * Port I/O routines
  */
-#include <stdint.h>
-#include "sys/param.h"
+
+#include <string.h>
+#include <unistd.h>
+#include <sys/param.h>
+
+#include "pp2_types.h"
 
 #include "pp2_util.h"
 #include "mv_pp2x_hw_type.h"
@@ -891,7 +895,9 @@ void
 pp2_port_config_outq(struct pp2_port *port)
 {
     /* TX FIFO Init to default 3KB size. Default with minimum threshold */
-    pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_3KB, PP2_TX_FIFO_THRS_3KB);
+    /* TODO: change according to port type! */
+    //pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_3KB, PP2_TX_FIFO_THRS_3KB);
+    pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_10KB, PP2_TX_FIFO_THRS_10KB);
 
     /* Initialize hardware internals for TXQs */
     pp2_port_txqs_init(port);
@@ -1174,6 +1180,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
    struct pp2_txq_dm_if *txq_dm_if;
    struct pp2_desc * tx_desc;
    uint16_t block_size;
+   int i;
 
    txq = port->txqs[out_qid];
    cpu_slot = dm_if->cpu_slot;
@@ -1203,9 +1210,17 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
        if (unlikely(txq_dm_if->desc_rsrvd < num_txds))
            num_txds = txq_dm_if->desc_rsrvd;
    }
+//if (!num_txds) return 0;
 
    tx_desc = pp2_dm_if_next_desc_block_get(dm_if, num_txds, &block_size);
    memcpy(tx_desc, &desc[0], block_size*sizeof(*tx_desc));
+
+/*
+   for (i=0; i<block_size*sizeof(*tx_desc); i+=) {
+        
+   }
+*/
+
    if (unlikely(block_size < num_txds)) {
        int index = block_size;
        tx_desc = pp2_dm_if_next_desc_block_get(dm_if, (num_txds - block_size), &block_size);
