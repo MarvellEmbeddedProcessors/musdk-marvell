@@ -33,11 +33,8 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
-//#include <inttypes.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "xflags.h"
-
 
 
 typedef uint8_t		u8;
