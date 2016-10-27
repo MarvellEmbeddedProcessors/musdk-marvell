@@ -2,7 +2,7 @@
 ########################  Pkt-Echo Use-Case LIBRARY   #########################
 ###############################################################################
 O_TARGETS += pkt-echo
-EXOBJ :=  lmusdk.o pkt-echo_uc.o
+EXOBJ :=  lmusdk.o lcommon.o pkt-echo_uc.o
 OBJ := pkt_echo.o
 INC := $(TOPINC)
 DEF := $(TOPDEF)
