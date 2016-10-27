@@ -33,6 +33,11 @@
 #ifndef __GEN_H__
 #define __GEN_H__
 
+#define PTR2INT(_p)		((uintptr_t)(_p))
+#define INT2PTR(_i)		((void*)(uintptr_t)(_i))
+
+#define MV_PTR(_p, _offs)	(void*)((uint8_t*)(_p)+(_offs))
+
 #ifndef MEMBER_OFFSET
 /**
  * TODO
@@ -42,7 +47,8 @@
  *
  * @return	TODO
  */
-#define MEMBER_OFFSET(_type, _member) (PTR_TO_UINT(&((_type *)0)->_member))
+#define MEMBER_OFFSET(_type, _member)	\
+	(PTR2INT(&((_type *)0)->_member))
 #endif /* !MEMBER_OFFSET */
 
 #ifndef ARRAY_SIZE
@@ -53,7 +59,8 @@
  *
  * @return	TODO
  */
-#define ARRAY_SIZE(_arr)   (sizeof(_arr) / sizeof((_arr)[0]))
+#define ARRAY_SIZE(_arr)	\
+	(sizeof(_arr) / sizeof((_arr)[0]))
 #endif /* !ARRAY_SIZE */
 
 #endif /* __GEN_H__ */
