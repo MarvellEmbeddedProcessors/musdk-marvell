@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "pp2_types.h"
-#define ENOTSUP	(524)
 
 #include "lib/misc.h"
 #include "drivers/mv_pp2_ppio.h"
@@ -132,7 +131,6 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,
 	return 0;
 }
 
-int aaaaa=0;
 int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *descs, u16 *num)
 {
 	struct pp2_port *port = ppio->port;
