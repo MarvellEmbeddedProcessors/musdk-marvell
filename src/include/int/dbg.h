@@ -42,10 +42,10 @@
 #define MV_DBG_L_INFO	4
 #define MV_DBG_L_DBG	5
 
-#define mv_print(_level, ...) 		\
-do {					\
-	if ((_level) <= (MV_DBG_LEVEL))	\
-		printf(__VA_ARGS__);	\
+#define mv_print(_level, ...) 			\
+do {						\
+	if ((_level) <= (MVCONF_DBG_LEVEL))	\
+		printf(__VA_ARGS__);		\
 } while (0)
 
 #ifndef pr_crit
