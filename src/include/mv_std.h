@@ -33,7 +33,9 @@
 #ifndef __MV_STD_H__
 #define __MV_STD_H__
 
+/* TODO: make sure xflags file is in apporpriate place! */
 #include "int/xflags.h"
+
 #include "int/types.h"
 #include "int/dbg.h"
 #include "int/spinlock.h"
