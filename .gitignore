@@ -50,3 +50,4 @@ apps/tests/.deps
 apps/tests/.dirstamp
 apps/musdk_dma_mem
 apps/musdk_pkt_echo
+.gitreview
