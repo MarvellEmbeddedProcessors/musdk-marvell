@@ -1,43 +1,38 @@
-Marvell (c) Linux User-Space SDK
----------------------------------------------------
+	Marvell (c) Linux User-Space SDK (MUSDK)
+=================================================
 
-musdk is a light-weight user I/O driver for Marvell Packet Processor.
-The purpose of this driver library is to create a wrapper for the
-native implementation of Open Data Plane for Armada 8K Packet Processor.
+MUSDK is a light-weight user-space I/O driver for Marvell Networking HW blocks
+(e.g. Packet-Procesor, Security-Accelaration-Module, etc.).
+The purpose of this driver library is to provide a simple and direct access to
+Marvell networking related HW for networking applications and networking
+infrastrucutres (e.g. OpenDataPlane).
 
 Coding style:
+-------------
 Linux Kernel Coding Style
 https://www.kernel.org/doc/Documentation/CodingStyle
 
-checkpatch.pl that can be used to test for
-adhering to the coding style rule.
-
-i.e.
-./checkpatch.pl -f --no-tree ../../libs/musdk/apps/pp_app.c
 
 Steps to build and run the MUSDK library:
+-----------------------------------------
 
 0. Build Linux:
-
 a. Make sure the Linux is build with the following configuration flags:
 	CONFIG_MVPP2X=m
 	CONFIG_UIO=y
 b. Apply all patches found <musdk-src-dir>/patches/linux
 
-1. Built the PP2-tmp kernel module and install it
-
+1. Build the PP2-tmp kernel module and install it:
 > cd <musdk-src-dir>/modules/pp2_tmp
 > export LDFLAGS=""
 > make -C $KDIR M=$PWD
-> make DESTDIR=~/target/sdk install
 
-1. Built the UIO kernel module and install it
-
+1. Build the UIO kernel module and install it:
 > cd <musdk-src-dir>/modules/uio
 > make
 > make DESTDIR=~/target/sdk install
 
-2. Build the MUSDK and install it
+2. Build the MUSDK and install it:
 > cd <musdk-src-dir>
 > ./autogen.sh
 > ./configure --host=aarch64-linux-gnu
@@ -45,8 +40,11 @@ b. Apply all patches found <musdk-src-dir>/patches/linux
 > make DESTDIR=~/target/sdk install
 
 3. Running MUSDK apps:
-
-insert <mv_pp_uio.ko> in a running kernel and run the application
-
-musdk_pkt_echo - TBD
-musdk_dma_mem  - validates cma implementation
+a. Copy the kernel modules (musdk_uio, etc.) to the target board file-system.
+b. Copy the MUSDK local install folder (i.e. ~/target) to aquivalent path on
+	the target board file-system.
+c. Insert all KS modules:
+	> insmod musdk_uio.ko
+	> insmod mv_pp_uio.ko
+d. Run a MUSDK application example:
+	musdk_dma_mem, musdk_pkt_echo
