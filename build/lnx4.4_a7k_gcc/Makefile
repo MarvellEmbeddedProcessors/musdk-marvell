@@ -36,8 +36,8 @@ TOPINC = $(D) \
 	$(TD)/src/include/int \
 	$(TD)/src/include/drivers \
 	$(TD)/src/include \
-	$(TD)/modules/uio \
-	$(KDIR)/include
+	$(TD)/apps/include \
+	$(TD)/modules/uio
 
 O_TARGETS =
 
