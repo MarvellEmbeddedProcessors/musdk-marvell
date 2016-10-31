@@ -31,6 +31,8 @@
 *******************************************************************************/
 
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #include "mv_std.h"
 #include "lib/misc.h"
@@ -41,7 +43,7 @@
 #include "mv_pp2_ppio.h"
 
 
-#define BURST_SIZE	1
+#define BURST_SIZE	16
 #define PKT_OFFS	64
 #define PKT_EFEC_OFFS	(PKT_OFFS+2)
 //#define USE_APP_PREFETCH
@@ -103,10 +105,12 @@ static int main_loop(struct glob_arg *garg)
 
 	while (garg->running) {
 		num = BURST_SIZE;
+
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
 
 		for (i=0; i<num; i++) {
 			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
+
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 
@@ -117,12 +121,10 @@ static int main_loop(struct glob_arg *garg)
 				prefetch(tmp_buff);
 			}
 #endif /* USE_APP_PREFETCH */
-
-//printf("packet:\n"); mem_disp(buff, len);
+			//printf("packet:\n"); mem_disp(buff, len);
 			swap_l2(buff);
 			swap_l3(buff);
-//printf("packet:\n"); mem_disp(buff, len);
-
+			//printf("packet:\n"); mem_disp(buff, len);
 			pp2_ppio_outq_desc_reset(&descs[i]);
 			pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff-PKT_EFEC_OFFS));
@@ -141,8 +143,8 @@ descs[i].cmds[5],
 descs[i].cmds[6],
 descs[i].cmds[7]);
 */
-		}
 
+		}
 		if (num && ((err = pp2_ppio_send(garg->port, garg->hif, 0, descs, &num)) != 0))
 			return err;
 
@@ -268,6 +270,8 @@ static void destroy_all_modules(void)
 int main (int argc, char *argv[])
 {
 	int		err;
+
+	setbuf(stdout, NULL);
 
 	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
 

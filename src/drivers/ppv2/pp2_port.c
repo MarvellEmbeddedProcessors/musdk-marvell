@@ -620,7 +620,7 @@ pp2_rxq_get_desc(struct pp2_rx_queue *rxq,
         /* extra_num is relative to start of desc array */
         *extra_num  = rx_idx + *num_recv - rxq->desc_total;
         /* num_recv is relative to end of desc array */
-        *num_recv   = rxq->desc_total - rx_idx;
+        *num_recv = rxq->desc_total - rx_idx;
         rxq->desc_next_idx = *extra_num;
     } else {
         rxq->desc_next_idx = (((rx_idx + *num_recv) == rxq->desc_total)? 0: (rx_idx + *num_recv));
