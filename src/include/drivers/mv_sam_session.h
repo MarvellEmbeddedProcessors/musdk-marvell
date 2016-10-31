@@ -38,35 +38,79 @@
 
 struct sam_sa;
 
-enum sam_opt {
-	SAM_OPT_ENC = 1,
-	SAM_OPT_DEC,
+/* Represend operation direction */
+enum sam_dir {
+	SAM_DIR_ENCRYPT = 0, /* encrypt and/or generate signature */
+	SAM_DIR_DECRYPT,     /* decrypt and/or verify signature */
+	SAM_DIR_LAST,
 };
 
-enum sam_alg {
-	SAM_ALG_NULL = 0,
-	SAM_ALG_DES,
-	SAM_ALG_3DES,
-	SAM_ALG_AES,
-	SAM_ALG_MD5,
-	SAM_ALG_SHA1
+/* Represent cipher algorithm to be used for encryption/decryption */
+enum sam_cipher_alg {
+	SAM_CIPHER_NONE = 0,
+	SAM_CIPHER_DES,
+	SAM_CIPHER_3DES,   /* block size = 64 bits */
+	SAM_CIPHER_AES,	   /* block size = 128 bits */
+	SAM_CIPHER_ALG_LAST,
+};
+
+/* Represent cipher mode to be used for encryption/decryption */
+enum sam_cipher_mode {
+	SAM_CIPHER_ECB = 0,
+	SAM_CIPHER_CBC,
+	SAM_CIPHER_OFB,
+	SAM_CIPHER_CFB,
+	SAM_CIPHER_CFB1,
+	SAM_CIPHER_CFB8,
+	SAM_CIPHER_CTR,
+	SAM_CIPHER_ICM,
+	SAM_CIPHER_CCM,    /* Used only with AES. */
+	SAM_CIPHER_GCM,	   /* Used only with AES. */
+	SAM_CIPHER_GMAC,   /* Used only with AES. */
+	SAM_CIPHER_MODE_LAST,
+};
+
+/* Represent algorithm to be used for authentication */
+enum sam_auth_alg {
+	SAM_AUTH_NONE = 0,
+	SAM_AUTH_HASH_MD5,
+	SAM_AUTH_HASH_SHA1,
+	SAM_AUTH_HASH_SHA2_224,
+	SAM_AUTH_HASH_SHA2_256,
+	SAM_AUTH_HASH_SHA2_384,
+	SAM_AUTH_HASH_SHA2_512,
+	SAM_AUTH_SSLMAC_MD5,
+	SAM_AUTH_SSLMAC_SHA1,
+	SAM_AUTH_HMAC_MD5,
+	SAM_AUTH_HMAC_SHA1,
+	SAM_AUTH_HMAC_SHA2_224,
+	SAM_AUTH_HMAC_SHA2_256,
+	SAM_AUTH_HMAC_SHA2_384,
+	SAM_AUTH_HMAC_SHA2_512,
+	SAM_AUTH_AES_XCBC_MAC,
+	SAM_AUTH_AES_CMAC_128,
+	SAM_AUTH_AES_CMAC_192,
+	SAM_AUTH_AES_CMAC_256,
+	SAM_AUTH_AES_CCM,
+	SAM_AUTH_AES_GCM,
+	SAM_AUTH_AES_GMAC,
+	SAM_AUTH_ALG_LAST,
 };
 
 
 struct sam_session_params {
-	enum sam_opt	 opt;
-	enum sam_alg	 alg;
-	int		 keylen;
-	int		 mackeylen;
-	char		 key[32];
-	char		 mackey[64];
-	int		 mlen;
-	char		*iv;
-	char		 mac_inner[64];
-	char		 mac_outer[64];
-	enum sam_alg	 auth_alg;
+	enum sam_dir dir;   /* operation direction: encode/decode */
+	enum sam_cipher_alg cipher_alg;  /* cipher algorithm */
+	enum sam_cipher_mode cipher_mode;/* cipher mode */
+	u8  *cipher_iv;     /* default IV */
+	u8  *cipher_key;    /* cipher key */
+	u32 cipher_key_len; /* cipher key size (in bytes) */
+	enum sam_auth_alg auth_alg; /* authentication algorithm */
+	u8  *auth_inner;    /* pointer to authentication inner block */
+	u8  *auth_outer;    /* pointer to authentication outer block */
+	u32 auth_icv_len;   /* Integrity Check Value (ICV) size (in bytes) */
+	u32 auth_aad_len;   /* Additional Data (AAD) size (in bytes) */
 };
-
 
 int sam_session_create(struct sam_session_params *params, struct sam_sa **sa);
 int sam_session_destroy(struct sam_sa *sa);
