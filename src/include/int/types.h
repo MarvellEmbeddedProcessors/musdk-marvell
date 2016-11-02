@@ -34,6 +34,7 @@
 #define __TYPES_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 
