@@ -30,20 +30,13 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-#ifndef __MV_STD_H__
-#define __MV_STD_H__
+#ifndef __ALLOC_H__
+#define __ALLOC_H__
 
-/* TODO: make sure xflags file is in apporpriate place! */
-#include "int/xflags.h"
+#include <malloc.h>
 
-#include "int/types.h"
-#include "int/dbg.h"
-#include "int/spinlock.h"
-#include "int/errno.h"
-#include "int/cmplr.h"
-#include "int/gen.h"
-#include "int/io.h"
-#include "int/alloc.h"
-#include "int/delay.h"
+#define kmalloc(size, gfp) malloc(size)
+#define kcalloc(num, size, gfp) calloc(num, size)
+#define kfree(ptr) free(ptr)
 
-#endif /* __MV_STD_H__ */
+#endif /* __ALLOC_H__ */
