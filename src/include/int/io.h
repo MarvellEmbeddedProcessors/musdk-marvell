@@ -5,18 +5,18 @@
   and/or modify this File under the following licensing terms.
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are met:
-  
+
   	* Redistributions of source code must retain the above copyright
 	  notice, this list of conditions and the following disclaimer.
-  
+
   	* Redistributions in binary form must reproduce the above copyright
   	  notice, this list of conditions and the following disclaimer in the
   	  documentation and/or other materials provided with the distribution.
-  
+
   	* Neither the name of Marvell nor the names of its contributors may be
   	  used to endorse or promote products derived from this software
 	  without specific prior written permission.
-  
+
   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -40,117 +40,26 @@
 
 #define __iomem
 
+/* TODO: Use it or lose it. */
+#ifdef MVCONF_DMB_ISH_BARRIERS
+#define mb()		asm volatile("dmb ish" ::: "memory")
+#define wmb()		asm volatile("dmb ishst" ::: "memory")
+#define rmb()		asm volatile("dmb ishld" ::: "memory")
+#else
 #define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
-
 #define mb()		dsb(sy)
 #define rmb()		dsb(ld)
 #define wmb()		dsb(st)
+#endif
 
 #define __iormb()		rmb()
 #define __iowmb()		wmb()
 
-#if 1
-/* TODO: improve writel/readl */
-//static inline void writel(u32 val, uintptr_t addr)
-static inline void writel(u32 val, volatile void __iomem *addr)
-{
-	__iowmb();
-	*(volatile u32 *)addr = val;
-}
 
-//static inline u32 readl(uintptr_t addr)
-static inline u32 readl(volatile void __iomem *addr)
-{
-	u32 val = *(volatile u32 *)addr;
-	__iormb();
-	return val;
-}
-
-
-#else
-#if 0
 /*
- * alternative assembly primitive:
- *
- * If any of these .org directive fail, it means that insn1 and insn2
- * don't have the same length. This used to be written as
- *
- * .if ((664b-663b) != (662b-661b))
- *      .error "Alternatives instruction length mismatch"
- * .endif
- *
- * but most assemblers die if insn1 or insn2 have a .inst. This should
- * be fixed in a binutils release posterior to 2.25.51.0.2 (anything
- * containing commit 4e4d08cf7399b606 or c1baaddf8861).
- */
-#define __ALTERNATIVE_CFG(oldinstr, newinstr, feature, cfg_enabled)     \
-        ".if "#cfg_enabled" == 1\n"                                     \
-        "661:\n\t"                                                      \
-        oldinstr "\n"                                                   \
-        "662:\n"                                                        \
-        ".pushsection .altinstructions,\"a\"\n"                         \
-        " .word 661b - .\n"                                             \
-        " .word 663f - .\n"                                             \
-        " .hword "#feature"\n"                                          \
-        " .byte 662b-661b\n"                                            \
-        " .byte 664f-663f\n"                                            \
-        ".popsection\n"                                                 \
-        ".pushsection .altinstr_replacement, \"a\"\n"                   \
-        "663:\n\t"                                                      \
-        newinstr "\n"                                                   \
-        "664:\n\t"                                                      \
-        ".popsection\n\t"                                               \
-        ".org   . - (664b-663b) + (662b-661b)\n\t"                      \
-        ".org   . - (662b-661b) + (664b-663b)\n"                        \
-        ".endif\n"
+ * Generic IO read/write.  These perform native-endian accesses.
+*/
 
-#define _ALTERNATIVE_CFG(oldinstr, newinstr, feature, cfg, ...) \
-        __ALTERNATIVE_CFG(oldinstr, newinstr, feature, IS_ENABLED(cfg))
-
-#define ALTERNATIVE(oldinstr, newinstr, ...)   _ALTERNATIVE_CFG(oldinstr, newinstr, __VA_ARGS__, 1)
-
-static inline u8 __raw_readb(const volatile void __iomem *addr)
-{
-	u8 val;
-	asm volatile(ALTERNATIVE("ldrb %w0, [%1]",
-				 "ldarb %w0, [%1]",
-				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)
-		     : "=r" (val) : "r" (addr));
-	return val;
-}
-
-static inline u16 __raw_readw(const volatile void __iomem *addr)
-{
-	u16 val;
-
-	asm volatile(ALTERNATIVE("ldrh %w0, [%1]",
-				 "ldarh %w0, [%1]",
-				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)
-		     : "=r" (val) : "r" (addr));
-	return val;
-}
-
-static inline u32 __raw_readl(const volatile void __iomem *addr)
-{
-	u32 val;
-	asm volatile(ALTERNATIVE("ldr %w0, [%1]",
-				 "ldar %w0, [%1]",
-				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)
-		     : "=r" (val) : "r" (addr));
-	return val;
-}
-
-static inline u64 __raw_readq(const volatile void __iomem *addr)
-{
-	u64 val;
-	asm volatile(ALTERNATIVE("ldr %0, [%1]",
-				 "ldar %0, [%1]",
-				 ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE)
-		     : "=r" (val) : "r" (addr));
-	return val;
-}
-
-#else
 static inline u8 __raw_readb(const volatile void __iomem *addr)
 {
 	u8 val;
@@ -179,11 +88,7 @@ static inline u64 __raw_readq(const volatile void __iomem *addr)
 	asm volatile("ldr %0, [%1]" : "=r" (val) : "r" (addr));
 	return val;
 }
-#endif /* 0 */
 
-/*
- * Generic IO read/write.  These perform native-endian accesses.
- */
 static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
 {
 	asm volatile("strb %w0, [%1]" : : "r" (val), "r" (addr));
@@ -234,6 +139,5 @@ static inline void __raw_writeq(u64 val, volatile void __iomem *addr)
 #define writew(v,c)		({ __iowmb(); writew_relaxed((v),(c)); })
 #define writel(v,c)		({ __iowmb(); writel_relaxed((v),(c)); })
 #define writeq(v,c)		({ __iowmb(); writeq_relaxed((v),(c)); })
-#endif /* 0 */
 
 #endif /* __IO_H__ */
