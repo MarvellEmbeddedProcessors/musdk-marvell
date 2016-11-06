@@ -61,9 +61,9 @@ enum pp2_cls_tbl_mark_type {
 };
 
 enum pp2_cls_tbl_act {
-	PP2_CLS_TBL_MARK_T_DROP = 0,
-	PP2_CLS_TBL_MARK_T_LU,
-	PP2_CLS_TBL_MARK_T_DONE,
+	PP2_CLS_TBL_ACT_T_DROP = 0,
+	PP2_CLS_TBL_ACT_T_LU,
+	PP2_CLS_TBL_ACT_T_DONE,
 };
 
 struct cls_cos_desc {
@@ -76,11 +76,13 @@ struct pp2_cls_tbl_entry_action {
 	struct pp2_cls_tbl		*next_tbl;
 	/**< valid only in case of next-action is LU */
 
+#if 0 /* future ... */
 	enum pp2_cls_tbl_mark_type	 mark_type;
 	union {
 		u16			 flow_id;
 		u16			 qos;
 	} u;
+#endif /* 0 */
 
 	/* 'NULL' value means no-cos change; i.e. keep original cos */
 	struct cls_cos_desc		*cos;
