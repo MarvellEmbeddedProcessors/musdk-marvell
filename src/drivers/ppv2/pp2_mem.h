@@ -116,6 +116,24 @@ static inline void pp2_reg_write(uintptr_t cpu_slot, uint32_t offset,
 }
 
 /**
+ * Packet Processor register relaxed write function
+ * Offers lock-less access to shares resources based on PP CPU memory slots, without memory barriers.
+ *
+ * @param cpu_slot PP CPU slot
+ * @offset register offset
+ * @data data to feed register
+ *
+ */
+static inline void pp2_relaxed_reg_write(uintptr_t cpu_slot, uint32_t offset,
+				uint32_t data)
+{
+	uintptr_t addr = cpu_slot + offset;
+
+	writel_relaxed(data, (void *)addr);
+}
+
+
+/**
  * Packet Processor register read function
  * Offers lock-less access to shares resources based on PP CPU memory slots
  *
@@ -131,6 +149,23 @@ static inline uint32_t pp2_reg_read(uintptr_t cpu_slot, uint32_t offset)
 
 	return readl((void *)addr);
 }
+/**
+ * Packet Processor register relaxed read function
+ * Offers lock-less access to shares resources based on PP CPU memory slots, without memory mem_barriers.
+ *
+ * @param cpu_slot PP CPU slot
+ * @offset register offset
+ *
+ * @retval content of register
+ *
+ */
+static inline uint32_t pp2_relaxed_reg_read(uintptr_t cpu_slot, uint32_t offset)
+{
+	uintptr_t addr = cpu_slot + offset;
+
+	return readl_relaxed((void *)addr);
+}
+
 #define pp2_relaxed_read pp2_reg_read
 
 #endif /* _PP2_MEM_H_ */
