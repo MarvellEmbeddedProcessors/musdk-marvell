@@ -1194,7 +1194,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
    if (unlikely(dm_if->free_count < num_txds)) {
        uint32_t occ_desc;
        /* Update AGGR_Q status, just once */
-       occ_desc = pp2_reg_read(dm_if->cpu_slot,
+       occ_desc = pp2_relaxed_reg_read(dm_if->cpu_slot,
                   MVPP2_AGGR_TXQ_STATUS_REG(dm_if->id)) & MVPP2_AGGR_TXQ_PENDING_MASK;
        dm_if->free_count = dm_if->desc_total - occ_desc;
 
@@ -1211,8 +1211,8 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
        res_req = max((num_txds - txq_dm_if->desc_rsrvd), MVPP2_CPU_DESC_CHUNK);
 
        req_val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_req);
-       pp2_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, req_val);
-       rslt_val = pp2_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG);
+       pp2_relaxed_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, req_val);
+       rslt_val = pp2_relaxed_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG);
 
        txq_dm_if->desc_rsrvd += (rslt_val & MVPP2_TXQ_RSVD_RSLT_MASK);
 

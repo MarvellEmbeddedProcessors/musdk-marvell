@@ -221,7 +221,7 @@ struct pp2_desc *pp2_dm_if_next_desc_block_get(struct pp2_dm_if *dm_if, uint16_t
         *cont_desc = dm_if->desc_total - dm_if->desc_next_idx;
         dm_if->desc_next_idx = 0;
     } else {
-	    dm_if->desc_next_idx = tx_desc + num_desc;
+	dm_if->desc_next_idx = tx_desc + num_desc;
         *cont_desc = num_desc;
     }
 
