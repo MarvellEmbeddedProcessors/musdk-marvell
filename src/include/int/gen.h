@@ -38,6 +38,10 @@
 
 #define MV_PTR(_p, _offs)	(void*)((uint8_t*)(_p)+(_offs))
 
+#ifndef NOTUSED
+#define NOTUSED(_a) ((_a)=(_a))
+#endif /* !NOTUSED */
+
 #ifndef MEMBER_OFFSET
 /**
  * TODO
