@@ -1198,30 +1198,38 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
                   MVPP2_AGGR_TXQ_STATUS_REG(dm_if->id)) & MVPP2_AGGR_TXQ_PENDING_MASK;
        dm_if->free_count = dm_if->desc_total - occ_desc;
 
-       if (unlikely(dm_if->free_count < num_txds))
-           num_txds = dm_if->free_count;
+       if (unlikely(dm_if->free_count < num_txds)) {
+	    pr_debug("%s num_txds(%d), free_count(%d) occ_desc(%d)\n", __FUNCTION__, num_txds,
+	    	     dm_if->free_count, occ_desc);
+            num_txds = dm_if->free_count;
+       }
    }
    txq_dm_if = &(txq->txq_dm_if[dm_if->id]);
    if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
-       uint32_t val, res_request;
+       uint32_t req_val, rslt_val, res_req, prev_desc_rsrvd = txq_dm_if->desc_rsrvd;
 
-       res_request = max((num_txds - txq_dm_if->desc_rsrvd), MVPP2_CPU_DESC_CHUNK); //TODO: Make chunk_request dynamic.
+       res_req = max((num_txds - txq_dm_if->desc_rsrvd), MVPP2_CPU_DESC_CHUNK);
 
-       val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_request);
-       pp2_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, val);
-       val = pp2_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG);
+       req_val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_req);
+       pp2_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, req_val);
+       rslt_val = pp2_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG);
 
-       txq_dm_if->desc_rsrvd += (val & MVPP2_TXQ_RSVD_RSLT_MASK);
+       txq_dm_if->desc_rsrvd += (rslt_val & MVPP2_TXQ_RSVD_RSLT_MASK);
 
-       if (unlikely(txq_dm_if->desc_rsrvd < num_txds))
+       if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
+       	   pr_debug("%s prev_desc_rsrvd(%d) desc_rsrvd(%d) res_request(%d) num_txds(%d)\n",
+	   	    __FUNCTION__, prev_desc_rsrvd, txq_dm_if->desc_rsrvd, res_req, num_txds);
            num_txds = txq_dm_if->desc_rsrvd;
+       }
    }
    /* TODO: what happen in case num_txds is '0' now as there is no free space left???? */
-   //if (!num_txds) return 0;
+   if (!num_txds) {
+       	pr_debug("%s\ num_txds is zero \n", __FUNCTION__);
+   	return 0;
+   }
 
    tx_desc = pp2_dm_if_next_desc_block_get(dm_if, num_txds, &block_size);
 
-   //memcpy(tx_desc, &desc[0], block_size*sizeof(*tx_desc));
    for (i=0; i<block_size; i++) {
         /* TODO: impelement bellow in more methodologic way */
 	/* These are packets, not buffers from a packet (i.e. not fragmented) */
@@ -1229,27 +1237,22 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 	/* Destination physical queue ID */
 	DM_TXD_SET_DEST_QID(&desc[i], 128);
 	DM_TXD_SET_FL(&desc[i], 0x3);
-
-	((u32 *)tx_desc)[i+0] = desc[i].cmds[0];
-	((u32 *)tx_desc)[i+1] = desc[i].cmds[1];
-	((u32 *)tx_desc)[i+2] = desc[i].cmds[2];
-	((u32 *)tx_desc)[i+3] = desc[i].cmds[3];
-	((u32 *)tx_desc)[i+4] = desc[i].cmds[4];
-	((u32 *)tx_desc)[i+5] = desc[i].cmds[5];
-	((u32 *)tx_desc)[i+6] = desc[i].cmds[6];
-	((u32 *)tx_desc)[i+7] = desc[i].cmds[7];
    }
+   memcpy(tx_desc, &desc[0], block_size*sizeof(*tx_desc));
 
-   if (unlikely(block_size < num_txds)) {
-       int index = block_size;
-       tx_desc = pp2_dm_if_next_desc_block_get(dm_if, (num_txds - block_size), &block_size);
-#ifdef PP2_DEBUG
+   if (block_size < num_txds) {
+       uint16_t index = block_size;
+       uint16_t txds_remaining = num_txds - block_size;
+       tx_desc = pp2_dm_if_next_desc_block_get(dm_if, txds_remaining, &block_size);
        if ((index + block_size) != num_txds) {
-           pp2_err("failed copying %d tx_descirptors, in block#1:%u, block#2:%u\n", num_txds, i, block_size);
+       	   if (likely(num_txds > dm_if->desc_total)) {
+               pr_debug("[%s] More tx_descs(%u) than txq_len(%d) \n", __FUNCTION__, num_txds, txq_dm_if->desc_total);
+       	   } else {
+               pr_debug("failed copying tx_descs(%u),in block#1(%u),block#2(%u)\n", num_txds, i, block_size);
+       	   }
+	   num_txds = index + block_size;
        }
-#endif
 
-       //memcpy(tx_desc, &desc[index], block_size*sizeof(*tx_desc));
       for (i=0; i<block_size; i++) {
         /* TODO: impelement bellow in more methodologic way */
 	/* These are packets, not buffers from a packet (i.e. not fragmented) */
@@ -1257,16 +1260,9 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 	/* Destination physical queue ID */
 	DM_TXD_SET_DEST_QID(&desc[index+i], 128);
 	DM_TXD_SET_FL(&desc[index+i], 0x3);
-
-   	((u32 *)tx_desc)[i+0] = desc[index+i].cmds[0];
-   	((u32 *)tx_desc)[i+1] = desc[index+i].cmds[1];
-	((u32 *)tx_desc)[i+2] = desc[index+i].cmds[2];
-	((u32 *)tx_desc)[i+3] = desc[index+i].cmds[3];
-   	((u32 *)tx_desc)[i+4] = desc[index+i].cmds[4];
-  	((u32 *)tx_desc)[i+5] = desc[index+i].cmds[5];
-	((u32 *)tx_desc)[i+6] = desc[index+i].cmds[6];
-	((u32 *)tx_desc)[i+7] = desc[index+i].cmds[7];
       }
+      memcpy(tx_desc, &desc[index], block_size*sizeof(*tx_desc));
+
    }
 
    /* Trigger TX */
