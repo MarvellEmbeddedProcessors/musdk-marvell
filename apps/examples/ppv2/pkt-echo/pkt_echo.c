@@ -45,7 +45,8 @@
 
 #define BURST_SIZE	16
 #define PKT_OFFS	64
-#define PKT_EFEC_OFFS	(PKT_OFFS+2)
+#define PP2_MH_SIZE       (2) /* TODO: take this from ppio definitions.*/
+#define PKT_EFEC_OFFS	(PKT_OFFS+PP2_MH_SIZE)
 //#define USE_APP_PREFETCH
 #define PREFETCH_SHIFT	2
 
@@ -112,7 +113,7 @@ static int main_loop(struct glob_arg *garg)
 			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
 
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
-			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
+			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
 
 #ifdef USE_APP_PREFETCH
 			if (num-i > PREFETCH_SHIFT) {
@@ -283,8 +284,10 @@ int main (int argc, char *argv[])
 
 	garg.running = 1;
 
-	if ((err = main_loop(&garg)) != 0)
+	if ((err = main_loop(&garg)) != 0) {
+		pr_err("ERROR...bye ...\n");
 		return err;
+	}
 
 	destroy_local_modules(&garg);
 	destroy_all_modules();
