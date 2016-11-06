@@ -97,7 +97,7 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 
 	desc_sent = pp2_port_enqueue(ppio->port, dm_if, qid, desc_req, descs);
 	if (unlikely(desc_sent < desc_req)) {
-		pr_debug("[%s] pp2_id Port %u qid %u, send_request %u sent %u!\n", __FUNCTION__,
+		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __FUNCTION__,
 			 ppio->port->parent->id, ppio->port->id, qid, *num, desc_sent);
 		*num = desc_sent;
 		return(-EBUSY);
