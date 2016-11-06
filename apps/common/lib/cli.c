@@ -44,8 +44,6 @@
 #include "cli.h"
 
 
-#define UNUSED(_x) ((_x)=(_x))
-
 #define CLI_PRINT_BUF_SIZE	1024
 #define CLI_MAX_LINE_LENGTH	256
 #define CLI_TIMER_INTERVAL	128 /* 128 m-secs */
@@ -213,8 +211,9 @@ typedef struct cli_cmd_hist {
 typedef struct cli {
 	char		*prompt;
 	volatile int	 running;
-	uint32_t	 attributes;
-	void		 (*print_cb)   (const char *str, ...);
+	int		 no_block;
+	int		 echo;
+	int		 (*print_cb)   (const char *str, ...);
 	char		 (*get_char_cb) (void);
 	struct mvtimer	*timer;
 	pthread_mutex_t	 lock;
@@ -269,9 +268,25 @@ static int help_cmd_cb(struct cli *cli, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	UNUSED(argc);UNUSED(argv);
+	NOTUSED(argc);NOTUSED(argv);
 
 	dump_help(cli_p);
+
+	return 0;
+}
+
+static int quit_cmd_cb(struct cli *cli, int argc, char *argv[])
+{
+	cli_t	   *cli_p = (cli_t *)cli;
+
+	if (!cli_p) {
+		pr_err("Invalid CLI obj provided!\n");
+		return -EINVAL;
+	}
+
+	NOTUSED(argc);NOTUSED(argv);
+
+	cli_p->running = 0;
 
 	return 0;
 }
@@ -344,17 +359,17 @@ static int get_line(cli_t *cli_p, int *p_NumOfCharsRead)
 		if (cli_p->line[cli_p->curr_pos] == '\b') {
 			if (cli_p->curr_pos) {
 				cli_p->curr_pos--;
-				if (!(cli_p->attributes & CLI_ATT_NO_ECHO))
+				if (cli_p->echo)
 					cli_p->print_cb("\b \b");
 			}
 			continue;
 		}
 
-		if (!(cli_p->attributes & CLI_ATT_NO_ECHO))
+		if (cli_p->echo)
 			cli_p->print_cb("%c", cli_p->line[cli_p->curr_pos]);
 		if (cli_p->line[cli_p->curr_pos] != '\n') {
 			if (cli_p->line[cli_p->curr_pos] == '\r') {
-				if (!(cli_p->attributes & CLI_ATT_NO_ECHO))
+				if (cli_p->echo)
 					cli_p->print_cb("\n");
 				break;
 			}
@@ -466,6 +481,14 @@ static void init_builtin_cmds(cli_t *cli_p)
 	cmd_params.cmd_arg	= cli_p;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))help_cmd_cb;
 	cli_register_cmd(cli_p, &cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "q";
+	cmd_params.desc		= "Quit; TODO";
+	cmd_params.format	= "q";
+	cmd_params.cmd_arg	= cli_p;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))quit_cmd_cb;
+	cli_register_cmd(cli_p, &cmd_params);
 }
 
 
@@ -495,8 +518,9 @@ struct cli * cli_init(struct cli_params *cli_params)
 	if (cli_params->prompt != NULL)
 		memcpy(cli_p->prompt, cli_params->prompt, strlen(cli_params->prompt));
 	else
-		memcpy(cli_p->prompt, "MUSDK", 4);
-	cli_p->attributes = cli_params->attributes;
+		memcpy(cli_p->prompt, "MUSDK", 5);
+	cli_p->no_block = cli_params->no_block;
+	cli_p->echo = cli_params->echo;
 	cli_p->print_cb	= cli_params->print_cb;
 	cli_p->get_char_cb  = cli_params->get_char_cb;
 
@@ -568,7 +592,7 @@ int cli_run(struct cli *cli)
 		return -EINVAL;
 	}
 
-	if (!(cli_p->attributes & CLI_ATT_BLOCKING)) {
+	if (cli_p->no_block) {
 		cli_p->timer = create_timer();
 		if (!cli_p->timer) {
 			pr_err("Failed to init CLI timer!\n");

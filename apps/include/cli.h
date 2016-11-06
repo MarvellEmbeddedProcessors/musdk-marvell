@@ -39,10 +39,6 @@
 struct cli;
 
 
-/* CLI attributes options */
-#define CLI_ATT_BLOCKING	0x80000000
-#define CLI_ATT_NO_ECHO		0x40000000
-
 #define CLI_MAX_CMD_LINE_LENGTH	 100
 
 
@@ -51,13 +47,15 @@ struct cli_cmd_params {
 	const char	*desc;
 	const char	*format;
 	void		*cmd_arg;
-	int		 (*do_cmd_cb)(void *, int, char *[]);
+	int		 	 (*do_cmd_cb)(void *, int, char *[]);
 };
 
 struct cli_params {
 	char		*prompt;
-	uint32_t	 attributes;
-	void		 (*print_cb)   (const char *str, ...);
+	int			 no_block;
+	int			 echo;
+
+	int			 (*print_cb)   (const char *fmt, ...);
 	char		 (*get_char_cb) (void);
 };
 
