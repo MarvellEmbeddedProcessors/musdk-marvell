@@ -40,7 +40,7 @@
 struct pp2_cls_tbl;
 
 
-#define PP2_CLS_TBL_MAX_NUM_FIELDS	12
+#define PP2_CLS_TBL_MAX_NUM_FIELDS	5
 
 
 enum pp2_cls_tbl_type {
@@ -48,19 +48,15 @@ enum pp2_cls_tbl_type {
 	PP2_CLS_TBL_T_EM_w_MASK
 };
 
-enum pp2_cls_tbl_statistics_mode {
-	PP2_CLS_TBL_STATS_M_NONE = 0,
-	PP2_CLS_TBL_STATS_M_FRM,
-	PP2_CLS_TBL_STATS_M_BYTES
-};
+/* TODO: Future
+ * enum pp2_cls_tbl_statistics_mode {
+ *	PP2_CLS_TBL_STATS_M_NONE = 0,
+ *	PP2_CLS_TBL_STATS_M_FRM,
+ *	PP2_CLS_TBL_STATS_M_BYTES
+ * };
+ */
 
-enum pp2_cls_tbl_mark_type {
-	PP2_CLS_TBL_MARK_T_NONE = 0,
-	PP2_CLS_TBL_MARK_T_FLOW_ID,
-	PP2_CLS_TBL_MARK_T_QOS
-};
-
-enum pp2_cls_tbl_act {
+enum pp2_cls_tbl_entry_action_type {
 	PP2_CLS_TBL_ACT_T_DROP = 0,
 	PP2_CLS_TBL_ACT_T_LU,
 	PP2_CLS_TBL_ACT_T_DONE,
@@ -72,7 +68,7 @@ struct cls_cos_desc {
 };
 
 struct pp2_cls_tbl_entry_action {
-	enum pp2_cls_tbl_act		 next_act;
+	enum pp2_cls_tbl_entry_action_type		type;
 	struct pp2_cls_tbl		*next_tbl;
 	/**< valid only in case of next-action is LU */
 
@@ -102,7 +98,7 @@ struct pp2_cls_tbl_params {
 	u16					 max_num_rules;
 	struct pp2_cls_tbl_key			 key;
 
-	enum pp2_cls_tbl_statistics_mode	 stats_mode;
+	/* TODO: enum pp2_cls_tbl_statistics_mode	 stats_mode; */
 
 	/* TODO: enum pp2_cls_tbl_aging_mode	 aging_mode; */
 	/* TODO: enum pp2_cls_tbl_priority_mode	 prio_mode; */
