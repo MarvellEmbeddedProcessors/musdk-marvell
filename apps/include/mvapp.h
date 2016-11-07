@@ -38,14 +38,14 @@
 struct mvapp_params {
 	int			 use_cli;
 	int			 num_cores;
+	u32			 cores_mask;
 
 	void		*global_arg;
 	int			 (*init_global_cb)(void *);
 	void		 (*deinit_global_cb)(void *);
 
-	void		*local_arg;
-	int			 (*init_local_cb)(void *);
-	int			 (*main_loop_cb)(void *);
+	int			 (*init_local_cb)(void *, void **);
+	int			 (*main_loop_cb)(void *, volatile int *);
 	void		 (*deinit_local_cb)(void *);
 };
 
