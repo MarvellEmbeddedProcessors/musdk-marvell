@@ -5,18 +5,18 @@
   and/or modify this File under the following licensing terms.
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are met:
-  
+
   	* Redistributions of source code must retain the above copyright
 	  notice, this list of conditions and the following disclaimer.
-  
+
   	* Redistributions in binary form must reproduce the above copyright
   	  notice, this list of conditions and the following disclaimer in the
   	  documentation and/or other materials provided with the distribution.
-  
+
   	* Neither the name of Marvell nor the names of its contributors may be
   	  used to endorse or promote products derived from this software
 	  without specific prior written permission.
-  
+
   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -119,7 +119,7 @@ struct pp2_ppio_params {
 	enum pp2_ppio_type		 type; /* TODO: support only "NIC" type for short-term! */
 	struct pp2_ppio_inqs_params	 inqs_params;
 	struct pp2_ppio_outqs_params	 outqs_params;
-/* TODO: do we need extra pools per port? 
+/* TODO: do we need extra pools per port?
 	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
 */
 };
@@ -238,7 +238,7 @@ static inline void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc)
 #define DM_TXD_SET_GEN_IP_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_IP_CHK_MASK) | (data << 15 & TXD_GEN_IP_CHK_MASK))
 
-	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] = 
+	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] =
 	desc->cmds[5] = desc->cmds[7] = 0;
 
 	/* Do not generate L4 nor IPv4 header checksum by default */
@@ -262,7 +262,7 @@ static inline void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struc
 {
 	/* TODO: we write here the pool hardcoded!!! */
 	desc->cmds[0] = (desc->cmds[0] & ~(TXD_POOL_ID_MASK | TXD_BUFMODE_MASK)) |
-		(0 << 16 & TXD_POOL_ID_MASK) | 
+		(0 << 16 & TXD_POOL_ID_MASK) |
 		(1 << 7 & TXD_BUFMODE_MASK);
 }
 
