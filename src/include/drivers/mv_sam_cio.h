@@ -38,10 +38,10 @@
 
 #define SAM_CIO_MAX_FRAGS 20
 
-struct sam_cio;
-
 struct sam_cio_params {
-	u8  id;   /* ring id */
+	/** Used to find SAM HW instance in DTS file. "sam-0" means unit[0] */
+	const char *match;
+	u8  id;   /* ring id in SAM HW unit */
 	u32 size; /* ring size in number of descriptors */
 	u32 num_sessions; /* number of supported sessions */
 	u32 max_buf_size; /* maximum buffer size [in bytes] */
@@ -81,7 +81,7 @@ struct sam_cio_op_params {
 
 struct sam_cio_op_result {
 	void			*cookie; /* caller cookie passed from request */
-	enum sam_cio_op_status	*status; /* status of crypto operation. */
+	enum sam_cio_op_status	status; /* status of crypto operation. */
 };
 
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio);

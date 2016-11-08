@@ -35,7 +35,7 @@
 
 #include "mv_std.h"
 
-
+struct sam_cio;
 struct sam_sa;
 
 /* Represend operation direction */
@@ -112,7 +112,9 @@ struct sam_session_params {
 	u32 auth_aad_len;   /* Additional Data (AAD) size (in bytes) */
 };
 
-int sam_session_create(struct sam_session_params *params, struct sam_sa **sa);
+int sam_session_create(struct sam_cio *cio, struct sam_session_params *params,
+		       struct sam_sa **sa);
+
 int sam_session_destroy(struct sam_sa *sa);
 
 #endif /* __MV_SAM_SESSION_H__ */
