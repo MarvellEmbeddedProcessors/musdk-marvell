@@ -70,14 +70,55 @@ struct sam_cio {
 
 struct sam_sa {
 	bool is_valid;
-	struct sam_session_params params;
+	struct sam_session_params	params;
 	/* Fields needed for EIP197 HW */
 	SABuilder_Params_Basic_t	basic_params;
 	SABuilder_Params_t		sa_params;
 	struct sam_dmabuf		sa_dmabuf;
-	u32				sa_word_count;
+	u32				sa_words;
 	u8				tcr_data[SAM_TCR_DATA_SIZE];
-	u32				tcr_word_count;
+	u32				tcr_words;
+	u32				token_words;
 };
 
+static inline u32 sam_cio_next_idx(struct sam_cio *cio, u32 idx)
+{
+	idx++;
+	if (idx == cio->params.size)
+		idx = 0;
+
+	return idx;
+}
+
+static inline u32 sam_cio_prev_idx(struct sam_cio *cio, u32 idx)
+{
+	if (idx == 0)
+		idx = cio->params.size - 1;
+	else
+		idx--;
+
+	return idx;
+}
+
+/* next_request + 1 == next_result -> Full */
+static inline bool sam_cio_is_full(struct sam_cio *cio)
+{
+	return (sam_cio_next_idx(cio, cio->next_request) == cio->next_result);
+}
+
+/* next_request == next_result -> Empty */
+static inline bool sam_cio_is_empty(struct sam_cio *cio)
+{
+	return (cio->next_request == cio->next_result);
+}
+
+static inline int sam_max_check(int value, int limit, const char *name)
+{
+	if ((value < 0) || (value >= limit)) {
+		pr_err("%s %d is out of range [0..%d]\n",
+			name ? name : "value", value, (limit - 1));
+		return 1;
+	}
+	return 0;
+}
 #endif /* _SAM_H_ */
