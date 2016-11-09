@@ -18,7 +18,7 @@
 #include "pp2_bm.h"
 
 #include "pp2_gop_dbg.h"
-#include "pp2_qos.h"
+#include "pp2_hw_cls.h"
 //#include "int/xflags.h"
 
 

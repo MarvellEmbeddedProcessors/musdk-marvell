@@ -6,8 +6,8 @@
  *
  */
 
-#ifndef _PP2_QOS_H_
-#define _PP2_QOS_H_
+#ifndef _PP2_HW_CLS_H_
+#define _PP2_HW_CLS_H_
 
 #include <netinet/in.h>
 
@@ -140,4 +140,4 @@ void mv_pp2x_prs_mac_entry_del(struct pp2_port *port, enum mv_pp2x_l2_cast l2_ca
 int mv_pp2x_open_cls(struct pp2_port *port);
 void ppdk_cls_default_config_set(struct pp2_inst *inst);
 void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en);
-#endif /* _PP2_QOS_H_ */
+#endif /* _PP2_HW_CLS_H_ */

@@ -17,7 +17,7 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 #include "pp2_bm.h"
-#include "pp2_qos.h"
+#include "pp2_hw_cls.h"
 #include "pp2_gop_dbg.h"
 
 /* TODO: temporary we add the prototypes here until we use the musdk ones */

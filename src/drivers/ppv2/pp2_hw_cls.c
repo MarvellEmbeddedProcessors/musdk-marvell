@@ -4,7 +4,7 @@
 
 #include "pp2.h"
 #include "pp2_print.h"
-#include "pp2_qos.h"
+#include "pp2_hw_cls.h"
 #include "mv_pp2x_hw_type.h"
 
 /* TODO: Keep these until classifier phase */
