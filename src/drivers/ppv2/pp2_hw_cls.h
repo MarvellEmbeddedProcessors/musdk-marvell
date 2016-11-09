@@ -18,7 +18,12 @@
 #define MV_ERROR		(-1)
 #define MV_OK			(0)
 
-#define WAY_MAX			1
+#define WAY_MAX			(1)
+#define NOT_IN_USE		(-1)
+#define IN_USE			(1)
+#define DWORD_BITS_LEN		(32)
+#define RETRIES_EXCEEDED	(15000)
+#define MVPP2_CLS_C3_SC_RES_TBL_SIZE	(256)
 
 /* HW_BYTE_OFFS
  * return HW byte offset in 4 bytes register
@@ -118,6 +123,9 @@ struct ipv6hdr {
 	struct	 in6_addr daddr;
 };
 
+int mv_pp2x_ptr_validate(const void *ptr);
+int mv_pp2x_range_validate(int value, int min, int max);
+
 void mv_pp2x_prs_flow_id_attr_init(void);
 int mv_pp2x_prs_default_init(struct pp2_hw *hw);
 int mv_pp2x_cls_init(struct pp2_hw *hw);
@@ -140,4 +148,78 @@ void mv_pp2x_prs_mac_entry_del(struct pp2_port *port, enum mv_pp2x_l2_cast l2_ca
 int mv_pp2x_open_cls(struct pp2_port *port);
 void ppdk_cls_default_config_set(struct pp2_inst *inst);
 void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en);
+
+/*-------------------------------------------------------------------------------*/
+/*	C3 Common utilities							  */
+/*-------------------------------------------------------------------------------*/
+int pp2_cls_c3_init(struct pp2_port *port);
+void pp2_cls_c3_shadow_init(void);
+int pp2_cls_c3_shadow_free_get(void);
+int pp2_cls_c3_shadow_ext_free_get(void);
+int pp2_cls_c3_shadow_ext_status_get(int index);
+void pp2_cls_c3_shadow_clear(int index);
+void pp2_cls_c3_shadow_get(int index, int *hek_size, int *ext_index);
+
+/*-------------------------------------------------------------------------------*/
+/*	APIs for Classification C3 engine						  */
+/*-------------------------------------------------------------------------------*/
+int pp2_cls_c3_hw_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int index);
+int pp2_cls_c3_hw_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int index, int ext_index);
+int pp2_cls_c3_hw_miss_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int lkp_type);
+int pp2_cls_c3_hw_del(struct pp2_port *port, int index);
+int pp2_cls_c3_hw_del_all(struct pp2_port *port);
+void pp2_cls_c3_sw_clear(struct pp2_cls_c3_entry *c3);
+void pp2_cls_c3_hw_init_ctr_set(int cnt_val);
+int pp2_cls_c3_hw_query(struct pp2_port *port, struct pp2_cls_c3_entry *c3, u8 *occupied_bmp, int index[]);
+int pp2_cls_c3_hw_query_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int max_search_depth,
+			    struct pp2_cls_c3_hash_pair *hash_pair_arr);
+int pp2_cls_c3_hw_miss_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int lkp_type);
+
+/*-------------------------------------------------------------------------------*/
+/*	APIs for Classification C3 key fields						  */
+/*-------------------------------------------------------------------------------*/
+int pp2_cls_c3_sw_l4_info_set(struct pp2_cls_c3_entry *c3, int l4info);
+int pp2_cls_c3_sw_lkp_type_set(struct pp2_cls_c3_entry *c3, int lkp_type);
+int pp2_cls_c3_sw_port_id_set(struct pp2_cls_c3_entry *c3, int type, int portid);
+int pp2_cls_c3_sw_hek_size_set(struct pp2_cls_c3_entry *c3, int hek_size);
+int pp2_cls_c3_sw_hek_byte_set(struct pp2_cls_c3_entry *c3, u32 offs, u8 byte);
+int pp2_cls_c3_sw_hek_word_set(struct pp2_cls_c3_entry *c3, u32 offs, u32 word);
+
+/*-------------------------------------------------------------------------------*/
+/*	APIs for Classification C3 action table fields					  */
+/*-------------------------------------------------------------------------------*/
+int pp2_cls_c3_color_set(struct pp2_cls_c3_entry *c3, int cmd);
+int pp2_cls_c3_queue_high_set(struct pp2_cls_c3_entry *c3, int cmd, int q);
+int pp2_cls_c3_queue_low_set(struct pp2_cls_c3_entry *c3, int cmd, int q);
+int pp2_cls_c3_queue_set(struct pp2_cls_c3_entry *c3, int cmd, int queue);
+int pp2_cls_c3_forward_set(struct pp2_cls_c3_entry *c3, int cmd);
+int pp2_cls_c3_policer_set(struct pp2_cls_c3_entry *c3, int cmd, int policer_id, int bank);
+int pp2_cls_c3_flow_id_en(struct pp2_cls_c3_entry *c3, int flowid_en);
+int pp2_cls_c3_rss_set(struct pp2_cls_c3_entry *c3, int cmd, int rss_en);
+int pp2_cls_c3_mtu_set(struct pp2_cls_c3_entry *c3, int mtu_inx);
+int pp2_cls_c3_mod_set(struct pp2_cls_c3_entry *c3, int data_ptr, int instr_offs, int l4_csum);
+int pp2_cls_c3_dup_set(struct pp2_cls_c3_entry *c3, int dupid, int count);
+int pp2_cls_c3_seq_set(struct pp2_cls_c3_entry *c3, int id, int bits_offs, int bits);
+
+/*-------------------------------------------------------------------------------*/
+/*	APIs for Classification C3 Hit counters management				  */
+/*-------------------------------------------------------------------------------*/
+int pp2_cls_c3_hit_cntrs_read(struct pp2_port *port, int index, u32 *cntr);
+int pp2_cls_c3_hit_cntrs_clear_all(struct pp2_port *port);
+int pp2_cls_c3_hit_cntrs_read_all(struct pp2_port *port);
+int pp2_cls_c3_hit_cntrs_clear(struct pp2_port *port, int lkp_type);
+int pp2_cls_c3_hit_cntrs_miss_read(struct pp2_port *port, int lkp_type, u32 *cntr);
+
+/*-------------------------------------------------------------------------------*/
+/*	 APIs for Classification C3 hit counters scan fields operation			  */
+/*-------------------------------------------------------------------------------*/
+int pp2_cls_c3_scan_start(struct pp2_port *port);
+int pp2_cls_c3_scan_thresh_set(struct pp2_port *port, int mode, int thresh);
+int pp2_cls_c3_scan_clear_before_en_set(struct pp2_port *port, int en);
+int pp2_cls_c3_scan_lkp_type_set(struct pp2_port *port, int type);
+int pp2_cls_c3_scan_start_index_set(struct pp2_port *port, int idx);
+int pp2_cls_c3_scan_delay_set(struct pp2_port *port, u32 time);
+int pp2_cls_c3_scan_res_read(struct pp2_port *port, int index, int *addr, int *cnt);
+int pp2_cls_c3_scan_num_of_res_get(struct pp2_port *port, int *res_num);
+
 #endif /* _PP2_HW_CLS_H_ */

@@ -759,12 +759,94 @@
 		((MVPP2_CLS3_HIT_COUNTER_MAX) << MVPP2_CLS3_SC_RES_CTR)
 
 #define MVPP2_CLS3_ACT_REG			0x1D40
+#define MVPP2_CLS3_ACT_COLOR			0
+#define MVPP2_CLS3_ACT_COLOR_BITS		3
+#define MVPP2_CLS3_ACT_COLOR_MASK		(((1 << MVPP2_CLS3_ACT_COLOR_BITS) \
+						- 1) << MVPP2_CLS3_ACT_COLOR)
+#define MVPP2_CLS3_ACT_LOW_Q			9
+#define MVPP2_CLS3_ACT_LOW_Q_BITS		2
+#define MVPP2_CLS3_ACT_LOW_Q_MASK		(((1 << MVPP2_CLS3_ACT_LOW_Q_BITS) \
+						- 1) << MVPP2_CLS3_ACT_LOW_Q)
+#define MVPP2_CLS3_ACT_HIGH_Q			11
+#define MVPP2_CLS3_ACT_HIGH_Q_BITS		2
+#define MVPP2_CLS3_ACT_HIGH_Q_MASK		(((1 << MVPP2_CLS3_ACT_HIGH_Q_BITS) \
+						- 1) << MVPP2_CLS3_ACT_HIGH_Q)
+#define MVPP2_CLS3_ACT_FWD				13
+#define MVPP2_CLS3_ACT_FWD_BITS			3
+#define MVPP2_CLS3_ACT_FWD_MASK			(((1 << MVPP2_CLS3_ACT_FWD_BITS) \
+						- 1) << MVPP2_CLS3_ACT_FWD)
+#define MVPP2_CLS3_ACT_POLICER_SELECT		16
+#define MVPP2_CLS3_ACT_POLICER_SELECT_BITS	2
+#define MVPP2_CLS3_ACT_POLICER_SELECT_MASK	(((1 << MVPP2_CLS3_ACT_POLICER_SELECT_BITS) \
+						- 1) << MVPP2_CLS3_ACT_POLICER_SELECT)
+#define MVPP2_CLS3_ACT_FLOW_ID_EN		18
+#define MVPP2_CLS3_ACT_FLOW_ID_EN_MASK		(1 << MVPP2_CLS3_ACT_FLOW_ID_EN)
+#define MVPP2_CLS3_ACT_RSS_EN			19
+#define MVPP2_CLS3_ACT_RSS_EN_BITS		2
+#define MVPP2_CLS3_ACT_RSS_EN_MASK		(((1 << MVPP2_CLS3_ACT_RSS_EN_BITS) \
+						- 1) << MVPP2_CLS3_ACT_RSS_EN)
 
 #define MVPP2_CLS3_ACT_QOS_ATTR_REG		0x1D44
+#define MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q		21
+#define MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_BITS	3
+#define MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_MAX	((1 << MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_BITS) - 1)
+#define MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_MASK	(MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_MAX << \
+						 MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q)
+#define MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q		24
+#define MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_BITS	5
+#define MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_MAX	((1 << MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_BITS) - 1)
+#define MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_MASK	(MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_MAX << \
+						 MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q)
+
+#define MVPP2_CLS3_ACT_QOS_ATTR_Q_MAX		((1 << (MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_BITS + \
+						 MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_BITS)) - 1)
 
 #define MVPP2_CLS3_ACT_HWF_ATTR_REG		0x1D48
+#define	MVPP2_CLS3_ACT_HWF_ATTR_DPTR		1
+#define	MVPP2_CLS3_ACT_HWF_ATTR_DPTR_BITS	15
+#define	MVPP2_CLS3_ACT_HWF_ATTR_DPTR_MASK	(((1 << MVPP2_CLS3_ACT_HWF_ATTR_DPTR_BITS) - 1) << \
+						 MVPP2_CLS3_ACT_HWF_ATTR_DPTR)
+#define	MVPP2_CLS3_ACT_HWF_ATTR_DPTR_MAX	((1 << MVPP2_CLS3_ACT_HWF_ATTR_DPTR_BITS) - 1)
+#define	MVPP2_CLS3_ACT_HWF_ATTR_IPTR		16
+#define	MVPP2_CLS3_ACT_HWF_ATTR_IPTR_BITS	8
+#define	MVPP2_CLS3_ACT_HWF_ATTR_IPTR_MASK	(((1 << MVPP2_CLS3_ACT_HWF_ATTR_IPTR_BITS) - 1) << \
+						 MVPP2_CLS3_ACT_HWF_ATTR_IPTR)
+#define	MVPP2_CLS3_ACT_HWF_ATTR_IPTR_MAX	((1 << MVPP2_CLS3_ACT_HWF_ATTR_IPTR_BITS) - 1)
+
+#define	MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN	24
+#define	MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN_MASK	(1 << MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN)
+
+#define MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX		25
+#define MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_BITS	4
+#define MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_MAX	((1 << MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_BITS) - 1)
+#define	MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_MASK	((MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_MAX) << \
+						 MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX)
 
 #define MVPP2_CLS3_ACT_DUP_ATTR_REG		0x1D4C
+#define MVPP2_CLS3_ACT_DUP_FID			0
+#define MVPP2_CLS3_ACT_DUP_FID_BITS		8
+#define MVPP2_CLS3_ACT_DUP_FID_MASK		(((1 << MVPP2_CLS3_ACT_DUP_FID_BITS) - 1) << \
+						MVPP2_CLS3_ACT_DUP_FID)
+#define MVPP2_CLS3_ACT_DUP_FID_MAX		((1 << MVPP2_CLS3_ACT_DUP_FID_BITS) - 1)
+
+#define MVPP2_CLS3_ACT_DUP_COUNT		8
+#define MVPP2_CLS3_ACT_DUP_COUNT_BITS		4
+#define MVPP2_CLS3_ACT_DUP_COUNT_MASK		(((1 << MVPP2_CLS3_ACT_DUP_COUNT_BITS) - 1) << \
+						 MVPP2_CLS3_ACT_DUP_COUNT)
+#define MVPP2_CLS3_ACT_DUP_COUNT_MAX		14
+
+#define MVPP2_CLS3_ACT_DUP_POLICER_ID		24
+#define MVPP2_CLS3_ACT_DUP_POLICER_ID_BITS	5
+#define MVPP2_CLS3_ACT_DUP_POLICER_MASK		(((1 << MVPP2_CLS3_ACT_DUP_POLICER_ID_BITS) \
+						 - 1) << MVPP2_CLS3_ACT_DUP_POLICER_ID)
+#define MVPP2_CLS3_ACT_DUP_POLICER_MAX		((1 << MVPP2_CLS3_ACT_DUP_POLICER_ID_BITS) - 1)
+
+#define MVPP2_CLS3_ACT_DUP_POLICER_BANK_BIT	29
+#define MVPP2_CLS3_ACT_DUP_POLICER_BANK_MASK	(1 << MVPP2_CLS3_ACT_DUP_POLICER_BANK_BIT)
+
+#define MVPP2_CLS3_ACT_DUP_RSS_EN_BIT		30
+#define MVPP2_CLS3_ACT_DUP_RSS_EN_MASK		(1 << MVPP2_CLS3_ACT_DUP_RSS_EN_BIT)
+
 #define MVPP2_CLS3_ACT_SEQ_L_ATTR_REG		0x1D50
 #define MVPP2_CLS3_ACT_SEQ_H_ATTR_REG		0x1D54
 #define MVPP2_CLS3_ACT_SEQ_SIZE			38
@@ -2172,6 +2254,7 @@ struct mv_pp2x_engine_pkt_action {
 	enum mv_pp2x_general_action_type	gemp_act;
 	enum mv_pp2x_general_action_type	q_low_act;
 	enum mv_pp2x_general_action_type	q_high_act;
+	enum mv_pp2x_general_action_type	policer_act;
 	enum mv_pp2x_general_action_type	rss_act;
 	enum mv_pp2x_flowid_action_type		flowid_act;
 	enum mv_pp2x_frwd_action_type		frwd_act;
@@ -2204,13 +2287,13 @@ struct mv_pp2x_c2_add_entry {
 	uint8_t				lkp_type;
 	uint8_t				lkp_type_mask;
 	/* priority in this look_type */
-	uint32_t				priority;
+	uint32_t			priority;
 	/* all the qos input */
 	struct mv_pp2x_engine_qos_info	qos_info;
 	/* update&lock info */
-	struct mv_pp2x_engine_pkt_action	action;
+	struct mv_pp2x_engine_pkt_action action;
 	/* pri/dscp/gemport/qLow/qHigh */
-	struct mv_pp2x_qos_value		qos_value;
+	struct mv_pp2x_qos_value	qos_value;
 	/* PMT cmd_idx and data_idx */
 	struct mv_pp2x_engine_pkt_mod	pkt_mod;
 	/* RSS enable or disable */
@@ -2339,13 +2422,13 @@ struct mv_pp22_rss_entry {
 #define KEY_CTRL_HEK_SIZE_MAX			36
 #define KEY_CTRL_HEK_SIZE_MASK			(((1 << KEY_CTRL_HEK_SIZE_BITS) - 1) << KEY_CTRL_HEK_SIZE)
 
-struct mv_pp2x_cls_c3_hash_pair {
+struct pp2_cls_c3_hash_pair {
 	uint16_t pair_num;
 	uint16_t old_idx[MVPP2_CLS_C3_MAX_SEARCH_DEPTH];
 	uint16_t new_idx[MVPP2_CLS_C3_MAX_SEARCH_DEPTH];
 };
 
-struct mv_pp2x_cls_c3_entry {
+struct pp2_cls_c3_entry {
 	uint32_t index;
 	uint32_t ext_index;
 
@@ -2369,7 +2452,7 @@ struct mv_pp2x_cls_c3_entry {
 	} sram;
 };
 
-struct mv_pp2x_cls_c3_shadow_hash_entry {
+struct pp2_cls_c3_shadow_hash_entry {
 	/* valid if size > 0 */
 	/* size include the extension*/
 	int ext_ptr;

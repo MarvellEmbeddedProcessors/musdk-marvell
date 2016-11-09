@@ -60,6 +60,7 @@ libmusdk_la_SOURCES += drivers/ppv2/pp2_mem.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_gop.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_gop_dbg.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_hw_cls.c
+libmusdk_la_SOURCES += drivers/ppv2/pp2_hw_cls_dbg.c
 libmusdk_la_SOURCES += drivers/ppv2/bpool.c
 libmusdk_la_SOURCES += drivers/ppv2/hif.c
 libmusdk_la_SOURCES += drivers/ppv2/ppio.c
