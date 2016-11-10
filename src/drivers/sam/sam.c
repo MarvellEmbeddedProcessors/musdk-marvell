@@ -9,12 +9,18 @@
 
 #include "sam.h"
 
+/*#define SAM_DMA_DEBUG*/
+
 static struct sam_cio	*sam_ring;
 static struct sam_sa	*sam_sessions;
 
 
 static void sam_dmabuf_free(struct sam_dmabuf *dmabuf)
 {
+#ifdef SAM_DMA_DEBUG
+	pr_info("free DMA buffer: size = %d bytes, vaddr = %p, handle = %p\n",
+		dmabuf->size, dmabuf->host_addr.p, dmabuf->hndl.p);
+#endif
 	if (dmabuf->size) {
 		DMABuf_Release(dmabuf->hndl);
 		dmabuf->size = 0;
@@ -45,8 +51,8 @@ static int sam_dmabuf_alloc(u32 buf_size, struct sam_dmabuf *dmabuf)
 	dmabuf->size = buf_size;
 
 #ifdef SAM_DMA_DEBUG
-	pr_dbg("allocate DMA buffer: vaddr = %p, handle = %p",
-		dmabuf->host_addr.p, dmabuf->hndl.p);
+	pr_info("allocate DMA buffer: size = %d bytes, vaddr = %p, handle = %p\n",
+		buf_size, dmabuf->host_addr.p, dmabuf->hndl.p);
 #endif
 	return 0;
 }
@@ -202,6 +208,68 @@ static int sam_session_auth_init(struct sam_session_params *params,
 	return 0;
 }
 
+static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
+				struct sam_cio_op *operation,
+				PEC_CommandDescriptor_t *cmd_desc,
+				PEC_PacketParams_t *pkt_params)
+{
+	struct sam_sa *session = request->sa;
+	TokenBuilder_Params_t token_params;
+	u32 copylen, token_header_word, token_words;
+	TokenBuilder_Status_t rc;
+
+	memset(&token_params, 0, sizeof(token_params));
+	if (request->auth_len) {
+		copylen = request->auth_len;
+		if (session->params.dir == SAM_DIR_DECRYPT)
+			copylen += session->params.auth_icv_len;
+	} else {
+		/* chipher only */
+		copylen = request->cipher_len;
+	}
+	if (request->cipher_iv)
+		token_params.IV_p = request->cipher_iv;
+
+	if (request->auth_len && request->cipher_len)
+		token_params.AdditionalValue = request->auth_len - request->cipher_len;
+
+	if (request->auth_len)
+		token_params.BypassByteCount = request->auth_offset;
+	else
+		token_params.BypassByteCount = request->cipher_offset;
+
+	/* process AAD  - TBD */
+
+	/* Copy data from user buffer to DMA buffer */
+	memcpy(operation->data_dmabuf.host_addr.p, request->src[0]->vaddr,
+		token_params.BypassByteCount + copylen);
+
+	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)request->src[0]->vaddr,
+				     copylen, &token_params,
+				     operation->token_dmabuf.host_addr.p,
+				     &token_words, &token_header_word);
+	if (rc != TKB_STATUS_OK) {
+		pr_err("%s: TokenBuilder_BuildToken failed, rc = %d\n",
+			__func__, rc);
+		return -EINVAL;
+	}
+	cmd_desc->SA_Handle1       = session->sa_dmabuf.hndl;
+	cmd_desc->SA_WordCount     = session->sa_words;
+	cmd_desc->SA_Handle2       = DMABuf_NULLHandle;
+	cmd_desc->Token_Handle     = operation->token_dmabuf.hndl;
+	cmd_desc->SrcPkt_Handle    = operation->data_dmabuf.hndl;
+	cmd_desc->DstPkt_Handle    = operation->data_dmabuf.hndl;
+	cmd_desc->User_p           = (void *)operation;
+	cmd_desc->SrcPkt_ByteCount = copylen;
+	cmd_desc->Token_WordCount  = token_words;
+	pkt_params->HW_Services  = FIRMWARE_EIP207_CMD_PKT_LAC;
+	pkt_params->TokenHeaderWord = token_header_word;
+
+	return 0;
+}
+
+/*********************** Public functions implementation *******************/
+
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
 	int i;
@@ -250,7 +318,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	sam_ring->params = *params;
 
 	/* Allocate configured number of sam_sa structures */
-	sam_sessions = kcalloc(params->num_sessions, sizeof(struct sam_cio), GFP_KERNEL);
+	sam_sessions = kcalloc(params->num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
 	if (!sam_sessions) {
 		pr_err("Can't allocate %u * %lu bytes for sam_sa structures\n",
 			params->num_sessions, sizeof(struct sam_sa));
@@ -381,7 +449,8 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 
 	rc = TokenBuilder_GetContextSize(&session->sa_params, &session->tcr_words);
 	if (rc != 0) {
-		pr_err("%s: TokenBuilder_GetContextSize return error, rc = %d\n", __func__, rc);
+		pr_err("%s: TokenBuilder_GetContextSize return error, rc = %d\n",
+			__func__, rc);
 		goto error_session;
 	}
 	if (session->tcr_words > SAM_TCR_DATA_SIZE / 4) {
@@ -409,18 +478,22 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	}
 
 	/* build the SA data and init according the parameters */
-	rc = SABuilder_BuildSA(&session->sa_params, (u32 *)session->sa_dmabuf.host_addr.p, NULL, NULL);
+	rc = SABuilder_BuildSA(&session->sa_params,
+				(u32 *)session->sa_dmabuf.host_addr.p, NULL, NULL);
 	if (rc != 0) {
-		pr_err("%s: SABuilder_BuildSA failed, rx = %d\n", __func__, rc);
+		pr_err("%s: SABuilder_BuildSA failed, rc = %d\n", __func__, rc);
 		goto error_session;
 	}
 
 	/* Register the SA. */
-	rc = PEC_SA_Register(cio->params.id, session->sa_dmabuf.hndl, DMABuf_NULLHandle, DMABuf_NULLHandle);
+	rc = PEC_SA_Register(cio->params.id, session->sa_dmabuf.hndl,
+			     DMABuf_NULLHandle, DMABuf_NULLHandle);
 	if (rc != PEC_STATUS_OK) {
-		pr_err("%s: PEC_SA_Register failed.  rc = %d\n", __func__, rc);
+		pr_err("%s: PEC_SA_Register on ring %d failed. rc = %d\n",
+			__func__, cio->params.id, rc);
 		goto error_session;
 	}
+	session->cio = cio;
 
 	*sa = session;
 
@@ -431,8 +504,21 @@ error_session:
 	return -EINVAL;
 }
 
-int sam_session_destroy(struct sam_sa *sa)
+int sam_session_destroy(struct sam_sa *session)
 {
+	struct sam_cio *cio = session->cio;
+	PEC_Status_t rc;
+
+	/* Unregister the SA. */
+	rc = PEC_SA_UnRegister(cio->params.id, session->sa_dmabuf.hndl,
+				DMABuf_NULLHandle, DMABuf_NULLHandle);
+	if (rc != PEC_STATUS_OK) {
+		pr_err("%s: PEC_SA_UnRegister on ring %d failed. rc = %d\n",
+			__func__, cio->params.id, rc);
+		return -EINVAL;
+	}
+	sam_session_free(session);
+
 	return 0;
 }
 
@@ -456,7 +542,12 @@ static int sam_cio_check_op_params(struct sam_cio_op_params *request)
 
 int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request)
 {
-	struct sam_sa *session = request->sa;
+	struct sam_cio_op *operation;
+	PEC_CommandDescriptor_t cmd;
+	PEC_PacketParams_t pkt_params;
+	PEC_Status_t rc;
+	u32 count;
+	int i;
 
 	/* Check request validity */
 	if (sam_cio_check_op_params(request))
@@ -467,16 +558,93 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request)
 		pr_warning("SAM cio %d is full\n", cio->params.id);
 		return -EBUSY;
 	}
+	/* Get next operation structure */
+	operation = &cio->operations[cio->next_request];
+	cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 
 	/* Prepare request for submit */
+	memset(&cmd, 0, sizeof(cmd));
+	memset(&pkt_params, 0, sizeof(pkt_params));
+
+	if (sam_hw_cmd_desc_init(request, operation, &cmd, &pkt_params))
+		goto error_enq;
+
+	/* Save some fields from request needed for result processing */
+	operation->sa = request->sa;
+	operation->cookie = request->cookie;
+	operation->num_bufs = request->num_bufs;
+	operation->auth_icv_offset = request->auth_icv_offset;
+	for (i = 0;  i < request->num_bufs; i++) {
+		operation->out_frags[i].vaddr = request->dst[i]->vaddr;
+		operation->out_frags[i].len = request->dst[i]->len;
+	}
 
 	/* submit request */
+	rc = PEC_CD_Control_Write(&cmd, &pkt_params);
+	if (rc != PEC_STATUS_OK) {
+		pr_err("%s: PEC_CD_Control_Write failed, rc = %d\n",
+			__func__, rc);
+		goto error_enq;
+	}
 
+	rc = PEC_Packet_Put(cio->params.id, &cmd, 1, &count);
+	if ((rc != PEC_STATUS_OK) && (count != 1)) {
+		pr_err("%s: PEC_Packet_Put failed, rc = %d, count = %d\n",
+			__func__, rc, count);
+		goto error_enq;
+	}
 	return 0;
+
+error_enq:
+	return -EINVAL;
 }
 
+/* Process crypto operation result */
 int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result)
 {
+	PEC_Status_t rc;
+	PEC_ResultDescriptor_t result_desc;
+	PEC_ResultStatus_t result_status;
+	u32 counter;
+	struct sam_cio_op *operation;
+
+	/* Try to get the processed packet from the RDR */
+	rc = PEC_Packet_Get(cio->params.id, &result_desc, 1, &counter);
+	if (rc != PEC_STATUS_OK) {
+		pr_err("%s: PEC_Packet_Get failed, rc = %d\n", __func__, rc);
+		return -EINVAL;
+	}
+	if (counter == 0) /* No results are ready */
+		return -EBUSY;
+
+	operation = result_desc.User_p;
+	rc = PEC_RD_Status_Read(&result_desc, &result_status);
+	if (rc != PEC_STATUS_OK) {
+		pr_err("%s: PEC_RD_Status_Read failed, rc = %d\n",
+			__func__, rc);
+		return -EINVAL;
+	}
+	result->cookie = operation->cookie;
+
+	if (result_status.errors == 0)
+		result->status = SAM_CIO_OK;
+	else if (PEC_PKT_ERROR_AUTH & result_status.errors)
+		result->status = SAM_CIO_ERR_ICV;
+	else
+		result->status = SAM_CIO_ERR_HW;
+
+	/* Copy output data to user buffer */
+	if (operation->out_frags[0].len < result_desc.DstPkt_ByteCount) {
+		pr_err("%s: DstPkt_ByteCount %d bytes is larger than output buffer %d bytes\n",
+			__func__, result_desc.DstPkt_ByteCount, operation->out_frags[0].len);
+		return -EINVAL;
+	}
+	memcpy(operation->out_frags[0].vaddr, result_desc.DstPkt_p,
+		result_desc.DstPkt_ByteCount);
+
+	/* Increment next result index */
+	cio->next_result = sam_cio_next_idx(cio, cio->next_result);
+
 	return 0;
 }
 

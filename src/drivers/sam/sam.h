@@ -13,13 +13,14 @@
 
 #include <drivers/mv_sam.h>
 
+#include "cs_driver.h"
 #include "api_pec.h"
 #include "api_dmabuf.h"
 #include "api_driver197_init.h"
 #include "sa_builder.h"
 #include "sa_builder_basic.h"
 #include "token_builder.h"
-#include "cs_driver.h"
+#include "firmware_eip207_api_cmd.h"
 
 #define SAM_DMABUF_ALIGN	4 /* cache line */
 
@@ -55,6 +56,9 @@ struct sam_dmabuf {
 struct sam_cio_op {
 	bool is_valid;
 	struct sam_sa *sa;
+	u32  num_bufs;        /* number of output buffers */
+	struct sam_buf_info out_frags[SAM_CIO_MAX_FRAGS]; /* array of output buffers */
+	u32  auth_icv_offset; /* offset of ICV in the buffer (in bytes) */
 	void *cookie;
 	struct sam_dmabuf token_dmabuf; /* DMA buffer for token  */
 	struct sam_dmabuf data_dmabuf;  /* DMA buffer for data */
@@ -71,6 +75,7 @@ struct sam_cio {
 struct sam_sa {
 	bool is_valid;
 	struct sam_session_params	params;
+	struct sam_cio			*cio;
 	/* Fields needed for EIP197 HW */
 	SABuilder_Params_Basic_t	basic_params;
 	SABuilder_Params_t		sa_params;
