@@ -241,10 +241,10 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	/* process AAD  - TBD */
 
 	/* Copy data from user buffer to DMA buffer */
-	memcpy(operation->data_dmabuf.host_addr.p, request->src[0]->vaddr,
+	memcpy(operation->data_dmabuf.host_addr.p, request->src->vaddr,
 		token_params.BypassByteCount + copylen);
 
-	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)request->src[0]->vaddr,
+	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)request->src->vaddr,
 				     copylen, &token_params,
 				     operation->token_dmabuf.host_addr.p,
 				     &token_words, &token_header_word);
@@ -529,29 +529,32 @@ static int sam_cio_check_op_params(struct sam_cio_op_params *request)
 		return -ENOTSUP;
 	}
 
-	if (request->src[0] == NULL) {
+	if (request->src == NULL) {
 		/* One source buffer is mandatory */
 		return -ENOTSUP;
 	}
 
-	if (request->dst[0] == NULL)
-		request->dst[0] = request->src[0];
+	if (request->dst == NULL) {
+		/* One destination buffer is mandatory */
+		return -ENOTSUP;
+	}
 
 	return 0;
 }
 
-int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request)
+int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request, u16 *num)
 {
 	struct sam_cio_op *operation;
 	PEC_CommandDescriptor_t cmd;
 	PEC_PacketParams_t pkt_params;
 	PEC_Status_t rc;
-	u32 count;
-	int i;
+	unsigned int count = 0;
+	int i, err;
 
 	/* Check request validity */
-	if (sam_cio_check_op_params(request))
-		return -EINVAL;
+	err = sam_cio_check_op_params(request);
+	if (err)
+		return err;
 
 	/* Check maximum number of pending requests */
 	if (sam_cio_is_full(cio)) {
@@ -575,8 +578,8 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request)
 	operation->num_bufs = request->num_bufs;
 	operation->auth_icv_offset = request->auth_icv_offset;
 	for (i = 0;  i < request->num_bufs; i++) {
-		operation->out_frags[i].vaddr = request->dst[i]->vaddr;
-		operation->out_frags[i].len = request->dst[i]->len;
+		operation->out_frags[i].vaddr = request->dst[i].vaddr;
+		operation->out_frags[i].len = request->dst[i].len;
 	}
 
 	/* submit request */
@@ -588,11 +591,13 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request)
 	}
 
 	rc = PEC_Packet_Put(cio->params.id, &cmd, 1, &count);
-	if ((rc != PEC_STATUS_OK) && (count != 1)) {
+	if (rc != PEC_STATUS_OK) {
 		pr_err("%s: PEC_Packet_Put failed, rc = %d, count = %d\n",
 			__func__, rc, count);
 		goto error_enq;
 	}
+	*num = (u16)count;
+
 	return 0;
 
 error_enq:
@@ -600,21 +605,21 @@ error_enq:
 }
 
 /* Process crypto operation result */
-int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result)
+int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num)
 {
 	PEC_Status_t rc;
 	PEC_ResultDescriptor_t result_desc;
 	PEC_ResultStatus_t result_status;
-	u32 counter;
+	unsigned int count;
 	struct sam_cio_op *operation;
 
 	/* Try to get the processed packet from the RDR */
-	rc = PEC_Packet_Get(cio->params.id, &result_desc, 1, &counter);
+	rc = PEC_Packet_Get(cio->params.id, &result_desc, 1, &count);
 	if (rc != PEC_STATUS_OK) {
 		pr_err("%s: PEC_Packet_Get failed, rc = %d\n", __func__, rc);
 		return -EINVAL;
 	}
-	if (counter == 0) /* No results are ready */
+	if (count == 0) /* No results are ready */
 		return -EBUSY;
 
 	operation = result_desc.User_p;

@@ -66,8 +66,8 @@ struct sam_cio_op_params {
 	struct sam_sa *sa;    /* session handler */
 	void *cookie;         /* caller cookie to be return unchanged */
 	u32  num_bufs;        /* number of input/output buffers */
-	struct sam_buf_info *src[SAM_CIO_MAX_FRAGS]; /* array of input buffers */
-	struct sam_buf_info *dst[SAM_CIO_MAX_FRAGS]; /* array of output buffers */
+	struct sam_buf_info *src; /* array of input buffers */
+	struct sam_buf_info *dst; /* array of output buffers */
 	u32  cipher_iv_offset;/* IV offset in the buffer (in bytes) */
 	u8   *cipher_iv;      /* pointer to external IV buffer */
 	u32  cipher_offset;   /* start of data for encryption (in bytes) */
@@ -87,8 +87,8 @@ struct sam_cio_op_result {
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio);
 int sam_cio_deinit(struct sam_cio *cio);
 
-int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request);
-int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result);
+int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request, u16 *num);
+int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num);
 
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
