@@ -1222,7 +1222,6 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
            num_txds = txq_dm_if->desc_rsrvd;
        }
    }
-   /* TODO: what happen in case num_txds is '0' now as there is no free space left???? */
    if (!num_txds) {
        	pr_debug("%s\ num_txds is zero \n", __FUNCTION__);
    	return 0;
@@ -1230,38 +1229,31 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 
    tx_desc = pp2_dm_if_next_desc_block_get(dm_if, num_txds, &block_size);
 
-   for (i=0; i<block_size; i++) {
-        /* TODO: impelement bellow in more methodologic way */
-	/* These are packets, not buffers from a packet (i.e. not fragmented) */
-	DM_TXD_SET_FORMAT(&desc[i], 0x01);
+   for (i = 0; i<block_size; i++) {
 	/* Destination physical queue ID */
 	DM_TXD_SET_DEST_QID(&desc[i], 128);
-	DM_TXD_SET_FL(&desc[i], 0x3);
+	__builtin_memcpy(&tx_desc[i], &desc[i], sizeof(*tx_desc));
    }
-   memcpy(tx_desc, &desc[0], block_size*sizeof(*tx_desc));
 
    if (block_size < num_txds) {
        uint16_t index = block_size;
        uint16_t txds_remaining = num_txds - block_size;
        tx_desc = pp2_dm_if_next_desc_block_get(dm_if, txds_remaining, &block_size);
-       if ((index + block_size) != num_txds) {
+       if (unlikely((index + block_size) != num_txds)) {
        	   if (likely(num_txds > dm_if->desc_total)) {
-               pr_debug("[%s] More tx_descs(%u) than txq_len(%d) \n", __FUNCTION__, num_txds, txq_dm_if->desc_total);
+               pr_debug("[%s] More tx_descs(%u) than txq_len(%u) \n", __FUNCTION__, num_txds, txq_dm_if->desc_total);
        	   } else {
-               pr_debug("failed copying tx_descs(%u),in block#1(%u),block#2(%u)\n", num_txds, i, block_size);
+               pr_debug("[%s] failed copying tx_descs(%u),in block#1(%u),block#2(%u) txq_len(%u)\n", num_txds, i,
+	       	        block_size, txq_dm_if->desc_total);
        	   }
 	   num_txds = index + block_size;
        }
 
-      for (i=0; i<block_size; i++) {
-        /* TODO: impelement bellow in more methodologic way */
-	/* These are packets, not buffers from a packet (i.e. not fragmented) */
-	DM_TXD_SET_FORMAT(&desc[index+i], 0x01);
+      for (i = 0; i < block_size; i++) {
 	/* Destination physical queue ID */
 	DM_TXD_SET_DEST_QID(&desc[index+i], 128);
-	DM_TXD_SET_FL(&desc[index+i], 0x3);
-      }
-      memcpy(tx_desc, &desc[index], block_size*sizeof(*tx_desc));
+	__builtin_memcpy(&tx_desc[i], &desc[index+i], sizeof(*tx_desc));
+     }
 
    }
 
