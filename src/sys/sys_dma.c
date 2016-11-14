@@ -116,7 +116,13 @@ int mv_sys_dma_mem_init(u64 size)
 		__dma_phys_base = sys_dma->dma_phys_base;
 		__dma_virt_base = sys_dma->dma_virt_base;
 	}
-
+	pr_debug("[%s] __dma_phys_base(0x%lx) __dma_virt_base(%p)\n", __FUNCTION__,
+		  __dma_phys_base, __dma_virt_base);
+#ifdef DEBUG
+	for (int i = 0; i < size; i++) {
+		*((char *)__dma_virt_base + i) = 0xA;
+	}
+#endif
 	return 0;
 }
 
