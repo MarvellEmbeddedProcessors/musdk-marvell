@@ -30,6 +30,9 @@
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
+#include <linux/skbuff.h>
+
+
 
 #include "../include/mv_pp_uio.h"
 
@@ -442,6 +445,19 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	mutex_init(&uio_pdrv_pp->lock);
 
 	err = mv_pp_clk_bind(uio_pdrv_pp);
+
+	if (!dev->archdata.dma_coherent) {
+		dev_err(dev, "Not dma_coherent\n");
+	}
+
+	pdev->dev.dma_mask = kmalloc(sizeof(*pdev->dev.dma_mask), GFP_KERNEL);
+	err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (err == 0)
+		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (err) {
+		dev_err(&pdev->dev, "mv_pp_uio: cannot set dma_mask\n");
+	}
+
 	if (err)
 		goto fail;
 
