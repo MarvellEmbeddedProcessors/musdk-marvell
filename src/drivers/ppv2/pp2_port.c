@@ -1160,7 +1160,7 @@ pp2_port_outq_status(struct pp2_dm_if *dm_if, uint32_t outq_physid)
 {
    uint32_t cnt;
    /* Reading status reg resets transmitted descriptor counter */
-   cnt = pp2_reg_read(dm_if->cpu_slot, MVPP22_TXQ_SENT_REG(outq_physid));
+   cnt = pp2_relaxed_reg_read(dm_if->cpu_slot, MVPP22_TXQ_SENT_REG(outq_physid));
    return (cnt & MVPP22_TRANSMITTED_COUNT_MASK) >> MVPP22_TRANSMITTED_COUNT_OFFSET;
 }
 

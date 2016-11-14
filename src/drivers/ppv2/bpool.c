@@ -157,11 +157,11 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 		high_addr_reg |= (phys_hi << MVPP22_BM_PHY_HIGH_RLS_OFFSET);
 #endif
 
-		pp2_reg_write(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_RLS_REG, high_addr_reg);
+		pp2_relaxed_reg_write(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_RLS_REG, high_addr_reg);
 	}
 #endif
-	pp2_reg_write(cpu_slot, MVPP2_BM_VIRT_RLS_REG, virt_lo);
-	pp2_reg_write(cpu_slot, MVPP2_BM_PHY_RLS_REG(pool->id), phys_lo);
+	pp2_relaxed_reg_write(cpu_slot, MVPP2_BM_VIRT_RLS_REG, virt_lo);
+	pp2_relaxed_reg_write(cpu_slot, MVPP2_BM_PHY_RLS_REG(pool->id), phys_lo);
 
 	return 0;
 }
