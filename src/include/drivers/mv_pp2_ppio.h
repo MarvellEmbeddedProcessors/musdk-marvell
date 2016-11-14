@@ -195,6 +195,9 @@ enum pp2_inq_desc_status {
 
 /******************** TxQ-desc *****************/
 /* cmd 0 */
+#define TXD_FIRST                  (0x2)
+#define TXD_LAST                   (0x1)
+#define TXD_FIRST_LAST             (0x3)
 #define TXD_L_MASK                 (0x10000000)
 #define TXD_F_MASK                 (0x20000000)
 #define TXD_FL_MASK                (TXD_F_MASK | TXD_L_MASK)
@@ -237,6 +240,8 @@ static inline void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc)
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
 #define DM_TXD_SET_GEN_IP_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_IP_CHK_MASK) | (data << 15 & TXD_GEN_IP_CHK_MASK))
+#define DM_TXD_SET_FIRST_LAST(desc, data) 	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FL_MASK) | (data << 28 & TXD_FL_MASK))
 
 	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] =
 	desc->cmds[5] = desc->cmds[7] = 0;
@@ -244,6 +249,7 @@ static inline void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc)
 	/* Do not generate L4 nor IPv4 header checksum by default */
 	DM_TXD_SET_GEN_IP_CHK(desc, 0x01);
 	DM_TXD_SET_GEN_L4_CHK(desc, 0x02);
+	DM_TXD_SET_FIRST_LAST(desc, TXD_FIRST_LAST);
 }
 
 static inline void pp2_ppio_outq_desc_set_phys_addr(struct pp2_ppio_desc *desc, dma_addr_t addr)
