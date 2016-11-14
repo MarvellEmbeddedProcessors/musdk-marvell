@@ -32,31 +32,40 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "mv_std.h"
 #include "lib/misc.h"
 #include "sys_dma.h"
+#include "mvapp.h"
+
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"
 #include "mv_pp2_bpool.h"
 #include "mv_pp2_ppio.h"
 
 
+#define BUF_LEN		2048
+#define Q_SIZE		1024
 #define BURST_SIZE	16
 #define PKT_OFFS	64
-#define PP2_MH_SIZE       (2) /* TODO: take this from ppio definitions.*/
+#define PP2_MH_SIZE	(2) /* TODO: take this from ppio definitions.*/
 #define PKT_EFEC_OFFS	(PKT_OFFS+PP2_MH_SIZE)
-//#define USE_APP_PREFETCH
-#define PREFETCH_SHIFT	2
+
+#define DO_PKT_ECHO
+#define USE_APP_PREFETCH
+#define PREFETCH_SHIFT	4
 
 
 struct glob_arg {
 	int			 verbose;
-	int			 running;
 	struct pp2_hif		*hif;
 	struct pp2_bpool	*pool;
 	struct pp2_ppio		*port;
+};
+
+struct local_arg {
+	struct glob_arg		*garg;
+	struct pp2_hif		*hif;
 };
 
 
@@ -70,6 +79,7 @@ static inline void prefetch(const void *ptr)
 }
 #endif /* USE_APP_PREFETCH */
 
+#ifdef DO_PKT_ECHO
 static inline void swap_l2(char *buf)
 {
 	uint16_t *eth_hdr;
@@ -96,25 +106,32 @@ static inline void swap_l3(char *buf)
 	((uint32_t *)buf)[0] = ((uint32_t *)buf)[1];
 	((uint32_t *)buf)[1] = tmp32;
 }
+#endif /* DO_PKT_ECHO */
 
 
-static int main_loop(struct glob_arg *garg)
+static int main_loop(void *arg, volatile int *running)
 {
+	struct glob_arg		*garg = (struct glob_arg *)arg;
 	struct pp2_ppio_desc	 descs[BURST_SIZE];
 	int			 err;
 	u16			 i,num;
 
-	while (garg->running) {
-		num = BURST_SIZE;
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
 
+	while (*running) {
+		num = BURST_SIZE;
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
 
 		for (i=0; i<num; i++) {
 			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
-
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
 
+//printf("packet:\n"); mem_disp(buff, len);
+#ifdef DO_PKT_ECHO
 #ifdef USE_APP_PREFETCH
 			if (num-i > PREFETCH_SHIFT) {
 				char *tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+PREFETCH_SHIFT]);
@@ -122,10 +139,12 @@ static int main_loop(struct glob_arg *garg)
 				prefetch(tmp_buff);
 			}
 #endif /* USE_APP_PREFETCH */
-			//printf("packet:\n"); mem_disp(buff, len);
+
 			swap_l2(buff);
 			swap_l3(buff);
-			//printf("packet:\n"); mem_disp(buff, len);
+//printf("packet:\n"); mem_disp(buff, len);
+#endif /* DO_PKT_ECHO */
+
 			pp2_ppio_outq_desc_reset(&descs[i]);
 			pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff-PKT_EFEC_OFFS));
@@ -144,8 +163,8 @@ descs[i].cmds[5],
 descs[i].cmds[6],
 descs[i].cmds[7]);
 */
-
 		}
+
 		if (num && ((err = pp2_ppio_send(garg->port, garg->hif, 0, descs, &num)) != 0))
 			return err;
 
@@ -192,7 +211,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	memset(&hif_params, 0, sizeof(hif_params));
 	hif_params.match = "hif-0";
-	hif_params.out_size = 1024;
+	hif_params.out_size = Q_SIZE;
 	if ((err = pp2_hif_init(&hif_params, &garg->hif)) != 0)
 		return err;
 	if (!garg->hif) {
@@ -203,7 +222,7 @@ static int init_local_modules(struct glob_arg *garg)
 	memset(&bpool_params, 0, sizeof(bpool_params));
 	bpool_params.match = "pool-0:0";
 	bpool_params.max_num_buffs = 8192;
-	bpool_params.buff_len = 2048;
+	bpool_params.buff_len = BUF_LEN;
 	if ((err = pp2_bpool_init(&bpool_params, &garg->pool)) != 0)
 		return err;
 	if (!garg->pool) {
@@ -212,7 +231,7 @@ static int init_local_modules(struct glob_arg *garg)
 	}
 	for (i=0; i<1024; i++) {
 		struct pp2_buff_inf buff;
-		buff.cookie = (uintptr_t)mv_sys_dma_mem_alloc(2048, 4);
+		buff.cookie = (uintptr_t)mv_sys_dma_mem_alloc(BUF_LEN, 4);
 		if (!buff.cookie) {
 			pr_err("failed to allocate mem (%d)!\n", i);
 			return -1;
@@ -228,11 +247,11 @@ static int init_local_modules(struct glob_arg *garg)
 	port_params.inqs_params.num_tcs = 1;
 	port_params.inqs_params.tcs_params[0].pkt_offset = PKT_OFFS>>2;
 	port_params.inqs_params.tcs_params[0].num_in_qs = 1;
-	inq_params.size = 1024;
+	inq_params.size = Q_SIZE;
 	port_params.inqs_params.tcs_params[0].inqs_params = &inq_params;
 	port_params.inqs_params.tcs_params[0].pools[0] = garg->pool;
 	port_params.outqs_params.num_outqs = 1;
-	port_params.outqs_params.outqs_params[0].size = 1024;
+	port_params.outqs_params.outqs_params[0].size = Q_SIZE;
 	port_params.outqs_params.outqs_params[0].weight = 1;
 	if ((err = pp2_ppio_init(&port_params, &garg->port)) != 0)
 		return err;
@@ -268,30 +287,73 @@ static void destroy_all_modules(void)
 	mv_sys_dma_mem_destroy();
 }
 
+static int init_global(void *arg)
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+	int		 err;
+
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	if ((err = init_all_modules()) != 0)
+		return err;
+
+	if ((err = init_local_modules(garg)) != 0)
+		return err;
+
+	return 0;
+}
+
+static void deinit_global(void *arg)
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg)
+		return;
+	destroy_local_modules(garg);
+	destroy_all_modules();
+}
+
+static int init_local(void *arg, void **larg)
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	*larg = garg;
+	return 0;
+}
+
+static void deinit_local(void *arg)
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg)
+		return;
+}
+
+
 int main (int argc, char *argv[])
 {
-	int		err;
+	struct mvapp_params	mvapp_params;
 
 	setbuf(stdout, NULL);
 
 	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
 
-	if ((err = init_all_modules()) != 0)
-		return err;
-
-	if ((err = init_local_modules(&garg)) != 0)
-		return err;
-
-	garg.running = 1;
-
-	if ((err = main_loop(&garg)) != 0) {
-		pr_err("ERROR...bye ...\n");
-		return err;
-	}
-
-	destroy_local_modules(&garg);
-	destroy_all_modules();
-
-	printf("bye ...\n");
-	return 0;
+	memset(&mvapp_params, 0, sizeof(mvapp_params));
+	mvapp_params.use_cli		= 1;
+	mvapp_params.num_cores		= 1;
+	mvapp_params.global_arg		= (void *)&garg;
+	mvapp_params.init_global_cb	= init_global;
+	mvapp_params.deinit_global_cb	= deinit_global;
+	mvapp_params.init_local_cb	= init_local;
+	mvapp_params.deinit_local_cb	= deinit_local;
+	mvapp_params.main_loop_cb	= main_loop;
+	return mvapp_go(&mvapp_params);
 }

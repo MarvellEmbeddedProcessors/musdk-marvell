@@ -14,7 +14,7 @@ SRCDIR  = $(TOPSRC)
 TD = $(TOPSRC)
 D = $(SRCDIR)
 
-CC= $(CROSS_COMPILE)gcc
+CC= $(CROSS_COMPILE)gcc -lrt -lpthread
 AS= $(CROSS_COMPILE)as
 AR= $(CROSS_COMPILE)ar rvs
 LD= $(CROSS_COMPILE)ld

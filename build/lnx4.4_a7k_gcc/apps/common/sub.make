@@ -3,10 +3,11 @@
 ###############################################################################
 SUBDIRS := lib
 
+OBJ := mvapp.o
 INC := $(TOPINC)
 DEF := $(TOPDEF)
 
-lcommon.o: lcommon_lib.o
+lcommon.o: lcommon_lib.o $(OBJ)
 	@(echo "(LD)  $@ <= $^")
 	@($(LD) -r -o $@ -Map $*.map $^)
 
