@@ -100,7 +100,6 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __FUNCTION__,
 			 ppio->port->parent->id, ppio->port->id, qid, *num, desc_sent);
 		*num = desc_sent;
-		return(-EBUSY);
 	}
 	return(0);
 }
