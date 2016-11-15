@@ -13,7 +13,7 @@
 
 #include "pp2_types.h"
 
-#include "mv_pp2x_hw_type.h"
+#include "pp2_hw_type.h"
 
 #define MV_ERROR		(-1)
 #define MV_OK			(0)

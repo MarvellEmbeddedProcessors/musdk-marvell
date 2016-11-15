@@ -389,10 +389,6 @@ struct pp2_desc *pp2_dm_if_next_desc_block_get(struct pp2_dm_if *dm_if, uint16_t
 /* IPv6 packet */
 #define TXD_L3_IPV6                      (0x01)
 /* Last buffer */
-#define TXD_LAST                         (0x01)
-/* First buffer */
-#define TXD_FIRST                        (0x01)
-#define TXD_FL                           (0x03)
 /* Buffer format */
 #define TXD_FMT_BUF                      (0x00)
 /* Packet format */

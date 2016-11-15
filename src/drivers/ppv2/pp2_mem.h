@@ -11,7 +11,7 @@
 #include "pp2_types.h"
 
 #include "lib/uio_helper.h"
-#include "mv_pp2x_hw_type.h"
+#include "pp2_hw_type.h"
 
 
 /**

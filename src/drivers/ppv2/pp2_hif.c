@@ -5,7 +5,7 @@
 
 #include "lib/misc.h"
 
-#include "hif.h"
+#include "pp2_hif.h"
 #include "pp2.h"
 #include "pp2_dm.h"
 

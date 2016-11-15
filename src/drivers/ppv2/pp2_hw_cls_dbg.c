@@ -12,7 +12,7 @@
 #include "pp2_print.h"
 #include "pp2_hw_cls.h"
 #include "pp2_hw_cls_dbg.h"
-#include "mv_pp2x_hw_type.h"
+#include "pp2_hw_type.h"
 
 /*-------------------------------------------------------------------------------*/
 /*	C3 DUMPS functions							  */

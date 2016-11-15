@@ -11,9 +11,9 @@
 #include "pp2_types.h"
 
 #include "pp2_util.h"
-#include "mv_pp2x_hw_type.h"
+#include "pp2_hw_type.h"
 #include "pp2.h"
-#include "bpool.h"
+#include "pp2_bpool.h"
 #include "pp2_dm.h"
 #include "pp2_port.h"
 #include "pp2_bm.h"

@@ -7,10 +7,10 @@
 #include "lib/misc.h"
 
 #include "assert.h"
-#include "bpool.h"
+#include "pp2_bpool.h"
 #include "pp2.h"
 #include "pp2_bm.h"
-#include "hif.h"
+#include "pp2_hif.h"
 
 
 static struct pp2_bpool pp2_bpool[PP2_MAX_NUM_PACKPROCS][PP2_NUM_BMPOOLS];

@@ -5,7 +5,7 @@
  */
 #include "pp2_types.h"
 
-#include "mv_pp2x_hw_type.h"
+#include "pp2_hw_type.h"
 #include "pp2.h"
 #include "pp2_dm.h"
 #include "pp2_port.h"

@@ -9,7 +9,7 @@
 #include "lib/misc.h"
 #include "drivers/mv_pp2_ppio.h"
 
-#include "hif.h"
+#include "pp2_hif.h"
 #include "pp2.h"
 #include "pp2_port.h"
 
