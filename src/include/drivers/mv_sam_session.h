@@ -38,14 +38,14 @@
 struct sam_cio;
 struct sam_sa;
 
-/* Represend operation direction */
+/** Crypto operation direction */
 enum sam_dir {
-	SAM_DIR_ENCRYPT = 0, /* encrypt and/or generate signature */
-	SAM_DIR_DECRYPT,     /* decrypt and/or verify signature */
+	SAM_DIR_ENCRYPT = 0, /**< encrypt and/or generate signature */
+	SAM_DIR_DECRYPT,     /**< decrypt and/or verify signature */
 	SAM_DIR_LAST,
 };
 
-/* Represent cipher algorithm to be used for encryption/decryption */
+/** Cipher algorithm for encryption/decryption */
 enum sam_cipher_alg {
 	SAM_CIPHER_NONE = 0,
 	SAM_CIPHER_DES,
@@ -54,7 +54,7 @@ enum sam_cipher_alg {
 	SAM_CIPHER_ALG_LAST,
 };
 
-/* Represent cipher mode to be used for encryption/decryption */
+/** Cipher mode for encryption/decryption */
 enum sam_cipher_mode {
 	SAM_CIPHER_ECB = 0,
 	SAM_CIPHER_CBC,
@@ -70,7 +70,7 @@ enum sam_cipher_mode {
 	SAM_CIPHER_MODE_LAST,
 };
 
-/* Represent algorithm to be used for authentication */
+/** Authentication algorithm */
 enum sam_auth_alg {
 	SAM_AUTH_NONE = 0,
 	SAM_AUTH_HASH_MD5,
@@ -97,24 +97,56 @@ enum sam_auth_alg {
 	SAM_AUTH_ALG_LAST,
 };
 
-
+/**
+ * Crypto session parameters
+ *
+ * Notes:
+ *	- "cipher_iv" is valid only if "crypto_mode" requires IV.
+ *	If "cipher_iv" != NULL, IV for all crypto operations for this session will
+ *	be derived from the "cipher_iv". "cipher_iv" and "cipher_iv_offset" fields in
+ *	"struct sam_cio_op_params" will be ignored.
+ *	If "cipher_iv" == NULL, IV value must be valid in "struct sam_cio_op_params".
+ *	- Size of "cipher_iv" buffer is derived from cipher algorithm.
+ *	- "auth_aad_len" field is valid only when "crypto_mode" is GCM or GMAC.
+ *	- "auth_inner" and "auth_outer" are valid only if authentication algorithm
+ *	requires key. Size of "auth_inner" and "auth_outer" buffers is derived from
+ *	authentication algorithm.
+ */
 struct sam_session_params {
-	enum sam_dir dir;   /* operation direction: encode/decode */
-	enum sam_cipher_alg cipher_alg;  /* cipher algorithm */
-	enum sam_cipher_mode cipher_mode;/* cipher mode */
-	u8  *cipher_iv;     /* default IV */
-	u8  *cipher_key;    /* cipher key */
-	u32 cipher_key_len; /* cipher key size (in bytes) */
-	enum sam_auth_alg auth_alg; /* authentication algorithm */
-	u8  *auth_inner;    /* pointer to authentication inner block */
-	u8  *auth_outer;    /* pointer to authentication outer block */
-	u32 auth_icv_len;   /* Integrity Check Value (ICV) size (in bytes) */
-	u32 auth_aad_len;   /* Additional Data (AAD) size (in bytes) */
+	enum sam_dir dir;                /**< operation direction: encode/decode */
+	enum sam_cipher_alg cipher_alg;  /**< cipher algorithm */
+	enum sam_cipher_mode cipher_mode;/**< cipher mode */
+	u8  *cipher_iv;                  /**< session cipher IV */
+	u8  *cipher_key;                 /**< cipher key */
+	u32 cipher_key_len;              /**< cipher key size (in bytes) */
+	enum sam_auth_alg auth_alg;      /**< authentication algorithm */
+	u8  *auth_inner;                 /**< pointer to authentication inner block */
+	u8  *auth_outer;                 /**< pointer to authentication outer block */
+	u32 auth_icv_len;                /**< Integrity Check Value (ICV) size (in bytes) */
+	u32 auth_aad_len;                /**< Additional Data (AAD) size (in bytes) */
 };
 
+/**
+ * Create new crypto session
+ *
+ * @param[in]	cio       - crypto IO instance handler.
+ * @param[in]	params    - pointer to structure with crypto session parameters.
+ * @param[out]	sa        - address of place to save handler of new created crypto session.
+ *
+ * @retval	0         - success
+ * @retval	Negative  - failure
+ */
 int sam_session_create(struct sam_cio *cio, struct sam_session_params *params,
 		       struct sam_sa **sa);
 
+/**
+ * Delete existing crypto session
+ *
+ * @param[in]	sa	  - crypto session handler.
+ *
+ * @retval	0         - success
+ * @retval	Negative  - failure
+ */
 int sam_session_destroy(struct sam_sa *sa);
 
 #endif /* __MV_SAM_SESSION_H__ */
