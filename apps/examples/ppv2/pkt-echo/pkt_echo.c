@@ -32,12 +32,16 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+
+//#define DEBUG
 
 #include "mv_std.h"
 #include "lib/misc.h"
 #include "sys_dma.h"
 #include "mvapp.h"
-
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"
 #include "mv_pp2_bpool.h"
@@ -45,7 +49,8 @@
 
 
 #define BUF_LEN		2048
-#define NUM_BUFFS	8192
+#define MAX_NUM_BUFFS	8192
+#define NUM_BUFFS	1024
 #define Q_SIZE		1024
 #define MAX_BURST_SIZE	(Q_SIZE)>>1
 #define DFLT_BURST_SIZE	256
@@ -54,14 +59,24 @@
 #define PKT_EFEC_OFFS	(PKT_OFFS+PP2_MH_SIZE)
 #define MAX_PPIOS	1
 #define MAX_NUM_CORES	1
+#define MAX_NUM_QS	1
+#define DMA_MEM_SIZE 	(4*1024*1024)
 
+
+/* TODO: Move to internal .h file */
+#define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
+#define lower_32_bits(n) ((u32)(n))
+
+
+//#define HW_BUFF_RECYLCE
 #define PKT_ECHO_SUPPORT
 #define USE_APP_PREFETCH
-#define PREFETCH_SHIFT	4
+#define PREFETCH_SHIFT	6
 
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define NO_PATH(file_name) (strrchr((file_name), '/') ? \
 			    strrchr((file_name), '/') + 1 : (file_name))
+
 
 
 struct glob_arg {
@@ -80,13 +95,27 @@ struct glob_arg {
 	struct pp2_ppio		*port;
 };
 
+
 struct local_arg {
 	struct glob_arg		*garg;
 	struct pp2_hif		*hif;
 };
 
+struct tx_shadow_q_entry {
+	u16		 buff_inf;
+	u16		 res;
+	struct pp2_buff_inf buff_ptr;
+};
 
+struct tx_shadow_q {
+	u16				 read_ind;
+	u16				 write_ind;
+
+	struct tx_shadow_q_entry	 ents[Q_SIZE];
+};
 static struct glob_arg garg = {};
+static struct tx_shadow_q shadow_qs[MAX_NUM_CORES][MAX_NUM_QS];
+u64 sys_dma_high_addr = 0;
 
 
 #ifdef PKT_ECHO_SUPPORT
@@ -125,7 +154,6 @@ static inline void swap_l3(char *buf)
 }
 #endif /* PKT_ECHO_SUPPORT */
 
-
 static int main_loop(void *arg, volatile int *running)
 {
 	struct glob_arg		*garg = (struct glob_arg *)arg;
@@ -137,48 +165,76 @@ static int main_loop(void *arg, volatile int *running)
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
-
 	while (*running) {
 		num = garg->burst;
+		struct tx_shadow_q * shadow_q = &(shadow_qs[0][0]);
+
+
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
 
 		for (i=0; i<num; i++) {
-			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i])+PKT_EFEC_OFFS;
+			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
-
-//printf("packet:\n"); mem_disp(buff, len);
 #ifdef PKT_ECHO_SUPPORT
+			char *buff2;
 			if (garg->echo) {
 #ifdef USE_APP_PREFETCH
 				if (num-i > PREFETCH_SHIFT) {
 					char *tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+PREFETCH_SHIFT]);
-					tmp_buff += PKT_EFEC_OFFS;
+					tmp_buff +=PKT_EFEC_OFFS;
+					pr_debug("tmp_buff_before(%p)\n", tmp_buff);
+					tmp_buff = (char *)(((uintptr_t)tmp_buff)|sys_dma_high_addr);
+					pr_debug("tmp_buff_after(%p)\n", tmp_buff);
 					prefetch(tmp_buff);
 				}
 #endif /* USE_APP_PREFETCH */
-
-				swap_l2(buff);
-				swap_l3(buff);
-//printf("packet:\n"); mem_disp(buff, len);
+				//printf("packet:\n"); mem_disp(buff, len);
+				buff2 = (char *)(((uintptr_t)(buff))|sys_dma_high_addr);
+				pr_debug("buff2(%p)\n", buff2);
+				buff2 += PKT_EFEC_OFFS;
+				swap_l2(buff2);
+				swap_l3(buff2);
 			}
 #endif /* PKT_ECHO_SUPPORT */
 
 			pp2_ppio_outq_desc_reset(&descs[i]);
 			pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff-PKT_EFEC_OFFS));
 			pp2_ppio_outq_desc_set_pkt_offset(&descs[i], PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
+#ifdef HW_BUFF_RECYLCE
+			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff-PKT_EFEC_OFFS)); /* TODO : Update this for HW_BUFF_RECY*/
 			pp2_ppio_outq_desc_set_pool(&descs[i], garg->pool);
+#else
+			shadow_q->ents[shadow_q->write_ind].buff_inf = (0 << 15) | (0 << 11);
+			shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = lower_32_bits((uintptr_t)buff);
+			pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
+			shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
+			shadow_q->write_ind++;
+			if (shadow_q->write_ind == Q_SIZE)
+				shadow_q->write_ind = 0;
+#endif /* HW_BUFF_RECYLCE */
 		}
-
 		if (num && ((err = pp2_ppio_send(garg->port, garg->hif, 0, descs, &num)) != 0))
 			return err;
 
-/*
-		if ((err = pp2_ppio_get_num_outq_done(garg->port, garg->hif, 0, &num)) != 0)
-			return err;
-*/
+#ifndef HW_BUFF_RECYLCE
+		pp2_ppio_get_num_outq_done(garg->port, garg->hif, 0, &num);
+		for (i=0; i<num; i++) {
+			struct pp2_buff_inf *binf;
+			binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
+			if (unlikely(!binf->cookie || !binf->addr)) {
+				pr_err("[%s] shadow memory cookie(%lux) addr(%lux)!\n", __FUNCTION__,
+					(u64)binf->cookie, (u64)binf->addr);
+				sleep(1);
+				return -1;
+			}
+			pp2_bpool_put_buff(garg->hif, garg->pool, binf);
+			shadow_q->read_ind++;
+			if (shadow_q->read_ind == Q_SIZE)
+				shadow_q->read_ind = 0;
+		}
+#endif /* !HW_BUFF_RECYLCE */
 	}
 
 	return 0;
@@ -191,7 +247,7 @@ static int init_all_modules(void)
 
 	pr_info("Global initializations ... ");
 
-	if ((err = mv_sys_dma_mem_init(4*1024*1024)) != 0)
+	if ((err = mv_sys_dma_mem_init(DMA_MEM_SIZE)) != 0)
 		return err;
 
 	memset(&pp2_params, 0, sizeof(pp2_params));
@@ -228,7 +284,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	memset(&bpool_params, 0, sizeof(bpool_params));
 	bpool_params.match = "pool-0:0";
-	bpool_params.max_num_buffs = NUM_BUFFS;
+	bpool_params.max_num_buffs = MAX_NUM_BUFFS;
 	bpool_params.buff_len = BUF_LEN;
 	if ((err = pp2_bpool_init(&bpool_params, &garg->pool)) != 0)
 		return err;
@@ -236,14 +292,23 @@ static int init_local_modules(struct glob_arg *garg)
 		pr_err("BPool init failed!\n");
 		return -EIO;
 	}
-	for (i=0; i<1024; i++) {
+	for (i = 0; i < NUM_BUFFS; i++) {
 		struct pp2_buff_inf buff;
-		buff.cookie = (uintptr_t)mv_sys_dma_mem_alloc(BUF_LEN, 4);
-		if (!buff.cookie) {
+		void * buff_virt_addr;
+		buff_virt_addr = mv_sys_dma_mem_alloc(BUF_LEN, 4);
+		if (!buff_virt_addr) {
 			pr_err("failed to allocate mem (%d)!\n", i);
 			return -1;
 		}
-		buff.addr = mv_sys_dma_mem_virt2phys((void*)(uintptr_t)buff.cookie);
+		if (i == 0) {
+			sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL<<32) - 1));
+			pr_err("sys_dma_high_addr (0x%lx)\n", sys_dma_high_addr);
+		}
+		if ((upper_32_bits((u64)buff_virt_addr)) != (sys_dma_high_addr >> 32))
+			pr_err("buff_virt_addr(%p)  upper out of range\n", buff_virt_addr);
+		/* TOO: Currently implicitly assumed that sys_dma (dma_coherent)  memory is 32-bit addr. */
+		buff.addr = (u32)mv_sys_dma_mem_virt2phys(buff_virt_addr);
+		buff.cookie = lower_32_bits((u64)buff_virt_addr); /* cookie contains lower_32_bits of the va */
 		if ((err = pp2_bpool_put_buff(garg->hif, garg->pool, &buff)) != 0)
 			return err;
 	}
@@ -470,20 +535,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	return 0;
 }
-
-
 int main (int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
-	int			err;
+	int		err;
 
 	setbuf(stdout, NULL);
 
+	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
+	pr_debug("pr_debug is enabled\n");
+
+
+
 	if ((err = parse_args(&garg, argc, argv)) != 0)
 		return err;
-
-	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
-
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cli;
 	mvapp_params.num_cores		= garg.cpus;
