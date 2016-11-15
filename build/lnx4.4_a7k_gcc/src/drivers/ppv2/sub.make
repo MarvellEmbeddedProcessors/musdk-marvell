@@ -12,7 +12,8 @@ OBJ := hif.o \
 	pp2_mem.o \
 	pp2_gop.o \
 	pp2_gop_dbg.o \
-	pp2_qos.o
+	pp2_hw_cls.o \
+	pp2_hw_cls_dbg.o
 
 INC := $(TOPINC)
 DEF := $(TOPDEF)
