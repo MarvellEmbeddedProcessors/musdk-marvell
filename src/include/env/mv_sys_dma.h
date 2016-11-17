@@ -30,10 +30,11 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __SYS_DMA_H__
-#define __SYS_DMA_H__
+#ifndef __MV_SYS_DMA_H__
+#define __MV_SYS_DMA_H__
 
-#include "mv_std.h"
+#include "mv_types.h"
+
 
 /**
  * Internal physical base-address.
@@ -107,4 +108,4 @@ static __inline__ phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 	return ((u64)va - (u64)__dma_virt_base) + __dma_phys_base;
 }
 
-#endif /* __SYS_DMA_H__ */
+#endif /* __MV_SYS_DMA_H__ */

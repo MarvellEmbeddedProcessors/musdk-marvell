@@ -4,9 +4,8 @@
  * Security accelerator module
  */
 
-#include <mv_std.h>
-#include <drivers/mv_sam.h>
-
+#include "std_internal.h"
+#include "drivers/mv_sam.h"
 #include "sam.h"
 
 /*#define SAM_DMA_DEBUG*/

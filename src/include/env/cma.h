@@ -8,7 +8,8 @@
 #ifndef __CMA_H__
 #define __CMA_H__
 
-#include "mv_std.h"
+#include <stdint.h>
+
 
 /**
  * Initialization routine for pp contiguous memory allocator

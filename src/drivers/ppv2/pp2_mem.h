@@ -8,9 +8,8 @@
 #ifndef _PP2_MEM_H_
 #define _PP2_MEM_H_
 
+#include "std_internal.h"
 #include "pp2_types.h"
-
-#include "lib/uio_helper.h"
 #include "pp2_hw_type.h"
 
 

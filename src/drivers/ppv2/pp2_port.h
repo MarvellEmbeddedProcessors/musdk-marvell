@@ -9,8 +9,8 @@
 #ifndef __PP2_PORT_H__
 #define __PP2_PORT_H__
 
+#include "std_internal.h"
 #include "pp2_types.h"
-
 #include "pp2_dm.h"
 
 /* Maximum number of traffic classes */

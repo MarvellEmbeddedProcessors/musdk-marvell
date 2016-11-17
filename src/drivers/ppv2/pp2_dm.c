@@ -3,6 +3,7 @@
  *
  * Descriptor management and manipulation routines
  */
+#include "std_internal.h"
 #include "pp2_types.h"
 
 #include "pp2_hw_type.h"
@@ -10,11 +11,6 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 
-/* TODO: temporary we add the prototypes here until we use the musdk ones */
-uintptr_t cma_calloc(size_t size);
-void cma_free(uintptr_t buf);
-uintptr_t cma_get_vaddr(uintptr_t buf);
-uintptr_t cma_get_paddr(uintptr_t buf);
 
 /* Internal. Creates a DM object */
 int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc)

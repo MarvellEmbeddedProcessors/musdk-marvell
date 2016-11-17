@@ -6,7 +6,7 @@
 #define __BPOOL_H__
 
 
-#include "drivers/mv_pp2_bpool.h"
+#include "pp2_types.h"
 
 struct pp2_bpool {
 	int id; /* BM Pool number */

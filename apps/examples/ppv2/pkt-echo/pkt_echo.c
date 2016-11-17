@@ -39,8 +39,8 @@
 //#define DEBUG
 
 #include "mv_std.h"
-#include "lib/misc.h"
-#include "sys_dma.h"
+#include "lib/lib_misc.h"
+#include "env/mv_sys_dma.h"
 #include "mvapp.h"
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"

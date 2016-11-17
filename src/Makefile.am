@@ -29,8 +29,8 @@ noinst_HEADERS += drivers/ppv2/pp2_print.h
 #noinst_HEADERS += drivers/ppv2/pp2_locks.h
 
 libmusdk_la_SOURCES  = lib/list.c
-libmusdk_la_SOURCES += lib/misc.c
-libmusdk_la_SOURCES += lib/of/of.c
+libmusdk_la_SOURCES += lib/lib_misc.c
+libmusdk_la_SOURCES += lib/mem_mng.c
 libmusdk_la_SOURCES += lib/uio/uio_find_devices.c
 libmusdk_la_SOURCES += lib/uio/uio_find_devices_byname.c
 libmusdk_la_SOURCES += lib/uio/uio_free.c
@@ -47,10 +47,10 @@ libmusdk_la_SOURCES += lib/uio/uio_num_from_filename.c
 libmusdk_la_SOURCES += lib/uio/uio_single_mmap.c
 libmusdk_la_SOURCES += lib/uio/uio_find_mem_byname.c
 
-libmusdk_la_SOURCES += sys/sys_spinlock.c
-libmusdk_la_SOURCES += sys/cma.c
-libmusdk_la_SOURCES += sys/sys_dma.c
-libmusdk_la_SOURCES += sys/mem_mng.c
+libmusdk_la_SOURCES += env/spinlock.c
+libmusdk_la_SOURCES += env/cma.c
+libmusdk_la_SOURCES += env/sys_dma.c
+libmusdk_la_SOURCES += env/of.c
 
 libmusdk_la_SOURCES += drivers/ppv2/pp2.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_bm.c

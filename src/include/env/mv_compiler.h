@@ -30,15 +30,27 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __SYS_IO_H__
-#define __SYS_IO_H__
+#ifndef __MV_COMPILER_H__
+#define __MV_COMPILER_H__
 
-#include "mv_std.h"
+#define __maybe_unused	__attribute__((unused))
+#define __always_unused	__attribute__((unused))
 
-int mv_sys_register_iomap(phys_addr_t pa, u64 size, int mmap, u64 off, void **va);
-int  mv_sys_unregister_iomap (void *va);
+#ifndef likely
+#define likely(x)	__builtin_expect(!!(x), 1)
+#endif
+#ifndef unlikely
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+#endif
 
-void * mv_sys_phys2virt (phys_addr_t addr);
-phys_addr_t mv_sys_virt2phys (void *addr);
+#define __packed	__attribute__((__packed__))
+#define __user
 
-#endif /* __SYS_IO_H__ */
+#define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
+
+#define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
+
+#define __stringify_1(x) #x
+#define __stringify(x)	__stringify_1(x)
+
+#endif /* __MV_COMPILER_H__ */

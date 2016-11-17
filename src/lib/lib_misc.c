@@ -30,12 +30,10 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>	// isprint()
 
-#include "mv_std.h"
-#include "lib/misc.h"
+#include "std_internal.h"
+#include "lib/lib_misc.h"
+
 
 
 int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[])

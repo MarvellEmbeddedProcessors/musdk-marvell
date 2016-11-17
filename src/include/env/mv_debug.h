@@ -30,8 +30,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __DBG_H__
-#define __DBG_H__
+#ifndef __MV_DEBUG_H__
+#define __MV_DEBUG_H__
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,4 +93,4 @@ do {						\
 } while(0)
 #endif /* !BUG_ON */
 
-#endif /* __DBG_H__ */
+#endif /* __MV_DEBUG_H__ */

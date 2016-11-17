@@ -30,41 +30,54 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __GEN_H__
-#define __GEN_H__
+#ifndef __MV_ERRNO_H__
+#define __MV_ERRNO_H__
 
-#define PTR2INT(_p)		((uintptr_t)(_p))
-#define INT2PTR(_i)		((void*)(uintptr_t)(_i))
+#include <errno.h>
 
-#define MV_PTR(_p, _offs)	(void*)((uint8_t*)(_p)+(_offs))
+#ifndef EPERM
+#define EPERM		1
+#endif /* EPERM */
+#ifndef ENOENT
+#define ENOENT		2
+#endif /* ENOENT */
+#ifndef EIO
+#define EIO			5
+#endif /* EIO */
+#ifndef ENXIO
+#define ENXIO		6
+#endif /* ENXIO */
+#ifndef ENOMEM
+#define ENOMEM		12
+#endif /* ENOMEM */
+#ifndef EACCES
+#define EACCES		13
+#endif /* EACCES */
+#ifndef EFAULT
+#define EFAULT		14
+#endif /* EFAULT */
+#ifndef EBUSY
+#define EBUSY		16
+#endif /* EBUSY */
+#ifndef EEXIST
+#define EEXIST		17
+#endif /* EEXIST */
+#ifndef ENODEV
+#define ENODEV		19
+#endif /* ENODEV */
+#ifndef EINVAL
+#define EINVAL		22
+#endif /* EINVAL */
+#ifndef ENOMSG
+#define ENOMSG		42
+#endif /* ENOMSG */
 
-#ifndef NOTUSED
-#define NOTUSED(_a) ((_a)=(_a))
-#endif /* !NOTUSED */
+#ifndef ENOBUFS
+#define ENOBUFS		105
+#endif /* ENOBUFS */
 
-#ifndef MEMBER_OFFSET
-/**
- * TODO
- *
- * @param[in]	_type	TODO
- * @param[in]	_member	TODO
- *
- * @return	TODO
- */
-#define MEMBER_OFFSET(_type, _member)	\
-	(PTR2INT(&((_type *)0)->_member))
-#endif /* !MEMBER_OFFSET */
+#ifndef ENOTSUP
+#define ENOTSUP		252
+#endif /* ENOTSUP */
 
-#ifndef ARRAY_SIZE
-/**
- * TODO
- *
- * @param[in]	_arr	TODO
- *
- * @return	TODO
- */
-#define ARRAY_SIZE(_arr)	\
-	(sizeof(_arr) / sizeof((_arr)[0]))
-#endif /* !ARRAY_SIZE */
-
-#endif /* __GEN_H__ */
+#endif /* __MV_ERRNO_H__ */

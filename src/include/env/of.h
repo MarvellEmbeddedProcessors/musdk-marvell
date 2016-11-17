@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 #include <limits.h> /* PATH_MAX */
+#include "env/mv_types.h"
 
 
 typedef u32	phandle;

@@ -30,14 +30,33 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __SYSMISC_H__
-#define __SYSMISC_H__
+#ifndef __STD_INTERNAL_H__
+#define __STD_INTERNAL_H__
 
-/* TODO: Replace Q&D with for_loop, 20 is hardcoded in sscanf */
-#define MAX_OBJ_STRING 20
+#include "mv_std.h"
 
-int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[]);
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <ctype.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <pthread.h>
+#include <sys/mman.h>
+#include <stropts.h>
+#include <unistd.h>
+#include <assert.h>
+#include <netinet/in.h>
 
-void mem_disp(const char *_p, int len);
 
-#endif /* __SYSMISC_H__ */
+#include "env/of.h"
+#include "env/spinlock.h"
+#include "env/sys_iomap.h"
+#include "env/cma.h"
+
+
+#endif /* __STD_INTERNAL_H__ */
+

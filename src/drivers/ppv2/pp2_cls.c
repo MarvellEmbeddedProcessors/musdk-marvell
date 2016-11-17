@@ -2,7 +2,7 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include "mv_std.h"
+#include "std_internal.h"
 
 #include "mv_pp2_cls.h"
 

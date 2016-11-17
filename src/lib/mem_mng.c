@@ -2,13 +2,10 @@
 		Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
 
-#include "mv_std.h"
+#include "std_internal.h"
+#include "lib/mem_mng.h"
 
-#include "mem_mng.h"
 
 
 #define MAKE_ALIGNED(addr, align)	\

@@ -1,9 +1,7 @@
 /**************************************************************************//**
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
-#include "mv_std.h"
-
-#include "lib/misc.h"
+#include "std_internal.h"
 
 #include "pp2_hif.h"
 #include "pp2.h"

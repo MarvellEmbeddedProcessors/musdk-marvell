@@ -30,12 +30,10 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#ifndef __MV_TYPES_H__
+#define __MV_TYPES_H__
 
 #include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
 
 
 typedef uint8_t		u8;
@@ -43,6 +41,8 @@ typedef uint16_t	u16;
 typedef uint32_t	u32;
 typedef uint64_t	u64;
 
+/* TODO : Temporary workaround, untill new Makefiles */
+#include "env/xflags.h"
 
 #ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
 typedef u64 dma_addr_t;
@@ -52,4 +52,4 @@ typedef u32 dma_addr_t;
 typedef u32 phys_addr_t;
 #endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
 
-#endif /* __TYPES_H__ */
+#endif /* __MV_TYPES_H__ */

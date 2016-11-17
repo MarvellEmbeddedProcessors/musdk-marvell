@@ -4,9 +4,8 @@
  * PPDK container structures and packet processor initialization
  */
 
-#include <string.h>
+#include "std_internal.h"
 
-#include "pp2_types.h"
 
 #include "pp2.h"
 #include "pp2_print.h"

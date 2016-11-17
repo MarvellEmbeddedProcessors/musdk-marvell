@@ -12,11 +12,11 @@
 
 #include "pp2_types.h"
 
-#include "lib/uio_helper.h"
 #include "drivers/mv_pp2.h"
 #include "drivers/mv_pp2_bpool.h"
 #include "drivers/mv_pp2_hif.h"
 #include "drivers/mv_pp2_ppio.h"
+#include "std_internal.h"
 
 #include "pp2_hw_type.h"
 #include "pp2_gop.h"

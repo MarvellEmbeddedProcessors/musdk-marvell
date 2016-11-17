@@ -34,16 +34,16 @@
 #define __MV_STD_H__
 
 /* TODO: make sure xflags file is in apporpriate place! */
-#include "int/xflags.h"
+#include "env/xflags.h"
 
-#include "int/types.h"
-#include "int/dbg.h"
-#include "int/spinlock.h"
-#include "int/errno.h"
-#include "int/cmplr.h"
-#include "int/gen.h"
-#include "int/io.h"
-#include "int/alloc.h"
-#include "int/delay.h"
+#include "env/mv_types.h"
+#include "env/mv_compiler.h"
+#include "env/mv_common.h"
+#include "env/mv_debug.h"
+#include "env/mv_errno.h"
+#include "env/mv_io.h"
+#include "env/mv_sys_dma.h"
+
+
 
 #endif /* __MV_STD_H__ */

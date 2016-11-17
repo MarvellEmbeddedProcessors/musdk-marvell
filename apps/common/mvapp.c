@@ -30,13 +30,13 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
+
 #include <string.h>
 #include <pthread.h>
 
-#include "mvapp_std.h"
+#include "mv_std.h"
 #include "cli.h"
 #include "mvapp.h"
-
 
 #define MAX_NUM_CORES	32
 

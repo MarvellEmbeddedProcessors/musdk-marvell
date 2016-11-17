@@ -2,11 +2,8 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include "mv_std.h"
+#include "std_internal.h"
 
-#include "lib/misc.h"
-
-#include "assert.h"
 #include "pp2_bpool.h"
 #include "pp2.h"
 #include "pp2_bm.h"

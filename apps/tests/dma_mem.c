@@ -30,9 +30,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
-#include "mv_std.h"
-#include "sys_dma.h"
-#include "mv_pp2.h"
+#include "std_internal.h"
 
 
 struct mem {

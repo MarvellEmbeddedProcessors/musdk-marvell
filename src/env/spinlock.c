@@ -2,9 +2,8 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include <stdlib.h>
+#include "std_internal.h"
 
-#include "mv_std.h"
 
 
 spinlock_t * spin_lock_create(void)

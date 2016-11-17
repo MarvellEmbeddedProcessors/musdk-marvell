@@ -1,23 +1,6 @@
 
-#include <sys/mman.h>
-#include <unistd.h>
-#include <errno.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <fcntl.h>
-#include <stropts.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "mv_std.h"
-
+#include "std_internal.h"
 #include "../../modules/include/musdk_uio_ioctls.h"
-
-#include "lib/uio_helper.h"
-
-#include "cma.h"
 
 
 #define UIO_CMA_DEV "/dev/uio-cma"

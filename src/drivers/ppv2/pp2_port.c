@@ -4,9 +4,8 @@
  * Port I/O routines
  */
 
-#include <string.h>
-#include <unistd.h>
-//#include <sys/param.h>
+#include "std_internal.h"
+
 
 #include "pp2_types.h"
 
@@ -20,11 +19,6 @@
 #include "pp2_hw_cls.h"
 #include "pp2_gop_dbg.h"
 
-/* TODO: temporary we add the prototypes here until we use the musdk ones */
-uintptr_t cma_calloc(size_t size);
-void cma_free(uintptr_t buf);
-uintptr_t cma_get_vaddr(uintptr_t buf);
-uintptr_t cma_get_paddr(uintptr_t buf);
 
 /*
  * pp2_port.c
@@ -1206,19 +1200,19 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
    }
    txq_dm_if = &(txq->txq_dm_if[dm_if->id]);
    if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
-       uint32_t req_val, rslt_val, res_req, prev_desc_rsrvd = txq_dm_if->desc_rsrvd;
+       uint32_t req_val, result_val, res_req;
 
        res_req = max((num_txds - txq_dm_if->desc_rsrvd), MVPP2_CPU_DESC_CHUNK);
 
        req_val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_req);
        pp2_relaxed_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, req_val);
-       rslt_val = pp2_relaxed_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG);
+       result_val = pp2_relaxed_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG) & MVPP2_TXQ_RSVD_RSLT_MASK;
 
-       txq_dm_if->desc_rsrvd += (rslt_val & MVPP2_TXQ_RSVD_RSLT_MASK);
+       txq_dm_if->desc_rsrvd += result_val;
 
        if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
        	   pr_debug("%s prev_desc_rsrvd(%d) desc_rsrvd(%d) res_request(%d) num_txds(%d)\n",
-	   	    __FUNCTION__, prev_desc_rsrvd, txq_dm_if->desc_rsrvd, res_req, num_txds);
+	   	    __FUNCTION__, (txq_dm_if->desc_rsrvd - result_val), txq_dm_if->desc_rsrvd, res_req, num_txds);
            num_txds = txq_dm_if->desc_rsrvd;
        }
    }

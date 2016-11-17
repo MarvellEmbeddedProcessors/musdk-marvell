@@ -2,16 +2,9 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include <string.h>
-#include <errno.h>
+#include "std_internal.h"
+#include "lib/mem_mng.h"
 
-#include "mem_mng.h"
-#include "sys_dma.h"
-
-#ifdef MVCONF_SYS_DMA_UIO
-#include "cma.h"
-//#include "musdk_uio_ioctls.h"
-#endif /* MVCONF_SYS_DMA_UIO */
 
 struct sys_dma {
 	struct mem_mng	*mm;

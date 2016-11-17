@@ -10,7 +10,6 @@
 #define _PP2_HW_CLS_DEBUG_H_
 
 #include "pp2_types.h"
-
 #include "pp2_hw_type.h"
 
 #define HEK_EXT_FMT				"%8.8x %8.8x %8.8x | %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x"

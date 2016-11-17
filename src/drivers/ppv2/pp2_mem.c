@@ -1,9 +1,8 @@
-#include <fcntl.h>
-#include <string.h>
+
+#include "std_internal.h"
+#include "lib/uio_helper.h"
 
 #include "pp2_types.h"
-
-#include "lib/uio_helper.h"
 #include "pp2_mem.h"
 #include "pp2.h"
 

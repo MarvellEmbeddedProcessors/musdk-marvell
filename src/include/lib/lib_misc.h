@@ -30,50 +30,14 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __SPINLOCK_H__
-#define __SPINLOCK_H__
+#ifndef __LIB_MISC_H__
+#define __LIB_MISC_H__
 
-#include <pthread.h>
+/* TODO: Replace Q&D with for_loop, 20 is hardcoded in sscanf */
+#define MAX_OBJ_STRING 20
 
-#include "int/io.h"
+int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[]);
 
+void mem_disp(const char *_p, int len);
 
-#ifndef spinlock_t
-
-#define spinlock_t		pthread_mutex_t
-
-spinlock_t * spin_lock_create(void);
-void spin_lock_destroy(spinlock_t *lock);
-
-#define spin_lock_init(_lock)							\
-	do {									\
-		int err = pthread_mutex_init(_lock, NULL);			\
-		if (err)							\
-			pr_warn("Failed to initialize spinlock (%d)!", err);	\
-	} while (0)
-
-#define spin_lock(_lock)			\
-	do {					\
-		pthread_mutex_lock(_lock);	\
-	} while (0)
-
-#define spin_unlock(_lock)			\
-	do {					\
-		pthread_mutex_unlock(_lock);	\
-	} while (0)
-
-#define spin_lock_irqsave(_lock, _flags)\
-	do {				\
-		local_irq_save(_flags);	\
-		spin_lock(_lock);	\
-	} while (0)
-
-#define spin_unlock_irqrestore(_lock, _flags)	\
-	do {					\
-		local_irq_restore(_flags);	\
-		spin_unlock(_lock);		\
-	} while (0)
-
-#endif /* !spinlock_t */
-
-#endif /* __SPINLOCK_H__ */
+#endif /* __LIB_MISC_H__ */

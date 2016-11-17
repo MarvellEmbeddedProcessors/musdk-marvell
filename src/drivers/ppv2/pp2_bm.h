@@ -9,6 +9,9 @@
 #ifndef _PP2_BM_H_
 #define _PP2_BM_H_
 
+#include "std_internal.h"
+
+
 #define BM_TYPE_SHORT_BUF_POOL (0x00)
 #define BM_TYPE_LONG_BUF_POOL  (0x01)
 

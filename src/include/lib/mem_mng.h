@@ -5,7 +5,7 @@
 #ifndef __MEM_MNG_H__
 #define __MEM_MNG_H__
 
-#include "mv_std.h"
+#include "env/mv_types.h"
 
 
 /** Alignments between 2-128 are available where the maximum alignment defined

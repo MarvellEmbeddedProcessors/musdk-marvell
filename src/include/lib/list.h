@@ -33,8 +33,6 @@
 #ifndef __LIST_H__
 #define __LIST_H__
 
-#include "mv_std.h"
-
 
 /**
  * A list structure

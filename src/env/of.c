@@ -2,14 +2,7 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <assert.h>
-
-#include "mv_std.h"
-
-#include "lib/of.h"
+#include "std_internal.h"
 
 
 #define OF_DEFAULT_NA 1

@@ -2,13 +2,10 @@
 	Copyright (C) 2016 Marvell International Ltd.
 *//***************************************************************************/
 
-#include <string.h>
+
+#include "std_internal.h"
 
 #include "pp2_types.h"
-
-#include "lib/misc.h"
-#include "drivers/mv_pp2_ppio.h"
-
 #include "pp2_hif.h"
 #include "pp2.h"
 #include "pp2_port.h"

@@ -9,10 +9,9 @@
 #ifndef _PP2_HW_CLS_H_
 #define _PP2_HW_CLS_H_
 
-#include <netinet/in.h>
+#include "std_internal.h"
 
 #include "pp2_types.h"
-
 #include "pp2_hw_type.h"
 
 #define MV_ERROR		(-1)

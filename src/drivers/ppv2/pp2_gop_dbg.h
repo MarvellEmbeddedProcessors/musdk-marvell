@@ -8,6 +8,7 @@
 #ifndef _PP2_GOP_DBG_H_
 #define _PP2_GOP_DBG_H_
 
+#include "std_internal.h"
 #include "pp2_types.h"
 
 

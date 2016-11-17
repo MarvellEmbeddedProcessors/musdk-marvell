@@ -3,6 +3,7 @@
  *
  * Buffer management and manipulation routines
  */
+#include "std_internal.h"
 #include "pp2_types.h"
 
 #include "pp2.h"
@@ -10,11 +11,6 @@
 #include "pp2_port.h"
 #include "pp2_print.h"
 
-/* TODO: temporary we add the prototypes here until we use the musdk ones */
-uintptr_t cma_calloc(size_t size);
-void cma_free(uintptr_t buf);
-uintptr_t cma_get_vaddr(uintptr_t buf);
-uintptr_t cma_get_paddr(uintptr_t buf);
 
 #if PP2_BM_BUF_DEBUG
 /* Debug and helpers */

@@ -9,9 +9,8 @@
 #ifndef _SAM_H_
 #define _SAM_H_
 
-#include <mv_std.h>
-
 #include <drivers/mv_sam.h>
+#include "std_internal.h"
 
 #include "cs_driver.h"
 #include "api_pec.h"
