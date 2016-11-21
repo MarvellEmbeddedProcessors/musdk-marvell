@@ -1,13 +1,13 @@
 ###############################################################################
 ###########################  lib LIBRARY   ####################################
 ###############################################################################
-SUBDIRS := of uio
+SUBDIRS := uio
 
-OBJ := list.o misc.o
+OBJ := list.o lib_misc.o mem_mng.o
 INC := $(TOPINC)
 DEF := $(TOPDEF)
 
-llib.o: $(OBJ) llibof.o llibuio.o
+llib.o: $(OBJ) llibuio.o
 	@(echo "(LD)  $@ <= $^")
 	@($(LD) -r -o $@ -Map $*.map $^)
 
