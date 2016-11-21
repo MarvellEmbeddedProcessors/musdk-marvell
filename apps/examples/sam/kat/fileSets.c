@@ -140,9 +140,11 @@ FileMessage fileSetsReadBlocksFromFile(char* fileName, generic_list encryptedBlo
 		FileMessage message = fileSetsGetArgs(fstr, line, &type, dataArray,
 				&dataNumber);
 		if (message != FILE_SUCCESS) {
+			printf("fileSetsGetArgs FAILED - rc = %d, type = %d\n", message, type);
 			fclose(fstr);
 			return message;
 		}
+
 		EncryptedBlockPtr currentBlock;
 		if (type == NEW_BLOCK_TYPE) {
 			EncryptedBlockMessage encryptedBlockMessage = encryptedBlockCreate(
@@ -154,6 +156,7 @@ FileMessage fileSetsReadBlocksFromFile(char* fileName, generic_list encryptedBlo
 		} else {
 			currentBlock = generic_list_get_last(encryptedBlocks);
 		}
+
 		message = fileSetsConvertMessage(
 				encryptedBlockAddElement(currentBlock, type, dataArray,
 						dataNumber));
@@ -235,11 +238,15 @@ static FileMessage fileSetsGetData(FILE* fstr, char* line,
 		unsigned char* outputDataArray, int* outputDataLen) {
 	char strOut[CHUNK_SIZE] = { 0 };
 	bool continuesData;
-	int strLen = 0;
+	int scanned, strLen = 0;
 	do {
 		continuesData = isContinuesData(line);
 		char str[CHUNK_SIZE] = { 0 };
-		sscanf(line, "%s", str);
+		scanned = sscanf(line, "%s", str);
+		if (scanned != 1) {
+			printf("%s: sscanf Failed - scanned = %d\n", __func__, scanned);
+			return FILE_NOT_VALID;
+		}
 		if (str[0] != '"') {
 			removeHexHead(str);
 			if (!isValidHexPhrase(str)) {
@@ -262,7 +269,10 @@ static FileMessage fileSetsGetData(FILE* fstr, char* line,
 		strLen += strlen(str);
 		if (continuesData) {
 			cleanStr(line);
-			fgets(line, CHUNK_SIZE, fstr);
+			if (fgets(line, CHUNK_SIZE, fstr) == NULL) {
+				printf("%s: Can't read continues Data\n", __func__);
+				return FILE_NOT_VALID;
+			}
 		}
 	} while (continuesData);
 	*outputDataLen = strLen / 2;

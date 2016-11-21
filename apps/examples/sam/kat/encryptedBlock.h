@@ -43,37 +43,6 @@ typedef enum {
 	CRYPTO_OFFSET
 } EncryptedBlockType;
 
-/** Type for defining the encrypted block algorithm */
-typedef enum {
-	ALGORITHM_NULL,
-	ALGORITHM_DES,
-	ALGORITHM_3DES,
-	ALGORITHM_AES,
-	ALGORITHM_INVALID
-} EncryptedBlockAlgorithm;
-
-/** Type for defining the encrypted block mode */
-typedef enum {
-	MODE_NULL, MODE_ECB, MODE_CBC, MODE_CTR, MODE_GCM, MODE_GMAC, MODE_INVALID
-} EncryptedBlockMode;
-
-/** Type for defining the encrypted block auth algorithm */
-typedef enum {
-	AUTH_NULL,
-	AUTH_MD5,
-	AUTH_SHA1,
-	AUTH_SHA224,
-	AUTH_SHA256,
-	AUTH_SHA384,
-	AUTH_SHA512,
-	AUTH_INVALID
-} EncryptedBlockAuthAlgorithm;
-
-/** Type for defining the encrypted block direction */
-typedef enum {
-	DIRECTION_NULL, ENCRYPTION, DECRYPTION, DIRECTION_INVALID
-} EncryptedBlockDirection;
-
 /** Type used for returning message from encrypted block functions */
 typedef enum {
 	ENCRYPTEDBLOCK_NULL_ARGS,
@@ -183,8 +152,6 @@ EncryptedBlockMessage encryptedBlockSetCryptoOffset(
  * 		the element length
  * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to copy the element
  */
-EncryptedBlockMessage encryptedBlockGetName(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray);
 EncryptedBlockMessage encryptedBlockGetKey(EncryptedBlockPtr encryptedBlock,
 		int size, unsigned char* outputArray);
 EncryptedBlockMessage encryptedBlockGetAuthKey(EncryptedBlockPtr encryptedBlock,
@@ -209,7 +176,6 @@ EncryptedBlockMessage encryptedBlockGetCipherText(
  * @return
  * 	the element length
  */
-int encryptedBlockGetNameLen(EncryptedBlockPtr encryptedBlock);
 int encryptedBlockGetKeyLen(EncryptedBlockPtr encryptedBlock);
 int encryptedBlockGetAuthKeyLen(EncryptedBlockPtr encryptedBlock);
 int encryptedBlockGetIvLen(EncryptedBlockPtr encryptedBlock, int index);
@@ -235,12 +201,13 @@ int encryptedBlockGetCryptoOffset(EncryptedBlockPtr encryptedBlock, int index);
  * @return
  * 	the element type
  */
-EncryptedBlockMode encryptedBlockGetMode(EncryptedBlockPtr encryptedBlock);
-EncryptedBlockAlgorithm encryptedBlockGetAlgorithm(
+char *encryptedBlockGetName(EncryptedBlockPtr encryptedBlock);
+char *encryptedBlockGetMode(EncryptedBlockPtr encryptedBlock);
+char *encryptedBlockGetAlgorithm(
 		EncryptedBlockPtr encryptedBlock);
-EncryptedBlockAuthAlgorithm encryptedBlockGetAuthAlgorithm(
+char *encryptedBlockGetAuthAlgorithm(
 		EncryptedBlockPtr encryptedBlock);
-EncryptedBlockDirection encryptedBlockGetDirection(
+char *encryptedBlockGetDirection(
 		EncryptedBlockPtr encryptedBlock);
 
 #endif /* ENCRYPTEDBLOCK_H_ */

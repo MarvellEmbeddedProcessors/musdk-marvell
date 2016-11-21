@@ -51,10 +51,10 @@ typedef struct operations_t {
  * encryptedBlock_t: Structure for encrypted block,
  *  	with all of its relevant information.
  *
- * algorithm - The algorithm type.
- * mode - The mode type.
- * authAlgorithm - The authentication algorithm type.
- * direction - The direction type.
+ * algorithm - The algorithm name.
+ * mode - The mode name.
+ * authAlgorithm - The authentication algorithm name.
+ * direction - The direction name.
  * name - The name of the encrypted block.
  * key - The key of the encrypted block.
  * authKey - The authentication key of the encrypted block.
@@ -62,11 +62,11 @@ typedef struct operations_t {
  * testCounter - The number of loop test for each operation.
  */
 struct encryptedBlock_t {
-	EncryptedBlockAlgorithm algorithm;
-	EncryptedBlockMode mode;
-	EncryptedBlockAuthAlgorithm authAlgorithm;
-	EncryptedBlockDirection direction;
-	ArrayPtr name;
+	char algorithm[16];
+	char mode[16];
+	char authAlgorithm[16];
+	char direction[16];
+	char name[64];
 	ArrayPtr key;
 	ArrayPtr authKey;
 	Operations operations;
@@ -130,18 +130,6 @@ static void* encryptedBlockGetElement(EncryptedBlockType type,
 		EncryptedBlockPtr encryptedBlock);
 
 /**
- * encryptedBlockConvert(ELEMNT): Converts the given string to the element type.
- *
- * @param data - The string to get the type from.
- * @return
- * 	element type.
- */
-static EncryptedBlockAlgorithm encryptedBlockConvertAlgorithm(char* data);
-static EncryptedBlockAuthAlgorithm encryptedBlockConvertAuthAlgorithm(
-		char* data);
-static EncryptedBlockMode encryptedBlockConvertMode(char* data);
-static EncryptedBlockDirection encryptedBlockConvertDirection(char* data);
-/**
  * encryptedBlockConvertMessage: Converts array message to encrypted block message.
  *
  * @param message - The array message to be converted
@@ -175,13 +163,13 @@ static void encryptedBlockReset(EncryptedBlockPtr encryptedBlock) {
 	if (encryptedBlock == NULL) {
 		return;
 	}
-	encryptedBlock->name = NULL;
 	encryptedBlock->key = NULL;
 	encryptedBlock->authKey = NULL;
-	encryptedBlock->algorithm = ALGORITHM_NULL;
-	encryptedBlock->mode = MODE_NULL;
-	encryptedBlock->authAlgorithm = AUTH_NULL;
-	encryptedBlock->direction = DIRECTION_NULL;
+	memset(encryptedBlock->name, 0, sizeof(encryptedBlock->name));
+	memset(encryptedBlock->algorithm, 0, sizeof(encryptedBlock->algorithm));
+	memset(encryptedBlock->mode, 0, sizeof(encryptedBlock->mode));
+	memset(encryptedBlock->authAlgorithm, 0, sizeof(encryptedBlock->authAlgorithm));
+	memset(encryptedBlock->direction, 0, sizeof(encryptedBlock->direction));
 	encryptedBlock->testCounter = 0;
 	encryptedBlock->operations->operationCounter = 1;
 	encryptedBlock->operations->iv = NULL;
@@ -201,19 +189,13 @@ EncryptedBlockMessage encryptedBlockCopy(EncryptedBlockPtr srcBlock,
 		return message;
 	}
 	(*copyBlock)->testCounter = srcBlock->testCounter;
-	(*copyBlock)->algorithm = srcBlock->algorithm;
-	(*copyBlock)->authAlgorithm = srcBlock->authAlgorithm;
-	(*copyBlock)->mode = srcBlock->mode;
-	(*copyBlock)->direction = srcBlock->direction;
 
-	if (srcBlock->name) {
-		(*copyBlock)->name = arrayCopy(srcBlock->name);
-		if (!(*copyBlock)->name) {
-			encryptedBlockDestroy(*copyBlock);
-			*copyBlock = NULL;
-			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
-		}
-	}
+	strcpy((*copyBlock)->algorithm, srcBlock->algorithm);
+	strcpy((*copyBlock)->authAlgorithm, srcBlock->authAlgorithm);
+	strcpy((*copyBlock)->mode, srcBlock->mode);
+	strcpy((*copyBlock)->direction, srcBlock->direction);
+	strcpy((*copyBlock)->name, srcBlock->name);
+
 	if (srcBlock->key) {
 		(*copyBlock)->key = arrayCopy(srcBlock->key);
 		if (!(*copyBlock)->key) {
@@ -248,7 +230,6 @@ void encryptedBlockDestroy(EncryptedBlockPtr encryptedBlock) {
 	arrayComplexDestroy(encryptedBlock->operations->cipherText);
 	free(encryptedBlock->operations->cryptoOffset);
 	free(encryptedBlock->operations);
-	arrayDestroy(encryptedBlock->name);
 	arrayDestroy(encryptedBlock->key);
 	arrayDestroy(encryptedBlock->authKey);
 	free(encryptedBlock);
@@ -262,7 +243,6 @@ EncryptedBlockMessage encryptedBlockAddElement(EncryptedBlockPtr encryptedBlock,
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
 	switch (type) {
-	case NAME:
 	case KEY:
 	case AUTH_KEY:
 		return encryptedBlockAddArray(type, encryptedBlock, elementArray,
@@ -271,43 +251,35 @@ EncryptedBlockMessage encryptedBlockAddElement(EncryptedBlockPtr encryptedBlock,
 	case TESTCOUNTER:
 		encryptedBlock->testCounter = elementLen;
 		break;
-	case ALGORITHM:
-		if (encryptedBlock->algorithm
-				&& encryptedBlock->algorithm != ALGORITHM_INVALID) {
+	case NAME:
+		if (encryptedBlock->name[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
-		}
-		encryptedBlock->algorithm = encryptedBlockConvertAlgorithm(
-				(char*) elementArray);
-		if (encryptedBlock->algorithm == ALGORITHM_INVALID) {
-			return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
-		}
+
+		strncpy(encryptedBlock->name, (char *)elementArray, sizeof(encryptedBlock->name));
+		break;
+	case ALGORITHM:
+		if (encryptedBlock->algorithm[0] != '\0')
+			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
+
+		strncpy(encryptedBlock->algorithm, (char *)elementArray, sizeof(encryptedBlock->algorithm));
 		break;
 	case AUTH_ALGORITHM:
-		if (encryptedBlock->authAlgorithm
-				&& encryptedBlock->authAlgorithm != AUTH_INVALID) {
+		if (encryptedBlock->authAlgorithm[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
-		}
-		encryptedBlock->authAlgorithm = encryptedBlockConvertAuthAlgorithm(
-				(char*) elementArray);
-		if (encryptedBlock->authAlgorithm == AUTH_INVALID) {
-			return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
-		}
+
+		strncpy(encryptedBlock->authAlgorithm, (char *)elementArray, sizeof(encryptedBlock->authAlgorithm));
 		break;
 	case MODE:
-		if (encryptedBlock->mode && encryptedBlock->mode != MODE_INVALID) {
+		if (encryptedBlock->mode[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
-		}
-		encryptedBlock->mode = encryptedBlockConvertMode((char*) elementArray);
-		if (encryptedBlock->mode == MODE_INVALID) {
-			return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
-		}
+
+		strncpy(encryptedBlock->mode, (char *)elementArray, sizeof(encryptedBlock->mode));
 		break;
 	case DIRECTION:
-		encryptedBlock->direction = encryptedBlockConvertDirection(
-				(char*) elementArray);
-		if (encryptedBlock->direction == DIRECTION_INVALID) {
-			return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
-		}
+		if (encryptedBlock->direction[0] != '\0')
+			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
+
+		strncpy(encryptedBlock->direction, (char *)elementArray, sizeof(encryptedBlock->direction));
 		break;
 	case OPERATIONCOUNTER:
 		if (encryptedBlock->operations->plainText
@@ -375,9 +347,6 @@ static EncryptedBlockMessage encryptedBlockAddArray(EncryptedBlockType type,
 static void* encryptedBlockGetElement(EncryptedBlockType type,
 		EncryptedBlockPtr encryptedBlock) {
 	switch (type) {
-	case NAME:
-		return &encryptedBlock->name;
-		break;
 	case KEY:
 		return &encryptedBlock->key;
 		break;
@@ -428,106 +397,12 @@ EncryptedBlockMessage encryptedBlockSetCryptoOffset(
 	encryptedBlock->operations->cryptoOffsetIndex++;
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
-static EncryptedBlockAlgorithm encryptedBlockConvertAlgorithm(char* data) {
-	if (!data) {
-		return ALGORITHM_NULL;
+char *encryptedBlockGetName(EncryptedBlockPtr encryptedBlock)
+{
+	if (!encryptedBlock) {
+		return NULL;
 	}
-	if (strcmp(data, "DES") == 0) {
-		return ALGORITHM_DES;
-	}
-	if (strcmp(data, "3DES") == 0) {
-		return ALGORITHM_3DES;
-	}
-	if (strcmp(data, "AES") == 0) {
-		return ALGORITHM_AES;
-	}
-	if (strcmp(data, "NULL") == 0) {
-		return ALGORITHM_NULL;
-	}
-	printf("Syntax error in Algorithm: %s is unknown Algorithm\n", data);
-	return ALGORITHM_INVALID;
-}
-static EncryptedBlockMode encryptedBlockConvertMode(char* data) {
-	if (!data) {
-		return MODE_NULL;
-	}
-	if (strcmp(data, "ECB") == 0) {
-		return MODE_ECB;
-	}
-	if (strcmp(data, "CBC") == 0) {
-		return MODE_CBC;
-	}
-	if (strcmp(data, "CTR") == 0) {
-		return MODE_CTR;
-	}
-	if (strcmp(data, "GCM") == 0) {
-		return MODE_GCM;
-	}
-	if (strcmp(data, "GMAC") == 0) {
-		return MODE_GMAC;
-	}
-	if (strcmp(data, "NULL") == 0) {
-		return MODE_NULL;
-	}
-	printf("Syntax error in Mode: %s is unknown Mode\n", data);
-	return MODE_INVALID;
-}
-static EncryptedBlockAuthAlgorithm encryptedBlockConvertAuthAlgorithm(
-		char* data) {
-	if (!data) {
-		return AUTH_NULL;
-	}
-	if (strcmp(data, "MD5") == 0) {
-		return AUTH_MD5;
-	}
-	if (strcmp(data, "SHA1") == 0) {
-		return AUTH_SHA1;
-	}
-	if (strcmp(data, "SHA224") == 0) {
-		return AUTH_SHA224;
-	}
-	if (strcmp(data, "SHA256") == 0) {
-		return AUTH_SHA256;
-	}
-	if (strcmp(data, "SHA384") == 0) {
-		return AUTH_SHA384;
-	}
-	if (strcmp(data, "SHA512") == 0) {
-		return AUTH_SHA512;
-	}
-	if (strcmp(data, "NULL") == 0) {
-		return AUTH_NULL;
-	}
-	printf("Syntax error in Authalgorithm: %s is unknown Authalgorithm\n",
-			data);
-	return AUTH_INVALID;
-}
-static EncryptedBlockDirection encryptedBlockConvertDirection(char* data) {
-	if (!data) {
-		return DIRECTION_NULL;
-	}
-	if (strcmp(data, "encryption") == 0) {
-		return ENCRYPTION;
-	}
-	if (strcmp(data, "decryption") == 0) {
-		return DECRYPTION;
-	}
-	if (strcmp(data, "NULL") == 0) {
-		return DIRECTION_NULL;
-	}
-	printf("Syntax error in Direction: %s is unknown Direction\n", data);
-	return DIRECTION_INVALID;
-}
-EncryptedBlockMessage encryptedBlockGetName(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray) {
-	if (!encryptedBlock || !outputArray) {
-		return ENCRYPTEDBLOCK_NULL_ARGS;
-	}
-	if (!encryptedBlock->name) {
-		return ENCRYPTEDBLOCK_NO_ELEMENT;
-	}
-	return encryptedBlockConvertMessage(
-			arrayGetData(encryptedBlock->name, outputArray, size));
+	return encryptedBlock->name;
 }
 EncryptedBlockMessage encryptedBlockGetKey(EncryptedBlockPtr encryptedBlock,
 		int size, unsigned char* outputArray) {
@@ -601,12 +476,6 @@ EncryptedBlockMessage encryptedBlockGetCipherText(
 			arrayComplexGetData(encryptedBlock->operations->cipherText, index,
 					outputArray, size));
 }
-int encryptedBlockGetNameLen(EncryptedBlockPtr encryptedBlock) {
-	if (!encryptedBlock || !encryptedBlock->name) {
-		return 0;
-	}
-	return arrayGetLen(encryptedBlock->name);
-}
 int encryptedBlockGetKeyLen(EncryptedBlockPtr encryptedBlock) {
 	if (!encryptedBlock || !encryptedBlock->key) {
 		return 0;
@@ -664,31 +533,31 @@ int encryptedBlockGetOperationCounter(EncryptedBlockPtr encryptedBlock) {
 	}
 	return encryptedBlock->operations->operationCounter;
 }
-EncryptedBlockMode encryptedBlockGetMode(EncryptedBlockPtr encryptedBlock) {
+char *encryptedBlockGetMode(EncryptedBlockPtr encryptedBlock) {
 	if (!encryptedBlock) {
-		return MODE_NULL;
+		return NULL;
 	}
 	return encryptedBlock->mode;
 }
-EncryptedBlockAlgorithm encryptedBlockGetAlgorithm(
+char *encryptedBlockGetAlgorithm(
 		EncryptedBlockPtr encryptedBlock) {
 
 	if (!encryptedBlock) {
-		return ALGORITHM_NULL;
+		return NULL;
 	}
 	return encryptedBlock->algorithm;
 }
-EncryptedBlockAuthAlgorithm encryptedBlockGetAuthAlgorithm(
+char *encryptedBlockGetAuthAlgorithm(
 		EncryptedBlockPtr encryptedBlock) {
 	if (!encryptedBlock) {
-		return AUTH_NULL;
+		return NULL;
 	}
 	return encryptedBlock->authAlgorithm;
 }
-EncryptedBlockDirection encryptedBlockGetDirection(
+char *encryptedBlockGetDirection(
 		EncryptedBlockPtr encryptedBlock) {
 	if (!encryptedBlock) {
-		return DIRECTION_NULL;
+		return NULL;
 	}
 	return encryptedBlock->direction;
 }
