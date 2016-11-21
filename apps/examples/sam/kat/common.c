@@ -77,7 +77,8 @@ int hex2dec(char c) {
 	}
 	return c - '0';
 }
-int* copyIntArray(int* src, int len){
+int* copyIntArray(int* src, int len)
+{
 	if(!src || len <= 0){
 		return NULL;
 	}
@@ -91,58 +92,68 @@ int* copyIntArray(int* src, int len){
 	}
 	return dst;
 }
-void removeHexHead(char* str) {
-	if (!str) {
+void removeHexHead(char* str)
+{
+	char *temp = malloc(strlen(str) + 1);
+
+	if (!str || !temp) {
 		return;
 	}
 	if (str[0] == '0' && str[1] == 'x') {
-		int size = strlen(str) - 2;
-		char strTemp[size];
-		strcpy(strTemp, &str[2]);
-		strcpy(str, strTemp);
+		strcpy(temp, &str[2]);
+		strcpy(str, temp);
 	}
+	free(temp);
 }
-void removeBeforeColon(char* line) {
-	if (!line) {
+void removeBeforeColon(char* line)
+{
+	int i, linelen = strlen(line);
+	char *temp = malloc(linelen + 1);
+
+	if (!line || !temp) {
 		return;
 	}
-	int i;
-	int linelen = strlen(line);
 	for (i = 0; i < linelen; i++) {
 		if (line[i] == ':') {
-			char tempLine[linelen - i];
-			strcpy(tempLine, &line[i + 1]);
-			strcpy(line, tempLine);
+			strcpy(temp, &(line[i + 1]));
+			strcpy(line, temp);
+			break;
 		}
 	}
+	free (temp);
 }
-void cleanStr(char *var) {
+void cleanStr(char *var)
+{
 	int i = 0;
 	while (var[i] != '\0') {
 		var[i] = '\0';
 		i++;
 	}
 }
-bool isLittleHexLetter(char c) {
+bool isLittleHexLetter(char c)
+{
 	if (c >= 'a' && c <= 'f') {
 		return true;
 	}
 	return false;
 }
-bool isHexNumber(char c) {
+bool isHexNumber(char c)
+{
 	if (c >= '0' && c <= '9') {
 		return true;
 	}
 	return false;
 }
 
-void hexString2Int(char* str, unsigned char* outResult) {
+void hexString2Int(char* str, unsigned char* outResult)
+{
 	unsigned int i, j;
 	for (i = 0, j = 0; i < strlen(str); i += 2, j++) {
 		outResult[j] = hex2dec(str[i]) * 16 + hex2dec(str[i + 1]);
 	}
 }
-void strArr2IntArr(char* str, int* array) {
+void strArr2IntArr(char* str, int* array)
+{
 	if (!str || !array) {
 		return;
 	}
@@ -152,7 +163,8 @@ void strArr2IntArr(char* str, int* array) {
 		array++;
 	}
 }
-void strAsci2HexAsci(char* str, char* strHex) {
+void strAsci2HexAsci(char* str, char* strHex)
+{
 	if (!str || !strHex) {
 		return;
 	}
@@ -164,7 +176,8 @@ void strAsci2HexAsci(char* str, char* strHex) {
 		str++;
 	}
 }
-char getHexChar(int dacValue) {
+char getHexChar(int dacValue)
+{
 	if (dacValue >= 10 && dacValue < 16) {
 		return dacValue - 10 + 'a';
 	}
@@ -173,7 +186,8 @@ char getHexChar(int dacValue) {
 	}
 	return 0;
 }
-bool isEndOfBracketsExist(char *str) {
+bool isEndOfBracketsExist(char *str)
+{
 	while (*str) {
 		if (*str == ')') {
 			return true;
@@ -182,7 +196,8 @@ bool isEndOfBracketsExist(char *str) {
 	}
 	return false;
 }
-bool isCommentOrEmptyLine(char* line) {
+bool isCommentOrEmptyLine(char* line)
+{
 	char headOfLine[CHUNK_SIZE] = { 0 };
 	int scanned = sscanf(line, " %s", headOfLine);
 	if (scanned == -1 || headOfLine[0] == '#') {
