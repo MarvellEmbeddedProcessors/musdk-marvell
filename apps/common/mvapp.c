@@ -30,13 +30,13 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-
 #include <string.h>
 #include <pthread.h>
 
-#include "mv_std.h"
+#include "mvapp_std.h"
 #include "cli.h"
 #include "mvapp.h"
+
 
 #define MAX_NUM_CORES	32
 
@@ -170,6 +170,8 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 		}
 	}
 
+	_mvapp = mvapp;
+
 	if (mvapp_params->init_global_cb &&
 	    ((err = mvapp_params->init_global_cb(mvapp_params->global_arg)) != 0)) {
 		if (mvapp->cli)
@@ -230,4 +232,28 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 	printf("bye ...\n");
 
 	return err;
+}
+
+int mvapp_register_cli_cmd(struct cli_cmd_params *cmd_params)
+{
+	struct mvapp *mvapp = _mvapp;
+
+	if (!mvapp || !mvapp->cli) {
+		pr_err("No mvapp or mvapp-cli obj!\n");
+		return -EINVAL;
+	}
+
+	return cli_register_cmd(mvapp->cli, cmd_params);
+}
+
+int mvapp_unregister_cli_cmd(char *name)
+{
+	struct mvapp *mvapp = _mvapp;
+
+	if (!mvapp || !mvapp->cli) {
+		pr_err("No mvapp or mvapp-cli obj!\n");
+		return -EINVAL;
+	}
+
+	return cli_unregister_cmd(mvapp->cli, name);
 }

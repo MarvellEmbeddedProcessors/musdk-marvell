@@ -44,7 +44,6 @@
 #include "cli.h"
 
 
-#define CLI_PRINT_BUF_SIZE	1024
 #define CLI_MAX_LINE_LENGTH	256
 #define CLI_TIMER_INTERVAL	128 /* 128 m-secs */
 #define CLI_MAX_HISTORY		10
@@ -247,16 +246,17 @@ static void dump_help(cli_t *cli_p)
 	cli_cmd_t	*cmd;
 	struct list	*lst_pos;
 
-	cli_p->print_cb("Usage: > <command> [options] [arg1 ... argN]\n"
+	cli_p->print_cb("Usage: <command> [options] [arg1 ... argN]\n"
 			 "\n"
-			 "Commands:\n");
+			 "Available commands:\n");
 
 	LIST_FOR_EACH(lst_pos, &cli_p->cmds_lst) {
 		cmd = CLI_COMMAND_OBJ(lst_pos);
-		cli_p->print_cb("\t- %s\n", cmd->format);
-		cli_p->print_cb("\t\t%s\n", cmd->desc);
+		cli_p->print_cb("\t%s\t\tUsage: %s", cmd->name, cmd->name);
+		if (cmd->format)
+			cli_p->print_cb(" %s", cmd->format);
+		cli_p->print_cb("\n\t\t%s\n", cmd->desc);
 	}
-
 }
 
 static int help_cmd_cb(struct cli *cli, int argc, char *argv[])
@@ -292,21 +292,16 @@ static int quit_cmd_cb(struct cli *cli, int argc, char *argv[])
 }
 
 
-static void print_mv_logo(cli_t *cli_p)
+static void print_logo(cli_t *cli_p)
 {
-#if 0
-	cli_p->print_cb("Welcome to Marvell (TM) CLI.\n");
-
-#else
 	cli_p->print_cb("              ......        ......	Marvell Inc. Copyright (c) 2016		\n");
 	cli_p->print_cb("            ##......      ##......	All Rights Reserved			\n");
 	cli_p->print_cb("          ####......    ####......						\n");
 	cli_p->print_cb("        ######......  ######......						\n");
-	cli_p->print_cb("      ######  ############  ######						\n");
-	cli_p->print_cb("    ######    ......####    ......	MUSDK Device Drivers			\n");
-	cli_p->print_cb("  ######      ########      ######	Version 0.1				\n");
-	cli_p->print_cb("######        ......        ......	built on %s				\n\n\n",__DATE__);
-#endif /* 0 */
+	cli_p->print_cb("      ######  ......######  ......						\n");
+	cli_p->print_cb("    ######    ....######    ######	MUSDK Device Drivers			\n");
+	cli_p->print_cb("  ######      ..######      ......	Version 0.1				\n");
+	cli_p->print_cb("######        ######        ######	built on %s				\n\n\n",__DATE__);
 }
 
 static void get_hist_lst(cli_t *cli_p)
@@ -475,9 +470,17 @@ static void init_builtin_cmds(cli_t *cli_p)
 	struct cli_cmd_params	 cmd_params;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "?";
+	cmd_params.name		= "help";
 	cmd_params.desc		= "Help; print command description/usage";
-	cmd_params.format	= "?";
+	cmd_params.format	= NULL;
+	cmd_params.cmd_arg	= cli_p;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))help_cmd_cb;
+	cli_register_cmd(cli_p, &cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "?";
+	cmd_params.desc		= "Alias for help";
+	cmd_params.format	= NULL;
 	cmd_params.cmd_arg	= cli_p;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))help_cmd_cb;
 	cli_register_cmd(cli_p, &cmd_params);
@@ -485,7 +488,7 @@ static void init_builtin_cmds(cli_t *cli_p)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "q";
 	cmd_params.desc		= "Quit; TODO";
-	cmd_params.format	= "q";
+	cmd_params.format	= NULL;
 	cmd_params.cmd_arg	= cli_p;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))quit_cmd_cb;
 	cli_register_cmd(cli_p, &cmd_params);
@@ -495,6 +498,7 @@ static void init_builtin_cmds(cli_t *cli_p)
 struct cli * cli_init(struct cli_params *cli_params)
 {
 	cli_t	*cli_p;
+	char	 dflt_promt[] = "MUSDK";
 	int	 i;
 
 	cli_p = malloc(sizeof(cli_t));
@@ -507,18 +511,19 @@ struct cli * cli_init(struct cli_params *cli_params)
 	INIT_LIST(&cli_p->cmds_lst);
 	INIT_LIST(&cli_p->hist_lst);
 
-	cli_p->prompt = (char *)malloc(CLI_MAX_CMD_LINE_LENGTH+1);
+	if (cli_params->prompt == NULL)
+		cli_params->prompt = dflt_promt;
+
+	cli_p->prompt = (char *)malloc(strlen(cli_params->prompt)+1);
 	if (!cli_p->prompt) {
 		cli_free(cli_p);
 		pr_err("No mem for CLI-prompt obj\n");
 		return NULL;
 	}
-	memset(cli_p->prompt, 0, CLI_MAX_CMD_LINE_LENGTH+1);
+	memset(cli_p->prompt, 0, strlen(cli_params->prompt)+1);
+	cli_p->prompt[strlen(cli_params->prompt)] = '\0';
 
-	if (cli_params->prompt != NULL)
-		memcpy(cli_p->prompt, cli_params->prompt, strlen(cli_params->prompt));
-	else
-		memcpy(cli_p->prompt, "MUSDK", 5);
+	memcpy(cli_p->prompt, cli_params->prompt, strlen(cli_params->prompt));
 	cli_p->no_block = cli_params->no_block;
 	cli_p->echo = cli_params->echo;
 	cli_p->print_cb	= cli_params->print_cb;
@@ -600,7 +605,7 @@ int cli_run(struct cli *cli)
 		}
 	}
 
-	print_mv_logo(cli_p);
+	print_logo(cli_p);
 
 	dump_usage(cli_p);
 
@@ -671,16 +676,18 @@ int cli_register_cmd(struct cli *cli, struct cli_cmd_params *cmd_params)
 	memcpy(cmd->desc, cmd_params->desc, strlen(cmd_params->desc));
 	cmd->desc[strlen(cmd_params->desc)] = '\0';
 
-	cmd->format = malloc(strlen(cmd_params->format)+1);
-	if (!cmd->format) {
-		pr_err("No mem for CLI-command-format obj\n");
-		free(cmd->desc);
-		free(cmd->name);
-		free(cmd);
-		return -ENOMEM;
+	if (cmd_params->format) {
+		cmd->format = malloc(strlen(cmd_params->format)+1);
+		if (!cmd->format) {
+			pr_err("No mem for CLI-command-format obj\n");
+			free(cmd->desc);
+			free(cmd->name);
+			free(cmd);
+			return -ENOMEM;
+		}
+		memcpy(cmd->format, cmd_params->format, strlen(cmd_params->format));
+		cmd->format[strlen(cmd_params->format)] = '\0';
 	}
-	memcpy(cmd->format, cmd_params->format, strlen(cmd_params->format));
-	cmd->format[strlen(cmd_params->format)] = '\0';
 
 	INIT_LIST(&cmd->node);
 	cmd->cmd_arg	= cmd_params->cmd_arg;
@@ -720,22 +727,4 @@ int cli_unregister_cmd(struct cli *cli, char *name)
 	}
 
 	return 0;
-}
-
-void cli_print(struct cli *cli, char *format, ...)
-{
-	cli_t	*cli_p = (cli_t *)cli;
-	char	 tmpBuf[CLI_PRINT_BUF_SIZE];
-	va_list	 args;
-
-	if (!cli_p) {
-		pr_err("Invalid CLI obj provided!\n");
-		return;
-	}
-
-	va_start(args, format);
-	vsprintf(tmpBuf, format, args);
-	va_end(args);
-
-	cli_p->print_cb(tmpBuf);
 }

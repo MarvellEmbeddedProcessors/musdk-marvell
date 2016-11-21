@@ -34,6 +34,7 @@
 #define __MVAPP_H__
 
 #include "mvapp_std.h"
+#include "cli.h"
 
 struct mvapp_params {
 	int			 use_cli;
@@ -50,5 +51,8 @@ struct mvapp_params {
 };
 
 int mvapp_go(struct mvapp_params *mvapp_params);
+
+int mvapp_register_cli_cmd(struct cli_cmd_params *cmd_params);
+int mvapp_unregister_cli_cmd(char *name);
 
 #endif /* __MVAPP_H__ */
