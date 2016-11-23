@@ -26,22 +26,6 @@
 #define roundup(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
 
 /*
-* min()/max()/clamp() macros that also do
-* strict type-checking.. See the
-* "unnecessary" pointer comparison.
-*/
-#define min(x, y) ({			\
-	typeof(x) _min1 = (x);		\
-	typeof(y) _min2 = (y);		\
-	(void)(&_min1 == &_min2);	\
-	_min1 < _min2 ? _min1 : _min2; })
-
-#define max(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a > _b ? _a : _b; })
-
-/*
  * Return number of array's elements
  */
 #define ELEM_OF(t)  (sizeof(t) / sizeof((t)[0]))
