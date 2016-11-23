@@ -1,32 +1,14 @@
-AM_CPPFLAGS  = -I./ -I$(LOCATION)/usr/local/include 
-#AM_CPPFLAGS += -I$(top_build_prefix)src/include
-AM_CPPFLAGS += -I$(top_srcdir)/src/include
-AM_CPPFLAGS += -I$(builddir)
+# whatever flags you want to pass to the C compiler & linker
+AM_CFLAGS = -Wall -std=gnu99 -O2
+AM_CFLAGS += -I$(top_srcdir)/src/include
 
+AM_LDFLAGS = -lm
 
-
-METASOURCES = AUTO
-
-EXTRA_DIST =
-EXTRA_DIST +=		\
-	libtool-version
-
-AM_CFLAGS = -g3
-AM_CXXFLAGS = -g3
-
-noinst_DATA = libtool-version
 
 lib_LTLIBRARIES = libmusdk.la
 
 include_HEADERS  = include/drivers/mv_pp2.h
 
-noinst_HEADERS  = drivers/ppv2/pp2_util.h
-noinst_HEADERS += drivers/ppv2/pp2.h
-noinst_HEADERS += drivers/ppv2/pp2_mem.h
-noinst_HEADERS += drivers/ppv2/pp2_gop.h
-noinst_HEADERS += drivers/ppv2/pp2_hw_type.h
-noinst_HEADERS += drivers/ppv2/pp2_print.h
-#noinst_HEADERS += drivers/ppv2/pp2_locks.h
 
 libmusdk_la_SOURCES  = lib/list.c
 libmusdk_la_SOURCES += lib/lib_misc.c
@@ -64,3 +46,23 @@ libmusdk_la_SOURCES += drivers/ppv2/pp2_hw_cls_dbg.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_bpool.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_hif.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_ppio.c
+
+# Definitions for SAM driver compilation
+AM_CFLAGS += -DDRIVER_EIP197_HW_CONF_B
+AM_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/
+AM_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/MVEBU
+AM_CFLAGS += -I$(EIP197_DDK)/Integration/SLAD_Adapter/incl
+AM_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Basic_Defs_API/incl
+AM_CFLAGS += -I$(EIP197_DDK)/Kit/SABuilder/incl
+AM_CFLAGS += -I$(EIP197_DDK)/Kit/TokenBuilder/incl
+AM_CFLAGS += -I$(EIP197_DDK)/../SafeXcel-Firmware/eip197/firmware/production_firmware/api
+
+include_HEADERS  += include/drivers/mv_sam.h
+include_HEADERS  += include/drivers/mv_sam_cio.h
+include_HEADERS  += include/drivers/mv_sam_session.h
+
+libmusdk_la_SOURCES += drivers/sam/sam.c
+
+libmusdk_la_LIBADD = $(EIP197_DDK)/Examples/Driver/build/libdriver_197_u.a
+libmusdk_la_LIBADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libsa_bld_u.a
+libmusdk_la_LIBADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libtk_bld_u.a

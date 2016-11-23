@@ -1,54 +1,69 @@
-# use autogen.sh
+#                                               -*- Autoconf -*-
+# Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.65)
-AC_INIT([MUSDK Access Library],
-	[0.1],
-	[],
-	[libmusdk],
-	[])
-
-AC_CANONICAL_BUILD
-AC_CANONICAL_HOST
+AC_PREREQ([1.0])
+AC_INIT([musdk], [1.0], [someone@marvell.com])
+AM_INIT_AUTOMAKE([subdir-objects])
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE([1.10 dist-bzip2 dist-zip] [subdir-objects])
-AM_MAINTAINER_MODE
+# no build parameters print
+AM_SILENT_RULES([yes])
 
-AC_LANG([C])
-AC_REQUIRE_CPP
+# set install prefix
+AC_PREFIX_DEFAULT($(pwd)/usr/local)
 
-CFLAGS+=" -pthread \
-    -Wall \
-    -Wunused-variable \
-    -Wunused-function \
-    -Wpointer-arith \
-    -Wcast-qual \
-    -Wcast-align \
-    -Wundef \
-    -Wwrite-strings \
-    -Wstrict-prototypes \
-    -Wmissing-prototypes \
-    -Wmissing-declarations \
-    -Wold-style-definition \
-"
+# Checks for programs.
+AC_PROG_CC
 
-AC_PROG_CC_STDC
-AM_PROG_AR
 
-LT_PREREQ([2.2])
+# Checks for header files.
+AC_CHECK_HEADERS([stdlib.h unistd.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+
+CFLAGS="-Wall "
+#CFLAGS+="-Werror "
+CFLAGS+="-Wstrict-prototypes "
+CFLAGS+="-Wmissing-prototypes "
+CFLAGS+="-pthread " 
+
+CC=${CROSS_COMPILE}gcc
+LD=${CROSS_COMPILE}ld
+AR=${CROSS_COMPILE}ar
+
+# define LIBTOOL (for libraries)
 LT_INIT
-AC_PROG_INSTALL
 
-LOCATION=$HOME/target/sdk
-AC_SUBST(LOCATION)
-
-AC_CONFIG_FILES([
-	Makefile
-	src/Makefile
-    apps/Makefile
+AC_CONFIG_FILES([Makefile
+		src/Makefile
+		apps/Makefile
+		apps/tests/Makefile
+		apps/examples/Makefile
 ])
 
+##########################################################################
+# distribute the changed variables among the Makefiles
+
+AC_SUBST([LIBS])
+AC_SUBST([AM_CPPFLAGS])
+AC_SUBST([CPPFLAGS])
+AC_SUBST([CFLAGS])
+AC_SUBST([AM_LDFLAGS])
+AC_SUBST([LDFLAGS])
+
 AC_OUTPUT
+AC_MSG_RESULT([
+        libdir:                 ${libdir}
+        includedir:             ${includedir}
+
+        cc:                     ${CC}
+        cppflags:               ${CPPFLAGS}
+        cflags:                 ${CFLAGS}
+        ldflags:                ${LDFLAGS}
+        libs:                   ${LIBS}
+])
