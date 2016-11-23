@@ -34,87 +34,87 @@ static enum sam_dir direction_str_to_val(char *data)
 		printf("Direction is not defined\n");
 		return SAM_DIR_LAST;
 	}
-	if (strcmp(data, "encryption") == 0) {
+	if (strcmp(data, "encryption") == 0)
 		return SAM_DIR_ENCRYPT;
-	}
-	if (strcmp(data, "decryption") == 0) {
+
+	if (strcmp(data, "decryption") == 0)
 		return SAM_DIR_DECRYPT;
-	}
+
 	printf("Syntax error in Direction: %s is unknown\n", data);
 	return SAM_DIR_LAST;
 }
 
 static enum sam_cipher_alg cipher_algorithm_str_to_val(char *data)
 {
-	if (!data || (data[0] == '\0')) {
+	if (!data || (data[0] == '\0'))
 		return SAM_CIPHER_NONE;
-	}
-	if (strcmp(data, "DES") == 0) {
+
+	if (strcmp(data, "DES") == 0)
 		return SAM_CIPHER_DES;
-	}
-	if (strcmp(data, "3DES") == 0) {
+
+	if (strcmp(data, "3DES") == 0)
 		return SAM_CIPHER_3DES;
-	}
-	if (strcmp(data, "AES") == 0) {
+
+	if (strcmp(data, "AES") == 0)
 		return SAM_CIPHER_AES;
-	}
-	if (strcmp(data, "NULL") == 0) {
+
+	if (strcmp(data, "NULL") == 0)
 		return SAM_CIPHER_NONE;
-	}
+
 	printf("Syntax error in Algorithm: %s is unknown\n", data);
 	return SAM_CIPHER_NONE;
 }
 
 static enum sam_cipher_mode cipher_mode_str_to_val(char *data)
 {
-	if (!data || (data[0] == '\0')) {
+	if (!data || (data[0] == '\0'))
 		return SAM_CIPHER_MODE_LAST;
-	}
-	if (strcmp(data, "ECB") == 0) {
+
+	if (strcmp(data, "ECB") == 0)
 		return SAM_CIPHER_ECB;
-	}
-	if (strcmp(data, "CBC") == 0) {
+
+	if (strcmp(data, "CBC") == 0)
 		return SAM_CIPHER_CBC;
-	}
-	if (strcmp(data, "CTR") == 0) {
+
+	if (strcmp(data, "CTR") == 0)
 		return SAM_CIPHER_CTR;
-	}
-	if (strcmp(data, "GCM") == 0) {
+
+	if (strcmp(data, "GCM") == 0)
 		return SAM_CIPHER_GCM;
-	}
-	if (strcmp(data, "GMAC") == 0) {
+
+	if (strcmp(data, "GMAC") == 0)
 		return SAM_CIPHER_GMAC;
-	}
+
 	printf("Syntax error in Mode: %s is unknown\n", data);
 	return SAM_CIPHER_MODE_LAST;
 }
 
 static enum sam_auth_alg auth_algorithm_str_to_val(char *data)
 {
-	if (!data || (data[0] == '\0')) {
+	if (!data || (data[0] == '\0'))
 		return SAM_AUTH_NONE;
-	}
-	if (strcmp(data, "MD5") == 0) {
+
+	if (strcmp(data, "MD5") == 0)
 		return SAM_AUTH_HMAC_MD5;
-	}
-	if (strcmp(data, "SHA1") == 0) {
+
+	if (strcmp(data, "SHA1") == 0)
 		return SAM_AUTH_HMAC_SHA1;
-	}
-	if (strcmp(data, "SHA224") == 0) {
+
+	if (strcmp(data, "SHA224") == 0)
 		return SAM_AUTH_HMAC_SHA2_224;
-	}
-	if (strcmp(data, "SHA256") == 0) {
+
+	if (strcmp(data, "SHA256") == 0)
 		return SAM_AUTH_HMAC_SHA2_256;
-	}
-	if (strcmp(data, "SHA384") == 0) {
+
+	if (strcmp(data, "SHA384") == 0)
 		return SAM_AUTH_HMAC_SHA2_384;
-	}
-	if (strcmp(data, "SHA512") == 0) {
+
+	if (strcmp(data, "SHA512") == 0)
 		return SAM_AUTH_HMAC_SHA2_512;
-	}
-	if (strcmp(data, "NULL") == 0) {
+
+	if (strcmp(data, "NULL") == 0)
 		return SAM_AUTH_NONE;
-	}
+
 	printf("Syntax error in Auth algorithm: %s is unknown\n", data);
 	return SAM_AUTH_NONE;
 }
@@ -399,11 +399,12 @@ static int run_tests(generic_list tests_db)
 					next_request = 0;
 
 				num = 1;
+
 				rc = sam_cio_enq(cio_hndl, &request, &num);
 				if ((rc != 0) || (num != 1)) {
 					printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
 						__func__, num, rc);
-					break;
+					return -1;
 				}
 				in_process += num;
 			}
@@ -414,7 +415,6 @@ static int run_tests(generic_list tests_db)
 			rc = poll_results(cio_hndl, results, &to_deq);
 			in_process -= to_deq;
 			total_deqs -= to_deq;
-
 			/* check result */
 			/*check_results(block, sa_hndl[i], results, to_deq);*/
 		}
@@ -435,13 +435,14 @@ int main(int argc, char **argv)
 	tf_name = argv[1];
 	printf("%s: tests file is %s\n", argv[0], tf_name);
 
-	test_db = generic_list_create(fileSetsEncryptedBlockCopyForList, fileSetsEncryptedBlockDestroyForList);
+	test_db = generic_list_create(fileSetsEncryptedBlockCopyForList,
+				      fileSetsEncryptedBlockDestroyForList);
 	if (test_db == NULL) {
 		printf("generic_list_create failed\n");
 		return -1;
 	}
 
-	if (FILE_OPEN_PROBLEM == fileSetsReadBlocksFromFile(tf_name, test_db)) {
+	if (fileSetsReadBlocksFromFile(tf_name, test_db) == FILE_OPEN_PROBLEM) {
 		printf("Can't read tests from file %s\n", tf_name);
 		return -1;
 	}
