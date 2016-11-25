@@ -42,19 +42,24 @@
 #define MAX_BUFFER_SIZE			2048 /* bytes */
 #define MAX_CIPHER_KEY_SIZE		32 /* 256 Bits = 32 Bytes */
 #define MAX_CIPHER_BLOCK_SIZE		32 /* Bytes */
+#define MAX_AUTH_ICV_SIZE		32 /* Bytes */
 
-static struct sam_cio	*cio_hndl;
-static struct sam_sa	*sa_hndl[NUM_CONCURRENT_SESSIONS];
+static struct sam_cio		*cio_hndl;
+static struct sam_sa		*sa_hndl[NUM_CONCURRENT_SESSIONS];
+static struct sam_session_params sa_params[NUM_CONCURRENT_SESSIONS];
 
 static struct sam_buf_info	in_buf;
 static u32			in_data_size;
 static struct sam_buf_info	out_bufs[NUM_CONCURRENT_REQUESTS];
 static int			next_request;
 static u8			cipher_iv[MAX_CIPHER_BLOCK_SIZE];
+static u8			auth_icv[MAX_AUTH_ICV_SIZE];
 static u8			expected_data[MAX_BUFFER_SIZE];
 static u32			expected_data_size;
 static bool			same_bufs;
 static int			num_to_print = 1;
+static int			num_requests_per_enq = 1;
+static int			num_requests_before_deq = NUM_CONCURRENT_REQUESTS;
 
 static generic_list		test_db;
 
@@ -156,7 +161,7 @@ static void dump_buf(const unsigned char *p, unsigned int len)
 
 	while (i < len) {
 		j = 0;
-		printf("\n%p: ", p + i);
+		printf("\n%p: ", (p + i));
 		for (j = 0 ; j < 32 && i < len ; j++) {
 			printf("%02x ", p[i]);
 			i++;
@@ -183,7 +188,6 @@ static int delete_sessions(void)
 static int create_sessions(generic_list tests_db)
 {
 	EncryptedBlockPtr block;
-	struct sam_session_params sa_params;
 	int i, num_tests, auth_key_len;
 	u8 cipher_key[MAX_CIPHER_KEY_SIZE];
 
@@ -200,38 +204,37 @@ static int create_sessions(generic_list tests_db)
 		if (!block)
 			return -1;
 
-		memset(&sa_params, 0, sizeof(sa_params));
-		sa_params.dir = direction_str_to_val(encryptedBlockGetDirection(block));
+		sa_params[i].dir = direction_str_to_val(encryptedBlockGetDirection(block));
 
-		sa_params.cipher_alg = cipher_algorithm_str_to_val(encryptedBlockGetAlgorithm(block));
-		if (sa_params.cipher_alg != SAM_CIPHER_NONE) {
-			sa_params.cipher_key_len = encryptedBlockGetKeyLen(block);
-			if (sa_params.cipher_key_len > sizeof(cipher_key)) {
+		sa_params[i].cipher_alg = cipher_algorithm_str_to_val(encryptedBlockGetAlgorithm(block));
+		if (sa_params[i].cipher_alg != SAM_CIPHER_NONE) {
+			sa_params[i].cipher_key_len = encryptedBlockGetKeyLen(block);
+			if (sa_params[i].cipher_key_len > sizeof(cipher_key)) {
 				printf("Cipher key size is too long: %d bytes > %d bytes\n",
-					sa_params.cipher_key_len, (int)sizeof(cipher_key));
+					sa_params[i].cipher_key_len, (int)sizeof(cipher_key));
 				return -1;
 			}
-			encryptedBlockGetKey(block, sa_params.cipher_key_len, cipher_key);
+			encryptedBlockGetKey(block, sa_params[i].cipher_key_len, cipher_key);
 
-			sa_params.cipher_mode = cipher_mode_str_to_val(encryptedBlockGetMode(block));
-			sa_params.cipher_iv = NULL;
-			sa_params.cipher_key = cipher_key;
+			sa_params[i].cipher_mode = cipher_mode_str_to_val(encryptedBlockGetMode(block));
+			sa_params[i].cipher_iv = NULL;
+			sa_params[i].cipher_key = cipher_key;
 			/* encryptedBlockGetIvLen(block, idx); - Check IV length with cipher algorithm */
 		}
 
-		sa_params.auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block));
-		if (sa_params.auth_alg != SAM_AUTH_NONE) {
+		sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block));
+		if (sa_params[i].auth_alg != SAM_AUTH_NONE) {
 
 			/* Calculate inner and outer blocks from authentication key */
 			auth_key_len = encryptedBlockGetAuthKeyLen(block);
 
-			sa_params.auth_inner = NULL;
-			sa_params.auth_outer = NULL;
-			sa_params.auth_icv_len = encryptedBlockGetIcbLen(block, 0);
-			sa_params.auth_aad_len = 0;
+			sa_params[i].auth_inner = NULL;
+			sa_params[i].auth_outer = NULL;
+			sa_params[i].auth_icv_len = encryptedBlockGetIcbLen(block, 0);
+			sa_params[i].auth_aad_len = 0;
 		}
 
-		if (sam_session_create(cio_hndl, &sa_params, &sa_hndl[i])) {
+		if (sam_session_create(cio_hndl, &sa_params[i], &sa_hndl[i])) {
 			printf("%s: failed\n", __func__);
 			return -1;
 		}
@@ -257,11 +260,10 @@ static int poll_results(struct sam_cio *cio, struct sam_cio_op_result *result,
 	return -EINVAL;
 }
 
-
-static int check_results(EncryptedBlockPtr block, struct sam_sa *sa,
+static int check_results(struct sam_session_params *session_params,
 			struct sam_cio_op_result *result, u16 num)
 {
-	int i;
+	int i, errors = 0;
 	u8 *out_data;
 
 	for (i = 0; i < num; i++) {
@@ -274,7 +276,7 @@ static int check_results(EncryptedBlockPtr block, struct sam_sa *sa,
 		}
 		if (i < num_to_print) {
 			printf("\nInput buffer:");
-			dump_buf(in_buf.vaddr, expected_data_size);
+			dump_buf(in_buf.vaddr, in_data_size);
 
 			printf("\nOutput buffer:");
 			dump_buf(out_data, expected_data_size);
@@ -282,15 +284,14 @@ static int check_results(EncryptedBlockPtr block, struct sam_sa *sa,
 			printf("\nExpected buffer:");
 			dump_buf(expected_data, expected_data_size);
 
+			printf("\n");
 		}
 
 		/* Compare output and expected data */
-		if (memcmp(out_data, expected_data, expected_data_size)) {
-			pr_err("%s: Test failed\n", __func__);
-			return -EINVAL;
-		}
+		if (memcmp(out_data, expected_data, expected_data_size))
+			errors++;
 	}
-	return 0;
+	return errors;
 }
 
 static void free_bufs(void)
@@ -329,9 +330,16 @@ static int allocate_bufs(int buf_size)
 	return 0;
 }
 
-static void prepare_bufs(EncryptedBlockPtr block, struct sam_sa *sa_hndl)
+static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *sa_params,
+			 int num)
 {
 	int i;
+
+	if (num > NUM_CONCURRENT_REQUESTS)
+		num = NUM_CONCURRENT_REQUESTS;
+
+	if (sa_params->auth_icv_len > 0)
+		encryptedBlockGetIcb(block, sa_params->auth_icv_len, auth_icv, 0);
 
 	if (direction_str_to_val(encryptedBlockGetDirection(block)) == SAM_DIR_ENCRYPT) {
 		expected_data_size = encryptedBlockGetCipherTextLen(block, 0);
@@ -341,7 +349,7 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_sa *sa_hndl)
 		encryptedBlockGetPlainText(block, in_data_size, in_buf.vaddr, 0);
 
 		if (same_bufs) {
-			for (i = 0; i < NUM_CONCURRENT_REQUESTS; i++)
+			for (i = 0; i < num; i++)
 				encryptedBlockGetPlainText(block, in_data_size, out_bufs[i].vaddr, 0);
 		}
 	} else if (direction_str_to_val(encryptedBlockGetDirection(block)) == SAM_DIR_DECRYPT) {
@@ -351,28 +359,34 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_sa *sa_hndl)
 		in_data_size = encryptedBlockGetCipherTextLen(block, 0);
 		encryptedBlockGetCipherText(block, in_data_size, in_buf.vaddr, 0);
 		if (same_bufs) {
-			for (i = 0; i < NUM_CONCURRENT_REQUESTS; i++)
+			for (i = 0; i < num; i++)
 				encryptedBlockGetCipherText(block, in_data_size, out_bufs[i].vaddr, 0);
 		}
 	}
 }
 
-static void prepare_requests(EncryptedBlockPtr block, struct sam_sa *sa_hndl,
-			 struct sam_cio_op_params *request, int num)
+static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params *sa_params,
+			     struct sam_sa *session_hndl, struct sam_cio_op_params *request, int num)
 {
 	int iv_len;
 
-	encryptedBlockGetDirection(block);
 	request->cipher_iv_offset = 0; /* not supported */
-	request->sa = sa_hndl;
+	request->sa = session_hndl;
 	request->cipher_offset = encryptedBlockGetCryptoOffset(block, 0);
-	request->cipher_offset = encryptedBlockGetPlainTextLen(block, 0);
 	request->cipher_len = encryptedBlockGetPlainTextLen(block, 0);
-	request->num_bufs = 1,
+	request->num_bufs = 1;
+
 	iv_len = encryptedBlockGetIvLen(block, 0);
-	encryptedBlockGetIv(block, iv_len, cipher_iv, 0);
+	if (iv_len)
+		encryptedBlockGetIv(block, iv_len, cipher_iv, 0);
 	request->cipher_iv = cipher_iv;
-}
+
+	request->auth_aad_offset = 0; /* not supported */
+	request->auth_aad = NULL;
+	request->auth_offset = 0;
+	request->auth_len = 0;
+	request->auth_icv_offset = 0;
+};
 
 /* There are few parameters can be configured:
  * - number of requests per enqueue/dequeue call: [1..NUM_CONCURRENT_REQUESTS] [default = 1]
@@ -382,15 +396,16 @@ static int run_tests(generic_list tests_db)
 {
 	EncryptedBlockPtr block;
 	int i, num_tests, total_enqs, total_deqs, in_process, to_enq;
-	u16 num, to_deq;
+	u16 num, to_deq = 0;
 	char *test_name;
 	struct sam_cio_op_params request;
 	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
-	int rc;
+	int rc, count, errors = 0;
 
 	num_tests = generic_list_get_size(tests_db);
 
 	block = generic_list_get_first(tests_db);
+	num = 1;
 	for (i = 0; i < num_tests; i++) {
 
 		if (i > 0)
@@ -401,18 +416,15 @@ static int run_tests(generic_list tests_db)
 
 		test_name = encryptedBlockGetName(block);
 
-		total_enqs = total_deqs = encryptedBlockGetOperationCounter(block);
+		count = total_enqs = total_deqs = encryptedBlockGetTestCounter(block);
 
-		prepare_bufs(block, sa_hndl[i]);
-		prepare_requests(block, sa_hndl[i], &request, 1);
-
-		printf("%2d: name: %s - %d requests\n", i, test_name, total_enqs);
+		prepare_bufs(block, &sa_params[i], count);
+		prepare_requests(block, &sa_params[i], sa_hndl[i], &request, num_requests_per_enq);
 
 		/* Check plain_len == cipher_len */
 		in_process = 0;
 		while (total_deqs) {
-			to_enq = min(total_enqs, NUM_CONCURRENT_REQUESTS);
-
+			to_enq = min(total_enqs, num_requests_before_deq);
 			while (in_process < to_enq) {
 				if (same_bufs) {
 					/* Input buffers are different pre request */
@@ -429,17 +441,16 @@ static int run_tests(generic_list tests_db)
 				if (next_request == NUM_CONCURRENT_REQUESTS)
 					next_request = 0;
 
-				num = 1;
-
+				num = (u16)num_requests_per_enq;
 				rc = sam_cio_enq(cio_hndl, &request, &num);
-				if ((rc != 0) || (num != 1)) {
+				if ((rc != 0) || (num != num_requests_per_enq)) {
 					printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
 						__func__, num, rc);
 					return -1;
 				}
 				in_process += num;
+				total_enqs -= num;
 			}
-			total_enqs -= in_process;
 
 			/* Get all ready results together */
 			to_deq = in_process;
@@ -447,9 +458,15 @@ static int run_tests(generic_list tests_db)
 			in_process -= to_deq;
 			total_deqs -= to_deq;
 			/* check result */
-			/*check_results(block, sa_hndl[i], results, to_deq);*/
+			errors += check_results(&sa_params[i], results, to_deq);
 		}
+		if (errors == 0)
+			printf("%2d. %s: passed %d times\n", i, test_name, count);
+		else
+			printf("%2d. %s: failed %d of %d times\n", i, test_name, errors, count);
 	}
+	printf("\n");
+
 	return 0;
 }
 

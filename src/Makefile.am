@@ -62,3 +62,4 @@ include_HEADERS  += include/drivers/mv_sam_cio.h
 include_HEADERS  += include/drivers/mv_sam_session.h
 
 libmusdk_la_SOURCES += drivers/sam/sam.c
+libmusdk_la_SOURCES += drivers/sam/sam_debug.c

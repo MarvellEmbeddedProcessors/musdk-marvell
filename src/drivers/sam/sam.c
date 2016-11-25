@@ -1,14 +1,41 @@
-/**
- * @file sam.c
+/******************************************************************************
+ *	Copyright (C) 2016 Marvell International Ltd.
  *
- * Security accelerator module
- */
+ *  If you received this File from Marvell, you may opt to use, redistribute
+ *  and/or modify this File under the following licensing terms.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *	* Redistributions of source code must retain the above copyright
+ *	  notice, this list of conditions and the following disclaimer.
+ *
+ *	* Redistributions in binary form must reproduce the above copyright
+ *	  notice, this list of conditions and the following disclaimer in the
+ *	  documentation and/or other materials provided with the distribution.
+ *
+ *	* Neither the name of Marvell nor the names of its contributors may be
+ *	  used to endorse or promote products derived from this software
+ *	  without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *****************************************************************************/
 
 #include "std_internal.h"
 #include "drivers/mv_sam.h"
 #include "sam.h"
 
 /*#define SAM_DMA_DEBUG*/
+/*#define SAM_INTERNAL_DEBUG*/
 
 static struct sam_cio	*sam_ring;
 static struct sam_sa	*sam_sessions;
@@ -243,7 +270,14 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	memcpy(operation->data_dmabuf.host_addr.p, request->src->vaddr,
 		token_params.BypassByteCount + copylen);
 
-	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)request->src->vaddr,
+#ifdef SAM_INTERNAL_DEBUG
+	print_token_params(&token_params);
+
+	pr_info("Input DMA buffer: %p, copylen = %d\n", operation->data_dmabuf.host_addr.p, copylen);
+	mem_disp(operation->data_dmabuf.host_addr.p, token_params.BypassByteCount + copylen);
+#endif
+
+	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)operation->data_dmabuf.host_addr.p,
 				     copylen, &token_params,
 				     operation->token_dmabuf.host_addr.p,
 				     &token_words, &token_header_word);
@@ -252,6 +286,7 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 			__func__, rc);
 		return -EINVAL;
 	}
+
 	cmd_desc->SA_Handle1       = session->sa_dmabuf.hndl;
 	cmd_desc->SA_WordCount     = session->sa_words;
 	cmd_desc->SA_Handle2       = DMABuf_NULLHandle;
@@ -274,7 +309,8 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	int i;
 
 	/* Load SAM HW engine */
-	sam_hw_engine_load();
+	if (sam_hw_engine_load())
+		return -EINVAL;
 
 	/* Only one instance of CIO is supported */
 	if (sam_ring != NULL) {
@@ -465,11 +501,13 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 		pr_err("%s: TokenBuilder_BuildContext failed, rc = %d\n", __func__, rc);
 		goto error_session;
 	}
+
 	rc = TokenBuilder_GetSize(session->tcr_data, &session->token_words);
 	if (rc != 0) {
 		pr_err("%s:: TokenBuilder_GetSize failed.\n", __func__);
 		goto error_session;
 	}
+
 	if (session->token_words > SAM_TOKEN_DMABUF_SIZE / 4) {
 		pr_err("%s: Token size %d words is too big. Maximum = %d words\n",
 			__func__, session->token_words, SAM_TOKEN_DMABUF_SIZE / 4);
@@ -492,8 +530,12 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 			__func__, cio->params.id, rc);
 		goto error_session;
 	}
-	session->cio = cio;
+#ifdef SAM_INTERNAL_DEBUG
+	print_sa_params(&session->sa_params);
+	print_basic_sa_params(&session->basic_params);
+#endif
 
+	session->cio = cio;
 	*sa = session;
 
 	return 0;
@@ -560,8 +602,13 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request, u16 *num
 		pr_warning("SAM cio %d is full\n", cio->params.id);
 		return -EBUSY;
 	}
+#ifdef SAM_INTERNAL_DEBUG
+	print_sam_cio_op_params(request);
+#endif
+
 	/* Get next operation structure */
 	operation = &cio->operations[cio->next_request];
+
 	cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 
 	/* Prepare request for submit */
@@ -570,6 +617,11 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request, u16 *num
 
 	if (sam_hw_cmd_desc_init(request, operation, &cmd, &pkt_params))
 		goto error_enq;
+
+#ifdef SAM_INTERNAL_DEBUG
+	print_pkt_params(&pkt_params);
+	print_cmd_desc(&cmd);
+#endif
 
 	/* Save some fields from request needed for result processing */
 	operation->sa = request->sa;
@@ -618,8 +670,14 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num)
 		pr_err("%s: PEC_Packet_Get failed, rc = %d\n", __func__, rc);
 		return -EINVAL;
 	}
+
 	if (count == 0) /* No results are ready */
 		return -EBUSY;
+
+#ifdef SAM_INTERNAL_DEBUG
+	print_result_desc(&result_desc);
+#endif
+	*num = (u16)count;
 
 	operation = result_desc.User_p;
 	rc = PEC_RD_Status_Read(&result_desc, &result_status);
@@ -630,12 +688,18 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num)
 	}
 	result->cookie = operation->cookie;
 
+	/* Increment next result index */
+	cio->next_result = sam_cio_next_idx(cio, cio->next_result);
+
 	if (result_status.errors == 0)
 		result->status = SAM_CIO_OK;
 	else if (PEC_PKT_ERROR_AUTH & result_status.errors)
 		result->status = SAM_CIO_ERR_ICV;
-	else
+	else {
 		result->status = SAM_CIO_ERR_HW;
+		printf("%s: HW error 0x%x\n", __func__, result_status.errors);
+		return -EINVAL;
+	}
 
 	/* Copy output data to user buffer */
 	if (operation->out_frags[0].len < result_desc.DstPkt_ByteCount) {
@@ -645,9 +709,6 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num)
 	}
 	memcpy(operation->out_frags[0].vaddr, result_desc.DstPkt_p,
 		result_desc.DstPkt_ByteCount);
-
-	/* Increment next result index */
-	cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 
 	return 0;
 }
