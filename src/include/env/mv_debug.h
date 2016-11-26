@@ -54,20 +54,20 @@ do {						\
 #endif /* !pr_crit */
 #ifndef pr_err
 #define pr_err(...) \
-	mv_print(MV_DBG_L_CRIT, "[ERROR] " __VA_ARGS__)
+	mv_print(MV_DBG_L_ERR, "[ERROR] " __VA_ARGS__)
 #endif /* !pr_err */
 #ifndef pr_warning
 #define pr_warning(...) \
-	mv_print(MV_DBG_L_CRIT, "[WARN] " __VA_ARGS__)
+	mv_print(MV_DBG_L_WARN, "[WARN] " __VA_ARGS__)
 #endif /* !pr_warning */
 #ifndef pr_info
 #define pr_info(...) \
-	mv_print(MV_DBG_L_CRIT, __VA_ARGS__)
+	mv_print(MV_DBG_L_INFO, __VA_ARGS__)
 #endif /* !pr_info */
 #ifndef pr_debug
 #ifdef DEBUG
 #define pr_debug(...) \
-	mv_print(MV_DBG_L_CRIT, "[DBG] " __VA_ARGS__)
+	mv_print(MV_DBG_L_DBG, "[DBG] " __VA_ARGS__)
 #else
 #define pr_debug(...)
 #endif /* !pr_debug */
