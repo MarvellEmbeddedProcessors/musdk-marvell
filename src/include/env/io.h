@@ -30,8 +30,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_IO_H__
-#define __MV_IO_H__
+#ifndef __IO_H__
+#define __IO_H__
 
 #include "mv_types.h"
 
@@ -143,4 +143,4 @@ static inline void __raw_writeq(u64 val, volatile void __iomem *addr)
 #define writel(v,c)		({ __iowmb(); writel_relaxed((v),(c)); })
 #define writeq(v,c)		({ __iowmb(); writeq_relaxed((v),(c)); })
 
-#endif /* __MV_IO_H__ */
+#endif /* __IO_H__ */

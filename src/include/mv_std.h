@@ -41,7 +41,6 @@
 #include "env/mv_common.h"
 #include "env/mv_debug.h"
 #include "env/mv_errno.h"
-#include "env/mv_io.h"
 #include "env/mv_sys_dma.h"
 
 

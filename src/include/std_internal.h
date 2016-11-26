@@ -56,6 +56,7 @@
 #include "env/spinlock.h"
 #include "env/sys_iomap.h"
 #include "env/cma.h"
+#include "env/io.h"
 
 
 #endif /* __STD_INTERNAL_H__ */
