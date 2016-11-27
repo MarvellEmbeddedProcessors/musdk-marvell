@@ -14,6 +14,13 @@
 #include "pp2_types.h"
 #include "pp2_hw_type.h"
 
+#include "cls/pp2_cls_types.h"
+#include "cls/pp2_cls_internal_types.h"
+#include "cls/pp2_cls_common.h"
+#include "cls/pp2_cls_utils.h"
+#include "cls/pp2_c3.h"
+#include "cls/pp2_cls_db.h"
+
 #define MV_ERROR		(-1)
 #define MV_OK			(0)
 

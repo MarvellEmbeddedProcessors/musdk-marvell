@@ -7,9 +7,7 @@
 #include "pp2.h"
 #include "pp2_dm.h"
 
-
 static struct pp2_hif pp2_hif[PP2_NUM_REGSPACES];
-
 
 int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 {

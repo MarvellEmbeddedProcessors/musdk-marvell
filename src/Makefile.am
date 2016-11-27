@@ -52,6 +52,12 @@ libmusdk_la_SOURCES += drivers/ppv2/pp2_bpool.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_hif.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_ppio.c
 
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_common.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_utils.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_db.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3_debug.c
+
 # Definitions for SAM driver compilation
 libmusdk_la_CFLAGS += -DDRIVER_EIP197_HW_CONF_B
 libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/

@@ -18,7 +18,6 @@
 #include "pp2_gop_dbg.h"
 #include "pp2_hw_cls.h"
 
-
 struct pp2 * pp2_ptr;
 
 /* TBD: remove hc_gop_mac_data variable after port/mac is read from device tree*/
@@ -193,6 +192,10 @@ static void pp2_inst_init(struct pp2_inst *inst)
     mv_pp2x_prs_default_init(hw);
     mv_pp2x_cls_init(hw);
     mv_pp2x_c2_init(hw);
+
+   /* TODO [AW] Temporary - need to call cls manager init and it will init all submodules */
+    pp2_cls_db_init();
+    pp2_cls_c3_start(cpu_slot);
 
     /* TBD(RX): Init PP22 rxfhindir(RSS) table evenly */
     pp2_init_rxfhindir(inst);
