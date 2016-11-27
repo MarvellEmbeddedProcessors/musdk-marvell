@@ -5371,11 +5371,11 @@ void pp2_cls_c3_shadow_clear(int index)
 /*-------------------------------------------------------------------------------*/
 /* retun 1 scan procedure completed							  */
 /*-------------------------------------------------------------------------------*/
-static int pp2_cls_c3_scan_complete(struct pp2_port *port)
+static int pp2_cls_c3_scan_complete(uintptr_t cpu_slot)
 {
 	u32 reg_val;
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_STATE_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_STATE_REG);
 	reg_val &= MVPP2_CLS3_STATE_SC_DONE_MASK;
 	reg_val >>= MVPP2_CLS3_STATE_SC_DONE;
 
@@ -5385,11 +5385,11 @@ static int pp2_cls_c3_scan_complete(struct pp2_port *port)
 /*-------------------------------------------------------------------------------*/
 /* return 1 if that the last CPU access (Query,Add or Delete) was completed			  */
 /*-------------------------------------------------------------------------------*/
-static int pp2_cls_c3_cpu_done(struct pp2_port *port)
+static int pp2_cls_c3_cpu_done(uintptr_t cpu_slot)
 {
 	u32 reg_val;
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_STATE_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_STATE_REG);
 	reg_val &= MVPP2_CLS3_STATE_CPU_DONE_MASK;
 	reg_val >>= MVPP2_CLS3_STATE_CPU_DONE;
 	return reg_val;
@@ -5401,14 +5401,14 @@ static int pp2_cls_c3_cpu_done(struct pp2_port *port)
 /* 0x2  "ScanWait"  The engine waits for the scan delay timer				  */
 /* 0x3  "ScanInProgress"  The scan process is in progress					  */
 /*-------------------------------------------------------------------------------*/
-static int pp2_cls_c3_scan_state_get(struct pp2_port *port, u32 *state)
+static int pp2_cls_c3_scan_state_get(uintptr_t cpu_slot, u32 *state)
 {
 	u32 reg_val;
 
 	if (mv_pp2x_ptr_validate(state))
 		return -EINVAL;
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_STATE_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_STATE_REG);
 	reg_val &= MVPP2_CLS3_STATE_SC_STATE_MASK;
 	reg_val >>= MVPP2_CLS3_STATE_SC_STATE;
 	*state = reg_val;
@@ -5420,11 +5420,11 @@ static int pp2_cls_c3_scan_state_get(struct pp2_port *port, u32 *state)
 /* return 1 if counters clearing is completed						  */
 /*-------------------------------------------------------------------------------*/
 
-static int pp2_cls_c3_hit_cntr_clear_done(struct pp2_port *port)
+static int pp2_cls_c3_hit_cntr_clear_done(uintptr_t cpu_slot)
 {
 	u32 reg_val;
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_STATE_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_STATE_REG);
 	reg_val &= MVPP2_CLS3_STATE_CLEAR_CTR_DONE_MASK;
 	reg_val >>= MVPP2_CLS3_STATE_CLEAR_CTR_DONE;
 	return reg_val;
@@ -5437,12 +5437,12 @@ void pp2_cls_c3_sw_clear(struct pp2_cls_c3_entry *c3)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_init(struct pp2_port *port)
+int pp2_cls_c3_init(uintptr_t cpu_slot)
 {
 	int rc;
 
 	pp2_cls_c3_shadow_init();
-	rc = pp2_cls_c3_hit_cntrs_clear_all(port);
+	rc = pp2_cls_c3_hit_cntrs_clear_all(cpu_slot);
 	return rc;
 }
 
@@ -5450,7 +5450,7 @@ int pp2_cls_c3_init(struct pp2_port *port)
 /* Add entry to hash table								  */
 /* ext_index used only if hek size < 12						  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int index, int ext_index)
+int pp2_cls_c3_hw_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int index, int ext_index)
 {
 	int reg_start_ind, hek_size, iter = 0;
 	u32 reg_val = 0;
@@ -5464,7 +5464,7 @@ int pp2_cls_c3_hw_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int in
 	c3->index = index;
 
 	/* write key control */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_KEY_CTRL_REG, c3->key.key_ctrl);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_KEY_CTRL_REG, c3->key.key_ctrl);
 
 	hek_size = ((c3->key.key_ctrl & KEY_CTRL_HEK_SIZE_MASK) >> KEY_CTRL_HEK_SIZE);
 
@@ -5484,7 +5484,7 @@ int pp2_cls_c3_hw_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int in
 		reg_start_ind = 6;
 
 	for (; reg_start_ind < MVPP2_CLS_C3_EXT_HEK_WORDS; reg_start_ind++)
-		pp2_reg_write(port->cpu_slot, MVPP2_CLS3_KEY_HEK_REG(reg_start_ind),
+		pp2_reg_write(cpu_slot, MVPP2_CLS3_KEY_HEK_REG(reg_start_ind),
 			      c3->key.hek.words[reg_start_ind]);
 
 	reg_val |= (index << MVPP2_CLS3_HASH_OP_TBL_ADDR);
@@ -5492,24 +5492,24 @@ int pp2_cls_c3_hw_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int in
 	reg_val |= (1 << MVPP2_CLS3_HASH_OP_ADD);
 
 	/* set hit counter init value */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_INIT_HIT_CNT_REG, sw_init_cnt_set << MVPP2_CLS3_INIT_HIT_CNT_OFFS),
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_INIT_HIT_CNT_REG, sw_init_cnt_set << MVPP2_CLS3_INIT_HIT_CNT_OFFS),
 	/*trigger ADD operation*/
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
 
 	/* wait to cpu access done bit */
-	while (!pp2_cls_c3_cpu_done(port))
+	while (!pp2_cls_c3_cpu_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
 			pp2_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
 		}
 
 	/* write action table registers */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_REG, c3->sram.regs.actions);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG, c3->sram.regs.qos_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG, c3->sram.regs.hwf_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG, c3->sram.regs.dup_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG, c3->sram.regs.seq_l_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG, c3->sram.regs.seq_h_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_REG, c3->sram.regs.actions);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG, c3->sram.regs.qos_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG, c3->sram.regs.hwf_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG, c3->sram.regs.dup_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG, c3->sram.regs.seq_l_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG, c3->sram.regs.seq_h_attr);
 	/* set entry as valid, extesion pointer in use only if size > 12*/
 	pp2_cls_c3_shadow_set(hek_size, index, ext_index);
 
@@ -5519,7 +5519,7 @@ int pp2_cls_c3_hw_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int in
 /*-------------------------------------------------------------------------------*/
 /*	Add entry to miss hash table							  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_miss_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int lkp_type)
+int pp2_cls_c3_hw_miss_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int lkp_type)
 {
 	u32 reg_val = 0;
 
@@ -5536,23 +5536,23 @@ int pp2_cls_c3_hw_miss_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, i
 	reg_val |= MVPP2_CLS3_MISS_PTR_MASK;/*set miss bit to 1*/
 
 	/*index to miss table */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
 
 	/* write action table registers */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_REG, c3->sram.regs.actions);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG, c3->sram.regs.qos_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG, c3->sram.regs.hwf_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG, c3->sram.regs.dup_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG, c3->sram.regs.seq_l_attr);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG, c3->sram.regs.seq_h_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_REG, c3->sram.regs.actions);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG, c3->sram.regs.qos_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG, c3->sram.regs.hwf_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG, c3->sram.regs.dup_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG, c3->sram.regs.seq_l_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG, c3->sram.regs.seq_h_attr);
 	/*clear hit counter, clear on read */
-	pp2_cls_c3_hit_cntrs_miss_read(port, lkp_type, &reg_val);
+	pp2_cls_c3_hit_cntrs_miss_read(cpu_slot, lkp_type, &reg_val);
 
 	return 0;
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_del(struct pp2_port *port, int index)
+int pp2_cls_c3_hw_del(uintptr_t cpu_slot, int index)
 {
 	u32 reg_val = 0;
 	int iter = 0;
@@ -5565,10 +5565,10 @@ int pp2_cls_c3_hw_del(struct pp2_port *port, int index)
 	reg_val &= ~MVPP2_CLS3_MISS_PTR_MASK;/*set miss bit to 1*/
 
 	/*trigger del operation*/
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
 
 	/* wait to cpu access done bit */
-	while (!pp2_cls_c3_cpu_done(port))
+	while (!pp2_cls_c3_cpu_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
 			pp2_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
@@ -5581,12 +5581,12 @@ int pp2_cls_c3_hw_del(struct pp2_port *port, int index)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_del_all(struct pp2_port *port)
+int pp2_cls_c3_hw_del_all(uintptr_t cpu_slot)
 {
 	int index, status;
 
 	for (index = 0; index < MVPP2_CLS_C3_HASH_TBL_SIZE; index++) {
-		status = pp2_cls_c3_hw_del(port, index);
+		status = pp2_cls_c3_hw_del(cpu_slot, index);
 		if (status != 0)
 			return status;
 	}
@@ -5600,7 +5600,7 @@ void pp2_cls_c3_hw_init_ctr_set(int cnt_val)
 }
 
 /*-------------------------------------------------------------------------------*/
-static int pp2_cls_c3_hw_query_add_relocate(struct pp2_port *port, int new_idx, int max_depth, int cur_depth,
+static int pp2_cls_c3_hw_query_add_relocate(uintptr_t cpu_slot, int new_idx, int max_depth, int cur_depth,
 					    struct pp2_cls_c3_hash_pair *hash_pair_arr)
 {
 	int ret_val = 0, index_free, idx = 0;
@@ -5613,13 +5613,13 @@ static int pp2_cls_c3_hw_query_add_relocate(struct pp2_port *port, int new_idx, 
 
 	pp2_cls_c3_sw_clear(&local_c3);
 
-	ret_val = pp2_cls_c3_hw_read(port, &local_c3, new_idx);
+	ret_val = pp2_cls_c3_hw_read(cpu_slot, &local_c3, new_idx);
 	if (ret_val) {
 		pp2_err("%s could not get key for index [0x%x]\n", __func__, new_idx);
 		return ret_val;
 	}
 
-	ret_val = pp2_cls_c3_hw_query(port, &local_c3, &occupied_bmp, used_index);
+	ret_val = pp2_cls_c3_hw_query(cpu_slot, &local_c3, &occupied_bmp, used_index);
 	if (ret_val) {
 		pp2_err("%s: pp2_cls_c3_hw_query failed, depth = %d\n", __func__, cur_depth);
 		return ret_val;
@@ -5654,7 +5654,7 @@ static int pp2_cls_c3_hw_query_add_relocate(struct pp2_port *port, int new_idx, 
 			if (used_index[idx] == 0)
 				continue;
 
-			if (pp2_cls_c3_hw_query_add_relocate(port, used_index[idx], max_depth, cur_depth + 1,
+			if (pp2_cls_c3_hw_query_add_relocate(cpu_slot, used_index[idx], max_depth, cur_depth + 1,
 							     hash_pair_arr) == 0)
 				break;
 		}
@@ -5670,7 +5670,7 @@ static int pp2_cls_c3_hw_query_add_relocate(struct pp2_port *port, int new_idx, 
 	/* new_idx del is not necessary */
 
 	/*We do not chage extension tabe*/
-	ret_val = pp2_cls_c3_hw_add(port, &local_c3, index_free, local_c3.ext_index);
+	ret_val = pp2_cls_c3_hw_add(cpu_slot, &local_c3, index_free, local_c3.ext_index);
 
 	/* update the hash pair */
 	if (!hash_pair_arr) {
@@ -5690,14 +5690,14 @@ static int pp2_cls_c3_hw_query_add_relocate(struct pp2_port *port, int new_idx, 
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_query_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3,	int max_search_depth,
+int pp2_cls_c3_hw_query_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int max_search_depth,
 			    struct pp2_cls_c3_hash_pair *hash_pair_arr)
 {
 	int used_index[MVPP2_CLS3_HASH_BANKS_NUM] = {0};
 	u8 occupied_bmp;
 	int idx, index_free, hek_size, ret_val, ext_index = 0;
 
-	ret_val = pp2_cls_c3_hw_query(port, c3, &occupied_bmp, used_index);
+	ret_val = pp2_cls_c3_hw_query(cpu_slot, c3, &occupied_bmp, used_index);
 	if (ret_val != 0) {
 		pp2_err("%s:Error - pp2_cls_c3_hw_query failed\n", __func__);
 		return ret_val;
@@ -5712,7 +5712,7 @@ int pp2_cls_c3_hw_query_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3,	
 	/* Available index did not found, try to relocate another key */
 	if (idx == MVPP2_CLS3_HASH_BANKS_NUM) {
 		for (idx = 0; idx < MVPP2_CLS3_HASH_BANKS_NUM; idx++) {
-			if (pp2_cls_c3_hw_query_add_relocate(port, used_index[idx], max_search_depth,
+			if (pp2_cls_c3_hw_query_add_relocate(cpu_slot, used_index[idx], max_search_depth,
 							     0 /*curren depth*/, hash_pair_arr) == 0)
 				break;
 		}
@@ -5738,7 +5738,7 @@ int pp2_cls_c3_hw_query_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3,	
 		}
 	}
 
-	ret_val = pp2_cls_c3_hw_add(port, c3, index_free, ext_index);
+	ret_val = pp2_cls_c3_hw_add(cpu_slot, c3, index_free, ext_index);
 	if (ret_val != 0) {
 		pp2_err("%s:Error - pp2_cls_c3_hw_add failed\n", __func__);
 		return ret_val;
@@ -5756,7 +5756,7 @@ int pp2_cls_c3_hw_query_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3,	
 /*	if index or occupied_bmp is NULL dump the data					  */
 /*	index[] size must be 8							  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_query(struct pp2_port *port, struct pp2_cls_c3_entry *c3, u8 *occupied_bmp, int index[])
+int pp2_cls_c3_hw_query(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, u8 *occupied_bmp, int index[])
 {
 	int idx = 0;
 	u32 reg_val = 0;
@@ -5765,42 +5765,42 @@ int pp2_cls_c3_hw_query(struct pp2_port *port, struct pp2_cls_c3_entry *c3, u8 *
 		return -EINVAL;
 
 	/* write key control */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_KEY_CTRL_REG, c3->key.key_ctrl);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_KEY_CTRL_REG, c3->key.key_ctrl);
 
 	/* write hek */
 	for (idx = 0; idx < MVPP2_CLS_C3_EXT_HEK_WORDS; idx++)
-		pp2_reg_write(port->cpu_slot, MVPP2_CLS3_KEY_HEK_REG(idx), c3->key.hek.words[idx]);
+		pp2_reg_write(cpu_slot, MVPP2_CLS3_KEY_HEK_REG(idx), c3->key.hek.words[idx]);
 
 	/*trigger query operation*/
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_QRY_ACT_REG, (1 << MVPP2_CLS3_QRY_ACT));
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_QRY_ACT_REG, (1 << MVPP2_CLS3_QRY_ACT));
 
 	idx = 0;
-	while (!pp2_cls_c3_cpu_done(port))
+	while (!pp2_cls_c3_cpu_done(cpu_slot))
 		if (++idx >= RETRIES_EXCEEDED) {
 			pp2_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
 		}
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_STATE_REG) & MVPP2_CLS3_STATE_OCCIPIED_MASK;
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_STATE_REG) & MVPP2_CLS3_STATE_OCCIPIED_MASK;
 	reg_val = reg_val >> MVPP2_CLS3_STATE_OCCIPIED;
 
 	if ((!occupied_bmp) || (!index)) {
 		/* print to screen - call from sysfs*/
 		for (idx = 0; idx < MVPP2_CLS3_HASH_BANKS_NUM; idx++)
-			pp2_info("0x%8.8x	%s\n", pp2_reg_read(port->cpu_slot, MVPP2_CLS3_QRY_RES_HASH_REG(idx)),
+			pp2_info("0x%8.8x	%s\n", pp2_reg_read(cpu_slot, MVPP2_CLS3_QRY_RES_HASH_REG(idx)),
 				 (reg_val & (1 << idx)) ? "OCCUPIED" : "FREE");
 		return 0;
 	}
 
 	*occupied_bmp = reg_val;
 	for (idx = 0; idx < MVPP2_CLS3_HASH_BANKS_NUM; idx++)
-		index[idx] = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_QRY_RES_HASH_REG(idx));
+		index[idx] = pp2_reg_read(cpu_slot, MVPP2_CLS3_QRY_RES_HASH_REG(idx));
 
 	return 0;
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int index)
+int pp2_cls_c3_hw_read(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int index)
 {
 	int i, is_ext;
 	int reg_val = 0;
@@ -5819,23 +5819,23 @@ int pp2_cls_c3_hw_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int i
 	c3->ext_index = NOT_IN_USE;
 
 	/* write index */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
 
 	reg_val |= (index << MVPP2_CLS3_HASH_OP_TBL_ADDR);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
 
 	/* read action table */
-	c3->sram.regs.actions = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_REG);
-	c3->sram.regs.qos_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG);
-	c3->sram.regs.hwf_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG);
-	c3->sram.regs.dup_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG);
+	c3->sram.regs.actions = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_REG);
+	c3->sram.regs.qos_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG);
+	c3->sram.regs.hwf_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG);
+	c3->sram.regs.dup_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG);
 
-	c3->sram.regs.seq_l_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG);
-	c3->sram.regs.seq_h_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG);
+	c3->sram.regs.seq_l_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG);
+	c3->sram.regs.seq_h_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG);
 
 	/* read hash data*/
 	for (i = 0; i < MVPP2_CLS3_HASH_DATA_REG_NUM; i++)
-		hash_data[i] = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_HASH_DATA_REG(i));
+		hash_data[i] = pp2_reg_read(cpu_slot, MVPP2_CLS3_HASH_DATA_REG(i));
 
 	if (pp2_cls_c3_shadow_tbl[index].size == 0)
 		/* entry not in use */
@@ -5879,11 +5879,11 @@ int pp2_cls_c3_hw_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int i
 		c3->ext_index = pp2_cls_c3_shadow_tbl[index].ext_ptr;
 
 		/* write extension index */
-		pp2_reg_write(port->cpu_slot, MVPP2_CLS3_DB_INDEX_REG, pp2_cls_c3_shadow_tbl[index].ext_ptr);
+		pp2_reg_write(cpu_slot, MVPP2_CLS3_DB_INDEX_REG, pp2_cls_c3_shadow_tbl[index].ext_ptr);
 
 		/* read hash extesion data*/
 		for (i = 0; i < MVPP2_CLS3_HASH_EXT_DATA_REG_NUM; i++)
-			hash_ext_data[i] = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_HASH_EXT_DATA_REG(i));
+			hash_ext_data[i] = pp2_reg_read(cpu_slot, MVPP2_CLS3_HASH_EXT_DATA_REG(i));
 
 		/* heks bytes 35 - 32 */
 		c3->key.hek.words[8] = ((hash_data[2] & 0x00FFFFFF) << 8) | ((hash_data[1] & 0xFF000000) >> 24);
@@ -5925,7 +5925,7 @@ int pp2_cls_c3_hw_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int i
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_miss_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int lkp_type)
+int pp2_cls_c3_hw_miss_read(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int lkp_type)
 {
 	u32 reg_val = 0;
 
@@ -5941,15 +5941,15 @@ int pp2_cls_c3_hw_miss_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, 
 	c3->ext_index = NOT_IN_USE;
 
 	reg_val = (lkp_type << MVPP2_CLS3_HASH_OP_TBL_ADDR) | MVPP2_CLS3_MISS_PTR_MASK;
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_HASH_OP_REG, reg_val);
 
 	/* read action table */
-	c3->sram.regs.actions = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_REG);
-	c3->sram.regs.qos_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG);
-	c3->sram.regs.hwf_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG);
-	c3->sram.regs.dup_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG);
-	c3->sram.regs.seq_l_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG);
-	c3->sram.regs.seq_h_attr = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG);
+	c3->sram.regs.actions = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_REG);
+	c3->sram.regs.qos_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_QOS_ATTR_REG);
+	c3->sram.regs.hwf_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_HWF_ATTR_REG);
+	c3->sram.regs.dup_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_DUP_ATTR_REG);
+	c3->sram.regs.seq_l_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_SEQ_L_ATTR_REG);
+	c3->sram.regs.seq_h_attr = pp2_reg_read(cpu_slot, MVPP2_CLS3_ACT_SEQ_H_ATTR_REG);
 
 	return 0;
 }
@@ -6321,7 +6321,7 @@ int pp2_cls_c3_seq_set(struct pp2_cls_c3_entry *c3, int id,  int bits_offs,  int
 /*	APIs for Classification C3 Hit counters management				  */
 /*-------------------------------------------------------------------------------*/
 
-int pp2_cls_c3_hit_cntrs_clear(struct pp2_port *port, int lkp_type)
+int pp2_cls_c3_hit_cntrs_clear(uintptr_t cpu_slot, int lkp_type)
 {
 	/* clear all counters that entry lookup type corresponding to lkp_type */
 	int iter = 0;
@@ -6329,10 +6329,10 @@ int pp2_cls_c3_hit_cntrs_clear(struct pp2_port *port, int lkp_type)
 	if (mv_pp2x_range_validate(lkp_type, 0, KEY_CTRL_LKP_TYPE_MAX))
 		return -EINVAL;
 
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_CLEAR_COUNTERS_REG, lkp_type);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_CLEAR_COUNTERS_REG, lkp_type);
 
 	/* wait to clear het counters done bit */
-	while (!pp2_cls_c3_hit_cntr_clear_done(port))
+	while (!pp2_cls_c3_hit_cntr_clear_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
 			pp2_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
@@ -6342,13 +6342,13 @@ int pp2_cls_c3_hit_cntrs_clear(struct pp2_port *port, int lkp_type)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hit_cntrs_clear_all(struct pp2_port *port)
+int pp2_cls_c3_hit_cntrs_clear_all(uintptr_t cpu_slot)
 {
 	int iter = 0;
 
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_CLEAR_COUNTERS_REG, MVPP2_CLS3_CLEAR_ALL);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_CLEAR_COUNTERS_REG, MVPP2_CLS3_CLEAR_ALL);
 	/* wait to clear het counters done bit */
-	while (!pp2_cls_c3_hit_cntr_clear_done(port))
+	while (!pp2_cls_c3_hit_cntr_clear_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
 			pp2_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
@@ -6358,7 +6358,7 @@ int pp2_cls_c3_hit_cntrs_clear_all(struct pp2_port *port)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hit_cntrs_read(struct pp2_port *port, int index, u32 *cntr)
+int pp2_cls_c3_hit_cntrs_read(uintptr_t cpu_slot, int index, u32 *cntr)
 {
 	u32 counter;
 
@@ -6366,10 +6366,10 @@ int pp2_cls_c3_hit_cntrs_read(struct pp2_port *port, int index, u32 *cntr)
 		return -EINVAL;
 
 	/*write entry index*/
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
 
 	/*counter read*/
-	counter = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_HIT_COUNTER_REG) & MVPP2_CLS3_HIT_COUNTER_MASK;
+	counter = pp2_reg_read(cpu_slot, MVPP2_CLS3_HIT_COUNTER_REG) & MVPP2_CLS3_HIT_COUNTER_MASK;
 
 	if (!cntr)
 		pp2_info("ADDR:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, counter);
@@ -6379,7 +6379,7 @@ int pp2_cls_c3_hit_cntrs_read(struct pp2_port *port, int index, u32 *cntr)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hit_cntrs_miss_read(struct pp2_port *port, int lkp_type, u32 *cntr)
+int pp2_cls_c3_hit_cntrs_miss_read(uintptr_t cpu_slot, int lkp_type, u32 *cntr)
 {
 	u32 counter;
 	int index;
@@ -6391,10 +6391,10 @@ int pp2_cls_c3_hit_cntrs_miss_read(struct pp2_port *port, int lkp_type, u32 *cnt
 	index = (lkp_type | MVPP2_CLS3_DB_MISS_MASK);
 
 	/*write entry index*/
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
 
 	/*counter read*/
-	counter = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_HIT_COUNTER_REG) & MVPP2_CLS3_HIT_COUNTER_MASK;
+	counter = pp2_reg_read(cpu_slot, MVPP2_CLS3_HIT_COUNTER_REG) & MVPP2_CLS3_HIT_COUNTER_MASK;
 
 	if (!cntr)
 		pp2_info("LKPT:0x%3.3x	COUNTER VAL:0x%6.6x\n", lkp_type, counter);
@@ -6404,12 +6404,12 @@ int pp2_cls_c3_hit_cntrs_miss_read(struct pp2_port *port, int lkp_type, u32 *cnt
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hit_cntrs_read_all(struct pp2_port *port)
+int pp2_cls_c3_hit_cntrs_read_all(uintptr_t cpu_slot)
 {
 	u32 counter, index;
 
 	for (index = 0; index < MVPP2_CLS_C3_HASH_TBL_SIZE; index++) {
-		pp2_cls_c3_hit_cntrs_read(port, index, &counter);
+		pp2_cls_c3_hit_cntrs_read(cpu_slot, index, &counter);
 
 		/* skip initial counter value */
 		if (counter == 0)
@@ -6419,7 +6419,7 @@ int pp2_cls_c3_hit_cntrs_read_all(struct pp2_port *port)
 	}
 
 	for (index = 0; index < MVPP2_CLS_C3_MISS_TBL_SIZE; index++) {
-		pp2_cls_c3_hit_cntrs_miss_read(port, index, &counter);
+		pp2_cls_c3_hit_cntrs_miss_read(cpu_slot, index, &counter);
 
 		/* skip initial counter value */
 		if (counter == 0)
@@ -6433,15 +6433,15 @@ int pp2_cls_c3_hit_cntrs_read_all(struct pp2_port *port)
 /*-------------------------------------------------------------------------------*/
 /*	 APIs for Classification C3 hit counters scan fields operation			  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_start(struct pp2_port *port)
+int pp2_cls_c3_scan_start(uintptr_t cpu_slot)
 {
 	int complete, iter = 0;
 
 	/* trigger scan operation */
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_ACT_REG, (1 << MVPP2_CLS3_SC_ACT));
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_ACT_REG, (1 << MVPP2_CLS3_SC_ACT));
 
 	do {
-		complete = pp2_cls_c3_scan_complete(port);
+		complete = pp2_cls_c3_scan_complete(cpu_slot);
 
 	} while ((!complete) && ((iter++) < RETRIES_EXCEEDED));/*scan compleated*/
 
@@ -6453,7 +6453,7 @@ int pp2_cls_c3_scan_start(struct pp2_port *port)
 
 /*-------------------------------------------------------------------------------*/
 /*mod = 0 below th . mode = 1 above threshold*/
-int pp2_cls_c3_scan_thresh_set(struct pp2_port *port, int mode, int thresh)
+int pp2_cls_c3_scan_thresh_set(uintptr_t cpu_slot, int mode, int thresh)
 {
 	u32 reg_val;
 
@@ -6463,28 +6463,28 @@ int pp2_cls_c3_scan_thresh_set(struct pp2_port *port, int mode, int thresh)
 	if (mv_pp2x_range_validate(thresh, 0, MVPP2_CLS3_SC_TH_MAX))
 		return -EINVAL;
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_REG);
 	reg_val &= ~MVPP2_CLS3_SC_PROP_TH_MODE_MASK;
 	reg_val |= (mode << MVPP2_CLS3_SC_PROP_TH_MODE);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_PROP_REG, reg_val);
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_TH_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_TH_REG);
 	reg_val &= ~MVPP2_CLS3_SC_TH_MASK;
 	reg_val |= (thresh << MVPP2_CLS3_SC_TH);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_TH_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_TH_REG, reg_val);
 
 	return 0;
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_lkp_type_set(struct pp2_port *port, int type)
+int pp2_cls_c3_scan_lkp_type_set(uintptr_t cpu_slot, int type)
 {
 	u32 prop;
 
 	if (mv_pp2x_range_validate(type, -1, MVPP2_CLS3_SC_PROP_LKP_TYPE_MAX))
 		return -EINVAL;
 
-	prop = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG);
+	prop = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_REG);
 
 	if (type == -1)
 		/* scan all entries */
@@ -6496,65 +6496,65 @@ int pp2_cls_c3_scan_lkp_type_set(struct pp2_port *port, int type)
 		prop |= (type << MVPP2_CLS3_SC_PROP_LKP_TYPE);
 	}
 
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG, prop);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_PROP_REG, prop);
 
 	return 0;
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_clear_before_en_set(struct pp2_port *port, int en)
+int pp2_cls_c3_scan_clear_before_en_set(uintptr_t cpu_slot, int en)
 {
 	u32 prop;
 
 	if (mv_pp2x_range_validate(en, 0, 1))
 		return -EINVAL;
 
-	prop = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG);
+	prop = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_REG);
 
 	prop &= ~MVPP2_CLS3_SC_PROP_CLEAR_MASK;
 	prop |= (en << MVPP2_CLS3_SC_PROP_CLEAR);
 
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG, prop);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_PROP_REG, prop);
 
 	return 0;
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_start_index_set(struct pp2_port *port, int idx)
+int pp2_cls_c3_scan_start_index_set(uintptr_t cpu_slot, int idx)
 {
 	u32 prop;
 
 	if (mv_pp2x_range_validate(idx, 0, MVPP2_CLS3_HASH_OP_TBL_ADDR_MAX))
 		return -EINVAL;
 
-	prop = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG);
+	prop = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_REG);
 
 	prop &= ~MVPP2_CLS3_SC_PROP_START_ENTRY_MASK;
 	prop |= (idx << MVPP2_CLS3_SC_PROP_START_ENTRY);
 
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG, prop);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_PROP_REG, prop);
 
 	return 0;
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_delay_set(struct pp2_port *port, u32 time)
+int pp2_cls_c3_scan_delay_set(uintptr_t cpu_slot, u32 time)
 {
 	u32 prop_val;
 
 	if (mv_pp2x_range_validate(time, 0, MVPP2_CLS3_SC_PROP_VAL_DELAY_MAX))
 		return -EINVAL;
 
-	prop_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_PROP_VAL_REG);
+	prop_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_VAL_REG);
 	prop_val &= ~MVPP2_CLS3_SC_PROP_VAL_DELAY_MASK;
 	prop_val |= (time << MVPP2_CLS3_SC_PROP_VAL_DELAY);
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_PROP_VAL_REG, prop_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_PROP_VAL_REG, prop_val);
 
 	return 0;
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_res_read(struct pp2_port *port, int index, int *addr, int *cnt)
+int pp2_cls_c3_scan_res_read(uintptr_t cpu_slot, int index, int *addr, int *cnt)
 {
 	u32 reg_val, sc_state, address, counter;
 	int iter = 0;
@@ -6563,7 +6563,7 @@ int pp2_cls_c3_scan_res_read(struct pp2_port *port, int index, int *addr, int *c
 		return -EINVAL;
 
 	do {
-		pp2_cls_c3_scan_state_get(port, &sc_state);
+		pp2_cls_c3_scan_state_get(cpu_slot, &sc_state);
 	} while (sc_state != 0 && ((iter++) < RETRIES_EXCEEDED));/*scan compleated*/
 
 	if (iter >= RETRIES_EXCEEDED) {
@@ -6572,10 +6572,10 @@ int pp2_cls_c3_scan_res_read(struct pp2_port *port, int index, int *addr, int *c
 	}
 
 	/*write index*/
-	pp2_reg_write(port->cpu_slot, MVPP2_CLS3_SC_INDEX_REG, index);
+	pp2_reg_write(cpu_slot, MVPP2_CLS3_SC_INDEX_REG, index);
 
 	/*read date*/
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_RES_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_RES_REG);
 	address = (reg_val & MVPP2_CLS3_SC_RES_ENTRY_MASK) >> MVPP2_CLS3_SC_RES_ENTRY;
 	counter = (reg_val & MVPP2_CLS3_SC_RES_CTR_MASK) >> MVPP2_CLS3_SC_RES_CTR;
 	/* if one of parameters is null - func call from sysfs*/
@@ -6590,13 +6590,13 @@ int pp2_cls_c3_scan_res_read(struct pp2_port *port, int index, int *addr, int *c
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_num_of_res_get(struct pp2_port *port, int *res_num)
+int pp2_cls_c3_scan_num_of_res_get(uintptr_t cpu_slot, int *res_num)
 {
 	u32 reg_val, sc_state;
 	int iter = 0;
 
 	do {
-		pp2_cls_c3_scan_state_get(port, &sc_state);
+		pp2_cls_c3_scan_state_get(cpu_slot, &sc_state);
 	} while (sc_state != 0 && ((iter++) < RETRIES_EXCEEDED));/*scan compleated*/
 
 	if (iter >= RETRIES_EXCEEDED) {
@@ -6604,7 +6604,7 @@ int pp2_cls_c3_scan_num_of_res_get(struct pp2_port *port, int *res_num)
 		return -EBUSY;
 	}
 
-	reg_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_STATE_REG);
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_STATE_REG);
 	reg_val &= MVPP2_CLS3_STATE_NO_OF_SC_RES_MASK;
 	reg_val >>= MVPP2_CLS3_STATE_NO_OF_SC_RES;
 	*res_num = reg_val;

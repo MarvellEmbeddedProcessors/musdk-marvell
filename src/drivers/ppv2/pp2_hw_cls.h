@@ -151,7 +151,7 @@ void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en);
 /*-------------------------------------------------------------------------------*/
 /*	C3 Common utilities							  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_init(struct pp2_port *port);
+int pp2_cls_c3_init(uintptr_t cpu_slot);
 void pp2_cls_c3_shadow_init(void);
 int pp2_cls_c3_shadow_free_get(void);
 int pp2_cls_c3_shadow_ext_free_get(void);
@@ -162,17 +162,17 @@ void pp2_cls_c3_shadow_get(int index, int *hek_size, int *ext_index);
 /*-------------------------------------------------------------------------------*/
 /*	APIs for Classification C3 engine						  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int index);
-int pp2_cls_c3_hw_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int index, int ext_index);
-int pp2_cls_c3_hw_miss_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int lkp_type);
-int pp2_cls_c3_hw_del(struct pp2_port *port, int index);
-int pp2_cls_c3_hw_del_all(struct pp2_port *port);
+int pp2_cls_c3_hw_read(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int index);
+int pp2_cls_c3_hw_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int index, int ext_index);
+int pp2_cls_c3_hw_miss_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int lkp_type);
+int pp2_cls_c3_hw_del(uintptr_t cpu_slot, int index);
+int pp2_cls_c3_hw_del_all(uintptr_t cpu_slot);
 void pp2_cls_c3_sw_clear(struct pp2_cls_c3_entry *c3);
 void pp2_cls_c3_hw_init_ctr_set(int cnt_val);
-int pp2_cls_c3_hw_query(struct pp2_port *port, struct pp2_cls_c3_entry *c3, u8 *occupied_bmp, int index[]);
-int pp2_cls_c3_hw_query_add(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int max_search_depth,
+int pp2_cls_c3_hw_query(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, u8 *occupied_bmp, int index[]);
+int pp2_cls_c3_hw_query_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int max_search_depth,
 			    struct pp2_cls_c3_hash_pair *hash_pair_arr);
-int pp2_cls_c3_hw_miss_read(struct pp2_port *port, struct pp2_cls_c3_entry *c3, int lkp_type);
+int pp2_cls_c3_hw_miss_read(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int lkp_type);
 
 /*-------------------------------------------------------------------------------*/
 /*	APIs for Classification C3 key fields						  */
@@ -203,22 +203,22 @@ int pp2_cls_c3_seq_set(struct pp2_cls_c3_entry *c3, int id, int bits_offs, int b
 /*-------------------------------------------------------------------------------*/
 /*	APIs for Classification C3 Hit counters management				  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hit_cntrs_read(struct pp2_port *port, int index, u32 *cntr);
-int pp2_cls_c3_hit_cntrs_clear_all(struct pp2_port *port);
-int pp2_cls_c3_hit_cntrs_read_all(struct pp2_port *port);
-int pp2_cls_c3_hit_cntrs_clear(struct pp2_port *port, int lkp_type);
-int pp2_cls_c3_hit_cntrs_miss_read(struct pp2_port *port, int lkp_type, u32 *cntr);
+int pp2_cls_c3_hit_cntrs_read(uintptr_t cpu_slot, int index, u32 *cntr);
+int pp2_cls_c3_hit_cntrs_clear_all(uintptr_t cpu_slot);
+int pp2_cls_c3_hit_cntrs_read_all(uintptr_t cpu_slot);
+int pp2_cls_c3_hit_cntrs_clear(uintptr_t cpu_slot, int lkp_type);
+int pp2_cls_c3_hit_cntrs_miss_read(uintptr_t cpu_slot, int lkp_type, u32 *cntr);
 
 /*-------------------------------------------------------------------------------*/
 /*	 APIs for Classification C3 hit counters scan fields operation			  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_start(struct pp2_port *port);
-int pp2_cls_c3_scan_thresh_set(struct pp2_port *port, int mode, int thresh);
-int pp2_cls_c3_scan_clear_before_en_set(struct pp2_port *port, int en);
-int pp2_cls_c3_scan_lkp_type_set(struct pp2_port *port, int type);
-int pp2_cls_c3_scan_start_index_set(struct pp2_port *port, int idx);
-int pp2_cls_c3_scan_delay_set(struct pp2_port *port, u32 time);
-int pp2_cls_c3_scan_res_read(struct pp2_port *port, int index, int *addr, int *cnt);
-int pp2_cls_c3_scan_num_of_res_get(struct pp2_port *port, int *res_num);
+int pp2_cls_c3_scan_start(uintptr_t cpu_slot);
+int pp2_cls_c3_scan_thresh_set(uintptr_t cpu_slot, int mode, int thresh);
+int pp2_cls_c3_scan_clear_before_en_set(uintptr_t cpu_slot, int en);
+int pp2_cls_c3_scan_lkp_type_set(uintptr_t cpu_slot, int type);
+int pp2_cls_c3_scan_start_index_set(uintptr_t cpu_slot, int idx);
+int pp2_cls_c3_scan_delay_set(uintptr_t cpu_slot, u32 time);
+int pp2_cls_c3_scan_res_read(uintptr_t cpu_slot, int index, int *addr, int *cnt);
+int pp2_cls_c3_scan_num_of_res_get(uintptr_t cpu_slot, int *res_num);
 
 #endif /* _PP2_HW_CLS_H_ */

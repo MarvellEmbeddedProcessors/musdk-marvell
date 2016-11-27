@@ -21,11 +21,11 @@
 /*-------------------------------------------------------------------------------*/
 /*	DUMP APIs for Classification C3 engine					  */
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_dump(struct pp2_port *port);
-int pp2_cls_c3_hw_miss_dump(struct pp2_port *port);
-int pp2_cls_c3_hw_ext_dump(struct pp2_port *port);
+int pp2_cls_c3_hw_dump(uintptr_t cpu_slot);
+int pp2_cls_c3_hw_miss_dump(uintptr_t cpu_slot);
+int pp2_cls_c3_hw_ext_dump(uintptr_t cpu_slot);
 int pp2_cls_c3_sw_dump(struct pp2_cls_c3_entry *c3);
-int pp2_cls_c3_scan_regs_dump(struct pp2_port *port);
-int pp2_cls_c3_scan_res_dump(struct pp2_port *port);
+int pp2_cls_c3_scan_regs_dump(uintptr_t cpu_slot);
+int pp2_cls_c3_scan_res_dump(uintptr_t cpu_slot);
 
 #endif /* _PP2_HW_CLS_DEBUG_H_ */

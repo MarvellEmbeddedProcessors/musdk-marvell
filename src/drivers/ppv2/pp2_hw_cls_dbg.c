@@ -6,7 +6,6 @@
 
 #include "std_internal.h"
 
-
 #include "pp2.h"
 #include "pp2_print.h"
 #include "pp2_hw_cls.h"
@@ -24,7 +23,7 @@ static int pp2_cls_c3_sw_act_dump(struct pp2_cls_c3_entry *c3);
 * the key+heks in miss entries are hot in use and this is the
 * reason that we dump onlt action table fields
 */
-int pp2_cls_c3_hw_miss_dump(struct pp2_port *port)
+int pp2_cls_c3_hw_miss_dump(uintptr_t cpu_slot)
 {
 	int index;
 	struct pp2_cls_c3_entry c3;
@@ -32,7 +31,7 @@ int pp2_cls_c3_hw_miss_dump(struct pp2_port *port)
 	pp2_cls_c3_sw_clear(&c3);
 
 	for (index = 0; index < MVPP2_CLS_C3_MISS_TBL_SIZE; index++) {
-		pp2_cls_c3_hw_miss_read(port, &c3, index);
+		pp2_cls_c3_hw_miss_read(cpu_slot, &c3, index);
 		pp2_info("INDEX[0x%3.3X]\n", index);
 		pp2_cls_c3_sw_act_dump(&c3);
 		pp2_info("----------------------------------------------------------------------\n");
@@ -42,7 +41,7 @@ int pp2_cls_c3_hw_miss_dump(struct pp2_port *port)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_ext_dump(struct pp2_port *port)
+int pp2_cls_c3_hw_ext_dump(uintptr_t cpu_slot)
 {
 	int index, i;
 	u32 hash_ext_data[MVPP2_CLS3_HASH_EXT_DATA_REG_NUM];
@@ -52,11 +51,11 @@ int pp2_cls_c3_hw_ext_dump(struct pp2_port *port)
 	for (index = 0; index <  MVPP2_CLS_C3_EXT_TBL_SIZE; index++)
 		if (pp2_cls_c3_shadow_ext_status_get(index) == IN_USE) {
 			/* write extension index */
-			pp2_reg_write(port->cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
+			pp2_reg_write(cpu_slot, MVPP2_CLS3_DB_INDEX_REG, index);
 
 			/* read hash extesion data*/
 			for (i = 0; i < MVPP2_CLS3_HASH_EXT_DATA_REG_NUM; i++)
-				hash_ext_data[i] = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_HASH_EXT_DATA_REG(i));
+				hash_ext_data[i] = pp2_reg_read(cpu_slot, MVPP2_CLS3_HASH_EXT_DATA_REG(i));
 
 			pp2_info("[0x%2.2x] %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x\n",
 				 index, hash_ext_data[6], hash_ext_data[5], hash_ext_data[4],
@@ -165,7 +164,7 @@ static int pp2_cls_c3_sw_act_dump(struct pp2_cls_c3_entry *c3)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_hw_dump(struct pp2_port *port)
+int pp2_cls_c3_hw_dump(uintptr_t cpu_slot)
 {
 	int index;
 	struct pp2_cls_c3_entry c3;
@@ -177,7 +176,7 @@ int pp2_cls_c3_hw_dump(struct pp2_port *port)
 
 		pp2_cls_c3_shadow_get(index, &size, &ext_idx);
 		if (size > 0) {
-			pp2_cls_c3_hw_read(port, &c3, index);
+			pp2_cls_c3_hw_read(cpu_slot, &c3, index);
 			pp2_cls_c3_sw_dump(&c3);
 			pp2_info("----------------------------------------------------------------------\n");
 		}
@@ -187,15 +186,15 @@ int pp2_cls_c3_hw_dump(struct pp2_port *port)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_regs_dump(struct pp2_port *port)
+int pp2_cls_c3_scan_regs_dump(uintptr_t cpu_slot)
 {
 	u32 prop, prop_val;
 	u32 treshhold;
 
-	treshhold = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_TH_REG);
+	treshhold = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_TH_REG);
 
-	prop = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_PROP_REG);
-	prop_val = pp2_reg_read(port->cpu_slot, MVPP2_CLS3_SC_PROP_VAL_REG);
+	prop = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_REG);
+	prop_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_VAL_REG);
 
 	pp2_info("%-32s: 0x%x = 0x%08x\n", "MVPP2_CLS3_SC_PROP_REG", MVPP2_CLS3_SC_PROP_REG, prop);
 	pp2_info("%-32s: 0x%x = 0x%08x\n", "MVPP2_CLS3_SC_PROP_VAL_REG", MVPP2_CLS3_SC_PROP_VAL_REG, prop_val);
@@ -224,15 +223,15 @@ int pp2_cls_c3_scan_regs_dump(struct pp2_port *port)
 }
 
 /*-------------------------------------------------------------------------------*/
-int pp2_cls_c3_scan_res_dump(struct pp2_port *port)
+int pp2_cls_c3_scan_res_dump(uintptr_t cpu_slot)
 {
 	int addr, cnt, res_num, index;
 
-	pp2_cls_c3_scan_num_of_res_get(port, &res_num);
+	pp2_cls_c3_scan_num_of_res_get(cpu_slot, &res_num);
 
 	pp2_info("INDEX	ADDRESS		COUNTER\n");
 	for (index = 0; index < res_num; index++) {
-		pp2_cls_c3_scan_res_read(port, index, &addr, &cnt);
+		pp2_cls_c3_scan_res_read(cpu_slot, index, &addr, &cnt);
 		pp2_info("[0x%2.2x]\t[0x%3.3x]\t[0x%6.6x]\n", index, addr, cnt);
 	}
 
