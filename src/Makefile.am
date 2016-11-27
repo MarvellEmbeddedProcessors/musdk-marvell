@@ -29,6 +29,11 @@ libmusdk_la_SOURCES += lib/uio/uio_num_from_filename.c
 libmusdk_la_SOURCES += lib/uio/uio_single_mmap.c
 libmusdk_la_SOURCES += lib/uio/uio_find_mem_byname.c
 
+libmusdk_la_SOURCES += lib/crypto/mv_md5.c
+libmusdk_la_SOURCES += lib/crypto/mv_sha1.c
+libmusdk_la_SOURCES += lib/crypto/mv_sha2.c
+libmusdk_la_SOURCES += lib/crypto/mv_aes.c
+
 libmusdk_la_SOURCES += env/spinlock.c
 libmusdk_la_SOURCES += env/cma.c
 libmusdk_la_SOURCES += env/sys_dma.c
