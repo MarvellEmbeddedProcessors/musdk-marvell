@@ -33,6 +33,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lib/mv_aes.h"
+#include "lib/mv_sha1.h"
+#include "lib/mv_sha2.h"
+#include "lib/mv_md5.h"
 #include "mv_sam.h"
 #include "fileSets.h"
 #include "encryptedBlock.h"
@@ -42,7 +46,9 @@
 #define MAX_BUFFER_SIZE			2048 /* bytes */
 #define MAX_CIPHER_KEY_SIZE		32 /* 256 Bits = 32 Bytes */
 #define MAX_CIPHER_BLOCK_SIZE		32 /* Bytes */
-#define MAX_AUTH_ICV_SIZE		32 /* Bytes */
+#define AUTH_BLOCK_SIZE_64B		64 /* Bytes */
+#define MAX_AUTH_BLOCK_SIZE		128 /* Bytes */
+#define MAX_AUTH_ICV_SIZE		64 /* Bytes */
 
 static struct sam_cio		*cio_hndl;
 static struct sam_sa		*sa_hndl[NUM_CONCURRENT_SESSIONS];
@@ -54,6 +60,7 @@ static struct sam_buf_info	out_bufs[NUM_CONCURRENT_REQUESTS];
 static int			next_request;
 static u8			cipher_iv[MAX_CIPHER_BLOCK_SIZE];
 static u8			auth_icv[MAX_AUTH_ICV_SIZE];
+static u32			auth_icv_size;
 static u8			expected_data[MAX_BUFFER_SIZE];
 static u32			expected_data_size;
 static bool			same_bufs;
@@ -125,34 +132,151 @@ static enum sam_cipher_mode cipher_mode_str_to_val(char *data)
 	return SAM_CIPHER_MODE_LAST;
 }
 
-static enum sam_auth_alg auth_algorithm_str_to_val(char *data)
+static enum sam_auth_alg auth_algorithm_str_to_val(char *data, int auth_key_len)
 {
 	if (!data || (data[0] == '\0'))
 		return SAM_AUTH_NONE;
 
-	if (strcmp(data, "MD5") == 0)
-		return SAM_AUTH_HMAC_MD5;
+	if (auth_key_len > 0) {
+		if (strcmp(data, "MD5") == 0)
+			return SAM_AUTH_HMAC_MD5;
 
-	if (strcmp(data, "SHA1") == 0)
-		return SAM_AUTH_HMAC_SHA1;
+		if (strcmp(data, "SHA1") == 0)
+			return SAM_AUTH_HMAC_SHA1;
 
-	if (strcmp(data, "SHA224") == 0)
-		return SAM_AUTH_HMAC_SHA2_224;
+		if (strcmp(data, "SHA224") == 0)
+			return SAM_AUTH_HMAC_SHA2_224;
 
-	if (strcmp(data, "SHA256") == 0)
-		return SAM_AUTH_HMAC_SHA2_256;
+		if (strcmp(data, "SHA256") == 0)
+			return SAM_AUTH_HMAC_SHA2_256;
 
-	if (strcmp(data, "SHA384") == 0)
-		return SAM_AUTH_HMAC_SHA2_384;
+		if (strcmp(data, "SHA384") == 0)
+			return SAM_AUTH_HMAC_SHA2_384;
 
-	if (strcmp(data, "SHA512") == 0)
-		return SAM_AUTH_HMAC_SHA2_512;
+		if (strcmp(data, "SHA512") == 0)
+			return SAM_AUTH_HMAC_SHA2_512;
+	} else {
+		if (strcmp(data, "MD5") == 0)
+			return SAM_AUTH_HASH_MD5;
 
+		if (strcmp(data, "SHA1") == 0)
+			return SAM_AUTH_HASH_SHA1;
+
+		if (strcmp(data, "SHA224") == 0)
+			return SAM_AUTH_HASH_SHA2_224;
+
+		if (strcmp(data, "SHA256") == 0)
+			return SAM_AUTH_HASH_SHA2_256;
+
+		if (strcmp(data, "SHA384") == 0)
+			return SAM_AUTH_HASH_SHA2_384;
+
+		if (strcmp(data, "SHA512") == 0)
+			return SAM_AUTH_HASH_SHA2_512;
+	}
 	if (strcmp(data, "NULL") == 0)
 		return SAM_AUTH_NONE;
 
 	printf("Syntax error in Auth algorithm: %s is unknown\n", data);
 	return SAM_AUTH_NONE;
+}
+
+static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int key_len,
+			   unsigned char inner[], unsigned char outer[])
+{
+	unsigned char   in[MAX_AUTH_BLOCK_SIZE];
+	unsigned char   out[MAX_AUTH_BLOCK_SIZE];
+	int             i, max_key_len;
+
+	max_key_len = AUTH_BLOCK_SIZE_64B;
+	if (auth_alg == SAM_AUTH_HMAC_SHA2_384)
+		max_key_len = SHA384_BLOCK_LENGTH;
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_512)
+		max_key_len = SHA512_BLOCK_LENGTH;
+
+	for (i = 0 ; i < key_len ; i++) {
+		in[i] = 0x36 ^ key[i];
+		out[i] = 0x5c ^ key[i];
+	}
+	for (i = key_len ; i < max_key_len ; i++) {
+		in[i] = 0x36;
+		out[i] = 0x5c;
+	}
+
+	if (auth_alg == SAM_AUTH_HMAC_MD5) {
+		MV_MD5_CONTEXT ctx;
+
+		memset(&ctx, 0, sizeof(ctx));
+		mvMD5Init(&ctx);
+		mvMD5Update(&ctx, in, max_key_len);
+		mvMD5Digest(inner, &ctx);
+
+		memset(&ctx, 0, sizeof(ctx));
+		mvMD5Init(&ctx);
+		mvMD5Update(&ctx, out, max_key_len);
+		mvMD5Digest(outer, &ctx);
+
+	} else if (auth_alg == SAM_AUTH_HMAC_SHA1) {
+		MV_SHA1_CTX ctx;
+
+		memset(&ctx, 0, sizeof(ctx));
+		mvSHA1Init(&ctx);
+		mvSHA1Update(&ctx, in, max_key_len);
+		for (i = 0; i < MV_SHA1_DIGEST_SIZE; i++) {
+			inner[i] = (unsigned char)
+				((ctx.state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
+		}
+
+		memset(&ctx, 0, sizeof(ctx));
+		mvSHA1Init(&ctx);
+		mvSHA1Update(&ctx, out, max_key_len);
+		for (i = 0; i < MV_SHA1_DIGEST_SIZE; i++) {
+			outer[i] = (unsigned char)
+				((ctx.state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
+	}
+
+	} else if (auth_alg == SAM_AUTH_HMAC_SHA2_256) {
+		SHA256_CTX ctx;
+
+		memset(&ctx, 0, sizeof(ctx));
+		mvSHA256Init(&ctx);
+		mvSHA256Update(&ctx, in, max_key_len);
+		mvSHA256ResultCopy(&ctx, inner);
+
+		memset(&ctx, 0, sizeof(ctx));
+		mvSHA256Init(&ctx);
+		mvSHA256Update(&ctx, out, max_key_len);
+		mvSHA256ResultCopy(&ctx, outer);
+
+	} else if (auth_alg == SAM_AUTH_HMAC_SHA2_384) {
+		SHA384_CTX context;
+
+		memset(&context, 0, sizeof(context));
+		mvSHA384Init(&context);
+		mvSHA384Update(&context, in, max_key_len);
+		mvSHA384ResultCopy(&context, inner);
+
+		memset(&context, 0, sizeof(context));
+		mvSHA384Init(&context);
+		mvSHA384Update(&context, out, max_key_len);
+		mvSHA384ResultCopy(&context, outer);
+
+	} else if (auth_alg == SAM_AUTH_HMAC_SHA2_512) {
+		SHA512_CTX context;
+
+		memset(&context, 0, sizeof(context));
+		mvSHA512Init(&context);
+		mvSHA512Update(&context, in, max_key_len);
+		mvSHA512ResultCopy(&context, inner);
+
+		memset(&context, 0, sizeof(context));
+		mvSHA512Init(&context);
+		mvSHA512Update(&context, out, max_key_len);
+		mvSHA512ResultCopy(&context, outer);
+	} else {
+		printf("\n%s: Unexpected authentication algorithm - %d\n",
+			__func__, auth_alg);
+	}
 }
 
 static void dump_buf(const unsigned char *p, unsigned int len)
@@ -161,13 +285,13 @@ static void dump_buf(const unsigned char *p, unsigned int len)
 
 	while (i < len) {
 		j = 0;
-		printf("\n%p: ", (p + i));
+		printf("%p: ", (p + i));
 		for (j = 0 ; j < 32 && i < len ; j++) {
 			printf("%02x ", p[i]);
 			i++;
 		}
+		printf("\n");
 	}
-	printf("\n");
 }
 
 static int delete_sessions(void)
@@ -190,6 +314,8 @@ static int create_sessions(generic_list tests_db)
 	EncryptedBlockPtr block;
 	int i, num_tests, auth_key_len;
 	u8 cipher_key[MAX_CIPHER_KEY_SIZE];
+	u8 auth_inner[MAX_AUTH_ICV_SIZE];
+	u8 auth_outer[MAX_AUTH_ICV_SIZE];
 
 	num_tests = generic_list_get_size(tests_db);
 	if (num_tests > NUM_CONCURRENT_SESSIONS)
@@ -222,16 +348,31 @@ static int create_sessions(generic_list tests_db)
 			/* encryptedBlockGetIvLen(block, idx); - Check IV length with cipher algorithm */
 		}
 
-		sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block));
+		auth_key_len = encryptedBlockGetAuthKeyLen(block);
+		sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block), auth_key_len);
 		if (sa_params[i].auth_alg != SAM_AUTH_NONE) {
-
-			/* Calculate inner and outer blocks from authentication key */
-			auth_key_len = encryptedBlockGetAuthKeyLen(block);
-
-			sa_params[i].auth_inner = NULL;
-			sa_params[i].auth_outer = NULL;
 			sa_params[i].auth_icv_len = encryptedBlockGetIcbLen(block, 0);
 			sa_params[i].auth_aad_len = 0;
+
+			if (auth_key_len > 0) {
+				u8 auth_key[MAX_AUTH_BLOCK_SIZE];
+
+				/* Calculate inner and outer blocks from authentication key */
+				if (auth_key_len > MAX_AUTH_BLOCK_SIZE) {
+					printf("auth_key_len %d bytes is too big. Maximum is %d bytes\n",
+						auth_key_len, MAX_AUTH_BLOCK_SIZE);
+					return -EINVAL;
+				}
+				if (encryptedBlockGetAuthKey(block, auth_key_len, auth_key) != ENCRYPTEDBLOCK_SUCCESS) {
+					printf("Can't get authentication key of %d bytes\n", auth_key_len);
+					return -EINVAL;
+				}
+				hmac_create_iv(sa_params[i].auth_alg, auth_key, auth_key_len,
+						auth_inner, auth_outer);
+
+				sa_params[i].auth_inner = auth_inner;
+				sa_params[i].auth_outer = auth_outer;
+			}
 		}
 
 		if (sam_session_create(cio_hndl, &sa_params[i], &sa_hndl[i])) {
@@ -275,21 +416,40 @@ static int check_results(struct sam_session_params *session_params,
 			return -EINVAL;
 		}
 		if (i < num_to_print) {
-			printf("\nInput buffer:");
+			printf("\nInput buffer: %d bytes\n", in_data_size);
 			dump_buf(in_buf.vaddr, in_data_size);
 
-			printf("\nOutput buffer:");
+			printf("\nOutput buffer: %d bytes\n", expected_data_size);
 			dump_buf(out_data, expected_data_size);
 
-			printf("\nExpected buffer:");
+			printf("\nExpected buffer: %d bytes\n", expected_data_size);
 			dump_buf(expected_data, expected_data_size);
 
+			if (auth_icv_size) {
+				if (session_params->dir == SAM_DIR_ENCRYPT) {
+					printf("\nICV output value: %d bytes\n", auth_icv_size);
+					dump_buf(&out_data[expected_data_size], auth_icv_size);
+				}
+				printf("\nICV expected value: %d bytes\n", auth_icv_size);
+				dump_buf(auth_icv, auth_icv_size);
+			}
 			printf("\n");
 		}
 
-		/* Compare output and expected data */
-		if (memcmp(out_data, expected_data, expected_data_size))
+		if (result->status != SAM_CIO_OK) {
 			errors++;
+			printf("Error: result->status = %d\n", result->status);
+		} else if (memcmp(out_data, expected_data, expected_data_size)) {
+			/* Compare output and expected data */
+			errors++;
+			printf("Error: out_data != expected_data (%d bytes)\n", expected_data_size);
+		} else if ((auth_icv_size) && (session_params->dir == SAM_DIR_ENCRYPT)) {
+			/* compare ICV */
+			if (memcmp(auth_icv, &out_data[expected_data_size], auth_icv_size)) {
+				errors++;
+				printf("Error: out_icv != expected_icv (%d bytes)\n", auth_icv_size);
+			}
+		}
 	}
 	return errors;
 }
@@ -330,62 +490,91 @@ static int allocate_bufs(int buf_size)
 	return 0;
 }
 
-static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *sa_params,
-			 int num)
+static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *session_params, int num)
 {
 	int i;
 
 	if (num > NUM_CONCURRENT_REQUESTS)
 		num = NUM_CONCURRENT_REQUESTS;
 
-	if (sa_params->auth_icv_len > 0)
-		encryptedBlockGetIcb(block, sa_params->auth_icv_len, auth_icv, 0);
+	if (session_params->cipher_alg != SAM_CIPHER_NONE) {
+		/* plain text and cipher text must be valid */
+		if (session_params->dir == SAM_DIR_ENCRYPT) {
+			expected_data_size = encryptedBlockGetCipherTextLen(block, 0);
+			encryptedBlockGetCipherText(block, expected_data_size, expected_data, 0);
 
-	if (direction_str_to_val(encryptedBlockGetDirection(block)) == SAM_DIR_ENCRYPT) {
-		expected_data_size = encryptedBlockGetCipherTextLen(block, 0);
-		encryptedBlockGetCipherText(block, expected_data_size, expected_data, 0);
+			in_data_size = encryptedBlockGetPlainTextLen(block, 0);
+			encryptedBlockGetPlainText(block, in_data_size, in_buf.vaddr, 0);
 
+			if (same_bufs) {
+				for (i = 0; i < num; i++)
+					encryptedBlockGetPlainText(block, in_data_size, out_bufs[i].vaddr, 0);
+			}
+		} else if (session_params->dir == SAM_DIR_DECRYPT) {
+			expected_data_size = encryptedBlockGetPlainTextLen(block, 0);
+			encryptedBlockGetPlainText(block, expected_data_size, expected_data, 0);
+
+			in_data_size = encryptedBlockGetCipherTextLen(block, 0);
+			encryptedBlockGetCipherText(block, in_data_size, in_buf.vaddr, 0);
+			if (same_bufs) {
+				for (i = 0; i < num; i++)
+					encryptedBlockGetCipherText(block, in_data_size, out_bufs[i].vaddr, 0);
+			}
+		}
+	} else if (session_params->auth_alg != SAM_AUTH_NONE) {
+		/* Authentication only */
 		in_data_size = encryptedBlockGetPlainTextLen(block, 0);
 		encryptedBlockGetPlainText(block, in_data_size, in_buf.vaddr, 0);
 
-		if (same_bufs) {
-			for (i = 0; i < num; i++)
-				encryptedBlockGetPlainText(block, in_data_size, out_bufs[i].vaddr, 0);
-		}
-	} else if (direction_str_to_val(encryptedBlockGetDirection(block)) == SAM_DIR_DECRYPT) {
-		expected_data_size = encryptedBlockGetPlainTextLen(block, 0);
+		/* Data must left the same */
+		expected_data_size = in_data_size;
 		encryptedBlockGetPlainText(block, expected_data_size, expected_data, 0);
-
-		in_data_size = encryptedBlockGetCipherTextLen(block, 0);
-		encryptedBlockGetCipherText(block, in_data_size, in_buf.vaddr, 0);
-		if (same_bufs) {
-			for (i = 0; i < num; i++)
-				encryptedBlockGetCipherText(block, in_data_size, out_bufs[i].vaddr, 0);
-		}
+	} else {
+		/* Nothing to do */
+		printf("Warning: cipher_alg and auth_alg are NONE both\n");
 	}
+
+	if (session_params->auth_icv_len > 0) {
+		auth_icv_size = session_params->auth_icv_len;
+		encryptedBlockGetIcb(block, session_params->auth_icv_len, auth_icv, 0);
+		if (session_params->dir == SAM_DIR_DECRYPT) {
+			/* copy ICV to end of input buffer */
+			memcpy((in_buf.vaddr + in_data_size), auth_icv, session_params->auth_icv_len);
+		}
+	} else
+		auth_icv_size = 0;
+
 }
 
-static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params *sa_params,
+static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params *session_params,
 			     struct sam_sa *session_hndl, struct sam_cio_op_params *request, int num)
 {
-	int iv_len;
+	int i, iv_len;
 
-	request->cipher_iv_offset = 0; /* not supported */
-	request->sa = session_hndl;
-	request->cipher_offset = encryptedBlockGetCryptoOffset(block, 0);
-	request->cipher_len = encryptedBlockGetPlainTextLen(block, 0);
-	request->num_bufs = 1;
+	for (i = 0; i < num; i++) {
+		request->sa = session_hndl;
+		request->num_bufs = 1;
 
-	iv_len = encryptedBlockGetIvLen(block, 0);
-	if (iv_len)
-		encryptedBlockGetIv(block, iv_len, cipher_iv, 0);
-	request->cipher_iv = cipher_iv;
+		if (session_params->cipher_alg != SAM_CIPHER_NONE) {
+			request->cipher_iv_offset = 0; /* not supported */
+			request->cipher_offset = encryptedBlockGetCryptoOffset(block, 0);
+			request->cipher_len = encryptedBlockGetPlainTextLen(block, 0) - request->cipher_offset;
 
-	request->auth_aad_offset = 0; /* not supported */
-	request->auth_aad = NULL;
-	request->auth_offset = 0;
-	request->auth_len = 0;
-	request->auth_icv_offset = 0;
+			iv_len = encryptedBlockGetIvLen(block, 0);
+			if (iv_len) {
+				encryptedBlockGetIv(block, iv_len, cipher_iv, 0);
+				request->cipher_iv = cipher_iv;
+			}
+		}
+		if (session_params->auth_alg != SAM_AUTH_NONE) {
+			request->auth_aad_offset = 0; /* not supported */
+			request->auth_aad = NULL;
+			request->auth_offset = 0;
+			request->auth_len = encryptedBlockGetPlainTextLen(block, 0);
+			request->auth_icv_offset = request->auth_len;
+		}
+		request++;
+	}
 };
 
 /* There are few parameters can be configured:
@@ -400,12 +589,13 @@ static int run_tests(generic_list tests_db)
 	char *test_name;
 	struct sam_cio_op_params request;
 	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
-	int rc, count, errors = 0;
+	int rc, count, total_passed, total_errors, errors;
 
 	num_tests = generic_list_get_size(tests_db);
 
 	block = generic_list_get_first(tests_db);
 	num = 1;
+	total_passed = total_errors = 0;
 	for (i = 0; i < num_tests; i++) {
 
 		if (i > 0)
@@ -419,9 +609,12 @@ static int run_tests(generic_list tests_db)
 		count = total_enqs = total_deqs = encryptedBlockGetTestCounter(block);
 
 		prepare_bufs(block, &sa_params[i], count);
+
+		memset(&request, 0, sizeof(request));
 		prepare_requests(block, &sa_params[i], sa_hndl[i], &request, num_requests_per_enq);
 
 		/* Check plain_len == cipher_len */
+		errors = 0;
 		in_process = 0;
 		while (total_deqs) {
 			to_enq = min(total_enqs, num_requests_before_deq);
@@ -464,7 +657,13 @@ static int run_tests(generic_list tests_db)
 			printf("%2d. %s: passed %d times\n", i, test_name, count);
 		else
 			printf("%2d. %s: failed %d of %d times\n", i, test_name, errors, count);
+
+		total_errors += errors;
+		total_passed += (count - errors);
 	}
+	printf("SAM tests passed:   %d\n", total_passed);
+	printf("SAM tests failed:   %d\n", total_errors);
+
 	printf("\n");
 
 	return 0;
