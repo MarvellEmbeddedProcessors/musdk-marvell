@@ -55,6 +55,14 @@
 #define MAX_NUM_CORES	1
 #define MAX_NUM_QS	1
 #define DMA_MEM_SIZE 	(4*1024*1024)
+#define PP2_BPOOLS_RSRV	0x0
+#define PP2_HIFS_RSRV	0x0
+#define PP2_MAX_NUM_TCS_PER_PORT	1
+#define PP2_MAX_NUM_QS_PER_TC		1
+
+/* TODO: find more generic way to get the following parameters */
+#define PP2_TOTAL_NUM_BPOOLS	16
+#define PP2_TOTAL_NUM_HIFS	9
 
 /* TODO: Move to internal .h file */
 #define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
@@ -88,6 +96,12 @@ static int usecs1 = 0;
 #endif /* 0 */
 
 
+struct port_desc {
+	const char	*name;
+	int		 pp_id;
+	int		 ppio_id;
+};
+
 struct bpool_inf {
 	int	buff_size;
 	int	num_buffs;
@@ -104,6 +118,7 @@ struct glob_arg {
 	u64			 qs_map;
 	int			 qs_map_shift;
 	int			 prefetch_shift;
+	char			 port_name[15];
 
 	struct pp2_hif		*hif;
 	struct pp2_ppio		*port;
@@ -141,6 +156,8 @@ static u64 sys_dma_high_addr = 0;
 #ifndef HW_BUFF_RECYLCE
 static struct tx_shadow_q shadow_qs[MAX_NUM_CORES][MAX_NUM_QS];
 #endif /* !HW_BUFF_RECYLCE */
+static u16	used_bpools = 0;
+static u16	used_hifs = 0;
 
 
 #ifdef PKT_ECHO_SUPPORT
@@ -178,6 +195,77 @@ static inline void swap_l3(char *buf)
 	((uint32_t *)buf)[1] = tmp32;
 }
 #endif /* PKT_ECHO_SUPPORT */
+
+
+/* TODO: find a better way to map the ports!!! */
+static int find_port_info(struct port_desc *port_desc)
+{
+/* TODO: temporary A7040 table! */
+#define DEV2PORTS_MAP	\
+{			\
+	{"eth1", 0, 0},	\
+	{"eth2", 0, 1},	\
+	{"eth3", 0, 2},	\
+}
+	struct port_desc ports_map[] = DEV2PORTS_MAP;
+	int		 i, num;
+
+	if (!port_desc->name) {
+		pr_err("No port name given!\n");
+		return -EINVAL;
+	}
+
+	num = sizeof(ports_map)/sizeof(struct port_desc);
+
+	for (i=0; i<num; i++)
+		if (strcmp(port_desc->name, ports_map[i].name) == 0) {
+			port_desc->pp_id = ports_map[i].pp_id;
+			port_desc->ppio_id = ports_map[i].ppio_id;
+			break;
+		}
+
+	if (i == num) {
+		pr_err("port (%s) not found!\n", port_desc->name);
+		return -ENODEV;
+	}
+	return 0;
+}
+
+static int find_free_bpool(void)
+{
+	int	i;
+
+	for (i=0; i<PP2_TOTAL_NUM_BPOOLS; i++) {
+		if (!((1<<i) & PP2_BPOOLS_RSRV) &&
+		    !((uint64_t)(1<<i) & used_bpools)) {
+			    used_bpools |= (uint64_t)(1<<i);
+			    break;
+		    }
+	}
+	if (i == PP2_TOTAL_NUM_BPOOLS) {
+		pr_err("no free BPool found!\n");
+		return -ENOSPC;
+	}
+	return i;
+}
+
+static int find_free_hif(void)
+{
+	int	i;
+
+	for (i=0; i<PP2_TOTAL_NUM_HIFS; i++) {
+		if (!((1<<i) & PP2_HIFS_RSRV) &&
+		    !((uint64_t)(1<<i) & used_hifs)) {
+			    used_hifs |= (uint64_t)(1<<i);
+			    break;
+		    }
+	}
+	if (i == PP2_TOTAL_NUM_HIFS) {
+		pr_err("no free HIF found!\n");
+		return -ENOSPC;
+	}
+	return i;
+}
 
 static int main_loop(void *arg, volatile int *running)
 {
@@ -320,8 +408,9 @@ static int init_all_modules(void)
 static int build_all_bpools(struct glob_arg *garg)
 {
 	struct pp2_bpool_params	 	bpool_params;
-	int			 	i, j, k, err;
+	int			 	i, j, k, err, pool_id;
 	struct bpool_inf		infs[] = BPOOLS_INF;
+	char				name[15];
 
 	garg->pools = (struct pp2_bpool ***)malloc(PP2_SOC_NUM_PACKPROCS*sizeof(struct pp2_bpool **));
 	if (!garg->pools) {
@@ -336,6 +425,11 @@ static int build_all_bpools(struct glob_arg *garg)
 	}
 	for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
 		garg->num_pools = ARRAY_SIZE(infs);
+		/* TODO: temporary W/A until we have map routines of bpools to ppios */
+		if (garg->num_pools > PP2_PPIO_TC_MAX_POOLS) {
+			pr_err("only %d pools allowed!\n", PP2_PPIO_TC_MAX_POOLS);
+			return -EINVAL;
+		}
 		garg->pools[i] = (struct pp2_bpool **)malloc(garg->num_pools*sizeof(struct pp2_bpool *));
 		if (!garg->pools[i]) {
 			pr_err("no mem for bpools array!\n");
@@ -349,13 +443,16 @@ static int build_all_bpools(struct glob_arg *garg)
 		}
 
 		for (j=0; j<garg->num_pools; j++) {
-			char	name[15];
 #if 0
 struct timeval t1, t2;
 #endif /* 0 */
+			if ((pool_id = find_free_bpool()) < 0) {
+				pr_err("free bpool not found!\n");
+				return pool_id;
+			}
 			memset(name, 0, sizeof(name));
-			snprintf(name, sizeof(name), "pool-%d:%d", i, j);
-printf("bpool:  %s\n", name);
+			snprintf(name, sizeof(name), "pool-%d:%d", i, pool_id);
+			pr_debug("found bpool:  %s\n", name);
 			memset(&bpool_params, 0, sizeof(bpool_params));
 			bpool_params.match = name;
 			bpool_params.max_num_buffs = MAX_NUM_BUFFS;
@@ -432,12 +529,21 @@ static int init_local_modules(struct glob_arg *garg)
 	struct pp2_hif_params	 	hif_params;
 	struct pp2_ppio_params	 	port_params;
 	struct pp2_ppio_inq_params	inq_params;
-	int			 	i, err;
+	struct port_desc		port_desc;
+	char				name[15];
+	int			 	i, err, hif_id;
 
 	pr_info("Local initializations ... ");
 
+	if ((hif_id = find_free_hif()) < 0) {
+		pr_err("free HIF not found!\n");
+		return hif_id;
+	}
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "hif-%d", hif_id);
+	pr_debug("found hif: %s\n", name);
 	memset(&hif_params, 0, sizeof(hif_params));
-	hif_params.match = "hif-0";
+	hif_params.match = name;
 	hif_params.out_size = Q_SIZE;
 	if ((err = pp2_hif_init(&hif_params, &garg->hif)) != 0)
 		return err;
@@ -449,19 +555,36 @@ static int init_local_modules(struct glob_arg *garg)
 	if ((err = build_all_bpools(garg)) != 0)
 		return err;
 
+	memset(&port_desc, 0, sizeof(port_desc));
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "%s", garg->port_name);
+	port_desc.name = name;
+	if ((err = find_port_info(&port_desc)) != 0) {
+		pr_err("Port info not found!\n");
+		return err;
+	}
+
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "ppio-%d:%d", port_desc.pp_id, port_desc.ppio_id);
+	pr_debug("found port: %s\n", name);
 	memset(&port_params, 0, sizeof(port_params));
-	port_params.match = "ppio-0:0";
+	port_params.match = name;
 	port_params.type = PP2_PPIO_T_NIC;
-	port_params.inqs_params.num_tcs = 1;
-	port_params.inqs_params.tcs_params[0].pkt_offset = PKT_OFFS>>2;
-	port_params.inqs_params.tcs_params[0].num_in_qs = 1;
-	inq_params.size = Q_SIZE;
-	port_params.inqs_params.tcs_params[0].inqs_params = &inq_params;
-	for (i=0; i<garg->num_pools; i++)
-		port_params.inqs_params.tcs_params[0].pools[0] = garg->pools[0][i];
-	port_params.outqs_params.num_outqs = 1;
-	port_params.outqs_params.outqs_params[0].size = Q_SIZE;
-	port_params.outqs_params.outqs_params[0].weight = 1;
+	port_params.inqs_params.num_tcs = PP2_MAX_NUM_TCS_PER_PORT;
+	for (i=0; i<port_params.inqs_params.num_tcs; i++) {
+		port_params.inqs_params.tcs_params[0].pkt_offset = PKT_OFFS>>2;
+		port_params.inqs_params.tcs_params[0].num_in_qs = PP2_MAX_NUM_QS_PER_TC;
+		/* TODO: we assume here only one Q per TC; change it! */
+		inq_params.size = Q_SIZE;
+		port_params.inqs_params.tcs_params[0].inqs_params = &inq_params;
+		for (i=0; i<garg->num_pools; i++)
+			port_params.inqs_params.tcs_params[0].pools[i] = garg->pools[0][i];
+	}
+	port_params.outqs_params.num_outqs = PP2_MAX_NUM_TCS_PER_PORT;
+	for (i=0; i<port_params.outqs_params.num_outqs; i++) {
+		port_params.outqs_params.outqs_params[0].size = Q_SIZE;
+		port_params.outqs_params.outqs_params[0].weight = 1;
+	}
 	if ((err = pp2_ppio_init(&port_params, &garg->port)) != 0)
 		return err;
 	if (!garg->port) {
@@ -664,7 +787,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				pr_err("Invalid arguments format!\n");
 				return -EINVAL;
 			}
-			/* TODO: complete .... */
+			snprintf(garg->port_name, sizeof(garg->port_name), "%s", argv[i+1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-b") == 0) {
 			if (argc < (i+2)) {
@@ -719,6 +842,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	/* Now, check validity of all inputs */
+	if (!garg->port_name[0]) {
+		pr_err("No port defined!\n");
+		return -EINVAL;
+	}
 	if (garg->burst > MAX_BURST_SIZE) {
 		pr_err("illegal burst size requested (%d vs %d)!\n",
 			garg->burst, MAX_BURST_SIZE);
