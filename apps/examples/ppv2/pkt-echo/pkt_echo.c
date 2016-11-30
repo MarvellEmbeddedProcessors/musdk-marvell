@@ -58,16 +58,14 @@
 #define MAX_NUM_QS	1
 #define DMA_MEM_SIZE 	(4*1024*1024)
 
-
 /* TODO: Move to internal .h file */
 #define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
 #define lower_32_bits(n) ((u32)(n))
 
-
 //#define HW_BUFF_RECYLCE
 #define PKT_ECHO_SUPPORT
 #define USE_APP_PREFETCH
-#define PREFETCH_SHIFT	6
+#define PREFETCH_SHIFT	7
 
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define NO_PATH(file_name) (strrchr((file_name), '/') ? \
@@ -85,6 +83,7 @@ struct glob_arg {
 	int			 echo;
 	u64			 qs_map;
 	int			 qs_map_shift;
+	int			 prefetch_shift;
 
 	struct pp2_hif		*hif;
 	struct pp2_bpool	*pool;
@@ -162,6 +161,10 @@ static int main_loop(void *arg, volatile int *running)
 		return -EINVAL;
 	}
 	while (*running) {
+#ifdef PKT_ECHO_SUPPORT
+		int			 prefetch_shift = garg->prefetch_shift;
+#endif /* PKT_ECHO_SUPPORT */
+
 		num = garg->burst;
 		struct tx_shadow_q * shadow_q = &(shadow_qs[0][0]);
 
@@ -176,8 +179,8 @@ static int main_loop(void *arg, volatile int *running)
 			char *buff2;
 			if (garg->echo) {
 #ifdef USE_APP_PREFETCH
-				if (num-i > PREFETCH_SHIFT) {
-					char *tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+PREFETCH_SHIFT]);
+				if (num-i > prefetch_shift) {
+					char *tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+prefetch_shift]);
 					tmp_buff +=PKT_EFEC_OFFS;
 					pr_debug("tmp_buff_before(%p)\n", tmp_buff);
 					tmp_buff = (char *)(((uintptr_t)tmp_buff)|sys_dma_high_addr);
@@ -355,6 +358,44 @@ static void destroy_all_modules(void)
 	mv_sys_dma_mem_destroy();
 }
 
+static int prefetch_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg) {
+		pr_err("no garg obj passed!\n");
+		return -EINVAL;
+	}
+	if ((argc != 1) && (argc != 2)) {
+		pr_err("Invalid number of arguments for prefetch cmd!\n");
+		return -EINVAL;
+	}
+
+	if (argc == 1) {
+		printf("%d\n", garg->prefetch_shift);
+		return 0;
+	}
+
+	garg->prefetch_shift = atoi(argv[1]);
+
+	return 0;
+}
+
+static int register_cli_cmds(struct glob_arg *garg)
+{
+	struct cli_cmd_params	 cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "prefetch";
+	cmd_params.desc		= "Prefetch ahead shift (number of buffers)";
+	cmd_params.format	= "<shift>";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))prefetch_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	return 0;
+}
+
 static int init_global(void *arg)
 {
 	struct glob_arg *garg = (struct glob_arg *)arg;
@@ -371,6 +412,9 @@ static int init_global(void *arg)
 	if ((err = init_local_modules(garg)) != 0)
 		return err;
 
+	if (garg->cli && ((err = register_cli_cmds(garg)) != 0))
+		return err;
+
 	return 0;
 }
 
@@ -380,6 +424,8 @@ static void deinit_global(void *arg)
 
 	if (!garg)
 		return;
+	if (garg->cli)
+		/* TODO: unregister cli cmds */;
 	destroy_local_modules(garg);
 	destroy_all_modules();
 }
@@ -439,6 +485,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->echo = 1;
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
+	garg->prefetch_shift = PREFETCH_SHIFT;
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -531,20 +578,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	return 0;
 }
+
+
 int main (int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
-	int		err;
+	int			err;
 
 	setbuf(stdout, NULL);
 
-	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
 	pr_debug("pr_debug is enabled\n");
-
-
 
 	if ((err = parse_args(&garg, argc, argv)) != 0)
 		return err;
+
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cli;
 	mvapp_params.num_cores		= garg.cpus;
