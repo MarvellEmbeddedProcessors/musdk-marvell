@@ -44,9 +44,7 @@
 #include "mv_pp2_ppio.h"
 
 
-#define BUF_LEN		2048
 #define MAX_NUM_BUFFS	8192
-#define NUM_BUFFS	1024
 #define Q_SIZE		1024
 #define MAX_BURST_SIZE	(Q_SIZE)>>1
 #define DFLT_BURST_SIZE	256
@@ -71,7 +69,20 @@
 #define NO_PATH(file_name) (strrchr((file_name), '/') ? \
 			    strrchr((file_name), '/') + 1 : (file_name))
 
+//#define BPOOLS_INF	{{384,4096},{2048,1024}}
+#define BPOOLS_INF	{{2048,1024}}
 
+#if 0
+#include <sys/time.h>   // for gettimeofday()
+#define CLK_MHZ	1300
+static int usecs1 = 0;
+#endif /* 0 */
+
+
+struct bpool_inf {
+	int	buff_size;
+	int	num_buffs;
+};
 
 struct glob_arg {
 	int			 verbose;
@@ -86,20 +97,21 @@ struct glob_arg {
 	int			 prefetch_shift;
 
 	struct pp2_hif		*hif;
-	struct pp2_bpool	*pool;
 	struct pp2_ppio		*port;
-};
 
+	int			 num_pools;
+	struct pp2_bpool	***pools;
+	struct pp2_buff_inf	***buffs_inf;
+};
 
 struct local_arg {
 	struct glob_arg		*garg;
 	struct pp2_hif		*hif;
 };
 
+#ifndef HW_BUFF_RECYLCE
 struct tx_shadow_q_entry {
-	u16		 buff_inf;
-	u16		 res;
-	struct pp2_buff_inf buff_ptr;
+	struct pp2_buff_inf	buff_ptr;
 };
 
 struct tx_shadow_q {
@@ -108,9 +120,14 @@ struct tx_shadow_q {
 
 	struct tx_shadow_q_entry	 ents[Q_SIZE];
 };
+#endif /* !HW_BUFF_RECYLCE */
+
+
 static struct glob_arg garg = {};
+static u64 sys_dma_high_addr = 0;
+#ifndef HW_BUFF_RECYLCE
 static struct tx_shadow_q shadow_qs[MAX_NUM_CORES][MAX_NUM_QS];
-u64 sys_dma_high_addr = 0;
+#endif /* !HW_BUFF_RECYLCE */
 
 
 #ifdef PKT_ECHO_SUPPORT
@@ -161,26 +178,28 @@ static int main_loop(void *arg, volatile int *running)
 		return -EINVAL;
 	}
 	while (*running) {
+		struct pp2_bpool	*pool = garg->pools[0][0];
+#ifndef HW_BUFF_RECYLCE
+		struct tx_shadow_q	*shadow_q = &(shadow_qs[0][0]);
+#endif /* !HW_BUFF_RECYLCE */
 #ifdef PKT_ECHO_SUPPORT
 		int			 prefetch_shift = garg->prefetch_shift;
 #endif /* PKT_ECHO_SUPPORT */
 
 		num = garg->burst;
-		struct tx_shadow_q * shadow_q = &(shadow_qs[0][0]);
-
-
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
 
 		for (i=0; i<num; i++) {
-			char *buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
-			dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
+			char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
+			dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
+
 #ifdef PKT_ECHO_SUPPORT
-			char *buff2;
-			if (garg->echo) {
+			if (likely(garg->echo)) {
+				char *tmp_buff;
 #ifdef USE_APP_PREFETCH
 				if (num-i > prefetch_shift) {
-					char *tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+prefetch_shift]);
+					tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+prefetch_shift]);
 					tmp_buff +=PKT_EFEC_OFFS;
 					pr_debug("tmp_buff_before(%p)\n", tmp_buff);
 					tmp_buff = (char *)(((uintptr_t)tmp_buff)|sys_dma_high_addr);
@@ -188,12 +207,13 @@ static int main_loop(void *arg, volatile int *running)
 					prefetch(tmp_buff);
 				}
 #endif /* USE_APP_PREFETCH */
-				//printf("packet:\n"); mem_disp(buff, len);
-				buff2 = (char *)(((uintptr_t)(buff))|sys_dma_high_addr);
-				pr_debug("buff2(%p)\n", buff2);
-				buff2 += PKT_EFEC_OFFS;
-				swap_l2(buff2);
-				swap_l3(buff2);
+				tmp_buff = (char *)(((uintptr_t)(buff))|sys_dma_high_addr);
+				pr_debug("buff2(%p)\n", tmp_buff);
+				tmp_buff += PKT_EFEC_OFFS;
+				printf("packet:\n"); mem_disp(tmp_buff, len);
+				swap_l2(tmp_buff);
+				swap_l3(tmp_buff);
+				printf("packet:\n"); mem_disp(tmp_buff, len);
 			}
 #endif /* PKT_ECHO_SUPPORT */
 
@@ -202,13 +222,12 @@ static int main_loop(void *arg, volatile int *running)
 			pp2_ppio_outq_desc_set_pkt_offset(&descs[i], PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 #ifdef HW_BUFF_RECYLCE
-			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff-PKT_EFEC_OFFS)); /* TODO : Update this for HW_BUFF_RECY*/
-			pp2_ppio_outq_desc_set_pool(&descs[i], garg->pool);
+			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff));
+			pp2_ppio_outq_desc_set_pool(&descs[i], pool);
 #else
-			shadow_q->ents[shadow_q->write_ind].buff_inf = (0 << 15) | (0 << 11);
-			shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = lower_32_bits((uintptr_t)buff);
-			pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
+			shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 			shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
+			pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 			shadow_q->write_ind++;
 			if (shadow_q->write_ind == Q_SIZE)
 				shadow_q->write_ind = 0;
@@ -220,7 +239,7 @@ static int main_loop(void *arg, volatile int *running)
 #ifndef HW_BUFF_RECYLCE
 		pp2_ppio_get_num_outq_done(garg->port, garg->hif, 0, &num);
 		for (i=0; i<num; i++) {
-			struct pp2_buff_inf *binf;
+			struct pp2_buff_inf	*binf;
 			binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
 			if (unlikely(!binf->cookie || !binf->addr)) {
 				pr_err("[%s] shadow memory cookie(%lux) addr(%lux)!\n", __FUNCTION__,
@@ -228,7 +247,7 @@ static int main_loop(void *arg, volatile int *running)
 				sleep(1);
 				return -1;
 			}
-			pp2_bpool_put_buff(garg->hif, garg->pool, binf);
+			pp2_bpool_put_buff(garg->hif, pool, binf);
 			shadow_q->read_ind++;
 			if (shadow_q->read_ind == Q_SIZE)
 				shadow_q->read_ind = 0;
@@ -261,10 +280,113 @@ static int init_all_modules(void)
 	return 0;
 }
 
+static int build_all_bpools(struct glob_arg *garg)
+{
+	struct pp2_bpool_params	 	bpool_params;
+	int			 	i, j, k, err;
+	struct bpool_inf		infs[] = BPOOLS_INF;
+
+	garg->pools = (struct pp2_bpool ***)malloc(PP2_SOC_NUM_PACKPROCS*sizeof(struct pp2_bpool **));
+	if (!garg->pools) {
+		pr_err("no mem for bpools array!\n");
+		return -ENOMEM;
+	}
+	garg->buffs_inf =
+		(struct pp2_buff_inf ***)malloc(PP2_SOC_NUM_PACKPROCS*sizeof(struct pp2_buff_inf **));
+	if (!garg->buffs_inf) {
+		pr_err("no mem for bpools-inf array!\n");
+		return -ENOMEM;
+	}
+	for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
+		garg->num_pools = ARRAY_SIZE(infs);
+		garg->pools[i] = (struct pp2_bpool **)malloc(garg->num_pools*sizeof(struct pp2_bpool *));
+		if (!garg->pools[i]) {
+			pr_err("no mem for bpools array!\n");
+			return -ENOMEM;
+		}
+		garg->buffs_inf[i] =
+			(struct pp2_buff_inf **)malloc(garg->num_pools*sizeof(struct pp2_buff_inf *));
+		if (!garg->buffs_inf[i]) {
+			pr_err("no mem for bpools-inf array!\n");
+			return -ENOMEM;
+		}
+
+		for (j=0; j<garg->num_pools; j++) {
+			char	name[15];
+#if 0
+struct timeval t1, t2;
+#endif /* 0 */
+			memset(name, 0, sizeof(name));
+			snprintf(name, sizeof(name), "pool-%d:%d", i, j);
+printf("bpool:  %s\n", name);
+			memset(&bpool_params, 0, sizeof(bpool_params));
+			bpool_params.match = name;
+			bpool_params.max_num_buffs = MAX_NUM_BUFFS;
+			bpool_params.buff_len = infs[j].buff_size;
+			if ((err = pp2_bpool_init(&bpool_params, &garg->pools[i][j])) != 0)
+				return err;
+			if (!garg->pools[i][j]) {
+				pr_err("BPool init failed!\n");
+				return -EIO;
+			}
+
+			garg->buffs_inf[i][j] = 
+				(struct pp2_buff_inf *)malloc(infs[j].num_buffs*sizeof(struct pp2_buff_inf));
+			if (!garg->buffs_inf[i][j]) {
+				pr_err("no mem for bpools-inf array!\n");
+				return -ENOMEM;
+			}
+
+			for (k=0; k<infs[j].num_buffs; k++) {
+				void * buff_virt_addr;
+				buff_virt_addr = mv_sys_dma_mem_alloc(infs[j].buff_size, 4);
+				if (!buff_virt_addr) {
+					pr_err("failed to allocate mem (%d)!\n", k);
+					return -1;
+				}
+				if (k == 0) {
+					sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL<<32) - 1));
+					pr_debug("sys_dma_high_addr (0x%lx)\n", sys_dma_high_addr);
+				}
+				if ((upper_32_bits((u64)buff_virt_addr)) != (sys_dma_high_addr >> 32)) {
+					pr_err("buff_virt_addr(%p)  upper out of range; skipping this buff\n", buff_virt_addr);
+					continue;
+				}
+				garg->buffs_inf[i][j][k].addr =
+					(bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
+				garg->buffs_inf[i][j][k].cookie =
+					lower_32_bits((u64)buff_virt_addr); /* cookie contains lower_32_bits of the va */
+			}
+#if 0
+// start timer
+gettimeofday(&t1, NULL);
+#endif /* 0 */
+			for (k=0; k<infs[j].num_buffs; k++) {
+				struct pp2_buff_inf	tmp_buff_inf;
+				tmp_buff_inf.cookie = garg->buffs_inf[i][j][k].cookie;
+				tmp_buff_inf.addr   = garg->buffs_inf[i][j][k].addr;
+				if ((err = pp2_bpool_put_buff(garg->hif,
+							      garg->pools[i][j],
+							      &tmp_buff_inf)) != 0)
+					return err;
+			}
+#if 0
+// stop timer
+gettimeofday(&t2, NULL);
+// compute and print the elapsed time in millisec
+usecs1 = (t2.tv_sec - t1.tv_sec) * 1000000.0;      // sec to us
+usecs1 += (t2.tv_usec - t1.tv_usec);
+printf("pp2-bpool-put count: %d cycles  =================\n", usecs1*CLK_MHZ/infs[j].num_buffs);
+#endif /* 0 */
+		}
+	}
+
+	return 0;
+}
+
 static int init_local_modules(struct glob_arg *garg)
 {
 	struct pp2_hif_params	 	hif_params;
-	struct pp2_bpool_params	 	bpool_params;
 	struct pp2_ppio_params	 	port_params;
 	struct pp2_ppio_inq_params	inq_params;
 	int			 	i, err;
@@ -281,36 +403,8 @@ static int init_local_modules(struct glob_arg *garg)
 		return -EIO;
 	}
 
-	memset(&bpool_params, 0, sizeof(bpool_params));
-	bpool_params.match = "pool-0:0";
-	bpool_params.max_num_buffs = MAX_NUM_BUFFS;
-	bpool_params.buff_len = BUF_LEN;
-	if ((err = pp2_bpool_init(&bpool_params, &garg->pool)) != 0)
+	if ((err = build_all_bpools(garg)) != 0)
 		return err;
-	if (!garg->pool) {
-		pr_err("BPool init failed!\n");
-		return -EIO;
-	}
-	for (i = 0; i < NUM_BUFFS; i++) {
-		struct pp2_buff_inf buff;
-		void * buff_virt_addr;
-		buff_virt_addr = mv_sys_dma_mem_alloc(BUF_LEN, 4);
-		if (!buff_virt_addr) {
-			pr_err("failed to allocate mem (%d)!\n", i);
-			return -1;
-		}
-		if (i == 0) {
-			sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL<<32) - 1));
-			pr_err("sys_dma_high_addr (0x%lx)\n", sys_dma_high_addr);
-		}
-		if ((upper_32_bits((u64)buff_virt_addr)) != (sys_dma_high_addr >> 32))
-			pr_err("buff_virt_addr(%p)  upper out of range\n", buff_virt_addr);
-		/* TOO: Currently implicitly assumed that sys_dma (dma_coherent)  memory is 32-bit addr. */
-		buff.addr = (u32)mv_sys_dma_mem_virt2phys(buff_virt_addr);
-		buff.cookie = lower_32_bits((u64)buff_virt_addr); /* cookie contains lower_32_bits of the va */
-		if ((err = pp2_bpool_put_buff(garg->hif, garg->pool, &buff)) != 0)
-			return err;
-	}
 
 	memset(&port_params, 0, sizeof(port_params));
 	port_params.match = "ppio-0:0";
@@ -320,7 +414,8 @@ static int init_local_modules(struct glob_arg *garg)
 	port_params.inqs_params.tcs_params[0].num_in_qs = 1;
 	inq_params.size = Q_SIZE;
 	port_params.inqs_params.tcs_params[0].inqs_params = &inq_params;
-	port_params.inqs_params.tcs_params[0].pools[0] = garg->pool;
+	for (i=0; i<garg->num_pools; i++)
+		port_params.inqs_params.tcs_params[0].pools[0] = garg->pools[0][i];
 	port_params.outqs_params.num_outqs = 1;
 	port_params.outqs_params.outqs_params[0].size = Q_SIZE;
 	port_params.outqs_params.outqs_params[0].weight = 1;
@@ -342,12 +437,36 @@ static int init_local_modules(struct glob_arg *garg)
 
 static void destroy_local_modules(struct glob_arg *garg)
 {
+	int	i, j;
+
 	if (garg->port) {
 		pp2_ppio_disable(garg->port);
 		pp2_ppio_deinit(garg->port);
 	}
-	if (garg->pool)
-		pp2_bpool_deinit(garg->pool);
+
+	if (garg->pools) {
+		for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
+			if (garg->pools[i]) {
+				for (j=0; j<garg->num_pools; j++)
+					if (garg->pools[i][j])
+						pp2_bpool_deinit(garg->pools[i][j]);
+				free(garg->pools[i]);
+			}
+		}
+		free(garg->pools);
+	}
+	if (garg->buffs_inf) {
+		for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
+			if (garg->buffs_inf[i]) {
+				for (j=0; j<garg->num_pools; j++)
+					if (garg->buffs_inf[i][j])
+						free(garg->buffs_inf[i][j]);
+				free(garg->buffs_inf[i]);
+			}
+		}
+		free(garg->buffs_inf);
+	}
+
 	if (garg->hif)
 		pp2_hif_deinit(garg->hif);
 }
