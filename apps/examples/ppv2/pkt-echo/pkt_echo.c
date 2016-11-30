@@ -32,15 +32,11 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-
-
-//#define DEBUG
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
 #include "env/mv_sys_dma.h"
+
 #include "mvapp.h"
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"
