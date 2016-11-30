@@ -61,6 +61,7 @@
 #define lower_32_bits(n) ((u32)(n))
 
 //#define HW_BUFF_RECYLCE
+//#define SW_BUFF_RECYLCE
 #define PKT_ECHO_SUPPORT
 #define USE_APP_PREFETCH
 #define PREFETCH_SHIFT	7
@@ -71,6 +72,14 @@
 
 //#define BPOOLS_INF	{{384,4096},{2048,1024}}
 #define BPOOLS_INF	{{2048,1024}}
+
+#ifdef SW_BUFF_RECYLCE
+#define COOKIE_BUILD(_pp, _bpool, _indx)	\
+	(u32)(((u32)_pp<<30) | ((u32)_bpool<<24) | ((u32)_indx))
+#define COOKIE_GET_PP(_cookie)		(_cookie>>30)
+#define COOKIE_GET_BPOOL(_cookie)	((_cookie>>26) & 0x3f)
+#define COOKIE_GET_INDX(_cookie)	(_cookie & 0xffffff)
+#endif /* SW_BUFF_RECYLCE */
 
 #if 0
 #include <sys/time.h>   // for gettimeofday()
@@ -111,7 +120,11 @@ struct local_arg {
 
 #ifndef HW_BUFF_RECYLCE
 struct tx_shadow_q_entry {
+#ifdef SW_BUFF_RECYLCE
+	u32		 	buff_ptr;
+#else
 	struct pp2_buff_inf	buff_ptr;
+#endif /* SW_BUFF_RECYLCE */
 };
 
 struct tx_shadow_q {
@@ -190,8 +203,14 @@ static int main_loop(void *arg, volatile int *running)
 		err = pp2_ppio_recv(garg->port, 0, 0, descs, &num);
 
 		for (i=0; i<num; i++) {
+#ifdef SW_BUFF_RECYLCE
+			u32		 ck = pp2_ppio_inq_desc_get_cookie(&descs[i]);
+			char		*buff = (char *)(uintptr_t)garg->buffs_inf[COOKIE_GET_PP(ck)][COOKIE_GET_BPOOL(ck)][COOKIE_GET_INDX(ck)].cookie;
+			dma_addr_t	 pa = garg->buffs_inf[COOKIE_GET_PP(ck)][COOKIE_GET_BPOOL(ck)][COOKIE_GET_INDX(ck)].addr;
+#else
 			char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 			dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
+#endif /* SW_BUFF_RECYLCE */
 			u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
 
 #ifdef PKT_ECHO_SUPPORT
@@ -199,7 +218,12 @@ static int main_loop(void *arg, volatile int *running)
 				char *tmp_buff;
 #ifdef USE_APP_PREFETCH
 				if (num-i > prefetch_shift) {
+#ifdef SW_BUFF_RECYLCE
+					u32 ck = pp2_ppio_inq_desc_get_cookie(&descs[i+prefetch_shift]);
+					tmp_buff = (char *)(uintptr_t)garg->buffs_inf[COOKIE_GET_PP(ck)][COOKIE_GET_BPOOL(ck)][COOKIE_GET_INDX(ck)].cookie;
+#else
 					tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i+prefetch_shift]);
+#endif /* SW_BUFF_RECYLCE */
 					tmp_buff +=PKT_EFEC_OFFS;
 					pr_debug("tmp_buff_before(%p)\n", tmp_buff);
 					tmp_buff = (char *)(((uintptr_t)tmp_buff)|sys_dma_high_addr);
@@ -210,10 +234,10 @@ static int main_loop(void *arg, volatile int *running)
 				tmp_buff = (char *)(((uintptr_t)(buff))|sys_dma_high_addr);
 				pr_debug("buff2(%p)\n", tmp_buff);
 				tmp_buff += PKT_EFEC_OFFS;
-				printf("packet:\n"); mem_disp(tmp_buff, len);
+				//printf("packet:\n"); mem_disp(tmp_buff, len);
 				swap_l2(tmp_buff);
 				swap_l3(tmp_buff);
-				printf("packet:\n"); mem_disp(tmp_buff, len);
+				//printf("packet:\n"); mem_disp(tmp_buff, len);
 			}
 #endif /* PKT_ECHO_SUPPORT */
 
@@ -225,8 +249,13 @@ static int main_loop(void *arg, volatile int *running)
 			pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff));
 			pp2_ppio_outq_desc_set_pool(&descs[i], pool);
 #else
+#ifdef SW_BUFF_RECYLCE
+			pp2_ppio_outq_desc_set_cookie(&descs[i], ck);
+			shadow_q->ents[shadow_q->write_ind].buff_ptr = ck;
+#else
 			shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 			shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
+#endif /* SW_BUFF_RECYLCE */
 			pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 			shadow_q->write_ind++;
 			if (shadow_q->write_ind == Q_SIZE)
@@ -240,7 +269,15 @@ static int main_loop(void *arg, volatile int *running)
 		pp2_ppio_get_num_outq_done(garg->port, garg->hif, 0, &num);
 		for (i=0; i<num; i++) {
 			struct pp2_buff_inf	*binf;
+#ifdef SW_BUFF_RECYLCE
+			struct pp2_buff_inf	 tmp_buff_inf;
+			u32	ck = shadow_q->ents[shadow_q->read_ind].buff_ptr;
+			tmp_buff_inf.cookie = ck;
+			tmp_buff_inf.addr   = garg->buffs_inf[COOKIE_GET_PP(ck)][COOKIE_GET_BPOOL(ck)][COOKIE_GET_INDX(ck)].addr;
+			binf = &tmp_buff_inf;
+#else
 			binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
+#endif /* SW_BUFF_RECYLCE */
 			if (unlikely(!binf->cookie || !binf->addr)) {
 				pr_err("[%s] shadow memory cookie(%lux) addr(%lux)!\n", __FUNCTION__,
 					(u64)binf->cookie, (u64)binf->addr);
@@ -330,7 +367,7 @@ printf("bpool:  %s\n", name);
 				return -EIO;
 			}
 
-			garg->buffs_inf[i][j] = 
+			garg->buffs_inf[i][j] =
 				(struct pp2_buff_inf *)malloc(infs[j].num_buffs*sizeof(struct pp2_buff_inf));
 			if (!garg->buffs_inf[i][j]) {
 				pr_err("no mem for bpools-inf array!\n");
@@ -363,7 +400,13 @@ gettimeofday(&t1, NULL);
 #endif /* 0 */
 			for (k=0; k<infs[j].num_buffs; k++) {
 				struct pp2_buff_inf	tmp_buff_inf;
+#ifdef SW_BUFF_RECYLCE
+				/* Don't add first buffer into BPool */
+				if (k == 0) continue;
+				tmp_buff_inf.cookie = COOKIE_BUILD(i, j, k);
+#else
 				tmp_buff_inf.cookie = garg->buffs_inf[i][j][k].cookie;
+#endif /* SW_BUFF_RECYLCE */
 				tmp_buff_inf.addr   = garg->buffs_inf[i][j][k].addr;
 				if ((err = pp2_bpool_put_buff(garg->hif,
 							      garg->pools[i][j],
