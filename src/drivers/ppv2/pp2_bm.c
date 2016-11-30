@@ -23,7 +23,7 @@ static inline void pp2_bm_print_reg(uintptr_t cpu_slot,
 
 static void pp2_bm_pool_print_regs(uintptr_t cpu_slot, uint32_t pool)
 {
-    pp2_dbg("[BM pool registers: pool=%u]\n", pool);
+    pp2_dbg("[BM pool registers: cpu_slot=0X%lx pool=%u]\n", cpu_slot, pool);
 
     pp2_bm_print_reg(cpu_slot, MVPP2_BM_POOL_BASE_ADDR_REG(pool),
             "MVPP2_BM_POOL_BASE_REG");

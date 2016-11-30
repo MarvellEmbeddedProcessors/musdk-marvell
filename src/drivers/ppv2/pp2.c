@@ -521,9 +521,6 @@ int pp2_init(struct pp2_init_params *params)
     }
 
     pp2_dbg("PPDK: PackProcs   %2u\n", pp2_num_inst);
-    pp2_dbg("PPDK:   Ports     %2u\n", PP2_NUM_PORTS);
-    pp2_dbg("PPDK:   Regspaces %2u\n", PP2_NUM_REGSPACES);
-    pp2_dbg("PPDK:   BM Pools  %2u\n", PP2_NUM_BMPOOLS);
 
     return 0;
 }
