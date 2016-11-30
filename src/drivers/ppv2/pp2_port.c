@@ -1209,6 +1209,22 @@ pp2_port_outq_get_id(struct pp2_port *port, uint32_t out_qid)
     return port->txqs[out_qid]->id;
 }
 
+
+/* TODO: This function is redundant, it will disappear after ppio/pp2_port unification */
+static inline void pp2_port_tx_desc_swap_ncopy(struct pp2_desc *dst, struct pp2_rx_desc *src)
+{
+	uint32_t *src_cmd = (uint32_t *)src;
+	uint32_t *dst_cmd = (uint32_t *)dst;
+
+	for (int i = 0; i < (sizeof(*dst)/sizeof(dst->cmd0)); i++) {
+		*dst_cmd = le32toh(*src_cmd);
+		dst_cmd++;
+		src_cmd++;
+	}
+}
+
+
+
 /* Enqueue implementation */
 uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid, uint16_t num_txds, struct pp2_ppio_desc desc[])
 {
@@ -1263,7 +1279,11 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
    for (i = 0; i<block_size; i++) {
 	/* Destination physical queue ID */
 	DM_TXD_SET_DEST_QID(&desc[i], 128);
+#if __BYTE_ORDER == __BIG_ENDIAN
+	pp2_port_tx_desc_swap_ncopy(&tx_desc[i], &desc[i]);
+#else
 	__builtin_memcpy(&tx_desc[i], &desc[i], sizeof(*tx_desc));
+#endif
    }
 
    if (block_size < num_txds) {
@@ -1283,7 +1303,12 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
       for (i = 0; i < block_size; i++) {
 	/* Destination physical queue ID */
 	DM_TXD_SET_DEST_QID(&desc[index+i], 128);
+#if __BYTE_ORDER == __BIG_ENDIAN
+      pp2_port_tx_desc_swap_ncopy(&tx_desc[i], &desc[index+i]);
+#else
 	__builtin_memcpy(&tx_desc[i], &desc[index+i], sizeof(*tx_desc));
+#endif
+
      }
 
    }

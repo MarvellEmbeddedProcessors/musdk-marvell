@@ -135,6 +135,19 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,
 	return 0;
 }
 
+/* ALL TX Setter functions, and RX Getter functions are u32 based */
+static inline void pp2_ppio_desc_swap_ncopy(struct pp2_ppio_desc *dst, struct pp2_ppio_desc *src)
+{
+	u32 *src_cmd = (u32 *)src;
+	u32 *dst_cmd = (u32 *)dst;
+
+	for (int i = 0; i < PP2_PPIO_DESC_NUM_WORDS; i++) {
+		*dst_cmd = le32toh(*src_cmd);
+		dst_cmd++;
+		src_cmd++;
+	}
+}
+
 int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *descs, u16 *num)
 {
 	struct pp2_port *port = ppio->port;
@@ -158,7 +171,13 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 
 	/* TODO : Make pp2_rxq_get_desc inline */
 	rx_desc = pp2_rxq_get_desc(rxq, &recv_req, &extra_rx_desc, &extra_num);
+#if __BYTE_ORDER == __BIG_ENDIAN
+	for (int i = 0; i < recv_req; i++) {
+		pp2_ppio_desc_swap_ncopy(&descs[i], &rx_desc[i]);
+	}
+#else
 	memcpy(descs, rx_desc, recv_req * sizeof(*descs));
+#endif
 	if (extra_num) {
 		memcpy(&descs[recv_req], extra_rx_desc, extra_num * sizeof(*descs));
 		recv_req += extra_num; /* Put the split numbers back together */
