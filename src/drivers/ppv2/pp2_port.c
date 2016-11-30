@@ -1278,7 +1278,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 
    for (i = 0; i<block_size; i++) {
 	/* Destination physical queue ID */
-	DM_TXD_SET_DEST_QID(&desc[i], 128);
+	DM_TXD_SET_DEST_QID(&desc[i], txq->id);
 #if __BYTE_ORDER == __BIG_ENDIAN
 	pp2_port_tx_desc_swap_ncopy(&tx_desc[i], &desc[i]);
 #else
@@ -1302,7 +1302,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 
       for (i = 0; i < block_size; i++) {
 	/* Destination physical queue ID */
-	DM_TXD_SET_DEST_QID(&desc[index+i], 128);
+	DM_TXD_SET_DEST_QID(&desc[index+i], txq->id);
 #if __BYTE_ORDER == __BIG_ENDIAN
       pp2_port_tx_desc_swap_ncopy(&tx_desc[i], &desc[index+i]);
 #else
