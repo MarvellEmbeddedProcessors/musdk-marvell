@@ -1,0 +1,57 @@
+diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
+index 1c5eac9..2ce4a26
+--- a/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
++++ b/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
+@@ -147,7 +147,7 @@
+ 			};
+ 			ppv22@000000 {
+ 				eth0: eth0@010000 {
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 				eth1: eth1@020000 {
+ 					status = "okay";
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
+index 8a4b368..e49f797 100755
+--- a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
+@@ -96,7 +96,7 @@
+ 				pinctrl-0 = <&cpm_ge2_rgmii_pins>;
+ 
+ 				eth0: eth0@010000 {
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 				eth1: eth1@020000 {
+ 					status = "disabled";
+@@ -147,7 +147,7 @@
+ 				pinctrl-0 = <&cps_ge1_rgmii_pins>;
+ 
+ 				eth0_1: eth0@010000 {
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 				eth1_1: eth1@020000 {
+ 					status = "okay";
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts
+index 7e3c55a..6dc022a 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts
+@@ -98,7 +98,7 @@
+ 				pinctrl-0 = <&cpm_ge2_rgmii_pins>;
+ 
+ 				eth0: eth0@010000 {
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 				eth1: eth1@020000 {
+ 					status = "disabled";
+@@ -146,7 +146,7 @@
+ 				pinctrl-0 = <&cps_ge1_rgmii_pins>;
+ 
+ 				eth0_1: eth0@010000 {
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 				eth1_1: eth1@020000 {
+ 					status = "okay";
