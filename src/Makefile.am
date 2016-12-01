@@ -59,18 +59,18 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3_debug.c
 
 # Definitions for SAM driver compilation
-libmusdk_la_CFLAGS += -DDRIVER_EIP197_HW_CONF_B
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/MVEBU
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Integration/SLAD_Adapter/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Basic_Defs_API/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/SABuilder/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/TokenBuilder/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/../SafeXcel-Firmware/eip197/firmware/production_firmware/api
+#libmusdk_la_CFLAGS += -DDRIVER_EIP197_HW_CONF_B
+#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/
+#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/MVEBU
+#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Integration/SLAD_Adapter/incl
+#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Basic_Defs_API/incl
+#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/SABuilder/incl
+#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/TokenBuilder/incl
+#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/../SafeXcel-Firmware/eip197/firmware/production_firmware/api
 
-include_HEADERS  += include/drivers/mv_sam.h
-include_HEADERS  += include/drivers/mv_sam_cio.h
-include_HEADERS  += include/drivers/mv_sam_session.h
+#include_HEADERS  += include/drivers/mv_sam.h
+#include_HEADERS  += include/drivers/mv_sam_cio.h
+#include_HEADERS  += include/drivers/mv_sam_session.h
 
-libmusdk_la_SOURCES += drivers/sam/sam.c
-libmusdk_la_SOURCES += drivers/sam/sam_debug.c
+#libmusdk_la_SOURCES += drivers/sam/sam.c
+#libmusdk_la_SOURCES += drivers/sam/sam_debug.c
