@@ -86,68 +86,6 @@ struct uio_pdrv_pp_info {
 	struct cma_ctx cma_client;
 };
 
-/*
- * mv_pp_clk_unbind() - enable all clks for pp device
- *
- */
-static int mv_pp_clk_bind(struct uio_pdrv_pp_info *uio_pdrv)
-{
-	struct pp_hw *hw;
-	int err = 0;
-
-	hw = &uio_pdrv->hw;
-
-	hw->gop_core_clk = devm_clk_get(uio_pdrv->dev, "gop_core_clk");
-	if (IS_ERR(hw->gop_core_clk))
-		return PTR_ERR(hw->gop_core_clk);
-	err = clk_prepare_enable(hw->gop_core_clk);
-	if (err < 0)
-		goto err_clk;
-
-	hw->gop_clk = devm_clk_get(uio_pdrv->dev, "gop_clk");
-	if (IS_ERR(hw->gop_clk))
-		return PTR_ERR(hw->gop_clk);
-	err = clk_prepare_enable(hw->gop_clk);
-	if (err < 0)
-		goto err_clk;
-
-	hw->mg_core_clk = devm_clk_get(uio_pdrv->dev, "mg_core_clk");
-	if (IS_ERR(hw->mg_clk))
-		return PTR_ERR(hw->mg_core_clk);
-	err = clk_prepare_enable(hw->mg_core_clk);
-	if (err < 0)
-		goto err_clk;
-
-	hw->mg_clk = devm_clk_get(uio_pdrv->dev, "mg_clk");
-	if (IS_ERR(hw->mg_clk))
-		return PTR_ERR(hw->mg_clk);
-	err = clk_prepare_enable(hw->mg_clk);
-	if (err < 0)
-		goto err_clk;
-
-	hw->pp_clk = devm_clk_get(uio_pdrv->dev, "pp_clk");
-	if (IS_ERR(hw->pp_clk))
-		return PTR_ERR(hw->pp_clk);
-	err = clk_prepare_enable(hw->pp_clk);
-	if (err < 0)
-		goto err_clk;
-
-err_clk:
-	return err;
-}
-
-/*
- * mv_pp_clk_unbind() - disable all clks for pp device
- *
- */
-static void mv_pp_clk_unbind(struct pp_hw *hw)
-{
-	clk_disable_unprepare(hw->pp_clk);
-	clk_disable_unprepare(hw->gop_core_clk);
-	clk_disable_unprepare(hw->gop_clk);
-	clk_disable_unprepare(hw->mg_core_clk);
-	clk_disable_unprepare(hw->mg_clk);
-}
 
 /*
  * mv_pp_uio_probe() - mv_pp_uio_drv platform driver probe routine
@@ -181,9 +119,6 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	uio_pdrv_pp->map_num = -EIO;
 	uio_pdrv_pp->dev = dev;
 	mutex_init(&uio_pdrv_pp->lock);
-#if 0
-	err = mv_pp_clk_bind(uio_pdrv_pp);
-#endif
 
 	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
 		uio = &uio_pdrv_pp->uio[idx];
@@ -228,7 +163,6 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	return 0;
 
 fail_uio:
-	mv_pp_clk_unbind(&uio_pdrv_pp->hw);
 	devm_kfree(dev, uio_pdrv_pp);
 fail:
 	return err;
@@ -246,8 +180,6 @@ static int mv_pp_uio_remove(struct platform_device *pdev)
 
 	if (!uio_pdrv_pp)
 		return -EINVAL;
-
-	mv_pp_clk_unbind(&uio_pdrv_pp->hw);
 
 	if (uio_pdrv_pp->uio_num != -EIO)
 		for (int idx = 0; idx <= uio_pdrv_pp->uio_num; ++idx)
