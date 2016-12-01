@@ -426,6 +426,7 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	struct uio_info *uio;
 	struct resource *res;
 	int err = 0, mem_cnt = 0;
+	static u8 cpn_count = 0;
 
 	if (!np) {
 		dev_err(dev, "Non DT case is not supported\n");
@@ -443,7 +444,6 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	uio_pdrv_pp->map_num = -EIO;
 	uio_pdrv_pp->dev = dev;
 	mutex_init(&uio_pdrv_pp->lock);
-
 	err = mv_pp_clk_bind(uio_pdrv_pp);
 
 	if (!dev->archdata.dma_coherent) {
@@ -463,7 +463,7 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 
 	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
 		uio = &uio_pdrv_pp->uio[idx];
-		uio->name = UIO_PP_0;
+		uio->name = (cpn_count == 0) ? UIO_PP_0 : UIO_PP_1;
 		uio->version = DRIVER_VERSION;
 
 		for (int i = 0; i < MAX_UIO_MAPS; ++i, ++mem_cnt) {
@@ -501,7 +501,7 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 
 	struct miscdevice *misc;
 
-	if (uio_pdrv_pp->map_num > 0) {
+	if (uio_pdrv_pp->map_num > 0 && !cpn_count) {
 		/* *INDENT-OFF* */
 		misc		= &uio_pdrv_pp->misc;
 		misc->minor	= MISC_DYNAMIC_MINOR;
@@ -525,6 +525,7 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, uio_pdrv_pp);
 
+	cpn_count++;
 	return 0;
 
 fail_misc:

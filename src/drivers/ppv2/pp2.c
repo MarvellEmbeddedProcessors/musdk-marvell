@@ -96,6 +96,18 @@ static struct pp2_mac_data hc_gop_mac_data[6] = {
    }
 };
 
+
+static const char * pp2_id_uio_name(u8 pp2_id)
+{
+	static const char *pp2_names[] = {UIO_PP_0, UIO_PP_1};
+
+	if (pp2_id <= PP2_ID1)
+		return pp2_names[pp2_id];
+
+	pp2_err("%s Invalid pp2_id(%d)\n", __func__, pp2_id);
+	return NULL;
+}
+
 static void pp2_init_rxfhindir(struct pp2_inst *inst)
 {
 	/* Init RXFHINDIR table */
@@ -241,10 +253,10 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
     uintptr_t mem_base;
     struct pp2_hw *hw = &inst->hw;
 
+
     hw->tclk = PP2_TCLK_FREQ;
 
-    err = pp2_sys_ioinit(&inst->pp2_maps_hdl,
-            (PP2_ID0 == inst->id) ? UIO_PP_0 : UIO_PP_1);
+    err = pp2_sys_ioinit(&inst->pp2_maps_hdl, pp2_id_uio_name((u8)inst->id));
     if (err) {
         pp2_err("PPDK: No device found\n");
         return err;
@@ -418,6 +430,18 @@ static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
    return inst;
 }
 
+
+
+static u8 pp2_num_inst_get(void)
+{
+	u8 pp2_num_inst = 0;
+
+	pp2_num_inst += pp2_sys_io_exists(pp2_id_uio_name(PP2_ID0));
+	pp2_num_inst += pp2_sys_io_exists(pp2_id_uio_name(PP2_ID1));
+
+	return(pp2_num_inst);
+}
+
 static void pp2_destroy(struct pp2_inst *inst)
 {
     uint32_t i;
@@ -467,7 +491,7 @@ int pp2_init(struct pp2_init_params *params)
     /* Initialize in an opaque manner from client,
      * depending on HW, one or two packet processors.
      */
-    pp2_num_inst = PP2_SOC_NUM_PACKPROCS;
+    pp2_num_inst = pp2_num_inst_get();
     for (pp2_id = 0; pp2_id < pp2_num_inst; pp2_id++) {
         struct pp2_inst *inst;
 
@@ -493,7 +517,7 @@ int pp2_init(struct pp2_init_params *params)
         pp2_ptr->num_pp2_inst++;
     }
 
-    pp2_dbg("PPDK: PackProcs   %2u\n", PP2_SOC_NUM_PACKPROCS);
+    pp2_dbg("PPDK: PackProcs   %2u\n", pp2_num_inst);
     pp2_dbg("PPDK:   Ports     %2u\n", PP2_NUM_PORTS);
     pp2_dbg("PPDK:   Regspaces %2u\n", PP2_NUM_REGSPACES);
     pp2_dbg("PPDK:   BM Pools  %2u\n", PP2_NUM_BMPOOLS);

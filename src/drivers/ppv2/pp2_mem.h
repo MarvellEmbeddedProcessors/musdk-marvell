@@ -28,6 +28,11 @@
  */
 typedef uintptr_t pp2_maps_handle_t;
 
+
+
+int pp2_sys_io_exists(const char *name);
+
+
 /**
  * Initialize user I/O devices and maps structures
  *
