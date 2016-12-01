@@ -26,6 +26,20 @@
  * Implements configuration and run-time Port and I/O routines
  */
 
+
+static struct pp2_tc * pp2_rxq_tc_get(struct pp2_port *port, uint32_t id)
+{
+    uint8_t i;
+
+    for(i = 0;i <port->num_tcs; i++) {
+        uint8_t first_rxq = port->tc[i].tc_config.first_rxq;
+        if (id >= first_rxq && id < (first_rxq + port->tc[i].tc_config.num_in_qs))
+              return(&port->tc[i]);
+    }
+    return(NULL);
+}
+
+
 /* Set TX FIFO size and threshold */
 static inline void pp2_port_tx_fifo_config(struct pp2_port *port,
         uint32_t fifo_size, uint32_t fifo_thr)
@@ -491,6 +505,7 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 {
    uint32_t val;
    uintptr_t cpu_slot;
+   struct pp2_tc * tc;
 
    cpu_slot = port->cpu_slot;
 
@@ -523,6 +538,13 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 
    /* Set Offset - cache line */
    pp2_rxq_offset_set(port, rxq->id, PP2_PACKET_OFFSET);
+   tc = pp2_rxq_tc_get(port, rxq->id);
+   if (!tc) {
+       pp2_err("port(%d) phy_rxq(%d), not found in tc range \n", port->id, rxq->id);
+       return;
+   }
+   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL], rxq->id, BM_TYPE_SHORT_BUF_POOL);
+   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_LONG_BUF_POOL], rxq->id, BM_TYPE_LONG_BUF_POOL);
 
    /* Add number of descriptors ready for receiving packets */
    val = (0 | (rxq->desc_total << MVPP2_RXQ_NUM_NEW_OFFSET));
@@ -816,10 +838,13 @@ pp2_port_start_dev(struct pp2_port *port)
 
 	/* No need for port interrupts enable */
 	pp2_gop_port_events_mask(gop, mac);
-	pp2_gop_port_enable(gop, mac);
 
+#ifdef NO_MVPP2X_DRIVER
+	pp2_gop_port_enable(gop, mac);
+#endif
     /* Link status. Indirect access */
     pp2_port_link_status(port);
+
     pp2_gop_status_show(gop, mac);
 
     if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
@@ -829,7 +854,9 @@ pp2_port_start_dev(struct pp2_port *port)
 	    pp2_port_ingress_enable(port);
 
     /* TBD: Do we have interrupt issues? Check following...*/
+#ifdef NO_MVPP2X_DRIVER
 	pp2_gop_port_events_unmask(gop, mac);
+#endif
 }
 
 /* Set hw internals when stopping port */
@@ -882,13 +909,15 @@ pp2_port_config_inq(struct pp2_port *port)
 {
     /* Port's classifier configuration */
     mv_pp2x_cls_oversize_rxq_set(port);
+#ifdef NO_MVPP2X_DRIVER
     mv_pp2x_cls_port_config(port);
-
+#endif
     /* Initialize hardware internals for RXQs */
     pp2_port_rxqs_init(port);
-
+#ifdef NO_MVPP2X_DRIVER
     /*TBD(RX) - port Classfier/Policer/Parser from driver */
     mv_pp2x_open_cls(port);
+#endif
 }
 
 void
@@ -897,8 +926,9 @@ pp2_port_config_outq(struct pp2_port *port)
     /* TX FIFO Init to default 3KB size. Default with minimum threshold */
     /* TODO: change according to port type! */
     //pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_3KB, PP2_TX_FIFO_THRS_3KB);
+#ifdef NO_MVPP2X_DRIVER
     pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_10KB, PP2_TX_FIFO_THRS_10KB);
-
+#endif
     /* Initialize hardware internals for TXQs */
     pp2_port_txqs_init(port);
 }
@@ -910,9 +940,10 @@ pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slow
     port->t_mode = t_mode;
 
     pp2_port_start_dev(port);
-
+#ifdef NO_MVPP2X_DRIVER
     if ((t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
         mv_pp2x_open_cls(port);
+#endif
 }
 
 /* Internal.
@@ -927,8 +958,10 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 
    /* Disable port transmission */
    pp2_port_egress_disable(port);
-   pp2_gop_port_disable(gop, mac);
 
+#ifdef NO_MVPP2X_DRIVER
+   pp2_gop_port_disable(gop, mac);
+#endif
    /* Allocate TXQ slots for this port */
    port->txqs = calloc(1, sizeof(struct pp2_tx_queue *) * port->num_tx_queues);
    if (unlikely(!port->txqs)){
@@ -964,7 +997,11 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
     * work on polling mode
     */
    pp2_port_interrupts_mask(port);
+
+#ifdef NO_MVPP2X_DRIVER
    pp2_port_mac_hw_init(port);
+#endif
+
 }
 
 static int32_t

@@ -155,6 +155,7 @@ static void pp2_inst_init(struct pp2_inst *inst)
     /* Clear BM */
     pp2_bm_flush_pools(cpu_slot, inst->parent->init.bm_pool_reserved_map);
 
+#ifdef NO_MVPP2X_DRIVER
     /*AXI Bridge Configuration */
 
     /* BM */
@@ -191,7 +192,6 @@ static void pp2_inst_init(struct pp2_inst *inst)
     val = MVPP22_AXI_CODE_CACHE_WR_CACHE << MVPP22_AXI_CODE_CACHE_OFFS;
     val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM << MVPP22_AXI_CODE_DOMAIN_OFFS;
     pp2_reg_write(cpu_slot, MVPP22_AXI_WR_SNOOP_CODE_REG, val);
-
     /* Set cache snoop when transmitting packets */
     pp2_reg_write(cpu_slot, MVPP2_TX_SNOOP_REG, 0x01);
 
@@ -211,6 +211,7 @@ static void pp2_inst_init(struct pp2_inst *inst)
 
     /* TBD(RX): Init PP22 rxfhindir(RSS) table evenly */
     pp2_init_rxfhindir(inst);
+#endif
 
     /* Disable RXQs */
     for (i = 0; i < PP2_NUM_PORTS; i++) {
@@ -230,6 +231,7 @@ static void pp2_inst_init(struct pp2_inst *inst)
 
     /* GOP early activation */
     /* TODO: Revise after device tree adaptation */
+#ifdef NO_MVPP2X_DRIVER
     for (i = 0; i < PP2_NUM_PORTS; i++)
     {
         uint32_t net_comp_config;
@@ -244,6 +246,7 @@ static void pp2_inst_init(struct pp2_inst *inst)
         pp2_gop_netc_init(gop, net_comp_config, PP2_NETC_FIRST_PHASE);
         pp2_gop_netc_init(gop, net_comp_config, PP2_NETC_SECOND_PHASE);
     }
+#endif
 }
 
 static int pp2_get_hw_data(struct pp2_inst *inst)

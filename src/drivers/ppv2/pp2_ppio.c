@@ -203,7 +203,9 @@ int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len)
 }
 int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)
 {
+#ifdef NO_MVPP2X_DRIVER
 	pp2_port_set_uc_promisc(ppio->port, en);
+#endif
 	return (0);
 }
 int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en)

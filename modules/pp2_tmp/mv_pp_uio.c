@@ -444,8 +444,9 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	uio_pdrv_pp->map_num = -EIO;
 	uio_pdrv_pp->dev = dev;
 	mutex_init(&uio_pdrv_pp->lock);
+#if 0
 	err = mv_pp_clk_bind(uio_pdrv_pp);
-
+#endif
 	if (!dev->archdata.dma_coherent) {
 		dev_err(dev, "Not dma_coherent\n");
 	}
