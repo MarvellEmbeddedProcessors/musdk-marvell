@@ -6,6 +6,7 @@
 *.o
 *.orig
 *.patch
+!patches/linux/*.patch
 *.rej
 *.swp
 *~
@@ -39,3 +40,4 @@ m4
 missing
 stamp-h1
 .gitreview
+

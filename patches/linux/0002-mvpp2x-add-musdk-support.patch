@@ -1,0 +1,236 @@
+diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
+index 1849b68..070cdd9 100644
+--- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
++++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
+@@ -1267,7 +1267,9 @@
+ 
+ /* Port flags */
+ #define MVPP2_F_LOOPBACK		BIT(0)
+-#define MVPP2_F_IFCAP_NETMAP    BIT(1)
++#define MVPP2_F_IFCAP_NETMAP		BIT(1)
++#define MVPP2_F_IF_MUSDK		BIT(2)
++
+ 
+ /* Marvell tag types */
+ enum mv_pp2x_tag_type {
+diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
+index 30311be..5488c31
+--- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
++++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
+@@ -78,7 +78,7 @@ static u8 cos_classifer;
+ static u32 pri_map = 0x3210; /* As default, cos0--rxq0, cos1--rxq1,
+ 			      * cos2--rxq2, cos3--rxq3
+ 			      */
+-static u8 default_cos = 3; /* As default, non-IP packet has highest CoS value */
++static u8 default_cos = 0; /* As default, non-IP packet has highest CoS value */
+ static u16 rx_queue_size = MVPP2_MAX_RXD;
+ static u16 tx_queue_size = MVPP2_MAX_TXD;
+ static u16 buffer_scaling = 100;
+@@ -1508,7 +1508,7 @@ static irqreturn_t mv_pp2_link_change_isr(int irq, void *data)
+ 
+ int mv_pp2x_setup_irqs(struct net_device *dev, struct mv_pp2x_port *port)
+ {
+-	int qvec_id, cpu, err;
++	int qvec_id, cpu, err = 0;
+ 	struct queue_vector *qvec;
+ 
+ 	/* Rx/TX irq's */
+@@ -1533,6 +1533,7 @@ int mv_pp2x_setup_irqs(struct net_device *dev, struct mv_pp2x_port *port)
+ 			goto err_cleanup;
+ 		}
+ 	}
++	port->mac_data.link_irq = MVPP2_NO_LINK_IRQ;
+ 	/* Link irq */
+ 	if (port->mac_data.link_irq != MVPP2_NO_LINK_IRQ) {
+ 		pr_debug("%s interrupt request\n", port->mac_data.irq_name);
+@@ -2783,6 +2784,14 @@ outNoTxDesc:
+ 	return 0;
+ }
+ 
++
++
++static int mv_pp2x_dummy_tx(struct sk_buff *skb, struct net_device *dev)
++{
++	pr_debug("mv_pp2x_dummy_tx \n");
++	return NETDEV_TX_OK;
++}
++
+ /* Main tx processing */
+ static int mv_pp2x_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+@@ -3455,14 +3464,15 @@ int mv_pp2x_open(struct net_device *dev)
+ 			goto err_free_irq;
+ 	}
+ 
+-	/* Unmask interrupts on all CPUs */
+-	on_each_cpu(mv_pp2x_interrupts_unmask, port, 1);
+-
+-	/* Unmask shared interrupts */
+-	mv_pp2x_shared_thread_interrupts_unmask(port);
++	if (!(port->flags & MVPP2_F_IF_MUSDK)) {
++		/* Unmask interrupts on all CPUs */
++		on_each_cpu(mv_pp2x_interrupts_unmask, port, 1);
+ 
+-	/* Port is init in uboot */
++		/* Unmask shared interrupts */
++		mv_pp2x_shared_thread_interrupts_unmask(port);
+ 
++		/* Port is init in uboot */
++	}
+ 	if (port->priv->pp2_version == PPV22)
+ 		mvcpn110_mac_hw_init(port);
+ 	mv_pp2x_start_dev(port);
+@@ -3817,6 +3827,20 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
+ 	.ndo_set_features	= mv_pp2x_netdev_set_features,
+ };
+ 
++static const struct net_device_ops mv_pp2x_non_kernel_netdev_ops = {
++	.ndo_open		= mv_pp2x_open,
++	.ndo_stop		= mv_pp2x_stop,
++	.ndo_start_xmit		= mv_pp2x_dummy_tx,
++	//.ndo_select_queue	= mv_pp2x_select_queue,
++	.ndo_set_rx_mode	= mv_pp2x_set_rx_mode,
++	.ndo_set_mac_address	= mv_pp2x_set_mac_address,
++	//.ndo_change_mtu		= mv_pp2x_change_mtu,
++	.ndo_get_stats64	= mv_pp2x_get_stats64,
++	.ndo_do_ioctl		= mv_pp2x_ioctl,
++	.ndo_set_features	= mv_pp2x_netdev_set_features,
++};
++
++
+ /* Driver initialization */
+ 
+ static void mv_pp21_port_power_up(struct mv_pp2x_port *port)
+@@ -4202,7 +4226,9 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
+ 		goto err_free_percpu;
+ 
+ 	/* Configure queue_vectors */
+-	priv->pp2xdata->mv_pp2x_port_queue_vectors_init(port);
++
++	if (!(port->flags & MVPP2_F_IF_MUSDK))
++		priv->pp2xdata->mv_pp2x_port_queue_vectors_init(port);
+ 
+ 	/* Configure Rx queue group interrupt for this port */
+ 	priv->pp2xdata->mv_pp2x_port_isr_rx_group_cfg(port);
+@@ -4229,7 +4255,8 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
+ 	port->pkt_size = MVPP2_RX_PKT_SIZE(port->dev->mtu);
+ 
+ 	/* Initialize pools for swf */
+-	err = mv_pp2x_swf_bm_pool_init(port);
++	if (!(port->flags & MVPP2_F_IF_MUSDK))
++		err = mv_pp2x_swf_bm_pool_init(port);
+ 	if (err)
+ 		goto err_free_percpu;
+ 	return 0;
+@@ -4279,6 +4306,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 	unsigned int *port_irqs;
+ 	int port_num_irq;
+ 	int phy_mode;
++	const char *status;
++	int statlen;
+ 
+ 	dev = alloc_etherdev_mqs(sizeof(struct mv_pp2x_port),
+ 		mv_pp2x_txq_number, mv_pp2x_rxq_number);
+@@ -4291,6 +4320,11 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	port->priv = priv;
+ 
++	status = of_get_property(port_node, "status", &statlen);
++
++	if (statlen > 0 && !strcmp(status, "non-kernel"))
++		port->flags |= MVPP2_F_IF_MUSDK;
++
+ 	mv_pp2x_port_init_config(port);
+ 
+ 	if (of_property_read_u32(port_node, "port-id", &id)) {
+@@ -4352,7 +4386,9 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 
+ 	/* Tx/Rx Interrupt */
+ 	port_num_irq = mv_pp2x_of_irq_count(port_node);
+-	if (port_num_irq != priv->pp2xdata->num_port_irq) {
++	if (port->flags & MVPP2_F_IF_MUSDK)
++		port_num_irq = 0;
++	if ((!(port->flags & MVPP2_F_IF_MUSDK)) && port_num_irq != priv->pp2xdata->num_port_irq) {
+ 		dev_err(&pdev->dev,
+ 			"port(%d)-number of irq's doesn't match hw\n", id);
+ 		goto err_free_netdev;
+@@ -4381,6 +4417,12 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 	dev->tx_queue_len = tx_queue_size;
+ 	dev->watchdog_timeo = 5 * HZ;
+ 	dev->netdev_ops = &mv_pp2x_netdev_ops;
++
++	if (port->flags & MVPP2_F_IF_MUSDK) {
++		port->num_tx_queues = 0;
++		port->num_rx_queues = 0;
++		dev->netdev_ops = &mv_pp2x_non_kernel_netdev_ops;
++	}
+ 	mv_pp2x_set_ethtool_ops(dev);
+ 
+ 	if (priv->pp2_version == PPV21)
+@@ -4431,7 +4473,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 		err = -ENOMEM;
+ 		goto err_free_txq_pcpu;
+ 	}
+-	if (port->priv->pp2xdata->interrupt_tx_done == false) {
++	if ((!(port->flags & MVPP2_F_IF_MUSDK)) && port->priv->pp2xdata->interrupt_tx_done == false) {
+ 		for_each_online_cpu(cpu) {
+ 			port_pcpu = per_cpu_ptr(port->pcpu, cpu);
+ 
+@@ -4444,6 +4486,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 				mv_pp2x_tx_proc_cb, (unsigned long)dev);
+ 		}
+ 	}
++	if (port->flags & MVPP2_F_IF_MUSDK)
++		goto skip_tso_buffers;
+ 	/* Init pool of external buffers for TSO, fragmentation, etc */
+ 	for_each_online_cpu(cpu) {
+ 		port_pcpu = per_cpu_ptr(port->pcpu, cpu);
+@@ -4471,7 +4515,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 			port_pcpu->ext_buf_pool->buf_pool_in_use++;
+ 		}
+ 	}
+-
++skip_tso_buffers:
+ 	features = NETIF_F_SG;
+ 	dev->features = features | NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
+ 			NETIF_F_IPV6_CSUM | NETIF_F_TSO;
+@@ -4490,8 +4534,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 		dev_err(&pdev->dev, "failed to register netdev\n");
+ 		goto err_free_port_pcpu;
+ 	}
+-
+-	mv_pp2x_port_irq_names_update(port);
++	if (!(port->flags & MVPP2_F_IF_MUSDK))
++		mv_pp2x_port_irq_names_update(port);
+ 
+ 	netdev_info(dev, "Using %s mac address %pM\n", mac_from, dev->dev_addr);
+ 
+@@ -5161,10 +5205,24 @@ static int mv_pp2x_probe(struct platform_device *pdev)
+ 		mv_pp22_init_rxfhindir(priv);
+ 
+ 	/* Initialize ports */
+-	for_each_available_child_of_node(dn, port_node) {
+-		err = mv_pp2x_port_probe(pdev, port_node, priv);
+-		if (err < 0)
+-			goto err_clk;
++	for_each_child_of_node(dn, port_node) {
++		if (of_device_is_available(port_node)) {
++			err = mv_pp2x_port_probe(pdev, port_node, priv);
++			if (err < 0)
++				goto err_clk;
++		}
++		else {
++			const char *status;
++			int statlen;
++
++			status = of_get_property(port_node, "status", &statlen);
++
++			if (statlen > 0 && !strcmp(status, "non-kernel")) {
++				err = mv_pp2x_port_probe(pdev, port_node, priv);
++				if (err < 0)
++					goto err_clk;
++			}
++		}
+ 	}
+ 
+ 	if (priv->pp2_version == PPV22) {
