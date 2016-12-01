@@ -6,7 +6,14 @@ AM_LDFLAGS = -lm
 
 lib_LTLIBRARIES = libmusdk.la
 
-include_HEADERS  = include/drivers/mv_pp2.h
+nobase_include_HEADERS  = include/mv_std.h
+nobase_include_HEADERS += include/env/xflags.h
+nobase_include_HEADERS += include/env/mv_common.h
+nobase_include_HEADERS += include/env/mv_compiler.h
+nobase_include_HEADERS += include/env/mv_debug.h
+nobase_include_HEADERS += include/env/mv_errno.h
+nobase_include_HEADERS += include/env/mv_sys_dma.h
+nobase_include_HEADERS += include/env/mv_types.h
 
 libmusdk_la_CFLAGS = $(AM_CFLAGS)
 
@@ -39,6 +46,13 @@ libmusdk_la_SOURCES += env/cma.c
 libmusdk_la_SOURCES += env/sys_dma.c
 libmusdk_la_SOURCES += env/of.c
 
+nobase_include_HEADERS += include/drivers/mv_net.h
+nobase_include_HEADERS += include/drivers/mv_pp2.h
+nobase_include_HEADERS += include/drivers/mv_pp2_bpool.h
+nobase_include_HEADERS += include/drivers/mv_pp2_cls.h
+nobase_include_HEADERS += include/drivers/mv_pp2_hif.h
+nobase_include_HEADERS += include/drivers/mv_pp2_ppio.h
+
 libmusdk_la_SOURCES += drivers/ppv2/pp2.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_bm.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_dm.c
@@ -58,7 +72,7 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_db.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3_debug.c
 
-# Definitions for SAM driver compilation
+## Definitions for SAM driver compilation
 #libmusdk_la_CFLAGS += -DDRIVER_EIP197_HW_CONF_B
 #libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/
 #libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/MVEBU
@@ -66,11 +80,10 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3_debug.c
 #libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Basic_Defs_API/incl
 #libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/SABuilder/incl
 #libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/TokenBuilder/incl
-#libmusdk_la_CFLAGS += -I$(EIP197_DDK)/../SafeXcel-Firmware/eip197/firmware/production_firmware/api
 
-#include_HEADERS  += include/drivers/mv_sam.h
-#include_HEADERS  += include/drivers/mv_sam_cio.h
-#include_HEADERS  += include/drivers/mv_sam_session.h
+nobase_include_HEADERS += include/drivers/mv_sam.h
+nobase_include_HEADERS += include/drivers/mv_sam_cio.h
+nobase_include_HEADERS += include/drivers/mv_sam_session.h
 
 #libmusdk_la_SOURCES += drivers/sam/sam.c
 #libmusdk_la_SOURCES += drivers/sam/sam_debug.c

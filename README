@@ -34,10 +34,11 @@ b. Apply all patches found <musdk-src-dir>/patches/linux
 
 2. Build the MUSDK and install it:
 > cd <musdk-src-dir>
-> ./autogen.sh
-> ./configure --host=aarch64-linux-gnu
-> make -j8
-> make DESTDIR=~/target/sdk install
+> ./bootstrap
+> ./configure --host=aarch64-linux-gnu --prefix=<musdk-install-dir>
+> make
+> make install
+NOTE: as a temporary W/A, mv all files in <musdk-install-dir>/include/include to <musdk-install-dir>/include
 
 3. Running MUSDK apps:
 a. Copy the kernel modules (musdk_uio, etc.) to the target board file-system.
