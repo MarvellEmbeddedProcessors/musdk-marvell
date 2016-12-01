@@ -9,6 +9,8 @@
 #include "pp2_hif.h"
 #include "pp2.h"
 #include "pp2_port.h"
+#include "pp2_bpool.h"
+
 
 
 struct pp2_ppio {
@@ -83,6 +85,12 @@ int pp2_ppio_disable(struct pp2_ppio *ppio)
 {
 	pp2_port_stop(ppio->port);
 	return (0);
+}
+
+void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool)
+{
+	desc->cmds[0] = (desc->cmds[0] & ~(TXD_POOL_ID_MASK | TXD_BUFMODE_MASK)) |
+		(pool->id << 16 & TXD_POOL_ID_MASK) | (1 << 7 & TXD_BUFMODE_MASK);
 }
 
 int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2_ppio_desc *descs, u16 *num)

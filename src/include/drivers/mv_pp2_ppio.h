@@ -264,13 +264,8 @@ static inline void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64
 	desc->cmds[7] = (desc->cmds[7] & ~TXD_BUF_PHYS_HI_MASK) | (cookie >> 32 & TXD_BUF_PHYS_HI_MASK);
 }
 
-static inline void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool)
-{
-	/* TODO: we write here the pool hardcoded!!! */
-	desc->cmds[0] = (desc->cmds[0] & ~(TXD_POOL_ID_MASK | TXD_BUFMODE_MASK)) |
-		(0 << 16 & TXD_POOL_ID_MASK) |
-		(1 << 7 & TXD_BUFMODE_MASK);
-}
+void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool);
+
 
 void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc,
 				       enum pp2_outq_l3_type l3_type,
