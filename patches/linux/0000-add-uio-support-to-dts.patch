@@ -1,44 +1,32 @@
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040.dtsi b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
-index a47a362..ef3fd20 100644
+index a47a362..1bf0f35 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
 @@ -95,6 +95,9 @@
  			ppv22@000000 {
  				dma-coherent;
  			};
-+			uio_ppv22 {
++			musdk_uio {
 +				dma-coherent;
 +			};
  			usb3h0: usb3@500000 {
  				#stream-id-cells = <1>;
  			};
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040.dtsi b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
-index ca3a9af..fe8f8d1 100644
+index ca3a9af..65b0057 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
 @@ -141,6 +141,9 @@
  			ppv22@000000 {
  				dma-coherent;
  			};
-+			uio_ppv22 {
++			musdk_uio {
 +				dma-coherent;
 +			};
  			pinctrl@440000 {
  				compatible = "marvell,a80x0-cp0-pinctrl";
  
-@@ -201,6 +204,9 @@
- 			ppv22@000000 {
- 				dma-coherent;
- 			};
-+			uio_ppv22 {
-+				dma-coherent;
-+			};
- 			pinctrl@440000 {
- 				compatible = "marvell,a80x0-cp1-pinctrl";
- 
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-old mode 100644
-new mode 100755
 index bf506c9..9f14677
 --- a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
@@ -76,10 +64,10 @@ index bf506c9..9f14677
  	compatible = "marvell,armada-8k-rng", "inside-secure,safexcel-eip76";
  	reg = <0x760000 0x7D>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index f54330c..6c61b24 100644
+index f54330c..92bd577 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -400,6 +400,33 @@ ppv22@000000 {
+@@ -400,6 +400,37 @@ ppv22@000000 {
  	};
  };
  
@@ -106,6 +94,10 @@ index f54330c..6c61b24 100644
 +		status = "disabled";
 +	};
 +*/
++};
++musdk_uio {
++	compatible = "marvell,musdk-uio";
++	status = "okay";
 +};
 +
 +

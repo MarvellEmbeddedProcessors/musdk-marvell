@@ -1,21 +1,34 @@
-/*
- * User I/O driver for Armada 7K/8K Packet Processor.
+/******************************************************************************
+ *	Copyright (C) 2016 Marvell International Ltd.
  *
- * Copyright (C) 2016, ENEA AB
+ *  If you received this File from Marvell, you may opt to use, redistribute
+ *  and/or modify this File under the following licensing terms.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
  *
- * This program is free software: you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation, either version 2 of the License, or any later version.
+ *	* Redistributions of source code must retain the above copyright
+ *	  notice, this list of conditions and the following disclaimer.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *	* Redistributions in binary form must reproduce the above copyright
+ *	  notice, this list of conditions and the following disclaimer in the
+ *	  documentation and/or other materials provided with the distribution.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *	* Neither the name of Marvell nor the names of its contributors may be
+ *	  used to endorse or promote products derived from this software
+ *	  without specific prior written permission.
  *
- */
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *****************************************************************************/
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -30,6 +43,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
+#include <linux/skbuff.h>
 
 #include "../include/musdk_uio_ioctls.h"
 
@@ -131,8 +145,7 @@ static int cma_calloc(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 
 	pr_debug("Alloc %p = %lld Bytes\n", (void *)ptr, size);
 
-	if (copy_to_user(argp, &param, sizeof(param)))
-	{
+	if (copy_to_user(argp, &param, sizeof(param))) {
 		dma_free_coherent(uio_pdrv_musdk->dev, ptr->size,
 				(void *)ptr->kvaddr,
 				ptr->paddr);
@@ -229,15 +242,13 @@ static int cma_mmap(struct file *filp, struct vm_area_struct *vma)
 	 */
 	vma->vm_pgoff = 0;
 
-	if (vma->vm_flags & VM_WRITE)
-	{
+	if (vma->vm_flags & VM_WRITE) {
 		err = dma_mmap_coherent(uio_pdrv_musdk->dev, vma,
 				(void *)((u64)ptr->kvaddr + CMA_PAGE_SIZE),
 				ptr->paddr + CMA_PAGE_SIZE,
 				ptr->size - CMA_PAGE_SIZE);
-		if (err) {
+		if (err)
 			return err;
-		}
 		else {
 			ptr->uvaddr = vma->vm_start;
 			pr_debug("Mapped payload vaddr: %p, paddr: %p = %ld Bytes\n",
@@ -245,15 +256,13 @@ static int cma_mmap(struct file *filp, struct vm_area_struct *vma)
 					(void *)ptr->kvaddr,
 					ptr->size);
 		}
-	}
-	else {
+	} else {
 		/* The user map signal admin area only */
 		err = dma_mmap_coherent(uio_pdrv_musdk->dev, vma,
 					(void *)ptr->kvaddr,
 					ptr->paddr, CMA_PAGE_SIZE);
-		if (err) {
+		if (err)
 			return err;
-		}
 		pr_debug("Mapped admin %p = %d Bytes\n", (void *)ptr->paddr,
 				CMA_PAGE_SIZE);
 	}
@@ -274,9 +283,11 @@ static long cma_ioctl(struct file *filp,
 	    container_of(misc, struct uio_pdrv_musdk_info, misc);
 	int err = 0;
 
-	if (_IOC_TYPE(cmd) != MUSDK_IOC_TYPE_BASE)
+	if (_IOC_TYPE(cmd) != MUSDK_IOC_TYPE_BASE) {
 		pr_err("ioctl(): bad command type 0x%x (should be 0x%x)\n",
 		   _IOC_TYPE(cmd), MUSDK_IOC_TYPE_BASE);
+		return -EIO;
+	}
 
 	switch (cmd) {
 		case MUSDK_IOC_CMA_ALLOC:
@@ -308,7 +319,6 @@ static int cma_release(struct inode *inode, struct file *filp)
 	int garbage = 0;
 	struct cma_admin *adm;
 
-
 	list_for_each_safe(node, q, &uio_pdrv_musdk->cma_client.list) {
 		adm = list_entry(node, struct cma_admin, list);
 		if (_cma_free(uio_pdrv_musdk, adm)) {
@@ -324,9 +334,8 @@ static int cma_release(struct inode *inode, struct file *filp)
 	pr_debug("CMA: total alloc %d, total free: %d (garbage %d)",
 			alloc, free, garbage);
 
-	if (free != alloc) {
+	if (free != alloc)
 		pr_err("There are %d  alien buffers", alloc - free);
-	}
 
 	return 0;
 }
@@ -363,6 +372,18 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	uio_pdrv_musdk->dev = dev;
 	mutex_init(&uio_pdrv_musdk->lock);
 
+	if (!dev->archdata.dma_coherent)
+		dev_warn(dev, "Not dma_coherent\n");
+
+	dev->dma_mask = kmalloc(sizeof(*dev->dma_mask), GFP_KERNEL);
+	err = dma_set_mask(dev, DMA_BIT_MASK(32));
+	if (err == 0)
+		dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+	if (err) {
+		dev_err(dev, "mv_pp_uio: cannot set dma_mask\n");
+		goto fail;
+	}
+
 	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
 		uio = &uio_pdrv_musdk->uio[idx];
 		uio->name = DEV_MUSDK_NAME;
@@ -380,10 +401,8 @@ static int musdk_uio_probe(struct platform_device *pdev)
 			uio->mem[i].name = res->name;
 		}
 
-		if (!mem_cnt) {
-			err = -EIO;
-			goto fail_uio;
-		}
+		if (!mem_cnt)
+			continue;
 
 		err = uio_register_device(dev, uio);
 		if (err) {
@@ -398,33 +417,33 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	}
 
 	uio_pdrv_musdk->map_num = mem_cnt;
-	pr_err("Registered %d uio devices, having %d register maps attached\n",
-	   uio_pdrv_musdk->uio_num + 1, uio_pdrv_musdk->map_num);
+	if (uio_pdrv_musdk->uio_num != -EIO)
+		pr_info("Registered %d uio devices, having %d register maps attached\n",
+			uio_pdrv_musdk->uio_num + 1, uio_pdrv_musdk->map_num);
 
 	struct miscdevice *misc;
 
-	if (uio_pdrv_musdk->map_num > 0) {
-		/* *INDENT-OFF* */
-		misc		= &uio_pdrv_musdk->misc;
-		misc->minor	= MISC_DYNAMIC_MINOR;
-		misc->name	= MISC_DEV_NAME;
-		misc->fops	= &musdk_misc_fops;
-		misc->parent	= dev;
-		/* *INDENT-ON* */
+	/* *INDENT-OFF* */
+	misc		= &uio_pdrv_musdk->misc;
+	misc->minor	= MISC_DYNAMIC_MINOR;
+	misc->name	= MISC_DEV_NAME;
+	misc->fops	= &musdk_misc_fops;
+	misc->parent	= dev;
+	/* *INDENT-ON* */
 
-		err = misc_register(misc);
-		if (err) {
-			dev_err(dev, "Failed to register cma device\n");
-			goto fail_misc;
-		}
-		struct cma_ctx *ctx = (struct cma_ctx *) &uio_pdrv_musdk->cma_client;
-
-		atomic_set(&ctx->buf_alloc, 0);
-		atomic_set(&ctx->buf_free, 0);
-
-		INIT_LIST_HEAD(&ctx->list);
-		pr_debug("Registered cma device: %s\n", misc->name);
+	err = misc_register(misc);
+	if (err) {
+		dev_err(dev, "Failed to register cma device\n");
+		goto fail_misc;
 	}
+	struct cma_ctx *ctx = (struct cma_ctx *) &uio_pdrv_musdk->cma_client;
+
+	atomic_set(&ctx->buf_alloc, 0);
+	atomic_set(&ctx->buf_free, 0);
+
+	INIT_LIST_HEAD(&ctx->list);
+	pr_info("Registered cma device: %s\n", misc->name);
+
 	platform_set_drvdata(pdev, uio_pdrv_musdk);
 
 	return 0;
@@ -451,14 +470,13 @@ static int musdk_uio_remove(struct platform_device *pdev)
 	if (!uio_pdrv_musdk)
 		return -EINVAL;
 
+	misc_deregister(&uio_pdrv_musdk->misc);
+	pr_debug("Detached -> uio: {%s} devices and misc: {%s} device",
+	   uio_pdrv_musdk->uio[0].name, uio_pdrv_musdk->misc.name);
+
 	if (uio_pdrv_musdk->uio_num != -EIO)
 		for (int idx = 0; idx <= uio_pdrv_musdk->uio_num; ++idx)
 			uio_unregister_device(&uio_pdrv_musdk->uio[idx]);
-	if (uio_pdrv_musdk->map_num > 0)
-		misc_deregister(&uio_pdrv_musdk->misc);
-
-	pr_err("Detached -> uio: {%s} devices and misc: {%s} device",
-	   uio_pdrv_musdk->uio[0].name, uio_pdrv_musdk->misc.name);
 
 	platform_set_drvdata(pdev, NULL);
 

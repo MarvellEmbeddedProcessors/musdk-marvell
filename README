@@ -24,12 +24,15 @@ b. Apply all patches found <musdk-src-dir>/patches/linux.
    Note: "0003-patch-dts-set-port0-status-non-kernel.patch" is an _example_ how to configure 
           the PPV2 ports that belong to musdk.
 
-1. Build the PP2-tmp kernel module and install it:
-> cd <musdk-src-dir>/modules/pp2_tmp
-> export LDFLAGS=""
-> make -C $KDIR M=$PWD
+1. Build the MUSDK UIO kernel module and install it:
+> cd <musdk-src-dir>/modules/uio
+> make
 
-2. Build the MUSDK and install it:
+2. Build the PP2-tmp kernel module and install it:
+> cd <musdk-src-dir>/modules/pp2_tmp
+> make
+
+3. Build the MUSDK and install it:
 > cd <musdk-src-dir>
 > ./bootstrap
 > ./configure --host=aarch64-linux-gnu --prefix=<musdk-install-dir>
@@ -37,10 +40,11 @@ b. Apply all patches found <musdk-src-dir>/patches/linux.
 > make install
 NOTE: As a temporary W/A, move all files in <musdk-install-dir>/include/include to <musdk-install-dir>/include
 
-3. Running MUSDK apps:
-a. Copy the kernel module (mv_pp_uio.ko) to the target board file-system.
+4. Running MUSDK apps:
+a. Copy the kernel module (musdk_uio.ko, mv_pp_uio.ko) to the target board file-system.
 b. Copy the MUSDK local install folder (<musdk-install-dir>) to equivalent path on
    the target board file-system.
 c. Insert all KS modules:
+	> insmod musdk_uio.ko
 	> insmod mv_pp_uio.ko
 d. Run a MUSDK application. Example: musdk_dma_mem, musdk_pkt_echo
