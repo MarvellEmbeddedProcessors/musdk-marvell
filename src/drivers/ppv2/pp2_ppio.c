@@ -87,6 +87,7 @@ int pp2_ppio_disable(struct pp2_ppio *ppio)
 	return (0);
 }
 
+/* Note: Function cannot be inlined, because of reference to pool->id */
 void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool)
 {
 	desc->cmds[0] = (desc->cmds[0] & ~(TXD_POOL_ID_MASK | TXD_BUFMODE_MASK)) |

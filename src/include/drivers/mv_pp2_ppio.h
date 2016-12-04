@@ -155,7 +155,8 @@ enum pp2_outq_l3_type {
 
 enum pp2_outq_l4_type {
 	PP2_OUTQ_L4_TYPE_TCP = 0,
-	PP2_OUTQ_L4_TYPE_UDP
+	PP2_OUTQ_L4_TYPE_UDP,
+	PP2_OUTQ_L4_TYPE_OTHER
 };
 
 enum pp2_inq_l3_type {
@@ -175,9 +176,9 @@ enum pp2_inq_l4_type {
 
 enum pp2_inq_desc_status {
 	PP2_DESC_ERR_MAC_OK = 0,
+	PP2_DESC_ERR_MAC_CRC,
 	PP2_DESC_ERR_MAC_RESOURCE = 0,
 	PP2_DESC_ERR_MAC_OVERRUN,
-	PP2_DESC_ERR_MAC_CRC,
 	PP2_DESC_ERR_IPV4_HDR,
 	PP2_DESC_ERR_L4_CHECKSUM
 };
@@ -198,15 +199,29 @@ enum pp2_inq_desc_status {
 #define TXD_FIRST                  (0x2)
 #define TXD_LAST                   (0x1)
 #define TXD_FIRST_LAST             (0x3)
+#define TXD_IP_CHK_DISABLE         (0x1)
+#define TXD_IP_CHK_ENABLE          (0x0)
+#define TXD_L4_CHK_ENABLE          (0x0)
+#define TXD_L4_CHK_FRG_ENABLE      (0x1)
+#define TXD_L4_CHK_DISABLE         (0x2)
+
+
+
 #define TXD_L_MASK                 (0x10000000)
 #define TXD_F_MASK                 (0x20000000)
 #define TXD_FL_MASK                (TXD_F_MASK | TXD_L_MASK)
 #define TXD_FORMAT_MASK            (0x40000000)
+#define TXD_L3_TYPE_MASK           (0x0C000000)
+#define TXD_L4_TYPE_MASK           (0x03000000)
 #define TXD_PKT_OFF_EXT_MASK       (0x00100000)
 #define TXD_POOL_ID_MASK           (0x000F0000)
 #define TXD_GEN_L4_CHK_MASK        (0x00006000)
 #define TXD_GEN_IP_CHK_MASK        (0x00008000)
+#define TXD_IP_HEAD_LEN_MASK       (0x00001F00)
+
 #define TXD_BUFMODE_MASK           (0x00000080)
+#define TXD_L3_OFFSET_MASK         (0x0000007F)
+
 /* cmd 1 */
 #define TXD_PKT_OFF_MASK           (0x000000FF)
 #define TXD_DEST_QID_MASK          (0x0000FF00)
@@ -222,6 +237,19 @@ enum pp2_inq_desc_status {
 #define TXD_BUF_VIRT_HI_MASK       (0x000000FF)
 
 /******************** RxQ-desc *****************/
+/* cmd 0 */
+#define RXD_L3_OFF_MASK            (0x0000007F)
+#define RXD_IPHDR_LEN_MASK         (0x00001F00)
+#define RXD_EC_MASK                (0x00006000)
+#define RXD_ES_MASK                (0x00008000)
+#define RXD_POOL_ID_MASK           (0x000F0000)
+#define RXD_HWF_SYNC_MASK          (0x00200000)
+#define RXD_L4_CHK_OK_MASK         (0x00400000)
+#define RXD_L4_IP_FRAG_MASK        (0x00800000)
+#define RXD_IP_HDR_ERR_MASK        (0x01000000)
+#define RXD_L4_PRS_INFO_MASK       (0x0E000000)
+#define RXD_L3_PRS_INFO_MASK       (0x70000000)
+#define RXD_BUF_HDR_MASK           (0x80000000)
 /* cmd 1 */
 #define RXD_BYTE_COUNT_MASK        (0xFFFF0000)
 /* cmd 4 */
@@ -234,21 +262,46 @@ enum pp2_inq_desc_status {
 /* cmd 7 */
 #define RXD_BUF_VIRT_HI_MASK       (0x000000FF)
 
-static inline void pp2_ppio_outq_desc_reset (struct pp2_ppio_desc *desc)
-{
+#define DM_RXD_GET_L3_OFF(desc)         (((desc)->cmds[0] & RXD_L3_OFF_MASK) >> 0)
+#define DM_RXD_GET_IPHDR_LEN(desc)      (((desc)->cmds[0] & RXD_IPHDR_LEN_MASK) >> 8)
+#define DM_RXD_GET_EC(desc)             (((desc)->cmds[0] & RXD_EC_MASK) >> 13)
+#define DM_RXD_GET_ES(desc)             (((desc)->cmds[0] & RXD_ES_MASK) >> 15)
+#define DM_RXD_GET_POOL_ID(desc)        (((desc)->cmds[0] & RXD_POOL_ID_MASK) >> 16)
+#define DM_RXD_GET_HWF_SYNC(desc)       (((desc)->cmds[0] & RXD_HWF_SYNC_MASK) >> 21)
+#define DM_RXD_GET_L4_CHK_OK(desc)      (((desc)->cmds[0] & RXD_L4_CHK_OK_MASK) >> 22)
+#define DM_RXD_GET_L4_IP_FRAG(desc)     (((desc)->cmds[0] & RXD_L4_IP_FRAG_MASK) >> 23)
+#define DM_RXD_GET_IP_HDR_ERR(desc)     (((desc)->cmds[0] & RXD_IP_HDR_ERR_MASK) >> 24)
+#define DM_RXD_GET_L4_PRS_INFO(desc)    (((desc)->cmds[0] & RXD_L4_PRS_INFO_MASK) >> 25)
+#define DM_RXD_GET_L3_PRS_INFO(desc)    (((desc)->cmds[0] & RXD_L3_PRS_INFO_MASK) >> 28)
+#define DM_RXD_GET_BUF_HDR(desc)        (((desc)->cmds[0] & RXD_BUF_HDR_MASK) >> 31)
+
+
+
 #define DM_TXD_SET_GEN_L4_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
 #define DM_TXD_SET_GEN_IP_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_IP_CHK_MASK) | (data << 15 & TXD_GEN_IP_CHK_MASK))
 #define DM_TXD_SET_FIRST_LAST(desc, data) 	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FL_MASK) | (data << 28 & TXD_FL_MASK))
+#define DM_TXD_SET_L3_OFF(desc, data)	\
+		((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L3_OFFSET_MASK) | (data << 0 & TXD_L3_OFFSET_MASK))
+#define DM_TXD_SET_IP_HEAD_LEN(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_IP_HEAD_LEN_MASK) | (data << 8 & TXD_IP_HEAD_LEN_MASK))
+#define DM_TXD_SET_L3_TYPE(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L3_TYPE_MASK) | (data << 26 & TXD_L3_TYPE_MASK))
+#define DM_TXD_SET_L4_TYPE(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L4_TYPE_MASK) | (data << 24 & TXD_L4_TYPE_MASK))
 
+
+
+static inline void pp2_ppio_outq_desc_reset(struct pp2_ppio_desc *desc)
+{
 	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] =
 	desc->cmds[5] = desc->cmds[7] = 0;
 
 	/* Do not generate L4 nor IPv4 header checksum by default */
-	DM_TXD_SET_GEN_IP_CHK(desc, 0x01);
-	DM_TXD_SET_GEN_L4_CHK(desc, 0x02);
+	DM_TXD_SET_GEN_IP_CHK(desc, TXD_IP_CHK_DISABLE);
+	DM_TXD_SET_GEN_L4_CHK(desc, TXD_L4_CHK_DISABLE);
 	DM_TXD_SET_FIRST_LAST(desc, TXD_FIRST_LAST);
 }
 
@@ -266,15 +319,17 @@ static inline void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64
 
 void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *pool);
 
-
-void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc,
-				       enum pp2_outq_l3_type l3_type,
-				       enum pp2_outq_l4_type l4_type,
-				       u8  l3_offset,
-				       u8 l4_offset,
-				       int gen_l3_chk,
-				       int gen_l4_chk
-				      );
+static inline void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc, enum pp2_outq_l3_type l3_type,
+				       enum pp2_outq_l4_type l4_type, u8  l3_offset, u8 l4_offset, int gen_l3_chk,
+				       int gen_l4_chk)
+{
+	DM_TXD_SET_L3_TYPE(desc, l3_type);
+	DM_TXD_SET_L4_TYPE(desc, l4_type);
+	DM_TXD_SET_L3_OFF(desc, l3_offset);
+	DM_TXD_SET_IP_HEAD_LEN(desc, (l4_offset-l3_offset));
+	DM_TXD_SET_GEN_IP_CHK(desc, ((gen_l3_chk)? TXD_IP_CHK_ENABLE: TXD_IP_CHK_DISABLE));
+	DM_TXD_SET_GEN_L4_CHK(desc, ((gen_l4_chk)? TXD_L4_CHK_ENABLE: TXD_L4_CHK_DISABLE));
+}
 void pp2_ppio_outq_desc_set_dsa_tag(struct pp2_ppio_desc *desc);
 
 static inline void pp2_ppio_outq_desc_set_pkt_offset(struct pp2_ppio_desc *desc, u8  offset)
@@ -310,13 +365,32 @@ static inline u16 pp2_ppio_inq_desc_get_pkt_len(struct pp2_ppio_desc *desc)
 	return ((desc->cmds[1] & RXD_BYTE_COUNT_MASK) >> 16);
 }
 
-void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enum pp2_inq_l3_type *type, u8 *offset);
-void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enum pp2_inq_l4_type *type, u8 *offset);
+static inline void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enum pp2_inq_l3_type *type, u8 *offset)
+{
+	*type   = (desc->cmds[0] & RXD_L3_PRS_INFO_MASK) >> 28;
+	*offset = (desc->cmds[0] & RXD_L3_OFF_MASK) >> 0;
+}
+static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enum pp2_inq_l4_type *type, u8 *offset)
+{
+	*type   = (desc->cmds[0] & RXD_L4_PRS_INFO_MASK) >> 25;
+	*offset = ((desc->cmds[0] & RXD_L3_OFF_MASK) >> 0) + ((desc->cmds[0] & RXD_IPHDR_LEN_MASK) >> 8);
+}
 int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc);
 
 struct pp2_bpool * pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc);
 
-enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *desc);
+/* TODO: Check that for non-IP packets, no IP error is returned */
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *desc)
+{
+	if (unlikely(DM_RXD_GET_ES(desc)))
+		return(1 + DM_RXD_GET_EC(desc));
+	if (unlikely(DM_RXD_GET_IP_HDR_ERR(desc)))
+		return(PP2_DESC_ERR_IPV4_HDR);
+	if (likely(DM_RXD_GET_L4_CHK_OK(desc)))
+		return(PP2_DESC_ERR_MAC_OK);
+
+	return(PP2_DESC_ERR_L4_CHECKSUM);
+}
 
 /**
  * Send a batch of frames (single dscriptor) on an OutQ of PP-IO.

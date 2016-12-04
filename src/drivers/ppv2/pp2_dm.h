@@ -314,7 +314,8 @@ struct pp2_desc *pp2_dm_if_next_desc_block_get(struct pp2_dm_if *dm_if, uint16_t
 #define DM_RXD_GET_VIRTADDR(desc)       (uintptr_t)(((uint64_t)DM_RXD_GET_VIRT_HI(desc) << 32) | (uint64_t)DM_RXD_GET_VIRT_LO(desc))
 
 /* TX Descriptor Setters */
-#define DM_TXD_SET_L3_OFF(desc, data)       ((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L3_OFF_MASK) | (data << 0 & TXD_L3_OFF_MASK))
+/* TODO: Disabled because of collision wih mv_pp2_ppio.h, to be resolved with code unification */
+//#define DM_TXD_SET_L3_OFF(desc, data)       ((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L3_OFF_MASK) | (data << 0 & TXD_L3_OFF_MASK))
 #define DM_TXD_SET_BUFMODE(desc, data)      ((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_BUFMODE_MASK) | (data << 7 & TXD_BUFMODE_MASK))
 #define DM_TXD_SET_IPHDR_LEN(desc, data)    ((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_IPHDR_LEN_MASK) | (data << 8 & TXD_IPHDR_LEN_MASK))
 #define DM_TXD_SET_GEN_L4_CHK(desc, data)   ((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
