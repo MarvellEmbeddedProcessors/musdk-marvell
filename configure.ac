@@ -15,6 +15,16 @@ AM_SILENT_RULES([yes])
 # set install prefix
 AC_PREFIX_DEFAULT($(pwd)/usr/local)
 
+# add SAM_BUILD when using --enable-sam
+AC_ARG_ENABLE([sam],
+[  --enable-sam            Enable musdk sam driver and application build],
+[case "${enableval}" in
+  yes) sam=true ;;
+  no)  sam=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-sam]) ;;
+esac],[sam=false])
+AM_CONDITIONAL([SAM_BUILD], [test x$sam = xtrue])
+
 # Checks for programs.
 AC_PROG_CC
 
