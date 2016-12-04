@@ -35,6 +35,13 @@
 
 #include "mv_std.h"
 
+/** @addtogroup grp_sam_se Security Acceleration Module: Session
+ *  
+ *  Security Acceleration Module Session API documentation
+ *
+ *  @{
+ */
+
 struct sam_cio;
 struct sam_sa;
 
@@ -148,5 +155,7 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params,
  * @retval	Negative  - failure
  */
 int sam_session_destroy(struct sam_sa *sa);
+
+/** @} */ // end of grp_sam_se
 
 #endif /* __MV_SAM_SESSION_H__ */

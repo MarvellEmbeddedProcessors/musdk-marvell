@@ -35,6 +35,13 @@
 
 #include "mv_std.h"
 
+/** @addtogroup grp_pp2_hif Packet Processor: Host Interface
+ *  
+ *  Packet Processor Host Interface API documentation
+ *
+ *  @{
+ */
+
 
 struct pp2_hif;
 
@@ -49,5 +56,7 @@ struct pp2_hif_params {
 int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif);
 
 void pp2_hif_deinit(struct pp2_hif *hif);
+
+/** @} */ // end of grp_pp2_hif
 
 #endif /* __MV_PP2_HIF_H__ */

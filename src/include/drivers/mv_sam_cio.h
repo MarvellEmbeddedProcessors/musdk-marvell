@@ -36,6 +36,13 @@
 #include "mv_std.h"
 #include "mv_sam_session.h"
 
+/** @addtogroup grp_sam_cio Security Acceleration Module: Crypto I/O
+ *  
+ *  Security Acceleration Module Crypto I/O API documentation
+ *
+ *  @{
+ */
+
 /** Maximum number of input/output buffers for one crypto operation */
 #define SAM_CIO_MAX_FRAGS	20
 
@@ -129,7 +136,7 @@ int sam_cio_deinit(struct sam_cio *cio);
  *
  * @param[in]	  cio      - crypto IO instance handler.
  * @param[in]	  requests - pointer to parameters of one or more crypto operations
- * @param[in/out] num      - input:  number of requests to enqueue
+ * @param[in,out] num      - input:  number of requests to enqueue
  *                           output: number of requests successfully enqueued
  *
  * @retval	0          - all requests are successfully enqueued.
@@ -142,7 +149,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
  *
  * @param[in]	  cio      - crypto IO instance handler.
  * @param[in]	  results  - pointer to results of one or more crypto operations
- * @param[in/out] num      - input:  number of results to dequeue
+ * @param[in,out] num      - input:  number of results to dequeue
  *                           output: number of results successfully dequeued
  *
  * @retval	0          - all results are successfully dequeued.
@@ -152,5 +159,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
+
+/** @} */ // end of grp_sam_cio
 
 #endif /* __MV_SAM_CIO_H__ */

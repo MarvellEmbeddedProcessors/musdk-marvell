@@ -42,14 +42,6 @@ struct list {
 	struct list *prev;  /**< A pointer to the previous list object	*/
 };
 
-
-/**************************************************************************//**
- @Function		LIST_FIRST/LIST_LAST/LIST_NEXT/LIST_PREV
-
- @Description	Macro to get first/last/next/previous entry in a list.
-
- @Param[in]		_lst - A pointer to a list.
-*//***************************************************************************/
 #define LIST_FIRST(_lst)	(_lst)->next
 #define LIST_LAST(_lst)		(_lst)->prev
 #define LIST_NEXT		LIST_FIRST

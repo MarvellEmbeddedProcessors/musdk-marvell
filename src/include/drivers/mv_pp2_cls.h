@@ -36,6 +36,13 @@
 #include "mv_std.h"
 #include "mv_net.h"
 
+/** @addtogroup grp_pp2_cls Packet Processor: Classifier
+ *  
+ *  Packet Processor Classifier API documentation
+ *
+ *  @{
+ */
+
 struct pp2_cls_tbl;
 
 #define PP2_CLS_TBL_MAX_NUM_FIELDS	5
@@ -175,5 +182,7 @@ int pp2_cls_tbl_modify_rule(struct pp2_cls_tbl		*tbl,
  */
 int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl		*tbl,
 			    struct pp2_cls_tbl_rule	*rule);
+
+/** @} */ // end of grp_pp2_cls
 
 #endif /* __MV_PP2_CLS_H__ */

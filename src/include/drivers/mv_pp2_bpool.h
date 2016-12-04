@@ -34,10 +34,14 @@
 #define __MV_PP2_BPOOL_H__
 
 #include "mv_std.h"
-
 #include "mv_pp2_hif.h"
 
-
+/** @addtogroup grp_pp2_bp Packet Processor: Buffer Pool
+ *  
+ *  Packet Processor Buffer Pool API documentation
+ *
+ *  @{
+ */
 
 struct pp2_bpool;
 
@@ -91,5 +95,7 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff);
 
 int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs);
+
+/** @} */ // end of grp_pp2_bp
 
 #endif /* __MV_PP2_BPOOL_H__ */

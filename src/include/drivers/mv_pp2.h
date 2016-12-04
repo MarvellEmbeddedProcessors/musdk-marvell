@@ -39,6 +39,13 @@
 #define PP2_NUM_PKT_PROC	2
 #define PP2_NUM_ETH_PPIO	3
 
+/** @addtogroup grp_pp2_init Packet Processor: Initialization
+ *  
+ *  Packet Processor Initialization API documentation
+ *
+ *  @{
+ */
+
 
 struct ppio_init_params {
 	int		is_enabled; /**/
@@ -67,5 +74,7 @@ struct pp2_init_params {
 int pp2_init(struct pp2_init_params *params);
 
 void pp2_deinit(void);
+
+/** @} */ // end of grp_pp2_init
 
 #endif /* __MV_PP2_H__ */

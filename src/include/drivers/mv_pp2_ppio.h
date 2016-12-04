@@ -39,9 +39,12 @@
 #include "mv_pp2_bpool.h"
 
 
-/**************************************************************************//**
-	Initialization API
-*//***************************************************************************/
+/** @addtogroup grp_pp2_io Packet Processor: I/O
+ *  
+ *  Packet Processor I/O API documentation
+ *
+ *  @{
+ */
 
 struct pp2_ppio;
 
@@ -403,7 +406,7 @@ static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp
  * @param[in]		qid	out-Q id on which to send the frames.
  * @param[in]		descs	A pointer to an array of descriptors represents the
  * 				frames to be sent.
- * @param[in/out]	num	Number of frames to be sent; output: number of frames sent.
+ * @param[in,out]	num	Number of frames to be sent; output: number of frames sent.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
@@ -425,7 +428,7 @@ int pp2_ppio_send(struct pp2_ppio	*ppio,
  * @param[in]		qid	out-Q id on which to send the frames.
  * @param[in]		descs	A pointer to an array of S/G-descriptors represents the
  * 				frames to be sent.
- * @param[in/out]	num	Number of frames to be sent; output: number of frames sent.
+ * @param[in,out]	num	Number of frames to be sent; output: number of frames sent.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
@@ -460,7 +463,7 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
  * @param[in]		qid	out-Q id on which to recieve the frames.
  * @param[in]		descs	A pointer to an array of descriptors represents the
  * 				recieved frames.
- * @param[in/out]	num	Number of frames to recieve (as max);
+ * @param[in,out]	num	Number of frames to recieve (as max);
  * 				output: number of frames recieved.
  *
  * @retval	0 on success
@@ -501,5 +504,6 @@ int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid);
 /*TODO: link state ???*/
 /*TODO: counters/statistics for port/Q*/
 
+/** @} */ // end of grp_pp2_io
 
 #endif /* __MV_PP2_PPIO_H__ */
