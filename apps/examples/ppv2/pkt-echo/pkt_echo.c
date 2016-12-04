@@ -55,8 +55,8 @@
 #define MAX_NUM_CORES	1
 #define MAX_NUM_QS	1
 #define DMA_MEM_SIZE 	(4*1024*1024)
-#define PP2_BPOOLS_RSRV	0x0
-#define PP2_HIFS_RSRV	0x0
+#define PP2_BPOOLS_RSRV	0x3
+#define PP2_HIFS_RSRV	0xF
 #define PP2_MAX_NUM_TCS_PER_PORT	1
 #define PP2_MAX_NUM_QS_PER_TC		1
 
@@ -531,7 +531,7 @@ static int init_local_modules(struct glob_arg *garg)
 	struct pp2_ppio_inq_params	inq_params;
 	struct port_desc		port_desc;
 	char				name[15];
-	int			 	i, err, hif_id;
+	int			 	i, j, err, hif_id;
 
 	pr_info("Local initializations ... ");
 
@@ -577,8 +577,8 @@ static int init_local_modules(struct glob_arg *garg)
 		/* TODO: we assume here only one Q per TC; change it! */
 		inq_params.size = Q_SIZE;
 		port_params.inqs_params.tcs_params[0].inqs_params = &inq_params;
-		for (i=0; i<garg->num_pools; i++)
-			port_params.inqs_params.tcs_params[0].pools[i] = garg->pools[0][i];
+		for (j=0; j<garg->num_pools; j++)
+			port_params.inqs_params.tcs_params[0].pools[j] = garg->pools[0][j];
 	}
 	port_params.outqs_params.num_outqs = PP2_MAX_NUM_TCS_PER_PORT;
 	for (i=0; i<port_params.outqs_params.num_outqs; i++) {
