@@ -10,6 +10,7 @@
 #include "pp2.h"
 #include "pp2_port.h"
 #include "pp2_bpool.h"
+#include "lib/lib_misc.h"
 
 
 

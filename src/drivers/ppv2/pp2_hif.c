@@ -6,6 +6,7 @@
 #include "pp2_hif.h"
 #include "pp2.h"
 #include "pp2_dm.h"
+#include "lib/lib_misc.h"
 
 static struct pp2_hif pp2_hif[PP2_NUM_REGSPACES];
 

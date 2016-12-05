@@ -953,9 +953,10 @@ pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slow
 static void
 pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 {
+#ifdef NO_MVPP2X_DRIVER
    struct gop_hw *gop = &port->parent->hw.gop;
    struct pp2_mac_data *mac = &port->mac_data;
-
+#endif
    /* Disable port transmission */
    pp2_port_egress_disable(port);
 
@@ -1255,7 +1256,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
    if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
        uint32_t req_val, result_val, res_req;
 
-       res_req = max((num_txds - txq_dm_if->desc_rsrvd), MVPP2_CPU_DESC_CHUNK);
+       res_req = max((uint32_t)(num_txds - txq_dm_if->desc_rsrvd), (uint32_t)MVPP2_CPU_DESC_CHUNK);
 
        req_val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_req);
        pp2_relaxed_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, req_val);
