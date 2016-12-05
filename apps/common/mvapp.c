@@ -30,8 +30,10 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
+#define _GNU_SOURCE         /* See feature_test_macros(7) */
 #include <string.h>
 #include <pthread.h>
+#include <sched.h>
 
 #include "mvapp_std.h"
 #include "cli.h"
@@ -41,9 +43,20 @@
 #define MAX_NUM_CORES	32
 
 
+#define cpuset_t	cpu_set_t
+
+
+struct trd_desc {
+	int		 id;
+	int		 cpu;
+	pthread_t	 trd;
+	struct mvapp	*mvapp;
+};
+
 struct mvapp {
 	int			 num_cores;
-	u32			 cores_mask;
+	u64			 cores_mask;
+	int			 master_core;
 
 	volatile int		 running;
 
@@ -55,14 +68,56 @@ struct mvapp {
 	int			 (*main_loop_cb)(void *, volatile int *);
 	void			 (*deinit_local_cb)(void *);
 
-	struct {
-		pthread_t	 trd;
-	} lcls[MAX_NUM_CORES];
+	pthread_mutex_t		 trd_lock;
+	volatile u64		 bar_mask;
+
+	struct trd_desc		 lcls[MAX_NUM_CORES];
 };
 
 
 struct mvapp *_mvapp = NULL;
 
+
+/* sysctl wrapper to return the number of active CPUs */
+static int system_ncpus(void)
+{
+	int ncpus;
+#if defined (__FreeBSD__)
+	int mib[2] = { CTL_HW, HW_NCPU };
+	size_t len = sizeof(mib);
+	sysctl(mib, 2, &ncpus, &len, NULL, 0);
+#elif defined(linux)
+	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(_WIN32)
+	{
+		SYSTEM_INFO sysinfo;
+		GetSystemInfo(&sysinfo);
+		ncpus = sysinfo.dwNumberOfProcessors;
+	}
+#else /* others */
+	ncpus = 1;
+#endif /* others */
+	return (ncpus);
+}
+
+/* set the thread affinity. */
+static int setaffinity(pthread_t me, int i)
+{
+	cpuset_t cpumask;
+
+	if (i == -1)
+		return 0;
+
+	/* Set thread affinity.*/
+	CPU_ZERO(&cpumask);
+	CPU_SET(i, &cpumask);
+
+	if (pthread_setaffinity_np(me, sizeof(cpuset_t), &cpumask) != 0) {
+		pr_err("Unable to set affinity: %s\n", strerror(errno));
+		return 1;
+	}
+	return 0;
+}
 
 static char getchar_cb(void)
 {
@@ -78,11 +133,15 @@ static int run_local(struct mvapp *mvapp)
 	    ((err = mvapp->init_local_cb(mvapp->global_arg, &local_arg)) != 0))
 		return err;
 
-	/* TODO: add barrier */
+	/* wait until all threads will complete initialization stage */
+	mvapp_barrier();
 
 	if (mvapp->main_loop_cb)
 		while (mvapp->running && !err)
 			err = mvapp->main_loop_cb(local_arg, &mvapp->running);
+
+	/* wait until all threads will stop running */
+	mvapp_barrier();
 
 	if (mvapp->deinit_local_cb)
 		mvapp->deinit_local_cb(local_arg);
@@ -118,29 +177,43 @@ static void * cli_thr_cb(void *arg)
 
 static void * local_thr_cb(void *arg)
 {
-	struct mvapp	*mvapp = (struct mvapp *)arg;
+	struct trd_desc	*desc = (struct trd_desc *)arg;
 	int		 err = 0;
 
-	if (!mvapp) {
-		pr_err("no mvapp obj given!\n");
+	if (!desc) {
+		pr_err("no thread descriptor obj given!\n");
+		err = -EINVAL;
+		pthread_exit(&err);
+		return NULL;
+	}
+	if (!desc->mvapp) {
+		pr_err("no mvapp obj given to thread!\n");
 		err = -EINVAL;
 		pthread_exit(&err);
 		return NULL;
 	}
 
-	/* TODO: set affinity */
+	/* Set thread affinity */
+	if (setaffinity(desc->trd, desc->cpu)) {
+		pr_err("Failed to set affinity for app thread!\n");
+		err = -EFAULT;
+		pthread_exit(&err);
+		return NULL;
+	}
+	pr_debug("Thread %d is running on CPU %d\n", desc->id, sched_getcpu());
 
-	err = run_local(mvapp);
+	err = run_local(desc->mvapp);
 
 	pthread_exit(&err);
 	return NULL;
 }
 
+
 int mvapp_go(struct mvapp_params *mvapp_params)
 {
 	struct mvapp	*mvapp;
-	int		 i, err = 0;
-	u32		 mask;
+	int		 i, j, err = 0;
+	u64		 mask;
 
 	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
 
@@ -150,12 +223,32 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 		return -ENOMEM;
 	}
 	memset(mvapp, 0, sizeof(struct mvapp));
+
 	mvapp->num_cores = mvapp_params->num_cores;
+	if (mvapp->num_cores > system_ncpus()) {
+		pr_err("Invalid num cores (%d, vs %d)!\n",
+			mvapp->num_cores, system_ncpus());
+		return -EINVAL;
+	}
 	mvapp->cores_mask = mvapp_params->cores_mask;
 	if (!mvapp->cores_mask) {
 		mask = 1;
 		for (i=0; i<mvapp->num_cores; i++, mask<<=1)
 			mvapp->cores_mask |= mask;
+	} else {
+		mask = 1;
+		for (i=0; i<mvapp->num_cores; i++, mask<<=1)
+			if (mask && mvapp->cores_mask) {
+				mvapp->master_core = i;
+				break;
+			}
+	}
+	mvapp->bar_mask = mvapp->cores_mask;
+
+	if (pthread_mutex_init(&mvapp->trd_lock, NULL) != 0) {
+		pr_err("init lock failed!\n");
+		free(mvapp);
+		return -EIO;
 	}
 
 	if (mvapp_params->use_cli) {
@@ -166,6 +259,7 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 		mvapp->cli = cli_init(&cli_params);
 		if (!mvapp->cli) {
 			pr_err("CLI init failed!\n");
+			free(mvapp);
 			return -EIO;
 		}
 	}
@@ -196,24 +290,25 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 	mvapp->main_loop_cb	= mvapp_params->main_loop_cb;
 	mvapp->deinit_local_cb	= mvapp_params->deinit_local_cb;
 
-	if ((mvapp->num_cores == 1) && (mvapp->cores_mask == 1))
-		err = run_local(mvapp);
-	else {
-		mask = 1;
-		for (i=0; i<mvapp->num_cores; i++) {
-			for (; !(mask & mvapp->cores_mask); mask<<=1) ;
-			if ((err = pthread_create (&mvapp->lcls[i].trd,
-						    NULL,
-						    local_thr_cb,
-						    mvapp)) != 0) {
-				pr_err("Failed to start CLI thread!\n");
-				return -EFAULT;
-			}
-		}
+	j = 0;
+	for (i=0; i<mvapp->num_cores; i++) {
+		/* Calculate affinity for this thread */
+		for (; !((1<<j) & mvapp->cores_mask); j++) ;
+		mvapp->lcls[i].id = i;
+		mvapp->lcls[i].cpu = j++;
+		mvapp->lcls[i].mvapp = mvapp;
 
-		for (i=0; i<mvapp->num_cores; i++)
-			err |= pthread_join (mvapp->lcls[i].trd, NULL);
+		if ((err = pthread_create (&mvapp->lcls[i].trd,
+					    NULL,
+					    local_thr_cb,
+					    &mvapp->lcls[i])) != 0) {
+			pr_err("Failed to start app thread!\n");
+			return -EFAULT;
+		}
 	}
+
+	for (i=0; i<mvapp->num_cores; i++)
+		err |= pthread_join (mvapp->lcls[i].trd, NULL);
 
 	mvapp->running = 0;
 	if (mvapp->cli)
@@ -232,6 +327,31 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 	printf("bye ...\n");
 
 	return err;
+}
+
+void mvapp_barrier(void)
+{
+	struct mvapp	*mvapp = _mvapp;
+	u64		 cores_mask = (u64)(1 << sched_getcpu());
+
+	if (!mvapp) {
+		pr_err("No mvapp or mvapp-cli obj!\n");
+		return;
+	}
+
+	pthread_mutex_lock(&mvapp->trd_lock);
+	/* Mark this core's presence */
+	mvapp->bar_mask &= ~(cores_mask);
+
+	if (mvapp->bar_mask) {
+		pthread_mutex_unlock(&mvapp->trd_lock);
+		/* Wait until barrier is reset */
+		while (!(mvapp->bar_mask & cores_mask)) ;
+	} else {
+		/* Last core to arrive - reset the barrier */
+		mvapp->bar_mask = mvapp->cores_mask;
+		pthread_mutex_unlock(&mvapp->trd_lock);
+	}
 }
 
 int mvapp_register_cli_cmd(struct cli_cmd_params *cmd_params)

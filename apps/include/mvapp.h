@@ -39,7 +39,7 @@
 struct mvapp_params {
 	int			 use_cli;
 	int			 num_cores;
-	u32			 cores_mask;
+	u64			 cores_mask;
 
 	void		*global_arg;
 	int			 (*init_global_cb)(void *);
@@ -51,6 +51,8 @@ struct mvapp_params {
 };
 
 int mvapp_go(struct mvapp_params *mvapp_params);
+
+void mvapp_barrier(void);
 
 int mvapp_register_cli_cmd(struct cli_cmd_params *cmd_params);
 int mvapp_unregister_cli_cmd(char *name);
