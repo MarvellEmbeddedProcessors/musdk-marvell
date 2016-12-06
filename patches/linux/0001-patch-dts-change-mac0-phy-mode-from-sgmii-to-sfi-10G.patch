@@ -1,0 +1,13 @@
+diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
+index e919aaf..75288b3 100644
+--- a/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
++++ b/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
+@@ -126,7 +126,7 @@
+ 			};
+ 			gop {
+ 				emac0: mac0 {
+-					phy-mode = "sgmii"; /* lane-2 */
++					phy-mode = "sfi"; /* lane-2 */
+ 					phys = <&comphy0 2 COMPHY_SGMII0>;
+ 					phy-names = "comphy";
+ 				};

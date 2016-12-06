@@ -1,36 +1,40 @@
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040.dtsi b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
-index a47a362..1bf0f35 100644
+index f1df28a..d658283 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
-@@ -95,6 +95,9 @@
+@@ -112,6 +112,11 @@
  			ppv22@000000 {
  				dma-coherent;
  			};
 +			musdk_uio {
++				compatible = "marvell,musdk-uio";
 +				dma-coherent;
++				status = "okay";
 +			};
  			usb3h0: usb3@500000 {
  				#stream-id-cells = <1>;
  			};
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040.dtsi b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
-index ca3a9af..65b0057 100644
+index 8dea327..f0cc7b1 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
-@@ -141,6 +141,9 @@
+@@ -149,6 +149,11 @@
  			ppv22@000000 {
  				dma-coherent;
  			};
 +			musdk_uio {
++				compatible = "marvell,musdk-uio";
 +				dma-coherent;
++				status = "okay";
 +			};
  			pinctrl@440000 {
  				compatible = "marvell,a80x0-cp0-pinctrl";
  
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-index bf506c9..9f14677
+index 524e761..5d53f14 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-@@ -302,6 +302,32 @@ ppv22@000000 {
+@@ -327,6 +327,31 @@ ppv22@000000 {
  	};
  };
  
@@ -58,16 +62,15 @@ index bf506c9..9f14677
 +	};
 +*/
 +};
-+
 +
  cps_trng: trng@760000 {
  	compatible = "marvell,armada-8k-rng", "inside-secure,safexcel-eip76";
  	reg = <0x760000 0x7D>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index f54330c..92bd577 100644
+index 3ce8c12..f3d8014 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -400,6 +400,37 @@ ppv22@000000 {
+@@ -413,6 +413,31 @@ ppv22@000000 {
  	};
  };
  
@@ -95,12 +98,6 @@ index f54330c..92bd577 100644
 +	};
 +*/
 +};
-+musdk_uio {
-+	compatible = "marvell,musdk-uio";
-+	status = "okay";
-+};
-+
-+
 +
  cpm_trng: trng@760000 {
  	compatible = "marvell,armada-8k-rng", "inside-secure,safexcel-eip76";
