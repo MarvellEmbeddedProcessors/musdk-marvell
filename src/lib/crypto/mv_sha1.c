@@ -55,7 +55,7 @@ typedef union {
 
 } CHAR64LONG16;
 
-static void mvSHA1Transform(unsigned int state[5], const unsigned char *buffer);
+static void mv_sha1_transform(unsigned int state[5], const unsigned char *buffer);
 
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
@@ -86,7 +86,7 @@ static void mvSHA1Transform(unsigned int state[5], const unsigned char *buffer);
 		w = rol(w, 30);
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
-static void mvSHA1Transform(unsigned int state[5], const unsigned char *buffer)
+static void mv_sha1_transform(unsigned int state[5], const unsigned char *buffer)
 {
 	unsigned int a, b, c, d, e;
 	CHAR64LONG16 *block;
@@ -196,7 +196,7 @@ static void mvSHA1Transform(unsigned int state[5], const unsigned char *buffer)
 	a = b = c = d = e = 0;
 }
 
-void mvSHA1Init(MV_SHA1_CTX *context)
+void mv_sha1_init(MV_SHA1_CTX *context)
 {
 	/* SHA1 initialization constants */
 	context->state[0] = 0x67452301;
@@ -208,7 +208,7 @@ void mvSHA1Init(MV_SHA1_CTX *context)
 }
 
 /* Run your data through this. */
-void mvSHA1Update(MV_SHA1_CTX *context, unsigned char const *data, unsigned int len)
+void mv_sha1_update(MV_SHA1_CTX *context, unsigned char const *data, unsigned int len)
 {
 	unsigned int i, j;
 
@@ -219,9 +219,9 @@ void mvSHA1Update(MV_SHA1_CTX *context, unsigned char const *data, unsigned int 
 	context->count[1] += (len >> 29);
 	if ((j + len) > 63) {
 		memcpy(&context->buffer[j], data, (i = 64 - j));
-		mvSHA1Transform(context->state, context->buffer);
+		mv_sha1_transform(context->state, context->buffer);
 		for (; i + 63 < len; i += 64)
-			mvSHA1Transform(context->state, &data[i]);
+			mv_sha1_transform(context->state, &data[i]);
 		j = 0;
 	} else {
 		i = 0;
@@ -229,7 +229,7 @@ void mvSHA1Update(MV_SHA1_CTX *context, unsigned char const *data, unsigned int 
 	memcpy(&context->buffer[j], &data[i], len - i);
 }
 
-void mvSHA1Final(unsigned char *digest, MV_SHA1_CTX *context)
+void mv_sha1_final(unsigned char *digest, MV_SHA1_CTX *context)
 {
 	unsigned int i;
 	unsigned char finalcount[8];
@@ -238,11 +238,11 @@ void mvSHA1Final(unsigned char *digest, MV_SHA1_CTX *context)
 		finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)] >> ((3 - (i & 3)) * 8)) & 255);
 	/* Endian independent */
 
-	mvSHA1Update(context, (const unsigned char *)"\200", 1);
+	mv_sha1_update(context, (const unsigned char *)"\200", 1);
 	while ((context->count[0] & 504) != 448)
-		mvSHA1Update(context, (const unsigned char *)"\0", 1);
+		mv_sha1_update(context, (const unsigned char *)"\0", 1);
 
-	mvSHA1Update(context, finalcount, 8);	/* Should cause a mvSHA1Transform()
+	mv_sha1_update(context, finalcount, 8);	/* Should cause a mv_sha1_Transform()
 						 */
 	for (i = 0; i < 20; i++) {
 		digest[i] = (unsigned char)
@@ -256,15 +256,15 @@ void mvSHA1Final(unsigned char *digest, MV_SHA1_CTX *context)
 	memset(finalcount, 0, 8);
 
 #ifdef SHA1HANDSOFF		/* make SHA1Transform overwrite it's own static vars */
-	mvSHA1Transform(context->state, context->buffer);
+	mv_sha1_transform(context->state, context->buffer);
 #endif
 }
 
-void mvSHA1(unsigned char const *buf, unsigned int len, unsigned char *digest)
+void mv_sha1(unsigned char const *buf, unsigned int len, unsigned char *digest)
 {
 	MV_SHA1_CTX ctx;
 
-	mvSHA1Init(&ctx);
-	mvSHA1Update(&ctx, buf, len);
-	mvSHA1Final(digest, &ctx);
+	mv_sha1_init(&ctx);
+	mv_sha1_update(&ctx, buf, len);
+	mv_sha1_final(digest, &ctx);
 }

@@ -51,17 +51,17 @@
 
 #include "lib/mv_md5.h"
 
-static void mvMD5Transform(unsigned int buf[4], unsigned int const in[MV_MD5_MAC_LEN]);
+static void mv_md5_transform(unsigned int buf[4], unsigned int const in[MV_MD5_MAC_LEN]);
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-#define mvByteReverse(buf, len)	/* Nothing */
+#define mv_byte_reverse(buf, len)	/* Nothing */
 #else
-static void mvByteReverse(unsigned char *buf, unsigned longs);
+static void mv_byte_reverse(unsigned char *buf, unsigned longs);
 
 /*
  * Note: this code is harmless on little-endian machines.
  */
-static void mvByteReverse(unsigned char *buf, unsigned longs)
+static void mv_byte_reverse(unsigned char *buf, unsigned longs)
 {
 	unsigned int t;
 
@@ -77,7 +77,7 @@ static void mvByteReverse(unsigned char *buf, unsigned longs)
  * Start MD5 accumulation.  Set bit count to 0 and buffer to mysterious
  * initialization constants.
  */
-void mvMD5Init(MV_MD5_CONTEXT *ctx)
+void mv_md5_init(MV_MD5_CONTEXT *ctx)
 {
 	ctx->buf[0] = 0x67452301;
 	ctx->buf[1] = 0xefcdab89;
@@ -92,7 +92,7 @@ void mvMD5Init(MV_MD5_CONTEXT *ctx)
  * Update context to reflect the concatenation of another buffer full
  * of bytes.
  */
-void mvMD5Update(MV_MD5_CONTEXT *ctx, unsigned char const *buf, unsigned len)
+void mv_md5_update(MV_MD5_CONTEXT *ctx, unsigned char const *buf, unsigned len)
 {
 	unsigned int t;
 
@@ -117,8 +117,8 @@ void mvMD5Update(MV_MD5_CONTEXT *ctx, unsigned char const *buf, unsigned len)
 			return;
 		}
 		memcpy(p, buf, t);
-		mvByteReverse(ctx->in, MV_MD5_MAC_LEN);
-		mvMD5Transform(ctx->buf, (unsigned int *)ctx->in);
+		mv_byte_reverse(ctx->in, MV_MD5_MAC_LEN);
+		mv_md5_transform(ctx->buf, (unsigned int *)ctx->in);
 		buf += t;
 		len -= t;
 	}
@@ -126,8 +126,8 @@ void mvMD5Update(MV_MD5_CONTEXT *ctx, unsigned char const *buf, unsigned len)
 
 	while (len >= 64) {
 		memcpy(ctx->in, buf, 64);
-		mvByteReverse(ctx->in, MV_MD5_MAC_LEN);
-		mvMD5Transform(ctx->buf, (unsigned int *)ctx->in);
+		mv_byte_reverse(ctx->in, MV_MD5_MAC_LEN);
+		mv_md5_transform(ctx->buf, (unsigned int *)ctx->in);
 		buf += 64;
 		len -= 64;
 	}
@@ -141,7 +141,7 @@ void mvMD5Update(MV_MD5_CONTEXT *ctx, unsigned char const *buf, unsigned len)
  * Final wrapup - pad to 64-byte boundary with the bit pattern
  * 1 0* (64-bit count of bits processed, MSB-first)
  */
-void mvMD5Final(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
+void mv_md5_final(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
 {
 	unsigned count;
 	unsigned char *p;
@@ -161,8 +161,8 @@ void mvMD5Final(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
 	if (count < 8) {
 		/* Two lots of padding:  Pad the first block to 64 bytes */
 		memset(p, 0, count);
-		mvByteReverse(ctx->in, MV_MD5_MAC_LEN);
-		mvMD5Transform(ctx->buf, (unsigned int *)ctx->in);
+		mv_byte_reverse(ctx->in, MV_MD5_MAC_LEN);
+		mv_md5_transform(ctx->buf, (unsigned int *)ctx->in);
 
 		/* Now fill the next block with 56 bytes */
 		memset(ctx->in, 0, 56);
@@ -170,21 +170,21 @@ void mvMD5Final(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
 		/* Pad block to 56 bytes */
 		memset(p, 0, count - 8);
 	}
-	mvByteReverse(ctx->in, 14);
+	mv_byte_reverse(ctx->in, 14);
 
 	/* Append length in bits and transform */
 	((unsigned int *) ctx->in)[14] = ctx->bits[0];
 	((unsigned int *) ctx->in)[15] = ctx->bits[1];
 
-	mvMD5Transform(ctx->buf, (unsigned int *)ctx->in);
-	mvByteReverse((unsigned char *)ctx->buf, 4);
+	mv_md5_transform(ctx->buf, (unsigned int *)ctx->in);
+	mv_byte_reverse((unsigned char *)ctx->buf, 4);
 	memcpy(digest, ctx->buf, MV_MD5_MAC_LEN);
 	memset(ctx, 0, sizeof(MV_MD5_CONTEXT));	/* In case it's sensitive */
 }
 
-void mvMD5Digest(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
+void mv_md5_digest(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
 {
-	mvByteReverse((unsigned char *)ctx->buf, 4);
+	mv_byte_reverse((unsigned char *)ctx->buf, 4);
 	memcpy(digest, ctx->buf, MV_MD5_MAC_LEN);
 }
 
@@ -205,7 +205,7 @@ void mvMD5Digest(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
  * reflect the addition of 16 longwords of new data.  MD5Update blocks
  * the data and converts bytes into longwords for this routine.
  */
-static void mvMD5Transform(unsigned int buf[4], unsigned int const in[MV_MD5_MAC_LEN])
+static void mv_md5_transform(unsigned int buf[4], unsigned int const in[MV_MD5_MAC_LEN])
 {
 	register unsigned int a, b, c, d;
 
@@ -288,16 +288,16 @@ static void mvMD5Transform(unsigned int buf[4], unsigned int const in[MV_MD5_MAC
 	buf[3] += d;
 }
 
-void mvMD5(unsigned char const *buf, unsigned len, unsigned char *digest)
+void mv_md5(unsigned char const *buf, unsigned len, unsigned char *digest)
 {
 	MV_MD5_CONTEXT ctx;
 
-	mvMD5Init(&ctx);
-	mvMD5Update(&ctx, buf, len);
-	mvMD5Final(digest, &ctx);
+	mv_md5_init(&ctx);
+	mv_md5_update(&ctx, buf, len);
+	mv_md5_final(digest, &ctx);
 }
 
-void mvHmacMd5(unsigned char const *text, int text_len, unsigned char const *key, int key_len, unsigned char *digest)
+void mv_hmac_md5(unsigned char const *text, int text_len, unsigned char const *key, int key_len, unsigned char *digest)
 {
 	int i;
 	MV_MD5_CONTEXT ctx;
@@ -317,14 +317,14 @@ void mvHmacMd5(unsigned char const *text, int text_len, unsigned char const *key
 	}
 
 	/* perform inner MD5 */
-	mvMD5Init(&ctx);	/* init ctx for 1st pass */
-	mvMD5Update(&ctx, k_ipad, 64);	/* start with inner pad */
-	mvMD5Update(&ctx, text, text_len);	/* then text of datagram */
-	mvMD5Final(digest, &ctx);	/* finish up 1st pass */
+	mv_md5_init(&ctx);	/* init ctx for 1st pass */
+	mv_md5_update(&ctx, k_ipad, 64);	/* start with inner pad */
+	mv_md5_update(&ctx, text, text_len);	/* then text of datagram */
+	mv_md5_final(digest, &ctx);	/* finish up 1st pass */
 
 	/* perform outer MD5 */
-	mvMD5Init(&ctx);	/* init ctx for 2nd pass */
-	mvMD5Update(&ctx, k_opad, 64);	/* start with outer pad */
-	mvMD5Update(&ctx, digest, 16);	/* then results of 1st hash */
-	mvMD5Final(digest, &ctx);	/* finish up 2nd pass */
+	mv_md5_init(&ctx);	/* init ctx for 2nd pass */
+	mv_md5_update(&ctx, k_opad, 64);	/* start with outer pad */
+	mv_md5_update(&ctx, digest, 16);	/* then results of 1st hash */
+	mv_md5_final(digest, &ctx);	/* finish up 2nd pass */
 }

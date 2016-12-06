@@ -30,6 +30,20 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+/*
+ * SHA1 hash implementation and interface functions
+ * Copyright (c) 2003-2005, Jouni Malinen <jkmaline@cc.hut.fi>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Alternatively, this software may be distributed under the terms of BSD
+ * license.
+ *
+ * See README and COPYING for more details.
+ */
+
 #ifndef __MV_SHA1_h__
 #define __MV_SHA1_h__
 
@@ -45,11 +59,11 @@ extern "C" {
 		unsigned char buffer[64];
 	} MV_SHA1_CTX;
 
-	void mvSHA1Init(MV_SHA1_CTX *context);
-	void mvSHA1Update(MV_SHA1_CTX *context, unsigned char const *buf, unsigned int len);
-	void mvSHA1Final(unsigned char *digest, MV_SHA1_CTX *context);
+	void mv_sha1_init(MV_SHA1_CTX *context);
+	void mv_sha1_update(MV_SHA1_CTX *context, unsigned char const *buf, unsigned int len);
+	void mv_sha1_final(unsigned char *digest, MV_SHA1_CTX *context);
 
-	void mvSHA1(unsigned char const *buf, unsigned int len, unsigned char *digest);
+	void mv_sha1(unsigned char const *buf, unsigned int len, unsigned char *digest);
 
 #ifdef __cplusplus
 }

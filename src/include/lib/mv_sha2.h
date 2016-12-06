@@ -12,7 +12,7 @@
  *      * Redistributions in binary form must reproduce the above copyright
  *        notice, this list of conditions and the following disclaimer in the
  *        documentation and/or other materials provided with the distribution.
-/*
+ *
  *
  *      * Neither the name of Marvell nor the names of its contributors may be
  *        used to endorse or promote products derived from this software
@@ -102,30 +102,26 @@ typedef SHA512_CTX SHA384_CTX;
 
 
 /*** SHA-256/384/512 Function Prototypes ******************************/
-void mvSHA256Init(SHA256_CTX *ctx);
-void mvSHA256Update(SHA256_CTX *ctx, const uint8_t *input, size_t length);
-void mvSHA256ResultCopy(SHA256_CTX *ctx, unsigned char *digest);
-void mvSHA256Final(uint8_t[SHA256_DIGEST_LENGTH], SHA256_CTX*);
-char* mvSHA256End(SHA256_CTX*, char[SHA256_DIGEST_STRING_LENGTH]);
-char* mvSHA256Data(const uint8_t*, size_t, char[SHA256_DIGEST_STRING_LENGTH]);
+void mv_sha256_init(SHA256_CTX *ctx);
+void mv_sha256_update(SHA256_CTX *ctx, const uint8_t *input, size_t length);
+void mv_sha256_result_copy(SHA256_CTX *ctx, unsigned char *digest);
+void mv_sha256_final(uint8_t[SHA256_DIGEST_LENGTH], SHA256_CTX*);
+char* mv_sha256_end(SHA256_CTX*, char[SHA256_DIGEST_STRING_LENGTH]);
+char* mv_sha256_data(const uint8_t*, size_t, char[SHA256_DIGEST_STRING_LENGTH]);
 
-void mvSHA384Init(SHA384_CTX *ctx);
-void mvSHA384Update(SHA384_CTX *ctx, const uint8_t*, size_t);
-void mvSHA384Final(uint8_t[SHA384_DIGEST_LENGTH], SHA384_CTX*);
-char* mvSHA384End(SHA384_CTX*, char[SHA384_DIGEST_STRING_LENGTH]);
-char* mvSHA384Data(const uint8_t*, size_t, char[SHA384_DIGEST_STRING_LENGTH]);
-void mvSHA384ResultCopy(SHA384_CTX* context, uint8_t digest[]);
+void mv_sha384_init(SHA384_CTX *ctx);
+void mv_sha384_update(SHA384_CTX *ctx, const uint8_t*, size_t);
+void mv_sha384_final(uint8_t[SHA384_DIGEST_LENGTH], SHA384_CTX*);
+char* mv_sha384_end(SHA384_CTX*, char[SHA384_DIGEST_STRING_LENGTH]);
+char* mv_sha384_data(const uint8_t*, size_t, char[SHA384_DIGEST_STRING_LENGTH]);
+void mv_sha384_result_copy(SHA384_CTX* context, uint8_t digest[]);
 
-void mvSHA384_Init(SHA384_CTX *ctx);
-void mvSHA384_Update(SHA384_CTX *ctx, const uint8_t*, size_t);
-void mvSHA384_ResultCopy(SHA384_CTX* context, uint8_t digest[]);
-
-void mvSHA512Init(SHA512_CTX*);
-void mvSHA512Update(SHA512_CTX*, const uint8_t*, size_t);
-void mvSHA512Final(uint8_t[SHA512_DIGEST_LENGTH], SHA512_CTX*);
-char* mvSHA512End(SHA512_CTX*, char[SHA512_DIGEST_STRING_LENGTH]);
-char* mvSHA512Data(const u_int8_t*, size_t, char[SHA512_DIGEST_STRING_LENGTH]);
-void mvSHA512ResultCopy(SHA512_CTX* context, uint8_t digest[]);
+void mv_sha512_init(SHA512_CTX*);
+void mv_sha512_update(SHA512_CTX*, const uint8_t*, size_t);
+void mv_sha512_final(uint8_t[SHA512_DIGEST_LENGTH], SHA512_CTX*);
+char* mv_sha512_end(SHA512_CTX*, char[SHA512_DIGEST_STRING_LENGTH]);
+char* mv_sha512_data(const u_int8_t*, size_t, char[SHA512_DIGEST_STRING_LENGTH]);
+void mv_sha512_result_copy(SHA512_CTX* context, uint8_t digest[]);
 
 #ifdef	__cplusplus
 }

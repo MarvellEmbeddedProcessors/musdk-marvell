@@ -207,29 +207,29 @@ static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int 
 		MV_MD5_CONTEXT ctx;
 
 		memset(&ctx, 0, sizeof(ctx));
-		mvMD5Init(&ctx);
-		mvMD5Update(&ctx, in, max_key_len);
-		mvMD5Digest(inner, &ctx);
+		mv_md5_init(&ctx);
+		mv_md5_update(&ctx, in, max_key_len);
+		mv_md5_digest(inner, &ctx);
 
 		memset(&ctx, 0, sizeof(ctx));
-		mvMD5Init(&ctx);
-		mvMD5Update(&ctx, out, max_key_len);
-		mvMD5Digest(outer, &ctx);
+		mv_md5_init(&ctx);
+		mv_md5_update(&ctx, out, max_key_len);
+		mv_md5_digest(outer, &ctx);
 
 	} else if (auth_alg == SAM_AUTH_HMAC_SHA1) {
 		MV_SHA1_CTX ctx;
 
 		memset(&ctx, 0, sizeof(ctx));
-		mvSHA1Init(&ctx);
-		mvSHA1Update(&ctx, in, max_key_len);
+		mv_sha1_init(&ctx);
+		mv_sha1_update(&ctx, in, max_key_len);
 		for (i = 0; i < MV_SHA1_DIGEST_SIZE; i++) {
 			inner[i] = (unsigned char)
 				((ctx.state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
 		}
 
 		memset(&ctx, 0, sizeof(ctx));
-		mvSHA1Init(&ctx);
-		mvSHA1Update(&ctx, out, max_key_len);
+		mv_sha1_init(&ctx);
+		mv_sha1_update(&ctx, out, max_key_len);
 		for (i = 0; i < MV_SHA1_DIGEST_SIZE; i++) {
 			outer[i] = (unsigned char)
 				((ctx.state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
@@ -239,40 +239,40 @@ static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int 
 		SHA256_CTX ctx;
 
 		memset(&ctx, 0, sizeof(ctx));
-		mvSHA256Init(&ctx);
-		mvSHA256Update(&ctx, in, max_key_len);
-		mvSHA256ResultCopy(&ctx, inner);
+		mv_sha256_init(&ctx);
+		mv_sha256_update(&ctx, in, max_key_len);
+		mv_sha256_result_copy(&ctx, inner);
 
 		memset(&ctx, 0, sizeof(ctx));
-		mvSHA256Init(&ctx);
-		mvSHA256Update(&ctx, out, max_key_len);
-		mvSHA256ResultCopy(&ctx, outer);
+		mv_sha256_init(&ctx);
+		mv_sha256_update(&ctx, out, max_key_len);
+		mv_sha256_result_copy(&ctx, outer);
 
 	} else if (auth_alg == SAM_AUTH_HMAC_SHA2_384) {
 		SHA384_CTX context;
 
 		memset(&context, 0, sizeof(context));
-		mvSHA384Init(&context);
-		mvSHA384Update(&context, in, max_key_len);
-		mvSHA384ResultCopy(&context, inner);
+		mv_sha384_init(&context);
+		mv_sha384_update(&context, in, max_key_len);
+		mv_sha384_result_copy(&context, inner);
 
 		memset(&context, 0, sizeof(context));
-		mvSHA384Init(&context);
-		mvSHA384Update(&context, out, max_key_len);
-		mvSHA384ResultCopy(&context, outer);
+		mv_sha384_init(&context);
+		mv_sha384_update(&context, out, max_key_len);
+		mv_sha384_result_copy(&context, outer);
 
 	} else if (auth_alg == SAM_AUTH_HMAC_SHA2_512) {
 		SHA512_CTX context;
 
 		memset(&context, 0, sizeof(context));
-		mvSHA512Init(&context);
-		mvSHA512Update(&context, in, max_key_len);
-		mvSHA512ResultCopy(&context, inner);
+		mv_sha512_init(&context);
+		mv_sha512_update(&context, in, max_key_len);
+		mv_sha512_result_copy(&context, inner);
 
 		memset(&context, 0, sizeof(context));
-		mvSHA512Init(&context);
-		mvSHA512Update(&context, out, max_key_len);
-		mvSHA512ResultCopy(&context, outer);
+		mv_sha512_init(&context);
+		mv_sha512_update(&context, out, max_key_len);
+		mv_sha512_result_copy(&context, outer);
 	} else {
 		printf("\n%s: Unexpected authentication algorithm - %d\n",
 			__func__, auth_alg);
@@ -429,9 +429,11 @@ static int check_results(struct sam_session_params *session_params,
 				if (session_params->dir == SAM_DIR_ENCRYPT) {
 					printf("\nICV output value: %d bytes\n", auth_icv_size);
 					dump_buf(&out_data[expected_data_size], auth_icv_size);
-				}
-				printf("\nICV expected value: %d bytes\n", auth_icv_size);
-				dump_buf(auth_icv, auth_icv_size);
+
+					printf("\nICV expected value: %d bytes\n", auth_icv_size);
+					dump_buf(auth_icv, auth_icv_size);
+				} else
+					printf("\nICV verified by HW\n");
 			}
 			printf("\n");
 		}
@@ -661,9 +663,9 @@ static int run_tests(generic_list tests_db)
 		total_errors += errors;
 		total_passed += (count - errors);
 	}
+	printf("\n");
 	printf("SAM tests passed:   %d\n", total_passed);
 	printf("SAM tests failed:   %d\n", total_errors);
-
 	printf("\n");
 
 	return 0;
