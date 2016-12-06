@@ -276,11 +276,8 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
     /* Assign each CPU (thread) slot its mapped address space. */
 
     for (reg_id = 0; reg_id < ELEM_OF(hw->base); reg_id++) {
-        if (1<<reg_id & inst->parent->init.hif_reserved_map)
-            continue;
         hw->base[reg_id].va = mem_base + (reg_id * PP2_REGSPACE_SIZE);
     }
-
     mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->gop.serdes.base.pa, "serdes");
     if (!mem_base) {
         err = -EIO;
@@ -488,7 +485,6 @@ int pp2_init(struct pp2_init_params *params)
     /* Copy reserved instances to used ones */
     pp2_ptr->pp2_common.hif_slot_map = pp2_ptr->init.hif_reserved_map;
     pp2_ptr->pp2_common.rss_tbl_map = pp2_ptr->init.rss_tbl_reserved_map;
-
     /* TODO: Check first_inq params are valid */
 
     /* Initialize in an opaque manner from client,

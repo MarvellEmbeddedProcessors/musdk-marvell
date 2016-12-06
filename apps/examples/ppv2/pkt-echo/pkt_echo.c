@@ -435,8 +435,8 @@ static int init_all_modules(void)
 		return err;
 
 	memset(&pp2_params, 0, sizeof(pp2_params));
-	pp2_params.hif_reserved_map = 0;
-	pp2_params.bm_pool_reserved_map = 0;
+	pp2_params.hif_reserved_map = PP2_HIFS_RSRV;
+	pp2_params.bm_pool_reserved_map = PP2_BPOOLS_RSRV;
 	pp2_params.ppios[0][0].is_enabled = 1;
 	pp2_params.ppios[0][0].first_inq = 0;
 	if ((err = pp2_init(&pp2_params)) != 0)
