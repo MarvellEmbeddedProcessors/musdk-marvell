@@ -161,8 +161,9 @@ static u64 sys_dma_high_addr = 0;
 #ifndef HW_BUFF_RECYLCE
 static struct tx_shadow_q shadow_qs[MAX_NUM_CORES][MAX_NUM_QS];
 #endif /* !HW_BUFF_RECYLCE */
-static u16	used_bpools = 0;
-static u16	used_hifs = 0;
+
+static u16	used_bpools = PP2_BPOOLS_RSRV;
+static u16	used_hifs = PP2_HIFS_RSRV;
 
 
 #ifdef PKT_ECHO_SUPPORT
@@ -262,8 +263,7 @@ static int find_free_bpool(void)
 	int	i;
 
 	for (i=0; i<PP2_TOTAL_NUM_BPOOLS; i++) {
-		if (!((1<<i) & PP2_BPOOLS_RSRV) &&
-		    !((uint64_t)(1<<i) & used_bpools)) {
+		if (!((uint64_t)(1<<i) & used_bpools)) {
 			    used_bpools |= (uint64_t)(1<<i);
 			    break;
 		    }
@@ -280,8 +280,7 @@ static int find_free_hif(void)
 	int	i;
 
 	for (i=0; i<PP2_TOTAL_NUM_HIFS; i++) {
-		if (!((1<<i) & PP2_HIFS_RSRV) &&
-		    !((uint64_t)(1<<i) & used_hifs)) {
+		if (!((uint64_t)(1<<i) & used_hifs)) {
 			    used_hifs |= (uint64_t)(1<<i);
 			    break;
 		    }
