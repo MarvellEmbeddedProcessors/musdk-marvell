@@ -95,4 +95,5 @@ See script from the EIP197 release directory: "scripts/mv_eip197_us_load.sh"
 => musdk_dma_mem
 => musdk_pkt_echo
 => musdk_sam_kat ./aes_test.txt
+=> musdk_sam_single
 
