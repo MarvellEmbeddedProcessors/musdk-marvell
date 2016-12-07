@@ -2,8 +2,10 @@
 #include "std_internal.h"
 #include "../../modules/include/musdk_uio_ioctls.h"
 
+#include "env/cma.h"
 
-#define UIO_CMA_DEV "/dev/uio-cma"
+
+#define MUSDK_DEV_FILE "/dev/uio-cma"
 
 
 static volatile int fd = -1;
@@ -11,7 +13,7 @@ static volatile int fd = -1;
 
 int cma_init(void)
 {
-	fd = open(UIO_CMA_DEV, O_RDWR);
+	fd = open(MUSDK_DEV_FILE, O_RDWR);
 	if (fd < 0) {
 		pr_err("CMA: open() failed\n");
 		return -1;
@@ -37,7 +39,7 @@ uintptr_t cma_calloc(size_t size)
 
 	if ((err = ioctl(fd, MUSDK_IOC_CMA_ALLOC, &param)) != 0) {
 		pr_err("CMA: ioctl(MUSDK_IOC_CMA_ALLOC) for size=%lu failed with "
-                "error %d \n", size, err);
+			"error %d \n", size, err);
 		return 0;
 	}
 
@@ -61,8 +63,8 @@ uintptr_t cma_calloc(size_t size)
 		return 0;
 	}
 
-	pr_info("%p mapped to virt address = %lX\n", (void *)ptr->paddr,
-			ptr->uvaddr);
+	pr_debug("%p mapped to virt address = %lX\n",
+		(void *)ptr->paddr, ptr->uvaddr);
 
 	return (uintptr_t) ptr;
 }
@@ -76,7 +78,7 @@ void cma_free(uintptr_t buf)
 	if (!buf || fd < 0)
 		return;
 
-	pr_info("free %p of %lu bytes\n", ptr, ptr->size);
+	pr_debug("free %p of %lu bytes\n", ptr, ptr->size);
 
 	/* Save kernel logical address before unmap buffer admin area */
 	kvaddr = ptr->kvaddr;
@@ -103,7 +105,7 @@ uintptr_t cma_get_vaddr(uintptr_t buf)
 	/* Take in consideration the size of admin area */
 	uintptr_t ret = (!ptr) ? (uintptr_t)0 : (uintptr_t) ptr->uvaddr;
 
-	pr_info("%p va %p\n", ptr, (void *)ret);
+	pr_debug("%p va %p\n", ptr, (void *)ret);
 
 	return ret;
 }
@@ -116,7 +118,7 @@ uintptr_t cma_get_paddr(uintptr_t buf)
 	uintptr_t ret = (!ptr) ? (uintptr_t)0 :
 		(uintptr_t)((uint8_t *)ptr->paddr + sizeof(*ptr));
 
-	pr_info("%p pa %p\n", ptr, (void *)ret);
+	pr_debug("%p pa %p\n", ptr, (void *)ret);
 
 	return ret;
 }
