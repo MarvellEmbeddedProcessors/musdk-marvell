@@ -64,7 +64,7 @@ struct mvapp {
 	pthread_t		 cli_trd;
 
 	void			*global_arg;
-	int			 (*init_local_cb)(void *, void **);
+	int			 (*init_local_cb)(void *, int id, void **);
 	int			 (*main_loop_cb)(void *, volatile int *);
 	void			 (*deinit_local_cb)(void *);
 
@@ -124,13 +124,13 @@ static char getchar_cb(void)
 	return (char)getchar();
 }
 
-static int run_local(struct mvapp *mvapp)
+static int run_local(struct mvapp *mvapp, int id)
 {
 	void	*local_arg = NULL;
 	int	 err = 0;
 
 	if (mvapp->init_local_cb &&
-	    ((err = mvapp->init_local_cb(mvapp->global_arg, &local_arg)) != 0))
+	    ((err = mvapp->init_local_cb(mvapp->global_arg, id, &local_arg)) != 0))
 		return err;
 
 	/* wait until all threads will complete initialization stage */
@@ -202,7 +202,7 @@ static void * local_thr_cb(void *arg)
 	}
 	pr_debug("Thread %d is running on CPU %d\n", desc->id, sched_getcpu());
 
-	err = run_local(desc->mvapp);
+	err = run_local(desc->mvapp, desc->id);
 
 	pthread_exit(&err);
 	return NULL;
