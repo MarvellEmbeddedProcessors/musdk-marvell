@@ -58,6 +58,8 @@ Output files are:
 => export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
 - EIP197 DDK location (optional - required only for AM driver compilation) e.g.
 => export EIP197_DDK=~/SoC/eip197_branches/eip197-4.7.1/mv_eip197_is_driver/eip197/SafeXcel-IP-197_DDK_v4.7
+- EIP197 DDK Firmware location (optional - required only for AM driver compilation) e.g.
+=> export EIP197_DDK_FW=~/SoC/eip197_branches/eip197-4.7.1/mv_eip197_is_driver/eip197/SafeXcel-Firmware/eip197
 
 5.2 Build MUSDK package
 => cd <musdk-src-dir>

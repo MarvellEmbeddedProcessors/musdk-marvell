@@ -81,6 +81,7 @@ libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Integration/SLAD_Adapter/incl
 libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Basic_Defs_API/incl
 libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/SABuilder/incl
 libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/TokenBuilder/incl
+libmusdk_la_CFLAGS += -I$(EIP197_DDK_FW)/firmware/production_firmware/api
 
 nobase_include_HEADERS += include/drivers/mv_sam.h
 nobase_include_HEADERS += include/drivers/mv_sam_cio.h
