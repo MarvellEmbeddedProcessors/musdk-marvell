@@ -1,0 +1,51 @@
+# CDAL test configuration file
+
+Algorithm      : 3DES
+Name           : Encrypting_3DES_ECB_ENC
+Key            : 0x0123456789ABCDEF23456789ABCDEF01456789ABCDEF0123
+Plaintext      : 0x54686520717566636B2062726F776E20666F78206A756D70
+Ciphertext     : 0xA826FD8CE53B855FCCE21C8112256FE668D5C05DD9B6B900
+Testcounter    : 1
+Mode           : ECB
+Direction      : encryption
+
+Algorithm      : 3DES
+Name           : Encrypting_3DES_CBC_ENC
+Key            : 0x627f460e08104a1043cd265d5840eaf1313edf97df2a8a8c
+IV             : 0x8e29f75ea77e5475
+Plaintext      : 0x326a494cd33fe756
+Ciphertext     : 0xb22b8d66de970692
+Testcounter    : 1
+Mode           : CBC
+Direction      : encryption
+
+Algorithm      : 3DES
+Name           : Encrypting_3DES_CBC128_DEC
+Key            : 0x627f460e08104a1043cd265d5840eaf1313edf97df2a8a8c
+IV             : 0x8e29f75ea77e5475
+Plaintext      : 0x326a494cd33fe756
+Ciphertext     : 0xb22b8d66de970692
+Testcounter    : 1
+Mode           : CBC
+Direction      : decryption
+
+Algorithm      : 3DES
+Name           : Encrypting_3DES_CBC128_ENC
+Key            : 0x37ae5ebf46dff2dc0754b94f31cbb3855e7fd36dc870bfae
+IV             : 0x3d1de3cc132e3b65
+Plaintext      : 0x84401f78fe6c10876d8ea23094ea5309
+Ciphertext     : 0x7b1f7c7e3b1c948ebd04a75ffba7d2f5
+Testcounter    : 1
+Mode           : CBC
+Direction      : encryption
+
+Algorithm      : 3DES
+Name           : Encrypting_3DES_CBC128_DEC
+Key            : 0x37ae5ebf46dff2dc0754b94f31cbb3855e7fd36dc870bfae
+IV             : 0x3d1de3cc132e3b65
+Plaintext      : 0x84401f78fe6c10876d8ea23094ea5309
+Ciphertext     : 0x7b1f7c7e3b1c948ebd04a75ffba7d2f5
+Testcounter    : 1
+Mode           : CBC
+Direction      : decryption
+
