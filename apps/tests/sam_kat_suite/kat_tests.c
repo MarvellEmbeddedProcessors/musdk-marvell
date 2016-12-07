@@ -324,6 +324,9 @@ static int create_sessions(generic_list tests_db)
 	block = generic_list_get_first(tests_db);
 	for (i = 0; i < num_tests; i++) {
 
+		memset(auth_inner, 0, sizeof(auth_inner));
+		memset(auth_outer, 0, sizeof(auth_outer));
+
 		if (i > 0)
 			block = generic_list_get_next(tests_db);
 

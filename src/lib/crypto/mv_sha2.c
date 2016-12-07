@@ -1081,7 +1081,7 @@ void mv_sha384_result_copy(SHA384_CTX* context, uint8_t digest[])
 	/* Convert TO host byte order */
 	int	j;
 
-	for (j = 0; j < 6; j++) {
+	for (j = 0; j < 8; j++) {
 		REVERSE64(context->state[j],context->state[j]);
 		*d++ = context->state[j];
 	}
