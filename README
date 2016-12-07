@@ -53,6 +53,9 @@ Output files are:
 
 5. Build the MUSDK and install it
 
+To build MUSDK SAM package EIP197 DDK must be installed and build before.
+For more details please refer chapter "Build Process" in the document: "eip197-ReleaseNotes.txt"
+
 5.1 Set external variables
 - Cross compiler for compilation of user space libraries and applications. e.g.:
 => export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
@@ -83,6 +86,9 @@ NOTE: As a temporary W/A, move all files in $AC_PREFIX_DEFAULT/include/include t
 
 6.4 Insert EIP197 kernel space module (optional - needed only to run "musdk_sam_kat")
 
+To run MUSDK SAM test applications eip197 driver kernel module must be loaded before.
+For more details please refer chapter "EIP197 Framework Usage" in the document: "eip197-ReleaseNotes.txt"
+
 6.4.1 Load kernel module: "umdevxs_k.ko"
 => "insmod umdevxs_k.ko nof_dma_bufs=4096"
 
@@ -94,6 +100,17 @@ See script from the EIP197 release directory: "scripts/mv_eip197_us_load.sh"
 6.5 Run a MUSDK application examples
 => musdk_dma_mem
 => musdk_pkt_echo
-=> musdk_sam_kat ./aes_test.txt
+
+6.5.1 Run test "musdk_sam_single"
 => musdk_sam_single
+This application run single AES128-CBC encryption test on predefined inputs and check validity of the output
+
+6.5.2 Run test application "musdk_sam_kat"
+=> ./musdk_sam_suite [aes_test.txt | 3des_tests.txt | hmac_tests.txt]
+This application read data from from the input file, run the tests one after other and
+check output validity.
+See format of the input files in the examples under directory: "apps/tests/sam_kat_suite/"
+- aes_tests.txt  - AES tests
+- 3des_tests.txt - 3DES tests
+- hmac_tests.txt - HMAC MDD5/SHA1/SHA2 tests
 
