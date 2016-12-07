@@ -35,7 +35,8 @@
 #include "sam.h"
 
 /*#define SAM_DMA_DEBUG*/
-/*#define SAM_INTERNAL_DEBUG*/
+/*#define SAM_CIO_DEBUG*/
+/*#define SAM_SA_DEBUG*/
 
 static struct sam_cio	*sam_ring;
 static struct sam_sa	*sam_sessions;
@@ -270,11 +271,8 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	memcpy(operation->data_dmabuf.host_addr.p, request->src->vaddr,
 		token_params.BypassByteCount + copylen);
 
-#ifdef SAM_INTERNAL_DEBUG
+#ifdef SAM_CIO_DEBUG
 	print_token_params(&token_params);
-
-	pr_info("Input DMA buffer: %p, copylen = %d\n", operation->data_dmabuf.host_addr.p, copylen);
-	mem_disp(operation->data_dmabuf.host_addr.p, token_params.BypassByteCount + copylen);
 #endif
 
 	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)operation->data_dmabuf.host_addr.p,
@@ -455,6 +453,10 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	memset(&session->sa_params, 0, sizeof(session->sa_params));
 	memset(&session->basic_params, 0, sizeof(session->basic_params));
 
+#ifdef SAM_SA_DEBUG
+	print_sam_sa_params(params);
+#endif
+
 	/* Save session params */
 	session->params = *params;
 
@@ -530,7 +532,7 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 			__func__, cio->params.id, rc);
 		goto error_session;
 	}
-#ifdef SAM_INTERNAL_DEBUG
+#ifdef SAM_SA_DEBUG
 	print_sa_params(&session->sa_params);
 	print_basic_sa_params(&session->basic_params);
 #endif
@@ -602,7 +604,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request, u16 *num
 		pr_warning("SAM cio %d is full\n", cio->params.id);
 		return -EBUSY;
 	}
-#ifdef SAM_INTERNAL_DEBUG
+#ifdef SAM_CIO_DEBUG
 	print_sam_cio_op_params(request);
 #endif
 
@@ -618,7 +620,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *request, u16 *num
 	if (sam_hw_cmd_desc_init(request, operation, &cmd, &pkt_params))
 		goto error_enq;
 
-#ifdef SAM_INTERNAL_DEBUG
+#ifdef SAM_CIO_DEBUG
 	print_pkt_params(&pkt_params);
 	print_cmd_desc(&cmd);
 #endif
@@ -674,7 +676,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num)
 	if (count == 0) /* No results are ready */
 		return -EBUSY;
 
-#ifdef SAM_INTERNAL_DEBUG
+#ifdef SAM_CIO_DEBUG
 	print_result_desc(&result_desc);
 #endif
 	*num = (u16)count;
