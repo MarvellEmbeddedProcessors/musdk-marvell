@@ -1,0 +1,123 @@
+Getting Started with MUSDK
+===========================
+
+
+1. Build Linux kernel
+---------------------
+1.1. Make sure the Linux is build with the following configuration flags:
+
+		CONFIG_MVPP2X=y
+		CONFIG_UIO=y
+
+1.2. Apply all patches in: "<musdk-src-dir>/patches/linux"
+
+Note: "0003-patch-dts-set-port0-status-non-kernel.patch" is an _example_ how to configure
+	the PPV2 ports that belong to musdk.
+
+1.3. Build Linux Image:
+
+		=> make Image
+
+2. Build required Kernel modules
+--------------------------------
+2.1. Build the MUSDK UIO kernel module and install it:
+
+		=> cd <musdk-src-dir>/modules/uio
+		=> make
+
+2.2. Build the PP2-tmp kernel module and install it:
+
+		=> cd <musdk-src-dir>/modules/pp2
+		=> make
+
+3. Install and build EIP197 DDK
+--------------------------------
+This step is optional and required only when using SAM driver.
+
+3.1. Get EIP197 DDK sources from git or release:
+
+		=> git clone http://vgitil04.il.marvell.com:8080/modules/mv_eip197_is_driver
+		=> git checkout eip197-4.7-devel
+
+3.2 Build EIP197 DDK as described in eip197-ReleaseNotes.txt
+
+Output files are:
+- umdevxs_k.ko
+- libdriver_197_u.a
+- libsa_bld_u.a
+- libtk_bld_u.a
+
+
+4. Configure and Build MUSDK
+----------------------------
+To build MUSDK SAM package EIP197 DDK must be installed and built a-priori.
+For more details please refer chapter "Build Process" in the document: "eip197-ReleaseNotes.txt"
+
+4.1 Set external variables:
+
+- Cross compiler for compilation of user space libraries and applications. for example:
+
+		=> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
+
+- EIP197 DDK location (optional - required only for AM driver compilation), for example:
+
+		=> export EIP197_DDK=~/SoC/eip197_branches/eip197-4.7.1/mv_eip197_is_driver/eip197/SafeXcel-IP-197_DDK_v4.7
+
+- EIP197 DDK Firmware location (optional - required only for AM driver compilation), for example:
+
+		=> export EIP197_DDK_FW=~/SoC/eip197_branches/eip197-4.7.1/mv_eip197_is_driver/eip197/SafeXcel-Firmware/eip197
+
+4.2 Build the MUSDK package:
+
+		=> cd <musdk-src-dir>
+		=> ./bootstrap
+		=> ./configure
+
+To compile SAM driver and SAM test application use
+
+		=> ./configure --enable-sam
+		=> make -j8
+		=> make install
+
+NOTE: As a temporary W/A, move all files in $AC_PREFIX_DEFAULT/include/include to $AC_PREFIX_DEFAULT/include
+
+
+5. Insert kernel modules
+------------------------
+
+5.1. Copy the kernel modules (musdk_uio.ko, etc.) to the target board file-system.
+
+5.2. Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
+
+5.3. Insert MUSDK kernel space modules
+
+		=> insmod musdk_uio.ko
+		=> insmod mv_pp_uio.ko
+
+5.4 Insert EIP197 kernel space module (optional - needed only to run "musdk_sam_kat")
+
+To run MUSDK SAM test applications eip197 driver kernel module must be loaded before.
+For more details please refer chapter "EIP197 Framework Usage" in the document: "eip197-ReleaseNotes.txt"
+
+5.5 Load kernel module: "umdevxs_k.ko"
+
+		=> "insmod umdevxs_k.ko nof_dma_bufs=4096"
+
+5.6 Create character device node: "/dev/umdevxs_c"
+
+		=> "mknod /dev/umdevxs_c c ${major_nr} 0"
+
+See script from the EIP197 release directory: "scripts/mv_eip197_us_load.sh"
+
+
+6. Run MUSDK application examples
+---------------------------------
+
+6.1. To run DMA memory test
+
+		=> musdk_dma_mem
+
+6.2. To run pkt-echo application - please see instructions in "PPIO User Guide"
+
+6.3. To run musdk_sam_single / musdk_sam_kat applications - please see instructions in "SAM User Guide"
+

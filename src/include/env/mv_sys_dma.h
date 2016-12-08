@@ -35,6 +35,12 @@
 
 #include "mv_types.h"
 
+/** @addtogroup grp_sys_dma DMA Memory Manager
+ *
+ *  DMA Memory Manager API documentation
+ *
+ *  @{
+ */
 
 /**
  * Internal physical base-address.
@@ -107,5 +113,7 @@ static __inline__ phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
 	return ((u64)va - (u64)__dma_virt_base) + __dma_phys_base;
 }
+
+/** @} */ // end of grp_pp2_hif
 
 #endif /* __MV_SYS_DMA_H__ */

@@ -11,12 +11,17 @@
 	/** @addtogroup grp_pp2_cls */
 /** @} */ // end of grp_pp2
 
-<hr>
-
 /** @addtogroup grp_sam Security Acceleration Module
  *  @{
  */
 	/** @addtogroup grp_sam_se */
 	/** @addtogroup grp_sam_cio */
 /** @} */ // end of grp_sam
+
+
+/** @addtogroup grp_infra MUSDK Infrastructure
+ *  @{
+ */
+	/** @addtogroup grp_sys_dma */
+/** @} */ // end of grp_infra
 

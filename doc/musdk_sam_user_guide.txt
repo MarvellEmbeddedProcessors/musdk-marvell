@@ -1,0 +1,158 @@
+Security Acceleration Module (SAM) User Guide
+=============================================
+
+1. Introduction
+===============
+
+MUSDK SAM driver and SAM test applications are part of the whole MUSDK package.
+
+MUSDK SAM driver provides capability of usage Security Accelerator HW (EIP197)
+directly from user-space applications with minimum overhead and high performance.
+
+2.  Supported Features
+======================
+
+2.1	SAM initialization
+---------------------------
+int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
+
+- Returns handle to sam_cio instance; a single SAM instance is supported.
+- The following fields in "struct sam_cio_params" are ignored:
+    - const char *match;
+- Valid range for the following fields in "struct sam_cio_params" is defined by
+  EIP197 DDK compilation:
+  - id			- ring id [0..SAM_HW_RING_NUM]
+  - size		- ring size in number of descriptors [0..SAM_HW_RING_SIZE]
+  - num_sessions	- number of supported sessions [0..SAM_HW_SA_NUM]
+  - max_buf_size	- maximum buffer size [in bytes] [0..SAM_SA_DMABUF_SIZE]
+
+2.2	SAM create session
+---------------------------
+int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, struct sam_sa **sa);
+
+- Only synchronous mode of session create is supported
+- Cipher algorithms: NULL, AES, 3DES
+- Cipher key length: 128, 192, 256 bits
+- Cipher modes: CBC, ECB
+- Authentication algorithms: NULL, SHA1, MD5, SHA2 (384/256/512)
+- Authentication modes: HASH, HMAC
+- Encryption: encryption only, authentication only
+- Decryption: decryption only, authentication only
+
+2.3	SAM delete session
+---------------------------
+int sam_session_destroy(struct sam_sa *sa);
+
+2.4	SAM enqueue operation
+------------------------------
+int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *num);
+
+- Only asynchronous mode is supported.
+- Multiple enqueues mode is not supported ("*num" must be 1)
+- Multi buffers mode is not supported. (requests->num_bufs must be 1)
+- Valid source and valid destination buffers must be provided by caller.
+  Source and Destination buffer can be the same one.
+- Cipher IV in the buffer is not supported (field "cipher_iv_offset" is ignored)
+- AAD is not supported, so fields "auth_aad_offset" and "and auth_aad" are ignored
+- "auth_icv_offset" must be equal to ("auth_offset" + "auth_len")
+
+2.5	SAM dequeue operation
+------------------------------
+int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num)
+
+- Only polling mode is supported.
+- Multiple dequeues mode is not supported ("*num" must be 1)
+
+2.6	SAM shutdown
+---------------------
+int sam_cio_deinit(struct sam_cio *cio);
+
+2.7.	SAM enable/disable
+--------------------------
+Currently, these functions are not supported.
+
+int sam_cio_enable(struct sam_cio *cio);
+int sam_cio_disable(struct sam_cio *cio);
+
+2.8	Debug capabilities
+--------------------------
+To enable debug information during create session use
+#define SAM_SA_DEBUG
+
+To enable debug information during enqueue/dequeue operation use
+
+		#define SAM_CIO_DEBUG
+
+
+3. Source tree
+==============
+Sources:
+
+musdk/
+	- src/include/driver/	- public include files for SAM driver
+		- mv_sam.h
+		- mv_sam_cio.h
+		- mv_sam_session.h
+
+	- src/include/lib/
+		- mv_md5.h
+		- mv_sha1.h
+		- mv_sha2.h
+		- mv_aes.h
+
+	- src/driver/sam/	- SAM driver implementation
+		- sam.h
+		- sam.c
+		- sam_debug.c
+
+	- src/lib/crypto/
+		- mv_md5.c
+		- mv_sha1.c
+		- mv_sha2.c
+		- mv_aes.c
+
+	- apps/tests/sam_kat_single/	- Simple AES128-CBC test for predefined values
+		- kat_tests_single.c
+
+	- apps/tests/sam_kat_suite/	- SAM KAT test suite using input text files to run multiple tests
+		- kat_tests.c
+		- other *.c and *.h files
+		- aes_testc.txt, 3des_tests.txt, hmac_tests.txt - input data files examples.
+
+Binaries:
+	- libmusdk.a		- MUSDK APIs implementation library
+	- musdk_sam_single	- simple test application
+	- musdk_sam_kat		- test suite using input text files for session and operation data
+
+
+4.  SAM test applications
+===============================
+To run MUSDK SAM test applications eip197 driver kernel module must be loaded before.
+For more details please refer chapter "EIP197 Framework Usage" in the document: eip197-ReleaseNotes.txt
+
+4.1. Test application "musdk_sam_single"
+----------------------------------------
+This application run single AES128-CBC encryption on predefined inputs and check validity of the output
+as shown below:
+
+		/*
+		 * Case #1: Encrypting 16 bytes (1 block) using AES-CBC with 128-bit key
+		 * Key       : 0x06a9214036b8a15b512e03d534120006
+		 * IV        : 0x3dafba429d9eb430b422da802c9fac41
+		 * Plaintext : "Single block msg"
+		 * Ciphertext: 0xe353779c1079aeb82708942dbe77181a
+		 */
+		=> ./musdk_sam_single
+
+4.2. Test application "musdk_sam_kat"
+------------------------------------
+This test application reads test data from the input file, runs the tests one by one and
+checks the output validity.
+
+See format of the input files in the examples under directory: "apps/tests/sam_kat_suite/"
+- aes_tests.txt  - AES tests
+- 3des_tests.txt - 3DES tests
+- hmac_tests.txt - HMAC MDD5/SHA1/SHA2 tests
+
+		=> ./musdk_sam_kat [aes_test.txt | 3des_tests.txt | hmac_tests.txt]
+

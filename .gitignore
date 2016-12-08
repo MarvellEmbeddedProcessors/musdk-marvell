@@ -33,7 +33,7 @@ compile
 config.*
 configure
 depcomp
-doxygen/html/
+doxygen/output/
 install-sh
 libtool
 ltmain.sh

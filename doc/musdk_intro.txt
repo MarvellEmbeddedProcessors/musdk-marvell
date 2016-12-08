@@ -1,0 +1,49 @@
+Introduction to MUSDK
+=====================
+Marvell User-Space SDK (MUSDK) is a light-weight user-space I/O driver for Marvell's
+Embedded Networking SoC's. The MUSDK library provides a simple and direct access to Marvell's
+SoC blocks to networking applications and networking infrastrucutre.
+
+MUSDK Components
+================
+The following diagram shows the main components in an example control and data plane system.
+MUSDK components reside mainly in User-Space, relying on UIO services provided by the Kernel.
+MUSDK also takes care of synchronization with the Kernel driver counterparts, for correct system operation.
+
+![MUSDK Main Components](musdk_sys.png)
+
+
+UIO Infrastructure
+------------------
+Linux provides a standard UIO (User I/O) framework for developing user-space device drivers.
+The UIO framework incorporates a Kernel component that is capable of mapping device memory regions to user space.
+
+The kernel-space UIO component exposes the device via a set of Linux standard mechanisms.
+The user-space component searches for these entries, reads the device address ranges and maps them to user space memory.
+The user-space component can then perform any device-management tasks directly, including I/O from the device.
+
+Packet Processor I/O Interface (PPIO)
+-------------------------------------
+The MUSDK PPIO driver provides low-level network interface API for User-Space network drivers/applications.
+The PPIO infrastrcuture maps Marvell's Packet Processor (PPv2) configuration space and I/O descriptors space
+directly to user-space memory. This allows user-space driver/application to directly process the
+packet processor I/O rings from user space, without any overhead of a copy operation.
+
+Please refer to PPIO User Guide and API reference for more details.
+
+Security Acceleration Module (SAM)
+---------------------------------
+The MUSDK SAM driver provides capability for operating the Security Acceleration engine (SAM/EIP197)
+directly from user-space with minimum overhead and high performance. The SAM driver exports API for
+creating and deleting security session, for sending crypto requests to the HW engine,
+and for retrieving the crypto operation outcome from the HW engine.
+
+Please refer to SAM User Guide and API reference for more details.
+
+DMA-able Memory Allocation
+--------------------------
+MUSDK provides API to allocate a single contiguous memory region for run-time DMA-able data buffers.
+This memory region is then mapped to user space to serve of drivers and applications.
+MUSDK also provides API for driver/application to allocate data buffers from this memory region,
+and then to release them back once they were processed.
+
