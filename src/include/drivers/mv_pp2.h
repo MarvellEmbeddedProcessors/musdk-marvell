@@ -36,22 +36,30 @@
 #include "mv_std.h"
 
 
-#define PP2_NUM_PKT_PROC	2
-#define PP2_NUM_ETH_PPIO	3
+#define PP2_NUM_PKT_PROC	2 /**< Maximum number of packet processors */
+#define PP2_NUM_ETH_PPIO	3 /**< Maximum number of ppio instances in each packet processor */
 
 /** @addtogroup grp_pp2_init Packet Processor: Initialization
- *  
+ *
  *  Packet Processor Initialization API documentation
  *
  *  @{
  */
 
-
+/**
+ * ppio init parameters
+ *
+ */
 struct ppio_init_params {
-	int		is_enabled; /**/
-	u32		first_inq;
+	int		is_enabled; /**< Indicates the ppio may be created in musdk */
+	u32		first_inq; /**< First rxq to be used by musdk on this ppv2 port.
+					Value is relative to the port's first hardware physical in_queue.*/
 };
 
+/**
+ * pp2 init parameters
+ *
+ */
 struct pp2_init_params {
 	/** Bitmap of reserved HIF objects (0-8), that may not be used by MUSDK. bit0=hif0, etc. */
 	u16			hif_reserved_map;
@@ -73,6 +81,10 @@ struct pp2_init_params {
  */
 int pp2_init(struct pp2_init_params *params);
 
+/**
+ * TODO - Destroy the global PPv2x
+ *
+ */
 void pp2_deinit(void);
 
 /** @} */ // end of grp_pp2_init

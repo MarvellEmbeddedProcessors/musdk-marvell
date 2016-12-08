@@ -37,7 +37,7 @@
 #include "mv_pp2_hif.h"
 
 /** @addtogroup grp_pp2_bp Packet Processor: Buffer Pool
- *  
+ *
  *  Packet Processor Buffer Pool API documentation
  *
  *  @{
@@ -45,13 +45,16 @@
 
 struct pp2_bpool;
 
-
+/**
+ * bpool init parameters
+ *
+ */
 struct pp2_bpool_params {
 	/** Used for DTS acc to find appropriate "physical" BM-Pool obj;
 	 * E.g. "pool-0:0" means PPv2[0],pool[0] */
 	const char			*match;
-	u32				 max_num_buffs;
-	u32				 buff_len;
+	u32				 max_num_buffs; /**<  maximum number of buffers allowed in bpool */
+	u32				 buff_len; /**< buffer length */
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ
 	int				 (*empty_cb) (void *arg, u32 status);
 	void				 *emty_cb_arg;
@@ -60,9 +63,23 @@ struct pp2_bpool_params {
 */
 };
 
-
+/**
+ * Initialize a Buffer Pool (bpool)
+ *
+ * @param[in]	params	A pointer to structure that contains all relevant parameters.
+ * @param[out]	bpool	A pointer to opaque bpool handle of type 'struct pp2_bpool *'.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
 int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool);
 
+/**
+ * TODO - Destroy a Buffer Pool (bpool)
+ *
+ * @param[in]	bpool 	A bpool handle.
+ *
+ */
 void pp2_bpool_deinit(struct pp2_bpool *bpool);
 
 
@@ -90,10 +107,39 @@ struct pp2_buff_inf {
 #endif
 };
 
-
+/**
+ * Get a buffer from a ppv2 buffer pool.
+ *
+ * @param[in]	hif	A hif handle.
+ * @param[in]	pool	A bpool handle.
+ * @param[out]	buff	A pointer to structure that contains the returned buffer parameters.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
 int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff);
+
+/**
+ * Add a buffer to a ppv2 buffer pool.
+ *
+ * @param[in]	hif	A hif handle.
+ * @param[in]	pool	A bpool handle.
+ * @param[in]	buff	A pointer to structure that contains the buffer parameters.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
 int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff);
 
+/**
+ * TODO - Get the number of buffers in ppv2 buffer pool.
+ *
+ * @param[in]	pool	A bpool handle.
+ * @param[out]	buff	A pointer to returned number of buffers.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
 int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs);
 
 /** @} */ // end of grp_pp2_bp
