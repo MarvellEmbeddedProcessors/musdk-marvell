@@ -73,7 +73,7 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 		pr_err("[%s] bm_pool already exists.\n", __FUNCTION__);
 		return(-EEXIST);
 	}
-	pr_info("[%s] pp2_id(%d) pool_id(%d)\n", __FUNCTION__, pp2_id, pool_id);
+	pr_debug("[%s] pp2_id(%d) pool_id(%d)\n", __FUNCTION__, pp2_id, pool_id);
 	param.buf_num = params->max_num_buffs;
 	param.buf_size = params->buff_len;
 	param.id = pool_id;
