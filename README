@@ -34,7 +34,7 @@ Note: "0003-patch-dts-set-port0-status-non-kernel.patch" is an _example_ how to 
 => make
 
 3. Build the PP2-tmp kernel module and install it:
-=> cd <musdk-src-dir>/modules/pp2_tmp
+=> cd <musdk-src-dir>/modules/pp2
 => make
 
 4. Install and build EIP197 DDK
