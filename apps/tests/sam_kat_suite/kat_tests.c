@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "mv_std.h"
+#include "lib/lib_misc.h"
 #include "lib/mv_aes.h"
 #include "lib/mv_sha1.h"
 #include "lib/mv_sha2.h"
@@ -279,21 +281,6 @@ static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int 
 	}
 }
 
-static void dump_buf(const unsigned char *p, unsigned int len)
-{
-	unsigned int i = 0, j;
-
-	while (i < len) {
-		j = 0;
-		printf("%p: ", (p + i));
-		for (j = 0 ; j < 32 && i < len ; j++) {
-			printf("%02x ", p[i]);
-			i++;
-		}
-		printf("\n");
-	}
-}
-
 static int delete_sessions(void)
 {
 	int i, num = 0;
@@ -420,21 +407,21 @@ static int check_results(struct sam_session_params *session_params,
 		}
 		if (i < num_to_print) {
 			printf("\nInput buffer: %d bytes\n", in_data_size);
-			dump_buf(in_buf.vaddr, in_data_size);
+			mv_mem_dump(in_buf.vaddr, in_data_size);
 
 			printf("\nOutput buffer: %d bytes\n", expected_data_size);
-			dump_buf(out_data, expected_data_size);
+			mv_mem_dump(out_data, expected_data_size);
 
 			printf("\nExpected buffer: %d bytes\n", expected_data_size);
-			dump_buf(expected_data, expected_data_size);
+			mv_mem_dump(expected_data, expected_data_size);
 
 			if (auth_icv_size) {
 				if (session_params->dir == SAM_DIR_ENCRYPT) {
 					printf("\nICV output value: %d bytes\n", auth_icv_size);
-					dump_buf(&out_data[expected_data_size], auth_icv_size);
+					mv_mem_dump(&out_data[expected_data_size], auth_icv_size);
 
 					printf("\nICV expected value: %d bytes\n", auth_icv_size);
-					dump_buf(auth_icv, auth_icv_size);
+					mv_mem_dump(auth_icv, auth_icv_size);
 				} else
 					printf("\nICV verified by HW\n");
 			}

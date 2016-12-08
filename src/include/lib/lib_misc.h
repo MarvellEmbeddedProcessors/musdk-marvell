@@ -40,4 +40,6 @@ int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8
 
 void mem_disp(const char *_p, int len);
 
+void mv_mem_dump(const unsigned char *p, unsigned int len);
+
 #endif /* __LIB_MISC_H__ */
