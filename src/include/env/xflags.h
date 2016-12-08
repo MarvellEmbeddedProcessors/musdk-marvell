@@ -34,7 +34,7 @@
 #define __XFLAGS_H__
 
 /* TODO: move the following to a per-soc conf file */
-#define PP2_SOC_NUM_PACKPROCS		1
+#define PP2_SOC_NUM_PACKPROCS		2
 
 #define MVCONF_DBG_LEVEL		4
 

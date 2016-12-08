@@ -136,6 +136,7 @@ struct glob_arg {
 
 	struct pp2_hif		*hif;
 	struct pp2_ppio		*port;
+	struct port_desc	*port_desc;
 
 	int			 num_pools;
 	struct pp2_bpool	***pools;
@@ -151,6 +152,7 @@ struct local_arg {
 
 	struct pp2_hif		*hif;
 	struct pp2_ppio		*port;
+	struct port_desc	*port_desc;
 
 	struct pp2_bpool	***pools;
 	struct pp2_buff_inf	***buffs_inf;
@@ -247,13 +249,27 @@ static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type
 /* TODO: find a better way to map the ports!!! */
 static int find_port_info(struct port_desc *port_desc)
 {
-/* TODO: temporary A7040 table! */
+/* TODO: temporary map table! */
+#if (PP2_SOC_NUM_PACKPROCS == 1)
 #define DEV2PORTS_MAP	\
 {			\
 	{"eth1", 0, 0},	\
 	{"eth2", 0, 1},	\
 	{"eth3", 0, 2},	\
 }
+#elif (PP2_SOC_NUM_PACKPROCS == 2)
+#define DEV2PORTS_MAP	\
+{			\
+	{"eth1", 0, 0},	\
+	{"eth2", 0, 1},	\
+	{"eth3", 0, 2},	\
+	{"eth4", 1, 0},	\
+	{"eth5", 1, 1},	\
+	{"eth6", 1, 2},	\
+}
+#else
+#error Illegal number of PPs!
+#endif /* (PP2_SOC_NUM_PACKPROCS == 1) */
 	struct port_desc ports_map[] = DEV2PORTS_MAP;
 	int		 i, num;
 
@@ -413,7 +429,7 @@ static int main_loop_sw_recycle(void *arg, volatile int *running)
 	}
 
 	while (*running) {
-		struct pp2_bpool	*pool = larg->pools[0][0];
+		struct pp2_bpool	*pool = larg->pools[larg->port_desc->pp_id][0];
 		struct tx_shadow_q	*shadow_q;
 #ifdef PKT_ECHO_SUPPORT
 		int			 prefetch_shift = larg->prefetch_shift;
@@ -552,6 +568,10 @@ static int init_all_modules(void)
 	pp2_params.bm_pool_reserved_map = PP2_BPOOLS_RSRV;
 	pp2_params.ppios[0][0].is_enabled = 1;
 	pp2_params.ppios[0][0].first_inq = 0;
+#if (PP2_SOC_NUM_PACKPROCS == 2)
+	pp2_params.ppios[1][0].is_enabled = 1;
+	pp2_params.ppios[1][0].first_inq = 0;
+#endif /* (PP2_SOC_NUM_PACKPROCS == 1) */
 	if ((err = pp2_init(&pp2_params)) != 0)
 		return err;
 
@@ -577,6 +597,8 @@ static int build_all_bpools(struct glob_arg *garg)
 		pr_err("no mem for bpools-inf array!\n");
 		return -ENOMEM;
 	}
+	garg->port_desc = malloc(sizeof(struct port_desc));
+
 	for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
 		garg->num_pools = ARRAY_SIZE(infs);
 		/* TODO: temporary W/A until we have map routines of bpools to ppios */
@@ -720,6 +742,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "ppio-%d:%d", port_desc.pp_id, port_desc.ppio_id);
+	memcpy(garg->port_desc, &port_desc, sizeof(port_desc));
 	pr_debug("found port: %s\n", name);
 	memset(&port_params, 0, sizeof(port_params));
 	port_params.match = name;
@@ -732,7 +755,7 @@ static int init_local_modules(struct glob_arg *garg)
 		inq_params.size = Q_SIZE;
 		port_params.inqs_params.tcs_params[0].inqs_params = &inq_params;
 		for (j=0; j<garg->num_pools; j++)
-			port_params.inqs_params.tcs_params[0].pools[j] = garg->pools[0][j];
+			port_params.inqs_params.tcs_params[0].pools[j] = garg->pools[garg->port_desc->pp_id][j];
 	}
 	port_params.outqs_params.num_outqs = PP2_MAX_NUM_TCS_PER_PORT;
 	for (i=0; i<port_params.outqs_params.num_outqs; i++) {
@@ -924,6 +947,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->pools             = garg->pools;
 	larg->buffs_inf         = garg->buffs_inf;
 	larg->garg              = garg;
+	larg->port_desc		= garg->port_desc;
 
 	larg->qs_map = garg->qs_map << (garg->qs_map_shift * id);
 	pr_debug("thread %d (cpu %d) mapped to Qs %llx using %s\n",
