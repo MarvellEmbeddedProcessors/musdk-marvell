@@ -63,14 +63,14 @@
  * Generic IO read/write.  These perform native-endian accesses.
 */
 
-static inline u8 __raw_readb(const volatile void __iomem *addr)
+static inline u8 __raw_mv_readb(const volatile void __iomem *addr)
 {
 	u8 val;
 	asm volatile("ldrb %w0, [%1]" : "=r" (val) : "r" (addr));
 	return val;
 }
 
-static inline u16 __raw_readw(const volatile void __iomem *addr)
+static inline u16 __raw_mv_readw(const volatile void __iomem *addr)
 {
 	u16 val;
 
@@ -78,36 +78,36 @@ static inline u16 __raw_readw(const volatile void __iomem *addr)
 	return val;
 }
 
-static inline u32 __raw_readl(const volatile void __iomem *addr)
+static inline u32 __raw_mv_readl(const volatile void __iomem *addr)
 {
 	u32 val;
 	asm volatile("ldr %w0, [%1]" : "=r" (val) : "r" (addr));
 	return val;
 }
 
-static inline u64 __raw_readq(const volatile void __iomem *addr)
+static inline u64 __raw_mv_readq(const volatile void __iomem *addr)
 {
 	u64 val;
 	asm volatile("ldr %0, [%1]" : "=r" (val) : "r" (addr));
 	return val;
 }
 
-static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
+static inline void __raw_mv_writeb(u8 val, volatile void __iomem *addr)
 {
 	asm volatile("strb %w0, [%1]" : : "r" (val), "r" (addr));
 }
 
-static inline void __raw_writew(u16 val, volatile void __iomem *addr)
+static inline void __raw_mv_writew(u16 val, volatile void __iomem *addr)
 {
 	asm volatile("strh %w0, [%1]" : : "r" (val), "r" (addr));
 }
 
-static inline void __raw_writel(u32 val, volatile void __iomem *addr)
+static inline void __raw_mv_writel(u32 val, volatile void __iomem *addr)
 {
 	asm volatile("str %w0, [%1]" : : "r" (val), "r" (addr));
 }
 
-static inline void __raw_writeq(u64 val, volatile void __iomem *addr)
+static inline void __raw_mv_writeq(u64 val, volatile void __iomem *addr)
 {
 	asm volatile("str %0, [%1]" : : "r" (val), "r" (addr));
 }
@@ -118,29 +118,29 @@ static inline void __raw_writeq(u64 val, volatile void __iomem *addr)
  * ordering rules but do not guarantee any ordering relative to Normal memory
  * accesses.
  */
-#define readb_relaxed(c)	({ u8  __r = __raw_readb(c); __r; })
-#define readw_relaxed(c)	({ u16 __r = le16toh(__raw_readw(c)); __r; })
-#define readl_relaxed(c)	({ u32 __r = le32toh(__raw_readl(c)); __r; })
-#define readq_relaxed(c)	({ u64 __r = le64toh(__raw_readq(c)); __r; })
+#define mv_readb_relaxed(c)	({ u8  __r = __raw_mv_readb(c); __r; })
+#define mv_readw_relaxed(c)	({ u16 __r = le16toh(__raw_mv_readw(c)); __r; })
+#define mv_readl_relaxed(c)	({ u32 __r = le32toh(__raw_mv_readl(c)); __r; })
+#define mv_readq_relaxed(c)	({ u64 __r = le64toh(__raw_mv_readq(c)); __r; })
 
-#define writeb_relaxed(v,c)	((void)__raw_writeb((v),(c)))
-#define writew_relaxed(v,c)	((void)__raw_writew(htole16(v),(c)))
-#define writel_relaxed(v,c)	((void)__raw_writel(htole32(v),(c)))
-#define writeq_relaxed(v,c)	((void)__raw_writeq(htole64(v),(c)))
+#define mv_writeb_relaxed(v,c)	((void)__raw_mv_writeb((v),(c)))
+#define mv_writew_relaxed(v,c)	((void)__raw_mv_writew(htole16(v),(c)))
+#define mv_writel_relaxed(v,c)	((void)__raw_mv_writel(htole32(v),(c)))
+#define mv_writeq_relaxed(v,c)	((void)__raw_mv_writeq(htole64(v),(c)))
 
 /*
  * I/O memory access primitives. Reads are ordered relative to any
  * following Normal memory access. Writes are ordered relative to any prior
  * Normal memory access.
  */
-#define readb(c)		({ u8  __v = readb_relaxed(c); __iormb(); __v; })
-#define readw(c)		({ u16 __v = readw_relaxed(c); __iormb(); __v; })
-#define readl(c)		({ u32 __v = readl_relaxed(c); __iormb(); __v; })
-#define readq(c)		({ u64 __v = readq_relaxed(c); __iormb(); __v; })
+#define mv_readb(c)		({ u8  __v = mv_readb_relaxed(c); __iormb(); __v; })
+#define mv_readw(c)		({ u16 __v = mv_readw_relaxed(c); __iormb(); __v; })
+#define mv_readl(c)		({ u32 __v = mv_readl_relaxed(c); __iormb(); __v; })
+#define mv_readq(c)		({ u64 __v = mv_readq_relaxed(c); __iormb(); __v; })
 
-#define writeb(v,c)		({ __iowmb(); writeb_relaxed((v),(c)); })
-#define writew(v,c)		({ __iowmb(); writew_relaxed((v),(c)); })
-#define writel(v,c)		({ __iowmb(); writel_relaxed((v),(c)); })
-#define writeq(v,c)		({ __iowmb(); writeq_relaxed((v),(c)); })
+#define mv_writeb(v,c)		({ __iowmb(); mv_writeb_relaxed((v),(c)); })
+#define mv_writew(v,c)		({ __iowmb(); mv_writew_relaxed((v),(c)); })
+#define mv_writel(v,c)		({ __iowmb(); mv_writel_relaxed((v),(c)); })
+#define mv_writeq(v,c)		({ __iowmb(); mv_writeq_relaxed((v),(c)); })
 
 #endif /* __IO_H__ */
