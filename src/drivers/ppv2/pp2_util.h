@@ -226,105 +226,58 @@ uint32_t __roundup_pow_of_two(uint32_t n)
 	__roundup_pow_of_two(n)			\
 )
 
-/**
- * is_multicast_ether_addr - Determine if the Ethernet address is a multicast.
- * @addr: Pointer to a six-byte array containing the Ethernet address
- *
- * Return true if the address is a multicast address.
- * By definition the broadcast address is also a multicast address.
- */
-static inline bool is_multicast_ether_addr(const uint8_t *addr)
+
+static inline bool mv_check_eaddr_mc(const uint8_t *eaddr)
 {
-	uint16_t a = *(const uint16_t *)addr;
+	uint16_t e_16 = *(const uint16_t *)eaddr;
 #ifdef __BIG_ENDIAN
-	return 0x01 & (a >> ((sizeof(a) * 8) - 8));
+	return 0x01 & (e_16 >> ((sizeof(e_16) * 8) - 8));
 #else
-	return 0x01 & a;
+	return 0x01 & e_16;
 #endif
 }
 
-/**
- * is_unicast_ether_addr - Determine if the Ethernet address is unicast
- * @addr: Pointer to a six-byte array containing the Ethernet address
- *
- * Return true if the address is a unicast address.
- */
-static inline bool is_unicast_ether_addr(const uint8_t *addr)
+
+static inline bool mv_check_eaddr_uc(const uint8_t *addr)
 {
-   return !is_multicast_ether_addr(addr);
+   return !mv_check_eaddr_mc(addr);
 }
 
-/**
- * is_broadcast_ether_addr - Determine if the Ethernet address is broadcast
- * @addr: Pointer to a six-byte array containing the Ethernet address
- *
- * Return true if the address is the broadcast address.
- *
- * Please note: addr must be aligned to uint16_t.
- */
-static inline bool is_broadcast_ether_addr(const uint8_t *addr)
+
+static inline bool mv_check_eaddr_bc(const uint8_t *eaddr)
 {
-	return (*(const uint16_t *)(addr + 0) &
-		*(const uint16_t *)(addr + 2) &
-		*(const uint16_t *)(addr + 4)) == 0xffff;
+	return (*(const uint16_t *)(eaddr + 0) &
+		*(const uint16_t *)(eaddr + 2) &
+		*(const uint16_t *)(eaddr + 4)) == 0xffff;
 }
 
-/**
- * is_zero_ether_addr - Determine if give Ethernet address is all zeros.
- * @addr: Pointer to a six-byte array containing the Ethernet address
- *
- * Return true if the address is all zeroes.
- */
-static inline int is_zero_ether_addr(const uint8_t *addr)
+
+static inline int mv_check_eaddr_zero(const uint8_t *eaddr)
 {
-   return !(addr[0] | addr[1] | addr[2] | addr[3] | addr[4] | addr[5]);
+   return !(eaddr[0] | eaddr[1] | eaddr[2] | eaddr[3] | eaddr[4] | eaddr[5]);
 }
 
-/**
- * ether_addr_equal - Compare two Ethernet addresses
- * @addr1: Pointer to a six-byte array containing the Ethernet address
- * @addr2: Pointer other six-byte array containing the Ethernet address
- *
- * Compare two Ethernet addresses, returns true if equal
- *
- * Please note: addr1 & addr2 must both be aligned to uint16_t.
- */
-static inline bool ether_addr_equal(const uint8_t *addr1, const uint8_t *addr2)
+
+static inline bool mv_eaddr_identical(const uint8_t *eaddr1, const uint8_t *eaddr2)
 {
-   const uint16_t *a = (const uint16_t *)addr1;
-   const uint16_t *b = (const uint16_t *)addr2;
-   return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) == 0;
+   const uint16_t *e1_16 = (const uint16_t *)eaddr1;
+   const uint16_t *e2_16 = (const uint16_t *)eaddr2;
+   return ((e1_16[0] ^ e2_16[0]) | (e1_16[1] ^ e2_16[1]) | (e1_16[2] ^ e2_16[2])) == 0;
 }
 
-/**
- * is_valid_ether_addr - Determine if the given Ethernet address is valid
- * @addr: Pointer to a six-byte array containing the Ethernet address
- *
- * Check that the Ethernet address (MAC) is not 00:00:00:00:00:00, is not
- * a multicast address, and is not FF:FF:FF:FF:FF:FF.
- *
- * Return true if the address is valid.
- */
-static inline int is_valid_ether_addr(const uint8_t *addr)
+static inline int mv_check_eaddr_valid(const uint8_t *addr)
 {
-   return !is_multicast_ether_addr(addr) && !is_zero_ether_addr(addr);
+   return !mv_check_eaddr_mc(addr) && !mv_check_eaddr_zero(addr);
 }
 
-/**
-  * ether_addr_copy - Copy an Ethernet address
-  * @dst: Pointer to a six-byte array Ethernet address destination
-  * @src: Pointer to a six-byte array Ethernet address source
-  *
-  * Please note: dst & src must both be aligned to u16.
-  */
-static inline void ether_addr_copy(uint8_t *dst, const uint8_t *src)
+static inline void mv_cp_eaddr(uint8_t *dest, const uint8_t *source)
 {
-	 uint16_t *a = (uint16_t *)dst;
-	 const uint16_t *b = (const uint16_t *)src;
+	 uint16_t *dst_16 = (uint16_t *)dest;
+	 const uint16_t *src_16 = (const uint16_t *)source;
 
-	 a[0] = b[0];
-	 a[1] = b[1];
-	 a[2] = b[2];
+	 dst_16[0] = src_16[0];
+	 dst_16[1] = src_16[1];
+	 dst_16[2] = src_16[2];
 }
 
 #endif /* __PP2_UTIL_H__ */

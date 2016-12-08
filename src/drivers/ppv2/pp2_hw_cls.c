@@ -1436,9 +1436,9 @@ int mv_pp2x_prs_mac_da_accept(struct pp2_hw *hw, int port,
 		mv_pp2x_prs_tcam_data_byte_set(pe, len, da[len], 0xff);
 
 	/* Set result info bits */
-	if (is_broadcast_ether_addr(da))
+	if (mv_check_eaddr_bc(da))
 		ri = MVPP2_PRS_RI_L2_BCAST;
-	else if (is_multicast_ether_addr(da))
+	else if (mv_check_eaddr_mc(da))
 		ri = MVPP2_PRS_RI_L2_MCAST;
 	else
 		ri = MVPP2_PRS_RI_L2_UCAST | MVPP2_PRS_RI_MAC_ME_MASK;
@@ -5215,11 +5215,11 @@ int mv_pp2x_prs_update_mac_da(struct pp2_port *port, const uint8_t *da)
    struct pp2_mac_data *mac = &port->mac_data;
    struct pp2_hw *hw = &port->parent->hw;
 
-   if (ether_addr_equal(da, mac->mac))
+   if (mv_eaddr_identical(da, mac->mac))
       return 0;
 
    /* Store current MAC */
-   ether_addr_copy(old_da, mac->mac);
+   mv_cp_eaddr(old_da, mac->mac);
 
    /* Remove old parser entry */
    err = mv_pp2x_prs_mac_da_accept(hw, port->id, mac->mac, false);
@@ -5227,13 +5227,13 @@ int mv_pp2x_prs_update_mac_da(struct pp2_port *port, const uint8_t *da)
       return err;
 
    /* Set addr in the device */
-   ether_addr_copy(mac->mac, da);
+   mv_cp_eaddr(mac->mac, da);
 
    /* Add new parser entry */
    err = mv_pp2x_prs_mac_da_accept(hw, port->id, da, true);
    if (err) {
       /* Restore addr in the device */
-      ether_addr_copy(mac->mac, old_da);
+      mv_cp_eaddr(mac->mac, old_da);
       return err;
    }
 
@@ -5242,14 +5242,14 @@ int mv_pp2x_prs_update_mac_da(struct pp2_port *port, const uint8_t *da)
 
 static bool mv_pp2x_mac_in_uc_list(struct pp2_port *port, const uint8_t *da)
 {
-   if (ether_addr_equal(da, (const uint8_t *)&port->mac_data.mac))
+   if (mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac))
       return true;
    return false;
 }
 
 static bool mv_pp2x_mac_in_mc_list(struct pp2_port *port, const uint8_t *da)
 {
-   if (ether_addr_equal(da, (const uint8_t *)&port->mac_data.mac))
+   if (mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac))
       return true;
    return false;
 }
@@ -5283,8 +5283,8 @@ void mv_pp2x_prs_mac_entry_del(struct pp2_port *port,
       switch (l2_cast) {
          case MVPP2_PRS_MAC_UC:
             /* Do not delete M2M entry */
-            if (is_unicast_ether_addr(da) &&
-                  !ether_addr_equal(da, (const uint8_t *)&port->mac_data.mac)) {
+            if (mv_check_eaddr_uc(da) &&
+                  !mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac)) {
                if (op == MVPP2_DEL_MAC_NOT_IN_LIST &&
                      mv_pp2x_mac_in_uc_list(port, da))
                   continue;
@@ -5293,8 +5293,8 @@ void mv_pp2x_prs_mac_entry_del(struct pp2_port *port,
             }
             break;
          case MVPP2_PRS_MAC_MC:
-            if (is_multicast_ether_addr(da) &&
-                  !is_broadcast_ether_addr(da)) {
+            if (mv_check_eaddr_mc(da) &&
+                  !mv_check_eaddr_bc(da)) {
                if (op == MVPP2_DEL_MAC_NOT_IN_LIST &&
                      mv_pp2x_mac_in_mc_list(port, da))
                   continue;
@@ -5303,7 +5303,7 @@ void mv_pp2x_prs_mac_entry_del(struct pp2_port *port,
             }
             break;
          case MVPP2_PRS_MAC_BC:
-            if (is_broadcast_ether_addr(da))
+            if (mv_check_eaddr_bc(da))
                /* Delete this entry */
                mv_pp2x_prs_mac_da_accept(hw, port->id, da, false);
             break;

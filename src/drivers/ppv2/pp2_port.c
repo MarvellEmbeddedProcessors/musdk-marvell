@@ -1426,7 +1426,7 @@ int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
     int err = 0;
 
-    if (!is_valid_ether_addr(addr)) {
+    if (!mv_check_eaddr_valid(addr)) {
         pp2_err("PORT: not a valid eth address\n");
         return -EINVAL;
     }
@@ -1458,7 +1458,7 @@ int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
 /* Get MAC address */
 void pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 {
-    ether_addr_copy(addr, (const uint8_t *)port->mac_data.mac);
+    mv_cp_eaddr(addr, (const uint8_t *)port->mac_data.mac);
 }
 
 /* Set and update the port MTU */
@@ -1626,16 +1626,16 @@ void pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
 /* Remove MAC address */
 int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
-    if (!is_valid_ether_addr(addr)) {
+    if (!mv_check_eaddr_valid(addr)) {
         pp2_err("PORT: not a valid eth address\n");
         return -EINVAL;
     }
 
-    if (is_unicast_ether_addr(addr))
+    if (mv_check_eaddr_uc(addr))
         mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_UC, MVPP2_DEL_MAC_NOT_IN_LIST);
-    else if (is_multicast_ether_addr(addr))
+    else if (mv_check_eaddr_mc(addr))
         mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_MC, MVPP2_DEL_MAC_NOT_IN_LIST);
-    else if (is_broadcast_ether_addr(addr))
+    else if (mv_check_eaddr_bc(addr))
         mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_BC, MVPP2_DEL_MAC_NOT_IN_LIST);
 
     return 0;
