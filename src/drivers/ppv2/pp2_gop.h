@@ -221,7 +221,7 @@ static inline uint32_t pp2_gop_gen_read(uintptr_t base, uint32_t offset)
 	uintptr_t reg_ptr = base + offset;
 	uint32_t val;
 
-	val = mv_readl((void *)reg_ptr);
+	val = readl((void *)reg_ptr);
 	return val;
 }
 
@@ -230,7 +230,7 @@ static inline void pp2_gop_gen_write(uintptr_t base, uint32_t offset,
 {
 	uintptr_t reg_ptr = base + offset;
 
-	mv_writel(data, (void *)reg_ptr);
+	writel(data, (void *)reg_ptr);
 }
 
 /** GOP port configuration functions */

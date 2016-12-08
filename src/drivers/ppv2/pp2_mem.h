@@ -148,7 +148,7 @@ static inline void pp2_reg_write(uintptr_t cpu_slot, uint32_t offset,
 {
 	uintptr_t addr = cpu_slot + offset;
 
-	mv_writel(data, (void *)addr);
+	writel(data, (void *)addr);
 }
 
 /**
@@ -183,7 +183,7 @@ static inline uint32_t pp2_reg_read(uintptr_t cpu_slot, uint32_t offset)
 {
 	uintptr_t addr = cpu_slot + offset;
 
-	return mv_readl((void *)addr);
+	return readl((void *)addr);
 }
 /**
  * Packet Processor register relaxed read function
