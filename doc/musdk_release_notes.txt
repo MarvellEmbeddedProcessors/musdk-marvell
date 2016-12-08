@@ -18,13 +18,11 @@ Supported SoCs
 
 Release Content
 ---------------
-	- Binaries:
-		- binaries-armv8le-musdk-a70x0-a80x0-16.12.1.zip - includes all related binaries
-	- Source:
+	- Sources:
 		- musdk-devel-16.12.1.zip - includes full sources of MUSDK package.
 	- Documentation:
-		- musdk-html-16.12.1.zip - includes user documentation and API reference in HTML format.
-		- To get started with guide, unzip the package, open "doc/html.index" and navigate from there.
+		- doc/musdk-html-16.12.1.zip - includes user documentation and API reference in HTML format.
+		- To get started with guide, unzip the package, open "html.index" and navigate from there.
 
 
 Supported Features
@@ -36,7 +34,7 @@ Supported Features
 	- Single traffic class
 	- L4 checksum offload
 	- MUSDK and kernel ports may operate together
-	- MAC addresses currently hard-coded 
+	- MAC addresses currently hard-coded
 	- Tested on 10G ports of A7040 and A8040
 	- Packet-echo test application
 

@@ -9,7 +9,7 @@ Getting Started with MUSDK
 		CONFIG_MVPP2X=y
 		CONFIG_UIO=y
 
-1.2. Apply all patches in: "<musdk-src-dir>/patches/linux"
+1.2. Apply all patches in: "<musdk-dir>/patches/linux"
 
 Note: "0003-patch-dts-set-port0-status-non-kernel.patch" is an _example_ how to configure
 	the PPV2 ports that belong to musdk.
@@ -22,12 +22,12 @@ Note: "0003-patch-dts-set-port0-status-non-kernel.patch" is an _example_ how to 
 --------------------------------
 2.1. Build the MUSDK UIO kernel module and install it:
 
-		=> cd <musdk-src-dir>/modules/uio
+		=> cd <musdk-dir>/modules/uio
 		=> make
 
 2.2. Build the PP2-tmp kernel module and install it:
 
-		=> cd <musdk-src-dir>/modules/pp2
+		=> cd <musdk-dir>/modules/pp2
 		=> make
 
 3. Install and build EIP197 DDK
@@ -69,7 +69,7 @@ For more details please refer chapter "Build Process" in the document: "eip197-R
 
 4.2 Build the MUSDK package:
 
-		=> cd <musdk-src-dir>
+		=> cd <musdk-dir>
 		=> ./bootstrap
 		=> ./configure
 
