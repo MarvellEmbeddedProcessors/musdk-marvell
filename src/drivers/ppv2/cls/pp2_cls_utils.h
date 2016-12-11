@@ -65,6 +65,9 @@ struct pp2_cls_enum_array_t {
 /*			PROTOTYPE						*/
 /********************************************************************************/
 u32 common_mask_gen(int bit_num);
+const char *pp2_utils_eng_no_str_get(int value);
+const char *pp2_utils_field_id_str_get(int value);
+const char *pp2_utils_valid_str_get(int value);
 const char *pp2_cls_utils_field_match_str_get(int value);
 const char *pp2_cls_utils_field_id_str_get(int value);
 const char *pp2_cls_utils_port_type_str_get(int value);

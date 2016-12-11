@@ -43,11 +43,12 @@
 #ifndef _PP2_CLS_DB_H_
 #define _PP2_CLS_DB_H_
 
+#define MVPP2_MNG_FLOW_ID_MAX 50
 /********************************************************************************/
 /*			MACROS							*/
 /********************************************************************************/
 /*PP2 CLS DB init module definition */
-#define PP2_CLS_DB_INIT_INVALID_VALUE	(0)	/* Default PP2 CLS DB invalid value	*/
+#define MVPP2_CLS_DB_INIT_INVALID_VALUE	(0)	/* Default PP2 CLS DB invalid value	*/
 
 /********************************************************************************/
 /*			ENUMERATIONS						*/
@@ -65,9 +66,55 @@ struct pp2_cls_db_c3_t {
 	struct pp2_cls_c3_logic_index_entry_t	logic_idx_tbl[MVPP2_CLS_C3_HASH_TBL_SIZE];	/* tbl for logic idx */
 };
 
+
+/* CLS module db structure */
+struct pp2_db_cls_fl_ctrl_t {
+	u16			fl_max_len;			/* the max flow length		*/
+	u16			lkp_dcod_en;			/* swap section index		*/
+	u16			f_start;			/* free start index		*/
+	u16			f_end;				/* free end index		*/
+};
+
+struct pp2_db_cls_lkp_dcod_t {
+	bool			enabled;			/* enabled flag			*/
+	u8			cpu_q;				/* CPU queue			*/
+	u8			way;				/* entry way			*/
+	u8			flow_alloc_len;			/* flow allocation length	*/
+	u8			flow_len;			/* flow current length		*/
+	u16			flow_off;			/* flow offset			*/
+	u16			luid_num;			/* Lookup ID number		*/
+	struct pp2_cls_luid_conf_t	luid_list[MVPP2_CLS_LOG_FLOW_LUID_MAX];/* Lookup ID list		*/
+};
+
+struct pp2_db_cls_fl_rule_t {
+	u16			port_type;			/* port type			*/
+	u16			port_bm;			/* port bitmap			*/
+	u16			lu_type;	/* lookup type			*/
+	bool				enabled;		/* enable flag			*/
+	u8			prio;	/* HW priority			*/
+	u8			engine;	/* rule engine			*/
+	u8			field_id_cnt;			/* field ID count		*/
+	u8			field_id[MVPP2_FLOW_FIELD_COUNT_MAX];/* field IDs			*/
+	u16			ref_cnt[MVPP2_MAX_NUM_GMACS];	/* reference count		*/
+	u16			rl_log_id;			/* rule logical id              */
+};
+
+struct pp2_db_cls_fl_rule_list_t {
+	struct pp2_db_cls_fl_rule_t	flow[MVPP2_CLS_FLOW_RULE_MAX];	/* flow rules			*/
+	u16			flow_len;			/* flow length			*/
+};
+
+
+struct pp2_cls_db_cls_t {
+	struct pp2_db_cls_fl_ctrl_t	fl_ctrl;			/* flow control DB		*/
+	struct pp2_db_cls_fl_rule_t	fl_rule[MVPP2_FLOW_TBL_SIZE];/*CLS rule DB		*/
+	u16			log2off[MVPP2_CLS_LOG2OFF_TBL_SIZE];/* logical rule ID to offset	*/
+	struct pp2_db_cls_lkp_dcod_t	lkp_dcod[MVPP2_MNG_FLOW_ID_MAX];	/* lookup decode DB	*/
+};
 struct pp2_cls_db_t {
 	enum pp2_cls_module_state_t	pp2_cls_module_init_state;	/* PP2_CLS module init state	*/
 	struct pp2_cls_db_c3_t	c3_db;			/* PP2_CLS module C3 db		*/
+	struct pp2_cls_db_cls_t	cls_db;			/* PP2_CLS module CLS db		*/
 };
 
 /********************************************************************************/
@@ -89,6 +136,22 @@ int pp2_cls_db_c3_scan_param_get(struct pp2_cls_c3_scan_config_t *scan_config);
 int pp2_cls_db_c3_search_depth_set(u32 search_depth);
 int pp2_cls_db_c3_search_depth_get(u32 *search_depth);
 int pp2_cls_db_c3_init(void);
+
+/* CLS section */
+void pp2_db_cls_init(void);
+int  pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl);
+int  pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl);
+int  pp2_db_cls_fl_rule_set(u32 idx, struct pp2_db_cls_fl_rule_t *fl_rule);
+int  pp2_db_cls_fl_rule_get(u32 idx, struct pp2_db_cls_fl_rule_t *fl_rule);
+int  pp2_db_cls_fl_rule_list_get(u32 idx, u32 len, struct pp2_db_cls_fl_rule_t *fl_rl_list);
+int  pp2_db_cls_lkp_dcod_set(u32 idx, struct pp2_db_cls_lkp_dcod_t *lkp_dcod);
+int  pp2_db_cls_lkp_dcod_get(u32 idx, struct pp2_db_cls_lkp_dcod_t *lkp_dcod);
+int  pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t	*lkp_dcod);
+void pp2_db_cls_rl_off_init(void);
+int  pp2_db_cls_rl_off_free_nr(u32 *free_nr);
+int  pp2_db_cls_rl_off_free_set(u16 off, u16 *log);
+int  pp2_db_cls_rl_off_get(u16 *off, u16 log);
+int  pp2_db_cls_rl_off_set(u16 off, u16 log);
 
 /* DB general section */
 int pp2_cls_db_init(void);

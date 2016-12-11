@@ -66,6 +66,15 @@
 /********************************************************************************/
 /*			ENUMERATIONS						*/
 /********************************************************************************/
+enum pp2_cls_gmacs_enum_t {
+	MVPP2_INVALID_GMAC = -1,
+	MVPP2_ENUM_GMAC_0,
+	MVPP2_ENUM_GMAC_1,
+	MVPP2_ENUM_GMAC_LPK,
+	MVPP2_ENUM_PMAC = 7,
+	MVPP2_MAX_GMAC = MVPP2_ENUM_PMAC,
+	MVPP2_MAX_NUM_GMACS
+};
 
 enum pp2_cls_field_match_t {
 	/* L2 */
@@ -193,6 +202,16 @@ union pp2_cls_ipvx_add {
 	u8   ipv6[16];	/* IPV6 Address */
 };
 
+/* Port definition */
+/*------------------------------------------------------------------------------*/
+enum pp2_cls_pp_port_t {
+	MVPP2_PP_DROP     = 0x0000,	/* Drop packet */
+	MVPP2_PP_GMAC0    = 0x0001,	/* Packet Processor GMAC0 */
+	MVPP2_PP_GMAC1    = 0x0002,	/* Packet Processor GMAC1 */
+	MVPP2_PP_PMAC     = 0x0004,	/* Packet Processor PON_MAC */
+	MVPP2_PP_LPBK     = 0x0008,	/* Packet Processor Loopback Port */
+	MVPP2_PP_CPU      = 0x0010	/* CPU */
+};
 /* Capability definition */
 /*------------------------------------------------------------------------------*/
 enum pp2_cls_vlan_num_enum_t {
@@ -272,6 +291,10 @@ struct pp2_cls_5t_t {
 	union pp2_cls_ipvx_add	ip_dst;		/* Destination IP address */
 };
 
+struct pp2_cls_class_port_t {
+	enum pp2_cls_class_port_type_t	port_type;
+	u32			class_port;
+};
 struct pp2_cls_exact_match_t {
 	u32				rule_type;
 	struct mv_pp2x_src_port		port;

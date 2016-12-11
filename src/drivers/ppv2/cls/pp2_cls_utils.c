@@ -49,6 +49,20 @@
 
 char g_unknown_str[] = "<unknown>";
 
+static struct pp2_cls_enum_str_t g_enum_eng_name[] = {
+	{MVPP2_ENGINE_C2, "C2"},
+	{MVPP2_ENGINE_C3_A, "C3_A"},
+	{MVPP2_ENGINE_C3_B, "C3_B"},
+	{MVPP2_ENGINE_C4, "C4"},
+	{MVPP2_ENGINE_C3_HA, "C3_HA"},
+	{MVPP2_ENGINE_C3_HB, "C3_HB"},
+};
+
+static struct pp2_cls_enum_str_t g_enum_valid[] = {
+	{ 0, "no "},
+	{ 1, "yes"},
+};
+
 static struct pp2_cls_enum_str_t g_enum_field_match[] = {
 	{ MVPP2_MATCH_ETH_DST,		"ETH_DST"	},
 	{ MVPP2_MATCH_ETH_SRC,		"ETH_SRC"	},
@@ -232,6 +246,21 @@ static const char *lookup_enum_str(struct pp2_cls_enum_str_t enum_str[], int enu
 			return enum_str[idx].enum_str;
 	}
 	return g_unknown_str;
+}
+
+const char *pp2_utils_eng_no_str_get(int value)
+{
+	return lookup_enum_str(g_enum_eng_name, MVPP2_MEMBER_NUM(g_enum_eng_name), value);
+}
+
+const char *pp2_utils_field_id_str_get(int value)
+{
+	return lookup_enum_str(g_enum_field_id, MVPP2_MEMBER_NUM(g_enum_field_id), value);
+}
+
+const char *pp2_utils_valid_str_get(int value)
+{
+	return lookup_enum_str(g_enum_valid, MVPP2_MEMBER_NUM(g_enum_valid), value);
 }
 
 const char *pp2_cls_utils_field_match_str_get(int value)

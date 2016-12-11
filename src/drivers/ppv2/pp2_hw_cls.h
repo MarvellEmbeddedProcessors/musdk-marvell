@@ -50,6 +50,7 @@
 #include "cls/pp2_cls_internal_types.h"
 #include "cls/pp2_cls_common.h"
 #include "cls/pp2_cls_utils.h"
+#include "cls/pp2_flow_rules.h"
 #include "cls/pp2_c3.h"
 #include "cls/pp2_cls_db.h"
 
@@ -171,11 +172,33 @@ int mv_pp2x_c2_init(struct pp2_hw *hw);
 void mv_pp2x_cls_oversize_rxq_set(struct pp2_port *port);
 void mv_pp2x_cls_port_config(struct pp2_port *port);
 int mv_pp2x_prs_flow_id_attr_get(int flow_id);
+int mv_pp2x_cls_sw_flow_port_set(struct mv_pp2x_cls_flow_entry *fe, int type, int portid);
+int mv_pp2x_cls_sw_flow_port_get(struct mv_pp2x_cls_flow_entry *fe, int *type, int *portid);
+int mv_pp2x_cls_sw_flow_portid_select(struct mv_pp2x_cls_flow_entry *fe, int from);
 int mv_pp2x_cls_sw_flow_hek_num_set(struct mv_pp2x_cls_flow_entry *fe, int num_of_fields);
+int mv_pp2x_cls_sw_flow_hek_get(struct mv_pp2x_cls_flow_entry *fe, int *num_of_fields, int field_ids[]);
 int mv_pp2x_cls_sw_flow_hek_set(struct mv_pp2x_cls_flow_entry *fe, int field_index, int field_id);
+int mv_pp2x_cls_sw_flow_seq_ctrl_set(struct mv_pp2x_cls_flow_entry *fe, int mode);
+int mv_pp2x_cls_sw_flow_seq_ctrl_get(struct mv_pp2x_cls_flow_entry *fe, int *mode);
+int mv_pp2x_cls_sw_flow_engine_set(struct mv_pp2x_cls_flow_entry *fe, int engine, int is_last);
+int mv_pp2x_cls_sw_flow_engine_get(struct mv_pp2x_cls_flow_entry *fe, int *engine, int *is_last);
+int mv_pp2x_cls_sw_flow_extra_get(struct mv_pp2x_cls_flow_entry *fe, int *type, int *prio);
+int mv_pp2x_cls_sw_flow_extra_set(struct mv_pp2x_cls_flow_entry *fe, int type, int prio);
+int mv_pp2x_cls_hw_flow_write(uintptr_t cpu_slot, struct mv_pp2x_cls_flow_entry *fe);
+int mv_pp2x_cls_hw_flow_read(uintptr_t cpu_slot, int index, struct mv_pp2x_cls_flow_entry *fe);
 void mv_pp2x_cls_flow_write(struct pp2_hw *hw, struct mv_pp2x_cls_flow_entry *fe);
+int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe);
+int mv_pp2x_cls_hw_flow_hits_dump(uintptr_t cpu_slot);
+int mv_pp2x_cls_hw_lkp_hit_get(uintptr_t cpu_slot, int lkpid, unsigned int *cnt);
+void mv_pp2x_cls_sw_flow_clear(struct mv_pp2x_cls_flow_entry *fe);
+int mv_pp2x_cls_hw_lkp_clear_all(uintptr_t cpu_slot);
+int mv_pp2x_cls_hw_flow_clear_all(uintptr_t cpu_slot);
 void mv_pp2x_cls_flow_tbl_config(struct pp2_hw *hw);
 void mv_pp2x_cls_lookup_read(struct pp2_hw *hw, int lkpid, int way, struct mv_pp2x_cls_lookup_entry *le);
+int mv_pp2x_cls_hw_lkp_write(uintptr_t cpu_slot, struct mv_pp2x_cls_lookup_entry *fe);
+int mv_pp2x_cls_hw_lkp_read(uintptr_t cpu_slot, int lkpid, int way, struct mv_pp2x_cls_lookup_entry *fe);
+void mv_pp2x_cls_sw_lkp_clear(struct mv_pp2x_cls_lookup_entry *fe);
+int mv_pp2x_cls_hw_lkp_clear(uintptr_t cpu_slot, int lkpid, int way);
 int mv_pp2x_cls_c2_qos_hw_write(struct pp2_hw *hw, struct mv_pp2x_cls_c2_qos_entry *qos);
 void mv_pp2x_prs_hw_inv(struct pp2_hw *hw, int index);
 int mv_pp2x_prs_mac_da_accept(struct pp2_hw *hw, int port, const uint8_t *da, bool add);
@@ -186,6 +209,16 @@ void mv_pp2x_prs_mac_entry_del(struct pp2_port *port, enum mv_pp2x_l2_cast l2_ca
 int mv_pp2x_open_cls(struct pp2_port *port);
 void ppdk_cls_default_config_set(struct pp2_inst *inst);
 void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en);
+int mv_pp2x_cls_sw_lkp_rxq_get(struct mv_pp2x_cls_lookup_entry *lkp, int *rxq);
+int mv_pp2x_cls_sw_lkp_rxq_set(struct mv_pp2x_cls_lookup_entry *lkp, int rxq);
+int mv_pp2x_cls_sw_lkp_mod_get(struct mv_pp2x_cls_lookup_entry *le, int *mod_base);
+int mv_pp2x_cls_sw_lkp_flow_get(struct mv_pp2x_cls_lookup_entry *le, int *flow_idx);
+int mv_pp2x_cls_sw_lkp_flow_set(struct mv_pp2x_cls_lookup_entry *lkp, int flow_idx);
+int mv_pp2x_cls_sw_lkp_en_get(struct mv_pp2x_cls_lookup_entry *le, int *en);
+int mv_pp2x_cls_sw_lkp_en_set(struct mv_pp2x_cls_lookup_entry *lkp, int en);
+int mv_pp2x_cls_hw_cls_enable(uintptr_t cpu_slot, uint32_t en);
+int mv_pp2x_cls_hw_lkp_dump(uintptr_t cpu_slot);
+int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot);
 
 /*-------------------------------------------------------------------------------*/
 /*	C3 Common utilities							  */

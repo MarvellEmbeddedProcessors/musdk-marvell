@@ -449,7 +449,7 @@ int mv_pp2x_range_validate(int value, int min, int max)
 
 /*------------------------------------------------------------------*/
 
-int mv_pp2x_cls_hw_lkp_read(struct pp2_hw *hw, int lkpid, int way,
+int mv_pp2x_cls_hw_lkp_read(uintptr_t cpu_slot, int lkpid, int way,
 			    struct mv_pp2x_cls_lookup_entry *fe)
 {
 	unsigned int reg_val = 0;
@@ -467,38 +467,85 @@ int mv_pp2x_cls_hw_lkp_read(struct pp2_hw *hw, int lkpid, int way,
 	/* write index reg */
 	reg_val = (way << MVPP2_CLS_LKP_INDEX_WAY_OFFS) |
 	    (lkpid << MVPP2_CLS_LKP_INDEX_LKP_OFFS);
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS_LKP_INDEX_REG, reg_val);
+	pp2_reg_write(cpu_slot, MVPP2_CLS_LKP_INDEX_REG, reg_val);
 
 	fe->way = way;
 	fe->lkpid = lkpid;
 
-	fe->data = pp2_reg_read(hw->base[0].va, MVPP2_CLS_LKP_TBL_REG);
+	fe->data = pp2_reg_read(cpu_slot, MVPP2_CLS_LKP_TBL_REG);
 
 	return 0;
 }
 
-int mv_pp2x_cls_hw_lkp_write(struct pp2_hw *hw, int lkpid,
-			     int way, struct mv_pp2x_cls_lookup_entry *fe)
+int mv_pp2x_cls_hw_lkp_write(uintptr_t cpu_slot, struct mv_pp2x_cls_lookup_entry *fe)
 {
-	unsigned int reg_val = 0;
+	u32 reg_val = 0;
 
 	if (mv_pp2x_ptr_validate(fe) == MV_ERROR)
 		return MV_ERROR;
 
-	if (mv_pp2x_range_validate(way, 0, 1) == MV_ERROR)
+	if (mv_pp2x_range_validate(fe->way, 0, 1) == MV_ERROR)
 		return MV_ERROR;
 
-	if (mv_pp2x_range_validate(lkpid, 0,
+	if (mv_pp2x_range_validate(fe->lkpid, 0,
 				   MVPP2_CLS_FLOWS_TBL_SIZE) == MV_ERROR)
 		return MV_ERROR;
 
 	/* write index reg */
-	reg_val = (way << MVPP2_CLS_LKP_INDEX_WAY_OFFS) |
-	    (lkpid << MVPP2_CLS_LKP_INDEX_LKP_OFFS);
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS_LKP_INDEX_REG, reg_val);
+	reg_val = (fe->way << MVPP2_CLS_LKP_INDEX_WAY_OFFS) |
+	    (fe->lkpid << MVPP2_CLS_LKP_INDEX_LKP_OFFS);
+	pp2_reg_write(cpu_slot, MVPP2_CLS_LKP_INDEX_REG, reg_val);
 
 	/* write flow_id reg */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS_LKP_TBL_REG, fe->data);
+	pp2_reg_write(cpu_slot, MVPP2_CLS_LKP_TBL_REG, fe->data);
+
+	return 0;
+}
+
+void mv_pp2x_cls_sw_lkp_clear(struct mv_pp2x_cls_lookup_entry *fe)
+{
+	memset(fe, 0, sizeof(struct mv_pp2x_cls_lookup_entry));
+}
+
+int mv_pp2x_cls_hw_lkp_clear(uintptr_t cpu_slot, int lkpid, int way)
+{
+	struct mv_pp2x_cls_lookup_entry fe;
+
+	if (mv_pp2x_range_validate(lkpid, 0,
+				   MVPP2_CLS_FLOWS_TBL_SIZE) == MV_ERROR)
+		return -EINVAL;
+	if (mv_pp2x_range_validate(way, 0, 1) == MV_ERROR)
+		return -EINVAL;
+
+	/* clear entry */
+	mv_pp2x_cls_sw_lkp_clear(&fe);
+	fe.lkpid = lkpid;
+	fe.way = way;
+	mv_pp2x_cls_hw_lkp_write(cpu_slot, &fe);
+
+	return 0;
+}
+
+int mv_pp2x_cls_hw_lkp_clear_all(uintptr_t cpu_slot)
+{
+	int lkpid;
+
+	for (lkpid = 0; lkpid < MVPP2_CLS_LKP_TBL_SIZE; lkpid++) {
+		if (mv_pp2x_cls_hw_lkp_clear(cpu_slot, lkpid, 0))
+			return -EINVAL;
+		if (mv_pp2x_cls_hw_lkp_clear(cpu_slot, lkpid, 1))
+			return -EINVAL;
+	}
+	return 0;
+}
+
+int mv_pp2x_cls_hw_cls_enable(uintptr_t cpu_slot, uint32_t en)
+{
+	if (mv_pp2x_range_validate(en, 0, 1) == MV_ERROR)
+		return -EINVAL;
+
+	/* Enable classifier */
+	pp2_reg_write(cpu_slot, MVPP2_CLS_MODE_REG, en);
 
 	return 0;
 }
@@ -533,6 +580,32 @@ int mv_pp2x_cls_sw_lkp_rxq_set(struct mv_pp2x_cls_lookup_entry *lkp, int rxq)
 	return 0;
 }
 
+int mv_pp2x_cls_sw_lkp_mod_get(struct mv_pp2x_cls_lookup_entry *le, int *mod_base)
+{
+	if (mv_pp2x_ptr_validate(le) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(mod_base) == MV_ERROR)
+		return MV_ERROR;
+
+	*mod_base = (le->data & MVPP2_FLOWID_MODE_MASK) >> MVPP2_FLOWID_MODE;
+
+	return 0;
+}
+
+int mv_pp2x_cls_sw_lkp_flow_get(struct mv_pp2x_cls_lookup_entry *le, int *flow_idx)
+{
+	if (mv_pp2x_ptr_validate(le) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(flow_idx) == MV_ERROR)
+		return MV_ERROR;
+
+	*flow_idx = (le->data & MVPP2_FLOWID_FLOW_MASK) >> MVPP2_FLOWID_FLOW;
+
+	return 0;
+}
+
 int mv_pp2x_cls_sw_lkp_flow_set(struct mv_pp2x_cls_lookup_entry *lkp,
 				int flow_idx)
 {
@@ -545,6 +618,19 @@ int mv_pp2x_cls_sw_lkp_flow_set(struct mv_pp2x_cls_lookup_entry *lkp,
 
 	lkp->data &= ~MVPP2_FLOWID_FLOW_MASK;
 	lkp->data |= (flow_idx << MVPP2_FLOWID_FLOW);
+
+	return 0;
+}
+
+int mv_pp2x_cls_sw_lkp_en_get(struct mv_pp2x_cls_lookup_entry *le, int *en)
+{
+	if (mv_pp2x_ptr_validate(le) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(en) == MV_ERROR)
+		return MV_ERROR;
+
+	*en = (le->data & MVPP2_FLOWID_EN_MASK) >> MVPP2_FLOWID_EN;
 
 	return 0;
 }
@@ -1679,7 +1765,23 @@ int mv_pp2x_prs_flow_id_attr_get(int flow_id)
 /***************** Classifier Top Public flows table APIs  ********************/
 /********************************************************************/
 
-int mv_pp2x_cls_hw_flow_read(struct pp2_hw *hw, int index,
+int mv_pp2x_cls_hw_flow_write(uintptr_t cpu_slot,
+			    struct mv_pp2x_cls_flow_entry *fe)
+{
+	if (mv_pp2x_range_validate(fe->index, 0,
+				   MVPP2_CLS_FLOWS_TBL_SIZE) == MV_ERROR)
+		return -EINVAL;
+
+	/* write index */
+	pp2_reg_write(cpu_slot, MVPP2_CLS_FLOW_INDEX_REG, fe->index);
+
+	pp2_reg_write(cpu_slot, MVPP2_CLS_FLOW_TBL0_REG, fe->data[0]);
+	pp2_reg_write(cpu_slot, MVPP2_CLS_FLOW_TBL1_REG, fe->data[1]);
+	pp2_reg_write(cpu_slot, MVPP2_CLS_FLOW_TBL2_REG, fe->data[2]);
+
+	return 0;
+}
+int mv_pp2x_cls_hw_flow_read(uintptr_t cpu_slot, int index,
 			     struct mv_pp2x_cls_flow_entry *fe)
 {
 	if (mv_pp2x_ptr_validate(fe) == MV_ERROR)
@@ -1692,11 +1794,11 @@ int mv_pp2x_cls_hw_flow_read(struct pp2_hw *hw, int index,
 	fe->index = index;
 
 	/*write index */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS_FLOW_INDEX_REG, index);
+	pp2_reg_write(cpu_slot, MVPP2_CLS_FLOW_INDEX_REG, index);
 
-	fe->data[0] = pp2_reg_read(hw->base[0].va, MVPP2_CLS_FLOW_TBL0_REG);
-	fe->data[1] = pp2_reg_read(hw->base[0].va, MVPP2_CLS_FLOW_TBL1_REG);
-	fe->data[2] = pp2_reg_read(hw->base[0].va, MVPP2_CLS_FLOW_TBL2_REG);
+	fe->data[0] = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL0_REG);
+	fe->data[1] = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL1_REG);
+	fe->data[2] = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL2_REG);
 
 	return 0;
 }
@@ -1851,7 +1953,20 @@ int mv_pp2x_cls_sw_flow_seq_ctrl_set(struct mv_pp2x_cls_flow_entry *fe,
 	fe->data[1] &= ~MVPP2_FLOW_SEQ_CTRL_MASK;
 	fe->data[1] |= (mode << MVPP2_FLOW_SEQ_CTRL);
 
-	return MV_OK;
+	return 0;
+}
+
+int mv_pp2x_cls_sw_flow_seq_ctrl_get(struct mv_pp2x_cls_flow_entry *fe,
+				     int *mode)
+{
+	if (mv_pp2x_ptr_validate(fe) == MV_ERROR)
+		return MV_ERROR;
+	if (mv_pp2x_ptr_validate(mode) == MV_ERROR)
+		return MV_ERROR;
+
+	*mode = (fe->data[1] & MVPP2_FLOW_SEQ_CTRL_MASK) >> MVPP2_FLOW_SEQ_CTRL;
+
+	return 0;
 }
 
 int mv_pp2x_cls_sw_flow_engine_get(struct mv_pp2x_cls_flow_entry *fe,
@@ -1869,7 +1984,7 @@ int mv_pp2x_cls_sw_flow_engine_get(struct mv_pp2x_cls_flow_entry *fe,
 	*engine = (fe->data[0] & MVPP2_FLOW_ENGINE_MASK) >> MVPP2_FLOW_ENGINE;
 	*is_last = fe->data[0] & MVPP2_FLOW_LAST_MASK;
 
-	return MV_OK;
+	return 0;
 }
 
 int mv_pp2x_cls_sw_flow_engine_set(struct mv_pp2x_cls_flow_entry *fe,
@@ -1887,7 +2002,7 @@ int mv_pp2x_cls_sw_flow_engine_set(struct mv_pp2x_cls_flow_entry *fe,
 	fe->data[0] |= is_last;
 	fe->data[0] |= (engine << MVPP2_FLOW_ENGINE);
 
-	return MV_OK;
+	return 0;
 }
 
 int mv_pp2x_cls_sw_flow_extra_get(struct mv_pp2x_cls_flow_entry *fe,
@@ -1906,7 +2021,7 @@ int mv_pp2x_cls_sw_flow_extra_get(struct mv_pp2x_cls_flow_entry *fe,
 	*prio = (fe->data[1] & MVPP2_FLOW_FIELD_PRIO_MASK) >>
 	    MVPP2_FLOW_FIELD_PRIO;
 
-	return MV_OK;
+	return 0;
 }
 
 int mv_pp2x_cls_sw_flow_extra_set(struct mv_pp2x_cls_flow_entry *fe,
@@ -1919,8 +2034,7 @@ int mv_pp2x_cls_sw_flow_extra_set(struct mv_pp2x_cls_flow_entry *fe,
 		return MV_ERROR;
 
 	if (mv_pp2x_range_validate(prio, 0,
-				   ((1 << MVPP2_FLOW_FIELD_ID_BITS) - 1)) ==
-	    MV_ERROR)
+				   ((1 << MVPP2_FLOW_FIELD_ID_BITS) - 1)) == MV_ERROR)
 		return MV_ERROR;
 
 	fe->data[1] &= ~MVPP2_FLOW_LKP_TYPE_MASK;
@@ -1929,7 +2043,7 @@ int mv_pp2x_cls_sw_flow_extra_set(struct mv_pp2x_cls_flow_entry *fe,
 	fe->data[1] &= ~MVPP2_FLOW_FIELD_PRIO_MASK;
 	fe->data[1] |= (prio << MVPP2_FLOW_FIELD_PRIO);
 
-	return MV_OK;
+	return 0;
 }
 
 /* Classifier configuration routines */
@@ -1954,6 +2068,184 @@ static void mv_pp2x_cls_flow_read(struct pp2_hw *hw, int index,
 	fe->data[0] = pp2_reg_read(hw->base[0].va, MVPP2_CLS_FLOW_TBL0_REG);
 	fe->data[1] = pp2_reg_read(hw->base[0].va, MVPP2_CLS_FLOW_TBL1_REG);
 	fe->data[2] = pp2_reg_read(hw->base[0].va, MVPP2_CLS_FLOW_TBL2_REG);
+}
+
+
+int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe)
+{
+	int int32bit_1, int32bit_2, i;
+	int fieldsArr[MVPP2_CLS_FLOWS_TBL_FIELDS_MAX];
+	int status = 0;
+
+	if (mv_pp2x_ptr_validate(fe) == MV_ERROR)
+		return MV_ERROR;
+
+	printf("INDEX: F[0] F[1] F[2] F[3] PRT[T  ID] ENG LAST LKP_TYP  PRIO\n");
+
+	/* index */
+	printf("0x%3.3x  ", fe->index);
+
+	/* filed[0] filed[1] filed[2] filed[3] */
+	status |= mv_pp2x_cls_sw_flow_hek_get(fe, &int32bit_1, fieldsArr);
+
+	for (i = 0 ; i < MVPP2_CLS_FLOWS_TBL_FIELDS_MAX; i++)
+		if (i < int32bit_1)
+			printf("0x%2.2x ", fieldsArr[i]);
+		else
+			printf(" NA  ");
+
+	/* port_type port_id */
+	status |= mv_pp2x_cls_sw_flow_port_get(fe, &int32bit_1, &int32bit_2);
+	printf("[%1d  0x%3.3x]  ", int32bit_1, int32bit_2);
+
+	/* engine_num last_bit */
+	status |= mv_pp2x_cls_sw_flow_engine_get(fe, &int32bit_1, &int32bit_2);
+	printf("%1d   %1d    ", int32bit_1, int32bit_2);
+
+	/* lookup_type priority */
+	status |= mv_pp2x_cls_sw_flow_extra_get(fe, &int32bit_1, &int32bit_2);
+	printf("0x%2.2x    0x%2.2x", int32bit_1, int32bit_2);
+
+	printf("\n       PPPEO   VLAN   MACME   UDF7   SELECT SEQ_CTRL\n");
+	printf("         %1d      %1d      %1d       %1d      %1d      %1d\n",
+			(fe->data[0] & MVPP2_FLOW_PPPOE_MASK) >> MVPP2_FLOW_PPPOE,
+			(fe->data[0] & MVPP2_FLOW_VLAN_MASK) >> MVPP2_FLOW_VLAN,
+			(fe->data[0] & MVPP2_FLOW_MACME_MASK) >> MVPP2_FLOW_MACME,
+			(fe->data[0] & MVPP2_FLOW_UDF7_MASK) >> MVPP2_FLOW_UDF7,
+			(fe->data[0] & MVPP2_FLOW_PORT_ID_SEL_MASK) >> MVPP2_FLOW_PORT_ID_SEL,
+			(fe->data[1] & MVPP2_FLOW_SEQ_CTRL_MASK) >> MVPP2_FLOW_SEQ_CTRL);
+	printf("\n");
+
+	return 0;
+}
+
+void mv_pp2x_cls_sw_flow_clear(struct mv_pp2x_cls_flow_entry *fe)
+{
+	memset(fe, 0, sizeof(struct mv_pp2x_cls_flow_entry));
+}
+
+int mv_pp2x_cls_hw_flow_clear_all(uintptr_t cpu_slot)
+{
+	int index;
+
+	struct mv_pp2x_cls_flow_entry fe;
+
+	mv_pp2x_cls_sw_flow_clear(&fe);
+
+	for (index = 0; index < MVPP2_CLS_FLOWS_TBL_SIZE ; index++) {
+		fe.index = index;
+		if (mv_pp2x_cls_hw_flow_write(cpu_slot, &fe))
+			return -EINVAL;
+	}
+	return 0;
+}
+
+static int mv_pp2x_cls_hw_flow_hit_get(uintptr_t cpu_slot, int index, unsigned int *cnt)
+{
+	if (mv_pp2x_range_validate(index, 0, MVPP2_CLS_FLOWS_TBL_SIZE) == MV_ERROR)
+		return -EINVAL;
+
+	/*set index */
+	pp2_reg_write(cpu_slot, MVPP2_CNT_IDX_REG, MVPP2_CNT_IDX_FLOW(index));
+
+	if (cnt)
+		*cnt = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL_HIT_REG);
+	else
+		printf("HITS = %d\n", pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL_HIT_REG));
+
+	return 0;
+
+}
+
+int mv_pp2x_cls_hw_lkp_hit_get(uintptr_t cpu_slot, int lkpid, u32 *cnt)
+{
+	int way = 0;
+
+	if (mv_pp2x_range_validate(lkpid, 0, MVPP2_CLS_LKP_TBL_SIZE) == MV_ERROR)
+		return -EINVAL;
+
+	/*set index */
+	pp2_reg_write(cpu_slot, MVPP2_CNT_IDX_REG, MVPP2_CNT_IDX_LKP(lkpid, way));
+
+	if (cnt)
+		*cnt = pp2_reg_read(cpu_slot, MVPP2_CLS_LKP_TBL_HIT_REG);
+	else
+		printf("HITS: %d\n", pp2_reg_read(cpu_slot, MVPP2_CLS_LKP_TBL_HIT_REG));
+
+	return 0;
+}
+
+int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot)
+{
+	int index;
+
+	struct mv_pp2x_cls_flow_entry fe;
+
+	for (index = 0; index < MVPP2_CLS_FLOWS_TBL_SIZE; index++) {
+		mv_pp2x_cls_hw_flow_read(cpu_slot, index, &fe);
+		mv_pp2x_cls_sw_flow_dump(&fe);
+		mv_pp2x_cls_hw_flow_hit_get(cpu_slot, index, NULL);
+		printf("\n");
+	}
+
+	return 0;
+}
+
+int mv_pp2x_cls_hw_flow_hits_dump(uintptr_t cpu_slot)
+{
+	struct mv_pp2x_cls_flow_entry fe;
+	int index;
+	u32 cnt = 0;
+
+	for (index = 0; index < MVPP2_CLS_FLOWS_TBL_SIZE; index++) {
+		mv_pp2x_cls_hw_flow_hit_get(cpu_slot, index, &cnt);
+		if (cnt != 0) {
+			mv_pp2x_cls_hw_flow_read(cpu_slot, index, &fe);
+			mv_pp2x_cls_sw_flow_dump(&fe);
+			printf("HITS = %d\n", cnt);
+		}
+	}
+
+	return 0;
+}
+
+int mv_pp2x_cls_hw_lkp_hits_dump(uintptr_t cpu_slot)
+{
+	int index, way = 0;
+	u32 cnt;
+
+	printf("< ID  WAY >:	HITS\n");
+	for (index = 0; index < MVPP2_CLS_LKP_TBL_SIZE; index++) {
+		mv_pp2x_cls_hw_lkp_hit_get(cpu_slot, index, &cnt);
+		if (cnt != 0)
+			printf(" 0x%2.2x  %1.1d\t0x%8.8x\n", index, way, cnt);
+	}
+	return 0;
+}
+
+int mv_pp2x_cls_hw_lkp_dump(uintptr_t cpu_slot)
+{
+	int index, way = 0, rxq, en, flow, mod;
+	u32 uint32bit;
+	struct mv_pp2x_cls_lookup_entry le;
+
+	printf("\n ID :	RXQ	EN	FLOW	MODE_BASE  HITS\n");
+	for (index = 0; index < MVPP2_CLS_LKP_TBL_SIZE; index++) {
+		mv_pp2x_cls_hw_lkp_read(cpu_slot, index, way, &le);
+		printf(" 0x%2.2x \t", le.lkpid);
+		mv_pp2x_cls_sw_lkp_rxq_get(&le, &rxq);
+		printf("0x%2.2x\t", rxq);
+		mv_pp2x_cls_sw_lkp_en_get(&le, &en);
+		printf("%1.1d\t", en);
+		mv_pp2x_cls_sw_lkp_flow_get(&le, &flow);
+		printf("0x%3.3x\t", flow);
+		mv_pp2x_cls_sw_lkp_mod_get(&le, &mod);
+		printf(" 0x%2.2x\t", mod);
+		mv_pp2x_cls_hw_lkp_hit_get(cpu_slot, index, &uint32bit);
+		printf(" 0x%8.8x\n", 0);
+		printf("\n");
+	}
+	return 0;
 }
 
 /* Operations on flow entry */

@@ -624,3 +624,462 @@ int pp2_cls_db_exit(void)
 
 	return 0;
 }
+
+/*******************************************************************************
+* pp2_db_cls_fl_ctrl_set
+*
+* DESCRIPTION: The routine sets the CLS control structure
+*
+* INPUTS:
+*	fl_ctrl - flow control structure
+*
+* OUTPUTS:
+*	None
+*
+* RETURNS:
+*	On success, the function returns TPM_OK. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
+{
+	if (!fl_ctrl) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	 memcpy(&g_pp2_cls_db->cls_db.fl_ctrl, fl_ctrl, sizeof(struct pp2_db_cls_fl_ctrl_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_fl_ctrl_get
+*
+* DESCRIPTION: The routine gets the CLS control structure
+*
+* INPUTS:
+*	None
+*
+* OUTPUTS:
+*	fl_ctrl - flow control structure
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
+{
+	if (!fl_ctrl) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	 memcpy(fl_ctrl, &g_pp2_cls_db->cls_db.fl_ctrl, sizeof(struct pp2_db_cls_fl_ctrl_t));
+
+	 return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_fl_rule_set
+*
+* DESCRIPTION: The routine sets a single rule in a rule flow
+*
+* INPUTS:
+*	off - the rule offset
+*	fl_rule - the flow the rule is in
+*
+* OUTPUTS:
+*	None
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_fl_rule_set(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
+{
+	if (!fl_rule) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	if (off >= MVPP2_FLOW_TBL_SIZE) {
+		pp2_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+	memcpy(&g_pp2_cls_db->cls_db.fl_rule[off], fl_rule, sizeof(struct pp2_db_cls_fl_rule_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_fl_rule_get
+*
+* DESCRIPTION: The routine gets a single rule in a rule flow
+*
+* INPUTS:
+*	off - the rule offset
+*
+* OUTPUTS:
+*	fl_rule - the flow the rule is in
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_fl_rule_get(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
+{
+	if (!fl_rule) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	if (off >= MVPP2_FLOW_TBL_SIZE) {
+		pp2_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+	memcpy(fl_rule, &g_pp2_cls_db->cls_db.fl_rule[off], sizeof(struct pp2_db_cls_fl_rule_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_fl_rule_list_get
+*
+* DESCRIPTION: The routine gets a whole rule flow
+*
+* INPUTS:
+*	off - the first rule offset
+*	len - the flow length
+*
+* OUTPUTS:
+*	fl_rl_list - the flow the rules are in
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
+				struct pp2_db_cls_fl_rule_t *fl_rl_list)
+{
+	if (!fl_rl_list) {
+		pp2_err("%s: null pointer.\n", __func__);
+		return -EFAULT;
+	}
+
+	if (off >= MVPP2_FLOW_TBL_SIZE ||
+	    off + len >= MVPP2_FLOW_TBL_SIZE) {
+		pp2_err("requested rule list too big [offset=%d length=%d]\n", off, len);
+		return -EINVAL;
+	}
+
+	memcpy(fl_rl_list, &g_pp2_cls_db->cls_db.fl_rule[off],
+			sizeof(struct pp2_db_cls_fl_rule_t) * len);
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_lkp_dcod_set
+*
+* DESCRIPTION: The routine sets a lookup decode entry
+*
+* INPUTS:
+*	fl_log_id - index of the entry (logical flow ID)
+*	lkp_dcod - the lookup decode entry structure
+*
+* OUTPUTS:
+*	None
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_lkp_dcod_set(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
+{
+	if (!lkp_dcod) {
+		pp2_err("%s: null pointer.\n", __func__);
+		return -EFAULT;
+	}
+
+	if (fl_log_id >= MVPP2_MNG_FLOW_ID_MAX) {
+		pp2_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	memcpy(&g_pp2_cls_db->cls_db.lkp_dcod[fl_log_id], lkp_dcod, sizeof(struct pp2_db_cls_lkp_dcod_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_lkp_dcod_get
+*
+* DESCRIPTION: The routine gets a lookup decode entry
+*
+* INPUTS:
+*	fl_log_id - index of the entry (logical flow ID)
+*
+* OUTPUTS:
+*	lkp_dcod - the lookup decode entry structure
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_lkp_dcod_get(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
+{
+	if (!lkp_dcod) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	if (fl_log_id >= MVPP2_MNG_FLOW_ID_MAX) {
+		pp2_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+	memcpy(lkp_dcod, &g_pp2_cls_db->cls_db.lkp_dcod[fl_log_id], sizeof(struct pp2_db_cls_lkp_dcod_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_rl_off_lkp_dcod_get
+*
+* DESCRIPTION: The routine returns the lookup decode entry for a flow rule
+*
+* INPUTS:
+*	rl_off - flow rule offset to search
+*
+* OUTPUTS:
+*	lkp_dcod - the lookup decode entry structure
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
+{
+	u32 i;
+	struct pp2_db_cls_lkp_dcod_t *p_lkp_dcod;
+
+	if (!lkp_dcod) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	if (rl_off >= MVPP2_FLOW_TBL_SIZE) {
+		pp2_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
+		p_lkp_dcod = &g_pp2_cls_db->cls_db.lkp_dcod[i];
+		if (p_lkp_dcod->flow_off <= rl_off && p_lkp_dcod->flow_off + p_lkp_dcod->flow_len  >= rl_off)
+			break;
+	}
+
+	if (i == MVPP2_MNG_FLOW_ID_MAX) {
+		pp2_err("rule offset [%d] not found\n", rl_off);
+		return -EINVAL;
+	}
+
+	memcpy(lkp_dcod, &g_pp2_cls_db->cls_db.lkp_dcod[i], sizeof(struct pp2_db_cls_lkp_dcod_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_rl_off_free_nr
+*
+* DESCRIPTION: The routine returns the number of free logical rule entries
+*
+* INPUTS:
+*	None
+*
+* OUTPUTS:
+*	free_nr - number of free logical rule entries
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_rl_off_free_nr(u32 *free_nr)
+{
+	if (!free_nr) {
+		pp2_err("%s: null pointer.\n", __func__);
+		return -EFAULT;
+	}
+
+	*free_nr = ((MVPP2_CLS_LOG2OFF_TBL_SIZE) - g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]);
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_rl_off_free_set
+*
+* DESCRIPTION: The routine allocates a new logical rule number and assignes it with offset
+*
+* INPUTS:
+*	off - the offset the rule is at
+*
+* OUTPUTS:
+*	log - the new logical rule number
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_rl_off_free_set(u16 off, u16 *log)
+{
+	if (!log) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	if (off >= MVPP2_FLOW_TBL_SIZE) {
+		pp2_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	if ((MVPP2_CLS_LOG2OFF_TBL_SIZE - g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]) == 0)
+		return -EINVAL;
+
+	*log = g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF];
+
+	g_pp2_cls_db->cls_db.log2off[*log] = off;
+
+	g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]++;
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_rl_off_get
+*
+* DESCRIPTION: The routine returns the offset of a rule according to logical rule number
+*
+* INPUTS:
+*	log - the new logical rule number
+*
+* OUTPUTS:
+*	off - the offset the rule is at
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_rl_off_get(u16 *off, u16 log)
+{
+	if (!off) {
+		pp2_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	if (log > MVPP2_CLS_LOG2OFF_TBL_SIZE) {
+		pp2_err("Invalid parameter\n");
+		return -EFAULT;
+	}
+
+	if (g_pp2_cls_db->cls_db.log2off[log] == MVPP2_CLS_FREE_FL_LOG)
+		return -EINVAL;
+
+	*off = g_pp2_cls_db->cls_db.log2off[log];
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_rl_off_set
+*
+* DESCRIPTION: The routine updates a logical rule with a new offset
+*
+* INPUTS:
+*	off - the new offset the rule is at
+*	log - the logical rule number
+*
+* OUTPUTS:
+*	None
+*
+* RETURNS:
+*	On success, the function returns 0. On error different types are returned
+*	according to the case - see pp2_db_error_t.
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+int pp2_db_cls_rl_off_set(u16 off, u16 log)
+{
+	if (log > MVPP2_CLS_LOG2OFF_TBL_SIZE) {
+		pp2_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+	g_pp2_cls_db->cls_db.log2off[log] = off;
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_db_cls_init
+*
+* DESCRIPTION: The routine initializes the CLS DBs
+*
+* INPUTS:
+*	None
+*
+* OUTPUTS:
+*	None
+*
+* RETURNS:
+*	None
+*
+* COMMENTS:
+*	None
+*******************************************************************************/
+void pp2_db_cls_init(void)
+{
+	int i;
+
+	/* set the CLS control to default values */
+	memset(&g_pp2_cls_db->cls_db, 0, sizeof(g_pp2_cls_db->cls_db));
+
+	g_pp2_cls_db->cls_db.fl_ctrl.f_end = MVPP2_FLOW_TBL_SIZE - 1;
+
+	for (i = MVPP2_CLS_LOG2OFF_START; i < MVPP2_CLS_LOG2OFF_TBL_SIZE; i++)
+		g_pp2_cls_db->cls_db.log2off[i] = MVPP2_CLS_FREE_FL_LOG;
+
+	g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF] = MVPP2_CLS_LOG2OFF_START;
+}

@@ -79,6 +79,13 @@
 #define MVPP2_HW_MOD_DPTR_MAX		(23552)/* Private data 41KB, 41K/2 */
 #define MVPP2_POLICER_ID_MAX		MVPP2_CLS3_ACT_DUP_POLICER_MAX
 
+
+/* WAY definition */
+/*------------------------------------------------------------------------------*/
+#define MVPP2_WAY_PON			(1) /* WAY of PON */
+#define MVPP2_WAY_NON_PON		(0) /* WAY of NONE PON port */
+
+
 /* VLAN tag definition */
 /*------------------------------------------------------------------------------*/
 #define MVPP2_NUM_MAX_TPID_COMBO	(16)	/* Maximum number of TPID combo up to dual tag */
@@ -95,6 +102,16 @@
 /*------------------------------------------------------------------------------*/
 /*default layer 2 MTU size, default L3 MTU + MH + DMAC + SMAC + VLAN tag + VLAN tags	*/
 #define MVPP2_DEFAULT_L2_MTU_SIZE		(1500 + 2 + 12 + 4 + 4)
+
+/*
+ * Pre-defined FlowId assignment
+*/
+#define FLOWID_DEF(_port_)	(_port_)
+#define FLOWID_MASK		0x3F
+
+/* Whether it is default LSP LU ID */
+/*------------------------------------------------------------------------------*/
+#define LUID_IS_LSP_RESERVED(luid)	(NULL)
 
 /* IPV4 Multicast IP */
 #define MVPP2_IPV4_MC_IP		(0xE0)
@@ -172,8 +189,7 @@ enum pp2_cls_cls_field_id_t {
 	ARP_IPV4_DA_FIELD_ID		= 48,
 	IN_VLAN_PRI_FIELD_ID		= 49,
 	PPPOE_PROTO_ID			= 50,
-	CLS_FIELD_MAX			= 39,
-
+	CLS_FIELD_MAX			= 51,
 };
 
 enum pp2_cls_cls_field_size_t {/* unit: bits */
@@ -231,7 +247,8 @@ enum pp2_cls_engine_no_t {
 	MVPP2_ENGINE_C3_A,
 	MVPP2_ENGINE_C3_B,
 	MVPP2_ENGINE_C4,
-	MVPP2_ENGINE_C5,
+	MVPP2_ENGINE_C3_HA = 6,
+	MVPP2_ENGINE_C3_HB,
 };
 
 enum pp2_cls_l4_type_t {

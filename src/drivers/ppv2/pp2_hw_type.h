@@ -230,6 +230,9 @@
 /* Classifier Registers */
 #define MVPP2_CLS_MODE_REG			0x1800
 #define MVPP2_CLS_MODE_ACTIVE_MASK		BIT(0)
+#define MVPP2_CLS_PERF_CTRL			0x1804
+#define MVPP2_CLS_INSTRUCTIONS_IN_ROUND_OFFS	0
+#define MVPP2_CLS_INSTRUCTIONS_IN_ROUND_MASK	0x1f
 #define MVPP2_CLS_PORT_WAY_REG			0x1810
 #define MVPP2_CLS_PORT_WAY_MASK(port)		(1 << (port))
 #define MVPP2_CLS_LKP_INDEX_REG			0x1814
@@ -2170,7 +2173,8 @@ struct mv_pp2x_cls_c2_qos_entry {
 enum mv_pp2x_src_port_type {
 	MVPP2_SRC_PORT_TYPE_PHY,
 	MVPP2_SRC_PORT_TYPE_UNI,
-	MVPP2_SRC_PORT_TYPE_VIR
+	MVPP2_SRC_PORT_TYPE_VIR,
+	MVPP2_SRC_PORT_TYPE_MAX
 };
 
 struct mv_pp2x_src_port {
