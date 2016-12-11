@@ -518,6 +518,10 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *ses
 		in_data_size = encryptedBlockGetPlainTextLen(block, 0);
 		encryptedBlockGetPlainText(block, in_data_size, in_buf.vaddr, 0);
 
+		if (same_bufs) {
+			for (i = 0; i < num; i++)
+				encryptedBlockGetPlainText(block, in_data_size, out_bufs[i].vaddr, 0);
+		}
 		/* Data must left the same */
 		expected_data_size = in_data_size;
 		encryptedBlockGetPlainText(block, expected_data_size, expected_data, 0);
@@ -531,11 +535,15 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *ses
 		encryptedBlockGetIcb(block, session_params->auth_icv_len, auth_icv, 0);
 		if (session_params->dir == SAM_DIR_DECRYPT) {
 			/* copy ICV to end of input buffer */
-			memcpy((in_buf.vaddr + in_data_size), auth_icv, session_params->auth_icv_len);
+			if (same_bufs) {
+				for (i = 0; i < num; i++)
+					memcpy((out_bufs[i].vaddr + in_data_size), auth_icv,
+						session_params->auth_icv_len);
+			} else
+				memcpy((in_buf.vaddr + in_data_size), auth_icv, session_params->auth_icv_len);
 		}
 	} else
 		auth_icv_size = 0;
-
 }
 
 static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params *session_params,
@@ -608,6 +616,7 @@ static int run_tests(generic_list tests_db)
 		/* Check plain_len == cipher_len */
 		errors = 0;
 		in_process = 0;
+		next_request = 0;
 		while (total_deqs) {
 			to_enq = min(total_enqs, num_requests_before_deq);
 			while (in_process < to_enq) {
