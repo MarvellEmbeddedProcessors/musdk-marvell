@@ -32,6 +32,7 @@
 
 #include "std_internal.h"
 #include "drivers/mv_sam.h"
+#include "lib/lib_misc.h"
 #include "sam.h"
 
 /*#define SAM_DMA_DEBUG*/
@@ -268,11 +269,13 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	/* process AAD  - TBD */
 
 	/* Copy data from user buffer to DMA buffer */
-	memcpy(operation->data_dmabuf.host_addr.p, request->src->vaddr,
-		token_params.BypassByteCount + copylen);
+	memcpy(operation->data_dmabuf.host_addr.p, request->src->vaddr, copylen);
 
 #ifdef SAM_CIO_DEBUG
 	print_token_params(&token_params);
+
+	printf("\nInput DMA buffer: %d bytes\n", copylen);
+	mv_mem_dump(operation->data_dmabuf.host_addr.p, copylen);
 #endif
 
 	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)operation->data_dmabuf.host_addr.p,
@@ -711,6 +714,11 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num)
 	}
 	memcpy(operation->out_frags[0].vaddr, result_desc.DstPkt_p,
 		result_desc.DstPkt_ByteCount);
+
+#ifdef SAM_CIO_DEBUG
+	printf("\nOutput DMA buffer: %d bytes\n", result_desc.DstPkt_ByteCount);
+	mv_mem_dump(result_desc.DstPkt_p, result_desc.DstPkt_ByteCount);
+#ifdef
 
 	return 0;
 }
