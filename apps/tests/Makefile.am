@@ -38,3 +38,11 @@ musdk_sam_single_LDADD += $(EIP197_DDK)/Examples/Driver/build/libdriver_197_u.a
 musdk_sam_single_LDADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libsa_bld_u.a
 musdk_sam_single_LDADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libtk_bld_u.a
 endif
+
+bin_PROGRAMS += musdk_cls_dbg
+musdk_cls_dbg_CFLAGS = $(AM_CFLAGS)
+musdk_cls_dbg_SOURCES  = ../common/lib/cli.c
+musdk_cls_dbg_SOURCES  += ../common/mvapp.c
+musdk_cls_dbg_SOURCES  += ../common/utils.c
+musdk_cls_dbg_SOURCES  += ppv2/cls-dbg.c
+musdk_cls_dbg_LDADD = $(top_builddir)/src/libmusdk.la
