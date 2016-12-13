@@ -67,8 +67,9 @@ static u8			expected_data[MAX_BUFFER_SIZE];
 static u32			expected_data_size;
 static bool			same_bufs;
 static int			num_to_print = 1;
-static int			num_requests_per_enq = 1;
-static int			num_requests_before_deq = NUM_CONCURRENT_REQUESTS;
+static int			num_printed;
+static int			num_requests_per_enq = 10;
+static int			num_requests_before_deq = NUM_CONCURRENT_REQUESTS / 2;
 
 static generic_list		test_db;
 
@@ -374,22 +375,6 @@ static int create_sessions(generic_list tests_db)
 	return 0;
 }
 
-static int poll_results(struct sam_cio *cio, struct sam_cio_op_result *result,
-			u16 *num)
-{
-	int rc;
-	int count = 1000;
-
-	while (count--) {
-		rc = sam_cio_deq(cio, result, num);
-		if (rc != -EBUSY)
-			return rc;
-	}
-	/* Timeout */
-	pr_err("%s: Timeout\n", __func__);
-	return -EINVAL;
-}
-
 static int check_results(struct sam_session_params *session_params,
 			struct sam_cio_op_result *result, u16 num)
 {
@@ -402,9 +387,9 @@ static int check_results(struct sam_session_params *session_params,
 		if (!out_data) {
 			pr_err("%s: Wrong cookie value: %p\n",
 				__func__, out_data);
-			return -EINVAL;
+			return errors;
 		}
-		if (i < num_to_print) {
+		if (num_printed++ < num_to_print) {
 			printf("\nInput buffer: %d bytes\n", in_data_size);
 			mv_mem_dump(in_buf.vaddr, in_data_size);
 
@@ -543,11 +528,14 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *ses
 }
 
 static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params *session_params,
-			     struct sam_sa *session_hndl, struct sam_cio_op_params *request, int num)
+			     struct sam_sa *session_hndl, struct sam_cio_op_params *requests, int num)
 {
 	int i, iv_len;
+	struct sam_cio_op_params *request;
 
 	for (i = 0; i < num; i++) {
+		request = &requests[i];
+
 		request->sa = session_hndl;
 		request->num_bufs = 1;
 
@@ -580,34 +568,39 @@ static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params 
 static int run_tests(generic_list tests_db)
 {
 	EncryptedBlockPtr block;
-	int i, num_tests, total_enqs, total_deqs, in_process, to_enq;
-	u16 num, to_deq = 0;
+	int i, test, num_tests;
+	int total_enqs, total_deqs, in_process, to_enq, num_enq, to_deq;
+	u16 num;
 	char *test_name;
-	struct sam_cio_op_params request;
+	struct sam_cio_op_params requests[NUM_CONCURRENT_REQUESTS];
 	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
 	int rc, count, total_passed, total_errors, errors;
 
 	num_tests = generic_list_get_size(tests_db);
 
 	block = generic_list_get_first(tests_db);
-	num = 1;
 	total_passed = total_errors = 0;
-	for (i = 0; i < num_tests; i++) {
+	for (test = 0; test < num_tests; test++) {
 
-		if (i > 0)
+		if (test > 0)
 			block = generic_list_get_next(tests_db);
 
-		if (!block)
+		if (!block) {
+			printf("Test %d of %d - invalid block\n", test, num_tests);
 			return -1;
+		}
 
 		test_name = encryptedBlockGetName(block);
 
 		count = total_enqs = total_deqs = encryptedBlockGetTestCounter(block);
 
-		prepare_bufs(block, &sa_params[i], count);
+		prepare_bufs(block, &sa_params[test], count);
 
-		memset(&request, 0, sizeof(request));
-		prepare_requests(block, &sa_params[i], sa_hndl[i], &request, num_requests_per_enq);
+		memset(requests, 0, sizeof(requests));
+		memset(results, 0, sizeof(results));
+		num_printed = 0;
+
+		prepare_requests(block, &sa_params[test], sa_hndl[test], requests, num_requests_per_enq);
 
 		/* Check plain_len == cipher_len */
 		errors = 0;
@@ -616,27 +609,30 @@ static int run_tests(generic_list tests_db)
 		while (total_deqs) {
 			to_enq = min(total_enqs, num_requests_before_deq);
 			while (in_process < to_enq) {
-				if (same_bufs) {
-					/* Input buffers are different pre request */
-					request.src = request.dst = &out_bufs[next_request];
-				} else {
-					/* Output buffers are different per request */
-					request.src = &in_buf;
-					request.dst = &out_bufs[next_request];
+
+				num_enq = min(num_requests_per_enq, (to_enq - in_process));
+				for (i = 0; i < num_enq; i++) {
+					if (same_bufs) {
+						/* Input buffers are different pre request */
+						requests[i].src = requests[i].dst = &out_bufs[next_request];
+					} else {
+						/* Output buffers are different per request */
+						requests[i].src = &in_buf;
+						requests[i].dst = &out_bufs[next_request];
+					}
+					requests[i].cookie = requests[i].dst->vaddr;
+
+					/* Increment next_request */
+					next_request++;
+					if (next_request == NUM_CONCURRENT_REQUESTS)
+						next_request = 0;
 				}
-				request.cookie = request.dst->vaddr;
-
-				/* Increment next_request */
-				next_request++;
-				if (next_request == NUM_CONCURRENT_REQUESTS)
-					next_request = 0;
-
-				num = (u16)num_requests_per_enq;
-				rc = sam_cio_enq(cio_hndl, &request, &num);
-				if ((rc != 0) || (num != num_requests_per_enq)) {
+				num = (u16)num_enq;
+				rc = sam_cio_enq(cio_hndl, requests, &num);
+				if ((rc != 0) && (rc != -EBUSY)) {
 					printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
 						__func__, num, rc);
-					return -1;
+					return rc;
 				}
 				in_process += num;
 				total_enqs -= num;
@@ -644,16 +640,22 @@ static int run_tests(generic_list tests_db)
 
 			/* Get all ready results together */
 			to_deq = in_process;
-			rc = poll_results(cio_hndl, results, &to_deq);
-			in_process -= to_deq;
-			total_deqs -= to_deq;
+			num = (u16)to_deq;
+			rc = sam_cio_deq(cio_hndl, results, &num);
+			if ((rc != 0) && (rc != -EBUSY)) {
+				printf("%s: sam_cio_deq failed. num = %d, rc = %d\n",
+					__func__, num, rc);
+				return rc;
+			}
+			in_process -= num;
+			total_deqs -= num;
 			/* check result */
-			errors += check_results(&sa_params[i], results, to_deq);
+			errors += check_results(&sa_params[test], results, num);
 		}
 		if (errors == 0)
-			printf("%2d. %s: passed %d times\n", i, test_name, count);
+			printf("%2d. FINISHED %s: passed %d times\n", test, test_name, count);
 		else
-			printf("%2d. %s: failed %d of %d times\n", i, test_name, errors, count);
+			printf("%2d. FINISHED %s: failed %d of %d times\n", test, test_name, errors, count);
 
 		total_errors += errors;
 		total_passed += (count - errors);

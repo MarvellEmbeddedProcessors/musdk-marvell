@@ -67,6 +67,11 @@
 /* max TCR data size in bytes */
 #define SAM_TCR_DATA_SIZE		(9 * 4)
 
+struct sam_hw_ring {
+	PEC_CommandDescriptor_t *cmd_desc;	/* Array of command descriptors */
+	PEC_ResultDescriptor_t *result_desc;	/* Array of result descriptors */
+};
+
 struct sam_dmabuf {
 	u32                     size;
 	DMABuf_Handle_t		hndl;
@@ -88,6 +93,7 @@ struct sam_cio_op {
 struct sam_cio {
 	struct sam_cio_params params;
 	struct sam_cio_op *operations;    /* array of operations */
+	struct sam_hw_ring hw_ring;
 	u32 next_request;
 	u32 next_result;
 };
