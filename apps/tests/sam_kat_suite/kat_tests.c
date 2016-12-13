@@ -310,7 +310,6 @@ static int create_sessions(generic_list tests_db)
 
 	block = generic_list_get_first(tests_db);
 	for (i = 0; i < num_tests; i++) {
-
 		memset(auth_inner, 0, sizeof(auth_inner));
 		memset(auth_outer, 0, sizeof(auth_outer));
 
@@ -416,13 +415,10 @@ static int check_results(struct sam_session_params *session_params,
 			mv_mem_dump(expected_data, expected_data_size);
 
 			if (auth_icv_size) {
-				if (session_params->dir == SAM_DIR_ENCRYPT) {
-					printf("\nICV output value: %d bytes\n", auth_icv_size);
-					mv_mem_dump(&out_data[expected_data_size], auth_icv_size);
+				printf("\nICV expected value: %d bytes\n", auth_icv_size);
+				mv_mem_dump(auth_icv, auth_icv_size);
 
-					printf("\nICV expected value: %d bytes\n", auth_icv_size);
-					mv_mem_dump(auth_icv, auth_icv_size);
-				} else
+				if (session_params->dir == SAM_DIR_DECRYPT)
 					printf("\nICV verified by HW\n");
 			}
 			printf("\n");
@@ -432,15 +428,9 @@ static int check_results(struct sam_session_params *session_params,
 			errors++;
 			printf("Error: result->status = %d\n", result->status);
 		} else if (memcmp(out_data, expected_data, expected_data_size)) {
-			/* Compare output and expected data */
+			/* Compare output and expected data (including ICV for encryption) */
 			errors++;
 			printf("Error: out_data != expected_data (%d bytes)\n", expected_data_size);
-		} else if ((auth_icv_size) && (session_params->dir == SAM_DIR_ENCRYPT)) {
-			/* compare ICV */
-			if (memcmp(auth_icv, &out_data[expected_data_size], auth_icv_size)) {
-				errors++;
-				printf("Error: out_icv != expected_icv (%d bytes)\n", auth_icv_size);
-			}
 		}
 	}
 	return errors;
@@ -532,15 +522,21 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *ses
 
 	if (session_params->auth_icv_len > 0) {
 		auth_icv_size = session_params->auth_icv_len;
-		encryptedBlockGetIcb(block, session_params->auth_icv_len, auth_icv, 0);
+		encryptedBlockGetIcb(block, auth_icv_size, auth_icv, 0);
 		if (session_params->dir == SAM_DIR_DECRYPT) {
 			/* copy ICV to end of input buffer */
 			if (same_bufs) {
 				for (i = 0; i < num; i++)
 					memcpy((out_bufs[i].vaddr + in_data_size), auth_icv,
-						session_params->auth_icv_len);
-			} else
-				memcpy((in_buf.vaddr + in_data_size), auth_icv, session_params->auth_icv_len);
+						auth_icv_size);
+			} else {
+				memcpy((in_buf.vaddr + in_data_size), auth_icv, auth_icv_size);
+			}
+			in_data_size += auth_icv_size;
+		} else {
+			/* copy ICV to end of expected buffer */
+			memcpy((expected_data + expected_data_size), auth_icv, auth_icv_size);
+			expected_data_size += auth_icv_size;
 		}
 	} else
 		auth_icv_size = 0;
