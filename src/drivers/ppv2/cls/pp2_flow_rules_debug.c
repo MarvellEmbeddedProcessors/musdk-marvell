@@ -269,11 +269,11 @@ int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 {
 	int ret_val = 0;
 	char *ret_ptr;
-	int flow_log_id, port_type, port_bm, lu_type, enabled;
+	int flow_log_id, port_type, port_bm, enabled;
 	int prio, engine, field_id_cnt;
 	u8 field_id[MVPP2_FLOW_FIELD_COUNT_MAX];
 
-	if (argc != 13) {
+	if (argc != 12) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
@@ -299,47 +299,43 @@ int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 		printf("parsing fail, wrong input for argv[3] - port_bm");
 		return -EINVAL;
 	}
-	lu_type = strtoul(argv[4], &ret_ptr, 0);
-	if (argv[4] == ret_ptr || lu_type < 0 || lu_type > MVPP2_FLOW_PORT_ID_MAX) {
-		printf("parsing fail, wrong input for argv[4] - lu_type");
-		return -EINVAL;
-	}
-	enabled = strtoul(argv[5], &ret_ptr, 0);
+
+	enabled = strtoul(argv[4], &ret_ptr, 0);
 	if (argv[5] == ret_ptr || enabled < 0 || enabled > 1) {
 		printf("parsing fail, wrong input for argv[5] - enabled");
 		return -EINVAL;
 	}
-	prio = strtoul(argv[6], &ret_ptr, 0);
+	prio = strtoul(argv[5], &ret_ptr, 0);
 	if (argv[6] == ret_ptr || prio < 0 || (prio >= ((1 << MVPP2_FLOW_FIELD_ID_BITS) - 1))) {
 		printf("parsing fail, wrong input for argv[6] - priority");
 		return -EINVAL;
 	}
-	engine = strtoul(argv[7], &ret_ptr, 0);
+	engine = strtoul(argv[6], &ret_ptr, 0);
 	if (argv[7] == ret_ptr || engine < 1 || engine > MVPP2_FLOW_ENGINE_MAX) {
 		printf("parsing fail, wrong input for argv[7] - engine");
 		return -EINVAL;
 	}
-	field_id_cnt = strtoul(argv[8], &ret_ptr, 0);
+	field_id_cnt = strtoul(argv[7], &ret_ptr, 0);
 	if (argv[8] == ret_ptr || field_id_cnt < 0 || field_id_cnt > MVPP2_FLOW_FIELD_COUNT_MAX) {
 		printf("parsing fail, wrong input for argv[8] - field_id_cnt");
 		return -EINVAL;
 	}
-	field_id[0] = strtoul(argv[9], &ret_ptr, 0);
+	field_id[0] = strtoul(argv[8], &ret_ptr, 0);
 	if (argv[9] == ret_ptr || field_id[0] < 0 || field_id[0] >= CLS_FIELD_MAX) {
 		printf("parsing fail, wrong input for argv[9] - field_id[0]");
 		return -EINVAL;
 	}
-	field_id[1] = strtoul(argv[10], &ret_ptr, 0);
+	field_id[1] = strtoul(argv[9], &ret_ptr, 0);
 	if (argv[10] == ret_ptr || field_id[1] < 0 || field_id[1] >= CLS_FIELD_MAX) {
 		printf("parsing fail, wrong input for argv[10] - field_id[1]");
 		return -EINVAL;
 	}
-	field_id[2] = strtoul(argv[11], &ret_ptr, 0);
+	field_id[2] = strtoul(argv[10], &ret_ptr, 0);
 	if (argv[11] == ret_ptr || field_id[2] < 0 || field_id[2] >= CLS_FIELD_MAX) {
 		printf("parsing fail, wrong input for argv[11] - field_id[2]");
 		return -EINVAL;
 	}
-	field_id[3] = strtoul(argv[12], &ret_ptr, 0);
+	field_id[3] = strtoul(argv[11], &ret_ptr, 0);
 	if (argv[12] == ret_ptr || field_id[3] < 0 || field_id[3] >= CLS_FIELD_MAX) {
 		printf("parsing fail, wrong input for argv[12] - field_id[3]");
 		return -EINVAL;
@@ -348,7 +344,7 @@ int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 	g_fl_rls.fl[g_fl_rls.fl_len].fl_log_id	= flow_log_id;
 	g_fl_rls.fl[g_fl_rls.fl_len].port_type	= port_type;
 	g_fl_rls.fl[g_fl_rls.fl_len].port_bm	= port_bm;
-	g_fl_rls.fl[g_fl_rls.fl_len].lu_type	= lu_type;
+	g_fl_rls.fl[g_fl_rls.fl_len].lu_type	= MVPP2_CLS_MUSDK_LKP_DEFAULT;
 	g_fl_rls.fl[g_fl_rls.fl_len].enabled	= enabled;
 	g_fl_rls.fl[g_fl_rls.fl_len].prio		= prio;
 	g_fl_rls.fl[g_fl_rls.fl_len].engine		= engine;

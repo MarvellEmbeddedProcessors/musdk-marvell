@@ -299,7 +299,7 @@ static int register_cli_cls_cmds(struct glob_arg *garg)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "pp2_cls_fl_rule_set";
 	cmd_params.desc		= "sets a single flow rule in the global flow rules";
-	cmd_params.format	= "[fl_log_id] [port_type] [port_bm] [lu_type]\n\t\t\t\t[enabled] [prio] [engine]\n"
+	cmd_params.format	= "[fl_log_id] [port_type] [port_bm]\n\t\t\t\t[enabled] [prio] [engine]\n"
 				"\t\t\t\[field_id_cnt]\n\t\t\t\t[field_id0] [field_id1] [field_id2] [field_id3]";
 	cmd_params.cmd_arg	= (void *)garg->cpu_slot;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_rule_set;
@@ -447,6 +447,9 @@ static int register_cli_c3_cmds(struct glob_arg *garg)
 
 static int register_cli_cmds(struct glob_arg *garg)
 {
+	if (!garg->cli)
+		return -EFAULT;
+
 	register_cli_cls_cmds(garg);
 	register_cli_c3_cmds(garg);
 	return 0;
@@ -473,12 +476,12 @@ static int init_global(void *arg)
 		return err;
 
 	err = init_local_modules(garg);
+	if (err)
+		return err;
 
-	if (garg->cli) {
-		err = register_cli_cmds(garg);
-		if (err)
-			return err;
-	}
+	err = register_cli_cmds(garg);
+	if (err)
+		return err;
 
 	return 0;
 }

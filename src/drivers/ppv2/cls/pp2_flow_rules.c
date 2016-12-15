@@ -148,7 +148,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 
 	if (lkp_dcod_db.flow_alloc_len) {
 		pp2_err("lkp for flow_log_id = %d already set\n", lkp_dcod_conf->flow_log_id);
-		return -EFAULT;
+		return 0;
 	}
 
 	rc = pp2_db_cls_fl_ctrl_get(&fl_ctrl);
@@ -310,6 +310,85 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	return 0;
 }
 
+
+/*******************************************************************************
+* pp2_cls_lkp_dcod_disable
+*
+* DESCRIPTION: The API enables a lookup decode entry for a logical flow ID
+*
+* INPUTS:
+*	fl_log_id - the logical flow ID to perform the operation
+*
+* OUTPUTS:
+*	None
+*
+* RETURNS:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
+{
+	struct mv_pp2x_cls_lookup_entry le;
+	int rc;
+	u16 luid;
+	int way = 0; /* currently, always setting way to '0' */
+	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
+
+	/* get the lookup DB for this logical flow ID */
+	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+	if (rc) {
+		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+		return rc;
+	}
+
+	if (lkp_dcod_db.enabled == false) {
+		/* entry disabled for this log_flow id */
+		pp2_warn("skipping disable of fl_log_id=%d, already disabled\n", fl_log_id);
+		return 0;
+	}
+
+	/* iterate over all LUIDs */
+	for (luid = 0; luid < lkp_dcod_db.luid_num; luid++) {
+		/* Exclude MAC default LookupID by LSP */
+		if (LUID_IS_LSP_RESERVED(lkp_dcod_db.luid_list[luid].luid))
+			continue;
+
+		/* updated the HW */
+		mv_pp2x_cls_sw_lkp_clear(&le);
+
+		rc = mv_pp2x_cls_hw_lkp_read(cpu_slot, luid, way, &le);
+		if (rc)
+			return rc;
+
+		rc = mv_pp2x_cls_sw_lkp_en_set(&le, 0);
+		if (rc) {
+			pp2_err("recvd ret_code(%d)\n", rc);
+			return rc;
+		}
+
+		le.way = lkp_dcod_db.way;
+		le.lkpid = lkp_dcod_db.luid_list[luid].luid;
+		rc = mv_pp2x_cls_hw_lkp_write(cpu_slot, &le);
+		if (rc) {
+			pp2_err("recvd ret_code(%d)\n", rc);
+			return rc;
+		}
+
+		pp2_dbg("fl_log_id[%2d] luid_nr[%2d] luid[%2d]\n",
+				fl_log_id, luid,
+				lkp_dcod_db.luid_list[luid].luid);
+	}
+
+	/* update lkp_dcod DB */
+	lkp_dcod_db.enabled = false;
+	rc = pp2_db_cls_lkp_dcod_set(fl_log_id, &lkp_dcod_db);
+	if (rc) {
+		pp2_err("recvd ret_code(%d)\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 /*******************************************************************************
 * pp2_cls_lkp_dcod_enable
 *
@@ -437,7 +516,27 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	return 0;
 }
 
+static int pp2_cls_lkp_dcod_enable_all(uintptr_t cpu_slot)
+{
+	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
+	int fl_log_id;
+	int rc;
 
+	for (fl_log_id = 0; fl_log_id < MVPP2_MNG_FLOW_ID_MAX; fl_log_id++) {
+		/* get the lookup DB for this logical flow ID */
+		rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+		if (rc)
+			pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+
+		if ((lkp_dcod_db.enabled == false) && (lkp_dcod_db.flow_alloc_len > 0)) {
+			rc = pp2_cls_lkp_dcod_enable(cpu_slot, fl_log_id);
+			if (rc)
+				pp2_err("fail fl_log_id %d\n", fl_log_id);
+		}
+	}
+
+	return 0;
+}
 /*******************************************************************************
 * cmp_prio
 *
@@ -2647,6 +2746,188 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 }
 
 
+/*******************************************************************************
+* pp2_cls_find_flows_for_lkp
+*
+* DESCRIPTION: searching for HW flows for lookup id  and adding them to flow list
+*
+* INPUTS:
+*	fl_rls - pointer to list of the flow rule
+*	flow_log_id - the logical flow ID to perform the operation
+*	flow_index - the index in the HW to looking for the flows
+*
+* OUTPUTS:
+*	fl_rls - adding new flows to fl_rls
+*
+* RETURNS:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+
+static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
+					struct pp2_cls_fl_rule_list_t *fl_rls,
+					int flow_log_id, int flow_index)
+{
+	int rc;
+
+	struct mv_pp2x_cls_flow_entry fe;
+	int engine, is_last, num_of_fields, port_type, port_id, lkp_type, prio, seq_ctrl;
+	int fields_arr[MVPP2_CLS_FLOWS_TBL_FIELDS_MAX];
+
+	for (; flow_index < MVPP2_CLS_FLOWS_TBL_SIZE; flow_index++) {
+		rc = mv_pp2x_cls_hw_flow_read(cpu_slot, flow_index, &fe);
+		if (rc) {
+			pp2_err("mv_pp2x_cls_hw_flow_read fail rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = mv_pp2x_cls_sw_flow_engine_get(&fe, &engine, &is_last);
+		if (rc) {
+			pp2_err("mv_pp2x_cls_sw_flow_engine_get fail rc = %d\n", rc);
+			return rc;
+		}
+
+		if (!engine) {
+			printf("didn't find any flows\n");
+			break;
+		}
+
+		rc = mv_pp2x_cls_sw_flow_extra_get(&fe, &lkp_type, &prio);
+		if (rc) {
+			pp2_err("mv_pp2x_cls_sw_flow_extra_get fail rc = %d\n", rc);
+			return rc;
+		}
+		/* add only kernel flows to db & hw */
+		if (lkp_type == MVPP2_CLS_MUSDK_LKP_DEFAULT) {
+			if (is_last) {
+				pp2_dbg("found %d flows\n", fl_rls->fl_len);
+				break;
+			}
+			continue;
+		}
+
+		rc = mv_pp2x_cls_sw_flow_port_get(&fe, &port_type, &port_id);
+		if (rc) {
+			pp2_err("mv_pp2x_cls_sw_flow_port_get fail rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = mv_pp2x_cls_sw_flow_seq_ctrl_get(&fe, &seq_ctrl);
+		if (rc) {
+			pp2_err("mv_pp2x_cls_sw_flow_seq_ctrl_get fail rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = mv_pp2x_cls_sw_flow_hek_get(&fe, &num_of_fields, fields_arr);
+		if (rc) {
+			pp2_err("mv_pp2x_cls_sw_flow_hek_get fail rc = %d\n", rc);
+			return rc;
+		}
+
+		fl_rls->fl[fl_rls->fl_len].fl_log_id = flow_log_id;
+		fl_rls->fl[fl_rls->fl_len].engine = engine;
+		fl_rls->fl[fl_rls->fl_len].port_type = port_type;
+		fl_rls->fl[fl_rls->fl_len].port_bm = port_id;
+		fl_rls->fl[fl_rls->fl_len].lu_type = lkp_type;
+		fl_rls->fl[fl_rls->fl_len].enabled = true;
+		fl_rls->fl[fl_rls->fl_len].prio = prio;
+		fl_rls->fl[fl_rls->fl_len].seq_ctrl = seq_ctrl;
+		fl_rls->fl[fl_rls->fl_len].field_id_cnt = (u8)num_of_fields;
+		fl_rls->fl[fl_rls->fl_len].field_id[0] = (u8)fields_arr[0];
+		fl_rls->fl[fl_rls->fl_len].field_id[1] = (u8)fields_arr[1];
+		fl_rls->fl[fl_rls->fl_len].field_id[2] = (u8)fields_arr[2];
+		fl_rls->fl[fl_rls->fl_len].field_id[3] = (u8)fields_arr[3];
+		fl_rls->fl_len++;
+
+		if (fl_rls->fl_len >= MVPP2_CLS_FLOW_RULE_MAX) {
+			pp2_err("to many flow found, fl_len = %d\n", fl_rls->fl_len);
+			return -EFAULT;
+		}
+
+		if (is_last) {
+			pp2_dbg("found %d flows\n", fl_rls->fl_len);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_cls_add_lkpid_flow_to_db
+*
+* DESCRIPTION: find lkp which configured by kernel and add them to DB, find for each lkp its flow
+*	and returning them to fl_rls.
+*
+*	by calling pp2_cls_lkp_dcod_set setting decoder DB.
+*	returning all flows to fl_rls - we are returning them because calling to pp2_cls_fl_rule_add
+*	is setting DB & HW and we dont want do it before cleaning the HW
+*
+* INPUTS:
+*           None
+*
+* OUTPUTS:
+*           fl_rls - all flows found
+*
+* RETURN:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+
+static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls)
+{
+	struct pp2_cls_lkp_dcod_entry_t  *dcod_entry;
+	struct mv_pp2x_cls_lookup_entry le;
+	int lkp_index, rxq, en, flow_index, mod;
+	int rc = 0;
+	int way = 0; /* currently, always setting way to '0' */
+
+	dcod_entry = malloc(sizeof(struct pp2_cls_lkp_dcod_entry_t));
+	if (dcod_entry == NULL) {
+		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	pp2_dbg("\n");
+	pp2_dbg("ID :	RXQ	EN	FLOW	MODE_BASE\n");
+	for (lkp_index = 0; lkp_index < MVPP2_CLS_LKP_TBL_SIZE; lkp_index++) {
+		rc = mv_pp2x_cls_hw_lkp_read(cpu_slot, lkp_index, way, &le);
+		if (rc)
+			goto end;
+		rc = mv_pp2x_cls_sw_lkp_rxq_get(&le, &rxq);
+		if (rc)
+			goto end;
+		rc = mv_pp2x_cls_sw_lkp_en_get(&le, &en);
+		if (rc)
+			goto end;
+		rc = mv_pp2x_cls_sw_lkp_flow_get(&le, &flow_index);
+		if (rc)
+			goto end;
+		rc = mv_pp2x_cls_sw_lkp_mod_get(&le, &mod);
+		if (rc)
+			goto end;
+		if (en) {
+			pp2_dbg(" 0x%2.2x\t 0x%2.2x\t %1.1d\t 0x%3.3x\t 0x%2.2x\n",
+				le.lkpid, rxq, en, flow_index, mod);
+			memset(dcod_entry, 0, sizeof(struct pp2_cls_lkp_dcod_entry_t));
+			dcod_entry->cpu_q = rxq;
+			dcod_entry->way = way;
+			dcod_entry->flow_len = MVPP2_CLS_DEF_FLOW_LEN;
+			dcod_entry->flow_log_id = le.lkpid;
+			dcod_entry->luid_num = 1;
+			dcod_entry->luid_list[0].luid = le.lkpid;
+
+			rc = pp2_cls_find_flows_per_lkp(cpu_slot, fl_rls, dcod_entry->flow_log_id, flow_index);
+			if (rc)
+				goto end;
+			pp2_cls_lkp_dcod_set(dcod_entry);
+		}
+	}
+
+end:
+	free(dcod_entry);
+
+	return rc;
+}
+
 
 /*******************************************************************************
 * pp2_cls_init
@@ -2665,7 +2946,8 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 *******************************************************************************/
 int pp2_cls_init(uintptr_t cpu_slot)
 {
-	int rc;
+	int rc = 0;
+	struct pp2_cls_fl_rule_list_t *fl_rls;
 
 	rc = mv_pp2x_cls_hw_cls_enable(cpu_slot, true);
 	if (rc) {
@@ -2673,20 +2955,43 @@ int pp2_cls_init(uintptr_t cpu_slot)
 		return rc;
 	}
 
+	pp2_db_cls_init();
+
+	fl_rls = malloc(sizeof(struct pp2_cls_fl_rule_list_t));
+	if (fl_rls == NULL) {
+		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+	memset(fl_rls, 0, sizeof(struct pp2_cls_fl_rule_list_t));
+
+	rc = pp2_cls_add_lkpid_and_flows_to_db(cpu_slot, fl_rls);
+	if (rc) {
+		pp2_err("pp2_cls_adding_db_current_flows fail rc = %d\n", rc);
+		goto end;
+	}
+
 	rc = mv_pp2x_cls_hw_lkp_clear_all(cpu_slot);
 	if (rc) {
 		pp2_err("mv_pp2x_cls_hw_lkp_clear_all fail rc = %d\n", rc);
-		return rc;
+		goto end;
 	}
 
 	rc = mv_pp2x_cls_hw_flow_clear_all(cpu_slot);
 	if (rc) {
 		pp2_err("mv_pp2x_cls_hw_flow_clear_all fail rc = %d\n", rc);
-		return rc;
+		goto end;
 	}
 
-	pp2_db_cls_init();
+	/* add rules and set HW */
+	if (fl_rls->fl_len)
+		pp2_cls_fl_rule_add(cpu_slot, fl_rls);
 
-	return 0;
+	/* Enable lookup decoder */
+	pp2_cls_lkp_dcod_enable_all(cpu_slot);
+
+end:
+	free(fl_rls);
+
+	return rc;
 }
 

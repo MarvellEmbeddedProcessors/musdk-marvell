@@ -176,6 +176,7 @@ int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[]);
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
 /* decode table */
+int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id);
 int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 flow_log_id);
 int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf);
 
