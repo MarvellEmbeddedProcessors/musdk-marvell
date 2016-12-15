@@ -119,6 +119,23 @@ struct bpool_inf {
 	int	num_buffs;
 };
 
+#ifndef HW_BUFF_RECYLCE
+struct tx_shadow_q_entry {
+#ifdef SW_BUFF_RECYLCE
+	u32		 	buff_ptr;
+#else
+	struct pp2_buff_inf	buff_ptr;
+#endif /* SW_BUFF_RECYLCE */
+};
+
+struct tx_shadow_q {
+	u16				 read_ind;
+	u16				 write_ind;
+
+	struct tx_shadow_q_entry	 ents[Q_SIZE];
+};
+#endif /* !HW_BUFF_RECYLCE */
+
 struct glob_arg {
 	int			 verbose;
 	int			 cli;
@@ -144,45 +161,33 @@ struct glob_arg {
 };
 
 struct local_arg {
+#ifndef HW_BUFF_RECYLCE
+#ifdef SW_BUFF_RECYLCE
+	struct pp2_buff_inf	***buffs_inf;
+#endif /* SW_BUFF_RECYLCE */
+
+	struct tx_shadow_q	shadow_qs[MAX_NUM_QS_PER_CORE];
+#endif /* !HW_BUFF_RECYLCE */
 	int			 prefetch_shift;
 	u64			 qs_map;
-	u16			 burst;
-	int			 echo;
-	int			 id;
 
 	struct pp2_hif		*hif;
 	struct pp2_ppio		*port;
 	struct port_desc	*port_desc;
 
 	struct pp2_bpool	***pools;
-	struct pp2_buff_inf	***buffs_inf;
+
+
+	u16			 burst;
+	int			 echo;
+	int			 id;
 
 	struct glob_arg		*garg;
 };
 
-#ifndef HW_BUFF_RECYLCE
-struct tx_shadow_q_entry {
-#ifdef SW_BUFF_RECYLCE
-	u32		 	buff_ptr;
-#else
-	struct pp2_buff_inf	buff_ptr;
-#endif /* SW_BUFF_RECYLCE */
-};
-
-struct tx_shadow_q {
-	u16				 read_ind;
-	u16				 write_ind;
-
-	struct tx_shadow_q_entry	 ents[Q_SIZE];
-};
-#endif /* !HW_BUFF_RECYLCE */
-
 
 static struct glob_arg garg = {};
 static u64 sys_dma_high_addr = 0;
-#ifndef HW_BUFF_RECYLCE
-static struct tx_shadow_q shadow_qs[MAX_NUM_CORES][MAX_NUM_QS_PER_CORE];
-#endif /* !HW_BUFF_RECYLCE */
 
 static u16	used_bpools = PP2_BPOOLS_RSRV;
 static u16	used_hifs = PP2_HIFS_RSRV;
@@ -448,7 +453,7 @@ static int main_loop_sw_recycle(void *arg, volatile int *running)
 			}
 		} while (!(larg->qs_map & (1<<((tc*PP2_MAX_NUM_QS_PER_TC)+qid))));
 
-		shadow_q = &(shadow_qs[larg->id][tc]);
+		shadow_q = &(larg->shadow_qs[tc]);
 
 //pr_info("tid %d check on tc %d, qid %d\n", larg->id, tc, qid);
 //pthread_mutex_lock(&larg->garg->trd_lock);
@@ -945,7 +950,11 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->prefetch_shift	= garg->prefetch_shift;
 	larg->port              = garg->port;
 	larg->pools             = garg->pools;
+#ifndef HW_BUFF_RECYLCE
+#ifdef SW_BUFF_RECYLCE
 	larg->buffs_inf         = garg->buffs_inf;
+#endif /* SW_BUFF_RECYLCE */
+#endif /* !HW_BUFF_RECYLCE */
 	larg->garg              = garg;
 	larg->port_desc		= garg->port_desc;
 
