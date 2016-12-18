@@ -32,6 +32,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -44,7 +45,7 @@
 #include "encryptedBlock.h"
 
 #define NUM_CONCURRENT_SESSIONS		64
-#define NUM_CONCURRENT_REQUESTS		32
+#define NUM_CONCURRENT_REQUESTS		256
 #define MAX_BUFFER_SIZE			2048 /* bytes */
 #define MAX_CIPHER_KEY_SIZE		32 /* 256 Bits = 32 Bytes */
 #define MAX_CIPHER_BLOCK_SIZE		32 /* Bytes */
@@ -66,9 +67,11 @@ static u32			auth_icv_size;
 static u8			expected_data[MAX_BUFFER_SIZE];
 static u32			expected_data_size;
 static bool			same_bufs;
+static int			num_to_check = 10;
+static int			num_checked;
 static int			num_to_print = 1;
 static int			num_printed;
-static int			num_requests_per_enq = 10;
+static int			num_requests_per_enq = NUM_CONCURRENT_REQUESTS;
 static int			num_requests_before_deq = NUM_CONCURRENT_REQUESTS / 2;
 
 static generic_list		test_db;
@@ -421,6 +424,33 @@ static int check_results(struct sam_session_params *session_params,
 	return errors;
 }
 
+static void print_results(int test, char *test_name, int operations, int errors,
+			struct timeval *tv_start, struct timeval *tv_end)
+{
+	u32 usecs, secs, msecs, kpps, mbps;
+
+	secs = tv_end->tv_sec - tv_start->tv_sec;
+	if (tv_end->tv_usec < tv_start->tv_usec) {
+		secs -= 1;
+		usecs = (tv_end->tv_usec + 1000000) - tv_start->tv_usec;
+	} else
+		usecs = tv_end->tv_usec - tv_start->tv_usec;
+
+	msecs = secs * 1000 + usecs / 1000;
+
+	kpps = operations / msecs;
+	mbps = kpps * in_data_size * 8 / 1000;
+
+	if (errors == 0)
+		printf("%2d. FINISHED %s: passed %d times       - %u.%03u secs\n",
+			test, test_name, operations, secs, usecs / 1000);
+	else
+		printf("%2d. FINISHED %s: failed %d of %d times - %u.%03u secs\n",
+			test, test_name, errors, operations, secs, usecs / 1000);
+
+	printf("      Rate: %u Kpps, %u Mbps\n", kpps, mbps);
+}
+
 static void free_bufs(void)
 {
 	int i;
@@ -575,6 +605,7 @@ static int run_tests(generic_list tests_db)
 	struct sam_cio_op_params requests[NUM_CONCURRENT_REQUESTS];
 	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
 	int rc, count, total_passed, total_errors, errors;
+	struct timeval tv_start, tv_end;
 
 	num_tests = generic_list_get_size(tests_db);
 
@@ -599,6 +630,7 @@ static int run_tests(generic_list tests_db)
 		memset(requests, 0, sizeof(requests));
 		memset(results, 0, sizeof(results));
 		num_printed = 0;
+		num_checked = 0;
 
 		prepare_requests(block, &sa_params[test], sa_hndl[test], requests, num_requests_per_enq);
 
@@ -606,6 +638,7 @@ static int run_tests(generic_list tests_db)
 		errors = 0;
 		in_process = 0;
 		next_request = 0;
+		gettimeofday(&tv_start, NULL);
 		while (total_deqs) {
 			to_enq = min(total_enqs, num_requests_before_deq);
 			while (in_process < to_enq) {
@@ -649,13 +682,16 @@ static int run_tests(generic_list tests_db)
 			}
 			in_process -= num;
 			total_deqs -= num;
+
 			/* check result */
-			errors += check_results(&sa_params[test], results, num);
+			if (num_checked < num_to_check) {
+				errors += check_results(&sa_params[test], results, to_deq);
+				num_checked += to_deq;
+			}
 		}
-		if (errors == 0)
-			printf("%2d. FINISHED %s: passed %d times\n", test, test_name, count);
-		else
-			printf("%2d. FINISHED %s: failed %d of %d times\n", test, test_name, errors, count);
+		gettimeofday(&tv_end, NULL);
+
+		print_results(test, test_name, count, errors, &tv_start, &tv_end);
 
 		total_errors += errors;
 		total_passed += (count - errors);
