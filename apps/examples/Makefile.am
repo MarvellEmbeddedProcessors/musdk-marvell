@@ -14,5 +14,5 @@ EXTRA_DIST =
 bin_PROGRAMS = musdk_pkt_echo
 musdk_pkt_echo_SOURCES  = ../common/lib/cli.c
 musdk_pkt_echo_SOURCES  += ../common/mvapp.c
-musdk_pkt_echo_SOURCES  += ppv2/pkt-echo/pkt_echo.c
+musdk_pkt_echo_SOURCES  += ppv2/pkt_echo/pkt_echo.c
 musdk_pkt_echo_LDADD = $(top_builddir)/src/libmusdk.la
