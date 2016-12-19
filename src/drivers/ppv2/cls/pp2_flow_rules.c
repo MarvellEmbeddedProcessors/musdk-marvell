@@ -310,6 +310,60 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	return 0;
 }
 
+/*******************************************************************************
+* pp2_cls_lkp_dcod_set_and_disable
+*
+* DESCRIPTION: The API set decoder entry if not configure till now,
+* 		and disabled it was enable
+*
+* INPUTS:
+*	fl_log_id - the logical flow ID to perform the operation
+*
+* OUTPUTS:
+*	None
+*
+* RETURNS:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
+{
+	struct pp2_cls_lkp_dcod_entry_t dcod;
+	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
+	int rc;
+
+	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+	if (rc) {
+		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+		return rc;
+	}
+	if (lkp_dcod_db.enabled == true) {
+		pp2_cls_lkp_dcod_disable(cpu_slot, fl_log_id);
+	/* if it isn't enabled it means that we should init decoder setting */
+	} else {
+		/* way - always 0*/
+		dcod.way = MVPP2_CLS_DEF_WAY;
+
+		/* currently every lkp id have specific log id */
+		dcod.luid_num = 1;
+
+		/* Flow log ID - Set to be the same as luid_list[0] TODO Ehud*/
+		dcod.flow_log_id = dcod.luid_list[0].luid = fl_log_id;
+
+		dcod.flow_len = MVPP2_CLS_DEF_FLOW_LEN;
+
+		/* Default queue - TODO not implemented yet in API */
+		dcod.cpu_q = MVPP2_CLS_DEF_RXQ;
+
+		/* Configure decoder table*/
+		rc = pp2_cls_lkp_dcod_set(&dcod);
+		if (rc) {
+			pp2_err("failed to add in decoder table\n");
+			return rc;
+		}
+	}
+
+	return 0;
+}
 
 /*******************************************************************************
 * pp2_cls_lkp_dcod_disable
