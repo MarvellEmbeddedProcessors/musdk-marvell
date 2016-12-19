@@ -1,8 +1,19 @@
+From b12bcf221189582aa7721195e7d60548daa5b492 Mon Sep 17 00:00:00 2001
+From: Lior Amsalem <alior@marvell.com>
+Date: Mon, 19 Dec 2016 11:26:56 +0200
+Subject: [PATCH 3/5] musdk: add support for musdk in mvpp2x
+
+Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+---
+ .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |  4 +-
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c | 95 +++++++++++++++++-----
+ 2 files changed, 79 insertions(+), 20 deletions(-)
+
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
-index 83d2d87..6429705 100644
+index 2e56db8..ddfc392 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
-@@ -1267,7 +1267,9 @@
+@@ -1254,7 +1254,9 @@
  
  /* Port flags */
  #define MVPP2_F_LOOPBACK		BIT(0)
@@ -14,10 +25,10 @@ index 83d2d87..6429705 100644
  /* Marvell tag types */
  enum mv_pp2x_tag_type {
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index 31c3788..5a46506 100644
+index a819bfa..dc9f9c4 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-@@ -2886,6 +2886,14 @@ outNoTxDesc:
+@@ -2844,6 +2844,14 @@ out_no_tx_desc:
  	return 0;
  }
  
@@ -32,7 +43,7 @@ index 31c3788..5a46506 100644
  /* Main tx processing */
  static int mv_pp2x_tx(struct sk_buff *skb, struct net_device *dev)
  {
-@@ -3600,8 +3608,8 @@ int mv_pp2x_open(struct net_device *dev)
+@@ -3555,8 +3563,8 @@ int mv_pp2x_open(struct net_device *dev)
  		netdev_err(port->dev, "cannot allocate Tx queues\n");
  		goto err_cleanup_rxqs;
  	}
@@ -43,7 +54,7 @@ index 31c3788..5a46506 100644
  	if (err) {
  		netdev_err(port->dev, "cannot allocate irq's\n");
  		goto err_cleanup_txqs;
-@@ -3609,14 +3617,15 @@ int mv_pp2x_open(struct net_device *dev)
+@@ -3564,14 +3572,15 @@ int mv_pp2x_open(struct net_device *dev)
  	/* In default link is down */
  	netif_carrier_off(port->dev);
  
@@ -65,7 +76,7 @@ index 31c3788..5a46506 100644
  	if (port->priv->pp2_version == PPV22)
  		mvcpn110_mac_hw_init(port);
  	mv_pp2x_start_dev(port);
-@@ -3981,6 +3990,20 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
+@@ -3936,6 +3945,20 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
  	.ndo_set_features	= mv_pp2x_netdev_set_features,
  };
  
@@ -86,7 +97,7 @@ index 31c3788..5a46506 100644
  /* Driver initialization */
  
  static void mv_pp21_port_power_up(struct mv_pp2x_port *port)
-@@ -4368,7 +4391,9 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
+@@ -4322,7 +4345,9 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
  		goto err_free_percpu;
  
  	/* Configure queue_vectors */
@@ -97,7 +108,7 @@ index 31c3788..5a46506 100644
  
  	/* Configure Rx queue group interrupt for this port */
  	priv->pp2xdata->mv_pp2x_port_isr_rx_group_cfg(port);
-@@ -4395,7 +4420,8 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
+@@ -4349,7 +4374,8 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
  	port->pkt_size = MVPP2_RX_PKT_SIZE(port->dev->mtu);
  
  	/* Initialize pools for swf */
@@ -107,7 +118,7 @@ index 31c3788..5a46506 100644
  	if (err)
  		goto err_free_percpu;
  	return 0;
-@@ -4446,6 +4472,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4400,6 +4426,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  	int port_num_irq;
  	int phy_mode;
  	struct phy *comphy;
@@ -115,8 +126,8 @@ index 31c3788..5a46506 100644
 +	int statlen;
  
  	dev = alloc_etherdev_mqs(sizeof(struct mv_pp2x_port),
- 		mv_pp2x_txq_number, mv_pp2x_rxq_number);
-@@ -4458,6 +4486,11 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 				 mv_pp2x_txq_number, mv_pp2x_rxq_number);
+@@ -4412,6 +4440,11 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  	SET_NETDEV_DEV(dev, &pdev->dev);
  	port->priv = priv;
  
@@ -128,7 +139,7 @@ index 31c3788..5a46506 100644
  	mv_pp2x_port_init_config(port);
  
  	if (of_property_read_u32(port_node, "port-id", &id)) {
-@@ -4530,7 +4563,9 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4484,7 +4517,9 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  
  	/* Tx/Rx Interrupt */
  	port_num_irq = mv_pp2x_of_irq_count(port_node);
@@ -139,7 +150,7 @@ index 31c3788..5a46506 100644
  		dev_err(&pdev->dev,
  			"port(%d)-number of irq's doesn't match hw\n", id);
  		goto err_free_netdev;
-@@ -4559,6 +4594,12 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4513,6 +4548,12 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  	dev->tx_queue_len = tx_queue_size;
  	dev->watchdog_timeo = 5 * HZ;
  	dev->netdev_ops = &mv_pp2x_netdev_ops;
@@ -152,17 +163,17 @@ index 31c3788..5a46506 100644
  	mv_pp2x_set_ethtool_ops(dev);
  
  	if (priv->pp2_version == PPV21)
-@@ -4609,7 +4650,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4563,7 +4604,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  		err = -ENOMEM;
  		goto err_free_txq_pcpu;
  	}
--	if (port->priv->pp2xdata->interrupt_tx_done == false) {
+-	if (!port->priv->pp2xdata->interrupt_tx_done) {
 +	if ((!(port->flags & MVPP2_F_IF_MUSDK)) && port->priv->pp2xdata->interrupt_tx_done == false) {
  		for_each_online_cpu(cpu) {
  			port_pcpu = per_cpu_ptr(port->pcpu, cpu);
  
-@@ -4622,6 +4663,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
- 				mv_pp2x_tx_proc_cb, (unsigned long)dev);
+@@ -4576,6 +4617,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 				     mv_pp2x_tx_proc_cb, (unsigned long)dev);
  		}
  	}
 +	if (port->flags & MVPP2_F_IF_MUSDK)
@@ -170,7 +181,7 @@ index 31c3788..5a46506 100644
  	/* Init pool of external buffers for TSO, fragmentation, etc */
  	for_each_online_cpu(cpu) {
  		port_pcpu = per_cpu_ptr(port->pcpu, cpu);
-@@ -4649,7 +4692,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4603,7 +4646,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  			port_pcpu->ext_buf_pool->buf_pool_in_use++;
  		}
  	}
@@ -179,7 +190,7 @@ index 31c3788..5a46506 100644
  	features = NETIF_F_SG;
  	dev->features = features | NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
  			NETIF_F_IPV6_CSUM | NETIF_F_TSO;
-@@ -4674,8 +4717,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4628,8 +4671,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  		dev_err(&pdev->dev, "failed to register netdev\n");
  		goto err_free_port_pcpu;
  	}
@@ -190,7 +201,7 @@ index 31c3788..5a46506 100644
  
  	netdev_info(dev, "Using %s mac address %pM\n", mac_from, dev->dev_addr);
  
-@@ -5359,10 +5402,24 @@ static int mv_pp2x_probe(struct platform_device *pdev)
+@@ -5311,10 +5354,24 @@ static int mv_pp2x_probe(struct platform_device *pdev)
  		mv_pp22_init_rxfhindir(priv);
  
  	/* Initialize ports */
@@ -219,3 +230,6 @@ index 31c3788..5a46506 100644
  	}
  
  	if (priv->pp2_version == PPV22) {
+-- 
+1.9.1
+

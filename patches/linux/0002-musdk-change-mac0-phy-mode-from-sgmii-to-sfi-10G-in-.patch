@@ -1,5 +1,16 @@
+From 84422ac008f1c3d72f9ebd88a96639b411763364 Mon Sep 17 00:00:00 2001
+From: Lior Amsalem <alior@marvell.com>
+Date: Mon, 19 Dec 2016 10:51:13 +0200
+Subject: [PATCH 2/5] musdk: change mac0 phy mode from sgmii to sfi 10G in 70x0
+ dts
+
+Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+---
+ arch/arm64/boot/dts/marvell/armada-7040-db-router.dts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
-index e919aaf..75288b3 100644
+index a78f081..ae82328 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
 @@ -126,7 +126,7 @@
@@ -11,3 +22,6 @@ index e919aaf..75288b3 100644
  					phys = <&comphy0 2 COMPHY_SGMII0>;
  					phy-names = "comphy";
  				};
+-- 
+1.9.1
+
