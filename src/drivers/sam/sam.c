@@ -63,10 +63,7 @@ static int sam_dmabuf_alloc(u32 buf_size, struct sam_dmabuf *dmabuf)
 	dma_properties.fCached   = true;
 	dma_properties.Alignment = SAM_DMABUF_ALIGN;
 	dma_properties.Size      = buf_size;
-	if (buf_size == 256)
-		dma_properties.Bank      = SAM_DMA_BANK_SA;
-	else
-		dma_properties.Bank      = SAM_DMA_BANK_PKT;
+	dma_properties.Bank      = SAM_DMA_BANK_PKT;
 
 	dma_status = DMABuf_Alloc(dma_properties,
 				&dmabuf->host_addr,

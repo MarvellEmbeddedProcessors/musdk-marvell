@@ -45,12 +45,9 @@
 #include "token_builder.h"
 #include "firmware_eip207_api_cmd.h"
 
-#define SAM_DMABUF_ALIGN	4 /* cache line */
+#define SAM_DMABUF_ALIGN	16 /* cache line */
 
 #define SAM_DMA_BANK_PKT	0 /* dynamic bank */
-
-#define SAM_DMA_BANK_SA		1 /* static bank */
-
 
 #define SAM_HW_RING_NUM		DRIVER_MAX_NOF_RING_TO_USE
 #define SAM_HW_RING_SIZE	DRIVER_PEC_MAX_PACKETS
