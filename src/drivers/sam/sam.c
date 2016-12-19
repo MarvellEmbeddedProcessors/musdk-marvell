@@ -718,7 +718,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *result, u16 *num)
 #ifdef SAM_CIO_DEBUG
 	printf("\nOutput DMA buffer: %d bytes\n", result_desc.DstPkt_ByteCount);
 	mv_mem_dump(result_desc.DstPkt_p, result_desc.DstPkt_ByteCount);
-#ifdef
+#endif
 
 	return 0;
 }
