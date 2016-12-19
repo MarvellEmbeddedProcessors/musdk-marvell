@@ -892,7 +892,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	pp2_cls_c3_sw_dump(&c3);
 #endif
 
-	/* get free logical index, also check whether they is available entry */
+	/* get free logical index, also check whether there is an available entry */
 	rc = pp2_cls_db_c3_free_logic_idx_get(&l_logic_idx);
 	if (rc) {
 		pp2_err("failed to get free logical index\n");
