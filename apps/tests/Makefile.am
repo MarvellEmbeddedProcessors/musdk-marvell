@@ -25,18 +25,12 @@ musdk_sam_kat_SOURCES += sam_kat_suite/generic_list.c
 musdk_sam_kat_SOURCES += sam_kat_suite/encryptedBlock.c
 
 musdk_sam_kat_LDADD = $(top_builddir)/src/libmusdk.la
-musdk_sam_kat_LDADD += $(EIP197_DDK)/Examples/Driver/build/libdriver_197_u.a
-musdk_sam_kat_LDADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libsa_bld_u.a
-musdk_sam_kat_LDADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libtk_bld_u.a
 
 bin_PROGRAMS += musdk_sam_single
 musdk_sam_single_CFLAGS = $(AM_CFLAGS)
 musdk_sam_single_SOURCES  = sam_kat_single/kat_tests_single.c
 
 musdk_sam_single_LDADD = $(top_builddir)/src/libmusdk.la
-musdk_sam_single_LDADD += $(EIP197_DDK)/Examples/Driver/build/libdriver_197_u.a
-musdk_sam_single_LDADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libsa_bld_u.a
-musdk_sam_single_LDADD += $(EIP197_DDK)/Examples/DemoApp_PEC/build/libtk_bld_u.a
 endif
 
 bin_PROGRAMS += musdk_cls_dbg

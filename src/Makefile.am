@@ -16,6 +16,7 @@ nobase_include_HEADERS += include/env/mv_sys_dma.h
 nobase_include_HEADERS += include/env/mv_types.h
 
 libmusdk_la_CFLAGS = $(AM_CFLAGS)
+libmusdk_la_LDFLAGS = $(AM_LDFLAGS)
 
 libmusdk_la_SOURCES  = lib/list.c
 libmusdk_la_SOURCES += lib/lib_misc.c
@@ -84,6 +85,10 @@ libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Basic_Defs_API/incl
 libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/SABuilder/incl
 libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/TokenBuilder/incl
 libmusdk_la_CFLAGS += -I$(EIP197_DDK_FW)/firmware/production_firmware/api
+
+libmusdk_la_LDFLAGS += -L$(EIP197_DDK)/Examples/Driver/build/ -ldriver_197_u
+libmusdk_la_LDFLAGS += -L$(EIP197_DDK)/Examples/DemoApp_PEC/build/ -lsa_bld_u
+libmusdk_la_LDFLAGS += -L$(EIP197_DDK)/Examples/DemoApp_PEC/build/ -ltk_bld_u
 
 nobase_include_HEADERS += include/drivers/mv_sam.h
 nobase_include_HEADERS += include/drivers/mv_sam_cio.h
