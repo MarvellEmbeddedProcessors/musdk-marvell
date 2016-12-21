@@ -106,6 +106,7 @@ struct sam_cio_op_params {
 /** Crypto operation result */
 struct sam_cio_op_result {
 	void			*cookie; /**< caller cookie passed from request */
+	u32			out_len; /**< output data length */
 	enum sam_cio_op_status	status;  /**< status of crypto operation. */
 };
 

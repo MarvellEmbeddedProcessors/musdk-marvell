@@ -753,6 +753,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 				__func__, result_desc->DstPkt_ByteCount, operation->out_frags[0].len);
 			return -EINVAL;
 		}
+		result->out_len = result_desc->DstPkt_ByteCount;
 		memcpy(operation->out_frags[0].vaddr, result_desc->DstPkt_p,
 			result_desc->DstPkt_ByteCount);
 

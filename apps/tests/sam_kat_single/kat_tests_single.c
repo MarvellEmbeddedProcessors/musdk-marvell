@@ -151,13 +151,12 @@ static int check_result(struct sam_sa *sa, struct sam_cio_op_params *request,
 		return -EINVAL;
 	}
 	printf("\nOutput buffer:");
-	dump_buf(request->dst->vaddr, sizeof(RFC3602_AES128_CBC_T1_CT));
+	dump_buf(request->dst->vaddr, result->out_len);
 	printf("\nExpected buffer:");
 	dump_buf(RFC3602_AES128_CBC_T1_CT, sizeof(RFC3602_AES128_CBC_T1_CT));
 
 	/* Compare output and expected data */
-	if (memcmp(request->dst->vaddr, RFC3602_AES128_CBC_T1_CT,
-		   sizeof(RFC3602_AES128_CBC_T1_CT))) {
+	if (memcmp(request->dst->vaddr, RFC3602_AES128_CBC_T1_CT, result->out_len)) {
 		pr_err("%s: Test failed\n", __func__);
 		return -EINVAL;
 	}

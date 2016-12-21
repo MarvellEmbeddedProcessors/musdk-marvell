@@ -396,8 +396,8 @@ static int check_results(struct sam_session_params *session_params,
 			printf("\nInput buffer: %d bytes\n", in_data_size);
 			mv_mem_dump(in_buf.vaddr, in_data_size);
 
-			printf("\nOutput buffer: %d bytes\n", expected_data_size);
-			mv_mem_dump(out_data, expected_data_size);
+			printf("\nOutput buffer: %d bytes\n", result->out_len);
+			mv_mem_dump(out_data, result->out_len);
 
 			printf("\nExpected buffer: %d bytes\n", expected_data_size);
 			mv_mem_dump(expected_data, expected_data_size);
@@ -415,10 +415,16 @@ static int check_results(struct sam_session_params *session_params,
 		if (result->status != SAM_CIO_OK) {
 			errors++;
 			printf("Error: result->status = %d\n", result->status);
-		} else if (memcmp(out_data, expected_data, expected_data_size)) {
+		} else if (memcmp(out_data, expected_data, result->out_len)) {
 			/* Compare output and expected data (including ICV for encryption) */
 			errors++;
-			printf("Error: out_data != expected_data (%d bytes)\n", expected_data_size);
+			printf("Error: out_data != expected_data\n");
+
+			printf("\nOutput buffer: %d bytes\n", result->out_len);
+			mv_mem_dump(out_data, result->out_len);
+
+			printf("\nExpected buffer: %d bytes\n", expected_data_size);
+			mv_mem_dump(expected_data, expected_data_size);
 		}
 	}
 	return errors;
