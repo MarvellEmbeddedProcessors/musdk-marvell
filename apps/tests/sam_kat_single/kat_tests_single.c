@@ -171,7 +171,7 @@ int main(int argc, char **argv)
 	u16 num;
 	int rc = 0;
 
-	cio_params.id = 0;
+	cio_params.match = "cio-0:0";
 	cio_params.size = 32;
 	cio_params.num_sessions = 64;
 	cio_params.max_buf_size = 2048;

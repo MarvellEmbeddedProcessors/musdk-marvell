@@ -49,7 +49,6 @@
 /** parameters for CIO instance */
 struct sam_cio_params {
 	const char *match; /**< SAM HW string in DTS file. e.g. "sam-0" */
-	u8  id;            /**< ring id in SAM HW unit */
 	u32 size;          /**< ring size in number of descriptors */
 	u32 num_sessions;  /**< number of supported sessions */
 	u32 max_buf_size;  /**< maximum buffer size [in bytes] */

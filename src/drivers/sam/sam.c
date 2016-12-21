@@ -304,7 +304,7 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
-	int i;
+	int i, engine, ring, scanned;
 
 	/* Load SAM HW engine */
 	if (sam_hw_engine_load())
@@ -315,10 +315,17 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 		pr_err("sam_cio_init is already called\n");
 		return -EEXIST;
 	}
+	/* Parse match string to ring number */
+	scanned = sscanf(params->match, "cio-%d:%d\n", &engine, &ring);
+	if (scanned != 2) {
+		pr_err("Invalid match string %s. scanned = %d, Expected: cio-0:X\n",
+			params->match, scanned);
+		return -EINVAL;
+	}
 	/* Check valid range for CIO ring */
-	if (params->id >= SAM_HW_RING_NUM) {
+	if (ring >= SAM_HW_RING_NUM) {
 		pr_err("sam_cio ring #%d is out range: 0 ... %d\n",
-			params->id, SAM_HW_RING_NUM);
+			ring, SAM_HW_RING_NUM);
 		return -EINVAL;
 	}
 	/* Check ring size and number of sessions with HW max values */
@@ -338,7 +345,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	}
 
 	/* Initialize HW ring */
-	if (sam_hw_ring_init(params->id))
+	if (sam_hw_ring_init(ring))
 		goto err;
 
 	/* Allocate single sam_cio structure */
@@ -350,6 +357,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	}
 	/* Save configured CIO params */
 	sam_ring->params = *params;
+	sam_ring->id = ring;
 
 	/* Allocate configured number of sam_sa structures */
 	sam_sessions = kcalloc(params->num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
@@ -425,7 +433,7 @@ int sam_cio_deinit(struct sam_cio *cio)
 	if (!cio)
 		return 0;
 
-	sam_hw_ring_deinit(cio->params.id);
+	sam_hw_ring_deinit(cio->id);
 
 	if (sam_sessions) {
 		for (i = 0; i < cio->params.num_sessions; i++)
@@ -544,11 +552,11 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	}
 
 	/* Register the SA. */
-	rc = PEC_SA_Register(cio->params.id, session->sa_dmabuf.hndl,
+	rc = PEC_SA_Register(cio->id, session->sa_dmabuf.hndl,
 			     DMABuf_NULLHandle, DMABuf_NULLHandle);
 	if (rc != PEC_STATUS_OK) {
 		pr_err("%s: PEC_SA_Register on ring %d failed. rc = %d\n",
-			__func__, cio->params.id, rc);
+			__func__, cio->id, rc);
 		goto error_session;
 	}
 #ifdef SAM_SA_DEBUG
@@ -572,11 +580,11 @@ int sam_session_destroy(struct sam_sa *session)
 	PEC_Status_t rc;
 
 	/* Unregister the SA. */
-	rc = PEC_SA_UnRegister(cio->params.id, session->sa_dmabuf.hndl,
+	rc = PEC_SA_UnRegister(cio->id, session->sa_dmabuf.hndl,
 				DMABuf_NULLHandle, DMABuf_NULLHandle);
 	if (rc != PEC_STATUS_OK) {
 		pr_err("%s: PEC_SA_UnRegister on ring %d failed. rc = %d\n",
-			__func__, cio->params.id, rc);
+			__func__, cio->id, rc);
 		return -EINVAL;
 	}
 	sam_session_free(session);
@@ -629,7 +637,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 
 		/* Check maximum number of pending requests */
 		if (sam_cio_is_full(cio)) {
-			/*pr_warning("SAM cio %d is full\n", cio->params.id);*/
+			/*pr_warning("SAM cio %d is full\n", cio->id);*/
 			return -EBUSY;
 		}
 #ifdef SAM_CIO_DEBUG
@@ -669,7 +677,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 				__func__, rc);
 			goto error_enq;
 		}
-		rc = PEC_Packet_Put(cio->params.id, cmd, 1, &count);
+		rc = PEC_Packet_Put(cio->id, cmd, 1, &count);
 		if (rc != PEC_STATUS_OK) {
 			pr_err("%s: PEC_Packet_Put failed, rc = %d, count = %d\n",
 				__func__, rc, count);
@@ -700,7 +708,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		todo = cio->params.size - 1;
 
 	result_desc = cio->hw_ring.result_desc;
-	rc = PEC_Packet_Get(cio->params.id, result_desc, todo, &count);
+	rc = PEC_Packet_Get(cio->id, result_desc, todo, &count);
 	if (rc != PEC_STATUS_OK) {
 		pr_err("%s: PEC_Packet_Get failed, rc = %d\n", __func__, rc);
 		return -EINVAL;

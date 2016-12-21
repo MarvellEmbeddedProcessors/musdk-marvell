@@ -91,8 +91,9 @@ struct sam_cio_op {
 
 
 struct sam_cio {
+	u8  id;				/* ring id in SAM HW unit */
 	struct sam_cio_params params;
-	struct sam_cio_op *operations;    /* array of operations */
+	struct sam_cio_op *operations;	/* array of operations */
 	struct sam_hw_ring hw_ring;
 	u32 next_request;
 	u32 next_result;

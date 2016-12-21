@@ -705,17 +705,24 @@ static int run_tests(generic_list tests_db)
 	return 0;
 }
 
+static void usage(int argc, char **argv)
+{
+	printf("Usage: %s <match> <test_file>\n", argv[0]);
+	printf("<match> string fromat is cio-0:0\n");
+}
+
 int main(int argc, char **argv)
 {
 	struct sam_cio_params cio_params;
 	char *tf_name;
 
-	if (argc < 2) {
-		printf("\nConfiguration file needed\n");
+	if (argc < 3) {
+		usage(argc, argv);
 		return -1;
 	}
+	cio_params.match = argv[1];
 
-	tf_name = argv[1];
+	tf_name = argv[2];
 	printf("%s: tests file is %s\n", argv[0], tf_name);
 
 	test_db = generic_list_create(fileSetsEncryptedBlockCopyForList,
@@ -731,7 +738,6 @@ int main(int argc, char **argv)
 	}
 	printf("%d tests read from file %s\n", generic_list_get_size(test_db), tf_name);
 
-	cio_params.id = 0;
 	cio_params.size = NUM_CONCURRENT_REQUESTS;
 	cio_params.num_sessions = NUM_CONCURRENT_SESSIONS;
 	cio_params.max_buf_size = MAX_BUFFER_SIZE;
