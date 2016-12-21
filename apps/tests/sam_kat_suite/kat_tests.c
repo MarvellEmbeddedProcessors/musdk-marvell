@@ -675,18 +675,19 @@ static int run_tests(generic_list tests_db)
 			to_deq = in_process;
 			num = (u16)to_deq;
 			rc = sam_cio_deq(cio_hndl, results, &num);
-			if ((rc != 0) && (rc != -EBUSY)) {
+			if (rc == 0) {
+				in_process -= num;
+				total_deqs -= num;
+
+				/* check result */
+				if (num_checked < num_to_check) {
+					errors += check_results(&sa_params[test], results, num);
+					num_checked += num;
+				}
+			} else if (rc != -EBUSY) {
 				printf("%s: sam_cio_deq failed. num = %d, rc = %d\n",
 					__func__, num, rc);
 				return rc;
-			}
-			in_process -= num;
-			total_deqs -= num;
-
-			/* check result */
-			if (num_checked < num_to_check) {
-				errors += check_results(&sa_params[test], results, to_deq);
-				num_checked += to_deq;
 			}
 		}
 		gettimeofday(&tv_end, NULL);

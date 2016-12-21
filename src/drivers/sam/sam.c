@@ -705,11 +705,12 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		pr_err("%s: PEC_Packet_Get failed, rc = %d\n", __func__, rc);
 		return -EINVAL;
 	}
-	*num = (u16)count;
 
-	if (count == 0) /* No results are ready */
+	/* No results are ready */
+	if (count == 0)
 		return -EBUSY;
 
+	*num = (u16)count;
 	for (i = 0; i < count; i++) {
 		struct sam_cio_op_result *result = &results[i];
 

@@ -200,9 +200,12 @@ int main(int argc, char **argv)
 	}
 	/* polling for result */
 	rc = poll_results(cio_hndl, &result, &num);
+	if ((rc == 0) && (num == 1)) {
+		/* check result */
+		check_result(sa_hndl, &aes128_cbc_t1, &result);
+	} else
+		pr_err("No result: rc = %d, num = %d\n", rc, num);
 
-	/* check result */
-	check_result(sa_hndl, &aes128_cbc_t1, &result);
 exit:
 	if (sa_hndl)
 		sam_session_destroy(sa_hndl);
