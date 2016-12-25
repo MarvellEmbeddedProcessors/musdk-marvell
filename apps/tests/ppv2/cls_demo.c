@@ -65,21 +65,22 @@
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define CLS_DBG_NO_PATH(file_name) (strrchr((file_name), '/') ? \
 			    strrchr((file_name), '/') + 1 : (file_name))
+#define CLS_TEST_MODULE_NAME_MAX 10
 
 struct pp2_ppio {
 	struct pp2_port *port;
 };
 
 struct glob_arg {
-	int			 verbose;
-	int			 cli;
-	char			 port_name[CLS_APP_PPIO_NAME_MAX];
+	int			verbose;
+	int			cli;
+	char			port_name[CLS_APP_PPIO_NAME_MAX];
 	struct pp2_hif		*hif;
 	struct pp2_ppio		*ppio;
-	int			 num_pools;
+	int			num_pools;
 	struct pp2_bpool	***pools;
 	struct pp2_buff_inf	***buffs_inf;
-	char			*test_module;
+	char			test_module[CLS_TEST_MODULE_NAME_MAX];
 	int			test_number;
 	uintptr_t		cpu_slot;
 };
@@ -893,28 +894,24 @@ static int main_loop(void *arg, volatile int *running)
 	}
 
 #ifdef CLS_DEBUG
-	if (garg->test_module) {
-		if (strncmp(garg->test_module, "parser", 6) == 0) {
-			pr_info("Parser tests not implemented yet\n");
+	if (strncmp(garg->test_module, "parser", 6) == 0) {
+		pr_info("Parser tests not implemented yet\n");
+		return -EINVAL;
+	} else if (strncmp(garg->test_module, "issue", 5) == 0) {
+		pr_info("*************Initialize DB**************\n");
+		pp2_cls_db_init();
+		pr_info("*************Initialize cls - decoder & issue engine **************\n");
+		pp2_cls_init(garg->cpu_slot);
+	} else if (strncmp(garg->test_module, "c2", 2) == 0) {
+		pr_info("c2 tests not implemented yet\n");
+		return -EINVAL;
+	} else if (strncmp(garg->test_module, "c3", 2) == 0) {
+		if (garg->test_number < 1 || garg->test_number > 5) {
+			pr_err("c3 test number not supported\n");
 			return -EINVAL;
-		} else if (strncmp(garg->test_module, "issue", 5) == 0) {
-			pr_info("*************Initialize DB**************\n");
-			pp2_cls_db_init();
-			pr_info("*************Initialize cls - decoder & issue engine **************\n");
-			pp2_cls_init(garg->cpu_slot);
-		} else if (strncmp(garg->test_module, "c2", 2) == 0) {
-			pr_info("c2 tests not implemented yet\n");
-			return -EINVAL;
-		} else if (strncmp(garg->test_module, "c3", 2) == 0) {
-			if (garg->test_number < 1 || garg->test_number > 5) {
-				pr_info("c3 test number not supported\n");
-				return -EINVAL;
-			}
-			pr_info("*************start test c3************\n");
-			pp2_cls_c3_test(port->cpu_slot, garg->test_number);
-		} else {
-			pr_info("wrong engine params\n");
 		}
+		pr_info("*************start test c3************\n");
+		pp2_cls_c3_test(garg->cpu_slot, garg->test_number);
 	} else
 #endif
 	{
@@ -1317,74 +1314,53 @@ static void usage(char *progname)
 		"\t	  ppio-1:0 - A8040       10Gb interface 2\n"
 		"\t	  ppio-1:1 - A8040       1Gb interface 2\n"
 		"\n"
-	    "Optional OPTIONS:\n"
 #ifdef CLS_DEBUG
+	    "Optional OPTIONS:\n"
 		"\t-m <test module>	test module <parser,issue,c2,c3,rss>\n"
 		"\t-n <test number>	select test number\n"
 #endif
-		"\t--cli			use CLI\n"
 		"\n", CLS_DBG_NO_PATH(progname), CLS_DBG_NO_PATH(progname)
 		);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 {
-	int	i = 1;
+	int i = 1;
+	int option;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"help", no_argument, 0, 'h'},
+		{"interface", required_argument, 0, 'i'},
+		{0, 0, 0, 0}
+	};
 
-	garg->cli = 0;
-	garg->test_module = NULL;
+	garg->cli = 1;
 	garg->test_number = 0;
 
-	while (i < argc) {
-		if ((strcmp(argv[i], "?") == 0) ||
-		    (strcmp(argv[i], "-h") == 0) ||
-		    (strcmp(argv[i], "--help") == 0)) {
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	while ((option = getopt_long(argc, argv, "hi:n:m:", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 'h':
 			usage(argv[0]);
 			exit(0);
-		} else if (strcmp(argv[i], "-i") == 0) {
-			if (argc < (i + 2)) {
-				pr_err("Invalid number of arguments!\n");
-				return -EINVAL;
-			}
-			if (argv[i + 1][0] == '-') {
-				pr_err("Invalid arguments format!\n");
-				return -EINVAL;
-			}
-			snprintf(garg->port_name, sizeof(garg->port_name), "%s", argv[i + 1]);
-			i += 2;
+			break;
+		case 'i':
+			snprintf(garg->port_name, sizeof(garg->port_name), "%s", optarg);
+			break;
 #ifdef CLS_DEBUG
-		} else if (strcmp(argv[i], "-m") == 0) {
-			if (argc < i + 2) {
-				pr_err("Invalid number of arguments!\n");
-				return -EINVAL;
-			}
-			if (argv[i + 1][0] == '-') {
-				pr_err("Invalid arguments format!\n");
-				return -EINVAL;
-			}
-			garg->test_module = &argv[i + 1][0];
-			i += 2;
-		} else if (strcmp(argv[i], "-n") == 0) {
-			if (argc < i + 2) {
-				pr_err("Invalid number of arguments!\n");
-				return -EINVAL;
-			}
-			if (argv[i + 1][0] == '-') {
-				pr_err("Invalid arguments format!\n");
-				return -EINVAL;
-			}
-			garg->test_number = atoi(argv[i + 1]);
-			i += 2;
+		case 'm':
+			snprintf(garg->test_module, sizeof(garg->test_module), "%s", optarg);
+			break;
+		case 'n':
+			garg->test_number = atoi(optarg);
+			break;
 #endif
-		}  else if (strcmp(argv[i], "--cli") == 0) {
-			garg->cli = 1;
-			i += 1;
-		} else {
+		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
 		}
 	}
-
 	/* Now, check validity of all inputs */
 	if (!garg->port_name[0]) {
 		pr_err("No port defined!\n");
