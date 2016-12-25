@@ -651,6 +651,8 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 		}
 
 		for (j = 0; j < lkp_dcod_db.flow_len; j++) {
+			int proto_field = (fl_rl_list_db->flow[j].engine == MVPP2_CLS_ENGINE_C3B ||
+					   fl_rl_list_db->flow[j].engine == MVPP2_CLS_ENGINE_C3HB);
 			if (j != 0)
 				printf("\t    ");
 
@@ -662,17 +664,18 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 				for (k = 0; k < MVPP2_MAX_NUM_GMACS; k++)
 					ref_sum += fl_rl_list_db->flow[j].ref_cnt[k];
 
-			printf(" %5d %3d %6d %-8s %3d %6d %4d = ",
+			printf(" %5d %3d %6d %-8s %3d %6d",
 				fl_rl_list_db->flow[j].rl_log_id,
 				fl_rl_list_db->flow[j].lu_type,
 				fl_rl_list_db->flow[j].port_bm,
 				pp2_cls_utils_port_type_str_get(fl_rl_list_db->flow[j].port_type),
 				fl_rl_list_db->flow[j].prio,
-				ref_sum,
-				fl_rl_list_db->flow[j].field_id_cnt);
-
+				ref_sum);
+			printf(" %4d = ", fl_rl_list_db->flow[j].field_id_cnt + proto_field);
 			for (k = 0; k < fl_rl_list_db->flow[j].field_id_cnt; k++)
 				printf("%s ", pp2_utils_field_id_str_get(fl_rl_list_db->flow[j].field_id[k]));
+			if (proto_field)
+				printf("%s ", pp2_utils_field_id_str_get(IPV4_PROTO_FIELD_ID));
 			printf("\n");
 		}
 		if (lkp_dcod_db.flow_len)

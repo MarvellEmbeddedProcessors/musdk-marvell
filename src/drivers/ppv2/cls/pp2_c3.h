@@ -49,6 +49,15 @@
 #define MVPP2_C3_MAX_SEARCH_DEPTH	(16)		/* max cuckoo search depth	*/
 #define MVPP2_C3_DEFAULT_SEARCH_DEPTH	(3)		/* default cuckoo search depth	*/
 #define MVPP2_C3_MAX_HASH_KEY_SIZE	(MVPP2_CLS_C3_EXT_HEK_WORDS * WORD_BYTES)	/* max key size */
+#define MVPP2_C3_DUMP_TYPE_MAX		3
+#define MVPP2_C3_DUMP_VALUE_MAX		2
+#define MVPP2_C3_DUMP_INDEX_MAX		1
+#define MVPP2_C3_SCAN_CLEAR_MAX		1
+#define MVPP2_C3_SCAN_LKP_EN_MAX	1
+#define MVPP2_C3_SCAN_LKP_TYPE_MAX	15
+#define MVPP2_C3_SCAN_MODE_MAX		1
+#define MVPP2_C3_INDEX_MAX		4095
+#define MVPP2_C3_SEARCH_DEPTHX_MAX	8
 
 /********************************************************************************/
 /*			ENUMERATIONS						*/

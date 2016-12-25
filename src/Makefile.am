@@ -66,12 +66,14 @@ libmusdk_la_SOURCES += drivers/ppv2/pp2_hw_cls_dbg.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_bpool.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_hif.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_ppio.c
+libmusdk_la_SOURCES += drivers/ppv2/pp2_cls.c
 
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_common.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_utils.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_db.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_flow_rules.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_mng.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_flow_rules_debug.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3_debug.c
 

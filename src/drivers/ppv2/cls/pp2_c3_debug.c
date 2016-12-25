@@ -53,31 +53,6 @@ enum pp2_cls_index_dump_idx_t {
 	MVPP2_INDEX_DUMP_DB
 };
 
-struct glob_arg {
-	int			 verbose;
-	int			 cli;
-	int			 cpus;	/* cpus used for running */
-	u16			 burst;
-	int			 affinity;
-	int			 loopback;
-	int			 echo;
-	u64			 qs_map;
-	int			 qs_map_shift;
-
-	struct pp2_hif		*hif;
-	struct pp2_ppio		*port;
-
-	int			 num_pools;
-	struct pp2_bpool	***pools;
-	struct pp2_buff_inf	***buffs_inf;
-	char			*test_module;
-	int			test_number;
-};
-
-struct pp2_ppio {
-	struct pp2_port *port;
-};
-
 void print_horizontal_line(u32 char_count, const char *char_val)
 {
 	u32 cnt;
@@ -467,35 +442,33 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 *******************************************************************************/
 int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 {
-	enum c3_entry_type_idx {
-		c3_entry_type = 1,
-		c3_entry_value,
-		c3_entry_max
-	};
 	u32 type;
 	u32 value;
-	int parsed_args;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio *ppio = garg->port;
-	struct pp2_port *port = ppio->port;
-	uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = (uintptr_t)arg;
+	char *ret_ptr;
 
-	if (argc != c3_entry_max) {
+	if (argc != 3) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
 	/* Get parameters */
-	parsed_args = sscanf(argv[1], "%d", &type);
-	parsed_args += sscanf(argv[2], "%d", &value);
-	if (parsed_args != (argc - 1)) {
-		printf("Parse failure - %d/%d parameters were parsed\n", parsed_args, (argc - 1));
-	} else {
-		if (!pp2_cls_c3_entry_dump(cpu_slot, type, value))
-			printf("OK\n");
-		else
-			printf("FAIL\n");
+	type = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[1] == ret_ptr) || type < 0 || (type > MVPP2_C3_DUMP_TYPE_MAX)) {
+		printf("parsing fail, wrong input for argv[1] - type");
+		return -EINVAL;
 	}
+
+	value = strtoul(argv[2], &ret_ptr, 0);
+	if ((argv[2] == ret_ptr) || value < 0 || (value > MVPP2_C3_DUMP_VALUE_MAX)) {
+		printf("parsing fail, wrong input for argv[2] - value");
+		return -EINVAL;
+	}
+
+	if (!pp2_cls_c3_entry_dump(cpu_slot, type, value))
+		printf("OK\n");
+	else
+		printf("FAIL\n");
 	return 0;
 }
 
@@ -576,27 +549,25 @@ static int pp2_cls_c3_index_dump(u32 type)
 *******************************************************************************/
 int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
 {
-	enum c3_index_entry_idx {
-		c3_index_entry = 1,
-		c3_index_entry_max
-	};
 	u32 index_entry;
-	int parsed_args;
+	char *ret_ptr;
 
-	if (argc != c3_index_entry_max) {
+	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
+
 	/* Get parameters */
-	parsed_args = sscanf(argv[1], "%d", &index_entry);
-	if (parsed_args != (argc - 1)) {
-		printf("Parse failure - %d/%d parameters were parsed\n", parsed_args, (argc - 1));
-	} else {
-		if (!pp2_cls_c3_index_dump(index_entry))
-			printf("OK\n");
-		else
-			printf("FAIL\n");
+	index_entry = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[1] == ret_ptr) || index_entry < 0 || (index_entry > MVPP2_C3_DUMP_INDEX_MAX)) {
+		printf("parsing fail, wrong input for argv[1] - index_entry");
+		return -EINVAL;
 	}
+
+	if (!pp2_cls_c3_index_dump(index_entry))
+		printf("OK\n");
+	else
+		printf("FAIL\n");
 
 	return 0;
 }
@@ -609,17 +580,6 @@ int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
 *******************************************************************************/
 int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 {
-	enum c3_scan_param_idx {
-		c3_scan_clear = 1,
-		c3_scan_lkp_type_en,
-		c3_scan_lkp_type,
-		c3_scan_mode,
-		c3_scan_start,
-		c3_scan_delay,
-		c3_scan_threshold,
-		c3_scan_max,
-
-	};
 	u32 clear;
 	u32 lkp_type_en;
 	u32 lkp_type;
@@ -628,40 +588,68 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 	u32 delay;
 	u32 threshold;
 	struct pp2_cls_c3_scan_config_t scan_config;
-	int parsed_args;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio *ppio = garg->port;
-	struct pp2_port *port = ppio->port;
-	uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = (uintptr_t)arg;
+	char *ret_ptr;
 
-	if (argc != c3_scan_max) {
+	if (argc != 8) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
 	/* Get parameters */
-	parsed_args = sscanf(argv[1], "%d", &clear);
-	parsed_args += sscanf(argv[2], "%d", &lkp_type_en);
-	parsed_args += sscanf(argv[3], "%d", &lkp_type);
-	parsed_args += sscanf(argv[4], "%d", &mode);
-	parsed_args += sscanf(argv[5], "%d", &start);
-	parsed_args += sscanf(argv[6], "%d", &delay);
-	parsed_args += sscanf(argv[7], "%d", &threshold);
-	if (parsed_args != (argc - 1)) {
-		printf("Parse failure - %d/%d parameters were parsed\n", parsed_args, (argc - 1));
-	} else {
-		scan_config.clear_before_scan = clear;
-		scan_config.lkp_type_scan = lkp_type_en;
-		scan_config.lkp_type = lkp_type;
-		scan_config.scan_mode = mode;
-		scan_config.start_entry = start;
-		scan_config.scan_delay = delay;
-		scan_config.scan_threshold = threshold;
-		if (!pp2_cls_c3_scan_param_set(cpu_slot, &scan_config))
-			printf("OK\n");
-		else
-			printf("FAIL\n");
+	clear = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[1] == ret_ptr) || clear < 0 || (clear > MVPP2_C3_SCAN_CLEAR_MAX)) {
+		printf("parsing fail, wrong input for argv[1] - clear");
+		return -EINVAL;
 	}
+
+	lkp_type_en = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[2] == ret_ptr) || lkp_type_en < 0 || (lkp_type_en > MVPP2_C3_SCAN_LKP_EN_MAX)) {
+		printf("parsing fail, wrong input for argv[2] - lkp_type_en");
+		return -EINVAL;
+	}
+
+	lkp_type = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[3] == ret_ptr) || lkp_type < 0 || (lkp_type > MVPP2_C3_SCAN_LKP_TYPE_MAX)) {
+		printf("parsing fail, wrong input for argv[3] - lkp_type");
+		return -EINVAL;
+	}
+
+	mode = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[4] == ret_ptr) || mode < 0 || (mode > MVPP2_C3_SCAN_MODE_MAX)) {
+		printf("parsing fail, wrong input for argv[4] - mode");
+		return -EINVAL;
+	}
+
+	start = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[5] == ret_ptr) || start < 0) {
+		printf("parsing fail, wrong input for argv[5] - start");
+		return -EINVAL;
+	}
+
+	delay = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[6] == ret_ptr) || delay < 0) {
+		printf("parsing fail, wrong input for argv[6] - delay");
+		return -EINVAL;
+	}
+
+	threshold = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[7] == ret_ptr) || threshold < 0) {
+		printf("parsing fail, wrong input for argv[7] - threshold");
+		return -EINVAL;
+	}
+
+	scan_config.clear_before_scan = clear;
+	scan_config.lkp_type_scan = lkp_type_en;
+	scan_config.lkp_type = lkp_type;
+	scan_config.scan_mode = mode;
+	scan_config.start_entry = start;
+	scan_config.scan_delay = delay;
+	scan_config.scan_threshold = threshold;
+	if (!pp2_cls_c3_scan_param_set(cpu_slot, &scan_config))
+		printf("OK\n");
+	else
+		printf("FAIL\n");
 
 	return 0;
 }
@@ -725,31 +713,26 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 *******************************************************************************/
 int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
 {
-	enum c3_scan_result_idx {
-		c3_scan_num = 1,
-		c3_scan_result_max
-	};
 	u32 scan_num;
-	int parsed_args;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio *ppio = garg->port;
-	struct pp2_port *port = ppio->port;
-	uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = (uintptr_t)arg;
+	char *ret_ptr;
 
-	if (argc != c3_scan_result_max) {
+	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
+
 	/* Get parameters */
-	parsed_args = sscanf(argv[1], "%d", &scan_num);
-	if (parsed_args != (argc - 1)) {
-		printf("Parse failure - %d/%d parameters were parsed\n", parsed_args, (argc - 1));
-	} else {
-		if (!pp2_cls_c3_scan_result_dump(cpu_slot, scan_num))
-			printf("OK\n");
-		else
-			printf("FAIL\n");
+	scan_num = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[1] == ret_ptr) || scan_num < 0) {
+		printf("parsing fail, wrong input for argv[1] - scan_num");
+		return -EINVAL;
 	}
+
+	if (!pp2_cls_c3_scan_result_dump(cpu_slot, scan_num))
+		printf("OK\n");
+	else
+		printf("FAIL\n");
 	return 0;
 }
 
@@ -761,26 +744,20 @@ int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
 *******************************************************************************/
 int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
 {
-	enum c3_hit_count_idx {
-		c3_logic_idx = 1,
-		c3_hit_count_max
-	};
 	u32 logic_idx;
 	u32 hit_cnt;
-	int parsed_args;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio *ppio = garg->port;
-	struct pp2_port *port = ppio->port;
-	uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = (uintptr_t)arg;
+	char *ret_ptr;
 
-	if (argc != c3_hit_count_max) {
+	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
+
 	/* Get parameters */
-	parsed_args = sscanf(argv[1], "%d", &logic_idx);
-	if (parsed_args != (argc - 1)) {
-		printf("Parse failure - %d/%d parameters were parsed\n", parsed_args, argc - 1);
+	logic_idx = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[1] == ret_ptr) || logic_idx < 0 || (logic_idx > MVPP2_C3_INDEX_MAX)) {
+		printf("parsing fail, wrong input for argv[1] - logic_idx");
 		return -EINVAL;
 	}
 
@@ -802,22 +779,18 @@ int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
 *******************************************************************************/
 int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
 {
-	enum c3_search_depth_idx {
-		c3_search_depth_idx = 1,
-		c3_search_depth_max
-	};
 	u32 search_depth;
-	int parsed_args;
+	char *ret_ptr;
 
-	if (argc != c3_search_depth_max) {
+	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
 	/* Get parameters */
-	parsed_args = sscanf(argv[1], "%d", &search_depth);
-	if (parsed_args != (argc - 1)) {
-		printf("Parse failure - %d/%d parameters were parsed\n", parsed_args, argc - 1);
+	search_depth = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[1] == ret_ptr) || search_depth < 0 || (search_depth > MVPP2_C3_SEARCH_DEPTHX_MAX)) {
+		printf("parsing fail, wrong input for argv[1] - search_depth");
 		return -EINVAL;
 	}
 
@@ -837,26 +810,19 @@ int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
 *******************************************************************************/
 int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[])
 {
-	enum c3_logic_idx {
-		c3_logic_idx = 1,
-		c3_logic_idx_max
-	};
 	u32 logic_idx;
-	int parsed_args;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio *ppio = garg->port;
-	struct pp2_port *port = ppio->port;
-	uintptr_t cpu_slot = port->cpu_slot;
+	char *ret_ptr;
+	uintptr_t cpu_slot = (uintptr_t)arg;
 
-	if (argc != c3_logic_idx_max) {
+	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
 	/* Get parameters */
-	parsed_args = sscanf(argv[1], "%d", &logic_idx);
-	if (parsed_args != (argc - 1)) {
-		printf("Parse failure - %d/%d parameters were parsed\n", parsed_args, argc - 1);
+	logic_idx = strtoul(argv[1], &ret_ptr, 0);
+	if ((argv[1] == ret_ptr) || logic_idx < 0 || (logic_idx > MVPP2_C3_INDEX_MAX)) {
+		printf("parsing fail, wrong input for argv[1] - logic_idx");
 		return -EINVAL;
 	}
 
@@ -876,10 +842,7 @@ int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[])
 *******************************************************************************/
 int pp2_cls_cli_c3_rule_add(void *arg, int argc, char *argv[])
 {
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio *ppio = garg->port;
-	struct pp2_port *port = ppio->port;
-	uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = (uintptr_t)arg;
 	int idx;
 	struct pp2_cls_pkt_key_t pkt_key;
 	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
