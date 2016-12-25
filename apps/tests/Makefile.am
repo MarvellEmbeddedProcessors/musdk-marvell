@@ -38,5 +38,6 @@ musdk_cls_dbg_CFLAGS = $(AM_CFLAGS)
 musdk_cls_dbg_SOURCES  = ../common/lib/cli.c
 musdk_cls_dbg_SOURCES  += ../common/mvapp.c
 musdk_cls_dbg_SOURCES  += ../common/utils.c
-musdk_cls_dbg_SOURCES  += ppv2/cls-dbg.c
+musdk_cls_dbg_SOURCES  += ppv2/cls_demo.c
+musdk_cls_dbg_SOURCES  += ppv2/cls_debug.c
 musdk_cls_dbg_LDADD = $(top_builddir)/src/libmusdk.la
