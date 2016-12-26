@@ -87,22 +87,6 @@ struct glob_arg {
 
 static struct glob_arg garg = {};
 
-struct pp2_cls_tbl_key_db {
-	u32			idx;
-	struct pp2_cls_tbl_key	tbl_key[CLS_APP_MAX_NUM_TBL_KEYS];
-};
-
-struct pp2_cls_action_element {
-	struct pp2_cls_tbl_action	tbl_action;
-	char				ppio_name[CLS_APP_PPIO_NAME_MAX];
-	struct pp2_cls_cos_desc		cos;
-};
-
-struct pp2_cls_action_db {
-	u32				idx;
-	struct pp2_cls_action_element	elem[CLS_APP_MAX_NUM_TBL_ACT];
-};
-
 struct pp2_cls_table_db_element {
 	struct	pp2_cls_tbl		*tbl;
 	struct	pp2_cls_tbl_params	tbl_params;
@@ -126,8 +110,6 @@ struct pp2_cls_rule_key_db {
 };
 
 struct pp2_cls_db {
-	struct pp2_cls_tbl_key_db	key_db;
-	struct pp2_cls_action_db	action_db;
 	struct pp2_cls_table_db		table_db;
 	struct pp2_cls_rule_key_db	rule_key_db;
 };
@@ -171,222 +153,188 @@ static void app_print_horizontal_line(u32 char_count, const char *char_val)
 	printf("\n");
 }
 
-static int pp2_cls_cli_cls_key_add(void *arg, int argc, char *argv[])
+static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 {
-	u32 idx;
 	int key_size = -1;
-	int num_fields = -1;
-	u32 proto[PP2_CLS_TBL_MAX_NUM_FIELDS];
-	u32 field[PP2_CLS_TBL_MAX_NUM_FIELDS];
-	char *ret_ptr;
-	int option;
-	int long_index = 0;
-	struct option long_options[] = {
-		{"key_size", required_argument, 0, 'k'},
-		{"num_fields", required_argument, 0, 'n'},
-		{"field", required_argument, 0, 'f'},
-		{"protocol", required_argument, 0, 'p'},
-		{0, 0, 0, 0}
-	};
 
-	if ((argc > 25) || (argc <= 3)) {
-		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
-		return -EINVAL;
+	if (!strcmp(optarg, "eth_src")) {
+		*proto = MV_NET_PROTO_ETH;
+		*field = MV_NET_ETH_F_SA;
+		key_size = 6;
+	} else if (!strcmp(optarg, "eth_dst")) {
+		*proto = MV_NET_PROTO_ETH;
+		*field = MV_NET_ETH_F_DA;
+		key_size = 6;
+	} else if (!strcmp(optarg, "eth_type")) {
+		*proto = MV_NET_PROTO_ETH;
+		*field = MV_NET_ETH_F_TYPE;
+		key_size = 1;
+	} else if (!strcmp(optarg, "vlan_prio")) {
+		*proto = MV_NET_PROTO_VLAN;
+		*field = MV_NET_VLAN_F_PRI;
+		key_size = 1;
+	} else if (!strcmp(optarg, "vlan_id")) {
+		*proto = MV_NET_PROTO_VLAN;
+		*field = MV_NET_VLAN_F_ID;
+		key_size = 1;
+	} else if (!strcmp(optarg, "vlan_tci")) {
+		*proto = MV_NET_PROTO_VLAN;
+		*field = MV_NET_VLAN_F_TCI;
+		key_size = 1;
+	} else if (!strcmp(optarg, "pppoe")) {
+		*proto = MV_NET_PROTO_PPPOE;
+		*field = 0;
+		key_size = 1;
+	} else if (!strcmp(optarg, "ip")) {
+		*proto = MV_NET_PROTO_IP;
+		*field = 0;
+		key_size = 1;
+	} else if (!strcmp(optarg, "ip4_tos")) {
+		*proto = MV_NET_PROTO_IP4;
+		*field = MV_NET_IP4_F_TOS;
+		key_size = 1;
+	} else if (!strcmp(optarg, "ip4_src")) {
+		*proto = MV_NET_PROTO_IP4;
+		*field = MV_NET_IP4_F_SA;
+		key_size = 4;
+	} else if (!strcmp(optarg, "ip4_dst")) {
+		*proto = MV_NET_PROTO_IP4;
+		*field = MV_NET_IP4_F_DA;
+		key_size = 4;
+	} else if (!strcmp(optarg, "ip4_proto")) {
+		*proto = MV_NET_PROTO_IP4;
+		*field = MV_NET_IP4_F_PROTO;
+		key_size = 1;
+	} else if (!strcmp(optarg, "ip6_tc")) {
+		*proto = MV_NET_PROTO_IP6;
+		*field = MV_NET_IP6_F_TC;
+		key_size = 1;
+	} else if (!strcmp(optarg, "ip6_src")) {
+		*proto = MV_NET_PROTO_IP6;
+		*field = MV_NET_IP6_F_SA;
+		key_size = 16;
+	} else if (!strcmp(optarg, "ip6_dst")) {
+		*proto = MV_NET_PROTO_IP6;
+		*field = MV_NET_IP6_F_DA;
+		key_size = 16;
+	} else if (!strcmp(optarg, "ip6_flow")) {
+		*proto = MV_NET_PROTO_IP6;
+		*field = MV_NET_IP6_F_FLOW;
+		key_size = 3;
+	} else if (!strcmp(optarg, "ip6_next_hdr")) {
+		*proto = MV_NET_PROTO_IP6;
+		*field = MV_NET_IP6_F_NEXT_HDR;
+		key_size = 1;
+	} else if (!strcmp(optarg, "l4_src")) {
+		*proto = MV_NET_PROTO_L4;
+		*field = MV_NET_L4_F_SP;
+		key_size = 2;
+	} else if (!strcmp(optarg, "l4_dst")) {
+		*proto = MV_NET_PROTO_L4;
+		*field = MV_NET_L4_F_DP;
+		key_size = 2;
+	} else if (!strcmp(optarg, "l4_csum")) {
+		*proto = MV_NET_PROTO_L4;
+		*field = MV_NET_L4_F_CSUM;
+		key_size = 2;
+	} else if (!strcmp(optarg, "tcp_src")) {
+		*proto = MV_NET_PROTO_TCP;
+		*field = MV_NET_TCP_F_SP;
+		key_size = 2;
+	} else if (!strcmp(optarg, "tcp_dst")) {
+		*proto = MV_NET_PROTO_TCP;
+		*field = MV_NET_TCP_F_DP;
+		key_size = 2;
+	} else if (!strcmp(optarg, "tcp_csum")) {
+		*proto = MV_NET_PROTO_TCP;
+		*field = MV_NET_TCP_F_CSUM;
+		key_size = 2;
+	} else if (!strcmp(optarg, "udp_src")) {
+		*proto = MV_NET_PROTO_UDP;
+		*field = MV_NET_UDP_F_SP;
+		key_size = 2;
+	} else if (!strcmp(optarg, "udp_dst")) {
+		*proto = MV_NET_PROTO_UDP;
+		*field = MV_NET_UDP_F_DP;
+		key_size = 2;
+	} else if (!strcmp(optarg, "udp_csum")) {
+		*proto = MV_NET_PROTO_UDP;
+		*field = MV_NET_UDP_F_CSUM;
+		key_size = 2;
+	} else if (!strcmp(optarg, "icmp")) {
+		*proto = MV_NET_PROTO_ICMP;
+		*field = 0;
+		key_size = 1;
+	} else if (!strcmp(optarg, "arp")) {
+		*proto = MV_NET_PROTO_ARP;
+		*field = 0;
+		key_size = 1;
 	}
-
-	/* every time starting getopt we should reset optind */
-	optind = 0;
-	/* Get parameters */
-	option = getopt_long_only(argc, argv, "", long_options, &long_index);
-	if (option == 'k') {
-		key_size = strtoul(optarg, &ret_ptr, 0);
-		if ((optarg == ret_ptr) || (key_size < 0) || (key_size > CLS_APP_KEY_SIZE_MAX)) {
-			printf("parsing fail, wrong input for argv[1] - key_size\n");
-			return -EINVAL;
-		}
-	} else {
-		printf("parsing fail, wrong input for argv[1] - key_size\n");
-		return -EINVAL;
-	}
-	option = getopt_long_only(argc, argv, "", long_options, &long_index);
-	if (option == 'n') {
-		num_fields = strtoul(optarg, &ret_ptr, 0);
-		if ((optarg == ret_ptr) || (num_fields < 0) || (num_fields > PP2_CLS_TBL_MAX_NUM_FIELDS)) {
-			printf("parsing fail, wrong input for argv[2] - num_fields\n");
-			return -EINVAL;
-		}
-	} else {
-		printf("parsing fail, wrong input for argv[2] - num_fields\n");
-		return -EINVAL;
-	}
-
-	for (idx = 0; idx < num_fields; idx++) {
-		option = getopt_long_only(argc, argv, "", long_options, &long_index);
-		if (option == 'f') {
-			proto[idx] = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (proto[idx] < 0) || (proto[idx] >= MV_NET_PROTO_LAST)) {
-				printf("parsing fail, wrong input for argv[%d] - proto\n", 3 + (idx << 1));
-				return -EINVAL;
-			}
-			option = getopt_long_only(argc, argv, "", long_options, &long_index);
-			if (option == 'p') {
-				field[idx] = strtoul(optarg, &ret_ptr, 0);
-				if ((optarg == ret_ptr) || (field[idx] < 0) || (field[idx] >= MV_NET_IP6_F_NEXT_HDR)) {
-					printf("parsing fail, wrong input for argv[%d] - field\n", 4 + (idx << 1));
-					return -EINVAL;
-				}
-			}
-		} else {
-			printf("parsing fail, insert -s for key_size, and -n for number of fields\n");
-			return -EINVAL;
-		}
-	}
-
-	if (cls_db->key_db.idx < CLS_APP_MAX_NUM_TBL_KEYS) {
-		struct pp2_cls_tbl_key *key_ptr = &cls_db->key_db.tbl_key[cls_db->key_db.idx];
-
-		key_ptr->key_size = key_size;
-		key_ptr->num_fields = num_fields;
-		for (idx = 0; idx < num_fields; idx++) {
-			key_ptr->proto_field[idx].proto = proto[idx];
-			key_ptr->proto_field[idx].field.eth = field[idx];
-		}
-		cls_db->key_db.idx++;
-		printf("OK\n");
-	} else {
-		printf("FAIL: keys table is full: %d\n", cls_db->key_db.idx);
-	}
-
-	return 0;
-}
-
-static int pp2_cls_cli_cls_action_add(void *arg, int argc, char *argv[])
-{
-	char name[CLS_APP_PPIO_NAME_MAX];
-	u32 action_type;
-	u32 traffic_class_num;
-	char *ret_ptr;
-	int rc;
-	int option;
-	int long_index = 0;
-	struct option long_options[] = {
-		{"interface", required_argument, 0, 'i'},
-		{"action_type", required_argument, 0, 'a'},
-		{"traffic_class", required_argument, 0, 't'},
-		{0, 0, 0, 0}
-	};
-
-	if (argc != 7) {
-		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
-		return -EINVAL;
-	}
-
-	/* every time starting getopt we should reset optind */
-	optind = 0;
-
-	option = getopt_long_only(argc, argv, "", long_options, &long_index);
-	if (option == 'i') {
-		/* Get parameters */
-		rc = sscanf(optarg, "%s", &name[0]);
-		if (rc <= 0) {
-			printf("parsing fail, wrong input for argv[1] - interface_name\n");
-			return -EINVAL;
-		}
-	} else {
-		printf("parsing fail\n");
-		return -EINVAL;
-	}
-
-	option = getopt_long_only(argc, argv, "", long_options, &long_index);
-	if (option == 'a') {
-		action_type = strtoul(optarg, &ret_ptr, 0);
-		if ((optarg == ret_ptr) || (action_type < 0) || (action_type > PP2_CLS_TBL_ACT_DONE)) {
-			printf("parsing fail, wrong input for argv[2] - action_type %d\n", action_type);
-			return -EINVAL;
-		}
-	} else {
-		printf("parsing fail\n");
-		return -EINVAL;
-	}
-	option = getopt_long_only(argc, argv, "", long_options, &long_index);
-	if (option == 't') {
-		traffic_class_num = strtoul(optarg, &ret_ptr, 0);
-		if ((optarg == ret_ptr) || (traffic_class_num < 0) || (traffic_class_num >= PP2_PPIO_MAX_NUM_TCS)) {
-			printf("parsing fail, wrong input for argv[3] - traffic_class_num\n");
-			return -EINVAL;
-		}
-	} else {
-		printf("parsing fail\n");
-		return -EINVAL;
-	}
-
-	if (cls_db->action_db.idx < CLS_APP_MAX_NUM_TBL_ACT) {
-		struct pp2_cls_action_element *act_ptr = &cls_db->action_db.elem[cls_db->action_db.idx];
-
-		act_ptr->tbl_action.type = action_type;
-		act_ptr->cos.ppio = garg.ppio;
-		act_ptr->cos.tc = traffic_class_num;
-		act_ptr->tbl_action.cos = &act_ptr->cos;
-		printf("found port: %s, %d %d\n", name, traffic_class_num, act_ptr->tbl_action.cos->tc);
-		strcpy(&act_ptr->ppio_name[0], name);
-		cls_db->action_db.idx++;
-		printf("OK\n");
-	} else {
-		printf("FAIL: actions table is full: %d\n", cls_db->action_db.idx);
-	}
-
-	return 0;
+	return key_size;
 }
 
 static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 {
-	u32 idx;
+	u32 idx = 0;
+	int rc;
 	int engine_type = -1;
-	int key_idx = -1;
-	int action_idx = -1;
+	int key_size = 0;
+	int num_fields;
+	u32 proto[PP2_CLS_TBL_MAX_NUM_FIELDS];
+	u32 field[PP2_CLS_TBL_MAX_NUM_FIELDS];
+	int traffic_class = -1;
+	int action_type = PP2_CLS_TBL_ACT_DONE;
 	char *ret_ptr;
 	struct pp2_cls_tbl_params *tbl_ptr;
-	struct pp2_cls_tbl_key *key_ptr;
-	struct pp2_cls_tbl_action *act_ptr;
+	struct pp2_cls_cos_desc *action_cos;
 	int i, option;
 	int long_index = 0;
 	struct option long_options[] = {
 		{"engine_type", required_argument, 0, 'e'},
-		{"key_index", required_argument, 0, 'k'},
-		{"action_index", required_argument, 0, 'a'},
+		{"key", required_argument, 0, 'k'},
+		{"tc", required_argument, 0, 'q'},
+		{"drop", no_argument, 0, 'd'},
 		{0, 0, 0, 0}
 	};
 
-	if (argc != 7) {
+	if  (argc < 5 || argc > 16) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
-	optind = 0;/* every time starting getopt we should reset optind */
-	for (i = 0; i < 3; i++) {
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
 		/* Get parameters */
-		option = getopt_long_only(argc, argv, "", long_options, &long_index);
 		switch (option) {
 		case 'e':
-			engine_type = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (engine_type < 0) || (engine_type >= PP2_CLS_TBL_MASKABLE)) {
-				printf("parsing fail, wrong input for argv[1] - engine_type\n");
+			if (!strcmp(optarg, "exact_match")) {
+				engine_type = 0;
+			} else if (!strcmp(optarg, "maskable")) {
+				engine_type = 1;
+			} else {
+				printf("parsing fail, wrong input for engine_type\n");
+				return -EINVAL;
+			}
+			break;
+		case 'd':
+			action_type = PP2_CLS_TBL_ACT_DROP;
+			break;
+		case 'q':
+			traffic_class = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (traffic_class < 0) || (traffic_class >= PP2_PPIO_MAX_NUM_TCS)) {
+				printf("parsing fail, wrong input for --tc\n");
 				return -EINVAL;
 			}
 			break;
 		case 'k':
-			key_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (key_idx < 0) || (key_idx >= cls_db->key_db.idx)) {
-				printf("parsing fail, wrong input for argv[3] - key_idx\n");
+			rc = pp2_cls_convert_string_to_proto_and_field(&proto[idx], &field[idx]);
+			if (rc < 0) {
+				printf("parsing fail, wrong input for --key\n");
 				return -EINVAL;
 			}
-			break;
-		case 'a':
-			action_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (action_idx < 0) || (action_idx >= cls_db->action_db.idx)) {
-				printf("parsing fail, wrong input for argv[4] - action_idx\n");
-				return -EINVAL;
-			}
+			key_size += rc;
+			idx++;
 			break;
 		default:
 			printf("parsing fail, wrong input\n");
@@ -395,37 +343,50 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	}
 	/* check if all the fields are initialized */
 	if (engine_type < 0) {
-		printf("parsing fail, invalid engine_type\n");
+		printf("parsing fail, invalid --engine_type\n");
 		return -EINVAL;
 	}
 
-	if (key_idx < 0) {
-		printf("parsing fail, invalid key_index\n");
+	if (traffic_class < 0) {
+		printf("parsing fail, invalid --tc\n");
 		return -EINVAL;
 	}
 
-	if (action_idx < 0) {
-		printf("parsing fail, invalid action_index\n");
+	if (key_size > CLS_APP_KEY_SIZE_MAX) {
+		pp2_err("key size out of range = %d\n", key_size);
 		return -EINVAL;
+	}
+
+	num_fields = idx;
+	if (num_fields > PP2_CLS_TBL_MAX_NUM_FIELDS) {
+		pp2_err("parsing fail, wrong input for --num_fields\n");
+		return -EINVAL;
+	}
+
+	pp2_dbg("num_fields = %d, key_size = %d\n", num_fields, key_size);
+
+	action_cos = malloc(sizeof(struct pp2_cls_cos_desc));
+	if (!action_cos) {
+		pr_err("%s(%d) no mem for pp2_cls_cos_desc!\n", __func__, __LINE__);
+		return -ENOMEM;
 	}
 
 	tbl_ptr = &cls_db->table_db.elem[cls_db->table_db.idx].tbl_params;
-	key_ptr = &cls_db->key_db.tbl_key[key_idx];
-	act_ptr = &cls_db->action_db.elem[action_idx].tbl_action;
 
 	tbl_ptr->type = engine_type;
 	tbl_ptr->max_num_rules = MVPP2_CLS_DEF_FLOW_LEN;
-	tbl_ptr->key.key_size = key_ptr->key_size;
-	tbl_ptr->key.num_fields = key_ptr->num_fields;
+	tbl_ptr->key.key_size = key_size;
+	tbl_ptr->key.num_fields = num_fields;
 	for (idx = 0; idx < tbl_ptr->key.num_fields; idx++) {
-		tbl_ptr->key.proto_field[idx].proto = key_ptr->proto_field[idx].proto;
-		tbl_ptr->key.proto_field[idx].field.eth = key_ptr->proto_field[idx].field.eth;
+		tbl_ptr->key.proto_field[idx].proto = proto[idx];
+		tbl_ptr->key.proto_field[idx].field.eth = field[idx];
 	}
-	tbl_ptr->default_act.type = act_ptr->type;
-	tbl_ptr->default_act.cos = act_ptr->cos;
-	tbl_ptr->default_act.cos->tc = act_ptr->cos->tc;
+	tbl_ptr->default_act.type = action_type;
+	tbl_ptr->default_act.cos = action_cos;
+	tbl_ptr->default_act.cos->ppio = garg.ppio;
+	tbl_ptr->default_act.cos->tc = traffic_class;
 	strcpy(&cls_db->table_db.elem[cls_db->table_db.idx].ppio_name[0],
-	       &cls_db->action_db.elem[action_idx].ppio_name[0]);
+	       garg.port_name);
 	if (!pp2_cls_tbl_init(tbl_ptr, &cls_db->table_db.elem[cls_db->table_db.idx].tbl)) {
 		printf("OK\n");
 		cls_db->table_db.idx++;
@@ -433,14 +394,23 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 		printf("FAIL\n");
 	}
 
+	free(action_cos);
+
 	return 0;
 }
 
 static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 {
-	u32 idx;
+	u32 idx = 0;
+	int tbl_idx = -1;
+	int traffic_class = -1;
+	int action_type = PP2_CLS_TBL_ACT_DONE;
 	int rc;
 	u32 num_fields;
+	struct pp2_cls_tbl *tbl;
+	struct pp2_cls_tbl_action action;
+	struct pp2_cls_cos_desc *action_cos;
+	struct pp2_cls_rule_key_element *rule_key_ptr;
 	u32 key_size[PP2_CLS_TBL_MAX_NUM_FIELDS];
 	u8 key[PP2_CLS_TBL_MAX_NUM_FIELDS][CLS_APP_STR_SIZE_MAX] = {0};
 	u8 mask[PP2_CLS_TBL_MAX_NUM_FIELDS][CLS_APP_STR_SIZE_MAX] = {0};
@@ -448,15 +418,16 @@ static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 	int option = 0;
 	int long_index = 0;
 	struct option long_options[] = {
-		{"num_fields", required_argument, 0, 'n'},
 		{"size", required_argument, 0, 's'},
 		{"key", required_argument, 0, 'k'},
 		{"mask", required_argument, 0, 'm'},
-		{"protocol", no_argument, 0, 'p'},
+		{"table_index", required_argument, 0, 't'},
+		{"drop", no_argument, 0, 'd'},
+		{"tc", required_argument, 0, 'q'},
 		{0, 0, 0, 0}
 	};
 
-	if (argc < 3 || argc > 32) {
+	if (argc < 3 || argc > 36) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
@@ -464,27 +435,30 @@ static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 	/* every time starting getopt we should reset optind */
 	optind = 0;
 	/* Get parameters */
-	option = getopt_long_only(argc, argv, "", long_options, &long_index);
-	if (option == 'n') {
-		num_fields = strtoul(optarg, &ret_ptr, 0);
-		if ((argv[1] == ret_ptr) || (num_fields < 0) || (num_fields > PP2_CLS_TBL_MAX_NUM_FIELDS)) {
-			printf("parsing fail, wrong input for argv[1] - num_fields\n");
-			return -EINVAL;
-		}
-	} else {
-		printf("parsing fail, wrong input for argv[1] - num_fields\n");
-		return -EINVAL;
-	}
-
-	idx = 0;
-	while (idx < num_fields) {
-		option = getopt_long_only(argc, argv, "", long_options, &long_index);
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
 		switch (option) {
+		case 't':
+			tbl_idx = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= cls_db->table_db.idx)) {
+				printf("parsing fail, wrong input for --table_index\n");
+				return -EINVAL;
+			}
+			break;
+		case 'd':
+			action_type = PP2_CLS_TBL_ACT_DROP;
+			break;
+		case 'q':
+			traffic_class = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (traffic_class < 0) || (traffic_class >= PP2_PPIO_MAX_NUM_TCS)) {
+				printf("parsing fail, wrong input for --tc\n");
+				return -EINVAL;
+			}
+			break;
 		case 's':
 			key_size[idx] = strtoul(optarg, &ret_ptr, 0);
 			if ((argv[2 + (idx * 3)] == ret_ptr) || (key_size[idx] < 0) ||
 			    (key_size[idx] > CLS_APP_MAX_NUM_RULES)) {
-				printf("parsing fail, wrong input for argv[%d] - key_size\n", 2 + (idx * 3));
+				printf("parsing fail, wrong input for ---size\n");
 				return -EINVAL;
 			}
 			option = getopt_long_only(argc, argv, "", long_options, &long_index);
@@ -492,15 +466,13 @@ static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 				if (strncmp(optarg, "0x", 2) == 0) {
 					rc = sscanf(optarg + 2, "%s", &key[idx][0]);
 					if (rc <= 0) {
-						printf("parsing fail, wrong input for argv[%d] - key_type\n",
-							3 + (idx * 3));
+						printf("parsing fail, wrong input for --key\n");
 						return -EINVAL;
 					}
 				} else {
 					rc = sscanf(optarg, "%s", &key[idx][0]);
 					if (rc <= 0) {
-						printf("parsing fail, wrong input for argv[%d] - key_type\n",
-							3 + (idx * 3));
+						printf("parsing fail, wrong input for --key\n");
 						return -EINVAL;
 					}
 				}
@@ -508,12 +480,9 @@ static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 				if (option == 'm') {
 					rc = sscanf(optarg, "%s", &mask[idx][0]);
 					if (rc <= 0) {
-						printf("parsing fail, wrong input for argv[%d] - key_mask\n",
-							4 + (idx * 3));
+						printf("parsing fail, wrong input for --mask\n");
 						return -EINVAL;
 					}
-				} else if (option == 'p') {
-					sprintf((char *)&mask[idx][0], "%d", 0);
 				} else {
 					printf("parsing fail, wrong input, line = %d\n", __LINE__);
 					return -EINVAL;
@@ -522,18 +491,33 @@ static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 				printf("parsing fail, wrong input, line = %d\n", __LINE__);
 				return -EINVAL;
 			}
+			idx++;
 			break;
 		default:
 			printf("parsing fail, wrong input, line = %d\n", __LINE__);
 			return -EINVAL;
 		}
-		idx++;
 	}
-	printf("\n");
 
+	/* check if all the fields are initialized */
+	if (tbl_idx < 0) {
+		printf("parsing fail, invalid --table_index\n");
+		return -EINVAL;
+	}
+	if (traffic_class < 0) {
+		printf("parsing fail, invalid --tc\n");
+		return -EINVAL;
+	}
+	num_fields = idx;
+	if (num_fields > PP2_CLS_TBL_MAX_NUM_FIELDS) {
+		printf("num_fields = %d is too long, max num_fields is %d\n", num_fields, PP2_CLS_TBL_MAX_NUM_FIELDS);
+		return -EINVAL;
+	}
+
+	/* adding new key into rule key table */
 	if (cls_db->rule_key_db.idx < CLS_APP_MAX_NUM_RULES) {
 		u32 field_idx;
-		struct pp2_cls_rule_key_element *rule_key_ptr = &cls_db->rule_key_db.elem[cls_db->rule_key_db.idx];
+		rule_key_ptr = &cls_db->rule_key_db.elem[cls_db->rule_key_db.idx];
 
 		rule_key_ptr->rule_key.num_fields = num_fields;
 		for (idx = 0; idx < num_fields; idx++) {
@@ -549,92 +533,31 @@ static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 			       rule_key_ptr->rule_key.fields[idx].mask);
 		}
 		cls_db->rule_key_db.idx++;
-		printf("OK\n");
 	} else {
 		printf("FAIL: rule_key table is full: %d\n", cls_db->rule_key_db.idx);
-	}
-	return 0;
-}
-
-static int pp2_cls_cli_cls_rule_add(void *arg, int argc, char *argv[])
-{
-	int tbl_idx = -1;
-	int rule_idx = -1;
-	int action_idx = -1;
-	char *ret_ptr;
-	struct pp2_cls_tbl *tbl;
-	struct pp2_cls_tbl_rule	*rule;
-	struct pp2_cls_tbl_action *action;
-	int option = 0;
-	int i;
-	int long_index = 0;
-	struct option long_options[] = {
-		{"table_index", required_argument, 0, 't'},
-		{"rule_index", required_argument, 0, 'r'},
-		{"action_index", required_argument, 0, 'a'},
-		{0, 0, 0, 0}
-	};
-
-	if (argc != 7) {
-		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
-		return -EINVAL;
-	}
-
-	/* every time starting getopt we should reset optind */
-	optind = 0;
-
-	/* Get parameters */
-	for (i = 0; i < 3; i++) {
-		option = getopt_long_only(argc, argv, "", long_options, &long_index);
-		switch (option) {
-		case 't':
-			tbl_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= cls_db->table_db.idx)) {
-				printf("parsing fail, wrong input for argv[1] - tbl_idx\n");
-				return -EINVAL;
-			}
-			break;
-		case 'r':
-			rule_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (rule_idx < 0) || (rule_idx >= cls_db->rule_key_db.idx)) {
-				printf("parsing fail, wrong input for argv[2] - rule_idx\n");
-				return -EINVAL;
-			}
-			break;
-		case 'a':
-			action_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (action_idx < 0) || (action_idx >= cls_db->action_db.idx)) {
-				printf("parsing fail, wrong input for argv[3] - action_idx\n");
-				return -EINVAL;
-			}
-			break;
-		default:
-			printf("parsing fail, wrong input for argv[3] - action_idx\n");
-			return -EINVAL;
-		}
-	}
-
-	/* check if all the fields are initialized */
-	if (tbl_idx < 0) {
-		printf("parsing fail, invalid table_index\n");
-		return -EINVAL;
-	}
-	if (rule_idx < 0) {
-		printf("parsing fail, invalid rule_index\n");
-		return -EINVAL;
-	}
-	if (action_idx < 0) {
-		printf("parsing fail, invalid action_index\n");
 		return -EINVAL;
 	}
 
 	tbl = cls_db->table_db.elem[tbl_idx].tbl;
-	rule = &cls_db->rule_key_db.elem[rule_idx].rule_key;
-	action = &cls_db->action_db.elem[action_idx].tbl_action;
-	if (!pp2_cls_tbl_add_rule(tbl, rule, action))
+
+	action_cos = malloc(sizeof(struct pp2_cls_cos_desc));
+	if (!action_cos) {
+		pr_err("%s(%d) no mem for pp2_cls_cos_desc!\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+	action.type = action_type;
+	action_cos->tc = traffic_class;
+	action.cos = action_cos;
+	action.cos->ppio = garg.ppio;
+	action.cos->tc = traffic_class;
+
+	if (!pp2_cls_tbl_add_rule(tbl, &rule_key_ptr->rule_key, &action))
 		printf("OK\n");
 	else
 		printf("FAIL: unable to add rule to table index: %d\n", tbl_idx);
+
+	free(action_cos);
+
 	return 0;
 }
 
@@ -642,17 +565,20 @@ static int pp2_cls_cli_cls_rule_modify(void *arg, int argc, char *argv[])
 {
 	int tbl_idx = -1;
 	int rule_idx = -1;
-	int action_idx = -1;
+	int traffic_class = -1;
+	int action_type = PP2_CLS_TBL_ACT_DONE;
 	char *ret_ptr;
 	struct pp2_cls_tbl *tbl;
 	struct pp2_cls_tbl_rule	*rule;
-	struct pp2_cls_tbl_action *action;
+	struct pp2_cls_tbl_action action;
+	struct pp2_cls_cos_desc *action_cos;
 	int i, option = 0;
 	int long_index = 0;
 	struct option long_options[] = {
 		{"table_index", required_argument, 0, 't'},
 		{"rule_index", required_argument, 0, 'r'},
-		{"action_index", required_argument, 0, 'a'},
+		{"drop", no_argument, 0, 'd'},
+		{"tc", required_argument, 0, 'q'},
 		{0, 0, 0, 0}
 	};
 
@@ -665,59 +591,75 @@ static int pp2_cls_cli_cls_rule_modify(void *arg, int argc, char *argv[])
 	optind = 0;
 
 	/* Get parameters */
-	for (i = 0; i < 3; i++) {
-		option = getopt_long_only(argc, argv, "", long_options, &long_index);
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
 		switch (option) {
 		case 't':
 			tbl_idx = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= cls_db->table_db.idx)) {
-				printf("parsing fail, wrong input for argv[1] - tbl_idx\n");
+				printf("parsing fail, wrong input for --table_index\n");
 				return -EINVAL;
 			}
 			break;
 		case 'r':
 			rule_idx = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (rule_idx < 0) || (rule_idx >= cls_db->rule_key_db.idx)) {
-				printf("parsing fail, wrong input for argv[2] - rule_idx\n");
+				printf("parsing fail, wrong input for argv[2] --rule_index\n");
 				return -EINVAL;
 			}
 			break;
-		case 'a':
-			action_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (action_idx < 0) || (action_idx >= cls_db->action_db.idx)) {
-				printf("parsing fail, wrong input for argv[3] - action_idx\n");
+		case 'd':
+			action_type = PP2_CLS_TBL_ACT_DROP;
+			break;
+		case 'q':
+			traffic_class = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (traffic_class < 0) || (traffic_class >= PP2_PPIO_MAX_NUM_TCS)) {
+				printf("parsing fail, wrong input for --tc\n");
 				return -EINVAL;
 			}
 			break;
 		default:
-			printf("parsing fail, wrong input for argv[3] - action_idx\n");
+			printf("parsing fail, wrong input\n");
 			return -EINVAL;
 		}
 	}
 
 	/* check if all the fields are initialized */
-	if (action_idx < 0) {
-		printf("parsing fail, invalid action_index\n");
-		return -EINVAL;
-	}
-
 	if (rule_idx < 0) {
-		printf("parsing fail, invalid rule_index\n");
+		printf("parsing fail, invalid --rule_index\n");
 		return -EINVAL;
 	}
 
 	if (tbl_idx < 0) {
-		printf("parsing fail, invalid table_index\n");
+		printf("parsing fail, invalid --table_index\n");
+		return -EINVAL;
+	}
+
+	if (traffic_class < 0) {
+		printf("parsing fail, invalid --tc\n");
 		return -EINVAL;
 	}
 
 	tbl = cls_db->table_db.elem[tbl_idx].tbl;
 	rule = &cls_db->rule_key_db.elem[rule_idx].rule_key;
-	action = &cls_db->action_db.elem[action_idx].tbl_action;
-	if (!pp2_cls_tbl_modify_rule(tbl, rule, action))
+
+	action_cos = malloc(sizeof(struct pp2_cls_cos_desc));
+	if (!action_cos) {
+		pr_err("%s(%d) no mem for pp2_cls_cos_desc!\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+	action.type = action_type;
+	action_cos->tc = traffic_class;
+	action.cos = action_cos;
+	action.cos->ppio = garg.ppio;
+	action.cos->tc = traffic_class;
+
+	if (!pp2_cls_tbl_modify_rule(tbl, rule, &action))
 		printf("OK\n");
 	else
 		printf("FAIL: unable to modify rule to table index: %d\n", tbl_idx);
+
+	free(action_cos);
+
 	return 0;
 }
 
@@ -744,37 +686,36 @@ static int pp2_cls_cli_cls_rule_remove(void *arg, int argc, char *argv[])
 	/* every time starting getopt we should reset optind */
 	optind = 0;
 	/* Get parameters */
-	for (i = 0; i < 2; i++) {
-		option = getopt_long_only(argc, argv, "", long_options, &long_index);
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
 		switch (option) {
 		case 't':
 			tbl_idx = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= cls_db->table_db.idx)) {
-				printf("parsing fail, wrong input for argv[1] - tbl_idx\n");
+				printf("parsing fail, wrong input for --table_index\n");
 				return -EINVAL;
 			}
 			break;
 		case 'r':
 			rule_idx = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (rule_idx < 0) || (rule_idx >= cls_db->rule_key_db.idx)) {
-				printf("parsing fail, wrong input for argv[2] - rule_idx\n");
+				printf("parsing fail, wrong input for --rule_index\n");
 				return -EINVAL;
 			}
 			break;
 		default:
-			printf("parsing fail, wrong input for argv[3] - action_idx\n");
+			printf("parsing fail, wrong input\n");
 			return -EINVAL;
 		}
 	}
 
 	/* check if all the fields are initialized */
 	if (rule_idx < 0) {
-		printf("parsing fail, invalid rule_index\n");
+		printf("parsing fail, invalid --rule_index\n");
 		return -EINVAL;
 	}
 
 	if (tbl_idx < 0) {
-		printf("parsing fail, invalid table_index\n");
+		printf("parsing fail, invalid --table_index\n");
 		return -EINVAL;
 	}
 
@@ -784,42 +725,6 @@ static int pp2_cls_cli_cls_rule_remove(void *arg, int argc, char *argv[])
 		printf("OK\n");
 	else
 		printf("FAIL: unable to remove rule to table index: %d\n", tbl_idx);
-	return 0;
-}
-
-static int pp2_cls_cli_cls_key_dump(void *arg, int argc, char *argv[])
-{
-	u32 idx1, idx2;
-
-	printf("total indexes: %d\n", cls_db->key_db.idx);
-	printf("| idx | key_size | num_fields | 1 proto,field| 2 proto, field| 3 proto,field| 4 proto,field|\n");
-
-	for (idx1 = 0; idx1 < cls_db->key_db.idx; idx1++) {
-		struct pp2_cls_tbl_key *key_ptr = &cls_db->key_db.tbl_key[idx1];
-
-		printf("|%5d| %8d | %10d |", idx1, key_ptr->key_size, key_ptr->num_fields);
-		for (idx2 = 0; idx2 < key_ptr->num_fields; idx2++)
-			printf("   %5d,%5d|", key_ptr->proto_field[idx2].proto, key_ptr->proto_field[idx2].field.eth);
-	printf("\n");
-	}
-	printf("\nOK\n");
-
-	return 0;
-}
-
-static int pp2_cls_cli_cls_act_dump(void *arg, int argc, char *argv[])
-{
-	u32 idx;
-
-	printf("total indexes: %d\n", cls_db->action_db.idx);
-	printf("| idx |     port   | type | tc_num |\n");
-	for (idx = 0; idx < cls_db->action_db.idx; idx++) {
-		struct pp2_cls_action_element *act_ptr = &cls_db->action_db.elem[idx];
-
-		printf("| %3d | %10s | %4d | %6d |\n", idx, act_ptr->ppio_name, act_ptr->tbl_action.type,
-		       act_ptr->tbl_action.cos->tc);
-	}
-	printf("OK\n");
 	return 0;
 }
 
@@ -1057,75 +962,52 @@ static int register_cli_cls_api_cmds(struct glob_arg *garg)
 	struct cli_cmd_params cmd_params;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_key_add";
-	cmd_params.desc		= "add a classifier key to database";
-	cmd_params.format	= "--key_size --num_fields --protocol --field...\n"
-				  "\t\t\t\t--key_size	      (dec)size of the key in bytes (13 for 5 tuples)\n"
-				  "\t\t\t\t--num_fields	      (dec)number of fields in key\n"
-				  "\t\t\t\t--protocol --field	   (dec)the following protocols, fields are defined:\n"
-				  "\t\t\t\t			   1 0 - ethernet, source address\n"
-				  "\t\t\t\t			   1 1 - ethernet, destination address\n"
-				  "\t\t\t\t			   1 2 - ethernet, type\n"
-				  "\t\t\t\t			   2 0 - vlan, priority\n"
-				  "\t\t\t\t			   2 1 - vlan, id\n"
-				  "\t\t\t\t			   2 2 - vlan, tci\n"
-				  "\t\t\t\t			   3 0 - pppoe\n"
-				  "\t\t\t\t			   4 0 - ip\n"
-				  "\t\t\t\t			   5 0 - ipv4, tos\n"
-				  "\t\t\t\t			   5 1 - ipv4, souce address\n"
-				  "\t\t\t\t			   5 2 - ipv4, destination address\n"
-				  "\t\t\t\t			   5 3 - ipv4, proto\n"
-				  "\t\t\t\t			   6 0 - ipv6, tc\n"
-				  "\t\t\t\t			   6 1 - ipv6, source address\n"
-				  "\t\t\t\t			   6 2 - ipv6, destination address\n"
-				  "\t\t\t\t			   6 3 - ipv6, flow\n"
-				  "\t\t\t\t			   6 4 - ipv6, next header\n"
-				  "\t\t\t\t			   7 0 - layer4, source port\n"
-				  "\t\t\t\t			   7 1 - layer4, destination port\n"
-				  "\t\t\t\t			   7 2 - layer4, checksum\n"
-				  "\t\t\t\t			   8 0 - tcp, source port\n"
-				  "\t\t\t\t			   8 1 - tcp, destination port\n"
-				  "\t\t\t\t			   8 2 - tcp, checksum\n"
-				  "\t\t\t\t			   9 0 - udp, source port\n"
-				  "\t\t\t\t			   9 1 - udp, destination port\n"
-				  "\t\t\t\t			   9 2 - udp, checksum\n"
-				  "\t\t\t\t			   10 0 - icmp\n"
-				  "\t\t\t\t			   11 0 - arp\n";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_key_add;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_action_add";
-	cmd_params.desc		= "add a classifier action to database";
-	cmd_params.format	= "--interface --action_type --traffic_class\n"
-				  "\t\t\t\t--interface       ppio-0:0 - A7040/A8040 10Gb interface 1\n"
-				  "\t\t\t\t                  ppio-0:1 - A7040/A8040  1Gb interface 1\n"
-				  "\t\t\t\t                  ppio-0:2 - A7040        1Gb interface 2\n"
-				  "\t\t\t\t                  ppio-1:0 - A8040       10Gb interface 2\n"
-				  "\t\t\t\t                  ppio-1:1 - A8040        1Gb interface 2\n"
-				  "\t\t\t\t--action_type     (dec) 0: drop, 1: done\n"
-				  "\t\t\t\t--traffic_class   (dec) 1..8\n";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_action_add;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_tbl_init";
 	cmd_params.desc		= "create a classifier table according to key and default action";
-	cmd_params.format	= "--engine_type --key_index --action_index\n"
-				  "\t\t\t\t--engine_type	(dec) 0: exact_match, 1: maskable\n"
-				  "\t\t\t\t--key_index		(dec) index to pre-defined key\n"
-				  "\t\t\t\t--action_index	(dec) index to pre-defined default_action\n";
+	cmd_params.format	= "--engine_type --tc --drop(optional) --key\n"
+				  "\t\t\t\t--engine_type	(string) exact_match, maskable\n"
+				  "\t\t\t\t--tc			(dec) 1..8\n"
+				  "\t\t\t\t--drop		(no argument)optional\n"
+				  "\t\t\t\t--key		(string) the following keys are defined:\n"
+				  "\t\t\t\t			eth_src - ethernet, source address\n"
+				  "\t\t\t\t			eth_dst - ethernet, destination address\n"
+				  "\t\t\t\t			eth_type - ethernet, type\n"
+				  "\t\t\t\t			vlan_prio - vlan, priority\n"
+				  "\t\t\t\t			vlan_id - vlan, id\n"
+				  "\t\t\t\t			vlan_tci - vlan, tci\n"
+				  "\t\t\t\t			pppoe - pppoe\n"
+				  "\t\t\t\t			ip - ip\n"
+				  "\t\t\t\t			ip4_tos - ipv4, tos\n"
+				  "\t\t\t\t			ip4_src - ipv4, souce address\n"
+				  "\t\t\t\t			ip4_dst - ipv4, destination address\n"
+				  "\t\t\t\t			ip4_proto - ipv4, proto\n"
+				  "\t\t\t\t			ip6_tc - ipv6, tc\n"
+				  "\t\t\t\t			ip6_src - ipv6, source address\n"
+				  "\t\t\t\t			ip6_dst - ipv6, destination address\n"
+				  "\t\t\t\t			ip6_flow - ipv6, flow\n"
+				  "\t\t\t\t			ip6_next_hdr - ipv6, next header\n"
+				  "\t\t\t\t			l4_src - layer4, source port\n"
+				  "\t\t\t\t			l4_dst - layer4, destination port\n"
+				  "\t\t\t\t			l4_csum - layer4, checksum\n"
+				  "\t\t\t\t			tcp_src - tcp, source port\n"
+				  "\t\t\t\t			tcp_dst - tcp, destination port\n"
+				  "\t\t\t\t			tcp_csum - tcp, checksum\n"
+				  "\t\t\t\t			udp_src - udp, source port\n"
+				  "\t\t\t\t			udp_dst - udp, destination port\n"
+				  "\t\t\t\t			udp_csum - udp, checksum\n"
+				  "\t\t\t\t			icmp - icmp\n"
+				  "\t\t\t\t			arp - arp\n";
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_table_add;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_rule_key_add";
-	cmd_params.desc		= "add a classifier rule key";
-	cmd_params.format	= "--num_fields --size --key --mask (or) --protocol...\n"
-				  "\t\t\t\t--num_fields		(dec) 1..4\n"
+	cmd_params.desc		= "add a classifier rule key to existing table";
+	cmd_params.format	= "--table_index --tc --drop(optional) --size --key --mask...\n"
+				  "\t\t\t\t--table_index	(dec) index to existing table\n"
+				  "\t\t\t\t--tc			(dec) 1..8\n"
+				  "\t\t\t\t--drop		(optional)(no argument)\n"
 				  "\t\t\t\t--size		(dec) size in bytes of the key\n"
 				  "\t\t\t\t--key		(dec or hex) key\n"
 				  "\t\t\t\t			   i.e ipv4: 192.168.10.5\n"
@@ -1133,30 +1015,19 @@ static int register_cli_cls_api_cmds(struct glob_arg *garg)
 				  "\t\t\t\t			   i.e port: 0x1234\n"
 				  "\t\t\t\t			   i.e udp: 17(IPPROTO_UDP)\n"
 				  "\t\t\t\t			   i.e tcp: 6(IPPROTO_TCP)\n"
-				  "\t\t\t\t--mask		(hex) mask for the key (if maskable is used)\n"
-				  "\t\t\t\t--protocol		(dec) needed only while using protocol key\n";
+				  "\t\t\t\t--mask		(hex) mask for the key (if maskable is used)\n";
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_rule_key_add;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_rule_add";
-	cmd_params.desc		= "add a classifier rule to existing table";
-	cmd_params.format	= "--table_index --rule_index --action_index\n"
-				  "\t\t\t\t--table_index	(dec) index to existing table\n"
-				  "\t\t\t\t--rule_index		(dec) index to existing rule in database\n"
-				  "\t\t\t\t--action_index	(dec) index to existing action in database\n";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_rule_add;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_rule_modify";
 	cmd_params.desc		= "modify a classifier rule in specified table";
-	cmd_params.format	= "--table_index --rule_index --action_index\n"
+	cmd_params.format	= "\n"
 				  "\t\t\t\t--table_index	(dec) index to existing table\n"
 				  "\t\t\t\t--rule_index		(dec) index to existing rule in database\n"
-				  "\t\t\t\t--action_index	(dec) index to existing action in database\n";
+				  "\t\t\t\t--tc			(dec) 1..8\n"
+				  "\t\t\t\t--drop		(optional)(no argument)\n";
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_rule_modify;
 	mvapp_register_cli_cmd(&cmd_params);
@@ -1169,22 +1040,6 @@ static int register_cli_cls_api_cmds(struct glob_arg *garg)
 				  "\t\t\t\t--rule_index		(dec) index to existing rule in database\n";
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_rule_remove;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_key_dump";
-	cmd_params.desc		= "display classifier defined keys";
-	cmd_params.format	= "";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_key_dump;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_action_dump";
-	cmd_params.desc		= "display classifier defined default_actions";
-	cmd_params.format	= "";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_act_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));

@@ -171,6 +171,8 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	/* engine selection */
 	if (params->type == PP2_CLS_TBL_MASKABLE) {
 		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C2;
+		pp2_err("maskable engine not supported\n");
+		return -EINVAL;
 	} else {
 		if (proto_flag)
 			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3B;
