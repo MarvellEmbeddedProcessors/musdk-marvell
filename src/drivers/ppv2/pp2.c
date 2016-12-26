@@ -49,6 +49,7 @@
 
 #include "pp2_gop_dbg.h"
 #include "pp2_hw_cls.h"
+#include "cls/pp2_cls_mng.h"
 
 struct pp2 * pp2_ptr;
 
@@ -244,6 +245,8 @@ static void pp2_inst_init(struct pp2_inst *inst)
     /* TBD(RX): Init PP22 rxfhindir(RSS) table evenly */
     pp2_init_rxfhindir(inst);
 #endif
+
+	pp2_cls_mng_init(cpu_slot);
 
     /* Disable RXQs */
     for (i = 0; i < PP2_NUM_PORTS; i++) {

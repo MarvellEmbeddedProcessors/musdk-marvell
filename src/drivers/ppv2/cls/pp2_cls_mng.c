@@ -585,3 +585,10 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 
 	return 0;
 }
+
+void pp2_cls_mng_init(uintptr_t cpu_slot)
+{
+	pp2_cls_db_init();
+	pp2_cls_init(cpu_slot);
+	pp2_cls_c3_start(cpu_slot);
+}
