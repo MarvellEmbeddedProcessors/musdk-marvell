@@ -245,6 +245,8 @@ static void pp2_inst_init(struct pp2_inst *inst)
     pp2_init_rxfhindir(inst);
 #endif
 
+	pp2_cls_mng_init(cpu_slot);
+
     /* Disable RXQs */
     for (i = 0; i < PP2_NUM_PORTS; i++) {
         struct ppio_init_params	*ppio_param = &(inst->parent->init.ppios[inst->id][i]);

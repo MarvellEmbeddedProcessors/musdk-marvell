@@ -50,6 +50,7 @@
 /******************************************************************************/
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
+void pp2_cls_mng_init(uintptr_t cpu_slot);
 int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params);
 int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_rule *rule,
 			 struct pp2_cls_tbl_action *action);
