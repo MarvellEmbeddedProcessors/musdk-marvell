@@ -33,7 +33,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "env/mv_sys_dma.h"
+
 #include "mv_sam.h"
+
+#define SAM_DMA_MEM_SIZE	(1 * 1024 * 1204) /* 1 MBytes */
 
 static struct sam_cio *cio_hndl;
 static struct sam_cio *cio_hndl_1;
@@ -64,21 +68,12 @@ static u8 RFC3602_AES128_CBC_T1_PT[] = { /* "Single block msg" */
 	0x6C, 0x6F, 0x63, 0x6B, 0x20, 0x6D, 0x73, 0x67
 };
 
-static u8 RFC3602_AES128_CBC_T1_DATA[] = { /* "Single block msg" */
-	0x53, 0x69, 0x6E, 0x67, 0x6C, 0x65, 0x20, 0x62,
-	0x6C, 0x6F, 0x63, 0x6B, 0x20, 0x6D, 0x73, 0x67
-};
-
 static u8 RFC3602_AES128_CBC_T1_CT[] = { /* Expected result */
 	0xe3, 0x53, 0x77, 0x9c, 0x10, 0x79, 0xae, 0xb8,
 	0x27, 0x08, 0x94, 0x2d, 0xbe, 0x77, 0x18, 0x1a
 };
 
-static struct sam_buf_info aes128_t1_buf = {
-	.vaddr = RFC3602_AES128_CBC_T1_DATA,
-	.paddr = 0,
-	.len = sizeof(RFC3602_AES128_CBC_T1_DATA),
-};
+static struct sam_buf_info aes128_t1_buf;
 
 static struct sam_session_params aes_cbc_sa = {
 	.dir = SAM_DIR_ENCRYPT,   /* operation direction: encode/decode */
@@ -216,6 +211,24 @@ int main(int argc, char **argv)
 	u16 num;
 	int rc = 0;
 
+	rc = mv_sys_dma_mem_init(SAM_DMA_MEM_SIZE);
+	if (rc) {
+		pr_err("Can't initialize %d KBytes of DMA memory area, rc = %d\n", SAM_DMA_MEM_SIZE, rc);
+		return rc;
+	}
+
+	aes128_t1_buf.len = 2048;
+	aes128_t1_buf.vaddr = mv_sys_dma_mem_alloc(aes128_t1_buf.len, 16);
+	aes128_t1_buf.paddr = mv_sys_dma_mem_virt2phys(aes128_t1_buf.vaddr);
+
+	if (!aes128_t1_buf.vaddr || !aes128_t1_buf.paddr) {
+		pr_err("Can't allocate DMA buffer of %d bytes\n", aes128_t1_buf.len);
+		goto exit;
+	}
+
+	pr_info("DMA Buffer %d bytes allocated: vaddr = %p, paddr = %p\n",
+		aes128_t1_buf.len, aes128_t1_buf.vaddr, (void *)aes128_t1_buf.paddr);
+
 	cio_params.match = "cio-0:0";
 	cio_params.size = 32;
 	cio_params.num_sessions = 64;
@@ -237,6 +250,9 @@ int main(int argc, char **argv)
 	}
 
 	printf("%s successfully loaded\n", argv[0]);
+
+	memset(aes128_t1_buf.vaddr, 0, aes128_t1_buf.len);
+	memcpy(aes128_t1_buf.vaddr, RFC3602_AES128_CBC_T1_PT, sizeof(RFC3602_AES128_CBC_T1_PT));
 
 	if (create_session(cio_hndl, &sa_hndl, "aes_cbc_encrypt"))
 		goto exit;
@@ -282,8 +298,10 @@ int main(int argc, char **argv)
 	} else
 		pr_err("No result: rc = %d, num = %d\n", rc, num);
 
-
 exit:
+	if (aes128_t1_buf.vaddr)
+		mv_sys_dma_mem_free(aes128_t1_buf.vaddr);
+
 	if (sa_hndl)
 		sam_session_destroy(sa_hndl);
 

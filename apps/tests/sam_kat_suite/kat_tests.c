@@ -44,6 +44,8 @@
 #include "fileSets.h"
 #include "encryptedBlock.h"
 
+#define SAM_DMA_MEM_SIZE		(1 * 1024 * 1204) /* 1 MBytes */
+
 #define NUM_CONCURRENT_SESSIONS		64
 #define NUM_CONCURRENT_REQUESTS		256
 #define MAX_BUFFER_SIZE			2048 /* bytes */
@@ -462,11 +464,11 @@ static void free_bufs(void)
 	int i;
 
 	if (in_buf.vaddr)
-		free(in_buf.vaddr);
+		mv_sys_dma_mem_free(in_buf.vaddr);
 
 	for (i = 0; i < NUM_CONCURRENT_REQUESTS; i++) {
 		if (out_bufs[i].vaddr)
-			free(out_bufs[i].vaddr);
+			mv_sys_dma_mem_free(out_bufs[i].vaddr);
 	}
 }
 
@@ -475,19 +477,21 @@ static int allocate_bufs(int buf_size)
 {
 	int i;
 
-	in_buf.vaddr = malloc(buf_size);
+	in_buf.vaddr = mv_sys_dma_mem_alloc(buf_size, 16);
 	if (!in_buf.vaddr) {
-		pr_err();
+		pr_err("Can't allocate input DMA buffer of %d bytes\n", buf_size);
 		return -ENOMEM;
 	}
+	in_buf.paddr = mv_sys_dma_mem_virt2phys(in_buf.vaddr);
 	in_buf.len = buf_size;
 
 	for (i = 0; i < NUM_CONCURRENT_REQUESTS; i++) {
-		out_bufs[i].vaddr = malloc(buf_size);
+		out_bufs[i].vaddr = mv_sys_dma_mem_alloc(buf_size, 16);
 		if (!out_bufs[i].vaddr) {
-			pr_err();
+			pr_err("Can't allocate output %d DMA buffer of %d bytes\n", i, buf_size);
 			return -ENOMEM;
 		}
+		out_bufs[i].paddr = mv_sys_dma_mem_virt2phys(out_bufs[i].vaddr);
 		out_bufs[i].len = buf_size;
 	}
 	return 0;
@@ -687,6 +691,7 @@ static int run_tests(generic_list tests_db)
 
 				/* check result */
 				if (num_checked < num_to_check) {
+					num = min((num_to_check - num_checked), (int)num);
 					errors += check_results(&sa_params[test], results, num);
 					num_checked += num;
 				}
@@ -721,11 +726,19 @@ int main(int argc, char **argv)
 {
 	struct sam_cio_params cio_params;
 	char *tf_name;
+	int rc;
 
 	if (argc < 3) {
 		usage(argc, argv);
 		return -1;
 	}
+
+	rc = mv_sys_dma_mem_init(SAM_DMA_MEM_SIZE);
+	if (rc) {
+		pr_err("Can't initialize %d KBytes of DMA memory area, rc = %d\n", SAM_DMA_MEM_SIZE, rc);
+		return rc;
+	}
+
 	cio_params.match = argv[1];
 
 	tf_name = argv[2];
