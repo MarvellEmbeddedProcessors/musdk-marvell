@@ -107,6 +107,84 @@ static u32 lookup_field_id(u32 proto, u32 field, u32 *field_id, u32 *match_bm)
 	return -ENOENT;
 }
 
+static int pp2_cls_add_non_ip_logical_id(u16 *select_logical_id)
+{
+	int i = 0;
+
+	select_logical_id[i++] = MVPP2_PRS_FL_NON_IP_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_NON_IP_TAG;
+
+	return i;
+}
+
+static int pp2_cls_add_ip4_logical_id(u16 *select_logical_id)
+{
+	int i = 0;
+
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_TAG;
+
+	return i;
+}
+
+static int pp2_cls_add_ip4_udp_logical_id(u16 *select_logical_id)
+{
+	int i = 0;
+
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_UDP_NF_TAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_UDP_NF_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_UDP_FRAG_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_UDP_FRAG_TAG;
+
+	return i;
+}
+
+static int pp2_cls_add_ip4_tcp_logical_id(u16 *select_logical_id)
+{
+	int i = 0;
+
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_TCP_NF_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_TCP_NF_TAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_TCP_FRAG_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP4_TCP_FRAG_TAG;
+
+	return i;
+}
+
+static int pp2_cls_add_ip6_logical_id(u16 *select_logical_id)
+{
+	int i = 0;
+
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_TAG;
+
+	return i;
+}
+
+static int pp2_cls_add_ip6_udp_logical_id(u16 *select_logical_id)
+{
+	int i = 0;
+
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_UDP_NF_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_UDP_NF_TAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_UDP_FRAG_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_UDP_FRAG_TAG;
+
+	return i;
+}
+
+static int pp2_cls_add_ip6_tcp_logical_id(u16 *select_logical_id)
+{
+	int i = 0;
+
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_TCP_NF_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_TCP_NF_TAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_TCP_FRAG_UNTAG;
+	select_logical_id[i++] = MVPP2_PRS_FL_IP6_TCP_FRAG_TAG;
+
+	return i;
+}
+
 int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 {
 	struct pp2_cls_fl_rule_list_t *fl_rls;
@@ -116,11 +194,14 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	u32 idx;
 	u32 field, match_bm;
 	u32 rc = 0;
-	u32 i, j, field_index;
-	u32 proto_flag = 0;
+	u32 i, j = 0, field_index;
+	u32 five_tuple = 0;
 	u32 ipv4_flag = 0;
 	u32 ipv6_flag = 0;
-	u16 select_log_id[10];
+	u32 tcp_flag = 0;
+	u32 udp_flag = 0;
+	u32 l4_flag = 0;
+	u16 select_logical_id[30];
 
 	/* Para check */
 	if (mv_pp2x_ptr_validate(params))
@@ -142,6 +223,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 
 	fl_rls->fl_len = 1;
 	field_index = 0;
+
 	/* parse the protocol and protocol fields */
 	for (idx = 0; idx < params->key.num_fields; idx++) {
 		rc = lookup_field_id(params->key.proto_field[idx].proto,
@@ -152,19 +234,22 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		}
 		if (params->key.proto_field[idx].proto == MV_NET_PROTO_IP4) {
 			ipv4_flag = 1;
-			if (params->key.proto_field[idx].field.ipv4 == MV_NET_IP4_F_PROTO) {
-				proto_flag = 1;
-				if (params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS)
-					continue;
-			}
+			if ((params->key.proto_field[idx].field.ipv4 == MV_NET_IP4_F_PROTO) &&
+				(params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS))
+				five_tuple = 1;
 		} else if (params->key.proto_field[idx].proto == MV_NET_PROTO_IP6) {
 			ipv6_flag = 1;
-			if (params->key.proto_field[idx].field.ipv6 == MV_NET_IP6_F_NEXT_HDR) {
-				proto_flag = 1;
-				if (params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS)
-					continue;
-			}
+			if ((params->key.proto_field[idx].field.ipv6 == MV_NET_IP6_F_NEXT_HDR) &&
+				(params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS))
+				five_tuple = 1;
 		}
+		if (params->key.proto_field[idx].proto == MV_NET_PROTO_TCP)
+			tcp_flag = 1;
+		else if (params->key.proto_field[idx].proto == MV_NET_PROTO_UDP)
+			udp_flag = 1;
+		else if (params->key.proto_field[idx].proto == MV_NET_PROTO_L4)
+			l4_flag = 1;
+
 		fl_rls->fl[0].field_id[field_index++] = field;
 	}
 
@@ -174,7 +259,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		pp2_err("maskable engine not supported\n");
 		return -EINVAL;
 	} else {
-		if (proto_flag)
+		if (five_tuple)
 			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3B;
 		else
 			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3A;
@@ -198,57 +283,81 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 
 	pp2_dbg("ipv4_flag = %d\n", ipv4_flag);
 	pp2_dbg("ipv6_flag = %d\n", ipv6_flag);
-	pp2_dbg("proto_flag = %d\n", proto_flag);
+	pp2_dbg("l4_flag = %d\n", l4_flag);
+	pp2_dbg("udp_flag = %d\n", udp_flag);
+	pp2_dbg("tcp_flag = %d\n", tcp_flag);
 
-	/* find for which logical flow id to add this rule */
-	j = 0;
-	/* ipv4 */
-	if (ipv4_flag && proto_flag) {
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_TCP_NF_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_TCP_NF_TAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_TCP_FRAG_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_TCP_FRAG_TAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_UDP_NF_TAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_UDP_NF_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_UDP_FRAG_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_UDP_FRAG_TAG;
-	/* ipv6 */
-	} else if (ipv6_flag && proto_flag) {
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_TCP_NF_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_TCP_NF_TAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_TCP_FRAG_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_TCP_FRAG_TAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_UDP_NF_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_UDP_NF_TAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_UDP_FRAG_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_UDP_FRAG_TAG;
-	/* ipv4 */
+	/* find relevant lkpid for this flow */
+	if (!ipv4_flag && !ipv6_flag && !l4_flag && !tcp_flag && !udp_flag) {
+		j += pp2_cls_add_non_ip_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip4_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip6_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
 	} else if (ipv4_flag) {
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP4_TAG;
-	/* ipv6 */
+		if (!tcp_flag && !udp_flag && !l4_flag) {
+			j += pp2_cls_add_ip4_logical_id(&select_logical_id[j]);
+			j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
+			j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
+		} else if (l4_flag && !tcp_flag && !udp_flag) {
+			j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
+			j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
+		} else if (tcp_flag) {
+			j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
+		} else if (udp_flag) {
+			j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
+		} else {
+			pp2_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+			return -EINVAL;
+		}
 	} else if (ipv6_flag) {
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_IP6_TAG;
+		if (!tcp_flag && !udp_flag && !l4_flag) {
+			j += pp2_cls_add_ip6_logical_id(&select_logical_id[j]);
+			j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
+			j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
+		} else if (l4_flag && !tcp_flag && !udp_flag) {
+			j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
+			j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
+		} else if (tcp_flag) {
+			j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
+		} else if (udp_flag) {
+			j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
+		} else {
+			pp2_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+	} else if (l4_flag) {
+		j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
+	} else if (tcp_flag) {
+		j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
+	} else if (udp_flag) {
+		j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
+		j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
 	} else {
-		select_log_id[j++] = MVPP2_PRS_FL_NON_IP_UNTAG;
-		select_log_id[j++] = MVPP2_PRS_FL_NON_IP_TAG;
+		pp2_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+		return -EINVAL;
 	}
-	select_log_id[j] = 0;
+	select_logical_id[j] = 0;
 
 	/* add current rule for all selected logical flow id */
-	for (i = 0; select_log_id[i] != 0; i++) {
-		pp2_dbg("select_log_id = %d\n", select_log_id[i]);
-		fl_rls->fl[0].fl_log_id = select_log_id[i];
+	for (i = 0; select_logical_id[i] != 0; i++) {
+		pp2_dbg("select_logical_id = %d\n", select_logical_id[i]);
+		fl_rls->fl[0].fl_log_id = select_logical_id[i];
 
 		/* Add flow rule */
-		pp2_cls_lkp_dcod_set_and_disable(cpu_slot, select_log_id[i]);
+		pp2_cls_lkp_dcod_set_and_disable(cpu_slot, select_logical_id[i]);
 		rc = pp2_cls_fl_rule_add(cpu_slot, fl_rls);
 		if (rc) {
 			pp2_err("failed to add cls flow rule\n");
 			goto end;
 		}
-		pp2_cls_lkp_dcod_enable(cpu_slot, select_log_id[i]);
+		pp2_cls_lkp_dcod_enable(cpu_slot, select_logical_id[i]);
 	}
 
 end:
