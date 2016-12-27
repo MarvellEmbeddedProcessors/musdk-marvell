@@ -47,7 +47,7 @@
 #define SAM_DMA_MEM_SIZE		(1 * 1024 * 1204) /* 1 MBytes */
 
 #define NUM_CONCURRENT_SESSIONS		64
-#define NUM_CONCURRENT_REQUESTS		256
+#define NUM_CONCURRENT_REQUESTS		127
 #define MAX_BUFFER_SIZE			2048 /* bytes */
 #define MAX_CIPHER_KEY_SIZE		32 /* 256 Bits = 32 Bytes */
 #define MAX_CIPHER_BLOCK_SIZE		32 /* Bytes */
@@ -59,6 +59,8 @@ static struct sam_cio		*cio_hndl;
 static struct sam_sa		*sa_hndl[NUM_CONCURRENT_SESSIONS];
 static struct sam_session_params sa_params[NUM_CONCURRENT_SESSIONS];
 
+static char *sam_match_str;
+static char *sam_tests_file;
 static struct sam_buf_info	in_buf;
 static u32			in_data_size;
 static struct sam_buf_info	out_bufs[NUM_CONCURRENT_REQUESTS];
@@ -73,10 +75,16 @@ static int			num_to_check = 10;
 static int			num_checked;
 static int			num_to_print = 1;
 static int			num_printed;
-static int			num_requests_per_enq = NUM_CONCURRENT_REQUESTS;
-static int			num_requests_before_deq = NUM_CONCURRENT_REQUESTS / 2;
+static int			num_requests_per_enq = 32;
+static int			num_requests_before_deq = NUM_CONCURRENT_REQUESTS;
+static int			num_requests_per_deq = 32;
+
 
 static generic_list		test_db;
+
+/** Get rid of path in filename - only for unix-type paths using '/' */
+#define NO_PATH(file_name) (strrchr((file_name), '/') ? \
+			    strrchr((file_name), '/') + 1 : (file_name))
 
 static enum sam_dir direction_str_to_val(char *data)
 {
@@ -450,11 +458,11 @@ static void print_results(int test, char *test_name, int operations, int errors,
 	mbps = kpps * in_data_size * 8 / 1000;
 
 	if (errors == 0)
-		printf("%2d. FINISHED %s: passed %d times       - %u.%03u secs\n",
-			test, test_name, operations, secs, usecs / 1000);
+		printf("%2d. FINISHED %s: passed %d times * %d Bytes		- %u.%03u secs\n",
+			test, test_name, operations, in_data_size, secs, usecs / 1000);
 	else
-		printf("%2d. FINISHED %s: failed %d of %d times - %u.%03u secs\n",
-			test, test_name, errors, operations, secs, usecs / 1000);
+		printf("%2d. FINISHED %s: failed %d of %d times * %d Bytes      - %u.%03u secs\n",
+			test, test_name, errors, operations, in_data_size, secs, usecs / 1000);
 
 	printf("      Rate: %u Kpps, %u Mbps\n", kpps, mbps);
 }
@@ -652,7 +660,6 @@ static int run_tests(generic_list tests_db)
 		while (total_deqs) {
 			to_enq = min(total_enqs, num_requests_before_deq);
 			while (in_process < to_enq) {
-
 				num_enq = min(num_requests_per_enq, (to_enq - in_process));
 				for (i = 0; i < num_enq; i++) {
 					if (same_bufs) {
@@ -682,7 +689,7 @@ static int run_tests(generic_list tests_db)
 			}
 
 			/* Get all ready results together */
-			to_deq = in_process;
+			to_deq = min(in_process, num_requests_per_deq);
 			num = (u16)to_deq;
 			rc = sam_cio_deq(cio_hndl, results, &num);
 			if (rc == 0) {
@@ -716,22 +723,111 @@ static int run_tests(generic_list tests_db)
 	return 0;
 }
 
-static void usage(int argc, char **argv)
+static void usage(char *progname)
 {
-	printf("Usage: %s <match> <test_file>\n", argv[0]);
-	printf("<match> string fromat is cio-0:0\n");
+	printf("Usage: %s <match> <test_file> [OPTIONS]\n", NO_PATH(progname));
+	printf("<match> string format is cio-0:0\n");
+	printf("OPTIONS are optional:\n");
+	printf("\t-c <number>      - Number of requests to check (default: %d)\n", num_to_check);
+	printf("\t-p <number>      - Number of requests to print (default: %d)\n", num_to_print);
+	printf("\t-e <number>      - Maximum burst for enqueue (default: %d)\n", num_requests_per_enq);
+	printf("\t-d <number>      - Maximum burst for dequeue (default: %d)\n", num_requests_per_deq);
+	printf("\t--same_bufs      - Use the same buffer as src and dst (default: %s)\n",
+		same_bufs ? "same" : "different");
+}
+
+static int parse_args(int argc, char *argv[])
+{
+	int	i = 3;
+
+	/* First 2 arguments are mandatory */
+	if (argc < 3) {
+		usage(argv[0]);
+		return -1;
+	}
+	sam_match_str = argv[1];
+
+	sam_tests_file = argv[2];
+
+	while (i < argc) {
+		if ((strcmp(argv[i], "?") == 0) ||
+		    (strcmp(argv[i], "-h") == 0) ||
+		    (strcmp(argv[i], "--help") == 0)) {
+			usage(argv[0]);
+			exit(0);
+		}
+		if (strcmp(argv[i], "-c") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			num_to_check = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-p") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			num_to_print = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-e") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			 num_requests_per_enq = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-d") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			 num_requests_per_deq = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "--same_bufs") == 0) {
+			same_bufs = true;
+			i += 1;
+		} else {
+			pr_err("argument (%s) not supported!\n", argv[i]);
+			return -EINVAL;
+		}
+	}
+	/* Print all inputs arguments */
+	printf("CIO match_str  : %s\n", sam_match_str);
+	printf("Tests file name: %s\n", sam_tests_file);
+	printf("Number to check: %u\n", num_to_check);
+	printf("Number to print: %u\n", num_to_print);
+	printf("Number per enq : %u\n", num_requests_per_enq);
+	printf("Number per deq : %u\n", num_requests_per_deq);
+	printf("src / dst bufs : %s\n", same_bufs ? "same" : "different");
+
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
 	struct sam_cio_params cio_params;
-	char *tf_name;
 	int rc;
 
-	if (argc < 3) {
-		usage(argc, argv);
-		return -1;
-	}
+	rc = parse_args(argc, argv);
+	if (rc)
+		return rc;
 
 	rc = mv_sys_dma_mem_init(SAM_DMA_MEM_SIZE);
 	if (rc) {
@@ -739,10 +835,7 @@ int main(int argc, char **argv)
 		return rc;
 	}
 
-	cio_params.match = argv[1];
-
-	tf_name = argv[2];
-	printf("%s: tests file is %s\n", argv[0], tf_name);
+	cio_params.match = sam_match_str;
 
 	test_db = generic_list_create(fileSetsEncryptedBlockCopyForList,
 				      fileSetsEncryptedBlockDestroyForList);
@@ -751,11 +844,10 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if (fileSetsReadBlocksFromFile(tf_name, test_db) == FILE_OPEN_PROBLEM) {
-		printf("Can't read tests from file %s\n", tf_name);
+	if (fileSetsReadBlocksFromFile(sam_tests_file, test_db) == FILE_OPEN_PROBLEM) {
+		printf("Can't read tests from file %s\n", sam_tests_file);
 		return -1;
 	}
-	printf("%d tests read from file %s\n", generic_list_get_size(test_db), tf_name);
 
 	cio_params.size = NUM_CONCURRENT_REQUESTS;
 	cio_params.num_sessions = NUM_CONCURRENT_SESSIONS;
