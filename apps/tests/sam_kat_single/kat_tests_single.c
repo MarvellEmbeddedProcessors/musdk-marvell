@@ -145,11 +145,19 @@ static int poll_results(struct sam_cio *cio, struct sam_cio_op_result *result,
 {
 	int rc;
 	int count = 1000;
-
+	u16 to_deq = *num;
+	
 	while (count--) {
 		rc = sam_cio_deq(cio, result, num);
-		if (rc != -EBUSY)
+		if (rc) {
+			printf("%s: sam_cio_deq failed. num = %d, rc = %d\n",
+					__func__, *num, rc);
 			return rc;
+		}
+		if (*num)
+			return 0;
+
+		*num = to_deq;
 	}
 	/* Timeout */
 	pr_err("%s: Timeout\n", __func__);

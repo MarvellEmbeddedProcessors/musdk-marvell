@@ -76,7 +76,7 @@ static int			num_checked;
 static int			num_to_print = 1;
 static int			num_printed;
 static int			num_requests_per_enq = 32;
-static int			num_requests_before_deq = NUM_CONCURRENT_REQUESTS;
+static int			num_requests_before_deq = 32;
 static int			num_requests_per_deq = 32;
 
 
@@ -679,20 +679,28 @@ static int run_tests(generic_list tests_db)
 				}
 				num = (u16)num_enq;
 				rc = sam_cio_enq(cio_hndl, requests, &num);
-				if ((rc != 0) && (rc != -EBUSY)) {
-					printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
-						__func__, num, rc);
+				if (rc) {
+					printf("%s: sam_cio_enq failed. to_enq = %d, num = %d, rc = %d\n",
+						__func__, num_enq, num, rc);
 					return rc;
 				}
-				in_process += num;
-				total_enqs -= num;
+				if (num) {
+					in_process += num;
+					total_enqs -= num;
+				} else
+					break;
 			}
 
 			/* Get all ready results together */
 			to_deq = min(in_process, num_requests_per_deq);
 			num = (u16)to_deq;
 			rc = sam_cio_deq(cio_hndl, results, &num);
-			if (rc == 0) {
+			if (rc) {
+				printf("%s: sam_cio_deq failed. to_deq = %d, num = %d, rc = %d\n",
+					__func__, to_deq, num, rc);
+				return rc;
+			}
+			if (num) {
 				in_process -= num;
 				total_deqs -= num;
 
@@ -702,10 +710,6 @@ static int run_tests(generic_list tests_db)
 					errors += check_results(&sa_params[test], results, num);
 					num_checked += num;
 				}
-			} else if (rc != -EBUSY) {
-				printf("%s: sam_cio_deq failed. num = %d, rc = %d\n",
-					__func__, num, rc);
-				return rc;
 			}
 		}
 		gettimeofday(&tv_end, NULL);
