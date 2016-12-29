@@ -637,7 +637,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 	PEC_PacketParams_t pkt_params;
 	PEC_Status_t rc;
 	unsigned int count = 0;
-	int i, j, err, todo, done = 0;
+	int i, j, err, todo;
 
 	todo = *num;
 	if (todo >= cio->params.size)
@@ -645,7 +645,6 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 
 	for (i = 0; i < todo; i++) {
 		request = &requests[i];
-		cmd = &cio->hw_ring.cmd_desc[i];
 
 		/* Check request validity */
 		err = sam_cio_check_op_params(request);
@@ -668,6 +667,8 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 
 		/* Prepare request for submit */
 		memset(&pkt_params, 0, sizeof(PEC_PacketParams_t));
+
+		cmd = &cio->hw_ring.cmd_desc[i];
 		memset(cmd, 0, sizeof(PEC_CommandDescriptor_t));
 		if (sam_hw_cmd_desc_init(request, operation, cmd, &pkt_params))
 			goto error_enq;
@@ -694,15 +695,14 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 				__func__, rc);
 			goto error_enq;
 		}
-		rc = PEC_Packet_Put(cio->id, cmd, 1, &count);
-		if (rc != PEC_STATUS_OK) {
-			pr_err("%s: PEC_Packet_Put failed, rc = %d, count = %d\n",
-				__func__, rc, count);
-			goto error_enq;
-		}
-		done += count;
 	}
-	*num = (u16)done;
+	rc = PEC_Packet_Put(cio->id, cio->hw_ring.cmd_desc, i, &count);
+	if (rc != PEC_STATUS_OK) {
+		pr_err("%s: PEC_Packet_Put failed, rc = %d, count = %d\n",
+			__func__, rc, count);
+		goto error_enq;
+	}
+	*num = (u16)count;
 
 	return 0;
 
