@@ -803,6 +803,10 @@ static int main_loop(void *arg, volatile int *running)
 		pr_info("Parser tests not implemented yet\n");
 		return -EINVAL;
 	} else if (strncmp(garg->test_module, "issue", 5) == 0) {
+		pr_info("*************Initialize DB**************\n");
+		pp2_cls_db_init();
+		pr_info("*************Initialize cls - decoder & issue engine **************\n");
+		pp2_cls_init(garg->cpu_slot);
 	} else if (strncmp(garg->test_module, "c2", 2) == 0) {
 		pr_info("c2 tests not implemented yet\n");
 		return -EINVAL;
@@ -813,8 +817,13 @@ static int main_loop(void *arg, volatile int *running)
 		}
 		pr_info("*************start test c3************\n");
 		pp2_cls_c3_test(garg->cpu_slot, garg->test_number);
-	}
+	} else
 #endif
+	{
+		pp2_cls_db_init();
+		pp2_cls_init(garg->cpu_slot);
+		pp2_cls_c3_start(garg->cpu_slot);
+	}
 
 	while (*running);
 

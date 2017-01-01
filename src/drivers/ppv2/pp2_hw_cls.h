@@ -53,8 +53,6 @@
 #include "cls/pp2_flow_rules.h"
 #include "cls/pp2_c3.h"
 #include "cls/pp2_cls_db.h"
-#include "drivers/mv_pp2_cls.h"
-#include "cls/pp2_cls_mng.h"
 
 #define MV_ERROR		(-1)
 #define MV_OK			(0)
