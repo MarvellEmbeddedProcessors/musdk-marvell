@@ -1,4 +1,4 @@
-From b12bcf221189582aa7721195e7d60548daa5b492 Mon Sep 17 00:00:00 2001
+From 6a6bd179cf572de2afb4b559910e9ceb84a304b6 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:26:56 +0200
 Subject: [PATCH 3/5] musdk: add support for musdk in mvpp2x
@@ -25,10 +25,10 @@ index 2e56db8..ddfc392 100644
  /* Marvell tag types */
  enum mv_pp2x_tag_type {
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index a819bfa..dc9f9c4 100644
+index a53a401..10f1b00 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-@@ -2844,6 +2844,14 @@ out_no_tx_desc:
+@@ -2861,6 +2861,14 @@ out_no_tx_desc:
  	return 0;
  }
  
@@ -43,7 +43,7 @@ index a819bfa..dc9f9c4 100644
  /* Main tx processing */
  static int mv_pp2x_tx(struct sk_buff *skb, struct net_device *dev)
  {
-@@ -3555,8 +3563,8 @@ int mv_pp2x_open(struct net_device *dev)
+@@ -3587,8 +3595,8 @@ int mv_pp2x_open(struct net_device *dev)
  		netdev_err(port->dev, "cannot allocate Tx queues\n");
  		goto err_cleanup_rxqs;
  	}
@@ -54,7 +54,7 @@ index a819bfa..dc9f9c4 100644
  	if (err) {
  		netdev_err(port->dev, "cannot allocate irq's\n");
  		goto err_cleanup_txqs;
-@@ -3564,14 +3572,15 @@ int mv_pp2x_open(struct net_device *dev)
+@@ -3596,14 +3604,15 @@ int mv_pp2x_open(struct net_device *dev)
  	/* In default link is down */
  	netif_carrier_off(port->dev);
  
@@ -76,7 +76,7 @@ index a819bfa..dc9f9c4 100644
  	if (port->priv->pp2_version == PPV22)
  		mvcpn110_mac_hw_init(port);
  	mv_pp2x_start_dev(port);
-@@ -3936,6 +3945,20 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
+@@ -3973,6 +3982,20 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
  	.ndo_set_features	= mv_pp2x_netdev_set_features,
  };
  
@@ -97,7 +97,7 @@ index a819bfa..dc9f9c4 100644
  /* Driver initialization */
  
  static void mv_pp21_port_power_up(struct mv_pp2x_port *port)
-@@ -4322,7 +4345,9 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
+@@ -4359,7 +4382,9 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
  		goto err_free_percpu;
  
  	/* Configure queue_vectors */
@@ -108,7 +108,7 @@ index a819bfa..dc9f9c4 100644
  
  	/* Configure Rx queue group interrupt for this port */
  	priv->pp2xdata->mv_pp2x_port_isr_rx_group_cfg(port);
-@@ -4349,7 +4374,8 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
+@@ -4386,7 +4411,8 @@ static int mv_pp2x_port_init(struct mv_pp2x_port *port)
  	port->pkt_size = MVPP2_RX_PKT_SIZE(port->dev->mtu);
  
  	/* Initialize pools for swf */
@@ -118,7 +118,7 @@ index a819bfa..dc9f9c4 100644
  	if (err)
  		goto err_free_percpu;
  	return 0;
-@@ -4400,6 +4426,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4437,6 +4463,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  	int port_num_irq;
  	int phy_mode;
  	struct phy *comphy;
@@ -126,8 +126,8 @@ index a819bfa..dc9f9c4 100644
 +	int statlen;
  
  	dev = alloc_etherdev_mqs(sizeof(struct mv_pp2x_port),
- 				 mv_pp2x_txq_number, mv_pp2x_rxq_number);
-@@ -4412,6 +4440,11 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+ 				 mv_pp2x_txq_number * num_active_cpus(), mv_pp2x_rxq_number);
+@@ -4449,6 +4477,11 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  	SET_NETDEV_DEV(dev, &pdev->dev);
  	port->priv = priv;
  
@@ -139,7 +139,7 @@ index a819bfa..dc9f9c4 100644
  	mv_pp2x_port_init_config(port);
  
  	if (of_property_read_u32(port_node, "port-id", &id)) {
-@@ -4484,7 +4517,9 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4521,7 +4554,9 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  
  	/* Tx/Rx Interrupt */
  	port_num_irq = mv_pp2x_of_irq_count(port_node);
@@ -150,7 +150,7 @@ index a819bfa..dc9f9c4 100644
  		dev_err(&pdev->dev,
  			"port(%d)-number of irq's doesn't match hw\n", id);
  		goto err_free_netdev;
-@@ -4513,6 +4548,12 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4550,6 +4585,12 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  	dev->tx_queue_len = tx_queue_size;
  	dev->watchdog_timeo = 5 * HZ;
  	dev->netdev_ops = &mv_pp2x_netdev_ops;
@@ -163,7 +163,7 @@ index a819bfa..dc9f9c4 100644
  	mv_pp2x_set_ethtool_ops(dev);
  
  	if (priv->pp2_version == PPV21)
-@@ -4563,7 +4604,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4600,7 +4641,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  		err = -ENOMEM;
  		goto err_free_txq_pcpu;
  	}
@@ -172,7 +172,7 @@ index a819bfa..dc9f9c4 100644
  		for_each_online_cpu(cpu) {
  			port_pcpu = per_cpu_ptr(port->pcpu, cpu);
  
-@@ -4576,6 +4617,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4613,6 +4654,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  				     mv_pp2x_tx_proc_cb, (unsigned long)dev);
  		}
  	}
@@ -181,7 +181,7 @@ index a819bfa..dc9f9c4 100644
  	/* Init pool of external buffers for TSO, fragmentation, etc */
  	for_each_online_cpu(cpu) {
  		port_pcpu = per_cpu_ptr(port->pcpu, cpu);
-@@ -4603,7 +4646,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4640,7 +4683,7 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  			port_pcpu->ext_buf_pool->buf_pool_in_use++;
  		}
  	}
@@ -190,7 +190,7 @@ index a819bfa..dc9f9c4 100644
  	features = NETIF_F_SG;
  	dev->features = features | NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
  			NETIF_F_IPV6_CSUM | NETIF_F_TSO;
-@@ -4628,8 +4671,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
+@@ -4665,8 +4708,8 @@ static int mv_pp2x_port_probe(struct platform_device *pdev,
  		dev_err(&pdev->dev, "failed to register netdev\n");
  		goto err_free_port_pcpu;
  	}
@@ -201,7 +201,7 @@ index a819bfa..dc9f9c4 100644
  
  	netdev_info(dev, "Using %s mac address %pM\n", mac_from, dev->dev_addr);
  
-@@ -5311,10 +5354,24 @@ static int mv_pp2x_probe(struct platform_device *pdev)
+@@ -5340,10 +5383,24 @@ static int mv_pp2x_probe(struct platform_device *pdev)
  		mv_pp22_init_rxfhindir(priv);
  
  	/* Initialize ports */
