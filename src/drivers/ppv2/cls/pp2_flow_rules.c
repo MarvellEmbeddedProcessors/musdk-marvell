@@ -2851,7 +2851,7 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 			return rc;
 		}
 		/* add only kernel flows to db & hw */
-		if (lkp_type == MVPP2_CLS_MUSDK_LKP_DEFAULT) {
+		if (lkp_type > MVPP2_CLS_LKP_DEFAULT) {
 			if (is_last) {
 				pp2_dbg("found %d flows\n", fl_rls->fl_len);
 				break;

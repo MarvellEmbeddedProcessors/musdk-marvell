@@ -1076,6 +1076,8 @@ void pp2_db_cls_init(void)
 	/* set the CLS control to default values */
 	memset(&g_pp2_cls_db->cls_db, 0, sizeof(g_pp2_cls_db->cls_db));
 
+	/* f_start = 1 for kernel alignment */
+	g_pp2_cls_db->cls_db.fl_ctrl.f_start = 1;
 	g_pp2_cls_db->cls_db.fl_ctrl.f_end = MVPP2_FLOW_TBL_SIZE - 1;
 
 	for (i = MVPP2_CLS_LOG2OFF_START; i < MVPP2_CLS_LOG2OFF_TBL_SIZE; i++)
