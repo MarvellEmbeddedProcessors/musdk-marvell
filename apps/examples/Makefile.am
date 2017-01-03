@@ -1,5 +1,8 @@
 # whatever flags you want to pass to the C compiler & linker
-AM_CFLAGS = -Wall -std=gnu99 -O2
+CL_CFLAGS = -O2
+
+AM_CFLAGS = $(CL_CFLAGS)
+AM_CFLAGS += -Wall -std=gnu99
 #AM_CFLAGS += -I$(AC_PREFIX_DEFAULT)/include
 AM_CFLAGS += -I$(top_srcdir)/src/include
 AM_CFLAGS += -I$(top_srcdir)/src/include/drivers
