@@ -93,6 +93,9 @@
 	_max1 > _max2 ? _max1 : _max2; })
 #endif
 
+#define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
+#define lower_32_bits(n) ((u32)(n)) 
+
 /* Kernel Memory Allocation */
 #define kmalloc(size, gfp) malloc(size)
 #define kcalloc(num, size, gfp) calloc(num, size)

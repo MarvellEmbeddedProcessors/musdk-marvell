@@ -46,10 +46,6 @@
 #define MVAPPS_PP2_TOTAL_NUM_BPOOLS	16
 #define MVAPPS_PP2_TOTAL_NUM_HIFS	9
 
-/* TODO: Move to internal .h file */
-#define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
-#define lower_32_bits(n) ((u32)(n))
-
 #define MVAPPS_BPOOLS_INF	{{2048, 1024} }
 
 struct bpool_inf {
