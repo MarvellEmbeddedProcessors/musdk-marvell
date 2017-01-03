@@ -7,7 +7,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/armada-7040-db-router.dts | 2 +-
  arch/arm64/boot/dts/marvell/armada-8040-db-A.dts      | 4 ++--
- arch/arm64/boot/dts/marvell/armada-8040-db-router.dts | 4 ++--
+ arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts | 4 ++--
  3 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-router.dts
@@ -45,10 +45,10 @@ index e0106bd..b830258 100644
  				};
  				eth1_1: eth1@020000 {
  					status = "okay";
-diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 index c9ca277..01c5b96 100644
---- a/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-8040-db-router.dts
+--- a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 @@ -149,7 +149,7 @@
  				pinctrl-0 = <&cpm_ge2_rgmii_pins>;
  
