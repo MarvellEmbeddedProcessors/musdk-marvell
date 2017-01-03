@@ -366,19 +366,18 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 
     /* FS_A8K Table 1542: The SWF ring size + a prefetch size for HWF */
     txq->desc_total = port->txq_config[txq->log_id].size;
-    txq->cma_hdl = cma_calloc(txq->desc_total * MVPP2_DESC_ALIGNED_SIZE);
-    if (unlikely(!txq->cma_hdl)) {
+    txq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((txq->desc_total * MVPP2_DESC_ALIGNED_SIZE), MVPP2_DESC_Q_ALIGN);
+    if (unlikely(!txq->desc_virt_arr)) {
         pp2_err("PP: cannot allocate egress descriptor array\n");
         return;
     }
-    txq->desc_phys_arr = cma_get_paddr(txq->cma_hdl);
+    txq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(txq->desc_virt_arr);
     if (!IS_ALIGNED(txq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
         pp2_err("PP: egress descriptor array must be %u-byte aligned\n",
                 MVPP2_DESC_Q_ALIGN);
-        cma_free(txq->cma_hdl);
+        mv_sys_dma_mem_free(txq->desc_virt_arr);
         return;
     }
-    txq->desc_virt_arr = (struct pp2_desc *)cma_get_vaddr(txq->cma_hdl);
 
     /* Set Tx descriptors queue starting address - indirect access */
     pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
@@ -483,7 +482,7 @@ pp2_port_txqs_destroy(struct pp2_port *port)
    {
       struct pp2_tx_queue *txq = port->txqs[qid];
 
-      cma_free(txq->cma_hdl);
+      mv_sys_dma_mem_free(txq->desc_virt_arr);
       free(txq);
    }
 }
@@ -541,19 +540,18 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 
    cpu_slot = port->cpu_slot;
 
-   rxq->cma_hdl = cma_calloc(rxq->desc_total * MVPP2_DESC_ALIGNED_SIZE);
-   if (unlikely(!rxq->cma_hdl)) {
+   rxq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((rxq->desc_total * MVPP2_DESC_ALIGNED_SIZE), MVPP2_DESC_Q_ALIGN);
+   if (unlikely(!rxq->desc_virt_arr)) {
        pp2_err("PP: cannot allocate ingress descriptor array\n");
        return;
    }
-   rxq->desc_phys_arr = cma_get_paddr(rxq->cma_hdl);
+   rxq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(rxq->desc_virt_arr);
    if (!IS_ALIGNED(rxq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
        pp2_err("PP: ingress descriptor array must be %u-byte aligned\n",
                MVPP2_DESC_Q_ALIGN);
-       cma_free(rxq->cma_hdl);
+       mv_sys_dma_mem_free(rxq->desc_virt_arr);
        return;
    }
-   rxq->desc_virt_arr = (struct pp2_desc *)cma_get_vaddr(rxq->cma_hdl);
 
    rxq->desc_last_idx = rxq->desc_total - 1;
 
@@ -634,7 +632,7 @@ pp2_port_rxqs_destroy(struct pp2_port *port)
    {
       struct pp2_rx_queue *rxq = port->rxqs[qid];
 
-      cma_free(rxq->cma_hdl);
+      mv_sys_dma_mem_free(rxq->desc_virt_arr);
       free(rxq);
    }
 }

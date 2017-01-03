@@ -62,21 +62,20 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
     dm_if->desc_total = num_desc;
 
     /* Allocate a region via CMA for TXDs and setup their addresses */
-    dm_if->cma_hdl = cma_calloc(num_desc * MVPP2_DESC_ALIGNED_SIZE);
-    if (unlikely(!dm_if->cma_hdl)) {
+    dm_if->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((num_desc * MVPP2_DESC_ALIGNED_SIZE), MVPP2_DESC_Q_ALIGN);
+    if (unlikely(!dm_if->desc_virt_arr)) {
         pp2_err("DM: cannot allocate DM region\n");
         free(dm_if);
         return -ENOMEM;
     }
-    dm_if->desc_phys_arr = cma_get_paddr(dm_if->cma_hdl);
+    dm_if->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(dm_if->desc_virt_arr);
     if (!IS_ALIGNED(dm_if->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
         pp2_err("DM: Descriptor array must be %u-byte aligned\n",
                 MVPP2_DESC_Q_ALIGN);
-        cma_free(dm_if->cma_hdl);
+        mv_sys_dma_mem_free(dm_if->desc_virt_arr);
         free(dm_if);
         return -EPERM;
     }
-    dm_if->desc_virt_arr = (struct pp2_desc *)cma_get_vaddr(dm_if->cma_hdl);
     /* Get register address space slot for this DM object */
     dm_if->cpu_slot = inst->hw.base[dm_id].va;
 
@@ -115,7 +114,7 @@ void pp2_dm_if_deinit(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id)
     /* TODO: Destroy AQ in HW */
 
     pp2_dbg("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
-    cma_free(dm_if->cma_hdl);
+    mv_sys_dma_mem_free(dm_if->desc_virt_arr);
     free(dm_if);
     inst->num_dm_ifs--;
     inst->dm_ifs[dm_id] = NULL;

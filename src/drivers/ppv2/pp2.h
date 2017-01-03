@@ -100,8 +100,6 @@ struct pp2_dm_if {
     struct pp2_inst *parent;
     /* CPU slot address assigned to this DM object */
     uintptr_t cpu_slot;
-    /* CMA handle */
-    uintptr_t cma_hdl;
 };
 
 /* Number of descriptors to prefetch from DRAM for this TXQ */
@@ -129,8 +127,6 @@ struct pp2_tx_queue {
     uint32_t desc_total;
     /* Physical addr of the first TXD of the TXD array */
     uintptr_t desc_phys_arr;
-    /* CMA handle */
-    uintptr_t cma_hdl;
     /* Virtual addr of the first TXD of the TXD array */
     struct pp2_desc *desc_virt_arr;
     struct pp2_txq_dm_if txq_dm_if[PP2_NUM_REGSPACES];
@@ -161,8 +157,6 @@ struct pp2_rx_queue {
 	uintptr_t desc_phys_arr;
     /* Virtual addr of the first RXD of the RXD array */
     struct pp2_desc *desc_virt_arr;
-    /* CMA handle */
-    uintptr_t cma_hdl;
 };
 
 /**
@@ -212,8 +206,6 @@ struct pp2_bm_pool {
     uintptr_t bm_pool_virt_base;
     /* BM pool physical address (BPPE) */
     uintptr_t bm_pool_phys_base;
-    /* BM CMA BPPE handler */
-    uintptr_t bppe_mem;
 };
 
 /* Port minimum MTU in bytes */
