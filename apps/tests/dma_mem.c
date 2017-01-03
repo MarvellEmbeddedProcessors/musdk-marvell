@@ -33,38 +33,80 @@
 #include "std_internal.h"
 
 
+#define DMA_MEM_SIZE 	(11*1024*1024)
+
+
 struct mem {
 	phys_addr_t	pa;
 	void		*va;
 };
 
 
-int main (int argc, char *argv[])
+static int single_test(int num_allocs, int alloc_size, int align)
 {
-	struct mem	mems[100];
-	int		i, err;
+	struct mem	*mems;
+	int		i;
 
-	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
+	mems = (struct mem *)malloc(num_allocs*sizeof(struct mem));
+	if (!mems) {
+		pr_err("No mem for dma-test mem obj!\n");
+		return -ENOMEM;
+	}
 
-	if ((err = mv_sys_dma_mem_init(1*1024*1024)) != 0)
-		return err;
-
-	for (i=0; i<10; i++) {
-		mems[i].va = mv_sys_dma_mem_alloc(100, 4);
+	for (i=0; i<num_allocs; i++) {
+		mems[i].va = mv_sys_dma_mem_alloc(alloc_size, align);
 		if (!mems[i].va) {
-			pr_err("failed to allocate mem (%d,%d)!\n", i, 100);
+			pr_err("failed to allocate mem (%d,%d)!\n", i, alloc_size);
 			break;
 		}
 		mems[i].pa = mv_sys_dma_mem_virt2phys(mems[i].va);
-		printf("va=%p,pa=%llx\n",mems[i].va,(long long unsigned int)mems[i].pa);
+		pr_debug("va=%p,pa=%llx\n",mems[i].va,(long long unsigned int)mems[i].pa);
 	}
+	if (i!= num_allocs)
+		return -EFAULT;
 
-	for (i=0; i<100; i++) {
+	for (i=0; i<num_allocs; i++) {
 		if (!mems[i].va) continue;
 		mv_sys_dma_mem_free(mems[i].va);
 	}
 
+	return 0;
+}
+
+
+int main (int argc, char *argv[])
+{
+	int		err;
+
+	printf("Marvell Armada US (Build: %s %s)\n", __DATE__, __TIME__);
+
+	if ((err = mv_sys_dma_mem_init(DMA_MEM_SIZE)) != 0)
+		return err;
+
+	printf("DMA memory test:\n");
+	printf(".");
+	if (!err)
+		err = single_test(10000, 100, 4);
+	printf(".");
+	if (!err)
+		err = single_test(100, 1000, 64);
+	printf(".");
+	if (!err)
+		err = single_test(6, 1500000, 256);
+	printf(".");
+	if (!err)
+		err = single_test(100, 1000, 64);
+	printf(".");
+	if (!err)
+		err = single_test(10000, 100, 4);
+	printf(".");
+
 	mv_sys_dma_mem_destroy();
-	printf("bye ...\n");
+
+	if (err)
+		printf("\nFAILED!\n");
+	else
+		printf("\npassed\n");
+
 	return 0;
 }
