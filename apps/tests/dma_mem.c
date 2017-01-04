@@ -46,6 +46,8 @@ static int single_test(int num_allocs, int alloc_size, int align)
 {
 	struct mem	*mems;
 	int		i;
+	unsigned long j;
+	char *addr;
 
 	mems = (struct mem *)malloc(num_allocs*sizeof(struct mem));
 	if (!mems) {
@@ -64,6 +66,26 @@ static int single_test(int num_allocs, int alloc_size, int align)
 	}
 	if (i!= num_allocs)
 		return -EFAULT;
+
+	/* Run some actual write & read tests to allocated memory */
+	for (i=0; i<num_allocs; i++) {
+		/* Write to all allocated range */
+		for (j = 0; j < alloc_size; j++) {
+			addr = mems[i].va;
+			addr[j] = (char)(j);
+		}
+		if ((i % 500) == 0)
+			printf(".");
+
+		/* Verify all written data is as expected */
+		for (j = 0; j < alloc_size; j++) {
+			addr = mems[0].va;
+			if (addr[j] != (char)j) {
+				printf("\nError: Index %lu mismatched (Data written is not as expected)\n", j);
+				exit(3);
+			}
+		}
+	}
 
 	for (i=0; i<num_allocs; i++) {
 		if (!mems[i].va) continue;
@@ -99,6 +121,12 @@ int main (int argc, char *argv[])
 	printf(".");
 	if (!err)
 		err = single_test(10000, 100, 4);
+	printf(".");
+	if (!err)
+		err = single_test(10, 0x100000, 4);
+	printf(".");
+	if (!err)
+		err = single_test(3, 0x300000, 4);
 	printf(".");
 
 	mv_sys_dma_mem_destroy();
