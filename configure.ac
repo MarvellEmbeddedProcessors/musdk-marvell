@@ -98,7 +98,7 @@ AC_ARG_ENABLE([uio-hugepage],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-uio-hugepage]) ;;
 esac])
 if test x$HUGE_PG = xtrue; then
-	MUSDK_CFLAGS+="--DMVCONF_SYS_DMA_HUGE_PAGE "
+	MUSDK_CFLAGS+="-DMVCONF_SYS_DMA_HUGE_PAGE "
 fi
 
 # Checks for programs.
@@ -118,8 +118,6 @@ CFLAGS+="-Wstrict-prototypes "
 CFLAGS+="-Wmissing-prototypes "
 CFLAGS+="-pthread " 
 CFLAGS+="$MUSDK_CFLAGS" 
-echo "YUVAL"
-echo $CFLAGS
 CC=${CROSS_COMPILE}gcc
 LD=${CROSS_COMPILE}ld
 AR=${CROSS_COMPILE}ar

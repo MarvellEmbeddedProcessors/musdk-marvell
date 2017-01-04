@@ -32,16 +32,19 @@
 
 #include "std_internal.h"
 #include "lib/mem_mng.h"
-
+#include "hugepage_mem.h"
 
 struct sys_dma {
 	struct mem_mng	*mm;
 	void		*dma_virt_base;
 	phys_addr_t	dma_phys_base;
-#ifdef MVCONF_SYS_DMA_UIO
 	int		en;
+#ifdef MVCONF_SYS_DMA_UIO
 	uintptr_t       cma_ptr;
 #endif /* MVCONF_SYS_DMA_UIO */
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
+	void		*mem_ptr;
+#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 };
 
 
@@ -49,8 +52,43 @@ phys_addr_t __dma_phys_base = 0;
 void *__dma_virt_base = NULL;
 struct sys_dma	*sys_dma = NULL;
 
+/* UIO supports 2 memory allocations types:
+ * 1. CMA
+ * 2. Huge pages
+ */
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
+static int init_mem(struct sys_dma *sdma, u64 size)
+{
+	if (sdma->en) {
+		pr_err("%s: Memory allocation already initialized!\n" , __func__);
+		return -ENOMEM;
+	}
 
-#ifdef MVCONF_SYS_DMA_UIO
+	sdma->mem_ptr =	hugepage_init_mem(size, &sdma->dma_virt_base);
+	if (!sdma->mem_ptr) {
+		pr_err("Failed to allocate DMA memory!\n");
+		return -ENOMEM;
+	}
+	/* Indicate that memory allocation is initialized */
+	sdma->en = 1;
+
+	return 0;
+}
+
+static void free_mem(struct sys_dma *sdma)
+{
+	BUG_ON(!sdma);
+	if (!sdma->mem_ptr)
+		return;
+
+	hugepage_free_mem(sdma->mem_ptr);
+	sdma->mem_ptr = NULL;
+
+	/* clear indication of active memory initialization */
+	sdma->en = 0;
+}
+
+#elif defined MVCONF_SYS_DMA_UIO /* MVCONF_SYS_DMA_HUGE_PAGE */
 /* TODO: Update pp_cma_calloc to accept u64 */
 static int init_mem(struct sys_dma *sdma, u64 size)
 {
@@ -86,7 +124,7 @@ static void free_mem(struct sys_dma *sdma)
 	cma_free(sdma->cma_ptr);
 }
 
-#else
+#else /* MVCONF_SYS_DMA_UIO */
 static int init_mem(struct sys_dma *sdma, u64 size)
 {
         BUG_ON(!sdma);

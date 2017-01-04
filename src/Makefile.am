@@ -46,6 +46,7 @@ libmusdk_la_SOURCES += lib/crypto/mv_aes.c
 
 libmusdk_la_SOURCES += env/spinlock.c
 libmusdk_la_SOURCES += env/cma.c
+libmusdk_la_SOURCES += env/hugepage_mem.c
 libmusdk_la_SOURCES += env/sys_dma.c
 libmusdk_la_SOURCES += env/of.c
 libmusdk_la_SOURCES += env/netdev.c

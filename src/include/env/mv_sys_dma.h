@@ -95,11 +95,14 @@ void mv_sys_dma_mem_free(void *ptr);
  * @retval	A pointer to a virtual DMA memory on success
  * @retval	<0 on failure
  */
+#if defined(MVCONF_SYS_DMA_HUGE_PAGE)
+void *mv_sys_dma_mem_phys2virt(phys_addr_t pa);
+#else /* MVCONF_SYS_DMA_HUGE_PAGE */
 static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
 {
 	return (void *)((u64)(pa - __dma_phys_base) + (u64)__dma_virt_base);
 }
-
+#endif
 /**
  * Virtual to Physical address translation of an allocated DMA memory.
  *
@@ -108,10 +111,14 @@ static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
  * @retval	Physical-address on success
  * @retval	<0 on failure
  */
+#if defined(MVCONF_SYS_DMA_HUGE_PAGE)
+phys_addr_t mv_sys_dma_mem_virt2phys(void *va);
+#else /* MVCONF_SYS_DMA_HUGE_PAGE */
 static inline phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
 	return ((u64)va - (u64)__dma_virt_base) + __dma_phys_base;
 }
+#endif
 
 /** @} */ /* end of grp_pp2_hif */
 
