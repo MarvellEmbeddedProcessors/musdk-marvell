@@ -48,7 +48,7 @@
 #include "cls_debug.h"
 
 #define CLS_APP_PKT_OFFS			64
-#define CLS_APP_DMA_MEM_SIZE			(4 * 1024 * 1024)
+#define CLS_APP_DMA_MEM_SIZE			(10 * 1024 * 1024)
 #define CLS_APP_PP2_MAX_NUM_TCS_PER_PORT	1
 #define CLS_APP_PP2_MAX_NUM_QS_PER_TC		1
 #define CLS_APP_MAX_NUM_TBL			10
@@ -842,10 +842,14 @@ static int init_all_modules(void)
 		return err;
 
 	memset(&pp2_params, 0, sizeof(pp2_params));
-	pp2_params.hif_reserved_map = 0;
-	pp2_params.bm_pool_reserved_map = 0;
+	pp2_params.hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
+	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 	pp2_params.ppios[0][0].is_enabled = 1;
 	pp2_params.ppios[0][0].first_inq = 0;
+#if (PP2_SOC_NUM_PACKPROCS == 2)
+	pp2_params.ppios[1][0].is_enabled = 1;
+	pp2_params.ppios[1][0].first_inq = 0;
+#endif /* (PP2_SOC_NUM_PACKPROCS == 1) */
 	err = pp2_init(&pp2_params);
 	if (err)
 		return err;

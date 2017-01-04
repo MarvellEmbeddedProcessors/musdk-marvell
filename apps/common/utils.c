@@ -44,15 +44,15 @@
 #include "utils.h"
 
 static u64 sys_dma_high_addr;
-static u16 used_bpools;
-static u16 used_hifs;
+static u16 used_bpools = MVAPPS_PP2_BPOOLS_RSRV;
+static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
 static int find_free_bpool(void)
 {
-	int	i;
+	int i;
 
 	for (i = 0; i < MVAPPS_PP2_TOTAL_NUM_BPOOLS; i++) {
-		if (!((1 << i) & MVAPPS_PP2_BPOOLS_RSRV) && !((uint64_t)(1 << i) & used_bpools)) {
+		if (!((uint64_t)(1 << i) & used_bpools)) {
 			used_bpools |= (uint64_t)(1 << i);
 			break;
 		}
@@ -66,10 +66,10 @@ static int find_free_bpool(void)
 
 static int find_free_hif(void)
 {
-	int	i;
+	int i;
 
 	for (i = 0; i < MVAPPS_PP2_TOTAL_NUM_HIFS; i++) {
-		if (!((1 << i) & MVAPPS_PP2_HIFS_RSRV) && !((uint64_t)(1 << i) & used_hifs)) {
+		if (!((uint64_t)(1 << i) & used_hifs)) {
 			used_hifs |= (uint64_t)(1 << i);
 			break;
 		}
@@ -78,6 +78,7 @@ static int find_free_hif(void)
 		pr_err("no free HIF found!\n");
 		return -ENOSPC;
 	}
+
 	return i;
 }
 

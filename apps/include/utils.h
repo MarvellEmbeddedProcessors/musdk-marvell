@@ -39,8 +39,8 @@
 
 #define MVAPPS_MAX_NUM_BUFFS	8192
 #define MVAPPS_Q_SIZE		1024
-#define MVAPPS_PP2_BPOOLS_RSRV	0x0
-#define MVAPPS_PP2_HIFS_RSRV	0x0
+#define MVAPPS_PP2_BPOOLS_RSRV	0x7
+#define MVAPPS_PP2_HIFS_RSRV	0xF
 
 /* TODO: find more generic way to get the following parameters */
 #define MVAPPS_PP2_TOTAL_NUM_BPOOLS	16
