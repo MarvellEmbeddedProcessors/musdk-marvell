@@ -36,14 +36,7 @@
 #include <drivers/mv_sam.h>
 #include "std_internal.h"
 
-#include "cs_driver.h"
-#include "api_pec.h"
-#include "api_dmabuf.h"
-#include "api_driver197_init.h"
-#include "sa_builder.h"
-#include "sa_builder_basic.h"
-#include "token_builder.h"
-#include "firmware_eip207_api_cmd.h"
+#include "sam_hw.h"
 
 #define SAM_DMABUF_ALIGN	16 /* cache line */
 
@@ -67,17 +60,6 @@
 /* max TCR data size in bytes */
 #define SAM_TCR_DATA_SIZE		(9 * 4)
 
-struct sam_hw_ring {
-	PEC_CommandDescriptor_t *cmd_desc;	/* Array of command descriptors */
-	PEC_ResultDescriptor_t *result_desc;	/* Array of result descriptors */
-};
-
-struct sam_dmabuf {
-	u32                     size;
-	DMABuf_Handle_t		hndl;
-	DMABuf_HostAddress_t	host_addr;
-};
-
 struct sam_cio_op {
 	bool is_valid;
 	struct sam_sa *sa;
@@ -85,8 +67,7 @@ struct sam_cio_op {
 	struct sam_buf_info out_frags[SAM_CIO_MAX_FRAGS]; /* array of output buffers */
 	u32  auth_icv_offset; /* offset of ICV in the buffer (in bytes) */
 	void *cookie;
-	struct sam_dmabuf token_dmabuf; /* DMA buffer for token  */
-	struct sam_dmabuf data_dmabuf;  /* DMA buffer for data */
+	struct sam_buf_info token_buf; /* DMA buffer for token  */
 };
 
 
@@ -107,7 +88,7 @@ struct sam_sa {
 	/* Fields needed for EIP197 HW */
 	SABuilder_Params_Basic_t	basic_params;
 	SABuilder_Params_t		sa_params;
-	struct sam_dmabuf		sa_dmabuf;
+	struct sam_buf_info		sa_buf;		/* DMA buffer for SA */
 	u32				sa_words;
 	u8				tcr_data[SAM_TCR_DATA_SIZE];
 	u32				tcr_words;
@@ -154,6 +135,9 @@ static inline int sam_max_check(int value, int limit, const char *name)
 	}
 	return 0;
 }
+
+int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf);
+void sam_dma_buf_free(struct sam_buf_info *dma_buf);
 
 /* Debug functions */
 void print_sa_params(SABuilder_Params_t *params);

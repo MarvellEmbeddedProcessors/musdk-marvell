@@ -35,7 +35,6 @@
 #include "lib/lib_misc.h"
 #include "sam.h"
 
-/*#define SAM_DMA_DEBUG*/
 /*#define SAM_CIO_DEBUG*/
 /*#define SAM_SA_DEBUG*/
 
@@ -43,122 +42,25 @@ static bool		sam_initialized;
 static int		sam_active_rings;
 static struct sam_cio	*sam_rings[SAM_HW_RING_NUM];
 
-static void sam_dmabuf_free(struct sam_dmabuf *dmabuf)
+int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf)
 {
-#ifdef SAM_DMA_DEBUG
-	pr_info("free DMA buffer: size = %d bytes, vaddr = %p, handle = %p\n",
-		dmabuf->size, dmabuf->host_addr.p, dmabuf->hndl.p);
-#endif
-	if (dmabuf->size) {
-		DMABuf_Release(dmabuf->hndl);
-		dmabuf->size = 0;
-	}
-}
-
-static int sam_dmabuf_alloc(u32 buf_size, struct sam_dmabuf *dmabuf)
-{
-	DMABuf_Status_t dma_status;
-	DMABuf_Properties_t dma_properties = {0, 0, 0, 0};
-
-	dma_properties.fCached   = true;
-	dma_properties.Alignment = SAM_DMABUF_ALIGN;
-	dma_properties.Size      = buf_size;
-	dma_properties.Bank      = SAM_DMA_BANK_PKT;
-
-	dma_status = DMABuf_Alloc(dma_properties,
-				&dmabuf->host_addr,
-				&dmabuf->hndl);
-	if (dma_status != DMABUF_STATUS_OK) {
-		pr_err("Failed to allocate DMA buffer of %d bytes. error = %d\n",
-			buf_size, dma_status);
+	dma_buf->vaddr = mv_sys_dma_mem_alloc(buf_size, 256);
+	if (!dma_buf->vaddr) {
+		pr_err("Can't allocate input DMA buffer of %d bytes\n", buf_size);
 		return -ENOMEM;
 	}
-	dmabuf->size = buf_size;
-
-#ifdef SAM_DMA_DEBUG
-	pr_info("allocate DMA buffer: size = %d bytes, vaddr = %p, handle = %p\n",
-		buf_size, dmabuf->host_addr.p, dmabuf->hndl.p);
-#endif
-	return 0;
-}
-
-static int sam_hw_engine_load(void)
-{
-	pr_info("Load SAM HW engine\n");
-
-	if (Driver197_Init()) {
-		pr_err("Can't init eip197 driver\n");
-		return -ENODEV;
-	}
-	sam_initialized = true;
-	return 0;
-}
-
-static int sam_hw_engine_unload(void)
-{
-	pr_info("Unload SAM HW engine\n");
-	Driver197_Exit();
-	sam_initialized = false;
+	dma_buf->paddr = mv_sys_dma_mem_virt2phys(dma_buf->vaddr);
+	dma_buf->len = buf_size;
 
 	return 0;
 }
 
-static int sam_hw_ring_init(u32 ring)
+void sam_dma_buf_free(struct sam_buf_info *dma_buf)
 {
-	PEC_Status_t status;
-	PEC_InitBlock_t init_block = {0, 0};
-	u32 count = SAM_HW_RING_RETRY_COUNT;
-
-	while (count > 0) {
-		status = PEC_Init(ring, &init_block);
-		if (status == PEC_STATUS_OK) {
-			pr_info("EIP197 ring #%d loaded\n", ring);
-			return 0;
-		}
-
-		if (status == PEC_STATUS_BUSY) {
-			udelay(SAM_HW_RING_RETRY_US);
-			count--;
-			continue;
-		}
-		pr_err("Can't initialize ring #%d. error = %d\n", ring, status);
-		return -ENODEV;
-	} /* while */
-
-	/* Timeout */
-	pr_err("Can't initialize HW ring #%d. %d msec timeout expired\n",
-		ring, SAM_HW_RING_RETRY_US * SAM_HW_RING_RETRY_COUNT / 1000);
-
-	return -ENODEV;
+	if (dma_buf && dma_buf->vaddr)
+		mv_sys_dma_mem_free(dma_buf->vaddr);
 }
 
-static int sam_hw_ring_deinit(int ring)
-{
-	PEC_Status_t status;
-	u32 count = SAM_HW_RING_RETRY_COUNT;
-
-	while (count > 0) {
-		status = PEC_UnInit(ring);
-		if (status == PEC_STATUS_OK) {
-			pr_info("EIP197 ring #%d unloaded\n", ring);
-			return 0;
-		}
-
-		if (status == PEC_STATUS_BUSY) {
-			udelay(SAM_HW_RING_RETRY_US);
-			count--;
-			continue;
-		}
-		pr_err("Can't un-initialize ring #%d. error = %d\n", ring, status);
-		return -ENODEV;
-	} /* while */
-
-	/* Timeout */
-	pr_err("Can't un-initialize ring #%d. %d msec timeout expired\n",
-		ring, SAM_HW_RING_RETRY_US * SAM_HW_RING_RETRY_COUNT / 1000);
-
-	return -ENODEV;
-}
 
 static struct sam_sa *sam_session_alloc(struct sam_cio *cio)
 {
@@ -244,6 +146,7 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	TokenBuilder_Params_t token_params;
 	u32 copylen, token_header_word, token_words;
 	TokenBuilder_Status_t rc;
+	PEC_Status_t pec_rc;
 
 	memset(&token_params, 0, sizeof(token_params));
 	if (request->auth_len) {
@@ -269,19 +172,17 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 
 	/* process AAD  - TBD */
 
-	/* Copy data from user buffer to DMA buffer */
-	memcpy(operation->data_dmabuf.host_addr.p, request->src->vaddr, copylen);
-
 #ifdef SAM_CIO_DEBUG
 	print_token_params(&token_params);
 
-	printf("\nInput DMA buffer: %d bytes\n", copylen);
-	mv_mem_dump(operation->data_dmabuf.host_addr.p, copylen);
+	printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
+		copylen, (void *)request->src->paddr);
+	mv_mem_dump(request->src->vaddr, copylen);
 #endif
 
-	rc = TokenBuilder_BuildToken(session->tcr_data, (u8 *)operation->data_dmabuf.host_addr.p,
+	rc = TokenBuilder_BuildToken(session->tcr_data, request->src->vaddr,
 				     copylen, &token_params,
-				     operation->token_dmabuf.host_addr.p,
+				     operation->token_buf.vaddr,
 				     &token_words, &token_header_word);
 	if (rc != TKB_STATUS_OK) {
 		pr_err("%s: TokenBuilder_BuildToken failed, rc = %d\n",
@@ -289,18 +190,24 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 		return -EINVAL;
 	}
 
-	cmd_desc->SA_Handle1       = session->sa_dmabuf.hndl;
+	cmd_desc->SA_Handle1.p     = (void *)session->sa_buf.paddr;
 	cmd_desc->SA_WordCount     = session->sa_words;
 	cmd_desc->SA_Handle2       = DMABuf_NULLHandle;
-	cmd_desc->Token_Handle     = operation->token_dmabuf.hndl;
-	cmd_desc->SrcPkt_Handle    = operation->data_dmabuf.hndl;
-	cmd_desc->DstPkt_Handle    = operation->data_dmabuf.hndl;
+	cmd_desc->Token_Handle.p   = (void *)operation->token_buf.paddr;
+	cmd_desc->SrcPkt_Handle.p  = (void *)request->src->paddr;
+	cmd_desc->DstPkt_Handle.p  = (void *)request->dst->paddr;
 	cmd_desc->User_p           = (void *)operation;
 	cmd_desc->SrcPkt_ByteCount = copylen;
 	cmd_desc->Token_WordCount  = token_words;
 	pkt_params->HW_Services  = FIRMWARE_EIP207_CMD_PKT_LAC;
 	pkt_params->TokenHeaderWord = token_header_word;
 
+	pec_rc = PEC_CD_Control_Write(cmd_desc, pkt_params);
+	if (pec_rc != PEC_STATUS_OK) {
+		pr_err("%s: PEC_CD_Control_Write failed, rc = %d\n",
+			__func__, pec_rc);
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -316,6 +223,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 		if (sam_hw_engine_load())
 			return -EINVAL;
 	}
+	sam_initialized = true;
 
 	/* Parse match string to ring number */
 	scanned = sscanf(params->match, "cio-%d:%d\n", &engine, &ring);
@@ -364,7 +272,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	sam_ring->id = ring;
 
 	/* Initialize HW ring */
-	if (sam_hw_ring_init(ring))
+	if (sam_hw_ring_init(ring, params->size, &sam_ring->hw_ring))
 		goto err;
 
 	/* Allocate configured number of sam_sa structures */
@@ -377,7 +285,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 
 	/* Allocate DMA buffer for each session */
 	for (i = 0; i < params->num_sessions; i++) {
-		if (sam_dmabuf_alloc(SAM_SA_DMABUF_SIZE, &sam_ring->sessions[i].sa_dmabuf)) {
+		if (sam_dma_buf_alloc(SAM_SA_DMABUF_SIZE, &sam_ring->sessions[i].sa_buf)) {
 			pr_err("Can't allocate DMA buffer (%d bytes) for Session #%d\n",
 				SAM_SA_DMABUF_SIZE, i);
 			goto err;
@@ -408,15 +316,9 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 
 	/* Allocate DMA buffers for Token and Data for each operation */
 	for (i = 0; i < params->size; i++) {
-		if (sam_dmabuf_alloc(SAM_TOKEN_DMABUF_SIZE, &sam_ring->operations[i].token_dmabuf)) {
+		if (sam_dma_buf_alloc(SAM_TOKEN_DMABUF_SIZE, &sam_ring->operations[i].token_buf)) {
 			pr_err("Can't allocate DMA buffer (%d bytes) for Token #%d\n",
 				SAM_TOKEN_DMABUF_SIZE, i);
-			goto err;
-		}
-
-		if (sam_dmabuf_alloc(params->max_buf_size, &sam_ring->operations[i].data_dmabuf)) {
-			pr_err("Can't allocate DMA buffer (%d bytes) for Buffer #%d\n",
-				params->max_buf_size, i);
 			goto err;
 		}
 	}
@@ -444,12 +346,11 @@ int sam_cio_deinit(struct sam_cio *cio)
 	if (!cio)
 		return 0;
 
-	sam_hw_ring_deinit(cio->id);
+	sam_hw_ring_deinit(&cio->hw_ring);
 
 	if (cio->operations) {
 		for (i = 0; i < cio->params.size; i++) {
-			sam_dmabuf_free(&cio->operations[i].token_dmabuf);
-			sam_dmabuf_free(&cio->operations[i].data_dmabuf);
+			sam_dma_buf_free(&cio->operations[i].token_buf);
 		}
 		kfree(cio->operations);
 	}
@@ -459,7 +360,7 @@ int sam_cio_deinit(struct sam_cio *cio)
 			if (cio->sessions[i].is_valid)
 				sam_session_destroy(&cio->sessions[i]);
 
-			sam_dmabuf_free(&cio->sessions[i].sa_dmabuf);
+			sam_dma_buf_free(&cio->sessions[i].sa_buf);
 		}
 
 		kfree(cio->sessions);
@@ -477,9 +378,10 @@ int sam_cio_deinit(struct sam_cio *cio)
 
 	sam_active_rings--;
 
-	if (sam_active_rings == 0)
+	if (sam_active_rings == 0) {
 		sam_hw_engine_unload();
-
+		sam_initialized = false;
+	}
 	return 0;
 }
 
@@ -528,7 +430,7 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 		goto error_session;
 	}
 	/* Clear DMA buffer allocated for SA */
-	memset(session->sa_dmabuf.host_addr.p, 0, 4 * session->sa_words);
+	memset(session->sa_buf.vaddr, 0, 4 * session->sa_words);
 
 	rc = TokenBuilder_GetContextSize(&session->sa_params, &session->tcr_words);
 	if (rc != 0) {
@@ -563,21 +465,12 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	}
 
 	/* build the SA data and init according the parameters */
-	rc = SABuilder_BuildSA(&session->sa_params,
-				(u32 *)session->sa_dmabuf.host_addr.p, NULL, NULL);
+	rc = SABuilder_BuildSA(&session->sa_params, (u32 *)session->sa_buf.vaddr, NULL, NULL);
 	if (rc != 0) {
 		pr_err("%s: SABuilder_BuildSA failed, rc = %d\n", __func__, rc);
 		goto error_session;
 	}
 
-	/* Register the SA. */
-	rc = PEC_SA_Register(cio->id, session->sa_dmabuf.hndl,
-			     DMABuf_NULLHandle, DMABuf_NULLHandle);
-	if (rc != PEC_STATUS_OK) {
-		pr_err("%s: PEC_SA_Register on ring %d failed. rc = %d\n",
-			__func__, cio->id, rc);
-		goto error_session;
-	}
 #ifdef SAM_SA_DEBUG
 	print_sa_params(&session->sa_params);
 	print_basic_sa_params(&session->basic_params);
@@ -595,17 +488,6 @@ error_session:
 
 int sam_session_destroy(struct sam_sa *session)
 {
-	struct sam_cio *cio = session->cio;
-	PEC_Status_t rc;
-
-	/* Unregister the SA. */
-	rc = PEC_SA_UnRegister(cio->id, session->sa_dmabuf.hndl,
-				DMABuf_NULLHandle, DMABuf_NULLHandle);
-	if (rc != PEC_STATUS_OK) {
-		pr_err("%s: PEC_SA_UnRegister on ring %d failed. rc = %d\n",
-			__func__, cio->id, rc);
-		return -EINVAL;
-	}
 	sam_session_free(session);
 
 	return 0;
@@ -635,10 +517,10 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 {
 	struct sam_cio_op *operation;
 	struct sam_cio_op_params *request;
+	struct sam_hw_cmd_desc *cmd_desc;
+	struct sam_hw_res_desc *res_desc;
 	PEC_CommandDescriptor_t *cmd;
 	PEC_PacketParams_t pkt_params;
-	PEC_Status_t rc;
-	unsigned int count = 0;
 	int i, j, err, todo;
 
 	todo = *num;
@@ -665,8 +547,6 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Get next operation structure */
 		operation = &cio->operations[cio->next_request];
 
-		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
-
 		/* Prepare request for submit */
 		memset(&pkt_params, 0, sizeof(PEC_PacketParams_t));
 
@@ -687,24 +567,20 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		operation->auth_icv_offset = request->auth_icv_offset;
 		for (j = 0;  j < request->num_bufs; j++) {
 			operation->out_frags[j].vaddr = request->dst[j].vaddr;
+			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
 		}
+		cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_request);
+		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_request);
 
-		/* submit request */
-		rc = PEC_CD_Control_Write(cmd, &pkt_params);
-		if (rc != PEC_STATUS_OK) {
-			pr_err("%s: PEC_CD_Control_Write failed, rc = %d\n",
-				__func__, rc);
-			goto error_enq;
-		}
+		sam_hw_ring_desc_write(cmd_desc, res_desc, cmd);
+
+		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 	}
-	rc = PEC_Packet_Put(cio->id, cio->hw_ring.cmd_desc, i, &count);
-	if (rc != PEC_STATUS_OK) {
-		pr_err("%s: PEC_Packet_Put failed, rc = %d, count = %d\n",
-			__func__, rc, count);
-		goto error_enq;
-	}
-	*num = (u16)count;
+	/* submit requests */
+	sam_hw_ring_submit(&cio->hw_ring, i);
+
+	*num = (u16)i;
 
 	return 0;
 
@@ -718,39 +594,41 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	PEC_Status_t rc;
 	PEC_ResultStatus_t result_status;
 	PEC_ResultDescriptor_t *result_desc;
-	unsigned int i, count, todo;
+	unsigned int i, count, todo, done;
 	struct sam_cio_op *operation;
+	struct sam_hw_res_desc *res_desc;
 
 	/* Try to get the processed packet from the RDR */
+	done = sam_hw_ring_ready_get(&cio->hw_ring);
+
 	todo = *num;
-	if (todo >= cio->params.size)
-		todo = cio->params.size - 1;
+	count = min(todo, done);
 
 	result_desc = cio->hw_ring.result_desc;
-	rc = PEC_Packet_Get(cio->id, result_desc, todo, &count);
-	if (rc != PEC_STATUS_OK) {
-		pr_err("%s: PEC_Packet_Get failed, rc = %d\n", __func__, rc);
-		return -EINVAL;
-	}
-	*num = (u16)count;
-
 	for (i = 0; i < count; i++) {
 		struct sam_cio_op_result *result = &results[i];
+
+		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
+		sam_hw_res_desc_read(res_desc, result_desc);
 
 #ifdef SAM_CIO_DEBUG
 		print_result_desc(result_desc);
 #endif
+
+		operation = &cio->operations[cio->next_result];
+
+		result->cookie = operation->cookie;
+		result->out_len = result_desc->DstPkt_ByteCount;
+
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 
-		operation = result_desc->User_p;
 		rc = PEC_RD_Status_Read(result_desc, &result_status);
 		if (rc != PEC_STATUS_OK) {
 			pr_err("%s: PEC_RD_Status_Read failed, rc = %d\n",
 				__func__, rc);
 			return -EINVAL;
 		}
-		result->cookie = operation->cookie;
 
 		if (result_status.errors == 0)
 			result->status = SAM_CIO_OK;
@@ -768,16 +646,20 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 				__func__, result_desc->DstPkt_ByteCount, operation->out_frags[0].len);
 			return -EINVAL;
 		}
-		result->out_len = result_desc->DstPkt_ByteCount;
-		memcpy(operation->out_frags[0].vaddr, result_desc->DstPkt_p,
-			result_desc->DstPkt_ByteCount);
 
 #ifdef SAM_CIO_DEBUG
 		printf("\nOutput DMA buffer: %d bytes\n", result_desc->DstPkt_ByteCount);
-		mv_mem_dump(result_desc->DstPkt_p, result_desc->DstPkt_ByteCount);
+		mv_mem_dump(operation->out_frags[0].vaddr, result_desc->DstPkt_ByteCount);
 #endif
 		result_desc++;
 	}
+	/* Update RDR registers */
+	sam_hw_ring_update(&cio->hw_ring, count);
+
+	/*PEC_CDR_Regs(cio->id);*/
+	/*PEC_RDR_Regs(cio->id);*/
+
+	*num = (u16)count;
+
 	return 0;
 }
-
