@@ -288,7 +288,6 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
     uintptr_t mem_base;
     struct pp2_hw *hw = &inst->hw;
 
-
     hw->tclk = PP2_TCLK_FREQ;
 
     err = pp2_sys_ioinit(&inst->pp2_maps_hdl, pp2_id_uio_name((u8)inst->id));
@@ -298,7 +297,7 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
     }
 
     /* Map the whole physical Packet Processor physical address */
-    mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, NULL, "pp");
+    mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->phy_address_base, "pp");
     if (!mem_base) {
         err = -EIO;
         pp2_sys_iodestroy(inst->pp2_maps_hdl);

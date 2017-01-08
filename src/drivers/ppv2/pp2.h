@@ -306,6 +306,8 @@ struct pp2_port {
     enum pp2_ppio_hash_type hash_type[PP2_PPIO_MAX_NUM_HASH];
     /* MAC data for this port */
     struct pp2_mac_data mac_data;
+    /* Linux interface name for this port */
+    char linux_name[16];
 };
 
 /**
@@ -332,6 +334,8 @@ struct pp2_hw {
 	struct mv_pp2x_cls_shadow *cls_shadow;
 	/* C2 shadow info */
 	struct mv_pp2x_c2_shadow *c2_shadow;
+	/*physical base address */
+	u32	phy_address_base;
 };
 
 enum mv_pp2x_queue_distribution_mode {

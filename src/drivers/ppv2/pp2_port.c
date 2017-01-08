@@ -37,7 +37,11 @@
  */
 
 #include "std_internal.h"
-
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <linux/if.h>
+#include <netdb.h>
+#include <net/ethernet.h>
 
 #include "pp2_types.h"
 
@@ -51,13 +55,78 @@
 #include "pp2_hw_cls.h"
 #include "pp2_gop_dbg.h"
 
-
 /*
  * pp2_port.c
  *
  * Implements configuration and run-time Port and I/O routines
  */
 
+/* Send IOCTL to linux*/
+static int pp2_port_ioctl_request(u32 ctl, struct ifreq *s)
+{
+	int rc;
+	int fd;
+
+	fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (fd == -1)
+	{
+		pp2_err( "can't open socket. error %d", errno);
+		return -EFAULT;
+	}
+
+	rc = ioctl(fd, ctl, s);
+	if (rc == -1) {
+		pp2_err("PORT: %s ioctl request failed with error %d\n", s->ifr_name, errno);
+		close (fd);
+		return -EFAULT;
+	}
+	close (fd);
+	return 0;
+}
+
+/* Find Interface name*/
+static int pp2_port_find_linux_if_name(struct pp2_port *port)
+{
+	int rc;
+	struct ifreq s;
+	int found = 0;
+	int max_tries = 1;
+	int index = 0;
+
+	while (!found && (max_tries < IFALIASZ) && (index <= port->id)) {
+		s.ifr_ifindex = max_tries;
+
+		rc = pp2_port_ioctl_request(SIOCGIFNAME, &s);
+		if (rc) {
+			pp2_err("PORT: Unable to get if name\n");
+			return -EFAULT;
+		}
+
+		if (strncmp(s.ifr_name, "eth", 3) == 0) {
+			rc = pp2_port_ioctl_request(SIOCGIFMAP, &s);
+			if (rc) {
+				pp2_err("PORT: Unable to get if mapping\n");
+				return -EFAULT;
+			}
+
+			if (port->parent->hw.phy_address_base == s.ifr_map.mem_start) {
+				if (port->id == index) {
+					strcpy (port->linux_name, s.ifr_name);
+					pp2_info("PORT: corresponding linux if: %s\n", port->linux_name);
+					found = 1;
+				}
+				index++;
+			}
+		}
+		max_tries++;
+	}
+
+	if (!found) {
+		pp2_err("PORT: Unable to find if name for port id: %d\n", port->id);
+		return -EEXIST;
+	}
+	return 0;
+}
 
 static struct pp2_tc * pp2_rxq_tc_get(struct pp2_port *port, uint32_t id)
 {
@@ -70,7 +139,6 @@ static struct pp2_tc * pp2_rxq_tc_get(struct pp2_port *port, uint32_t id)
     }
     return(NULL);
 }
-
 
 /* Set TX FIFO size and threshold */
 static inline void pp2_port_tx_fifo_config(struct pp2_port *port,
@@ -1028,6 +1096,9 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
     * work on polling mode
     */
    pp2_port_interrupts_mask(port);
+
+   /* Find port linux if_name */
+   pp2_port_find_linux_if_name(port);
 
 #ifdef NO_MVPP2X_DRIVER
    pp2_port_mac_hw_init(port);
