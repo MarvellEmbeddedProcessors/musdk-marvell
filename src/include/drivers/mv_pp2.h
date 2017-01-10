@@ -70,7 +70,6 @@ struct pp2_init_params {
 	struct ppio_init_params	ppios[PP2_NUM_PKT_PROC][PP2_NUM_ETH_PPIO];
 };
 
-
 /**
  * Initialize the global PPv2x
  *
@@ -86,6 +85,19 @@ int pp2_init(struct pp2_init_params *params);
  *
  */
 void pp2_deinit(void);
+
+/**
+ * Get the pp_id and port_id parameters corresponding to the provided interface name
+ * These parameters are needed for initializing the corresponding ppio
+ *
+ * @param[in]	ifname	A pointer to the interface name.
+ * @param[out]	pp_id	A pointer to the corresponding pp_id.
+ * @param[out]	ifname	A pointer to the corresponding port_id.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id);
 
 /** @} */ // end of grp_pp2_init
 

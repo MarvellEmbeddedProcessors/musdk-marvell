@@ -36,7 +36,6 @@
  * PPDK container structures and packet processor initialization
  */
 
-
 #include "std_internal.h"
 
 #include "pp2_types.h"
@@ -46,7 +45,6 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 #include "pp2_bm.h"
-
 #include "pp2_gop_dbg.h"
 #include "pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
@@ -622,5 +620,54 @@ void pp2_deinit(void)
 
     /* Destroy the PPDK handle */
 	free(pp2_ptr);
+}
+
+int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)
+{
+	int rc;
+	int i;
+	struct ifreq s;
+	int found = 0;
+	int if_idx = 0;
+	int idx;
+
+	do {
+		s.ifr_ifindex = ++if_idx;
+		rc = mv_netdev_ioctl(SIOCGIFNAME, &s);
+		if (rc) {
+			found = -1;
+			break;
+		}
+
+		rc = mv_netdev_ioctl(SIOCGIFMAP, &s);
+		if (rc)
+			continue;
+
+		for (i = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
+			if ((pp2_ptr->pp2_inst[i]->hw.phy_address_base == s.ifr_map.mem_start) &&
+			    (strcmp(s.ifr_name, ifname) == 0)) {
+				*pp_id = i;
+				if (sscanf(s.ifr_name, "%*[^0123456789]%d", &idx) != 1) {
+					pp2_err("idx not found for %s\n", s.ifr_name);
+					return -EFAULT;
+				}
+				if (idx >= (i * PP2_MAX_NUM_PACKPROCS)) {
+					*port_id = idx - (i * PP2_MAX_NUM_PACKPROCS);
+				} else {
+					pp2_err("error: idx %d for %s\n", idx, s.ifr_name);
+					return -EFAULT;
+				}
+				found = 1;
+				break;
+			}
+		}
+	} while (found == 0 && if_idx < PP2_PORT_IF_NAME_MAX_ITER);
+
+	if (found != 1) {
+		pp2_err("No corresponding pp_id and port_id found for %s\n", ifname);
+		return -EEXIST;
+	}
+	pp2_info("%s: pp_id %d, port_id %d\n", ifname, *pp_id, *port_id);
+	return 0;
 }
 

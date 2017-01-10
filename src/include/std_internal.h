@@ -50,14 +50,14 @@
 #include <unistd.h>
 #include <assert.h>
 #include <netinet/in.h>
-
+#include <sys/ioctl.h>
 
 #include "env/of.h"
 #include "env/spinlock.h"
 #include "env/sys_iomap.h"
 #include "env/cma.h"
 #include "env/io.h"
-
+#include "env/netdev.h"
 
 #endif /* __STD_INTERNAL_H__ */
 
