@@ -1,7 +1,7 @@
-From bfdd504016c00a3fae931f4d9c9b44dee6763d79 Mon Sep 17 00:00:00 2001
+From 1674df4c8671941ecadaefbf9424d72560da7ed5 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:26:56 +0200
-Subject: [PATCH 2/4] musdk: add support for musdk in mvpp2x
+Subject: [PATCH 2/5] musdk: add support for musdk in mvpp2x
 
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
@@ -10,7 +10,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  2 files changed, 79 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
-index 2e56db8..ddfc392 100644
+index 2e56db8f2cc0..ddfc3921633d 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
 @@ -1254,7 +1254,9 @@
@@ -25,7 +25,7 @@ index 2e56db8..ddfc392 100644
  /* Marvell tag types */
  enum mv_pp2x_tag_type {
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index a53a401..10f1b00 100644
+index a53a40120d6d..10f1b006c242 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 @@ -2861,6 +2861,14 @@ out_no_tx_desc:
@@ -231,5 +231,5 @@ index a53a401..10f1b00 100644
  
  	if (priv->pp2_version == PPV22) {
 -- 
-1.9.1
+2.11.0
 

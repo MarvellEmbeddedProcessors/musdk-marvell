@@ -1,7 +1,7 @@
-From 60559c87cc5b6c1b55fcee357ecc7e262f527362 Mon Sep 17 00:00:00 2001
+From e7fb0b481d14278bb0d4394e6e5fdcd8ef200b38 Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Wed, 11 Jan 2017 19:01:18 +0200
-Subject: [PATCH 4/4] musdk: dts set port0 status non kernel
+Subject: [PATCH 4/5] musdk: dts set port0 status non kernel
 
 Change-Id: I92eece60d1b03fa7d42cdc8ccfe1e49560f594ab
 Signed-off-by: nsamsono <nsamsono@marvell.com>
@@ -17,7 +17,7 @@ Signed-off-by: nsamsono <nsamsono@marvell.com>
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
 old mode 100644
 new mode 100755
-index 3822741..31f5384
+index 382274172b3a..31f538437dbf
 --- a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
 @@ -152,7 +152,7 @@
@@ -32,7 +32,7 @@ index 3822741..31f5384
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
 old mode 100644
 new mode 100755
-index 5376985..ff4a696
+index 54d771cf3ce8..dc816d38b333
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
 @@ -131,7 +131,7 @@
@@ -56,7 +56,7 @@ index 5376985..ff4a696
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 old mode 100644
 new mode 100755
-index 4bb934e..3f6c126
+index 4bb934e7ca13..3f6c12643ad3
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 @@ -153,7 +153,7 @@
@@ -78,5 +78,5 @@ index 4bb934e..3f6c126
  				eth1_1: eth1@020000 {
  					status = "okay";
 -- 
-1.9.1
+2.11.0
 
