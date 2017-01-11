@@ -225,7 +225,7 @@ int pp2_bm_buf_put(struct pp2_bm_if *bm_if,
  *
  * @param port       pointer to PP port
  * @param pool_id    pool id
- * @param rxq_id     ingress logical queue id
+ * @param rxq_id     ingress physical queue id
  * @param type       pool type: long(jumbo)/short
  *
  */

@@ -337,12 +337,11 @@ uintptr_t pp2_bm_buf_get(struct pp2_bm_if *bm_if, struct pp2_bm_pool *pool)
 
 
 void pp2_bm_pool_assign(struct pp2_port *port, uint32_t pool_id,
-        uint32_t in_qid, uint32_t type)
+        uint32_t rxq_id, uint32_t type)
 {
     uint32_t val;
     uint32_t mask = 0;
     uint32_t offset = 0;
-    uint32_t rxq_id = port->rxqs[in_qid]->id;
 
     if (type == BM_TYPE_LONG_BUF_POOL) {
         mask = MVPP22_RXQ_POOL_LONG_MASK;
