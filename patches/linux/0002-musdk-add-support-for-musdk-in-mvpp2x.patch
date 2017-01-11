@@ -1,7 +1,7 @@
-From 6a6bd179cf572de2afb4b559910e9ceb84a304b6 Mon Sep 17 00:00:00 2001
+From bfdd504016c00a3fae931f4d9c9b44dee6763d79 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:26:56 +0200
-Subject: [PATCH 3/5] musdk: add support for musdk in mvpp2x
+Subject: [PATCH 2/4] musdk: add support for musdk in mvpp2x
 
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---

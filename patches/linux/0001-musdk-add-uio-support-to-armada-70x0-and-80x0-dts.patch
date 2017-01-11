@@ -1,9 +1,10 @@
-From 2c19664072f3bbf6bc2bc9ae71381689c9289822 Mon Sep 17 00:00:00 2001
-From: Lior Amsalem <alior@marvell.com>
-Date: Mon, 19 Dec 2016 10:49:43 +0200
-Subject: [PATCH 1/5] musdk: add uio support to armada 70x0 and 80x0 dts
+From 5b831e8d0b5c806bca1a155d1fb2b7844d66db93 Mon Sep 17 00:00:00 2001
+From: nsamsono <nsamsono@marvell.com>
+Date: Wed, 11 Jan 2017 18:04:12 +0200
+Subject: [PATCH 1/4] musdk: add uio support to armada 70x0 and 80x0 dts
 
-Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+Change-Id: Id93048b29deb782d3215f4aba1adee307fd14b5b
+Signed-off-by: nsamsono <nsamsono@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/armada-7040.dtsi    |  5 +++++
  arch/arm64/boot/dts/marvell/armada-8040.dtsi    |  5 +++++
@@ -12,10 +13,10 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  4 files changed, 60 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040.dtsi b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
-index f1df28a..d658283 100644
+index 07b0c0c..2881ec1 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
-@@ -112,6 +112,11 @@
+@@ -115,6 +115,11 @@
  			ppv22@000000 {
  				dma-coherent;
  			};
@@ -28,7 +29,7 @@ index f1df28a..d658283 100644
  				#stream-id-cells = <1>;
  			};
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040.dtsi b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
-index 8dea327..f0cc7b1 100644
+index 2e125de..8a4d9a7 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
 @@ -149,6 +149,11 @@
@@ -44,10 +45,10 @@ index 8dea327..f0cc7b1 100644
  				compatible = "marvell,a80x0-cp0-pinctrl";
  
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-index 524e761..5d53f14 100644
+index ae3c925..f011b9c 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-@@ -327,6 +327,31 @@ ppv22@000000 {
+@@ -341,6 +341,31 @@ ppv22@000000 {
  	};
  };
  
@@ -80,10 +81,10 @@ index 524e761..5d53f14 100644
  	compatible = "marvell,armada-8k-rng", "inside-secure,safexcel-eip76";
  	reg = <0x760000 0x7D>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index 3ce8c12..f3d8014 100644
+index bead961..8ded872 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -413,6 +413,31 @@ ppv22@000000 {
+@@ -427,6 +427,31 @@ ppv22@000000 {
  	};
  };
  
