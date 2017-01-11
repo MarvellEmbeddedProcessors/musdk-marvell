@@ -640,21 +640,23 @@ static int init_all_modules(void)
 	memset(&pp2_params, 0, sizeof(pp2_params));
 	pp2_params.hif_reserved_map = PP2_HIFS_RSRV;
 	pp2_params.bm_pool_reserved_map = PP2_BPOOLS_RSRV;
+	/* Enable 10G port */
 	pp2_params.ppios[0][0].is_enabled = 1;
 	pp2_params.ppios[0][0].first_inq = 0;
-	/* TODO: add when we have 1G ports support */
-	//pp2_params.ppios[0][1].is_enabled = 1;
-	//pp2_params.ppios[0][1].first_inq = 0;
-	//pp2_params.ppios[0][2].is_enabled = 1;
-	//pp2_params.ppios[0][2].first_inq = 0;
+	/* Enable 1G ports */
+	pp2_params.ppios[0][1].is_enabled = 1;
+	pp2_params.ppios[0][1].first_inq = 0;
+	pp2_params.ppios[0][2].is_enabled = 1;
+	pp2_params.ppios[0][2].first_inq = 0;
 #if (PP2_SOC_NUM_PACKPROCS == 2)
+	/* Enable 10G port */
 	pp2_params.ppios[1][0].is_enabled = 1;
 	pp2_params.ppios[1][0].first_inq = 0;
-	/* TODO: add when we have 1G ports support */
-	//pp2_params.ppios[1][1].is_enabled = 1;
-	//pp2_params.ppios[1][1].first_inq = 0;
-	//pp2_params.ppios[1][2].is_enabled = 1;
-	//pp2_params.ppios[1][2].first_inq = 0;
+	/* Enable 1G ports */
+	pp2_params.ppios[1][1].is_enabled = 1;
+	pp2_params.ppios[1][1].first_inq = 0;
+	pp2_params.ppios[1][2].is_enabled = 1;
+	pp2_params.ppios[1][2].first_inq = 0;
 #endif /* (PP2_SOC_NUM_PACKPROCS == 1) */
 	if ((err = pp2_init(&pp2_params)) != 0)
 		return err;
