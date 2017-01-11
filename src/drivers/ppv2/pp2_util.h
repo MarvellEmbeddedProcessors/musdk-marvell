@@ -231,9 +231,9 @@ static inline bool mv_check_eaddr_mc(const uint8_t *eaddr)
 {
 	uint16_t e_16 = *(const uint16_t *)eaddr;
 #ifdef __BIG_ENDIAN
-	return 0x01 & (e_16 >> ((sizeof(e_16) * 8) - 8));
-#else
 	return 0x01 & e_16;
+#else
+	return 0x01 & (e_16 >> ((sizeof(e_16) * 8) - 8));
 #endif
 }
 
