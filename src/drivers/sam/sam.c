@@ -196,9 +196,15 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	cmd_desc->Token_Handle.p   = (void *)operation->token_buf.paddr;
 	cmd_desc->SrcPkt_Handle.p  = (void *)request->src->paddr;
 	cmd_desc->DstPkt_Handle.p  = (void *)request->dst->paddr;
-	cmd_desc->User_p           = (void *)operation;
 	cmd_desc->SrcPkt_ByteCount = copylen;
 	cmd_desc->Token_WordCount  = token_words;
+
+	if (session->is_first) {
+		cmd_desc->User_p   = cmd_desc->SA_Handle1.p;
+		session->is_first = false;
+	} else
+		cmd_desc->User_p   = NULL;
+
 	pkt_params->HW_Services  = FIRMWARE_EIP207_CMD_PKT_LAC;
 	pkt_params->TokenHeaderWord = token_header_word;
 
@@ -476,6 +482,7 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	print_basic_sa_params(&session->basic_params);
 #endif
 
+	session->is_first = true;
 	session->cio = cio;
 	*sa = session;
 

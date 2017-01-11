@@ -243,8 +243,9 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_cmd_desc *cmd_desc, stru
 #ifdef SAM_64BIT_DEVICE
 	token_header |= BIT_18; /* Set 64-bit Context (SA) pointer */
 #endif
-	/* Enable Context Reuse auto detect if no new SA. - ToFix */
-	/* token_header |= 0x00200000; */
+	/* Enable Context Reuse auto detect if no new SA */
+	if (!cmd->User_p)
+		token_header |= 0x00200000;
 
 	cmd_desc->words[6] = token_header;
 
