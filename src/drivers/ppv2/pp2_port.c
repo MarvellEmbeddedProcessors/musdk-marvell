@@ -39,6 +39,7 @@
 #include "std_internal.h"
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <net/if_arp.h>
 #include <linux/if.h>
 #include <netdb.h>
 #include <net/ethernet.h>
@@ -74,7 +75,7 @@ static int pp2_port_ioctl_request(u32 ctl, struct ifreq *s)
 		return -EFAULT;
 	}
 
-	rc = ioctl(fd, ctl, s);
+	rc = ioctl(fd, ctl, (char *)s);
 	if (rc == -1) {
 		pp2_err("PORT: %s ioctl request failed with error %d\n", s->ifr_name, errno);
 		close (fd);
@@ -1493,41 +1494,78 @@ pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t in_qid,
 /* Set MAC address */
 int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
-    int err = 0;
+	int rc = 0;
+#ifdef NO_MVPP2X_DRIVER
 
-    if (!mv_check_eaddr_valid(addr)) {
-        pp2_err("PORT: not a valid eth address\n");
-        return -EINVAL;
-    }
+	if (!mv_check_eaddr_valid(addr)) {
+		pp2_err("PORT: not a valid eth address\n");
+		return -EINVAL;
+	}
 
-    /* Stop the port internals */
-    pp2_port_stop_dev(port);
+	/* Stop the port internals */
+	pp2_port_stop_dev(port);
 
-    err = mv_pp2x_prs_update_mac_da(port, (const uint8_t *)addr);
-    if (err) {
-        /* Restart the port and exit */
-        pp2_err("PORT: cannot update parser entries with new eth address\n");
-        pp2_port_start_dev(port);
-        return err;
-    }
+	rc = mv_pp2x_prs_update_mac_da(port, (const uint8_t *)addr);
+	if (rc) {
+		/* Restart the port and exit */
+		pp2_err("PORT: cannot update parser entries with new eth address\n");
+		pp2_port_start_dev(port);
+		return rc;
+	}
 
-    /* Reconfigure parser to accept the original MAC address */
-    err = mv_pp2x_prs_update_mac_da(port, (const uint8_t *)port->mac_data.mac);
-    if (err) {
-        pp2_err("PORT: cannot update parser entries with old eth address\n");
-        pp2_port_start_dev(port);
-        return err;
-    }
+	/* Reconfigure parser to accept the original MAC address */
+	err = mv_pp2x_prs_update_mac_da(port, (const uint8_t *)port->mac_data.mac);
+	if (rc) {
+		pp2_err("PORT: cannot update parser entries with old eth address\n");
+		pp2_port_start_dev(port);
+		return rc;
+	}
 
-    /* Start the port internals */
-    pp2_port_start_dev(port);
-    return err;
+	/* Start the port internals */
+	pp2_port_start_dev(port);
+#else
+	struct ifreq s;
+	int i;
+
+	if (!mv_check_eaddr_valid(addr)) {
+		pp2_err("PORT: not a valid eth address\n");
+		return -EINVAL;
+	}
+
+	strcpy(s.ifr_name, port->linux_name);
+	s.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+
+	for (i = 0; i < ETH_ALEN; i++)
+		s.ifr_hwaddr.sa_data[i] = addr[i];
+
+	rc = pp2_port_ioctl_request(SIOCSIFHWADDR, &s);
+	if (rc)
+		return rc;
+
+	mv_cp_eaddr(port->mac_data.mac, (const uint8_t *)addr);
+#endif
+	return 0;
 }
 
 /* Get MAC address */
-void pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
+int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 {
-    mv_cp_eaddr(addr, (const uint8_t *)port->mac_data.mac);
+#ifdef NO_MVPP2X_DRIVER
+	mv_cp_eaddr(addr, (const uint8_t *)port->mac_data.mac);
+#else
+	int rc;
+	struct ifreq s;
+	int i;
+
+	strcpy(s.ifr_name, port->linux_name);
+	rc = pp2_port_ioctl_request(SIOCGIFHWADDR, &s);
+	if (rc)
+		return rc;
+
+	for (i = 0; i < ETH_ALEN; i++)
+		addr[i] = s.ifr_hwaddr.sa_data[i];
+#endif
+	return 0;
 }
 
 /* Set and update the port MTU */
@@ -1662,84 +1700,327 @@ void pp2_port_get_mru(struct pp2_port *port, uint32_t *len)
 }
 
 /* Set Unicast promiscuous */
-void pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
+int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 {
-    struct pp2_hw *hw = &port->parent->hw;
-    uint32_t id = port->id;
+#ifdef NO_MVPP2X_DRIVER
+	struct pp2_hw *hw = &port->parent->hw;
+	u32 id = port->id;
 
-    /* TODO: Revise these */
+	/* TODO: Revise these */
 
-    /* Enter promisc mode */
-    mv_pp2x_prs_mac_promisc_set(hw, id, en);
-    /* Remove all port->id's ucast enries except M2M entry */
-    mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_UC, MVPP2_DEL_MAC_ALL);
-}
+	/* Enter promisc mode */
+	mv_pp2x_prs_mac_promisc_set(hw, id, en);
+	/* Remove all port->id's ucast enries except M2M entry */
+	mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_UC, MVPP2_DEL_MAC_ALL);
+#else
+	int rc;
+	struct ifreq s;
 
-/* Set Multicast promiscuous */
-void pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
-{
-    struct pp2_hw *hw = &port->parent->hw;
-    uint32_t id = port->id;
+	strcpy(s.ifr_name, port->linux_name);
+	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	if (rc) {
+		pp2_err("PORT: unable to read promisc mode from HW\n");
+		return rc;
+	}
 
-    /* TODO: Revise these */
+	if (en)
+		s.ifr_flags |= IFF_PROMISC;
+	else
+		s.ifr_flags &= ~IFF_PROMISC;
 
-    /* Accept all multicast */
-    mv_pp2x_prs_mac_multi_set(hw, id, MVPP2_PE_MAC_MC_ALL, en);
-    mv_pp2x_prs_mac_multi_set(hw, id, MVPP2_PE_MAC_MC_IP6, en);
-    /* Enter promisc mode */
-    mv_pp2x_prs_mac_promisc_set(hw, id, en);
-    /* Remove all port->id's mcast enries */
-    mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_MC, MVPP2_DEL_MAC_ALL);
-}
-
-/* Remove MAC address */
-int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
-{
-    if (!mv_check_eaddr_valid(addr)) {
-        pp2_err("PORT: not a valid eth address\n");
-        return -EINVAL;
-    }
-
-    if (mv_check_eaddr_uc(addr))
-        mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_UC, MVPP2_DEL_MAC_NOT_IN_LIST);
-    else if (mv_check_eaddr_mc(addr))
-        mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_MC, MVPP2_DEL_MAC_NOT_IN_LIST);
-    else if (mv_check_eaddr_bc(addr))
-        mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_BC, MVPP2_DEL_MAC_NOT_IN_LIST);
-
-    return 0;
-}
-
-/* Enable or disable RSS */
-void pp2_port_set_rss(struct pp2_port *port, uint32_t en)
-{
-    mv_pp22_rss_enable(port, en);
-}
-
-/* Flush MAC addresses */
-int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
-{
-    pp2_err("PORT: Not implemented\n");
-    return 0;
+	rc = pp2_port_ioctl_request(SIOCSIFFLAGS, &s);
+	if (rc) {
+		pp2_err("PORT: unable to set promisc mode to HW\n");
+		return rc;
+	}
+#endif
+	return 0;
 }
 
 /* Check if unicast promiscuous */
-void pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
+int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
 {
-    pp2_err("PORT: Not implemented\n");
+#ifdef NO_MVPP2X_DRIVER
+	pp2_info("Function not supported\n");
+#else
+	int rc;
+	struct ifreq s;
+
+	*en = 0;
+
+	strcpy(s.ifr_name, port->linux_name);
+	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	if (rc) {
+		pp2_err("PORT: unable to read promisc mode from HW\n");
+		return rc;
+	}
+
+	if (s.ifr_flags & IFF_PROMISC)
+		*en = 1;
+#endif
+	return 0;
+}
+
+/* Set Multicast promiscuous */
+int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
+{
+#ifdef NO_MVPP2X_DRIVER
+	struct pp2_hw *hw = &port->parent->hw;
+	u32 id = port->id;
+
+	/* TODO: Revise these */
+
+	/* Accept all multicast */
+	mv_pp2x_prs_mac_multi_set(hw, id, MVPP2_PE_MAC_MC_ALL, en);
+	mv_pp2x_prs_mac_multi_set(hw, id, MVPP2_PE_MAC_MC_IP6, en);
+	/* Enter promisc mode */
+	mv_pp2x_prs_mac_promisc_set(hw, id, en);
+	/* Remove all port->id's mcast enries */
+	mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_MC, MVPP2_DEL_MAC_ALL);
+#else
+	int rc;
+	struct ifreq s;
+
+	strcpy(s.ifr_name, port->linux_name);
+	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	if (rc) {
+		pp2_err("PORT: unable to read all-multicast mode from HW\n");
+		return rc;
+	}
+
+	if (en)
+		s.ifr_flags |= IFF_ALLMULTI;
+	else
+		s.ifr_flags &= ~IFF_ALLMULTI;
+
+	rc = pp2_port_ioctl_request(SIOCSIFFLAGS, &s);
+	if (rc) {
+		pp2_err("PORT: unable to set all-multicast mode to HW\n");
+		return rc;
+	}
+#endif
+	return 0;
 }
 
 /* Check if Multicast promiscuous */
-void pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
+int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
 {
-    pp2_err("PORT: Not implemented\n");
+#ifdef NO_MVPP2X_DRIVER
+	pp2_info("Function not supported\n");
+#else
+	int rc;
+	struct ifreq s;
+
+	*en = 0;
+	strcpy(s.ifr_name, port->linux_name);
+	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	if (rc) {
+		pp2_err("PORT: unable to read all-multicast mode from HW\n");
+		return rc;
+	}
+
+	if (s.ifr_flags & IFF_ALLMULTI)
+		*en = 1;
+#endif
+	return 0;
 }
 
 /* Add MAC address */
 int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
-    pp2_err("PORT: Not implemented\n");
-    return 0;
+#ifdef NO_MVPP2X_DRIVER
+	pp2_info("Function not supported\n");
+#else
+	int rc;
+
+	if (mv_check_eaddr_mc(addr)) {
+		struct ifreq s;
+		int i;
+
+		strcpy(s.ifr_name, port->linux_name);
+		s.ifr_hwaddr.sa_family = AF_UNSPEC;
+		for (i = 0; i < ETH_ALEN; i++)
+			s.ifr_hwaddr.sa_data[i] = addr[i];
+
+		rc = pp2_port_ioctl_request(SIOCADDMULTI, &s);
+		if (rc) {
+			pp2_err("PORT: unable to add mac sddress\n");
+			return rc;
+		}
+		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+	} else if (mv_check_eaddr_uc(addr)) {
+		int fd;
+		char buf[30];
+		char da[14];
+
+		strcpy(buf, port->linux_name);
+		sprintf(da, " %x:%x:%x:%x:%x:%x", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		strcat(buf, da);
+		fd = open("/sys/devices/platform/pp2/debug/uc_filter_add", O_WRONLY);
+		if (fd == -1) {
+			pp2_err("PORT: unable to open sysfs\n");
+			return -EFAULT;
+		}
+		rc = write(fd, &buf, sizeof(buf));
+		if (rc < 0) {
+			pp2_err("PORT: unable to write to sysfs\n");
+			return -EFAULT;
+		}
+		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		close(fd);
+	} else {
+		pp2_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
+	}
+#endif
+	return 0;
+}
+
+/* Remove MAC address */
+int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
+{
+#ifdef NO_MVPP2X_DRIVER
+	if (mv_check_eaddr_uc(addr))
+		mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_UC, MVPP2_DEL_MAC_NOT_IN_LIST);
+	else if (mv_check_eaddr_mc(addr))
+		mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_MC, MVPP2_DEL_MAC_NOT_IN_LIST);
+	else if (mv_check_eaddr_bc(addr))
+		mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_BC, MVPP2_DEL_MAC_NOT_IN_LIST);
+#else
+	int rc;
+
+	if (mv_check_eaddr_mc(addr)) {
+		struct ifreq s;
+		int i;
+
+		strcpy(s.ifr_name, port->linux_name);
+		s.ifr_hwaddr.sa_family = AF_UNSPEC;
+		for (i = 0; i < ETH_ALEN; i++)
+			s.ifr_hwaddr.sa_data[i] = addr[i];
+
+		rc = pp2_port_ioctl_request(SIOCDELMULTI, &s);
+		if (rc) {
+			pp2_err("PORT: unable to remove mac sddress\n");
+			return rc;
+		}
+		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+	} else if (mv_check_eaddr_uc(addr)) {
+		int fd;
+		char buf[30];
+		char da[14];
+
+		strcpy(buf, port->linux_name);
+		sprintf(da, " %x:%x:%x:%x:%x:%x", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		strcat(buf, da);
+		fd = open("/sys/devices/platform/pp2/debug/uc_filter_del", O_WRONLY);
+		if (fd == -1) {
+			pp2_err("PORT: unable to open sysfs\n");
+			return -EFAULT;
+		}
+		rc = write(fd, &buf, sizeof(buf));
+		if (rc < 0) {
+			pp2_err("PORT: unable to write to sysfs\n");
+			return -EFAULT;
+		}
+		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		close(fd);
+	} else {
+		pp2_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
+	}
+#endif
+	return 0;
+}
+
+/* Flush MAC address */
+static int parse_hex(char *str, u8 *addr, size_t size)
+{
+	int len = 0;
+
+	while (*str && (len < 2 * size)) {
+		int tmp;
+
+		if (str[1] == 0)
+			return -1;
+		if (sscanf(str, "%02x", &tmp) != 1)
+			return -1;
+		addr[len] = tmp;
+		len++;
+		str += 2;
+	}
+	return len;
+}
+
+int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
+{
+#ifdef NO_MVPP2X_DRIVER
+	pp2_info("Function not supported\n");
+#else
+	int rc;
+
+	if (mc) {
+		char buf[256];
+		char name[IFNAMSIZ];
+		char addr_str[256];
+		u8 mac[ETH_ALEN];
+		FILE *fp = fopen("/proc/net/dev_mcast", "r");
+		int len = 0;
+		int st;
+
+		if (!fp)
+			return -EACCES;
+
+		while (fgets(buf, sizeof(buf), fp)) {
+			if (sscanf(buf, "%*d%s%*d%d%s", name, &st, addr_str) != 3) {
+				pp2_err("address not found in file\n");
+				return -EFAULT;
+			}
+
+			if ((strcmp(port->linux_name, name)) || (!st))
+				continue;
+
+			len = parse_hex(addr_str, mac, ETH_ALEN);
+			if (len != ETH_ALEN) {
+				pp2_err("len parsing error\n");
+				return -EFAULT;
+			}
+
+			rc = pp2_port_remove_mac_addr(port, mac);
+			if (rc)
+				return rc;
+			pp2_info("PORT: flush %s, %x:%x:%x:%x:%x:%x\n",
+				 name, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		}
+		fclose(fp);
+	}
+
+	if (uc) {
+		int fd;
+		char buf[30];
+
+		strcpy(buf, port->linux_name);
+		fd = open("/sys/devices/platform/pp2/debug/uc_filter_flush", O_WRONLY);
+		if (fd == -1) {
+			pp2_err("PORT: unable to open sysfs\n");
+			return -EFAULT;
+		}
+		rc = write(fd, &buf, sizeof(buf));
+		if (rc < 0) {
+			pp2_err("PORT: unable to write to sysfs\n");
+			return -EFAULT;
+		}
+		close(fd);
+	}
+#endif
+	return 0;
+}
+
+/* Enable or disable RSS */
+void pp2_port_set_rss(struct pp2_port *port, uint32_t en)
+{
+	mv_pp22_rss_enable(port, en);
 }
 
 /* Get link status */

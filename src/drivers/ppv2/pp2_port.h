@@ -394,10 +394,10 @@ struct pp2_desc *pp2_rxq_get_desc(struct pp2_rx_queue *rxq, uint32_t *num_recv,
 int pp2_port_link_status(struct pp2_port *port);
 
 /* Set MAC address */
-int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t * addr);
+int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr);
 
 /* Get MAC address */
-void pp2_port_get_mac_addr(struct pp2_port *port, uint8_t * addr);
+int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr);
 
 /* Set MTU */
 int pp2_port_set_mtu(struct pp2_port *port, uint32_t mtu);
@@ -412,16 +412,16 @@ int pp2_port_set_mru(struct pp2_port *port, uint32_t len);
 void pp2_port_get_mru(struct pp2_port *port, uint32_t *len);
 
 /* Set Unicast promiscuous */
-void pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en);
+int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en);
 
 /* Check if Unicast promiscuous */
-void pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en);
+int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en);
 
 /* Set Multicast promiscuous */
-void pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en);
+int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en);
 
 /* Check if Multicast promiscuous */
-void pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en);
+int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en);
 
 /* Add MAC address */
 int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t * addr);

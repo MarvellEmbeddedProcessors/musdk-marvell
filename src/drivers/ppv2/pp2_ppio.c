@@ -222,69 +222,94 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 {
 	int rc;
+
 	rc = pp2_port_set_mac_addr(ppio->port, (const uint8_t *) addr);
-	return(rc);
+	return rc;
 }
 int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr)
 {
-	pp2_port_get_mac_addr(ppio->port, (uint8_t *)addr);
-	return(0);
+	int rc;
+
+	rc = pp2_port_get_mac_addr(ppio->port, (uint8_t *)addr);
+	return rc;
 }
+
 int pp2_ppio_set_mtu(struct pp2_ppio *ppio, u16 mtu)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUP;
 }
+
 int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUP;
 }
+
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUP;
 }
+
 int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len)
 {
 	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
 	return -ENOTSUP;
 }
+
 int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)
 {
-#ifdef NO_MVPP2X_DRIVER
-	pp2_port_set_uc_promisc(ppio->port, en);
-#endif
-	return (0);
+	int rc;
+
+	rc = pp2_port_set_uc_promisc(ppio->port, en);
+	return rc;
 }
+
 int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	int rc;
+
+	rc = pp2_port_get_uc_promisc(ppio->port, (u32 *)en);
+	return rc;
 }
+
 int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en)
 {
-	pp2_port_set_mc_promisc(ppio->port, en);
-	return (0);
+	int rc;
+
+	rc = pp2_port_set_mc_promisc(ppio->port, en);
+	return rc;
 }
 
 int pp2_ppio_get_mc_promisc(struct pp2_ppio *ppio, int *en)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	int rc;
+
+	rc = pp2_port_get_mc_promisc(ppio->port, (u32 *)en);
+	return rc;
 }
+
 int pp2_ppio_add_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	int rc;
+
+	rc = pp2_port_add_mac_addr(ppio->port, (const uint8_t *)addr);
+	return rc;
 }
+
 int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	int rc;
+
+	rc = pp2_port_remove_mac_addr(ppio->port, (const uint8_t *)addr);
+	return rc;
 }
+
 int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	int rc;
+
+	rc = pp2_port_flush_mac_addrs(ppio->port, uc, mc);
+	return rc;
 }

@@ -646,19 +646,113 @@ int pp2_ppio_enable(struct pp2_ppio *ppio);
  */
 int pp2_ppio_disable(struct pp2_ppio *ppio);
 
+/**
+ * Set ppio Ethernet MAC address
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		addr	Ethernet MAC address to configure .
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
+
+/**
+ * Get ppio Ethernet MAC address
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		addr	Configured ppio Ethernet MAC address .
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr);
 int pp2_ppio_set_mtu(struct pp2_ppio *ppio, u16 mtu); /* For debug only, check mtu during  pkt_send() */
 int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu);
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len);
 int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len);
+
+/**
+ * Set ppio to promiscuous mode
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		enr	1 - enable, 0 - disable.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en);
+
+/**
+ * Get ppio promiscuous mode
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		enr	1 - enabled, 0 - disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en);
+
+/**
+ * Set ppio to listen to all multicast mode
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		enr	1 - enable, 0 - disable.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en);
+
+/**
+ * Get ppio all multicast mode
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		enr	1 - enabled, 0 - disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_get_mc_promisc(struct pp2_ppio *ppio, int *en);
+
+/**
+ * Add ppio Ethernet MAC address
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		addr	Ethernet MAC address to add .
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int pp2_ppio_add_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
-int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr); /* Allows to remove the mac_address set  by pp2_ppio_set_mac_addr() */
-int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc); /* Does not flush the mac_address set  by pp2_ppio_set_mac_addr() */
+
+/**
+ * Remove ppio Ethernet MAC address
+ *
+ * Allows to remove the mac_address set  by pp2_ppio_set_mac_addr().
+  *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		addr	Ethernet MAC address to remove .
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
+
+/**
+ * Flush ppio Ethernet MAC address
+ *
+ * Does not flush the mac_address set  by pp2_ppio_set_mac_addr().
+.*
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		uc	1 - flush multicast list.
+ * @param[in]		mc	1 - flush unicast list .
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc);
 
 int pp2_ppio_get_phys_in_q(struct pp2_ppio *ppio, u8 tc, u8 qid, u8 *pq);
 int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid);
