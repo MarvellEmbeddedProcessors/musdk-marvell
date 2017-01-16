@@ -1,15 +1,33 @@
-From e7fb0b481d14278bb0d4394e6e5fdcd8ef200b38 Mon Sep 17 00:00:00 2001
+From 60cb56ea0f6018a3bb0607b10bd73dd0f8e4b03b Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Wed, 11 Jan 2017 19:01:18 +0200
-Subject: [PATCH 4/5] musdk: dts set port0 status non kernel
+Subject: [PATCH 4/5] musdk: dts set ports status non kernel:
+
+Armada-7040:
+Port	Status
+eth0 	non-kernel
+eth1 	okay
+eth2	non-kernel
+
+Armada-8040 CP0:
+Port	Status
+eth0 	non-kernel
+eth1 	disabled
+eth2	okay
+
+Armada-8040 CP1:
+Port	Status
+eth0_1 	non-kernel
+eth1_1 	non-kernel
+eth2_1	disabled
 
 Change-Id: I92eece60d1b03fa7d42cdc8ccfe1e49560f594ab
 Signed-off-by: nsamsono <nsamsono@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-7040-db-A.dts  | 2 +-
- arch/arm64/boot/dts/marvell/armada-8040-db-A.dts  | 4 ++--
+ arch/arm64/boot/dts/marvell/armada-7040-db-A.dts  | 4 ++--
+ arch/arm64/boot/dts/marvell/armada-8040-db-A.dts  | 6 +++---
  arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts | 4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ 3 files changed, 7 insertions(+), 7 deletions(-)
  mode change 100644 => 100755 arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
  mode change 100644 => 100755 arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
  mode change 100644 => 100755 arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
@@ -17,10 +35,10 @@ Signed-off-by: nsamsono <nsamsono@marvell.com>
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
 old mode 100644
 new mode 100755
-index 382274172b3a..31f538437dbf
+index 3822741..0a4885a
 --- a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
-@@ -152,7 +152,7 @@
+@@ -152,13 +152,13 @@
  			};
  			ppv22@000000 {
  				eth0: eth0@010000 {
@@ -29,10 +47,17 @@ index 382274172b3a..31f538437dbf
  				};
  				eth1: eth1@020000 {
  					status = "okay";
+ 				};
+ 				eth2: eth2@030000 {
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 			};
+ 			eip197: eip197@800000 {
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
 old mode 100644
 new mode 100755
-index 54d771cf3ce8..dc816d38b333
+index 54d771c..4c9f37d
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
 @@ -131,7 +131,7 @@
@@ -44,7 +69,7 @@ index 54d771cf3ce8..dc816d38b333
  				};
  				eth1: eth1@020000 {
  					status = "disabled";
-@@ -202,7 +202,7 @@
+@@ -202,10 +202,10 @@
  				pinctrl-0 = <&cps_ge1_rgmii_pins>;
  
  				eth0_1: eth0@010000 {
@@ -52,11 +77,15 @@ index 54d771cf3ce8..dc816d38b333
 +					status = "non-kernel";
  				};
  				eth1_1: eth1@020000 {
- 					status = "okay";
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 				eth2_1: eth2@030000 {
+ 					status = "disabled";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 old mode 100644
 new mode 100755
-index 4bb934e7ca13..3f6c12643ad3
+index 4bb934e..3f6c126
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
 @@ -153,7 +153,7 @@
@@ -78,5 +107,5 @@ index 4bb934e7ca13..3f6c12643ad3
  				eth1_1: eth1@020000 {
  					status = "okay";
 -- 
-2.11.0
+1.9.1
 
