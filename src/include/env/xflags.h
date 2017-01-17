@@ -35,7 +35,6 @@
 
 /* TODO: move the following to a per-soc conf file */
 #define PP2_SOC_NUM_PACKPROCS		1
-
 #define MVCONF_DBG_LEVEL		4
 
 #define CONF_PP2_BPOOL_COOKIE_SIZE	32

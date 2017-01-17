@@ -46,6 +46,8 @@
 #include "mv_pp2_bpool.h"
 #include "mv_pp2_ppio.h"
 
+#define APP_TX_RETRY
+#define TX_RETRY_WAIT	1
 
 #define MAX_NUM_BUFFS	8192
 #define Q_SIZE		1024
@@ -258,6 +260,60 @@ static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type
 }
 #endif
 
+static inline void free_not_sent_buffers(struct local_arg	*larg,
+					 struct pp2_bpool	*bpool,
+					 struct pp2_ppio_desc	*descs,
+					 u16			num)
+{
+	int i;
+	struct pp2_buff_inf binf;
+
+	for (i = 0; i < num; i++) {
+		binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
+		binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
+		pp2_bpool_put_buff(larg->hif, bpool, &binf);
+	}
+}
+
+#ifndef HW_BUFF_RECYLCE
+static inline void free_sent_buffers(struct local_arg	*larg,
+				     struct pp2_bpool	*bpool,
+				     u8			tx_ppio_id,
+				     u8			tc)
+{
+	u16			i, tx_num;
+	struct pp2_buff_inf	*binf;
+	struct tx_shadow_q	*shadow_q;
+
+	shadow_q = &(larg->shadow_qs[tc]);
+
+	pp2_ppio_get_num_outq_done(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &tx_num);
+
+	for (i = 0; i < tx_num; i++) {
+#ifdef SW_BUFF_RECYLCE
+		struct pp2_buff_inf	 tmp_buff_inf;
+		u32	ck = shadow_q->ents[shadow_q->read_ind].buff_ptr;
+		tmp_buff_inf.cookie = ck;
+		tmp_buff_inf.addr = larg->buffs_inf[COOKIE_GET_PP(ck)][COOKIE_GET_BPOOL(ck)][COOKIE_GET_INDX(ck)].addr;
+		binf = &tmp_buff_inf;
+#else
+		binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
+#endif /* SW_BUFF_RECYLCE */
+		if (unlikely(!binf->cookie || !binf->addr)) {
+			pr_warning("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
+					shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
+			continue;
+		}
+		pp2_bpool_put_buff(larg->hif,
+					bpool,
+					binf);
+		shadow_q->read_ind++;
+		if (shadow_q->read_ind == Q_SIZE)
+			shadow_q->read_ind = 0;
+	}
+}
+#endif //HW_BUFF_RECYLCE
+
 #ifdef HW_BUFF_RECYLCE
 static inline int loop_hw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
@@ -269,8 +325,10 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 {
 	struct pp2_bpool	*bpool;
 	struct pp2_ppio_desc	 descs[MAX_BURST_SIZE];
-	int			 err;
-	u16			 i;
+	u16			 i, tx_num;
+#ifdef APP_TX_RETRY
+	u16			 desc_idx;
+#endif
 #ifdef PKT_ECHO_SUPPORT
 	int			 prefetch_shift = larg->prefetch_shift;
 #endif /* PKT_ECHO_SUPPORT */
@@ -279,7 +337,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 
 //pr_info("tid %d check on tc %d, qid %d\n", larg->id, tc, qid);
 //pthread_mutex_lock(&larg->garg->trd_lock);
-	err = pp2_ppio_recv(larg->ports_desc[rx_ppio_id].port, tc, qid, descs, &num);
+	pp2_ppio_recv(larg->ports_desc[rx_ppio_id].port, tc, qid, descs, &num);
 //pthread_mutex_unlock(&larg->garg->trd_lock);
 //if (num) pr_info("got %d pkts on thd %d, tc %d, qid %d\n", num, larg->id, tc, qid);
 
@@ -320,9 +378,25 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 					    bpool);
 	}
 
-	if (num && ((err = pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, descs, &num)) != 0))
-		return err;
+#ifdef APP_TX_RETRY
+	desc_idx = 0;
 
+	while (num) {
+		tx_num = num;
+		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &descs[desc_idx], &tx_num);
+
+		if (num > tx_num)
+			usleep(TX_RETRY_WAIT);
+		desc_idx += tx_num;
+		num -= tx_num;
+	}
+#else
+	if (num) {
+		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, descs, &tx_num);
+		if (num > tx_num)
+			free_not_sent_buffers(larg, bpool, &descs[tx_num], num - tx_num);
+	}
+#endif /* APP_TX_RETRY */
 	return 0;
 }
 
@@ -337,10 +411,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 {
 	struct pp2_bpool	*bpool;
 	struct tx_shadow_q	*shadow_q;
-	struct pp2_buff_inf	*binf;
 	struct pp2_ppio_desc	 descs[MAX_BURST_SIZE];
-	int			 err;
-	u16			 i;
+	u16			 i, tx_num, desc_idx;
+
 #ifdef PKT_ECHO_SUPPORT
 	int			 prefetch_shift = larg->prefetch_shift;
 #endif /* PKT_ECHO_SUPPORT */
@@ -355,7 +428,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 //pr_info("tid %d check on tc %d, qid %d\n", larg->id, tc, qid);
 //pthread_mutex_lock(&larg->garg->trd_lock);
-	err = pp2_ppio_recv(larg->ports_desc[rx_ppio_id].port, tc, qid, descs, &num);
+	pp2_ppio_recv(larg->ports_desc[rx_ppio_id].port, tc, qid, descs, &num);
 //pthread_mutex_unlock(&larg->garg->trd_lock);
 //if (num) pr_info("got %d pkts on tc %d, qid %d\n", num, tc, qid);
 
@@ -425,32 +498,32 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			shadow_q->write_ind = 0;
 	}
 
-	if (num && ((err = pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, descs, &num)) != 0))
-		return err;
-
-	pp2_ppio_get_num_outq_done(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &num);
-	for (i=0; i<num; i++) {
-#ifdef SW_BUFF_RECYLCE
-		struct pp2_buff_inf	 tmp_buff_inf;
-		u32	ck = shadow_q->ents[shadow_q->read_ind].buff_ptr;
-		tmp_buff_inf.cookie = ck;
-		tmp_buff_inf.addr   = larg->buffs_inf[COOKIE_GET_PP(ck)][COOKIE_GET_BPOOL(ck)][COOKIE_GET_INDX(ck)].addr;
-		binf = &tmp_buff_inf;
-#else
-		binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
-#endif /* SW_BUFF_RECYLCE */
-		if (unlikely(!binf->cookie || !binf->addr)) {
-			pr_warning("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-				   shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
-			continue;
+	desc_idx = 0;
+#ifdef APP_TX_RETRY
+	do {
+		tx_num = num;
+		if (num) {
+			pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &descs[desc_idx], &tx_num);
+			desc_idx += tx_num;
+			num -= tx_num;
 		}
-		pp2_bpool_put_buff(larg->hif,
-				   bpool,
-				   binf);
-		shadow_q->read_ind++;
-		if (shadow_q->read_ind == Q_SIZE)
-			shadow_q->read_ind = 0;
+		free_sent_buffers(larg, bpool, tx_ppio_id, tc);
+	} while (num);
+#else
+	tx_num = num;
+	if (num) {
+		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &descs[desc_idx], &tx_num);
+		if (num > tx_num) {
+			u16 not_sent = num - tx_num;
+			// Free not sent buffers
+			free_not_sent_buffers(larg, bpool, &descs[tx_num], not_sent);
+			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
+						(Q_SIZE - not_sent + shadow_q->write_ind) :
+						shadow_q->write_ind - not_sent;
+		}
 	}
+	free_sent_buffers(larg, bpool, tx_ppio_id, tc);
+#endif /* APP_TX_RETRY */
 
 	return 0;
 }
