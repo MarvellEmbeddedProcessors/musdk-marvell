@@ -15,6 +15,8 @@ AM_SILENT_RULES([yes])
 # set install prefix
 AC_PREFIX_DEFAULT($(pwd)/usr/local)
 
+AC_SUBST(includedir, '${exec_prefix}')
+
 # add SAM_BUILD when using --enable-sam
 AC_ARG_ENABLE([sam],
 [  --enable-sam            Enable musdk sam driver and application build],
