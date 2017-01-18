@@ -37,12 +37,9 @@
  */
 
 #include "std_internal.h"
-#include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
-#include <linux/if.h>
-#include <netdb.h>
-#include <net/ethernet.h>
+#include "env/netdev.h"
 
 #include "pp2_types.h"
 
@@ -62,68 +59,40 @@
  * Implements configuration and run-time Port and I/O routines
  */
 
-/* Send IOCTL to linux*/
-static int pp2_port_ioctl_request(u32 ctl, struct ifreq *s)
-{
-	int rc;
-	int fd;
-
-	fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (fd == -1)
-	{
-		pp2_err( "can't open socket. error %d", errno);
-		return -EFAULT;
-	}
-
-	rc = ioctl(fd, ctl, (char *)s);
-	if (rc == -1) {
-		pp2_err("PORT: %s ioctl request failed with error %d\n", s->ifr_name, errno);
-		close (fd);
-		return -EFAULT;
-	}
-	close (fd);
-	return 0;
-}
-
 /* Find Interface name*/
-static int pp2_port_find_linux_if_name(struct pp2_port *port)
+static int pp2_port_get_if_name(struct pp2_port *port)
 {
 	int rc;
 	struct ifreq s;
 	int found = 0;
-	int max_tries = 1;
+	int if_idx = 0;
 	int index = 0;
 
-	while (!found && (max_tries < IFALIASZ) && (index <= port->id)) {
-		s.ifr_ifindex = max_tries;
-
-		rc = pp2_port_ioctl_request(SIOCGIFNAME, &s);
+	do {
+		s.ifr_ifindex = ++if_idx;
+		rc = mv_netdev_ioctl(SIOCGIFNAME, &s);
 		if (rc) {
-			pp2_err("PORT: Unable to get if name\n");
-			return -EFAULT;
+			found = -1;
+			break;
 		}
 
-		if (strncmp(s.ifr_name, "eth", 3) == 0) {
-			rc = pp2_port_ioctl_request(SIOCGIFMAP, &s);
-			if (rc) {
-				pp2_err("PORT: Unable to get if mapping\n");
-				return -EFAULT;
-			}
+		rc = mv_netdev_ioctl(SIOCGIFMAP, &s);
+		if (rc)
+			continue;
 
-			if (port->parent->hw.phy_address_base == s.ifr_map.mem_start) {
-				if (port->id == index) {
-					strcpy (port->linux_name, s.ifr_name);
-					pp2_info("PORT: corresponding linux if: %s\n", port->linux_name);
-					found = 1;
-				}
-				index++;
+		if (port->parent->hw.phy_address_base == s.ifr_map.mem_start) {
+			if (port->id == index) {
+				strcpy(port->linux_name, s.ifr_name);
+				pp2_info("PORT: corresponding linux if: %s\n", port->linux_name);
+				found = 1;
+				break;
 			}
+			index++;
 		}
-		max_tries++;
-	}
+	} while (found == 0 && if_idx < PP2_PORT_IF_NAME_MAX_ITER);
 
-	if (!found) {
-		pp2_err("PORT: Unable to find if name for port id: %d\n", port->id);
+	if (found != 1) {
+		pp2_err("PORT: Unable to find if name\n");
 		return -EEXIST;
 	}
 	return 0;
@@ -1099,7 +1068,7 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
    pp2_port_interrupts_mask(port);
 
    /* Find port linux if_name */
-   pp2_port_find_linux_if_name(port);
+   pp2_port_get_if_name(port);
 
 #ifdef NO_MVPP2X_DRIVER
    pp2_port_mac_hw_init(port);
@@ -1538,7 +1507,7 @@ int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
 	for (i = 0; i < ETH_ALEN; i++)
 		s.ifr_hwaddr.sa_data[i] = addr[i];
 
-	rc = pp2_port_ioctl_request(SIOCSIFHWADDR, &s);
+	rc = mv_netdev_ioctl(SIOCSIFHWADDR, &s);
 	if (rc)
 		return rc;
 
@@ -1558,7 +1527,7 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 	int i;
 
 	strcpy(s.ifr_name, port->linux_name);
-	rc = pp2_port_ioctl_request(SIOCGIFHWADDR, &s);
+	rc = mv_netdev_ioctl(SIOCGIFHWADDR, &s);
 	if (rc)
 		return rc;
 
@@ -1717,7 +1686,7 @@ int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 	struct ifreq s;
 
 	strcpy(s.ifr_name, port->linux_name);
-	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
 		pp2_err("PORT: unable to read promisc mode from HW\n");
 		return rc;
@@ -1728,7 +1697,7 @@ int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 	else
 		s.ifr_flags &= ~IFF_PROMISC;
 
-	rc = pp2_port_ioctl_request(SIOCSIFFLAGS, &s);
+	rc = mv_netdev_ioctl(SIOCSIFFLAGS, &s);
 	if (rc) {
 		pp2_err("PORT: unable to set promisc mode to HW\n");
 		return rc;
@@ -1749,7 +1718,7 @@ int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
 	*en = 0;
 
 	strcpy(s.ifr_name, port->linux_name);
-	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
 		pp2_err("PORT: unable to read promisc mode from HW\n");
 		return rc;
@@ -1782,7 +1751,7 @@ int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
 	struct ifreq s;
 
 	strcpy(s.ifr_name, port->linux_name);
-	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
 		pp2_err("PORT: unable to read all-multicast mode from HW\n");
 		return rc;
@@ -1793,7 +1762,7 @@ int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
 	else
 		s.ifr_flags &= ~IFF_ALLMULTI;
 
-	rc = pp2_port_ioctl_request(SIOCSIFFLAGS, &s);
+	rc = mv_netdev_ioctl(SIOCSIFFLAGS, &s);
 	if (rc) {
 		pp2_err("PORT: unable to set all-multicast mode to HW\n");
 		return rc;
@@ -1813,7 +1782,7 @@ int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
 
 	*en = 0;
 	strcpy(s.ifr_name, port->linux_name);
-	rc = pp2_port_ioctl_request(SIOCGIFFLAGS, &s);
+	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
 		pp2_err("PORT: unable to read all-multicast mode from HW\n");
 		return rc;
@@ -1842,7 +1811,7 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		for (i = 0; i < ETH_ALEN; i++)
 			s.ifr_hwaddr.sa_data[i] = addr[i];
 
-		rc = pp2_port_ioctl_request(SIOCADDMULTI, &s);
+		rc = mv_netdev_ioctl(SIOCADDMULTI, &s);
 		if (rc) {
 			pp2_err("PORT: unable to add mac sddress\n");
 			return rc;
@@ -1899,7 +1868,7 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		for (i = 0; i < ETH_ALEN; i++)
 			s.ifr_hwaddr.sa_data[i] = addr[i];
 
-		rc = pp2_port_ioctl_request(SIOCDELMULTI, &s);
+		rc = mv_netdev_ioctl(SIOCDELMULTI, &s);
 		if (rc) {
 			pp2_err("PORT: unable to remove mac sddress\n");
 			return rc;

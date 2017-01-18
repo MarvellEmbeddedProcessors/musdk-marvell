@@ -30,92 +30,28 @@
   POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
-
 #include "std_internal.h"
-#include "lib/lib_misc.h"
+#include "env/netdev.h"
 
-int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[])
+/* Send IOCTL to linux*/
+int mv_netdev_ioctl(u32 ctl, struct ifreq *s)
 {
-	char tmp_str[MAX_OBJ_STRING];
-	char *tok;
+	int rc;
+	int fd;
 
-	if (hierarchy_level > 2) {
-		pr_err("Maximum 3 levels of hierarchy supported (given %d)!\n", hierarchy_level);
-		return(-1);
+	fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (fd == -1) {
+		pr_err("can't open socket: errno %d", errno);
+		return -EFAULT;
 	}
 
-	memcpy(tmp_str, match, strlen(match));
-	tmp_str[strlen(match)] = '\0';
-	tok = strtok(tmp_str, "-");
-	if (!tok) {
-		pr_err("Illegal match str (%s)!\n",tok);
-		return -1;
+	rc = ioctl(fd, ctl, (char *)s);
+	if (rc == -1) {
+		pr_err("ioctl request failed: errno %d\n", errno);
+		close(fd);
+		return -EFAULT;
 	}
-
-	if (strcmp(obj_type, tok)) {
-		pr_err("String {%s} does not match obj_type {%s}\n", tok, obj_type);
-		return(-1);
-	}
-
-	if (hierarchy_level == 1) {
-		tok = strtok(NULL, "");
-		if (!tok) {
-			pr_err("Illegal match str (%s)!\n", tok);
-			return -1;
-		}
-		id[0] = atoi(tok);
-	} else if (hierarchy_level == 2) {
-		tok = strtok(NULL, ":");
-		if (!tok) {
-			pr_err("Illegal match str (%s)!\n",tok);
-			return -1;
-		}
-		id[0] = atoi(tok);
-		tok = strtok(NULL, "");
-		if (!tok) {
-			pr_err("Illegal match str (%s)!\n",tok);
-			return -1;
-		}
-		id[1] = atoi(tok);
-	}
-
+	close(fd);
 	return 0;
-}
-
-void mem_disp(const char *_p, int len)
-{
-	char buf[128];
-	int i, j, i0;
-	const unsigned char *p = (const unsigned char *)_p;
-
-	/* hexdump routine */
-	for (i = 0; i < len; ) {
-		memset(buf, sizeof(buf), ' ');
-		sprintf(buf, "%5d: ", i);
-		i0 = i;
-		for (j=0; j < 16 && i < len; i++, j++)
-			sprintf(buf+7+j*3, "%02x ", (uint8_t)(p[i]));
-		i = i0;
-		for (j=0; j < 16 && i < len; i++, j++)
-			sprintf(buf+7+j + 48, "%c",
-				isprint(p[i]) ? p[i] : '.');
-		printf("%s\n", buf);
-	}
-	printf("\n");
-}
-
-void mv_mem_dump(const unsigned char *p, unsigned int len)
-{
-	unsigned int i = 0, j;
-
-	while (i < len) {
-		j = 0;
-		printf("%10p: ", (p + i));
-		for (j = 0 ; j < 32 && i < len ; j++) {
-			printf("%02x ", p[i]);
-			i++;
-		}
-		printf("\n");
-	}
 }
 
