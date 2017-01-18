@@ -30,15 +30,41 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __SYS_IOMAP_H__
-#define __SYS_IOMAP_H__
+#ifndef __OF_SH_H__
+#define __OF_SH_H__
 
-#include "mv_types.h"
+#define OF_SCRIPT_STR	\
+"#!/bin/sh\n\n"	\
+"DT=/proc/device-tree\n\n"	\
+"# $1 - node\n"	\
+"# $2 - property\n"	\
+"of_get_property()\n"	\
+"{\n"	\
+"    cat $DT$1/$2\n"	\
+"}\n\n"	\
+"# $1 - from\n"	\
+"# $2 - compatible\n"	\
+"# $3 - node\n"	\
+"of_find_compatible_node()\n"	\
+"{\n"	\
+"    of_find_compatible_nodes $1 $2 | tail -n +$3 | head -1 | tr -d \\\\n\n"	\
+"}\n\n"	\
+"# $1 - from\n"	\
+"# $2 - compatible\n"	\
+"of_find_compatible_nodes()\n"	\
+"{\n"	\
+"    for c in $(fgrep -l $2 $(find $DT$1 -name compatible))\n"	\
+"    do\n"	\
+"        dirname $c\n"	\
+"    done | cut -b 18-\n"	\
+"}\n\n"	\
+"# $1 - phandle\n"	\
+"of_find_node_by_phandle()\n"	\
+"{\n"	\
+"    dirname $(fgrep -l $1 $(find $DT -name linux,phandle)) | cut -b 18- | tr -d \\\\n\n"	\
+"}\n\n"	\
+"exec <&-\n"	\
+"exec 2>/dev/null\n"	\
+"$@\n"
 
-int mv_sys_register_iomap(phys_addr_t pa, u64 size, int mmap, u64 off, void **va);
-int  mv_sys_unregister_iomap(void *va);
-
-void *mv_sys_phys2virt(phys_addr_t addr);
-phys_addr_t mv_sys_virt2phys(void *addr);
-
-#endif /* __SYS_IOMAP_H__ */
+#endif /* __OF_SH_H__ */

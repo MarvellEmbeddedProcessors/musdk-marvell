@@ -32,19 +32,45 @@
 
 #include "std_internal.h"
 
+#include "of_sh.h"
+
 
 #define OF_DEFAULT_NA 1
 #define OF_DEFAULT_NS 1
 
+#define OF_SH_FILENAME	"./of.sh"
 
-static uint8_t				current = 0;
+
+static u8			current;
 static struct device_node	current_node[16];
-static struct device_node	root =
-	{
-		.full_name	= "/",
-		.name		= root.full_name
-	};
+static struct device_node	root = {.full_name	= "/",
+					.name		= root.full_name
+					};
 
+
+static int create_of_sh(void)
+{
+	FILE	*of_sh;
+	char	*script_str = OF_SCRIPT_STR;
+	char	 command[PATH_MAX];
+
+	of_sh = fopen(OF_SH_FILENAME, "r");
+	if (of_sh) {
+		fclose(of_sh);
+		return 0;
+	}
+
+	of_sh = fopen(OF_SH_FILENAME, "w");
+	if (unlikely(!of_sh)) {
+		pr_err("Couldn't create OF file!\n");
+		return -EFAULT;
+	}
+	fputs(script_str, of_sh);
+	fclose(of_sh);
+	snprintf(command, sizeof(command), "chmod 755 %s", OF_SH_FILENAME);
+	system(command);
+	return 0;
+}
 
 static char *of_basename(const char *full_name)
 {
@@ -58,9 +84,9 @@ static char *of_basename(const char *full_name)
 	return name;
 }
 
-static void of_bus_default_count_cells(const struct device_node *dev_node,
-					uint32_t		 *addr,
-					uint32_t		 *size)
+static void of_bus_default_count_cells(const struct device_node	*dev_node,
+					u32		*addr,
+					u32		*size)
 {
 	if (dev_node == NULL)
 		dev_node = &root;
@@ -69,6 +95,45 @@ static void of_bus_default_count_cells(const struct device_node *dev_node,
 		*addr = of_n_addr_cells(dev_node);
 	if (size != NULL)
 		*size = of_n_size_cells(dev_node);
+}
+
+static const u32 *of_get_address_prop(
+	struct device_node	*dev_node,
+	int			 index,
+	u64			*size,
+	u32			*flags,
+	const char		*rprop)
+{
+	const u32	*uint32_prop;
+	u32		*uint32_prop_tmp;
+	size_t		 lenp;
+	u32		 na, ns;
+
+	assert(dev_node != NULL);
+
+	of_bus_default_count_cells(dev_node, &na, &ns);
+
+	uint32_prop = of_get_property(dev_node, rprop, &lenp);
+	if (unlikely(uint32_prop == NULL))
+		return NULL;
+
+	assert((lenp % ((na + ns) * sizeof(u32))) == 0);
+
+	uint32_prop += (na + ns) * index;
+	if (size != NULL)
+		for (*size = 0; ns > 0; ns--, na++)
+			*size = (*size << 32) + uint32_prop[na];
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+	/* do nothing */
+#else
+	uint32_prop_tmp = (u32 *)uint32_prop;
+	if (size != NULL)
+		*size = swab64(*size);
+	*uint32_prop_tmp = swab32(*uint32_prop_tmp);
+#endif /* __BYTE_ORDER == __BIG_ENDIAN */
+
+	return uint32_prop;
 }
 
 struct device_node *of_get_parent(const struct device_node *dev_node)
@@ -96,7 +161,7 @@ struct device_node *of_get_parent(const struct device_node *dev_node)
 
 void *of_get_property(struct device_node *dev_node, const char *name, size_t *lenp)
 {
-	int		 _err, __err;
+	int	 _err, __err;
 	size_t	 len;
 	char	 command[PATH_MAX];
 	FILE	*of_sh;
@@ -106,16 +171,21 @@ void *of_get_property(struct device_node *dev_node, const char *name, size_t *le
 	if (dev_node == NULL)
 		dev_node = &root;
 
-	snprintf(command, sizeof(command), "./of.sh %s \"%s\" \"%s\"",
-			__func__, dev_node->full_name, name);
+	_err = create_of_sh();
+	if (_err)
+		return NULL;
+
+	snprintf(command, sizeof(command), "%s %s \"%s\" \"%s\"",
+		 OF_SH_FILENAME, __func__, dev_node->full_name, name);
 
 	of_sh = popen(command, "r");
-	if (unlikely(of_sh == NULL))
+	if (unlikely(!of_sh))
 		return NULL;
 
 	len = fread(dev_node->_property,
-				sizeof(*dev_node->_property),
-				sizeof(dev_node->_property), of_sh);
+		sizeof(*dev_node->_property),
+		sizeof(dev_node->_property),
+		of_sh);
 	_err = len == 0 ? ferror(of_sh) : 0;
 	__err = pclose(of_sh);
 
@@ -128,11 +198,11 @@ void *of_get_property(struct device_node *dev_node, const char *name, size_t *le
 	return dev_node->_property;
 }
 
-uint32_t of_n_addr_cells(const struct device_node *dev_node)
+u32 of_n_addr_cells(const struct device_node *dev_node)
 {
-	struct device_node  *parent_node;
-	size_t		   lenp;
-	const uint32_t	  *na;
+	struct device_node	*parent_node;
+	size_t			 lenp;
+	const u32		*na;
 
 	if (dev_node == NULL)
 		dev_node = &root;
@@ -142,20 +212,27 @@ uint32_t of_n_addr_cells(const struct device_node *dev_node)
 
 		na = of_get_property(parent_node, "#address-cells", &lenp);
 		if (na != NULL) {
-			assert(lenp == sizeof(uint32_t));
+			u32	ans;
 
-			return *na;
+			assert(lenp == sizeof(u32));
+			ans = *na;
+#if __BYTE_ORDER == __BIG_ENDIAN
+			/* Do nothing */
+#else
+			ans = swab32(ans);
+#endif /* __BYTE_ORDER == __BIG_ENDIAN */
+			return ans;
 		}
 	} while (parent_node != &root);
 
 	return OF_DEFAULT_NA;
 }
 
-uint32_t of_n_size_cells(const struct device_node *dev_node)
+u32 of_n_size_cells(const struct device_node *dev_node)
 {
 	struct device_node	*parent_node;
-	size_t				 lenp;
-	const uint32_t		*ns;
+	size_t			 lenp;
+	const u32		*ns;
 
 	if (dev_node == NULL)
 		dev_node = &root;
@@ -165,9 +242,16 @@ uint32_t of_n_size_cells(const struct device_node *dev_node)
 
 		ns = of_get_property(parent_node, "#size-cells", &lenp);
 		if (ns != NULL) {
-			assert(lenp == sizeof(uint32_t));
+			u32	ans;
 
-			return *ns;
+			assert(lenp == sizeof(u32));
+			ans = *ns;
+#if __BYTE_ORDER == __BIG_ENDIAN
+			/* Do nothing */
+#else
+			ans = swab32(ans);
+#endif /* __BYTE_ORDER == __BIG_ENDIAN */
+			return ans;
 		}
 	} while (parent_node != &root);
 
@@ -193,39 +277,22 @@ const void *of_get_mac_address(struct device_node *dev_node)
 	return NULL;
 }
 
-const uint32_t *of_get_address(
+const u32 *of_get_address(
 	struct device_node	*dev_node,
-	size_t				 index,
-	uint64_t			*size,
-	uint32_t			*flags)
+	int			 index,
+	u64			*size,
+	u32			*flags)
 {
-	const uint32_t	*uint32_prop;
-	size_t			 lenp;
-	uint32_t		 na, ns;
-
-	assert(dev_node != NULL);
-
-	of_bus_default_count_cells(dev_node, &na, &ns);
-
-	uint32_prop = of_get_property(dev_node, "reg", &lenp);
-	if (unlikely(uint32_prop == NULL))
-		return NULL;
-	assert((lenp % ((na + ns) * sizeof(uint32_t))) == 0);
-
-	uint32_prop += (na + ns) * index;
-	if (size != NULL)
-		for (*size = 0; ns > 0; ns--, na++)
-			*size = (*size << 32) + uint32_prop[na];
-	return uint32_prop;
+	return of_get_address_prop(dev_node, index, size, flags, "reg");
 }
 
-uint64_t of_translate_address(
+u64 of_translate_address(
 	struct device_node	*dev_node,
-	const uint32_t		*addr)
+	const u32		*addr)
 {
-	uint32_t		 na;
-	uint64_t		 phys_addr, tmp_addr;
-	const uint32_t	*regs_addr;
+	u32		 na;
+	u64		 phys_addr, tmp_addr;
+	const u32	*regs_addr;
 
 	assert(dev_node != NULL);
 
@@ -237,15 +304,22 @@ uint64_t of_translate_address(
 			break;
 		}
 
-		regs_addr = of_get_address(dev_node, 0, NULL, NULL);
+		regs_addr = of_get_address_prop(dev_node, 0, NULL, NULL, "ranges");
 		if (regs_addr == NULL)
-			break;
+			continue;
 
 		na = of_n_addr_cells(dev_node);
-		for (tmp_addr = 0; na > 0; na--, regs_addr++)
+		for (tmp_addr = 0; na > 0; na--, regs_addr += 2)
+#if __BYTE_ORDER == __BIG_ENDIAN
 			tmp_addr = (tmp_addr << 32) + *regs_addr;
+#else
+			tmp_addr = (tmp_addr << 32) + swab64(*regs_addr);
+#endif /* __BYTE_ORDER == __BIG_ENDIAN */
 		phys_addr += tmp_addr;
-
+		/* TODO: for some reason, the range is initialized in two levels;
+		 * therefore, we break after read the first
+		 */
+		break;
 	} while (dev_node != &root);
 
 	return phys_addr;
@@ -253,13 +327,13 @@ uint64_t of_translate_address(
 
 struct device_node *of_find_compatible_node_by_indx(
 	const struct device_node	*from,
-	const int					 indx,
-	const char					*type,
-	const char					*compatible)
+	const int			 indx,
+	const char			*type,
+	const char			*compatible)
 {
-	int					 _err, __err;
-	char				 command[PATH_MAX], *full_name;
-	FILE				*of_sh;
+	int			 _err, __err;
+	char			 command[PATH_MAX], *full_name;
+	FILE			*of_sh;
 	struct device_node	*dev_node;
 
 	assert(compatible != NULL);
@@ -267,13 +341,17 @@ struct device_node *of_find_compatible_node_by_indx(
 	if (from == NULL)
 		from = &root;
 
+	_err = create_of_sh();
+	if (_err)
+		return NULL;
+
 	snprintf(command,
-			 sizeof(command),
-			 "./of.sh of_find_compatible_node \"%s\" \"%s\" %hhu",
-			 from->full_name, compatible, indx);
+		 sizeof(command),
+		 "%s of_find_compatible_node \"%s\" \"%s\" %hhu",
+		 OF_SH_FILENAME, from->full_name, compatible, indx+1);
 
 	of_sh = popen(command, "r");
-	if (unlikely(of_sh == NULL))
+	if (unlikely(!of_sh))
 		return NULL;
 
 	dev_node = &current_node[current];
@@ -303,26 +381,31 @@ struct device_node *of_find_compatible_node_by_indx(
 
 struct device_node *of_find_compatible_node(
 	const struct device_node	*from,
-	const char					*type,
-	const char					*compatible)
+	const char			*type,
+	const char			*compatible)
 {
-	return of_find_compatible_node_by_indx(from, 1, type, compatible);
+	return of_find_compatible_node_by_indx(from, 0, type, compatible);
 }
 
 struct device_node *of_find_node_by_phandle(phandle ph)
 {
-	int					 _err, __err;
-	char				 command[PATH_MAX], *full_name;
-	FILE				*of_sh;
+	int			 _err, __err;
+	char			 command[PATH_MAX], *full_name;
+	FILE			*of_sh;
 	struct device_node	*dev_node;
 
+	_err = create_of_sh();
+	if (_err)
+		return NULL;
+
 	snprintf(command,
-			sizeof(command), "./of.sh %s %c",
-			__func__,
-			*((char *)&ph + sizeof(ph) - sizeof(char)));
+		 sizeof(command), "%s %s %c",
+		 OF_SH_FILENAME,
+		 __func__,
+		 *((char *)&ph + sizeof(ph) - sizeof(char)));
 
 	of_sh = popen(command, "r");
-	if (unlikely(of_sh == NULL))
+	if (unlikely(!of_sh))
 		return NULL;
 
 	dev_node = &current_node[current];
@@ -330,8 +413,10 @@ struct device_node *of_find_node_by_phandle(phandle ph)
 	_err = full_name == NULL ? ferror(of_sh) : 0;
 	__err = pclose(of_sh);
 
-	if (unlikely(_err != 0 || __err != 0))
+	if (unlikely(_err != 0 || __err != 0)) {
+		pr_err("command resulted with err (%d, %d)\n", _err, __err);
 		return NULL;
+	}
 
 	dev_node->name = of_basename(dev_node->full_name);
 	if (dev_node->name == NULL)
@@ -356,8 +441,8 @@ int of_device_is_available(struct device_node *dev_node)
 }
 
 int of_device_is_compatible(
-	struct device_node *dev_node,
-	const char *compatible)
+	struct device_node	*dev_node,
+	const char		*compatible)
 {
 	size_t		 lenp, len;
 	const char	*_compatible;

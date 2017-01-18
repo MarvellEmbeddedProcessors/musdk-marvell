@@ -57,7 +57,7 @@ const void *of_get_mac_address(struct device_node *dev_node);
 
 const u32 *of_get_address(
 	struct device_node	*dev_node,
-	size_t			 index,
+	int			 index,
 	u64			*size,
 	u32			*flags);
 

@@ -50,6 +50,7 @@ libmusdk_la_SOURCES += env/hugepage_mem.c
 libmusdk_la_SOURCES += env/sys_dma.c
 libmusdk_la_SOURCES += env/of.c
 libmusdk_la_SOURCES += env/netdev.c
+libmusdk_la_SOURCES += env/sys_iomem.c
 
 nobase_include_HEADERS += include/drivers/mv_net.h
 nobase_include_HEADERS += include/drivers/mv_pp2.h
