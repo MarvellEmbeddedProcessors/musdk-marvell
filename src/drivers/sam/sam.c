@@ -36,7 +36,7 @@
 #include "sam.h"
 
 /*#define SAM_DMA_DEBUG*/
-/*#define SAM_CIO_DEBUG*/
+#define SAM_CIO_DEBUG
 /*#define SAM_SA_DEBUG*/
 
 static bool		sam_initialized;
@@ -264,6 +264,8 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 		token_params.BypassByteCount = request->auth_offset;
 	else
 		token_params.BypassByteCount = request->cipher_offset;
+
+	copylen += token_params.BypassByteCount;
 
 	/* process AAD  - TBD */
 
