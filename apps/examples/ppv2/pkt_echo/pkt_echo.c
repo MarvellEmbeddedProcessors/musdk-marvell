@@ -46,9 +46,37 @@
 #include "mv_pp2_bpool.h"
 #include "mv_pp2_ppio.h"
 
+//#define HW_BUFF_RECYLCE
+//#define SW_BUFF_RECYLCE
+//#define PORTS_LOOPBACK
 #define APP_TX_RETRY
-#define TX_RETRY_WAIT	1
 
+
+#ifdef HW_BUFF_RECYLCE
+static char buf_release_str[] = "HW buffer release";
+#else
+static char buf_release_str[] = "SW buffer release";
+#endif
+
+#ifdef PORTS_LOOPBACK
+static char app_mode_str[] = "Loopback mode";
+#else
+static char app_mode_str[] = "Bridge mode";
+#endif
+
+#if PP2_SOC_NUM_PACKPROCS == 1
+static char board_str[] = "A7040";
+#else
+static char board_str[] = "A8040";
+#endif
+
+#ifdef APP_TX_RETRY
+static char tx_retry_str[] = "Tx Retry enabled";
+#else
+static char tx_retry_str[] = "Tx Retry disabled";
+#endif
+
+#define TX_RETRY_WAIT	1
 #define MAX_NUM_BUFFS	8192
 #define Q_SIZE		1024
 #define MAX_BURST_SIZE	(Q_SIZE)>>1
@@ -74,8 +102,6 @@
 #define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
 #define lower_32_bits(n) ((u32)(n))
 
-//#define HW_BUFF_RECYLCE
-//#define SW_BUFF_RECYLCE
 #ifdef HW_BUFF_RECYLCE
 /* sw-buuf-recycle is not allowed when using hw-buff-recycle! */
 #undef SW_BUFF_RECYLCE
@@ -1311,6 +1337,7 @@ int main (int argc, char *argv[])
 	int			i, err;
 
 	setbuf(stdout, NULL);
+	pr_info("pkt-echo is started for %s in %s - %s - %s\n", board_str, app_mode_str, buf_release_str, tx_retry_str);
 
 	pr_debug("pr_debug is enabled\n");
 
