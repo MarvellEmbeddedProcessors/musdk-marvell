@@ -36,7 +36,7 @@
 #include "sam.h"
 
 /*#define SAM_DMA_DEBUG*/
-#define SAM_CIO_DEBUG
+/*#define SAM_CIO_DEBUG*/
 /*#define SAM_SA_DEBUG*/
 
 static bool		sam_initialized;
