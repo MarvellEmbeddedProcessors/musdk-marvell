@@ -1003,6 +1003,73 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
+{
+	int rc;
+	char *ret_ptr;
+	int i, option;
+	int long_index = 0;
+	u16 vlan_id;
+	int cmd = -1;
+	struct option long_options[] = {
+		{"set", required_argument, 0, 's'},
+		{"remove", required_argument, 0, 'r'},
+		{"flush", no_argument, 0, 'f'},
+		{0, 0, 0, 0}
+	};
+
+	if  (argc < 2 || argc > 4) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
+		/* Get parameters */
+		switch (option) {
+		case 's':
+			vlan_id = strtoul(optarg, &ret_ptr, 0);
+			cmd = 0;
+			break;
+		case 'r':
+			vlan_id = strtoul(optarg, &ret_ptr, 0);
+			cmd = 1;
+			break;
+		case 'f':
+			cmd = 2;
+			break;
+		}
+	}
+
+	if (cmd < 0)
+		printf("parsing fail, wrong input\n");
+
+	if (cmd == 0 && vlan_id >= 0 && vlan_id <= 4095) {
+		rc = pp2_ppio_add_vlan(garg.ppio, vlan_id);
+		if (rc) {
+			printf("Unable to add vlan id %d\n", vlan_id);
+			return -EINVAL;
+		}
+	} else if (cmd == 1 && vlan_id >= 0 && vlan_id <= 4095) {
+		rc = pp2_ppio_remove_vlan(garg.ppio, vlan_id);
+		if (rc) {
+			printf("Unable to remove vlan id %d\n", vlan_id);
+			return -EINVAL;
+		}
+	} else if (cmd == 2) {
+		rc = pp2_ppio_flush_vlan(garg.ppio);
+		if (rc) {
+			printf("Unable to flush vlans\n");
+			return -EINVAL;
+		}
+	} else {
+		printf("parsing fail, wrong input\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 
 static int main_loop(void *arg, volatile int *running)
 {
@@ -1310,6 +1377,16 @@ static int register_cli_filter_cmds(struct glob_arg *garg)
 	cmd_params.format	= "--<uc/mc> --<on/off/get>\n";
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_promisc_mode;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "vlan";
+	cmd_params.desc		= "set/remove/flush ppio vlan filter";
+	cmd_params.format	= "--set <vlan_id>\n"
+				  "\t\t\t\t\t\t--remove <vlan_id>\n"
+				  "\t\t\t\t\t\t--flush\n";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_vlan;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
