@@ -313,3 +313,26 @@ int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc)
 	rc = pp2_port_flush_mac_addrs(ppio->port, uc, mc);
 	return rc;
 }
+
+int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan)
+{
+	int rc;
+
+	rc = pp2_port_add_vlan(ppio->port, vlan);
+	return rc;
+}
+
+int pp2_ppio_remove_vlan(struct pp2_ppio *ppio, u16 vlan)
+{
+	int rc;
+
+	rc = pp2_port_remove_vlan(ppio->port, vlan);
+	return rc;
+}
+
+int pp2_ppio_flush_vlan(struct pp2_ppio *ppio)
+{
+	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
+	return -ENOTSUP;
+}
+

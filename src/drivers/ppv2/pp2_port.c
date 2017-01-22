@@ -1995,6 +1995,40 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 	return 0;
 }
 
+/* Add vlan */
+int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
+{
+	char buf1[100];
+
+	if ((vlan < 1) || (vlan >= 4095)) {
+		pp2_err("invalid vid. Range: 1:4095\n");
+		return -EINVAL;
+	}
+
+	/* build manually the system command */
+	/* [TODO] check other alternatives for setting vlan id */
+	sprintf(buf1, "ip link add link %s name %s.%d type vlan id %d", port->linux_name, port->linux_name, vlan, vlan);
+	system(buf1);
+	return 0;
+}
+
+/* Remove vlan */
+int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
+{
+	char buf1[100];
+
+	if ((vlan < 1) || (vlan >= 4095)) {
+		pp2_err("invalid vid. Range: 1:4095\n");
+		return -EINVAL;
+	}
+
+	/* build manually the system command */
+	/* [TODO] check other alternatives for setting vlan id */
+	sprintf(buf1, "ip link delete %s.%d", port->linux_name, vlan);
+	system(buf1);
+	return 0;
+}
+
 /* Enable or disable RSS */
 void pp2_port_set_rss(struct pp2_port *port, uint32_t en)
 {

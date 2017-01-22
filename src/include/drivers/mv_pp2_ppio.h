@@ -757,7 +757,38 @@ int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc);
 int pp2_ppio_get_phys_in_q(struct pp2_ppio *ppio, u8 tc, u8 qid, u8 *pq);
 int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid);
 
-/*TODO: VLAN filters ????*/
+/**
+ * Add ppio filtering vlan id
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		vlan	vlan id to add.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan);
+
+/**
+ * Remove ppio filtering vlan id
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		vlan	vlan id to remove.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_remove_vlan(struct pp2_ppio *ppio, u16 vlan);
+
+/**
+ * Flush ppio filtering vlan id's
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_flush_vlan(struct pp2_ppio *ppio);
+
 /*TODO: link state ???*/
 /*TODO: counters/statistics for port/Q*/
 
