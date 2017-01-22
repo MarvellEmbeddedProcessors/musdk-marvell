@@ -1,7 +1,7 @@
-From 60cb56ea0f6018a3bb0607b10bd73dd0f8e4b03b Mon Sep 17 00:00:00 2001
+From 580ebcd6fd9fe34017ce866e94ffae425064d7df Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Wed, 11 Jan 2017 19:01:18 +0200
-Subject: [PATCH 4/5] musdk: dts set ports status non kernel:
+Subject: [PATCH 4/6] musdk: dts set ports status non kernel:
 
 Armada-7040:
 Port	Status
@@ -24,9 +24,9 @@ eth2_1	disabled
 Change-Id: I92eece60d1b03fa7d42cdc8ccfe1e49560f594ab
 Signed-off-by: nsamsono <nsamsono@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-7040-db-A.dts  | 4 ++--
- arch/arm64/boot/dts/marvell/armada-8040-db-A.dts  | 6 +++---
- arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts | 4 ++--
+ arch/arm64/boot/dts/marvell/armada-7040-db-A.dts  |    4 ++--
+ arch/arm64/boot/dts/marvell/armada-8040-db-A.dts  |    6 +++---
+ arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts |    4 ++--
  3 files changed, 7 insertions(+), 7 deletions(-)
  mode change 100644 => 100755 arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
  mode change 100644 => 100755 arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
@@ -107,5 +107,5 @@ index 4bb934e..3f6c126
  				eth1_1: eth1@020000 {
  					status = "okay";
 -- 
-1.9.1
+1.7.9.5
 
