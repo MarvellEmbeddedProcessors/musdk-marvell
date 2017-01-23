@@ -192,3 +192,25 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 
 	return 0;
 }
+
+int pp2_bpool_get_num_buffs(struct pp2_hif *hif, struct pp2_bpool *pool, u32 *num_buffs)
+{
+	uintptr_t 	cpu_slot;
+	u32		num = 0;
+
+	cpu_slot = pool->pp2_hw_base[hif->regspace_slot].va;
+
+	num = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_PTRS_NUM_REG(pool->id))
+	   			& MVPP22_BM_POOL_PTRS_NUM_MASK;
+	num += pp2_reg_read(cpu_slot, MVPP2_BM_BPPI_PTRS_NUM_REG(pool->id))
+				& MVPP2_BM_BPPI_PTR_NUM_MASK;
+
+	/* HW has one buffer ready and is not reflected in "external + internal" counters */
+	if (num)
+		num++;
+
+	*num_buffs = num;
+
+	return 0;
+}
+

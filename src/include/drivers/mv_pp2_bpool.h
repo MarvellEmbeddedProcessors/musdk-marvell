@@ -132,15 +132,16 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff);
 
 /**
- * TODO - Get the number of buffers in ppv2 buffer pool.
+ * Get the number of buffers in ppv2 buffer pool.
  *
+ * @param[in]	hif	A hif handle.
  * @param[in]	pool	A bpool handle.
  * @param[out]	buff	A pointer to returned number of buffers.
  *
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs);
+int pp2_bpool_get_num_buffs(struct pp2_hif *hif, struct pp2_bpool *pool, u32 *num_buffs);
 
 /** @} */ // end of grp_pp2_bp
 
