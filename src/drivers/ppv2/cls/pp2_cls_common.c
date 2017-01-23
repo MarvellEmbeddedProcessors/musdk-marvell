@@ -337,7 +337,7 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			memcpy(&field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
 			       &pp2_cls_pkt_key->pkt_key->ipvx_add.ip_src.ip_add_mask.ipv4[0],
 			       IPV4_ADDR_SIZE);
-			pp2_dbg_fmt("field_info[%d] %s val 0x%x.%x.%x.%x mask 0x%x.%x.%x.%x\n", i,
+			pp2_dbg_fmt("field_info[%d] %s val %d.%d.%d.%d mask %d.%d.%d.%d\n", i,
 				    pp2_cls_utils_field_id_str_get(field_info[i].field_id),
 				    field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[0],
 				    field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[1],
@@ -381,7 +381,7 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			memcpy(&field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
 			       &pp2_cls_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add_mask.ipv4[0],
 			       IPV4_ADDR_SIZE);
-			pp2_dbg_fmt("field_info[%d] %s val 0x%x.%x.%x.%x mask 0x%x.%x.%x.%x\n", i,
+			pp2_dbg_fmt("field_info[%d] %s val %d.%d.%d.%d mask %d.%d.%d.%d\n", i,
 				    pp2_cls_utils_field_id_str_get(field_info[i].field_id),
 				    field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[0],
 				    field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[1],
@@ -421,7 +421,7 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->l4_src;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pp2_dbg_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+		pp2_dbg_fmt("field_info[%d] %s val %d mask 0x%x\n", i,
 			    pp2_cls_utils_field_id_str_get(field_info[i].field_id),
 			    field_info[i].filed_value.int_data.parsed_int_val,
 			    field_info[i].filed_value.int_data.parsed_int_val_mask);
@@ -433,7 +433,7 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->l4_dst;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pp2_dbg_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+		pp2_dbg_fmt("field_info[%d] %s val %d mask 0x%x\n", i,
 			    pp2_cls_utils_field_id_str_get(field_info[i].field_id),
 			    field_info[i].filed_value.int_data.parsed_int_val,
 			    field_info[i].filed_value.int_data.parsed_int_val_mask);

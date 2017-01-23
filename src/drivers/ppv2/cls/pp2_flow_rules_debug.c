@@ -565,8 +565,7 @@ int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 				break;
 		}
 		if (flow_log_id == MVPP2_MNG_FLOW_ID_MAX) {
-			printf("logical id not found for lkpid%d\n", lkpid);
-			return -EINVAL;
+			printf("logical id not found for lkpid %d\n", lkpid);
 		}
 		hit_cnt = 0;
 	}

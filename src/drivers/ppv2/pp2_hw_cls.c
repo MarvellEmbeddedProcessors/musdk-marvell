@@ -2083,7 +2083,7 @@ int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe)
 	printf("INDEX: F[0] F[1] F[2] F[3] PRT[T  ID] ENG LAST LKP_TYP  PRIO\n");
 
 	/* index */
-	printf("0x%3.3x  ", fe->index);
+	printf("%5d  ", fe->index);
 
 	/* filed[0] filed[1] filed[2] filed[3] */
 	status |= mv_pp2x_cls_sw_flow_hek_get(fe, &int32bit_1, fieldsArr);
