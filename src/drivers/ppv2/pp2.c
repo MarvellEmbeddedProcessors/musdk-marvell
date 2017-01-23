@@ -417,6 +417,55 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
     return err;
 }
 
+static int pp2_get_devtree_port_data(struct pp2_inst *inst)
+{
+	FILE *fp;
+	char path[256], subpath[256];
+	char buf[50];
+	int i;
+
+	for (i = 0; i < PP2_NUM_PORTS; i++) {
+		struct pp2_port *port = inst->ports[i];
+
+		if (inst->id == 0) {
+			/* TODO -We assume that the path is static.
+			* Need to substitute this with a function that searches for the following string:
+			* <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories and returns the path
+			*/
+			sprintf(path, "/proc/device-tree/cpn-110-master/config-space/ppv22@000000/");
+		} else if (inst->id == 1) {
+			sprintf(path, "/proc/device-tree/cpn-110-slave/config-space/ppv22@000000/");
+		} else {
+			pp2_err("wrong instance id.\n");
+			return -EEXIST;
+		}
+
+		/* Get port status info */
+		sprintf(subpath, "eth%d@0%d0000/status", i, i+1);
+		strcat(path, subpath);
+
+		fp = fopen(path, "r");
+		if (!fp) {
+			pp2_err("error opening device tree status file.\n");
+			return -EEXIST;
+		} else {
+			fgets(buf, sizeof(buf), fp);
+			if (strcmp("disabled", buf) == 0) {
+				pp2_info("port %d:%d is disabled\n", inst->id,i);
+				port->admin_status = PP2_PORT_DISABLED;
+			} else if (strcmp("non-kernel", buf) == 0) {
+				pp2_info("port %d:%d is MUSDK\n", inst->id,i);
+				port->admin_status = PP2_PORT_MUSDK_ENABLED;
+			} else {
+				pp2_info("port %d:%d is kernel\n", inst->id,i);
+				port->admin_status = PP2_PORT_KERNEL_ENABLED;
+			}
+			fclose (fp);
+		}
+	}
+	return 0;
+}
+
 static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 {
    uint32_t i;
@@ -455,6 +504,14 @@ static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
    /* Get static device tree data */
    if (pp2_get_hw_data(inst)) {
        pp2_err("PPDK: cannot populate hardware data\n");
+       for (i = 0; i < PP2_NUM_PORTS; i++)
+           free(inst->ports[i]);
+       free(inst);
+       return NULL;
+   }
+
+   if (pp2_get_devtree_port_data(inst)) {
+       pp2_err("PPDK: cannot populate device tree port data\n");
        for (i = 0; i < PP2_NUM_PORTS; i++)
            free(inst->ports[i]);
        free(inst);

@@ -271,10 +271,18 @@ struct pp2_txq_config {
     uint16_t weight;
 };
 
+enum port_status {
+	PP2_PORT_DISABLED,
+	PP2_PORT_KERNEL_ENABLED,
+	PP2_PORT_MUSDK_ENABLED,
+};
+
 /* PP Port internal structure */
 struct pp2_port {
     /* Port ID */
     uint32_t id;
+    /* Port status */
+    uint32_t admin_status;
     /* Number of RXQs used by this port */
     uint32_t num_rx_queues;
     /* Number of TXQs used by this port */

@@ -59,17 +59,22 @@
  * Implements configuration and run-time Port and I/O routines
  */
 
-/* Find Interface name*/
+/* Find Interface name.
+* searches for the interface name for a specified MUSDK port by
+* comparing the phy_address_base from device tree and from kernel
+* as well as comparing the port_id.
+* This function assumes kernel assigns port_id sequenctially
+ */
 static int pp2_port_get_if_name(struct pp2_port *port)
 {
 	int rc;
 	struct ifreq s;
 	int found = 0;
-	int if_idx = 0;
+	int if_idx = 1;
 	int index = 0;
 
 	do {
-		s.ifr_ifindex = ++if_idx;
+		s.ifr_ifindex = if_idx++;
 		rc = mv_netdev_ioctl(SIOCGIFNAME, &s);
 		if (rc) {
 			found = -1;
@@ -81,6 +86,10 @@ static int pp2_port_get_if_name(struct pp2_port *port)
 			continue;
 
 		if (port->parent->hw.phy_address_base == s.ifr_map.mem_start) {
+			if (port->parent->ports[index]->admin_status == PP2_PORT_DISABLED) {
+				index++;
+			}
+
 			if (port->id == index) {
 				strcpy(port->linux_name, s.ifr_name);
 				pp2_info("PORT: corresponding linux if: %s\n", port->linux_name);
