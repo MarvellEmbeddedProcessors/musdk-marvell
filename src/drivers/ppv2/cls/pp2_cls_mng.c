@@ -49,6 +49,7 @@
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
 #define NOT_SUPPORTED_YET 255
+static enum pp2_cls_module_state_t mng_state;
 
 struct pp2_ppio {
 	struct pp2_port *port;
@@ -271,12 +272,12 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	/* port ID - TODO set it fixed to 1. this value is used only if
 	 * PortIdSelect bit in CLS_FLOW_TBL1 register is set to 0
 	 */
-	fl_rls->fl[0].port_bm = 1;
+	fl_rls->fl[0].port_bm = (1 << port->id);
 
 	/* lookup_type */
 	fl_rls->fl[0].lu_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
 	fl_rls->fl[0].enabled = true;
-	/* priotity - TODO - not implemented yet in API */
+	/* priority - TODO - not implemented yet in API */
 	fl_rls->fl[0].prio = MVPP2_CLS_DEF_PRIO;
 	fl_rls->fl[0].seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
 	fl_rls->fl[0].field_id_cnt = params->key.num_fields - (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3B);
@@ -371,11 +372,14 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 {
 
 	u32 idx1, idx2;
+	char *ret_ptr;
+	char *mask_ptr;
+	char mask_arr[3];
 	struct pp2_cls_pkt_key_t pkt_key;
 	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
 	struct pp2_cls_c3_add_entry_t c3_entry;
 	u32 logic_idx;
-	u32 rc = 0;
+	u32 rc = 0, i;
 	u32 match_bm = 0, bm = 0;
 	u32 proto_flag = 0;
 	u32 ipv4_flag = 0;
@@ -436,7 +440,20 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv4 SA\n");
-				return rc;
+				return -EINVAL;
+			}
+			/* convert mask */
+			if (strncmp((char *)rule->fields[idx1].mask, "0x", 2) == 0)
+				mask_ptr = (char *)((char *)rule->fields[idx1].mask + 2);
+			else
+				return -EINVAL;
+			for (i = 0; i < 4; i++) {
+				strncpy(mask_arr, mask_ptr, 2);
+				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add_mask.ipv4[i] =
+									strtoul(mask_arr, &ret_ptr, 16);
+				if (mask_arr == ret_ptr)
+					return -EINVAL;
+				mask_ptr += 2;
 			}
 			pp2_dbg("IPv4 SA: %d.%d.%d.%d\n",
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0],
@@ -454,8 +471,22 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv4 DA\n");
-				return rc;
+				return -EINVAL;
 			}
+			/* convert mask */
+			if (strncmp((char *)rule->fields[idx1].mask, "0x", 2) == 0)
+				mask_ptr = (char *)((char *)rule->fields[idx1].mask + 2);
+			else
+				return -EINVAL;
+			for (i = 0; i < 4; i++) {
+				strncpy(mask_arr, mask_ptr, 2);
+				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add_mask.ipv4[i] =
+									strtoul(mask_arr, &ret_ptr, 16);
+				if (mask_arr == ret_ptr)
+					return -EINVAL;
+				mask_ptr += 2;
+			}
+
 			pp2_dbg("IPv4 DA: %d.%d.%d.%d\n",
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0],
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[1],
@@ -465,11 +496,11 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		case IPV4_PROTO_FIELD_ID:
 		case IPV6_NH_FIELD_ID:
 			if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_UDP) {
-				pp2_err("udp selected\n");
+				pp2_dbg("udp selected\n");
 				proto_flag = 1;
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_UDP;
 			} else if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_TCP) {
-				pp2_err("tcp selected\n");
+				pp2_dbg("tcp selected\n");
 				proto_flag = 1;
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_TCP;
 			}
@@ -485,7 +516,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv6 SA\n");
-				return rc;
+				return -EINVAL;
 			}
 			pp2_dbg("IPv6 SA: ");
 			for (idx2 = 0; idx2 < 16; idx2 += 2) {
@@ -509,7 +540,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv6 DA\n");
-				return rc;
+				return -EINVAL;
 			}
 			pp2_dbg("IPv6 DA: ");
 			for (idx2 = 0; idx2 < 16; idx2 += 2) {
@@ -529,7 +560,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			}
 			c3_entry.mng_pkt_key->pkt_key->l4_src =
-				strtol((char *)(rule->fields[idx1].key), NULL, 16);
+				strtol((char *)(rule->fields[idx1].key), NULL, 0);
 			break;
 		case L4_DST_FIELD_ID:
 			if (rule->fields[idx1].size != 2) {
@@ -538,7 +569,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			}
 			c3_entry.mng_pkt_key->pkt_key->l4_dst =
-				strtol((char *)(rule->fields[idx1].key), NULL, 16);
+				strtol((char *)(rule->fields[idx1].key), NULL, 0);
 			break;
 		}
 	}
@@ -574,7 +605,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 	c3_entry.qos_value.q_high = 6;
 	c3_entry.qos_value.q_low = 2;
 
-	pp2_dbg("cpu_slot2: %p\n", (void *)port->cpu_slot);
+	pp2_dbg("cpu_slot: %p\n", (void *)port->cpu_slot);
 	/* add rule */
 	rc = pp2_cls_c3_rule_add(port->cpu_slot, &c3_entry, &logic_idx);
 	if (rc) {
@@ -588,7 +619,10 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 
 void pp2_cls_mng_init(uintptr_t cpu_slot)
 {
+	if (mng_state == MVPP2_MODULE_STARTED)
+		return;
 	pp2_cls_db_init();
 	pp2_cls_init(cpu_slot);
 	pp2_cls_c3_start(cpu_slot);
+	mng_state = MVPP2_MODULE_STARTED;
 }
