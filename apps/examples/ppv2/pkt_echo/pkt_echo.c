@@ -952,10 +952,6 @@ static int init_local_modules(struct glob_arg *garg)
 
 		if ((err = pp2_ppio_enable(garg->ports_desc[port_index].port)) != 0)
 			return err;
-#ifdef NO_MVPP2X_DRIVER
-		if ((err = pp2_ppio_set_uc_promisc(garg->ports_desc[port_index].port, 1)) != 0)
-			return err;
-#endif /* NO_MVPP2X_DRIVER */
 	}
 
 	pr_info("done\n");

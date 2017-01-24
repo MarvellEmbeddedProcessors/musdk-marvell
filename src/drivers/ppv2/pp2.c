@@ -186,63 +186,6 @@ static void pp2_inst_init(struct pp2_inst *inst)
     /* Clear BM */
     pp2_bm_flush_pools(cpu_slot, inst->parent->init.bm_pool_reserved_map);
 
-#ifdef NO_MVPP2X_DRIVER
-    /*AXI Bridge Configuration */
-
-    /* BM */
-    pp2_reg_write(cpu_slot, MVPP22_AXI_BM_WR_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_WRITE);
-    pp2_reg_write(cpu_slot, MVPP22_AXI_BM_RD_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_READ);
-
-    /* Descriptors */
-    pp2_reg_write(cpu_slot, MVPP22_AXI_AGGRQ_DESCR_RD_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_READ);
-    pp2_reg_write(cpu_slot, MVPP22_AXI_TXQ_DESCR_WR_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_WRITE);
-    pp2_reg_write(cpu_slot, MVPP22_AXI_TXQ_DESCR_RD_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_READ);
-    pp2_reg_write(cpu_slot, MVPP22_AXI_RXQ_DESCR_WR_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_WRITE);
-
-    /* Buffer Data */
-    pp2_reg_write(cpu_slot, MVPP22_AXI_TX_DATA_RD_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_READ);
-    pp2_reg_write(cpu_slot, MVPP22_AXI_RX_DATA_WR_ATTR_REG,
-            MVPP22_AXI_ATTR_HW_COH_WRITE);
-
-    val = MVPP22_AXI_CODE_CACHE_NON_CACHE << MVPP22_AXI_CODE_CACHE_OFFS;
-    val |= MVPP22_AXI_CODE_DOMAIN_SYSTEM << MVPP22_AXI_CODE_DOMAIN_OFFS;
-    pp2_reg_write(cpu_slot, MVPP22_AXI_RD_NORMAL_CODE_REG, val);
-    pp2_reg_write(cpu_slot, MVPP22_AXI_WR_NORMAL_CODE_REG, val);
-
-    val = MVPP22_AXI_CODE_CACHE_RD_CACHE << MVPP22_AXI_CODE_CACHE_OFFS;
-    val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM << MVPP22_AXI_CODE_DOMAIN_OFFS;
-    pp2_reg_write(cpu_slot, MVPP22_AXI_RD_SNOOP_CODE_REG, val);
-
-    val = MVPP22_AXI_CODE_CACHE_WR_CACHE << MVPP22_AXI_CODE_CACHE_OFFS;
-    val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM << MVPP22_AXI_CODE_DOMAIN_OFFS;
-    pp2_reg_write(cpu_slot, MVPP22_AXI_WR_SNOOP_CODE_REG, val);
-    /* Set cache snoop when transmitting packets */
-    pp2_reg_write(cpu_slot, MVPP2_TX_SNOOP_REG, 0x01);
-
-    /*     Classifier    */
-    /* default classifier setup */
-    ppdk_cls_default_config_set(inst);
-
-    /* TODO(RX): Parser flow ID, Parser/Classifier/C2 config init */
-    mv_pp2x_prs_flow_id_attr_init();
-    mv_pp2x_prs_default_init(hw);
-    mv_pp2x_cls_init(hw);
-    mv_pp2x_c2_init(hw);
-
-   /* TODO [AW] Temporary - need to call cls manager init and it will init all submodules */
-    pp2_cls_db_init();
-    pp2_cls_c3_start(cpu_slot);
-
-    /* TBD(RX): Init PP22 rxfhindir(RSS) table evenly */
-    pp2_init_rxfhindir(inst);
-#endif
 
 	pp2_cls_mng_init(cpu_slot);
 
@@ -264,22 +207,6 @@ static void pp2_inst_init(struct pp2_inst *inst)
 
     /* GOP early activation */
     /* TODO: Revise after device tree adaptation */
-#ifdef NO_MVPP2X_DRIVER
-    for (i = 0; i < PP2_NUM_PORTS; i++)
-    {
-        uint32_t net_comp_config;
-        struct pp2_port *port = inst->ports[i];
-        struct gop_hw *gop   = &inst->hw.gop;
-        struct ppio_init_params	*ppio_param = &(inst->parent->init.ppios[inst->id][i]);
-
-        if (ppio_param->is_enabled == false)
-            continue;
-
-        net_comp_config = pp2_gop_netc_cfg_create(&port->mac_data);
-        pp2_gop_netc_init(gop, net_comp_config, PP2_NETC_FIRST_PHASE);
-        pp2_gop_netc_init(gop, net_comp_config, PP2_NETC_SECOND_PHASE);
-    }
-#endif
 }
 
 static int pp2_get_hw_data(struct pp2_inst *inst)

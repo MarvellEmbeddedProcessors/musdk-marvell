@@ -986,15 +986,8 @@ pp2_port_config_inq(struct pp2_port *port)
 {
     /* Port's classifier configuration */
     mv_pp2x_cls_oversize_rxq_set(port);
-#ifdef NO_MVPP2X_DRIVER
-    mv_pp2x_cls_port_config(port);
-#endif
     /* Initialize hardware internals for RXQs */
     pp2_port_rxqs_init(port);
-#ifdef NO_MVPP2X_DRIVER
-    /*TBD(RX) - port Classfier/Policer/Parser from driver */
-    mv_pp2x_open_cls(port);
-#endif
 }
 
 void
@@ -1003,9 +996,6 @@ pp2_port_config_outq(struct pp2_port *port)
     /* TX FIFO Init to default 3KB size. Default with minimum threshold */
     /* TODO: change according to port type! */
     //pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_3KB, PP2_TX_FIFO_THRS_3KB);
-#ifdef NO_MVPP2X_DRIVER
-    pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_10KB, PP2_TX_FIFO_THRS_10KB);
-#endif
     /* Initialize hardware internals for TXQs */
     pp2_port_txqs_init(port);
 }
@@ -1017,10 +1007,6 @@ pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slow
     port->t_mode = t_mode;
 
     pp2_port_start_dev(port);
-#ifdef NO_MVPP2X_DRIVER
-    if ((t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
-        mv_pp2x_open_cls(port);
-#endif
 }
 
 /* Internal.
@@ -1473,35 +1459,6 @@ pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t in_qid,
 int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
 	int rc = 0;
-#ifdef NO_MVPP2X_DRIVER
-
-	if (!mv_check_eaddr_valid(addr)) {
-		pp2_err("PORT: not a valid eth address\n");
-		return -EINVAL;
-	}
-
-	/* Stop the port internals */
-	pp2_port_stop_dev(port);
-
-	rc = mv_pp2x_prs_update_mac_da(port, (const uint8_t *)addr);
-	if (rc) {
-		/* Restart the port and exit */
-		pp2_err("PORT: cannot update parser entries with new eth address\n");
-		pp2_port_start_dev(port);
-		return rc;
-	}
-
-	/* Reconfigure parser to accept the original MAC address */
-	err = mv_pp2x_prs_update_mac_da(port, (const uint8_t *)port->mac_data.mac);
-	if (rc) {
-		pp2_err("PORT: cannot update parser entries with old eth address\n");
-		pp2_port_start_dev(port);
-		return rc;
-	}
-
-	/* Start the port internals */
-	pp2_port_start_dev(port);
-#else
 	struct ifreq s;
 	int i;
 
@@ -1521,16 +1478,12 @@ int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		return rc;
 
 	mv_cp_eaddr(port->mac_data.mac, (const uint8_t *)addr);
-#endif
 	return 0;
 }
 
 /* Get MAC address */
 int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 {
-#ifdef NO_MVPP2X_DRIVER
-	mv_cp_eaddr(addr, (const uint8_t *)port->mac_data.mac);
-#else
 	int rc;
 	struct ifreq s;
 	int i;
@@ -1542,7 +1495,6 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 
 	for (i = 0; i < ETH_ALEN; i++)
 		addr[i] = s.ifr_hwaddr.sa_data[i];
-#endif
 	return 0;
 }
 
@@ -1680,17 +1632,6 @@ void pp2_port_get_mru(struct pp2_port *port, uint32_t *len)
 /* Set Unicast promiscuous */
 int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 {
-#ifdef NO_MVPP2X_DRIVER
-	struct pp2_hw *hw = &port->parent->hw;
-	u32 id = port->id;
-
-	/* TODO: Revise these */
-
-	/* Enter promisc mode */
-	mv_pp2x_prs_mac_promisc_set(hw, id, en);
-	/* Remove all port->id's ucast enries except M2M entry */
-	mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_UC, MVPP2_DEL_MAC_ALL);
-#else
 	int rc;
 	struct ifreq s;
 
@@ -1711,16 +1652,12 @@ int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 		pp2_err("PORT: unable to set promisc mode to HW\n");
 		return rc;
 	}
-#endif
 	return 0;
 }
 
 /* Check if unicast promiscuous */
 int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
 {
-#ifdef NO_MVPP2X_DRIVER
-	pp2_info("Function not supported\n");
-#else
 	int rc;
 	struct ifreq s;
 
@@ -1735,27 +1672,12 @@ int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
 
 	if (s.ifr_flags & IFF_PROMISC)
 		*en = 1;
-#endif
 	return 0;
 }
 
 /* Set Multicast promiscuous */
 int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
 {
-#ifdef NO_MVPP2X_DRIVER
-	struct pp2_hw *hw = &port->parent->hw;
-	u32 id = port->id;
-
-	/* TODO: Revise these */
-
-	/* Accept all multicast */
-	mv_pp2x_prs_mac_multi_set(hw, id, MVPP2_PE_MAC_MC_ALL, en);
-	mv_pp2x_prs_mac_multi_set(hw, id, MVPP2_PE_MAC_MC_IP6, en);
-	/* Enter promisc mode */
-	mv_pp2x_prs_mac_promisc_set(hw, id, en);
-	/* Remove all port->id's mcast enries */
-	mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_MC, MVPP2_DEL_MAC_ALL);
-#else
 	int rc;
 	struct ifreq s;
 
@@ -1776,16 +1698,12 @@ int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
 		pp2_err("PORT: unable to set all-multicast mode to HW\n");
 		return rc;
 	}
-#endif
 	return 0;
 }
 
 /* Check if Multicast promiscuous */
 int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
 {
-#ifdef NO_MVPP2X_DRIVER
-	pp2_info("Function not supported\n");
-#else
 	int rc;
 	struct ifreq s;
 
@@ -1799,16 +1717,12 @@ int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
 
 	if (s.ifr_flags & IFF_ALLMULTI)
 		*en = 1;
-#endif
 	return 0;
 }
 
 /* Add MAC address */
 int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
-#ifdef NO_MVPP2X_DRIVER
-	pp2_info("Function not supported\n");
-#else
 	int rc;
 
 	if (mv_check_eaddr_mc(addr)) {
@@ -1851,21 +1765,12 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 	} else {
 		pp2_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
-#endif
 	return 0;
 }
 
 /* Remove MAC address */
 int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
-#ifdef NO_MVPP2X_DRIVER
-	if (mv_check_eaddr_uc(addr))
-		mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_UC, MVPP2_DEL_MAC_NOT_IN_LIST);
-	else if (mv_check_eaddr_mc(addr))
-		mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_MC, MVPP2_DEL_MAC_NOT_IN_LIST);
-	else if (mv_check_eaddr_bc(addr))
-		mv_pp2x_prs_mac_entry_del(port, MVPP2_PRS_MAC_BC, MVPP2_DEL_MAC_NOT_IN_LIST);
-#else
 	int rc;
 
 	if (mv_check_eaddr_mc(addr)) {
@@ -1908,7 +1813,6 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 	} else {
 		pp2_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
-#endif
 	return 0;
 }
 
@@ -1933,9 +1837,6 @@ static int parse_hex(char *str, u8 *addr, size_t size)
 
 int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 {
-#ifdef NO_MVPP2X_DRIVER
-	pp2_info("Function not supported\n");
-#else
 	int rc;
 
 	if (mc) {
@@ -1991,7 +1892,6 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 		}
 		close(fd);
 	}
-#endif
 	return 0;
 }
 
