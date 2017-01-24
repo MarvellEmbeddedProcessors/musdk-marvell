@@ -219,6 +219,7 @@ int mv_pp2x_cls_sw_lkp_en_set(struct mv_pp2x_cls_lookup_entry *lkp, int en);
 int mv_pp2x_cls_hw_cls_enable(uintptr_t cpu_slot, uint32_t en);
 int mv_pp2x_cls_hw_lkp_dump(uintptr_t cpu_slot);
 int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot);
+u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value);
 
 /*-------------------------------------------------------------------------------*/
 /*	C3 Common utilities							  */

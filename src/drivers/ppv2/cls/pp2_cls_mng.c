@@ -45,6 +45,7 @@
 #include "pp2_flow_rules.h"
 #include "pp2_cls_db.h"
 #include "drivers/mv_pp2_cls.h"
+#include "../pp2_hw_cls.h"
 #include "pp2_cls_mng.h"
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
@@ -387,6 +388,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 	u32 field;
 	struct pp2_ppio *ppio;
 	struct pp2_port *port;
+	u8 cos_queue, queue;
 
 	/* init value */
 	MVPP2_MEMSET_ZERO(pkt_key);
@@ -596,14 +598,28 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		c3_entry.action.color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 	else
 		c3_entry.action.color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT;
-	c3_entry.action.q_low_act = MVPP2_ACTION_TYPE_NO_UPDT;
-	c3_entry.action.q_high_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	c3_entry.action.policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	c3_entry.action.flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	c3_entry.action.frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
 
-	c3_entry.qos_value.q_high = 6;
-	c3_entry.qos_value.q_low = 2;
+	if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
+		c3_entry.action.q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+		c3_entry.action.q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+		/* MUSDK queue assignement:
+		 *   | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+		 *   | x | port  | tc  num   | rss    |
+		 */
+		cos_queue = mv_pp2x_cosval_queue_map(port, action->cos->tc);
+		queue = port->first_rxq + (cos_queue << PP2_CLS_TC_COS_SHIFT);
+		/* [TODO] Add CPU binding support in lower bits (if no RSS is used)*/
+		c3_entry.qos_value.q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
+		c3_entry.qos_value.q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
+		pp2_dbg("q_low %d, q_high %d, queue %d, cos_queue %d tc %d\n", c3_entry.qos_value.q_low,
+			c3_entry.qos_value.q_high, queue, cos_queue, action->cos->tc);
+	} else {
+		c3_entry.action.q_low_act = MVPP2_ACTION_TYPE_NO_UPDT;
+		c3_entry.action.q_high_act = MVPP2_ACTION_TYPE_NO_UPDT;
+	}
 
 	pp2_dbg("cpu_slot: %p\n", (void *)port->cpu_slot);
 	/* add rule */

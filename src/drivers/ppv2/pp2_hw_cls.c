@@ -2652,18 +2652,14 @@ static inline uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port
 	return (port->first_rxq + (bind_cpu << cos_width));
 }
 
-static inline uint8_t mv_pp2x_cosval_queue_map(struct pp2_port *port,
-					       uint8_t cos_value)
+
+u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value)
 {
 	int cos_width, cos_mask;
 
-	cos_width =
-	    ilog2(roundup_pow_of_two
-		  (port->parent->pp2_cfg.cos_cfg.num_cos_queues));
+	cos_width = ilog2(roundup_pow_of_two(port->num_tcs));
 	cos_mask = (1 << cos_width) - 1;
-
-	return ((port->parent->pp2_cfg.cos_cfg.pri_map >>
-		 (cos_value * 4)) & cos_mask);
+	return ((port->parent->pp2_cfg.cos_cfg.pri_map >> (cos_value * 4)) & cos_mask);
 }
 
 int mv_pp2x_cls_c2_qos_hw_write(struct pp2_hw *hw,
@@ -3209,8 +3205,7 @@ int mv_pp2x_cls_c2_rule_set(struct pp2_port *port, uint8_t start_queue)
 		c2_init_entry.lkp_type = lkp_type;
 		c2_init_entry.lkp_type_mask = 0x3F;
 		/* Action info */
-		c2_init_entry.action.color_act =
-		    MVPP2_COLOR_ACTION_TYPE_NO_UPDT_LOCK;
+		c2_init_entry.action.color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT_LOCK;
 		c2_init_entry.action.pri_act = MVPP2_ACTION_TYPE_NO_UPDT_LOCK;
 		c2_init_entry.action.dscp_act = MVPP2_ACTION_TYPE_NO_UPDT_LOCK;
 		c2_init_entry.action.q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
@@ -3241,10 +3236,8 @@ int mv_pp2x_cls_c2_rule_set(struct pp2_port *port, uint8_t start_queue)
 			}
 		} else {
 			/* QoS info from C2 action table */
-			c2_init_entry.qos_info.q_low_src =
-			    MVPP2_QOS_SRC_ACTION_TBL;
-			c2_init_entry.qos_info.q_high_src =
-			    MVPP2_QOS_SRC_ACTION_TBL;
+			c2_init_entry.qos_info.q_low_src = MVPP2_QOS_SRC_ACTION_TBL;
+			c2_init_entry.qos_info.q_high_src = MVPP2_QOS_SRC_ACTION_TBL;
 			cos_value = port->parent->pp2_cfg.cos_cfg.default_cos;
 			cos_queue = mv_pp2x_cosval_queue_map(port, cos_value);
 			/* map to physical queue */
@@ -5368,31 +5361,32 @@ int mv_pp2x_prs_default_init(struct pp2_hw *hw)
 	return 0;
 }
 
-/* TBD(classifier) static configuration */
+/* [TODO] (classifier) semi static configuration
+* Need to review all values and if necessary to init values per port*/
 void ppdk_cls_default_config_set(struct pp2_inst *inst)
 {
-    if (unlikely(!inst))
-        return;
+	if (unlikely(!inst))
+	return;
 
-    inst->pp2_cfg.cos_cfg.num_cos_queues = 1;
-    inst->pp2_cfg.cos_cfg.cos_classifier = 0;
-    inst->pp2_cfg.cos_cfg.default_cos = 0;
-    inst->pp2_cfg.cos_cfg.reserved = 0;
-    inst->pp2_cfg.cos_cfg.pri_map = 0;
+	inst->pp2_cfg.cos_cfg.num_cos_queues = 1;
+	inst->pp2_cfg.cos_cfg.cos_classifier = 0;
+	inst->pp2_cfg.cos_cfg.default_cos = 0;
+	inst->pp2_cfg.cos_cfg.reserved = 0;
+	inst->pp2_cfg.cos_cfg.pri_map = 0x3210;
 
-    inst->pp2_cfg.rss_cfg.rss_mode = 0;
-    inst->pp2_cfg.rss_cfg.dflt_cpu = 0; /* non IP pkts */
-    inst->pp2_cfg.rss_cfg.rss_en   = 0;
+	inst->pp2_cfg.rss_cfg.rss_mode = 0;
+	inst->pp2_cfg.rss_cfg.dflt_cpu = 0; /* non IP pkts */
+	inst->pp2_cfg.rss_cfg.rss_en   = 0;
 
-    inst->pp2_cfg.first_bm_pool = 0;
-    inst->pp2_cfg.first_sw_thread = 0;
-    inst->pp2_cfg.first_log_rxq = 0;
-    inst->pp2_cfg.queue_mode = 0;
-    inst->pp2_cfg.rx_cpu_map = 0x00;
+	inst->pp2_cfg.first_bm_pool = 0;
+	inst->pp2_cfg.first_sw_thread = 0;
+	inst->pp2_cfg.first_log_rxq = 0;
+	inst->pp2_cfg.queue_mode = 0;
+	inst->pp2_cfg.rx_cpu_map = 0x00;
 
-    inst->cpu_map = 0x01;
+	inst->cpu_map = 0x01;
 
-    inst->pp2xdata.pp2x_max_port_rxqs = 32;
+	inst->pp2xdata.pp2x_max_port_rxqs = 32;
 }
 
 int mv_pp2x_open_cls(struct pp2_port *port)
