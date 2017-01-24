@@ -406,10 +406,10 @@ int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu);
 void pp2_port_get_mtu(struct pp2_port *port, uint16_t *mtu);
 
 /* Set MRU */
-int pp2_port_set_mru(struct pp2_port *port, uint32_t len);
+int pp2_port_set_mru(struct pp2_port *port, uint16_t len);
 
 /* Get MRU */
-void pp2_port_get_mru(struct pp2_port *port, uint32_t *len);
+void pp2_port_get_mru(struct pp2_port *port, uint16_t *len);
 
 /* Set Unicast promiscuous */
 int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en);

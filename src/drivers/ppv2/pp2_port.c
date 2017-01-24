@@ -1088,7 +1088,7 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
    pp2_port_check_mtu_valid(port, port->port_mtu);
 
    /* Provide an initial MRU */
-   port->port_mru = MVPP2_RX_PKT_SIZE(PP2_PORT_DEFAULT_MTU);
+   port->port_mru = MVPP2_MTU_TO_MRU(PP2_PORT_DEFAULT_MTU);
 
    /* Here was the place to activate interrupts
     * but do not unmask CPU and RX QVec Shared interrupts yet,
@@ -1590,6 +1590,25 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 	return 0;
 }
 
+static int pp2_port_check_buf_size(struct pp2_port *port, uint32_t size)
+{
+	uint32_t buf_size;
+	int i;
+
+	for (i = 0; i < port->num_tcs; i++) {
+		buf_size = port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_buf_sz;
+		if (buf_size < size) {
+			pp2_err("PORT: Oversize pkt_size=[%u]. tc[%u]:pool_id[%u]:buf_sz=[%u]\n",
+				size, port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, i, buf_size);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+
+
+
 /* Set and update the port MTU */
 int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu)
 {
@@ -1621,47 +1640,42 @@ void pp2_port_get_mtu(struct pp2_port *port, uint16_t *mtu)
     *mtu = port->port_mtu;
 }
 
-/* Set and update the port MRU */
-int pp2_port_set_mru(struct pp2_port *port, uint32_t mru)
+
+static int pp2_port_check_mru_valid(struct pp2_port *port, uint16_t mru)
+{
+	int err = 0;
+
+	if (mru < PP2_PORT_MIN_MRU) {
+		pp2_err("PORT: cannot change MRU to less than %u bytes\n", PP2_PORT_MIN_MRU);
+		return -EINVAL;
+	}
+	/* Check the port's related bm_pools buffer_sizes are adequate */
+	if (mru > port->port_mru)
+		err = pp2_port_check_buf_size(port, MVPP2_MRU_BUF_SIZE(mru));
+
+	return err;
+}
+
+
+
+/* Set and update the port MRU. The function assumes mru valid is valid */
+int pp2_port_set_mru(struct pp2_port *port, uint16_t mru)
 {
     int err = 0;
 
-    /* Validate MRU */
-    if (mru < PP2_PORT_MIN_MTU) {
-        pp2_err("PORT: cannot change MRU to less than %u bytes\n", PP2_PORT_MIN_MTU);
-        err = -EINVAL;
-        return err;
-    }
-
-    /* Check what maximum MTU value would be in relation to the input mru
-     * value and round up to that plus extra meta bytes
-     */
-    if (MVPP2_RX_PKT_SIZE(mru) > MVPP2_BM_JUMBO_PKT_SIZE) {
-        uint32_t max_mtu_val = MVPP2_RX_MTU_SIZE(MVPP2_BM_JUMBO_PKT_SIZE);
-        pp2_info("PORT: illegal MRU value. Round down to %u bytes\n", max_mtu_val);
-        mru = MVPP2_RX_PKT_SIZE(max_mtu_val);
-    }
-
-    /* Stop the port internals */
-    pp2_port_stop_dev(port);
-
-    /* This MRU is set for control reasons. Hardware RX FIFO is set and
-     * initialized by U-Boot depending on port setup (10G, 2.5G, 1G).
-     * Pools attached to RXQs of this port would have to be re-constructed
-     * using buffers of corresponding sizes.
-     * Since a BM interface is exported, it is better to not update
-     * BM pools implicitly and leave that as client responsability
-     */
+    err = pp2_port_check_mru_valid(port, mru);
+    if (err)
+    	return err;
     port->port_mru = mru;
 
-    /* Start and update the port internals */
-    pp2_port_start_dev(port);
+    if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
+	    pp2_port_mac_max_rx_size_set(port);
 
     return err;
 }
 
 /* Get MRU */
-void pp2_port_get_mru(struct pp2_port *port, uint32_t *len)
+void pp2_port_get_mru(struct pp2_port *port, uint16_t *len)
 {
     /* Straightforward. Useful for informing clients the
      * maximum size their RX BM pool buffers should have

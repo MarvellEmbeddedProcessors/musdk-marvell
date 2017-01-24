@@ -210,6 +210,9 @@ struct pp2_bm_pool {
 
 /* Port minimum MTU in bytes */
 #define PP2_PORT_MIN_MTU         (68) /* Required to support IPV4, per RFC791 */
+#define PP2_PORT_MIN_MRU         (MVPP2_MTU_TO_MRU(PP2_PORT_MIN_MTU))
+
+
 /* Port default MTU in bytes */
 #define PP2_PORT_DEFAULT_MTU     (1500)
 /* Port TX FIFO constants */
@@ -268,7 +271,7 @@ struct pp2_port {
     /* Number of TCs used by this port */
     uint32_t num_tcs;
     /* MRU */
-    uint32_t port_mru;
+    uint16_t port_mru;
     /* MTU */
     uint16_t port_mtu;
     /* First RXQ physical ID (i.e. 0, 32, 64) */

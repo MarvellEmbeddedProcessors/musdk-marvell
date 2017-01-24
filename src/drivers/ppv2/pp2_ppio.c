@@ -250,14 +250,16 @@ int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu)
 
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	int rc;
+	rc = pp2_port_set_mru(ppio->port, len);
+	return rc;
 }
 
 int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	pp2_port_get_mru(ppio->port, len);
+
+	return 0;
 }
 
 int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)

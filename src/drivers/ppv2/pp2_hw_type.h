@@ -1272,7 +1272,6 @@
 /* Lbtd 802.3 type */
 #define MVPP2_IP_LBDT_TYPE		0xfffa
 
-#define MVPP2_CPU_D_CACHE_LINE_SIZE	32
 #define MVPP2_TX_CSUM_MAX_SIZE		9800
 
 /* Timeout constants */
@@ -1342,21 +1341,24 @@
 	(ALIGN((mtu) + PP2_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
 	      ETH_HLEN + ETH_FCS_LEN, L1_CACHE_LINE_BYTES))
 
-#define MVPP2_RX_PKT_SIZE(mtu) \
-	ALIGN((mtu) + PP2_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
-	      ETH_HLEN + ETH_FCS_LEN, MVPP2_CPU_D_CACHE_LINE_SIZE)
+#define MVPP2_MTU_TO_MRU(mtu) \
+	((mtu) + PP2_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
+	ETH_HLEN + ETH_FCS_LEN)
 
+#define MVPP2_MRU_TO_MTU(mru) \
+	((mru) - PP2_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
+	ETH_HLEN - ETH_FCS_LEN)
+
+#define MVPP2_MRU_PKT_SIZE(mru)		(ALIGN((mru), L1_CACHE_LINE_BYTES))
+
+#define MVPP2_MRU_BUF_SIZE(mru)		(MVPP2_MRU_PKT_SIZE(mru) + PP2_PACKET_OFFSET)
 #define MVPP2_MTU_BUF_SIZE(mtu)		(MVPP2_MTU_PKT_SIZE(mtu) + PP2_PACKET_OFFSET)
+
+
 #define MVPP2_RX_MTU_SIZE(pkt_size) \
 	(pkt_size - PP2_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
 	 ETH_HLEN - ETH_FCS_LEN)
 
-#define NET_SKB_PAD  (MVPP2_CPU_D_CACHE_LINE_SIZE)
-
-#define MVPP2_RX_BUF_SIZE(pkt_size)	((pkt_size) + NET_SKB_PAD)
-#define MVPP2_RX_TOTAL_SIZE(buf_size)	((buf_size) + MVPP2_SKB_SHINFO_SIZE)
-#define MVPP2_RX_MAX_PKT_SIZE(total_size) \
-	((total_size) - NET_SKB_PAD - MVPP2_SKB_SHINFO_SIZE)
 
 /* IPv6 max L3 address size */
 #define MVPP2_MAX_L3_ADDR_SIZE		16
@@ -1834,20 +1836,9 @@ struct mv_pp2x_prs_flow_id {
  * These value assure that for SWF the total number
  * of bytes allocated for each buffer will be 512
  */
-#define MVPP2_BM_SHORT_PKT_SIZE	MVPP2_RX_MAX_PKT_SIZE(MVPP2_BM_SHORT_FRAME_SIZE)
-#define MVPP2_BM_LONG_PKT_SIZE	MVPP2_RX_MAX_PKT_SIZE(MVPP2_BM_LONG_FRAME_SIZE)
-#define MVPP2_BM_JUMBO_PKT_SIZE	MVPP2_RX_MAX_PKT_SIZE(MVPP2_BM_JUMBO_FRAME_SIZE)
 
-#define MVPP2_BM_SHORT_FRAME_SIZE		1024
-#define MVPP2_BM_LONG_FRAME_SIZE		2048
 #define MVPP2_BM_JUMBO_FRAME_SIZE		10240
 
-enum mv_pp2x_bm_pool_log_num {
-	MVPP2_BM_SWF_SHORT_POOL,
-	MVPP2_BM_SWF_LONG_POOL,
-	MVPP2_BM_SWF_JUMBO_POOL,
-	MVPP2_BM_SWF_NUM_POOLS
-};
 
 /* The mv_pp2x_tx_desc and mv_pp2x_rx_desc structures describe the
  * layout of the transmit and reception DMA descriptors, and their
