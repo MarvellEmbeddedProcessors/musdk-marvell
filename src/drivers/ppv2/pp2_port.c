@@ -916,9 +916,7 @@ pp2_port_start_dev(struct pp2_port *port)
 	/* No need for port interrupts enable */
 	pp2_gop_port_events_mask(gop, mac);
 
-#ifdef NO_MVPP2X_DRIVER
 	pp2_gop_port_enable(gop, mac);
-#endif
     /* Link status. Indirect access */
     pp2_port_link_status(port);
 
