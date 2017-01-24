@@ -209,45 +209,20 @@ struct pp2_bm_pool {
 };
 
 /* Port minimum MTU in bytes */
-#define PP2_PORT_MIN_MTU         (68)
+#define PP2_PORT_MIN_MTU         (68) /* Required to support IPV4, per RFC791 */
 /* Port default MTU in bytes */
 #define PP2_PORT_DEFAULT_MTU     (1500)
 /* Port TX FIFO constants */
-#define PP2_TX_FIFO_SIZE_2KB     (0x02)
-#define PP2_TX_FIFO_SIZE_3KB     (0x03)
-#define PP2_TX_FIFO_SIZE_4KB     (0x04)
-#define PP2_TX_FIFO_SIZE_5KB     (0x05)
-#define PP2_TX_FIFO_SIZE_6KB     (0x06)
-#define PP2_TX_FIFO_SIZE_7KB     (0x07)
-#define PP2_TX_FIFO_SIZE_8KB     (0x08)
-#define PP2_TX_FIFO_SIZE_9KB     (0x09)
-#define PP2_TX_FIFO_SIZE_10KB    (0x0A)
 
 /* Minimum threshold 256 bytes */
-#define PP2_TX_FIFO_THRS_MIN     (0x100)
-/* Port TX FIFO threshold constants */
-#define PP2_TX_FIFO_THRS_2KB     (PP2_TX_FIFO_SIZE_2KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_3KB     (PP2_TX_FIFO_SIZE_3KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_4KB     (PP2_TX_FIFO_SIZE_4KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_5KB     (PP2_TX_FIFO_SIZE_5KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_6KB     (PP2_TX_FIFO_SIZE_6KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_7KB     (PP2_TX_FIFO_SIZE_7KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_8KB     (PP2_TX_FIFO_SIZE_8KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_9KB     (PP2_TX_FIFO_SIZE_9KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
-#define PP2_TX_FIFO_THRS_10KB    (PP2_TX_FIFO_SIZE_10KB * 1024 - \
-                                        PP2_TX_FIFO_THRS_MIN)
+#define PP2_TX_FIFO_THRS_MIN_SUBSTRACTION	(256)
+
+#define PP2_PORT_TX_FIFO_KB_TO_THRESH(fifo)	((fifo)*1024 - PP2_TX_FIFO_THRS_MIN_SUBSTRACTION)
 
 /* MAC address length */
 #define PP2_ETHADDR_LEN          (6)
 
+#define PP2_PORT_FLAGS_L4_CHKSUM (0x1)
 
 struct pp2_ppio_tc_config {
 	uint16_t pkt_offset;    /* Must be multiple of 32 bytes.*/
@@ -283,6 +258,8 @@ struct pp2_port {
     uint32_t id;
     /* Port status */
     uint32_t admin_status;
+    /* Port Flags */
+    uint32_t flags;
     /* Number of RXQs used by this port */
     uint32_t num_rx_queues;
     /* Number of TXQs used by this port */
@@ -293,7 +270,7 @@ struct pp2_port {
     /* MRU */
     uint32_t port_mru;
     /* MTU */
-    uint32_t port_mtu;
+    uint16_t port_mtu;
     /* First RXQ physical ID (i.e. 0, 32, 64) */
     uint32_t first_rxq;
     /* MAC loopback configuration */
@@ -316,6 +293,8 @@ struct pp2_port {
     struct pp2_mac_data mac_data;
     /* Linux interface name for this port */
     char linux_name[16];
+    /* tx_fifo_size in KB */
+    uint32_t tx_fifo_size;
 };
 
 /**

@@ -400,10 +400,10 @@ int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr);
 int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr);
 
 /* Set MTU */
-int pp2_port_set_mtu(struct pp2_port *port, uint32_t mtu);
+int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu);
 
 /* Get MTU */
-void pp2_port_get_mtu(struct pp2_port *port, uint32_t *mtu);
+void pp2_port_get_mtu(struct pp2_port *port, uint16_t *mtu);
 
 /* Set MRU */
 int pp2_port_set_mru(struct pp2_port *port, uint32_t len);

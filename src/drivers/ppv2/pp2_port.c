@@ -132,6 +132,13 @@ static inline void pp2_port_tx_fifo_config(struct pp2_port *port,
             fifo_thr & MVPP22_TX_FIFO_THRESH_MASK);
 }
 
+/* Set TX FIFO size and threshold */
+static inline uint32_t pp2_port_get_tx_fifo(struct pp2_port *port)
+{
+    return( MVPP22_TX_FIFO_SIZE_MASK & pp2_reg_read(port->cpu_slot, MVPP22_TX_FIFO_SIZE_REG(port->id)) );
+}
+
+
 /* Mask the current CPU's Rx/Tx interrupts */
 static inline void
 pp2_port_interrupts_mask(struct pp2_port *port)
@@ -256,6 +263,32 @@ pp2_port_interrupts_disable(struct pp2_port *port)
     }
     pp2_reg_write(cpu_slot, MVPP2_ISR_ENABLE_REG(port->id),
             MVPP2_ISR_DISABLE_INTERRUPT(mask));
+}
+
+static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
+{
+	uint32_t tx_fifo_threshold;
+
+	/* Validate MTU */
+	if (mtu < PP2_PORT_MIN_MTU) {
+	    pp2_err("PORT: cannot change MTU to less than %u bytes\n", PP2_PORT_MIN_MTU);
+	    return -EINVAL;
+	}
+
+	/* Check MTU can be l4_checksummed */
+	tx_fifo_threshold = PP2_PORT_TX_FIFO_KB_TO_THRESH(port->tx_fifo_size);
+	if (MVPP2_MTU_PKT_SIZE(mtu) > tx_fifo_threshold) {
+		port->flags &= ~PP2_PORT_FLAGS_L4_CHKSUM;
+		pp2_warn("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
+			 mtu, MVPP2_MTU_PKT_SIZE(mtu), tx_fifo_threshold);
+	}
+	else {
+		port->flags |= PP2_PORT_FLAGS_L4_CHKSUM;
+	}
+
+	/* Buffer_pool sizes are not relevant for mtu, only mru. */
+
+	return 0;
 }
 
 /* Set max sizes for Tx queues */
@@ -1050,7 +1083,10 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
    pp2_port_defaults_set(port);
 
    /* Provide an initial MTU */
+   port->flags = PP2_PORT_FLAGS_L4_CHKSUM;
    port->port_mtu = PP2_PORT_DEFAULT_MTU;
+   pp2_port_check_mtu_valid(port, port->port_mtu);
+
    /* Provide an initial MRU */
    port->port_mru = MVPP2_RX_PKT_SIZE(PP2_PORT_DEFAULT_MTU);
 
@@ -1066,6 +1102,8 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 #ifdef NO_MVPP2X_DRIVER
    pp2_port_mac_hw_init(port);
 #endif
+   /* Get tx_fifo_size from hw_register, value was configured by Linux */
+   port->tx_fifo_size = pp2_port_get_tx_fifo(port);
 
 }
 
@@ -1334,7 +1372,8 @@ static inline void pp2_port_tx_desc_swap_ncopy(struct pp2_desc *dst, struct pp2_
 
 
 /* Enqueue implementation */
-uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid, uint16_t num_txds, struct pp2_ppio_desc desc[])
+uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid, uint16_t num_txds,
+		          struct pp2_ppio_desc desc[])
 {
    uintptr_t cpu_slot;
    struct pp2_tx_queue *txq;
@@ -1345,6 +1384,18 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 
    txq = port->txqs[out_qid];
    cpu_slot = dm_if->cpu_slot;
+
+
+#ifdef DEBUG
+   if ((port->flags & PP2_PORT_FLAGS_L4_CHKSUM) == 0) {
+	   for (i = 0;i < num_txds; i++) {
+	   	if (TXD_L4_CHK_ENABLE == DM_TXD_GET_GEN_L4_CHK((desc+i))) {
+			pr_err("[%s] port(%d) l4_checksum flag disabled.\n", __FUNCTION__, port->id);
+			return 0;
+	   	}
+	   }
+   }
+#endif
 
    if (unlikely(dm_if->free_count < num_txds)) {
        uint32_t occ_desc;
@@ -1378,7 +1429,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
        }
    }
    if (!num_txds) {
-       	pr_debug("%s\ num_txds is zero \n", __FUNCTION__);
+       	pr_debug("[%s] num_txds is zero \n", __FUNCTION__);
    	return 0;
    }
 
@@ -1540,71 +1591,19 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 }
 
 /* Set and update the port MTU */
-int pp2_port_set_mtu(struct pp2_port *port, uint32_t mtu)
+int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu)
 {
     int err = 0;
-    uint32_t tx_fifo_thr = 0;
-    uint32_t tx_fifo_size = 0;
 
-    /* Validate MTU */
-    if (mtu < PP2_PORT_MIN_MTU) {
-        pp2_err("PORT: cannot change MTU to less than %u bytes\n", PP2_PORT_MIN_MTU);
-        err = -EINVAL;
-        return err;
-    }
 
-    /* Check maximum MTU value and round up to that plus extra control bytes */
-    if (MVPP2_RX_PKT_SIZE(mtu) > MVPP2_BM_JUMBO_PKT_SIZE) {
-        uint32_t max_val = MVPP2_RX_MTU_SIZE(MVPP2_BM_JUMBO_PKT_SIZE);
-        pp2_info("PORT: illegal MTU value. Round down to %u bytes \n", max_val);
-        mtu = max_val;
-    }
+    err = pp2_port_check_mtu_valid(port, mtu);
+    if (err)
+    	return err;
+
     /* Stop the port internals */
     pp2_port_stop_dev(port);
 
     port->port_mtu = mtu;
-
-    /* Update the TX FIFO size register in accordance with the new MTU value */
-    switch (mtu / (1024)) {
-        case 2:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_3KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_3KB;
-            break;
-        case 3:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_4KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_4KB;
-            break;
-        case 4:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_5KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_5KB;
-            break;
-        case 5:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_6KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_6KB;
-            break;
-        case 6:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_7KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_7KB;
-            break;
-        case 7:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_8KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_8KB;
-            break;
-        case 8:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_9KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_9KB;
-            break;
-        case 9:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_10KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_10KB;
-            break;
-        default:
-            tx_fifo_size = PP2_TX_FIFO_SIZE_2KB;
-            tx_fifo_thr = PP2_TX_FIFO_THRS_2KB;
-            break;
-    }
-    /* Update FIFO in HW */
-    pp2_port_tx_fifo_config(port, tx_fifo_size, tx_fifo_thr);
 
     /* Start and update the port internals */
     pp2_port_start_dev(port);
@@ -1613,7 +1612,7 @@ int pp2_port_set_mtu(struct pp2_port *port, uint32_t mtu)
 }
 
 /* Get MTU */
-void pp2_port_get_mtu(struct pp2_port *port, uint32_t *mtu)
+void pp2_port_get_mtu(struct pp2_port *port, uint16_t *mtu)
 {
     /* Straightforward. Useful for informing clients the
      * maximum size their TX BM pool buffers should have,

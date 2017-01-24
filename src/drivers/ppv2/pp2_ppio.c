@@ -236,14 +236,16 @@ int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr)
 
 int pp2_ppio_set_mtu(struct pp2_ppio *ppio, u16 mtu)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	int rc;
+
+	rc = pp2_port_set_mtu(ppio->port, mtu);
+	return rc;
 }
 
 int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
-	return -ENOTSUP;
+	pp2_port_get_mtu(ppio->port, mtu);
+	return 0;
 }
 
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len)
