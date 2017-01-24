@@ -35,10 +35,7 @@
 
 #include "pp2_plat.h"
 
-#define PPDK  (1) /* XXX: for replacing kernel stuff with user stuff, hardcodes etc. */
-#if     PPDK
 #define BIT(nr) (1UL << (nr))
-#endif /* PPDK */
 
 #define CREATE_MASK(pos, len)		GENMASK((pos)+(len)-1, (pos))
 #define CREATE_MASK_ULL(pos, len)	GENMASK_ULL((pos)+(len)-1, (pos))
@@ -1337,14 +1334,9 @@
 #define MVPP2_RX_FIFO_PORT_MIN_PKT	0x80
 
 /* RX buffer constants */
-#if !PPDK
-#define MVPP2_SKB_SHINFO_SIZE \
-	SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
-#else
 #define MVPP2_SKB_SHINFO_SIZE (0)
 #define ETH_HLEN    14
 #define ETH_FCS_LEN  4
-#endif
 
 #define MVPP2_RX_PKT_SIZE(mtu) \
 	ALIGN((mtu) + PP2_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
@@ -1354,9 +1346,7 @@
 	(pkt_size - PP2_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
 	 ETH_HLEN - ETH_FCS_LEN)
 
-#if PPDK
 #define NET_SKB_PAD  (MVPP2_CPU_D_CACHE_LINE_SIZE)
-#endif
 
 #define MVPP2_RX_BUF_SIZE(pkt_size)	((pkt_size) + NET_SKB_PAD)
 #define MVPP2_RX_TOTAL_SIZE(buf_size)	((buf_size) + MVPP2_SKB_SHINFO_SIZE)
@@ -1368,7 +1358,7 @@
 
 /* Port flags */
 #define MVPP2_F_LOOPBACK		BIT(0)
-#define MVPP2_F_IFCAP_NETMAP    BIT(1)
+#define MVPP2_F_IFCAP_NETMAP    	BIT(1)
 
 /* Marvell tag types */
 enum mv_pp2x_tag_type {
@@ -1718,14 +1708,6 @@ enum mv_pp2x_prs_udf {
 	MVPP2_PRS_UDF_L2_USER,
 };
 
-#if !PPDK
-/* L2 cast in parser result info */
-enum mv_pp2x_l2_cast {
-	MVPP2_PRS_MAC_UC,
-	MVPP2_PRS_MAC_MC,
-	MVPP2_PRS_MAC_BC,
-};
-#endif
 /* Lookup ID */
 enum mv_pp2x_prs_lookup {
 	MVPP2_PRS_LU_MH,
@@ -1821,12 +1803,7 @@ enum mv_pp2x_rss_hash_mode {
 	MVPP2_RSS_HASH_5T,
 };
 
-#if !PPDK
-enum mv_pp2x_mac_del_option {
-	MVPP2_DEL_MAC_ALL = 0,
-	MVPP2_DEL_MAC_NOT_IN_LIST,
-};
-#endif
+
 struct mv_pp2x_prs_result_info {
 	uint32_t ri;
 	uint32_t ri_mask;
