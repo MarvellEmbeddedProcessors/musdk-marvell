@@ -402,7 +402,7 @@ int pp2_gop_gmac_max_rx_size_set(struct gop_hw *gop,
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_CTRL0_REG);
 	reg_val &= ~PP2_GMAC_PORT_CTRL0_FRAMESIZELIMIT_MASK;
-	reg_val |= (((max_rx_size - PP2_MH_SIZE) / 2) <<
+	reg_val |= ((max_rx_size / 2) <<
 		    PP2_GMAC_PORT_CTRL0_FRAMESIZELIMIT_OFFS);
 	pp2_gop_gmac_write(gop, mac_num, PP2_GMAC_PORT_CTRL0_REG, reg_val);
 
