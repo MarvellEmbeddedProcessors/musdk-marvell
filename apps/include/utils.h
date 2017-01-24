@@ -36,11 +36,23 @@
 #include "mv_std.h"
 #include "mv_pp2_hif.h"
 
+#define MVAPPS_PKT_OFFS		64
+#define MVAPPS_MH_SIZE		(2) /* TODO: take this from ppio definitions.*/
+#define MVAPPS_PKT_EFEC_OFFS	(MVAPPS_PKT_OFFS + MVAPPS_MH_SIZE)
+
 
 #define MVAPPS_MAX_NUM_BUFFS	8192
 #define MVAPPS_Q_SIZE		1024
+#define MVAPPS_MAX_BURST_SIZE	(MVAPPS_Q_SIZE >> 1)
+
 #define MVAPPS_PP2_BPOOLS_RSRV	0x7
 #define MVAPPS_PP2_HIFS_RSRV	0xF
+#define MVAPPS_DFLT_BURST_SIZE	256
+#define MVAPPS_MAX_NUM_PORTS 2
+
+#define MVAPPS_MAX_NUM_CORES	4
+#define MVAPPS_MAX_NUM_QS_PER_TC		MVAPPS_MAX_NUM_CORES
+#define MVAPPS_MAX_NUM_QS_PER_CORE		MVAPPS_MAX_NUM_QS_PER_TC
 
 /* TODO: find more generic way to get the following parameters */
 #define MVAPPS_PP2_TOTAL_NUM_BPOOLS	16
@@ -53,6 +65,35 @@ struct bpool_inf {
 	int	num_buffs;
 };
 
+static inline void swap_l2(char *buf)
+{
+	uint16_t *eth_hdr;
+
+	register uint16_t tmp;
+
+	eth_hdr = (uint16_t *)buf;
+	tmp = eth_hdr[0];
+	eth_hdr[0] = eth_hdr[3];
+	eth_hdr[3] = tmp;
+	tmp = eth_hdr[1];
+	eth_hdr[1] = eth_hdr[4];
+	eth_hdr[4] = tmp;
+	tmp = eth_hdr[2];
+	eth_hdr[2] = eth_hdr[5];
+	eth_hdr[5] = tmp;
+}
+
+static inline void swap_l3(char *buf)
+{
+	register uint32_t tmp32;
+
+	buf += 14 + 12;
+	tmp32 = ((uint32_t *)buf)[0];
+	((uint32_t *)buf)[0] = ((uint32_t *)buf)[1];
+	((uint32_t *)buf)[1] = tmp32;
+}
+
+u64 app_get_sys_dma_high_addr(void);
 int app_hif_init(struct pp2_hif **hif);
 int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pbuffs_inf, int num_pools,
 			   struct bpool_inf infs[], struct pp2_hif *hif);

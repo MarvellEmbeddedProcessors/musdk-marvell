@@ -47,6 +47,11 @@ static u64 sys_dma_high_addr;
 static u16 used_bpools = MVAPPS_PP2_BPOOLS_RSRV;
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
+u64 app_get_sys_dma_high_addr(void)
+{
+	return sys_dma_high_addr;
+}
+
 static int find_free_bpool(void)
 {
 	int i;
