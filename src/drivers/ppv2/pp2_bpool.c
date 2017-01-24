@@ -81,6 +81,7 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 	rc = pp2_bm_pool_create(pp2_ptr, &param);
 	if (!rc) {
 		pp2_bpool[pp2_id][pool_id].id = pool_id;
+		pp2_bpool[pp2_id][pool_id].pp2_id = pp2_id;
 		pp2_bpool[pp2_id][pool_id].pp2_hw_base = &(pp2_ptr->pp2_inst[pp2_id]->hw.base[0]);
 		*bpool = &(pp2_bpool[pp2_id][pool_id]);
 	}

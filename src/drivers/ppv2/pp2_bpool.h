@@ -37,6 +37,7 @@
 #include "pp2_types.h"
 
 struct pp2_bpool {
+	int pp2_id; /* PP2 Instance */
 	int id; /* BM Pool number */
 	struct base_addr *pp2_hw_base;
 };
