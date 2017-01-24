@@ -621,7 +621,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 	u16 ref_sum = 0;
 	int rc;
 
-	fl_rl_list_db = malloc(sizeof(struct pp2_db_cls_fl_rule_list_t));
+	fl_rl_list_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
 	if (fl_rl_list_db == NULL) {
 		printf("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -634,7 +634,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 		rc = pp2_db_cls_lkp_dcod_get(i, &lkp_dcod_db);
 		if (rc) {
 			printf("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
-			free(fl_rl_list_db);
+			kfree(fl_rl_list_db);
 			return 0;
 		}
 		if (lkp_dcod_db.flow_len == 0)
@@ -645,7 +645,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 		rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, fl_rl_list_db->flow);
 		if (rc) {
 			printf("pp2_db_cls_fl_rule_list_get returned error %d\n", rc);
-			free(fl_rl_list_db);
+			kfree(fl_rl_list_db);
 			return 0;
 		}
 
@@ -681,7 +681,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 			printf("\n");
 	}
 
-	free(fl_rl_list_db);
+	kfree(fl_rl_list_db);
 	return 0;
 }
 

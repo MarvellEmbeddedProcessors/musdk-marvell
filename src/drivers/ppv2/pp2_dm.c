@@ -53,7 +53,7 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
     /* Identify parent packet processor instance */
     inst = pp2->pp2_inst[pp2_id];
 
-    dm_if = calloc(1, sizeof(struct pp2_dm_if));
+    dm_if = kcalloc(1, sizeof(struct pp2_dm_if), GFP_KERNEL);
     if (unlikely(!dm_if)) {
         pp2_err("DM: cannot allocate DM object\n");
         return -ENOMEM;
@@ -65,7 +65,7 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
     dm_if->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((num_desc * MVPP2_DESC_ALIGNED_SIZE), MVPP2_DESC_Q_ALIGN);
     if (unlikely(!dm_if->desc_virt_arr)) {
         pp2_err("DM: cannot allocate DM region\n");
-        free(dm_if);
+        kfree(dm_if);
         return -ENOMEM;
     }
     dm_if->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(dm_if->desc_virt_arr);
@@ -73,7 +73,7 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
         pp2_err("DM: Descriptor array must be %u-byte aligned\n",
                 MVPP2_DESC_Q_ALIGN);
         mv_sys_dma_mem_free(dm_if->desc_virt_arr);
-        free(dm_if);
+        kfree(dm_if);
         return -EPERM;
     }
     /* Get register address space slot for this DM object */
@@ -115,7 +115,7 @@ void pp2_dm_if_deinit(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id)
 
     pp2_dbg("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
     mv_sys_dma_mem_free(dm_if->desc_virt_arr);
-    free(dm_if);
+    kfree(dm_if);
     inst->num_dm_ifs--;
     inst->dm_ifs[dm_id] = NULL;
 }

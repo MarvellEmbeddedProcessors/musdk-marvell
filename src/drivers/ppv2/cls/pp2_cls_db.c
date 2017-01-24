@@ -71,7 +71,7 @@ static struct pp2_cls_db_t *g_pp2_cls_db;
 static int pp2_cls_db_mem_alloc_init(void)
 {
 	/* Allocation for g_pp2_cls_db */
-	g_pp2_cls_db = malloc(sizeof(struct pp2_cls_db_t));
+	g_pp2_cls_db = kmalloc(sizeof(struct pp2_cls_db_t), GFP_KERNEL);
 	if (!g_pp2_cls_db)
 		goto fail1;
 
@@ -105,7 +105,7 @@ fail1:
 *******************************************************************************/
 static int pp2_cls_db_mem_free(void)
 {
-	free(g_pp2_cls_db);
+	kfree(g_pp2_cls_db);
 
 	return 0;
 }

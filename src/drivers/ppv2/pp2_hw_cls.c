@@ -748,13 +748,13 @@ int mv_pp2x_cls_init(struct pp2_hw *hw)
 		mv_pp2x_cls_lookup_write(hw, &le);
 	}
 
-	hw->cls_shadow = calloc(1, sizeof(struct mv_pp2x_cls_shadow));
+	hw->cls_shadow = kcalloc(1, sizeof(struct mv_pp2x_cls_shadow), GFP_KERNEL);
 	if (!hw->cls_shadow)
 		return -ENOMEM;
 
 	hw->cls_shadow->flow_info =
-	    calloc((MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START),
-		   sizeof(struct mv_pp2x_cls_flow_info));
+	    kcalloc((MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START),
+		   sizeof(struct mv_pp2x_cls_flow_info), GFP_KERNEL);
 	if (!hw->cls_shadow->flow_info)
 		return -ENOMEM;
 
@@ -840,7 +840,7 @@ int mv_pp2x_c2_init(struct pp2_hw *hw)
 		     MVPP2_CLS2_TCAM_CTRL_EN_MASK);
 
 	/* Allocate mem for c2 shadow */
-	hw->c2_shadow = calloc(1, sizeof(struct mv_pp2x_c2_shadow));
+	hw->c2_shadow = kcalloc(1, sizeof(struct mv_pp2x_c2_shadow), GFP_KERNEL);
 	if (!hw->c2_shadow)
 		return -ENOMEM;
 
@@ -1366,7 +1366,7 @@ mv_pp2x_prs_mac_da_range_find(struct pp2_hw *hw, int pmap,
 	struct mv_pp2x_prs_entry *pe;
 	int tid;
 
-	pe = calloc(1, sizeof(*pe));
+	pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 	if (!pe)
 		return NULL;
 	mv_pp2x_prs_tcam_lu_set(pe, MVPP2_PRS_LU_MAC);
@@ -1389,7 +1389,7 @@ mv_pp2x_prs_mac_da_range_find(struct pp2_hw *hw, int pmap,
 		if (mv_pp2x_prs_mac_range_equals(pe, da, mask))
 			return pe;
 	}
-	free(pe);
+	kfree(pe);
 
 	return NULL;
 }
@@ -1487,7 +1487,7 @@ int mv_pp2x_prs_mac_da_accept(struct pp2_hw *hw, int port,
 		if (tid < 0)
 			return tid;
 
-		pe = calloc(1, sizeof(*pe));
+		pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 		if (!pe)
 			return -1;
 		mv_pp2x_prs_tcam_lu_set(pe, MVPP2_PRS_LU_MAC);
@@ -1504,12 +1504,12 @@ int mv_pp2x_prs_mac_da_accept(struct pp2_hw *hw, int port,
 	pmap = mv_pp2x_prs_tcam_port_map_get(pe);
 	if (pmap == 0) {
 		if (add) {
-			free(pe);
+			kfree(pe);
 			return -1;
 		}
 		mv_pp2x_prs_hw_inv(hw, pe->index);
 		hw->prs_shadow[pe->index].valid = false;
-		free(pe);
+		kfree(pe);
 		return 0;
 	}
 
@@ -1543,7 +1543,7 @@ int mv_pp2x_prs_mac_da_accept(struct pp2_hw *hw, int port,
 	mv_pp2x_prs_shadow_set(hw, pe->index, MVPP2_PRS_LU_MAC);
 	mv_pp2x_prs_hw_write(hw, pe);
 
-	free(pe);
+	kfree(pe);
 
 	return 0;
 }
@@ -1608,7 +1608,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_flow_find(struct pp2_hw *hw,
 	int tid;
 	unsigned int dword, enable;
 
-	pe = calloc(1, sizeof(*pe));
+	pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 	if (!pe)
 		return NULL;
 	mv_pp2x_prs_tcam_lu_set(pe, MVPP2_PRS_LU_FLOWS);
@@ -1637,7 +1637,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_flow_find(struct pp2_hw *hw,
 		if ((bits & MVPP2_PRS_FLOW_ID_MASK) == flow)
 			return pe;
 	}
-	free(pe);
+	kfree(pe);
 
 	return NULL;
 }
@@ -1655,7 +1655,7 @@ int mv_pp2x_prs_flow_id_gen(struct pp2_port *port, uint32_t flow_id,
 
 	/* Such entry not exist */
 	if (!pe) {
-		pe = calloc(1, sizeof(*pe));
+		pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 		if (!pe)
 			return -ENOMEM;
 
@@ -1664,7 +1664,7 @@ int mv_pp2x_prs_flow_id_gen(struct pp2_port *port, uint32_t flow_id,
 						  MVPP2_PE_LAST_FREE_TID,
 						  MVPP2_PE_FIRST_FREE_TID);
 		if (tid < 0) {
-			free(pe);
+			kfree(pe);
 			return tid;
 		}
 
@@ -1685,7 +1685,7 @@ int mv_pp2x_prs_flow_id_gen(struct pp2_port *port, uint32_t flow_id,
 
 	mv_pp2x_prs_tcam_port_map_set(pe, (1 << port->id) | pmap);
 	mv_pp2x_prs_hw_write(hw, pe);
-	free(pe);
+	kfree(pe);
 
 	return 0;
 }
@@ -2328,7 +2328,7 @@ int mv_pp2x_prs_def_flow(struct pp2_port *port)
 		if (tid < 0)
 			return tid;
 
-		pe = calloc(1, sizeof(*pe));
+		pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 		if (!pe)
 			return -ENOMEM;
 
@@ -2350,7 +2350,7 @@ int mv_pp2x_prs_def_flow(struct pp2_port *port)
 
 	mv_pp2x_prs_tcam_port_map_set(pe, (1 << port->id));
 	mv_pp2x_prs_hw_write(hw, pe);
-	free(pe);
+	kfree(pe);
 
 	return 0;
 }
@@ -4427,7 +4427,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_vlan_find(struct pp2_hw *hw,
 	struct mv_pp2x_prs_entry *pe;
 	int tid;
 
-	pe = calloc(1, sizeof(*pe));
+	pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 	if (!pe)
 		return NULL;
 	mv_pp2x_prs_tcam_lu_set(pe, MVPP2_PRS_LU_VLAN);
@@ -4465,7 +4465,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_vlan_find(struct pp2_hw *hw,
 		    ri_bits == MVPP2_PRS_RI_VLAN_TRIPLE)
 			return pe;
 	}
-	free(pe);
+	kfree(pe);
 
 	return NULL;
 }
@@ -4487,7 +4487,7 @@ static int mv_pp2x_prs_vlan_add(struct pp2_hw *hw, unsigned short tpid,
 		if (tid < 0)
 			return tid;
 
-		pe = calloc(1, sizeof(*pe));
+		pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 		if (!pe)
 			return -ENOMEM;
 
@@ -4544,7 +4544,7 @@ static int mv_pp2x_prs_vlan_add(struct pp2_hw *hw, unsigned short tpid,
 	mv_pp2x_prs_hw_write(hw, pe);
 
 error:
-	free(pe);
+	kfree(pe);
 
 	return ret;
 }
@@ -4573,7 +4573,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_double_vlan_find(struct pp2_hw
 	struct mv_pp2x_prs_entry *pe;
 	int tid;
 
-	pe = calloc(1, sizeof(*pe));
+	pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 	if (!pe)
 		return NULL;
 	mv_pp2x_prs_tcam_lu_set(pe, MVPP2_PRS_LU_VLAN);
@@ -4601,7 +4601,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_double_vlan_find(struct pp2_hw
 		if (ri_mask == MVPP2_PRS_RI_VLAN_DOUBLE)
 			return pe;
 	}
-	free(pe);
+	kfree(pe);
 
 	return NULL;
 }
@@ -4624,7 +4624,7 @@ static int mv_pp2x_prs_double_vlan_add(struct pp2_hw *hw,
 		if (tid < 0)
 			return tid;
 
-		pe = calloc(1, sizeof(*pe));
+		pe = kcalloc(1, sizeof(*pe), GFP_KERNEL);
 		if (!pe)
 			return -ENOMEM;
 
@@ -4684,7 +4684,7 @@ static int mv_pp2x_prs_double_vlan_add(struct pp2_hw *hw,
 	mv_pp2x_prs_hw_write(hw, pe);
 
 error:
-	free(pe);
+	kfree(pe);
 	return ret;
 }
 
@@ -4903,7 +4903,7 @@ static int mv_pp2x_prs_vlan_init(struct pp2_hw *hw)
 	struct mv_pp2x_prs_entry pe;
 	int err;
 
-	hw->prs_double_vlans = calloc(sizeof(bool), MVPP2_PRS_DBL_VLANS_MAX);
+	hw->prs_double_vlans = kcalloc(sizeof(bool), MVPP2_PRS_DBL_VLANS_MAX, GFP_KERNEL);
 	if (!hw->prs_double_vlans)
 		return -ENOMEM;
 	/* Double VLAN: 0x8100, 0x88A8 */
@@ -5328,8 +5328,8 @@ int mv_pp2x_prs_default_init(struct pp2_hw *hw)
 	for (index = 0; index < MVPP2_PRS_TCAM_SRAM_SIZE; index++)
 		mv_pp2x_prs_hw_inv(hw, index);
 
-	hw->prs_shadow = calloc(MVPP2_PRS_TCAM_SRAM_SIZE,
-				sizeof(struct mv_pp2x_prs_shadow));
+	hw->prs_shadow = kcalloc(MVPP2_PRS_TCAM_SRAM_SIZE,
+				sizeof(struct mv_pp2x_prs_shadow), GFP_KERNEL);
 
 	if (!hw->prs_shadow)
 		return -ENOMEM;

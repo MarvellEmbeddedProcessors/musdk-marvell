@@ -59,7 +59,7 @@ int pp2_sys_ioinit(pp2_maps_handle_t *pp2_maps_hdl, const char *name)
 {
 	struct pp2_uio **pp = (struct pp2_uio **)pp2_maps_hdl;
 
-	*pp = calloc(1, sizeof(struct pp2_uio));
+	*pp = kcalloc(1, sizeof(struct pp2_uio), GFP_KERNEL);
 	if (!*pp)
 		return -ENOMEM;
 
@@ -164,5 +164,5 @@ void pp2_sys_iodestroy(pp2_maps_handle_t pp2_maps_hdl)
 	struct pp2_uio *pp = (struct pp2_uio *)pp2_maps_hdl;
 
 	uio_free_info(pp->uio_info);
-	free(pp);
+	kfree(pp);
 }

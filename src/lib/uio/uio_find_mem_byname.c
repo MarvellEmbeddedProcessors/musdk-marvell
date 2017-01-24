@@ -58,7 +58,7 @@ struct uio_mem_t *uio_find_mem_byname(struct uio_info_t *info,
 				UIO_MAX_NAME_SIZE)) {
 				continue;
 			} else {
-				uiofdp = calloc(1, sizeof(struct uio_info_t));
+				uiofdp = kcalloc(1, sizeof(struct uio_info_t), GFP_KERNEL);
 				uiofdp->map_num = i;
 				uiofdp->fd = UIO_INVALID_FD;
 				uiofdp->info = infp;

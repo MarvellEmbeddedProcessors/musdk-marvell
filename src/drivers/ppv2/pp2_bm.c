@@ -192,7 +192,7 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
         return -EACCES;
     }
     /* Allocate space for pool handler */
-    bm_pool = calloc(1, sizeof(struct pp2_bm_pool));
+    bm_pool = kcalloc(1, sizeof(struct pp2_bm_pool), GFP_KERNEL);
     if (unlikely(!bm_pool)) {
         pp2_err("BM: cannot allocate memory for a BM pool\n");
         return -ENOMEM;
@@ -224,7 +224,7 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
     bm_pool->bm_pool_virt_base = (uintptr_t)mv_sys_dma_mem_alloc(bppe_region_size, MVPP2_BM_POOL_PTR_ALIGN);
     if (unlikely(!bm_pool->bm_pool_virt_base)) {
         pp2_err("BM: cannot allocate region for pool BPPEs\n");
-        free(bm_pool);
+        kfree(bm_pool);
         return -ENOMEM;
     }
 
@@ -234,7 +234,7 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
         pp2_err("BM: pool=%u is not %u bytes aligned", param->id,
                 MVPP2_BM_POOL_PTR_ALIGN);
         mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
-        free(bm_pool);
+        kfree(bm_pool);
         return -EIO;
     }
 
@@ -249,7 +249,7 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
                 bppe_num, bm_pool->bm_pool_phys_base)) {
         pp2_err("BM: could not initialize hardware pool%u\n", bm_pool->bm_pool_id);
         mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
-        free(bm_pool);
+        kfree(bm_pool);
         return -EIO;
     }
 
@@ -325,7 +325,7 @@ int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
 
     mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
 
-    free(bm_pool);
+    kfree(bm_pool);
 
     return 0;
 }

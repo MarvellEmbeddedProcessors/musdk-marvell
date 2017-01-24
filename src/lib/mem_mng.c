@@ -71,7 +71,7 @@ static busy_mem_blk_t * create_busy_blk(u64 base, u64 size, const char *name)
 	busy_mem_blk_t	*busy_blk;
 	u32		 n;
 
-	busy_blk = (busy_mem_blk_t *)malloc(sizeof(busy_mem_blk_t));
+	busy_blk = (busy_mem_blk_t *)kmalloc(sizeof(busy_mem_blk_t), GFP_KERNEL);
 	if ( !busy_blk ) {
 		pr_err("no mem for busy-block obj!\n");
 		return NULL;
@@ -92,7 +92,7 @@ static mem_blk_t * create_new_blk(u64 base, u64 size)
 {
 	mem_blk_t	*mem_blk;
 
-	mem_blk = (mem_blk_t *)malloc(sizeof(mem_blk_t));
+	mem_blk = (mem_blk_t *)kmalloc(sizeof(mem_blk_t), GFP_KERNEL);
 	if ( !mem_blk ) {
 		pr_err("no mem for block obj!\n");
 		return NULL;
@@ -109,7 +109,7 @@ static free_mem_blk_t * create_free_blk(u64 base, u64 size)
 {
 	free_mem_blk_t	*free_blk;
 
-	free_blk = (free_mem_blk_t *)malloc(sizeof(free_mem_blk_t));
+	free_blk = (free_mem_blk_t *)kmalloc(sizeof(free_mem_blk_t), GFP_KERNEL);
 	if ( !free_blk ) {
 		pr_err("no mem for free-block obj!\n");
 		return NULL;
@@ -148,7 +148,7 @@ static int add_free_blk(mm_t *mm, u64 base, u64 end)
 					while ( curr_blk->next && end > curr_blk->next->end ) {
 						nextB = curr_blk->next;
 						curr_blk->next = curr_blk->next->next;
-						free(nextB);
+						kfree(nextB);
 					}
 
 					nextB = curr_blk->next;
@@ -157,7 +157,7 @@ static int add_free_blk(mm_t *mm, u64 base, u64 end)
 					else {
 						curr_blk->end = nextB->end;
 						curr_blk->next = nextB->next;
-						free(nextB);
+						kfree(nextB);
 					}
 				} else if ( (end < curr_blk->base) && ((end-align_base) >= alignment) ) {
 					if ((new_blk = create_free_blk(align_base, end-align_base)) == NULL) {
@@ -183,7 +183,7 @@ static int add_free_blk(mm_t *mm, u64 base, u64 end)
 						prev_blk->next = curr_blk->next;
 					else
 						mm->free_blks[i] = curr_blk->next;
-					free(curr_blk);
+					kfree(curr_blk);
 					curr_blk = NULL;
 				}
 				break;
@@ -244,7 +244,7 @@ static int cut_free_blk(mm_t *mm, u64 hold_base, u64 hold_end)
 						prev_blk->next = curr_blk->next;
 					else
 						mm->free_blks[i] = curr_blk->next;
-					free(curr_blk);
+					kfree(curr_blk);
 				} else
 					curr_blk->base = align_base;
 				break;
@@ -267,7 +267,7 @@ static int cut_free_blk(mm_t *mm, u64 hold_base, u64 hold_end)
 						prev_blk->next = curr_blk->next;
 					else
 						mm->free_blks[i] = curr_blk->next;
-					free(curr_blk);
+					kfree(curr_blk);
 				}
 				break;
 			} else {
@@ -339,7 +339,7 @@ static u64 get_greater_align(mm_t *mm, u64 size, u64 alignment, const char* name
 
 	/* calls Update routine to update a lists of free blocks */
 	if ( cut_free_blk ( mm, hold_base, hold_end ) != 0 ) {
-		free(new_blk);
+		kfree(new_blk);
 		return (u64)(MEM_MNG_ILLEGAL_BASE);
 	}
 
@@ -366,7 +366,7 @@ int mem_mng_init(u64 base, u64 size, struct mem_mng **mm)
 	}
 
 	/* Initializes a new MM object */
-	mm_o = (mm_t *)malloc(sizeof(mm_t));
+	mm_o = (mm_t *)kmalloc(sizeof(mm_t), GFP_KERNEL);
 	if (!mm_o) {
 		pr_err("no mem for mem-mng obj!\n");
 		return -ENOMEM;
@@ -374,7 +374,7 @@ int mem_mng_init(u64 base, u64 size, struct mem_mng **mm)
 
 	mm_o->lock = spin_lock_create();
 	if (!mm_o->lock) {
-		free(mm_o);
+		kfree(mm_o);
 		pr_err("failed to create spinlock!\n");
 		return -ENOMEM;
 	}
@@ -427,7 +427,7 @@ void mem_mng_free(struct mem_mng *mm)
 	while ( busy_blk ) {
 		blk = busy_blk;
 		busy_blk = busy_blk->next;
-		free(blk);
+		kfree(blk);
 	}
 
 	/* release memory allocated for free blocks */
@@ -436,7 +436,7 @@ void mem_mng_free(struct mem_mng *mm)
 		while ( free_blk ) {
 			blk = free_blk;
 			free_blk = free_blk->next;
-			free(blk);
+			kfree(blk);
 		}
 	}
 
@@ -445,14 +445,14 @@ void mem_mng_free(struct mem_mng *mm)
 	while ( mem_blk ) {
 		blk = mem_blk;
 		mem_blk = mem_blk->next;
-		free(blk);
+		kfree(blk);
 	}
 
 	if (mm->lock)
 		spin_lock_destroy(mm->lock);
 
 	/* release memory allocated for MM object itself */
-	free(mm);
+	kfree(mm);
 }
 
 u64 mem_mng_get(struct mem_mng *mm, u64 size, u64 alignment, const char *name)
@@ -518,7 +518,7 @@ u64 mem_mng_get(struct mem_mng *mm, u64 size, u64 alignment, const char *name)
 	/* calls Update routine to update a lists of free blocks */
 	if ( cut_free_blk ( mm, hold_base, hold_end ) != 0 ) {
 		spin_unlock_irqrestore(mm->lock, flags);
-		free(new_blk);
+		kfree(new_blk);
 		return (u64)(MEM_MNG_ILLEGAL_BASE);
 	}
 
@@ -576,7 +576,7 @@ u64 mem_mng_put(struct mem_mng *mm, u64 base)
 	/* Adding the deallocated memory size to free memory size */
 	mm->free_mem_size += size;
 
-	free(busy_blk);
+	kfree(busy_blk);
 	spin_unlock_irqrestore(mm->lock, flags);
 
 	return (size);

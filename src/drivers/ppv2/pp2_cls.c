@@ -72,7 +72,7 @@ int pp2_cls_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl
 	}
 
 	if (table_db.idx < PP2_CLS_MAX_NUM_TABLES) {
-		cls_table = malloc(sizeof(*cls_table));
+		cls_table = kmalloc(sizeof(*cls_table), GFP_KERNEL);
 		if (!cls_table) {
 			pr_err("no mem for cls_table array!\n");
 			return -ENOMEM;
@@ -95,7 +95,7 @@ void pp2_cls_tbl_deinit(struct pp2_cls_tbl *tbl)
 	u32 idx;
 
 	for (idx = 0; idx < table_db.idx; idx++)
-		free(table_db.table[table_db.idx]);
+		kfree(table_db.table[table_db.idx]);
 }
 
 int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,

@@ -29,7 +29,7 @@ void uio_free_dev_attrs(struct uio_info_t* info)
 	p1 = info->dev_attrs;
 	while (p1) {
 		p2 = p1->next;
-		free(p1);
+		kfree(p1);
 		p1 = p2;
 	}
 	info->dev_attrs = NULL;
@@ -42,7 +42,7 @@ void uio_free_info(struct uio_info_t* info)
 	while (p1) {
 		uio_free_dev_attrs(p1);
 		p2 = p1->next;
-		free(p1);
+		kfree(p1);
 		p1 = p2;
 	}
 }
@@ -57,7 +57,7 @@ void uio_free_info(struct uio_info_t* info)
 void uio_free_mem_info(struct uio_mem_t *info)
 {
 	if (info) {
-		free(info);
+		kfree(info);
 		info = NULL;
 	}
 }

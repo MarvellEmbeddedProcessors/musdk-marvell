@@ -505,7 +505,7 @@ pp2_port_txqs_create(struct pp2_port *port)
 
    for (qid = 0; qid < port->num_tx_queues; qid++)
    {
-      struct pp2_tx_queue *txq = calloc(1, sizeof(struct pp2_tx_queue));
+      struct pp2_tx_queue *txq = kcalloc(1, sizeof(struct pp2_tx_queue), GFP_KERNEL);
       if (unlikely(!txq)) {
           pp2_err("PPDK: %s out of memory txq alloc\n",__func__);
           return;
@@ -530,7 +530,7 @@ pp2_port_txqs_destroy(struct pp2_port *port)
       struct pp2_tx_queue *txq = port->txqs[qid];
 
       mv_sys_dma_mem_free(txq->desc_virt_arr);
-      free(txq);
+      kfree(txq);
    }
 }
 
@@ -653,7 +653,7 @@ pp2_port_rxqs_create(struct pp2_port *port)
 
    for (tc = 0; tc < port->num_tcs; tc++) {
        for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
-           struct pp2_rx_queue *rxq = calloc(1, sizeof(struct pp2_rx_queue));
+           struct pp2_rx_queue *rxq = kcalloc(1, sizeof(struct pp2_rx_queue), GFP_KERNEL);
            if (unlikely(!rxq)) {
                pp2_err("PPDK: %s out of memory rxq alloc\n",__func__);
            return;
@@ -680,7 +680,7 @@ pp2_port_rxqs_destroy(struct pp2_port *port)
       struct pp2_rx_queue *rxq = port->rxqs[qid];
 
       mv_sys_dma_mem_free(rxq->desc_virt_arr);
-      free(rxq);
+      kfree(rxq);
    }
 }
 
@@ -1041,14 +1041,14 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
    pp2_gop_port_disable(gop, mac);
 #endif
    /* Allocate TXQ slots for this port */
-   port->txqs = calloc(1, sizeof(struct pp2_tx_queue *) * port->num_tx_queues);
+   port->txqs = kcalloc(1, sizeof(struct pp2_tx_queue *) * port->num_tx_queues, GFP_KERNEL);
    if (unlikely(!port->txqs)){
        pp2_err("PPDK: %s out of memory txqs alloc\n",__func__);
        return;
    }
 
    /* Allocate RXQ slots for this port */
-   port->rxqs = calloc(1, sizeof(struct pp2_rx_queue *) * port->num_rx_queues);
+   port->rxqs = kcalloc(1, sizeof(struct pp2_rx_queue *) * port->num_rx_queues, GFP_KERNEL);
    if (unlikely(!port->rxqs)){
        pp2_err("PPDK: %s out of memory rxqs alloc\n",__func__);
        return;
@@ -1211,9 +1211,9 @@ pp2_port_deinit(struct pp2_port *port)
    pp2_port_rxqs_destroy(port);
 
    /* Free port TXQ slots */
-   free(port->txqs);
+   kfree(port->txqs);
    /* Free port RXQ slots */
-   free(port->rxqs);
+   kfree(port->rxqs);
 }
 
 /* External. Interface down */

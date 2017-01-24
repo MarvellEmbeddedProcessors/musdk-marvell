@@ -238,7 +238,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	}
 
 	/* get the rule list for this logical flow ID */
-	fl_rl_db = malloc(sizeof(struct pp2_db_cls_fl_rule_list_t));
+	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
 	if (fl_rl_db == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -248,7 +248,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	if (rc) {
 		pp2_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
 				fl->fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
-		free(fl_rl_db);
+		kfree(fl_rl_db);
 		return rc;
 	}
 
@@ -262,7 +262,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		rc = pp2_db_cls_rl_off_get(&rl_off, fl_rl_db->flow[rl].rl_log_id);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
@@ -272,21 +272,21 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		rc = mv_pp2x_cls_sw_lkp_flow_set(&fe, rl_off);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_rxq_set(&fe, lkp_dcod_db.cpu_q);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_en_set(&fe, lkp_dcod_db.enabled);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
@@ -295,7 +295,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		rc = mv_pp2x_cls_hw_lkp_write(cpu_slot, &fe);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
@@ -306,7 +306,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 				lkp_dcod_db.luid_list[luid].luid);
 	}
 
-	free(fl_rl_db);
+	kfree(fl_rl_db);
 	return 0;
 }
 
@@ -486,7 +486,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	}
 
 	/* get the rule list for this logical flow ID */
-	fl_rl_db = malloc(sizeof(struct pp2_db_cls_fl_rule_list_t));
+	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
 	if (fl_rl_db == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -496,7 +496,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	if (rc) {
 		pp2_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
 				fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
-		free(fl_rl_db);
+		kfree(fl_rl_db);
 		return rc;
 	}
 
@@ -512,7 +512,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		rc = pp2_db_cls_rl_off_get(&rl_off, fl_rl_db->flow[rl].rl_log_id);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
@@ -523,21 +523,21 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_rxq_set(&fe, lkp_dcod_db.cpu_q);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_en_set(&fe, 1);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
@@ -546,7 +546,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		rc = mv_pp2x_cls_hw_lkp_write(cpu_slot, &fe);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
@@ -562,11 +562,11 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	rc = pp2_db_cls_lkp_dcod_set(fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pp2_err("recvd ret_code(%d)\n", rc);
-		free(fl_rl_db);
+		kfree(fl_rl_db);
 		return rc;
 	}
 
-	free(fl_rl_db);
+	kfree(fl_rl_db);
 	return 0;
 }
 
@@ -2082,7 +2082,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 #endif
 
 	memset(cur_fl, 0, sizeof(struct pp2_cls_fl_t));
-	fl_rl_db = malloc(sizeof(struct pp2_db_cls_fl_rule_list_t));
+	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
 	if (fl_rl_db == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -2094,7 +2094,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 	cur_fl->fl_log_id = fl_log_id;
 
 	if (lkp_dcod_db.flow_len == 0) {
-		free(fl_rl_db);
+		kfree(fl_rl_db);
 		return 0;
 	}
 
@@ -2102,7 +2102,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 	if (rc) {
 		pp2_err("fail to get flow rule list DB data, fl_log_id=%d, flow_off=%d, flow_len=%d\n",
 			fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
-		free(fl_rl_db);
+		kfree(fl_rl_db);
 		return rc;
 	}
 
@@ -2133,12 +2133,12 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 		rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_INC, fl_rl_db->flow[i].engine, &cur_fl->eng_cnt);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 	}
 
-	free(fl_rl_db);
+	kfree(fl_rl_db);
 	return 0;
 }
 
@@ -2312,20 +2312,20 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 		return -EFAULT;
 	}
 
-	new_fl = malloc(sizeof(struct pp2_cls_fl_t));
+	new_fl = kmalloc(sizeof(struct pp2_cls_fl_t), GFP_KERNEL);
 	if (new_fl == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
-	merge_fl = malloc(sizeof(struct pp2_cls_fl_t));
+	merge_fl = kmalloc(sizeof(struct pp2_cls_fl_t), GFP_KERNEL);
 	if (merge_fl == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto err1;
 	}
 
-	cur_fl = malloc(sizeof(struct pp2_cls_fl_t));
+	cur_fl = kmalloc(sizeof(struct pp2_cls_fl_t), GFP_KERNEL);
 	if (cur_fl == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
@@ -2477,17 +2477,17 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 		}
 	}
 
-	free(cur_fl);
-	free(merge_fl);
-	free(new_fl);
+	kfree(cur_fl);
+	kfree(merge_fl);
+	kfree(new_fl);
 
 	return 0;
 err3:
-	free(cur_fl);
+	kfree(cur_fl);
 err2:
-	free(merge_fl);
+	kfree(merge_fl);
 err1:
-	free(new_fl);
+	kfree(new_fl);
 
 	return rc;
 }
@@ -2523,7 +2523,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		return -EFAULT;
 	}
 
-	fl_rl_db = malloc(sizeof(struct pp2_db_cls_fl_rule_list_t));
+	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
 	if (fl_rl_db == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -2545,7 +2545,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		if (rc) {
 			pp2_err("failed to get flow rule list, fl_log_id=%d flow_off=%d flow_len=%d\n",
 					fl_rls->fl[i].fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 
@@ -2575,7 +2575,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 						rc = pp2_cls_fl_rl_hw_ena(cpu_slot, rl_en);
 						if (rc) {
 							pp2_err("recvd ret_code(%d)\n", rc);
-							free(fl_rl_db);
+							kfree(fl_rl_db);
 							return rc;
 						}
 					}
@@ -2621,7 +2621,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 			pr_err("field_id_0(%x), field_id_1(%x),field_id_2(%x),field_id_3(%x)\n",
 				fl_rls->fl[i].field_id[0], fl_rls->fl[i].field_id[1], fl_rls->fl[i].field_id[2],
 				fl_rls->fl[i].field_id[3]);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return -EFAULT;
 		}
 
@@ -2637,7 +2637,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 			rc = pp2_cls_fl_rl_hw_ena(cpu_slot, rl_en);
 			if (rc) {
 				pp2_err("recvd ret_code(%d)\n", rc);
-				free(fl_rl_db);
+				kfree(fl_rl_db);
 				return rc;
 			}
 		}
@@ -2659,12 +2659,12 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		rc = pp2_db_cls_fl_rule_set(lkp_dcod_db.flow_off + rl_off, rl_db);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
-			free(fl_rl_db);
+			kfree(fl_rl_db);
 			return rc;
 		}
 	}
 
-	free(fl_rl_db);
+	kfree(fl_rl_db);
 	return 0;
 }
 
@@ -2934,7 +2934,7 @@ static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_
 	int rc = 0;
 	int way = 0; /* currently, always setting way to '0' */
 
-	dcod_entry = malloc(sizeof(struct pp2_cls_lkp_dcod_entry_t));
+	dcod_entry = kmalloc(sizeof(struct pp2_cls_lkp_dcod_entry_t), GFP_KERNEL);
 	if (dcod_entry == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -2977,7 +2977,7 @@ static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_
 	}
 
 end:
-	free(dcod_entry);
+	kfree(dcod_entry);
 
 	return rc;
 }
@@ -3011,7 +3011,7 @@ int pp2_cls_init(uintptr_t cpu_slot)
 
 	pp2_db_cls_init();
 
-	fl_rls = malloc(sizeof(struct pp2_cls_fl_rule_list_t));
+	fl_rls = kmalloc(sizeof(struct pp2_cls_fl_rule_list_t), GFP_KERNEL);
 	if (fl_rls == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -3044,7 +3044,7 @@ int pp2_cls_init(uintptr_t cpu_slot)
 	pp2_cls_lkp_dcod_enable_all(cpu_slot);
 
 end:
-	free(fl_rls);
+	kfree(fl_rls);
 
 	return rc;
 }

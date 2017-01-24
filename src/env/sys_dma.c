@@ -90,7 +90,7 @@ static void free_mem(struct sys_dma *sdma)
 static int init_mem(struct sys_dma *sdma, u64 size)
 {
         BUG_ON(!sdma);
-        sdma->dma_virt_base = malloc(size);
+        sdma->dma_virt_base = kmalloc(size, GFP_KERNEL);
         if (!sdma->dma_virt_base) {
                 pr_err("Failed to allocate DMA memory!\n");
                 return -ENOMEM;
@@ -104,7 +104,7 @@ static void free_mem(struct sys_dma *sdma)
         BUG_ON(!sdma);
         if (!sdma->dma_virt_base)
                 return;
-        free(sdma->dma_virt_base);
+        kfree(sdma->dma_virt_base);
 }
 #endif /* MVCONF_SYS_DMA_UIO */
 
@@ -116,7 +116,7 @@ int mv_sys_dma_mem_init(u64 size)
 	if (sys_dma)
 		i_sys_dma = sys_dma;
 	else {
-		i_sys_dma = (struct sys_dma *)malloc(sizeof(struct sys_dma));
+		i_sys_dma = (struct sys_dma *)kmalloc(sizeof(struct sys_dma), GFP_KERNEL);
 		if (!i_sys_dma) {
 			pr_err("no mem for sys-dma obj!\n");
 			return -ENOMEM;
@@ -154,7 +154,7 @@ void mv_sys_dma_mem_destroy(void)
 
 	mem_mng_free(sys_dma->mm);
 	free_mem(sys_dma);
-	free(sys_dma);
+	kfree(sys_dma);
 
 	sys_dma = NULL;
 	__dma_phys_base = 0;

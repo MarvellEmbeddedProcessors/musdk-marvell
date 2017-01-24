@@ -671,7 +671,7 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 	char hit_cnt_str[8] = "";
 	int rc;
 
-	result_entry = malloc(128 * sizeof(struct pp2_cls_c3_scan_entry_t));
+	result_entry = kmalloc(128 * sizeof(struct pp2_cls_c3_scan_entry_t), GFP_KERNEL);
 	if (!result_entry) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -682,7 +682,7 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 	rc = pp2_cls_c3_scan_result_get(cpu_slot, max_num, &entry_num, result_entry);
 	if (rc) {
 		pp2_err("fail to get scan result\n");
-		free(result_entry);
+		kfree(result_entry);
 		return -EIO;
 	}
 
@@ -701,7 +701,7 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 	print_horizontal_line(100, "=");
 	printf("Total Number:%d\n", entry_num);
 
-	free(result_entry);
+	kfree(result_entry);
 	return 0;
 }
 

@@ -36,7 +36,7 @@
 
 spinlock_t * spin_lock_create(void)
 {
-    pthread_mutex_t *mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_t *mutex = (pthread_mutex_t *)kmalloc(sizeof(pthread_mutex_t), GFP_KERNEL);
     int err = pthread_mutex_init(mutex, NULL);
     if (err) return NULL;
 
@@ -47,5 +47,5 @@ void spin_lock_destroy(spinlock_t *lock)
 {
 	pthread_mutex_t *mutex = (pthread_mutex_t *)lock;
 	if (mutex)
-		free(mutex);
+		kfree(mutex);
 }

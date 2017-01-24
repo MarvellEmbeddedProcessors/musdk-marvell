@@ -212,7 +212,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		return -EINVAL;
 	pp2_dbg("key.num_fields = %d\n", params->key.num_fields);
 
-	fl_rls = malloc(sizeof(struct pp2_cls_fl_rule_list_t));
+	fl_rls = kmalloc(sizeof(struct pp2_cls_fl_rule_list_t), GFP_KERNEL);
 	if (fl_rls == NULL) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -362,7 +362,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	}
 
 end:
-	free(fl_rls);
+	kfree(fl_rls);
 
 	return rc;
 }

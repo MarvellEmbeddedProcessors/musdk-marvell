@@ -64,13 +64,13 @@ int uio_get_device_attributes(struct uio_info_t* info)
 			info->uio_num, namelist[n]->d_name);
 		if (!__uio_dev_attr_filter(fullname))
 			continue;
-		attr = malloc(sizeof(struct uio_dev_attr_t));
+		attr = kmalloc(sizeof(struct uio_dev_attr_t), GFP_KERNEL);
 		if (!attr)
 			return -1;
 		strncpy(attr->name, namelist[n]->d_name, UIO_MAX_NAME_SIZE);
 		free(namelist[n]);
 		if (__uio_line_from_file(fullname, attr->value)) {
-			free(attr);
+			kfree(attr);
 			continue;
 		}
 

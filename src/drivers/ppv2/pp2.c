@@ -474,7 +474,7 @@ static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
        return NULL;
    }
 
-   inst = calloc(1, sizeof(struct pp2_inst));
+   inst = kcalloc(1, sizeof(struct pp2_inst), GFP_KERNEL);
    if (unlikely(!inst)) {
       pp2_err("PPDK: %s out of memory pp2_inst alloc\n",__func__);
       return NULL;
@@ -486,7 +486,7 @@ static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
     * initializations shall be done
     */
    for (i = 0 ; i < PP2_NUM_PORTS; i++) {
-      struct pp2_port *port = calloc(1, sizeof(struct pp2_port));
+      struct pp2_port *port = kcalloc(1, sizeof(struct pp2_port), GFP_KERNEL);
       if (unlikely(!port)) {
          pp2_err("PPDK: %s out of memory pp2_port alloc\n", __func__);
          break;
@@ -503,16 +503,16 @@ static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
    if (pp2_get_hw_data(inst)) {
        pp2_err("PPDK: cannot populate hardware data\n");
        for (i = 0; i < PP2_NUM_PORTS; i++)
-           free(inst->ports[i]);
-       free(inst);
+           kfree(inst->ports[i]);
+       kfree(inst);
        return NULL;
    }
 
    if (pp2_get_devtree_port_data(inst)) {
        pp2_err("PPDK: cannot populate device tree port data\n");
        for (i = 0; i < PP2_NUM_PORTS; i++)
-           free(inst->ports[i]);
-       free(inst);
+           kfree(inst->ports[i]);
+       kfree(inst);
        return NULL;
    }
 
@@ -546,18 +546,18 @@ static void pp2_destroy(struct pp2_inst *inst)
     /* No dangling handles */
     for (i = 0; i < PP2_NUM_PORTS; i++) {
         if (inst->ports[i])
-            free(inst->ports[i]);
+            kfree(inst->ports[i]);
     }
     for (i = 0; i < PP2_NUM_REGSPACES; i++) {
         if (inst->dm_ifs[i])
-            free(inst->dm_ifs[i]);
+            kfree(inst->dm_ifs[i]);
     }
     for (i = 0; i < PP2_NUM_BMPOOLS; i++) {
         if (inst->bm_pools[i])
-            free(inst->bm_pools[i]);
+            kfree(inst->bm_pools[i]);
     }
 
-    free(inst);
+    kfree(inst);
 }
 
 int pp2_init(struct pp2_init_params *params)
@@ -565,7 +565,7 @@ int pp2_init(struct pp2_init_params *params)
     uint32_t pp2_id;
     uint32_t pp2_num_inst;
 
-    pp2_ptr = calloc(1, sizeof(struct pp2));
+    pp2_ptr = kcalloc(1, sizeof(struct pp2), GFP_KERNEL);
     if (unlikely(!pp2_ptr)) {
         pp2_err("PPDK: %s out of memory pp2 alloc\n",__func__);
         return -ENOMEM;
@@ -591,7 +591,7 @@ int pp2_init(struct pp2_init_params *params)
                 /* Also destroy the previous instance */
                 pp2_destroy(pp2_ptr->pp2_inst[PP2_ID0]);
             }
-            free(pp2_ptr);
+            kfree(pp2_ptr);
 
             return -ENOMEM;
         }
@@ -619,7 +619,7 @@ void pp2_deinit(void)
 	}
 
     /* Destroy the PPDK handle */
-	free(pp2_ptr);
+	kfree(pp2_ptr);
 }
 
 int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)

@@ -47,7 +47,7 @@ static struct uio_info_t *__uio_info_byname(char* name, const char *filter_name)
 	if (strncmp(linebuf, filter_name, UIO_MAX_NAME_SIZE))
 		return NULL;
 
-	info = malloc(sizeof(struct uio_info_t));
+	info = kmalloc(sizeof(struct uio_info_t), GFP_KERNEL);
 	if (!info)
 		return NULL;
 	memset(info, 0, sizeof(struct uio_info_t));
@@ -68,7 +68,7 @@ struct uio_info_t *uio_find_devices_byname(const char *filter_name)
 
 	while(n--) {
 		infp = __uio_info_byname(namelist[n]->d_name, filter_name);
-		free(namelist[n]);
+		kfree(namelist[n]);
 		if (!infp)
 			continue;
 		if (!infolist)
@@ -77,7 +77,7 @@ struct uio_info_t *uio_find_devices_byname(const char *filter_name)
 			last->next = infp;
 		last = infp;
 	}
-	free(namelist);
+	kfree(namelist);
 
 	return infolist;
 }

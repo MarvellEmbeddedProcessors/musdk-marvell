@@ -29,11 +29,12 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
- 
+
 #ifndef __UIO_HELPER_H__
 #define __UIO_HELPER_H__
 
 #include <sys/mman.h>
+#include "mv_std.h"
 
 /* convensions */
 
