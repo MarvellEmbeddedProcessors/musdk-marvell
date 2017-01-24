@@ -2824,7 +2824,7 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 	int rc;
 
 	struct mv_pp2x_cls_flow_entry fe;
-	int engine, is_last, num_of_fields, port_type, port_id, lkp_type, prio, seq_ctrl;
+	int engine, is_last, num_of_fields, port_type, port_id, lkp_type, prio, seq_ctrl, tmp;
 	int fields_arr[MVPP2_CLS_FLOWS_TBL_FIELDS_MAX];
 
 	for (; flow_index < MVPP2_CLS_FLOWS_TBL_SIZE; flow_index++) {
@@ -2845,11 +2845,12 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 			break;
 		}
 
-		rc = mv_pp2x_cls_sw_flow_extra_get(&fe, &lkp_type, &prio);
+		rc = mv_pp2x_cls_sw_flow_extra_get(&fe, &lkp_type, &tmp);
 		if (rc) {
 			pp2_err("mv_pp2x_cls_sw_flow_extra_get fail rc = %d\n", rc);
 			return rc;
 		}
+
 		/* add only kernel flows to db & hw */
 		if (lkp_type > MVPP2_CLS_LKP_DEFAULT) {
 			if (is_last) {
@@ -2857,6 +2858,16 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 				break;
 			}
 			continue;
+		}
+
+		/* set kernel engine priority higher then '0' for let musdk option for better priority */
+		if (engine == MVPP2_CLS_ENGINE_C2)
+			prio = MVPP2_CLS_KERNEL_C2_PRIO;
+		else if (engine == MVPP2_CLS_ENGINE_C3HA || engine == MVPP2_CLS_ENGINE_C3HB)
+			prio = MVPP2_CLS_KERNEL_C3_PRIO;
+		else {
+			pp2_err("%s(%d) found wrong engine = %d\n", __func__, __LINE__, engine);
+			return -EINVAL;
 		}
 
 		rc = mv_pp2x_cls_sw_flow_port_get(&fe, &port_type, &port_id);

@@ -61,12 +61,17 @@
 #define MVPP2_CLS_DEF_FLOW_LEN		20
 #define MVPP2_CLS_DEF_WAY		0
 #define MVPP2_CLS_DEF_RXQ		0
-#define MVPP2_CLS_DEF_PRIO		0
 #define MVPP2_CLS_DEF_SEQ_CTRL		0
 
 /******************************************************************************/
 /*                              ENUMERATIONS                                  */
 /******************************************************************************/
+
+enum pp2_cls_rl_prio_t {
+	MVPP2_CLS_MUSDK_PRIO = 0,
+	MVPP2_CLS_KERNEL_C2_PRIO,
+	MVPP2_CLS_KERNEL_C3_PRIO
+};
 enum pp2_cls_rl_mrg_state_t {
 	MVPP2_MRG_NOT_NEW			= 0x0000,			/* merged rule no new		*/
 	MVPP2_MRG_NEW			= 0x0001,			/* merged rule new		*/

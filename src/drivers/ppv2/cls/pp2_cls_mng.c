@@ -278,7 +278,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	fl_rls->fl[0].lu_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
 	fl_rls->fl[0].enabled = true;
 	/* priority - TODO - not implemented yet in API */
-	fl_rls->fl[0].prio = MVPP2_CLS_DEF_PRIO;
+	fl_rls->fl[0].prio = MVPP2_CLS_MUSDK_PRIO;
 	fl_rls->fl[0].seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
 	fl_rls->fl[0].field_id_cnt = params->key.num_fields - (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3B);
 
