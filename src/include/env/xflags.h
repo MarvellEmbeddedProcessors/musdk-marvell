@@ -45,6 +45,4 @@
 
 #define MVCONF_SYS_DMA_UIO
 
-//#define NO_MVPP2X_DRIVER
-
 #endif /* __XFLAGS_H__ */
