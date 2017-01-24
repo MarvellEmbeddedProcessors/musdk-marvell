@@ -183,6 +183,20 @@ void pp2_bm_if_deinit(struct pp2_bm_if *bm_if);
 uint32_t pp2_bm_pool_get_id(struct pp2_bm_pool *bm_pool);
 
 /**
+ * pp2_bm_pool_get_pool_by_id
+ *
+ * Get pointer to buffer_pool configuration
+ * in specified PP@ Instance, and pool_id
+ *
+ * @param pp2_inst   PP2 Instance handle
+ * @param pool_id    pool id
+ *
+ * @retval           BM Pool handle, NULL if not found
+ */
+struct pp2_bm_pool * pp2_bm_pool_get_pool_by_id(struct pp2_inst * pp2_inst, uint32_t pool_id);
+
+
+/**
  * pp2_bm_buf_get
  *
  * Get (allocate from BM) a free buffer which resides
@@ -194,6 +208,7 @@ uint32_t pp2_bm_pool_get_id(struct pp2_bm_pool *bm_pool);
  *
  * @retval           Virtual buffer address
  */
+
 uintptr_t pp2_bm_buf_get(struct pp2_bm_if *bm_if,
 			  struct pp2_bm_pool *bm_pool);
 

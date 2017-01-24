@@ -254,7 +254,7 @@ struct pp2_ppio_tc_config {
 	uint8_t use_hash;
 	uint8_t num_in_qs;
 	uint8_t first_rxq;	/* First physical rx_queue for this TC */
-	uint8_t pools[PP2_PPIO_TC_MAX_POOLS];
+	struct pp2_bm_pool *pools[PP2_PPIO_TC_MAX_POOLS];
 /* TODO: future:
 	int							 qos;
 */

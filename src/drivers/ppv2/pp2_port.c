@@ -620,8 +620,8 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
        pp2_err("port(%d) phy_rxq(%d), not found in tc range \n", port->id, rxq->id);
        return;
    }
-   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL], rxq->id, BM_TYPE_SHORT_BUF_POOL);
-   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_LONG_BUF_POOL], rxq->id, BM_TYPE_LONG_BUF_POOL);
+   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL]->bm_pool_id, rxq->id, BM_TYPE_SHORT_BUF_POOL);
+   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, rxq->id, BM_TYPE_LONG_BUF_POOL);
 
    /* Add number of descriptors ready for receiving packets */
    val = (0 | (rxq->desc_total << MVPP2_RXQ_NUM_NEW_OFFSET));
@@ -1092,6 +1092,51 @@ pp2_port_validate_id(const char *if_name)
    return pid;
 }
 
+
+static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[], struct pp2_bm_pool * pools[])
+{
+	uint8_t index = 0, j;
+	struct pp2_bm_pool *temp_pool;
+
+	/* check pool0/pool1 */
+
+	for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++) {
+		if (param_pools[j]) {
+			if (param_pools[j]->pp2_id != pp2_inst->id) {
+				pp2_err("[%s]:pool_ppid[%d] does not match pp2_id[%d]\n", 
+				        __func__, param_pools[j]->pp2_id, pp2_inst->id);
+				return -1;
+			}
+			pools[index] = pp2_bm_pool_get_pool_by_id(pp2_inst, param_pools[j]->id);
+			if (!pools[index]) {
+				pp2_err("[%s]:pool_id[%d] has no matching struct\n", __func__, param_pools[j]->id);
+				return -1;
+			}
+			index++;
+		}
+	}
+
+	/* Set pool with smallest buf_size first */
+	if (index == 2) {
+		if (pools[0]->bm_pool_buf_sz > pools[1]->bm_pool_buf_sz) {
+			temp_pool = pools[0];
+			pools[0] = pools[1];
+			pools[1] = temp_pool;
+		}
+
+	}
+	else if (index == 1) {
+		pools[1] = pools[0]; /* Both small and long pool are the same one */
+	}
+	else {
+		pp2_err("[%s]: pool_params do not exist\n");
+		return -1;
+        }
+
+	return 0;
+}
+
+
 /* Identify the correct packet processor handle and
  * populate port control data based on input parameters
  * Initializes all hardware port internal elements,
@@ -1107,6 +1152,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
    struct pp2_inst *inst;
    struct pp2_port *port;
    struct pp2_hw *hw;
+   int rc;
 
    inst = pp2->pp2_inst[pp2_id];
 
@@ -1131,12 +1177,9 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
         port->tc[i].tc_config.num_in_qs = num_in_qs;
         first_rxq = roundup(first_rxq, num_in_qs); /*To support RSS, each TC must start at natural rxq boundary */
         port->tc[i].tc_config.first_rxq = first_rxq;
-
-        for (j = 0;j < PP2_PPIO_TC_MAX_POOLS; j++) {
-		if (!param->inqs_params.tcs_params[i].pools[j])
-			break;
-		port->tc[i].tc_config.pools[j] = param->inqs_params.tcs_params[i].pools[j]->id;
-        }
+	rc = populate_tc_pools(inst, param->inqs_params.tcs_params[i].pools, port->tc[i].tc_config.pools);
+	if (rc)
+		return -EINVAL;
         total_num_in_qs += num_in_qs;
         first_rxq += num_in_qs;
    }
@@ -1168,7 +1211,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
        pp2_dbg("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
        pp2_dbg("PORT: TC Use Hash %u\n", port->tc[i].tc_config.use_hash);
        for (j = 0;j < PP2_PPIO_TC_MAX_POOLS; j++) {
-            pp2_dbg("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]);
+            pp2_dbg("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
         }
    }
    /* Assing a CPU slot to avoid send cpu_slot as argument further */

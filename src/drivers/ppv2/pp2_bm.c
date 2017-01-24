@@ -172,7 +172,7 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
     uintptr_t cpu_slot;
     uint32_t bppe_num;
     uint32_t bppe_size;
-    uint32_t bppe_region_size;
+    uint32_t bppe_region_size, num_bm_pools;
     struct pp2_bm_pool *bm_pool;
 
 
@@ -258,6 +258,8 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param)
 #if PP2_BM_BUF_DEBUG
     pp2_bm_pool_print_regs(cpu_slot, bm_pool->bm_pool_id);
 #endif
+    num_bm_pools = pp2->pp2_inst[param->pp2_id]->num_bm_pools++;
+    pp2->pp2_inst[param->pp2_id]->bm_pools[num_bm_pools] = bm_pool;
 
     return 0;
 }
@@ -361,3 +363,15 @@ uint32_t pp2_bm_pool_get_id(struct pp2_bm_pool *pool)
 {
     return pool->bm_pool_id;
 }
+
+struct pp2_bm_pool * pp2_bm_pool_get_pool_by_id(struct pp2_inst * pp2_inst, uint32_t pool_id)
+{
+    uint32_t i;
+
+    for (i = 0; i < pp2_inst->num_bm_pools; i++)
+    	if (pool_id == pp2_inst->bm_pools[i]->bm_pool_id)
+		return pp2_inst->bm_pools[i];
+
+    return NULL;
+}
+
