@@ -91,7 +91,10 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 	if (!rc) {
 		*ppio = &ppio_array[pp2_id][port_id];
 	}
-
+	else {
+		pr_err("[%s] ppio init failed.\n", __FUNCTION__);
+		return(-EFAULT);
+	}
 	pp2_port_config_inq((*ppio)->port);
 	pp2_port_config_outq((*ppio)->port);
 
