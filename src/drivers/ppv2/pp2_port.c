@@ -1139,13 +1139,13 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 	for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++) {
 		if (param_pools[j]) {
 			if (param_pools[j]->pp2_id != pp2_inst->id) {
-				pp2_err("[%s]:pool_ppid[%d] does not match pp2_id[%d]\n", 
+				pp2_err("%s: pool_ppid[%d] does not match pp2_id[%d]\n",
 				        __func__, param_pools[j]->pp2_id, pp2_inst->id);
 				return -1;
 			}
 			pools[index] = pp2_bm_pool_get_pool_by_id(pp2_inst, param_pools[j]->id);
 			if (!pools[index]) {
-				pp2_err("[%s]:pool_id[%d] has no matching struct\n", __func__, param_pools[j]->id);
+				pp2_err("%s: pool_id[%d] has no matching struct\n", __func__, param_pools[j]->id);
 				return -1;
 			}
 			index++;
@@ -1165,7 +1165,7 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 		pools[1] = pools[0]; /* Both small and long pool are the same one */
 	}
 	else {
-		pp2_err("[%s]: pool_params do not exist\n");
+		pp2_err("%s: pool_params do not exist\n", __func__);
 		return -1;
         }
 
