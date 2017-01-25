@@ -1,0 +1,86 @@
+/******************************************************************************
+ *	Copyright (C) 2016 Marvell International Ltd.
+ *
+ *  If you received this File from Marvell, you may opt to use, redistribute
+ *  and/or modify this File under the following licensing terms.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *	* Redistributions of source code must retain the above copyright
+ *	  notice, this list of conditions and the following disclaimer.
+ *
+ *	* Redistributions in binary form must reproduce the above copyright
+ *	  notice, this list of conditions and the following disclaimer in the
+ *	  documentation and/or other materials provided with the distribution.
+ *
+ *	* Neither the name of Marvell nor the names of its contributors may be
+ *	  used to endorse or promote products derived from this software
+ *	  without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *****************************************************************************/
+
+#ifndef __NET_H__
+#define __NET_H__
+
+static inline bool mv_check_eaddr_mc(const u8 *eaddr)
+{
+	u16 e_16 = *(const u16 *)eaddr;
+#ifdef __BIG_ENDIAN
+	return 0x01 & e_16;
+#else
+	return 0x01 & (e_16 >> ((sizeof(e_16) * 8) - 8));
+#endif
+}
+
+static inline bool mv_check_eaddr_uc(const u8 *addr)
+{
+	return !mv_check_eaddr_mc(addr);
+}
+
+static inline bool mv_check_eaddr_bc(const u8 *eaddr)
+{
+	return (*(const u16 *)(eaddr + 0) &
+		*(const u16 *)(eaddr + 2) &
+		*(const u16 *)(eaddr + 4)) == 0xffff;
+}
+
+static inline int mv_check_eaddr_zero(const u8 *eaddr)
+{
+	return !(eaddr[0] | eaddr[1] | eaddr[2] | eaddr[3] | eaddr[4] | eaddr[5]);
+}
+
+static inline bool mv_eaddr_identical(const u8 *eaddr1, const u8 *eaddr2)
+{
+	const u16 *e1_16 = (const u16 *)eaddr1;
+	const u16 *e2_16 = (const u16 *)eaddr2;
+
+	return ((e1_16[0] ^ e2_16[0]) | (e1_16[1] ^ e2_16[1]) | (e1_16[2] ^ e2_16[2])) == 0;
+}
+
+static inline int mv_check_eaddr_valid(const u8 *addr)
+{
+	return !mv_check_eaddr_mc(addr) && !mv_check_eaddr_zero(addr);
+}
+
+static inline void mv_cp_eaddr(u8 *dest, const u8 *source)
+{
+	 u16 *dst_16 = (u16 *)dest;
+	 const u16 *src_16 = (const u16 *)source;
+
+	 dst_16[0] = src_16[0];
+	 dst_16[1] = src_16[1];
+	 dst_16[2] = src_16[2];
+}
+
+#endif /* __NET_H__ */

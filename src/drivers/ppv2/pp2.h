@@ -49,10 +49,10 @@
 #include "drivers/mv_pp2_hif.h"
 #include "drivers/mv_pp2_ppio.h"
 #include "std_internal.h"
+#include "lib/net.h"
 
 #include "pp2_hw_type.h"
 #include "pp2_gop.h"
-#include "pp2_util.h"
 #include "pp2_plat.h"
 #include "pp2_mem.h"
 

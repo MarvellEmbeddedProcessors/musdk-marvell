@@ -234,7 +234,7 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 
     /* Assign each CPU (thread) slot its mapped address space. */
 
-    for (reg_id = 0; reg_id < ELEM_OF(hw->base); reg_id++) {
+    for (reg_id = 0; reg_id < ARRAY_SIZE(hw->base); reg_id++) {
         hw->base[reg_id].va = mem_base + (reg_id * PP2_REGSPACE_SIZE);
     }
     mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->gop.serdes.base.pa, "serdes");
