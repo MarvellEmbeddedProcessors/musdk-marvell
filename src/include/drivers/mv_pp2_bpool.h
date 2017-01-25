@@ -51,16 +51,17 @@ struct pp2_bpool;
  */
 struct pp2_bpool_params {
 	/** Used for DTS acc to find appropriate "physical" BM-Pool obj;
-	 * E.g. "pool-0:0" means PPv2[0],pool[0] */
+	 * E.g. "pool-0:0" means PPv2[0],pool[0]
+	 */
 	const char			*match;
 	u32				 max_num_buffs; /**<  maximum number of buffers allowed in bpool */
 	u32				 buff_len; /**< buffer length */
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ
-	int				 (*empty_cb) (void *arg, u32 status);
-	void				 *emty_cb_arg;
-	u16				 threashold_hi;
-	u16				 threashold_lo;
-*/
+ *	int				 (*empty_cb) (void *arg, u32 status);
+ *	void				 *emty_cb_arg;
+ *	u16				 threashold_hi;
+ *	u16				 threashold_lo;
+ */
 };
 
 /**
@@ -77,22 +78,20 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool);
 /**
  * TODO - Destroy a Buffer Pool (bpool)
  *
- * @param[in]	bpool 	A bpool handle.
+ * @param[in]	bpool	A bpool handle.
  *
  */
 void pp2_bpool_deinit(struct pp2_bpool *bpool);
 
-
 #ifdef CONF_PP2_BPOOL_DMA_ADDR_USE_32B
-typedef u32 	bpool_dma_addr_t;
+typedef u32	bpool_dma_addr_t;
 #else
 typedef dma_addr_t bpool_dma_addr_t;
 #endif
 
-
 #ifdef CONF_PP2_BPOOL_COOKIE_SIZE
 #if CONF_PP2_BPOOL_COOKIE_SIZE == 64
-typedef u64 	pp2_cookie_t;
+typedef u64	pp2_cookie_t;
 #else
 typedef u32	pp2_cookie_t;
 #endif
@@ -100,7 +99,8 @@ typedef u32	pp2_cookie_t;
 
 struct pp2_buff_inf {
 	/**< Note: in 64bits systems and user would like to use only 32bits,
-	 * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B */
+	 * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B
+	 */
 	bpool_dma_addr_t addr;
 #ifdef CONF_PP2_BPOOL_COOKIE_SIZE
 	pp2_cookie_t    cookie;
@@ -143,6 +143,6 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
  */
 int pp2_bpool_get_num_buffs(struct pp2_hif *hif, struct pp2_bpool *pool, u32 *num_buffs);
 
-/** @} */ // end of grp_pp2_bp
+/** @} */ /* end of grp_pp2_bp */
 
 #endif /* __MV_PP2_BPOOL_H__ */

@@ -35,7 +35,6 @@
 
 #include "mv_std.h"
 
-
 #define PP2_NUM_PKT_PROC	2 /**< Maximum number of packet processors */
 #define PP2_NUM_ETH_PPIO	3 /**< Maximum number of ppio instances in each packet processor */
 
@@ -51,9 +50,10 @@
  *
  */
 struct ppio_init_params {
-	int		is_enabled; /**< Indicates the ppio may be created in musdk */
-	u32		first_inq; /**< First rxq to be used by musdk on this ppv2 port.
-					Value is relative to the port's first hardware physical in_queue.*/
+	int		is_enabled; /* < Indicates the ppio may be created in musdk */
+	u32		first_inq;  /* < First rxq to be used by musdk on this ppv2 port.
+				     *	 Value is relative to the port's first hardware physical in_queue.
+				     */
 };
 
 /**
@@ -99,6 +99,6 @@ void pp2_deinit(void);
  */
 int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id);
 
-/** @} */ // end of grp_pp2_init
+/** @} */ /* end of grp_pp2_init */
 
 #endif /* __MV_PP2_H__ */

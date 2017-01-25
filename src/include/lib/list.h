@@ -33,7 +33,6 @@
 #ifndef __LIST_H__
 #define __LIST_H__
 
-
 /**
  * A list structure
  */
@@ -78,7 +77,7 @@ struct list {
  * @return	The structure pointer for this entry.
  */
 #define LIST_OBJECT(_lst, _type, _member) \
-	((_type *)((char *)(_lst)-MEMBER_OFFSET(_type, _member)))
+	((_type *)((char *)(_lst) - MEMBER_OFFSET(_type, _member)))
 
 /**
  * Macro to iterate over a list.
@@ -134,8 +133,7 @@ struct list {
 #define LIST_FOR_EACH_OBJECT(_pos, _type, _head, _member)		\
 	for (_pos = LIST_OBJECT(LIST_FIRST(_head), _type, _member);	\
 		 &_pos->_member != (_head);				\
-		 _pos = LIST_OBJECT(LIST_FIRST(&(_pos->_member)), _type, _member))
-
+		 _pos = LIST_OBJECT(LIST_FIRST(&_pos->_member), _type, _member))
 
 /**
  * Add a new entry to a (head of a) list.
@@ -148,7 +146,7 @@ struct list {
  *
  * @retval	none
  */
-static __inline__ void list_add(struct list *new_lst, struct list *head)
+static inline void list_add(struct list *new_lst, struct list *head)
 {
 	LIST_PREV(LIST_NEXT(head))	= new_lst;
 	LIST_NEXT(new_lst)		= LIST_NEXT(head);
@@ -167,7 +165,7 @@ static __inline__ void list_add(struct list *new_lst, struct list *head)
  *
  * @retval	none
  */
-static __inline__ void list_add_to_tail(struct list *new_lst, struct list *head)
+static inline void list_add_to_tail(struct list *new_lst, struct list *head)
 {
 	LIST_NEXT(LIST_PREV(head))	= new_lst;
 	LIST_PREV(new_lst)		= LIST_PREV(head);
@@ -185,7 +183,7 @@ static __inline__ void list_add_to_tail(struct list *new_lst, struct list *head)
  * @caution	list_is_empty() on entry does not return true after this,
  *			the entry is in an undefined state.
  */
-static __inline__ void list_del(struct list *ent)
+static inline void list_del(struct list *ent)
 {
 	LIST_PREV(LIST_NEXT(ent)) = LIST_PREV(ent);
 	LIST_NEXT(LIST_PREV(ent)) = LIST_NEXT(ent);
@@ -198,7 +196,7 @@ static __inline__ void list_del(struct list *ent)
  *
  * @retval	none
  */
-static __inline__ void list_del_init(struct list *ent)
+static inline void list_del_init(struct list *ent)
 {
 	list_del(ent);
 	INIT_LIST(ent);
@@ -212,7 +210,7 @@ static __inline__ void list_del_init(struct list *ent)
  *
  * @retval	none
  */
-static __inline__ void list_move(struct list *ent, struct list *head)
+static inline void list_move(struct list *ent, struct list *head)
 {
 	list_del(ent);
 	list_add(ent, head);
@@ -226,7 +224,7 @@ static __inline__ void list_move(struct list *ent, struct list *head)
  *
  * @retval	none
  */
-static __inline__ void list_move_to_tail(struct list *ent, struct list *head)
+static inline void list_move_to_tail(struct list *ent, struct list *head)
 {
 	list_del(ent);
 	list_add_to_tail(ent, head);
@@ -240,7 +238,7 @@ static __inline__ void list_move_to_tail(struct list *ent, struct list *head)
  * @retval	1 if the list is empty.
  * @retval	0 if the list is not empty.
  */
-static __inline__ int list_is_empty(struct list *lst)
+static inline int list_is_empty(struct list *lst)
 {
 	return (LIST_FIRST(lst) == lst);
 }

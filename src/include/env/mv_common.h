@@ -36,15 +36,13 @@
 #include <unistd.h>
 #include <malloc.h>
 
-
-
 #define PTR2INT(_p)		((uintptr_t)(_p))
-#define INT2PTR(_i)		((void*)(uintptr_t)(_i))
+#define INT2PTR(_i)		((void *)(uintptr_t)(_i))
 
-#define MV_PTR(_p, _offs)	(void*)((uint8_t*)(_p)+(_offs))
+#define MV_PTR(_p, _offs)	(void *)((uint8_t *)(_p) + (_offs))
 
 #ifndef NOTUSED
-#define NOTUSED(_a) ((_a)=(_a))
+#define NOTUSED(_a) ((_a) = (_a))
 #endif /* !NOTUSED */
 
 #ifndef MEMBER_OFFSET
@@ -81,7 +79,7 @@
 #define min(x, y) ({                            \
 	typeof(x) _min1 = (x);                  \
 	typeof(y) _min2 = (y);                  \
-	(void) (&_min1 == &_min2);              \
+	(void)(&_min1 == &_min2);              \
 	_min1 < _min2 ? _min1 : _min2; })
 #endif
 
@@ -89,7 +87,7 @@
 #define max(x, y) ({                            \
 	typeof(x) _max1 = (x);                  \
 	typeof(y) _max2 = (y);                  \
-	(void) (&_max1 == &_max2);              \
+	(void)(&_max1 == &_max2);              \
 	_max1 > _max2 ? _max1 : _max2; })
 #endif
 
@@ -103,6 +101,5 @@
 
 /* Kernel Delay */
 #define udelay(us) usleep(us)
-
 
 #endif /* __MV_COMMON_H__ */

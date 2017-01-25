@@ -37,9 +37,7 @@
 #include <limits.h> /* PATH_MAX */
 #include "env/mv_types.h"
 
-
 typedef u32	phandle;
-
 
 struct device_node {
 	char	*name;
@@ -47,7 +45,6 @@ struct device_node {
 
 	u8	 _property[64];
 };
-
 
 struct device_node *of_get_parent(const struct device_node *dev_node);
 
@@ -88,11 +85,10 @@ struct device_node *of_find_compatible_node_by_indx(
 		 _dev_node = of_find_compatible_node_by_indx(NULL,			\
 							     local_index_node,		\
 							     _type, _compatible);	\
-		 _dev_node != NULL;							\
+		 _dev_node;							\
 		 _dev_node = of_find_compatible_node_by_indx(NULL,			\
 							     ++local_index_node,	\
 							     _type, _compatible))
-
 
 struct device_node *of_find_node_by_phandle(phandle ph);
 
@@ -100,6 +96,5 @@ int of_device_is_available(struct device_node *dev_node);
 int of_device_is_compatible(
 	struct device_node *dev_node,
 	const char *compatible);
-
 
 #endif  /*  __OF_H__ */

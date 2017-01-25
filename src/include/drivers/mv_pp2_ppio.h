@@ -38,7 +38,6 @@
 #include "mv_pp2_hif.h"
 #include "mv_pp2_bpool.h"
 
-
 /** @addtogroup grp_pp2_io Packet Processor: I/O
  *
  *  Packet Processor I/O API documentation
@@ -55,9 +54,7 @@ struct pp2_ppio;
 #define PP2_PPIO_TC_MAX_POOLS	2 /**< Max. number of bpools per TC. */
 #define PP2_PPIO_MAX_NUM_HASH	4
 
-
 typedef u8 eth_addr_t[ETH_ADDR_NUM_OCTETS];
-
 
 enum pp2_ppio_type {
 	PP2_PPIO_T_LOG = 0,	/*  Logical-port is only a set of Out-Qs and In-TCs (i.e. no link, l2-filters) */
@@ -94,8 +91,8 @@ struct pp2_ppio_tc_params {
 	struct pp2_ppio_inq_params	*inqs_params; /**< pointer to the tc's inq parameters */
 	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS]; /**< bpools used by the tc */
 /* TODO: future:
-	u8				 qos;
-*/
+ *	u8				 qos;
+ */
 };
 
 /**
@@ -106,7 +103,8 @@ struct pp2_ppio_inqs_params {
 	u16				 num_tcs; /**< Number of tcs */
 	struct pp2_ppio_tc_params	 tcs_params[PP2_PPIO_MAX_NUM_TCS]; /**< Parameters for each tc */
 	/** hash engine may be selected only according to "parser-results";
-	 * therefore, we put hash selection on a per port basis. */
+	 * therefore, we put hash selection on a per port basis.
+	 */
 	enum pp2_ppio_hash_type		 hash_type[PP2_PPIO_MAX_NUM_HASH];
 };
 
@@ -130,8 +128,8 @@ struct pp2_ppio_outqs_params {
 	struct pp2_ppio_outq_params	 outqs_params[PP2_PPIO_MAX_NUM_OUTQS]; /**< Parameters for each outq */
 
 /* TODO: scheduling mode and parameters (WRR/Strict)
-	enum pp2_ppio_outqs_sched_mode	sched_mode;
-*/
+ *	enum pp2_ppio_outqs_sched_mode	sched_mode;
+ */
 };
 
 /**
@@ -140,15 +138,16 @@ struct pp2_ppio_outqs_params {
  */
 struct pp2_ppio_params {
 	/** Used for DTS acc to find appropriate "physical" PP-IO obj;
-	 * E.g. "eth-0:0" means PPv2[0],port[0] */
+	 * E.g. "eth-0:0" means PPv2[0],port[0]
+	 */
 	const char			*match;
 
 	enum pp2_ppio_type		 type; /**<  ppio type. TODO: currently only support "NIC" */
 	struct pp2_ppio_inqs_params	 inqs_params; /**<  ppio inq parameters structure */
 	struct pp2_ppio_outqs_params	 outqs_params; /**<  ppio outq parameters structure */
 /* TODO: do we need extra pools per port?
-	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
-*/
+ *	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
+ */
 };
 
 /**
@@ -165,19 +164,17 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio);
 /**
  * TODO - Destroy a ppio
  *
- * @param[in]	ppio 	A ppio handle.
+ * @param[in]	ppio	A ppio handle.
  *
  */
 void pp2_ppio_deinit(struct pp2_ppio *ppio);
 
-
-/**************************************************************************//**
-	Run-time API
-*//***************************************************************************/
+/****************************************************************************
+ *	Run-time API
+ ****************************************************************************/
 
 #define PP2_PPIO_DESC_NUM_WORDS	8
 #define PP2_PPIO_DESC_NUM_FRAGS	16 /* TODO: check if there’s HW limitation */
-
 
 struct pp2_ppio_desc {
 	u32			 cmds[PP2_PPIO_DESC_NUM_WORDS];
@@ -228,12 +225,12 @@ enum pp2_inq_desc_status {
 
 /* TODO: Add PTP, PME, L4Icheck */
 
-/*NOTE: Following functions must be called
-	pp2_ppio_outq_desc_reset ()
-	pp2_ppio_outq_desc_set_phys_addr()
-	pp2_ppio_outq_desc_set_proto_info()
-	pp2_ppio_outq_desc_set_pkt_len()
-*/
+/* NOTE: Following functions must be called
+ *	pp2_ppio_outq_desc_reset ()
+ *	pp2_ppio_outq_desc_set_phys_addr()
+ *	pp2_ppio_outq_desc_set_proto_info()
+ *	pp2_ppio_outq_desc_set_pkt_len()
+ */
 
 /******************** TxQ-desc *****************/
 /* cmd 0 */
@@ -245,8 +242,6 @@ enum pp2_inq_desc_status {
 #define TXD_L4_CHK_ENABLE          (0x0)
 #define TXD_L4_CHK_FRG_ENABLE      (0x1)
 #define TXD_L4_CHK_DISABLE         (0x2)
-
-
 
 #define TXD_L_MASK                 (0x10000000)
 #define TXD_F_MASK                 (0x20000000)
@@ -316,13 +311,11 @@ enum pp2_inq_desc_status {
 #define DM_RXD_GET_L3_PRS_INFO(desc)    (((desc)->cmds[0] & RXD_L3_PRS_INFO_MASK) >> 28)
 #define DM_RXD_GET_BUF_HDR(desc)        (((desc)->cmds[0] & RXD_BUF_HDR_MASK) >> 31)
 
-
-
 #define DM_TXD_SET_GEN_L4_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
 #define DM_TXD_SET_GEN_IP_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_IP_CHK_MASK) | (data << 15 & TXD_GEN_IP_CHK_MASK))
-#define DM_TXD_SET_FIRST_LAST(desc, data) 	\
+#define DM_TXD_SET_FIRST_LAST(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_FL_MASK) | (data << 28 & TXD_FL_MASK))
 #define DM_TXD_SET_L3_OFF(desc, data)	\
 		((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L3_OFFSET_MASK) | (data << 0 & TXD_L3_OFFSET_MASK))
@@ -332,7 +325,6 @@ enum pp2_inq_desc_status {
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L3_TYPE_MASK) | (data << 26 & TXD_L3_TYPE_MASK))
 #define DM_TXD_SET_L4_TYPE(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_L4_TYPE_MASK) | (data << 24 & TXD_L4_TYPE_MASK))
-
 
 /**
  * Reset an outq packet descriptor to default value.
@@ -402,15 +394,15 @@ void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *p
  *
  */
 static inline void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc, enum pp2_outq_l3_type l3_type,
-				       enum pp2_outq_l4_type l4_type, u8  l3_offset, u8 l4_offset, int gen_l3_chk,
-				       int gen_l4_chk)
+						     enum pp2_outq_l4_type l4_type, u8  l3_offset, u8 l4_offset,
+						     int gen_l3_chk, int gen_l4_chk)
 {
 	DM_TXD_SET_L3_TYPE(desc, l3_type);
 	DM_TXD_SET_L4_TYPE(desc, l4_type);
 	DM_TXD_SET_L3_OFF(desc, l3_offset);
-	DM_TXD_SET_IP_HEAD_LEN(desc, (l4_offset-l3_offset));
-	DM_TXD_SET_GEN_IP_CHK(desc, ((gen_l3_chk)? TXD_IP_CHK_ENABLE: TXD_IP_CHK_DISABLE));
-	DM_TXD_SET_GEN_L4_CHK(desc, ((gen_l4_chk)? TXD_L4_CHK_ENABLE: TXD_L4_CHK_DISABLE));
+	DM_TXD_SET_IP_HEAD_LEN(desc, (l4_offset - l3_offset));
+	DM_TXD_SET_GEN_IP_CHK(desc, ((gen_l3_chk) ? TXD_IP_CHK_ENABLE : TXD_IP_CHK_DISABLE));
+	DM_TXD_SET_GEN_L4_CHK(desc, ((gen_l4_chk) ? TXD_L4_CHK_ENABLE : TXD_L4_CHK_DISABLE));
 }
 
 /**
@@ -433,7 +425,7 @@ static inline void pp2_ppio_outq_desc_set_pkt_offset(struct pp2_ppio_desc *desc,
  * @param[in]	len	The packet length, not including CRC.
  *
  */
-static inline void pp2_ppio_outq_desc_set_pkt_len(struct pp2_ppio_desc *desc , u16 len)
+static inline void pp2_ppio_outq_desc_set_pkt_len(struct pp2_ppio_desc *desc, u16 len)
 {
 	desc->cmds[1] = (desc->cmds[1] & ~TXD_BYTE_COUNT_MASK) | (len << 16 & TXD_BYTE_COUNT_MASK);
 }
@@ -468,8 +460,7 @@ static inline u64 pp2_ppio_inq_desc_get_cookie(struct pp2_ppio_desc *desc)
 		((u64)((desc->cmds[6] & RXD_BUF_VIRT_LO_MASK) >> 0));
 }
 
-
-struct pp2_ppio * pp2_ppio_inq_desc_get_pp_io(struct pp2_ppio_desc *desc); /*Note: under _DEBUG_*/
+struct pp2_ppio *pp2_ppio_inq_desc_get_pp_io(struct pp2_ppio_desc *desc); /*Note: under _DEBUG_*/
 
 /**
  * Get the packet length from an inq packet descriptor.
@@ -520,7 +511,7 @@ static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enu
  */
 int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc);
 
-struct pp2_bpool * pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc);
+struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc);
 
 /**
  * Check if packet in inq packet descriptor has a MAC (CRC) or IP/L4 (checksum) error condition.
@@ -532,13 +523,13 @@ struct pp2_bpool * pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc);
 static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *desc)
 {
 	if (unlikely(DM_RXD_GET_ES(desc)))
-		return(1 + DM_RXD_GET_EC(desc));
+		return (1 + DM_RXD_GET_EC(desc));
 	if (unlikely(DM_RXD_GET_IP_HDR_ERR(desc)))
-		return(PP2_DESC_ERR_IPV4_HDR);
+		return PP2_DESC_ERR_IPV4_HDR;
 	if (likely(DM_RXD_GET_L4_CHK_OK(desc)))
-		return(PP2_DESC_ERR_MAC_OK);
+		return PP2_DESC_ERR_MAC_OK;
 
-	return(PP2_DESC_ERR_L4_CHECKSUM);
+	return PP2_DESC_ERR_L4_CHECKSUM;
 }
 
 /**
@@ -551,7 +542,7 @@ static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp
  * @param[in]		hif	A hif handle.
  * @param[in]		qid	out-Q id on which to send the frames.
  * @param[in]		descs	A pointer to an array of descriptors representing the
- * 				frames to be sent.
+ *				frames to be sent.
  * @param[in,out]	num	input: number of frames to be sent; output: number of frames sent.
  *
  * @retval	0 on success
@@ -573,7 +564,7 @@ int pp2_ppio_send(struct pp2_ppio	*ppio,
  * @param[in]		hif	A hif handle.
  * @param[in]		qid	out-Q id on which to send the frames.
  * @param[in]		descs	A pointer to an array of S/G-descriptors representing the
- * 				frames to be sent.
+ *				frames to be sent.
  * @param[in,out]	num	input: number of frames to be sent; output: number of frames sent.
  *
  * @retval	0 on success
@@ -605,12 +596,12 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
  * Receive packets on a ppio.
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[in]		tc	traffic class on which to recieve frames
- * @param[in]		qid	out-Q id on which to recieve the frames.
+ * @param[in]		tc	traffic class on which to receive frames
+ * @param[in]		qid	out-Q id on which to receive the frames.
  * @param[in]		descs	A pointer to an array of descriptors represents the
- * 				recieved frames.
+ *				received frames.
  * @param[in,out]	num	input: Max number of frames to receive;
- * 				output: number of frames received.
+ *				output: number of frames received.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
@@ -621,10 +612,9 @@ int pp2_ppio_recv(struct pp2_ppio	*ppio,
 		  struct pp2_ppio_desc	*descs,
 		  u16			*num);
 
-
-/**************************************************************************//**
-	Run-time Control API
-*//***************************************************************************/
+/****************************************************************************
+ *	Run-time Control API
+ ****************************************************************************/
 
 /**
  * Enable a ppio
@@ -792,6 +782,6 @@ int pp2_ppio_flush_vlan(struct pp2_ppio *ppio);
 /*TODO: link state ???*/
 /*TODO: counters/statistics for port/Q*/
 
-/** @} */ // end of grp_pp2_io
+/** @} */ /* end of grp_pp2_io */
 
 #endif /* __MV_PP2_PPIO_H__ */

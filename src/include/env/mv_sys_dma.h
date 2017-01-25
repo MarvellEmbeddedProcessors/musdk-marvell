@@ -51,7 +51,6 @@
 extern phys_addr_t __dma_phys_base;
 extern void *__dma_virt_base;
 
-
 /**
  * Initialize the system DMA memory manager
  *
@@ -96,7 +95,7 @@ void mv_sys_dma_mem_free(void *ptr);
  * @retval	A pointer to a virtual DMA memory on success
  * @retval	<0 on failure
  */
-static __inline__ void * mv_sys_dma_mem_phys2virt(phys_addr_t pa)
+static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
 {
 	return (void *)((u64)(pa - __dma_phys_base) + (u64)__dma_virt_base);
 }
@@ -109,11 +108,11 @@ static __inline__ void * mv_sys_dma_mem_phys2virt(phys_addr_t pa)
  * @retval	Physical-address on success
  * @retval	<0 on failure
  */
-static __inline__ phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
+static inline phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
 	return ((u64)va - (u64)__dma_virt_base) + __dma_phys_base;
 }
 
-/** @} */ // end of grp_pp2_hif
+/** @} */ /* end of grp_pp2_hif */
 
 #endif /* __MV_SYS_DMA_H__ */

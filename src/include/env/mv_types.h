@@ -35,13 +35,12 @@
 
 #include <stdint.h>
 
-
 typedef uint8_t		u8;
 typedef uint16_t	u16;
 typedef uint32_t	u32;
 typedef uint64_t	u64;
 
-/* TODO : Temporary workaround, untill new Makefiles */
+/* TODO : Temporary workaround, until new Makefiles */
 #include "env/xflags.h"
 
 #ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT

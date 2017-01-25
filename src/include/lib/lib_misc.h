@@ -36,7 +36,7 @@
 /* TODO: Replace Q&D with for_loop, 20 is hardcoded in sscanf */
 #define MAX_OBJ_STRING 20
 
-int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[]);
+int mv_sys_match(const char *match, const char *obj_type, u8 hierarchy_level, u8 id[]);
 
 void mem_disp(const char *_p, int len);
 

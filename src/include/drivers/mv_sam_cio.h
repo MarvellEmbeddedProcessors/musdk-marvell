@@ -37,7 +37,7 @@
 #include "mv_sam_session.h"
 
 /** @addtogroup grp_sam_cio Security Acceleration Module: Crypto I/O
- *  
+ *
  *  Security Acceleration Module Crypto I/O API documentation
  *
  *  @{
@@ -160,6 +160,6 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
 
-/** @} */ // end of grp_sam_cio
+/** @} */ /* end of grp_sam_cio */
 
 #endif /* __MV_SAM_CIO_H__ */

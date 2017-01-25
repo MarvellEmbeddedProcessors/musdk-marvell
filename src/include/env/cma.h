@@ -42,7 +42,6 @@
 
 #include <stdint.h>
 
-
 /**
  * Initialization routine for pp contiguous memory allocator
  *

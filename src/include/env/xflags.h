@@ -38,8 +38,9 @@
 #define MVCONF_DBG_LEVEL		4
 
 #define CONF_PP2_BPOOL_COOKIE_SIZE	32
-/** Note: in 64bits systems and user would like to use only 32bits,
- * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B */
+/* Note: in 64bits systems and user would like to use only 32bits,
+ * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B
+ */
 #define MVCONF_ARCH_DMA_ADDR_T_64BIT
 #define CONF_PP2_BPOOL_DMA_ADDR_USE_32B
 

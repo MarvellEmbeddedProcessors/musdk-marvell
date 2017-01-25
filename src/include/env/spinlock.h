@@ -40,7 +40,7 @@
 
 #define spinlock_t		pthread_mutex_t
 
-spinlock_t * spin_lock_create(void);
+spinlock_t *spin_lock_create(void);
 void spin_lock_destroy(spinlock_t *lock);
 
 #define spin_lock_init(_lock)							\

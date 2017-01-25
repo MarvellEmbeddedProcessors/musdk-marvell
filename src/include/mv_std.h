@@ -43,6 +43,4 @@
 #include "env/mv_errno.h"
 #include "env/mv_sys_dma.h"
 
-
-
 #endif /* __MV_STD_H__ */

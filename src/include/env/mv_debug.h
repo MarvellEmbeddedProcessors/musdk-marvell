@@ -42,7 +42,7 @@
 #define MV_DBG_L_INFO	4
 #define MV_DBG_L_DBG	5
 
-#define mv_print(_level, ...) 			\
+#define mv_print(_level, ...)			\
 do {						\
 	if ((_level) <= (MVCONF_DBG_LEVEL))	\
 		printf(__VA_ARGS__);		\
@@ -75,7 +75,7 @@ do {						\
 
 #ifndef pr_line
 #define pr_line	\
-	printf("%s: %d\n",__FUNCTION__,__LINE__);
+	printf("%s: %d\n", __func__, __LINE__)
 #endif /* !pr_line */
 
 #ifndef BUG
@@ -87,10 +87,10 @@ do {						\
 	do {						\
 		if (_cond) {				\
 			pr_crit("[%s:%d] found BUG!\n",	\
-				__FILE__, __LINE__); 	\
-			BUG(); 				\
-	} 						\
-} while(0)
+				__FILE__, __LINE__);	\
+			BUG();				\
+	}						\
+} while (0)
 #endif /* !BUG_ON */
 
 #endif /* __MV_DEBUG_H__ */

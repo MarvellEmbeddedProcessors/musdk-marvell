@@ -42,7 +42,6 @@
  *  @{
  */
 
-
 struct pp2_hif;
 
 /**
@@ -51,7 +50,8 @@ struct pp2_hif;
  */
 struct pp2_hif_params {
 	/** Used for DTS acc to find appropriate "physical" H-IF obj;
-	 * E.g. "hif-0" means PPv2,HIF[0] */
+	 * E.g. "hif-0" means PPv2,HIF[0]
+	 */
 	const char	*match;
 	u32		 out_size; /**< TX-Aggregation q_size */
 };
@@ -70,11 +70,11 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif);
 /**
  * TODO - Destroy a Host Interface (hif)
  *
- * @param[in]	hif 	A hif handle.
+ * @param[in]	hif	A hif handle.
  *
  */
 void pp2_hif_deinit(struct pp2_hif *hif);
 
-/** @} */ // end of grp_pp2_hif
+/** @} */ /* end of grp_pp2_hif */
 
 #endif /* __MV_PP2_HIF_H__ */

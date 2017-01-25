@@ -35,7 +35,6 @@
 
 #include "env/mv_types.h"
 
-
 /** Alignments between 2-128 are available where the maximum alignment defined
  * as 2^MEM_MNG_MAX_ALIGNMENT
  */
@@ -46,9 +45,7 @@
 #define MEM_MNG_MAX_NAME_LEN	32
 #define MEM_MNG_ILLEGAL_BASE	(-1)
 
-
 struct mem_mng;
-
 
 /**
  * Initializes a new MM object.
