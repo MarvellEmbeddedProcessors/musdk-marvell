@@ -40,7 +40,6 @@
 /* c file declarations */
 /***********************/
 #include "std_internal.h"
-
 #include "../pp2_types.h"
 #include "../pp2.h"
 #include "../pp2_print.h"
@@ -64,9 +63,9 @@ void print_horizontal_line(u32 char_count, const char *char_val)
 
 void pp2_cls_c3_entry_header_dump(void)
 {
-	print_horizontal_line(130, "=");
-	printf("LkTp |PrtInf|L4_Inf|   HEK                  |   Action_Info    | QOS_Info    |   Mod_Info |Duplication|   Idx   |Hit_Cnt\n");
-	print_horizontal_line(130, "=");
+	print_horizontal_line(100, "=");
+	printf("LkTp |PrtInf|L4_Inf|   HEK                  |   Action_Info    | QOS_Info    |   Idx   |Hit_Cnt\n");
+	print_horizontal_line(100, "=");
 }
 
 /*******************************************************************************
@@ -156,8 +155,6 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 	char hek_str[26] = "";
 	char qos_info_str[13] = "";
 	char action_str[18] = "";
-	char mod_str[12] = "";
-	char flow_str[11] = "";
 	char index_str[9] = "";
 	char hit_cnt_str[8] = "";
 	u32 len;
@@ -249,35 +246,6 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 		break;
 	}
 
-	/* mod */
-	switch (dump_idx) {
-	case MVPP2_C3_MOD_DUMP_DPTR:
-		sprintf(mod_str, "DPTR=%3d", c3_entry->pkt_mod.mod_data_idx);
-		break;
-	case MVPP2_C3_MOD_DUMP_IPTR:
-		sprintf(mod_str, "IPTR=%3d", c3_entry->pkt_mod.mod_cmd_idx);
-		break;
-	case MVPP2_C3_MOD_DUMP_L4_CHECKSUM:
-		if (c3_entry->pkt_mod.l4_chksum_update_flag)
-			sprintf(mod_str, "L4_Check EN");
-		else
-			sprintf(mod_str, "L4_Check DIS");
-		break;
-	default:
-		break;
-	}
-
-	/* duplication flow info */
-	switch (dump_idx) {
-	case MVPP2_C3_FLOW_DUMP_ID:
-		sprintf(flow_str, "ID=%d", c3_entry->dup_info.flow_id);
-		break;
-	case MVPP2_C3_FLOW_DUMP_CNT:
-		sprintf(flow_str, "CNT=%d", c3_entry->dup_info.flow_cnt);
-		break;
-	default:
-		break;
-	}
 
 	/* Entry index, including HW index, logical index */
 	switch (dump_idx) {
@@ -297,9 +265,9 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 	    dump_idx <= MVPP2_C3_MOD_DUMP_L4_CHECKSUM ||
 	    dump_idx <= MVPP2_C3_FLOW_DUMP_CNT ||
 	    dump_idx <= MVPP2_INDEX_DUMP_LOGICAL) {
-		printf("+%4s|%6s|%6s|%24s|%18s|%13s|%12s|%11s|%9s|%8s+\n",
+		printf("+%4s|%6s|%6s|%24s|%18s|%13s|%9s|%8s+\n",
 		       lookup_type_str, port_info_str, l4_info_str, hek_str,
-		       action_str, qos_info_str, mod_str, flow_str, index_str, hit_cnt_str);
+		       action_str, qos_info_str, index_str, hit_cnt_str);
 	}
 }
 
@@ -382,8 +350,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 		for (dump_idx = 0; dump_idx < sizeof(u32) * BYTE_BITS; dump_idx++)
 			pp2_cls_c3_entry_line_dump(dump_idx, c3.index, logic_idx, hit_count, &c3_entry);
 
-		printf("+");
-		print_horizontal_line(130, "-");
+		print_horizontal_line(100, "-");
 		printf("+");
 	}	else if ((type == MVPP2_C3_ENTRY_DUMP_LU_TYPE) || (type == MVPP2_C3_ENTRY_DUMP_ALL)) {
 		/* print header */
@@ -407,7 +374,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 			pp2_cls_c3_entry_convert(&c3, &c3_entry);
 
 			/* skip C3 entry by lkp_type */
-			if ((value != c3_entry.lkp_type) && (type  != MVPP2_C3_ENTRY_DUMP_ALL))
+			if ((value != c3_entry.lkp_type) && (type != MVPP2_C3_ENTRY_DUMP_ALL))
 				continue;
 
 			/* read hit counter */
@@ -421,8 +388,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 			for (dump_idx = 0; dump_idx < sizeof(u32) * BYTE_BITS; dump_idx++)
 				pp2_cls_c3_entry_line_dump(dump_idx, c3.index, logic_idx, hit_count, &c3_entry);
 
-			printf("+");
-			print_horizontal_line(152, "-");
+			print_horizontal_line(100, "-");
 			printf("+\n");
 
 			num++;
@@ -442,26 +408,60 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 *******************************************************************************/
 int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 {
-	u32 type;
-	u32 value;
+	int type = -1;
+	int value = -1;
+	int i;
 	uintptr_t cpu_slot = (uintptr_t)arg;
 	char *ret_ptr;
+	int option;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"type", no_argument, 0, 't'},
+		{"var", required_argument, 0, 'v'},
+		{0, 0, 0, 0}
+	};
 
-	if (argc != 3) {
+
+	if (argc == 3) {
+		/* every time starting getopt we should reset optind */
+		optind = 0;
+
+		/* Get parameters */
+		for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
+			switch (option) {
+			case 't':
+				type = strtoul(optarg, &ret_ptr, 0);
+				if ((optarg == ret_ptr) || type < 0 || (type > MVPP2_C3_DUMP_TYPE_MAX)) {
+					printf("parsing fail, wrong input for argv[1] - type");
+					return -EINVAL;
+				}
+				break;
+			case 'v':
+				value = strtoul(optarg, &ret_ptr, 0);
+				if ((optarg == ret_ptr) || value < 0 || (value > MVPP2_C3_DUMP_VALUE_MAX)) {
+					printf("parsing fail, wrong input for argv[2] - value");
+					return -EINVAL;
+				}
+				break;
+			default:
+				printf("parsing fail, wrong input\n");
+				return -EINVAL;
+			}
+		}
+		/* check if all the fields are initialized */
+		if (type < 0) {
+			printf("parsing fail, invalid --type\n");
+			return -EINVAL;
+		}
+		if (value < 0) {
+			printf("parsing fail, invalid --value\n");
+			return -EINVAL;
+		}
+	} else if (argc == 1) {
+		type =  MVPP2_C3_ENTRY_DUMP_ALL;
+		value = 0;
+	} else {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
-		return -EINVAL;
-	}
-
-	/* Get parameters */
-	type = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || type < 0 || (type > MVPP2_C3_DUMP_TYPE_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - type");
-		return -EINVAL;
-	}
-
-	value = strtoul(argv[2], &ret_ptr, 0);
-	if ((argv[2] == ret_ptr) || value < 0 || (value > MVPP2_C3_DUMP_VALUE_MAX)) {
-		printf("parsing fail, wrong input for argv[2] - value");
 		return -EINVAL;
 	}
 
@@ -469,6 +469,7 @@ int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 		printf("OK\n");
 	else
 		printf("FAIL\n");
+
 	return 0;
 }
 

@@ -51,6 +51,7 @@
 #include <assert.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
+#include <getopt.h>
 
 #include "env/of.h"
 #include "env/spinlock.h"

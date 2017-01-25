@@ -48,6 +48,8 @@ int register_cli_cls_cmds(uintptr_t cpu_slot)
 {
 	struct cli_cmd_params cmd_params;
 
+
+#ifdef CLS_DEBUG
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "pp2_cls_lkp_dcod_entry_set";
 	cmd_params.desc		= "sets the lookup ID structure in the global lookup decode table";
@@ -128,9 +130,17 @@ int register_cli_cls_cmds(uintptr_t cpu_slot)
 	cmd_params.cmd_arg	= (void *)cpu_slot;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_rule_dis;
 	mvapp_register_cli_cmd(&cmd_params);
+#endif
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_fl_log_rls_dump";
+	cmd_params.desc		= "dump all logical flow ID and rule offset";
+	cmd_params.format	= "";
+	cmd_params.cmd_arg	= (void *)cpu_slot;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_log_rls_dump;
+	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "pp2_cls_lkp_hits_dump";
+	cmd_params.name		= "cls_lkp_hits_dump";
 	cmd_params.desc		= "dump all hit decode entry and its DB information";
 	cmd_params.format	= "";
 	cmd_params.cmd_arg	= (void *)cpu_slot;
@@ -138,7 +148,7 @@ int register_cli_cls_cmds(uintptr_t cpu_slot)
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "pp2_cls_fl_hits_dump";
+	cmd_params.name		= "cls_fl_hits_dump";
 	cmd_params.desc		= "dump all hit flow table entry";
 	cmd_params.format	= "";
 	cmd_params.cmd_arg	= (void *)cpu_slot;
@@ -146,19 +156,11 @@ int register_cli_cls_cmds(uintptr_t cpu_slot)
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "pp2_cls_fl_rls_dump";
+	cmd_params.name		= "cls_fl_rls_dump";
 	cmd_params.desc		= "dump all logical flow ID rules";
 	cmd_params.format	= "";
 	cmd_params.cmd_arg	= (void *)cpu_slot;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_rls_dump;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "pp2_cls_fl_log_rls_dump";
-	cmd_params.desc		= "dump all logical flow ID and rule offset";
-	cmd_params.format	= "";
-	cmd_params.cmd_arg	= (void *)cpu_slot;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_log_rls_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
@@ -168,6 +170,7 @@ int register_cli_c3_cmds(uintptr_t cpu_slot)
 {
 	struct cli_cmd_params cmd_params;
 
+#ifdef CLS_DEBUG
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "rule_add";
 	cmd_params.desc		= "add a C3 rule (fixed 5 tuples...no parameters for now";
@@ -182,16 +185,6 @@ int register_cli_c3_cmds(uintptr_t cpu_slot)
 	cmd_params.format	= "[logix_index] (dec) logical index of the rule to be removed";
 	cmd_params.cmd_arg	= (void *)cpu_slot;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c3_rule_delete;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "entry_dump";
-	cmd_params.desc		= "dump C3 entries according to type and index";
-	cmd_params.format	= "[type] [var]\n"
-				  "\t\t\t\ttype (dec)C3 dump type, 0: logic idx, 1:hash idx, 2:lookup type, 3:all\n"
-			"\t\t\t\tvar  (dec)value according to type, type0/1:idx, type 2: lookup type, type 3:0\n";
-	cmd_params.cmd_arg	= (void *)cpu_slot;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c3_type_entry_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
@@ -238,6 +231,18 @@ int register_cli_c3_cmds(uintptr_t cpu_slot)
 	cmd_params.format	= "[search_depth] (dec)cuckoo search depth, 1...8";
 	cmd_params.cmd_arg	= (void *)cpu_slot;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c3_search_depth_set;
+	mvapp_register_cli_cmd(&cmd_params);
+
+#endif
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_c3_rule_hit_dump";
+	cmd_params.desc		= "dump C3 entries according to type and index";
+	cmd_params.format	= "--type --var (no arguments)\n"
+				  "\t\t\t\t--type	(dec) C3 dump type, 0: logic idx, 1:hash idx, 2:lookup type\n"
+				  "\t\t\t\t--var	(dec) value according to type, type 0/1:idx, type 2: lookup type\n"
+				  "\t\t\t\tno arguments -> dumping all flows\n";
+	cmd_params.cmd_arg	= (void *)cpu_slot;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c3_type_entry_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;

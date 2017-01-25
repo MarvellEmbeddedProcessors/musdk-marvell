@@ -34,6 +34,7 @@
 #define __CLS_DBG_H__
 
 #include "mv_std.h"
+/* #define CLS_DEBUG */
 
 int register_cli_cls_cmds(uintptr_t cpu_slot);
 int register_cli_c3_cmds(uintptr_t cpu_slot);

@@ -64,8 +64,6 @@
 #define PKT_ECHO_SUPPORT
 #define USE_APP_PREFETCH
 
-#define CLS_DEBUG
-
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define CLS_DBG_NO_PATH(file_name) (strrchr((file_name), '/') ? \
 			    strrchr((file_name), '/') + 1 : (file_name))
@@ -1594,10 +1592,9 @@ static int register_cli_cmds(struct glob_arg *garg)
 
 	register_cli_cls_api_cmds(garg);
 	register_cli_filter_cmds(garg);
-#ifdef CLS_DEBUG
 	register_cli_cls_cmds(garg->cpu_slot);
 	register_cli_c3_cmds(garg->cpu_slot);
-#endif
+
 	return 0;
 }
 
