@@ -128,6 +128,16 @@ static inline void __raw_mv_writeq(u64 val, volatile void __iomem *addr)
 #define mv_writel_relaxed(v,c)	((void)__raw_mv_writel(htole32(v),(c)))
 #define mv_writeq_relaxed(v,c)	((void)__raw_mv_writeq(htole64(v),(c)))
 
+#define readb_relaxed	mv_readb_relaxed
+#define readw_relaxed	mv_readw_relaxed
+#define readl_relaxed	mv_readl_relaxed
+#define readq_relaxed	mv_readq_relaxed
+
+#define writeb_relaxed	mv_writeb_relaxed
+#define writew_relaxed	mv_writew_relaxed
+#define writel_relaxed	mv_writel_relaxed
+#define writeq_relaxed	mv_writeq_relaxed
+
 /*
  * I/O memory access primitives. Reads are ordered relative to any
  * following Normal memory access. Writes are ordered relative to any prior

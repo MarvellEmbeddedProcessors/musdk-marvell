@@ -165,7 +165,7 @@ static inline void pp2_relaxed_reg_write(uintptr_t cpu_slot, uint32_t offset,
 {
 	uintptr_t addr = cpu_slot + offset;
 
-	mv_writel_relaxed(data, (void *)addr);
+	writel_relaxed(data, (void *)addr);
 }
 
 
@@ -199,7 +199,7 @@ static inline uint32_t pp2_relaxed_reg_read(uintptr_t cpu_slot, uint32_t offset)
 {
 	uintptr_t addr = cpu_slot + offset;
 
-	return mv_readl_relaxed((void *)addr);
+	return readl_relaxed((void *)addr);
 }
 
 #define pp2_relaxed_read pp2_reg_read
