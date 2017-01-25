@@ -1450,11 +1450,11 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
        uint16_t txds_remaining = num_txds - block_size;
        tx_desc = pp2_dm_if_next_desc_block_get(dm_if, txds_remaining, &block_size);
        if (unlikely((index + block_size) != num_txds)) {
-       	   if (likely(num_txds > dm_if->desc_total)) {
-               pr_debug("[%s] More tx_descs(%u) than txq_len(%u) \n", __FUNCTION__, num_txds, txq_dm_if->desc_total);
+       	   if (likely(num_txds > txq->desc_total)) {
+               pr_debug("[%s] More tx_descs(%u) than txq_len(%u) \n", __FUNCTION__, num_txds, txq->desc_total);
        	   } else {
-               pr_debug("[%s] failed copying tx_descs(%u),in block#1(%u),block#2(%u) txq_len(%u)\n", num_txds, i,
-	       	        block_size, txq_dm_if->desc_total);
+               pr_debug("[%s] failed copying tx_descs(%u),in block#1(%u),block#2(%u) txq_len(%u)\n", __FUNCTION__,
+	       		num_txds, i, block_size, txq->desc_total);
        	   }
 	   num_txds = index + block_size;
        }
