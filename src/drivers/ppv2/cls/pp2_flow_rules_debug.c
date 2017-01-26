@@ -30,7 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -122,7 +121,6 @@ int pp2_cli_cls_lkp_dcod_entry_set(void *arg, int argc, char *argv[])
 *******************************************************************************/
 int pp2_cli_cls_lkp_dcod_luid_set(void *arg, int argc, char *argv[])
 {
-
 	int luid[MVPP2_CLS_LOG_FLOW_LUID_MAX], i, num_of_luid;
 	int ret_val = 0;
 	char *ret_ptr;
@@ -224,7 +222,6 @@ int pp2_cli_cls_lkp_dcod_ena(void *arg, int argc, char *argv[])
 		else
 			printf("success\n");
 	}
-
 
 	return ret_val;
 }
@@ -501,9 +498,9 @@ int pp2_cli_cls_lkp_dcod_dump(void *arg, int argc, char *argv[])
 			return -EINVAL;
 		}
 		printf("%6d %-7s  0x%02X %5d %3d %3d %7d = ",
-			i, pp2_utils_valid_str_get((int)lkp_dcod_db.enabled),
-			(int)lkp_dcod_db.cpu_q, (int)lkp_dcod_db.flow_alloc_len,
-			(int)lkp_dcod_db.flow_len, lkp_dcod_db.flow_off, lkp_dcod_db.luid_num);
+		       i, pp2_utils_valid_str_get((int)lkp_dcod_db.enabled),
+		       (int)lkp_dcod_db.cpu_q, (int)lkp_dcod_db.flow_alloc_len,
+		       (int)lkp_dcod_db.flow_len, lkp_dcod_db.flow_off, lkp_dcod_db.luid_num);
 		for (j = 0; j < lkp_dcod_db.luid_num; j++)
 			printf("%2d", lkp_dcod_db.luid_list[j].luid);
 		printf("\n");
@@ -557,16 +554,15 @@ int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 			for (i = 0; i < lkp_dcod_db.luid_num; i++) {
 				if (lkp_dcod_db.luid_list[i].luid == lkpid) {
 					printf("%3d      %3d    %3d\n",
-						flow_log_id, lkpid, hit_cnt);
+					       flow_log_id, lkpid, hit_cnt);
 					break;
 				}
 			}
 			if (i < lkp_dcod_db.luid_num)
 				break;
 		}
-		if (flow_log_id == MVPP2_MNG_FLOW_ID_MAX) {
+		if (flow_log_id == MVPP2_MNG_FLOW_ID_MAX)
 			printf("logical id not found for lkpid %d\n", lkpid);
-		}
 		hit_cnt = 0;
 	}
 
@@ -621,8 +617,8 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 	u16 ref_sum = 0;
 	int rc;
 
-	fl_rl_list_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
-	if (fl_rl_list_db == NULL) {
+	fl_rl_list_db = kmalloc(sizeof(*fl_rl_list_db), GFP_KERNEL);
+	if (!fl_rl_list_db) {
 		printf("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -656,20 +652,20 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 				printf("\t    ");
 
 			printf("%-6s  %6d %-6s",
-				pp2_utils_valid_str_get((int)fl_rl_list_db->flow[j].enabled),
-				lkp_dcod_db.flow_off + j,
-				pp2_utils_eng_no_str_get((int)fl_rl_list_db->flow[j].engine));
-				ref_sum = 0;
-				for (k = 0; k < MVPP2_MAX_NUM_GMACS; k++)
-					ref_sum += fl_rl_list_db->flow[j].ref_cnt[k];
+			       pp2_utils_valid_str_get((int)fl_rl_list_db->flow[j].enabled),
+			       lkp_dcod_db.flow_off + j,
+			       pp2_utils_eng_no_str_get((int)fl_rl_list_db->flow[j].engine));
+			ref_sum = 0;
+			for (k = 0; k < MVPP2_MAX_NUM_GMACS; k++)
+				ref_sum += fl_rl_list_db->flow[j].ref_cnt[k];
 
 			printf(" %5d %3d %6d %-8s %3d %6d",
-				fl_rl_list_db->flow[j].rl_log_id,
-				fl_rl_list_db->flow[j].lu_type,
-				fl_rl_list_db->flow[j].port_bm,
-				pp2_cls_utils_port_type_str_get(fl_rl_list_db->flow[j].port_type),
-				fl_rl_list_db->flow[j].prio,
-				ref_sum);
+			       fl_rl_list_db->flow[j].rl_log_id,
+			       fl_rl_list_db->flow[j].lu_type,
+			       fl_rl_list_db->flow[j].port_bm,
+			       pp2_cls_utils_port_type_str_get(fl_rl_list_db->flow[j].port_type),
+			       fl_rl_list_db->flow[j].prio,
+			       ref_sum);
 			printf(" %4d = ", fl_rl_list_db->flow[j].field_id_cnt + proto_field);
 			for (k = 0; k < fl_rl_list_db->flow[j].field_id_cnt; k++)
 				printf("%s ", pp2_utils_field_id_str_get(fl_rl_list_db->flow[j].field_id[k]));
@@ -732,5 +728,4 @@ int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[])
 
 	return 0;
 }
-
 

@@ -41,8 +41,8 @@
 /* Set the MAC to reset or exit from reset */
 int pp2_gop_gmac_reset(struct gop_hw *gop, int mac_num, enum pp2_reset reset)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	reg_addr = PP2_GMAC_PORT_CTRL2_REG;
 
@@ -59,7 +59,7 @@ int pp2_gop_gmac_reset(struct gop_hw *gop, int mac_num, enum pp2_reset reset)
 
 static void pp2_gop_gmac_rgmii_cfg(struct gop_hw *gop, int mac_num)
 {
-	uint32_t val, thresh, an;
+	u32 val, thresh, an;
 
 	/* configure minimal level of the Tx FIFO before the lower
 	 * part starts to read a packet
@@ -100,7 +100,7 @@ static void pp2_gop_gmac_rgmii_cfg(struct gop_hw *gop, int mac_num)
 
 static void pp2_gop_gmac_qsgmii_cfg(struct gop_hw *gop, int mac_num)
 {
-	uint32_t val, thresh, an;
+	u32 val, thresh, an;
 
 	/* configure minimal level of the Tx FIFO before the lower
 	 * part starts to read a packet
@@ -142,7 +142,7 @@ static void pp2_gop_gmac_qsgmii_cfg(struct gop_hw *gop, int mac_num)
 
 static void pp2_gop_gmac_sgmii_cfg(struct gop_hw *gop, int mac_num)
 {
-	uint32_t val, thresh, an;
+	u32 val, thresh, an;
 
 	/* configure minimal level of the Tx FIFO before the lower
 	 * part starts to read a packet
@@ -183,7 +183,7 @@ static void pp2_gop_gmac_sgmii_cfg(struct gop_hw *gop, int mac_num)
 
 static void pp2_gop_gmac_sgmii2_5_cfg(struct gop_hw *gop, int mac_num)
 {
-	uint32_t val, thresh, an;
+	u32 val, thresh, an;
 
 	/* configure minimal level of the Tx FIFO before the lower
 	 * part starts to read a packet
@@ -228,8 +228,8 @@ static void pp2_gop_gmac_sgmii2_5_cfg(struct gop_hw *gop, int mac_num)
 /* Set the internal mux's to the required MAC in the GOP */
 int pp2_gop_gmac_mode_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	int mac_num = mac->gop_index;
 
@@ -277,10 +277,10 @@ int pp2_gop_gmac_mode_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 
 /* Configure MAC loopback */
 int pp2_gop_gmac_loopback_cfg(struct gop_hw *gop, int mac_num,
-			     enum pp2_lb_type type)
+			      enum pp2_lb_type type)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	reg_addr = PP2_GMAC_PORT_CTRL1_REG;
 	val = pp2_gop_gmac_read(gop, mac_num, reg_addr);
@@ -303,8 +303,8 @@ int pp2_gop_gmac_loopback_cfg(struct gop_hw *gop, int mac_num,
 /* Get MAC link status */
 bool pp2_gop_gmac_link_status_get(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	reg_addr = PP2_GMAC_PORT_STATUS0_REG;
 
@@ -315,7 +315,7 @@ bool pp2_gop_gmac_link_status_get(struct gop_hw *gop, int mac_num)
 /* Enable port and MIB counters */
 void pp2_gop_gmac_port_enable(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_CTRL0_REG);
 	reg_val |= PP2_GMAC_PORT_CTRL0_PORTEN_MASK;
@@ -327,7 +327,7 @@ void pp2_gop_gmac_port_enable(struct gop_hw *gop, int mac_num)
 /* Disable port */
 void pp2_gop_gmac_port_disable(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* mask all ports interrupts */
 	pp2_gop_gmac_port_link_event_mask(gop, mac_num);
@@ -339,9 +339,9 @@ void pp2_gop_gmac_port_disable(struct gop_hw *gop, int mac_num)
 }
 
 void pp2_gop_gmac_port_periodic_xon_set(struct gop_hw *gop,
-				       int mac_num, int enable)
+					int mac_num, int enable)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_CTRL1_REG);
 
@@ -354,9 +354,9 @@ void pp2_gop_gmac_port_periodic_xon_set(struct gop_hw *gop,
 }
 
 int pp2_gop_gmac_link_status(struct gop_hw *gop, int mac_num,
-			    struct pp2_port_link_status *pstatus)
+			     struct pp2_port_link_status *pstatus)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_STATUS0_REG);
 
@@ -396,9 +396,9 @@ int pp2_gop_gmac_link_status(struct gop_hw *gop, int mac_num,
 
 /* Change maximum receive size of the port */
 int pp2_gop_gmac_max_rx_size_set(struct gop_hw *gop,
-				int mac_num, int max_rx_size)
+				 int mac_num, int max_rx_size)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_CTRL0_REG);
 	reg_val &= ~PP2_GMAC_PORT_CTRL0_FRAMESIZELIMIT_MASK;
@@ -419,9 +419,9 @@ int pp2_gop_gmac_max_rx_size_set(struct gop_hw *gop,
 *		1, 1 - prohibited state.
 */
 int pp2_gop_gmac_force_link_mode_set(struct gop_hw *gop, int mac_num,
-				    bool force_link_up, bool force_link_down)
+				     bool force_link_up, bool force_link_down)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* Can't force link pass and link fail at the same time */
 	if ((force_link_up) && (force_link_down))
@@ -452,9 +452,9 @@ int pp2_gop_gmac_force_link_mode_set(struct gop_hw *gop, int mac_num,
 *	bool *force_link_fail	- Force Link Failure
 */
 int pp2_gop_gmac_force_link_mode_get(struct gop_hw *gop, int mac_num,
-				    bool *force_link_up, bool *force_link_down)
+				     bool *force_link_up, bool *force_link_down)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* Can't force link pass and link fail at the same time */
 	if ((!force_link_up) || (!force_link_down))
@@ -479,10 +479,10 @@ int pp2_gop_gmac_force_link_mode_get(struct gop_hw *gop, int mac_num,
 *  Sets port duplex to Auto Negotiation / Full / Half Duplex.
 */
 int pp2_gop_gmac_speed_duplex_set(struct gop_hw *gop, int mac_num,
-				 enum pp2_port_speed speed,
+				  enum pp2_port_speed speed,
 				 enum pp2_port_duplex duplex)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* Check validity */
 	if ((speed == PP2_PORT_SPEED_1000) && (duplex == PP2_PORT_DUPLEX_HALF))
@@ -540,10 +540,10 @@ int pp2_gop_gmac_speed_duplex_set(struct gop_hw *gop, int mac_num,
 
 /* Gets port speed and duplex */
 int pp2_gop_gmac_speed_duplex_get(struct gop_hw *gop, int mac_num,
-				 enum pp2_port_speed *speed,
+				  enum pp2_port_speed *speed,
 				 enum pp2_port_duplex *duplex)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* Check validity */
 	if (!speed || !duplex)
@@ -573,8 +573,8 @@ int pp2_gop_gmac_speed_duplex_get(struct gop_hw *gop, int mac_num,
 /* Configure the port's Flow Control properties */
 int pp2_gop_gmac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc)
 {
-	uint32_t reg_val;
-	uint32_t fc_en;
+	u32 reg_val;
+	u32 fc_en;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_AUTO_NEG_CFG_REG);
 
@@ -626,7 +626,7 @@ int pp2_gop_gmac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc)
 /* Get Flow Control configuration of the port */
 void pp2_gop_gmac_fc_get(struct gop_hw *gop, int mac_num, enum pp2_port_fc *fc)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_AUTO_NEG_CFG_REG);
 
@@ -644,7 +644,7 @@ void pp2_gop_gmac_fc_get(struct gop_hw *gop, int mac_num, enum pp2_port_fc *fc)
 	} else {
 		/* Auto negotiation is disabled */
 		reg_val = pp2_gop_gmac_read(gop, mac_num,
-					   PP2_GMAC_PORT_CTRL4_REG);
+					    PP2_GMAC_PORT_CTRL4_REG);
 		if ((reg_val & PP2_GMAC_PORT_CTRL4_FC_EN_RX_MASK) &&
 		    (reg_val & PP2_GMAC_PORT_CTRL4_FC_EN_TX_MASK))
 			*fc = PP2_PORT_FC_ENABLE;
@@ -654,11 +654,11 @@ void pp2_gop_gmac_fc_get(struct gop_hw *gop, int mac_num, enum pp2_port_fc *fc)
 }
 
 int pp2_gop_gmac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
-				   enum pp2_port_speed speed, int force_link_up)
+				    enum pp2_port_speed speed, int force_link_up)
 {
 	if (force_link_up) {
 		if (pp2_gop_gmac_speed_duplex_set(gop, mac_num, speed,
-						 PP2_PORT_DUPLEX_FULL)) {
+						  PP2_PORT_DUPLEX_FULL)) {
 			pp2_err("pp2_gop_gmac_speed_duplex_set failed\n");
 			return -EPERM;
 		}
@@ -676,7 +676,7 @@ int pp2_gop_gmac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
 			return -EPERM;
 		}
 		if (pp2_gop_gmac_speed_duplex_set(gop, mac_num,
-						 PP2_PORT_SPEED_AN,
+						  PP2_PORT_SPEED_AN,
 						 PP2_PORT_DUPLEX_AN)) {
 			pp2_err("pp2_gop_gmac_speed_duplex_set failed\n");
 			return -EPERM;
@@ -692,25 +692,25 @@ int pp2_gop_gmac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
 
 void pp2_gop_gmac_port_link_event_mask(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num,
-				   PP2_GMAC_INTERRUPT_SUM_MASK_REG);
+				    PP2_GMAC_INTERRUPT_SUM_MASK_REG);
 	reg_val &= ~PP2_GMAC_INTERRUPT_SUM_CAUSE_LINK_CHANGE_MASK;
 	pp2_gop_gmac_write(gop, mac_num,
-			  PP2_GMAC_INTERRUPT_SUM_MASK_REG, reg_val);
+			   PP2_GMAC_INTERRUPT_SUM_MASK_REG, reg_val);
 }
 
 void pp2_gop_gmac_port_link_event_unmask(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num,
-				   PP2_GMAC_INTERRUPT_SUM_MASK_REG);
+				    PP2_GMAC_INTERRUPT_SUM_MASK_REG);
 	reg_val |= PP2_GMAC_INTERRUPT_SUM_CAUSE_LINK_CHANGE_MASK;
 	reg_val |= 1;		/* unmask summary bit */
 	pp2_gop_gmac_write(gop, mac_num,
-			  PP2_GMAC_INTERRUPT_SUM_MASK_REG, reg_val);
+			   PP2_GMAC_INTERRUPT_SUM_MASK_REG, reg_val);
 }
 
 void pp2_gop_gmac_port_link_event_clear(struct gop_hw *gop, int mac_num)
@@ -720,7 +720,7 @@ void pp2_gop_gmac_port_link_event_clear(struct gop_hw *gop, int mac_num)
 
 int pp2_gop_gmac_port_autoneg_restart(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_gmac_read(gop, mac_num, PP2_GMAC_PORT_AUTO_NEG_CFG_REG);
 	/* enable AN and restart it */
@@ -772,8 +772,8 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		/* configure MAC */
 		pp2_gop_gmac_mode_cfg(gop, mac);
 
-        /* Enable or disable MAC loopback */
-        pp2_gop_loopback_set(gop, mac, lb);
+	/* Enable or disable MAC loopback */
+	pp2_gop_loopback_set(gop, mac, lb);
 
 		/* select proper Mac mode */
 		pp2_gop_xlg_2_gig_mac_cfg(gop, mac_num);
@@ -796,8 +796,8 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		/* configure MAC */
 		pp2_gop_gmac_mode_cfg(gop, mac);
 
-        /* Enable or disable MAC loopback */
-        pp2_gop_loopback_set(gop, mac, lb);
+	/* Enable or disable MAC loopback */
+	pp2_gop_loopback_set(gop, mac, lb);
 
 		/* select proper Mac mode */
 		pp2_gop_xlg_2_gig_mac_cfg(gop, mac_num);
@@ -857,7 +857,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		/* configure MAC */
 		pp2_gop_xlg_mac_mode_cfg(gop, mac_num, num_of_act_lanes);
 
-        /* Enable or disable MAC loopback */
+	/* Enable or disable MAC loopback */
 		pp2_gop_xlg_mac_loopback_cfg(gop, mac_num, lb ? PP2_TX_2_RX_LB : PP2_DISABLE_LB);
 
 		/* pcs unreset */
@@ -868,7 +868,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		break;
 	default:
 		pp2_err("%s: Requested port mode (%d) not supported",
-		       __func__, mac->phy_mode);
+			__func__, mac->phy_mode);
 		return -1;
 	}
 
@@ -993,7 +993,7 @@ void pp2_gop_port_disable(struct gop_hw *gop, struct pp2_mac_data *mac)
 }
 
 void pp2_gop_port_periodic_xon_set(struct gop_hw *gop,
-				  struct pp2_mac_data *mac, int enable)
+				   struct pp2_mac_data *mac, int enable)
 {
 	int port_num = mac->gop_index;
 
@@ -1029,13 +1029,13 @@ bool pp2_gop_port_is_link_up(struct gop_hw *gop, struct pp2_mac_data *mac)
 		return pp2_gop_xlg_mac_link_status_get(gop, port_num);
 	default:
 		pp2_err("%s: Wrong port mode gop_port(%d), phy_mode(%d)",
-		       __func__, port_num, mac->phy_mode);
+			__func__, port_num, mac->phy_mode);
 		return false;
 	}
 }
 
 int pp2_gop_port_link_status(struct gop_hw *gop, struct pp2_mac_data *mac,
-			    struct pp2_port_link_status *pstatus)
+			     struct pp2_port_link_status *pstatus)
 {
 	int port_num = mac->gop_index;
 
@@ -1162,9 +1162,9 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 	}
 
 	pp2_info("MAC status              : %s",
-		(port_en) ? "enabled\n" : "disabled\n");
+		 (port_en) ? "enabled\n" : "disabled\n");
 	pp2_info("Link status             : %s",
-		(port_status.linkup) ? "link up\n" : "link down\n");
+		 (port_status.linkup) ? "link up\n" : "link down\n");
 
 	if ((mac->phy_mode == PHY_INTERFACE_MODE_SGMII) &&
 	    (mac->speed == 2500) && (port_status.speed == PP2_PORT_SPEED_1000))
@@ -1191,7 +1191,7 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 		break;
 	default:
 		pp2_err("%s: Wrong port speed (%d)\n", __func__,
-		       port_status.speed);
+			port_status.speed);
 		return -1;
 	}
 
@@ -1207,7 +1207,7 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 		break;
 	default:
 		pp2_err("%s: Wrong port duplex (%d)\n", __func__,
-		       port_status.duplex);
+			port_status.duplex);
 		return -1;
 	}
 
@@ -1216,7 +1216,7 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 
 /* get port speed and duplex */
 int pp2_gop_speed_duplex_get(struct gop_hw *gop, struct pp2_mac_data *mac,
-			    enum pp2_port_speed *speed,
+			     enum pp2_port_speed *speed,
 			    enum pp2_port_duplex *duplex)
 {
 	int port_num = mac->gop_index;
@@ -1241,7 +1241,7 @@ int pp2_gop_speed_duplex_get(struct gop_hw *gop, struct pp2_mac_data *mac,
 
 /* set port speed and duplex */
 int pp2_gop_speed_duplex_set(struct gop_hw *gop, struct pp2_mac_data *mac,
-			    enum pp2_port_speed speed,
+			     enum pp2_port_speed speed,
 			    enum pp2_port_duplex duplex)
 {
 	int port_num = mac->gop_index;
@@ -1279,7 +1279,7 @@ int pp2_gop_autoneg_restart(struct gop_hw *gop, struct pp2_mac_data *mac)
 	case PHY_INTERFACE_MODE_RXAUI:
 	case PHY_INTERFACE_MODE_KR:
 		pp2_err("%s: on supported for port mode (%d)", __func__,
-		       mac->phy_mode);
+			mac->phy_mode);
 		return -1;
 	default:
 		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
@@ -1299,11 +1299,11 @@ int pp2_gop_fl_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 		/* disable AN */
 		if (mac->speed == 2500)
 			pp2_gop_speed_duplex_set(gop, mac,
-						PP2_PORT_SPEED_2500,
+						 PP2_PORT_SPEED_2500,
 						PP2_PORT_DUPLEX_FULL);
 		else
 			pp2_gop_speed_duplex_set(gop, mac,
-						PP2_PORT_SPEED_1000,
+						 PP2_PORT_SPEED_1000,
 						PP2_PORT_DUPLEX_FULL);
 		/* force link */
 		pp2_gop_gmac_force_link_mode_set(gop, port_num, true, false);
@@ -1321,7 +1321,7 @@ int pp2_gop_fl_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 
 /* set port ForceLinkUp and ForceLinkDown*/
 int pp2_gop_force_link_mode_set(struct gop_hw *gop, struct pp2_mac_data *mac,
-			       bool force_link_up, bool force_link_down)
+				bool force_link_up, bool force_link_down)
 {
 	int port_num = mac->gop_index;
 
@@ -1331,7 +1331,7 @@ int pp2_gop_force_link_mode_set(struct gop_hw *gop, struct pp2_mac_data *mac,
 	case PHY_INTERFACE_MODE_QSGMII:
 		/* force link */
 		pp2_gop_gmac_force_link_mode_set(gop, port_num,
-						force_link_up, force_link_down);
+						 force_link_up, force_link_down);
 		break;
 	case PHY_INTERFACE_MODE_XAUI:
 	case PHY_INTERFACE_MODE_RXAUI:
@@ -1346,7 +1346,7 @@ int pp2_gop_force_link_mode_set(struct gop_hw *gop, struct pp2_mac_data *mac,
 
 /* get port ForceLinkUp and ForceLinkDown*/
 int pp2_gop_force_link_mode_get(struct gop_hw *gop, struct pp2_mac_data *mac,
-			       bool *force_link_up, bool *force_link_down)
+				bool *force_link_up, bool *force_link_down)
 {
 	int port_num = mac->gop_index;
 
@@ -1418,7 +1418,7 @@ int pp2_gop_loopback_set(struct gop_hw *gop, struct pp2_mac_data *mac, bool lb)
 **************************************************************************/
 int pp2_gop_gpcs_mode_cfg(struct gop_hw *gop, int pcs_num, bool en)
 {
-	uint32_t val;
+	u32 val;
 
 	val = pp2_gop_gmac_read(gop, pcs_num, PP2_GMAC_PORT_CTRL2_REG);
 
@@ -1453,7 +1453,7 @@ int pp2_gop_gpcs_mode_cfg(struct gop_hw *gop, int pcs_num, bool en)
 *************************************************************************/
 int pp2_gop_gpcs_reset(struct gop_hw *gop, int pcs_num, enum pp2_reset act)
 {
-	uint32_t reg_data;
+	u32 reg_data;
 
 	reg_data = pp2_gop_gmac_read(gop, pcs_num, PP2_GMAC_PORT_CTRL2_REG);
 	if (act == RESET)
@@ -1468,7 +1468,7 @@ int pp2_gop_gpcs_reset(struct gop_hw *gop, int pcs_num, enum pp2_reset act)
 
 void pp2_gop_serdes_init(struct gop_hw *gop, int lane, enum sd_media_mode mode)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* Media Interface Mode */
 	reg_val = pp2_gop_serdes_read(gop, lane, PP2_SERDES_CFG_0_REG);
@@ -1491,9 +1491,9 @@ void pp2_gop_serdes_init(struct gop_hw *gop, int lane, enum sd_media_mode mode)
 }
 
 void pp2_gop_serdes_reset(struct gop_hw *gop, int lane, bool analog_reset,
-			 bool core_reset, bool digital_reset)
+			  bool core_reset, bool digital_reset)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_serdes_read(gop, lane, PP2_SERDES_CFG_1_REG);
 	if (analog_reset)
@@ -1519,7 +1519,7 @@ void pp2_gop_serdes_reset(struct gop_hw *gop, int lane, bool analog_reset,
 **************************************************************************/
 int pp2_gop_smi_init(struct gop_hw *gop)
 {
-	uint32_t val;
+	u32 val;
 
 	/* not invert MDC */
 	val = pp2_gop_smi_read(gop, PP2_SMI_MISC_CFG_REG);
@@ -1542,8 +1542,8 @@ int pp2_gop_smi_phy_addr_cfg(struct gop_hw *gop, int port, int addr)
 /* Set the MAC to reset or exit from reset */
 int pp2_gop_xlg_mac_reset(struct gop_hw *gop, int mac_num, enum pp2_reset reset)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	reg_addr = PP2_XLG_PORT_MAC_CTRL0_REG;
 
@@ -1560,10 +1560,10 @@ int pp2_gop_xlg_mac_reset(struct gop_hw *gop, int mac_num, enum pp2_reset reset)
 
 /* Set the internal mux's to the required MAC in the GOP */
 int pp2_gop_xlg_mac_mode_cfg(struct gop_hw *gop, int mac_num,
-			    int num_of_act_lanes)
+			     int num_of_act_lanes)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	/* configure 10G MAC mode */
 	reg_addr = PP2_XLG_PORT_MAC_CTRL0_REG;
@@ -1588,8 +1588,8 @@ int pp2_gop_xlg_mac_mode_cfg(struct gop_hw *gop, int mac_num,
 		      PP2_XLG_MAC_CTRL4_FORWARD_PFC_EN_OFFS);
 	U32_SET_FIELD(val, PP2_XLG_MAC_CTRL4_FORWARD_802_3X_FC_EN_MASK, 1 <<
 		      PP2_XLG_MAC_CTRL4_FORWARD_802_3X_FC_EN_OFFS);
-    U32_SET_FIELD(val, PP2_XLG_MAC_CTRL4_EN_IDLE_CHECK_FOR_LINK_MASK, 0 <<
-              PP2_XLG_MAC_CTRL4_EN_IDLE_CHECK_FOR_LINK_OFFS);
+	U32_SET_FIELD(val, PP2_XLG_MAC_CTRL4_EN_IDLE_CHECK_FOR_LINK_MASK, 0 <<
+	      PP2_XLG_MAC_CTRL4_EN_IDLE_CHECK_FOR_LINK_OFFS);
 	pp2_gop_xlg_mac_write(gop, mac_num, reg_addr, val);
 
 	/* Jumbo frame support - 0x1400*2= 0x2800 bytes */
@@ -1611,10 +1611,10 @@ int pp2_gop_xlg_mac_mode_cfg(struct gop_hw *gop, int mac_num,
 
 /* Configure MAC loopback */
 int pp2_gop_xlg_mac_loopback_cfg(struct gop_hw *gop, int mac_num,
-				enum pp2_lb_type type)
+				 enum pp2_lb_type type)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	reg_addr = PP2_XLG_PORT_MAC_CTRL1_REG;
 	val = pp2_gop_xlg_mac_read(gop, mac_num, reg_addr);
@@ -1650,7 +1650,7 @@ bool pp2_gop_xlg_mac_link_status_get(struct gop_hw *gop, int mac_num)
 /* Enable port and MIB counters update */
 void pp2_gop_xlg_mac_port_enable(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num, PP2_XLG_PORT_MAC_CTRL0_REG);
 	reg_val |= PP2_XLG_MAC_CTRL0_PORTEN_MASK;
@@ -1662,7 +1662,7 @@ void pp2_gop_xlg_mac_port_enable(struct gop_hw *gop, int mac_num)
 /* Disable port */
 void pp2_gop_xlg_mac_port_disable(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* mask all port interrupts */
 	pp2_gop_xlg_port_link_event_mask(gop, mac_num);
@@ -1674,9 +1674,9 @@ void pp2_gop_xlg_mac_port_disable(struct gop_hw *gop, int mac_num)
 }
 
 void pp2_gop_xlg_mac_port_periodic_xon_set(struct gop_hw *gop,
-					  int mac_num, int enable)
+					   int mac_num, int enable)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num, PP2_XLG_PORT_MAC_CTRL0_REG);
 
@@ -1689,11 +1689,11 @@ void pp2_gop_xlg_mac_port_periodic_xon_set(struct gop_hw *gop,
 }
 
 int pp2_gop_xlg_mac_link_status(struct gop_hw *gop,
-			       int mac_num, struct pp2_port_link_status *pstatus)
+				int mac_num, struct pp2_port_link_status *pstatus)
 {
-	uint32_t reg_val;
-	uint32_t mac_mode;
-	uint32_t fc_en;
+	u32 reg_val;
+	u32 mac_mode;
+	u32 fc_en;
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num, PP2_XLG_PORT_MAC_CTRL3_REG);
 	mac_mode = (reg_val & PP2_XLG_MAC_CTRL3_MACMODESELECT_MASK) >>
@@ -1741,9 +1741,9 @@ int pp2_gop_xlg_mac_link_status(struct gop_hw *gop,
 
 /* Change maximum receive size of the port */
 int pp2_gop_xlg_mac_max_rx_size_set(struct gop_hw *gop, int mac_num,
-				   int max_rx_size)
+				    int max_rx_size)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num, PP2_XLG_PORT_MAC_CTRL1_REG);
 	reg_val &= ~PP2_XLG_MAC_CTRL1_FRAMESIZELIMIT_MASK;
@@ -1764,9 +1764,9 @@ int pp2_gop_xlg_mac_max_rx_size_set(struct gop_hw *gop, int mac_num,
 *		1, 1 - prohibited state.
 */
 int pp2_gop_xlg_mac_force_link_mode_set(struct gop_hw *gop, int mac_num,
-				       bool force_link_up, bool force_link_down)
+					bool force_link_up, bool force_link_down)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* Can't force link pass and link fail at the same time */
 	if ((force_link_up) && (force_link_down))
@@ -1793,7 +1793,7 @@ int pp2_gop_xlg_mac_force_link_mode_set(struct gop_hw *gop, int mac_num,
 *  Sets port duplex to Auto Negotiation / Full / Half Duplex.
 */
 int pp2_gop_xlg_mac_speed_duplex_set(struct gop_hw *gop, int mac_num,
-				    enum pp2_port_speed speed,
+				     enum pp2_port_speed speed,
 				    enum pp2_port_duplex duplex)
 {
 	/* not supported */
@@ -1802,7 +1802,7 @@ int pp2_gop_xlg_mac_speed_duplex_set(struct gop_hw *gop, int mac_num,
 
 /* Gets port speed and duplex */
 int pp2_gop_xlg_mac_speed_duplex_get(struct gop_hw *gop, int mac_num,
-				    enum pp2_port_speed *speed,
+				     enum pp2_port_speed *speed,
 				    enum pp2_port_duplex *duplex)
 {
 	/* not supported */
@@ -1812,7 +1812,7 @@ int pp2_gop_xlg_mac_speed_duplex_get(struct gop_hw *gop, int mac_num,
 /* Configure the port's Flow Control properties */
 int pp2_gop_xlg_mac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num, PP2_XLG_PORT_MAC_CTRL0_REG);
 
@@ -1842,7 +1842,7 @@ int pp2_gop_xlg_mac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc)
 /* Get Flow Control configuration of the port */
 void pp2_gop_xlg_mac_fc_get(struct gop_hw *gop, int mac_num, enum pp2_port_fc *fc)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* No auto negotiation for flow control */
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num, PP2_XLG_PORT_MAC_CTRL0_REG);
@@ -1855,7 +1855,7 @@ void pp2_gop_xlg_mac_fc_get(struct gop_hw *gop, int mac_num, enum pp2_port_fc *f
 }
 
 int pp2_gop_xlg_mac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
-				      enum pp2_port_speed speed,
+				       enum pp2_port_speed speed,
 				      int force_link_up)
 {
 	if (force_link_up) {
@@ -1883,26 +1883,26 @@ int pp2_gop_xlg_mac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
 
 void pp2_gop_xlg_port_link_event_mask(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num,
-				      PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG);
+				       PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG);
 	reg_val &= ~(1 << 1);
 	pp2_gop_xlg_mac_write(gop, mac_num,
-			     PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG, reg_val);
+			      PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG, reg_val);
 }
 
 void pp2_gop_xlg_port_external_event_unmask(struct gop_hw *gop, int mac_num,
-					   int bit_2_open)
+					    int bit_2_open)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num,
-				      PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG);
+				       PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG);
 	reg_val |= (1 << bit_2_open);
 	reg_val |= 1;		/* unmask summary bit */
 	pp2_gop_xlg_mac_write(gop, mac_num,
-			     PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG, reg_val);
+			      PP2_XLG_EXTERNAL_INTERRUPT_MASK_REG, reg_val);
 }
 
 void pp2_gop_xlg_port_link_event_clear(struct gop_hw *gop, int mac_num)
@@ -1912,7 +1912,7 @@ void pp2_gop_xlg_port_link_event_clear(struct gop_hw *gop, int mac_num)
 
 void pp2_gop_xlg_2_gig_mac_cfg(struct gop_hw *gop, int mac_num)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* relevant only for MAC0 (XLG0 and GMAC0) */
 	if (mac_num > 0)
@@ -1928,8 +1928,8 @@ void pp2_gop_xlg_2_gig_mac_cfg(struct gop_hw *gop, int mac_num)
 /* Set PCS to reset or exit from reset */
 int pp2_gop_xpcs_reset(struct gop_hw *gop, enum pp2_reset reset)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	reg_addr = PP2_XPCS_GLOBAL_CFG_0_REG;
 
@@ -1947,8 +1947,8 @@ int pp2_gop_xpcs_reset(struct gop_hw *gop, enum pp2_reset reset)
 /* Set the internal mux's to the required PCS in the PI */
 int pp2_gop_xpcs_mode(struct gop_hw *gop, int num_of_lanes)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 	int lane;
 
 	switch (num_of_lanes) {
@@ -1979,8 +1979,8 @@ int pp2_gop_xpcs_mode(struct gop_hw *gop, int num_of_lanes)
 
 int pp2_gop_mpcs_mode(struct gop_hw *gop)
 {
-	uint32_t reg_addr;
-	uint32_t val;
+	u32 reg_addr;
+	u32 val;
 
 	/* configure PCS40G COMMON CONTROL */
 	reg_addr = PCS40G_COMMON_CONTROL;
@@ -2011,7 +2011,7 @@ int pp2_gop_mpcs_mode(struct gop_hw *gop)
 
 void pp2_gop_ptp_enable(struct gop_hw *gop, int port, bool state)
 {
-	uint32_t reg_data;
+	u32 reg_data;
 
 	if (state) {
 		/* PTP enable */
@@ -2032,7 +2032,7 @@ void pp2_gop_ptp_enable(struct gop_hw *gop, int port, bool state)
 
 uint32_t pp2_gop_netc_cfg_create(struct pp2_mac_data *mac)
 {
-	uint32_t val = 0;
+	u32 val = 0;
 
 	if (mac->gop_index == 0) {
 		if (mac->phy_mode == PHY_INTERFACE_MODE_XAUI)
@@ -2056,7 +2056,7 @@ uint32_t pp2_gop_netc_cfg_create(struct pp2_mac_data *mac)
 
 void pp2_gop_netc_active_port(struct gop_hw *gop, uint32_t port, uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, PP2_NETCOMP_PORTS_CONTROL_1);
 	reg &= ~(NETC_PORTS_ACTIVE_MASK(port));
@@ -2070,9 +2070,9 @@ void pp2_gop_netc_active_port(struct gop_hw *gop, uint32_t port, uint32_t val)
 }
 
 static void pp2_gop_netc_xaui_enable(struct gop_hw *gop, uint32_t port,
-				    uint32_t val)
+				     uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, SD1_CONTROL_1_REG);
 	reg &= ~SD1_CONTROL_XAUI_EN_MASK;
@@ -2086,9 +2086,9 @@ static void pp2_gop_netc_xaui_enable(struct gop_hw *gop, uint32_t port,
 }
 
 static void pp2_gop_netc_rxaui0_enable(struct gop_hw *gop, uint32_t port,
-				      uint32_t val)
+				       uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, SD1_CONTROL_1_REG);
 	reg &= ~SD1_CONTROL_RXAUI0_L23_EN_MASK;
@@ -2102,9 +2102,9 @@ static void pp2_gop_netc_rxaui0_enable(struct gop_hw *gop, uint32_t port,
 }
 
 static void pp2_gop_netc_rxaui1_enable(struct gop_hw *gop, uint32_t port,
-				      uint32_t val)
+				       uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, SD1_CONTROL_1_REG);
 	reg &= ~SD1_CONTROL_RXAUI1_L45_EN_MASK;
@@ -2118,9 +2118,9 @@ static void pp2_gop_netc_rxaui1_enable(struct gop_hw *gop, uint32_t port,
 }
 
 static void pp2_gop_netc_mii_mode(struct gop_hw *gop, uint32_t port,
-				 uint32_t val)
+				  uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, PP2_NETCOMP_CONTROL_0);
 	reg &= ~NETC_GBE_PORT1_MII_MODE_MASK;
@@ -2135,7 +2135,7 @@ static void pp2_gop_netc_mii_mode(struct gop_hw *gop, uint32_t port,
 
 static void pp2_gop_netc_reset(struct gop_hw *gop, uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, PP2_GOP_SOFT_RESET_1_REG);
 	reg &= ~NETC_GOP_SOFT_RESET_MASK;
@@ -2150,7 +2150,7 @@ static void pp2_gop_netc_reset(struct gop_hw *gop, uint32_t val)
 
 static void pp2_gop_netc_clock_logic_set(struct gop_hw *gop, uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, PP2_NETCOMP_PORTS_CONTROL_0);
 	reg &= ~NETC_CLK_DIV_PHASE_MASK;
@@ -2164,9 +2164,9 @@ static void pp2_gop_netc_clock_logic_set(struct gop_hw *gop, uint32_t val)
 }
 
 static void pp2_gop_netc_port_rf_reset(struct gop_hw *gop, uint32_t port,
-				      uint32_t val)
+				       uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, PP2_NETCOMP_PORTS_CONTROL_1);
 	reg &= ~(NETC_PORT_GIG_RF_RESET_MASK(port));
@@ -2180,9 +2180,9 @@ static void pp2_gop_netc_port_rf_reset(struct gop_hw *gop, uint32_t port,
 }
 
 static void pp2_gop_netc_gbe_sgmii_mode_select(struct gop_hw *gop, uint32_t port,
-					      uint32_t val)
+					       uint32_t val)
 {
-	uint32_t reg, mask, offset;
+	u32 reg, mask, offset;
 
 	if (port == 2) {
 		mask = NETC_GBE_PORT0_SGMII_MODE_MASK;
@@ -2204,7 +2204,7 @@ static void pp2_gop_netc_gbe_sgmii_mode_select(struct gop_hw *gop, uint32_t port
 
 static void pp2_gop_netc_bus_width_select(struct gop_hw *gop, uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, PP2_NETCOMP_PORTS_CONTROL_0);
 	reg &= ~NETC_BUS_WIDTH_SELECT_MASK;
@@ -2219,7 +2219,7 @@ static void pp2_gop_netc_bus_width_select(struct gop_hw *gop, uint32_t val)
 
 static void pp2_gop_netc_sample_stages_timing(struct gop_hw *gop, uint32_t val)
 {
-	uint32_t reg;
+	u32 reg;
 
 	reg = pp2_gop_rfu1_read(gop, PP2_NETCOMP_PORTS_CONTROL_0);
 	reg &= ~NETC_GIG_RX_DATA_SAMPLE_MASK;
@@ -2233,7 +2233,7 @@ static void pp2_gop_netc_sample_stages_timing(struct gop_hw *gop, uint32_t val)
 }
 
 static void pp2_gop_netc_mac_to_xgmii(struct gop_hw *gop, uint32_t port,
-				     enum pp2_netc_phase phase)
+				      enum pp2_netc_phase phase)
 {
 	switch (phase) {
 	case PP2_NETC_FIRST_PHASE:
@@ -2250,7 +2250,7 @@ static void pp2_gop_netc_mac_to_xgmii(struct gop_hw *gop, uint32_t port,
 }
 
 static void pp2_gop_netc_mac_to_sgmii(struct gop_hw *gop, uint32_t port,
-				     enum pp2_netc_phase phase)
+				      enum pp2_netc_phase phase)
 {
 	switch (phase) {
 	case PP2_NETC_FIRST_PHASE:
@@ -2259,7 +2259,7 @@ static void pp2_gop_netc_mac_to_sgmii(struct gop_hw *gop, uint32_t port,
 		/* Select SGMII mode */
 		if (port >= 1)
 			pp2_gop_netc_gbe_sgmii_mode_select(gop, port,
-							  PP2_NETC_GBE_SGMII);
+							   PP2_NETC_GBE_SGMII);
 
 		/* Configure the sample stages */
 		pp2_gop_netc_sample_stages_timing(gop, 0);
@@ -2274,7 +2274,7 @@ static void pp2_gop_netc_mac_to_sgmii(struct gop_hw *gop, uint32_t port,
 }
 
 static void pp2_gop_netc_mac_to_rxaui(struct gop_hw *gop, uint32_t port,
-				     enum pp2_netc_phase phase,
+				      enum pp2_netc_phase phase,
 				     enum pp2_netc_lanes lanes)
 {
 	/* Currently only RXAUI0 supported */
@@ -2297,7 +2297,7 @@ static void pp2_gop_netc_mac_to_rxaui(struct gop_hw *gop, uint32_t port,
 }
 
 static void pp2_gop_netc_mac_to_xaui(struct gop_hw *gop, uint32_t port,
-				    enum pp2_netc_phase phase)
+				     enum pp2_netc_phase phase)
 {
 	switch (phase) {
 	case PP2_NETC_FIRST_PHASE:
@@ -2312,9 +2312,9 @@ static void pp2_gop_netc_mac_to_xaui(struct gop_hw *gop, uint32_t port,
 }
 
 int pp2_gop_netc_init(struct gop_hw *gop,
-		     uint32_t net_comp_config, enum pp2_netc_phase phase)
+		      u32 net_comp_config, enum pp2_netc_phase phase)
 {
-	uint32_t c = net_comp_config;
+	u32 c = net_comp_config;
 
 	if (c & PP2_NETC_GE_MAC0_RXAUI_L23)
 		pp2_gop_netc_mac_to_rxaui(gop, 0, phase, PP2_NETC_LANE_23);

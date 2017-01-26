@@ -30,7 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 /**
  * @file pp2.h
  *
@@ -59,8 +58,9 @@
 #define PP_UIO_DEV_NAME "uio_mv_pp"
 #define PP_UIO_MEM_NAME "pp"
 
-/*TODO: Decide if to duplicate the below defines, under different name,
-or split the definitions from the mvpp2io.h, and other header files, and use them here. */
+/* TODO: Decide if to duplicate the below defines, under different name,
+ * or split the definitions from the mvpp2io.h, and other header files, and use them here.
+ */
 #if 0
 #define PP2_PPIO_MAX_NUM_TCS	8
 #define PP2_PPIO_MAX_NUM_OUTQS	8
@@ -68,7 +68,7 @@ or split the definitions from the mvpp2io.h, and other header files, and use the
 #define PP2_PPIO_MAX_NUM_HASH	4
 #endif
 struct pp2;
-extern struct pp2 * pp2_ptr;
+extern struct pp2 *pp2_ptr;
 /**
  * Descriptor Manager object (DM-IF) internal layout
  *
@@ -84,22 +84,22 @@ struct pp2_match_param {
 };
 
 struct pp2_dm_if {
-    /* Aggregator Queue physical ID */
-    uint32_t id;
-    /* Number of descriptors in the egress ring */
-    uint32_t desc_total;
-    /* Number of free descriptors */
-    uint32_t free_count;
-    /* Index of the next TXD descriptor to process */
-    uint32_t desc_next_idx;
-    /* Physical addr of the first TXD of the TXD array */
-    uintptr_t desc_phys_arr;
-    /* Virtual addr of the first TXD of the TXD array */
-    struct pp2_desc *desc_virt_arr;
-    /* Parent packet processor */
-    struct pp2_inst *parent;
-    /* CPU slot address assigned to this DM object */
-    uintptr_t cpu_slot;
+	/* Aggregator Queue physical ID */
+	u32 id;
+	/* Number of descriptors in the egress ring */
+	u32 desc_total;
+	/* Number of free descriptors */
+	u32 free_count;
+	/* Index of the next TXD descriptor to process */
+	u32 desc_next_idx;
+	/* Physical addr of the first TXD of the TXD array */
+	uintptr_t desc_phys_arr;
+	/* Virtual addr of the first TXD of the TXD array */
+	struct pp2_desc *desc_virt_arr;
+	/* Parent packet processor */
+	struct pp2_inst *parent;
+	/* CPU slot address assigned to this DM object */
+	uintptr_t cpu_slot;
 };
 
 /* Number of descriptors to prefetch from DRAM for this TXQ */
@@ -107,10 +107,10 @@ struct pp2_dm_if {
 #define PP2_TXQ_PREFETCH_16     (16)
 #define PP2_TXQ_PREFETCH_32     (32)
 
-
 struct pp2_txq_dm_if {
-	uint32_t desc_rsrvd;
+	u32 desc_rsrvd;
 };
+
 /**
  * Transmit Queue (TXQ) internal layout
  *
@@ -119,17 +119,17 @@ struct pp2_txq_dm_if {
  * number of descriptors for egress.
  */
 struct pp2_tx_queue {
-    /* TXQ physical ID */
-    uint32_t id;
-    /* TXQ logical ID */
-    uint32_t log_id;
-    /* Number of descriptors in this TXQ */
-    uint32_t desc_total;
-    /* Physical addr of the first TXD of the TXD array */
-    uintptr_t desc_phys_arr;
-    /* Virtual addr of the first TXD of the TXD array */
-    struct pp2_desc *desc_virt_arr;
-    struct pp2_txq_dm_if txq_dm_if[PP2_NUM_REGSPACES];
+	/* TXQ physical ID */
+	u32 id;
+	/* TXQ logical ID */
+	u32 log_id;
+	/* Number of descriptors in this TXQ */
+	u32 desc_total;
+	/* Physical addr of the first TXD of the TXD array */
+	uintptr_t desc_phys_arr;
+	/* Virtual addr of the first TXD of the TXD array */
+	struct pp2_desc *desc_virt_arr;
+	struct pp2_txq_dm_if txq_dm_if[PP2_NUM_REGSPACES];
 };
 
 /**
@@ -139,24 +139,24 @@ struct pp2_tx_queue {
  * an RXQ to receive data via RX descriptors (RXDs).
  */
 struct pp2_rx_queue {
-    /* RXQ physical ID */
-    uint32_t id;
-    /* RXQ logical ID */
-    uint32_t log_id;
-    /* Number of descriptors in this RXQ */
-    uint32_t desc_total;
-    /* Number of descriptors that are known to be occupied */
-    uint32_t desc_received;
-    /* Index of the last RXD */
-    uint32_t desc_last_idx;
-    /* Index of the next RXD descriptor to process */
-    uint32_t desc_next_idx;
-    /* Lock per RX queue*/
-    uint32_t rxq_lock;
-    /* Physical addr of the first RXD of the RXD array */
+	/* RXQ physical ID */
+	u32 id;
+	/* RXQ logical ID */
+	u32 log_id;
+	/* Number of descriptors in this RXQ */
+	u32 desc_total;
+	/* Number of descriptors that are known to be occupied */
+	u32 desc_received;
+	/* Index of the last RXD */
+	u32 desc_last_idx;
+	/* Index of the next RXD descriptor to process */
+	u32 desc_next_idx;
+	/* Lock per RX queue*/
+	u32 rxq_lock;
+	/* Physical addr of the first RXD of the RXD array */
 	uintptr_t desc_phys_arr;
-    /* Virtual addr of the first RXD of the RXD array */
-    struct pp2_desc *desc_virt_arr;
+	/* Virtual addr of the first RXD of the RXD array */
+	struct pp2_desc *desc_virt_arr;
 };
 
 /**
@@ -169,12 +169,12 @@ struct pp2_rx_queue {
  * share a BM pool
  */
 struct pp2_bm_if {
-    /* Parent packet processor */
-    struct pp2_inst *parent;
-    /* CPU slot address assigned to this BM object */
-    uintptr_t cpu_slot;
-    /* Slot number relativ to Packet Processor */
-    uint32_t slot_id;
+	/* Parent packet processor */
+	struct pp2_inst *parent;
+	/* CPU slot address assigned to this BM object */
+	uintptr_t cpu_slot;
+	/* Slot number relativ to Packet Processor */
+	u32 slot_id;
 };
 
 #define PP2_BM_BUF_DEBUG             (FALSE)
@@ -192,26 +192,25 @@ struct pp2_bm_if {
  * sharable by multiple threads.
  */
 struct pp2_bm_pool {
-    /* BM pool physcal ID */
-    uint32_t bm_pool_id;
-    /* BM pool number of buffers */
-    uint32_t bm_pool_buf_num;
-    /* BM pool buffer size */
-    uint32_t bm_pool_buf_sz;
-    /* Parent packet processor
-    struct pp2_inst *parent; */
-    /* Parent packet processor ID */
-    uint32_t pp2_id;
-    /* BM pool logical address (BPPE) */
-    uintptr_t bm_pool_virt_base;
-    /* BM pool physical address (BPPE) */
-    uintptr_t bm_pool_phys_base;
+	/* BM pool physcal ID */
+	u32 bm_pool_id;
+	/* BM pool number of buffers */
+	u32 bm_pool_buf_num;
+	/* BM pool buffer size */
+	u32 bm_pool_buf_sz;
+	/* Parent packet processor */
+	/* struct pp2_inst *parent; */
+	/* Parent packet processor ID */
+	u32 pp2_id;
+	/* BM pool logical address (BPPE) */
+	uintptr_t bm_pool_virt_base;
+	/* BM pool physical address (BPPE) */
+	uintptr_t bm_pool_phys_base;
 };
 
 /* Port minimum MTU in bytes */
 #define PP2_PORT_MIN_MTU         (68) /* Required to support IPV4, per RFC791 */
 #define PP2_PORT_MIN_MRU         (MVPP2_MTU_TO_MRU(PP2_PORT_MIN_MTU))
-
 
 /* Port default MTU in bytes */
 #define PP2_PORT_DEFAULT_MTU     (1500)
@@ -220,7 +219,7 @@ struct pp2_bm_pool {
 /* Minimum threshold 256 bytes */
 #define PP2_TX_FIFO_THRS_MIN_SUBSTRACTION	(256)
 
-#define PP2_PORT_TX_FIFO_KB_TO_THRESH(fifo)	((fifo)*1024 - PP2_TX_FIFO_THRS_MIN_SUBSTRACTION)
+#define PP2_PORT_TX_FIFO_KB_TO_THRESH(fifo)	((fifo) * 1024 - PP2_TX_FIFO_THRS_MIN_SUBSTRACTION)
 
 /* MAC address length */
 #define PP2_ETHADDR_LEN          (6)
@@ -228,25 +227,25 @@ struct pp2_bm_pool {
 #define PP2_PORT_FLAGS_L4_CHKSUM (0x1)
 
 struct pp2_ppio_tc_config {
-	uint16_t pkt_offset;    /* Must be multiple of 32 bytes.*/
-	uint8_t use_hash;
-	uint8_t num_in_qs;
-	uint8_t first_rxq;	/* First physical rx_queue for this TC */
+	u16 pkt_offset;    /* Must be multiple of 32 bytes.*/
+	u8 use_hash;
+	u8 num_in_qs;
+	u8 first_rxq;	/* First physical rx_queue for this TC */
 	struct pp2_bm_pool *pools[PP2_PPIO_TC_MAX_POOLS];
 /* TODO: future:
-	int							 qos;
-*/
+ *	int							 qos;
+ */
 };
 
 struct pp2_tc {
-    uint32_t first_log_rxq;
-    uint32_t rx_ring_size;
-    struct pp2_ppio_tc_config tc_config;
+	u32 first_log_rxq;
+	u32 rx_ring_size;
+	struct pp2_ppio_tc_config tc_config;
 };
 
 struct pp2_txq_config {
-    uint16_t size;
-    uint16_t weight;
+	u16 size;
+	u16 weight;
 };
 
 enum port_status {
@@ -257,47 +256,47 @@ enum port_status {
 
 /* PP Port internal structure */
 struct pp2_port {
-    /* Port ID */
-    uint32_t id;
-    /* Port status */
-    uint32_t admin_status;
-    /* Port Flags */
-    uint32_t flags;
-    /* Number of RXQs used by this port */
-    uint32_t num_rx_queues;
-    /* Number of TXQs used by this port */
-    uint32_t num_tx_queues;
-    struct pp2_txq_config txq_config[PP2_PPIO_MAX_NUM_OUTQS];
-    /* Number of TCs used by this port */
-    uint32_t num_tcs;
-    /* MRU */
-    uint16_t port_mru;
-    /* MTU */
-    uint16_t port_mtu;
-    /* First RXQ physical ID (i.e. 0, 32, 64) */
-    uint32_t first_rxq;
-    /* MAC loopback configuration */
-    uint32_t use_mac_lb;
-    /* Type of traffic enabled: ingress, egress or both */
-    uint32_t t_mode;
-    /* Parent packet processor */
-    struct pp2_inst *parent;
-    /* Port default CPU slot for initialization phase */
-    uintptr_t cpu_slot;
-    /* Array of egress queues */
-    struct pp2_tx_queue **txqs;
-    /* Array of ingress queues */
-    struct pp2_rx_queue **rxqs;
-    /* Array of Traffic Classes */
-    struct pp2_tc tc[PP2_PPIO_MAX_NUM_TCS];
-    /* Hash types for his port */
-    enum pp2_ppio_hash_type hash_type[PP2_PPIO_MAX_NUM_HASH];
-    /* MAC data for this port */
-    struct pp2_mac_data mac_data;
-    /* Linux interface name for this port */
-    char linux_name[16];
-    /* tx_fifo_size in KB */
-    uint32_t tx_fifo_size;
+	/* Port ID */
+	u32 id;
+	/* Port status */
+	u32 admin_status;
+	/* Port Flags */
+	u32 flags;
+	/* Number of RXQs used by this port */
+	u32 num_rx_queues;
+	/* Number of TXQs used by this port */
+	u32 num_tx_queues;
+	struct pp2_txq_config txq_config[PP2_PPIO_MAX_NUM_OUTQS];
+	/* Number of TCs used by this port */
+	u32 num_tcs;
+	/* MRU */
+	u16 port_mru;
+	/* MTU */
+	u16 port_mtu;
+	/* First RXQ physical ID (i.e. 0, 32, 64) */
+	u32 first_rxq;
+	/* MAC loopback configuration */
+	u32 use_mac_lb;
+	/* Type of traffic enabled: ingress, egress or both */
+	u32 t_mode;
+	/* Parent packet processor */
+	struct pp2_inst *parent;
+	/* Port default CPU slot for initialization phase */
+	uintptr_t cpu_slot;
+	/* Array of egress queues */
+	struct pp2_tx_queue **txqs;
+	/* Array of ingress queues */
+	struct pp2_rx_queue **rxqs;
+	/* Array of Traffic Classes */
+	struct pp2_tc tc[PP2_PPIO_MAX_NUM_TCS];
+	/* Hash types for his port */
+	enum pp2_ppio_hash_type hash_type[PP2_PPIO_MAX_NUM_HASH];
+	/* MAC data for this port */
+	struct pp2_mac_data mac_data;
+	/* Linux interface name for this port */
+	char linux_name[16];
+	/* tx_fifo_size in KB */
+	u32 tx_fifo_size;
 };
 
 /**
@@ -311,11 +310,11 @@ struct pp2_port {
  *   SB1: 0xF4130000
  */
 struct pp2_hw {
-   /* Register space slot for software thread */
+	/* Register space slot for software thread */
 	struct base_addr base[PP2_NUM_REGSPACES];
-   /* Register space for GOPs */
+	/* Register space for GOPs */
 	struct gop_hw gop;
-	uint32_t tclk;
+	u32 tclk;
 	/* PRS shadow table */
 	struct mv_pp2x_prs_shadow *prs_shadow;
 	/* PRS auxiliary table for double vlan entries control */
@@ -339,42 +338,42 @@ enum mv_pp2x_queue_distribution_mode {
 };
 
 struct mv_pp2x_cos {
-	uint8_t cos_classifier;	/* CoS based on VLAN or DSCP */
-	uint8_t num_cos_queues;	/* number of queue to do CoS */
-	uint8_t default_cos;	/* Default CoS value for non-IP or non-VLAN */
-	uint8_t reserved;
-	uint32_t pri_map;	/* 32 bits, each nibble maps a cos_value(0~7)
+	u8 cos_classifier;	/* CoS based on VLAN or DSCP */
+	u8 num_cos_queues;	/* number of queue to do CoS */
+	u8 default_cos;	/* Default CoS value for non-IP or non-VLAN */
+	u8 reserved;
+	u32 pri_map;	/* 32 bits, each nibble maps a cos_value(0~7)
 				 * to a queue.
 				 */
 };
 
 struct mv_pp2x_rss {
-	uint8_t rss_mode;	/* UDP packet */
-	uint8_t dflt_cpu;	/* non-IP packet */
-	uint8_t rss_en;     /* RSS enable/disable */
+	u8 rss_mode;	/* UDP packet */
+	u8 dflt_cpu;	/* non-IP packet */
+	u8 rss_en;     /* RSS enable/disable */
 };
 
 struct mv_pp2x_param_config {
 	struct mv_pp2x_cos cos_cfg;
 	struct mv_pp2x_rss rss_cfg;
-	uint8_t first_bm_pool;
-	uint8_t first_sw_thread;	/* The index of the first PPv2.2
+	u8 first_bm_pool;
+	u8 first_sw_thread;	/* The index of the first PPv2.2
 					 * sub-address space for this NET_INSTANCE.
 					 */
-	uint8_t first_log_rxq;	/* The first cos rx queue used in the port */
-	uint8_t cell_index;	/* The cell_index of the PPv22
+	u8 first_log_rxq;	/* The first cos rx queue used in the port */
+	u8 cell_index;	/* The cell_index of the PPv22
 				 * (could be 0,1, set according to dtsi)
 				 */
 	enum mv_pp2x_queue_distribution_mode queue_mode;
-	uint32_t rx_cpu_map;	/* The CPU that port bind, each port has
+	u32 rx_cpu_map;	/* The CPU that port bind, each port has
 				 * a nibble indexed by port_id,
 				 * nibble value is CPU id
 				 */
 };
 
 struct mv_pp2x_platform_data {
-	uint8_t pp2x_max_port_rxqs;
-	uint8_t num_port_irq;
+	u8 pp2x_max_port_rxqs;
+	u8 num_port_irq;
 	bool multi_addr_space;
 	bool interrupt_tx_done;
 	bool multi_hw_instance;
@@ -388,41 +387,42 @@ struct pp2_uio {
 /* Main control structure private per Packet Processor */
 struct pp2_inst {
 	/* This packet processor's ID */
-	uint32_t id;
+	u32 id;
 	/* HW data */
 	struct pp2_hw hw;
 	struct mv_pp2x_platform_data pp2xdata;
 	struct mv_pp2x_param_config pp2_cfg;
 	/* Bitmap of the participating cpu's */
-	uint16_t cpu_map;
+	u16 cpu_map;
 	/* Port objects associated */
-	uint32_t num_ports;
+	u32 num_ports;
 	struct pp2_port *ports[PP2_NUM_PORTS];
 	/* BM Pools associated */
-	uint32_t num_bm_pools;
+	u32 num_bm_pools;
 	struct pp2_bm_pool *bm_pools[PP2_NUM_BMPOOLS];
 	/* DM objects associated */
-	uint32_t num_dm_ifs;
+	u32 num_dm_ifs;
 	struct pp2_dm_if *dm_ifs[PP2_NUM_REGSPACES];
 	/* CPU index according to weight. */
-	uint32_t rx_table[MVPP22_RSS_TBL_LINE_NUM];
+	u32 rx_table[MVPP22_RSS_TBL_LINE_NUM];
 	/* UIO context */
 	struct pp2_uio uio;
 	/* Handle to parent instance */
 	struct pp2 *parent;
-    /* UIO handle for mapping PP and GOP register spaces */
-    pp2_maps_handle_t pp2_maps_hdl;
+	/* UIO handle for mapping PP and GOP register spaces */
+	pp2_maps_handle_t pp2_maps_hdl;
 };
 
 struct pp2_common_cfg {
 	u16 hif_slot_map;
 	u16 rss_tbl_map;
 };
+
 /* Main control structure for the PPDK */
 struct pp2 {
 	struct pp2_init_params init;
-        struct pp2_common_cfg pp2_common;
-	uint32_t num_pp2_inst;
+	struct pp2_common_cfg pp2_common;
+	u32 num_pp2_inst;
 	struct pp2_inst *pp2_inst[PP2_MAX_NUM_PACKPROCS];
 };
 
@@ -430,44 +430,41 @@ struct pp2 {
 void pp2_bm_hw_pool_destroy(uintptr_t cpu_slot, uint32_t pool_id);
 uint32_t pp2_bm_pool_flush(uintptr_t cpu_slot, uint32_t pool_id);
 
-
-
 /* TODO : Do not delete, used by flush_pools */
 static inline uintptr_t pp2_bm_hw_buf_get(uintptr_t cpu_slot, uint32_t pool_id)
 {
-    uintptr_t vaddr;
+	uintptr_t vaddr;
 #if PP2_BM_BUF_DEBUG
-    uint32_t phys_lo;
+	u32 phys_lo;
 
-    phys_lo =  pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
-    if (unlikely(!phys_lo)) {
-        pp2_err("BM: BufGet failed! (Pool ID=%d)\n", pool_id);
-        return 0;
-    }
+	phys_lo =  pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
+	if (unlikely(!phys_lo)) {
+		pp2_err("BM: BufGet failed! (Pool ID=%d)\n", pool_id);
+		return 0;
+	}
 #else
-    /* Trigger BM allocation by reading from BM_PHY_ALLOC and after
-     * BM pops data into the lo and hi virt addr registers, construct
-     * the full 40-bit virtual address */
-    pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
+	/* Trigger BM allocation by reading from BM_PHY_ALLOC and after
+	 * BM pops data into the lo and hi virt addr registers, construct
+	 * the full 40-bit virtual address
+	 */
+	pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
 #endif
 
-    vaddr = pp2_reg_read(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_ALLOC_REG);
-    vaddr &= MVPP22_BM_VIRT_HIGH_ALLOC_MASK;
-    vaddr <<= (32 - MVPP22_BM_VIRT_HIGH_ALLOC_OFFSET);
-    vaddr |= pp2_reg_read(cpu_slot, MVPP2_BM_VIRT_ALLOC_REG);
+	vaddr = pp2_reg_read(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_ALLOC_REG);
+	vaddr &= MVPP22_BM_VIRT_HIGH_ALLOC_MASK;
+	vaddr <<= (32 - MVPP22_BM_VIRT_HIGH_ALLOC_OFFSET);
+	vaddr |= pp2_reg_read(cpu_slot, MVPP2_BM_VIRT_ALLOC_REG);
 
 #if PP2_BM_BUF_DEBUG
-    pp2_info("BM: BufGet %p\n", (void*)vaddr);
+	pp2_info("BM: BufGet %p\n", (void *)vaddr);
 #endif
 
-    return vaddr;
+	return vaddr;
 }
-
 
 static inline int pp2_is_init(void)
 {
-    return (pp2_ptr != NULL);
+	return (pp2_ptr) ? 1 : 0;
 }
-
 
 #endif /* _PP2_H_ */

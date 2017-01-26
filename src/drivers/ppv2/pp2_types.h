@@ -40,7 +40,6 @@
 #ifndef _PP2_TYPES_H_
 #define _PP2_TYPES_H_
 
-
 #include "std_internal.h"
 
 struct base_addr {

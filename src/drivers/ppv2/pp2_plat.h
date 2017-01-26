@@ -45,7 +45,6 @@
 /******************************************************************************/
 /*                 Hardware Resources per Platform                            */
 
-
 /* Platform specific absolute hardware values.
  *
  * NOTE: These should be treated as read-only primitives
@@ -58,7 +57,6 @@
 
 /* Number of physical CPUs */
 #define PP2_NUM_CPUS                 (4)
-
 
 /* Absolute number of hardware ports */
 #define PP2_NUM_PORTS                (3)
@@ -73,8 +71,6 @@
 /* Number of TXQs per port */
 #define PP2_HW_PORT_NUM_TXQS         (8)
 
-
-
 /******************************************************************************/
 /*    Hardware Resources Offsets(reserved to OS/slow path) per Platform       */
 
@@ -84,7 +80,7 @@
 /* Size of a CPU space (slot) */
 #define PP2_REGSPACE_SIZE     (0x10000)
 /* Address size to skip when mapping packet processor register space */
-//#define PP2_SLOT_OFS_ADDR     (PP2_OFS_REGSPACES * PP2_REGSPACE_SIZE)
+/* #define PP2_SLOT_OFS_ADDR     (PP2_OFS_REGSPACES * PP2_REGSPACE_SIZE) */
 /* Default register space index used for initializing
  * common hardware parts
  */
@@ -92,7 +88,6 @@
 /* Packet processor IDs */
 #define PP2_ID0               (0)
 #define PP2_ID1               (1)
-
 
 /* Number of RXQs per port - configured */
 #define PP2_PORT_NUM_RXQS         (1)
@@ -106,7 +101,7 @@
 #endif
 
 /* 64bytes cache line - arm64 spec */
-#define L1_CACHE_LINE_BYTES      (1 << 6)
+#define L1_CACHE_LINE_BYTES      BIT(6)
 
 /* Packet offset always used by HW at the beginng of packets.
  * This is valid for the first buffer of the packet,
@@ -114,7 +109,7 @@
  */
 #define PP2_PACKET_OFFSET         (L1_CACHE_LINE_BYTES)
 
-/* 32bytes always used by HW, found  at the begining of buffers
+/* 32bytes always used by HW, found  at the beginning of buffers
  * It is also part of the packet offset(PP2_PACKET_OFFSET), first buffer
  */
 #define PP2_BUFFER_OFFSET         (32)

@@ -53,7 +53,6 @@
 
 struct pp2_port;
 
-
 /**
  * pp2_deinit
  *
@@ -64,7 +63,6 @@ struct pp2_port;
  *
  */
 void pp2_deinit(void);
-
 
 int pp2_is_init(void);
 
@@ -77,8 +75,8 @@ int pp2_is_init(void);
  * @field   size  Ingress queue size in ingress descriptors
  */
 struct pp2_port_inq_param {
-   uint32_t id;
-   uint32_t size;
+	u32 id;
+	u32 size;
 };
 
 /**
@@ -87,17 +85,17 @@ struct pp2_port_inq_param {
  * Ingress traffic class parameters
  *
  * @field	id         Traffic class ID
- * @field   qos   	   Quality of service
+ * @field   qos	   Quality of service
  * @field   use_hash   Hash
  * @field   num_in_qs  Number of associated ingress queues
  * @field   inq_param  Array of ingress queue parameters
  */
 struct pp2_port_intc_param {
-   uint32_t id;
-   uint32_t qos;
-   uint32_t use_hash;
-   uint32_t num_in_qs;
-   struct pp2_port_inq_param *inq_param;
+	u32 id;
+	u32 qos;
+	u32 use_hash;
+	u32 num_in_qs;
+	struct pp2_port_inq_param *inq_param;
 };
 
 /**
@@ -109,8 +107,8 @@ struct pp2_port_intc_param {
  * @field   intcs_param  Array of traffic class parameters
  */
 struct pp2_port_inqs_param {
-   uint32_t num_in_tcs;
-   struct pp2_port_intc_param *intcs_param;
+	u32 num_in_tcs;
+	struct pp2_port_intc_param *intcs_param;
 };
 
 /**
@@ -122,8 +120,8 @@ struct pp2_port_inqs_param {
  * @field   size  Egress queue size in egress descriptors
  */
 struct pp2_port_outq_param {
-   uint32_t id;
-   uint32_t size;
+	u32 id;
+	u32 size;
 };
 
 /**
@@ -135,8 +133,8 @@ struct pp2_port_outq_param {
  * @field   outqs_param  Array of egress queue parameters
  */
 struct pp2_port_outqs_param {
-   uint32_t num_out_qs;
-   struct pp2_port_outq_param *outqs_param;
+	u32 num_out_qs;
+	struct pp2_port_outq_param *outqs_param;
 };
 
 /**
@@ -156,25 +154,23 @@ struct pp2_port_outqs_param {
  * @field   pp2_port_inqs_param   Ingress parameters for this port
  * @field   pp2_port_outqs_param  Egress parameters for this port
  */
-struct pp2_port_param
-{
-   const char *if_name;
-   struct pp2_port_inqs_param inqs_param;
-   struct pp2_port_outqs_param outqs_param;
-   /* TODO: Loopback. Remove after finishing debugging */
-   uint32_t use_mac_lb;
+struct pp2_port_param {
+	const char *if_name;
+	struct pp2_port_inqs_param inqs_param;
+	struct pp2_port_outqs_param outqs_param;
+	/* TODO: Loopback. Remove after finishing debugging */
+	u32 use_mac_lb;
 };
 
 /**
  * pp2_traffic_type
  * Per port traffic types can be selected
  */
-typedef enum
-{
-    PP2_TRAFFIC_NONE,
-    PP2_TRAFFIC_INGRESS,
-    PP2_TRAFFIC_EGRESS,
-    PP2_TRAFFIC_INGRESS_EGRESS
+typedef enum {
+	PP2_TRAFFIC_NONE,
+	PP2_TRAFFIC_INGRESS,
+	PP2_TRAFFIC_EGRESS,
+	PP2_TRAFFIC_INGRESS_EGRESS
 } pp2_traffic_mode;
 
 /**
@@ -191,9 +187,7 @@ typedef enum
  * @retval	Port handle on success, NULL otherwise
  */
 int pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port_id,
-              struct pp2_port **port_hdl);
-
-
+		  struct pp2_port **port_hdl);
 
 /**
  * pp2_port_close
@@ -228,7 +222,7 @@ void pp2_port_config_outq(struct pp2_port *port);
  * pp2_port_start
  *
  * Set an already-opened port to ready-mode, making the
- * port avaiable for servicing various I/O control or
+ * port available for servicing various I/O control or
  * data path requests
  *
  * @param	port	Port handle of an already-opened port
@@ -262,7 +256,7 @@ void pp2_port_stop(struct pp2_port *port);
  *
  * @retval   DM object handle
  */
-struct pp2_dm_if * pp2_port_dm_if_get(struct pp2_port *port, uint32_t dm_id);
+struct pp2_dm_if *pp2_port_dm_if_get(struct pp2_port *port, uint32_t dm_id);
 
 /**
  * pp2_port_enqueue
@@ -285,7 +279,8 @@ struct pp2_dm_if * pp2_port_dm_if_get(struct pp2_port *port, uint32_t dm_id);
  *
  * @retval   number of enqueued descriptors
  */
-uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid, uint16_t num_txds, struct pp2_ppio_desc desc[]);
+uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid,
+			  u16 num_txds, struct pp2_ppio_desc desc[]);
 
 /**
  * pp2_port_outq_get_id
@@ -349,9 +344,9 @@ uint32_t pp2_port_outq_status(struct pp2_dm_if *dm_if, uint32_t out_physid);
  *
  * @output   extra_desc  Extra RX descriptor objects provided to the dequeue
  *                       requester. This is the case when at the end of the
- *                       rx descriptor array is not enough space to accomodate
+ *                       rx descriptor array is not enough space to accommodate
  *                       all received rx descriptors and some descriptors are
- *                       stored at the begining. So the descriptors are split
+ *                       stored at the beginning. So the descriptors are split
  *                       in two for application.
  *
  * @output   extra_recv  zero or number of exatr valid RXDs ready in queue.
@@ -362,7 +357,7 @@ uint32_t pp2_port_outq_status(struct pp2_dm_if *dm_if, uint32_t out_physid);
  *           in_desc RXD parameter array
  */
 uint32_t pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t in_qid,
-                      struct pp2_desc **extra_desc, uint32_t *extra_recv);
+		       struct pp2_desc **extra_desc, uint32_t *extra_recv);
 
 /**
  * pp2_port_inq_update
@@ -385,8 +380,7 @@ uint32_t pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t i
 void pp2_port_inq_update(struct pp2_port *port, uint32_t inq_id, uint32_t new_desc, uint32_t proc_desc);
 
 struct pp2_desc *pp2_rxq_get_desc(struct pp2_rx_queue *rxq, uint32_t *num_recv,
-                                  struct pp2_desc **extra_desc, uint32_t *extra_num);
-
+				  struct pp2_desc **extra_desc, uint32_t *extra_num);
 
 /* PP-IO control routines */
 
@@ -424,10 +418,10 @@ int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en);
 int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en);
 
 /* Add MAC address */
-int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t * addr);
+int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr);
 
 /* Remove MAC address */
-int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t * addr);
+int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr);
 
 /* Flush MAC addresses */
 int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc);
@@ -445,9 +439,9 @@ void pp2_port_set_rss(struct pp2_port *port, uint32_t en);
 static inline uint32_t
 pp2_rxq_received(struct pp2_port *port, const int rxq_id)
 {
-   uint32_t val = pp2_reg_read(port->cpu_slot, MVPP2_RXQ_STATUS_REG(rxq_id));
+	u32 val = pp2_reg_read(port->cpu_slot, MVPP2_RXQ_STATUS_REG(rxq_id));
 
-   return (val & MVPP2_RXQ_OCCUPIED_MASK);
+	return (val & MVPP2_RXQ_OCCUPIED_MASK);
 }
 
 int pp2_port_get_if_name(struct pp2_port *port);

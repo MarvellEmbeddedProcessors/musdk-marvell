@@ -94,7 +94,7 @@ enum phy_interface {
 #define ETH_ALEN 6
 
 struct pp2_mac_data {
-	uint8_t            gop_index;
+	u8            gop_index;
 	unsigned long      flags;
 	/* Whether a PHY is present, and if yes, at which address. */
 	int                phy_addr;
@@ -104,7 +104,7 @@ struct pp2_mac_data {
 	unsigned int       link;
 	unsigned int       duplex;
 	unsigned int       speed;
-	uint8_t            mac[ETH_ALEN];
+	u8            mac[ETH_ALEN];
 };
 
 struct pp2_mac_unit_desc {
@@ -113,7 +113,7 @@ struct pp2_mac_unit_desc {
 };
 
 struct gop_port_ctrl {
-	uint32_t flags;
+	u32 flags;
 };
 
 struct gop_hw {
@@ -219,14 +219,14 @@ enum gop_port_flags { NOT_CREATED, CREATED, UNDER_RESET, ENABLED };
 static inline uint32_t pp2_gop_gen_read(uintptr_t base, uint32_t offset)
 {
 	uintptr_t reg_ptr = base + offset;
-	uint32_t val;
+	u32 val;
 
 	val = readl((void *)reg_ptr);
 	return val;
 }
 
 static inline void pp2_gop_gen_write(uintptr_t base, uint32_t offset,
-				    uint32_t data)
+				     uint32_t data)
 {
 	uintptr_t reg_ptr = base + offset;
 
@@ -239,27 +239,27 @@ int pp2_gop_port_reset(struct gop_hw *gop, struct pp2_mac_data *mac);
 void pp2_gop_port_enable(struct gop_hw *gop, struct pp2_mac_data *mac);
 void pp2_gop_port_disable(struct gop_hw *gop, struct pp2_mac_data *mac);
 void pp2_gop_port_periodic_xon_set(struct gop_hw *gop,
-				  struct pp2_mac_data *mac, int enable);
+				   struct pp2_mac_data *mac, int enable);
 bool pp2_gop_port_is_link_up(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_port_link_status(struct gop_hw *gop, struct pp2_mac_data *mac,
-			    struct pp2_port_link_status *pstatus);
+			     struct pp2_port_link_status *pstatus);
 int pp2_gop_port_regs(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_port_events_mask(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_port_events_unmask(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_port_events_clear(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_speed_duplex_get(struct gop_hw *gop, struct pp2_mac_data *mac,
-			    enum pp2_port_speed *speed,
+			     enum pp2_port_speed *speed,
 			    enum pp2_port_duplex *duplex);
 int pp2_gop_speed_duplex_set(struct gop_hw *gop, struct pp2_mac_data *mac,
-			    enum pp2_port_speed speed,
+			     enum pp2_port_speed speed,
 			    enum pp2_port_duplex duplex);
 int pp2_gop_autoneg_restart(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_fl_cfg(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_force_link_mode_set(struct gop_hw *gop, struct pp2_mac_data *mac,
-			       bool force_link_up, bool force_link_down);
+				bool force_link_up, bool force_link_down);
 int pp2_gop_force_link_mode_get(struct gop_hw *gop, struct pp2_mac_data *mac,
-			       bool *force_link_up, bool *force_link_down);
+				bool *force_link_up, bool *force_link_down);
 int pp2_gop_loopback_set(struct gop_hw *gop, struct pp2_mac_data *mac, bool lb);
 
 /** Gig PCS Functions */
@@ -268,51 +268,51 @@ int pp2_gop_gpcs_reset(struct gop_hw *gop, int pcs_num, enum pp2_reset act);
 
 /** SERDES Functions */
 static inline uint32_t pp2_gop_serdes_read(struct gop_hw *gop, int lane_num,
-					  uint32_t offset)
+					   uint32_t offset)
 {
 	return (pp2_gop_gen_read(gop->serdes.base.va,
-				lane_num * gop->serdes.obj_size + offset));
+				 lane_num * gop->serdes.obj_size + offset));
 }
 
 static inline void pp2_gop_serdes_write(struct gop_hw *gop, int lane_num,
-				       uint32_t offset, uint32_t data)
+					u32 offset, uint32_t data)
 {
 	pp2_gop_gen_write(gop->serdes.base.va,
-			 lane_num * gop->serdes.obj_size + offset, data);
+			  lane_num * gop->serdes.obj_size + offset, data);
 }
 
 void pp2_gop_serdes_init(struct gop_hw *gop, int lane, enum sd_media_mode mode);
 void pp2_gop_serdes_reset(struct gop_hw *gop, int lane, bool analog_reset,
-			 bool core_reset, bool digital_reset);
+			  bool core_reset, bool digital_reset);
 
 /** MPCS Functions */
 static inline uint32_t pp2_gop_mpcs_global_read(struct gop_hw *gop,
-					       uint32_t offset)
+						uint32_t offset)
 {
 	return pp2_gop_gen_read(gop->mspg.va, offset);
 }
 
 static inline void pp2_gop_mpcs_global_write(struct gop_hw *gop, uint32_t offset,
-					    uint32_t data)
+					     uint32_t data)
 {
 	pp2_gop_gen_write(gop->mspg.va, offset, data);
 }
 
 /** XPCS Functions */
 static inline uint32_t pp2_gop_xpcs_global_read(struct gop_hw *gop,
-					       uint32_t offset)
+						uint32_t offset)
 {
 	return pp2_gop_gen_read(gop->xpcs.va, offset);
 }
 
 static inline void pp2_gop_xpcs_global_write(struct gop_hw *gop, uint32_t offset,
-					    uint32_t data)
+					     uint32_t data)
 {
 	pp2_gop_gen_write(gop->xpcs.va, offset, data);
 }
 
 static inline uint32_t pp2_gop_xpcs_lane_read(struct gop_hw *gop, int lane_num,
-					     uint32_t offset)
+					      uint32_t offset)
 {
 	(void)lane_num;
 
@@ -320,7 +320,7 @@ static inline uint32_t pp2_gop_xpcs_lane_read(struct gop_hw *gop, int lane_num,
 }
 
 static inline void pp2_gop_xpcs_lane_write(struct gop_hw *gop, int lane_num,
-					  uint32_t offset, uint32_t data)
+					   u32 offset, uint32_t data)
 {
 	(void)lane_num;
 
@@ -333,112 +333,112 @@ int pp2_gop_mpcs_mode(struct gop_hw *gop);
 
 /** XLG MAC Functions */
 static inline uint32_t pp2_gop_xlg_mac_read(struct gop_hw *gop, int mac_num,
-					   uint32_t offset)
+					    uint32_t offset)
 {
 	return (pp2_gop_gen_read(gop->xlg_mac.base.va,
-				mac_num * gop->xlg_mac.obj_size + offset));
+				 mac_num * gop->xlg_mac.obj_size + offset));
 }
 
 static inline void pp2_gop_xlg_mac_write(struct gop_hw *gop, int mac_num,
-					uint32_t offset, uint32_t data)
+					 u32 offset, uint32_t data)
 {
 	pp2_gop_gen_write(gop->xlg_mac.base.va,
-			 mac_num * gop->xlg_mac.obj_size + offset, data);
+			  mac_num * gop->xlg_mac.obj_size + offset, data);
 }
 
 /** MIB MAC Functions */
 static inline uint32_t pp2_gop_xmib_mac_read(struct gop_hw *gop, int mac_num,
-					    uint32_t offset)
+					     uint32_t offset)
 {
 	return (pp2_gop_gen_read(gop->xmib.base.va,
-				mac_num * gop->xmib.obj_size + offset));
+				 mac_num * gop->xmib.obj_size + offset));
 }
 
 static inline void pp2_gop_xmib_mac_write(struct gop_hw *gop, int mac_num,
-					 uint32_t offset, uint32_t data)
+					  u32 offset, uint32_t data)
 {
 	pp2_gop_gen_write(gop->xmib.base.va,
-			 mac_num * gop->xmib.obj_size + offset, data);
+			  mac_num * gop->xmib.obj_size + offset, data);
 }
 
 int pp2_gop_xlg_mac_reset(struct gop_hw *gop, int mac_num, enum pp2_reset reset);
 int pp2_gop_xlg_mac_mode_cfg(struct gop_hw *gop, int mac_num,
-			    int num_of_act_lanes);
+			     int num_of_act_lanes);
 int pp2_gop_xlg_mac_loopback_cfg(struct gop_hw *gop, int mac_num,
-				enum pp2_lb_type type);
+				 enum pp2_lb_type type);
 
 bool pp2_gop_xlg_mac_link_status_get(struct gop_hw *gop, int mac_num);
 void pp2_gop_xlg_mac_port_enable(struct gop_hw *gop, int mac_num);
 void pp2_gop_xlg_mac_port_disable(struct gop_hw *gop, int mac_num);
 void pp2_gop_xlg_mac_port_periodic_xon_set(struct gop_hw *gop,
-					  int mac_num, int enable);
+					   int mac_num, int enable);
 int pp2_gop_xlg_mac_link_status(struct gop_hw *gop, int mac_num,
-			       struct pp2_port_link_status *pstatus);
+				struct pp2_port_link_status *pstatus);
 int pp2_gop_xlg_mac_max_rx_size_set(struct gop_hw *gop, int mac_num,
-				   int max_rx_size);
+				    int max_rx_size);
 int pp2_gop_xlg_mac_force_link_mode_set(struct gop_hw *gop, int mac_num,
-				       bool force_link_up,
+					bool force_link_up,
 				       bool force_link_down);
 int pp2_gop_xlg_mac_speed_duplex_set(struct gop_hw *gop, int mac_num,
-				    enum pp2_port_speed speed,
+				     enum pp2_port_speed speed,
 				    enum pp2_port_duplex duplex);
 int pp2_gop_xlg_mac_speed_duplex_get(struct gop_hw *gop, int mac_num,
-				    enum pp2_port_speed *speed,
+				     enum pp2_port_speed *speed,
 				    enum pp2_port_duplex *duplex);
 int pp2_gop_xlg_mac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc);
 void pp2_gop_xlg_mac_fc_get(struct gop_hw *gop, int mac_num,
-			   enum pp2_port_fc *fc);
+			    enum pp2_port_fc *fc);
 int pp2_gop_xlg_mac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
-				      enum pp2_port_speed speed,
+				       enum pp2_port_speed speed,
 				      int force_link_up);
 void pp2_gop_xlg_port_link_event_mask(struct gop_hw *gop, int mac_num);
 void pp2_gop_xlg_port_external_event_unmask(struct gop_hw *gop,
-					   int mac_num, int bit_2_open);
+					    int mac_num, int bit_2_open);
 void pp2_gop_xlg_port_link_event_clear(struct gop_hw *gop, int mac_num);
 void pp2_gop_xlg_2_gig_mac_cfg(struct gop_hw *gop, int mac_num);
 
 /** GMAC Functions */
 static inline uint32_t pp2_gop_gmac_read(struct gop_hw *gop, int mac_num,
-					uint32_t offset)
+					 uint32_t offset)
 {
 	return (pp2_gop_gen_read(gop->gmac.base.va,
-				mac_num * gop->gmac.obj_size + offset));
+				 mac_num * gop->gmac.obj_size + offset));
 }
 
 static inline void pp2_gop_gmac_write(struct gop_hw *gop, int mac_num,
-				     uint32_t offset, uint32_t data)
+				      u32 offset, uint32_t data)
 {
 	pp2_gop_gen_write(gop->gmac.base.va,
-			 mac_num * gop->gmac.obj_size + offset, data);
+			  mac_num * gop->gmac.obj_size + offset, data);
 }
 
 int pp2_gop_gmac_reset(struct gop_hw *gop, int mac_num, enum pp2_reset reset);
 int pp2_gop_gmac_mode_cfg(struct gop_hw *gop, struct pp2_mac_data *mac);
 int pp2_gop_gmac_loopback_cfg(struct gop_hw *gop, int mac_num,
-			     enum pp2_lb_type type);
+			      enum pp2_lb_type type);
 bool pp2_gop_gmac_link_status_get(struct gop_hw *gop, int mac_num);
 void pp2_gop_gmac_port_enable(struct gop_hw *gop, int mac_num);
 void pp2_gop_gmac_port_disable(struct gop_hw *gop, int mac_num);
 void pp2_gop_gmac_port_periodic_xon_set(struct gop_hw *gop, int mac_num,
-				       int enable);
+					int enable);
 int pp2_gop_gmac_link_status(struct gop_hw *gop, int mac_num,
-			    struct pp2_port_link_status *pstatus);
+			     struct pp2_port_link_status *pstatus);
 int pp2_gop_gmac_max_rx_size_set(struct gop_hw *gop, int mac_num,
-				int max_rx_size);
+				 int max_rx_size);
 int pp2_gop_gmac_force_link_mode_set(struct gop_hw *gop, int mac_num,
-				    bool force_link_up, bool force_link_down);
+				     bool force_link_up, bool force_link_down);
 int pp2_gop_gmac_force_link_mode_get(struct gop_hw *gop, int mac_num,
-				    bool *force_link_up, bool *force_link_down);
+				     bool *force_link_up, bool *force_link_down);
 int pp2_gop_gmac_speed_duplex_set(struct gop_hw *gop, int mac_num,
-				 enum pp2_port_speed speed,
+				  enum pp2_port_speed speed,
 				 enum pp2_port_duplex duplex);
 int pp2_gop_gmac_speed_duplex_get(struct gop_hw *gop, int mac_num,
-				 enum pp2_port_speed *speed,
+				  enum pp2_port_speed *speed,
 				 enum pp2_port_duplex *duplex);
 int pp2_gop_gmac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc);
 void pp2_gop_gmac_fc_get(struct gop_hw *gop, int mac_num, enum pp2_port_fc *fc);
 int pp2_gop_gmac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
-				   enum pp2_port_speed speed, int force_link_up);
+				    enum pp2_port_speed speed, int force_link_up);
 void pp2_gop_gmac_port_link_event_mask(struct gop_hw *gop, int mac_num);
 void pp2_gop_gmac_port_link_event_unmask(struct gop_hw *gop, int mac_num);
 void pp2_gop_gmac_port_link_event_clear(struct gop_hw *gop, int mac_num);
@@ -451,7 +451,7 @@ static inline uint32_t pp2_gop_smi_read(struct gop_hw *gop, uint32_t offset)
 }
 
 static inline void pp2_gop_smi_write(struct gop_hw *gop, uint32_t offset,
-				    uint32_t data)
+				     uint32_t data)
 {
 	pp2_gop_gen_write(gop->smi.va, offset, data);
 }
@@ -463,24 +463,24 @@ static inline uint32_t pp2_gop_rfu1_read(struct gop_hw *gop, uint32_t offset)
 }
 
 static inline void pp2_gop_rfu1_write(struct gop_hw *gop, uint32_t offset,
-				     uint32_t data)
+				      uint32_t data)
 {
 	pp2_gop_gen_write(gop->rfu1.va, offset, data);
 }
 
 /** PTP Functions */
 static inline uint32_t pp2_gop_ptp_read(struct gop_hw *gop, int mac_num,
-				       uint32_t offset)
+					uint32_t offset)
 {
 	return pp2_gop_gen_read(gop->ptp.base.va,
 			       mac_num * gop->ptp.obj_size + offset);
 }
 
 static inline void pp2_gop_ptp_write(struct gop_hw *gop, int mac_num,
-				    uint32_t offset, uint32_t data)
+				     u32 offset, uint32_t data)
 {
 	pp2_gop_gen_write(gop->ptp.base.va,
-			 mac_num * gop->ptp.obj_size + offset, data);
+			  mac_num * gop->ptp.obj_size + offset, data);
 }
 
 void pp2_gop_ptp_enable(struct gop_hw *gop, int port, bool state);
@@ -490,7 +490,7 @@ int pp2_gop_smi_phy_addr_cfg(struct gop_hw *gop, int port, int addr);
 
 /** RFU Functions */
 int pp2_gop_netc_init(struct gop_hw *gop,
-		     uint32_t net_comp_config, enum pp2_netc_phase phase);
+		      u32 net_comp_config, enum pp2_netc_phase phase);
 void pp2_gop_netc_active_port(struct gop_hw *gop, uint32_t port, uint32_t val);
 uint32_t pp2_gop_netc_cfg_create(struct pp2_mac_data *mac);
 

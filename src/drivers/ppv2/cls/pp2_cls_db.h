@@ -66,7 +66,6 @@ struct pp2_cls_db_c3_t {
 	struct pp2_cls_c3_logic_index_entry_t	logic_idx_tbl[MVPP2_CLS_C3_HASH_TBL_SIZE];	/* tbl for logic idx */
 };
 
-
 /* CLS module db structure */
 struct pp2_db_cls_fl_ctrl_t {
 	u16			fl_max_len;			/* the max flow length		*/
@@ -104,13 +103,13 @@ struct pp2_db_cls_fl_rule_list_t {
 	u16			flow_len;			/* flow length			*/
 };
 
-
 struct pp2_cls_db_cls_t {
 	struct pp2_db_cls_fl_ctrl_t	fl_ctrl;			/* flow control DB		*/
 	struct pp2_db_cls_fl_rule_t	fl_rule[MVPP2_FLOW_TBL_SIZE];/*CLS rule DB		*/
 	u16			log2off[MVPP2_CLS_LOG2OFF_TBL_SIZE];/* logical rule ID to offset	*/
 	struct pp2_db_cls_lkp_dcod_t	lkp_dcod[MVPP2_MNG_FLOW_ID_MAX];	/* lookup decode DB	*/
 };
+
 struct pp2_cls_db_t {
 	enum pp2_cls_module_state_t	pp2_cls_module_init_state;	/* PP2_CLS module init state	*/
 	struct pp2_cls_db_c3_t	c3_db;			/* PP2_CLS module C3 db		*/

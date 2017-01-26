@@ -30,7 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 /***********************/
 /* c file declarations */
 /***********************/
@@ -48,7 +47,6 @@
 #define SAME_PRIO_ENABLED 0
 #undef MVPP2_CLS_DEBUG
 
-
 #ifdef MVPP2_CLS_DEBUG
 void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 {
@@ -58,7 +56,7 @@ void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 
 	for (i = 0; i < flow->fl_len; i++) {
 		pp2_info("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d ref_cnt %2d skip %d\n",
-			(int)flow->fl[i].enabled,
+			 (int)flow->fl[i].enabled,
 			(int)flow->fl[i].engine,
 			(int)flow->fl[i].field_id_cnt,
 			(int)flow->fl[i].lu_type,
@@ -70,7 +68,6 @@ void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 	}
 }
 
-
 void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_db)
 {
 	int i;
@@ -78,7 +75,7 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 	pp2_info("dumping pp2_db_cls_lkp_dcod_t %s\n", name);
 
 	pp2_info("CPUq %d enabled %d alloc_len %d flow_len %d flow_off %d luid_num %d\n",
-			(int)lkp_dcod_db->cpu_q,
+		 (int)lkp_dcod_db->cpu_q,
 			(int)lkp_dcod_db->enabled,
 			(int)lkp_dcod_db->flow_alloc_len,
 			(int)lkp_dcod_db->flow_len,
@@ -87,7 +84,7 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 
 	for (i = 0; i < lkp_dcod_db->luid_num; i++)
 		pp2_info("luid[%d]=%d/%d ",
-				i, lkp_dcod_db->luid_list[i].luid);
+			 i, lkp_dcod_db->luid_list[i].luid);
 	pp2_info("\n");
 }
 #endif
@@ -141,7 +138,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 		return rc;
 	}
 
-	if (lkp_dcod_db.enabled == true) {
+	if (lkp_dcod_db.enabled) {
 		pr_err("log flowid %d already configured\n", lkp_dcod_conf->flow_log_id);
 		return -EFAULT;
 	}
@@ -160,7 +157,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 	/* check that we have enough free space for flow */
 	if (fl_ctrl.f_end - fl_ctrl.f_start <= lkp_dcod_conf->flow_len) {
 		pr_err("not enough space for flow, request: %d, free:%d\n",
-			lkp_dcod_conf->flow_len, fl_ctrl.f_end - fl_ctrl.f_start);
+		       lkp_dcod_conf->flow_len, fl_ctrl.f_end - fl_ctrl.f_start);
 		return -EPERM;
 	}
 
@@ -195,7 +192,6 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_lkp_dcod_hw_set
@@ -232,14 +228,14 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		return rc;
 	}
 
-	if (lkp_dcod_db.enabled == false) {
+	if (!lkp_dcod_db.enabled) {
 		/* entry not enabled for this log_flow id */
 		return 0;
 	}
 
 	/* get the rule list for this logical flow ID */
-	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
-	if (fl_rl_db == NULL) {
+	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
+	if (!fl_rl_db) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -247,7 +243,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 	if (rc) {
 		pp2_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
-				fl->fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+			fl->fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
 	}
@@ -300,10 +296,10 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		}
 
 		pp2_dbg("fl_log_id[%2d] lid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
-				fl->fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
-				fl_rl_db->flow[rl].prio,
-				rl_off,
-				lkp_dcod_db.luid_list[luid].luid);
+			fl->fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
+			fl_rl_db->flow[rl].prio,
+			rl_off,
+			lkp_dcod_db.luid_list[luid].luid);
 	}
 
 	kfree(fl_rl_db);
@@ -314,7 +310,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 * pp2_cls_lkp_dcod_set_and_disable
 *
 * DESCRIPTION: The API set decoder entry if not configure till now,
-* 		and disabled it was enable
+*		and disabled it was enable
 *
 * INPUTS:
 *	fl_log_id - the logical flow ID to perform the operation
@@ -336,7 +332,7 @@ int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
 		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
 	}
-	if (lkp_dcod_db.enabled == true) {
+	if (lkp_dcod_db.enabled) {
 		pp2_cls_lkp_dcod_disable(cpu_slot, fl_log_id);
 	/* if it isn't enabled it means that we should init decoder setting */
 	} else {
@@ -394,7 +390,7 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 		return rc;
 	}
 
-	if (lkp_dcod_db.enabled == false) {
+	if (!lkp_dcod_db.enabled) {
 		/* entry disabled for this log_flow id */
 		pp2_warn("skipping disable of fl_log_id=%d, already disabled\n", fl_log_id);
 		return 0;
@@ -428,8 +424,8 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 		}
 
 		pp2_dbg("fl_log_id[%2d] luid_nr[%2d] luid[%2d]\n",
-				fl_log_id, luid,
-				lkp_dcod_db.luid_list[luid].luid);
+			fl_log_id, luid,
+			lkp_dcod_db.luid_list[luid].luid);
 	}
 
 	/* update lkp_dcod DB */
@@ -473,7 +469,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		return rc;
 	}
 
-	if (lkp_dcod_db.enabled == true) {
+	if (lkp_dcod_db.enabled) {
 		/* entry enabled for this log_flow id */
 		pp2_warn("skipping enable of fl_log_id=%d, already enabled\n", fl_log_id);
 		return 0;
@@ -486,8 +482,8 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	}
 
 	/* get the rule list for this logical flow ID */
-	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
-	if (fl_rl_db == NULL) {
+	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
+	if (!fl_rl_db) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -495,7 +491,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 	if (rc) {
 		pp2_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
-				fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+			fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
 	}
@@ -551,10 +547,10 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		}
 
 		pp2_dbg("fl_log_id[%2d] luid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
-				fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
-				fl_rl_db->flow[rl].prio,
-				rl_off,
-				lkp_dcod_db.luid_list[luid].luid);
+			fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
+			fl_rl_db->flow[rl].prio,
+			rl_off,
+			lkp_dcod_db.luid_list[luid].luid);
 	}
 
 	/* update lkp_dcod DB */
@@ -582,7 +578,7 @@ static int pp2_cls_lkp_dcod_enable_all(uintptr_t cpu_slot)
 		if (rc)
 			pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 
-		if ((lkp_dcod_db.enabled == false) && (lkp_dcod_db.flow_alloc_len > 0)) {
+		if ((!lkp_dcod_db.enabled) && (lkp_dcod_db.flow_alloc_len > 0)) {
 			rc = pp2_cls_lkp_dcod_enable(cpu_slot, fl_log_id);
 			if (rc)
 				pp2_err("fail fl_log_id %d\n", fl_log_id);
@@ -591,6 +587,7 @@ static int pp2_cls_lkp_dcod_enable_all(uintptr_t cpu_slot)
 
 	return 0;
 }
+
 /*******************************************************************************
 * cmp_prio
 *
@@ -647,7 +644,6 @@ static void pp2_cls_fl_rls_sort(struct pp2_cls_rl_entry_t fls[], u16 fl_len)
 	}
 }
 
-
 /*******************************************************************************
 * pp2_cls_fl_rl_eng_cnt_upd
 *
@@ -664,8 +660,8 @@ static void pp2_cls_fl_rls_sort(struct pp2_cls_rl_entry_t fls[], u16 fl_len)
 *	0 on success, error-code otherwise
 *******************************************************************************/
 static int pp2_cls_fl_rl_eng_cnt_upd(enum pp2_cls_rl_cnt_op_t op,
-					u16 eng,
-					struct pp2_cls_fl_eng_cnt_t *eng_cnt)
+				     u16 eng,
+				     struct pp2_cls_fl_eng_cnt_t *eng_cnt)
 {
 	if (!eng_cnt) {
 		pp2_err("%s: null pointer\n", __func__);
@@ -695,7 +691,6 @@ static int pp2_cls_fl_rl_eng_cnt_upd(enum pp2_cls_rl_cnt_op_t op,
 	return 0;
 }
 
-
 /*******************************************************************************
 * pp2_cls_new_fl_rl_merge
 *
@@ -712,8 +707,8 @@ static int pp2_cls_fl_rl_eng_cnt_upd(enum pp2_cls_rl_cnt_op_t op,
 *	0 on success, error-code otherwise
 *******************************************************************************/
 static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
-				struct pp2_cls_fl_t *new_fl_rls,
-				struct pp2_cls_fl_t *mrg_fl_rls)
+				   struct pp2_cls_fl_t *new_fl_rls,
+				   struct pp2_cls_fl_t *mrg_fl_rls)
 {
 	int rc;
 
@@ -728,8 +723,8 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 
 	/* copy rule to merged flow */
 	memcpy(&mrg_fl_rls->fl[mrg_fl_rls->fl_len],
-		&new_fl_rls->fl[new_rl_num],
-		sizeof(struct pp2_cls_rl_entry_t));
+	       &new_fl_rls->fl[new_rl_num],
+	       sizeof(struct pp2_cls_rl_entry_t));
 
 	/* set the skip flag in the source */
 	new_fl_rls->fl[new_rl_num].skip = 1;
@@ -739,8 +734,8 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 
 	/* update merge engine count */
 	rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_INC,
-					new_fl_rls->fl[new_rl_num].engine,
-					&mrg_fl_rls->eng_cnt);
+				       new_fl_rls->fl[new_rl_num].engine,
+				       &mrg_fl_rls->eng_cnt);
 	if (rc) {
 		pp2_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -748,8 +743,8 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 
 	/* update new engine count */
 	rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_DEC,
-					new_fl_rls->fl[new_rl_num].engine,
-					&new_fl_rls->eng_cnt);
+				       new_fl_rls->fl[new_rl_num].engine,
+				       &new_fl_rls->eng_cnt);
 	if (rc) {
 		pp2_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -757,7 +752,6 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_rl_hit_cnt_upd
@@ -777,8 +771,8 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 *	0 on success, error-code otherwise
 *******************************************************************************/
 static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
-				struct pp2_cls_fl_t *fl_rls,
-				struct pp2_cls_fl_eng_cnt_t *eng_hit_cnt)
+				  struct pp2_cls_fl_t *fl_rls,
+				  struct pp2_cls_fl_eng_cnt_t *eng_hit_cnt)
 {
 	u16 rl_i;
 	int rc;
@@ -814,8 +808,8 @@ static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
 	 * increment hit counter
 	 */
 	rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_INC,
-					rl->engine,
-					eng_hit_cnt);
+				       rl->engine,
+				       eng_hit_cnt);
 	if (rc) {
 		pp2_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -843,8 +837,8 @@ static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
 *	according to the case.
 *******************************************************************************/
 static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
-					u32 fl_idx,
-					struct pp2_cls_fl_eng_cnt_t *eng_hit_cnt)
+					  u32 fl_idx,
+					  struct pp2_cls_fl_eng_cnt_t *eng_hit_cnt)
 {
 	u16 rl_i;
 	int rc;
@@ -884,8 +878,8 @@ static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 	 * increment hit counter
 	 */
 	rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_INC,
-					rl->engine,
-					eng_hit_cnt);
+				       rl->engine,
+				       eng_hit_cnt);
 	if (rc) {
 		pp2_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -910,8 +904,8 @@ static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 *	0 on success, error-code otherwise
 *******************************************************************************/
 static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
-				struct pp2_cls_fl_t *fl_rls,
-				bool *valid)
+				  struct pp2_cls_fl_t *fl_rls,
+				  bool *valid)
 {
 	u16 rl_i;
 
@@ -928,7 +922,6 @@ static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
 	for (rl_i = 0; rl_i < fl_rls->fl_len; rl_i++) {
 		if ((fl_rls->fl[rl_i].engine	== MVPP2_ENGINE_C4) &&
 		    (fl_rls->fl[rl_i].prio	!= rl->prio)) {
-
 			pp2_err("add diff prio rule for C4 prohibited merged prio=%d new prio=%d fl_log_id=%d\n",
 				rl->prio, fl_rls->fl[rl_i].prio, fl_rls->fl_log_id);
 			*valid = false;
@@ -940,7 +933,6 @@ static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
 
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_fl_rls_merge
@@ -1037,7 +1029,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 		if (new_fl_rls->eng_cnt.c4) {
 			for (rl = 0; rl < new_fl_rls->fl_len; rl++) {
 				if (!new_fl_rls->fl[rl].skip &&
-					(new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C4)) {
+				    (new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C4)) {
 					break;
 				}
 			}
@@ -1053,7 +1045,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 		if (cur_fl_rls->eng_cnt.c4) {
 			for (rl = 0; rl < cur_fl_rls->fl_len; rl++) {
 				if (!cur_fl_rls->fl[rl].skip &&
-					(cur_fl_rls->fl[rl].engine == MVPP2_ENGINE_C4)) {
+				    (cur_fl_rls->fl[rl].engine == MVPP2_ENGINE_C4)) {
 					break;
 				}
 			}
@@ -1088,47 +1080,47 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
 			pp2_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
-					lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
+				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
 
 		/* perform single priority C4 validation */
-		if (merge_new == true)
+		if (merge_new)
 			rc = pp2_cls_rl_c4_validate(&new_fl_rls->fl[new_rl],
-							mrg_fl_rls,
-							&valid_c4);
+						    mrg_fl_rls,
+						    &valid_c4);
 		else
 			rc = pp2_cls_rl_c4_validate(&cur_fl_rls->fl[cur_rl],
-							mrg_fl_rls,
-							&valid_c4);
+						    mrg_fl_rls,
+						    &valid_c4);
 
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
-		if (valid_c4 == false)
+		if (!valid_c4)
 			return -EPERM;
 
 		/* validation done, update engine counters */
-		if (merge_new == true)
+		if (merge_new)
 			rc = pp2_cls_rl_hit_cnt_upd(&new_fl_rls->fl[new_rl],
-							mrg_fl_rls,
-							&eng_hit_cnt[rnd]);
+						    mrg_fl_rls,
+						    &eng_hit_cnt[rnd]);
 		else
 			rc = pp2_cls_rl_hit_cnt_upd(&cur_fl_rls->fl[cur_rl],
-							mrg_fl_rls,
-							&eng_hit_cnt[rnd]);
+						    mrg_fl_rls,
+						    &eng_hit_cnt[rnd]);
 		if (rc) {
 			pp2_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
 		/* merge the new rule */
-		if (merge_new == true) {
+		if (merge_new) {
 			new_fl_rls->fl[new_rl].rl_off = rl_off;
 			rc = pp2_cls_new_fl_rl_merge(new_rl, new_fl_rls,
-						mrg_fl_rls);
+						     mrg_fl_rls);
 			if (rc) {
 				pp2_err("failed to merge new C4 rule offset=%d fl_log_id=%d\n",
 					rl_off, new_fl_rls->fl_log_id);
@@ -1140,7 +1132,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 		} else {
 			cur_fl_rls->fl[cur_rl].rl_off = rl_off;
 			rc = pp2_cls_new_fl_rl_merge(cur_rl, cur_fl_rls,
-						mrg_fl_rls);
+						     mrg_fl_rls);
 
 			if (rc) {
 				pp2_err("failed to merge cur C4 rule offset=%d fl_log_id=%d\n",
@@ -1170,10 +1162,10 @@ c3_ins:
 		if (new_fl_rls->eng_cnt.c3) {
 			for (rl = 0; rl < new_fl_rls->fl_len; rl++) {
 				if (!new_fl_rls->fl[rl].skip &&
-				     (new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_A ||
-				      new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_B ||
-				      new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_HA ||
-				      new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_HB)) {
+				    (new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_A ||
+				     new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_B ||
+				     new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_HA ||
+				     new_fl_rls->fl[rl].engine == MVPP2_ENGINE_C3_HB)) {
 					break;
 				}
 			}
@@ -1265,12 +1257,12 @@ c3_seq_ins:
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
 			pp2_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
-					lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
+				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
 
 		/* validation done, update engine counters */
-		if (merge_new == true) {
+		if (merge_new) {
 			rc = pp2_cls_rl_hit_cnt_upd(&new_fl_rls->fl[new_rl],
 						    mrg_fl_rls,
 						    &eng_hit_cnt[rnd]);
@@ -1289,10 +1281,10 @@ c3_seq_ins:
 		}
 
 		/* merge the new rule */
-		if (merge_new == true) {
+		if (merge_new) {
 			new_fl_rls->fl[new_rl].rl_off = rl_off;
 			rc = pp2_cls_new_fl_rl_merge(new_rl, new_fl_rls,
-						mrg_fl_rls);
+						     mrg_fl_rls);
 
 			if (rc) {
 				pp2_err("failed to merge new C3 rule offset=%d fl_log_id=%d\n",
@@ -1305,7 +1297,7 @@ c3_seq_ins:
 		} else {
 			cur_fl_rls->fl[cur_rl].rl_off = rl_off;
 			rc = pp2_cls_new_fl_rl_merge(cur_rl, cur_fl_rls,
-						mrg_fl_rls);
+						     mrg_fl_rls);
 
 			if (rc) {
 				pp2_err("failed to merge cur C3 rule offset=%d fl_log_id=%d\n",
@@ -1319,7 +1311,7 @@ c3_seq_ins:
 
 		rl_off++;
 
-		if (merge_new == true) {
+		if (merge_new) {
 			if (!is_seq) {
 				if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
@@ -1336,20 +1328,20 @@ c3_seq_ins:
 			}
 			if (is_seq) {
 				new_rl++;
-				if (new_fl_rls->fl[new_rl].skip
-					|| new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL
-					|| new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
+				if (new_fl_rls->fl[new_rl].skip ||
+				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
+				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 					pp2_err("seqence control rule is not continuous (new_rl %d)\n", new_rl);
 					return -EINVAL;
 				}
 				if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_A ||
-					new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_B ||
-					new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HA ||
-					new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HB)
+				    new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_B ||
+				    new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HA ||
+				    new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HB) {
 					goto c3_seq_ins;
-				else if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C2)
+				} else if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
-				else {
+				} else {
 					pp2_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
@@ -1371,20 +1363,20 @@ c3_seq_ins:
 			}
 			if (is_seq) {
 				cur_rl++;
-				if (cur_fl_rls->fl[cur_rl].skip
-					|| cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL
-					|| cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
+				if (cur_fl_rls->fl[cur_rl].skip ||
+				    cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
+					cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 					pp2_err("seqence control rule is not continuous (cur_rl %d)\n", cur_rl);
 					return -EINVAL;
 				}
 				if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_A ||
-					cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_B ||
+				    cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_B ||
 					cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_HA ||
-					cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_HB)
+					cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_HB) {
 					goto c3_seq_ins;
-				else if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C2)
+				} else if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
-				else {
+				} else {
 					pp2_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
@@ -1481,9 +1473,9 @@ c2_seq_ins:
 		}
 
 		/* update round number */
-		if (rnd == 0 && MVPP2_CLS_C2_RND_MAX == eng_hit_cnt[0].c2)
+		if (rnd == 0 && MVPP2_CLS_C2_RND_MAX == eng_hit_cnt[0].c2) {
 			rnd = 1;
-		else if (rnd == 1 && MVPP2_CLS_C2_RND_MAX == eng_hit_cnt[1].c2) {
+		} else if (rnd == 1 && MVPP2_CLS_C2_RND_MAX == eng_hit_cnt[1].c2) {
 			pp2_err("max C2 entries (last round), failed to add\n");
 			return -EPERM;
 		}
@@ -1505,12 +1497,12 @@ c2_seq_ins:
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
 			pp2_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
-					lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
+				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
 
 		/* validation done, update engine counters */
-		if (merge_new == true) {
+		if (merge_new) {
 			rc = pp2_cls_rl_hit_cnt_upd(&new_fl_rls->fl[new_rl],
 						    mrg_fl_rls,
 						    &eng_hit_cnt[rnd]);
@@ -1529,10 +1521,10 @@ c2_seq_ins:
 		}
 
 		/* merge the new rule */
-		if (merge_new == true) {
+		if (merge_new) {
 			new_fl_rls->fl[new_rl].rl_off = rl_off;
 			rc = pp2_cls_new_fl_rl_merge(new_rl, new_fl_rls,
-						mrg_fl_rls);
+						     mrg_fl_rls);
 
 			if (rc) {
 				pp2_err("failed to merge new C2 rule offset=%d fl_log_id=%d\n",
@@ -1545,7 +1537,7 @@ c2_seq_ins:
 		} else {
 			cur_fl_rls->fl[cur_rl].rl_off = rl_off;
 			rc = pp2_cls_new_fl_rl_merge(cur_rl, cur_fl_rls,
-						mrg_fl_rls);
+						     mrg_fl_rls);
 
 			if (rc) {
 				pp2_err("failed to merge cur C2 rule offset=%d fl_log_id=%d\n",
@@ -1558,7 +1550,7 @@ c2_seq_ins:
 		}
 		rl_off++;
 
-		if (merge_new == true) {
+		if (merge_new) {
 			if (!is_seq) {
 				if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
@@ -1575,20 +1567,20 @@ c2_seq_ins:
 			}
 			if (is_seq) {
 				new_rl++;
-				if (new_fl_rls->fl[new_rl].skip
-					|| new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL
-					|| new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
+				if (new_fl_rls->fl[new_rl].skip ||
+				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
+				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 					pp2_err("seqence control rule is not continuous (new_rl %d)\n", new_rl);
 					return -EINVAL;
 				}
 				if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_A ||
-					new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_B ||
-					new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HA ||
-					new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HB)
+				    new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_B ||
+				    new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HA ||
+				    new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_HB) {
 					goto c3_seq_ins;
-				else if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C2)
+				} else if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
-				else {
+				} else {
 					pp2_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
@@ -1610,20 +1602,20 @@ c2_seq_ins:
 			}
 			if (is_seq) {
 				cur_rl++;
-				if (cur_fl_rls->fl[cur_rl].skip
-					|| cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL
-					|| cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
+				if (cur_fl_rls->fl[cur_rl].skip ||
+				    cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
+				    cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 					pp2_err("seqence control rule is not continuous (cur_rl %d)\n", cur_rl);
 					return -EINVAL;
 				}
 				if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_A ||
-					cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_B ||
-					cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_HA ||
-					cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_HB)
+				    cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_B ||
+				    cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_HA ||
+				    cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_HB) {
 					goto c3_seq_ins;
-				else if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C2)
+				} else if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
-				else {
+				} else {
 					pp2_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
@@ -1633,6 +1625,7 @@ c2_seq_ins:
 
 	return 0;
 }
+
 /*******************************************************************************
 * pp2_cls_fl_rl_db_set
 *
@@ -1732,7 +1725,6 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_fl_rl_hw_set
@@ -1839,7 +1831,6 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 	return 0;
 }
 
-
 /*******************************************************************************
 * pp2_cls_fl_rl_hw_ena
 *
@@ -1896,7 +1887,6 @@ static int pp2_cls_fl_rl_hw_ena(uintptr_t cpu_slot, struct pp2_cls_fl_rule_entry
 	return 0;
 }
 
-
 /*******************************************************************************
 * pp2_cls_fl_rl_hw_dis
 *
@@ -1938,7 +1928,6 @@ static int pp2_cls_fl_rl_hw_dis(uintptr_t cpu_slot, u16 off)
 
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_fl_rls_set
@@ -1993,7 +1982,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 
 		if (free_db_cnt < new_rl_cnt) {
 			pr_err("not enough free rule DB[free_db_cnt=%d new_rl_cnt=%d]\n",
-				free_db_cnt, new_rl_cnt);
+			       free_db_cnt, new_rl_cnt);
 			return -EPERM;
 		}
 	}
@@ -2001,7 +1990,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	/* set the flow rules */
 	for (rl_idx = 0; rl_idx < fl_rls->fl_len; rl_idx++) {
 		rl = &fl_rls->fl[rl_idx];
-		is_last = (rl_idx == fl_rls->fl_len-1) ? true : false;
+		is_last = (rl_idx == fl_rls->fl_len - 1) ? true : false;
 
 		/* write rule to HW */
 		rc = pp2_cls_fl_rl_hw_set(cpu_slot, rl, is_last);
@@ -2041,7 +2030,6 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	return 0;
 }
 
-
 /*******************************************************************************
 * pp2_cls_fl_cur_get
 *
@@ -2058,7 +2046,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 *	0 on success, error-code otherwise
 *******************************************************************************/
 static int pp2_cls_fl_cur_get(u16 fl_log_id,
-				struct pp2_cls_fl_t *cur_fl)
+			      struct pp2_cls_fl_t *cur_fl)
 {
 	struct pp2_db_cls_fl_rule_list_t *fl_rl_db;
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
@@ -2082,8 +2070,8 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 #endif
 
 	memset(cur_fl, 0, sizeof(struct pp2_cls_fl_t));
-	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
-	if (fl_rl_db == NULL) {
+	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
+	if (!fl_rl_db) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -2115,7 +2103,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 		cur_fl->fl[i].field_id_cnt = fl_rl_db->flow[i].field_id_cnt;
 
 		memcpy(cur_fl->fl[i].field_id,
-			fl_rl_db->flow[i].field_id,
+		       fl_rl_db->flow[i].field_id,
 			sizeof(cur_fl->fl[i].field_id));
 
 		cur_fl->fl[i].rl_off	= lkp_dcod_db.flow_off + i;
@@ -2124,7 +2112,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 		cur_fl->fl[i].port_type = fl_rl_db->flow[i].port_type;
 		cur_fl->fl[i].prio	= fl_rl_db->flow[i].prio;
 		memcpy(&cur_fl->fl[i].ref_cnt[0],
-			&fl_rl_db->flow[i].ref_cnt[0],
+		       &fl_rl_db->flow[i].ref_cnt[0],
 			MVPP2_MAX_NUM_GMACS * sizeof(u16));
 		cur_fl->fl[i].rl_log_id = fl_rl_db->flow[i].rl_log_id;
 		cur_fl->fl[i].state	= MVPP2_MRG_NOT_NEW;
@@ -2141,7 +2129,6 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 	kfree(fl_rl_db);
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_fl_rls_log_rl_id_upd
@@ -2222,10 +2209,10 @@ static int pp2_cls_fl_nt_rule_reorder(struct pp2_cls_fl_t *fl_rls)
 		}
 		/* Get the n-tuple flow length */
 		for (len = 1; len + i < fl_rls->fl_len; len++) {
-			if (fl_rls->fl[len + i].seq_ctrl != MVPP2_CLS_SEQ_CTRL_MIDDLE
-				&& fl_rls->fl[len + i].seq_ctrl != MVPP2_CLS_SEQ_CTRL_LAST) {
+			if (fl_rls->fl[len + i].seq_ctrl != MVPP2_CLS_SEQ_CTRL_MIDDLE &&
+			    fl_rls->fl[len + i].seq_ctrl != MVPP2_CLS_SEQ_CTRL_LAST) {
 				pr_err("unexpect rule (%d) sequence type (%d)\n", len + i,
-					fl_rls->fl[len + i].seq_ctrl);
+				       fl_rls->fl[len + i].seq_ctrl);
 				return -EINVAL;
 			}
 			if (fl_rls->fl[len + i].seq_ctrl == MVPP2_CLS_SEQ_CTRL_LAST)
@@ -2256,7 +2243,7 @@ static int pp2_cls_fl_nt_rule_reorder(struct pp2_cls_fl_t *fl_rls)
 	for (i = 0, j = 0; i < fl_rls->fl_len; i++) {
 		fl_rls->fl[i].rl_off = rl_off + i;
 		if (fl_rls->fl[i].engine == MVPP2_ENGINE_C3_A ||
-			fl_rls->fl[i].engine == MVPP2_ENGINE_C3_B ||
+		    fl_rls->fl[i].engine == MVPP2_ENGINE_C3_B ||
 			fl_rls->fl[i].engine == MVPP2_ENGINE_C3_HA ||
 			fl_rls->fl[i].engine == MVPP2_ENGINE_C3_HB) {
 			if (j == 0 && eng_cnt[0].c3 == MVPP2_CLS_C3_RND_MAX)
@@ -2272,9 +2259,9 @@ static int pp2_cls_fl_nt_rule_reorder(struct pp2_cls_fl_t *fl_rls)
 
 	/* Verify hit count of each engine */
 	if (eng_cnt[1].c2 > MVPP2_CLS_C2_RND_MAX ||
-		eng_cnt[1].c3 > MVPP2_CLS_C3_RND_MAX) {
+	    eng_cnt[1].c3 > MVPP2_CLS_C3_RND_MAX) {
 		pr_err("c2 hits (%d) or c3 hits (%d) exceed maximum number\n",
-			eng_cnt[1].c2, eng_cnt[1].c3);
+		       eng_cnt[1].c2, eng_cnt[1].c3);
 		return -EINVAL;
 	}
 
@@ -2312,21 +2299,21 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 		return -EFAULT;
 	}
 
-	new_fl = kmalloc(sizeof(struct pp2_cls_fl_t), GFP_KERNEL);
-	if (new_fl == NULL) {
+	new_fl = kmalloc(sizeof(*new_fl), GFP_KERNEL);
+	if (!new_fl) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
-	merge_fl = kmalloc(sizeof(struct pp2_cls_fl_t), GFP_KERNEL);
-	if (merge_fl == NULL) {
+	merge_fl = kmalloc(sizeof(*merge_fl), GFP_KERNEL);
+	if (!merge_fl) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto err1;
 	}
 
-	cur_fl = kmalloc(sizeof(struct pp2_cls_fl_t), GFP_KERNEL);
-	if (cur_fl == NULL) {
+	cur_fl = kmalloc(sizeof(*cur_fl), GFP_KERNEL);
+	if (!cur_fl) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto err2;
@@ -2368,14 +2355,14 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 			/* logical flow not initialized */
 			if (lkp_dcod_db.flow_alloc_len == 0) {
 				pr_err("fl_log_id %d new rule #%d was not initialized\n",
-					fl_log_id, i);
+				       fl_log_id, i);
 				rc = -EFAULT;
 				goto err3;
 			}
 
 			fl = &new_fl->fl[new_fl->fl_len];
 
-			if (fl_rl->enabled == false) {
+			if (!fl_rl->enabled) {
 				fl_rl->port_type = MVPP2_PORT_TYPE_INV;
 				fl_rl->port_bm = MVPP2_PORT_BM_INV;
 			}
@@ -2395,7 +2382,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 			fl->seq_ctrl	= fl_rl->seq_ctrl;
 			fl->state	= MVPP2_MRG_NEW;
 			memcpy(fl->field_id,
-				fl_rl->field_id,
+			       fl_rl->field_id,
 				sizeof(fl_rl->field_id));
 			/*
 			 * code snippet is disabled since currently rules addition does
@@ -2428,7 +2415,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 				continue;
 			/* increment the engine count per flow log id */
 			rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_INC, fl_rl->engine,
-							&new_fl->eng_cnt);
+						       &new_fl->eng_cnt);
 			if (rc) {
 				pp2_err("recvd ret_code(%d)\n", rc);
 				goto err3;
@@ -2446,7 +2433,6 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 		/* sort the new flow according to prio */
 		if (new_fl->fl_len > 1)
 			pp2_cls_fl_rls_sort(new_fl->fl, new_fl->fl_len);
-
 
 		/* merge the two flows (new & curr) */
 		rc = pp2_cls_fl_rls_merge(fl_log_id, cur_fl, new_fl, merge_fl);
@@ -2492,7 +2478,6 @@ err1:
 	return rc;
 }
 
-
 /*******************************************************************************
 * pp2_cls_fl_rule_enable
 *
@@ -2523,8 +2508,8 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		return -EFAULT;
 	}
 
-	fl_rl_db = kmalloc(sizeof(struct pp2_db_cls_fl_rule_list_t), GFP_KERNEL);
-	if (fl_rl_db == NULL) {
+	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
+	if (!fl_rl_db) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -2535,7 +2520,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		rc = pp2_db_cls_lkp_dcod_get(fl_rls->fl[i].fl_log_id, &lkp_dcod_db);
 		if (rc) {
 			pp2_err("failed to get lookup decode DB data for fl_log_id %d\n",
-					fl_rls->fl[i].fl_log_id);
+				fl_rls->fl[i].fl_log_id);
 			return rc;
 		}
 
@@ -2544,7 +2529,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 		if (rc) {
 			pp2_err("failed to get flow rule list, fl_log_id=%d flow_off=%d flow_len=%d\n",
-					fl_rls->fl[i].fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+				fl_rls->fl[i].fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -2558,7 +2543,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		for (rl_off = 0; rl_off < fl_rl_db->flow_len; rl_off++) {
 			rl_db = &fl_rl_db->flow[rl_off];
 			if (rl_en->engine		== rl_db->engine	&&
-				rl_en->field_id_cnt	== rl_db->field_id_cnt  &&
+			    rl_en->field_id_cnt	== rl_db->field_id_cnt  &&
 				rl_en->lu_type		== rl_db->lu_type	&&
 				rl_en->port_type	== rl_db->port_type	&&
 				rl_en->prio		== rl_db->prio		&&
@@ -2568,7 +2553,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 				if (rl_en->port_type != MVPP2_CLASS_VIRT_PORT) {
 					rl_db->port_bm |= rl_en->port_bm;
 					port_bm = rl_en->port_bm;
-					if (rl_db->enabled == true) {
+					if (rl_db->enabled) {
 						rl_en->port_bm = rl_db->port_bm;
 						/* Update Port BM */
 						rl_en->rl_log_id = rl_db->rl_log_id;
@@ -2614,12 +2599,12 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		if (rl_off == fl_rl_db->flow_len) {
 			pr_err("failed to find flow rule #%d to enable\n", i);
 			pr_err("fl_id(%d),port_type(%d),port_bm(%d),",
-				fl_rls->fl[i].fl_log_id, fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
+			       fl_rls->fl[i].fl_log_id, fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
 			pr_err("prio(%d),lu_type(%d),engine(%d),field_id_cnt(%d)",
-				fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
+			       fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
 				fl_rls->fl[i].field_id_cnt);
 			pr_err("field_id_0(%x), field_id_1(%x),field_id_2(%x),field_id_3(%x)\n",
-				fl_rls->fl[i].field_id[0], fl_rls->fl[i].field_id[1], fl_rls->fl[i].field_id[2],
+			       fl_rls->fl[i].field_id[0], fl_rls->fl[i].field_id[1], fl_rls->fl[i].field_id[2],
 				fl_rls->fl[i].field_id[3]);
 			kfree(fl_rl_db);
 			return -EFAULT;
@@ -2629,7 +2614,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		rl_en->rl_log_id = rl_db->rl_log_id;
 
 		/* found the rule we searched for */
-		if (rl_db->enabled == false) {
+		if (!rl_db->enabled) {
 			MVPP2_MEMSET_ZERO(rl_db->ref_cnt);
 			rl_db->enabled = true;
 
@@ -2649,10 +2634,10 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		}
 
 		pp2_dbg("enable: fl_log_id[%d] rl_log_id[%d] rl_off[%d] port_type[%d] port_bm[%d]",
-				fl_rls->fl[i].fl_log_id, rl_en->rl_log_id, rl_off,
+			fl_rls->fl[i].fl_log_id, rl_en->rl_log_id, rl_off,
 				fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
 		pp2_dbg("prio[%d] lu_type[%d] engine[%d] field_id_cnt[%d]\n",
-				fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
+			fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
 				fl_rls->fl[i].field_id_cnt);
 
 		/* update the DB */
@@ -2667,7 +2652,6 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 	kfree(fl_rl_db);
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_fl_rule_disable
@@ -2685,7 +2669,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 *	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
-				u16 rl_log_id_len,
+			    u16 rl_log_id_len,
 				struct pp2_cls_class_port_t *src_port)
 {
 	u16 rl_off, i;
@@ -2725,7 +2709,7 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 		}
 
 		/* rule already disabled, skip */
-		if (rl_db.enabled == false)
+		if (!rl_db.enabled)
 			pp2_warn("rl_log_id=%d already disabled\n", rl_log_id[i]);
 
 		/* last reference count, need to disable in HW */
@@ -2785,9 +2769,9 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 		rl_db.ref_cnt[port_id]--;
 
 		pp2_dbg("disable: rl_off[%d] rl_log_id[%d] port_type[%d] port_bm[%d] prio[%d]",
-				rl_off, rl_db.rl_log_id, rl_db.port_type, rl_db.port_bm, rl_db.prio);
+			rl_off, rl_db.rl_log_id, rl_db.port_type, rl_db.port_bm, rl_db.prio);
 		pp2_dbg("lu_type[%d] engine[%d] field_id_cnt[%d]\n",
-				rl_db.lu_type, rl_db.engine, rl_db.field_id_cnt);
+			rl_db.lu_type, rl_db.engine, rl_db.field_id_cnt);
 
 		/* update rule entry in DB */
 		rc = pp2_db_cls_fl_rule_set(rl_off, &rl_db);
@@ -2798,7 +2782,6 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 	}
 	return 0;
 }
-
 
 /*******************************************************************************
 * pp2_cls_find_flows_for_lkp
@@ -2818,8 +2801,8 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 *******************************************************************************/
 
 static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
-					struct pp2_cls_fl_rule_list_t *fl_rls,
-					int flow_log_id, int flow_index)
+				      struct pp2_cls_fl_rule_list_t *fl_rls,
+				      int flow_log_id, int flow_index)
 {
 	int rc;
 
@@ -2861,11 +2844,11 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		}
 
 		/* set kernel engine priority higher then '0' for let musdk option for better priority */
-		if (engine == MVPP2_CLS_ENGINE_C2)
+		if (engine == MVPP2_CLS_ENGINE_C2) {
 			prio = MVPP2_CLS_KERNEL_C2_PRIO;
-		else if (engine == MVPP2_CLS_ENGINE_C3HA || engine == MVPP2_CLS_ENGINE_C3HB)
+		} else if (engine == MVPP2_CLS_ENGINE_C3HA || engine == MVPP2_CLS_ENGINE_C3HB) {
 			prio = MVPP2_CLS_KERNEL_C3_PRIO;
-		else {
+		} else {
 			pp2_err("%s(%d) found wrong engine = %d\n", __func__, __LINE__, engine);
 			return -EINVAL;
 		}
@@ -2945,8 +2928,8 @@ static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_
 	int rc = 0;
 	int way = 0; /* currently, always setting way to '0' */
 
-	dcod_entry = kmalloc(sizeof(struct pp2_cls_lkp_dcod_entry_t), GFP_KERNEL);
-	if (dcod_entry == NULL) {
+	dcod_entry = kmalloc(sizeof(*dcod_entry), GFP_KERNEL);
+	if (!dcod_entry) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -2993,7 +2976,6 @@ end:
 	return rc;
 }
 
-
 /*******************************************************************************
 * pp2_cls_init
 *
@@ -3022,8 +3004,8 @@ int pp2_cls_init(uintptr_t cpu_slot)
 
 	pp2_db_cls_init();
 
-	fl_rls = kmalloc(sizeof(struct pp2_cls_fl_rule_list_t), GFP_KERNEL);
-	if (fl_rls == NULL) {
+	fl_rls = kmalloc(sizeof(*fl_rls), GFP_KERNEL);
+	if (!fl_rls) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}

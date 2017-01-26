@@ -38,9 +38,7 @@
 #include "pp2_hif.h"
 #include "lib/lib_misc.h"
 
-
 static struct pp2_bpool pp2_bpool[PP2_MAX_NUM_PACKPROCS][PP2_NUM_BMPOOLS];
-
 
 int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 {
@@ -58,22 +56,22 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 	pool_id = match[1];
 
 	if (pool_id < 0 || pool_id >= PP2_NUM_BMPOOLS) {
-		pr_err("[%s] Invalid match string!\n", __FUNCTION__);
+		pr_err("[%s] Invalid match string!\n", __func__);
 		return(-ENXIO);
 	}
 	if (pp2_id < 0 || pp2_id >= pp2_ptr->num_pp2_inst) {
-		pr_err("[%s] Invalid match string!\n", __FUNCTION__);
+		pr_err("[%s] Invalid match string!\n", __func__);
 		return(-ENXIO);
 	}
-	if (pp2_ptr->init.bm_pool_reserved_map & (1<<pool_id)) {
-		pr_err("[%s] bm_pool is reserved.\n", __FUNCTION__);
+	if (pp2_ptr->init.bm_pool_reserved_map & (1 << pool_id)) {
+		pr_err("[%s] bm_pool is reserved.\n", __func__);
 		return(-EFAULT);
 	}
 	if (pp2_ptr->pp2_inst[pp2_id]->bm_pools[pool_id]) {
-		pr_err("[%s] bm_pool already exists.\n", __FUNCTION__);
+		pr_err("[%s] bm_pool already exists.\n", __func__);
 		return(-EEXIST);
 	}
-	pr_debug("[%s] pp2_id(%d) pool_id(%d)\n", __FUNCTION__, pp2_id, pool_id);
+	pr_debug("[%s] pp2_id(%d) pool_id(%d)\n", __func__, pp2_id, pool_id);
 	param.buf_num = params->max_num_buffs;
 	param.buf_size = params->buff_len;
 	param.id = pool_id;
@@ -82,16 +80,15 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 	if (!rc) {
 		pp2_bpool[pp2_id][pool_id].id = pool_id;
 		pp2_bpool[pp2_id][pool_id].pp2_id = pp2_id;
-		pp2_bpool[pp2_id][pool_id].pp2_hw_base = &(pp2_ptr->pp2_inst[pp2_id]->hw.base[0]);
-		*bpool = &(pp2_bpool[pp2_id][pool_id]);
+		pp2_bpool[pp2_id][pool_id].pp2_hw_base = &pp2_ptr->pp2_inst[pp2_id]->hw.base[0];
+		*bpool = &pp2_bpool[pp2_id][pool_id];
 	}
-	return (rc);
+	return rc;
 }
-
 
 void pp2_bpool_deinit(struct pp2_bpool *bpool)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
+	pr_err("[%s] routine not supported yet!\n", __func__);
 }
 
 /*TODO, move #define to correct file, maybe already exist in Linux...*/
@@ -117,7 +114,8 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 #ifdef CONF_PP2_BPOOL_COOKIE_SIZE
 	vaddr = pp2_reg_read(cpu_slot, MVPP2_BM_VIRT_ALLOC_REG);
 #endif
-#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
+#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && \
+	!defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
 	{
 		u64 high_addr_reg;
 
@@ -142,7 +140,6 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 
 int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff)
 {
-
 	u32 phys_lo;
 	uintptr_t cpu_slot;
 	bpool_dma_addr_t paddr;
@@ -169,19 +166,22 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	phys_lo = (u32)paddr;
 
 	/* First set the virt and phys hi addresses and the virt lo address.
-	* Lastly, write phys lo to BM_PHYS_RLS to trigger the BM release */
+	 * Lastly, write phys lo to BM_PHYS_RLS to trigger the BM release
+	 */
 
-
-#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
+#if ((CONF_PP2_BPOOL_COOKIE_SIZE == 64) || (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && \
+	!defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B)))
 	{
 		u32 high_addr_reg = 0;
 
 #if (CONF_PP2_BPOOL_COOKIE_SIZE == 64)
 		u32 virt_hi = vaddr >> 32;
+
 		high_addr_reg |= (virt_hi << MVPP22_BM_VIRT_HIGH_RLS_OFFST);
 #endif
 #if (defined(MVCONF_ARCH_DMA_ADDR_T_64BIT) && !defined(CONF_PP2_BPOOL_DMA_ADDR_USE_32B))
 		u32 phys_hi = paddr >> 32;
+
 		high_addr_reg |= (phys_hi << MVPP22_BM_PHY_HIGH_RLS_OFFSET);
 #endif
 
@@ -196,13 +196,13 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 
 int pp2_bpool_get_num_buffs(struct pp2_hif *hif, struct pp2_bpool *pool, u32 *num_buffs)
 {
-	uintptr_t 	cpu_slot;
+	uintptr_t	cpu_slot;
 	u32		num = 0;
 
 	cpu_slot = pool->pp2_hw_base[hif->regspace_slot].va;
 
 	num = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_PTRS_NUM_REG(pool->id))
-	   			& MVPP22_BM_POOL_PTRS_NUM_MASK;
+				& MVPP22_BM_POOL_PTRS_NUM_MASK;
 	num += pp2_reg_read(cpu_slot, MVPP2_BM_BPPI_PTRS_NUM_REG(pool->id))
 				& MVPP2_BM_BPPI_PTR_NUM_MASK;
 

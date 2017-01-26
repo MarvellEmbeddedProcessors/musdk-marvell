@@ -42,12 +42,11 @@
  *
  */
 
-
 int pp2_sys_io_exists(const char *name)
 {
-	struct uio_info_t * uio_info;
+	struct uio_info_t *uio_info;
 
-	if (name == NULL)
+	if (!name)
 		return 0;
 	uio_info = uio_find_devices_byname(name);
 	if (uio_info)
@@ -106,7 +105,7 @@ static struct uio_mem_t *remove_mem_entry(struct uio_mem_t **headp,
 }
 
 uintptr_t pp2_sys_iomap(pp2_maps_handle_t pp2_maps_hdl, uint32_t *pa,
-		       const char *name)
+			const char *name)
 {
 	struct pp2_uio *pp = (struct pp2_uio *)pp2_maps_hdl;
 	struct uio_mem_t *mem = NULL;

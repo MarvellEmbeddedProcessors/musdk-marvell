@@ -71,7 +71,7 @@ static struct pp2_cls_db_t *g_pp2_cls_db;
 static int pp2_cls_db_mem_alloc_init(void)
 {
 	/* Allocation for g_pp2_cls_db */
-	g_pp2_cls_db = kmalloc(sizeof(struct pp2_cls_db_t), GFP_KERNEL);
+	g_pp2_cls_db = kmalloc(sizeof(*g_pp2_cls_db), GFP_KERNEL);
 	if (!g_pp2_cls_db)
 		goto fail1;
 
@@ -788,7 +788,7 @@ int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
 	}
 
 	memcpy(fl_rl_list, &g_pp2_cls_db->cls_db.fl_rule[off],
-			sizeof(struct pp2_db_cls_fl_rule_t) * len);
+	       sizeof(struct pp2_db_cls_fl_rule_t) * len);
 
 	return 0;
 }

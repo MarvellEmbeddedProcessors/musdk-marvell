@@ -33,7 +33,7 @@
 /**
  * @file pp2_c3_debug.c
  *
- * C3 High level debug routines (dump functions and external configuration) 
+ * C3 High level debug routines (dump functions and external configuration)
  */
 
 /***********************/
@@ -246,7 +246,6 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 		break;
 	}
 
-
 	/* Entry index, including HW index, logical index */
 	switch (dump_idx) {
 	case MVPP2_C3_INDEX_DUMP_HASH:
@@ -420,7 +419,6 @@ int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 		{"var", required_argument, 0, 'v'},
 		{0, 0, 0, 0}
 	};
-
 
 	if (argc == 3) {
 		/* every time starting getopt we should reset optind */

@@ -30,13 +30,11 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 /***********************/
 /* h file declarations */
 /***********************/
 #ifndef _PP2_CLS_H_
 #define _PP2_CLS_H_
-
 
 /******************************************************************************/
 /*                                 MACROS                                     */
@@ -45,7 +43,7 @@
 #define MVPP2_CLS_FLOW_RULE_MAX		(96)				/* max flow rules		*/
 #define MVPP2_CLS_FREE_LOG2OFF		(0)				/* 1st entry is the free index	*/
 #define MVPP2_CLS_LOG2OFF_START		(1)				/* 1st entry is the free index	*/
-#define MVPP2_CLS_LOG2OFF_TBL_SIZE	(MVPP2_CLS_FLOWS_TBL_SIZE+MVPP2_CLS_FREE_LOG2OFF)
+#define MVPP2_CLS_LOG2OFF_TBL_SIZE	(MVPP2_CLS_FLOWS_TBL_SIZE + MVPP2_CLS_FREE_LOG2OFF)
 									/* logical to offset table size	*/
 #define MVPP2_CLS_FL_RND_SIZE		(25)				/* max rule hits per CLS round	*/
 #define MVPP2_CLS_C2_RND_MAX		(16)				/* max C2 per CLS round		*/
@@ -72,6 +70,7 @@ enum pp2_cls_rl_prio_t {
 	MVPP2_CLS_KERNEL_C2_PRIO,
 	MVPP2_CLS_KERNEL_C3_PRIO
 };
+
 enum pp2_cls_rl_mrg_state_t {
 	MVPP2_MRG_NOT_NEW			= 0x0000,			/* merged rule no new		*/
 	MVPP2_MRG_NEW			= 0x0001,			/* merged rule new		*/
@@ -100,6 +99,7 @@ enum pp2_cls_rx_qh_t {
 	MVPP2_LPBK_RX_QH,
 	MVPP2_PMAC_RX_QH,
 };
+
 /******************************************************************************/
 /*                               STRUCTURES                                   */
 /******************************************************************************/
@@ -194,8 +194,8 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf);
 int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls);
 int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls);
 int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
-				u16 rl_log_id_len,
-				struct pp2_cls_class_port_t *src_port);
+			    u16 rl_log_id_len,
+			    struct pp2_cls_class_port_t *src_port);
 int pp2_cls_init(uintptr_t cpu_slot);
 
 #endif /* _PP2_CLS_H_ */

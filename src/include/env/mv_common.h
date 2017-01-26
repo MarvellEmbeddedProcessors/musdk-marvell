@@ -273,7 +273,7 @@ uint32_t __roundup_pow_of_two(uint32_t n)
 /* Kernel Memory Allocation */
 #define kmalloc(size, gfp) malloc(size)
 #define kcalloc(num, size, gfp) calloc(num, size)
-#define kfree(ptr) free(ptr)
+#define kfree(ptr) if(ptr) free(ptr)
 
 /* Kernel Delay */
 #define udelay(us) usleep(us)

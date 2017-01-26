@@ -33,7 +33,7 @@
 /**
  * @file pp2_c3.h
  *
- * internal and external definitions for C3 High level routines 
+ * internal and external definitions for C3 High level routines
  */
 
 /***********************/

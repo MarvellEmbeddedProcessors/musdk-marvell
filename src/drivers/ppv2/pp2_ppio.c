@@ -30,7 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 #include "std_internal.h"
 
 #include "pp2_types.h"
@@ -40,18 +39,15 @@
 #include "pp2_bpool.h"
 #include "lib/lib_misc.h"
 
-
-
 struct pp2_ppio {
 	struct pp2_port *port;
 };
 
 static struct pp2_ppio ppio_array[PP2_MAX_NUM_PACKPROCS][PP2_NUM_ETH_PPIO];
 
-
-static inline struct pp2_dm_if * pp2_dm_if_get(struct pp2_ppio *ppio, struct pp2_hif *hif)
+static inline struct pp2_dm_if *pp2_dm_if_get(struct pp2_ppio *ppio, struct pp2_hif *hif)
 {
-	return(ppio->port->parent->dm_ifs[hif->regspace_slot]);
+	return ppio->port->parent->dm_ifs[hif->regspace_slot];
 }
 
 int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
@@ -60,39 +56,38 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 	int port_id, pp2_id, rc;
 
 	if (mv_sys_match(params->match, "ppio", 2, match)) {
-		pr_err("[%s] Invalid match string!\n", __FUNCTION__);
-		return(-ENXIO);
+		pr_err("[%s] Invalid match string!\n", __func__);
+		return -ENXIO;
 	}
 
 	if (pp2_is_init() == false)
-		return(-EPERM);
+		return -EPERM;
 
 	pp2_id = match[0];
 	port_id = match[1];
 
 	if (port_id >= PP2_NUM_ETH_PPIO) {
-		pr_err("[%s] Invalid ppio.\n", __FUNCTION__);
-		return(-ENXIO);
+		pr_err("[%s] Invalid ppio.\n", __func__);
+		return -ENXIO;
 	}
 	if (pp2_id >= pp2_ptr->num_pp2_inst) {
-		pr_err("[%s] Invalid pp2 instance.\n", __FUNCTION__);
-		return(-ENXIO);
+		pr_err("[%s] Invalid pp2 instance.\n", __func__);
+		return -ENXIO;
 	}
 	if (pp2_ptr->init.ppios[pp2_id][port_id].is_enabled == 0) {
-		pr_err("[%s] ppio is reserved.\n", __FUNCTION__);
-		return(-EFAULT);
+		pr_err("[%s] ppio is reserved.\n", __func__);
+		return -EFAULT;
 	}
-	if (ppio_array[pp2_id][port_id].port != NULL) {
-		pr_err("[%s] ppio already exists.\n", __FUNCTION__);
-		return(-EEXIST);
+	if (ppio_array[pp2_id][port_id].port) {
+		pr_err("[%s] ppio already exists.\n", __func__);
+		return -EEXIST;
 	}
 
-	rc = pp2_port_open(pp2_ptr, params, pp2_id, port_id, &(ppio_array[pp2_id][port_id].port));
+	rc = pp2_port_open(pp2_ptr, params, pp2_id, port_id, &ppio_array[pp2_id][port_id].port);
 	if (!rc) {
 		*ppio = &ppio_array[pp2_id][port_id];
-	}
-	else {
-		pr_err("[%s] ppio init failed.\n", __FUNCTION__);
+	} else {
+		pr_err("[%s] ppio init failed.\n", __func__);
 		return(-EFAULT);
 	}
 	pp2_port_config_inq((*ppio)->port);
@@ -103,20 +98,19 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 
 void pp2_ppio_deinit(struct pp2_ppio *ppio)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
+	pr_err("[%s] routine not supported yet!\n", __func__);
 }
-
 
 int pp2_ppio_enable(struct pp2_ppio *ppio)
 {
 	pp2_port_start(ppio->port, PP2_TRAFFIC_INGRESS_EGRESS);
-	return (0);
+	return 0;
 }
 
 int pp2_ppio_disable(struct pp2_ppio *ppio)
 {
 	pp2_port_stop(ppio->port);
-	return (0);
+	return 0;
 }
 
 /* Note: Function cannot be inlined, because of reference to pool->id */
@@ -135,11 +129,11 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 
 	desc_sent = pp2_port_enqueue(ppio->port, dm_if, qid, desc_req, descs);
 	if (unlikely(desc_sent < desc_req)) {
-		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __FUNCTION__,
+		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __func__,
 			 ppio->port->parent->id, ppio->port->id, qid, *num, desc_sent);
 		*num = desc_sent;
 	}
-	return(0);
+	return 0;
 }
 
 int pp2_ppio_send_sg(struct pp2_ppio *ppio,
@@ -148,7 +142,7 @@ int pp2_ppio_send_sg(struct pp2_ppio *ppio,
 		     struct pp2_ppio_sg_desc *descs,
 		     u16 *num)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
+	pr_err("[%s] routine not supported yet!\n", __func__);
 	return -ENOTSUP;
 }
 
@@ -159,7 +153,6 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,
 {
 	struct pp2_dm_if *dm_if;
 	u32 outq_physid;
-
 
 	dm_if = pp2_dm_if_get(ppio, hif);
 	outq_physid = ppio->port->txqs[qid]->id;
@@ -185,7 +178,7 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 {
 	struct pp2_port *port = ppio->port;
 	struct pp2_desc *rx_desc, *extra_rx_desc;
-	struct pp2_rx_queue * rxq;
+	struct pp2_rx_queue *rxq;
 	u32 recv_req = *num, extra_num = 0;
 	int log_rxq, rxq_id, rc = 0;
 
@@ -205,9 +198,8 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 	/* TODO : Make pp2_rxq_get_desc inline */
 	rx_desc = pp2_rxq_get_desc(rxq, &recv_req, &extra_rx_desc, &extra_num);
 #if __BYTE_ORDER == __BIG_ENDIAN
-	for (int i = 0; i < recv_req; i++) {
+	for (int i = 0; i < recv_req; i++)
 		pp2_ppio_desc_swap_ncopy(&descs[i], &rx_desc[i]);
-	}
 #else
 	memcpy(descs, rx_desc, recv_req * sizeof(*descs));
 #endif
@@ -226,9 +218,10 @@ int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 {
 	int rc;
 
-	rc = pp2_port_set_mac_addr(ppio->port, (const uint8_t *) addr);
+	rc = pp2_port_set_mac_addr(ppio->port, (const uint8_t *)addr);
 	return rc;
 }
+
 int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr)
 {
 	int rc;
@@ -254,6 +247,7 @@ int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu)
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len)
 {
 	int rc;
+
 	rc = pp2_port_set_mru(ppio->port, len);
 	return rc;
 }
@@ -339,7 +333,7 @@ int pp2_ppio_remove_vlan(struct pp2_ppio *ppio, u16 vlan)
 
 int pp2_ppio_flush_vlan(struct pp2_ppio *ppio)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
+	pr_err("[%s] routine not supported yet!\n", __func__);
 	return -ENOTSUP;
 }
 

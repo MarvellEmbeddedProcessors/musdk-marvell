@@ -33,7 +33,6 @@
 #ifndef __HIF_H__
 #define __HIF_H__
 
-
 #include "drivers/mv_pp2_hif.h"
 
 struct pp2_hif {
@@ -42,7 +41,7 @@ struct pp2_hif {
 
 #if 0
 struct pp2_io_base_addr {
-    uintptr_t va;
+	uintptr_t va;
 };
 
 struct mv_pp2x_hw {
@@ -53,6 +52,5 @@ struct mv_pp2x_hw {
 	void __iomem *cpu_base[MVPP2_MAX_CPUS];
 };
 #endif
-
 
 #endif /* __HIF_H__ */

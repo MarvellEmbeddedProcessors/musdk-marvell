@@ -124,39 +124,39 @@ enum mv_pp2x_rss_nf_udp_mode {
 };
 
 enum mv_pp2x_mac_del_option {
-   MVPP2_DEL_MAC_ALL = 0,
-   MVPP2_DEL_MAC_NOT_IN_LIST,
+	MVPP2_DEL_MAC_ALL = 0,
+	MVPP2_DEL_MAC_NOT_IN_LIST,
 };
 
 /* L2 cast in parser result info */
 enum mv_pp2x_l2_cast {
-   MVPP2_PRS_MAC_UC,
-   MVPP2_PRS_MAC_MC,
-   MVPP2_PRS_MAC_BC,
+	MVPP2_PRS_MAC_UC,
+	MVPP2_PRS_MAC_MC,
+	MVPP2_PRS_MAC_BC,
 };
 
 struct iphdr {
 	uint8_t	 ihl:4,
 		 version:4;
-	uint8_t	 tos;
-	uint16_t tot_len;
-	uint16_t id;
-	uint16_t frag_off;
-	uint8_t	 ttl;
-	uint8_t	 protocol;
-	uint16_t check;
-	uint32_t saddr;
-	uint32_t daddr;
+	u8	 tos;
+	u16 tot_len;
+	u16 id;
+	u16 frag_off;
+	u8	 ttl;
+	u8	 protocol;
+	u16 check;
+	u32 saddr;
+	u32 daddr;
 };
 
 struct ipv6hdr {
 	uint8_t	 priority:4,
 		 version:4;
-	uint8_t	 flow_lbl[3];
+	u8	 flow_lbl[3];
 
-	uint16_t payload_len;
-	uint8_t	 nexthdr;
-	uint8_t	 hop_limit;
+	u16 payload_len;
+	u8	 nexthdr;
+	u8	 hop_limit;
 
 	struct	 in6_addr saddr;
 	struct	 in6_addr daddr;

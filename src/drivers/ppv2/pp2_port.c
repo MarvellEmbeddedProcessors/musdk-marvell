@@ -85,9 +85,8 @@ int pp2_port_get_if_name(struct pp2_port *port)
 			continue;
 
 		if (port->parent->hw.phy_address_base == s.ifr_map.mem_start) {
-			if (port->parent->ports[index]->admin_status == PP2_PORT_DISABLED) {
+			if (port->parent->ports[index]->admin_status == PP2_PORT_DISABLED)
 				index++;
-			}
 
 			if (port->id == index) {
 				strcpy(port->linux_name, s.ifr_name);
@@ -106,172 +105,168 @@ int pp2_port_get_if_name(struct pp2_port *port)
 	return 0;
 }
 
-static struct pp2_tc * pp2_rxq_tc_get(struct pp2_port *port, uint32_t id)
+static struct pp2_tc *pp2_rxq_tc_get(struct pp2_port *port, uint32_t id)
 {
-    uint8_t i;
+	u8 i;
 
-    for(i = 0;i <port->num_tcs; i++) {
-        uint8_t first_rxq = port->tc[i].tc_config.first_rxq;
-        if (id >= first_rxq && id < (first_rxq + port->tc[i].tc_config.num_in_qs))
-              return(&port->tc[i]);
-    }
-    return(NULL);
+	for (i = 0; i < port->num_tcs; i++) {
+		u8 first_rxq = port->tc[i].tc_config.first_rxq;
+
+		if (id >= first_rxq && id < (first_rxq + port->tc[i].tc_config.num_in_qs))
+			return &port->tc[i];
+	}
+	return NULL;
 }
 
 /* Set TX FIFO size and threshold */
 static inline void pp2_port_tx_fifo_config(struct pp2_port *port,
-        uint32_t fifo_size, uint32_t fifo_thr)
+					   u32 fifo_size, uint32_t fifo_thr)
 {
-    /* TX FIFO size */
-    pp2_reg_write(port->cpu_slot, MVPP22_TX_FIFO_SIZE_REG(port->id),
-            fifo_size & MVPP22_TX_FIFO_SIZE_MASK);
+	/* TX FIFO size */
+	pp2_reg_write(port->cpu_slot, MVPP22_TX_FIFO_SIZE_REG(port->id),
+		      fifo_size & MVPP22_TX_FIFO_SIZE_MASK);
 
-    /* TX FIFO threshold */
-    pp2_reg_write(port->cpu_slot, MVPP22_TX_FIFO_THRESH_REG(port->id),
-            fifo_thr & MVPP22_TX_FIFO_THRESH_MASK);
+	/* TX FIFO threshold */
+	pp2_reg_write(port->cpu_slot, MVPP22_TX_FIFO_THRESH_REG(port->id),
+		      fifo_thr & MVPP22_TX_FIFO_THRESH_MASK);
 }
 
 /* Set TX FIFO size and threshold */
 static inline uint32_t pp2_port_get_tx_fifo(struct pp2_port *port)
 {
-    return( MVPP22_TX_FIFO_SIZE_MASK & pp2_reg_read(port->cpu_slot, MVPP22_TX_FIFO_SIZE_REG(port->id)) );
+	return (MVPP22_TX_FIFO_SIZE_MASK & pp2_reg_read(port->cpu_slot, MVPP22_TX_FIFO_SIZE_REG(port->id)));
 }
-
 
 /* Mask the current CPU's Rx/Tx interrupts */
 static inline void
 pp2_port_interrupts_mask(struct pp2_port *port)
 {
-    uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    pp2_reg_write(cpu_slot, MVPP2_ISR_RX_TX_MASK_REG(port->id), 0);
+	pp2_reg_write(cpu_slot, MVPP2_ISR_RX_TX_MASK_REG(port->id), 0);
 }
 
 static void
 pp2_rxq_offset_set(struct pp2_port *port,
-        int prxq, int offset)
+		   int prxq, int offset)
 {
-    uint32_t val;
-    uintptr_t cpu_slot = port->cpu_slot;
+	u32 val;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    /* Convert offset from bytes to units of 32 bytes */
-    offset = offset >> 5;
+	/* Convert offset from bytes to units of 32 bytes */
+	offset = offset >> 5;
 
-    val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(prxq));
-    val &= ~MVPP2_RXQ_PACKET_OFFSET_MASK;
+	val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(prxq));
+	val &= ~MVPP2_RXQ_PACKET_OFFSET_MASK;
 
-    /* Offset is in */
-    val |= ((offset << MVPP2_RXQ_PACKET_OFFSET_OFFS) &
-            MVPP2_RXQ_PACKET_OFFSET_MASK);
+	/* Offset is in */
+	val |= ((offset << MVPP2_RXQ_PACKET_OFFSET_OFFS) &
+		MVPP2_RXQ_PACKET_OFFSET_MASK);
 
-    pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(prxq), val);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(prxq), val);
 }
 
 static void
 pp2_port_egress_disable(struct pp2_port *port)
 {
-    volatile uint32_t tmo;
-    uint32_t val = 0;
-    uint32_t tx_port_num  = MVPP2_MAX_TCONT + port->id;
-    uintptr_t cpu_slot = port->cpu_slot;
+	volatile u32 tmo;
+	u32 val = 0;
+	u32 tx_port_num  = MVPP2_MAX_TCONT + port->id;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    /* Issue stop command for active channels only */
-    pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-    val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG) & MVPP2_TXP_SCHED_ENQ_MASK);
-    if (val)
-        pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, val << MVPP2_TXP_SCHED_DISQ_OFFSET);
+	/* Issue stop command for active channels only */
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+	val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG) & MVPP2_TXP_SCHED_ENQ_MASK);
+	if (val)
+		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, val << MVPP2_TXP_SCHED_DISQ_OFFSET);
 
-    /* TXQs disable. Wait for all Tx activity to terminate. */
-    tmo = 0;
-    do
-    {
-        if (tmo >= MVPP2_TX_DISABLE_TIMEOUT_MSEC)
-        {
-            pp2_warn("Port: Egress disable timeout = 0x%08X\n", val);
-            break;
-        }
-        /* Sleep for 1 millisecond */
-        usleep(1000);
-        tmo++;
-        val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG);
-    } while (val & MVPP2_TXP_SCHED_ENQ_MASK);
+	/* TXQs disable. Wait for all Tx activity to terminate. */
+	tmo = 0;
+	do {
+		if (tmo >= MVPP2_TX_DISABLE_TIMEOUT_MSEC) {
+			pp2_warn("Port: Egress disable timeout = 0x%08X\n", val);
+			break;
+		}
+		/* Sleep for 1 millisecond */
+		usleep(1000);
+		tmo++;
+		val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG);
+	} while (val & MVPP2_TXP_SCHED_ENQ_MASK);
 }
 
 static void
 pp2_port_egress_enable(struct pp2_port *port)
 {
-    uint32_t qmap = 0;
-    uint32_t queue;
-    uint32_t tx_port_num = MVPP2_MAX_TCONT + port->id;
-    uintptr_t cpu_slot = port->cpu_slot;
+	u32 qmap = 0;
+	u32 queue;
+	u32 tx_port_num = MVPP2_MAX_TCONT + port->id;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    /* TXQs enable */
-    for (queue = 0; queue < port->num_tx_queues; queue++)
-    {
-        struct pp2_tx_queue *txq = port->txqs[queue];
-        if (NULL != txq->desc_virt_arr)
-            qmap |= (1 << queue);
-    }
-    pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-    pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, qmap);
-    pp2_info("Port: Egress enable tx_port_num=%u qmap=0x%X\n", tx_port_num, qmap);
+	/* TXQs enable */
+	for (queue = 0; queue < port->num_tx_queues; queue++) {
+		struct pp2_tx_queue *txq = port->txqs[queue];
+
+		if (txq->desc_virt_arr)
+			qmap |= (1 << queue);
+	}
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, qmap);
+	pp2_info("Port: Egress enable tx_port_num=%u qmap=0x%X\n", tx_port_num, qmap);
 }
 
 static void
 pp2_port_ingress_enable(struct pp2_port *port)
 {
-    uint32_t val;
-    uint32_t rxq, qid;
-    uintptr_t cpu_slot = port->cpu_slot;
+	u32 val;
+	u32 rxq, qid;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    /* RXQs enable */
-    for (rxq = 0; rxq < port->num_rx_queues; rxq++)
-    {
-        qid = port->rxqs[rxq]->id;
-        val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid));
-        val &= ~MVPP2_RXQ_DISABLE_MASK;
-        pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid), val);
-    }
+	/* RXQs enable */
+	for (rxq = 0; rxq < port->num_rx_queues; rxq++) {
+		qid = port->rxqs[rxq]->id;
+		val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid));
+		val &= ~MVPP2_RXQ_DISABLE_MASK;
+		pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid), val);
+	}
 }
 
 static void
 pp2_port_ingress_disable(struct pp2_port *port)
 {
-    uint32_t val;
-    uint32_t rxq, qid;
-    uintptr_t cpu_slot = port->cpu_slot;
+	u32 val;
+	u32 rxq, qid;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    /* RXQs disable */
-    for (rxq = 0; rxq < port->num_rx_queues; rxq++)
-    {
-        qid = port->rxqs[rxq]->id;
-        val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid));
-        val |= MVPP2_RXQ_DISABLE_MASK;
-        pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid), val);
-    }
+	/* RXQs disable */
+	for (rxq = 0; rxq < port->num_rx_queues; rxq++) {
+		qid = port->rxqs[rxq]->id;
+		val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid));
+		val |= MVPP2_RXQ_DISABLE_MASK;
+		pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(qid), val);
+	}
 }
 
 static void
 pp2_port_interrupts_disable(struct pp2_port *port)
 {
-    uint32_t j, mask = 0;
-    uintptr_t cpu_slot = port->cpu_slot;
+	u32 j, mask = 0;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    for (j = 0; j < PP2_NUM_CPUS; j++) {
-        mask |= (1 << j);
-    }
-    pp2_reg_write(cpu_slot, MVPP2_ISR_ENABLE_REG(port->id),
-            MVPP2_ISR_DISABLE_INTERRUPT(mask));
+	for (j = 0; j < PP2_NUM_CPUS; j++)
+		mask |= (1 << j);
+
+	pp2_reg_write(cpu_slot, MVPP2_ISR_ENABLE_REG(port->id),
+		      MVPP2_ISR_DISABLE_INTERRUPT(mask));
 }
 
 static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 {
-	uint32_t tx_fifo_threshold;
+	u32 tx_fifo_threshold;
 
 	/* Validate MTU */
 	if (mtu < PP2_PORT_MIN_MTU) {
-	    pp2_err("PORT: cannot change MTU to less than %u bytes\n", PP2_PORT_MIN_MTU);
-	    return -EINVAL;
+		pp2_err("PORT: cannot change MTU to less than %u bytes\n", PP2_PORT_MIN_MTU);
+		return -EINVAL;
 	}
 
 	/* Check MTU can be l4_checksummed */
@@ -280,8 +275,7 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 		port->flags &= ~PP2_PORT_FLAGS_L4_CHKSUM;
 		pp2_warn("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
 			 mtu, MVPP2_MTU_PKT_SIZE(mtu), tx_fifo_threshold);
-	}
-	else {
+	} else {
 		port->flags |= PP2_PORT_FLAGS_L4_CHKSUM;
 	}
 
@@ -294,139 +288,137 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 static void
 pp2_txp_max_tx_size_set(struct pp2_port *port)
 {
-    uint32_t val, size, mtu;
-    uint32_t txq, tx_port_num;
-    uintptr_t cpu_slot = port->cpu_slot;
+	u32 val, size, mtu;
+	u32 txq, tx_port_num;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    mtu = port->port_mru * 8;
-    if (mtu > MVPP2_TXP_MTU_MAX)
-        mtu = MVPP2_TXP_MTU_MAX;
+	mtu = port->port_mru * 8;
+	if (mtu > MVPP2_TXP_MTU_MAX)
+		mtu = MVPP2_TXP_MTU_MAX;
 
-    /* WA for wrong Token bucket update: Set MTU value = 3*real MTU value */
-    mtu = 3 * mtu;
+	/* WA for wrong Token bucket update: Set MTU value = 3*real MTU value */
+	mtu = 3 * mtu;
 
-    /* Indirect access to registers */
-    tx_port_num = MVPP2_MAX_TCONT + port->id;
-    pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+	/* Indirect access to registers */
+	tx_port_num = MVPP2_MAX_TCONT + port->id;
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
 
-    /* Set MTU */
-    val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_MTU_REG);
-    val &= ~MVPP2_TXP_MTU_MAX;
-    val |= mtu;
-    pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_MTU_REG, val);
+	/* Set MTU */
+	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_MTU_REG);
+	val &= ~MVPP2_TXP_MTU_MAX;
+	val |= mtu;
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_MTU_REG, val);
 
-    /* TXP token size and all TXQs token size must be larger that MTU */
-    val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG);
-    size = val & MVPP2_TXP_TOKEN_SIZE_MAX;
-    if (size < mtu) {
-        size = mtu;
-        val &= ~MVPP2_TXP_TOKEN_SIZE_MAX;
-        val |= size;
-        pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG, val);
-    }
+	/* TXP token size and all TXQs token size must be larger that MTU */
+	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG);
+	size = val & MVPP2_TXP_TOKEN_SIZE_MAX;
+	if (size < mtu) {
+		size = mtu;
+		val &= ~MVPP2_TXP_TOKEN_SIZE_MAX;
+		val |= size;
+		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG, val);
+	}
 
-    for (txq = 0; txq < port->num_tx_queues; txq++) {
-        val = pp2_reg_read(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq));
-        size = val & MVPP2_TXQ_TOKEN_SIZE_MAX;
+	for (txq = 0; txq < port->num_tx_queues; txq++) {
+		val = pp2_reg_read(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq));
+		size = val & MVPP2_TXQ_TOKEN_SIZE_MAX;
 
-        if (size < mtu) {
-            size = mtu;
-            val &= ~MVPP2_TXQ_TOKEN_SIZE_MAX;
-            val |= size;
-            pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq), val);
-        }
-    }
+		if (size < mtu) {
+			size = mtu;
+			val &= ~MVPP2_TXQ_TOKEN_SIZE_MAX;
+			val |= size;
+			pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq), val);
+		}
+	}
 }
 
 static void
 pp2_port_mac_max_rx_size_set(struct pp2_port *port)
 {
-    struct gop_hw *gop = &port->parent->hw.gop;
-    struct pp2_mac_data *mac = &port->mac_data;
-    int mac_num = port->mac_data.gop_index;
+	struct gop_hw *gop = &port->parent->hw.gop;
+	struct pp2_mac_data *mac = &port->mac_data;
+	int mac_num = port->mac_data.gop_index;
 
-    switch (mac->phy_mode) {
-        case PHY_INTERFACE_MODE_RGMII:
-        case PHY_INTERFACE_MODE_SGMII:
-        case PHY_INTERFACE_MODE_QSGMII:
-            pp2_gop_gmac_max_rx_size_set(gop, mac_num,
-                    port->port_mru);
-            break;
-        case PHY_INTERFACE_MODE_XAUI:
-        case PHY_INTERFACE_MODE_RXAUI:
-        case PHY_INTERFACE_MODE_KR:
-            pp2_gop_xlg_mac_max_rx_size_set(gop,
-                    mac_num, port->port_mru);
-            break;
-        default:
-            break;
-    }
+	switch (mac->phy_mode) {
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_QSGMII:
+		pp2_gop_gmac_max_rx_size_set(gop, mac_num,
+					     port->port_mru);
+		 break;
+	case PHY_INTERFACE_MODE_XAUI:
+	case PHY_INTERFACE_MODE_RXAUI:
+	case PHY_INTERFACE_MODE_KR:
+		pp2_gop_xlg_mac_max_rx_size_set(gop,
+						mac_num, port->port_mru);
+		break;
+	default:
+		break;
+	}
 }
 
 /* Get number of Tx descriptors waiting to be transmitted by HW */
 static uint32_t
 pp2_txq_pend_desc_num_get(struct pp2_port *port,
-        struct pp2_tx_queue *txq)
+			  struct pp2_tx_queue *txq)
 {
-    uint32_t val;
-    uintptr_t cpu_slot = port->cpu_slot;
+	u32 val;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
-    val = pp2_reg_read(cpu_slot, MVPP2_TXQ_PENDING_REG);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
+	val = pp2_reg_read(cpu_slot, MVPP2_TXQ_PENDING_REG);
 
-    return val & MVPP2_TXQ_PENDING_MASK;
+	return val & MVPP2_TXQ_PENDING_MASK;
 }
 
 /* Set defaults to the MVPP2 port */
 static void
 pp2_port_defaults_set(struct pp2_port *port)
 {
-   uint32_t tx_port_num, val, queue, ptxq, lrxq;
-   struct pp2_inst *inst = port->parent;
-   struct pp2_hw *hw = &inst->hw;
-   uintptr_t cpu_slot = port->cpu_slot;
+	u32 tx_port_num, val, queue, ptxq, lrxq;
+	struct pp2_inst *inst = port->parent;
+	struct pp2_hw *hw = &inst->hw;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-   /* Disable Legacy WRR, Disable EJP, Release from reset */
-   tx_port_num = MVPP2_MAX_TCONT + port->id;
-   pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-   pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_CMD_1_REG, 0x0);
+	/* Disable Legacy WRR, Disable EJP, Release from reset */
+	tx_port_num = MVPP2_MAX_TCONT + port->id;
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_CMD_1_REG, 0x0);
 
-   /* Close bandwidth for all queues */
-   for (queue = 0; queue < MVPP2_MAX_TXQ; queue++)
-   {
-      ptxq = (MVPP2_MAX_TCONT + port->id) * MVPP2_MAX_TXQ + queue;
-      pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_CNTR_REG(ptxq), 0x0);
-   }
+	/* Close bandwidth for all queues */
+	for (queue = 0; queue < MVPP2_MAX_TXQ; queue++) {
+		ptxq = (MVPP2_MAX_TCONT + port->id) * MVPP2_MAX_TXQ + queue;
+		pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_CNTR_REG(ptxq), 0x0);
+	}
 
-   /* Set refill period to 1 usec, refill tokens
-    * and bucket size to maximum
-    */
-   pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PERIOD_REG, hw->tclk / 1000000); /* USEC_PER_SEC */
-   val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_REFILL_REG);
-   val &= ~MVPP2_TXP_REFILL_PERIOD_ALL_MASK;
-   val |= MVPP2_TXP_REFILL_PERIOD_MASK(1);
-   val |= MVPP2_TXP_REFILL_TOKENS_ALL_MASK;
-   pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_REFILL_REG, val);
-   val = MVPP2_TXP_TOKEN_SIZE_MAX;
-   pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG, val);
+	/* Set refill period to 1 usec, refill tokens
+	* and bucket size to maximum
+	*/
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PERIOD_REG, hw->tclk / 1000000); /* USEC_PER_SEC */
+	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_REFILL_REG);
+	val &= ~MVPP2_TXP_REFILL_PERIOD_ALL_MASK;
+	val |= MVPP2_TXP_REFILL_PERIOD_MASK(1);
+	val |= MVPP2_TXP_REFILL_TOKENS_ALL_MASK;
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_REFILL_REG, val);
+	val = MVPP2_TXP_TOKEN_SIZE_MAX;
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG, val);
 
-   /* Set MaximumLowLatencyPacketSize value to 256 */
-   pp2_reg_write(cpu_slot, MVPP2_RX_CTRL_REG(port->id),
-                  MVPP2_RX_USE_PSEUDO_FOR_CSUM_MASK |
-                  MVPP2_RX_LOW_LATENCY_PKT_SIZE(256));
+	/* Set MaximumLowLatencyPacketSize value to 256 */
+	pp2_reg_write(cpu_slot, MVPP2_RX_CTRL_REG(port->id),
+		      MVPP2_RX_USE_PSEUDO_FOR_CSUM_MASK |
+				MVPP2_RX_LOW_LATENCY_PKT_SIZE(256));
 
-   /* Disable Rx cache snoop */
-   for (lrxq = 0; lrxq < port->num_rx_queues; lrxq++)
-   {
-      queue = port->rxqs[lrxq]->id;
-      val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(queue));
-      /* Coherent */
-      val |= MVPP2_SNOOP_PKT_SIZE_MASK;
-      val |= MVPP2_SNOOP_BUF_HDR_MASK;
-      pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(queue), val);
-   }
-   /* As default, mask all interrupts to all present cpus */
-   pp2_port_interrupts_disable(port);
+	/* Disable Rx cache snoop */
+	for (lrxq = 0; lrxq < port->num_rx_queues; lrxq++) {
+		queue = port->rxqs[lrxq]->id;
+		val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(queue));
+		/* Coherent */
+		val |= MVPP2_SNOOP_PKT_SIZE_MASK;
+		val |= MVPP2_SNOOP_BUF_HDR_MASK;
+		pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(queue), val);
+	}
+	/* As default, mask all interrupts to all present cpus */
+	pp2_port_interrupts_disable(port);
 }
 
 /* Per-TXQ hardware related initialization
@@ -435,81 +427,82 @@ pp2_port_defaults_set(struct pp2_port *port)
 static void
 pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 {
-    uintptr_t cpu_slot;
-    uint32_t j, val, tx_port_num, desc_per_txq, pref_buf_size, desc;
-    struct pp2_hw *hw;
+	uintptr_t cpu_slot;
+	u32 j, val, tx_port_num, desc_per_txq, pref_buf_size, desc;
+	struct pp2_hw *hw;
 
-    hw = &port->parent->hw;
-    cpu_slot = port->cpu_slot;
-    desc_per_txq = PP2_TXQ_PREFETCH_16;
+	hw = &port->parent->hw;
+	cpu_slot = port->cpu_slot;
+	desc_per_txq = PP2_TXQ_PREFETCH_16;
 
-    /* FS_A8K Table 1542: The SWF ring size + a prefetch size for HWF */
-    txq->desc_total = port->txq_config[txq->log_id].size;
-    txq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((txq->desc_total * MVPP2_DESC_ALIGNED_SIZE), MVPP2_DESC_Q_ALIGN);
-    if (unlikely(!txq->desc_virt_arr)) {
-        pp2_err("PP: cannot allocate egress descriptor array\n");
-        return;
-    }
-    txq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(txq->desc_virt_arr);
-    if (!IS_ALIGNED(txq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
-        pp2_err("PP: egress descriptor array must be %u-byte aligned\n",
-                MVPP2_DESC_Q_ALIGN);
-        mv_sys_dma_mem_free(txq->desc_virt_arr);
-        return;
-    }
+	/* FS_A8K Table 1542: The SWF ring size + a prefetch size for HWF */
+	txq->desc_total = port->txq_config[txq->log_id].size;
+	txq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((txq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
+								     MVPP2_DESC_Q_ALIGN);
+	if (unlikely(!txq->desc_virt_arr)) {
+		pp2_err("PP: cannot allocate egress descriptor array\n");
+		return;
+	}
+	txq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(txq->desc_virt_arr);
+	if (!IS_ALIGNED(txq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
+		pp2_err("PP: egress descriptor array must be %u-byte aligned\n",
+			MVPP2_DESC_Q_ALIGN);
+		mv_sys_dma_mem_free(txq->desc_virt_arr);
+		return;
+	}
 
-    /* Set Tx descriptors queue starting address - indirect access */
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_ADDR_LOW_REG,
-            ((uint32_t)txq->desc_phys_arr) >> MVPP2_TXQ_DESC_ADDR_LOW_SHIFT);
-    pp2_reg_write(cpu_slot, MVPP22_TXQ_DESC_ADDR_HIGH_REG,
-            0x00 & MVPP22_TXQ_DESC_ADDR_HIGH_MASK);
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_SIZE_REG,
-            txq->desc_total & MVPP2_TXQ_DESC_SIZE_MASK);
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_INDEX_REG, 0x0);
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_RSVD_CLR_REG,
-            txq->id << MVPP2_TXQ_RSVD_CLR_OFFSET);
-    val = pp2_reg_read(cpu_slot, MVPP2_TXQ_PENDING_REG);
-    val &= ~MVPP2_TXQ_PENDING_MASK;
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_PENDING_REG, val);
+	/* Set Tx descriptors queue starting address - indirect access */
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_ADDR_LOW_REG,
+		      ((uint32_t)txq->desc_phys_arr) >> MVPP2_TXQ_DESC_ADDR_LOW_SHIFT);
+	pp2_reg_write(cpu_slot, MVPP22_TXQ_DESC_ADDR_HIGH_REG,
+		      0x00 & MVPP22_TXQ_DESC_ADDR_HIGH_MASK);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_SIZE_REG,
+		      txq->desc_total & MVPP2_TXQ_DESC_SIZE_MASK);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_INDEX_REG, 0x0);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_RSVD_CLR_REG,
+		      txq->id << MVPP2_TXQ_RSVD_CLR_OFFSET);
+	val = pp2_reg_read(cpu_slot, MVPP2_TXQ_PENDING_REG);
+	val &= ~MVPP2_TXQ_PENDING_MASK;
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_PENDING_REG, val);
 
-    /* Calculate base address in prefetch buffer. We reserve 16 descriptors
-     * for each existing TXQ.
-     * - TCONTS for PON port must be continuous from 0 to MVPP2_MAX_TCONT
-     * - GBE ports assumed to be continious from 0 to MVPP2_MAX_PORTS
-     */
-    if (PP2_TXQ_PREFETCH_32 == desc_per_txq)
-        pref_buf_size = MVPP2_PREF_BUF_SIZE_32;
-    else if (PP2_TXQ_PREFETCH_16 == desc_per_txq)
-        pref_buf_size = MVPP2_PREF_BUF_SIZE_16;
-    else
-        pref_buf_size = MVPP2_PREF_BUF_SIZE_4;
+	/* Calculate base address in prefetch buffer. We reserve 16 descriptors
+	* for each existing TXQ.
+	* - TCONTS for PON port must be continuous from 0 to MVPP2_MAX_TCONT
+	* - GBE ports assumed to be continious from 0 to MVPP2_MAX_PORTS
+	*/
+	if (desc_per_txq == PP2_TXQ_PREFETCH_32)
+		pref_buf_size = MVPP2_PREF_BUF_SIZE_32;
+	else if (desc_per_txq == PP2_TXQ_PREFETCH_16)
+		pref_buf_size = MVPP2_PREF_BUF_SIZE_16;
+	else
+		pref_buf_size = MVPP2_PREF_BUF_SIZE_4;
 
-    desc = (port->id * MVPP2_MAX_TXQ * desc_per_txq) + (txq->log_id * desc_per_txq);
+	desc = (port->id * MVPP2_MAX_TXQ * desc_per_txq) + (txq->log_id * desc_per_txq);
 
-    /* Set desc prefetch threshold to 8 units of 2 descriptors */
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG,
-            MVPP2_PREF_BUF_PTR(desc) | pref_buf_size |
-            MVPP2_PREF_BUF_THRESH(PP2_TXQ_PREFETCH_16 / 2));
+	 /* Set desc prefetch threshold to 8 units of 2 descriptors */
+	 pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG,
+		       MVPP2_PREF_BUF_PTR(desc) | pref_buf_size |
+		 MVPP2_PREF_BUF_THRESH(PP2_TXQ_PREFETCH_16 / 2));
 
-    /* WRR / EJP configuration - indirect access */
-    tx_port_num = MVPP2_MAX_TCONT + port->id;
-    pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+	/* WRR / EJP configuration - indirect access */
+	tx_port_num = MVPP2_MAX_TCONT + port->id;
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
 
-    val = pp2_reg_read(cpu_slot, MVPP2_TXQ_SCHED_REFILL_REG(txq->log_id));
-    val &= ~MVPP2_TXQ_REFILL_PERIOD_ALL_MASK;
-    val |= MVPP2_TXQ_REFILL_PERIOD_MASK(1);
-    val |= MVPP2_TXQ_REFILL_TOKENS_ALL_MASK;
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_REFILL_REG(txq->log_id), val);
+	val = pp2_reg_read(cpu_slot, MVPP2_TXQ_SCHED_REFILL_REG(txq->log_id));
+	val &= ~MVPP2_TXQ_REFILL_PERIOD_ALL_MASK;
+	val |= MVPP2_TXQ_REFILL_PERIOD_MASK(1);
+	val |= MVPP2_TXQ_REFILL_TOKENS_ALL_MASK;
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_REFILL_REG(txq->log_id), val);
 
-    val = MVPP2_TXQ_TOKEN_SIZE_MAX;
-    pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq->log_id), val);
+	val = MVPP2_TXQ_TOKEN_SIZE_MAX;
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq->log_id), val);
 
-    /* Lastly, clear all ETH_TXQS for all future DM-IFs */
-    for (j = 0; j < PP2_NUM_REGSPACES; j++) {
-        cpu_slot = hw->base[j].va;
-        pp2_reg_read(cpu_slot, MVPP22_TXQ_SENT_REG(txq->id));
-    }
+	/* Lastly, clear all ETH_TXQS for all future DM-IFs */
+	for (j = 0; j < PP2_NUM_REGSPACES; j++) {
+		cpu_slot = hw->base[j].va;
+		pp2_reg_read(cpu_slot, MVPP22_TXQ_SENT_REG(txq->id));
+	}
 }
 
 /* Initializes and sets TXQ related registers for all TXQs
@@ -518,13 +511,13 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 static void
 pp2_port_txqs_init(struct pp2_port *port)
 {
-   uint32_t qid;
+	u32 qid;
 
-   for (qid = 0; qid < port->num_tx_queues; qid++)
-   {
-      struct pp2_tx_queue *txq = port->txqs[qid];
-      pp2_txq_init(port, txq);
-   }
+	for (qid = 0; qid < port->num_tx_queues; qid++) {
+		struct pp2_tx_queue *txq = port->txqs[qid];
+
+		pp2_txq_init(port, txq);
+	}
 }
 
 /* Allocates and sets control data for TXQs
@@ -533,20 +526,20 @@ pp2_port_txqs_init(struct pp2_port *port)
 static void
 pp2_port_txqs_create(struct pp2_port *port)
 {
-   uint32_t qid;
+	u32 qid;
 
-   for (qid = 0; qid < port->num_tx_queues; qid++)
-   {
-      struct pp2_tx_queue *txq = kcalloc(1, sizeof(struct pp2_tx_queue), GFP_KERNEL);
-      if (unlikely(!txq)) {
-          pp2_err("PPDK: %s out of memory txq alloc\n",__func__);
-          return;
-      }
+	for (qid = 0; qid < port->num_tx_queues; qid++) {
+		struct pp2_tx_queue *txq = kcalloc(1, sizeof(struct pp2_tx_queue), GFP_KERNEL);
 
-      txq->id = (MVPP2_MAX_TCONT + port->id) * MVPP2_MAX_TXQ + qid;
-      txq->log_id = qid;
-      port->txqs[qid] = txq;
-   }
+		if (unlikely(!txq)) {
+			pp2_err("PPDK: %s out of memory txq alloc\n", __func__);
+			return;
+		}
+
+		txq->id = (MVPP2_MAX_TCONT + port->id) * MVPP2_MAX_TXQ + qid;
+		txq->log_id = qid;
+		port->txqs[qid] = txq;
+	}
 }
 
 /* Deallocates all TXQs for this port
@@ -555,36 +548,34 @@ pp2_port_txqs_create(struct pp2_port *port)
 static void
 pp2_port_txqs_destroy(struct pp2_port *port)
 {
-   uint32_t qid;
+	u32 qid;
 
-   for (qid = 0; qid < port->num_tx_queues; qid++)
-   {
-      struct pp2_tx_queue *txq = port->txqs[qid];
+	for (qid = 0; qid < port->num_tx_queues; qid++) {
+		struct pp2_tx_queue *txq = port->txqs[qid];
 
-      mv_sys_dma_mem_free(txq->desc_virt_arr);
-      kfree(txq);
-   }
+		mv_sys_dma_mem_free(txq->desc_virt_arr);
+		kfree(txq);
+	}
 }
 
 static inline void
 pp2_rxq_update_next_desc_idx(struct pp2_rx_queue *rxq, uint32_t num_sent)
 {
-    uint32_t rx_idx;
+	u32 rx_idx;
 
-    if (unlikely((num_sent < 1) || (num_sent > rxq->desc_total))) {
-        pp2_err("RxDesc number inconsistent\n");
-        return;
-    }
+	if (unlikely((num_sent < 1) || (num_sent > rxq->desc_total))) {
+		pp2_err("RxDesc number inconsistent\n");
+		return;
+	}
 
-    rx_idx = rxq->desc_next_idx;
+	rx_idx = rxq->desc_next_idx;
 
-    if (likely((rx_idx + num_sent) < rxq->desc_total)) {
-        rxq->desc_next_idx = rx_idx + num_sent;
-    } else {
-        rxq->desc_next_idx = rx_idx + num_sent - rxq->desc_total;
-    }
+	if (likely((rx_idx + num_sent) < rxq->desc_total))
+		rxq->desc_next_idx = rx_idx + num_sent;
+	else
+		rxq->desc_next_idx = rx_idx + num_sent - rxq->desc_total;
 
-    pp2_dbg("%s\t: cur_idx=%d\tnext_idx=%d\n",__func__, rx_idx, rxq->desc_next_idx);
+	pp2_dbg("%s\t: cur_idx=%d\tnext_idx=%d\n", __func__, rx_idx, rxq->desc_next_idx);
 }
 
 /* External:
@@ -593,18 +584,18 @@ pp2_rxq_update_next_desc_idx(struct pp2_rx_queue *rxq, uint32_t num_sent)
  */
 void
 pp2_port_inq_update(struct pp2_port *port, uint32_t in_qid,
-                   uint32_t used_count, uint32_t free_count)
+		    u32 used_count, uint32_t free_count)
 {
-   /* Decrement the number of used descriptors and increment the
-    * number of free descriptors
-    */
-   uint32_t id = port->rxqs[in_qid]->id;
-   uint32_t val = used_count | (free_count << MVPP2_RXQ_NUM_NEW_OFFSET);
-   uintptr_t cpu_slot = port->cpu_slot;
+	/* Decrement the number of used descriptors and increment the
+	* number of free descriptors
+	*/
+	u32 id = port->rxqs[in_qid]->id;
+	u32 val = used_count | (free_count << MVPP2_RXQ_NUM_NEW_OFFSET);
+	uintptr_t cpu_slot = port->cpu_slot;
 
-   //pp2_rxq_update_next_desc_idx(port->rxqs[in_qid], used_count);
+	/* pp2_rxq_update_next_desc_idx(port->rxqs[in_qid], used_count); */
 
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_UPDATE_REG(id), val);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_UPDATE_REG(id), val);
 }
 
 /* Per-RXQ hardware related initialization
@@ -613,51 +604,54 @@ pp2_port_inq_update(struct pp2_port *port, uint32_t in_qid,
 static void
 pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 {
-   uint32_t val;
-   uintptr_t cpu_slot;
-   struct pp2_tc * tc;
+	u32 val;
+	uintptr_t cpu_slot;
+	struct pp2_tc *tc;
 
-   cpu_slot = port->cpu_slot;
+	cpu_slot = port->cpu_slot;
 
-   rxq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((rxq->desc_total * MVPP2_DESC_ALIGNED_SIZE), MVPP2_DESC_Q_ALIGN);
-   if (unlikely(!rxq->desc_virt_arr)) {
-       pp2_err("PP: cannot allocate ingress descriptor array\n");
-       return;
-   }
-   rxq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(rxq->desc_virt_arr);
-   if (!IS_ALIGNED(rxq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
-       pp2_err("PP: ingress descriptor array must be %u-byte aligned\n",
-               MVPP2_DESC_Q_ALIGN);
-       mv_sys_dma_mem_free(rxq->desc_virt_arr);
-       return;
-   }
+	rxq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((rxq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
+								      MVPP2_DESC_Q_ALIGN);
+	if (unlikely(!rxq->desc_virt_arr)) {
+		pp2_err("PP: cannot allocate ingress descriptor array\n");
+		return;
+	}
+	rxq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(rxq->desc_virt_arr);
+	if (!IS_ALIGNED(rxq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
+		pp2_err("PP: ingress descriptor array must be %u-byte aligned\n",
+			MVPP2_DESC_Q_ALIGN);
+		mv_sys_dma_mem_free(rxq->desc_virt_arr);
+		return;
+	}
 
-   rxq->desc_last_idx = rxq->desc_total - 1;
+	rxq->desc_last_idx = rxq->desc_total - 1;
 
-   /* Zero occupied and non-occupied counters - direct access */
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_REG(rxq->id), 0x0);
+	/* Zero occupied and non-occupied counters - direct access */
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_REG(rxq->id), 0x0);
 
-   /* Set Rx descriptors queue starting address - indirect access */
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_NUM_REG, rxq->id);
+	/* Set Rx descriptors queue starting address - indirect access */
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_NUM_REG, rxq->id);
 
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_ADDR_REG,
-                 (rxq->desc_phys_arr >> MVPP22_DESC_ADDR_SHIFT));
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_SIZE_REG, rxq->desc_total);
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_INDEX_REG, 0x0);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_ADDR_REG,
+		      (rxq->desc_phys_arr >> MVPP22_DESC_ADDR_SHIFT));
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_SIZE_REG, rxq->desc_total);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_INDEX_REG, 0x0);
 
-   /* Set Offset - cache line */
-   pp2_rxq_offset_set(port, rxq->id, PP2_PACKET_OFFSET);
-   tc = pp2_rxq_tc_get(port, rxq->id);
-   if (!tc) {
-       pp2_err("port(%d) phy_rxq(%d), not found in tc range \n", port->id, rxq->id);
-       return;
-   }
-   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL]->bm_pool_id, rxq->id, BM_TYPE_SHORT_BUF_POOL);
-   pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, rxq->id, BM_TYPE_LONG_BUF_POOL);
+	/* Set Offset - cache line */
+	pp2_rxq_offset_set(port, rxq->id, PP2_PACKET_OFFSET);
+	tc = pp2_rxq_tc_get(port, rxq->id);
+	if (!tc) {
+		pp2_err("port(%d) phy_rxq(%d), not found in tc range\n", port->id, rxq->id);
+		return;
+	}
+	pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL]->bm_pool_id, rxq->id,
+			   BM_TYPE_SHORT_BUF_POOL);
+	pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, rxq->id,
+			   BM_TYPE_LONG_BUF_POOL);
 
-   /* Add number of descriptors ready for receiving packets */
-   val = (0 | (rxq->desc_total << MVPP2_RXQ_NUM_NEW_OFFSET));
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_UPDATE_REG(rxq->id), val);
+	/* Add number of descriptors ready for receiving packets */
+	val = (0 | (rxq->desc_total << MVPP2_RXQ_NUM_NEW_OFFSET));
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_UPDATE_REG(rxq->id), val);
 }
 
 /* Initializes and sets RXQ related registers for all RXQs
@@ -666,13 +660,13 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 static void
 pp2_port_rxqs_init(struct pp2_port *port)
 {
-   uint32_t qid;
-   for (qid = 0; qid < port->num_rx_queues; qid++)
-   {
-      struct pp2_rx_queue *rxq = port->rxqs[qid];
+	u32 qid;
 
-      pp2_rxq_init(port, rxq);
-   }
+	for (qid = 0; qid < port->num_rx_queues; qid++) {
+		struct pp2_rx_queue *rxq = port->rxqs[qid];
+
+		pp2_rxq_init(port, rxq);
+	}
 }
 
 /* Allocates and sets control data for TXQs
@@ -681,22 +675,23 @@ pp2_port_rxqs_init(struct pp2_port *port)
 static void
 pp2_port_rxqs_create(struct pp2_port *port)
 {
-   uint32_t qid, tc, id=0;
+	u32 qid, tc, id = 0;
 
-   for (tc = 0; tc < port->num_tcs; tc++) {
-       for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
-           struct pp2_rx_queue *rxq = kcalloc(1, sizeof(struct pp2_rx_queue), GFP_KERNEL);
-           if (unlikely(!rxq)) {
-               pp2_err("PPDK: %s out of memory rxq alloc\n",__func__);
-           return;
-           }
-           rxq->id = port->tc[tc].tc_config.first_rxq + qid;
-           rxq->log_id = port->tc[tc].first_log_rxq + qid;
-           rxq->desc_total = port->tc[tc].rx_ring_size;
-           /*TODO: are we really serializing the queue????? */
-	   port->rxqs[id++] = rxq;
-       }
-   }
+	for (tc = 0; tc < port->num_tcs; tc++) {
+		for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
+			struct pp2_rx_queue *rxq = kcalloc(1, sizeof(struct pp2_rx_queue), GFP_KERNEL);
+
+			if (unlikely(!rxq)) {
+				pp2_err("PPDK: %s out of memory rxq alloc\n", __func__);
+				return;
+			}
+			rxq->id = port->tc[tc].tc_config.first_rxq + qid;
+			rxq->log_id = port->tc[tc].first_log_rxq + qid;
+			rxq->desc_total = port->tc[tc].rx_ring_size;
+			/*TODO: are we really serializing the queue????? */
+			port->rxqs[id++] = rxq;
+		}
+	}
 }
 
 /* Deallocates all TXQs for this port
@@ -705,80 +700,79 @@ pp2_port_rxqs_create(struct pp2_port *port)
 static void
 pp2_port_rxqs_destroy(struct pp2_port *port)
 {
-   uint32_t qid;
+	u32 qid;
 
-   for (qid = 0; qid < port->num_rx_queues; qid++)
-   {
-      struct pp2_rx_queue *rxq = port->rxqs[qid];
+	for (qid = 0; qid < port->num_rx_queues; qid++) {
+		struct pp2_rx_queue *rxq = port->rxqs[qid];
 
-      mv_sys_dma_mem_free(rxq->desc_virt_arr);
-      kfree(rxq);
-   }
+		mv_sys_dma_mem_free(rxq->desc_virt_arr);
+		kfree(rxq);
+	}
 }
 
 /* Get pointer to the next RX descriptor to be processed by SW, and update the descriptor next index */
 struct pp2_desc *
 pp2_rxq_get_desc(struct pp2_rx_queue *rxq,
-                uint32_t *num_recv,
-                struct pp2_desc **extra_desc,
-                uint32_t *extra_num)
+		 u32 *num_recv,
+		struct pp2_desc **extra_desc,
+		uint32_t *extra_num)
 {
-    uint32_t rx_idx;
+	u32 rx_idx;
 
-    rx_idx = rxq->desc_next_idx;
-    *extra_num = 0;
-    *extra_desc = NULL;
+	rx_idx = rxq->desc_next_idx;
+	*extra_num = 0;
+	*extra_desc = NULL;
 
-    /*
-     * It looks that the continues memory allocated for rx desc
-     * is treated by the HW as an circular queue.
-     * When the rx desc index is very close to the end of the rx desc array
-     * the next descriptors are be stored to the end of the array AND
-     * from the begining of the rx desc array. In this case the return from
-     * this function will be 2 arrays of desc:
-     * 1 - at the end of the array
-     * 2 - starting from the begining(extra)
-     */
+	/*
+	* It looks that the continues memory allocated for rx desc
+	* is treated by the HW as an circular queue.
+	* When the rx desc index is very close to the end of the rx desc array
+	* the next descriptors are be stored to the end of the array AND
+	* from the beginning of the rx desc array. In this case the return from
+	* this function will be 2 arrays of desc:
+	* 1 - at the end of the array
+	* 2 - starting from the beginning(extra)
+	*/
 
-    if (unlikely((rx_idx + *num_recv) > rxq->desc_total)) {
-        *extra_desc = rxq->desc_virt_arr;
-        /* extra_num is relative to start of desc array */
-        *extra_num  = rx_idx + *num_recv - rxq->desc_total;
-        /* num_recv is relative to end of desc array */
-        *num_recv = rxq->desc_total - rx_idx;
-        rxq->desc_next_idx = *extra_num;
-    } else {
-        rxq->desc_next_idx = (((rx_idx + *num_recv) == rxq->desc_total)? 0: (rx_idx + *num_recv));
-    }
+	if (unlikely((rx_idx + *num_recv) > rxq->desc_total)) {
+		*extra_desc = rxq->desc_virt_arr;
+		/* extra_num is relative to start of desc array */
+		*extra_num  = rx_idx + *num_recv - rxq->desc_total;
+		/* num_recv is relative to end of desc array */
+		*num_recv = rxq->desc_total - rx_idx;
+		rxq->desc_next_idx = *extra_num;
+	} else {
+		rxq->desc_next_idx = (((rx_idx + *num_recv) == rxq->desc_total) ? 0 : (rx_idx + *num_recv));
+	}
 
 /*
-    pp2_dbg("%s\tdesc array: cur_idx=%d\tlast_idx=%d\n",__func__, rx_idx, rxq->desc_last_idx);
-    pp2_dbg("%s\tdesc array: num_recv=%d\textra_num=%d\n",__func__,*num_recv, *extra_num);
-*/
+ *	pp2_dbg("%s\tdesc array: cur_idx=%d\tlast_idx=%d\n",__func__, rx_idx, rxq->desc_last_idx);
+ *	pp2_dbg("%s\tdesc array: num_recv=%d\textra_num=%d\n",__func__,*num_recv, *extra_num);
+ */
 
-    return (rxq->desc_virt_arr + rx_idx);
+	return (rxq->desc_virt_arr + rx_idx);
 }
 
 /* Inform about residual packets when destroying the interface */
 static void
 pp2_rxq_resid_pkts(struct pp2_port *port,
-                 struct pp2_rx_queue *rxq)
+		   struct pp2_rx_queue *rxq)
 {
-   uint32_t rx_resid = pp2_rxq_received(port, rxq->id);
+	u32 rx_resid = pp2_rxq_received(port, rxq->id);
 
-   if (!rx_resid)
-      return;
+	if (!rx_resid)
+		return;
 
-   pp2_warn("RXQ has %u residual packets\n", rx_resid);
+	pp2_warn("RXQ has %u residual packets\n", rx_resid);
 
-   /* Cleanup for dangling RXDs can be done here by getting
-    * the BM-IF associated to the BM poool associated to this
-    * RXQ, but it would not be correct.
-    *
-    * No indirect access to BM pools assigned to this RXQ.
-    * Client should handle cleanup before/after destroying the
-    * interface
-    */
+	/* Cleanup for dangling RXDs can be done here by getting
+	* the BM-IF associated to the BM poool associated to this
+	* RXQ, but it would not be correct.
+	*
+	* No indirect access to BM pools assigned to this RXQ.
+	* Client should handle cleanup before/after destroying the
+	* interface
+	*/
 }
 
 /* Per-RXQ hardware related deinitialization/cleanup
@@ -786,19 +780,19 @@ pp2_rxq_resid_pkts(struct pp2_port *port,
  */
 static void
 pp2_rxq_deinit(struct pp2_port *port,
-              struct pp2_rx_queue *rxq)
+	       struct pp2_rx_queue *rxq)
 {
-   uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-   pp2_rxq_resid_pkts(port, rxq);
+	pp2_rxq_resid_pkts(port, rxq);
 
-   /* Clear Rx descriptors queue starting address and size;
-    * free descriptor number
-    */
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_REG(rxq->id), 0);
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_NUM_REG, rxq->id);
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_ADDR_REG, 0);
-   pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_SIZE_REG, 0);
+	/* Clear Rx descriptors queue starting address and size;
+	* free descriptor number
+	*/
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_REG(rxq->id), 0);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_NUM_REG, rxq->id);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_ADDR_REG, 0);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_SIZE_REG, 0);
 }
 
 /* Resets RXQ related registers for all RXQs
@@ -807,10 +801,10 @@ pp2_rxq_deinit(struct pp2_port *port,
 static void
 pp2_port_rxqs_deinit(struct pp2_port *port)
 {
-   int queue;
+	int queue;
 
-   for (queue = 0; queue < port->num_rx_queues; queue++)
-      pp2_rxq_deinit(port, port->rxqs[queue]);
+	for (queue = 0; queue < port->num_rx_queues; queue++)
+		pp2_rxq_deinit(port, port->rxqs[queue]);
 }
 
 /* Per-TXQ port cleanup
@@ -818,55 +812,53 @@ pp2_port_rxqs_deinit(struct pp2_port *port)
  */
 static void
 pp2_txq_clean(struct pp2_port *port,
-             struct pp2_tx_queue *txq)
+	      struct pp2_tx_queue *txq)
 {
-   volatile uint32_t delay;
-   uint32_t pending;
-   uint32_t val;
-   uint32_t egress_en = false;
-   int tx_port_num = MVPP2_MAX_TCONT + port->id;
-   uintptr_t cpu_slot = port->cpu_slot;
+	volatile u32 delay;
+	u32 pending;
+	u32 val;
+	u32 egress_en = false;
+	int tx_port_num = MVPP2_MAX_TCONT + port->id;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-   pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
-   val = pp2_reg_read(cpu_slot, MVPP2_TXQ_PREF_BUF_REG);
-   val |= MVPP2_TXQ_DRAIN_EN_MASK;
-   pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG, val);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
+	val = pp2_reg_read(cpu_slot, MVPP2_TXQ_PREF_BUF_REG);
+	val |= MVPP2_TXQ_DRAIN_EN_MASK;
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG, val);
 
-   /* Enable egress queue in order to allow releasing all packets*/
-   pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-   val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG);
-   if (!(val & (1 << txq->log_id))) {
-      val |= 1 << txq->log_id;
-      pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, val);
-      egress_en = true;
-   }
-   delay = 0;
-   do
-   {
-      if (delay >= MVPP2_TX_PENDING_TIMEOUT_MSEC) {
-         pp2_warn("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
-         break;
-      }
-      /* Sleep for 1 millisecond */
-      usleep(1000);
-      delay++;
-      pending = pp2_txq_pend_desc_num_get(port, txq);
-   } while(pending);
+	/* Enable egress queue in order to allow releasing all packets*/
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG);
+	if (!(val & (1 << txq->log_id))) {
+		val |= 1 << txq->log_id;
+		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, val);
+		egress_en = true;
+	}
+	delay = 0;
+	do {
+		if (delay >= MVPP2_TX_PENDING_TIMEOUT_MSEC) {
+			pp2_warn("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
+			break;
+		}
+		/* Sleep for 1 millisecond */
+		usleep(1000);
+		delay++;
+		pending = pp2_txq_pend_desc_num_get(port, txq);
+	} while (pending);
 
-   /* Disable egress queue */
-   if (egress_en) {
-      pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-      val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG)) &
-                       MVPP2_TXP_SCHED_ENQ_MASK;
-      val |= 1 << txq->log_id;
-      pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG,
-            (val << MVPP2_TXP_SCHED_DISQ_OFFSET));
-      egress_en = false;
-   }
+	/* Disable egress queue */
+	if (egress_en) {
+		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+		val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG)) &
+					 MVPP2_TXP_SCHED_ENQ_MASK;
+		val |= 1 << txq->log_id;
+		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG,
+			      (val << MVPP2_TXP_SCHED_DISQ_OFFSET));
+		egress_en = false;
+	}
 
-
-   val &= ~MVPP2_TXQ_DRAIN_EN_MASK;
-   pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG, val);
+	val &= ~MVPP2_TXQ_DRAIN_EN_MASK;
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG, val);
 }
 
 /* Per-TXQ hardware related deinitialization/cleanup
@@ -874,17 +866,17 @@ pp2_txq_clean(struct pp2_port *port,
  */
 static void
 pp2_txq_deinit(struct pp2_port *port,
-                   struct pp2_tx_queue *txq)
+	       struct pp2_tx_queue *txq)
 {
-   uintptr_t cpu_slot = port->cpu_slot;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-   /* Set minimum bandwidth for disabled TXQs */
-   pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_CNTR_REG(txq->id), 0);
+	/* Set minimum bandwidth for disabled TXQs */
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_CNTR_REG(txq->id), 0);
 
-   /* Set Tx descriptors queue starting address and size */
-   pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
-   pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_ADDR_LOW_REG, 0);
-   pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_SIZE_REG, 0);
+	/* Set Tx descriptors queue starting address and size */
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_ADDR_LOW_REG, 0);
+	pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_SIZE_REG, 0);
 }
 
 /* Resets TXQ related registers for all TXQs
@@ -893,38 +885,38 @@ pp2_txq_deinit(struct pp2_port *port,
 static void
 pp2_port_txqs_deinit(struct pp2_port *port)
 {
-    uint32_t j;
-    struct pp2_tx_queue *txq;
-    uint32_t queue;
-    uint32_t val;
-    uintptr_t cpu_slot;
+	u32 j;
+	struct pp2_tx_queue *txq;
+	u32 queue;
+	u32 val;
+	uintptr_t cpu_slot;
 
-    cpu_slot = port->cpu_slot;
+	cpu_slot = port->cpu_slot;
 
-    val = pp2_reg_read(cpu_slot, MVPP2_TX_PORT_FLUSH_REG);
+	val = pp2_reg_read(cpu_slot, MVPP2_TX_PORT_FLUSH_REG);
 
-    /* Reset Tx ports and clear Tx queues */
-    val |= MVPP2_TX_PORT_FLUSH_MASK(port->id);
-    pp2_reg_write(cpu_slot, MVPP2_TX_PORT_FLUSH_REG, val);
+	/* Reset Tx ports and clear Tx queues */
+	val |= MVPP2_TX_PORT_FLUSH_MASK(port->id);
+	pp2_reg_write(cpu_slot, MVPP2_TX_PORT_FLUSH_REG, val);
 
-    for (queue = 0; queue < port->num_tx_queues; queue++) {
+	for (queue = 0; queue < port->num_tx_queues; queue++) {
+		txq = port->txqs[queue];
+		pp2_txq_clean(port, txq);
+		pp2_txq_deinit(port, txq);
 
-        txq = port->txqs[queue];
-        pp2_txq_clean(port, txq);
-        pp2_txq_deinit(port, txq);
+		/* Lastly, clear all ETH_TXQS for all previous DM-IFs */
+		for (j = 0; j < PP2_NUM_REGSPACES; j++) {
+			struct pp2_hw *hw = &port->parent->hw;
 
-        /* Lastly, clear all ETH_TXQS for all previous DM-IFs */
-        for (j = 0; j < PP2_NUM_REGSPACES; j++) {
-            struct pp2_hw *hw = &port->parent->hw;
-            cpu_slot = hw->base[j].va;
-            pp2_reg_read(cpu_slot, MVPP22_TXQ_SENT_REG(txq->id));
-        }
-    }
-    /* Switch to default slot */
-    cpu_slot = port->cpu_slot;
+			cpu_slot = hw->base[j].va;
+			pp2_reg_read(cpu_slot, MVPP22_TXQ_SENT_REG(txq->id));
+		}
+	}
+	/* Switch to default slot */
+	cpu_slot = port->cpu_slot;
 
-    val &= ~MVPP2_TX_PORT_FLUSH_MASK(port->id);
-    pp2_reg_write(cpu_slot, MVPP2_TX_PORT_FLUSH_REG, val);
+	val &= ~MVPP2_TX_PORT_FLUSH_MASK(port->id);
+	pp2_reg_write(cpu_slot, MVPP2_TX_PORT_FLUSH_REG, val);
 }
 
 static void
@@ -933,34 +925,33 @@ pp2_port_start_dev(struct pp2_port *port)
 	struct gop_hw *gop = &port->parent->hw.gop;
 	struct pp2_mac_data *mac = &port->mac_data;
 
+	if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
+		pp2_port_mac_max_rx_size_set(port);
 
-    if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
-	    pp2_port_mac_max_rx_size_set(port);
-
-    if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
-	    pp2_txp_max_tx_size_set(port);
+	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
+		pp2_txp_max_tx_size_set(port);
 
 	pp2_dbg("start_dev: tx_port_num %d, traffic mode %s%s\n",
-            MVPP2_MAX_TCONT + port->id,
-        ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS) ? " ingress " : "",
-        ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS) ? " egress " : "");
+		MVPP2_MAX_TCONT + port->id,
+	((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS) ? " ingress " : "",
+	((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS) ? " egress " : "");
 
 	/* No need for port interrupts enable */
 	pp2_gop_port_events_mask(gop, mac);
 
 	pp2_gop_port_enable(gop, mac);
-    /* Link status. Indirect access */
-    pp2_port_link_status(port);
+	/* Link status. Indirect access */
+	pp2_port_link_status(port);
 
-    pp2_gop_status_show(gop, mac);
+	pp2_gop_status_show(gop, mac);
 
-    if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
-	    pp2_port_egress_enable(port);
+	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
+		pp2_port_egress_enable(port);
 
-    if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
-	    pp2_port_ingress_enable(port);
+	if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
+		pp2_port_ingress_enable(port);
 
-    /* TBD: Do we have interrupt issues? Check following...*/
+	/* TBD: Do we have interrupt issues? Check following...*/
 #ifdef NO_MVPP2X_DRIVER
 	pp2_gop_port_events_unmask(gop, mac);
 #endif
@@ -970,22 +961,22 @@ pp2_port_start_dev(struct pp2_port *port)
 static void
 pp2_port_stop_dev(struct pp2_port *port)
 {
-   struct gop_hw *gop = &port->parent->hw.gop;
-   struct pp2_mac_data *mac = &port->mac_data;
+	struct gop_hw *gop = &port->parent->hw.gop;
+	struct pp2_mac_data *mac = &port->mac_data;
 
-   /* Stop new packets from arriving to RXQs */
-   pp2_port_ingress_disable(port);
+	/* Stop new packets from arriving to RXQs */
+	pp2_port_ingress_disable(port);
 
-   /* Sleep for 10 milliseconds */
-   usleep(10000);
+	/* Sleep for 10 milliseconds */
+	usleep(10000);
 
-   /* Disable interrupts on all CPUs */
-   pp2_port_interrupts_disable(port);
-   pp2_port_egress_disable(port);
+	/* Disable interrupts on all CPUs */
+	pp2_port_interrupts_disable(port);
+	pp2_port_egress_disable(port);
 
-   pp2_gop_port_events_mask(gop, mac);
-   pp2_gop_port_disable(gop, mac);
-   port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
+	pp2_gop_port_events_mask(gop, mac);
+	pp2_gop_port_disable(gop, mac);
+	port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
 }
 
 static int
@@ -1014,29 +1005,29 @@ pp2_port_mac_hw_init(struct pp2_port *port)
 void
 pp2_port_config_inq(struct pp2_port *port)
 {
-    /* Port's classifier configuration */
-    mv_pp2x_cls_oversize_rxq_set(port);
-    /* Initialize hardware internals for RXQs */
-    pp2_port_rxqs_init(port);
+	/* Port's classifier configuration */
+	mv_pp2x_cls_oversize_rxq_set(port);
+	/* Initialize hardware internals for RXQs */
+	pp2_port_rxqs_init(port);
 }
 
 void
 pp2_port_config_outq(struct pp2_port *port)
 {
-    /* TX FIFO Init to default 3KB size. Default with minimum threshold */
-    /* TODO: change according to port type! */
-    //pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_3KB, PP2_TX_FIFO_THRS_3KB);
-    /* Initialize hardware internals for TXQs */
-    pp2_port_txqs_init(port);
+	/* TX FIFO Init to default 3KB size. Default with minimum threshold */
+	/* TODO: change according to port type! */
+	/* pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_3KB, PP2_TX_FIFO_THRS_3KB); */
+	/* Initialize hardware internals for TXQs */
+	pp2_port_txqs_init(port);
 }
 
 /* External. Interface ready */
 void
 pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slowpath */
 {
-    port->t_mode = t_mode;
+	port->t_mode = t_mode;
 
-    pp2_port_start_dev(port);
+	pp2_port_start_dev(port);
 }
 
 /* Internal.
@@ -1047,90 +1038,87 @@ static void
 pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 {
 #ifdef NO_MVPP2X_DRIVER
-   struct gop_hw *gop = &port->parent->hw.gop;
-   struct pp2_mac_data *mac = &port->mac_data;
+	struct gop_hw *gop = &port->parent->hw.gop;
+	struct pp2_mac_data *mac = &port->mac_data;
 #endif
-   /* Disable port transmission */
-   pp2_port_egress_disable(port);
+	/* Disable port transmission */
+	pp2_port_egress_disable(port);
 
 #ifdef NO_MVPP2X_DRIVER
-   pp2_gop_port_disable(gop, mac);
+	pp2_gop_port_disable(gop, mac);
 #endif
-   /* Allocate TXQ slots for this port */
-   port->txqs = kcalloc(1, sizeof(struct pp2_tx_queue *) * port->num_tx_queues, GFP_KERNEL);
-   if (unlikely(!port->txqs)){
-       pp2_err("PPDK: %s out of memory txqs alloc\n",__func__);
-       return;
-   }
 
-   /* Allocate RXQ slots for this port */
-   port->rxqs = kcalloc(1, sizeof(struct pp2_rx_queue *) * port->num_rx_queues, GFP_KERNEL);
-   if (unlikely(!port->rxqs)){
-       pp2_err("PPDK: %s out of memory rxqs alloc\n",__func__);
-       return;
-   }
+	/* Allocate TXQ slots for this port */
+	port->txqs = kcalloc(1, sizeof(struct pp2_tx_queue *) * port->num_tx_queues, GFP_KERNEL);
+	if (unlikely(!port->txqs)) {
+		pp2_err("PPDK: %s out of memory txqs alloc\n", __func__);
+		return;
+	}
 
-   /* Allocate and associated TXQs to this port */
-   pp2_port_txqs_create(port);
-   /* Allocate and associated RXQs to this port */
-   pp2_port_rxqs_create(port);
+	/* Allocate RXQ slots for this port */
+	port->rxqs = kcalloc(1, sizeof(struct pp2_rx_queue *) * port->num_rx_queues, GFP_KERNEL);
+	if (unlikely(!port->rxqs)) {
+		pp2_err("PPDK: %s out of memory rxqs alloc\n", __func__);
+		return;
+	}
 
-   /* Disable port reception */
-   pp2_port_ingress_disable(port);
+	/* Allocate and associated TXQs to this port */
+	pp2_port_txqs_create(port);
+	/* Allocate and associated RXQs to this port */
+	pp2_port_rxqs_create(port);
 
-   /* Port default configuration */
-   pp2_port_defaults_set(port);
+	/* Disable port reception */
+	pp2_port_ingress_disable(port);
 
-   /* Provide an initial MTU */
-   port->flags = PP2_PORT_FLAGS_L4_CHKSUM;
-   port->port_mtu = PP2_PORT_DEFAULT_MTU;
-   pp2_port_check_mtu_valid(port, port->port_mtu);
+	/* Port default configuration */
+	pp2_port_defaults_set(port);
 
-   /* Provide an initial MRU */
-   port->port_mru = MVPP2_MTU_TO_MRU(PP2_PORT_DEFAULT_MTU);
+	/* Provide an initial MTU */
+	port->flags = PP2_PORT_FLAGS_L4_CHKSUM;
+	port->port_mtu = PP2_PORT_DEFAULT_MTU;
+	pp2_port_check_mtu_valid(port, port->port_mtu);
 
-   /* Here was the place to activate interrupts
-    * but do not unmask CPU and RX QVec Shared interrupts yet,
-    * work on polling mode
-    */
-   pp2_port_interrupts_mask(port);
+	/* Provide an initial MRU */
+	port->port_mru = MVPP2_MTU_TO_MRU(PP2_PORT_DEFAULT_MTU);
 
-   /* Find port linux if_name */
-   pp2_port_get_if_name(port);
+	/* Here was the place to activate interrupts
+	* but do not unmask CPU and RX QVec Shared interrupts yet,
+	* work on polling mode
+	*/
+	pp2_port_interrupts_mask(port);
+
+	/* Find port linux if_name */
+	pp2_port_get_if_name(port);
 
 #ifdef NO_MVPP2X_DRIVER
-   pp2_port_mac_hw_init(port);
+	pp2_port_mac_hw_init(port);
 #endif
-   /* Get tx_fifo_size from hw_register, value was configured by Linux */
-   port->tx_fifo_size = pp2_port_get_tx_fifo(port);
-
+	/* Get tx_fifo_size from hw_register, value was configured by Linux */
+	port->tx_fifo_size = pp2_port_get_tx_fifo(port);
 }
 
 static int32_t
 pp2_port_validate_id(const char *if_name)
 {
-   int32_t pid = -1;
+	s32 pid = -1;
 
-   /* Validate interface name. Signature name "<string><number>" */
-   if (1 != sscanf(if_name, "%*[^0123456789]%u", &pid))
-   {
-      /* Interface name does not contain a number.*/
-      pp2_err("PORT: invalid interface '%s'. Expected signature <string><number>\n", if_name);
-      return -1;
-   }
+	/* Validate interface name. Signature name "<string><number>" */
+	if (sscanf(if_name, "%*[^0123456789]%u", &pid) != 1) {
+		/* Interface name does not contain a number.*/
+		pp2_err("PORT: invalid interface '%s'. Expected signature <string><number>\n", if_name);
+		return -1;
+	}
 
-   if (pid > PP2_NUM_PORTS)
-   {
-      pp2_err("PORT: invalid interface '%s'. Valid range [0 - %u]\n", if_name, PP2_NUM_PORTS);
-      return -1;
-   }
-   return pid;
+	if (pid > PP2_NUM_PORTS) {
+		pp2_err("PORT: invalid interface '%s'. Valid range [0 - %u]\n", if_name, PP2_NUM_PORTS);
+		return -1;
+	}
+	return pid;
 }
 
-
-static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[], struct pp2_bm_pool * pools[])
+static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[], struct pp2_bm_pool *pools[])
 {
-	uint8_t index = 0, j;
+	u8 index = 0, j;
 	struct pp2_bm_pool *temp_pool;
 
 	/* check pool0/pool1 */
@@ -1139,7 +1127,7 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 		if (param_pools[j]) {
 			if (param_pools[j]->pp2_id != pp2_inst->id) {
 				pp2_err("%s: pool_ppid[%d] does not match pp2_id[%d]\n",
-				        __func__, param_pools[j]->pp2_id, pp2_inst->id);
+					__func__, param_pools[j]->pp2_id, pp2_inst->id);
 				return -1;
 			}
 			pools[index] = pp2_bm_pool_get_pool_by_id(pp2_inst, param_pools[j]->id);
@@ -1158,19 +1146,15 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 			pools[0] = pools[1];
 			pools[1] = temp_pool;
 		}
-
-	}
-	else if (index == 1) {
+	} else if (index == 1) {
 		pools[1] = pools[0]; /* Both small and long pool are the same one */
-	}
-	else {
+	} else {
 		pp2_err("%s: pool_params do not exist\n", __func__);
 		return -1;
-        }
+	}
 
 	return 0;
 }
-
 
 /* Identify the correct packet processor handle and
  * populate port control data based on input parameters
@@ -1180,152 +1164,151 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 
 int
 pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port_id,
-              struct pp2_port **port_hdl)
+	      struct pp2_port **port_hdl)
 {
-   uint32_t i, j, first_rxq, num_in_qs;
-   uint32_t total_num_in_qs = 0;
-   struct pp2_inst *inst;
-   struct pp2_port *port;
-   struct pp2_hw *hw;
-   int rc;
+	u32 i, j, first_rxq, num_in_qs;
+	u32 total_num_in_qs = 0;
+	struct pp2_inst *inst;
+	struct pp2_port *port;
+	struct pp2_hw *hw;
+	int rc;
 
-   inst = pp2->pp2_inst[pp2_id];
+	inst = pp2->pp2_inst[pp2_id];
 
+	/* Get the internal port handle */
+	port = inst->ports[port_id];
+	port->parent = inst;
 
-   /* Get the internal port handle */
-   port = inst->ports[port_id];
-   port->parent = inst;
+	/* Setup port based on client params
+	 * TODO: Traffic Mgr and CoS stuff not implemented yet, so only
+	 * the first parameter of the array is used
+	 */
+	first_rxq = port->id * PP2_HW_PORT_NUM_RXQS + pp2->init.ppios[pp2_id][port_id].first_inq;
+	port->first_rxq  = first_rxq;
+	port->num_tcs = param->inqs_params.num_tcs;
+	for (i = 0; i < port->num_tcs; i++) {
+		num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;
+		port->tc[i].rx_ring_size = param->inqs_params.tcs_params[i].inqs_params->size;
+		port->tc[i].tc_config.pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
+		port->tc[i].tc_config.use_hash = param->inqs_params.tcs_params[i].use_hash;
+		port->tc[i].first_log_rxq = total_num_in_qs;
+		port->tc[i].tc_config.num_in_qs = num_in_qs;
+		/*To support RSS, each TC must start at natural rxq boundary */
+		first_rxq = roundup(first_rxq, num_in_qs);
+		port->tc[i].tc_config.first_rxq = first_rxq;
+		rc = populate_tc_pools(inst, param->inqs_params.tcs_params[i].pools, port->tc[i].tc_config.pools);
+		if (rc)
+			return -EINVAL;
+		total_num_in_qs += num_in_qs;
+		first_rxq += num_in_qs;
+	}
+	port->num_rx_queues = total_num_in_qs;
+	port->num_tx_queues = param->outqs_params.num_outqs;
+	for (i = 0; i < port->num_tx_queues; i++) {
+		port->txq_config[i].size = param->outqs_params.outqs_params[i].size;
+		port->txq_config[i].weight = param->outqs_params.outqs_params[i].weight;
+	}
 
-   /* Setup port based on client params
-    * TODO: Traffic Mgr and CoS stuff not implemented yet, so only
-    * the first parameter of the array is used
-    */
-   first_rxq = port->id * PP2_HW_PORT_NUM_RXQS + pp2->init.ppios[pp2_id][port_id].first_inq;
-   port->first_rxq  = first_rxq;
-   port->num_tcs = param->inqs_params.num_tcs;
-   for (i = 0; i < port->num_tcs; i++) {
-        num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;
-        port->tc[i].rx_ring_size = param->inqs_params.tcs_params[i].inqs_params->size;
-        port->tc[i].tc_config.pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
-        port->tc[i].tc_config.use_hash = param->inqs_params.tcs_params[i].use_hash;
-        port->tc[i].first_log_rxq = total_num_in_qs;
-        port->tc[i].tc_config.num_in_qs = num_in_qs;
-        first_rxq = roundup(first_rxq, num_in_qs); /*To support RSS, each TC must start at natural rxq boundary */
-        port->tc[i].tc_config.first_rxq = first_rxq;
-	rc = populate_tc_pools(inst, param->inqs_params.tcs_params[i].pools, port->tc[i].tc_config.pools);
-	if (rc)
-		return -EINVAL;
-        total_num_in_qs += num_in_qs;
-        first_rxq += num_in_qs;
-   }
-   port->num_rx_queues = total_num_in_qs;
-   port->num_tx_queues = param->outqs_params.num_outqs;
-   for (i = 0; i < port->num_tx_queues; i++) {
-       port->txq_config[i].size = param->outqs_params.outqs_params[i].size;
-       port->txq_config[i].weight = param->outqs_params.outqs_params[i].weight;
-   }
+	for (i = 0; i < PP2_PPIO_MAX_NUM_HASH; i++)
+		port->hash_type[i] = param->inqs_params.hash_type[i];
 
-   for (i = 0; i < PP2_PPIO_MAX_NUM_HASH; i++) {
-       port->hash_type[i] = param->inqs_params.hash_type[i];
-   }
-   /*TODO: Delete this param */
-   port->use_mac_lb = false;
+	/*TODO: Delete this param */
+	port->use_mac_lb = false;
 
-   pp2_dbg("PORT: ID %u (on PP%u):\n", port->id, pp2_id);
-   pp2_dbg("PORT: %s\n", port->use_mac_lb ? "LOOPBACK" : "PHY");
+	pp2_dbg("PORT: ID %u (on PP%u):\n", port->id, pp2_id);
+	pp2_dbg("PORT: %s\n", port->use_mac_lb ? "LOOPBACK" : "PHY");
 
-   pp2_dbg("PORT: TXQs %u\n", port->num_tx_queues);
-   pp2_dbg("PORT: RXQs %u\n", port->num_rx_queues);
-   pp2_dbg("PORT: First Phy RXQ %u\n", port->first_rxq);
-   for (i = 0; i < port->num_tcs; i++) {
-       pp2_dbg("PORT: TC%u\n", i);
-       pp2_dbg("PORT: TC RXQs %u\n", port->tc[i].tc_config.num_in_qs);
-       pp2_dbg("PORT: TC First Log RXQ %u\n", port->tc[i].first_log_rxq);
-       pp2_dbg("PORT: TC First Phy RXQ %u\n", port->tc[i].tc_config.first_rxq);
-       pp2_dbg("PORT: TC RXQ size %u\n", port->tc[i].rx_ring_size);
-       pp2_dbg("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
-       pp2_dbg("PORT: TC Use Hash %u\n", port->tc[i].tc_config.use_hash);
-       for (j = 0;j < PP2_PPIO_TC_MAX_POOLS; j++) {
-            pp2_dbg("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
-        }
-   }
-   /* Assing a CPU slot to avoid send cpu_slot as argument further */
-   hw = &inst->hw;
-   port->cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
+	pp2_dbg("PORT: TXQs %u\n", port->num_tx_queues);
+	pp2_dbg("PORT: RXQs %u\n", port->num_rx_queues);
+	pp2_dbg("PORT: First Phy RXQ %u\n", port->first_rxq);
+	for (i = 0; i < port->num_tcs; i++) {
+		pp2_dbg("PORT: TC%u\n", i);
+		pp2_dbg("PORT: TC RXQs %u\n", port->tc[i].tc_config.num_in_qs);
+		pp2_dbg("PORT: TC First Log RXQ %u\n", port->tc[i].first_log_rxq);
+		pp2_dbg("PORT: TC First Phy RXQ %u\n", port->tc[i].tc_config.first_rxq);
+		pp2_dbg("PORT: TC RXQ size %u\n", port->tc[i].rx_ring_size);
+		pp2_dbg("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
+		pp2_dbg("PORT: TC Use Hash %u\n", port->tc[i].tc_config.use_hash);
+		for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++)
+			pp2_dbg("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
+	}
+	/* Assing a CPU slot to avoid send cpu_slot as argument further */
+	hw = &inst->hw;
+	port->cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
 
-   /* Assign and initialize port private data and hardware */
-   pp2_port_init(port);
+	/* Assign and initialize port private data and hardware */
+	pp2_port_init(port);
 
-   inst->num_ports++;
+	inst->num_ports++;
 
-   /* At this point, the port is default allocated and configured */
-   *port_hdl = port;
-   return 0;
+	/* At this point, the port is default allocated and configured */
+	*port_hdl = port;
+	return 0;
 }
 
 static void
 pp2_port_deinit(struct pp2_port *port)
 {
-   /* Reset/disable TXQs/RXQs from hardware */
-   pp2_port_rxqs_deinit(port);
-   pp2_port_txqs_deinit(port);
+	/* Reset/disable TXQs/RXQs from hardware */
+	pp2_port_rxqs_deinit(port);
+	pp2_port_txqs_deinit(port);
 
-   /* Deallocate TXQs/RXQs for this port */
-   pp2_port_txqs_destroy(port);
-   pp2_port_rxqs_destroy(port);
+	/* Deallocate TXQs/RXQs for this port */
+	pp2_port_txqs_destroy(port);
+	pp2_port_rxqs_destroy(port);
 
-   /* Free port TXQ slots */
-   kfree(port->txqs);
-   /* Free port RXQ slots */
-   kfree(port->rxqs);
+	/* Free port TXQ slots */
+	kfree(port->txqs);
+	/* Free port RXQ slots */
+	kfree(port->rxqs);
 }
 
 /* External. Interface down */
 void
 pp2_port_stop(struct pp2_port *port)
 {
-   /* Stop new packets from arriving to RXQs */
-   pp2_port_stop_dev(port);
+	/* Stop new packets from arriving to RXQs */
+	pp2_port_stop_dev(port);
 
-   /* Redundant since IRQs already disabled at
-    * port init, but keep it for simmetry
-    */
-   pp2_port_interrupts_mask(port);
+	/* Redundant since IRQs already disabled at
+	 * port init, but keep it for simmetry
+	 */
+	pp2_port_interrupts_mask(port);
 }
 
 /* External */
 void
 pp2_port_close(struct pp2_port *port)
 {
-    struct pp2_inst *inst;
+	 struct pp2_inst *inst;
 
-    if (NULL == port)
-        return;
+	if (!port)
+		return;
 
-    inst = port->parent;
-    pp2_port_deinit(port);
+	 inst = port->parent;
+	 pp2_port_deinit(port);
 
-    inst->num_ports--;
+	 inst->num_ports--;
 }
 
 /* Get RXQ based on which bit is set in the EthOccIC */
 static inline struct pp2_rx_queue *
 mv_pp2x_get_rx_queue(struct pp2_port *port, uint32_t cause)
 {
-   uint32_t rx_queue = fls(cause) - 1;
+	u32 rx_queue = fls(cause) - 1;
 
-   if (rx_queue < 0 || rx_queue > PP2_HW_PORT_NUM_RXQS)
-      return NULL;
-   return port->rxqs[rx_queue];
+	if (rx_queue < 0 || rx_queue > PP2_HW_PORT_NUM_RXQS)
+		return NULL;
+	return port->rxqs[rx_queue];
 }
 
 /* Get TXQ based on which bit is set in the EthOccIC */
 static inline struct pp2_tx_queue *
 mv_pp2x_get_tx_queue(struct pp2_port *port, uint32_t cause)
 {
-   uint32_t tx_queue = fls(cause) - 1;
+	u32 tx_queue = fls(cause) - 1;
 
-   return port->txqs[tx_queue];
+	return port->txqs[tx_queue];
 }
 
 /* External. Get actual number of sent descriptors
@@ -1334,107 +1317,103 @@ mv_pp2x_get_tx_queue(struct pp2_port *port, uint32_t cause)
 uint32_t
 pp2_port_outq_status(struct pp2_dm_if *dm_if, uint32_t outq_physid)
 {
-   uint32_t cnt;
-   /* Reading status reg resets transmitted descriptor counter */
-   cnt = pp2_relaxed_reg_read(dm_if->cpu_slot, MVPP22_TXQ_SENT_REG(outq_physid));
-   return (cnt & MVPP22_TRANSMITTED_COUNT_MASK) >> MVPP22_TRANSMITTED_COUNT_OFFSET;
+	u32 cnt;
+	/* Reading status reg resets transmitted descriptor counter */
+	cnt = pp2_relaxed_reg_read(dm_if->cpu_slot, MVPP22_TXQ_SENT_REG(outq_physid));
+	return (cnt & MVPP22_TRANSMITTED_COUNT_MASK) >> MVPP22_TRANSMITTED_COUNT_OFFSET;
 }
 
 /* External. Request a DM-IF object from this interface */
 struct pp2_dm_if *
 pp2_port_dm_if_get(struct pp2_port *port, uint32_t dm_id)
 {
-    return port->parent->dm_ifs[dm_id];
+	 return port->parent->dm_ifs[dm_id];
 }
 
 /* External. Get physical TXQ ID */
 uint32_t
 pp2_port_outq_get_id(struct pp2_port *port, uint32_t out_qid)
 {
-    return port->txqs[out_qid]->id;
+	 return port->txqs[out_qid]->id;
 }
-
 
 /* TODO: This function is redundant, it will disappear after ppio/pp2_port unification */
 static inline void pp2_port_tx_desc_swap_ncopy(struct pp2_desc *dst, struct pp2_rx_desc *src)
 {
-	uint32_t *src_cmd = (uint32_t *)src;
-	uint32_t *dst_cmd = (uint32_t *)dst;
+	u32 *src_cmd = (uint32_t *)src;
+	u32 *dst_cmd = (uint32_t *)dst;
 
-	for (int i = 0; i < (sizeof(*dst)/sizeof(dst->cmd0)); i++) {
+	for (int i = 0; i < (sizeof(*dst) / sizeof(dst->cmd0)); i++) {
 		*dst_cmd = le32toh(*src_cmd);
 		dst_cmd++;
 		src_cmd++;
 	}
 }
 
-
-
 /* Enqueue implementation */
 uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid, uint16_t num_txds,
-		          struct pp2_ppio_desc desc[])
+			  struct pp2_ppio_desc desc[])
 {
-   uintptr_t cpu_slot;
-   struct pp2_tx_queue *txq;
-   struct pp2_txq_dm_if *txq_dm_if;
-   struct pp2_desc * tx_desc;
-   uint16_t block_size;
-   int i;
+	uintptr_t cpu_slot;
+	struct pp2_tx_queue *txq;
+	struct pp2_txq_dm_if *txq_dm_if;
+	struct pp2_desc *tx_desc;
+	u16 block_size;
+	int i;
 
-   txq = port->txqs[out_qid];
-   cpu_slot = dm_if->cpu_slot;
-
+	txq = port->txqs[out_qid];
+	cpu_slot = dm_if->cpu_slot;
 
 #ifdef DEBUG
-   if ((port->flags & PP2_PORT_FLAGS_L4_CHKSUM) == 0) {
-	   for (i = 0;i < num_txds; i++) {
-	   	if (TXD_L4_CHK_ENABLE == DM_TXD_GET_GEN_L4_CHK((desc+i))) {
-			pr_err("[%s] port(%d) l4_checksum flag disabled.\n", __FUNCTION__, port->id);
+	if ((port->flags & PP2_PORT_FLAGS_L4_CHKSUM) == 0) {
+		for (i = 0; i < num_txds; i++) {
+		if (DM_TXD_GET_GEN_L4_CHK((desc + i)) == TXD_L4_CHK_ENABLE) {
+			pr_err("[%s] port(%d) l4_checksum flag disabled.\n", __func__, port->id);
 			return 0;
-	   	}
-	   }
-   }
+		}
+		}
+	}
 #endif
 
-   if (unlikely(dm_if->free_count < num_txds)) {
-       uint32_t occ_desc;
-       /* Update AGGR_Q status, just once */
-       occ_desc = pp2_relaxed_reg_read(dm_if->cpu_slot,
-                  MVPP2_AGGR_TXQ_STATUS_REG(dm_if->id)) & MVPP2_AGGR_TXQ_PENDING_MASK;
-       dm_if->free_count = dm_if->desc_total - occ_desc;
+	if (unlikely(dm_if->free_count < num_txds)) {
+		u32 occ_desc;
+		/* Update AGGR_Q status, just once */
+		occ_desc = pp2_relaxed_reg_read(dm_if->cpu_slot,
+						MVPP2_AGGR_TXQ_STATUS_REG(dm_if->id)) & MVPP2_AGGR_TXQ_PENDING_MASK;
+		dm_if->free_count = dm_if->desc_total - occ_desc;
 
-       if (unlikely(dm_if->free_count < num_txds)) {
-	    pr_debug("%s num_txds(%d), free_count(%d) occ_desc(%d)\n", __FUNCTION__, num_txds,
-	    	     dm_if->free_count, occ_desc);
-            num_txds = dm_if->free_count;
-       }
-   }
-   txq_dm_if = &(txq->txq_dm_if[dm_if->id]);
-   if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
-       uint32_t req_val, result_val, res_req;
+		if (unlikely(dm_if->free_count < num_txds)) {
+			pr_debug("%s num_txds(%d), free_count(%d) occ_desc(%d)\n", __func__, num_txds,
+				 dm_if->free_count, occ_desc);
+			num_txds = dm_if->free_count;
+		}
+	}
+	txq_dm_if = &txq->txq_dm_if[dm_if->id];
+	if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
+		u32 req_val, result_val, res_req;
 
-       res_req = max((uint32_t)(num_txds - txq_dm_if->desc_rsrvd), (uint32_t)MVPP2_CPU_DESC_CHUNK);
+		res_req = max((uint32_t)(num_txds - txq_dm_if->desc_rsrvd), (uint32_t)MVPP2_CPU_DESC_CHUNK);
 
-       req_val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_req);
-       pp2_relaxed_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, req_val);
-       result_val = pp2_relaxed_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG) & MVPP2_TXQ_RSVD_RSLT_MASK;
+		req_val = ((txq->id << MVPP2_TXQ_RSVD_REQ_Q_OFFSET) | res_req);
+		pp2_relaxed_reg_write(cpu_slot, MVPP2_TXQ_RSVD_REQ_REG, req_val);
+		result_val = pp2_relaxed_reg_read(cpu_slot, MVPP2_TXQ_RSVD_RSLT_REG) & MVPP2_TXQ_RSVD_RSLT_MASK;
 
-       txq_dm_if->desc_rsrvd += result_val;
+		txq_dm_if->desc_rsrvd += result_val;
 
-       if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
-       	   pr_debug("%s prev_desc_rsrvd(%d) desc_rsrvd(%d) res_request(%d) num_txds(%d)\n",
-	   	    __FUNCTION__, (txq_dm_if->desc_rsrvd - result_val), txq_dm_if->desc_rsrvd, res_req, num_txds);
-           num_txds = txq_dm_if->desc_rsrvd;
-       }
-   }
-   if (!num_txds) {
-       	pr_debug("[%s] num_txds is zero \n", __FUNCTION__);
-   	return 0;
-   }
+		if (unlikely(txq_dm_if->desc_rsrvd < num_txds)) {
+			pr_debug("%s prev_desc_rsrvd(%d) desc_rsrvd(%d) res_request(%d) num_txds(%d)\n", __func__,
+				 (txq_dm_if->desc_rsrvd - result_val), txq_dm_if->desc_rsrvd, res_req, num_txds);
+			num_txds = txq_dm_if->desc_rsrvd;
+		}
+	}
+	if (!num_txds) {
+	pr_debug("[%s] num_txds is zero\n", __func__);
+	return 0;
+	}
 
-   tx_desc = pp2_dm_if_next_desc_block_get(dm_if, num_txds, &block_size);
+	tx_desc = pp2_dm_if_next_desc_block_get(dm_if, num_txds, &block_size);
 
-   for (i = 0; i<block_size; i++) {
+	for (i = 0; i < block_size; i++) {
 	/* Destination physical queue ID */
 	DM_TXD_SET_DEST_QID(&desc[i], txq->id);
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -1442,54 +1421,54 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 #else
 	__builtin_memcpy(&tx_desc[i], &desc[i], sizeof(*tx_desc));
 #endif
-   }
+	}
 
-   if (block_size < num_txds) {
-       uint16_t index = block_size;
-       uint16_t txds_remaining = num_txds - block_size;
-       tx_desc = pp2_dm_if_next_desc_block_get(dm_if, txds_remaining, &block_size);
-       if (unlikely((index + block_size) != num_txds)) {
-       	   if (likely(num_txds > txq->desc_total)) {
-               pr_debug("[%s] More tx_descs(%u) than txq_len(%u) \n", __FUNCTION__, num_txds, txq->desc_total);
-       	   } else {
-               pr_debug("[%s] failed copying tx_descs(%u),in block#1(%u),block#2(%u) txq_len(%u)\n", __FUNCTION__,
-	       		num_txds, i, block_size, txq->desc_total);
-       	   }
-	   num_txds = index + block_size;
-       }
+	if (block_size < num_txds) {
+		u16 index = block_size;
+		u16 txds_remaining = num_txds - block_size;
 
-      for (i = 0; i < block_size; i++) {
-	/* Destination physical queue ID */
-	DM_TXD_SET_DEST_QID(&desc[index+i], txq->id);
+		tx_desc = pp2_dm_if_next_desc_block_get(dm_if, txds_remaining, &block_size);
+		if (unlikely((index + block_size) != num_txds)) {
+			if (likely(num_txds > txq->desc_total)) {
+				pr_debug("[%s] More tx_descs(%u) than txq_len(%u)\n", __func__,
+					 num_txds, txq->desc_total);
+			} else {
+				pr_debug("[%s] failed copying tx_descs(%u),in block#1(%u),block#2(%u) txq_len(%u)\n",
+					 __func__, num_txds, i, block_size, txq->desc_total);
+			}
+			num_txds = index + block_size;
+		}
+
+		for (i = 0; i < block_size; i++) {
+			/* Destination physical queue ID */
+			DM_TXD_SET_DEST_QID(&desc[index + i], txq->id);
 #if __BYTE_ORDER == __BIG_ENDIAN
-      pp2_port_tx_desc_swap_ncopy(&tx_desc[i], &desc[index+i]);
+			pp2_port_tx_desc_swap_ncopy(&tx_desc[i], &desc[index + i]);
 #else
-	__builtin_memcpy(&tx_desc[i], &desc[index+i], sizeof(*tx_desc));
+			__builtin_memcpy(&tx_desc[i], &desc[index + i], sizeof(*tx_desc));
 #endif
+		}
+	}
 
-     }
+	/* Trigger TX */
+	pp2_reg_write(cpu_slot, MVPP2_AGGR_TXQ_UPDATE_REG, num_txds);
 
-   }
+	/* Sync reserve count with the AGGR_Q and the Physical TXQ */
+	dm_if->free_count -= num_txds;
+	txq_dm_if->desc_rsrvd -= num_txds;
 
-   /* Trigger TX */
-   pp2_reg_write(cpu_slot, MVPP2_AGGR_TXQ_UPDATE_REG, num_txds);
-
-   /* Sync reserve count with the AGGR_Q and the Physical TXQ */
-   dm_if->free_count -= num_txds;
-   txq_dm_if->desc_rsrvd -= num_txds;
-
-   return num_txds;
+	return num_txds;
 }
 
 static void
 pp2_cause_error(uint32_t cause)
 {
-   if (cause & MVPP2_CAUSE_FCS_ERR_MASK)
-      pp2_err("FCS error\n");
-   if (cause & MVPP2_CAUSE_RX_FIFO_OVERRUN_MASK)
-      pp2_err("RX FIFO overrun error\n");
-   if (cause & MVPP2_CAUSE_TX_FIFO_UNDERRUN_MASK)
-      pp2_err("TX FIFO underrun error\n");
+	if (cause & MVPP2_CAUSE_FCS_ERR_MASK)
+		pp2_err("FCS error\n");
+	if (cause & MVPP2_CAUSE_RX_FIFO_OVERRUN_MASK)
+		pp2_err("RX FIFO overrun error\n");
+	if (cause & MVPP2_CAUSE_TX_FIFO_UNDERRUN_MASK)
+		pp2_err("TX FIFO underrun error\n");
 }
 
 /* Dequeue routine
@@ -1499,49 +1478,49 @@ pp2_cause_error(uint32_t cause)
  */
 static inline uint32_t
 pp2_port_dequeue(struct pp2_port *port, struct pp2_desc **rx_desc, uint32_t in_qid,
-                struct pp2_desc **extra_rx_desc, uint32_t *extra_num_recv)
+		 struct pp2_desc **extra_rx_desc, uint32_t *extra_num_recv)
 {
-   uint32_t num_recv;
-   /* Get associated RX queue based on logical ingress queue ID */
-   struct pp2_rx_queue *rxq = port->rxqs[in_qid];
+	u32 num_recv;
+	/* Get associated RX queue based on logical ingress queue ID */
+	struct pp2_rx_queue *rxq = port->rxqs[in_qid];
 
-   /* number of arrived buffs, must be >= 0!!! */
-   num_recv = pp2_rxq_received(port, rxq->id);
+	/* number of arrived buffs, must be >= 0!!! */
+	num_recv = pp2_rxq_received(port, rxq->id);
 
-   /* Get the start of the RXD array. Polling thread will
-    * iterate through num_recv descriptors */
-   *rx_desc = pp2_rxq_get_desc(rxq, &num_recv, extra_rx_desc, extra_num_recv);
+	/* Get the start of the RXD array. Polling thread will
+	 * iterate through num_recv descriptors
+	 */
+	*rx_desc = pp2_rxq_get_desc(rxq, &num_recv, extra_rx_desc, extra_num_recv);
 
-   pp2_dbg("%s\t total num_recv from HW =%d\n",__func__, num_recv);
-   pp2_dbg("%s\trxq_id=%d assign to port=%d is LOCKED\n",__func__,rxq->id, port->id);
+	pp2_dbg("%s\t total num_recv from HW =%d\n", __func__, num_recv);
+	pp2_dbg("%s\trxq_id=%d assign to port=%d is LOCKED\n", __func__, rxq->id, port->id);
 
-   return num_recv;
+	return num_recv;
 }
 
 /* Polling implementation */
 uint32_t
 pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t in_qid,
-            struct pp2_desc **extra_desc, uint32_t *extra_recv)
+	      struct pp2_desc **extra_desc, uint32_t *extra_recv)
 {
-   uint32_t  cause_rx_tx, cause_misc;
-   uintptr_t cpu_slot = port->cpu_slot;
+	u32  cause_rx_tx, cause_misc;
+	uintptr_t cpu_slot = port->cpu_slot;
 
-   cause_rx_tx = pp2_reg_read(cpu_slot, MVPP2_ISR_RX_TX_CAUSE_REG(port->id));
+	cause_rx_tx = pp2_reg_read(cpu_slot, MVPP2_ISR_RX_TX_CAUSE_REG(port->id));
 
-   /* Check port cause register for errors */
-   if (unlikely(cause_rx_tx && (cause_rx_tx & MVPP2_CAUSE_MISC_SUM_MASK))) {
+	/* Check port cause register for errors */
+	if (unlikely(cause_rx_tx && (cause_rx_tx & MVPP2_CAUSE_MISC_SUM_MASK))) {
+		cause_misc = (cause_rx_tx & MVPP2_CAUSE_MISC_SUM_MASK);
+		/* Inform of errors */
+		pp2_cause_error(cause_misc);
 
-      cause_misc = (cause_rx_tx & MVPP2_CAUSE_MISC_SUM_MASK);
-      /* Inform of errors */
-      pp2_cause_error(cause_misc);
-
-      /* Clear the cause register */
-      pp2_reg_write(cpu_slot, MVPP2_ISR_MISC_CAUSE_REG, 0);
-      pp2_reg_write(cpu_slot, MVPP2_ISR_RX_TX_CAUSE_REG(port->id),
-                   cause_rx_tx & ~MVPP2_CAUSE_MISC_SUM_MASK);
-   }
-   /* Return number of received RXDs. RXD array is updated */
-   return pp2_port_dequeue(port, desc, in_qid, extra_desc, extra_recv);
+		/* Clear the cause register */
+		pp2_reg_write(cpu_slot, MVPP2_ISR_MISC_CAUSE_REG, 0);
+		pp2_reg_write(cpu_slot, MVPP2_ISR_RX_TX_CAUSE_REG(port->id),
+			      cause_rx_tx & ~MVPP2_CAUSE_MISC_SUM_MASK);
+	}
+	/* Return number of received RXDs. RXD array is updated */
+	return pp2_port_dequeue(port, desc, in_qid, extra_desc, extra_recv);
 }
 
 /* Port Control routines */
@@ -1591,7 +1570,7 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 
 static int pp2_port_check_buf_size(struct pp2_port *port, uint32_t size)
 {
-	uint32_t buf_size;
+	u32 buf_size;
 	int i;
 
 	for (i = 0; i < port->num_tcs; i++) {
@@ -1605,40 +1584,35 @@ static int pp2_port_check_buf_size(struct pp2_port *port, uint32_t size)
 	return 0;
 }
 
-
-
-
 /* Set and update the port MTU */
 int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu)
 {
-    int err = 0;
+	int err = 0;
 
+	err = pp2_port_check_mtu_valid(port, mtu);
+	if (err)
+		return err;
 
-    err = pp2_port_check_mtu_valid(port, mtu);
-    if (err)
-    	return err;
+	/* Stop the port internals */
+	pp2_port_stop_dev(port);
 
-    /* Stop the port internals */
-    pp2_port_stop_dev(port);
+	port->port_mtu = mtu;
 
-    port->port_mtu = mtu;
+	/* Start and update the port internals */
+	pp2_port_start_dev(port);
 
-    /* Start and update the port internals */
-    pp2_port_start_dev(port);
-
-    return err;
+	return err;
 }
 
 /* Get MTU */
 void pp2_port_get_mtu(struct pp2_port *port, uint16_t *mtu)
 {
-    /* Straightforward. Useful for informing clients the
-     * maximum size their TX BM pool buffers should have,
-     * physical TXQs capabilities, packet fragmentation etc.
-     */
-    *mtu = port->port_mtu;
+	/* Straightforward. Useful for informing clients the
+	 * maximum size their TX BM pool buffers should have,
+	 * physical TXQs capabilities, packet fragmentation etc.
+	 */
+	*mtu = port->port_mtu;
 }
-
 
 static int pp2_port_check_mru_valid(struct pp2_port *port, uint16_t mru)
 {
@@ -1655,31 +1629,29 @@ static int pp2_port_check_mru_valid(struct pp2_port *port, uint16_t mru)
 	return err;
 }
 
-
-
 /* Set and update the port MRU. The function assumes mru valid is valid */
 int pp2_port_set_mru(struct pp2_port *port, uint16_t mru)
 {
-    int err = 0;
+	int err = 0;
 
-    err = pp2_port_check_mru_valid(port, mru);
-    if (err)
-    	return err;
-    port->port_mru = mru;
+	err = pp2_port_check_mru_valid(port, mru);
+	if (err)
+		return err;
+	port->port_mru = mru;
 
-    if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
-	    pp2_port_mac_max_rx_size_set(port);
+	if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
+		pp2_port_mac_max_rx_size_set(port);
 
-    return err;
+	return err;
 }
 
 /* Get MRU */
 void pp2_port_get_mru(struct pp2_port *port, uint16_t *len)
 {
-    /* Straightforward. Useful for informing clients the
-     * maximum size their RX BM pool buffers should have
-     */
-    *len = port->port_mru;
+	/* Straightforward. Useful for informing clients the
+	 * maximum size their RX BM pool buffers should have
+	 */
+	*len = port->port_mru;
 }
 
 /* Set Unicast promiscuous */
@@ -1991,19 +1963,19 @@ void pp2_port_set_rss(struct pp2_port *port, uint32_t en)
 /* Get link status */
 int pp2_port_link_status(struct pp2_port *port)
 {
-    uint32_t link_is_up;
-    struct gop_hw *gop = &port->parent->hw.gop;
+	u32 link_is_up;
+	struct gop_hw *gop = &port->parent->hw.gop;
 
-    /* Check Link status on ethernet port */
-    link_is_up = pp2_gop_port_is_link_up(gop, &port->mac_data);
+	/* Check Link status on ethernet port */
+	link_is_up = pp2_gop_port_is_link_up(gop, &port->mac_data);
 
-    if (link_is_up) {
-        pp2_info("PORT: Port%u - link is up\n", port->id);
-        port->mac_data.flags |= MV_EMAC_F_LINK_UP;
-    } else {
-        pp2_info("PORT: Port%u - link is down\n", port->id);
-        port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
-    }
+	if (link_is_up) {
+		pp2_info("PORT: Port%u - link is up\n", port->id);
+		port->mac_data.flags |= MV_EMAC_F_LINK_UP;
+	} else {
+		pp2_info("PORT: Port%u - link is down\n", port->id);
+		port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
+	}
 
-    return link_is_up;
+	return link_is_up;
 }

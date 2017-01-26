@@ -44,7 +44,8 @@
 /* Hardcoded stuff for a quick demo */
 
 /* PPK test configurations.
- * TODO: Export these as parameters when the PPDK API shall take form */
+ * TODO: Export these as parameters when the PPDK API shall take form
+ */
 #define MVPP2X_NUM_TXQS              (1)
 #define MVPP2X_NUM_RXQS              (1)
 
@@ -57,7 +58,7 @@
 #define MVPP2_TXDONE_COAL_PKTS       (1)
 #define MVPP2_TXDONE_COAL_USEC       (0) /* No tx_time_coalescing */
 
-#define MVPP2X_NUM_PORT_RXQS        (32) /* Number of RXQs per port */
+#define MVPP2X_NUM_PORT_RXQS         (32) /* Number of RXQs per port */
 #define MVPP2X_NUM_PHYS              (2) /* Number of packet processor phys addr */
 
 /* Absolute physical address from where we allocate for TXDs/RXDs etc. */
@@ -74,16 +75,16 @@
 /**************************** END HARDCODES ***************************/
 
 /* Internal testing packet structure
- * XXX: Shall be deprecated by odp_packet */
+ * XXX: Shall be deprecated by odp_packet
+ */
 #define PACKET_STEP  (64)
-struct ppdk_pkt
-{
-   uintptr_t pkt_arr_phys; /* Packet array starting phys addr */
-   uintptr_t pkt_arr_virt; /* Packet array starting virt addr */
-   uint32_t  pkt_num;      /* Number of packets in this array */
-   uint32_t  pkt_len;      /* Number of bytes per packet */
+struct ppdk_pkt {
+	uintptr_t pkt_arr_phys; /* Packet array starting phys addr */
+	uintptr_t pkt_arr_virt; /* Packet array starting virt addr */
+	u32  pkt_num;      /* Number of packets in this array */
+	u32  pkt_len;      /* Number of bytes per packet */
 };
 
-uint32_t ppdk_get_packets(uint32_t pkt_num, struct ppdk_pkt *pkt_array, uint32_t id);
+u32 ppdk_get_packets(u32 pkt_num, struct ppdk_pkt *pkt_array, uint32_t id);
 void     ppdk_put_packets(struct ppdk_pkt *pkt_array);
 #endif /*_PP2_HC_H_ */

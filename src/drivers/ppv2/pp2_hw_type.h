@@ -37,17 +37,17 @@
 
 #define BIT(nr) (1UL << (nr))
 
-#define CREATE_MASK(pos, len)		GENMASK((pos)+(len)-1, (pos))
-#define CREATE_MASK_ULL(pos, len)	GENMASK_ULL((pos)+(len)-1, (pos))
+#define CREATE_MASK(pos, len)		GENMASK((pos) + (len) - 1, (pos))
+#define CREATE_MASK_ULL(pos, len)	GENMASK_ULL((pos) + (len) - 1, (pos))
 
-#define AUTO_MASK(reg_name)	CREATE_MASK(reg_name##_OFFS, reg_name##_SIZE)
+#define AUTO_MASK(reg_name)		CREATE_MASK(reg_name##_OFFS, reg_name##_SIZE)
 
 /*All PPV22 Addresses are 40-bit */
-#define MVPP22_ADDR_HIGH_SIZE			8
-#define MVPP22_ADDR_HIGH_MASK		((1<<MVPP22_ADDR_HIGH_SIZE) - 1)
+#define MVPP22_ADDR_HIGH_SIZE		8
+#define MVPP22_ADDR_HIGH_MASK		((1 << MVPP22_ADDR_HIGH_SIZE) - 1)
 
 /*PPV22 ADDRESS SPACE */
-#define MVPP2_ADDR_SPACE_SIZE			(64*1024)
+#define MVPP2_ADDR_SPACE_SIZE		(64 * 1024)
 
 /* TCLK Frequency */
 #define PP2_TCLK_FREQ 333000000
@@ -57,8 +57,8 @@
 /*AXI_CONTEXT*/
 /*Top Regfile*/
 
-#define MVPP21_DESC_ADDR_SHIFT		0 /*Applies to RXQ, AGGR_TXQ*/
-#define MVPP22_DESC_ADDR_SHIFT		(9-1) /*Applies to RXQ, AGGR_TXQ*/
+#define MVPP21_DESC_ADDR_SHIFT			0 /*Applies to RXQ, AGGR_TXQ*/
+#define MVPP22_DESC_ADDR_SHIFT			(9 - 1) /*Applies to RXQ, AGGR_TXQ*/
 
 /* RX Fifo Registers */
 #define MVPP2_RX_DATA_FIFO_SIZE_REG(port)	(0x00 + 4 * (port))
@@ -121,41 +121,36 @@
 
 #define MVPP22_AXI_ATTR_CACHE_OFFS		0
 #define MVPP22_AXI_ATTR_CACHE_SIZE		4
-#define MVPP22_AXI_ATTR_CACHE_MASK	AUTO_MASK(MVPP22_AXI_ATTR_CACHE)
+#define MVPP22_AXI_ATTR_CACHE_MASK		AUTO_MASK(MVPP22_AXI_ATTR_CACHE)
 
 #define MVPP22_AXI_ATTR_QOS_OFFS		4
 #define MVPP22_AXI_ATTR_QOS_SIZE		4
-#define MVPP22_AXI_ATTR_QOS_MASK	AUTO_MASK(MVPP22_AXI_ATTR_QOS)
+#define MVPP22_AXI_ATTR_QOS_MASK		AUTO_MASK(MVPP22_AXI_ATTR_QOS)
 
 #define MVPP22_AXI_ATTR_TC_OFFS			8
 #define MVPP22_AXI_ATTR_TC_SIZE			4
-#define MVPP22_AXI_ATTR_TC_MASK		AUTO_MASK(MVPP22_AXI_ATTR_TC)
+#define MVPP22_AXI_ATTR_TC_MASK			AUTO_MASK(MVPP22_AXI_ATTR_TC)
 
 #define MVPP22_AXI_ATTR_DOMAIN_OFFS		12
 #define MVPP22_AXI_ATTR_DOMAIN_SIZE		2
-#define MVPP22_AXI_ATTR_DOMAIN_MASK	AUTO_MASK(MVPP22_AXI_ATTR_DOMAIN)
+#define MVPP22_AXI_ATTR_DOMAIN_MASK		AUTO_MASK(MVPP22_AXI_ATTR_DOMAIN)
 
-#define MVPP22_AXI_ATTR_NON_CACHE	((0x3<<MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
-					 (0x3<<MVPP22_AXI_ATTR_CACHE_OFFS))
+#define MVPP22_AXI_ATTR_NON_CACHE		((0x3 << MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
+						(0x3 << MVPP22_AXI_ATTR_CACHE_OFFS))
 
-#define MVPP22_AXI_ATTR_SW_COH_WRITE	((0x0<<MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
-					 (0x7<<MVPP22_AXI_ATTR_CACHE_OFFS))
+#define MVPP22_AXI_ATTR_SW_COH_WRITE		((0x0 << MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
+						(0x7 << MVPP22_AXI_ATTR_CACHE_OFFS))
 
-#define MVPP22_AXI_ATTR_SW_COH_READ	((0x0<<MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
-					 (0xB<<MVPP22_AXI_ATTR_CACHE_OFFS))
+#define MVPP22_AXI_ATTR_SW_COH_READ		((0x0 << MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
+						(0xB << MVPP22_AXI_ATTR_CACHE_OFFS))
 
+#define MVPP22_AXI_ATTR_HW_COH_WRITE		((0x2 << MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
+						(0x7 << MVPP22_AXI_ATTR_CACHE_OFFS))
 
-#define MVPP22_AXI_ATTR_HW_COH_WRITE	((0x2<<MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
-					 (0x7<<MVPP22_AXI_ATTR_CACHE_OFFS))
-
-#define MVPP22_AXI_ATTR_HW_COH_READ	((0x2<<MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
-					 (0xB<<MVPP22_AXI_ATTR_CACHE_OFFS))
-
-
-
+#define MVPP22_AXI_ATTR_HW_COH_READ		((0x2 << MVPP22_AXI_ATTR_DOMAIN_OFFS) + \
+						(0xB << MVPP22_AXI_ATTR_CACHE_OFFS))
 
 #define MVPP22_AXI_ATTR_SNOOP_CNTRL_BIT		BIT(16)
-
 
 #define MVPP22_AXI_RD_NORMAL_CODE_REG		0x4150
 #define MVPP22_AXI_RD_SNOOP_CODE_REG		0x4154
@@ -163,25 +158,21 @@
 #define MVPP22_AXI_WR_SNOOP_CODE_REG		0x4164
 #define MVPP22_AXI_WR_DEP_CODE_REG		0x4168
 
-
 #define MVPP22_AXI_CODE_CACHE_OFFS		0
 #define MVPP22_AXI_CODE_CACHE_SIZE		4
-#define MVPP22_AXI_CODE_CACHE_MASK	AUTO_MASK(MVPP22_AXI_CODE_CACHE)
+#define MVPP22_AXI_CODE_CACHE_MASK		AUTO_MASK(MVPP22_AXI_CODE_CACHE)
 
 #define MVPP22_AXI_CODE_CACHE_NON_CACHE		0x3
 #define MVPP22_AXI_CODE_CACHE_RD_CACHE		0xB
 #define MVPP22_AXI_CODE_CACHE_WR_CACHE		0x7
 
-
 #define MVPP22_AXI_CODE_DOMAIN_OFFS		4
 #define MVPP22_AXI_CODE_DOMAIN_SIZE		2
-#define MVPP22_AXI_CODE_DOMAIN_MASK	AUTO_MASK(MVPP22_AXI_CODE_DOMAIN)
+#define MVPP22_AXI_CODE_DOMAIN_MASK		AUTO_MASK(MVPP22_AXI_CODE_DOMAIN)
 
 #define MVPP22_AXI_CODE_DOMAIN_OUTER_DOM	2
 #define MVPP22_AXI_CODE_DOMAIN_SYSTEM		3
 #define MVPP22_AXI_CODE_DOMAIN_NON_SHARE	0
-
-
 
 /* Parser Registers */
 #define MVPP2_PRS_INIT_LOOKUP_REG		0x1000
@@ -193,7 +184,7 @@
 #define MVPP2_PRS_INIT_OFF_MASK(port)		(0x3f << (((port) % 4) * 8))
 #define MVPP2_PRS_INIT_OFF_VAL(port, val)	((val) << (((port) % 4) * 8))
 #define MVPP2_PRS_INIT_OFF_BITS			6
-#define MVPP2_PRS_INIT_OFF_MAX		((1 << MVPP2_PRS_INIT_OFF_BITS) - 1)
+#define MVPP2_PRS_INIT_OFF_MAX			((1 << MVPP2_PRS_INIT_OFF_BITS) - 1)
 #define MVPP2_PRS_MAX_LOOP_REG(port)		(0x100c + ((port) & 4))
 #define MVPP2_PRS_MAX_LOOP_MASK(port)		(0xff << (((port) % 4) * 8))
 #define MVPP2_PRS_MAX_LOOP_VAL(port, val)	((val) << (((port) % 4) * 8))
@@ -221,8 +212,8 @@
 #define MVPP2_PRS_TCAM_HIT_CNT_BITS		16
 #define MVPP2_PRS_TCAM_HIT_CNT_OFFS		0
 #define MVPP2_PRS_TCAM_HIT_CNT_MASK		\
-				(((1 << MVPP2_PRS_TCAM_HIT_CNT_BITS) - 1) << \
-				MVPP2_PRS_TCAM_HIT_CNT_OFFS)
+						(((1 << MVPP2_PRS_TCAM_HIT_CNT_BITS) - 1) << \
+						MVPP2_PRS_TCAM_HIT_CNT_OFFS)
 
 /* Classifier Registers */
 #define MVPP2_CLS_MODE_REG			0x1800
@@ -246,16 +237,15 @@
 #define MVPP2_CLS_FLOW_TBL1_REG			0x1828
 #define MVPP2_CLS_FLOW_TBL2_REG			0x182c
 
-
 #define MVPP2_CLS_PORT_SPID_REG			0x1830
 
 #define MVPP2_CLS_PORT_SPID_BITS		2
 #define MVPP2_CLS_PORT_SPID_MAX			\
-					((1 << MVPP2_CLS_PORT_SPID_BITS) - 1)
+						((1 << MVPP2_CLS_PORT_SPID_BITS) - 1)
 #define MVPP2_CLS_PORT_SPID_MASK(port)		((MVPP2_CLS_PORT_SPID_MAX) << \
-					((port) * MVPP2_CLS_PORT_SPID_BITS))
+						((port) * MVPP2_CLS_PORT_SPID_BITS))
 #define MVPP2_CLS_PORT_SPID_VAL(port, val)	((val) << \
-					((port) * MVPP2_CLS_PORT_SPID_BITS))
+						((port) * MVPP2_CLS_PORT_SPID_BITS))
 
 /* PORT - SPID types */
 #define MVPP2_PORT_SPID_MH			0
@@ -277,15 +267,15 @@
 #define MVPP2_CLS_SPID_UNI_OFFS(spid)		(((spid) % 8) * \
 						MVPP2_CLS_SPID_UNI_FIXED_BITS)
 #define MVPP2_CLS_SPID_UNI_MASK(spid)		((MVPP2_CLS_SPID_UNI_MAX) << \
-					(MVPP2_CLS_SPID_UNI_OFFS(spid)))
+						(MVPP2_CLS_SPID_UNI_OFFS(spid)))
 #define MVPP2_CLS_SPID_UNI_VAL(spid, val)	((val) << \
-					(MVPP2_CLS_SPID_UNI_OFFS(spid)))
+						(MVPP2_CLS_SPID_UNI_OFFS(spid)))
 
 /*----------------------------------------------------------------------*/
 #define MVPP2_CLS_GEM_VIRT_INDEX_REG		0x1A00
 #define MVPP2_CLS_GEM_VIRT_INDEX_BITS		(7)
 #define MVPP2_CLS_GEM_VIRT_INDEX_MAX		(((1 << \
-				MVPP2_CLS_GEM_VIRT_INDEX_BITS) - 1) << 0)
+						MVPP2_CLS_GEM_VIRT_INDEX_BITS) - 1) << 0)
 
 /*----------------------------------------------------------------------*/
 
@@ -395,7 +385,7 @@
 /* Flow counters index */
 #define MVPP2_CNT_IDX_FLOW(index)		(index)
 /* TX counters index */
-#define MVPP2_CNT_IDX_TX(port, txq)		(((16+port) << 3) | (txq))
+#define MVPP2_CNT_IDX_TX(port, txq)		(((16 + port) << 3) | (txq))
 
 #define MVPP2_TX_DESC_ENQ_REG			0x7100
 #define MVPP2_TX_DESC_ENQ_TO_DRAM_REG		0x7104
@@ -646,7 +636,7 @@
 #define MVPP2_CLS3_HASH_OP_TBL_ADDR_MASK	\
 	((MVPP2_CLS3_HASH_OP_TBL_ADDR_MAX) << MVPP2_CLS3_HASH_OP_TBL_ADDR)
 #define MVPP2_CLS3_MISS_PTR			12
-#define MVPP2_CLS3_MISS_PTR_MASK		(1 << MVPP2_CLS3_MISS_PTR)
+#define MVPP2_CLS3_MISS_PTR_MASK		BIT(MVPP2_CLS3_MISS_PTR)
 #define MVPP2_CLS3_HASH_OP_DEL			14
 #define MVPP2_CLS3_HASH_OP_ADD			15
 #define MVPP2_CLS3_HASH_OP_EXT_TBL_ADDR		16
@@ -665,7 +655,7 @@
 #define MVPP2_CLS3_STATE_CLEAR_CTR_DONE_MASK	(1 << \
 					MVPP2_CLS3_STATE_CLEAR_CTR_DONE)
 #define MVPP2_CLS3_STATE_SC_DONE		2
-#define MVPP2_CLS3_STATE_SC_DONE_MASK		(1 << MVPP2_CLS3_STATE_SC_DONE)
+#define MVPP2_CLS3_STATE_SC_DONE_MASK		BIT(MVPP2_CLS3_STATE_SC_DONE)
 #define MVPP2_CLS3_STATE_OCCIPIED		8
 #define MVPP2_CLS3_STATE_OCCIPIED_BITS		8
 #define MVPP2_CLS3_STATE_OCCIPIED_MASK		(((1 << \
@@ -691,7 +681,7 @@
 
 #define MVPP2_CLS3_DB_INDEX_REG			0x1C90
 #define MVPP2_CLS3_DB_MISS_OFFS			12
-#define MVPP2_CLS3_DB_MISS_MASK			(1 << MVPP2_CLS3_DB_MISS_OFFS)
+#define MVPP2_CLS3_DB_MISS_MASK			BIT(MVPP2_CLS3_DB_MISS_OFFS)
 
 						/* 0-3 valid val*/
 #define MVPP2_CLS3_HASH_DATA_REG(num)		(0x1CA0 + 4 * (num))
@@ -794,7 +784,7 @@
 #define MVPP2_CLS3_ACT_POLICER_SELECT_MASK	(((1 << MVPP2_CLS3_ACT_POLICER_SELECT_BITS) \
 						- 1) << MVPP2_CLS3_ACT_POLICER_SELECT)
 #define MVPP2_CLS3_ACT_FLOW_ID_EN		18
-#define MVPP2_CLS3_ACT_FLOW_ID_EN_MASK		(1 << MVPP2_CLS3_ACT_FLOW_ID_EN)
+#define MVPP2_CLS3_ACT_FLOW_ID_EN_MASK		BIT(MVPP2_CLS3_ACT_FLOW_ID_EN)
 #define MVPP2_CLS3_ACT_RSS_EN			19
 #define MVPP2_CLS3_ACT_RSS_EN_BITS		2
 #define MVPP2_CLS3_ACT_RSS_EN_MASK		(((1 << MVPP2_CLS3_ACT_RSS_EN_BITS) \
@@ -828,7 +818,7 @@
 #define	MVPP2_CLS3_ACT_HWF_ATTR_IPTR_MAX	((1 << MVPP2_CLS3_ACT_HWF_ATTR_IPTR_BITS) - 1)
 
 #define	MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN	24
-#define	MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN_MASK	(1 << MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN)
+#define	MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN_MASK	BIT(MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN)
 
 #define MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX		25
 #define MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_BITS	4
@@ -856,10 +846,10 @@
 #define MVPP2_CLS3_ACT_DUP_POLICER_MAX		((1 << MVPP2_CLS3_ACT_DUP_POLICER_ID_BITS) - 1)
 
 #define MVPP2_CLS3_ACT_DUP_POLICER_BANK_BIT	29
-#define MVPP2_CLS3_ACT_DUP_POLICER_BANK_MASK	(1 << MVPP2_CLS3_ACT_DUP_POLICER_BANK_BIT)
+#define MVPP2_CLS3_ACT_DUP_POLICER_BANK_MASK	BIT(MVPP2_CLS3_ACT_DUP_POLICER_BANK_BIT)
 
 #define MVPP2_CLS3_ACT_DUP_RSS_EN_BIT		30
-#define MVPP2_CLS3_ACT_DUP_RSS_EN_MASK		(1 << MVPP2_CLS3_ACT_DUP_RSS_EN_BIT)
+#define MVPP2_CLS3_ACT_DUP_RSS_EN_MASK		BIT(MVPP2_CLS3_ACT_DUP_RSS_EN_BIT)
 
 #define MVPP2_CLS3_ACT_SEQ_L_ATTR_REG		0x1D50
 #define MVPP2_CLS3_ACT_SEQ_H_ATTR_REG		0x1D54
@@ -916,7 +906,7 @@
 #define MVPP21_TXQ_SENT_REG(txq)		(0x3c00 + 4 * (txq))
 #define MVPP21_TRANSMITTED_COUNT_OFFSET		16
 #define MVPP21_TRANSMITTED_COUNT_MASK		0x3fff0000
-#define MVPP22_TXQ_SENT_REG(txq)		(0x3e00 + 4 * (txq-128))
+#define MVPP22_TXQ_SENT_REG(txq)		(0x3e00 + 4 * (txq - 128))
 #define MVPP22_TRANSMITTED_COUNT_OFFSET		16
 #define MVPP22_TRANSMITTED_COUNT_MASK		0x3fff0000
 
@@ -1134,7 +1124,6 @@
 #define MVPP2_BM_QSET_MAX_GRNTD_MASK		(0xffff << \
 					MVPP2_BM_QSET_MAX_GRNTD_OFFS)
 
-
 #define MVPP2_BM_QSET_SET_CNTRS_REG		0x6824
 
 /* TX Scheduler registers */
@@ -1205,7 +1194,6 @@
 #define MVPP2_TX_BAD_FCS_CNTR_REG(eth_tx_port)	(0x8940 + ((eth_tx_port) << 2))
 						/* Same for PPv21/PPv22 */
 #define MVPP2_TX_DROP_CNTR_REG(eth_tx_port)	(0x8980 + ((eth_tx_port) << 2))
-
 
 #define MVPP2_TX_ETH_DSEC_THRESH_REG(eth_tx_port)(0x8a40 + \
 					((eth_tx_port) << 2))
@@ -1302,7 +1290,7 @@
 #define MVPP2_RXQ_TOTAL_NUM		(MVPP2_MAX_PORTS * MVPP2_MAX_RXQ)
 
 #define MVPP2_TXQ_TOTAL_NUM		(128/*pon*/ + \
-					MVPP2_MAX_PORTS*MVPP2_MAX_TXQ/*eth*/)
+					MVPP2_MAX_PORTS * MVPP2_MAX_TXQ/*eth*/)
 
 /* Max number of Rx descriptors */
 #define MVPP2_MAX_RXD			1024
@@ -1354,18 +1342,16 @@
 #define MVPP2_MRU_BUF_SIZE(mru)		(MVPP2_MRU_PKT_SIZE(mru) + PP2_PACKET_OFFSET)
 #define MVPP2_MTU_BUF_SIZE(mtu)		(MVPP2_MTU_PKT_SIZE(mtu) + PP2_PACKET_OFFSET)
 
-
 #define MVPP2_RX_MTU_SIZE(pkt_size) \
 	(pkt_size - PP2_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
 	 ETH_HLEN - ETH_FCS_LEN)
-
 
 /* IPv6 max L3 address size */
 #define MVPP2_MAX_L3_ADDR_SIZE		16
 
 /* Port flags */
 #define MVPP2_F_LOOPBACK		BIT(0)
-#define MVPP2_F_IFCAP_NETMAP    	BIT(1)
+#define MVPP2_F_IFCAP_NETMAP	BIT(1)
 
 /* Marvell tag types */
 enum mv_pp2x_tag_type {
@@ -1580,7 +1566,7 @@ enum mv_pp2x_tag_type {
 			MVPP2_FLOWID_FLOW_BITS) - 1) << MVPP2_FLOWID_FLOW)
 
 #define MVPP2_FLOWID_EN			25 /*one bit */
-#define MVPP2_FLOWID_EN_MASK		(1 << MVPP2_FLOWID_EN)
+#define MVPP2_FLOWID_EN_MASK		BIT(MVPP2_FLOWID_EN)
 
 /* flow table structure */
 #define MVPP2_FLOW_TBL_SIZE		512
@@ -1631,7 +1617,7 @@ enum mv_pp2x_tag_type {
 #define MVPP2_FLOW_UDF7_MAX		((1 << MVPP2_FLOW_UDF7_BITS) - 1)
 
 #define MVPP2_FLOW_PORT_ID_SEL		23
-#define MVPP2_FLOW_PORT_ID_SEL_MASK	(1 << MVPP2_FLOW_PORT_ID_SEL)
+#define MVPP2_FLOW_PORT_ID_SEL_MASK	BIT(MVPP2_FLOW_PORT_ID_SEL)
 
 /*-----------------------  DWORD 1  ------------------------------------ */
 
@@ -1810,14 +1796,13 @@ enum mv_pp2x_rss_hash_mode {
 	MVPP2_RSS_HASH_5T,
 };
 
-
 struct mv_pp2x_prs_result_info {
-	uint32_t ri;
-	uint32_t ri_mask;
+	u32 ri;
+	u32 ri_mask;
 };
 
 struct mv_pp2x_prs_flow_id {
-	uint32_t flow_id;
+	u32 flow_id;
 	struct mv_pp2x_prs_result_info prs_result;
 };
 
@@ -1838,7 +1823,6 @@ struct mv_pp2x_prs_flow_id {
  */
 
 #define MVPP2_BM_JUMBO_FRAME_SIZE		10240
-
 
 /* The mv_pp2x_tx_desc and mv_pp2x_rx_desc structures describe the
  * layout of the transmit and reception DMA descriptors, and their
@@ -1881,7 +1865,7 @@ struct mv_pp2x_prs_flow_id {
 #define MVPP2_RXD_CPU_CODE_MASK		(((1 << \
 		MVPP2_RXD_CPU_CODE_BITS) - 1) << MVPP2_RXD_CPU_CODE_OFFS)
 #define MVPP2_RXD_PPPOE_BIT		9
-#define MVPP2_RXD_PPPOE_MASK		(1 << MVPP2_RXD_PPPOE_BIT)
+#define MVPP2_RXD_PPPOE_MASK		BIT(MVPP2_RXD_PPPOE_BIT)
 #define MVPP2_RXD_L3_CAST_OFFS		10
 #define MVPP2_RXD_L3_CAST_BITS		2
 #define MVPP2_RXD_L3_CAST_MASK		(((1 << \
@@ -1905,15 +1889,15 @@ struct mv_pp2x_prs_flow_id {
 #define MVPP2_RXD_IP_HLEN_OFFS		8
 #define MVPP2_RXD_IP_HLEN_MASK		(0x1F << MVPP2_RXD_IP_HLEN_OFFS)
 #define MVPP2_RXD_ES_BIT		15
-#define MVPP2_RXD_ES_MASK		(1 << MVPP2_RXD_ES_BIT)
+#define MVPP2_RXD_ES_MASK		BIT(MVPP2_RXD_ES_BIT)
 #define MVPP2_RXD_HWF_SYNC_BIT		21
-#define MVPP2_RXD_HWF_SYNC_MASK		(1 << MVPP2_RXD_HWF_SYNC_BIT)
+#define MVPP2_RXD_HWF_SYNC_MASK		BIT(MVPP2_RXD_HWF_SYNC_BIT)
 #define MVPP2_RXD_L4_CHK_OK_BIT		22
-#define MVPP2_RXD_L4_CHK_OK_MASK	(1 << MVPP2_RXD_L4_CHK_OK_BIT)
+#define MVPP2_RXD_L4_CHK_OK_MASK	BIT(MVPP2_RXD_L4_CHK_OK_BIT)
 #define MVPP2_RXD_IP_FRAG_BIT		23
-#define MVPP2_RXD_IP_FRAG_MASK		(1 << MVPP2_RXD_IP_FRAG_BIT)
+#define MVPP2_RXD_IP_FRAG_MASK		BIT(MVPP2_RXD_IP_FRAG_BIT)
 #define MVPP2_RXD_IP4_HEADER_ERR_BIT	24
-#define MVPP2_RXD_IP4_HEADER_ERR_MASK	(1 << MVPP2_RXD_IP4_HEADER_ERR_BIT)
+#define MVPP2_RXD_IP4_HEADER_ERR_MASK	BIT(MVPP2_RXD_IP4_HEADER_ERR_BIT)
 #define MVPP2_RXD_L4_OFFS		25
 #define MVPP2_RXD_L4_MASK		(7 << MVPP2_RXD_L4_OFFS)
 /* Value 0 - N/A, 3-7 - User Defined */
@@ -1924,7 +1908,7 @@ struct mv_pp2x_prs_flow_id {
 #define MVPP2_RXD_L3_IP4_OTHER		(3 << MVPP2_RXD_L3_OFFS)
 #define MVPP2_RXD_L3_IP6_EXT		(5 << MVPP2_RXD_L3_OFFS)
 #define MVPP2_RXD_BUF_HDR_BIT		31
-#define MVPP2_RXD_BUF_HDR_MASK		(1 << MVPP2_RXD_BUF_HDR_BIT)
+#define MVPP2_RXD_BUF_HDR_MASK		BIT(MVPP2_RXD_BUF_HDR_BIT)
 /* status field MACROs */
 #define MVPP2_RXD_L3_IS_IP4(status)		(((status) & \
 				MVPP2_RXD_L3_MASK) == MVPP2_RXD_L3_IP4)
@@ -1948,16 +1932,16 @@ struct mv_pp2x_prs_flow_id {
 				MVPP2_RXD_L4_CHK_OK_MASK)
 
 struct pp21_specific_tx_desc {
-	uint32_t buf_phys_addr;	/* physical addr of transmitted buffer	*/
-	uint32_t buf_cookie;	/* cookie for access to TX buffer in tx path */
-	uint32_t rsrvd_hw_cmd[3];	/* hw_cmd (for future use, BM, PON, PNC) */
-	uint32_t rsrvd1;		/* reserved (for future use)		*/
+	u32 buf_phys_addr;	/* physical addr of transmitted buffer	*/
+	u32 buf_cookie;	/* cookie for access to TX buffer in tx path */
+	u32 rsrvd_hw_cmd[3];	/* hw_cmd (for future use, BM, PON, PNC) */
+	u32 rsrvd1;		/* reserved (for future use)		*/
 };
 
 struct pp22_specific_tx_desc {
-	uint64_t rsrvd_hw_cmd1;	/* hw_cmd (BM, PON, PNC) */
-	uint64_t buf_phys_addr_hw_cmd2;
-	uint64_t buf_cookie_bm_qset_hw_cmd3;
+	u64 rsrvd_hw_cmd1;	/* hw_cmd (BM, PON, PNC) */
+	u64 buf_phys_addr_hw_cmd2;
+	u64 buf_cookie_bm_qset_hw_cmd3;
 		/* cookie for access to RX buffer in rx path */
 		/* cookie for access to RX buffer in rx path */
 		/* bm_qset (for future use, BM)		*/
@@ -1970,30 +1954,31 @@ union pp2x_specific_tx_desc {
 };
 
 struct mv_pp2x_tx_desc {
-	uint32_t command;		/* Options used by HW for packet xmitting */
-	uint8_t  packet_offset;	/* the offset from the buffer beginning	*/
-	uint8_t  phys_txq;		/* destination queue ID			*/
-	uint16_t data_size;		/* data size of transmitted packet in bytes */
+	u32 command;		/* Options used by HW for packet xmitting */
+	u8  packet_offset;	/* the offset from the buffer beginning	*/
+	u8  phys_txq;		/* destination queue ID			*/
+	u16 data_size;		/* data size of transmitted packet in bytes */
 	union pp2x_specific_tx_desc u;
 };
 
 struct pp21_specific_rx_desc {
-	uint32_t buf_phys_addr;	/* physical address of the buffer */
-	uint32_t buf_cookie;	/* cookie for access to RX buffer in rx path */
-	uint16_t rsrvd_gem;		/* gem_port_id (for future use, PON) */
-	uint16_t rsrvd_l4csum;	/* csum_l4 (for future use, PnC) */
-	uint8_t  rsrvd_bm_qset;	/* bm_qset (for future use, BM) */
-	uint8_t  rsrvd1;
-	uint16_t rsrvd_cls_info;	/* classify_info (for future use, PnC)	*/
-	uint32_t rsrvd_flow_id;	/* flow_id (for future use, PnC) */
-	uint32_t rsrvd_abs;
+	u32 buf_phys_addr;	/* physical address of the buffer */
+	u32 buf_cookie;	/* cookie for access to RX buffer in rx path */
+	u16 rsrvd_gem;		/* gem_port_id (for future use, PON) */
+	u16 rsrvd_l4csum;	/* csum_l4 (for future use, PnC) */
+	u8  rsrvd_bm_qset;	/* bm_qset (for future use, BM) */
+	u8  rsrvd1;
+	u16 rsrvd_cls_info;	/* classify_info (for future use, PnC)	*/
+	u32 rsrvd_flow_id;	/* flow_id (for future use, PnC) */
+	u32 rsrvd_abs;
 };
+
 struct pp22_specific_rx_desc {
-	uint16_t rsrvd_gem;		/* gem_port_id (for future use, PON)	*/
-	uint16_t rsrvd_l4csum;	/* csum_l4 (for future use, PnC)	*/
-	uint32_t rsrvd_timestamp;
-	uint64_t buf_phys_addr_key_hash;
-	uint64_t buf_cookie_bm_qset_cls_info;
+	u16 rsrvd_gem;		/* gem_port_id (for future use, PON)	*/
+	u16 rsrvd_l4csum;	/* csum_l4 (for future use, PnC)	*/
+	u32 rsrvd_timestamp;
+	u64 buf_phys_addr_key_hash;
+	u64 buf_cookie_bm_qset_cls_info;
 	/* cookie for access to RX buffer in rx path */
 	/* bm_qset (for future use, BM)		*/
 	/* classify_info (for future use, PnC)	*/
@@ -2005,31 +1990,31 @@ union pp2x_specific_rx_desc {
 };
 
 struct mv_pp2x_rx_desc {
-	uint32_t status;		/* info about received packet */
-	uint16_t rsrvd_parser;	/* parser_info (for future use, PnC)	*/
-	uint16_t data_size;		/* size of received packet in bytes	*/
+	u32 status;		/* info about received packet */
+	u16 rsrvd_parser;	/* parser_info (for future use, PnC)	*/
+	u16 data_size;		/* size of received packet in bytes	*/
 	union pp2x_specific_rx_desc u;
 };
 
 union mv_pp2x_prs_tcam_entry {
-	uint32_t word[MVPP2_PRS_TCAM_WORDS];
-	uint8_t  byte[MVPP2_PRS_TCAM_WORDS * 4];
+	u32 word[MVPP2_PRS_TCAM_WORDS];
+	u8  byte[MVPP2_PRS_TCAM_WORDS * 4];
 };
 
 union mv_pp2x_prs_sram_entry {
-	uint32_t word[MVPP2_PRS_SRAM_WORDS];
-	uint8_t  byte[MVPP2_PRS_SRAM_WORDS * 4];
+	u32 word[MVPP2_PRS_SRAM_WORDS];
+	u8  byte[MVPP2_PRS_SRAM_WORDS * 4];
 };
 
 struct mv_pp2x_prs_entry {
-	uint32_t index;
+	u32 index;
 	union mv_pp2x_prs_tcam_entry tcam;
 	union mv_pp2x_prs_sram_entry sram;
 };
 
 struct mv_pp2x_prs_shadow {
-	uint32_t valid;
-	uint32_t finish;
+	u32 valid;
+	u32 finish;
 
 	/* Lookup ID */
 	int lu;
@@ -2038,35 +2023,35 @@ struct mv_pp2x_prs_shadow {
 	int udf;
 
 	/* Result info */
-	uint32_t ri;
-	uint32_t ri_mask;
+	u32 ri;
+	u32 ri_mask;
 };
 
 struct mv_pp2x_cls_flow_entry {
-	uint32_t index;
-	uint32_t data[MVPP2_CLS_FLOWS_TBL_DATA_WORDS];
+	u32 index;
+	u32 data[MVPP2_CLS_FLOWS_TBL_DATA_WORDS];
 };
 
 struct mv_pp2x_cls_lookup_entry {
-	uint32_t lkpid;
-	uint32_t way;
-	uint32_t data;
+	u32 lkpid;
+	u32 way;
+	u32 data;
 };
 
 struct mv_pp2x_cls_flow_info {
-	uint32_t lkpid;
+	u32 lkpid;
 	/* The flow table entry index of CoS default rule */
-	uint32_t flow_entry_dflt;
+	u32 flow_entry_dflt;
 	/* The flow table entry index of CoS VLAN rule */
-	uint32_t flow_entry_vlan;
+	u32 flow_entry_vlan;
 	/* The flow table entry index of CoS DSCP rule */
-	uint32_t flow_entry_dscp;
+	u32 flow_entry_dscp;
 	/* The flow table entry index of RSS rule */
-	uint32_t flow_entry_rss1;
+	u32 flow_entry_rss1;
 	/* The flow table entry index of RSS rule for UDP packet to
 	 * update hash mode
 	 */
-	uint32_t flow_entry_rss2;
+	u32 flow_entry_rss2;
 };
 
 /* The flow entry could become lkp pointer in lookup table */
@@ -2079,7 +2064,7 @@ enum mv_pp2x_cls_lkp_ptr_candidate {
 
 struct mv_pp2x_cls_shadow {
 	struct mv_pp2x_cls_flow_info *flow_info;
-	uint32_t flow_free_start; /* The start of free entry index in flow table */
+	u32 flow_free_start; /* The start of free entry index in flow table */
 	/* TODO: does need a spin_lock for flow_free_start? */
 };
 
@@ -2104,21 +2089,21 @@ struct mv_pp2x_cls_shadow {
 #define MVPP2_CLS_C2_QOS_PRIO_TBL_NUM		64
 
 struct mv_pp2x_cls_c2_entry {
-	uint32_t          index;
-	uint32_t         inv;
+	u32          index;
+	u32         inv;
 	union {
-		uint32_t	words[MVPP2_CLS_C2_TCAM_WORDS];
-		uint8_t	bytes[MVPP2_CLS_C2_TCAM_WORDS * 4];
+		u32	words[MVPP2_CLS_C2_TCAM_WORDS];
+		u8	bytes[MVPP2_CLS_C2_TCAM_WORDS * 4];
 	} tcam;
 	union {
-		uint32_t	words[MVPP2_CLS_C2_SRAM_WORDS];
+		u32	words[MVPP2_CLS_C2_SRAM_WORDS];
 		struct {
-			uint32_t action_tbl; /* 0x1B30 */
-			uint32_t actions;    /* 0x1B60 */
-			uint32_t qos_attr;   /* 0x1B64*/
-			uint32_t hwf_attr;   /* 0x1B68 */
-			uint32_t rss_attr;   /* 0x1B6C */
-			uint32_t seq_attr;   /* 0x1B70 */
+			u32 action_tbl; /* 0x1B30 */
+			u32 actions;    /* 0x1B60 */
+			u32 qos_attr;   /* 0x1B64*/
+			u32 hwf_attr;   /* 0x1B68 */
+			u32 rss_attr;   /* 0x1B6C */
+			u32 seq_attr;   /* 0x1B70 */
 		} regs;
 	} sram;
 };
@@ -2138,10 +2123,10 @@ enum mv_pp2x_cls2_hek_offs {
 };
 
 struct mv_pp2x_cls_c2_qos_entry {
-	uint32_t tbl_id;
-	uint32_t tbl_sel;
-	uint32_t tbl_line;
-	uint32_t data;
+	u32 tbl_id;
+	u32 tbl_sel;
+	u32 tbl_line;
+	u32 data;
 };
 
 enum mv_pp2x_src_port_type {
@@ -2153,8 +2138,8 @@ enum mv_pp2x_src_port_type {
 
 struct mv_pp2x_src_port {
 	enum mv_pp2x_src_port_type	port_type;
-	uint32_t				port_value;
-	uint32_t				port_mask;
+	u32				port_value;
+	u32				port_mask;
 };
 
 enum mv_pp2x_qos_tbl_sel {
@@ -2171,9 +2156,9 @@ struct mv_pp2x_engine_qos_info {
 	/* dscp pri table or none */
 	enum mv_pp2x_qos_tbl_sel	qos_tbl_type;
 	/* dscp or pri table index */
-	uint32_t				qos_tbl_index;
+	u32				qos_tbl_index;
 	/* policer id, 0xffff do not assign policer */
-	uint16_t				policer_id;
+	u16				policer_id;
 	/* pri/dscp comes from qos or act tbl */
 	enum mv_pp2x_qos_src_tbl	pri_dscp_src;
 	/* gemport comes from qos or act tbl */
@@ -2253,33 +2238,33 @@ struct mv_pp2x_engine_pkt_action {
 };
 
 struct mv_pp2x_qos_value {
-	uint16_t		pri;
-	uint16_t		dscp;
-	uint16_t		gemp;
-	uint16_t		q_low;
-	uint16_t		q_high;
+	u16		pri;
+	u16		dscp;
+	u16		gemp;
+	u16		q_low;
+	u16		q_high;
 };
 
 struct mv_pp2x_engine_pkt_mod {
-	uint32_t		mod_cmd_idx;
-	uint32_t		mod_data_idx;
-	uint32_t		l4_chksum_update_flag;
+	u32		mod_cmd_idx;
+	u32		mod_data_idx;
+	u32		l4_chksum_update_flag;
 };
 
 struct mv_pp2x_duplicate_info {
 	/* pkt duplication flow id */
-	uint32_t		flow_id;
+	u32		flow_id;
 	/* pkt duplication count */
-	uint32_t		flow_cnt;
+	u32		flow_cnt;
 };
 
 /* The logic C2 entry, easy to understand and use */
 struct mv_pp2x_c2_add_entry {
 	struct mv_pp2x_src_port		port;
-	uint8_t				lkp_type;
-	uint8_t				lkp_type_mask;
+	u8				lkp_type;
+	u8				lkp_type_mask;
 	/* priority in this look_type */
-	uint32_t			priority;
+	u32			priority;
 	/* all the qos input */
 	struct mv_pp2x_engine_qos_info	qos_info;
 	/* update&lock info */
@@ -2296,11 +2281,11 @@ struct mv_pp2x_c2_add_entry {
 
 struct mv_pp2x_c2_rule_idx {
 	/* The TCAM rule index for VLAN pri check with QoS pbit table */
-	uint32_t vlan_pri_idx;
+	u32 vlan_pri_idx;
 	/* The TCAM rule index for DSCP check with QoS dscp table */
-	uint32_t dscp_pri_idx;
+	u32 dscp_pri_idx;
 	/* The default rule for flow untagged and non-IP */
-	uint32_t default_rule_idx;
+	u32 default_rule_idx;
 };
 
 struct mv_pp2x_c2_shadow {
@@ -2310,11 +2295,11 @@ struct mv_pp2x_c2_shadow {
 };
 
 struct mv_pp2x_buff_hdr {
-	uint32_t next_buff_phys_addr;
-	uint32_t next_buff_virt_addr;
-	uint16_t byte_count;
-	uint16_t info;
-	uint8_t  reserved1;		/* bm_qset (for future use, BM) */
+	u32 next_buff_phys_addr;
+	u32 next_buff_virt_addr;
+	u16 byte_count;
+	u16 info;
+	u8  reserved1;		/* bm_qset (for future use, BM) */
 };
 
 /* Buffer header info bits */
@@ -2324,7 +2309,6 @@ struct mv_pp2x_buff_hdr {
 #define MVPP2_B_HDR_INFO_LAST_MASK	BIT(12)
 #define MVPP2_B_HDR_INFO_IS_LAST(info) \
 	   ((info & MVPP2_B_HDR_INFO_LAST_MASK) >> MVPP2_B_HDR_INFO_LAST_OFFS)
-
 
 /* Macroes */
 #define MVPP2_RX_DESC_POOL(rx_desc)	((rx_desc->status & \
@@ -2343,16 +2327,16 @@ enum mv_pp2_rss_hash_select {
 
 /* Structure dexcribe RXQ and corresponding rss table */
 struct mv_pp22_rss_tbl_ptr {
-	uint8_t rxq_idx;
-	uint8_t rss_tbl_ptr;
+	u8 rxq_idx;
+	u8 rss_tbl_ptr;
 };
 
 /* Normal RSS entry */
 struct mv_pp22_rss_tbl_entry {
-	uint8_t tbl_id;
-	uint8_t tbl_line;
-	uint8_t width;
-	uint8_t rxq;
+	u8 tbl_id;
+	u8 tbl_line;
+	u8 width;
+	u8 rxq;
 };
 
 union mv_pp22_rss_access_entry {
@@ -2415,31 +2399,31 @@ struct mv_pp22_rss_entry {
 #define KEY_CTRL_HEK_SIZE_MASK			(((1 << KEY_CTRL_HEK_SIZE_BITS) - 1) << KEY_CTRL_HEK_SIZE)
 
 struct pp2_cls_c3_hash_pair {
-	uint16_t pair_num;
-	uint16_t old_idx[MVPP2_CLS_C3_MAX_SEARCH_DEPTH];
-	uint16_t new_idx[MVPP2_CLS_C3_MAX_SEARCH_DEPTH];
+	u16 pair_num;
+	u16 old_idx[MVPP2_CLS_C3_MAX_SEARCH_DEPTH];
+	u16 new_idx[MVPP2_CLS_C3_MAX_SEARCH_DEPTH];
 };
 
 struct pp2_cls_c3_entry {
-	uint32_t index;
-	uint32_t ext_index;
+	u32 index;
+	u32 ext_index;
 
 	struct {
 		union {
-			uint32_t words[MVPP2_CLS_C3_EXT_HEK_WORDS];
-			uint8_t bytes[MVPP2_CLS_C3_EXT_HEK_WORDS * 4];
+			u32 words[MVPP2_CLS_C3_EXT_HEK_WORDS];
+			u8 bytes[MVPP2_CLS_C3_EXT_HEK_WORDS * 4];
 		} hek;
-		uint32_t key_ctrl;/*0x1C10*/
+		u32 key_ctrl;/*0x1C10*/
 	} key;
 	union {
-		uint32_t words[MVPP2_CLS_C3_SRAM_WORDS];
+		u32 words[MVPP2_CLS_C3_SRAM_WORDS];
 		struct {
-			uint32_t actions;/*0x1D40*/
-			uint32_t qos_attr;/*0x1D44*/
-			uint32_t hwf_attr;/*0x1D48*/
-			uint32_t dup_attr;/*0x1D4C*/
-			uint32_t seq_l_attr;/*0x1D50*/
-			uint32_t seq_h_attr;/*0x1D54*/
+			u32 actions;/*0x1D40*/
+			u32 qos_attr;/*0x1D44*/
+			u32 hwf_attr;/*0x1D48*/
+			u32 dup_attr;/*0x1D4C*/
+			u32 seq_l_attr;/*0x1D50*/
+			u32 seq_h_attr;/*0x1D54*/
 		} regs;
 	} sram;
 };
@@ -2452,7 +2436,7 @@ struct pp2_cls_c3_shadow_hash_entry {
 };
 
 /* Classifier C4 Top Registers */
-#define MVPP2_CLS4_PHY_TO_RL_REG(port)			(0x1E00 + ((port)*4))
+#define MVPP2_CLS4_PHY_TO_RL_REG(port)			(0x1E00 + ((port) * 4))
 #define MVPP2_CLS4_PHY_TO_RL_GRP			0
 #define MVPP2_CLS4_PHY_TO_RL_GRP_BITS			3
 #define MVPP2_CLS4_PHY_TO_RL_GRP_MASK			(((1 << MVPP2_CLS4_PHY_TO_RL_GRP_BITS) - 1) << \
@@ -2462,7 +2446,7 @@ struct pp2_cls_c3_shadow_hash_entry {
 #define MVPP2_CLS4_PHY_TO_RL_RULE_NUM_MASK		(((1 << MVPP2_CLS4_PHY_TO_RL_RULE_NUM_BITS) - 1) << \
 							 MVPP2_CLS4_PHY_TO_RL_RULE_NUM)
 
-#define MVPP2_CLS4_UNI_TO_RL_REG(uni)			(0x1E20 + ((uni)*4))
+#define MVPP2_CLS4_UNI_TO_RL_REG(uni)			(0x1E20 + ((uni) * 4))
 #define MVPP2_CLS4_UNI_TO_RL_GRP			0
 #define MVPP2_CLS4_UNI_TO_RL_RULE_NUM			4
 
@@ -2496,7 +2480,7 @@ struct pp2_cls_c3_shadow_hash_entry {
 #define MVPP2_CLS4_FDATA6_REG				(0x1E6C)
 #define MVPP2_CLS4_FDATA7_REG				(0x1E70)
 #define MVPP2_CLS4_FDATA8_REG				(0x1E74)
-#define MVPP2_CLS4_FDATA_REG(reg_num)			(0x1E58 + (4*(reg_num)))
+#define MVPP2_CLS4_FDATA_REG(reg_num)			(0x1E58 + (4 * (reg_num)))
 #define MVPP2_CLS4_FDATA_REGS_NUM			8
 
 #define MVPP2_CLS4_FDATA7_L3INFO			16
@@ -2547,21 +2531,21 @@ struct pp2_cls_c3_shadow_hash_entry {
 
 /* C4 entry structure */
 struct mv_pp2x_cls_c4_entry {
-	uint32_t ruleIndex;
-	uint32_t setIndex;
+	u32 rule_index;
+	u32 set_index;
 	union {
-		uint32_t	words[MVPP2_CLS_C4_TBL_WORDS];
+		u32	words[MVPP2_CLS_C4_TBL_WORDS];
 		struct {
-			uint32_t attr[MVPP2_CLS4_FATTR_REG_NUM];
-			uint32_t fdataArr[MVPP2_CLS_C4_TBL_DATA_WORDS];
+			u32 attr[MVPP2_CLS4_FATTR_REG_NUM];
+			u32 fdata_arr[MVPP2_CLS_C4_TBL_DATA_WORDS];
 		} regs;
 	} rules;
 	union {
-		uint32_t words[MVPP2_CLS_C4_SRAM_WORDS];
+		u32 words[MVPP2_CLS_C4_SRAM_WORDS];
 		struct {
-			uint32_t actions;/* 0x1E80 */
-			uint32_t qos_attr;/* 0x1E84*/
-			uint32_t dup_attr;/* 0x1E88 */
+			u32 actions;/* 0x1E80 */
+			u32 qos_attr;/* 0x1E84*/
+			u32 dup_attr;/* 0x1E88 */
 		} regs;
 	} sram;
 };
@@ -2596,7 +2580,7 @@ struct mv_pp2x_cls_c4_entry {
 /*--------------------------------------------------------------------------*/
 #define MVPP2_PME_TTL_ZERO_FRWD_REG		(0x8640)
 #define MVPP2_PME_TTL_ZERO_FRWD_BIT		0
-#define MVPP2_PME_TTL_ZERO_FRWD_MASK		(1 << MVPP2_PME_TTL_ZERO_FRWD_BIT)
+#define MVPP2_PME_TTL_ZERO_FRWD_MASK		BIT(MVPP2_PME_TTL_ZERO_FRWD_BIT)
 /*--------------------------------------------------------------------------*/
 #define MVPP2_PME_PPPOE_ETYPE_REG		(0x8650)
 #define MVPP2_PME_PPPOE_DATA_REG		(0x8654)
@@ -2643,7 +2627,7 @@ struct mv_pp2x_cls_c4_entry {
 						 MVPP2_PME_MAX_INSTR_NUM_ALL_MASK)
 
 #define MVPP2_PME_DROP_ON_ERR_BIT		24
-#define MVPP2_PME_DROP_ON_ERR_MASK		(1 << MVPP2_PME_DROP_ON_ERR_BIT)
+#define MVPP2_PME_DROP_ON_ERR_MASK		BIT(MVPP2_PME_DROP_ON_ERR_BIT)
 /*--------------------------------------------------------------------------*/
 
 #define MVPP2_PME_STATUS_1_REG			(0x8664)
@@ -2665,13 +2649,13 @@ struct mv_pp2x_cls_c4_entry {
 #define MVPP2_PME_CMD_MASK(cmd)			((cmd) << MVPP2_PME_CMD_OFFS)
 
 #define MVPP2_PME_IP4_CSUM_BIT			21
-#define MVPP2_PME_IP4_CSUM_MASK			(1 << MVPP2_PME_IP4_CSUM_BIT)
+#define MVPP2_PME_IP4_CSUM_MASK			BIT(MVPP2_PME_IP4_CSUM_BIT)
 
 #define MVPP2_PME_L4_CSUM_BIT			22
-#define MVPP2_PME_L4_CSUM_MASK			(1 << MVPP2_PME_L4_CSUM_BIT)
+#define MVPP2_PME_L4_CSUM_MASK			BIT(MVPP2_PME_L4_CSUM_BIT)
 
 #define MVPP2_PME_LAST_BIT			23
-#define MVPP2_PME_LAST_MASK			(1 << MVPP2_PME_LAST_BIT)
+#define MVPP2_PME_LAST_MASK			BIT(MVPP2_PME_LAST_BIT)
 
 #define MVPP2_PME_CMD_TYPE_OFFS			24
 #define MVPP2_PME_CMD_TYPE_BITS			3
@@ -2725,10 +2709,11 @@ enum mv_pp2x_pme_instr {
 	MVPP2_PME_CMD_DROP_PKT = 0x1f,
 	MVPP2_TMP_CMD_LAST
 };
+
 /* PME entry structure */
 struct mv_pp2x_pme_entry {
 	int     index;
-	uint32_t	word;
+	u32	word;
 };
 
 /* MC */
@@ -2744,13 +2729,13 @@ struct mv_pp2x_pme_entry {
 #define MVPP2_MC_DATA2_GEM_ID			0
 #define MVPP2_MC_DATA2_PRI			12
 #define MVPP2_MC_DATA2_DSCP			15
-#define MVPP2_MC_DATA2_GEM_ID_EN		(1 << 21)
-#define MVPP2_MC_DATA2_PRI_EN			(1 << 22)
-#define MVPP2_MC_DATA2_DSCP_EN			(1 << 23)
+#define MVPP2_MC_DATA2_GEM_ID_EN		BIT(21)
+#define MVPP2_MC_DATA2_PRI_EN			BIT(22)
+#define MVPP2_MC_DATA2_DSCP_EN			BIT(23)
 /*------------------------------------------------------------------------------*/
 #define MVPP2_MC_DATA3_REG			(0x16C)
 #define MVPP2_MC_DATA3_QUEUE			0
-#define MVPP2_MC_DATA3_HWF_EN			(1 << 8)
+#define MVPP2_MC_DATA3_HWF_EN			BIT(8)
 #define MVPP2_MC_DATA3_NEXT			16
 #define MVPP2_MC_DATA3_NEXT_MASK		(MVPP2_MC_INDEX_MAX << MVPP2_MC_DATA3_NEXT)
 
@@ -2759,13 +2744,13 @@ struct mv_pp2x_pme_entry {
 
 /* MC entry structure */
 struct mv_pp2x_mc_entry {
-	uint32_t index;
+	u32 index;
 	union {
-		uint32_t words[MVPP2_MC_WORDS];
+		u32 words[MVPP2_MC_WORDS];
 		struct {
-			uint32_t data1;/* 0x164 */
-			uint32_t data2;/* 0x168 */
-			uint32_t data3;/* 0x16c */
+			u32 data1;/* 0x164 */
+			u32 data2;/* 0x168 */
+			u32 data3;/* 0x16c */
 		} regs;
 	} sram;
 };

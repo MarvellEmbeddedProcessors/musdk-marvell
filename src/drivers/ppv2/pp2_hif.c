@@ -50,15 +50,15 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 		return(-EPERM);
 
 	if (hif_slot >= PP2_NUM_REGSPACES) {
-		pr_err("[%s] Invalid match string!\n", __FUNCTION__);
+		pr_err("[%s] Invalid match string!\n", __func__);
 		return(-ENXIO);
 	}
-	if (pp2_ptr->init.hif_reserved_map & (1<<hif_slot)) {
-		pr_err("[%s] hif is reserved.\n", __FUNCTION__);
+	if (pp2_ptr->init.hif_reserved_map & (1 << hif_slot)) {
+		pr_err("[%s] hif is reserved.\n", __func__);
 		return(-EFAULT);
 	}
-	if (pp2_ptr->pp2_common.hif_slot_map & (1<<hif_slot)) {
-		pr_err("[%s] hif already exists.\n", __FUNCTION__);
+	if (pp2_ptr->pp2_common.hif_slot_map & (1 << hif_slot)) {
+		pr_err("[%s] hif already exists.\n", __func__);
 		return(-EEXIST);
 	}
 	/* Create AGGR_TXQ for each of the PPV2 instances. */
@@ -67,20 +67,18 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 		if (rc) {
 			if (pp2_id == PP2_ID1)
 				pp2_dm_if_deinit(pp2_ptr, hif_slot, PP2_ID0);
-			return(rc);
+			return rc;
 		}
 	}
 	pp2_hif[hif_slot].regspace_slot = hif_slot;
 
-	pp2_ptr->pp2_common.hif_slot_map |= (1<<hif_slot);
+	pp2_ptr->pp2_common.hif_slot_map |= (1 << hif_slot);
 	*hif = &pp2_hif[hif_slot];
-	return(0);
+	return 0;
 }
-
 
 void pp2_hif_deinit(struct pp2_hif *hif)
 {
-	pr_err("[%s] routine not supported yet!\n", __FUNCTION__);
+	pr_err("[%s] routine not supported yet!\n", __func__);
 }
-
 

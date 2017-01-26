@@ -42,19 +42,17 @@
 /* TODO: Keep these until classifier phase */
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 
-
 /*	C3 declarations	*/
 struct pp2_cls_c3_shadow_hash_entry pp2_cls_c3_shadow_tbl[MVPP2_CLS_C3_HASH_TBL_SIZE];
 int pp2_cls_c3_shadow_ext_tbl[MVPP2_CLS_C3_EXT_TBL_SIZE];
 static int sw_init_cnt_set;
-
 
 /* Parser configuration routines */
 
 /* Flow ID definition array */
 static struct mv_pp2x_prs_flow_id
 mv_pp2x_prs_flow_id_array[MVPP2_PRS_FL_TCAM_NUM] = {
-      /***********#Flow ID#**************#Result Info#************/
+	/***********#Flow ID#**************#Result Info#************/
 	{ MVPP2_PRS_FL_IP4_TCP_NF_UNTAG, { MVPP2_PRS_RI_VLAN_NONE |
 					  MVPP2_PRS_RI_L3_IP4 |
 					  MVPP2_PRS_RI_IP_FRAG_FALSE |
@@ -437,7 +435,7 @@ int mv_pp2x_range_validate(int value, int min, int max)
 {
 	if (((value) > (max)) || ((value) < (min))) {
 		pp2_err("%s: value 0x%X (%d) is out of range [0x%X , 0x%X].\n",
-		       __func__, (value), (value), (min), (max));
+			__func__, (value), (value), (min), (max));
 		return MV_ERROR;
 	}
 	return 0;
@@ -653,7 +651,7 @@ int mv_pp2x_cls_sw_lkp_en_set(struct mv_pp2x_cls_lookup_entry *lkp, int en)
 static void mv_pp2x_cls_lookup_write(struct pp2_hw *hw,
 				     struct mv_pp2x_cls_lookup_entry *le)
 {
-	uint32_t val;
+	u32 val;
 
 	val = (le->way << MVPP2_CLS_LKP_INDEX_WAY_OFFS) | le->lkpid;
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS_LKP_INDEX_REG, val);
@@ -728,7 +726,7 @@ int mv_pp2x_cls_init(struct pp2_hw *hw)
 
 	/* Enable classifier */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS_MODE_REG,
-		     MVPP2_CLS_MODE_ACTIVE_MASK);
+		      MVPP2_CLS_MODE_ACTIVE_MASK);
 
 	/* Clear classifier flow table */
 	memset(&fe.data, 0, MVPP2_CLS_FLOWS_TBL_DATA_WORDS);
@@ -754,7 +752,7 @@ int mv_pp2x_cls_init(struct pp2_hw *hw)
 
 	hw->cls_shadow->flow_info =
 	    kcalloc((MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START),
-		   sizeof(struct mv_pp2x_cls_flow_info), GFP_KERNEL);
+		    sizeof(struct mv_pp2x_cls_flow_info), GFP_KERNEL);
 	if (!hw->cls_shadow->flow_info)
 		return -ENOMEM;
 
@@ -784,7 +782,7 @@ int mv_pp2x_cls_c2_hw_inv(struct pp2_hw *hw, int index)
 
 	/* set invalid bit */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_INV_REG,
-		     (1 << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
+		      (1 << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
 
 	/* trigger */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_DATA_REG(4), 0);
@@ -837,7 +835,7 @@ int mv_pp2x_c2_init(struct pp2_hw *hw)
 
 	/* Set CLSC2_TCAM_CTRL to enable C2, or C2 does not work */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG,
-		     MVPP2_CLS2_TCAM_CTRL_EN_MASK);
+		      MVPP2_CLS2_TCAM_CTRL_EN_MASK);
 
 	/* Allocate mem for c2 shadow */
 	hw->c2_shadow = kcalloc(1, sizeof(struct mv_pp2x_c2_shadow), GFP_KERNEL);
@@ -863,7 +861,7 @@ void mv_pp2x_cls_oversize_rxq_set(struct pp2_port *port)
 	uintptr_t cpu_slot = port->cpu_slot;
 
 	pp2_reg_write(cpu_slot, MVPP2_CLS_OVERSIZE_RXQ_LOW_REG(port->id),
-		     port->first_rxq);
+		      port->first_rxq);
 }
 
 void mv_pp2x_cls_port_config(struct pp2_port *port)
@@ -871,7 +869,7 @@ void mv_pp2x_cls_port_config(struct pp2_port *port)
 	struct mv_pp2x_cls_lookup_entry le;
 	struct pp2_hw *hw = &port->parent->hw;
 	uintptr_t cpu_slot = port->cpu_slot;
-	uint32_t val;
+	u32 val;
 
 	/* Set way for the port */
 	val = pp2_reg_read(cpu_slot, MVPP2_CLS_PORT_WAY_REG);
@@ -899,8 +897,8 @@ void mv_pp2x_cls_port_config(struct pp2_port *port)
 /* The function get the number of cpu online */
 static inline int mv_pp2x_num_online_cpu_get(struct pp2_inst *pp)
 {
-	uint8_t num_online_cpus = 0;
-	uint16_t x = pp->cpu_map;
+	u8 num_online_cpus = 0;
+	u16 x = pp->cpu_map;
 
 	while (x) {
 		x &= (x - 1);
@@ -912,7 +910,7 @@ static inline int mv_pp2x_num_online_cpu_get(struct pp2_inst *pp)
 
 /* The function calculate the width, such as cpu width, cos queue width */
 static inline void mv_pp2x_width_calc(struct pp2_inst *pp2, uint32_t *cpu_width,
-				      uint32_t *cos_width,
+				      u32 *cos_width,
 				      uint32_t *port_rxq_width)
 {
 	if (pp2) {
@@ -1001,7 +999,7 @@ void mv_pp2x_prs_sram_ai_update(struct mv_pp2x_prs_entry *pe,
 /* Read ai bits from sram sw entry */
 static int mv_pp2x_prs_sram_ai_get(struct mv_pp2x_prs_entry *pe)
 {
-	uint8_t bits;
+	u8 bits;
 	int ai_off = SRAM_BIT_TO_BYTE(MVPP2_PRS_SRAM_AI_OFFS);
 	int ai_en_off = ai_off + 1;
 	int ai_shift = MVPP2_PRS_SRAM_AI_OFFS % 8;
@@ -1116,13 +1114,13 @@ int mv_pp2x_prs_hw_write(struct pp2_hw *hw, struct mv_pp2x_prs_entry *pe)
 	pp2_reg_write(hw->base[0].va, MVPP2_PRS_TCAM_IDX_REG, pe->index);
 	for (i = 0; i < MVPP2_PRS_TCAM_WORDS; i++)
 		pp2_reg_write(hw->base[0].va, MVPP2_PRS_TCAM_DATA_REG(i),
-			     pe->tcam.word[i]);
+			      pe->tcam.word[i]);
 
 	/* Write sram index - indirect access */
 	pp2_reg_write(hw->base[0].va, MVPP2_PRS_SRAM_IDX_REG, pe->index);
 	for (i = 0; i < MVPP2_PRS_SRAM_WORDS; i++)
 		pp2_reg_write(hw->base[0].va, MVPP2_PRS_SRAM_DATA_REG(i),
-			     pe->sram.word[i]);
+			      pe->sram.word[i]);
 
 	return 0;
 }
@@ -1140,7 +1138,7 @@ int mv_pp2x_prs_hw_read(struct pp2_hw *hw, struct mv_pp2x_prs_entry *pe)
 
 	pe->tcam.word[MVPP2_PRS_TCAM_INV_WORD] =
 	    pp2_reg_read(hw->base[0].va,
-			MVPP2_PRS_TCAM_DATA_REG(MVPP2_PRS_TCAM_INV_WORD));
+			 MVPP2_PRS_TCAM_DATA_REG(MVPP2_PRS_TCAM_INV_WORD));
 	if (pe->tcam.word[MVPP2_PRS_TCAM_INV_WORD] & MVPP2_PRS_TCAM_INV_MASK)
 		return MVPP2_PRS_TCAM_ENTRY_INVALID;
 
@@ -1228,7 +1226,7 @@ static void mv_pp2x_prs_match_etype(struct mv_pp2x_prs_entry *pe, int offset,
 
 /* Compare MAC DA with tcam entry data */
 static bool mv_pp2x_prs_mac_range_equals(struct mv_pp2x_prs_entry *pe,
-					 const uint8_t *da, unsigned char *mask)
+					 const u8 *da, unsigned char *mask)
 {
 	unsigned char tcam_byte, tcam_mask;
 	int index;
@@ -1348,7 +1346,7 @@ static void mv_pp2x_prs_tcam_data_dword_get(struct mv_pp2x_prs_entry *pe,
 static bool mv_pp2x_prs_tcam_data_cmp(struct mv_pp2x_prs_entry *pe, int offs,
 				      uint16_t data)
 {
-	uint16_t tcam_data;
+	u16 tcam_data;
 
 	tcam_data = (pe->tcam.byte[TCAM_DATA_BYTE(offs + 1)] << 8) |
 	    pe->tcam.byte[TCAM_DATA_BYTE(offs)];
@@ -1360,7 +1358,7 @@ static bool mv_pp2x_prs_tcam_data_cmp(struct mv_pp2x_prs_entry *pe, int offs,
 /* Find tcam entry with matched pair <MAC DA, port> */
 static struct mv_pp2x_prs_entry *
 mv_pp2x_prs_mac_da_range_find(struct pp2_hw *hw, int pmap,
-			      const uint8_t *da, unsigned char *mask,
+			      const u8 *da, unsigned char *mask,
 			      int udf_type)
 {
 	struct mv_pp2x_prs_entry *pe;
@@ -1384,7 +1382,7 @@ mv_pp2x_prs_mac_da_range_find(struct pp2_hw *hw, int pmap,
 		pe->index = tid;
 		mv_pp2x_prs_hw_read(hw, pe);
 		entry_pmap = mv_pp2x_prs_tcam_port_map_get(pe);
-        (void)entry_pmap;
+	(void)entry_pmap;
 
 		if (mv_pp2x_prs_mac_range_equals(pe, da, mask))
 			return pe;
@@ -1429,7 +1427,7 @@ static void mv_pp2x_prs_dsa_tag_set(struct pp2_hw *hw, int port, bool add,
 		if (tagged) {
 			/* Set tagged bit in DSA tag */
 			mv_pp2x_prs_tcam_data_byte_set(&pe, 0,
-						MVPP2_PRS_TCAM_DSA_TAGGED_BIT,
+						       MVPP2_PRS_TCAM_DSA_TAGGED_BIT,
 						MVPP2_PRS_TCAM_DSA_TAGGED_BIT);
 			/* Clear all ai bits for next iteration */
 			mv_pp2x_prs_sram_ai_update(&pe, 0,
@@ -1455,7 +1453,7 @@ static void mv_pp2x_prs_dsa_tag_set(struct pp2_hw *hw, int port, bool add,
 
 /* Update parser's mac da entry */
 int mv_pp2x_prs_mac_da_accept(struct pp2_hw *hw, int port,
-			                     const uint8_t *da, bool add)
+			      const u8 *da, bool add)
 {
 	struct mv_pp2x_prs_entry *pe;
 	unsigned int pmap, len, ri;
@@ -1615,7 +1613,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_flow_find(struct pp2_hw *hw,
 
 	/* Go through the all entires with MVPP2_PRS_LU_FLOWS */
 	for (tid = MVPP2_PRS_TCAM_SRAM_SIZE - 1; tid >= 0; tid--) {
-		uint8_t bits;
+		u8 bits;
 
 		if (!hw->prs_shadow[tid].valid ||
 		    hw->prs_shadow[tid].lu != MVPP2_PRS_LU_FLOWS)
@@ -1644,7 +1642,7 @@ static struct mv_pp2x_prs_entry *mv_pp2x_prs_flow_find(struct pp2_hw *hw,
 
 /* Set prs dedicated flow for the port */
 int mv_pp2x_prs_flow_id_gen(struct pp2_port *port, uint32_t flow_id,
-			    uint32_t res, uint32_t res_mask)
+			    u32 res, uint32_t res_mask)
 {
 	struct mv_pp2x_prs_entry *pe;
 	struct pp2_hw *hw = &port->parent->hw;
@@ -1745,7 +1743,7 @@ static void mv_pp2x_prs_flow_id_attr_set(int flow_id, int ri, int ri_mask)
 void mv_pp2x_prs_flow_id_attr_init(void)
 {
 	int index;
-	uint32_t ri, ri_mask, flow_id;
+	u32 ri, ri_mask, flow_id;
 
 	for (index = 0; index < MVPP2_PRS_FL_TCAM_NUM; index++) {
 		ri      = mv_pp2x_prs_flow_id_array[index].prs_result.ri;
@@ -1766,7 +1764,7 @@ int mv_pp2x_prs_flow_id_attr_get(int flow_id)
 /********************************************************************/
 
 int mv_pp2x_cls_hw_flow_write(uintptr_t cpu_slot,
-			    struct mv_pp2x_cls_flow_entry *fe)
+			      struct mv_pp2x_cls_flow_entry *fe)
 {
 	if (mv_pp2x_range_validate(fe->index, 0,
 				   MVPP2_CLS_FLOWS_TBL_SIZE) == MV_ERROR)
@@ -1781,6 +1779,7 @@ int mv_pp2x_cls_hw_flow_write(uintptr_t cpu_slot,
 
 	return 0;
 }
+
 int mv_pp2x_cls_hw_flow_read(uintptr_t cpu_slot, int index,
 			     struct mv_pp2x_cls_flow_entry *fe)
 {
@@ -2070,11 +2069,10 @@ static void mv_pp2x_cls_flow_read(struct pp2_hw *hw, int index,
 	fe->data[2] = pp2_reg_read(hw->base[0].va, MVPP2_CLS_FLOW_TBL2_REG);
 }
 
-
 int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe)
 {
 	int int32bit_1, int32bit_2, i;
-	int fieldsArr[MVPP2_CLS_FLOWS_TBL_FIELDS_MAX];
+	int fields_arr[MVPP2_CLS_FLOWS_TBL_FIELDS_MAX];
 	int status = 0;
 
 	if (mv_pp2x_ptr_validate(fe) == MV_ERROR)
@@ -2086,11 +2084,11 @@ int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe)
 	printf("%5d  ", fe->index);
 
 	/* filed[0] filed[1] filed[2] filed[3] */
-	status |= mv_pp2x_cls_sw_flow_hek_get(fe, &int32bit_1, fieldsArr);
+	status |= mv_pp2x_cls_sw_flow_hek_get(fe, &int32bit_1, fields_arr);
 
 	for (i = 0 ; i < MVPP2_CLS_FLOWS_TBL_FIELDS_MAX; i++)
 		if (i < int32bit_1)
-			printf("0x%2.2x ", fieldsArr[i]);
+			printf("0x%2.2x ", fields_arr[i]);
 		else
 			printf(" NA  ");
 
@@ -2108,12 +2106,12 @@ int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe)
 
 	printf("\n       PPPEO   VLAN   MACME   UDF7   SELECT SEQ_CTRL\n");
 	printf("         %1d      %1d      %1d       %1d      %1d      %1d\n",
-			(fe->data[0] & MVPP2_FLOW_PPPOE_MASK) >> MVPP2_FLOW_PPPOE,
-			(fe->data[0] & MVPP2_FLOW_VLAN_MASK) >> MVPP2_FLOW_VLAN,
-			(fe->data[0] & MVPP2_FLOW_MACME_MASK) >> MVPP2_FLOW_MACME,
-			(fe->data[0] & MVPP2_FLOW_UDF7_MASK) >> MVPP2_FLOW_UDF7,
-			(fe->data[0] & MVPP2_FLOW_PORT_ID_SEL_MASK) >> MVPP2_FLOW_PORT_ID_SEL,
-			(fe->data[1] & MVPP2_FLOW_SEQ_CTRL_MASK) >> MVPP2_FLOW_SEQ_CTRL);
+	       (u32)((fe->data[0] & MVPP2_FLOW_PPPOE_MASK) >> MVPP2_FLOW_PPPOE),
+	       (u32)((fe->data[0] & MVPP2_FLOW_VLAN_MASK) >> MVPP2_FLOW_VLAN),
+	       (u32)((fe->data[0] & MVPP2_FLOW_MACME_MASK) >> MVPP2_FLOW_MACME),
+	       (u32)((fe->data[0] & MVPP2_FLOW_UDF7_MASK) >> MVPP2_FLOW_UDF7),
+	       (u32)((fe->data[0] & MVPP2_FLOW_PORT_ID_SEL_MASK) >> MVPP2_FLOW_PORT_ID_SEL),
+	       (u32)((fe->data[1] & MVPP2_FLOW_SEQ_CTRL_MASK) >> MVPP2_FLOW_SEQ_CTRL));
 	printf("\n");
 
 	return 0;
@@ -2154,7 +2152,6 @@ static int mv_pp2x_cls_hw_flow_hit_get(uintptr_t cpu_slot, int index, unsigned i
 		printf("HITS = %d\n", pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL_HIT_REG));
 
 	return 0;
-
 }
 
 int mv_pp2x_cls_hw_lkp_hit_get(uintptr_t cpu_slot, int lkpid, u32 *cnt)
@@ -2276,7 +2273,7 @@ int mv_pp2x_cls_sw_flow_hek_set(struct mv_pp2x_cls_flow_entry *fe,
 
 	if (num_of_fields < (field_index + 1)) {
 		pp2_dbg("%s:num of heks=%d ,idx(%d) out of range\n",
-		       __func__, num_of_fields, field_index);
+			__func__, num_of_fields, field_index);
 		return -1;
 	}
 
@@ -2357,7 +2354,7 @@ int mv_pp2x_prs_def_flow(struct pp2_port *port)
 
 void mv_pp2x_cls_flow_port_add(struct pp2_hw *hw, int index, int port_id)
 {
-	uint32_t data;
+	u32 data;
 
 	/* Write flow index */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS_FLOW_INDEX_REG, index);
@@ -2371,7 +2368,7 @@ void mv_pp2x_cls_flow_port_add(struct pp2_hw *hw, int index, int port_id)
 
 void mv_pp2x_cls_flow_port_del(struct pp2_hw *hw, int index, int port_id)
 {
-	uint32_t data;
+	u32 data;
 
 	/* Write flow index */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS_FLOW_INDEX_REG, index);
@@ -2531,10 +2528,10 @@ static inline void mv_pp2x_cls_flow_rss_hash(struct pp2_hw *hw,
 		    flow_entry_rss1) {
 			if (rss_mode == MVPP2_RSS_HASH_2T)
 				mv_pp2x_cls_sw_flow_eng_set(fe,
-						MVPP2_CLS_ENGINE_C3HA, 0);
+							    MVPP2_CLS_ENGINE_C3HA, 0);
 			else
 				mv_pp2x_cls_sw_flow_eng_set(fe,
-						MVPP2_CLS_ENGINE_C3HB, 0);
+							    MVPP2_CLS_ENGINE_C3HB, 0);
 		}
 	}
 
@@ -2642,7 +2639,7 @@ void mv_pp2x_cls_flow_tbl_config(struct pp2_hw *hw)
 static inline uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port
 						       *port)
 {
-	uint8_t cos_width, bind_cpu;
+	u8 cos_width, bind_cpu;
 
 	cos_width =
 	    ilog2(roundup_pow_of_two
@@ -2651,7 +2648,6 @@ static inline uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port
 
 	return (port->first_rxq + (bind_cpu << cos_width));
 }
-
 
 u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value)
 {
@@ -2716,11 +2712,11 @@ int mv_pp2x_cls_c2_qos_queue_set(struct mv_pp2x_cls_c2_qos_entry *qos,
 */
 /* Fill the qos table with queue */
 static void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port,
-					uint8_t tbl_sel, uint8_t start_queue)
+					u8 tbl_sel, uint8_t start_queue)
 {
 	struct mv_pp2x_cls_c2_qos_entry qos_entry;
-	uint32_t pri, line_num;
-	uint8_t cos_value, cos_queue, queue;
+	u32 pri, line_num;
+	u8 cos_value, cos_queue, queue;
 
 	if (tbl_sel == MVPP2_QOS_TBL_SEL_PRI)
 		line_num = MVPP2_QOS_TBL_LINE_NUM_PRI;
@@ -2968,30 +2964,30 @@ int mv_pp2x_cls_c2_hw_write(struct pp2_hw *hw, int index,
 	/* write valid bit */
 	c2->inv = 0;
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_INV_REG,
-		     ((c2->inv) << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
+		      ((c2->inv) << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
 
 	for (tcm_idx = 0; tcm_idx < MVPP2_CLS_C2_TCAM_WORDS; tcm_idx++)
 		pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_DATA_REG(tcm_idx),
-			     c2->tcam.words[tcm_idx]);
+			      c2->tcam.words[tcm_idx]);
 
 	/* write action_tbl CLSC2_ACT_DATA */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_DATA_REG,
-		     c2->sram.regs.action_tbl);
+		      c2->sram.regs.action_tbl);
 
 	/* write actions CLSC2_ACT */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_REG, c2->sram.regs.actions);
 
 	/* write qos_attr CLSC2_ATTR0 */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_QOS_ATTR_REG,
-		     c2->sram.regs.qos_attr);
+		      c2->sram.regs.qos_attr);
 
 	/* write hwf_attr CLSC2_ATTR1 */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_HWF_ATTR_REG,
-		     c2->sram.regs.hwf_attr);
+		      c2->sram.regs.hwf_attr);
 
 	/* write rss_attr CLSC2_ATTR2 */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_DUP_ATTR_REG,
-		     c2->sram.regs.rss_attr);
+		      c2->sram.regs.rss_attr);
 
 	return 0;
 }
@@ -3078,7 +3074,7 @@ static int mv_pp2x_c2_tcam_set(struct pp2_hw *hw,
 
 	/* Set flow_id(not for multicast) */
 	ret_code = mv_pp2x_cls_c2_FLOWID_en(&c2_entry,
-					     c2_add_entry->action.flowid_act);
+					    c2_add_entry->action.flowid_act);
 	if (ret_code)
 		return ret_code;
 
@@ -3190,7 +3186,7 @@ int mv_pp2x_cls_c2_rule_set(struct pp2_port *port, uint8_t start_queue)
 {
 	struct mv_pp2x_c2_add_entry c2_init_entry;
 	int ret;
-	uint8_t cos_value, cos_queue, queue, lkp_type;
+	u8 cos_value, cos_queue, queue, lkp_type;
 
 	/* QoS of pbit rule */
 	for (lkp_type = MVPP2_CLS_LKP_VLAN_PRI; lkp_type <=
@@ -3227,12 +3223,12 @@ int mv_pp2x_cls_c2_rule_set(struct pp2_port *port, uint8_t start_queue)
 				c2_init_entry.qos_info.qos_tbl_type =
 				    MVPP2_QOS_TBL_SEL_PRI;
 				mv_pp2x_cls_c2_qos_tbl_fill(port,
-					MVPP2_QOS_TBL_SEL_PRI, start_queue);
+							    MVPP2_QOS_TBL_SEL_PRI, start_queue);
 			} else if (lkp_type == MVPP2_CLS_LKP_DSCP_PRI) {
 				c2_init_entry.qos_info.qos_tbl_type =
 				    MVPP2_QOS_TBL_SEL_DSCP;
 				mv_pp2x_cls_c2_qos_tbl_fill(port,
-					MVPP2_QOS_TBL_SEL_DSCP, start_queue);
+							    MVPP2_QOS_TBL_SEL_DSCP, start_queue);
 			}
 		} else {
 			/* QoS info from C2 action table */
@@ -3368,7 +3364,7 @@ int mv_pp2x_cos_classifier_get(struct pp2_port *port)
 int mv_pp2x_cos_pri_map_set(struct pp2_port *port, int cos_pri_map)
 {
 	int ret, prev_pri_map;
-	uint8_t bound_cpu_first_rxq;
+	u8 bound_cpu_first_rxq;
 
 	if (port->parent->pp2_cfg.cos_cfg.pri_map == cos_pri_map)
 		return 0;
@@ -3401,7 +3397,7 @@ int mv_pp2x_cos_pri_map_get(struct pp2_port *port)
 int mv_pp2x_cos_default_value_set(struct pp2_port *port, int cos_value)
 {
 	int ret, prev_cos_value;
-	uint8_t bound_cpu_first_rxq;
+	u8 bound_cpu_first_rxq;
 
 	if (port->parent->pp2_cfg.cos_cfg.default_cos == cos_value)
 		return 0;
@@ -3431,8 +3427,8 @@ int mv_pp2x_cos_default_value_get(struct pp2_port *port)
 /* The function get the queue in the C2 rule with input index */
 uint8_t mv_pp2x_cls_c2_rule_queue_get(struct pp2_hw *hw, uint32_t rule_idx)
 {
-	uint32_t reg_val;
-	uint8_t queue;
+	u32 reg_val;
+	u8 queue;
 
 	/* Write index reg */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_IDX_REG, rule_idx);
@@ -3449,7 +3445,7 @@ uint8_t mv_pp2x_cls_c2_rule_queue_get(struct pp2_hw *hw, uint32_t rule_idx)
 void mv_pp2x_cls_c2_rule_queue_set(struct pp2_hw *hw, uint32_t rule_idx,
 				   uint8_t queue)
 {
-	uint32_t reg_val;
+	u32 reg_val;
 
 	/* Write index reg */
 	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_IDX_REG, rule_idx);
@@ -3469,8 +3465,8 @@ void mv_pp2x_cls_c2_rule_queue_set(struct pp2_hw *hw, uint32_t rule_idx,
 uint8_t mv_pp2x_cls_c2_pbit_tbl_queue_get(struct pp2_hw *hw, uint8_t tbl_id,
 					  uint8_t tbl_line)
 {
-	uint8_t queue;
-	uint32_t reg_val = 0;
+	u8 queue;
+	u32 reg_val = 0;
 
 	/* write index reg */
 	reg_val |= (tbl_line << MVPP2_CLS2_DSCP_PRI_INDEX_LINE_OFF);
@@ -3487,10 +3483,10 @@ uint8_t mv_pp2x_cls_c2_pbit_tbl_queue_get(struct pp2_hw *hw, uint8_t tbl_id,
 
 /* The function set the queue in the pbit table entry */
 void mv_pp2x_cls_c2_pbit_tbl_queue_set(struct pp2_hw *hw,
-				       uint8_t tbl_id, uint8_t tbl_line,
+				       u8 tbl_id, uint8_t tbl_line,
 				       uint8_t queue)
 {
-	uint32_t reg_val = 0;
+	u32 reg_val = 0;
 
 	/* write index reg */
 	reg_val |= (tbl_line << MVPP2_CLS2_DSCP_PRI_INDEX_LINE_OFF);
@@ -3528,7 +3524,7 @@ int mv_pp22_rss_tbl_entry_set(struct pp2_hw *hw,
 		reg_val |= rss->u.pointer.rss_tbl_ptr <<
 		    MVPP22_RSS_RXQ2RSS_TBL_POINT_OFF;
 		pp2_reg_write(hw->base[0].va, MVPP22_RSS_RXQ2RSS_TBL_REG,
-			     reg_val);
+			      reg_val);
 	} else if (rss->sel == MVPP22_RSS_ACCESS_TBL) {
 		if (rss->u.entry.tbl_id >= MVPP22_RSS_TBL_NUM ||
 		    rss->u.entry.tbl_line >= MVPP22_RSS_TBL_LINE_NUM ||
@@ -3579,8 +3575,8 @@ static inline int mv_pp22_cpu_id_from_indir_tbl_get(struct pp2_inst *pp2,
 */
 int mv_pp22_rss_default_cpu_set(struct pp2_port *port, int default_cpu)
 {
-	uint8_t index, queue, q_cpu_mask;
-	uint32_t cpu_width = 0, cos_width = 0;
+	u8 index, queue, q_cpu_mask;
+	u32 cpu_width = 0, cos_width = 0;
 	struct pp2_hw *hw = &port->parent->hw;
 
 	if (port->parent->pp2_cfg.queue_mode == MVPP2_QDIST_SINGLE_MODE)
@@ -3622,7 +3618,7 @@ int mv_pp22_rss_rxfh_indir_set(struct pp2_port *port)
 {
 	struct mv_pp22_rss_entry rss_entry;
 	int rss_tbl, entry_idx;
-	uint32_t cos_width = 0, cpu_width = 0, cpu_id = 0;
+	u32 cos_width = 0, cpu_width = 0, cpu_id = 0;
 	int rss_tbl_needed = port->parent->pp2_cfg.cos_cfg.num_cos_queues;
 
 	if (port->parent->pp2_cfg.queue_mode == MVPP2_QDIST_SINGLE_MODE)
@@ -3708,7 +3704,7 @@ void mv_pp22_rss_c2_enable(struct pp2_port *port, bool en)
 			continue;
 		/* write index reg */
 		pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_IDX_REG,
-			     c2_index[lkp_type]);
+			      c2_index[lkp_type]);
 		/* Update rss_attr in reg CLSC2_ATTR2 */
 		reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS2_ACT_DUP_ATTR_REG);
 		if (en)
@@ -3725,7 +3721,7 @@ void mv_pp22_rss_c2_enable(struct pp2_port *port, bool en)
 */
 void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en)
 {
-	uint8_t bound_cpu_first_rxq;
+	u8 bound_cpu_first_rxq;
 
 	if (port->parent->pp2_cfg.rss_cfg.rss_en == en)
 		return;
@@ -3739,13 +3735,13 @@ void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en)
 							port->parent->pp2_cfg.
 							rss_cfg.dflt_cpu))
 				pp2_err("cannot set rss cpu on port(%d)\n",
-				       port->id);
+					port->id);
 			else
 				port->parent->pp2_cfg.rss_cfg.rss_en = 1;
 		} else {
 			if (mv_pp2x_cls_c2_rule_set(port, bound_cpu_first_rxq))
 				pp2_err("cannot set c2, qos table on port(%d)\n",
-				       port->id);
+					port->id);
 			else
 				port->parent->pp2_cfg.rss_cfg.rss_en = 0;
 		}
@@ -3828,7 +3824,7 @@ void mv_pp2x_prs_hw_inv(struct pp2_hw *hw, int index)
 	/* Write index - indirect access */
 	pp2_reg_write(hw->base[0].va, MVPP2_PRS_TCAM_IDX_REG, index);
 	pp2_reg_write(hw->base[0].va,
-		     MVPP2_PRS_TCAM_DATA_REG(MVPP2_PRS_TCAM_INV_WORD),
+		      MVPP2_PRS_TCAM_DATA_REG(MVPP2_PRS_TCAM_INV_WORD),
 		     MVPP2_PRS_TCAM_INV_MASK);
 }
 
@@ -3836,7 +3832,7 @@ void mv_pp2x_prs_hw_inv(struct pp2_hw *hw, int index)
 void mv_pp2x_prs_hw_port_init(struct pp2_hw *hw, int port, int lu_first,
 			      int lu_max, int offset)
 {
-	uint32_t val;
+	u32 val;
 
 	/* Set lookup ID */
 	val = pp2_reg_read(hw->base[0].va, MVPP2_PRS_INIT_LOOKUP_REG);
@@ -4031,7 +4027,7 @@ static void mv_pp2x_prs_dsa_tag_ethertype_set(struct pp2_hw *hw, int port,
 		if (tagged) {
 			/* Set tagged bit in DSA tag */
 			mv_pp2x_prs_tcam_data_byte_set(&pe,
-				       MVPP2_ETH_TYPE_LEN + 2 + 3,
+						       MVPP2_ETH_TYPE_LEN + 2 + 3,
 				       MVPP2_PRS_TCAM_DSA_TAGGED_BIT,
 				       MVPP2_PRS_TCAM_DSA_TAGGED_BIT);
 			/* Clear all ai bits for next iteration */
@@ -4896,7 +4892,7 @@ static int mv_pp2x_prs_vlan_init(struct pp2_hw *hw)
 	struct mv_pp2x_prs_entry pe;
 	int err;
 
-	hw->prs_double_vlans = kcalloc(sizeof(bool), MVPP2_PRS_DBL_VLANS_MAX, GFP_KERNEL);
+	hw->prs_double_vlans = kcalloc(MVPP2_PRS_DBL_VLANS_MAX, sizeof(bool), GFP_KERNEL);
 	if (!hw->prs_double_vlans)
 		return -ENOMEM;
 	/* Double VLAN: 0x8100, 0x88A8 */
@@ -5302,19 +5298,19 @@ int mv_pp2x_prs_default_init(struct pp2_hw *hw)
 
 	/* Enable tcam table */
 	pp2_reg_write(hw->base[0].va,
-		     MVPP2_PRS_TCAM_CTRL_REG, MVPP2_PRS_TCAM_EN_MASK);
+		      MVPP2_PRS_TCAM_CTRL_REG, MVPP2_PRS_TCAM_EN_MASK);
 
 	/* Clear all tcam and sram entries */
 	for (index = 0; index < MVPP2_PRS_TCAM_SRAM_SIZE; index++) {
 		pp2_reg_write(hw->base[0].va, MVPP2_PRS_TCAM_IDX_REG, index);
 		for (i = 0; i < MVPP2_PRS_TCAM_WORDS; i++)
 			pp2_reg_write(hw->base[0].va,
-				     MVPP2_PRS_TCAM_DATA_REG(i), 0);
+				      MVPP2_PRS_TCAM_DATA_REG(i), 0);
 
 		pp2_reg_write(hw->base[0].va, MVPP2_PRS_SRAM_IDX_REG, index);
 		for (i = 0; i < MVPP2_PRS_SRAM_WORDS; i++)
 			pp2_reg_write(hw->base[0].va,
-				     MVPP2_PRS_SRAM_DATA_REG(i), 0);
+				      MVPP2_PRS_SRAM_DATA_REG(i), 0);
 	}
 
 	/* Invalidate all tcam entries */
@@ -5362,11 +5358,12 @@ int mv_pp2x_prs_default_init(struct pp2_hw *hw)
 }
 
 /* [TODO] (classifier) semi static configuration
-* Need to review all values and if necessary to init values per port*/
+ * Need to review all values and if necessary to init values per port
+ */
 void ppdk_cls_default_config_set(struct pp2_inst *inst)
 {
 	if (unlikely(!inst))
-	return;
+		return;
 
 	inst->pp2_cfg.cos_cfg.num_cos_queues = 1;
 	inst->pp2_cfg.cos_cfg.cos_classifier = 0;
@@ -5396,9 +5393,9 @@ int mv_pp2x_open_cls(struct pp2_port *port)
 	};
 	struct pp2_hw *hw = &port->parent->hw;
 	int err;
-	uint32_t cpu_width = 0, cos_width = 0, port_rxq_width = 0;
-	uint8_t bound_cpu_first_rxq;
-	uint8_t cos_classifer = port->parent->pp2_cfg.cos_cfg.cos_classifier;
+	u32 cpu_width = 0, cos_width = 0, port_rxq_width = 0;
+	u8 bound_cpu_first_rxq;
+	u8 cos_classifer = port->parent->pp2_cfg.cos_cfg.cos_classifier;
 
 	/* Calculate width */
 	mv_pp2x_width_calc(port->parent, &cpu_width, &cos_width, &port_rxq_width);
@@ -5407,20 +5404,20 @@ int mv_pp2x_open_cls(struct pp2_port *port)
 		pp2_err("cpu or cos queue width invalid\n");
 		return err;
 	}
-    pp2_dbg("PPDK:\t%s\t cpu_width:%d, cos_width:%d, port_rxq_width:%d\n",
-              __func__, cpu_width, cos_width, port_rxq_width);
+	pp2_dbg("PPDK:\t%s\t cpu_width:%d, cos_width:%d, port_rxq_width:%d\n",
+		__func__, cpu_width, cos_width, port_rxq_width);
 
 	err = mv_pp2x_prs_mac_da_accept(hw, port->id, mac_bcast, true);
 	if (err) {
 		pp2_err("mv_pp2x_prs_mac_da_accept BC failed\n");
 		return err;
-    }
+	}
 
 	err = mv_pp2x_prs_mac_da_accept(hw, port->id, (const uint8_t *)port->mac_data.mac, true);
 	if (err) {
 		pp2_err("mv_pp2x_prs_mac_da_accept M2M failed\n");
 		return err;
-    }
+	}
 
 	err = mv_pp2x_prs_tag_mode_set(hw, port->id, MVPP2_TAG_TYPE_MH);
 
@@ -5496,105 +5493,105 @@ int mv_pp2x_open_cls(struct pp2_port *port)
 
 int mv_pp2x_prs_update_mac_da(struct pp2_port *port, const uint8_t *da)
 {
-   int err;
-   uint8_t old_da[ETH_ALEN];
-   struct pp2_mac_data *mac = &port->mac_data;
-   struct pp2_hw *hw = &port->parent->hw;
+	int err;
+	u8 old_da[ETH_ALEN];
+	struct pp2_mac_data *mac = &port->mac_data;
+	struct pp2_hw *hw = &port->parent->hw;
 
-   if (mv_eaddr_identical(da, mac->mac))
-      return 0;
+	if (mv_eaddr_identical(da, mac->mac))
+		return 0;
 
-   /* Store current MAC */
-   mv_cp_eaddr(old_da, mac->mac);
+	/* Store current MAC */
+	mv_cp_eaddr(old_da, mac->mac);
 
-   /* Remove old parser entry */
-   err = mv_pp2x_prs_mac_da_accept(hw, port->id, mac->mac, false);
-   if (err)
-      return err;
+	/* Remove old parser entry */
+	err = mv_pp2x_prs_mac_da_accept(hw, port->id, mac->mac, false);
+	if (err)
+		return err;
 
-   /* Set addr in the device */
-   mv_cp_eaddr(mac->mac, da);
+	/* Set addr in the device */
+	mv_cp_eaddr(mac->mac, da);
 
-   /* Add new parser entry */
-   err = mv_pp2x_prs_mac_da_accept(hw, port->id, da, true);
-   if (err) {
-      /* Restore addr in the device */
-      mv_cp_eaddr(mac->mac, old_da);
-      return err;
-   }
+	/* Add new parser entry */
+	err = mv_pp2x_prs_mac_da_accept(hw, port->id, da, true);
+	if (err) {
+		/* Restore addr in the device */
+		mv_cp_eaddr(mac->mac, old_da);
+		return err;
+	}
 
-   return 0;
+	return 0;
 }
 
 static bool mv_pp2x_mac_in_uc_list(struct pp2_port *port, const uint8_t *da)
 {
-   if (mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac))
-      return true;
-   return false;
+	if (mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac))
+		return true;
+	return false;
 }
 
 static bool mv_pp2x_mac_in_mc_list(struct pp2_port *port, const uint8_t *da)
 {
-   if (mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac))
-      return true;
-   return false;
+	if (mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac))
+		return true;
+	return false;
 }
 
 /* Delete port's uc/mc/bc simple (not range) entries with options */
 void mv_pp2x_prs_mac_entry_del(struct pp2_port *port,
-      enum mv_pp2x_l2_cast l2_cast,
-      enum mv_pp2x_mac_del_option op)
+			       enum mv_pp2x_l2_cast l2_cast,
+			       enum mv_pp2x_mac_del_option op)
 {
-   struct mv_pp2x_prs_entry pe;
-   struct pp2_hw *hw = &port->parent->hw;
-   int index, tid;
+	struct mv_pp2x_prs_entry pe;
+	struct pp2_hw *hw = &port->parent->hw;
+	int index, tid;
 
-   for (tid = MVPP2_PE_MAC_RANGE_START;
-         tid <= MVPP2_PE_MAC_RANGE_END; tid++) {
-      unsigned char da[ETH_ALEN], da_mask[ETH_ALEN];
+	for (tid = MVPP2_PE_MAC_RANGE_START;
+	     tid <= MVPP2_PE_MAC_RANGE_END; tid++) {
+		unsigned char da[ETH_ALEN], da_mask[ETH_ALEN];
 
-      if (!hw->prs_shadow[tid].valid ||
-            (hw->prs_shadow[tid].lu != MVPP2_PRS_LU_MAC) ||
-            (hw->prs_shadow[tid].udf != MVPP2_PRS_UDF_MAC_DEF))
-         continue;
+		if (!hw->prs_shadow[tid].valid ||
+		    (hw->prs_shadow[tid].lu != MVPP2_PRS_LU_MAC) ||
+		   (hw->prs_shadow[tid].udf != MVPP2_PRS_UDF_MAC_DEF))
+			continue;
 
-      /* Only simple mac entries */
-      pe.index = tid;
-      mv_pp2x_prs_hw_read(hw, &pe);
+		/* Only simple mac entries */
+		pe.index = tid;
+		mv_pp2x_prs_hw_read(hw, &pe);
 
-      /* Read mac addr from entry */
-      for (index = 0; index < ETH_ALEN; index++)
-         mv_pp2x_prs_tcam_data_byte_get(&pe, index, &da[index],
-               &da_mask[index]);
-      switch (l2_cast) {
-         case MVPP2_PRS_MAC_UC:
-            /* Do not delete M2M entry */
-            if (mv_check_eaddr_uc(da) &&
-                  !mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac)) {
-               if (op == MVPP2_DEL_MAC_NOT_IN_LIST &&
-                     mv_pp2x_mac_in_uc_list(port, da))
-                  continue;
-               /* Delete this entry */
-               mv_pp2x_prs_mac_da_accept(hw, port->id, da, false);
-            }
-            break;
-         case MVPP2_PRS_MAC_MC:
-            if (mv_check_eaddr_mc(da) &&
-                  !mv_check_eaddr_bc(da)) {
-               if (op == MVPP2_DEL_MAC_NOT_IN_LIST &&
-                     mv_pp2x_mac_in_mc_list(port, da))
-                  continue;
-               /* Delete this entry */
-               mv_pp2x_prs_mac_da_accept(hw, port->id, da, false);
-            }
-            break;
-         case MVPP2_PRS_MAC_BC:
-            if (mv_check_eaddr_bc(da))
-               /* Delete this entry */
-               mv_pp2x_prs_mac_da_accept(hw, port->id, da, false);
-            break;
-      }
-   }
+		/* Read mac addr from entry */
+		for (index = 0; index < ETH_ALEN; index++)
+			mv_pp2x_prs_tcam_data_byte_get(&pe, index, &da[index],
+						       &da_mask[index]);
+		switch (l2_cast) {
+		case MVPP2_PRS_MAC_UC:
+			/* Do not delete M2M entry */
+			if (mv_check_eaddr_uc(da) &&
+			    !mv_eaddr_identical(da, (const uint8_t *)&port->mac_data.mac)) {
+				if (op == MVPP2_DEL_MAC_NOT_IN_LIST &&
+				    mv_pp2x_mac_in_uc_list(port, da))
+					continue;
+				/* Delete this entry */
+				mv_pp2x_prs_mac_da_accept(hw, port->id, da, false);
+			}
+			break;
+		case MVPP2_PRS_MAC_MC:
+			if (mv_check_eaddr_mc(da) &&
+			    !mv_check_eaddr_bc(da)) {
+				if (op == MVPP2_DEL_MAC_NOT_IN_LIST &&
+				    mv_pp2x_mac_in_mc_list(port, da))
+					continue;
+				/* Delete this entry */
+				mv_pp2x_prs_mac_da_accept(hw, port->id, da, false);
+			}
+			break;
+		case MVPP2_PRS_MAC_BC:
+			if (mv_check_eaddr_bc(da))
+				/* Delete this entry */
+				mv_pp2x_prs_mac_da_accept(hw, port->id, da, false);
+			break;
+		}
+	}
 }
 
 /* C3 engine */

@@ -212,6 +212,7 @@ enum pp2_cls_pp_port_t {
 	MVPP2_PP_LPBK     = 0x0008,	/* Packet Processor Loopback Port */
 	MVPP2_PP_CPU      = 0x0010	/* CPU */
 };
+
 /* Capability definition */
 /*------------------------------------------------------------------------------*/
 enum pp2_cls_vlan_num_enum_t {
@@ -295,6 +296,7 @@ struct pp2_cls_class_port_t {
 	enum pp2_cls_class_port_type_t	port_type;
 	u32			class_port;
 };
+
 struct pp2_cls_exact_match_t {
 	u32				rule_type;
 	struct mv_pp2x_src_port		port;

@@ -44,7 +44,6 @@
 #include "pp2_types.h"
 #include "pp2_hw_type.h"
 
-
 /**
  * User I/O map API
  *
@@ -60,10 +59,7 @@
  */
 typedef uintptr_t pp2_maps_handle_t;
 
-
-
 int pp2_sys_io_exists(const char *name);
-
 
 /**
  * Initialize user I/O devices and maps structures
@@ -102,7 +98,7 @@ int pp2_sys_ioinit(pp2_maps_handle_t *pp2_maps_hdl, const char *name);
  *
  */
 uintptr_t pp2_sys_iomap(pp2_maps_handle_t pp2_maps_hdl,
-		       uint32_t *pa, const char *name);
+			u32 *pa, const char *name);
 
 /**
  * I/O unmapping based on map name exported by I/O driver
@@ -144,7 +140,7 @@ void pp2_sys_iodestroy(pp2_maps_handle_t pp2_maps_hdl);
  *
  */
 static inline void pp2_reg_write(uintptr_t cpu_slot, uint32_t offset,
-				uint32_t data)
+				 uint32_t data)
 {
 	uintptr_t addr = cpu_slot + offset;
 
@@ -161,13 +157,12 @@ static inline void pp2_reg_write(uintptr_t cpu_slot, uint32_t offset,
  *
  */
 static inline void pp2_relaxed_reg_write(uintptr_t cpu_slot, uint32_t offset,
-				uint32_t data)
+					 uint32_t data)
 {
 	uintptr_t addr = cpu_slot + offset;
 
 	writel_relaxed(data, (void *)addr);
 }
-
 
 /**
  * Packet Processor register read function
@@ -185,6 +180,7 @@ static inline uint32_t pp2_reg_read(uintptr_t cpu_slot, uint32_t offset)
 
 	return readl((void *)addr);
 }
+
 /**
  * Packet Processor register relaxed read function
  * Offers lock-less access to shares resources based on PP CPU memory slots, without memory mem_barriers.

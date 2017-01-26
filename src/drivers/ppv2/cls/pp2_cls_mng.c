@@ -30,7 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 /***********************/
 /* c file declarations */
 /***********************/
@@ -213,8 +212,8 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		return -EINVAL;
 	pp2_dbg("key.num_fields = %d\n", params->key.num_fields);
 
-	fl_rls = kmalloc(sizeof(struct pp2_cls_fl_rule_list_t), GFP_KERNEL);
-	if (fl_rls == NULL) {
+	fl_rls = kmalloc(sizeof(*fl_rls), GFP_KERNEL);
+	if (!fl_rls) {
 		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -229,7 +228,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	/* parse the protocol and protocol fields */
 	for (idx = 0; idx < params->key.num_fields; idx++) {
 		rc = lookup_field_id(params->key.proto_field[idx].proto,
-			params->key.proto_field[idx].field.eth, &field, &match_bm);
+				     params->key.proto_field[idx].field.eth, &field, &match_bm);
 		if (rc) {
 			pp2_err("%s(%d) lookup id error!\n", __func__, __LINE__);
 			goto end;
@@ -237,12 +236,12 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		if (params->key.proto_field[idx].proto == MV_NET_PROTO_IP4) {
 			ipv4_flag = 1;
 			if ((params->key.proto_field[idx].field.ipv4 == MV_NET_IP4_F_PROTO) &&
-				(params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS))
+			    (params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS))
 				five_tuple = 1;
 		} else if (params->key.proto_field[idx].proto == MV_NET_PROTO_IP6) {
 			ipv6_flag = 1;
 			if ((params->key.proto_field[idx].field.ipv6 == MV_NET_IP6_F_NEXT_HDR) &&
-				(params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS))
+			    (params->key.num_fields == PP2_CLS_TBL_MAX_NUM_FIELDS))
 				five_tuple = 1;
 		}
 		if (params->key.proto_field[idx].proto == MV_NET_PROTO_TCP)
@@ -260,12 +259,11 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C2;
 		pp2_err("maskable engine not supported\n");
 		return -EINVAL;
-	} else {
-		if (five_tuple)
-			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3B;
-		else
-			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3A;
 	}
+	if (five_tuple)
+		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3B;
+	else
+		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3A;
 
 	/* port type - TODO fixed to PHY for now */
 	fl_rls->fl[0].port_type = MVPP2_SRC_PORT_TYPE_PHY;
@@ -371,7 +369,6 @@ end:
 int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_rule *rule,
 			 struct pp2_cls_tbl_action *action)
 {
-
 	u32 idx1, idx2;
 	char *ret_ptr;
 	char *mask_ptr;
@@ -439,7 +436,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			}
 			rc = inet_pton(AF_INET, (char *)rule->fields[idx1].key,
-				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0]);
+				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv4 SA\n");
 				return -EINVAL;
@@ -470,7 +467,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			}
 			rc = inet_pton(AF_INET, (char *)rule->fields[idx1].key,
-				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0]);
+				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv4 DA\n");
 				return -EINVAL;
@@ -515,7 +512,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			}
 
 			rc = inet_pton(AF_INET6, (char *)rule->fields[idx1].key,
-				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[0]);
+				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv6 SA\n");
 				return -EINVAL;
@@ -539,7 +536,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			}
 
 			rc = inet_pton(AF_INET6, (char *)rule->fields[idx1].key,
-				&c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[0]);
+				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv6 DA\n");
 				return -EINVAL;

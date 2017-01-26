@@ -43,7 +43,6 @@
 
 #include "std_internal.h"
 
-
 #define BM_TYPE_SHORT_BUF_POOL (0x00)
 #define BM_TYPE_LONG_BUF_POOL  (0x01)
 
@@ -69,7 +68,7 @@ struct pp2_port;
  *                See <pp2_plat.h>.
  */
 struct pp2_bm_if_param {
-	uint32_t id;
+	u32 id;
 };
 
 /**
@@ -90,10 +89,10 @@ struct pp2_bm_if_param {
  *                    in this BM Pool
  */
 struct bm_pool_param {
-	uint32_t id;
-	uint32_t pp2_id;
-	uint32_t buf_num;
-	uint32_t buf_size;
+	u32 id;
+	u32 pp2_id;
+	u32 buf_num;
+	u32 buf_size;
 };
 
 /**
@@ -123,7 +122,7 @@ struct pp2_bm_if *pp2_bm_if_init(struct pp2 *ppdk, struct pp2_bm_if_param *param
  *
  * @retval           BM Pool handle on success, NULL otherwise
  */
-int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param);
+int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param);
 
 /**
  * pp2_bm_pool_alloc_memory
@@ -140,7 +139,7 @@ int pp2_bm_pool_create(struct pp2* pp2, struct bm_pool_param *param);
  * @retval           Valid handle to allocate memory, 0 otherwise
  */
 uintptr_t pp2_bm_pool_alloc_memory(struct pp2_bm_pool *bm_pool,
-				                  size_t size);
+				   size_t size);
 
 /**
  * pp2_bm_pool_destroy
@@ -156,7 +155,7 @@ uintptr_t pp2_bm_pool_alloc_memory(struct pp2_bm_pool *bm_pool,
  * @retval           0 on success, error otherwise
  */
 int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
-			    struct pp2_bm_pool *bm_pool);
+			struct pp2_bm_pool *bm_pool);
 
 /**
  * pp2_bm_if_deinit
@@ -193,8 +192,7 @@ uint32_t pp2_bm_pool_get_id(struct pp2_bm_pool *bm_pool);
  *
  * @retval           BM Pool handle, NULL if not found
  */
-struct pp2_bm_pool * pp2_bm_pool_get_pool_by_id(struct pp2_inst * pp2_inst, uint32_t pool_id);
-
+struct pp2_bm_pool *pp2_bm_pool_get_pool_by_id(struct pp2_inst *pp2_inst, uint32_t pool_id);
 
 /**
  * pp2_bm_buf_get
@@ -210,7 +208,7 @@ struct pp2_bm_pool * pp2_bm_pool_get_pool_by_id(struct pp2_inst * pp2_inst, uint
  */
 
 uintptr_t pp2_bm_buf_get(struct pp2_bm_if *bm_if,
-			  struct pp2_bm_pool *bm_pool);
+			 struct pp2_bm_pool *bm_pool);
 
 /**
  * pp2_bm_buf_put
@@ -226,7 +224,7 @@ uintptr_t pp2_bm_buf_get(struct pp2_bm_if *bm_if,
  * @retval           0 on success, error otherwise
  */
 int pp2_bm_buf_put(struct pp2_bm_if *bm_if,
-		           struct pp2_bm_pool *bm_pool,
+		   struct pp2_bm_pool *bm_pool,
 				   uintptr_t bm_buf);
 
 /**
@@ -245,7 +243,7 @@ int pp2_bm_buf_put(struct pp2_bm_if *bm_if,
  *
  */
 void pp2_bm_pool_assign(struct pp2_port *port, uint32_t pool_id,
-			    uint32_t rxq_id, uint32_t type);
+			u32 rxq_id, uint32_t type);
 
 /**
  * pp2_bm_pa2va

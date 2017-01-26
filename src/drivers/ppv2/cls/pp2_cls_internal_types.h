@@ -79,12 +79,10 @@
 #define MVPP2_HW_MOD_DPTR_MAX		(23552)/* Private data 41KB, 41K/2 */
 #define MVPP2_POLICER_ID_MAX		MVPP2_CLS3_ACT_DUP_POLICER_MAX
 
-
 /* WAY definition */
 /*------------------------------------------------------------------------------*/
 #define MVPP2_WAY_PON			(1) /* WAY of PON */
 #define MVPP2_WAY_NON_PON		(0) /* WAY of NONE PON port */
-
 
 /* VLAN tag definition */
 /*------------------------------------------------------------------------------*/

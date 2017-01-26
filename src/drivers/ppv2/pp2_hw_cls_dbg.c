@@ -90,7 +90,7 @@ int pp2_cls_c3_hw_ext_dump(uintptr_t cpu_slot)
 				hash_ext_data[i] = pp2_reg_read(cpu_slot, MVPP2_CLS3_HASH_EXT_DATA_REG(i));
 
 			pr_info("[0x%2.2x] %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x\n",
-				 index, hash_ext_data[6], hash_ext_data[5], hash_ext_data[4],
+				index, hash_ext_data[6], hash_ext_data[5], hash_ext_data[4],
 				 hash_ext_data[3], hash_ext_data[2], hash_ext_data[1], hash_ext_data[0]);
 		} /* if */
 
@@ -120,7 +120,7 @@ int pp2_cls_c3_sw_dump(struct pp2_cls_c3_entry *c3)
 
 	pr_info("SIZE[0x%2.2x] ", hek_size);
 	pr_info("PRT[ID = 0x%2.2x,TYPE = 0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_PRT_ID_MASK) >> KEY_CTRL_PRT_ID),
-		 ((c3->key.key_ctrl & KEY_CTRL_PRT_ID_TYPE_MASK) >> KEY_CTRL_PRT_ID_TYPE));
+		((c3->key.key_ctrl & KEY_CTRL_PRT_ID_TYPE_MASK) >> KEY_CTRL_PRT_ID_TYPE));
 
 	pr_info("LKP_TYPE[0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_LKP_TYPE_MASK) >> KEY_CTRL_LKP_TYPE));
 
@@ -152,15 +152,15 @@ static int pp2_cls_c3_sw_act_dump(struct pp2_cls_c3_entry *c3)
 
 	pr_info("ACT_TBL: COLOR   LOW_Q   HIGH_Q     FWD   POLICER  FID\n");
 	pr_info("CMD:     [%1d]      [%1d]    [%1d]        [%1d]   [%1d]      [%1d]\n",
-		 ((c3->sram.regs.actions & (MVPP2_CLS3_ACT_COLOR_MASK)) >> MVPP2_CLS3_ACT_COLOR),
-		 ((c3->sram.regs.actions & (MVPP2_CLS3_ACT_LOW_Q_MASK)) >> MVPP2_CLS3_ACT_LOW_Q),
-		 ((c3->sram.regs.actions & (MVPP2_CLS3_ACT_HIGH_Q_MASK)) >> MVPP2_CLS3_ACT_HIGH_Q),
-		 ((c3->sram.regs.actions & MVPP2_CLS3_ACT_FWD_MASK) >> MVPP2_CLS3_ACT_FWD),
-		 ((c3->sram.regs.actions & (MVPP2_CLS3_ACT_POLICER_SELECT_MASK)) >> MVPP2_CLS3_ACT_POLICER_SELECT),
-		 ((c3->sram.regs.actions & MVPP2_CLS3_ACT_FLOW_ID_EN_MASK) >> MVPP2_CLS3_ACT_FLOW_ID_EN));
+		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_COLOR_MASK)) >> MVPP2_CLS3_ACT_COLOR),
+		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_LOW_Q_MASK)) >> MVPP2_CLS3_ACT_LOW_Q),
+		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_HIGH_Q_MASK)) >> MVPP2_CLS3_ACT_HIGH_Q),
+		(u32)((c3->sram.regs.actions & MVPP2_CLS3_ACT_FWD_MASK) >> MVPP2_CLS3_ACT_FWD),
+		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_POLICER_SELECT_MASK)) >> MVPP2_CLS3_ACT_POLICER_SELECT),
+		(u32)((c3->sram.regs.actions & MVPP2_CLS3_ACT_FLOW_ID_EN_MASK) >> MVPP2_CLS3_ACT_FLOW_ID_EN));
 
 	pr_info("VAL:              [%1d]    [0x%x]\n",
-		 ((c3->sram.regs.qos_attr & (MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_MASK)) >> MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q),
+		((c3->sram.regs.qos_attr & (MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_MASK)) >> MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q),
 		 ((c3->sram.regs.qos_attr & (MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_MASK)) >> MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q));
 
 	pr_info("\n");
@@ -170,21 +170,22 @@ static int pp2_cls_c3_sw_act_dump(struct pp2_cls_c3_entry *c3)
 
 	pr_info("HWF_ATTR: IPTR	DPTR	 CHKSM     MTU_IDX\n");
 	pr_info("          0x%1.1x   0x%4.4x   %s   0x%1.1x\n",
-		 ((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_IPTR_MASK) >> MVPP2_CLS3_ACT_HWF_ATTR_IPTR),
-		 ((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_DPTR_MASK) >> MVPP2_CLS3_ACT_HWF_ATTR_DPTR),
-		 (((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN_MASK) >>
-		    MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN) ? "ENABLE" : "DISABLE"),
-		 ((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_MASK) >> MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX));
+		(u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_IPTR_MASK) >> MVPP2_CLS3_ACT_HWF_ATTR_IPTR),
+		(u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_DPTR_MASK) >> MVPP2_CLS3_ACT_HWF_ATTR_DPTR),
+		((u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN_MASK) >>
+		MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN) ? "ENABLE" : "DISABLE"),
+		(u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_MASK) >>
+		MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX));
 	pr_info("\n");
 	/*------------------------------*/
 	/*	dup_attr 0x1D4C		*/
 	/*------------------------------*/
 	pr_info("DUP_ATTR:FID	COUNT	POLICER [id    bank]\n");
 	pr_info("         0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\n",
-		 ((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_FID_MASK) >> MVPP2_CLS3_ACT_DUP_FID),
-		 ((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_COUNT_MASK) >> MVPP2_CLS3_ACT_DUP_COUNT),
-		 ((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_POLICER_MASK) >> MVPP2_CLS3_ACT_DUP_POLICER_ID),
-		 ((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_POLICER_BANK_MASK) >>
+		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_FID_MASK) >> MVPP2_CLS3_ACT_DUP_FID),
+		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_COUNT_MASK) >> MVPP2_CLS3_ACT_DUP_COUNT),
+		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_POLICER_MASK) >> MVPP2_CLS3_ACT_DUP_POLICER_ID),
+		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_POLICER_BANK_MASK) >>
 		   MVPP2_CLS3_ACT_DUP_POLICER_BANK_BIT));
 	pr_info("\n");
 	pr_info("SEQ_ATTR: HIGH[32:37] LOW[0:31]\n");
@@ -240,7 +241,7 @@ int pp2_cls_c3_scan_regs_dump(uintptr_t cpu_slot)
 		pr_info("LKP_TYPE  = NA\n");
 	else
 		pr_info("LKP_TYPE  = 0x%x\n",
-			 ((MVPP2_CLS3_SC_PROP_LKP_TYPE_MASK & prop) >> MVPP2_CLS3_SC_PROP_LKP_TYPE));
+			((MVPP2_CLS3_SC_PROP_LKP_TYPE_MASK & prop) >> MVPP2_CLS3_SC_PROP_LKP_TYPE));
 
 	/* start index */
 	pr_info("START     = 0x%x\n", (MVPP2_CLS3_SC_PROP_START_ENTRY_MASK & prop) >> MVPP2_CLS3_SC_PROP_START_ENTRY);
@@ -249,7 +250,7 @@ int pp2_cls_c3_scan_regs_dump(uintptr_t cpu_slot)
 
 	/* delay value */
 	pr_info("DELAY     = 0x%x\n\n",
-		 (MVPP2_CLS3_SC_PROP_VAL_DELAY_MASK & prop_val) >> MVPP2_CLS3_SC_PROP_VAL_DELAY);
+		(MVPP2_CLS3_SC_PROP_VAL_DELAY_MASK & prop_val) >> MVPP2_CLS3_SC_PROP_VAL_DELAY);
 
 	return 0;
 }
