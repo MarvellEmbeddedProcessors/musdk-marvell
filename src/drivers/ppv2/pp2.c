@@ -448,7 +448,7 @@ static struct pp2_inst * pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 
 
 
-static u8 pp2_num_inst_get(void)
+u8 pp2_get_num_inst(void)
 {
 	u8 pp2_num_inst = 0;
 
@@ -506,7 +506,7 @@ int pp2_init(struct pp2_init_params *params)
     /* Initialize in an opaque manner from client,
      * depending on HW, one or two packet processors.
      */
-    pp2_num_inst = pp2_num_inst_get();
+    pp2_num_inst = pp2_get_num_inst();
     for (pp2_id = 0; pp2_id < pp2_num_inst; pp2_id++) {
         struct pp2_inst *inst;
 

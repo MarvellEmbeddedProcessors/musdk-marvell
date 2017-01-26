@@ -102,6 +102,7 @@ struct glob_arg {
 	u64			qs_map;
 	int			qs_map_shift;
 	int			num_ports;
+	int			pp2_num_inst;
 	struct port_desc	port_name[MVAPPS_MAX_NUM_PORTS];
 	struct pp2_hif		*hif;
 	struct pp2_ppio		*ppio;
@@ -129,6 +130,8 @@ struct local_arg {
 };
 
 static struct glob_arg garg = {};
+static u8	pp2_num_inst;
+
 
 struct pp2_cls_table_db_element {
 	struct	pp2_cls_tbl		*tbl;
@@ -1279,16 +1282,16 @@ static int init_all_modules(void)
 	pp2_params.ppios[0][2].is_enabled = 1;
 	pp2_params.ppios[0][2].first_inq = 0;
 
-#if (PP2_SOC_NUM_PACKPROCS == 2)
-	/* Enable 10G port */
-	pp2_params.ppios[1][0].is_enabled = 1;
-	pp2_params.ppios[1][0].first_inq = 0;
-	/* Enable 1G ports */
-	pp2_params.ppios[1][1].is_enabled = 1;
-	pp2_params.ppios[1][1].first_inq = 0;
-	pp2_params.ppios[1][2].is_enabled = 1;
-	pp2_params.ppios[1][2].first_inq = 0;
-#endif /* (PP2_SOC_NUM_PACKPROCS == 1) */
+	if (garg.pp2_num_inst == 2) {
+		/* Enable 10G port */
+		pp2_params.ppios[1][0].is_enabled = 1;
+		pp2_params.ppios[1][0].first_inq = 0;
+		/* Enable 1G ports */
+		pp2_params.ppios[1][1].is_enabled = 1;
+		pp2_params.ppios[1][1].first_inq = 0;
+		pp2_params.ppios[1][2].is_enabled = 1;
+		pp2_params.ppios[1][2].first_inq = 0;
+	}
 	err = pp2_init(&pp2_params);
 	if (err)
 		return err;
@@ -1397,6 +1400,7 @@ static int init_local_modules(struct glob_arg *garg)
 static void destroy_local_modules(struct glob_arg *garg)
 {
 	int	i, j;
+	pp2_num_inst = garg->pp2_num_inst;
 
 	if (garg->ppio) {
 		pp2_ppio_disable(garg->ppio);
@@ -1404,7 +1408,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 	}
 
 	if (garg->pools) {
-		for (i = 0; i < PP2_SOC_NUM_PACKPROCS; i++) {
+		for (i = 0; i < pp2_num_inst; i++) {
 			if (garg->pools[i]) {
 				for (j = 0; j < garg->num_pools; j++)
 					if (garg->pools[i][j])
@@ -1415,7 +1419,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 		free(garg->pools);
 	}
 	if (garg->buffs_inf) {
-		for (i = 0; i < PP2_SOC_NUM_PACKPROCS; i++) {
+		for (i = 0; i < pp2_num_inst; i++) {
 			if (garg->buffs_inf[i]) {
 				for (j = 0; j < garg->num_pools; j++)
 					if (garg->buffs_inf[i][j])
@@ -1797,6 +1801,8 @@ int main(int argc, char *argv[])
 	err = parse_args(&garg, argc, argv);
 	if (err)
 		return err;
+
+	garg.pp2_num_inst = pp2_get_num_inst();
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cli;

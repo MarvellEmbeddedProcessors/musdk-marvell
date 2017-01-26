@@ -65,12 +65,6 @@ static char app_mode_str[] = "Loopback mode";
 static char app_mode_str[] = "Bridge mode";
 #endif
 
-#if PP2_SOC_NUM_PACKPROCS == 1
-static char board_str[] = "A7040";
-#else
-static char board_str[] = "A8040";
-#endif
-
 #ifdef APP_TX_RETRY
 static char tx_retry_str[] = "Tx Retry enabled";
 #else
@@ -185,6 +179,7 @@ struct glob_arg {
 	int			 qs_map_shift;
 	int			 prefetch_shift;
 	int			 num_ports;
+	int			 pp2_num_inst;
 	struct port_desc	 ports_desc[PP2_MAX_NUM_PORTS];
 
 	pthread_mutex_t		 trd_lock;
@@ -558,18 +553,13 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 
 /* TODO: find a better way to map the ports!!! */
-static int find_port_info(struct port_desc *port_desc)
-{
-/* TODO: temporary map table! */
-#if (PP2_SOC_NUM_PACKPROCS == 1)
-#define DEV2PORTS_MAP	\
+#define DEV2PORTS_MAP1	\
 {			\
 	{"eth1", 0, 0},	\
 	{"eth2", 0, 1},	\
 	{"eth3", 0, 2},	\
 }
-#elif (PP2_SOC_NUM_PACKPROCS == 2)
-#define DEV2PORTS_MAP	\
+#define DEV2PORTS_MAP2	\
 {			\
 	{"eth1", 0, 0},	\
 	{"eth2", 0, 1},	\
@@ -578,18 +568,30 @@ static int find_port_info(struct port_desc *port_desc)
 	{"eth5", 1, 1},	\
 	{"eth6", 1, 2},	\
 }
-#else
-#error Illegal number of PPs!
-#endif /* (PP2_SOC_NUM_PACKPROCS == 1) */
-	struct port_desc ports_map[] = DEV2PORTS_MAP;
-	int		 i, num;
+/* TODO: temporary map table! */
+static int find_port_info(struct port_desc *port_desc)
+{
+	struct port_desc ports_map1[] = DEV2PORTS_MAP1;
+	struct port_desc ports_map2[] = DEV2PORTS_MAP2;
+	struct port_desc *ports_map;
+	int 		 pp2_num_inst = garg.pp2_num_inst;
+	int		 i, num = 0;
 
 	if (!port_desc->name) {
 		pr_err("No port name given!\n");
 		return -EINVAL;
 	}
-
-	num = sizeof(ports_map)/sizeof(struct port_desc);
+	if (pp2_num_inst == 2) {
+		num = ARRAY_SIZE(ports_map2);
+		ports_map = ports_map2;
+	} else if (pp2_num_inst == 1) {
+		num = ARRAY_SIZE(ports_map1);
+		ports_map = ports_map1;
+	}
+	else {
+		pr_err("Illegal pp2_num_inst\n");
+		return -ENODEV;
+	}
 
 	for (i=0; i<num; i++)
 		if (strcmp(port_desc->name, ports_map[i].name) == 0) {
@@ -775,6 +777,8 @@ static int init_all_modules(void)
 
 	pr_info("Global initializations ... ");
 
+
+
 	if ((err = mv_sys_dma_mem_init(DMA_MEM_SIZE)) != 0)
 		return err;
 
@@ -789,16 +793,16 @@ static int init_all_modules(void)
 	pp2_params.ppios[0][1].first_inq = 0;
 	pp2_params.ppios[0][2].is_enabled = 1;
 	pp2_params.ppios[0][2].first_inq = 0;
-#if (PP2_SOC_NUM_PACKPROCS == 2)
-	/* Enable 10G port */
-	pp2_params.ppios[1][0].is_enabled = 1;
-	pp2_params.ppios[1][0].first_inq = 0;
-	/* Enable 1G ports */
-	pp2_params.ppios[1][1].is_enabled = 1;
-	pp2_params.ppios[1][1].first_inq = 0;
-	pp2_params.ppios[1][2].is_enabled = 1;
-	pp2_params.ppios[1][2].first_inq = 0;
-#endif /* (PP2_SOC_NUM_PACKPROCS == 1) */
+	if (garg.pp2_num_inst == 2) {
+		/* Enable 10G port */
+		pp2_params.ppios[1][0].is_enabled = 1;
+		pp2_params.ppios[1][0].first_inq = 0;
+		/* Enable 1G ports */
+		pp2_params.ppios[1][1].is_enabled = 1;
+		pp2_params.ppios[1][1].first_inq = 0;
+		pp2_params.ppios[1][2].is_enabled = 1;
+		pp2_params.ppios[1][2].first_inq = 0;
+	}
 	if ((err = pp2_init(&pp2_params)) != 0)
 		return err;
 
@@ -812,14 +816,15 @@ static int build_all_bpools(struct glob_arg *garg)
 	int			 	i, j, k, err, pool_id;
 	struct bpool_inf		infs[] = BPOOLS_INF;
 	char				name[15];
+	int 				pp2_num_inst = garg->pp2_num_inst;
 
-	garg->pools = (struct pp2_bpool ***)malloc(PP2_SOC_NUM_PACKPROCS*sizeof(struct pp2_bpool **));
+	garg->pools = (struct pp2_bpool ***)malloc(pp2_num_inst*sizeof(struct pp2_bpool **));
 	if (!garg->pools) {
 		pr_err("no mem for bpools array!\n");
 		return -ENOMEM;
 	}
 	garg->buffs_inf =
-		(struct pp2_buff_inf ***)malloc(PP2_SOC_NUM_PACKPROCS*sizeof(struct pp2_buff_inf **));
+		(struct pp2_buff_inf ***)malloc(pp2_num_inst*sizeof(struct pp2_buff_inf **));
 	if (!garg->buffs_inf) {
 		pr_err("no mem for bpools-inf array!\n");
 		return -ENOMEM;
@@ -831,7 +836,7 @@ static int build_all_bpools(struct glob_arg *garg)
 		return -EINVAL;
 	}
 
-	for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
+	for (i=0; i<pp2_num_inst; i++) {
 		garg->pools[i] = (struct pp2_bpool **)malloc(garg->num_pools*sizeof(struct pp2_bpool *));
 		if (!garg->pools[i]) {
 			pr_err("no mem for bpools array!\n");
@@ -1003,6 +1008,7 @@ static int init_local_modules(struct glob_arg *garg)
 static void destroy_local_modules(struct glob_arg *garg)
 {
 	int	i, j;
+	int 	pp2_num_inst = garg->pp2_num_inst;
 
 	if (garg->ports_desc[0].port) {
 		pp2_ppio_disable(garg->ports_desc[0].port);
@@ -1010,7 +1016,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 	}
 
 	if (garg->pools) {
-		for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
+		for (i=0; i<pp2_num_inst; i++) {
 			if (garg->pools[i]) {
 				for (j=0; j<garg->num_pools; j++)
 					if (garg->pools[i][j])
@@ -1021,7 +1027,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 		free(garg->pools);
 	}
 	if (garg->buffs_inf) {
-		for (i=0; i<PP2_SOC_NUM_PACKPROCS; i++) {
+		for (i=0; i<pp2_num_inst; i++) {
 			if (garg->buffs_inf[i]) {
 				for (j=0; j<garg->num_pools; j++)
 					if (garg->buffs_inf[i][j])
@@ -1375,12 +1381,14 @@ int main (int argc, char *argv[])
 	int			i, err;
 
 	setbuf(stdout, NULL);
-	pr_info("pkt-echo is started for %s in %s - %s - %s\n", board_str, app_mode_str, buf_release_str, tx_retry_str);
+	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
 
 	pr_debug("pr_debug is enabled\n");
 
 	if ((err = parse_args(&garg, argc, argv)) != 0)
 		return err;
+
+	garg.pp2_num_inst = pp2_get_num_inst();
 
 	cores_mask = 0;
 	for (i=0; i<garg.cpus; i++, cores_mask<<=1, cores_mask|=1) ;

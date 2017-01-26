@@ -99,6 +99,15 @@ void pp2_deinit(void);
  */
 int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id);
 
+/**
+ * Get number of active packet_processors.
+ *
+ *
+ * @retval	>0 on success
+ * @retval	=0 on failure
+ */
+u8 pp2_get_num_inst(void);
+
 /** @} */ /* end of grp_pp2_init */
 
 #endif /* __MV_PP2_H__ */

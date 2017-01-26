@@ -47,6 +47,7 @@ static u64 sys_dma_high_addr;
 static u16 used_bpools = MVAPPS_PP2_BPOOLS_RSRV;
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
+
 u64 app_get_sys_dma_high_addr(void)
 {
 	return sys_dma_high_addr;
@@ -127,8 +128,9 @@ int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pb
 	char				name[15];
 	struct pp2_bpool 		***pools;
 	struct pp2_buff_inf 		***buffs_inf;
+	u8  pp2_num_inst = pp2_get_num_inst();
 
-	pools = (struct pp2_bpool ***)malloc(PP2_SOC_NUM_PACKPROCS * sizeof(struct pp2_bpool **));
+	pools = (struct pp2_bpool ***)malloc(pp2_num_inst * sizeof(struct pp2_bpool **));
 	if (!pools) {
 		pr_err("no mem for bpools array!\n");
 		return -ENOMEM;
@@ -136,7 +138,7 @@ int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pb
 
 	*ppools = pools;
 
-	buffs_inf = (struct pp2_buff_inf ***)malloc(PP2_SOC_NUM_PACKPROCS * sizeof(struct pp2_buff_inf **));
+	buffs_inf = (struct pp2_buff_inf ***)malloc(pp2_num_inst * sizeof(struct pp2_buff_inf **));
 	if (!buffs_inf) {
 		pr_err("no mem for bpools-inf array!\n");
 		return -ENOMEM;
@@ -144,10 +146,10 @@ int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pb
 
 	*pbuffs_inf = buffs_inf;
 
-	for (i = 0; i < PP2_SOC_NUM_PACKPROCS; i++) {
+	for (i = 0; i < pp2_num_inst; i++) {
 
 		pr_info("num_pools = %d, buff_size %d, num_buffs %d\n", num_pools, infs[0].buff_size, infs[0].num_buffs);
-		
+
 		/* TODO: temporary W/A until we have map routines of bpools to ppios */
 		if (num_pools > PP2_PPIO_TC_MAX_POOLS) {
 			pr_err("only %d pools allowed!\n", PP2_PPIO_TC_MAX_POOLS);
