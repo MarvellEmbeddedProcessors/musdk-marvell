@@ -551,59 +551,29 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 }
 #endif /* HW_BUFF_RECYLCE */
 
-
-/* TODO: find a better way to map the ports!!! */
-#define DEV2PORTS_MAP1	\
-{			\
-	{"eth1", 0, 0},	\
-	{"eth2", 0, 1},	\
-	{"eth3", 0, 2},	\
-}
-#define DEV2PORTS_MAP2	\
-{			\
-	{"eth1", 0, 0},	\
-	{"eth2", 0, 1},	\
-	{"eth3", 0, 2},	\
-	{"eth4", 1, 0},	\
-	{"eth5", 1, 1},	\
-	{"eth6", 1, 2},	\
-}
-/* TODO: temporary map table! */
 static int find_port_info(struct port_desc *port_desc)
 {
-	struct port_desc ports_map1[] = DEV2PORTS_MAP1;
-	struct port_desc ports_map2[] = DEV2PORTS_MAP2;
-	struct port_desc *ports_map;
-	int 		 pp2_num_inst = garg.pp2_num_inst;
-	int		 i, num = 0;
+	char		 name[20];
+	u8		 pp, ppio;
+	int		 err;
 
 	if (!port_desc->name) {
 		pr_err("No port name given!\n");
-		return -EINVAL;
-	}
-	if (pp2_num_inst == 2) {
-		num = ARRAY_SIZE(ports_map2);
-		ports_map = ports_map2;
-	} else if (pp2_num_inst == 1) {
-		num = ARRAY_SIZE(ports_map1);
-		ports_map = ports_map1;
-	}
-	else {
-		pr_err("Illegal pp2_num_inst\n");
-		return -ENODEV;
+		return -1;
 	}
 
-	for (i=0; i<num; i++)
-		if (strcmp(port_desc->name, ports_map[i].name) == 0) {
-			port_desc->pp_id = ports_map[i].pp_id;
-			port_desc->ppio_id = ports_map[i].ppio_id;
-			break;
-		}
-
-	if (i == num) {
-		pr_err("port (%s) not found!\n", port_desc->name);
-		return -ENODEV;
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "%s", port_desc->name);
+	if ((err = pp2_netdev_get_port_info(name,
+					    &pp,
+					    &ppio)) != 0) {
+		pr_err("PP2 Port %s not found!\n", port_desc->name);
+		return err;
 	}
+
+	port_desc->ppio_id = ppio;
+	port_desc->pp_id = pp;
+
 	return 0;
 }
 
