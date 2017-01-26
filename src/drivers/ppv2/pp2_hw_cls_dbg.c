@@ -39,7 +39,6 @@
 #include "std_internal.h"
 
 #include "pp2.h"
-#include "pp2_print.h"
 #include "pp2_hw_cls.h"
 #include "pp2_hw_cls_dbg.h"
 #include "pp2_hw_type.h"

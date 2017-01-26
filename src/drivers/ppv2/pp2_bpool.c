@@ -107,7 +107,7 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 
 	paddr =  pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
 	if (unlikely(!paddr)) {
-		pp2_err("BM: BufGet failed! (Pool ID=%d)\n", pool_id);
+		pr_err("BM: BufGet failed! (Pool ID=%d)\n", pool_id);
 		return -ENOBUFS;
 	}
 
@@ -160,7 +160,7 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 		pr_err("BM: the buffer is not %u-byte aligned: %p", BM_BUF_ALIGN, (void *)vaddr);
 		return 1;
 	}
-	pp2_info("BM: BufPut %p\n", (void *)vaddr);
+	pr_info("BM: BufPut %p\n", (void *)vaddr);
 #endif
 
 	phys_lo = (u32)paddr;

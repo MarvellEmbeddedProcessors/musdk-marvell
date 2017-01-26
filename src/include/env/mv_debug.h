@@ -93,4 +93,12 @@ do {						\
 } while (0)
 #endif /* !BUG_ON */
 
+
+#ifndef pr_debug_fmt
+#define pr_debug_fmt(fmt, ...) \
+	pr_debug("%24s : %3d : " fmt "\n", \
+		 __func__, __LINE__, ##__VA_ARGS__)
+#endif
+
+
 #endif /* __MV_DEBUG_H__ */

@@ -134,7 +134,7 @@ static const char *pp2_id_uio_name(u8 pp2_id)
 	if (pp2_id <= PP2_ID1)
 		return pp2_names[pp2_id];
 
-	pp2_err("%s Invalid pp2_id(%d)\n", __func__, pp2_id);
+	pr_err("%s Invalid pp2_id(%d)\n", __func__, pp2_id);
 	return NULL;
 }
 
@@ -221,7 +221,7 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 
 	err = pp2_sys_ioinit(&inst->pp2_maps_hdl, pp2_id_uio_name((u8)inst->id));
 	if (err) {
-		pp2_err("PPDK: No device found\n");
+		pr_err(" No device found\n");
 		return err;
 	}
 
@@ -362,7 +362,7 @@ static int pp2_get_devtree_port_data(struct pp2_inst *inst)
 		} else if (inst->id == 1) {
 			sprintf(path, "/proc/device-tree/cpn-110-slave/config-space/ppv22@000000/");
 		} else {
-			pp2_err("wrong instance id.\n");
+			pr_err("wrong instance id.\n");
 			return -EEXIST;
 		}
 
@@ -372,19 +372,19 @@ static int pp2_get_devtree_port_data(struct pp2_inst *inst)
 
 		fp = fopen(path, "r");
 		if (!fp) {
-			pp2_err("error opening device tree status file.\n");
+			pr_err("error opening device tree status file.\n");
 			return -EEXIST;
 		}
 
 		fgets(buf, sizeof(buf), fp);
 		if (strcmp("disabled", buf) == 0) {
-			pp2_dbg("port %d:%d is disabled\n", inst->id,i);
+			pr_debug("port %d:%d is disabled\n", inst->id,i);
 			port->admin_status = PP2_PORT_DISABLED;
 		} else if (strcmp("non-kernel", buf) == 0) {
-			pp2_dbg("port %d:%d is MUSDK\n", inst->id,i);
+			pr_debug("port %d:%d is MUSDK\n", inst->id,i);
 			port->admin_status = PP2_PORT_MUSDK_ENABLED;
 		} else {
-			pp2_dbg("port %d:%d is kernel\n", inst->id,i);
+			pr_debug("port %d:%d is kernel\n", inst->id,i);
 			port->admin_status = PP2_PORT_KERNEL_ENABLED;
 		}
 		fclose (fp);
@@ -399,13 +399,13 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 	struct pp2_inst *inst;
 
 	if (unlikely(!pp2)) {
-		pp2_err("PPDK: Invalid ppdk handle\n");
+		pr_err("Invalid ppdk handle\n");
 		return NULL;
 	}
 
 	inst = kcalloc(1, sizeof(struct pp2_inst), GFP_KERNEL);
 	if (unlikely(!inst)) {
-		pp2_err("PPDK: %s out of memory pp2_inst alloc\n", __func__);
+		pr_err("%s out of memory pp2_inst alloc\n", __func__);
 		return NULL;
 	}
 
@@ -418,7 +418,7 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 		struct pp2_port *port = kcalloc(1, sizeof(struct pp2_port), GFP_KERNEL);
 
 		if (unlikely(!port)) {
-			pp2_err("PPDK: %s out of memory pp2_port alloc\n", __func__);
+			pr_err("%s out of memory pp2_port alloc\n", __func__);
 			break;
 		}
 		/* Static ID assignment */
@@ -431,7 +431,7 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 
 	/* Get static device tree data */
 	if (pp2_get_hw_data(inst)) {
-		pp2_err("PPDK: cannot populate hardware data\n");
+		pr_err("cannot populate hardware data\n");
 		for (i = 0; i < PP2_NUM_PORTS; i++)
 			kfree(inst->ports[i]);
 		kfree(inst);
@@ -439,7 +439,7 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 	}
 
 	if (pp2_get_devtree_port_data(inst)) {
-		pp2_err("PPDK: cannot populate device tree port data\n");
+		pr_err("cannot populate device tree port data\n");
 		for (i = 0; i < PP2_NUM_PORTS; i++)
 			kfree(inst->ports[i]);
 		kfree(inst);
@@ -491,7 +491,7 @@ int pp2_init(struct pp2_init_params *params)
 
 	pp2_ptr = kcalloc(1, sizeof(struct pp2), GFP_KERNEL);
 	if (unlikely(!pp2_ptr)) {
-		pp2_err("PPDK: %s out of memory pp2 alloc\n", __func__);
+		pr_err("%s out of memory pp2 alloc\n", __func__);
 		return -ENOMEM;
 	}
 	memcpy(&pp2_ptr->init, params, sizeof(*params));
@@ -509,7 +509,7 @@ int pp2_init(struct pp2_init_params *params)
 
 		inst = pp2_inst_create(pp2_ptr, pp2_id);
 		if (!inst) {
-			pp2_err("PPDK: cannot create PP%u\n", pp2_id);
+			pr_err("cannot create PP%u\n", pp2_id);
 
 			if (pp2_id == PP2_ID1) {
 				/* Also destroy the previous instance */
@@ -529,7 +529,7 @@ int pp2_init(struct pp2_init_params *params)
 		pp2_ptr->num_pp2_inst++;
 	}
 
-	pp2_dbg("PPDK: PackProcs   %2u\n", pp2_num_inst);
+	pr_debug("PackProcs   %2u\n", pp2_num_inst);
 
 	return 0;
 }
@@ -579,7 +579,7 @@ int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)
 			if (found) {
 				*pp_id = i;
 				*port_id = j;
-				pp2_info("%s: ppio-%d,%d\n", ifname, *pp_id, *port_id);
+				pr_info("%s: ppio-%d,%d\n", ifname, *pp_id, *port_id);
 				return 0;
 			}
 		}

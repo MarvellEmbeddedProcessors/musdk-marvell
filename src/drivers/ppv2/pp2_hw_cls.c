@@ -35,7 +35,6 @@
 #include "pp2_types.h"
 
 #include "pp2.h"
-#include "pp2_print.h"
 #include "pp2_hw_cls.h"
 #include "pp2_hw_type.h"
 
@@ -425,7 +424,7 @@ static int mv_pp2x_prs_flow_id_attr_tbl[MVPP2_PRS_FL_LAST];
 int mv_pp2x_ptr_validate(const void *ptr)
 {
 	if (!ptr) {
-		pp2_err("%s: null pointer.\n", __func__);
+		pr_err("%s: null pointer.\n", __func__);
 		return MV_ERROR;
 	}
 	return 0;
@@ -434,7 +433,7 @@ int mv_pp2x_ptr_validate(const void *ptr)
 int mv_pp2x_range_validate(int value, int min, int max)
 {
 	if (((value) > (max)) || ((value) < (min))) {
-		pp2_err("%s: value 0x%X (%d) is out of range [0x%X , 0x%X].\n",
+		pr_err("%s: value 0x%X (%d) is out of range [0x%X , 0x%X].\n",
 			__func__, (value), (value), (min), (max));
 		return MV_ERROR;
 	}
@@ -1321,7 +1320,7 @@ static int mv_pp2x_prs_tcam_first_free(struct pp2_hw *hw,
 		if (!hw->prs_shadow[tid].valid)
 			return tid;
 	}
-	pp2_err("Out of TCAM Entries !!\n");
+	pr_err("Out of TCAM Entries !!\n");
 	return -EINVAL;
 }
 
@@ -2272,7 +2271,7 @@ int mv_pp2x_cls_sw_flow_hek_set(struct mv_pp2x_cls_flow_entry *fe,
 			  MVPP2_FLOW_FIELDS_NUM_MASK) >> MVPP2_FLOW_FIELDS_NUM);
 
 	if (num_of_fields < (field_index + 1)) {
-		pp2_dbg("%s:num of heks=%d ,idx(%d) out of range\n",
+		pr_debug("%s:num of heks=%d ,idx(%d) out of range\n",
 			__func__, num_of_fields, field_index);
 		return -1;
 	}
@@ -3734,13 +3733,13 @@ void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en)
 			if (mv_pp22_rss_default_cpu_set(port,
 							port->parent->pp2_cfg.
 							rss_cfg.dflt_cpu))
-				pp2_err("cannot set rss cpu on port(%d)\n",
+				pr_err("cannot set rss cpu on port(%d)\n",
 					port->id);
 			else
 				port->parent->pp2_cfg.rss_cfg.rss_en = 1;
 		} else {
 			if (mv_pp2x_cls_c2_rule_set(port, bound_cpu_first_rxq))
-				pp2_err("cannot set c2, qos table on port(%d)\n",
+				pr_err("cannot set c2, qos table on port(%d)\n",
 					port->id);
 			else
 				port->parent->pp2_cfg.rss_cfg.rss_en = 0;
@@ -5401,47 +5400,47 @@ int mv_pp2x_open_cls(struct pp2_port *port)
 	mv_pp2x_width_calc(port->parent, &cpu_width, &cos_width, &port_rxq_width);
 	if (cpu_width + cos_width > port_rxq_width) {
 		err = -1;
-		pp2_err("cpu or cos queue width invalid\n");
+		pr_err("cpu or cos queue width invalid\n");
 		return err;
 	}
-	pp2_dbg("PPDK:\t%s\t cpu_width:%d, cos_width:%d, port_rxq_width:%d\n",
+	pr_debug("PPDK:\t%s\t cpu_width:%d, cos_width:%d, port_rxq_width:%d\n",
 		__func__, cpu_width, cos_width, port_rxq_width);
 
 	err = mv_pp2x_prs_mac_da_accept(hw, port->id, mac_bcast, true);
 	if (err) {
-		pp2_err("mv_pp2x_prs_mac_da_accept BC failed\n");
+		pr_err("mv_pp2x_prs_mac_da_accept BC failed\n");
 		return err;
 	}
 
 	err = mv_pp2x_prs_mac_da_accept(hw, port->id, (const uint8_t *)port->mac_data.mac, true);
 	if (err) {
-		pp2_err("mv_pp2x_prs_mac_da_accept M2M failed\n");
+		pr_err("mv_pp2x_prs_mac_da_accept M2M failed\n");
 		return err;
 	}
 
 	err = mv_pp2x_prs_tag_mode_set(hw, port->id, MVPP2_TAG_TYPE_MH);
 
 	if (err) {
-		pp2_err("mv_pp2x_prs_tag_mode_set failed\n");
+		pr_err("mv_pp2x_prs_tag_mode_set failed\n");
 		return err;
 	}
 
 	err = mv_pp2x_prs_def_flow(port);
 	if (err) {
-		pp2_err("mv_pp2x_prs_def_flow failed\n");
+		pr_err("mv_pp2x_prs_def_flow failed\n");
 		return err;
 	}
 
 	err = mv_pp2x_prs_flow_set(port);
 	if (err) {
-		pp2_err("mv_pp2x_prs_flow_set failed\n");
+		pr_err("mv_pp2x_prs_flow_set failed\n");
 		return err;
 	}
 
 	/* Set CoS classifier */
 	err = mv_pp2x_cos_classifier_set(port, cos_classifer);
 	if (err) {
-		pp2_err("cannot set cos classifier\n");
+		pr_err("cannot set cos classifier\n");
 		return err;
 	}
 
@@ -5449,14 +5448,14 @@ int mv_pp2x_open_cls(struct pp2_port *port)
 	bound_cpu_first_rxq = mv_pp2x_bound_cpu_first_rxq_calc(port);
 	err = mv_pp2x_cls_c2_rule_set(port, bound_cpu_first_rxq);
 	if (err) {
-		pp2_err("cannot init C2 rules\n");
+		pr_err("cannot init C2 rules\n");
 		return err;
 	}
 
 	/* Assign rss table for rxq belong to this port */
 	err = mv_pp22_rss_rxq_set(port, cos_width);
 	if (err) {
-		pp2_err("cannot allocate rss table for rxq\n");
+		pr_err("cannot allocate rss table for rxq\n");
 		return err;
 	}
 	/* RSS related config */
@@ -5466,14 +5465,14 @@ int mv_pp2x_open_cls(struct pp2_port *port)
 					   port->parent->pp2_cfg.rss_cfg.
 					   rss_mode);
 		if (err) {
-			pp2_err("cannot set rss mode\n");
+			pr_err("cannot set rss mode\n");
 			return err;
 		}
 
 		/* Init RSS table */
 		err = mv_pp22_rss_rxfh_indir_set(port);
 		if (err) {
-			pp2_err("cannot init rss rxfh indir\n");
+			pr_err("cannot init rss rxfh indir\n");
 			return err;
 		}
 
@@ -5483,7 +5482,7 @@ int mv_pp2x_open_cls(struct pp2_port *port)
 							  port->parent->pp2_cfg.
 							  rss_cfg.dflt_cpu);
 			if (err) {
-				pp2_err("cannot set rss default cpu\n");
+				pr_err("cannot set rss default cpu\n");
 				return err;
 			}
 		}
@@ -5814,7 +5813,7 @@ int pp2_cls_c3_hw_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int index
 	/* wait to cpu access done bit */
 	while (!pp2_cls_c3_cpu_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
-			pp2_err("%s:Error - retries exceeded.\n", __func__);
+			pr_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
 		}
 
@@ -5885,7 +5884,7 @@ int pp2_cls_c3_hw_del(uintptr_t cpu_slot, int index)
 	/* wait to cpu access done bit */
 	while (!pp2_cls_c3_cpu_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
-			pp2_err("%s:Error - retries exceeded.\n", __func__);
+			pr_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
 		}
 
@@ -5930,13 +5929,13 @@ static int pp2_cls_c3_hw_query_add_relocate(uintptr_t cpu_slot, int new_idx, int
 
 	ret_val = pp2_cls_c3_hw_read(cpu_slot, &local_c3, new_idx);
 	if (ret_val) {
-		pp2_err("%s could not get key for index [0x%x]\n", __func__, new_idx);
+		pr_err("%s could not get key for index [0x%x]\n", __func__, new_idx);
 		return ret_val;
 	}
 
 	ret_val = pp2_cls_c3_hw_query(cpu_slot, &local_c3, &occupied_bmp, used_index);
 	if (ret_val) {
-		pp2_err("%s: pp2_cls_c3_hw_query failed, depth = %d\n", __func__, cur_depth);
+		pr_err("%s: pp2_cls_c3_hw_query failed, depth = %d\n", __func__, cur_depth);
 		return ret_val;
 	}
 
@@ -5958,10 +5957,10 @@ static int pp2_cls_c3_hw_query_add_relocate(uintptr_t cpu_slot, int new_idx, int
 	/* no free index, recurse and relocate another key */
 	if (idx == MVPP2_CLS3_HASH_BANKS_NUM) {
 #ifdef MV_DEBUG
-		pp2_dbg("new[0x%.3x]:%.1d ", new_idx, cur_depth);
+		pr_debug("new[0x%.3x]:%.1d ", new_idx, cur_depth);
 		for (idx = 0; idx < MVPP2_CLS3_HASH_BANKS_NUM; idx++)
-			pp2_dbg("0x%.3x ", used_index[idx]);
-		pp2_dbg("\n");
+			pr_debug("0x%.3x ", used_index[idx]);
+		pr_debug("\n");
 #endif
 
 		/* recurse over all valid indices */
@@ -5995,11 +5994,11 @@ static int pp2_cls_c3_hw_query_add_relocate(uintptr_t cpu_slot, int new_idx, int
 	}
 
 	if (ret_val != 0) {
-		pp2_err("%s:Error - pp2_cls_c3_hw_add failed, depth = %d\\n", __func__, cur_depth);
+		pr_err("%s:Error - pp2_cls_c3_hw_add failed, depth = %d\\n", __func__, cur_depth);
 		return ret_val;
 	}
 
-	pp2_info("key relocated  0x%.3x->0x%.3x\n", new_idx, index_free);
+	pr_info("key relocated  0x%.3x->0x%.3x\n", new_idx, index_free);
 
 	return 0;
 }
@@ -6014,7 +6013,7 @@ int pp2_cls_c3_hw_query_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int
 
 	ret_val = pp2_cls_c3_hw_query(cpu_slot, c3, &occupied_bmp, used_index);
 	if (ret_val != 0) {
-		pp2_err("%s:Error - pp2_cls_c3_hw_query failed\n", __func__);
+		pr_err("%s:Error - pp2_cls_c3_hw_query failed\n", __func__);
 		return ret_val;
 	}
 
@@ -6034,7 +6033,7 @@ int pp2_cls_c3_hw_query_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int
 
 		if (idx == MVPP2_CLS3_HASH_BANKS_NUM) {
 			/* Available index did not found*/
-			pp2_err("%s:Error - HASH table is full.\n", __func__);
+			pr_err("%s:Error - HASH table is full.\n", __func__);
 			return -EIO;
 		}
 	}
@@ -6048,21 +6047,21 @@ int pp2_cls_c3_hw_query_add(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int
 		ext_index = pp2_cls_c3_shadow_ext_free_get();
 
 		if (ext_index == MVPP2_CLS_C3_EXT_TBL_SIZE) {
-			pp2_err("%s:Error - Extension table is full.\n", __func__);
+			pr_err("%s:Error - Extension table is full.\n", __func__);
 			return -EIO;
 		}
 	}
 
 	ret_val = pp2_cls_c3_hw_add(cpu_slot, c3, index_free, ext_index);
 	if (ret_val != 0) {
-		pp2_err("%s:Error - pp2_cls_c3_hw_add failed\n", __func__);
+		pr_err("%s:Error - pp2_cls_c3_hw_add failed\n", __func__);
 		return ret_val;
 	}
 
 	if (hek_size > MVPP2_CLS_C3_HEK_BYTES)
-		pp2_info("Added C3 entry @ index=0x%.3x ext=0x%.3x\n", index_free, ext_index);
+		pr_info("Added C3 entry @ index=0x%.3x ext=0x%.3x\n", index_free, ext_index);
 	else
-		pp2_info("Added C3 entry @ index=0x%.3x\n", index_free);
+		pr_info("Added C3 entry @ index=0x%.3x\n", index_free);
 
 	return 0;
 }
@@ -6092,7 +6091,7 @@ int pp2_cls_c3_hw_query(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, u8 *occ
 	idx = 0;
 	while (!pp2_cls_c3_cpu_done(cpu_slot))
 		if (++idx >= RETRIES_EXCEEDED) {
-			pp2_err("%s:Error - retries exceeded.\n", __func__);
+			pr_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
 		}
 
@@ -6102,7 +6101,7 @@ int pp2_cls_c3_hw_query(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, u8 *occ
 	if ((!occupied_bmp) || (!index)) {
 		/* print to screen - call from sysfs*/
 		for (idx = 0; idx < MVPP2_CLS3_HASH_BANKS_NUM; idx++)
-			pp2_info("0x%8.8x	%s\n", pp2_reg_read(cpu_slot, MVPP2_CLS3_QRY_RES_HASH_REG(idx)),
+			pr_info("0x%8.8x	%s\n", pp2_reg_read(cpu_slot, MVPP2_CLS3_QRY_RES_HASH_REG(idx)),
 				 (reg_val & (1 << idx)) ? "OCCUPIED" : "FREE");
 		return 0;
 	}
@@ -6162,7 +6161,7 @@ int pp2_cls_c3_hw_read(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int inde
 		is_ext = 0;
 		/* TODO REMOVE NEXT LINES- ONLY FOR INTERNAL VALIDATION */
 		if ((pp2_cls_c3_shadow_tbl[index].size == 0) || (pp2_cls_c3_shadow_tbl[index].ext_ptr != NOT_IN_USE)) {
-			pp2_err("%s: SW internal error.\n", __func__);
+			pr_err("%s: SW internal error.\n", __func__);
 			return -EIO;
 		}
 
@@ -6188,7 +6187,7 @@ int pp2_cls_c3_hw_read(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, int inde
 		is_ext = 1;
 		/* TODO REMOVE NEXT LINES- ONLY FOR INTERNAL VALIDATION */
 		if ((pp2_cls_c3_shadow_tbl[index].size == 0) || (pp2_cls_c3_shadow_tbl[index].ext_ptr == NOT_IN_USE)) {
-			pp2_err("%s: SW internal error.\n", __func__);
+			pr_err("%s: SW internal error.\n", __func__);
 			return -EIO;
 		}
 		c3->ext_index = pp2_cls_c3_shadow_tbl[index].ext_ptr;
@@ -6649,7 +6648,7 @@ int pp2_cls_c3_hit_cntrs_clear(uintptr_t cpu_slot, int lkp_type)
 	/* wait to clear het counters done bit */
 	while (!pp2_cls_c3_hit_cntr_clear_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
-			pp2_err("%s:Error - retries exceeded.\n", __func__);
+			pr_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
 		}
 
@@ -6665,7 +6664,7 @@ int pp2_cls_c3_hit_cntrs_clear_all(uintptr_t cpu_slot)
 	/* wait to clear het counters done bit */
 	while (!pp2_cls_c3_hit_cntr_clear_done(cpu_slot))
 		if (++iter >= RETRIES_EXCEEDED) {
-			pp2_err("%s:Error - retries exceeded.\n", __func__);
+			pr_err("%s:Error - retries exceeded.\n", __func__);
 			return -EBUSY;
 		}
 
@@ -6687,7 +6686,7 @@ int pp2_cls_c3_hit_cntrs_read(uintptr_t cpu_slot, int index, u32 *cntr)
 	counter = pp2_reg_read(cpu_slot, MVPP2_CLS3_HIT_COUNTER_REG) & MVPP2_CLS3_HIT_COUNTER_MASK;
 
 	if (!cntr)
-		pp2_info("ADDR:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, counter);
+		pr_info("ADDR:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, counter);
 	else
 		*cntr = counter;
 	return 0;
@@ -6712,7 +6711,7 @@ int pp2_cls_c3_hit_cntrs_miss_read(uintptr_t cpu_slot, int lkp_type, u32 *cntr)
 	counter = pp2_reg_read(cpu_slot, MVPP2_CLS3_HIT_COUNTER_REG) & MVPP2_CLS3_HIT_COUNTER_MASK;
 
 	if (!cntr)
-		pp2_info("LKPT:0x%3.3x	COUNTER VAL:0x%6.6x\n", lkp_type, counter);
+		pr_info("LKPT:0x%3.3x	COUNTER VAL:0x%6.6x\n", lkp_type, counter);
 	else
 		*cntr = counter;
 	return 0;
@@ -6730,7 +6729,7 @@ int pp2_cls_c3_hit_cntrs_read_all(uintptr_t cpu_slot)
 		if (counter == 0)
 			continue;
 
-		pp2_info("ADDR:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, counter);
+		pr_info("ADDR:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, counter);
 	}
 
 	for (index = 0; index < MVPP2_CLS_C3_MISS_TBL_SIZE; index++) {
@@ -6740,7 +6739,7 @@ int pp2_cls_c3_hit_cntrs_read_all(uintptr_t cpu_slot)
 		if (counter == 0)
 			continue;
 
-		pp2_info("LKPT:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, counter);
+		pr_info("LKPT:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, counter);
 	}
 	return 0;
 }
@@ -6882,7 +6881,7 @@ int pp2_cls_c3_scan_res_read(uintptr_t cpu_slot, int index, int *addr, int *cnt)
 	} while (sc_state != 0 && ((iter++) < RETRIES_EXCEEDED));/*scan compleated*/
 
 	if (iter >= RETRIES_EXCEEDED) {
-		pp2_err("%s:Error - retries exceeded.\n", __func__);
+		pr_err("%s:Error - retries exceeded.\n", __func__);
 		return -EBUSY;
 	}
 
@@ -6895,7 +6894,7 @@ int pp2_cls_c3_scan_res_read(uintptr_t cpu_slot, int index, int *addr, int *cnt)
 	counter = (reg_val & MVPP2_CLS3_SC_RES_CTR_MASK) >> MVPP2_CLS3_SC_RES_CTR;
 	/* if one of parameters is null - func call from sysfs*/
 	if ((!addr) | (!cnt)) {
-		pp2_info("INDEX:0x%2.2x	ADDR:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, address, counter);
+		pr_info("INDEX:0x%2.2x	ADDR:0x%3.3x	COUNTER VAL:0x%6.6x\n", index, address, counter);
 	} else {
 		*addr = address;
 		*cnt = counter;
@@ -6915,7 +6914,7 @@ int pp2_cls_c3_scan_num_of_res_get(uintptr_t cpu_slot, int *res_num)
 	} while (sc_state != 0 && ((iter++) < RETRIES_EXCEEDED));/*scan compleated*/
 
 	if (iter >= RETRIES_EXCEEDED) {
-		pp2_err("%s:Error - retries exceeded.\n", __func__);
+		pr_err("%s:Error - retries exceeded.\n", __func__);
 		return -EBUSY;
 	}
 

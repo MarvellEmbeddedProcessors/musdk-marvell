@@ -39,20 +39,19 @@
 #include "pp2.h"
 #include "pp2_gop_def.h"
 #include "pp2_gop_dbg.h"
-#include "pp2_print.h"
 
 void pp2_gop_register_bases_dump(struct gop_hw *gop)
 {
-	pp2_info("  %-32s: 0x%lx\n", "GMAC", gop->gmac.base.pa);
-	pp2_info("  %-32s: 0x%lx\n", "XLG_MAC", gop->xlg_mac.base.pa);
-	pp2_info("  %-32s: 0x%lx\n", "SERDES", gop->serdes.base.pa);
-	pp2_info("  %-32s: 0x%lx\n", "XMIB", gop->xmib.base.pa);
-	pp2_info("  %-32s: 0x%lx\n", "SMI", gop->smi.pa);
-	pp2_info("  %-32s: 0x%lx\n", "XSMI", gop->xsmi.pa);
-	pp2_info("  %-32s: 0x%lx\n", "MSPG", gop->mspg.pa);
-	pp2_info("  %-32s: 0x%lx\n", "XPCS", gop->xpcs.pa);
-	pp2_info("  %-32s: 0x%lx\n", "PTP", gop->ptp.base.pa);
-	pp2_info("  %-32s: 0x%lx\n", "RFU1", gop->rfu1.pa);
+	pr_info("  %-32s: 0x%lx\n", "GMAC", gop->gmac.base.pa);
+	pr_info("  %-32s: 0x%lx\n", "XLG_MAC", gop->xlg_mac.base.pa);
+	pr_info("  %-32s: 0x%lx\n", "SERDES", gop->serdes.base.pa);
+	pr_info("  %-32s: 0x%lx\n", "XMIB", gop->xmib.base.pa);
+	pr_info("  %-32s: 0x%lx\n", "SMI", gop->smi.pa);
+	pr_info("  %-32s: 0x%lx\n", "XSMI", gop->xsmi.pa);
+	pr_info("  %-32s: 0x%lx\n", "MSPG", gop->mspg.pa);
+	pr_info("  %-32s: 0x%lx\n", "XPCS", gop->xpcs.pa);
+	pr_info("  %-32s: 0x%lx\n", "PTP", gop->ptp.base.pa);
+	pr_info("  %-32s: 0x%lx\n", "RFU1", gop->rfu1.pa);
 }
 
 /* print value of unit registers */
@@ -189,17 +188,17 @@ int pp2_gop_port_regs(struct gop_hw *gop, struct pp2_mac_data *mac)
 	case PHY_INTERFACE_MODE_RGMII:
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_QSGMII:
-		pp2_info("\n[gop GMAC #%d registers]\n", port_num);
+		pr_info("\n[gop GMAC #%d registers]\n", port_num);
 		pp2_gop_gmac_regs_dump(gop, port_num);
 		break;
 	case PHY_INTERFACE_MODE_XAUI:
 	case PHY_INTERFACE_MODE_RXAUI:
 	case PHY_INTERFACE_MODE_KR:
-		pp2_info("\n[gop XLG MAC #%d registers]\n", port_num);
+		pr_info("\n[gop XLG MAC #%d registers]\n", port_num);
 		pp2_gop_xlg_mac_regs_dump(gop, port_num);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -225,12 +224,12 @@ static void pp2_gop_mib_print(struct gop_hw *gop, int port, uint32_t offset,
 	u64 val;
 
 	val = pp2_gop_mib_read64(gop, port, offset);
-	pp2_info("  %-32s: 0x%02x = %lu\n", mib_name, offset, val);
+	pr_info("  %-32s: 0x%02x = %lu\n", mib_name, offset, val);
 }
 
 void pp2_gop_mib_counters_show(struct gop_hw *gop, int port)
 {
-	pp2_info("\n[Rx]\n");
+	pr_info("\n[Rx]\n");
 	pp2_gop_mib_print(gop, port, PP2_MIB_GOOD_OCTETS_RECEIVED_LOW,
 			  "GOOD_OCTETS_RECEIVED");
 	pp2_gop_mib_print(gop, port, PP2_MIB_BAD_OCTETS_RECEIVED,
@@ -243,7 +242,7 @@ void pp2_gop_mib_counters_show(struct gop_hw *gop, int port)
 	pp2_gop_mib_print(gop, port, PP2_MIB_MULTICAST_FRAMES_RECEIVED,
 			  "MULTICAST_FRAMES_RECEIVED");
 
-	pp2_info("\n[RMON]\n");
+	pr_info("\n[RMON]\n");
 	pp2_gop_mib_print(gop, port, PP2_MIB_FRAMES_64_OCTETS,
 			  "FRAMES_64_OCTETS");
 	pp2_gop_mib_print(gop, port, PP2_MIB_FRAMES_65_TO_127_OCTETS,
@@ -257,7 +256,7 @@ void pp2_gop_mib_counters_show(struct gop_hw *gop, int port)
 	pp2_gop_mib_print(gop, port, PP2_MIB_FRAMES_1024_TO_MAX_OCTETS,
 			  "FRAMES_1024_TO_MAX_OCTETS");
 
-	pp2_info("\n[Tx]\n");
+	pr_info("\n[Tx]\n");
 	pp2_gop_mib_print(gop, port, PP2_MIB_GOOD_OCTETS_SENT_LOW,
 			  "GOOD_OCTETS_SENT");
 	pp2_gop_mib_print(gop, port, PP2_MIB_UNICAST_FRAMES_SENT,
@@ -268,11 +267,11 @@ void pp2_gop_mib_counters_show(struct gop_hw *gop, int port)
 			  "BROADCAST_FRAMES_SENT");
 	pp2_gop_mib_print(gop, port, PP2_MIB_CRC_ERRORS_SENT, "CRC_ERRORS_SENT");
 
-	pp2_info("\n[FC control]\n");
+	pr_info("\n[FC control]\n");
 	pp2_gop_mib_print(gop, port, PP2_MIB_FC_RECEIVED, "FC_RECEIVED");
 	pp2_gop_mib_print(gop, port, PP2_MIB_FC_SENT, "FC_SENT");
 
-	pp2_info("\n[Errors]\n");
+	pr_info("\n[Errors]\n");
 	pp2_gop_mib_print(gop, port, PP2_MIB_RX_FIFO_OVERRUN, "RX_FIFO_OVERRUN");
 	pp2_gop_mib_print(gop, port, PP2_MIB_UNDERSIZE_RECEIVED,
 			  "UNDERSIZE_RECEIVED");
@@ -292,7 +291,7 @@ void pp2_gop_mib_counters_show(struct gop_hw *gop, int port)
 /* print value of unit registers */
 void pp2_gop_xpcs_gl_regs_dump(struct gop_hw *gop)
 {
-	pp2_info("\nXPCS Global registers]\n");
+	pr_info("\nXPCS Global registers]\n");
 	pp2_gop_xpcs_global_print(gop, "GLOBAL_CFG_0", PP2_XPCS_GLOBAL_CFG_0_REG);
 	pp2_gop_xpcs_global_print(gop, "GLOBAL_CFG_1", PP2_XPCS_GLOBAL_CFG_1_REG);
 	pp2_gop_xpcs_global_print(gop, "GLOBAL_FIFO_THR_CFG",
@@ -312,7 +311,7 @@ void pp2_gop_xpcs_gl_regs_dump(struct gop_hw *gop)
 /* print value of unit registers */
 void pp2_gop_xpcs_lane_regs_dump(struct gop_hw *gop, int lane)
 {
-	pp2_info("\nXPCS Lane #%d registers]\n", lane);
+	pr_info("\nXPCS Lane #%d registers]\n", lane);
 	pp2_gop_xpcs_lane_print(gop, "LANE_CFG_0", lane, PP2_XPCS_LANE_CFG_0_REG);
 	pp2_gop_xpcs_lane_print(gop, "LANE_CFG_1", lane, PP2_XPCS_LANE_CFG_1_REG);
 	pp2_gop_xpcs_lane_print(gop, "LANE_STATUS", lane,
@@ -344,7 +343,7 @@ void pp2_gop_xpcs_lane_regs_dump(struct gop_hw *gop, int lane)
 /* print value of unit registers */
 void pp2_gop_serdes_lane_regs_dump(struct gop_hw *gop, int lane)
 {
-	pp2_info("\nSerdes Lane #%d registers]\n", lane);
+	pr_info("\nSerdes Lane #%d registers]\n", lane);
 	pp2_gop_serdes_print(gop, "PP2_SERDES_CFG_0_REG", lane,
 			     PP2_SERDES_CFG_0_REG);
 	pp2_gop_serdes_print(gop, "PP2_SERDES_CFG_1_REG", lane,
@@ -359,18 +358,18 @@ void pp2_gop_serdes_lane_regs_dump(struct gop_hw *gop, int lane)
 
 void pp2_gop_mac_print(struct pp2_mac_data *mac)
 {
-	pp2_info("\n Emac data structure\n");
-	pp2_info("gop_index = %d\n",  mac->gop_index);
-	pp2_info("flags = %ld\n",      mac->flags);
-	pp2_info("phy_addr = %x\n",   mac->phy_addr);
-	pp2_info("phy_mode = %d\n",   mac->phy_mode);
-	pp2_info("force_link = %d\n", mac->force_link);
-	pp2_info("autoneg = %d\n",    mac->autoneg);
-	pp2_info("link = %d\n",       mac->link);
-	pp2_info("duplex = %d\n",     mac->duplex);
-	pp2_info("speed = %d\n",      mac->speed);
-	pp2_info("MAC = {");
+	pr_info("\n Emac data structure\n");
+	pr_info("gop_index = %d\n",  mac->gop_index);
+	pr_info("flags = %ld\n",      mac->flags);
+	pr_info("phy_addr = %x\n",   mac->phy_addr);
+	pr_info("phy_mode = %d\n",   mac->phy_mode);
+	pr_info("force_link = %d\n", mac->force_link);
+	pr_info("autoneg = %d\n",    mac->autoneg);
+	pr_info("link = %d\n",       mac->link);
+	pr_info("duplex = %d\n",     mac->duplex);
+	pr_info("speed = %d\n",      mac->speed);
+	pr_info("MAC = {");
 	for (int i = 0; i < 6; i++)
-		pp2_info("%x ", mac->mac[i]);
-	pp2_info("}\n");
+		pr_info("%x ", mac->mac[i]);
+	pr_info("}\n");
 }

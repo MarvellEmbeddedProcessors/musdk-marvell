@@ -43,7 +43,6 @@
 
 #include "../pp2_types.h"
 #include "../pp2.h"
-#include "../pp2_print.h"
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 #include "../pp2_hw_cls_dbg.h"
@@ -72,7 +71,7 @@ static int pp2_cls_c3_common_field_hek_get(u32 pkt_value, u32 field_bytes, u32 f
 	int idx;
 	u32 c3_hek_bytes_used;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(c3_hek))
@@ -139,7 +138,7 @@ static int pp2_cls_c3_shared_field_hek_get(u32 pkt_value, u32 field_bytes, u32 f
 	u8 comb_flag1;
 	u8 comb_flag2;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* Para check */
 	if (mv_pp2x_ptr_validate(c3_hek))
@@ -232,7 +231,7 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 	int rc = MV_OK;
 	u8 l4_info;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	if (mv_pp2x_ptr_validate(c3_entry))
 		return -EINVAL;
@@ -258,7 +257,7 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 					    MVPP2_FLOW_FIELD_COUNT_MAX,	l4_info, field_info);
 
 	if (rc) {
-		pp2_err("failed to get field information\n");
+		pr_err("failed to get field information\n");
 		return rc;
 	}
 
@@ -274,7 +273,7 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 		/* Check HEK bytes number */
 		if (c3_hek_bytes_used >= MVPP2_C3_MAX_HASH_KEY_SIZE ||
 		    (field_bytes > (MVPP2_C3_MAX_HASH_KEY_SIZE - c3_hek_bytes_used))) {
-			pp2_err("HEK bytes (%d) beyond C3 capcity\n", (c3_hek_bytes_used + field_bytes));
+			pr_err("HEK bytes (%d) beyond C3 capcity\n", (c3_hek_bytes_used + field_bytes));
 			return -EINVAL;
 		}
 		/* Organize pkt key according to field size and order */
@@ -304,7 +303,7 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 			rc = pp2_cls_c3_common_field_hek_get(pkt_value, field_bytes, field_size, c3_hek,
 							     &c3_hek_bytes_used);
 			if (rc) {
-				pp2_err("failed to get HEK\n");
+				pr_err("failed to get HEK\n");
 				return rc;
 			}
 
@@ -313,7 +312,7 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 		case IN_VLAN_CFI_FIELD_ID:
 			c3_hek_bytes_used++;
 			if (c3_hek_bytes_used > MVPP2_C3_MAX_HASH_KEY_SIZE) {
-				pp2_err("HEK bytes (%d) out C3 capcity\n", c3_hek_bytes_used);
+				pr_err("HEK bytes (%d) out C3 capcity\n", c3_hek_bytes_used);
 				/*mvOsFree(field_info);*/ /* [AW] TBD */
 				return -EINVAL;
 			}
@@ -368,14 +367,14 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 
 			if (c3_hek_bytes_used >= MVPP2_C3_MAX_HASH_KEY_SIZE ||
 			    (field_bytes > (MVPP2_C3_MAX_HASH_KEY_SIZE - c3_hek_bytes_used))) {
-				pp2_err("HEK bytes (%d) beyond C3 capcity\n", (c3_hek_bytes_used + field_bytes));
+				pr_err("HEK bytes (%d) beyond C3 capcity\n", (c3_hek_bytes_used + field_bytes));
 				return -EINVAL;
 			}
 
 			rc = pp2_cls_c3_shared_field_hek_get(pkt_value, field_bytes, field_size, comb_flag,
 							     comb_offset, c3_hek, &c3_hek_bytes_used);
 			if (rc) {
-				pp2_err("failed to get HEK\n");
+				pr_err("failed to get HEK\n");
 				return rc;
 			}
 			break;
@@ -422,7 +421,7 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 			}
 			break;
 		default:
-			pp2_err("Invalid field ID (%d) on C3 engine\n", field_id);
+			pr_err("Invalid field ID (%d) on C3 engine\n", field_id);
 			return MV_ERROR;
 		}
 		/* record previous id */
@@ -463,7 +462,7 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 	u8 hek[MVPP2_C3_MAX_HASH_KEY_SIZE];
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(mng_entry))
@@ -487,7 +486,7 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 
 		rc = pp2_cls_c3_sw_l4_info_set(hw_entry, l4_type);
 		if (rc) {
-			pp2_err("failed to call pp2_cls_c3_sw_l4_info_set\n");
+			pr_err("failed to call pp2_cls_c3_sw_l4_info_set\n");
 			return rc;
 		}
 	}
@@ -495,21 +494,21 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 	/* set lookup type */
 	rc = pp2_cls_c3_sw_lkp_type_set(hw_entry, mng_entry->lkp_type);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_sw_lkp_type_set\n");
+		pr_err("failed to call pp2_cls_c3_sw_lkp_type_set\n");
 		return rc;
 	}
 
 	/* set port ID */
 	rc = pp2_cls_c3_sw_port_id_set(hw_entry, mng_entry->port.port_type, mng_entry->port.port_value);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_sw_port_id_set\n");
+		pr_err("failed to call pp2_cls_c3_sw_port_id_set\n");
 		return rc;
 	}
 
 	/* set HEK */
 	rc = pp2_cls_c3_hek_generate(mng_entry, &hek_bytes, hek);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_hek_generate\n");
+		pr_err("failed to call pp2_cls_c3_hek_generate\n");
 		return rc;
 	}
 
@@ -520,42 +519,42 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 
 	rc = pp2_cls_c3_sw_hek_size_set(hw_entry, hek_bytes);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_sw_hek_size_set\n");
+		pr_err("failed to call pp2_cls_c3_sw_hek_size_set\n");
 		return rc;
 	}
 
 	/* set color */
 	rc = pp2_cls_c3_color_set(hw_entry, mng_entry->action.color_act);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_color_set\n");
+		pr_err("failed to call pp2_cls_c3_color_set\n");
 		return rc;
 	}
 
 	/* set queue high */
 	rc = pp2_cls_c3_queue_high_set(hw_entry, mng_entry->action.q_high_act, mng_entry->qos_value.q_high);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_queue_high_set\n");
+		pr_err("failed to call pp2_cls_c3_queue_high_set\n");
 		return rc;
 	}
 
 	/* set queue low */
 	rc = pp2_cls_c3_queue_low_set(hw_entry, mng_entry->action.q_low_act, mng_entry->qos_value.q_low);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_queue_low_set\n");
+		pr_err("failed to call pp2_cls_c3_queue_low_set\n");
 		return rc;
 	}
 
 	/* set forward */
 	rc = pp2_cls_c3_forward_set(hw_entry, mng_entry->action.frwd_act);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_forward_set\n");
+		pr_err("failed to call pp2_cls_c3_forward_set\n");
 		return rc;
 	}
 
 	/* set rss */
 	rc = pp2_cls_c3_rss_set(hw_entry, mng_entry->action.rss_act, mng_entry->rss_en);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_rss_set\n");
+		pr_err("failed to call pp2_cls_c3_rss_set\n");
 		return rc;
 	}
 
@@ -566,7 +565,7 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 	*			  mng_entry->qos_info.policer_id & MVPP2_CLS3_ACT_DUP_POLICER_MAX,
 	*			  MVPP2_POLICER_2_BANK(mng_entry->qos_info.policer_id));
 	* if (rc {
-	*	pp2_err("failed to call pp2_cls_c3_policer_set\n");
+	*	pr_err("failed to call pp2_cls_c3_policer_set\n");
 	*	return rc;
 	*}
 	*/
@@ -574,7 +573,7 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 	/* set flow ID */
 	rc = pp2_cls_c3_flow_id_en(hw_entry, mng_entry->action.flowid_act);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_flow_id_en\n");
+		pr_err("failed to call pp2_cls_c3_flow_id_en\n");
 		return rc;
 	}
 
@@ -582,14 +581,14 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 	rc = pp2_cls_c3_mod_set(hw_entry, mng_entry->pkt_mod.mod_data_idx, mng_entry->pkt_mod.mod_cmd_idx,
 				mng_entry->pkt_mod.l4_chksum_update_flag);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_mod_set\n");
+		pr_err("failed to call pp2_cls_c3_mod_set\n");
 		return rc;
 	}
 
 	/* set duplication */
 	rc = pp2_cls_c3_dup_set(hw_entry, mng_entry->flow_info.flow_id, mng_entry->flow_info.flow_cnt);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_dup_set\n");
+		pr_err("failed to call pp2_cls_c3_dup_set\n");
 		return rc;
 	}
 
@@ -612,7 +611,7 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 {
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(mng_entry))
@@ -627,42 +626,42 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 	/* set lookup type */
 	rc = pp2_cls_c3_sw_lkp_type_set(hw_entry, mng_entry->lkp_type);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_sw_lkp_type_set\n");
+		pr_err("failed to call pp2_cls_c3_sw_lkp_type_set\n");
 		return rc;
 	}
 
 	/* set color */
 	rc = pp2_cls_c3_color_set(hw_entry, mng_entry->action.color_act);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_color_set\n");
+		pr_err("failed to call pp2_cls_c3_color_set\n");
 		return rc;
 	}
 
 	/* set queue high */
 	rc = pp2_cls_c3_queue_high_set(hw_entry, mng_entry->action.q_high_act, mng_entry->qos_value.q_high);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_queue_high_set\n");
+		pr_err("failed to call pp2_cls_c3_queue_high_set\n");
 		return rc;
 	}
 
 	/* set queue low */
 	rc = pp2_cls_c3_queue_low_set(hw_entry, mng_entry->action.q_low_act, mng_entry->qos_value.q_low);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_queue_low_set\n");
+		pr_err("failed to call pp2_cls_c3_queue_low_set\n");
 		return rc;
 	}
 
 	/* set forward */
 	rc = pp2_cls_c3_forward_set(hw_entry, mng_entry->action.frwd_act);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_forward_set\n");
+		pr_err("failed to call pp2_cls_c3_forward_set\n");
 		return rc;
 	}
 
 	/* set rss */
 	rc = pp2_cls_c3_rss_set(hw_entry, mng_entry->action.rss_act, mng_entry->rss_en);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_rss_set\n");
+		pr_err("failed to call pp2_cls_c3_rss_set\n");
 		return rc;
 	}
 
@@ -674,7 +673,7 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 	*			  mng_entry->qos_info.policer_id & MVPP2_CLS3_ACT_DUP_POLICER_MAX,
 	*			  MVPP2_POLICER_2_BANK(mng_entry->qos_info.policer_id));
 	* if (rc) {
-	*	pp2_err("failed to call pp2_cls_c3_policer_set\n");
+	*	pr_err("failed to call pp2_cls_c3_policer_set\n");
 	*	return rc;
 	*}
 	*/
@@ -682,7 +681,7 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 	/* set flow ID */
 	rc = pp2_cls_c3_flow_id_en(hw_entry, mng_entry->action.flowid_act);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_flow_id_en\n");
+		pr_err("failed to call pp2_cls_c3_flow_id_en\n");
 		return rc;
 	}
 
@@ -690,14 +689,14 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 	rc = pp2_cls_c3_mod_set(hw_entry, mng_entry->pkt_mod.mod_data_idx, mng_entry->pkt_mod.mod_cmd_idx,
 				mng_entry->pkt_mod.l4_chksum_update_flag);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_mod_set\n");
+		pr_err("failed to call pp2_cls_c3_mod_set\n");
 		return rc;
 	}
 
 	/* set duplication */
 	rc = pp2_cls_c3_dup_set(hw_entry, mng_entry->flow_info.flow_id, mng_entry->flow_info.flow_cnt);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_dup_set\n");
+		pr_err("failed to call pp2_cls_c3_dup_set\n");
 		return rc;
 	}
 
@@ -722,7 +721,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 	u32 bits_cnt = 0;
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -734,7 +733,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 
 	if (c3_entry->port.port_type == MVPP2_SRC_PORT_TYPE_VIR) {
 		if (c3_entry->port.port_value > MVPP2_VIRT_PORT_ID_MAX) {
-			pp2_err("Invalid Virt port ID(%d)\n", c3_entry->port.port_value);
+			pr_err("Invalid Virt port ID(%d)\n", c3_entry->port.port_value);
 			return -EIO;
 		}
 	}
@@ -751,7 +750,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 	memset(field_info, 0, sizeof(struct pp2_cls_field_match_info) * (MVPP2_FLOW_FIELD_COUNT_MAX + 1));
 	if (pp2_cls_field_bm_to_field_info(c3_entry->mng_pkt_key->pkt_key->field_match_bm, c3_entry->mng_pkt_key,
 					   MVPP2_FLOW_FIELD_COUNT_MAX + 1, false, field_info)) {
-		pp2_err("Field info get failed\n");
+		pr_err("Field info get failed\n");
 		return -EIO;
 	}
 
@@ -759,7 +758,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 	if ((c3_entry->mng_pkt_key->pkt_key->field_match_bm != MVPP2_MATCH_IPV4_5T) &&
 	    (c3_entry->mng_pkt_key->pkt_key->field_match_bm != MVPP2_MATCH_IPV6_5T) &&
 	    (field_info[MVPP2_FLOW_FIELD_COUNT_MAX].valid == MVPP2_FIELD_VALID)) {
-		pp2_err("At most 4 fileds are supported\n");
+		pr_err("At most 4 fileds are supported\n");
 		return -EIO;
 	}
 	/* raw check field length, total can not more than 36 bytes */
@@ -768,7 +767,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 			bits_cnt += pp2_cls_field_size_get(field_info[idx].field_id);
 	}
 	if (bits_cnt > MVPP2_C3_MAX_HASH_KEY_SIZE * BYTE_BITS) {
-		pp2_err("Packet key length(%d bits) beyond C3 capability\n", bits_cnt);
+		pr_err("Packet key length(%d bits) beyond C3 capability\n", bits_cnt);
 		return -EIO;
 	}
 
@@ -778,18 +777,18 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 
 	/* Mod info check */
 	if (c3_entry->pkt_mod.mod_cmd_idx > MVPP2_HWF_MOD_IPTR_MAX) {
-		pp2_err("Invalid modification cmd index(%d)\n", c3_entry->pkt_mod.mod_cmd_idx);
+		pr_err("Invalid modification cmd index(%d)\n", c3_entry->pkt_mod.mod_cmd_idx);
 		return -EIO;
 	}
 	if (c3_entry->pkt_mod.mod_data_idx > MVPP2_HW_MOD_DPTR_MAX) {
-		pp2_err("Invalid data index(%d)\n", c3_entry->pkt_mod.mod_data_idx);
+		pr_err("Invalid data index(%d)\n", c3_entry->pkt_mod.mod_data_idx);
 		return -EIO;
 	}
 
 	/* Duplication flow info check */
 	rc = pp2_cls_c3_rule_convert(c3_entry, &c3);
 	if (rc) {
-		pp2_err("failed to convert C3 key\n");
+		pr_err("failed to convert C3 key\n");
 		return rc;
 	}
 
@@ -813,7 +812,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
  */
 int pp2_cls_c3_default_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 {
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -829,11 +828,11 @@ int pp2_cls_c3_default_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 
 	/* mod info check */
 	if (c3_entry->pkt_mod.mod_cmd_idx > MVPP2_HWF_MOD_IPTR_MAX) {
-		pp2_err("Invalid modification cmd index(%d)\n", c3_entry->pkt_mod.mod_cmd_idx);
+		pr_err("Invalid modification cmd index(%d)\n", c3_entry->pkt_mod.mod_cmd_idx);
 		return -EIO;
 	}
 	if (c3_entry->pkt_mod.mod_data_idx > MVPP2_HW_MOD_DPTR_MAX) {
-		pp2_err("Invalid data index(%d)\n", c3_entry->pkt_mod.mod_data_idx);
+		pr_err("Invalid data index(%d)\n", c3_entry->pkt_mod.mod_data_idx);
 		return -EIO;
 	}
 
@@ -864,7 +863,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	int idx;
 #endif
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -876,7 +875,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	/* check C3 rule */
 	rc = pp2_cls_c3_rule_check(c3_entry);
 	if (rc) {
-		pp2_err("failed to check C3 entry\n");
+		pr_err("failed to check C3 entry\n");
 		return rc;
 	}
 
@@ -884,7 +883,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	pp2_cls_c3_sw_clear(&c3);
 	rc = pp2_cls_c3_rule_convert(c3_entry, &c3);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_rule_convert\n");
+		pr_err("failed to call pp2_cls_c3_rule_convert\n");
 		return rc;
 	}
 
@@ -895,7 +894,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	/* get free logical index, also check whether there is an available entry */
 	rc = pp2_cls_db_c3_free_logic_idx_get(&l_logic_idx);
 	if (rc) {
-		pp2_err("failed to get free logical index\n");
+		pr_err("failed to get free logical index\n");
 		return rc;
 	}
 
@@ -904,20 +903,20 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	/* add C3 entry */
 	rc = pp2_cls_db_c3_search_depth_get(&max_search_depth);
 	if (rc) {
-		pp2_err("fail to get PP2_CLS C3 max search depth\n");
+		pr_err("fail to get PP2_CLS C3 max search depth\n");
 		return rc;
 	}
 	MVPP2_MEMSET_ZERO(hash_pair_arr);
 
 #ifdef PP2_CLS_C3_DEBUG
-	pp2_dbg_fmt("C3 HEK %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+	pr_debug_fmt("C3 HEK %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
 		    c3.key.hek.bytes[35], c3.key.hek.bytes[34], c3.key.hek.bytes[33], c3.key.hek.bytes[32],
 		    c3.key.hek.bytes[31], c3.key.hek.bytes[30], c3.key.hek.bytes[29], c3.key.hek.bytes[28]);
 #endif
 	rc = pp2_cls_c3_hw_query_add(cpu_slot, &c3, max_search_depth, &hash_pair_arr);
 	/* do not need to release logic index since it is still not occuppied */
 	if (rc) {
-		pp2_err("failed to add C3 entry to HW\n");
+		pr_err("failed to add C3 entry to HW\n");
 		return rc;
 	}
 	hash_idx = c3.index;
@@ -925,22 +924,22 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	/* update C3 DB multihash index */
 #ifdef PP2_CLS_C3_DEBUG
 	if (hash_pair_arr.pair_num) {
-		pp2_dbg_fmt("hash pair number=%d\n", hash_pair_arr.pair_num);
+		pr_debug_fmt("hash pair number=%d\n", hash_pair_arr.pair_num);
 		for (idx = 0; idx < hash_pair_arr.pair_num; idx++)
-			pp2_dbg_fmt("hash pair(%d) %x-->%x\n",
+			pr_debug_fmt("hash pair(%d) %x-->%x\n",
 				    idx, hash_pair_arr.old_idx[idx], hash_pair_arr.new_idx[idx]);
 	}
 #endif
 	rc = pp2_cls_db_c3_hash_idx_update(&hash_pair_arr);
 	if (rc) {
-		pp2_err("failed to update C3 multihash index\n");
+		pr_err("failed to update C3 multihash index\n");
 		return rc;
 	}
 
 	/* save to DB */
 	rc = pp2_cls_db_c3_entry_add(l_logic_idx, hash_idx);
 	if (rc) {
-		pp2_err("failed to add C3 entry to DB\n");
+		pr_err("failed to add C3 entry to DB\n");
 		return rc;
 	}
 
@@ -966,7 +965,7 @@ int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_
 	struct pp2_cls_c3_entry c3;
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -978,7 +977,7 @@ int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_
 	/* check C3 rule */
 	rc = pp2_cls_c3_default_rule_check(c3_entry);
 	if (rc) {
-		pp2_err("failed to check C3 default entry\n");
+		pr_err("failed to check C3 default entry\n");
 		return rc;
 	}
 
@@ -986,28 +985,28 @@ int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_
 	MVPP2_MEMSET_ZERO(c3);
 	rc = pp2_cls_c3_default_rule_convert(c3_entry, &c3);
 	if (rc) {
-		pp2_err("failed to call pp2_cls_c3_default_rule_convert()\n");
+		pr_err("failed to call pp2_cls_c3_default_rule_convert()\n");
 		return rc;
 	}
 
 	/* get free logical index, aslo check whether there is free entry */
 	rc = pp2_cls_db_c3_free_logic_idx_get(&l_logic_idx);
 	if (rc) {
-		pp2_err("failed to get free logical index\n");
+		pr_err("failed to get free logical index\n");
 		return rc;
 	}
 	*logic_idx = l_logic_idx;
 
 	rc = pp2_cls_c3_hw_miss_add(cpu_slot, &c3, c3_entry->lkp_type);
 	if (rc) {
-		pp2_err("failed to add C3 miss entry to HW\n");
+		pr_err("failed to add C3 miss entry to HW\n");
 		return rc;
 	}
 
 	/* save to DB */
 	rc = pp2_cls_db_c3_entry_add(l_logic_idx, c3_entry->lkp_type);
 	if (rc) {
-		pp2_err("failed to add C3 entry to DB\n");
+		pr_err("failed to add C3 entry to DB\n");
 		return rc;
 	}
 
@@ -1029,7 +1028,7 @@ int pp2_cls_c3_rule_del(uintptr_t cpu_slot, u32 logic_idx)
 	u32 hash_idx;
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* check C3 rule, return OK if the there is no this logical index */
 	if (mv_pp2x_range_validate(logic_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
@@ -1037,21 +1036,21 @@ int pp2_cls_c3_rule_del(uintptr_t cpu_slot, u32 logic_idx)
 
 	rc = pp2_cls_db_c3_hash_idx_get(logic_idx, &hash_idx);
 	if (rc) {
-		pp2_err("The logical index(%d) does not exist", logic_idx);
+		pr_err("The logical index(%d) does not exist", logic_idx);
 		return rc;
 	}
 
 	/* delete C3 entry */
 	rc = pp2_cls_c3_hw_del(cpu_slot, hash_idx);
 	if (rc) {
-		pp2_err("failed to delete C3 entry from HW\n");
+		pr_err("failed to delete C3 entry from HW\n");
 		return rc;
 	}
 
 	/* remove from DB */
 	rc = pp2_cls_db_c3_entry_del(logic_idx);
 	if (rc) {
-		pp2_err("failed to delete C3 entry from DB\n");
+		pr_err("failed to delete C3 entry from DB\n");
 		return rc;
 	}
 
@@ -1076,7 +1075,7 @@ int pp2_cls_c3_rule_get(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 {
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* leave this routine to be implemented in future when needed */
 	return rc;
@@ -1109,14 +1108,14 @@ int pp2_cls_c3_hit_count_get(uintptr_t cpu_slot, int logic_idx, u32 *hit_count)
 
 	rc = pp2_cls_db_c3_hash_idx_get(logic_idx, &hash_idx);
 	if (rc) {
-		pp2_err("The logical index(%d) does not exist\n", logic_idx);
+		pr_err("The logical index(%d) does not exist\n", logic_idx);
 		return rc;
 	}
 
 	/* get hit counter */
 	rc = pp2_cls_c3_hit_cntrs_read(cpu_slot, hash_idx, hit_count);
 	if (rc) {
-		pp2_err("fail to read hit counter for logical index(%d)\n", logic_idx);
+		pr_err("fail to read hit counter for logical index(%d)\n", logic_idx);
 		return rc;
 	}
 
@@ -1145,7 +1144,7 @@ int pp2_cls_c3_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh, struct p
 	u32		rc = 0;
 	u32		cntr_idx;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	if (mv_pp2x_ptr_validate(cntr_info))
 		return -EINVAL;
@@ -1162,7 +1161,7 @@ int pp2_cls_c3_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh, struct p
 
 		if (cnt >= hit_low_thresh) {
 			if (*num_of_cntrs < cntr_idx) {
-				pp2_err("counter array too small, size = %d\n", *num_of_cntrs);
+				pr_err("counter array too small, size = %d\n", *num_of_cntrs);
 				return rc;
 			}
 
@@ -1198,7 +1197,7 @@ int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_
 	int type;
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(scan_config))
@@ -1228,13 +1227,13 @@ int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_
 	/* set the configuration to HW */
 	rc = pp2_cls_c3_scan_thresh_set(cpu_slot, scan_config->scan_mode, scan_config->scan_threshold);
 	if (rc) {
-		pp2_err("fail to set scan mode and theshold\n");
+		pr_err("fail to set scan mode and theshold\n");
 		return rc;
 	}
 
 	rc = pp2_cls_c3_scan_clear_before_en_set(cpu_slot, scan_config->clear_before_scan);
 	if (rc) {
-		pp2_err("fail to set clear before scan\n");
+		pr_err("fail to set clear before scan\n");
 		return rc;
 	}
 
@@ -1244,26 +1243,26 @@ int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_
 		type = -1; /* MVPP2 defined to indicate that do not care about lkp_type */
 	rc = pp2_cls_c3_scan_lkp_type_set(cpu_slot, type);
 	if (rc) {
-		pp2_err("fail to set scan lookup type\n");
+		pr_err("fail to set scan lookup type\n");
 		return rc;
 	}
 
 	rc = pp2_cls_c3_scan_start_index_set(cpu_slot, scan_config->start_entry);
 	if (rc) {
-		pp2_err("fail to set scan start index\n");
+		pr_err("fail to set scan start index\n");
 		return rc;
 	}
 
 	rc = pp2_cls_c3_scan_delay_set(cpu_slot, scan_config->scan_delay);
 	if (rc) {
-		pp2_err("fail to set scan delay time\n");
+		pr_err("fail to set scan delay time\n");
 		return rc;
 	}
 
 	/* save scan config to DB */
 	rc = pp2_cls_db_c3_scan_param_set(scan_config);
 	if (rc) {
-		pp2_err("fail to set scan parameters to C3 DB\n");
+		pr_err("fail to set scan parameters to C3 DB\n");
 		return rc;
 	}
 
@@ -1293,7 +1292,7 @@ int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry
 	int hit_cnt;
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(entry_num))
@@ -1305,14 +1304,14 @@ int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry
 	/* trigger scan */
 	rc = pp2_cls_c3_scan_start(cpu_slot);
 	if (rc) {
-		pp2_err("fail to start scan\n");
+		pr_err("fail to start scan\n");
 		return MV_ERROR;
 	}
 
 	/* Get scan entry number and compare w/ input one */
 	rc = pp2_cls_c3_scan_num_of_res_get(cpu_slot, &num);
 	if (rc) {
-		pp2_err("fail to get scan number\n");
+		pr_err("fail to get scan number\n");
 		return rc;
 	}
 
@@ -1324,14 +1323,14 @@ int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry
 	for (idx = 0; idx < num; idx++) {
 		rc = pp2_cls_c3_scan_res_read(cpu_slot, idx, &hash_idx, &hit_cnt);
 		if (rc) {
-			pp2_err("fail to start scan\n");
+			pr_err("fail to start scan\n");
 			return rc;
 		}
 
 		/* get logical index by hash_idx */
 		rc = pp2_cls_db_c3_logic_idx_get(hash_idx, &logic_idx);
 		if (rc) {
-			pp2_err("fail to get logical index\n");
+			pr_err("fail to get logical index\n");
 			return rc;
 		}
 
@@ -1363,7 +1362,7 @@ int pp2_cls_c3_entry_get(uintptr_t cpu_slot, u32 logic_idx, struct pp2_cls_c3_da
 	u32 hash_idx;
 	struct pp2_cls_c3_entry c3_data;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* Parameter check */
 	if (mv_pp2x_range_validate(logic_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
@@ -1375,14 +1374,14 @@ int pp2_cls_c3_entry_get(uintptr_t cpu_slot, u32 logic_idx, struct pp2_cls_c3_da
 	/* Get HASH index */
 	rc = pp2_cls_db_c3_hash_idx_get(logic_idx, &hash_idx);
 	if (rc) {
-		pp2_err("fail to access DB\n");
+		pr_err("fail to access DB\n");
 		return rc;
 	}
 
 	/* Read HW data with LSP API */
 	rc = pp2_cls_c3_hw_read(cpu_slot, &c3_data, hash_idx);
 	if (rc) {
-		pp2_err("pp2_cls_c3_hw_read fail\n");
+		pr_err("pp2_cls_c3_hw_read fail\n");
 		return rc;
 	}
 
@@ -1437,47 +1436,47 @@ int pp2_cls_c3_reset(uintptr_t cpu_slot)
 {
 	int rc = 0;
 
-	pp2_dbg_fmt("reached\n");
+	pr_debug_fmt("reached\n");
 
 	/* clear all C3 HW entries */
 	rc = pp2_cls_c3_hw_del_all(cpu_slot);
 	if (rc) {
-		pp2_err("fail to delete C3 HW entries\n");
+		pr_err("fail to delete C3 HW entries\n");
 		return rc;
 	}
-	pp2_dbg_fmt("PP2_CLS C3 HW entries deleted\n");
+	pr_debug_fmt("PP2_CLS C3 HW entries deleted\n");
 
 	/* clear all C3 HW counters */
 	rc = pp2_cls_c3_hit_cntrs_clear_all(cpu_slot);
 	if (rc) {
-		pp2_err("fail to clear C3 HW counters\n");
+		pr_err("fail to clear C3 HW counters\n");
 		return rc;
 	}
-	pp2_dbg_fmt("PP2_CLS C3 HW counters cleared\n");
+	pr_debug_fmt("PP2_CLS C3 HW counters cleared\n");
 
 	/* init PP2_CLS C3 DB */
 	rc = pp2_cls_db_c3_init();
 	if (rc) {
-		pp2_err("fail to init PP2_CLS C3 DB\n");
+		pr_err("fail to init PP2_CLS C3 DB\n");
 		return rc;
 	}
-	pp2_dbg_fmt("PP2_CLS C3 DB initialized\n");
+	pr_debug_fmt("PP2_CLS C3 DB initialized\n");
 
 	/* init PP2_CLS C3 HAL */
 	rc = pp2_cls_c3_init(cpu_slot);
 	if (rc) {
-		pp2_err("fail to init PP2_CLS C3 DB\n");
+		pr_err("fail to init PP2_CLS C3 DB\n");
 		return rc;
 	}
-	pp2_dbg_fmt("PP2_CLS C3 DB initialized\n");
+	pr_debug_fmt("PP2_CLS C3 DB initialized\n");
 
 	/* set PP2_CLS C3 maximum search depth */
 	rc = pp2_cls_db_c3_search_depth_set(MVPP2_C3_DEFAULT_SEARCH_DEPTH);
 	if (rc) {
-		pp2_err("fail to set PP2_CLS C3 max search depth\n");
+		pr_err("fail to set PP2_CLS C3 max search depth\n");
 		return rc;
 	}
-	pp2_dbg_fmt("PP2_CLS C3 max depth set to %d\n", MVPP2_C3_DEFAULT_SEARCH_DEPTH);
+	pr_debug_fmt("PP2_CLS C3 max depth set to %d\n", MVPP2_C3_DEFAULT_SEARCH_DEPTH);
 
 	return 0;
 }
@@ -1493,10 +1492,10 @@ int pp2_cls_c3_reset(uintptr_t cpu_slot)
 int pp2_cls_c3_start(uintptr_t cpu_slot)
 {
 	if (pp2_cls_c3_reset(cpu_slot)) {
-		pp2_err("PP2_CLS C3 start failed\n");
+		pr_err("PP2_CLS C3 start failed\n");
 		return -EIO;
 	}
-	pp2_dbg_fmt("PP2_CLS C3 started\n");
+	pr_debug_fmt("PP2_CLS C3 started\n");
 
 	return 0;
 }

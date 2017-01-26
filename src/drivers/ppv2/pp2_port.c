@@ -90,7 +90,7 @@ int pp2_port_get_if_name(struct pp2_port *port)
 
 			if (port->id == index) {
 				strcpy(port->linux_name, s.ifr_name);
-				pp2_dbg("PORT: corresponding linux if: %s\n", port->linux_name);
+				pr_debug("PORT: corresponding linux if: %s\n", port->linux_name);
 				found = 1;
 				break;
 			}
@@ -99,7 +99,7 @@ int pp2_port_get_if_name(struct pp2_port *port)
 	} while (found == 0 && if_idx < PP2_PORT_IF_NAME_MAX_ITER);
 
 	if (found != 1) {
-		pp2_err("PORT: Unable to find if name\n");
+		pr_err("PORT: Unable to find if name\n");
 		return -EEXIST;
 	}
 	return 0;
@@ -184,7 +184,7 @@ pp2_port_egress_disable(struct pp2_port *port)
 	tmo = 0;
 	do {
 		if (tmo >= MVPP2_TX_DISABLE_TIMEOUT_MSEC) {
-			pp2_warn("Port: Egress disable timeout = 0x%08X\n", val);
+			pr_warning("Port: Egress disable timeout = 0x%08X\n", val);
 			break;
 		}
 		/* Sleep for 1 millisecond */
@@ -211,7 +211,7 @@ pp2_port_egress_enable(struct pp2_port *port)
 	}
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, qmap);
-	pp2_info("Port: Egress enable tx_port_num=%u qmap=0x%X\n", tx_port_num, qmap);
+	pr_info("Port: Egress enable tx_port_num=%u qmap=0x%X\n", tx_port_num, qmap);
 }
 
 static void
@@ -265,7 +265,7 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 
 	/* Validate MTU */
 	if (mtu < PP2_PORT_MIN_MTU) {
-		pp2_err("PORT: cannot change MTU to less than %u bytes\n", PP2_PORT_MIN_MTU);
+		pr_err("PORT: cannot change MTU to less than %u bytes\n", PP2_PORT_MIN_MTU);
 		return -EINVAL;
 	}
 
@@ -273,7 +273,7 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 	tx_fifo_threshold = PP2_PORT_TX_FIFO_KB_TO_THRESH(port->tx_fifo_size);
 	if (MVPP2_MTU_PKT_SIZE(mtu) > tx_fifo_threshold) {
 		port->flags &= ~PP2_PORT_FLAGS_L4_CHKSUM;
-		pp2_warn("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
+		pr_warning("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
 			 mtu, MVPP2_MTU_PKT_SIZE(mtu), tx_fifo_threshold);
 	} else {
 		port->flags |= PP2_PORT_FLAGS_L4_CHKSUM;
@@ -440,12 +440,12 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 	txq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((txq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
 								     MVPP2_DESC_Q_ALIGN);
 	if (unlikely(!txq->desc_virt_arr)) {
-		pp2_err("PP: cannot allocate egress descriptor array\n");
+		pr_err("PP: cannot allocate egress descriptor array\n");
 		return;
 	}
 	txq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(txq->desc_virt_arr);
 	if (!IS_ALIGNED(txq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
-		pp2_err("PP: egress descriptor array must be %u-byte aligned\n",
+		pr_err("PP: egress descriptor array must be %u-byte aligned\n",
 			MVPP2_DESC_Q_ALIGN);
 		mv_sys_dma_mem_free(txq->desc_virt_arr);
 		return;
@@ -532,7 +532,7 @@ pp2_port_txqs_create(struct pp2_port *port)
 		struct pp2_tx_queue *txq = kcalloc(1, sizeof(struct pp2_tx_queue), GFP_KERNEL);
 
 		if (unlikely(!txq)) {
-			pp2_err("PPDK: %s out of memory txq alloc\n", __func__);
+			pr_err("%s out of memory txq alloc\n", __func__);
 			return;
 		}
 
@@ -564,7 +564,7 @@ pp2_rxq_update_next_desc_idx(struct pp2_rx_queue *rxq, uint32_t num_sent)
 	u32 rx_idx;
 
 	if (unlikely((num_sent < 1) || (num_sent > rxq->desc_total))) {
-		pp2_err("RxDesc number inconsistent\n");
+		pr_err("RxDesc number inconsistent\n");
 		return;
 	}
 
@@ -575,7 +575,7 @@ pp2_rxq_update_next_desc_idx(struct pp2_rx_queue *rxq, uint32_t num_sent)
 	else
 		rxq->desc_next_idx = rx_idx + num_sent - rxq->desc_total;
 
-	pp2_dbg("%s\t: cur_idx=%d\tnext_idx=%d\n", __func__, rx_idx, rxq->desc_next_idx);
+	pr_debug("%s\t: cur_idx=%d\tnext_idx=%d\n", __func__, rx_idx, rxq->desc_next_idx);
 }
 
 /* External:
@@ -613,12 +613,12 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 	rxq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((rxq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
 								      MVPP2_DESC_Q_ALIGN);
 	if (unlikely(!rxq->desc_virt_arr)) {
-		pp2_err("PP: cannot allocate ingress descriptor array\n");
+		pr_err("PP: cannot allocate ingress descriptor array\n");
 		return;
 	}
 	rxq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(rxq->desc_virt_arr);
 	if (!IS_ALIGNED(rxq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
-		pp2_err("PP: ingress descriptor array must be %u-byte aligned\n",
+		pr_err("PP: ingress descriptor array must be %u-byte aligned\n",
 			MVPP2_DESC_Q_ALIGN);
 		mv_sys_dma_mem_free(rxq->desc_virt_arr);
 		return;
@@ -641,7 +641,7 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 	pp2_rxq_offset_set(port, rxq->id, PP2_PACKET_OFFSET);
 	tc = pp2_rxq_tc_get(port, rxq->id);
 	if (!tc) {
-		pp2_err("port(%d) phy_rxq(%d), not found in tc range\n", port->id, rxq->id);
+		pr_err("port(%d) phy_rxq(%d), not found in tc range\n", port->id, rxq->id);
 		return;
 	}
 	pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL]->bm_pool_id, rxq->id,
@@ -682,7 +682,7 @@ pp2_port_rxqs_create(struct pp2_port *port)
 			struct pp2_rx_queue *rxq = kcalloc(1, sizeof(struct pp2_rx_queue), GFP_KERNEL);
 
 			if (unlikely(!rxq)) {
-				pp2_err("PPDK: %s out of memory rxq alloc\n", __func__);
+				pr_err("%s out of memory rxq alloc\n", __func__);
 				return;
 			}
 			rxq->id = port->tc[tc].tc_config.first_rxq + qid;
@@ -746,8 +746,8 @@ pp2_rxq_get_desc(struct pp2_rx_queue *rxq,
 	}
 
 /*
- *	pp2_dbg("%s\tdesc array: cur_idx=%d\tlast_idx=%d\n",__func__, rx_idx, rxq->desc_last_idx);
- *	pp2_dbg("%s\tdesc array: num_recv=%d\textra_num=%d\n",__func__,*num_recv, *extra_num);
+ *	pr_debug("%s\tdesc array: cur_idx=%d\tlast_idx=%d\n",__func__, rx_idx, rxq->desc_last_idx);
+ *	pr_debug("%s\tdesc array: num_recv=%d\textra_num=%d\n",__func__,*num_recv, *extra_num);
  */
 
 	return (rxq->desc_virt_arr + rx_idx);
@@ -763,7 +763,7 @@ pp2_rxq_resid_pkts(struct pp2_port *port,
 	if (!rx_resid)
 		return;
 
-	pp2_warn("RXQ has %u residual packets\n", rx_resid);
+	pr_warning("RXQ has %u residual packets\n", rx_resid);
 
 	/* Cleanup for dangling RXDs can be done here by getting
 	* the BM-IF associated to the BM poool associated to this
@@ -837,7 +837,7 @@ pp2_txq_clean(struct pp2_port *port,
 	delay = 0;
 	do {
 		if (delay >= MVPP2_TX_PENDING_TIMEOUT_MSEC) {
-			pp2_warn("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
+			pr_warning("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
 			break;
 		}
 		/* Sleep for 1 millisecond */
@@ -931,7 +931,7 @@ pp2_port_start_dev(struct pp2_port *port)
 	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
 		pp2_txp_max_tx_size_set(port);
 
-	pp2_dbg("start_dev: tx_port_num %d, traffic mode %s%s\n",
+	pr_debug("start_dev: tx_port_num %d, traffic mode %s%s\n",
 		MVPP2_MAX_TCONT + port->id,
 	((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS) ? " ingress " : "",
 	((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS) ? " egress " : "");
@@ -1051,14 +1051,14 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 	/* Allocate TXQ slots for this port */
 	port->txqs = kcalloc(1, sizeof(struct pp2_tx_queue *) * port->num_tx_queues, GFP_KERNEL);
 	if (unlikely(!port->txqs)) {
-		pp2_err("PPDK: %s out of memory txqs alloc\n", __func__);
+		pr_err("%s out of memory txqs alloc\n", __func__);
 		return;
 	}
 
 	/* Allocate RXQ slots for this port */
 	port->rxqs = kcalloc(1, sizeof(struct pp2_rx_queue *) * port->num_rx_queues, GFP_KERNEL);
 	if (unlikely(!port->rxqs)) {
-		pp2_err("PPDK: %s out of memory rxqs alloc\n", __func__);
+		pr_err("%s out of memory rxqs alloc\n", __func__);
 		return;
 	}
 
@@ -1105,12 +1105,12 @@ pp2_port_validate_id(const char *if_name)
 	/* Validate interface name. Signature name "<string><number>" */
 	if (sscanf(if_name, "%*[^0123456789]%u", &pid) != 1) {
 		/* Interface name does not contain a number.*/
-		pp2_err("PORT: invalid interface '%s'. Expected signature <string><number>\n", if_name);
+		pr_err("PORT: invalid interface '%s'. Expected signature <string><number>\n", if_name);
 		return -1;
 	}
 
 	if (pid > PP2_NUM_PORTS) {
-		pp2_err("PORT: invalid interface '%s'. Valid range [0 - %u]\n", if_name, PP2_NUM_PORTS);
+		pr_err("PORT: invalid interface '%s'. Valid range [0 - %u]\n", if_name, PP2_NUM_PORTS);
 		return -1;
 	}
 	return pid;
@@ -1126,13 +1126,13 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 	for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++) {
 		if (param_pools[j]) {
 			if (param_pools[j]->pp2_id != pp2_inst->id) {
-				pp2_err("%s: pool_ppid[%d] does not match pp2_id[%d]\n",
+				pr_err("%s: pool_ppid[%d] does not match pp2_id[%d]\n",
 					__func__, param_pools[j]->pp2_id, pp2_inst->id);
 				return -1;
 			}
 			pools[index] = pp2_bm_pool_get_pool_by_id(pp2_inst, param_pools[j]->id);
 			if (!pools[index]) {
-				pp2_err("%s: pool_id[%d] has no matching struct\n", __func__, param_pools[j]->id);
+				pr_err("%s: pool_id[%d] has no matching struct\n", __func__, param_pools[j]->id);
 				return -1;
 			}
 			index++;
@@ -1149,7 +1149,7 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 	} else if (index == 1) {
 		pools[1] = pools[0]; /* Both small and long pool are the same one */
 	} else {
-		pp2_err("%s: pool_params do not exist\n", __func__);
+		pr_err("%s: pool_params do not exist\n", __func__);
 		return -1;
 	}
 
@@ -1215,22 +1215,22 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/*TODO: Delete this param */
 	port->use_mac_lb = false;
 
-	pp2_dbg("PORT: ID %u (on PP%u):\n", port->id, pp2_id);
-	pp2_dbg("PORT: %s\n", port->use_mac_lb ? "LOOPBACK" : "PHY");
+	pr_debug("PORT: ID %u (on PP%u):\n", port->id, pp2_id);
+	pr_debug("PORT: %s\n", port->use_mac_lb ? "LOOPBACK" : "PHY");
 
-	pp2_dbg("PORT: TXQs %u\n", port->num_tx_queues);
-	pp2_dbg("PORT: RXQs %u\n", port->num_rx_queues);
-	pp2_dbg("PORT: First Phy RXQ %u\n", port->first_rxq);
+	pr_debug("PORT: TXQs %u\n", port->num_tx_queues);
+	pr_debug("PORT: RXQs %u\n", port->num_rx_queues);
+	pr_debug("PORT: First Phy RXQ %u\n", port->first_rxq);
 	for (i = 0; i < port->num_tcs; i++) {
-		pp2_dbg("PORT: TC%u\n", i);
-		pp2_dbg("PORT: TC RXQs %u\n", port->tc[i].tc_config.num_in_qs);
-		pp2_dbg("PORT: TC First Log RXQ %u\n", port->tc[i].first_log_rxq);
-		pp2_dbg("PORT: TC First Phy RXQ %u\n", port->tc[i].tc_config.first_rxq);
-		pp2_dbg("PORT: TC RXQ size %u\n", port->tc[i].rx_ring_size);
-		pp2_dbg("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
-		pp2_dbg("PORT: TC Use Hash %u\n", port->tc[i].tc_config.use_hash);
+		pr_debug("PORT: TC%u\n", i);
+		pr_debug("PORT: TC RXQs %u\n", port->tc[i].tc_config.num_in_qs);
+		pr_debug("PORT: TC First Log RXQ %u\n", port->tc[i].first_log_rxq);
+		pr_debug("PORT: TC First Phy RXQ %u\n", port->tc[i].tc_config.first_rxq);
+		pr_debug("PORT: TC RXQ size %u\n", port->tc[i].rx_ring_size);
+		pr_debug("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
+		pr_debug("PORT: TC Use Hash %u\n", port->tc[i].tc_config.use_hash);
 		for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++)
-			pp2_dbg("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
+			pr_debug("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
 	}
 	/* Assing a CPU slot to avoid send cpu_slot as argument further */
 	hw = &inst->hw;
@@ -1464,11 +1464,11 @@ static void
 pp2_cause_error(uint32_t cause)
 {
 	if (cause & MVPP2_CAUSE_FCS_ERR_MASK)
-		pp2_err("FCS error\n");
+		pr_err("FCS error\n");
 	if (cause & MVPP2_CAUSE_RX_FIFO_OVERRUN_MASK)
-		pp2_err("RX FIFO overrun error\n");
+		pr_err("RX FIFO overrun error\n");
 	if (cause & MVPP2_CAUSE_TX_FIFO_UNDERRUN_MASK)
-		pp2_err("TX FIFO underrun error\n");
+		pr_err("TX FIFO underrun error\n");
 }
 
 /* Dequeue routine
@@ -1492,8 +1492,8 @@ pp2_port_dequeue(struct pp2_port *port, struct pp2_desc **rx_desc, uint32_t in_q
 	 */
 	*rx_desc = pp2_rxq_get_desc(rxq, &num_recv, extra_rx_desc, extra_num_recv);
 
-	pp2_dbg("%s\t total num_recv from HW =%d\n", __func__, num_recv);
-	pp2_dbg("%s\trxq_id=%d assign to port=%d is LOCKED\n", __func__, rxq->id, port->id);
+	pr_debug("%s\t total num_recv from HW =%d\n", __func__, num_recv);
+	pr_debug("%s\trxq_id=%d assign to port=%d is LOCKED\n", __func__, rxq->id, port->id);
 
 	return num_recv;
 }
@@ -1533,7 +1533,7 @@ int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
 	int i;
 
 	if (!mv_check_eaddr_valid(addr)) {
-		pp2_err("PORT: not a valid eth address\n");
+		pr_err("PORT: not a valid eth address\n");
 		return -EINVAL;
 	}
 
@@ -1576,7 +1576,7 @@ static int pp2_port_check_buf_size(struct pp2_port *port, uint32_t size)
 	for (i = 0; i < port->num_tcs; i++) {
 		buf_size = port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_buf_sz;
 		if (buf_size < size) {
-			pp2_err("PORT: Oversize pkt_size=[%u]. tc[%u]:pool_id[%u]:buf_sz=[%u]\n",
+			pr_err("PORT: Oversize pkt_size=[%u]. tc[%u]:pool_id[%u]:buf_sz=[%u]\n",
 				size, port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, i, buf_size);
 			return -EINVAL;
 		}
@@ -1619,7 +1619,7 @@ static int pp2_port_check_mru_valid(struct pp2_port *port, uint16_t mru)
 	int err = 0;
 
 	if (mru < PP2_PORT_MIN_MRU) {
-		pp2_err("PORT: cannot change MRU to less than %u bytes\n", PP2_PORT_MIN_MRU);
+		pr_err("PORT: cannot change MRU to less than %u bytes\n", PP2_PORT_MIN_MRU);
 		return -EINVAL;
 	}
 	/* Check the port's related bm_pools buffer_sizes are adequate */
@@ -1663,7 +1663,7 @@ int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 	strcpy(s.ifr_name, port->linux_name);
 	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
-		pp2_err("PORT: unable to read promisc mode from HW\n");
+		pr_err("PORT: unable to read promisc mode from HW\n");
 		return rc;
 	}
 
@@ -1674,7 +1674,7 @@ int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 
 	rc = mv_netdev_ioctl(SIOCSIFFLAGS, &s);
 	if (rc) {
-		pp2_err("PORT: unable to set promisc mode to HW\n");
+		pr_err("PORT: unable to set promisc mode to HW\n");
 		return rc;
 	}
 	return 0;
@@ -1691,7 +1691,7 @@ int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
 	strcpy(s.ifr_name, port->linux_name);
 	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
-		pp2_err("PORT: unable to read promisc mode from HW\n");
+		pr_err("PORT: unable to read promisc mode from HW\n");
 		return rc;
 	}
 
@@ -1709,7 +1709,7 @@ int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
 	strcpy(s.ifr_name, port->linux_name);
 	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
-		pp2_err("PORT: unable to read all-multicast mode from HW\n");
+		pr_err("PORT: unable to read all-multicast mode from HW\n");
 		return rc;
 	}
 
@@ -1720,7 +1720,7 @@ int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
 
 	rc = mv_netdev_ioctl(SIOCSIFFLAGS, &s);
 	if (rc) {
-		pp2_err("PORT: unable to set all-multicast mode to HW\n");
+		pr_err("PORT: unable to set all-multicast mode to HW\n");
 		return rc;
 	}
 	return 0;
@@ -1736,7 +1736,7 @@ int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
 	strcpy(s.ifr_name, port->linux_name);
 	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
 	if (rc) {
-		pp2_err("PORT: unable to read all-multicast mode from HW\n");
+		pr_err("PORT: unable to read all-multicast mode from HW\n");
 		return rc;
 	}
 
@@ -1761,10 +1761,10 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 
 		rc = mv_netdev_ioctl(SIOCADDMULTI, &s);
 		if (rc) {
-			pp2_err("PORT: unable to add mac sddress\n");
+			pr_err("PORT: unable to add mac sddress\n");
 			return rc;
 		}
-		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
+		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
@@ -1776,19 +1776,19 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		strcat(buf, da);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_add", O_WRONLY);
 		if (fd == -1) {
-			pp2_err("PORT: unable to open sysfs\n");
+			pr_err("PORT: unable to open sysfs\n");
 			return -EFAULT;
 		}
 		rc = write(fd, &buf, sizeof(buf));
 		if (rc < 0) {
-			pp2_err("PORT: unable to write to sysfs\n");
+			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
 		}
-		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
+		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 		close(fd);
 	} else {
-		pp2_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
+		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
 	return 0;
 }
@@ -1809,10 +1809,10 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 
 		rc = mv_netdev_ioctl(SIOCDELMULTI, &s);
 		if (rc) {
-			pp2_err("PORT: unable to remove mac sddress\n");
+			pr_err("PORT: unable to remove mac sddress\n");
 			return rc;
 		}
-		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
+		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
@@ -1824,19 +1824,19 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		strcat(buf, da);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_del", O_WRONLY);
 		if (fd == -1) {
-			pp2_err("PORT: unable to open sysfs\n");
+			pr_err("PORT: unable to open sysfs\n");
 			return -EFAULT;
 		}
 		rc = write(fd, &buf, sizeof(buf));
 		if (rc < 0) {
-			pp2_err("PORT: unable to write to sysfs\n");
+			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
 		}
-		pp2_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
+		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 		close(fd);
 	} else {
-		pp2_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
+		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
 	return 0;
 }
@@ -1878,7 +1878,7 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 
 		while (fgets(buf, sizeof(buf), fp)) {
 			if (sscanf(buf, "%*d%s%*d%d%s", name, &st, addr_str) != 3) {
-				pp2_err("address not found in file\n");
+				pr_err("address not found in file\n");
 				return -EFAULT;
 			}
 
@@ -1887,14 +1887,14 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 
 			len = parse_hex(addr_str, mac, ETH_ALEN);
 			if (len != ETH_ALEN) {
-				pp2_err("len parsing error\n");
+				pr_err("len parsing error\n");
 				return -EFAULT;
 			}
 
 			rc = pp2_port_remove_mac_addr(port, mac);
 			if (rc)
 				return rc;
-			pp2_info("PORT: flush %s, %x:%x:%x:%x:%x:%x\n",
+			pr_info("PORT: flush %s, %x:%x:%x:%x:%x:%x\n",
 				 name, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		}
 		fclose(fp);
@@ -1907,12 +1907,12 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 		strcpy(buf, port->linux_name);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_flush", O_WRONLY);
 		if (fd == -1) {
-			pp2_err("PORT: unable to open sysfs\n");
+			pr_err("PORT: unable to open sysfs\n");
 			return -EFAULT;
 		}
 		rc = write(fd, &buf, sizeof(buf));
 		if (rc < 0) {
-			pp2_err("PORT: unable to write to sysfs\n");
+			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
 		}
 		close(fd);
@@ -1926,7 +1926,7 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 	char buf1[100];
 
 	if ((vlan < 1) || (vlan >= 4095)) {
-		pp2_err("invalid vid. Range: 1:4095\n");
+		pr_err("invalid vid. Range: 1:4095\n");
 		return -EINVAL;
 	}
 
@@ -1943,7 +1943,7 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 	char buf1[100];
 
 	if ((vlan < 1) || (vlan >= 4095)) {
-		pp2_err("invalid vid. Range: 1:4095\n");
+		pr_err("invalid vid. Range: 1:4095\n");
 		return -EINVAL;
 	}
 
@@ -1970,10 +1970,10 @@ int pp2_port_link_status(struct pp2_port *port)
 	link_is_up = pp2_gop_port_is_link_up(gop, &port->mac_data);
 
 	if (link_is_up) {
-		pp2_info("PORT: Port%u - link is up\n", port->id);
+		pr_info("PORT: Port%u - link is up\n", port->id);
 		port->mac_data.flags |= MV_EMAC_F_LINK_UP;
 	} else {
-		pp2_info("PORT: Port%u - link is down\n", port->id);
+		pr_info("PORT: Port%u - link is down\n", port->id);
 		port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
 	}
 

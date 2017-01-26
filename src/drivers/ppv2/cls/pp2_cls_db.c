@@ -43,7 +43,6 @@
 
 #include "../pp2_types.h"
 #include "../pp2.h"
-#include "../pp2_print.h"
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 
@@ -81,7 +80,7 @@ static int pp2_cls_db_mem_alloc_init(void)
 	return 0;
 
 fail1:
-	pp2_err("PP2_CLS DB memory allocation failed\n");
+	pr_err("PP2_CLS DB memory allocation failed\n");
 	return -ENOMEM;
 }
 
@@ -131,7 +130,7 @@ static int pp2_cls_db_mem_free(void)
 int pp2_cls_db_module_state_set(enum pp2_cls_module_state_t state)
 {
 	if (state > MVPP2_MODULE_STARTED) {
-		pp2_err("Invalid state(%d)\n", state);
+		pr_err("Invalid state(%d)\n", state);
 		return -EBUSY;
 	}
 
@@ -274,7 +273,7 @@ int pp2_cls_db_c3_entry_del(int logic_idx)
 		p_logic_entry->valid = MVPP2_C3_ENTRY_INVALID;
 		p_logic_entry->logic_idx = MVPP2_C3_INVALID_ENTRY_NUM;
 	} else {
-		pp2_err("hash entry is invalid, do not need to delete it\n");
+		pr_err("hash entry is invalid, do not need to delete it\n");
 	}
 
 	return 0;
@@ -393,7 +392,7 @@ int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr)
 
 		p_logic_entry = &g_pp2_cls_db->c3_db.logic_idx_tbl[old_idx];
 		if (p_logic_entry->valid == MVPP2_C3_ENTRY_INVALID) {
-			pp2_err("hash entry is invalid w/ index(%d)\n", old_idx);
+			pr_err("hash entry is invalid w/ index(%d)\n", old_idx);
 			return MV_ERROR;
 		}
 
@@ -580,14 +579,14 @@ int pp2_cls_db_init(void)
 	ret_code = pp2_cls_db_mem_alloc_init();
 
 	if (ret_code != 0) {
-		pp2_err("Failed to allocate memory for PP2_CLS DB\n");
+		pr_err("Failed to allocate memory for PP2_CLS DB\n");
 		return -ENOMEM;
 	}
 
 	/* Set PP2_CLS module state */
 	ret_code = pp2_cls_db_module_state_set(MVPP2_MODULE_NOT_START);
 	if (ret_code != 0) {
-		pp2_err("Failed to set PP2_CLS module stat\n");
+		pr_err("Failed to set PP2_CLS module stat\n");
 		return -EINVAL;
 	}
 
@@ -618,7 +617,7 @@ int pp2_cls_db_exit(void)
 
 	ret_code = pp2_cls_db_mem_free();
 	if (ret_code != 0) {
-		pp2_err("Failed to free memory allocated for PP2_CLS DB\n");
+		pr_err("Failed to free memory allocated for PP2_CLS DB\n");
 		return -ENOMEM;
 	}
 
@@ -646,7 +645,7 @@ int pp2_cls_db_exit(void)
 int pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 {
 	if (!fl_ctrl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -676,7 +675,7 @@ int pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 int pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 {
 	if (!fl_ctrl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -707,12 +706,12 @@ int pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 int pp2_db_cls_fl_rule_set(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 {
 	if (!fl_rule) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (off >= MVPP2_FLOW_TBL_SIZE) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
 	memcpy(&g_pp2_cls_db->cls_db.fl_rule[off], fl_rule, sizeof(struct pp2_db_cls_fl_rule_t));
@@ -741,12 +740,12 @@ int pp2_db_cls_fl_rule_set(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 int pp2_db_cls_fl_rule_get(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 {
 	if (!fl_rule) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (off >= MVPP2_FLOW_TBL_SIZE) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
 	memcpy(fl_rule, &g_pp2_cls_db->cls_db.fl_rule[off], sizeof(struct pp2_db_cls_fl_rule_t));
@@ -777,13 +776,13 @@ int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
 				struct pp2_db_cls_fl_rule_t *fl_rl_list)
 {
 	if (!fl_rl_list) {
-		pp2_err("%s: null pointer.\n", __func__);
+		pr_err("%s: null pointer.\n", __func__);
 		return -EFAULT;
 	}
 
 	if (off >= MVPP2_FLOW_TBL_SIZE ||
 	    off + len >= MVPP2_FLOW_TBL_SIZE) {
-		pp2_err("requested rule list too big [offset=%d length=%d]\n", off, len);
+		pr_err("requested rule list too big [offset=%d length=%d]\n", off, len);
 		return -EINVAL;
 	}
 
@@ -815,12 +814,12 @@ int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
 int pp2_db_cls_lkp_dcod_set(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
 	if (!lkp_dcod) {
-		pp2_err("%s: null pointer.\n", __func__);
+		pr_err("%s: null pointer.\n", __func__);
 		return -EFAULT;
 	}
 
 	if (fl_log_id >= MVPP2_MNG_FLOW_ID_MAX) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
 
@@ -850,12 +849,12 @@ int pp2_db_cls_lkp_dcod_set(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dco
 int pp2_db_cls_lkp_dcod_get(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
 	if (!lkp_dcod) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (fl_log_id >= MVPP2_MNG_FLOW_ID_MAX) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
 	memcpy(lkp_dcod, &g_pp2_cls_db->cls_db.lkp_dcod[fl_log_id], sizeof(struct pp2_db_cls_lkp_dcod_t));
@@ -887,12 +886,12 @@ int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp
 	struct pp2_db_cls_lkp_dcod_t *p_lkp_dcod;
 
 	if (!lkp_dcod) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (rl_off >= MVPP2_FLOW_TBL_SIZE) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
 
@@ -903,7 +902,7 @@ int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp
 	}
 
 	if (i == MVPP2_MNG_FLOW_ID_MAX) {
-		pp2_err("rule offset [%d] not found\n", rl_off);
+		pr_err("rule offset [%d] not found\n", rl_off);
 		return -EINVAL;
 	}
 
@@ -933,7 +932,7 @@ int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp
 int pp2_db_cls_rl_off_free_nr(u32 *free_nr)
 {
 	if (!free_nr) {
-		pp2_err("%s: null pointer.\n", __func__);
+		pr_err("%s: null pointer.\n", __func__);
 		return -EFAULT;
 	}
 
@@ -963,12 +962,12 @@ int pp2_db_cls_rl_off_free_nr(u32 *free_nr)
 int pp2_db_cls_rl_off_free_set(u16 off, u16 *log)
 {
 	if (!log) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (off >= MVPP2_FLOW_TBL_SIZE) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
 
@@ -1005,12 +1004,12 @@ int pp2_db_cls_rl_off_free_set(u16 off, u16 *log)
 int pp2_db_cls_rl_off_get(u16 *off, u16 log)
 {
 	if (!off) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (log > MVPP2_CLS_LOG2OFF_TBL_SIZE) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EFAULT;
 	}
 
@@ -1044,7 +1043,7 @@ int pp2_db_cls_rl_off_get(u16 *off, u16 log)
 int pp2_db_cls_rl_off_set(u16 off, u16 log)
 {
 	if (log > MVPP2_CLS_LOG2OFF_TBL_SIZE) {
-		pp2_err("Invalid parameter\n");
+		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
 	g_pp2_cls_db->cls_db.log2off[log] = off;

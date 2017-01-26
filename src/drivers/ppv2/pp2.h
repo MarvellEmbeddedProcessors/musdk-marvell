@@ -439,7 +439,7 @@ static inline uintptr_t pp2_bm_hw_buf_get(uintptr_t cpu_slot, uint32_t pool_id)
 
 	phys_lo =  pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
 	if (unlikely(!phys_lo)) {
-		pp2_err("BM: BufGet failed! (Pool ID=%d)\n", pool_id);
+		pr_err("BM: BufGet failed! (Pool ID=%d)\n", pool_id);
 		return 0;
 	}
 #else
@@ -456,7 +456,7 @@ static inline uintptr_t pp2_bm_hw_buf_get(uintptr_t cpu_slot, uint32_t pool_id)
 	vaddr |= pp2_reg_read(cpu_slot, MVPP2_BM_VIRT_ALLOC_REG);
 
 #if PP2_BM_BUF_DEBUG
-	pp2_info("BM: BufGet %p\n", (void *)vaddr);
+	pr_info("BM: BufGet %p\n", (void *)vaddr);
 #endif
 
 	return vaddr;

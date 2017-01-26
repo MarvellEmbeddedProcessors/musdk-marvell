@@ -47,9 +47,8 @@
 
 #include "pp2_types.h"
 
-#include "pp2_print.h"
 
-#if (PP2_DBG <= PP2_INFO_LEVEL)
+#ifdef DEBUG
 #define PP2_GOP_DEBUG 1
 #define GOP_DEBUG(x) x
 #else

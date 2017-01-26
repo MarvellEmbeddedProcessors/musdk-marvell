@@ -54,7 +54,7 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
 
 	dm_if = kcalloc(1, sizeof(struct pp2_dm_if), GFP_KERNEL);
 	if (unlikely(!dm_if)) {
-		pp2_err("DM: cannot allocate DM object\n");
+		pr_err("DM: cannot allocate DM object\n");
 		return -ENOMEM;
 	}
 	dm_if->id = dm_id;
@@ -64,13 +64,13 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
 	dm_if->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((num_desc * MVPP2_DESC_ALIGNED_SIZE),
 									MVPP2_DESC_Q_ALIGN);
 	if (unlikely(!dm_if->desc_virt_arr)) {
-		pp2_err("DM: cannot allocate DM region\n");
+		pr_err("DM: cannot allocate DM region\n");
 		kfree(dm_if);
 		return -ENOMEM;
 	}
 	dm_if->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(dm_if->desc_virt_arr);
 	if (!IS_ALIGNED(dm_if->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
-		pp2_err("DM: Descriptor array must be %u-byte aligned\n",
+		pr_err("DM: Descriptor array must be %u-byte aligned\n",
 			MVPP2_DESC_Q_ALIGN);
 		mv_sys_dma_mem_free(dm_if->desc_virt_arr);
 		kfree(dm_if);
@@ -94,7 +94,7 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
 	inst->dm_ifs[dm_id] = dm_if;
 	inst->num_dm_ifs++;
 
-	pp2_dbg("DM:(AQ%u)(PP%u) created\n", dm_id, pp2_id);
+	pr_debug("DM:(AQ%u)(PP%u) created\n", dm_id, pp2_id);
 
 	return 0;
 }
@@ -113,7 +113,7 @@ void pp2_dm_if_deinit(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id)
 
 	/* TODO: Destroy AQ in HW */
 
-	pp2_dbg("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
+	pr_debug("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
 	mv_sys_dma_mem_free(dm_if->desc_virt_arr);
 	kfree(dm_if);
 	inst->num_dm_ifs--;
@@ -157,13 +157,13 @@ pp2_dm_if_get_desc(struct pp2_dm_if *dm_if, struct pp2_desc **out_desc, uint32_t
 void
 pp2_dm_desc_dump(struct pp2_desc *desc)
 {
-	pp2_dbg("DESC (%p):\n", desc);
-	pp2_dbg("CMD0:  0x%08X\n", desc->cmd0);
-	pp2_dbg("CMD1:  0x%08X\n", desc->cmd1);
-	pp2_dbg("CMD2:  0x%08X\n", desc->cmd2);
-	pp2_dbg("CMD3:  0x%08X\n", desc->cmd3);
-	pp2_dbg("CMD4:  0x%08X\n", desc->cmd4);
-	pp2_dbg("CMD5:  0x%08X\n", desc->cmd5);
-	pp2_dbg("CMD6:  0x%08X\n", desc->cmd6);
-	pp2_dbg("CMD7:  0x%08X\n", desc->cmd7);
+	pr_debug("DESC (%p):\n", desc);
+	pr_debug("CMD0:  0x%08X\n", desc->cmd0);
+	pr_debug("CMD1:  0x%08X\n", desc->cmd1);
+	pr_debug("CMD2:  0x%08X\n", desc->cmd2);
+	pr_debug("CMD3:  0x%08X\n", desc->cmd3);
+	pr_debug("CMD4:  0x%08X\n", desc->cmd4);
+	pr_debug("CMD5:  0x%08X\n", desc->cmd5);
+	pr_debug("CMD6:  0x%08X\n", desc->cmd6);
+	pr_debug("CMD7:  0x%08X\n", desc->cmd7);
 	}

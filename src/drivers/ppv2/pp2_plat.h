@@ -92,12 +92,12 @@
 /* Number of RXQs per port - configured */
 #define PP2_PORT_NUM_RXQS         (1)
 #if (PP2_PORT_NUM_RXQS > PP2_HW_PORT_NUM_RXQS)
-#error "PPDK: number of configured RxQs cannot exceed available RxQs";
+#error "number of configured RxQs cannot exceed available RxQs";
 #endif
 /* Number of TXQs per port - configured */
 #define PP2_PORT_NUM_TXQS         (1)
 #if (PP2_PORT_NUM_TXQS > PP2_HW_PORT_NUM_TXQS)
-#error "PPDK: number of configured TxQs cannot exceed available TxQs";
+#error "number of configured TxQs cannot exceed available TxQs";
 #endif
 
 /* 64bytes cache line - arm64 spec */

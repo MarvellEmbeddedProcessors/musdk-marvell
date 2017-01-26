@@ -36,7 +36,6 @@
 #include "cls/pp2_cls_mng.h"
 #include "pp2_types.h"
 #include "pp2.h"
-#include "pp2_print.h"
 #include "pp2_hw_type.h"
 #include "pp2_hw_cls.h"
 
@@ -117,13 +116,13 @@ int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,
 	/* check if table exists in DB */
 	for (idx = 0; idx < table_db.idx; idx++) {
 		if (tbl == table_db.table[idx]) {
-			pp2_info("table found at index %d\n", idx);
+			pr_info("table found at index %d\n", idx);
 			break;
 		}
 	}
 
 	if (idx == table_db.idx) {
-		pp2_err("table not found\n");
+		pr_err("table not found\n");
 		return -EIO;
 	}
 

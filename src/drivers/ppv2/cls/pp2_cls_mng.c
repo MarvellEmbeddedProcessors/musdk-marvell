@@ -210,11 +210,11 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 
 	if (mv_pp2x_range_validate(params->key.num_fields, 1, PP2_CLS_TBL_MAX_NUM_FIELDS))
 		return -EINVAL;
-	pp2_dbg("key.num_fields = %d\n", params->key.num_fields);
+	pr_debug("key.num_fields = %d\n", params->key.num_fields);
 
 	fl_rls = kmalloc(sizeof(*fl_rls), GFP_KERNEL);
 	if (!fl_rls) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	/* get cpu_slot */
@@ -230,7 +230,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		rc = lookup_field_id(params->key.proto_field[idx].proto,
 				     params->key.proto_field[idx].field.eth, &field, &match_bm);
 		if (rc) {
-			pp2_err("%s(%d) lookup id error!\n", __func__, __LINE__);
+			pr_err("%s(%d) lookup id error!\n", __func__, __LINE__);
 			goto end;
 		}
 		if (params->key.proto_field[idx].proto == MV_NET_PROTO_IP4) {
@@ -257,7 +257,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	/* engine selection */
 	if (params->type == PP2_CLS_TBL_MASKABLE) {
 		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C2;
-		pp2_err("maskable engine not supported\n");
+		pr_err("maskable engine not supported\n");
 		return -EINVAL;
 	}
 	if (five_tuple)
@@ -281,11 +281,11 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	fl_rls->fl[0].seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
 	fl_rls->fl[0].field_id_cnt = params->key.num_fields - (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3B);
 
-	pp2_dbg("ipv4_flag = %d\n", ipv4_flag);
-	pp2_dbg("ipv6_flag = %d\n", ipv6_flag);
-	pp2_dbg("l4_flag = %d\n", l4_flag);
-	pp2_dbg("udp_flag = %d\n", udp_flag);
-	pp2_dbg("tcp_flag = %d\n", tcp_flag);
+	pr_debug("ipv4_flag = %d\n", ipv4_flag);
+	pr_debug("ipv6_flag = %d\n", ipv6_flag);
+	pr_debug("l4_flag = %d\n", l4_flag);
+	pr_debug("udp_flag = %d\n", udp_flag);
+	pr_debug("tcp_flag = %d\n", tcp_flag);
 
 	/* find relevant lkpid for this flow */
 	if (!ipv4_flag && !ipv6_flag && !l4_flag && !tcp_flag && !udp_flag) {
@@ -309,7 +309,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		} else if (udp_flag) {
 			j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
 		} else {
-			pp2_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+			pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
 			return -EINVAL;
 		}
 	} else if (ipv6_flag) {
@@ -325,7 +325,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		} else if (udp_flag) {
 			j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
 		} else {
-			pp2_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+			pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
 			return -EINVAL;
 		}
 	} else if (l4_flag) {
@@ -340,21 +340,21 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
 		j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
 	} else {
-		pp2_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+		pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 	select_logical_id[j] = 0;
 
 	/* add current rule for all selected logical flow id */
 	for (i = 0; select_logical_id[i] != 0; i++) {
-		pp2_dbg("select_logical_id = %d\n", select_logical_id[i]);
+		pr_debug("select_logical_id = %d\n", select_logical_id[i]);
 		fl_rls->fl[0].fl_log_id = select_logical_id[i];
 
 		/* Add flow rule */
 		pp2_cls_lkp_dcod_set_and_disable(cpu_slot, select_logical_id[i]);
 		rc = pp2_cls_fl_rule_add(cpu_slot, fl_rls);
 		if (rc) {
-			pp2_err("failed to add cls flow rule\n");
+			pr_err("failed to add cls flow rule\n");
 			goto end;
 		}
 		pp2_cls_lkp_dcod_enable(cpu_slot, select_logical_id[i]);
@@ -409,12 +409,12 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		rc = lookup_field_id(params->key.proto_field[idx1].proto, params->key.proto_field[idx1].field.eth,
 				     &field, &bm);
 		if (rc) {
-			pp2_err("%s(%d) lookup id error!\n", __func__, __LINE__);
+			pr_err("%s(%d) lookup id error!\n", __func__, __LINE__);
 			return -EINVAL;
 		}
 
 		if (field == NOT_SUPPORTED_YET) {
-			pp2_err("%s(%d) protocol_field not supported yet - skipping!\n", __func__, __LINE__);
+			pr_err("%s(%d) protocol_field not supported yet - skipping!\n", __func__, __LINE__);
 			continue;
 		}
 		if (params->key.proto_field[idx1].proto == MV_NET_PROTO_IP4) {
@@ -431,7 +431,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		switch (field) {
 		case IPV4_SA_FIELD_ID:
 			if (rule->fields[idx1].size != 4) {
-				pp2_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
@@ -454,7 +454,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 					return -EINVAL;
 				mask_ptr += 2;
 			}
-			pp2_dbg("IPv4 SA: %d.%d.%d.%d\n",
+			pr_debug("IPv4 SA: %d.%d.%d.%d\n",
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0],
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[1],
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[2],
@@ -462,7 +462,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			break;
 		case IPV4_DA_FIELD_ID:
 			if (rule->fields[idx1].size != 4) {
-				pp2_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
@@ -486,7 +486,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				mask_ptr += 2;
 			}
 
-			pp2_dbg("IPv4 DA: %d.%d.%d.%d\n",
+			pr_debug("IPv4 DA: %d.%d.%d.%d\n",
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0],
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[1],
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[2],
@@ -495,18 +495,18 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		case IPV4_PROTO_FIELD_ID:
 		case IPV6_NH_FIELD_ID:
 			if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_UDP) {
-				pp2_dbg("udp selected\n");
+				pr_debug("udp selected\n");
 				proto_flag = 1;
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_UDP;
 			} else if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_TCP) {
-				pp2_dbg("tcp selected\n");
+				pr_debug("tcp selected\n");
 				proto_flag = 1;
 				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_TCP;
 			}
 			break;
 		case IPV6_SA_FIELD_ID:
 			if (rule->fields[idx1].size != 16) {
-				pp2_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
@@ -517,7 +517,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				pr_err("Unable to parse IPv6 SA\n");
 				return -EINVAL;
 			}
-			pp2_dbg("IPv6 SA: ");
+			pr_debug("IPv6 SA: ");
 			for (idx2 = 0; idx2 < 16; idx2 += 2) {
 				pr_info("%x%x",
 					c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[idx2],
@@ -530,7 +530,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			break;
 		case IPV6_DA_FIELD_ID:
 			if (rule->fields[idx1].size != 16) {
-				pp2_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
@@ -541,7 +541,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				pr_err("Unable to parse IPv6 DA\n");
 				return -EINVAL;
 			}
-			pp2_dbg("IPv6 DA: ");
+			pr_debug("IPv6 DA: ");
 			for (idx2 = 0; idx2 < 16; idx2 += 2) {
 				pr_info("%x%x",
 					c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[idx2],
@@ -554,7 +554,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			break;
 		case L4_SRC_FIELD_ID:
 			if (rule->fields[idx1].size != 2) {
-				pp2_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
@@ -563,7 +563,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			break;
 		case L4_DST_FIELD_ID:
 			if (rule->fields[idx1].size != 2) {
-				pp2_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
@@ -582,7 +582,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 	else
 		c3_entry.mng_pkt_key->pkt_key->field_match_bm = match_bm;
 
-	pp2_dbg("match_bm: %x\n", c3_entry.mng_pkt_key->pkt_key->field_match_bm);
+	pr_debug("match_bm: %x\n", c3_entry.mng_pkt_key->pkt_key->field_match_bm);
 
 	if (ipv4_flag)
 		c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_ver = 4;
@@ -611,21 +611,21 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		/* [TODO] Add CPU binding support in lower bits (if no RSS is used)*/
 		c3_entry.qos_value.q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
 		c3_entry.qos_value.q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
-		pp2_dbg("q_low %d, q_high %d, queue %d, cos_queue %d tc %d\n", c3_entry.qos_value.q_low,
+		pr_debug("q_low %d, q_high %d, queue %d, cos_queue %d tc %d\n", c3_entry.qos_value.q_low,
 			c3_entry.qos_value.q_high, queue, cos_queue, action->cos->tc);
 	} else {
 		c3_entry.action.q_low_act = MVPP2_ACTION_TYPE_NO_UPDT;
 		c3_entry.action.q_high_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	}
 
-	pp2_dbg("cpu_slot: %p\n", (void *)port->cpu_slot);
+	pr_debug("cpu_slot: %p\n", (void *)port->cpu_slot);
 	/* add rule */
 	rc = pp2_cls_c3_rule_add(port->cpu_slot, &c3_entry, &logic_idx);
 	if (rc) {
-		pp2_err("fail to add C3 rule\n");
+		pr_err("fail to add C3 rule\n");
 		return rc;
 	}
-	pp2_dbg("Rule added in C3: logic_idx: %d\n", logic_idx);
+	pr_debug("Rule added in C3: logic_idx: %d\n", logic_idx);
 
 	return 0;
 }

@@ -56,7 +56,7 @@ void pp2_gop_mib_counters_show(struct gop_hw *gop, int port);
 static inline void pp2_gop_gmac_print(struct gop_hw *gop, const char *reg_name,
 				      int mac_num, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_gmac_read(gop, mac_num, reg));
 }
 
@@ -64,7 +64,7 @@ static inline void pp2_gop_gmac_print(struct gop_hw *gop, const char *reg_name,
 static inline void pp2_gop_smi_print(struct gop_hw *gop, const char *reg_name,
 				     uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_smi_read(gop, reg));
 }
 
@@ -72,7 +72,7 @@ static inline void pp2_gop_smi_print(struct gop_hw *gop, const char *reg_name,
 static inline void pp2_gop_rfu1_print(struct gop_hw *gop, const char *reg_name,
 				      uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_rfu1_read(gop, reg));
 }
 
@@ -80,7 +80,7 @@ static inline void pp2_gop_rfu1_print(struct gop_hw *gop, const char *reg_name,
 static inline void pp2_gop_ptp_print(struct gop_hw *gop, const char *reg_name,
 				     int mac_num, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_ptp_read(gop, mac_num, reg));
 }
 
@@ -88,7 +88,7 @@ static inline void pp2_gop_ptp_print(struct gop_hw *gop, const char *reg_name,
 static inline void pp2_gop_serdes_print(struct gop_hw *gop, const char *reg_name,
 					int lane_num, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_serdes_read(gop, lane_num, reg));
 }
 
@@ -98,7 +98,7 @@ void pp2_gop_serdes_lane_regs_dump(struct gop_hw *gop, int lane);
 static inline void pp2_gop_mpcs_global_print(struct gop_hw *gop,
 					     char *reg_name, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_mpcs_global_read(gop, reg));
 }
 
@@ -106,7 +106,7 @@ static inline void pp2_gop_mpcs_global_print(struct gop_hw *gop,
 static inline void pp2_gop_xpcs_global_print(struct gop_hw *gop,
 					     const char *reg_name, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_xpcs_global_read(gop, reg));
 }
 
@@ -114,7 +114,7 @@ static inline void pp2_gop_xpcs_lane_print(struct gop_hw *gop,
 					   const char *reg_name,
 					  int lane_num, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_xpcs_lane_read(gop, lane_num, reg));
 }
 
@@ -126,7 +126,7 @@ void pp2_gop_xpcs_lane_regs_dump(struct gop_hw *gop, int lane);
 static inline void pp2_gop_xlg_mac_print(struct gop_hw *gop, const char *reg_name,
 					 int mac_num, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_xlg_mac_read(gop, mac_num, reg));
 }
 
@@ -136,7 +136,7 @@ void pp2_gop_xlg_mac_regs_dump(struct gop_hw *gop, int port);
 static inline void pp2_gop_xmib_mac_print(struct gop_hw *gop, const char *reg_name,
 					  int mac_num, uint32_t reg)
 {
-	pp2_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
+	pr_info("  %-32s: 0x%x = 0x%08x\n", reg_name, reg,
 		 pp2_gop_xmib_mac_read(gop, mac_num, reg));
 }
 

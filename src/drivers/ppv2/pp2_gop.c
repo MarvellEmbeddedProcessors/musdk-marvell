@@ -512,7 +512,7 @@ int pp2_gop_gmac_speed_duplex_set(struct gop_hw *gop, int mac_num,
 		reg_val &= ~PP2_GMAC_PORT_AUTO_NEG_CFG_SET_MII_SPEED_MASK;
 		break;
 	default:
-		pp2_info("GMAC: Unexpected Speed value %d\n", speed);
+		pr_info("GMAC: Unexpected Speed value %d\n", speed);
 		return -EINVAL;
 	}
 
@@ -530,7 +530,7 @@ int pp2_gop_gmac_speed_duplex_set(struct gop_hw *gop, int mac_num,
 		reg_val |= PP2_GMAC_PORT_AUTO_NEG_CFG_SET_FULL_DX_MASK;
 		break;
 	default:
-		pp2_err("GMAC: Unexpected Duplex value %d\n", duplex);
+		pr_err("GMAC: Unexpected Duplex value %d\n", duplex);
 		return -EINVAL;
 	}
 
@@ -615,7 +615,7 @@ int pp2_gop_gmac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc)
 		break;
 
 	default:
-		pp2_err("GMAC: Unexpected FlowControl value %d\n", fc);
+		pr_err("GMAC: Unexpected FlowControl value %d\n", fc);
 		return -EINVAL;
 	}
 
@@ -659,30 +659,30 @@ int pp2_gop_gmac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
 	if (force_link_up) {
 		if (pp2_gop_gmac_speed_duplex_set(gop, mac_num, speed,
 						  PP2_PORT_DUPLEX_FULL)) {
-			pp2_err("pp2_gop_gmac_speed_duplex_set failed\n");
+			pr_err("pp2_gop_gmac_speed_duplex_set failed\n");
 			return -EPERM;
 		}
 		if (pp2_gop_gmac_fc_set(gop, mac_num, PP2_PORT_FC_ENABLE)) {
-			pp2_err("pp2_gop_gmac_fc_set failed\n");
+			pr_err("pp2_gop_gmac_fc_set failed\n");
 			return -EPERM;
 		}
 		if (pp2_gop_gmac_force_link_mode_set(gop, mac_num, 1, 0)) {
-			pp2_err("pp2_gop_gmac_force_link_mode_set failed\n");
+			pr_err("pp2_gop_gmac_force_link_mode_set failed\n");
 			return -EPERM;
 		}
 	} else {
 		if (pp2_gop_gmac_force_link_mode_set(gop, mac_num, 0, 0)) {
-			pp2_err("pp2_gop_gmac_force_link_mode_set failed\n");
+			pr_err("pp2_gop_gmac_force_link_mode_set failed\n");
 			return -EPERM;
 		}
 		if (pp2_gop_gmac_speed_duplex_set(gop, mac_num,
 						  PP2_PORT_SPEED_AN,
 						 PP2_PORT_DUPLEX_AN)) {
-			pp2_err("pp2_gop_gmac_speed_duplex_set failed\n");
+			pr_err("pp2_gop_gmac_speed_duplex_set failed\n");
 			return -EPERM;
 		}
 		if (pp2_gop_gmac_fc_set(gop, mac_num, PP2_PORT_FC_AN_SYM)) {
-			pp2_err("pp2_gop_gmac_fc_set failed\n");
+			pr_err("pp2_gop_gmac_fc_set failed\n");
 			return -EPERM;
 		}
 	}
@@ -757,7 +757,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 	int mac_num = mac->gop_index;
 
 	if (mac_num >= PP2_GOP_MAC_NUM) {
-		pp2_err("%s: illegal port number %d", __func__, mac_num);
+		pr_err("%s: illegal port number %d", __func__, mac_num);
 		return -1;
 	}
 
@@ -867,7 +867,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		pp2_gop_xlg_mac_reset(gop, mac_num, UNRESET);
 		break;
 	default:
-		pp2_err("%s: Requested port mode (%d) not supported",
+		pr_err("%s: Requested port mode (%d) not supported",
 			__func__, mac->phy_mode);
 		return -1;
 	}
@@ -932,7 +932,7 @@ int pp2_gop_port_reset(struct gop_hw *gop, struct pp2_mac_data *mac)
 		pp2_gop_xlg_mac_reset(gop, mac_num, RESET);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 
@@ -960,7 +960,7 @@ void pp2_gop_port_enable(struct gop_hw *gop, struct pp2_mac_data *mac)
 		pp2_gop_xlg_mac_port_enable(gop, port_num);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return;
 	}
 
@@ -985,7 +985,7 @@ void pp2_gop_port_disable(struct gop_hw *gop, struct pp2_mac_data *mac)
 		pp2_gop_xlg_mac_port_disable(gop, port_num);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return;
 	}
 
@@ -1008,7 +1008,7 @@ void pp2_gop_port_periodic_xon_set(struct gop_hw *gop,
 		pp2_gop_xlg_mac_port_periodic_xon_set(gop, port_num, enable);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return;
 	}
 }
@@ -1028,7 +1028,7 @@ bool pp2_gop_port_is_link_up(struct gop_hw *gop, struct pp2_mac_data *mac)
 		usleep(1000);
 		return pp2_gop_xlg_mac_link_status_get(gop, port_num);
 	default:
-		pp2_err("%s: Wrong port mode gop_port(%d), phy_mode(%d)",
+		pr_err("%s: Wrong port mode gop_port(%d), phy_mode(%d)",
 			__func__, port_num, mac->phy_mode);
 		return false;
 	}
@@ -1051,7 +1051,7 @@ int pp2_gop_port_link_status(struct gop_hw *gop, struct pp2_mac_data *mac,
 		pp2_gop_xlg_mac_link_status(gop, port_num, pstatus);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1073,7 +1073,7 @@ int pp2_gop_port_events_mask(struct gop_hw *gop, struct pp2_mac_data *mac)
 		pp2_gop_xlg_port_link_event_mask(gop, port_num);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1099,7 +1099,7 @@ int pp2_gop_port_events_unmask(struct gop_hw *gop, struct pp2_mac_data *mac)
 		pp2_gop_xlg_port_external_event_unmask(gop, port_num, 1);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1121,7 +1121,7 @@ int pp2_gop_port_events_clear(struct gop_hw *gop, struct pp2_mac_data *mac)
 		pp2_gop_xlg_port_link_event_clear(gop, port_num);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1136,34 +1136,34 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 	pp2_gop_port_link_status(gop, mac, &port_status);
 	port_en = (gop->gop_port_debug[port_num].flags &
 		   (1 << ENABLED)) ? true : false;
-	pp2_info("---- GOP ID %d configuration ----\n", port_num);
+	pr_info("---- GOP ID %d configuration ----\n", port_num);
 	switch (mac->phy_mode) {
 	case PHY_INTERFACE_MODE_RGMII:
-		pp2_info("Port mode               : RGMII\n");
+		pr_info("Port mode               : RGMII\n");
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
-		pp2_info("Port mode               : SGMII\n");
+		pr_info("Port mode               : SGMII\n");
 		break;
 	case PHY_INTERFACE_MODE_QSGMII:
-		pp2_info("Port mode               : QSGMII\n");
+		pr_info("Port mode               : QSGMII\n");
 		break;
 	case PHY_INTERFACE_MODE_XAUI:
-		pp2_info("Port mode               : XAUI\n");
+		pr_info("Port mode               : XAUI\n");
 		break;
 	case PHY_INTERFACE_MODE_RXAUI:
-		pp2_info("Port mode               : RXAUI\n");
+		pr_info("Port mode               : RXAUI\n");
 		break;
 	case PHY_INTERFACE_MODE_KR:
-		pp2_info("Port mode               : KR\n");
+		pr_info("Port mode               : KR\n");
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)\n", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)\n", __func__, mac->phy_mode);
 		return -1;
 	}
 
-	pp2_info("MAC status              : %s",
+	pr_info("MAC status              : %s",
 		 (port_en) ? "enabled\n" : "disabled\n");
-	pp2_info("Link status             : %s",
+	pr_info("Link status             : %s",
 		 (port_status.linkup) ? "link up\n" : "link down\n");
 
 	if ((mac->phy_mode == PHY_INTERFACE_MODE_SGMII) &&
@@ -1172,41 +1172,41 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 
 	switch (port_status.speed) {
 	case PP2_PORT_SPEED_AN:
-		pp2_info("Port speed              : AutoNeg\n");
+		pr_info("Port speed              : AutoNeg\n");
 		break;
 	case PP2_PORT_SPEED_10:
-		pp2_info("Port speed              : 10M\n");
+		pr_info("Port speed              : 10M\n");
 		break;
 	case PP2_PORT_SPEED_100:
-		pp2_info("Port speed              : 100M\n");
+		pr_info("Port speed              : 100M\n");
 		break;
 	case PP2_PORT_SPEED_1000:
-		pp2_info("Port speed              : 1G\n");
+		pr_info("Port speed              : 1G\n");
 		break;
 	case PP2_PORT_SPEED_2500:
-		pp2_info("Port speed              : 2.5G\n");
+		pr_info("Port speed              : 2.5G\n");
 		break;
 	case PP2_PORT_SPEED_10000:
-		pp2_info("Port speed              : 10G\n");
+		pr_info("Port speed              : 10G\n");
 		break;
 	default:
-		pp2_err("%s: Wrong port speed (%d)\n", __func__,
+		pr_err("%s: Wrong port speed (%d)\n", __func__,
 			port_status.speed);
 		return -1;
 	}
 
 	switch (port_status.duplex) {
 	case PP2_PORT_DUPLEX_AN:
-		pp2_info("Port duplex             : AutoNeg\n");
+		pr_info("Port duplex             : AutoNeg\n");
 		break;
 	case PP2_PORT_DUPLEX_HALF:
-		pp2_info("Port duplex             : half\n");
+		pr_info("Port duplex             : half\n");
 		break;
 	case PP2_PORT_DUPLEX_FULL:
-		pp2_info("Port duplex             : full\n");
+		pr_info("Port duplex             : full\n");
 		break;
 	default:
-		pp2_err("%s: Wrong port duplex (%d)\n", __func__,
+		pr_err("%s: Wrong port duplex (%d)\n", __func__,
 			port_status.duplex);
 		return -1;
 	}
@@ -1233,7 +1233,7 @@ int pp2_gop_speed_duplex_get(struct gop_hw *gop, struct pp2_mac_data *mac,
 		pp2_gop_xlg_mac_speed_duplex_get(gop, port_num, speed, duplex);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1258,7 +1258,7 @@ int pp2_gop_speed_duplex_set(struct gop_hw *gop, struct pp2_mac_data *mac,
 		pp2_gop_xlg_mac_speed_duplex_set(gop, port_num, speed, duplex);
 		break;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1278,11 +1278,11 @@ int pp2_gop_autoneg_restart(struct gop_hw *gop, struct pp2_mac_data *mac)
 	case PHY_INTERFACE_MODE_XAUI:
 	case PHY_INTERFACE_MODE_RXAUI:
 	case PHY_INTERFACE_MODE_KR:
-		pp2_err("%s: on supported for port mode (%d)", __func__,
+		pr_err("%s: on supported for port mode (%d)", __func__,
 			mac->phy_mode);
 		return -1;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1313,7 +1313,7 @@ int pp2_gop_fl_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 	case PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1338,7 +1338,7 @@ int pp2_gop_force_link_mode_set(struct gop_hw *gop, struct pp2_mac_data *mac,
 	case PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1363,7 +1363,7 @@ int pp2_gop_force_link_mode_get(struct gop_hw *gop, struct pp2_mac_data *mac,
 	case PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1392,7 +1392,7 @@ int pp2_gop_loopback_set(struct gop_hw *gop, struct pp2_mac_data *mac, bool lb)
 	case PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
-		pp2_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
+		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
 	return 0;
@@ -1831,7 +1831,7 @@ int pp2_gop_xlg_mac_fc_set(struct gop_hw *gop, int mac_num, enum pp2_port_fc fc)
 	case PP2_PORT_FC_AN_SYM:
 	case PP2_PORT_FC_AN_ASYM:
 	default:
-		pp2_err("XLG MAC: Unexpected FlowControl value %d\n", fc);
+		pr_err("XLG MAC: Unexpected FlowControl value %d\n", fc);
 		return -EINVAL;
 	}
 
@@ -1860,20 +1860,20 @@ int pp2_gop_xlg_mac_port_link_speed_fc(struct gop_hw *gop, int mac_num,
 {
 	if (force_link_up) {
 		if (pp2_gop_xlg_mac_fc_set(gop, mac_num, PP2_PORT_FC_ENABLE)) {
-			pp2_err("pp2_gop_xlg_mac_fc_set failed\n");
+			pr_err("pp2_gop_xlg_mac_fc_set failed\n");
 			return -EPERM;
 		}
 		if (pp2_gop_xlg_mac_force_link_mode_set(gop, mac_num, 1, 0)) {
-			pp2_err("pp2_gop_xlg_mac_force_link_mode_set failed\n");
+			pr_err("pp2_gop_xlg_mac_force_link_mode_set failed\n");
 			return -EPERM;
 		}
 	} else {
 		if (pp2_gop_xlg_mac_force_link_mode_set(gop, mac_num, 0, 0)) {
-			pp2_err("pp2_gop_xlg_mac_force_link_mode_set failed\n");
+			pr_err("pp2_gop_xlg_mac_force_link_mode_set failed\n");
 			return -EPERM;
 		}
 		if (pp2_gop_xlg_mac_fc_set(gop, mac_num, PP2_PORT_FC_AN_SYM)) {
-			pp2_err("pp2_gop_xlg_mac_fc_set failed\n");
+			pr_err("pp2_gop_xlg_mac_fc_set failed\n");
 			return -EPERM;
 		}
 	}

@@ -411,17 +411,17 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	}
 
 	if (key_size > CLS_APP_KEY_SIZE_MAX) {
-		pp2_err("key size out of range = %d\n", key_size);
+		pr_err("key size out of range = %d\n", key_size);
 		return -EINVAL;
 	}
 
 	num_fields = idx;
 	if (num_fields > PP2_CLS_TBL_MAX_NUM_FIELDS) {
-		pp2_err("parsing fail, wrong input for --num_fields\n");
+		pr_err("parsing fail, wrong input for --num_fields\n");
 		return -EINVAL;
 	}
 
-	pp2_dbg("num_fields = %d, key_size = %d\n", num_fields, key_size);
+	pr_debug("num_fields = %d, key_size = %d\n", num_fields, key_size);
 
 	action_cos = malloc(sizeof(struct pp2_cls_cos_desc));
 	if (!action_cos) {
@@ -1038,7 +1038,7 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 		else
 			printf("all multicast mode: disabled\n");
 	} else {
-		pp2_err("Option not supported\n");
+		pr_err("Option not supported\n");
 		return -EFAULT;
 	}
 	return 0;

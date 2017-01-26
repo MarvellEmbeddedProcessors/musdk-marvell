@@ -41,20 +41,19 @@
 #include "pp2.h"
 #include "pp2_bm.h"
 #include "pp2_port.h"
-#include "pp2_print.h"
 
 #if PP2_BM_BUF_DEBUG
 /* Debug and helpers */
 static inline void pp2_bm_print_reg(uintptr_t cpu_slot,
 				    unsigned int reg_addr, const char *reg_name)
 {
-	pp2_dbg("  %-32s: 0x%X = 0x%08X\n", reg_name, reg_addr,
+	pr_debug("  %-32s: 0x%X = 0x%08X\n", reg_name, reg_addr,
 		pp2_reg_read(cpu_slot, reg_addr));
 }
 
 static void pp2_bm_pool_print_regs(uintptr_t cpu_slot, uint32_t pool)
 {
-	pp2_dbg("[BM pool registers: cpu_slot=0X%lx pool=%u]\n", cpu_slot, pool);
+	pr_debug("[BM pool registers: cpu_slot=0X%lx pool=%u]\n", cpu_slot, pool);
 
 	pp2_bm_print_reg(cpu_slot, MVPP2_BM_POOL_BASE_ADDR_REG(pool),
 			 "MVPP2_BM_POOL_BASE_REG");
@@ -100,12 +99,12 @@ void pp2_bm_hw_pool_destroy(uintptr_t cpu_slot, uint32_t pool_id)
 
 		pp2_reg_write(cpu_slot, MVPP2_BM_POOL_CTRL_REG(pool_id), val);
 
-		pp2_dbg("BM: stopping pool %u ...\n", pool_id);
+		pr_debug("BM: stopping pool %u ...\n", pool_id);
 		/* Wait pool stop notification */
 		do {
 			val = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_CTRL_REG(pool_id));
 		} while (val & MVPP2_BM_STATE_MASK);
-		pp2_dbg("BM: stopped pool %u ...\n", pool_id);
+		pr_debug("BM: stopped pool %u ...\n", pool_id);
 	}
 
 	/* Mask & Clear interrupt flags */
@@ -141,7 +140,7 @@ pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 	/* Check control register to see if this pool is already initialized */
 	val = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_CTRL_REG(pool_id));
 	if (val & MVPP2_BM_STATE_MASK) {
-		pp2_err("BM: pool=%u is already active\n", pool_id);
+		pr_err("BM: pool=%u is already active\n", pool_id);
 		return 1;
 	}
 
@@ -177,7 +176,7 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	 * PP2_BPPE_UNIT_SIZE in order to avoid incomplete BPPEs
 	 */
 	if (param->buf_num % PP2_BPPE_UNIT_SIZE) {
-		pp2_err("BM: pool buffer number param must be a multiple of %u\n",
+		pr_err("BM: pool buffer number param must be a multiple of %u\n",
 			PP2_BPPE_UNIT_SIZE);
 		return -EACCES;
 	}
@@ -185,14 +184,14 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	 * than packet offset configured in RXSWQCFG register
 	 */
 	if (param->buf_size < PP2_PACKET_OFFSET) {
-		pp2_err("BM: pool buffer size must be 32-byte aligned and greater than PP2_PACKET_OFFSET(%lu)\n",
+		pr_err("BM: pool buffer size must be 32-byte aligned and greater than PP2_PACKET_OFFSET(%lu)\n",
 			PP2_PACKET_OFFSET);
 		return -EACCES;
 	}
 	/* Allocate space for pool handler */
 	bm_pool = kcalloc(1, sizeof(struct pp2_bm_pool), GFP_KERNEL);
 	if (unlikely(!bm_pool)) {
-		pp2_err("BM: cannot allocate memory for a BM pool\n");
+		pr_err("BM: cannot allocate memory for a BM pool\n");
 		return -ENOMEM;
 	}
 
@@ -216,12 +215,12 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	bppe_size = (2 * sizeof(uint64_t));
 	bppe_region_size = (bppe_num * bppe_size);
 
-	pp2_dbg("BM: pool=%u buf_num %u bppe_num %u bppe_region_size %u\n",
+	pr_debug("BM: pool=%u buf_num %u bppe_num %u bppe_region_size %u\n",
 		bm_pool->bm_pool_id, bm_pool->bm_pool_buf_num, bppe_num, bppe_region_size);
 
 	bm_pool->bm_pool_virt_base = (uintptr_t)mv_sys_dma_mem_alloc(bppe_region_size, MVPP2_BM_POOL_PTR_ALIGN);
 	if (unlikely(!bm_pool->bm_pool_virt_base)) {
-		pp2_err("BM: cannot allocate region for pool BPPEs\n");
+		pr_err("BM: cannot allocate region for pool BPPEs\n");
 		kfree(bm_pool);
 		return -ENOMEM;
 	}
@@ -229,14 +228,14 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	bm_pool->bm_pool_phys_base = (uintptr_t)mv_sys_dma_mem_virt2phys((void *)bm_pool->bm_pool_virt_base);
 
 	if (!IS_ALIGNED(bm_pool->bm_pool_phys_base, MVPP2_BM_POOL_PTR_ALIGN)) {
-		pp2_err("BM: pool=%u is not %u bytes aligned", param->id,
+		pr_err("BM: pool=%u is not %u bytes aligned", param->id,
 			MVPP2_BM_POOL_PTR_ALIGN);
 		mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
 		kfree(bm_pool);
 		return -EIO;
 	}
 
-	pp2_dbg("BM: pool=%u BPPEs phys_base 0x%lX virt_base 0x%lX\n", bm_pool->bm_pool_id,
+	pr_debug("BM: pool=%u BPPEs phys_base 0x%lX virt_base 0x%lX\n", bm_pool->bm_pool_id,
 		bm_pool->bm_pool_phys_base, bm_pool->bm_pool_virt_base);
 
 	pp2_inst = pp2->pp2_inst[param->pp2_id];
@@ -245,7 +244,7 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	/*TODO YUVAL: Add lock here, to protect simultaneous creation of bm_pools */
 	if (pp2_bm_hw_pool_create(cpu_slot, bm_pool->bm_pool_id,
 				  bppe_num, bm_pool->bm_pool_phys_base)) {
-		pp2_err("BM: could not initialize hardware pool%u\n", bm_pool->bm_pool_id);
+		pr_err("BM: could not initialize hardware pool%u\n", bm_pool->bm_pool_id);
 		mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
 		kfree(bm_pool);
 		return -EIO;
@@ -306,7 +305,7 @@ int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
 
 	pool_id = bm_pool->bm_pool_id;
 
-	pp2_dbg("BM: destroying pool ID=%u\n", pool_id);
+	pr_debug("BM: destroying pool ID=%u\n", pool_id);
 
 	/* If client did not clean up explicitly before
 	 * destroying this pool, then implictly clear up the
@@ -315,9 +314,9 @@ int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
 	 */
 	resid_bufs = pp2_bm_pool_flush(bm_if->cpu_slot, pool_id);
 	if (resid_bufs) {
-		pp2_dbg("BM: could not clear all buffers from pool ID=%u\n", pool_id);
-		pp2_dbg("BM: total bufs    : %u\n", bm_pool->bm_pool_buf_num);
-		pp2_dbg("BM: residual bufs : %u\n", resid_bufs);
+		pr_debug("BM: could not clear all buffers from pool ID=%u\n", pool_id);
+		pr_debug("BM: total bufs    : %u\n", bm_pool->bm_pool_buf_num);
+		pr_debug("BM: residual bufs : %u\n", resid_bufs);
 	}
 
 	pp2_bm_hw_pool_destroy(bm_if->cpu_slot, pool_id);

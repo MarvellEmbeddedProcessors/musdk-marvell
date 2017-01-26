@@ -42,7 +42,6 @@
 #include "std_internal.h"
 #include "../pp2_types.h"
 #include "../pp2.h"
-#include "../pp2_print.h"
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 
@@ -311,7 +310,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 			rc = pp2_cls_db_c3_hash_idx_get(value, &hash_idx);
 			/* skip invalid entry */
 			if (rc) {
-				pp2_err("logical index(%d) is invalid\n", value);
+				pr_err("logical index(%d) is invalid\n", value);
 				return -EIO;
 			}
 			logic_idx = value;
@@ -319,7 +318,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 			rc = pp2_cls_db_c3_logic_idx_get(value, &logic_idx);
 			/* skip invalid entry */
 			if (rc) {
-				pp2_err("hash index(%d) is invalid\n", value);
+				pr_err("hash index(%d) is invalid\n", value);
 				return -EIO;
 			}
 			hash_idx = value;
@@ -331,7 +330,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 		/* read multihash entry */
 		rc = pp2_cls_c3_hw_read(cpu_slot, &c3, hash_idx);
 		if (rc) {
-			pp2_err("failed to read C3 entry from HW\n");
+			pr_err("failed to read C3 entry from HW\n");
 			return -EIO;
 		}
 
@@ -341,7 +340,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 		/* read hit counter */
 		rc = pp2_cls_c3_hit_count_get(cpu_slot, logic_idx, &hit_count);
 		if (rc) {
-			pp2_err("failed to read hit counter\n");
+			pr_err("failed to read hit counter\n");
 			return -EIO;
 		}
 
@@ -365,7 +364,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 			/* read multihash entry */
 			rc = pp2_cls_c3_hw_read(cpu_slot, &c3, idx);
 			if (rc) {
-				pp2_err("failed to read hit counter\n");
+				pr_err("failed to read hit counter\n");
 				return -EIO;
 			}
 
@@ -379,7 +378,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 			/* read hit counter */
 			rc = pp2_cls_c3_hit_count_get(cpu_slot, logic_idx, &hit_count);
 			if (rc) {
-				pp2_err("failed to read hit counter\n");
+				pr_err("failed to read hit counter\n");
 				return -EIO;
 			}
 
@@ -672,7 +671,7 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 
 	result_entry = kmalloc(128 * sizeof(struct pp2_cls_c3_scan_entry_t), GFP_KERNEL);
 	if (!result_entry) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	memset(result_entry, 0, 128 * sizeof(struct pp2_cls_c3_scan_entry_t));
@@ -680,7 +679,7 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 	/* trigger and get scan result */
 	rc = pp2_cls_c3_scan_result_get(cpu_slot, max_num, &entry_num, result_entry);
 	if (rc) {
-		pp2_err("fail to get scan result\n");
+		pr_err("fail to get scan result\n");
 		kfree(result_entry);
 		return -EIO;
 	}
@@ -892,10 +891,10 @@ int pp2_cls_cli_c3_rule_add(void *arg, int argc, char *argv[])
 	for (idx = 0; idx < 1; idx++) {
 		rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
 		if (rc) {
-			pp2_err("fail to add C3 rule\n");
+			pr_err("fail to add C3 rule\n");
 			return rc;
 		}
-		pp2_dbg("Rule added in C3: logic_idx: %d\n", logic_idx);
+		pr_debug("Rule added in C3: logic_idx: %d\n", logic_idx);
 	}
 	return 0;
 }
@@ -916,7 +915,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pp2_dbg_fmt("**************C3 Test#1***********************\n");
+		pr_debug_fmt("**************C3 Test#1***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -948,7 +947,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		for (idx = 0; idx < 1; idx++) {
 			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
 			if (rc) {
-				pp2_err("fail to add C3 rule\n");
+				pr_err("fail to add C3 rule\n");
 				return rc;
 			}
 		}
@@ -964,7 +963,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pp2_dbg_fmt("**************C3 Test#2***********************\n");
+		pr_debug_fmt("**************C3 Test#2***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -997,7 +996,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 			c3_entry.mng_pkt_key->pkt_key->out_vid = idx;
 			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
 			if (rc) {
-				pp2_err("fail to add C3 rule\n");
+				pr_err("fail to add C3 rule\n");
 				return rc;
 			}
 		}
@@ -1013,7 +1012,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pp2_dbg_fmt("**************C3 Test#3***********************\n");
+		pr_debug_fmt("**************C3 Test#3***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -1059,7 +1058,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		for (idx = 0; idx < 1; idx++) {
 			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
 			if (rc) {
-				pp2_err("fail to add C3 rule\n");
+				pr_err("fail to add C3 rule\n");
 				return rc;
 			}
 		}
@@ -1075,7 +1074,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pp2_dbg_fmt("**************C3 Test#4***********************\n");
+		pr_debug_fmt("**************C3 Test#4***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -1119,7 +1118,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		for (idx = 0; idx < 1; idx++) {
 			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
 			if (rc) {
-				pp2_err("fail to add C3 rule\n");
+				pr_err("fail to add C3 rule\n");
 				return rc;
 			}
 		}
@@ -1135,7 +1134,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pp2_dbg_fmt("**************C3 Test#5***********************\n");
+		pr_debug_fmt("**************C3 Test#5***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -1179,10 +1178,10 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		for (idx = 0; idx < 1; idx++) {
 			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
 			if (rc) {
-				pp2_err("fail to add C3 rule\n");
+				pr_err("fail to add C3 rule\n");
 				return rc;
 			}
-			pp2_dbg("Rule added in C3: logic_idx: %d\n", logic_idx);
+			pr_debug("Rule added in C3: logic_idx: %d\n", logic_idx);
 		}
 
 		/*pp2_cls_c3_entry_dump(cpu_slot, MVPP2_C3_ENTRY_DUMP_ALL, 0); */
@@ -1191,14 +1190,14 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		/*
 		* rc = pp2_cls_c3_rule_del(cpu_slot, logic_idx);
 		* if (rc) {
-		*	pp2_err("fail to delete C3 rule\n");
+		*	pr_err("fail to delete C3 rule\n");
 		*	return rc;
 		* }
 		*/
 		break;
 	}
 	default:
-		pp2_err("C3 test number not available\n");
+		pr_err("C3 test number not available\n");
 	}
 	return 0;
 }

@@ -52,10 +52,10 @@ void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 {
 	int i;
 
-	pp2_info("dumping flow_log_id %d %s\n", flow->fl_log_id, name);
+	pr_info("dumping flow_log_id %d %s\n", flow->fl_log_id, name);
 
 	for (i = 0; i < flow->fl_len; i++) {
-		pp2_info("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d ref_cnt %2d skip %d\n",
+		pr_info("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d ref_cnt %2d skip %d\n",
 			 (int)flow->fl[i].enabled,
 			(int)flow->fl[i].engine,
 			(int)flow->fl[i].field_id_cnt,
@@ -72,9 +72,9 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 {
 	int i;
 
-	pp2_info("dumping pp2_db_cls_lkp_dcod_t %s\n", name);
+	pr_info("dumping pp2_db_cls_lkp_dcod_t %s\n", name);
 
-	pp2_info("CPUq %d enabled %d alloc_len %d flow_len %d flow_off %d luid_num %d\n",
+	pr_info("CPUq %d enabled %d alloc_len %d flow_len %d flow_off %d luid_num %d\n",
 		 (int)lkp_dcod_db->cpu_q,
 			(int)lkp_dcod_db->enabled,
 			(int)lkp_dcod_db->flow_alloc_len,
@@ -83,9 +83,9 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 			(int)lkp_dcod_db->luid_num);
 
 	for (i = 0; i < lkp_dcod_db->luid_num; i++)
-		pp2_info("luid[%d]=%d/%d ",
+		pr_info("luid[%d]=%d/%d ",
 			 i, lkp_dcod_db->luid_list[i].luid);
-	pp2_info("\n");
+	pr_info("\n");
 }
 #endif
 
@@ -112,7 +112,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 	int rc;
 
 	if (!lkp_dcod_conf) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -134,7 +134,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 	/* get the DB entry for log flow ID */
 	rc = pp2_db_cls_lkp_dcod_get(lkp_dcod_conf->flow_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", lkp_dcod_conf->flow_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", lkp_dcod_conf->flow_log_id);
 		return rc;
 	}
 
@@ -144,13 +144,13 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 	}
 
 	if (lkp_dcod_db.flow_alloc_len) {
-		pp2_err("lkp for flow_log_id = %d already set\n", lkp_dcod_conf->flow_log_id);
+		pr_err("lkp for flow_log_id = %d already set\n", lkp_dcod_conf->flow_log_id);
 		return 0;
 	}
 
 	rc = pp2_db_cls_fl_ctrl_get(&fl_ctrl);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -173,7 +173,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 
 	rc = pp2_db_cls_lkp_dcod_set(lkp_dcod_conf->flow_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -186,7 +186,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 
 	rc = pp2_db_cls_fl_ctrl_set(&fl_ctrl);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -217,14 +217,14 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	u16 rl_off;
 
 	if (!fl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	/* get the lookup DB for this logical flow ID */
 	rc = pp2_db_cls_lkp_dcod_get(fl->fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl->fl_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl->fl_log_id);
 		return rc;
 	}
 
@@ -236,13 +236,13 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	/* get the rule list for this logical flow ID */
 	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
 	if (!fl_rl_db) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
 	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 	if (rc) {
-		pp2_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
+		pr_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
 			fl->fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
@@ -257,7 +257,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		/* found the rule, get it`s offset */
 		rc = pp2_db_cls_rl_off_get(&rl_off, fl_rl_db->flow[rl].rl_log_id);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -267,21 +267,21 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 
 		rc = mv_pp2x_cls_sw_lkp_flow_set(&fe, rl_off);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_rxq_set(&fe, lkp_dcod_db.cpu_q);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_en_set(&fe, lkp_dcod_db.enabled);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -290,12 +290,12 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		fe.lkpid = lkp_dcod_db.luid_list[luid].luid;
 		rc = mv_pp2x_cls_hw_lkp_write(cpu_slot, &fe);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
 
-		pp2_dbg("fl_log_id[%2d] lid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
+		pr_debug("fl_log_id[%2d] lid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
 			fl->fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
 			fl_rl_db->flow[rl].prio,
 			rl_off,
@@ -329,7 +329,7 @@ int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
 
 	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
 	}
 	if (lkp_dcod_db.enabled) {
@@ -353,7 +353,7 @@ int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
 		/* Configure decoder table*/
 		rc = pp2_cls_lkp_dcod_set(&dcod);
 		if (rc) {
-			pp2_err("failed to add in decoder table\n");
+			pr_err("failed to add in decoder table\n");
 			return rc;
 		}
 	}
@@ -386,13 +386,13 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 	/* get the lookup DB for this logical flow ID */
 	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
 	}
 
 	if (!lkp_dcod_db.enabled) {
 		/* entry disabled for this log_flow id */
-		pp2_warn("skipping disable of fl_log_id=%d, already disabled\n", fl_log_id);
+		pr_warning("skipping disable of fl_log_id=%d, already disabled\n", fl_log_id);
 		return 0;
 	}
 
@@ -411,7 +411,7 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 
 		rc = mv_pp2x_cls_sw_lkp_en_set(&le, 0);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
@@ -419,11 +419,11 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 		le.lkpid = lkp_dcod_db.luid_list[luid].luid;
 		rc = mv_pp2x_cls_hw_lkp_write(cpu_slot, &le);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
-		pp2_dbg("fl_log_id[%2d] luid_nr[%2d] luid[%2d]\n",
+		pr_debug("fl_log_id[%2d] luid_nr[%2d] luid[%2d]\n",
 			fl_log_id, luid,
 			lkp_dcod_db.luid_list[luid].luid);
 	}
@@ -432,7 +432,7 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 	lkp_dcod_db.enabled = false;
 	rc = pp2_db_cls_lkp_dcod_set(fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -465,32 +465,32 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	/* get the lookup DB for this logical flow ID */
 	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
 	}
 
 	if (lkp_dcod_db.enabled) {
 		/* entry enabled for this log_flow id */
-		pp2_warn("skipping enable of fl_log_id=%d, already enabled\n", fl_log_id);
+		pr_warning("skipping enable of fl_log_id=%d, already enabled\n", fl_log_id);
 		return 0;
 	}
 
 	if (!lkp_dcod_db.flow_len) {
 		/* there are no flow rules */
-		pp2_warn("skipping enable of fl_log_id=%d, no rules in flow\n", fl_log_id);
+		pr_warning("skipping enable of fl_log_id=%d, no rules in flow\n", fl_log_id);
 		return 0;
 	}
 
 	/* get the rule list for this logical flow ID */
 	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
 	if (!fl_rl_db) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
 	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 	if (rc) {
-		pp2_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
+		pr_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
 			fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
@@ -507,7 +507,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		/* found the rule, get it`s offset */
 		rc = pp2_db_cls_rl_off_get(&rl_off, fl_rl_db->flow[rl].rl_log_id);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -518,21 +518,21 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		rc = mv_pp2x_cls_sw_lkp_flow_set(&fe, rl_off);
 
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_rxq_set(&fe, lkp_dcod_db.cpu_q);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_lkp_en_set(&fe, 1);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -541,12 +541,12 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		fe.lkpid = lkp_dcod_db.luid_list[luid].luid;
 		rc = mv_pp2x_cls_hw_lkp_write(cpu_slot, &fe);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
 
-		pp2_dbg("fl_log_id[%2d] luid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
+		pr_debug("fl_log_id[%2d] luid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
 			fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
 			fl_rl_db->flow[rl].prio,
 			rl_off,
@@ -557,7 +557,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	lkp_dcod_db.enabled = true;
 	rc = pp2_db_cls_lkp_dcod_set(fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		kfree(fl_rl_db);
 		return rc;
 	}
@@ -576,12 +576,12 @@ static int pp2_cls_lkp_dcod_enable_all(uintptr_t cpu_slot)
 		/* get the lookup DB for this logical flow ID */
 		rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
 		if (rc)
-			pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+			pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 
 		if ((!lkp_dcod_db.enabled) && (lkp_dcod_db.flow_alloc_len > 0)) {
 			rc = pp2_cls_lkp_dcod_enable(cpu_slot, fl_log_id);
 			if (rc)
-				pp2_err("fail fl_log_id %d\n", fl_log_id);
+				pr_err("fail fl_log_id %d\n", fl_log_id);
 		}
 	}
 
@@ -664,7 +664,7 @@ static int pp2_cls_fl_rl_eng_cnt_upd(enum pp2_cls_rl_cnt_op_t op,
 				     struct pp2_cls_fl_eng_cnt_t *eng_cnt)
 {
 	if (!eng_cnt) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -685,7 +685,7 @@ static int pp2_cls_fl_rl_eng_cnt_upd(enum pp2_cls_rl_cnt_op_t op,
 		break;
 
 	default:
-		pp2_err("Invalid input [engine=%d op=%d]\n", eng, op);
+		pr_err("Invalid input [engine=%d op=%d]\n", eng, op);
 		return -EINVAL;
 	}
 	return 0;
@@ -713,11 +713,11 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 	int rc;
 
 	if (!new_fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 	if (!mrg_fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -737,7 +737,7 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 				       new_fl_rls->fl[new_rl_num].engine,
 				       &mrg_fl_rls->eng_cnt);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -746,7 +746,7 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 				       new_fl_rls->fl[new_rl_num].engine,
 				       &new_fl_rls->eng_cnt);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -778,15 +778,15 @@ static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
 	int rc;
 
 	if (!rl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 	if (!fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 	if (!eng_hit_cnt) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -811,7 +811,7 @@ static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
 				       rl->engine,
 				       eng_hit_cnt);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -845,15 +845,15 @@ static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 	struct pp2_cls_rl_entry_t *rl;
 
 	if (!fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 	if (!eng_hit_cnt) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 	if (((fl_idx) > (fl_rls->fl_len - 1)) || ((fl_idx) < 0)) {
-		pp2_err("(error) %s(%d) value (%d/0x%x) is out of range[%d, %d]\n",
+		pr_err("(error) %s(%d) value (%d/0x%x) is out of range[%d, %d]\n",
 			__func__, __LINE__, (fl_idx), (fl_idx), 0, (fl_rls->fl_len - 1));
 		return -EINVAL;
 	}
@@ -881,7 +881,7 @@ static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 				       rl->engine,
 				       eng_hit_cnt);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -910,11 +910,11 @@ static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
 	u16 rl_i;
 
 	if (!rl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 	if (!fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -922,7 +922,7 @@ static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
 	for (rl_i = 0; rl_i < fl_rls->fl_len; rl_i++) {
 		if ((fl_rls->fl[rl_i].engine	== MVPP2_ENGINE_C4) &&
 		    (fl_rls->fl[rl_i].prio	!= rl->prio)) {
-			pp2_err("add diff prio rule for C4 prohibited merged prio=%d new prio=%d fl_log_id=%d\n",
+			pr_err("add diff prio rule for C4 prohibited merged prio=%d new prio=%d fl_log_id=%d\n",
 				rl->prio, fl_rls->fl[rl_i].prio, fl_rls->fl_log_id);
 			*valid = false;
 			return 0;
@@ -970,24 +970,24 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 	struct pp2_cls_fl_eng_cnt_t eng_hit_cnt[MVPP2_CLS_FLOW_RND_MAX]; /* two hit rounds */
 
 	if (!cur_fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (!new_fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (!mrg_fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	/* get the lookup DB for this logical flow ID */
 	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
 	}
 
@@ -1002,7 +1002,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 
 	/* max flow length check */
 	if (cur_rl_cnt + new_rl_cnt > MVPP2_CLS_FLOW_RULE_MAX) {
-		pp2_err("cur_rl_cnt + new_rl_cnt too large [cur %d new %d]\n",
+		pr_err("cur_rl_cnt + new_rl_cnt too large [cur %d new %d]\n",
 			cur_rl_cnt, new_rl_cnt);
 		return -EPERM;
 	}
@@ -1034,7 +1034,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 				}
 			}
 			if (rl == new_fl_rls->fl_len) {
-				pp2_err("eng count inconsistent new_rl=%d fl_len=%d\n",
+				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
 					rl, new_fl_rls->fl_len);
 				return -EINVAL;
 			}
@@ -1050,7 +1050,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 				}
 			}
 			if (rl == cur_fl_rls->fl_len) {
-				pp2_err("eng count inconsistent new_rl=%d fl_len=%d\n",
+				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
 					rl, cur_fl_rls->fl_len);
 				return -EINVAL;
 			}
@@ -1073,13 +1073,13 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 		/* max engine hits validation */
 		if (RND_HIT_CNT(eng_hit_cnt, 0) == MVPP2_CLS_FL_RND_SIZE * MVPP2_CLS_FLOW_RND_MAX
 			+ RND_HIT_CNT(eng_hit_cnt, 1)) {
-			pp2_err("max CLS entries, failed to add\n");
+			pr_err("max CLS entries, failed to add\n");
 			return -EPERM;
 		}
 
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
-			pp2_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
+			pr_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
 				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
@@ -1095,7 +1095,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 						    &valid_c4);
 
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
@@ -1112,7 +1112,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 						    mrg_fl_rls,
 						    &eng_hit_cnt[rnd]);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
@@ -1122,7 +1122,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 			rc = pp2_cls_new_fl_rl_merge(new_rl, new_fl_rls,
 						     mrg_fl_rls);
 			if (rc) {
-				pp2_err("failed to merge new C4 rule offset=%d fl_log_id=%d\n",
+				pr_err("failed to merge new C4 rule offset=%d fl_log_id=%d\n",
 					rl_off, new_fl_rls->fl_log_id);
 				return rc;
 			}
@@ -1135,7 +1135,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 						     mrg_fl_rls);
 
 			if (rc) {
-				pp2_err("failed to merge cur C4 rule offset=%d fl_log_id=%d\n",
+				pr_err("failed to merge cur C4 rule offset=%d fl_log_id=%d\n",
 					rl_off, cur_fl_rls->fl_log_id);
 				return rc;
 			}
@@ -1170,7 +1170,7 @@ c3_ins:
 				}
 			}
 			if (rl == new_fl_rls->fl_len) {
-				pp2_err("eng count inconsistent new_rl=%d fl_len=%d\n",
+				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
 					rl, new_fl_rls->fl_len);
 				return -EINVAL;
 			}
@@ -1190,7 +1190,7 @@ c3_ins:
 				}
 			}
 			if (rl == cur_fl_rls->fl_len) {
-				pp2_err("eng count inconsistent new_rl=%d fl_len=%d\n",
+				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
 					rl, cur_fl_rls->fl_len);
 				return -EINVAL;
 			}
@@ -1215,7 +1215,7 @@ c3_seq_ins:
 			else if (cur_fl_rls->fl[cur_rl].prio < new_fl_rls->fl[new_rl].prio)
 				merge_new = false;
 			else{
-				pp2_err("add same prio rule prio=%d fl_log_id=%d rule #=%d\n",
+				pr_err("add same prio rule prio=%d fl_log_id=%d rule #=%d\n",
 					cur_fl_rls->fl[cur_rl].prio,
 					cur_fl_rls->fl[cur_rl].rl_log_id,
 					cur_rl);
@@ -1236,27 +1236,27 @@ c3_seq_ins:
 				goto c2_ins;
 			rnd = 1;
 		} else if (rnd == 1 && MVPP2_CLS_C3_RND_MAX == eng_hit_cnt[1].c3) {
-			pp2_err("max C3 entries (last round), failed to add\n");
+			pr_err("max C3 entries (last round), failed to add\n");
 			return -EPERM;
 		}
 
 		/* max C3 hits validation */
 		if (MVPP2_CLS_C3_RND_MAX * MVPP2_CLS_FLOW_RND_MAX <
 			(eng_hit_cnt[0].c3 + eng_hit_cnt[1].c3)) {
-			pp2_err("max C3 entries, failed to add\n");
+			pr_err("max C3 entries, failed to add\n");
 			return -EPERM;
 		}
 
 		/* max engine hits validation */
 		if (MVPP2_CLS_FL_RND_SIZE * MVPP2_CLS_FLOW_RND_MAX <
 			(RND_HIT_CNT(eng_hit_cnt, 0) + RND_HIT_CNT(eng_hit_cnt, 1))) {
-			pp2_err("max CLS entries, failed to add\n");
+			pr_err("max CLS entries, failed to add\n");
 			return -EPERM;
 		}
 
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
-			pp2_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
+			pr_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
 				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
@@ -1267,7 +1267,7 @@ c3_seq_ins:
 						    mrg_fl_rls,
 						    &eng_hit_cnt[rnd]);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 		} else {
@@ -1275,7 +1275,7 @@ c3_seq_ins:
 						    mrg_fl_rls,
 						    &eng_hit_cnt[rnd]);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 		}
@@ -1287,7 +1287,7 @@ c3_seq_ins:
 						     mrg_fl_rls);
 
 			if (rc) {
-				pp2_err("failed to merge new C3 rule offset=%d fl_log_id=%d\n",
+				pr_err("failed to merge new C3 rule offset=%d fl_log_id=%d\n",
 					rl_off, new_fl_rls->fl_log_id);
 				return rc;
 			}
@@ -1300,7 +1300,7 @@ c3_seq_ins:
 						     mrg_fl_rls);
 
 			if (rc) {
-				pp2_err("failed to merge cur C3 rule offset=%d fl_log_id=%d\n",
+				pr_err("failed to merge cur C3 rule offset=%d fl_log_id=%d\n",
 					rl_off, cur_fl_rls->fl_log_id);
 				return rc;
 			}
@@ -1315,7 +1315,7 @@ c3_seq_ins:
 			if (!is_seq) {
 				if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-						pp2_err("seqence control rule not start from first type (new_rl %d)\n"
+						pr_err("seqence control rule not start from first type (new_rl %d)\n"
 							, new_rl);
 						return -EINVAL;
 					}
@@ -1331,7 +1331,7 @@ c3_seq_ins:
 				if (new_fl_rls->fl[new_rl].skip ||
 				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
 				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-					pp2_err("seqence control rule is not continuous (new_rl %d)\n", new_rl);
+					pr_err("seqence control rule is not continuous (new_rl %d)\n", new_rl);
 					return -EINVAL;
 				}
 				if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_A ||
@@ -1342,7 +1342,7 @@ c3_seq_ins:
 				} else if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
 				} else {
-					pp2_err("seqence control not support c4 rule\n");
+					pr_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
 			}
@@ -1350,7 +1350,7 @@ c3_seq_ins:
 			if (!is_seq) {
 				if (cur_fl_rls->fl[cur_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-						pp2_err("seqence control rule not start from first type (new_rl %d)\n",
+						pr_err("seqence control rule not start from first type (new_rl %d)\n",
 							new_rl);
 						return -EINVAL;
 					}
@@ -1366,7 +1366,7 @@ c3_seq_ins:
 				if (cur_fl_rls->fl[cur_rl].skip ||
 				    cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
 					cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-					pp2_err("seqence control rule is not continuous (cur_rl %d)\n", cur_rl);
+					pr_err("seqence control rule is not continuous (cur_rl %d)\n", cur_rl);
 					return -EINVAL;
 				}
 				if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_A ||
@@ -1377,7 +1377,7 @@ c3_seq_ins:
 				} else if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
 				} else {
-					pp2_err("seqence control not support c4 rule\n");
+					pr_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
 			}
@@ -1402,7 +1402,7 @@ c2_ins:
 				}
 			}
 			if (rl == new_fl_rls->fl_len) {
-				pp2_err("eng count inconsistent new_rl=%d fl_len=%d\n",
+				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
 					rl, new_fl_rls->fl_len);
 				return -EINVAL;
 			}
@@ -1419,7 +1419,7 @@ c2_ins:
 				}
 			}
 			if (rl == cur_fl_rls->fl_len) {
-				pp2_err("eng count inconsistent new_rl=%d fl_len=%d\n",
+				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
 					rl, cur_fl_rls->fl_len);
 				return -EINVAL;
 			}
@@ -1444,7 +1444,7 @@ c2_seq_ins:
 			else if (cur_fl_rls->fl[cur_rl].prio < new_fl_rls->fl[new_rl].prio)
 				merge_new = false;
 			else{
-				pp2_err("add same prio rule prio=%d fl_log_id=%d rule #=%d\n",
+				pr_err("add same prio rule prio=%d fl_log_id=%d rule #=%d\n",
 					cur_fl_rls->fl[cur_rl].prio,
 					cur_fl_rls->fl[cur_rl].rl_log_id,
 					cur_rl);
@@ -1476,27 +1476,27 @@ c2_seq_ins:
 		if (rnd == 0 && MVPP2_CLS_C2_RND_MAX == eng_hit_cnt[0].c2) {
 			rnd = 1;
 		} else if (rnd == 1 && MVPP2_CLS_C2_RND_MAX == eng_hit_cnt[1].c2) {
-			pp2_err("max C2 entries (last round), failed to add\n");
+			pr_err("max C2 entries (last round), failed to add\n");
 			return -EPERM;
 		}
 
 		/* max C2 hits validation */
 		if (MVPP2_CLS_C2_RND_MAX * MVPP2_CLS_FLOW_RND_MAX <
 			(eng_hit_cnt[0].c2 + eng_hit_cnt[1].c2)) {
-			pp2_err("max C2 entries, failed to add\n");
+			pr_err("max C2 entries, failed to add\n");
 			return -EPERM;
 		}
 
 		/* max engine hits validation */
 		if (MVPP2_CLS_FL_RND_SIZE * MVPP2_CLS_FLOW_RND_MAX <
 			(RND_HIT_CNT(eng_hit_cnt, 0) + RND_HIT_CNT(eng_hit_cnt, 1))) {
-			pp2_err("max CLS entries, failed to add\n");
+			pr_err("max CLS entries, failed to add\n");
 			return -EPERM;
 		}
 
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
-			pp2_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
+			pr_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
 				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
@@ -1507,7 +1507,7 @@ c2_seq_ins:
 						    mrg_fl_rls,
 						    &eng_hit_cnt[rnd]);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 		} else {
@@ -1515,7 +1515,7 @@ c2_seq_ins:
 						    mrg_fl_rls,
 						    &eng_hit_cnt[rnd]);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 		}
@@ -1527,7 +1527,7 @@ c2_seq_ins:
 						     mrg_fl_rls);
 
 			if (rc) {
-				pp2_err("failed to merge new C2 rule offset=%d fl_log_id=%d\n",
+				pr_err("failed to merge new C2 rule offset=%d fl_log_id=%d\n",
 					rl_off, new_fl_rls->fl_log_id);
 				return rc;
 			}
@@ -1540,7 +1540,7 @@ c2_seq_ins:
 						     mrg_fl_rls);
 
 			if (rc) {
-				pp2_err("failed to merge cur C2 rule offset=%d fl_log_id=%d\n",
+				pr_err("failed to merge cur C2 rule offset=%d fl_log_id=%d\n",
 					rl_off, cur_fl_rls->fl_log_id);
 				return rc;
 			}
@@ -1554,7 +1554,7 @@ c2_seq_ins:
 			if (!is_seq) {
 				if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-						pp2_err("seqence control rule not start from first type (new_rl %d)\n",
+						pr_err("seqence control rule not start from first type (new_rl %d)\n",
 							new_rl);
 						return -EINVAL;
 					}
@@ -1570,7 +1570,7 @@ c2_seq_ins:
 				if (new_fl_rls->fl[new_rl].skip ||
 				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
 				    new_fl_rls->fl[new_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-					pp2_err("seqence control rule is not continuous (new_rl %d)\n", new_rl);
+					pr_err("seqence control rule is not continuous (new_rl %d)\n", new_rl);
 					return -EINVAL;
 				}
 				if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C3_A ||
@@ -1581,7 +1581,7 @@ c2_seq_ins:
 				} else if (new_fl_rls->fl[new_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
 				} else {
-					pp2_err("seqence control not support c4 rule\n");
+					pr_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
 			}
@@ -1589,7 +1589,7 @@ c2_seq_ins:
 			if (!is_seq) {
 				if (cur_fl_rls->fl[cur_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-						pp2_err("seqence control rule not start from first type (new_rl %d)\n",
+						pr_err("seqence control rule not start from first type (new_rl %d)\n",
 							new_rl);
 						return -EINVAL;
 					}
@@ -1605,7 +1605,7 @@ c2_seq_ins:
 				if (cur_fl_rls->fl[cur_rl].skip ||
 				    cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_NORMAL ||
 				    cur_fl_rls->fl[cur_rl].seq_ctrl == MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
-					pp2_err("seqence control rule is not continuous (cur_rl %d)\n", cur_rl);
+					pr_err("seqence control rule is not continuous (cur_rl %d)\n", cur_rl);
 					return -EINVAL;
 				}
 				if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C3_A ||
@@ -1616,7 +1616,7 @@ c2_seq_ins:
 				} else if (cur_fl_rls->fl[cur_rl].engine == MVPP2_ENGINE_C2) {
 					goto c2_seq_ins;
 				} else {
-					pp2_err("seqence control not support c4 rule\n");
+					pr_err("seqence control not support c4 rule\n");
 					return -EINVAL;
 				}
 			}
@@ -1649,7 +1649,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 	int loop;
 
 	if (!rl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -1661,7 +1661,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 		/* new rule, assign logical rule id */
 		rc = pp2_db_cls_rl_off_free_set(rl->rl_off, &rl->rl_log_id);
 		if (rc) {
-			pp2_err("got error for rule offset %d\n", rl->rl_off);
+			pr_err("got error for rule offset %d\n", rl->rl_off);
 			return rc;
 		}
 
@@ -1674,7 +1674,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 		/* this new entry exists */
 		rc = pp2_db_cls_rl_off_get(&cur_rl_off, rl->rl_log_id);
 		if (rc) {
-			pp2_err("could not get rl_log_id %d offset\n", rl->rl_log_id);
+			pr_err("could not get rl_log_id %d offset\n", rl->rl_log_id);
 			return rc;
 		}
 
@@ -1682,7 +1682,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 		if (cur_rl_off != rl->rl_off) {
 			rc = pp2_db_cls_rl_off_set(rl->rl_off, rl->rl_log_id);
 			if (rc) {
-				pp2_err("could not set rule offset %d for rl_log_id %d\n",
+				pr_err("could not set rule offset %d for rl_log_id %d\n",
 					rl->rl_off, rl->rl_log_id);
 				return rc;
 			}
@@ -1719,7 +1719,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 
 	rc = pp2_db_cls_fl_rule_set(rl->rl_off, &rl_db);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -1751,7 +1751,7 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 	/* enum pp2_init_us_2g_trunk_mode_t us_2g_trunk_support; */
 
 	if (!rl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -1759,7 +1759,7 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 
 	rc = mv_pp2x_cls_sw_flow_engine_set(&fe, rl->engine, is_last);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -1770,19 +1770,19 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 		rc = mv_pp2x_cls_sw_flow_port_set(&fe, 0, 0);
 
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	rc = mv_pp2x_cls_sw_flow_extra_set(&fe, rl->lu_type, rl->prio);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	rc = mv_pp2x_cls_sw_flow_hek_num_set(&fe, rl->field_id_cnt);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -1804,27 +1804,27 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 
 	rc = mv_pp2x_cls_sw_flow_portid_select(&fe, MVPP2_CLS_PORT_ID_FROM_PKT);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	rc = mv_pp2x_cls_sw_flow_seq_ctrl_set(&fe, rl->seq_ctrl);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	for (fid = 0; fid < rl->field_id_cnt; fid++) {
 		rc = mv_pp2x_cls_sw_flow_hek_set(&fe, fid, rl->field_id[fid]);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 	}
 	fe.index = rl->rl_off;
 	rc = mv_pp2x_cls_hw_flow_write(cpu_slot, &fe);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -1853,34 +1853,34 @@ static int pp2_cls_fl_rl_hw_ena(uintptr_t cpu_slot, struct pp2_cls_fl_rule_entry
 	u16 off;
 
 	if (!rl_en) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	/* get the rule offset according to rule logical ID */
 	rc = pp2_db_cls_rl_off_get(&off, rl_en->rl_log_id);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	rc = mv_pp2x_cls_hw_flow_read(cpu_slot, off, &fe);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	/* enable the rule according to DB settings */
 	rc = mv_pp2x_cls_sw_flow_port_set(&fe, rl_en->port_type, rl_en->port_bm);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	fe.index = off;
 	rc = mv_pp2x_cls_hw_flow_write(cpu_slot, &fe);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -1909,20 +1909,20 @@ static int pp2_cls_fl_rl_hw_dis(uintptr_t cpu_slot, u16 off)
 
 	rc = mv_pp2x_cls_hw_flow_read(cpu_slot, off, &fe);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	rc = mv_pp2x_cls_sw_flow_port_set(&fe, 0, 0);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
 	fe.index = off;
 	rc = mv_pp2x_cls_hw_flow_write(cpu_slot, &fe);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -1954,14 +1954,14 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	struct pp2_cls_rl_entry_t *rl;
 
 	if (!fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	/* get the lookup DB for this logical flow ID */
 	rc = pp2_db_cls_lkp_dcod_get(fl_rls->fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_rls->fl_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_rls->fl_log_id);
 		return rc;
 	}
 
@@ -1976,7 +1976,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	if (new_rl_cnt) {
 		rc = pp2_db_cls_rl_off_free_nr(&free_db_cnt);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
@@ -1995,7 +1995,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 		/* write rule to HW */
 		rc = pp2_cls_fl_rl_hw_set(cpu_slot, rl, is_last);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 	}
@@ -2003,7 +2003,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	/* set the lookup decode table */
 	rc = pp2_cls_lkp_dcod_hw_set(cpu_slot, fl_rls);
 	if (rc) {
-		pp2_err("recvd ret_code(%d)\n", rc);
+		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
 
@@ -2014,7 +2014,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 		/* write rule to DB */
 		rc = pp2_cls_fl_rl_db_set(rl, fl_rls->fl_log_id);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 	}
@@ -2023,7 +2023,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	lkp_dcod_db.flow_len = fl_rls->fl_len;
 	rc = pp2_db_cls_lkp_dcod_set(fl_rls->fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to set lookup decode info for fl_log_id %d\n", fl_rls->fl_log_id);
+		pr_err("failed to set lookup decode info for fl_log_id %d\n", fl_rls->fl_log_id);
 		return rc;
 	}
 
@@ -2054,14 +2054,14 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 	u16 i;
 
 	if (!cur_fl) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	/* get the lookup DB for this logical flow ID */
 	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
 	if (rc) {
-		pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
 	}
 
@@ -2072,7 +2072,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 	memset(cur_fl, 0, sizeof(struct pp2_cls_fl_t));
 	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
 	if (!fl_rl_db) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
@@ -2088,7 +2088,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 
 	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 	if (rc) {
-		pp2_err("fail to get flow rule list DB data, fl_log_id=%d, flow_off=%d, flow_len=%d\n",
+		pr_err("fail to get flow rule list DB data, fl_log_id=%d, flow_off=%d, flow_len=%d\n",
 			fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
@@ -2120,7 +2120,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 
 		rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_INC, fl_rl_db->flow[i].engine, &cur_fl->eng_cnt);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -2152,12 +2152,12 @@ static int pp2_cls_fl_rls_log_rl_id_upd(struct pp2_cls_fl_rule_list_t *add_rls,
 	u16 i, j;
 
 	if (!add_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (!mrg_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -2295,26 +2295,26 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 	bool rule_found;
 
 	if (!fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	new_fl = kmalloc(sizeof(*new_fl), GFP_KERNEL);
 	if (!new_fl) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
 	merge_fl = kmalloc(sizeof(*merge_fl), GFP_KERNEL);
 	if (!merge_fl) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto err1;
 	}
 
 	cur_fl = kmalloc(sizeof(*cur_fl), GFP_KERNEL);
 	if (!cur_fl) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto err2;
 	}
@@ -2348,7 +2348,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 			/* get the lookup DB for this logical flow ID */
 			rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
 			if (rc) {
-				pp2_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
+				pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 				goto err3;
 			}
 
@@ -2417,7 +2417,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 			rc = pp2_cls_fl_rl_eng_cnt_upd(MVPP2_CNT_INC, fl_rl->engine,
 						       &new_fl->eng_cnt);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				goto err3;
 			}
 
@@ -2437,28 +2437,28 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 		/* merge the two flows (new & curr) */
 		rc = pp2_cls_fl_rls_merge(fl_log_id, cur_fl, new_fl, merge_fl);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			goto err3;
 		}
 
 		/* reorder the n-tuple flows by priority */
 		rc = pp2_cls_fl_nt_rule_reorder(merge_fl);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			goto err3;
 		}
 
 		/* set the rules in DB and HW */
 		rc = pp2_cls_fl_rls_set(cpu_slot, merge_fl);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			goto err3;
 		}
 
 		/* update logical rule ID in caller structure */
 		rc = pp2_cls_fl_rls_log_rl_id_upd(fl_rls, merge_fl);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			goto err3;
 		}
 	}
@@ -2504,13 +2504,13 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 	u16 port_bm = 0;
 
 	if (!fl_rls) {
-		pp2_err("%s: null pointer\n", __func__);
+		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
 	if (!fl_rl_db) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
@@ -2519,7 +2519,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		/* get the lookup DB for this logical flow ID */
 		rc = pp2_db_cls_lkp_dcod_get(fl_rls->fl[i].fl_log_id, &lkp_dcod_db);
 		if (rc) {
-			pp2_err("failed to get lookup decode DB data for fl_log_id %d\n",
+			pr_err("failed to get lookup decode DB data for fl_log_id %d\n",
 				fl_rls->fl[i].fl_log_id);
 			return rc;
 		}
@@ -2528,7 +2528,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
 		rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 		if (rc) {
-			pp2_err("failed to get flow rule list, fl_log_id=%d flow_off=%d flow_len=%d\n",
+			pr_err("failed to get flow rule list, fl_log_id=%d flow_off=%d flow_len=%d\n",
 				fl_rls->fl[i].fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 			kfree(fl_rl_db);
 			return rc;
@@ -2559,7 +2559,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 						rl_en->rl_log_id = rl_db->rl_log_id;
 						rc = pp2_cls_fl_rl_hw_ena(cpu_slot, rl_en);
 						if (rc) {
-							pp2_err("recvd ret_code(%d)\n", rc);
+							pr_err("recvd ret_code(%d)\n", rc);
 							kfree(fl_rl_db);
 							return rc;
 						}
@@ -2621,7 +2621,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 			/* rule disabled, enable the HW */
 			rc = pp2_cls_fl_rl_hw_ena(cpu_slot, rl_en);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				kfree(fl_rl_db);
 				return rc;
 			}
@@ -2633,17 +2633,17 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 				rl_db->ref_cnt[loop]++;
 		}
 
-		pp2_dbg("enable: fl_log_id[%d] rl_log_id[%d] rl_off[%d] port_type[%d] port_bm[%d]",
+		pr_debug("enable: fl_log_id[%d] rl_log_id[%d] rl_off[%d] port_type[%d] port_bm[%d]",
 			fl_rls->fl[i].fl_log_id, rl_en->rl_log_id, rl_off,
 				fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
-		pp2_dbg("prio[%d] lu_type[%d] engine[%d] field_id_cnt[%d]\n",
+		pr_debug("prio[%d] lu_type[%d] engine[%d] field_id_cnt[%d]\n",
 			fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
 				fl_rls->fl[i].field_id_cnt);
 
 		/* update the DB */
 		rc = pp2_db_cls_fl_rule_set(lkp_dcod_db.flow_off + rl_off, rl_db);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -2681,12 +2681,12 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 	u32 port_id = 0;
 
 	if (!rl_log_id) {
-		pp2_err("%s: rl_log_id is null pointer\n", __func__);
+		pr_err("%s: rl_log_id is null pointer\n", __func__);
 		return -EFAULT;
 	}
 
 	if (!src_port) {
-		pp2_err("%s: src_port is null pointer\n", __func__);
+		pr_err("%s: src_port is null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -2697,20 +2697,20 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 		/* get the offset for the rl_log_id */
 		rc = pp2_db_cls_rl_off_get(&rl_off, rl_log_id[i]);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
 		/* get the rule DB entry for the offset */
 		rc = pp2_db_cls_fl_rule_get(rl_off, &rl_db);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
 		/* rule already disabled, skip */
 		if (!rl_db.enabled)
-			pp2_warn("rl_log_id=%d already disabled\n", rl_log_id[i]);
+			pr_warning("rl_log_id=%d already disabled\n", rl_log_id[i]);
 
 		/* last reference count, need to disable in HW */
 		ref_sum = 0;
@@ -2719,7 +2719,7 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 		if (ref_sum == 1) {
 			rc = pp2_cls_fl_rl_hw_dis(cpu_slot, rl_off);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 
@@ -2744,7 +2744,7 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 			break;
 		default:
 			if (rc) {
-				pp2_err("TPM_NOT_SUPPORTED recvd ret_code(%d)\n", rc);
+				pr_err("TPM_NOT_SUPPORTED recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 		}
@@ -2762,21 +2762,21 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 			rl_en.rl_log_id = rl_db.rl_log_id;
 			rc = pp2_cls_fl_rl_hw_ena(cpu_slot, &rl_en);
 			if (rc) {
-				pp2_err("recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 		}
 		rl_db.ref_cnt[port_id]--;
 
-		pp2_dbg("disable: rl_off[%d] rl_log_id[%d] port_type[%d] port_bm[%d] prio[%d]",
+		pr_debug("disable: rl_off[%d] rl_log_id[%d] port_type[%d] port_bm[%d] prio[%d]",
 			rl_off, rl_db.rl_log_id, rl_db.port_type, rl_db.port_bm, rl_db.prio);
-		pp2_dbg("lu_type[%d] engine[%d] field_id_cnt[%d]\n",
+		pr_debug("lu_type[%d] engine[%d] field_id_cnt[%d]\n",
 			rl_db.lu_type, rl_db.engine, rl_db.field_id_cnt);
 
 		/* update rule entry in DB */
 		rc = pp2_db_cls_fl_rule_set(rl_off, &rl_db);
 		if (rc) {
-			pp2_err("recvd ret_code(%d)\n", rc);
+			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 	}
@@ -2813,13 +2813,13 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 	for (; flow_index < MVPP2_CLS_FLOWS_TBL_SIZE; flow_index++) {
 		rc = mv_pp2x_cls_hw_flow_read(cpu_slot, flow_index, &fe);
 		if (rc) {
-			pp2_err("mv_pp2x_cls_hw_flow_read fail rc = %d\n", rc);
+			pr_err("mv_pp2x_cls_hw_flow_read fail rc = %d\n", rc);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_flow_engine_get(&fe, &engine, &is_last);
 		if (rc) {
-			pp2_err("mv_pp2x_cls_sw_flow_engine_get fail rc = %d\n", rc);
+			pr_err("mv_pp2x_cls_sw_flow_engine_get fail rc = %d\n", rc);
 			return rc;
 		}
 
@@ -2830,14 +2830,14 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 
 		rc = mv_pp2x_cls_sw_flow_extra_get(&fe, &lkp_type, &tmp);
 		if (rc) {
-			pp2_err("mv_pp2x_cls_sw_flow_extra_get fail rc = %d\n", rc);
+			pr_err("mv_pp2x_cls_sw_flow_extra_get fail rc = %d\n", rc);
 			return rc;
 		}
 
 		/* add only kernel flows to db & hw */
 		if (lkp_type > MVPP2_CLS_LKP_DEFAULT) {
 			if (is_last) {
-				pp2_dbg("found %d flows\n", fl_rls->fl_len);
+				pr_debug("found %d flows\n", fl_rls->fl_len);
 				break;
 			}
 			continue;
@@ -2849,25 +2849,25 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		} else if (engine == MVPP2_CLS_ENGINE_C3HA || engine == MVPP2_CLS_ENGINE_C3HB) {
 			prio = MVPP2_CLS_KERNEL_C3_PRIO;
 		} else {
-			pp2_err("%s(%d) found wrong engine = %d\n", __func__, __LINE__, engine);
+			pr_err("%s(%d) found wrong engine = %d\n", __func__, __LINE__, engine);
 			return -EINVAL;
 		}
 
 		rc = mv_pp2x_cls_sw_flow_port_get(&fe, &port_type, &port_id);
 		if (rc) {
-			pp2_err("mv_pp2x_cls_sw_flow_port_get fail rc = %d\n", rc);
+			pr_err("mv_pp2x_cls_sw_flow_port_get fail rc = %d\n", rc);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_flow_seq_ctrl_get(&fe, &seq_ctrl);
 		if (rc) {
-			pp2_err("mv_pp2x_cls_sw_flow_seq_ctrl_get fail rc = %d\n", rc);
+			pr_err("mv_pp2x_cls_sw_flow_seq_ctrl_get fail rc = %d\n", rc);
 			return rc;
 		}
 
 		rc = mv_pp2x_cls_sw_flow_hek_get(&fe, &num_of_fields, fields_arr);
 		if (rc) {
-			pp2_err("mv_pp2x_cls_sw_flow_hek_get fail rc = %d\n", rc);
+			pr_err("mv_pp2x_cls_sw_flow_hek_get fail rc = %d\n", rc);
 			return rc;
 		}
 
@@ -2887,12 +2887,12 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		fl_rls->fl_len++;
 
 		if (fl_rls->fl_len >= MVPP2_CLS_FLOW_RULE_MAX) {
-			pp2_err("to many flow found, fl_len = %d\n", fl_rls->fl_len);
+			pr_err("to many flow found, fl_len = %d\n", fl_rls->fl_len);
 			return -EFAULT;
 		}
 
 		if (is_last) {
-			pp2_dbg("found %d flows\n", fl_rls->fl_len);
+			pr_debug("found %d flows\n", fl_rls->fl_len);
 			break;
 		}
 	}
@@ -2930,12 +2930,12 @@ static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_
 
 	dcod_entry = kmalloc(sizeof(*dcod_entry), GFP_KERNEL);
 	if (!dcod_entry) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
-	pp2_dbg("\n");
-	pp2_dbg("ID :	RXQ	EN	FLOW	MODE_BASE\n");
+	pr_debug("\n");
+	pr_debug("ID :	RXQ	EN	FLOW	MODE_BASE\n");
 	for (lkp_index = 0; lkp_index < MVPP2_CLS_LKP_TBL_SIZE; lkp_index++) {
 		rc = mv_pp2x_cls_hw_lkp_read(cpu_slot, lkp_index, way, &le);
 		if (rc)
@@ -2953,7 +2953,7 @@ static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_
 		if (rc)
 			goto end;
 		if (en) {
-			pp2_dbg(" 0x%2.2x\t 0x%2.2x\t %1.1d\t 0x%3.3x\t 0x%2.2x\n",
+			pr_debug(" 0x%2.2x\t 0x%2.2x\t %1.1d\t 0x%3.3x\t 0x%2.2x\n",
 				le.lkpid, rxq, en, flow_index, mod);
 			memset(dcod_entry, 0, sizeof(struct pp2_cls_lkp_dcod_entry_t));
 			dcod_entry->cpu_q = rxq;
@@ -2998,7 +2998,7 @@ int pp2_cls_init(uintptr_t cpu_slot)
 
 	rc = mv_pp2x_cls_hw_cls_enable(cpu_slot, true);
 	if (rc) {
-		pp2_err("failed to enable clasifier\n");
+		pr_err("failed to enable clasifier\n");
 		return rc;
 	}
 
@@ -3006,26 +3006,26 @@ int pp2_cls_init(uintptr_t cpu_slot)
 
 	fl_rls = kmalloc(sizeof(*fl_rls), GFP_KERNEL);
 	if (!fl_rls) {
-		pp2_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	memset(fl_rls, 0, sizeof(struct pp2_cls_fl_rule_list_t));
 
 	rc = pp2_cls_add_lkpid_and_flows_to_db(cpu_slot, fl_rls);
 	if (rc) {
-		pp2_err("pp2_cls_adding_db_current_flows fail rc = %d\n", rc);
+		pr_err("pp2_cls_adding_db_current_flows fail rc = %d\n", rc);
 		goto end;
 	}
 
 	rc = mv_pp2x_cls_hw_lkp_clear_all(cpu_slot);
 	if (rc) {
-		pp2_err("mv_pp2x_cls_hw_lkp_clear_all fail rc = %d\n", rc);
+		pr_err("mv_pp2x_cls_hw_lkp_clear_all fail rc = %d\n", rc);
 		goto end;
 	}
 
 	rc = mv_pp2x_cls_hw_flow_clear_all(cpu_slot);
 	if (rc) {
-		pp2_err("mv_pp2x_cls_hw_flow_clear_all fail rc = %d\n", rc);
+		pr_err("mv_pp2x_cls_hw_flow_clear_all fail rc = %d\n", rc);
 		goto end;
 	}
 
