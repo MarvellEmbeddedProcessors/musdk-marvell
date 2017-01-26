@@ -680,15 +680,28 @@ static int loop_2ps(struct local_arg *larg, volatile int *running)
 	int			 err;
 	u16			 num;
 	u8 			 tc = 0, qid = 0;
-
+#ifdef PORTS_LOOPBACK
+	int 			 port_id = 0;
+#endif
 	if (!larg) {
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
 
-	num = larg->burst;
+#ifdef PORTS_LOOPBACK
+	if (larg->garg->cpus == 4) {
+		/* For 4 cores: 2 first cores will work with port0, 2 other cores with port1,
+		 * 2 first queues will be used for each port
+		 */
+		port_id = (larg->id < 2) ? 0 : 1;
+		qid = larg->id & 1;
+		pr_debug("loop_2ps: for cpu %d (%d), port %d, queue %d \n", larg->id, larg->garg->cpus, port_id, qid);
+	}
+#endif
 
+	num = larg->burst;
 	while (*running) {
+#ifndef PORTS_LOOPBACK
 		/* Find next queue to consume */
 		do {
 			qid++;
@@ -699,13 +712,41 @@ static int loop_2ps(struct local_arg *larg, volatile int *running)
 					tc = 0;
 			}
 		} while (!(larg->qs_map & (1<<((tc*PP2_MAX_NUM_QS_PER_TC)+qid))));
+#endif
 
 #ifdef HW_BUFF_RECYLCE
+#ifdef PORTS_LOOPBACK
+		if (larg->garg->cpus == 4) {
+			/* Use port_id and queue calculated in beginning of this function */
+			err  = loop_hw_recycle(larg, port_id, port_id, 0, tc, qid, num);
+		}
+		else {
+			/* Set larg->id as rx_ppio, tx_ppio, for quick 2xloopback implementation
+			 * and queue 0 only
+			 */
+			err  = loop_hw_recycle(larg, larg->id, larg->id, 0, tc, 0, num);
+		}
+#else
 		err  = loop_hw_recycle(larg, 0, 1, 0, tc, qid, num);
 		err |= loop_hw_recycle(larg, 1, 0, 0, tc, qid, num);
+#endif /* PORTS_LOOPBACK */
+#else
+#ifdef PORTS_LOOPBACK
+
+		if (larg->garg->cpus == 4) {
+			/* Use port_id and queue calculated in beginning of this function */
+			err  = loop_sw_recycle(larg, port_id, port_id, 0, tc, qid, num);
+		}
+		else {
+			/* Set larg->id as rx_ppio, tx_ppio, for quick 2xloopback implementation
+			 * and queue 0 only
+			 */
+			err  = loop_sw_recycle(larg, larg->id, larg->id, 0, tc, qid, num);
+		}
 #else
 		err  = loop_sw_recycle(larg, 0, 1, 0, tc, qid, num);
 		err |= loop_sw_recycle(larg, 1, 0, 0, tc, qid, num);
+#endif /* PORTS_LOOPBACK */
 #endif /* HW_BUFF_RECYLCE */
 		if (err != 0) return err;
 	}
