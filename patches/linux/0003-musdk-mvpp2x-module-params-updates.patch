@@ -1,15 +1,15 @@
-From 3a1fc17641d12f69818fd769d8a2ee69118a02e8 Mon Sep 17 00:00:00 2001
+From 503b824902f5e188f95262a9a1b8cd18e9f24e56 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:27:58 +0200
 Subject: [PATCH 3/6] musdk: mvpp2x module params updates
 
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |    6 +++---
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index 1386cdf..d746d14 100644
+index 9e5a1f4..18f46d6 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 @@ -75,16 +75,16 @@
@@ -33,5 +33,5 @@ index 1386cdf..d746d14 100644
  static u16 tx_queue_size = MVPP2_MAX_TXD;
  static u16 buffer_scaling = 100;
 -- 
-1.7.9.5
+1.9.1
 

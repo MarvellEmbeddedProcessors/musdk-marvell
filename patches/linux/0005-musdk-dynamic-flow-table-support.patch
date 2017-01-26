@@ -1,4 +1,4 @@
-From 9b367b33af42bd473bfcf428674e53cbbd3f0766 Mon Sep 17 00:00:00 2001
+From e69a468bc2bd01ba0c88369bc3690555e7f48f4a Mon Sep 17 00:00:00 2001
 From: Ehud Naim <ehudn@marvell.com>
 Date: Mon, 2 Jan 2017 11:48:19 +0200
 Subject: [PATCH 5/6] musdk: dynamic flow table support
@@ -9,10 +9,10 @@ and update the cls_shadow->flow_info
 Change-Id: Ic8e9b4d85015d8c7bd83c819167d3328adf09453
 Signed-off-by: Ehud Naim <ehudn@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   |   11 ++--
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |    2 +
- .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |    1 +
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |   59 ++++++++++++++++++++
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   | 11 ++--
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |  2 +
+ .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |  1 +
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c | 59 ++++++++++++++++++++++
  4 files changed, 69 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
@@ -91,10 +91,10 @@ index ddfc392..156705a 100644
  
  /* Classifier engine2 and QoS structure */
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index d746d14..ea1a78b 100644
+index 18f46d6..f17791b 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-@@ -1841,6 +1841,54 @@ static void mv_pp2x_width_calc(struct mv_pp2x_port *port, u32 *cpu_width,
+@@ -1839,6 +1839,54 @@ static void mv_pp2x_width_calc(struct mv_pp2x_port *port, u32 *cpu_width,
  	}
  }
  
@@ -149,7 +149,7 @@ index d746d14..ea1a78b 100644
  /* CoS API */
  
  /* mv_pp2x_cos_classifier_set
-@@ -1923,6 +1971,11 @@ int mv_pp2x_cos_classifier_set(struct mv_pp2x_port *port,
+@@ -1921,6 +1969,11 @@ int mv_pp2x_cos_classifier_set(struct mv_pp2x_port *port,
  		}
  		/* Restore lookup table */
  		flow_idx = data[0];
@@ -161,7 +161,7 @@ index d746d14..ea1a78b 100644
  		for (i = 0; i < j; i++) {
  			if (flow_idx > data[i])
  				flow_idx = data[i];
-@@ -3522,6 +3575,12 @@ int mv_pp2x_open_cls(struct net_device *dev)
+@@ -3529,6 +3582,12 @@ int mv_pp2x_open_cls(struct net_device *dev)
  		return err;
  	}
  
@@ -175,5 +175,5 @@ index d746d14..ea1a78b 100644
  	err = mv_pp2x_cos_classifier_set(port, cos_classifer);
  	if (err) {
 -- 
-1.7.9.5
+1.9.1
 

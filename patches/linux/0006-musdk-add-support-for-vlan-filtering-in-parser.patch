@@ -1,4 +1,4 @@
-From a5835b73077e8ffa7e0a815bd4977b0b7006d5c2 Mon Sep 17 00:00:00 2001
+From e0a4d7b3611aebc79c4ff27c183fae1ab6dae621 Mon Sep 17 00:00:00 2001
 From: Alan Winkowski <walan@marvell.com>
 Date: Sun, 22 Jan 2017 16:36:56 +0200
 Subject: [PATCH 6/6] musdk: add support for vlan filtering in parser
@@ -6,10 +6,10 @@ Subject: [PATCH 6/6] musdk: add support for vlan filtering in parser
 Change-Id: Ib4332f4db30d114019c74fc6f27314a1ac605821
 Signed-off-by: Alan Winkowski <walan@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   |  250 +++++++++++++++++++-
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |    3 +
- .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |   44 ++--
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |   23 ++
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   | 250 ++++++++++++++++++++-
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |   3 +
+ .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |  44 ++--
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |  23 ++
  4 files changed, 296 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
@@ -398,10 +398,10 @@ index 156705a..0bef1ea 100644
  	MVPP2_PRS_LU_PPPOE,
  	MVPP2_PRS_LU_IP4,
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index ea1a78b..fc70569 100644
+index f17791b..2f3ec00 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-@@ -3917,6 +3917,22 @@ error:
+@@ -3924,6 +3924,22 @@ error:
  	return err;
  }
  
@@ -424,7 +424,7 @@ index ea1a78b..fc70569 100644
  static struct rtnl_link_stats64 *
  mv_pp2x_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
  {
-@@ -4039,6 +4055,8 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
+@@ -4046,6 +4062,8 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
  	.ndo_get_stats64	= mv_pp2x_get_stats64,
  	.ndo_do_ioctl		= mv_pp2x_ioctl,
  	.ndo_set_features	= mv_pp2x_netdev_set_features,
@@ -433,7 +433,7 @@ index ea1a78b..fc70569 100644
  };
  
  static const struct net_device_ops mv_pp2x_non_kernel_netdev_ops = {
-@@ -4052,6 +4070,8 @@ static const struct net_device_ops mv_pp2x_non_kernel_netdev_ops = {
+@@ -4059,6 +4077,8 @@ static const struct net_device_ops mv_pp2x_non_kernel_netdev_ops = {
  	.ndo_get_stats64	= mv_pp2x_get_stats64,
  	.ndo_do_ioctl		= mv_pp2x_ioctl,
  	.ndo_set_features	= mv_pp2x_netdev_set_features,
@@ -442,7 +442,7 @@ index ea1a78b..fc70569 100644
  };
  
  
-@@ -4760,6 +4780,9 @@ skip_tso_buffers:
+@@ -4767,6 +4787,9 @@ skip_tso_buffers:
  
  	dev->vlan_features |= features;
  
@@ -453,5 +453,5 @@ index ea1a78b..fc70569 100644
  
  	err = register_netdev(dev);
 -- 
-1.7.9.5
+1.9.1
 
