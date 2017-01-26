@@ -376,13 +376,13 @@ static int pp2_get_devtree_port_data(struct pp2_inst *inst)
 		} else {
 			fgets(buf, sizeof(buf), fp);
 			if (strcmp("disabled", buf) == 0) {
-				pp2_info("port %d:%d is disabled\n", inst->id,i);
+				pp2_dbg("port %d:%d is disabled\n", inst->id,i);
 				port->admin_status = PP2_PORT_DISABLED;
 			} else if (strcmp("non-kernel", buf) == 0) {
-				pp2_info("port %d:%d is MUSDK\n", inst->id,i);
+				pp2_dbg("port %d:%d is MUSDK\n", inst->id,i);
 				port->admin_status = PP2_PORT_MUSDK_ENABLED;
 			} else {
-				pp2_info("port %d:%d is kernel\n", inst->id,i);
+				pp2_dbg("port %d:%d is kernel\n", inst->id,i);
 				port->admin_status = PP2_PORT_KERNEL_ENABLED;
 			}
 			fclose (fp);
@@ -549,52 +549,44 @@ void pp2_deinit(void)
 	kfree(pp2_ptr);
 }
 
+/* Find  pp_id and port_id parameters from ifname.
+* Description: loop through all packet processors and ports in each packet processor
+* and compare the interface name to the one configured for each port. If there is a match,
+* the pp_id and port_id are returned.
+* This function should be called after pp2_init() and before ppio_init().
+ */
 int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)
 {
-	int rc;
-	int i;
-	struct ifreq s;
-	int found = 0;
-	int if_idx = 0;
-	int idx;
+	struct pp2_port *port;
+	int i, j, parent_changed = 0, found = 0;
 
-	do {
-		s.ifr_ifindex = ++if_idx;
-		rc = mv_netdev_ioctl(SIOCGIFNAME, &s);
-		if (rc) {
-			found = -1;
-			break;
-		}
-
-		rc = mv_netdev_ioctl(SIOCGIFMAP, &s);
-		if (rc)
+	for (i = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
+		if (!pp2_ptr->pp2_inst[i])
 			continue;
 
-		for (i = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
-			if ((pp2_ptr->pp2_inst[i]->hw.phy_address_base == s.ifr_map.mem_start) &&
-			    (strcmp(s.ifr_name, ifname) == 0)) {
-				*pp_id = i;
-				if (sscanf(s.ifr_name, "%*[^0123456789]%d", &idx) != 1) {
-					pp2_err("idx not found for %s\n", s.ifr_name);
-					return -EFAULT;
-				}
-				if (idx >= (i * PP2_MAX_NUM_PACKPROCS)) {
-					*port_id = idx - (i * PP2_MAX_NUM_PACKPROCS);
-				} else {
-					pp2_err("error: idx %d for %s\n", idx, s.ifr_name);
-					return -EFAULT;
-				}
+		for (j = 0; j < PP2_NUM_PORTS; j++) {
+			port = pp2_ptr->pp2_inst[i]->ports[j];
+			if (!port->parent) {
+				port->parent = pp2_ptr->pp2_inst[i];
+				parent_changed = 1;
+			}
+
+			pp2_port_get_if_name(port);
+
+			if (strcmp(port->linux_name, ifname) == 0)
 				found = 1;
-				break;
+
+			if (parent_changed)
+				port->parent = NULL;
+
+			if (found) {
+				*pp_id = i;
+				*port_id = j;
+				pp2_info("%s: ppio-%d,%d\n", ifname, *pp_id, *port_id);
+				return 0;
 			}
 		}
-	} while (found == 0 && if_idx < PP2_PORT_IF_NAME_MAX_ITER);
-
-	if (found != 1) {
-		pp2_err("No corresponding pp_id and port_id found for %s\n", ifname);
-		return -EEXIST;
 	}
-	pp2_info("%s: pp_id %d, port_id %d\n", ifname, *pp_id, *port_id);
-	return 0;
+	return -EEXIST;
 }
 

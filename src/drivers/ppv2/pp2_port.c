@@ -64,7 +64,7 @@
 * as well as comparing the port_id.
 * This function assumes kernel assigns port_id sequenctially
  */
-static int pp2_port_get_if_name(struct pp2_port *port)
+int pp2_port_get_if_name(struct pp2_port *port)
 {
 	int rc;
 	struct ifreq s;
@@ -91,7 +91,7 @@ static int pp2_port_get_if_name(struct pp2_port *port)
 
 			if (port->id == index) {
 				strcpy(port->linux_name, s.ifr_name);
-				pp2_info("PORT: corresponding linux if: %s\n", port->linux_name);
+				pp2_dbg("PORT: corresponding linux if: %s\n", port->linux_name);
 				found = 1;
 				break;
 			}
