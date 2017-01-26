@@ -45,10 +45,6 @@ typedef int32_t		s32;
 typedef int64_t		s64;
 
 
-
-/* TODO : Temporary workaround, until new Makefiles */
-#include "env/xflags.h"
-
 #ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
 typedef u64 dma_addr_t;
 typedef u64 phys_addr_t;

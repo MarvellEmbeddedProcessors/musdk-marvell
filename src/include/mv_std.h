@@ -33,9 +33,6 @@
 #ifndef __MV_STD_H__
 #define __MV_STD_H__
 
-/* TODO: make sure xflags file is in apporpriate place! */
-#include "env/xflags.h"
-
 #include "env/mv_types.h"
 #include "env/mv_compiler.h"
 #include "env/mv_common.h"

@@ -10,7 +10,6 @@ AM_LDFLAGS = -lm
 lib_LTLIBRARIES = libmusdk.la
 
 nobase_include_HEADERS  = include/mv_std.h
-nobase_include_HEADERS += include/env/xflags.h
 nobase_include_HEADERS += include/env/mv_common.h
 nobase_include_HEADERS += include/env/mv_compiler.h
 nobase_include_HEADERS += include/env/mv_debug.h
