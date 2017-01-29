@@ -1718,8 +1718,8 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
-		char buf[30];
-		char da[14];
+		char buf[PP2_MAX_BUF_STR_LEN];
+		char da[PP2_MAX_BUF_STR_LEN];;
 
 		strcpy(buf, port->linux_name);
 		sprintf(da, " %x:%x:%x:%x:%x:%x", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
@@ -1729,7 +1729,7 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to open sysfs\n");
 			return -EFAULT;
 		}
-		rc = write(fd, &buf, sizeof(buf));
+		rc = write(fd, &buf, strlen(buf) + 1);
 		if (rc < 0) {
 			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
@@ -1766,8 +1766,8 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
-		char buf[30];
-		char da[14];
+		char buf[PP2_MAX_BUF_STR_LEN];
+		char da[PP2_MAX_BUF_STR_LEN];;
 
 		strcpy(buf, port->linux_name);
 		sprintf(da, " %x:%x:%x:%x:%x:%x", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
@@ -1777,7 +1777,7 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to open sysfs\n");
 			return -EFAULT;
 		}
-		rc = write(fd, &buf, sizeof(buf));
+		rc = write(fd, &buf, strlen(buf) + 1);
 		if (rc < 0) {
 			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
@@ -1815,9 +1815,9 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 	int rc;
 
 	if (mc) {
-		char buf[256];
+		char buf[PP2_MAX_BUF_STR_LEN];
 		char name[IFNAMSIZ];
-		char addr_str[256];
+		char addr_str[PP2_MAX_BUF_STR_LEN];
 		u8 mac[ETH_ALEN];
 		FILE *fp = fopen("/proc/net/dev_mcast", "r");
 		int len = 0;
@@ -1844,15 +1844,13 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 			rc = pp2_port_remove_mac_addr(port, mac);
 			if (rc)
 				return rc;
-			pr_info("PORT: flush %s, %x:%x:%x:%x:%x:%x\n",
-				 name, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		}
 		fclose(fp);
 	}
 
 	if (uc) {
 		int fd;
-		char buf[30];
+		char buf[PP2_MAX_BUF_STR_LEN];
 
 		strcpy(buf, port->linux_name);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_flush", O_WRONLY);
@@ -1860,7 +1858,7 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 			pr_err("PORT: unable to open sysfs\n");
 			return -EFAULT;
 		}
-		rc = write(fd, &buf, sizeof(buf));
+		rc = write(fd, &buf, strlen(buf) + 1);
 		if (rc < 0) {
 			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
@@ -1873,7 +1871,7 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 /* Add vlan */
 int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 {
-	char buf1[100];
+	char buf[PP2_MAX_BUF_STR_LEN];
 
 	if ((vlan < 1) || (vlan >= 4095)) {
 		pr_err("invalid vid. Range: 1:4095\n");
@@ -1882,15 +1880,15 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 
 	/* build manually the system command */
 	/* [TODO] check other alternatives for setting vlan id */
-	sprintf(buf1, "ip link add link %s name %s.%d type vlan id %d", port->linux_name, port->linux_name, vlan, vlan);
-	system(buf1);
+	sprintf(buf, "ip link add link %s name %s.%d type vlan id %d", port->linux_name, port->linux_name, vlan, vlan);
+	system(buf);
 	return 0;
 }
 
 /* Remove vlan */
 int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 {
-	char buf1[100];
+	char buf[PP2_MAX_BUF_STR_LEN];
 
 	if ((vlan < 1) || (vlan >= 4095)) {
 		pr_err("invalid vid. Range: 1:4095\n");
@@ -1899,8 +1897,8 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 
 	/* build manually the system command */
 	/* [TODO] check other alternatives for setting vlan id */
-	sprintf(buf1, "ip link delete %s.%d", port->linux_name, vlan);
-	system(buf1);
+	sprintf(buf, "ip link delete %s.%d", port->linux_name, vlan);
+	system(buf);
 	return 0;
 }
 
