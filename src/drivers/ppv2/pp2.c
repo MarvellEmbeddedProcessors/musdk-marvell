@@ -194,6 +194,13 @@ static void pp2_inst_init(struct pp2_inst *inst)
 
 		if (!ppio_param->is_enabled)
 			continue;
+
+		if (inst->ports[i]->admin_status != PP2_PORT_MUSDK_ENABLED) {
+			pr_warning("Port %d:%d is not reserved for MUSDK usage in Linux DTS file\n", inst->id, i);
+			ppio_param->is_enabled = 0;
+			continue;
+		}
+
 		for (int j = 0; j < PP2_HW_PORT_NUM_RXQS; j++) {
 			int rxq;
 
