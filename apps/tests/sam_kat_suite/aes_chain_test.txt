@@ -1,0 +1,37 @@
+# CDAL chain test configuration file
+
+Algorithm     : AES
+Authalgorithm : SHA1
+Name          : Encrypting_AES128_CBC_SHA1
+Mode          : CBC
+Cryptoffset   : 8
+Key           : 0xb42687a8a0ff4f4ed800041de29224cb
+Authkey       : 0x0281BCF7DCDEA1AD3BBB77ED1CAC2086FF65153D
+IV            : 0x00000000000000000000000000000000
+Plaintext     : 0x0000044d00000001000000000000000000000000000000014500002e00000000 \
+                  3ffff91fc0550104bf550103000102030405060708090a0b0c0d0e0f10111213 \
+                  1415161718190004
+Ciphertext    : 0x0000044d00000001bb6332aba4446dba94e251e43a5ca4a8233c26d72a10a024 \
+                  b7fcd055f6266bbcf53a04f933212c7aee2ecb17fa7f3b530c0d0628e4bd32aa \
+                  0869979830e65ebd
+ICB           : 0xc71316bec448dd1eafa3ada8
+Direction     : encryption
+Testcounter   : 1
+
+Algorithm     : AES
+Authalgorithm : SHA1
+Name          : Decrypting_AES128_CBC_SHA1
+Mode          : CBC
+Cryptoffset   : 8
+Key           : 0xb42687a8a0ff4f4ed800041de29224cb
+Authkey       : 0x0281BCF7DCDEA1AD3BBB77ED1CAC2086FF65153D
+IV            : 0x00000000000000000000000000000000
+Plaintext     : 0x0000044d00000001000000000000000000000000000000014500002e00000000 \
+                  3ffff91fc0550104bf550103000102030405060708090a0b0c0d0e0f10111213 \
+                  1415161718190004
+Ciphertext    : 0x0000044d00000001bb6332aba4446dba94e251e43a5ca4a8233c26d72a10a024 \
+                  b7fcd055f6266bbcf53a04f933212c7aee2ecb17fa7f3b530c0d0628e4bd32aa \
+                  0869979830e65ebd
+ICB           : 0xc71316bec448dd1eafa3ada8
+Direction     : decryption
+Testcounter   : 1
