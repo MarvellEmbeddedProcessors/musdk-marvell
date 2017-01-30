@@ -35,12 +35,3 @@ musdk_sam_single_SOURCES  = sam_kat_single/kat_tests_single.c
 
 musdk_sam_single_LDADD = $(top_builddir)/src/libmusdk.la
 endif
-
-bin_PROGRAMS += musdk_cls_dbg
-musdk_cls_dbg_CFLAGS = $(AM_CFLAGS)
-musdk_cls_dbg_SOURCES  = ../common/lib/cli.c
-musdk_cls_dbg_SOURCES  += ../common/mvapp.c
-musdk_cls_dbg_SOURCES  += ../common/utils.c
-musdk_cls_dbg_SOURCES  += ppv2/cls_demo.c
-musdk_cls_dbg_SOURCES  += ppv2/cls_debug.c
-musdk_cls_dbg_LDADD = $(top_builddir)/src/libmusdk.la
