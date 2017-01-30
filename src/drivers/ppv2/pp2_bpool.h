@@ -34,11 +34,16 @@
 #define __BPOOL_H__
 
 #include "pp2_types.h"
+#include "pp2_plat.h"
+
 
 struct pp2_bpool {
 	int pp2_id; /* PP2 Instance */
 	int id; /* BM Pool number */
 	struct base_addr *pp2_hw_base;
 };
+
+extern struct pp2_bpool pp2_bpool[PP2_MAX_NUM_PACKPROCS][PP2_NUM_BMPOOLS];
+
 
 #endif /* __BPOOL_H__ */

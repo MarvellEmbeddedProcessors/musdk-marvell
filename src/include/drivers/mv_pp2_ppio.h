@@ -511,7 +511,17 @@ static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enu
  */
 int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc);
 
-struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc);
+
+/**
+ * Get the bpool of an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ * @param[in]	ppio	A pointer to a PP-IO object.
+ *
+ * @retval	pointer to bpool
+ */
+struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc, struct pp2_ppio *ppio);
+
 
 /**
  * Check if packet in inq packet descriptor has a MAC (CRC) or IP/L4 (checksum) error condition.

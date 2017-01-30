@@ -38,7 +38,7 @@
 #include "pp2_hif.h"
 #include "lib/lib_misc.h"
 
-static struct pp2_bpool pp2_bpool[PP2_MAX_NUM_PACKPROCS][PP2_NUM_BMPOOLS];
+struct pp2_bpool pp2_bpool[PP2_MAX_NUM_PACKPROCS][PP2_NUM_BMPOOLS];
 
 int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 {

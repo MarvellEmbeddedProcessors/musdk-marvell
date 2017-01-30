@@ -50,6 +50,23 @@ static inline struct pp2_dm_if *pp2_dm_if_get(struct pp2_ppio *ppio, struct pp2_
 	return ppio->port->parent->dm_ifs[hif->regspace_slot];
 }
 
+
+/* TODO: This initial implementation is not efficient.
+*	Optimization #1 - requires classifier update: use 'mgpid' field in rx_descriptor to code the pp2_inst.
+*			  After such update: No need for the 'ppio' param, since pp2_id&port_id are in the descriptor.
+*	Optimization #2 - If 'static struct pp2_bpool' is exported, pp2_ppio_inq_desc_get_bpool() can become inline.
+*/
+struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc, struct pp2_ppio *ppio)
+{
+	u8 pool_id, pp2_id;
+
+	pool_id = DM_RXD_GET_POOL_ID(desc);
+	pp2_id = ppio->port->parent->id;
+
+	return &pp2_bpool[pp2_id][pool_id];
+}
+
+
 int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 {
 	u8  match[2];
