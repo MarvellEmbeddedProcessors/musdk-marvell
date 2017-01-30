@@ -51,6 +51,8 @@
 #error "Traffic classes are not implemented in this PPDK version"
 #endif
 
+#define PP2_MAX_BUF_STR_LEN	256
+
 struct pp2_port;
 
 /**
@@ -443,7 +445,5 @@ pp2_rxq_received(struct pp2_port *port, const int rxq_id)
 
 	return (val & MVPP2_RXQ_OCCUPIED_MASK);
 }
-
-int pp2_port_get_if_name(struct pp2_port *port);
 
 #endif /* __PP2_PORT_H__ */

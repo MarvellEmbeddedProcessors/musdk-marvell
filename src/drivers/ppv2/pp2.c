@@ -346,8 +346,9 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 static int pp2_get_devtree_port_data(struct pp2_inst *inst)
 {
 	FILE *fp;
-	char path[256], subpath[256];
-	char buf[50];
+	char path[PP2_MAX_BUF_STR_LEN];
+	char subpath[PP2_MAX_BUF_STR_LEN];
+	char buf[PP2_MAX_BUF_STR_LEN];
 	int i;
 
 	for (i = 0; i < PP2_NUM_PORTS; i++) {
@@ -358,9 +359,9 @@ static int pp2_get_devtree_port_data(struct pp2_inst *inst)
 			* Need to substitute this with a function that searches for the following string:
 			* <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories and returns the path
 			*/
-			sprintf(path, "/proc/device-tree/cpn-110-master/config-space/ppv22@000000/");
+			sprintf(path, PP2_NETDEV_MASTER_PATH);
 		} else if (inst->id == 1) {
-			sprintf(path, "/proc/device-tree/cpn-110-slave/config-space/ppv22@000000/");
+			sprintf(path, PP2_NETDEV_SLAVE_PATH);
 		} else {
 			pr_err("wrong instance id.\n");
 			return -EEXIST;
@@ -378,17 +379,72 @@ static int pp2_get_devtree_port_data(struct pp2_inst *inst)
 
 		fgets(buf, sizeof(buf), fp);
 		if (strcmp("disabled", buf) == 0) {
-			pr_debug("port %d:%d is disabled\n", inst->id,i);
+			pr_debug("port %d:%d is disabled\n", inst->id, i);
 			port->admin_status = PP2_PORT_DISABLED;
 		} else if (strcmp("non-kernel", buf) == 0) {
-			pr_debug("port %d:%d is MUSDK\n", inst->id,i);
+			pr_debug("port %d:%d is MUSDK\n", inst->id, i);
 			port->admin_status = PP2_PORT_MUSDK_ENABLED;
 		} else {
-			pr_debug("port %d:%d is kernel\n", inst->id,i);
+			pr_debug("port %d:%d is kernel\n", inst->id, i);
 			port->admin_status = PP2_PORT_KERNEL_ENABLED;
 		}
-		fclose (fp);
+		fclose(fp);
+	}
+	return 0;
+}
 
+/* TODO: This function should be standalone and not dependent on pp2_init*/
+static int pp2_set_port_netdev_info(void)
+{
+	FILE *fp;
+	char path[PP2_MAX_BUF_STR_LEN];
+	char subpath[PP2_MAX_BUF_STR_LEN];
+	char buf[PP2_MAX_BUF_STR_LEN];
+	int rc;
+	struct ifreq s;
+	int if_idx = 1;
+	struct pp2_port *port;
+	u32 i = 0, j = 0;
+	u32 idx = 0;
+	char netdev_list[PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS][20];
+
+	/* TODO: code loops through all ifindex. check if only active ifindex can be checked */
+	do {
+		s.ifr_ifindex = if_idx;
+		rc = mv_netdev_ioctl(SIOCGIFNAME, &s);
+		if (rc)
+			continue;
+
+		if (strncmp("eth", s.ifr_name, 3) == 0) {
+			sprintf(path, PP2_NETDEV_PATH);
+			sprintf(subpath, "%s/device/uevent", s.ifr_name);
+			strcat(path, subpath);
+			fp = fopen(path, "r");
+			if (!fp) {
+				pr_err("error opening %s\n", path);
+				return -EEXIST;
+			}
+
+			fgets(buf, sizeof(buf), fp);
+			while (fgets(buf, PP2_MAX_BUF_STR_LEN, fp)) {
+				if (strncmp("OF_NAME=ppv22", buf, 13) == 0)
+					strcpy(netdev_list[idx++], s.ifr_name);
+			}
+		}
+	} while (idx < (PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS) && if_idx++ < PP2_PORT_IF_NAME_MAX_ITER);
+
+	for (i = 0, idx = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
+		if (!pp2_ptr->pp2_inst[i])
+			continue;
+
+		for (j = 0; j < PP2_NUM_PORTS; j++) {
+			port = pp2_ptr->pp2_inst[i]->ports[j];
+
+			if (port->admin_status != PP2_PORT_DISABLED) {
+				strcpy(port->linux_name, netdev_list[idx]);
+				idx++;
+			}
+		}
 	}
 	return 0;
 }
@@ -445,7 +501,6 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 		kfree(inst);
 		return NULL;
 	}
-
 	return inst;
 }
 
@@ -529,6 +584,9 @@ int pp2_init(struct pp2_init_params *params)
 		pp2_ptr->num_pp2_inst++;
 	}
 
+	if (pp2_set_port_netdev_info())
+		pr_err("cannot set netdev info\n");
+
 	pr_debug("PackProcs   %2u\n", pp2_num_inst);
 
 	return 0;
@@ -555,7 +613,7 @@ void pp2_deinit(void)
 int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)
 {
 	struct pp2_port *port;
-	int i, j, parent_changed = 0, found = 0;
+	int i, j;
 
 	for (i = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
 		if (!pp2_ptr->pp2_inst[i])
@@ -563,20 +621,8 @@ int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)
 
 		for (j = 0; j < PP2_NUM_PORTS; j++) {
 			port = pp2_ptr->pp2_inst[i]->ports[j];
-			if (!port->parent) {
-				port->parent = pp2_ptr->pp2_inst[i];
-				parent_changed = 1;
-			}
 
-			pp2_port_get_if_name(port);
-
-			if (strcmp(port->linux_name, ifname) == 0)
-				found = 1;
-
-			if (parent_changed)
-				port->parent = NULL;
-
-			if (found) {
+			if (strcmp(ifname, port->linux_name) == 0) {
 				*pp_id = i;
 				*port_id = j;
 				pr_info("%s: ppio-%d,%d\n", ifname, *pp_id, *port_id);

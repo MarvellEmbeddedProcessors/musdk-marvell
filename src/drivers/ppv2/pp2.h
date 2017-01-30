@@ -58,6 +58,12 @@
 #define PP_UIO_DEV_NAME "uio_mv_pp"
 #define PP_UIO_MEM_NAME "pp"
 
+#define PP2_NETDEV_PATH		"/sys/class/net/"
+#define PP2_NETDEV_MASTER_PATH	"/proc/device-tree/cpn-110-master/config-space/ppv22@000000/"
+#define PP2_NETDEV_SLAVE_PATH	"/proc/device-tree/cpn-110-slave/config-space/ppv22@000000/"
+
+#define PP2_MAX_BUF_STR_LEN	256
+
 /* TODO: Decide if to duplicate the below defines, under different name,
  * or split the definitions from the mvpp2io.h, and other header files, and use them here.
  */
