@@ -47,6 +47,16 @@
 
 struct pp2_ppio;
 
+/* The two bytes Marvell header ("MH"). Either contains a special value used
+ * by Marvell switches when a specific hardware mode is enabled (not
+ * supported by this driver), or is filled automatically by zeroes on
+ * the RX side. These two bytes are at the front of the Ethernet
+ * header, allow to have the IP header aligned on a 4 bytes
+ * boundary.
+ */
+#define PP2_MH_SIZE		2
+
+
 #define ETH_ADDR_NUM_OCTETS	6 /**< Number of octets (8-bit bytes) in an ethernet address */
 
 #define PP2_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
@@ -207,9 +217,10 @@ enum pp2_inq_l3_type {
 };
 
 enum pp2_inq_l4_type {
-	PP2_INQ_L4_TYPE_OTHER = 0,
-	PP2_INQ_L4_TYPE_TCP,
-	PP2_INQ_L4_TYPE_UDP
+	PP2_INQ_L4_TYPE_NA = 0,
+	PP2_INQ_L4_TYPE_TCP = 1,
+	PP2_INQ_L4_TYPE_UDP = 2,
+	PP2_INQ_L4_TYPE_OTHER = 3
 };
 
 enum pp2_inq_desc_status {
@@ -400,7 +411,7 @@ static inline void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc,
 	DM_TXD_SET_L3_TYPE(desc, l3_type);
 	DM_TXD_SET_L4_TYPE(desc, l4_type);
 	DM_TXD_SET_L3_OFF(desc, l3_offset);
-	DM_TXD_SET_IP_HEAD_LEN(desc, (l4_offset - l3_offset));
+	DM_TXD_SET_IP_HEAD_LEN(desc, (l4_offset - l3_offset)/sizeof(u32));
 	DM_TXD_SET_GEN_IP_CHK(desc, ((gen_l3_chk) ? TXD_IP_CHK_ENABLE : TXD_IP_CHK_DISABLE));
 	DM_TXD_SET_GEN_L4_CHK(desc, ((gen_l4_chk) ? TXD_L4_CHK_ENABLE : TXD_L4_CHK_DISABLE));
 }
@@ -471,7 +482,9 @@ struct pp2_ppio *pp2_ppio_inq_desc_get_pp_io(struct pp2_ppio_desc *desc); /*Note
  */
 static inline u16 pp2_ppio_inq_desc_get_pkt_len(struct pp2_ppio_desc *desc)
 {
-	return ((desc->cmds[1] & RXD_BYTE_COUNT_MASK) >> 16);
+	u16 len = (desc->cmds[1] & RXD_BYTE_COUNT_MASK) >> 16;
+	len -= PP2_MH_SIZE;
+	return len;
 }
 
 /**
@@ -479,13 +492,14 @@ static inline u16 pp2_ppio_inq_desc_get_pkt_len(struct pp2_ppio_desc *desc)
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  * @param[out]	type	A pointer to l3 type.
- * @param[out]	offset	A pointer to l3 offset.
+ * @param[out]	offset	A pointer to l3 offset, relative to start of frame-on-the-wire (not including MH).
  *
  */
 static inline void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enum pp2_inq_l3_type *type, u8 *offset)
 {
 	*type   = (desc->cmds[0] & RXD_L3_PRS_INFO_MASK) >> 28;
 	*offset = (desc->cmds[0] & RXD_L3_OFF_MASK) >> 0;
+	*offset -= PP2_MH_SIZE;
 }
 
 /**
@@ -499,7 +513,8 @@ static inline void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enu
 static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enum pp2_inq_l4_type *type, u8 *offset)
 {
 	*type   = (desc->cmds[0] & RXD_L4_PRS_INFO_MASK) >> 25;
-	*offset = ((desc->cmds[0] & RXD_L3_OFF_MASK) >> 0) + ((desc->cmds[0] & RXD_IPHDR_LEN_MASK) >> 8);
+	*offset = ((desc->cmds[0] & RXD_L3_OFF_MASK) >> 0) + sizeof(u32)*((desc->cmds[0] & RXD_IPHDR_LEN_MASK) >> 8);
+	*offset -= PP2_MH_SIZE;
 }
 
 /**

@@ -77,7 +77,6 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #define MAX_BURST_SIZE	(Q_SIZE)>>1
 #define DFLT_BURST_SIZE	256
 #define PKT_OFFS	64
-#define PP2_MH_SIZE	(2) /* TODO: take this from ppio definitions.*/
 #define PKT_EFEC_OFFS	(PKT_OFFS+PP2_MH_SIZE)
 #define MAX_PPIOS	1
 #define MAX_NUM_CORES	4
@@ -275,10 +274,10 @@ static inline enum pp2_outq_l3_type pp2_l3_type_inq_to_outq(enum pp2_inq_l3_type
 
 static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type l4_inq)
 {
-	if (unlikely(l4_inq == PP2_INQ_L4_TYPE_OTHER))
-		return(PP2_OUTQ_L4_TYPE_OTHER);
+	if (likely(l4_inq == PP2_INQ_L4_TYPE_TCP || l4_inq == PP2_INQ_L4_TYPE_UDP))
+		return(l4_inq - 1);
 
-	return(l4_inq - 1);
+	return(PP2_OUTQ_L4_TYPE_OTHER);
 }
 #endif
 
@@ -366,7 +365,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 	for (i=0; i<num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
-		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
+		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 
 #ifdef PKT_ECHO_SUPPORT
 		if (likely(larg->echo)) {
@@ -463,7 +462,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 #endif /* SW_BUFF_RECYLCE */
-		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
+		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 
 #ifdef PKT_ECHO_SUPPORT
 		if (likely(larg->echo)) {
@@ -501,8 +500,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #ifdef HW_TX_CHKSUM_CALC
 #if (HW_TX_IPV4_CHKSUM_CALC || HW_TX_L4_CHKSUM_CALC)
 		pp2_ppio_outq_desc_set_proto_info(&descs[i], pp2_l3_type_inq_to_outq(l3_type),
-						  pp2_l4_type_inq_to_outq(l4_type), (l3_offset - PP2_MH_SIZE),
-						  (l4_offset - PP2_MH_SIZE), HW_TX_IPV4_CHKSUM_CALC, HW_TX_L4_CHKSUM_CALC);
+						  pp2_l4_type_inq_to_outq(l4_type), l3_offset,
+						  l4_offset, HW_TX_IPV4_CHKSUM_CALC, HW_TX_L4_CHKSUM_CALC);
 #endif /* (HW_TX_IPV4_CHKSUM_CALC ||  ... */
 #endif /* HW_TX_CHKSUM_CALC */
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);

@@ -114,15 +114,6 @@
  */
 #define PP2_BUFFER_OFFSET         (32)
 
-/* The two bytes Marvell header. Either contains a special value used
- * by Marvell switches when a specific hardware mode is enabled (not
- * supported by this driver) or is filled automatically by zeroes on
- * the RX side. Those two bytes being at the front of the Ethernet
- * header, they allow to have the IP header aligned on a 4 bytes
- * boundary automatically: the hardware skips those two bytes on its
- * own.
- */
-#define PP2_MH_SIZE              (2)
 
 /* packet data is stored relative to an offset */
 #define PP2_BUFF_START_ADDR(addr)   ((addr) + PP2_PACKET_OFFSET + PP2_MH_SIZE)
