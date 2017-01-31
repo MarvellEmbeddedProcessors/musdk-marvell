@@ -1,14 +1,14 @@
-MUSDK Release Notes {#mainpage}
+MUSDK Release Notes
 ===================
 Marvell User-Space SDK (MUSDK) is a light-weight user-space I/O driver for Marvell's
 Embedded Networking SoC's. The MUSDK library provides a simple and direct access to Marvell's
-SoC blocks to networking applications and networking infrastructure.
+SoC blocks for networking applications and networking infrastructure.
 
 Notes:
 ------
 - This is an Alpha-level engineering drop of MUSDK package.
 - The package is only partially tested, user should expect all kinds of issues.
-- The package is provide in Little-Endian mode only.
+- The package was tested in Little-Endian mode only.
 
 
 Supported SoCs
@@ -18,10 +18,17 @@ Supported SoCs
 
 Release Content
 ---------------
+	- Binaries:
+		- binaries-armv8le-musdk-a70x0-a80x0-ga-17.02.0.zip - contains relevant binaries:
+			- rootfs\usr\local\musdk\lib:
+				- libmusdk.a
+				- libmusdk.la
+			- rootfs\usr\local\musdk\bin:
+				- <all example applications>
 	- Sources:
-		- musdk-devel-16.12.1.zip - includes full sources of MUSDK package.
+		- musdk-armada-17.02.0.zip - includes full sources of MUSDK package.
 	- Documentation:
-		- doc/musdk-html-16.12.1.zip - includes user documentation and API reference in HTML format.
+		- doc/musdk-html-17.02.0.zip - includes user documentation and API reference in HTML format.
 		- To get started with guide, unzip the package, open "html.index" and navigate from there.
 
 
@@ -34,25 +41,35 @@ Supported Features
 	- Single traffic class
 	- L4 checksum offload
 	- MUSDK and kernel ports may operate together
-	- MAC addresses currently hard-coded
-	- Tested on 10G ports of A7040 and A8040
-	- Packet-echo test application
+	- MAC filter support
+	- VLAN filter support
+	- MTU change support
+	- RSS support (distribution to Rx queues - configuration by Kernel)
+	- Tested on 1G and 10G ports of A7040 and A8040
+	- Packet-echo example application
+	- MAc & VLAN filters example application
+
+- Classifier features:
+	- Single 5-tuple classification table per port
+	- Supported match actions: select queue or discard packet
 
 - SAM (Crypto) features:
-	- Single crypto ring
 	- Create session
 	- Delete session
 	- Cipher algorithms: NULL, AES, 3DES
 	- Cipher key lengths: 128 bits, 192 bits, 256 bits
 	- Cipher modes: CBC, ECB,
-	- Authentication algorithms: NULL, SHA1, SHA2 (384/256/512), MD5
+	- Authentication algorithms: NULL, SHA1, SHA2(384/256/512), MD5
+	- Authentication modes: HASH, HMAC
 	- Encryption modes:
 		- Encryption only
 		- Authentication only
+		- Encryption and then authentication
 	- Decryption modes:
 		- Decryption only
 		- Authentication only
-	- Enqueue/dequeue mode: Single request
+		- Authentication and then decryption
+	- Enqueue/dequeue mode: supports multiple requests
 	- Single-buffer mode
 	- Poll request completion
 	- Test applications
