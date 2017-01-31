@@ -134,9 +134,9 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 /**
  * Get the number of buffers in ppv2 buffer pool.
  *
- * @param[in]	hif	A hif handle.
- * @param[in]	pool	A bpool handle.
- * @param[out]	buff	A pointer to returned number of buffers.
+ * @param[in]	hif		A hif handle.
+ * @param[in]	pool		A bpool handle.
+ * @param[out]	num_buffs	A pointer to returned number of buffers.
  *
  * @retval	0 on success
  * @retval	<0 on failure

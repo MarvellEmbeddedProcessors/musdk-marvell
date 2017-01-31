@@ -676,7 +676,7 @@ int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len);
  * Set ppio to promiscuous mode
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[in]		enr	1 - enable, 0 - disable.
+ * @param[in]		en	1 - enable, 0 - disable.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
@@ -687,7 +687,7 @@ int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en);
  * Get ppio promiscuous mode
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[out]		enr	1 - enabled, 0 - disabled.
+ * @param[out]		en	1 - enabled, 0 - disabled.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
@@ -698,7 +698,7 @@ int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en);
  * Set ppio to listen to all multicast mode
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[in]		enr	1 - enable, 0 - disable.
+ * @param[in]		en	1 - enable, 0 - disable.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
@@ -709,7 +709,7 @@ int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en);
  * Get ppio all multicast mode
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[out]		enr	1 - enabled, 0 - disabled.
+ * @param[out]		en	1 - enabled, 0 - disabled.
  *
  * @retval	0 on success
  * @retval	error-code otherwise

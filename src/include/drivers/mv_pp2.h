@@ -92,7 +92,7 @@ void pp2_deinit(void);
  *
  * @param[in]	ifname	A pointer to the interface name.
  * @param[out]	pp_id	A pointer to the corresponding pp_id.
- * @param[out]	ifname	A pointer to the corresponding port_id.
+ * @param[out]	port_id	A pointer to the corresponding port_id.
  *
  * @retval	0 on success
  * @retval	<0 on failure
