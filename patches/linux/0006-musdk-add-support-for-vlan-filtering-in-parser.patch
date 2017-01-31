@@ -1,4 +1,4 @@
-From e0a4d7b3611aebc79c4ff27c183fae1ab6dae621 Mon Sep 17 00:00:00 2001
+From f2128d43f445a03ace14cca2cf42d6620b20bd69 Mon Sep 17 00:00:00 2001
 From: Alan Winkowski <walan@marvell.com>
 Date: Sun, 22 Jan 2017 16:36:56 +0200
 Subject: [PATCH 6/6] musdk: add support for vlan filtering in parser
@@ -398,11 +398,11 @@ index 156705a..0bef1ea 100644
  	MVPP2_PRS_LU_PPPOE,
  	MVPP2_PRS_LU_IP4,
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index f17791b..2f3ec00 100644
+index 4e04964..28b9bf5 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-@@ -3924,6 +3924,22 @@ error:
- 	return err;
+@@ -3939,6 +3939,22 @@ static int mv_pp2x_dummy_change_mtu(struct net_device *dev, int mtu)
+ 
  }
  
 +static int mv_pp2x_rx_add_vid(struct net_device *dev, u16 proto, u16 vid)
@@ -424,7 +424,7 @@ index f17791b..2f3ec00 100644
  static struct rtnl_link_stats64 *
  mv_pp2x_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
  {
-@@ -4046,6 +4062,8 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
+@@ -4061,6 +4077,8 @@ static const struct net_device_ops mv_pp2x_netdev_ops = {
  	.ndo_get_stats64	= mv_pp2x_get_stats64,
  	.ndo_do_ioctl		= mv_pp2x_ioctl,
  	.ndo_set_features	= mv_pp2x_netdev_set_features,
@@ -433,7 +433,7 @@ index f17791b..2f3ec00 100644
  };
  
  static const struct net_device_ops mv_pp2x_non_kernel_netdev_ops = {
-@@ -4059,6 +4077,8 @@ static const struct net_device_ops mv_pp2x_non_kernel_netdev_ops = {
+@@ -4074,6 +4092,8 @@ static const struct net_device_ops mv_pp2x_non_kernel_netdev_ops = {
  	.ndo_get_stats64	= mv_pp2x_get_stats64,
  	.ndo_do_ioctl		= mv_pp2x_ioctl,
  	.ndo_set_features	= mv_pp2x_netdev_set_features,
@@ -442,7 +442,7 @@ index f17791b..2f3ec00 100644
  };
  
  
-@@ -4767,6 +4787,9 @@ skip_tso_buffers:
+@@ -4784,6 +4804,9 @@ skip_tso_buffers:
  
  	dev->vlan_features |= features;
  
