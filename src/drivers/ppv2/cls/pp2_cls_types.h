@@ -359,7 +359,8 @@ struct pp2_cls_pkt_key_t {
 	struct mv_pp2x_src_port		port;
 	u32				rule_type;	/* rules with smaller value has higher priority being matched*/
 							/* should be set together with cap/filter during MVPP2 INIT */
-	u32				field_match_bm;	/* Bitmap of packet fields to match (pp2_cls_field_match_t) */
+	u32				field_bm;	/* Bitmap of packet fields to match (pp2_cls_field_match_t) */
+	u32				field_bm_mask;	/* Bitmap of packet fields to match (pp2_cls_field_match_t) */
 	struct pp2_cls_eth_add_key_t	eth_dst;	/* Ethernet Destination address & mask */
 	struct pp2_cls_eth_add_key_t	eth_src;	/* Ethernet Destination address & mask */
 	u16				out_vid;	/* Outer Tag VID, 0x0000->untagged, 0xffff->tagged */

@@ -2065,7 +2065,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 		return rc;
 	}
 
-#ifdef TPM_CLS_DEBUG
+#ifdef MVPP2_CLS_DEBUG
 	debug_dump_lkp_dcod_db("pp2_cls_fl_cur_get", &lkp_dcod_db);
 #endif
 
@@ -2744,7 +2744,7 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 			break;
 		default:
 			if (rc) {
-				pr_err("TPM_NOT_SUPPORTED recvd ret_code(%d)\n", rc);
+				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
 			}
 		}

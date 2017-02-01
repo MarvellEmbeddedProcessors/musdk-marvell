@@ -45,12 +45,6 @@
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 
-enum pp2_cls_index_dump_idx_t {
-	MVPP2_INDEX_DUMP_TCAM = 0,
-	MVPP2_INDEX_DUMP_LOGICAL,
-	MVPP2_INDEX_DUMP_DB
-};
-
 void print_horizontal_line(u32 char_count, const char *char_val)
 {
 	u32 cnt;
@@ -860,7 +854,7 @@ int pp2_cls_cli_c3_rule_add(void *arg, int argc, char *argv[])
 	c3_entry.port.port_value = 1;
 
 	c3_entry.lkp_type = 1;
-	c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_IPV4_5T;
+	c3_entry.mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_IPV4_5T;
 		/*PP2_CLS_MATCH_IPV6_PKT | */
 		/* MVPP2_MATCH_IP_PROTO | MVPP2_MATCH_IP_SRC | MVPP2_MATCH_IP_DST | MVPP2_MATCH_L4_SRC */
 		/*| MVPP2_MATCH_L4_DST; */
@@ -928,7 +922,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		c3_entry.port.port_value = 1;
 
 		c3_entry.lkp_type = 1;
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_VID_OUTER;
+		c3_entry.mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_VID_OUTER;
 		c3_entry.mng_pkt_key->pkt_key->out_vid = 1000;
 
 		c3_entry.qos_info.policer_id = 0;
@@ -976,7 +970,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		c3_entry.port.port_value = 3;
 
 		c3_entry.lkp_type = 1;
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_VID_OUTER;
+		c3_entry.mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_VID_OUTER;
 		c3_entry.mng_pkt_key->pkt_key->out_vid = 1000;
 
 		c3_entry.qos_info.policer_id = 0;
@@ -1025,7 +1019,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		c3_entry.port.port_value = 3;
 
 		c3_entry.lkp_type = 1;
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_IPV6_5T;
+		c3_entry.mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_IPV6_5T;
 			/*PP2_CLS_MATCH_IPV6_PKT | */
 			/* MVPP2_MATCH_IP_PROTO | MVPP2_MATCH_IP_SRC | MVPP2_MATCH_IP_DST | MVPP2_MATCH_L4_SRC */
 			/*| MVPP2_MATCH_L4_DST; */
@@ -1087,7 +1081,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		c3_entry.port.port_value = 3;
 
 		c3_entry.lkp_type = 1;
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_IPV4_5T;
+		c3_entry.mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_IPV4_5T;
 			/*PP2_CLS_MATCH_IPV6_PKT | */
 			/* MVPP2_MATCH_IP_PROTO | MVPP2_MATCH_IP_SRC | MVPP2_MATCH_IP_DST | MVPP2_MATCH_L4_SRC */
 			/*| MVPP2_MATCH_L4_DST; */
@@ -1147,7 +1141,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		c3_entry.port.port_value = 1;
 
 		c3_entry.lkp_type = 1;
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_IPV4_5T;
+		c3_entry.mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_IPV4_5T;
 			/*PP2_CLS_MATCH_IPV6_PKT | */
 			/* MVPP2_MATCH_IP_PROTO | MVPP2_MATCH_IP_SRC | MVPP2_MATCH_IP_DST | MVPP2_MATCH_L4_SRC */
 			/*| MVPP2_MATCH_L4_DST; */

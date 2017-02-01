@@ -80,6 +80,8 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_mng.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_flow_rules_debug.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3_debug.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c2.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c2_debug.c
 
 if SAM_BUILD
 # Definitions for SAM driver compilation

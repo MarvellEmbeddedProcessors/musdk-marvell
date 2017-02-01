@@ -256,14 +256,20 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 
 	/* engine selection */
 	if (params->type == PP2_CLS_TBL_MASKABLE) {
+		if (five_tuple) {
+			pr_err("%s(%d) maskable engine doesn't support 5 tuples!\n", __func__, __LINE__);
+			return -EINVAL;
+		}
 		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C2;
-		pr_err("maskable engine not supported\n");
+	} else if (params->type == PP2_CLS_TBL_EXACT_MATCH) {
+		if (five_tuple)
+			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3B;
+		else
+			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3A;
+	} else {
+		pr_err("%s(%d) unknown engine type!\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-	if (five_tuple)
-		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3B;
-	else
-		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3A;
 
 	/* port type - TODO fixed to PHY for now */
 	fl_rls->fl[0].port_type = MVPP2_SRC_PORT_TYPE_PHY;
@@ -366,43 +372,31 @@ end:
 	return rc;
 }
 
-int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_rule *rule,
-			 struct pp2_cls_tbl_action *action)
+
+static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
+				 struct mv_pp2x_engine_pkt_action *pkt_action,
+				 struct mv_pp2x_qos_value *pkt_qos,
+				 struct mv_pp2x_src_port *rule_port,
+				 struct pp2_cls_tbl_params *params,
+				 struct pp2_cls_tbl_rule *rule,
+				 struct pp2_cls_tbl_action *action,
+				 struct pp2_port *port)
 {
-	u32 idx1, idx2;
 	char *ret_ptr;
 	char *mask_ptr;
 	char mask_arr[3];
-	struct pp2_cls_pkt_key_t pkt_key;
-	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
-	struct pp2_cls_c3_add_entry_t c3_entry;
-	u32 logic_idx;
-	u32 rc = 0, i;
-	u32 match_bm = 0, bm = 0;
+	int rc = 0, i;
 	u32 proto_flag = 0;
 	u32 ipv4_flag = 0;
 	u32 ipv6_flag = 0;
 	u32 field;
-	struct pp2_ppio *ppio;
-	struct pp2_port *port;
+	u32 idx1, idx2;
+	u32 field_bm = 0, bm = 0;
 	u8 queue;
 
-	/* init value */
-	MVPP2_MEMSET_ZERO(pkt_key);
-	MVPP2_MEMSET_ZERO(mng_pkt_key);
-	MVPP2_MEMSET_ZERO(c3_entry);
-	c3_entry.mng_pkt_key = &mng_pkt_key;
-	c3_entry.mng_pkt_key->pkt_key = &pkt_key;
-
-	ppio = params->default_act.cos->ppio;
-	port = ppio->port;
-
-	/* set value */
-	c3_entry.port.port_type = MVPP2_SRC_PORT_TYPE_PHY;
-	c3_entry.port.port_value = (1 << port->id);
-	c3_entry.port.port_mask = 0xff;
-
-	c3_entry.lkp_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
+	rule_port->port_type = MVPP2_SRC_PORT_TYPE_PHY;
+	rule_port->port_value = (1 << port->id);
+	rule_port->port_mask = 0xff;
 
 	/* parse the protocol and protocol fields */
 	for (idx1 = 0; idx1 < params->key.num_fields; idx1++) {
@@ -419,14 +413,14 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		}
 		if (params->key.proto_field[idx1].proto == MV_NET_PROTO_IP4) {
 			ipv4_flag = 1;
-			match_bm |= MVPP2_MATCH_IPV4_PKT;
+			field_bm |= MVPP2_MATCH_IPV4_PKT;
 		}
 		if (params->key.proto_field[idx1].proto == MV_NET_PROTO_IP6) {
 			ipv6_flag = 1;
-			match_bm |= MVPP2_MATCH_IPV6_PKT;
+			field_bm |= MVPP2_MATCH_IPV6_PKT;
 		}
 
-		match_bm |= bm;
+		field_bm |= bm;
 
 		switch (field) {
 		case IPV4_SA_FIELD_ID:
@@ -436,7 +430,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			}
 			rc = inet_pton(AF_INET, (char *)rule->fields[idx1].key,
-				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0]);
+			       &mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv4 SA\n");
 				return -EINVAL;
@@ -448,17 +442,18 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			for (i = 0; i < 4; i++) {
 				strncpy(mask_arr, mask_ptr, 2);
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add_mask.ipv4[i] =
-									strtoul(mask_arr, &ret_ptr, 16);
+				mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add_mask.ipv4[i] =
+						strtoul(mask_arr, &ret_ptr, 16);
+
 				if (mask_arr == ret_ptr)
 					return -EINVAL;
 				mask_ptr += 2;
 			}
 			pr_debug("IPv4 SA: %d.%d.%d.%d\n",
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0],
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[1],
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[2],
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[3]);
+				mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0],
+				mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[1],
+				mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[2],
+				mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[3]);
 			break;
 		case IPV4_DA_FIELD_ID:
 			if (rule->fields[idx1].size != 4) {
@@ -467,7 +462,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			}
 			rc = inet_pton(AF_INET, (char *)rule->fields[idx1].key,
-				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0]);
+				       &mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv4 DA\n");
 				return -EINVAL;
@@ -479,7 +474,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 				return -EINVAL;
 			for (i = 0; i < 4; i++) {
 				strncpy(mask_arr, mask_ptr, 2);
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add_mask.ipv4[i] =
+				mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add_mask.ipv4[i] =
 									strtoul(mask_arr, &ret_ptr, 16);
 				if (mask_arr == ret_ptr)
 					return -EINVAL;
@@ -487,21 +482,21 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			}
 
 			pr_debug("IPv4 DA: %d.%d.%d.%d\n",
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0],
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[1],
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[2],
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[3]);
+				mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0],
+				mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[1],
+				mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[2],
+				mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[3]);
 			break;
 		case IPV4_PROTO_FIELD_ID:
 		case IPV6_NH_FIELD_ID:
 			if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_UDP) {
 				pr_debug("udp selected\n");
 				proto_flag = 1;
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_UDP;
+				mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_UDP;
 			} else if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_TCP) {
 				pr_debug("tcp selected\n");
 				proto_flag = 1;
-				c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_TCP;
+				mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_TCP;
 			}
 			break;
 		case IPV6_SA_FIELD_ID:
@@ -512,7 +507,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			}
 
 			rc = inet_pton(AF_INET6, (char *)rule->fields[idx1].key,
-				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[0]);
+				       &mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv6 SA\n");
 				return -EINVAL;
@@ -520,8 +515,8 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			pr_debug("IPv6 SA: ");
 			for (idx2 = 0; idx2 < 16; idx2 += 2) {
 				pr_info("%x%x",
-					c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[idx2],
-					c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[idx2 + 1]);
+					mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[idx2],
+					mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[idx2 + 1]);
 				if (idx2 < 14)
 					pr_info(":");
 				else
@@ -536,7 +531,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			}
 
 			rc = inet_pton(AF_INET6, (char *)rule->fields[idx1].key,
-				       &c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[0]);
+				       &mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[0]);
 			if (rc <= 0) {
 				pr_err("Unable to parse IPv6 DA\n");
 				return -EINVAL;
@@ -544,8 +539,8 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 			pr_debug("IPv6 DA: ");
 			for (idx2 = 0; idx2 < 16; idx2 += 2) {
 				pr_info("%x%x",
-					c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[idx2],
-					c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[idx2 + 1]);
+					mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[idx2],
+					mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[idx2 + 1]);
 				if (idx2 < 14)
 					pr_info(":");
 				else
@@ -558,8 +553,10 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			c3_entry.mng_pkt_key->pkt_key->l4_src =
+			mng_pkt_key->pkt_key->l4_src =
 				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+
+			pr_debug("L4_SRC_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_src);
 			break;
 		case L4_DST_FIELD_ID:
 			if (rule->fields[idx1].size != 2) {
@@ -567,59 +564,121 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 					rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			c3_entry.mng_pkt_key->pkt_key->l4_dst =
+			mng_pkt_key->pkt_key->l4_dst =
 				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+
+			pr_debug("L4_DST_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_dst);
 			break;
 		}
 	}
 
-	if ((match_bm == (MVPP2_MATCH_IP_SRC | MVPP2_MATCH_IP_DST | MVPP2_MATCH_L4_SRC | MVPP2_MATCH_L4_DST |
+	if ((field_bm == (MVPP2_MATCH_IP_SRC | MVPP2_MATCH_IP_DST | MVPP2_MATCH_L4_SRC | MVPP2_MATCH_L4_DST |
 			  MVPP2_MATCH_IPV4_PKT)) && (proto_flag))
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_IPV4_5T;
-	else if ((match_bm == (IPV6_SA_FIELD_ID | IPV6_DA_FIELD_ID | L4_SRC_FIELD_ID | L4_DST_FIELD_ID |
+		mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_IPV4_5T;
+	else if ((field_bm == (IPV6_SA_FIELD_ID | IPV6_DA_FIELD_ID | L4_SRC_FIELD_ID | L4_DST_FIELD_ID |
 		    MVPP2_MATCH_IPV6_PKT)) && (proto_flag))
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = MVPP2_MATCH_IPV6_5T;
+		mng_pkt_key->pkt_key->field_bm = MVPP2_MATCH_IPV6_5T;
 	else
-		c3_entry.mng_pkt_key->pkt_key->field_match_bm = match_bm;
+		mng_pkt_key->pkt_key->field_bm = field_bm;
 
-	pr_debug("match_bm: %x\n", c3_entry.mng_pkt_key->pkt_key->field_match_bm);
+	mng_pkt_key->pkt_key->field_bm_mask = mng_pkt_key->pkt_key->field_bm;
+
+	pr_debug("field_bm: %x\n", mng_pkt_key->pkt_key->field_bm);
 
 	if (ipv4_flag)
-		c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_ver = 4;
+		mng_pkt_key->pkt_key->ipvx_add.ip_ver = 4;
 	else if (ipv6_flag)
-		c3_entry.mng_pkt_key->pkt_key->ipvx_add.ip_ver = 6;
-
-	c3_entry.qos_info.policer_id = 0;
+		mng_pkt_key->pkt_key->ipvx_add.ip_ver = 6;
 
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
-		c3_entry.action.color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
+		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 	else
-		c3_entry.action.color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT;
-	c3_entry.action.policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
-	c3_entry.action.flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
-	c3_entry.action.frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
+		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT;
+	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
+	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
+	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
 
 	if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
-		c3_entry.action.q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
-		c3_entry.action.q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+		pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		queue = port->tc[action->cos->tc].tc_config.first_rxq;
-		c3_entry.qos_value.q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
-		c3_entry.qos_value.q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
-		pr_debug("q_low %d, q_high %d, queue %d, tc %d\n", c3_entry.qos_value.q_low,
-			c3_entry.qos_value.q_high, queue, action->cos->tc);
+		pkt_qos->q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
+		pkt_qos->q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
+		pr_debug("q_low %d, q_high %d, queue %d, tc %d\n", pkt_qos->q_low,
+			 pkt_qos->q_high, queue, action->cos->tc);
 	} else {
-		c3_entry.action.q_low_act = MVPP2_ACTION_TYPE_NO_UPDT;
-		c3_entry.action.q_high_act = MVPP2_ACTION_TYPE_NO_UPDT;
+		pkt_action->q_low_act = MVPP2_ACTION_TYPE_NO_UPDT;
+		pkt_action->q_high_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	}
 
-	pr_debug("cpu_slot: %p\n", (void *)port->cpu_slot);
-	/* add rule */
-	rc = pp2_cls_c3_rule_add(port->cpu_slot, &c3_entry, &logic_idx);
+	return 0;
+}
+
+int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_rule *rule,
+			 struct pp2_cls_tbl_action *action)
+{
+
+	struct pp2_cls_pkt_key_t pkt_key;
+	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
+	struct mv_pp2x_engine_pkt_action pkt_action;
+	struct mv_pp2x_qos_value pkt_qos;
+	struct mv_pp2x_src_port rule_port;
+	struct pp2_port *port;
+	u32 rc = 0, logic_idx;
+
+	/* init value */
+	MVPP2_MEMSET_ZERO(pkt_key);
+	MVPP2_MEMSET_ZERO(mng_pkt_key);
+	mng_pkt_key.pkt_key = &pkt_key;
+
+	port = params->default_act.cos->ppio->port;
+	rc = pp2_cls_set_rule_info(&mng_pkt_key, &pkt_action, &pkt_qos, &rule_port,
+				   params, rule, action, port);
 	if (rc) {
-		pr_err("fail to add C3 rule\n");
+		pr_err("%s(%d) setting pkt_mng params failed\n", __func__, __LINE__);
 		return rc;
 	}
-	pr_debug("Rule added in C3: logic_idx: %d\n", logic_idx);
+
+	if (params->type == PP2_CLS_TBL_MASKABLE) {
+		struct mv_pp2x_c2_add_entry c2_entry;
+
+		MVPP2_MEMSET_ZERO(c2_entry);
+		c2_entry.mng_pkt_key = &mng_pkt_key;
+		c2_entry.mng_pkt_key->pkt_key = &pkt_key;
+		c2_entry.lkp_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
+		memcpy(&c2_entry.port, &rule_port, sizeof(rule_port));
+		memcpy(&c2_entry.action, &pkt_action, sizeof(pkt_action));
+		memcpy(&c2_entry.qos_value, &pkt_qos, sizeof(pkt_qos));
+
+		/* add rule */
+		rc = pp2_cls_c2_rule_add(port->cpu_slot, &c2_entry, &logic_idx);
+		if (rc) {
+			pr_err("fail to add C2 rule\n");
+			return rc;
+		}
+		pr_debug("Rule added in C2: logic_idx: %d\n", logic_idx);
+	} else if (params->type == PP2_CLS_TBL_EXACT_MATCH) {
+		struct pp2_cls_c3_add_entry_t c3_entry;
+
+		MVPP2_MEMSET_ZERO(c3_entry);
+		c3_entry.mng_pkt_key = &mng_pkt_key;
+		c3_entry.mng_pkt_key->pkt_key = &pkt_key;
+		c3_entry.lkp_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
+		memcpy(&c3_entry.port, &rule_port, sizeof(rule_port));
+		memcpy(&c3_entry.action, &pkt_action, sizeof(pkt_action));
+		memcpy(&c3_entry.qos_value, &pkt_qos, sizeof(pkt_qos));
+
+		/* add rule */
+		rc = pp2_cls_c3_rule_add(port->cpu_slot, &c3_entry, &logic_idx);
+		if (rc) {
+			pr_err("fail to add C3 rule\n");
+			return rc;
+		}
+		pr_debug("Rule added in C3: logic_idx: %d\n", logic_idx);
+	} else {
+		pr_err("%s(%d) unknown engine type!\n", __func__, __LINE__);
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -630,6 +689,7 @@ void pp2_cls_mng_init(uintptr_t cpu_slot)
 		return;
 	pp2_cls_db_init();
 	pp2_cls_init(cpu_slot);
+	pp2_cls_c2_start(cpu_slot);
 	pp2_cls_c3_start(cpu_slot);
 	mng_state = MVPP2_MODULE_STARTED;
 }

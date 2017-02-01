@@ -246,14 +246,14 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 	memset(&field_info[0], 0, sizeof(struct pp2_cls_field_match_info) * MVPP2_FLOW_FIELD_COUNT_MAX);
 	memset(c3_hek, 0, MVPP2_C3_MAX_HASH_KEY_SIZE);
 
-	if (c3_entry->mng_pkt_key->pkt_key->field_match_bm == MVPP2_MATCH_IPV4_5T ||
-	    c3_entry->mng_pkt_key->pkt_key->field_match_bm == MVPP2_MATCH_IPV6_5T)
+	if (c3_entry->mng_pkt_key->pkt_key->field_bm == MVPP2_MATCH_IPV4_5T ||
+	    c3_entry->mng_pkt_key->pkt_key->field_bm == MVPP2_MATCH_IPV6_5T)
 		l4_info = false;
 	else
 		l4_info = true;
 
 	/* get field info */
-	rc = pp2_cls_field_bm_to_field_info(c3_entry->mng_pkt_key->pkt_key->field_match_bm, c3_entry->mng_pkt_key,
+	rc = pp2_cls_field_bm_to_field_info(c3_entry->mng_pkt_key->pkt_key->field_bm, c3_entry->mng_pkt_key,
 					    MVPP2_FLOW_FIELD_COUNT_MAX,	l4_info, field_info);
 
 	if (rc) {
@@ -475,8 +475,8 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 	pp2_cls_c3_sw_clear(hw_entry);
 
 	/* set L4 info  for NAPT 5-tupple */
-	if (mng_entry->mng_pkt_key->pkt_key->field_match_bm == MVPP2_MATCH_IPV4_5T ||
-	    mng_entry->mng_pkt_key->pkt_key->field_match_bm == MVPP2_MATCH_IPV6_5T) {
+	if (mng_entry->mng_pkt_key->pkt_key->field_bm == MVPP2_MATCH_IPV4_5T ||
+	    mng_entry->mng_pkt_key->pkt_key->field_bm == MVPP2_MATCH_IPV6_5T) {
 		if (mng_entry->mng_pkt_key->pkt_key->ipvx_add.ip_proto == IPPROTO_TCP)
 			l4_type = MVPP2_L4_TYPE_TCP;
 		else if (mng_entry->mng_pkt_key->pkt_key->ipvx_add.ip_proto == IPPROTO_UDP)
@@ -748,15 +748,15 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 
 	/* get field info */
 	memset(field_info, 0, sizeof(struct pp2_cls_field_match_info) * (MVPP2_FLOW_FIELD_COUNT_MAX + 1));
-	if (pp2_cls_field_bm_to_field_info(c3_entry->mng_pkt_key->pkt_key->field_match_bm, c3_entry->mng_pkt_key,
+	if (pp2_cls_field_bm_to_field_info(c3_entry->mng_pkt_key->pkt_key->field_bm, c3_entry->mng_pkt_key,
 					   MVPP2_FLOW_FIELD_COUNT_MAX + 1, false, field_info)) {
 		pr_err("Field info get failed\n");
 		return -EIO;
 	}
 
 	/* if not 5T, check field number -> if greater than 4 is invalid */
-	if ((c3_entry->mng_pkt_key->pkt_key->field_match_bm != MVPP2_MATCH_IPV4_5T) &&
-	    (c3_entry->mng_pkt_key->pkt_key->field_match_bm != MVPP2_MATCH_IPV6_5T) &&
+	if ((c3_entry->mng_pkt_key->pkt_key->field_bm != MVPP2_MATCH_IPV4_5T) &&
+	    (c3_entry->mng_pkt_key->pkt_key->field_bm != MVPP2_MATCH_IPV6_5T) &&
 	    (field_info[MVPP2_FLOW_FIELD_COUNT_MAX].valid == MVPP2_FIELD_VALID)) {
 		pr_err("At most 4 fileds are supported\n");
 		return -EIO;

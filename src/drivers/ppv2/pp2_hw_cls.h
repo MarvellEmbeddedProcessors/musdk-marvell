@@ -52,6 +52,7 @@
 #include "cls/pp2_cls_utils.h"
 #include "cls/pp2_flow_rules.h"
 #include "cls/pp2_c3.h"
+#include "cls/pp2_c2.h"
 #include "cls/pp2_cls_db.h"
 
 #define MV_ERROR		(-1)
@@ -220,6 +221,39 @@ int mv_pp2x_cls_hw_cls_enable(uintptr_t cpu_slot, uint32_t en);
 int mv_pp2x_cls_hw_lkp_dump(uintptr_t cpu_slot);
 int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot);
 u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value);
+
+/*-------------------------------------------------------------------------------*/
+/*	c2 Common utilities							  */
+/*-------------------------------------------------------------------------------*/
+int mv_pp2x_cls_c2_tcam_byte_set(struct mv_pp2x_cls_c2_entry *c2,
+				 unsigned int offs, unsigned char byte,
+				 unsigned char enable);
+int mv_pp2x_cls_c2_hw_inv(uintptr_t cpu_slot, int index);
+void mv_pp2x_cls_c2_hw_inv_all(uintptr_t cpu_slot);
+int mv_pp2x_c2_hw_dump(uintptr_t cpu_slot);
+int mv_pp2x_cls_c2_hw_read(uintptr_t cpu_slot, int index, struct mv_pp2x_cls_c2_entry *c2);
+int mv_pp2x_cls_c2_hw_write(uintptr_t cpu_slot, int index,
+			    struct mv_pp2x_cls_c2_entry *c2);
+int mv_pp2x_cls_c2_qos_tbl_set(struct mv_pp2x_cls_c2_entry *c2,
+			       int tbl_id, int tbl_sel);
+int mv_pp2x_cls_c2_prio_set(struct mv_pp2x_cls_c2_entry *c2, int cmd,
+			    int prio, int from);
+int mv_pp2x_cls_c2_color_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int from);
+int mv_pp2x_cls_c2_dscp_set(struct mv_pp2x_cls_c2_entry *c2,
+			    int cmd, int dscp, int from);
+int mv_pp2x_cls_c2_gpid_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int gpid, int from);
+int mv_pp2x_cls_c2_queue_low_set(struct mv_pp2x_cls_c2_entry *c2,
+				 int cmd, int queue, int from);
+int mv_pp2x_cls_c2_queue_high_set(struct mv_pp2x_cls_c2_entry *c2,
+				  int cmd, int queue, int from);
+int mv_pp2x_cls_c2_forward_set(struct mv_pp2x_cls_c2_entry *c2, int cmd);
+int mv_pp2x_cls_c2_policer_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int policer_id, int bank);
+int mv_pp2x_cls_c2_flow_id_en(struct mv_pp2x_cls_c2_entry *c2, int flow_id_en);
+int mv_pp2x_cls_c2_mod_set(struct mv_pp2x_cls_c2_entry *c2, int data_ptr, int instr_offs, int l4_csum);
+int mv_pp2x_cls_c2_dup_set(struct mv_pp2x_cls_c2_entry *c2, int dupid, int count);
+int mv_pp2x_cls_c2_seq_set(struct mv_pp2x_cls_c2_entry *c2, int miss, int id);
+void mv_pp2x_c2_sw_clear(struct mv_pp2x_cls_c2_entry *c2);
+int mv_pp2x_c2_hit_cntr_read(uintptr_t cpu_slot, int index, u32 *cntr);
 
 /*-------------------------------------------------------------------------------*/
 /*	C3 Common utilities							  */

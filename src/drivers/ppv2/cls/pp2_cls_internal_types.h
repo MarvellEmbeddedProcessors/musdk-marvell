@@ -41,8 +41,8 @@
 /***********************/
 /* h file declarations */
 /***********************/
-#ifndef _TPM_INTERNAL_TYPES_H_
-#define _TPM_INTERNAL_TYPES_H_
+#ifndef _PP2_CLS_INTERNAL_TYPES_H_
+#define _PP2_CLS_INTERNAL_TYPES_H_
 
 /********************************************************************************/
 /*			MACROS							*/
@@ -322,8 +322,8 @@ struct pp2_cls_mng_pkt_key_t {
 	u8				ttl;
 	u8				tcp_flag;
 	u8				tcp_flag_mask;
-	unsigned short			mh;
-	unsigned short			mh_mask;
+	u16				mh;
+	u16				mh_mask;
 };
 
 struct pp2_cls_mng_pkt_key_db_t {
@@ -332,17 +332,6 @@ struct pp2_cls_mng_pkt_key_db_t {
 	u8				tcp_flag;
 	u8				tcp_flag_mask;
 	u8				dummy;
-};
-
-struct pp2_cls_engine_pkt_mod_t {
-	u32	mod_cmd_idx;
-	u32	mod_data_idx;
-	u32	l4_chksum_update_flag;
-};
-
-struct pp2_cls_duplicate_t {
-	u32	flow_id;		/* pkt duplication flow id */
-	u32	flow_cnt;		/* pkt duplication count */
 };
 
 struct pp2_cls_field_int_value_t {
@@ -394,4 +383,13 @@ struct pp2_cls_seq_instr_info_t {
 	u32				bits_num;
 };
 
-#endif /* _MVPP2_INTERNAL_TYPES_H_ */
+struct pp2_cls_engine_sram_t {
+	struct mv_pp2x_engine_qos_info		qos_info;	/* C2 QoS table info            */
+	struct mv_pp2x_engine_pkt_action	action;		/* update&lock info		*/
+	struct mv_pp2x_qos_value		qos_value;	/* qLow/qHigh			*/
+	struct mv_pp2x_engine_pkt_mod		pkt_mod;	/* PMT cmd idx and data idx	*/
+	struct mv_pp2x_duplicate_info		dup_info;	/* pkt duplication flow info    */
+	struct pp2_cls_seq_instr_info_t		instr_info;
+};
+
+#endif /* _PP2_CLS_INTERNAL_TYPES_H_ */

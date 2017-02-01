@@ -38,6 +38,7 @@
 
 int register_cli_cls_cmds(uintptr_t cpu_slot);
 int register_cli_c3_cmds(uintptr_t cpu_slot);
+int register_cli_c2_cmds(uintptr_t cpu_slot);
 
 #endif /*__CLS_DBG_H__*/
 

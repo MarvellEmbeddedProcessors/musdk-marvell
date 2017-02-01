@@ -104,9 +104,7 @@ static u32 pp2_cls_field_size_array[CLS_FIELD_MAX] = {
 *	field_info  - corresponding field info array
 *
 * RETURNS:
-*	On success, the function returns MV_OK. On error different types are returned
-*	according to the case - see tpm_error_code_t.
-*
+*	0 on success, error-code otherwise
 * COMMENTS:
 *	NOTE: When update this routine, please obey the field sequence in packet.
 *******************************************************************************/

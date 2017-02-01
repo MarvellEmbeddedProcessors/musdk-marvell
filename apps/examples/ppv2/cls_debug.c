@@ -40,6 +40,7 @@
 #include "src/drivers/ppv2/cls/pp2_cls_types.h"
 #include "src/drivers/ppv2/cls/pp2_cls_internal_types.h"
 #include "src/drivers/ppv2/cls/pp2_c3.h"
+#include "src/drivers/ppv2/cls/pp2_c2.h"
 #include "src/drivers/ppv2/cls/pp2_flow_rules.h"
 #include "src/drivers/ppv2/cls/pp2_cls_db.h"
 #include "cls_debug.h"
@@ -244,6 +245,57 @@ int register_cli_c3_cmds(uintptr_t cpu_slot)
 	cmd_params.cmd_arg	= (void *)cpu_slot;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c3_type_entry_dump;
 	mvapp_register_cli_cmd(&cmd_params);
+
+	return 0;
+}
+
+int register_cli_c2_cmds(uintptr_t cpu_slot)
+{
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_c2_lkp_type_entry_dump";
+	cmd_params.desc		= "dump all entries with the lookup type";
+	cmd_params.format	= "--type  (no arguments)\n"
+				  "\t\t\t\t--type	(dec) lookup type number 0 - 64\n"
+				  "\t\t\t\tno arguments -> dumping all flows\n";
+	cmd_params.cmd_arg	= (void *)cpu_slot;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_lkp_type_entry_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_c2_free_tcam_dump";
+	cmd_params.desc		= "dump all free C2 TCAM entry index";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)cpu_slot;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_free_tcam_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_c2_valid_lkp_type_dump";
+	cmd_params.desc		= "dump valid C2 lookup type, with its TCAM index";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)cpu_slot;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_valid_lkp_type_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+#ifdef CLS_DEBUG
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_c2_rule_hw_dump";
+	cmd_params.desc		= "dump C2 entries";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)cpu_slot;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_hw_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_c2_rule_hw_hit_dump";
+	cmd_params.desc		= "dump C2 hits according";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)cpu_slot;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_hw_hit_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+#endif
 
 	return 0;
 }

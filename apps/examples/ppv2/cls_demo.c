@@ -43,6 +43,7 @@
 #include "src/drivers/ppv2/cls/pp2_cls_types.h"
 #include "src/drivers/ppv2/cls/pp2_cls_internal_types.h"
 #include "src/drivers/ppv2/cls/pp2_c3.h"
+#include "src/drivers/ppv2/cls/pp2_c2.h"
 #include "src/drivers/ppv2/cls/pp2_flow_rules.h"
 #include "src/drivers/ppv2/cls/pp2_cls_db.h"
 #include "cls_debug.h"
@@ -1598,6 +1599,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	register_cli_filter_cmds(garg);
 	register_cli_cls_cmds(garg->cpu_slot);
 	register_cli_c3_cmds(garg->cpu_slot);
+	register_cli_c2_cmds(garg->cpu_slot);
 
 	return 0;
 }

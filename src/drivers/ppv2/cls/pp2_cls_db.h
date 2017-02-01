@@ -58,6 +58,18 @@
 /*			STRUCTURES						*/
 /********************************************************************************/
 
+/* C2 module db structure */
+struct pp2_cls_db_c2_t {
+	/* info of each entry in C2 engine */
+	struct pp2_cls_c2_data_t c2_data_db[MVPP2_C2_ENTRY_MAX - MVPP2_C2_FIRST_ENTRY];
+	/* logic index and hw index of C2 entry */
+	struct pp2_cls_c2_index_t c2_index_db[MVPP2_C2_ENTRY_MAX - MVPP2_C2_FIRST_ENTRY];
+	/* header of list of the valid lookup_types */
+	struct list c2_lu_type_head_db[MVPP2_C2_LKP_TYPE_MAX];
+	/* header of free C2 entry list */
+	struct list c2_free_head_db;
+};
+
 /* C3 module db structure */
 struct pp2_cls_db_c3_t {
 	struct pp2_cls_c3_scan_config_t		scan_config;					/* scan config       */
@@ -112,6 +124,7 @@ struct pp2_cls_db_cls_t {
 
 struct pp2_cls_db_t {
 	enum pp2_cls_module_state_t	pp2_cls_module_init_state;	/* PP2_CLS module init state	*/
+	struct pp2_cls_db_c2_t	c2_db;			/* PP2_CLS module C2 db		*/
 	struct pp2_cls_db_c3_t	c3_db;			/* PP2_CLS module C3 db		*/
 	struct pp2_cls_db_cls_t	cls_db;			/* PP2_CLS module CLS db		*/
 };
@@ -122,6 +135,15 @@ struct pp2_cls_db_t {
 /* PP2_CLS init section */
 int pp2_cls_db_module_state_set(enum pp2_cls_module_state_t state);
 u32 pp2_cls_db_module_state_get(void);
+
+/* C2 section */
+struct list *pp2_cls_db_c2_lkp_type_list_head_get(u8 lkp_type);
+struct list *pp2_cls_db_c2_free_list_head_get(void);
+struct pp2_cls_c2_index_t *pp2_cls_db_c2_index_node_get(u32 c2_node_idx);
+int pp2_cls_db_c2_index_node_set(u32 c2_node_idx, struct pp2_cls_c2_index_t *c2_index_node);
+int pp2_cls_db_c2_data_get(u32 c2_db_idx, struct pp2_cls_c2_data_t *c2_data);
+int pp2_cls_db_c2_data_set(u32 c2_db_idx, struct pp2_cls_c2_data_t *c2_data);
+int pp2_cls_db_c2_init(void);
 
 /* C3 section */
 int pp2_cls_db_c3_free_logic_idx_get(u32 *logic_idx);

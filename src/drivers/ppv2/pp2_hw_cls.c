@@ -771,30 +771,30 @@ int mv_pp2x_cls_init(struct pp2_hw *hw)
 	return 0;
 }
 
-int mv_pp2x_cls_c2_hw_inv(struct pp2_hw *hw, int index)
+int mv_pp2x_cls_c2_hw_inv(uintptr_t cpu_slot, int index)
 {
-	if (!hw || index >= MVPP2_CLS_C2_TCAM_SIZE)
+	if (!cpu_slot || index >= MVPP2_CLS_C2_TCAM_SIZE)
 		return -EINVAL;
 
 	/* write index reg */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_IDX_REG, index);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_IDX_REG, index);
 
 	/* set invalid bit */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_INV_REG,
-		      (1 << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_INV_REG,
+		     (1 << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
 
 	/* trigger */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_DATA_REG(4), 0);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_DATA_REG(4), 0);
 
 	return 0;
 }
 
-void mv_pp2x_cls_c2_hw_inv_all(struct pp2_hw *hw)
+void mv_pp2x_cls_c2_hw_inv_all(uintptr_t cpu_slot)
 {
 	int index;
 
 	for (index = 0; index < MVPP2_CLS_C2_TCAM_SIZE; index++)
-		mv_pp2x_cls_c2_hw_inv(hw, index);
+		mv_pp2x_cls_c2_hw_inv(cpu_slot, index);
 }
 
 static void mv_pp2x_cls_c2_qos_hw_clear_all(struct pp2_hw *hw)
@@ -826,14 +826,15 @@ static void mv_pp2x_cls_c2_qos_hw_clear_all(struct pp2_hw *hw)
 int mv_pp2x_c2_init(struct pp2_hw *hw)
 {
 	int i;
+	uintptr_t cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
 
 	/* Invalid all C2 and QoS entries */
-	mv_pp2x_cls_c2_hw_inv_all(hw);
+	mv_pp2x_cls_c2_hw_inv_all(cpu_slot);
 
 	mv_pp2x_cls_c2_qos_hw_clear_all(hw);
 
 	/* Set CLSC2_TCAM_CTRL to enable C2, or C2 does not work */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG,
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_CTRL_REG,
 		      MVPP2_CLS2_TCAM_CTRL_EN_MASK);
 
 	/* Allocate mem for c2 shadow */
@@ -2839,6 +2840,33 @@ int mv_pp2x_cls_c2_dscp_set(struct mv_pp2x_cls_c2_entry *c2,
 	return 0;
 }
 
+int mv_pp2x_cls_c2_gpid_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int gpid, int from)
+{
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(cmd, 0,
+				   MVPP2_ACTION_TYPE_UPDT_LOCK) == MV_ERROR)
+		return MV_ERROR;
+	if (mv_pp2x_range_validate(gpid, 0,
+				   MVPP2_CLS2_ACT_QOS_ATTR_GEM_MAX) == MV_ERROR)
+		return MV_ERROR;
+	/*set command*/
+	c2->sram.regs.actions &= ~MVPP2_CLS2_ACT_GEM_MASK;
+	c2->sram.regs.actions |= (cmd << MVPP2_CLS2_ACT_GEM_OFF);
+
+	/*set modify DSCP value*/
+	c2->sram.regs.qos_attr &= ~MVPP2_CLS2_ACT_QOS_ATTR_GEM_MASK;
+	c2->sram.regs.qos_attr |= (gpid << MVPP2_CLS2_ACT_QOS_ATTR_GEM_OFF);
+
+	if (from == 1)
+		c2->sram.regs.action_tbl |= (1 << MVPP2_CLS2_ACT_DATA_TBL_GEM_ID_OFF);
+	else
+		c2->sram.regs.action_tbl &= ~(1 << MVPP2_CLS2_ACT_DATA_TBL_GEM_ID_OFF);
+
+	return 0;
+}
+
 int mv_pp2x_cls_c2_queue_low_set(struct mv_pp2x_cls_c2_entry *c2,
 				 int cmd, int queue, int from)
 {
@@ -2904,6 +2932,31 @@ int mv_pp2x_cls_c2_forward_set(struct mv_pp2x_cls_c2_entry *c2, int cmd)
 	return 0;
 }
 
+int mv_pp2x_cls_c2_policer_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int policer_id, int bank)
+{
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(cmd, 0,
+				   MVPP2_ACTION_TYPE_UPDT_LOCK) == MV_ERROR)
+		return MV_ERROR;
+	if (mv_pp2x_range_validate(policer_id, 0,
+				   MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MAX) == MV_ERROR)
+		return MV_ERROR;
+	c2->sram.regs.actions &= ~MVPP2_CLS2_ACT_PLCR_MASK;
+	c2->sram.regs.actions |= (cmd << MVPP2_CLS2_ACT_PLCR_OFF);
+
+	c2->sram.regs.rss_attr &= ~MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MASK;
+	c2->sram.regs.rss_attr |= (policer_id << MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_OFF);
+
+	if (bank)
+		c2->sram.regs.rss_attr |= MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_MASK;
+	else
+		c2->sram.regs.rss_attr &= ~MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_MASK;
+
+	return 0;
+}
+
 int mv_pp2x_cls_c2_rss_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int rss_en)
 {
 	if (!c2 || cmd > MVPP2_ACTION_TYPE_UPDT_LOCK || rss_en >=
@@ -2919,7 +2972,7 @@ int mv_pp2x_cls_c2_rss_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int rss_en)
 	return 0;
 }
 
-int mv_pp2x_cls_c2_FLOWID_en(struct mv_pp2x_cls_c2_entry *c2, int flow_id_en)
+int mv_pp2x_cls_c2_flow_id_en(struct mv_pp2x_cls_c2_entry *c2, int flow_id_en)
 {
 	if (!c2)
 		return -EINVAL;
@@ -2929,6 +2982,73 @@ int mv_pp2x_cls_c2_FLOWID_en(struct mv_pp2x_cls_c2_entry *c2, int flow_id_en)
 		c2->sram.regs.actions |= (1 << MVPP2_CLS2_ACT_FLD_EN_OFF);
 	else
 		c2->sram.regs.actions &= ~(1 << MVPP2_CLS2_ACT_FLD_EN_OFF);
+
+	return 0;
+}
+
+int mv_pp2x_cls_c2_mod_set(struct mv_pp2x_cls_c2_entry *c2, int data_ptr, int instr_offs, int l4_csum)
+{
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(data_ptr, 0,
+				   MVPP2_CLS2_ACT_HWF_ATTR_DPTR_MAX) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(instr_offs, 0,
+				   MVPP2_CLS2_ACT_HWF_ATTR_IPTR_MAX) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(l4_csum, 0, 1) == MV_ERROR)
+		return MV_ERROR;
+
+	c2->sram.regs.hwf_attr &= ~MVPP2_CLS2_ACT_HWF_ATTR_DPTR_MASK;
+	c2->sram.regs.hwf_attr &= ~MVPP2_CLS2_ACT_HWF_ATTR_IPTR_MASK;
+	c2->sram.regs.hwf_attr &= ~MVPP2_CLS2_ACT_HWF_ATTR_L4CHK_MASK;
+
+	c2->sram.regs.hwf_attr |= (data_ptr << MVPP2_CLS2_ACT_HWF_ATTR_DPTR_OFF);
+	c2->sram.regs.hwf_attr |= (instr_offs << MVPP2_CLS2_ACT_HWF_ATTR_IPTR_OFF);
+	c2->sram.regs.hwf_attr |= (l4_csum << MVPP2_CLS2_ACT_HWF_ATTR_L4CHK_OFF);
+
+	return 0;
+}
+
+
+int mv_pp2x_cls_c2_dup_set(struct mv_pp2x_cls_c2_entry *c2, int dupid, int count)
+{
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(count, 0,
+				   MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_MAX) == MV_ERROR)
+		return MV_ERROR;
+	if (mv_pp2x_range_validate(dupid, 0,
+				   MVPP2_CLS2_ACT_DUP_ATTR_DUPID_MAX) == MV_ERROR)
+		return MV_ERROR;
+
+	/*set flowid and count*/
+	c2->sram.regs.rss_attr &= ~(MVPP2_CLS2_ACT_DUP_ATTR_DUPID_MASK | MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_MASK);
+	c2->sram.regs.rss_attr |= (dupid << MVPP2_CLS2_ACT_DUP_ATTR_DUPID_OFF);
+	c2->sram.regs.rss_attr |= (count << MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_OFF);
+
+	return 0;
+}
+
+int mv_pp2x_cls_c2_seq_set(struct mv_pp2x_cls_c2_entry *c2, int miss, int id)
+{
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(miss, 0,
+				   1) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(id, 0,
+				   MVPP21_CLS2_ACT_SEQ_ATTR_ID_MAX) == MV_ERROR)
+		return MV_ERROR;
+
+	c2->sram.regs.seq_attr = 0;
+	c2->sram.regs.seq_attr = ((id << MVPP21_CLS2_ACT_SEQ_ATTR_ID) | (miss << MVPP21_CLS2_ACT_SEQ_ATTR_MISS_OFF));
 
 	return 0;
 }
@@ -2946,8 +3066,30 @@ int mv_pp2x_cls_c2_tcam_byte_set(struct mv_pp2x_cls_c2_entry *c2,
 	return 0;
 }
 
+int mv_pp2x_cls_c2_tcam_byte_get(struct mv_pp2x_cls_c2_entry *c2,
+				unsigned int offs, unsigned char *byte,
+				unsigned char *enable)
+{
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(byte) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(enable) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(offs, 0, 8) == MV_ERROR)
+		return MV_ERROR;
+
+	*byte = c2->tcam.bytes[TCAM_DATA_BYTE(offs)];
+	*enable = c2->tcam.bytes[TCAM_DATA_MASK(offs)];
+
+	return 0;
+}
+
 /* C2 rule and Qos table */
-int mv_pp2x_cls_c2_hw_write(struct pp2_hw *hw, int index,
+int mv_pp2x_cls_c2_hw_write(uintptr_t cpu_slot, int index,
 			    struct mv_pp2x_cls_c2_entry *c2)
 {
 	int tcm_idx;
@@ -2958,40 +3100,78 @@ int mv_pp2x_cls_c2_hw_write(struct pp2_hw *hw, int index,
 	c2->index = index;
 
 	/* write index reg */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_IDX_REG, index);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_IDX_REG, index);
 
 	/* write valid bit */
 	c2->inv = 0;
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_INV_REG,
-		      ((c2->inv) << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_INV_REG,
+		     ((c2->inv) << MVPP2_CLS2_TCAM_INV_INVALID_OFF));
 
 	for (tcm_idx = 0; tcm_idx < MVPP2_CLS_C2_TCAM_WORDS; tcm_idx++)
-		pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_DATA_REG(tcm_idx),
-			      c2->tcam.words[tcm_idx]);
+		pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_DATA_REG(tcm_idx),
+			     c2->tcam.words[tcm_idx]);
 
 	/* write action_tbl CLSC2_ACT_DATA */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_DATA_REG,
-		      c2->sram.regs.action_tbl);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_ACT_DATA_REG,
+		     c2->sram.regs.action_tbl);
 
 	/* write actions CLSC2_ACT */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_REG, c2->sram.regs.actions);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_ACT_REG, c2->sram.regs.actions);
 
 	/* write qos_attr CLSC2_ATTR0 */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_QOS_ATTR_REG,
-		      c2->sram.regs.qos_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_ACT_QOS_ATTR_REG,
+		     c2->sram.regs.qos_attr);
 
 	/* write hwf_attr CLSC2_ATTR1 */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_HWF_ATTR_REG,
-		      c2->sram.regs.hwf_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_ACT_HWF_ATTR_REG,
+		     c2->sram.regs.hwf_attr);
 
 	/* write rss_attr CLSC2_ATTR2 */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_DUP_ATTR_REG,
-		      c2->sram.regs.rss_attr);
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_ACT_DUP_ATTR_REG,
+		     c2->sram.regs.rss_attr);
 
 	return 0;
 }
 
-static int mv_pp2x_c2_tcam_set(struct pp2_hw *hw,
+/*
+ * note: error is not returned if entry is invalid
+ * user should check c2->valid afer returned from this func
+ */
+int mv_pp2x_cls_c2_hw_read(uintptr_t cpu_slot, int index, struct mv_pp2x_cls_c2_entry *c2)
+{
+	unsigned int reg_val = 0;
+	int tcm_idx;
+
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	c2->index = index;
+
+	/* write index reg */
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_IDX_REG, index);
+
+	/* read invalid bit */
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS2_TCAM_INV_REG);
+
+	c2->inv = (reg_val & MVPP2_CLS2_TCAM_INV_INVALID_MASK) >> MVPP2_CLS2_TCAM_INV_INVALID_OFF;
+
+	if (c2->inv)
+		return 0;
+
+	for (tcm_idx = 0; tcm_idx < MVPP2_CLS_C2_TCAM_WORDS; tcm_idx++)
+		c2->tcam.words[tcm_idx] = pp2_reg_read(cpu_slot, MVPP2_CLS2_TCAM_DATA_REG(tcm_idx));
+
+	c2->sram.regs.action_tbl = pp2_reg_read(cpu_slot, MVPP2_CLS2_ACT_DATA_REG);
+	c2->sram.regs.actions = pp2_reg_read(cpu_slot, MVPP2_CLS2_ACT_REG);
+	c2->sram.regs.qos_attr = pp2_reg_read(cpu_slot, MVPP2_CLS2_ACT_QOS_ATTR_REG);
+	c2->sram.regs.hwf_attr = pp2_reg_read(cpu_slot, MVPP2_CLS2_ACT_HWF_ATTR_REG);
+	c2->sram.regs.rss_attr = pp2_reg_read(cpu_slot, MVPP2_CLS2_ACT_DUP_ATTR_REG);
+	c2->sram.regs.seq_attr = pp2_reg_read(cpu_slot, MVPP21_CLS2_ACT_SEQ_ATTR_REG);
+
+	return 0;
+}
+
+static int mv_pp2x_c2_tcam_set(uintptr_t cpu_slot,
 			       struct mv_pp2x_c2_add_entry *c2_add_entry,
 			       unsigned int c2_hw_idx)
 {
@@ -3001,7 +3181,7 @@ static int mv_pp2x_c2_tcam_set(struct pp2_hw *hw,
 	unsigned char hek_byte[MVPP2_CLS_C2_HEK_OFF_MAX],
 	    hek_byte_mask[MVPP2_CLS_C2_HEK_OFF_MAX];
 
-	if (!c2_add_entry || !hw || c2_hw_idx >= MVPP2_CLS_C2_TCAM_SIZE)
+	if (!c2_add_entry || !cpu_slot || c2_hw_idx >= MVPP2_CLS_C2_TCAM_SIZE)
 		return -EINVAL;
 
 	/* Clear C2 sw data */
@@ -3072,7 +3252,7 @@ static int mv_pp2x_c2_tcam_set(struct pp2_hw *hw,
 		return ret_code;
 
 	/* Set flow_id(not for multicast) */
-	ret_code = mv_pp2x_cls_c2_FLOWID_en(&c2_entry,
+	ret_code = mv_pp2x_cls_c2_flow_id_en(&c2_entry,
 					    c2_add_entry->action.flowid_act);
 	if (ret_code)
 		return ret_code;
@@ -3107,7 +3287,7 @@ static int mv_pp2x_c2_tcam_set(struct pp2_hw *hw,
 	}
 
 	/* Write C2 entry data to HW */
-	ret_code = mv_pp2x_cls_c2_hw_write(hw, c2_hw_idx, &c2_entry);
+	ret_code = mv_pp2x_cls_c2_hw_write(cpu_slot, c2_hw_idx, &c2_entry);
 	if (ret_code)
 		return ret_code;
 
@@ -3120,6 +3300,8 @@ static int mv_pp2x_c2_rule_add(struct pp2_port *port,
 	int ret, lkp_type, c2_index = 0;
 	bool first_free_update = false;
 	struct mv_pp2x_c2_rule_idx *rule_idx;
+	uintptr_t cpu_slot;
+	struct pp2_hw *hw;
 
 	rule_idx = &port->parent->hw.c2_shadow->rule_idx_info[port->id];
 
@@ -3160,8 +3342,11 @@ static int mv_pp2x_c2_rule_add(struct pp2_port *port,
 		return -EINVAL;
 	}
 
+	hw = &port->parent->hw;
+	cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
+
 	/* Write C2 TCAM HW */
-	ret = mv_pp2x_c2_tcam_set(&port->parent->hw, c2_add_entry, c2_index);
+	ret = mv_pp2x_c2_tcam_set(cpu_slot, c2_add_entry, c2_index);
 	if (ret)
 		return ret;
 
@@ -3177,6 +3362,232 @@ static int mv_pp2x_c2_rule_add(struct pp2_port *port,
 	else if (lkp_type == MVPP2_CLS_LKP_DEFAULT)
 		rule_idx->default_rule_idx = c2_index;
 
+	return 0;
+}
+
+
+int mv_pp2x_c2_hit_cntr_read(uintptr_t cpu_slot, int index, u32 *cntr)
+{
+	u32 value = 0;
+
+	/* write index reg */
+	pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_IDX_REG, index);
+
+	value = pp2_reg_read(cpu_slot, MVPP2_CLS2_HIT_CTR_REG);
+
+	if (cntr)
+		*cntr = value;
+	else
+		pr_info("INDEX: 0x%8.8X	VAL: 0x%8.8X\n", index, value);
+
+	return MV_OK;
+}
+
+void mv_pp2x_c2_sw_clear(struct mv_pp2x_cls_c2_entry *c2)
+{
+	memset(c2, 0, sizeof(struct mv_pp2x_cls_c2_entry));
+}
+
+int mv_pp2x_c2_sw_words_dump(struct mv_pp2x_cls_c2_entry *c2)
+{
+	int i;
+
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	/* TODO check size */
+	/* hw entry id */
+	printf("[0x%3.3x] ", c2->index);
+
+	i = MVPP2_CLS_C2_TCAM_WORDS - 1;
+
+	while (i >= 0)
+		printf("%4.4x ", (c2->tcam.words[i--]) & 0xFFFF);
+
+	/* tcam inValid bit */
+	printf("\n%s\n\t", (c2->inv == 1) ? "[inv]" : "[valid]");
+
+	i = MVPP2_CLS_C2_TCAM_WORDS - 1;
+
+	while (i >= 0)
+		printf("%4.4x ", ((c2->tcam.words[i--] >> 16)  & 0xFFFF));
+
+	printf("\n");
+
+	return 0;
+}
+
+int mv_pp2x_c2_sw_dump(struct mv_pp2x_cls_c2_entry *c2)
+{
+	int id, sel, type, gemid, low_q, high_q, color, value;
+
+	if (mv_pp2x_ptr_validate(c2) == MV_ERROR)
+		return MV_ERROR;
+
+	mv_pp2x_c2_sw_words_dump(c2);
+
+	printf("\n");
+
+	/*------------------------------*/
+	/*	action_tbl 0x1B30	*/
+	/*------------------------------*/
+
+	id = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_ID_MASK)) >>
+	       MVPP2_CLS2_ACT_DATA_TBL_ID_OFF);
+	sel = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_SEL_MASK)) >>
+		MVPP2_CLS2_ACT_DATA_TBL_SEL_OFF);
+	type = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_PRI_DSCP_MASK)) >>
+		 MVPP2_CLS2_ACT_DATA_TBL_PRI_DSCP_OFF);
+	gemid = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_GEM_ID_MASK)) >>
+		  MVPP2_CLS2_ACT_DATA_TBL_GEM_ID_OFF);
+	low_q = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_LOW_Q_MASK)) >>
+		  MVPP2_CLS2_ACT_DATA_TBL_LOW_Q_OFF);
+	high_q = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_HIGH_Q_MASK)) >>
+		   MVPP2_CLS2_ACT_DATA_TBL_HIGH_Q_OFF);
+	color = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_COLOR_MASK)) >>
+		  MVPP2_CLS2_ACT_DATA_TBL_COLOR_OFF);
+
+	printf("FROM_QOS_%s_TBL[%2.2d]:  ", sel ? "DSCP" : "PRI", id);
+	type ? printf("%s	", sel ? "DSCP" : "PRIO") : 0;
+	color ? printf("COLOR	") : 0;
+	gemid ? printf("GEMID	") : 0;
+	low_q ? printf("LOW_Q	") : 0;
+	high_q ? printf("HIGH_Q	") : 0;
+	printf("\n");
+
+	printf("FROM_ACT_TBL:		");
+	(type == 0) ? printf("%s	", sel ? "DSCP" : "PRI") : 0;
+	(gemid == 0) ? printf("GEMID	") : 0;
+	(low_q == 0) ? printf("LOW_Q	") : 0;
+	(high_q == 0) ? printf("HIGH_Q	") : 0;
+	(color == 0) ? printf("COLOR	") : 0;
+	printf("\n\n");
+
+	/*------------------------------*/
+	/*	actions 0x1B60		*/
+	/*------------------------------*/
+
+	printf("ACT_CMD:		COLOR	PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	FWD	POLICER	FID\n");
+	printf("			");
+
+	printf("%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t",
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_COLOR_MASK) >> MVPP2_CLS2_ACT_COLOR_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_PRI_MASK) >> MVPP2_CLS2_ACT_PRI_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_DSCP_MASK) >> MVPP2_CLS2_ACT_DSCP_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_GEM_MASK) >> MVPP2_CLS2_ACT_GEM_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_QL_MASK) >> MVPP2_CLS2_ACT_QL_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_QH_MASK) >> MVPP2_CLS2_ACT_QH_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_FRWD_MASK) >> MVPP2_CLS2_ACT_FRWD_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_PLCR_MASK) >> MVPP2_CLS2_ACT_PLCR_OFF),
+			((c2->sram.regs.actions & MVPP2_CLS2_ACT_FLD_EN_MASK) >> MVPP2_CLS2_ACT_FLD_EN_OFF));
+	printf("\n\n");
+
+
+	/*------------------------------*/
+	/*	qos_attr 0x1B64		*/
+	/*------------------------------*/
+	printf("ACT_ATTR:		PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	QUEUE\n");
+	printf("		");
+	/* modify priority */
+	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_PRI_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_PRI_OFF);
+	printf("	%1.1d\t", value);
+
+	/* modify dscp */
+	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_DSCP_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_DSCP_OFF);
+	printf("0x%2.2x\t", value);
+
+	/* modify gemportid */
+	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_GEM_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_GEM_OFF);
+	printf("0x%4.4x\t", value);
+
+	/* modify low Q */
+	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_QL_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_OFF);
+	printf("0x%1.1x\t", value);
+
+	/* modify high Q */
+	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_QH_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_QH_OFF);
+	printf("0x%2.2x\t", value);
+
+	/*modify queue*/
+	value = ((c2->sram.regs.qos_attr & (MVPP2_CLS2_ACT_QOS_ATTR_QL_MASK | MVPP2_CLS2_ACT_QOS_ATTR_QH_MASK)));
+	value >>= MVPP2_CLS2_ACT_QOS_ATTR_QL_OFF;
+
+	printf("0x%2.2x\t", value);
+	printf("\n\n");
+
+	/*------------------------------*/
+	/*	hwf_attr 0x1B68		*/
+	/*------------------------------*/
+	printf("HWF_ATTR:		IPTR	DPTR	CHKSM   MTU_IDX\n");
+	printf("			");
+
+	/* HWF modification instraction pointer */
+	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_DPTR_MASK) >>
+		     MVPP2_CLS2_ACT_HWF_ATTR_DPTR_OFF);
+	printf("0x%1.1x\t", value);
+
+	/* HWF modification data pointer */
+	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_IPTR_MASK) >>
+		     MVPP2_CLS2_ACT_HWF_ATTR_IPTR_OFF);
+	printf("0x%4.4x\t", value);
+
+	/* HWF modification instraction pointer */
+	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_L4CHK_MASK) >>
+		     MVPP2_CLS2_ACT_HWF_ATTR_L4CHK_OFF);
+	printf("%s\t", value ? "ENABLE " : "DISABLE");
+
+	/* mtu index */
+	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_MTUIDX_MASK) >>
+		     MVPP2_CLS2_ACT_HWF_ATTR_MTUIDX_OFF);
+	printf("0x%1.1x\t", value);
+	printf("\n\n");
+
+	/*------------------------------*/
+	/*	rss_attr 0x1B6C		*/
+	/*------------------------------*/
+	printf("RSS_ATTR:		FID	COUNT	POLICER [id    bank]\n");
+	printf("			0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\n",
+	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPID_OFF),
+	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_OFF),
+	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_OFF),
+	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_OFF));
+	printf("\n");
+	/*------------------------------*/
+	/*	seq_attr 0x1B70		*/
+	/*------------------------------*/
+	/*PPv2.1 new feature MAS 3.14*/
+	printf("SEQ_ATTR:		ID	MISS\n");
+	printf("			0x%2.2x    0x%2.2x\n",
+	      ((c2->sram.regs.seq_attr & MVPP21_CLS2_ACT_SEQ_ATTR_ID_MASK) >> MVPP21_CLS2_ACT_SEQ_ATTR_ID),
+	      ((c2->sram.regs.seq_attr & MVPP21_CLS2_ACT_SEQ_ATTR_MISS_MASK) >> MVPP21_CLS2_ACT_SEQ_ATTR_MISS_OFF));
+
+	printf("\n\n");
+
+
+	return 0;
+}
+
+int mv_pp2x_c2_hw_dump(uintptr_t cpu_slot)
+{
+	int index;
+	int c2_status;
+	struct mv_pp2x_cls_c2_entry c2;
+
+	c2_status = pp2_reg_read(cpu_slot, MVPP2_CLS2_TCAM_CTRL_REG);
+	if (c2_status)
+		pr_info("c2 is running\n");
+	else {
+		pr_info("c2 is off\n");
+		return -EINVAL;
+	}
+
+	mv_pp2x_c2_sw_clear(&c2);
+
+	for (index = 0; index < MVPP2_CLS_C2_TCAM_SIZE; index++) {
+		mv_pp2x_cls_c2_hw_read(cpu_slot, index, &c2);
+		if (c2.inv == 0)
+			mv_pp2x_c2_sw_dump(&c2);
+	}
 	return 0;
 }
 

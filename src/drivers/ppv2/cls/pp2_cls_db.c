@@ -60,12 +60,8 @@ static struct pp2_cls_db_t *g_pp2_cls_db;
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_error_code_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 static int pp2_cls_db_mem_alloc_init(void)
 {
@@ -95,12 +91,8 @@ fail1:
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_error_code_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 static int pp2_cls_db_mem_free(void)
 {
@@ -120,12 +112,8 @@ static int pp2_cls_db_mem_free(void)
 * OUTPUTS:
 *	None.
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_error_code_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_module_state_set(enum pp2_cls_module_state_t state)
 {
@@ -152,9 +140,6 @@ int pp2_cls_db_module_state_set(enum pp2_cls_module_state_t state)
 *
 * RETURNS:
 *	PP2_CLS module init state
-*
-* COMMENTS:
-*	None
 *******************************************************************************/
 u32 pp2_cls_db_module_state_get(void)
 {
@@ -172,9 +157,8 @@ u32 pp2_cls_db_module_state_get(void)
 * OUTPUTS:
 *	logic_idx - logical index
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_free_logic_idx_get(u32 *logic_idx)
 {
@@ -211,9 +195,8 @@ int pp2_cls_db_c3_free_logic_idx_get(u32 *logic_idx)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_entry_add(u32 logic_idx, u32 hash_idx)
 {
@@ -245,9 +228,8 @@ int pp2_cls_db_c3_entry_add(u32 logic_idx, u32 hash_idx)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_entry_del(int logic_idx)
 {
@@ -290,9 +272,8 @@ int pp2_cls_db_c3_entry_del(int logic_idx)
 * OUTPUTS:
 *	hash_idx  - multihash index
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_hash_idx_get(u32 logic_idx, u32 *hash_idx)
 {
@@ -326,9 +307,8 @@ int pp2_cls_db_c3_hash_idx_get(u32 logic_idx, u32 *hash_idx)
 * OUTPUTS:
 *	logic_idx - logical index
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_logic_idx_get(int hash_idx, int *logic_idx)
 {
@@ -363,9 +343,8 @@ int pp2_cls_db_c3_logic_idx_get(int hash_idx, int *logic_idx)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr)
 {
@@ -428,9 +407,8 @@ int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_scan_param_set(struct pp2_cls_c3_scan_config_t *scan_config)
 {
@@ -456,9 +434,8 @@ int pp2_cls_db_c3_scan_param_set(struct pp2_cls_c3_scan_config_t *scan_config)
 * OUTPUTS:
 *	can_config  - scan configuration parameters
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_scan_param_get(struct pp2_cls_c3_scan_config_t *scan_config)
 {
@@ -484,9 +461,8 @@ int pp2_cls_db_c3_scan_param_get(struct pp2_cls_c3_scan_config_t *scan_config)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_search_depth_set(u32 search_depth)
 {
@@ -505,9 +481,8 @@ int pp2_cls_db_c3_search_depth_set(u32 search_depth)
 * OUTPUTS:
 *	search_depth  - cuckoo search depth
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_search_depth_get(u32 *search_depth)
 {
@@ -530,9 +505,8 @@ int pp2_cls_db_c3_search_depth_get(u32 *search_depth)
 * OUTPUTS:
 *	None.
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_error_code_t.
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_c3_init(void)
 {
@@ -564,12 +538,8 @@ int pp2_cls_db_c3_init(void)
 * OUTPUTS:
 *	None.
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
-*
-* COMMENTS:
-*
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_init(void)
 {
@@ -604,12 +574,8 @@ int pp2_cls_db_init(void)
 * OUTPUTS:
 *	None.
 *
-* RETURNS:
-*	On success, the function returns PP2_CLS_OK. On error different types are returned
-*	according to the case - see pp2_cls_db_err_t.
-*
-* COMMENTS:
-*
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_cls_db_exit(void)
 {
@@ -635,12 +601,8 @@ int pp2_cls_db_exit(void)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns TPM_OK. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 {
@@ -665,12 +627,8 @@ int pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 * OUTPUTS:
 *	fl_ctrl - flow control structure
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 {
@@ -696,12 +654,8 @@ int pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_fl_rule_set(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 {
@@ -730,12 +684,8 @@ int pp2_db_cls_fl_rule_set(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 * OUTPUTS:
 *	fl_rule - the flow the rule is in
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_fl_rule_get(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 {
@@ -765,12 +715,8 @@ int pp2_db_cls_fl_rule_get(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 * OUTPUTS:
 *	fl_rl_list - the flow the rules are in
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
 				struct pp2_db_cls_fl_rule_t *fl_rl_list)
@@ -804,12 +750,8 @@ int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_lkp_dcod_set(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
@@ -839,12 +781,8 @@ int pp2_db_cls_lkp_dcod_set(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dco
 * OUTPUTS:
 *	lkp_dcod - the lookup decode entry structure
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_lkp_dcod_get(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
@@ -873,12 +811,8 @@ int pp2_db_cls_lkp_dcod_get(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dco
 * OUTPUTS:
 *	lkp_dcod - the lookup decode entry structure
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
@@ -922,12 +856,8 @@ int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp
 * OUTPUTS:
 *	free_nr - number of free logical rule entries
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_rl_off_free_nr(u32 *free_nr)
 {
@@ -952,12 +882,8 @@ int pp2_db_cls_rl_off_free_nr(u32 *free_nr)
 * OUTPUTS:
 *	log - the new logical rule number
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_rl_off_free_set(u16 off, u16 *log)
 {
@@ -994,12 +920,8 @@ int pp2_db_cls_rl_off_free_set(u16 off, u16 *log)
 * OUTPUTS:
 *	off - the offset the rule is at
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_rl_off_get(u16 *off, u16 log)
 {
@@ -1033,12 +955,8 @@ int pp2_db_cls_rl_off_get(u16 *off, u16 log)
 * OUTPUTS:
 *	None
 *
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_db_error_t.
-*
-* COMMENTS:
-*	None
+* RETURN:
+*	0 on success, error-code otherwise
 *******************************************************************************/
 int pp2_db_cls_rl_off_set(u16 off, u16 log)
 {
@@ -1056,17 +974,6 @@ int pp2_db_cls_rl_off_set(u16 off, u16 log)
 *
 * DESCRIPTION: The routine initializes the CLS DBs
 *
-* INPUTS:
-*	None
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	None
-*
-* COMMENTS:
-*	None
 *******************************************************************************/
 void pp2_db_cls_init(void)
 {
@@ -1084,3 +991,212 @@ void pp2_db_cls_init(void)
 
 	g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF] = MVPP2_CLS_LOG2OFF_START;
 }
+
+
+/*******************************************************************************
+* pp2_cls_db_c2_lkp_type_list_head_get()
+*
+* DESCRIPTION: Get the head of the lookup type list.
+*
+* INPUTS:
+*          lkp_type  - C2 lookup type
+*
+* OUTPUTS: None.
+*
+* RETURNS:
+*          The head pointer of list.
+*
+*******************************************************************************/
+struct list *pp2_cls_db_c2_lkp_type_list_head_get(u8 lkp_type)
+{
+	return &g_pp2_cls_db->c2_db.c2_lu_type_head_db[lkp_type];
+}
+
+/*******************************************************************************
+* pp2_cls_db_c2_free_list_head_get()
+*
+* DESCRIPTION: Get the head of free list.
+*
+* INPUTS:
+*          None.
+*
+* OUTPUTS: None.
+*
+* RETURNS:
+*          The head pointer of list.
+*
+*******************************************************************************/
+struct list *pp2_cls_db_c2_free_list_head_get(void)
+{
+	return &g_pp2_cls_db->c2_db.c2_free_head_db;
+}
+
+/*******************************************************************************
+* pp2_cls_db_c2_index_node_get()
+*
+* DESCRIPTION: Get the index node in the list according to their db index.
+*
+* INPUTS:
+*          c2_node_idx  - the db index of C2 index node.
+*
+* OUTPUTS: None.
+*
+* RETURNS:
+*          The node pointer.
+*
+*******************************************************************************/
+struct pp2_cls_c2_index_t *pp2_cls_db_c2_index_node_get(u32 c2_node_idx)
+{
+	/* Para check */
+	if (c2_node_idx >= MVPP2_C2_ENTRY_MAX) {
+		pr_err("Invalid parameter\n");
+		return NULL;
+	}
+	return &g_pp2_cls_db->c2_db.c2_index_db[c2_node_idx];
+}
+
+/*******************************************************************************
+* pp2_cls_db_c2_index_node_set()
+*
+* DESCRIPTION: Set the index node in the list according to their db index.
+*
+* INPUTS:
+*          c2_node_idx   - the db index of C2 index node.
+*          c2_index_node - the new value of the node to set.
+*
+* OUTPUTS: None.
+*
+* RETURN:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+int pp2_cls_db_c2_index_node_set(u32 c2_node_idx,
+			     struct pp2_cls_c2_index_t *c2_index_node)
+{
+	/* Param check */
+	if (c2_node_idx >= MVPP2_C2_ENTRY_MAX) {
+		pr_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	if (!c2_index_node) {
+		pr_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	memcpy(&g_pp2_cls_db->c2_db.c2_index_db[c2_node_idx], c2_index_node, sizeof(struct pp2_cls_c2_index_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_cls_db_c2_data_get()
+*
+* DESCRIPTION: Get the C2 entry data from DB according to their db index.
+*
+* INPUTS:
+*          c2_node_idx   - the db index of C2 entry data.
+*
+* OUTPUTS:
+*          c2_data       - C2 entry data.
+*
+* RETURN:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+int pp2_cls_db_c2_data_get(u32 c2_db_idx,
+		       struct pp2_cls_c2_data_t *c2_data)
+{
+	/* Param check */
+	if (c2_db_idx > MVPP2_C2_LAST_ENTRY) {
+		pr_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	if (!c2_data) {
+		pr_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	memcpy(c2_data, &g_pp2_cls_db->c2_db.c2_data_db[c2_db_idx], sizeof(struct pp2_cls_c2_data_t));
+
+	return 0;
+}
+
+/*******************************************************************************
+* pp2_cls_db_c2_data_set()
+*
+* DESCRIPTION: Set the C2 entry data to DB according to their allocated db index.
+*
+* INPUTS:
+*          c2_node_idx   - the db index of C2 entry data.
+*          c2_data       - C2 entry data.
+*
+* OUTPUTS:
+*          None.
+*
+* RETURN:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+int pp2_cls_db_c2_data_set(u32 c2_db_idx,
+		       struct pp2_cls_c2_data_t *c2_data)
+{
+	/* Param check */
+	if (c2_db_idx > MVPP2_C2_LAST_ENTRY) {
+		pr_err("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	if (!c2_data) {
+		pr_err("%s: null pointer\n", __func__);
+		return -EFAULT;
+	}
+
+	memcpy(&g_pp2_cls_db->c2_db.c2_data_db[c2_db_idx], c2_data, sizeof(struct pp2_cls_c2_data_t));
+
+	return 0;
+}
+
+
+/*******************************************************************************
+* pp2_cls_db_c2_init()
+*
+* DESCRIPTION: Perform DB Initialization for C2 section.
+*
+* INPUTS: None.
+*
+* OUTPUTS: None.
+*
+* RETURN:
+*	0 on success, error-code otherwise
+*******************************************************************************/
+int pp2_cls_db_c2_init(void)
+{
+	int i;
+
+	/* Clear C2 db */
+	memset(&g_pp2_cls_db->c2_db, 0, sizeof(struct pp2_cls_db_c2_t));
+
+	/* Init c2_hw_idx to C2 corresponding c2 hw index in c2 data db and index db */
+	for (i = 0; i < MVPP2_C2_ENTRY_MAX - MVPP2_C2_FIRST_ENTRY; i++) {
+		g_pp2_cls_db->c2_db.c2_data_db[i].valid = MVPP2_C2_ENTRY_INVALID;
+		g_pp2_cls_db->c2_db.c2_index_db[i].valid = MVPP2_C2_ENTRY_INVALID;
+		g_pp2_cls_db->c2_db.c2_index_db[i].c2_hw_idx = i + MVPP2_C2_FIRST_ENTRY;
+	}
+
+	/* Init C2 list head */
+	INIT_LIST(&g_pp2_cls_db->c2_db.c2_free_head_db);
+	for (i = 0; i < MVPP2_C2_LKP_TYPE_MAX; i++)
+		INIT_LIST(&g_pp2_cls_db->c2_db.c2_lu_type_head_db[i]);
+
+	/* Init free list, last entry is used for default entry, always not available */
+	for (i = MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY - 1; i >= 0; i--) {
+		list_add(&g_pp2_cls_db->c2_db.c2_index_db[i].list_node, &g_pp2_cls_db->c2_db.c2_free_head_db);
+		/* Change index node valid status after adding to free list */
+		g_pp2_cls_db->c2_db.c2_index_db[i].valid = MVPP2_C2_ENTRY_VALID;
+	}
+	/* Reserve the last one for default miss entry */
+	g_pp2_cls_db->c2_db.c2_index_db[MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY].valid = MVPP2_C2_ENTRY_VALID;
+	g_pp2_cls_db->c2_db.c2_data_db[MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY].valid = MVPP2_C2_ENTRY_VALID;
+
+	return 0;
+}
+

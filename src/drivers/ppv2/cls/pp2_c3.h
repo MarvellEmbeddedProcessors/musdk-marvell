@@ -143,8 +143,8 @@ struct pp2_cls_c3_add_entry_t {
 	struct mv_pp2x_engine_qos_info		qos_info;	/* all the qos input	*/
 	struct mv_pp2x_engine_pkt_action	action;		/* update&lock info*/
 	struct mv_pp2x_qos_value		qos_value;	/* pri/dscp/gemport/qLow/qHigh*/
-	struct pp2_cls_engine_pkt_mod_t		pkt_mod;	/* PMT cmd_idx and data_idx*/
-	struct pp2_cls_duplicate_t		flow_info;	/* pkt duplication flow info*/
+	struct mv_pp2x_engine_pkt_mod		pkt_mod;	/* PMT cmd_idx and data_idx*/
+	struct mv_pp2x_duplicate_info		flow_info;	/* pkt duplication flow info*/
 	u8					rss_en;		/* lookup type*/
 };
 
@@ -178,8 +178,8 @@ struct pp2_cls_c3_data_t {
 	struct mv_pp2x_engine_pkt_action	action;		/* update&lock info*/
 	struct mv_pp2x_qos_value		qos_value;	/* qLow/qHigh*/
 	u16					policer_id;	/* policer id, 0xffff*/
-	struct pp2_cls_engine_pkt_mod_t		pkt_mod;	/* PMT cmd idx and data idx	*/
-	struct pp2_cls_duplicate_t		dup_info;	/* pkt duplication flow info*/
+	struct mv_pp2x_engine_pkt_mod		pkt_mod;	/* PMT cmd idx and data idx	*/
+	struct mv_pp2x_duplicate_info		dup_info;	/* pkt duplication flow info*/
 };
 
 struct pp2_cls_c3_scan_entry_t {

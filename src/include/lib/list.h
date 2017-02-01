@@ -79,6 +79,19 @@ struct list {
 #define LIST_OBJECT(_lst, _type, _member) \
 	((_type *)((char *)(_lst) - MEMBER_OFFSET(_type, _member)))
 
+
+/**
+ * Macro to get the struct (object) for entry->next.
+ *
+ * @param[in]	_lst	The list pointer.
+ * @param[in]	_type	The type of the struct (object) this list is embedded in.
+ * @param[in]	_member	The name of the struct list object within the struct.
+ *
+ * @return	The structure pointer for entry->next.
+ */
+#define LIST_FIRST_OBJECT(_lst, _type, _member) \
+	LIST_OBJECT(_lst->next, _type, _member)
+
 /**
  * Macro to iterate over a list.
  *
@@ -134,6 +147,23 @@ struct list {
 	for (_pos = LIST_OBJECT(LIST_FIRST(_head), _type, _member);	\
 		 &_pos->_member != (_head);				\
 		 _pos = LIST_OBJECT(LIST_FIRST(&_pos->_member), _type, _member))
+
+/**
+ * Macro to iterate over list of given type on reverse way.
+ *
+ * @param[in]	_pos	A pointer to a list to use as a loop counter.
+ * @param[in]	_type	The type of the struct this is embedded in.
+ * @param[in]	_head	A pointer to the head for your list pointer.
+ * @param[in]	_member	The name of the list_struct within the struct.
+ *
+ * @caution	You can't delete items with this routine. For deletion,
+ *			use LIST_FOR_EACH_OBJECT_SAFE().
+ */
+#define LIST_FOR_EACH_OBJECT_REVERSE(_pos, _type, _head, _member)		\
+	for (_pos = LIST_OBJECT(LIST_LAST(_head), _type, _member);	\
+		 &_pos->_member != (_head);				\
+		 _pos = LIST_OBJECT(LIST_LAST(&_pos->_member), _type, _member))
+
 
 /**
  * Add a new entry to a (head of a) list.
