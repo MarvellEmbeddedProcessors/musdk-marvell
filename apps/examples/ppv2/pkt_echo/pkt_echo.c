@@ -81,7 +81,7 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #define PKT_EFEC_OFFS	(PKT_OFFS+PP2_MH_SIZE)
 #define MAX_PPIOS	1
 #define MAX_NUM_CORES	4
-#define DMA_MEM_SIZE 	(10*1024*1024)
+#define DMA_MEM_SIZE 	(40*1024*1024)
 #define PP2_BPOOLS_RSRV	0x7
 #define PP2_HIFS_RSRV	0xF
 #define PP2_MAX_NUM_PORTS		2
@@ -115,7 +115,7 @@ static char tx_retry_str[] = "Tx Retry disabled";
 			    strrchr((file_name), '/') + 1 : (file_name))
 
 //#define BPOOLS_INF	{{384,4096},{2048,1024}}
-#define BPOOLS_INF	{{2048,1024}}
+#define BPOOLS_INF	{{2048,8192}}
 
 #ifdef SW_BUFF_RECYLCE
 #define COOKIE_BUILD(_pp, _bpool, _indx)	\
