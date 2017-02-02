@@ -105,16 +105,21 @@ NOTE: As a temporary W/A, move all files in $AC_PREFIX_DEFAULT/include/include t
 		=> insmod musdk_uio.ko
 		=> insmod mv_pp_uio.ko
 
-5.4 Insert EIP197 kernel space module (optional - needed only to run "musdk_sam_kat")
+5.4 Insert Marvell sysfs kernel module (optional - needed only to run "musdk_cls_demo", in case unicast address
+    filtering is required)
+
+		=> insmod mvpp2x_sysfs.ko
+
+5.5 Insert EIP197 kernel space module (optional - needed only to run "musdk_sam_kat")
 
 To run MUSDK SAM test applications eip197 driver kernel module must be loaded before.
 For more details please refer chapter "EIP197 Framework Usage" in the document: "eip197-ReleaseNotes.txt"
 
-5.5 Load kernel module: "umdevxs_k.ko"
+5.6 Load kernel module: "umdevxs_k.ko"
 
 		=> "insmod umdevxs_k.ko nof_dma_bufs=4096"
 
-5.6 Create character device node: "/dev/umdevxs_c"
+5.7 Create character device node: "/dev/umdevxs_c"
 
 		=> "mknod /dev/umdevxs_c c ${major_nr} 0"
 
@@ -132,3 +137,4 @@ See script from the EIP197 release directory: "scripts/mv_eip197_us_load.sh"
 
 6.3. To run musdk_sam_single / musdk_sam_kat applications - please see instructions in "SAM User Guide"
 
+6.4. To run musdk_cls_demo - please see instructions in "CLS User Guide"

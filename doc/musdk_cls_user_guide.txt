@@ -1,0 +1,163 @@
+Packet Processor Classifier (CLS) User Guide
+============================================
+
+1. Introduction
+===============
+MUSDK Classifier and applications are part of the MUSDK package.
+
+MUSDK Classifier provides the capability of configuring the Packet Processor HW Classifier Engine
+from user-space applications.
+
+2.  Feature Set
+===============
+
+2.1 Supported API's
+-------------------
+	- int pp2_cls_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl);
+	- void pp2_cls_tbl_deinit(struct pp2_cls_tbl *tbl);
+	- int pp2_cls_tbl_add_rule(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action *action);
+
+2.2 API's not supported in this release
+---------------------------------------
+	- int pp2_cls_tbl_modify_rule(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action	*action);
+	- int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule);
+
+2.3 General Limitations
+-----------------------
+	- This release supports only 5-tuple classification
+	- Default queue can not be set from MUSDK API. The default queue is taken from Kernel configuration. For
+	  configuring the default queue, please refer to PPv2.2 Kernel Module Parameters chapter.
+	- By default, MUSDK supports only one Traffic Class (TC). For configuring multiple TC's, the kernel driver
+	  needs to be configured with multiple queues. For confifuring multiple queues (up to 8), please refer to
+	  PPv2.2 Kernel Module Parameters chapter.
+	- In Armada 8040 board, CLS module only supports the first packet processor (CP0)
+	- MUSDK classifier database and Kernel database are not synchronized yet, therefore there is no support for
+	  simultaneous updates in Kernel/User Space.
+
+2.4 Known issues
+----------------
+	- It is possible to add new flows even if the same flow was just added
+	- After MUSDK is initialized, it is not possible to add more flows through Kernel (i.e. through sysfs)
+	- The musdk_cls_demo application supports configuration of only a single port at a time
+	- Cls_demo needs to be invoked with the name of the ppio to be opened instead of the linux eth name
+
+3. Cls_demo example application
+================================
+
+3.1 Functional Overview
+-----------------------
+	- The 'musdk_cls_demo' example application allows for configuring 5 tuples table in PPv2 classifier, as well as
+	  to configure MAC address filtering and VLAN filtering.
+	- Performs all required initializations, using the MUSDK API's.
+	- Includes an "echo" mode allowing to loopback traffic sent to the specific port openned. This allows for
+	  testing the configured feature.
+	- The following ports are supported:
+		- ppio-0:0 - CP0-port0 10G port), in A7040/A8040.
+		- ppio-0:1 - CP0-port1(1G port), in A7040.
+		- ppio-0:2 - CP0-port1(1G port), in A8040.
+		- ppio-0:2 - CP0-port2(1G port), in A7040.
+
+3.2 How To Run The Example Application
+---------------------------------------
+a. Preferrably use a A8040-A1-DB or A7040-A0-DB board.
+b. Compile code as written in the "Getting Started" section.
+	- Skip SAM compilation phase.
+	- Make sure ALL patches are applied.
+c. In Linux, bring up the required interfaces
+d. Bring up the modules. Below output is for a 8040-A1-DB:
+
+		# cd /
+		# insmod musdk_uio.ko
+		Registered cma device: uio-cma
+		# insmod mv_pp_uio.ko
+		Registered 2 uio devices, having 6 register maps attached
+		Registered 2 uio devices, having 6 register maps attached
+
+		In case MAC filtering is used for configuring unicast address, the following is also needed
+		# insmod mvpp2x_sysfs.ko
+
+e. Run the musdk_cls_demo application:
+
+		# ./musdk_cls_demo -i ppio-0:0 --echo
+
+Parameters:
+	- '-i ppio-0:0' is the  internal interface name to 'musdk_cls_demo', according to the description above
+	  (see 3.1 Functional Overview chapter)
+	- --echo - sets the cls_demo application in echo mode, enabling loopback of received traffic over the
+	  same openned port
+
+f. Once the application is invoked, it will enter cli mode, where different commands may be issued.
+   The following cli commands are supported:
+
+
+	| Command		| Description									       	|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| help          	| print command description/usage							|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| ?          	     	| Alias for help									|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_tbl_init		| create a classifier table according to key and default action				|
+	|			|	cls_tbl_init --engine_type --tc --drop(opt) --key				|
+	|			|											|
+	|			| 	--engine_type  (string) exact_match, maskable					|
+	|			| 	--tc           (dec) 1..8   - By default only 1is supported, unless kernel is	|
+	|			|                	configured to support more than	one queue (refer to Marvell SDK	|
+	|			|			for ARMADA Embedded SoCs documentation, under PPv2.2 Kernel  	|
+	|			|			Module Parameters chapter					|
+	|			| 	--drop         (no argument) optional						|
+	|			| 	--key          (string) the following keys are functional in this release:	|
+	|			|				ip4_src   - ipv4, souce address				|
+	|			|				ip4_dst   - ipv4, destination address			|
+	|			|				ip4_proto - ipv4, proto					|
+	|			|				l4_src    - layer4, source port				|
+	|			|				l4_dst    - layer4, destination port			|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_rule_key_add      | add a classifier rule key to existing table						|
+	|			|	cls_rule_key_add --table_index --tc --drop(optional) --size --key --mask...	|
+	|			|											|
+	|			|	--table_index   (dec) index to existing table					|
+	|			|	--tc                    (dec) 1..8						|
+	|			|	--drop          (optional)(no argument)						|
+	|			|	--size          (dec) size in bytes of the key					|
+	|			|	--key           (dec or hex) key						|
+	|			|			   i.e ipv4: 192.168.10.5					|
+	|			|			   i.e ipv6: 2605:2700:0:3::4713:93e3				|
+	|			|			   i.e port: 0x1234						|
+	|			|			   i.e udp: 17(IPPROTO_UDP)					|
+	|			|			   i.e tcp: 6(IPPROTO_TCP)					|
+	|			|	--mask          (hex) mask for the key (if maskable is used)			|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| mac_addr		| set/get/add/remove/flush ppio MAC address						|
+	|			|	mac_addr --set <xx:xx:xx:xx:xx:xx>						|
+	|			|	mac_addr --get									|
+	|			|	mac_addr --add <xx:xx:xx:xx:xx:xx>						|
+	|			|	mac_addr --remove <xx:xx:xx:xx:xx:xx>						|
+	|			|	mac_addr --flush --uc --mc							|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| promisc  	       	| set/get ppio unicast/multicast promiscuous mode					|
+	|			| 	promisc --<uc/mc> --<on/off/get>						|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| vlan          	| set/remove/flush ppio vlan filter							|
+	|			| 	vlan --set <vlan_id>								|
+	|			|	vlan --remove <vlan_id>								|
+	|			|	vlan --flush									|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_table_dump	| display classifier defined tables							|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_rule_key_dump	| display classifier defined rule_keys							|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_fl_log_rls_dump   | dump all logical flow ID and rule offset						|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_lkp_hits_dump     | dump all hit decode entry and its DB information					|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_fl_hits_dump      | dump all hit flow table entry								|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_fl_rls_dump       | dump all logical flow ID rules							|
+	|-----------------------|---------------------------------------------------------------------------------------|
+	| cls_c3_rule_hit_dump  | dump C3 entries according to type and index						|
+	|			| 	cls_c3_rule_hit_dump --type --var (no arguments)				|
+	|			|											|
+	|			|	--type  (dec) C3 dump type, 0: logic idx, 1:hash idx, 2:lookup type		|
+	|			|	--var   (dec) value according to type, type 0/1:idx, type 2: lookup type	|
+	|			|	no arguments -> dumping all flows						|
+	|----------------------------------------------------------------------------------------------------------------

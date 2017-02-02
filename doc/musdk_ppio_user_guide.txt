@@ -31,6 +31,17 @@ directly from user-space applications with minimum overhead and high performance
 		- struct pp2_ppio * pp2_ppio_inq_desc_get_pp_io(struct pp2_ppio_desc *desc)
 		- int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc)
 
+	int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
+	int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr);
+	int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en);
+	int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en);
+	int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en);
+	int pp2_ppio_get_mc_promisc(struct pp2_ppio *ppio, int *en);
+	int pp2_ppio_add_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
+	int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
+	int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc);
+	int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan);
+	int pp2_ppio_remove_vlan(struct pp2_ppio *ppio, u16 vlan);
 
 2.2	API's with limitations
 ------------------------------
@@ -110,3 +121,11 @@ in Linux and not tinkered with afterwards. See '3.2 HOW-TO' for details.
 	- '-i eth4' is the equivalent of the eth2 Linux netdevice on an 8040-A1-DB.
 	- '-c 1' stands for single cpu (single thread), similar to netmap application.
 	- '-m f:1' stands for '<first_thread_cpu_mask>:<mask_shift_for_following_cpus>', similar to netmap application.
+
+3.  Cls_demo example application
+================================
+	- The 'musdk_cls_demo' example application allows for configuring 5-tuple table in PPv2 classifier,
+	  as well as to configure MAC address filtering,  VLAN filtering and promiscuous mode.
+	- For a full description of the application and how to run, please refer to MUSDK classifier 'how-to' section.
+
+

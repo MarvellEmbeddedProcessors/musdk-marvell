@@ -31,6 +31,14 @@ packet processor I/O rings from user space, without any overhead of a copy opera
 
 Please refer to PPIO User Guide and API reference for more details.
 
+Packet Processor Classifier Interface
+-------------------------------------
+The MUSDK Classifier provides low-level network interface API to enable applications program Marvell's
+Packet Processor (PPv2) hardware in order to assist in prioritization, classification and filtering of 
+each packet.
+
+Please refer to Classifier User Guide and API reference for more details.
+
 Security Acceleration Module (SAM)
 ---------------------------------
 The MUSDK SAM driver provides capability for operating the Security Acceleration engine (SAM/EIP197)

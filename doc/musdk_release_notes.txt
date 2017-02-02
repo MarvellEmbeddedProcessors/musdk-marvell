@@ -43,6 +43,7 @@ Supported Features
 	- MUSDK and kernel ports may operate together
 	- MAC filter support
 	- VLAN filter support
+	- Promiscuous mode
 	- MTU change support
 	- RSS support (distribution to Rx queues - configuration by Kernel)
 	- Tested on 1G and 10G ports of A7040 and A8040
