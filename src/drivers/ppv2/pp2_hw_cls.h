@@ -191,6 +191,7 @@ void mv_pp2x_cls_flow_write(struct pp2_hw *hw, struct mv_pp2x_cls_flow_entry *fe
 int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe);
 int mv_pp2x_cls_hw_flow_hits_dump(uintptr_t cpu_slot);
 int mv_pp2x_cls_hw_lkp_hit_get(uintptr_t cpu_slot, int lkpid, unsigned int *cnt);
+int mv_pp2x_cls_hw_rxq_counter_get(uintptr_t cpu_slot, int phy_rxq);
 void mv_pp2x_cls_sw_flow_clear(struct mv_pp2x_cls_flow_entry *fe);
 int mv_pp2x_cls_hw_lkp_clear_all(uintptr_t cpu_slot);
 int mv_pp2x_cls_hw_flow_clear_all(uintptr_t cpu_slot);

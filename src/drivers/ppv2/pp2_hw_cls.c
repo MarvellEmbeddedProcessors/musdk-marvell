@@ -2172,6 +2172,21 @@ int mv_pp2x_cls_hw_lkp_hit_get(uintptr_t cpu_slot, int lkpid, u32 *cnt)
 	return 0;
 }
 
+int mv_pp2x_cls_hw_rxq_counter_get(uintptr_t cpu_slot, int phy_rxq)
+{
+	u32 dropped;
+
+	pp2_reg_write(cpu_slot, MVPP2_CNT_IDX_REG, phy_rxq);
+
+	dropped = pp2_reg_read(cpu_slot, MVPP2_RX_PKT_FULLQ_DROP_REG);
+	dropped += pp2_reg_read(cpu_slot, MVPP2_RX_PKT_EARLY_DROP_REG);
+	dropped += pp2_reg_read(cpu_slot, MVPP2_RX_PKT_BM_DROP_REG);
+	pr_info("rx dropped packet = 0x%8.8x\n", dropped);
+	pr_info("rx enqueue packet = 0x%8.8x\n", pp2_reg_read(cpu_slot, MVPP2_RX_DESC_ENQ_REG));
+
+	return 0;
+}
+
 int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot)
 {
 	int index;

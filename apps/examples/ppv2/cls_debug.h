@@ -36,9 +36,9 @@
 #include "mv_std.h"
 /* #define CLS_DEBUG */
 
-int register_cli_cls_cmds(uintptr_t cpu_slot);
-int register_cli_c3_cmds(uintptr_t cpu_slot);
-int register_cli_c2_cmds(uintptr_t cpu_slot);
+int register_cli_cls_cmds(struct pp2_ppio *ppio);
+int register_cli_c3_cmds(struct pp2_ppio *ppio);
+int register_cli_c2_cmds(struct pp2_ppio *ppio);
 
 #endif /*__CLS_DBG_H__*/
 

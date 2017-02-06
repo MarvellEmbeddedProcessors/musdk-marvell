@@ -180,6 +180,7 @@ int pp2_cli_cls_fl_hits_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[]);
+int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[]);
 
 /******************************************************************************/
 /*                                PROTOTYPE                                   */

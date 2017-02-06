@@ -69,10 +69,6 @@
 			    strrchr((file_name), '/') + 1 : (file_name))
 #define CLS_TEST_MODULE_NAME_MAX 10
 
-struct pp2_ppio {
-	struct pp2_port *port;
-};
-
 struct lcl_port_desc {
 	u32		 pp_id;
 	u32		 ppio_id;
@@ -113,7 +109,6 @@ struct glob_arg {
 	struct pp2_buff_inf	***buffs_inf;
 	char			test_module[CLS_TEST_MODULE_NAME_MAX];
 	int			test_number;
-	uintptr_t		cpu_slot;
 };
 
 struct local_arg {
@@ -1115,7 +1110,6 @@ static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
 	return 0;
 }
 
-
 #ifdef PKT_ECHO_SUPPORT
 #ifdef USE_APP_PREFETCH
 static inline void prefetch(const void *ptr)
@@ -1310,7 +1304,7 @@ static int init_local_modules(struct glob_arg *garg)
 	struct pp2_ppio_inq_params	inq_params;
 	int				i = 0, j, err, port_index;
 	struct bpool_inf		infs[] = MVAPPS_BPOOLS_INF;
-	struct pp2_port *port;
+
 
 	pr_info("Local initializations ... ");
 
@@ -1372,14 +1366,6 @@ static int init_local_modules(struct glob_arg *garg)
 		return -ENOMEM;
 	}
 
-	port = garg->ports_desc[0].port->port;
-	garg->cpu_slot = port->cpu_slot;
-
-	if (!garg->cpu_slot) {
-		pr_err("no obj!\n");
-		return -EINVAL;
-	}
-
 #ifdef CLS_DEBUG
 	if (strncmp(garg->test_module, "parser", 6) == 0) {
 		pr_info("Parser tests not implemented yet\n");
@@ -1394,7 +1380,7 @@ static int init_local_modules(struct glob_arg *garg)
 			return -EINVAL;
 		}
 		pr_info("*************start test c3************\n");
-		pp2_cls_c3_test(garg->cpu_slot, garg->test_number);
+		/* pp2_cls_c3_test(garg->cpu_slot, garg->test_number); */
 	}
 #endif
 
@@ -1591,19 +1577,14 @@ static int register_cli_filter_cmds(struct glob_arg *garg)
 
 static int register_cli_cmds(struct glob_arg *garg)
 {
-	struct pp2_ppio *ppio = garg->ports_desc[0].port;
-	struct pp2_port *port = ppio->port;
-
 	if (!garg->cli)
 		return -EFAULT;
 
-	garg->cpu_slot = port->cpu_slot;
-
 	register_cli_cls_api_cmds(garg);
 	register_cli_filter_cmds(garg);
-	register_cli_cls_cmds(garg->cpu_slot);
-	register_cli_c3_cmds(garg->cpu_slot);
-	register_cli_c2_cmds(garg->cpu_slot);
+	register_cli_cls_cmds(garg->ports_desc[0].port);
+	register_cli_c3_cmds(garg->ports_desc[0].port);
+	register_cli_c2_cmds(garg->ports_desc[0].port);
 
 	return 0;
 }

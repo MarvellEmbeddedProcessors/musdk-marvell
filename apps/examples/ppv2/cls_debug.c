@@ -45,10 +45,15 @@
 #include "src/drivers/ppv2/cls/pp2_cls_db.h"
 #include "cls_debug.h"
 
-int register_cli_cls_cmds(uintptr_t cpu_slot)
+struct pp2_ppio {
+	struct pp2_port *port;
+};
+
+int register_cli_cls_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
-
+	struct pp2_port *port = ppio->port;
+	uintptr_t cpu_slot = port->cpu_slot;
 
 #ifdef CLS_DEBUG
 	memset(&cmd_params, 0, sizeof(cmd_params));
@@ -164,12 +169,23 @@ int register_cli_cls_cmds(uintptr_t cpu_slot)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_rls_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_print_rxq_counters";
+	cmd_params.desc		= "print rxq counters";
+	cmd_params.format	= "--tc\n"
+				  "\t\t\t\t--tc		(dec) traffic class number";
+	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_print_rxq_counters;
+	mvapp_register_cli_cmd(&cmd_params);
+
 	return 0;
 }
 
-int register_cli_c3_cmds(uintptr_t cpu_slot)
+int register_cli_c3_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
+	struct pp2_port *port = ppio->port;
+	uintptr_t cpu_slot = port->cpu_slot;
 
 #ifdef CLS_DEBUG
 	memset(&cmd_params, 0, sizeof(cmd_params));
@@ -249,9 +265,11 @@ int register_cli_c3_cmds(uintptr_t cpu_slot)
 	return 0;
 }
 
-int register_cli_c2_cmds(uintptr_t cpu_slot)
+int register_cli_c2_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
+	struct pp2_port *port = ppio->port;
+	uintptr_t cpu_slot = port->cpu_slot;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_c2_lkp_type_entry_dump";

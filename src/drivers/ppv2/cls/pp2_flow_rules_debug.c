@@ -729,3 +729,56 @@ int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[])
+{
+	struct pp2_port *port = (struct pp2_port *)arg;
+	uintptr_t cpu_slot = port->cpu_slot;
+	char *ret_ptr;
+	int i, option;
+	int long_index = 0;
+	int tc_num;
+	int rc;
+	int phy_rxq;
+
+	struct option long_options[] = {
+		{"tc", required_argument, 0, 't'},
+		{0, 0, 0, 0}
+	};
+
+	if  (argc < 3 || argc > (port->num_tcs * 2 + 1)) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long(argc, argv, "t:", long_options, &long_index)) != -1); i++) {
+		/* Get parameters */
+		switch (option) {
+		case 't':
+			tc_num = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (tc_num < 0) || (tc_num >= port->num_tcs)) {
+				printf("parsing fail, wrong input for --tc\n");
+				return -EINVAL;
+			}
+
+			for (i = 0; i < port->tc[tc_num].tc_config.num_in_qs; i++) {
+				phy_rxq = port->tc[tc_num].tc_config.first_rxq + i;
+				pr_info("\n------ [Port %s, TC %d, queue %d counters] -----\n",
+					port->linux_name, tc_num, i);
+				rc = mv_pp2x_cls_hw_rxq_counter_get(cpu_slot, phy_rxq);
+				if (rc) {
+					pr_err("%s(%d) read rxq counters failed\n", __func__, __LINE__);
+					return -EINVAL;
+				}
+			}
+			break;
+		default:
+			printf("parsing fail, wrong input\n");
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
