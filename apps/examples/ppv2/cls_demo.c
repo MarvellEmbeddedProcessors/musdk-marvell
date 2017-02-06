@@ -52,12 +52,11 @@
 #define CLS_APP_MAX_NUM_TCS_PER_PORT		4
 #define CLS_APP_PP2_MAX_NUM_QS_PER_TC		1
 #define CLS_APP_MAX_NUM_TBL			10
-#define CLS_APP_MAX_NUM_TBL_KEYS		10
-#define CLS_APP_MAX_NUM_TBL_ACT			10
 #define CLS_APP_MAX_NUM_RULES			10
 #define CLS_APP_STR_SIZE_MAX			40
 #define CLS_APP_KEY_SIZE_MAX			37
 #define CLS_APP_PPIO_NAME_MAX			15
+#define CLS_APP_PORT_NAME_MAX			15
 
 #define CLS_APP_KEY_MEM_SIZE_MAX	(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
@@ -81,7 +80,10 @@ struct lcl_port_desc {
 };
 
 struct port_desc {
-	char	name[CLS_APP_PPIO_NAME_MAX];
+	char		 name[CLS_APP_PORT_NAME_MAX];
+	int		 pp_id;
+	int		 ppio_id;
+	struct pp2_ppio	*port;
 };
 
 struct tx_shadow_q_entry {
@@ -104,9 +106,8 @@ struct glob_arg {
 	int			qs_map_shift;
 	int			num_ports;
 	int			pp2_num_inst;
-	struct port_desc	port_name[MVAPPS_MAX_NUM_PORTS];
+	struct port_desc	ports_desc[MVAPPS_MAX_NUM_PORTS];
 	struct pp2_hif		*hif;
-	struct pp2_ppio		*ppio;
 	int			num_pools;
 	struct pp2_bpool	***pools;
 	struct pp2_buff_inf	***buffs_inf;
@@ -163,31 +164,28 @@ struct pp2_cls_db {
 
 static struct pp2_cls_db *cls_db;
 
-static int app_find_pp_id(char *ppio_str, u32 *pp_id)
+static int find_port_info(struct port_desc *port_desc)
 {
-	char *pch;
-	int val;
+	char		 name[CLS_APP_PPIO_NAME_MAX];
+	u8		 pp, ppio;
+	int		 err;
 
-	pch = strchr(ppio_str, '-');
-	val = *(pch + 1) - 0x30;
-	if ((val < 0) || (val > PP2_NUM_PKT_PROC - 1))
-		return -EINVAL;
+	if (!port_desc->name) {
+		pr_err("No port name given!\n");
+		return -1;
+	}
 
-	*pp_id = val;
-	return 0;
-}
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "%s", port_desc->name);
+	err = pp2_netdev_get_port_info(name, &pp, &ppio);
+	if (err) {
+		pr_err("PP2 Port %s not found!\n", port_desc->name);
+		return err;
+	}
 
-static int app_find_ppio_id(char *ppio_str, u32 *ppio_id)
-{
-	char *pch;
-	int val;
+	port_desc->ppio_id = ppio;
+	port_desc->pp_id = pp;
 
-	pch = strchr(ppio_str, ':');
-	val = *(pch + 1) - 0x30;
-	if ((val < 0) || (val > PP2_NUM_ETH_PPIO - 1))
-		return -EINVAL;
-
-	*ppio_id = val;
 	return 0;
 }
 
@@ -340,6 +338,7 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	int num_fields;
 	u32 proto[PP2_CLS_TBL_MAX_NUM_FIELDS];
 	u32 field[PP2_CLS_TBL_MAX_NUM_FIELDS];
+	char name[CLS_APP_PPIO_NAME_MAX];
 	int traffic_class = -1;
 	int action_type = PP2_CLS_TBL_ACT_DONE;
 	char *ret_ptr;
@@ -442,10 +441,14 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	}
 	tbl_ptr->default_act.type = action_type;
 	tbl_ptr->default_act.cos = action_cos;
-	tbl_ptr->default_act.cos->ppio = garg.ppio;
+	tbl_ptr->default_act.cos->ppio = garg.ports_desc[0].port;
 	tbl_ptr->default_act.cos->tc = traffic_class;
-	strcpy(&cls_db->table_db.elem[cls_db->table_db.idx].ppio_name[0],
-	       (char *)&garg.port_name[0]);
+
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "ppio-%d:%d",
+		 garg.ports_desc[0].pp_id, garg.ports_desc[0].ppio_id);
+
+	strcpy(&cls_db->table_db.elem[cls_db->table_db.idx].ppio_name[0], name);
 	if (!pp2_cls_tbl_init(tbl_ptr, &cls_db->table_db.elem[cls_db->table_db.idx].tbl)) {
 		printf("OK\n");
 		cls_db->table_db.idx++;
@@ -600,7 +603,7 @@ static int pp2_cls_cli_cls_rule_key_add(void *arg, int argc, char *argv[])
 	action.type = action_type;
 	action_cos->tc = traffic_class;
 	action.cos = action_cos;
-	action.cos->ppio = garg.ppio;
+	action.cos->ppio = garg.ports_desc[0].port;
 	action.cos->tc = traffic_class;
 
 	if (!pp2_cls_tbl_add_rule(tbl, &rule_key_ptr->rule_key, &action))
@@ -703,7 +706,7 @@ static int pp2_cls_cli_cls_rule_modify(void *arg, int argc, char *argv[])
 	action.type = action_type;
 	action_cos->tc = traffic_class;
 	action.cos = action_cos;
-	action.cos->ppio = garg.ppio;
+	action.cos->ppio = garg.ports_desc[0].port;
 	action.cos->tc = traffic_class;
 
 	if (!pp2_cls_tbl_modify_rule(tbl, rule, &action))
@@ -869,14 +872,14 @@ static int pp2_cls_cli_mac_addr(void *arg, int argc, char *argv[])
 			}
 			printf("mac_addr set1 %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-			rc = pp2_ppio_set_mac_addr(garg.ppio, mac);
+			rc = pp2_ppio_set_mac_addr(garg.ports_desc[0].port, mac);
 			if (rc) {
 				printf("Unable to set mac address\n");
 				return -EINVAL;
 			}
 			break;
 		case 'g':
-			rc = pp2_ppio_get_mac_addr(garg.ppio, mac);
+			rc = pp2_ppio_get_mac_addr(garg.ports_desc[0].port, mac);
 			if (rc) {
 				printf("Unable to get mac address\n");
 				return -EINVAL;
@@ -892,7 +895,7 @@ static int pp2_cls_cli_mac_addr(void *arg, int argc, char *argv[])
 			}
 			printf("mac_addr add %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-			rc = pp2_ppio_add_mac_addr(garg.ppio, mac);
+			rc = pp2_ppio_add_mac_addr(garg.ports_desc[0].port, mac);
 			if (rc) {
 				printf("Unable to add mac address\n");
 				return -EINVAL;
@@ -906,7 +909,7 @@ static int pp2_cls_cli_mac_addr(void *arg, int argc, char *argv[])
 			}
 			printf("mac_addr remove %x:%x:%x:%x:%x:%x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-			rc = pp2_ppio_remove_mac_addr(garg.ppio, mac);
+			rc = pp2_ppio_remove_mac_addr(garg.ports_desc[0].port, mac);
 			if (rc) {
 				printf("Unable to remove mac address\n");
 				return -EINVAL;
@@ -930,7 +933,7 @@ static int pp2_cls_cli_mac_addr(void *arg, int argc, char *argv[])
 				printf("uc or mc flags not selected. Command ignored\n");
 				return -EINVAL;
 			}
-			rc = pp2_ppio_flush_mac_addrs(garg.ppio, uc, mc);
+			rc = pp2_ppio_flush_mac_addrs(garg.ports_desc[0].port, uc, mc);
 			if (rc) {
 				printf("Unable to flush mac address %d, %d\n", uc, mc);
 				return -EINVAL;
@@ -1007,19 +1010,19 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 	}
 
 	if (cmd && mode) {
-		rc = pp2_ppio_set_uc_promisc(garg.ppio, en);
+		rc = pp2_ppio_set_uc_promisc(garg.ports_desc[0].port, en);
 		if (rc) {
 			printf("Unable to enable unicast promiscuous mode\n");
 			return -rc;
 		}
 	} else if (cmd && !mode) {
-		rc = pp2_ppio_set_mc_promisc(garg.ppio, en);
+		rc = pp2_ppio_set_mc_promisc(garg.ports_desc[0].port, en);
 		if (rc) {
 			printf("Unable to enable all multicast mode\n");
 			return -rc;
 		}
 	} else if (!cmd && mode) {
-		rc = pp2_ppio_get_uc_promisc(garg.ppio, &en);
+		rc = pp2_ppio_get_uc_promisc(garg.ports_desc[0].port, &en);
 		if (rc) {
 			printf("Unable to get unicast promiscuous mode\n");
 			return -rc;
@@ -1029,7 +1032,7 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 		else
 			printf("unicast promiscuous mode: disabled\n");
 	}else if (!cmd && !mode) {
-		rc = pp2_ppio_get_mc_promisc(garg.ppio, &en);
+		rc = pp2_ppio_get_mc_promisc(garg.ports_desc[0].port, &en);
 		if (rc) {
 			printf("Unable to get all multicast mode\n");
 			return -rc;
@@ -1088,19 +1091,19 @@ static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
 		printf("parsing fail, wrong input\n");
 
 	if (cmd == 0 && vlan_id >= 0 && vlan_id <= 4095) {
-		rc = pp2_ppio_add_vlan(garg.ppio, vlan_id);
+		rc = pp2_ppio_add_vlan(garg.ports_desc[0].port, vlan_id);
 		if (rc) {
 			printf("Unable to add vlan id %d\n", vlan_id);
 			return -EINVAL;
 		}
 	} else if (cmd == 1 && vlan_id >= 0 && vlan_id <= 4095) {
-		rc = pp2_ppio_remove_vlan(garg.ppio, vlan_id);
+		rc = pp2_ppio_remove_vlan(garg.ports_desc[0].port, vlan_id);
 		if (rc) {
 			printf("Unable to remove vlan id %d\n", vlan_id);
 			return -EINVAL;
 		}
 	} else if (cmd == 2) {
-		rc = pp2_ppio_flush_vlan(garg.ppio);
+		rc = pp2_ppio_flush_vlan(garg.ports_desc[0].port);
 		if (rc) {
 			printf("Unable to flush vlans\n");
 			return -EINVAL;
@@ -1242,7 +1245,6 @@ static int loop_1p(struct local_arg *larg, volatile int *running)
 	return 0;
 }
 
-
 static int main_loop(void *arg, volatile int *running)
 {
 	struct local_arg *larg = (struct local_arg *)arg;
@@ -1303,11 +1305,11 @@ static int init_all_modules(void)
 
 static int init_local_modules(struct glob_arg *garg)
 {
+	char				name[CLS_APP_PPIO_NAME_MAX];
 	struct pp2_ppio_params		port_params;
 	struct pp2_ppio_inq_params	inq_params;
-	int				i = 0, j, err;
+	int				i = 0, j, err, port_index;
 	struct bpool_inf		infs[] = MVAPPS_BPOOLS_INF;
-	u32				pp_id = 0, ppio_id = 0;
 	struct pp2_port *port;
 
 	pr_info("Local initializations ... ");
@@ -1321,46 +1323,48 @@ static int init_local_modules(struct glob_arg *garg)
 	if (err)
 		return err;
 
+	for (port_index = 0; port_index < garg->num_ports; port_index++) {
+		err = find_port_info(&garg->ports_desc[port_index]);
+		if (err) {
+			pr_err("Port info not found!\n");
+			return err;
+		}
 
-	app_find_ppio_id((char *)&garg->port_name[0], &ppio_id);
-	app_find_pp_id((char *)&garg->port_name[0], &pp_id);
-	pr_info("interface: %s, pp_id: %d, ppio_id: %d\n", (char *)&garg->port_name[0], pp_id, ppio_id);
+		memset(name, 0, sizeof(name));
+		snprintf(name, sizeof(name), "ppio-%d:%d",
+			 garg->ports_desc[port_index].pp_id, garg->ports_desc[port_index].ppio_id);
+		pr_debug("found port: %s\n", name);
+		memset(&port_params, 0, sizeof(port_params));
+		port_params.match = name;
+		port_params.type = PP2_PPIO_T_NIC;
+		port_params.inqs_params.num_tcs = CLS_APP_MAX_NUM_TCS_PER_PORT;
+		for (i = 0; i < port_params.inqs_params.num_tcs; i++) {
+			port_params.inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
+			port_params.inqs_params.tcs_params[i].num_in_qs = CLS_APP_PP2_MAX_NUM_QS_PER_TC;
+			/* TODO: we assume here only one Q per TC; change it! */
+			inq_params.size = MVAPPS_Q_SIZE;
+			port_params.inqs_params.tcs_params[i].inqs_params = &inq_params;
+			for (j = 0; j < garg->num_pools; j++)
+				port_params.inqs_params.tcs_params[i].pools[j] =
+					garg->pools[garg->ports_desc[port_index].pp_id][j];
+		}
+		port_params.outqs_params.num_outqs = CLS_APP_MAX_NUM_TCS_PER_PORT;
+		for (i = 0; i < port_params.outqs_params.num_outqs; i++) {
+			port_params.outqs_params.outqs_params[i].size = MVAPPS_Q_SIZE;
+			port_params.outqs_params.outqs_params[i].weight = 1;
+		}
+		err = pp2_ppio_init(&port_params, &garg->ports_desc[port_index].port);
+		if (err)
+			return err;
+		if (!garg->ports_desc[port_index].port) {
+			pr_err("PP-IO init failed!\n");
+			return -EIO;
+		}
 
-	memset(&port_params, 0, sizeof(port_params));
-	port_params.match = (char *)&garg->port_name[0];
-	port_params.type = PP2_PPIO_T_NIC;
-	port_params.inqs_params.num_tcs = CLS_APP_MAX_NUM_TCS_PER_PORT;
-	for (i = 0; i < port_params.inqs_params.num_tcs; i++) {
-		port_params.inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
-		port_params.inqs_params.tcs_params[i].num_in_qs = CLS_APP_PP2_MAX_NUM_QS_PER_TC;
-		/* TODO: we assume here only one Q per TC; change it! */
-		inq_params.size = MVAPPS_Q_SIZE;
-		port_params.inqs_params.tcs_params[i].inqs_params = &inq_params;
-		for (j = 0; j < garg->num_pools; j++)
-			port_params.inqs_params.tcs_params[i].pools[j] = garg->pools[0][j];
+		err = pp2_ppio_enable(garg->ports_desc[port_index].port);
+		if (err)
+			return err;
 	}
-	port_params.outqs_params.num_outqs = CLS_APP_MAX_NUM_TCS_PER_PORT;
-	for (i = 0; i < port_params.outqs_params.num_outqs; i++) {
-		port_params.outqs_params.outqs_params[i].size = MVAPPS_Q_SIZE;
-		port_params.outqs_params.outqs_params[i].weight = 1;
-	}
-	err = pp2_ppio_init(&port_params, &garg->ppio);
-	if (err)
-		return err;
-	if (!garg->ppio) {
-		pr_err("PP-IO init failed!\n");
-		return -EIO;
-	}
-
-	err = pp2_ppio_enable(garg->ppio);
-	if (err)
-		return err;
-#ifdef NO_MVPP2X_DRIVER
-	err = pp2_ppio_set_uc_promisc(garg->ppio, 1);
-	if (err)
-		return err;
-#endif /* NO_MVPP2X_DRIVER */
-
 	/* cls memory allocations */
 	cls_db = malloc(sizeof(*cls_db));
 	if (!cls_db) {
@@ -1368,7 +1372,7 @@ static int init_local_modules(struct glob_arg *garg)
 		return -ENOMEM;
 	}
 
-	port = garg->ppio->port;
+	port = garg->ports_desc[0].port->port;
 	garg->cpu_slot = port->cpu_slot;
 
 	if (!garg->cpu_slot) {
@@ -1403,9 +1407,9 @@ static void destroy_local_modules(struct glob_arg *garg)
 	int	i, j;
 	pp2_num_inst = garg->pp2_num_inst;
 
-	if (garg->ppio) {
-		pp2_ppio_disable(garg->ppio);
-		pp2_ppio_deinit(garg->ppio);
+	if (garg->ports_desc[0].port) {
+		pp2_ppio_disable(garg->ports_desc[0].port);
+		pp2_ppio_deinit(garg->ports_desc[0].port);
 	}
 
 	if (garg->pools) {
@@ -1587,7 +1591,7 @@ static int register_cli_filter_cmds(struct glob_arg *garg)
 
 static int register_cli_cmds(struct glob_arg *garg)
 {
-	struct pp2_ppio *ppio = garg->ppio;
+	struct pp2_ppio *ppio = garg->ports_desc[0].port;
 	struct pp2_port *port = ppio->port;
 
 	if (!garg->cli)
@@ -1679,9 +1683,9 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(larg->ports_desc, 0, larg->num_ports*sizeof(struct lcl_port_desc));
 	for (i = 0; i < larg->num_ports; i++) {
-		app_find_pp_id((char *)&garg->port_name[i], &larg->ports_desc[i].pp_id);
-		app_find_ppio_id((char *)&garg->port_name[i], &larg->ports_desc[i].ppio_id);
-		larg->ports_desc[i].port = garg->ppio;
+		larg->ports_desc[i].pp_id = garg->ports_desc[i].pp_id;
+		larg->ports_desc[i].ppio_id = garg->ports_desc[i].ppio_id;
+		larg->ports_desc[i].port = garg->ports_desc[i].port;
 
 	}
 	larg->pools             = garg->pools;
@@ -1710,14 +1714,8 @@ static void usage(char *progname)
 	"  E.g. %s -i ppio-0:0\n"
 	    "\n"
 	    "Mandatory OPTIONS:\n"
-		"\t-i, --interface <port-interface>\n"
-		"\t	  ppio-0:0 - A7040/A8040 10Gb interface 1\n"
-		"\t	  ppio-0:1 - A7040/A8040  1Gb interface 1\n"
-		"\t	  ppio-0:2 - A7040        1Gb interface 2\n"
-		"\t	  ppio-1:0 - A8040       10Gb interface 2\n"
-		"\t	  ppio-1:1 - A8040       1Gb interface 2\n"
+		"\t-i, --interface <eth-interface>\n"
 		"\n"
-
 		"Optional OPTIONS:\n"
 		"\t-e, --echo	(no argument) activate echo packets\n"
 #ifdef CLS_DEBUG
@@ -1757,7 +1755,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			exit(0);
 			break;
 		case 'i':
-			snprintf((char *)&garg->port_name[garg->num_ports], sizeof(garg->port_name), "%s", optarg);
+			snprintf(garg->ports_desc[garg->num_ports].name,
+				 sizeof(garg->ports_desc[garg->num_ports].name), "%s", optarg);
 			garg->num_ports++;
 			/* currently supporting only 1 port */
 			if (garg->num_ports > 1) {
