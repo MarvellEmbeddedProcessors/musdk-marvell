@@ -28,6 +28,22 @@ AC_ARG_ENABLE([sam],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-sam]) ;;
 esac],[sam=false])
 AM_CONDITIONAL([SAM_BUILD], [test x$sam = xtrue])
+
+if test x$sam = xtrue; then
+##########################################################################
+# Set MVCONF_SAM_STATS - using --enable-sam-statistics
+##########################################################################
+AC_ARG_ENABLE([sam-statistics],
+[  --enable-sam-statistics    Enable musdk sam driver statistics],
+[case "${enableval}" in
+  yes) SAM_STATS=true ;;
+  no)  SAM_STATS=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-sam-statistics]) ;;
+esac],[SAM_STATS=false])
+if test x$SAM_STATS = xtrue; then
+	MUSDK_CFLAGS+="-DMVCONF_SAM_STATS "
+fi
+fi
 ##########################################################################
 # Set MUSDK debug level
 ##########################################################################

@@ -54,6 +54,15 @@ struct sam_cio_params {
 	u32 max_buf_size;  /**< maximum buffer size [in bytes] */
 };
 
+struct sam_cio_stats {
+	u64 enq_pkts;   /**< Number of enqueued packet */
+	u64 enq_bytes;  /**< Number of enqueued bytes */
+	u64 enq_full;   /**< Number of times when ring was full on enqueue */
+	u64 deq_pkts;   /**< Number of dequeued packet */
+	u64 deq_bytes;  /**< Number of dequeued bytes */
+	u64 deq_empty;  /**< Number of times ring was empty on dequeue */
+};
+
 /** DMAable buffer representation */
 struct sam_buf_info {
 	void       *vaddr; /**< virtual address of the buffer */
@@ -159,6 +168,8 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
+
+int sam_cio_stats_get(struct sam_cio *cio, struct sam_cio_stats *stats, int reset);
 
 /** @} */ /* end of grp_sam_cio */
 

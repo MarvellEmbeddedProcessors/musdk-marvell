@@ -827,6 +827,7 @@ static int parse_args(int argc, char *argv[])
 int main(int argc, char **argv)
 {
 	struct sam_cio_params cio_params;
+	struct sam_cio_stats cio_stats;
 	int rc;
 
 	rc = parse_args(argc, argv);
@@ -878,6 +879,14 @@ exit:
 
 	free_bufs();
 
+	if (!sam_cio_stats_get(cio_hndl, &cio_stats, true)) {
+		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
+		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
+		printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
+		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
+		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
+		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
+	}
 	if (sam_cio_deinit(cio_hndl)) {
 		printf("%s: un-initialization failed\n", argv[0]);
 		return 1;

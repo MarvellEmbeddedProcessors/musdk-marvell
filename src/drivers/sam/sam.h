@@ -74,6 +74,9 @@ struct sam_cio_op {
 struct sam_cio {
 	u8  id;				/* ring id in SAM HW unit */
 	struct sam_cio_params params;
+#ifdef MVCONF_SAM_STATS
+	struct sam_cio_stats stats;	/* cio statistics */
+#endif
 	struct sam_cio_op *operations;	/* array of operations */
 	struct sam_sa *sessions;	/* array of sessions */
 	struct sam_hw_ring hw_ring;
@@ -95,6 +98,12 @@ struct sam_sa {
 	u32				tcr_words;
 	u32				token_words;
 };
+
+#ifdef MVCONF_SAM_STATS
+#define SAM_STATS(c) c
+#else
+#define SAM_STATS(c)
+#endif
 
 static inline u32 sam_cio_next_idx(struct sam_cio *cio, u32 idx)
 {

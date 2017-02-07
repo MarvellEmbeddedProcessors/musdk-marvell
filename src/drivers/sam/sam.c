@@ -545,6 +545,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Check maximum number of pending requests */
 		if (sam_cio_is_full(cio)) {
 			/*pr_warning("SAM cio %d is full\n", cio->id);*/
+			SAM_STATS(cio->stats.enq_full++);
 			break;
 		}
 #ifdef SAM_CIO_DEBUG
@@ -583,10 +584,13 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		sam_hw_ring_desc_write(cmd_desc, res_desc, cmd);
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
+		SAM_STATS(cio->stats.enq_bytes += cmd->SrcPkt_ByteCount);
 	}
 	/* submit requests */
-	sam_hw_ring_submit(&cio->hw_ring, i);
-
+	if (i) {
+		sam_hw_ring_submit(&cio->hw_ring, i);
+		SAM_STATS(cio->stats.enq_pkts += i);
+	}
 	*num = (u16)i;
 
 	return 0;
@@ -607,7 +611,11 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 	/* Try to get the processed packet from the RDR */
 	done = sam_hw_ring_ready_get(&cio->hw_ring);
-
+	if (!done) {
+		SAM_STATS(cio->stats.deq_empty++);
+		*num = 0;
+		return 0;
+	}
 	todo = *num;
 	count = min(todo, done);
 
@@ -626,6 +634,8 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 		result->cookie = operation->cookie;
 		result->out_len = result_desc->DstPkt_ByteCount;
+
+		SAM_STATS(cio->stats.deq_bytes += result_desc->DstPkt_ByteCount);
 
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
@@ -665,8 +675,23 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 	/*PEC_CDR_Regs(cio->id);*/
 	/*PEC_RDR_Regs(cio->id);*/
+	SAM_STATS(cio->stats.deq_pkts += count);
 
 	*num = (u16)count;
 
 	return 0;
+}
+
+int sam_cio_stats_get(struct sam_cio *cio, struct sam_cio_stats *stats, int reset)
+{
+#ifdef MVCONF_SAM_STATS
+	memcpy(stats, &cio->stats, sizeof(cio->stats));
+
+	if (reset)
+		memset(&cio->stats, 0, sizeof(cio->stats));
+
+	return 0;
+#else
+	return -ENOTSUP;
+#endif /* MVCONF_SAM_STATS */
 }
