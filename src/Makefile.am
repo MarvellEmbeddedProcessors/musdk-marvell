@@ -116,3 +116,8 @@ libmusdk_la_SOURCES += drivers/sam/safexcel/TokenBuilder/src/token_builder_core.
 libmusdk_la_SOURCES += drivers/sam/safexcel/TokenBuilder/src/token_builder_context.c
 
 endif
+
+nobase_include_HEADERS += include/drivers/mv_dmax2.h
+
+libmusdk_la_SOURCES += drivers/dmax2/dmax2.c
+libmusdk_la_SOURCES += drivers/dmax2/dmax2_mem.c
