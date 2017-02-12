@@ -1827,7 +1827,7 @@ sub CHK {
 	my ($type, $msg) = @_;
 
 	if ($check && report("CHECK", $type, $msg)) {
-		our $clean = 0;
+		##our $clean = 0;
 		our $cnt_chk++;
 		return 1;
 	}
