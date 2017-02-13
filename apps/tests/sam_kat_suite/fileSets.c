@@ -54,9 +54,9 @@
  * 	FILE_NOT_VALID - If other error occurred
  * 	FILE_SUCCESS - If the function succeed to get the arguments
  */
-static FileMessage fileSetsGetArgs(FILE* fstr, char* line,
-		EncryptedBlockType* type, unsigned char* outputDataArray,
-		int* outputDataNumber);
+static FileMessage fileSetsGetArgs(FILE *fstr, char *line,
+		EncryptedBlockType *type, unsigned char *outputDataArray,
+		int *outputDataNumber);
 /**
  * fileSetsGetCounter: gets a new counter from the given line.
  *
@@ -67,7 +67,7 @@ static FileMessage fileSetsGetArgs(FILE* fstr, char* line,
  * 			from the line
  * 	FILE_SUCCESS - If the function succeed to get the counter
  */
-static FileMessage fileSetsGetCounter(char* line, int* outputCounter);
+static FileMessage fileSetsGetCounter(char *line, int *outputCounter);
 /**
  * fileSetsGetString: gets a string from the given line.
  *
@@ -79,8 +79,8 @@ static FileMessage fileSetsGetCounter(char* line, int* outputCounter);
  * 			from the line
  * 	FILE_SUCCESS - If the function succeed to gets the counter
  */
-static FileMessage fileSetsGetString(char* line, unsigned char* outputDataArray,
-		int* outputDataLen);
+static FileMessage fileSetsGetString(char *line, unsigned char *outputDataArray,
+		int *outputDataLen);
 /**
  * fileSetsGetData: gets a new data from the file.
  *
@@ -95,8 +95,8 @@ static FileMessage fileSetsGetString(char* line, unsigned char* outputDataArray,
  * 		CHUNK_SIZE (who's defined)
  * 	FILE_SUCCESS - If the function succeed to get the data
  */
-static FileMessage fileSetsGetData(FILE* fstr, char* line,
-		unsigned char* outputDataArray, int* outputDataLen);
+static FileMessage fileSetsGetData(FILE *fstr, char *line,
+		unsigned char *outputDataArray, int *outputDataLen);
 /**
  * fileSetsGetTypeFromString: Gets the encrypted block type.
  *
@@ -110,7 +110,6 @@ static FileMessage fileSetsGetData(FILE* fstr, char* line,
  *  PLAINTEXT - If the string is "PLAINTEXT" or "PT"
  *  CIPHERTEXT - If the string is "Ciphertext" or "CT"
  *  TESTCOUNTER - If the string is "Testcounter"
- *  OPERATIONCOUNTER - If the string is "Operatincounter" or "Operations"
  *  MODE - If the string is "Mode"
  *  ALGORITHM - If the string is "Algorithm"
  *  AUTH_ALGORITHM - If the string is "Authalgorithm"
@@ -118,7 +117,7 @@ static FileMessage fileSetsGetData(FILE* fstr, char* line,
  *  CRYPTO_OFFSET - If the string is "Cryptoffset"
  *  INVALID - If other string was sent
  */
-static EncryptedBlockType fileSetsGetTypeFromString(char* str);
+static EncryptedBlockType fileSetsGetTypeFromString(char *str);
 
 /**
  * fileSetsCnvertMessage: Converts encrypted block message to file sets message.
@@ -130,48 +129,74 @@ static EncryptedBlockType fileSetsGetTypeFromString(char* str);
 static FileMessage fileSetsConvertMessage(EncryptedBlockMessage message);
 ///////////////////////////////////////////////////////////////////////////////
 
-FileMessage fileSetsReadBlocksFromFile(char* fileName, generic_list encryptedBlocks) {
+FileMessage fileSetsReadBlocksFromFile(char *fileName, generic_list encryptedBlocks)
+{
+	EncryptedBlockMessage encryptedBlockMessage;
+	EncryptedBlockPtr currentBlock;
+	FILE *fstr;
+	char line[CHUNK_SIZE] = { 0 };
+
 	if (!fileName || !encryptedBlocks) {
 		return FILE_NULL_ARGS;
 	}
-	FILE *fstr;
-	char line[CHUNK_SIZE] = { 0 };
+
 	fstr = fopen(fileName, "r");
 	if (fstr == NULL) {
 		return FILE_OPEN_PROBLEM;
 	}
+
 	while (fgets(line, CHUNK_SIZE, fstr) != NULL) {
+		EncryptedBlockType type = INVALID;
+		unsigned char dataArray[CHUNK_SIZE] = { 0 };
+		int dataNumber = 0;
+		FileMessage message;
+		int current_index = 0, next_index = 0;
 
 		if (isCommentOrEmptyLine(line)) {
 			cleanStr(line);
 			continue;
 		}
-		EncryptedBlockType type = INVALID;
-		unsigned char dataArray[CHUNK_SIZE] = { 0 };
-		int dataNumber = 0;
-		FileMessage message = fileSetsGetArgs(fstr, line, &type, dataArray,
-				&dataNumber);
+
+		message = fileSetsGetArgs(fstr, line, &type, dataArray, &dataNumber);
 		if (message != FILE_SUCCESS) {
 			printf("fileSetsGetArgs FAILED - rc = %d, type = %d\n", message, type);
 			fclose(fstr);
 			return message;
 		}
 
-		EncryptedBlockPtr currentBlock;
 		if (type == NEW_BLOCK_TYPE) {
-			EncryptedBlockMessage encryptedBlockMessage = encryptedBlockCreate(
-					&currentBlock);
+			encryptedBlockMessage = encryptedBlockCreate(&currentBlock);
 			if (encryptedBlockMessage == ENCRYPTEDBLOCK_OUT_OF_MEMORY) {
 				fclose(fstr);
 				return FILE_OUT_OF_MEMORY;
 			}
+			current_index = 0;
+			next_index = 0;
 		} else {
 			currentBlock = generic_list_get_last(encryptedBlocks);
 		}
 
-		message = fileSetsConvertMessage(
-				encryptedBlockAddElement(currentBlock, type, dataArray,
+		if (isEncryptedBlockTypeSession(type)) {
+			message = fileSetsConvertMessage(
+				encryptedBlockSessionAddElement(currentBlock, type, dataArray,
 						dataNumber));
+		} else if (isEncryptedBlockTypeOperation(type)) {
+			if (type == NEW_OPERATION_TYPE) {
+				current_index = next_index;
+				encryptedBlockMessage = encryptedBlockOperationCreate(currentBlock, current_index);
+				if (encryptedBlockMessage != ENCRYPTEDBLOCK_SUCCESS) {
+					fclose(fstr);
+					return FILE_OUT_OF_MEMORY;
+				}
+				next_index++;
+			}
+			message = fileSetsConvertMessage(
+				encryptedBlockOperationAddElement(currentBlock, type, current_index,
+								dataArray, dataNumber));
+		} else {
+			printf("Unexpected type = %d\n", type);
+			message = FILE_NULL_ARGS;
+		}
 		if (message != FILE_SUCCESS) {
 			if (type == NEW_BLOCK_TYPE) {
 				encryptedBlockDestroy(currentBlock);
@@ -192,9 +217,10 @@ FileMessage fileSetsReadBlocksFromFile(char* fileName, generic_list encryptedBlo
 	fclose(fstr);
 	return FILE_SUCCESS;
 }
-static FileMessage fileSetsGetArgs(FILE* fstr, char* line,
-		EncryptedBlockType* type, unsigned char* outputDataArray,
-		int* outputDataNumber) {
+static FileMessage fileSetsGetArgs(FILE *fstr, char *line,
+		EncryptedBlockType *type, unsigned char *outputDataArray,
+		int *outputDataNumber)
+{
 	if (!line || !type || !outputDataArray) {
 		return FILE_NULL_ARGS;
 	}
@@ -212,7 +238,7 @@ static FileMessage fileSetsGetArgs(FILE* fstr, char* line,
 	switch (*type) {
 	case TESTCOUNTER:
 	case CRYPTO_OFFSET:
-	case OPERATIONCOUNTER:
+	case AUTH_OFFSET:
 		return fileSetsGetCounter(line, outputDataNumber);
 		break;
 	case NAME:
@@ -227,14 +253,15 @@ static FileMessage fileSetsGetArgs(FILE* fstr, char* line,
 		break;
 	}
 }
-static FileMessage fileSetsGetCounter(char* line, int* outputCounter) {
+static FileMessage fileSetsGetCounter(char *line, int *outputCounter)
+{
 	if (sscanf(line, " %d", outputCounter) != 1) {
 		return FILE_NOT_VALID;
 	}
 	return FILE_SUCCESS;
 }
-static FileMessage fileSetsGetString(char* line, unsigned char* outputDataArray,
-		int* outputDataLen) {
+static FileMessage fileSetsGetString(char *line, unsigned char *outputDataArray,
+					int *outputDataLen) {
 	if (sscanf(line, " %s", outputDataArray) != 1) {
 		return FILE_NOT_VALID;
 	}
@@ -246,8 +273,10 @@ static FileMessage fileSetsGetString(char* line, unsigned char* outputDataArray,
 	*outputDataLen = strlen((char*) outputDataArray) + 1;
 	return FILE_SUCCESS;
 }
-static FileMessage fileSetsGetData(FILE* fstr, char* line,
-		unsigned char* outputDataArray, int* outputDataLen) {
+
+static FileMessage fileSetsGetData(FILE *fstr, char *line,
+		unsigned char *outputDataArray, int *outputDataLen)
+{
 	char strOut[CHUNK_SIZE] = { 0 };
 	bool continuesData;
 	int scanned, strLen = 0;
@@ -295,52 +324,56 @@ static EncryptedBlockType fileSetsGetTypeFromString(char* str) {
 	if (!str) {
 		return INVALID;
 	}
-	if (strcmp(str, "Name") == 0) {
+	if (strcmp(str, "Name") == 0)
 		return NAME;
-	}
-	if (strcmp(str, "Key") == 0) {
+
+	if (strcmp(str, "Key") == 0)
 		return KEY;
-	}
-	if (strcmp(str, "Authkey") == 0) {
+
+	if (strcmp(str, "Authkey") == 0)
 		return AUTH_KEY;
-	}
-	if (strcmp(str, "IV") == 0) {
+
+	if (strcmp(str, "IV") == 0)
 		return IV;
-	}
-	if (strcmp(str, "ICB") == 0) {
+
+	if (strcmp(str, "ICB") == 0)
 		return ICB;
-	}
-	if (strcmp(str, "Plaintext") == 0 || strcmp(str, "PT") == 0) {
+
+	if (strcmp(str, "AAD") == 0)
+		return AAD;
+
+	if (strcmp(str, "Plaintext") == 0 || strcmp(str, "PT") == 0)
 		return PLAINTEXT;
-	}
-	if (strcmp(str, "Ciphertext") == 0 || strcmp(str, "CT") == 0) {
+
+	if (strcmp(str, "Ciphertext") == 0 || strcmp(str, "CT") == 0)
 		return CIPHERTEXT;
-	}
-	if (strcmp(str, "Testcounter") == 0) {
+
+	if (strcmp(str, "Testcounter") == 0)
 		return TESTCOUNTER;
-	}
-	if (strcmp(str, "Mode") == 0) {
+
+	if (strcmp(str, "Mode") == 0)
 		return MODE;
-	}
-	if (strcmp(str, "Algorithm") == 0) {
+
+	if (strcmp(str, "Algorithm") == 0)
 		return ALGORITHM;
-	}
-	if (strcmp(str, "Authalgorithm") == 0) {
+
+	if (strcmp(str, "Authalgorithm") == 0)
 		return AUTH_ALGORITHM;
-	}
-	if (strcmp(str, "Cryptoffset") == 0) {
+
+	if (strcmp(str, "Cryptoffset") == 0)
 		return CRYPTO_OFFSET;
-	}
-	if (strcmp(str, "Direction") == 0) {
+
+	if (strcmp(str, "Authoffset") == 0)
+		return AUTH_OFFSET;
+
+	if (strcmp(str, "Direction") == 0)
 		return DIRECTION;
-	}
-	if (strcmp(str, "OperationCounter") == 0
-			|| strcmp(str, "Operations") == 0) {
-		return OPERATIONCOUNTER;
-	}
+
 	return INVALID;
 }
-static FileMessage fileSetsConvertMessage(EncryptedBlockMessage message) {
+
+static FileMessage fileSetsConvertMessage(EncryptedBlockMessage message)
+{
 	switch (message) {
 	case ENCRYPTEDBLOCK_SUCCESS:
 		return FILE_SUCCESS;
@@ -365,7 +398,9 @@ static FileMessage fileSetsConvertMessage(EncryptedBlockMessage message) {
 	}
 	return FILE_NOT_VALID;
 }
-generic_list_element fileSetsEncryptedBlockCopyForList(generic_list_element encryptedBlock) {
+
+generic_list_element fileSetsEncryptedBlockCopyForList(generic_list_element encryptedBlock)
+{
 	if (!encryptedBlock) {
 		return NULL;
 	}
@@ -377,6 +412,8 @@ generic_list_element fileSetsEncryptedBlockCopyForList(generic_list_element encr
 	}
 	return copyBlock;
 }
-void fileSetsEncryptedBlockDestroyForList(generic_list_element encryptedBlock) {
+
+void fileSetsEncryptedBlockDestroyForList(generic_list_element encryptedBlock)
+{
 	encryptedBlockDestroy(encryptedBlock);
 }

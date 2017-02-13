@@ -30,6 +30,9 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+#include "mv_std.h"
+#include "lib/lib_misc.h"
+
 #include "encryptedBlock.h"
 #include "common.h"
 #include "array.h"
@@ -39,26 +42,26 @@
 #include <stdbool.h>
 
 /**
- * operations_t: Structure for operations,
+ * operation: Structure for operation,
  *  	with all of its relevant information.
  *
- * operationCounter - The number of operations.
- * iv - The iv of each operation .
- * icb - The digest of each operation Respectively.
- * plainText - The plain text of each operation Respectively.
- * cipherText - The cipher text of each operation Respectively.
- * cryptoOffset - The offset to made for each operation.
- * cryptoOffsetIndex - The index of the next empty cryptoOffset.
+ * iv           - The initial vector for the operation.
+ * aad          - The additional authentication data for the operation.
+ * icb          - The digest for the operation.
+ * plainText    - The plain text for the operation.
+ * cipherText   - The cipher text for the operation.
+ * cryptoOffset - The offset to start encryption.
+ * authOffset   - The offset to start authentication.
  */
-typedef struct operations_t {
-	int operationCounter;
-	ArrayComplexPtr iv;
-	ArrayComplexPtr icb;
-	ArrayComplexPtr plainText;
-	ArrayComplexPtr cipherText;
-	int* cryptoOffset;
-	int cryptoOffsetIndex;
-}*Operations;
+struct operation {
+	ArrayPtr iv;
+	ArrayPtr aad;
+	ArrayPtr icb;
+	ArrayPtr plainText;
+	ArrayPtr cipherText;
+	int cryptoOffset;
+	int authOffset;
+};
 /**
  * encryptedBlock_t: Structure for encrypted block,
  *  	with all of its relevant information.
@@ -70,6 +73,7 @@ typedef struct operations_t {
  * name - The name of the encrypted block.
  * key - The key of the encrypted block.
  * authKey - The authentication key of the encrypted block.
+ * operationCounter - The number of operations.
  * operations - the operations of the current encrypted block.
  * testCounter - The number of loop test for each operation.
  */
@@ -81,7 +85,8 @@ struct encryptedBlock_t {
 	char name[64];
 	ArrayPtr key;
 	ArrayPtr authKey;
-	Operations operations;
+	int operationCounter;
+	struct operation *operations[16];
 	int testCounter;
 };
 ///////////////////////////////////////////////////////////////////////////////
@@ -91,70 +96,13 @@ struct encryptedBlock_t {
  * @param encryptedBlock - The encrypted block to be reseted
  */
 static void encryptedBlockReset(EncryptedBlockPtr encryptedBlock);
-/**
- * encryptedBlockAddComplexArray:
- *
- * 		Adds a new data element to the given encrypted block element.
- * 		If the element doesn't exist he creates it.
- *
- * @param type - The type of the element
- * @param encryptedBlock - The encrypted block to add the element to
- * @param elementArray - The element to be added
- * @param elementLen - The element length
- * @return
- * 	ENCRYPTEDBLOCK_NULL_ARGS - If at least one of the parameters is NULL
- *	ENCRYPTEDBLOCK_NOT_VALID_ARGS - If at least one of the arg's is not valid
- *	ENCRYPTEDBLOCK_OUT_OF_MEMORY - If an allocation failed
- *	ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS - If the plain text array is full
- * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to add the element
- */
-static EncryptedBlockMessage encryptedBlockAddComplexArray(
-		EncryptedBlockType type, EncryptedBlockPtr encryptedBlock,
-		unsigned char* elementArray, int elementLen);
-/**
- * encryptedBlockAddArray:
- *
- * 		creates a new data element.
- *
- * @param type - The type of the element
- * @param encryptedBlock - The encrypted block to add the element to
- * @param elementArray - The element to be added
- * @param elementLen - The element length
- * @return
- * 	ENCRYPTEDBLOCK_NULL_ARGS - If at least one of the parameters is NULL
- *	ENCRYPTEDBLOCK_NOT_VALID_ARGS - If at least one of the arg's is not valid
- *	ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST - If the element is already exist in the block
- *	ENCRYPTEDBLOCK_OUT_OF_MEMORY - If an allocation failed
- * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to add the element
- */
-static EncryptedBlockMessage encryptedBlockAddArray(EncryptedBlockType type,
-		EncryptedBlockPtr encryptedBlock, unsigned char* elementArray,
-		int elementLen);
-/**
- * encryptedBlockGetElement: Gets the wanted element pointer.
- *
- * @param type - The type of the wanted element.
- * @param encryptedBlock - The encryptedBlock to get the element from.
- * @return
- * 	pointer to the wanterd element.
- */
-static void* encryptedBlockGetElement(EncryptedBlockType type,
-		EncryptedBlockPtr encryptedBlock);
 
-/**
- * encryptedBlockConvertMessage: Converts array message to encrypted block message.
- *
- * @param message - The array message to be converted
- * 	 @return
- * 		the relevant encrypted block message
- */
-static EncryptedBlockMessage encryptedBlockConvertMessage(ArrayMessage message);
-
-static EncryptedBlockMessage copyOperations(Operations src, Operations dst);
+static EncryptedBlockMessage copyOperation(struct operation *src, struct operation *dst);
 ///////////////////////////////////////////////////////////////////////////////
 
 EncryptedBlockMessage encryptedBlockCreate(
-		EncryptedBlockPtr* outputEncryptedBlock) {
+		EncryptedBlockPtr *outputEncryptedBlock)
+{
 	if (!outputEncryptedBlock) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
@@ -162,16 +110,12 @@ EncryptedBlockMessage encryptedBlockCreate(
 	if (*outputEncryptedBlock == NULL) {
 		return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
 	}
-	(*outputEncryptedBlock)->operations = malloc(
-			sizeof(*(*outputEncryptedBlock)->operations));
-	if ((*outputEncryptedBlock)->operations == NULL) {
-		free(*outputEncryptedBlock);
-		return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
-	}
 	encryptedBlockReset(*outputEncryptedBlock);
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
-static void encryptedBlockReset(EncryptedBlockPtr encryptedBlock) {
+
+static void encryptedBlockReset(EncryptedBlockPtr encryptedBlock)
+{
 	if (encryptedBlock == NULL) {
 		return;
 	}
@@ -183,16 +127,15 @@ static void encryptedBlockReset(EncryptedBlockPtr encryptedBlock) {
 	memset(encryptedBlock->authAlgorithm, 0, sizeof(encryptedBlock->authAlgorithm));
 	memset(encryptedBlock->direction, 0, sizeof(encryptedBlock->direction));
 	encryptedBlock->testCounter = 0;
-	encryptedBlock->operations->operationCounter = 1;
-	encryptedBlock->operations->iv = NULL;
-	encryptedBlock->operations->icb = NULL;
-	encryptedBlock->operations->plainText = NULL;
-	encryptedBlock->operations->cipherText = NULL;
-	encryptedBlock->operations->cryptoOffset = NULL;
-	encryptedBlock->operations->cryptoOffsetIndex = 0;
+	encryptedBlock->operationCounter = 0;
+	memset(encryptedBlock->operations, 0, sizeof(encryptedBlock->operations));
 }
+
 EncryptedBlockMessage encryptedBlockCopy(EncryptedBlockPtr srcBlock,
-		EncryptedBlockPtr* copyBlock) {
+					 EncryptedBlockPtr *copyBlock)
+{
+	int i;
+
 	if (!srcBlock || !copyBlock) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
@@ -224,41 +167,61 @@ EncryptedBlockMessage encryptedBlockCopy(EncryptedBlockPtr srcBlock,
 			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
 		}
 	}
-	if (copyOperations(srcBlock->operations, (*copyBlock)->operations)
-			!= ENCRYPTEDBLOCK_SUCCESS) {
-		encryptedBlockDestroy(*copyBlock);
-		*copyBlock = NULL;
-		return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
+	for (i = 0; i < srcBlock->operationCounter; i++) {
+		if (copyOperation(srcBlock->operations[i], (*copyBlock)->operations[i])
+				!= ENCRYPTEDBLOCK_SUCCESS) {
+			encryptedBlockDestroy(*copyBlock);
+			*copyBlock = NULL;
+			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
+		}
 	}
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
-void encryptedBlockDestroy(EncryptedBlockPtr encryptedBlock) {
-	if (encryptedBlock == NULL) {
+void encryptedBlockDestroy(EncryptedBlockPtr encryptedBlock)
+{
+	int i = 0;
+
+	if (encryptedBlock == NULL)
 		return;
+
+	while (encryptedBlock->operations[i]) {
+		/* Destroy operation */
+		arrayDestroy(encryptedBlock->operations[i]->iv);
+		arrayDestroy(encryptedBlock->operations[i]->aad);
+		arrayDestroy(encryptedBlock->operations[i]->icb);
+		arrayDestroy(encryptedBlock->operations[i]->plainText);
+		arrayDestroy(encryptedBlock->operations[i]->cipherText);
+		i++;
+		free(encryptedBlock->operations[i]);
 	}
-	arrayComplexDestroy(encryptedBlock->operations->iv);
-	arrayComplexDestroy(encryptedBlock->operations->icb);
-	arrayComplexDestroy(encryptedBlock->operations->plainText);
-	arrayComplexDestroy(encryptedBlock->operations->cipherText);
-	free(encryptedBlock->operations->cryptoOffset);
-	free(encryptedBlock->operations);
 	arrayDestroy(encryptedBlock->key);
 	arrayDestroy(encryptedBlock->authKey);
 	free(encryptedBlock);
 }
-EncryptedBlockMessage encryptedBlockAddElement(EncryptedBlockPtr encryptedBlock,
-		EncryptedBlockType type, unsigned char* elementArray, int elementLen) {
-	if (!encryptedBlock
-			|| (!elementArray
-					&& (type != CRYPTO_OFFSET && type != TESTCOUNTER
-							&& type != OPERATIONCOUNTER))) {
+
+EncryptedBlockMessage encryptedBlockSessionAddElement(EncryptedBlockPtr encryptedBlock,
+		EncryptedBlockType type, unsigned char *elementArray, int elementLen)
+{
+	if (!encryptedBlock || (!elementArray &&
+				(type != TESTCOUNTER))) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
 	switch (type) {
 	case KEY:
+		if (encryptedBlock->key)
+			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
+
+		encryptedBlock->key = arrayCreate(elementArray, elementLen);
+		if (!encryptedBlock->key)
+			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
+		break;
 	case AUTH_KEY:
-		return encryptedBlockAddArray(type, encryptedBlock, elementArray,
-				elementLen);
+		if (encryptedBlock->authKey)
+			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
+
+		encryptedBlock->authKey = arrayCreate(elementArray, elementLen);
+		if (!encryptedBlock->authKey)
+			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
 		break;
 	case TESTCOUNTER:
 		encryptedBlock->testCounter = elementLen;
@@ -293,122 +256,98 @@ EncryptedBlockMessage encryptedBlockAddElement(EncryptedBlockPtr encryptedBlock,
 
 		strncpy(encryptedBlock->direction, (char *)elementArray, sizeof(encryptedBlock->direction));
 		break;
-	case OPERATIONCOUNTER:
-		if (encryptedBlock->operations->plainText
-				|| encryptedBlock->operations->cipherText
-				|| encryptedBlock->operations->iv
-				|| encryptedBlock->operations->icb
-				|| encryptedBlock->operations->cryptoOffset) {
-			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
-		}
-		encryptedBlock->operations->operationCounter = elementLen;
-		break;
-	case IV:
-	case ICB:
-	case PLAINTEXT:
-	case CIPHERTEXT:
-		return encryptedBlockAddComplexArray(type, encryptedBlock, elementArray,
-				elementLen);
-		break;
-	case CRYPTO_OFFSET:
-		if (!encryptedBlock->operations->cryptoOffset) {
-			encryptedBlock->operations->cryptoOffset = malloc(
-					sizeof(*(encryptedBlock->operations->cryptoOffset))
-							* encryptedBlock->operations->operationCounter);
-		}
-		return encryptedBlockSetCryptoOffset(encryptedBlock, elementLen);
-		break;
 	default:
 		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
 	}
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
 
-static EncryptedBlockMessage encryptedBlockAddComplexArray(
-		EncryptedBlockType type, EncryptedBlockPtr encryptedBlock,
-		unsigned char* elementArray, int elementLen) {
-	ArrayComplexPtr* dst = encryptedBlockGetElement(type, encryptedBlock);
-	if(!dst){
-		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
-	}
-	if (!*dst) {
-		*dst = arrayComplexCreate(encryptedBlock->operations->operationCounter);
-		if (!*dst) {
-			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
-		}
-	}
-	return encryptedBlockConvertMessage(
-			arrayComplexAddData(*dst, elementArray, elementLen));
-}
-static EncryptedBlockMessage encryptedBlockAddArray(EncryptedBlockType type,
-		EncryptedBlockPtr encryptedBlock, unsigned char* elementArray,
-		int elementLen) {
-	ArrayPtr* dst = encryptedBlockGetElement(type, encryptedBlock);
-	if(!dst){
-		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
-	}
-	if (*dst) {
-		return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
-	}
-	*dst = arrayCreate(elementArray, elementLen);
-	if (!*dst) {
+EncryptedBlockMessage encryptedBlockOperationCreate(EncryptedBlockPtr encryptedBlock,
+						int index)
+{
+	if (index >= 16)
+		return ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS;
+
+	encryptedBlock->operations[index] = malloc(sizeof(struct operation));
+	if (!encryptedBlock->operations[index])
 		return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
-	}
+
+	memset(encryptedBlock->operations[index], 0, sizeof(struct operation));
+
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
-static void* encryptedBlockGetElement(EncryptedBlockType type,
-		EncryptedBlockPtr encryptedBlock) {
-	switch (type) {
-	case KEY:
-		return &encryptedBlock->key;
-		break;
-	case AUTH_KEY:
-		return &encryptedBlock->authKey;
-		break;
-	case IV:
-		return &encryptedBlock->operations->iv;
-		break;
-	case ICB:
-		return &encryptedBlock->operations->icb;
-		break;
-	case PLAINTEXT:
-		return &encryptedBlock->operations->plainText;
-		break;
-	case CIPHERTEXT:
-		return &encryptedBlock->operations->cipherText;
-		break;
-	default:
+
+static ArrayPtr *encryptedBlockOperationArrayPtrGet(EncryptedBlockPtr encryptedBlock,
+					     EncryptedBlockType type, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index])
 		return NULL;
+
+	switch (type) {
+	case IV:
+		return &encryptedBlock->operations[index]->iv;
+	case ICB:
+		return &encryptedBlock->operations[index]->icb;
+	case AAD:
+		return &encryptedBlock->operations[index]->aad;
+	case PLAINTEXT:
+		return &encryptedBlock->operations[index]->plainText;
+	case CIPHERTEXT:
+		return &encryptedBlock->operations[index]->cipherText;
+	default:
+		break;
 	}
 	return NULL;
 }
-EncryptedBlockMessage encryptedBlockSetTestCounter(
-		EncryptedBlockPtr encryptedBlock, int testCounter) {
-	if (!encryptedBlock) {
+
+EncryptedBlockMessage encryptedBlockOperationAddElement(EncryptedBlockPtr encryptedBlock,
+		EncryptedBlockType type, int index, unsigned char *elementArray, int elementLen)
+{
+	ArrayPtr *element_ptr;
+
+	if (!encryptedBlock || !encryptedBlock->operations[index])
+		return ENCRYPTEDBLOCK_NULL_ARGS;
+
+	if (!elementArray && ((type != CRYPTO_OFFSET) &&
+			      (type != AUTH_OFFSET))) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
-	if (testCounter < 0) {
-		return ENCRYPTEDBLOCK_NEGATIVE_COUNTER;
+
+	switch (type) {
+	case IV:
+	case ICB:
+	case AAD:
+	case PLAINTEXT:
+	case CIPHERTEXT:
+		element_ptr = encryptedBlockOperationArrayPtrGet(encryptedBlock, type, index);
+		if (!element_ptr) {
+			return ENCRYPTEDBLOCK_NULL_ARGS;
+		}
+
+		if (*element_ptr != NULL) {
+			printf("Element of operation type = %d already exist for index = %d\n",
+				type, index);
+			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
+		}
+
+		*element_ptr = arrayCreate(elementArray, elementLen);
+		if (*element_ptr == NULL) {
+			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
+		}
+		break;
+	case CRYPTO_OFFSET:
+		encryptedBlock->operations[index]->cryptoOffset = elementLen;
+		break;
+	case AUTH_OFFSET:
+		encryptedBlock->operations[index]->authOffset = elementLen;
+		break;
+	default:
+		printf("Unexpected operation type = %d\n", type);
+		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
 	}
-	encryptedBlock->testCounter = testCounter;
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
-EncryptedBlockMessage encryptedBlockSetCryptoOffset(
-		EncryptedBlockPtr encryptedBlock, int off) {
-	if (!encryptedBlock) {
-		return ENCRYPTEDBLOCK_NULL_ARGS;
-	}
-	int index = encryptedBlock->operations->cryptoOffsetIndex;
-	if (off < 0) {
-		return ENCRYPTEDBLOCK_NEGATIVE_COUNTER;
-	}
-	if (index >= encryptedBlock->operations->operationCounter) {
-		return ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS;
-	}
-	encryptedBlock->operations->cryptoOffset[index] = off;
-	encryptedBlock->operations->cryptoOffsetIndex++;
-	return ENCRYPTEDBLOCK_SUCCESS;
-}
+
 char *encryptedBlockGetName(EncryptedBlockPtr encryptedBlock)
 {
 	if (!encryptedBlock) {
@@ -416,218 +355,250 @@ char *encryptedBlockGetName(EncryptedBlockPtr encryptedBlock)
 	}
 	return encryptedBlock->name;
 }
+
 EncryptedBlockMessage encryptedBlockGetKey(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray) {
+		int size, unsigned char *outputArray)
+{
 	if (!encryptedBlock || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
 	if (!encryptedBlock->key) {
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	return encryptedBlockConvertMessage(
-			arrayGetData(encryptedBlock->key, outputArray, size));
+	arrayGetData(encryptedBlock->key, outputArray, size);
+
+	return ENCRYPTEDBLOCK_SUCCESS;
 }
+
 EncryptedBlockMessage encryptedBlockGetAuthKey(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray) {
+		int size, unsigned char *outputArray)
+{
 	if (!encryptedBlock || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
 	if (!encryptedBlock->authKey) {
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	return encryptedBlockConvertMessage(
-			arrayGetData(encryptedBlock->authKey, outputArray, size));
+	arrayGetData(encryptedBlock->authKey, outputArray, size);
+
+	return ENCRYPTEDBLOCK_SUCCESS;
 }
+
 EncryptedBlockMessage encryptedBlockGetIv(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray, int index) {
-	if (!encryptedBlock || !outputArray) {
+		int size, unsigned char *outputArray, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
-	if (!encryptedBlock->operations->iv) {
+	if (!encryptedBlock->operations[index]->iv) {
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	return encryptedBlockConvertMessage(
-			arrayComplexGetData(encryptedBlock->operations->iv, index,
-					outputArray, size));
+	arrayGetData(encryptedBlock->operations[index]->iv, outputArray, size);
+
+	return ENCRYPTEDBLOCK_SUCCESS;
 }
+
 EncryptedBlockMessage encryptedBlockGetIcb(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray, int index) {
-	if (!encryptedBlock || !outputArray) {
+		int size, unsigned char *outputArray, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
-	if (!encryptedBlock->operations->icb) {
+	if (!encryptedBlock->operations[index]->icb) {
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	return encryptedBlockConvertMessage(
-			arrayComplexGetData(encryptedBlock->operations->icb, index,
-					outputArray, size));
+	arrayGetData(encryptedBlock->operations[index]->icb, outputArray, size);
+
+	return ENCRYPTEDBLOCK_SUCCESS;
 }
+
+EncryptedBlockMessage encryptedBlockGetAad(EncryptedBlockPtr encryptedBlock,
+		int size, unsigned char *outputArray, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] || !outputArray) {
+		return ENCRYPTEDBLOCK_NULL_ARGS;
+	}
+	if (!encryptedBlock->operations[index]->aad) {
+		return ENCRYPTEDBLOCK_NO_ELEMENT;
+	}
+	arrayGetData(encryptedBlock->operations[index]->aad, outputArray, size);
+
+	return ENCRYPTEDBLOCK_SUCCESS;
+}
+
 EncryptedBlockMessage encryptedBlockGetPlainText(
 		EncryptedBlockPtr encryptedBlock, int size, unsigned char* outputArray,
-		int index) {
-	if (!encryptedBlock || !outputArray) {
+		int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
-	if (!encryptedBlock->operations->plainText) {
+	if (!encryptedBlock->operations[index]->plainText) {
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	return encryptedBlockConvertMessage(
-			arrayComplexGetData(encryptedBlock->operations->plainText, index,
-					outputArray, size));
+	arrayGetData(encryptedBlock->operations[index]->plainText, outputArray, size);
+
+	return ENCRYPTEDBLOCK_SUCCESS;
 }
+
 EncryptedBlockMessage encryptedBlockGetCipherText(
 		EncryptedBlockPtr encryptedBlock, int size, unsigned char* outputArray,
-		int index) {
-	if (!encryptedBlock || !outputArray) {
+		int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
-	if (!encryptedBlock->operations->cipherText) {
+	if (!encryptedBlock->operations[index]->cipherText) {
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	return encryptedBlockConvertMessage(
-			arrayComplexGetData(encryptedBlock->operations->cipherText, index,
-					outputArray, size));
+	arrayGetData(encryptedBlock->operations[index]->cipherText, outputArray, size);
+
+	return ENCRYPTEDBLOCK_SUCCESS;
 }
-int encryptedBlockGetKeyLen(EncryptedBlockPtr encryptedBlock) {
+
+int encryptedBlockGetKeyLen(EncryptedBlockPtr encryptedBlock)
+{
 	if (!encryptedBlock || !encryptedBlock->key) {
 		return 0;
 	}
 	return arrayGetLen(encryptedBlock->key);
 }
-int encryptedBlockGetAuthKeyLen(EncryptedBlockPtr encryptedBlock) {
+
+int encryptedBlockGetAuthKeyLen(EncryptedBlockPtr encryptedBlock)
+{
 	if (!encryptedBlock || !encryptedBlock->authKey) {
 		return 0;
 	}
 	return arrayGetLen(encryptedBlock->authKey);
 }
-int encryptedBlockGetIvLen(EncryptedBlockPtr encryptedBlock, int index) {
-	if (!encryptedBlock || !encryptedBlock->operations->iv) {
+
+int encryptedBlockGetIvLen(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] ||
+	    !encryptedBlock->operations[index]->iv) {
 		return 0;
 	}
-	return arrayComplexGetLen(encryptedBlock->operations->iv, index);
+	return arrayGetLen(encryptedBlock->operations[index]->iv);
 }
-int encryptedBlockGetIcbLen(EncryptedBlockPtr encryptedBlock, int index) {
-	if (!encryptedBlock || !encryptedBlock->operations->icb) {
+
+int encryptedBlockGetAadLen(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] ||
+	    !encryptedBlock->operations[index]->aad) {
 		return 0;
 	}
-	return arrayComplexGetLen(encryptedBlock->operations->icb, index);
+	return arrayGetLen(encryptedBlock->operations[index]->aad);
 }
-int encryptedBlockGetPlainTextLen(EncryptedBlockPtr encryptedBlock, int index) {
-	if (!encryptedBlock || !encryptedBlock->operations->plainText) {
+
+int encryptedBlockGetIcbLen(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] ||
+	    !encryptedBlock->operations[index]->icb) {
 		return 0;
 	}
-	return arrayComplexGetLen(encryptedBlock->operations->plainText, index);
+	return arrayGetLen(encryptedBlock->operations[index]->icb);
 }
-int encryptedBlockGetCipherTextLen(EncryptedBlockPtr encryptedBlock, int index) {
-	if (!encryptedBlock || !encryptedBlock->operations->cipherText) {
+
+int encryptedBlockGetPlainTextLen(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] ||
+	    !encryptedBlock->operations[index]->plainText) {
 		return 0;
 	}
-	return arrayComplexGetLen(encryptedBlock->operations->cipherText, index);
+	return arrayGetLen(encryptedBlock->operations[index]->plainText);
 }
-int encryptedBlockGetTestCounter(EncryptedBlockPtr encryptedBlock) {
+
+int encryptedBlockGetCipherTextLen(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index] ||
+	    !encryptedBlock->operations[index]->cipherText) {
+		return 0;
+	}
+	return arrayGetLen(encryptedBlock->operations[index]->cipherText);
+}
+
+int encryptedBlockGetTestCounter(EncryptedBlockPtr encryptedBlock)
+{
 	if (!encryptedBlock) {
 		return 0;
 	}
 	return encryptedBlock->testCounter;
 }
-int encryptedBlockGetCryptoOffset(EncryptedBlockPtr encryptedBlock, int index) {
-	if (!encryptedBlock || !encryptedBlock->operations->cryptoOffset) {
+
+int encryptedBlockGetCryptoOffset(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index]) {
 		return 0;
 	}
-	if(index < 0 || index >= encryptedBlock->operations->operationCounter){
-		return 0;
-	}
-	return encryptedBlock->operations->cryptoOffset[index];
+	return encryptedBlock->operations[index]->cryptoOffset;
 }
-int encryptedBlockGetOperationCounter(EncryptedBlockPtr encryptedBlock) {
-	if (!encryptedBlock) {
+
+int encryptedBlockGetAuthOffset(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (!encryptedBlock || !encryptedBlock->operations[index]) {
 		return 0;
 	}
-	return encryptedBlock->operations->operationCounter;
+	return encryptedBlock->operations[index]->authOffset;
 }
-char *encryptedBlockGetMode(EncryptedBlockPtr encryptedBlock) {
+
+char *encryptedBlockGetMode(EncryptedBlockPtr encryptedBlock)
+{
 	if (!encryptedBlock) {
 		return NULL;
 	}
 	return encryptedBlock->mode;
 }
-char *encryptedBlockGetAlgorithm(
-		EncryptedBlockPtr encryptedBlock) {
 
+char *encryptedBlockGetAlgorithm(EncryptedBlockPtr encryptedBlock)
+{
 	if (!encryptedBlock) {
 		return NULL;
 	}
 	return encryptedBlock->algorithm;
+
 }
-char *encryptedBlockGetAuthAlgorithm(
-		EncryptedBlockPtr encryptedBlock) {
+char *encryptedBlockGetAuthAlgorithm(EncryptedBlockPtr encryptedBlock)
+{
 	if (!encryptedBlock) {
 		return NULL;
 	}
 	return encryptedBlock->authAlgorithm;
 }
-char *encryptedBlockGetDirection(
-		EncryptedBlockPtr encryptedBlock) {
+
+char *encryptedBlockGetDirection(EncryptedBlockPtr encryptedBlock)
+{
 	if (!encryptedBlock) {
 		return NULL;
 	}
 	return encryptedBlock->direction;
 }
-static EncryptedBlockMessage copyOperations(Operations src, Operations dst) {
-	dst->operationCounter = src->operationCounter;
-	dst->cryptoOffset = copyIntArray(src->cryptoOffset, src->operationCounter);
+
+static EncryptedBlockMessage copyOperation(struct operation *src, struct operation *dst)
+{
+	dst->cryptoOffset = src->cryptoOffset;
 	if (src->iv) {
-		dst->iv = arrayComplexCopy(src->iv);
+		dst->iv = arrayCopy(src->iv);
 		if (!dst->iv) {
 			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
 		}
 	}
 	if (src->icb) {
-		dst->icb = arrayComplexCopy(src->icb);
+		dst->icb = arrayCopy(src->icb);
 		if (!dst->icb) {
 			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
 		}
 	}
 	if (src->plainText) {
-		dst->plainText = arrayComplexCopy(src->plainText);
+		dst->plainText = arrayCopy(src->plainText);
 		if (!dst->plainText) {
 			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
 		}
 	}
 	if (src->cipherText) {
-		dst->cipherText = arrayComplexCopy(src->cipherText);
+		dst->cipherText = arrayCopy(src->cipherText);
 		if (!dst->cipherText) {
 			return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
 		}
 	}
 	return ENCRYPTEDBLOCK_SUCCESS;
-}
-static EncryptedBlockMessage encryptedBlockConvertMessage(ArrayMessage message) {
-	switch (message) {
-	case ARRAY_SUCCESS:
-		return ENCRYPTEDBLOCK_SUCCESS;
-		break;
-	case ARRAY_NULL_ARGS:
-		return ENCRYPTEDBLOCK_NULL_ARGS;
-		break;
-	case ARRAY_NOT_VALID_ARGS:
-		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
-		break;
-	case ARRAY_OUT_OF_MEMORY:
-		return ENCRYPTEDBLOCK_OUT_OF_MEMORY;
-		break;
-	case ARRAY_FULL:
-		return ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS;
-		break;
-	case ARRAY_NO_ELEMENT:
-		return ENCRYPTEDBLOCK_NO_ELEMENT;
-		break;
-	case ARRAY_NOT_RIGHT_SIZE:
-		return ENCRYPTEDBLOCK_NOT_RIGHT_SIZE;
-		break;
-	default:
-		return ENCRYPTEDBLOCK_NOT_VALID;
-		break;
-	}
-	return ENCRYPTEDBLOCK_NOT_VALID;
 }

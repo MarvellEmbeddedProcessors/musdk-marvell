@@ -42,7 +42,7 @@
  * len - The length of the data.
  */
 struct array_t {
-	unsigned char* data;
+	unsigned char *data;
 	int len;
 };
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,8 +55,9 @@ struct array_t {
  * 	NULL - If there was an allocation problem
  * 	The copied data otherwise
  */
-static unsigned char* arrayCopyData(unsigned char* data, int len) {
-	unsigned char* copyData = malloc(len);
+static unsigned char *arrayCopyData(unsigned char *data, int len)
+{
+	unsigned char *copyData = malloc(len);
 	int i;
 	if (copyData == NULL) {
 		return NULL;
@@ -68,7 +69,8 @@ static unsigned char* arrayCopyData(unsigned char* data, int len) {
 }
 ///////////////////////////////////////////////////////////////////////////////
 
-ArrayPtr arrayCreate(unsigned char* data, int len) {
+ArrayPtr arrayCreate(unsigned char *data, int len)
+{
 	if (!data || len <= 0) {
 		return NULL;
 	}
@@ -84,7 +86,9 @@ ArrayPtr arrayCreate(unsigned char* data, int len) {
 	newArray->len = len;
 	return newArray;
 }
-ArrayPtr arrayCopy(ArrayPtr array) {
+
+ArrayPtr arrayCopy(ArrayPtr array)
+{
 	if (!array) {
 		return NULL;
 	}
@@ -100,139 +104,33 @@ ArrayPtr arrayCopy(ArrayPtr array) {
 	copyArray->len = array->len;
 	return copyArray;
 }
-void arrayDestroy(ArrayPtr array) {
+
+void arrayDestroy(ArrayPtr array)
+{
 	if (!array) {
 		return;
 	}
 	free(array->data);
 	free(array);
 }
-int arrayGetLen(ArrayPtr array) {
+
+int arrayGetLen(ArrayPtr array)
+{
 	if (!array) {
 		return 0;
 	}
 	return array->len;
 }
-ArrayMessage arrayGetData(ArrayPtr array, unsigned char* dst, int dstLen) {
+
+int arrayGetData(ArrayPtr array, unsigned char *dst, int dstLen)
+{
 	if (!array || !dst) {
-		return ARRAY_NULL_ARGS;
-	}
-	if (array->len != dstLen) {
-		return ARRAY_NOT_RIGHT_SIZE;
-	}
-	memcpy(dst, array->data, dstLen);
-	return ARRAY_SUCCESS;
-}
-///////////////////////////////////////////////////////////////////////////////
-/**
- * array_complex_t: Structure for array of pointers to data,
- *  	and all of its relevant information.
- *
- * data - The array of pointers.
- * len - The length for each data respectively.
- * nextIndex - The next index to assign the data to.
- * size - The number of data pointers (data array length).
- */
-struct array_complex_t {
-	unsigned char** data;
-	int* len;
-	int nextIndex;
-	int size;
-};
-///////////////////////////////////////////////////////////////////////////////
-ArrayComplexPtr arrayComplexCreate(int size) {
-	if (size <= 0) {
-		return NULL;
-	}
-	ArrayComplexPtr newComplexArray = malloc(sizeof(*newComplexArray));
-	if (!newComplexArray) {
-		return NULL;
-	}
-	newComplexArray->data = malloc(sizeof(*newComplexArray->data) * size);
-	if (!newComplexArray->data) {
-		free(newComplexArray);
-		return NULL;
-	}
-	newComplexArray->len = malloc(sizeof(*newComplexArray->len) * size);
-	if (!newComplexArray->len) {
-		free(newComplexArray->data);
-		free(newComplexArray);
-		return NULL;
-	}
-	newComplexArray->nextIndex = 0;
-	newComplexArray->size = size;
-	return newComplexArray;
-}
-ArrayComplexPtr arrayComplexCopy(ArrayComplexPtr complexArray) {
-	if (!complexArray) {
-		return NULL;
-	}
-	ArrayComplexPtr copyComplexArray = arrayComplexCreate(complexArray->size);
-	if (!copyComplexArray) {
-		return NULL;
-	}
-	int i;
-	for (i = 0; i < complexArray->nextIndex; ++i) {
-		copyComplexArray->data[i] = arrayCopyData(complexArray->data[i],
-				complexArray->len[i]);
-		if (!copyComplexArray->data[i]) {
-			arrayComplexDestroy(copyComplexArray);
-			return NULL;
-		}
-		copyComplexArray->len[i] = complexArray->len[i];
-		copyComplexArray->nextIndex++;
-	}
-	return copyComplexArray;
-}
-ArrayMessage arrayComplexAddData(ArrayComplexPtr complexArray,
-		unsigned char* data, int dataLen) {
-	if (!complexArray || !data) {
-		return ARRAY_NULL_ARGS;
-	}
-	if (dataLen <= 0) {
-		return ARRAY_NOT_VALID_ARGS;
-	}
-	if (complexArray->nextIndex >= complexArray->size) {
-		return ARRAY_FULL;
-	}
-	int index = complexArray->nextIndex;
-	complexArray->data[index] = arrayCopyData(data, dataLen);
-	if (!complexArray->data[index]) {
-		return ARRAY_OUT_OF_MEMORY;
-	}
-	complexArray->len[index] = dataLen;
-	complexArray->nextIndex++;
-	return ARRAY_SUCCESS;
-}
-void arrayComplexDestroy(ArrayComplexPtr complexArray) {
-	if (!complexArray) {
-		return;
-	}
-	int i;
-	for (i = 0; i < complexArray->nextIndex; ++i) {
-		free(complexArray->data[i]);
-	}
-	free(complexArray->data);
-	free(complexArray->len);
-	free(complexArray);
-}
-ArrayMessage arrayComplexGetData(ArrayComplexPtr complexArray, int index,
-		unsigned char* dst, int dstLen) {
-	if (!complexArray || !dst) {
-		return ARRAY_NULL_ARGS;
-	}
-	if (index >= complexArray->nextIndex || index < 0) {
-		return ARRAY_NO_ELEMENT;
-	}
-	if (complexArray->len[index] != dstLen) {
-		return ARRAY_NOT_RIGHT_SIZE;
-	}
-	memcpy(dst, complexArray->data[index], dstLen);
-	return ARRAY_SUCCESS;
-}
-int arrayComplexGetLen(ArrayComplexPtr complexArray, int index) {
-	if (!complexArray || index >= complexArray->nextIndex || index < 0) {
 		return 0;
 	}
-	return complexArray->len[index];
+	if (dstLen > array->len)
+		dstLen = array->len;
+
+	memcpy(dst, array->data, dstLen);
+
+	return dstLen;
 }

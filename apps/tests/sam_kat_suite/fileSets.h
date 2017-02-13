@@ -47,9 +47,6 @@ typedef enum {
 	FILE_TYPE_NOT_VALID
 } FileMessage;
 
-/** Defines the type that declares on a new encrypted block */
-#define NEW_BLOCK_TYPE ALGORITHM
-
 /**
  * fileSetsReadBlocksFromFile: Reads the encrypted blocks from a specified file.
  *

@@ -43,17 +43,48 @@ typedef enum {
 	KEY,
 	AUTH_KEY,
 	IV,
+	AAD,
 	ICB,
 	PLAINTEXT,
 	CIPHERTEXT,
 	TESTCOUNTER,
-	OPERATIONCOUNTER,
 	ALGORITHM,
 	MODE,
 	AUTH_ALGORITHM,
 	DIRECTION,
-	CRYPTO_OFFSET
+	CRYPTO_OFFSET,
+	AUTH_OFFSET,
+	LAST
 } EncryptedBlockType;
+
+/** The type that declares on a new session block */
+#define NEW_BLOCK_TYPE		ALGORITHM
+
+/** The type that declares on a new operation block */
+#define NEW_OPERATION_TYPE	PLAINTEXT
+
+static inline int isEncryptedBlockTypeSession(EncryptedBlockType type)
+{
+	return ((type == NAME) ||
+		(type == KEY) ||
+		(type == AUTH_KEY) ||
+		(type == TESTCOUNTER) ||
+		(type == ALGORITHM) ||
+		(type == AUTH_ALGORITHM) ||
+		(type == DIRECTION) ||
+		(type == MODE));
+}
+
+static inline int isEncryptedBlockTypeOperation(EncryptedBlockType type)
+{
+	return ((type == IV) ||
+		(type == AAD) ||
+		(type == ICB) ||
+		(type == PLAINTEXT) ||
+		(type == CIPHERTEXT) ||
+		(type == CRYPTO_OFFSET) ||
+		(type == AUTH_OFFSET));
+}
 
 /** Type used for returning message from encrypted block functions */
 typedef enum {
@@ -80,7 +111,7 @@ typedef enum {
  * 	ENCRYPTEDBLOCK_OUT_OF_MEMORY - If an allocation failed
  * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to create a new block
  */
-EncryptedBlockMessage encryptedBlockCreate(EncryptedBlockPtr* encryptedBlock);
+EncryptedBlockMessage encryptedBlockCreate(EncryptedBlockPtr *encryptedBlock);
 /**
  * encryptedBlockCopy: Creates a copy of the encrypted block.
  *
@@ -93,10 +124,10 @@ EncryptedBlockMessage encryptedBlockCreate(EncryptedBlockPtr* encryptedBlock);
  * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to copy the block
  */
 EncryptedBlockMessage encryptedBlockCopy(EncryptedBlockPtr srcBlock,
-		EncryptedBlockPtr* copyBlock);
+		EncryptedBlockPtr *copyBlock);
 
 /**
- * encryptedBlockAddElement: Adds an element to the encryptedBlock.
+ * encryptedBlockSessionAddElement: Adds an element to the encryptedBlock.
  *
  * @param encryptedBlock - The encrypted block to add the element to.
  * @param encryptedBlockType - The type of the element.
@@ -112,9 +143,34 @@ EncryptedBlockMessage encryptedBlockCopy(EncryptedBlockPtr srcBlock,
  *	ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS - If the array is full
  * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to add the element
  */
-EncryptedBlockMessage encryptedBlockAddElement(EncryptedBlockPtr encryptedBlock,
-		EncryptedBlockType encryptedBlockType, unsigned char* elementIntArray,
+EncryptedBlockMessage encryptedBlockSessionAddElement(EncryptedBlockPtr encryptedBlock,
+		EncryptedBlockType encryptedBlockType, unsigned char *elementIntArray,
 		int elementLen);
+
+
+EncryptedBlockMessage encryptedBlockOperationCreate(EncryptedBlockPtr encryptedBlock,
+						int index);
+
+/**
+ * encryptedBlockOperationAddElement: Adds an element to the encryptedBlock.
+ *
+ * @param encryptedBlock - The encrypted block to add the element to.
+ * @param encryptedBlockType - The type of the element.
+ * @param element - The element array to be added.
+ * @param elementLen - The length of the element array.
+ * @return
+ *	ENCRYPTEDBLOCK_NULL_ARGS - If at least one of the parameters is NULL
+ *	ENCRYPTEDBLOCK_OUT_OF_MEMORY - If an allocation failed
+ *	ENCRYPTEDBLOCK_NOT_VALID_TYPE - If the type is not valid encrypted block type
+ *	ENCRYPTEDBLOCK_NOT_VALID_ARGS - If at least one of the parameters is not valid
+ *	ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST: If the specified type of element
+ *		already inserted to the block
+ *	ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS - If the array is full
+ *	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to add the element
+ */
+EncryptedBlockMessage encryptedBlockOperationAddElement(EncryptedBlockPtr encryptedBlock,
+		EncryptedBlockType encryptedBlockType, int index,
+		unsigned char *elementIntArray, int elementLen);
 
 /**
  * encryptedBlockDestroy: Destroys the given encrypted block.
@@ -122,31 +178,6 @@ EncryptedBlockMessage encryptedBlockAddElement(EncryptedBlockPtr encryptedBlock,
  * @param encryptedBlock - The encrypted block to be destroyed.
  */
 void encryptedBlockDestroy(EncryptedBlockPtr encryptedBlock);
-/**
- * encryptedBlockSetTestCounter: Sets the encrypted test counter.
- *
- * @param encryptedBlock - The encrypted block to be set.
- * @param testCounter - The element value to insert.
- * @return
- *	ENCRYPTEDBLOCK_NULL_ARGS - If encryptedBlock is NULL
- * 	ENCRYPTEDBLOCK_NEGATIVE_COUNTER - If the value is negative
- * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded
- */
-EncryptedBlockMessage encryptedBlockSetTestCounter(
-		EncryptedBlockPtr encryptedBlock, int testCounter);
-/**
- * encryptedBlockSetCryptoOffset: Sets the next in line encrypted block crypto offset.
- *
- * @param encryptedBlock - The encrypted block to be set.
- * @param crypto offset - The element value to insert.
- * @return
- *	ENCRYPTEDBLOCK_NULL_ARGS - If encryptedBlock is NULL
- * 	ENCRYPTEDBLOCK_NEGATIVE_COUNTER - If the value is negative
- * 	ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS - If the array is full
- * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded
- */
-EncryptedBlockMessage encryptedBlockSetCryptoOffset(
-		EncryptedBlockPtr encryptedBlock, int off);
 
 /**
  * encryptedBlockGet(ELEMENT): copy the encrypted block element to the
@@ -165,18 +196,20 @@ EncryptedBlockMessage encryptedBlockSetCryptoOffset(
  * 	ENCRYPTEDBLOCK_SUCCESS - If the function succeeded to copy the element
  */
 EncryptedBlockMessage encryptedBlockGetKey(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray);
+		int size, unsigned char *outputArray);
 EncryptedBlockMessage encryptedBlockGetAuthKey(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray);
+		int size, unsigned char *outputArray);
 EncryptedBlockMessage encryptedBlockGetIv(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray, int index);
+		int size, unsigned char *outputArray, int index);
 EncryptedBlockMessage encryptedBlockGetIcb(EncryptedBlockPtr encryptedBlock,
-		int size, unsigned char* outputArray, int index);
+		int size, unsigned char *outputArray, int index);
+EncryptedBlockMessage encryptedBlockGetAad(EncryptedBlockPtr encryptedBlock,
+		int size, unsigned char *outputArray, int index);
 EncryptedBlockMessage encryptedBlockGetPlainText(
-		EncryptedBlockPtr encryptedBlock, int size, unsigned char* outputArray,
+		EncryptedBlockPtr encryptedBlock, int size, unsigned char *outputArray,
 		int index);
 EncryptedBlockMessage encryptedBlockGetCipherText(
-		EncryptedBlockPtr encryptedBlock, int size, unsigned char* outputArray,
+		EncryptedBlockPtr encryptedBlock, int size, unsigned char *outputArray,
 		int index);
 
 /**
@@ -192,6 +225,7 @@ int encryptedBlockGetKeyLen(EncryptedBlockPtr encryptedBlock);
 int encryptedBlockGetAuthKeyLen(EncryptedBlockPtr encryptedBlock);
 int encryptedBlockGetIvLen(EncryptedBlockPtr encryptedBlock, int index);
 int encryptedBlockGetIcbLen(EncryptedBlockPtr encryptedBlock, int index);
+int encryptedBlockGetAadLen(EncryptedBlockPtr encryptedBlock, int index);
 int encryptedBlockGetPlainTextLen(EncryptedBlockPtr encryptedBlock, int index);
 int encryptedBlockGetCipherTextLen(EncryptedBlockPtr encryptedBlock, int index);
 /**
@@ -204,8 +238,9 @@ int encryptedBlockGetCipherTextLen(EncryptedBlockPtr encryptedBlock, int index);
  * 	the element value
  */
 int encryptedBlockGetTestCounter(EncryptedBlockPtr encryptedBlock);
-int encryptedBlockGetOperationCounter(EncryptedBlockPtr encryptedBlock);
 int encryptedBlockGetCryptoOffset(EncryptedBlockPtr encryptedBlock, int index);
+int encryptedBlockGetAuthOffset(EncryptedBlockPtr encryptedBlock, int index);
+
 /**
  * encryptedBlockGet(ELEMENT): Gets the encrypted block element.
  *
