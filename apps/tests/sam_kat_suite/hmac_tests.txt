@@ -1,70 +1,70 @@
 Algorithm      : NULL
 Authalgorithm  : SHA1
-Name           : HMAC_SHA1_Decryption
-Testcounter    : 1
 Authkey        : 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Name           : HMAC_SHA1_Decryption
+Direction      : decryption
+Testcounter    : 1
 Plaintext      : 0xdddddddddddddddddddddddddddddddddddddddd \
                    dddddddddddddddddddddddddddddddddddddddd \
                    dddddddddddddddddddd
-Direction      : decryption
 ICB            : 0x125d7342b9ac11cd91a39af48aa17b4f63f175d3
 
 Algorithm      : NULL
 Authalgorithm  : SHA256
+Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
 Name           : HMAC_SHA256_Decryption
-Testcounter     : 1
-Authkey            : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
-Plaintext      : 0x4869205468657265
 Direction      : decryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
 ICB            : 0xb0344c61d8db38535ca8afceaf0bf12b881dc200 \
                    c9833da726e9376c2e32cff7
 
 Algorithm      : NULL
 Authalgorithm  : SHA256
-Name           : HMAC_SHA256_Encryption
-Testcounter    : 1
 Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
-Plaintext      : 0x4869205468657265
+Name           : HMAC_SHA256_Encryption
 Direction      : encryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
 ICB            : 0xb0344c61d8db38535ca8afceaf0bf12b881dc200 \
                    c9833da726e9376c2e32cff7
 
 Algorithm      : NULL
 Authalgorithm  : SHA384
-Name           : HMAC_SHA384_Decryption
-Testcounter    : 1
 Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b \
                    0000000000000000000000000000000000000000 \
                    0000000000000000
-Plaintext      : 0x4869205468657265
+Name           : HMAC_SHA384_Decryption
 Direction      : decryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
 ICB            : 0xafd03944d84895626b0825f4ab46907f \
                    15f9dadbe4101ec682aa034c7cebc59c \
                    faea9ea9076ede7f4af152e8b2fa9cb6
 
 Algorithm      : NULL
 Authalgorithm  : SHA384
-Name           : HMAC_SHA384_Encryption
-Testcounter    : 1
 Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b \
                    0000000000000000000000000000000000000000 \
                    0000000000000000
-Plaintext      : 0x4869205468657265
+Name           : HMAC_SHA384_Encryption
 Direction      : encryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
 ICB            : 0xafd03944d84895626b0825f4ab46907f \
                    15f9dadbe4101ec682aa034c7cebc59c \
                    faea9ea9076ede7f4af152e8b2fa9cb6
 
 Algorithm      : NULL
 Authalgorithm  : SHA512
-Name           : HMAC_SHA512_Decryption
-Testcounter    : 1
 Authkey        : 0x0b0b0b0b0b0b0b0B0b0b0b0b0b0b0b0b0b0b0b0b \
                    0000000000000000000000000000000000000000 \
                    0000000000000000000000000000000000000000 \
                    00000000
-Plaintext      : 0x4869205468657265
+Name           : HMAC_SHA512_Decryption
 Direction      : decryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
 ICB            : 0x87aa7cdea5ef619d4ff0b4241a1d6cb0 \
                    2379f4e2ce4ec2787ad0b30545e17cde \
                    daa833b7d6b8a702038b274eaea3f4e4 \
@@ -72,14 +72,14 @@ ICB            : 0x87aa7cdea5ef619d4ff0b4241a1d6cb0 \
 
 Algorithm      : NULL
 Authalgorithm  : SHA512
-Name           : HMAC_SHA512_Encryption
-Testcounter    : 1
 Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b \
                    0000000000000000000000000000000000000000 \
                    0000000000000000000000000000000000000000 \
                    00000000
-Plaintext      : 0x4869205468657265
+Name           : HMAC_SHA512_Encryption
 Direction      : encryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
 ICB            : 0x87aa7cdea5ef619d4ff0b4241a1d6cb0 \
                    2379f4e2ce4ec2787ad0b30545e17cde \
                    daa833b7d6b8a702038b274eaea3f4e4 \

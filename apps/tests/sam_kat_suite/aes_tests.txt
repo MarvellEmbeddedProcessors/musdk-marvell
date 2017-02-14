@@ -4,19 +4,20 @@ Algorithm   : AES
 Name        : Decrypt_AES128_CBC_32B
 Mode        : CBC
 Key         : 0xc286696d887c9aa0611bbb3e2025a45a
-IV          : 0x562e17996d093d28ddb3ba695a2e6f58
+Direction   : decryption
+Testcounter : 2
 Plaintext   : 0x000102030405060708090a0b0c0d0e0f \
                 101112131415161718191a1b1c1d1e1f
 Ciphertext  : 0xd296cd94c2cccf8a3a863028b5e1dc0a \
                 7586602d253cfff91b8266bea6d61ab1
-Direction   : decryption
-Testcounter : 2
+IV          : 0x562e17996d093d28ddb3ba695a2e6f58
 
 Algorithm   : AES
 Name        : Encrypt_AES128_CBC_64B
 Key         : 0x2b7e151628aed2a6abf7158809cf4f3c
 Mode        : CBC
-IV          : 0x000102030405060708090a0b0c0d0e0f
+Direction   : encryption
+Testcounter : 1
 PT          : 0x6bc1bee22e409f96e93d7e117393172a \
                 ae2d8a571e03ac9c9eb76fac45af8e51 \
                 30c81c46a35ce411e5fbc1191a0a52ef \
@@ -25,6 +26,5 @@ CT          : 0x7649abac8119b246cee98e9b12e9197d \
                 5086cb9b507219ee95db113a917678b2 \
                 73bed6b8e3c1743b7116e69e22229516 \
                 3ff1caa1681fac09120eca307586e1a7
-Direction   : encryption
-Testcounter : 1
+IV          : 0x000102030405060708090a0b0c0d0e0f
 
