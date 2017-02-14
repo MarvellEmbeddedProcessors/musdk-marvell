@@ -54,6 +54,7 @@
 #define AUTH_BLOCK_SIZE_64B		64 /* Bytes */
 #define MAX_AUTH_BLOCK_SIZE		128 /* Bytes */
 #define MAX_AUTH_ICV_SIZE		64 /* Bytes */
+#define MAX_AAD_SIZE			64 /* Bytes */
 
 static struct sam_cio		*cio_hndl;
 static struct sam_sa		*sa_hndl[NUM_CONCURRENT_SESSIONS];
@@ -66,6 +67,7 @@ static u32			in_data_size;
 static struct sam_buf_info	out_bufs[NUM_CONCURRENT_REQUESTS];
 static int			next_request;
 static u8			cipher_iv[MAX_CIPHER_BLOCK_SIZE];
+static u8			auth_aad[MAX_AAD_SIZE];
 static u8			auth_icv[MAX_AUTH_ICV_SIZE];
 static u32			auth_icv_size;
 static u8			expected_data[MAX_BUFFER_SIZE];
@@ -78,7 +80,6 @@ static int			num_printed;
 static int			num_requests_per_enq = 32;
 static int			num_requests_before_deq = 32;
 static int			num_requests_per_deq = 32;
-
 
 static generic_list		test_db;
 
@@ -153,6 +154,15 @@ static enum sam_auth_alg auth_algorithm_str_to_val(char *data, int auth_key_len)
 	if (!data || (data[0] == '\0'))
 		return SAM_AUTH_NONE;
 
+	if (strcmp(data, "NULL") == 0)
+		return SAM_AUTH_NONE;
+
+	if (strcmp(data, "AES_GCM") == 0)
+		return SAM_AUTH_AES_GCM;
+
+	if (strcmp(data, "AES_GMAC") == 0)
+		return SAM_AUTH_AES_GMAC;
+
 	if (auth_key_len > 0) {
 		if (strcmp(data, "MD5") == 0)
 			return SAM_AUTH_HMAC_MD5;
@@ -190,11 +200,25 @@ static enum sam_auth_alg auth_algorithm_str_to_val(char *data, int auth_key_len)
 		if (strcmp(data, "SHA512") == 0)
 			return SAM_AUTH_HASH_SHA2_512;
 	}
-	if (strcmp(data, "NULL") == 0)
-		return SAM_AUTH_NONE;
 
 	printf("Syntax error in Auth algorithm: %s is unknown\n", data);
 	return SAM_AUTH_NONE;
+}
+
+static void gcm_create_auth_key(u8 *key, int key_len, u8 inner[])
+{
+	u8 key_input[16] = {0};
+	u32 *ptr32 = (u32 *)inner;
+	int i;
+
+	mv_aes_ecb_encrypt(key_input, key, inner, key_len * 8);
+
+	for (i = 0; i < sizeof(key_input) / 4; i++) {
+		u32 val32;
+
+		val32 = htobe32(*ptr32);
+		*ptr32++ = val32;
+	}
 }
 
 static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int key_len,
@@ -231,7 +255,6 @@ static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int 
 		mv_md5_init(&ctx);
 		mv_md5_update(&ctx, out, max_key_len);
 		mv_md5_digest(outer, &ctx);
-
 	} else if (auth_alg == SAM_AUTH_HMAC_SHA1) {
 		MV_SHA1_CTX ctx;
 
@@ -249,8 +272,7 @@ static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int 
 		for (i = 0; i < MV_SHA1_DIGEST_SIZE; i++) {
 			outer[i] = (unsigned char)
 				((ctx.state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
-	}
-
+		}
 	} else if (auth_alg == SAM_AUTH_HMAC_SHA2_256) {
 		SHA256_CTX ctx;
 
@@ -354,30 +376,40 @@ static int create_sessions(generic_list tests_db)
 		auth_key_len = encryptedBlockGetAuthKeyLen(block);
 		sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block), auth_key_len);
 		if (sa_params[i].auth_alg != SAM_AUTH_NONE) {
+
 			sa_params[i].auth_icv_len = encryptedBlockGetIcbLen(block, 0);
-			sa_params[i].auth_aad_len = 0;
 
-			if (auth_key_len > 0) {
-				u8 auth_key[MAX_AUTH_BLOCK_SIZE];
-
-				/* Calculate inner and outer blocks from authentication key */
-				if (auth_key_len > MAX_AUTH_BLOCK_SIZE) {
-					printf("auth_key_len %d bytes is too big. Maximum is %d bytes\n",
-						auth_key_len, MAX_AUTH_BLOCK_SIZE);
-					return -EINVAL;
-				}
-				if (encryptedBlockGetAuthKey(block, auth_key_len, auth_key) != ENCRYPTEDBLOCK_SUCCESS) {
-					printf("Can't get authentication key of %d bytes\n", auth_key_len);
-					return -EINVAL;
-				}
-				hmac_create_iv(sa_params[i].auth_alg, auth_key, auth_key_len,
-						auth_inner, auth_outer);
+			if (sa_params[i].auth_alg == SAM_AUTH_AES_GCM) {
+				sa_params[i].auth_aad_len = encryptedBlockGetAadLen(block, 0);
+				/* Generate authenticationn key from cipher key */
+				gcm_create_auth_key(sa_params[i].cipher_key, sa_params[i].cipher_key_len, auth_inner);
 
 				sa_params[i].auth_inner = auth_inner;
-				sa_params[i].auth_outer = auth_outer;
+				sa_params[i].auth_outer = NULL;
+
+			} else {
+				if (auth_key_len > 0) {
+					u8 auth_key[MAX_AUTH_BLOCK_SIZE];
+
+					/* Calculate inner and outer blocks from authentication key */
+					if (auth_key_len > MAX_AUTH_BLOCK_SIZE) {
+						printf("auth_key_len %d bytes is too big. Maximum is %d bytes\n",
+							auth_key_len, MAX_AUTH_BLOCK_SIZE);
+						return -EINVAL;
+					}
+					if (encryptedBlockGetAuthKey(block, auth_key_len, auth_key) !=
+										ENCRYPTEDBLOCK_SUCCESS) {
+						printf("Can't get authentication key of %d bytes\n", auth_key_len);
+						return -EINVAL;
+					}
+					hmac_create_iv(sa_params[i].auth_alg, auth_key, auth_key_len,
+							auth_inner, auth_outer);
+
+					sa_params[i].auth_inner = auth_inner;
+					sa_params[i].auth_outer = auth_outer;
+				}
 			}
 		}
-
 		if (sam_session_create(cio_hndl, &sa_params[i], &sa_hndl[i])) {
 			printf("%s: failed\n", __func__);
 			return -1;
@@ -578,7 +610,7 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *ses
 static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params *session_params,
 			     struct sam_sa *session_hndl, struct sam_cio_op_params *requests, int num)
 {
-	int i, iv_len;
+	int i, iv_len, aad_len;
 	struct sam_cio_op_params *request;
 
 	for (i = 0; i < num; i++) {
@@ -600,10 +632,12 @@ static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params 
 		}
 		if (session_params->auth_alg != SAM_AUTH_NONE) {
 			request->auth_aad_offset = 0; /* not supported */
-			request->auth_aad = NULL;
-			request->auth_offset = 0;
-			request->auth_len = encryptedBlockGetPlainTextLen(block, 0);
-			request->auth_icv_offset = request->auth_len;
+			aad_len = encryptedBlockGetAadLen(block, 0);
+			encryptedBlockGetAad(block, aad_len, auth_aad, 0);
+			request->auth_aad = auth_aad;
+			request->auth_offset = encryptedBlockGetAuthOffset(block, 0);
+			request->auth_len = encryptedBlockGetPlainTextLen(block, 0) - request->auth_offset;
+			request->auth_icv_offset = request->auth_offset + request->auth_len;
 		}
 		request++;
 	}
@@ -849,7 +883,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if (fileSetsReadBlocksFromFile(sam_tests_file, test_db) == FILE_OPEN_PROBLEM) {
+	if (fileSetsReadBlocksFromFile(sam_tests_file, test_db) != FILE_SUCCESS) {
 		printf("Can't read tests from file %s\n", sam_tests_file);
 		return -1;
 	}
@@ -864,11 +898,11 @@ int main(int argc, char **argv)
 	}
 	printf("%s successfully loaded\n", argv[0]);
 
-	/* allocate in_buf and out_bufs */
-	if (allocate_bufs(cio_params.max_buf_size))
+	if (create_sessions(test_db))
 		goto exit;
 
-	if (create_sessions(test_db))
+	/* allocate in_buf and out_bufs */
+	if (allocate_bufs(cio_params.max_buf_size))
 		goto exit;
 
 	if (run_tests(test_db))

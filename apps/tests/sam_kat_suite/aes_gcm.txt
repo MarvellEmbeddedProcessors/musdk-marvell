@@ -1,0 +1,42 @@
+# AES 128 GCM test configuration file
+
+Algorithm     : AES
+Authalgorithm : AES_GCM
+Name          : Encrypting_AES128_GCM
+Mode          : GCM
+Key           : 0xcf7138fc11825498b5584246050766d3
+Direction     : encryption
+Testcounter   : 1
+Plaintext     : 0x4500006400010000ff01a28e0d0000090c0000010800195f0001000000000000 \
+		  002c64beabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd \
+		  abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd \
+		  abcdabcd01020204
+Ciphertext    : 0x26BD85713025664BCEA0821BC00A10C4B318943DF316327617B5532AF9BF8B6C \
+		  80BDEC7BB64E7135A1094066549AEA3A8B92F5CEB9F70201839DA37D11EACAD9 \
+		  4646493688EF3FB084819BDAFCAA914E69C1DA9AE33CEA7ECC5567D816F5C4EA \
+		  37398C29ACDA9450
+Cryptoffset   : 0
+IV            : 0x40d6c1a77992a2580000000100000001
+AAD           : 0x46abcd2b00000001
+ICB           : 0xe7c34690ee4548455837ad419134b3fa
+
+Algorithm     : AES
+Authalgorithm : AES_GCM
+Name          : Decrypting_AES128_GCM
+Mode          : GCM
+Key           : 0xcf7138fc11825498b5584246050766d3
+Direction     : decryption
+Testcounter   : 1
+Plaintext     : 0x4500006400010000ff01a28e0d0000090c0000010800195f0001000000000000 \
+		  002c64beabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd \
+		  abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd \
+		  abcdabcd01020204
+Ciphertext    : 0x26BD85713025664BCEA0821BC00A10C4B318943DF316327617B5532AF9BF8B6C \
+		  80BDEC7BB64E7135A1094066549AEA3A8B92F5CEB9F70201839DA37D11EACAD9 \
+		  4646493688EF3FB084819BDAFCAA914E69C1DA9AE33CEA7ECC5567D816F5C4EA \
+		  37398C29ACDA9450
+Cryptoffset   : 0
+IV            : 0x40d6c1a77992a2580000000100000001
+AAD           : 0x46abcd2b00000001
+ICB           : 0xe7c34690ee4548455837ad419134b3fa
+

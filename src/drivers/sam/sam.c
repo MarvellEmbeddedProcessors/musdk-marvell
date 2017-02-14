@@ -110,8 +110,6 @@ static int sam_session_crypto_init(struct sam_session_params *params,
 
 	sa_params->IVSrc  = SAB_IV_SRC_TOKEN;
 
-	/* Special processing for GCM/GMAC modes */
-
 	return 0;
 }
 
@@ -133,6 +131,9 @@ static int sam_session_auth_init(struct sam_session_params *params,
 	basic_params->ICVByteCount = params->auth_icv_len;
 	if (params->dir == SAM_DIR_DECRYPT)
 		basic_params->BasicFlags |= SAB_BASIC_FLAG_EXTRACT_ICV;
+
+	if ((params->auth_alg == SAM_AUTH_AES_GCM) || (params->auth_alg == SAM_AUTH_AES_GMAC))
+		sa_params->flags |= SAB_FLAG_SUPPRESS_HEADER;
 
 	return 0;
 }
@@ -160,9 +161,6 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	if (request->cipher_iv)
 		token_params.IV_p = request->cipher_iv;
 
-	if (request->auth_len && request->cipher_len)
-		token_params.AdditionalValue = request->auth_len - request->cipher_len;
-
 	if (request->auth_len)
 		token_params.BypassByteCount = request->auth_offset;
 	else
@@ -170,7 +168,12 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 
 	copylen += token_params.BypassByteCount;
 
-	/* process AAD  - TBD */
+	/* process AAD */
+	if (request->auth_aad) {
+		token_params.AAD_p = request->auth_aad;
+		token_params.AdditionalValue = session->params.auth_aad_len;
+	} else if (request->auth_len && request->cipher_len)
+		token_params.AdditionalValue = request->auth_len - request->cipher_len;
 
 #ifdef SAM_CIO_DEBUG
 	print_token_params(&token_params);
@@ -409,7 +412,19 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 
 #ifdef SAM_SA_DEBUG
 	print_sam_sa_params(params);
-#endif
+	if (params->cipher_key) {
+		printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
+		mv_mem_dump(params->cipher_key, params->cipher_key_len);
+	}
+	if (params->auth_inner) {
+		printf("\nAuthentication Inner: %d bytes\n", 64);
+		mv_mem_dump(params->auth_inner, 64);
+	}
+	if (params->auth_outer) {
+		printf("\nAuthentication Outer: %d bytes\n", 64);
+		mv_mem_dump(params->auth_outer, 64);
+	}
+#endif /* SAM_SA_DEBUG */
 
 	/* Save session params */
 	session->params = *params;
