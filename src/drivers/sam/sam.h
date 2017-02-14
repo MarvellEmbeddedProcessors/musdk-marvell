@@ -77,6 +77,9 @@ struct sam_cio {
 #ifdef MVCONF_SAM_STATS
 	struct sam_cio_stats stats;	/* cio statistics */
 #endif
+#ifdef MVCONF_SAM_DEBUG
+	u32 debug_flags;		/* debug flags */
+#endif
 	struct sam_cio_op *operations;	/* array of operations */
 	struct sam_sa *sessions;	/* array of sessions */
 	struct sam_hw_ring hw_ring;

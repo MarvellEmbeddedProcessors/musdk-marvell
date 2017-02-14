@@ -80,6 +80,7 @@ static int			num_printed;
 static int			num_requests_per_enq = 32;
 static int			num_requests_before_deq = 32;
 static int			num_requests_per_deq = 32;
+static u32			debug_flags;
 
 static generic_list		test_db;
 
@@ -770,6 +771,8 @@ static void usage(char *progname)
 	printf("\t-p <number>      - Number of requests to print (default: %d)\n", num_to_print);
 	printf("\t-e <number>      - Maximum burst for enqueue (default: %d)\n", num_requests_per_enq);
 	printf("\t-d <number>      - Maximum burst for dequeue (default: %d)\n", num_requests_per_deq);
+	printf("\t-f <bitmask>     - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x0)\n",
+					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG);
 	printf("\t--same_bufs      - Use the same buffer as src and dst (default: %s)\n",
 		same_bufs ? "same" : "different");
 }
@@ -838,6 +841,24 @@ static int parse_args(int argc, char *argv[])
 			}
 			 num_requests_per_deq = atoi(argv[i + 1]);
 			i += 2;
+		} else if (strcmp(argv[i], "-f") == 0) {
+			int scanned;
+
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			scanned = sscanf(argv[i + 1], "0x%x", &debug_flags);
+			if (scanned != 1) {
+				pr_err("Invalid number if scanned arguments: %d != 1\n",
+					scanned);
+				return -EINVAL;
+			}
+			i += 2;
 		} else if (strcmp(argv[i], "--same_bufs") == 0) {
 			same_bufs = true;
 			i += 1;
@@ -853,6 +874,7 @@ static int parse_args(int argc, char *argv[])
 	printf("Number to print: %u\n", num_to_print);
 	printf("Number per enq : %u\n", num_requests_per_enq);
 	printf("Number per deq : %u\n", num_requests_per_deq);
+	printf("Debug flags    : 0x%x\n", debug_flags);
 	printf("src / dst bufs : %s\n", same_bufs ? "same" : "different");
 
 	return 0;
@@ -897,6 +919,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	printf("%s successfully loaded\n", argv[0]);
+
+	sam_cio_debug_flags_set(cio_hndl, debug_flags);
 
 	if (create_sessions(test_db))
 		goto exit;

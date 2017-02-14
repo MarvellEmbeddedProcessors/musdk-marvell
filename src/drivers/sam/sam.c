@@ -35,9 +35,6 @@
 #include "lib/lib_misc.h"
 #include "sam.h"
 
-/*#define SAM_CIO_DEBUG*/
-/*#define SAM_SA_DEBUG*/
-
 static bool		sam_initialized;
 static int		sam_active_rings;
 static struct sam_cio	*sam_rings[SAM_HW_RING_NUM];
@@ -175,13 +172,10 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	} else if (request->auth_len && request->cipher_len)
 		token_params.AdditionalValue = request->auth_len - request->cipher_len;
 
-#ifdef SAM_CIO_DEBUG
-	print_token_params(&token_params);
-
-	printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
-		copylen, (void *)request->src->paddr);
-	mv_mem_dump(request->src->vaddr, copylen);
-#endif
+#ifdef MVCONF_SAM_DEBUG
+	if (session->cio->debug_flags & SAM_CIO_DEBUG_FLAG)
+		print_token_params(&token_params);
+#endif /* MVCONF_SAM_DEBUG */
 
 	rc = TokenBuilder_BuildToken(session->tcr_data, request->src->vaddr,
 				     copylen, &token_params,
@@ -323,7 +317,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 		goto err;
 	}
 
-	/* Allocate DMA buffers for Token and Data for each operation */
+	/* Allocate DMA buffers for Tokens (one per operation) */
 	for (i = 0; i < params->size; i++) {
 		if (sam_dma_buf_alloc(SAM_TOKEN_DMABUF_SIZE, &sam_ring->operations[i].token_buf)) {
 			pr_err("Can't allocate DMA buffer (%d bytes) for Token #%d\n",
@@ -331,8 +325,8 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 			goto err;
 		}
 	}
-	pr_info("DMA buffers allocated for %d operations. Tokens - %d bytes, Buffers - %d bytes\n",
-		i, SAM_TOKEN_DMABUF_SIZE, params->max_buf_size);
+	pr_info("DMA buffers allocated for %d operations. Tokens - %d bytes\n",
+		i, SAM_TOKEN_DMABUF_SIZE);
 
 	sam_rings[ring] = sam_ring;
 	sam_active_rings++;
@@ -410,21 +404,23 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	memset(&session->sa_params, 0, sizeof(session->sa_params));
 	memset(&session->basic_params, 0, sizeof(session->basic_params));
 
-#ifdef SAM_SA_DEBUG
-	print_sam_sa_params(params);
-	if (params->cipher_key) {
-		printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
-		mv_mem_dump(params->cipher_key, params->cipher_key_len);
+#ifdef MVCONF_SAM_DEBUG
+	if (cio->debug_flags & SAM_SA_DEBUG_FLAG) {
+		print_sam_sa_params(params);
+		if (params->cipher_key) {
+			printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
+			mv_mem_dump(params->cipher_key, params->cipher_key_len);
+		}
+		if (params->auth_inner) {
+			printf("\nAuthentication Inner: %d bytes\n", 64);
+			mv_mem_dump(params->auth_inner, 64);
+		}
+		if (params->auth_outer) {
+			printf("\nAuthentication Outer: %d bytes\n", 64);
+			mv_mem_dump(params->auth_outer, 64);
+		}
 	}
-	if (params->auth_inner) {
-		printf("\nAuthentication Inner: %d bytes\n", 64);
-		mv_mem_dump(params->auth_inner, 64);
-	}
-	if (params->auth_outer) {
-		printf("\nAuthentication Outer: %d bytes\n", 64);
-		mv_mem_dump(params->auth_outer, 64);
-	}
-#endif /* SAM_SA_DEBUG */
+#endif /* MVCONF_SAM_DEBUG */
 
 	/* Save session params */
 	session->params = *params;
@@ -492,10 +488,12 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 		goto error_session;
 	}
 
-#ifdef SAM_SA_DEBUG
-	print_sa_params(&session->sa_params);
-	print_basic_sa_params(&session->basic_params);
-#endif
+#ifdef MVCONF_SAM_DEBUG
+	if (cio->debug_flags & SAM_SA_DEBUG_FLAG) {
+		print_sa_params(&session->sa_params);
+		print_basic_sa_params(&session->basic_params);
+	}
+#endif /* MVCONF_SAM_DEBUG */
 
 	session->is_first = true;
 	session->cio = cio;
@@ -563,9 +561,10 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			SAM_STATS(cio->stats.enq_full++);
 			break;
 		}
-#ifdef SAM_CIO_DEBUG
-		print_sam_cio_op_params(request);
-#endif
+#ifdef MVCONF_SAM_DEBUG
+		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG)
+			print_sam_cio_op_params(request);
+#endif /* MVCONF_SAM_DEBUG */
 
 		/* Get next operation structure */
 		operation = &cio->operations[cio->next_request];
@@ -578,10 +577,16 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		if (sam_hw_cmd_desc_init(request, operation, cmd, &pkt_params))
 			goto error_enq;
 
-#ifdef SAM_CIO_DEBUG
-		print_pkt_params(&pkt_params);
-		print_cmd_desc(cmd);
-#endif
+#ifdef MVCONF_SAM_DEBUG
+		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
+			print_pkt_params(&pkt_params);
+			print_cmd_desc(cmd);
+
+			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
+				cmd->SrcPkt_ByteCount, (void *)request->src->paddr);
+			mv_mem_dump(request->src->vaddr, cmd->SrcPkt_ByteCount);
+		}
+#endif /* MVCONF_SAM_DEBUG */
 
 		/* Save some fields from request needed for result processing */
 		operation->sa = request->sa;
@@ -641,8 +646,9 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
 		sam_hw_res_desc_read(res_desc, result_desc);
 
-#ifdef SAM_CIO_DEBUG
-		print_result_desc(result_desc);
+#ifdef MVCONF_SAM_DEBUG
+		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG)
+			print_result_desc(result_desc);
 #endif
 
 		operation = &cio->operations[cio->next_result];
@@ -678,12 +684,14 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 				__func__, result_desc->DstPkt_ByteCount, operation->out_frags[0].len);
 			return -EINVAL;
 		}
-
-#ifdef SAM_CIO_DEBUG
-		printf("\nOutput DMA buffer: %d bytes\n", result_desc->DstPkt_ByteCount);
-		mv_mem_dump(operation->out_frags[0].vaddr, result_desc->DstPkt_ByteCount);
-#endif
 		result_desc++;
+
+#ifdef MVCONF_SAM_DEBUG
+		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
+			printf("\nOutput DMA buffer: %d bytes\n", result_desc->DstPkt_ByteCount);
+			mv_mem_dump(operation->out_frags[0].vaddr, result_desc->DstPkt_ByteCount);
+		}
+#endif /* MVCONF_SAM_DEBUG */
 	}
 	/* Update RDR registers */
 	sam_hw_ring_update(&cio->hw_ring, count);
@@ -695,6 +703,16 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	*num = (u16)count;
 
 	return 0;
+}
+
+int sam_cio_debug_flags_set(struct sam_cio *cio, u32 debug_flags)
+{
+#ifdef MVCONF_SAM_DEBUG
+	cio->debug_flags = debug_flags;
+	return 0;
+#else
+	return -ENOTSUP;
+#endif /* MVCONF_SAM_STATS */
 }
 
 int sam_cio_stats_get(struct sam_cio *cio, struct sam_cio_stats *stats, int reset)

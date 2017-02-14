@@ -37,4 +37,7 @@
 #include "mv_sam_session.h"
 #include "mv_sam_cio.h"
 
+#define SAM_SA_DEBUG_FLAG	0x1
+#define SAM_CIO_DEBUG_FLAG	0x2
+
 #endif /* __MV_SAM_H__ */

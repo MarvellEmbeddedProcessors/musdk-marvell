@@ -43,6 +43,19 @@ esac],[SAM_STATS=false])
 if test x$SAM_STATS = xtrue; then
 	MUSDK_CFLAGS+="-DMVCONF_SAM_STATS "
 fi
+##########################################################################
+# Set MVCONF_SAM_DEBUG - using --enable-sam-debug
+##########################################################################
+AC_ARG_ENABLE([sam-debug],
+[  --enable-sam-debug    Enable musdk sam driver debug],
+[case "${enableval}" in
+  yes) SAM_DEBUG=true ;;
+  no)  SAM_DEBUG=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-sam-debug]) ;;
+esac],[SAM_DEBUG=false])
+if test x$SAM_DEBUG = xtrue; then
+	MUSDK_CFLAGS+="-DMVCONF_SAM_DEBUG "
+fi
 fi
 ##########################################################################
 # Set MUSDK debug level

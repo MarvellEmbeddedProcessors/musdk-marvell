@@ -170,6 +170,7 @@ int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
 
 int sam_cio_stats_get(struct sam_cio *cio, struct sam_cio_stats *stats, int reset);
+int sam_cio_debug_flags_set(struct sam_cio *cio, u32 debug_flags);
 
 /** @} */ /* end of grp_sam_cio */
 
