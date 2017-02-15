@@ -26,10 +26,7 @@ Signed-off-by: nsamsono <nsamsono@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/armada-7040-db-A.dts  | 4 ++--
  arch/arm64/boot/dts/marvell/armada-8040-db-A.dts  | 6 +++---
- arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts | 4 ++--
- 3 files changed, 7 insertions(+), 7 deletions(-)
- mode change 100644 => 100755 arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
- mode change 100644 => 100755 arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
 index 62063f4..54ce6d2 100644
@@ -52,8 +49,6 @@ index 62063f4..54ce6d2 100644
  			};
  			eip197: eip197@800000 {
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
-old mode 100644
-new mode 100755
 index 0e3ad39..3f25ca3
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
@@ -79,30 +74,6 @@ index 0e3ad39..3f25ca3
  				};
  				eth2_1: eth2@030000 {
  					status = "disabled";
-diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
-old mode 100644
-new mode 100755
-index d0b504f..18ead38
---- a/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A0.dts
-@@ -135,7 +135,7 @@
- 				pinctrl-0 = <&cpm_ge2_rgmii_pins>;
- 
- 				eth0: eth0@010000 {
--					status = "okay";
-+					status = "non-kernel";
- 				};
- 				eth1: eth1@020000 {
- 					status = "disabled";
-@@ -199,7 +199,7 @@
- 				pinctrl-0 = <&cps_ge1_rgmii_pins>;
- 
- 				eth0_1: eth0@010000 {
--					status = "okay";
-+					status = "non-kernel";
- 				};
- 				eth1_1: eth1@020000 {
- 					status = "okay";
--- 
+
 1.9.1
 
