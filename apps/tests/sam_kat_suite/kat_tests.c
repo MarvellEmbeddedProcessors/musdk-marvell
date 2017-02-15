@@ -634,8 +634,10 @@ static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params 
 		if (session_params->auth_alg != SAM_AUTH_NONE) {
 			request->auth_aad_offset = 0; /* not supported */
 			aad_len = encryptedBlockGetAadLen(block, 0);
-			encryptedBlockGetAad(block, aad_len, auth_aad, 0);
-			request->auth_aad = auth_aad;
+			if (aad_len) {
+				encryptedBlockGetAad(block, aad_len, auth_aad, 0);
+				request->auth_aad = auth_aad;
+			}
 			request->auth_offset = encryptedBlockGetAuthOffset(block, 0);
 			request->auth_len = encryptedBlockGetPlainTextLen(block, 0) - request->auth_offset;
 			request->auth_icv_offset = request->auth_offset + request->auth_len;
