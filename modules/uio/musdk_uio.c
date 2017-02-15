@@ -351,9 +351,7 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct uio_pdrv_musdk_info *uio_pdrv_musdk;
-	struct uio_info *uio;
-	struct resource *res;
-	int err = 0, mem_cnt = 0;
+	int err = 0;
 
 	if (!np) {
 		dev_err(dev, "Non DT case is not supported\n");
@@ -380,46 +378,9 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	if (err == 0)
 		dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
 	if (err) {
-		dev_err(dev, "mv_pp_uio: cannot set dma_mask\n");
+		dev_err(dev, "%s:%s ", DEV_MUSDK_NAME, "cannot set dma_mask\n");
 		goto fail;
 	}
-
-	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
-		uio = &uio_pdrv_musdk->uio[idx];
-		uio->name = DEV_MUSDK_NAME;
-		uio->version = DRIVER_VERSION;
-
-		for (int i = 0; i < MAX_UIO_MAPS; ++i, ++mem_cnt) {
-			res =
-			    platform_get_resource(pdev, IORESOURCE_MEM,
-						  mem_cnt);
-			if (!res)
-				break;
-			uio->mem[i].memtype = UIO_MEM_PHYS;
-			uio->mem[i].addr = res->start & PAGE_MASK;
-			uio->mem[i].size = PAGE_ALIGN(resource_size(res));
-			uio->mem[i].name = res->name;
-		}
-
-		if (!mem_cnt)
-			continue;
-
-		err = uio_register_device(dev, uio);
-		if (err) {
-			dev_err(dev, "Failed to register uio device\n");
-			goto fail_uio;
-		}
-
-		uio_pdrv_musdk->uio_num = idx;
-
-		if (!res)
-			break;
-	}
-
-	uio_pdrv_musdk->map_num = mem_cnt;
-	if (uio_pdrv_musdk->uio_num != -EIO)
-		pr_info("Registered %d uio devices, having %d register maps attached\n",
-			uio_pdrv_musdk->uio_num + 1, uio_pdrv_musdk->map_num);
 
 	struct miscdevice *misc;
 
@@ -434,7 +395,7 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	err = misc_register(misc);
 	if (err) {
 		dev_err(dev, "Failed to register cma device\n");
-		goto fail_misc;
+		goto fail;
 	}
 	struct cma_ctx *ctx = (struct cma_ctx *) &uio_pdrv_musdk->cma_client;
 
@@ -448,11 +409,6 @@ static int musdk_uio_probe(struct platform_device *pdev)
 
 	return 0;
 
-fail_misc:
-	for (int idx = 0; idx <= uio_pdrv_musdk->uio_num; ++idx)
-		uio_unregister_device(&uio_pdrv_musdk->uio[idx]);
-fail_uio:
-	devm_kfree(dev, uio_pdrv_musdk);
 fail:
 	return err;
 }
