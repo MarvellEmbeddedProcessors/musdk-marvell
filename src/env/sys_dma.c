@@ -151,12 +151,14 @@ int mv_sys_dma_mem_init(u64 size)
 	struct sys_dma	*i_sys_dma;
 	int err;
 
-	if (sys_dma)
-		i_sys_dma = sys_dma;
+	if (sys_dma) {
+		pr_err("Dma object already exits.\n");
+		return -EEXIST;
+	}
 	else {
 		i_sys_dma = (struct sys_dma *)kmalloc(sizeof(struct sys_dma), GFP_KERNEL);
 		if (!i_sys_dma) {
-			pr_err("no mem for sys-dma obj!\n");
+			pr_err("No mem for sys-dma object\n");
 			return -ENOMEM;
 		}
 		memset(i_sys_dma, 0, sizeof(struct sys_dma));
