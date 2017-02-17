@@ -85,20 +85,6 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c2_debug.c
 
 if SAM_BUILD
 # Definitions for SAM driver compilation
-libmusdk_la_CFLAGS += -DDRIVER_EIP197_HW_CONF_B
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Examples/Driver/build/MVEBU
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Integration/SLAD_Adapter/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Basic_Defs_API/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/DriverFramework/Device_API/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/SABuilder/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK)/Kit/TokenBuilder/incl
-libmusdk_la_CFLAGS += -I$(EIP197_DDK_FW)/firmware/production_firmware/api
-
-libmusdk_la_LDFLAGS += -L$(EIP197_DDK)/Examples/Driver/build/ -ldriver_197_u
-libmusdk_la_LDFLAGS += -L$(EIP197_DDK)/Examples/DemoApp_PEC/build/ -lsa_bld_u
-libmusdk_la_LDFLAGS += -L$(EIP197_DDK)/Examples/DemoApp_PEC/build/ -ltk_bld_u
-
 nobase_include_HEADERS += include/drivers/mv_sam.h
 nobase_include_HEADERS += include/drivers/mv_sam_cio.h
 nobase_include_HEADERS += include/drivers/mv_sam_session.h
