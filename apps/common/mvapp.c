@@ -41,8 +41,8 @@
 #include "mvapp.h"
 
 
-#define MAX_NUM_CORES	32
-
+#define MAX_NUM_CORES		32
+#define CTRL_TRD_DEFAULT_THRESH	100
 
 #define cpuset_t	cpu_set_t
 
@@ -67,11 +67,14 @@ struct mvapp {
 	void			*global_arg;
 	int			 (*init_local_cb)(void *, int id, void **);
 	int			 (*main_loop_cb)(void *, int *);
+	int			 (*ctrl_cb)(void *);
 	void			 (*deinit_local_cb)(void *);
 
 	pthread_mutex_t		 trd_lock;
 	volatile u64		 bar_mask;
 
+	int			 ctrl_thresh; /* in u-secs */
+	struct trd_desc		 ctrl;
 	struct trd_desc		 lcls[MAX_NUM_CORES];
 };
 
@@ -171,6 +174,51 @@ static void * cli_thr_cb(void *arg)
 	cli_run(mvapp->cli);
 
 	mvapp->running = 0;
+
+	pthread_exit(&err);
+	return NULL;
+}
+
+static void *ctrl_thr_cb(void *arg)
+{
+	struct trd_desc	*desc = (struct trd_desc *)arg;
+	struct mvapp	*mvapp;
+	int		 err = 0;
+
+	if (!desc) {
+		pr_err("no thread descriptor obj given!\n");
+		err = -EINVAL;
+		pthread_exit(&err);
+		return NULL;
+	}
+	if (!desc->mvapp) {
+		pr_err("no mvapp obj given to thread!\n");
+		err = -EINVAL;
+		pthread_exit(&err);
+		return NULL;
+	}
+	mvapp = desc->mvapp;
+
+	if (!mvapp->ctrl_cb) {
+		pr_err("no CTRL CB given!\n");
+		err = -EINVAL;
+		pthread_exit(&err);
+		return NULL;
+	}
+
+	/* Set thread affinity */
+	if (setaffinity(desc->trd, desc->cpu)) {
+		pr_err("Failed to set affinity for CTRL thread!\n");
+		err = -EFAULT;
+		pthread_exit(&err);
+		return NULL;
+	}
+	pr_debug("CTRL thread is running on CPU %d\n", sched_getcpu());
+
+	while (mvapp->running && !err) {
+		usleep(mvapp->ctrl_thresh);
+		err = mvapp->ctrl_cb(mvapp->global_arg);
+	}
 
 	pthread_exit(&err);
 	return NULL;
@@ -289,34 +337,56 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 	mvapp->global_arg	= mvapp_params->global_arg;
 	mvapp->init_local_cb	= mvapp_params->init_local_cb;
 	mvapp->main_loop_cb	= mvapp_params->main_loop_cb;
+	mvapp->ctrl_cb		= mvapp_params->ctrl_cb;
+	if (mvapp_params->ctrl_cb_threshold)
+		mvapp->ctrl_thresh = mvapp_params->ctrl_cb_threshold;
+	else
+		mvapp->ctrl_thresh = CTRL_TRD_DEFAULT_THRESH;
+	/* convernt the threshold from m-secs to u-secs */
+	mvapp->ctrl_thresh *= 1000;
 	mvapp->deinit_local_cb	= mvapp_params->deinit_local_cb;
 
 	j = 0;
 	for (i=0; i<mvapp->num_cores; i++) {
 		/* Calculate affinity for this thread */
-		for (; !((1<<j) & mvapp->cores_mask); j++) ;
+		for (; !((1 << j) & mvapp->cores_mask); j++)
+			;
 		mvapp->lcls[i].id = i;
 		mvapp->lcls[i].cpu = j++;
 		mvapp->lcls[i].mvapp = mvapp;
 
-		if ((err = pthread_create (&mvapp->lcls[i].trd,
-					    NULL,
-					    local_thr_cb,
-					    &mvapp->lcls[i])) != 0) {
-			pr_err("Failed to start app thread!\n");
+		err = pthread_create(&mvapp->lcls[i].trd, NULL, local_thr_cb, &mvapp->lcls[i]);
+		if (err) {
+			pr_err("Failed to start app thread %d (on CPU %d)!\n", i, j);
 			return -EFAULT;
 		}
 	}
 
-	for (i=0; i<mvapp->num_cores; i++)
-		err |= pthread_join (mvapp->lcls[i].trd, NULL);
+	if (mvapp->ctrl_cb) {
+		/* Calculate affinity for this thread */
+		for (j = 0; !((1 << j) & mvapp->cores_mask); j++)
+			;
+		mvapp->ctrl.id = 0;
+		mvapp->ctrl.cpu = j;
+		mvapp->ctrl.mvapp = mvapp;
+
+		err = pthread_create(&mvapp->ctrl.trd, NULL, ctrl_thr_cb, &mvapp->ctrl);
+		if (err) {
+			pr_err("Failed to start CTRL thread (on CPU %d)!\n", j);
+			return -EFAULT;
+		}
+		err |= pthread_join(mvapp->ctrl.trd, NULL);
+	}
+
+	for (i = 0; i < mvapp->num_cores; i++)
+		err |= pthread_join(mvapp->lcls[i].trd, NULL);
 
 	mvapp->running = 0;
 	if (mvapp->cli)
 		cli_stop(mvapp->cli);
 
 	if (mvapp->cli)
-		err |= pthread_join (mvapp->cli_trd, NULL);
+		err |= pthread_join(mvapp->cli_trd, NULL);
 
 	if (mvapp_params->deinit_global_cb)
 		mvapp_params->deinit_global_cb(mvapp_params->global_arg);

@@ -47,8 +47,19 @@ struct mvapp_params {
 	void		 (*deinit_global_cb)(void *);
 
 	int			 (*init_local_cb)(void *, int id, void **);
-	int			 (*main_loop_cb)(void *, int *);
 	void		 (*deinit_local_cb)(void *);
+	/** Main application loop thread callback; application may run in endless loop within this
+	 *  callback as long as the 'running' flag is set.
+	 */
+	int			 (*main_loop_cb)(void *, int *);
+	/** Application control thread callback; application may use this callback in order to run
+	 *  some control operations. Note that app must not run "forever" loop within this callback.
+	 */
+	int			 (*ctrl_cb)(void *);
+	/** Threshold that will be used between the calls for 'ctrl_cb' in m-secs.
+	 *  '0' value means to use the default; By default, the threshold is 100mSecs.
+	 */
+	int			 ctrl_cb_threshold;
 };
 
 int mvapp_go(struct mvapp_params *mvapp_params);
