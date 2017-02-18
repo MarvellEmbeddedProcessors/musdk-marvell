@@ -29,6 +29,10 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -36,10 +40,6 @@
 #include "encryptedBlock.h"
 #include "common.h"
 #include "array.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
 
 /**
  * operation: Structure for operation,
@@ -260,6 +260,14 @@ EncryptedBlockMessage encryptedBlockSessionAddElement(EncryptedBlockPtr encrypte
 		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
 	}
 	return ENCRYPTEDBLOCK_SUCCESS;
+}
+
+bool encryptedBlockOperationExist(EncryptedBlockPtr encryptedBlock, int index)
+{
+	if (encryptedBlock && encryptedBlock->operations[index])
+		return true;
+
+	return false;
 }
 
 EncryptedBlockMessage encryptedBlockOperationCreate(EncryptedBlockPtr encryptedBlock,

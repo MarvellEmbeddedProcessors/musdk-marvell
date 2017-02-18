@@ -151,6 +151,8 @@ EncryptedBlockMessage encryptedBlockSessionAddElement(EncryptedBlockPtr encrypte
 EncryptedBlockMessage encryptedBlockOperationCreate(EncryptedBlockPtr encryptedBlock,
 						int index);
 
+bool encryptedBlockOperationExist(EncryptedBlockPtr encryptedBlock, int index);
+
 /**
  * encryptedBlockOperationAddElement: Adds an element to the encryptedBlock.
  *

@@ -183,12 +183,14 @@ FileMessage fileSetsReadBlocksFromFile(char *fileName, generic_list encryptedBlo
 		} else if (isEncryptedBlockTypeOperation(type)) {
 			if (type == NEW_OPERATION_TYPE) {
 				current_index = next_index;
+				next_index++;
+			}
+			if (!encryptedBlockOperationExist(currentBlock, current_index)) {
 				encryptedBlockMessage = encryptedBlockOperationCreate(currentBlock, current_index);
 				if (encryptedBlockMessage != ENCRYPTEDBLOCK_SUCCESS) {
 					fclose(fstr);
 					return FILE_OUT_OF_MEMORY;
 				}
-				next_index++;
 			}
 			message = fileSetsConvertMessage(
 				encryptedBlockOperationAddElement(currentBlock, type, current_index,
