@@ -31,14 +31,74 @@
  *****************************************************************************/
 
 #include "std_internal.h"
+#include "lib/uio_helper.h"
+
+#include "../../modules/include/mv_sam_uio.h"
+
 #include "drivers/mv_sam.h"
 #include "sam.h"
+
+struct uio_info_t *sam_uio_info[SAM_HW_ENGINE_NUM];
+
+static int sam_uio_init(int engine)
+{
+	struct uio_info_t *node;
+	int i;
+	char name[16];
+
+	if (sam_uio_info[engine])
+		return 0;
+
+	snprintf(name, sizeof(name), "%s%d", UIO_SAM_NAME, engine);
+	sam_uio_info[engine] = uio_find_devices_byname(name);
+	if (!sam_uio_info[engine]) {
+		pr_err("Can't find %s UIO device\n", name);
+		return -ENODEV;
+	}
+
+	node = sam_uio_info[engine];
+	i = 0;
+	while (node) {
+		uio_get_all_info(node);
+		node = node->next;
+		i++;
+	}
+	return 0;
+}
+
+static void *sam_uio_iomap(struct uio_info_t *uio_info, dma_addr_t *pa,
+			const char *name)
+{
+	struct uio_mem_t *mem = NULL;
+	void *va = NULL;
+
+	mem = uio_find_mem_byname(uio_info, name);
+	if (!mem)
+		return NULL;
+
+	if (mem->fd < 0) {
+		char dev_name[16];
+
+		snprintf(dev_name, sizeof(dev_name),
+			 "/dev/uio%d", mem->info->uio_num);
+		mem->fd = open(dev_name, O_RDWR);
+	}
+
+	if (mem->fd >= 0) {
+		va = uio_single_mmap(mem->info, mem->map_num, mem->fd);
+		if (pa)
+			*pa = mem->info->maps[mem->map_num].addr;
+
+		uio_free_mem_info(mem);
+	}
+	return va;
+}
 
 void sam_hw_reg_print(char *reg_name, void *base, u32 offset)
 {
 	void *addr = base + offset;
 
-	pr_info("  %-32s: 0x%8p = 0x%08x\n", reg_name, addr, readl(addr));
+	pr_info("%-32s: %8p = 0x%08x\n", reg_name, addr, readl(addr));
 }
 
 int sam_hw_cdr_regs_reset(struct sam_hw_ring *hw_ring)
@@ -175,34 +235,59 @@ int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring)
 	return 0;
 }
 
-int sam_hw_ring_init(u32 ring, u32 size, struct sam_hw_ring *hw_ring)
+int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
+		     struct sam_hw_ring *hw_ring)
 {
-	u32 ring_size, offset;
+	u32 ring_size;
 	int rc;
-	char ring_name[64];
-	Device_Handle_t device;
-	u32 *base;
+	char name[64];
 
-	sprintf(ring_name, "EIP202_CDR%d", ring);
-	device = Device_Find(ring_name);
-	if (device == NULL) {
-		pr_err("Can't find %s device\n", ring_name);
-		return -EINVAL;
+	rc = sam_uio_init(engine);
+	if (rc)
+		return rc;
+
+	sprintf(name, "ring%d", ring);
+	hw_ring->regs_vbase = sam_uio_iomap(sam_uio_info[engine], &hw_ring->paddr, name);
+	if (!hw_ring->regs_vbase) {
+		pr_err("%s: Can't iomap memory area\n",	name);
+		return -ENOMEM;
 	}
-	base = Device_Get_Base(device);
-	offset = Device_Get_Offset(device);
+	pr_info("%s:%s registers: paddr: 0x%x, vaddr: 0x%p\n",
+		sam_uio_info[engine]->name, name, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
-	hw_ring->id = ring;
-	hw_ring->regs_vbase = (u32 *)(base + (offset >> 2));
-	hw_ring->ring_size = size; /* number of descriptors in the ring */
+	/* Check ring size and number of sessions with HW max values */
+	if (params->size > SAM_HW_RING_SIZE) {
+		/* SW value can't exceed HW restriction */
+		pr_warn("Warning! Ring size %d is too large. Set to maximum = %d\n",
+			params->size, SAM_HW_RING_SIZE);
+		params->size = SAM_HW_RING_SIZE;
+	}
+	params->size += 1;
 
-	pr_info("%s: Regs: %p + 0x%08x\n", ring_name, base, offset);
+	if (params->num_sessions > SAM_HW_SA_NUM) {
+		/* SW value can't exceed HW restriction */
+		pr_warn("Warning! Number of sessions %d is too large. Set to maximum = %d\n",
+			params->num_sessions, SAM_HW_SA_NUM);
+		params->num_sessions = SAM_HW_SA_NUM;
+	}
+
+	hw_ring->engine = engine;
+	hw_ring->ring = ring;
+	hw_ring->ring_size = params->size; /* number of descriptors in the ring */
 
 	sam_hw_cdr_regs_reset(hw_ring);
 	sam_hw_rdr_regs_reset(hw_ring);
 
+	hw_ring->cmd_desc = kcalloc(params->size, sizeof(PEC_CommandDescriptor_t), GFP_KERNEL);
+	if (!hw_ring->cmd_desc)
+		return -ENOMEM;
+
+	hw_ring->result_desc = kcalloc(params->size, sizeof(PEC_ResultDescriptor_t), GFP_KERNEL);
+	if (!hw_ring->result_desc)
+		return -ENOMEM;
+
 	/* Allocate command descriptors ring */
-	ring_size = SAM_CDR_ENTRY_WORDS * sizeof(u32) * size;
+	ring_size = SAM_CDR_ENTRY_WORDS * sizeof(u32) * params->size;
 	rc = sam_dma_buf_alloc(ring_size, &hw_ring->cdr_buf);
 	if (rc)
 		return rc;
@@ -217,7 +302,7 @@ int sam_hw_ring_init(u32 ring, u32 size, struct sam_hw_ring *hw_ring)
 	sam_hw_cdr_regs_init(hw_ring);
 
 	/* Allocate result descriptors ring */
-	ring_size = SAM_RDR_ENTRY_WORDS * sizeof(u32) * size;
+	ring_size = SAM_RDR_ENTRY_WORDS * sizeof(u32) * params->size;
 	rc = sam_dma_buf_alloc(ring_size, &hw_ring->rdr_buf);
 	if (rc)
 		return rc;
@@ -238,6 +323,12 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 {
 	sam_hw_cdr_regs_reset(hw_ring);
 	sam_hw_rdr_regs_reset(hw_ring);
+
+	kfree(hw_ring->cmd_desc);
+	hw_ring->cmd_desc = NULL;
+
+	kfree(hw_ring->result_desc);
+	hw_ring->result_desc = NULL;
 
 	sam_dma_buf_free(&hw_ring->cdr_buf);
 	sam_dma_buf_free(&hw_ring->rdr_buf);
@@ -266,8 +357,24 @@ int sam_hw_engine_unload(void)
 
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 {
+	pr_info("%d:%d CDR registers\n", hw_ring->engine, hw_ring->ring);
+	sam_hw_reg_print("HIA_CDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_CDR_RING_BASE_ADDR_LO_REG);
+	sam_hw_reg_print("HIA_CDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG);
+	sam_hw_reg_print("HIA_CDR_DESC_SIZE_REG", hw_ring->regs_vbase, HIA_CDR_DESC_SIZE_REG);
+	sam_hw_reg_print("HIA_CDR_CFG_REG", hw_ring->regs_vbase, HIA_CDR_CFG_REG);
+	sam_hw_reg_print("HIA_CDR_DMA_CFG_REG", hw_ring->regs_vbase, HIA_CDR_DMA_CFG_REG);
+	sam_hw_reg_print("HIA_CDR_THRESH_REG", hw_ring->regs_vbase, HIA_CDR_THRESH_REG);
+	sam_hw_reg_print("HIA_CDR_STAT_REG", hw_ring->regs_vbase, HIA_CDR_STAT_REG);
 }
 
 void sam_hw_rdr_regs_show(struct sam_hw_ring *hw_ring)
 {
+	pr_info("%d:%d RDR registers\n", hw_ring->engine, hw_ring->ring);
+	sam_hw_reg_print("HIA_RDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_RDR_RING_BASE_ADDR_LO_REG);
+	sam_hw_reg_print("HIA_RDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_RDR_RING_SIZE_REG);
+	sam_hw_reg_print("HIA_RDR_DESC_SIZE_REG", hw_ring->regs_vbase, HIA_RDR_DESC_SIZE_REG);
+	sam_hw_reg_print("HIA_RDR_CFG_REG", hw_ring->regs_vbase, HIA_RDR_CFG_REG);
+	sam_hw_reg_print("HIA_RDR_DMA_CFG_REG", hw_ring->regs_vbase, HIA_RDR_DMA_CFG_REG);
+	sam_hw_reg_print("HIA_RDR_THRESH_REG", hw_ring->regs_vbase, HIA_RDR_THRESH_REG);
+	sam_hw_reg_print("HIA_RDR_STAT_REG", hw_ring->regs_vbase, HIA_RDR_STAT_REG);
 }

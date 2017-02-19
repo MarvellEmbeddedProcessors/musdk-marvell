@@ -50,6 +50,11 @@
 #define SAM_64BIT_DEVICE
 #define SAM_USE_EXTENDED_DESCRIPTOR
 
+#define SAM_HW_ENGINE_NUM	2
+#define SAM_HW_RING_NUM		DRIVER_MAX_NOF_RING_TO_USE
+#define SAM_HW_RING_SIZE	DRIVER_PEC_MAX_PACKETS
+#define SAM_HW_SA_NUM		DRIVER_PEC_MAX_SAS
+
 /*#define SAM_REG_READ_DEBUG*/
 /*#define SAM_REG_WRITE_DEBUG*/
 /*#define SAM_DMA_READ_DEBUG*/
@@ -146,8 +151,10 @@ struct sam_hw_ring_options {
 };
 
 struct sam_hw_ring {
-	u32 id;
-	void *regs_vbase;
+	u32 engine;
+	u32 ring;
+	void *regs_vbase;			/* virtual address for ring registers */
+	dma_addr_t paddr;			/* physical address for ring registers */
 	u32 ring_size;                          /* CDR and RDR size in descriptors */
 	struct sam_buf_info cdr_buf;            /* DMA memory buffer allocated for command descriptors */
 	struct sam_buf_info rdr_buf;            /* DMA memory buffer allocated for result descriptors */
@@ -372,7 +379,8 @@ int sam_hw_cdr_regs_reset(struct sam_hw_ring *hw_ring);
 int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring);
 int sam_hw_rdr_regs_reset(struct sam_hw_ring *hw_ring);
 int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring);
-int sam_hw_ring_init(u32 ring, u32 size, struct sam_hw_ring *hw_ring);
+int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
+		     struct sam_hw_ring *hw_ring);
 int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring);
 int sam_hw_engine_load(void);
 int sam_hw_engine_unload(void);

@@ -38,17 +38,6 @@
 
 #include "sam_hw.h"
 
-#define SAM_DMABUF_ALIGN	16 /* cache line */
-
-#define SAM_DMA_BANK_PKT	0 /* dynamic bank */
-
-#define SAM_HW_RING_NUM		DRIVER_MAX_NOF_RING_TO_USE
-#define SAM_HW_RING_SIZE	DRIVER_PEC_MAX_PACKETS
-#define SAM_HW_SA_NUM		DRIVER_PEC_MAX_SAS
-
-#define SAM_HW_RING_RETRY_COUNT	(1000)
-#define SAM_HW_RING_RETRY_US	(10)
-
 #define SAM_AAD_IN_TOKEN_MAX_SIZE	(64)
 
 /* max token size in bytes */
@@ -72,7 +61,7 @@ struct sam_cio_op {
 
 
 struct sam_cio {
-	u8  id;				/* ring id in SAM HW unit */
+	u8  idx;			/* index in the sam_rings array */
 	struct sam_cio_params params;
 #ifdef MVCONF_SAM_STATS
 	struct sam_cio_stats stats;	/* cio statistics */

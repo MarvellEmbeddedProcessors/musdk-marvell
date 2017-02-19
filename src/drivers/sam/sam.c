@@ -33,11 +33,25 @@
 #include "std_internal.h"
 #include "drivers/mv_sam.h"
 #include "lib/lib_misc.h"
+
 #include "sam.h"
 
+#define SAM_MAX_CIO_NUM		(SAM_HW_RING_NUM * SAM_HW_ENGINE_NUM)
+
 static bool		sam_initialized;
-static int		sam_active_rings;
-static struct sam_cio	*sam_rings[SAM_HW_RING_NUM];
+static int		sam_active_cios;
+static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
+
+static int sam_cio_free_idx_get(void)
+{
+	int i;
+
+	for (i = 0; i < SAM_MAX_CIO_NUM; i++) {
+		if (sam_cios[i] == NULL)
+			return i;
+	}
+	return -1;
+}
 
 int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf)
 {
@@ -57,7 +71,6 @@ void sam_dma_buf_free(struct sam_buf_info *dma_buf)
 	if (dma_buf && dma_buf->vaddr)
 		mv_sys_dma_mem_free(dma_buf->vaddr);
 }
-
 
 static struct sam_sa *sam_session_alloc(struct sam_cio *cio)
 {
@@ -218,7 +231,7 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
-	int i, engine, ring, scanned;
+	int i, engine, ring, cio_idx, scanned;
 	struct sam_cio	*sam_ring;
 
 	/* Load SAM HW engine */
@@ -235,32 +248,11 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 			params->match);
 		return -EINVAL;
 	}
-	/* Check valid range for CIO ring */
-	if (ring >= SAM_HW_RING_NUM) {
-		pr_err("sam_cio ring #%d is out range: 0 ... %d\n",
-			ring, SAM_HW_RING_NUM);
+	cio_idx = sam_cio_free_idx_get();
+	if (cio_idx < 0) {
+		pr_err("No free place for new CIO: active_cios = %d, max_cios = %d\n",
+			sam_active_cios, SAM_MAX_CIO_NUM);
 		return -EINVAL;
-	}
-	/* Each instance of CIO can be used only once */
-	if (sam_rings[ring] != NULL) {
-		pr_err("sam_cio_init for ring #is already called\n");
-		return -EEXIST;
-	}
-
-	/* Check ring size and number of sessions with HW max values */
-	if (params->size > SAM_HW_RING_SIZE) {
-		/* SW value can't exceed HW restriction */
-		pr_warn("Warning! Ring size %d is too large. Set to maximum = %d\n",
-			params->size, SAM_HW_RING_SIZE);
-		params->size = SAM_HW_RING_SIZE;
-	}
-	params->size += 1;
-
-	if (params->num_sessions > SAM_HW_SA_NUM) {
-		/* SW value can't exceed HW restriction */
-		pr_warn("Warning! Number of sessions %d is too large. Set to maximum = %d\n",
-			params->num_sessions, SAM_HW_SA_NUM);
-		params->num_sessions = SAM_HW_SA_NUM;
 	}
 
 	/* Allocate single sam_cio structure */
@@ -270,13 +262,17 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 			 sizeof(struct sam_cio));
 		return -ENOMEM;
 	}
-	/* Save configured CIO params */
-	sam_ring->params = *params;
-	sam_ring->id = ring;
 
 	/* Initialize HW ring */
-	if (sam_hw_ring_init(ring, params->size, &sam_ring->hw_ring))
+	if (sam_hw_ring_init(engine, ring, params, &sam_ring->hw_ring))
 		goto err;
+
+	/* Save configured CIO params */
+	sam_ring->params = *params;
+
+	sam_cios[cio_idx] = sam_ring;
+	sam_ring->idx = cio_idx;
+	sam_active_cios++;
 
 	/* Allocate configured number of sam_sa structures */
 	sam_ring->sessions = kcalloc(params->num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
@@ -304,18 +300,6 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 			params->size, sizeof(struct sam_cio_op));
 		goto err;
 	}
-	sam_ring->hw_ring.cmd_desc = kcalloc(params->size, sizeof(PEC_CommandDescriptor_t), GFP_KERNEL);
-	if (!sam_ring->hw_ring.cmd_desc) {
-		pr_err("Can't allocate %u * %lu bytes for PEC_CommandDescriptor_t structures\n",
-			params->size, sizeof(PEC_CommandDescriptor_t));
-		goto err;
-	}
-	sam_ring->hw_ring.result_desc = kcalloc(params->size, sizeof(PEC_ResultDescriptor_t), GFP_KERNEL);
-	if (!sam_ring->hw_ring.result_desc) {
-		pr_err("Can't allocate %u * %lu bytes for PEC_ResultDescriptor_t structures\n",
-			params->size, sizeof(PEC_ResultDescriptor_t));
-		goto err;
-	}
 
 	/* Allocate DMA buffers for Tokens (one per operation) */
 	for (i = 0; i < params->size; i++) {
@@ -327,9 +311,6 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	}
 	pr_info("DMA buffers allocated for %d operations. Tokens - %d bytes\n",
 		i, SAM_TOKEN_DMABUF_SIZE);
-
-	sam_rings[ring] = sam_ring;
-	sam_active_rings++;
 
 	*cio = sam_ring;
 
@@ -348,8 +329,6 @@ int sam_cio_deinit(struct sam_cio *cio)
 
 	if (!cio)
 		return 0;
-
-	sam_hw_ring_deinit(&cio->hw_ring);
 
 	if (cio->operations) {
 		for (i = 0; i < cio->params.size; i++) {
@@ -370,21 +349,18 @@ int sam_cio_deinit(struct sam_cio *cio)
 		cio->sessions = NULL;
 	}
 
-	kfree(cio->hw_ring.cmd_desc);
-	cio->hw_ring.cmd_desc = NULL;
+	if (sam_cios[cio->idx]) {
+		sam_hw_ring_deinit(&cio->hw_ring);
+		sam_cios[cio->idx] = NULL;
+		sam_active_cios--;
+	}
 
-	kfree(cio->hw_ring.result_desc);
-	cio->hw_ring.result_desc = NULL;
-
-	sam_rings[cio->id] = NULL;
-	kfree(cio);
-
-	sam_active_rings--;
-
-	if (sam_active_rings == 0) {
+	if (sam_initialized && (sam_active_cios == 0)) {
 		sam_hw_engine_unload();
 		sam_initialized = false;
 	}
+	kfree(cio);
+
 	return 0;
 }
 
@@ -695,8 +671,6 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	/* Update RDR registers */
 	sam_hw_ring_update(&cio->hw_ring, count);
 
-	/*PEC_CDR_Regs(cio->id);*/
-	/*PEC_RDR_Regs(cio->id);*/
 	SAM_STATS(cio->stats.deq_pkts += count);
 
 	*num = (u16)count;
