@@ -250,7 +250,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	/* Check ring size and number of sessions with HW max values */
 	if (params->size > SAM_HW_RING_SIZE) {
 		/* SW value can't exceed HW restriction */
-		pr_warning("Warning! Ring size %d is too large. Set to maximum = %d\n",
+		pr_warn("Warning! Ring size %d is too large. Set to maximum = %d\n",
 			params->size, SAM_HW_RING_SIZE);
 		params->size = SAM_HW_RING_SIZE;
 	}
@@ -258,7 +258,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 
 	if (params->num_sessions > SAM_HW_SA_NUM) {
 		/* SW value can't exceed HW restriction */
-		pr_warning("Warning! Number of sessions %d is too large. Set to maximum = %d\n",
+		pr_warn("Warning! Number of sessions %d is too large. Set to maximum = %d\n",
 			params->num_sessions, SAM_HW_SA_NUM);
 		params->num_sessions = SAM_HW_SA_NUM;
 	}
@@ -557,7 +557,6 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 
 		/* Check maximum number of pending requests */
 		if (sam_cio_is_full(cio)) {
-			/*pr_warning("SAM cio %d is full\n", cio->id);*/
 			SAM_STATS(cio->stats.enq_full++);
 			break;
 		}

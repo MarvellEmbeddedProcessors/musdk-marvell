@@ -392,7 +392,7 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 
 	if (!lkp_dcod_db.enabled) {
 		/* entry disabled for this log_flow id */
-		pr_warning("skipping disable of fl_log_id=%d, already disabled\n", fl_log_id);
+		pr_warn("skipping disable of fl_log_id=%d, already disabled\n", fl_log_id);
 		return 0;
 	}
 
@@ -471,13 +471,13 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 
 	if (lkp_dcod_db.enabled) {
 		/* entry enabled for this log_flow id */
-		pr_warning("skipping enable of fl_log_id=%d, already enabled\n", fl_log_id);
+		pr_warn("skipping enable of fl_log_id=%d, already enabled\n", fl_log_id);
 		return 0;
 	}
 
 	if (!lkp_dcod_db.flow_len) {
 		/* there are no flow rules */
-		pr_warning("skipping enable of fl_log_id=%d, no rules in flow\n", fl_log_id);
+		pr_warn("skipping enable of fl_log_id=%d, no rules in flow\n", fl_log_id);
 		return 0;
 	}
 
@@ -2710,7 +2710,7 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 
 		/* rule already disabled, skip */
 		if (!rl_db.enabled)
-			pr_warning("rl_log_id=%d already disabled\n", rl_log_id[i]);
+			pr_warn("rl_log_id=%d already disabled\n", rl_log_id[i]);
 
 		/* last reference count, need to disable in HW */
 		ref_sum = 0;

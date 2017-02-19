@@ -137,7 +137,7 @@ pp2_port_egress_disable(struct pp2_port *port)
 	tmo = 0;
 	do {
 		if (tmo >= MVPP2_TX_DISABLE_TIMEOUT_MSEC) {
-			pr_warning("Port: Egress disable timeout = 0x%08X\n", val);
+			pr_warn("Port: Egress disable timeout = 0x%08X\n", val);
 			break;
 		}
 		/* Sleep for 1 millisecond */
@@ -226,7 +226,7 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 	tx_fifo_threshold = PP2_PORT_TX_FIFO_KB_TO_THRESH(port->tx_fifo_size);
 	if (MVPP2_MTU_PKT_SIZE(mtu) > tx_fifo_threshold) {
 		port->flags &= ~PP2_PORT_FLAGS_L4_CHKSUM;
-		pr_warning("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
+		pr_warn("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
 			 mtu, MVPP2_MTU_PKT_SIZE(mtu), tx_fifo_threshold);
 	} else {
 		port->flags |= PP2_PORT_FLAGS_L4_CHKSUM;
@@ -716,7 +716,7 @@ pp2_rxq_resid_pkts(struct pp2_port *port,
 	if (!rx_resid)
 		return;
 
-	pr_warning("RXQ has %u residual packets\n", rx_resid);
+	pr_warn("RXQ has %u residual packets\n", rx_resid);
 
 	/* Cleanup for dangling RXDs can be done here by getting
 	* the BM-IF associated to the BM poool associated to this
@@ -790,7 +790,7 @@ pp2_txq_clean(struct pp2_port *port,
 	delay = 0;
 	do {
 		if (delay >= MVPP2_TX_PENDING_TIMEOUT_MSEC) {
-			pr_warning("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
+			pr_warn("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
 			break;
 		}
 		/* Sleep for 1 millisecond */

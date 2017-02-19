@@ -321,7 +321,7 @@ static inline void free_sent_buffers(struct local_arg	*larg,
 		binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
 #endif /* SW_BUFF_RECYLCE */
 		if (unlikely(!binf->cookie || !binf->addr)) {
-			pr_warning("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
+			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
 					shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
 			continue;
 		}
@@ -1323,7 +1323,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	if (garg->qs_map &&
 	    (PP2_MAX_NUM_QS_PER_TC == 1) &&
 	    (PP2_MAX_NUM_TCS_PER_PORT == 1)) {
-		pr_warning("no point in queues-mapping; ignoring.\n");
+		pr_warn("no point in queues-mapping; ignoring.\n");
 		garg->qs_map = 1;
 		garg->qs_map_shift = 1;
 	} else if (!garg->qs_map) {

@@ -56,10 +56,10 @@ do {						\
 #define pr_err(...) \
 	mv_print(MV_DBG_L_ERR, "[ERROR] " __VA_ARGS__)
 #endif /* !pr_err */
-#ifndef pr_warning
-#define pr_warning(...) \
+#ifndef pr_warn
+#define pr_warn(...) \
 	mv_print(MV_DBG_L_WARN, "[WARN] " __VA_ARGS__)
-#endif /* !pr_warning */
+#endif /* !pr_warn */
 #ifndef pr_info
 #define pr_info(...) \
 	mv_print(MV_DBG_L_INFO, "[INFO] "__VA_ARGS__)

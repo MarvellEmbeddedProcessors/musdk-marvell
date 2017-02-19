@@ -170,7 +170,7 @@ static void start_timer(struct mvtimer	*timer,
 
 static void stop_timer(struct mvtimer *timer)
 {
-	pr_warning("no supported yet!\n");
+	pr_warn("no supported yet!\n");
 }
 
 static void mod_timer(struct mvtimer *timer, uint32_t msecs)
