@@ -83,8 +83,9 @@ static void pp2_bm_pool_print_regs(uintptr_t cpu_slot, uint32_t pool)
 static inline void pp2_bm_pool_bufsize_set(uintptr_t cpu_slot,
 					   u32 pool_id, uint32_t buf_size)
 {
-	pp2_reg_write(cpu_slot, MVPP2_POOL_BUF_SIZE_REG(pool_id),
-		      buf_size << MVPP2_POOL_BUF_SIZE_OFFSET);
+	u32 val = ALIGN(buf_size, 1 << MVPP2_POOL_BUF_SIZE_OFFSET);
+
+	pp2_reg_write(cpu_slot, MVPP2_POOL_BUF_SIZE_REG(pool_id), val);
 }
 
 /* BM HW disable pool */
