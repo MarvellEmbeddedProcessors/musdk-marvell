@@ -54,13 +54,19 @@ extern void *__dma_virt_base;
 /**
  * Initialize the system DMA memory manager
  *
- * For an efficient conversion between user-space virtual address map(s) and bus
- * addresses required by hardware for DMA, we use a single contiguous mmap() on
- * the 'SYS_US_DEV_FILE_PATH' device, a pre-arranged physical base address.
+ * MUSDK system provides a mechanism for DMA-able memory allocation.
+ * Assume this memory is a single, contiguously allocated region.
+ * In some implementations (e.g. when using hugepages), it is only contiguous
+ * in the virtual address space, while in other implementations (e.g. CMA),
+ * it is allocated as a contiguous memory both in virtual as well as in
+ * physical address space. It is created in order to support an efficient
+ * conversion between user-space virtual address map(s) and bus addresses
+ * required by hardware for DMA.
  *
  * @param[in]	size	size of the request DMA memory.
  *
  * @retval	0 on success.
+ * @retval	error code on failure.
  */
 int mv_sys_dma_mem_init(u64 size);
 
@@ -70,7 +76,7 @@ int mv_sys_dma_mem_init(u64 size);
 void mv_sys_dma_mem_destroy(void);
 
 /**
- * DMA memory allocation (Optimised for speed).
+ * Allocate DMA memory slice from the system DMA memory.
  *
  * @param[in]	size	size of the request DMA memory.
  * @param[in]	align	Alignment of the request DMA memory.
@@ -81,7 +87,7 @@ void mv_sys_dma_mem_destroy(void);
 void *mv_sys_dma_mem_alloc(size_t size, size_t align);
 
 /**
- * Free an allocated DMA memory.
+ * Free an allocated DMA memory slice of the system DMA memory.
  *
  * @param[in]	ptr		A pointer to a DMA memory.
  */
@@ -95,14 +101,15 @@ void mv_sys_dma_mem_free(void *ptr);
  * @retval	A pointer to a virtual DMA memory on success
  * @retval	<0 on failure
  */
-#if defined(MVCONF_SYS_DMA_HUGE_PAGE)
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
 void *mv_sys_dma_mem_phys2virt(phys_addr_t pa);
-#else /* MVCONF_SYS_DMA_HUGE_PAGE */
+#else /* !MVCONF_SYS_DMA_HUGE_PAGE */
 static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
 {
 	return (void *)((u64)(pa - __dma_phys_base) + (u64)__dma_virt_base);
 }
-#endif
+#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
+
 /**
  * Virtual to Physical address translation of an allocated DMA memory.
  *
@@ -111,14 +118,14 @@ static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
  * @retval	Physical-address on success
  * @retval	<0 on failure
  */
-#if defined(MVCONF_SYS_DMA_HUGE_PAGE)
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
 phys_addr_t mv_sys_dma_mem_virt2phys(void *va);
-#else /* MVCONF_SYS_DMA_HUGE_PAGE */
+#else /* !MVCONF_SYS_DMA_HUGE_PAGE */
 static inline phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
 	return ((u64)va - (u64)__dma_virt_base) + __dma_phys_base;
 }
-#endif
+#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 
 /** @} */ /* end of grp_pp2_hif */
 
