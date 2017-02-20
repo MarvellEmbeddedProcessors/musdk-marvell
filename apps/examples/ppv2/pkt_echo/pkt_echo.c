@@ -81,8 +81,9 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #define MAX_PPIOS	1
 #define MAX_NUM_CORES	4
 #define DMA_MEM_SIZE 	(40*1024*1024)
-#define PP2_BPOOLS_RSRV	0x7
-#define PP2_HIFS_RSRV	0xF
+#define PP2_NUM_BPOOLS_RSRV		3
+#define PP2_BPOOLS_RSRV			((1 << PP2_NUM_BPOOLS_RSRV) - 1)
+#define PP2_HIFS_RSRV			0xF
 #define PP2_MAX_NUM_PORTS		2
 #define PP2_MAX_NUM_TCS_PER_PORT	1
 #define PP2_MAX_NUM_QS_PER_TC		MAX_NUM_CORES
@@ -91,6 +92,9 @@ static char tx_retry_str[] = "Tx Retry disabled";
 /* TODO: find more generic way to get the following parameters */
 #define PP2_TOTAL_NUM_BPOOLS	16
 #define PP2_TOTAL_NUM_HIFS	9
+#define PP2_MAX_NUM_BPOOLS	min(PP2_PPIO_TC_MAX_POOLS*PP2_PPIO_MAX_NUM_TCS, \
+				PP2_TOTAL_NUM_BPOOLS - PP2_NUM_BPOOLS_RSRV)
+
 
 /* TODO: Move to internal .h file */
 #define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
@@ -113,8 +117,8 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #define NO_PATH(file_name) (strrchr((file_name), '/') ? \
 			    strrchr((file_name), '/') + 1 : (file_name))
 
-//#define BPOOLS_INF	{{384,4096},{2048,1024}}
-#define BPOOLS_INF	{{2048,8192}}
+#define BPOOLS_INF	{ {384, 4096}, {2048, 1024} }
+/* #define BPOOLS_INF	{{2048, 8192}} */
 
 #ifdef SW_BUFF_RECYLCE
 #define COOKIE_BUILD(_pp, _bpool, _indx)	\
@@ -156,6 +160,7 @@ struct tx_shadow_q_entry {
 #else
 	struct pp2_buff_inf	buff_ptr;
 #endif /* SW_BUFF_RECYLCE */
+	struct pp2_bpool	*bpool;
 };
 
 struct tx_shadow_q {
@@ -219,7 +224,7 @@ struct local_arg {
 static struct glob_arg garg = {};
 static u64 sys_dma_high_addr = 0;
 
-static u16	used_bpools = PP2_BPOOLS_RSRV;
+static u16	used_bpools[PP2_NUM_PKT_PROC] = {PP2_BPOOLS_RSRV, PP2_BPOOLS_RSRV};
 static u16	used_hifs = PP2_HIFS_RSRV;
 
 
@@ -281,70 +286,83 @@ static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type
 }
 #endif
 
-static inline void free_not_sent_buffers(struct local_arg	*larg,
-					 struct pp2_bpool	*bpool,
-					 struct pp2_ppio_desc	*descs,
-					 u16			num)
+#ifdef HW_BUFF_RECYLCE
+static inline void free_buffers(struct local_arg	*larg,
+				struct pp2_ppio_desc	*descs,
+				u16			num,
+				u8			ppio_id)
 {
 	int i;
 	struct pp2_buff_inf binf;
 
 	for (i = 0; i < num; i++) {
+		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[ppio_id].port);
 		binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 		binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		pp2_bpool_put_buff(larg->hif, bpool, &binf);
 	}
 }
-
-#ifndef HW_BUFF_RECYLCE
-static inline void free_sent_buffers(struct local_arg	*larg,
-				     struct pp2_bpool	*bpool,
-				     u8			tx_ppio_id,
-				     u8			tc)
+#else
+static inline u16 free_buffers(struct local_arg	*larg,
+				u16		start_idx,
+				u16		num,
+				u8		ppio_id,
+				u8		tc)
 {
-	u16			i, tx_num;
+	u16			i, idx = start_idx;
 	struct pp2_buff_inf	*binf;
 	struct tx_shadow_q	*shadow_q;
 
 	shadow_q = &(larg->shadow_qs[tc]);
 
-	pp2_ppio_get_num_outq_done(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &tx_num);
 
-	for (i = 0; i < tx_num; i++) {
+	for (i = 0; i < num; i++) {
+		struct pp2_bpool *bpool = shadow_q->ents[idx].bpool;
 #ifdef SW_BUFF_RECYLCE
 		struct pp2_buff_inf	 tmp_buff_inf;
-		u32	ck = shadow_q->ents[shadow_q->read_ind].buff_ptr;
+		u32	ck = shadow_q->ents[idx].buff_ptr;
 		tmp_buff_inf.cookie = ck;
 		tmp_buff_inf.addr = larg->buffs_inf[COOKIE_GET_PP(ck)][COOKIE_GET_BPOOL(ck)][COOKIE_GET_INDX(ck)].addr;
 		binf = &tmp_buff_inf;
 #else
-		binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
+		binf = &(shadow_q->ents[idx].buff_ptr);
 #endif /* SW_BUFF_RECYLCE */
-		if (unlikely(!binf->cookie || !binf->addr)) {
-			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-					shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
+		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
+			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
+					i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
 			continue;
 		}
 		pp2_bpool_put_buff(larg->hif,
 					bpool,
 					binf);
-		shadow_q->read_ind++;
-		if (shadow_q->read_ind == Q_SIZE)
-			shadow_q->read_ind = 0;
+
+		if (++idx == Q_SIZE)
+			idx = 0;
+
 	}
+	return idx;
 }
+static inline void free_sent_buffers(struct local_arg	*larg,
+				     u8			tx_ppio_id,
+				     u8			rx_ppio_id,
+				     u8			tc)
+{
+	u16			tx_num;
+
+	pp2_ppio_get_num_outq_done(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &tx_num);
+	larg->shadow_qs[tc].read_ind = free_buffers(larg, larg->shadow_qs[tc].read_ind, tx_num, rx_ppio_id, tc);
+}
+
 #endif //HW_BUFF_RECYLCE
 
 #ifdef HW_BUFF_RECYLCE
 static inline int loop_hw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tx_ppio_id,
-				  u8			 bpool_id,
 				  u8			 tc,
 				  u8			 qid,
 				  u16			 num)
 {
-	struct pp2_bpool	*bpool;
 	struct pp2_ppio_desc	 descs[MAX_BURST_SIZE];
 	u16			 i, tx_num;
 #ifdef APP_TX_RETRY
@@ -354,7 +372,6 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 	int			 prefetch_shift = larg->prefetch_shift;
 #endif /* PKT_ECHO_SUPPORT */
 
-	bpool = larg->pools[larg->ports_desc[rx_ppio_id].pp_id][bpool_id];
 
 //pr_info("tid %d check on tc %d, qid %d\n", larg->id, tc, qid);
 //pthread_mutex_lock(&larg->garg->trd_lock);
@@ -366,6 +383,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
+		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].port);
 
 #ifdef PKT_ECHO_SUPPORT
 		if (likely(larg->echo)) {
@@ -395,8 +413,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], PKT_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 		pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff));
-		pp2_ppio_outq_desc_set_pool(&descs[i],
-					    bpool);
+		pp2_ppio_outq_desc_set_pool(&descs[i], bpool);
 	}
 
 #ifdef APP_TX_RETRY
@@ -415,7 +432,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 	if (num) {
 		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, descs, &tx_num);
 		if (num > tx_num)
-			free_not_sent_buffers(larg, bpool, &descs[tx_num], num - tx_num);
+			free_buffers(larg, &descs[tx_num], num - tx_num, rx_ppio_id);
 	}
 #endif /* APP_TX_RETRY */
 	return 0;
@@ -425,15 +442,16 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tx_ppio_id,
-				  u8			 bpool_id,
 				  u8			 tc,
 				  u8			 qid,
 				  u16			 num)
 {
-	struct pp2_bpool	*bpool;
 	struct tx_shadow_q	*shadow_q;
 	struct pp2_ppio_desc	 descs[MAX_BURST_SIZE];
-	u16			 i, tx_num, desc_idx;
+	u16			 i, tx_num;
+#ifdef APP_TX_RETRY
+	u16			 desc_idx;
+#endif
 
 #ifdef PKT_ECHO_SUPPORT
 	int			 prefetch_shift = larg->prefetch_shift;
@@ -444,7 +462,6 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	u8                       l3_offset, l4_offset;
 #endif /* HW_TX_CHKSUM_CALC */
 
-	bpool = larg->pools[larg->ports_desc[rx_ppio_id].pp_id][bpool_id];
 	shadow_q = &(larg->shadow_qs[tc]);
 
 //pr_info("tid %d check on tc %d, qid %d\n", larg->id, tc, qid);
@@ -463,6 +480,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 #endif /* SW_BUFF_RECYLCE */
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
+		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].port);
 
 #ifdef PKT_ECHO_SUPPORT
 		if (likely(larg->echo)) {
@@ -513,14 +531,14 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 #endif /* SW_BUFF_RECYLCE */
+		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
 		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == Q_SIZE)
 			shadow_q->write_ind = 0;
 	}
-
-	desc_idx = 0;
 #ifdef APP_TX_RETRY
+	desc_idx = 0;
 	do {
 		tx_num = num;
 		if (num) {
@@ -528,22 +546,22 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			desc_idx += tx_num;
 			num -= tx_num;
 		}
-		free_sent_buffers(larg, bpool, tx_ppio_id, tc);
+		free_sent_buffers(larg, tx_ppio_id, rx_ppio_id, tc);
 	} while (num);
 #else
-	tx_num = num;
 	if (num) {
-		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &descs[desc_idx], &tx_num);
+		tx_num = num;
+		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, descs, &tx_num);
 		if (num > tx_num) {
 			u16 not_sent = num - tx_num;
 			// Free not sent buffers
-			free_not_sent_buffers(larg, bpool, &descs[tx_num], not_sent);
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 						(Q_SIZE - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
+			free_buffers(larg, shadow_q->write_ind, not_sent, rx_ppio_id, tc);
 		}
 	}
-	free_sent_buffers(larg, bpool, tx_ppio_id, tc);
+	free_sent_buffers(larg, tx_ppio_id, rx_ppio_id, tc);
 #endif /* APP_TX_RETRY */
 
 	return 0;
@@ -576,15 +594,15 @@ static int find_port_info(struct port_desc *port_desc)
 	return 0;
 }
 
-static int find_free_bpool(void)
+static int find_free_bpool(u32 pp_id)
 {
 	int	i;
 
 	for (i=0; i<PP2_TOTAL_NUM_BPOOLS; i++) {
-		if (!((uint64_t)(1<<i) & used_bpools)) {
-			    used_bpools |= (uint64_t)(1<<i);
-			    break;
-		    }
+		if (!((1 << i) & used_bpools[pp_id])) {
+			used_bpools[pp_id] |= (1 << i);
+			break;
+		}
 	}
 	if (i == PP2_TOTAL_NUM_BPOOLS) {
 		pr_err("no free BPool found!\n");
@@ -598,10 +616,10 @@ static int find_free_hif(void)
 	int	i;
 
 	for (i=0; i<PP2_TOTAL_NUM_HIFS; i++) {
-		if (!((uint64_t)(1<<i) & used_hifs)) {
-			    used_hifs |= (uint64_t)(1<<i);
-			    break;
-		    }
+		if (!((1 << i) & used_hifs)) {
+			used_hifs |= (1 << i);
+			break;
+		}
 	}
 	if (i == PP2_TOTAL_NUM_HIFS) {
 		pr_err("no free HIF found!\n");
@@ -636,9 +654,9 @@ static int loop_1p(struct local_arg *larg, volatile int *running)
 		} while (!(larg->qs_map & (1<<((tc*PP2_MAX_NUM_QS_PER_TC)+qid))));
 
 #ifdef HW_BUFF_RECYLCE
-		err = loop_hw_recycle(larg, 0, 0, 0, tc, qid, num);
+		err = loop_hw_recycle(larg, 0, 0, tc, qid, num);
 #else
-		err = loop_sw_recycle(larg, 0, 0, 0, tc, qid, num);
+		err = loop_sw_recycle(larg, 0, 0, tc, qid, num);
 #endif /* HW_BUFF_RECYLCE */
 		if (err != 0) return err;
 	}
@@ -689,34 +707,34 @@ static int loop_2ps(struct local_arg *larg, volatile int *running)
 #ifdef PORTS_LOOPBACK
 		if (larg->garg->cpus == 4) {
 			/* Use port_id and queue calculated in beginning of this function */
-			err  = loop_hw_recycle(larg, port_id, port_id, 0, tc, qid, num);
+			err  = loop_hw_recycle(larg, port_id, port_id, tc, qid, num);
 		}
 		else {
 			/* Set larg->id as rx_ppio, tx_ppio, for quick 2xloopback implementation
 			 * and queue 0 only
 			 */
-			err  = loop_hw_recycle(larg, larg->id, larg->id, 0, tc, 0, num);
+			err  = loop_hw_recycle(larg, larg->id, larg->id, tc, 0, num);
 		}
 #else
-		err  = loop_hw_recycle(larg, 0, 1, 0, tc, qid, num);
-		err |= loop_hw_recycle(larg, 1, 0, 0, tc, qid, num);
+		err  = loop_hw_recycle(larg, 0, 1, tc, qid, num);
+		err |= loop_hw_recycle(larg, 1, 0, tc, qid, num);
 #endif /* PORTS_LOOPBACK */
 #else
 #ifdef PORTS_LOOPBACK
 
 		if (larg->garg->cpus == 4) {
 			/* Use port_id and queue calculated in beginning of this function */
-			err  = loop_sw_recycle(larg, port_id, port_id, 0, tc, qid, num);
+			err  = loop_sw_recycle(larg, port_id, port_id, tc, qid, num);
 		}
 		else {
 			/* Set larg->id as rx_ppio, tx_ppio, for quick 2xloopback implementation
 			 * and queue 0 only
 			 */
-			err  = loop_sw_recycle(larg, larg->id, larg->id, 0, tc, qid, num);
+			err  = loop_sw_recycle(larg, larg->id, larg->id, tc, qid, num);
 		}
 #else
-		err  = loop_sw_recycle(larg, 0, 1, 0, tc, qid, num);
-		err |= loop_sw_recycle(larg, 1, 0, 0, tc, qid, num);
+		err  = loop_sw_recycle(larg, 0, 1, tc, qid, num);
+		err |= loop_sw_recycle(larg, 1, 0, tc, qid, num);
 #endif /* PORTS_LOOPBACK */
 #endif /* HW_BUFF_RECYLCE */
 		if (err != 0) return err;
@@ -798,8 +816,8 @@ static int build_all_bpools(struct glob_arg *garg)
 	}
 	garg->num_pools = ARRAY_SIZE(infs);
 	/* TODO: temporary W/A until we have map routines of bpools to ppios */
-	if (garg->num_pools > PP2_PPIO_TC_MAX_POOLS) {
-		pr_err("only %d pools allowed!\n", PP2_PPIO_TC_MAX_POOLS);
+	if (garg->num_pools > PP2_MAX_NUM_BPOOLS) {
+		pr_err("only %d pools allowed!\n", PP2_MAX_NUM_BPOOLS);
 		return -EINVAL;
 	}
 
@@ -820,7 +838,8 @@ static int build_all_bpools(struct glob_arg *garg)
 #if 0
 struct timeval t1, t2;
 #endif /* 0 */
-			if ((pool_id = find_free_bpool()) < 0) {
+			pool_id = find_free_bpool(i);
+			if (pool_id < 0) {
 				pr_err("free bpool not found!\n");
 				return pool_id;
 			}
