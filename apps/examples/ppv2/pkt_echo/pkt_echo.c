@@ -51,6 +51,7 @@
 //#define SW_BUFF_RECYLCE
 //#define PORTS_LOOPBACK
 #define APP_TX_RETRY
+#define SHOW_STATISTICS
 
 
 #ifdef HW_BUFF_RECYLCE
@@ -227,6 +228,35 @@ static u64 sys_dma_high_addr = 0;
 static u16	used_bpools[PP2_NUM_PKT_PROC] = {PP2_BPOOLS_RSRV, PP2_BPOOLS_RSRV};
 static u16	used_hifs = PP2_HIFS_RSRV;
 
+#ifdef SHOW_STATISTICS
+#define INC_RX_COUNT(core, port, cnt)		(rx_buf_cnt[core][port] += cnt)
+#define INC_TX_COUNT(core, port, cnt)		(tx_buf_cnt[core][port] += cnt)
+#define INC_TX_RETRY_COUNT(core, port, cnt)	(tx_buf_retry[core][port] += cnt)
+#define INC_TX_DROP_COUNT(core, port, cnt)	(tx_buf_drop[core][port] += cnt)
+#define INC_FREE_COUNT(core, port, cnt)		(free_buf_cnt[core][port] += cnt)
+#define SET_MAX_RESENT(core, port, cnt)		\
+	{ if (cnt > tx_max_resend[core][port]) tx_max_resend[core][port] = cnt; }
+
+#define SET_MAX_BURST(core, port, burst)	\
+	{ if (burst > tx_max_burst[core][port]) tx_max_burst[core][port] = burst; }
+
+u32 rx_buf_cnt[MAX_NUM_CORES][PP2_MAX_NUM_PORTS];
+u32 free_buf_cnt[MAX_NUM_CORES][PP2_MAX_NUM_PORTS];
+u32 tx_buf_cnt[MAX_NUM_CORES][PP2_MAX_NUM_PORTS];
+u32 tx_buf_drop[MAX_NUM_CORES][PP2_MAX_NUM_PORTS];
+u32 tx_buf_retry[MAX_NUM_CORES][PP2_MAX_NUM_PORTS];
+u32 tx_max_resend[MAX_NUM_CORES][PP2_MAX_NUM_PORTS];
+u32 tx_max_burst[MAX_NUM_CORES][PP2_MAX_NUM_PORTS];
+
+#else
+#define INC_RX_COUNT(core, port, cnt)
+#define INC_TX_COUNT(core, port, cnt)
+#define INC_TX_RETRY_COUNT(core, port, cnt)
+#define INC_TX_DROP_COUNT(core, port, cnt)
+#define INC_FREE_COUNT(core, port, cnt)
+#define SET_MAX_RESENT(core, port, cnt)
+#define SET_MAX_BURST(core, port, cnt)
+#endif /* SHOW_STATISTICS */
 
 #ifdef PKT_ECHO_SUPPORT
 #ifdef USE_APP_PREFETCH
@@ -301,6 +331,7 @@ static inline void free_buffers(struct local_arg	*larg,
 		binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		pp2_bpool_put_buff(larg->hif, bpool, &binf);
 	}
+	INC_FREE_COUNT(larg->id, ppio_id, num);
 }
 #else
 static inline u16 free_buffers(struct local_arg	*larg,
@@ -335,6 +366,7 @@ static inline u16 free_buffers(struct local_arg	*larg,
 		pp2_bpool_put_buff(larg->hif,
 					bpool,
 					binf);
+		INC_FREE_COUNT(larg->id, ppio_id, 1);
 
 		if (++idx == Q_SIZE)
 			idx = 0;
@@ -366,7 +398,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 	struct pp2_ppio_desc	 descs[MAX_BURST_SIZE];
 	u16			 i, tx_num;
 #ifdef APP_TX_RETRY
-	u16			 desc_idx;
+	u16			 desc_idx = 0, cnt = 0;
 #endif
 #ifdef PKT_ECHO_SUPPORT
 	int			 prefetch_shift = larg->prefetch_shift;
@@ -378,6 +410,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 	pp2_ppio_recv(larg->ports_desc[rx_ppio_id].port, tc, qid, descs, &num);
 //pthread_mutex_unlock(&larg->garg->trd_lock);
 //if (num) pr_info("got %d pkts on thd %d, tc %d, qid %d\n", num, larg->id, tc, qid);
+	INC_RX_COUNT(larg->id, rx_ppio_id, num);
 
 	for (i=0; i<num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
@@ -416,23 +449,32 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 		pp2_ppio_outq_desc_set_pool(&descs[i], bpool);
 	}
 
+	SET_MAX_BURST(larg->id, rx_ppio_id, num);
 #ifdef APP_TX_RETRY
-	desc_idx = 0;
-
 	while (num) {
 		tx_num = num;
 		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &descs[desc_idx], &tx_num);
 
-		if (num > tx_num)
+		if (num > tx_num) {
+			if (!cnt)
+				INC_TX_RETRY_COUNT(larg->id, rx_ppio_id, num - tx_num);
+			cnt++;
 			usleep(TX_RETRY_WAIT);
+		}
 		desc_idx += tx_num;
 		num -= tx_num;
+		INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
 	}
+	SET_MAX_RESENT(larg->id, rx_ppio_id, cnt);
 #else
 	if (num) {
+		tx_num = num;
 		pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, descs, &tx_num);
-		if (num > tx_num)
+		if (num > tx_num) {
 			free_buffers(larg, &descs[tx_num], num - tx_num, rx_ppio_id);
+			INC_TX_DROP_COUNT(larg->id, rx_ppio_id, num - tx_num);
+		}
+		INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
 	}
 #endif /* APP_TX_RETRY */
 	return 0;
@@ -450,7 +492,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct pp2_ppio_desc	 descs[MAX_BURST_SIZE];
 	u16			 i, tx_num;
 #ifdef APP_TX_RETRY
-	u16			 desc_idx;
+	u16			 desc_idx = 0, cnt = 0;
 #endif
 
 #ifdef PKT_ECHO_SUPPORT
@@ -469,6 +511,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	pp2_ppio_recv(larg->ports_desc[rx_ppio_id].port, tc, qid, descs, &num);
 //pthread_mutex_unlock(&larg->garg->trd_lock);
 //if (num) pr_info("got %d pkts on tc %d, qid %d\n", num, tc, qid);
+	INC_RX_COUNT(larg->id, rx_ppio_id, num);
 
 	for (i=0; i<num; i++) {
 #ifdef SW_BUFF_RECYLCE
@@ -537,17 +580,24 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		if (shadow_q->write_ind == Q_SIZE)
 			shadow_q->write_ind = 0;
 	}
+	SET_MAX_BURST(larg->id, rx_ppio_id, num);
 #ifdef APP_TX_RETRY
-	desc_idx = 0;
 	do {
 		tx_num = num;
 		if (num) {
 			pp2_ppio_send(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &descs[desc_idx], &tx_num);
+			if (num > tx_num) {
+				if (!cnt)
+					INC_TX_RETRY_COUNT(larg->id, rx_ppio_id, num - tx_num);
+				cnt++;
+			}
 			desc_idx += tx_num;
 			num -= tx_num;
+			INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
 		}
 		free_sent_buffers(larg, tx_ppio_id, rx_ppio_id, tc);
 	} while (num);
+	SET_MAX_RESENT(larg->id, rx_ppio_id, cnt);
 #else
 	if (num) {
 		tx_num = num;
@@ -559,7 +609,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 						(Q_SIZE - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
 			free_buffers(larg, shadow_q->write_ind, not_sent, rx_ppio_id, tc);
+			INC_TX_DROP_COUNT(larg->id, rx_ppio_id, not_sent);
 		}
+		INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
 	}
 	free_sent_buffers(larg, tx_ppio_id, rx_ppio_id, tc);
 #endif /* APP_TX_RETRY */
@@ -1057,6 +1109,37 @@ static int prefetch_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+#ifdef SHOW_STATISTICS
+static int stat_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int i, j, reset = 0;
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (argc > 1)
+		reset = 1;
+	printf("reset stats: %d\n", reset);
+	for (j = 0; j < garg->num_ports; j++) {
+		printf("Port%d stats:\n", j);
+		for (i = 0; i < MAX_NUM_CORES; i++) {
+			printf("cpu%d: rx_bufs=%d, tx_bufs=%d, free_bufs=%d, tx_resend=%d, max_retries=%d, ",
+				i, rx_buf_cnt[i][j], tx_buf_cnt[i][j], free_buf_cnt[i][j],
+				tx_buf_retry[i][j], tx_max_resend[i][j]);
+			printf(" tx_drops=%d, max_burst=%d\n", tx_buf_drop[i][j], tx_max_burst[i][j]);
+			if (reset) {
+				rx_buf_cnt[i][j] = 0;
+				tx_buf_cnt[i][j] = 0;
+				free_buf_cnt[i][j] = 0;
+				tx_buf_retry[i][j] = 0;
+				tx_buf_drop[i][j] = 0;
+				tx_max_burst[i][j] = 0;
+				tx_max_resend[i][j] = 0;
+			}
+		}
+	}
+	return 0;
+}
+#endif
+
 static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
@@ -1068,7 +1151,15 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))prefetch_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-
+#ifdef SHOW_STATISTICS
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "stat";
+	cmd_params.desc		= "Show statistics";
+	cmd_params.format	= "<reset>";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))stat_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+#endif
 	return 0;
 }
 
@@ -1390,5 +1481,20 @@ int main (int argc, char *argv[])
 	mvapp_params.init_local_cb	= init_local;
 	mvapp_params.deinit_local_cb	= deinit_local;
 	mvapp_params.main_loop_cb	= main_loop;
+#ifdef SHOW_STATISTICS
+	for (i = 0; i < MAX_NUM_CORES; i++) {
+		int j;
+
+		for (j = 0; j < garg.num_ports; j++) {
+			rx_buf_cnt[i][j] = 0;
+			tx_buf_cnt[i][j] = 0;
+			free_buf_cnt[i][j] = 0;
+			tx_buf_retry[i][j] = 0;
+			tx_buf_drop[i][j] = 0;
+			tx_max_burst[i][j] = 0;
+			tx_max_resend[i][j] = 0;
+		}
+	}
+#endif
 	return mvapp_go(&mvapp_params);
 }
