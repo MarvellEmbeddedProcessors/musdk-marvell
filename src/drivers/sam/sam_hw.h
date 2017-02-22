@@ -202,10 +202,12 @@ static inline struct sam_hw_res_desc *sam_hw_res_desc_get(struct sam_hw_ring *hw
 static inline void sam_hw_ring_desc_write(struct sam_hw_cmd_desc *cmd_desc, struct sam_hw_res_desc *res_desc,
 				     PEC_CommandDescriptor_t *cmd)
 {
-	u32 ctrl_word, token_header;
+	u32 ctrl_word = 0, token_header;
 
 	/* Write RDR descriptor first */
-	ctrl_word = (2048 & MASK_20_BITS); /* ToFix: PrepSegmentByteCount */
+	if (cmd->SrcPkt_ByteCount)
+		ctrl_word += ((cmd->SrcPkt_ByteCount + 64) & MASK_20_BITS); /* ToFix: PrepSegmentByteCount */
+
 	/* bits[24-31] - ExpectedResultWordCount = 0 */
 	ctrl_word |= BIT_22 | BIT_23;  /* Last and First */
 
@@ -250,11 +252,15 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_cmd_desc *cmd_desc, stru
 #ifdef SAM_64BIT_DEVICE
 	token_header |= BIT_18; /* Set 64-bit Context (SA) pointer */
 #endif
+
 	/* Enable Context Reuse auto detect if no new SA */
 	if (!cmd->User_p)
 		token_header |= 0x00200000;
 
 	cmd_desc->words[6] = token_header;
+
+	if (cmd->SrcPkt_ByteCount == 0) /* Invalidate session in cache */
+		cmd_desc->words[6] = BIT_30 | BIT_31;
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
 	cmd_desc->words[7] = 0x0000ec00;
@@ -384,5 +390,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring);
 int sam_hw_engine_load(void);
 int sam_hw_engine_unload(void);
+int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
+				u32 next_request);
 
 #endif /* _SAM_HW_H_ */

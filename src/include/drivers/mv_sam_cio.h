@@ -61,6 +61,9 @@ struct sam_cio_stats {
 	u64 deq_pkts;   /**< Number of dequeued packet */
 	u64 deq_bytes;  /**< Number of dequeued bytes */
 	u64 deq_empty;  /**< Number of times ring was empty on dequeue */
+	u64 sa_add;	/**< Number of added sessions */
+	u64 sa_del;	/**< Number of deleted sessions */
+	u64 sa_inv;	/**< Number of invalidated sessions */
 };
 
 /** DMAable buffer representation */

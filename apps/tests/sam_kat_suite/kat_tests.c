@@ -46,7 +46,7 @@
 
 #define SAM_DMA_MEM_SIZE		(1 * 1024 * 1204) /* 1 MBytes */
 
-#define NUM_CONCURRENT_SESSIONS		64
+#define NUM_CONCURRENT_SESSIONS		1024
 #define NUM_CONCURRENT_REQUESTS		127
 #define MAX_BUFFER_SIZE			2048 /* bytes */
 #define MAX_CIPHER_KEY_SIZE		32 /* 256 Bits = 32 Bytes */
@@ -320,15 +320,23 @@ static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int 
 
 static int delete_sessions(void)
 {
-	int i, num = 0;
+	int i, count = 0;
+	u16 num;
 
-	for (i = 0; i < NUM_CONCURRENT_SESSIONS; i++) {
+	i = 0;
+	while (i < NUM_CONCURRENT_SESSIONS) {
 		if (sa_hndl[i]) {
-			sam_session_destroy(sa_hndl[i]);
-			num++;
+			if (sam_session_destroy(sa_hndl[i])) {
+				/* Flush the ring */
+				num = NUM_CONCURRENT_REQUESTS;
+				sam_cio_deq(cio_hndl, NULL, &num);
+				continue;
+			}
+			count++;
 		}
+		i++;
 	}
-	printf("%d sessions deleted\n", num);
+	printf("%d sessions deleted\n", count);
 
 	return 0;
 }
@@ -462,12 +470,13 @@ static int check_results(struct sam_session_params *session_params,
 			/* Compare output and expected data (including ICV for encryption) */
 			errors++;
 			printf("Error: out_data != expected_data\n");
-
+/*
 			printf("\nOutput buffer: %d bytes\n", result->out_len);
 			mv_mem_dump(out_data, result->out_len);
 
 			printf("\nExpected buffer: %d bytes\n", expected_data_size);
 			mv_mem_dump(expected_data, expected_data_size);
+*/
 		}
 	}
 	return errors;
@@ -663,6 +672,8 @@ static int run_tests(generic_list tests_db)
 	struct timeval tv_start, tv_end;
 
 	num_tests = generic_list_get_size(tests_db);
+	if (num_tests > NUM_CONCURRENT_SESSIONS)
+		num_tests = NUM_CONCURRENT_SESSIONS;
 
 	block = generic_list_get_first(tests_db);
 	total_passed = total_errors = 0;
@@ -946,6 +957,9 @@ exit:
 		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
 		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
 		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
+		printf("Created sessions            : %lu\n", cio_stats.sa_add);
+		printf("Deleted sessions:	    : %lu\n", cio_stats.sa_del);
+		printf("Invalidated sessions:	    : %lu\n", cio_stats.sa_inv);
 	}
 	if (sam_cio_deinit(cio_hndl)) {
 		printf("%s: un-initialization failed\n", argv[0]);

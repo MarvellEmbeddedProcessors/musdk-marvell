@@ -336,6 +336,46 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	return 0;
 }
 
+int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
+				u32 next_request)
+{
+	PEC_CommandDescriptor_t cmd;
+	PEC_PacketParams_t pkt_params;
+	PEC_Status_t pec_rc;
+	struct sam_hw_cmd_desc *cdr;
+	struct sam_hw_res_desc *rdr;
+
+	memset(&pkt_params, 0, sizeof(PEC_PacketParams_t));
+	memset(&cmd, 0, sizeof(PEC_CommandDescriptor_t));
+
+	cmd.SA_Handle1.p     = (void *)sa_buf->paddr;
+	cmd.SA_WordCount     = 0;
+	cmd.SA_Handle2       = DMABuf_NULLHandle;
+	cmd.Token_Handle     = DMABuf_NULLHandle;
+	cmd.SrcPkt_Handle    = DMABuf_NULLHandle;
+	cmd.DstPkt_Handle    = DMABuf_NULLHandle;
+	cmd.SrcPkt_ByteCount = 0;
+	cmd.Token_WordCount  = 0;
+
+	pkt_params.HW_Services  = FIRMWARE_EIP207_CMD_INV_TR;
+	pkt_params.TokenHeaderWord = 0;
+
+	pec_rc = PEC_CD_Control_Write(&cmd, &pkt_params);
+	if (pec_rc != PEC_STATUS_OK) {
+		pr_err("%s: PEC_CD_Control_Write failed, rc = %d\n",
+			__func__, pec_rc);
+		return -EINVAL;
+	}
+	cdr = sam_hw_cmd_desc_get(hw_ring, next_request);
+	rdr = sam_hw_res_desc_get(hw_ring, next_request);
+
+	sam_hw_ring_desc_write(cdr, rdr, &cmd);
+
+	sam_hw_ring_submit(hw_ring, 1);
+
+	return 0;
+}
+
 int sam_hw_engine_load(void)
 {
 	pr_info("Load SAM HW engine\n");

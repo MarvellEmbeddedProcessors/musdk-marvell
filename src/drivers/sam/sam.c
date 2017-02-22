@@ -331,6 +331,14 @@ int sam_cio_deinit(struct sam_cio *cio)
 		return 0;
 
 	if (cio->operations) {
+		u16 num;
+
+		/* Wait for completion of all operations */
+		while (!sam_cio_is_empty(cio)) {
+			num = 1;
+			sam_cio_deq(cio, NULL, &num);
+		}
+
 		for (i = 0; i < cio->params.size; i++) {
 			sam_dma_buf_free(&cio->operations[i].token_buf);
 		}
@@ -471,6 +479,8 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	}
 #endif /* MVCONF_SAM_DEBUG */
 
+	SAM_STATS(cio->stats.sa_add++);
+
 	session->is_first = true;
 	session->cio = cio;
 	*sa = session;
@@ -484,7 +494,25 @@ error_session:
 
 int sam_session_destroy(struct sam_sa *session)
 {
-	sam_session_free(session);
+	struct sam_cio *cio = session->cio;
+	struct sam_cio_op *operation;
+
+	/* Check maximum number of pending requests */
+	if (sam_cio_is_full(cio)) {
+		SAM_STATS(cio->stats.enq_full++);
+		return -EINVAL;
+	}
+
+	/* Get next operation structure */
+	operation = &cio->operations[cio->next_request];
+	operation->sa = session;
+	operation->num_bufs = 0;
+
+	/* Invalidate session in HW */
+	sam_hw_session_invalidate(&cio->hw_ring, &session->sa_buf, cio->next_request);
+	SAM_STATS(cio->stats.sa_inv++);
+
+	cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 
 	return 0;
 }
@@ -600,9 +628,10 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	PEC_Status_t rc;
 	PEC_ResultStatus_t result_status;
 	PEC_ResultDescriptor_t *result_desc;
-	unsigned int i, count, todo, done;
+	unsigned int i, count, todo, done, out_len;
 	struct sam_cio_op *operation;
 	struct sam_hw_res_desc *res_desc;
+	struct sam_cio_op_result *result;
 
 	/* Try to get the processed packet from the RDR */
 	done = sam_hw_ring_ready_get(&cio->hw_ring);
@@ -612,12 +641,12 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		return 0;
 	}
 	todo = *num;
-	count = min(todo, done);
 
 	result_desc = cio->hw_ring.result_desc;
-	for (i = 0; i < count; i++) {
-		struct sam_cio_op_result *result = &results[i];
-
+	result = results;
+	i = 0;
+	count = 0;
+	while ((i < done) && (count < todo)) {
 		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
 		sam_hw_res_desc_read(res_desc, result_desc);
 
@@ -625,23 +654,34 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG)
 			print_result_desc(result_desc);
 #endif
-
+		i++;
 		operation = &cio->operations[cio->next_result];
+		if (operation->num_bufs == 0) {
+			/* Inalidate cache entry finished - free session */
+			sam_session_free(operation->sa);
+			SAM_STATS(cio->stats.sa_del++);
+			cio->next_result = sam_cio_next_idx(cio, cio->next_result);
+			result_desc++;
+			continue;
+		}
+		out_len = result_desc->DstPkt_ByteCount;
 
-		result->cookie = operation->cookie;
-		result->out_len = result_desc->DstPkt_ByteCount;
-
-		SAM_STATS(cio->stats.deq_bytes += result_desc->DstPkt_ByteCount);
-
-		/* Increment next result index */
-		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
+		SAM_STATS(cio->stats.deq_bytes += out_len);
 
 		rc = PEC_RD_Status_Read(result_desc, &result_status);
 		if (rc != PEC_STATUS_OK) {
 			pr_err("%s: PEC_RD_Status_Read failed, rc = %d\n",
 				__func__, rc);
-			return -EINVAL;
 		}
+		/* Increment next result index */
+		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
+		result_desc++;
+
+		if (!result)
+			continue;
+
+		result->cookie = operation->cookie;
+		result->out_len = out_len;
 
 		if (result_status.errors == 0)
 			result->status = SAM_CIO_OK;
@@ -650,26 +690,26 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		else {
 			result->status = SAM_CIO_ERR_HW;
 			printf("%s: HW error 0x%x\n", __func__, result_status.errors);
-			return -EINVAL;
 		}
 
-		/* Copy output data to user buffer */
-		if (operation->out_frags[0].len < result_desc->DstPkt_ByteCount) {
-			pr_err("%s: DstPkt_ByteCount %d bytes is larger than output buffer %d bytes\n",
-				__func__, result_desc->DstPkt_ByteCount, operation->out_frags[0].len);
-			return -EINVAL;
+		/* Check output buffer size */
+		if (operation->out_frags[0].len < out_len) {
+			pr_err("%s: out_len %d bytes is larger than output buffer %d bytes\n",
+				__func__, out_len, operation->out_frags[0].len);
 		}
-		result_desc++;
 
 #ifdef MVCONF_SAM_DEBUG
 		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
-			printf("\nOutput DMA buffer: %d bytes\n", result_desc->DstPkt_ByteCount);
-			mv_mem_dump(operation->out_frags[0].vaddr, result_desc->DstPkt_ByteCount);
+			printf("\nOutput DMA buffer: %d bytes\n", out_len);
+			mv_mem_dump(operation->out_frags[0].vaddr, out_len);
 		}
 #endif /* MVCONF_SAM_DEBUG */
+
+		result++;
+		count++;
 	}
 	/* Update RDR registers */
-	sam_hw_ring_update(&cio->hw_ring, count);
+	sam_hw_ring_update(&cio->hw_ring, i);
 
 	SAM_STATS(cio->stats.deq_pkts += count);
 
