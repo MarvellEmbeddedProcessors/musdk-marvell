@@ -155,6 +155,7 @@ struct pp2_cls_c2_index_t {
 	u32		c2_data_db_idx;	/* data index in db */
 	struct list	list_node;	/* list node */
 };
+
 int pp2_cls_cli_c2_lkp_type_entry_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_c2_free_tcam_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_c2_valid_lkp_type_dump(void *arg, int argc, char *argv[]);
@@ -164,18 +165,18 @@ int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[]);
 /******************************************************************************/
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
-int pp2_cls_c2_get_hw_idx_from_logic_idx(u32 logic_idx, u32 *c2_hw_idx, u32 *c2_db_idx);
-int pp2_cls_c2_free_entry_number_get(u32 *free_entry_number);
-int pp2_cls_c2_rule_add(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *c2_entry, u32 *c2_logic_index);
-int pp2_cls_c2_rule_del(uintptr_t cpu_slot, u32 c2_logic_index);
-int pp2_cls_c2_rule_sram_get(u32 logic_index, struct pp2_cls_engine_sram_t *sram);
-int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_cls_engine_sram_t *sram);
-int pp2_cls_c2_reset(uintptr_t cpu_slot);
-int pp2_cls_c2_start(uintptr_t cpu_slot);
+int pp2_cls_c2_get_hw_idx_from_logic_idx(struct pp2_inst *inst, u32 logic_idx, u32 *c2_hw_idx, u32 *c2_db_idx);
+int pp2_cls_c2_free_entry_number_get(struct pp2_inst *inst, u32 *free_entry_number);
+int pp2_cls_c2_rule_add(struct pp2_inst *inst, struct mv_pp2x_c2_add_entry *c2_entry, u32 *c2_logic_index);
+int pp2_cls_c2_rule_del(struct pp2_inst *inst, u32 c2_logic_index);
+int pp2_cls_c2_rule_sram_get(struct pp2_inst *inst, u32 logic_index, struct pp2_cls_engine_sram_t *sram);
+int pp2_cls_c2_rule_sram_update(struct pp2_inst *inst, u32 logic_index, struct pp2_cls_engine_sram_t *sram);
+int pp2_cls_c2_reset(struct pp2_inst *inst);
+int pp2_cls_c2_start(struct pp2_inst *inst);
 int pp2_cls_c2_hit_cntr_clear_all(uintptr_t cpu_slot);
-int pp2_cls_c2_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh, struct pp2_cls_hit_cnt_t cntr_info[],
+int pp2_cls_c2_hit_cntr_all_get(struct pp2_inst *inst, int hit_low_thresh, struct pp2_cls_hit_cnt_t cntr_info[],
 				u32 *num_of_cntrs);
-int pp2_cls_c2_hit_cntr_get(uintptr_t cpu_slot, int c2_id, u32 *cntr);
+int pp2_cls_c2_hit_cntr_get(struct pp2_inst *inst, int c2_id, u32 *cntr);
 int pp2_cls_c2_tcam_hek_get(u32 field_bm, struct mv_pp2x_c2_add_entry *c2_entry, u8 hek[], u8 hek_mask[]);
 
 #endif /* _PP2_C2_H_ */

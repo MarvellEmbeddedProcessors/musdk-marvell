@@ -844,6 +844,7 @@ int pp2_cls_c3_default_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
  *
  *The routine adds C3 entry
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	c3_entry		CLS C3 engine entry
  *
  * @param[out]	logic_idx		logical index
@@ -851,7 +852,9 @@ int pp2_cls_c3_default_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_entry,	u32 *logic_idx)
+int pp2_cls_c3_rule_add(struct pp2_inst *inst,
+			struct pp2_cls_c3_add_entry_t *c3_entry,
+			u32 *logic_idx)
 {
 	u32 l_logic_idx;
 	u32 hash_idx;
@@ -859,6 +862,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	u32 max_search_depth;
 	struct pp2_cls_c3_hash_pair hash_pair_arr;
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 #ifdef PP2_CLS_C3_DEBUG
 	int idx;
 #endif
@@ -892,7 +896,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 #endif
 
 	/* get free logical index, also check whether there is an available entry */
-	rc = pp2_cls_db_c3_free_logic_idx_get(&l_logic_idx);
+	rc = pp2_cls_db_c3_free_logic_idx_get(inst, &l_logic_idx);
 	if (rc) {
 		pr_err("failed to get free logical index\n");
 		return rc;
@@ -901,7 +905,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 	*logic_idx = l_logic_idx;
 
 	/* add C3 entry */
-	rc = pp2_cls_db_c3_search_depth_get(&max_search_depth);
+	rc = pp2_cls_db_c3_search_depth_get(inst, &max_search_depth);
 	if (rc) {
 		pr_err("fail to get PP2_CLS C3 max search depth\n");
 		return rc;
@@ -910,8 +914,8 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 
 #ifdef PP2_CLS_C3_DEBUG
 	pr_debug_fmt("C3 HEK %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-		    c3.key.hek.bytes[35], c3.key.hek.bytes[34], c3.key.hek.bytes[33], c3.key.hek.bytes[32],
-		    c3.key.hek.bytes[31], c3.key.hek.bytes[30], c3.key.hek.bytes[29], c3.key.hek.bytes[28]);
+		     c3.key.hek.bytes[35], c3.key.hek.bytes[34], c3.key.hek.bytes[33], c3.key.hek.bytes[32],
+		     c3.key.hek.bytes[31], c3.key.hek.bytes[30], c3.key.hek.bytes[29], c3.key.hek.bytes[28]);
 #endif
 	rc = pp2_cls_c3_hw_query_add(cpu_slot, &c3, max_search_depth, &hash_pair_arr);
 	/* do not need to release logic index since it is still not occuppied */
@@ -927,17 +931,17 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 		pr_debug_fmt("hash pair number=%d\n", hash_pair_arr.pair_num);
 		for (idx = 0; idx < hash_pair_arr.pair_num; idx++)
 			pr_debug_fmt("hash pair(%d) %x-->%x\n",
-				    idx, hash_pair_arr.old_idx[idx], hash_pair_arr.new_idx[idx]);
+				     idx, hash_pair_arr.old_idx[idx], hash_pair_arr.new_idx[idx]);
 	}
 #endif
-	rc = pp2_cls_db_c3_hash_idx_update(&hash_pair_arr);
+	rc = pp2_cls_db_c3_hash_idx_update(inst, &hash_pair_arr);
 	if (rc) {
 		pr_err("failed to update C3 multihash index\n");
 		return rc;
 	}
 
 	/* save to DB */
-	rc = pp2_cls_db_c3_entry_add(l_logic_idx, hash_idx);
+	rc = pp2_cls_db_c3_entry_add(inst, l_logic_idx, hash_idx);
 	if (rc) {
 		pr_err("failed to add C3 entry to DB\n");
 		return rc;
@@ -951,6 +955,7 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
  *
  * The routine adds default C3 entry to handle the mismathched packets for specific lookup type
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	c3_entry		CLS C3 engine entry
  *
  * @param[out]	logic_idx		logical index
@@ -958,12 +963,14 @@ int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_entry,
+int pp2_cls_c3_default_rule_add(struct pp2_inst *inst,
+				struct pp2_cls_c3_add_entry_t *c3_entry,
 				u32 *logic_idx)
 {
 	u32 l_logic_idx;
 	struct pp2_cls_c3_entry c3;
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	pr_debug_fmt("reached\n");
 
@@ -990,7 +997,7 @@ int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_
 	}
 
 	/* get free logical index, aslo check whether there is free entry */
-	rc = pp2_cls_db_c3_free_logic_idx_get(&l_logic_idx);
+	rc = pp2_cls_db_c3_free_logic_idx_get(inst, &l_logic_idx);
 	if (rc) {
 		pr_err("failed to get free logical index\n");
 		return rc;
@@ -1004,7 +1011,7 @@ int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_
 	}
 
 	/* save to DB */
-	rc = pp2_cls_db_c3_entry_add(l_logic_idx, c3_entry->lkp_type);
+	rc = pp2_cls_db_c3_entry_add(inst, l_logic_idx, c3_entry->lkp_type);
 	if (rc) {
 		pr_err("failed to add C3 entry to DB\n");
 		return rc;
@@ -1018,15 +1025,17 @@ int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_
  *
  * The routine deletes C3 entry
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	logic_idx		logical index
  *
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_rule_del(uintptr_t cpu_slot, u32 logic_idx)
+int pp2_cls_c3_rule_del(struct pp2_inst *inst, u32 logic_idx)
 {
 	u32 hash_idx;
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	pr_debug_fmt("reached\n");
 
@@ -1034,7 +1043,7 @@ int pp2_cls_c3_rule_del(uintptr_t cpu_slot, u32 logic_idx)
 	if (mv_pp2x_range_validate(logic_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
 		return -EINVAL;
 
-	rc = pp2_cls_db_c3_hash_idx_get(logic_idx, &hash_idx);
+	rc = pp2_cls_db_c3_hash_idx_get(inst, logic_idx, &hash_idx);
 	if (rc) {
 		pr_err("The logical index(%d) does not exist", logic_idx);
 		return rc;
@@ -1048,7 +1057,7 @@ int pp2_cls_c3_rule_del(uintptr_t cpu_slot, u32 logic_idx)
 	}
 
 	/* remove from DB */
-	rc = pp2_cls_db_c3_entry_del(logic_idx);
+	rc = pp2_cls_db_c3_entry_del(inst, logic_idx);
 	if (rc) {
 		pr_err("failed to delete C3 entry from DB\n");
 		return rc;
@@ -1086,6 +1095,7 @@ int pp2_cls_c3_rule_get(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
  *
  * The routine gets hit counter by logical index
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	logic_idx		C3 logical index
  *
  * @param[out]	hit_count		multihash entry hit counter
@@ -1093,10 +1103,11 @@ int pp2_cls_c3_rule_get(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_hit_count_get(uintptr_t cpu_slot, int logic_idx, u32 *hit_count)
+int pp2_cls_c3_hit_count_get(struct pp2_inst *inst, int logic_idx, u32 *hit_count)
 {
 	u32 hash_idx;
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(hit_count))
@@ -1106,7 +1117,7 @@ int pp2_cls_c3_hit_count_get(uintptr_t cpu_slot, int logic_idx, u32 *hit_count)
 	if (mv_pp2x_range_validate(logic_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
 		return -EINVAL;
 
-	rc = pp2_cls_db_c3_hash_idx_get(logic_idx, &hash_idx);
+	rc = pp2_cls_db_c3_hash_idx_get(inst, logic_idx, &hash_idx);
 	if (rc) {
 		pr_err("The logical index(%d) does not exist\n", logic_idx);
 		return rc;
@@ -1127,6 +1138,7 @@ int pp2_cls_c3_hit_count_get(uintptr_t cpu_slot, int logic_idx, u32 *hit_count)
  *
  * The routine returns all hit counters above threshold
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	hit_low_thresh	low threshold, hit counters above this will be returned
  * @param[in]	num_of_cntrs	size of cntr_info
  *
@@ -1136,13 +1148,16 @@ int pp2_cls_c3_hit_count_get(uintptr_t cpu_slot, int logic_idx, u32 *hit_count)
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh, struct pp2_cls_hit_cnt_t cntr_info[],
+int pp2_cls_c3_hit_cntr_all_get(struct pp2_inst *inst,
+				int hit_low_thresh,
+				struct pp2_cls_hit_cnt_t cntr_info[],
 				u32 *num_of_cntrs)
 {
 	int		phys_i, log_i;
 	u32		cnt;
 	u32		rc = 0;
 	u32		cntr_idx;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	pr_debug_fmt("reached\n");
 
@@ -1165,7 +1180,7 @@ int pp2_cls_c3_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh, struct p
 				return rc;
 			}
 
-			rc = pp2_cls_db_c3_logic_idx_get(phys_i, &log_i);
+			rc = pp2_cls_db_c3_logic_idx_get(inst, phys_i, &log_i);
 			if (rc)
 				continue;
 
@@ -1187,15 +1202,17 @@ int pp2_cls_c3_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh, struct p
  *
  * The routine sets scan configuration parameters
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	scan_config	scan configuration
  *
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_t *scan_config)
+int pp2_cls_c3_scan_param_set(struct pp2_inst *inst, struct pp2_cls_c3_scan_config_t *scan_config)
 {
 	int type;
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	pr_debug_fmt("reached\n");
 
@@ -1260,7 +1277,7 @@ int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_
 	}
 
 	/* save scan config to DB */
-	rc = pp2_cls_db_c3_scan_param_set(scan_config);
+	rc = pp2_cls_db_c3_scan_param_set(inst, scan_config);
 	if (rc) {
 		pr_err("fail to set scan parameters to C3 DB\n");
 		return rc;
@@ -1274,6 +1291,7 @@ int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_
  *
  * The routine will trigger scan, wait and get scan results
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	max_entry_num	Maximum entry number allowed
  *
  * @param[out]	entry_num	entry number
@@ -1282,7 +1300,7 @@ int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry_num,
+int pp2_cls_c3_scan_result_get(struct pp2_inst *inst, u32 max_entry_num, u32 *entry_num,
 			       struct pp2_cls_c3_scan_entry_t result_entry[])
 {
 	int num;
@@ -1291,6 +1309,7 @@ int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry
 	int logic_idx;
 	int hit_cnt;
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	pr_debug_fmt("reached\n");
 
@@ -1328,7 +1347,7 @@ int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry
 		}
 
 		/* get logical index by hash_idx */
-		rc = pp2_cls_db_c3_logic_idx_get(hash_idx, &logic_idx);
+		rc = pp2_cls_db_c3_logic_idx_get(inst, hash_idx, &logic_idx);
 		if (rc) {
 			pr_err("fail to get logical index\n");
 			return rc;
@@ -1349,6 +1368,7 @@ int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry
  *
  * The routine will get C3 entry from HW with C3 logical index
  *
+ * @param[in]   inst            packet processor instance
  * @param[in]	logic_idx		C3 logical index
  *
  * @param[out]	c3_entry		C3 entry data
@@ -1356,11 +1376,12 @@ int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_entry_get(uintptr_t cpu_slot, u32 logic_idx, struct pp2_cls_c3_data_t *c3_entry)
+int pp2_cls_c3_entry_get(struct pp2_inst *inst, u32 logic_idx, struct pp2_cls_c3_data_t *c3_entry)
 {
 	int rc = 0;
 	u32 hash_idx;
 	struct pp2_cls_c3_entry c3_data;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	pr_debug_fmt("reached\n");
 
@@ -1372,7 +1393,7 @@ int pp2_cls_c3_entry_get(uintptr_t cpu_slot, u32 logic_idx, struct pp2_cls_c3_da
 		return -EINVAL;
 
 	/* Get HASH index */
-	rc = pp2_cls_db_c3_hash_idx_get(logic_idx, &hash_idx);
+	rc = pp2_cls_db_c3_hash_idx_get(inst, logic_idx, &hash_idx);
 	if (rc) {
 		pr_err("fail to access DB\n");
 		return rc;
@@ -1429,12 +1450,15 @@ int pp2_cls_c3_entry_get(uintptr_t cpu_slot, u32 logic_idx, struct pp2_cls_c3_da
  *
  * The routine reset and re-satrt PP2_CLS C3 sub-module
  *
+ * @param[in]   inst            packet processor instance
+ *
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_reset(uintptr_t cpu_slot)
+int pp2_cls_c3_reset(struct pp2_inst *inst)
 {
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	pr_debug_fmt("reached\n");
 
@@ -1455,7 +1479,7 @@ int pp2_cls_c3_reset(uintptr_t cpu_slot)
 	pr_debug_fmt("PP2_CLS C3 HW counters cleared\n");
 
 	/* init PP2_CLS C3 DB */
-	rc = pp2_cls_db_c3_init();
+	rc = pp2_cls_db_c3_init(inst);
 	if (rc) {
 		pr_err("fail to init PP2_CLS C3 DB\n");
 		return rc;
@@ -1471,7 +1495,7 @@ int pp2_cls_c3_reset(uintptr_t cpu_slot)
 	pr_debug_fmt("PP2_CLS C3 DB initialized\n");
 
 	/* set PP2_CLS C3 maximum search depth */
-	rc = pp2_cls_db_c3_search_depth_set(MVPP2_C3_DEFAULT_SEARCH_DEPTH);
+	rc = pp2_cls_db_c3_search_depth_set(inst, MVPP2_C3_DEFAULT_SEARCH_DEPTH);
 	if (rc) {
 		pr_err("fail to set PP2_CLS C3 max search depth\n");
 		return rc;
@@ -1486,12 +1510,14 @@ int pp2_cls_c3_reset(uintptr_t cpu_slot)
  *
  * The routine starts PP2_CLS C3 sub-module
  *
+ * @param[in]   inst            packet processor instance
+ *
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_cls_c3_start(uintptr_t cpu_slot)
+int pp2_cls_c3_start(struct pp2_inst *inst)
 {
-	if (pp2_cls_c3_reset(cpu_slot)) {
+	if (pp2_cls_c3_reset(inst)) {
 		pr_err("PP2_CLS C3 start failed\n");
 		return -EIO;
 	}
@@ -1499,4 +1525,3 @@ int pp2_cls_c3_start(uintptr_t cpu_slot)
 
 	return 0;
 }
-

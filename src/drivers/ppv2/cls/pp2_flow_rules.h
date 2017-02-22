@@ -186,17 +186,18 @@ int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[]);
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
 /* decode table */
-int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id);
-int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id);
-int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 flow_log_id);
-int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf);
+int pp2_cls_lkp_dcod_disable(struct pp2_inst *inst, u16 fl_log_id);
+int pp2_cls_lkp_dcod_set_and_disable(struct pp2_inst *inst,  u16 fl_log_id);
+int pp2_cls_lkp_dcod_enable(struct pp2_inst *inst, u16 flow_log_id);
+int pp2_cls_lkp_dcod_set(struct pp2_inst *inst,
+			 struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf);
 
 /* CLS flow table */
-int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls);
-int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls);
-int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
+int pp2_cls_fl_rule_add(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl_rls);
+int pp2_cls_fl_rule_enable(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl_rls);
+int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
 			    struct pp2_cls_class_port_t *src_port);
-int pp2_cls_init(uintptr_t cpu_slot);
+int pp2_cls_init(struct pp2_inst *inst);
 
 #endif /* _PP2_CLS_H_ */

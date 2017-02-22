@@ -48,18 +48,17 @@
 #include "../pp2_hw_cls_dbg.h"
 #include "pp2_c2.h"
 
-
 /*******************************************************************************
-* pp2_cls_c2_new_logic_idx_allocate()
-*
-* DESCRIPTION: This routine will allocate logical index for one c2 rule entry
-*
-* INPUTS:
-*          reset   - indeicate it is reset or not
-*
-* RETURNS:
-*          logical index allocated or after reset
-*******************************************************************************/
+ * pp2_cls_c2_new_logic_idx_allocate()
+ *
+ * DESCRIPTION: This routine will allocate logical index for one c2 rule entry
+ *
+ * INPUTS:
+ *          reset   - indeicate it is reset or not
+ *
+ * RETURNS:
+ *          logical index allocated or after reset
+ ******************************************************************************/
 static u32 pp2_cls_c2_new_logic_idx_allocate(bool reset)
 {
 	/* Base logical index for C2 entry, every time a new index is allocated, perform pp2_cls_c2_logic_base_idx++ */
@@ -67,24 +66,25 @@ static u32 pp2_cls_c2_new_logic_idx_allocate(bool reset)
 
 	pp2_cls_c2_logic_base_idx++;
 	/* if c2_reset, restore pp2_cls_c2_logic_base_idx to original value */
-	if (reset == true)
+	if (reset)
 		pp2_cls_c2_logic_base_idx = MVPP2_C2_LOGIC_IDX_BASE;
 
 	return pp2_cls_c2_logic_base_idx;
 }
 
 /*******************************************************************************
-* pp2_cls_c2_free_list_add()
-*
-* DESCRIPTION: This routine will add one C2 TCAM to free list
-*
-* INPUTS:
-*          c2_hw_idx   - the free C2 TCAM entry
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_c2_free_list_add(u32 c2_hw_idx)
+ * pp2_cls_c2_free_list_add()
+ *
+ * DESCRIPTION: This routine will add one C2 TCAM to free list
+ *
+ * INPUTS:
+ *          inst        - packet processor instance
+ *          c2_hw_idx   - the free C2 TCAM entry
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_c2_free_list_add(struct pp2_inst *inst, u32 c2_hw_idx)
 {
 	struct list *free_list_head;
 	struct pp2_cls_c2_index_t *c2_index_node, *temp_node;
@@ -92,7 +92,7 @@ static int pp2_cls_c2_free_list_add(u32 c2_hw_idx)
 	bool bigger_found = false;
 
 	/* Get list head */
-	free_list_head = pp2_cls_db_c2_free_list_head_get();
+	free_list_head = pp2_cls_db_c2_free_list_head_get(inst);
 
 	/* Check hw index already exist or not */
 	LIST_FOR_EACH_OBJECT(temp_node, struct pp2_cls_c2_index_t, free_list_head, list_node) {
@@ -102,8 +102,8 @@ static int pp2_cls_c2_free_list_add(u32 c2_hw_idx)
 
 	/* Get the invalid index node */
 	for (index = 0; index < MVPP2_C2_ENTRY_MAX; index++) {
-		c2_index_node = pp2_cls_db_c2_index_node_get(index);
-		if (c2_index_node == NULL)
+		c2_index_node = pp2_cls_db_c2_index_node_get(inst, index);
+		if (!c2_index_node)
 			return -ENXIO;
 		if (c2_index_node->valid == MVPP2_C2_ENTRY_INVALID)
 			break;
@@ -125,7 +125,7 @@ static int pp2_cls_c2_free_list_add(u32 c2_hw_idx)
 				break;
 			}
 		}
-		if (bigger_found == false)
+		if (!bigger_found)
 			list_add_to_tail(&c2_index_node->list_node, free_list_head);
 	}
 
@@ -136,21 +136,23 @@ static int pp2_cls_c2_free_list_add(u32 c2_hw_idx)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_data_entry_db_add()
-*
-* DESCRIPTION: Add HW TCAM entry data in data DB.
-*
-* INPUTS:
-*          c2_entry   - c2 TCAM entry data to record
-*
-* OUTPUTS:
-*          c2_db_idx  - the data db entry index
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_c2_data_entry_db_add(struct mv_pp2x_c2_add_entry *c2_entry,
-				    u32 *c2_db_idx)
+ * pp2_cls_c2_data_entry_db_add()
+ *
+ * DESCRIPTION: Add HW TCAM entry data in data DB.
+ *
+ * INPUTS:
+ *          inst       - packet processor instance
+ *          c2_entry   - c2 TCAM entry data to record
+ *
+ * OUTPUTS:
+ *          c2_db_idx  - the data db entry index
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_c2_data_entry_db_add(struct pp2_inst *inst,
+					struct mv_pp2x_c2_add_entry *c2_entry,
+					u32 *c2_db_idx)
 {
 	int ret_code;
 	struct pp2_cls_c2_data_t *c2_entry_db;	/*use heap to reduce stack size*/
@@ -165,7 +167,7 @@ static int pp2_cls_c2_data_entry_db_add(struct mv_pp2x_c2_add_entry *c2_entry,
 		return -EFAULT;
 	}
 
-	c2_entry_db = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_entry_db = kmalloc(sizeof(*c2_entry_db), GFP_KERNEL);
 	if (!c2_entry_db)
 		return -ENOMEM;
 
@@ -173,7 +175,7 @@ static int pp2_cls_c2_data_entry_db_add(struct mv_pp2x_c2_add_entry *c2_entry,
 
 	/* Get available db entry for c2 entry */
 	for (index = 0; index < MVPP2_C2_ENTRY_MAX; index++) {
-		ret_code = pp2_cls_db_c2_data_get(index, c2_entry_db);
+		ret_code = pp2_cls_db_c2_data_get(inst, index, c2_entry_db);
 		if (ret_code) {
 			pr_err("recvd ret_code(%d)\n", ret_code);
 			free(c2_entry_db);
@@ -208,7 +210,7 @@ static int pp2_cls_c2_data_entry_db_add(struct mv_pp2x_c2_add_entry *c2_entry,
 	c2_entry_db->valid = MVPP2_C2_ENTRY_VALID;
 
 	/* Write to db */
-	ret_code = pp2_cls_db_c2_data_set(index, c2_entry_db);
+	ret_code = pp2_cls_db_c2_data_set(inst, index, c2_entry_db);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		free(c2_entry_db);
@@ -223,32 +225,33 @@ static int pp2_cls_c2_data_entry_db_add(struct mv_pp2x_c2_add_entry *c2_entry,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_data_entry_db_del()
-*
-* DESCRIPTION: Delete HW TCAM entry data record in data DB.
-*
-* INPUTS:
-*          c2_db_idx  - the data db entry index
-*
-* OUTPUTS:
-*          None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*          None
-*******************************************************************************/
-static int pp2_cls_c2_data_entry_db_del(u32 c2_db_idx)
+ * pp2_cls_c2_data_entry_db_del()
+ *
+ * DESCRIPTION: Delete HW TCAM entry data record in data DB.
+ *
+ * INPUTS:
+ *          inst       - packet processor instance
+ *          c2_db_idx  - the data db entry index
+ *
+ * OUTPUTS:
+ *          None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *          None
+ ******************************************************************************/
+static int pp2_cls_c2_data_entry_db_del(struct pp2_inst *inst, u32 c2_db_idx)
 {
 	struct pp2_cls_c2_data_t *c2_db_data;		/*use heap to reduce stack size*/
 
-	c2_db_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_db_data = kmalloc(sizeof(*c2_db_data), GFP_KERNEL);
 	if (!c2_db_data)
 		return -ENOMEM;
 
 	memset(c2_db_data, 0, sizeof(struct pp2_cls_c2_data_t));
 
-	if (pp2_cls_db_c2_data_set(c2_db_idx, c2_db_data)) {
+	if (pp2_cls_db_c2_data_set(inst, c2_db_idx, c2_db_data)) {
 		free(c2_db_data);
 		return -EINVAL;
 	}
@@ -258,25 +261,27 @@ static int pp2_cls_c2_data_entry_db_del(u32 c2_db_idx)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_lkp_type_list_pri_get()
-*
-* DESCRIPTION: Get the highest priority and lowest priority of the lookup type list.
-*
-* INPUTS:
-*          lkp_type   - lookup type of list
-*
-* OUTPUTS:
-*          hignest_pri  - highest priority
-*          lowest_pri   - lowest priority
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*          The list can not be empty.
-*******************************************************************************/
-static int pp2_cls_c2_lkp_type_list_pri_get(u8 lkp_type,
-					u32 *hignest_pri,
-					u32 *lowest_pri)
+ * pp2_cls_c2_lkp_type_list_pri_get()
+ *
+ * DESCRIPTION: Get the highest priority and lowest priority of the lookup type list.
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type   - lookup type of list
+ *
+ * OUTPUTS:
+ *          hignest_pri  - highest priority
+ *          lowest_pri   - lowest priority
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *          The list can not be empty.
+ ******************************************************************************/
+static int pp2_cls_c2_lkp_type_list_pri_get(struct pp2_inst *inst,
+					    u8 lkp_type,
+					    u32 *hignest_pri,
+					    u32 *lowest_pri)
 {
 	struct list *lkp_type_list_head;
 	struct pp2_cls_c2_index_t *c2_index_node;
@@ -292,7 +297,7 @@ static int pp2_cls_c2_lkp_type_list_pri_get(u8 lkp_type,
 		return -EFAULT;
 	}
 	/* Get list head */
-	lkp_type_list_head = pp2_cls_db_c2_lkp_type_list_head_get(lkp_type);
+	lkp_type_list_head = pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type);
 
 	if (list_is_empty(lkp_type_list_head)) {
 		pr_err("C2 engine lookup type list (%d) is empty\n", lkp_type);
@@ -301,17 +306,17 @@ static int pp2_cls_c2_lkp_type_list_pri_get(u8 lkp_type,
 
 	/* Get first priority */
 	c2_index_node = LIST_FIRST_OBJECT(lkp_type_list_head,
-					 struct pp2_cls_c2_index_t,
-					 list_node);
+					  struct pp2_cls_c2_index_t,
+					  list_node);
 
-	c2_entry_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_entry_data = kmalloc(sizeof(*c2_entry_data), GFP_KERNEL);
 	if (!c2_entry_data)
 		return -ENOMEM;
 
 	memset(c2_entry_data, 0, sizeof(struct pp2_cls_c2_data_t));
 
 	/* get C2 db entry data */
-	if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, c2_entry_data)) {
+	if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
 		free(c2_entry_data);
 		return -EINVAL;
 	}
@@ -320,7 +325,7 @@ static int pp2_cls_c2_lkp_type_list_pri_get(u8 lkp_type,
 
 	/* Search the list */
 	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t, lkp_type_list_head, list_node) {
-		if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, c2_entry_data)) {
+		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
 			free(c2_entry_data);
 			return -EINVAL;
 		}
@@ -335,31 +340,33 @@ static int pp2_cls_c2_lkp_type_list_pri_get(u8 lkp_type,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_lkp_type_list_neighbour_pri_get()
-*
-* DESCRIPTION: The routine will get the neighbour priority of given priority.
-*
-* INPUTS:
-*          lkp_type   - lookup type of list
-*          priority   - interal priority.
-*          highest_pri- current highest priority of list
-*          lowest_pri - current highest priority of list
-*
-* OUTPUTS:
-*          pri_prev   - privious neighbour priority
-*          pri_next   - following(next) neighbour priority
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*          The list can not be empty, meet: priority > highest, priority < lowest
-*******************************************************************************/
-static int pp2_cls_c2_lkp_type_list_neighbour_pri_get(u32 lkp_type,
-						  u32 priority,
-						  u32 highest_pri,
-						  u32 lowest_pri,
-						  u32 *pri_prev,
-						  u32 *pri_next)
+ * pp2_cls_c2_lkp_type_list_neighbour_pri_get()
+ *
+ * DESCRIPTION: The routine will get the neighbour priority of given priority.
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type   - lookup type of list
+ *          priority   - interal priority.
+ *          highest_pri- current highest priority of list
+ *          lowest_pri - current highest priority of list
+ *
+ * OUTPUTS:
+ *          pri_prev   - privious neighbour priority
+ *          pri_next   - following(next) neighbour priority
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *          The list can not be empty, meet: priority > highest, priority < lowest
+ ******************************************************************************/
+static int pp2_cls_c2_lkp_type_list_neighbour_pri_get(struct pp2_inst *inst,
+						      u32 lkp_type,
+						      u32 priority,
+						      u32 highest_pri,
+						      u32 lowest_pri,
+						      u32 *pri_prev,
+						      u32 *pri_next)
 {
 	struct pp2_cls_c2_index_t *c2_index_node;
 	struct pp2_cls_c2_data_t *c2_entry_data;		/*use heap to reduce stack size*/
@@ -385,17 +392,18 @@ static int pp2_cls_c2_lkp_type_list_neighbour_pri_get(u32 lkp_type,
 		return 0;
 	}
 
-	c2_entry_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_entry_data = kmalloc(sizeof(*c2_entry_data), GFP_KERNEL);
 	if (!c2_entry_data)
 		return -ENOMEM;
 
 	memset(c2_entry_data, 0, sizeof(struct pp2_cls_c2_data_t));
 
 	/* Traverse lookup type list */
-	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t, pp2_cls_db_c2_lkp_type_list_head_get(lkp_type),
+	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t,
+			     pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type),
 			     list_node) {
 		/* get C2 db entry data */
-		if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, c2_entry_data)) {
+		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
 			free(c2_entry_data);
 			return -EINVAL;
 		}
@@ -413,30 +421,32 @@ static int pp2_cls_c2_lkp_type_list_neighbour_pri_get(u32 lkp_type,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_lkp_type_pri_node_info_get()
-*
-* DESCRIPTION: Get the node information in the list with the same internal priority,
-*              including, first/last entry node in C2 HW, count of node with same priority
-*
-* INPUTS:
-*          lkp_type   - lookup type of list
-*          priority   - internal priority
-*
-* OUTPUTS:
-*          c2_hw_first_node  - first c2 hw node in C2 HW table
-*          c2_hw_last_node   - last c2 hw node in C2 HW table
-*          node_count        - count of node with the same priority
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*          None
-*******************************************************************************/
-static int pp2_cls_c2_lkp_type_pri_node_info_get(u8 lkp_type,
-					     u32 priority,
-					     struct pp2_cls_c2_index_t **c2_hw_first_node,
-					     struct pp2_cls_c2_index_t **c2_hw_last_node,
-					     u32 *node_count)
+ * pp2_cls_c2_lkp_type_pri_node_info_get()
+ *
+ * DESCRIPTION: Get the node information in the list with the same internal priority,
+ *              including, first/last entry node in C2 HW, count of node with same priority
+ *
+ * INPUTS:
+ *          inst       - packet processor instance
+ *          lkp_type   - lookup type of list
+ *          priority   - internal priority
+ *
+ * OUTPUTS:
+ *          c2_hw_first_node  - first c2 hw node in C2 HW table
+ *          c2_hw_last_node   - last c2 hw node in C2 HW table
+ *          node_count        - count of node with the same priority
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *          None
+ ******************************************************************************/
+static int pp2_cls_c2_lkp_type_pri_node_info_get(struct pp2_inst *inst,
+						 u8 lkp_type,
+						 u32 priority,
+						 struct pp2_cls_c2_index_t **c2_hw_first_node,
+						 struct pp2_cls_c2_index_t **c2_hw_last_node,
+						 u32 *node_count)
 {
 	struct pp2_cls_c2_index_t *c2_index_node;
 	struct pp2_cls_c2_data_t *c2_entry_data;		/*use heap to reduce stack size*/
@@ -455,7 +465,7 @@ static int pp2_cls_c2_lkp_type_pri_node_info_get(u8 lkp_type,
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
-	c2_entry_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_entry_data = kmalloc(sizeof(*c2_entry_data), GFP_KERNEL);
 	if (!c2_entry_data)
 		return -ENOMEM;
 
@@ -463,10 +473,11 @@ static int pp2_cls_c2_lkp_type_pri_node_info_get(u8 lkp_type,
 
 	i = 0;
 	/* Traverse lookup type list */
-	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t, pp2_cls_db_c2_lkp_type_list_head_get(lkp_type),
+	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t,
+			     pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type),
 			     list_node) {
 		/* get C2 db entry data */
-		if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, c2_entry_data)) {
+		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
 			free(c2_entry_data);
 			return -EINVAL;
 		}
@@ -498,28 +509,30 @@ static int pp2_cls_c2_lkp_type_pri_node_info_get(u8 lkp_type,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_lkp_search_up_block_get()
-*
-* DESCRIPTION: Find the search block between priority pri_start and its privious
-*              neighbour priority.
-*
-* INPUTS:
-*          lkp_type   - lookup type of list
-*          pri_start  - start priority
-*
-* OUTPUTS:
-*          c2_search_start  - start C2 HW index to search
-*          c2_search_end    - end C2 HW index to search
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*          The list can not be empty.
-*******************************************************************************/
-static int pp2_cls_c2_lkp_search_up_block_get(u8 lkp_type,
-					  u32 pri_start,
-					  u32 *c2_search_start,
-					  u32 *c2_search_end)
+ * pp2_cls_c2_lkp_search_up_block_get()
+ *
+ * DESCRIPTION: Find the search block between priority pri_start and its privious
+ *              neighbour priority.
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type   - lookup type of list
+ *          pri_start  - start priority
+ *
+ * OUTPUTS:
+ *          c2_search_start  - start C2 HW index to search
+ *          c2_search_end    - end C2 HW index to search
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *          The list can not be empty.
+ ******************************************************************************/
+static int pp2_cls_c2_lkp_search_up_block_get(struct pp2_inst *inst,
+					      u8 lkp_type,
+					      u32 pri_start,
+					      u32 *c2_search_start,
+					      u32 *c2_search_end)
 {
 	struct pp2_cls_c2_index_t *c2_index_node;
 	struct pp2_cls_c2_data_t *c2_entry_data;		/*use heap to reduce stack size*/
@@ -535,7 +548,7 @@ static int pp2_cls_c2_lkp_search_up_block_get(u8 lkp_type,
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
-	c2_entry_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_entry_data = kmalloc(sizeof(*c2_entry_data), GFP_KERNEL);
 	if (!c2_entry_data)
 		return -ENOMEM;
 
@@ -546,10 +559,10 @@ static int pp2_cls_c2_lkp_search_up_block_get(u8 lkp_type,
 	next_pri = 0;
 	/* Traverse lookup type list */
 	LIST_FOR_EACH_OBJECT_REVERSE(c2_index_node, struct pp2_cls_c2_index_t,
-				    pp2_cls_db_c2_lkp_type_list_head_get(lkp_type),
-				    list_node) {
+				     pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type),
+				     list_node) {
 		/* get C2 db entry data */
-		if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, c2_entry_data)) {
+		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
 			free(c2_entry_data);
 			return -EINVAL;
 		}
@@ -594,28 +607,30 @@ static int pp2_cls_c2_lkp_search_up_block_get(u8 lkp_type,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_lkp_search_down_block_get()
-*
-* DESCRIPTION: Find the search block between priority pri_start and its next
-*              neighbour priority.
-*
-* INPUTS:
-*          lkp_type   - lookup type of list
-*          pri_start  - start priority
-*
-* OUTPUTS:
-*          c2_search_start  - start C2 HW index to search
-*          c2_search_end    - end C2 HW index to search
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*          The list can not be empty.
-*******************************************************************************/
-static int pp2_cls_c2_lkp_search_down_block_get(u8 lkp_type,
-					    u32 pri_start,
-					    u32 *c2_search_start,
-					    u32 *c2_search_end)
+ * pp2_cls_c2_lkp_search_down_block_get()
+ *
+ * DESCRIPTION: Find the search block between priority pri_start and its next
+ *              neighbour priority.
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type   - lookup type of list
+ *          pri_start  - start priority
+ *
+ * OUTPUTS:
+ *          c2_search_start  - start C2 HW index to search
+ *          c2_search_end    - end C2 HW index to search
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *          The list can not be empty.
+ ******************************************************************************/
+static int pp2_cls_c2_lkp_search_down_block_get(struct pp2_inst *inst,
+						u8 lkp_type,
+						u32 pri_start,
+						u32 *c2_search_start,
+						u32 *c2_search_end)
 {
 	struct pp2_cls_c2_index_t *c2_index_node;
 	struct pp2_cls_c2_data_t *c2_entry_data;		/*use heap to reduce stack size*/
@@ -631,7 +646,7 @@ static int pp2_cls_c2_lkp_search_down_block_get(u8 lkp_type,
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
-	c2_entry_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_entry_data = kmalloc(sizeof(*c2_entry_data), GFP_KERNEL);
 	if (!c2_entry_data)
 		return -ENOMEM;
 
@@ -641,10 +656,11 @@ static int pp2_cls_c2_lkp_search_down_block_get(u8 lkp_type,
 	next_pri_find = 0;
 	next_pri = 0;
 	/* Traverse lookup type list */
-	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t, pp2_cls_db_c2_lkp_type_list_head_get(lkp_type),
+	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t,
+			     pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type),
 			     list_node) {
 		/* get C2 db entry data */
-		if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, c2_entry_data)) {
+		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
 			free(c2_entry_data);
 			return -EINVAL;
 		}
@@ -689,25 +705,27 @@ static int pp2_cls_c2_lkp_search_down_block_get(u8 lkp_type,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_lkp_type_list_add()
-*
-* DESCRIPTION: Add the new index node to lookup type list
-*
-* INPUTS:
-*          lkp_type     - lookup type
-*          priority     - new entry internal priority
-*          c2_hw_idx    - new entry HW index
-*          c2_db_idx    - DB index store new entry data
-*          c2_logic_idx - logic index allocated when add the C2 rule
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_c2_lkp_type_list_add(u8 lkp_type,
-				    u32 priority,
-				    u32 c2_hw_idx,
-				    u32 c2_db_idx,
-				    u32 c2_logic_idx)
+ * pp2_cls_c2_lkp_type_list_add()
+ *
+ * DESCRIPTION: Add the new index node to lookup type list
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type     - lookup type
+ *          priority     - new entry internal priority
+ *          c2_hw_idx    - new entry HW index
+ *          c2_db_idx    - DB index store new entry data
+ *          c2_logic_idx - logic index allocated when add the C2 rule
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_c2_lkp_type_list_add(struct pp2_inst *inst,
+					u8 lkp_type,
+					u32 priority,
+					u32 c2_hw_idx,
+					u32 c2_db_idx,
+					u32 c2_logic_idx)
 {
 	int ret_code;
 	struct list *lkp_type_list_head;
@@ -717,12 +735,12 @@ static int pp2_cls_c2_lkp_type_list_add(u8 lkp_type,
 	u32 index;
 
 	/* Get list head */
-	lkp_type_list_head = pp2_cls_db_c2_lkp_type_list_head_get(lkp_type);
+	lkp_type_list_head = pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type);
 
 	/* Get the invalid index node */
 	for (index = 0; index < MVPP2_C2_ENTRY_MAX; index++) {
-		c2_index_node = pp2_cls_db_c2_index_node_get(index);
-		if (c2_index_node == NULL)
+		c2_index_node = pp2_cls_db_c2_index_node_get(inst, index);
+		if (!c2_index_node)
 			return -ENXIO;
 		if (c2_index_node->valid == MVPP2_C2_ENTRY_INVALID)
 			break;
@@ -743,7 +761,7 @@ static int pp2_cls_c2_lkp_type_list_add(u8 lkp_type,
 		return 0;
 	}
 
-	ret_code = pp2_cls_c2_lkp_type_list_pri_get(lkp_type, &highest_pri, &lowest_pri);
+	ret_code = pp2_cls_c2_lkp_type_list_pri_get(inst, lkp_type, &highest_pri, &lowest_pri);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -767,7 +785,7 @@ static int pp2_cls_c2_lkp_type_list_add(u8 lkp_type,
 		return 0;
 	}
 
-	c2_entry_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_entry_data = kmalloc(sizeof(*c2_entry_data), GFP_KERNEL);
 	if (!c2_entry_data)
 		return -ENOMEM;
 
@@ -777,7 +795,7 @@ static int pp2_cls_c2_lkp_type_list_add(u8 lkp_type,
 	/* Traverse lookup type list */
 	LIST_FOR_EACH_OBJECT(temp_node, struct pp2_cls_c2_index_t, lkp_type_list_head, list_node) {
 		/* get C2 db entry data */
-		if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, c2_entry_data)) {
+		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
 			free(c2_entry_data);
 			return -EINVAL;
 		}
@@ -793,23 +811,24 @@ static int pp2_cls_c2_lkp_type_list_add(u8 lkp_type,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_entry_is_free
-*
-* DESCRIPTION: The API will to check whether the c2 entry is free or not.
-* INPUTS:
-*           c2_hw_idx     - first C2 entry index occupied
-*
-* OUTPUTS:
-*           c2_index_node - C2 index node if free, or NULL
-*
-* RETURNS:
-*         0 - free, 1 - occupied
-*
-* COMMENTS:
-*           None.
-*******************************************************************************/
-static int pp2_cls_c2_entry_is_free(u32 c2_hw_idx,
-				struct pp2_cls_c2_index_t **c2_index_node)
+ * pp2_cls_c2_entry_is_free
+ *
+ * DESCRIPTION: The API will to check whether the c2 entry is free or not.
+ * INPUTS:
+ *	    inst	  - packet processor instance
+ *           c2_hw_idx     - first C2 entry index occupied
+ *
+ * OUTPUTS:
+ *           c2_index_node - C2 index node if free, or NULL
+ *
+ * RETURNS:
+ *         0 - free, 1 - occupied
+ *
+ * COMMENTS:
+ *           None.
+ ******************************************************************************/
+static int pp2_cls_c2_entry_is_free(struct pp2_inst *inst, u32 c2_hw_idx,
+				    struct pp2_cls_c2_index_t **c2_index_node)
 {
 	struct list *list;
 
@@ -818,7 +837,7 @@ static int pp2_cls_c2_entry_is_free(u32 c2_hw_idx,
 		return -EFAULT;
 	}
 	/* Traverse free list */
-	LIST_FOR_EACH(list, pp2_cls_db_c2_free_list_head_get()) {
+	LIST_FOR_EACH(list, pp2_cls_db_c2_free_list_head_get(inst)) {
 		/* get list node */
 		*c2_index_node = LIST_OBJECT(list, struct pp2_cls_c2_index_t, list_node);
 		if ((*c2_index_node)->c2_hw_idx == c2_hw_idx)
@@ -829,25 +848,26 @@ static int pp2_cls_c2_entry_is_free(u32 c2_hw_idx,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_free_slot_find
-*
-* DESCRIPTION: The API will find the first free slot between index1 and index2.
-*              If found free slot, delete it from free list.
-* INPUTS:
-*           index1  - first C2 entry index occupied
-*           index2  - second C2 entry index occupied
-*
-* OUTPUTS:
-*           c2_hw_idx - Free C2 HW entry index
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*           index2 must greater than index1.
-*******************************************************************************/
-static int pp2_cls_c2_free_slot_find(u32 index1,
-				 u32 index2,
-				 u32 *free_idx)
+ * pp2_cls_c2_free_slot_find
+ *
+ * DESCRIPTION: The API will find the first free slot between index1 and index2.
+ *              If found free slot, delete it from free list.
+ * INPUTS:
+ *           inst    - packet processor instance
+ *           index1  - first C2 entry index occupied
+ *           index2  - second C2 entry index occupied
+ *
+ * OUTPUTS:
+ *           c2_hw_idx - Free C2 HW entry index
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *           index2 must greater than index1.
+ ******************************************************************************/
+static int pp2_cls_c2_free_slot_find(struct pp2_inst *inst, u32 index1,
+				     u32 index2,
+				     u32 *free_idx)
 {
 	struct pp2_cls_c2_index_t *c2_index_node;
 	int found = 0;
@@ -861,7 +881,8 @@ static int pp2_cls_c2_free_slot_find(u32 index1,
 		return 0;
 	}
 	/* Traverse free list */
-	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t, pp2_cls_db_c2_free_list_head_get(), list_node) {
+	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t,
+			     pp2_cls_db_c2_free_list_head_get(inst), list_node) {
 		if ((c2_index_node->c2_hw_idx > index1) &&
 		    (c2_index_node->c2_hw_idx < index2)) {
 			found++;
@@ -880,29 +901,30 @@ static int pp2_cls_c2_free_slot_find(u32 index1,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_make_slot_high()
-*
-* DESCRIPTION: This routine is sub routine of "pp2_cls_c2_make_slot"
-*
-* INPUTS:
-*          lkp_type   - lookup type
-*          priority   - priority for new slot
-*          highest_pri- highest priority of current lookup type list
-*          lowest_pri - lowest priority of current lookup type list
-* OUTPUTS:
-*          c2_hw_idx  - available C2 TCAM index for new rule
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*           The lkp_type list can not be empty.
-*           priority <= highest_pri
-*******************************************************************************/
-static int pp2_cls_c2_make_slot_high(uintptr_t cpu_slot,
-				 u32 lkp_type,
-				 u32 priority,
-				 u32 highest_pri,
-				 u32 lowest_pri,
-				 u32 *c2_hw_idx)
+ * pp2_cls_c2_make_slot_high()
+ *
+ * DESCRIPTION: This routine is sub routine of "pp2_cls_c2_make_slot"
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type   - lookup type
+ *          priority   - priority for new slot
+ *          highest_pri- highest priority of current lookup type list
+ *          lowest_pri - lowest priority of current lookup type list
+ * OUTPUTS:
+ *          c2_hw_idx  - available C2 TCAM index for new rule
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *           The lkp_type list can not be empty.
+ *           priority <= highest_pri
+ ******************************************************************************/
+static int pp2_cls_c2_make_slot_high(struct pp2_inst *inst,
+				     u32 lkp_type,
+				     u32 priority,
+				     u32 highest_pri,
+				     u32 lowest_pri,
+				     u32 *c2_hw_idx)
 {
 	int ret_code;
 	struct pp2_cls_c2_index_t *c2_index_node = NULL, *c2_first_node = NULL, *c2_last_node = NULL;
@@ -910,9 +932,10 @@ static int pp2_cls_c2_make_slot_high(uintptr_t cpu_slot,
 	u32 c2_search_start, c2_search_end;
 	int pri_tmp, i;
 	struct mv_pp2x_cls_c2_entry c2_entry;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* No need to agjust C2 way */
-	if (pp2_cls_c2_entry_is_free(MVPP2_C2_FIRST_ENTRY, &c2_index_node) == MVPP2_C2_ENTRY_FREE_TRUE) {
+	if (pp2_cls_c2_entry_is_free(inst, MVPP2_C2_FIRST_ENTRY, &c2_index_node) == MVPP2_C2_ENTRY_FREE_TRUE) {
 		/* delete it from free list */
 		list_del(&c2_index_node->list_node);
 		/* Change to node valid status to invalid */
@@ -922,23 +945,24 @@ static int pp2_cls_c2_make_slot_high(uintptr_t cpu_slot,
 		return 0;
 	}
 
-	ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-						     highest_pri,
-						     &c2_first_node,
-						     &c2_last_node,
-						     &node_count);
+	ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+							 lkp_type,
+							 highest_pri,
+							 &c2_first_node,
+							 &c2_last_node,
+							 &node_count);
 	if (ret_code) {
 		pr_err("C2 lookup type list(%d) priority (%d) node info get failed\n",
-			     lkp_type, highest_pri);
+		       lkp_type, highest_pri);
 		return -EINVAL;
 	}
-	if (c2_first_node != NULL &&
+	if (c2_first_node &&
 	    c2_first_node->c2_hw_idx > MVPP2_C2_FIRST_ENTRY) {
 		/* Find the available slot */
-		ret_code = pp2_cls_c2_free_slot_find(MVPP2_C2_FIRST_ENTRY, c2_first_node->c2_hw_idx, &free_idx);
+		ret_code = pp2_cls_c2_free_slot_find(inst, MVPP2_C2_FIRST_ENTRY, c2_first_node->c2_hw_idx, &free_idx);
 		if (ret_code) {
 			pr_err("No found free slot between entry(%d) and entry(%d)\n",
-				     MVPP2_C2_FIRST_ENTRY, c2_first_node->c2_hw_idx);
+			       MVPP2_C2_FIRST_ENTRY, c2_first_node->c2_hw_idx);
 			return -EINVAL;
 		}
 		if (free_idx != MVPP2_C2_ENTRY_INVALID_IDX) {
@@ -951,19 +975,20 @@ static int pp2_cls_c2_make_slot_high(uintptr_t cpu_slot,
 	/* Search down and adjust C2 original entries */
 	for (pri_tmp = highest_pri; pri_tmp <= lowest_pri; pri_tmp++) {
 		/* Get search block */
-		ret_code = pp2_cls_c2_lkp_search_down_block_get(lkp_type,
-							    pri_tmp,
-							    &c2_search_start,
-							    &c2_search_end);
+		ret_code = pp2_cls_c2_lkp_search_down_block_get(inst,
+								lkp_type,
+								pri_tmp,
+								&c2_search_start,
+								&c2_search_end);
 		if (ret_code) {
 			pr_err("Search blcok get failed\n");
 			return -EINVAL;
 		}
 		if (c2_search_start != MVPP2_C2_ENTRY_INVALID_IDX) {
-			ret_code = pp2_cls_c2_free_slot_find(c2_search_start, c2_search_end, &free_idx);
+			ret_code = pp2_cls_c2_free_slot_find(inst, c2_search_start, c2_search_end, &free_idx);
 			if (ret_code) {
 				pr_err("No found free slot between (%d) and (%d)\n",
-					     c2_search_start, c2_search_end);
+				       c2_search_start, c2_search_end);
 				return -EINVAL;
 			}
 			if (free_idx != MVPP2_C2_ENTRY_INVALID_IDX) {
@@ -971,14 +996,15 @@ static int pp2_cls_c2_make_slot_high(uintptr_t cpu_slot,
 				for (i = pri_tmp; i >= (int)highest_pri; i--) {
 					pp2_cls_idx = free_idx;
 					/* Find the first entry with priority found free slot */
-					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-										     i,
-										     &c2_first_node,
-										     &c2_last_node,
-										     &node_count);
+					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+											 lkp_type,
+											 i,
+											 &c2_first_node,
+											 &c2_last_node,
+											 &node_count);
 					if (ret_code)
 						return -EINVAL;
-					if (c2_first_node != NULL) {
+					if (c2_first_node) {
 						mv_pp2x_c2_sw_clear(&c2_entry);
 						mv_pp2x_cls_c2_hw_read(cpu_slot, c2_first_node->c2_hw_idx, &c2_entry);
 						mv_pp2x_cls_c2_hw_write(cpu_slot, free_idx, &c2_entry);
@@ -998,29 +1024,30 @@ static int pp2_cls_c2_make_slot_high(uintptr_t cpu_slot,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_make_slot_middle()
-*
-* DESCRIPTION: This routine is sub routine of "pp2_cls_c2_make_slot"
-*
-* INPUTS:
-*          lkp_type   - lookup type
-*          priority   - priority for new slot
-*          highest_pri- highest priority of current lookup type list
-*          lowest_pri - lowest priority of current lookup type list
-* OUTPUTS:
-*          c2_hw_idx  - available C2 TCAM index for new rule
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*           The lkp_type list can not be empty.
-*            priority > highest_pri; priority < lowest_pri
-*******************************************************************************/
-static int pp2_cls_c2_make_slot_middle(uintptr_t cpu_slot,
-					u32 lkp_type,
-				   u32 priority,
-				   u32 highest_pri,
-				   u32 lowest_pri,
-				   u32 *c2_hw_idx)
+ * pp2_cls_c2_make_slot_middle()
+ *
+ * DESCRIPTION: This routine is sub routine of "pp2_cls_c2_make_slot"
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type   - lookup type
+ *          priority   - priority for new slot
+ *          highest_pri- highest priority of current lookup type list
+ *          lowest_pri - lowest priority of current lookup type list
+ * OUTPUTS:
+ *          c2_hw_idx  - available C2 TCAM index for new rule
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *           The lkp_type list can not be empty.
+ *            priority > highest_pri; priority < lowest_pri
+ ******************************************************************************/
+static int pp2_cls_c2_make_slot_middle(struct pp2_inst *inst,
+				       u32 lkp_type,
+				       u32 priority,
+				       u32 highest_pri,
+				       u32 lowest_pri,
+				       u32 *c2_hw_idx)
 {
 	int ret_code;
 	struct pp2_cls_c2_index_t *c2_index_node = NULL, *c2_first_node = NULL, *c2_last_node = NULL;
@@ -1028,44 +1055,48 @@ static int pp2_cls_c2_make_slot_middle(uintptr_t cpu_slot,
 	u32 c2_search_start, c2_search_end, pri_prev, pri_next;
 	int pri_tmp, i;
 	struct mv_pp2x_cls_c2_entry c2_entry;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* No need adjust other C2 entry way */
-	ret_code = pp2_cls_c2_lkp_type_list_neighbour_pri_get(lkp_type,
-							  priority,
-							  highest_pri,
-							  lowest_pri,
-							  &pri_prev,
-							  &pri_next);
+	ret_code = pp2_cls_c2_lkp_type_list_neighbour_pri_get(inst,
+							      lkp_type,
+							      priority,
+							      highest_pri,
+							      lowest_pri,
+							      &pri_prev,
+							      &pri_next);
 	if (ret_code)
 		return -EINVAL;
 	/* Get node info with priority */
 	if (pri_prev != MVPP2_C2_LKP_TYPE_INVALID_PRI) {
-		ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-							     pri_prev,
-							     &c2_first_node,
-							     &c2_last_node,
-							     &node_count);
+		ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+								 lkp_type,
+								 pri_prev,
+								 &c2_first_node,
+								 &c2_last_node,
+								 &node_count);
 		if (ret_code)
 			return -EINVAL;
-		if (c2_last_node != NULL)
+		if (c2_last_node)
 			c2_search_start = c2_last_node->c2_hw_idx;
 	}
 	if (pri_next != MVPP2_C2_LKP_TYPE_INVALID_PRI) {
-		ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-							     pri_next,
-							     &c2_first_node,
-							     &c2_last_node,
-							     &node_count);
+		ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+								 lkp_type,
+								 pri_next,
+								 &c2_first_node,
+								 &c2_last_node,
+								 &node_count);
 		if (ret_code)
 			return -EINVAL;
-		if (c2_first_node != NULL)
+		if (c2_first_node)
 			c2_search_end = c2_first_node->c2_hw_idx;
 	}
 	/* Find the available before first node */
-	ret_code = pp2_cls_c2_free_slot_find(c2_search_start, c2_search_end, &free_idx);
+	ret_code = pp2_cls_c2_free_slot_find(inst, c2_search_start, c2_search_end, &free_idx);
 	if (ret_code) {
 		pr_err("No found free slot between (%d) and (%d) on C2 engine\n",
-			     c2_search_start, c2_search_end);
+		       c2_search_start, c2_search_end);
 		return -EINVAL;
 	}
 	if (free_idx != MVPP2_C2_ENTRY_INVALID_IDX) {
@@ -1078,24 +1109,26 @@ static int pp2_cls_c2_make_slot_middle(uintptr_t cpu_slot,
 	/* Search up and adjust C2 original entries */
 	for (pri_tmp = pri_prev; pri_tmp >= (int)highest_pri; pri_tmp--) {
 		/* Get search block */
-		ret_code = pp2_cls_c2_lkp_search_up_block_get(lkp_type,
-							  pri_tmp,
-							  &c2_search_start,
-							  &c2_search_end);
+		ret_code = pp2_cls_c2_lkp_search_up_block_get(inst,
+							      lkp_type,
+							      pri_tmp,
+							      &c2_search_start,
+							      &c2_search_end);
 		if (c2_search_end != MVPP2_C2_ENTRY_INVALID_IDX) {
 			/* Special handle entry 0 */
 			if (c2_search_start == MVPP2_C2_FIRST_ENTRY &&
-			    pp2_cls_c2_entry_is_free(c2_search_start, &c2_index_node) == MVPP2_C2_ENTRY_FREE_TRUE) {
+			    pp2_cls_c2_entry_is_free(inst, c2_search_start, &c2_index_node) ==
+							MVPP2_C2_ENTRY_FREE_TRUE) {
 				/* delete it from free list */
 				list_del(&c2_index_node->list_node);
 				/* Change to node valid status to invalid */
 				c2_index_node->valid = MVPP2_C2_ENTRY_INVALID;
 				free_idx = c2_search_start;
 			} else {
-				ret_code = pp2_cls_c2_free_slot_find(c2_search_start, c2_search_end, &free_idx);
+				ret_code = pp2_cls_c2_free_slot_find(inst, c2_search_start, c2_search_end, &free_idx);
 				if (ret_code) {
 					pr_err("No found free slot between (%d) and (%d) failed\n",
-						     c2_search_start, c2_search_end);
+					       c2_search_start, c2_search_end);
 					return -EINVAL;
 				}
 			}
@@ -1104,14 +1137,15 @@ static int pp2_cls_c2_make_slot_middle(uintptr_t cpu_slot,
 				for (i = pri_tmp; i <= pri_prev; i++) {
 					pp2_cls_idx = free_idx;
 					/* Find the first entry with priority found free slot */
-					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-										     i,
-										     &c2_first_node,
-										     &c2_last_node,
-										     &node_count);
+					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+											 lkp_type,
+											 i,
+											 &c2_first_node,
+											 &c2_last_node,
+											 &node_count);
 					if (ret_code)
 						return -EINVAL;
-					if (c2_last_node != NULL) {
+					if (c2_last_node) {
 						mv_pp2x_c2_sw_clear(&c2_entry);
 						mv_pp2x_cls_c2_hw_read(cpu_slot, c2_last_node->c2_hw_idx, &c2_entry);
 						mv_pp2x_cls_c2_hw_write(cpu_slot, free_idx, &c2_entry);
@@ -1130,15 +1164,16 @@ static int pp2_cls_c2_make_slot_middle(uintptr_t cpu_slot,
 	/* Search down and adjust C2 original entries */
 	for (pri_tmp = pri_next; pri_tmp <= (int)lowest_pri; pri_tmp++) {
 		/* Get search block */
-		ret_code = pp2_cls_c2_lkp_search_down_block_get(lkp_type,
-							    pri_tmp,
-							    &c2_search_start,
-							    &c2_search_end);
+		ret_code = pp2_cls_c2_lkp_search_down_block_get(inst,
+								lkp_type,
+								pri_tmp,
+								&c2_search_start,
+								&c2_search_end);
 		if (c2_search_start != MVPP2_C2_ENTRY_INVALID_IDX) {
-			ret_code = pp2_cls_c2_free_slot_find(c2_search_start, c2_search_end, &free_idx);
+			ret_code = pp2_cls_c2_free_slot_find(inst, c2_search_start, c2_search_end, &free_idx);
 			if (ret_code) {
 				pr_err("No found free slot between (%d) and (%d) failed\n",
-					     c2_search_start, c2_search_end);
+				       c2_search_start, c2_search_end);
 				return -EINVAL;
 			}
 			if (free_idx != MVPP2_C2_ENTRY_INVALID_IDX) {
@@ -1146,14 +1181,15 @@ static int pp2_cls_c2_make_slot_middle(uintptr_t cpu_slot,
 				for (i = pri_tmp; i >= pri_next; i--) {
 					pp2_cls_idx = free_idx;
 					/* Find the first entry with priority found free slot */
-					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-										     i,
-										     &c2_first_node,
-										     &c2_last_node,
-										     &node_count);
+					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+											 lkp_type,
+											 i,
+											 &c2_first_node,
+											 &c2_last_node,
+											 &node_count);
 					if (ret_code)
 						return -EINVAL;
-					if (c2_last_node != NULL) {
+					if (c2_last_node) {
 						mv_pp2x_c2_sw_clear(&c2_entry);
 						mv_pp2x_cls_c2_hw_read(cpu_slot, c2_first_node->c2_hw_idx, &c2_entry);
 						mv_pp2x_cls_c2_hw_write(cpu_slot, free_idx, &c2_entry);
@@ -1173,29 +1209,30 @@ static int pp2_cls_c2_make_slot_middle(uintptr_t cpu_slot,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_make_slot_low()
-*
-* DESCRIPTION: This routine is sub routine of "pp2_cls_c2_make_slot"
-*
-* INPUTS:
-*          lkp_type   - lookup type
-*          priority   - priority for new slot
-*          highest_pri- highest priority of current lookup type list
-*          lowest_pri - lowest priority of current lookup type list
-* OUTPUTS:
-*          c2_hw_idx  - available C2 TCAM index for new rule
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*           The lkp_type list can not be empty.
-*           priority >= lowest_pri
-*******************************************************************************/
-static int pp2_cls_c2_make_slot_low(uintptr_t cpu_slot,
-				u32 lkp_type,
-				u32 priority,
-				u32 highest_pri,
-				u32 lowest_pri,
-				u32 *c2_hw_idx)
+ * pp2_cls_c2_make_slot_low()
+ *
+ * DESCRIPTION: This routine is sub routine of "pp2_cls_c2_make_slot"
+ *
+ * INPUTS:
+ *	   inst	      - packet processor instance
+ *          lkp_type   - lookup type
+ *          priority   - priority for new slot
+ *          highest_pri- highest priority of current lookup type list
+ *          lowest_pri - lowest priority of current lookup type list
+ * OUTPUTS:
+ *          c2_hw_idx  - available C2 TCAM index for new rule
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *           The lkp_type list can not be empty.
+ *           priority >= lowest_pri
+ ******************************************************************************/
+static int pp2_cls_c2_make_slot_low(struct pp2_inst *inst,
+				    u32 lkp_type,
+				    u32 priority,
+				    u32 highest_pri,
+				    u32 lowest_pri,
+				    u32 *c2_hw_idx)
 {
 	int ret_code;
 	struct pp2_cls_c2_index_t *c2_index_node = NULL, *c2_first_node = NULL, *c2_last_node = NULL;
@@ -1203,26 +1240,28 @@ static int pp2_cls_c2_make_slot_low(uintptr_t cpu_slot,
 	u32 c2_search_start, c2_search_end;
 	int pri_tmp, i;
 	struct mv_pp2x_cls_c2_entry c2_entry;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* No need adjust other C2 entry way */
 	/* get last node with lowest priority */
-	ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-						     lowest_pri,
-						     &c2_first_node,
-						     &c2_last_node,
-						     &node_count);
+	ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+							 lkp_type,
+							 lowest_pri,
+							 &c2_first_node,
+							 &c2_last_node,
+							 &node_count);
 	if (ret_code) {
 		pr_err("Lookup type list(%d) priority (%d) node info get failed\n",
-			     lkp_type, lowest_pri);
+		       lkp_type, lowest_pri);
 		return -EINVAL;
 	}
 	/* try to find the slot after last node with lowest_pri */
-	if (c2_last_node != NULL) {
+	if (c2_last_node) {
 		/* Find the available slot */
-		ret_code = pp2_cls_c2_free_slot_find(c2_last_node->c2_hw_idx, MVPP2_C2_LAST_ENTRY, &free_idx);
+		ret_code = pp2_cls_c2_free_slot_find(inst, c2_last_node->c2_hw_idx, MVPP2_C2_LAST_ENTRY, &free_idx);
 		if (ret_code) {
 			pr_err("Free slot between (%d) and (%d) failed\n",
-				     c2_last_node->c2_hw_idx, MVPP2_C2_LAST_ENTRY);
+			       c2_last_node->c2_hw_idx, MVPP2_C2_LAST_ENTRY);
 			return -EINVAL;
 		}
 		if (free_idx != MVPP2_C2_ENTRY_INVALID_IDX) {
@@ -1236,24 +1275,26 @@ static int pp2_cls_c2_make_slot_low(uintptr_t cpu_slot,
 	/* Search up and adjust C2 original entries */
 	for (pri_tmp = lowest_pri; pri_tmp >= (int)highest_pri; pri_tmp--) {
 		/* Get search block */
-		ret_code = pp2_cls_c2_lkp_search_up_block_get(lkp_type,
-							  pri_tmp,
-							  &c2_search_start,
-							  &c2_search_end);
+		ret_code = pp2_cls_c2_lkp_search_up_block_get(inst,
+							      lkp_type,
+							      pri_tmp,
+							      &c2_search_start,
+							      &c2_search_end);
 		if (c2_search_end != MVPP2_C2_ENTRY_INVALID_IDX) {
 			/* Special handle entry 0 */
 			if (c2_search_start == MVPP2_C2_FIRST_ENTRY &&
-			    pp2_cls_c2_entry_is_free(c2_search_start, &c2_index_node) == MVPP2_C2_ENTRY_FREE_TRUE) {
+			    pp2_cls_c2_entry_is_free(inst, c2_search_start, &c2_index_node) ==
+											MVPP2_C2_ENTRY_FREE_TRUE) {
 				/* delete it from free list */
 				list_del(&c2_index_node->list_node);
 				/* Change to node valid status to invalid */
 				c2_index_node->valid = MVPP2_C2_ENTRY_INVALID;
 				free_idx = c2_search_start;
 			} else {
-				ret_code = pp2_cls_c2_free_slot_find(c2_search_start, c2_search_end, &free_idx);
+				ret_code = pp2_cls_c2_free_slot_find(inst, c2_search_start, c2_search_end, &free_idx);
 				if (ret_code) {
 					pr_err("Free slot between (%d) and (%d) failed\n",
-						     c2_search_start, c2_search_end);
+					       c2_search_start, c2_search_end);
 					return -EINVAL;
 				}
 			}
@@ -1262,14 +1303,15 @@ static int pp2_cls_c2_make_slot_low(uintptr_t cpu_slot,
 				for (i = pri_tmp; i <= (int)lowest_pri; i++) {
 					pp2_cls_idx = free_idx;
 					/* Find the first entry with priority found free slot */
-					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(lkp_type,
-								i,
-								&c2_first_node,
-								&c2_last_node,
-								&node_count);
+					ret_code = pp2_cls_c2_lkp_type_pri_node_info_get(inst,
+											 lkp_type,
+											 i,
+											 &c2_first_node,
+											 &c2_last_node,
+											 &node_count);
 					if (ret_code)
 						return -EINVAL;
-					if (c2_last_node != NULL) {
+					if (c2_last_node) {
 						mv_pp2x_c2_sw_clear(&c2_entry);
 						mv_pp2x_cls_c2_hw_read(cpu_slot, c2_last_node->c2_hw_idx, &c2_entry);
 						mv_pp2x_cls_c2_hw_write(cpu_slot, free_idx, &c2_entry);
@@ -1289,24 +1331,25 @@ static int pp2_cls_c2_make_slot_low(uintptr_t cpu_slot,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_make_slot
-*
-* DESCRIPTION: The API is called when creating a new C2 entry in HW,
-*              and need to make room for it and adjust original C2 entries down or up.
-* INPUTS:
-*           lkp_type  - C2 entry lookup type
-*           priority  - C2 entry internal priority with same lookup type
-*
-* OUTPUTS:
-*           c2_hw_idx - Free C2 HW entry index
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_c2_make_slot(uintptr_t cpu_slot,
-			    u8 lkp_type,
-			    u32 priority,
-			    u32 *c2_hw_idx)
+ * pp2_cls_c2_make_slot
+ *
+ * DESCRIPTION: The API is called when creating a new C2 entry in HW,
+ *              and need to make room for it and adjust original C2 entries down or up.
+ * INPUTS:
+ *	    inst      - packet processor instance
+ *           lkp_type  - C2 entry lookup type
+ *           priority  - C2 entry internal priority with same lookup type
+ *
+ * OUTPUTS:
+ *           c2_hw_idx - Free C2 HW entry index
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_c2_make_slot(struct pp2_inst *inst,
+				u8 lkp_type,
+				u32 priority,
+				u32 *c2_hw_idx)
 {
 	int ret_code = 0;
 	struct pp2_cls_c2_index_t *c2_index_node = NULL;
@@ -1318,16 +1361,16 @@ static int pp2_cls_c2_make_slot(uintptr_t cpu_slot,
 		return -EFAULT;
 	}
 	/* check free list empty or not */
-	if (list_is_empty(pp2_cls_db_c2_free_list_head_get())) {
+	if (list_is_empty(pp2_cls_db_c2_free_list_head_get(inst))) {
 		pr_err("No free C2 entry for lookup typs %d, priority %d\n", lkp_type, priority);
 		return -EINVAL;
 	}
 
 	/* lkp type list empty, find any available slot */
-	if (list_is_empty(pp2_cls_db_c2_lkp_type_list_head_get(lkp_type))) {
-		c2_index_node = LIST_FIRST_OBJECT(pp2_cls_db_c2_free_list_head_get(),
-						 struct pp2_cls_c2_index_t,
-						 list_node);
+	if (list_is_empty(pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type))) {
+		c2_index_node = LIST_FIRST_OBJECT(pp2_cls_db_c2_free_list_head_get(inst),
+						  struct pp2_cls_c2_index_t,
+						  list_node);
 		/* delete it from free list */
 		list_del(&c2_index_node->list_node);
 		/* Change to node valid status to invalid */
@@ -1338,7 +1381,7 @@ static int pp2_cls_c2_make_slot(uintptr_t cpu_slot,
 	}
 
 	/* Get the highest priority and lowest priority */
-	ret_code = pp2_cls_c2_lkp_type_list_pri_get(lkp_type, &highest_pri, &lowest_pri);
+	ret_code = pp2_cls_c2_lkp_type_list_pri_get(inst, lkp_type, &highest_pri, &lowest_pri);
 	if (ret_code != 0) {
 		pr_err("Lookup type list(%d) priority get failed\n", lkp_type);
 		return -EINVAL;
@@ -1346,30 +1389,30 @@ static int pp2_cls_c2_make_slot(uintptr_t cpu_slot,
 
 	/* According to priority and current priority in list, search available slot */
 	if (priority <= highest_pri)
-		ret_code = pp2_cls_c2_make_slot_high(cpu_slot,
-						     lkp_type, priority, highest_pri, lowest_pri, c2_hw_idx);
+		ret_code = pp2_cls_c2_make_slot_high(inst, lkp_type, priority, highest_pri,
+						     lowest_pri, c2_hw_idx);
 	else if (priority >= lowest_pri)
-		ret_code = pp2_cls_c2_make_slot_low(cpu_slot,
-						    lkp_type, priority, highest_pri, lowest_pri, c2_hw_idx);
+		ret_code = pp2_cls_c2_make_slot_low(inst, lkp_type, priority, highest_pri,
+						    lowest_pri, c2_hw_idx);
 	else
-		ret_code = pp2_cls_c2_make_slot_middle(cpu_slot,
-						       lkp_type, priority, highest_pri, lowest_pri, c2_hw_idx);
+		ret_code = pp2_cls_c2_make_slot_middle(inst, lkp_type, priority, highest_pri,
+						       lowest_pri, c2_hw_idx);
 
 	return ret_code;
 }
 
 /*******************************************************************************
-* pp2_cls_c2_rule_add_check
-*
-* DESCRIPTION: The routine will check the input parameters when adding c2 rule.
-* INPUTS:
-*           c2_entry  - parameters needed when adding C2 entry
-*
-* OUTPUTS:
-*           None.
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_c2_rule_add_check
+ *
+ * DESCRIPTION: The routine will check the input parameters when adding c2 rule.
+ * INPUTS:
+ *           c2_entry  - parameters needed when adding C2 entry
+ *
+ * OUTPUTS:
+ *           None.
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_c2_rule_add_check(struct mv_pp2x_c2_add_entry *c2_entry)
 {
 	struct pp2_cls_field_match_info field_info[MVPP2_FLOW_FIELD_COUNT_MAX + 1];
@@ -1401,17 +1444,17 @@ static int pp2_cls_c2_rule_add_check(struct mv_pp2x_c2_add_entry *c2_entry)
 	}
 
 	/* Packet key check  */
-	if (c2_entry->mng_pkt_key == NULL) {
+	if (!c2_entry->mng_pkt_key) {
 		pr_err("Input NULL pointer\n");
 		return -EFAULT;
 	}
 	/* Get field info */
 	memset(field_info, 0, sizeof(struct pp2_cls_field_match_info) * (MVPP2_FLOW_FIELD_COUNT_MAX + 1));
 	if (pp2_cls_field_bm_to_field_info(c2_entry->mng_pkt_key->pkt_key->field_bm,
-				       c2_entry->mng_pkt_key,
-				       MVPP2_FLOW_FIELD_COUNT_MAX + 1,
-				       true,
-				       field_info)) {
+					   c2_entry->mng_pkt_key,
+					   MVPP2_FLOW_FIELD_COUNT_MAX + 1,
+					   true,
+					   field_info)) {
 		pr_err("Field info get failed\n");
 		return -EFAULT;
 	}
@@ -1453,34 +1496,34 @@ static int pp2_cls_c2_rule_add_check(struct mv_pp2x_c2_add_entry *c2_entry)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_tcam_common_field_hek_get
-*
-* DESCRIPTION: The routine will transfer pkacket key with common field whose
-*              field size do not greater than 32 bits to C2 HEK
-*
-* INPUTS:
-*           pkt_value         - field value
-*           pkt_value_mask    - field mask
-*           field_bytes       - bytes the filed occupied
-*           field_size        - field size
-*           bytes_used        - pointer to HEK bytes has been used
-*
-* OUTPUTS:
-*           c2_hek            - HEK for C2
-*           c2_hek_mask       - HEK mask for C2
-*           bytes_used        - pointer to record HEK bytes has been used
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_c2_tcam_common_field_hek_get
+ *
+ * DESCRIPTION: The routine will transfer pkacket key with common field whose
+ *              field size do not greater than 32 bits to C2 HEK
+ *
+ * INPUTS:
+ *           pkt_value         - field value
+ *           pkt_value_mask    - field mask
+ *           field_bytes       - bytes the filed occupied
+ *           field_size        - field size
+ *           bytes_used        - pointer to HEK bytes has been used
+ *
+ * OUTPUTS:
+ *           c2_hek            - HEK for C2
+ *           c2_hek_mask       - HEK mask for C2
+ *           bytes_used        - pointer to record HEK bytes has been used
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_c2_tcam_common_field_hek_get(u32 pkt_value,
-					    u32 pkt_value_mask,
-					    u32 field_bytes,
-					    u32 field_size,
-					    u8 filed_unmask,
-					    u8 c2_hek[],
-					    u8 c2_hek_mask[],
-					    u32 *bytes_used)
+						u32 pkt_value_mask,
+						u32 field_bytes,
+						u32 field_size,
+						u8 filed_unmask,
+						u8 c2_hek[],
+						u8 c2_hek_mask[],
+						u32 *bytes_used)
 {
 	int i;
 	u32 c2_hek_bytes_used;
@@ -1551,38 +1594,38 @@ static int pp2_cls_c2_tcam_common_field_hek_get(u32 pkt_value,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_tcam_shared_field_hek_get
-*
-* DESCRIPTION: The routine will transfer pkacket key with common field who
-*              shares one byte with other field to C2 HEK
-*
-* INPUTS:
-*           pkt_value         - field value
-*           pkt_value_mask    - field mask
-*           field_bytes       - bytes the filed occupied
-*           field_size        - field size
-*           comb_flag         - indicate combination is needed or not
-*           comb_offset       - combination bit offset
-*           bytes_used        - pointer to HEK bytes has been used
-*
-* OUTPUTS:
-*           c2_hek            - HEK for C2
-*           c2_hek_mask       - HEK mask for C2
-*           bytes_used        - pointer to record HEK bytes has been used
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_c2_tcam_shared_field_hek_get
+ *
+ * DESCRIPTION: The routine will transfer pkacket key with common field who
+ *              shares one byte with other field to C2 HEK
+ *
+ * INPUTS:
+ *           pkt_value         - field value
+ *           pkt_value_mask    - field mask
+ *           field_bytes       - bytes the filed occupied
+ *           field_size        - field size
+ *           comb_flag         - indicate combination is needed or not
+ *           comb_offset       - combination bit offset
+ *           bytes_used        - pointer to HEK bytes has been used
+ *
+ * OUTPUTS:
+ *           c2_hek            - HEK for C2
+ *           c2_hek_mask       - HEK mask for C2
+ *           bytes_used        - pointer to record HEK bytes has been used
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_c2_tcam_shared_field_hek_get(u32 pkt_value,
-					    u32 pkt_value_mask,
-					    u32 field_bytes,
-					    u32 field_size,
-					    u8 filed_unmask,
-					    bool comb_flag,
-					    u8 comb_offset,
-					    u8 c2_hek[],
-					    u8 c2_hek_mask[],
-					    u32 *bytes_used)
+						u32 pkt_value_mask,
+						u32 field_bytes,
+						u32 field_size,
+						u8 filed_unmask,
+						bool comb_flag,
+						u8 comb_offset,
+						u8 c2_hek[],
+						u8 c2_hek_mask[],
+						u32 *bytes_used)
 {
 	int i;
 	u32 left_bits, c2_hek_bytes_used;
@@ -1657,7 +1700,7 @@ static int pp2_cls_c2_tcam_shared_field_hek_get(u32 pkt_value,
 					/* HEK Mask */
 					if (!filed_unmask)
 						c2_hek_mask[c2_hek_bytes_used] =
-						(pkt_value_mask << (BYTE_BITS - left_bits % BYTE_BITS))&
+						(pkt_value_mask << (BYTE_BITS - left_bits % BYTE_BITS)) &
 						BYTE_MASK;
 				}
 			} else {
@@ -1696,29 +1739,29 @@ static int pp2_cls_c2_tcam_shared_field_hek_get(u32 pkt_value,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_field_unmask_check
-*
-* DESCRIPTION: The routine check the field is unmask or not
-*
-* INPUTS:
-*           field_id        - match fiels bit map
-*           field_unmask    - filed array need unmask
-*
-* OUTPUTS:
-*           None
-*
-* RETURNS:
-* unmask, 0 - means need exact match the filed; 1 - means do not care the filed value
-*
-* COMMENTS:
-*           None.
-*******************************************************************************/
+ * pp2_cls_c2_field_unmask_check
+ *
+ * DESCRIPTION: The routine check the field is unmask or not
+ *
+ * INPUTS:
+ *           field_id        - match fiels bit map
+ *           field_unmask    - filed array need unmask
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * RETURNS:
+ * unmask, 0 - means need exact match the filed; 1 - means do not care the filed value
+ *
+ * COMMENTS:
+ *           None.
+ ******************************************************************************/
 static u8 pp2_cls_c2_field_unmask_check(u32 field_id, struct pp2_cls_field_match_info *field_unmask)
 {
 	u8 unmask = 0;
 	u32 idx;
 
-	if (field_unmask == NULL)
+	if (!field_unmask)
 		return unmask;
 
 	for (idx = 0; idx < MVPP2_FLOW_FIELD_COUNT_MAX; idx++) {
@@ -1733,25 +1776,25 @@ static u8 pp2_cls_c2_field_unmask_check(u32 field_id, struct pp2_cls_field_match
 }
 
 /*******************************************************************************
-* pp2_cls_c2_tcam_hek_get
-*
-* DESCRIPTION: The routine will transfer pkacket key to C2 HEK
-*
-* INPUTS:
-*           field_bm    - match fiels bit map
-*           c2_entry    - C2 entry para to get packet key info
-*
-* OUTPUTS:
-*           hek         - HEK for C2
-*           hek_mask    - HEK mask for C2
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_c2_tcam_hek_get
+ *
+ * DESCRIPTION: The routine will transfer pkacket key to C2 HEK
+ *
+ * INPUTS:
+ *           field_bm    - match fiels bit map
+*            c2_entry    - C2 entry para to get packet key info
+ *
+ * OUTPUTS:
+*            hek         - HEK for C2
+ *           hek_mask    - HEK mask for C2
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 int pp2_cls_c2_tcam_hek_get(u32 field_bm,
-		       struct mv_pp2x_c2_add_entry *c2_entry,
-		       u8 hek[],
-		       u8 hek_mask[])
+			    struct mv_pp2x_c2_add_entry *c2_entry,
+			    u8 hek[],
+			    u8 hek_mask[])
 {
 	int ret_code = 0;
 	struct pp2_cls_field_match_info *field_info, *field_unmask;	/*use heap to reduce stack size*/
@@ -1776,13 +1819,13 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
-	field_info = kmalloc(MVPP2_FLOW_FIELD_COUNT_MAX * sizeof(struct pp2_cls_field_match_info), GFP_KERNEL);
+	field_info = kcalloc(MVPP2_FLOW_FIELD_COUNT_MAX, sizeof(struct pp2_cls_field_match_info), GFP_KERNEL);
 	if (!field_info)
 		return -ENOMEM;
 
 	memset(field_info, 0, MVPP2_FLOW_FIELD_COUNT_MAX * sizeof(struct pp2_cls_field_match_info));
 
-	field_unmask = kmalloc(MVPP2_FLOW_FIELD_COUNT_MAX * sizeof(struct pp2_cls_field_match_info), GFP_KERNEL);
+	field_unmask = kcalloc(MVPP2_FLOW_FIELD_COUNT_MAX, sizeof(struct pp2_cls_field_match_info), GFP_KERNEL);
 	if (!field_unmask) {
 		free(field_info);
 		return -ENOMEM;
@@ -1795,10 +1838,10 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 	memset(c2_hek_mask, 0, MVPP2_C2_HEK_OFF_MAX);
 	/* get field info */
 	ret_code = pp2_cls_field_bm_to_field_info(field_bm,
-					      c2_entry->mng_pkt_key,
-					      MVPP2_FLOW_FIELD_COUNT_MAX,
-					      true,
-					      field_info);
+						  c2_entry->mng_pkt_key,
+						  MVPP2_FLOW_FIELD_COUNT_MAX,
+						  true,
+						  field_info);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		free(field_info);
@@ -1808,12 +1851,12 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 
 	/* Get filed need to unmask */
 	ret_code = pp2_cls_field_bm_to_field_info(field_bm &
-					      ((~(c2_entry->mng_pkt_key->pkt_key->field_bm_mask)) |
-					      MVPP2_MATCH_IPV6_PKT | MVPP2_MATCH_IPV4_PKT),
-					      c2_entry->mng_pkt_key,
-					      MVPP2_FLOW_FIELD_COUNT_MAX,
-					      true,
-					      field_unmask);
+						  ((~(c2_entry->mng_pkt_key->pkt_key->field_bm_mask)) |
+						  MVPP2_MATCH_IPV6_PKT | MVPP2_MATCH_IPV4_PKT),
+						  c2_entry->mng_pkt_key,
+						  MVPP2_FLOW_FIELD_COUNT_MAX,
+						  true,
+						  field_unmask);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		free(field_info);
@@ -1856,13 +1899,14 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 			pkt_value_mask = field_info[field_num].filed_value.int_data.parsed_int_val_mask;
 			/* Store HEK in c2_hek, each filed byte boutary */
 			ret_code = pp2_cls_c2_tcam_common_field_hek_get(pkt_value,
-								  pkt_value_mask,
-								  field_bytes,
-								  field_size,
-								  pp2_cls_c2_field_unmask_check(field_id, field_unmask),
-								  c2_hek,
-								  c2_hek_mask,
-								  &c2_hek_bytes_used);
+									pkt_value_mask,
+									field_bytes,
+									field_size,
+									pp2_cls_c2_field_unmask_check(field_id,
+												      field_unmask),
+									c2_hek,
+									c2_hek_mask,
+									&c2_hek_bytes_used);
 			if (ret_code) {
 				pr_err("recvd ret_code(%d)\n", ret_code);
 				free(field_info);
@@ -1925,7 +1969,7 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 				comb_offset = 2;
 			}
 			if (field_id == IPV6_FLOW_LBL_FIELD_ID &&
-				(pre_field_id == IPV6_DSCP_FIELD_ID || pre_field_id == IPV6_ECN_FIELD_ID)) {
+			    (pre_field_id == IPV6_DSCP_FIELD_ID || pre_field_id == IPV6_ECN_FIELD_ID)) {
 				comb_flag = true;
 				comb_offset = 4;
 			}
@@ -1940,15 +1984,16 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 				field_bytes++;
 
 			ret_code = pp2_cls_c2_tcam_shared_field_hek_get(pkt_value,
-								  pkt_value_mask,
-								  field_bytes,
-								  field_size,
-								  pp2_cls_c2_field_unmask_check(field_id, field_unmask),
-								  comb_flag,
-								  comb_offset,
-								  c2_hek,
-								  c2_hek_mask,
-								  &c2_hek_bytes_used);
+									pkt_value_mask,
+									field_bytes,
+									field_size,
+									pp2_cls_c2_field_unmask_check(field_id,
+												      field_unmask),
+									comb_flag,
+									comb_offset,
+									c2_hek,
+									c2_hek_mask,
+									&c2_hek_bytes_used);
 			if (ret_code) {
 				pr_err("recvd ret_code(%d)\n", ret_code);
 				free(field_info);
@@ -2084,22 +2129,22 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_tcam_set
-*
-* DESCRIPTION: The routine will get C2 entry data and write it to HW
-*
-* INPUTS:
-*           c2_entry    - C2 entry data
-*           c2_hw_idx   - C2 TCAM HW index
-*
-* OUTPUTS:
-*           c2_index  - The logical index of C2 entry, used to delete the entry
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_c2_tcam_set
+ *
+ * DESCRIPTION: The routine will get C2 entry data and write it to HW
+ *
+ * INPUTS:
+ *           c2_entry    - C2 entry data
+ *           c2_hw_idx   - C2 TCAM HW index
+ *
+ * OUTPUTS:
+ *           c2_index  - The logical index of C2 entry, used to delete the entry
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *c2_entry,
-			   u32 c2_hw_idx)
+			       u32 c2_hw_idx)
 {
 	int ret_code;
 	struct mv_pp2x_cls_c2_entry pp2_cls_c2_entry;
@@ -2115,8 +2160,8 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set QOS table, selection and ID */
 	ret_code = mv_pp2x_cls_c2_qos_tbl_set(&pp2_cls_c2_entry,
-				       c2_entry->qos_info.qos_tbl_index,
-				       c2_entry->qos_info.qos_tbl_type);
+					      c2_entry->qos_info.qos_tbl_index,
+					      c2_entry->qos_info.qos_tbl_type);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2124,8 +2169,8 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set color, cmd and source */
 	ret_code = mv_pp2x_cls_c2_color_set(&pp2_cls_c2_entry,
-				      c2_entry->action.color_act,
-				      c2_entry->qos_info.color_src);
+					    c2_entry->action.color_act,
+					    c2_entry->qos_info.color_src);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2133,9 +2178,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set priority(pbit), cmd, value(not from qos table) and source */
 	ret_code = mv_pp2x_cls_c2_prio_set(&pp2_cls_c2_entry,
-				     c2_entry->action.pri_act,
-				     c2_entry->qos_value.pri,
-				     c2_entry->qos_info.pri_dscp_src);
+					   c2_entry->action.pri_act,
+					   c2_entry->qos_value.pri,
+					   c2_entry->qos_info.pri_dscp_src);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2143,9 +2188,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set DSCP, cmd, value(not from qos table) and source */
 	ret_code = mv_pp2x_cls_c2_dscp_set(&pp2_cls_c2_entry,
-				     c2_entry->action.dscp_act,
-				     c2_entry->qos_value.dscp,
-				     c2_entry->qos_info.pri_dscp_src);
+					   c2_entry->action.dscp_act,
+					   c2_entry->qos_value.dscp,
+					   c2_entry->qos_info.pri_dscp_src);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2153,9 +2198,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set gemport ID, cmd, value, and source */
 	ret_code = mv_pp2x_cls_c2_gpid_set(&pp2_cls_c2_entry,
-				     c2_entry->action.gemp_act,
-				     c2_entry->qos_value.gemp,
-				     c2_entry->qos_info.gemport_src);
+					   c2_entry->action.gemp_act,
+					   c2_entry->qos_value.gemp,
+					   c2_entry->qos_info.gemport_src);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2163,9 +2208,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set queue low, cmd, value, and source */
 	ret_code = mv_pp2x_cls_c2_queue_low_set(&pp2_cls_c2_entry,
-					 c2_entry->action.q_low_act,
-					 c2_entry->qos_value.q_low,
-					 c2_entry->qos_info.q_low_src);
+						c2_entry->action.q_low_act,
+						c2_entry->qos_value.q_low,
+						c2_entry->qos_info.q_low_src);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2173,9 +2218,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set queue high, cmd, value and source */
 	ret_code = mv_pp2x_cls_c2_queue_high_set(&pp2_cls_c2_entry,
-					  c2_entry->action.q_high_act,
-					  c2_entry->qos_value.q_high,
-					  c2_entry->qos_info.q_high_src);
+						 c2_entry->action.q_high_act,
+						 c2_entry->qos_value.q_high,
+						 c2_entry->qos_info.q_high_src);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2183,7 +2228,7 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set forward */
 	ret_code = mv_pp2x_cls_c2_forward_set(&pp2_cls_c2_entry,
-					c2_entry->action.frwd_act);
+					      c2_entry->action.frwd_act);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2204,7 +2249,7 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set flowID(not for multicast) */
 	ret_code = mv_pp2x_cls_c2_flow_id_en(&pp2_cls_c2_entry,
-				      c2_entry->action.flowid_act);
+					     c2_entry->action.flowid_act);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2212,9 +2257,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	/* Set modification info */
 	ret_code = mv_pp2x_cls_c2_mod_set(&pp2_cls_c2_entry,
-				    c2_entry->pkt_mod.mod_data_idx,
-				    c2_entry->pkt_mod.mod_cmd_idx,
-				    c2_entry->pkt_mod.l4_chksum_update_flag);
+					  c2_entry->pkt_mod.mod_data_idx,
+					  c2_entry->pkt_mod.mod_cmd_idx,
+					  c2_entry->pkt_mod.l4_chksum_update_flag);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2231,9 +2276,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 	memset(hek_byte, 0, MVPP2_C2_HEK_OFF_MAX);
 	memset(hek_byte_mask, 0, MVPP2_C2_HEK_OFF_MAX);
 	ret_code = pp2_cls_c2_tcam_hek_get(c2_entry->mng_pkt_key->pkt_key->field_bm,
-				       c2_entry,
-				       hek_byte,
-				       hek_byte_mask);
+					   c2_entry,
+					   hek_byte,
+					   hek_byte_mask);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2241,9 +2286,9 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 
 	for (hek_offs = MVPP2_C2_HEK_OFF_PORT_ID; hek_offs >= MVPP2_C2_HEK_OFF_BYTE0; hek_offs--) {
 		ret_code = mv_pp2x_cls_c2_tcam_byte_set(&pp2_cls_c2_entry,
-						 hek_offs,
-						 hek_byte[hek_offs],
-						 hek_byte_mask[hek_offs]);
+							hek_offs,
+							hek_byte[hek_offs],
+							hek_byte_mask[hek_offs]);
 		if (ret_code) {
 			pr_err("recvd ret_code(%d)\n", ret_code);
 			return ret_code;
@@ -2261,19 +2306,19 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 }
 
 /*******************************************************************************
-* pp2_cls_c2_hit_cntr_clear_all
-*
-* DESCRIPTION: The routine will clear all HW hit counters
-*
-* INPUTS:
-*	None
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_c2_hit_cntr_clear_all
+ *
+ * DESCRIPTION: The routine will clear all HW hit counters
+ *
+ * INPUTS:
+ *	None
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 int pp2_cls_c2_hit_cntr_clear_all(uintptr_t cpu_slot)
 {
 	int		rc;
@@ -2291,22 +2336,23 @@ int pp2_cls_c2_hit_cntr_clear_all(uintptr_t cpu_slot)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_hit_cntr_all_get
-*
-* DESCRIPTION: The routine returns all hit counters above threshold
-*
-* INPUTS:
-*	hit_low_thresh - low threshold, hit counters above this will be returned
-*	num_of_cntrs - size of cntr_info
-*
-* OUTPUTS:
-*	cntr_info - returned counter array with logical and physical index
-*	num_of_cntrs - number of updated counters in cntr_info
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh,
+ * pp2_cls_c2_hit_cntr_all_get
+ *
+ * DESCRIPTION: The routine returns all hit counters above threshold
+ *
+ * INPUTS:
+ *	inst		- packet processor instance
+ *	hit_low_thresh	- low threshold, hit counters above this will be returned
+ *	num_of_cntrs	- size of cntr_info
+ *
+ * OUTPUTS:
+ *	cntr_info	- returned counter array with logical and physical index
+ *	num_of_cntrs	- number of updated counters in cntr_info
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_hit_cntr_all_get(struct pp2_inst *inst, int hit_low_thresh,
 				struct pp2_cls_hit_cnt_t cntr_info[],
 				u32 *num_of_cntrs)
 {
@@ -2316,6 +2362,7 @@ int pp2_cls_c2_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh,
 	u32 cntr_idx;
 	u32 phys_idx;
 	struct pp2_cls_c2_index_t *c2_index_node;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!cntr_info) {
 		pr_err("%s: null pointer\n", __func__);
@@ -2341,7 +2388,7 @@ int pp2_cls_c2_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh,
 				return -EINVAL;
 			}
 
-			c2_index_node = pp2_cls_db_c2_index_node_get(i);
+			c2_index_node = pp2_cls_db_c2_index_node_get(inst, i);
 			if (!c2_index_node) {
 				pr_err("C2 index %d error\n", i);
 				return -EINVAL;
@@ -2365,31 +2412,33 @@ int pp2_cls_c2_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_hit_cntr_get
-*
-* DESCRIPTION: The routine returns hit counters of C2 entry
-*
-* INPUTS:
-*	c2_id - entry logic index
-*
-* OUTPUTS:
-*	cntr - returned counter
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_hit_cntr_get(uintptr_t cpu_slot, int	c2_id,
-			u32	*cntr)
+ * pp2_cls_c2_hit_cntr_get
+ *
+ * DESCRIPTION: The routine returns hit counters of C2 entry
+ *
+ * INPUTS:
+ *	inst  - packet processor instance
+ *	c2_id - entry logic index
+ *
+ * OUTPUTS:
+ *	cntr - returned counter
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_hit_cntr_get(struct pp2_inst *inst, int	c2_id,
+			    u32 *cntr)
 {
 	u32		hw_id;
 	u32		db_id;
 	u32		rc;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!cntr) {
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
-	rc = pp2_cls_c2_get_hw_idx_from_logic_idx(c2_id, &hw_id, &db_id);
+	rc = pp2_cls_c2_get_hw_idx_from_logic_idx(inst, c2_id, &hw_id, &db_id);
 	if (!rc) {
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
@@ -2403,21 +2452,23 @@ int pp2_cls_c2_hit_cntr_get(uintptr_t cpu_slot, int	c2_id,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_get_hw_idx_from_logic_idx
-*
-* DESCRIPTION: The API will translate C2 entry logic index to HW index.
-* INPUTS:
-*           logic_idx - C2 entry logical index
-*
-* OUTPUTS:
-*           c2_hw_idx - C2 HW entry index
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_get_hw_idx_from_logic_idx(u32	logic_idx,
-				u32		*c2_hw_idx,
-				u32		*c2_db_idx)
+ * pp2_cls_c2_get_hw_idx_from_logic_idx
+ *
+ * DESCRIPTION: The API will translate C2 entry logic index to HW index.
+ * INPUTS:
+ *	    inst      - packet processor instance
+ *           logic_idx - C2 entry logical index
+ *
+ * OUTPUTS:
+ *           c2_hw_idx - C2 HW entry index
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_get_hw_idx_from_logic_idx(struct pp2_inst *inst,
+					 u32	logic_idx,
+					 u32	*c2_hw_idx,
+					 u32	*c2_db_idx)
 {
 	u32 index;
 	struct pp2_cls_c2_index_t *c2_index_node;
@@ -2432,8 +2483,8 @@ int pp2_cls_c2_get_hw_idx_from_logic_idx(u32	logic_idx,
 	}
 	/* Get the valid index node */
 	for (index = 0; index < MVPP2_C2_ENTRY_MAX; index++) {
-		c2_index_node = pp2_cls_db_c2_index_node_get(index);
-		if (c2_index_node == NULL)
+		c2_index_node = pp2_cls_db_c2_index_node_get(inst, index);
+		if (!c2_index_node)
 			return -ENXIO;
 		if (c2_index_node->valid == MVPP2_C2_ENTRY_VALID &&
 		    c2_index_node->c2_logic_idx == logic_idx)
@@ -2451,19 +2502,19 @@ int pp2_cls_c2_get_hw_idx_from_logic_idx(u32	logic_idx,
 }
 
 /*******************************************************************************
-* pp2_cls_c2_free_entry_number_get
-*
-* DESCRIPTION: The routine will get the free entry in C2.
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           free_entry_number - free entry entry number
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_free_entry_number_get(u32 *free_entry_number)
+ * pp2_cls_c2_free_entry_number_get
+ *
+ * DESCRIPTION: The routine will get the free entry in C2.
+ * INPUTS:
+ *	    inst	      - packet processor instance
+ *
+ * OUTPUTS:
+ *           free_entry_number - free entry entry number
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_free_entry_number_get(struct pp2_inst *inst, u32 *free_entry_number)
 {
 	u32 i = 0;
 	struct list *list;
@@ -2473,7 +2524,7 @@ int pp2_cls_c2_free_entry_number_get(u32 *free_entry_number)
 		return -EFAULT;
 	}
 	/* Traverse free list */
-	LIST_FOR_EACH(list, pp2_cls_db_c2_free_list_head_get())
+	LIST_FOR_EACH(list, pp2_cls_db_c2_free_list_head_get(inst))
 		i++;
 
 	*free_entry_number = i;
@@ -2482,24 +2533,26 @@ int pp2_cls_c2_free_entry_number_get(u32 *free_entry_number)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_rule_add
-*
-* DESCRIPTION: The API will add one C2 entry
-*
-* INPUTS:
-*           c2_entry        - contains all parameters needed for C2 rule adding
-*
-* OUTPUTS:
-*           c2_logic_index  - The logical index of C2 entry, used to delete the entry
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_rule_add(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *c2_entry,
-		    u32 *c2_logic_index)
+ * pp2_cls_c2_rule_add
+ *
+ * DESCRIPTION: The API will add one C2 entry
+ *
+ * INPUTS:
+ *	    inst	    - packet processor instance
+ *           c2_entry        - contains all parameters needed for C2 rule adding
+ *
+ * OUTPUTS:
+ *           c2_logic_index  - The logical index of C2 entry, used to delete the entry
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_rule_add(struct pp2_inst *inst, struct mv_pp2x_c2_add_entry *c2_entry,
+			u32 *c2_logic_index)
 {
 	int ret_code;
 	u32 c2_db_idx, c2_logic_idx, c2_hw_idx = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* Parameter check */
 	ret_code = pp2_cls_c2_rule_add_check(c2_entry);
@@ -2512,9 +2565,9 @@ int pp2_cls_c2_rule_add(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *c2_entr
 		return -EFAULT;
 	}
 	/* Make C2 slot */
-	ret_code = pp2_cls_c2_make_slot(cpu_slot, c2_entry->lkp_type,
-				    c2_entry->priority,
-				    &c2_hw_idx);
+	ret_code = pp2_cls_c2_make_slot(inst, c2_entry->lkp_type,
+					c2_entry->priority,
+					&c2_hw_idx);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2524,13 +2577,13 @@ int pp2_cls_c2_rule_add(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *c2_entr
 	ret_code = pp2_cls_c2_tcam_set(cpu_slot, c2_entry, c2_hw_idx);
 	if (ret_code != 0) {
 		/* Return slot to free list */
-		pp2_cls_c2_free_list_add(c2_hw_idx);
+		pp2_cls_c2_free_list_add(inst, c2_hw_idx);
 		pr_err("C2 TCAM(%d) set failed\n", c2_hw_idx);
 		return ret_code;
 	}
 
 	/* Update MVPP2 DB */
-	ret_code = pp2_cls_c2_data_entry_db_add(c2_entry, &c2_db_idx);
+	ret_code = pp2_cls_c2_data_entry_db_add(inst, c2_entry, &c2_db_idx);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2540,11 +2593,12 @@ int pp2_cls_c2_rule_add(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *c2_entr
 	c2_logic_idx = pp2_cls_c2_new_logic_idx_allocate(false);
 
 	/* Update corresponding lookup type list */
-	ret_code = pp2_cls_c2_lkp_type_list_add(c2_entry->lkp_type,
-					    c2_entry->priority,
-					    c2_hw_idx,
-					    c2_db_idx,
-					    c2_logic_idx);
+	ret_code = pp2_cls_c2_lkp_type_list_add(inst,
+						c2_entry->lkp_type,
+						c2_entry->priority,
+						c2_hw_idx,
+						c2_db_idx,
+						c2_logic_idx);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2557,29 +2611,31 @@ int pp2_cls_c2_rule_add(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *c2_entr
 }
 
 /*******************************************************************************
-* pp2_cls_c2_rule_del
-*
-* DESCRIPTION: The API will delete one C2 entry
-*
-* INPUTS:
-*           c2_logic_index  - The logical index of C2 entry to delete
-*
-* OUTPUTS:
-*           None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_rule_del(uintptr_t cpu_slot, u32 c2_logic_index)
+ * pp2_cls_c2_rule_del
+ *
+ * DESCRIPTION: The API will delete one C2 entry
+ *
+ * INPUTS:
+ *	    inst	    - packet processor instance
+ *           c2_logic_index  - The logical index of C2 entry to delete
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_rule_del(struct pp2_inst *inst, u32 c2_logic_index)
 {
 	int ret_code;
 	struct pp2_cls_c2_index_t *c2_index_node;
 	u32 c2_hw_idx, c2_db_idx, node_idx;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* Get HW index and DB index */
 	for (node_idx = 0; node_idx < MVPP2_C2_ENTRY_MAX; node_idx++) {
-		c2_index_node = pp2_cls_db_c2_index_node_get(node_idx);
-		if (c2_index_node == NULL) {
+		c2_index_node = pp2_cls_db_c2_index_node_get(inst, node_idx);
+		if (!c2_index_node) {
 			pr_err("Invalid rule index(%d)\n", c2_logic_index);
 			return -ENXIO;
 		}
@@ -2602,7 +2658,7 @@ int pp2_cls_c2_rule_del(uintptr_t cpu_slot, u32 c2_logic_index)
 	}
 
 	/* Invalid data db entry */
-	ret_code = pp2_cls_c2_data_entry_db_del(c2_db_idx);
+	ret_code = pp2_cls_c2_data_entry_db_del(inst, c2_db_idx);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2611,7 +2667,7 @@ int pp2_cls_c2_rule_del(uintptr_t cpu_slot, u32 c2_logic_index)
 	/* delete index node from lkp type list, add to free list */
 	list_del(&c2_index_node->list_node);
 	memset(c2_index_node, 0, sizeof(struct pp2_cls_c2_index_t));
-	ret_code = pp2_cls_c2_free_list_add(c2_hw_idx);
+	ret_code = pp2_cls_c2_free_list_add(inst, c2_hw_idx);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2621,20 +2677,22 @@ int pp2_cls_c2_rule_del(uintptr_t cpu_slot, u32 c2_logic_index)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_rule_sram_get
-*
-* DESCRIPTION: The routine will get a SRAM of a existed rule.
-*
-* INPUTS:
-*	logic_idx - C2 logical index
-*
-* OUTPUTS:
-*	sram      - C2 new sram
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_rule_sram_get(u32 logic_index, struct pp2_cls_engine_sram_t *sram)
+ * pp2_cls_c2_rule_sram_get
+ *
+ * DESCRIPTION: The routine will get a SRAM of a existed rule.
+ *
+ * INPUTS:
+ *	inst	  - packet processor instance
+ *	logic_idx - C2 logical index
+ *
+ * OUTPUTS:
+ *	sram      - C2 new sram
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_rule_sram_get(struct pp2_inst *inst, u32 logic_index,
+			     struct pp2_cls_engine_sram_t *sram)
 {
 	int ret_code;
 	struct pp2_cls_c2_data_t *c2_data;		/*use heap to reduce stack size*/
@@ -2645,21 +2703,22 @@ int pp2_cls_c2_rule_sram_get(u32 logic_index, struct pp2_cls_engine_sram_t *sram
 		return -EFAULT;
 	}
 	/* Get C2 db idx */
-	ret_code = pp2_cls_c2_get_hw_idx_from_logic_idx(logic_index,
-						    &hw_idx,
-						    &db_idx);
+	ret_code = pp2_cls_c2_get_hw_idx_from_logic_idx(inst,
+							logic_index,
+							&hw_idx,
+							&db_idx);
 	if (ret_code) {
 		pr_err("C2 DB entry index get fail\n");
 		return ret_code;
 	}
-	c2_data = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	c2_data = kmalloc(sizeof(*c2_data), GFP_KERNEL);
 	if (!c2_data)
 		return -ENOMEM;
 
 	memset(c2_data, 0, sizeof(struct pp2_cls_c2_data_t));
 
 	/* Get DB data */
-	ret_code = pp2_cls_db_c2_data_get(db_idx, c2_data);
+	ret_code = pp2_cls_db_c2_data_get(inst, db_idx, c2_data);
 	if (ret_code) {
 		pr_err("C2 DB entry get fail\n");
 		free(c2_data);
@@ -2677,25 +2736,28 @@ int pp2_cls_c2_rule_sram_get(u32 logic_index, struct pp2_cls_engine_sram_t *sram
 }
 
 /*******************************************************************************
-* pp2_cls_c2_rule_sram_update
-*
-* DESCRIPTION: The routine will update C2 HW entry with new SRAM.
-*
-* INPUTS:
-*	logic_idx - C2 logical index
-*
-* OUTPUTS:
-*	sram      - C2 new sram
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_cls_engine_sram_t *sram)
+ * pp2_cls_c2_rule_sram_update
+ *
+ * DESCRIPTION: The routine will update C2 HW entry with new SRAM.
+ *
+ * INPUTS:
+ *	inst	  - packet processor instance
+ *	logic_idx - C2 logical index
+ *
+ * OUTPUTS:
+ *	sram      - C2 new sram
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_c2_rule_sram_update(struct pp2_inst *inst, u32 logic_index,
+				struct pp2_cls_engine_sram_t *sram)
 {
 	int ret_code;
 	struct mv_pp2x_cls_c2_entry hw_entry;
 	struct pp2_cls_c2_data_t *db_entry;		/*use heap to reduce stack size*/
 	u32 hw_idx, db_idx;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!sram) {
 		pr_err("%s: null pointer\n", __func__);
@@ -2706,7 +2768,7 @@ int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_
 	MVPP2_MEMSET_ZERO(db_entry);
 
 	/* Get the HW and DB index */
-	ret_code = pp2_cls_c2_get_hw_idx_from_logic_idx(logic_index, &hw_idx, &db_idx);
+	ret_code = pp2_cls_c2_get_hw_idx_from_logic_idx(inst, logic_index, &hw_idx, &db_idx);
 	if (ret_code) {
 		pr_err("fail to access get HW and DB index\n");
 		return ret_code;
@@ -2720,68 +2782,68 @@ int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_
 	/* Update SRAM */
 	/* Set QOS table, selection and ID */
 	ret_code = mv_pp2x_cls_c2_qos_tbl_set(&hw_entry,
-				       sram->qos_info.qos_tbl_index,
-				       sram->qos_info.qos_tbl_type);
+					      sram->qos_info.qos_tbl_index,
+					      sram->qos_info.qos_tbl_type);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2QosTblSet fail\n");
 		return ret_code;
 	}
 	/* Set color, cmd and source */
 	ret_code = mv_pp2x_cls_c2_color_set(&hw_entry,
-				      sram->action.color_act,
-				      sram->qos_info.color_src);
+					    sram->action.color_act,
+					    sram->qos_info.color_src);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2ColorSet fail\n");
 		return ret_code;
 	}
 	/* Set priority(pbit), cmd, value(not from qos table) and source */
 	ret_code = mv_pp2x_cls_c2_prio_set(&hw_entry,
-				     sram->action.pri_act,
-				     sram->qos_value.pri,
-				     sram->qos_info.pri_dscp_src);
+					   sram->action.pri_act,
+					   sram->qos_value.pri,
+					   sram->qos_info.pri_dscp_src);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2PrioSet fail\n");
 		return ret_code;
 	}
 	/* Set DSCP, cmd, value(not from qos table) and source */
 	ret_code = mv_pp2x_cls_c2_dscp_set(&hw_entry,
-				     sram->action.dscp_act,
-				     sram->qos_value.dscp,
-				     sram->qos_info.pri_dscp_src);
+					   sram->action.dscp_act,
+					   sram->qos_value.dscp,
+					   sram->qos_info.pri_dscp_src);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2DscpSet fail\n");
 		return ret_code;
 	}
 	/* Set gemport ID, cmd, value, and source */
 	ret_code = mv_pp2x_cls_c2_gpid_set(&hw_entry,
-				     sram->action.gemp_act,
-				     sram->qos_value.gemp,
-				     sram->qos_info.gemport_src);
+					   sram->action.gemp_act,
+					   sram->qos_value.gemp,
+					   sram->qos_info.gemport_src);
 	if (ret_code) {
 		pr_err("mv_pp2x_cls_c2_gpid_set fail\n");
 		return ret_code;
 	}
 	/* Set queue low, cmd, value, and source */
 	ret_code = mv_pp2x_cls_c2_queue_low_set(&hw_entry,
-					 sram->action.q_low_act,
-					 sram->qos_value.q_low,
-					 sram->qos_info.q_low_src);
+						sram->action.q_low_act,
+						sram->qos_value.q_low,
+						sram->qos_info.q_low_src);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2QueueLowSet fail\n");
 		return ret_code;
 	}
 	/* Set queue high, cmd, value and source */
 	ret_code = mv_pp2x_cls_c2_queue_high_set(&hw_entry,
-					  sram->action.q_high_act,
-					  sram->qos_value.q_high,
-					  sram->qos_info.q_high_src);
+						 sram->action.q_high_act,
+						 sram->qos_value.q_high,
+						 sram->qos_info.q_high_src);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2QueueHighSet fail\n");
 		return ret_code;
 	}
 	/* Set forward */
 	ret_code = mv_pp2x_cls_c2_forward_set(&hw_entry,
-					sram->action.frwd_act);
+					      sram->action.frwd_act);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2ForwardSet fail\n");
 		return ret_code;
@@ -2800,16 +2862,16 @@ int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_
 	 */
 	/* Set flowID */
 	ret_code = mv_pp2x_cls_c2_flow_id_en(&hw_entry,
-				      sram->action.flowid_act);
+					     sram->action.flowid_act);
 	if (ret_code) {
 		pr_err("mvPp2ClsC2FlowIDSet fail\n");
 		return ret_code;
 	}
 	/* Set modification info */
 	ret_code = mv_pp2x_cls_c2_mod_set(&hw_entry,
-				    sram->pkt_mod.mod_data_idx,
-				    sram->pkt_mod.mod_cmd_idx,
-				    sram->pkt_mod.l4_chksum_update_flag);
+					  sram->pkt_mod.mod_data_idx,
+					  sram->pkt_mod.mod_cmd_idx,
+					  sram->pkt_mod.l4_chksum_update_flag);
 	if (ret_code) {
 		pr_err("mv_pp2x_cls_c2_mod_set fail\n");
 		return ret_code;
@@ -2832,14 +2894,14 @@ int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_
 		pr_err("failed to call mv_pp2x_cls_c2_hw_write\n");
 		return ret_code;
 	}
-	db_entry = kmalloc(sizeof(struct pp2_cls_c2_data_t), GFP_KERNEL);
+	db_entry = kmalloc(sizeof(*db_entry), GFP_KERNEL);
 	if (!db_entry)
 		return -ENOMEM;
 
 	memset(db_entry, 0, sizeof(struct pp2_cls_c2_data_t));
 
 	/* Update DB */
-	ret_code = pp2_cls_db_c2_data_get(db_idx, db_entry);
+	ret_code = pp2_cls_db_c2_data_get(inst, db_idx, db_entry);
 	if (ret_code) {
 		pr_err("failed to read DB\n");
 		free(db_entry);
@@ -2852,7 +2914,7 @@ int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_
 	memcpy(&db_entry->pkt_mod, &sram->pkt_mod, sizeof(struct mv_pp2x_engine_pkt_mod));
 	memcpy(&db_entry->flow_info, &sram->dup_info, sizeof(struct mv_pp2x_duplicate_info));
 
-	ret_code = pp2_cls_db_c2_data_set(db_idx, db_entry);
+	ret_code = pp2_cls_db_c2_data_set(inst, db_idx, db_entry);
 	if (ret_code) {
 		pr_err("failed to set DB\n");
 		free(db_entry);
@@ -2864,33 +2926,34 @@ int pp2_cls_c2_rule_sram_update(uintptr_t cpu_slot, u32 logic_index, struct pp2_
 }
 
 /*******************************************************************************
-* pp2_cls_c2_reset
-*
-* DESCRIPTION: The API will clean all the entries in C2 engine,
-*              and clear C2 sub-module DB at the same time
-*
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-* RETURNS:
-*	0 on success, error-code otherwise
-*
-* COMMENTS:
-*           None.
-*******************************************************************************/
-int pp2_cls_c2_reset(uintptr_t cpu_slot)
+ * pp2_cls_c2_reset
+ *
+ * DESCRIPTION: The API will clean all the entries in C2 engine,
+ *              and clear C2 sub-module DB at the same time
+ *
+ * INPUTS:
+ *	    inst   - packet processor instance
+ *
+ * OUTPUTS:
+ *           None
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ *
+ * COMMENTS:
+ *           None.
+ ******************************************************************************/
+int pp2_cls_c2_reset(struct pp2_inst *inst)
 {
 	int ret_code;
 	int index;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* Clear all TCAM entry, except last one added by LSP */
 	for (index = MVPP2_C2_FIRST_ENTRY; index < MVPP2_CLS_C2_TCAM_SIZE; index++)
 		mv_pp2x_cls_c2_hw_inv(cpu_slot, index);
 
 	/* Clear MVPP2 C2 DB */
-	ret_code = pp2_cls_db_c2_init();
+	ret_code = pp2_cls_db_c2_init(inst);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
 		return ret_code;
@@ -2903,25 +2966,25 @@ int pp2_cls_c2_reset(uintptr_t cpu_slot)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_start
-*
-* DESCRIPTION: The API will do following operations:
-*              1)Mark every C2 related DB entry invalid, C2_ENTRY_IDX_TBL and C2_ENTRY_DATA_TBL
-*              2)Add all the C2 DB entry in free list, except last one, 255
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-* COMMENTS:
-*           It is called by pp2_cls_start.
-*******************************************************************************/
-int pp2_cls_c2_start(uintptr_t cpu_slot)
+ * pp2_cls_c2_start
+ *
+ * DESCRIPTION: The API will do following operations:
+ *              1)Mark every C2 related DB entry invalid, C2_ENTRY_IDX_TBL and C2_ENTRY_DATA_TBL
+ *              2)Add all the C2 DB entry in free list, except last one, 255
+ * INPUTS:
+ *	    inst   - packet processor instance
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ * COMMENTS:
+ *           It is called by pp2_cls_start.
+ ******************************************************************************/
+int pp2_cls_c2_start(struct pp2_inst *inst)
 {
-	if (pp2_cls_c2_reset(cpu_slot)) {
+	if (pp2_cls_c2_reset(inst)) {
 		pr_err("MVPP2 C2 start failed\n");
 		return -EINVAL;
 	}

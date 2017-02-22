@@ -46,32 +46,29 @@
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 
-/* Global PP2_CLS database */
-static struct pp2_cls_db_t *g_pp2_cls_db;
-
 /*******************************************************************************
-* pp2_cls_db_mem_alloc_init
-*
-* DESCRIPTION: The routine will allcate mem for pp2_cls db and init it.
-*
-* INPUTS:
-*	None.
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_db_mem_alloc_init(void)
+ * pp2_cls_db_mem_alloc_init
+ *
+ * DESCRIPTION: The routine will allcate mem for pp2_cls db and init it.
+ *
+ * INPUTS:
+ *	inst   - packet processor instance
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_db_mem_alloc_init(struct pp2_inst *inst)
 {
-	/* Allocation for g_pp2_cls_db */
-	g_pp2_cls_db = kmalloc(sizeof(*g_pp2_cls_db), GFP_KERNEL);
-	if (!g_pp2_cls_db)
+	/* Allocation for per-instance database */
+	inst->cls_db = kmalloc(sizeof(*inst->cls_db), GFP_KERNEL);
+	if (!inst->cls_db)
 		goto fail1;
 
 	/* Erase DB */
-	MVPP2_MEMSET_ZERO(*g_pp2_cls_db);
+	MVPP2_MEMSET_ZERO(*inst->cls_db);
 
 	return 0;
 
@@ -81,86 +78,41 @@ fail1:
 }
 
 /*******************************************************************************
-* pp2_cls_db_mem_free
-*
-* DESCRIPTION: The routine will free memory for allocated for pp2_cls db.
-*
-* INPUTS:
-*	None.
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_db_mem_free(void)
+ * pp2_cls_db_mem_free
+ *
+ * DESCRIPTION: The routine will free memory for allocated for pp2_cls db.
+ *
+ * INPUTS:
+ *	inst   - packet processor instance
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_db_mem_free(struct pp2_inst *inst)
 {
-	kfree(g_pp2_cls_db);
+	kfree(inst->cls_db);
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_module_state_set
-*
-* DESCRIPTION: The API sets PP2_CLS module init state, either not started, or started
-*
-* INPUTS:
-*	state  - PP2_CLS module init state
-*
-* OUTPUTS:
-*	None.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_module_state_set(enum pp2_cls_module_state_t state)
-{
-	if (state > MVPP2_MODULE_STARTED) {
-		pr_err("Invalid state(%d)\n", state);
-		return -EBUSY;
-	}
-
-	g_pp2_cls_db->pp2_cls_module_init_state = state;
-
-	return 0;
-}
-
-/*******************************************************************************
-* pp2_cls_db_module_state_get
-*
-* DESCRIPTION: The API gets PP2_CLS module init state, either not started, or started
-*
-* INPUTS:
-*	None.
-*
-* OUTPUTS:
-*	None.
-*
-* RETURNS:
-*	PP2_CLS module init state
-*******************************************************************************/
-u32 pp2_cls_db_module_state_get(void)
-{
-	return g_pp2_cls_db->pp2_cls_module_init_state;
-}
-
-/*******************************************************************************
-* pp2_cls_db_c3_free_logic_idx_get()
-*
-* DESCRIPTION: Get a free logic index from list.
-*
-* INPUTS:
-*	None
-*
-* OUTPUTS:
-*	logic_idx - logical index
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_free_logic_idx_get(u32 *logic_idx)
+ * pp2_cls_db_c3_free_logic_idx_get()
+ *
+ * DESCRIPTION: Get a free logic index from list.
+ *
+ * INPUTS:
+ *	inst   - packet processor instance
+ *
+ * OUTPUTS:
+ *	logic_idx - logical index
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_free_logic_idx_get(struct pp2_inst *inst, u32 *logic_idx)
 {
 	int idx;
 
@@ -169,7 +121,7 @@ int pp2_cls_db_c3_free_logic_idx_get(u32 *logic_idx)
 
 	/* search for valid C3 logical index */
 	for (idx = 0; idx < MVPP2_CLS_C3_HASH_TBL_SIZE; idx++) {
-		if (g_pp2_cls_db->c3_db.hash_idx_tbl[idx].valid == MVPP2_C3_ENTRY_INVALID)
+		if (inst->cls_db->c3_db.hash_idx_tbl[idx].valid == MVPP2_C3_ENTRY_INVALID)
 			break;
 	}
 
@@ -184,21 +136,22 @@ int pp2_cls_db_c3_free_logic_idx_get(u32 *logic_idx)
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_entry_add()
-*
-* DESCRIPTION: Add C3 entry to DB.
-*
-* INPUTS:
-*	logic_idx      - logical index
-*	hash_idx       - multihash index
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_entry_add(u32 logic_idx, u32 hash_idx)
+ * pp2_cls_db_c3_entry_add()
+ *
+ * DESCRIPTION: Add C3 entry to DB.
+ *
+ * INPUTS:
+ *	inst   - packet processor instance
+ *	logic_idx      - logical index
+ *	hash_idx       - multihash index
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_entry_add(struct pp2_inst *inst, u32 logic_idx, u32 hash_idx)
 {
 	if (mv_pp2x_range_validate(logic_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
 		return -EINVAL;
@@ -207,31 +160,32 @@ int pp2_cls_db_c3_entry_add(u32 logic_idx, u32 hash_idx)
 		return -EINVAL;
 
 	/* add or update hash index table */
-	g_pp2_cls_db->c3_db.hash_idx_tbl[logic_idx].valid = MVPP2_C3_ENTRY_VALID;
-	g_pp2_cls_db->c3_db.hash_idx_tbl[logic_idx].hash_idx = hash_idx;
+	inst->cls_db->c3_db.hash_idx_tbl[logic_idx].valid = MVPP2_C3_ENTRY_VALID;
+	inst->cls_db->c3_db.hash_idx_tbl[logic_idx].hash_idx = hash_idx;
 
 	/* add or update logical index table */
-	g_pp2_cls_db->c3_db.logic_idx_tbl[hash_idx].valid = MVPP2_C3_ENTRY_VALID;
-	g_pp2_cls_db->c3_db.logic_idx_tbl[hash_idx].logic_idx = logic_idx;
+	inst->cls_db->c3_db.logic_idx_tbl[hash_idx].valid = MVPP2_C3_ENTRY_VALID;
+	inst->cls_db->c3_db.logic_idx_tbl[hash_idx].logic_idx = logic_idx;
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_entry_del()
-*
-* DESCRIPTION: Delete C3 entry to DB.
-*
-* INPUTS:
-*	logic_idx - logical index
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_entry_del(int logic_idx)
+ * pp2_cls_db_c3_entry_del()
+ *
+ * DESCRIPTION: Delete C3 entry to DB.
+ *
+ * INPUTS:
+ *	inst   - packet processor instance
+ *	logic_idx - logical index
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_entry_del(struct pp2_inst *inst, int logic_idx)
 {
 	u32 hash_idx;
 	struct pp2_cls_c3_hash_index_entry_t *p_hash_entry = NULL;
@@ -241,7 +195,7 @@ int pp2_cls_db_c3_entry_del(int logic_idx)
 		return -EINVAL;
 
 	/* get hash index entry */
-	p_hash_entry = &g_pp2_cls_db->c3_db.hash_idx_tbl[logic_idx];
+	p_hash_entry = &inst->cls_db->c3_db.hash_idx_tbl[logic_idx];
 	if (p_hash_entry->valid == MVPP2_C3_ENTRY_VALID) {
 		/* clear hash entry */
 		hash_idx = p_hash_entry->hash_idx;
@@ -251,7 +205,7 @@ int pp2_cls_db_c3_entry_del(int logic_idx)
 		/* get logical index entry by hash index and clear it */
 		if (mv_pp2x_range_validate(hash_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
 			return -EINVAL;
-		p_logic_entry = &g_pp2_cls_db->c3_db.logic_idx_tbl[hash_idx];
+		p_logic_entry = &inst->cls_db->c3_db.logic_idx_tbl[hash_idx];
 		p_logic_entry->valid = MVPP2_C3_ENTRY_INVALID;
 		p_logic_entry->logic_idx = MVPP2_C3_INVALID_ENTRY_NUM;
 	} else {
@@ -262,20 +216,21 @@ int pp2_cls_db_c3_entry_del(int logic_idx)
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_hash_idx_get()
-*
-* DESCRIPTION: Get C3 multihash index by logical index.
-*
-* INPUTS:
-*	logic_idx - logical index
-*
-* OUTPUTS:
-*	hash_idx  - multihash index
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_hash_idx_get(u32 logic_idx, u32 *hash_idx)
+ * pp2_cls_db_c3_hash_idx_get()
+ *
+ * DESCRIPTION: Get C3 multihash index by logical index.
+ *
+ * INPUTS:
+ *	inst   - packet processor instance
+ *	logic_idx - logical index
+ *
+ * OUTPUTS:
+ *	hash_idx  - multihash index
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_hash_idx_get(struct pp2_inst *inst, u32 logic_idx, u32 *hash_idx)
 {
 	struct pp2_cls_c3_hash_index_entry_t *p_hash_entry = NULL;
 
@@ -286,7 +241,7 @@ int pp2_cls_db_c3_hash_idx_get(u32 logic_idx, u32 *hash_idx)
 		return -EINVAL;
 
 	/* get hash index entry */
-	p_hash_entry = &g_pp2_cls_db->c3_db.hash_idx_tbl[logic_idx];
+	p_hash_entry = &inst->cls_db->c3_db.hash_idx_tbl[logic_idx];
 	if (p_hash_entry->valid == MVPP2_C3_ENTRY_VALID) {
 		*hash_idx = p_hash_entry->hash_idx;
 		return 0;
@@ -297,20 +252,21 @@ int pp2_cls_db_c3_hash_idx_get(u32 logic_idx, u32 *hash_idx)
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_logic_idx_get()
-*
-* DESCRIPTION: Get the multihash index.
-*
-* INPUTS:
-*	hash_idx  - multihash index
-*
-* OUTPUTS:
-*	logic_idx - logical index
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_logic_idx_get(int hash_idx, int *logic_idx)
+ * pp2_cls_db_c3_logic_idx_get()
+ *
+ * DESCRIPTION: Get the multihash index.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	hash_idx  - multihash index
+ *
+ * OUTPUTS:
+ *	logic_idx - logical index
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_logic_idx_get(struct pp2_inst *inst, int hash_idx, int *logic_idx)
 {
 	struct pp2_cls_c3_logic_index_entry_t *p_logic_entry = NULL;
 
@@ -321,7 +277,7 @@ int pp2_cls_db_c3_logic_idx_get(int hash_idx, int *logic_idx)
 		return -EINVAL;
 
 	/* get hash index entry */
-	p_logic_entry = &g_pp2_cls_db->c3_db.logic_idx_tbl[hash_idx];
+	p_logic_entry = &inst->cls_db->c3_db.logic_idx_tbl[hash_idx];
 	if (p_logic_entry->valid == MVPP2_C3_ENTRY_VALID) {
 		*logic_idx = p_logic_entry->logic_idx;
 		return 0;
@@ -333,20 +289,21 @@ int pp2_cls_db_c3_logic_idx_get(int hash_idx, int *logic_idx)
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_hash_idx_update()
-*
-* DESCRIPTION: Update the multihash index.
-*
-* INPUTS:
-*	hash_pair_arr  - multihash modification array
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr)
+ * pp2_cls_db_c3_hash_idx_update()
+ *
+ * DESCRIPTION: Update the multihash index.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	hash_pair_arr  - multihash modification array
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_hash_idx_update(struct pp2_inst *inst, struct pp2_cls_c3_hash_pair *hash_pair_arr)
 {
 	int idx;
 	u32 old_idx;
@@ -369,7 +326,7 @@ int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr)
 		if (mv_pp2x_range_validate(new_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
 			return -EINVAL;
 
-		p_logic_entry = &g_pp2_cls_db->c3_db.logic_idx_tbl[old_idx];
+		p_logic_entry = &inst->cls_db->c3_db.logic_idx_tbl[old_idx];
 		if (p_logic_entry->valid == MVPP2_C3_ENTRY_INVALID) {
 			pr_err("hash entry is invalid w/ index(%d)\n", old_idx);
 			return MV_ERROR;
@@ -383,12 +340,12 @@ int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr)
 		/* update logical index table */
 		p_logic_entry->valid = MVPP2_C3_ENTRY_INVALID;
 		p_logic_entry->logic_idx = MVPP2_C3_INVALID_ENTRY_NUM;
-		p_logic_entry = &g_pp2_cls_db->c3_db.logic_idx_tbl[new_idx];
+		p_logic_entry = &inst->cls_db->c3_db.logic_idx_tbl[new_idx];
 		p_logic_entry->valid = MVPP2_C3_ENTRY_VALID;
 		p_logic_entry->logic_idx = logic_idx;
 
 		/* update hash index table */
-		p_hash_entry = &g_pp2_cls_db->c3_db.hash_idx_tbl[logic_idx];
+		p_hash_entry = &inst->cls_db->c3_db.hash_idx_tbl[logic_idx];
 		p_hash_entry->valid = MVPP2_C3_ENTRY_VALID;
 		p_hash_entry->hash_idx = new_idx;
 	}
@@ -397,191 +354,192 @@ int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr)
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_scan_param_set()
-*
-* DESCRIPTION: set scan parameters.
-*
-* INPUTS:
-*	scan_config  - scan configuration parameters
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_scan_param_set(struct pp2_cls_c3_scan_config_t *scan_config)
+ * pp2_cls_db_c3_scan_param_set()
+ *
+ * DESCRIPTION: set scan parameters.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	scan_config  - scan configuration parameters
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_scan_param_set(struct pp2_inst *inst, struct pp2_cls_c3_scan_config_t *scan_config)
 {
 	struct pp2_cls_c3_scan_config_t *p_scan_config = NULL;
 
 	if (mv_pp2x_ptr_validate(scan_config))
 		return -EINVAL;
 
-	p_scan_config = &g_pp2_cls_db->c3_db.scan_config;
+	p_scan_config = &inst->cls_db->c3_db.scan_config;
 	memcpy(p_scan_config, scan_config, sizeof(struct pp2_cls_c3_scan_config_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_scan_param_get()
-*
-* DESCRIPTION: get scan parameters.
-*
-* INPUTS:
-*	Nones
-*
-* OUTPUTS:
-*	can_config  - scan configuration parameters
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_scan_param_get(struct pp2_cls_c3_scan_config_t *scan_config)
+ * pp2_cls_db_c3_scan_param_get()
+ *
+ * DESCRIPTION: get scan parameters.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS:
+ *	can_config  - scan configuration parameters
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_scan_param_get(struct pp2_inst *inst, struct pp2_cls_c3_scan_config_t *scan_config)
 {
 	struct pp2_cls_c3_scan_config_t *p_scan_config = NULL;
 
 	if (mv_pp2x_ptr_validate(scan_config))
 		return -EINVAL;
 
-	p_scan_config = &g_pp2_cls_db->c3_db.scan_config;
+	p_scan_config = &inst->cls_db->c3_db.scan_config;
 	memcpy(scan_config, p_scan_config, sizeof(struct pp2_cls_c3_scan_config_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_search_depth_set()
-*
-* DESCRIPTION: set cuckoo search depth.
-*
-* INPUTS:
-*	search_depth  - cuckoo search depth
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_search_depth_set(u32 search_depth)
+ * pp2_cls_db_c3_search_depth_set()
+ *
+ * DESCRIPTION: set cuckoo search depth.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	search_depth  - cuckoo search depth
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_search_depth_set(struct pp2_inst *inst, u32 search_depth)
 {
-	g_pp2_cls_db->c3_db.max_search_depth = search_depth;
+	inst->cls_db->c3_db.max_search_depth = search_depth;
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_search_depth_get()
-*
-* DESCRIPTION: get cuckoo search depth.
-*
-* INPUTS:
-*	None
-*
-* OUTPUTS:
-*	search_depth  - cuckoo search depth
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_search_depth_get(u32 *search_depth)
+ * pp2_cls_db_c3_search_depth_get()
+ *
+ * DESCRIPTION: get cuckoo search depth.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS:
+ *	search_depth  - cuckoo search depth
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_search_depth_get(struct pp2_inst *inst, u32 *search_depth)
 {
 	if (mv_pp2x_ptr_validate(search_depth))
 		return -EINVAL;
 
-	*search_depth = g_pp2_cls_db->c3_db.max_search_depth;
+	*search_depth = inst->cls_db->c3_db.max_search_depth;
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c3_init()
-*
-* DESCRIPTION: Perform DB Initialization for C3 engine.
-*
-* INPUTS:
-*	None.
-*
-* OUTPUTS:
-*	None.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c3_init(void)
+ * pp2_cls_db_c3_init()
+ *
+ * DESCRIPTION: Perform DB Initialization for C3 engine.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS:
+ *	None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c3_init(struct pp2_inst *inst)
 {
 	int idx;
 
-	if (!g_pp2_cls_db)
+	if (!inst->cls_db)
 		return -EINVAL;
 
 	/* Clear C3 db */
-	memset(&g_pp2_cls_db->c3_db, 0, sizeof(struct pp2_cls_db_c3_t));
+	memset(&inst->cls_db->c3_db, 0, sizeof(struct pp2_cls_db_c3_t));
 
 	/* Init C3 multihash index table and logical index table */
 	for (idx = 0; idx < MVPP2_CLS_C3_HASH_TBL_SIZE; idx++) {
-		g_pp2_cls_db->c3_db.hash_idx_tbl[idx].valid = MVPP2_C3_ENTRY_INVALID;
-		g_pp2_cls_db->c3_db.logic_idx_tbl[idx].valid = MVPP2_C3_ENTRY_INVALID;
+		inst->cls_db->c3_db.hash_idx_tbl[idx].valid = MVPP2_C3_ENTRY_INVALID;
+		inst->cls_db->c3_db.logic_idx_tbl[idx].valid = MVPP2_C3_ENTRY_INVALID;
 	}
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_init()
-*
-* DESCRIPTION: Perform DB Initialization.
-*
-* INPUTS:
-*	None.
-*
-* OUTPUTS:
-*	None.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_init(void)
+ * pp2_cls_db_init()
+ *
+ * DESCRIPTION: Perform DB Initialization.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS:
+ *	None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_init(struct pp2_inst *inst)
 {
 	int ret_code;
 
+	/* Each database can be initialized only once */
+	if (inst->cls_db) {
+		pr_err("Classifier database alraedy initialized.");
+		return -EINVAL;
+	}
+
 	/* Allocation for pp2_cls db */
-	ret_code = pp2_cls_db_mem_alloc_init();
+	ret_code = pp2_cls_db_mem_alloc_init(inst);
 
 	if (ret_code != 0) {
 		pr_err("Failed to allocate memory for PP2_CLS DB\n");
 		return -ENOMEM;
 	}
 
-	/* Set PP2_CLS module state */
-	ret_code = pp2_cls_db_module_state_set(MVPP2_MODULE_NOT_START);
-	if (ret_code != 0) {
-		pr_err("Failed to set PP2_CLS module stat\n");
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_exit()
-*
-* DESCRIPTION: Perform DB memory free when exit.
-*
-* INPUTS:
-*	None.
-*
-* OUTPUTS:
-*	None.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_exit(void)
+ * pp2_cls_db_exit()
+ *
+ * DESCRIPTION: Perform DB memory free when exit.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS:
+ *	None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_exit(struct pp2_inst *inst)
 {
 	int ret_code;
 
-	ret_code = pp2_cls_db_mem_free();
+	ret_code = pp2_cls_db_mem_free(inst);
 	if (ret_code != 0) {
 		pr_err("Failed to free memory allocated for PP2_CLS DB\n");
 		return -ENOMEM;
@@ -591,73 +549,75 @@ int pp2_cls_db_exit(void)
 }
 
 /*******************************************************************************
-* pp2_db_cls_fl_ctrl_set
-*
-* DESCRIPTION: The routine sets the CLS control structure
-*
-* INPUTS:
-*	fl_ctrl - flow control structure
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
+ * pp2_db_cls_fl_ctrl_set
+ *
+ * DESCRIPTION: The routine sets the CLS control structure
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	fl_ctrl - flow control structure
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_fl_ctrl_set(struct pp2_inst *inst, struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 {
 	if (!fl_ctrl) {
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
-	 memcpy(&g_pp2_cls_db->cls_db.fl_ctrl, fl_ctrl, sizeof(struct pp2_db_cls_fl_ctrl_t));
+	 memcpy(&inst->cls_db->cls_db.fl_ctrl, fl_ctrl, sizeof(struct pp2_db_cls_fl_ctrl_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_fl_ctrl_get
-*
-* DESCRIPTION: The routine gets the CLS control structure
-*
-* INPUTS:
-*	None
-*
-* OUTPUTS:
-*	fl_ctrl - flow control structure
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
+ * pp2_db_cls_fl_ctrl_get
+ *
+ * DESCRIPTION: The routine gets the CLS control structure
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS:
+ *	fl_ctrl - flow control structure
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_fl_ctrl_get(struct pp2_inst *inst, struct pp2_db_cls_fl_ctrl_t *fl_ctrl)
 {
 	if (!fl_ctrl) {
 		pr_err("%s: null pointer\n", __func__);
 		return -EFAULT;
 	}
 
-	 memcpy(fl_ctrl, &g_pp2_cls_db->cls_db.fl_ctrl, sizeof(struct pp2_db_cls_fl_ctrl_t));
+	 memcpy(fl_ctrl, &inst->cls_db->cls_db.fl_ctrl, sizeof(struct pp2_db_cls_fl_ctrl_t));
 
 	 return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_fl_rule_set
-*
-* DESCRIPTION: The routine sets a single rule in a rule flow
-*
-* INPUTS:
-*	off - the rule offset
-*	fl_rule - the flow the rule is in
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_fl_rule_set(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
+ * pp2_db_cls_fl_rule_set
+ *
+ * DESCRIPTION: The routine sets a single rule in a rule flow
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	off - the rule offset
+ *	fl_rule - the flow the rule is in
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_fl_rule_set(struct pp2_inst *inst, u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 {
 	if (!fl_rule) {
 		pr_err("%s: null pointer\n", __func__);
@@ -668,26 +628,27 @@ int pp2_db_cls_fl_rule_set(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
-	memcpy(&g_pp2_cls_db->cls_db.fl_rule[off], fl_rule, sizeof(struct pp2_db_cls_fl_rule_t));
+	memcpy(&inst->cls_db->cls_db.fl_rule[off], fl_rule, sizeof(struct pp2_db_cls_fl_rule_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_fl_rule_get
-*
-* DESCRIPTION: The routine gets a single rule in a rule flow
-*
-* INPUTS:
-*	off - the rule offset
-*
-* OUTPUTS:
-*	fl_rule - the flow the rule is in
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_fl_rule_get(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
+ * pp2_db_cls_fl_rule_get
+ *
+ * DESCRIPTION: The routine gets a single rule in a rule flow
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	off - the rule offset
+ *
+ * OUTPUTS:
+ *	fl_rule - the flow the rule is in
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_fl_rule_get(struct pp2_inst *inst, u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 {
 	if (!fl_rule) {
 		pr_err("%s: null pointer\n", __func__);
@@ -698,27 +659,28 @@ int pp2_db_cls_fl_rule_get(u32 off, struct pp2_db_cls_fl_rule_t *fl_rule)
 		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
-	memcpy(fl_rule, &g_pp2_cls_db->cls_db.fl_rule[off], sizeof(struct pp2_db_cls_fl_rule_t));
+	memcpy(fl_rule, &inst->cls_db->cls_db.fl_rule[off], sizeof(struct pp2_db_cls_fl_rule_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_fl_rule_list_get
-*
-* DESCRIPTION: The routine gets a whole rule flow
-*
-* INPUTS:
-*	off - the first rule offset
-*	len - the flow length
-*
-* OUTPUTS:
-*	fl_rl_list - the flow the rules are in
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
+ * pp2_db_cls_fl_rule_list_get
+ *
+ * DESCRIPTION: The routine gets a whole rule flow
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	off - the first rule offset
+ *	len - the flow length
+ *
+ * OUTPUTS:
+ *	fl_rl_list - the flow the rules are in
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_fl_rule_list_get(struct pp2_inst *inst, u32 off, u32 len,
 				struct pp2_db_cls_fl_rule_t *fl_rl_list)
 {
 	if (!fl_rl_list) {
@@ -732,28 +694,29 @@ int pp2_db_cls_fl_rule_list_get(u32 off, u32 len,
 		return -EINVAL;
 	}
 
-	memcpy(fl_rl_list, &g_pp2_cls_db->cls_db.fl_rule[off],
+	memcpy(fl_rl_list, &inst->cls_db->cls_db.fl_rule[off],
 	       sizeof(struct pp2_db_cls_fl_rule_t) * len);
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_lkp_dcod_set
-*
-* DESCRIPTION: The routine sets a lookup decode entry
-*
-* INPUTS:
-*	fl_log_id - index of the entry (logical flow ID)
-*	lkp_dcod - the lookup decode entry structure
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_lkp_dcod_set(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
+ * pp2_db_cls_lkp_dcod_set
+ *
+ * DESCRIPTION: The routine sets a lookup decode entry
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	fl_log_id - index of the entry (logical flow ID)
+ *	lkp_dcod - the lookup decode entry structure
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_lkp_dcod_set(struct pp2_inst *inst, u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
 	if (!lkp_dcod) {
 		pr_err("%s: null pointer.\n", __func__);
@@ -765,26 +728,27 @@ int pp2_db_cls_lkp_dcod_set(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dco
 		return -EINVAL;
 	}
 
-	memcpy(&g_pp2_cls_db->cls_db.lkp_dcod[fl_log_id], lkp_dcod, sizeof(struct pp2_db_cls_lkp_dcod_t));
+	memcpy(&inst->cls_db->cls_db.lkp_dcod[fl_log_id], lkp_dcod, sizeof(struct pp2_db_cls_lkp_dcod_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_lkp_dcod_get
-*
-* DESCRIPTION: The routine gets a lookup decode entry
-*
-* INPUTS:
-*	fl_log_id - index of the entry (logical flow ID)
-*
-* OUTPUTS:
-*	lkp_dcod - the lookup decode entry structure
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_lkp_dcod_get(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
+ * pp2_db_cls_lkp_dcod_get
+ *
+ * DESCRIPTION: The routine gets a lookup decode entry
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	fl_log_id - index of the entry (logical flow ID)
+ *
+ * OUTPUTS:
+ *	lkp_dcod - the lookup decode entry structure
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_lkp_dcod_get(struct pp2_inst *inst, u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
 	if (!lkp_dcod) {
 		pr_err("%s: null pointer\n", __func__);
@@ -795,26 +759,27 @@ int pp2_db_cls_lkp_dcod_get(u32 fl_log_id, struct pp2_db_cls_lkp_dcod_t *lkp_dco
 		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
-	memcpy(lkp_dcod, &g_pp2_cls_db->cls_db.lkp_dcod[fl_log_id], sizeof(struct pp2_db_cls_lkp_dcod_t));
+	memcpy(lkp_dcod, &inst->cls_db->cls_db.lkp_dcod[fl_log_id], sizeof(struct pp2_db_cls_lkp_dcod_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_rl_off_lkp_dcod_get
-*
-* DESCRIPTION: The routine returns the lookup decode entry for a flow rule
-*
-* INPUTS:
-*	rl_off - flow rule offset to search
-*
-* OUTPUTS:
-*	lkp_dcod - the lookup decode entry structure
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
+ * pp2_db_cls_rl_off_lkp_dcod_get
+ *
+ * DESCRIPTION: The routine returns the lookup decode entry for a flow rule
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	rl_off - flow rule offset to search
+ *
+ * OUTPUTS:
+ *	lkp_dcod - the lookup decode entry structure
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_rl_off_lkp_dcod_get(struct pp2_inst *inst, u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp_dcod)
 {
 	u32 i;
 	struct pp2_db_cls_lkp_dcod_t *p_lkp_dcod;
@@ -830,7 +795,7 @@ int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp
 	}
 
 	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
-		p_lkp_dcod = &g_pp2_cls_db->cls_db.lkp_dcod[i];
+		p_lkp_dcod = &inst->cls_db->cls_db.lkp_dcod[i];
 		if (p_lkp_dcod->flow_off <= rl_off && p_lkp_dcod->flow_off + p_lkp_dcod->flow_len  >= rl_off)
 			break;
 	}
@@ -840,52 +805,53 @@ int pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t *lkp
 		return -EINVAL;
 	}
 
-	memcpy(lkp_dcod, &g_pp2_cls_db->cls_db.lkp_dcod[i], sizeof(struct pp2_db_cls_lkp_dcod_t));
+	memcpy(lkp_dcod, &inst->cls_db->cls_db.lkp_dcod[i], sizeof(struct pp2_db_cls_lkp_dcod_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_rl_off_free_nr
-*
-* DESCRIPTION: The routine returns the number of free logical rule entries
-*
-* INPUTS:
-*	None
-*
-* OUTPUTS:
-*	free_nr - number of free logical rule entries
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_rl_off_free_nr(u32 *free_nr)
+ * pp2_db_cls_rl_off_free_nr
+ *
+ * DESCRIPTION: The routine returns the number of free logical rule entries
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS:
+ *	free_nr - number of free logical rule entries
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_rl_off_free_nr(struct pp2_inst *inst, u32 *free_nr)
 {
 	if (!free_nr) {
 		pr_err("%s: null pointer.\n", __func__);
 		return -EFAULT;
 	}
 
-	*free_nr = ((MVPP2_CLS_LOG2OFF_TBL_SIZE) - g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]);
+	*free_nr = ((MVPP2_CLS_LOG2OFF_TBL_SIZE) - inst->cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]);
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_rl_off_free_set
-*
-* DESCRIPTION: The routine allocates a new logical rule number and assignes it with offset
-*
-* INPUTS:
-*	off - the offset the rule is at
-*
-* OUTPUTS:
-*	log - the new logical rule number
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_rl_off_free_set(u16 off, u16 *log)
+ * pp2_db_cls_rl_off_free_set
+ *
+ * DESCRIPTION: The routine allocates a new logical rule number and assignes it with offset
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	off - the offset the rule is at
+ *
+ * OUTPUTS:
+ *	log - the new logical rule number
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_rl_off_free_set(struct pp2_inst *inst, u16 off, u16 *log)
 {
 	if (!log) {
 		pr_err("%s: null pointer\n", __func__);
@@ -897,33 +863,34 @@ int pp2_db_cls_rl_off_free_set(u16 off, u16 *log)
 		return -EINVAL;
 	}
 
-	if ((MVPP2_CLS_LOG2OFF_TBL_SIZE - g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]) == 0)
+	if ((MVPP2_CLS_LOG2OFF_TBL_SIZE - inst->cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]) == 0)
 		return -EINVAL;
 
-	*log = g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF];
+	*log = inst->cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF];
 
-	g_pp2_cls_db->cls_db.log2off[*log] = off;
+	inst->cls_db->cls_db.log2off[*log] = off;
 
-	g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]++;
+	inst->cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF]++;
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_rl_off_get
-*
-* DESCRIPTION: The routine returns the offset of a rule according to logical rule number
-*
-* INPUTS:
-*	log - the new logical rule number
-*
-* OUTPUTS:
-*	off - the offset the rule is at
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_rl_off_get(u16 *off, u16 log)
+ * pp2_db_cls_rl_off_get
+ *
+ * DESCRIPTION: The routine returns the offset of a rule according to logical rule number
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	log - the new logical rule number
+ *
+ * OUTPUTS:
+ *	off - the offset the rule is at
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_rl_off_get(struct pp2_inst *inst, u16 *off, u16 log)
 {
 	if (!off) {
 		pr_err("%s: null pointer\n", __func__);
@@ -935,142 +902,147 @@ int pp2_db_cls_rl_off_get(u16 *off, u16 log)
 		return -EFAULT;
 	}
 
-	if (g_pp2_cls_db->cls_db.log2off[log] == MVPP2_CLS_FREE_FL_LOG)
+	if (inst->cls_db->cls_db.log2off[log] == MVPP2_CLS_FREE_FL_LOG)
 		return -EINVAL;
 
-	*off = g_pp2_cls_db->cls_db.log2off[log];
+	*off = inst->cls_db->cls_db.log2off[log];
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_rl_off_set
-*
-* DESCRIPTION: The routine updates a logical rule with a new offset
-*
-* INPUTS:
-*	off - the new offset the rule is at
-*	log - the logical rule number
-*
-* OUTPUTS:
-*	None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_db_cls_rl_off_set(u16 off, u16 log)
+ * pp2_db_cls_rl_off_set
+ *
+ * DESCRIPTION: The routine updates a logical rule with a new offset
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *	off - the new offset the rule is at
+ *	log - the logical rule number
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_db_cls_rl_off_set(struct pp2_inst *inst, u16 off, u16 log)
 {
 	if (log > MVPP2_CLS_LOG2OFF_TBL_SIZE) {
 		pr_err("Invalid parameter\n");
 		return -EINVAL;
 	}
-	g_pp2_cls_db->cls_db.log2off[log] = off;
+	inst->cls_db->cls_db.log2off[log] = off;
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_db_cls_init
-*
-* DESCRIPTION: The routine initializes the CLS DBs
-*
-*******************************************************************************/
-void pp2_db_cls_init(void)
+ * pp2_db_cls_init
+ *
+ * DESCRIPTION: The routine initializes the CLS DBs
+ *
+ ******************************************************************************/
+void pp2_db_cls_init(struct pp2_inst *inst)
 {
 	int i;
 
 	/* set the CLS control to default values */
-	memset(&g_pp2_cls_db->cls_db, 0, sizeof(g_pp2_cls_db->cls_db));
+	memset(&inst->cls_db->cls_db, 0, sizeof(inst->cls_db->cls_db));
 
 	/* f_start = 1 for kernel alignment */
-	g_pp2_cls_db->cls_db.fl_ctrl.f_start = 1;
-	g_pp2_cls_db->cls_db.fl_ctrl.f_end = MVPP2_FLOW_TBL_SIZE - 1;
+	inst->cls_db->cls_db.fl_ctrl.f_start = 1;
+	inst->cls_db->cls_db.fl_ctrl.f_end = MVPP2_FLOW_TBL_SIZE - 1;
 
 	for (i = MVPP2_CLS_LOG2OFF_START; i < MVPP2_CLS_LOG2OFF_TBL_SIZE; i++)
-		g_pp2_cls_db->cls_db.log2off[i] = MVPP2_CLS_FREE_FL_LOG;
+		inst->cls_db->cls_db.log2off[i] = MVPP2_CLS_FREE_FL_LOG;
 
-	g_pp2_cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF] = MVPP2_CLS_LOG2OFF_START;
+	inst->cls_db->cls_db.log2off[MVPP2_CLS_FREE_LOG2OFF] = MVPP2_CLS_LOG2OFF_START;
 }
 
-
 /*******************************************************************************
-* pp2_cls_db_c2_lkp_type_list_head_get()
-*
-* DESCRIPTION: Get the head of the lookup type list.
-*
-* INPUTS:
-*          lkp_type  - C2 lookup type
-*
-* OUTPUTS: None.
-*
-* RETURNS:
-*          The head pointer of list.
-*
-*******************************************************************************/
-struct list *pp2_cls_db_c2_lkp_type_list_head_get(u8 lkp_type)
+ * pp2_cls_db_c2_lkp_type_list_head_get()
+ *
+ * DESCRIPTION: Get the head of the lookup type list.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *          lkp_type  - C2 lookup type
+ *
+ * OUTPUTS: None.
+ *
+ * RETURNS:
+ *          The head pointer of list.
+ *
+ ******************************************************************************/
+struct list *pp2_cls_db_c2_lkp_type_list_head_get(struct pp2_inst *inst,
+						  u8 lkp_type)
 {
-	return &g_pp2_cls_db->c2_db.c2_lu_type_head_db[lkp_type];
+	return &inst->cls_db->c2_db.c2_lu_type_head_db[lkp_type];
 }
 
 /*******************************************************************************
-* pp2_cls_db_c2_free_list_head_get()
-*
-* DESCRIPTION: Get the head of free list.
-*
-* INPUTS:
-*          None.
-*
-* OUTPUTS: None.
-*
-* RETURNS:
-*          The head pointer of list.
-*
-*******************************************************************************/
-struct list *pp2_cls_db_c2_free_list_head_get(void)
+ * pp2_cls_db_c2_free_list_head_get()
+ *
+ * DESCRIPTION: Get the head of free list.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS: None.
+ *
+ * RETURNS:
+ *          The head pointer of list.
+ *
+ ******************************************************************************/
+struct list *pp2_cls_db_c2_free_list_head_get(struct pp2_inst *inst)
 {
-	return &g_pp2_cls_db->c2_db.c2_free_head_db;
+	return &inst->cls_db->c2_db.c2_free_head_db;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c2_index_node_get()
-*
-* DESCRIPTION: Get the index node in the list according to their db index.
-*
-* INPUTS:
-*          c2_node_idx  - the db index of C2 index node.
-*
-* OUTPUTS: None.
-*
-* RETURNS:
-*          The node pointer.
-*
-*******************************************************************************/
-struct pp2_cls_c2_index_t *pp2_cls_db_c2_index_node_get(u32 c2_node_idx)
+ * pp2_cls_db_c2_index_node_get()
+ *
+ * DESCRIPTION: Get the index node in the list according to their db index.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *          c2_node_idx  - the db index of C2 index node.
+ *
+ * OUTPUTS: None.
+ *
+ * RETURNS:
+ *          The node pointer.
+ *
+ ******************************************************************************/
+struct pp2_cls_c2_index_t *pp2_cls_db_c2_index_node_get(struct pp2_inst *inst,
+							u32 c2_node_idx)
 {
 	/* Para check */
 	if (c2_node_idx >= MVPP2_C2_ENTRY_MAX) {
 		pr_err("Invalid parameter\n");
 		return NULL;
 	}
-	return &g_pp2_cls_db->c2_db.c2_index_db[c2_node_idx];
+	return &inst->cls_db->c2_db.c2_index_db[c2_node_idx];
 }
 
 /*******************************************************************************
-* pp2_cls_db_c2_index_node_set()
-*
-* DESCRIPTION: Set the index node in the list according to their db index.
-*
-* INPUTS:
-*          c2_node_idx   - the db index of C2 index node.
-*          c2_index_node - the new value of the node to set.
-*
-* OUTPUTS: None.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c2_index_node_set(u32 c2_node_idx,
-			     struct pp2_cls_c2_index_t *c2_index_node)
+ * pp2_cls_db_c2_index_node_set()
+ *
+ * DESCRIPTION: Set the index node in the list according to their db index.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *          c2_node_idx   - the db index of C2 index node.
+ *          c2_index_node - the new value of the node to set.
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c2_index_node_set(struct pp2_inst *inst, u32 c2_node_idx,
+				 struct pp2_cls_c2_index_t *c2_index_node)
 {
 	/* Param check */
 	if (c2_node_idx >= MVPP2_C2_ENTRY_MAX) {
@@ -1083,27 +1055,28 @@ int pp2_cls_db_c2_index_node_set(u32 c2_node_idx,
 		return -EFAULT;
 	}
 
-	memcpy(&g_pp2_cls_db->c2_db.c2_index_db[c2_node_idx], c2_index_node, sizeof(struct pp2_cls_c2_index_t));
+	memcpy(&inst->cls_db->c2_db.c2_index_db[c2_node_idx], c2_index_node, sizeof(struct pp2_cls_c2_index_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c2_data_get()
-*
-* DESCRIPTION: Get the C2 entry data from DB according to their db index.
-*
-* INPUTS:
-*          c2_node_idx   - the db index of C2 entry data.
-*
-* OUTPUTS:
-*          c2_data       - C2 entry data.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c2_data_get(u32 c2_db_idx,
-		       struct pp2_cls_c2_data_t *c2_data)
+ * pp2_cls_db_c2_data_get()
+ *
+ * DESCRIPTION: Get the C2 entry data from DB according to their db index.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *          c2_node_idx   - the db index of C2 entry data.
+ *
+ * OUTPUTS:
+ *          c2_data       - C2 entry data.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c2_data_get(struct pp2_inst *inst, u32 c2_db_idx,
+			   struct pp2_cls_c2_data_t *c2_data)
 {
 	/* Param check */
 	if (c2_db_idx > MVPP2_C2_LAST_ENTRY) {
@@ -1116,28 +1089,29 @@ int pp2_cls_db_c2_data_get(u32 c2_db_idx,
 		return -EFAULT;
 	}
 
-	memcpy(c2_data, &g_pp2_cls_db->c2_db.c2_data_db[c2_db_idx], sizeof(struct pp2_cls_c2_data_t));
+	memcpy(c2_data, &inst->cls_db->c2_db.c2_data_db[c2_db_idx], sizeof(struct pp2_cls_c2_data_t));
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_db_c2_data_set()
-*
-* DESCRIPTION: Set the C2 entry data to DB according to their allocated db index.
-*
-* INPUTS:
-*          c2_node_idx   - the db index of C2 entry data.
-*          c2_data       - C2 entry data.
-*
-* OUTPUTS:
-*          None.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c2_data_set(u32 c2_db_idx,
-		       struct pp2_cls_c2_data_t *c2_data)
+ * pp2_cls_db_c2_data_set()
+ *
+ * DESCRIPTION: Set the C2 entry data to DB according to their allocated db index.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *          c2_node_idx   - the db index of C2 entry data.
+ *          c2_data       - C2 entry data.
+ *
+ * OUTPUTS:
+ *          None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c2_data_set(struct pp2_inst *inst, u32 c2_db_idx,
+			   struct pp2_cls_c2_data_t *c2_data)
 {
 	/* Param check */
 	if (c2_db_idx > MVPP2_C2_LAST_ENTRY) {
@@ -1150,53 +1124,52 @@ int pp2_cls_db_c2_data_set(u32 c2_db_idx,
 		return -EFAULT;
 	}
 
-	memcpy(&g_pp2_cls_db->c2_db.c2_data_db[c2_db_idx], c2_data, sizeof(struct pp2_cls_c2_data_t));
+	memcpy(&inst->cls_db->c2_db.c2_data_db[c2_db_idx], c2_data, sizeof(struct pp2_cls_c2_data_t));
 
 	return 0;
 }
 
-
 /*******************************************************************************
-* pp2_cls_db_c2_init()
-*
-* DESCRIPTION: Perform DB Initialization for C2 section.
-*
-* INPUTS: None.
-*
-* OUTPUTS: None.
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_db_c2_init(void)
+ * pp2_cls_db_c2_init()
+ *
+ * DESCRIPTION: Perform DB Initialization for C2 section.
+ *
+ * INPUTS:
+ *	inst      - packet processor instance
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_db_c2_init(struct pp2_inst *inst)
 {
 	int i;
 
 	/* Clear C2 db */
-	memset(&g_pp2_cls_db->c2_db, 0, sizeof(struct pp2_cls_db_c2_t));
+	memset(&inst->cls_db->c2_db, 0, sizeof(struct pp2_cls_db_c2_t));
 
 	/* Init c2_hw_idx to C2 corresponding c2 hw index in c2 data db and index db */
 	for (i = 0; i < MVPP2_C2_ENTRY_MAX - MVPP2_C2_FIRST_ENTRY; i++) {
-		g_pp2_cls_db->c2_db.c2_data_db[i].valid = MVPP2_C2_ENTRY_INVALID;
-		g_pp2_cls_db->c2_db.c2_index_db[i].valid = MVPP2_C2_ENTRY_INVALID;
-		g_pp2_cls_db->c2_db.c2_index_db[i].c2_hw_idx = i + MVPP2_C2_FIRST_ENTRY;
+		inst->cls_db->c2_db.c2_data_db[i].valid = MVPP2_C2_ENTRY_INVALID;
+		inst->cls_db->c2_db.c2_index_db[i].valid = MVPP2_C2_ENTRY_INVALID;
+		inst->cls_db->c2_db.c2_index_db[i].c2_hw_idx = i + MVPP2_C2_FIRST_ENTRY;
 	}
 
 	/* Init C2 list head */
-	INIT_LIST(&g_pp2_cls_db->c2_db.c2_free_head_db);
+	INIT_LIST(&inst->cls_db->c2_db.c2_free_head_db);
 	for (i = 0; i < MVPP2_C2_LKP_TYPE_MAX; i++)
-		INIT_LIST(&g_pp2_cls_db->c2_db.c2_lu_type_head_db[i]);
+		INIT_LIST(&inst->cls_db->c2_db.c2_lu_type_head_db[i]);
 
 	/* Init free list, last entry is used for default entry, always not available */
 	for (i = MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY - 1; i >= 0; i--) {
-		list_add(&g_pp2_cls_db->c2_db.c2_index_db[i].list_node, &g_pp2_cls_db->c2_db.c2_free_head_db);
+		list_add(&inst->cls_db->c2_db.c2_index_db[i].list_node, &inst->cls_db->c2_db.c2_free_head_db);
 		/* Change index node valid status after adding to free list */
-		g_pp2_cls_db->c2_db.c2_index_db[i].valid = MVPP2_C2_ENTRY_VALID;
+		inst->cls_db->c2_db.c2_index_db[i].valid = MVPP2_C2_ENTRY_VALID;
 	}
 	/* Reserve the last one for default miss entry */
-	g_pp2_cls_db->c2_db.c2_index_db[MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY].valid = MVPP2_C2_ENTRY_VALID;
-	g_pp2_cls_db->c2_db.c2_data_db[MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY].valid = MVPP2_C2_ENTRY_VALID;
+	inst->cls_db->c2_db.c2_index_db[MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY].valid = MVPP2_C2_ENTRY_VALID;
+	inst->cls_db->c2_db.c2_data_db[MVPP2_C2_LAST_ENTRY - MVPP2_C2_FIRST_ENTRY].valid = MVPP2_C2_ENTRY_VALID;
 
 	return 0;
 }
-

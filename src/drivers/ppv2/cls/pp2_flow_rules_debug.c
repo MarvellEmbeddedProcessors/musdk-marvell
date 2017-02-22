@@ -49,19 +49,19 @@ static struct pp2_cls_lkp_dcod_entry_t g_lkp_dcod_entry;
 static struct pp2_cls_fl_rule_list_t g_fl_rls;
 
 /*******************************************************************************
-* pp2_cli_cls_lkp_dcod_entry_set
-*
-* DESCRIPTION: The routine sets the lookup ID structure in the global lookup decode table
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_lkp_dcod_entry_set
+ *
+ * DESCRIPTION: The routine sets the lookup ID structure in the global lookup decode table
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_lkp_dcod_entry_set(void *arg, int argc, char *argv[])
 {
 	int flow_log_id;
@@ -106,19 +106,19 @@ int pp2_cli_cls_lkp_dcod_entry_set(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_lkp_dcod_luid_set
-*
-* DESCRIPTION: The routine sets the lookup ID information in the global lookup decode table
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_lkp_dcod_luid_set
+ *
+ * DESCRIPTION: The routine sets the lookup ID information in the global lookup decode table
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_lkp_dcod_luid_set(void *arg, int argc, char *argv[])
 {
 	int luid[MVPP2_CLS_LOG_FLOW_LUID_MAX], i, num_of_luid;
@@ -156,22 +156,24 @@ int pp2_cli_cls_lkp_dcod_luid_set(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_lkp_dcod_add
-*
-* DESCRIPTION: The routine add the entry in the global lookup decode table
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_lkp_dcod_add
+ *
+ * DESCRIPTION: The routine add the entry in the global lookup decode table
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ *******************************************************************************/
 int pp2_cli_cls_lkp_dcod_add(void *arg, int argc, char *argv[])
 {
-	if (pp2_cls_lkp_dcod_set(&g_lkp_dcod_entry))
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+
+	if (pp2_cls_lkp_dcod_set(inst, &g_lkp_dcod_entry))
 		printf("%s fail\n", __func__);
 	else
 		printf("success\n");
@@ -180,22 +182,22 @@ int pp2_cli_cls_lkp_dcod_add(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_lkp_dcod_ena
-*
-* DESCRIPTION: The routine enables a single lookup ID in the lookup decode table
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_lkp_dcod_ena
+ *
+ * DESCRIPTION: The routine enables a single lookup ID in the lookup decode table
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_lkp_dcod_ena(void *arg, int argc, char *argv[])
 {
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	int log_id_en[MVPP2_MNG_FLOW_ID_MAX], i, num_log_id;
 	int ret_val = 0;
 	char *ret_ptr;
@@ -217,7 +219,7 @@ int pp2_cli_cls_lkp_dcod_ena(void *arg, int argc, char *argv[])
 	}
 
 	for (i = 0; i < num_log_id; i++) {
-		if (pp2_cls_lkp_dcod_enable(cpu_slot, log_id_en[i]))
+		if (pp2_cls_lkp_dcod_enable(inst, log_id_en[i]))
 			printf("%s fail\n", __func__);
 		else
 			printf("success\n");
@@ -227,19 +229,19 @@ int pp2_cli_cls_lkp_dcod_ena(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_fl_rule_init
-*
-* DESCRIPTION: The routine initializes the global flow rules to default
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_fl_rule_init
+ *
+ * DESCRIPTION: The routine initializes the global flow rules to default
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[])
 {
 	memset(&g_fl_rls, 0, sizeof(g_fl_rls));
@@ -249,19 +251,19 @@ int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_fl_rule_set
-*
-* DESCRIPTION: The routine sets a single flow rule in the global flow rules
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_fl_rule_set
+ *
+ * DESCRIPTION: The routine sets a single flow rule in the global flow rules
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 {
 	int ret_val = 0;
@@ -354,25 +356,25 @@ int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_fl_rule_add
-*
-* DESCRIPTION: The routine adds the current global flow rules
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_fl_rule_add
+ *
+ * DESCRIPTION: The routine adds the current global flow rules
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_rule_add(void *arg, int argc, char *argv[])
 {
 	int rc;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	rc = pp2_cls_fl_rule_add(cpu_slot, &g_fl_rls);
+	rc = pp2_cls_fl_rule_add(inst, &g_fl_rls);
 
 	if (!rc)
 		printf("success\n");
@@ -383,25 +385,25 @@ int pp2_cli_cls_fl_rule_add(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rule_ena
-*
-* DESCRIPTION: The routine enables the current global flow rules
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cls_fl_rule_ena
+ *
+ * DESCRIPTION: The routine enables the current global flow rules
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_rule_ena(void *arg, int argc, char *argv[])
 {
 	int rc, i;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	rc = pp2_cls_fl_rule_enable(cpu_slot, &g_fl_rls);
+	rc = pp2_cls_fl_rule_enable(inst, &g_fl_rls);
 
 	if (!rc) {
 		for (i = 0; i < g_fl_rls.fl_len; i++)
@@ -417,19 +419,19 @@ int pp2_cli_cls_fl_rule_ena(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_fl_rule_dis
-*
-* DESCRIPTION: The routine disables a logical rule according to input array
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_fl_rule_dis
+ *
+ * DESCRIPTION: The routine disables a logical rule according to input array
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 {
 	int i;
@@ -437,7 +439,7 @@ int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 	u16 rl_log_id_len;
 	int loop = 0;
 	struct pp2_cls_class_port_t src_port;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	char *ret_ptr;
 
 	if (argc < 2 || argc > MVPP2_CLS_FLOW_RULE_MAX) {
@@ -459,7 +461,7 @@ int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 	for (loop = 0; loop < MVPP2_MAX_NUM_GMACS; loop++) {
 		if ((1 << loop) & g_fl_rls.fl[0].port_bm) {
 			src_port.class_port = (1 << loop);
-			if (pp2_cls_fl_rule_disable(cpu_slot, rl_log_id, rl_log_id_len, &src_port))
+			if (pp2_cls_fl_rule_disable(inst, rl_log_id, rl_log_id_len, &src_port))
 				printf("%s fail\n", __func__);
 			else
 				printf("success\n");
@@ -470,28 +472,29 @@ int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_lkp_dcod_dump
-*
-* DESCRIPTION: The routine dump all logical decode DB information.
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_lkp_dcod_dump
+ *
+ * DESCRIPTION: The routine dump all logical decode DB information.
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ *******************************************************************************/
 int pp2_cli_cls_lkp_dcod_dump(void *arg, int argc, char *argv[])
 {
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	u32 i, j;
 	int rc;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	printf("\nlog_id enabled  cpuq  alloc len off luid_no = luid_list (luid)\n");
 	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
-		rc = pp2_db_cls_lkp_dcod_get(i, &lkp_dcod_db);
+		rc = pp2_db_cls_lkp_dcod_get(inst, i, &lkp_dcod_db);
 		if (rc != 0) {
 			printf("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
 			printf("%s fail\n", __func__);
@@ -510,25 +513,26 @@ int pp2_cli_cls_lkp_dcod_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_lkp_hits_dump
-*
-* DESCRIPTION: The routine dump all hit decode entry and its DB information.
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_lkp_hits_dump
+ *
+ * DESCRIPTION: The routine dump all hit decode entry and its DB information.
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 {
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	int rc = 0;
 	u32 i, flow_log_id = 0, lkpid = 0, hit_cnt = 0;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	printf("log_id  lkp_id hit_cnt\n");
 
@@ -544,7 +548,7 @@ int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 
 		/* get logical id */
 		for (flow_log_id = 0; flow_log_id < MVPP2_MNG_FLOW_ID_MAX; flow_log_id++) {
-			rc = pp2_db_cls_lkp_dcod_get(flow_log_id, &lkp_dcod_db);
+			rc = pp2_db_cls_lkp_dcod_get(inst, flow_log_id, &lkp_dcod_db);
 			if (rc) {
 				printf("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
 				return 0;
@@ -570,23 +574,24 @@ int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_fl_hits_dump
-*
-* DESCRIPTION: The routine dump all hit flow table entry.
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_fl_hits_dump
+ *
+ * DESCRIPTION: The routine dump all hit flow table entry.
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_hits_dump(void *arg, int argc, char *argv[])
 {
 	int rc;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	rc = mv_pp2x_cls_hw_flow_hits_dump(cpu_slot);
 	if (rc)
@@ -596,19 +601,19 @@ int pp2_cli_cls_fl_hits_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_fl_rls_dump
-*
-* DESCRIPTION: The routine dump all logical flow ID rules.
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_fl_rls_dump
+ *
+ * DESCRIPTION: The routine dump all logical flow ID rules.
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 {
 	struct pp2_db_cls_fl_rule_list_t *fl_rl_list_db;
@@ -616,6 +621,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 	u32 i, j, k;
 	u16 ref_sum = 0;
 	int rc;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	fl_rl_list_db = kmalloc(sizeof(*fl_rl_list_db), GFP_KERNEL);
 	if (!fl_rl_list_db) {
@@ -627,7 +633,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 	printf("log_flow_id enabled offset engine logID lut portBm portType pri refCnt fid# = field_Ids\n");
 
 	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
-		rc = pp2_db_cls_lkp_dcod_get(i, &lkp_dcod_db);
+		rc = pp2_db_cls_lkp_dcod_get(inst, i, &lkp_dcod_db);
 		if (rc) {
 			printf("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
 			kfree(fl_rl_list_db);
@@ -638,7 +644,8 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 
 		printf("%-11d ", i);
 
-		rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, fl_rl_list_db->flow);
+		rc = pp2_db_cls_fl_rule_list_get(inst, lkp_dcod_db.flow_off,
+						 lkp_dcod_db.flow_len, fl_rl_list_db->flow);
 		if (rc) {
 			printf("pp2_db_cls_fl_rule_list_get returned error %d\n", rc);
 			kfree(fl_rl_list_db);
@@ -682,26 +689,27 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cli_cls_fl_log_rls_dump
-*
-* DESCRIPTION: The routine dump all logical flow ID and rule offset.
-*
-* INPUTS:
-*	arg - cpu slot pointer
-*	argc - arguments count
-*	argv[] - arguments pointer
-
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cli_cls_fl_log_rls_dump
+ *
+ * DESCRIPTION: The routine dump all logical flow ID and rule offset.
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[])
 {
 	u32 i;
 	int rc;
 	u16 off;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	rc = pp2_db_cls_rl_off_get(&off, 0);
+	rc = pp2_db_cls_rl_off_get(inst, &off, 0);
 	if (rc) {
 		printf("%s returned error %d\n", __func__, rc);
 		return 0;
@@ -713,7 +721,7 @@ int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[])
 		printf("log_rule_ID = flow_table_offset\n");
 
 		for (i = 1; i < MVPP2_CLS_LOG2OFF_TBL_SIZE; i++) {
-			rc = pp2_db_cls_rl_off_get(&off, i);
+			rc = pp2_db_cls_rl_off_get(inst, &off, i);
 			if (rc == -EINVAL) {
 				return 0;
 			} else if (rc) {
@@ -781,4 +789,3 @@ int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[])
 
 	return 0;
 }
-

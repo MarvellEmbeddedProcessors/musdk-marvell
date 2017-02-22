@@ -137,13 +137,6 @@
 /*			ENUMERATIONS						*/
 /********************************************************************************/
 
-/* MVPP2 module state */
-/*------------------------------------------------------------------------------*/
-enum pp2_cls_module_state_t {
-	MVPP2_MODULE_NOT_START,	/* MVPP2 module does not start	*/
-	MVPP2_MODULE_STARTED	/* MVPP2 module already starts	*/
-};
-
 enum pp2_cls_cls_field_id_t {
 	MH_FIELD_ID			= 0,
 	GEM_PORT_ID_FIELD_ID		= 1,

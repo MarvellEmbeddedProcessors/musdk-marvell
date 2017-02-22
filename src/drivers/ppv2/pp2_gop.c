@@ -410,14 +410,14 @@ int pp2_gop_gmac_max_rx_size_set(struct gop_hw *gop,
 }
 
 /* Sets "Force Link Pass" and "Do Not Force Link Fail" bits.
-*  This function should only be called when the port is disabled.
-* INPUT:
-*	int  port		- port number
-*	bool force_link_pass	- Force Link Pass
-*	bool force_link_fail - Force Link Failure
-*		0, 0 - normal state: detect link via PHY and connector
-*		1, 1 - prohibited state.
-*/
+ *  This function should only be called when the port is disabled.
+ * INPUT:
+ *	int  port		- port number
+ *	bool force_link_pass	- Force Link Pass
+ *	bool force_link_fail - Force Link Failure
+ *		0, 0 - normal state: detect link via PHY and connector
+ *		1, 1 - prohibited state.
+ */
 int pp2_gop_gmac_force_link_mode_set(struct gop_hw *gop, int mac_num,
 				     bool force_link_up, bool force_link_down)
 {
@@ -445,12 +445,12 @@ int pp2_gop_gmac_force_link_mode_set(struct gop_hw *gop, int mac_num,
 }
 
 /* Get "Force Link Pass" and "Do Not Force Link Fail" bits.
-* INPUT:
-*	int  port		- port number
-* OUTPUT:
-*	bool *force_link_pass	- Force Link Pass
-*	bool *force_link_fail	- Force Link Failure
-*/
+ * INPUT:
+ *	int  port		- port number
+ * OUTPUT:
+ *	bool *force_link_pass	- Force Link Pass
+ *	bool *force_link_fail	- Force Link Failure
+ */
 int pp2_gop_gmac_force_link_mode_get(struct gop_hw *gop, int mac_num,
 				     bool *force_link_up, bool *force_link_down)
 {
@@ -476,8 +476,8 @@ int pp2_gop_gmac_force_link_mode_get(struct gop_hw *gop, int mac_num,
 }
 
 /* Sets port speed to Auto Negotiation / 1000 / 100 / 10 Mbps.
-*  Sets port duplex to Auto Negotiation / Full / Half Duplex.
-*/
+ *  Sets port duplex to Auto Negotiation / Full / Half Duplex.
+ */
 int pp2_gop_gmac_speed_duplex_set(struct gop_hw *gop, int mac_num,
 				  enum pp2_port_speed speed,
 				 enum pp2_port_duplex duplex)
@@ -731,26 +731,26 @@ int pp2_gop_gmac_port_autoneg_restart(struct gop_hw *gop, int mac_num)
 }
 
 /*************************************************************************
-* pp2_port_init
-*
-* DESCRIPTION:
-*       Init physical port. Configures the port mode and all it's elements
-*       accordingly.
-*       Does not verify that the selected mode/port number is valid at the
-*       core level.
-*
-* INPUTS:
-*       port_num    - physical port number
-*       port_mode   - port standard metric
-*
-* OUTPUTS:
-*       None.
-*
-* RETURNS:
-*       0  - on success
-*       1  - on error
-*
-*************************************************************************/
+ * pp2_port_init
+ *
+ * DESCRIPTION:
+ *       Init physical port. Configures the port mode and all it's elements
+ *       accordingly.
+ *       Does not verify that the selected mode/port number is valid at the
+ *       core level.
+ *
+ * INPUTS:
+ *       port_num    - physical port number
+ *       port_mode   - port standard metric
+ *
+ * OUTPUTS:
+ *       None.
+ *
+ * RETURNS:
+ *       0  - on success
+ *       1  - on error
+ *
+ *************************************************************************/
 int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 {
 	int num_of_act_lanes;
@@ -878,27 +878,27 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 }
 
 /**************************************************************************
-* pp2_port_reset
-*
-* DESCRIPTION:
-*       Clears the port mode and release all its resources
-*       according to selected.
-*       Does not verify that the selected mode/port number is valid at the core
-*       level and actual terminated mode.
-*
-* INPUTS:
-*       port_num   - physical port number
-*       port_mode  - port standard metric
-*       action     - Power down or reset
-*
-* OUTPUTS:
-*       None.
-*
-* RETURNS:
-*       0  - on success
-*       1  - on error
-*
-**************************************************************************/
+ * pp2_port_reset
+ *
+ * DESCRIPTION:
+ *       Clears the port mode and release all its resources
+ *       according to selected.
+ *       Does not verify that the selected mode/port number is valid at the core
+ *       level and actual terminated mode.
+ *
+ * INPUTS:
+ *       port_num   - physical port number
+ *       port_mode  - port standard metric
+ *       action     - Power down or reset
+ *
+ * OUTPUTS:
+ *       None.
+ *
+ * RETURNS:
+ *       0  - on success
+ *       1  - on error
+ *
+ **************************************************************************/
 int pp2_gop_port_reset(struct gop_hw *gop, struct pp2_mac_data *mac)
 {
 	int mac_num = mac->gop_index;
@@ -1399,23 +1399,23 @@ int pp2_gop_loopback_set(struct gop_hw *gop, struct pp2_mac_data *mac, bool lb)
 }
 
 /**************************************************************************
-* pp2_gop_gpcs_mode_cfg
-*
-* DESCRIPTION:
-	Configure port to working with Gig PCS or don't.
-*
-* INPUTS:
-*       pcs_num   - physical PCS number
-*       en        - true to enable PCS
-*
-* OUTPUTS:
-*       None.
-*
-* RETURNS:
-*       0  - on success
-*       1  - on error
-*
-**************************************************************************/
+ * pp2_gop_gpcs_mode_cfg
+ *
+ * DESCRIPTION:
+ *       Configure port to working with Gig PCS or don't.
+ *
+ * INPUTS:
+ *       pcs_num   - physical PCS number
+ *       en        - true to enable PCS
+ *
+ * OUTPUTS:
+ *       None.
+ *
+ * RETURNS:
+ *       0  - on success
+ *       1  - on error
+ *
+ **************************************************************************/
 int pp2_gop_gpcs_mode_cfg(struct gop_hw *gop, int pcs_num, bool en)
 {
 	u32 val;
@@ -1434,23 +1434,23 @@ int pp2_gop_gpcs_mode_cfg(struct gop_hw *gop, int pcs_num, bool en)
 }
 
 /**************************************************************************
-* pp2_gop_gpcs_reset
-*
-* DESCRIPTION:
-*       Set the selected PCS number to reset or exit from reset.
-*
-* INPUTS:
-*       pcs_num    - physical PCS number
-*       action    - reset / unreset
-*
-* OUTPUTS:
-*       None.
-*
-* RETURNS:
-*       0  - on success
-*       1  - on error
-*
-*************************************************************************/
+ * pp2_gop_gpcs_reset
+ *
+ * DESCRIPTION:
+ *       Set the selected PCS number to reset or exit from reset.
+ *
+ * INPUTS:
+ *       pcs_num    - physical PCS number
+ *       action    - reset / unreset
+ *
+ * OUTPUTS:
+ *       None.
+ *
+ * RETURNS:
+ *       0  - on success
+ *       1  - on error
+ *
+ *************************************************************************/
 int pp2_gop_gpcs_reset(struct gop_hw *gop, int pcs_num, enum pp2_reset act)
 {
 	u32 reg_data;
@@ -1515,8 +1515,8 @@ void pp2_gop_serdes_reset(struct gop_hw *gop, int lane, bool analog_reset,
 }
 
 /**************************************************************************
-* pp2_gop_smi_init
-**************************************************************************/
+ * pp2_gop_smi_init
+ *************************************************************************/
 int pp2_gop_smi_init(struct gop_hw *gop)
 {
 	u32 val;
@@ -1530,8 +1530,8 @@ int pp2_gop_smi_init(struct gop_hw *gop)
 }
 
 /**************************************************************************
-* pp2_gop_phy_addr_cfg
-**************************************************************************/
+ * pp2_gop_phy_addr_cfg
+ *************************************************************************/
 int pp2_gop_smi_phy_addr_cfg(struct gop_hw *gop, int port, int addr)
 {
 	pp2_gop_smi_write(gop, PP2_SMI_PHY_ADDRESS_REG(port), addr);
@@ -1755,14 +1755,14 @@ int pp2_gop_xlg_mac_max_rx_size_set(struct gop_hw *gop, int mac_num,
 }
 
 /* Sets "Force Link Pass" and "Do Not Force Link Fail" bits.
-*  This function should only be called when the port is disabled.
-* INPUT:
-*	int  port		- port number
-*	bool force_link_pass	- Force Link Pass
-*	bool force_link_fail - Force Link Failure
-*		0, 0 - normal state: detect link via PHY and connector
-*		1, 1 - prohibited state.
-*/
+ *  This function should only be called when the port is disabled.
+ * INPUT:
+ *	int  port		- port number
+ *	bool force_link_pass	- Force Link Pass
+ *	bool force_link_fail - Force Link Failure
+ *		0, 0 - normal state: detect link via PHY and connector
+ *		1, 1 - prohibited state.
+ */
 int pp2_gop_xlg_mac_force_link_mode_set(struct gop_hw *gop, int mac_num,
 					bool force_link_up, bool force_link_down)
 {
@@ -1790,8 +1790,8 @@ int pp2_gop_xlg_mac_force_link_mode_set(struct gop_hw *gop, int mac_num,
 }
 
 /* Sets port speed to Auto Negotiation / 1000 / 100 / 10 Mbps.
-*  Sets port duplex to Auto Negotiation / Full / Half Duplex.
-*/
+ *  Sets port duplex to Auto Negotiation / Full / Half Duplex.
+ */
 int pp2_gop_xlg_mac_speed_duplex_set(struct gop_hw *gop, int mac_num,
 				     enum pp2_port_speed speed,
 				    enum pp2_port_duplex duplex)

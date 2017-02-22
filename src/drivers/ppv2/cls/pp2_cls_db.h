@@ -123,7 +123,6 @@ struct pp2_cls_db_cls_t {
 };
 
 struct pp2_cls_db_t {
-	enum pp2_cls_module_state_t	pp2_cls_module_init_state;	/* PP2_CLS module init state	*/
 	struct pp2_cls_db_c2_t	c2_db;			/* PP2_CLS module C2 db		*/
 	struct pp2_cls_db_c3_t	c3_db;			/* PP2_CLS module C3 db		*/
 	struct pp2_cls_db_cls_t	cls_db;			/* PP2_CLS module CLS db		*/
@@ -132,50 +131,47 @@ struct pp2_cls_db_t {
 /********************************************************************************/
 /*			PROTOTYPE						*/
 /********************************************************************************/
-/* PP2_CLS init section */
-int pp2_cls_db_module_state_set(enum pp2_cls_module_state_t state);
-u32 pp2_cls_db_module_state_get(void);
 
 /* C2 section */
-struct list *pp2_cls_db_c2_lkp_type_list_head_get(u8 lkp_type);
-struct list *pp2_cls_db_c2_free_list_head_get(void);
-struct pp2_cls_c2_index_t *pp2_cls_db_c2_index_node_get(u32 c2_node_idx);
-int pp2_cls_db_c2_index_node_set(u32 c2_node_idx, struct pp2_cls_c2_index_t *c2_index_node);
-int pp2_cls_db_c2_data_get(u32 c2_db_idx, struct pp2_cls_c2_data_t *c2_data);
-int pp2_cls_db_c2_data_set(u32 c2_db_idx, struct pp2_cls_c2_data_t *c2_data);
-int pp2_cls_db_c2_init(void);
+struct list *pp2_cls_db_c2_lkp_type_list_head_get(struct pp2_inst *inst, u8 lkp_type);
+struct list *pp2_cls_db_c2_free_list_head_get(struct pp2_inst *inst);
+struct pp2_cls_c2_index_t *pp2_cls_db_c2_index_node_get(struct pp2_inst *inst, u32 c2_node_idx);
+int pp2_cls_db_c2_index_node_set(struct pp2_inst *inst, u32 c2_node_idx, struct pp2_cls_c2_index_t *c2_index_node);
+int pp2_cls_db_c2_data_get(struct pp2_inst *inst, u32 c2_db_idx, struct pp2_cls_c2_data_t *c2_data);
+int pp2_cls_db_c2_data_set(struct pp2_inst *inst, u32 c2_db_idx, struct pp2_cls_c2_data_t *c2_data);
+int pp2_cls_db_c2_init(struct pp2_inst *inst);
 
 /* C3 section */
-int pp2_cls_db_c3_free_logic_idx_get(u32 *logic_idx);
-int pp2_cls_db_c3_entry_add(u32 logic_idx, u32 hash_idx);
-int pp2_cls_db_c3_entry_del(int logic_idx);
-int pp2_cls_db_c3_hash_idx_get(u32 logic_idx, u32 *hash_idx);
-int pp2_cls_db_c3_logic_idx_get(int hash_idx, int *logic_idx);
-int pp2_cls_db_c3_hash_idx_update(struct pp2_cls_c3_hash_pair *hash_pair_arr);
-int pp2_cls_db_c3_scan_param_set(struct pp2_cls_c3_scan_config_t *scan_config);
-int pp2_cls_db_c3_scan_param_get(struct pp2_cls_c3_scan_config_t *scan_config);
-int pp2_cls_db_c3_search_depth_set(u32 search_depth);
-int pp2_cls_db_c3_search_depth_get(u32 *search_depth);
-int pp2_cls_db_c3_init(void);
+int pp2_cls_db_c3_free_logic_idx_get(struct pp2_inst *inst, u32 *logic_idx);
+int pp2_cls_db_c3_entry_add(struct pp2_inst *inst, u32 logic_idx, u32 hash_idx);
+int pp2_cls_db_c3_entry_del(struct pp2_inst *inst, int logic_idx);
+int pp2_cls_db_c3_hash_idx_get(struct pp2_inst *inst, u32 logic_idx, u32 *hash_idx);
+int pp2_cls_db_c3_logic_idx_get(struct pp2_inst *inst, int hash_idx, int *logic_idx);
+int pp2_cls_db_c3_hash_idx_update(struct pp2_inst *inst, struct pp2_cls_c3_hash_pair *hash_pair_arr);
+int pp2_cls_db_c3_scan_param_set(struct pp2_inst *inst, struct pp2_cls_c3_scan_config_t *scan_config);
+int pp2_cls_db_c3_scan_param_get(struct pp2_inst *inst, struct pp2_cls_c3_scan_config_t *scan_config);
+int pp2_cls_db_c3_search_depth_set(struct pp2_inst *inst, u32 search_depth);
+int pp2_cls_db_c3_search_depth_get(struct pp2_inst *inst, u32 *search_depth);
+int pp2_cls_db_c3_init(struct pp2_inst *inst);
 
 /* CLS section */
-void pp2_db_cls_init(void);
-int  pp2_db_cls_fl_ctrl_set(struct pp2_db_cls_fl_ctrl_t *fl_ctrl);
-int  pp2_db_cls_fl_ctrl_get(struct pp2_db_cls_fl_ctrl_t *fl_ctrl);
-int  pp2_db_cls_fl_rule_set(u32 idx, struct pp2_db_cls_fl_rule_t *fl_rule);
-int  pp2_db_cls_fl_rule_get(u32 idx, struct pp2_db_cls_fl_rule_t *fl_rule);
-int  pp2_db_cls_fl_rule_list_get(u32 idx, u32 len, struct pp2_db_cls_fl_rule_t *fl_rl_list);
-int  pp2_db_cls_lkp_dcod_set(u32 idx, struct pp2_db_cls_lkp_dcod_t *lkp_dcod);
-int  pp2_db_cls_lkp_dcod_get(u32 idx, struct pp2_db_cls_lkp_dcod_t *lkp_dcod);
-int  pp2_db_cls_rl_off_lkp_dcod_get(u16 rl_off, struct pp2_db_cls_lkp_dcod_t	*lkp_dcod);
+void pp2_db_cls_init(struct pp2_inst *inst);
+int  pp2_db_cls_fl_ctrl_set(struct pp2_inst *inst, struct pp2_db_cls_fl_ctrl_t *fl_ctrl);
+int  pp2_db_cls_fl_ctrl_get(struct pp2_inst *inst, struct pp2_db_cls_fl_ctrl_t *fl_ctrl);
+int  pp2_db_cls_fl_rule_set(struct pp2_inst *inst, u32 idx, struct pp2_db_cls_fl_rule_t *fl_rule);
+int  pp2_db_cls_fl_rule_get(struct pp2_inst *inst, u32 idx, struct pp2_db_cls_fl_rule_t *fl_rule);
+int  pp2_db_cls_fl_rule_list_get(struct pp2_inst *inst, u32 idx, u32 len, struct pp2_db_cls_fl_rule_t *fl_rl_list);
+int  pp2_db_cls_lkp_dcod_set(struct pp2_inst *inst, u32 idx, struct pp2_db_cls_lkp_dcod_t *lkp_dcod);
+int  pp2_db_cls_lkp_dcod_get(struct pp2_inst *inst, u32 idx, struct pp2_db_cls_lkp_dcod_t *lkp_dcod);
+int  pp2_db_cls_rl_off_lkp_dcod_get(struct pp2_inst *inst, u16 rl_off, struct pp2_db_cls_lkp_dcod_t	*lkp_dcod);
 void pp2_db_cls_rl_off_init(void);
-int  pp2_db_cls_rl_off_free_nr(u32 *free_nr);
-int  pp2_db_cls_rl_off_free_set(u16 off, u16 *log);
-int  pp2_db_cls_rl_off_get(u16 *off, u16 log);
-int  pp2_db_cls_rl_off_set(u16 off, u16 log);
+int  pp2_db_cls_rl_off_free_nr(struct pp2_inst *inst, u32 *free_nr);
+int  pp2_db_cls_rl_off_free_set(struct pp2_inst *inst, u16 off, u16 *log);
+int  pp2_db_cls_rl_off_get(struct pp2_inst *inst, u16 *off, u16 log);
+int  pp2_db_cls_rl_off_set(struct pp2_inst *inst, u16 off, u16 log);
 
 /* DB general section */
-int pp2_cls_db_init(void);
-int pp2_cls_db_exit(void);
+int pp2_cls_db_init(struct pp2_inst *inst);
+int pp2_cls_db_exit(struct pp2_inst *inst);
 
 #endif /* _PP2_CLS_DB_H_ */

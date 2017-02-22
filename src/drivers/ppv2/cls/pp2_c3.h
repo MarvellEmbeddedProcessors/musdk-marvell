@@ -213,19 +213,19 @@ int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_c3_rule_add(void *arg, int argc, char *argv[]);
 
 /* External  */
-int pp2_cls_c3_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_entry, u32 *logic_idx);
-int pp2_cls_c3_default_rule_add(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_entry, u32 *logic_idx);
-int pp2_cls_c3_rule_del(uintptr_t cpu_slot, u32 logic_idx);
+int pp2_cls_c3_rule_add(struct pp2_inst *inst, struct pp2_cls_c3_add_entry_t *c3_entry, u32 *logic_idx);
+int pp2_cls_c3_default_rule_add(struct pp2_inst *inst, struct pp2_cls_c3_add_entry_t *c3_entry, u32 *logic_idx);
+int pp2_cls_c3_rule_del(struct pp2_inst *inst, u32 logic_idx);
 int pp2_cls_c3_rule_get(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_entry, u32 *entry_num,
 			u32 *logic_idx_arr[]);
-int pp2_cls_c3_hit_count_get(uintptr_t cpu_slot, int logic_idx, u32 *hit_count);
-int pp2_cls_c3_hit_cntr_all_get(uintptr_t cpu_slot, int hit_low_thresh, struct pp2_cls_hit_cnt_t cntr_info[],
+int pp2_cls_c3_hit_count_get(struct pp2_inst *inst, int logic_idx, u32 *hit_count);
+int pp2_cls_c3_hit_cntr_all_get(struct pp2_inst *inst, int hit_low_thresh, struct pp2_cls_hit_cnt_t cntr_info[],
 				u32 *num_of_cntrs);
-int pp2_cls_c3_scan_param_set(uintptr_t cpu_slot, struct pp2_cls_c3_scan_config_t *scan_config);
-int pp2_cls_c3_scan_result_get(uintptr_t cpu_slot, u32 max_entry_num, u32 *entry_num,
+int pp2_cls_c3_scan_param_set(struct pp2_inst *inst, struct pp2_cls_c3_scan_config_t *scan_config);
+int pp2_cls_c3_scan_result_get(struct pp2_inst *inst, u32 max_entry_num, u32 *entry_num,
 			       struct pp2_cls_c3_scan_entry_t result_entry[]);
-int pp2_cls_c3_entry_get(uintptr_t cpu_slot, u32 logic_idx, struct pp2_cls_c3_data_t *c3_entry);
-int pp2_cls_c3_reset(uintptr_t cpu_slot);
-int pp2_cls_c3_start(uintptr_t cpu_slot);
-int pp2_cls_c3_test(uintptr_t cpu_slot, int num);
+int pp2_cls_c3_entry_get(struct pp2_inst *inst, u32 logic_idx, struct pp2_cls_c3_data_t *c3_entry);
+int pp2_cls_c3_reset(struct pp2_inst *inst);
+int pp2_cls_c3_start(struct pp2_inst *inst);
+int pp2_cls_c3_test(struct pp2_inst *inst, int num);
 #endif /*_PP2_CLS_C3_H_*/

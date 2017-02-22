@@ -187,17 +187,17 @@ static struct pp2_cls_enum_str_t g_pp2_cls_scan_mode[] = {
 };
 
 /******************************************************************************
-*
-* Function   : common_mask_gen
-*
-* Description: generate mask according to bits number
-*
-* Parameters :
-* INPUT bit_num - bit num needed
-* OUTPUT None
-* Returns    : mask
-* Comments: for example, bit_num = 2, mask = 0x3(b00000011)
-******************************************************************************/
+ *
+ * Function   : common_mask_gen
+ *
+ * Description: generate mask according to bits number
+ *
+ * Parameters :
+ * INPUT bit_num - bit num needed
+ * OUTPUT None
+ * Returns    : mask
+ * Comments: for example, bit_num = 2, mask = 0x3(b00000011)
+ *****************************************************************************/
 u32 common_mask_gen(int bit_num)
 {
 	u32 temp = 0x1;
@@ -220,22 +220,22 @@ u32 common_mask_gen(int bit_num)
 }
 
 /******************************************************************************
-* lookup_enum_str()
-*
-* DESCRIPTION:
-*	This routine lookups enum string according to enum value
-*
-* INPUTS:
-*	enum_str   - enum string array
-*	enum_num   - enum number
-*	enum_value - the enum value to be matched
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	Enum string
-*******************************************************************************/
+ * lookup_enum_str()
+ *
+ * DESCRIPTION:
+ *	This routine lookups enum string according to enum value
+ *
+ * INPUTS:
+ *	enum_str   - enum string array
+ *	enum_num   - enum number
+ *	enum_value - the enum value to be matched
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	Enum string
+ ******************************************************************************/
 static const char *lookup_enum_str(struct pp2_cls_enum_str_t enum_str[], int enum_num, int enum_value)
 {
 	int idx;
@@ -306,4 +306,3 @@ const char *pp2_cls_utils_scan_mode_str_get(int value)
 {
 	return lookup_enum_str(g_pp2_cls_scan_mode, MVPP2_MEMBER_NUM(g_pp2_cls_scan_mode), value);
 }
-

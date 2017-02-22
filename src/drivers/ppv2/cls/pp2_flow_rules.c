@@ -56,7 +56,7 @@ void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 
 	for (i = 0; i < flow->fl_len; i++) {
 		pr_info("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d ref_cnt %2d skip %d\n",
-			 (int)flow->fl[i].enabled,
+			(int)flow->fl[i].enabled,
 			(int)flow->fl[i].engine,
 			(int)flow->fl[i].field_id_cnt,
 			(int)flow->fl[i].lu_type,
@@ -75,16 +75,16 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 	pr_info("dumping pp2_db_cls_lkp_dcod_t %s\n", name);
 
 	pr_info("CPUq %d enabled %d alloc_len %d flow_len %d flow_off %d luid_num %d\n",
-		 (int)lkp_dcod_db->cpu_q,
-			(int)lkp_dcod_db->enabled,
-			(int)lkp_dcod_db->flow_alloc_len,
-			(int)lkp_dcod_db->flow_len,
-			(int)lkp_dcod_db->flow_off,
-			(int)lkp_dcod_db->luid_num);
+		(int)lkp_dcod_db->cpu_q,
+		(int)lkp_dcod_db->enabled,
+		(int)lkp_dcod_db->flow_alloc_len,
+		(int)lkp_dcod_db->flow_len,
+		(int)lkp_dcod_db->flow_off,
+		(int)lkp_dcod_db->luid_num);
 
 	for (i = 0; i < lkp_dcod_db->luid_num; i++)
 		pr_info("luid[%d]=%d/%d ",
-			 i, lkp_dcod_db->luid_list[i].luid);
+			i, lkp_dcod_db->luid_list[i].luid);
 	pr_info("\n");
 }
 #endif
@@ -92,20 +92,21 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 #define RND_HIT_CNT(cnt, r) (cnt[r].c2 + cnt[r].c3 + cnt[r].c4)
 
 /*******************************************************************************
-* pp2_cls_lkp_dcod_set
-*
-* DESCRIPTION: The API writes a single lookup decode entry to DB
-*
-* INPUTS:
-*	lkp_dcod_conf - lookup decode structure information
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
+ * pp2_cls_lkp_dcod_set
+ *
+ * DESCRIPTION: The API writes a single lookup decode entry to DB
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	lkp_dcod_conf - lookup decode structure information
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_lkp_dcod_set(struct pp2_inst *inst, struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 {
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	struct pp2_db_cls_fl_ctrl_t fl_ctrl;
@@ -132,7 +133,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 	}
 
 	/* get the DB entry for log flow ID */
-	rc = pp2_db_cls_lkp_dcod_get(lkp_dcod_conf->flow_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, lkp_dcod_conf->flow_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", lkp_dcod_conf->flow_log_id);
 		return rc;
@@ -148,7 +149,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 		return 0;
 	}
 
-	rc = pp2_db_cls_fl_ctrl_get(&fl_ctrl);
+	rc = pp2_db_cls_fl_ctrl_get(inst, &fl_ctrl);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -171,7 +172,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 	lkp_dcod_db.cpu_q	= lkp_dcod_conf->cpu_q;
 	lkp_dcod_db.enabled	= false;
 
-	rc = pp2_db_cls_lkp_dcod_set(lkp_dcod_conf->flow_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_set(inst, lkp_dcod_conf->flow_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -184,7 +185,7 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 	/* update the control start index */
 	fl_ctrl.f_start += lkp_dcod_conf->flow_len;
 
-	rc = pp2_db_cls_fl_ctrl_set(&fl_ctrl);
+	rc = pp2_db_cls_fl_ctrl_set(inst, &fl_ctrl);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -194,20 +195,21 @@ int pp2_cls_lkp_dcod_set(struct pp2_cls_lkp_dcod_entry_t *lkp_dcod_conf)
 }
 
 /*******************************************************************************
-* pp2_cls_lkp_dcod_hw_set
-*
-* DESCRIPTION: The routine write to HW the lookup decode entry
-*
-* INPUTS:
-*	fl - flow rules structure
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
+ * pp2_cls_lkp_dcod_hw_set
+ *
+ * DESCRIPTION: The routine write to HW the lookup decode entry
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl - flow rules structure
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+static int pp2_cls_lkp_dcod_hw_set(struct pp2_inst *inst, struct pp2_cls_fl_t *fl)
 {
 	struct mv_pp2x_cls_lookup_entry fe;
 	int rc;
@@ -215,6 +217,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	struct pp2_db_cls_fl_rule_list_t *fl_rl_db;
 	u16 rl_off;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!fl) {
 		pr_err("%s: null pointer\n", __func__);
@@ -222,7 +225,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 	}
 
 	/* get the lookup DB for this logical flow ID */
-	rc = pp2_db_cls_lkp_dcod_get(fl->fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, fl->fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl->fl_log_id);
 		return rc;
@@ -235,15 +238,14 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 
 	/* get the rule list for this logical flow ID */
 	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
-	if (!fl_rl_db) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+	if (!fl_rl_db)
 		return -ENOMEM;
-	}
+
 	memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
-	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
+	rc = pp2_db_cls_fl_rule_list_get(inst, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 	if (rc) {
 		pr_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
-			fl->fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+		       fl->fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
 	}
@@ -255,7 +257,7 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 			continue;
 
 		/* found the rule, get it`s offset */
-		rc = pp2_db_cls_rl_off_get(&rl_off, fl_rl_db->flow[rl].rl_log_id);
+		rc = pp2_db_cls_rl_off_get(inst, &rl_off, fl_rl_db->flow[rl].rl_log_id);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
@@ -296,10 +298,10 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 		}
 
 		pr_debug("fl_log_id[%2d] lid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
-			fl->fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
-			fl_rl_db->flow[rl].prio,
-			rl_off,
-			lkp_dcod_db.luid_list[luid].luid);
+			 fl->fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
+			 fl_rl_db->flow[rl].prio,
+			 rl_off,
+			 lkp_dcod_db.luid_list[luid].luid);
 	}
 
 	kfree(fl_rl_db);
@@ -307,33 +309,34 @@ static int pp2_cls_lkp_dcod_hw_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl)
 }
 
 /*******************************************************************************
-* pp2_cls_lkp_dcod_set_and_disable
-*
-* DESCRIPTION: The API set decoder entry if not configure till now,
-*		and disabled it was enable
-*
-* INPUTS:
-*	fl_log_id - the logical flow ID to perform the operation
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
+ * pp2_cls_lkp_dcod_set_and_disable
+ *
+ * DESCRIPTION: The API set decoder entry if not configure till now,
+ *		and disabled it was enable
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_log_id - the logical flow ID to perform the operation
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_lkp_dcod_set_and_disable(struct pp2_inst *inst,  u16 fl_log_id)
 {
 	struct pp2_cls_lkp_dcod_entry_t dcod;
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	int rc;
 
-	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
 	}
 	if (lkp_dcod_db.enabled) {
-		pp2_cls_lkp_dcod_disable(cpu_slot, fl_log_id);
+		pp2_cls_lkp_dcod_disable(inst, fl_log_id);
 	/* if it isn't enabled it means that we should init decoder setting */
 	} else {
 		/* way - always 0*/
@@ -343,7 +346,8 @@ int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
 		dcod.luid_num = 1;
 
 		/* Flow log ID - Set to be the same as luid_list[0] TODO Ehud*/
-		dcod.flow_log_id = dcod.luid_list[0].luid = fl_log_id;
+		dcod.flow_log_id = fl_log_id;
+		dcod.luid_list[0].luid = fl_log_id;
 
 		dcod.flow_len = MVPP2_CLS_DEF_FLOW_LEN;
 
@@ -351,7 +355,7 @@ int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
 		dcod.cpu_q = MVPP2_CLS_DEF_RXQ;
 
 		/* Configure decoder table*/
-		rc = pp2_cls_lkp_dcod_set(&dcod);
+		rc = pp2_cls_lkp_dcod_set(inst, &dcod);
 		if (rc) {
 			pr_err("failed to add in decoder table\n");
 			return rc;
@@ -362,29 +366,31 @@ int pp2_cls_lkp_dcod_set_and_disable(uintptr_t cpu_slot,  u16 fl_log_id)
 }
 
 /*******************************************************************************
-* pp2_cls_lkp_dcod_disable
-*
-* DESCRIPTION: The API enables a lookup decode entry for a logical flow ID
-*
-* INPUTS:
-*	fl_log_id - the logical flow ID to perform the operation
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
+ * pp2_cls_lkp_dcod_disable
+ *
+ * DESCRIPTION: The API enables a lookup decode entry for a logical flow ID
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_log_id - the logical flow ID to perform the operation
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_lkp_dcod_disable(struct pp2_inst *inst, u16 fl_log_id)
 {
 	struct mv_pp2x_cls_lookup_entry le;
 	int rc;
 	u16 luid;
 	int way = 0; /* currently, always setting way to '0' */
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* get the lookup DB for this logical flow ID */
-	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
@@ -424,13 +430,13 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 		}
 
 		pr_debug("fl_log_id[%2d] luid_nr[%2d] luid[%2d]\n",
-			fl_log_id, luid,
-			lkp_dcod_db.luid_list[luid].luid);
+			 fl_log_id, luid,
+			 lkp_dcod_db.luid_list[luid].luid);
 	}
 
 	/* update lkp_dcod DB */
 	lkp_dcod_db.enabled = false;
-	rc = pp2_db_cls_lkp_dcod_set(fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_set(inst, fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -440,20 +446,21 @@ int pp2_cls_lkp_dcod_disable(uintptr_t cpu_slot, u16 fl_log_id)
 }
 
 /*******************************************************************************
-* pp2_cls_lkp_dcod_enable
-*
-* DESCRIPTION: The API enables a lookup decode entry for a logical flow ID
-*
-* INPUTS:
-*	fl_log_id - the logical flow ID to perform the operation
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
+ * pp2_cls_lkp_dcod_enable
+ *
+ * DESCRIPTION: The API enables a lookup decode entry for a logical flow ID
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_log_id - the logical flow ID to perform the operation
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_lkp_dcod_enable(struct pp2_inst *inst, u16 fl_log_id)
 {
 	struct mv_pp2x_cls_lookup_entry fe;
 	int rc;
@@ -461,9 +468,10 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	struct pp2_db_cls_fl_rule_list_t *fl_rl_db;
 	u16 rl_off;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* get the lookup DB for this logical flow ID */
-	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
@@ -483,15 +491,14 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 
 	/* get the rule list for this logical flow ID */
 	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
-	if (!fl_rl_db) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+	if (!fl_rl_db)
 		return -ENOMEM;
-	}
+
 	memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
-	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
+	rc = pp2_db_cls_fl_rule_list_get(inst, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 	if (rc) {
 		pr_err("failed to get flow rule list fl_log_id=%d flow_off=%d flow_len=%d\n",
-			fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+		       fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
 	}
@@ -505,7 +512,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 			continue;
 
 		/* found the rule, get it`s offset */
-		rc = pp2_db_cls_rl_off_get(&rl_off, fl_rl_db->flow[rl].rl_log_id);
+		rc = pp2_db_cls_rl_off_get(inst, &rl_off, fl_rl_db->flow[rl].rl_log_id);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
@@ -547,15 +554,15 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 		}
 
 		pr_debug("fl_log_id[%2d] luid_nr[%2d] rl_log_id[%3d] prio[%2d] rl_off[%3d] luid[%2d]\n",
-			fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
-			fl_rl_db->flow[rl].prio,
-			rl_off,
-			lkp_dcod_db.luid_list[luid].luid);
+			 fl_log_id, luid, fl_rl_db->flow[rl].rl_log_id,
+			 fl_rl_db->flow[rl].prio,
+			 rl_off,
+			 lkp_dcod_db.luid_list[luid].luid);
 	}
 
 	/* update lkp_dcod DB */
 	lkp_dcod_db.enabled = true;
-	rc = pp2_db_cls_lkp_dcod_set(fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_set(inst, fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		kfree(fl_rl_db);
@@ -566,7 +573,7 @@ int pp2_cls_lkp_dcod_enable(uintptr_t cpu_slot, u16 fl_log_id)
 	return 0;
 }
 
-static int pp2_cls_lkp_dcod_enable_all(uintptr_t cpu_slot)
+static int pp2_cls_lkp_dcod_enable_all(struct pp2_inst *inst)
 {
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	int fl_log_id;
@@ -574,12 +581,12 @@ static int pp2_cls_lkp_dcod_enable_all(uintptr_t cpu_slot)
 
 	for (fl_log_id = 0; fl_log_id < MVPP2_MNG_FLOW_ID_MAX; fl_log_id++) {
 		/* get the lookup DB for this logical flow ID */
-		rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+		rc = pp2_db_cls_lkp_dcod_get(inst, fl_log_id, &lkp_dcod_db);
 		if (rc)
 			pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 
 		if ((!lkp_dcod_db.enabled) && (lkp_dcod_db.flow_alloc_len > 0)) {
-			rc = pp2_cls_lkp_dcod_enable(cpu_slot, fl_log_id);
+			rc = pp2_cls_lkp_dcod_enable(inst, fl_log_id);
 			if (rc)
 				pr_err("fail fl_log_id %d\n", fl_log_id);
 		}
@@ -589,20 +596,20 @@ static int pp2_cls_lkp_dcod_enable_all(uintptr_t cpu_slot)
 }
 
 /*******************************************************************************
-* cmp_prio
-*
-* DESCRIPTION: The routine compares two rules according to the rule priority
-*
-* INPUTS:
-*	rl1 - the first rule
-*	rl2 - the second rule
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	if rl1<rl2 returns -1, if rl1>rl2 returns 1, else returns 0
-*******************************************************************************/
+ * cmp_prio
+ *
+ * DESCRIPTION: The routine compares two rules according to the rule priority
+ *
+ * INPUTS:
+ *	rl1 - the first rule
+ *	rl2 - the second rule
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	if rl1<rl2 returns -1, if rl1>rl2 returns 1, else returns 0
+ ******************************************************************************/
 static int cmp_prio(const void *rl1, const void *rl2)
 {
 	if (((const struct pp2_cls_rl_entry_t *)rl1)->prio < ((const struct pp2_cls_rl_entry_t *)rl2)->prio)
@@ -614,20 +621,20 @@ static int cmp_prio(const void *rl1, const void *rl2)
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rls_sort
-*
-* DESCRIPTION: The routine sorts the classifier flow array according to the entry's priority
-*
-* INPUTS:
-*	fls - flows array
-*	fl_len - entries number
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	None
-*******************************************************************************/
+ * pp2_cls_fl_rls_sort
+ *
+ * DESCRIPTION: The routine sorts the classifier flow array according to the entry's priority
+ *
+ * INPUTS:
+ *	fls - flows array
+ *	fl_len - entries number
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	None
+ ******************************************************************************/
 static void pp2_cls_fl_rls_sort(struct pp2_cls_rl_entry_t fls[], u16 fl_len)
 {
 	struct pp2_cls_rl_entry_t temp;
@@ -645,20 +652,20 @@ static void pp2_cls_fl_rls_sort(struct pp2_cls_rl_entry_t fls[], u16 fl_len)
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rl_eng_cnt_upd
-*
-* DESCRIPTION: The routine updates the engine count according to input params
-*
-* INPUTS:
-*	op - the operation to perform (increment/decrement)
-*	eng - the engine to update
-*
-* OUTPUTS:
-*	eng_cnt - the engine structure which is updated
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_fl_rl_eng_cnt_upd
+ *
+ * DESCRIPTION: The routine updates the engine count according to input params
+ *
+ * INPUTS:
+ *	op - the operation to perform (increment/decrement)
+ *	eng - the engine to update
+ *
+ * OUTPUTS:
+ *	eng_cnt - the engine structure which is updated
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_fl_rl_eng_cnt_upd(enum pp2_cls_rl_cnt_op_t op,
 				     u16 eng,
 				     struct pp2_cls_fl_eng_cnt_t *eng_cnt)
@@ -692,20 +699,20 @@ static int pp2_cls_fl_rl_eng_cnt_upd(enum pp2_cls_rl_cnt_op_t op,
 }
 
 /*******************************************************************************
-* pp2_cls_new_fl_rl_merge
-*
-* DESCRIPTION: The routine merges a single rule into a merged flow.
-*
-* INPUTS:
-*	new_rl_num - the rule number in the new flow
-*	new_fl_rls - the new flow that the new rule comes from
-*
-* OUTPUTS:
-*	mrg_fl_rls - the merged flow
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_new_fl_rl_merge
+ *
+ * DESCRIPTION: The routine merges a single rule into a merged flow.
+ *
+ * INPUTS:
+ *	new_rl_num - the rule number in the new flow
+ *	new_fl_rls - the new flow that the new rule comes from
+ *
+ * OUTPUTS:
+ *	mrg_fl_rls - the merged flow
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
 static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 				   struct pp2_cls_fl_t *new_fl_rls,
 				   struct pp2_cls_fl_t *mrg_fl_rls)
@@ -754,22 +761,22 @@ static int pp2_cls_new_fl_rl_merge(u16 new_rl_num,
 }
 
 /*******************************************************************************
-* pp2_cls_rl_hit_cnt_upd
-*
-* DESCRIPTION: The routine updates the engine hit counter for a single rule.
-*		It scans the flow for an identical rule, if does not find
-*		it increments the engine counter
-*
-* INPUTS:
-*	rl - rule to insert information
-*	fl_rls - flow rules to check the new rule
-*
-* OUTPUTS:
-*	eng_hit_cnt - the hit counter per engine structure which is updated
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_rl_hit_cnt_upd
+ *
+ * DESCRIPTION: The routine updates the engine hit counter for a single rule.
+ *		It scans the flow for an identical rule, if does not find
+ *		it increments the engine counter
+ *
+ * INPUTS:
+ *	rl - rule to insert information
+ *	fl_rls - flow rules to check the new rule
+ *
+ * OUTPUTS:
+ *	eng_hit_cnt - the hit counter per engine structure which is updated
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
 				  struct pp2_cls_fl_t *fl_rls,
 				  struct pp2_cls_fl_eng_cnt_t *eng_hit_cnt)
@@ -819,23 +826,23 @@ static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
 }
 
 /*******************************************************************************
-* pp2_cls_rl_hit_cnt_upd
-*
-* DESCRIPTION: The routine updates the engine hit counter for a single rule in flow's cls nt rule reorder.
-*		It scans the flow for an identical rule, if does not find
-*		it increments the engine counter
-*
-* INPUTS:
-*	fl_rls - flow rules to check the new rule
-*	fl_idx - the rule index in flow which rule is used to check hit cnt updates
-*
-* OUTPUTS:
-*	eng_hit_cnt - the hit counter per engine structure which is updated
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case.
-*******************************************************************************/
+ * pp2_cls_rl_hit_cnt_upd
+ *
+ * DESCRIPTION: The routine updates the engine hit counter for a single rule in flow's cls nt rule reorder.
+ *		It scans the flow for an identical rule, if does not find
+ *		it increments the engine counter
+ *
+ * INPUTS:
+ *	fl_rls - flow rules to check the new rule
+ *	fl_idx - the rule index in flow which rule is used to check hit cnt updates
+ *
+ * OUTPUTS:
+ *	eng_hit_cnt - the hit counter per engine structure which is updated
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
 static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 					  u32 fl_idx,
 					  struct pp2_cls_fl_eng_cnt_t *eng_hit_cnt)
@@ -854,7 +861,7 @@ static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 	}
 	if (((fl_idx) > (fl_rls->fl_len - 1)) || ((fl_idx) < 0)) {
 		pr_err("(error) %s(%d) value (%d/0x%x) is out of range[%d, %d]\n",
-			__func__, __LINE__, (fl_idx), (fl_idx), 0, (fl_rls->fl_len - 1));
+		       __func__, __LINE__, (fl_idx), (fl_idx), 0, (fl_rls->fl_len - 1));
 		return -EINVAL;
 	}
 
@@ -889,20 +896,20 @@ static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 }
 
 /*******************************************************************************
-* pp2_cls_rl_c4_validate
-*
-* DESCRIPTION: The routine validates C4 rule merge, searches for same priority rule
-*
-* INPUTS:
-*	rl - rule to insert information
-*	fl_rls - flow rules to check the new rule
-*
-* OUTPUTS:
-*	valid - returned validation indication
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_rl_c4_validate
+ *
+ * DESCRIPTION: The routine validates C4 rule merge, searches for same priority rule
+ *
+ * INPUTS:
+ *	rl - rule to insert information
+ *	fl_rls - flow rules to check the new rule
+ *
+ * OUTPUTS:
+ *	valid - returned validation indication
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
 				  struct pp2_cls_fl_t *fl_rls,
 				  bool *valid)
@@ -923,7 +930,7 @@ static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
 		if ((fl_rls->fl[rl_i].engine	== MVPP2_ENGINE_C4) &&
 		    (fl_rls->fl[rl_i].prio	!= rl->prio)) {
 			pr_err("add diff prio rule for C4 prohibited merged prio=%d new prio=%d fl_log_id=%d\n",
-				rl->prio, fl_rls->fl[rl_i].prio, fl_rls->fl_log_id);
+			       rl->prio, fl_rls->fl[rl_i].prio, fl_rls->fl_log_id);
 			*valid = false;
 			return 0;
 		}
@@ -935,27 +942,29 @@ static int pp2_cls_rl_c4_validate(struct pp2_cls_rl_entry_t *rl,
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rls_merge
-*
-* DESCRIPTION: The routine merges two flows (cur and new) of the same logical flow ID
-*		into a merged flow, the routine gets the current flow from DB and
-*		sorts the new flow ascending according to rule priority.
-*		Then it eliminates from the new flow rules that exist in the current flow.
-*		It then merges the two flows into one according to HW limitations
-*		taking into account allocation and engine limitation.
-*
-* INPUTS:
-*	fl_log_id - merging flow logical rule ID
-*	cur_fl_rls - current flow rules
-*	new_fl_rls - new added flow rules
-*
-* OUTPUTS:
-*	mrg_fl_rls - merged flow rules
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_fl_rls_merge(u16 fl_log_id,
+ * pp2_cls_fl_rls_merge
+ *
+ * DESCRIPTION: The routine merges two flows (cur and new) of the same logical flow ID
+ *		into a merged flow, the routine gets the current flow from DB and
+ *		sorts the new flow ascending according to rule priority.
+ *		Then it eliminates from the new flow rules that exist in the current flow.
+ *		It then merges the two flows into one according to HW limitations
+ *		taking into account allocation and engine limitation.
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_log_id - merging flow logical rule ID
+ *	cur_fl_rls - current flow rules
+ *	new_fl_rls - new added flow rules
+ *
+ * OUTPUTS:
+ *	mrg_fl_rls - merged flow rules
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_fl_rls_merge(struct pp2_inst *inst,
+				u16 fl_log_id,
 				struct pp2_cls_fl_t *cur_fl_rls,
 				struct pp2_cls_fl_t *new_fl_rls,
 				struct pp2_cls_fl_t *mrg_fl_rls)
@@ -985,7 +994,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 	}
 
 	/* get the lookup DB for this logical flow ID */
-	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
@@ -1003,7 +1012,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 	/* max flow length check */
 	if (cur_rl_cnt + new_rl_cnt > MVPP2_CLS_FLOW_RULE_MAX) {
 		pr_err("cur_rl_cnt + new_rl_cnt too large [cur %d new %d]\n",
-			cur_rl_cnt, new_rl_cnt);
+		       cur_rl_cnt, new_rl_cnt);
 		return -EPERM;
 	}
 
@@ -1035,7 +1044,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 			}
 			if (rl == new_fl_rls->fl_len) {
 				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
-					rl, new_fl_rls->fl_len);
+				       rl, new_fl_rls->fl_len);
 				return -EINVAL;
 			}
 			/* found a new c4 rule, save index */
@@ -1051,7 +1060,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 			}
 			if (rl == cur_fl_rls->fl_len) {
 				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
-					rl, cur_fl_rls->fl_len);
+				       rl, cur_fl_rls->fl_len);
 				return -EINVAL;
 			}
 			/* found a current c4 rule, save index */
@@ -1080,7 +1089,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
 			pr_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
-				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
+			       lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
 
@@ -1123,7 +1132,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 						     mrg_fl_rls);
 			if (rc) {
 				pr_err("failed to merge new C4 rule offset=%d fl_log_id=%d\n",
-					rl_off, new_fl_rls->fl_log_id);
+				       rl_off, new_fl_rls->fl_log_id);
 				return rc;
 			}
 
@@ -1136,7 +1145,7 @@ static int pp2_cls_fl_rls_merge(u16 fl_log_id,
 
 			if (rc) {
 				pr_err("failed to merge cur C4 rule offset=%d fl_log_id=%d\n",
-					rl_off, cur_fl_rls->fl_log_id);
+				       rl_off, cur_fl_rls->fl_log_id);
 				return rc;
 			}
 
@@ -1171,7 +1180,7 @@ c3_ins:
 			}
 			if (rl == new_fl_rls->fl_len) {
 				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
-					rl, new_fl_rls->fl_len);
+				       rl, new_fl_rls->fl_len);
 				return -EINVAL;
 			}
 			/* found a new c3 rule, save index */
@@ -1191,7 +1200,7 @@ c3_ins:
 			}
 			if (rl == cur_fl_rls->fl_len) {
 				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
-					rl, cur_fl_rls->fl_len);
+				       rl, cur_fl_rls->fl_len);
 				return -EINVAL;
 			}
 			/* found a current c3 rule, save index */
@@ -1216,9 +1225,9 @@ c3_seq_ins:
 				merge_new = false;
 			else{
 				pr_err("add same prio rule prio=%d fl_log_id=%d rule #=%d\n",
-					cur_fl_rls->fl[cur_rl].prio,
-					cur_fl_rls->fl[cur_rl].rl_log_id,
-					cur_rl);
+				       cur_fl_rls->fl[cur_rl].prio,
+				       cur_fl_rls->fl[cur_rl].rl_log_id,
+				       cur_rl);
 				return -EINVAL;
 			}
 #endif
@@ -1257,7 +1266,7 @@ c3_seq_ins:
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
 			pr_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
-				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
+			       lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
 
@@ -1288,7 +1297,7 @@ c3_seq_ins:
 
 			if (rc) {
 				pr_err("failed to merge new C3 rule offset=%d fl_log_id=%d\n",
-					rl_off, new_fl_rls->fl_log_id);
+				       rl_off, new_fl_rls->fl_log_id);
 				return rc;
 			}
 
@@ -1301,7 +1310,7 @@ c3_seq_ins:
 
 			if (rc) {
 				pr_err("failed to merge cur C3 rule offset=%d fl_log_id=%d\n",
-					rl_off, cur_fl_rls->fl_log_id);
+				       rl_off, cur_fl_rls->fl_log_id);
 				return rc;
 			}
 
@@ -1316,7 +1325,7 @@ c3_seq_ins:
 				if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 						pr_err("seqence control rule not start from first type (new_rl %d)\n"
-							, new_rl);
+						       , new_rl);
 						return -EINVAL;
 					}
 					is_seq = true;
@@ -1351,7 +1360,7 @@ c3_seq_ins:
 				if (cur_fl_rls->fl[cur_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 						pr_err("seqence control rule not start from first type (new_rl %d)\n",
-							new_rl);
+						       new_rl);
 						return -EINVAL;
 					}
 					is_seq = true;
@@ -1403,7 +1412,7 @@ c2_ins:
 			}
 			if (rl == new_fl_rls->fl_len) {
 				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
-					rl, new_fl_rls->fl_len);
+				       rl, new_fl_rls->fl_len);
 				return -EINVAL;
 			}
 			/* found a new c2 rule, save index */
@@ -1420,7 +1429,7 @@ c2_ins:
 			}
 			if (rl == cur_fl_rls->fl_len) {
 				pr_err("eng count inconsistent new_rl=%d fl_len=%d\n",
-					rl, cur_fl_rls->fl_len);
+				       rl, cur_fl_rls->fl_len);
 				return -EINVAL;
 			}
 			/* found a current c2 rule, save index */
@@ -1445,9 +1454,9 @@ c2_seq_ins:
 				merge_new = false;
 			else{
 				pr_err("add same prio rule prio=%d fl_log_id=%d rule #=%d\n",
-					cur_fl_rls->fl[cur_rl].prio,
-					cur_fl_rls->fl[cur_rl].rl_log_id,
-					cur_rl);
+				       cur_fl_rls->fl[cur_rl].prio,
+				       cur_fl_rls->fl[cur_rl].rl_log_id,
+				       cur_rl);
 				return -EINVAL;
 			}
 #endif
@@ -1497,7 +1506,7 @@ c2_seq_ins:
 		/* max allocated flow length validation */
 		if (mrg_fl_rls->fl_len == lkp_dcod_db.flow_alloc_len) {
 			pr_err("flow alloc length reached alloc_len=%d merge_fl_len=%d\n",
-				lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
+			       lkp_dcod_db.flow_alloc_len, mrg_fl_rls->fl_len);
 			return -EPERM;
 		}
 
@@ -1528,7 +1537,7 @@ c2_seq_ins:
 
 			if (rc) {
 				pr_err("failed to merge new C2 rule offset=%d fl_log_id=%d\n",
-					rl_off, new_fl_rls->fl_log_id);
+				       rl_off, new_fl_rls->fl_log_id);
 				return rc;
 			}
 
@@ -1541,7 +1550,7 @@ c2_seq_ins:
 
 			if (rc) {
 				pr_err("failed to merge cur C2 rule offset=%d fl_log_id=%d\n",
-					rl_off, cur_fl_rls->fl_log_id);
+				       rl_off, cur_fl_rls->fl_log_id);
 				return rc;
 			}
 
@@ -1555,7 +1564,7 @@ c2_seq_ins:
 				if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 						pr_err("seqence control rule not start from first type (new_rl %d)\n",
-							new_rl);
+						       new_rl);
 						return -EINVAL;
 					}
 					is_seq = true;
@@ -1590,7 +1599,7 @@ c2_seq_ins:
 				if (cur_fl_rls->fl[cur_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_NORMAL) {
 					if (new_fl_rls->fl[new_rl].seq_ctrl != MVPP2_CLS_SEQ_CTRL_FIRST_TYPE_1) {
 						pr_err("seqence control rule not start from first type (new_rl %d)\n",
-							new_rl);
+						       new_rl);
 						return -EINVAL;
 					}
 					is_seq = true;
@@ -1627,21 +1636,23 @@ c2_seq_ins:
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rl_db_set
-*
-* DESCRIPTION: The routine writes a flow rule to DB
-*
-* INPUTS:
-*	rl - the rule to enable information structure
-*	fl_log_id - flow logical ID for the rule
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
+ * pp2_cls_fl_rl_db_set
+ *
+ * DESCRIPTION: The routine writes a flow rule to DB
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	rl - the rule to enable information structure
+ *	fl_log_id - flow logical ID for the rule
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_fl_rl_db_set(struct pp2_inst *inst,
+				struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 {
 	struct pp2_db_cls_fl_rule_t rl_db;
 	int rc;
@@ -1659,7 +1670,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 	switch (rl->state) {
 	case MVPP2_MRG_NEW:
 		/* new rule, assign logical rule id */
-		rc = pp2_db_cls_rl_off_free_set(rl->rl_off, &rl->rl_log_id);
+		rc = pp2_db_cls_rl_off_free_set(inst, rl->rl_off, &rl->rl_log_id);
 		if (rc) {
 			pr_err("got error for rule offset %d\n", rl->rl_off);
 			return rc;
@@ -1672,7 +1683,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 	case MVPP2_MRG_NEW_EXISTS:
 	case MVPP2_MRG_NOT_NEW:
 		/* this new entry exists */
-		rc = pp2_db_cls_rl_off_get(&cur_rl_off, rl->rl_log_id);
+		rc = pp2_db_cls_rl_off_get(inst, &cur_rl_off, rl->rl_log_id);
 		if (rc) {
 			pr_err("could not get rl_log_id %d offset\n", rl->rl_log_id);
 			return rc;
@@ -1680,10 +1691,10 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 
 		/* if logical rule offset changed, update new offset */
 		if (cur_rl_off != rl->rl_off) {
-			rc = pp2_db_cls_rl_off_set(rl->rl_off, rl->rl_log_id);
+			rc = pp2_db_cls_rl_off_set(inst, rl->rl_off, rl->rl_log_id);
 			if (rc) {
 				pr_err("could not set rule offset %d for rl_log_id %d\n",
-					rl->rl_off, rl->rl_log_id);
+				       rl->rl_off, rl->rl_log_id);
 				return rc;
 			}
 		}
@@ -1717,7 +1728,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 	rl_db.port_type		= rl->port_type;
 	rl_db.prio		= rl->prio;
 
-	rc = pp2_db_cls_fl_rule_set(rl->rl_off, &rl_db);
+	rc = pp2_db_cls_fl_rule_set(inst, rl->rl_off, &rl_db);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -1727,20 +1738,20 @@ static int pp2_cls_fl_rl_db_set(struct pp2_cls_rl_entry_t *rl, u16 fl_log_id)
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rl_hw_set
-*
-* DESCRIPTION: The routine writes a flow rule to HW
-*
-* INPUTS:
-*	rl - the rule to enable information structure
-*	is_last - a flag indicating if he rule is last in flow
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_fl_rl_hw_set
+ *
+ * DESCRIPTION: The routine writes a flow rule to HW
+ *
+ * INPUTS:
+ *	rl - the rule to enable information structure
+ *	is_last - a flag indicating if he rule is last in flow
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 				struct pp2_cls_rl_entry_t *rl,
 				bool is_last)
@@ -1832,25 +1843,27 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rl_hw_ena
-*
-* DESCRIPTION: The routine enables a flow rule in HW according to rule port_type
-*		and port_bm
-*
-* INPUTS:
-*	rl_en - the rule to enable information structure
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_fl_rl_hw_ena(uintptr_t cpu_slot, struct pp2_cls_fl_rule_entry_t	*rl_en)
+ * pp2_cls_fl_rl_hw_ena
+ *
+ * DESCRIPTION: The routine enables a flow rule in HW according to rule port_type
+ *		and port_bm
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	rl_en - the rule to enable information structure
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_fl_rl_hw_ena(struct pp2_inst *inst, struct pp2_cls_fl_rule_entry_t	*rl_en)
 {
 	struct mv_pp2x_cls_flow_entry fe;
 	int rc;
 	u16 off;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!rl_en) {
 		pr_err("%s: null pointer\n", __func__);
@@ -1858,7 +1871,7 @@ static int pp2_cls_fl_rl_hw_ena(uintptr_t cpu_slot, struct pp2_cls_fl_rule_entry
 	}
 
 	/* get the rule offset according to rule logical ID */
-	rc = pp2_db_cls_rl_off_get(&off, rl_en->rl_log_id);
+	rc = pp2_db_cls_rl_off_get(inst, &off, rl_en->rl_log_id);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -1888,20 +1901,20 @@ static int pp2_cls_fl_rl_hw_ena(uintptr_t cpu_slot, struct pp2_cls_fl_rule_entry
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rl_hw_dis
-*
-* DESCRIPTION: The routine disables a flow rule in HW, sets the port_type and
-*		port_bm to zero
-*
-* INPUTS:
-*	off - the offset of the rule
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_fl_rl_hw_dis
+ *
+ * DESCRIPTION: The routine disables a flow rule in HW, sets the port_type and
+ *		port_bm to zero
+ *
+ * INPUTS:
+ *	off - the offset of the rule
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_fl_rl_hw_dis(uintptr_t cpu_slot, u16 off)
 {
 	struct mv_pp2x_cls_flow_entry	fe;
@@ -1930,20 +1943,21 @@ static int pp2_cls_fl_rl_hw_dis(uintptr_t cpu_slot, u16 off)
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rls_set
-*
-* DESCRIPTION: The routine sets the merged flow to HW and updated DBs
-*
-* INPUTS:
-*	fl_rls - a list of merged rules of a single logical flow ID to set
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
+ * pp2_cls_fl_rls_set
+ *
+ * DESCRIPTION: The routine sets the merged flow to HW and updated DBs
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_rls - a list of merged rules of a single logical flow ID to set
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_fl_rls_set(struct pp2_inst *inst, struct pp2_cls_fl_t *fl_rls)
 {
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
 	int rc;
@@ -1952,6 +1966,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	bool is_last;
 	u16 new_rl_cnt = 0;
 	struct pp2_cls_rl_entry_t *rl;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!fl_rls) {
 		pr_err("%s: null pointer\n", __func__);
@@ -1959,7 +1974,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	}
 
 	/* get the lookup DB for this logical flow ID */
-	rc = pp2_db_cls_lkp_dcod_get(fl_rls->fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, fl_rls->fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_rls->fl_log_id);
 		return rc;
@@ -1974,7 +1989,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 
 	/* validate enough DB entries for new rules */
 	if (new_rl_cnt) {
-		rc = pp2_db_cls_rl_off_free_nr(&free_db_cnt);
+		rc = pp2_db_cls_rl_off_free_nr(inst, &free_db_cnt);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
@@ -2001,7 +2016,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 	}
 
 	/* set the lookup decode table */
-	rc = pp2_cls_lkp_dcod_hw_set(cpu_slot, fl_rls);
+	rc = pp2_cls_lkp_dcod_hw_set(inst, fl_rls);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -2012,7 +2027,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 		rl = &fl_rls->fl[rl_idx];
 
 		/* write rule to DB */
-		rc = pp2_cls_fl_rl_db_set(rl, fl_rls->fl_log_id);
+		rc = pp2_cls_fl_rl_db_set(inst, rl, fl_rls->fl_log_id);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
@@ -2021,7 +2036,7 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 
 	/* update flow actual length */
 	lkp_dcod_db.flow_len = fl_rls->fl_len;
-	rc = pp2_db_cls_lkp_dcod_set(fl_rls->fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_set(inst, fl_rls->fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to set lookup decode info for fl_log_id %d\n", fl_rls->fl_log_id);
 		return rc;
@@ -2031,21 +2046,23 @@ static int pp2_cls_fl_rls_set(uintptr_t cpu_slot, struct pp2_cls_fl_t *fl_rls)
 }
 
 /*******************************************************************************
-* pp2_cls_fl_cur_get
-*
-* DESCRIPTION: The routine returns the current flow rules for the flow logical ID
-*
-* INPUTS:
-*	fl_log_id - the flow logical ID
-*	cur_fl	  - flow structure that holds all flows and additional information
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-static int pp2_cls_fl_cur_get(u16 fl_log_id,
+ * pp2_cls_fl_cur_get
+ *
+ * DESCRIPTION: The routine returns the current flow rules for the flow logical ID
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_log_id - the flow logical ID
+ *	cur_fl	  - flow structure that holds all flows and additional information
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_fl_cur_get(struct pp2_inst *inst,
+			      u16 fl_log_id,
 			      struct pp2_cls_fl_t *cur_fl)
 {
 	struct pp2_db_cls_fl_rule_list_t *fl_rl_db;
@@ -2059,7 +2076,7 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 	}
 
 	/* get the lookup DB for this logical flow ID */
-	rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+	rc = pp2_db_cls_lkp_dcod_get(inst, fl_log_id, &lkp_dcod_db);
 	if (rc) {
 		pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 		return rc;
@@ -2086,10 +2103,12 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 		return 0;
 	}
 
-	rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
+	rc = pp2_db_cls_fl_rule_list_get(inst, lkp_dcod_db.flow_off,
+					 lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
+
 	if (rc) {
 		pr_err("fail to get flow rule list DB data, fl_log_id=%d, flow_off=%d, flow_len=%d\n",
-			fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+		       fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 		kfree(fl_rl_db);
 		return rc;
 	}
@@ -2131,21 +2150,21 @@ static int pp2_cls_fl_cur_get(u16 fl_log_id,
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rls_log_rl_id_upd
-*
-* DESCRIPTION: The routine update the rl_log_id in the added rule list from
-*		the merged logical flow rules
-*
-* INPUTS:
-*	add_rls - the added rule list
-*	mrg_rls - the merged flow rules
-*
-* OUTPUTS:
-*	fl_rls->fl[].rl_log_id - allocated rule logical ID
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_fl_rls_log_rl_id_upd
+ *
+ * DESCRIPTION: The routine update the rl_log_id in the added rule list from
+ *		the merged logical flow rules
+ *
+ * INPUTS:
+ *	add_rls - the added rule list
+ *	mrg_rls - the merged flow rules
+ *
+ * OUTPUTS:
+ *	fl_rls->fl[].rl_log_id - allocated rule logical ID
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 static int pp2_cls_fl_rls_log_rl_id_upd(struct pp2_cls_fl_rule_list_t *add_rls,
 					struct pp2_cls_fl_t *mrg_rls)
 {
@@ -2173,7 +2192,7 @@ static int pp2_cls_fl_rls_log_rl_id_upd(struct pp2_cls_fl_rule_list_t *add_rls,
 			    add_rls->fl[i].port_type	== mrg_rls->fl[j].port_type	&&
 			    add_rls->fl[i].prio	== mrg_rls->fl[j].prio		&&
 			    !memcmp(add_rls->fl[i].field_id, mrg_rls->fl[j].field_id,
-					   sizeof(add_rls->fl[i].field_id))) {
+				    sizeof(add_rls->fl[i].field_id))) {
 				/* found the added rule, update logial rule ID */
 				add_rls->fl[i].rl_log_id = mrg_rls->fl[j].rl_log_id;
 				break;
@@ -2269,20 +2288,21 @@ static int pp2_cls_fl_nt_rule_reorder(struct pp2_cls_fl_t *fl_rls)
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rule_add
-*
-* DESCRIPTION: The API adds all rules according to flow rule array
-*
-* INPUTS:
-*	fl_rls - a list of rules to enable
-*
-* OUTPUTS:
-*	fl_rls->fl[].rl_log_id - allocated rule logical ID
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls)
+ * pp2_cls_fl_rule_add
+ *
+ * DESCRIPTION: The API adds all rules according to flow rule array
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_rls - a list of rules to enable
+ *
+ * OUTPUTS:
+ *	fl_rls->fl[].rl_log_id - allocated rule logical ID
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_fl_rule_add(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl_rls)
 {
 	struct pp2_cls_fl_t *new_fl;
 	struct pp2_cls_fl_t *merge_fl;
@@ -2300,21 +2320,17 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 	}
 
 	new_fl = kmalloc(sizeof(*new_fl), GFP_KERNEL);
-	if (!new_fl) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+	if (!new_fl)
 		return -ENOMEM;
-	}
 
 	merge_fl = kmalloc(sizeof(*merge_fl), GFP_KERNEL);
 	if (!merge_fl) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto err1;
 	}
 
 	cur_fl = kmalloc(sizeof(*cur_fl), GFP_KERNEL);
 	if (!cur_fl) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto err2;
 	}
@@ -2324,7 +2340,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 		memset(cur_fl, 0, sizeof(struct pp2_cls_fl_t));
 
 		/* get current flow_log_id rules */
-		rc = pp2_cls_fl_cur_get(fl_log_id, cur_fl);
+		rc = pp2_cls_fl_cur_get(inst, fl_log_id, cur_fl);
 		if (rc != 0) {
 			pr_err("pp2_db_cls_lkp_dcod_get returned error\n");
 			rc = -EFAULT;
@@ -2346,7 +2362,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 				continue;
 
 			/* get the lookup DB for this logical flow ID */
-			rc = pp2_db_cls_lkp_dcod_get(fl_log_id, &lkp_dcod_db);
+			rc = pp2_db_cls_lkp_dcod_get(inst, fl_log_id, &lkp_dcod_db);
 			if (rc) {
 				pr_err("failed to get lookup decode info for fl_log_id %d\n", fl_log_id);
 				goto err3;
@@ -2435,7 +2451,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 			pp2_cls_fl_rls_sort(new_fl->fl, new_fl->fl_len);
 
 		/* merge the two flows (new & curr) */
-		rc = pp2_cls_fl_rls_merge(fl_log_id, cur_fl, new_fl, merge_fl);
+		rc = pp2_cls_fl_rls_merge(inst, fl_log_id, cur_fl, new_fl, merge_fl);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			goto err3;
@@ -2449,7 +2465,7 @@ int pp2_cls_fl_rule_add(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rl
 		}
 
 		/* set the rules in DB and HW */
-		rc = pp2_cls_fl_rls_set(cpu_slot, merge_fl);
+		rc = pp2_cls_fl_rls_set(inst, merge_fl);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			goto err3;
@@ -2479,20 +2495,22 @@ err1:
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rule_enable
-*
-* DESCRIPTION: The API enables all rules according to flow rule array
-*
-* INPUTS:
-*	fl_rls - a list of rules to enable
-*
-* OUTPUTS:
-*	fl_rls->fl[].rl_log_id - rule logical ID according to matching rule in DB
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls)
+ * pp2_cls_fl_rule_enable
+ *
+ * DESCRIPTION: The API enables all rules according to flow rule array
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_rls - a list of rules to enable
+ *
+ * OUTPUTS:
+ *	fl_rls->fl[].rl_log_id - rule logical ID according to matching rule in DB
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
+			   struct pp2_cls_fl_rule_list_t *fl_rls)
 {
 	u16 rl_off, i;
 	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
@@ -2509,27 +2527,25 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 	}
 
 	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
-	if (!fl_rl_db) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+	if (!fl_rl_db)
 		return -ENOMEM;
-	}
 
 	/* iterate over all rule list */
 	for (i = 0; i < fl_rls->fl_len; i++) {
 		/* get the lookup DB for this logical flow ID */
-		rc = pp2_db_cls_lkp_dcod_get(fl_rls->fl[i].fl_log_id, &lkp_dcod_db);
+		rc = pp2_db_cls_lkp_dcod_get(inst, fl_rls->fl[i].fl_log_id, &lkp_dcod_db);
 		if (rc) {
 			pr_err("failed to get lookup decode DB data for fl_log_id %d\n",
-				fl_rls->fl[i].fl_log_id);
+			       fl_rls->fl[i].fl_log_id);
 			return rc;
 		}
 
 		/* get all rules for this logical flow ID */
 		memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
-		rc = pp2_db_cls_fl_rule_list_get(lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
+		rc = pp2_db_cls_fl_rule_list_get(inst, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
 		if (rc) {
 			pr_err("failed to get flow rule list, fl_log_id=%d flow_off=%d flow_len=%d\n",
-				fl_rls->fl[i].fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+			       fl_rls->fl[i].fl_log_id, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
 			kfree(fl_rl_db);
 			return rc;
 		}
@@ -2557,7 +2573,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 						rl_en->port_bm = rl_db->port_bm;
 						/* Update Port BM */
 						rl_en->rl_log_id = rl_db->rl_log_id;
-						rc = pp2_cls_fl_rl_hw_ena(cpu_slot, rl_en);
+						rc = pp2_cls_fl_rl_hw_ena(inst, rl_en);
 						if (rc) {
 							pr_err("recvd ret_code(%d)\n", rc);
 							kfree(fl_rl_db);
@@ -2602,10 +2618,10 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 			       fl_rls->fl[i].fl_log_id, fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
 			pr_err("prio(%d),lu_type(%d),engine(%d),field_id_cnt(%d)",
 			       fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
-				fl_rls->fl[i].field_id_cnt);
+			       fl_rls->fl[i].field_id_cnt);
 			pr_err("field_id_0(%x), field_id_1(%x),field_id_2(%x),field_id_3(%x)\n",
 			       fl_rls->fl[i].field_id[0], fl_rls->fl[i].field_id[1], fl_rls->fl[i].field_id[2],
-				fl_rls->fl[i].field_id[3]);
+			       fl_rls->fl[i].field_id[3]);
 			kfree(fl_rl_db);
 			return -EFAULT;
 		}
@@ -2619,7 +2635,7 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 			rl_db->enabled = true;
 
 			/* rule disabled, enable the HW */
-			rc = pp2_cls_fl_rl_hw_ena(cpu_slot, rl_en);
+			rc = pp2_cls_fl_rl_hw_ena(inst, rl_en);
 			if (rc) {
 				pr_err("recvd ret_code(%d)\n", rc);
 				kfree(fl_rl_db);
@@ -2634,14 +2650,14 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 		}
 
 		pr_debug("enable: fl_log_id[%d] rl_log_id[%d] rl_off[%d] port_type[%d] port_bm[%d]",
-			fl_rls->fl[i].fl_log_id, rl_en->rl_log_id, rl_off,
-				fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
+			 fl_rls->fl[i].fl_log_id, rl_en->rl_log_id, rl_off,
+			 fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
 		pr_debug("prio[%d] lu_type[%d] engine[%d] field_id_cnt[%d]\n",
-			fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
-				fl_rls->fl[i].field_id_cnt);
+			 fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
+			 fl_rls->fl[i].field_id_cnt);
 
 		/* update the DB */
-		rc = pp2_db_cls_fl_rule_set(lkp_dcod_db.flow_off + rl_off, rl_db);
+		rc = pp2_db_cls_fl_rule_set(inst, lkp_dcod_db.flow_off + rl_off, rl_db);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			kfree(fl_rl_db);
@@ -2654,23 +2670,24 @@ int pp2_cls_fl_rule_enable(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl
 }
 
 /*******************************************************************************
-* pp2_cls_fl_rule_disable
-*
-* DESCRIPTION: The API disables all rules according to logical rule ID array
-*
-* INPUTS:
-*	rl_log_id - a list of the logical rule id
-*	rl_log_id_len - rl_log_id length
-*
-* OUTPUTS:
-*	None
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
+ * pp2_cls_fl_rule_disable
+ *
+ * DESCRIPTION: The API disables all rules according to logical rule ID array
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	rl_log_id - a list of the logical rule id
+ *	rl_log_id_len - rl_log_id length
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
-				struct pp2_cls_class_port_t *src_port)
+			    struct pp2_cls_class_port_t *src_port)
 {
 	u16 rl_off, i;
 	struct pp2_db_cls_fl_rule_t rl_db;
@@ -2679,6 +2696,7 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 	int loop;
 	struct pp2_cls_fl_rule_entry_t rl_en;
 	u32 port_id = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!rl_log_id) {
 		pr_err("%s: rl_log_id is null pointer\n", __func__);
@@ -2695,14 +2713,14 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 	/* iterate all logical rule IDs */
 	for (i = 0; i < rl_log_id_len; i++) {
 		/* get the offset for the rl_log_id */
-		rc = pp2_db_cls_rl_off_get(&rl_off, rl_log_id[i]);
+		rc = pp2_db_cls_rl_off_get(inst, &rl_off, rl_log_id[i]);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
 		}
 
 		/* get the rule DB entry for the offset */
-		rc = pp2_db_cls_fl_rule_get(rl_off, &rl_db);
+		rc = pp2_db_cls_fl_rule_get(inst, rl_off, &rl_db);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
@@ -2760,7 +2778,7 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 			rl_en.port_type = rl_db.port_type;
 			rl_en.prio = rl_db.prio;
 			rl_en.rl_log_id = rl_db.rl_log_id;
-			rc = pp2_cls_fl_rl_hw_ena(cpu_slot, &rl_en);
+			rc = pp2_cls_fl_rl_hw_ena(inst, &rl_en);
 			if (rc) {
 				pr_err("recvd ret_code(%d)\n", rc);
 				return rc;
@@ -2769,12 +2787,12 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 		rl_db.ref_cnt[port_id]--;
 
 		pr_debug("disable: rl_off[%d] rl_log_id[%d] port_type[%d] port_bm[%d] prio[%d]",
-			rl_off, rl_db.rl_log_id, rl_db.port_type, rl_db.port_bm, rl_db.prio);
+			 rl_off, rl_db.rl_log_id, rl_db.port_type, rl_db.port_bm, rl_db.prio);
 		pr_debug("lu_type[%d] engine[%d] field_id_cnt[%d]\n",
-			rl_db.lu_type, rl_db.engine, rl_db.field_id_cnt);
+			 rl_db.lu_type, rl_db.engine, rl_db.field_id_cnt);
 
 		/* update rule entry in DB */
-		rc = pp2_db_cls_fl_rule_set(rl_off, &rl_db);
+		rc = pp2_db_cls_fl_rule_set(inst, rl_off, &rl_db);
 		if (rc) {
 			pr_err("recvd ret_code(%d)\n", rc);
 			return rc;
@@ -2784,21 +2802,21 @@ int pp2_cls_fl_rule_disable(uintptr_t cpu_slot, u16 *rl_log_id,
 }
 
 /*******************************************************************************
-* pp2_cls_find_flows_for_lkp
-*
-* DESCRIPTION: searching for HW flows for lookup id  and adding them to flow list
-*
-* INPUTS:
-*	fl_rls - pointer to list of the flow rule
-*	flow_log_id - the logical flow ID to perform the operation
-*	flow_index - the index in the HW to looking for the flows
-*
-* OUTPUTS:
-*	fl_rls - adding new flows to fl_rls
-*
-* RETURNS:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_find_flows_for_lkp
+ *
+ * DESCRIPTION: searching for HW flows for lookup id  and adding them to flow list
+ *
+ * INPUTS:
+ *	fl_rls - pointer to list of the flow rule
+ *	flow_log_id - the logical flow ID to perform the operation
+ *	flow_index - the index in the HW to looking for the flows
+ *
+ * OUTPUTS:
+ *	fl_rls - adding new flows to fl_rls
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 
 static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 				      struct pp2_cls_fl_rule_list_t *fl_rls,
@@ -2901,38 +2919,38 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 }
 
 /*******************************************************************************
-* pp2_cls_add_lkpid_flow_to_db
-*
-* DESCRIPTION: find lkp which configured by kernel and add them to DB, find for each lkp its flow
-*	and returning them to fl_rls.
-*
-*	by calling pp2_cls_lkp_dcod_set setting decoder DB.
-*	returning all flows to fl_rls - we are returning them because calling to pp2_cls_fl_rule_add
-*	is setting DB & HW and we dont want do it before cleaning the HW
-*
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           fl_rls - all flows found
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
+ * pp2_cls_add_lkpid_flow_to_db
+ *
+ * DESCRIPTION: find lkp which configured by kernel and add them to DB, find for each lkp its flow
+ *	and returning them to fl_rls.
+ *
+ *	by calling pp2_cls_lkp_dcod_set setting decoder DB.
+ *	returning all flows to fl_rls - we are returning them because calling to pp2_cls_fl_rule_add
+ *	is setting DB & HW and we dont want do it before cleaning the HW
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *
+ * OUTPUTS:
+ *           fl_rls - all flows found
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
 
-static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_fl_rule_list_t *fl_rls)
+static int pp2_cls_add_lkpid_and_flows_to_db(struct pp2_inst *inst,
+					     struct pp2_cls_fl_rule_list_t *fl_rls)
 {
 	struct pp2_cls_lkp_dcod_entry_t  *dcod_entry;
 	struct mv_pp2x_cls_lookup_entry le;
 	int lkp_index, rxq, en, flow_index, mod;
 	int rc = 0;
 	int way = 0; /* currently, always setting way to '0' */
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	dcod_entry = kmalloc(sizeof(*dcod_entry), GFP_KERNEL);
-	if (!dcod_entry) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+	if (!dcod_entry)
 		return -ENOMEM;
-	}
 
 	pr_debug("\n");
 	pr_debug("ID :	RXQ	EN	FLOW	MODE_BASE\n");
@@ -2954,7 +2972,7 @@ static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_
 			goto end;
 		if (en) {
 			pr_debug(" 0x%2.2x\t 0x%2.2x\t %1.1d\t 0x%3.3x\t 0x%2.2x\n",
-				le.lkpid, rxq, en, flow_index, mod);
+				 le.lkpid, rxq, en, flow_index, mod);
 			memset(dcod_entry, 0, sizeof(struct pp2_cls_lkp_dcod_entry_t));
 			dcod_entry->cpu_q = rxq;
 			dcod_entry->way = way;
@@ -2966,7 +2984,7 @@ static int pp2_cls_add_lkpid_and_flows_to_db(uintptr_t cpu_slot, struct pp2_cls_
 			rc = pp2_cls_find_flows_per_lkp(cpu_slot, fl_rls, dcod_entry->flow_log_id, flow_index);
 			if (rc)
 				goto end;
-			pp2_cls_lkp_dcod_set(dcod_entry);
+			pp2_cls_lkp_dcod_set(inst, dcod_entry);
 		}
 	}
 
@@ -2977,24 +2995,25 @@ end:
 }
 
 /*******************************************************************************
-* pp2_cls_init
-*
-* DESCRIPTION: The API will clean all the HW entries in CLS flow and lookup decode tables
-*              and also initialize the CLS DB to default
-*
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* RETURN:
-*	0 on success, error-code otherwise
-*******************************************************************************/
-int pp2_cls_init(uintptr_t cpu_slot)
+ * pp2_cls_init
+ *
+ * DESCRIPTION: The API will clean all the HW entries in CLS flow and lookup decode tables
+ *              and also initialize the CLS DB to default
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_init(struct pp2_inst *inst)
 {
 	int rc = 0;
 	struct pp2_cls_fl_rule_list_t *fl_rls;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	rc = mv_pp2x_cls_hw_cls_enable(cpu_slot, true);
 	if (rc) {
@@ -3002,16 +3021,14 @@ int pp2_cls_init(uintptr_t cpu_slot)
 		return rc;
 	}
 
-	pp2_db_cls_init();
+	pp2_db_cls_init(inst);
 
 	fl_rls = kmalloc(sizeof(*fl_rls), GFP_KERNEL);
-	if (!fl_rls) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+	if (!fl_rls)
 		return -ENOMEM;
-	}
 	memset(fl_rls, 0, sizeof(struct pp2_cls_fl_rule_list_t));
 
-	rc = pp2_cls_add_lkpid_and_flows_to_db(cpu_slot, fl_rls);
+	rc = pp2_cls_add_lkpid_and_flows_to_db(inst, fl_rls);
 	if (rc) {
 		pr_err("pp2_cls_adding_db_current_flows fail rc = %d\n", rc);
 		goto end;
@@ -3031,14 +3048,13 @@ int pp2_cls_init(uintptr_t cpu_slot)
 
 	/* add rules and set HW */
 	if (fl_rls->fl_len)
-		pp2_cls_fl_rule_add(cpu_slot, fl_rls);
+		pp2_cls_fl_rule_add(inst, fl_rls);
 
 	/* Enable lookup decoder */
-	pp2_cls_lkp_dcod_enable_all(cpu_slot);
+	pp2_cls_lkp_dcod_enable_all(inst);
 
 end:
 	kfree(fl_rls);
 
 	return rc;
 }
-

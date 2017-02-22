@@ -186,7 +186,7 @@ static void pp2_inst_init(struct pp2_inst *inst)
 	pp2_bm_flush_pools(cpu_slot, inst->parent->init.bm_pool_reserved_map);
 
 	ppdk_cls_default_config_set(inst);
-	pp2_cls_mng_init(cpu_slot);
+	pp2_cls_mng_init(inst);
 
 	/* Disable RXQs */
 	for (i = 0; i < PP2_NUM_PORTS; i++) {
@@ -471,6 +471,7 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 		pr_err("%s out of memory pp2_inst alloc\n", __func__);
 		return NULL;
 	}
+	memset(inst, 0, sizeof(struct pp2_inst));
 
 	/* Early allocate and get MAC data for available ports since GOP
 	* sub-system needs to be initialized once per packet processor
@@ -639,4 +640,3 @@ int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)
 	}
 	return -EEXIST;
 }
-

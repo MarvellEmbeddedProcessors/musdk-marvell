@@ -103,18 +103,18 @@ static char *pp2_cls_frwd_action_str[8] = {
 };
 
 /*******************************************************************************
-* pp2_cls_sfs_valid_c2_entry_header_dump
-*
-* DESCRIPTION: print header.
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           None
-*******************************************************************************/
+ * pp2_cls_sfs_valid_c2_entry_header_dump
+ *
+ * DESCRIPTION: print header.
+ * INPUTS:
+ *           None
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           None
+ ******************************************************************************/
 static void pp2_cls_valid_c2_entry_header_dump(void)
 {
 	print_horizontal_line(150, "=");
@@ -124,23 +124,23 @@ static void pp2_cls_valid_c2_entry_header_dump(void)
 }
 
 /*******************************************************************************
-* pp2_cls_valid_c2_entry_line_dump
-*
-* DESCRIPTION: Print one line of dump info.
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           None
-*******************************************************************************/
+ * pp2_cls_valid_c2_entry_line_dump
+ *
+ * DESCRIPTION: Print one line of dump info.
+ * INPUTS:
+ *           None
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           None
+ ******************************************************************************/
 static void pp2_cls_valid_c2_entry_line_dump(uintptr_t cpu_slot,
-					u32 lkp_type,
-					u32 dump_idx,
-					struct pp2_cls_c2_data_t	*c2_entry,
-					struct pp2_cls_c2_index_t	*c2_index_node)
+					     u32 lkp_type,
+					     u32 dump_idx,
+					     struct pp2_cls_c2_data_t	*c2_entry,
+					     struct pp2_cls_c2_index_t	*c2_index_node)
 {
 	char *empty_str = "";
 	char field_name_str[14] = "";
@@ -194,7 +194,6 @@ static void pp2_cls_valid_c2_entry_line_dump(uintptr_t cpu_slot,
 	else if (c2_entry->field_bm & MVPP2_MATCH_IPV6_SUFF)
 		field_match &= ~MVPP2_MATCH_IPV6_SUFF;
 
-
 	if (field_match) {
 		pp2_cls_pkt_key_t_tmp.ttl = c2_entry->mng_pkt_key.ttl;
 		pp2_cls_pkt_key_t_tmp.tcp_flag = c2_entry->mng_pkt_key.tcp_flag;
@@ -210,10 +209,10 @@ static void pp2_cls_valid_c2_entry_line_dump(uintptr_t cpu_slot,
 			field_match |= MVPP2_MATCH_IPV6_SUFF;
 
 		if (pp2_cls_field_bm_to_field_info(field_match,
-					       &pp2_cls_pkt_key_t_tmp,
-					       1,
-					       true,
-					       &field_match_info))
+						   &pp2_cls_pkt_key_t_tmp,
+						   1,
+						   true,
+						   &field_match_info))
 			return;
 		field_id = field_match_info.field_id;
 		sprintf(field_name_str, "%s", pp2_cls_utils_field_id_str_get(field_id));
@@ -429,35 +428,36 @@ static void pp2_cls_valid_c2_entry_line_dump(uintptr_t cpu_slot,
 	    dump_idx <= MVPP2_FLOW_DUMP_CNT ||
 	    dump_idx <= MVPP2_INDEX_DUMP_DB) {
 		printf("+ %8s | %8s | %8s  | %13s | %20s | %30s | %18s | %7s | %8s  +\n",
-			lookup_type_str, internal_pri_str, port_info_str, field_name_str, field_value_str,
-			qos_info_str, action_str, hit_cnt_str, index_str);
+		       lookup_type_str, internal_pri_str, port_info_str, field_name_str, field_value_str,
+		       qos_info_str, action_str, hit_cnt_str, index_str);
 		if (field_match)
 			printf("+ %8s | %8s | %8s  | %13s | %20s | %30s | %18s | %7s | %9s +\n",
-				empty_str, empty_str, empty_str, empty_str, field_value_mask_str,
-				empty_str, empty_str, empty_str, empty_str);
+			       empty_str, empty_str, empty_str, empty_str, field_value_mask_str,
+			       empty_str, empty_str, empty_str, empty_str);
 	}
 }
 
 /*******************************************************************************
-* pp2_cls_c2_dump_all
-*
-* DESCRIPTION: The routine will dump the valid C2 entries from C2 sub-module
-*              internal DB.
-* INPUTS:
-*           lookup_type - lookup type entry to dump
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           For debug, if lookup_type equal to 64, means dump all lookup types
-*******************************************************************************/
-static void pp2_cls_c2_dump_all(uintptr_t cpu_slot, u8 lookup_type)
+ * pp2_cls_c2_dump_all
+ *
+ * DESCRIPTION: The routine will dump the valid C2 entries from C2 sub-module
+ *              internal DB.
+ * INPUTS:
+ *           lookup_type - lookup type entry to dump
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           For debug, if lookup_type equal to 64, means dump all lookup types
+ ******************************************************************************/
+static void pp2_cls_c2_dump_all(struct pp2_inst *inst, u8 lookup_type)
 {
 	u32 lkp_type_idx;
 	struct pp2_cls_c2_data_t c2_db_data;
 	struct pp2_cls_c2_index_t *c2_index_node;
 	u32 i;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* Print header */
 	pp2_cls_valid_c2_entry_header_dump();
@@ -466,13 +466,13 @@ static void pp2_cls_c2_dump_all(uintptr_t cpu_slot, u8 lookup_type)
 		if (lkp_type_idx != lookup_type &&
 		    lookup_type != MVPP2_C2_LKP_TYPE_MAX)
 			continue;
-		if (list_is_empty(pp2_cls_db_c2_lkp_type_list_head_get(lkp_type_idx)))
+		if (list_is_empty(pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type_idx)))
 			continue;
 		/* Traverse lookup type list */
 		LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t,
-				     pp2_cls_db_c2_lkp_type_list_head_get(lkp_type_idx), list_node) {
+				     pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type_idx), list_node) {
 			/* get C2 db entry data */
-			if (pp2_cls_db_c2_data_get(c2_index_node->c2_data_db_idx, &c2_db_data))
+			if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, &c2_db_data))
 				continue;
 			/* First line */
 			for (i = 0; i < sizeof(c2_db_data.field_bm) * BYTE_BITS; i++) {
@@ -489,18 +489,18 @@ static void pp2_cls_c2_dump_all(uintptr_t cpu_slot, u8 lookup_type)
 }
 
 /*******************************************************************************
-* pp2_cls_print_free_c2_tcam_dump_head
-*
-* DESCRIPTION: print header for free TCAM.
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           None
-*******************************************************************************/
+ * pp2_cls_print_free_c2_tcam_dump_head
+ *
+ * DESCRIPTION: print header for free TCAM.
+ * INPUTS:
+ *           None
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           None
+ ******************************************************************************/
 static void pp2_cls_print_free_c2_tcam_dump_head(void)
 {
 	print_horizontal_line(67, "=");
@@ -509,21 +509,21 @@ static void pp2_cls_print_free_c2_tcam_dump_head(void)
 }
 
 /*******************************************************************************
-* pp2_cls_print_tcam_index_dump_line
-*
-* DESCRIPTION: print one line with TCAM index information.
-* INPUTS:
-*           common_int - tcam count or lkp_type
-*           tcam_idx   - TCAM index array
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           None
-*******************************************************************************/
+ * pp2_cls_print_tcam_index_dump_line
+ *
+ * DESCRIPTION: print one line with TCAM index information.
+ * INPUTS:
+ *           common_int - tcam count or lkp_type
+ *           tcam_idx   - TCAM index array
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           None
+ ******************************************************************************/
 static void pp2_cls_print_tcam_index_dump_line(u32 common_int,
-					   u8 *tcam_idx)
+					       u8 *tcam_idx)
 {
 	char common_str[4] = "";
 	char tcam_idx_str[40] = "";
@@ -532,7 +532,7 @@ static void pp2_cls_print_tcam_index_dump_line(u32 common_int,
 	bool first_line = true;
 
 	/* Para Check */
-	if (tcam_idx == NULL)
+	if (!tcam_idx)
 		return;
 
 	sprintf(common_str, "%03d", common_int);
@@ -549,10 +549,10 @@ static void pp2_cls_print_tcam_index_dump_line(u32 common_int,
 	if (tcam_cnt == 0)
 		ten_cnt = 1;
 	for (i = 0; i < ten_cnt; i++) {
-		sprintf(tcam_idx_str, "%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d", tcam_idx[i*line_int_num],
-			tcam_idx[i*line_int_num + 1], tcam_idx[i*line_int_num + 2], tcam_idx[i*line_int_num + 3],
-			tcam_idx[i*line_int_num + 4], tcam_idx[i*line_int_num + 5], tcam_idx[i*line_int_num + 6],
-			tcam_idx[i*line_int_num + 7], tcam_idx[i*line_int_num + 8], tcam_idx[i*line_int_num + 9]);
+		sprintf(tcam_idx_str, "%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d,%3d", tcam_idx[i * line_int_num],
+			tcam_idx[i * line_int_num + 1], tcam_idx[i * line_int_num + 2], tcam_idx[i * line_int_num + 3],
+			tcam_idx[i * line_int_num + 4], tcam_idx[i * line_int_num + 5], tcam_idx[i * line_int_num + 6],
+			tcam_idx[i * line_int_num + 7], tcam_idx[i * line_int_num + 8], tcam_idx[i * line_int_num + 9]);
 		if ((tcam_cnt % line_int_num) && (i == tcam_cnt / line_int_num)) {
 			for (j = ((tcam_cnt % line_int_num) * 4); j < 40; j++)
 				tcam_idx_str[j] = 0;
@@ -574,25 +574,23 @@ static void pp2_cls_print_tcam_index_dump_line(u32 common_int,
 			}
 		}
 	}
-
 }
 
-
 /*******************************************************************************
-* pp2_cls_c2_dump_freelist
-*
-* DESCRIPTION: The routine will dump all the free C2 entry number from C2
-*              sub-module internal DB
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           For debug.
-*******************************************************************************/
-static void pp2_cls_c2_dump_freelist(void)
+ * pp2_cls_c2_dump_freelist
+ *
+ * DESCRIPTION: The routine will dump all the free C2 entry number from C2
+ *              sub-module internal DB
+ * INPUTS:
+ *           None
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           For debug.
+ ******************************************************************************/
+static void pp2_cls_c2_dump_freelist(struct pp2_inst *inst)
 {
 	struct pp2_cls_c2_index_t *c2_index_node;
 	u32 count = 0;
@@ -601,7 +599,8 @@ static void pp2_cls_c2_dump_freelist(void)
 	pp2_cls_print_free_c2_tcam_dump_head();
 	/* Traverse free list */
 	MVPP2_MEMSET_FF(tcam_array);
-	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t, pp2_cls_db_c2_free_list_head_get(), list_node)
+	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t,
+			     pp2_cls_db_c2_free_list_head_get(inst), list_node)
 		tcam_array[count++] = c2_index_node->c2_hw_idx;
 	/* Print Free TCAM info */
 	pp2_cls_print_tcam_index_dump_line(count, tcam_array);
@@ -609,18 +608,18 @@ static void pp2_cls_c2_dump_freelist(void)
 }
 
 /*******************************************************************************
-* pp2_cls_print_valid_lkp_type_dump_head
-*
-* DESCRIPTION: print header for lookup type.
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           None
-*******************************************************************************/
+ * pp2_cls_print_valid_lkp_type_dump_head
+ *
+ * DESCRIPTION: print header for lookup type.
+ * INPUTS:
+ *           None
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           None
+ ******************************************************************************/
 static void pp2_cls_print_valid_lkp_type_dump_head(void)
 {
 	print_horizontal_line(67, "=");
@@ -629,20 +628,20 @@ static void pp2_cls_print_valid_lkp_type_dump_head(void)
 }
 
 /*******************************************************************************
-* pp2_cls_c2_dump_lookup_type_list
-*
-* DESCRIPTION: The routine will dump all the valid lookup_type list from C2
-*              sub-module internal DB
-* INPUTS:
-*           None
-*
-* OUTPUTS:
-*           None
-*
-* COMMENTS:
-*           For debug.
-*******************************************************************************/
-static void pp2_cls_c2_dump_lookup_type_list(void)
+ * pp2_cls_c2_dump_lookup_type_list
+ *
+ * DESCRIPTION: The routine will dump all the valid lookup_type list from C2
+ *              sub-module internal DB
+ * INPUTS:
+ *           None
+ *
+ * OUTPUTS:
+ *           None
+ *
+ * COMMENTS:
+ *           For debug.
+ ******************************************************************************/
+static void pp2_cls_c2_dump_lookup_type_list(struct pp2_inst *inst)
 {
 	u32 lkp_type_idx;
 	u8 tcam_array[MVPP2_C2_ENTRY_MAX];
@@ -651,12 +650,12 @@ static void pp2_cls_c2_dump_lookup_type_list(void)
 
 	pp2_cls_print_valid_lkp_type_dump_head();
 	for (lkp_type_idx = 0; lkp_type_idx < MVPP2_C2_LKP_TYPE_MAX; lkp_type_idx++) {
-		if (list_is_empty(pp2_cls_db_c2_lkp_type_list_head_get(lkp_type_idx)))
+		if (list_is_empty(pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type_idx)))
 			continue;
 		MVPP2_MEMSET_FF(tcam_array);
 		i = 0;
 		LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t,
-				     pp2_cls_db_c2_lkp_type_list_head_get(lkp_type_idx), list_node)
+				     pp2_cls_db_c2_lkp_type_list_head_get(inst, lkp_type_idx), list_node)
 			tcam_array[i++] = (u8)(c2_index_node->c2_hw_idx);
 		/* Print LKP_type info */
 		pp2_cls_print_tcam_index_dump_line(lkp_type_idx, tcam_array);
@@ -666,17 +665,17 @@ static void pp2_cls_c2_dump_lookup_type_list(void)
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c2_lkp_type_entry_dump
-*
-* DESCRIPTION:
-*           This function dump C2 lookup type entry
-* INPUTS:
-*       buf - Shell parameters as char buffer
-*       len - Number of characters in buffer
-*******************************************************************************/
+ * pp2_cls_cli_c2_lkp_type_entry_dump
+ *
+ * DESCRIPTION:
+ *           This function dump C2 lookup type entry
+ * INPUTS:
+ *       buf - Shell parameters as char buffer
+ *       len - Number of characters in buffer
+ ******************************************************************************/
 int pp2_cls_cli_c2_lkp_type_entry_dump(void *arg, int argc, char *argv[])
 {
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	int long_index = 0;
 	char *ret_ptr;
 	int option;
@@ -705,55 +704,57 @@ int pp2_cls_cli_c2_lkp_type_entry_dump(void *arg, int argc, char *argv[])
 			return -EINVAL;
 		}
 	}
-	pp2_cls_c2_dump_all(cpu_slot, lookup_type);
+	pp2_cls_c2_dump_all(inst, lookup_type);
 
 	return 0;
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c2_free_tcam_dump
-*
-* DESCRIPTION:
-*           This function dump free C2 tcam entry
-* INPUTS:
-*       buf     - Shell parameters as char buffer
-*******************************************************************************/
+ * pp2_cls_cli_c2_free_tcam_dump
+ *
+ * DESCRIPTION:
+ *           This function dump free C2 tcam entry
+ * INPUTS:
+ *       buf     - Shell parameters as char buffer
+ ******************************************************************************/
 int pp2_cls_cli_c2_free_tcam_dump(void *arg, int argc, char *argv[])
 {
 	int off = 0;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	pp2_cls_c2_dump_freelist();
+	pp2_cls_c2_dump_freelist(inst);
 
 	return off;
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c2_free_tcam_dump
-*
-* DESCRIPTION:
-*           This function dump C2 valid lookup type and its TCAM index
-* INPUTS:
-*       buf     - Shell parameters as char buffer
-*******************************************************************************/
+ * pp2_cls_cli_c2_free_tcam_dump
+ *
+ * DESCRIPTION:
+ *           This function dump C2 valid lookup type and its TCAM index
+ * INPUTS:
+ *       buf     - Shell parameters as char buffer
+ ******************************************************************************/
 int pp2_cls_cli_c2_valid_lkp_type_dump(void *arg, int argc, char *argv[])
 {
 	int off = 0;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	pp2_cls_c2_dump_lookup_type_list();
+	pp2_cls_c2_dump_lookup_type_list(inst);
 
 	return off;
 }
 
-
 /*******************************************************************************
-* pp2_cls_cli_c2_dump
-*
-* DESCRIPTION:
-*       This function dumps C2 entries
-*******************************************************************************/
+ * pp2_cls_cli_c2_dump
+ *
+ * DESCRIPTION:
+ *       This function dumps C2 entries
+ ******************************************************************************/
 int pp2_cls_cli_c2_hw_dump(void *arg, int argc, char *argv[])
 {
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	mv_pp2x_c2_hw_dump(cpu_slot);
 
@@ -761,19 +762,19 @@ int pp2_cls_cli_c2_hw_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c2_hit_dump
-*
-* DESCRIPTION:
-*       This function dumps C2 entries
-*******************************************************************************/
+ * pp2_cls_cli_c2_hit_dump
+ *
+ * DESCRIPTION:
+ *       This function dumps C2 entries
+ ******************************************************************************/
 int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[])
 {
 	struct pp2_cls_hit_cnt_t cntr_info[MVPP2_CLS_C2_TCAM_SIZE];
 	u32 num_of_counters = MVPP2_CLS_C2_TCAM_SIZE;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	int i;
 
-	pp2_cls_c2_hit_cntr_all_get(cpu_slot, 0, cntr_info, &num_of_counters);
+	pp2_cls_c2_hit_cntr_all_get(inst, 0, cntr_info, &num_of_counters);
 
 	for (i = 0; i < num_of_counters; i++) {
 		if (cntr_info[i].cntr_val == 0)

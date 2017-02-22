@@ -417,6 +417,7 @@ struct pp2_inst {
 	struct pp2 *parent;
 	/* UIO handle for mapping PP and GOP register spaces */
 	pp2_maps_handle_t pp2_maps_hdl;
+	struct pp2_cls_db_t *cls_db;
 };
 
 struct pp2_common_cfg {
@@ -471,6 +472,11 @@ static inline uintptr_t pp2_bm_hw_buf_get(uintptr_t cpu_slot, uint32_t pool_id)
 static inline int pp2_is_init(void)
 {
 	return (pp2_ptr) ? 1 : 0;
+}
+
+static inline uintptr_t pp2_default_cpu_slot(struct pp2_inst *inst)
+{
+	return inst->hw.base[PP2_DEFAULT_REGSPACE].va;
 }
 
 #endif /* _PP2_H_ */

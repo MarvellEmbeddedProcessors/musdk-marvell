@@ -37,6 +37,7 @@
 #define _PP2_MNG_H_
 
 #include "drivers/mv_pp2_cls.h"
+#include "drivers/ppv2/pp2.h"
 /******************************************************************************/
 /*                                 MACROS                                     */
 /******************************************************************************/
@@ -50,7 +51,7 @@
 /******************************************************************************/
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
-void pp2_cls_mng_init(uintptr_t cpu_slot);
+void pp2_cls_mng_init(struct pp2_inst *inst);
 int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params);
 int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_rule *rule,
 			 struct pp2_cls_tbl_action *action);

@@ -62,16 +62,16 @@ void pp2_cls_c3_entry_header_dump(void)
 }
 
 /*******************************************************************************
-* pp2_cls_c3_entry_convert
-*
-* DESCRIPTION: The routine will convert PP2 C3 entry to management C3 entry.
-* INPUTS:
-*	pp2_entry - PP2 C3 entry
-*
-* OUTPUTS:
-*	mng_entry - management C3 entry
-*
-*******************************************************************************/
+ * pp2_cls_c3_entry_convert
+ *
+ * DESCRIPTION: The routine will convert PP2 C3 entry to management C3 entry.
+ * INPUTS:
+ *	pp2_entry - PP2 C3 entry
+ *
+ * OUTPUTS:
+ *	mng_entry - management C3 entry
+ *
+ ******************************************************************************/
 void pp2_cls_c3_entry_convert(struct pp2_cls_c3_entry *pp2_entry, struct pp2_cls_c3_data_t *mng_entry)
 {
 	int idx;
@@ -126,19 +126,19 @@ void pp2_cls_c3_entry_convert(struct pp2_cls_c3_entry *pp2_entry, struct pp2_cls
 }
 
 /*******************************************************************************
-* pp2_cls_c3_entry_line_dump
-*
-* DESCRIPTION: Print one line of C3 entry info.
-* INPUTS:
-*	dump_idx  - index used to dump field value
-*	hash_iex  - multihash index of C3 HW
-*	logic_idx - logical index
-*	hit_count - hit counter
-*	c3_entry  - C3 entry information
-*
-* OUTPUTS:
-*           None
-*******************************************************************************/
+ * pp2_cls_c3_entry_line_dump
+ *
+ * DESCRIPTION: Print one line of C3 entry info.
+ * INPUTS:
+ *	dump_idx  - index used to dump field value
+ *	hash_iex  - multihash index of C3 HW
+ *	logic_idx - logical index
+ *	hit_count - hit counter
+ *	c3_entry  - C3 entry information
+ *
+ * OUTPUTS:
+ *           None
+ ******************************************************************************/
 void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 				u32 hit_count, struct pp2_cls_c3_data_t *c3_entry)
 {
@@ -264,18 +264,18 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 }
 
 /*******************************************************************************
-* pp2_cls_c3_entry_dump
-*
-* DESCRIPTION: The routine will dump the valid C3 entries from C3 sub-module
-*              internal DB.
-* INPUTS:
-*	type  - dump type
-*	value - value according to type
-*
-* OUTPUTS:
-*	None
-*******************************************************************************/
-static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
+ * pp2_cls_c3_entry_dump
+ *
+ * DESCRIPTION: The routine will dump the valid C3 entries from C3 sub-module
+ *              internal DB.
+ * INPUTS:
+ *	type  - dump type
+ *	value - value according to type
+ *
+ * OUTPUTS:
+ *	None
+ ******************************************************************************/
+static int pp2_cls_c3_entry_dump(struct pp2_inst *inst, u32 type, u32 value)
 {
 	struct pp2_cls_c3_entry c3;
 	u32 idx;
@@ -286,6 +286,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 	struct pp2_cls_c3_data_t c3_entry;
 	u32 hit_count;
 	int rc = 0;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* param verification */
 	if (mv_pp2x_range_validate(type, 0, MVPP2_C3_ENTRY_DUMP_ALL))
@@ -301,7 +302,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 
 	if ((type == MVPP2_C3_ENTRY_DUMP_LOGIC_IDX) || (type == MVPP2_C3_ENTRY_DUMP_HASH_IDX)) {
 		if (type == MVPP2_C3_ENTRY_DUMP_LOGIC_IDX) {
-			rc = pp2_cls_db_c3_hash_idx_get(value, &hash_idx);
+			rc = pp2_cls_db_c3_hash_idx_get(inst, value, &hash_idx);
 			/* skip invalid entry */
 			if (rc) {
 				pr_err("logical index(%d) is invalid\n", value);
@@ -309,7 +310,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 			}
 			logic_idx = value;
 		} else if (type == MVPP2_C3_ENTRY_DUMP_HASH_IDX) {
-			rc = pp2_cls_db_c3_logic_idx_get(value, &logic_idx);
+			rc = pp2_cls_db_c3_logic_idx_get(inst, value, &logic_idx);
 			/* skip invalid entry */
 			if (rc) {
 				pr_err("hash index(%d) is invalid\n", value);
@@ -332,7 +333,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 		pp2_cls_c3_entry_convert(&c3, &c3_entry);
 
 		/* read hit counter */
-		rc = pp2_cls_c3_hit_count_get(cpu_slot, logic_idx, &hit_count);
+		rc = pp2_cls_c3_hit_count_get(inst, logic_idx, &hit_count);
 		if (rc) {
 			pr_err("failed to read hit counter\n");
 			return -EIO;
@@ -350,7 +351,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 
 		/* read valid C3 entry from HW and dump them by lkp_type */
 		for (idx = 0; idx < MVPP2_CLS_C3_HASH_TBL_SIZE; idx++) {
-			rc = pp2_cls_db_c3_logic_idx_get(idx, &logic_idx);
+			rc = pp2_cls_db_c3_logic_idx_get(inst, idx, &logic_idx);
 			/* skip invalid entry */
 			if (rc)
 				continue;
@@ -370,7 +371,7 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 				continue;
 
 			/* read hit counter */
-			rc = pp2_cls_c3_hit_count_get(cpu_slot, logic_idx, &hit_count);
+			rc = pp2_cls_c3_hit_count_get(inst, logic_idx, &hit_count);
 			if (rc) {
 				pr_err("failed to read hit counter\n");
 				return -EIO;
@@ -393,17 +394,17 @@ static int pp2_cls_c3_entry_dump(uintptr_t cpu_slot, u32 type, u32 value)
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_type_entry_dump
-*
-* DESCRIPTION:
-*       This function dumps C3 entries according to type
-*******************************************************************************/
+ * pp2_cls_cli_c3_type_entry_dump
+ *
+ * DESCRIPTION:
+ *       This function dumps C3 entries according to type
+ ******************************************************************************/
 int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 {
 	int type = -1;
 	int value = -1;
 	int i;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	char *ret_ptr;
 	int option;
 	int long_index = 0;
@@ -456,7 +457,7 @@ int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (!pp2_cls_c3_entry_dump(cpu_slot, type, value))
+	if (!pp2_cls_c3_entry_dump(inst, type, value))
 		printf("OK\n");
 	else
 		printf("FAIL\n");
@@ -465,12 +466,12 @@ int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_c3_index_dump
-*
-* DESCRIPTION:
-*       This function dumps C3 index entries entries scan result
-*******************************************************************************/
-static int pp2_cls_c3_index_dump(u32 type)
+ * pp2_cls_c3_index_dump
+ *
+ * DESCRIPTION:
+ *       This function dumps C3 index entries entries scan result
+ ******************************************************************************/
+static int pp2_cls_c3_index_dump(struct pp2_inst *inst, u32 type)
 {
 	int idx;
 	int num = 0;
@@ -488,7 +489,7 @@ static int pp2_cls_c3_index_dump(u32 type)
 	printf("= Index  | Logic_Idx | Hash_Idx |  Valid =\n");
 
 	for (idx = 0; idx < MVPP2_CLS_C3_HASH_TBL_SIZE; idx++) {
-		rc = pp2_cls_db_c3_hash_idx_get(idx, &hash_idx);
+		rc = pp2_cls_db_c3_hash_idx_get(inst, idx, &hash_idx);
 		if (rc == 0) {
 			sprintf(index_str, "%d", num);
 			sprintf(logic_idx_str, "%d", idx);
@@ -513,7 +514,7 @@ static int pp2_cls_c3_index_dump(u32 type)
 	printf("= Index  | Hash_Idx | Logic_Idx |  Valid =\n");
 	num = 0;
 	for (idx = 0; idx < MVPP2_CLS_C3_HASH_TBL_SIZE; idx++) {
-		rc = pp2_cls_db_c3_logic_idx_get(idx, &logic_idx);
+		rc = pp2_cls_db_c3_logic_idx_get(inst, idx, &logic_idx);
 		if (rc == 0) {
 			sprintf(index_str, "%d", num);
 			sprintf(hash_idx_str, "%d", idx);
@@ -534,15 +535,16 @@ static int pp2_cls_c3_index_dump(u32 type)
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_index_entry_dump
-*
-* DESCRIPTION:
-*       This function dumps C3 index entries according to type
-*******************************************************************************/
+ * pp2_cls_cli_c3_index_entry_dump
+ *
+ * DESCRIPTION:
+ *       This function dumps C3 index entries according to type
+ ******************************************************************************/
 int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
 {
 	u32 index_entry;
 	char *ret_ptr;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -556,7 +558,7 @@ int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (!pp2_cls_c3_index_dump(index_entry))
+	if (!pp2_cls_c3_index_dump(inst, index_entry))
 		printf("OK\n");
 	else
 		printf("FAIL\n");
@@ -565,11 +567,11 @@ int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_scan_param_set
-*
-* DESCRIPTION:
-*       This function set C3 scan parameters
-*******************************************************************************/
+ * pp2_cls_cli_c3_scan_param_set
+ *
+ * DESCRIPTION:
+ *       This function set C3 scan parameters
+ ******************************************************************************/
 int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 {
 	u32 clear;
@@ -580,7 +582,7 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 	u32 delay;
 	u32 threshold;
 	struct pp2_cls_c3_scan_config_t scan_config;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	char *ret_ptr;
 
 	if (argc != 8) {
@@ -638,7 +640,7 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 	scan_config.start_entry = start;
 	scan_config.scan_delay = delay;
 	scan_config.scan_threshold = threshold;
-	if (!pp2_cls_c3_scan_param_set(cpu_slot, &scan_config))
+	if (!pp2_cls_c3_scan_param_set(inst, &scan_config))
 		printf("OK\n");
 	else
 		printf("FAIL\n");
@@ -647,12 +649,12 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_c3_scan_result_dump
-*
-* DESCRIPTION:
-*       This function dumps C3 entries scan result
-*******************************************************************************/
-static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
+ * pp2_cls_c3_scan_result_dump
+ *
+ * DESCRIPTION:
+ *       This function dumps C3 entries scan result
+ ******************************************************************************/
+static int pp2_cls_c3_scan_result_dump(struct pp2_inst *inst, u32 max_num)
 {
 	int idx;
 	u32 entry_num;
@@ -664,14 +666,12 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 	int rc;
 
 	result_entry = kmalloc(128 * sizeof(struct pp2_cls_c3_scan_entry_t), GFP_KERNEL);
-	if (!result_entry) {
-		pr_err("%s(%d) Error allocating memory!\n", __func__, __LINE__);
+	if (!result_entry)
 		return -ENOMEM;
-	}
 	memset(result_entry, 0, 128 * sizeof(struct pp2_cls_c3_scan_entry_t));
 
 	/* trigger and get scan result */
-	rc = pp2_cls_c3_scan_result_get(cpu_slot, max_num, &entry_num, result_entry);
+	rc = pp2_cls_c3_scan_result_get(inst, max_num, &entry_num, result_entry);
 	if (rc) {
 		pr_err("fail to get scan result\n");
 		kfree(result_entry);
@@ -698,15 +698,15 @@ static int pp2_cls_c3_scan_result_dump(uintptr_t cpu_slot, u32 max_num)
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_scan_result_get
-*
-* DESCRIPTION:
-*       This function dumps C3 entries scan result
-*******************************************************************************/
+ * pp2_cls_cli_c3_scan_result_get
+ *
+ * DESCRIPTION:
+ *       This function dumps C3 entries scan result
+ ******************************************************************************/
 int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
 {
 	u32 scan_num;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	char *ret_ptr;
 
 	if (argc != 2) {
@@ -721,7 +721,7 @@ int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (!pp2_cls_c3_scan_result_dump(cpu_slot, scan_num))
+	if (!pp2_cls_c3_scan_result_dump(inst, scan_num))
 		printf("OK\n");
 	else
 		printf("FAIL\n");
@@ -729,16 +729,16 @@ int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_hit_count_get
-*
-* DESCRIPTION:
-*       This function get C3 entry hit counter w/ specific logic index
-*******************************************************************************/
+ * pp2_cls_cli_c3_hit_count_get
+ *
+ * DESCRIPTION:
+ *       This function get C3 entry hit counter w/ specific logic index
+ ******************************************************************************/
 int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
 {
 	u32 logic_idx;
 	u32 hit_cnt;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	char *ret_ptr;
 
 	if (argc != 2) {
@@ -753,7 +753,7 @@ int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (!pp2_cls_c3_hit_count_get(cpu_slot, logic_idx, &hit_cnt)) {
+	if (!pp2_cls_c3_hit_count_get(inst, logic_idx, &hit_cnt)) {
 		printf("Logical index(%d), hit counter=%d\n", logic_idx, hit_cnt);
 		printf("%s success\n", __func__);
 	} else {
@@ -764,15 +764,16 @@ int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_search_depth_set
-*
-* DESCRIPTION:
-*       This function set C3 cuckoo search depth
-*******************************************************************************/
+ * pp2_cls_cli_c3_search_depth_set
+ *
+ * DESCRIPTION:
+ *       This function set C3 cuckoo search depth
+ ******************************************************************************/
 int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
 {
 	u32 search_depth;
 	char *ret_ptr;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -786,7 +787,7 @@ int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (!pp2_cls_db_c3_search_depth_set(search_depth))
+	if (!pp2_cls_db_c3_search_depth_set(inst, search_depth))
 		printf("%s success\n", __func__);
 	else
 		printf("%s fail\n", __func__);
@@ -795,16 +796,16 @@ int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_rule_delete
-*
-* DESCRIPTION:
-*       This function removes an entry
-*******************************************************************************/
+ * pp2_cls_cli_c3_rule_delete
+ *
+ * DESCRIPTION:
+ *       This function removes an entry
+ ******************************************************************************/
 int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[])
 {
 	u32 logic_idx;
 	char *ret_ptr;
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -818,7 +819,7 @@ int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (!pp2_cls_c3_rule_del(cpu_slot, logic_idx))
+	if (!pp2_cls_c3_rule_del(inst, logic_idx))
 		printf("%s success\n", __func__);
 	else
 		printf("%s fail\n", __func__);
@@ -827,14 +828,14 @@ int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_cli_c3_rule_add
-*
-* DESCRIPTION:
-*       This function removes an entry
-*******************************************************************************/
+ * pp2_cls_cli_c3_rule_add
+ *
+ * DESCRIPTION:
+ *       This function removes an entry
+ ******************************************************************************/
 int pp2_cls_cli_c3_rule_add(void *arg, int argc, char *argv[])
 {
-	uintptr_t cpu_slot = (uintptr_t)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	int idx;
 	struct pp2_cls_pkt_key_t pkt_key;
 	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
@@ -883,7 +884,7 @@ int pp2_cls_cli_c3_rule_add(void *arg, int argc, char *argv[])
 
 	/* add rule */
 	for (idx = 0; idx < 1; idx++) {
-		rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
+		rc = pp2_cls_c3_rule_add(inst, &c3_entry, &logic_idx);
 		if (rc) {
 			pr_err("fail to add C3 rule\n");
 			return rc;
@@ -894,10 +895,10 @@ int pp2_cls_cli_c3_rule_add(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
-* pp2_cls_c3_test
-* this routine is for UT, will be removed in future
-*******************************************************************************/
-int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
+ * pp2_cls_c3_test
+ * this routine is for UT, will be removed in future
+ ******************************************************************************/
+int pp2_cls_c3_test(struct pp2_inst *inst, int num)
 {
 	switch (num) {
 	case 1:
@@ -939,7 +940,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 
 		/* add rule */
 		for (idx = 0; idx < 1; idx++) {
-			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
+			rc = pp2_cls_c3_rule_add(inst, &c3_entry, &logic_idx);
 			if (rc) {
 				pr_err("fail to add C3 rule\n");
 				return rc;
@@ -988,7 +989,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 		/* add rule */
 		for (idx = 0; idx < 4096; idx++) {
 			c3_entry.mng_pkt_key->pkt_key->out_vid = idx;
-			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
+			rc = pp2_cls_c3_rule_add(inst, &c3_entry, &logic_idx);
 			if (rc) {
 				pr_err("fail to add C3 rule\n");
 				return rc;
@@ -1050,7 +1051,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 
 		/* add rule */
 		for (idx = 0; idx < 1; idx++) {
-			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
+			rc = pp2_cls_c3_rule_add(inst, &c3_entry, &logic_idx);
 			if (rc) {
 				pr_err("fail to add C3 rule\n");
 				return rc;
@@ -1110,7 +1111,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 
 		/* add rule */
 		for (idx = 0; idx < 1; idx++) {
-			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
+			rc = pp2_cls_c3_rule_add(inst, &c3_entry, &logic_idx);
 			if (rc) {
 				pr_err("fail to add C3 rule\n");
 				return rc;
@@ -1170,7 +1171,7 @@ int pp2_cls_c3_test(uintptr_t cpu_slot, int num)
 
 		/* add rule */
 		for (idx = 0; idx < 1; idx++) {
-			rc = pp2_cls_c3_rule_add(cpu_slot, &c3_entry, &logic_idx);
+			rc = pp2_cls_c3_rule_add(inst, &c3_entry, &logic_idx);
 			if (rc) {
 				pr_err("fail to add C3 rule\n");
 				return rc;
