@@ -45,11 +45,34 @@
 
 struct pp2_cls_tbl;
 
-#define PP2_CLS_TBL_MAX_NUM_FIELDS	5
+#define PP2_CLS_TBL_MAX_NUM_FIELDS		5
+
 
 enum pp2_cls_tbl_type {
 	PP2_CLS_TBL_EXACT_MATCH = 0,
 	PP2_CLS_TBL_MASKABLE
+};
+
+/**
+ * TODO
+ */
+enum pp2_cls_qos_tbl_type {
+	PP2_CLS_QOS_TBL_NONE = 0,	/**< No QoS support */
+	/** QoS according to VLAN-priority (outer tag) if exists; otherwise, use default */
+	PP2_CLS_QOS_TBL_VLAN_PRI,
+	/** QoS according to IP-priority (i.e. DSCP) if exists;
+	 * otherwise, use default
+	 */
+	PP2_CLS_QOS_TBL_IP_PRI,
+	/** QoS according to VLAN-priority (outer tag) if exists; otherwise, use IP-priority (i.e. DSCP) if exists;
+	 * otherwise, use default
+	 */
+	PP2_CLS_QOS_TBL_VLAN_IP_PRI,
+	/** QoS according to IP-priority (i.e. DSCP) if exists; otherwise, use VLAN-priority (outer tag) if exists;
+	 * otherwise, use default
+	 */
+	PP2_CLS_QOS_TBL_IP_VLAN_PRI,
+	PP2_CLS_QOS_TBL_OUT_OF_RANGE	/**< Invalid QoS type */
 };
 
 /**
@@ -60,7 +83,6 @@ enum pp2_cls_tbl_type {
  *	PP2_CLS_TBL_STATS_M_BYTES
  * };
  */
-
 enum pp2_cls_tbl_action_type {
 	PP2_CLS_TBL_ACT_DROP = 0,
 	PP2_CLS_TBL_ACT_DONE,
@@ -108,11 +130,19 @@ struct pp2_cls_tbl_params {
 };
 
 /**
- * Add a classifier rule
+ * TODO
+ */
+struct pp2_cls_qos_tbl_params {
+	enum pp2_cls_qos_tbl_type		 type;
+	struct pp2_cls_cos_desc			 pcp_cos_map[MV_VLAN_PRIO_NUM];
+	struct pp2_cls_cos_desc			 dscp_cos_map[MV_DSCP_NUM];
+};
+
+/**
+ * Create a classifier table object
  *
- * @param[in]	*params		A pointer to the classifier table parameters
- *
- * @param[out]	**tbl		A pointer to an allocated classifier table
+ * @param[in]	params	A pointer to the classifier table parameters
+ * @param[out]	tbl	A pointer to an allocated classifier table
  *
  * @retval		0 on success
  * @retval		error-code otherwise
@@ -122,10 +152,27 @@ int pp2_cls_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl
 /**
  * Deinit a classifier table object
  *
- * @param[in]	*tbl		A pointer to a classifier table object
- *
+ * @param[in]	tbl		A pointer to a classifier table object
  */
 void pp2_cls_tbl_deinit(struct pp2_cls_tbl *tbl);
+
+/**
+ * Create a QoS table object
+ *
+ * @param[in]	params	A pointer to the classifier table parameters
+ * @param[out]	tbl	A pointer to an allocated classifier table
+ *
+ * @retval		0 on success
+ * @retval		error-code otherwise
+ */
+int pp2_cls_qos_tbl_init(struct pp2_cls_qos_tbl_params *params, struct pp2_cls_tbl **tbl);
+
+/**
+ * Deinit a classifier table object
+ *
+ * @param[in]	tbl		A pointer to a classifier table object
+ */
+void pp2_cls_qos_tbl_deinit(struct pp2_cls_tbl *tbl);
 
 struct pp2_cls_rule_key_field {
 	u8	size;

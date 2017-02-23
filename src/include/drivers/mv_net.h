@@ -33,6 +33,25 @@
 #ifndef __MV_NET_H__
 #define __MV_NET_H__
 
+/* Similar to if_vlan.h */
+#define MV_VLAN_PRIO_MASK	0xe000 /* Priority Code Point */
+#define MV_VLAN_PRIO_SHIFT	13
+#define MV_VLAN_CFI_MASK	0x1000 /* Canonical Format Indicator */
+#define MV_VLAN_TAG_PRESENT	MV_VLAN_CFI_MASK
+#define MV_VLAN_VID_MASK	0x0fff /* VLAN Identifier */
+#define MV_VLAN_N_VID		4096
+
+/* Local addition */
+#define MV_VLAN_PRIO_NUM	(1 + (MV_VLAN_PRIO_MASK >> MV_VLAN_PRIO_SHIFT))
+
+/* Similar to xt_dscp.h */
+#define MV_XT_DSCP_MASK		0xfc	/* 11111100 */
+#define MV_XT_DSCP_SHIFT	2
+#define MV_XT_DSCP_MAX		0x3f	/* 00111111 */
+
+/* Local addition */
+#define MV_DSCP_NUM		(1 + MV_XT_DSCP_MAX)
+
 enum mv_net_eth_fields {
 	MV_NET_ETH_F_SA = 0,
 	MV_NET_ETH_F_DA,
