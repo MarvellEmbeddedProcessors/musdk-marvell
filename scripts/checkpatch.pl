@@ -4851,7 +4851,7 @@ sub process {
 		}
 
 # check for spaces before a quoted newline
-		if ($rawline =~ /^.*\".*\s\\n/) {
+		if ($rawline =~ /^\+.*\".*\s\\n/) {
 			if (WARN("QUOTED_WHITESPACE_BEFORE_NEWLINE",
 				 "unnecessary whitespace before a quoted newline\n" . $herecurr) &&
 			    $fix) {
