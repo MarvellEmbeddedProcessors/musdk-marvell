@@ -90,6 +90,20 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #define PP2_MAX_NUM_QS_PER_TC		MAX_NUM_CORES
 #define MAX_NUM_QS_PER_CORE		PP2_MAX_NUM_TCS_PER_PORT
 
+#define DEFAULT_MTU			1500
+#define VLAN_HLEN			4
+#define ETH_HLEN			14
+#define ETH_FCS_LEN			4
+
+#define MVPP2_MTU_TO_MRU(mtu) \
+	((mtu) + PP2_MH_SIZE + VLAN_HLEN + \
+	ETH_HLEN + ETH_FCS_LEN)
+
+#define MVPP2_MRU_TO_MTU(mru) \
+	((mru) - PP2_MH_SIZE - VLAN_HLEN - \
+	ETH_HLEN - ETH_FCS_LEN)
+
+
 /* TODO: find more generic way to get the following parameters */
 #define PP2_TOTAL_NUM_BPOOLS	16
 #define PP2_TOTAL_NUM_HIFS	9
@@ -118,8 +132,8 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #define NO_PATH(file_name) (strrchr((file_name), '/') ? \
 			    strrchr((file_name), '/') + 1 : (file_name))
 
-#define BPOOLS_INF	{ {384, 4096}, {2048, 1024} }
-/* #define BPOOLS_INF	{{2048, 8192}} */
+#define BPOOLS_INF		{ {384, 4096}, {2048, 1024} }
+#define BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }
 
 #ifdef SW_BUFF_RECYLCE
 #define COOKIE_BUILD(_pp, _bpool, _indx)	\
@@ -177,6 +191,7 @@ struct glob_arg {
 	int			 cli;
 	int			 cpus;	/* cpus used for running */
 	u16			 burst;
+	u16			 mtu;
 	int			 affinity;
 	int			 loopback;
 	int			 echo;
@@ -851,9 +866,19 @@ static int build_all_bpools(struct glob_arg *garg)
 {
 	struct pp2_bpool_params	 	bpool_params;
 	int			 	i, j, k, err, pool_id;
-	struct bpool_inf		infs[] = BPOOLS_INF;
+	struct bpool_inf		std_infs[] = BPOOLS_INF;
+	struct bpool_inf		jumbo_infs[] = BPOOLS_JUMBO_INF;
+	struct bpool_inf		*infs;
 	char				name[15];
 	int 				pp2_num_inst = garg->pp2_num_inst;
+
+	if (garg->mtu > DEFAULT_MTU) {
+		infs = jumbo_infs;
+		garg->num_pools = ARRAY_SIZE(jumbo_infs);
+	} else {
+		infs = std_infs;
+		garg->num_pools = ARRAY_SIZE(std_infs);
+	}
 
 	garg->pools = (struct pp2_bpool ***)malloc(pp2_num_inst*sizeof(struct pp2_bpool **));
 	if (!garg->pools) {
@@ -866,7 +891,6 @@ static int build_all_bpools(struct glob_arg *garg)
 		pr_err("no mem for bpools-inf array!\n");
 		return -ENOMEM;
 	}
-	garg->num_pools = ARRAY_SIZE(infs);
 	/* TODO: temporary W/A until we have map routines of bpools to ppios */
 	if (garg->num_pools > PP2_MAX_NUM_BPOOLS) {
 		pr_err("only %d pools allowed!\n", PP2_MAX_NUM_BPOOLS);
@@ -976,8 +1000,9 @@ static int init_local_modules(struct glob_arg *garg)
 	struct pp2_ppio_inq_params	inq_params;
 	char				name[15];
 	int			 	i, j, err, port_index, hif_id;
+	u16				mtu;
 
-	pr_info("Local initializations ... ");
+	pr_info("Local initializations ...\n");
 
 	if ((hif_id = find_free_hif()) < 0) {
 		pr_err("free HIF not found!\n");
@@ -1033,6 +1058,14 @@ static int init_local_modules(struct glob_arg *garg)
 		if (!garg->ports_desc[port_index].port) {
 			pr_err("PP-IO init failed!\n");
 			return -EIO;
+		}
+
+		pp2_ppio_get_mtu(garg->ports_desc[port_index].port, &mtu);
+		if (mtu != garg->mtu) {
+			pp2_ppio_set_mtu(garg->ports_desc[port_index].port, garg->mtu);
+			pp2_ppio_set_mru(garg->ports_desc[port_index].port, MVPP2_MTU_TO_MRU(garg->mtu));
+			pr_info("Set port ppio-%d:%d MTU to %d\n",
+				garg->ports_desc[port_index].pp_id, garg->ports_desc[port_index].ppio_id, garg->mtu);
 		}
 
 		if ((err = pp2_ppio_enable(garg->ports_desc[port_index].port)) != 0)
@@ -1298,12 +1331,13 @@ static void usage(char *progname)
 	       "\n"
 	       "Optional OPTIONS:\n"
 	       "\t-b <size>                Burst size (default is %d)\n"
+	       "\t-t <mtu>                 Set MTU (default is %d)\n"
 	       "\t-c, --cores <number>     Number of CPUs to use.\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity).\n"
 	       "\t--no-echo                No Echo packets\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
-	       "\n", NO_PATH(progname), NO_PATH(progname), MAX_PPIOS, MAX_BURST_SIZE
+	       "\n", NO_PATH(progname), NO_PATH(progname), MAX_PPIOS, MAX_BURST_SIZE, DEFAULT_MTU
 	       );
 }
 
@@ -1315,6 +1349,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cpus = 1;
 	garg->affinity = -1;
 	garg->burst = DFLT_BURST_SIZE;
+	garg->mtu = DEFAULT_MTU;
 	garg->echo = 1;
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
@@ -1365,6 +1400,17 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			garg->burst = atoi(argv[i+1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-t") == 0) {
+			if (argc < (i+2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i+1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			garg->mtu = atoi(argv[i+1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-c") == 0) {
 			if (argc < (i+2)) {
