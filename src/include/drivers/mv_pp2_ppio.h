@@ -45,7 +45,14 @@
  *  @{
  */
 
-struct pp2_ppio;
+struct pp2_ppio {
+	u32	pp2_id;			/* packet processor's Id */
+	u32	port_id;		/* port Id */
+	void	*internal_param;	/* parameters for internal use */
+};
+
+struct pp2_bpool;
+
 
 /* The two bytes Marvell header ("MH"). Either contains a special value used
  * by Marvell switches when a specific hardware mode is enabled (not
@@ -535,7 +542,11 @@ int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc);
  *
  * @retval	pointer to bpool
  */
-struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc, struct pp2_ppio *ppio);
+static inline struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc, struct pp2_ppio *ppio)
+{
+	return &pp2_bpools[ppio->pp2_id][DM_RXD_GET_POOL_ID(desc)];
+}
+
 
 
 /**

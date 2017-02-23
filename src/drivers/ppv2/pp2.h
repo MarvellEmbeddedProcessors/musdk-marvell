@@ -64,6 +64,9 @@
 
 #define PP2_MAX_BUF_STR_LEN	256
 
+#define GET_PPIO_PORT(ppio) ((struct pp2_port *)(ppio)->internal_param)
+#define GET_PPIO_PORT_PTR(ppio) ((struct pp2_port **)&(ppio).internal_param)
+
 /* TODO: Decide if to duplicate the below defines, under different name,
  * or split the definitions from the mvpp2io.h, and other header files, and use them here.
  */
@@ -405,7 +408,7 @@ struct pp2_inst {
 	struct pp2_port *ports[PP2_NUM_PORTS];
 	/* BM Pools associated */
 	u32 num_bm_pools;
-	struct pp2_bm_pool *bm_pools[PP2_NUM_BMPOOLS];
+	struct pp2_bm_pool *bm_pools[PP2_BPOOL_NUM_POOLS];
 	/* DM objects associated */
 	u32 num_dm_ifs;
 	struct pp2_dm_if *dm_ifs[PP2_NUM_REGSPACES];

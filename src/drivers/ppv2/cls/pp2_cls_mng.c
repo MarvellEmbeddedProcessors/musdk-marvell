@@ -50,10 +50,6 @@
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
 #define NOT_SUPPORTED_YET 255
 
-struct pp2_ppio {
-	struct pp2_port *port;
-};
-
 struct cls_field_convert_t {
 	u32 proto;
 	u32 field;
@@ -217,7 +213,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 
 	/* get packet processor instance */
 	ppio = params->default_act.cos->ppio;
-	port = ppio->port;
+	port = GET_PPIO_PORT(ppio);
 	inst = port->parent;
 
 	fl_rls->fl_len = 1;
@@ -628,7 +624,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 	MVPP2_MEMSET_ZERO(mng_pkt_key);
 	mng_pkt_key.pkt_key = &pkt_key;
 
-	port = params->default_act.cos->ppio->port;
+	port = GET_PPIO_PORT(params->default_act.cos->ppio);
 	inst = port->parent;
 	rc = pp2_cls_set_rule_info(&mng_pkt_key, &pkt_action, &pkt_qos, &rule_port,
 				   params, rule, action, port);

@@ -36,34 +36,13 @@
 #include "pp2_hif.h"
 #include "pp2.h"
 #include "pp2_port.h"
-#include "pp2_bpool.h"
 #include "lib/lib_misc.h"
-
-struct pp2_ppio {
-	struct pp2_port *port;
-};
 
 static struct pp2_ppio ppio_array[PP2_MAX_NUM_PACKPROCS][PP2_NUM_ETH_PPIO];
 
 static inline struct pp2_dm_if *pp2_dm_if_get(struct pp2_ppio *ppio, struct pp2_hif *hif)
 {
-	return ppio->port->parent->dm_ifs[hif->regspace_slot];
-}
-
-
-/* TODO: This initial implementation is not efficient.
-*	Optimization #1 - requires classifier update: use 'mgpid' field in rx_descriptor to code the pp2_inst.
-*			  After such update: No need for the 'ppio' param, since pp2_id&port_id are in the descriptor.
-*	Optimization #2 - If 'static struct pp2_bpool' is exported, pp2_ppio_inq_desc_get_bpool() can become inline.
-*/
-struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc *desc, struct pp2_ppio *ppio)
-{
-	u8 pool_id, pp2_id;
-
-	pool_id = DM_RXD_GET_POOL_ID(desc);
-	pp2_id = ppio->port->parent->id;
-
-	return &pp2_bpool[pp2_id][pool_id];
+	return GET_PPIO_PORT(ppio)->parent->dm_ifs[hif->regspace_slot];
 }
 
 
@@ -71,6 +50,7 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 {
 	u8  match[2];
 	int port_id, pp2_id, rc;
+	struct pp2_port **port;
 
 	if (mv_sys_match(params->match, "ppio", 2, match)) {
 		pr_err("[%s] Invalid match string!\n", __func__);
@@ -95,20 +75,23 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 		pr_err("[%s] ppio is reserved.\n", __func__);
 		return -EFAULT;
 	}
-	if (ppio_array[pp2_id][port_id].port) {
+	port = GET_PPIO_PORT_PTR(ppio_array[pp2_id][port_id]);
+	if (*port) {
 		pr_err("[%s] ppio already exists.\n", __func__);
 		return -EEXIST;
 	}
 
-	rc = pp2_port_open(pp2_ptr, params, pp2_id, port_id, &ppio_array[pp2_id][port_id].port);
+	rc = pp2_port_open(pp2_ptr, params, pp2_id, port_id, port);
 	if (!rc) {
 		*ppio = &ppio_array[pp2_id][port_id];
 	} else {
 		pr_err("[%s] ppio init failed.\n", __func__);
 		return(-EFAULT);
 	}
-	pp2_port_config_inq((*ppio)->port);
-	pp2_port_config_outq((*ppio)->port);
+	pp2_port_config_inq(*port);
+	pp2_port_config_outq(*port);
+	(*ppio)->pp2_id = pp2_id;
+	(*ppio)->port_id = port_id;
 
 	return rc;
 }
@@ -120,13 +103,13 @@ void pp2_ppio_deinit(struct pp2_ppio *ppio)
 
 int pp2_ppio_enable(struct pp2_ppio *ppio)
 {
-	pp2_port_start(ppio->port, PP2_TRAFFIC_INGRESS_EGRESS);
+	pp2_port_start(GET_PPIO_PORT(ppio), PP2_TRAFFIC_INGRESS_EGRESS);
 	return 0;
 }
 
 int pp2_ppio_disable(struct pp2_ppio *ppio)
 {
-	pp2_port_stop(ppio->port);
+	pp2_port_stop(GET_PPIO_PORT(ppio));
 	return 0;
 }
 
@@ -144,10 +127,10 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 
 	dm_if = pp2_dm_if_get(ppio, hif);
 
-	desc_sent = pp2_port_enqueue(ppio->port, dm_if, qid, desc_req, descs);
+	desc_sent = pp2_port_enqueue(GET_PPIO_PORT(ppio), dm_if, qid, desc_req, descs);
 	if (unlikely(desc_sent < desc_req)) {
 		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __func__,
-			 ppio->port->parent->id, ppio->port->id, qid, *num, desc_sent);
+			 ppio->pp2_id, ppio->port_id, qid, *num, desc_sent);
 		*num = desc_sent;
 	}
 	return 0;
@@ -172,7 +155,7 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,
 	u32 outq_physid;
 
 	dm_if = pp2_dm_if_get(ppio, hif);
-	outq_physid = ppio->port->txqs[qid]->id;
+	outq_physid = GET_PPIO_PORT(ppio)->txqs[qid]->id;
 	*num = pp2_port_outq_status(dm_if, outq_physid);
 
 	return 0;
@@ -193,7 +176,7 @@ static inline void pp2_ppio_desc_swap_ncopy(struct pp2_ppio_desc *dst, struct pp
 
 int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *descs, u16 *num)
 {
-	struct pp2_port *port = ppio->port;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
 	struct pp2_desc *rx_desc, *extra_rx_desc;
 	struct pp2_rx_queue *rxq;
 	u32 recv_req = *num, extra_num = 0;
@@ -235,7 +218,7 @@ int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 {
 	int rc;
 
-	rc = pp2_port_set_mac_addr(ppio->port, (const uint8_t *)addr);
+	rc = pp2_port_set_mac_addr(GET_PPIO_PORT(ppio), (const uint8_t *)addr);
 	return rc;
 }
 
@@ -243,7 +226,7 @@ int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr)
 {
 	int rc;
 
-	rc = pp2_port_get_mac_addr(ppio->port, (uint8_t *)addr);
+	rc = pp2_port_get_mac_addr(GET_PPIO_PORT(ppio), (uint8_t *)addr);
 	return rc;
 }
 
@@ -251,13 +234,13 @@ int pp2_ppio_set_mtu(struct pp2_ppio *ppio, u16 mtu)
 {
 	int rc;
 
-	rc = pp2_port_set_mtu(ppio->port, mtu);
+	rc = pp2_port_set_mtu(GET_PPIO_PORT(ppio), mtu);
 	return rc;
 }
 
 int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu)
 {
-	pp2_port_get_mtu(ppio->port, mtu);
+	pp2_port_get_mtu(GET_PPIO_PORT(ppio), mtu);
 	return 0;
 }
 
@@ -265,13 +248,13 @@ int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len)
 {
 	int rc;
 
-	rc = pp2_port_set_mru(ppio->port, len);
+	rc = pp2_port_set_mru(GET_PPIO_PORT(ppio), len);
 	return rc;
 }
 
 int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len)
 {
-	pp2_port_get_mru(ppio->port, len);
+	pp2_port_get_mru(GET_PPIO_PORT(ppio), len);
 
 	return 0;
 }
@@ -280,7 +263,7 @@ int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)
 {
 	int rc;
 
-	rc = pp2_port_set_uc_promisc(ppio->port, en);
+	rc = pp2_port_set_uc_promisc(GET_PPIO_PORT(ppio), en);
 	return rc;
 }
 
@@ -288,7 +271,7 @@ int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en)
 {
 	int rc;
 
-	rc = pp2_port_get_uc_promisc(ppio->port, (u32 *)en);
+	rc = pp2_port_get_uc_promisc(GET_PPIO_PORT(ppio), (u32 *)en);
 	return rc;
 }
 
@@ -296,7 +279,7 @@ int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en)
 {
 	int rc;
 
-	rc = pp2_port_set_mc_promisc(ppio->port, en);
+	rc = pp2_port_set_mc_promisc(GET_PPIO_PORT(ppio), en);
 	return rc;
 }
 
@@ -304,7 +287,7 @@ int pp2_ppio_get_mc_promisc(struct pp2_ppio *ppio, int *en)
 {
 	int rc;
 
-	rc = pp2_port_get_mc_promisc(ppio->port, (u32 *)en);
+	rc = pp2_port_get_mc_promisc(GET_PPIO_PORT(ppio), (u32 *)en);
 	return rc;
 }
 
@@ -312,7 +295,7 @@ int pp2_ppio_add_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 {
 	int rc;
 
-	rc = pp2_port_add_mac_addr(ppio->port, (const uint8_t *)addr);
+	rc = pp2_port_add_mac_addr(GET_PPIO_PORT(ppio), (const uint8_t *)addr);
 	return rc;
 }
 
@@ -320,7 +303,7 @@ int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 {
 	int rc;
 
-	rc = pp2_port_remove_mac_addr(ppio->port, (const uint8_t *)addr);
+	rc = pp2_port_remove_mac_addr(GET_PPIO_PORT(ppio), (const uint8_t *)addr);
 	return rc;
 }
 
@@ -328,7 +311,7 @@ int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc)
 {
 	int rc;
 
-	rc = pp2_port_flush_mac_addrs(ppio->port, uc, mc);
+	rc = pp2_port_flush_mac_addrs(GET_PPIO_PORT(ppio), uc, mc);
 	return rc;
 }
 
@@ -336,7 +319,7 @@ int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan)
 {
 	int rc;
 
-	rc = pp2_port_add_vlan(ppio->port, vlan);
+	rc = pp2_port_add_vlan(GET_PPIO_PORT(ppio), vlan);
 	return rc;
 }
 
@@ -344,7 +327,7 @@ int pp2_ppio_remove_vlan(struct pp2_ppio *ppio, u16 vlan)
 {
 	int rc;
 
-	rc = pp2_port_remove_vlan(ppio->port, vlan);
+	rc = pp2_port_remove_vlan(GET_PPIO_PORT(ppio), vlan);
 	return rc;
 }
 

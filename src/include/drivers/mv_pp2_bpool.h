@@ -42,8 +42,17 @@
  *
  *  @{
  */
+/* Absolute number of hardware BM Pools */
+#define PP2_BPOOL_NUM_POOLS		(16)
 
-struct pp2_bpool;
+struct pp2_bpool {
+	int	pp2_id;		/* PP2 Instance */
+	int	id;		/* BM Pool number */
+	void	*internal_param;/* parameters for internal use */
+};
+
+extern struct pp2_bpool pp2_bpools[][PP2_BPOOL_NUM_POOLS];
+
 
 /**
  * bpool init parameters

@@ -45,14 +45,10 @@
 #include "src/drivers/ppv2/cls/pp2_cls_db.h"
 #include "cls_debug.h"
 
-struct pp2_ppio {
-	struct pp2_port *port;
-};
-
 int register_cli_cls_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
-	struct pp2_port *port = ppio->port;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
 	struct pp2_inst *inst = port->parent;
 
 #ifdef CLS_DEBUG
@@ -184,7 +180,7 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 int register_cli_c3_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
-	struct pp2_port *port = ppio->port;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
 	struct pp2_inst *inst = port->parent;
 
 #ifdef CLS_DEBUG
@@ -268,7 +264,7 @@ int register_cli_c3_cmds(struct pp2_ppio *ppio)
 int register_cli_c2_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
-	struct pp2_port *port = ppio->port;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
 	struct pp2_inst *inst = port->parent;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));

@@ -32,13 +32,15 @@
 
 #include "std_internal.h"
 
-#include "pp2_bpool.h"
 #include "pp2.h"
 #include "pp2_bm.h"
 #include "pp2_hif.h"
 #include "lib/lib_misc.h"
 
-struct pp2_bpool pp2_bpool[PP2_MAX_NUM_PACKPROCS][PP2_NUM_BMPOOLS];
+#define GET_HW_BASE(pool)	((struct base_addr *)(pool)->internal_param)
+#define SET_HW_BASE(pool, base)	{ (pool)->internal_param = (base); }
+
+struct pp2_bpool pp2_bpools[PP2_MAX_NUM_PACKPROCS][PP2_BPOOL_NUM_POOLS];
 
 int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 {
@@ -55,7 +57,7 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 	pp2_id = match[0];
 	pool_id = match[1];
 
-	if (pool_id < 0 || pool_id >= PP2_NUM_BMPOOLS) {
+	if (pool_id < 0 || pool_id >= PP2_BPOOL_NUM_POOLS) {
 		pr_err("[%s] Invalid match string!\n", __func__);
 		return(-ENXIO);
 	}
@@ -78,10 +80,10 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 	param.pp2_id = pp2_id;
 	rc = pp2_bm_pool_create(pp2_ptr, &param);
 	if (!rc) {
-		pp2_bpool[pp2_id][pool_id].id = pool_id;
-		pp2_bpool[pp2_id][pool_id].pp2_id = pp2_id;
-		pp2_bpool[pp2_id][pool_id].pp2_hw_base = &pp2_ptr->pp2_inst[pp2_id]->hw.base[0];
-		*bpool = &pp2_bpool[pp2_id][pool_id];
+		pp2_bpools[pp2_id][pool_id].id = pool_id;
+		pp2_bpools[pp2_id][pool_id].pp2_id = pp2_id;
+		SET_HW_BASE(&pp2_bpools[pp2_id][pool_id], &pp2_ptr->pp2_inst[pp2_id]->hw.base[0]);
+		*bpool = &pp2_bpools[pp2_id][pool_id];
 	}
 	return rc;
 }
@@ -102,7 +104,7 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	pp2_cookie_t vaddr;
 #endif
 
-	cpu_slot = pool->pp2_hw_base[hif->regspace_slot].va;
+	cpu_slot = GET_HW_BASE(pool)[hif->regspace_slot].va;
 	pool_id = pool->id;
 
 	paddr =  pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
@@ -151,7 +153,7 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	virt_lo = (u32)vaddr;
 #endif
 
-	cpu_slot = pool->pp2_hw_base[hif->regspace_slot].va;
+	cpu_slot = GET_HW_BASE(pool)[hif->regspace_slot].va;
 	paddr = buff->addr;
 
 #if PP2_BM_BUF_DEBUG
@@ -199,7 +201,7 @@ int pp2_bpool_get_num_buffs(struct pp2_hif *hif, struct pp2_bpool *pool, u32 *nu
 	uintptr_t	cpu_slot;
 	u32		num = 0;
 
-	cpu_slot = pool->pp2_hw_base[hif->regspace_slot].va;
+	cpu_slot = GET_HW_BASE(pool)[hif->regspace_slot].va;
 
 	num = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_PTRS_NUM_REG(pool->id))
 				& MVPP22_BM_POOL_PTRS_NUM_MASK;

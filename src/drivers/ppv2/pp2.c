@@ -151,7 +151,7 @@ static void pp2_bm_flush_pools(uintptr_t cpu_slot, uint16_t bm_pool_reserved_map
 	u32 pool_id;
 
 	/* Iterate through all the pools. Clean and reset registers */
-	for (pool_id = 0; pool_id < PP2_NUM_BMPOOLS; pool_id++) {
+	for (pool_id = 0; pool_id < PP2_BPOOL_NUM_POOLS; pool_id++) {
 		if (bm_pool_reserved_map & (1 << pool_id))
 			continue;
 		/* Discard residual buffers */
@@ -541,7 +541,7 @@ static void pp2_destroy(struct pp2_inst *inst)
 	for (i = 0; i < PP2_NUM_REGSPACES; i++)
 		kfree(inst->dm_ifs[i]);
 
-	for (i = 0; i < PP2_NUM_BMPOOLS; i++)
+	for (i = 0; i < PP2_BPOOL_NUM_POOLS; i++)
 		kfree(inst->bm_pools[i]);
 
 	kfree(inst);
