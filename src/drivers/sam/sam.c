@@ -323,6 +323,32 @@ err:
 	return -ENOMEM;
 }
 
+int sam_cio_flush(struct sam_cio *cio)
+{
+	int rc;
+	u32 count = 1000;
+	u16 num;
+
+	/* Wait for completion of all operations */
+	while (!sam_cio_is_empty(cio)) {
+		num = cio->params.size;
+		rc = sam_cio_deq(cio, NULL, &num);
+		if (rc) {
+			pr_err("%s: dequeue error %d\n", __func__, rc);
+			return rc;
+		}
+
+		if (num) /* restart counter */
+			count = 1000;
+
+		if (count-- == 0) {
+			pr_err("%s: Timeout\n", __func__);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 int sam_cio_deinit(struct sam_cio *cio)
 {
 	int i;
@@ -331,13 +357,8 @@ int sam_cio_deinit(struct sam_cio *cio)
 		return 0;
 
 	if (cio->operations) {
-		u16 num;
-
 		/* Wait for completion of all operations */
-		while (!sam_cio_is_empty(cio)) {
-			num = 1;
-			sam_cio_deq(cio, NULL, &num);
-		}
+		sam_cio_flush(cio);
 
 		for (i = 0; i < cio->params.size; i++) {
 			sam_dma_buf_free(&cio->operations[i].token_buf);

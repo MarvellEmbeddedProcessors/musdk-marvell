@@ -320,16 +320,17 @@ static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int 
 
 static int delete_sessions(void)
 {
-	int i, count = 0;
-	u16 num;
+	int rc, i, count = 0;
 
 	i = 0;
 	while (i < NUM_CONCURRENT_SESSIONS) {
 		if (sa_hndl[i]) {
 			if (sam_session_destroy(sa_hndl[i])) {
-				/* Flush the ring */
-				num = NUM_CONCURRENT_REQUESTS;
-				sam_cio_deq(cio_hndl, NULL, &num);
+				/* flush CIO instanse */
+				rc = sam_cio_flush(cio_hndl);
+				if (rc)
+					break;
+
 				continue;
 			}
 			count++;
@@ -337,6 +338,10 @@ static int delete_sessions(void)
 		i++;
 	}
 	printf("%d sessions deleted\n", count);
+
+	rc = sam_cio_flush(cio_hndl);
+	if (rc)
+		return rc;
 
 	return 0;
 }

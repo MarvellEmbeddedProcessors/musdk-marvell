@@ -169,6 +169,16 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
  */
 int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num);
 
+/**
+ * Flush crypto IO instance. All pending requests/results will be discarded.
+ *
+ * @param[in]     cio      - crypto IO instance handler.
+ *
+ * @retval      0          - no pending requests/results got crypto IO instance.
+ * @retval      Negative   - failed on discard one or more pending requests/results.
+ */
+int sam_cio_flush(struct sam_cio *cio);
+
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
 
