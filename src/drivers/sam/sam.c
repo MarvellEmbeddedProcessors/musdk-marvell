@@ -150,14 +150,12 @@ static int sam_session_auth_init(struct sam_session_params *params,
 
 static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 				struct sam_cio_op *operation,
-				PEC_CommandDescriptor_t *cmd_desc,
-				PEC_PacketParams_t *pkt_params)
+				PEC_CommandDescriptor_t *cmd_desc)
 {
 	struct sam_sa *session = request->sa;
 	TokenBuilder_Params_t token_params;
 	u32 copylen, token_header_word, token_words;
 	TokenBuilder_Status_t rc;
-	PEC_Status_t pec_rc;
 
 	memset(&token_params, 0, sizeof(token_params));
 	if (request->auth_len) {
@@ -215,15 +213,10 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	} else
 		cmd_desc->User_p   = NULL;
 
-	pkt_params->HW_Services  = FIRMWARE_EIP207_CMD_PKT_LAC;
-	pkt_params->TokenHeaderWord = token_header_word;
+	cmd_desc->Control1 = token_header_word;
+	cmd_desc->Control2 = (FIRMWARE_EIP207_CMD_PKT_LAC << 24);
+	cmd_desc->Control3 = 0;
 
-	pec_rc = PEC_CD_Control_Write(cmd_desc, pkt_params);
-	if (pec_rc != PEC_STATUS_OK) {
-		pr_err("%s: PEC_CD_Control_Write failed, rc = %d\n",
-			__func__, pec_rc);
-		return -EINVAL;
-	}
 	return 0;
 }
 
@@ -562,10 +555,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 {
 	struct sam_cio_op *operation;
 	struct sam_cio_op_params *request;
-	struct sam_hw_cmd_desc *cmd_desc;
-	struct sam_hw_res_desc *res_desc;
-	PEC_CommandDescriptor_t *cmd;
-	PEC_PacketParams_t pkt_params;
+	PEC_CommandDescriptor_t pec_cmd;
 	int i, j, err, todo;
 
 	todo = *num;
@@ -593,22 +583,17 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Get next operation structure */
 		operation = &cio->operations[cio->next_request];
 
-		/* Prepare request for submit */
-		memset(&pkt_params, 0, sizeof(PEC_PacketParams_t));
-
-		cmd = &cio->hw_ring.cmd_desc[i];
-		memset(cmd, 0, sizeof(PEC_CommandDescriptor_t));
-		if (sam_hw_cmd_desc_init(request, operation, cmd, &pkt_params))
+		memset(&pec_cmd, 0, sizeof(PEC_CommandDescriptor_t));
+		if (sam_hw_cmd_desc_init(request, operation, &pec_cmd))
 			goto error_enq;
 
 #ifdef MVCONF_SAM_DEBUG
 		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
-			print_pkt_params(&pkt_params);
-			print_cmd_desc(cmd);
+			print_cmd_desc(&pec_cmd);
 
 			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
-				cmd->SrcPkt_ByteCount, (void *)request->src->paddr);
-			mv_mem_dump(request->src->vaddr, cmd->SrcPkt_ByteCount);
+				pec_cmd.SrcPkt_ByteCount, (void *)request->src->paddr);
+			mv_mem_dump(request->src->vaddr, pec_cmd.SrcPkt_ByteCount);
 		}
 #endif /* MVCONF_SAM_DEBUG */
 
@@ -622,13 +607,11 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
 		}
-		cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_request);
-		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_request);
 
-		sam_hw_ring_desc_write(cmd_desc, res_desc, cmd);
+		sam_hw_ring_desc_write(&cio->hw_ring, cio->next_request, &pec_cmd);
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
-		SAM_STATS(cio->stats.enq_bytes += cmd->SrcPkt_ByteCount);
+		SAM_STATS(cio->stats.enq_bytes += pec_cmd.SrcPkt_ByteCount);
 	}
 	/* submit requests */
 	if (i) {
@@ -648,7 +631,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 {
 	PEC_Status_t rc;
 	PEC_ResultStatus_t result_status;
-	PEC_ResultDescriptor_t *result_desc;
+	PEC_ResultDescriptor_t result_desc;
 	unsigned int i, count, todo, done, out_len;
 	struct sam_cio_op *operation;
 	struct sam_hw_res_desc *res_desc;
@@ -663,17 +646,16 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	}
 	todo = *num;
 
-	result_desc = cio->hw_ring.result_desc;
 	result = results;
 	i = 0;
 	count = 0;
 	while ((i < done) && (count < todo)) {
 		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
-		sam_hw_res_desc_read(res_desc, result_desc);
+		sam_hw_res_desc_read(res_desc, &result_desc);
 
 #ifdef MVCONF_SAM_DEBUG
 		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG)
-			print_result_desc(result_desc);
+			print_result_desc(&result_desc);
 #endif
 		i++;
 		operation = &cio->operations[cio->next_result];
@@ -682,21 +664,19 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 			sam_session_free(operation->sa);
 			SAM_STATS(cio->stats.sa_del++);
 			cio->next_result = sam_cio_next_idx(cio, cio->next_result);
-			result_desc++;
 			continue;
 		}
-		out_len = result_desc->DstPkt_ByteCount;
+		out_len = result_desc.DstPkt_ByteCount;
 
 		SAM_STATS(cio->stats.deq_bytes += out_len);
 
-		rc = PEC_RD_Status_Read(result_desc, &result_status);
+		rc = PEC_RD_Status_Read(&result_desc, &result_status);
 		if (rc != PEC_STATUS_OK) {
 			pr_err("%s: PEC_RD_Status_Read failed, rc = %d\n",
 				__func__, rc);
 		}
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
-		result_desc++;
 
 		if (!result)
 			continue;

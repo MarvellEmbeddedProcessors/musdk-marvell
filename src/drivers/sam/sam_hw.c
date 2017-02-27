@@ -278,14 +278,6 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	sam_hw_cdr_regs_reset(hw_ring);
 	sam_hw_rdr_regs_reset(hw_ring);
 
-	hw_ring->cmd_desc = kcalloc(params->size, sizeof(PEC_CommandDescriptor_t), GFP_KERNEL);
-	if (!hw_ring->cmd_desc)
-		return -ENOMEM;
-
-	hw_ring->result_desc = kcalloc(params->size, sizeof(PEC_ResultDescriptor_t), GFP_KERNEL);
-	if (!hw_ring->result_desc)
-		return -ENOMEM;
-
 	/* Allocate command descriptors ring */
 	ring_size = SAM_CDR_ENTRY_WORDS * sizeof(u32) * params->size;
 	rc = sam_dma_buf_alloc(ring_size, &hw_ring->cdr_buf);
@@ -324,12 +316,6 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	sam_hw_cdr_regs_reset(hw_ring);
 	sam_hw_rdr_regs_reset(hw_ring);
 
-	kfree(hw_ring->cmd_desc);
-	hw_ring->cmd_desc = NULL;
-
-	kfree(hw_ring->result_desc);
-	hw_ring->result_desc = NULL;
-
 	sam_dma_buf_free(&hw_ring->cdr_buf);
 	sam_dma_buf_free(&hw_ring->rdr_buf);
 
@@ -339,37 +325,24 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
 				u32 next_request)
 {
-	PEC_CommandDescriptor_t cmd;
-	PEC_PacketParams_t pkt_params;
-	PEC_Status_t pec_rc;
-	struct sam_hw_cmd_desc *cdr;
-	struct sam_hw_res_desc *rdr;
+	PEC_CommandDescriptor_t pec_cmd;
 
-	memset(&pkt_params, 0, sizeof(PEC_PacketParams_t));
-	memset(&cmd, 0, sizeof(PEC_CommandDescriptor_t));
+	memset(&pec_cmd, 0, sizeof(PEC_CommandDescriptor_t));
 
-	cmd.SA_Handle1.p     = (void *)sa_buf->paddr;
-	cmd.SA_WordCount     = 0;
-	cmd.SA_Handle2       = DMABuf_NULLHandle;
-	cmd.Token_Handle     = DMABuf_NULLHandle;
-	cmd.SrcPkt_Handle    = DMABuf_NULLHandle;
-	cmd.DstPkt_Handle    = DMABuf_NULLHandle;
-	cmd.SrcPkt_ByteCount = 0;
-	cmd.Token_WordCount  = 0;
+	pec_cmd.SA_Handle1.p     = (void *)sa_buf->paddr;
+	pec_cmd.SA_WordCount     = 0;
+	pec_cmd.SA_Handle2       = DMABuf_NULLHandle;
+	pec_cmd.Token_Handle     = DMABuf_NULLHandle;
+	pec_cmd.SrcPkt_Handle    = DMABuf_NULLHandle;
+	pec_cmd.DstPkt_Handle    = DMABuf_NULLHandle;
+	pec_cmd.SrcPkt_ByteCount = 0;
+	pec_cmd.Token_WordCount  = 0;
 
-	pkt_params.HW_Services  = FIRMWARE_EIP207_CMD_INV_TR;
-	pkt_params.TokenHeaderWord = 0;
+	pec_cmd.Control1 = 0;
+	pec_cmd.Control2 = (FIRMWARE_EIP207_CMD_INV_TR << 24);
+	pec_cmd.Control3 = 0;
 
-	pec_rc = PEC_CD_Control_Write(&cmd, &pkt_params);
-	if (pec_rc != PEC_STATUS_OK) {
-		pr_err("%s: PEC_CD_Control_Write failed, rc = %d\n",
-			__func__, pec_rc);
-		return -EINVAL;
-	}
-	cdr = sam_hw_cmd_desc_get(hw_ring, next_request);
-	rdr = sam_hw_res_desc_get(hw_ring, next_request);
-
-	sam_hw_ring_desc_write(cdr, rdr, &cmd);
+	sam_hw_ring_desc_write(hw_ring, next_request, &pec_cmd);
 
 	sam_hw_ring_submit(hw_ring, 1);
 

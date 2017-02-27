@@ -160,8 +160,6 @@ struct sam_hw_ring {
 	struct sam_buf_info rdr_buf;            /* DMA memory buffer allocated for result descriptors */
 	struct sam_hw_cmd_desc *cmd_desc_first;	/* Pointer to first command descriptors in DMA memory */
 	struct sam_hw_res_desc *res_desc_first;	/* Pointer to first command descriptors in DMA memory */
-	PEC_CommandDescriptor_t *cmd_desc;	/* Array of command descriptors in */
-	PEC_ResultDescriptor_t *result_desc;	/* Array of result descriptors */
 };
 
 static inline void sam_hw_reg_write(void *base, u32 offset, u32 data)
@@ -199,10 +197,12 @@ static inline struct sam_hw_res_desc *sam_hw_res_desc_get(struct sam_hw_ring *hw
 	return (hw_ring->res_desc_first + idx);
 }
 
-static inline void sam_hw_ring_desc_write(struct sam_hw_cmd_desc *cmd_desc, struct sam_hw_res_desc *res_desc,
+static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_request,
 				     PEC_CommandDescriptor_t *cmd)
 {
 	u32 ctrl_word = 0, token_header;
+	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
+	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
 
 	/* Write RDR descriptor first */
 	if (cmd->SrcPkt_ByteCount)
