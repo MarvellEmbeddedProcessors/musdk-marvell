@@ -179,7 +179,7 @@ struct pp2_ppio_params {
 int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio);
 
 /**
- * TODO - Destroy a ppio
+ * Destroy a ppio
  *
  * @param[in]	ppio	A ppio handle.
  *

@@ -98,7 +98,7 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 
 void pp2_ppio_deinit(struct pp2_ppio *ppio)
 {
-	pr_err("[%s] routine not supported yet!\n", __func__);
+	pp2_port_close(GET_PPIO_PORT(ppio));
 }
 
 int pp2_ppio_enable(struct pp2_ppio *ppio)
