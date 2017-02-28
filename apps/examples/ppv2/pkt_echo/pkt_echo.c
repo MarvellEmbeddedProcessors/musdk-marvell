@@ -966,8 +966,6 @@ gettimeofday(&t1, NULL);
 #endif /* 0 */
 			for (k=0; k<infs[j].num_buffs; k++) {
 				struct pp2_buff_inf	tmp_buff_inf;
-				/* Don't add first buffer into BPool */
-				if (k == 0) continue;
 #ifdef SW_BUFF_RECYLCE
 				tmp_buff_inf.cookie = COOKIE_BUILD(i, j, k);
 #else
