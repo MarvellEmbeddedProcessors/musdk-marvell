@@ -88,9 +88,23 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 	return rc;
 }
 
-void pp2_bpool_deinit(struct pp2_bpool *bpool)
+void pp2_bpool_deinit(struct pp2_bpool *pool)
 {
-	pr_err("[%s] routine not supported yet!\n", __func__);
+	uintptr_t cpu_slot;
+	int pool_id;
+	u32 buf_num;
+
+	cpu_slot = GET_HW_BASE(pool)[PP2_DEFAULT_REGSPACE].va;
+	pool_id = pool->id;
+
+	/* Check buffer counters after free */
+	pp2_bpool_get_num_buffs(pool, &buf_num);
+	if (buf_num) {
+		pr_warn("cannot free all buffers in pool %d, buf_num left %d\n",
+			pool->id,
+			buf_num);
+	}
+	pp2_bm_hw_pool_destroy(cpu_slot, pool_id);
 }
 
 /*TODO, move #define to correct file, maybe already exist in Linux...*/
@@ -196,12 +210,12 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	return 0;
 }
 
-int pp2_bpool_get_num_buffs(struct pp2_hif *hif, struct pp2_bpool *pool, u32 *num_buffs)
+int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs)
 {
 	uintptr_t	cpu_slot;
 	u32		num = 0;
 
-	cpu_slot = GET_HW_BASE(pool)[hif->regspace_slot].va;
+	cpu_slot = GET_HW_BASE(pool)[PP2_DEFAULT_REGSPACE].va;
 
 	num = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_PTRS_NUM_REG(pool->id))
 				& MVPP22_BM_POOL_PTRS_NUM_MASK;

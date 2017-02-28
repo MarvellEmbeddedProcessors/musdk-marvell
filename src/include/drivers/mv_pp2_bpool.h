@@ -85,12 +85,14 @@ struct pp2_bpool_params {
 int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool);
 
 /**
- * TODO - Destroy a Buffer Pool (bpool)
+ * Destroy a Buffer Pool (bpool)
  *
+ * @param[in]	hif	A hif handle.
  * @param[in]	bpool	A bpool handle.
  *
  */
-void pp2_bpool_deinit(struct pp2_bpool *bpool);
+void pp2_bpool_deinit(struct pp2_bpool *pool);
+
 
 #ifdef CONF_PP2_BPOOL_DMA_ADDR_USE_32B
 typedef u32	bpool_dma_addr_t;
@@ -143,14 +145,13 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 /**
  * Get the number of buffers in ppv2 buffer pool.
  *
- * @param[in]	hif		A hif handle.
  * @param[in]	pool		A bpool handle.
  * @param[out]	num_buffs	A pointer to returned number of buffers.
  *
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int pp2_bpool_get_num_buffs(struct pp2_hif *hif, struct pp2_bpool *pool, u32 *num_buffs);
+int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs);
 
 /** @} */ /* end of grp_pp2_bp */
 

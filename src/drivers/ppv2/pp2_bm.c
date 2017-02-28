@@ -116,9 +116,6 @@ void pp2_bm_hw_pool_destroy(uintptr_t cpu_slot, uint32_t pool_id)
 	pp2_reg_write(cpu_slot, MVPP2_BM_POOL_BASE_ADDR_REG(pool_id), 0);
 	pp2_reg_write(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG,
 		      0 & MVPP22_BM_POOL_BASE_ADDR_HIGH_MASK);
-	/* Clear BPPE size */
-	pp2_reg_write(cpu_slot, MVPP2_BM_POOL_SIZE_REG(pool_id),
-		      0 << BM_BPPESIZE_SHIFT);
 
 	pp2_bm_pool_bufsize_set(cpu_slot, pool_id, 0);
 #if PP2_BM_BUF_DEBUG
@@ -277,18 +274,17 @@ uint32_t pp2_bm_pool_flush(uintptr_t cpu_slot, uint32_t pool_id)
 
 	/* Actual number of registered buffers */
 	pool_bufs = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_SIZE_REG(pool_id));
-	if (pool_bufs && (resid_bufs + 1) > pool_bufs) {
-		/* Truncate to actual number in order to avoid
-		 * garbage entries from the past. Zero pool_bufs,
-		 * means that it is called at PPDK pre-init
-		 */
-		resid_bufs = pool_bufs;
-	}
+	if (pool_bufs && (resid_bufs + 1) > pool_bufs)
+		pr_warn("BM: number of buffers in pool #%d (%d) is more than pool size (%d)\n",
+			pool_id, resid_bufs, pool_bufs);
+
 	for (j = 0; j < (resid_bufs + 1); j++) {
-		/* Clean everything */
-		if (pp2_bm_hw_buf_get(cpu_slot, pool_id) == 0)
-			break;
+		/* Clean all buffers even if return NULL pointer that can be
+		 * buffers remained from incorrect previous closure.
+		 */
+		pp2_bm_hw_buf_get(cpu_slot, pool_id);
 	}
+	pr_debug("pp2_bm_pool_flush: clear %d buffers from pool ID=%u\n", j, pool_id);
 	resid_bufs = 0;
 	resid_bufs += (pp2_reg_read(cpu_slot, MVPP2_BM_POOL_PTRS_NUM_REG(pool_id))
 			& MVPP22_BM_POOL_PTRS_NUM_MASK);

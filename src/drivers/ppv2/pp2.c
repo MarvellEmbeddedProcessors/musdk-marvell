@@ -149,13 +149,18 @@ static void pp2_init_rxfhindir(struct pp2_inst *inst)
 static void pp2_bm_flush_pools(uintptr_t cpu_slot, uint16_t bm_pool_reserved_map)
 {
 	u32 pool_id;
+	u32 resid_bufs = 0;
 
 	/* Iterate through all the pools. Clean and reset registers */
 	for (pool_id = 0; pool_id < PP2_BPOOL_NUM_POOLS; pool_id++) {
 		if (bm_pool_reserved_map & (1 << pool_id))
 			continue;
 		/* Discard residual buffers */
-		pp2_bm_pool_flush(cpu_slot, pool_id);
+		resid_bufs = pp2_bm_pool_flush(cpu_slot, pool_id);
+		if (resid_bufs) {
+			pr_warn("BM: could not clear all buffers from pool ID=%u\n", pool_id);
+			pr_warn("BM: residual bufs : %u\n", resid_bufs);
+		}
 		/* Stop and clear pool internals */
 		pp2_bm_hw_pool_destroy(cpu_slot, pool_id);
 		/* Mask BM all interrupts */
