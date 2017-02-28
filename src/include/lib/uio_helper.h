@@ -41,7 +41,7 @@
 #define UIO_MAX_NAME_SIZE       64
 #define UIO_MAX_NUM             255
 
-#define UIO_INVALID_SIZE        -1
+#define UIO_INVALID_SIZE        0
 #define UIO_INVALID_ADDR        (~0)
 
 #define UIO_MMAP_NOT_DONE       0
@@ -56,7 +56,7 @@
 
 struct uio_map_t {
 	unsigned long addr;
-	int size;
+	unsigned long size;
 	char name[UIO_MAX_NAME_SIZE];
 	int mmap_result;
 	void *internal_addr;

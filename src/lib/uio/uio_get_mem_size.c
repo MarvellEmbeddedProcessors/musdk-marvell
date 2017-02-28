@@ -27,6 +27,7 @@ int uio_get_mem_size(struct uio_info_t* info, int map_num)
 {
 	int ret;
 	char filename[64];
+
 	if (map_num >= MAX_UIO_MAPS) return -1;
 	info->maps[map_num].size = UIO_INVALID_SIZE;
 	snprintf(filename, sizeof(filename),
@@ -34,7 +35,7 @@ int uio_get_mem_size(struct uio_info_t* info, int map_num)
 		info->uio_num, map_num);
 	FILE* file = fopen(filename,"r");
 	if (!file) return -1;
-	ret = fscanf(file,"0x%lx",(long unsigned int *)(&info->maps[map_num].size));
+	ret = fscanf(file, "0x%lx", &info->maps[map_num].size);
 	fclose(file);
 	if (ret<0) return -2;
 	return 0;

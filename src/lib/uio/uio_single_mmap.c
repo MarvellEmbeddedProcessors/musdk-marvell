@@ -32,7 +32,8 @@ void* uio_single_mmap(struct uio_info_t* info, int map_num, int fd)
 {
 	if (!fd) return NULL;
 	info->maps[map_num].mmap_result = UIO_MMAP_NOT_DONE;
-	if (info->maps[map_num].size <= 0) return NULL;
+	if (info->maps[map_num].size == UIO_INVALID_SIZE)
+		return NULL;
 	info->maps[map_num].mmap_result = UIO_MMAP_FAILED;
 	info->maps[map_num].internal_addr =
 		mmap(
