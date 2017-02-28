@@ -44,10 +44,14 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 	int rc;
 	u8 hif_slot, pp2_id;
 
-	if (mv_sys_match(params->match, "hif", 1, &hif_slot))
+	if (mv_sys_match(params->match, "hif", 1, &hif_slot)) {
+		pr_err("[%s] Invalid match string (%s)!\n", __func__, params->match);
 		return(-ENXIO);
-	if (pp2_is_init() == false)
+	}
+	if (pp2_is_init() == false) {
+		pr_err("[%s] pp2 is not initialized\n", __func__);
 		return(-EPERM);
+	}
 
 	if (hif_slot >= PP2_NUM_REGSPACES) {
 		pr_err("[%s] Invalid match string!\n", __func__);
@@ -79,6 +83,22 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 
 void pp2_hif_deinit(struct pp2_hif *hif)
 {
-	pr_err("[%s] routine not supported yet!\n", __func__);
+	u8 pp2_id;
+	u8 hif_slot = hif->regspace_slot;
+
+	if (hif_slot >= PP2_NUM_REGSPACES) {
+		pr_err("[%s] Invalid hif slot %d!\n", __func__, hif_slot);
+		return;
+	}
+
+	if (!(pp2_ptr->pp2_common.hif_slot_map & (1 << hif_slot))) {
+		pr_err("[%s] hif slot %d does not exist.\n", __func__, hif_slot);
+		return;
+	}
+
+	for (pp2_id = 0; pp2_id < pp2_ptr->num_pp2_inst; pp2_id++)
+		pp2_dm_if_deinit(pp2_ptr, hif_slot, pp2_id);
+
+	pp2_ptr->pp2_common.hif_slot_map &= ~(1 << hif_slot);
 }
 

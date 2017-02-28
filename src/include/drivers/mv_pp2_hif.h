@@ -68,7 +68,7 @@ struct pp2_hif_params {
 int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif);
 
 /**
- * TODO - Destroy a Host Interface (hif)
+ * Destroy a Host Interface (hif)
  *
  * @param[in]	hif	A hif handle.
  *

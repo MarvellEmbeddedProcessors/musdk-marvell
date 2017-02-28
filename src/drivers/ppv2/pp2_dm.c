@@ -43,6 +43,13 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 
+static void pp2_dm_aggr_queue_config(struct pp2_dm_if *dm_if, uintptr_t addr, u32 size)
+{
+	pp2_reg_write(dm_if->cpu_slot, MVPP2_AGGR_TXQ_INIT(dm_if->id), 0x01);
+	pp2_reg_write(dm_if->cpu_slot, MVPP2_AGGR_TXQ_DESC_ADDR_REG(dm_if->id), addr >> MVPP22_DESC_ADDR_SHIFT);
+	pp2_reg_write(dm_if->cpu_slot, MVPP2_AGGR_TXQ_DESC_SIZE_REG(dm_if->id), size);
+}
+
 /* Internal. Creates a DM object */
 int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc)
 {
@@ -80,14 +87,8 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
 	dm_if->cpu_slot = inst->hw.base[dm_id].va;
 
 	/* Initialize the aggregation queue under this DM object */
-	pp2_reg_write(dm_if->cpu_slot, MVPP2_AGGR_TXQ_INIT(dm_if->id), 0x01);
-
-	dm_if->desc_next_idx = pp2_reg_read(dm_if->cpu_slot,
-					MVPP2_AGGR_TXQ_INDEX_REG(dm_if->id));
-	pp2_reg_write(dm_if->cpu_slot, MVPP2_AGGR_TXQ_DESC_ADDR_REG(dm_if->id),
-		      dm_if->desc_phys_arr >> MVPP22_DESC_ADDR_SHIFT);
-	pp2_reg_write(dm_if->cpu_slot, MVPP2_AGGR_TXQ_DESC_SIZE_REG(dm_if->id),
-		      dm_if->desc_total);
+	pp2_dm_aggr_queue_config(dm_if, dm_if->desc_phys_arr, dm_if->desc_total);
+	dm_if->desc_next_idx = pp2_reg_read(dm_if->cpu_slot, MVPP2_AGGR_TXQ_INDEX_REG(dm_if->id));
 
 	/* Save this DM object in its packet processor unique slot */
 	dm_if->parent = inst;
@@ -111,7 +112,8 @@ void pp2_dm_if_deinit(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id)
 	if (!dm_if)
 		return;
 
-	/* TODO: Destroy AQ in HW */
+	/* Reset the aggregation queue under this DM object */
+	pp2_dm_aggr_queue_config(dm_if, 0, 0);
 
 	pr_debug("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
 	mv_sys_dma_mem_free(dm_if->desc_virt_arr);
