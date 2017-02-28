@@ -97,6 +97,24 @@ struct sam_sa {
 #define SAM_STATS(c)
 #endif
 
+#if __BYTE_ORDER == __BIG_ENDIAN
+static inline void sam_htole32_multi(u32 *vaddr, u32 words)
+{
+	int i;
+	u32 data;
+
+	for (i = 0; i < words; i++) {
+		data = *vaddr;
+		*vaddr = htole32(data);
+		vaddr++;
+	}
+}
+#else
+static inline void sam_htole32_multi(u32 *vaddr, u32 words)
+{
+}
+#endif
+
 static inline u32 sam_cio_next_idx(struct sam_cio *cio, u32 idx)
 {
 	idx++;

@@ -73,8 +73,10 @@ static void *sam_uio_iomap(struct uio_info_t *uio_info, dma_addr_t *pa,
 	void *va = NULL;
 
 	mem = uio_find_mem_byname(uio_info, name);
-	if (!mem)
+	if (!mem) {
+		pr_err("%s memory not not found on uio %s\n", name, uio_info->name);
 		return NULL;
+	}
 
 	if (mem->fd < 0) {
 		char dev_name[16];
@@ -86,6 +88,9 @@ static void *sam_uio_iomap(struct uio_info_t *uio_info, dma_addr_t *pa,
 
 	if (mem->fd >= 0) {
 		va = uio_single_mmap(mem->info, mem->map_num, mem->fd);
+		if (!va)
+			pr_err("%s Can't mmap memory on UIO %s\n", name, uio_info->name);
+
 		if (pa)
 			*pa = mem->info->maps[mem->map_num].addr;
 
@@ -258,7 +263,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	/* Check ring size and number of sessions with HW max values */
 	if (params->size > SAM_HW_RING_SIZE) {
 		/* SW value can't exceed HW restriction */
-		pr_warn("Warning! Ring size %d is too large. Set to maximum = %d\n",
+		pr_warn("Ring size %d is too large. Set to maximum = %d\n",
 			params->size, SAM_HW_RING_SIZE);
 		params->size = SAM_HW_RING_SIZE;
 	}
@@ -266,7 +271,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 
 	if (params->num_sessions > SAM_HW_SA_NUM) {
 		/* SW value can't exceed HW restriction */
-		pr_warn("Warning! Number of sessions %d is too large. Set to maximum = %d\n",
+		pr_warn("Number of sessions %d is too large. Set to maximum = %d\n",
 			params->num_sessions, SAM_HW_SA_NUM);
 		params->num_sessions = SAM_HW_SA_NUM;
 	}

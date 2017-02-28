@@ -197,6 +197,16 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 			__func__, rc);
 		return -EINVAL;
 	}
+	/* Swap Token data if needed */
+	sam_htole32_multi(operation->token_buf.vaddr, token_words);
+
+#ifdef MVCONF_SAM_DEBUG
+	if (session->cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
+		printf("\nToken DMA buffer: %d bytes\n", token_words * 4);
+		mv_mem_dump(operation->token_buf.vaddr, token_words * 4);
+	}
+#endif /* MVCONF_SAM_DEBUG */
+
 
 	cmd_desc->SA_Handle1.p     = (void *)session->sa_buf.paddr;
 	cmd_desc->SA_WordCount     = session->sa_words;
@@ -485,11 +495,15 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 		pr_err("%s: SABuilder_BuildSA failed, rc = %d\n", __func__, rc);
 		goto error_session;
 	}
+	/* Swap session data if needed */
+	sam_htole32_multi(session->sa_buf.vaddr, session->sa_words);
 
 #ifdef MVCONF_SAM_DEBUG
 	if (cio->debug_flags & SAM_SA_DEBUG_FLAG) {
 		print_sa_params(&session->sa_params);
 		print_basic_sa_params(&session->basic_params);
+		printf("\nSA DMA buffer: %d bytes\n", session->sa_words * 4);
+			mv_mem_dump(session->sa_buf.vaddr, session->sa_words * 4);
 	}
 #endif /* MVCONF_SAM_DEBUG */
 

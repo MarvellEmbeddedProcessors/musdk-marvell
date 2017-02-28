@@ -217,8 +217,8 @@ static void gcm_create_auth_key(u8 *key, int key_len, u8 inner[])
 	for (i = 0; i < sizeof(key_input) / 4; i++) {
 		u32 val32;
 
-		val32 = htobe32(*ptr32);
-		*ptr32++ = val32;
+		val32 = *ptr32;
+		*ptr32++ = __bswap_32(val32);
 	}
 }
 
