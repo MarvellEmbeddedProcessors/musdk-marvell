@@ -77,5 +77,7 @@ const char *pp2_cls_utils_common_action_str_get(int value);
 const char *pp2_cls_utils_flow_id_action_str_get(int value);
 const char *pp2_cls_utils_frwd_action_str_get(int value);
 const char *pp2_cls_utils_scan_mode_str_get(int value);
+const char *pp2_cls_utils_tbl_action_type_str_get(int value);
+void print_horizontal_line(u32 char_count, const char *char_val);
 
 #endif /* _PP2_CLS_UTILS_H_ */

@@ -186,6 +186,11 @@ static struct pp2_cls_enum_str_t g_pp2_cls_scan_mode[] = {
 	{MVPP2_SCAN_ABOVE_THRESHOLD,	"above threshold"},
 };
 
+static struct pp2_cls_enum_str_t g_enum_tbl_action_type[] = {
+	{ PP2_CLS_TBL_ACT_DROP, "DROP"},
+	{ PP2_CLS_TBL_ACT_DONE, "IN_QUEUE"},
+};
+
 /******************************************************************************
  *
  * Function   : common_mask_gen
@@ -306,3 +311,18 @@ const char *pp2_cls_utils_scan_mode_str_get(int value)
 {
 	return lookup_enum_str(g_pp2_cls_scan_mode, MVPP2_MEMBER_NUM(g_pp2_cls_scan_mode), value);
 }
+
+const char *pp2_cls_utils_tbl_action_type_str_get(int value)
+{
+	return lookup_enum_str(g_enum_tbl_action_type, MVPP2_MEMBER_NUM(g_enum_tbl_action_type), value);
+}
+
+void print_horizontal_line(u32 char_count, const char *char_val)
+{
+	u32 cnt;
+
+	for (cnt = 0; cnt < char_count; cnt++)
+		printf("%s", char_val);
+	printf("\n");
+}
+

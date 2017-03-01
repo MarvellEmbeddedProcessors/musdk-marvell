@@ -518,6 +518,7 @@ int pp2_cls_db_init(struct pp2_inst *inst)
 		return -ENOMEM;
 	}
 
+	pp2_cls_db_mng_init();
 	return 0;
 }
 
@@ -1173,3 +1174,407 @@ int pp2_cls_db_c2_init(struct pp2_inst *inst)
 
 	return 0;
 }
+
+/*******************************************************************************
+ * pp2_cls_db_mng_init()
+ *
+ * DESCRIPTION: Perform DB Initialization for CLS Manager section.
+ *
+ * INPUTS: None.
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_init(void)
+{
+	if (!mng_db) {
+		/* Allocat memory*/
+		mng_db = kmalloc(sizeof(*mng_db), GFP_KERNEL);
+		if (!mng_db)
+			return -ENOMEM;
+
+		/* Erase DB */
+		MVPP2_MEMSET_ZERO(*mng_db);
+
+		/* Init CLS Manager list head */
+		INIT_LIST(&mng_db->pp2_cls_tbl_head);
+	}
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_add()
+ *
+ * DESCRIPTION: Add a table to CLS Manager db.
+ *
+ * INPUTS:
+ *	params   - pointer to the table params.
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_add(struct pp2_cls_tbl **tbl)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+
+	tbl_node = kmalloc(sizeof(*tbl_node), GFP_KERNEL);
+	if (!tbl_node)
+		return -ENOMEM;
+
+	/* Initialize table's rules db */
+	INIT_LIST(&tbl_node->pp2_cls_tbl_rule_head);
+
+	/* add table to db */
+	list_add_to_tail(&tbl_node->list_node, &mng_db->pp2_cls_tbl_head);
+
+	*tbl = &tbl_node->tbl;
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_check()
+ *
+ * DESCRIPTION: check if a table exists in db.
+ *
+ * INPUTS:
+ *	tbl   - pointer to the table to remove.
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_check(struct pp2_cls_tbl *tbl)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (&tbl_node->tbl == tbl)
+			return 0;
+	}
+	return -EFAULT;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_remove()
+ *
+ * DESCRIPTION: Remove a table to CLS Manager db.
+ *
+ * INPUTS:
+ *	tbl   - pointer to the table to remove.
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_remove(struct pp2_cls_tbl *tbl)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+	struct pp2_cls_rule_node *rule_node;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (&tbl_node->tbl == tbl) {
+			/* Remove all rules first */
+			LIST_FOR_EACH_OBJECT(rule_node, struct pp2_cls_rule_node, &tbl_node->pp2_cls_tbl_rule_head,
+					     list_node) {
+					     list_del(&rule_node->list_node);
+					     kfree(rule_node);
+			}
+			list_del(&tbl_node->list_node);
+			kfree(tbl_node);
+			break;
+		}
+	}
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_num_get()
+ *
+ * DESCRIPTION: Get the number of tables in CLS Manager db.
+ *
+ * INPUTS: none
+ *
+ * OUTPUTS: none
+ *
+ * RETURN:
+ *	number of table in database
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_num_get(void)
+{
+	return list_num_objs(&mng_db->pp2_cls_tbl_head);
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_rule_add()
+ *
+ * DESCRIPTION: Add a table to CLS Manager db.
+ *
+ * INPUTS:
+ *	tbl	pointer to the table.
+ *
+ * OUTPUTS:
+ *	rule	pointer to the new rule.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule **rule, u32 logic_index,
+				struct pp2_cls_tbl_action **action)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+	struct pp2_cls_rule_node *rule_node;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (&tbl_node->tbl == tbl) {
+			rule_node = kmalloc(sizeof(*rule_node), GFP_KERNEL);
+			if (!rule_node) {
+				pr_err("%s: null pointer\n", __func__);
+				return -ENOMEM;
+			}
+			*rule = &rule_node->rule;
+			*action = &rule_node->action;
+			rule_node->logic_index = logic_index;
+			list_add_to_tail(&rule_node->list_node, &tbl_node->pp2_cls_tbl_rule_head);
+			return 0;
+		}
+	}
+	return -EFAULT;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_rule_check()
+ *
+ * DESCRIPTION: Check if rule already exists in a table in CLS Manager db.
+ *
+ * INPUTS:
+ *	tbl	pointer to the table.
+ *
+ * OUTPUTS:
+ *	rule	pointer to the new rule.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_rule_check(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+	struct pp2_cls_rule_node *rule_node;
+	u32 i;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (&tbl_node->tbl == tbl) {
+			LIST_FOR_EACH_OBJECT(rule_node, struct pp2_cls_rule_node, &tbl_node->pp2_cls_tbl_rule_head,
+					     list_node) {
+				 pr_debug("num_fields %d %d\n", rule_node->rule.num_fields, rule->num_fields);
+				if (rule_node->rule.num_fields != rule->num_fields)
+					continue;
+
+				for (i = 0; i < rule_node->rule.num_fields; i++) {
+					pr_debug("size %d key %s, mask %s\n", rule_node->rule.fields[i].size,
+						 rule_node->rule.fields[i].key, rule_node->rule.fields[i].mask);
+					pr_debug("size %d key %s, mask %s\n", rule->fields[i].size,
+						 rule->fields[i].key, rule->fields[i].mask);
+					if ((strcmp((char *)rule_node->rule.fields[i].key,
+						    (char *)rule->fields[i].key) == 0) &&
+					    (strcmp((char *)rule_node->rule.fields[i].mask,
+						    (char *)rule->fields[i].mask) == 0) &&
+					    (rule_node->rule.fields[i].size != rule->fields[i].size)) {
+						return 1;
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_rule_next_get()
+ *
+ * DESCRIPTION: get the next rule in the table db.
+ *
+ * INPUTS:
+ *	tbl	pointer to the table.
+ *
+ * OUTPUTS:
+ *	rule	pointer to the rule.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_rule_next_get(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule **rule)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+	struct pp2_cls_rule_node *rule_node;
+	struct list *list;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (&tbl_node->tbl == tbl) {
+			list = &tbl_node->pp2_cls_tbl_rule_head;
+			rule_node = LIST_FIRST_OBJECT(list, struct pp2_cls_rule_node, list_node);
+			*rule = &rule_node->rule;
+			return 0;
+		}
+	}
+	return -EFAULT;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_rule_remove()
+ *
+ * DESCRIPTION: Remove a rule from CLS Manager table db.
+ *
+ * INPUTS:
+ *	tbl	pointer to the table.
+ *	rule	pointer to the rule to remove.
+ *
+ * OUTPUTS:
+ *	logic_index	pointer to the logic_index.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, u32 *logic_index)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+	struct pp2_cls_rule_node *rule_node;
+	u32 i;
+	u32 found;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (&tbl_node->tbl == tbl) {
+			LIST_FOR_EACH_OBJECT(rule_node, struct pp2_cls_rule_node, &tbl_node->pp2_cls_tbl_rule_head,
+					     list_node) {
+				found = 1;
+				if (rule_node->rule.num_fields != rule->num_fields) {
+					found = 0;
+					continue;
+				}
+				for (i = 0; i < rule_node->rule.num_fields; i++) {
+					if ((strcmp((char *)rule_node->rule.fields[i].key,
+						    (char *)rule->fields[i].key) != 0) ||
+					    (strcmp((char *)rule_node->rule.fields[i].mask,
+						    (char *)rule->fields[i].mask) != 0) ||
+					    (rule_node->rule.fields[i].size != rule->fields[i].size)) {
+						found = 0;
+						break;
+					}
+				}
+				if (found) {
+					*logic_index = rule_node->logic_index;
+					list_del(&rule_node->list_node);
+					kfree(rule_node->action.cos);
+					for (i = 0; i < rule->num_fields; i++) {
+						kfree(rule_node->rule.fields[i].key);
+						kfree(rule_node->rule.fields[i].mask);
+					}
+					kfree(rule_node);
+					return 0;
+				}
+			}
+		}
+	}
+	return -EFAULT;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_tbl_list_dump()
+ *
+ * DESCRIPTION: display  all tables in CLS Manager table db.
+ *
+ * INPUTS: none
+ *
+ * OUTPUTS: none
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_mng_tbl_list_dump(void)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+	u32 i;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		printf("\n");
+		print_horizontal_line(115, "=");
+		printf("|	       | default_action   |		  key\n");
+		printf("|type|num_rules| type  |  tc_num  |key_size|num_fields|");
+
+		for (i = 0; i < 5; i++)
+			printf("proto,field|");
+		printf("\n");
+		print_horizontal_line(115, "-");
+		printf("|%4d|%9d|", tbl_node->tbl.params.type, tbl_node->tbl.params.max_num_rules);
+		printf("%4d|%6d|", tbl_node->tbl.params.default_act.type, tbl_node->tbl.params.default_act.cos->tc);
+		printf("%8d|%10d|", tbl_node->tbl.params.key.key_size, tbl_node->tbl.params.key.num_fields);
+		for (i = 0; i < tbl_node->tbl.params.key.num_fields; i++) {
+			printf("%5d,%5d|", tbl_node->tbl.params.key.proto_field[i].proto,
+			       tbl_node->tbl.params.key.proto_field[i].field.eth);
+		}
+		printf("\n");
+		print_horizontal_line(115, "=");
+		printf("\n");
+		pp2_cls_db_mng_rule_list_dump(&tbl_node->tbl);
+		print_horizontal_line(115, "=");
+		printf("\n");
+	}
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_mng_rule_list_dump()
+ *
+ * DESCRIPTION: Display all rules and actions in specified table in CLS Manager table db.
+ *
+ * INPUTS:
+ *	tbl	pointer to the table.
+ *
+ * OUTPUTS: none
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+.*******************************************************************************/
+int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl)
+{
+	struct pp2_cls_tbl_node *tbl_node;
+	struct pp2_cls_rule_node *rule_node;
+	u32 num_rules;
+	u32 i;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (&tbl_node->tbl == tbl) {
+			num_rules = list_num_objs(&tbl_node->pp2_cls_tbl_rule_head);
+			if (!num_rules)
+				return 0;
+			printf("|num_rules %3d |num_fields | size |               key          |", num_rules);
+			printf("             mask           |   type   | tc |\n");
+			print_horizontal_line(110, "=");
+			LIST_FOR_EACH_OBJECT(rule_node, struct pp2_cls_rule_node, &tbl_node->pp2_cls_tbl_rule_head,
+					     list_node) {
+				printf("               |%10d | %4d | %26s | %26s | %8s | %2d |\n",
+				       rule_node->rule.num_fields,
+				       rule_node->rule.fields[0].size,
+				       rule_node->rule.fields[0].key,
+				       rule_node->rule.fields[0].mask,
+				       pp2_cls_utils_tbl_action_type_str_get(rule_node->action.type),
+				       rule_node->action.cos->tc);
+
+				for (i = 1; i < rule_node->rule.num_fields; i++) {
+					printf("               |           | %4d | %26s | %26s |          |    |\n",
+					       rule_node->rule.fields[i].size,
+					       rule_node->rule.fields[i].key,
+					       rule_node->rule.fields[i].mask);
+				}
+				print_horizontal_line(110, "-");
+			}
+		}
+	}
+	return 0;
+}
+

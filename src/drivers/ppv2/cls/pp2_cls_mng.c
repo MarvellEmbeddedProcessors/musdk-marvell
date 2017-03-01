@@ -366,6 +366,32 @@ end:
 	return rc;
 }
 
+int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl)
+{
+	int i;
+	struct pp2_cls_tbl_rule *rule = NULL;
+	u32 rc;
+
+	/* Remove configured rules in table */
+	for (i = 0; i < tbl->params.max_num_rules; i++) {
+		rc = pp2_cls_db_mng_tbl_rule_next_get(tbl, &rule);
+		if (!rc)
+			pp2_cls_mng_rule_remove(tbl, rule);
+	}
+
+	/*TODO remove flow from HW */
+
+	/* Remove rules and table from database */
+	kfree(tbl->params.default_act.cos);
+
+	rc = pp2_cls_db_mng_tbl_remove(tbl);
+	if (rc) {
+		pr_err("%s(%d) Error while removing table from db!\n", __func__, __LINE__);
+		return -EFAULT;
+	}
+	return 0;
+}
+
 static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				 struct mv_pp2x_engine_pkt_action *pkt_action,
 				 struct mv_pp2x_qos_value *pkt_qos,
@@ -607,8 +633,44 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 	return 0;
 }
 
-int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_rule *rule,
-			 struct pp2_cls_tbl_action *action)
+static int pp2_cls_mng_rule_update_db(struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_rule *rule_db,
+				      struct pp2_cls_tbl_action *action, struct pp2_cls_tbl_action *action_db)
+{
+	u8 *key, *mask;
+	u32 i;
+
+	rule_db->num_fields = rule->num_fields;
+
+	for (i = 0; i < rule->num_fields; i++) {
+		rule_db->fields[i].size = rule->fields[i].size;
+		key = kmalloc(CLS_MNG_KEY_SIZE_MAX, GFP_KERNEL);
+		if (!key) {
+			pr_err("no mem for HEK in DB!\n");
+			return -ENOMEM;
+		}
+		memcpy(key, rule->fields[i].key, CLS_MNG_KEY_SIZE_MAX);
+		rule_db->fields[i].key = key;
+
+		mask = kmalloc(CLS_MNG_KEY_SIZE_MAX, GFP_KERNEL);
+		if (!mask) {
+			kfree(key);
+			pr_err("no mem for HEK in DB!\n");
+			return -ENOMEM;
+		}
+		memcpy(mask, rule->fields[i].mask, CLS_MNG_KEY_SIZE_MAX);
+		rule_db->fields[i].mask = mask;
+	}
+
+	action_db->cos = kmalloc(sizeof(*action_db->cos), GFP_KERNEL);
+	if (!action_db->cos)
+		return -ENOMEM;
+
+	action_db->type = action->type;
+	action_db->cos->tc = action->cos->tc;
+	return 0;
+}
+
+int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action *action)
 {
 	struct pp2_cls_pkt_key_t pkt_key;
 	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
@@ -618,6 +680,23 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 	struct pp2_port *port;
 	struct pp2_inst *inst;
 	u32 rc = 0, logic_idx;
+	struct pp2_cls_tbl_params *params = &tbl->params;
+	struct pp2_cls_tbl_rule *rule_db;
+	struct pp2_cls_tbl_action *action_db;
+
+	/* check if table exists in DB */
+	rc = pp2_cls_db_mng_tbl_check(tbl);
+	if (rc) {
+		pr_err("table not found in db\n");
+		return -EIO;
+	}
+
+	/* check rule is not duplicated */
+	rc = pp2_cls_db_mng_rule_check(tbl, rule);
+	if (rc) {
+		pr_err("rule is duplicated in table\n");
+		return -EFAULT;
+	}
 
 	/* init value */
 	MVPP2_MEMSET_ZERO(pkt_key);
@@ -674,10 +753,76 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl_r
 		pr_err("%s(%d) unknown engine type!\n", __func__, __LINE__);
 		return -EINVAL;
 	}
+	/* Update database */
+	rc = pp2_cls_db_mng_tbl_rule_add(tbl, &rule_db, logic_idx, &action_db);
+	if (rc)
+		return -EFAULT;
+
+	rc = pp2_cls_mng_rule_update_db(rule, rule_db, action, action_db);
+	if (rc)
+		return -EFAULT;
 
 	return 0;
 }
 
+int pp2_cls_mng_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule)
+{
+	struct pp2_port *port;
+	u32 rc;
+	struct pp2_cls_tbl_params *params = &tbl->params;
+	u32 logic_index;
+	struct pp2_inst *inst;
+
+	/* check if table exists in DB */
+	rc = pp2_cls_db_mng_tbl_check(tbl);
+	if (rc) {
+		pr_err("table not found in db\n");
+		return -EFAULT;
+	}
+
+	port = GET_PPIO_PORT(params->default_act.cos->ppio);
+	inst = port->parent;
+
+	rc = pp2_cls_db_mng_tbl_rule_remove(tbl, rule, &logic_index);
+	if (rc)
+		return -EFAULT;
+
+	pr_debug("logic_index %d\n", logic_index);
+	if (params->type == PP2_CLS_TBL_MASKABLE) {
+		pp2_cls_c2_rule_del(inst, logic_index);
+	} else if (params->type == PP2_CLS_TBL_EXACT_MATCH) {
+		pp2_cls_c3_rule_del(inst, logic_index);
+	} else {
+		pr_err("%s(%d) unknown engine type!\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int pp2_cls_mng_rule_modify(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action *action)
+{
+	int rc;
+
+	/* check if table exists in DB */
+	rc = pp2_cls_db_mng_tbl_check(tbl);
+	if (rc) {
+		pr_err("table not found in db\n");
+		return -EFAULT;
+	}
+
+	rc = pp2_cls_mng_rule_remove(tbl, rule);
+	if (rc) {
+		pr_err("cls manager rule modify - remove error\n");
+		return rc;
+	}
+
+	rc = pp2_cls_mng_rule_add(tbl, rule, action);
+	if (rc) {
+		pr_err("cls manager rule modify - add error\n");
+		return rc;
+	}
+	return 0;
+}
 void pp2_cls_mng_init(struct pp2_inst *inst)
 {
 	if (inst->cls_db)

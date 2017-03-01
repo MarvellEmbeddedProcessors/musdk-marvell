@@ -38,27 +38,16 @@
 #include "pp2.h"
 #include "pp2_hw_type.h"
 #include "pp2_hw_cls.h"
+#include "cls/pp2_cls_db.h"
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
 #define NOT_SUPPORTED_YET 255
-#define PP2_CLS_MAX_NUM_TABLES	10
-
-struct pp2_cls_tbl {
-	int dummy;
-	struct pp2_cls_tbl_params params;
-};
-
-struct pp2_cls_table_db {
-	u32 idx;
-	struct pp2_cls_tbl *table[PP2_CLS_MAX_NUM_TABLES];
-};
-
-static struct pp2_cls_table_db table_db;
 
 int pp2_cls_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl)
 {
-	struct pp2_cls_tbl *cls_table;
-	u32 rc;
+	struct pp2_cls_cos_desc *cos;
+	u32 i, rc;
+	struct pp2_cls_tbl *tmp_tbl = NULL;
 
 	/* Para check */
 	if (mv_pp2x_ptr_validate(params))
@@ -69,39 +58,44 @@ int pp2_cls_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl
 		pr_err("cls manager table init error\n");
 		return rc;
 	}
-
-	if (table_db.idx < PP2_CLS_MAX_NUM_TABLES) {
-		cls_table = kmalloc(sizeof(*cls_table), GFP_KERNEL);
-		if (!cls_table) {
-			pr_err("no mem for cls_table array!\n");
-			return -ENOMEM;
-		}
-
-		*tbl = cls_table;
-		table_db.table[table_db.idx] = cls_table;
-		memcpy(&table_db.table[table_db.idx]->params, params, sizeof(struct pp2_cls_tbl_params));
-		table_db.idx++;
-	} else {
-		pr_err("no more space to add another table!\n");
+	rc = pp2_cls_db_mng_tbl_add(&tmp_tbl);
+	tmp_tbl->params.max_num_rules = params->max_num_rules;
+	tmp_tbl->params.type = params->type;
+	tmp_tbl->params.default_act.type = params->default_act.type;
+	cos = kmalloc(sizeof(*cos), GFP_KERNEL);
+	if (!cos) {
+		pr_err("%s(%d) no mem for pp2_cls_cos_desc!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
+	tmp_tbl->params.default_act.cos = cos;
+	tmp_tbl->params.default_act.cos->ppio = params->default_act.cos->ppio;
+	tmp_tbl->params.default_act.cos->tc = params->default_act.cos->tc;
 
+	tmp_tbl->params.key.key_size = params->key.key_size;
+	tmp_tbl->params.key.num_fields = params->key.num_fields;
+	for (i = 0; i < params->key.num_fields; i++) {
+		tmp_tbl->params.key.proto_field[i].proto = params->key.proto_field[i].proto;
+		tmp_tbl->params.key.proto_field[i].field = params->key.proto_field[i].field;
+	}
+	*tbl = tmp_tbl;
 	return 0;
 }
 
 void pp2_cls_tbl_deinit(struct pp2_cls_tbl *tbl)
 {
-	u32 idx;
+	int rc;
 
-	for (idx = 0; idx < table_db.idx; idx++)
-		kfree(table_db.table[table_db.idx]);
+	rc = pp2_cls_mng_table_deinit(tbl);
+	if (rc) {
+		pr_err("cls manager table deinit error\n");
+	}
 }
 
 int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,
 			 struct pp2_cls_tbl_rule	*rule,
 			 struct pp2_cls_tbl_action	*action)
 {
-	u32 idx, rc;
+	u32 rc;
 
 	/* Para check */
 	if (mv_pp2x_ptr_validate(tbl))
@@ -113,39 +107,51 @@ int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,
 	if (mv_pp2x_ptr_validate(action))
 		return -EINVAL;
 
-	/* check if table exists in DB */
-	for (idx = 0; idx < table_db.idx; idx++) {
-		if (tbl == table_db.table[idx]) {
-			pr_info("table found at index %d\n", idx);
-			break;
-		}
-	}
+	rc = pp2_cls_mng_rule_add(tbl, rule, action);
+	if (rc)
+		pr_err("cls mng: unable to add rule\n");
 
-	if (idx == table_db.idx) {
-		pr_err("table not found\n");
-		return -EIO;
-	}
-
-	rc = pp2_cls_mng_rule_add(&table_db.table[idx]->params, rule, action);
-	if (rc) {
-		pr_err("cls manager table init error\n");
-		return rc;
-	}
-
-	return 0;
+	return rc;
 }
 
 int pp2_cls_tbl_modify_rule(struct pp2_cls_tbl		*tbl,
 			    struct pp2_cls_tbl_rule	*rule,
 			    struct pp2_cls_tbl_action	*action)
 {
-	pr_err("[%s] routine not supported yet!\n", __func__);
-	return -ENOTSUP;
+	u32 rc;
+
+	/* Para check */
+	if (mv_pp2x_ptr_validate(tbl))
+		return -EINVAL;
+
+	if (mv_pp2x_ptr_validate(rule))
+		return -EINVAL;
+
+	if (mv_pp2x_ptr_validate(action))
+		return -EINVAL;
+
+	rc = pp2_cls_mng_rule_modify(tbl, rule, action);
+	if (rc)
+		pr_err("cls mng: unable to modify rule\n");
+
+	return rc;
 }
 
 int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl		*tbl,
 			    struct pp2_cls_tbl_rule	*rule)
 {
-	pr_err("[%s] routine not supported yet!\n", __func__);
-	return -ENOTSUP;
+	u32 rc;
+
+	/* Para check */
+	if (mv_pp2x_ptr_validate(tbl))
+		return -EINVAL;
+
+	if (mv_pp2x_ptr_validate(rule))
+		return -EINVAL;
+
+	rc = pp2_cls_mng_rule_remove(tbl, rule);
+	if (rc)
+		pr_err("cls mng: unable to remove rule\n");
+
+	return rc;
 }

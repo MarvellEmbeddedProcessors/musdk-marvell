@@ -43,6 +43,8 @@
 #ifndef _PP2_CLS_DB_H_
 #define _PP2_CLS_DB_H_
 
+#include "drivers/mv_pp2_cls.h"
+
 #define MVPP2_MNG_FLOW_ID_MAX 50
 /********************************************************************************/
 /*			MACROS							*/
@@ -128,6 +130,32 @@ struct pp2_cls_db_t {
 	struct pp2_cls_db_cls_t	cls_db;			/* PP2_CLS module CLS db		*/
 };
 
+/* table db is not instance dependent, so it is defined separately in db */
+
+struct pp2_cls_rule_node {
+	struct pp2_cls_tbl_rule		rule;
+	u32				logic_index;	/* Logical index in C2 or C3 database */
+	struct pp2_cls_tbl_action	action;
+	struct list			list_node;
+};
+
+struct pp2_cls_tbl {
+	struct pp2_cls_tbl_params	params;
+};
+
+struct pp2_cls_tbl_node {
+	struct pp2_cls_tbl		tbl;
+	struct list			list_node;
+	struct list			pp2_cls_tbl_rule_head;
+	struct pp2_cls_rule_node	rule_node;
+};
+
+struct pp2_cls_db_mng_t {
+	struct list			pp2_cls_tbl_head;
+};
+
+struct pp2_cls_db_mng_t *mng_db;		/* PP2_CLS module MNG db */
+
 /********************************************************************************/
 /*			PROTOTYPE						*/
 /********************************************************************************/
@@ -169,6 +197,20 @@ int  pp2_db_cls_rl_off_free_nr(struct pp2_inst *inst, u32 *free_nr);
 int  pp2_db_cls_rl_off_free_set(struct pp2_inst *inst, u16 off, u16 *log);
 int  pp2_db_cls_rl_off_get(struct pp2_inst *inst, u16 *off, u16 log);
 int  pp2_db_cls_rl_off_set(struct pp2_inst *inst, u16 off, u16 log);
+
+/* CLS Manager section */
+int pp2_cls_db_mng_init(void);
+int pp2_cls_db_mng_tbl_add(struct pp2_cls_tbl **tbl);
+int pp2_cls_db_mng_tbl_remove(struct pp2_cls_tbl *tbl);
+int pp2_cls_db_mng_tbl_check(struct pp2_cls_tbl *tbl);
+int pp2_cls_db_mng_tbl_num_get(void);
+int pp2_cls_db_mng_tbl_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule **rule, u32 logic_index,
+				struct pp2_cls_tbl_action **action);
+int pp2_cls_db_mng_rule_check(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule);
+int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, u32 *logic_index);
+int pp2_cls_db_mng_tbl_rule_next_get(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule **rule);
+int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl);
+int pp2_cls_db_mng_tbl_list_dump(void);
 
 /* DB general section */
 int pp2_cls_db_init(struct pp2_inst *inst);

@@ -47,7 +47,7 @@
 #include "../pp2_hw_cls.h"
 #include "../pp2_hw_cls_dbg.h"
 
- #define PP2_CLS_C3_DEBUG
+/* #define PP2_CLS_C3_DEBUG */
 
 /**
  * pp2_cls_c3_common_field_hek_get

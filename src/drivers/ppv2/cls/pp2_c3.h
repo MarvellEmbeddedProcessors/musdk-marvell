@@ -198,7 +198,6 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry);
 int pp2_cls_c3_default_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry);
 /* Internal debug */
-void print_horizontal_line(u32 char_count, const char *char_val);
 void pp2_cls_c3_entry_header_dump(void);
 void pp2_cls_c3_entry_convert(struct pp2_cls_c3_entry *pp2_entry, struct pp2_cls_c3_data_t *mng_entry);
 void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx, u32 hit_count,

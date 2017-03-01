@@ -313,3 +313,18 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio)
 
 	return 0;
 }
+
+int register_cli_mng_cmds(struct pp2_ppio *ppio)
+{
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_mng_table_dump";
+	cmd_params.desc		= "dump all tables and defined rules in manager db";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= NULL;
+	cmd_params.do_cmd_cb	= (void *)pp2_cls_db_mng_tbl_list_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+	return 0;
+}
+

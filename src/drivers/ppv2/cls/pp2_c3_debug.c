@@ -45,15 +45,6 @@
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 
-void print_horizontal_line(u32 char_count, const char *char_val)
-{
-	u32 cnt;
-
-	for (cnt = 0; cnt < char_count; cnt++)
-		printf("%s", char_val);
-	printf("\n");
-}
-
 void pp2_cls_c3_entry_header_dump(void)
 {
 	print_horizontal_line(100, "=");
