@@ -35,6 +35,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <sched.h>
+#include <signal.h>
 
 #include "mvapp_std.h"
 #include "cli.h"
@@ -126,6 +127,14 @@ static int setaffinity(pthread_t me, int i)
 static char getchar_cb(void)
 {
 	return (char)getchar();
+}
+
+static void sigint_h(int sig)
+{
+	(void)sig;	/* UNUSED */
+	printf("\nPress enter to exit...\n");
+	_mvapp->running = 0;
+	signal(SIGINT, SIG_DFL);
 }
 
 static int run_local(struct mvapp *mvapp, int id)
@@ -324,6 +333,7 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 	}
 
 	mvapp->running = 1;
+	signal(SIGINT, sigint_h);
 
 	if (mvapp->cli &&
 	    ((err = pthread_create (&mvapp->cli_trd,
