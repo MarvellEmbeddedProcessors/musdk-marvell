@@ -209,6 +209,7 @@ struct glob_arg {
 	int			 num_pools;
 	struct pp2_bpool	***pools;
 	struct pp2_buff_inf	***buffs_inf;
+	int			num_buffs[PP2_NUM_PKT_PROC][PP2_TOTAL_NUM_BPOOLS];
 };
 
 struct local_arg {
@@ -242,6 +243,14 @@ static u64 sys_dma_high_addr = 0;
 
 static u16	used_bpools[PP2_NUM_PKT_PROC] = {PP2_BPOOLS_RSRV, PP2_BPOOLS_RSRV};
 static u16	used_hifs = PP2_HIFS_RSRV;
+
+u32 tx_shadow_q_buf_free_cnt[MAX_NUM_CORES];
+u32 hw_bm_buf_free_cnt;
+u32 hw_rxq_buf_free_cnt;
+u32 hw_buf_free_cnt;
+
+u32 buf_alloc_cnt;
+u32 buf_free_cnt;
 
 #ifdef SHOW_STATISTICS
 #define INC_RX_COUNT(core, port, cnt)		(rx_buf_cnt[core][port] += cnt)
@@ -862,6 +871,38 @@ static int init_all_modules(void)
 	return 0;
 }
 
+static void flush_pool(struct glob_arg *garg, struct pp2_bpool *bpool)
+{
+	u32 i, buf_num, cnt = 0, err = 0;
+
+	pp2_bpool_get_num_buffs(bpool, &buf_num);
+	for (i = 0; i < buf_num; i++) {
+		struct pp2_buff_inf buff;
+
+		err = 0;
+		while (pp2_bpool_get_buff(garg->hif, bpool, &buff)) {
+			err++;
+			if (err == 10000) {
+				buff.cookie = 0;
+				break;
+			}
+		}
+
+		if (err) {
+			if (err == 10000) {
+				pr_err("flush_pool: p2_id=%d, pool_id=%d: Got NULL buf (%d of %d)\n",
+					bpool->pp2_id, bpool->id, i, buf_num);
+				continue;
+			}
+			pr_warn("flush_pool: p2_id=%d, pool_id=%d: Got buf (%d of %d) after %d retries\n",
+				bpool->pp2_id, bpool->id, i, buf_num, err);
+		}
+		cnt++;
+	}
+	hw_bm_buf_free_cnt += cnt;
+	pp2_bpool_deinit(bpool);
+}
+
 static int build_all_bpools(struct glob_arg *garg)
 {
 	struct pp2_bpool_params	 	bpool_params;
@@ -939,6 +980,7 @@ struct timeval t1, t2;
 				pr_err("no mem for bpools-inf array!\n");
 				return -ENOMEM;
 			}
+			garg->num_buffs[i][j] = infs[j].num_buffs;
 
 			for (k=0; k<infs[j].num_buffs; k++) {
 				void * buff_virt_addr;
@@ -976,6 +1018,8 @@ gettimeofday(&t1, NULL);
 							      garg->pools[i][j],
 							      &tmp_buff_inf)) != 0)
 					return err;
+
+				buf_alloc_cnt++;
 			}
 #if 0
 // stop timer
@@ -989,6 +1033,50 @@ printf("pp2-bpool-put count: %d cycles  =================\n", usecs1*CLK_MHZ/inf
 	}
 
 	return 0;
+}
+
+static void free_pool_buffers(struct pp2_buff_inf *buffs, int num)
+{
+	int i;
+
+	for (i = 0; i < num; i++) {
+		void *buff_virt_addr = (char *)(((uintptr_t)(buffs[i].cookie)) | sys_dma_high_addr);
+
+		mv_sys_dma_mem_free(buff_virt_addr);
+		buf_free_cnt++;
+	}
+}
+
+static void free_all_pools(struct glob_arg *garg)
+{
+	int i, j;
+
+	if (garg->pools) {
+		for (i = 0; i < garg->pp2_num_inst; i++) {
+			if (garg->pools[i]) {
+				for (j = 0; j < garg->num_pools; j++)
+					if (garg->pools[i][j])
+						flush_pool(garg, garg->pools[i][j]);
+				free(garg->pools[i]);
+			}
+		}
+		free(garg->pools);
+	}
+
+	if (garg->buffs_inf) {
+		for (i = 0; i < garg->pp2_num_inst; i++) {
+			if (garg->buffs_inf[i]) {
+				for (j = 0; j < garg->num_pools; j++)
+					if (garg->buffs_inf[i][j]) {
+						free_pool_buffers(garg->buffs_inf[i][j], garg->num_buffs[i][j]);
+						free(garg->buffs_inf[i][j]);
+					}
+				free(garg->buffs_inf[i]);
+			}
+		}
+		free(garg->buffs_inf);
+	}
+
 }
 
 static int init_local_modules(struct glob_arg *garg)
@@ -1074,38 +1162,65 @@ static int init_local_modules(struct glob_arg *garg)
 	return 0;
 }
 
+static void free_rx_queues(struct glob_arg *garg, struct pp2_ppio *port)
+{
+	struct pp2_ppio_desc	descs[MAX_BURST_SIZE];
+	u8			tc = 0, qid = 0;
+	u16			num;
+
+	for (tc = 0; tc < PP2_MAX_NUM_TCS_PER_PORT; tc++) {
+		for (qid = 0; qid < PP2_MAX_NUM_QS_PER_TC; qid++) {
+			num = MAX_BURST_SIZE;
+			while (num) {
+				pp2_ppio_recv(port, tc, qid, descs, &num);
+				hw_rxq_buf_free_cnt += num;
+			}
+		}
+	}
+}
+
+static void disable_all_ports(struct glob_arg *garg)
+{
+	int i;
+
+	for (i = 0;  i < garg->num_ports; i++) {
+		if (garg->ports_desc[i].port) {
+			pp2_ppio_disable(garg->ports_desc[i].port);
+			free_rx_queues(garg, garg->ports_desc[i].port);
+		}
+	}
+
+}
+
+static void deinit_all_ports(struct glob_arg *garg)
+{
+	int i;
+
+	for (i = 0;  i < garg->num_ports; i++) {
+		if (garg->ports_desc[i].port)
+			pp2_ppio_deinit(garg->ports_desc[i].port);
+	}
+
+	/* Calculate number of buffers released from PP2 */
+	for (i = 0; i < MAX_NUM_CORES; i++)
+		hw_buf_free_cnt += tx_shadow_q_buf_free_cnt[i];
+	hw_buf_free_cnt += hw_bm_buf_free_cnt + hw_rxq_buf_free_cnt;
+
+	if (buf_free_cnt != buf_alloc_cnt)
+		pr_err("Not all buffers were released: allocated: %d, freed: %d\n",
+			buf_alloc_cnt, buf_free_cnt);
+
+	if (buf_free_cnt != hw_buf_free_cnt)
+		pr_err("Error in buffer release: allocated: %d, app freed: %d, pp2 freed: %d bm free: %d, rxq free: %d, tx free: %d !\n",
+			buf_alloc_cnt, buf_free_cnt, hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+			(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
+}
+
 static void destroy_local_modules(struct glob_arg *garg)
 {
-	int	i, j;
-	int 	pp2_num_inst = garg->pp2_num_inst;
-
-	if (garg->ports_desc[0].port) {
-		pp2_ppio_disable(garg->ports_desc[0].port);
-		pp2_ppio_deinit(garg->ports_desc[0].port);
-	}
-
-	if (garg->pools) {
-		for (i=0; i<pp2_num_inst; i++) {
-			if (garg->pools[i]) {
-				for (j=0; j<garg->num_pools; j++)
-					if (garg->pools[i][j])
-						pp2_bpool_deinit(garg->pools[i][j]);
-				free(garg->pools[i]);
-			}
-		}
-		free(garg->pools);
-	}
-	if (garg->buffs_inf) {
-		for (i=0; i<pp2_num_inst; i++) {
-			if (garg->buffs_inf[i]) {
-				for (j=0; j<garg->num_pools; j++)
-					if (garg->buffs_inf[i][j])
-						free(garg->buffs_inf[i][j]);
-				free(garg->buffs_inf[i]);
-			}
-		}
-		free(garg->buffs_inf);
-	}
+	disable_all_ports(garg);
+	free_all_pools(garg);
+	deinit_all_ports(garg);
 
 	if (garg->hif)
 		pp2_hif_deinit(garg->hif);
@@ -1308,10 +1423,28 @@ static int init_local(void *arg, int id, void **_larg)
 static void deinit_local(void *arg)
 {
 	struct local_arg *larg = (struct local_arg *)arg;
+	int i;
 
 	if (!larg)
 		return;
 
+	/* Release shadow queue */
+	for (i = 0; i < MAX_NUM_QS_PER_CORE; i++) {
+		struct tx_shadow_q *shadow_q = &larg->shadow_qs[i];
+
+		if (shadow_q->read_ind > shadow_q->write_ind)
+			tx_shadow_q_buf_free_cnt[larg->id] += Q_SIZE - shadow_q->read_ind + shadow_q->write_ind;
+		else
+			tx_shadow_q_buf_free_cnt[larg->id] += shadow_q->write_ind - shadow_q->read_ind;
+		shadow_q->read_ind = 0;
+		shadow_q->write_ind = 0;
+	}
+
+	if (larg->hif)
+		pp2_hif_deinit(larg->hif);
+
+	if (larg->ports_desc)
+		free(larg->ports_desc);
 	free(larg);
 }
 
@@ -1525,6 +1658,12 @@ int main (int argc, char *argv[])
 	mvapp_params.init_local_cb	= init_local;
 	mvapp_params.deinit_local_cb	= deinit_local;
 	mvapp_params.main_loop_cb	= main_loop;
+	buf_alloc_cnt			= 0;
+	buf_free_cnt			= 0;
+	hw_bm_buf_free_cnt		= 0;
+	hw_rxq_buf_free_cnt		= 0;
+	hw_buf_free_cnt			= 0;
+
 #ifdef SHOW_STATISTICS
 	for (i = 0; i < MAX_NUM_CORES; i++) {
 		int j;
