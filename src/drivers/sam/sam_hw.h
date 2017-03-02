@@ -162,6 +162,31 @@ struct sam_hw_ring {
 	struct sam_hw_res_desc *res_desc_first;	/* Pointer to first command descriptors in DMA memory */
 };
 
+static inline void sam_hw_reg_write_relaxed(void *base, u32 offset, u32 data)
+{
+	void *addr = base + offset;
+
+	writel_relaxed(data, addr);
+
+#ifdef SAM_REG_WRITE_DEBUG
+	pr_info("sam_reg_write: %8p + 0x%04x = 0x%x\n", base, offset, data);
+#endif
+}
+
+static inline u32 sam_hw_reg_read_relaxed(void *base, u32 offset)
+{
+	void *addr = base + offset;
+	u32 data;
+
+	data = readl_relaxed(addr);
+
+#ifdef SAM_REG_READ_DEBUG
+	pr_info("sam_reg_read : %8p + 0x%04x = 0x%x\n", base, offset, data);
+#endif
+
+	return data;
+}
+
 static inline void sam_hw_reg_write(void *base, u32 offset, u32 data)
 {
 	void *addr = base + offset;
@@ -211,18 +236,18 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	/* bits[24-31] - ExpectedResultWordCount = 0 */
 	ctrl_word |= BIT_22 | BIT_23;  /* Last and First */
 
-	writel(ctrl_word, &res_desc->words[0]);
-	writel(0, &res_desc->words[1]); /* skip this write */
+	writel_relaxed(ctrl_word, &res_desc->words[0]);
+	writel_relaxed(0, &res_desc->words[1]); /* skip this write */
 
 	/* Write Destination Packet Data address */
-	writel(lower_32_bits((u64)cmd->DstPkt_Handle.p), &res_desc->words[2]);
-	writel(upper_32_bits((u64)cmd->DstPkt_Handle.p) | SAM_DRAM_SRC_MASK, &res_desc->words[3]);
+	writel_relaxed(lower_32_bits((u64)cmd->DstPkt_Handle.p), &res_desc->words[2]);
+	writel_relaxed(upper_32_bits((u64)cmd->DstPkt_Handle.p) | SAM_DRAM_SRC_MASK, &res_desc->words[3]);
 
 #ifdef SAM_DMA_WRITE_DEBUG
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl(&res_desc->words[0]));
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 1, readl(&res_desc->words[1]));
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl(&res_desc->words[2]));
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl(&res_desc->words[3]));
+	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl_relaxed(&res_desc->words[0]));
+	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 1, readl_relaxed(&res_desc->words[1]));
+	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl_relaxed(&res_desc->words[2]));
+	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl_relaxed(&res_desc->words[3]));
 #endif /* SAM_DMA_WRITE_DEBUG */
 
 	/* Write CDR descriptor */
@@ -230,20 +255,20 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	ctrl_word |= (cmd->Token_WordCount & MASK_8_BITS) << 24;
 	ctrl_word |= BIT_22 | BIT_23;  /* Last and First */
 
-	writel(ctrl_word, &cmd_desc->words[0]);
-	writel(0, &cmd_desc->words[1]); /* skip this write */
+	writel_relaxed(ctrl_word, &cmd_desc->words[0]);
+	writel_relaxed(0, &cmd_desc->words[1]); /* skip this write */
 
 	/* Write Source Packet Data address */
 	val32 = lower_32_bits((u64)cmd->SrcPkt_Handle.p);
-	writel(val32, &cmd_desc->words[2]);
+	writel_relaxed(val32, &cmd_desc->words[2]);
 	val32 = upper_32_bits((u64)cmd->SrcPkt_Handle.p) | SAM_DRAM_SRC_MASK;
-	writel(val32, &cmd_desc->words[3]);
+	writel_relaxed(val32, &cmd_desc->words[3]);
 
 	/* Write Token Data address */
 	val32 = lower_32_bits((u64)cmd->Token_Handle.p);
-	writel(val32, &cmd_desc->words[4]);
+	writel_relaxed(val32, &cmd_desc->words[4]);
 	val32 = upper_32_bits((u64)cmd->Token_Handle.p) | SAM_DRAM_SRC_MASK;
-	writel(val32, &cmd_desc->words[5]);
+	writel_relaxed(val32, &cmd_desc->words[5]);
 
 	/* Token header word is provided as separate parameter in Control1. */
 	token_header = cmd->Control1 & ~0x00300000;
@@ -264,32 +289,32 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	if (cmd->SrcPkt_ByteCount == 0) /* Invalidate session in cache */
 		token_header = BIT_30 | BIT_31;
 
-	writel(token_header, &cmd_desc->words[6]);
+	writel_relaxed(token_header, &cmd_desc->words[6]);
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel(0x0000ec00, &cmd_desc->words[7]);
+	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
 
 	val32 = lower_32_bits((u64)cmd->SA_Handle1.p) | 0x2;
-	writel(val32, &cmd_desc->words[8]);
+	writel_relaxed(val32, &cmd_desc->words[8]);
 	val32 = upper_32_bits((u64)cmd->SA_Handle1.p) | SAM_DRAM_SRC_MASK;
-	writel(val32, &cmd_desc->words[9]);
+	writel_relaxed(val32, &cmd_desc->words[9]);
 
-	writel(cmd->Control2, &cmd_desc->words[10]);
-	writel(cmd->Control3, &cmd_desc->words[11]);
+	writel_relaxed(cmd->Control2, &cmd_desc->words[10]);
+	writel_relaxed(cmd->Control3, &cmd_desc->words[11]);
 
 #ifdef SAM_DMA_WRITE_DEBUG
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 0, readl(&cmd_desc->words[0]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 1, readl(&cmd_desc->words[1]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 2, readl(&cmd_desc->words[2]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 3, readl(&cmd_desc->words[3]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 4, readl(&cmd_desc->words[4]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 5, readl(&cmd_desc->words[5]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl(&cmd_desc->words[6])));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl(&cmd_desc->words[7]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl(&cmd_desc->words[8]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 9, readl(&cmd_desc->words[9]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 10, readl(&cmd_desc->words[10]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 11, readl(&cmd_desc->words[11]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 0, readl_relaxed(&cmd_desc->words[0]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 1, readl_relaxed(&cmd_desc->words[1]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 2, readl_relaxed(&cmd_desc->words[2]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 3, readl_relaxed(&cmd_desc->words[3]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 4, readl_relaxed(&cmd_desc->words[4]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 5, readl_relaxed(&cmd_desc->words[5]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6])));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl_relaxed(&cmd_desc->words[7]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl_relaxed(&cmd_desc->words[8]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 9, readl_relaxed(&cmd_desc->words[9]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 10, readl_relaxed(&cmd_desc->words[10]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 11, readl_relaxed(&cmd_desc->words[11]));
 #endif /* SAM_DMA_WRITE_DEBUG */
 }
 
@@ -298,16 +323,16 @@ static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, PEC_Re
 	u32 val32, control_word;
 
 	/* Word 0 - Control Word */
-	control_word = readl(&res_desc->words[0]);
+	control_word = readl_relaxed(&res_desc->words[0]);
 
 	/* Word 1 - extended length, not read. */
 
 	/* Word 2 & 3 - Destination Packet Data Buffer Address */
-	res->DstPkt_Handle.p = (void *)((u64)readl(&res_desc->words[2]) |
-				       ((u64)readl(&res_desc->words[3]) << 32));
+	res->DstPkt_Handle.p = (void *)((u64)readl_relaxed(&res_desc->words[2]) |
+				       ((u64)readl_relaxed(&res_desc->words[3]) << 32));
 
 	/* Words 4 ... 7 - Result Token Data - token_data[0] */
-	val32 = readl(&res_desc->words[4]);
+	val32 = readl_relaxed(&res_desc->words[4]);
 
 	res->DstPkt_ByteCount = val32 & MASK_17_BITS;
 	res->Status1 = val32;
@@ -318,7 +343,7 @@ static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, PEC_Re
 	res->Status1 |= (control_word & (BIT_21 | BIT_20)) >> 6;
 
 	/* token_data[1] */
-	val32 = readl(&res_desc->words[5]);
+	val32 = readl_relaxed(&res_desc->words[5]);
 	res->Status6 = val32;
 	res->Bypass_WordCount = val32 & MASK_4_BITS;
 	/* HashByteCount = ((val32 >> 22) & MASK_6_BITS); */
@@ -327,31 +352,31 @@ static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, PEC_Re
 	/* fHash         = (val32 & BIT_21 */
 
 	/* token_data[2] - not in use */
-	/* val32 = readl(&res_desc->words[6]); */
+	/* val32 = readl_relaxed(&res_desc->words[6]); */
 
 	/* res->Status2 <- token_data[3] <- res_desc->words[7] */
 	/* ((PadByteCount & MASK_8_BITS) << 8) | (NextHeader & MASK_8_BITS); */
 
 	 /* token_data[3] <- res_desc->words[7] */
-	res->Status3 = readl(&res_desc->words[7]);
+	res->Status3 = readl_relaxed(&res_desc->words[7]);
 
-	res->Status4 = readl(&res_desc->words[10]);
-	res->Status5 = readl(&res_desc->words[11]);
+	res->Status4 = readl_relaxed(&res_desc->words[10]);
+	res->Status5 = readl_relaxed(&res_desc->words[11]);
 	/* res->Status7 and res->Status8 are not in use */
 
 #ifdef SAM_DMA_READ_DEBUG
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl(&res_desc->words[0]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 1, readl(&res_desc->words[1]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl(&res_desc->words[2]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl(&res_desc->words[3]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 4, readl(&res_desc->words[4]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 5, readl(&res_desc->words[5]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 6, readl(&res_desc->words[6]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 7, readl(&res_desc->words[7]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 8, readl(&res_desc->words[8]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 9, readl(&res_desc->words[9]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 10, readl(&res_desc->words[10]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 11, readl(&res_desc->words[11]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl_relaxed(&res_desc->words[0]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 1, readl_relaxed(&res_desc->words[1]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl_relaxed(&res_desc->words[2]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl_relaxed(&res_desc->words[3]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 4, readl_relaxed(&res_desc->words[4]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 5, readl_relaxed(&res_desc->words[5]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 6, readl_relaxed(&res_desc->words[6]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 7, readl_relaxed(&res_desc->words[7]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 8, readl_relaxed(&res_desc->words[8]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 9, readl_relaxed(&res_desc->words[9]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 10, readl_relaxed(&res_desc->words[10]));
+	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 11, readl_relaxed(&res_desc->words[11]));
 #endif /* SAM_DMA_READ_DEBUG */
 }
 
@@ -360,7 +385,7 @@ static inline void sam_hw_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)
 	u32 val32;
 
 	val32 = ((todo * SAM_RDR_ENTRY_WORDS) & MASK_14_BITS) << 2;
-	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
+	sam_hw_reg_write_relaxed(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
 
 	val32 = ((todo * SAM_CDR_ENTRY_WORDS) & MASK_14_BITS) << 2;
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_COUNT_REG, val32);
