@@ -525,23 +525,27 @@ int sam_session_destroy(struct sam_sa *session)
 	struct sam_cio *cio = session->cio;
 	struct sam_cio_op *operation;
 
-	/* Check maximum number of pending requests */
-	if (sam_cio_is_full(cio)) {
-		SAM_STATS(cio->stats.enq_full++);
-		return -EINVAL;
+	if (cio->hw_ring.type == HW_EIP197) {
+		/* Check maximum number of pending requests */
+		if (sam_cio_is_full(cio)) {
+			SAM_STATS(cio->stats.enq_full++);
+			return -EINVAL;
+		}
+
+		/* Get next operation structure */
+		operation = &cio->operations[cio->next_request];
+		operation->sa = session;
+		operation->num_bufs = 0;
+
+		/* Invalidate session in HW */
+		sam_hw_session_invalidate(&cio->hw_ring, &session->sa_buf, cio->next_request);
+		SAM_STATS(cio->stats.sa_inv++);
+
+		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
+	} else {
+		sam_session_free(session);
+		SAM_STATS(cio->stats.sa_del++);
 	}
-
-	/* Get next operation structure */
-	operation = &cio->operations[cio->next_request];
-	operation->sa = session;
-	operation->num_bufs = 0;
-
-	/* Invalidate session in HW */
-	sam_hw_session_invalidate(&cio->hw_ring, &session->sa_buf, cio->next_request);
-	SAM_STATS(cio->stats.sa_inv++);
-
-	cio->next_request = sam_cio_next_idx(cio, cio->next_request);
-
 	return 0;
 }
 

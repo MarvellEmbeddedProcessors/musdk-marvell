@@ -94,6 +94,9 @@
 #define SAM_DRAM_SRC_MASK       (0x0)
 #endif /* MV_SOC_A39X */
 
+#define SAM_EIP197_RING_REGS_OFFS(ring) (0x80000 + (ring) * 0x1000)
+#define SAM_EIP97_RING_REGS_OFFS(ring)  (0x0 + (ring) * 0x1000)
+
 /* CDR and RDR Registers addresses and fields */
 #define HIA_RDR_REGS_OFFSET		0x800
 
@@ -147,7 +150,10 @@ struct sam_hw_res_desc {
 	u32 words[SAM_RDR_ENTRY_WORDS];
 };
 
-struct sam_hw_ring_options {
+enum sam_hw_type {
+	HW_EIP197,
+	HW_EIP97,
+	HW_TYPE_LAST
 };
 
 struct sam_hw_ring {
@@ -155,6 +161,7 @@ struct sam_hw_ring {
 	u32 ring;
 	void *regs_vbase;			/* virtual address for ring registers */
 	dma_addr_t paddr;			/* physical address for ring registers */
+	enum sam_hw_type type;			/* EIP197 or EIP97 */
 	u32 ring_size;                          /* CDR and RDR size in descriptors */
 	struct sam_buf_info cdr_buf;            /* DMA memory buffer allocated for command descriptors */
 	struct sam_buf_info rdr_buf;            /* DMA memory buffer allocated for result descriptors */
@@ -294,7 +301,10 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
 	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
 
-	val32 = lower_32_bits((u64)cmd->SA_Handle1.p) | 0x2;
+	val32 = lower_32_bits((u64)cmd->SA_Handle1.p);
+	if (hw_ring->type == HW_EIP197)
+		val32 |= 0x2;
+
 	writel_relaxed(val32, &cmd_desc->words[8]);
 	val32 = upper_32_bits((u64)cmd->SA_Handle1.p) | SAM_DRAM_SRC_MASK;
 	writel_relaxed(val32, &cmd_desc->words[9]);
@@ -385,7 +395,7 @@ static inline void sam_hw_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)
 	u32 val32;
 
 	val32 = ((todo * SAM_RDR_ENTRY_WORDS) & MASK_14_BITS) << 2;
-	sam_hw_reg_write_relaxed(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
 
 	val32 = ((todo * SAM_CDR_ENTRY_WORDS) & MASK_14_BITS) << 2;
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_COUNT_REG, val32);

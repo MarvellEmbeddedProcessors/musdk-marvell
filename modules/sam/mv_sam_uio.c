@@ -30,8 +30,6 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 
-#include "../include/mv_sam_uio.h"
-
 #define DRIVER_NAME	"mv_sam_uio_drv"
 #define DRIVER_VERSION	"0.1"
 #define DRIVER_AUTHOR	"Marvell"
@@ -63,10 +61,10 @@ struct sam_uio_pdev_info {
  */
 static int sam_uio_probe(struct platform_device *pdev)
 {
-	struct platform_device *sam_pdev;
+	struct platform_device *eip_pdev;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct device_node *sam_node;
+	struct device_node *eip_node;
 	struct sam_uio_pdev_info  *pdev_info;
 	struct uio_info *uio;
 	struct resource *res;
@@ -87,36 +85,33 @@ static int sam_uio_probe(struct platform_device *pdev)
 
 	pdev_info->dev = dev;
 
-	sam_node = of_parse_phandle(np, "eip197_access", 0);
-	if (!sam_node) {
-		dev_err(dev, "eip197_access node is not found\n");
+	eip_node = of_parse_phandle(np, "eip_access", 0);
+	if (!eip_node) {
+		dev_err(dev, "eip_access node is not found\n");
 		err = -EINVAL;
-		goto fail;
+		goto fail_uio;
 	}
-	sam_pdev = of_find_device_by_node(sam_node);
-	if (!sam_pdev) {
-		dev_err(dev, "eip197 platform device is not found\n");
-		err = -EINVAL;
-		goto fail;
-	}
+	eip_pdev = of_find_device_by_node(eip_node);
+	if (!eip_pdev)
+		goto fail_uio;
 
 	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
 		int i;
 
 		uio = &pdev_info->uio[idx];
-		snprintf(pdev_info->name, sizeof(pdev_info->name), "%s%d",  UIO_SAM_NAME, cpn_count);
+		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_%s_%d",  eip_node->name, cpn_count);
 		uio->name = pdev_info->name;
 		uio->version = DRIVER_VERSION;
 
 		for (i = 0; i < MAX_UIO_MAPS; i++, ++mem_cnt) {
-			res = platform_get_resource(sam_pdev, IORESOURCE_MEM, mem_cnt);
+			res = platform_get_resource(eip_pdev, IORESOURCE_MEM, mem_cnt);
 			if (!res)
 				break;
 
 			uio->mem[i].memtype = UIO_MEM_PHYS;
 			uio->mem[i].addr = res->start & PAGE_MASK;
 			uio->mem[i].size = PAGE_ALIGN(resource_size(res));
-			uio->mem[i].name = res->name;
+			uio->mem[i].name = "regs";
 		}
 		if (i) {
 			err = uio_register_device(dev, uio);
@@ -173,7 +168,7 @@ static int sam_uio_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id sam_uio_of_match[] = {
-	{ .compatible	= "marvell,uio-eip197", },
+	{ .compatible	= "marvell,uio-sam", },
 	{ }
 };
 

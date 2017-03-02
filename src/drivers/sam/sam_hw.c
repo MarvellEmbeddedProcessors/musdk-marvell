@@ -33,14 +33,14 @@
 #include "std_internal.h"
 #include "lib/uio_helper.h"
 
-#include "../../modules/include/mv_sam_uio.h"
-
 #include "drivers/mv_sam.h"
 #include "sam.h"
 
-struct uio_info_t *sam_uio_info[SAM_HW_ENGINE_NUM];
+static struct uio_info_t *sam_uio_info[SAM_HW_ENGINE_NUM];
+static const char *const sam_supported[] = {"eip197", "eip97"};
+static enum sam_hw_type sam_type[] = {HW_EIP197, HW_EIP97};
 
-static int sam_uio_init(int engine)
+static int sam_uio_init(int engine, enum sam_hw_type *type)
 {
 	struct uio_info_t *node;
 	int i;
@@ -49,14 +49,21 @@ static int sam_uio_init(int engine)
 	if (sam_uio_info[engine])
 		return 0;
 
-	snprintf(name, sizeof(name), "%s%d", UIO_SAM_NAME, engine);
-	sam_uio_info[engine] = uio_find_devices_byname(name);
-	if (!sam_uio_info[engine]) {
+	/* We support two HW types: eip197 or eip97 */
+	for (i = 0; i < ARRAY_SIZE(sam_supported); i++) {
+		snprintf(name, sizeof(name), "uio_%s_%d", sam_supported[i], engine);
+		node = uio_find_devices_byname(name);
+		if (node) {
+			*type = sam_type[i];
+			break;
+		}
+	}
+	if (!node) {
 		pr_err("Can't find %s UIO device\n", name);
 		return -ENODEV;
 	}
+	sam_uio_info[engine] = node;
 
-	node = sam_uio_info[engine];
 	i = 0;
 	while (node) {
 		uio_get_all_info(node);
@@ -245,20 +252,20 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 {
 	u32 ring_size;
 	int rc;
-	char name[64];
+	void *vaddr;
+	dma_addr_t paddr;
+	enum sam_hw_type type = HW_TYPE_LAST;
+	const char name[] = "regs";
 
-	rc = sam_uio_init(engine);
+	rc = sam_uio_init(engine, &type);
 	if (rc)
 		return rc;
 
-	sprintf(name, "ring%d", ring);
-	hw_ring->regs_vbase = sam_uio_iomap(sam_uio_info[engine], &hw_ring->paddr, name);
-	if (!hw_ring->regs_vbase) {
+	vaddr = sam_uio_iomap(sam_uio_info[engine], &paddr, name);
+	if (!vaddr) {
 		pr_err("%s: Can't iomap memory area\n",	name);
 		return -ENOMEM;
 	}
-	pr_info("%s:%s registers: paddr: 0x%x, vaddr: 0x%p\n",
-		sam_uio_info[engine]->name, name, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
 	/* Check ring size and number of sessions with HW max values */
 	if (params->size > SAM_HW_RING_SIZE) {
@@ -275,8 +282,23 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 			params->num_sessions, SAM_HW_SA_NUM);
 		params->num_sessions = SAM_HW_SA_NUM;
 	}
+	if (type == HW_EIP197) {
+		hw_ring->regs_vbase = (((char *)vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
+		hw_ring->paddr = paddr + SAM_EIP197_RING_REGS_OFFS(ring);
+	} else if (type == HW_EIP97) {
+		hw_ring->regs_vbase = (((char *)vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
+		hw_ring->paddr = paddr + SAM_EIP97_RING_REGS_OFFS(ring);
+	} else {
+		pr_err("%s: Unexpected HW type = %d\n", __func__, type);
+		return -EINVAL;
+	}
+
+	pr_info("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
+		(type == HW_EIP197) ? "eip197" : "eip97",
+		engine, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
 	hw_ring->engine = engine;
+	hw_ring->type = type;
 	hw_ring->ring = ring;
 	hw_ring->ring_size = params->size; /* number of descriptors in the ring */
 
