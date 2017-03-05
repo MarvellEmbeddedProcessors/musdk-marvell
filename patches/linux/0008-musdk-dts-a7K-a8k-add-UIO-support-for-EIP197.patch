@@ -1,7 +1,7 @@
 From 67da153c427965f7f8e1c4b513a9b02f860e131b Mon Sep 17 00:00:00 2001
 From: Dmitri Epshtein <dima@marvell.com>
 Date: Thu, 23 Feb 2017 12:00:47 +0200
-Subject: [PATCH 9/9] musdk: dts: a7K: a8k: add UIO support for EIP197
+Subject: [PATCH 8/8] musdk: dts: a7K: a8k: add UIO support for EIP197
 
 Change-Id: I83f6733d1f96736129d34a2b50067e85776a423b
 Signed-off-by: Dmitri Epshtein <dima@marvell.com>

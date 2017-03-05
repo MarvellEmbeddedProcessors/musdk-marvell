@@ -1,7 +1,7 @@
 From 1f49285ebdb794fbf6c83c20752db64bba73cd6e Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Wed, 11 Jan 2017 18:04:12 +0200
-Subject: [PATCH 1/6] musdk: add uio support to armada 70x0 and 80x0 dts
+Subject: [PATCH 1/8] musdk: add uio support to armada 70x0 and 80x0 dts
 
 Change-Id: Id93048b29deb782d3215f4aba1adee307fd14b5b
 Signed-off-by: nsamsono <nsamsono@marvell.com>

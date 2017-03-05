@@ -1,7 +1,7 @@
 From 42937ad9281b13d98651c73e583aef5f636ed4d6 Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Wed, 11 Jan 2017 19:01:18 +0200
-Subject: [PATCH 4/6] musdk: dts set ports status non kernel:
+Subject: [PATCH 4/8] musdk: dts set ports status non kernel:
 
 Armada-7040:
 Port	Status

@@ -1,7 +1,7 @@
 From 503b824902f5e188f95262a9a1b8cd18e9f24e56 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:27:58 +0200
-Subject: [PATCH 3/6] musdk: mvpp2x module params updates
+Subject: [PATCH 3/8] musdk: mvpp2x module params updates
 
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
