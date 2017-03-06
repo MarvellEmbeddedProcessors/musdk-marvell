@@ -35,6 +35,7 @@
 
 #include "mv_std.h"
 
+#include "mv_pp2.h"
 #include "mv_pp2_hif.h"
 #include "mv_pp2_bpool.h"
 
@@ -85,8 +86,35 @@ enum pp2_ppio_hash_type {
 	PP2_PPIO_HASH_T_OUT_OF_RANGE
 };
 
+/**
+ * The enum below defines the possible ethernet header formats
+ */
+enum pp2_ppio_eth_start_hdr {
+	/** Normal ethernet header */
+	PP2_PPIO_HDR_ETH = 0,
+	/** Packets contain Marvell Header */
+	/* TODO: PP2_PPIO_HDR_ETH_MH, */
+	/** Packets contain Marvell DSA header of type ethtype (8 bytes)*/
+	/* TODO: PP2_PPIO_HDR_ETH_MH_ETYPE_DSA, */
+	/** Packets contain Marvell DSA header (4 bytes)*/
+	PP2_PPIO_HDR_ETH_DSA,
+	/** Packets contain Marvell extended DSA header (8 bytes)*/
+	PP2_PPIO_HDR_ETH_EXT_DSA,
+	PP2_PPIO_HDR_OUT_OF_RANGE
+};
+
 enum pp2_ppio_outqs_sched_mode {
 	PP2_PPIO_SCHED_M_NONE = 0,
+};
+
+enum pp2_ppio_log_port_rule_type {
+	PP2_RULE_TYPE_PROTO = 0,
+	PP2_RULE_TYPE_PROTO_FIELD
+};
+
+enum pp2_ppio_cls_target {
+	PP2_CLS_TARGET_LOG_PORT = 0,
+	PP2_CLS_TARGET_NIC
 };
 
 /**
@@ -122,9 +150,6 @@ struct pp2_ppio_tc_params {
 	u16				 num_in_qs; /**< number of inqs */
 	struct pp2_ppio_inq_params	*inqs_params; /**< pointer to the tc's inq parameters */
 	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS]; /**< bpools used by the tc */
-/* TODO: future:
- *	u8				 qos;
- */
 };
 
 /**
@@ -176,6 +201,82 @@ struct pp2_ppio_outqs_params {
 };
 
 /**
+* ppio "Logical-Port" rule parameters
+*/
+struct pp2_ppio_log_port_rule_params {
+	/** Indicate whether the rule is a network protocol or a special protocol-field
+	 * PP2_RULE_TYPE_PROTO, PP2_RULE_TYPE_PROTO_FIELD
+	 */
+	int					rule_type;
+	union {
+		struct {
+			/** Defines a network protocol to be supported by logical port
+			 * The following network protocols are supported:
+			 * - MV_NET_PROTO_VLAN,
+			 * - MV_NET_PROTO_PPPOE,
+			 * - MV_NET_PROTO_IP,
+			 * - MV_NET_PROTO_IP4,
+			 * - MV_NET_PROTO_IP6,
+			 * - MV_NET_PROTO_TCP,
+			 * - MV_NET_PROTO_UDP,
+			 */
+			enum mv_net_proto	proto;
+			/** Indicates whether the selected network protocol is to be matched or the negated
+			 * network protocol is to be matched
+			* i.e. if VLAN protocol is specified:
+			* val = 0 indicates all tagged frames are to be matched
+			* val = 1 indicates all untagged frames are to be matched
+			*/
+			int			val;
+		} proto_params;
+		struct {
+			/** Defines a network special protocol to be supported by logical port
+			 * The following special protocols fields are supported:
+			 * - proto:	MV_NET_PROTO_ETH_DSA
+			 * - field:		MV_NET_ETH_F_DSA_TAG_MODE
+			 */
+			struct pp2_proto_field	proto_field;
+			/** Defines the value of the specified special protocol field
+			 * i.e. if DSA is supported and MV_NET_ETH_F_DSA_TAG_MODE is selected as special protocol field
+			 * the available values are defined in mv_net.h under mv_net_eth_dsa_tag_mode_values
+			 */
+			u8			val;
+		} proto_field_params;
+	} u;
+};
+
+/**
+* ppio "Logical-Port" related parameters
+*/
+struct pp2_ppio_log_port_params {
+	struct {
+		/** Indicate whether the network protocol rules defined below will be used for the NIC
+		* or for the logical-port;
+		* PP2_CLS_TARGET_LOG_PORT, PP2_CLS_TARGET_NIC
+		 */
+		int						target;
+		/** Number of network protocol and protocol-field rules supported by logical port */
+		u8						num_proto_rule_sets;
+		struct {
+			/** Number of network protocol and protocol-field rules to match*/
+			u8					num_rules;
+			struct pp2_ppio_log_port_rule_params	rules[PP2_MAX_PROTO_SUPPORTED];
+		} rule_sets[PP2_MAX_PROTO_SUPPORTED];
+	} target_classification;
+};
+
+/**
+ * ppio "NIC" related parameters
+ *
+ */
+struct pp2_ppio_nic_params {
+	/** Override the default MTU (1500B); '0' value means not to override */
+	u16	override_mtu;
+	/** Override the default MRU (1500B); '0' value means not to override */
+	u16	override_mru;
+};
+
+/**
  * ppio parameters
  *
  */
@@ -193,6 +294,15 @@ struct pp2_ppio_params {
 							  * automatically when number of rx/tx packets
 							  * reach defined threshold.
 							  */
+	union {
+		/** relevant only if PPIO type is 'PP2_PPIO_T_LOG' */
+		struct pp2_ppio_log_port_params	log_port_params;
+		/** relevant only if PPIO type is 'PP2_PPIO_T_NIC' */
+		struct pp2_ppio_nic_params	nic_params;
+	} specific_type_params;
+
+	enum pp2_ppio_eth_start_hdr		eth_start_hdr;
+
 /* TODO: do we need extra pools per port?
  *	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
  */

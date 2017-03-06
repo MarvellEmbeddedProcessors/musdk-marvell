@@ -34,7 +34,7 @@
 #define __MV_PP2_CLS_H__
 
 #include "mv_std.h"
-#include "mv_net.h"
+#include "mv_pp2.h"
 
 /** @addtogroup grp_pp2_cls Packet Processor: Classifier
  *
@@ -113,10 +113,7 @@ struct pp2_cls_tbl_action {
 struct pp2_cls_tbl_key {
 	u8				key_size;
 	u8				num_fields;
-	struct {
-		enum mv_net_proto		proto;
-		union mv_net_proto_fields	field;
-	} proto_field[PP2_CLS_TBL_MAX_NUM_FIELDS];
+	struct pp2_proto_field		proto_field[PP2_CLS_TBL_MAX_NUM_FIELDS];
 };
 
 struct pp2_cls_tbl_params {

@@ -34,9 +34,12 @@
 #define __MV_PP2_H__
 
 #include "mv_std.h"
+#include "mv_net.h"
 
-#define PP2_NUM_PKT_PROC	2 /**< Maximum number of packet processors */
-#define PP2_NUM_ETH_PPIO	3 /**< Maximum number of ppio instances in each packet processor */
+#define PP2_NUM_PKT_PROC		2 /**< Maximum number of packet processors */
+#define PP2_NUM_ETH_PPIO		3 /**< Maximum number of ppio instances in each packet processor */
+#define PP2_MAX_PROTO_SUPPORTED		8 /**< Maximum number of net protocols supported in pp2 parser */
+#define PP2_MAX_FIELDS_SUPPORTED	2 /**< Maximum number of net protocol special fields supported in pp2 parser*/
 
 /** @addtogroup grp_pp2_init Packet Processor: Initialization
  *
@@ -45,15 +48,67 @@
  *  @{
  */
 
+struct pp2_proto_field {
+	enum mv_net_proto		proto;
+	union mv_net_proto_fields	field;
+};
+
 /**
  * ppio init parameters
  *
  */
 struct ppio_init_params {
-	int		is_enabled; /* < Indicates the ppio may be created in musdk */
-	u32		first_inq;  /* < First rxq to be used by musdk on this ppv2 port.
-				     *	 Value is relative to the port's first hardware physical in_queue.
-				     */
+	int		is_enabled; /**< Indicates the ppio may be created in musdk */
+	/** First rxq to be used by musdk on this ppv2 port.
+	 * Value is relative to the port's first hardware physical in_queue.
+	 */
+	u32		first_inq;
+};
+
+/**
+ *ppio parser parameters definitions
+ * this API is used in order to modify the pp2 parser parameters according to customer needs
+ */
+struct pp2_parse_params {
+	/** The following API section allows configuration of a network protocol.in pp2 parser
+	* The following network protocols are supported:
+	* - MV_NET_PROTO_ETH,
+	* - MV_NET_PROTO_VLAN,
+	* - MV_NET_PROTO_PPPOE,
+	* - MV_NET_PROTO_IP,
+	* - MV_NET_PROTO_IP4,
+	* - MV_NET_PROTO_IP6,
+	* - MV_NET_PROTO_TCP,
+	* - MV_NET_PROTO_UDP,
+	*/
+
+	/**< Indicates the existing supported protocols will be overrided in parser */
+	/** override_protos = '0' - no changes (keep default)
+	 *   override_protos  = '1' - override
+	 */
+	int			override_protos;
+	/** Indicates how many protocols should be supported by the parser
+	 * num_protos = '0' - no protocols supported
+	 */
+	u8			num_protos;
+	enum mv_net_proto	protos[PP2_MAX_PROTO_SUPPORTED];
+
+	/** The following API section allows configuration of special fields (1 or 2 bits) in a specified protocol.
+	 * The following protocol special fields are supported:
+	 * - IPv4 fragmentation
+	 * - DSA tag mode
+	 */
+
+	/** Indicates the existing supported network protocol special fields will be overrided in parser
+	 * value '0' - no changes (keep default)
+	 * value '1' - override
+	 */
+	int			override_fields;
+	/** Indicates how many network protocol special fields should be supported by the parser
+	 * value '0' - no special fields supported
+	 */
+	u8			num_fields;
+	struct pp2_proto_field	fields[PP2_MAX_FIELDS_SUPPORTED];
 };
 
 /**
@@ -68,6 +123,8 @@ struct pp2_init_params {
 	/** Bitmap of RSS Tables (0-7). The tables are reserved in all packet_processors. */
 	u8			rss_tbl_reserved_map;
 	struct ppio_init_params	ppios[PP2_NUM_PKT_PROC][PP2_NUM_ETH_PPIO];
+
+	/* TODO FUTURE struct pp2_parse_params	prs_params; */
 };
 
 /**

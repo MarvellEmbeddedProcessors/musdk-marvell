@@ -52,10 +52,21 @@
 /* Local addition */
 #define MV_DSCP_NUM		(1 + MV_XT_DSCP_MAX)
 
+enum mv_net_eth_dsa_tag_mode_values {
+	MV_NET_TO_CPU_DSA_TAG_MODE =		0,
+	MV_NET_FROM_CPU_DSA_TAG_MODE =		1,
+	MV_NET_TO_SNIFFER_DSA_TAG_MODE =	2,
+	MV_NET_FORWARD_DSA_TAG_MODE =		3,
+};
+
 enum mv_net_eth_fields {
 	MV_NET_ETH_F_SA = 0,
 	MV_NET_ETH_F_DA,
 	MV_NET_ETH_F_TYPE
+};
+
+enum mv_net_eth_dsa_fields {
+	MV_NET_ETH_F_DSA_TAG_MODE = 0,
 };
 
 enum mv_net_vlan_fields {
@@ -68,7 +79,7 @@ enum mv_net_ipv4_fields {
 	MV_NET_IP4_F_TOS = 0,
 	MV_NET_IP4_F_SA,
 	MV_NET_IP4_F_DA,
-	MV_NET_IP4_F_PROTO
+	MV_NET_IP4_F_PROTO,
 };
 
 enum mv_net_ipv6_fields {
@@ -100,6 +111,7 @@ enum mv_net_tcp_fields {
 enum mv_net_proto {
 	MV_NET_PROTO_NONE	= 0,
 	MV_NET_PROTO_ETH,
+	MV_NET_PROTO_ETH_DSA,
 	MV_NET_PROTO_VLAN,
 	MV_NET_PROTO_PPPOE,
 	MV_NET_PROTO_IP,
@@ -114,13 +126,14 @@ enum mv_net_proto {
 };
 
 union mv_net_proto_fields {
-	enum mv_net_eth_fields	eth;
-	enum mv_net_vlan_fields	vlan;
-	enum mv_net_ipv4_fields	ipv4;
-	enum mv_net_ipv6_fields	ipv6;
-	enum mv_net_l4_fields	l4;
-	enum mv_net_udp_fields	udp;
-	enum mv_net_tcp_fields	tcp;
+	enum mv_net_eth_fields		eth;
+	enum mv_net_eth_dsa_fields	eth_dsa;
+	enum mv_net_vlan_fields		vlan;
+	enum mv_net_ipv4_fields		ipv4;
+	enum mv_net_ipv6_fields		ipv6;
+	enum mv_net_l4_fields		l4;
+	enum mv_net_udp_fields		udp;
+	enum mv_net_tcp_fields		tcp;
 };
 
 #endif /* __MV_NET_H__ */
