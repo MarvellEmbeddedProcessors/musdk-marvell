@@ -195,6 +195,7 @@ struct glob_arg {
 	int			 affinity;
 	int			 loopback;
 	int			 echo;
+	int			 maintain_stats;
 	u64			 qs_map;
 	int			 qs_map_shift;
 	int			 prefetch_shift;
@@ -1139,6 +1140,7 @@ static int init_local_modules(struct glob_arg *garg)
 			port_params.outqs_params.outqs_params[i].size = Q_SIZE;
 			port_params.outqs_params.outqs_params[i].weight = 1;
 		}
+		port_params.maintain_stats = garg->maintain_stats;
 		if ((err = pp2_ppio_init(&port_params, &garg->ports_desc[port_index].port)) != 0)
 			return err;
 		if (!garg->ports_desc[port_index].port) {
@@ -1266,11 +1268,11 @@ static int stat_cmd_cb(void *arg, int argc, char *argv[])
 	printf("reset stats: %d\n", reset);
 	for (j = 0; j < garg->num_ports; j++) {
 		printf("Port%d stats:\n", j);
-		for (i = 0; i < MAX_NUM_CORES; i++) {
-			printf("cpu%d: rx_bufs=%d, tx_bufs=%d, free_bufs=%d, tx_resend=%d, max_retries=%d, ",
+		for (i = 0; i < garg->cpus; i++) {
+			printf("cpu%d: rx_bufs=%u, tx_bufs=%u, free_bufs=%u, tx_resend=%u, max_retries=%u, ",
 				i, rx_buf_cnt[i][j], tx_buf_cnt[i][j], free_buf_cnt[i][j],
 				tx_buf_retry[i][j], tx_max_resend[i][j]);
-			printf(" tx_drops=%d, max_burst=%d\n", tx_buf_drop[i][j], tx_max_burst[i][j]);
+			printf(" tx_drops=%u, max_burst=%u\n", tx_buf_drop[i][j], tx_max_burst[i][j]);
 			if (reset) {
 				rx_buf_cnt[i][j] = 0;
 				tx_buf_cnt[i][j] = 0;
@@ -1286,6 +1288,47 @@ static int stat_cmd_cb(void *arg, int argc, char *argv[])
 }
 #endif
 
+static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int i, j, reset = 0;
+	u8 first_q = 0, qid;
+	struct glob_arg *garg = (struct glob_arg *)arg;
+	struct pp2_ppio_inq_statistics rxstats;
+	struct pp2_ppio_outq_statistics txstats;
+
+	if (argc > 1) {
+		reset = 1;
+		printf("Statistics will be reset\n");
+	}
+
+	while (!(garg->qs_map & (1 << first_q)))
+		first_q++;
+
+	for (j = 0; j < garg->num_ports; j++) {
+		printf("\n-------- Port #%d queues stats --------\n", j);
+		qid = first_q;
+		for (i = 0; i < garg->cpus; i++) {
+			pp2_ppio_inq_get_statistics(garg->ports_desc[j].port, 0, qid, &rxstats, reset);
+			printf("\t Rxq #%d statistics:\n", qid++);
+			printf("\t\tEnqueued packets:      %lu\n", rxstats.enq_desc);
+			printf("\t\tFull queue drops:      %u\n", rxstats.drop_fullq);
+			printf("\t\tBuffer Manager drops:  %u\n", rxstats.drop_bm);
+			printf("\t\tEarly drops:           %u\n", rxstats.drop_early);
+		}
+		printf("\n");
+		for (i = 0; i < PP2_MAX_NUM_TCS_PER_PORT; i++) {
+			printf("\t Txq #%d statistics:\n", i);
+			pp2_ppio_outq_get_statistics(garg->ports_desc[j].port, i, &txstats, reset);
+			printf("\t\tEnqueued packets:      %lu\n", txstats.enq_desc);
+			printf("\t\tDequeued packets:      %lu\n", txstats.deq_desc);
+			printf("\t\tEnque desc to DDR:     %lu\n", txstats.enq_dec_to_ddr);
+			printf("\t\tEnque buffers to DDR:  %lu\n", txstats.enq_buf_to_ddr);
+		}
+	}
+
+	return 0;
+}
+
 static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
@@ -1300,12 +1343,20 @@ static int register_cli_cmds(struct glob_arg *garg)
 #ifdef SHOW_STATISTICS
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "stat";
-	cmd_params.desc		= "Show statistics";
+	cmd_params.desc		= "Show app statistics";
 	cmd_params.format	= "<reset>";
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 #endif
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "qstat";
+	cmd_params.desc		= "Show queues statistics";
+	cmd_params.format	= "<reset>";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))queue_stat_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
 	return 0;
 }
 
@@ -1465,6 +1516,7 @@ static void usage(char *progname)
 	       "\t-t <mtu>                 Set MTU (default is %d)\n"
 	       "\t-c, --cores <number>     Number of CPUs to use.\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity).\n"
+	       "\t-s                       Maintain statistics\n"
 	       "\t--no-echo                No Echo packets\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
@@ -1485,6 +1537,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
 	garg->prefetch_shift = PREFETCH_SHIFT;
+	garg->maintain_stats = 0;
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -1557,6 +1610,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "-a") == 0) {
 			garg->affinity = atoi(argv[i+1]);
 			i += 2;
+		} else if (strcmp(argv[i], "-s") == 0) {
+			garg->maintain_stats = 1;
+			i += 1;
 		} else if (strcmp(argv[i], "-m") == 0) {
 			char *token;
 			if (argc < (i+2)) {
