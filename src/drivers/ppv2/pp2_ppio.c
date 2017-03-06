@@ -120,18 +120,90 @@ void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *p
 		(pool->id << 16 & TXD_POOL_ID_MASK) | (1 << 7 & TXD_BUFMODE_MASK);
 }
 
+int pp2_ppio_inq_get_statistics(struct pp2_ppio *ppio, u8 tc, u8 qid,
+				struct pp2_ppio_inq_statistics *stats, int reset)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	uintptr_t cpu_slot = port->cpu_slot;
+	struct pp2_rx_queue *rxq;
+	int log_rxq;
+
+	if (unlikely(qid >= port->tc[tc].tc_config.num_in_qs)) {
+		pr_err("[%s] invalid queue id (%d)!\n", __func__, qid);
+		return -EINVAL;
+	}
+
+	log_rxq = port->tc[tc].first_log_rxq + qid;
+	rxq = port->rxqs[log_rxq];
+
+	pp2_relaxed_reg_write(cpu_slot, MVPP2_CNT_IDX_REG, rxq->id);
+	PP2_READ_UPDATE_CNT64(rxq->stats.enq_desc, cpu_slot, MVPP2_RX_DESC_ENQ_REG);
+	PP2_READ_UPDATE_CNT32(rxq->stats.drop_fullq, cpu_slot, MVPP2_RX_PKT_FULLQ_DROP_REG);
+	PP2_READ_UPDATE_CNT32(rxq->stats.drop_early, cpu_slot, MVPP2_RX_PKT_EARLY_DROP_REG);
+	PP2_READ_UPDATE_CNT32(rxq->stats.drop_bm, cpu_slot, MVPP2_RX_PKT_BM_DROP_REG);
+
+	if (stats)
+		memcpy(stats, &rxq->stats, sizeof(rxq->stats));
+
+	if (reset)
+		memset(&rxq->stats, 0, sizeof(rxq->stats));
+
+	return 0;
+}
+
+int pp2_ppio_outq_get_statistics(struct pp2_ppio *ppio, u8 qid,
+				 struct pp2_ppio_outq_statistics *stats, int reset)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	uintptr_t cpu_slot = port->cpu_slot;
+	struct pp2_tx_queue *txq;
+
+	if (unlikely(qid >= port->num_tx_queues)) {
+		pr_err("[%s] invalid queue id (%d)!\n", __func__, qid);
+		return -EINVAL;
+	}
+	txq = port->txqs[qid];
+
+	pp2_relaxed_reg_write(cpu_slot, MVPP2_CNT_IDX_REG, MVPP2_CNT_IDX_TX(port->id, txq->log_id));
+	PP2_READ_UPDATE_CNT64(txq->stats.enq_desc, cpu_slot, MVPP2_TX_DESC_ENQ_REG);
+	PP2_READ_UPDATE_CNT64(txq->stats.enq_dec_to_ddr, cpu_slot, MVPP2_TX_DESC_ENQ_TO_DRAM_REG);
+	PP2_READ_UPDATE_CNT64(txq->stats.enq_buf_to_ddr, cpu_slot, MVPP2_TX_BUF_ENQ_TO_DRAM_REG);
+	PP2_READ_UPDATE_CNT64(txq->stats.deq_desc, cpu_slot, MVPP2_TX_PKT_DQ_REG);
+
+	if (stats)
+		memcpy(stats, &txq->stats, sizeof(txq->stats));
+
+	if (reset)
+		memset(&txq->stats, 0, sizeof(txq->stats));
+
+	return 0;
+
+}
+
 int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2_ppio_desc *descs, u16 *num)
 {
 	struct pp2_dm_if *dm_if;
 	u16 desc_sent, desc_req = *num;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
 
 	dm_if = pp2_dm_if_get(ppio, hif);
 
-	desc_sent = pp2_port_enqueue(GET_PPIO_PORT(ppio), dm_if, qid, desc_req, descs);
+	desc_sent = pp2_port_enqueue(port, dm_if, qid, desc_req, descs);
 	if (unlikely(desc_sent < desc_req)) {
 		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __func__,
 			 ppio->pp2_id, ppio->port_id, qid, *num, desc_sent);
 		*num = desc_sent;
+	}
+
+	if (port->maintain_stats) {
+		struct pp2_tx_queue *txq;
+
+		txq = port->txqs[qid];
+		txq->threshold_tx_pkts += desc_sent;
+		if (unlikely(txq->threshold_tx_pkts > PP2_STAT_UPDATE_THRESHOLD)) {
+			pp2_ppio_outq_get_statistics(ppio, qid, NULL, 0);
+			txq->threshold_tx_pkts = 0;
+		}
 	}
 	return 0;
 }
@@ -210,6 +282,13 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 	pp2_port_inq_update(port, log_rxq, recv_req, recv_req);
 	rxq->desc_received -= recv_req;
 
+	if (port->maintain_stats) {
+		rxq->threshold_rx_pkts += recv_req;
+		if (unlikely(rxq->threshold_rx_pkts > PP2_STAT_UPDATE_THRESHOLD)) {
+			pp2_ppio_inq_get_statistics(ppio, tc, qid, NULL, 0);
+			rxq->threshold_rx_pkts = 0;
+		}
+	}
 	return 0;
 }
 

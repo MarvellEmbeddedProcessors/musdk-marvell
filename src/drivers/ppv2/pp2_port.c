@@ -455,6 +455,9 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 		cpu_slot = hw->base[j].va;
 		pp2_reg_read(cpu_slot, MVPP22_TXQ_SENT_REG(txq->id));
 	}
+
+	memset(&txq->stats, 0, sizeof(txq->stats));
+	txq->threshold_tx_pkts = 0;
 }
 
 /* Initializes and sets TXQ related registers for all TXQs
@@ -604,6 +607,9 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 	/* Add number of descriptors ready for receiving packets */
 	val = (0 | (rxq->desc_total << MVPP2_RXQ_NUM_NEW_OFFSET));
 	pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_UPDATE_REG(rxq->id), val);
+
+	memset(&rxq->stats, 0, sizeof(rxq->stats));
+	rxq->threshold_rx_pkts = 0;
 }
 
 /* Initializes and sets RXQ related registers for all RXQs
@@ -1051,6 +1057,9 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 #endif
 	/* Get tx_fifo_size from hw_register, value was configured by Linux */
 	port->tx_fifo_size = pp2_port_get_tx_fifo(port);
+
+	port->maintain_stats = 0;
+
 }
 
 static int32_t
@@ -1201,6 +1210,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/* Assign and initialize port private data and hardware */
 	pp2_port_init(port);
 
+	port->maintain_stats = param->maintain_stats;
 	inst->num_ports++;
 
 	/* At this point, the port is default allocated and configured */

@@ -98,6 +98,21 @@ struct pp2_ppio_inq_params {
 };
 
 /**
+ * ppio inq statistics
+ *
+ * Note: Drop counters are 32 bit counters and they will be updated up to
+ *       32 bit maximum value (0xFFFFFFFF) and will not be wrapped around.
+ *
+ */
+struct pp2_ppio_inq_statistics {
+	u64	enq_desc;	/**< ppio inq descriptors enqueue counter */
+	u32	drop_early;	/**< ppio inq early dropped packets counter */
+	u32	drop_fullq;	/**< ppio inq full queue dropped packets counter */
+	u32	drop_bm;	/**< ppio inq BM dropped packets counter */
+};
+
+
+/**
  * ppio tc parameters
  *
  */
@@ -137,6 +152,17 @@ struct pp2_ppio_outq_params {
 };
 
 /**
+ * ppio outq statistics
+ *
+ */
+struct pp2_ppio_outq_statistics {
+	u64	enq_desc;	/**< ppio outq descriptors enqueue counter */
+	u64	enq_dec_to_ddr;	/**< ppio outq enqueue descriptors to DRAM counter */
+	u64	enq_buf_to_ddr;	/**< ppio outq enqueue buffers to DRAM counter */
+	u64	deq_desc;	/**< ppio outq packets dequeue counter */
+};
+
+/**
  * ppio outq related parameters
  *
  */
@@ -162,6 +188,11 @@ struct pp2_ppio_params {
 	enum pp2_ppio_type		 type; /**<  ppio type. TODO: currently only support "NIC" */
 	struct pp2_ppio_inqs_params	 inqs_params; /**<  ppio inq parameters structure */
 	struct pp2_ppio_outqs_params	 outqs_params; /**<  ppio outq parameters structure */
+	int				 maintain_stats; /**< ppio statistics maintaining flag.
+							  * If set, the statistics will be updated
+							  * automatically when number of rx/tx packets
+							  * reach defined threshold.
+							  */
 /* TODO: do we need extra pools per port?
  *	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
  */
@@ -629,11 +660,24 @@ int pp2_ppio_get_num_outq_done(struct pp2_ppio	*ppio,
 			       u16		*num);
 
 /**
+ * Get out-Q statistics
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	out-Q id.
+ * @param[out]		stats	out-Q statistics.
+ * @param[in]		reset	A flag indicates if counters should be reset.
+ *
+ */
+int pp2_ppio_outq_get_statistics(struct pp2_ppio *ppio, u8 qid,
+				 struct pp2_ppio_outq_statistics *stats, int reset);
+
+
+/**
  * Receive packets on a ppio.
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
  * @param[in]		tc	traffic class on which to receive frames
- * @param[in]		qid	out-Q id on which to receive the frames.
+ * @param[in]		qid	in-Q id on which to receive the frames.
  * @param[in]		descs	A pointer to an array of descriptors represents the
  *				received frames.
  * @param[in,out]	num	input: Max number of frames to receive;
@@ -647,6 +691,20 @@ int pp2_ppio_recv(struct pp2_ppio	*ppio,
 		  u8			 qid,
 		  struct pp2_ppio_desc	*descs,
 		  u16			*num);
+
+/**
+ * Get in-Q statistics
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		tc	traffic class on which to receive frames
+ * @param[in]		qid	in-Q id.
+ * @param[out]		stats	in-Q statistics.
+ * @param[in]		reset	A flag indicates if counters should be reset.
+ *
+ */
+int pp2_ppio_inq_get_statistics(struct pp2_ppio *ppio, u8 tc, u8 qid,
+				struct pp2_ppio_inq_statistics *stats, int reset);
+
 
 /****************************************************************************
  *	Run-time Control API

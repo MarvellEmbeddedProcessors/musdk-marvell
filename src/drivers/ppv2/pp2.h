@@ -127,6 +127,24 @@ struct pp2_txq_dm_if {
 	u32 desc_rsrvd;
 };
 
+/* Automatic statistics update threshold (in received packetes) */
+#define PP2_STAT_UPDATE_THRESHOLD	(0xEFFFFFFF)
+
+#define PP2_UPDATE_CNT32(counter, value) {						\
+	counter = ((u64)(counter + value) > UINT_MAX) ? UINT_MAX : counter + value;	\
+	}
+
+#define PP2_READ_UPDATE_CNT32(counter, cpu_slot, reg)	{	\
+	u32 value = pp2_relaxed_reg_read(cpu_slot, reg);	\
+	PP2_UPDATE_CNT32(counter, value);			\
+}
+
+#define PP2_UPDATE_CNT64(counter, value) \
+	{ counter += value; }
+
+#define PP2_READ_UPDATE_CNT64(counter, cpu_slot, reg) \
+	{ counter += pp2_relaxed_reg_read(cpu_slot, reg); }
+
 /**
  * Transmit Queue (TXQ) internal layout
  *
@@ -146,6 +164,10 @@ struct pp2_tx_queue {
 	/* Virtual addr of the first TXD of the TXD array */
 	struct pp2_desc *desc_virt_arr;
 	struct pp2_txq_dm_if txq_dm_if[PP2_NUM_REGSPACES];
+	/* TXQ statistics */
+	struct pp2_ppio_outq_statistics stats;
+	/* TXQ statistics update threshold */
+	u32 threshold_tx_pkts;
 };
 
 /**
@@ -173,6 +195,10 @@ struct pp2_rx_queue {
 	uintptr_t desc_phys_arr;
 	/* Virtual addr of the first RXD of the RXD array */
 	struct pp2_desc *desc_virt_arr;
+	/* RXQ statistics */
+	struct pp2_ppio_inq_statistics stats;
+	/* RXQ statistics update threshold */
+	u32 threshold_rx_pkts;
 };
 
 /**
@@ -313,6 +339,8 @@ struct pp2_port {
 	char linux_name[16];
 	/* tx_fifo_size in KB */
 	u32 tx_fifo_size;
+	/* Flag to indicate the automatic statistics update */
+	int maintain_stats;
 };
 
 /**
