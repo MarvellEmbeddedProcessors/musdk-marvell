@@ -59,7 +59,7 @@ struct mvapp {
 	u64			 cores_mask;
 	int			 master_core;
 
-	volatile int		 running;
+	int			 running;
 
 	struct cli		*cli;
 	pthread_t		 cli_trd;
