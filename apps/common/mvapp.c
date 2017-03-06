@@ -66,7 +66,7 @@ struct mvapp {
 
 	void			*global_arg;
 	int			 (*init_local_cb)(void *, int id, void **);
-	int			 (*main_loop_cb)(void *, volatile int *);
+	int			 (*main_loop_cb)(void *, int *);
 	void			 (*deinit_local_cb)(void *);
 
 	pthread_mutex_t		 trd_lock;

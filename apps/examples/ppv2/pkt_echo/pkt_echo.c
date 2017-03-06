@@ -695,7 +695,7 @@ static int find_free_hif(void)
 	return i;
 }
 
-static int loop_1p(struct local_arg *larg, volatile int *running)
+static int loop_1p(struct local_arg *larg, int *running)
 {
 	int			 err;
 	u16			 num;
@@ -731,7 +731,7 @@ static int loop_1p(struct local_arg *larg, volatile int *running)
 	return 0;
 }
 
-static int loop_2ps(struct local_arg *larg, volatile int *running)
+static int loop_2ps(struct local_arg *larg, int *running)
 {
 	int			 err;
 	u16			 num;
@@ -810,7 +810,7 @@ static int loop_2ps(struct local_arg *larg, volatile int *running)
 	return 0;
 }
 
-static int main_loop(void *arg, volatile int *running)
+static int main_loop(void *arg, int *running)
 {
 	struct local_arg	*larg = (struct local_arg *)arg;
 

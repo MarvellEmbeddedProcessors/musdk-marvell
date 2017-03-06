@@ -47,7 +47,7 @@ struct mvapp_params {
 	void		 (*deinit_global_cb)(void *);
 
 	int			 (*init_local_cb)(void *, int id, void **);
-	int			 (*main_loop_cb)(void *, volatile int *);
+	int			 (*main_loop_cb)(void *, int *);
 	void		 (*deinit_local_cb)(void *);
 };
 
