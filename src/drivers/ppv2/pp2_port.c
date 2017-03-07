@@ -640,8 +640,15 @@ pp2_port_rxqs_create(struct pp2_port *port)
 			rxq->id = port->tc[tc].tc_config.first_rxq + qid;
 			rxq->log_id = port->tc[tc].first_log_rxq + qid;
 			rxq->desc_total = port->tc[tc].rx_ring_size;
+			/* Double check of queue index */
+			if (rxq->log_id != id) {
+				pr_err("%s invalid log_id %d value (should be %d)\n",
+					__func__, rxq->log_id, id);
+				return;
+			}
 			/*TODO: are we really serializing the queue????? */
-			port->rxqs[id++] = rxq;
+			port->rxqs[rxq->log_id] = rxq;
+			id++;
 		}
 	}
 }

@@ -180,15 +180,14 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 	struct pp2_desc *rx_desc, *extra_rx_desc;
 	struct pp2_rx_queue *rxq;
 	u32 recv_req = *num, extra_num = 0;
-	int log_rxq, rxq_id, rc = 0;
+	int log_rxq;
 
 	/* TODO: After validation, delete recv_req variable */
 	log_rxq = port->tc[tc].first_log_rxq + qid;
-	rxq_id = port->first_rxq + log_rxq;
 	rxq = port->rxqs[log_rxq];
 
 	if (recv_req > rxq->desc_received) {
-		rxq->desc_received = pp2_rxq_received(port, rxq_id);
+		rxq->desc_received = pp2_rxq_received(port, rxq->id);
 		if (unlikely(recv_req > rxq->desc_received)) {
 			recv_req = rxq->desc_received;
 			*num = recv_req;
@@ -211,7 +210,7 @@ int pp2_ppio_recv(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_desc *de
 	pp2_port_inq_update(port, log_rxq, recv_req, recv_req);
 	rxq->desc_received -= recv_req;
 
-	return rc;
+	return 0;
 }
 
 int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
