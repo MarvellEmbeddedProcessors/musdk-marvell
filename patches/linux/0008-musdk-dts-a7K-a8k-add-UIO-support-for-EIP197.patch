@@ -1,4 +1,4 @@
-From 67da153c427965f7f8e1c4b513a9b02f860e131b Mon Sep 17 00:00:00 2001
+From abb38d5d3f21d8ca560dbc7523e10becdf13503f Mon Sep 17 00:00:00 2001
 From: Dmitri Epshtein <dima@marvell.com>
 Date: Thu, 23 Feb 2017 12:00:47 +0200
 Subject: [PATCH 8/8] musdk: dts: a7K: a8k: add UIO support for EIP197
@@ -11,16 +11,16 @@ Signed-off-by: Dmitri Epshtein <dima@marvell.com>
  2 files changed, 12 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-index 37575dd..7b3e64e 100644
+index 7fa1d5c..6d2871d 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-@@ -388,6 +388,12 @@ eip197@800000 {
+@@ -390,6 +390,12 @@ cps_eip197: eip197@800000 {
  	status = "disabled";
  };
 
-+uio-eip197 {
-+	compatible = "marvell,uio-eip197";
-+	eip197_access = <&cps_eip197>;
++uio-sam {
++	compatible = "marvell,uio-sam";
++	eip_access = <&cps_eip197>;
 +	status = "okay";
 +};
 +
@@ -28,22 +28,22 @@ index 37575dd..7b3e64e 100644
  	compatible = "marvell,cp110-comphy";
  	reg = <0x441000 0x100>, <0x120000 0x6000>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index c554c1b..458b528 100644
+index d7c9612..195cb89 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -486,6 +486,12 @@ eip197: eip197@800000 {
+@@ -488,6 +488,12 @@ cpm_eip197: eip197@800000 {
  	status = "disabled";
  };
 
-+uio-eip197 {
-+	compatible = "marvell,uio-eip197";
-+	eip197_access = <&cpm_eip197>;
++uio-sam {
++	compatible = "marvell,uio-sam";
++	eip_access = <&cpm_eip197>;
 +	status = "okay";
 +};
 +
  comphy0: comphy {
  	compatible = "marvell,cp110-comphy";
  	reg = <0x441000 0x100>, <0x120000 0x6000>;
---
+
 1.9.1
 
