@@ -1059,6 +1059,7 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 	port->tx_fifo_size = pp2_port_get_tx_fifo(port);
 
 	port->maintain_stats = 0;
+	memset(&port->stats, 0, sizeof(port->stats));
 
 }
 

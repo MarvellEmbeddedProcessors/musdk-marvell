@@ -199,6 +199,22 @@ struct pp2_ppio_params {
 };
 
 /**
+ * ppio statistics
+ *
+ */
+struct pp2_ppio_statistics {
+	/* Rx port statistics */
+	u64	rx_packets;		/**< RX Packets Counter */
+	u32	rx_fullq_dropped;	/**< RX Full Queue Dropped Counter */
+	u32	rx_bm_dropped;		/**< RX BM Dropped Counter */
+	u32	rx_early_dropped;	/**< RX Early Dropped Counter  */
+	u32	rx_fifo_dropped;	/**< RX FIFO Overrun Counter */
+	u32	rx_cls_dropped;		/**< RX CLS Dropped Counter */
+	/* Tx port statistics */
+	u64	tx_packets;		/**< TX Packets Counter */
+};
+
+/**
  * Initialize a ppio
  *
  * @param[in]	params	A pointer to structure that contains all relevant parameters.
@@ -873,8 +889,17 @@ int pp2_ppio_remove_vlan(struct pp2_ppio *ppio, u16 vlan);
  */
 int pp2_ppio_flush_vlan(struct pp2_ppio *ppio);
 
+/**
+ * Get ppio statistics
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		stats	Port statistics.
+ * @param[in]		reset	A flag indicates if counters should be reset.
+ *
+ */
+int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *stats, int reset);
+
 /*TODO: link state ???*/
-/*TODO: counters/statistics for port/Q*/
 
 /** @} */ /* end of grp_pp2_io */
 

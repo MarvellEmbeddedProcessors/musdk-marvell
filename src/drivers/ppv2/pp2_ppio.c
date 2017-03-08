@@ -415,3 +415,53 @@ int pp2_ppio_flush_vlan(struct pp2_ppio *ppio)
 	return -ENOTSUP;
 }
 
+int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *stats, int reset)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	int qid, tc;
+	u32 rx_fifo_dropped, rx_cls_dropped;
+
+	/*
+	* Reset all port statistics updated from queues statistics
+	* except of rx_fifo_dropped and rx_cls_dropped that will be
+	* read and aggregated from HW registers.
+	*/
+	rx_fifo_dropped = port->stats.rx_fifo_dropped;
+	rx_cls_dropped = port->stats.rx_cls_dropped;
+	memset(&port->stats, 0, sizeof(port->stats));
+
+	port->stats.rx_fifo_dropped = rx_fifo_dropped;
+	port->stats.rx_cls_dropped = rx_cls_dropped;
+	PP2_READ_UPDATE_CNT32(port->stats.rx_fifo_dropped, port->cpu_slot, MV_PP2_OVERRUN_DROP_REG(port->id));
+	PP2_READ_UPDATE_CNT32(port->stats.rx_cls_dropped, port->cpu_slot, MV_PP2_CLS_DROP_REG(port->id));
+
+	/* Update Rx Statistics */
+	for (tc = 0; tc < port->num_tcs; tc++) {
+		for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
+			struct pp2_ppio_inq_statistics rx_stats;
+
+			pp2_ppio_inq_get_statistics(ppio, tc, qid, &rx_stats, reset);
+			PP2_UPDATE_CNT64(port->stats.rx_packets, rx_stats.enq_desc);
+			PP2_UPDATE_CNT32(port->stats.rx_fullq_dropped, rx_stats.drop_fullq);
+			PP2_UPDATE_CNT32(port->stats.rx_bm_dropped, rx_stats.drop_bm);
+			PP2_UPDATE_CNT32(port->stats.rx_early_dropped, rx_stats.drop_early);
+		}
+	}
+
+	/* Update Tx Statistics */
+	for (qid = 0; qid < port->num_tx_queues; qid++) {
+		struct pp2_ppio_outq_statistics tx_stats;
+
+		pp2_ppio_outq_get_statistics(ppio, qid, &tx_stats, reset);
+		PP2_UPDATE_CNT64(port->stats.tx_packets, tx_stats.enq_desc);
+	}
+	if (stats)
+		memcpy(stats, &port->stats, sizeof(port->stats));
+
+	if (reset)
+		memset(&port->stats, 0, sizeof(port->stats));
+
+	return 0;
+
+}
+

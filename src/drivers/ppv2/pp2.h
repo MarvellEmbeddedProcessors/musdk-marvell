@@ -345,6 +345,8 @@ struct pp2_port {
 	u32 tx_fifo_size;
 	/* Flag to indicate the automatic statistics update */
 	int maintain_stats;
+	/* Port statistics */
+	struct pp2_ppio_statistics stats;
 };
 
 /**
