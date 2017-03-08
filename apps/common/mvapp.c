@@ -36,6 +36,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
+#include <termios.h>
 
 #include "mvapp_std.h"
 #include "cli.h"
@@ -126,7 +127,16 @@ static int setaffinity(pthread_t me, int i)
 
 static char getchar_cb(void)
 {
-	return (char)getchar();
+	struct termios oldattr, newattr;
+	int ch;
+
+	tcgetattr(STDIN_FILENO, &oldattr);
+	newattr = oldattr;
+	newattr.c_lflag &= ~(ICANON | ECHO);
+	tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
+	ch = getchar();
+	tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+	return ch;
 }
 
 static void sigint_h(int sig)
@@ -314,6 +324,7 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 		memset(&cli_params, 0, sizeof(cli_params));
 		cli_params.print_cb = printf;
 		cli_params.get_char_cb = getchar_cb;
+		cli_params.echo = 1;
 		mvapp->cli = cli_init(&cli_params);
 		if (!mvapp->cli) {
 			pr_err("CLI init failed!\n");
