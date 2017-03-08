@@ -40,8 +40,6 @@
 #define MVAPPS_MH_SIZE		(2) /* TODO: take this from ppio definitions.*/
 #define MVAPPS_PKT_EFEC_OFFS	(MVAPPS_PKT_OFFS + MVAPPS_MH_SIZE)
 
-
-#define MVAPPS_MAX_NUM_BUFFS	8192
 #define MVAPPS_Q_SIZE		1024
 #define MVAPPS_MAX_BURST_SIZE	(MVAPPS_Q_SIZE >> 1)
 

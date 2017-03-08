@@ -179,7 +179,6 @@ int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pb
 			pr_info("found bpool:  %s\n", name);
 			memset(&bpool_params, 0, sizeof(bpool_params));
 			bpool_params.match = name;
-			bpool_params.max_num_buffs = MVAPPS_MAX_NUM_BUFFS;
 			bpool_params.buff_len = infs[j].buff_size;
 			err = pp2_bpool_init(&bpool_params, &pools[i][j]);
 			if (err)

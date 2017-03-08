@@ -74,7 +74,7 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 		return(-EEXIST);
 	}
 	pr_debug("[%s] pp2_id(%d) pool_id(%d)\n", __func__, pp2_id, pool_id);
-	param.buf_num = params->max_num_buffs;
+	param.buf_num = MVPP2_BM_POOL_SIZE_MAX;
 	param.buf_size = params->buff_len;
 	param.id = pool_id;
 	param.pp2_id = pp2_id;

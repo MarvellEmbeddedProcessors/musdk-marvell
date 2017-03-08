@@ -63,7 +63,6 @@ struct pp2_bpool_params {
 	 * E.g. "pool-0:0" means PPv2[0],pool[0]
 	 */
 	const char			*match;
-	u32				 max_num_buffs; /**<  maximum number of buffers allowed in bpool */
 	u32				 buff_len; /**< buffer length */
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ
  *	int				 (*empty_cb) (void *arg, u32 status);

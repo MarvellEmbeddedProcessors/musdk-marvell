@@ -131,6 +131,7 @@ pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 	u32 val;
 	u32 phys_lo;
 	u32 phys_hi;
+	u32 pool_bufs;
 
 	phys_lo = ((uint32_t)pool_phys_addr) & MVPP2_BM_POOL_BASE_ADDR_MASK;
 	phys_hi = ((uint64_t)pool_phys_addr) >> 32;
@@ -145,8 +146,16 @@ pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 	pp2_reg_write(cpu_slot, MVPP2_BM_POOL_BASE_ADDR_REG(pool_id), phys_lo);
 	pp2_reg_write(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG,
 		      phys_hi & MVPP22_BM_POOL_BASE_ADDR_HIGH_MASK);
-	pp2_reg_write(cpu_slot, MVPP2_BM_POOL_SIZE_REG(pool_id),
-		      (bppe_num / PP2_BPPE_UNIT_SIZE) << BM_BPPESIZE_SHIFT);
+
+	pool_bufs = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_SIZE_REG(pool_id));
+
+	if (!pool_bufs)
+		pp2_reg_write(cpu_slot, MVPP2_BM_POOL_SIZE_REG(pool_id), bppe_num);
+	else if (pool_bufs != bppe_num) {
+		pr_err("BM: pool%u: already configured pool size (%d) does not match the required value (%d)\n",
+			pool_id, pool_bufs, bppe_num);
+		return 1;
+	}
 
 	val = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_CTRL_REG(pool_id));
 	val |= MVPP2_BM_START_MASK;

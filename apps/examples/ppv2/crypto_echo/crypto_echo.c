@@ -50,8 +50,6 @@
 #include "mvapp.h"
 #include "perf_mon_emu.h"
 
-
-#define MAX_NUM_BUFFS	8192
 #define Q_SIZE		256/*1024*/
 #define MAX_BURST_SIZE	((Q_SIZE)>>2)
 #define DFLT_BURST_SIZE	64
@@ -969,7 +967,6 @@ static int build_all_bpools(struct glob_arg *garg)
 			pr_debug("found bpool:  %s\n", name);
 			memset(&bpool_params, 0, sizeof(bpool_params));
 			bpool_params.match = name;
-			bpool_params.max_num_buffs = MAX_NUM_BUFFS;
 			bpool_params.buff_len = infs[j].buff_size;
 			err = pp2_bpool_init(&bpool_params, &garg->pools[i][j]);
 			if (err)

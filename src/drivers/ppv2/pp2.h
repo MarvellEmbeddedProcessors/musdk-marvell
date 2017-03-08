@@ -225,6 +225,10 @@ struct pp2_bm_if {
 #define BM_BUF_ALIGN                (32)
 #define BM_BPPESIZE_SHIFT            (3)
 #define MVPP2_BM_POOL_PTR_ALIGN     (128)
+/*
+ * Maximum pool size - currently calculated in same way as in kernel (aligned 32B)
+ * TODO: Need to check 8B alignment (according to spec): (16 * 1024 - 8)
+ */
 #define MVPP2_BM_POOL_SIZE_MAX      (16 * 1024 - (MVPP2_BM_POOL_PTR_ALIGN / 4))
 /**
  * Buffer Manager Pool (BM Pool) internal layout

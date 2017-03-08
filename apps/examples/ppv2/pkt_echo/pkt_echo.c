@@ -73,7 +73,6 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #endif
 
 #define TX_RETRY_WAIT	1
-#define MAX_NUM_BUFFS	8192
 #define Q_SIZE		1024
 #define MAX_BURST_SIZE	(Q_SIZE)>>1
 #define DFLT_BURST_SIZE	256
@@ -966,7 +965,6 @@ struct timeval t1, t2;
 			pr_debug("found bpool:  %s\n", name);
 			memset(&bpool_params, 0, sizeof(bpool_params));
 			bpool_params.match = name;
-			bpool_params.max_num_buffs = MAX_NUM_BUFFS;
 			bpool_params.buff_len = infs[j].buff_size;
 			if ((err = pp2_bpool_init(&bpool_params, &garg->pools[i][j])) != 0)
 				return err;
