@@ -366,8 +366,6 @@ int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *
 	pec_cmd.Token_WordCount  = 0;
 
 	pec_cmd.Control1 = 0;
-	pec_cmd.Control2 = (FIRMWARE_EIP207_CMD_INV_TR << 24);
-	pec_cmd.Control3 = 0;
 
 	sam_hw_ring_desc_write(hw_ring, next_request, &pec_cmd);
 
@@ -378,20 +376,23 @@ int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *
 
 int sam_hw_engine_load(void)
 {
+#ifdef SAM_EIP_DDK_HW_INIT
 	pr_info("Load SAM HW engine\n");
 
 	if (Driver197_Init()) {
 		pr_err("Can't init eip197 driver\n");
 		return -ENODEV;
 	}
+#endif
 	return 0;
 }
 
 int sam_hw_engine_unload(void)
 {
+#ifdef SAM_EIP_DDK_HW_INIT
 	pr_info("Unload SAM HW engine\n");
 	Driver197_Exit();
-
+#endif
 	return 0;
 }
 

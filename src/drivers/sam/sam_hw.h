@@ -38,14 +38,14 @@
 
 #include "cs_driver.h"
 #include "api_pec.h"
-#include "api_dmabuf.h"
+
+#ifdef SAM_EIP_DDK_HW_INIT
 #include "api_driver197_init.h"
+#endif
+
 #include "sa_builder.h"
 #include "sa_builder_basic.h"
 #include "token_builder.h"
-#include "firmware_eip207_api_cmd.h"
-#include "device_types.h"
-#include "device_mgmt.h"
 
 #define SAM_64BIT_DEVICE
 #define SAM_USE_EXTENDED_DESCRIPTOR
@@ -142,6 +142,12 @@
 #define SAM_RING_WRITE_CACHE_CTRL	0x3 /* 0x7 >> 1 */
 #define SAM_RING_READ_CACHE_CTRL	0x5 /* 0xB >> 1 */
 
+/* Lookaside Crypto packet Flow */
+#define FIRMWARE_EIP207_CMD_PKT_LAC	0x04
+
+/* Invalidate Transform Record command */
+#define FIRMWARE_EIP207_CMD_INV_TR	0x06
+
 struct sam_hw_cmd_desc {
 	u32 words[SAM_CDR_ENTRY_WORDS];
 };
@@ -232,7 +238,7 @@ static inline struct sam_hw_res_desc *sam_hw_res_desc_get(struct sam_hw_ring *hw
 static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_request,
 				     PEC_CommandDescriptor_t *cmd)
 {
-	u32 ctrl_word = 0, token_header, val32;
+	u32 ctrl_word = 0, token_header, val32, fw_cmd = 0;
 	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
 	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
 
@@ -293,8 +299,10 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	if (!cmd->User_p)
 		token_header |= 0x00200000;
 
-	if (cmd->SrcPkt_ByteCount == 0) /* Invalidate session in cache */
+	if (cmd->SrcPkt_ByteCount == 0) {
+		/* Invalidate session in cache */
 		token_header = BIT_30 | BIT_31;
+	}
 
 	writel_relaxed(token_header, &cmd_desc->words[6]);
 
@@ -302,15 +310,19 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
 
 	val32 = lower_32_bits((u64)cmd->SA_Handle1.p);
-	if (hw_ring->type == HW_EIP197)
+	if (hw_ring->type == HW_EIP197) {
 		val32 |= 0x2;
+		fw_cmd = (FIRMWARE_EIP207_CMD_PKT_LAC << 24);
+		if (cmd->SrcPkt_ByteCount == 0)
+			fw_cmd = (FIRMWARE_EIP207_CMD_INV_TR << 24);
+	}
 
 	writel_relaxed(val32, &cmd_desc->words[8]);
 	val32 = upper_32_bits((u64)cmd->SA_Handle1.p) | SAM_DRAM_SRC_MASK;
 	writel_relaxed(val32, &cmd_desc->words[9]);
 
-	writel_relaxed(cmd->Control2, &cmd_desc->words[10]);
-	writel_relaxed(cmd->Control3, &cmd_desc->words[11]);
+	writel_relaxed(fw_cmd, &cmd_desc->words[10]);
+	writel_relaxed(0, &cmd_desc->words[11]);
 
 #ifdef SAM_DMA_WRITE_DEBUG
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 0, readl_relaxed(&cmd_desc->words[0]));

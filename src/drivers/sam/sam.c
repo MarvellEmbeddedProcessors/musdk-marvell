@@ -224,8 +224,6 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 		cmd_desc->User_p   = NULL;
 
 	cmd_desc->Control1 = token_header_word;
-	cmd_desc->Control2 = (FIRMWARE_EIP207_CMD_PKT_LAC << 24);
-	cmd_desc->Control3 = 0;
 
 	return 0;
 }

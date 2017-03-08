@@ -69,11 +69,8 @@ AC_HELP_STRING([--with-is-ddk-path=DIR path to Marvell (C) SAM IS-DDK libs and h
 	SAM_CFLAGS+="-I$IS_DDK_PATH/Examples/Driver/build -I$IS_DDK_PATH/Examples/Driver/build/MVEBU "
 	SAM_CFLAGS+="-I$IS_DDK_PATH/Integration/SLAD_Adapter/incl "
 	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/DriverFramework/Basic_Defs_API/incl "
-	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/DriverFramework/Device_API/incl "
 	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/SABuilder/incl "
-	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/DriverFramework/Device_API/incl "
 	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/TokenBuilder/incl "
-	SAM_CFLAGS+="-I$IS_DDK_PATH/../SafeXcel-Firmware/eip197/firmware/production_firmware/api "
 
 	SAM_LDFLAGS+="-L$IS_DDK_PATH/Examples/Driver/build -L$IS_DDK_PATH/Examples/DemoApp_PEC/build "
 
