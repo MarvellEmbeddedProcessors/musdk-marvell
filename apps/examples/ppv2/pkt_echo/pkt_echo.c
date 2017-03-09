@@ -1327,6 +1327,59 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int i, reset = 0, cur_port;
+	int first_port, port_num;
+	struct glob_arg *garg = (struct glob_arg *)arg;
+	struct pp2_ppio_statistics stats;
+
+	/* If no parameters specified, show all ports */
+	first_port = 0;
+	port_num = garg->num_ports;
+
+	if (argc > 1) {
+		/* Get port number */
+		first_port = atoi(argv[1]);
+		port_num = 1;
+
+		/* If second parameter is specified, reset statistics */
+		if (argc > 2) {
+			reset = atoi(argv[2]);
+			if (reset) {
+				reset = 1;
+				printf("Statistics will be reset\n");
+			}
+		}
+
+		/* If specified port id is bigger than supported, show stats for all ports*/
+		if (first_port >= garg->num_ports) {
+			pr_warn("Invalid port number (%d). Should be in range [%d-%d].\n",
+				first_port, 0, garg->num_ports - 1);
+			first_port = 0;
+			port_num = garg->num_ports;
+		}
+	}
+
+	for (i = 0, cur_port = first_port; i < port_num; i++, cur_port++) {
+		printf("\n-------- Port #%d stats --------\n", cur_port);
+		pp2_ppio_get_statistics(garg->ports_desc[cur_port].port, &stats, reset);
+		printf("\t Rx statistics:\n");
+		printf("\t\tReceived packets:        %lu\n", stats.rx_packets);
+		printf("\t\tFull queue drops:        %u\n", stats.rx_fullq_dropped);
+		printf("\t\tBuffer Manager drops:    %u\n", stats.rx_bm_dropped);
+		printf("\t\tEarly drops:             %u\n", stats.rx_early_dropped);
+		printf("\t\tFIFO overrun drops:      %u\n", stats.rx_fifo_dropped);
+		printf("\t\tClassifier drops:        %u\n", stats.rx_cls_dropped);
+		printf("\n");
+		printf("\t Tx statistics:\n");
+		printf("\t\tSent packets:            %lu\n", stats.tx_packets);
+	}
+
+	return 0;
+}
+
+
 static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
@@ -1354,6 +1407,15 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))queue_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "pstat";
+	cmd_params.desc		= "Show queues statistics";
+	cmd_params.format	= "<port> <reset>";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_stat_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
 
 	return 0;
 }
