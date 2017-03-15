@@ -47,9 +47,6 @@
 #include "sa_builder_basic.h"
 #include "token_builder.h"
 
-#define SAM_64BIT_DEVICE
-#define SAM_USE_EXTENDED_DESCRIPTOR
-
 #define SAM_HW_ENGINE_NUM	2
 #define SAM_HW_RING_NUM		DRIVER_MAX_NOF_RING_TO_USE
 #define SAM_HW_RING_SIZE	DRIVER_PEC_MAX_PACKETS
@@ -61,38 +58,14 @@
 /*#define SAM_DMA_WRITE_DEBUG*/
 
 /* Command amd Result descriptors size and offset (in 32-bit words) */
-#ifdef SAM_64BIT_DEVICE
-
-#ifdef SAM_USE_EXTENDED_DESCRIPTOR
-
-#define SAM_CDR_DSCR_MAX_WORD_COUNT    12
-#define SAM_RDR_DSCR_MAX_WORD_COUNT    12
-
 #define SAM_CDR_ENTRY_WORDS            16
 #define SAM_RDR_ENTRY_WORDS            16
 
-#else /* !SAM_USE_EXTENDED_DESCRIPTOR */
+#define SAM_CDR_DSCR_EXT_WORD_COUNT    12
+#define SAM_RDR_DSCR_EXT_WORD_COUNT    12
 
-#define SAM_CDR_DSCR_MAX_WORD_COUNT    10
-#define SAM_RDR_DSCR_MAX_WORD_COUNT    10
-
-#define SAM_CDR_ENTRY_WORDS             8
-#define SAM_RDR_ENTRY_WORDS             8
-
-#endif /* SAM_USE_EXTENDED_DESCRIPTOR */
-
-#else /* !SAM_64BIT_DEVICE */
-
-#error "Only 64BIT device is supported"
-
-#endif /* SAM_64BIT_DEVICE */
-
-/* MRVL Specific. Bit - 47 (64-bit) set indicates that address is a DRAM address */
-#ifdef MV_SOC_A39X
-#define SAM_DRAM_SRC_MASK       (0x8000)
-#else
-#define SAM_DRAM_SRC_MASK       (0x0)
-#endif /* MV_SOC_A39X */
+#define SAM_CDR_DSCR_WORD_COUNT        10
+#define SAM_RDR_DSCR_WORD_COUNT        10
 
 #define SAM_EIP197_RING_REGS_OFFS(ring) (0x80000 + (ring) * 0x1000)
 #define SAM_EIP97_RING_REGS_OFFS(ring)  (0x0 + (ring) * 0x1000)
@@ -132,7 +105,7 @@
 #define HIA_RDR_OPTIONS_REG		(HIA_RDR_REGS_OFFSET + 0x7F8)
 #define HIA_RDR_VERSION_REG		(HIA_RDR_REGS_OFFSET + 0x7FC)
 
-
+/* Marvell specific configuration values for AXI3 */
 #define SAM_RING_DESC_SWAP_VALUE	0
 #define SAM_RING_DATA_SWAP_VALUE	0
 #define SAM_RING_TOKEN_SWAP_VALUE	0
@@ -142,12 +115,6 @@
 #define SAM_RING_WRITE_CACHE_CTRL	0x3 /* 0x7 >> 1 */
 #define SAM_RING_READ_CACHE_CTRL	0x5 /* 0xB >> 1 */
 
-/* Lookaside Crypto packet Flow */
-#define FIRMWARE_EIP207_CMD_PKT_LAC	0x04
-
-/* Invalidate Transform Record command */
-#define FIRMWARE_EIP207_CMD_INV_TR	0x06
-
 struct sam_hw_cmd_desc {
 	u32 words[SAM_CDR_ENTRY_WORDS];
 };
@@ -155,6 +122,58 @@ struct sam_hw_cmd_desc {
 struct sam_hw_res_desc {
 	u32 words[SAM_RDR_ENTRY_WORDS];
 };
+
+/* CDR and RDR descriptors fields definition */
+
+/* Control word #0 */
+/* Segment size in bytes for Command and Result descriptors */
+#define SAM_DESC_SEG_BYTES_OFFS		0
+#define SAM_DESC_SEG_BYTES_BITS		17
+#define SAM_DESC_SEG_BYTES_MASK		BIT_MASK(SAM_DESC_SEG_BYTES_BITS)
+
+/* First and Last segments indication for Command and Result descriptors */
+#define SAM_DESC_LAST_SEG_MASK		BIT(22)
+#define SAM_DESC_FIRST_SEG_MASK		BIT(23)
+
+/* Token size in 32bit words for first segment of Command descriptor */
+#define SAM_CDR_TOKEN_BYTES_OFFS	24
+#define SAM_CDR_TOKEN_BYTES_BITS	8
+#define SAM_CDR_TOKEN_BYTES_MASK	BIT_MASK(SAM_CDR_TOKEN_BYTES_BITS)
+
+/* Token header word #6 */
+
+/* Segment size in bytes for Command and Result descriptors */
+#define SAM_TOKEN_INPUT_PKT_LEN_OFFS	0
+#define SAM_TOKEN_INPUT_PKT_LEN_BITS	17
+#define SAM_TOKEN_INPUT_PKT_LEN_MASK	BIT_MASK(SAM_TOKEN_INPUT_PKT_LEN_BITS)
+
+#define SAM_TOKEN_IP_EIP97_MASK		BIT(17)
+#define SAM_TOKEN_CP_64B_MASK		BIT(18)
+
+#define SAM_TOKEN_REUSE_CONTEXT_OFFS	20
+#define SAM_TOKEN_REUSE_CONTEXT_MASK	(0x3 << SAM_TOKEN_REUSE_CONTEXT_OFFS)
+#define SAM_TOKEN_REUSE_NO_MASK		(0x0 << SAM_TOKEN_REUSE_CONTEXT_OFFS)
+#define SAM_TOKEN_REUSE_YES_MASK	(0x1 << SAM_TOKEN_REUSE_CONTEXT_OFFS)
+#define SAM_TOKEN_REUSE_AUTO_MASK	(0x2 << SAM_TOKEN_REUSE_CONTEXT_OFFS)
+#define SAM_TOKEN_REUSE_FORCE_MASK	(0x3 << SAM_TOKEN_REUSE_CONTEXT_OFFS)
+
+/* Token Type */
+#define SAM_TOKEN_TYPE_OFFS		30
+#define SAM_TOKEN_TYPE_MASK		(0x3 << SAM_TOKEN_TYPE_OFFS)
+#define SAM_TOKEN_TYPE_BASIC_MASK	(0x0 << SAM_TOKEN_TYPE_OFFS)
+#define SAM_TOKEN_TYPE_EXTENDED_MASK	(0x1 << SAM_TOKEN_TYPE_OFFS)
+#define SAM_TOKEN_TYPE_AUTO_MASK	(0x3 << SAM_TOKEN_TYPE_OFFS)
+
+/* HW Services word #11 */
+#define FIRMWARE_HW_SERVICES_OFFS	24
+#define FIRMWARE_HW_SERVICES_BITS	6
+#define FIRMWARE_HW_SERVICES_ALL_MASK	BIT_MASK_OFFS(FIRMWARE_HW_SERVICES_OFFS, FIRMWARE_HW_SERVICES_BITS)
+
+/* Lookaside Crypto packet Flow */
+#define FIRMWARE_CMD_PKT_LAC_MASK	(0x04 << FIRMWARE_HW_SERVICES_OFFS)
+
+/* Invalidate Transform Record command */
+#define FIRMWARE_CMD_INV_TR_MASK	(0x06 << FIRMWARE_HW_SERVICES_OFFS)
 
 enum sam_hw_type {
 	HW_EIP197,
@@ -240,26 +259,22 @@ static inline struct sam_hw_res_desc *sam_hw_res_desc_get(struct sam_hw_ring *hw
 	return (hw_ring->res_desc_first + idx);
 }
 
-static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_request,
-				     PEC_CommandDescriptor_t *cmd)
+static inline void sam_hw_rdr_prep_desc_write(struct sam_hw_res_desc *res_desc,
+					      dma_addr_t dst_paddr, u32 prep_size)
 {
-	u32 ctrl_word = 0, token_header, val32, fw_cmd = 0;
-	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
-	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
-
-	/* Write RDR descriptor first */
-	if (cmd->SrcPkt_ByteCount)
-		ctrl_word += ((cmd->SrcPkt_ByteCount + 64) & MASK_20_BITS); /* ToFix: PrepSegmentByteCount */
+	u32 ctrl_word;
 
 	/* bits[24-31] - ExpectedResultWordCount = 0 */
-	ctrl_word |= BIT_22 | BIT_23;  /* Last and First */
+	ctrl_word = (SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);  /* Last and First */
+
+	ctrl_word |= (prep_size & SAM_DESC_SEG_BYTES_MASK);
 
 	writel_relaxed(ctrl_word, &res_desc->words[0]);
 	writel_relaxed(0, &res_desc->words[1]); /* skip this write */
 
 	/* Write Destination Packet Data address */
-	writel_relaxed(lower_32_bits((u64)cmd->DstPkt_Handle.p), &res_desc->words[2]);
-	writel_relaxed(upper_32_bits((u64)cmd->DstPkt_Handle.p) | SAM_DRAM_SRC_MASK, &res_desc->words[3]);
+	writel_relaxed(lower_32_bits(dst_paddr), &res_desc->words[2]);
+	writel_relaxed(upper_32_bits(dst_paddr), &res_desc->words[3]);
 
 #ifdef SAM_DMA_WRITE_DEBUG
 	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl_relaxed(&res_desc->words[0]));
@@ -267,67 +282,28 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl_relaxed(&res_desc->words[2]));
 	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl_relaxed(&res_desc->words[3]));
 #endif /* SAM_DMA_WRITE_DEBUG */
+}
 
-	/* Write CDR descriptor */
-	ctrl_word = (cmd->SrcPkt_ByteCount & MASK_20_BITS);
-	ctrl_word |= (cmd->Token_WordCount & MASK_8_BITS) << 24;
-	ctrl_word |= BIT_22 | BIT_23;  /* Last and First */
+static inline void sam_hw_cdr_cmd_desc_write(struct sam_hw_cmd_desc *cmd_desc,
+					     dma_addr_t src_paddr, u32 data_bytes,
+					     dma_addr_t token_paddr, u32 token_words)
+{
+	u32 ctrl_word;
+
+	ctrl_word = (data_bytes & SAM_DESC_SEG_BYTES_MASK);
+	ctrl_word |= (token_words & SAM_CDR_TOKEN_BYTES_MASK) << SAM_CDR_TOKEN_BYTES_OFFS;
+	ctrl_word |= (SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);  /* Last and First */
 
 	writel_relaxed(ctrl_word, &cmd_desc->words[0]);
 	writel_relaxed(0, &cmd_desc->words[1]); /* skip this write */
 
 	/* Write Source Packet Data address */
-	val32 = lower_32_bits((u64)cmd->SrcPkt_Handle.p);
-	writel_relaxed(val32, &cmd_desc->words[2]);
-	val32 = upper_32_bits((u64)cmd->SrcPkt_Handle.p) | SAM_DRAM_SRC_MASK;
-	writel_relaxed(val32, &cmd_desc->words[3]);
+	writel_relaxed(lower_32_bits(src_paddr), &cmd_desc->words[2]);
+	writel_relaxed(upper_32_bits(src_paddr), &cmd_desc->words[3]);
 
 	/* Write Token Data address */
-	val32 = lower_32_bits((u64)cmd->Token_Handle.p);
-	writel_relaxed(val32, &cmd_desc->words[4]);
-	val32 = upper_32_bits((u64)cmd->Token_Handle.p) | SAM_DRAM_SRC_MASK;
-	writel_relaxed(val32, &cmd_desc->words[5]);
-
-	/* Token header word is provided as separate parameter in Control1. */
-	token_header = cmd->Control1 & ~0x00300000;
-	token_header |= BIT_17; /* Set token header format to EIP97. */
-
-#ifdef SAM_USE_EXTENDED_DESCRIPTOR
-	token_header |= BIT_30;
-#endif
-
-#ifdef SAM_64BIT_DEVICE
-	token_header |= BIT_18; /* Set 64-bit Context (SA) pointer */
-#endif
-
-	/* Enable Context Reuse auto detect if no new SA */
-	if (!cmd->User_p)
-		token_header |= 0x00200000;
-
-	if (cmd->SrcPkt_ByteCount == 0) {
-		/* Invalidate session in cache */
-		token_header = BIT_30 | BIT_31;
-	}
-
-	writel_relaxed(token_header, &cmd_desc->words[6]);
-
-	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
-
-	val32 = lower_32_bits((u64)cmd->SA_Handle1.p);
-	if (hw_ring->type == HW_EIP197) {
-		val32 |= 0x2;
-		fw_cmd = (FIRMWARE_EIP207_CMD_PKT_LAC << 24);
-		if (cmd->SrcPkt_ByteCount == 0)
-			fw_cmd = (FIRMWARE_EIP207_CMD_INV_TR << 24);
-	}
-
-	writel_relaxed(val32, &cmd_desc->words[8]);
-	val32 = upper_32_bits((u64)cmd->SA_Handle1.p) | SAM_DRAM_SRC_MASK;
-	writel_relaxed(val32, &cmd_desc->words[9]);
-
-	writel_relaxed(fw_cmd, &cmd_desc->words[10]);
-	writel_relaxed(0, &cmd_desc->words[11]);
+	writel_relaxed(lower_32_bits(token_paddr), &cmd_desc->words[4]);
+	writel_relaxed(upper_32_bits(token_paddr), &cmd_desc->words[5]);
 
 #ifdef SAM_DMA_WRITE_DEBUG
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 0, readl_relaxed(&cmd_desc->words[0]));
@@ -336,6 +312,96 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 3, readl_relaxed(&cmd_desc->words[3]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 4, readl_relaxed(&cmd_desc->words[4]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 5, readl_relaxed(&cmd_desc->words[5]));
+#endif /* SAM_DMA_WRITE_DEBUG */
+}
+
+static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int next_request,
+					PEC_CommandDescriptor_t *cmd)
+{
+	u32 token_header, val32;
+	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
+	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
+
+	/* Write prepared RDR descriptor first */
+	sam_hw_rdr_prep_desc_write(res_desc, (dma_addr_t)cmd->DstPkt_Handle.p, cmd->SrcPkt_ByteCount + 64);
+
+	/* Write CDR descriptor */
+	sam_hw_cdr_cmd_desc_write(cmd_desc, (dma_addr_t)cmd->SrcPkt_Handle.p, cmd->SrcPkt_ByteCount,
+				  (dma_addr_t)cmd->Token_Handle.p, cmd->Token_WordCount);
+
+
+	/* Token header word is provided as separate parameter in Control1. */
+
+	/* Set 64-bit Context (SA) pointer and IP EIP97 */
+	token_header = (cmd->Control1 | SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
+
+	/* Enable Context Reuse auto detect if no new SA */
+	token_header &= ~SAM_TOKEN_REUSE_CONTEXT_MASK;
+	if (!cmd->User_p)
+		token_header |= SAM_TOKEN_REUSE_AUTO_MASK;
+
+	writel_relaxed(token_header, &cmd_desc->words[6]);
+
+	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
+	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
+
+	val32 = lower_32_bits((u64)cmd->SA_Handle1.p);
+	writel_relaxed(val32, &cmd_desc->words[8]);
+
+	val32 = upper_32_bits((u64)cmd->SA_Handle1.p);
+	writel_relaxed(val32, &cmd_desc->words[9]);
+
+#ifdef SAM_DMA_WRITE_DEBUG
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl_relaxed(&cmd_desc->words[7]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl_relaxed(&cmd_desc->words[8]));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 9, readl_relaxed(&cmd_desc->words[9]));
+#endif /* SAM_DMA_WRITE_DEBUG */
+}
+
+static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_request,
+				     PEC_CommandDescriptor_t *cmd)
+{
+	u32 token_header, val32;
+	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
+	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
+
+	/* Write prepared RDR descriptor first */
+	sam_hw_rdr_prep_desc_write(res_desc, (dma_addr_t)cmd->DstPkt_Handle.p, cmd->SrcPkt_ByteCount + 64);
+
+	/* Write CDR descriptor */
+	sam_hw_cdr_cmd_desc_write(cmd_desc, (dma_addr_t)cmd->SrcPkt_Handle.p, cmd->SrcPkt_ByteCount,
+				  (dma_addr_t)cmd->Token_Handle.p, cmd->Token_WordCount);
+
+	/* Token header word is provided as separate parameter in Control1. */
+
+	/* Set 64-bit Context (SA) pointer and IP EIP97 */
+	token_header = (cmd->Control1 | SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
+
+	token_header |= SAM_TOKEN_TYPE_EXTENDED_MASK;
+
+	/* Enable Context Reuse auto detect if no new SA */
+	token_header &= ~SAM_TOKEN_REUSE_CONTEXT_MASK;
+	if (!cmd->User_p)
+		token_header |= SAM_TOKEN_REUSE_AUTO_MASK;
+
+	writel_relaxed(token_header, &cmd_desc->words[6]);
+
+	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
+	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
+
+	val32 = lower_32_bits((u64)cmd->SA_Handle1.p);
+	val32 |= 0x2;
+	writel_relaxed(val32, &cmd_desc->words[8]);
+
+	val32 = upper_32_bits((u64)cmd->SA_Handle1.p);
+	writel_relaxed(val32, &cmd_desc->words[9]);
+
+	writel_relaxed(FIRMWARE_CMD_PKT_LAC_MASK, &cmd_desc->words[10]);
+
+	writel_relaxed(0, &cmd_desc->words[11]);
+
+#ifdef SAM_DMA_WRITE_DEBUG
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl_relaxed(&cmd_desc->words[7]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl_relaxed(&cmd_desc->words[8]));
@@ -343,6 +409,45 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 10, readl_relaxed(&cmd_desc->words[10]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 11, readl_relaxed(&cmd_desc->words[11]));
 #endif /* SAM_DMA_WRITE_DEBUG */
+}
+
+static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, int next_request, dma_addr_t paddr)
+{
+	u32 token_header, val32, ctrl_word;
+	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
+	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
+
+	ctrl_word = (SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);  /* Last and First */
+	writel_relaxed(ctrl_word, &res_desc->words[0]);
+	writel_relaxed(0, &res_desc->words[1]); /* skip this write */
+
+	/* Write NULL to Destination Packet Data address */
+	writel_relaxed(0, &res_desc->words[2]);
+	writel_relaxed(0, &res_desc->words[3]);
+
+	writel_relaxed(ctrl_word, &cmd_desc->words[0]);
+	writel_relaxed(0, &cmd_desc->words[1]); /* skip this write */
+
+	/* Write NULL as Source Packet Data address */
+	writel_relaxed(0, &cmd_desc->words[2]);
+	writel_relaxed(0, &cmd_desc->words[3]);
+
+	/* Write NULL as Token Data address */
+	writel_relaxed(0, &cmd_desc->words[4]);
+	writel_relaxed(0, &cmd_desc->words[5]);
+
+	/* Invalidate session in cache */
+	token_header = SAM_TOKEN_TYPE_AUTO_MASK;
+	writel_relaxed(token_header, &cmd_desc->words[6]);
+
+	val32 = lower_32_bits((u64)paddr);
+	val32 |= 0x2;
+	writel_relaxed(val32, &cmd_desc->words[8]);
+
+	val32 = upper_32_bits((u64)paddr);
+	writel_relaxed(val32, &cmd_desc->words[9]);
+
+	writel_relaxed(FIRMWARE_CMD_INV_TR_MASK, &cmd_desc->words[10]);
 }
 
 static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, PEC_ResultDescriptor_t *res)

@@ -623,8 +623,10 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
 		}
-
-		sam_hw_ring_desc_write(&cio->hw_ring, cio->next_request, &pec_cmd);
+		if (cio->hw_ring.type == HW_EIP197)
+			sam_hw_ring_desc_write(&cio->hw_ring, cio->next_request, &pec_cmd);
+		else
+			sam_hw_ring_basic_desc_write(&cio->hw_ring, cio->next_request, &pec_cmd);
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 		SAM_STATS(cio->stats.enq_bytes += pec_cmd.SrcPkt_ByteCount);

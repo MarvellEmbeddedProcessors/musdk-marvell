@@ -155,7 +155,11 @@ int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring)
 	val32 = ((hw_ring->ring_size * SAM_CDR_ENTRY_WORDS) & MASK_22_BITS) << 2;
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG, val32);
 
-	val32 = (SAM_CDR_DSCR_MAX_WORD_COUNT & MASK_8_BITS); /* size of Command descriptor */
+	if (hw_ring->type == HW_EIP197)
+		val32 = (SAM_CDR_DSCR_EXT_WORD_COUNT & MASK_8_BITS); /* size of Extended Command descriptor */
+	else
+		val32 = (SAM_CDR_DSCR_WORD_COUNT & MASK_8_BITS); /* size of Command descriptor */
+
 	val32 |= (SAM_CDR_ENTRY_WORDS & MASK_8_BITS) << 16; /* distance between descriptors */
 	val32 |= BIT_30; /* acdp_present (Token pointer in the descriptor) */
 	val32 |= BIT_31; /* 64 bits mode */
@@ -223,7 +227,11 @@ int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring)
 	val32 = ((hw_ring->ring_size * SAM_RDR_ENTRY_WORDS) & MASK_22_BITS) << 2;
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_RING_SIZE_REG, val32);
 
-	val32 = (SAM_RDR_DSCR_MAX_WORD_COUNT & MASK_8_BITS); /* size of Command descriptor */
+	if (hw_ring->type == HW_EIP197)
+		val32 = (SAM_RDR_DSCR_EXT_WORD_COUNT & MASK_8_BITS); /* size of Extended Command descriptor */
+	else
+		val32 = (SAM_RDR_DSCR_WORD_COUNT & MASK_8_BITS); /* size of Command descriptor */
+
 	val32 |= (SAM_RDR_ENTRY_WORDS & MASK_8_BITS) << 16; /* distance between descriptors */
 	val32 |= BIT_31; /* 64 bits mode */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_DESC_SIZE_REG, val32);
@@ -353,22 +361,7 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
 				u32 next_request)
 {
-	PEC_CommandDescriptor_t pec_cmd;
-
-	memset(&pec_cmd, 0, sizeof(PEC_CommandDescriptor_t));
-
-	pec_cmd.SA_Handle1.p     = (void *)sa_buf->paddr;
-	pec_cmd.SA_WordCount     = 0;
-	pec_cmd.SA_Handle2       = DMABuf_NULLHandle;
-	pec_cmd.Token_Handle     = DMABuf_NULLHandle;
-	pec_cmd.SrcPkt_Handle    = DMABuf_NULLHandle;
-	pec_cmd.DstPkt_Handle    = DMABuf_NULLHandle;
-	pec_cmd.SrcPkt_ByteCount = 0;
-	pec_cmd.Token_WordCount  = 0;
-
-	pec_cmd.Control1 = 0;
-
-	sam_hw_ring_desc_write(hw_ring, next_request, &pec_cmd);
+	sam_hw_ring_sa_inv_desc_write(hw_ring, next_request, sa_buf->paddr);
 
 	sam_hw_ring_submit(hw_ring, 1);
 
