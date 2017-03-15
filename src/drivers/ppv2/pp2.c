@@ -50,6 +50,7 @@
 #include "cls/pp2_cls_mng.h"
 
 struct pp2 *pp2_ptr;
+struct netdev_if_params *netdev_params;
 
 /* TBD: remove hc_gop_mac_data variable after port/mac is read from device tree*/
 static struct pp2_mac_data hc_gop_mac_data[6] = {
@@ -177,9 +178,10 @@ static void pp2_bm_flush_pools(uintptr_t cpu_slot, uint16_t bm_pool_reserved_map
 /* Initializes a packet processor control handle and its resources */
 static void pp2_inst_init(struct pp2_inst *inst)
 {
-	u32 val, i;
+	u32 val, i, rc;
 	uintptr_t cpu_slot;
 	struct pp2_hw *hw = &inst->hw;
+	u32 admin_status;
 
 	/* Master thread initializes common part of HW.
 	* This will probably get deprecated by KS driver for the initialization
@@ -200,7 +202,14 @@ static void pp2_inst_init(struct pp2_inst *inst)
 		if (!ppio_param->is_enabled)
 			continue;
 
-		if (inst->ports[i]->admin_status != PP2_PORT_MUSDK_ENABLED) {
+		rc = pp2_netdev_if_admin_status_get(inst->id, i, &admin_status);
+		if (rc) {
+			pr_warn("Unable to find admin status for ppio %d:%d. Set to disabled\n", inst->id, i);
+			ppio_param->is_enabled = 0;
+			continue;
+		}
+
+		if (admin_status != PP2_PORT_MUSDK_ENABLED) {
 			pr_warn("Port %d:%d is not reserved for MUSDK usage in Linux DTS file\n", inst->id, i);
 			ppio_param->is_enabled = 0;
 			continue;
@@ -355,112 +364,6 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 	return err;
 }
 
-static int pp2_get_devtree_port_data(struct pp2_inst *inst)
-{
-	FILE *fp;
-	char path[PP2_MAX_BUF_STR_LEN];
-	char subpath[PP2_MAX_BUF_STR_LEN];
-	char buf[PP2_MAX_BUF_STR_LEN];
-	int i;
-
-	for (i = 0; i < PP2_NUM_PORTS; i++) {
-		struct pp2_port *port = inst->ports[i];
-
-		if (inst->id == 0) {
-			/* TODO -We assume that the path is static.
-			* Need to substitute this with a function that searches for the following string:
-			* <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories and returns the path
-			*/
-			sprintf(path, PP2_NETDEV_MASTER_PATH);
-		} else if (inst->id == 1) {
-			sprintf(path, PP2_NETDEV_SLAVE_PATH);
-		} else {
-			pr_err("wrong instance id.\n");
-			return -EEXIST;
-		}
-
-		/* Get port status info */
-		sprintf(subpath, "eth%d@0%d0000/status", i, i + 1);
-		strcat(path, subpath);
-
-		fp = fopen(path, "r");
-		if (!fp) {
-			pr_err("error opening device tree status file.\n");
-			return -EEXIST;
-		}
-
-		fgets(buf, sizeof(buf), fp);
-		if (strcmp("disabled", buf) == 0) {
-			pr_debug("port %d:%d is disabled\n", inst->id, i);
-			port->admin_status = PP2_PORT_DISABLED;
-		} else if (strcmp("non-kernel", buf) == 0) {
-			pr_debug("port %d:%d is MUSDK\n", inst->id, i);
-			port->admin_status = PP2_PORT_MUSDK_ENABLED;
-		} else {
-			pr_debug("port %d:%d is kernel\n", inst->id, i);
-			port->admin_status = PP2_PORT_KERNEL_ENABLED;
-		}
-		fclose(fp);
-	}
-	return 0;
-}
-
-/* TODO: This function should be standalone and not dependent on pp2_init*/
-static int pp2_set_port_netdev_info(void)
-{
-	FILE *fp;
-	char path[PP2_MAX_BUF_STR_LEN];
-	char subpath[PP2_MAX_BUF_STR_LEN];
-	char buf[PP2_MAX_BUF_STR_LEN];
-	int rc;
-	struct ifreq s;
-	int if_idx = 1;
-	struct pp2_port *port;
-	u32 i = 0, j = 0;
-	u32 idx = 0;
-	char netdev_list[PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS][20];
-
-	/* TODO: code loops through all ifindex. check if only active ifindex can be checked */
-	do {
-		s.ifr_ifindex = if_idx;
-		rc = mv_netdev_ioctl(SIOCGIFNAME, &s);
-		if (rc)
-			continue;
-
-		if (strncmp("eth", s.ifr_name, 3) == 0) {
-			sprintf(path, PP2_NETDEV_PATH);
-			sprintf(subpath, "%s/device/uevent", s.ifr_name);
-			strcat(path, subpath);
-			fp = fopen(path, "r");
-			if (!fp) {
-				pr_err("error opening %s\n", path);
-				return -EEXIST;
-			}
-
-			fgets(buf, sizeof(buf), fp);
-			while (fgets(buf, PP2_MAX_BUF_STR_LEN, fp)) {
-				if (strncmp("OF_NAME=ppv22", buf, 13) == 0)
-					strcpy(netdev_list[idx++], s.ifr_name);
-			}
-		}
-	} while (idx < (PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS) && if_idx++ < PP2_PORT_IF_NAME_MAX_ITER);
-
-	for (i = 0, idx = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
-		if (!pp2_ptr->pp2_inst[i])
-			continue;
-
-		for (j = 0; j < PP2_NUM_PORTS; j++) {
-			port = pp2_ptr->pp2_inst[i]->ports[j];
-
-			if (port->admin_status != PP2_PORT_DISABLED) {
-				strcpy(port->linux_name, netdev_list[idx]);
-				idx++;
-			}
-		}
-	}
-	return 0;
-}
-
 static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 {
 	u32 i;
@@ -507,13 +410,6 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 		return NULL;
 	}
 
-	if (pp2_get_devtree_port_data(inst)) {
-		pr_err("cannot populate device tree port data\n");
-		for (i = 0; i < PP2_NUM_PORTS; i++)
-			kfree(inst->ports[i]);
-		kfree(inst);
-		return NULL;
-	}
 	return inst;
 }
 
@@ -568,10 +464,17 @@ int pp2_init(struct pp2_init_params *params)
 	pp2_ptr->pp2_common.rss_tbl_map = pp2_ptr->init.rss_tbl_reserved_map;
 	/* TODO: Check first_inq params are valid */
 
+	/* Retrieve netdev if information */
+	pp2_num_inst = pp2_get_num_inst();
+	netdev_params = kmalloc(sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_PORTS, GFP_KERNEL);
+	if (!netdev_params)
+		return -ENOMEM;
+
+	pp2_netdev_if_info_get(netdev_params);
+
 	/* Initialize in an opaque manner from client,
 	* depending on HW, one or two packet processors.
 	*/
-	pp2_num_inst = pp2_get_num_inst();
 	for (pp2_id = 0; pp2_id < pp2_num_inst; pp2_id++) {
 		struct pp2_inst *inst;
 
@@ -597,9 +500,6 @@ int pp2_init(struct pp2_init_params *params)
 		pp2_ptr->num_pp2_inst++;
 	}
 
-	if (pp2_set_port_netdev_info())
-		pr_err("cannot set netdev info\n");
-
 	pr_debug("PackProcs   %2u\n", pp2_num_inst);
 
 	return 0;
@@ -615,33 +515,67 @@ void pp2_deinit(void)
 
 	/* Destroy the PPDK handle */
 	kfree(pp2_ptr);
+
+	/* Destroy the netdev handle */
+	kfree(netdev_params);
 }
 
-/* Find  pp_id and port_id parameters from ifname.
-* Description: loop through all packet processors and ports in each packet processor
-* and compare the interface name to the one configured for each port. If there is a match,
-* the pp_id and port_id are returned.
-* This function should be called after pp2_init() and before ppio_init().
- */
-int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id)
+int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname)
 {
-	struct pp2_port *port;
-	int i, j;
+	int i;
 
-	for (i = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
-		if (!pp2_ptr->pp2_inst[i])
-			continue;
+	if (!netdev_params)
+		return -EFAULT;
 
-		for (j = 0; j < PP2_NUM_PORTS; j++) {
-			port = pp2_ptr->pp2_inst[i]->ports[j];
-
-			if (strcmp(ifname, port->linux_name) == 0) {
-				*pp_id = i;
-				*port_id = j;
-				pr_info("%s: ppio-%d,%d\n", ifname, *pp_id, *port_id);
-				return 0;
-			}
+	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS; i++) {
+		if (netdev_params[i].pp_id == pp_id &&
+		    netdev_params[i].ppio_id == ppio_id) {
+			strcpy(ifname, netdev_params[i].if_name);
+			return 0;
 		}
 	}
-	return -EEXIST;
+	return -EFAULT;
 }
+
+int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status)
+{
+	int i;
+
+	if (!netdev_params)
+		return -EFAULT;
+
+	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS; i++) {
+		if (netdev_params[i].pp_id == pp_id &&
+		    netdev_params[i].ppio_id == ppio_id) {
+			*admin_status = netdev_params[i].admin_status;
+			return 0;
+		}
+	}
+	return -EFAULT;
+}
+
+/* pp2_netdev_get_port_info()
+ * Find  pp_id and port_id parameters from ifname.
+ * Description: loop through all packet processors and ports in each packet processor
+ * and compare the interface name to the one configured for each port. If there is a match,
+ * the pp_id and port_id are returned.
+ * This function should be called after pp2_init() and before ppio_init().
+ */
+int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *ppio_id)
+{
+	int i;
+
+	if (!netdev_params)
+		return -EFAULT;
+
+	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS; i++) {
+		if (strcmp(netdev_params[i].if_name, ifname) == 0) {
+			*pp_id = netdev_params[i].pp_id;
+			*ppio_id = netdev_params[i].ppio_id;
+			pr_info("%s: ppio-%d,%d\n", ifname, *pp_id, *ppio_id);
+			return 0;
+		}
+	}
+	return -EFAULT;
+}
+

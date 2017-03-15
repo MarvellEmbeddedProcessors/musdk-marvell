@@ -87,6 +87,13 @@ extern struct pp2 *pp2_ptr;
  * locks on data-path.
  */
 
+struct netdev_if_params {
+	char if_name[16];
+	u32 admin_status;
+	u8 ppio_id;
+	u8 pp_id;
+};
+
 struct pp2_match_param {
 	int pp2_id;
 	int id;
@@ -481,5 +488,9 @@ static inline uintptr_t pp2_default_cpu_slot(struct pp2_inst *inst)
 {
 	return inst->hw.base[PP2_DEFAULT_REGSPACE].va;
 }
+
+int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);
+int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);
+int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status);
 
 #endif /* _PP2_H_ */

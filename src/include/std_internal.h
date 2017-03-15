@@ -52,6 +52,7 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <getopt.h>
+#include <ifaddrs.h>
 
 #include "env/of.h"
 #include "env/spinlock.h"

@@ -1192,6 +1192,12 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	hw = &inst->hw;
 	port->cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
 
+	/* Assign admin status port */
+	pp2_netdev_if_admin_status_get(pp2_id, port_id, &port->admin_status);
+
+	/* Assign linux name to port */
+	pp2_netdev_ifname_get(pp2_id, port_id, port->linux_name);
+
 	/* Assign and initialize port private data and hardware */
 	pp2_port_init(port);
 
