@@ -162,6 +162,11 @@ enum sam_hw_type {
 	HW_TYPE_LAST
 };
 
+struct sam_hw_engine_info {
+	struct uio_info_t *uio_info;
+	enum sam_hw_type type;
+};
+
 struct sam_hw_ring {
 	u32 engine;
 	u32 ring;
@@ -331,7 +336,7 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 3, readl_relaxed(&cmd_desc->words[3]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 4, readl_relaxed(&cmd_desc->words[4]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 5, readl_relaxed(&cmd_desc->words[5]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6])));
+	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl_relaxed(&cmd_desc->words[7]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl_relaxed(&cmd_desc->words[8]));
 	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 9, readl_relaxed(&cmd_desc->words[9]));
