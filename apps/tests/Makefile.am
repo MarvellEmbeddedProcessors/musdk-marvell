@@ -17,6 +17,11 @@ bin_PROGRAMS = musdk_dma_mem
 musdk_dma_mem_SOURCES  = dma_mem.c
 musdk_dma_mem_LDADD = $(top_builddir)/src/libmusdk.la
 
+bin_PROGRAMS += musdk_dmax2_dma
+musdk_dmax2_dma_SOURCES  = dmax2_dma_test.c
+musdk_dmax2_dma_SOURCES  += ../common/lib/perf_mon_emu.c
+musdk_dmax2_dma_LDADD = $(top_builddir)/src/libmusdk.la
+
 if SAM_BUILD
 bin_PROGRAMS += musdk_sam_kat
 musdk_sam_kat_CFLAGS = $(AM_CFLAGS)
