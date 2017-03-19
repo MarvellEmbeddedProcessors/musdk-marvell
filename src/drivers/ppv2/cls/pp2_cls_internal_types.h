@@ -50,6 +50,9 @@
 #define MVPP2_FALSE	(0)	/* MVPP2 false state	*/
 #define MVPP2_TRUE	(1)	/* MVPP2 true state	*/
 
+/* GET_NUM_BYTES() convert bits to bytes and rounds it up */
+#define GET_NUM_BYTES(field_size)	(!!(field_size % BYTE_BITS) +  field_size / BYTE_BITS)
+
 /* additional match filed bm, internal use */
 #define MVPP2_MATCH_TTL			0x1000000
 #define MVPP2_MATCH_TCP_FLAG_RF		0x2000000

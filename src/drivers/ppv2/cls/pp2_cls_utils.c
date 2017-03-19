@@ -46,7 +46,7 @@
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 
-char g_unknown_str[] = "<unknown>";
+char g_unknown_str[] = "none";
 
 static struct pp2_cls_enum_str_t g_enum_eng_name[] = {
 	{MVPP2_ENGINE_C2, "C2"},
@@ -345,3 +345,13 @@ int mv_pp2x_range_validate(int value, int min, int max)
 	return 0;
 }
 
+int mv_pp2x_parse_mac_address(char *buf, u8 *macaddr_parts)
+{
+	if (sscanf(buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+		   &macaddr_parts[0], &macaddr_parts[1],
+		   &macaddr_parts[2], &macaddr_parts[3],
+		   &macaddr_parts[4], &macaddr_parts[5]) == ETH_ALEN)
+		return 0;
+	else
+		return -EFAULT;
+}

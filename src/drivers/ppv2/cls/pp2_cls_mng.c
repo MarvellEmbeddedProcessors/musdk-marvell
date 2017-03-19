@@ -60,34 +60,62 @@ struct cls_field_convert_t {
 };
 
 static struct cls_field_convert_t g_cls_field_convert[] = {
-	{1, 0, MAC_SA_FIELD_ID, MVPP2_MATCH_ETH_SRC},	        /* ethernet, source address */
-	{1, 1, MAC_DA_FIELD_ID, MVPP2_MATCH_ETH_DST},	        /* ethernet, destination address */
-	{1, 2, ETH_TYPE_FIELD_ID, MVPP2_MATCH_ETH_TYPE},	/* ethernet, type */
-	{2, 0, OUT_VLAN_PRI_FIELD_ID, MVPP2_MATCH_PBITS_OUTER},	/* vlan, priority (outer vlan)*/
-	{2, 1, OUT_VLAN_ID_FIELD_ID, MVPP2_MATCH_VID_OUTER},	/* vlan, id (outer vlan) */
-	{2, 2, NOT_SUPPORTED_YET, 0},	                        /* vlan, tci */
-	{3, 0, PPPOE_FIELD_ID, MVPP2_MATCH_PPPOE_PROTO},	/* pppoe*/
-	{4, 0, IP_VER_FIELD_ID, MVPP2_MATCH_IP_VERSION},	/* ip */
-	{5, 0, IPV4_DSCP_FIELD_ID, MVPP2_MATCH_IP_DSCP},	/* ipv4, tos  [AW: check] */
-	{5, 1, IPV4_SA_FIELD_ID, MVPP2_MATCH_IP_SRC},	        /* ipv4, souce address */
-	{5, 2, IPV4_DA_FIELD_ID, MVPP2_MATCH_IP_DST},	        /* ipv4, destination address */
-	{5, 3, IPV4_PROTO_FIELD_ID, MVPP2_MATCH_IP_PROTO},	/* ipv4, proto */
-	{6, 0, NOT_SUPPORTED_YET, 0},	                        /* ipv6, tc */
-	{6, 1, IPV6_SA_FIELD_ID, MVPP2_MATCH_IP_SRC},	        /* ipv6, souce address */
-	{6, 2, IPV6_DA_FIELD_ID, MVPP2_MATCH_IP_DST},	        /* ipv6, destination address */
-	{6, 3, IPV6_FLOW_LBL_FIELD_ID, MVPP2_MATCH_IPV6_FLBL},	/* ipv6, flow */
-	{6, 4, IPV6_NH_FIELD_ID, MVPP2_MATCH_IP_PROTO},	        /* ipv6, next header */
-	{7, 0, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},	        /* layer4, source port */
-	{7, 1, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},	        /* layer4, destination port */
-	{7, 2, NOT_SUPPORTED_YET, 0},	                        /* layer4, checksum */
-	{8, 0, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},	        /* tcp, source port */
-	{8, 1, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},	        /* tcp, destination port */
-	{8, 2, NOT_SUPPORTED_YET, 0},	                        /* tcp, checksum */
-	{9, 0, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},	        /* udp, source port */
-	{9, 1, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},	        /* udp, destination port */
-	{9, 2, NOT_SUPPORTED_YET, 0},	                        /* udp, checksum */
-	{10, 0, NOT_SUPPORTED_YET, 0},	                        /* icmp */
-	{11, 0, ARP_IPV4_DA_FIELD_ID, MVPP2_MATCH_ARP_TRGT_IP_ADDR},	/* arp */
+	/* ethernet, source address */
+	{MV_NET_PROTO_ETH, MV_NET_ETH_F_SA, MAC_SA_FIELD_ID, MVPP2_MATCH_ETH_SRC},
+	/* ethernet, destination address */
+	{MV_NET_PROTO_ETH, MV_NET_ETH_F_DA, MAC_DA_FIELD_ID, MVPP2_MATCH_ETH_DST},
+	/* ethernet, type */
+	{MV_NET_PROTO_ETH, MV_NET_ETH_F_TYPE, ETH_TYPE_FIELD_ID, MVPP2_MATCH_ETH_TYPE},
+	/* vlan, priority (outer vlan) */
+	{MV_NET_PROTO_VLAN, MV_NET_VLAN_F_PRI, OUT_VLAN_PRI_FIELD_ID, MVPP2_MATCH_PBITS_OUTER},
+	/* vlan, id (outer vlan) */
+	{MV_NET_PROTO_VLAN, MV_NET_VLAN_F_ID, OUT_VLAN_ID_FIELD_ID, MVPP2_MATCH_VID_OUTER},
+	/* vlan, tci */
+	{MV_NET_PROTO_VLAN, MV_NET_VLAN_F_TCI, NOT_SUPPORTED_YET, 0},
+	/* pppoe */
+	{MV_NET_PROTO_PPPOE, 0, PPPOE_FIELD_ID, MVPP2_MATCH_PPPOE_PROTO},
+	/* ip */
+	{MV_NET_PROTO_IP, 0, IP_VER_FIELD_ID, MVPP2_MATCH_IP_VERSION},
+	/* ipv4, tos  [AW: check] */
+	{MV_NET_PROTO_IP4, MV_NET_IP4_F_TOS, IPV4_DSCP_FIELD_ID, MVPP2_MATCH_IP_DSCP},
+	/* ipv4, souce address */
+	{MV_NET_PROTO_IP4, MV_NET_IP4_F_SA, IPV4_SA_FIELD_ID, MVPP2_MATCH_IP_SRC},
+	/* ipv4, destination address */
+	{MV_NET_PROTO_IP4, MV_NET_IP4_F_DA, IPV4_DA_FIELD_ID, MVPP2_MATCH_IP_DST},
+	/* ipv4, proto */
+	{MV_NET_PROTO_IP4, MV_NET_IP4_F_PROTO, IPV4_PROTO_FIELD_ID, MVPP2_MATCH_IP_PROTO},
+	/* ipv6, tc */
+	{MV_NET_PROTO_IP6, MV_NET_IP6_F_TC, NOT_SUPPORTED_YET, 0},
+	/* ipv6, souce address */
+	{MV_NET_PROTO_IP6, MV_NET_IP6_F_SA, IPV6_SA_FIELD_ID, MVPP2_MATCH_IP_SRC},
+	/* ipv6, destination address */
+	{MV_NET_PROTO_IP6, MV_NET_IP6_F_DA, IPV6_DA_FIELD_ID, MVPP2_MATCH_IP_DST},
+	/* ipv6, flow */
+	{MV_NET_PROTO_IP6, MV_NET_IP6_F_FLOW, IPV6_FLOW_LBL_FIELD_ID, MVPP2_MATCH_IPV6_FLBL},
+	 /* ipv6, next header */
+	{MV_NET_PROTO_IP6, MV_NET_IP6_F_NEXT_HDR, IPV6_NH_FIELD_ID, MVPP2_MATCH_IP_PROTO},
+	/* layer4, source port */
+	{MV_NET_PROTO_L4, MV_NET_L4_F_SP, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},
+	/* layer4, destination port */
+	{MV_NET_PROTO_L4, MV_NET_L4_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
+	/* layer4, checksum */
+	{MV_NET_PROTO_L4, MV_NET_L4_F_CSUM, NOT_SUPPORTED_YET, 0},
+	/* tcp, source port */
+	{MV_NET_PROTO_TCP, MV_NET_TCP_F_SP, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},
+	/* tcp, destination port */
+	{MV_NET_PROTO_TCP, MV_NET_TCP_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
+	/* tcp, checksum */
+	{MV_NET_PROTO_TCP, MV_NET_TCP_F_CSUM, NOT_SUPPORTED_YET, 0},
+	/* udp, source port */
+	{MV_NET_PROTO_UDP, MV_NET_UDP_F_SP, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},
+	/* udp, destination port */
+	{MV_NET_PROTO_UDP, MV_NET_UDP_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
+	/* udp, checksum */
+	{MV_NET_PROTO_UDP, MV_NET_UDP_F_CSUM, NOT_SUPPORTED_YET, 0},
+	/* icmp */
+	{MV_NET_PROTO_ICMP, 0, NOT_SUPPORTED_YET, 0},
+	/* arp */
+	{MV_NET_PROTO_ARP, 0, ARP_IPV4_DA_FIELD_ID, MVPP2_MATCH_ARP_TRGT_IP_ADDR},
 };
 
 static u32 lookup_field_id(u32 proto, u32 field, u32 *field_id, u32 *match_bm)
@@ -440,12 +468,113 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			ipv6_flag = 1;
 			field_bm |= MVPP2_MATCH_IPV6_PKT;
 		}
-
 		field_bm |= bm;
 
 		switch (field) {
+		case MAC_SA_FIELD_ID:
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(MAC_DA_FIELD_SIZE))) {
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+			rc = mv_pp2x_parse_mac_address((char *)rule->fields[idx1].key,
+						       &mng_pkt_key->pkt_key->eth_src.eth_add[0]);
+			if (rc < 0) {
+				pr_err("Unable to parse MAC SA\n");
+				return -EINVAL;
+			}
+			pr_debug("MAC SA: %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 mng_pkt_key->pkt_key->eth_src.eth_add[0],
+				 mng_pkt_key->pkt_key->eth_src.eth_add[1],
+				 mng_pkt_key->pkt_key->eth_src.eth_add[2],
+				 mng_pkt_key->pkt_key->eth_src.eth_add[3],
+				 mng_pkt_key->pkt_key->eth_src.eth_add[4],
+				 mng_pkt_key->pkt_key->eth_src.eth_add[5]);
+			rc = mv_pp2x_parse_mac_address((char *)rule->fields[idx1].mask,
+						       &mng_pkt_key->pkt_key->eth_src.eth_add_mask[0]);
+			if (rc < 0) {
+				pr_err("Unable to parse MAC SA mask\n");
+				return -EINVAL;
+			}
+			pr_debug("MAC SA MASK: %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 mng_pkt_key->pkt_key->eth_src.eth_add_mask[0],
+				 mng_pkt_key->pkt_key->eth_src.eth_add_mask[1],
+				 mng_pkt_key->pkt_key->eth_src.eth_add_mask[2],
+				 mng_pkt_key->pkt_key->eth_src.eth_add_mask[3],
+				 mng_pkt_key->pkt_key->eth_src.eth_add_mask[4],
+				 mng_pkt_key->pkt_key->eth_src.eth_add_mask[5]);
+			break;
+		case MAC_DA_FIELD_ID:
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(MAC_SA_FIELD_SIZE))) {
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+			rc = mv_pp2x_parse_mac_address((char *)rule->fields[idx1].key,
+						       &mng_pkt_key->pkt_key->eth_dst.eth_add[0]);
+			if (rc < 0) {
+				pr_err("Unable to parse MAC DA\n");
+				return -EINVAL;
+			}
+			pr_debug("MAC SA: %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 mng_pkt_key->pkt_key->eth_dst.eth_add[0],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add[1],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add[2],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add[3],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add[4],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add[5]);
+			rc = mv_pp2x_parse_mac_address((char *)rule->fields[idx1].mask,
+						       &mng_pkt_key->pkt_key->eth_dst.eth_add_mask[0]);
+			if (rc < 0) {
+				pr_err("Unable to parse MAC DA mask\n");
+				return -EINVAL;
+			}
+			pr_debug("MAC SA MASK: %02x:%02x:%02x:%02x:%02x:%02x\n",
+				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[0],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[1],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[2],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[3],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[4],
+				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[5]);
+			break;
+		case OUT_VLAN_PRI_FIELD_ID:
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(OUT_VLAN_PRI_FIELD_SIZE))) {
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+			mng_pkt_key->pkt_key->out_pbit =
+				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+
+			pr_debug("OUT_VLAN_PRI_FIELD_ID = %d\n", mng_pkt_key->pkt_key->out_pbit);
+			break;
+		case OUT_VLAN_ID_FIELD_ID:
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(OUT_VLAN_ID_FIELD_SIZE))) {
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+			mng_pkt_key->pkt_key->out_vid =
+				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+
+			pr_debug("OUT_VLAN_ID_FIELD_ID = %d\n", mng_pkt_key->pkt_key->out_vid);
+			break;
+		case IPV4_DSCP_FIELD_ID:
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(IPV4_DSCP_FIELD_SIZE))) {
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+			mng_pkt_key->pkt_key->ipvx_add.dscp =
+				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+			pr_debug("OUT_VLAN_ID_FIELD_ID = %d\n", mng_pkt_key->pkt_key->ipvx_add.dscp);
+
+			mng_pkt_key->pkt_key->ipvx_add.dscp_mask =
+				strtol((char *)(rule->fields[idx1].mask), NULL, 0);
+			pr_debug("OUT_VLAN_ID_FIELD_ID mask = %d\n", mng_pkt_key->pkt_key->ipvx_add.dscp_mask);
+			break;
 		case IPV4_SA_FIELD_ID:
-			if (rule->fields[idx1].size != 4) {
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(IPV4_SA_FIELD_SIZE))) {
 				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 				       rule->fields[idx1].size);
 				return -EINVAL;
@@ -477,7 +606,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				 mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[3]);
 			break;
 		case IPV4_DA_FIELD_ID:
-			if (rule->fields[idx1].size != 4) {
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(IPV4_DA_FIELD_SIZE))) {
 				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 				       rule->fields[idx1].size);
 				return -EINVAL;
@@ -521,7 +650,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			}
 			break;
 		case IPV6_SA_FIELD_ID:
-			if (rule->fields[idx1].size != 16) {
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(IPV6_SA_FIELD_SIZE))) {
 				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 				       rule->fields[idx1].size);
 				return -EINVAL;
@@ -545,7 +674,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			}
 			break;
 		case IPV6_DA_FIELD_ID:
-			if (rule->fields[idx1].size != 16) {
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(IPV6_DA_FIELD_SIZE))) {
 				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 				       rule->fields[idx1].size);
 				return -EINVAL;
@@ -569,7 +698,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			}
 			break;
 		case L4_SRC_FIELD_ID:
-			if (rule->fields[idx1].size != 2) {
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(L4_SRC_FIELD_SIZE))) {
 				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 				       rule->fields[idx1].size);
 				return -EINVAL;
@@ -580,7 +709,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			pr_debug("L4_SRC_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_src);
 			break;
 		case L4_DST_FIELD_ID:
-			if (rule->fields[idx1].size != 2) {
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(L4_DST_FIELD_SIZE))) {
 				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
 				       rule->fields[idx1].size);
 				return -EINVAL;
@@ -590,6 +719,9 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 
 			pr_debug("L4_DST_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_dst);
 			break;
+		default:
+			pr_err("%s(%d) protocol_field not supported yet!\n", __func__, __LINE__);
+			return -EINVAL;
 		}
 	}
 
@@ -614,7 +746,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 	else
-		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT;
+		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;

@@ -81,5 +81,6 @@ const char *pp2_cls_utils_tbl_action_type_str_get(int value);
 void print_horizontal_line(u32 char_count, const char *char_val);
 int mv_pp2x_ptr_validate(const void *ptr);
 int mv_pp2x_range_validate(int value, int min, int max);
+int mv_pp2x_parse_mac_address(char *buf, u8 *macaddr_parts);
 
 #endif /* _PP2_CLS_UTILS_H_ */
