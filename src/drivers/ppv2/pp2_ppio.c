@@ -37,6 +37,7 @@
 #include "pp2.h"
 #include "pp2_port.h"
 #include "lib/lib_misc.h"
+#include "cls/pp2_cls_mng.h"
 
 static struct pp2_ppio ppio_array[PP2_MAX_NUM_PACKPROCS][PP2_NUM_ETH_PPIO];
 
@@ -92,6 +93,14 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 	pp2_port_config_outq(*port);
 	(*ppio)->pp2_id = pp2_id;
 	(*ppio)->port_id = port_id;
+
+	if (params->type == PP2_PPIO_T_LOG) {
+		rc = pp2_cls_mng_set_logical_port_params(*ppio, params);
+		if (rc) {
+			pr_err("[%s] ppio init failed while initialize logical port\n", __func__);
+			return -EFAULT;
+		}
+	}
 
 	return rc;
 }

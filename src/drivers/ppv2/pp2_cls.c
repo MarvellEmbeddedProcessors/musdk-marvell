@@ -45,39 +45,18 @@
 
 int pp2_cls_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl)
 {
-	struct pp2_cls_cos_desc *cos;
-	u32 i, rc;
-	struct pp2_cls_tbl *tmp_tbl = NULL;
+	u32 rc;
 
 	/* Para check */
 	if (mv_pp2x_ptr_validate(params))
 		return -EINVAL;
 
-	rc = pp2_cls_mng_tbl_init(params);
+	rc = pp2_cls_mng_tbl_init(params, tbl, MVPP2_CLS_LKP_MUSDK_CLS);
 	if (rc) {
 		pr_err("cls manager table init error\n");
 		return rc;
 	}
-	rc = pp2_cls_db_mng_tbl_add(&tmp_tbl);
-	tmp_tbl->params.max_num_rules = params->max_num_rules;
-	tmp_tbl->params.type = params->type;
-	tmp_tbl->params.default_act.type = params->default_act.type;
-	cos = kmalloc(sizeof(*cos), GFP_KERNEL);
-	if (!cos) {
-		pr_err("%s(%d) no mem for pp2_cls_cos_desc!\n", __func__, __LINE__);
-		return -ENOMEM;
-	}
-	tmp_tbl->params.default_act.cos = cos;
-	tmp_tbl->params.default_act.cos->ppio = params->default_act.cos->ppio;
-	tmp_tbl->params.default_act.cos->tc = params->default_act.cos->tc;
 
-	tmp_tbl->params.key.key_size = params->key.key_size;
-	tmp_tbl->params.key.num_fields = params->key.num_fields;
-	for (i = 0; i < params->key.num_fields; i++) {
-		tmp_tbl->params.key.proto_field[i].proto = params->key.proto_field[i].proto;
-		tmp_tbl->params.key.proto_field[i].field = params->key.proto_field[i].field;
-	}
-	*tbl = tmp_tbl;
 	return 0;
 }
 
@@ -107,7 +86,7 @@ int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,
 	if (mv_pp2x_ptr_validate(action))
 		return -EINVAL;
 
-	rc = pp2_cls_mng_rule_add(tbl, rule, action);
+	rc = pp2_cls_mng_rule_add(tbl, rule, action, MVPP2_CLS_LKP_MUSDK_CLS);
 	if (rc)
 		pr_err("cls mng: unable to add rule\n");
 

@@ -1198,6 +1198,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++)
 			pr_debug("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
 	}
+	port->type = param->type;
 	/* Assing a CPU slot to avoid send cpu_slot as argument further */
 	hw = &inst->hw;
 	port->cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;

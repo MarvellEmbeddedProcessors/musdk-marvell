@@ -71,7 +71,8 @@ enum pp2_cls_rl_udf7_t {
 };
 
 enum pp2_cls_rl_prio_t {
-	MVPP2_CLS_MUSDK_PRIO = 0,
+	MVPP2_CLS_MUSDK_CLS_PRIO = 0,
+	MVPP2_CLS_MUSDK_DEF_PRIO,
 	MVPP2_CLS_KERNEL_C2_PRIO,
 	MVPP2_CLS_KERNEL_C3_PRIO
 };

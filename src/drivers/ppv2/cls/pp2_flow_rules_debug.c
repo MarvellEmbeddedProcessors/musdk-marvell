@@ -343,7 +343,7 @@ int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 	g_fl_rls.fl[g_fl_rls.fl_len].fl_log_id	= flow_log_id;
 	g_fl_rls.fl[g_fl_rls.fl_len].port_type	= port_type;
 	g_fl_rls.fl[g_fl_rls.fl_len].port_bm	= port_bm;
-	g_fl_rls.fl[g_fl_rls.fl_len].lu_type	= MVPP2_CLS_MUSDK_LKP_DEFAULT;
+	g_fl_rls.fl[g_fl_rls.fl_len].lu_type	= MVPP2_CLS_LKP_MUSDK_CLS;
 	g_fl_rls.fl[g_fl_rls.fl_len].enabled	= enabled;
 	g_fl_rls.fl[g_fl_rls.fl_len].prio		= prio;
 	g_fl_rls.fl[g_fl_rls.fl_len].engine		= engine;

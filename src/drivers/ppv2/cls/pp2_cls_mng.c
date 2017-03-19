@@ -211,12 +211,80 @@ static int pp2_cls_add_ip6_tcp_logical_id(u16 *select_logical_id)
 	return i;
 }
 
-int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
+/*
+ * pp2_cls_mng_add_default_flow()
+ * add default flow&rule for all lookup id
+ */
+static int pp2_cls_mng_add_default_flow(struct pp2_ppio *ppio)
+{
+	struct pp2_cls_tbl_params tbl_params;
+	struct pp2_cls_tbl_rule rule;
+	struct pp2_cls_tbl *tbl;
+
+	/* add default flow for all lkpid */
+	tbl_params.type = PP2_CLS_TBL_MASKABLE;
+	tbl_params.max_num_rules = 1;
+	tbl_params.key.key_size = 0;
+	tbl_params.key.num_fields = 0;
+
+	tbl_params.default_act.cos = kmalloc((sizeof(*tbl_params.default_act.cos)), GFP_KERNEL);
+	if (!tbl_params.default_act.cos)
+		return -ENOMEM;
+
+	tbl_params.default_act.type = PP2_CLS_TBL_ACT_DONE;
+	tbl_params.default_act.cos->ppio = ppio;
+	tbl_params.default_act.cos->tc = 0;
+
+	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF);
+
+	/* add default c2 rule */
+	rule.num_fields = 0;
+	pp2_cls_mng_rule_add(tbl, &rule, &tbl_params.default_act, MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF);
+
+	kfree(tbl_params.default_act.cos);
+
+	return 0;
+}
+
+/*
+ * pp2_cls_mng_set_logical_port_params()
+ * configure parser and default flow for logical port
+ */
+int pp2_cls_mng_set_logical_port_params(struct pp2_ppio *ppio, struct pp2_ppio_params *params)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	int rc;
+
+	rc = pp2_cls_mng_add_default_flow(ppio);
+	if (rc) {
+		pr_err("%s(%d) pp2_cls_mng_add_default_flow_for_log fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	rc = pp2_prs_eth_start_hdr_set(port, params->eth_start_hdr);
+	if (rc) {
+		pr_err("%s(%d) pp2_prs_eth_start_hdr_set fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	rc = pp2_prs_set_log_port(port, &params->specific_type_params.log_port_params);
+	if (rc) {
+		pr_err("%s(%d) pp2_prs_set_log_port fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl, int lkp_type)
 {
 	struct pp2_cls_fl_rule_list_t *fl_rls;
 	struct pp2_ppio *ppio;
 	struct pp2_port *port;
 	struct pp2_inst *inst;
+	struct pp2_cls_tbl *tbl_node = NULL;
+	struct pp2_cls_cos_desc *cos;
+
 	u32 idx;
 	u32 field, match_bm;
 	u32 rc = 0;
@@ -233,7 +301,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	if (mv_pp2x_ptr_validate(params))
 		return -EINVAL;
 
-	if (mv_pp2x_range_validate(params->key.num_fields, 1, PP2_CLS_TBL_MAX_NUM_FIELDS))
+	if (mv_pp2x_range_validate(params->key.num_fields, 0, PP2_CLS_TBL_MAX_NUM_FIELDS))
 		return -EINVAL;
 	pr_debug("key.num_fields = %d\n", params->key.num_fields);
 
@@ -304,10 +372,10 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 	fl_rls->fl[0].port_bm = (1 << port->id);
 
 	/* lookup_type */
-	fl_rls->fl[0].lu_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
+	fl_rls->fl[0].lu_type = lkp_type;
 	fl_rls->fl[0].enabled = true;
-	/* priority - TODO - not implemented yet in API */
-	fl_rls->fl[0].prio = MVPP2_CLS_MUSDK_PRIO;
+	fl_rls->fl[0].prio = lkp_type == MVPP2_CLS_LKP_MUSDK_CLS ? MVPP2_CLS_MUSDK_CLS_PRIO : MVPP2_CLS_MUSDK_DEF_PRIO;
+	fl_rls->fl[0].udf7 = port->type == PP2_PPIO_T_LOG ? MVPP2_CLS_MUSDK_LOG_UDF7 : MVPP2_CLS_MUSDK_NIC_UDF7;
 	fl_rls->fl[0].seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
 	fl_rls->fl[0].field_id_cnt = params->key.num_fields - (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3B);
 
@@ -389,6 +457,28 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params)
 		}
 		pp2_cls_lkp_dcod_enable(inst, select_logical_id[i]);
 	}
+
+	/* add flow to list db */
+	rc = pp2_cls_db_mng_tbl_add(&tbl_node);
+	tbl_node->params.max_num_rules = params->max_num_rules;
+	tbl_node->params.type = params->type;
+	tbl_node->params.default_act.type = params->default_act.type;
+	cos = kmalloc(sizeof(*cos), GFP_KERNEL);
+	if (!cos) {
+		pr_err("%s(%d) no mem for pp2_cls_cos_desc!\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+	tbl_node->params.default_act.cos = cos;
+	tbl_node->params.default_act.cos->ppio = params->default_act.cos->ppio;
+	tbl_node->params.default_act.cos->tc = params->default_act.cos->tc;
+
+	tbl_node->params.key.key_size = params->key.key_size;
+	tbl_node->params.key.num_fields = params->key.num_fields;
+	for (i = 0; i < params->key.num_fields; i++) {
+		tbl_node->params.key.proto_field[i].proto = params->key.proto_field[i].proto;
+		tbl_node->params.key.proto_field[i].field = params->key.proto_field[i].field;
+	}
+	*tbl = tbl_node;
 
 end:
 	kfree(fl_rls);
@@ -804,7 +894,8 @@ static int pp2_cls_mng_rule_update_db(struct pp2_cls_tbl_rule *rule, struct pp2_
 	return 0;
 }
 
-int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action *action)
+int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
+			 struct pp2_cls_tbl_action *action, int lkp_type)
 {
 	struct pp2_cls_pkt_key_t pkt_key;
 	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
@@ -853,7 +944,8 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		MVPP2_MEMSET_ZERO(c2_entry);
 		c2_entry.mng_pkt_key = &mng_pkt_key;
 		c2_entry.mng_pkt_key->pkt_key = &pkt_key;
-		c2_entry.lkp_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
+		c2_entry.lkp_type = lkp_type;
+		c2_entry.lkp_type_mask = MVPP2_C2_HEK_LKP_TYPE_MASK >> MVPP2_C2_HEK_LKP_TYPE_OFFS;
 		memcpy(&c2_entry.port, &rule_port, sizeof(rule_port));
 		memcpy(&c2_entry.action, &pkt_action, sizeof(pkt_action));
 		memcpy(&c2_entry.qos_value, &pkt_qos, sizeof(pkt_qos));
@@ -871,7 +963,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		MVPP2_MEMSET_ZERO(c3_entry);
 		c3_entry.mng_pkt_key = &mng_pkt_key;
 		c3_entry.mng_pkt_key->pkt_key = &pkt_key;
-		c3_entry.lkp_type = MVPP2_CLS_MUSDK_LKP_DEFAULT;
+		c3_entry.lkp_type = lkp_type;
 		memcpy(&c3_entry.port, &rule_port, sizeof(rule_port));
 		memcpy(&c3_entry.action, &pkt_action, sizeof(pkt_action));
 		memcpy(&c3_entry.qos_value, &pkt_qos, sizeof(pkt_qos));
@@ -950,7 +1042,7 @@ int pp2_cls_mng_rule_modify(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *ru
 		return rc;
 	}
 
-	rc = pp2_cls_mng_rule_add(tbl, rule, action);
+	rc = pp2_cls_mng_rule_add(tbl, rule, action, MVPP2_CLS_LKP_MUSDK_CLS);
 	if (rc) {
 		pr_err("cls manager rule modify - add error\n");
 		return rc;

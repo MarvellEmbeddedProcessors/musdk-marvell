@@ -347,6 +347,8 @@ struct pp2_port {
 	int maintain_stats;
 	/* Port statistics */
 	struct pp2_ppio_statistics stats;
+	/* Logical or nic port */
+	enum pp2_ppio_type type;
 };
 
 /**
