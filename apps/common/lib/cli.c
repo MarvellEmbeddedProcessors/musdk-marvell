@@ -228,14 +228,9 @@ typedef struct cli {
 
 static inline void clear_line(cli_t *cli_p)
 {
-	char empty_line[CLI_MAX_LINE_LENGTH];
-	u32 size = strlen(cli_p->line) + strlen(cli_p->prompt) + 2;
-
-	if (size > CLI_MAX_LINE_LENGTH)
-		size = CLI_MAX_LINE_LENGTH;
-	memset(empty_line, ' ', size);
-	cli_p->print_cb("\r%s", empty_line);
-	cli_p->print_cb("\r");
+	memset(cli_p->line, 0, sizeof(cli_p->line));
+	cli_p->print_cb("\33[2K\r");
+	cli_p->curr_pos = 0;
 }
 
 
@@ -324,7 +319,6 @@ static void get_hist_lst(cli_t *cli_p)
 			cli_p->curr_pos = hist_line->length;
 			memcpy(cli_p->line, hist_line->line, (uint32_t)cli_p->curr_pos);
 		}
-		cli_p->hist_req = 0;
 	} else if (cli_p->line[cli_p->curr_pos] == 'B') { /* down */
 		if ((cli_p->hist_lst_pos != &cli_p->hist_lst) &&
 			(CLI_HISTORY_LINE_OBJ(cli_p->hist_lst_pos)->length != 0)) {
@@ -335,8 +329,8 @@ static void get_hist_lst(cli_t *cli_p)
 			memcpy(cli_p->line, hist_line->line, (uint32_t)cli_p->curr_pos);
 			cli_p->hist_lst_pos = cli_p->hist_lst_pos->prev;
 		}
-		cli_p->hist_req = 0;
 	}
+	cli_p->hist_req = 0;
 }
 
 static int get_line(cli_t *cli_p, int *p_NumOfCharsRead)
