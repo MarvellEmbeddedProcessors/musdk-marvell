@@ -55,7 +55,7 @@ void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 	pr_info("dumping flow_log_id %d %s\n", flow->fl_log_id, name);
 
 	for (i = 0; i < flow->fl_len; i++) {
-		pr_info("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d ref_cnt %2d skip %d\n",
+		pr_info("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d udf7 %2d ref_cnt %2d skip %d\n",
 			(int)flow->fl[i].enabled,
 			(int)flow->fl[i].engine,
 			(int)flow->fl[i].field_id_cnt,
@@ -63,6 +63,7 @@ void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 			(int)flow->fl[i].port_bm,
 			(int)flow->fl[i].port_type,
 			(int)flow->fl[i].prio,
+			(int)flow->fl[i].udf7,
 			(int)flow->fl[i].ref_cnt,
 			(int)flow->fl[i].skip);
 	}
@@ -802,6 +803,7 @@ static int pp2_cls_rl_hit_cnt_upd(struct pp2_cls_rl_entry_t *rl,
 		if ((fl_rls->fl[rl_i].engine		== rl->engine)		&&
 		    (fl_rls->fl[rl_i].lu_type		== rl->lu_type)		&&
 		    (fl_rls->fl[rl_i].prio		== rl->prio)		&&
+		    (fl_rls->fl[rl_i].udf7		== rl->udf7)		&&
 		    (fl_rls->fl[rl_i].field_id_cnt	== rl->field_id_cnt)	&&
 		    (!memcmp(fl_rls->fl[rl_i].field_id,
 				rl->field_id,
@@ -872,6 +874,7 @@ static int pp2_cls_rl_hit_cnt_upd_reorder(struct pp2_cls_fl_t *fl_rls,
 		if ((fl_rls->fl[rl_i].engine		== rl->engine)		&&
 		    (fl_rls->fl[rl_i].lu_type		== rl->lu_type)		&&
 		    (fl_rls->fl[rl_i].prio		== rl->prio)		&&
+		    (fl_rls->fl[rl_i].udf7		== rl->udf7)		&&
 		    (fl_rls->fl[rl_i].field_id_cnt	== rl->field_id_cnt)	&&
 		    (fl_rls->fl[rl_i].port_type		== rl->port_type)	&&
 		    (!memcmp(fl_rls->fl[rl_i].field_id,
@@ -1727,6 +1730,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_inst *inst,
 	rl_db.port_bm		= rl->port_bm;
 	rl_db.port_type		= rl->port_type;
 	rl_db.prio		= rl->prio;
+	rl_db.udf7		= rl->udf7;
 
 	rc = pp2_db_cls_fl_rule_set(inst, rl->rl_off, &rl_db);
 	if (rc) {
@@ -1820,6 +1824,12 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 	}
 
 	rc = mv_pp2x_cls_sw_flow_seq_ctrl_set(&fe, rl->seq_ctrl);
+	if (rc) {
+		pr_err("recvd ret_code(%d)\n", rc);
+		return rc;
+	}
+
+	rc = mv_pp2x_cls_sw_flow_udf7_set(&fe, rl->udf7);
 	if (rc) {
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
@@ -2130,6 +2140,7 @@ static int pp2_cls_fl_cur_get(struct pp2_inst *inst,
 		cur_fl->fl[i].port_bm	= fl_rl_db->flow[i].port_bm;
 		cur_fl->fl[i].port_type = fl_rl_db->flow[i].port_type;
 		cur_fl->fl[i].prio	= fl_rl_db->flow[i].prio;
+		cur_fl->fl[i].udf7	= fl_rl_db->flow[i].udf7;
 		memcpy(&cur_fl->fl[i].ref_cnt[0],
 		       &fl_rl_db->flow[i].ref_cnt[0],
 			MVPP2_MAX_NUM_GMACS * sizeof(u16));
@@ -2191,6 +2202,7 @@ static int pp2_cls_fl_rls_log_rl_id_upd(struct pp2_cls_fl_rule_list_t *add_rls,
 			    add_rls->fl[i].port_bm	== mrg_rls->fl[j].port_bm	&&
 			    add_rls->fl[i].port_type	== mrg_rls->fl[j].port_type	&&
 			    add_rls->fl[i].prio	== mrg_rls->fl[j].prio		&&
+			    add_rls->fl[i].udf7	== mrg_rls->fl[j].udf7		&&
 			    !memcmp(add_rls->fl[i].field_id, mrg_rls->fl[j].field_id,
 				    sizeof(add_rls->fl[i].field_id))) {
 				/* found the added rule, update logial rule ID */
@@ -2391,6 +2403,7 @@ int pp2_cls_fl_rule_add(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl
 			fl->port_bm	= fl_rl->port_bm;
 			fl->port_type	= fl_rl->port_type;
 			fl->prio	= fl_rl->prio;
+			fl->udf7	= fl_rl->udf7;
 			MVPP2_MEMSET_ZERO(fl->ref_cnt);
 			fl->rl_log_id	= MVPP2_CLS_UNDF_FL_LOG_ID;
 			fl->rl_off	= lkp_dcod_db.flow_off + i;
@@ -2412,6 +2425,7 @@ int pp2_cls_fl_rule_add(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl
 				    cur_fl->fl[j].field_id_cnt	== fl_rl->field_id_cnt	&&
 				    cur_fl->fl[j].lu_type	== fl_rl->lu_type	&&
 				    cur_fl->fl[j].prio		== fl_rl->prio		&&
+				    cur_fl->fl[j].udf7		== fl_rl->udf7		&&
 				    !memcmp(cur_fl->fl[j].field_id,
 					    fl_rl->field_id,
 					    sizeof(fl_rl->field_id))) {
@@ -2563,6 +2577,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 				rl_en->lu_type		== rl_db->lu_type	&&
 				rl_en->port_type	== rl_db->port_type	&&
 				rl_en->prio		== rl_db->prio		&&
+				rl_en->udf7		== rl_db->udf7		&&
 				!memcmp(rl_en->field_id, rl_db->field_id,
 					rl_en->field_id_cnt * sizeof(rl_en->field_id[0]))) {
 				/* for virt port, port_id does not matter */
@@ -2598,6 +2613,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 				    rl_db->port_bm	== MVPP2_PORT_BM_INV	&&
 				    rl_db->port_type	== MVPP2_PORT_TYPE_INV	&&
 				    rl_en->prio	== rl_db->prio		&&
+				    rl_en->udf7	== rl_db->udf7		&&
 				    !memcmp(rl_en->field_id, rl_db->field_id, rl_en->field_id_cnt * sizeof(char))) {
 					/*
 					 * found a vacant rule entry that was invalid, update
@@ -2616,8 +2632,8 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 			pr_err("failed to find flow rule #%d to enable\n", i);
 			pr_err("fl_id(%d),port_type(%d),port_bm(%d),",
 			       fl_rls->fl[i].fl_log_id, fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
-			pr_err("prio(%d),lu_type(%d),engine(%d),field_id_cnt(%d)",
-			       fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
+			pr_err("prio(%d),lu_type(%d),engine(%d),udf7(%d),field_id_cnt(%d)",
+			       fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine, fl_rls->fl[i].udf7,
 			       fl_rls->fl[i].field_id_cnt);
 			pr_err("field_id_0(%x), field_id_1(%x),field_id_2(%x),field_id_3(%x)\n",
 			       fl_rls->fl[i].field_id[0], fl_rls->fl[i].field_id[1], fl_rls->fl[i].field_id[2],
@@ -2652,8 +2668,8 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 		pr_debug("enable: fl_log_id[%d] rl_log_id[%d] rl_off[%d] port_type[%d] port_bm[%d]",
 			 fl_rls->fl[i].fl_log_id, rl_en->rl_log_id, rl_off,
 			 fl_rls->fl[i].port_type, fl_rls->fl[i].port_bm);
-		pr_debug("prio[%d] lu_type[%d] engine[%d] field_id_cnt[%d]\n",
-			 fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine,
+		pr_debug("prio[%d] lu_type[%d] engine[%d] udf7[%d] field_id_cnt[%d]\n",
+			 fl_rls->fl[i].prio, fl_rls->fl[i].lu_type, fl_rls->fl[i].engine, fl_rls->fl[i].udf7,
 			 fl_rls->fl[i].field_id_cnt);
 
 		/* update the DB */
@@ -2777,6 +2793,7 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			rl_en.port_bm = rl_db.port_bm;
 			rl_en.port_type = rl_db.port_type;
 			rl_en.prio = rl_db.prio;
+			rl_en.udf7 = rl_db.udf7;
 			rl_en.rl_log_id = rl_db.rl_log_id;
 			rc = pp2_cls_fl_rl_hw_ena(inst, &rl_en);
 			if (rc) {
@@ -2788,8 +2805,8 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 
 		pr_debug("disable: rl_off[%d] rl_log_id[%d] port_type[%d] port_bm[%d] prio[%d]",
 			 rl_off, rl_db.rl_log_id, rl_db.port_type, rl_db.port_bm, rl_db.prio);
-		pr_debug("lu_type[%d] engine[%d] field_id_cnt[%d]\n",
-			 rl_db.lu_type, rl_db.engine, rl_db.field_id_cnt);
+		pr_debug("lu_type[%d] engine[%d] udf7[%d] field_id_cnt[%d]\n",
+			 rl_db.lu_type, rl_db.engine, rl_db.udf7, rl_db.field_id_cnt);
 
 		/* update rule entry in DB */
 		rc = pp2_db_cls_fl_rule_set(inst, rl_off, &rl_db);
@@ -2896,6 +2913,7 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		fl_rls->fl[fl_rls->fl_len].lu_type = lkp_type;
 		fl_rls->fl[fl_rls->fl_len].enabled = true;
 		fl_rls->fl[fl_rls->fl_len].prio = prio;
+		fl_rls->fl[fl_rls->fl_len].udf7 = MVPP2_CLS_KERNEL_UDF7;
 		fl_rls->fl[fl_rls->fl_len].seq_ctrl = seq_ctrl;
 		fl_rls->fl[fl_rls->fl_len].field_id_cnt = (u8)num_of_fields;
 		fl_rls->fl[fl_rls->fl_len].field_id[0] = (u8)fields_arr[0];

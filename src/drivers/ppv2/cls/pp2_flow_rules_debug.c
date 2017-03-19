@@ -630,7 +630,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 	}
 	memset(fl_rl_list_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
 
-	printf("log_flow_id enabled offset engine logID lut portBm portType pri refCnt fid# = field_Ids\n");
+	printf("log_flow_id enabled offset engine logID lut portBm udf7 portType pri refCnt fid# = field_Ids\n");
 
 	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
 		rc = pp2_db_cls_lkp_dcod_get(inst, i, &lkp_dcod_db);
@@ -666,10 +666,11 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 			for (k = 0; k < MVPP2_MAX_NUM_GMACS; k++)
 				ref_sum += fl_rl_list_db->flow[j].ref_cnt[k];
 
-			printf(" %5d %3d %6d %-8s %3d %6d",
+			printf(" %5d %3d %6d %4d %-8s %3d %6d",
 			       fl_rl_list_db->flow[j].rl_log_id,
 			       fl_rl_list_db->flow[j].lu_type,
 			       fl_rl_list_db->flow[j].port_bm,
+			       fl_rl_list_db->flow[j].udf7,
 			       pp2_cls_utils_port_type_str_get(fl_rl_list_db->flow[j].port_type),
 			       fl_rl_list_db->flow[j].prio,
 			       ref_sum);

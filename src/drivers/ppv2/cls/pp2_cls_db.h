@@ -106,6 +106,7 @@ struct pp2_db_cls_fl_rule_t {
 	bool				enabled;		/* enable flag			*/
 	u8			prio;	/* HW priority			*/
 	u8			engine;	/* rule engine			*/
+	u8			udf7;
 	u8			field_id_cnt;			/* field ID count		*/
 	u8			field_id[MVPP2_FLOW_FIELD_COUNT_MAX];/* field IDs			*/
 	u16			ref_cnt[MVPP2_MAX_NUM_GMACS];	/* reference count		*/

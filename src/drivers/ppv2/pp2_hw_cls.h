@@ -92,6 +92,7 @@ int mv_pp2x_cls_sw_flow_portid_select(struct mv_pp2x_cls_flow_entry *fe, int fro
 int mv_pp2x_cls_sw_flow_hek_num_set(struct mv_pp2x_cls_flow_entry *fe, int num_of_fields);
 int mv_pp2x_cls_sw_flow_hek_get(struct mv_pp2x_cls_flow_entry *fe, int *num_of_fields, int field_ids[]);
 int mv_pp2x_cls_sw_flow_hek_set(struct mv_pp2x_cls_flow_entry *fe, int field_index, int field_id);
+int mv_pp2x_cls_sw_flow_udf7_set(struct mv_pp2x_cls_flow_entry *fe, int mode);
 int mv_pp2x_cls_sw_flow_seq_ctrl_set(struct mv_pp2x_cls_flow_entry *fe, int mode);
 int mv_pp2x_cls_sw_flow_seq_ctrl_get(struct mv_pp2x_cls_flow_entry *fe, int *mode);
 int mv_pp2x_cls_sw_flow_engine_set(struct mv_pp2x_cls_flow_entry *fe, int engine, int is_last);

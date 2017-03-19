@@ -64,6 +64,11 @@
 /******************************************************************************/
 /*                              ENUMERATIONS                                  */
 /******************************************************************************/
+enum pp2_cls_rl_udf7_t {
+	MVPP2_CLS_KERNEL_UDF7 = 1,
+	MVPP2_CLS_MUSDK_NIC_UDF7 = 1,
+	MVPP2_CLS_MUSDK_LOG_UDF7 = 2,
+};
 
 enum pp2_cls_rl_prio_t {
 	MVPP2_CLS_MUSDK_PRIO = 0,
@@ -131,6 +136,7 @@ struct pp2_cls_fl_rule_entry_t {
 	u8			enabled;	/* enable flag		*/
 	u8			prio;	/* HW priority                  */
 	u8			engine;	/* engine to use                */
+	u8			udf7;
 	u8			seq_ctrl;
 	u8			field_id_cnt;			/* field ID count		*/
 	u8			field_id[MVPP2_FLOW_FIELD_COUNT_MAX];/* field IDs			*/
@@ -152,6 +158,7 @@ struct pp2_cls_rl_entry_t {
 	u8			engine;	/* engine to use                */
 	u8			enabled;	/* enable flag			*/
 	u8			skip;				/* skip flag			*/
+	u8			udf7;
 	u8			seq_ctrl;
 	u8			field_id_cnt;			/* field ID count		*/
 	u8			field_id[MVPP2_FLOW_FIELD_COUNT_MAX];/* field IDs			*/
