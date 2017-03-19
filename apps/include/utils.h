@@ -91,6 +91,7 @@ static inline void swap_l3(char *buf)
 	((uint32_t *)buf)[1] = tmp32;
 }
 
+int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[]);
 u64 app_get_sys_dma_high_addr(void);
 int app_hif_init(struct pp2_hif **hif);
 int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pbuffs_inf, int num_pools,

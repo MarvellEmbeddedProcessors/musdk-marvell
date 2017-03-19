@@ -53,6 +53,7 @@
 #define CLS_APP_PPIO_NAME_MAX			15
 #define CLS_APP_PORT_NAME_MAX			15
 #define CLS_APP_MAX_NUM_OF_RULES		20
+#define CLS_COMMAND_LINE_SIZE			256
 
 #define CLS_APP_KEY_MEM_SIZE_MAX	(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
@@ -103,6 +104,8 @@ struct glob_arg {
 	int			num_pools;
 	struct pp2_bpool	***pools;
 	struct pp2_buff_inf	***buffs_inf;
+	struct pp2_init_params	pp2_params;
+	struct pp2_ppio_params	port_params;
 };
 
 struct local_arg {
@@ -201,7 +204,7 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 	} else if (!strcmp(optarg, "vlan_id")) {
 		*proto = MV_NET_PROTO_VLAN;
 		*field = MV_NET_VLAN_F_ID;
-		key_size = 1;
+		key_size = 2;
 	} else if (!strcmp(optarg, "vlan_tci")) {
 		*proto = MV_NET_PROTO_VLAN;
 		*field = MV_NET_VLAN_F_TCI;
@@ -1040,6 +1043,212 @@ static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+static int pp2_cls_cli_ppio_tag_mode(struct glob_arg *garg, int argc, char *argv[])
+{
+	int i, option;
+	int long_index = 0;
+	enum pp2_ppio_eth_start_hdr eth_hdr = -1;
+	struct pp2_ppio_params *port_params = &garg->port_params;
+	struct option long_options[] = {
+		{"none", no_argument, 0, 'n'},
+		{"dsa", no_argument, 0, 'd'},
+		{"extended_dsa", no_argument, 0, 'e'},
+		{0, 0, 0, 0}
+	};
+	if (argc != 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
+		/* Get parameters */
+		switch (option) {
+		case 'n':
+			eth_hdr = PP2_PPIO_HDR_ETH;
+			break;
+		case 'd':
+			eth_hdr = PP2_PPIO_HDR_ETH_DSA;
+			break;
+		case 'e':
+			eth_hdr = PP2_PPIO_HDR_ETH_EXT_DSA;
+			break;
+		default:
+			printf("parsing fail, wrong input\n");
+			return -EINVAL;
+		}
+	}
+
+	if (eth_hdr < 0 || eth_hdr >= PP2_PPIO_HDR_OUT_OF_RANGE) {
+		printf("parsing fail, wrong input\n");
+		return -EFAULT;
+	}
+
+	port_params->eth_start_hdr = eth_hdr;
+
+	return 0;
+}
+
+static int pp2_cls_logical_port_params(struct glob_arg *garg, int argc, char *argv[])
+{
+	char *ret_ptr;
+	int i, j, option;
+	int long_index = 0;
+	u32 r_idx = 0;
+	struct pp2_ppio_params *port_params = &garg->port_params;
+	struct pp2_ppio_log_port_params params;
+	struct pp2_ppio_log_port_rule_params *rules_params;
+	struct pp2_ppio_log_port_params *log_port_params =
+					&port_params->specific_type_params.log_port_params;
+	struct option long_options[] = {
+		{"target", required_argument, 0, 'c'},
+		{"num_proto_rule_sets", required_argument, 0, 'n'},
+		{"num_rules", required_argument, 0, 'm'},
+		{"rule_type", required_argument, 0, 'a'},
+		{"proto", required_argument, 0, 't'},
+		{"proto_val", required_argument, 0, 'l'},
+		{"special_proto", required_argument, 0, 's'},
+		{"special_fields", required_argument, 0, 'f'},
+		{"field_val", required_argument, 0, 'v'},
+		{0, 0, 0, 0}
+	};
+
+	if  (argc < 2 || argc > (6 + 2 * PP2_MAX_PROTO_SUPPORTED + 2 * PP2_MAX_FIELDS_SUPPORTED)) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	memset(&params, 0, sizeof(struct pp2_ppio_log_port_params));
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
+		/* Get parameters */
+		switch (option) {
+		case 'c':
+			params.target_classification.target = strtoul(optarg, &ret_ptr, 0);
+			if (params.target_classification.target != 0 && params.target_classification.target != 1) {
+				printf("parsing fail, wrong input for --target\n");
+				return -EINVAL;
+			}
+			break;
+		case 'n':
+			params.target_classification.num_proto_rule_sets = strtoul(optarg, &ret_ptr, 0);
+			if (params.target_classification.num_proto_rule_sets <= 0 &&
+			    params.target_classification.num_proto_rule_sets > PP2_MAX_PROTO_SUPPORTED) {
+				printf("parsing fail, wrong input for --num_proto_rule_sets\n");
+				return -EINVAL;
+			}
+			break;
+		case 'm':
+			params.target_classification.rule_sets[r_idx].num_rules = strtoul(optarg, &ret_ptr, 0);
+			if (params.target_classification.rule_sets[r_idx].num_rules <= 0 &&
+			    params.target_classification.rule_sets[r_idx].num_rules > PP2_MAX_PROTO_SUPPORTED) {
+				printf("parsing fail, wrong input for --num_rules\n");
+				return -EINVAL;
+			}
+			for (j = 0; j < params.target_classification.rule_sets[r_idx].num_rules &&
+			     ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); j++) {
+				if (option != 'a') {
+					printf("parsing fail, wrong input\n");
+					return -EINVAL;
+				}
+				rules_params = &params.target_classification.rule_sets[r_idx].rules[j];
+				rules_params->rule_type = strtoul(optarg, &ret_ptr, 0);
+				if (rules_params->rule_type != 0 &&
+				    rules_params->rule_type != 1) {
+					printf("parsing fail, wrong input for --rule_type\n");
+					return -EINVAL;
+				}
+				if (!rules_params->rule_type) {
+					option = getopt_long_only(argc, argv, "", long_options, &long_index);
+					if (option != 't') {
+						printf("parsing fail, missing input --proto\n");
+						return -EINVAL;
+					}
+					rules_params->u.proto_params.proto =
+									strtoul(optarg, &ret_ptr, 0);
+					if (rules_params->u.proto_params.proto < 0 ||
+					    rules_params->u.proto_params.proto
+					    >= MV_NET_PROTO_LAST) {
+						printf("parsing fail, wrong input for --proto\n");
+						return -EINVAL;
+					}
+					option = getopt_long_only(argc, argv, "", long_options, &long_index);
+					if (option != 'l') {
+						printf("parsing fail, missing input --proto_val\n");
+						return -EINVAL;
+					}
+					rules_params->u.proto_params.val =
+									strtoul(optarg, &ret_ptr, 0);
+					if (rules_params->u.proto_params.val != 0 &&
+					    rules_params->u.proto_params.val != 1) {
+						printf("parsing fail, wrong input for --proto_val\n");
+						return -EINVAL;
+					}
+				} else {
+					option = getopt_long_only(argc, argv, "", long_options, &long_index);
+					if (option != 's') {
+						printf("parsing fail, missing --special_proto\n");
+						return -EINVAL;
+					}
+					rules_params->u.proto_field_params.proto_field.proto
+											= strtoul(optarg, &ret_ptr, 0);
+					if (rules_params->u.proto_field_params.proto_field.proto
+					    < 0 ||
+					    rules_params->u.proto_field_params.proto_field.proto
+					    >= PP2_MAX_PROTO_SUPPORTED) {
+						printf("parsing fail, wrong input for --special_proto\n");
+						return -EINVAL;
+					}
+					option = getopt_long_only(argc, argv, "", long_options, &long_index);
+					if (option != 'f') {
+						printf("parsing fail, missing --special_fields\n");
+						return -EINVAL;
+					}
+					rules_params->u.proto_field_params.proto_field.field.eth =
+											strtoul(optarg, &ret_ptr, 0);
+					if (rules_params->u.proto_field_params.proto_field.field.eth
+					    < 0 ||
+					    rules_params->u.proto_field_params.proto_field.field.eth
+					    >= PP2_MAX_FIELDS_SUPPORTED) {
+						printf("parsing fail, wrong input for --special_fields\n");
+						return -EINVAL;
+					}
+					option = getopt_long_only(argc, argv, "", long_options, &long_index);
+					if (option != 'v') {
+						printf("parsing fail, missing --field_val\n");
+						return -EINVAL;
+					}
+					rules_params->u.proto_field_params.val =
+									strtoul(optarg, &ret_ptr, 0);
+					if (rules_params->u.proto_field_params.val < 0) {
+						printf("parsing fail, wrong input for --field_val\n");
+						return -EINVAL;
+					}
+				}
+			}
+			r_idx++;
+			break;
+		default:
+			printf("(%d) parsing fail, wrong input\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	log_port_params->target_classification.target = params.target_classification.target;
+	log_port_params->target_classification.num_proto_rule_sets =  params.target_classification.num_proto_rule_sets;
+	for (i = 0; i < log_port_params->target_classification.num_proto_rule_sets; i++) {
+		log_port_params->target_classification.rule_sets[i].num_rules =
+					params.target_classification.rule_sets[i].num_rules;
+		for (j = 0; j < params.target_classification.rule_sets[i].num_rules; j++)
+			log_port_params->target_classification.rule_sets[i].rules[j] =
+					params.target_classification.rule_sets[i].rules[j];
+	}
+
+	return 0;
+}
+
 #ifdef PKT_ECHO_SUPPORT
 #ifdef USE_APP_PREFETCH
 static inline void prefetch(const void *ptr)
@@ -1188,7 +1397,7 @@ static int main_loop(void *arg, int *running)
 
 static int init_all_modules(void)
 {
-	struct pp2_init_params	 pp2_params;
+	struct pp2_init_params *pp2_params = &garg.pp2_params;
 	int			 err;
 
 	pr_info("Global initializations ... ");
@@ -1197,29 +1406,29 @@ static int init_all_modules(void)
 	if (err)
 		return err;
 
-	memset(&pp2_params, 0, sizeof(pp2_params));
-	pp2_params.hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
-	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
+	memset(pp2_params, 0, sizeof(*pp2_params));
+	pp2_params->hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
+	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 	/* Enable 10G port */
-	pp2_params.ppios[0][0].is_enabled = 1;
-	pp2_params.ppios[0][0].first_inq = 0;
+	pp2_params->ppios[0][0].is_enabled = 1;
+	pp2_params->ppios[0][0].first_inq = 0;
 	/* Enable 1G ports */
-	pp2_params.ppios[0][1].is_enabled = 1;
-	pp2_params.ppios[0][1].first_inq = 0;
-	pp2_params.ppios[0][2].is_enabled = 1;
-	pp2_params.ppios[0][2].first_inq = 0;
+	pp2_params->ppios[0][1].is_enabled = 1;
+	pp2_params->ppios[0][1].first_inq = 0;
+	pp2_params->ppios[0][2].is_enabled = 1;
+	pp2_params->ppios[0][2].first_inq = 0;
 
 	if (garg.pp2_num_inst == 2) {
 		/* Enable 10G port */
-		pp2_params.ppios[1][0].is_enabled = 1;
-		pp2_params.ppios[1][0].first_inq = 0;
+		pp2_params->ppios[1][0].is_enabled = 1;
+		pp2_params->ppios[1][0].first_inq = 0;
 		/* Enable 1G ports */
-		pp2_params.ppios[1][1].is_enabled = 1;
-		pp2_params.ppios[1][1].first_inq = 0;
-		pp2_params.ppios[1][2].is_enabled = 1;
-		pp2_params.ppios[1][2].first_inq = 0;
+		pp2_params->ppios[1][1].is_enabled = 1;
+		pp2_params->ppios[1][1].first_inq = 0;
+		pp2_params->ppios[1][2].is_enabled = 1;
+		pp2_params->ppios[1][2].first_inq = 0;
 	}
-	err = pp2_init(&pp2_params);
+	err = pp2_init(pp2_params);
 	if (err)
 		return err;
 
@@ -1230,7 +1439,7 @@ static int init_all_modules(void)
 static int init_local_modules(struct glob_arg *garg)
 {
 	char				name[CLS_APP_PPIO_NAME_MAX];
-	struct pp2_ppio_params		port_params;
+	struct pp2_ppio_params         *port_params = &garg->port_params;
 	struct pp2_ppio_inq_params	inq_params;
 	int				i = 0, j, err, port_index;
 	struct bpool_inf		infs[] = MVAPPS_BPOOLS_INF;
@@ -1257,26 +1466,24 @@ static int init_local_modules(struct glob_arg *garg)
 		snprintf(name, sizeof(name), "ppio-%d:%d",
 			 garg->ports_desc[port_index].pp_id, garg->ports_desc[port_index].ppio_id);
 		pr_debug("found port: %s\n", name);
-		memset(&port_params, 0, sizeof(port_params));
-		port_params.match = name;
-		port_params.type = PP2_PPIO_T_NIC;
-		port_params.inqs_params.num_tcs = CLS_APP_MAX_NUM_TCS_PER_PORT;
-		for (i = 0; i < port_params.inqs_params.num_tcs; i++) {
-			port_params.inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
-			port_params.inqs_params.tcs_params[i].num_in_qs = CLS_APP_PP2_MAX_NUM_QS_PER_TC;
+		port_params->match = name;
+		port_params->inqs_params.num_tcs = CLS_APP_MAX_NUM_TCS_PER_PORT;
+		for (i = 0; i < port_params->inqs_params.num_tcs; i++) {
+			port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
+			port_params->inqs_params.tcs_params[i].num_in_qs = CLS_APP_PP2_MAX_NUM_QS_PER_TC;
 			/* TODO: we assume here only one Q per TC; change it! */
 			inq_params.size = MVAPPS_Q_SIZE;
-			port_params.inqs_params.tcs_params[i].inqs_params = &inq_params;
+			port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
 			for (j = 0; j < garg->num_pools; j++)
-				port_params.inqs_params.tcs_params[i].pools[j] =
+				port_params->inqs_params.tcs_params[i].pools[j] =
 					garg->pools[garg->ports_desc[port_index].pp_id][j];
 		}
-		port_params.outqs_params.num_outqs = CLS_APP_MAX_NUM_TCS_PER_PORT;
-		for (i = 0; i < port_params.outqs_params.num_outqs; i++) {
-			port_params.outqs_params.outqs_params[i].size = MVAPPS_Q_SIZE;
-			port_params.outqs_params.outqs_params[i].weight = 1;
+		port_params->outqs_params.num_outqs = CLS_APP_MAX_NUM_TCS_PER_PORT;
+		for (i = 0; i < port_params->outqs_params.num_outqs; i++) {
+			port_params->outqs_params.outqs_params[i].size = MVAPPS_Q_SIZE;
+			port_params->outqs_params.outqs_params[i].weight = 1;
 		}
-		err = pp2_ppio_init(&port_params, &garg->ports_desc[port_index].ppio);
+		err = pp2_ppio_init(port_params, &garg->ports_desc[port_index].ppio);
 		if (err)
 			return err;
 		if (!garg->ports_desc[port_index].ppio) {
@@ -1584,13 +1791,15 @@ static void usage(char *progname)
 		"MUSDK cls-test application.\n"
 		"\n"
 		"Usage: %s OPTIONS\n"
-	"  E.g. %s -i ppio-0:0\n"
-	    "\n"
-	    "Mandatory OPTIONS:\n"
+		"  E.g. %s -i ppio-0:0\n"
+		"\n"
+		"Mandatory OPTIONS:\n"
 		"\t-i, --interface <eth-interface>\n"
 		"\n"
 		"Optional OPTIONS:\n"
 		"\t-e, --echo	(no argument) activate echo packets\n"
+		"\t--ppio_tag_mode	(no argument)configure ppio_tag_mode parameter\n"
+		"\t--logical_port_params	(no argument)configure logical port parameters\n"
 		"\n", CLS_DBG_NO_PATH(progname), CLS_DBG_NO_PATH(progname)
 		);
 }
@@ -1600,10 +1809,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int i = 1;
 	int option;
 	int long_index = 0;
+	int ppio_tag_mode = 0;
+	int logical_port_params = 0;
+	char buff[CLS_COMMAND_LINE_SIZE];
+	int argc_cli;
+	int rc;
+	struct pp2_ppio_params *port_params = &garg->port_params;
+	struct pp2_init_params *pp2_params = &garg->pp2_params;
+
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
 		{"interface", required_argument, 0, 'i'},
 		{"echo", no_argument, 0, 'e'},
+		{"ppio_tag_mode", no_argument, 0, 't'},
+		{"logical_port_params", no_argument, 0, 'g'},
 		{0, 0, 0, 0}
 	};
 
@@ -1613,6 +1832,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->echo = 0;
 	garg->num_ports = 0;
 	garg->cli = 1;
+
+	memset(port_params, 0, sizeof(*port_params));
+	memset(pp2_params, 0, sizeof(*pp2_params));
+	garg->port_params.type = PP2_PPIO_T_NIC;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
@@ -1636,8 +1859,55 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		case 'e':
 			garg->echo = 1;
 			break;
+		case 't':
+			ppio_tag_mode = true;
+			break;
+		case 'g':
+			logical_port_params = true;
+			garg->port_params.type = PP2_PPIO_T_LOG;
+			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);
+			return -EINVAL;
+		}
+	}
+
+	if (ppio_tag_mode) {
+		rc = app_get_line("please enter tag_mode\n"
+				  "\t\t\tno tag:--none			(no argument)\n"
+				  "\t\t\tdsa tag:--dsa			(no argument)\n"
+				  "\t\t\textended dsa tag:--extended_dsa(no argument)\n",
+				  buff, sizeof(buff), &argc_cli, argv);
+		if (rc) {
+			pr_err("app_get_line failed!\n");
+			return -EINVAL;
+		}
+		rc = pp2_cls_cli_ppio_tag_mode(garg, argc_cli, argv);
+		if (rc) {
+			pr_err("pp2_cls_cli_ppio_tag_mode failed!\n");
+			return -EINVAL;
+		}
+	}
+
+	if (logical_port_params) {
+		rc = app_get_line("please enter logical port params:\n"
+				  "\t\t\t--target		(dec)\n"
+				  "\t\t\t--num_proto_rule_sets	(dec)\n"
+				  "\t\t\t--num_rules		(dec)\n"
+				  "\t\t\t--rule_type	(dec)\n"
+				  "\t\t\t--proto		(dec)\n"
+				  "\t\t\t--proto_val		(dec)\n"
+				  "\t\t\t--special_proto	(dec)\n"
+				  "\t\t\t--special_fields	(dec)\n"
+				  "\t\t\t--field_val		(dec)\n",
+				  buff, sizeof(buff), &argc_cli, argv);
+		if (rc) {
+			pr_err("app_get_line failed!\n");
+			return -EINVAL;
+		}
+		rc = pp2_cls_logical_port_params(garg, argc_cli, argv);
+		if (rc) {
+			pr_err("pp2_cls_logical_port_params failed!\n");
 			return -EINVAL;
 		}
 	}

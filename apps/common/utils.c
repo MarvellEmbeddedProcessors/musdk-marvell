@@ -48,6 +48,51 @@ static u16 used_bpools = MVAPPS_PP2_BPOOLS_RSRV;
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
 
+/*
+ * app_get_line()
+ * get input from stdin into buffer and according to it
+ * create argc and argv, which need while calling for getopt
+ */
+int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[])
+{
+	int ch, extra;
+	char *p2;
+
+	/* because getopt starting parsing from argument = 1 we are skipping argument zero */
+	*argc = 1;
+
+	/* Get line with buffer overrun protection */
+	if (prmpt) {
+		printf("%s", prmpt);
+		fflush(stdout);
+	}
+	if (!fgets(buff, sz, stdin))
+		return -EINVAL;
+
+	/*
+	 * if it was too long, there'll be no newline. In that case, we flush
+	 * to end of line so that excess doesn't affect the next call.
+	 */
+	if (buff[strlen(buff) - 1] != '\n') {
+		extra = 0;
+		while (((ch = getchar()) != '\n') && (ch != EOF))
+		extra = 1;
+		return (extra == 1) ? -EFAULT : 0;
+	}
+
+	/* otherwise remove newline and give string back to caller */
+	buff[strlen(buff) - 1] = '\0';
+
+	p2 = strtok(buff, " ");
+	while (p2 && *argc < sz - 1) {
+		argv[(*argc)++] = p2;
+		p2 = strtok(NULL, " ");
+	}
+	argv[*argc] = NULL;
+
+	return 0;
+}
+
 u64 app_get_sys_dma_high_addr(void)
 {
 	return sys_dma_high_addr;
