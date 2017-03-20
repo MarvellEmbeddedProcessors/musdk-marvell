@@ -35,13 +35,6 @@
 
 #include "pp2_plat.h"
 
-#define BIT(nr) (1UL << (nr))
-
-#define CREATE_MASK(pos, len)		GENMASK((pos) + (len) - 1, (pos))
-#define CREATE_MASK_ULL(pos, len)	GENMASK_ULL((pos) + (len) - 1, (pos))
-
-#define AUTO_MASK(reg_name)		CREATE_MASK(reg_name##_OFFS, reg_name##_SIZE)
-
 /*All PPV22 Addresses are 40-bit */
 #define MVPP22_ADDR_HIGH_SIZE		8
 #define MVPP22_ADDR_HIGH_MASK		((1 << MVPP22_ADDR_HIGH_SIZE) - 1)

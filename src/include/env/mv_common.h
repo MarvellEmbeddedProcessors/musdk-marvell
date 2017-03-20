@@ -68,6 +68,18 @@
 	(sizeof(_arr) / sizeof((_arr)[0]))
 #endif /* !ARRAY_SIZE */
 
+#ifndef BIT
+#define BIT(nr) (1UL << (nr))
+#endif
+
+#define CREATE_MASK(pos, len)		GENMASK((pos) + (len) - 1, (pos))
+#define CREATE_MASK_ULL(pos, len)	GENMASK_ULL((pos) + (len) - 1, (pos))
+
+#define AUTO_MASK(reg_name)		CREATE_MASK(reg_name##_OFFS, reg_name##_SIZE)
+
+#define BIT_MASK(bits)			((1 << (bits)) - 1)
+#define BIT_MASK_OFFS(offs, bits)	(BIT_MASK(bits) << (offs))
+
 /*
  * min()/max()/clamp() macros that also do
  * strict type-checking.. See the
