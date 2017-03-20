@@ -50,6 +50,9 @@
 #include "utils.h"
 #include "mvapp.h"
 #include "perf_mon_emu.h"
+#include "mv_md5.h"
+#include "mv_sha2.h"
+#include "mv_sha1.h"
 
 #define CRYPT_APP_DEF_Q_SIZE		256/*1024*/
 #define CRYPT_APP_HIF_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
@@ -65,6 +68,9 @@
 
 #define CRYPT_APP_CIOS_RSRV		{ 0x0, 0x0 }
 
+#define MAX_AUTH_BLOCK_SIZE	128 /* Bytes */
+#define AUTH_BLOCK_SIZE_64B	64  /* Bytes */
+#define ICV_LEN			12  /* Bytes */
 
 #define CRYPT_APP_MAX_NUM_PORTS			2
 #define CRYPT_APP_FIRST_INQ			0
@@ -107,10 +113,23 @@
 	0x51, 0x2e, 0x03, 0xd5, 0x34, 0x12, 0x00, 0x06	\
 }
 
+#define RFC3602_3DES_CBC_T1_KEY {			\
+	0x06, 0xa9, 0x21, 0x40, 0x36, 0xb8, 0xa1, 0x5b,	\
+	0x06, 0xa9, 0x21, 0x40, 0x36, 0xb8, 0xa1, 0x5b,	\
+	0x51, 0x2e, 0x03, 0xd5, 0x34, 0x12, 0x00, 0x06	\
+}
+
 #define RFC3602_AES128_CBC_T1_IV {			\
 	0x3d, 0xaf, 0xba, 0x42, 0x9d, 0x9e, 0xb4, 0x30,	\
 	0xb4, 0x22, 0xda, 0x80, 0x2c, 0x9f, 0xac, 0x41	\
 }
+
+#define RFC3602_SHA1_T1_AUTH_KEY {			\
+	0x02, 0x81, 0xBC, 0xF7, 0xDC, 0xDE, 0xA1, 0xAD, \
+	0x3B, 0xBB, 0x77, 0xED, 0x1C, 0xAC, 0x20, 0x86, \
+	0xFF, 0x65, 0x15, 0x3D				\
+}
+
 
 struct local_arg;
 
@@ -125,6 +144,9 @@ struct glob_arg {
 	int			 affinity;
 	int			 loopback;
 	int			 echo;
+	enum sam_cipher_alg	 cipher_alg;
+	enum sam_cipher_mode	 cipher_mode;
+	enum sam_auth_alg	 auth_alg;
 	u64			 qs_map;
 	int			 qs_map_shift;
 	int			 prefetch_shift;
@@ -783,27 +805,75 @@ static int init_all_modules(void)
 	return 0;
 }
 
+static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int key_len,
+			   unsigned char inner[], unsigned char outer[])
+{
+	if (auth_alg == SAM_AUTH_HMAC_MD5)
+		mv_md5_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA1)
+		mv_sha1_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_256)
+		mv_sha256_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_384)
+		mv_sha384_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_512)
+		mv_sha512_hmac_iv(key, key_len, inner, outer);
+	else
+		printf("\n%s: Unexpected authentication algorithm - %d\n", __func__, auth_alg);
+}
+
 static int create_sam_sessions(struct sam_cio		*enc_cio,
 			       struct sam_cio		*dec_cio,
 			       struct sam_sa		**enc_sa,
-			       struct sam_sa		**dec_sa)
+			       struct sam_sa		**dec_sa,
+			       enum sam_cipher_alg	 cipher_alg,
+			       enum sam_cipher_mode	 cipher_mode,
+			       enum sam_auth_alg	 auth_alg)
 {
 	struct sam_session_params	 sa_params;
 	int				 err;
-	u8				 cipher_key[] = RFC3602_AES128_CBC_T1_KEY;
+	u8				 cipher_aes128_key[] = RFC3602_AES128_CBC_T1_KEY;
+	u8				 cipher_3des_key[] = RFC3602_3DES_CBC_T1_KEY;
 
 	memset(&sa_params, 0, sizeof(sa_params));
 	sa_params.dir = SAM_DIR_ENCRYPT;   /* operation direction: encode */
-	sa_params.cipher_alg = SAM_CIPHER_AES;  /* cipher algorithm */
-	sa_params.cipher_mode = SAM_CIPHER_CBC; /* cipher mode */
+	sa_params.cipher_alg = cipher_alg;  /* cipher algorithm */
+	sa_params.cipher_mode = cipher_mode; /* cipher mode */
 	sa_params.cipher_iv = NULL;     /* default IV */
-	sa_params.cipher_key = cipher_key;    /* cipher key */
-	sa_params.cipher_key_len = sizeof(cipher_key); /* cipher key size (in bytes) */
-	sa_params.auth_alg = SAM_AUTH_NONE; /* authentication algorithm */
-	sa_params.auth_inner = NULL;    /* pointer to authentication inner block */
-	sa_params.auth_outer = NULL;    /* pointer to authentication outer block */
-	sa_params.auth_icv_len = 0;   /* Integrity Check Value (ICV) size (in bytes) */
+	if (sa_params.cipher_alg == SAM_CIPHER_3DES) {
+		sa_params.cipher_key = cipher_3des_key;    /* cipher key */
+		sa_params.cipher_key_len = sizeof(cipher_3des_key); /* cipher key size (in bytes) */
+	} else if (sa_params.cipher_alg == SAM_CIPHER_AES) {
+		sa_params.cipher_key = cipher_aes128_key;    /* cipher key */
+		sa_params.cipher_key_len = sizeof(cipher_aes128_key); /* cipher key size (in bytes) */
+	} else {
+		pr_err("Unknown cipher alg (%d)!\n", sa_params.cipher_alg);
+		return -EINVAL;
+	}
+
+	sa_params.auth_alg = auth_alg; /* authentication algorithm */
+	if (sa_params.auth_alg != SAM_AUTH_NONE) {
+		u8				 auth_sha1_key[] = RFC3602_SHA1_T1_AUTH_KEY;
+		unsigned char			 inner[64];
+		unsigned char			 outer[64];
+
+		if (sa_params.auth_alg == SAM_AUTH_HMAC_SHA1)
+			hmac_create_iv(sa_params.auth_alg, auth_sha1_key, sizeof(auth_sha1_key), inner, outer);
+		else {
+			pr_err("Unknown authetication alg (%d)!\n", sa_params.auth_alg);
+			return -EINVAL;
+		}
+
+		sa_params.auth_icv_len = ICV_LEN;
+		sa_params.auth_inner   = inner;
+		sa_params.auth_outer   = outer;
+	} else {
+		sa_params.auth_inner = NULL;    /* pointer to authentication inner block */
+		sa_params.auth_outer = NULL;    /* pointer to authentication outer block */
+		sa_params.auth_icv_len = 0;   /* Integrity Check Value (ICV) size (in bytes) */
+	}
 	sa_params.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
+
 	err = sam_session_create(enc_cio, &sa_params, enc_sa);
 	if (err) {
 		pr_err("EnC SA creation failed (%d)!\n", err);
@@ -1205,7 +1275,13 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->pools_desc             = garg->pools_desc;
 
-	err = create_sam_sessions(larg->enc_cio, larg->dec_cio, &larg->enc_sa, &larg->dec_sa);
+	err = create_sam_sessions(larg->enc_cio,
+				  larg->dec_cio,
+				  &larg->enc_sa,
+				  &larg->dec_sa,
+				  garg->cipher_alg,
+				  garg->cipher_mode,
+				  garg->auth_alg);
 	if (err)
 		return err;
 	if (!larg->enc_sa || !larg->dec_sa) {
@@ -1255,7 +1331,7 @@ static void deinit_local(void *arg)
 		free(larg->ports_desc);
 	}
 
-	if (larg->dec_cio != larg->enc_cio)
+	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio))
 		sam_cio_deinit(larg->dec_cio);
 	if (larg->enc_cio)
 		sam_cio_deinit(larg->enc_cio);
@@ -1287,6 +1363,8 @@ static void usage(char *progname)
 	       "\t         With every '-v', the debug is increased by one.\n"
 	       "\t         0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump\n"
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
+	       "\t--alg <cipher-alg>       Crypto cipher algorithm to use; support - aes128, 3des (default is AES128).\n"
+	       "\t--hmac <hmac-alg>        Use crypto with HMAC; support - sha1 (default is none).\n"
 	       "\t--no-echo                No Echo packets\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
@@ -1307,6 +1385,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->burst = CRYPT_APP_DFLT_BURST_SIZE;
 	garg->mtu = DEFAULT_MTU;
 	garg->echo = 1;
+	garg->cipher_alg = SAM_CIPHER_AES;
+	garg->cipher_mode = SAM_CIPHER_CBC;
+	garg->auth_alg = SAM_AUTH_NONE;
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
 	garg->prefetch_shift = CRYPT_APP_PREFETCH_SHIFT;
@@ -1408,6 +1489,28 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--no-echo") == 0) {
 			garg->echo = 0;
 			i += 1;
+		} else if (strcmp(argv[i], "--alg") == 0) {
+			if (strcmp(argv[i+1], "aes128") == 0)
+				garg->cipher_alg = SAM_CIPHER_AES;
+			else if (strcmp(argv[i+1], "3des") == 0)
+				garg->cipher_alg = SAM_CIPHER_3DES;
+			else {
+				pr_err("Cipher alg (%s) not supported!\n", argv[i+1]);
+				return -EINVAL;
+			}
+			i += 2;
+		} else if (strcmp(argv[i], "--hmac") == 0) {
+			if (strcmp(argv[i+1], "sha1") == 0)
+				garg->auth_alg = SAM_AUTH_HMAC_SHA1;
+			else if (strcmp(argv[i+1], "sha2") == 0)
+				garg->auth_alg = SAM_AUTH_HMAC_SHA2_256;
+			else if (strcmp(argv[i+1], "md5") == 0)
+				garg->auth_alg = SAM_AUTH_HMAC_MD5;
+			else {
+				pr_err("Auth alg (%s) not supported!\n", argv[i+1]);
+				return -EINVAL;
+			}
+			i += 2;
 		} else if (strcmp(argv[i], "--cli") == 0) {
 			garg->cli = 1;
 			i += 1;
