@@ -470,6 +470,7 @@ int pp2_init(struct pp2_init_params *params)
 	if (!netdev_params)
 		return -ENOMEM;
 
+	memset(netdev_params, 0, sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_PORTS);
 	pp2_netdev_if_info_get(netdev_params);
 
 	/* Initialize in an opaque manner from client,

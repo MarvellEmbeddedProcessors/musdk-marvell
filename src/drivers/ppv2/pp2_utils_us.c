@@ -109,8 +109,12 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 	char path[PP2_MAX_BUF_STR_LEN];
 	char subpath[PP2_MAX_BUF_STR_LEN];
 	char buf[PP2_MAX_BUF_STR_LEN];
-	u32 idx = 0;
+	u32 i, idx = 0;
+	int if_dup = false;
 	struct ifaddrs *ifap, *ifa;
+	u8 num_inst;
+
+	num_inst = pp2_get_num_inst();
 
 	if (!netdev_params)
 		return -EFAULT;
@@ -126,11 +130,24 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 	}
 
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+
 		if (strncmp("eth", ifa->ifa_name, 3) != 0)
 			continue;
 
-		if (ifa->ifa_addr->sa_family != AF_INET)
+		/* Filter already parsed interfaces, since getifaddrs linked list contains entries
+		 * for the same interface and different family types
+		 */
+		for (i = 0; i < num_inst * PP2_NUM_PORTS; i++) {
+			if (strcmp(netdev_params[i].if_name, ifa->ifa_name) == 0) {
+				if_dup = true;
+				break;
+			}
+		}
+
+		if (if_dup) {
+			if_dup = false;
 			continue;
+		}
 
 		sprintf(path, PP2_NETDEV_PATH);
 		sprintf(subpath, "%s/device/uevent", ifa->ifa_name);
