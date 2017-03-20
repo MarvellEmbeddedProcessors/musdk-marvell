@@ -848,7 +848,6 @@ static int pp2_prs_tcam_first_free(struct pp2_inst *inst, unsigned char start, u
 	return -EINVAL;
 }
 
-
 /* Get dword of data and its enable bits from tcam sw entry */
 static void mv_pp2x_prs_tcam_data_dword_get(struct mv_pp2x_prs_entry *pe,
 					    unsigned int offs,
@@ -865,8 +864,809 @@ static void mv_pp2x_prs_tcam_data_dword_get(struct mv_pp2x_prs_entry *pe,
 		((unsigned char *)enable)[HW_BYTE_OFFS(index)] = mask;
 	}
 }
-/*******************************************************************************
- * mv_pp2x_prs_shadow_update
+
+/* pp2_prs_tcam_lk_idx_list_get
+ *
+ * DESCRIPTION:	return tcam indexes that matches the specified lookup
+ *
+ * INPUTS:	inst	- packet processor instance
+ *		lookup	- parser lookup id
+ *		proto	- protocol to update in parser
+ *
+ * OUTPUTS:	tcam_list	- list of TCAM indexes which match the lookup id
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_tcam_lk_idx_list_get(struct pp2_inst *inst, u32 lookup,
+					u16 proto, struct prs_lkp_tcam_list *tcam_list)
+{
+	int tid, i = 0;
+	u8 byte;
+	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
+
+	for (tid = MVPP2_PE_FIRST_FREE_TID;
+	     tid <= MVPP2_PE_LAST_FREE_TID; tid++) {
+		if ((prs_shadow[tid].valid) &&
+		    (prs_shadow[tid].lu == lookup)) {
+			if (proto) {
+				byte = prs_shadow[tid].tcam.byte[TCAM_DATA_BYTE(5)];
+				if (byte == proto) {
+					*(tcam_list->idx + i) = tid;
+					if (prs_shadow[tid].ri & MVPP2_PRS_RI_UDF7_LOG_PORT)
+						*(tcam_list->log_port + i) = 1;
+					pr_debug("%d, idx %d, log_port %d\n", i, *(tcam_list->idx + i),
+					       *(tcam_list->log_port + i));
+					i++;
+				}
+			} else {
+				*(tcam_list->idx + i) = tid;
+				if (prs_shadow[tid].ri & MVPP2_PRS_RI_UDF7_LOG_PORT)
+					*(tcam_list->log_port + i) = 1;
+				pr_debug("%d, idx %d, log_port %d\n", i, *(tcam_list->idx + i),
+				       *(tcam_list->log_port + i));
+				i++;
+			}
+		}
+	}
+	tcam_list->size = i;
+	return 0;
+}
+
+/* pp2_prs_log_port_tcam_check
+ *
+ * DESCRIPTION:	check if logical port entries for this port already exist
+ *
+ * INPUTS:	tcam_list	- list of TCAM indexes to update
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 not found, 1 found
+ */
+static int pp2_prs_log_port_tcam_check(struct prs_lkp_tcam_list *tcam_list)
+{
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < tcam_list->size; i++) {
+		if (tcam_list->log_port[i])
+			ret = 1;
+	}
+	return ret;
+}
+
+/* pp2_prs_port_update
+ *
+ * DESCRIPTION:	Update port in specified entry
+ *
+ * INPUTS:	port	- logical port to be configured
+ *		add	- add or remove port
+ *		tid	- prs entry index
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_port_update(struct pp2_port *port, u32 add, u32 tid)
+{
+	struct mv_pp2x_prs_entry pe;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+
+	if (!inst->cls_db->prs_db.prs_shadow[tid].valid) {
+		pr_err("parser logical port special field DSA mode: entry not found\n");
+		return -EFAULT;
+	}
+
+	pe.index = tid;
+	mv_pp2x_prs_hw_read(cpu_slot, &pe);
+
+	/* update UDF7 */
+	mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_NIC, MVPP2_PRS_RI_UDF7_MASK);
+
+	/* Update port mask */
+	mv_pp2x_prs_tcam_port_set(&pe, port->id, add);
+
+	mv_pp2x_prs_hw_write(cpu_slot, &pe);
+
+	return 0;
+}
+
+/* pp2_prs_non_log_port_update
+ *
+ * DESCRIPTION:	Check and update port mask in non-logical port  entries
+ *
+ * INPUTS:	port	- logical port to be configured
+ *		tcam_list	- list of TCAM indexes to update
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_non_log_port_update(struct pp2_port *port, struct prs_lkp_tcam_list *tcam_list)
+{
+	int i;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	struct mv_pp2x_prs_entry pe;
+
+	for (i = 0; i < tcam_list->size; i++) {
+		if (!tcam_list->log_port[i]) {
+			pe.index = tcam_list->idx[i];
+			mv_pp2x_prs_hw_read(cpu_slot, &pe);
+			pr_debug("tcam_list->idx[%d] = %d\n", i, tcam_list->idx[i]);
+			/* update UDF7 to slow path */
+			mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_CLEAR, MVPP2_PRS_RI_UDF7_MASK);
+			mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_NIC, MVPP2_PRS_RI_UDF7_MASK);
+			/* Update port mask */
+			mv_pp2x_prs_tcam_port_set(&pe, port->id, false);
+			mv_pp2x_prs_hw_write(cpu_slot, &pe);
+		}
+	}
+	return 0;
+}
+
+/* pp2_prs_log_port_pppoe
+ *
+ * DESCRIPTION:	Configure parser pppoe for logical port
+ *
+ * INPUTS:	port	- logical port to be configured
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_log_port_pppoe(struct pp2_port *port)
+{
+	struct mv_pp2x_prs_entry pe;
+	int tid;
+	struct prs_lkp_tcam_list tcam_list;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+
+	memset(&tcam_list, 0, sizeof(struct prs_lkp_tcam_list));
+
+	/* get the current indexes with lookup id MVPP2_PRS_LU_IP4 and specified proto */
+	pp2_prs_tcam_lk_idx_list_get(inst, MVPP2_PRS_LU_PPPOE, 0, &tcam_list);
+
+	if (!pp2_prs_log_port_tcam_check(&tcam_list)) {
+
+		/*Step 1: IPv4 over PPPoE with options */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID, MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		memset(&pe, 0, sizeof(struct mv_pp2x_prs_entry));
+		mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_PPPOE);
+		pe.index = tid;
+
+		mv_pp2x_prs_match_etype(&pe, 0, PPP_PROTO_IPV4);
+
+		mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_IP4);
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_L3_IP4_OPT, MVPP2_PRS_RI_L3_PROTO_MASK);
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_LOG_PORT, MVPP2_PRS_RI_UDF7_MASK);
+
+		/* Skip eth_type + 4 bytes of IP header */
+		mv_pp2x_prs_sram_shift_set(&pe, MVPP2_ETH_TYPE_LEN + 4, MVPP2_PRS_SRAM_OP_SEL_SHIFT_ADD);
+		/* Set L3 offset */
+		mv_pp2x_prs_sram_offset_set(&pe, MVPP2_PRS_SRAM_UDF_TYPE_L3,
+					    MVPP2_ETH_TYPE_LEN,
+					    MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_PPPOE);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+
+		/*Step 2: IPv4 over PPPoE without options */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID, MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		pe.index = tid;
+
+		mv_pp2x_prs_tcam_data_byte_set(&pe, MVPP2_ETH_TYPE_LEN,
+					       MVPP2_PRS_IPV4_HEAD | MVPP2_PRS_IPV4_IHL,
+					       MVPP2_PRS_IPV4_HEAD_MASK |
+					       MVPP2_PRS_IPV4_IHL_MASK);
+
+		/* Clear ri before updating */
+		pe.sram.word[MVPP2_PRS_SRAM_RI_WORD] = 0x0;
+		pe.sram.word[MVPP2_PRS_SRAM_RI_CTRL_WORD] = 0x0;
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_L3_IP4, MVPP2_PRS_RI_L3_PROTO_MASK);
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_LOG_PORT, MVPP2_PRS_RI_UDF7_MASK);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_PPPOE);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+
+		/*Step 3: IPv6 over PPPoE */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID, MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		memset(&pe, 0, sizeof(struct mv_pp2x_prs_entry));
+		mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_PPPOE);
+		pe.index = tid;
+
+		mv_pp2x_prs_match_etype(&pe, 0, PPP_PROTO_IPV6);
+
+		mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_IP6);
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_L3_IP6, MVPP2_PRS_RI_L3_PROTO_MASK);
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_LOG_PORT, MVPP2_PRS_RI_UDF7_MASK);
+
+		/* Skip eth_type + 4 bytes of IPv6 header */
+		mv_pp2x_prs_sram_shift_set(&pe, MVPP2_ETH_TYPE_LEN + 4, MVPP2_PRS_SRAM_OP_SEL_SHIFT_ADD);
+		/* Set L3 offset */
+		mv_pp2x_prs_sram_offset_set(&pe, MVPP2_PRS_SRAM_UDF_TYPE_L3,
+					    MVPP2_ETH_TYPE_LEN,
+					    MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_PPPOE);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+
+		/*Step 4: Non-IP over PPPoE */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID, MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		memset(&pe, 0, sizeof(struct mv_pp2x_prs_entry));
+		mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_PPPOE);
+		pe.index = tid;
+
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_L3_UN, MVPP2_PRS_RI_L3_PROTO_MASK);
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_LOG_PORT, MVPP2_PRS_RI_UDF7_MASK);
+
+		/* Finished: go to flowid generation */
+		mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_FLOWS);
+		mv_pp2x_prs_sram_bits_set(&pe, MVPP2_PRS_SRAM_LU_GEN_BIT, 1);
+		/* Set L3 offset even if it's unknown L3 */
+		mv_pp2x_prs_sram_offset_set(&pe, MVPP2_PRS_SRAM_UDF_TYPE_L3,
+					    MVPP2_ETH_TYPE_LEN,
+					    MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_PPPOE);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+	}
+
+	pp2_prs_non_log_port_update(port, &tcam_list);
+
+	return 0;
+}
+
+
+/* pp2_prs_log_port_ip4_proto
+ *
+ * DESCRIPTION:	Configure parser IPv4 specific protocol for logical port
+ *
+ * INPUTS:	port	- logical port to be configured
+ *		proto	- protocol to update in parser
+ *		ri	- results info field to configure
+ *		ri_mask	- results info mask field to configure
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_log_port_ip4_proto(struct pp2_port *port, u16 proto,
+				 u32 ri, u32 ri_mask)
+{
+	struct mv_pp2x_prs_entry pe;
+	int tid;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	struct prs_lkp_tcam_list tcam_list;
+
+	if ((proto != IPPROTO_TCP) && (proto != IPPROTO_UDP) &&
+	    (proto != IPPROTO_IGMP))
+		return -EINVAL;
+
+	memset(&tcam_list, 0, sizeof(struct prs_lkp_tcam_list));
+
+	/* get the current indexes with lookup id MVPP2_PRS_LU_IP4 and specified proto */
+	pp2_prs_tcam_lk_idx_list_get(inst, MVPP2_PRS_LU_IP4, proto, &tcam_list);
+
+	if (!pp2_prs_log_port_tcam_check(&tcam_list)) {
+		/* Create new parser entries for the specified logical port */
+		/* step 1: Not fragmented packet */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID,
+						  MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		memset(&pe, 0, sizeof(struct mv_pp2x_prs_entry));
+		mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_IP4);
+		pe.index = tid;
+
+		/* Set next lu to IPv4 */
+		mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_IP4);
+		mv_pp2x_prs_sram_shift_set(&pe, 12, MVPP2_PRS_SRAM_OP_SEL_SHIFT_ADD);
+		/* Set L4 offset */
+		mv_pp2x_prs_sram_offset_set(&pe, MVPP2_PRS_SRAM_UDF_TYPE_L4,
+					    sizeof(struct iphdr) - 4,
+					    MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
+		mv_pp2x_prs_sram_ai_update(&pe, MVPP2_PRS_IPV4_DIP_AI_BIT,
+					   MVPP2_PRS_IPV4_DIP_AI_BIT);
+		mv_pp2x_prs_sram_ri_update(&pe, ri | MVPP2_PRS_RI_IP_FRAG_FALSE,
+					   ri_mask | MVPP2_PRS_RI_IP_FRAG_MASK);
+
+		mv_pp2x_prs_tcam_data_byte_set(&pe, 2, 0x00,
+					       MVPP2_PRS_TCAM_PROTO_MASK_L);
+		mv_pp2x_prs_tcam_data_byte_set(&pe, 3, 0x00,
+					       MVPP2_PRS_TCAM_PROTO_MASK);
+		mv_pp2x_prs_tcam_data_byte_set(&pe, 5, proto,
+					       MVPP2_PRS_TCAM_PROTO_MASK);
+		mv_pp2x_prs_tcam_ai_update(&pe, 0, MVPP2_PRS_IPV4_DIP_AI_BIT);
+
+		/* Mask all ports */
+		mv_pp2x_prs_tcam_port_map_set(&pe, 0);
+
+		/* Update port mask */
+		mv_pp2x_prs_tcam_port_set(&pe, port->id, true);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_IP4);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+
+		/* step 2: Fragmented packet */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID,
+						  MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		pe.index = tid;
+		/* Clear ri before updating */
+		pe.sram.word[MVPP2_PRS_SRAM_RI_WORD] = 0x0;
+		pe.sram.word[MVPP2_PRS_SRAM_RI_CTRL_WORD] = 0x0;
+		mv_pp2x_prs_sram_ri_update(&pe, ri, ri_mask);
+		mv_pp2x_prs_sram_ri_update(&pe, ri | MVPP2_PRS_RI_IP_FRAG_TRUE,
+					   ri_mask | MVPP2_PRS_RI_IP_FRAG_MASK);
+
+		mv_pp2x_prs_tcam_data_byte_set(&pe, 2, 0x00, 0x0);
+		mv_pp2x_prs_tcam_data_byte_set(&pe, 3, 0x00, 0x0);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_IP4);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+	}
+
+	pp2_prs_non_log_port_update(port, &tcam_list);
+
+	return 0;
+}
+
+
+/* pp2_prs_dsa_tag_mode_set
+ *
+ * DESCRIPTION:	Configure parser DSA entries
+ *
+ * INPUTS:	port	- logical port to be configured
+ *		val	- validate invalidate entry in parser
+ *		tagged	- DSA tagged or not
+ *		extend	- DSA extended or not
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_dsa_tag_mode_set(struct pp2_port *port, u32 val, int tagged, int extend)
+{
+	struct mv_pp2x_prs_entry pe;
+	int tid, shift;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	struct prs_lkp_tcam_list tcam_list;
+
+	memset(&tcam_list, 0, sizeof(struct prs_lkp_tcam_list));
+
+	if (extend) {
+		tid = tagged ? MVPP2_PE_ETYPE_EDSA_TAGGED :
+		      MVPP2_PE_ETYPE_EDSA_UNTAGGED;
+		shift = 8;
+	} else {
+		tid = tagged ? MVPP2_PE_ETYPE_DSA_TAGGED :
+		      MVPP2_PE_ETYPE_DSA_UNTAGGED;
+		shift = 4;
+	}
+
+	/* get the current indexes with lookup id MVPP2_PRS_LU_DSA and specified proto */
+	pp2_prs_tcam_lk_idx_list_get(inst, MVPP2_PRS_LU_DSA, 0, &tcam_list);
+
+	if (!pp2_prs_log_port_tcam_check(&tcam_list)) {
+		/* Create new parser entries for the specified logical port */
+		/* step 1: Not fragmented packet */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID,
+						  MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		memset(&pe, 0, sizeof(struct mv_pp2x_prs_entry));
+		mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_DSA);
+		pe.index = tid;
+
+		/* Shift 4 bytes if DSA tag or 8 bytes in case of EDSA tag*/
+		mv_pp2x_prs_sram_shift_set(&pe, shift,
+					   MVPP2_PRS_SRAM_OP_SEL_SHIFT_ADD);
+
+		/* Update shadow table */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_DSA);
+
+		if (tagged) {
+			/* Set tagged bit in DSA tag */
+			mv_pp2x_prs_tcam_data_byte_set(&pe, 0,
+						       MVPP2_PRS_TCAM_DSA_TAGGED_BIT,
+					MVPP2_PRS_TCAM_DSA_TAGGED_BIT);
+			/* Clear all ai bits for next iteration */
+			mv_pp2x_prs_sram_ai_update(&pe, 0,
+						   MVPP2_PRS_SRAM_AI_MASK);
+			/* If packet is tagged continue check vlans */
+			mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_VLAN);
+		} else {
+			/* Set result info bits to 'no vlans' */
+			mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_VLAN_NONE,
+						   MVPP2_PRS_RI_VLAN_MASK);
+			mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_L2);
+		}
+
+		/* update TCAM */
+		switch (val) {
+		case MV_NET_TO_CPU_DSA_TAG_MODE:
+			mv_pp2x_prs_tcam_data_byte_set(&pe, 0, MVPP2_PRS_TCAM_DSA_TO_CPU_MODE,
+						       MVPP2_PRS_TCAM_DSA_MODE_MASK);
+			break;
+		case MV_NET_FROM_CPU_DSA_TAG_MODE:
+			mv_pp2x_prs_tcam_data_byte_set(&pe, 0, MVPP2_PRS_TCAM_DSA_FROM_CPU_MODE,
+						       MVPP2_PRS_TCAM_DSA_MODE_MASK);
+			break;
+		case MV_NET_TO_SNIFFER_DSA_TAG_MODE:
+			mv_pp2x_prs_tcam_data_byte_set(&pe, 0, MVPP2_PRS_TCAM_DSA_TO_SNIFFER_MODE,
+						       MVPP2_PRS_TCAM_DSA_MODE_MASK);
+			break;
+		case MV_NET_FORWARD_DSA_TAG_MODE:
+			mv_pp2x_prs_tcam_data_byte_set(&pe, 0, MVPP2_PRS_TCAM_DSA_FORWARD_MODE,
+						       MVPP2_PRS_TCAM_DSA_MODE_MASK);
+			break;
+		default:
+		pr_err("parser logical port special field DSA mode: invalid tcam value\n");
+			return -EFAULT;
+		}
+
+		/* update UDF7 */
+		mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_LOG_PORT, MVPP2_PRS_RI_UDF7_MASK);
+
+		/* Mask all ports */
+		mv_pp2x_prs_tcam_port_map_set(&pe, 0);
+
+		/* Update port mask */
+		mv_pp2x_prs_tcam_port_set(&pe, port->id, true);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_DSA);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+	}
+
+	return 0;
+}
+
+/* pp2_prs_tag_mode_set
+ *
+ * DESCRIPTION:	Configure parser DSA entries for specific port
+ *
+ * INPUTS:	port	- logical port to be configured
+ *		type	- MH tag mode
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+*/
+static int pp2_prs_tag_mode_set(struct pp2_port *port, int type, int val)
+{
+	switch (type) {
+	case MVPP2_TAG_TYPE_EDSA:
+		/* Add port to EDSA entries */
+		pp2_prs_port_update(port, true, MVPP2_PE_EDSA_TAGGED);
+		pp2_prs_port_update(port, true, MVPP2_PE_EDSA_UNTAGGED);
+
+		/* Remove port from DSA entries */
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_TAGGED);
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_UNTAGGED);
+
+		/* create new entries for DSA mode*/
+		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_TAGGED, MVPP2_PRS_EDSA);
+		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_UNTAGGED, MVPP2_PRS_EDSA);
+		break;
+	case MVPP2_TAG_TYPE_DSA:
+		/* Add port to DSA entries */
+		pp2_prs_port_update(port, true, MVPP2_PE_DSA_TAGGED);
+		pp2_prs_port_update(port, true, MVPP2_PE_DSA_UNTAGGED);
+
+		/* Remove port from EDSA entries */
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_TAGGED);
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_UNTAGGED);
+
+		/* create new entries for DSA mode*/
+		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_TAGGED, MVPP2_PRS_DSA);
+		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_UNTAGGED, MVPP2_PRS_DSA);
+		break;
+	case MVPP2_TAG_TYPE_MH:
+	case MVPP2_TAG_TYPE_NONE:
+		/* Remove port form EDSA and DSA entries */
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_TAGGED);
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_UNTAGGED);
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_TAGGED);
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_UNTAGGED);
+		break;
+	default:
+		if ((type < 0) || (type > MVPP2_TAG_TYPE_EDSA))
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
+/* pp2_prs_log_port_proto_set
+ *
+ * DESCRIPTION:	Update parser with logical port protocol
+ *
+ * INPUTS:	proto -protocol to update in parser
+ *		val = 0 - all traffic except defined protocol will be forwarded to logical port
+ *		val = 1 - only traffic matching defined protocol will be forwarded to logical port
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_log_port_proto_set(struct pp2_port *port, enum mv_net_proto proto, int val)
+{
+	int err = 0;
+
+	switch (proto) {
+	case MV_NET_PROTO_VLAN:
+	case MV_NET_PROTO_IP:
+	case MV_NET_PROTO_IP6:
+		pr_err("log port proto %d not supported yet\n", proto);
+		break;
+	case MV_NET_PROTO_PPPOE:
+		err = pp2_prs_log_port_pppoe(port);
+		break;
+	case MV_NET_PROTO_IP4:
+		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_UDP,
+						 MVPP2_PRS_RI_L4_UDP | MVPP2_PRS_RI_UDF7_LOG_PORT,
+						 MVPP2_PRS_RI_L4_PROTO_MASK | MVPP2_PRS_RI_UDF7_MASK);
+		if (err)
+			return -EFAULT;
+
+		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_TCP,
+						 MVPP2_PRS_RI_L4_TCP | MVPP2_PRS_RI_UDF7_LOG_PORT,
+						 MVPP2_PRS_RI_L4_PROTO_MASK | MVPP2_PRS_RI_UDF7_MASK);
+		if (err)
+			return -EFAULT;
+		break;
+	case MV_NET_PROTO_UDP:
+		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_UDP,
+						 MVPP2_PRS_RI_L4_UDP | MVPP2_PRS_RI_UDF7_LOG_PORT,
+						 MVPP2_PRS_RI_L4_PROTO_MASK | MVPP2_PRS_RI_UDF7_MASK);
+		if (err)
+			return -EFAULT;
+		break;
+	case MV_NET_PROTO_TCP:
+		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_TCP,
+						 MVPP2_PRS_RI_L4_TCP | MVPP2_PRS_RI_UDF7_LOG_PORT,
+						 MVPP2_PRS_RI_L4_PROTO_MASK | MVPP2_PRS_RI_UDF7_MASK);
+		if (err)
+			return -EFAULT;
+		break;
+	default:
+		pr_err("log port proto %d not supported\n", proto);
+		break;
+	}
+
+	return 0;
+}
+
+/* pp2_prs_eth_start_hdr_get
+ *
+ * DESCRIPTION:	Get Marvell's port ethernet start header mode
+ *
+ * INPUTS:	port -port to be configured
+ *
+ * OUTPUTS:	mode - Marvell header mode
+ *
+ * RETURNS:	Marvell's header mode
+ */
+static u32 pp2_prs_eth_start_hdr_get(struct pp2_port *port)
+{
+	u32 reg_val;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	u32 ret = 0;
+
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_MH_REG(port->id));
+	if (reg_val & MVPP2_DSA_NON_EXTENDED)
+		ret = MVPP2_TAG_TYPE_DSA;
+	else if (reg_val & MVPP2_DSA_EXTENDED)
+		ret = MVPP2_TAG_TYPE_EDSA;
+	else
+		ret = MVPP2_TAG_TYPE_NONE;
+
+	return ret;
+}
+
+/* pp2_prs_log_port_field_set
+ *
+ * DESCRIPTION:	Update parser with logical port protocol
+ *
+ * INPUTS:	field -special protocol field to be added to parser
+ *		val - value of the special field
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_log_port_field_set(struct pp2_port *port, struct pp2_proto_field proto_field, int val)
+{
+	u32 type;
+	int rc;
+
+	switch (proto_field.proto) {
+	case MV_NET_PROTO_ETH_DSA:
+		if (proto_field.field.eth_dsa != MV_NET_ETH_F_DSA_TAG_MODE) {
+			pr_err("parser logical port special protocol field not supported %d\n",
+			       proto_field.field.eth_dsa);
+				return -EFAULT;
+		}
+
+		if (val < MV_NET_TO_CPU_DSA_TAG_MODE || val > MV_NET_FORWARD_DSA_TAG_MODE) {
+			pr_err("parser logical port special protocol field values not supported\n");
+				return -EFAULT;
+		}
+
+		/*Get MH register configured mode */
+		type = pp2_prs_eth_start_hdr_get(port);
+
+		/* Configure parser DSA entries */
+		rc = pp2_prs_tag_mode_set(port, type, val);
+		if (rc)
+			return -EFAULT;
+		break;
+	default:
+		pr_err("parser logical port special protocol not supported %d\n", proto_field.proto);
+		return -EFAULT;
+	}
+	return 0;
+}
+
+/* pp2_prs_space_check
+ *
+ * DESCRIPTION:	Check there is enough space in parser to configure logical port requirements
+ *
+ * INPUTS:	port	-port to be configured
+ *		params	-pointer to parameters to be updated in parser
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_space_check(struct pp2_port *port, struct pp2_ppio_log_port_params *params)
+{
+	/* TODO */
+	return 0;
+}
+
+/* pp2_prs_set_log_port
+ *
+ * DESCRIPTION:	Update parser according to logical port parameters
+ *
+ * INPUTS:	port	-port to be configured
+ *		params	-pointer to parameters to be updated in parser
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+int pp2_prs_set_log_port(struct pp2_port *port, struct pp2_ppio_log_port_params *params)
+{
+	int rc, i, j;
+
+	/* Check parameters validity*/
+	if (mv_pp2x_ptr_validate(port))
+		return -EINVAL;
+
+	if (mv_pp2x_ptr_validate(params))
+		return -EINVAL;
+
+	/* Calculate required space in parser */
+	rc = pp2_prs_space_check(port, params);
+	if (rc) {
+		pr_err("Unable to configure parser logical port: not enough space\n");
+		return -EFAULT;
+	}
+
+	/* TODO - remove limitation */
+	if (params->target_classification.target != PP2_CLS_TARGET_LOG_PORT) {
+		pr_err("only target log port is supported\n");
+		return -EFAULT;
+	}
+
+	/* TODO - remove limitation */
+	if (params->target_classification.num_proto_rule_sets > 1) {
+		pr_err("only one rule set is supported\n");
+		return -EFAULT;
+	}
+
+	/* Configure protocols and protocol fields*/
+	for (i = 0; i < params->target_classification.num_proto_rule_sets; i++) {
+		for (j = 0; j < params->target_classification.rule_sets[i].num_rules; j++) {
+			struct pp2_ppio_log_port_rule_params *rule_params =
+				&params->target_classification.rule_sets[i].rules[j];
+
+			/* TODO - remove limitation */
+			if (rule_params->u.proto_params.val != 0) {
+				pr_err("only val 0 is supported\n");
+				return -EFAULT;
+			}
+
+			pr_debug("%d:%d %d\n", i, j, rule_params->rule_type);
+			if (rule_params->rule_type == PP2_RULE_TYPE_PROTO) {
+				rc = pp2_prs_log_port_proto_set(port, rule_params->u.proto_params.proto,
+								rule_params->u.proto_params.val);
+				if (rc)
+					return -EFAULT;
+			} else if (rule_params->rule_type == PP2_RULE_TYPE_PROTO_FIELD) {
+				rc = pp2_prs_log_port_field_set(port, rule_params->u.proto_field_params.proto_field,
+								rule_params->u.proto_field_params.val);
+				if (rc)
+					return -EFAULT;
+			} else {
+				pr_err("Invalid rule_proto_field %d\n", rule_params->rule_type);
+				return -EFAULT;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/* pp2_prs_eth_start_hdr_set
+ *
+ * DESCRIPTION:	Set Marvell's port ethernet start header mode
+ *
+ * INPUTS:	port -port to be configured
+ *		eth_start_hdr - Marvell header mode
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+int pp2_prs_eth_start_hdr_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr eth_start_hdr)
+{
+	u32 reg_val;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+
+	reg_val = pp2_reg_read(cpu_slot, MVPP2_MH_REG(port->id));
+	reg_val &= ~(MVPP2_DSA_EN_MASK | MVPP2_MH_EN_MASK);
+
+	switch (eth_start_hdr) {
+	case PP2_PPIO_HDR_ETH:
+		break;
+	case PP2_PPIO_HDR_ETH_DSA:
+		reg_val |= MVPP2_DSA_NON_EXTENDED;
+		break;
+	case PP2_PPIO_HDR_ETH_EXT_DSA:
+		reg_val |= MVPP2_DSA_EXTENDED;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* Write to register */
+	pp2_reg_write(cpu_slot, MVPP2_MH_REG(port->id), reg_val);
+
+	return 0;
+}
+
+/* mv_pp2x_prs_shadow_update
  *
  * DESCRIPTION:	Update MUSDK parser shadow db
  *
@@ -875,12 +1675,10 @@ static void mv_pp2x_prs_tcam_data_dword_get(struct mv_pp2x_prs_entry *pe,
  * OUTPUTS:	None
  *
  * RETURNS:	0 on success, error-code otherwise
- *
- * COMMENTS:
- ******************************************************************************/
+ */
 static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
 {
-	int i, invalid;
+	int i, j, invalid;
 	struct mv_pp2x_prs_entry pe;
 	struct mv_pp2x_prs_shadow *prs_shadow;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
@@ -900,13 +1698,85 @@ static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
 		prs_shadow[i].ri = mv_pp2x_prs_sram_ri_get(&pe);
 		prs_shadow[i].ri_mask = mv_pp2x_prs_sram_ri_mask_get(&pe);
 		prs_shadow[i].lu = mv_pp2x_prs_tcam_lu_get(&pe);
+		for (j = 0; j < MVPP2_PRS_TCAM_WORDS; j++)
+			prs_shadow[i].tcam.word[j] = pe.tcam.word[j];
 		invalid = mv_pp2x_prs_tcam_valid_get(&pe);
 		prs_shadow[i].valid = invalid ? 0 : 1;
+		prs_shadow[i].valid_in_kernel = invalid ? 0 : 1;
 	}
 	return 0;
 }
-/*******************************************************************************
- * pp2_cls_prs_init
+
+/* mv_pp2x_prs_log_port_init
+ *
+ * DESCRIPTION:	Initialize parser MUSDK for logical port support
+ *		Sets UDF7 bit in MAC lookup to specified value
+ *
+ * INPUTS:	inst	- packet processor instance
+ *		target	- target classification (logical port or nic)
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int mv_pp2x_prs_log_port_init(struct pp2_inst *inst, enum pp2_ppio_cls_target target)
+{
+	u32 i;
+	struct mv_pp2x_prs_entry pe;
+	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+
+	if (!prs_shadow) {
+		pr_err("prs_shadow is null\n");
+		return -EFAULT;
+	}
+
+	/* Set as default UDF7 of all MAC entries to specified target */
+	for (i = 0; i < MVPP2_PRS_TCAM_SRAM_SIZE; i++) {
+		if (prs_shadow[i].valid && prs_shadow[i].lu == MVPP2_PRS_LU_MAC) {
+			pe.index = i;
+			mv_pp2x_prs_hw_read(cpu_slot, &pe);
+			mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_CLEAR, MVPP2_PRS_RI_UDF7_MASK);
+			if (target == PP2_CLS_TARGET_LOG_PORT)
+				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_NIC, MVPP2_PRS_RI_UDF7_MASK);
+			else if (target == PP2_CLS_TARGET_NIC)
+				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_LOG_PORT, MVPP2_PRS_RI_UDF7_MASK);
+			mv_pp2x_prs_hw_write(cpu_slot, &pe);
+		}
+	}
+	return 0;
+}
+
+/* pp2_prs_deinit
+ *
+ * DESCRIPTION:	De-initialize parser for MUSDK.
+ *		Returns parser to original configuration
+ *
+ * INPUTS:	inst - packet processor instance
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+void pp2_cls_prs_deinit(struct pp2_inst *inst)
+{
+	u32 i;
+	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+
+	/* Invalidate all MUSDK added entries */
+	for (i = 0; i < MVPP2_PRS_TCAM_SRAM_SIZE; i++) {
+		if (prs_shadow[i].valid_in_kernel)
+			continue;
+
+		if (prs_shadow[i].valid) {
+			pr_debug("parser: removing idx %d\n", i);
+			mv_pp2x_prs_hw_inv(cpu_slot, i);
+		}
+	}
+}
+
+/* pp2_cls_prs_init
  *
  * DESCRIPTION:	Initialize parser for MUSDK.
  *		It assumes parser is initialized by kernel, and MUSDK only performs
@@ -917,9 +1787,7 @@ static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
  * OUTPUTS:	None
  *
  * RETURNS:	0 on success, error-code otherwise
- *
- * COMMENTS:	Called by pp2_cls_mng_init.
- ******************************************************************************/
+ */
 int pp2_cls_prs_init(struct pp2_inst *inst)
 {
 	int rc;
@@ -938,7 +1806,17 @@ int pp2_cls_prs_init(struct pp2_inst *inst)
 	if (rc)
 		return -EFAULT;
 
+	/* Initialize parser for logical port support */
+	rc = mv_pp2x_prs_log_port_init(inst, PP2_CLS_TARGET_LOG_PORT);
+	if (rc)
+		return -EINVAL;
+
+	/* MUSDK local parser flow id attribute tbl init (used in classifier)
+	 * TODO  this table needs to be synchronized with kernel
+	 * TODO  this table will be dynamic once struct pp2_parse_params is implemented
+	 */
 	mv_pp2x_prs_flow_id_attr_init();
 
 	return 0;
 }
+

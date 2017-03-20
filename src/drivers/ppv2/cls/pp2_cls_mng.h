@@ -54,6 +54,7 @@
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
 void pp2_cls_mng_init(struct pp2_inst *inst);
+void pp2_cls_mng_deinit(struct pp2_inst *inst);
 int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params);
 int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl);
 int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action *action);

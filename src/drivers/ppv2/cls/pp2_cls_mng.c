@@ -836,3 +836,10 @@ void pp2_cls_mng_init(struct pp2_inst *inst)
 	pp2_cls_c2_start(inst);
 	pp2_cls_c3_start(inst);
 }
+
+void pp2_cls_mng_deinit(struct pp2_inst *inst)
+{
+	pp2_cls_prs_deinit(inst);
+}
+
+

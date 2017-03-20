@@ -167,6 +167,19 @@
 #define MVPP22_AXI_CODE_DOMAIN_SYSTEM		3
 #define MVPP22_AXI_CODE_DOMAIN_NON_SHARE	0
 
+
+/* Top Reg file */
+#define MVPP2_MH_REG(port)			(0x5040 + 4 * (port))
+
+#define MVPP2_MH_EN_OFFS			0
+#define MVPP2_MH_EN_MASK			(1 << MVPP2_MH_EN_OFFS)
+
+#define MVPP2_DSA_EN_OFFS			4
+#define MVPP2_DSA_EN_MASK			(0x3 << MVPP2_DSA_EN_OFFS)
+#define MVPP2_DSA_DISABLE			0
+#define MVPP2_DSA_NON_EXTENDED			(0x1 << MVPP2_DSA_EN_OFFS)
+#define MVPP2_DSA_EXTENDED			(0x2 << MVPP2_DSA_EN_OFFS)
+
 /* Parser Registers */
 #define MVPP2_PRS_INIT_LOOKUP_REG		0x1000
 #define MVPP2_PRS_PORT_LU_MAX			0xf
@@ -1369,6 +1382,11 @@ enum mv_pp2x_tag_type {
 #define MVPP2_PRS_TCAM_ENTRY_VALID	0
 #define MVPP2_PRS_TCAM_ENTRY_INVALID	1
 #define MVPP2_PRS_TCAM_DSA_TAGGED_BIT	BIT(5)
+#define MVPP2_PRS_TCAM_DSA_TO_CPU_MODE		0
+#define MVPP2_PRS_TCAM_DSA_FROM_CPU_MODE	BIT(6)
+#define MVPP2_PRS_TCAM_DSA_TO_SNIFFER_MODE	BIT(7)
+#define MVPP2_PRS_TCAM_DSA_FORWARD_MODE		(BIT(6) | BIT(7))
+#define MVPP2_PRS_TCAM_DSA_MODE_MASK		0xc0
 #define MVPP2_PRS_IPV4_HEAD		0x40
 #define MVPP2_PRS_IPV4_HEAD_MASK	0xf0
 #define MVPP2_PRS_IPV4_MC		0xe0
@@ -1530,7 +1548,10 @@ enum mv_pp2x_tag_type {
 #define MVPP2_PRS_RI_L4_UDP			BIT(23)
 #define MVPP2_PRS_RI_L4_OTHER			(BIT(22) | BIT(23))
 #define MVPP2_PRS_RI_UDF7_MASK			0x60000000
-#define MVPP2_PRS_RI_UDF7_IP6_LITE		BIT(29)
+#define MVPP2_PRS_RI_UDF7_NIC			BIT(29)
+#define MVPP2_PRS_RI_UDF7_LOG_PORT		BIT(30)
+#define MVPP2_PRS_RI_UDF7_IP6_LITE		(BIT(29) | BIT(30))
+#define MVPP2_PRS_RI_UDF7_CLEAR			0x0
 #define MVPP2_PRS_RI_DROP_MASK			0x80000000
 
 /* Sram additional info bits assignment */
@@ -2030,6 +2051,13 @@ struct mv_pp2x_prs_shadow {
 	/* Result info */
 	u32 ri;
 	u32 ri_mask;
+
+	/* TCAM */
+	union mv_pp2x_prs_tcam_entry tcam;
+
+	/* The following is used for restoring kernel parser when MUSDK deinit */
+	u32 valid_in_kernel;
+
 };
 
 struct mv_pp2x_cls_flow_entry {

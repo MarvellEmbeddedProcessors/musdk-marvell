@@ -33,6 +33,9 @@
 #ifndef __NET_H__
 #define __NET_H__
 
+#define PPP_PROTO_IPV4		0x21
+#define PPP_PROTO_IPV6		0x57
+
 static inline bool mv_check_eaddr_mc(const u8 *eaddr)
 {
 	u16 e_16 = *(const u16 *)eaddr;

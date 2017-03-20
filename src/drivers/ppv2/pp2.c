@@ -510,6 +510,9 @@ void pp2_deinit(void)
 	for (u32 pp2_id = 0; pp2_id < pp2_ptr->num_pp2_inst; pp2_id++) {
 		struct pp2_inst *inst = pp2_ptr->pp2_inst[pp2_id];
 
+		/* Deinit cls manager */
+		pp2_cls_mng_deinit(inst);
+
 		pp2_destroy(inst);
 	}
 

@@ -89,11 +89,47 @@
 /*			STRUCTURES						*/
 /********************************************************************************/
 
+struct iphdr {
+	uint8_t	 ihl:4,
+		 version:4;
+	u8	 tos;
+	u16 tot_len;
+	u16 id;
+	u16 frag_off;
+	u8	 ttl;
+	u8	 protocol;
+	u16 check;
+	u32 saddr;
+	u32 daddr;
+};
+
+struct ipv6hdr {
+	uint8_t	 priority:4,
+		 version:4;
+	u8	 flow_lbl[3];
+
+	u16 payload_len;
+	u8	 nexthdr;
+	u8	 hop_limit;
+
+	struct	 in6_addr saddr;
+	struct	 in6_addr daddr;
+};
+
+struct prs_lkp_tcam_list {
+	u32 size;
+	u32 idx[MVPP2_PE_TID_SIZE];
+	int log_port[MVPP2_PE_TID_SIZE];
+};
+
 /********************************************************************************/
 /*			PROTOTYPE						*/
 /********************************************************************************/
 int pp2_cls_prs_init(struct pp2_inst *inst);
+void pp2_cls_prs_deinit(struct pp2_inst *inst);
 int mv_pp2x_prs_flow_id_attr_get(int flow_id);
+int pp2_prs_eth_start_hdr_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr eth_start_hdr);
+int pp2_prs_set_log_port(struct pp2_port *port, struct pp2_ppio_log_port_params *params);
 
 #endif /*_PP2_CLS_PRS_H_*/
 
