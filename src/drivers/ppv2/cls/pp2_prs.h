@@ -31,55 +31,69 @@
  *****************************************************************************/
 
 /**
- * @file pp2_cls_utils.h
+ * @file pp2_cls_prs.h
  *
- *  api protypes and macro of pp2_cls_utils.c
+ * internal and external definitions for parser High level routines
  */
 
-/***********************/
-/* h file declarations */
-/***********************/
-#ifndef _PP2_CLS_UTILS_H_
-#define _PP2_CLS_UTILS_H_
+#ifndef _PP2_CLS_PRS_H_
+#define _PP2_CLS_PRS_H_
+
+#include "pp2_cls_types.h"
+#include "pp2_cls_internal_types.h"
+#include "pp2_cls_common.h"
+#include "pp2_cls_utils.h"
+#include "pp2_flow_rules.h"
+#include "pp2_c3.h"
+#include "pp2_c2.h"
+#include "pp2_cls_db.h"
 
 /********************************************************************************/
 /*			MACROS							*/
 /********************************************************************************/
-#define MVPP2_MEMBER_NUM(array)	ARRAY_SIZE(array)
+/* HW_BYTE_OFFS
+ * return HW byte offset in 4 bytes register
+ * _offs_: native offset (LE)
+ * LE example: HW_BYTE_OFFS(1) = 1
+ * BE example: HW_BYTE_OFFS(1) = 2
+ */
+
+#if defined(__LITTLE_ENDIAN)
+#define HW_BYTE_OFFS(_offs_) (_offs_)
+#else
+#define HW_BYTE_OFFS(_offs_) ((3 - ((_offs_) % 4)) + (((_offs_) / 4) * 4))
+#endif
+
+#define SRAM_BIT_TO_BYTE(_bit_) HW_BYTE_OFFS((_bit_) / 8)
+
+#define TCAM_DATA_BYTE_OFFS_LE(_offs_)		(((_offs_) - \
+	((_offs_) % 2)) * 2 + ((_offs_) % 2))
+#define TCAM_DATA_MASK_OFFS_LE(_offs_) (((_offs_) * 2) - ((_offs_) % 2)  + 2)
+
+/* TCAM_DATA_BYTE/MASK
+ * tcam data divide into 4 bytes registers
+ * each register include 2 bytes of data and 2 bytes of mask
+ * the next macros calc data/mask offset in 4 bytes register
+ * _offs_: native offset (LE) in data bytes array
+ * relevant only for TCAM data bytes
+ * used by PRS and CLS2
+ */
+#define TCAM_DATA_BYTE(_offs_) (HW_BYTE_OFFS(TCAM_DATA_BYTE_OFFS_LE(_offs_)))
+#define TCAM_DATA_MASK(_offs_) (HW_BYTE_OFFS(TCAM_DATA_MASK_OFFS_LE(_offs_)))
+
+/********************************************************************************/
+/*			ENUMERATIONS						*/
+/********************************************************************************/
 
 /********************************************************************************/
 /*			STRUCTURES						*/
 /********************************************************************************/
 
-struct pp2_cls_enum_str_t {
-	int enum_value;	/* the value of enum */
-	const char *enum_str;	/* the string name of enum	*/
-};
-
-struct pp2_cls_enum_array_t {
-	int enum_num;				/* total enum number	*/
-	struct pp2_cls_enum_str_t *enum_array;	/* enum array		*/
-};
-
 /********************************************************************************/
 /*			PROTOTYPE						*/
 /********************************************************************************/
-u32 common_mask_gen(int bit_num);
-const char *pp2_utils_eng_no_str_get(int value);
-const char *pp2_utils_field_id_str_get(int value);
-const char *pp2_utils_valid_str_get(int value);
-const char *pp2_cls_utils_field_match_str_get(int value);
-const char *pp2_cls_utils_field_id_str_get(int value);
-const char *pp2_cls_utils_port_type_str_get(int value);
-const char *pp2_cls_utils_l4_type_str_get(int value);
-const char *pp2_cls_utils_qos_action_str_get(int value);
-const char *pp2_cls_utils_common_action_str_get(int value);
-const char *pp2_cls_utils_flow_id_action_str_get(int value);
-const char *pp2_cls_utils_frwd_action_str_get(int value);
-const char *pp2_cls_utils_scan_mode_str_get(int value);
-const char *pp2_cls_utils_tbl_action_type_str_get(int value);
-void print_horizontal_line(u32 char_count, const char *char_val);
-int mv_pp2x_ptr_validate(const void *ptr);
-int mv_pp2x_range_validate(int value, int min, int max);
+int pp2_cls_prs_init(struct pp2_inst *inst);
+int mv_pp2x_prs_flow_id_attr_get(int flow_id);
 
-#endif /* _PP2_CLS_UTILS_H_ */
+#endif /*_PP2_CLS_PRS_H_*/
+

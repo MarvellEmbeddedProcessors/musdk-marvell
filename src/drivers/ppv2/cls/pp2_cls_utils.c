@@ -326,3 +326,22 @@ void print_horizontal_line(u32 char_count, const char *char_val)
 	printf("\n");
 }
 
+int mv_pp2x_ptr_validate(const void *ptr)
+{
+	if (!ptr) {
+		pr_err("%s: null pointer.\n", __func__);
+		return MV_ERROR;
+	}
+	return 0;
+}
+
+int mv_pp2x_range_validate(int value, int min, int max)
+{
+	if (((value) > (max)) || ((value) < (min))) {
+		pr_err("%s: value 0x%X (%d) is out of range [0x%X , 0x%X].\n",
+			__func__, (value), (value), (min), (max));
+		return MV_ERROR;
+	}
+	return 0;
+}
+

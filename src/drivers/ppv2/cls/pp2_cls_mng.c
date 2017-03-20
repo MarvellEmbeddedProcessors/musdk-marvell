@@ -46,6 +46,8 @@
 #include "drivers/mv_pp2_cls.h"
 #include "../pp2_hw_cls.h"
 #include "pp2_cls_mng.h"
+#include "pp2_prs.h"
+
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
 #define NOT_SUPPORTED_YET 255
@@ -829,6 +831,7 @@ void pp2_cls_mng_init(struct pp2_inst *inst)
 		return;			/*Already initialized*/
 
 	pp2_cls_db_init(inst);
+	pp2_cls_prs_init(inst);
 	pp2_cls_init(inst);
 	pp2_cls_c2_start(inst);
 	pp2_cls_c3_start(inst);

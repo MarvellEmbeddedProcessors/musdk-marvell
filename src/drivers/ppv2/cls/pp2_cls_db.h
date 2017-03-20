@@ -124,10 +124,17 @@ struct pp2_cls_db_cls_t {
 	struct pp2_db_cls_lkp_dcod_t	lkp_dcod[MVPP2_MNG_FLOW_ID_MAX];	/* lookup decode DB	*/
 };
 
+struct pp2_cls_db_prs_t {
+	struct mv_pp2x_prs_shadow *prs_shadow;
+};
+
+
 struct pp2_cls_db_t {
 	struct pp2_cls_db_c2_t	c2_db;			/* PP2_CLS module C2 db		*/
 	struct pp2_cls_db_c3_t	c3_db;			/* PP2_CLS module C3 db		*/
 	struct pp2_cls_db_cls_t	cls_db;			/* PP2_CLS module CLS db		*/
+	struct pp2_cls_db_prs_t	prs_db;			/* PP2_CLS module PARSER db	*/
+
 };
 
 /* table db is not instance dependent, so it is defined separately in db */

@@ -192,7 +192,6 @@ static void pp2_inst_init(struct pp2_inst *inst)
 	/* Clear BM */
 	pp2_bm_flush_pools(cpu_slot, inst->parent->init.bm_pool_reserved_map);
 
-	ppdk_cls_default_config_set(inst);
 	pp2_cls_mng_init(inst);
 
 	/* Disable RXQs */
