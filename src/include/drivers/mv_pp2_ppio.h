@@ -113,8 +113,8 @@ enum pp2_ppio_log_port_rule_type {
 };
 
 enum pp2_ppio_cls_target {
-	PP2_CLS_TARGET_LOG_PORT = 0,
-	PP2_CLS_TARGET_NIC
+	PP2_CLS_TARGET_LOCAL_PPIO = 0,
+	PP2_CLS_TARGET_OTHER
 };
 
 /**
@@ -207,7 +207,7 @@ struct pp2_ppio_log_port_rule_params {
 	/** Indicate whether the rule is a network protocol or a special protocol-field
 	 * PP2_RULE_TYPE_PROTO, PP2_RULE_TYPE_PROTO_FIELD
 	 */
-	int					rule_type;
+	enum pp2_ppio_log_port_rule_type	rule_type;
 	union {
 		struct {
 			/** Defines a network protocol to be supported by logical port
@@ -252,9 +252,9 @@ struct pp2_ppio_log_port_params {
 	struct {
 		/** Indicate whether the network protocol rules defined below will be used for the NIC
 		* or for the logical-port;
-		* PP2_CLS_TARGET_LOG_PORT, PP2_CLS_TARGET_NIC
+		* PP2_CLS_TARGET_LOCAL_PPIO, PP2_CLS_TARGET_OTHER
 		 */
-		int						target;
+		enum pp2_ppio_cls_target			target;
 		/** Number of network protocol and protocol-field rules supported by logical port */
 		u8						num_proto_rule_sets;
 		struct {
@@ -262,7 +262,7 @@ struct pp2_ppio_log_port_params {
 			u8					num_rules;
 			struct pp2_ppio_log_port_rule_params	rules[PP2_MAX_PROTO_SUPPORTED];
 		} rule_sets[PP2_MAX_PROTO_SUPPORTED];
-	} target_classification;
+	} proto_based_target;
 };
 
 /**

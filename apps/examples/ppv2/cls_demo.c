@@ -1126,34 +1126,34 @@ static int pp2_cls_logical_port_params(struct glob_arg *garg, int argc, char *ar
 		/* Get parameters */
 		switch (option) {
 		case 'c':
-			params.target_classification.target = strtoul(optarg, &ret_ptr, 0);
-			if (params.target_classification.target != 0 && params.target_classification.target != 1) {
+			params.proto_based_target.target = strtoul(optarg, &ret_ptr, 0);
+			if (params.proto_based_target.target != 0 && params.proto_based_target.target != 1) {
 				printf("parsing fail, wrong input for --target\n");
 				return -EINVAL;
 			}
 			break;
 		case 'n':
-			params.target_classification.num_proto_rule_sets = strtoul(optarg, &ret_ptr, 0);
-			if (params.target_classification.num_proto_rule_sets <= 0 &&
-			    params.target_classification.num_proto_rule_sets > PP2_MAX_PROTO_SUPPORTED) {
+			params.proto_based_target.num_proto_rule_sets = strtoul(optarg, &ret_ptr, 0);
+			if (params.proto_based_target.num_proto_rule_sets <= 0 &&
+			    params.proto_based_target.num_proto_rule_sets > PP2_MAX_PROTO_SUPPORTED) {
 				printf("parsing fail, wrong input for --num_proto_rule_sets\n");
 				return -EINVAL;
 			}
 			break;
 		case 'm':
-			params.target_classification.rule_sets[r_idx].num_rules = strtoul(optarg, &ret_ptr, 0);
-			if (params.target_classification.rule_sets[r_idx].num_rules <= 0 &&
-			    params.target_classification.rule_sets[r_idx].num_rules > PP2_MAX_PROTO_SUPPORTED) {
+			params.proto_based_target.rule_sets[r_idx].num_rules = strtoul(optarg, &ret_ptr, 0);
+			if (params.proto_based_target.rule_sets[r_idx].num_rules <= 0 &&
+			    params.proto_based_target.rule_sets[r_idx].num_rules > PP2_MAX_PROTO_SUPPORTED) {
 				printf("parsing fail, wrong input for --num_rules\n");
 				return -EINVAL;
 			}
-			for (j = 0; j < params.target_classification.rule_sets[r_idx].num_rules &&
+			for (j = 0; j < params.proto_based_target.rule_sets[r_idx].num_rules &&
 			     ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); j++) {
 				if (option != 'a') {
 					printf("parsing fail, wrong input\n");
 					return -EINVAL;
 				}
-				rules_params = &params.target_classification.rule_sets[r_idx].rules[j];
+				rules_params = &params.proto_based_target.rule_sets[r_idx].rules[j];
 				rules_params->rule_type = strtoul(optarg, &ret_ptr, 0);
 				if (rules_params->rule_type != 0 &&
 				    rules_params->rule_type != 1) {
@@ -1236,14 +1236,14 @@ static int pp2_cls_logical_port_params(struct glob_arg *garg, int argc, char *ar
 		}
 	}
 
-	log_port_params->target_classification.target = params.target_classification.target;
-	log_port_params->target_classification.num_proto_rule_sets =  params.target_classification.num_proto_rule_sets;
-	for (i = 0; i < log_port_params->target_classification.num_proto_rule_sets; i++) {
-		log_port_params->target_classification.rule_sets[i].num_rules =
-					params.target_classification.rule_sets[i].num_rules;
-		for (j = 0; j < params.target_classification.rule_sets[i].num_rules; j++)
-			log_port_params->target_classification.rule_sets[i].rules[j] =
-					params.target_classification.rule_sets[i].rules[j];
+	log_port_params->proto_based_target.target = params.proto_based_target.target;
+	log_port_params->proto_based_target.num_proto_rule_sets =  params.proto_based_target.num_proto_rule_sets;
+	for (i = 0; i < log_port_params->proto_based_target.num_proto_rule_sets; i++) {
+		log_port_params->proto_based_target.rule_sets[i].num_rules =
+					params.proto_based_target.rule_sets[i].num_rules;
+		for (j = 0; j < params.proto_based_target.rule_sets[i].num_rules; j++)
+			log_port_params->proto_based_target.rule_sets[i].rules[j] =
+					params.proto_based_target.rule_sets[i].rules[j];
 	}
 
 	return 0;

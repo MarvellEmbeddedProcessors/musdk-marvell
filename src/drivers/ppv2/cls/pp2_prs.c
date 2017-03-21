@@ -1583,22 +1583,22 @@ int pp2_prs_set_log_port(struct pp2_port *port, struct pp2_ppio_log_port_params 
 	}
 
 	/* TODO - remove limitation */
-	if (params->target_classification.target != PP2_CLS_TARGET_LOG_PORT) {
+	if (params->proto_based_target.target != PP2_CLS_TARGET_LOCAL_PPIO) {
 		pr_err("only target log port is supported\n");
 		return -EFAULT;
 	}
 
 	/* TODO - remove limitation */
-	if (params->target_classification.num_proto_rule_sets > 1) {
+	if (params->proto_based_target.num_proto_rule_sets > 1) {
 		pr_err("only one rule set is supported\n");
 		return -EFAULT;
 	}
 
 	/* Configure protocols and protocol fields*/
-	for (i = 0; i < params->target_classification.num_proto_rule_sets; i++) {
-		for (j = 0; j < params->target_classification.rule_sets[i].num_rules; j++) {
+	for (i = 0; i < params->proto_based_target.num_proto_rule_sets; i++) {
+		for (j = 0; j < params->proto_based_target.rule_sets[i].num_rules; j++) {
 			struct pp2_ppio_log_port_rule_params *rule_params =
-				&params->target_classification.rule_sets[i].rules[j];
+				&params->proto_based_target.rule_sets[i].rules[j];
 
 			/* TODO - remove limitation */
 			if (rule_params->u.proto_params.val != 0) {
@@ -1737,9 +1737,9 @@ static int mv_pp2x_prs_log_port_init(struct pp2_inst *inst, enum pp2_ppio_cls_ta
 			pe.index = i;
 			mv_pp2x_prs_hw_read(cpu_slot, &pe);
 			mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_CLEAR, MVPP2_PRS_RI_UDF7_MASK);
-			if (target == PP2_CLS_TARGET_LOG_PORT)
+			if (target == PP2_CLS_TARGET_LOCAL_PPIO)
 				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_NIC, MVPP2_PRS_RI_UDF7_MASK);
-			else if (target == PP2_CLS_TARGET_NIC)
+			else if (target == PP2_CLS_TARGET_OTHER)
 				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_LOG_PORT, MVPP2_PRS_RI_UDF7_MASK);
 			mv_pp2x_prs_hw_write(cpu_slot, &pe);
 		}
@@ -1807,7 +1807,7 @@ int pp2_cls_prs_init(struct pp2_inst *inst)
 		return -EFAULT;
 
 	/* Initialize parser for logical port support */
-	rc = mv_pp2x_prs_log_port_init(inst, PP2_CLS_TARGET_LOG_PORT);
+	rc = mv_pp2x_prs_log_port_init(inst, PP2_CLS_TARGET_LOCAL_PPIO);
 	if (rc)
 		return -EINVAL;
 
