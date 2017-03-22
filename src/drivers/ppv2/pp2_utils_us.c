@@ -40,6 +40,9 @@
 
 #include "pp2.h"
 
+/* Get device tree data of the PPV2 ethernet ports.
+ * Does not include the loopback port.
+ */
 static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 {
 	FILE *fp;
@@ -55,9 +58,9 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 		return -EFAULT;
 
 	for (i = 0; i < num_inst; i++) {
-		for (j = 0; j < PP2_NUM_PORTS; j++) {
+		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
 
-			idx = i * PP2_NUM_PORTS + j;
+			idx = i * PP2_NUM_ETH_PPIO + j;
 			if (i == 0)
 				/* TODO -We assume that the path is static.
 				* Need to substitute this with a function that searches for the following string:
@@ -137,7 +140,7 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 		/* Filter already parsed interfaces, since getifaddrs linked list contains entries
 		 * for the same interface and different family types
 		 */
-		for (i = 0; i < num_inst * PP2_NUM_PORTS; i++) {
+		for (i = 0; i < num_inst * PP2_NUM_ETH_PPIO; i++) {
 			if (strcmp(netdev_params[i].if_name, ifa->ifa_name) == 0) {
 				if_dup = true;
 				break;

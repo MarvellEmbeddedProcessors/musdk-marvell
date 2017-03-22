@@ -59,7 +59,7 @@
 #define PP2_NUM_CPUS                 (4)
 
 /* Absolute number of hardware ports */
-#define PP2_NUM_PORTS                (3)
+#define PP2_NUM_PORTS                (4)
 /* Absolute number of hardware register spaces */
 #define PP2_NUM_REGSPACES            (9)
 /* Absolute number of hardware packet processors */
@@ -69,6 +69,8 @@
 #define PP2_HW_PORT_NUM_RXQS         (32)
 /* Number of TXQs per port */
 #define PP2_HW_PORT_NUM_TXQS         (8)
+
+#define PP2_LOOPBACK_PORT             (3)
 
 /******************************************************************************/
 /*    Hardware Resources Offsets(reserved to OS/slow path) per Platform       */

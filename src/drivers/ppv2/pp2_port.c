@@ -902,13 +902,14 @@ pp2_port_start_dev(struct pp2_port *port)
 	((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS) ? " egress " : "");
 
 	/* No need for port interrupts enable */
-	pp2_gop_port_events_mask(gop, mac);
+	if (port->use_mac_lb == false) {
+		pp2_gop_port_events_mask(gop, mac);
+		pp2_gop_port_enable(gop, mac);
 
-	pp2_gop_port_enable(gop, mac);
-	/* Link status. Indirect access */
-	pp2_port_link_status(port);
-
-	pp2_gop_status_show(gop, mac);
+		/* Link status. Indirect access */
+		pp2_port_link_status(port);
+		pp2_gop_status_show(gop, mac);
+	}
 
 	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
 		pp2_port_egress_enable(port);
@@ -1178,8 +1179,10 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	for (i = 0; i < PP2_PPIO_MAX_NUM_HASH; i++)
 		port->hash_type[i] = param->inqs_params.hash_type[i];
 
-	/*TODO: Delete this param */
-	port->use_mac_lb = false;
+	if (port_id == PP2_LOOPBACK_PORT)
+		port->use_mac_lb = true;
+	else
+		port->use_mac_lb = false;
 
 	pr_debug("PORT: ID %u (on PP%u):\n", port->id, pp2_id);
 	pr_debug("PORT: %s\n", port->use_mac_lb ? "LOOPBACK" : "PHY");

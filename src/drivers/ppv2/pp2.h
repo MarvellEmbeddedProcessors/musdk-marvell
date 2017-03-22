@@ -67,6 +67,10 @@
 #define GET_PPIO_PORT(ppio) ((struct pp2_port *)(ppio)->internal_param)
 #define GET_PPIO_PORT_PTR(ppio) ((struct pp2_port **)&(ppio).internal_param)
 
+#define PP2_LPBK_PORT_TXQ_SIZE 4096
+#define PP2_LPBK_PORT_NUM_TXQ  1
+
+
 /* TODO: Decide if to duplicate the below defines, under different name,
  * or split the definitions from the mvpp2io.h, and other header files, and use them here.
  */
@@ -298,6 +302,7 @@ enum port_status {
 	PP2_PORT_DISABLED,
 	PP2_PORT_KERNEL_ENABLED,
 	PP2_PORT_MUSDK_ENABLED,
+	PP2_PORT_MUSDK_LOOPBACK,
 };
 
 /* PP Port internal structure */

@@ -194,8 +194,8 @@ static void pp2_inst_init(struct pp2_inst *inst)
 
 	pp2_cls_mng_init(inst);
 
-	/* Disable RXQs */
-	for (i = 0; i < PP2_NUM_PORTS; i++) {
+	/* Disable RXQs, only for ethernet ports (not loopback_port) */
+	for (i = 0; i < PP2_NUM_ETH_PPIO; i++) {
 		struct ppio_init_params	*ppio_param = &inst->parent->init.ppios[inst->id][i];
 
 		if (!ppio_param->is_enabled)
@@ -340,12 +340,12 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 	hw->gop.xlg_mac.base.pa = hw->gop.mspg.pa + 0xF00;
 	hw->gop.xlg_mac.obj_size = 0x1000;
 
-	/* Get MAC data for all available ports based on dts GOP entries */
+	/* Get MAC data for all available ethernet ports (not loopback port) based on dts GOP entries */
 	/* TODO: Revise this after GOP dev tree support */
-	for (i = 0; i < PP2_NUM_PORTS; i++) {
+	for (i = 0; i < PP2_NUM_ETH_PPIO; i++) {
 		struct pp2_port *port = inst->ports[i];
 		struct pp2_mac_data *mac = &port->mac_data;
-		u32 id = port->id + (inst->id * PP2_NUM_PORTS);
+		u32 id = port->id + (inst->id * PP2_NUM_ETH_PPIO);
 
 		/* TBD(DevTree): replace with data read from Device tree */
 		mac->gop_index = hc_gop_mac_data[id].gop_index;
@@ -449,8 +449,9 @@ static void pp2_destroy(struct pp2_inst *inst)
 
 int pp2_init(struct pp2_init_params *params)
 {
-	u32 pp2_id;
-	u32 pp2_num_inst;
+	u32 pp2_id, pp2_num_inst;
+	struct pp2_ppio_params lb_port_params;
+	int rc;
 
 	pp2_ptr = kcalloc(1, sizeof(struct pp2), GFP_KERNEL);
 	if (unlikely(!pp2_ptr)) {
@@ -465,11 +466,11 @@ int pp2_init(struct pp2_init_params *params)
 
 	/* Retrieve netdev if information */
 	pp2_num_inst = pp2_get_num_inst();
-	netdev_params = kmalloc(sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_PORTS, GFP_KERNEL);
+	netdev_params = kmalloc(sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO, GFP_KERNEL);
 	if (!netdev_params)
 		return -ENOMEM;
 
-	memset(netdev_params, 0, sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_PORTS);
+	memset(netdev_params, 0, sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO);
 	pp2_netdev_if_info_get(netdev_params);
 
 	/* Initialize in an opaque manner from client,
@@ -501,6 +502,23 @@ int pp2_init(struct pp2_init_params *params)
 	}
 
 	pr_debug("PackProcs   %2u\n", pp2_num_inst);
+	lb_port_params.type = PP2_PPIO_T_NIC;
+	lb_port_params.inqs_params.num_tcs = 0;
+	lb_port_params.outqs_params.num_outqs = PP2_LPBK_PORT_NUM_TXQ;
+	lb_port_params.outqs_params.outqs_params[0].size = PP2_LPBK_PORT_TXQ_SIZE;
+
+	/* Initialize the loopback port */
+	for (pp2_id = 0; pp2_id < pp2_num_inst; pp2_id++) {
+		struct pp2_port *port;
+
+		rc = pp2_port_open(pp2_ptr, &lb_port_params, pp2_id, PP2_LOOPBACK_PORT, &port);
+		if (rc) {
+			pr_err("[%s] ppio init failed.\n", __func__);
+			return(-EFAULT); /* TODO: pp2_destroy on error (currently error_ret not possible) */
+		}
+		pp2_port_config_outq(port);
+		pp2_port_start(port, PP2_TRAFFIC_EGRESS);
+	}
 
 	return 0;
 }
@@ -509,6 +527,12 @@ void pp2_deinit(void)
 {
 	for (u32 pp2_id = 0; pp2_id < pp2_ptr->num_pp2_inst; pp2_id++) {
 		struct pp2_inst *inst = pp2_ptr->pp2_inst[pp2_id];
+		struct pp2_port *lpbk_port;
+
+		lpbk_port = inst->ports[PP2_LOOPBACK_PORT];
+		/* Close internal loopback port */
+		pp2_port_stop(lpbk_port);
+		pp2_port_close(lpbk_port);
 
 		/* Deinit cls manager */
 		pp2_cls_mng_deinit(inst);
@@ -530,7 +554,7 @@ int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname)
 	if (!netdev_params)
 		return -EFAULT;
 
-	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS; i++) {
+	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO; i++) {
 		if (netdev_params[i].pp_id == pp_id &&
 		    netdev_params[i].ppio_id == ppio_id) {
 			strcpy(ifname, netdev_params[i].if_name);
@@ -547,7 +571,7 @@ int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status)
 	if (!netdev_params)
 		return -EFAULT;
 
-	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS; i++) {
+	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO; i++) {
 		if (netdev_params[i].pp_id == pp_id &&
 		    netdev_params[i].ppio_id == ppio_id) {
 			*admin_status = netdev_params[i].admin_status;
@@ -571,7 +595,7 @@ int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *ppio_id)
 	if (!netdev_params)
 		return -EFAULT;
 
-	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_PORTS; i++) {
+	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO; i++) {
 		if (strcmp(netdev_params[i].if_name, ifname) == 0) {
 			*pp_id = netdev_params[i].pp_id;
 			*ppio_id = netdev_params[i].ppio_id;
