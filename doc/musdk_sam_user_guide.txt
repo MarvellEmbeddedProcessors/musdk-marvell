@@ -24,9 +24,8 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 				a8k has 2 crypto engines, so valid engine IDs are 0..1
 				a7k has 1 crypto engine, so valid engine ID is 0 only.
 			'r' is ring ID. Valid ring ID must be less than SAM_HW_RING_NUM.
-  - size		- ring size in number of descriptors must be less or equal than SAM_HW_RING_SIZE
-  - num_sessions	- number of supported sessions must be less or equal than SAM_HW_SA_NUM
-  - max_buf_size	- maximum buffer size [in bytes] must be less or equal than 16 KBytes
+  - size		- ring size in number of descriptors
+  - num_sessions	- number of supported sessions
 
 2.2	SAM create session
 ---------------------------

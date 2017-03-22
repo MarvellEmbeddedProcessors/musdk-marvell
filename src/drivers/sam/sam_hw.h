@@ -48,9 +48,7 @@
 #include "token_builder.h"
 
 #define SAM_HW_ENGINE_NUM	2
-#define SAM_HW_RING_NUM		DRIVER_MAX_NOF_RING_TO_USE
-#define SAM_HW_RING_SIZE	DRIVER_PEC_MAX_PACKETS
-#define SAM_HW_SA_NUM		DRIVER_PEC_MAX_SAS
+#define SAM_HW_RING_NUM		4
 
 /*#define SAM_REG_READ_DEBUG*/
 /*#define SAM_REG_WRITE_DEBUG*/

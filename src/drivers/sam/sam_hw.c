@@ -276,21 +276,9 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 		return -ENOMEM;
 	}
 
-	/* Check ring size and number of sessions with HW max values */
-	if (params->size > SAM_HW_RING_SIZE) {
-		/* SW value can't exceed HW restriction */
-		pr_warn("Ring size %d is too large. Set to maximum = %d\n",
-			params->size, SAM_HW_RING_SIZE);
-		params->size = SAM_HW_RING_SIZE;
-	}
+	/* Add 1 to ring size for lockless ring management */
 	params->size += 1;
 
-	if (params->num_sessions > SAM_HW_SA_NUM) {
-		/* SW value can't exceed HW restriction */
-		pr_warn("Number of sessions %d is too large. Set to maximum = %d\n",
-			params->num_sessions, SAM_HW_SA_NUM);
-		params->num_sessions = SAM_HW_SA_NUM;
-	}
 	if (engine_info->type == HW_EIP197) {
 		hw_ring->regs_vbase = (((char *)vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
 		hw_ring->paddr = paddr + SAM_EIP197_RING_REGS_OFFS(ring);
