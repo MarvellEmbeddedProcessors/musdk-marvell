@@ -166,7 +166,7 @@ void print_basic_sa_params(SABuilder_Params_Basic_t *params);
 
 void print_cmd_desc(PEC_CommandDescriptor_t *desc);
 
-void print_result_desc(PEC_ResultDescriptor_t *desc);
+void print_result_desc(struct sam_hw_res_desc *res_desc);
 
 void print_pkt_params(PEC_PacketParams_t *pkt);
 

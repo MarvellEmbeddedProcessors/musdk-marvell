@@ -129,6 +129,10 @@ struct sam_hw_res_desc {
 #define SAM_DESC_SEG_BYTES_BITS		17
 #define SAM_DESC_SEG_BYTES_MASK		BIT_MASK(SAM_DESC_SEG_BYTES_BITS)
 
+/* Buffer and Descriptor overflow bits in Result descrtiptor */
+#define SAM_DESC_DESCR_OFLO_MASK	BIT(20)
+#define SAM_DESC_BUF_OFLO_MASK		BIT(21)
+
 /* First and Last segments indication for Command and Result descriptors */
 #define SAM_DESC_LAST_SEG_MASK		BIT(22)
 #define SAM_DESC_FIRST_SEG_MASK		BIT(23)
@@ -141,9 +145,9 @@ struct sam_hw_res_desc {
 /* Token header word #6 */
 
 /* Segment size in bytes for Command and Result descriptors */
-#define SAM_TOKEN_INPUT_PKT_LEN_OFFS	0
-#define SAM_TOKEN_INPUT_PKT_LEN_BITS	17
-#define SAM_TOKEN_INPUT_PKT_LEN_MASK	BIT_MASK(SAM_TOKEN_INPUT_PKT_LEN_BITS)
+#define SAM_TOKEN_PKT_LEN_OFFS		0
+#define SAM_TOKEN_PKT_LEN_BITS		17
+#define SAM_TOKEN_PKT_LEN_MASK		BIT_MASK(SAM_TOKEN_PKT_LEN_BITS)
 
 #define SAM_TOKEN_IP_EIP97_MASK		BIT(17)
 #define SAM_TOKEN_CP_64B_MASK		BIT(18)
@@ -161,6 +165,17 @@ struct sam_hw_res_desc {
 #define SAM_TOKEN_TYPE_BASIC_MASK	(0x0 << SAM_TOKEN_TYPE_OFFS)
 #define SAM_TOKEN_TYPE_EXTENDED_MASK	(0x1 << SAM_TOKEN_TYPE_OFFS)
 #define SAM_TOKEN_TYPE_AUTO_MASK	(0x3 << SAM_TOKEN_TYPE_OFFS)
+
+/* Errors: [E0..E14] - token_result_data[0] */
+#define SAM_TOKEN_RESULT_ERRORS_OFFS	17
+#define SAM_TOKEN_RESULT_ERRORS_BITS	15
+#define SAM_TOKEN_RESULT_ERRORS_MASK	BIT_MASK(SAM_TOKEN_RESULT_ERRORS_BITS)
+
+/* E9 - Authentication error */
+#define SAM_RESULT_AUTH_ERROR_MASK	BIT(9)
+
+/* E15 extra error: token_result_data[1] */
+#define SAM_TOKEN_RESULT_E15_MASK	BIT(4)
 
 /* HW Services word #11 */
 #define FIRMWARE_HW_SERVICES_OFFS	24
@@ -448,66 +463,36 @@ static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, in
 	writel_relaxed(FIRMWARE_CMD_INV_TR_MASK, &cmd_desc->words[10]);
 }
 
-static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, PEC_ResultDescriptor_t *res)
+static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result)
 {
-	u32 val32, control_word;
+	u32 val32, errors;
 
-	/* Word 0 - Control Word */
-	control_word = readl_relaxed(&res_desc->words[0]);
-
-	/* Word 1 - extended length, not read. */
-
-	/* Word 2 & 3 - Destination Packet Data Buffer Address */
-	res->DstPkt_Handle.p = (void *)((u64)readl_relaxed(&res_desc->words[2]) |
-				       ((u64)readl_relaxed(&res_desc->words[3]) << 32));
-
-	/* Words 4 ... 7 - Result Token Data - token_data[0] */
+	/* Result Token Data - token_data[0] */
 	val32 = readl_relaxed(&res_desc->words[4]);
+	result->out_len = val32 & SAM_TOKEN_PKT_LEN_MASK;
 
-	res->DstPkt_ByteCount = val32 & MASK_17_BITS;
-	res->Status1 = val32;
-	/* ErrorCode  = ((val32 >> 17) & MASK_15_BITS); */
-
-	/* Copy the Buffer overflow (BIT_21) and Descriptor overflow (BIT_20) */
-	/* EIP-202 error bits from the first EIP-202 result descriptor word */
-	res->Status1 |= (control_word & (BIT_21 | BIT_20)) >> 6;
+	errors = (val32 >> SAM_TOKEN_RESULT_ERRORS_OFFS);
 
 	/* token_data[1] */
 	val32 = readl_relaxed(&res_desc->words[5]);
-	res->Status6 = val32;
-	res->Bypass_WordCount = val32 & MASK_4_BITS;
-	/* HashByteCount = ((val32 >> 22) & MASK_6_BITS); */
-	/* BCNL          = ((val32 >> 28) & MASK_4_BITS); */
-	/* fE15          = (val32 & BIT_4) */
-	/* fHash         = (val32 & BIT_21 */
+	if (val32 & SAM_TOKEN_RESULT_E15_MASK)
+		errors |= BIT(15);
 
-	/* token_data[2] - not in use */
-	/* val32 = readl_relaxed(&res_desc->words[6]); */
+	/* ControlWord - Bit[20] - Descr_Oflo and Bit[21] - Buffer_Oflo */
+	val32 = readl_relaxed(&res_desc->words[0]);
+	errors |= (val32 & (SAM_DESC_DESCR_OFLO_MASK | SAM_DESC_BUF_OFLO_MASK));
 
-	/* res->Status2 <- token_data[3] <- res_desc->words[7] */
-	/* ((PadByteCount & MASK_8_BITS) << 8) | (NextHeader & MASK_8_BITS); */
+	/* CLO errors bits for extended usage */
+	/* clo_err = ((val32 >> 16) & MASK_5_BITS); */
 
-	 /* token_data[3] <- res_desc->words[7] */
-	res->Status3 = readl_relaxed(&res_desc->words[7]);
-
-	res->Status4 = readl_relaxed(&res_desc->words[10]);
-	res->Status5 = readl_relaxed(&res_desc->words[11]);
-	/* res->Status7 and res->Status8 are not in use */
-
-#ifdef SAM_DMA_READ_DEBUG
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl_relaxed(&res_desc->words[0]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 1, readl_relaxed(&res_desc->words[1]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl_relaxed(&res_desc->words[2]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl_relaxed(&res_desc->words[3]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 4, readl_relaxed(&res_desc->words[4]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 5, readl_relaxed(&res_desc->words[5]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 6, readl_relaxed(&res_desc->words[6]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 7, readl_relaxed(&res_desc->words[7]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 8, readl_relaxed(&res_desc->words[8]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 9, readl_relaxed(&res_desc->words[9]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 10, readl_relaxed(&res_desc->words[10]));
-	pr_info("RDR_Read32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 11, readl_relaxed(&res_desc->words[11]));
-#endif /* SAM_DMA_READ_DEBUG */
+	if (errors == 0)
+		result->status = SAM_CIO_OK;
+	else if (errors & SAM_RESULT_AUTH_ERROR_MASK)
+		result->status = SAM_CIO_ERR_ICV;
+	else {
+		result->status = SAM_CIO_ERR_HW;
+		pr_warn("HW error: 0x%08x\n", errors);
+	}
 }
 
 static inline void sam_hw_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)

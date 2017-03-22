@@ -138,37 +138,33 @@ void print_cmd_desc(PEC_CommandDescriptor_t *desc)
 	pr_info("\n");
 }
 
-void print_result_desc(PEC_ResultDescriptor_t *desc)
+void print_result_desc(struct sam_hw_res_desc *res_desc)
 {
 	pr_info("\n");
-	pr_info("----------- PEC_ResultDescriptor_t desc ---------\n");
-	pr_info("desc->SrcPkt_Handle             = %p\n", desc->SrcPkt_Handle.p);
-	pr_info("desc->DstPkt_Handle             = %p\n", desc->DstPkt_Handle.p);
-	pr_info("desc->DstPkt_ByteCount          = %d\n", desc->DstPkt_ByteCount);
-	pr_info("desc->DstPkt_p                  = %p\n", desc->DstPkt_p);
-	pr_info("desc->User_p                    = %p\n", desc->User_p);
-	pr_info("desc->Status1                   = 0x%x\n", desc->Status1);
-	pr_info("desc->Status2                   = 0x%x\n", desc->Status2);
-	pr_info("desc->Status3                   = 0x%x\n", desc->Status3);
-	pr_info("desc->Status4                   = 0x%x\n", desc->Status4);
-	pr_info("desc->Status5                   = 0x%x\n", desc->Status5);
-	pr_info("desc->Status6                   = 0x%x\n", desc->Status6);
-	pr_info("desc->Status7                   = 0x%x\n", desc->Status7);
-	pr_info("desc->Status8                   = 0x%x\n", desc->Status8);
+	pr_info("----------- RDR descriptor ---------\n");
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl_relaxed(&res_desc->words[0]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 1, readl_relaxed(&res_desc->words[1]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl_relaxed(&res_desc->words[2]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl_relaxed(&res_desc->words[3]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 4, readl_relaxed(&res_desc->words[4]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 5, readl_relaxed(&res_desc->words[5]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 6, readl_relaxed(&res_desc->words[6]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 7, readl_relaxed(&res_desc->words[7]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 8, readl_relaxed(&res_desc->words[8]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 9, readl_relaxed(&res_desc->words[9]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 10, readl_relaxed(&res_desc->words[10]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", res_desc, 11, readl_relaxed(&res_desc->words[11]));
 	pr_info("\n");
-}
 
-void print_pkt_params(PEC_PacketParams_t *pkt)
-{
-	pr_info("\n");
-	pr_info("----------- PEC_PacketParams_t pkt ---------\n");
-	pr_info("pkt->HW_Services                = %d\n", pkt->HW_Services);
-	pr_info("pkt->Offset                     = %d\n", pkt->Offset);
-	pr_info("pkt->PadBoundary                = %d\n", pkt->PadBoundary);
-	pr_info("pkt->PadByte                    = %d\n", pkt->PadByte);
-	pr_info("pkt->TokenHeaderWord            = 0x%x\n", pkt->TokenHeaderWord);
-	pr_info("pkt->flags                      = %d\n", pkt->flags);
-	pr_info("\n");
+#if 0
+	/* Descriptor parsing - TBD */
+	/* Word 0 - Control Word */
+	control_word = readl_relaxed(&res_desc->words[0]);
+
+	/* Word 2 & 3 - Destination Packet Data Buffer Address */
+	(void *)((u64)readl_relaxed(&res_desc->words[2]) |
+	       ((u64)readl_relaxed(&res_desc->words[3]) << 32));
+#endif
 }
 
 void print_token_params(TokenBuilder_Params_t *token)

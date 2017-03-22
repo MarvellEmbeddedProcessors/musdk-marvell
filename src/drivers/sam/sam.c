@@ -647,9 +647,6 @@ error_enq:
 /* Process crypto operation result */
 int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num)
 {
-	PEC_Status_t rc;
-	PEC_ResultStatus_t result_status;
-	PEC_ResultDescriptor_t result_desc;
 	unsigned int i, count, todo, done, out_len;
 	struct sam_cio_op *operation;
 	struct sam_hw_res_desc *res_desc;
@@ -669,11 +666,10 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	count = 0;
 	while ((i < done) && (count < todo)) {
 		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
-		sam_hw_res_desc_read(res_desc, &result_desc);
 
 #ifdef MVCONF_SAM_DEBUG
 		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG)
-			print_result_desc(&result_desc);
+			print_result_desc(res_desc);
 #endif
 		i++;
 		operation = &cio->operations[cio->next_result];
@@ -684,32 +680,15 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 			cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 			continue;
 		}
-		out_len = result_desc.DstPkt_ByteCount;
+		sam_hw_res_desc_read(res_desc, result);
+		out_len = result->out_len;
 
 		SAM_STATS(cio->stats.deq_bytes += out_len);
 
-		rc = PEC_RD_Status_Read(&result_desc, &result_status);
-		if (rc != PEC_STATUS_OK) {
-			pr_err("%s: PEC_RD_Status_Read failed, rc = %d\n",
-				__func__, rc);
-		}
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 
-		if (!result)
-			continue;
-
 		result->cookie = operation->cookie;
-		result->out_len = out_len;
-
-		if (result_status.errors == 0)
-			result->status = SAM_CIO_OK;
-		else if (PEC_PKT_ERROR_AUTH & result_status.errors)
-			result->status = SAM_CIO_ERR_ICV;
-		else {
-			result->status = SAM_CIO_ERR_HW;
-			printf("%s: HW error 0x%x\n", __func__, result_status.errors);
-		}
 
 		/* Check output buffer size */
 		if (operation->out_frags[0].len < out_len) {
