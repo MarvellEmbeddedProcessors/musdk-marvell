@@ -41,6 +41,7 @@
 #include "lib/mv_sha2.h"
 #include "lib/mv_md5.h"
 #include "mv_sam.h"
+#include "utils.h"
 #include "fileSets.h"
 #include "encryptedBlock.h"
 
@@ -83,10 +84,6 @@ static int			num_requests_per_deq = 32;
 static u32			debug_flags;
 
 static generic_list		test_db;
-
-/** Get rid of path in filename - only for unix-type paths using '/' */
-#define NO_PATH(file_name) (strrchr((file_name), '/') ? \
-			    strrchr((file_name), '/') + 1 : (file_name))
 
 static enum sam_dir direction_str_to_val(char *data)
 {
@@ -703,7 +700,7 @@ static int run_tests(generic_list tests_db)
 
 static void usage(char *progname)
 {
-	printf("Usage: %s <match> <test_file> [OPTIONS]\n", NO_PATH(progname));
+	printf("Usage: %s <match> <test_file> [OPTIONS]\n", MVAPPS_NO_PATH(progname));
 	printf("<match> string format is cio-0:0\n");
 	printf("OPTIONS are optional:\n");
 	printf("\t-c <number>      - Number of requests to check (default: %d)\n", num_to_check);

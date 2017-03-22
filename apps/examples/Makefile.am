@@ -17,6 +17,7 @@ EXTRA_DIST =
 bin_PROGRAMS = musdk_pkt_echo
 musdk_pkt_echo_SOURCES  = ../common/lib/cli.c
 musdk_pkt_echo_SOURCES += ../common/mvapp.c
+musdk_pkt_echo_SOURCES += ../common/utils.c
 musdk_pkt_echo_SOURCES += ppv2/pkt_echo/pkt_echo.c
 musdk_pkt_echo_LDADD = $(top_builddir)/src/libmusdk.la
 
@@ -25,6 +26,7 @@ bin_PROGRAMS += musdk_crypto_echo
 musdk_crypto_echo_SOURCES  = ../common/lib/cli.c
 musdk_crypto_echo_SOURCES += ../common/lib/perf_mon_emu.c
 musdk_crypto_echo_SOURCES += ../common/mvapp.c
+musdk_crypto_echo_SOURCES += ../common/utils.c
 musdk_crypto_echo_SOURCES += ppv2/crypto_echo/crypto_echo.c
 musdk_crypto_echo_LDADD = $(top_builddir)/src/libmusdk.la
 endif

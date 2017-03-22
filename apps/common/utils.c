@@ -40,13 +40,21 @@
 #include "mvapp.h"
 #include "mv_pp2.h"
 #include "mv_pp2_bpool.h"
-#include "mv_pp2_ppio.h"
 #include "utils.h"
 
-static u64 sys_dma_high_addr;
-static u16 used_bpools = MVAPPS_PP2_BPOOLS_RSRV;
+#define MVAPPS_MAX_BURST_SIZE 256
+
+u64 sys_dma_high_addr;
+
+static u16 used_bpools[MVAPPS_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
+static u64 buf_alloc_cnt;
+static u64 hw_rxq_buf_free_cnt;
+static u64 hw_bm_buf_free_cnt;
+static u64 buf_free_cnt;
+static u64 hw_buf_free_cnt;
+static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
 /*
  * app_get_line()
@@ -93,18 +101,13 @@ int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[])
 	return 0;
 }
 
-u64 app_get_sys_dma_high_addr(void)
-{
-	return sys_dma_high_addr;
-}
-
-static int find_free_bpool(void)
+static int find_free_bpool(u32 pp_id)
 {
 	int i;
 
 	for (i = 0; i < MVAPPS_PP2_TOTAL_NUM_BPOOLS; i++) {
-		if (!((uint64_t)(1 << i) & used_bpools)) {
-			used_bpools |= (uint64_t)(1 << i);
+		if (!((1 << i) & used_bpools[pp_id])) {
+			used_bpools[pp_id] |= (1 << i);
 			break;
 		}
 	}
@@ -120,8 +123,8 @@ static int find_free_hif(void)
 	int i;
 
 	for (i = 0; i < MVAPPS_PP2_TOTAL_NUM_HIFS; i++) {
-		if (!((uint64_t)(1 << i) & used_hifs)) {
-			used_hifs |= (uint64_t)(1 << i);
+		if (!((1 << i) & used_hifs)) {
+			used_hifs |= (1 << i);
 			break;
 		}
 	}
@@ -133,7 +136,7 @@ static int find_free_hif(void)
 	return i;
 }
 
-int app_hif_init(struct pp2_hif **hif)
+int app_hif_init(struct pp2_hif **hif, u32 queue_size)
 {
 	int hif_id;
 	char name[15];
@@ -151,7 +154,7 @@ int app_hif_init(struct pp2_hif **hif)
 	pr_debug("found hif: %s\n", name);
 	memset(&hif_params, 0, sizeof(hif_params));
 	hif_params.match = name;
-	hif_params.out_size = MVAPPS_Q_SIZE;
+	hif_params.out_size = queue_size;
 	err = pp2_hif_init(&hif_params, hif);
 	if (err)
 		return err;
@@ -163,82 +166,70 @@ int app_hif_init(struct pp2_hif **hif)
 	return 0;
 }
 
-
-
-int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pbuffs_inf, int num_pools,
-			   struct bpool_inf infs[], struct pp2_hif *hif)
+int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif)
 {
 	struct pp2_bpool_params		bpool_params;
 	int				i, j, k, err, pool_id;
 	char				name[15];
-	struct pp2_bpool 		***pools;
-	struct pp2_buff_inf 		***buffs_inf;
+	struct bpool_desc		**pools = NULL;
+	struct pp2_buff_inf		*buffs_inf = NULL;
 	u8  pp2_num_inst = pp2_get_num_inst();
 
-	pools = (struct pp2_bpool ***)malloc(pp2_num_inst * sizeof(struct pp2_bpool **));
+	buf_alloc_cnt = 0;
+
+	if (num_pools > MVAPPS_PP2_MAX_NUM_BPOOLS) {
+		pr_err("only %d pools allowed!\n", MVAPPS_PP2_MAX_NUM_BPOOLS);
+		return -EINVAL;
+	}
+/* TODO: release memory on error */
+	pools = (struct bpool_desc **)malloc(pp2_num_inst * sizeof(struct bpool_desc *));
 	if (!pools) {
-		pr_err("no mem for bpools array!\n");
+		pr_err("no mem for bpool_desc array!\n");
 		return -ENOMEM;
 	}
 
 	*ppools = pools;
 
-	buffs_inf = (struct pp2_buff_inf ***)malloc(pp2_num_inst * sizeof(struct pp2_buff_inf **));
-	if (!buffs_inf) {
-		pr_err("no mem for bpools-inf array!\n");
-		return -ENOMEM;
-	}
-
-	*pbuffs_inf = buffs_inf;
 
 	for (i = 0; i < pp2_num_inst; i++) {
-
-		pr_info("num_pools = %d, buff_size %d, num_buffs %d\n", num_pools, infs[0].buff_size, infs[0].num_buffs);
-
-		/* TODO: temporary W/A until we have map routines of bpools to ppios */
-		if (num_pools > PP2_PPIO_TC_MAX_POOLS) {
-			pr_err("only %d pools allowed!\n", PP2_PPIO_TC_MAX_POOLS);
-			return -EINVAL;
-		}
-
-		pools[i] = (struct pp2_bpool **)malloc(num_pools * sizeof(struct pp2_bpool *));
+		pools[i] = (struct bpool_desc *)malloc(num_pools * sizeof(struct bpool_desc));
 		if (!pools[i]) {
-			pr_err("no mem for bpools array!\n");
-			return -ENOMEM;
-		}
-
-		buffs_inf[i] = (struct pp2_buff_inf **)malloc(num_pools * sizeof(struct pp2_buff_inf *));
-		if (!buffs_inf[i]) {
-			pr_err("no mem for bpools-inf array!\n");
+			pr_err("no mem for bpool_desc array!\n");
 			return -ENOMEM;
 		}
 
 		for (j = 0; j < num_pools; j++) {
-			pool_id = find_free_bpool();
+			pool_id = find_free_bpool(i);
 			if (pool_id < 0) {
 				pr_err("free bpool not found!\n");
 				return pool_id;
 			}
 			memset(name, 0, sizeof(name));
 			snprintf(name, sizeof(name), "pool-%d:%d", i, pool_id);
-			pr_info("found bpool:  %s\n", name);
 			memset(&bpool_params, 0, sizeof(bpool_params));
 			bpool_params.match = name;
 			bpool_params.buff_len = infs[j].buff_size;
-			err = pp2_bpool_init(&bpool_params, &pools[i][j]);
+
+			pr_info("%s: buff_size %d, num_buffs %d\n", name, infs[j].buff_size, infs[j].num_buffs);
+			err = pp2_bpool_init(&bpool_params, &pools[i][j].pool);
 			if (err)
 				return err;
 
-			if (!pools[i][j]) {
-				pr_err("BPool init failed!\n");
+			if (!pools[i][j].pool) {
+				pr_err("BPool id%d init failed!\n", pool_id);
 				return -EIO;
 			}
 
-			buffs_inf[i][j] = (struct pp2_buff_inf *)malloc(infs[j].num_buffs * sizeof(struct pp2_buff_inf));
-			if (!buffs_inf[i][j]) {
+			pools[i][j].buffs_inf =
+				(struct pp2_buff_inf *)malloc(infs[j].num_buffs * sizeof(struct pp2_buff_inf));
+
+			if (!pools[i][j].buffs_inf) {
 				pr_err("no mem for bpools-inf array!\n");
 				return -ENOMEM;
 			}
+
+			buffs_inf = pools[i][j].buffs_inf;
+			pools[i][j].num_buffs = infs[j].num_buffs;
 
 			for (k = 0; k < infs[j].num_buffs; k++) {
 				void *buff_virt_addr;
@@ -257,22 +248,283 @@ int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pb
 						buff_virt_addr);
 					continue;
 				}
-				buffs_inf[i][j][k].addr = (bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
+				buffs_inf[k].addr = (bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
 				/* cookie contains lower_32_bits of the va */
-				buffs_inf[i][j][k].cookie = lower_32_bits((u64)buff_virt_addr);
+				buffs_inf[k].cookie = lower_32_bits((u64)buff_virt_addr);
 			}
-			for (k = 0 ; k < infs[j].num_buffs; k++) {
+
+			for (k = 0; k < infs[j].num_buffs; k++) {
 				struct pp2_buff_inf	tmp_buff_inf;
 
-				tmp_buff_inf.cookie = buffs_inf[i][j][k].cookie;
-				tmp_buff_inf.addr   = buffs_inf[i][j][k].addr;
-				err = pp2_bpool_put_buff(hif, pools[i][j], &tmp_buff_inf);
+				tmp_buff_inf.cookie = buffs_inf[k].cookie;
+				tmp_buff_inf.addr   = buffs_inf[k].addr;
+				err = pp2_bpool_put_buff(hif, pools[i][j].pool, &tmp_buff_inf);
 				if (err)
 					return err;
+				buf_alloc_cnt++;
 			}
 		}
 	}
+	return 0;
+
+}
+
+int app_find_port_info(struct port_desc *port_desc)
+{
+	char		 name[20];
+	u8		 pp, ppio;
+	int		 err;
+
+	if (!port_desc->name) {
+		pr_err("No port name given!\n");
+		return -1;
+	}
+
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "%s", port_desc->name);
+	err = pp2_netdev_get_port_info(name, &pp, &ppio);
+	if (err) {
+		pr_err("PP2 Port %s not found!\n", port_desc->name);
+		return err;
+	}
+
+	port_desc->ppio_id = ppio;
+	port_desc->pp_id = pp;
 
 	return 0;
 }
+
+int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu)
+{
+	struct pp2_ppio_params		*port_params = &port->port_params;
+	struct pp2_ppio_inq_params	inq_params;
+	char				name[MVAPPS_PPIO_NAME_MAX];
+	int				i, j, err = 0;
+	u16				curr_mtu;
+
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "ppio-%d:%d",
+		 port->pp_id, port->ppio_id);
+	pr_debug("found port: %s\n", name);
+	port_params->match = name;
+	port_params->type = port->ppio_type;
+	port_params->inqs_params.num_tcs = port->num_tcs;
+	for (i = 0; i < port->num_tcs; i++) {
+		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
+		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs;
+		inq_params.size = port->inq_size;
+		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
+		for (j = 0; j < num_pools; j++)
+			port_params->inqs_params.tcs_params[i].pools[j] = pools[j].pool;
+	}
+	port_params->outqs_params.num_outqs = port->num_outqs;
+	for (i = 0; i < port->num_outqs; i++) {
+		port_params->outqs_params.outqs_params[i].size = port->outq_size;
+		port_params->outqs_params.outqs_params[i].weight = 1;
+	}
+
+	err = pp2_ppio_init(port_params, &port->ppio);
+	if (err) {
+		pr_err("PP-IO init failed (error: %d)!\n", err);
+		return err;
+	}
+
+	if (!port->ppio) {
+		pr_err("PP-IO init failed!\n");
+		return -EIO;
+	}
+
+	if (mtu) {
+		/* Change port MTU if needed */
+		pp2_ppio_get_mtu(port->ppio, &curr_mtu);
+		if (curr_mtu != mtu) {
+			pp2_ppio_set_mtu(port->ppio, mtu);
+			pp2_ppio_set_mru(port->ppio, MVAPPS_MTU_TO_MRU(mtu));
+			pr_info("Set port ppio-%d:%d MTU to %d\n",
+				port->pp_id, port->ppio_id, mtu);
+		}
+	}
+
+	err = pp2_ppio_enable(port->ppio);
+
+	return err;
+}
+
+void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, struct port_desc *port)
+{
+	int i;
+
+	lcl_port->id		= id;
+	lcl_port->lcl_id	= lcl_id;
+	lcl_port->pp_id		= port->pp_id;
+	lcl_port->ppio_id	= port->ppio_id;
+	lcl_port->ppio		= port->ppio;
+
+	lcl_port->num_shadow_qs = port->num_outqs;
+	lcl_port->shadow_q_size	= port->outq_size;
+	lcl_port->shadow_qs = (struct tx_shadow_q *)malloc(port->num_outqs * sizeof(struct tx_shadow_q));
+
+	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
+		lcl_port->shadow_qs[i].read_ind = 0;
+		lcl_port->shadow_qs[i].write_ind = 0;
+
+		lcl_port->shadow_qs[i].ents =
+			(struct tx_shadow_q_entry *)malloc(port->outq_size * sizeof(struct tx_shadow_q_entry));
+	}
+
+}
+
+void app_port_local_deinit(struct lcl_port_desc *lcl_port)
+{
+	int i, cnt = 0;
+
+	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
+		struct tx_shadow_q *shadow_q = &lcl_port->shadow_qs[i];
+
+		if (shadow_q->read_ind > shadow_q->write_ind) {
+			cnt = lcl_port->shadow_q_size - shadow_q->read_ind + shadow_q->write_ind;
+			tx_shadow_q_buf_free_cnt[lcl_port->lcl_id] += cnt;
+		} else {
+			cnt = shadow_q->write_ind - shadow_q->read_ind;
+			tx_shadow_q_buf_free_cnt[lcl_port->lcl_id] += cnt;
+		}
+		pr_debug("Release %d buffers from shadow_q-%d port:%d:%d\n",
+			 cnt, i, lcl_port->pp_id, lcl_port->ppio_id);
+		shadow_q->read_ind = 0;
+		shadow_q->write_ind = 0;
+		free(shadow_q->ents);
+	}
+
+	free(lcl_port->shadow_qs);
+}
+
+
+static void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs)
+{
+	struct pp2_ppio_desc	descs[MVAPPS_MAX_BURST_SIZE];
+	u8			tc = 0, qid = 0;
+	u16			num;
+
+	for (tc = 0; tc < num_tcs; tc++) {
+		for (qid = 0; qid < num_inqs; qid++) {
+			num = MVAPPS_MAX_BURST_SIZE;
+			while (num) {
+				pp2_ppio_recv(port, tc, qid, descs, &num);
+				hw_rxq_buf_free_cnt += num;
+			}
+		}
+	}
+}
+
+void app_disable_all_ports(struct port_desc *ports, int num_ports, u16 num_tcs, u16 num_inqs)
+{
+	int i;
+
+	for (i = 0;  i < num_ports; i++) {
+		if (ports[i].ppio) {
+			pp2_ppio_disable(ports[i].ppio);
+			free_rx_queues(ports[i].ppio, num_tcs, num_inqs);
+		}
+	}
+
+}
+
+void app_deinit_all_ports(struct port_desc *ports, int num_ports)
+{
+	int i;
+
+	for (i = 0;  i < num_ports; i++) {
+		if (ports[i].ppio)
+			pp2_ppio_deinit(ports[i].ppio);
+	}
+
+	/* Calculate number of buffers released from PP2 */
+	for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++)
+		hw_buf_free_cnt += tx_shadow_q_buf_free_cnt[i];
+	hw_buf_free_cnt += hw_bm_buf_free_cnt + hw_rxq_buf_free_cnt;
+
+	if (buf_free_cnt != buf_alloc_cnt)
+		pr_err("Not all buffers were released: allocated: %lu, freed: %lu\n",
+			buf_alloc_cnt, buf_free_cnt);
+
+	if (buf_free_cnt != hw_buf_free_cnt) {
+		pr_err("Error in buffer release: allocated: %lu, app freed: %lu!!!\n",
+			buf_alloc_cnt, buf_free_cnt);
+
+		pr_err("pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
+			hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+			(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
+	}
+
+
+	pr_debug("allocated: %lu, app freed: %lu, pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
+		buf_alloc_cnt, buf_free_cnt, hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+		(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
+}
+
+static void flush_pool(struct pp2_bpool *bpool, struct pp2_hif *hif)
+{
+	u32 i, buf_num, cnt = 0, err = 0;
+
+	pp2_bpool_get_num_buffs(bpool, &buf_num);
+	for (i = 0; i < buf_num; i++) {
+		struct pp2_buff_inf buff;
+
+		err = 0;
+		while (pp2_bpool_get_buff(hif, bpool, &buff)) {
+			err++;
+			if (err == 10000) {
+				buff.cookie = 0;
+				break;
+			}
+		}
+
+		if (err) {
+			if (err == 10000) {
+				pr_err("flush_pool: p2_id=%d, pool_id=%d: Got NULL buf (%d of %d)\n",
+					bpool->pp2_id, bpool->id, i, buf_num);
+				continue;
+			}
+			pr_warn("flush_pool: p2_id=%d, pool_id=%d: Got buf (%d of %d) after %d retries\n",
+				bpool->pp2_id, bpool->id, i, buf_num, err);
+		}
+		cnt++;
+	}
+	hw_bm_buf_free_cnt += cnt;
+	pp2_bpool_deinit(bpool);
+}
+
+static void free_pool_buffers(struct pp2_buff_inf *buffs, int num)
+{
+	int i;
+
+	for (i = 0; i < num; i++) {
+		void *buff_virt_addr = (char *)(((uintptr_t)(buffs[i].cookie)) | sys_dma_high_addr);
+
+		mv_sys_dma_mem_free(buff_virt_addr);
+		buf_free_cnt++;
+	}
+}
+
+void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif *hif)
+{
+	int i, j;
+	u8  pp2_num_inst = pp2_get_num_inst();
+
+	if (pools) {
+		for (i = 0; i < pp2_num_inst; i++) {
+			if (pools[i]) {
+				for (j = 0; j < num_pools; j++)
+					if (pools[i][j].pool) {
+						flush_pool(pools[i][j].pool, hif);
+						free_pool_buffers(pools[i][j].buffs_inf, pools[i][j].num_buffs);
+						free(pools[i][j].buffs_inf);
+					}
+				free(pools[i]);
+			}
+		}
+		free(pools);
+	}
+}
+
 

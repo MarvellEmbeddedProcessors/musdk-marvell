@@ -35,34 +35,131 @@
 
 #include "mv_std.h"
 #include "mv_pp2_hif.h"
+#include "mv_pp2_ppio.h"
 
-#define MVAPPS_PKT_OFFS		64
-#define MVAPPS_MH_SIZE		(2) /* TODO: take this from ppio definitions.*/
-#define MVAPPS_PKT_EFEC_OFFS	(MVAPPS_PKT_OFFS + MVAPPS_MH_SIZE)
+/* pkt offset, must be multiple of 32 bytes */
+#define MVAPPS_PKT_OFFS			64
+/* pkt offset including Marvell header */
+#define MVAPPS_PKT_EFEC_OFFS		(MVAPPS_PKT_OFFS + PP2_MH_SIZE)
+/* Maximum number of packet processors used by application */
+#define MVAPPS_MAX_PKT_PROC		2
+/* Maximum number of CPU cores used by application */
+#define MVAPPS_MAX_NUM_CORES		4
+/* Maximum number of queues per TC */
+#define MVAPPS_MAX_NUM_QS_PER_TC	MVAPPS_MAX_NUM_CORES
+/* Total number of BM pools supported */
+#define MVAPPS_PP2_TOTAL_NUM_BPOOLS	(PP2_PPIO_TC_MAX_POOLS*PP2_PPIO_MAX_NUM_TCS)
+/* Number of BM pools reserved by kernel */
+#define MVAPPS_PP2_NUM_BPOOLS_RSRV	3
+/* Reserved BM pools mask */
+#define MVAPPS_PP2_BPOOLS_RSRV		((1 << MVAPPS_PP2_NUM_BPOOLS_RSRV) - 1)
+/* Maximum number of pools per packet processor */
+#define MVAPPS_PP2_MAX_NUM_BPOOLS	min(PP2_PPIO_TC_MAX_POOLS*PP2_PPIO_MAX_NUM_TCS, \
+					MVAPPS_PP2_TOTAL_NUM_BPOOLS - MVAPPS_PP2_NUM_BPOOLS_RSRV)
+/* Total number of HIFs supported */
+#define MVAPPS_PP2_TOTAL_NUM_HIFS	9 /* PP2_NUM_REGSPACES - move to API h file */
+/* Number of HIFs reserved by kernel */
+#define MVAPPS_PP2_NUM_HIFS_RSRV	4
+/* Reserved HIFs mask */
+#define MVAPPS_PP2_HIFS_RSRV		((1 << MVAPPS_PP2_NUM_HIFS_RSRV) - 1)
 
-#define MVAPPS_Q_SIZE		1024
-#define MVAPPS_MAX_BURST_SIZE	(MVAPPS_Q_SIZE >> 1)
 
-#define MVAPPS_PP2_BPOOLS_RSRV	0x7
-#define MVAPPS_PP2_HIFS_RSRV	0xF
-#define MVAPPS_DFLT_BURST_SIZE	256
-#define MVAPPS_MAX_NUM_PORTS 2
+/** Get rid of path in filename - only for unix-type paths using '/' */
+#define MVAPPS_NO_PATH(file_name)	(strrchr((file_name), '/') ? \
+					 strrchr((file_name), '/') + 1 : (file_name))
 
-#define MVAPPS_MAX_NUM_CORES	4
-#define MVAPPS_MAX_NUM_QS_PER_TC		MVAPPS_MAX_NUM_CORES
-#define MVAPPS_MAX_NUM_QS_PER_CORE		MVAPPS_MAX_NUM_QS_PER_TC
+/* Maximum size of port name */
+#define MVAPPS_PPIO_NAME_MAX		20
 
-/* TODO: find more generic way to get the following parameters */
-#define MVAPPS_PP2_TOTAL_NUM_BPOOLS	16
-#define MVAPPS_PP2_TOTAL_NUM_HIFS	9
+/* Default MTU */
+#define DEFAULT_MTU			1500
+/* VLAN header length */
+#define VLAN_HLEN			4
+/* Ethernet header length */
+#define ETH_HLEN			14
+/* Ethernet FCS length */
+#define ETH_FCS_LEN			4
 
-#define MVAPPS_BPOOLS_INF	{{2048, 1024} }
+/* Macro to convert MTU to MRU */
+#define MVAPPS_MTU_TO_MRU(mtu) \
+	((mtu) + PP2_MH_SIZE + VLAN_HLEN + \
+	ETH_HLEN + ETH_FCS_LEN)
 
-struct bpool_inf {
-	int	buff_size;
-	int	num_buffs;
+/* Macro to convert MRU to MTU */
+#define MVAPPS_MRU_TO_MTU(mru) \
+	((mru) - PP2_MH_SIZE - VLAN_HLEN - \
+	ETH_HLEN - ETH_FCS_LEN)
+
+/*
+ * Tx shadow queue entry
+ */
+struct tx_shadow_q_entry {
+	struct pp2_buff_inf	 buff_ptr;	/* pointer to the buffer object */
+	struct pp2_bpool	*bpool;		/* pointer to the bpool object */
 };
 
+/*
+ * Tx shadow queue
+ */
+struct tx_shadow_q {
+	u16				read_ind;	/* read index */
+	u16				write_ind;	/* write index */
+
+	struct tx_shadow_q_entry	*ents;		/* array of entries */
+};
+
+/*
+ * General port parameters
+ */
+struct port_desc {
+	char			 name[15];	/* Port name */
+	int			 pp_id;		/* Packet Processor ID */
+	int			 ppio_id;	/* PPIO port ID */
+	enum pp2_ppio_type	 ppio_type;	/* PPIO type */
+	u16			 num_tcs;	/* Number of TCs */
+	u16			 num_inqs;	/* Number of Rx queues */
+	u16			 num_outqs;	/* Number of Tx queues */
+	u32			 inq_size;	/* Rx queue size */
+	u32			 outq_size;	/* Tx queue size */
+	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
+	struct pp2_ppio_params	 port_params;	/* PPIO configuration parameters */
+
+};
+
+/*
+ * Local thread port parameters
+ */
+struct lcl_port_desc {
+	int			 id;		/* Local port ID*/
+	int			 lcl_id;	/* Local thread ID*/
+	int			 pp_id;		/* Packet Processor ID */
+	int			 ppio_id;	/* PPIO port ID */
+	struct pp2_ppio		*ppio;		/* PPIO object returned by pp2_ppio_init() */
+	int			 num_shadow_qs;	/* Number of Tx shadow queues */
+	int			 shadow_q_size;	/* Size of Tx shadow queue */
+	struct tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
+};
+
+/*
+ * BM pool size parameters
+ */
+struct bpool_inf {
+	int	buff_size;	/* buffer size */
+	int	num_buffs;	/* number of buffers */
+};
+
+/*
+ * BM pool parameters
+ */
+struct bpool_desc {
+	struct pp2_bpool	*pool;		/* pointer to the bpool object */
+	struct pp2_buff_inf	*buffs_inf;	/* array of buffer objects */
+	int			 num_buffs;	/* number of buffers */
+};
+
+/*
+ * Swap source and destination MAC addresses
+ */
 static inline void swap_l2(char *buf)
 {
 	uint16_t *eth_hdr;
@@ -81,6 +178,9 @@ static inline void swap_l2(char *buf)
 	eth_hdr[5] = tmp;
 }
 
+/*
+ * Swap source and destination IP addresses
+ */
 static inline void swap_l3(char *buf)
 {
 	register uint32_t tmp32;
@@ -91,11 +191,52 @@ static inline void swap_l3(char *buf)
 	((uint32_t *)buf)[1] = tmp32;
 }
 
+/*
+ * Init HIF object
+ */
+int app_hif_init(struct pp2_hif **hif, u32 queue_size);
+/*
+ * Build all pools
+ */
+int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif);
+/*
+ * Free all pools
+ */
+void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif *hif);
+
+/*
+ * Parse port pp_id and ppio_id from port name
+ */
+int app_find_port_info(struct port_desc *port_desc);
+/*
+ * Init port
+ */
+int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu);
+/*
+ * Init local port object per thread according to port parameters
+ */
+void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, struct port_desc *port);
+/*
+ * Deinit all ports
+ */
+void app_deinit_all_ports(struct port_desc *ports, int num_ports);
+/*
+ * Deinit local port object
+ */
+void app_port_local_deinit(struct lcl_port_desc *lcl_port);
+/*
+ * Disable all ports
+ */
+void app_disable_all_ports(struct port_desc *ports, int num_ports, u16 num_tcs, u16 num_inqs);
+
+/* TODO: may be need to move to other file */
+/*
+ * Get line
+ */
 int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[]);
-u64 app_get_sys_dma_high_addr(void);
-int app_hif_init(struct pp2_hif **hif);
-int app_build_all_bpools(struct pp2_bpool ****ppools, struct pp2_buff_inf ****pbuffs_inf, int num_pools,
-			   struct bpool_inf infs[], struct pp2_hif *hif);
+
+/* Saved sysdma virtual high address*/
+extern u64 sys_dma_high_addr;
 
 #endif /*__MVUTILS_H__*/
 

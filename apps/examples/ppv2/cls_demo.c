@@ -52,45 +52,28 @@
 #define CLS_APP_PP2_MAX_NUM_QS_PER_TC		1
 #define CLS_APP_STR_SIZE_MAX			40
 #define CLS_APP_KEY_SIZE_MAX			37
-#define CLS_APP_PPIO_NAME_MAX			15
-#define CLS_APP_PORT_NAME_MAX			15
 #define CLS_APP_MAX_NUM_OF_RULES		20
-#define CLS_COMMAND_LINE_SIZE			256
+#define CLS_APP_COMMAND_LINE_SIZE		256
 
-#define CLS_APP_KEY_MEM_SIZE_MAX	(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
+#define CLS_APP_DEF_Q_SIZE			1024
+#define CLS_APP_HIF_Q_SIZE			CLS_APP_DEF_Q_SIZE
+#define CLS_APP_RX_Q_SIZE			CLS_APP_DEF_Q_SIZE
+#define CLS_APP_TX_Q_SIZE			CLS_APP_DEF_Q_SIZE
 
-#define PREFETCH_SHIFT	7
-#define PKT_ECHO_SUPPORT
-#define USE_APP_PREFETCH
+#define CLS_APP_MAX_BURST_SIZE			(CLS_APP_RX_Q_SIZE >> 1)
+#define CLS_APP_DFLT_BURST_SIZE			256
 
-/** Get rid of path in filename - only for unix-type paths using '/' */
-#define CLS_DBG_NO_PATH(file_name) (strrchr((file_name), '/') ? \
-			    strrchr((file_name), '/') + 1 : (file_name))
-#define CLS_TEST_MODULE_NAME_MAX 10
+#define CLS_APP_MAX_NUM_QS_PER_CORE		MVAPPS_MAX_NUM_QS_PER_TC
+#define CLS_APP_MAX_NUM_PORTS			2
 
-struct lcl_port_desc {
-	u32		 pp_id;
-	u32		 ppio_id;
-	struct pp2_ppio	*ppio;
-};
 
-struct port_desc {
-	char		 name[CLS_APP_PORT_NAME_MAX];
-	int		 pp_id;
-	int		 ppio_id;
-	struct pp2_ppio	*ppio;
-};
+#define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
-struct tx_shadow_q_entry {
-	struct pp2_buff_inf	buff_ptr;
-};
+#define CLS_APP_PREFETCH_SHIFT			7
+#define CLS_APP_PKT_ECHO_SUPPORT
+#define CLS_APP_USE_APP_PREFETCH
 
-struct tx_shadow_q {
-	u16				 read_ind;
-	u16				 write_ind;
-
-	struct tx_shadow_q_entry	 ents[MVAPPS_Q_SIZE];
-};
+#define CLS_APP_BPOOLS_INF		{ {2048, 1024} }
 
 struct glob_arg {
 	int			verbose;
@@ -101,24 +84,22 @@ struct glob_arg {
 	int			qs_map_shift;
 	int			num_ports;
 	int			pp2_num_inst;
-	struct port_desc	ports_desc[MVAPPS_MAX_NUM_PORTS];
+	struct port_desc	ports_desc[CLS_APP_MAX_NUM_PORTS];
 	struct pp2_hif		*hif;
 	int			num_pools;
-	struct pp2_bpool	***pools;
-	struct pp2_buff_inf	***buffs_inf;
+	struct bpool_desc	**pools_desc;
 	struct pp2_init_params	pp2_params;
-	struct pp2_ppio_params	port_params;
 };
 
 struct local_arg {
-	struct tx_shadow_q	shadow_qs[MVAPPS_MAX_NUM_QS_PER_CORE];
+	struct tx_shadow_q	shadow_qs[CLS_APP_MAX_NUM_QS_PER_CORE];
 	u64			 qs_map;
 
 	struct pp2_hif		*hif;
 	int			 num_ports;
 	struct lcl_port_desc	*ports_desc;
 
-	struct pp2_bpool	***pools;
+	struct bpool_desc	**pools_desc;
 	int			 echo;
 	int			 id;
 
@@ -126,44 +107,18 @@ struct local_arg {
 };
 
 static struct glob_arg garg = {};
-static u8	pp2_num_inst;
 
 struct pp2_cls_table_node {
 	u32				idx;
 	struct	pp2_cls_tbl		*tbl;
 	struct	pp2_cls_tbl_params	tbl_params;
 	struct	pp2_cls_qos_tbl_params	qos_tbl_params;
-	char				ppio_name[CLS_APP_PPIO_NAME_MAX];
+	char				ppio_name[MVAPPS_PPIO_NAME_MAX];
 	struct list			list_node;
 };
 
 static struct list cls_flow_tbl_head;
 static struct list cls_qos_tbl_head;
-
-static int find_port_info(struct port_desc *port_desc)
-{
-	char		 name[CLS_APP_PPIO_NAME_MAX];
-	u8		 pp, ppio;
-	int		 err;
-
-	if (!port_desc->name) {
-		pr_err("No port name given!\n");
-		return -1;
-	}
-
-	memset(name, 0, sizeof(name));
-	snprintf(name, sizeof(name), "%s", port_desc->name);
-	err = pp2_netdev_get_port_info(name, &pp, &ppio);
-	if (err) {
-		pr_err("PP2 Port %s not found!\n", port_desc->name);
-		return err;
-	}
-
-	port_desc->ppio_id = ppio;
-	port_desc->pp_id = pp;
-
-	return 0;
-}
 
 static void app_print_horizontal_line(u32 char_count, const char *char_val)
 {
@@ -308,7 +263,7 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 static u32 pp2_cls_first_queue_get(void)
 {
 	/* TODO: need to read from kernel through sysfs function */
-	return (garg.port_params.type == PP2_PPIO_T_LOG ?
+	return (garg.ports_desc[0].port_params.type == PP2_PPIO_T_LOG ?
 		CLS_APP_FIRST_LOG_PORT_IN_QUEUE : CLS_APP_FIRST_MUSDK_IN_QUEUE);
 }
 
@@ -356,7 +311,7 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	int num_fields;
 	u32 proto[PP2_CLS_TBL_MAX_NUM_FIELDS];
 	u32 field[PP2_CLS_TBL_MAX_NUM_FIELDS];
-	char name[CLS_APP_PPIO_NAME_MAX];
+	char name[MVAPPS_PPIO_NAME_MAX];
 	int traffic_class = -1;
 	int action_type = PP2_CLS_TBL_ACT_DONE;
 	char *ret_ptr;
@@ -1298,7 +1253,7 @@ static int pp2_cls_cli_ppio_tag_mode(struct glob_arg *garg, int argc, char *argv
 	int i, option;
 	int long_index = 0;
 	enum pp2_ppio_eth_start_hdr eth_hdr = -1;
-	struct pp2_ppio_params *port_params = &garg->port_params;
+	struct pp2_ppio_params *port_params = &garg->ports_desc[0].port_params;
 	struct option long_options[] = {
 		{"none", no_argument, 0, 'n'},
 		{"dsa", no_argument, 0, 'd'},
@@ -1346,7 +1301,7 @@ static int pp2_cls_logical_port_params(struct glob_arg *garg, int argc, char *ar
 	int i, j, option;
 	int long_index = 0;
 	u32 r_idx = 0;
-	struct pp2_ppio_params *port_params = &garg->port_params;
+	struct pp2_ppio_params *port_params = &garg->ports_desc[0].port_params;
 	struct pp2_ppio_log_port_params params;
 	struct pp2_ppio_log_port_rule_params *rules_params;
 	struct pp2_ppio_log_port_params *log_port_params =
@@ -1499,15 +1454,15 @@ static int pp2_cls_logical_port_params(struct glob_arg *garg, int argc, char *ar
 	return 0;
 }
 
-#ifdef PKT_ECHO_SUPPORT
-#ifdef USE_APP_PREFETCH
+#ifdef CLS_APP_PKT_ECHO_SUPPORT
+#ifdef CLS_APP_USE_APP_PREFETCH
 static inline void prefetch(const void *ptr)
 {
 	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
 }
-#endif /* USE_APP_PREFETCH */
+#endif /* CLS_APP_USE_APP_PREFETCH */
 
-#endif /* PKT_ECHO_SUPPORT */
+#endif /* CLS_APP_PKT_ECHO_SUPPORT */
 
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
@@ -1520,14 +1475,15 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct pp2_bpool *bpool;
 	struct tx_shadow_q *shadow_q;
 	struct pp2_buff_inf *binf;
-	struct pp2_ppio_desc descs[MVAPPS_MAX_BURST_SIZE];
+	struct pp2_ppio_desc descs[CLS_APP_MAX_BURST_SIZE];
 	int err;
 	u16 i;
-#ifdef PKT_ECHO_SUPPORT
-	int			prefetch_shift = PREFETCH_SHIFT;
-#endif /* PKT_ECHO_SUPPORT */
-	bpool = larg->pools[larg->ports_desc[rx_ppio_id].pp_id][bpool_id];
-	shadow_q = &(larg->shadow_qs[tc]);
+#ifdef CLS_APP_PKT_ECHO_SUPPORT
+	int prefetch_shift = CLS_APP_PREFETCH_SHIFT;
+#endif /* CLS_APP_PKT_ECHO_SUPPORT */
+	bpool = larg->pools_desc[larg->ports_desc[rx_ppio_id].pp_id][bpool_id].pool;
+	shadow_q = &(larg->ports_desc[tx_ppio_id].shadow_qs[tc]);
+
 	err = pp2_ppio_recv(larg->ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
 
 	for (i = 0; i < num; i++) {
@@ -1536,26 +1492,26 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - PP2_MH_SIZE;
 
-#ifdef PKT_ECHO_SUPPORT
+#ifdef CLS_APP_PKT_ECHO_SUPPORT
 		if (likely(larg->echo)) {
 			char *tmp_buff;
-#ifdef USE_APP_PREFETCH
+#ifdef CLS_APP_USE_APP_PREFETCH
 			if (num-i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
 				tmp_buff += MVAPPS_PKT_EFEC_OFFS;
 				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
-				tmp_buff = (char *)(((uintptr_t)tmp_buff) | app_get_sys_dma_high_addr());
+				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
 				prefetch(tmp_buff);
 			}
-#endif /* USE_APP_PREFETCH */
-			tmp_buff = (char *)(((uintptr_t)(buff)) | app_get_sys_dma_high_addr());
+#endif /* CLS_APP_USE_APP_PREFETCH */
+			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
 			pr_debug("buff2(%p)\n", tmp_buff);
 			tmp_buff += MVAPPS_PKT_EFEC_OFFS;
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
 		}
-#endif /* PKT_ECHO_SUPPORT */
+#endif /* CLS_APP_PKT_ECHO_SUPPORT */
 		pp2_ppio_outq_desc_reset(&descs[i]);
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PKT_EFEC_OFFS);
@@ -1564,7 +1520,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 		shadow_q->write_ind++;
-		if (shadow_q->write_ind == MVAPPS_Q_SIZE)
+		if (shadow_q->write_ind == CLS_APP_TX_Q_SIZE)
 			shadow_q->write_ind = 0;
 	}
 
@@ -1588,10 +1544,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				   bpool,
 				   binf);
 		shadow_q->read_ind++;
-		if (shadow_q->read_ind == MVAPPS_Q_SIZE)
+		if (shadow_q->read_ind == CLS_APP_TX_Q_SIZE)
 			shadow_q->read_ind = 0;
 	}
-
 	return 0;
 }
 
@@ -1606,7 +1561,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 		return -EINVAL;
 	}
 
-	num = MVAPPS_DFLT_BURST_SIZE;
+	num = CLS_APP_DFLT_BURST_SIZE;
 
 	while (*running) {
 		/* Find next queue to consume */
@@ -1691,63 +1646,41 @@ static int init_all_modules(void)
 
 static int init_local_modules(struct glob_arg *garg)
 {
-	char				name[CLS_APP_PPIO_NAME_MAX];
-	struct pp2_ppio_params         *port_params = &garg->port_params;
-	struct pp2_ppio_inq_params	inq_params;
-	int				i = 0, j, err, port_index;
-	struct bpool_inf		infs[] = MVAPPS_BPOOLS_INF;
+	int				err, port_index;
+	struct bpool_inf		infs[] = CLS_APP_BPOOLS_INF;
 
 	pr_info("Local initializations ...\n");
 
-	err = app_hif_init(&garg->hif);
+	err = app_hif_init(&garg->hif, CLS_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
 	garg->num_pools = ARRAY_SIZE(infs);
-	err = app_build_all_bpools(&garg->pools, &garg->buffs_inf, garg->num_pools, infs, garg->hif);
+	err = app_build_all_bpools(&garg->pools_desc, garg->num_pools, infs, garg->hif);
 	if (err)
 		return err;
 
 	for (port_index = 0; port_index < garg->num_ports; port_index++) {
-		err = find_port_info(&garg->ports_desc[port_index]);
-		if (err) {
-			pr_err("Port info not found!\n");
-			return err;
-		}
+		struct port_desc *port = &garg->ports_desc[port_index];
 
-		memset(name, 0, sizeof(name));
-		snprintf(name, sizeof(name), "ppio-%d:%d",
-			 garg->ports_desc[port_index].pp_id, garg->ports_desc[port_index].ppio_id);
-		pr_debug("found port: %s\n", name);
-		port_params->match = name;
-		port_params->inqs_params.num_tcs = CLS_APP_MAX_NUM_TCS_PER_PORT;
-		for (i = 0; i < port_params->inqs_params.num_tcs; i++) {
-			port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
-			port_params->inqs_params.tcs_params[i].num_in_qs = CLS_APP_PP2_MAX_NUM_QS_PER_TC;
-			/* TODO: we assume here only one Q per TC; change it! */
-			inq_params.size = MVAPPS_Q_SIZE;
-			port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
-			for (j = 0; j < garg->num_pools; j++)
-				port_params->inqs_params.tcs_params[i].pools[j] =
-					garg->pools[garg->ports_desc[port_index].pp_id][j];
-		}
-		port_params->outqs_params.num_outqs = CLS_APP_MAX_NUM_TCS_PER_PORT;
-		for (i = 0; i < port_params->outqs_params.num_outqs; i++) {
-			port_params->outqs_params.outqs_params[i].size = MVAPPS_Q_SIZE;
-			port_params->outqs_params.outqs_params[i].weight = 1;
-		}
-		err = pp2_ppio_init(port_params, &garg->ports_desc[port_index].ppio);
-		if (err)
+		err = app_find_port_info(port);
+		if (!err) {
+			port->ppio_type	= PP2_PPIO_T_NIC;
+			port->num_tcs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
+			port->num_inqs	= CLS_APP_PP2_MAX_NUM_QS_PER_TC;
+			port->inq_size	= CLS_APP_RX_Q_SIZE;
+			port->num_outqs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
+			port->outq_size	= CLS_APP_TX_Q_SIZE;
+
+			err = app_port_init(port, garg->num_pools, garg->pools_desc[port->pp_id], DEFAULT_MTU);
+			if (err) {
+				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
+					port->pp_id);
+				return err;
+			}
+		} else
 			return err;
 
-		if (!garg->ports_desc[port_index].ppio) {
-			pr_err("PP-IO init failed!\n");
-			return -EIO;
-		}
-
-		err = pp2_ppio_enable(garg->ports_desc[port_index].ppio);
-		if (err)
-			return err;
 	}
 
 	INIT_LIST(&cls_flow_tbl_head);
@@ -1759,37 +1692,12 @@ static int init_local_modules(struct glob_arg *garg)
 
 static void destroy_local_modules(struct glob_arg *garg)
 {
-	int	i, j;
-	pp2_num_inst = garg->pp2_num_inst;
 	struct pp2_cls_table_node *tbl_node;
 
-	if (garg->ports_desc[0].ppio) {
-		pp2_ppio_disable(garg->ports_desc[0].ppio);
-		pp2_ppio_deinit(garg->ports_desc[0].ppio);
-	}
-
-	if (garg->pools) {
-		for (i = 0; i < pp2_num_inst; i++) {
-			if (garg->pools[i]) {
-				for (j = 0; j < garg->num_pools; j++)
-					if (garg->pools[i][j])
-						pp2_bpool_deinit(garg->pools[i][j]);
-				free(garg->pools[i]);
-			}
-		}
-		free(garg->pools);
-	}
-	if (garg->buffs_inf) {
-		for (i = 0; i < pp2_num_inst; i++) {
-			if (garg->buffs_inf[i]) {
-				for (j = 0; j < garg->num_pools; j++)
-					if (garg->buffs_inf[i][j])
-						free(garg->buffs_inf[i][j]);
-				free(garg->buffs_inf[i]);
-			}
-		}
-		free(garg->buffs_inf);
-	}
+	app_disable_all_ports(garg->ports_desc, garg->num_ports,
+			      CLS_APP_MAX_NUM_TCS_PER_PORT, CLS_APP_PP2_MAX_NUM_QS_PER_TC);
+	app_free_all_pools(garg->pools_desc, garg->num_pools, garg->hif);
+	app_deinit_all_ports(garg->ports_desc, garg->num_ports);
 
 	if (garg->hif)
 		pp2_hif_deinit(garg->hif);
@@ -2042,7 +1950,7 @@ static int init_local(void *arg, int id, void **_larg)
 		return -ENOMEM;
 	}
 
-	err = app_hif_init(&larg->hif);
+	err = app_hif_init(&larg->hif, CLS_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
@@ -2055,13 +1963,10 @@ static int init_local(void *arg, int id, void **_larg)
 		return -ENOMEM;
 	}
 	memset(larg->ports_desc, 0, larg->num_ports*sizeof(struct lcl_port_desc));
-	for (i = 0; i < larg->num_ports; i++) {
-		larg->ports_desc[i].pp_id = garg->ports_desc[i].pp_id;
-		larg->ports_desc[i].ppio_id = garg->ports_desc[i].ppio_id;
-		larg->ports_desc[i].ppio = garg->ports_desc[i].ppio;
+	for (i = 0; i < larg->num_ports; i++)
+		app_port_local_init(i, larg->id, &larg->ports_desc[i], &garg->ports_desc[i]);
 
-	}
-	larg->pools             = garg->pools;
+	larg->pools_desc	= garg->pools_desc;
 	larg->garg              = garg;
 
 	larg->qs_map = garg->qs_map << (garg->qs_map_shift * id);
@@ -2072,10 +1977,23 @@ static int init_local(void *arg, int id, void **_larg)
 
 static void deinit_local(void *arg)
 {
-	struct glob_arg *garg = (struct glob_arg *)arg;
+	struct local_arg *larg = (struct local_arg *)arg;
+	int i;
 
-	if (!garg)
+	if (!larg)
 		return;
+
+	if (larg->ports_desc) {
+		for (i = 0; i < larg->num_ports; i++)
+			app_port_local_deinit(&larg->ports_desc[i]);
+		free(larg->ports_desc);
+	}
+
+	if (larg->hif)
+		pp2_hif_deinit(larg->hif);
+
+	free(larg);
+
 }
 
 static void usage(char *progname)
@@ -2093,7 +2011,7 @@ static void usage(char *progname)
 		"\t-e, --echo	(no argument) activate echo packets\n"
 		"\t--ppio_tag_mode	(no argument)configure ppio_tag_mode parameter\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
-		"\n", CLS_DBG_NO_PATH(progname), CLS_DBG_NO_PATH(progname)
+		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname)
 		);
 }
 
@@ -2104,10 +2022,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int long_index = 0;
 	int ppio_tag_mode = 0;
 	int logical_port_params = 0;
-	char buff[CLS_COMMAND_LINE_SIZE];
+	char buff[CLS_APP_COMMAND_LINE_SIZE];
 	int argc_cli;
 	int rc;
-	struct pp2_ppio_params *port_params = &garg->port_params;
+	struct pp2_ppio_params *port_params = &garg->ports_desc[0].port_params;
 	struct pp2_init_params *pp2_params = &garg->pp2_params;
 
 	struct option long_options[] = {
@@ -2128,7 +2046,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	memset(port_params, 0, sizeof(*port_params));
 	memset(pp2_params, 0, sizeof(*pp2_params));
-	garg->port_params.type = PP2_PPIO_T_NIC;
+	port_params->type = PP2_PPIO_T_NIC;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
@@ -2157,7 +2075,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'g':
 			logical_port_params = true;
-			garg->port_params.type = PP2_PPIO_T_LOG;
+			port_params->type = PP2_PPIO_T_LOG;
 			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);
