@@ -196,6 +196,7 @@ struct glob_arg {
 	u16			 burst;
 	u16			 mtu;
 	u16			 rxq_size;
+	int			 multi_buffer_release;
 	int			 affinity;
 	int			 loopback;
 	int			 echo;
@@ -238,6 +239,7 @@ struct local_arg {
 	u16			 burst;
 	int			 echo;
 	int			 id;
+	int			 multi_buffer_release;
 
 	struct glob_arg		*garg;
 };
@@ -403,6 +405,40 @@ static inline u16 free_buffers(struct local_arg	*larg,
 	}
 	return idx;
 }
+static inline u16 free_multi_buffers(struct local_arg	*larg,
+				u16		start_idx,
+				u16		num,
+				u8		ppio_id,
+				u8		tc)
+{
+	u16			idx = start_idx;
+	u16			cont_in_shadow, req_num;
+	struct tx_shadow_q	*shadow_q;
+
+	shadow_q = &larg->shadow_qs[tc];
+
+	cont_in_shadow = ARRAY_SIZE(shadow_q->ents) - start_idx;
+
+	if (num <= cont_in_shadow) {
+		req_num = num;
+		pp2_bpool_put_buffs(larg->hif, (struct buff_release_entry *)&shadow_q->ents[idx], &req_num);
+		idx = idx + num;
+		if (idx == ARRAY_SIZE(shadow_q->ents))
+			idx = 0;
+	} else {
+		req_num = cont_in_shadow;
+		pp2_bpool_put_buffs(larg->hif, (struct buff_release_entry *)&shadow_q->ents[idx], &req_num);
+
+		req_num = num - cont_in_shadow;
+		pp2_bpool_put_buffs(larg->hif, (struct buff_release_entry *)&shadow_q->ents[0], &req_num);
+		idx = num - cont_in_shadow;
+	}
+
+	INC_FREE_COUNT(larg->id, ppio_id, num);
+
+	return idx;
+}
+
 static inline void free_sent_buffers(struct local_arg	*larg,
 				     u8			tx_ppio_id,
 				     u8			rx_ppio_id,
@@ -411,7 +447,13 @@ static inline void free_sent_buffers(struct local_arg	*larg,
 	u16			tx_num;
 
 	pp2_ppio_get_num_outq_done(larg->ports_desc[tx_ppio_id].port, larg->hif, tc, &tx_num);
-	larg->shadow_qs[tc].read_ind = free_buffers(larg, larg->shadow_qs[tc].read_ind, tx_num, rx_ppio_id, tc);
+
+	if (larg->multi_buffer_release)
+		larg->shadow_qs[tc].read_ind = free_multi_buffers(larg, larg->shadow_qs[tc].read_ind, tx_num,
+								  rx_ppio_id, tc);
+	else
+		larg->shadow_qs[tc].read_ind = free_buffers(larg, larg->shadow_qs[tc].read_ind, tx_num, rx_ppio_id, tc);
+
 }
 
 #endif //HW_BUFF_RECYLCE
@@ -1507,6 +1549,7 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->id                = id;
 	larg->burst		= garg->burst;
+	larg->multi_buffer_release = garg->multi_buffer_release;
 	larg->echo              = garg->echo;
 	larg->prefetch_shift	= garg->prefetch_shift;
 	larg->num_ports         = garg->num_ports;
@@ -1600,6 +1643,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->burst = DFLT_BURST_SIZE;
 	garg->mtu = DEFAULT_MTU;
 	garg->rxq_size = RXQ_SIZE;
+	garg->multi_buffer_release = 1;
 	garg->echo = 1;
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
@@ -1683,6 +1727,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--rxq") == 0) {
 			garg->rxq_size = atoi(argv[i+1]);
 			i += 2;
+		} else if (strcmp(argv[i], "--old-tx-desc-release") == 0) {
+			garg->multi_buffer_release = 0;
+			i += 1;
 		} else if (strcmp(argv[i], "-m") == 0) {
 			char *token;
 			if (argc < (i+2)) {
