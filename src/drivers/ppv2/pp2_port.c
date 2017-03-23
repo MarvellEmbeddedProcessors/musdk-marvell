@@ -385,7 +385,11 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 
 	hw = &port->parent->hw;
 	cpu_slot = port->cpu_slot;
-	desc_per_txq = PP2_TXQ_PREFETCH_16;
+
+	if (port->id == PP2_LOOPBACK_PORT)
+		desc_per_txq = PP2_LOOPBACK_PORT_TXQ_PREFETCH;
+	else
+		desc_per_txq = PP2_ETH_PORT_TXQ_PREFETCH;
 
 	/* FS_A8K Table 1542: The SWF ring size + a prefetch size for HWF */
 	txq->desc_total = port->txq_config[txq->log_id].size;
@@ -423,14 +427,17 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 	* - TCONTS for PON port must be continuous from 0 to MVPP2_MAX_TCONT
 	* - GBE ports assumed to be continious from 0 to MVPP2_MAX_PORTS
 	*/
-	if (desc_per_txq == PP2_TXQ_PREFETCH_32)
+	if (desc_per_txq == PP2_TXQ_PREFETCH_64)
+		pref_buf_size = MVPP2_PREF_BUF_SIZE_64;
+	else if (desc_per_txq == PP2_TXQ_PREFETCH_32)
 		pref_buf_size = MVPP2_PREF_BUF_SIZE_32;
 	else if (desc_per_txq == PP2_TXQ_PREFETCH_16)
 		pref_buf_size = MVPP2_PREF_BUF_SIZE_16;
 	else
 		pref_buf_size = MVPP2_PREF_BUF_SIZE_4;
 
-	desc = (port->id * MVPP2_MAX_TXQ * desc_per_txq) + (txq->log_id * desc_per_txq);
+	/* Since the loopback port is the last port, below calc. is always correct */
+	desc = (port->id * MVPP2_MAX_TXQ * PP2_ETH_PORT_TXQ_PREFETCH) + (txq->log_id * desc_per_txq);
 
 	 /* Set desc prefetch threshold to 8 units of 2 descriptors */
 	 pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG,

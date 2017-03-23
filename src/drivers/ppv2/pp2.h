@@ -82,6 +82,7 @@
 #endif
 struct pp2;
 extern struct pp2 *pp2_ptr;
+
 /**
  * Descriptor Manager object (DM-IF) internal layout
  *
@@ -126,6 +127,8 @@ struct pp2_dm_if {
 #define PP2_TXQ_PREFETCH_4       (4)
 #define PP2_TXQ_PREFETCH_16     (16)
 #define PP2_TXQ_PREFETCH_32     (32)
+#define PP2_TXQ_PREFETCH_64     (64)
+
 
 struct pp2_txq_dm_if {
 	u32 desc_rsrvd;

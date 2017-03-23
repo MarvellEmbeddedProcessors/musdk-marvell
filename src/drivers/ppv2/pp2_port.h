@@ -45,13 +45,12 @@
 #include "pp2_types.h"
 #include "pp2_dm.h"
 
-/* Maximum number of traffic classes */
-#define PP2_PORT_MAX_NUM_TCS          (1)
-#if (PP2_PORT_MAX_NUM_TCS > 1)
-#error "Traffic classes are not implemented in this PPDK version"
-#endif
 
-#define PP2_MAX_BUF_STR_LEN	256
+#define PP2_MAX_BUF_STR_LEN		256
+
+#define PP2_LOOPBACK_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_64
+#define PP2_ETH_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_16
+
 
 struct pp2_port;
 

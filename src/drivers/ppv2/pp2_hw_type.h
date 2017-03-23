@@ -906,7 +906,8 @@
 #define MVPP2_PREF_BUF_PTR(desc)		((desc) & 0xfff)
 #define MVPP2_PREF_BUF_SIZE_4			(BIT(12) | BIT(13))
 #define MVPP2_PREF_BUF_SIZE_16			(BIT(12) | BIT(14))
-#define MVPP2_PREF_BUF_SIZE_32          (BIT(13) | BIT(14))
+#define MVPP2_PREF_BUF_SIZE_32			(BIT(13) | BIT(14))
+#define MVPP2_PREF_BUF_SIZE_64			(BIT(12) | BIT(13) | BIT(14))
 #define MVPP2_PREF_BUF_THRESH(val)		((val) << 17)
 #define MVPP2_TXQ_DRAIN_EN_MASK			BIT(31)
 #define MVPP2_TXQ_PENDING_REG			0x20a0
