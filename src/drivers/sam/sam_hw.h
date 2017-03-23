@@ -36,24 +36,11 @@
 #include <drivers/mv_sam.h>
 #include "std_internal.h"
 
-#include "cs_driver.h"
-#include "api_pec.h"
-
-#ifdef SAM_EIP_DDK_HW_INIT
-#include "api_driver197_init.h"
-#endif
-
-#include "sa_builder.h"
-#include "sa_builder_basic.h"
-#include "token_builder.h"
-
 #define SAM_HW_ENGINE_NUM	2
 #define SAM_HW_RING_NUM		4
 
 /*#define SAM_REG_READ_DEBUG*/
 /*#define SAM_REG_WRITE_DEBUG*/
-/*#define SAM_DMA_READ_DEBUG*/
-/*#define SAM_DMA_WRITE_DEBUG*/
 
 /* Command amd Result descriptors size and offset (in 32-bit words) */
 #define SAM_CDR_ENTRY_WORDS            16
@@ -171,11 +158,41 @@ struct sam_hw_res_desc {
 #define SAM_TOKEN_RESULT_ERRORS_BITS	15
 #define SAM_TOKEN_RESULT_ERRORS_MASK	BIT_MASK(SAM_TOKEN_RESULT_ERRORS_BITS)
 
+/* E0 - Packet length error: token instructions versus input or input DMA fetch */
+#define SAM_RESULT_PKT_LEN_ERROR_MASK		BIT(0)
+
+/* E1 - Token error, unknown token command/instruction */
+#define SAM_RESULT_TOKEN_ERROR_MASK		BIT(1)
+
+/* E2 - Token contains too much bypass data */
+#define SAM_RESULT_BYPASS_ERROR_MASK		BIT(2)
+
+/* E3 - Cryptographic block size error (ECB, CBC) */
+#define SAM_RESULT_CRYPTO_SIZE_ERROR_MASK	BIT(3)
+
+/* E4 - HASH block size error (basic hash only) */
+#define SAM_RESULT_HASH_SIZE_ERROR_MASK		BIT(4)
+
+/* E5 - Invalid command/algorithm/mode/combination or context read DMA error */
+#define SAM_RESULT_INVALID_CMD_ERROR_MASK	BIT(5)
+
+/* E6 - Prohibited algorithm or context read ECC error */
+#define SAM_RESULT_BAD_ALG_ERROR_MASK		BIT(6)
+
+/* E7 - Hash input overflow (basic hash only) */
+#define SAM_RESULT_HASH_INPUT_OFLO_ERROR_MASK	BIT(7)
+
+/* E8 - TTL / HOP-limit underflow */
+#define SAM_RESULT_TTL_ERROR_MASK		BIT(8)
+
 /* E9 - Authentication error */
-#define SAM_RESULT_AUTH_ERROR_MASK	BIT(9)
+#define SAM_RESULT_AUTH_ERROR_MASK		BIT(9)
+
+/* E14 - Timeout error occurs */
+#define SAM_RESULT_TIMEOUT_ERROR_MASK		BIT(14)
 
 /* E15 extra error: token_result_data[1] */
-#define SAM_TOKEN_RESULT_E15_MASK	BIT(4)
+#define SAM_TOKEN_RESULT_E15_MASK		BIT(4)
 
 /* HW Services word #11 */
 #define FIRMWARE_HW_SERVICES_OFFS	24
@@ -288,13 +305,6 @@ static inline void sam_hw_rdr_prep_desc_write(struct sam_hw_res_desc *res_desc,
 	/* Write Destination Packet Data address */
 	writel_relaxed(lower_32_bits(dst_paddr), &res_desc->words[2]);
 	writel_relaxed(upper_32_bits(dst_paddr), &res_desc->words[3]);
-
-#ifdef SAM_DMA_WRITE_DEBUG
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 0, readl_relaxed(&res_desc->words[0]));
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 1, readl_relaxed(&res_desc->words[1]));
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 2, readl_relaxed(&res_desc->words[2]));
-	pr_info("RDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", res_desc, 3, readl_relaxed(&res_desc->words[3]));
-#endif /* SAM_DMA_WRITE_DEBUG */
 }
 
 static inline void sam_hw_cdr_cmd_desc_write(struct sam_hw_cmd_desc *cmd_desc,
@@ -317,111 +327,74 @@ static inline void sam_hw_cdr_cmd_desc_write(struct sam_hw_cmd_desc *cmd_desc,
 	/* Write Token Data address */
 	writel_relaxed(lower_32_bits(token_paddr), &cmd_desc->words[4]);
 	writel_relaxed(upper_32_bits(token_paddr), &cmd_desc->words[5]);
-
-#ifdef SAM_DMA_WRITE_DEBUG
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 0, readl_relaxed(&cmd_desc->words[0]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 1, readl_relaxed(&cmd_desc->words[1]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 2, readl_relaxed(&cmd_desc->words[2]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 3, readl_relaxed(&cmd_desc->words[3]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 4, readl_relaxed(&cmd_desc->words[4]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 5, readl_relaxed(&cmd_desc->words[5]));
-#endif /* SAM_DMA_WRITE_DEBUG */
 }
 
 static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int next_request,
-					PEC_CommandDescriptor_t *cmd)
+				struct sam_buf_info *src_buf, struct sam_buf_info *dst_buf,
+				u32 copy_len, struct sam_buf_info *sa_buf,
+				struct sam_buf_info *token_buf, u32 token_header_word, u32 token_words)
 {
-	u32 token_header, val32;
+	u32 val32;
 	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
 	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
 
 	/* Write prepared RDR descriptor first */
-	sam_hw_rdr_prep_desc_write(res_desc, (dma_addr_t)cmd->DstPkt_Handle.p, cmd->SrcPkt_ByteCount + 64);
+	sam_hw_rdr_prep_desc_write(res_desc, dst_buf->paddr, dst_buf->len);
 
 	/* Write CDR descriptor */
-	sam_hw_cdr_cmd_desc_write(cmd_desc, (dma_addr_t)cmd->SrcPkt_Handle.p, cmd->SrcPkt_ByteCount,
-				  (dma_addr_t)cmd->Token_Handle.p, cmd->Token_WordCount);
-
-
-	/* Token header word is provided as separate parameter in Control1. */
+	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len,
+				  token_buf->paddr, token_words);
 
 	/* Set 64-bit Context (SA) pointer and IP EIP97 */
-	token_header = (cmd->Control1 | SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
+	token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
 
-	/* Enable Context Reuse auto detect if no new SA */
-	token_header &= ~SAM_TOKEN_REUSE_CONTEXT_MASK;
-	if (!cmd->User_p)
-		token_header |= SAM_TOKEN_REUSE_AUTO_MASK;
-
-	writel_relaxed(token_header, &cmd_desc->words[6]);
+	writel_relaxed(token_header_word, &cmd_desc->words[6]);
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
 	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
 
-	val32 = lower_32_bits((u64)cmd->SA_Handle1.p);
+	val32 = lower_32_bits((u64)sa_buf->paddr);
 	writel_relaxed(val32, &cmd_desc->words[8]);
 
-	val32 = upper_32_bits((u64)cmd->SA_Handle1.p);
+	val32 = upper_32_bits((u64)sa_buf->paddr);
 	writel_relaxed(val32, &cmd_desc->words[9]);
-
-#ifdef SAM_DMA_WRITE_DEBUG
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl_relaxed(&cmd_desc->words[7]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl_relaxed(&cmd_desc->words[8]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 9, readl_relaxed(&cmd_desc->words[9]));
-#endif /* SAM_DMA_WRITE_DEBUG */
 }
 
 static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_request,
-				     PEC_CommandDescriptor_t *cmd)
+				struct sam_buf_info *src_buf, struct sam_buf_info *dst_buf,
+				u32 copy_len, struct sam_buf_info *sa_buf,
+				struct sam_buf_info *token_buf, u32 token_header_word, u32 token_words)
 {
-	u32 token_header, val32;
+	u32 val32;
 	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
 	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
 
 	/* Write prepared RDR descriptor first */
-	sam_hw_rdr_prep_desc_write(res_desc, (dma_addr_t)cmd->DstPkt_Handle.p, cmd->SrcPkt_ByteCount + 64);
+	sam_hw_rdr_prep_desc_write(res_desc, dst_buf->paddr, dst_buf->len);
 
 	/* Write CDR descriptor */
-	sam_hw_cdr_cmd_desc_write(cmd_desc, (dma_addr_t)cmd->SrcPkt_Handle.p, cmd->SrcPkt_ByteCount,
-				  (dma_addr_t)cmd->Token_Handle.p, cmd->Token_WordCount);
-
-	/* Token header word is provided as separate parameter in Control1. */
+	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len,
+				  token_buf->paddr, token_words);
 
 	/* Set 64-bit Context (SA) pointer and IP EIP97 */
-	token_header = (cmd->Control1 | SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
+	token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
+	token_header_word |= SAM_TOKEN_TYPE_EXTENDED_MASK;
 
-	token_header |= SAM_TOKEN_TYPE_EXTENDED_MASK;
-
-	/* Enable Context Reuse auto detect if no new SA */
-	token_header &= ~SAM_TOKEN_REUSE_CONTEXT_MASK;
-	if (!cmd->User_p)
-		token_header |= SAM_TOKEN_REUSE_AUTO_MASK;
-
-	writel_relaxed(token_header, &cmd_desc->words[6]);
+	writel_relaxed(token_header_word, &cmd_desc->words[6]);
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
 	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
 
-	val32 = lower_32_bits((u64)cmd->SA_Handle1.p);
+	val32 = lower_32_bits(sa_buf->paddr);
 	val32 |= 0x2;
 	writel_relaxed(val32, &cmd_desc->words[8]);
 
-	val32 = upper_32_bits((u64)cmd->SA_Handle1.p);
+	val32 = upper_32_bits(sa_buf->paddr);
 	writel_relaxed(val32, &cmd_desc->words[9]);
 
 	writel_relaxed(FIRMWARE_CMD_PKT_LAC_MASK, &cmd_desc->words[10]);
 
 	writel_relaxed(0, &cmd_desc->words[11]);
-
-#ifdef SAM_DMA_WRITE_DEBUG
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl_relaxed(&cmd_desc->words[7]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl_relaxed(&cmd_desc->words[8]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 9, readl_relaxed(&cmd_desc->words[9]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 10, readl_relaxed(&cmd_desc->words[10]));
-	pr_info("CDR_Write32: 0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 11, readl_relaxed(&cmd_desc->words[11]));
-#endif /* SAM_DMA_WRITE_DEBUG */
 }
 
 static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, int next_request, dma_addr_t paddr)
@@ -525,6 +498,9 @@ static inline void sam_hw_ring_update(struct sam_hw_ring *hw_ring, u32 done)
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PROC_COUNT_REG, val32);
 }
 
+int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf);
+void sam_dma_buf_free(struct sam_buf_info *dma_buf);
+
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring);
 void sam_hw_rdr_regs_show(struct sam_hw_ring *hw_ring);
 void sam_hw_reg_print(char *reg_name, void *base, u32 offset);
@@ -539,5 +515,7 @@ int sam_hw_engine_load(void);
 int sam_hw_engine_unload(void);
 int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
 				u32 next_request);
+void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc);
+void print_result_desc(struct sam_hw_res_desc *res_desc);
 
 #endif /* _SAM_HW_H_ */

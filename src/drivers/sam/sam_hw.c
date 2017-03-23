@@ -35,6 +35,7 @@
 
 #include "drivers/mv_sam.h"
 #include "sam.h"
+#include "sam_hw.h"
 
 static struct sam_hw_engine_info sam_hw_engine_info[SAM_HW_ENGINE_NUM];
 

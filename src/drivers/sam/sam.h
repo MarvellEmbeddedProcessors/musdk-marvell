@@ -36,6 +36,17 @@
 #include <drivers/mv_sam.h>
 #include "std_internal.h"
 
+#include "cs_driver.h"
+#include "api_pec.h"
+
+#ifdef SAM_EIP_DDK_HW_INIT
+#include "api_driver197_init.h"
+#endif
+
+#include "sa_builder.h"
+#include "sa_builder_basic.h"
+#include "token_builder.h"
+
 #include "sam_hw.h"
 
 #define SAM_AAD_IN_TOKEN_MAX_SIZE	(64)
@@ -57,6 +68,9 @@ struct sam_cio_op {
 	u32  auth_icv_offset; /* offset of ICV in the buffer (in bytes) */
 	void *cookie;
 	struct sam_buf_info token_buf; /* DMA buffer for token  */
+	u32 token_header_word;
+	u32 token_words;
+	u32 copy_len;
 };
 
 
@@ -156,23 +170,15 @@ static inline int sam_max_check(int value, int limit, const char *name)
 	return 0;
 }
 
-int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf);
-void sam_dma_buf_free(struct sam_buf_info *dma_buf);
-
 /* Debug functions */
 void print_sa_params(SABuilder_Params_t *params);
 
 void print_basic_sa_params(SABuilder_Params_Basic_t *params);
 
-void print_cmd_desc(PEC_CommandDescriptor_t *desc);
-
-void print_result_desc(struct sam_hw_res_desc *res_desc);
-
-void print_pkt_params(PEC_PacketParams_t *pkt);
-
 void print_token_params(TokenBuilder_Params_t *token);
 
 void print_sam_cio_op_params(struct sam_cio_op_params *request);
 void print_sam_sa_params(struct sam_session_params *sa_params);
+void print_sam_cio_operation_info(struct sam_cio_op *operation);
 
 #endif /* _SAM_H_ */

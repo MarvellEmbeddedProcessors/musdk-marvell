@@ -33,6 +33,7 @@
 #include "std_internal.h"
 #include "drivers/mv_sam.h"
 #include "sam.h"
+#include "sam_hw.h"
 
 void print_sam_sa_params(struct sam_session_params *sa_params)
 {
@@ -72,6 +73,17 @@ void print_sam_cio_op_params(struct sam_cio_op_params *request)
 	pr_info("request->auth_offset            = %d\n", request->auth_offset);
 	pr_info("request->auth_len               = %d\n", request->auth_len);
 	pr_info("request->auth_icv_offset        = %d\n", request->auth_icv_offset);
+	pr_info("\n");
+}
+
+void print_sam_cio_operation_info(struct sam_cio_op *operation)
+{
+	pr_info("\n");
+	pr_info("----------- struct sam_cio_op *operation ---------\n");
+	pr_info("operation->cookie               = %p\n", operation->cookie);
+	pr_info("operation->token_header_word    = 0x%08x\n", operation->token_header_word);
+	pr_info("operation->token_words          = %d\n", operation->token_words);
+	pr_info("operation->copy_len             = %d\n", operation->copy_len);
 	pr_info("\n");
 }
 
@@ -117,24 +129,22 @@ void print_basic_sa_params(SABuilder_Params_Basic_t *params)
 	pr_info("\n");
 }
 
-void print_cmd_desc(PEC_CommandDescriptor_t *desc)
+void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc)
 {
 	pr_info("\n");
-	pr_info("----------- PEC_CommandDescriptor_t desc ---------\n");
-	pr_info("desc->SA_Handle1                = %p\n", desc->SA_Handle1.p);
-	pr_info("desc->SA_Handle2                = %p\n", desc->SA_Handle2.p);
-	pr_info("desc->SA_WordCount              = %d\n", desc->SA_WordCount);
-	pr_info("desc->Token_Handle              = %p\n", desc->Token_Handle.p);
-	pr_info("desc->Token_WordCount           = %d\n", desc->Token_WordCount);
-	pr_info("desc->Bypass_WordCount          = %d\n", desc->Bypass_WordCount);
-	pr_info("desc->DstPkt_Handle             = %p\n", desc->DstPkt_Handle.p);
-	pr_info("desc->SrcPkt_Handle             = %p\n", desc->SrcPkt_Handle.p);
-	pr_info("desc->SrcPkt_ByteCount          = %d\n", desc->SrcPkt_ByteCount);
-	pr_info("desc->User_p                    = %p\n", desc->User_p);
-	pr_info("desc->Control1                  = 0x%x\n", desc->Control1);
-	pr_info("desc->Control2                  = 0x%x\n", desc->Control2);
-	pr_info("desc->Control3                  = 0x%x\n", desc->Control3);
-	pr_info("desc->Control4                  = 0x%x\n", desc->Control4);
+	pr_info("----------- CDR descriptor ---------\n");
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 0, readl_relaxed(&cmd_desc->words[0]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 1, readl_relaxed(&cmd_desc->words[1]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 2, readl_relaxed(&cmd_desc->words[2]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 3, readl_relaxed(&cmd_desc->words[3]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 4, readl_relaxed(&cmd_desc->words[4]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 5, readl_relaxed(&cmd_desc->words[5]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 6, readl_relaxed(&cmd_desc->words[6]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 7, readl_relaxed(&cmd_desc->words[7]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 8, readl_relaxed(&cmd_desc->words[8]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 9, readl_relaxed(&cmd_desc->words[9]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 10, readl_relaxed(&cmd_desc->words[10]));
+	pr_info("0x%8p + %2d * 4 = 0x%08x\n", cmd_desc, 11, readl_relaxed(&cmd_desc->words[11]));
 	pr_info("\n");
 }
 

@@ -148,13 +148,12 @@ static int sam_session_auth_init(struct sam_session_params *params,
 	return 0;
 }
 
-static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
-				struct sam_cio_op *operation,
-				PEC_CommandDescriptor_t *cmd_desc)
+static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
+				  struct sam_cio_op *operation)
 {
 	struct sam_sa *session = request->sa;
 	TokenBuilder_Params_t token_params;
-	u32 copylen, token_header_word, token_words;
+	u32 copylen;
 	TokenBuilder_Status_t rc;
 
 	memset(&token_params, 0, sizeof(token_params));
@@ -191,39 +190,32 @@ static int sam_hw_cmd_desc_init(struct sam_cio_op_params *request,
 	rc = TokenBuilder_BuildToken(session->tcr_data, request->src->vaddr,
 				     copylen, &token_params,
 				     operation->token_buf.vaddr,
-				     &token_words, &token_header_word);
+				     &operation->token_words, &operation->token_header_word);
 	if (rc != TKB_STATUS_OK) {
 		pr_err("%s: TokenBuilder_BuildToken failed, rc = %d\n",
 			__func__, rc);
 		return -EINVAL;
 	}
 	/* Swap Token data if needed */
-	sam_htole32_multi(operation->token_buf.vaddr, token_words);
+	sam_htole32_multi(operation->token_buf.vaddr, operation->token_words);
+
+	/* Enable Context Reuse auto detect if no new SA */
+	operation->token_header_word &= ~SAM_TOKEN_REUSE_CONTEXT_MASK;
+	if (session->is_first)
+		session->is_first = false;
+	else
+		operation->token_header_word |= SAM_TOKEN_REUSE_AUTO_MASK;
+
+	operation->copy_len = copylen;
 
 #ifdef MVCONF_SAM_DEBUG
 	if (session->cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
-		printf("\nToken DMA buffer: %d bytes\n", token_words * 4);
-		mv_mem_dump(operation->token_buf.vaddr, token_words * 4);
+		print_sam_cio_operation_info(operation);
+
+		printf("\nToken DMA buffer: %d bytes\n", operation->token_words * 4);
+		mv_mem_dump(operation->token_buf.vaddr, operation->token_words * 4);
 	}
 #endif /* MVCONF_SAM_DEBUG */
-
-
-	cmd_desc->SA_Handle1.p     = (void *)session->sa_buf.paddr;
-	cmd_desc->SA_WordCount     = session->sa_words;
-	cmd_desc->SA_Handle2       = DMABuf_NULLHandle;
-	cmd_desc->Token_Handle.p   = (void *)operation->token_buf.paddr;
-	cmd_desc->SrcPkt_Handle.p  = (void *)request->src->paddr;
-	cmd_desc->DstPkt_Handle.p  = (void *)request->dst->paddr;
-	cmd_desc->SrcPkt_ByteCount = copylen;
-	cmd_desc->Token_WordCount  = token_words;
-
-	if (session->is_first) {
-		cmd_desc->User_p   = cmd_desc->SA_Handle1.p;
-		session->is_first = false;
-	} else
-		cmd_desc->User_p   = NULL;
-
-	cmd_desc->Control1 = token_header_word;
 
 	return 0;
 }
@@ -571,7 +563,6 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 {
 	struct sam_cio_op *operation;
 	struct sam_cio_op_params *request;
-	PEC_CommandDescriptor_t pec_cmd;
 	int i, j, err, todo;
 
 	todo = *num;
@@ -599,19 +590,8 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Get next operation structure */
 		operation = &cio->operations[cio->next_request];
 
-		memset(&pec_cmd, 0, sizeof(PEC_CommandDescriptor_t));
-		if (sam_hw_cmd_desc_init(request, operation, &pec_cmd))
+		if (sam_hw_cmd_token_build(request, operation))
 			goto error_enq;
-
-#ifdef MVCONF_SAM_DEBUG
-		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
-			print_cmd_desc(&pec_cmd);
-
-			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
-				pec_cmd.SrcPkt_ByteCount, (void *)request->src->paddr);
-			mv_mem_dump(request->src->vaddr, pec_cmd.SrcPkt_ByteCount);
-		}
-#endif /* MVCONF_SAM_DEBUG */
 
 		/* Save some fields from request needed for result processing */
 		operation->sa = request->sa;
@@ -623,13 +603,31 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
 		}
-		if (cio->hw_ring.type == HW_EIP197)
-			sam_hw_ring_desc_write(&cio->hw_ring, cio->next_request, &pec_cmd);
-		else
-			sam_hw_ring_basic_desc_write(&cio->hw_ring, cio->next_request, &pec_cmd);
+		if (cio->hw_ring.type == HW_EIP197) {
+			sam_hw_ring_desc_write(&cio->hw_ring, cio->next_request,
+					request->src, request->dst, operation->copy_len,
+					&request->sa->sa_buf, &operation->token_buf,
+					operation->token_header_word, operation->token_words);
+		} else {
+			sam_hw_ring_basic_desc_write(&cio->hw_ring, cio->next_request,
+					request->src, request->dst, operation->copy_len,
+					&request->sa->sa_buf, &operation->token_buf,
+					operation->token_header_word, operation->token_words);
+		}
+
+#ifdef MVCONF_SAM_DEBUG
+		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
+			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_result);
+
+			print_cmd_desc(cmd_desc);
+			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
+				operation->copy_len, (void *)request->src->paddr);
+			mv_mem_dump(request->src->vaddr, operation->copy_len);
+		}
+#endif /* MVCONF_SAM_DEBUG */
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
-		SAM_STATS(cio->stats.enq_bytes += pec_cmd.SrcPkt_ByteCount);
+		SAM_STATS(cio->stats.enq_bytes += operation->copy_len);
 	}
 	/* submit requests */
 	if (i) {
