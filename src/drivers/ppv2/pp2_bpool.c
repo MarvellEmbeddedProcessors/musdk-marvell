@@ -35,7 +35,12 @@
 #include "pp2.h"
 #include "pp2_bm.h"
 #include "pp2_hif.h"
+#include "pp2_port.h"
+
 #include "lib/lib_misc.h"
+
+#define DUMMY_PKT_OFFS	64
+#define DUMMY_PKT_EFEC_OFFS	(DUMMY_PKT_OFFS + PP2_MH_SIZE)
 
 #define GET_HW_BASE(pool)	((struct base_addr *)(pool)->internal_param)
 #define SET_HW_BASE(pool, base)	{ (pool)->internal_param = (base); }
@@ -154,6 +159,51 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	return 0;
 }
 
+static inline void pp2_bpool_put_buffs_core(int pp2_id, int num_buffs, int dm_if_index,
+					    struct pp2_ppio_desc pp2_descs[])
+{
+	u16 sent_pkts = 0;
+	struct pp2_port *lb_port;
+
+	lb_port = pp2_ptr->pp2_inst[pp2_id]->ports[PP2_LOOPBACK_PORT];
+	do {
+		sent_pkts += pp2_port_enqueue(lb_port, lb_port->parent->dm_ifs[dm_if_index], 0,
+			     (num_buffs - sent_pkts), &pp2_descs[sent_pkts]);
+	} while (sent_pkts != num_buffs);
+}
+
+/* This function does not support _not_ releasing all buffs, it continues to try until it has finished all buffers. */
+int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entry[], u16 *num)
+
+{
+	struct pp2_ppio_desc descs[PP2_NUM_PKT_PROC][PP2_MAX_NUM_PUT_BUFFS];
+	struct pp2_ppio_desc *cur_desc;
+	int i, pp2_id;
+	int pp_ind[PP2_NUM_PKT_PROC] = {0};
+
+	for (i = 0; i < (*num); i++) {
+		pp2_id = buff_entry[i].bpool->pp2_id;
+		cur_desc = &descs[pp2_id][pp_ind[pp2_id]];
+		pp2_ppio_outq_desc_reset(cur_desc);
+		pp2_ppio_outq_desc_set_phys_addr(cur_desc, buff_entry[i].buff.addr);
+		/* TODO: ASAP, check if setting to 0 creates issues. */
+		pp2_ppio_outq_desc_set_pkt_offset(cur_desc, DUMMY_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_len(cur_desc, 0);
+		pp2_ppio_outq_desc_set_cookie(cur_desc, buff_entry[i].buff.cookie);
+		pp2_ppio_outq_desc_set_pool(cur_desc, buff_entry[i].bpool);
+		cur_desc->cmds[3] = TXD_ERR_SUM_MASK;
+		pp_ind[pp2_id]++;
+	}
+	if (pp_ind[PP2_ID0])
+		pp2_bpool_put_buffs_core(PP2_ID0, pp_ind[PP2_ID0], hif->regspace_slot, descs[PP2_ID0]);
+	if (pp_ind[PP2_ID1])
+		pp2_bpool_put_buffs_core(PP2_ID1, pp_ind[PP2_ID1], hif->regspace_slot, descs[PP2_ID1]);
+
+	return 0;
+}
+
+/* Previous pp2_bpool_put_buff() function, not based on loopback_port. To be discontinued. */
+#if 1
 int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff)
 {
 	u32 phys_lo;
@@ -209,6 +259,7 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 
 	return 0;
 }
+#endif
 
 int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs)
 {

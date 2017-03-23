@@ -44,6 +44,7 @@
  */
 /* Absolute number of hardware BM Pools */
 #define PP2_BPOOL_NUM_POOLS		(16)
+#define PP2_MAX_NUM_PUT_BUFFS		(4096)
 
 struct pp2_bpool {
 	int	pp2_id;		/* PP2 Instance */
@@ -117,6 +118,11 @@ struct pp2_buff_inf {
 #endif
 };
 
+struct buff_release_entry {
+	struct pp2_buff_inf	buff;
+	struct pp2_bpool	*bpool;
+};
+
 /**
  * Get a buffer from a ppv2 buffer pool.
  *
@@ -129,17 +135,21 @@ struct pp2_buff_inf {
  */
 int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff);
 
+
+/* TO BE DELETED in subsequent patch - Together with all dependent applications */
+int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff);
 /**
  * Add a buffer to a ppv2 buffer pool.
  *
- * @param[in]	hif	A hif handle.
- * @param[in]	pool	A bpool handle.
- * @param[in]	buff	A pointer to structure that contains the buffer parameters.
+ * @param[in]	hif		A hif handle.
+ * @param[in]	buff_entry	A pointer to array of buffers to release.
+ * @param[in]	num		Number of buffers to release.
  *
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff);
+int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entry[], u16 *num);
+
 
 /**
  * Get the number of buffers in ppv2 buffer pool.
