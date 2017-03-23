@@ -74,13 +74,17 @@ static char tx_retry_str[] = "Tx Retry disabled";
 
 #define TX_RETRY_WAIT	1
 #define Q_SIZE		1024
-#define MAX_BURST_SIZE	(Q_SIZE)>>1
+#define TXQ_SIZE	(2 * Q_SIZE)
+#define HIFQ_SIZE	(8 * Q_SIZE)
+#define RXQ_SIZE	(2 * Q_SIZE)
+#define MAX_BURST_SIZE	(Q_SIZE >> 1)
 #define DFLT_BURST_SIZE	256
 #define PKT_OFFS	64
-#define PKT_EFEC_OFFS	(PKT_OFFS+PP2_MH_SIZE)
+#define PKT_EFEC_OFFS	(PKT_OFFS + PP2_MH_SIZE)
 #define MAX_PPIOS	1
 #define MAX_NUM_CORES	4
-#define DMA_MEM_SIZE 	(40*1024*1024)
+#define DMA_MEM_SIZE	(40 * 1024 * 1024)
+#define MAX_NUM_BUFFS	(16384 - 32)
 #define PP2_NUM_BPOOLS_RSRV		3
 #define PP2_BPOOLS_RSRV			((1 << PP2_NUM_BPOOLS_RSRV) - 1)
 #define PP2_HIFS_RSRV			0xF
@@ -181,7 +185,7 @@ struct tx_shadow_q {
 	u16				 read_ind;
 	u16				 write_ind;
 
-	struct tx_shadow_q_entry	 ents[Q_SIZE];
+	struct tx_shadow_q_entry	 ents[TXQ_SIZE];
 };
 #endif /* !HW_BUFF_RECYLCE */
 
@@ -191,6 +195,7 @@ struct glob_arg {
 	int			 cpus;	/* cpus used for running */
 	u16			 burst;
 	u16			 mtu;
+	u16			 rxq_size;
 	int			 affinity;
 	int			 loopback;
 	int			 echo;
@@ -392,7 +397,7 @@ static inline u16 free_buffers(struct local_arg	*larg,
 					binf);
 		INC_FREE_COUNT(larg->id, ppio_id, 1);
 
-		if (++idx == Q_SIZE)
+		if (++idx == ARRAY_SIZE(shadow_q->ents))
 			idx = 0;
 
 	}
@@ -601,7 +606,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
 		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 		shadow_q->write_ind++;
-		if (shadow_q->write_ind == Q_SIZE)
+		if (shadow_q->write_ind == ARRAY_SIZE(shadow_q->ents))
 			shadow_q->write_ind = 0;
 	}
 	SET_MAX_BURST(larg->id, rx_ppio_id, num);
@@ -630,7 +635,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			u16 not_sent = num - tx_num;
 			// Free not sent buffers
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
-						(Q_SIZE - not_sent + shadow_q->write_ind) :
+						(ARRAY_SIZE(shadow_q->ents) - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
 			free_buffers(larg, shadow_q->write_ind, not_sent, rx_ppio_id, tc);
 			INC_TX_DROP_COUNT(larg->id, rx_ppio_id, not_sent);
@@ -1098,7 +1103,7 @@ static int init_local_modules(struct glob_arg *garg)
 	pr_debug("found hif: %s\n", name);
 	memset(&hif_params, 0, sizeof(hif_params));
 	hif_params.match = name;
-	hif_params.out_size = Q_SIZE;
+	hif_params.out_size = HIFQ_SIZE;
 	if ((err = pp2_hif_init(&hif_params, &garg->hif)) != 0)
 		return err;
 	if (!garg->hif) {
@@ -1127,7 +1132,7 @@ static int init_local_modules(struct glob_arg *garg)
 			port_params.inqs_params.tcs_params[i].pkt_offset = PKT_OFFS>>2;
 			port_params.inqs_params.tcs_params[i].num_in_qs = PP2_MAX_NUM_QS_PER_TC;
 			/* TODO: we assume here only one Q per TC; change it! */
-			inq_params.size = Q_SIZE;
+			inq_params.size = garg->rxq_size;
 			port_params.inqs_params.tcs_params[i].inqs_params = &inq_params;
 			for (j=0; j<garg->num_pools; j++)
 				port_params.inqs_params.tcs_params[i].pools[j] =
@@ -1135,7 +1140,7 @@ static int init_local_modules(struct glob_arg *garg)
 		}
 		port_params.outqs_params.num_outqs = PP2_MAX_NUM_TCS_PER_PORT;
 		for (i=0; i<port_params.outqs_params.num_outqs; i++) {
-			port_params.outqs_params.outqs_params[i].size = Q_SIZE;
+			port_params.outqs_params.outqs_params[i].size = TXQ_SIZE;
 			port_params.outqs_params.outqs_params[i].weight = 1;
 		}
 		port_params.maintain_stats = garg->maintain_stats;
@@ -1477,6 +1482,7 @@ static int init_local(void *arg, int id, void **_larg)
 		pr_err("No mem for local arg obj!\n");
 		return -ENOMEM;
 	}
+	memset(larg, 0, sizeof(struct local_arg));
 
 	pthread_mutex_lock(&garg->trd_lock);
 	if ((hif_id = find_free_hif()) < 0) {
@@ -1489,7 +1495,7 @@ static int init_local(void *arg, int id, void **_larg)
 	pr_debug("found hif: %s\n", name);
 	memset(&hif_params, 0, sizeof(hif_params));
 	hif_params.match = name;
-	hif_params.out_size = Q_SIZE;
+	hif_params.out_size = HIFQ_SIZE;
 	err = pp2_hif_init(&hif_params, &larg->hif);
 	pthread_mutex_unlock(&garg->trd_lock);
 	if (err != 0)
@@ -1593,6 +1599,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->affinity = -1;
 	garg->burst = DFLT_BURST_SIZE;
 	garg->mtu = DEFAULT_MTU;
+	garg->rxq_size = RXQ_SIZE;
 	garg->echo = 1;
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
@@ -1673,6 +1680,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "-s") == 0) {
 			garg->maintain_stats = 1;
 			i += 1;
+		} else if (strcmp(argv[i], "--rxq") == 0) {
+			garg->rxq_size = atoi(argv[i+1]);
+			i += 2;
 		} else if (strcmp(argv[i], "-m") == 0) {
 			char *token;
 			if (argc < (i+2)) {
