@@ -196,6 +196,7 @@ struct glob_arg {
 	u16			 burst;
 	u16			 mtu;
 	u16			 rxq_size;
+	u32			 busy_wait;
 	int			 multi_buffer_release;
 	int			 affinity;
 	int			 loopback;
@@ -237,6 +238,7 @@ struct local_arg {
 
 
 	u16			 burst;
+	u32			 busy_wait;
 	int			 echo;
 	int			 id;
 	int			 multi_buffer_release;
@@ -562,6 +564,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct tx_shadow_q	*shadow_q;
 	struct pp2_ppio_desc	 descs[MAX_BURST_SIZE];
 	u16			 i, tx_num;
+	int			 mycyc;
 #ifdef APP_TX_RETRY
 	u16			 desc_idx = 0, cnt = 0;
 #endif
@@ -652,6 +655,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			shadow_q->write_ind = 0;
 	}
 	SET_MAX_BURST(larg->id, rx_ppio_id, num);
+	for (mycyc = 0; mycyc < larg->busy_wait; mycyc++)
+		asm volatile("");
 #ifdef APP_TX_RETRY
 	do {
 		tx_num = num;
@@ -1549,6 +1554,7 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->id                = id;
 	larg->burst		= garg->burst;
+	larg->busy_wait		= garg->busy_wait;
 	larg->multi_buffer_release = garg->multi_buffer_release;
 	larg->echo              = garg->echo;
 	larg->prefetch_shift	= garg->prefetch_shift;
@@ -1642,6 +1648,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->affinity = -1;
 	garg->burst = DFLT_BURST_SIZE;
 	garg->mtu = DEFAULT_MTU;
+	garg->busy_wait	= 0;
 	garg->rxq_size = RXQ_SIZE;
 	garg->multi_buffer_release = 1;
 	garg->echo = 1;
@@ -1724,6 +1731,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "-s") == 0) {
 			garg->maintain_stats = 1;
 			i += 1;
+		} else if (strcmp(argv[i], "-w") == 0) {
+			garg->busy_wait = atoi(argv[i+1]);
+			i += 2;
 		} else if (strcmp(argv[i], "--rxq") == 0) {
 			garg->rxq_size = atoi(argv[i+1]);
 			i += 2;
