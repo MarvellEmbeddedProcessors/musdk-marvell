@@ -47,7 +47,7 @@ static int __uio_dev_attr_filter(char *filename)
 int uio_get_device_attributes(struct uio_info_t* info)
 {
 	struct dirent **namelist;
-	struct uio_dev_attr_t *attr, *last;
+	struct uio_dev_attr_t *attr, *last = NULL;
 	char fullname[96];
 	int n;
 
@@ -74,10 +74,16 @@ int uio_get_device_attributes(struct uio_info_t* info)
 			continue;
 		}
 
-		if (!info->dev_attrs)
+		if (!info->dev_attrs) {
 			info->dev_attrs = attr;
-		else
-			last->next = attr;
+		} else {
+			if (last) {
+				last->next = attr;
+			} else {
+				pr_err("[%s]Empty attribute list.\n", __func__);
+				return -1;
+			}
+		}
 		attr->next = NULL;
 		last = attr;
 	}
