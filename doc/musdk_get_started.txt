@@ -4,7 +4,7 @@ Getting Started with MUSDK
 
 1. Build Linux kernel
 ---------------------
-1.1. Apply all patches in: "<musdk-dir>/patches/linux"
+1.1. Apply all patches from: "<musdk-dir>/patches/linux"
 
 Note: "0004-musdk-dts-set-ports-status-non-kernel.patch" is an _example_ how to configure
 	the PPV2 ports that belong to musdk.
@@ -22,10 +22,12 @@ This step is optional and required only when using SAM driver.
 --------------------------------
 2.1. Set environment variables:
 
-- Cross compiler for compilation of modules, must be same as compiler that was used for Kernel. For example:
+- Cross compiler for compilation of modules, must be same as compiler that was used for Kernel.
+  For example:
 		=> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
 
-- Kernel directory. For example:
+- Kernel directory.
+  For example:
 		=> export KDIR=~/linux-4.4.52-devel/kernel
 
 2.2. Build the MUSDK UIO kernel module and install it:
@@ -48,12 +50,15 @@ This step is optional and required only when SAM driver is used
 --------------------------------
 This step is optional and required only when using SAM driver.
 
-3.1. Get EIP197 DDK sources from git or release:
-
-		=> git clone http://vgitil04.il.marvell.com:8080/modules/mv_eip197_is_driver
-		=> git checkout eip197-4.7-devel
+3.1. Get EIP197 DDK sources from the released package:
+     E.g. sources-eip197-4.7-armada-17.02.2.zip
 
 3.2 Build EIP197 DDK as described in eip197-ReleaseNotes.txt
+
+3.3 Get EIP197 Firmware from release binaries and copy them to target file system
+    under directory "/lib/firmware/eip197"
+
+    Binary files: ipue.bin, ifpp.bin
 
 4. Configure and Build MUSDK
 ----------------------------
@@ -100,9 +105,12 @@ To run MUSDK SAM test applications kernel modules below must be loaded first:
 5.5 Load kernel module for SAM UIO support
 		=> insmod mv_sam_uio.ko
 
-5.6 Load kernel module for global EIP197 / EIP97 initializations
-		=> insmod crypto_safexcel.ko
+5.6 Load kernel module for global EIP197 initializations
+		=> insmod crypto_safexcel.ko rings=0,0
 
+Note: rings=x,y means how many EIP197 rings allocated for kernel usage.
+	x - for cp0 engine
+	y - for cp1 engine (if exist)
 
 6. Run MUSDK application examples
 ---------------------------------

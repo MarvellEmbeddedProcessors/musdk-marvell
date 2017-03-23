@@ -26,7 +26,8 @@ Release Content
 			- rootfs\usr\local\musdk\bin:
 				- <all example applications>
 	- Sources:
-		- musdk-armada-17.02.0.zip - includes full sources of MUSDK package.
+		- sources-musdk-armada-17.02.x.zip 	- includes full sources of MUSDK package.
+		- sources-eip197-4.7-armada-17.02.x.zip	- include full sources of EIP197 DDK package
 	- Documentation:
 		- doc/musdk-html-17.02.0.zip - includes user documentation and API reference in HTML format.
 		- To get started with guide, unzip the package, open "html.index" and navigate from there.
