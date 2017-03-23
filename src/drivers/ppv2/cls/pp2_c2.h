@@ -161,6 +161,9 @@ int pp2_cls_cli_c2_free_tcam_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_c2_valid_lkp_type_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_c2_hw_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[]);
+int pp2_cls_cli_qos_dscp_dump(void *arg, int argc, char *argv[]);
+int pp2_cls_cli_qos_pcp_dump(void *arg, int argc, char *argv[]);
+
 
 /******************************************************************************/
 /*                                PROTOTYPE                                   */

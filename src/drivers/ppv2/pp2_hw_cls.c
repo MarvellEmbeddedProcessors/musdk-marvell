@@ -1389,7 +1389,7 @@ void mv_pp2x_cls_flow_tbl_config(struct pp2_hw *hw)
 	}
 }
 
-static inline uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port
+inline uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port
 						       *port)
 {
 	u8 cos_width, bind_cpu;
@@ -1402,13 +1402,51 @@ static inline uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port
 	return (port->first_rxq + (bind_cpu << cos_width));
 }
 
-u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value)
+int mv_pp2x_cls_c2_qos_hw_read(struct pp2_hw *hw, int tbl_id, int tbl_sel,
+			       int tbl_line, struct mv_pp2x_cls_c2_qos_entry *qos)
 {
-	int cos_width, cos_mask;
+	u32 reg_val = 0;
 
-	cos_width = ilog2(roundup_pow_of_two(port->num_tcs));
-	cos_mask = (1 << cos_width) - 1;
-	return ((port->parent->pp2_cfg.cos_cfg.pri_map >> (cos_value * 4)) & cos_mask);
+	if (mv_pp2x_ptr_validate(hw) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_range_validate(tbl_sel, 0, 1) == MV_ERROR)
+		return MV_ERROR;
+
+	if (tbl_sel == 1) {
+		/*dscp*/
+		if (mv_pp2x_range_validate(tbl_id, 0, MVPP2_QOS_TBL_NUM_DSCP) == MV_ERROR)
+			return MV_ERROR;
+
+		if (mv_pp2x_range_validate(tbl_line, 0, MVPP2_QOS_TBL_LINE_NUM_DSCP) == MV_ERROR)
+			return MV_ERROR;
+	} else {
+		/*pri*/
+		if (mv_pp2x_range_validate(tbl_id, 0, MVPP2_QOS_TBL_NUM_PRI) == MV_ERROR)
+			return MV_ERROR;
+
+		if (mv_pp2x_range_validate(tbl_line, 0, MVPP2_QOS_TBL_LINE_NUM_PRI) == MV_ERROR)
+			return MV_ERROR;
+	}
+
+	qos->tbl_id = tbl_id;
+	qos->tbl_sel = tbl_sel;
+	qos->tbl_line = tbl_line;
+
+	/* write index reg */
+	reg_val |= (tbl_line << MVPP2_CLS2_DSCP_PRI_INDEX_LINE_OFF);
+	reg_val |= (tbl_sel << MVPP2_CLS2_DSCP_PRI_INDEX_SEL_OFF);
+	reg_val |= (tbl_id << MVPP2_CLS2_DSCP_PRI_INDEX_TBL_ID_OFF);
+
+	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_DSCP_PRI_INDEX_REG, reg_val);
+
+	/* read data reg*/
+	qos->data = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_QOS_TBL_REG);
+
+	return MV_OK;
 }
 
 int mv_pp2x_cls_c2_qos_hw_write(struct pp2_hw *hw,
@@ -1453,6 +1491,112 @@ int mv_pp2x_cls_c2_qos_queue_set(struct mv_pp2x_cls_c2_qos_entry *qos,
 	return 0;
 }
 
+int mv_pp2x_cls_c2_qos_prio_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *prio)
+{
+	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(prio) == MV_ERROR)
+		return MV_ERROR;
+
+	*prio = (qos->data & MVPP2_CLS2_QOS_TBL_PRI_MASK) >> MVPP2_CLS2_QOS_TBL_PRI_OFF;
+	return MV_OK;
+}
+
+int mv_pp2x_cls_c2_qos_dscp_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *dscp)
+{
+	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(dscp) == MV_ERROR)
+		return MV_ERROR;
+
+	*dscp = (qos->data & MVPP2_CLS2_QOS_TBL_DSCP_MASK) >> MVPP2_CLS2_QOS_TBL_DSCP_OFF;
+	return MV_OK;
+}
+
+int mv_pp2x_cls_c2_qos_color_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *color)
+{
+	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(color) == MV_ERROR)
+		return MV_ERROR;
+
+	*color = (qos->data & MVPP2_CLS2_QOS_TBL_COLOR_MASK) >> MVPP2_CLS2_QOS_TBL_COLOR_OFF;
+	return MV_OK;
+}
+
+int mv_pp2x_cls_c2_qos_gpid_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *gpid)
+{
+	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(gpid) == MV_ERROR)
+		return MV_ERROR;
+
+	*gpid = (qos->data & MVPP2_CLS2_QOS_TBL_GEMPORT_MASK) >> MVPP2_CLS2_QOS_TBL_GEMPORT_OFF;
+	return MV_OK;
+}
+
+int mv_pp2x_cls_c2_qos_queue_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *queue)
+{
+	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
+		return MV_ERROR;
+
+	if (mv_pp2x_ptr_validate(queue) == MV_ERROR)
+		return MV_ERROR;
+
+	*queue = (qos->data & MVPP2_CLS2_QOS_TBL_QUEUENUM_MASK) >> MVPP2_CLS2_QOS_TBL_QUEUENUM_OFF;
+	return MV_OK;
+}
+
+/* Fill the qos table with queue array supplied by user */
+void mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
+				       u8 tbl_sel, uint8_t cos_values[],
+				       uint8_t start_queue)
+{
+	struct mv_pp2x_cls_c2_qos_entry qos_entry;
+	u32 pri, line_num;
+	u8 queue;
+
+	if (tbl_sel == MVPP2_QOS_TBL_SEL_PRI)
+		line_num = MVPP2_QOS_TBL_LINE_NUM_PRI;
+	else
+		line_num = MVPP2_QOS_TBL_LINE_NUM_DSCP;
+
+	memset(&qos_entry, 0, sizeof(struct mv_pp2x_cls_c2_qos_entry));
+	if (port->type == PP2_PPIO_T_LOG)
+		qos_entry.tbl_id = QOS_LOG_PORT_TABLE_OFF(port->id);
+	else
+		qos_entry.tbl_id = port->id;
+	qos_entry.tbl_sel = tbl_sel;
+
+	/* Fill the QoS dscp/pbit table */
+	for (pri = 0; pri < line_num; pri++) {
+		qos_entry.tbl_line = pri;
+		/* map cos queue to physical queue */
+		/* Physical queue contains 2 parts: port ID and CPU ID,
+		* CPU ID will be used in RSS
+		*/
+		queue = start_queue + cos_values[pri];
+
+		pr_debug("%d start_queue %d, queue %d\n", pri, start_queue, queue);
+
+		mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
+		mv_pp2x_cls_c2_qos_hw_write(&port->parent->hw, &qos_entry);
+	}
+}
+
+u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value)
+{
+	int cos_width, cos_mask;
+
+	cos_width = ilog2(roundup_pow_of_two(port->num_tcs));
+	cos_mask = (1 << cos_width) - 1;
+	return ((port->parent->pp2_cfg.cos_cfg.pri_map >> (cos_value * 4)) & cos_mask);
+}
+
 /* CoS API */
 
 /* mv_pp2x_cos_classifier_set
@@ -1464,8 +1608,8 @@ int mv_pp2x_cls_c2_qos_queue_set(struct mv_pp2x_cls_c2_qos_entry *qos,
 *     3: cos based on dscp for IP packets, and based on vlan for non-IP packets;
 */
 /* Fill the qos table with queue */
-static void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port,
-					u8 tbl_sel, uint8_t start_queue)
+void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port,
+				 u8 tbl_sel, uint8_t start_queue)
 {
 	struct mv_pp2x_cls_c2_qos_entry qos_entry;
 	u32 pri, line_num;
@@ -1477,7 +1621,7 @@ static void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port,
 		line_num = MVPP2_QOS_TBL_LINE_NUM_DSCP;
 
 	memset(&qos_entry, 0, sizeof(struct mv_pp2x_cls_c2_qos_entry));
-	qos_entry.tbl_id = port->id;
+	qos_entry.tbl_id = QOS_LOG_PORT_TABLE_OFF(port->id);
 	qos_entry.tbl_sel = tbl_sel;
 
 	/* Fill the QoS dscp/pbit table */

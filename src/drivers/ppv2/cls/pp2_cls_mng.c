@@ -133,6 +133,46 @@ static u32 lookup_field_id(u32 proto, u32 field, u32 *field_id, u32 *match_bm)
 	return -ENOENT;
 }
 
+int pp2_cls_mng_lkp_type_to_prio(int lkp_type)
+{
+	int prio;
+
+	switch (lkp_type) {
+	case MVPP2_CLS_LKP_HASH:
+		prio = MVPP2_CLS_KERNEL_HASH_PRIO;
+		break;
+	case MVPP2_CLS_LKP_VLAN_PRI:
+		prio = MVPP2_CLS_KERNEL_VLAN_PRIO;
+		break;
+	case MVPP2_CLS_LKP_DSCP_PRI:
+		prio = MVPP2_CLS_KERNEL_DSCP_PRIO;
+		break;
+	case MVPP2_CLS_LKP_DEFAULT:
+		prio = MVPP2_CLS_KERNEL_DEF_PRIO;
+		break;
+	case MVPP2_CLS_LKP_MUSDK_LOG_HASH:
+		prio = MVPP2_CLS_MUSDK_HASH_PRIO;
+		break;
+	case MVPP2_CLS_LKP_MUSDK_VLAN_PRI:
+		prio = MVPP2_CLS_MUSDK_VLAN_PRIO;
+		break;
+	case MVPP2_CLS_LKP_MUSDK_DSCP_PRI:
+		prio = MVPP2_CLS_MUSDK_DSCP_PRIO;
+		break;
+	case MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF:
+		prio = MVPP2_CLS_MUSDK_DEF_PRIO;
+		break;
+	case MVPP2_CLS_LKP_MUSDK_CLS:
+		prio = MVPP2_CLS_MUSDK_CLS_PRIO;
+		break;
+	default:
+		pr_err("unknown lkp type = %d\n", lkp_type);
+		return -EINVAL;
+	}
+
+	return prio;
+}
+
 static int pp2_cls_add_non_ip_logical_id(u16 *select_logical_id)
 {
 	int i = 0;
@@ -211,6 +251,185 @@ static int pp2_cls_add_ip6_tcp_logical_id(u16 *select_logical_id)
 	return i;
 }
 
+static int pp2_cls_mng_get_lkpid_for_flow_type(u16 *select_logical_id,
+					       u32 ipv4_flag,
+					       u32 ipv6_flag,
+					       u32 tcp_flag,
+					       u32 udp_flag,
+					       u32 l4_flag)
+{
+	int num_lkpid = 0;
+
+	/* find relevant lkpid for this flow */
+	if (!ipv4_flag && !ipv6_flag && !l4_flag && !tcp_flag && !udp_flag) {
+		num_lkpid += pp2_cls_add_non_ip_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip4_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip6_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[num_lkpid]);
+	} else if (ipv4_flag) {
+		if (!tcp_flag && !udp_flag && !l4_flag) {
+			num_lkpid += pp2_cls_add_ip4_logical_id(&select_logical_id[num_lkpid]);
+			num_lkpid += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[num_lkpid]);
+			num_lkpid += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[num_lkpid]);
+		} else if (l4_flag && !tcp_flag && !udp_flag) {
+			num_lkpid += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[num_lkpid]);
+			num_lkpid += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[num_lkpid]);
+		} else if (tcp_flag) {
+			num_lkpid += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[num_lkpid]);
+		} else if (udp_flag) {
+			num_lkpid += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[num_lkpid]);
+		} else {
+			pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+	} else if (ipv6_flag) {
+		if (!tcp_flag && !udp_flag && !l4_flag) {
+			num_lkpid += pp2_cls_add_ip6_logical_id(&select_logical_id[num_lkpid]);
+			num_lkpid += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[num_lkpid]);
+			num_lkpid += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[num_lkpid]);
+		} else if (l4_flag && !tcp_flag && !udp_flag) {
+			num_lkpid += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[num_lkpid]);
+			num_lkpid += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[num_lkpid]);
+		} else if (tcp_flag) {
+			num_lkpid += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[num_lkpid]);
+		} else if (udp_flag) {
+			num_lkpid += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[num_lkpid]);
+		} else {
+			pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+	} else if (l4_flag) {
+		num_lkpid += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[num_lkpid]);
+	} else if (tcp_flag) {
+		num_lkpid += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[num_lkpid]);
+	} else if (udp_flag) {
+		num_lkpid += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[num_lkpid]);
+		num_lkpid += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[num_lkpid]);
+	} else {
+		pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	return num_lkpid;
+}
+
+static int pp2_cls_mng_get_lkpid_for_lkp_type(int lkp_type, u16 *select_logical_id)
+{
+	int lkpid, lkpid_attr;
+	int num_lkpid = 0;
+
+	for (lkpid = MVPP2_PRS_FL_START; lkpid < MVPP2_PRS_FL_LAST; lkpid++) {
+		/* Get lookup id attribute */
+		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
+		/* For untagged IP packets, only need default
+		 * rule and dscp rule
+		 */
+		if ((lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT | MVPP2_PRS_FL_ATTR_IP6_BIT)) &&
+		    (!(lkpid_attr & MVPP2_PRS_FL_ATTR_VLAN_BIT))) {
+			if (lkp_type == MVPP2_CLS_LKP_DEFAULT ||
+			    lkp_type == MVPP2_CLS_LKP_DSCP_PRI ||
+			    lkp_type == MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF ||
+			    lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI) {
+				select_logical_id[num_lkpid++] = lkpid;
+				continue;
+			}
+		}
+
+		/* For tagged IP packets, only need vlan rule and dscp rule */
+		if ((lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT | MVPP2_PRS_FL_ATTR_IP6_BIT)) &&
+		    (lkpid_attr & MVPP2_PRS_FL_ATTR_VLAN_BIT)) {
+			if (lkp_type == MVPP2_CLS_LKP_VLAN_PRI ||
+			    lkp_type == MVPP2_CLS_LKP_DSCP_PRI ||
+			    lkp_type == MVPP2_CLS_LKP_MUSDK_VLAN_PRI ||
+			    lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI) {
+				select_logical_id[num_lkpid++] = lkpid;
+				continue;
+			}
+		}
+
+		/* For non-IP packets, only need default rule if untagged,
+		 * vlan rule also needed if tagged
+		 */
+		if (!(lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT | MVPP2_PRS_FL_ATTR_IP6_BIT))) {
+			/* Default rule */
+			if (lkp_type == MVPP2_CLS_LKP_DEFAULT ||
+			    lkp_type == MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF) {
+				select_logical_id[num_lkpid++] = lkpid;
+				continue;
+			}
+			/* VLAN rule if tagged */
+			if (lkpid_attr & MVPP2_PRS_FL_ATTR_VLAN_BIT) {
+				if (lkp_type == MVPP2_CLS_LKP_VLAN_PRI ||
+				    lkp_type == MVPP2_CLS_LKP_MUSDK_VLAN_PRI) {
+					select_logical_id[num_lkpid++] = lkpid;
+					continue;
+				}
+			}
+		}
+	}
+
+	return num_lkpid;
+}
+
+static int pp2_cls_flow_modify(struct pp2_port *port, int set, int lkp_type)
+{
+	struct pp2_cls_fl_rule_list_t fl_rls;
+	struct pp2_inst *inst = port->parent;
+	int i, rc = 0, num_of_lkid;
+	u16 select_logical_id[30];
+
+	fl_rls.fl_len = 1;
+	fl_rls.fl->port_type = MVPP2_SRC_PORT_TYPE_PHY;
+	fl_rls.fl->port_bm = (1 << port->id);
+	fl_rls.fl->lu_type = lkp_type;
+	fl_rls.fl->enabled = set;
+
+	fl_rls.fl->prio = pp2_cls_mng_lkp_type_to_prio(lkp_type);
+	if (fl_rls.fl->prio < 0)
+		return -EINVAL;
+	fl_rls.fl->engine = MVPP2_CLS_ENGINE_C2;
+	fl_rls.fl->udf7 = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_MUSDK_LOG_UDF7 : MVPP2_CLS_MUSDK_NIC_UDF7;
+	fl_rls.fl->seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
+	fl_rls.fl->field_id_cnt = 0;
+	fl_rls.fl->field_id[0] = 0;
+	fl_rls.fl->field_id[1] = 0;
+	fl_rls.fl->field_id[2] = 0;
+	fl_rls.fl->field_id[3] = 0;
+
+	num_of_lkid = pp2_cls_mng_get_lkpid_for_lkp_type(fl_rls.fl->lu_type, &select_logical_id[0]);
+	/* add current rule for all selected logical flow id */
+	for (i = 0; i < num_of_lkid; i++) {
+		pr_debug("select_logical_id[%d] = %d\n", i, select_logical_id[i]);
+		fl_rls.fl->fl_log_id = select_logical_id[i];
+		rc = pp2_cls_fl_rule_enable(inst, &fl_rls);
+		if (rc) {
+			pr_err("failed to add cls flow rule\n");
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+int pp2_cls_dscp_flow_modify(struct pp2_port *port, int set)
+{
+	int lkp_type = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_LKP_MUSDK_DSCP_PRI : MVPP2_CLS_LKP_DSCP_PRI;
+
+	if (set != 0 && set != 1) {
+		printf("%s(%d) parsing fail, wrong set = %d value\n", __func__, __LINE__, set);
+		return -EINVAL;
+	}
+
+	return pp2_cls_flow_modify(port, set, lkp_type);
+}
+
 /*
  * pp2_cls_mng_add_default_flow()
  * add default flow&rule for all lookup id
@@ -235,10 +454,14 @@ static int pp2_cls_mng_add_default_flow(struct pp2_ppio *ppio)
 	tbl_params.default_act.cos->ppio = ppio;
 	tbl_params.default_act.cos->tc = 0;
 
+	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_VLAN_PRI);
+	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_DSCP_PRI);
 	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF);
 
 	/* add default c2 rule */
 	rule.num_fields = 0;
+	pp2_cls_mng_rule_add(tbl, &rule, &tbl_params.default_act, MVPP2_CLS_LKP_MUSDK_VLAN_PRI);
+	pp2_cls_mng_rule_add(tbl, &rule, &tbl_params.default_act, MVPP2_CLS_LKP_MUSDK_DSCP_PRI);
 	pp2_cls_mng_rule_add(tbl, &rule, &tbl_params.default_act, MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF);
 
 	kfree(tbl_params.default_act.cos);
@@ -288,7 +511,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	u32 idx;
 	u32 field, match_bm;
 	u32 rc = 0;
-	u32 i, j = 0, field_index;
+	u32 i, num_lkpid = 0, field_index;
 	u32 five_tuple = 0;
 	u32 ipv4_flag = 0;
 	u32 ipv6_flag = 0;
@@ -373,9 +596,14 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 
 	/* lookup_type */
 	fl_rls->fl[0].lu_type = lkp_type;
-	fl_rls->fl[0].enabled = true;
-	fl_rls->fl[0].prio = lkp_type == MVPP2_CLS_LKP_MUSDK_CLS ? MVPP2_CLS_MUSDK_CLS_PRIO : MVPP2_CLS_MUSDK_DEF_PRIO;
-	fl_rls->fl[0].udf7 = port->type == PP2_PPIO_T_LOG ? MVPP2_CLS_MUSDK_LOG_UDF7 : MVPP2_CLS_MUSDK_NIC_UDF7;
+	/* as default DSCP flows should be disabled */
+	fl_rls->fl[0].enabled = (lkp_type != MVPP2_CLS_LKP_MUSDK_DSCP_PRI) ? true : false;
+
+	fl_rls->fl[0].prio = pp2_cls_mng_lkp_type_to_prio(lkp_type);
+	if (fl_rls->fl[0].prio < 0)
+		return -EINVAL;
+
+	fl_rls->fl[0].udf7 = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_MUSDK_LOG_UDF7 : MVPP2_CLS_MUSDK_NIC_UDF7;
 	fl_rls->fl[0].seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
 	fl_rls->fl[0].field_id_cnt = params->key.num_fields - (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3B);
 
@@ -385,66 +613,15 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	pr_debug("udp_flag = %d\n", udp_flag);
 	pr_debug("tcp_flag = %d\n", tcp_flag);
 
-	/* find relevant lkpid for this flow */
-	if (!ipv4_flag && !ipv6_flag && !l4_flag && !tcp_flag && !udp_flag) {
-		j += pp2_cls_add_non_ip_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip4_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip6_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
-	} else if (ipv4_flag) {
-		if (!tcp_flag && !udp_flag && !l4_flag) {
-			j += pp2_cls_add_ip4_logical_id(&select_logical_id[j]);
-			j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
-			j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
-		} else if (l4_flag && !tcp_flag && !udp_flag) {
-			j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
-			j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
-		} else if (tcp_flag) {
-			j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
-		} else if (udp_flag) {
-			j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
-		} else {
-			pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
-			return -EINVAL;
-		}
-	} else if (ipv6_flag) {
-		if (!tcp_flag && !udp_flag && !l4_flag) {
-			j += pp2_cls_add_ip6_logical_id(&select_logical_id[j]);
-			j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
-			j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
-		} else if (l4_flag && !tcp_flag && !udp_flag) {
-			j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
-			j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
-		} else if (tcp_flag) {
-			j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
-		} else if (udp_flag) {
-			j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
-		} else {
-			pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
-			return -EINVAL;
-		}
-	} else if (l4_flag) {
-		j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
-	} else if (tcp_flag) {
-		j += pp2_cls_add_ip4_tcp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip6_tcp_logical_id(&select_logical_id[j]);
-	} else if (udp_flag) {
-		j += pp2_cls_add_ip4_udp_logical_id(&select_logical_id[j]);
-		j += pp2_cls_add_ip6_udp_logical_id(&select_logical_id[j]);
+	if (lkp_type == MVPP2_CLS_LKP_MUSDK_CLS) {
+		num_lkpid = pp2_cls_mng_get_lkpid_for_flow_type(&select_logical_id[0], ipv4_flag, ipv6_flag,
+								tcp_flag, udp_flag, l4_flag);
 	} else {
-		pr_err("%s(%d), failed to calculate lkpid\n", __func__, __LINE__);
-		return -EINVAL;
+		num_lkpid = pp2_cls_mng_get_lkpid_for_lkp_type(lkp_type, &select_logical_id[0]);
 	}
-	select_logical_id[j] = 0;
 
 	/* add current rule for all selected logical flow id */
-	for (i = 0; select_logical_id[i] != 0; i++) {
+	for (i = 0; i < num_lkpid; i++) {
 		pr_debug("select_logical_id = %d\n", select_logical_id[i]);
 		fl_rls->fl[0].fl_log_id = select_logical_id[i];
 
@@ -462,6 +639,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	rc = pp2_cls_db_mng_tbl_add(&tbl_node);
 	tbl_node->params.max_num_rules = params->max_num_rules;
 	tbl_node->params.type = params->type;
+	tbl_node->type = PP2_CLS_FLOW_TBL;
 	tbl_node->params.default_act.type = params->default_act.type;
 	cos = kmalloc(sizeof(*cos), GFP_KERNEL);
 	if (!cos) {
@@ -512,13 +690,99 @@ int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl)
 	return 0;
 }
 
+int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
+			     struct pp2_cls_tbl **tbl)
+{
+	int rc = 0;
+	u32 i;
+	u8 tc_array[MVPP2_QOS_TBL_LINE_NUM_DSCP];
+	u8 start_queue;
+	struct pp2_port *port;
+	struct pp2_cls_tbl *tmp_tbl = NULL;
+
+	/* Para check */
+	if (mv_pp2x_ptr_validate(qos_params)) {
+		pr_err("NULL params.\n");
+		return -EINVAL;
+	}
+
+	if (qos_params->type <= PP2_CLS_QOS_TBL_NONE ||
+	    qos_params->type >= PP2_CLS_QOS_TBL_OUT_OF_RANGE) {
+		pr_err("QoS type %u out of range.", qos_params->type);
+		return -EINVAL;
+	}
+
+	port = GET_PPIO_PORT(qos_params->dscp_cos_map[0].ppio);
+
+	/* Set up QoS lookup tables for PCP*/
+	if (qos_params->type == PP2_CLS_QOS_TBL_VLAN_PRI ||
+	    qos_params->type == PP2_CLS_QOS_TBL_VLAN_IP_PRI ||
+	    qos_params->type == PP2_CLS_QOS_TBL_IP_VLAN_PRI) {
+		for (i = 0; i < MV_VLAN_PRIO_NUM; i++) {
+			if (!qos_params->pcp_cos_map[i].ppio) {
+				pr_err("PCP field %u has NULL ppio.", i);
+				return -EINVAL;
+			}
+
+			if (qos_params->pcp_cos_map->tc < 0 ||
+			    qos_params->pcp_cos_map->tc > MV_VLAN_PRIO_NUM) {
+				pr_err("pcp tc value out of range.%d", qos_params->pcp_cos_map->tc);
+				return -EINVAL;
+			}
+			tc_array[i] = qos_params->pcp_cos_map[i].tc;
+		}
+
+		start_queue = mv_pp2x_bound_cpu_first_rxq_calc(port);
+		mv_pp2x_cls_c2_qos_tbl_fill_array(port,
+						  MVPP2_QOS_TBL_SEL_PRI,
+						  tc_array,
+						  start_queue);
+		/* disable flows in flow tables */
+		pp2_cls_dscp_flow_modify(port, false);
+	}
+
+	/* Set up QoS lookup tables for DSCP*/
+	if (qos_params->type == PP2_CLS_QOS_TBL_IP_PRI ||
+	    qos_params->type == PP2_CLS_QOS_TBL_VLAN_IP_PRI ||
+	    qos_params->type == PP2_CLS_QOS_TBL_IP_VLAN_PRI) {
+		for (i = 0; i < MV_DSCP_NUM; i++) {
+			if (!qos_params->dscp_cos_map[i].ppio) {
+				pr_err("DSCP field %u has NULL ppio.", i);
+				return -EINVAL;
+			}
+
+			if (qos_params->dscp_cos_map->tc < 0 ||
+			    qos_params->dscp_cos_map->tc > MV_DSCP_NUM) {
+				pr_err("dscp tc value out of range.%d", qos_params->dscp_cos_map->tc);
+				return -EINVAL;
+			}
+
+			tc_array[i] = qos_params->dscp_cos_map[i].tc;
+		}
+
+		start_queue = mv_pp2x_bound_cpu_first_rxq_calc(port);
+		mv_pp2x_cls_c2_qos_tbl_fill_array(port,
+						  MVPP2_QOS_TBL_SEL_DSCP,
+						  tc_array,
+						  start_queue);
+
+		/* enable flows in flow tables */
+		pp2_cls_dscp_flow_modify(port, true);
+	}
+
+	rc = pp2_cls_db_mng_tbl_add(&tmp_tbl);
+	memcpy(&tmp_tbl->qos_params, qos_params, sizeof(tmp_tbl->qos_params));
+	tmp_tbl->type = PP2_CLS_QOS_TBL;
+
+	*tbl = tmp_tbl;
+
+	return rc;
+}
+
 static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
-				 struct mv_pp2x_engine_pkt_action *pkt_action,
-				 struct mv_pp2x_qos_value *pkt_qos,
 				 struct mv_pp2x_src_port *rule_port,
 				 struct pp2_cls_tbl_params *params,
 				 struct pp2_cls_tbl_rule *rule,
-				 struct pp2_cls_tbl_action *action,
 				 struct pp2_port *port)
 {
 	char *ret_ptr;
@@ -531,7 +795,6 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 	u32 field;
 	u32 idx1, idx2;
 	u32 field_bm = 0, bm = 0;
-	u8 queue;
 
 	rule_port->port_type = MVPP2_SRC_PORT_TYPE_PHY;
 	rule_port->port_value = (1 << port->id);
@@ -833,6 +1096,69 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 	else if (ipv6_flag)
 		mng_pkt_key->pkt_key->ipvx_add.ip_ver = 6;
 
+	return 0;
+}
+
+static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
+				      struct mv_pp2x_c2_add_entry *c2_entry,
+				      struct mv_pp2x_qos_value *pkt_qos,
+				      struct mv_pp2x_engine_pkt_action *pkt_action,
+				      struct pp2_cls_tbl_action *action,
+				      int lkp_type)
+{
+	u8 queue;
+
+	if (action->type == PP2_CLS_TBL_ACT_DROP)
+		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
+	else
+		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
+	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
+	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
+	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
+
+	/* for qos rules */
+	if (lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI ||
+	    lkp_type == MVPP2_CLS_LKP_MUSDK_VLAN_PRI) {
+		u8 tbl_sel;
+
+		if (lkp_type == MVPP2_CLS_LKP_MUSDK_VLAN_PRI)
+			tbl_sel = MVPP2_QOS_TBL_SEL_PRI;
+		else if (lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI)
+			tbl_sel = MVPP2_QOS_TBL_SEL_DSCP;
+
+		c2_entry->qos_info.qos_tbl_index = QOS_LOG_PORT_TABLE_OFF(port->id);
+		c2_entry->qos_info.q_low_src = MVPP2_QOS_SRC_DSCP_PBIT_TBL;
+		c2_entry->qos_info.q_high_src = MVPP2_QOS_SRC_DSCP_PBIT_TBL;
+		c2_entry->qos_info.qos_tbl_type = tbl_sel;
+		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+		pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+
+		mv_pp2x_cls_c2_qos_tbl_fill(port, tbl_sel, mv_pp2x_bound_cpu_first_rxq_calc(port));
+	} else {
+	/* for classifier and default rules */
+		if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
+			pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+			pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+			queue = port->tc[action->cos->tc].tc_config.first_rxq;
+			pkt_qos->q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
+			pkt_qos->q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
+			pr_debug("q_low %d, q_high %d, queue %d, tc %d\n", pkt_qos->q_low,
+				 pkt_qos->q_high, queue, action->cos->tc);
+		} else {
+			pkt_action->q_low_act = MVPP2_ACTION_TYPE_NO_UPDT;
+			pkt_action->q_high_act = MVPP2_ACTION_TYPE_NO_UPDT;
+		}
+	}
+}
+
+static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
+				      struct mv_pp2x_qos_value *pkt_qos,
+				      struct mv_pp2x_engine_pkt_action *pkt_action,
+				      struct pp2_cls_tbl_action *action,
+				      int lkp_type)
+{
+	u8 queue;
+
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 	else
@@ -853,8 +1179,6 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 		pkt_action->q_low_act = MVPP2_ACTION_TYPE_NO_UPDT;
 		pkt_action->q_high_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	}
-
-	return 0;
 }
 
 static int pp2_cls_mng_rule_update_db(struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_rule *rule_db,
@@ -910,6 +1234,12 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 	struct pp2_cls_tbl_action *action_db;
 
 	/* check if table exists in DB */
+	if (tbl->type != PP2_CLS_FLOW_TBL) {
+		pr_err("%s(%d) wrong table type inserted\n", __func__, __LINE__);
+		return -EFAULT;
+	}
+
+	/* check if table exists in DB */
 	rc = pp2_cls_db_mng_tbl_check(tbl);
 	if (rc) {
 		pr_err("table not found in db\n");
@@ -926,15 +1256,15 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 	/* init value */
 	MVPP2_MEMSET_ZERO(pkt_key);
 	MVPP2_MEMSET_ZERO(mng_pkt_key);
+	MVPP2_MEMSET_ZERO(pkt_action);
+	MVPP2_MEMSET_ZERO(pkt_qos);
 	mng_pkt_key.pkt_key = &pkt_key;
 
 	port = GET_PPIO_PORT(params->default_act.cos->ppio);
 	inst = port->parent;
-	rc = pp2_cls_set_rule_info(&mng_pkt_key, &pkt_action, &pkt_qos, &rule_port,
-				   params, rule, action, port);
-
+	rc = pp2_cls_set_rule_info(&mng_pkt_key, &rule_port, params, rule, port);
 	if (rc) {
-		pr_err("%s(%d) setting pkt_mng params failed\n", __func__, __LINE__);
+		pr_err("%s(%d) pp2_cls_set_rule_info failed\n", __func__, __LINE__);
 		return rc;
 	}
 
@@ -946,6 +1276,8 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		c2_entry.mng_pkt_key->pkt_key = &pkt_key;
 		c2_entry.lkp_type = lkp_type;
 		c2_entry.lkp_type_mask = MVPP2_C2_HEK_LKP_TYPE_MASK >> MVPP2_C2_HEK_LKP_TYPE_OFFS;
+		pp2_cls_mng_set_c2_action(port, &c2_entry, &pkt_qos, &pkt_action, action, lkp_type);
+
 		memcpy(&c2_entry.port, &rule_port, sizeof(rule_port));
 		memcpy(&c2_entry.action, &pkt_action, sizeof(pkt_action));
 		memcpy(&c2_entry.qos_value, &pkt_qos, sizeof(pkt_qos));
@@ -964,6 +1296,9 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		c3_entry.mng_pkt_key = &mng_pkt_key;
 		c3_entry.mng_pkt_key->pkt_key = &pkt_key;
 		c3_entry.lkp_type = lkp_type;
+
+		pp2_cls_mng_set_c3_action(port, &pkt_qos, &pkt_action, action, lkp_type);
+
 		memcpy(&c3_entry.port, &rule_port, sizeof(rule_port));
 		memcpy(&c3_entry.action, &pkt_action, sizeof(pkt_action));
 		memcpy(&c3_entry.qos_value, &pkt_qos, sizeof(pkt_qos));

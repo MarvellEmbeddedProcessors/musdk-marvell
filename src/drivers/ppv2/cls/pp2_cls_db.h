@@ -56,6 +56,11 @@
 /*			ENUMERATIONS						*/
 /********************************************************************************/
 
+enum pp2_cls_params_tbl_type {
+	PP2_CLS_FLOW_TBL,
+	PP2_CLS_QOS_TBL
+};
+
 /********************************************************************************/
 /*			STRUCTURES						*/
 /********************************************************************************/
@@ -148,7 +153,9 @@ struct pp2_cls_rule_node {
 };
 
 struct pp2_cls_tbl {
+	enum pp2_cls_params_tbl_type	type;
 	struct pp2_cls_tbl_params	params;
+	struct pp2_cls_qos_tbl_params	qos_params;
 };
 
 struct pp2_cls_tbl_node {
@@ -219,6 +226,7 @@ int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_r
 int pp2_cls_db_mng_tbl_rule_next_get(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule **rule);
 int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl);
 int pp2_cls_db_mng_tbl_list_dump(void);
+int pp2_cls_db_mng_qos_tbl_add(struct pp2_cls_tbl **tbl);
 
 /* DB general section */
 int pp2_cls_db_init(struct pp2_inst *inst);

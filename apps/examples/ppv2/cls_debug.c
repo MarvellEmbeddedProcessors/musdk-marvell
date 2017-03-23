@@ -132,7 +132,7 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_rule_dis;
 	mvapp_register_cli_cmd(&cmd_params);
-#endif
+
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_fl_log_rls_dump";
 	cmd_params.desc		= "dump all logical flow ID and rule offset";
@@ -141,6 +141,16 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_log_rls_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_fl_rls_dscp_port_modify";
+	cmd_params.desc		= "toggle port bit according to inserted parameters";
+	cmd_params.format	= "\n"
+				  "\t\t\t\t0 - disable\n"
+				  "\t\t\t\t1 - enable\n";
+	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_fl_modify;
+	mvapp_register_cli_cmd(&cmd_params);
+#endif
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_lkp_hits_dump";
 	cmd_params.desc		= "dump all hit decode entry and its DB information";
@@ -268,13 +278,38 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio)
 	struct pp2_inst *inst = port->parent;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_c2_lkp_type_entry_dump";
+	cmd_params.name		= "cls_c2_rule_hit_dump";
 	cmd_params.desc		= "dump all entries with the lookup type";
 	cmd_params.format	= "--type  (no arguments)\n"
 				  "\t\t\t\t--type	(dec) lookup type number 0 - 64\n"
 				  "\t\t\t\tno arguments -> dumping all flows\n";
 	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_lkp_type_entry_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_qos_pcp_table_dump";
+	cmd_params.desc		= "dump pcp qos table";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_pcp_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_qos_dscp_table_dump";
+	cmd_params.desc		= "dump dscp qos table";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_dscp_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+#ifdef CLS_DEBUG
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_c2_valid_lkp_type_dump";
+	cmd_params.desc		= "dump valid C2 lookup type, with its TCAM index";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_valid_lkp_type_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
@@ -285,15 +320,6 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_free_tcam_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_c2_valid_lkp_type_dump";
-	cmd_params.desc		= "dump valid C2 lookup type, with its TCAM index";
-	cmd_params.format	= "(no arguments)\n";
-	cmd_params.cmd_arg	= (void *)inst;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_valid_lkp_type_dump;
-	mvapp_register_cli_cmd(&cmd_params);
-
-#ifdef CLS_DEBUG
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_c2_rule_hw_dump";
 	cmd_params.desc		= "dump C2 entries";

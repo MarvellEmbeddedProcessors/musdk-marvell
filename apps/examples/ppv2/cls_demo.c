@@ -131,11 +131,13 @@ struct pp2_cls_table_node {
 	u32				idx;
 	struct	pp2_cls_tbl		*tbl;
 	struct	pp2_cls_tbl_params	tbl_params;
+	struct	pp2_cls_qos_tbl_params	qos_tbl_params;
 	char				ppio_name[CLS_APP_PPIO_NAME_MAX];
 	struct list			list_node;
 };
 
-static struct list cls_tbl_head;
+static struct list cls_flow_tbl_head;
+static struct list cls_qos_tbl_head;
 
 static int find_port_info(struct port_desc *port_desc)
 {
@@ -307,12 +309,12 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
  * Get the next free table index in the list. The first index starts at 1.
  * in case entries were removed from list, this function returns the first free table index
  */
-static int pp2_cls_table_next_index_get(void)
+static int pp2_cls_table_next_index_get(struct list *cls_tbl_head)
 {
 	struct pp2_cls_table_node *tbl_node;
 	int idx = 0;
 
-	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_tbl_head, list_node) {
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, cls_tbl_head, list_node) {
 		if ((tbl_node->idx == 0) || ((tbl_node->idx - idx) > 1))
 			return idx + 1;
 		idx++;
@@ -324,11 +326,11 @@ static int pp2_cls_table_next_index_get(void)
  * pp2_cls_table_get()
  * returns a pointer to the table for the provided table index
  */
-static int pp2_cls_table_get(u32 tbl_idx, struct pp2_cls_tbl **tbl)
+static int pp2_cls_table_get(u32 tbl_idx, struct pp2_cls_tbl **tbl, struct list *cls_tbl_head)
 {
 	struct pp2_cls_table_node *tbl_node;
 
-	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_tbl_head, list_node) {
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, cls_tbl_head, list_node) {
 		if (tbl_node->idx == tbl_idx) {
 			*tbl = tbl_node->tbl;
 			return 0;
@@ -439,9 +441,9 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	memset(tbl_node, 0, sizeof(*tbl_node));
 
 	/* add table to db */
-	list_add_to_tail(&tbl_node->list_node, &cls_tbl_head);
+	list_add_to_tail(&tbl_node->list_node, &cls_flow_tbl_head);
 
-	tbl_node->idx = pp2_cls_table_next_index_get();
+	tbl_node->idx = pp2_cls_table_next_index_get(&cls_flow_tbl_head);
 
 	tbl_params = &tbl_node->tbl_params;
 	tbl_params->type = engine_type;
@@ -478,11 +480,11 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	return 0;
 }
 
-static int pp2_cls_table_remove(u32 tbl_idx)
+static int pp2_cls_table_remove(u32 tbl_idx, struct list *cls_tbl_head)
 {
 	struct pp2_cls_table_node *tbl_node;
 
-	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_tbl_head, list_node) {
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, cls_tbl_head, list_node) {
 		pr_debug("tbl_node->idx %d, tbl_idx %d\n", tbl_node->idx, tbl_idx);
 
 		if (tbl_node->idx == tbl_idx) {
@@ -521,7 +523,7 @@ static int pp2_cls_cli_table_remove(void *arg, int argc, char *argv[])
 		switch (option) {
 		case 't':
 			tbl_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= list_num_objs(&cls_tbl_head))) {
+			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= list_num_objs(&cls_flow_tbl_head))) {
 				printf("parsing fail, wrong input for --table_index\n");
 				return -EINVAL;
 			}
@@ -538,7 +540,246 @@ static int pp2_cls_cli_table_remove(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	rc = pp2_cls_table_remove(tbl_idx);
+	rc = pp2_cls_table_remove(tbl_idx, &cls_flow_tbl_head);
+	if (!rc)
+		printf("OK\n");
+	else
+		printf("error removing table\n");
+	return 0;
+}
+
+static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
+{
+	int type = -1;
+	u32 pcp_dflt = 0;
+	int pcp_idx = -1;
+	int pcp_val = -1;
+	u32 dscp_dflt = 0;
+	int dscp_idx = -1;
+	int dscp_val = -1;
+	int pcp_map[MV_VLAN_PRIO_NUM];
+	int dscp_map[MV_DSCP_NUM];
+	char *ret_ptr;
+	struct pp2_cls_table_node *tbl_node;
+	struct pp2_cls_qos_tbl_params *qos_tbl_params;
+	int i, option;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"type", required_argument, 0, 't'},
+		{"pcp_dflt", required_argument, 0, 'p'},
+		{"pcp_idx", required_argument, 0, 'i'},
+		{"pcp_val", required_argument, 0, 'v'},
+		{"dscp_dflt", required_argument, 0, 'q'},
+		{"dscp_idx", required_argument, 0, 'j'},
+		{"dscp_val", required_argument, 0, 'w'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc < 5 || argc > 145) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* fill pcp_table with invalid values*/
+	for (i = 0; i < MV_VLAN_PRIO_NUM; i++)
+		pcp_map[i] = -1;
+
+	/* fill pcp_table with default values*/
+	for (i = 0; i < MV_DSCP_NUM; i++)
+		dscp_map[i] = -1;
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		/* Get parameters */
+		switch (option) {
+		case 't':
+			if (!strcmp(optarg, "none")) {
+				type = PP2_CLS_QOS_TBL_NONE;
+			} else if (!strcmp(optarg, "vlan")) {
+				type = PP2_CLS_QOS_TBL_VLAN_PRI;
+			} else if (!strcmp(optarg, "ip")) {
+				type = PP2_CLS_QOS_TBL_IP_PRI;
+			} else if (!strcmp(optarg, "vlan_ip")) {
+				type = PP2_CLS_QOS_TBL_VLAN_IP_PRI;
+			} else if (!strcmp(optarg, "ip_vlan")) {
+				type = PP2_CLS_QOS_TBL_IP_VLAN_PRI;
+			} else {
+				printf("parsing fail, wrong input for qos type\n");
+				return -EINVAL;
+			}
+			break;
+		case 'p':
+			pcp_dflt = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (pcp_dflt < 0) ||
+			    (pcp_dflt > CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+				printf("parsing fail, wrong input for --pcp_dflt\n");
+				return -EINVAL;
+			}
+			break;
+		case 'i':
+			pcp_idx = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (pcp_idx < 0) ||
+			    (pcp_idx >= MV_VLAN_PRIO_NUM)) {
+				printf("parsing fail, wrong input for pcp_idx\n");
+				return -EINVAL;
+			}
+			option = getopt_long_only(argc, argv, "", long_options, &long_index);
+			if (option == 'v') {
+				pcp_val = strtoul(optarg, &ret_ptr, 0);
+				if ((optarg == ret_ptr) || (pcp_val < 0) ||
+				    (pcp_val >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+					printf("parsing fail, wrong input for pcp_val\n");
+					return -EINVAL;
+				}
+			} else {
+				printf("parsing fail, wrong input, line = %d\n", __LINE__);
+				return -EINVAL;
+			}
+			pcp_map[pcp_idx] = pcp_val;
+			break;
+		case 'q':
+			dscp_dflt = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (dscp_dflt < 0) ||
+			    (dscp_dflt > CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+				printf("parsing fail, wrong input for --pcp_dflt\n");
+				return -EINVAL;
+			}
+			break;
+		case 'j':
+			dscp_idx = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (dscp_idx < 0) ||
+			    (dscp_idx >= MV_DSCP_NUM)) {
+				printf("parsing fail, wrong input for dscp_idx\n");
+				return -EINVAL;
+			}
+			option = getopt_long_only(argc, argv, "", long_options, &long_index);
+			if (option == 'w') {
+				dscp_val = strtoul(optarg, &ret_ptr, 0);
+				if ((optarg == ret_ptr) || (dscp_val < 0) ||
+				    (dscp_val >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+					printf("parsing fail, wrong input for dscp_val\n");
+					return -EINVAL;
+				}
+			} else {
+				printf("parsing fail, wrong input, line = %d\n", __LINE__);
+				return -EINVAL;
+			}
+			dscp_map[dscp_idx] = dscp_val;
+			break;
+		default:
+			printf("parsing fail, wrong input\n");
+			return -EINVAL;
+		}
+	}
+
+	/* check if all the fields are initialized */
+	if (type < 0) {
+		printf("parsing fail, invalid --type\n");
+		return -EINVAL;
+	}
+
+	tbl_node = malloc(sizeof(*tbl_node));
+	if (!tbl_node) {
+		pr_err("%s no mem for new table!\n", __func__);
+		return -ENOMEM;
+	}
+	memset(tbl_node, 0, sizeof(*tbl_node));
+
+	/* add table to db */
+	list_add_to_tail(&tbl_node->list_node, &cls_qos_tbl_head);
+
+	tbl_node->idx = pp2_cls_table_next_index_get(&cls_qos_tbl_head);
+
+	qos_tbl_params = &tbl_node->qos_tbl_params;
+	qos_tbl_params->type = type;
+
+	/* fill pcp_table wit default values*/
+	for (i = 0; i < MV_VLAN_PRIO_NUM; i++) {
+		if (pcp_map[i] == -1)
+			qos_tbl_params->pcp_cos_map[i].tc = pcp_dflt;
+		else
+			qos_tbl_params->pcp_cos_map[i].tc = pcp_map[i];
+		qos_tbl_params->pcp_cos_map[i].ppio = garg.ports_desc[0].ppio;
+		pr_debug("pcp[%d] %d\n", i, qos_tbl_params->pcp_cos_map[i].tc);
+	}
+
+	/* fill pcp_table wit default values*/
+	for (i = 0; i < MV_DSCP_NUM; i++) {
+		if (dscp_map[i] == -1)
+			qos_tbl_params->dscp_cos_map[i].tc = dscp_dflt;
+		else
+			qos_tbl_params->dscp_cos_map[i].tc = dscp_map[i];
+		qos_tbl_params->dscp_cos_map[i].ppio = garg.ports_desc[0].ppio;
+		pr_debug("dscp[%d] %d\n", i, qos_tbl_params->dscp_cos_map[i].tc);
+	}
+
+	if (!pp2_cls_qos_tbl_init(qos_tbl_params, &tbl_node->tbl))
+		printf("OK\n");
+	else
+		printf("FAIL\n");
+
+	return 0;
+}
+
+static int pp2_cls_qos_table_remove(u32 tbl_idx)
+{
+	struct pp2_cls_table_node *tbl_node;
+
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_qos_tbl_head, list_node) {
+		pr_debug("tbl_node->idx %d, tbl_idx %d\n", tbl_node->idx, tbl_idx);
+
+		if (tbl_node->idx == tbl_idx) {
+			pp2_cls_qos_tbl_deinit(tbl_node->tbl);
+			list_del(&tbl_node->list_node);
+			free(tbl_node);
+		}
+	}
+	return 0;
+}
+
+static int pp2_cls_cli_qos_table_remove(void *arg, int argc, char *argv[])
+{
+	int tbl_idx = -1;
+	char *ret_ptr;
+	int option = 0;
+	int long_index = 0;
+	int rc;
+	struct option long_options[] = {
+		{"qos_table_index", required_argument, 0, 't'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc != 3) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	/* Get parameters */
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 't':
+			tbl_idx = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= list_num_objs(&cls_qos_tbl_head))) {
+				printf("parsing fail, wrong input for --table_index\n");
+				return -EINVAL;
+			}
+			break;
+		default:
+			printf("parsing fail, wrong input, line = %d\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	/* check if all the fields are initialized */
+	if (tbl_idx < 0) {
+		printf("parsing fail, invalid --table_index\n");
+		return -EINVAL;
+	}
+
+	rc = pp2_cls_qos_table_remove(tbl_idx);
 	if (!rc)
 		printf("OK\n");
 	else
@@ -671,7 +912,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	rc = pp2_cls_table_get(tbl_idx, &tbl);
+	rc = pp2_cls_table_get(tbl_idx, &tbl, &cls_flow_tbl_head);
 	if (rc) {
 		printf("table not found for index %d\n", tbl_idx);
 		return -EINVAL;
@@ -732,7 +973,7 @@ static int pp2_cls_cli_cls_table_dump(void *arg, int argc, char *argv[])
 {
 	u32 i, j;
 	struct pp2_cls_table_node *tbl_node;
-	u32 num_tables = list_num_objs(&cls_tbl_head);
+	u32 num_tables = list_num_objs(&cls_flow_tbl_head);
 
 	printf("total indexes: %d\n", num_tables);
 	if (num_tables > 0) {
@@ -744,7 +985,7 @@ static int pp2_cls_cli_cls_table_dump(void *arg, int argc, char *argv[])
 		printf("\n");
 		app_print_horizontal_line(123, "=");
 
-		LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_tbl_head, list_node) {
+		LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_flow_tbl_head, list_node) {
 			struct pp2_cls_tbl_params *tbl_ptr = &tbl_node->tbl_params;
 
 			printf("|%3d|%4d|%9d|", tbl_node->idx, tbl_ptr->type,
@@ -1498,7 +1739,8 @@ static int init_local_modules(struct glob_arg *garg)
 			return err;
 	}
 
-	INIT_LIST(&cls_tbl_head);
+	INIT_LIST(&cls_flow_tbl_head);
+	INIT_LIST(&cls_qos_tbl_head);
 
 	pr_info("done\n");
 	return 0;
@@ -1541,8 +1783,11 @@ static void destroy_local_modules(struct glob_arg *garg)
 	if (garg->hif)
 		pp2_hif_deinit(garg->hif);
 
-	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_tbl_head, list_node) {
-		pp2_cls_table_remove(tbl_node->idx);
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_flow_tbl_head, list_node) {
+		pp2_cls_table_remove(tbl_node->idx,  &cls_flow_tbl_head);
+	}
+	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_qos_tbl_head, list_node) {
+		pp2_cls_table_remove(tbl_node->idx,  &cls_qos_tbl_head);
 	}
 }
 
@@ -1636,6 +1881,40 @@ static int register_cli_cls_api_cmds(struct glob_arg *garg)
 	return 0;
 }
 
+static int register_cli_cls_api_qos_cmds(struct glob_arg *garg)
+{
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_qos_tbl_init";
+	cmd_params.desc		= "create a QoS classifier table";
+	cmd_params.format	= "--type --pcp_map --dscp_map\n"
+				  "\t\t\t\t--type	(string) none, vlan, ip, vlan_ip, ip_vlan\n"
+				  "\t\t\t\t--pcp_default	TC number - default TC for all table values\n"
+				  "\t\t\t\t			except for values defined in pcp_idx and pcp_val\n"
+				  "\t\t\t\t--pcp_idx		index in pcp_map table\n"
+				  "\t\t\t\t--pcp_val		TC value in pcp_map table\n"
+				  "\t\t\t\t			pcp_idx and pcp_val need to be set together\n"
+				  "\t\t\t\t--dscp_default	TC number - default TC for all table values\n"
+				  "\t\t\t\t			except for values defined in pcp_idx and pcp_val\n"
+				  "\t\t\t\t--dscp_idx		index in pcp_map table\n"
+				  "\t\t\t\t--dscp_val		TC value in pcp_map table\n"
+				  "\t\t\t\t			pcp_idx and pcp_val need to be set together\n";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_table_add;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_qos_tbl_deinit";
+	cmd_params.desc		= "remove a specified qos table";
+	cmd_params.format	= "--qos_table_index (dec) index to existing table\n";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_table_remove;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	return 0;
+}
+
 static int register_cli_filter_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params cmd_params;
@@ -1681,6 +1960,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 		return -EFAULT;
 
 	register_cli_cls_api_cmds(garg);
+	register_cli_cls_api_qos_cmds(garg);
 	register_cli_filter_cmds(garg);
 	register_cli_cls_cmds(ppio);
 	register_cli_c3_cmds(ppio);

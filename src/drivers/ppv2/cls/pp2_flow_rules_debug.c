@@ -44,6 +44,7 @@
 #include "pp2_flow_rules.h"
 #include "pp2_cls_db.h"
 #include "pp2_cls_utils.h"
+#include "pp2_cls_mng.h"
 
 static struct pp2_cls_lkp_dcod_entry_t g_lkp_dcod_entry;
 static struct pp2_cls_fl_rule_list_t g_fl_rls;
@@ -736,6 +737,29 @@ int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[])
 	}
 
 	return 0;
+}
+
+int pp2_cls_cli_fl_modify(void *arg, int argc, char *argv[])
+{
+	struct pp2_port *port = (struct pp2_port *)arg;
+	char *ret_ptr;
+	int rc;
+	int set;
+
+	if  (argc != 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	set = strtoul(argv[1], &ret_ptr, 0);
+	if (argv[2] == ret_ptr || set < 0) {
+		printf("parsing fail, wrong input for argv[2]");
+		return -EINVAL;
+	}
+
+	rc = pp2_cls_dscp_flow_modify(port, set);
+
+	return rc;
 }
 
 int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[])

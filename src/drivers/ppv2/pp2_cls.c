@@ -64,10 +64,33 @@ void pp2_cls_tbl_deinit(struct pp2_cls_tbl *tbl)
 {
 	int rc;
 
+	/* TODO: check table type in all API functions, */
+
 	rc = pp2_cls_mng_table_deinit(tbl);
 	if (rc) {
 		pr_err("cls manager table deinit error\n");
 	}
+}
+
+int pp2_cls_qos_tbl_init(struct pp2_cls_qos_tbl_params *params, struct pp2_cls_tbl **tbl)
+{
+	u32 rc;
+
+	/* Para check */
+	if (mv_pp2x_ptr_validate(params))
+		return -EINVAL;
+
+	rc = pp2_cls_mng_qos_tbl_init(params, tbl);
+	if (rc) {
+		pr_err("cls manager table init error\n");
+		return rc;
+	}
+
+	return 0;
+}
+
+void pp2_cls_qos_tbl_deinit(struct pp2_cls_tbl *tbl)
+{
 }
 
 int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,

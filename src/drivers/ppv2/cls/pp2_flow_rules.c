@@ -43,6 +43,7 @@
 #include "pp2_cls_common.h"
 #include "pp2_flow_rules.h"
 #include "pp2_cls_db.h"
+#include "pp2_cls_mng.h"
 
 #define SAME_PRIO_ENABLED 0
 #undef MVPP2_CLS_DEBUG
@@ -2582,9 +2583,14 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 					rl_en->field_id_cnt * sizeof(rl_en->field_id[0]))) {
 				/* for virt port, port_id does not matter */
 				if (rl_en->port_type != MVPP2_CLASS_VIRT_PORT) {
-					rl_db->port_bm |= rl_en->port_bm;
+					if (rl_en->enabled)
+						rl_db->port_bm |= rl_en->port_bm;
+					else
+						rl_db->port_bm &= ~rl_en->port_bm;
 					port_bm = rl_en->port_bm;
 					if (rl_db->enabled) {
+						u16 fl_rls_port_bm = rl_en->port_bm;
+						u16 fl_rls_log_id = rl_en->rl_log_id;
 						rl_en->port_bm = rl_db->port_bm;
 						/* Update Port BM */
 						rl_en->rl_log_id = rl_db->rl_log_id;
@@ -2594,6 +2600,9 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 							kfree(fl_rl_db);
 							return rc;
 						}
+						/* restore rl_en value */
+						rl_en->port_bm = fl_rls_port_bm;
+						rl_en->rl_log_id = fl_rls_log_id;
 					}
 				}
 				break;
@@ -2647,9 +2656,17 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 
 		/* found the rule we searched for */
 		if (!rl_db->enabled) {
+			u16 fl_rls_port_bm = rl_en->port_bm;
+			u16 fl_rls_log_id = rl_en->rl_log_id;
+
 			MVPP2_MEMSET_ZERO(rl_db->ref_cnt);
 			rl_db->enabled = true;
-
+			if (rl_en->enabled)
+				rl_db->port_bm |= rl_en->port_bm;
+			else
+				rl_db->port_bm &= ~rl_en->port_bm;
+			rl_en->port_bm = rl_db->port_bm;
+			rl_en->rl_log_id = rl_db->rl_log_id;
 			/* rule disabled, enable the HW */
 			rc = pp2_cls_fl_rl_hw_ena(inst, rl_en);
 			if (rc) {
@@ -2657,6 +2674,9 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 				kfree(fl_rl_db);
 				return rc;
 			}
+			/* restore rl_en value */
+			rl_en->port_bm = fl_rls_port_bm;
+			rl_en->rl_log_id = fl_rls_log_id;
 		}
 
 		/* increment the reference counter */
@@ -2877,16 +2897,9 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 			}
 			continue;
 		}
-
-		/* set kernel engine priority higher then '0' for let musdk option for better priority */
-		if (engine == MVPP2_CLS_ENGINE_C2) {
-			prio = MVPP2_CLS_KERNEL_C2_PRIO;
-		} else if (engine == MVPP2_CLS_ENGINE_C3HA || engine == MVPP2_CLS_ENGINE_C3HB) {
-			prio = MVPP2_CLS_KERNEL_C3_PRIO;
-		} else {
-			pr_err("%s(%d) found wrong engine = %d\n", __func__, __LINE__, engine);
+		prio = pp2_cls_mng_lkp_type_to_prio(lkp_type);
+		if (prio < 0)
 			return -EINVAL;
-		}
 
 		rc = mv_pp2x_cls_sw_flow_port_get(&fe, &port_type, &port_id);
 		if (rc) {

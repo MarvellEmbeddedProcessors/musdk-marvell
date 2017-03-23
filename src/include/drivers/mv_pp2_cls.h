@@ -47,7 +47,6 @@ struct pp2_cls_tbl;
 
 #define PP2_CLS_TBL_MAX_NUM_FIELDS		5
 
-
 enum pp2_cls_tbl_type {
 	PP2_CLS_TBL_EXACT_MATCH = 0,
 	PP2_CLS_TBL_MASKABLE

@@ -72,9 +72,14 @@ enum pp2_cls_rl_udf7_t {
 
 enum pp2_cls_rl_prio_t {
 	MVPP2_CLS_MUSDK_CLS_PRIO = 0,
+	MVPP2_CLS_MUSDK_DSCP_PRIO,
+	MVPP2_CLS_MUSDK_VLAN_PRIO,
 	MVPP2_CLS_MUSDK_DEF_PRIO,
-	MVPP2_CLS_KERNEL_C2_PRIO,
-	MVPP2_CLS_KERNEL_C3_PRIO
+	MVPP2_CLS_MUSDK_HASH_PRIO,
+	MVPP2_CLS_KERNEL_DSCP_PRIO,
+	MVPP2_CLS_KERNEL_VLAN_PRIO,
+	MVPP2_CLS_KERNEL_DEF_PRIO,
+	MVPP2_CLS_KERNEL_HASH_PRIO
 };
 
 enum pp2_cls_rl_mrg_state_t {
@@ -188,6 +193,7 @@ int pp2_cli_cls_fl_hits_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[]);
+int pp2_cls_cli_fl_modify(void *arg, int argc, char *argv[]);
 int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[]);
 
 /******************************************************************************/

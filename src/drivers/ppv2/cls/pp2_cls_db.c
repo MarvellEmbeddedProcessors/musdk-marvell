@@ -1501,6 +1501,8 @@ int pp2_cls_db_mng_tbl_list_dump(void)
 	u32 i;
 
 	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
+		if (tbl_node->tbl.type != PP2_CLS_FLOW_TBL)
+			continue;
 		printf("\n");
 		print_horizontal_line(115, "=");
 		printf("|	       | default_action   |		  key\n");
