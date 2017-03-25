@@ -37,7 +37,6 @@
 #include "std_internal.h"
 
 #include "cs_driver.h"
-#include "api_pec.h"
 
 #ifdef SAM_EIP_DDK_HW_INIT
 #include "api_driver197_init.h"

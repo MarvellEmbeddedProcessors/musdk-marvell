@@ -120,7 +120,7 @@ int sam_hw_cdr_regs_reset(struct sam_hw_ring *hw_ring)
 	u32 val32;
 
 	/* Clear CDR count */
-	val32 = BIT_31;
+	val32 = SAM_RING_COUNT_CLEAR_MASK;
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_COUNT_REG, val32);
 
 	/* Re-init CDR */
@@ -137,7 +137,7 @@ int sam_hw_cdr_regs_reset(struct sam_hw_ring *hw_ring)
 	/* EIP202_CDR_DMA_CFG_DEFAULT_WR(Device); */
 
 	/* Clear and disable all CDR interrupts */
-	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_STAT_REG, MASK_5_BITS);
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_STAT_REG, SAM_CDR_STAT_IRQ_MASK);
 
 	return 0;
 }
@@ -153,32 +153,32 @@ int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring)
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_RING_BASE_ADDR_HI_REG, val32);
 
 	/* ring_size in words */
-	val32 = ((hw_ring->ring_size * SAM_CDR_ENTRY_WORDS) & MASK_22_BITS) << 2;
+	val32 = SAM_RING_SIZE_VAL(hw_ring->ring_size * SAM_CDR_ENTRY_WORDS);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG, val32);
 
 	if (hw_ring->type == HW_EIP197)
-		val32 = (SAM_CDR_DSCR_EXT_WORD_COUNT & MASK_8_BITS); /* size of Extended Command descriptor */
+		val32 = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_EXT_WORD_COUNT); /* Extended command descriptor */
 	else
-		val32 = (SAM_CDR_DSCR_WORD_COUNT & MASK_8_BITS); /* size of Command descriptor */
+		val32 = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_WORD_COUNT); /* Basic Command descriptor */
 
-	val32 |= (SAM_CDR_ENTRY_WORDS & MASK_8_BITS) << 16; /* distance between descriptors */
-	val32 |= BIT_30; /* acdp_present (Token pointer in the descriptor) */
-	val32 |= BIT_31; /* 64 bits mode */
+	val32 |= SAM_RING_DESC_OFFSET_VAL(SAM_CDR_ENTRY_WORDS); /* distance between descriptors */
+	val32 |= SAM_RING_TOKEN_PTR_MASK; /* acdp_present (Token pointer in the descriptor) */
+	val32 |= SAM_RING_64B_MODE_MASK; /* 64 bits mode */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_DESC_SIZE_REG, val32);
 
-	val32 = (0x10 & MASK_12_BITS);		/* Number of words to fetch */
-	val32 |= (0x0C & MASK_12_BITS) << 16;	/* Threshold in words to start fetch */
+	val32 = SAM_RING_FETCH_SIZE_VAL(0x10);		/* Number of words to fetch */
+	val32 |= SAM_RING_FETCH_THRESH_VAL(0x0C);	/* Threshold in words to start fetch */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_CFG_REG, val32);
 
-	val32 = (SAM_RING_DESC_SWAP_VALUE  & MASK_3_BITS);         /* cd_swap */
-	val32 |= (SAM_RING_DESC_PROT_VALUE & MASK_3_BITS) << 4;    /* cd_prot */
-	val32 |= (SAM_RING_DATA_SWAP_VALUE  & MASK_3_BITS) << 8;   /* data_swap*/
-	val32 |= (SAM_RING_DATA_PROT_VALUE & MASK_3_BITS) << 12;   /* data_prot */
-	val32 |= (SAM_RING_TOKEN_SWAP_VALUE  & MASK_3_BITS) << 16; /* acd_swap (token) */
-	val32 |= (SAM_RING_TOKEN_PROT_VALUE & MASK_3_BITS) << 20;  /* acd_prot (token) */
-	val32 |= BIT_24; /* wr_own_buf */
-	val32 |= (SAM_RING_WRITE_CACHE_CTRL & MASK_3_BITS) << 25;  /* wr_cache */
-	val32 |= (SAM_RING_READ_CACHE_CTRL & MASK_3_BITS) << 29;   /* rd_cache */
+	val32 = SAM_RING_DESC_SWAP_VAL(CONF_DESC_SWAP_VALUE);      /* cd_swap */
+	val32 |= SAM_RING_DESC_PROTECT_VAL(CONF_DESC_PROT_VALUE);  /* cd_prot */
+	val32 |= SAM_RING_DATA_SWAP_VAL(CONF_DATA_SWAP_VALUE);     /* data_swap*/
+	val32 |= SAM_RING_DATA_PROTECT_VAL(CONF_DATA_PROT_VALUE);  /* data_prot */
+	val32 |= SAM_RING_ACD_SWAP_VAL(CONF_TOKEN_SWAP_VALUE);     /* acd_swap (token) */
+	val32 |= SAM_RING_ACD_PROTECT_VAL(CONF_TOKEN_PROT_VALUE);  /* acd_prot (token) */
+	val32 |= SAM_RING_OWN_BUF_EN_MASK; /* wr_own_buf */
+	val32 |= SAM_RING_WRITE_CACHE_VAL(CONF_WRITE_CACHE_CTRL);  /* wr_cache */
+	val32 |= SAM_RING_READ_CACHE_VAL(CONF_READ_CACHE_CTRL);    /* rd_cache */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_DMA_CFG_REG, val32);
 
 	return 0;
@@ -189,7 +189,7 @@ int sam_hw_rdr_regs_reset(struct sam_hw_ring *hw_ring)
 	u32 val32;
 
 	/* Clear RDR count */
-	val32 = BIT_31;
+	val32 = SAM_RING_COUNT_CLEAR_MASK;
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PROC_COUNT_REG, val32);
 
@@ -208,8 +208,7 @@ int sam_hw_rdr_regs_reset(struct sam_hw_ring *hw_ring)
 	/* EIP202_RDR_THRESH_DEFAULT_WR(Device); - needed for interrupt */
 
 	/* Clear and disable all RDR interrupts */
-	val32 = MASK_8_BITS;
-	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_STAT_REG, val32);
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_STAT_REG, SAM_RDR_STAT_IRQ_MASK);
 
 	return 0;
 }
@@ -225,33 +224,32 @@ int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring)
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_RING_BASE_ADDR_HI_REG, val32);
 
 	/* ring_size in words */
-	val32 = ((hw_ring->ring_size * SAM_RDR_ENTRY_WORDS) & MASK_22_BITS) << 2;
+	val32 = SAM_RING_SIZE_VAL(hw_ring->ring_size * SAM_RDR_ENTRY_WORDS);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_RING_SIZE_REG, val32);
 
 	if (hw_ring->type == HW_EIP197)
-		val32 = (SAM_RDR_DSCR_EXT_WORD_COUNT & MASK_8_BITS); /* size of Extended Command descriptor */
+		val32 = SAM_RING_DESC_SIZE_VAL(SAM_RDR_DSCR_EXT_WORD_COUNT); /* Extended Command descriptor */
 	else
-		val32 = (SAM_RDR_DSCR_WORD_COUNT & MASK_8_BITS); /* size of Command descriptor */
+		val32 = SAM_RING_DESC_SIZE_VAL(SAM_RDR_DSCR_WORD_COUNT); /* Basic Command descriptor */
 
-	val32 |= (SAM_RDR_ENTRY_WORDS & MASK_8_BITS) << 16; /* distance between descriptors */
-	val32 |= BIT_31; /* 64 bits mode */
+	val32 |= SAM_RING_DESC_OFFSET_VAL(SAM_RDR_ENTRY_WORDS); /* distance between descriptors */
+	val32 |= SAM_RING_64B_MODE_MASK; /* 64 bits mode */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_DESC_SIZE_REG, val32);
 
-	val32 = (0x50 & MASK_12_BITS);		/* Number of words to fetch */
-	val32 |= (0x14 & MASK_9_BITS) << 16;	/* Threshold in words to start fetch */
-	val32 |= BIT_25; /* oflo_irq_en */
+	val32 = SAM_RING_FETCH_SIZE_VAL(0x50);		/* Number of words to fetch */
+	val32 |= SAM_RING_FETCH_THRESH_VAL(0x14);	/* Threshold in words to start fetch */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_CFG_REG, val32);
 
-	val32 = (SAM_RING_DESC_SWAP_VALUE  & MASK_3_BITS);         /* rd_swap */
-	val32 |= (SAM_RING_DESC_PROT_VALUE & MASK_3_BITS) << 4;    /* cd_prot */
-	val32 |= (SAM_RING_DATA_SWAP_VALUE  & MASK_3_BITS) << 8;   /* data_swap*/
-	val32 |= (SAM_RING_DATA_PROT_VALUE & MASK_3_BITS) << 12;   /* data_prot */
+	val32 = SAM_RING_DESC_SWAP_VAL(CONF_DESC_SWAP_VALUE);      /* rd_swap */
+	val32 |= SAM_RING_DESC_PROTECT_VAL(CONF_DESC_PROT_VALUE);  /* cd_prot */
+	val32 |= SAM_RING_DATA_SWAP_VAL(CONF_DATA_SWAP_VALUE);     /* data_swap*/
+	val32 |= SAM_RING_DATA_PROTECT_VAL(CONF_DESC_PROT_VALUE);  /* data_prot */
 	/* BIT_22 - wr_res_buf */
 	/* BIT_23 - wr_ctrl_buf */
-	val32 |= BIT_24; /* wr_own_buf */
-	val32 |= (SAM_RING_WRITE_CACHE_CTRL & MASK_3_BITS) << 25;  /* wr_cache */
+	val32 |= SAM_RING_OWN_BUF_EN_MASK; /* wr_own_buf */
+	val32 |= SAM_RING_WRITE_CACHE_VAL(CONF_WRITE_CACHE_CTRL);  /* wr_cache */
 	/* BIT_28 - pad_to_offset */
-	val32 |= (SAM_RING_READ_CACHE_CTRL & MASK_3_BITS) << 29;   /* rd_cache */
+	val32 |= SAM_RING_READ_CACHE_VAL(CONF_READ_CACHE_CTRL);   /* rd_cache */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_DMA_CFG_REG, val32);
 
 	return 0;

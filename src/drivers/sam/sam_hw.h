@@ -90,15 +90,130 @@
 #define HIA_RDR_OPTIONS_REG		(HIA_RDR_REGS_OFFSET + 0x7F8)
 #define HIA_RDR_VERSION_REG		(HIA_RDR_REGS_OFFSET + 0x7FC)
 
+/* Register fields definitions */
+
+/* HIA_RDR_y_PREP_COUNT */
+/* The 32-bit word count value for prep_rd_count, proc_rd_count and proc_cd_count fields */
+#define SAM_RING_WORD_COUNT_OFFS		2
+#define SAM_RING_WORD_COUNT_WRITE_BITS		14
+#define SAM_RING_WORD_COUNT_WRITE_MASK		BIT_MASK(SAM_RING_WORD_COUNT_WRITE_BITS)
+#define SAM_RING_WORD_COUNT_WRITE(words)	(((words) & SAM_RING_WORD_COUNT_WRITE_MASK) << SAM_RING_WORD_COUNT_OFFS)
+#define SAM_RING_WORD_COUNT_READ_BITS		22
+#define SAM_RING_WORD_COUNT_READ_MASK		BIT_MASK(SAM_RING_WORD_COUNT_READ_BITS)
+#define SAM_RING_WORD_COUNT_READ(words)		(((words) & SAM_RING_WORD_COUNT_READ_MASK) << SAM_RING_WORD_COUNT_OFFS)
+#define SAM_RING_WORD_COUNT_GET(val32)		(((val32) >> SAM_RING_WORD_COUNT_OFFS) & SAM_RING_WORD_COUNT_READ_MASK)
+
+/* Descriptors count value for proc_rd_pkt_count and proc_cd_pkt_count */
+#define SAM_RING_PKT_COUNT_OFFS			24
+#define SAM_RING_PKT_COUNT_BITS			7
+#define SAM_RING_PKT_COUNT_MASK			BIT_MASK(SAM_RING_PKT_COUNT_BITS)
+#define SAM_RING_PKT_COUNT_VAL(pkts)		(((pkts) & SAM_RING_PKT_COUNT_MASK) << SAM_RING_PKT_COUNT_OFFS)
+#define SAM_RING_PKT_COUNT_GET(val32)		(((val32) >> SAM_RING_PKT_COUNT_OFFS) & SAM_RING_PKT_COUNT_MASK)
+
+/* Clear count bit for cd_proc, rd_prep and rd_proc registers */
+#define SAM_RING_COUNT_CLEAR_MASK		BIT(31)
+
+/* HIA_RDR_y_RING_SIZE and HIA_CDR_y_RING_SIZE registers */
+/* Size of CDR/RDR ring in number of 32-bit words */
+#define SAM_RING_SIZE_OFFS			2
+#define SAM_RING_SIZE_BITS			22
+#define SAM_RING_SIZE_MASK			BIT_MASK(SAM_RING_SIZE_BITS)
+#define SAM_RING_SIZE_VAL(words)		(((words) & SAM_RING_SIZE_MASK) << SAM_RING_SIZE_OFFS)
+
+/* HIA_RDR_y_DESC_SIZE and HIA_CDR_y_DESC_SIZE registers */
+/* Size of the CDR/RDR descriptors in 32-bit words */
+#define SAM_RING_DESC_SIZE_OFFS			0
+#define SAM_RING_DESC_SIZE_BITS			8
+#define SAM_RING_DESC_SIZE_MASK			BIT_MASK(SAM_RING_DESC_SIZE_BITS)
+#define SAM_RING_DESC_SIZE_VAL(words)		(((words) & SAM_RING_DESC_SIZE_MASK) << SAM_RING_DESC_SIZE_OFFS)
+
+/* Offset betwwen two CDR/RDR descriptors in 32-bit words */
+#define SAM_RING_DESC_OFFSET_OFFS		16
+#define SAM_RING_DESC_OFFSET_BITS		8
+#define SAM_RING_DESC_OFFSET_MASK		BIT_MASK(SAM_RING_DESC_OFFSET_BITS)
+#define SAM_RING_DESC_OFFSET_VAL(words)		(((words) & SAM_RING_DESC_OFFSET_MASK) << SAM_RING_DESC_OFFSET_OFFS)
+
+/* Additional Control_Data Pointer (ACDP) present: 1b = Command Descriptors contains ACDPs */
+#define SAM_RING_TOKEN_PTR_MASK			BIT(30)
+
+/* Extended Addressing Mode: 1b = pointers in the Command Descriptor are up to 64-bit wide */
+#define SAM_RING_64B_MODE_MASK			BIT(31)
+
+/* HIA_RDR_y_CFG and HIA_CDR_y_CFG registers */
+#define SAM_RING_FETCH_SIZE_OFFS		0
+#define SAM_RING_FETCH_SIZE_BITS		16
+#define SAM_RING_FETCH_SIZE_MASK		BIT_MASK(SAM_RING_FETCH_SIZE_BITS)
+#define SAM_RING_FETCH_SIZE_VAL(words)		(((words) & SAM_RING_FETCH_SIZE_MASK) << SAM_RING_FETCH_SIZE_OFFS)
+
+#define SAM_RING_FETCH_THRESH_OFFS		16
+#define SAM_RING_FETCH_THRESH_BITS		9
+#define SAM_RING_FETCH_THRESH_MASK		BIT_MASK(SAM_RING_FETCH_THRESH_BITS)
+#define SAM_RING_FETCH_THRESH_VAL(words)	(((words) & SAM_RING_FETCH_THRESH_MASK) << SAM_RING_FETCH_THRESH_OFFS)
+
+#define SAM_RING_OFLO_IRQ_EN_MASK		BIT(25)
+#define SAM_RING_OWN_MODE_EN_MASK		BIT(31)
+
+/* HIA_RDR_y_DMA_CFG and HIA_CDR_y_DMA_CFG registers */
+/* ACD relevant fields are valid only for CDR_DMA_CFG register */
+#define SAM_RING_DESC_SWAP_OFFS			0
+#define SAM_RING_DATA_SWAP_OFFS			8
+#define SAM_RING_ACD_SWAP_OFFS			16
+
+#define SAM_RING_SWAP_BITS			3
+#define SAM_RING_SWAP_MASK			BIT_MASK(SAM_RING_SWAP_BITS)
+
+/* Bit [0] = Swap bytes within each 32 bit word */
+#define SAM_RING_DESC_SWAP_VAL(val)		(((val) & SAM_RING_SWAP_MASK) << SAM_RING_DESC_SWAP_OFFS)
+#define SAM_RING_DATA_SWAP_VAL(val)		(((val) & SAM_RING_SWAP_MASK) << SAM_RING_DATA_SWAP_OFFS)
+#define SAM_RING_ACD_SWAP_VAL(val)		(((val) & SAM_RING_SWAP_MASK) << SAM_RING_ACD_SWAP_OFFS)
+
+#define SAM_RING_DESC_PROTECT_OFFS		4
+#define SAM_RING_DATA_PROTECT_OFFS		12
+#define SAM_RING_ACD_PROTECT_OFFS		20
+
+#define SAM_RING_PROTECT_BITS			3
+#define SAM_RING_PROTECT_MASK			BIT_MASK(SAM_RING_PROTECT_BITS)
+
+#define SAM_RING_DESC_PROTECT_VAL(val)		(((val) & SAM_RING_PROTECT_MASK) << SAM_RING_DESC_PROTECT_OFFS)
+#define SAM_RING_DATA_PROTECT_VAL(val)		(((val) & SAM_RING_PROTECT_MASK) << SAM_RING_DATA_PROTECT_OFFS)
+#define SAM_RING_ACD_PROTECT_VAL(val)		(((val) & SAM_RING_PROTECT_MASK) << SAM_RING_ACD_PROTECT_OFFS)
+
+/* 2 bits below valid only for RDR_DMA_CFG register */
+#define SAM_RING_RES_BUF_EN_MASK		BIT(22)
+#define SAM_RING_CTR_BUF_EN_MASK		BIT(23)
+
+/* Bufferability control for ownership word DMA writes */
+#define SAM_RING_OWN_BUF_EN_MASK		BIT(24)
+
+/* Read and Write cache control */
+#define SAM_RING_WRITE_CACHE_OFFS		25
+#define SAM_RING_READ_CACHE_OFFS		29
+
+#define SAM_RING_CACHE_CTRL_BITS		3
+#define SAM_RING_CACHE_CTRL_MASK		BIT_MASK(SAM_RING_CACHE_CTRL_BITS)
+
+#define SAM_RING_WRITE_CACHE_VAL(val)		(((val) & SAM_RING_CACHE_CTRL_MASK) << SAM_RING_WRITE_CACHE_OFFS)
+#define SAM_RING_READ_CACHE_VAL(val)		(((val) & SAM_RING_CACHE_CTRL_MASK) << SAM_RING_READ_CACHE_OFFS)
+
+/* HIA_CDR_y_STAT register */
+#define SAM_CDR_STAT_IRQ_OFFS			0
+#define SAM_CDR_STAT_IRQ_BITS			6
+#define SAM_CDR_STAT_IRQ_MASK			BIT_MASK(SAM_CDR_STAT_IRQ_BITS)
+
+/* HIA_RDR_y_STAT register */
+#define SAM_RDR_STAT_IRQ_OFFS			0
+#define SAM_RDR_STAT_IRQ_BITS			8
+#define SAM_RDR_STAT_IRQ_MASK			BIT_MASK(SAM_RDR_STAT_IRQ_BITS)
+
 /* Marvell specific configuration values for AXI3 */
-#define SAM_RING_DESC_SWAP_VALUE	0
-#define SAM_RING_DATA_SWAP_VALUE	0
-#define SAM_RING_TOKEN_SWAP_VALUE	0
-#define SAM_RING_DESC_PROT_VALUE	2
-#define SAM_RING_DATA_PROT_VALUE	2
-#define SAM_RING_TOKEN_PROT_VALUE	2
-#define SAM_RING_WRITE_CACHE_CTRL	0x3 /* 0x7 >> 1 */
-#define SAM_RING_READ_CACHE_CTRL	0x5 /* 0xB >> 1 */
+#define CONF_DESC_SWAP_VALUE	0
+#define CONF_DATA_SWAP_VALUE	0
+#define CONF_TOKEN_SWAP_VALUE	0
+#define CONF_DESC_PROT_VALUE	2
+#define CONF_DATA_PROT_VALUE	2
+#define CONF_TOKEN_PROT_VALUE	2
+#define CONF_WRITE_CACHE_CTRL	0x3 /* 0x7 >> 1 */
+#define CONF_READ_CACHE_CTRL	0x5 /* 0xB >> 1 */
 
 struct sam_hw_cmd_desc {
 	u32 words[SAM_CDR_ENTRY_WORDS];
@@ -472,10 +587,10 @@ static inline void sam_hw_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)
 {
 	u32 val32;
 
-	val32 = ((todo * SAM_RDR_ENTRY_WORDS) & MASK_14_BITS) << 2;
+	val32 = SAM_RING_WORD_COUNT_WRITE(todo * SAM_RDR_ENTRY_WORDS);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
 
-	val32 = ((todo * SAM_CDR_ENTRY_WORDS) & MASK_14_BITS) << 2;
+	val32 = SAM_RING_WORD_COUNT_WRITE(todo * SAM_CDR_ENTRY_WORDS);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_COUNT_REG, val32);
 }
 
@@ -485,15 +600,15 @@ static inline u32 sam_hw_ring_ready_get(struct sam_hw_ring *hw_ring)
 
 	val32 = sam_hw_reg_read(hw_ring->regs_vbase, HIA_RDR_PROC_COUNT_REG);
 
-	return (val32 >> 24) & MASK_7_BITS;
+	return SAM_RING_PKT_COUNT_GET(val32);
 }
 
 static inline void sam_hw_ring_update(struct sam_hw_ring *hw_ring, u32 done)
 {
 	u32 val32;
 
-	val32 = (done & MASK_7_BITS) << 24;
-	val32 |= ((done * SAM_RDR_ENTRY_WORDS) & MASK_14_BITS) << 2;
+	val32 = SAM_RING_PKT_COUNT_VAL(done);
+	val32 |= SAM_RING_WORD_COUNT_WRITE(done * SAM_RDR_ENTRY_WORDS);
 
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PROC_COUNT_REG, val32);
 }
