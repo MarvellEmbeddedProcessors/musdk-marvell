@@ -159,7 +159,6 @@ static int iomem_uio_ioinit(struct mem_uio *uiom, const char *name, int index)
 static void iomem_uio_iodestroy(struct mem_uio *uiom)
 {
 	uio_free_info(uiom->info);
-	free(uiom);
 }
 
 static int iomem_uio_iomap(struct mem_uio	*uiom,
@@ -248,7 +247,6 @@ static int iomem_mmap_ioinit(struct mem_mmap *mmapm, char *name, int index)
 static void iomem_mmap_iodestroy(struct mem_mmap *mmapm)
 {
 	/* TODO: free all objs */
-	free(mmapm);
 }
 
 static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
