@@ -106,7 +106,7 @@ static int iomem_uio_io_exists(const char *name, int index)
 {
 	char	*tmp_name;
 	int	 ans;
-	int size = strlen(name)+5;
+	int size = strlen(name)+8;
 
 	if (name == NULL)
 		return 0;
@@ -117,7 +117,8 @@ static int iomem_uio_io_exists(const char *name, int index)
 		return -ENOMEM;
 	}
 	memset(tmp_name, 0, size);
-	snprintf(tmp_name, size, "%s_%d", name, index);
+	snprintf(tmp_name, size, "uio_%s_%d", name, index);
+
 	if (uio_find_devices_byname(tmp_name))
 		ans = 1;
 	else
