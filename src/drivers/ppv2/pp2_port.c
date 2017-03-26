@@ -946,10 +946,11 @@ pp2_port_stop_dev(struct pp2_port *port)
 	/* Disable interrupts on all CPUs */
 	pp2_port_interrupts_disable(port);
 	pp2_port_egress_disable(port);
-
-	pp2_gop_port_events_mask(gop, mac);
-	pp2_gop_port_disable(gop, mac);
-	port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
+	if (port->use_mac_lb == false) {
+		pp2_gop_port_events_mask(gop, mac);
+		pp2_gop_port_disable(gop, mac);
+		port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
+	}
 }
 
 static int
