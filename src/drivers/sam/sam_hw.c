@@ -31,7 +31,7 @@
  *****************************************************************************/
 
 #include "std_internal.h"
-#include "lib/uio_helper.h"
+#include "env/sys_iomem.h"
 
 #include "drivers/mv_sam.h"
 #include "sam.h"
@@ -39,73 +39,27 @@
 
 static struct sam_hw_engine_info sam_hw_engine_info[SAM_HW_ENGINE_NUM];
 
-static const char *const sam_supported_name[] = {"uio_eip197", "uio_eip97"};
+static const char *const sam_supported_name[] = {"eip197", "eip97"};
 static enum sam_hw_type sam_supported_type[] = {HW_EIP197, HW_EIP97};
 
-static struct sam_hw_engine_info *sam_uio_init(int engine)
+static struct sys_iomem *sam_iomem_init(int engine, enum sam_hw_type *type)
 {
-	struct uio_info_t *node;
-	int i;
-	char name[16];
-
-	if (sam_hw_engine_info[engine].uio_info)
-		return &sam_hw_engine_info[engine];
+	struct sys_iomem *iomem_info;
+	int i, err;
+	struct sys_iomem_params params;
 
 	/* We support two HW types: eip197 or eip97 */
+	params.type = SYS_IOMEM_T_UIO;
+	params.index = engine;
 	for (i = 0; i < ARRAY_SIZE(sam_supported_name); i++) {
-		snprintf(name, sizeof(name), "%s_%d", sam_supported_name[i], engine);
-		node = uio_find_devices_byname(name);
-		if (node) {
-			sam_hw_engine_info[engine].uio_info = node;
-			sam_hw_engine_info[engine].type = sam_supported_type[i];
-			break;
+		params.devname = sam_supported_name[i];
+		err = sys_iomem_init(&params, &iomem_info);
+		if (!err) {
+			*type = sam_supported_type[i];
+			return iomem_info;
 		}
 	}
-	if (!node) {
-		pr_err("Can't find %s UIO device\n", name);
-		return NULL;
-	}
-
-	i = 0;
-	while (node) {
-		uio_get_all_info(node);
-		node = node->next;
-		i++;
-	}
-	return &sam_hw_engine_info[engine];
-}
-
-static void *sam_uio_iomap(struct uio_info_t *uio_info, dma_addr_t *pa,
-			const char *name)
-{
-	struct uio_mem_t *mem = NULL;
-	void *va = NULL;
-
-	mem = uio_find_mem_byname(uio_info, name);
-	if (!mem) {
-		pr_err("%s memory not not found on uio %s\n", name, uio_info->name);
-		return NULL;
-	}
-
-	if (mem->fd < 0) {
-		char dev_name[16];
-
-		snprintf(dev_name, sizeof(dev_name),
-			 "/dev/uio%d", mem->info->uio_num);
-		mem->fd = open(dev_name, O_RDWR);
-	}
-
-	if (mem->fd >= 0) {
-		va = uio_single_mmap(mem->info, mem->map_num, mem->fd);
-		if (!va)
-			pr_err("%s Can't mmap memory on UIO %s\n", name, uio_info->name);
-
-		if (pa)
-			*pa = mem->info->maps[mem->map_num].addr;
-
-		uio_free_mem_info(mem);
-	}
-	return va;
+	return NULL;
 }
 
 void sam_hw_reg_print(char *reg_name, void *base, u32 offset)
@@ -260,43 +214,53 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 {
 	u32 ring_size;
 	int rc;
-	void *vaddr;
-	dma_addr_t paddr;
-	struct sam_hw_engine_info *engine_info;
-	const char name[] = "regs";
+	struct sam_hw_engine_info *engine_info = &sam_hw_engine_info[engine];
 
-	engine_info = sam_uio_init(engine);
-	if (!engine_info)
-		return -EINVAL;
+	if (!engine_info->iomem_info) {
+		engine_info->name = "regs";
+		engine_info->iomem_info = sam_iomem_init(engine, &engine_info->type);
+		if (!engine_info->iomem_info) {
+			pr_err("Can't init IOMEM area for engine #%d\n", engine);
+			return -EINVAL;
+		}
+		pr_info("%s: name =%s, engine = %d, engine_info->iomem_info = %p\n",
+			__func__, engine_info->name, engine, engine_info->iomem_info);
 
-	vaddr = sam_uio_iomap(engine_info->uio_info, &paddr, name);
-	if (!vaddr) {
-		pr_err("%s: Can't iomap memory area\n",	name);
-		return -ENOMEM;
+		rc = sys_iomem_map(engine_info->iomem_info, engine_info->name,
+				   &engine_info->paddr, &engine_info->vaddr);
+		if (rc) {
+			pr_err("Can't map %s IOMEM area for engine #%d, rc = %d\n",
+				engine_info->name, engine, rc);
+			sys_iomem_deinit(engine_info->iomem_info);
+			engine_info->iomem_info = NULL;
+			return -ENOMEM;
+		}
 	}
+	engine_info->active_rings++;
 
 	/* Add 1 to ring size for lockless ring management */
 	params->size += 1;
-
-	if (engine_info->type == HW_EIP197) {
-		hw_ring->regs_vbase = (((char *)vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
-		hw_ring->paddr = paddr + SAM_EIP197_RING_REGS_OFFS(ring);
-	} else if (engine_info->type == HW_EIP97) {
-		hw_ring->regs_vbase = (((char *)vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
-		hw_ring->paddr = paddr + SAM_EIP97_RING_REGS_OFFS(ring);
-	} else {
-		pr_err("%s: Unexpected HW type = %d\n", __func__, engine_info->type);
-		return -EINVAL;
-	}
-
-	pr_info("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
-		(engine_info->type == HW_EIP197) ? "eip197" : "eip97",
-		engine, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
 	hw_ring->engine = engine;
 	hw_ring->type = engine_info->type;
 	hw_ring->ring = ring;
 	hw_ring->ring_size = params->size; /* number of descriptors in the ring */
+
+	if (engine_info->type == HW_EIP197) {
+		hw_ring->regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
+		hw_ring->paddr = engine_info->paddr + SAM_EIP197_RING_REGS_OFFS(ring);
+	} else if (engine_info->type == HW_EIP97) {
+		hw_ring->regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
+		hw_ring->paddr = engine_info->paddr + SAM_EIP97_RING_REGS_OFFS(ring);
+	} else {
+		pr_err("%s: Unexpected HW type = %d\n", __func__, engine_info->type);
+		rc = -EINVAL;
+		goto err;
+	}
+
+	pr_info("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
+		(engine_info->type == HW_EIP197) ? "eip197" : "eip97",
+		engine, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
 	sam_hw_cdr_regs_reset(hw_ring);
 	sam_hw_rdr_regs_reset(hw_ring);
@@ -305,7 +269,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	ring_size = SAM_CDR_ENTRY_WORDS * sizeof(u32) * params->size;
 	rc = sam_dma_buf_alloc(ring_size, &hw_ring->cdr_buf);
 	if (rc)
-		return rc;
+		goto err;
 
 	pr_info("DMA buffer (%d bytes) for CDR #%d allocated: paddr = 0x%lx, vaddr = %p\n",
 		ring_size, ring, hw_ring->cdr_buf.paddr, hw_ring->cdr_buf.vaddr);
@@ -320,7 +284,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	ring_size = SAM_RDR_ENTRY_WORDS * sizeof(u32) * params->size;
 	rc = sam_dma_buf_alloc(ring_size, &hw_ring->rdr_buf);
 	if (rc)
-		return rc;
+		goto err;
 
 	pr_info("DMA buffer (%d bytes) for RDR #%d allocated: paddr = 0x%lx, vaddr = %p\n",
 		ring_size, ring, hw_ring->rdr_buf.paddr, hw_ring->rdr_buf.vaddr);
@@ -332,16 +296,31 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	sam_hw_rdr_regs_init(hw_ring);
 
 	return 0;
+err:
+	sam_hw_ring_deinit(hw_ring);
+	return rc;
 }
 
 int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 {
-	sam_hw_cdr_regs_reset(hw_ring);
-	sam_hw_rdr_regs_reset(hw_ring);
+	struct sam_hw_engine_info *engine_info = &sam_hw_engine_info[hw_ring->engine];
+
+	if (hw_ring->regs_vbase) {
+		sam_hw_cdr_regs_reset(hw_ring);
+		sam_hw_rdr_regs_reset(hw_ring);
+	}
 
 	sam_dma_buf_free(&hw_ring->cdr_buf);
 	sam_dma_buf_free(&hw_ring->rdr_buf);
 
+	engine_info->active_rings--;
+	if (engine_info->active_rings == 0) {
+		pr_info("%s: name = %s, engine=%d, iomem_info = %p\n",
+			__func__, engine_info->name, hw_ring->engine, engine_info->iomem_info);
+		sys_iomem_unmap(engine_info->iomem_info, engine_info->name);
+		sys_iomem_deinit(engine_info->iomem_info);
+		engine_info->iomem_info = NULL;
+	}
 	return 0;
 }
 

@@ -327,8 +327,12 @@ enum sam_hw_type {
 };
 
 struct sam_hw_engine_info {
-	struct uio_info_t *uio_info;
+	struct sys_iomem *iomem_info;
 	enum sam_hw_type type;
+	char *name;
+	void *vaddr;		/* virtual address for engine registers */
+	dma_addr_t paddr;	/* physical address for engine registers */
+	u32 active_rings;
 };
 
 struct sam_hw_ring {

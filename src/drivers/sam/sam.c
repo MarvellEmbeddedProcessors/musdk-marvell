@@ -225,7 +225,7 @@ static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
 	int i, engine, ring, cio_idx, scanned;
-	struct sam_cio	*sam_ring;
+	struct sam_cio	*local_cio;
 
 	/* Load SAM HW engine */
 	if (!sam_initialized) {
@@ -249,27 +249,27 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	}
 
 	/* Allocate single sam_cio structure */
-	sam_ring = kcalloc(1, sizeof(struct sam_cio), GFP_KERNEL);
-	if (!sam_ring) {
+	local_cio = kcalloc(1, sizeof(struct sam_cio), GFP_KERNEL);
+	if (!local_cio) {
 		pr_err("Can't allocate %lu bytes for sam_cio structure\n",
 			 sizeof(struct sam_cio));
 		return -ENOMEM;
 	}
 
 	/* Initialize HW ring */
-	if (sam_hw_ring_init(engine, ring, params, &sam_ring->hw_ring))
+	if (sam_hw_ring_init(engine, ring, params, &local_cio->hw_ring))
 		goto err;
 
 	/* Save configured CIO params */
-	sam_ring->params = *params;
+	local_cio->params = *params;
 
-	sam_cios[cio_idx] = sam_ring;
-	sam_ring->idx = cio_idx;
+	sam_cios[cio_idx] = local_cio;
+	local_cio->idx = cio_idx;
 	sam_active_cios++;
 
 	/* Allocate configured number of sam_sa structures */
-	sam_ring->sessions = kcalloc(params->num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
-	if (!sam_ring->sessions) {
+	local_cio->sessions = kcalloc(params->num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
+	if (!local_cio->sessions) {
 		pr_err("Can't allocate %u * %lu bytes for sam_sa structures\n",
 			params->num_sessions, sizeof(struct sam_sa));
 		goto err;
@@ -277,7 +277,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 
 	/* Allocate DMA buffer for each session */
 	for (i = 0; i < params->num_sessions; i++) {
-		if (sam_dma_buf_alloc(SAM_SA_DMABUF_SIZE, &sam_ring->sessions[i].sa_buf)) {
+		if (sam_dma_buf_alloc(SAM_SA_DMABUF_SIZE, &local_cio->sessions[i].sa_buf)) {
 			pr_err("Can't allocate DMA buffer (%d bytes) for Session #%d\n",
 				SAM_SA_DMABUF_SIZE, i);
 			goto err;
@@ -287,8 +287,8 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 		params->num_sessions, SAM_SA_DMABUF_SIZE);
 
 	/* Allocate array of sam_cio_op structures in size of CIO ring */
-	sam_ring->operations = kcalloc(params->size, sizeof(struct sam_cio_op), GFP_KERNEL);
-	if (!sam_ring->operations) {
+	local_cio->operations = kcalloc(params->size, sizeof(struct sam_cio_op), GFP_KERNEL);
+	if (!local_cio->operations) {
 		pr_err("Can't allocate %u * %lu bytes for sam_cio_op structures\n",
 			params->size, sizeof(struct sam_cio_op));
 		goto err;
@@ -296,7 +296,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 
 	/* Allocate DMA buffers for Tokens (one per operation) */
 	for (i = 0; i < params->size; i++) {
-		if (sam_dma_buf_alloc(SAM_TOKEN_DMABUF_SIZE, &sam_ring->operations[i].token_buf)) {
+		if (sam_dma_buf_alloc(SAM_TOKEN_DMABUF_SIZE, &local_cio->operations[i].token_buf)) {
 			pr_err("Can't allocate DMA buffer (%d bytes) for Token #%d\n",
 				SAM_TOKEN_DMABUF_SIZE, i);
 			goto err;
@@ -305,13 +305,13 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	pr_info("DMA buffers allocated for %d operations. Tokens - %d bytes\n",
 		i, SAM_TOKEN_DMABUF_SIZE);
 
-	*cio = sam_ring;
+	*cio = local_cio;
 
 	return 0;
 
 err:
 	/* Release all allocated resources */
-	sam_cio_deinit(sam_ring);
+	sam_cio_deinit(local_cio);
 
 	return -ENOMEM;
 }
