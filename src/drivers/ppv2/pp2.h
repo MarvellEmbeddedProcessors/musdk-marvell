@@ -384,7 +384,7 @@ struct pp2_hw {
 	/* C2 shadow info */
 	struct mv_pp2x_c2_shadow *c2_shadow;
 	/*physical base address */
-	u32	phy_address_base;
+	phys_addr_t phy_address_base;
 };
 
 enum mv_pp2x_queue_distribution_mode {
@@ -470,7 +470,7 @@ struct pp2_inst {
 	/* Handle to parent instance */
 	struct pp2 *parent;
 	/* UIO handle for mapping PP and GOP register spaces */
-	pp2_maps_handle_t pp2_maps_hdl;
+	struct sys_iomem *pp2_sys_iomem;
 	struct pp2_cls_db_t *cls_db;
 };
 

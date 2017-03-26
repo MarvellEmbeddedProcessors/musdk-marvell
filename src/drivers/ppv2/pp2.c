@@ -236,20 +236,26 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 	u32 reg_id, i;
 	uintptr_t mem_base;
 	struct pp2_hw *hw = &inst->hw;
+	struct sys_iomem_params iomem_params;
+	struct sys_iomem *pp2_sys_iomem;
 
 	hw->tclk = PP2_TCLK_FREQ;
 
-	err = pp2_sys_ioinit(&inst->pp2_maps_hdl, pp2_id_uio_name((u8)inst->id));
+	iomem_params.type = SYS_IOMEM_T_UIO;
+	iomem_params.devname = PP_UIO_MEM_NAME;
+	iomem_params.index = inst->id;
+
+	err = sys_iomem_init(&iomem_params, &pp2_sys_iomem);
+	inst->pp2_sys_iomem = pp2_sys_iomem;
 	if (err) {
 		pr_err(" No device found\n");
 		return err;
 	}
 
 	/* Map the whole physical Packet Processor physical address */
-	mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->phy_address_base, "pp");
-	if (!mem_base) {
-		err = -EIO;
-		pp2_sys_iodestroy(inst->pp2_maps_hdl);
+	err = sys_iomem_map(pp2_sys_iomem, "pp", &hw->phy_address_base, (void **)(&mem_base));
+	if (err) {
+		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
 
@@ -258,61 +264,56 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 	for (reg_id = 0; reg_id < ARRAY_SIZE(hw->base); reg_id++)
 		hw->base[reg_id].va = mem_base + (reg_id * PP2_REGSPACE_SIZE);
 
-	mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->gop.serdes.base.pa, "serdes");
-	if (!mem_base) {
-		err = -EIO;
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "pp");
-		pp2_sys_iodestroy(inst->pp2_maps_hdl);
+	err = sys_iomem_map(pp2_sys_iomem, "serdes", &hw->gop.serdes.base.pa, (void **)(&mem_base));
+	if (err) {
+		sys_iomem_unmap(pp2_sys_iomem, "pp");
+		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
 	hw->gop.serdes.base.va = mem_base;
 	hw->gop.serdes.obj_size = 0x1000;
 
-	mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->gop.xmib.base.pa, "xmib");
-	if (!mem_base) {
-		err = -EIO;
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "serdes");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "pp");
-		pp2_sys_iodestroy(inst->pp2_maps_hdl);
+	err = sys_iomem_map(pp2_sys_iomem, "xmib", &hw->gop.xmib.base.pa, (void **)(&mem_base));
+	if (err) {
+		sys_iomem_unmap(pp2_sys_iomem, "serdes");
+		sys_iomem_unmap(pp2_sys_iomem, "pp");
+		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
 	hw->gop.xmib.base.va = mem_base;
 	hw->gop.xmib.obj_size = 0x0100;
 
-	mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->gop.smi.pa, "smi");
-	if (!mem_base) {
-		err = -EIO;
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "xmib");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "serdes");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "pp");
-		pp2_sys_iodestroy(inst->pp2_maps_hdl);
+	err = sys_iomem_map(pp2_sys_iomem, "smi", &hw->gop.smi.pa, (void **)(&mem_base));
+	if (err) {
+		sys_iomem_unmap(pp2_sys_iomem, "xmib");
+		sys_iomem_unmap(pp2_sys_iomem, "serdes");
+		sys_iomem_unmap(pp2_sys_iomem, "pp");
+		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
 	hw->gop.smi.va = mem_base;
 	hw->gop.smi.va += 0x200;
 	hw->gop.smi.pa += 0x200;
 
-	mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->gop.mspg.pa, "mspg");
-	if (!mem_base) {
-		err = -EIO;
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "smi");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "xmib");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "serdes");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "pp");
-		pp2_sys_iodestroy(inst->pp2_maps_hdl);
+	err = sys_iomem_map(pp2_sys_iomem, "mspg", &hw->gop.mspg.pa, (void **)(&mem_base));
+	if (err) {
+		sys_iomem_unmap(pp2_sys_iomem, "smi");
+		sys_iomem_unmap(pp2_sys_iomem, "xmib");
+		sys_iomem_unmap(pp2_sys_iomem, "serdes");
+		sys_iomem_unmap(pp2_sys_iomem, "pp");
+		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
 	hw->gop.mspg.va = mem_base;
 
-	mem_base = pp2_sys_iomap(inst->pp2_maps_hdl, (uint32_t *)&hw->gop.rfu1.pa, "rfu1");
-	if (!mem_base) {
-		err = -EIO;
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "mspg");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "smi");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "xmib");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "serdes");
-		pp2_sys_iounmap(inst->pp2_maps_hdl, "pp");
-		pp2_sys_iodestroy(inst->pp2_maps_hdl);
+	err = sys_iomem_map(pp2_sys_iomem, "rfu1", &hw->gop.rfu1.pa, (void **)(&mem_base));
+	if (err) {
+		sys_iomem_unmap(pp2_sys_iomem, "mspg");
+		sys_iomem_unmap(pp2_sys_iomem, "smi");
+		sys_iomem_unmap(pp2_sys_iomem, "xmib");
+		sys_iomem_unmap(pp2_sys_iomem, "serdes");
+		sys_iomem_unmap(pp2_sys_iomem, "pp");
+		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
 	hw->gop.rfu1.va = mem_base;
@@ -415,10 +416,17 @@ static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 u8 pp2_get_num_inst(void)
 {
 	u8 pp2_num_inst = 0;
+	struct sys_iomem_params  iomem_params;
 
-	pp2_num_inst += pp2_sys_io_exists(pp2_id_uio_name(PP2_ID0));
-	pp2_num_inst += pp2_sys_io_exists(pp2_id_uio_name(PP2_ID1));
+	iomem_params.type = SYS_IOMEM_T_UIO;
+	iomem_params.devname = PP_UIO_MEM_NAME;
 
+	iomem_params.index = PP2_ID0;
+	pp2_num_inst += sys_iomem_exists(&iomem_params);
+	iomem_params.index = PP2_ID1;
+	pp2_num_inst += sys_iomem_exists(&iomem_params);
+
+	pr_debug("pp2_num_inst=%d\n", pp2_num_inst);
 	return pp2_num_inst;
 }
 
@@ -426,13 +434,13 @@ static void pp2_destroy(struct pp2_inst *inst)
 {
 	u32 i;
 
-	pp2_sys_iounmap(inst->pp2_maps_hdl, "pp");
-	pp2_sys_iounmap(inst->pp2_maps_hdl, "serdes");
-	pp2_sys_iounmap(inst->pp2_maps_hdl, "xmib");
-	pp2_sys_iounmap(inst->pp2_maps_hdl, "smi");
-	pp2_sys_iounmap(inst->pp2_maps_hdl, "mspg");
-	pp2_sys_iounmap(inst->pp2_maps_hdl, "rfu1");
-	pp2_sys_iodestroy(inst->pp2_maps_hdl);
+	sys_iomem_unmap(inst->pp2_sys_iomem, "pp");
+	sys_iomem_unmap(inst->pp2_sys_iomem, "serdes");
+	sys_iomem_unmap(inst->pp2_sys_iomem, "xmib");
+	sys_iomem_unmap(inst->pp2_sys_iomem, "smi");
+	sys_iomem_unmap(inst->pp2_sys_iomem, "mspg");
+	sys_iomem_unmap(inst->pp2_sys_iomem, "rfu1");
+	sys_iomem_deinit(inst->pp2_sys_iomem);
 
 	/* No dangling handles */
 	for (i = 0; i < PP2_NUM_PORTS; i++)
