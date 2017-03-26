@@ -1,15 +1,15 @@
-From 11302e9634b5c36793b42b8096b5a035c17e3d67 Mon Sep 17 00:00:00 2001
+From 07d3c843bb6d25e573fc6cc8663ec9a6104699b4 Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Wed, 11 Jan 2017 18:04:12 +0200
-Subject: [PATCH 1/7] musdk: add uio support to armada 70x0 and 80x0 dts
+Subject: [PATCH 2/8] musdk: dts: a7K: a8k: add UIO support for PPV2
 
 Change-Id: Id93048b29deb782d3215f4aba1adee307fd14b5b
 Signed-off-by: nsamsono <nsamsono@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-7040.dtsi    |    5 +++++
- arch/arm64/boot/dts/marvell/armada-8040.dtsi    |    5 +++++
- arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi |   25 +++++++++++++++++++++++
- arch/arm64/boot/dts/marvell/armada-cp110.dtsi   |   25 +++++++++++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-7040.dtsi    |  5 +++++
+ arch/arm64/boot/dts/marvell/armada-8040.dtsi    |  5 +++++
+ arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi | 25 +++++++++++++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi   | 25 +++++++++++++++++++++++++
  4 files changed, 60 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040.dtsi b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
@@ -45,7 +45,7 @@ index e4b638f..a8123d5 100644
  				compatible = "marvell,a80x0-cp0-pinctrl";
  
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
-index 79529d2..71852a6 100644
+index 073fbf6..5fc15bc 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110-1.dtsi
 @@ -341,6 +341,31 @@ ppv22@000000 {
@@ -81,7 +81,7 @@ index 79529d2..71852a6 100644
  	compatible = "marvell,armada-8k-rng", "inside-secure,safexcel-eip76";
  	reg = <0x760000 0x7D>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index 868904c..75062a9 100644
+index 62a46d0..fed2db4 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 @@ -439,6 +439,31 @@ ppv22@000000 {
@@ -117,5 +117,5 @@ index 868904c..75062a9 100644
  	compatible = "marvell,armada-8k-rng", "inside-secure,safexcel-eip76";
  	reg = <0x760000 0x7D>;
 -- 
-1.7.9.5
+1.9.1
 

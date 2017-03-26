@@ -1,18 +1,18 @@
-From 83671d89eaf3230fac6cc38da7cfcf8f01875d2f Mon Sep 17 00:00:00 2001
+From 460f6ecdc9bea9ecd652fa696f9cec4a0a77f400 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:27:58 +0200
-Subject: [PATCH 3/7] musdk: mvpp2x module params updates
+Subject: [PATCH 6/8] musdk: mvpp2x module params updates
 
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |    6 +++---
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index 81e95e6..6f08172 100644
+index ebafdc5..19edb8d 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-@@ -75,16 +75,16 @@
+@@ -76,16 +76,16 @@
  #if defined(CONFIG_NETMAP) || defined(CONFIG_NETMAP_MODULE)
  u8 mv_pp2x_num_cos_queues = 1;
  #else
@@ -28,10 +28,10 @@ index 81e95e6..6f08172 100644
  			      * cos2--rxq2, cos3--rxq3
  			      */
 -static u8 default_cos = 3; /* As default, non-IP packet has highest CoS value */
-+static u8 default_cos = 0; /* As default, non-IP packet has highest CoS value */
++static u8 default_cos;	    /* MUSDK, set default to 0 */
  static u16 rx_queue_size = MVPP2_MAX_RXD;
  static u16 tx_queue_size = MVPP2_MAX_TXD;
  static u16 buffer_scaling = 100;
 -- 
-1.7.9.5
+1.9.1
 
