@@ -36,9 +36,6 @@
 #include <drivers/mv_sam.h>
 #include "std_internal.h"
 
-#define SAM_HW_ENGINE_NUM	2
-#define SAM_HW_RING_NUM		4
-
 /*#define SAM_REG_READ_DEBUG*/
 /*#define SAM_REG_WRITE_DEBUG*/
 
@@ -619,6 +616,8 @@ static inline void sam_hw_ring_update(struct sam_hw_ring *hw_ring, u32 done)
 
 int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf);
 void sam_dma_buf_free(struct sam_buf_info *dma_buf);
+
+bool sam_hw_engine_exist(int engine);
 
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring);
 void sam_hw_rdr_regs_show(struct sam_hw_ring *hw_ring);

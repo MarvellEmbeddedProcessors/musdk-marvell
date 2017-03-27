@@ -62,6 +62,35 @@ static struct sys_iomem *sam_iomem_init(int engine, enum sam_hw_type *type)
 	return NULL;
 }
 
+static bool sam_hw_ring_is_busy(struct sam_hw_ring *hw_ring)
+{
+	u32 cdr_lo, rdr_lo;
+
+	cdr_lo = sam_hw_reg_read(hw_ring->regs_vbase, HIA_CDR_RING_BASE_ADDR_LO_REG);
+	rdr_lo = sam_hw_reg_read(hw_ring->regs_vbase, HIA_RDR_RING_BASE_ADDR_LO_REG);
+
+	if (cdr_lo || rdr_lo)
+		return true;
+
+	return false;
+}
+
+bool sam_hw_engine_exist(int engine)
+{
+	int i;
+	struct sys_iomem_params params;
+
+	/* We support two HW types: eip197 or eip97 */
+	params.type = SYS_IOMEM_T_UIO;
+	params.index = engine;
+	for (i = 0; i < ARRAY_SIZE(sam_supported_name); i++) {
+		params.devname = sam_supported_name[i];
+		if (sys_iomem_exists(&params))
+			return true;
+	}
+	return false;
+}
+
 void sam_hw_reg_print(char *reg_name, void *base, u32 offset)
 {
 	void *addr = base + offset;
@@ -223,9 +252,6 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 			pr_err("Can't init IOMEM area for engine #%d\n", engine);
 			return -EINVAL;
 		}
-		pr_info("%s: name =%s, engine = %d, engine_info->iomem_info = %p\n",
-			__func__, engine_info->name, engine, engine_info->iomem_info);
-
 		rc = sys_iomem_map(engine_info->iomem_info, engine_info->name,
 				   &engine_info->paddr, &engine_info->vaddr);
 		if (rc) {
@@ -255,6 +281,12 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	} else {
 		pr_err("%s: Unexpected HW type = %d\n", __func__, engine_info->type);
 		rc = -EINVAL;
+		goto err;
+	}
+
+	if (sam_hw_ring_is_busy(hw_ring)) {
+		pr_err("%s: %d:%d is busy\n",
+			(engine_info->type == HW_EIP197) ? "eip197" : "eip97", engine, ring);
 		goto err;
 	}
 
@@ -315,8 +347,6 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 
 	engine_info->active_rings--;
 	if (engine_info->active_rings == 0) {
-		pr_info("%s: name = %s, engine=%d, iomem_info = %p\n",
-			__func__, engine_info->name, hw_ring->engine, engine_info->iomem_info);
 		sys_iomem_unmap(engine_info->iomem_info, engine_info->name);
 		sys_iomem_deinit(engine_info->iomem_info);
 		engine_info->iomem_info = NULL;

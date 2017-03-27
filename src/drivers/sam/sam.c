@@ -34,9 +34,8 @@
 #include "drivers/mv_sam.h"
 #include "lib/lib_misc.h"
 
+#include "drivers/mv_sam.h"
 #include "sam.h"
-
-#define SAM_MAX_CIO_NUM		(SAM_HW_RING_NUM * SAM_HW_ENGINE_NUM)
 
 static bool		sam_initialized;
 static int		sam_active_cios;
@@ -221,6 +220,37 @@ static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
 }
 
 /*********************** Public functions implementation *******************/
+
+int sam_get_capability(struct sam_capability *capa)
+{
+	capa->cipher_algos = BIT(SAM_CIPHER_3DES) | BIT(SAM_CIPHER_AES);
+	capa->cipher_modes = BIT(SAM_CIPHER_ECB) | BIT(SAM_CIPHER_CBC) | BIT(SAM_CIPHER_GCM);
+
+	/* HASH only */
+	capa->auth_algos = BIT(SAM_AUTH_HASH_MD5) | BIT(SAM_AUTH_HASH_SHA1) |
+			   BIT(SAM_AUTH_HASH_SHA2_224) | BIT(SAM_AUTH_HASH_SHA2_256) |
+			   BIT(SAM_AUTH_HASH_SHA2_384) | BIT(SAM_AUTH_HASH_SHA2_512);
+	/* HMAC */
+	capa->auth_algos |= BIT(SAM_AUTH_HMAC_MD5) | BIT(SAM_AUTH_HMAC_SHA1) |
+			    BIT(SAM_AUTH_HMAC_SHA2_224) | BIT(SAM_AUTH_HMAC_SHA2_256) |
+			    BIT(SAM_AUTH_HMAC_SHA2_384) | BIT(SAM_AUTH_HMAC_SHA2_512);
+	/* AES-GCM */
+	capa->auth_algos |= BIT(SAM_AUTH_AES_GCM);
+
+	return 0;
+}
+
+u8 sam_get_num_inst(void)
+{
+	int i;
+	u8 num = 0;
+
+	for (i = 0; i < SAM_HW_ENGINE_NUM; i++) {
+		if (sam_hw_engine_exist(i))
+			num++;
+	}
+	return num;
+}
 
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
