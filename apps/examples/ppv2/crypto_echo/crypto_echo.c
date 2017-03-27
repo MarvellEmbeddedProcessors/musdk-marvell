@@ -77,7 +77,7 @@
 #define CRYPT_APP_TOTAL_NUM_CIOS	4
 
 /*#define CRYPT_APP_VERBOSE_CHECKS*/
-/*#define CRYPT_APP_VERBOSE_DEBUG*/
+#define CRYPT_APP_VERBOSE_DEBUG
 #define CRYPT_APP_PKT_ECHO_SUPPORT
 #define CRYPT_APP_PREFETCH_SHIFT	4
 
@@ -211,7 +211,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 		tmp_buff = sam_res_descs[i].cookie;
 		COOKIE_CLEAR_ALL_INFO(tmp_buff);
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->garg->verbose) {
+		if (larg->garg->verbose > 1) {
 			printf("pkt before echo (len %d):\n",
 			       sam_res_descs[i].out_len - MVAPPS_PKT_EFEC_OFFS);
 			mem_disp(tmp_buff, sam_res_descs[i].out_len - MVAPPS_PKT_EFEC_OFFS);
@@ -256,7 +256,7 @@ static inline int enc_pkts(struct local_arg		*larg,
 		src_buf_infs[i].vaddr = (char *)(((uintptr_t)(src_buf_infs[i].vaddr)) | sys_dma_high_addr);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->garg->verbose) {
+		if (larg->garg->verbose > 1) {
 			printf("Received packet (va:%p, pa 0x%08x, len %d):\n",
 			       src_buf_infs[i].vaddr,
 			       (unsigned int)src_buf_infs[i].paddr,
@@ -407,7 +407,7 @@ static inline int send_pkts(struct local_arg		*larg,
 		pa = mv_sys_dma_mem_virt2phys(buff - MVAPPS_PKT_EFEC_OFFS);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->garg->verbose) {
+		if (larg->garg->verbose > 1) {
 			printf("Sending packet (va:%p, pa 0x%08x, len %d):\n",
 			       buff, (unsigned int)pa, len);
 			mem_disp(buff, len);
@@ -468,6 +468,10 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 			}
 			larg->drop_cnt += num - num_got;
 		}
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+	if (larg->garg->verbose && num_got)
+		printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 		pp2_ppio_get_num_outq_done(larg->ports_desc[tp].ppio, larg->hif, tc, &num);
 		for (i = 0; i < num; i++) {
@@ -588,7 +592,7 @@ START_COUNT_CYCLES(pme_ev_cnt_rx);
 STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	if (larg->garg->verbose && num)
-		printf("got %d pkts on ppio %d, tc %d, qid %d\n", num, rx_ppio_id, tc, qid);
+		printf("recv %d pkts on ppio %d, tc %d, qid %d\n", num, rx_ppio_id, tc, qid);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	if (num) {
@@ -716,7 +720,7 @@ static int dump_perf(struct glob_arg *garg)
 	garg->lst_rx_cnt = tmp_rx_cnt;
 	garg->lst_tx_cnt = tmp_tx_cnt;
 	if (drop_cnt)
-		printf(", drop: %ull", drop_cnt);
+		printf(", drop: %u", drop_cnt);
 	printf("\n");
 	gettimeofday(&garg->ctrl_trd_last_time, NULL);
 
@@ -1279,7 +1283,9 @@ static void usage(char *progname)
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity).\n"
 	       "\t-t <mtu>                 Set MTU (default is %d)\n"
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-	       "\t-v                       Enable verbose debug\n"
+	       "\t-v                       Increase verbose debug (default is 0).\n"
+	       "\t         With every '-v', the debug is increased by one.\n"
+	       "\t         0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump\n"
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 	       "\t--no-echo                No Echo packets\n"
 	       "\t--cli                    Use CLI\n"
@@ -1396,7 +1402,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			i += 2;
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		} else if (strcmp(argv[i], "-v") == 0) {
-			garg->verbose = 1;
+			garg->verbose++;
 			i += 1;
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 		} else if (strcmp(argv[i], "--no-echo") == 0) {
