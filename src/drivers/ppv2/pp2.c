@@ -208,7 +208,7 @@ static void pp2_inst_init(struct pp2_inst *inst)
 			continue;
 		}
 
-		if (admin_status != PP2_PORT_MUSDK_ENABLED) {
+		if (admin_status != PP2_PORT_MUSDK && admin_status != PP2_PORT_SHARED) {
 			pr_warn("Port %d:%d is not reserved for MUSDK usage in Linux DTS file\n", inst->id, i);
 			ppio_param->is_enabled = 0;
 			continue;
@@ -455,6 +455,23 @@ static void pp2_destroy(struct pp2_inst *inst)
 	kfree(inst);
 }
 
+/* Check ppio status configured by applications is coherent with dts file */
+static int pp2_status_check(struct netdev_if_params *netdev_params, struct pp2_init_params *params)
+{
+	int i, j;
+
+	for (i = 0; i < PP2_NUM_PKT_PROC; i++) {
+		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
+			if ((netdev_params[i * PP2_NUM_ETH_PPIO + j].admin_status == PP2_PORT_DISABLED) &&
+			    (params->ppios[i][j].is_enabled == 1)) {
+				pr_err("configured status does not match dts file for ppio %d:%d\n", i, j);
+				return -EFAULT;
+			}
+		}
+	}
+	return 0;
+}
+
 int pp2_init(struct pp2_init_params *params)
 {
 	u32 pp2_id, pp2_num_inst;
@@ -480,6 +497,10 @@ int pp2_init(struct pp2_init_params *params)
 
 	memset(netdev_params, 0, sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO);
 	pp2_netdev_if_info_get(netdev_params);
+
+	rc = pp2_status_check(netdev_params, params);
+	if (rc)
+		return -EFAULT;
 
 	/* Initialize in an opaque manner from client,
 	* depending on HW, one or two packet processors.

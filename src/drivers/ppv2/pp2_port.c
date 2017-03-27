@@ -1209,7 +1209,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++)
 			pr_debug("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
 	}
-	port->type = param->type;
+
 	/* Assing a CPU slot to avoid send cpu_slot as argument further */
 	hw = &inst->hw;
 	port->cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
@@ -1219,6 +1219,16 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 
 	/* Assign linux name to port */
 	pp2_netdev_ifname_get(pp2_id, port_id, port->linux_name);
+
+	if ((port->admin_status == PP2_PORT_SHARED && param->type == PP2_PPIO_T_LOG) ||
+	    (port->admin_status == PP2_PORT_MUSDK && param->type == PP2_PPIO_T_NIC)) {
+		port->type = param->type;
+	} else {
+		if (port->admin_status != PP2_PORT_DISABLED) {
+			pr_err("port %s: configured type does not match dts file\n", port->linux_name);
+			return -EFAULT;
+		}
+	}
 
 	/* Assign and initialize port private data and hardware */
 	pp2_port_init(port);

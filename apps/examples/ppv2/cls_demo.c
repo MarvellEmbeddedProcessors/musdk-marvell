@@ -47,6 +47,7 @@
 
 #define CLS_APP_DMA_MEM_SIZE			(10 * 1024 * 1024)
 #define CLS_APP_MAX_NUM_TCS_PER_PORT		4
+#define CLS_APP_FIRST_IN_QUEUE			4 /* TODO: need to read from kernel through sysfs function */
 #define CLS_APP_PP2_MAX_NUM_QS_PER_TC		1
 #define CLS_APP_STR_SIZE_MAX			40
 #define CLS_APP_KEY_SIZE_MAX			37
@@ -1400,7 +1401,7 @@ static int init_all_modules(void)
 	struct pp2_init_params *pp2_params = &garg.pp2_params;
 	int			 err;
 
-	pr_info("Global initializations ... ");
+	pr_info("Global initializations ...\n");
 
 	err = mv_sys_dma_mem_init(CLS_APP_DMA_MEM_SIZE);
 	if (err)
@@ -1411,22 +1412,22 @@ static int init_all_modules(void)
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 	/* Enable 10G port */
 	pp2_params->ppios[0][0].is_enabled = 1;
-	pp2_params->ppios[0][0].first_inq = 0;
+	pp2_params->ppios[0][0].first_inq = CLS_APP_FIRST_IN_QUEUE;
 	/* Enable 1G ports */
-	pp2_params->ppios[0][1].is_enabled = 1;
-	pp2_params->ppios[0][1].first_inq = 0;
+	pp2_params->ppios[0][1].is_enabled = 0;
+	pp2_params->ppios[0][1].first_inq = CLS_APP_FIRST_IN_QUEUE;
 	pp2_params->ppios[0][2].is_enabled = 1;
-	pp2_params->ppios[0][2].first_inq = 0;
+	pp2_params->ppios[0][2].first_inq = CLS_APP_FIRST_IN_QUEUE;
 
 	if (garg.pp2_num_inst == 2) {
 		/* Enable 10G port */
 		pp2_params->ppios[1][0].is_enabled = 1;
-		pp2_params->ppios[1][0].first_inq = 0;
+		pp2_params->ppios[1][0].first_inq = CLS_APP_FIRST_IN_QUEUE;
 		/* Enable 1G ports */
 		pp2_params->ppios[1][1].is_enabled = 1;
-		pp2_params->ppios[1][1].first_inq = 0;
-		pp2_params->ppios[1][2].is_enabled = 1;
-		pp2_params->ppios[1][2].first_inq = 0;
+		pp2_params->ppios[1][1].first_inq = CLS_APP_FIRST_IN_QUEUE;
+		pp2_params->ppios[1][2].is_enabled = 0;
+		pp2_params->ppios[1][2].first_inq = CLS_APP_FIRST_IN_QUEUE;
 	}
 	err = pp2_init(pp2_params);
 	if (err)
@@ -1444,7 +1445,7 @@ static int init_local_modules(struct glob_arg *garg)
 	int				i = 0, j, err, port_index;
 	struct bpool_inf		infs[] = MVAPPS_BPOOLS_INF;
 
-	pr_info("Local initializations ... ");
+	pr_info("Local initializations ...\n");
 
 	err = app_hif_init(&garg->hif);
 	if (err)
@@ -1486,6 +1487,7 @@ static int init_local_modules(struct glob_arg *garg)
 		err = pp2_ppio_init(port_params, &garg->ports_desc[port_index].ppio);
 		if (err)
 			return err;
+
 		if (!garg->ports_desc[port_index].ppio) {
 			pr_err("PP-IO init failed!\n");
 			return -EIO;

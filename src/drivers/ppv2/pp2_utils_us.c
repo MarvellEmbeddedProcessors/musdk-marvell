@@ -90,10 +90,13 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
 			} else if (strcmp("non-kernel", buf) == 0) {
 				pr_debug("port %d:%d is MUSDK\n", i, j);
-				netdev_params[idx].admin_status = PP2_PORT_MUSDK_ENABLED;
+				netdev_params[idx].admin_status = PP2_PORT_MUSDK;
+			} else if (strcmp("shared", buf) == 0) {
+				pr_debug("port %d:%d is logical port\n", i, j);
+				netdev_params[idx].admin_status = PP2_PORT_SHARED;
 			} else {
 				pr_debug("port %d:%d is kernel\n", i, j);
-				netdev_params[idx].admin_status = PP2_PORT_KERNEL_ENABLED;
+				netdev_params[idx].admin_status = PP2_PORT_KERNEL;
 			}
 			fclose(fp);
 		}
