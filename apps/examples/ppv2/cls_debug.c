@@ -141,15 +141,6 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_log_rls_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_fl_rls_dscp_port_modify";
-	cmd_params.desc		= "toggle port bit according to inserted parameters";
-	cmd_params.format	= "\n"
-				  "\t\t\t\t0 - disable\n"
-				  "\t\t\t\t1 - enable\n";
-	cmd_params.cmd_arg	= (void *)port;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_fl_modify;
-	mvapp_register_cli_cmd(&cmd_params);
 #endif
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_lkp_hits_dump";

@@ -378,12 +378,16 @@ static int pp2_cls_mng_get_lkpid_for_lkp_type(int lkp_type, u16 *select_logical_
 	return num_lkpid;
 }
 
-static int pp2_cls_flow_modify(struct pp2_port *port, int set, int lkp_type)
+static int pp2_cls_single_flow_enable(struct pp2_port *port, u16 lkp_id, u16 lkp_type, int set)
 {
 	struct pp2_cls_fl_rule_list_t fl_rls;
 	struct pp2_inst *inst = port->parent;
-	int i, rc = 0, num_of_lkid;
-	u16 select_logical_id[30];
+	int rc;
+
+	if (set < 0 || set > 1) {
+		pr_err("[%s] Invalid boolean value in 'set': %d.\n", __func__, set);
+		return -EINVAL;
+	}
 
 	fl_rls.fl_len = 1;
 	fl_rls.fl->port_type = MVPP2_SRC_PORT_TYPE_PHY;
@@ -392,8 +396,6 @@ static int pp2_cls_flow_modify(struct pp2_port *port, int set, int lkp_type)
 	fl_rls.fl->enabled = set;
 
 	fl_rls.fl->prio = pp2_cls_mng_lkp_type_to_prio(lkp_type);
-	if (fl_rls.fl->prio < 0)
-		return -EINVAL;
 	fl_rls.fl->engine = MVPP2_CLS_ENGINE_C2;
 	fl_rls.fl->udf7 = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_MUSDK_LOG_UDF7 : MVPP2_CLS_MUSDK_NIC_UDF7;
 	fl_rls.fl->seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
@@ -402,32 +404,55 @@ static int pp2_cls_flow_modify(struct pp2_port *port, int set, int lkp_type)
 	fl_rls.fl->field_id[1] = 0;
 	fl_rls.fl->field_id[2] = 0;
 	fl_rls.fl->field_id[3] = 0;
+	fl_rls.fl->fl_log_id = lkp_id;
 
-	num_of_lkid = pp2_cls_mng_get_lkpid_for_lkp_type(fl_rls.fl->lu_type, &select_logical_id[0]);
-	/* add current rule for all selected logical flow id */
-	for (i = 0; i < num_of_lkid; i++) {
-		pr_debug("select_logical_id[%d] = %d\n", i, select_logical_id[i]);
-		fl_rls.fl->fl_log_id = select_logical_id[i];
-		rc = pp2_cls_fl_rule_enable(inst, &fl_rls);
-		if (rc) {
-			pr_err("failed to add cls flow rule\n");
-			return rc;
-		}
-	}
+	pr_debug("lkp_id = %d, set = %d\n", lkp_id, set);
+
+	rc = pp2_cls_fl_rule_enable(inst, &fl_rls);
+
+	if (rc)
+		pr_err("[%s] failed to %s cls flow id %u of type %u.\n",
+		       __func__, set ? "enable" : "disable", lkp_id, lkp_type);
 
 	return rc;
 }
 
-int pp2_cls_dscp_flow_modify(struct pp2_port *port, int set)
+static int pp2_cls_dscp_flows_set(struct pp2_port *port, enum pp2_cls_qos_tbl_type qos_type)
 {
 	int lkp_type = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_LKP_MUSDK_DSCP_PRI : MVPP2_CLS_LKP_DSCP_PRI;
+	int lkpid, lkpid_attr;
+	int dscp_enable, dscp_pcp_enable;
+	int enable_flow;
+	int rc;
 
-	if (set != 0 && set != 1) {
-		printf("%s(%d) parsing fail, wrong set = %d value\n", __func__, __LINE__, set);
-		return -EINVAL;
+	if (qos_type == PP2_CLS_QOS_TBL_IP_PRI || qos_type == PP2_CLS_QOS_TBL_IP_VLAN_PRI) {
+		dscp_enable = 1;
+		dscp_pcp_enable = 1;
+	} else if (qos_type == PP2_CLS_QOS_TBL_VLAN_IP_PRI) {
+		dscp_enable = 1;
+		dscp_pcp_enable = 0; /* Allow PCP to take priority over DSCP, where it exists */
+	} else {
+		dscp_enable = 0;
+		dscp_pcp_enable = 0;
+	}
+	for (lkpid = MVPP2_PRS_FL_START; lkpid < MVPP2_PRS_FL_LAST; lkpid++) {
+		/* Get lookup id attribute */
+		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
+
+		if (!(lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT | MVPP2_PRS_FL_ATTR_IP6_BIT)))
+			continue; /* There is no dscp flow */
+
+		if (lkpid_attr & (MVPP2_PRS_FL_ATTR_VLAN_BIT))
+			enable_flow = dscp_pcp_enable;
+		else
+			enable_flow = dscp_enable;
+		rc = pp2_cls_single_flow_enable(port, lkpid, lkp_type, enable_flow);
+
+		if (rc)
+			return rc;
 	}
 
-	return pp2_cls_flow_modify(port, set, lkp_type);
+	return 0;
 }
 
 /*
@@ -714,6 +739,9 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 
 	port = GET_PPIO_PORT(qos_params->dscp_cos_map[0].ppio);
 
+	/*Configure dscp flows */
+	pp2_cls_dscp_flows_set(port, qos_params->type);
+
 	/* Set up QoS lookup tables for PCP*/
 	if (qos_params->type == PP2_CLS_QOS_TBL_VLAN_PRI ||
 	    qos_params->type == PP2_CLS_QOS_TBL_VLAN_IP_PRI ||
@@ -723,7 +751,6 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 				pr_err("PCP field %u has NULL ppio.", i);
 				return -EINVAL;
 			}
-
 			if (qos_params->pcp_cos_map->tc < 0 ||
 			    qos_params->pcp_cos_map->tc > MV_VLAN_PRIO_NUM) {
 				pr_err("pcp tc value out of range.%d", qos_params->pcp_cos_map->tc);
@@ -737,8 +764,6 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 						  MVPP2_QOS_TBL_SEL_PRI,
 						  tc_array,
 						  start_queue);
-		/* disable flows in flow tables */
-		pp2_cls_dscp_flow_modify(port, false);
 	}
 
 	/* Set up QoS lookup tables for DSCP*/
@@ -765,9 +790,6 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 						  MVPP2_QOS_TBL_SEL_DSCP,
 						  tc_array,
 						  start_queue);
-
-		/* enable flows in flow tables */
-		pp2_cls_dscp_flow_modify(port, true);
 	}
 
 	rc = pp2_cls_db_mng_tbl_add(&tmp_tbl);
