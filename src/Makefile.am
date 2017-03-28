@@ -91,6 +91,9 @@ if SAM_BUILD
 nobase_include_HEADERS += include/drivers/mv_sam.h
 nobase_include_HEADERS += include/drivers/mv_sam_cio.h
 nobase_include_HEADERS += include/drivers/mv_sam_session.h
+nobase_include_HEADERS += include/lib/mv_md5.h
+nobase_include_HEADERS += include/lib/mv_sha2.h
+nobase_include_HEADERS += include/lib/mv_sha1.h
 
 libmusdk_la_SOURCES += drivers/sam/sam.c
 libmusdk_la_SOURCES += drivers/sam/sam_hw.c
