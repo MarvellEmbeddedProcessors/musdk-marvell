@@ -196,6 +196,16 @@ static void mv_sha1_transform(unsigned int state[5], const unsigned char *buffer
 	a = b = c = d = e = 0;
 }
 
+void mv_sha1_result_copy(MV_SHA1_CTX *context, uint8_t digest[])
+{
+	int i;
+
+	for (i = 0; i < MV_SHA1_DIGEST_SIZE; i++) {
+		digest[i] = (unsigned char)
+		    ((context->state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
+	}
+}
+
 void mv_sha1_init(MV_SHA1_CTX *context)
 {
 	/* SHA1 initialization constants */
@@ -242,12 +252,10 @@ void mv_sha1_final(unsigned char *digest, MV_SHA1_CTX *context)
 	while ((context->count[0] & 504) != 448)
 		mv_sha1_update(context, (const unsigned char *)"\0", 1);
 
-	mv_sha1_update(context, finalcount, 8);	/* Should cause a mv_sha1_Transform()
-						 */
-	for (i = 0; i < 20; i++) {
-		digest[i] = (unsigned char)
-		    ((context->state[i >> 2] >> ((3 - (i & 3)) * 8)) & 255);
-	}
+	mv_sha1_update(context, finalcount, 8);	/* Should cause a mv_sha1_Transform() */
+
+	mv_sha1_result_copy(context, digest);
+
 	/* Wipe variables */
 	i = 0;
 	memset(context->buffer, 0, 64);
@@ -267,4 +275,34 @@ void mv_sha1(unsigned char const *buf, unsigned int len, unsigned char *digest)
 	mv_sha1_init(&ctx);
 	mv_sha1_update(&ctx, buf, len);
 	mv_sha1_final(digest, &ctx);
+}
+
+void mv_sha1_hmac_iv(unsigned char key[], int key_len,
+		     unsigned char inner[], unsigned char outer[])
+{
+	unsigned char   in[64];
+	unsigned char   out[64];
+	int             i, max_key_len;
+	MV_SHA1_CTX	ctx;
+
+	max_key_len = 64;
+
+	for (i = 0; i < key_len; i++) {
+		in[i] = 0x36 ^ key[i];
+		out[i] = 0x5c ^ key[i];
+	}
+	for (i = key_len; i < 64; i++) {
+		in[i] = 0x36;
+		out[i] = 0x5c;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_sha1_init(&ctx);
+	mv_sha1_update(&ctx, in, max_key_len);
+	mv_sha1_result_copy(&ctx, inner);
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_sha1_init(&ctx);
+	mv_sha1_update(&ctx, out, max_key_len);
+	mv_sha1_result_copy(&ctx, outer);
 }

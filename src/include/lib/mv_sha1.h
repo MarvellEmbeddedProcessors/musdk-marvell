@@ -59,11 +59,13 @@ extern "C" {
 		unsigned char buffer[64];
 	} MV_SHA1_CTX;
 
-	void mv_sha1_init(MV_SHA1_CTX *context);
-	void mv_sha1_update(MV_SHA1_CTX *context, unsigned char const *buf, unsigned int len);
-	void mv_sha1_final(unsigned char *digest, MV_SHA1_CTX *context);
-
-	void mv_sha1(unsigned char const *buf, unsigned int len, unsigned char *digest);
+void mv_sha1_init(MV_SHA1_CTX *context);
+void mv_sha1_result_copy(MV_SHA1_CTX *context, uint8_t digest[]);
+void mv_sha1_update(MV_SHA1_CTX *context, unsigned char const *buf, unsigned int len);
+void mv_sha1_final(unsigned char *digest, MV_SHA1_CTX *context);
+void mv_sha1(unsigned char const *buf, unsigned int len, unsigned char *digest);
+void mv_sha1_hmac_iv(unsigned char key[], int key_len,
+		     unsigned char inner[], unsigned char outer[]);
 
 #ifdef __cplusplus
 }

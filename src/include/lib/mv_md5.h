@@ -73,6 +73,9 @@ void mv_md5(unsigned char const *buf, unsigned len, unsigned char *digest);
 void mv_hmac_md5(unsigned char const *text, int text_len,
 	       unsigned char const *key, int key_len, unsigned char *digest);
 
+void mv_md5_hmac_iv(unsigned char key[], int key_len,
+		     unsigned char inner[], unsigned char outer[]);
+
 #ifdef __cplusplus
 }
 #endif

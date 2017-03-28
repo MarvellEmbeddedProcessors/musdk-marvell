@@ -328,3 +328,34 @@ void mv_hmac_md5(unsigned char const *text, int text_len, unsigned char const *k
 	mv_md5_update(&ctx, digest, 16);	/* then results of 1st hash */
 	mv_md5_final(digest, &ctx);	/* finish up 2nd pass */
 }
+
+void mv_md5_hmac_iv(unsigned char key[], int key_len,
+		     unsigned char inner[], unsigned char outer[])
+{
+	unsigned char   in[64];
+	unsigned char   out[64];
+	int             i, max_key_len;
+	MV_MD5_CONTEXT	ctx;
+
+	max_key_len = 64;
+
+	for (i = 0; i < key_len; i++) {
+		in[i] = 0x36 ^ key[i];
+		out[i] = 0x5c ^ key[i];
+	}
+	for (i = key_len; i < 64; i++) {
+		in[i] = 0x36;
+		out[i] = 0x5c;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_md5_init(&ctx);
+	mv_md5_update(&ctx, in, max_key_len);
+	mv_md5_digest(inner, &ctx);
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_md5_init(&ctx);
+	mv_md5_update(&ctx, out, max_key_len);
+	mv_md5_digest(outer, &ctx);
+}
+

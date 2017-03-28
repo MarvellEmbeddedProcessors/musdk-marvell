@@ -535,6 +535,7 @@ void mv_sha256_final(uint8_t digest[], SHA256_CTX* context)
 {
 	uint32_t	*d = (uint32_t*)digest;
 	unsigned int	usedspace;
+	uint64_t	*bitcount_ptr;
 
 	if (context == (SHA256_CTX*)0)
 		return;
@@ -571,7 +572,8 @@ void mv_sha256_final(uint8_t digest[], SHA256_CTX* context)
 			*context->buffer = 0x80;
 		}
 		/* Set the bit count: */
-		*(uint64_t*)&context->buffer[SHA256_SHORT_BLOCK_LENGTH] = context->bitcount;
+		bitcount_ptr = (uint64_t *)&context->buffer[SHA256_SHORT_BLOCK_LENGTH];
+		*bitcount_ptr = context->bitcount;
 
 		/* Final transform: */
 		mv_sha256_transform(context, (uint32_t*)context->buffer);
@@ -647,6 +649,35 @@ char *mv_sha256_data(const uint8_t* data, size_t len, char digest[SHA256_DIGEST_
 	return mv_sha256_end(&context, digest);
 }
 
+void mv_sha256_hmac_iv(unsigned char key[], int key_len,
+		     unsigned char inner[], unsigned char outer[])
+{
+	unsigned char   in[SHA256_BLOCK_LENGTH];
+	unsigned char   out[SHA256_BLOCK_LENGTH];
+	int             i, max_key_len;
+	SHA256_CTX	ctx;
+
+	max_key_len = SHA256_BLOCK_LENGTH;
+
+	for (i = 0; i < key_len; i++) {
+		in[i] = 0x36 ^ key[i];
+		out[i] = 0x5c ^ key[i];
+	}
+	for (i = key_len; i < max_key_len; i++) {
+		in[i] = 0x36;
+		out[i] = 0x5c;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_sha256_init(&ctx);
+	mv_sha256_update(&ctx, in, max_key_len);
+	mv_sha256_result_copy(&ctx, inner);
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_sha256_init(&ctx);
+	mv_sha256_update(&ctx, out, max_key_len);
+	mv_sha256_result_copy(&ctx, outer);
+}
 
 /*** SHA-512: *********************************************************/
 void mv_sha512_init(SHA512_CTX* context)
@@ -876,6 +907,7 @@ void mv_sha512_update(SHA512_CTX* context, const uint8_t *data, size_t len)
 
 void mv_sha512_last(SHA512_CTX* context) {
 	unsigned int	usedspace;
+	uint64_t	*bitcount_ptr;
 
 	usedspace = (context->bitcount[0] >> 3) % SHA512_BLOCK_LENGTH;
 #if BYTE_ORDER == LITTLE_ENDIAN
@@ -908,8 +940,9 @@ void mv_sha512_last(SHA512_CTX* context) {
 		*context->buffer = 0x80;
 	}
 	/* Store the length of input data (in bits): */
-	*(uint64_t*)&context->buffer[SHA512_SHORT_BLOCK_LENGTH] = context->bitcount[1];
-	*(uint64_t*)&context->buffer[SHA512_SHORT_BLOCK_LENGTH+8] = context->bitcount[0];
+	bitcount_ptr = (uint64_t *)&context->buffer[SHA256_SHORT_BLOCK_LENGTH];
+	bitcount_ptr[0] = context->bitcount[1];
+	bitcount_ptr[1] = context->bitcount[0];
 
 	/* Final transform: */
 	mv_sha512_transform(context, (uint64_t*)context->buffer);
@@ -973,6 +1006,34 @@ char* mv_sha512_data(const uint8_t* data, size_t len, char digest[SHA512_DIGEST_
 	return mv_sha512_end(&context, digest);
 }
 
+void mv_sha512_hmac_iv(unsigned char key[], int key_len,
+		     unsigned char inner[], unsigned char outer[])
+{
+	unsigned char   in[SHA512_BLOCK_LENGTH];
+	unsigned char   out[SHA512_BLOCK_LENGTH];
+	int             i, max_key_len;
+	SHA512_CTX	context;
+
+	max_key_len = SHA512_BLOCK_LENGTH;
+
+	for (i = 0; i < key_len; i++) {
+		in[i] = 0x36 ^ key[i];
+		out[i] = 0x5c ^ key[i];
+	}
+	for (i = key_len; i < max_key_len; i++) {
+		in[i] = 0x36;
+		out[i] = 0x5c;
+	}
+	memset(&context, 0, sizeof(context));
+	mv_sha512_init(&context);
+	mv_sha512_update(&context, in, max_key_len);
+	mv_sha512_result_copy(&context, inner);
+
+	memset(&context, 0, sizeof(context));
+	mv_sha512_init(&context);
+	mv_sha512_update(&context, out, max_key_len);
+	mv_sha512_result_copy(&context, outer);
+}
 
 /*** SHA-384: *********************************************************/
 void mv_sha384_init(SHA384_CTX* context)
@@ -1088,5 +1149,34 @@ void mv_sha384_result_copy(SHA384_CTX* context, uint8_t digest[])
 #else
 	bcopy(context->state, d, SHA512_DIGEST_LENGTH);
 #endif /* __BYTE_ORDER == __LITTLE_ENDIAN */
+}
+
+void mv_sha384_hmac_iv(unsigned char key[], int key_len,
+		     unsigned char inner[], unsigned char outer[])
+{
+	unsigned char   in[SHA384_BLOCK_LENGTH];
+	unsigned char   out[SHA384_BLOCK_LENGTH];
+	int             i, max_key_len;
+	SHA384_CTX	context;
+
+	max_key_len = SHA384_BLOCK_LENGTH;
+
+	for (i = 0; i < key_len; i++) {
+		in[i] = 0x36 ^ key[i];
+		out[i] = 0x5c ^ key[i];
+	}
+	for (i = key_len; i < max_key_len; i++) {
+		in[i] = 0x36;
+		out[i] = 0x5c;
+	}
+	memset(&context, 0, sizeof(context));
+	mv_sha384_init(&context);
+	mv_sha384_update(&context, in, max_key_len);
+	mv_sha384_result_copy(&context, inner);
+
+	memset(&context, 0, sizeof(context));
+	mv_sha384_init(&context);
+	mv_sha384_update(&context, out, max_key_len);
+	mv_sha384_result_copy(&context, outer);
 }
 
