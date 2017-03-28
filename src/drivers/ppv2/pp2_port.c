@@ -201,11 +201,10 @@ pp2_port_ingress_disable(struct pp2_port *port)
 static void
 pp2_port_interrupts_disable(struct pp2_port *port)
 {
-	u32 j, mask = 0;
+	u32 mask = 0;
 	uintptr_t cpu_slot = port->cpu_slot;
 
-	for (j = 0; j < PP2_NUM_CPUS; j++)
-		mask |= (1 << j);
+	mask = pp2_hif_map_get();
 
 	pp2_reg_write(cpu_slot, MVPP2_ISR_ENABLE_REG(port->id),
 		      MVPP2_ISR_DISABLE_INTERRUPT(mask));
@@ -1055,11 +1054,14 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 	/* Provide an initial MRU */
 	port->port_mru = MVPP2_MTU_TO_MRU(PP2_PORT_DEFAULT_MTU);
 
-	/* Here was the place to activate interrupts
-	* but do not unmask CPU and RX QVec Shared interrupts yet,
-	* work on polling mode
-	*/
+	/* TODO: Below fn_call is incorrect.
+	 * Should mask Interrupts:
+	 *  - For MUSDK_NIC ports for all cpu_slots, including kernel
+	 *  - For other ports, only for MUSDK cpu_slots (hif_map)
+	 */
+#if 0
 	pp2_port_interrupts_mask(port);
+#endif
 
 #ifdef NO_MVPP2X_DRIVER
 	pp2_port_mac_hw_init(port);

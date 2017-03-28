@@ -534,6 +534,11 @@ static inline uintptr_t pp2_default_cpu_slot(struct pp2_inst *inst)
 	return inst->hw.base[PP2_DEFAULT_REGSPACE].va;
 }
 
+static inline u16 pp2_hif_map_get(void)
+{
+	return pp2_ptr->pp2_common.hif_slot_map;
+}
+
 int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);
 int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);
 int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status);

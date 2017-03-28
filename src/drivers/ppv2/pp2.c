@@ -484,9 +484,8 @@ int pp2_init(struct pp2_init_params *params)
 		return -ENOMEM;
 	}
 	memcpy(&pp2_ptr->init, params, sizeof(*params));
-	/* Copy reserved instances to used ones */
-	pp2_ptr->pp2_common.hif_slot_map = pp2_ptr->init.hif_reserved_map;
-	pp2_ptr->pp2_common.rss_tbl_map = pp2_ptr->init.rss_tbl_reserved_map;
+	pp2_ptr->pp2_common.hif_slot_map = 0;
+	pp2_ptr->pp2_common.rss_tbl_map  = 0;
 	/* TODO: Check first_inq params are valid */
 
 	/* Retrieve netdev if information */
