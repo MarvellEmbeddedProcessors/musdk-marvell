@@ -840,11 +840,11 @@ static int init_all_modules(void)
 	/* Enable 10G port */
 	pp2_params.ppios[0][0].is_enabled = 1;
 	pp2_params.ppios[0][0].first_inq = 0;
-	/* Enable 1G ports */
-	pp2_params.ppios[0][1].is_enabled = 1;
-	pp2_params.ppios[0][1].first_inq = 0;
-	pp2_params.ppios[0][2].is_enabled = 1;
-	pp2_params.ppios[0][2].first_inq = 0;
+	/* Enable 1G ports according to DTS files */
+	if (garg.pp2_num_inst == 1) {
+		pp2_params.ppios[0][2].is_enabled = 1;
+		pp2_params.ppios[0][2].first_inq = 0;
+	}
 	if (garg.pp2_num_inst == 2) {
 		/* Enable 10G port */
 		pp2_params.ppios[1][0].is_enabled = 1;
@@ -852,8 +852,6 @@ static int init_all_modules(void)
 		/* Enable 1G ports */
 		pp2_params.ppios[1][1].is_enabled = 1;
 		pp2_params.ppios[1][1].first_inq = 0;
-		pp2_params.ppios[1][2].is_enabled = 1;
-		pp2_params.ppios[1][2].first_inq = 0;
 	}
 	err = pp2_init(&pp2_params);
 	if (err)
