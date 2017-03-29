@@ -81,7 +81,7 @@ static char tx_retry_str[] = "Tx Retry disabled";
 #define DFLT_BURST_SIZE	256
 #define PKT_OFFS	64
 #define PKT_EFEC_OFFS	(PKT_OFFS + PP2_MH_SIZE)
-#define MAX_PPIOS	1
+#define MAX_PPIOS	2
 #define MAX_NUM_CORES	4
 #define DMA_MEM_SIZE	(40 * 1024 * 1024)
 #define MAX_NUM_BUFFS	(16384 - 32)
@@ -1627,15 +1627,18 @@ static void usage(char *progname)
 	       "                  Interface count min 1, max %i\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
-	       "\t-b <size>                Burst size (default is %d)\n"
-	       "\t-t <mtu>                 Set MTU (default is %d)\n"
-	       "\t-c, --cores <number>     Number of CPUs to use.\n"
-	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity).\n"
+	       "\t-b <size>                Burst size, num_pkts handled in a batch.(default is %d)\n"
+	       "\t--mtu <mtu>              Set MTU (default is %d)\n"
+	       "\t-c, --cores <number>     Number of CPUs to use\n"
+	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t-s                       Maintain statistics\n"
-	       "\t--no-echo                No Echo packets\n"
+	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
+	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
+	       "\t--old-tx-desc-release    Use pp2_bpool_put_buff(), instead of NEW pp2_bpool_put_buffs() API\n"
+	       "\t--no-echo                Don't perform 'pkt_echo', N/A w/o define PKT_ECHO_SUPPORT\n"
 	       "\t--cli                    Use CLI\n"
-	       "\t?, -h, --help            Display help and exit.\n\n"
-	       "\n", NO_PATH(progname), NO_PATH(progname), MAX_PPIOS, MAX_BURST_SIZE, DEFAULT_MTU
+	       "\t?, -h, --help            Display help and exit\n\n"
+	       "\n", NO_PATH(progname), NO_PATH(progname), MAX_PPIOS, DFLT_BURST_SIZE, DEFAULT_MTU, RXQ_SIZE
 	       );
 }
 
@@ -1703,7 +1706,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			}
 			garg->burst = atoi(argv[i+1]);
 			i += 2;
-		} else if (strcmp(argv[i], "-t") == 0) {
+		} else if (strcmp(argv[i], "--mtu") == 0) {
 			if (argc < (i+2)) {
 				pr_err("Invalid number of arguments!\n");
 				return -EINVAL;
