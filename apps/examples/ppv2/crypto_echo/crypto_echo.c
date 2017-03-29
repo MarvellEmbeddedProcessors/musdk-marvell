@@ -78,6 +78,22 @@
 #define CRYPT_APP_PKT_ECHO_SUPPORT
 #define CRYPT_APP_PREFETCH_SHIFT	4
 
+#define COOKIE_SET_DIR(_c, _d)		((_c) = (void *)(((uintptr_t)(_c) & ~0x1) | ((_d) << 0)))
+#define COOKIE_SET_RX_PORT(_c, _p)	((_c) = (void *)(((uintptr_t)(_c) & ~0x4) | ((_p) << 2)))
+#define COOKIE_SET_TX_PORT(_c, _p)	((_c) = (void *)(((uintptr_t)(_c) & ~0x8) | ((_p) << 3)))
+#define COOKIE_SET_ALL_INFO(_c, _rp, _tp, _bp, _d)	\
+	((_c) = (void *)(((uintptr_t)(_c) & ~0x3d) | \
+		(((_d) << 0) | ((_rp) << 2) | ((_tp) << 3) | ((_bp) << 4))))
+#define PP2_COOKIE_SET_ALL_INFO(_c, _rp, _tp, _bp, _d)	\
+	((_c) = (((_c) & ~0x3d) | \
+		(((_d) << 0) | ((_rp) << 2) | ((_tp) << 3) | ((_bp) << 4))))
+#define COOKIE_GET_DIR(_c)		((uintptr_t)(_c) & 0x1)
+#define COOKIE_GET_RX_PORT(_c)		(((uintptr_t)(_c) & 0x4) >> 2)
+#define COOKIE_GET_TX_PORT(_c)		(((uintptr_t)(_c) & 0x8) >> 3)
+#define COOKIE_GET_BPOOL(_c)		(((uintptr_t)(_c) & 0x30) >> 4)
+#define COOKIE_CLEAR_ALL_INFO(_c)	((_c) = (void *)((uintptr_t)(_c) & ~0x3d))
+#define PP2_COOKIE_CLEAR_ALL_INFO(_c)	((_c) = ((_c) & ~0x3d))
+
 /*#define CRYPT_APP_BPOOLS_INF	{ {384, 4096}, {2048, 1024} }*/
 #define CRYPT_APP_BPOOLS_INF	{ {2048, 4096} }
 /*#define CRYPT_APP_BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }*/
@@ -175,22 +191,6 @@ static inline void prefetch(const void *ptr)
 	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
 }
 
-static inline void free_not_sent_buffers(struct local_arg	*larg,
-					 struct pp2_bpool	*bpool,
-					 struct pp2_ppio_desc	*descs,
-					 u16			num)
-{
-	int i;
-	struct pp2_buff_inf binf;
-
-	for (i = 0; i < num; i++) {
-		binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
-		binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
-		pp2_bpool_put_buff(larg->hif, bpool, &binf);
-	}
-	larg->drop_cnt += num;
-}
-
 #ifdef CRYPT_APP_PKT_ECHO_SUPPORT
 static inline void echo_pkts(struct local_arg		*larg,
 			    struct sam_cio_op_result	*sam_res_descs,
@@ -201,9 +201,13 @@ static inline void echo_pkts(struct local_arg		*larg,
 	u16			 i;
 
 	for (i = 0; i < num; i++) {
-		if (num-i > prefetch_shift)
-			prefetch((char *)(uintptr_t)sam_res_descs[i+prefetch_shift].cookie);
-		tmp_buff = (char *)(uintptr_t)sam_res_descs[i].cookie;
+		if (num-i > prefetch_shift) {
+			tmp_buff = sam_res_descs[i+prefetch_shift].cookie;
+			COOKIE_CLEAR_ALL_INFO(tmp_buff);
+			prefetch(tmp_buff);
+		}
+		tmp_buff = sam_res_descs[i].cookie;
+		COOKIE_CLEAR_ALL_INFO(tmp_buff);
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose) {
 			printf("pkt before echo (len %d):\n",
@@ -221,7 +225,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 
 static inline int enc_pkts(struct local_arg		*larg,
 			    u8				 rx_ppio_id,
-			    u8				 bpool_id,
+			    u8				 tx_ppio_id,
 			    struct pp2_ppio_desc	*descs,
 			    u16				 num)
 {
@@ -265,7 +269,9 @@ static inline int enc_pkts(struct local_arg		*larg,
 		dst_buf_infs[i].len = bpool_buff_len;
 
 		sam_descs[i].sa = larg->enc_sa;
-		sam_descs[i].cookie = dst_buf_infs[i].vaddr + 1;
+		sam_descs[i].cookie = dst_buf_infs[i].vaddr;
+		/* TODO: find appropriate BPool-id! */
+		COOKIE_SET_ALL_INFO(sam_descs[i].cookie, rx_ppio_id, tx_ppio_id, 0, 1);
 		sam_descs[i].num_bufs = 1;
 		sam_descs[i].src = &src_buf_infs[i];
 		sam_descs[i].dst = &dst_buf_infs[i];
@@ -284,19 +290,30 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 	}
 	if (num_got < num) {
 		struct pp2_bpool	*bpool;
+		struct pp2_buff_inf	 binf;
 
-		bpool = larg->pools_desc[larg->ports_desc[rx_ppio_id].pp_id][bpool_id].pool;
-		free_not_sent_buffers(larg, bpool, &descs[num_got], num-num_got);
+		for (i = num_got; i < num; i++) {
+			char			*buff = (char *)(uintptr_t)sam_descs[i].cookie;
+			dma_addr_t		 pa;
+
+			COOKIE_CLEAR_ALL_INFO(buff);
+			buff -= MVAPPS_PKT_EFEC_OFFS;
+			pa = mv_sys_dma_mem_virt2phys(buff);
+			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(sam_descs[i].cookie)].pp_id]
+							[COOKIE_GET_BPOOL(sam_descs[i].cookie)].pool;
+			binf.addr = pa;
+			binf.cookie = lower_32_bits((uintptr_t)(buff));
+			pp2_bpool_put_buff(larg->hif, bpool, &binf);
+		}
+		larg->drop_cnt += num - num_got;
 	}
 
 	return 0;
 }
 
 static inline int dec_pkts(struct local_arg		*larg,
-			    u8				 rx_ppio_id,
-			    u8				 bpool_id,
-			    struct sam_cio_op_result	*sam_res_descs,
-			    u16				 num)
+			   struct sam_cio_op_result	*sam_res_descs,
+			   u16				 num)
 {
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
@@ -313,7 +330,9 @@ static inline int dec_pkts(struct local_arg		*larg,
 
 	/* For decryption crypto parameters are caclulated from cookie and out_len */
 	for (i = 0; i < num; i++) {
-		src_buf_infs[i].vaddr = (char *)(uintptr_t)sam_res_descs[i].cookie;
+		sam_descs[i].cookie = sam_res_descs[i].cookie;
+		src_buf_infs[i].vaddr = (char *)(uintptr_t)sam_descs[i].cookie;
+		COOKIE_CLEAR_ALL_INFO(src_buf_infs[i].vaddr);
 		src_buf_infs[i].paddr = mv_sys_dma_mem_virt2phys(src_buf_infs[i].vaddr-MVAPPS_PKT_EFEC_OFFS);
 		src_buf_infs[i].len = sam_res_descs[i].out_len;
 
@@ -322,7 +341,6 @@ static inline int dec_pkts(struct local_arg		*larg,
 		dst_buf_infs[i].len = bpool_buff_len;
 
 		sam_descs[i].sa = larg->dec_sa;
-		sam_descs[i].cookie = dst_buf_infs[i].vaddr;
 		sam_descs[i].num_bufs = 1;
 		sam_descs[i].src = &src_buf_infs[i];
 		sam_descs[i].dst = &dst_buf_infs[i];
@@ -340,45 +358,51 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 	}
 	if (num_got < num) {
 		struct pp2_bpool	*bpool;
-		struct pp2_ppio_desc	 descs[CRYPT_APP_MAX_BURST_SIZE];
+		struct pp2_buff_inf	 binf;
 
-		bpool = larg->pools_desc[larg->ports_desc[rx_ppio_id].pp_id][bpool_id].pool;
-		for (i = 0; i < num - num_got; i++) {
+		for (i = num_got; i < num; i++) {
 			char			*buff = (char *)(uintptr_t)sam_descs[i].cookie;
-			dma_addr_t		 pa = mv_sys_dma_mem_virt2phys(buff-MVAPPS_PKT_EFEC_OFFS);
+			dma_addr_t		 pa;
 
-			pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-			pp2_ppio_outq_desc_set_cookie(&descs[i], lower_32_bits((uintptr_t)(buff)));
+			COOKIE_CLEAR_ALL_INFO(buff);
+			buff -= MVAPPS_PKT_EFEC_OFFS;
+			pa = mv_sys_dma_mem_virt2phys(buff);
+			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(sam_descs[i].cookie)].pp_id]
+							[COOKIE_GET_BPOOL(sam_descs[i].cookie)].pool;
+			binf.addr = pa;
+			binf.cookie = lower_32_bits((uintptr_t)(buff));
+			pp2_bpool_put_buff(larg->hif, bpool, &binf);
 		}
-		free_not_sent_buffers(larg, bpool, descs, num-num_got);
+		larg->drop_cnt += num - num_got;
 	}
 
 	return 0;
 }
 
 static inline int send_pkts(struct local_arg		*larg,
-			    u8				 rx_ppio_id,
-			    u8				 tx_ppio_id,
-			    u8				 bpool_id,
 			    u8				 tc,
 			    struct sam_cio_op_result	*sam_res_descs,
 			    u16				 num)
 {
-	struct pp2_bpool	*bpool;
 	struct tx_shadow_q	*shadow_q;
+	struct pp2_bpool	*bpool;
 	struct pp2_buff_inf	*binf;
-	struct pp2_ppio_desc	 descs[CRYPT_APP_MAX_BURST_SIZE];
+	struct pp2_ppio_desc	*desc;
+	struct pp2_ppio_desc	 descs[CRYPT_APP_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
 	int			 err;
-	u16			 i, num_got;
+	u16			 i, rp, tp, bp, num_got, port_nums[CRYPT_APP_MAX_NUM_PORTS];
 
-	bpool = larg->pools_desc[larg->ports_desc[rx_ppio_id].pp_id][bpool_id].pool;
-	shadow_q = &(larg->ports_desc[tx_ppio_id].shadow_qs[tc]);
+	for (tp = 0; tp < larg->garg->num_ports; tp++)
+		port_nums[tp] = 0;
 
 	for (i = 0; i < num; i++) {
 		char			*buff = (char *)(uintptr_t)sam_res_descs[i].cookie;
-		dma_addr_t		 pa = mv_sys_dma_mem_virt2phys(buff-MVAPPS_PKT_EFEC_OFFS);
+		dma_addr_t		 pa;
 		/* TODO: size is incorrect!!! */
 		u16			 len = sam_res_descs[i].out_len - MVAPPS_PKT_EFEC_OFFS;
+
+		COOKIE_CLEAR_ALL_INFO(buff);
+		pa = mv_sys_dma_mem_virt2phys(buff-MVAPPS_PKT_EFEC_OFFS);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose) {
@@ -390,57 +414,86 @@ static inline int send_pkts(struct local_arg		*larg,
 
 		buff -= MVAPPS_PKT_EFEC_OFFS;
 
-		pp2_ppio_outq_desc_reset(&descs[i]);
-		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PKT_EFEC_OFFS);
-		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
+		rp = COOKIE_GET_RX_PORT(sam_res_descs[i].cookie);
+		tp = COOKIE_GET_TX_PORT(sam_res_descs[i].cookie);
+		bp = COOKIE_GET_BPOOL(sam_res_descs[i].cookie);
+		desc = &descs[tp][port_nums[tp]];
+		shadow_q = &(larg->ports_desc[tp].shadow_qs[tc]);
+		pp2_ppio_outq_desc_reset(desc);
+		pp2_ppio_outq_desc_set_phys_addr(desc, pa);
+		pp2_ppio_outq_desc_set_pkt_offset(desc, MVAPPS_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_len(desc, len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
+		PP2_COOKIE_SET_ALL_INFO(shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie, rp, tp, bp, 0);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == CRYPT_APP_TX_Q_SIZE)
 			shadow_q->write_ind = 0;
+		port_nums[tp]++;
 	}
 
-	num_got = num;
-#ifdef CRYPT_APP_VERBOSE_DEBUG
-	if (larg->garg->verbose && num_got)
-		printf("send %d pkts on ppio %d, tc %d\n", num_got, tx_ppio_id, tc);
-#endif /* CRYPT_APP_VERBOSE_DEBUG */
+	for (tp = 0; tp < larg->garg->num_ports; tp++) {
+		num = num_got = port_nums[tp];
+		shadow_q = &(larg->ports_desc[tp].shadow_qs[tc]);
 START_COUNT_CYCLES(pme_ev_cnt_tx);
-	if (num_got) {
-		err = pp2_ppio_send(larg->ports_desc[tx_ppio_id].ppio, larg->hif, tc, descs, &num_got);
-		if (err)
-			return err;
-	}
-STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
-	if (num_got < num)
-		free_not_sent_buffers(larg, bpool, &descs[num_got], num-num_got);
-
-	pp2_ppio_get_num_outq_done(larg->ports_desc[tx_ppio_id].ppio, larg->hif, tc, &num);
-	for (i = 0; i < num; i++) {
-		binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
-		if (unlikely(!binf->cookie || !binf->addr)) {
-			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-				   shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
-			continue;
+		if (num_got) {
+			err = pp2_ppio_send(larg->ports_desc[tp].ppio, larg->hif, tc, descs[tp], &num_got);
+			if (err)
+				return err;
 		}
-		pp2_bpool_put_buff(larg->hif,
-				   bpool,
-				   binf);
-		shadow_q->read_ind++;
-		if (shadow_q->read_ind == CRYPT_APP_TX_Q_SIZE)
-			shadow_q->read_ind = 0;
+STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+		if (larg->garg->verbose && num_got)
+			printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
+		if (num_got < num) {
+			for (i = 0; i < num - num_got; i++) {
+				if (shadow_q->write_ind == 0)
+					shadow_q->write_ind = CRYPT_APP_TX_Q_SIZE;
+				shadow_q->write_ind--;
+				binf = &(shadow_q->ents[shadow_q->write_ind].buff_ptr);
+				if (unlikely(!binf->cookie || !binf->addr)) {
+					pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
+						   shadow_q->write_ind, (u64)binf->cookie, (u64)binf->addr);
+					continue;
+				}
+				bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(binf->cookie)].pp_id]
+								[COOKIE_GET_BPOOL(binf->cookie)].pool;
+				PP2_COOKIE_CLEAR_ALL_INFO(binf->cookie);
+				pp2_bpool_put_buff(larg->hif,
+						   bpool,
+						   binf);
+			}
+			larg->drop_cnt += num - num_got;
+		}
+
+		pp2_ppio_get_num_outq_done(larg->ports_desc[tp].ppio, larg->hif, tc, &num);
+		for (i = 0; i < num; i++) {
+			binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
+			if (unlikely(!binf->cookie || !binf->addr)) {
+				pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
+					   shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
+				continue;
+			}
+			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(binf->cookie)].pp_id]
+							[COOKIE_GET_BPOOL(binf->cookie)].pool;
+			PP2_COOKIE_CLEAR_ALL_INFO(binf->cookie);
+			pp2_bpool_put_buff(larg->hif,
+					   bpool,
+					   binf);
+			shadow_q->read_ind++;
+			if (shadow_q->read_ind == CRYPT_APP_TX_Q_SIZE)
+				shadow_q->read_ind = 0;
+		}
+		larg->tx_cnt += num;
+
 	}
-	larg->tx_cnt += num;
 
 	return 0;
 }
 
 static inline int deq_n_proc_pkts(struct local_arg	*larg,
 				  struct sam_cio	*cio,
-				  u8			 rx_ppio_id,
-				  u8			 tx_ppio_id,
-				  u8			 bpool_id,
 				  u8			 tc)
 {
 	struct sam_cio_op_result sam_res_descs[CRYPT_APP_MAX_BURST_SIZE];
@@ -460,10 +513,32 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 #ifdef CRYPT_APP_VERBOSE_CHECKS
 	for (i = 0; i < num; i++) {
 		if (sam_res_descs[i].status != SAM_CIO_OK) {
-			pr_err("SAM operation (EnC) failed (%d)!\n", sam_res_descs[i].status);
-			return -EFAULT;
+			struct pp2_bpool	*bpool;
+			struct pp2_buff_inf	 binf;
+			char			*buff = (char *)(uintptr_t)sam_res_descs[i].cookie;
+			dma_addr_t		 pa;
+
+			pr_warn("SAM operation (EnC) failed (%d)!\n", sam_res_descs[i].status);
+
+			COOKIE_CLEAR_ALL_INFO(buff);
+			pa = mv_sys_dma_mem_virt2phys(buff-MVAPPS_PKT_EFEC_OFFS);
+			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(sam_res_descs[i].cookie)].pp_id]
+							[COOKIE_GET_BPOOL(sam_res_descs[i].cookie)].pool;
+			binf.addr = pa;
+			binf.cookie = lower_32_bits((uintptr_t)(buff));
+			pp2_bpool_put_buff(larg->hif, bpool, &binf);
+			if (i < (num-1)) {
+				memcpy(&sam_res_descs[i],
+				       &sam_res_descs[i+1],
+				       sizeof(struct sam_cio_op_result)*(num-i-1));
+				i--;
+				num--;
+			}
+			larg->drop_cnt++;
+
+			continue;
 		}
-		if (!sam_res_descs[i].cookie) {
+		if (unlikely(!sam_res_descs[i].cookie)) {
 			pr_err("SAM operation (EnC) failed (no cookie: %d,%d)!\n", i, sam_res_descs[i].out_len);
 			return -EFAULT;
 		}
@@ -471,8 +546,8 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 #endif /* CRYPT_APP_VERBOSE_CHECKS */
 
 	for (i = num_enc = num_dec = 0; i < num; i++) {
-		if ((uintptr_t)sam_res_descs[i].cookie & 0x1) {
-			sam_res_descs[i].cookie = (void *)((uintptr_t)sam_res_descs[i].cookie & ~0x1);
+		if (COOKIE_GET_DIR(sam_res_descs[i].cookie) == 0x1) {
+			COOKIE_SET_DIR(sam_res_descs[i].cookie, 0);
 			sam_enc_res_descs[num_enc++] = sam_res_descs[i];
 		} else
 			sam_dec_res_descs[num_dec++] = sam_res_descs[i];
@@ -484,13 +559,13 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 			echo_pkts(larg, sam_enc_res_descs, num_enc);
 #endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
 
-		err = dec_pkts(larg, rx_ppio_id, bpool_id, sam_enc_res_descs, num_enc);
+		err = dec_pkts(larg, sam_enc_res_descs, num_enc);
 		if (unlikely(err))
 			return err;
 	}
 
 	if (num_dec)
-		return send_pkts(larg, rx_ppio_id, tx_ppio_id, bpool_id, tc, sam_dec_res_descs, num_dec);
+		return send_pkts(larg, tc, sam_dec_res_descs, num_dec);
 
 	return 0;
 }
@@ -498,7 +573,6 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tx_ppio_id,
-				  u8			 bpool_id,
 				  u8			 tc,
 				  u8			 qid,
 				  u16			 num)
@@ -516,16 +590,16 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	if (num) {
-		err = enc_pkts(larg, rx_ppio_id, bpool_id, descs, num);
+		err = enc_pkts(larg, rx_ppio_id, tx_ppio_id, descs, num);
 		if (unlikely(err))
 			return err;
 	}
 
-	err = deq_n_proc_pkts(larg, larg->enc_cio, rx_ppio_id, tx_ppio_id, bpool_id, tc);
+	err = deq_n_proc_pkts(larg, larg->enc_cio, tc);
 	if (unlikely(err))
 		return err;
 	if (larg->dec_cio != larg->enc_cio)
-		return deq_n_proc_pkts(larg, larg->dec_cio, rx_ppio_id, tx_ppio_id, bpool_id, tc);
+		return deq_n_proc_pkts(larg, larg->dec_cio, tc);
 	return 0;
 }
 
@@ -571,7 +645,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 			}
 		} while (!(larg->qs_map & (1<<((tc*MVAPPS_MAX_NUM_QS_PER_TC)+qid))));
 
-		err = loop_sw_recycle(larg, 0, 0, 0, tc, qid, num);
+		err = loop_sw_recycle(larg, 0, 0, tc, qid, num);
 		if (err != 0)
 			return err;
 	}
@@ -604,8 +678,8 @@ static int loop_2ps(struct local_arg *larg, int *running)
 			}
 		} while (!(larg->qs_map & (1<<((tc*MVAPPS_MAX_NUM_QS_PER_TC)+qid))));
 
-		err  = loop_sw_recycle(larg, 0, 1, 0, tc, qid, num);
-		err |= loop_sw_recycle(larg, 1, 0, 0, tc, qid, num);
+		err  = loop_sw_recycle(larg, 0, 1, tc, qid, num);
+		err |= loop_sw_recycle(larg, 1, 0, tc, qid, num);
 		if (err != 0)
 			return err;
 	}
