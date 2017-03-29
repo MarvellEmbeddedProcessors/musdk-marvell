@@ -38,7 +38,7 @@ Supported Features
 - PPIO features:
 	- Tx/Rx interface
 	- Buffer pool interface
-	- Single buffer pool
+	- Multiple buffer pools
 	- Single traffic class
 	- L4 checksum offload
 	- MUSDK and kernel ports may operate together
