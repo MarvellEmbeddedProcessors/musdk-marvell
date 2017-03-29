@@ -47,7 +47,8 @@
 
 #define CLS_APP_DMA_MEM_SIZE			(10 * 1024 * 1024)
 #define CLS_APP_MAX_NUM_TCS_PER_PORT		4
-#define CLS_APP_FIRST_IN_QUEUE			4 /* TODO: need to read from kernel through sysfs function */
+#define CLS_APP_FIRST_LOG_PORT_IN_QUEUE		4
+#define CLS_APP_FIRST_MUSDK_IN_QUEUE		0
 #define CLS_APP_PP2_MAX_NUM_QS_PER_TC		1
 #define CLS_APP_STR_SIZE_MAX			40
 #define CLS_APP_KEY_SIZE_MAX			37
@@ -302,6 +303,13 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 		key_size = 1;
 	}
 	return key_size;
+}
+
+static u32 pp2_cls_first_queue_get(void)
+{
+	/* TODO: need to read from kernel through sysfs function */
+	return (garg.port_params.type == PP2_PPIO_T_LOG ?
+		CLS_APP_FIRST_LOG_PORT_IN_QUEUE : CLS_APP_FIRST_MUSDK_IN_QUEUE);
 }
 
 /*
@@ -1641,6 +1649,7 @@ static int init_all_modules(void)
 {
 	struct pp2_init_params *pp2_params = &garg.pp2_params;
 	int			 err;
+	u32			first_inq;
 
 	pr_info("Global initializations ...\n");
 
@@ -1648,27 +1657,29 @@ static int init_all_modules(void)
 	if (err)
 		return err;
 
+	first_inq = pp2_cls_first_queue_get();
+
 	memset(pp2_params, 0, sizeof(*pp2_params));
 	pp2_params->hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 	/* Enable 10G port */
 	pp2_params->ppios[0][0].is_enabled = 1;
-	pp2_params->ppios[0][0].first_inq = CLS_APP_FIRST_IN_QUEUE;
+	pp2_params->ppios[0][0].first_inq = first_inq;
 	/* Enable 1G ports */
 	pp2_params->ppios[0][1].is_enabled = 0;
-	pp2_params->ppios[0][1].first_inq = CLS_APP_FIRST_IN_QUEUE;
+	pp2_params->ppios[0][1].first_inq = first_inq;
 	pp2_params->ppios[0][2].is_enabled = 1;
-	pp2_params->ppios[0][2].first_inq = CLS_APP_FIRST_IN_QUEUE;
+	pp2_params->ppios[0][2].first_inq = first_inq;
 
 	if (garg.pp2_num_inst == 2) {
 		/* Enable 10G port */
 		pp2_params->ppios[1][0].is_enabled = 1;
-		pp2_params->ppios[1][0].first_inq = CLS_APP_FIRST_IN_QUEUE;
+		pp2_params->ppios[1][0].first_inq = first_inq;
 		/* Enable 1G ports */
 		pp2_params->ppios[1][1].is_enabled = 1;
-		pp2_params->ppios[1][1].first_inq = CLS_APP_FIRST_IN_QUEUE;
+		pp2_params->ppios[1][1].first_inq = first_inq;
 		pp2_params->ppios[1][2].is_enabled = 0;
-		pp2_params->ppios[1][2].first_inq = CLS_APP_FIRST_IN_QUEUE;
+		pp2_params->ppios[1][2].first_inq = first_inq;
 	}
 	err = pp2_init(pp2_params);
 	if (err)
