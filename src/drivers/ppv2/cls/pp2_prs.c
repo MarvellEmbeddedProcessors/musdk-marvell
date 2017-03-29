@@ -1733,7 +1733,7 @@ static int mv_pp2x_prs_log_port_init(struct pp2_inst *inst, enum pp2_ppio_cls_ta
 
 	/* Set as default UDF7 of all MAC entries to specified target */
 	for (i = 0; i < MVPP2_PRS_TCAM_SRAM_SIZE; i++) {
-		if (prs_shadow[i].valid && prs_shadow[i].lu == MVPP2_PRS_LU_MAC) {
+		if (prs_shadow[i].valid && prs_shadow[i].lu == MVPP2_PRS_LU_MH) {
 			pe.index = i;
 			mv_pp2x_prs_hw_read(cpu_slot, &pe);
 			mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_CLEAR, MVPP2_PRS_RI_UDF7_MASK);
