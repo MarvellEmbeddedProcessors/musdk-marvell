@@ -51,7 +51,7 @@
  * 3. Neither the name of the copyright holder nor the names of contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR(S) AND CONTRIBUTOR(S) ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -106,26 +106,26 @@ void mv_sha256_init(SHA256_CTX *ctx);
 void mv_sha256_update(SHA256_CTX *ctx, const uint8_t *input, size_t length);
 void mv_sha256_result_copy(SHA256_CTX *ctx, unsigned char *digest);
 void mv_sha256_final(uint8_t[SHA256_DIGEST_LENGTH], SHA256_CTX*);
-char* mv_sha256_end(SHA256_CTX*, char[SHA256_DIGEST_STRING_LENGTH]);
-char* mv_sha256_data(const uint8_t*, size_t, char[SHA256_DIGEST_STRING_LENGTH]);
+char *mv_sha256_end(SHA256_CTX *ctx, char[SHA256_DIGEST_STRING_LENGTH]);
+char *mv_sha256_data(const uint8_t *buf, size_t, char[SHA256_DIGEST_STRING_LENGTH]);
 void mv_sha256_hmac_iv(unsigned char key[], int key_len,
 		     unsigned char inner[], unsigned char outer[]);
 
 void mv_sha384_init(SHA384_CTX *ctx);
 void mv_sha384_update(SHA384_CTX *ctx, const uint8_t*, size_t);
 void mv_sha384_final(uint8_t[SHA384_DIGEST_LENGTH], SHA384_CTX*);
-char* mv_sha384_end(SHA384_CTX*, char[SHA384_DIGEST_STRING_LENGTH]);
-char* mv_sha384_data(const uint8_t*, size_t, char[SHA384_DIGEST_STRING_LENGTH]);
-void mv_sha384_result_copy(SHA384_CTX* context, uint8_t digest[]);
+char *mv_sha384_end(SHA384_CTX *ctx, char[SHA384_DIGEST_STRING_LENGTH]);
+char *mv_sha384_data(const uint8_t *buf, size_t, char[SHA384_DIGEST_STRING_LENGTH]);
+void mv_sha384_result_copy(SHA384_CTX *context, uint8_t digest[]);
 void mv_sha384_hmac_iv(unsigned char key[], int key_len,
 		     unsigned char inner[], unsigned char outer[]);
 
-void mv_sha512_init(SHA512_CTX*);
-void mv_sha512_update(SHA512_CTX*, const uint8_t*, size_t);
-void mv_sha512_final(uint8_t[SHA512_DIGEST_LENGTH], SHA512_CTX*);
-char* mv_sha512_end(SHA512_CTX*, char[SHA512_DIGEST_STRING_LENGTH]);
-char* mv_sha512_data(const u_int8_t*, size_t, char[SHA512_DIGEST_STRING_LENGTH]);
-void mv_sha512_result_copy(SHA512_CTX* context, uint8_t digest[]);
+void mv_sha512_init(SHA512_CTX *ctx);
+void mv_sha512_update(SHA512_CTX *ctx, const uint8_t*, size_t);
+void mv_sha512_final(uint8_t[SHA512_DIGEST_LENGTH], SHA512_CTX *ctx);
+char *mv_sha512_end(SHA512_CTX *ctx, char[SHA512_DIGEST_STRING_LENGTH]);
+char *mv_sha512_data(const u_int8_t *buf, size_t, char[SHA512_DIGEST_STRING_LENGTH]);
+void mv_sha512_result_copy(SHA512_CTX *context, uint8_t digest[]);
 void mv_sha512_hmac_iv(unsigned char key[], int key_len,
 		     unsigned char inner[], unsigned char outer[]);
 

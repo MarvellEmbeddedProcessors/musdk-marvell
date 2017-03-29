@@ -39,11 +39,6 @@ libmusdk_la_SOURCES += lib/uio/uio_num_from_filename.c
 libmusdk_la_SOURCES += lib/uio/uio_single_mmap.c
 libmusdk_la_SOURCES += lib/uio/uio_find_mem_byname.c
 
-libmusdk_la_SOURCES += lib/crypto/mv_md5.c
-libmusdk_la_SOURCES += lib/crypto/mv_sha1.c
-libmusdk_la_SOURCES += lib/crypto/mv_sha2.c
-libmusdk_la_SOURCES += lib/crypto/mv_aes.c
-
 libmusdk_la_SOURCES += env/spinlock.c
 libmusdk_la_SOURCES += env/cma.c
 libmusdk_la_SOURCES += env/hugepage_mem.c
@@ -91,9 +86,6 @@ if SAM_BUILD
 nobase_include_HEADERS += include/drivers/mv_sam.h
 nobase_include_HEADERS += include/drivers/mv_sam_cio.h
 nobase_include_HEADERS += include/drivers/mv_sam_session.h
-nobase_include_HEADERS += include/lib/mv_md5.h
-nobase_include_HEADERS += include/lib/mv_sha2.h
-nobase_include_HEADERS += include/lib/mv_sha1.h
 
 libmusdk_la_SOURCES += drivers/sam/sam.c
 libmusdk_la_SOURCES += drivers/sam/sam_hw.c

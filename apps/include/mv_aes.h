@@ -36,6 +36,6 @@
 #include <stdint.h>
 
 
-void mv_aes_ecb_encrypt(uint8_t* input, const uint8_t* key, uint8_t *output, int key_size);
+void mv_aes_ecb_encrypt(uint8_t *input, const uint8_t *key, uint8_t *output, int key_size);
 
 #endif /* __MV_AES_H__ */

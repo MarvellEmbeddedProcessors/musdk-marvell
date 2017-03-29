@@ -49,7 +49,7 @@
 
 #include <std_internal.h>
 
-#include "lib/mv_md5.h"
+#include "mv_md5.h"
 
 static void mv_md5_transform(unsigned int buf[4], unsigned int const in[MV_MD5_MAC_LEN]);
 
@@ -150,7 +150,8 @@ void mv_md5_final(unsigned char digest[MV_MD5_MAC_LEN], MV_MD5_CONTEXT *ctx)
 	count = (ctx->bits[0] >> 3) & 0x3F;
 
 	/* Set the first char of padding to 0x80.  This is safe since there is
-	   always at least one byte free */
+	*  always at least one byte free
+	*/
 	p = ctx->in + count;
 	*p++ = 0x80;
 

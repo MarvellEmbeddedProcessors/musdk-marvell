@@ -45,7 +45,7 @@
  */
 
 #include <std_internal.h>
-#include "lib/mv_sha1.h"
+#include "mv_sha1.h"
 
 #define SHA1HANDSOFF
 
@@ -71,19 +71,34 @@ static void mv_sha1_transform(unsigned int state[5], const unsigned char *buffer
 
 /* (R0+R1), R2, R3, R4 are the different operations used in SHA1 */
 #define R0(v, w, x, y, z, i) \
-		z += ((w & (x ^ y)) ^ y) + blk0(i) + 0x5A827999 + rol(v, 5); \
-		w = rol(w, 30);
+do { \
+	z += ((w & (x ^ y)) ^ y) + blk0(i) + 0x5A827999 + rol(v, 5); \
+	w = rol(w, 30); \
+} while (0)
+
 #define R1(v, w, x, y, z, i) \
-		z += ((w & (x ^ y)) ^ y) + blk(i) + 0x5A827999 + rol(v, 5); \
-		w = rol(w, 30);
+do { \
+	z += ((w & (x ^ y)) ^ y) + blk(i) + 0x5A827999 + rol(v, 5); \
+	w = rol(w, 30); \
+} while (0)
+
 #define R2(v, w, x, y, z, i) \
-		z += (w ^ x ^ y) + blk(i) + 0x6ED9EBA1 + rol(v, 5); w = rol(w, 30);
+do { \
+	z += (w ^ x ^ y) + blk(i) + 0x6ED9EBA1 + rol(v, 5); \
+	w = rol(w, 30); \
+} while (0)
+
 #define R3(v, w, x, y, z, i) \
-		z += (((w | x) & y) | (w & x)) + blk(i) + 0x8F1BBCDC + rol(v, 5); \
-		w = rol(w, 30);
+do { \
+	z += (((w | x) & y) | (w & x)) + blk(i) + 0x8F1BBCDC + rol(v, 5); \
+	w = rol(w, 30); \
+} while (0)
+
 #define R4(v, w, x, y, z, i) \
-		z += (w ^ x ^ y) + blk(i) + 0xCA62C1D6 + rol(v, 5); \
-		w = rol(w, 30);
+do { \
+	z += (w ^ x ^ y) + blk(i) + 0xCA62C1D6 + rol(v, 5); \
+	w = rol(w, 30); \
+} while (0)
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
 static void mv_sha1_transform(unsigned int state[5], const unsigned char *buffer)

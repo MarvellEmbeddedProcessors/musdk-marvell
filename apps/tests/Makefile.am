@@ -27,6 +27,11 @@ musdk_sam_kat_SOURCES += sam_kat_suite/array.c
 musdk_sam_kat_SOURCES += sam_kat_suite/generic_list.c
 musdk_sam_kat_SOURCES += sam_kat_suite/encryptedBlock.c
 
+musdk_sam_kat_SOURCES += ../common/crypto/mv_md5.c
+musdk_sam_kat_SOURCES += ../common/crypto/mv_sha1.c
+musdk_sam_kat_SOURCES += ../common/crypto/mv_sha2.c
+musdk_sam_kat_SOURCES += ../common/crypto/mv_aes.c
+
 musdk_sam_kat_LDADD = $(top_builddir)/src/libmusdk.la
 
 bin_SCRIPTS = sam_kat_suite/3des_tests.txt sam_kat_suite/aes_tests.txt
