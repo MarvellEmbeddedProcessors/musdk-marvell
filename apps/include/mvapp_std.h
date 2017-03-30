@@ -30,7 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 #ifndef __MVAPP_STD_H__
 #define __MVAPP_STD_H__
 

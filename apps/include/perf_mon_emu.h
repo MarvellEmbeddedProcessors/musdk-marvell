@@ -38,7 +38,6 @@
 
 #include "mvapp_std.h"
 
-
 #define PME_MAX_NAME_SIZE	20
 #define PME_MAX_EVENT_CNTS	8
 
@@ -59,15 +58,12 @@ struct event_counters {
 	struct timeval	t_last;
 };
 
-
 extern struct event_counters	counters[PME_MAX_EVENT_CNTS];
-
 
 int pme_ev_cnt_create(char *name, u32 max_cnt, int ext_print);
 void pme_ev_cnt_destroy(int cnt);
 
 void pme_ev_cnt_dump(int cnt, int reset);
-
 
 static inline void pme_ev_cnt_start(int cnt)
 {
@@ -89,8 +85,9 @@ static inline void pme_ev_cnt_stop(int cnt, u32 num)
 		ev_cnt->trig_cnt++;
 		if (num > ev_cnt->max_evs)
 			ev_cnt->max_evs = num;
-	} else
+	} else {
 		ev_cnt->zero_cnt++;
+	}
 }
 
 static inline void pme_ev_cnt_stop_n_report(int cnt, u32 num)

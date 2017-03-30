@@ -190,7 +190,6 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 
 	*ppools = pools;
 
-
 	for (i = 0; i < pp2_num_inst; i++) {
 		pools[i] = (struct bpool_desc *)malloc(num_pools * sizeof(struct bpool_desc));
 		if (!pools[i]) {
@@ -240,12 +239,12 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 					return -1;
 				}
 				if (k == 0) {
-					sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL<<32) - 1));
+					sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL << 32) - 1));
 					pr_debug("sys_dma_high_addr (0x%lx)\n", sys_dma_high_addr);
 				}
 				if ((upper_32_bits((u64)buff_virt_addr)) != (sys_dma_high_addr >> 32)) {
 					pr_err("buff_virt_addr(%p)  upper out of range; skipping this buff\n",
-						buff_virt_addr);
+					       buff_virt_addr);
 					continue;
 				}
 				buffs_inf[k].addr = (bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
@@ -266,7 +265,6 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 		}
 	}
 	return 0;
-
 }
 
 int app_find_port_info(struct port_desc *port_desc)
@@ -371,7 +369,6 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 		lcl_port->shadow_qs[i].ents =
 			(struct tx_shadow_q_entry *)malloc(port->outq_size * sizeof(struct tx_shadow_q_entry));
 	}
-
 }
 
 void app_port_local_deinit(struct lcl_port_desc *lcl_port)
@@ -397,7 +394,6 @@ void app_port_local_deinit(struct lcl_port_desc *lcl_port)
 
 	free(lcl_port->shadow_qs);
 }
-
 
 static void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs)
 {
@@ -426,7 +422,6 @@ void app_disable_all_ports(struct port_desc *ports, int num_ports, u16 num_tcs, 
 			free_rx_queues(ports[i].ppio, num_tcs, num_inqs);
 		}
 	}
-
 }
 
 void app_deinit_all_ports(struct port_desc *ports, int num_ports)
@@ -445,20 +440,19 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 
 	if (buf_free_cnt != buf_alloc_cnt)
 		pr_err("Not all buffers were released: allocated: %lu, freed: %lu\n",
-			buf_alloc_cnt, buf_free_cnt);
+		       buf_alloc_cnt, buf_free_cnt);
 
 	if (buf_free_cnt != hw_buf_free_cnt) {
 		pr_err("Error in buffer release: allocated: %lu, app freed: %lu!!!\n",
-			buf_alloc_cnt, buf_free_cnt);
+		       buf_alloc_cnt, buf_free_cnt);
 
 		pr_err("pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
-			hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+		       hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
 			(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
 	}
 
-
 	pr_debug("allocated: %lu, app freed: %lu, pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
-		buf_alloc_cnt, buf_free_cnt, hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+		 buf_alloc_cnt, buf_free_cnt, hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
 		(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
 }
 
@@ -482,7 +476,7 @@ static void flush_pool(struct pp2_bpool *bpool, struct pp2_hif *hif)
 		if (err) {
 			if (err == 10000) {
 				pr_err("flush_pool: p2_id=%d, pool_id=%d: Got NULL buf (%d of %d)\n",
-					bpool->pp2_id, bpool->id, i, buf_num);
+				       bpool->pp2_id, bpool->id, i, buf_num);
 				continue;
 			}
 			pr_warn("flush_pool: p2_id=%d, pool_id=%d: Got buf (%d of %d) after %d retries\n",
@@ -526,5 +520,4 @@ void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif
 		free(pools);
 	}
 }
-
 

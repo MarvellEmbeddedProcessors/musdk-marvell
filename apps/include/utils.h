@@ -48,13 +48,13 @@
 /* Maximum number of queues per TC */
 #define MVAPPS_MAX_NUM_QS_PER_TC	MVAPPS_MAX_NUM_CORES
 /* Total number of BM pools supported */
-#define MVAPPS_PP2_TOTAL_NUM_BPOOLS	(PP2_PPIO_TC_MAX_POOLS*PP2_PPIO_MAX_NUM_TCS)
+#define MVAPPS_PP2_TOTAL_NUM_BPOOLS	(PP2_PPIO_TC_MAX_POOLS * PP2_PPIO_MAX_NUM_TCS)
 /* Number of BM pools reserved by kernel */
 #define MVAPPS_PP2_NUM_BPOOLS_RSRV	3
 /* Reserved BM pools mask */
 #define MVAPPS_PP2_BPOOLS_RSRV		((1 << MVAPPS_PP2_NUM_BPOOLS_RSRV) - 1)
 /* Maximum number of pools per packet processor */
-#define MVAPPS_PP2_MAX_NUM_BPOOLS	min(PP2_PPIO_TC_MAX_POOLS*PP2_PPIO_MAX_NUM_TCS, \
+#define MVAPPS_PP2_MAX_NUM_BPOOLS	min(PP2_PPIO_TC_MAX_POOLS * PP2_PPIO_MAX_NUM_TCS, \
 					MVAPPS_PP2_TOTAL_NUM_BPOOLS - MVAPPS_PP2_NUM_BPOOLS_RSRV)
 /* Total number of HIFs supported */
 #define MVAPPS_PP2_TOTAL_NUM_HIFS	9 /* PP2_NUM_REGSPACES - move to API h file */
@@ -62,7 +62,6 @@
 #define MVAPPS_PP2_NUM_HIFS_RSRV	4
 /* Reserved HIFs mask */
 #define MVAPPS_PP2_HIFS_RSRV		((1 << MVAPPS_PP2_NUM_HIFS_RSRV) - 1)
-
 
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define MVAPPS_NO_PATH(file_name)	(strrchr((file_name), '/') ? \
@@ -162,9 +161,9 @@ struct bpool_desc {
  */
 static inline void swap_l2(char *buf)
 {
-	uint16_t *eth_hdr;
+	u16 *eth_hdr;
 
-	register uint16_t tmp;
+	register u16 tmp;
 
 	eth_hdr = (uint16_t *)buf;
 	tmp = eth_hdr[0];
@@ -183,7 +182,7 @@ static inline void swap_l2(char *buf)
  */
 static inline void swap_l3(char *buf)
 {
-	register uint32_t tmp32;
+	register u32 tmp32;
 
 	buf += 14 + 12;
 	tmp32 = ((uint32_t *)buf)[0];

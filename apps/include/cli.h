@@ -30,35 +30,31 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 #ifndef __CLI_H__
 #define __CLI_H__
 
 #include "mvapp_std.h"
 
-
 struct cli;
-
 
 struct cli_cmd_params {
 	const char	*name;
 	const char	*desc;
 	const char	*format;
 	void		*cmd_arg;
-	int		 	 (*do_cmd_cb)(void *, int, char *[]);
+	int		(*do_cmd_cb)(void *, int, char *[]);
 };
 
 struct cli_params {
 	char		*prompt;
-	int			 no_block;
-	int			 echo;
+	int		 no_block;
+	int		 echo;
 
-	int			 (*print_cb)   (const char *fmt, ...);
-	char		 (*get_char_cb) (void);
+	int		 (*print_cb)(const char *fmt, ...);
+	char		 (*get_char_cb)(void);
 };
 
-
-struct cli * cli_init(struct cli_params *cli_paramss);
+struct cli *cli_init(struct cli_params *cli_paramss);
 int  cli_free(struct cli *cli);
 
 int  cli_run(struct cli *cli);

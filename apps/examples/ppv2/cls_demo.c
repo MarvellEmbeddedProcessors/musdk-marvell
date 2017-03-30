@@ -66,7 +66,6 @@
 #define CLS_APP_MAX_NUM_QS_PER_CORE		MVAPPS_MAX_NUM_QS_PER_TC
 #define CLS_APP_MAX_NUM_PORTS			2
 
-
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
 #define CLS_APP_PREFETCH_SHIFT			7
@@ -353,7 +352,7 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 		case 'q':
 			traffic_class = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (traffic_class < 0) ||
-				(traffic_class >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+			    (traffic_class >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
 				printf("parsing fail, wrong input for --tc\n");
 				return -EINVAL;
 			}
@@ -813,7 +812,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		case 'q':
 			traffic_class = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (traffic_class < 0) ||
-				(traffic_class >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+			    (traffic_class >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
 				printf("parsing fail, wrong input for --tc\n");
 				return -EINVAL;
 			}
@@ -1137,7 +1136,7 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 		}
 	}
 
-	if ((mode < 0) || (cmd < 0)){
+	if ((mode < 0) || (cmd < 0)) {
 		printf("Wrong inputs in promiscuous mode command\n");
 		return -EINVAL;
 	}
@@ -1164,7 +1163,7 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 			printf("unicast promiscuous mode: enabled\n");
 		else
 			printf("unicast promiscuous mode: disabled\n");
-	}else if (!cmd && !mode) {
+	} else if (!cmd && !mode) {
 		rc = pp2_ppio_get_mc_promisc(garg.ports_desc[0].ppio, &en);
 		if (rc) {
 			printf("Unable to get all multicast mode\n");
@@ -1482,7 +1481,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	int prefetch_shift = CLS_APP_PREFETCH_SHIFT;
 #endif /* CLS_APP_PKT_ECHO_SUPPORT */
 	bpool = larg->pools_desc[larg->ports_desc[rx_ppio_id].pp_id][bpool_id].pool;
-	shadow_q = &(larg->ports_desc[tx_ppio_id].shadow_qs[tc]);
+	shadow_q = &larg->ports_desc[tx_ppio_id].shadow_qs[tc];
 
 	err = pp2_ppio_recv(larg->ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
 
@@ -1496,7 +1495,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		if (likely(larg->echo)) {
 			char *tmp_buff;
 #ifdef CLS_APP_USE_APP_PREFETCH
-			if (num-i > prefetch_shift) {
+			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
 				tmp_buff += MVAPPS_PKT_EFEC_OFFS;
 				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
@@ -1534,10 +1533,10 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 	pp2_ppio_get_num_outq_done(larg->ports_desc[tx_ppio_id].ppio, larg->hif, tc, &num);
 	for (i = 0; i < num; i++) {
-		binf = &(shadow_q->ents[shadow_q->read_ind].buff_ptr);
+		binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
 		if (unlikely(!binf->cookie || !binf->addr)) {
 			pr_err("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-				   shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
+			       shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
 			continue;
 		}
 		pp2_bpool_put_buff(larg->hif,
@@ -1595,7 +1594,8 @@ static int main_loop(void *arg, int *running)
 	if (larg->echo)
 		return loop_1p(larg, running);
 
-	while (*running);
+	while (*running)
+		;
 
 	return 0;
 }
@@ -1675,12 +1675,12 @@ static int init_local_modules(struct glob_arg *garg)
 			err = app_port_init(port, garg->num_pools, garg->pools_desc[port->pp_id], DEFAULT_MTU);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
-					port->pp_id);
+				       port->pp_id);
 				return err;
 			}
-		} else
+		} else {
 			return err;
-
+		}
 	}
 
 	INIT_LIST(&cls_flow_tbl_head);
@@ -1954,15 +1954,15 @@ static int init_local(void *arg, int id, void **_larg)
 	if (err)
 		return err;
 
-	larg->id                = id;
-	larg->echo              = garg->echo;
-	larg->num_ports         = garg->num_ports;
-	larg->ports_desc = (struct lcl_port_desc *)malloc(larg->num_ports*sizeof(struct lcl_port_desc));
+	larg->id		= id;
+	larg->echo		= garg->echo;
+	larg->num_ports		= garg->num_ports;
+	larg->ports_desc	= (struct lcl_port_desc *)malloc(larg->num_ports * sizeof(struct lcl_port_desc));
 	if (!larg->ports_desc) {
 		pr_err("no mem for local-port-desc obj!\n");
 		return -ENOMEM;
 	}
-	memset(larg->ports_desc, 0, larg->num_ports*sizeof(struct lcl_port_desc));
+	memset(larg->ports_desc, 0, larg->num_ports * sizeof(struct lcl_port_desc));
 	for (i = 0; i < larg->num_ports; i++)
 		app_port_local_init(i, larg->id, &larg->ports_desc[i], &garg->ports_desc[i]);
 
@@ -1993,7 +1993,6 @@ static void deinit_local(void *arg)
 		pp2_hif_deinit(larg->hif);
 
 	free(larg);
-
 }
 
 static void usage(char *progname)

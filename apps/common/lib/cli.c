@@ -30,7 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 #include <signal.h>
 #include <time.h>
 #include <pthread.h>
@@ -44,16 +43,14 @@
 
 #include "cli.h"
 
-
 #define CLI_MAX_LINE_LENGTH	256
 #define CLI_TIMER_INTERVAL	128 /* 128 m-secs */
 #define CLI_MAX_HISTORY		10
 
-
 typedef struct mvtimer {
-	uint64_t	 expires;
+	u64	 expires;
 	int		 periodic;
-	void		 (*tmr_expired_cb) (void *);
+	void		 (*tmr_expired_cb)(void *);
 	void		*arg;
 
 	timer_t		 timerid;
@@ -82,10 +79,10 @@ static void timer_complete_cb(int sig, siginfo_t *si, void *uc)
 	if (tmr->tmr_expired_cb)
 		tmr->tmr_expired_cb(tmr->arg);
 
-	//signal(sig, SIG_IGN);
+	/* signal(sig, SIG_IGN); */
 }
 
-static struct mvtimer * create_timer(void)
+static struct mvtimer *create_timer(void)
 {
 #define SIG				 SIGUSR1
 	mvtimer_t		*tmr;
@@ -99,7 +96,7 @@ static struct mvtimer * create_timer(void)
 	memset(tmr, 0, sizeof(mvtimer_t));
 
 	if (!sa.sa_flags) {
-		//static sigset_t		 mask;
+		/* static sigset_t		 mask; */
 
 		/* Establish handler for timer signal */
 		sa.sa_flags = SA_RESTART | SA_SIGINFO;
@@ -111,15 +108,15 @@ static struct mvtimer * create_timer(void)
 		}
 
 		/* Block timer signal temporarily */
-/*
+
+#if 0
 		sigemptyset(&mask);
 		sigaddset(&mask, SIG);
-		if (sigprocmask(SIG_SETMASK, &mask, NULL) == -1)
-		{
+		if (sigprocmask(SIG_SETMASK, &mask, NULL) == -1) {
 			pr_err("sigprocmask failed!\n");
 			return NULL;
 		}
-*/
+#endif
 	}
 
 	tmr->sev.sigev_notify = SIGEV_SIGNAL;
@@ -145,7 +142,7 @@ static void free_timer(struct mvtimer *timer)
 }
 
 static void start_timer(struct mvtimer	*timer,
-	uint32_t	 msecs,
+	u32		 msecs,
 	int		 periodic,
 	void		 (*tmr_expired_cb)(void *arg),
 	void		*arg)
@@ -190,7 +187,6 @@ static void mod_timer(struct mvtimer *timer, uint32_t msecs)
 		pr_err("timer_settime failed!\n");
 }
 
-
 typedef struct cli_cmd {
 	char		*name;
 	char		*desc;
@@ -202,7 +198,7 @@ typedef struct cli_cmd {
 #define CLI_COMMAND_OBJ(ptr)  LIST_OBJECT(ptr, cli_cmd_t, node)
 
 typedef struct cli_cmd_hist {
-	char		line[CLI_MAX_LINE_LENGTH+5];
+	char		line[CLI_MAX_LINE_LENGTH + 5];
 	int		length;
 	struct list	node;
 } cli_cmd_hist_t;
@@ -213,18 +209,17 @@ typedef struct cli {
 	volatile int	 running;
 	int		 no_block;
 	int		 echo;
-	int		 (*print_cb)   (const char *str, ...);
-	char		 (*get_char_cb) (void);
+	int		 (*print_cb)(const char *str, ...);
+	char		 (*get_char_cb)(void);
 	struct mvtimer	*timer;
 	pthread_mutex_t	 lock;
 	struct list	 cmds_lst;
-	char		 line[CLI_MAX_LINE_LENGTH+5];
+	char		 line[CLI_MAX_LINE_LENGTH + 5];
 	int		 curr_pos;
 	struct list	 hist_lst;
 	int		 hist_req;
 	struct list	*hist_lst_pos;
 } cli_t;
-
 
 static inline void clear_line(cli_t *cli_p)
 {
@@ -232,7 +227,6 @@ static inline void clear_line(cli_t *cli_p)
 	cli_p->print_cb("\33[2K\r");
 	cli_p->curr_pos = 0;
 }
-
 
 static void dump_usage(cli_t *cli_p)
 {
@@ -267,7 +261,7 @@ static int help_cmd_cb(struct cli *cli, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	NOTUSED(argc);NOTUSED(argv);
+	NOTUSED(argc); NOTUSED(argv);
 
 	dump_help(cli_p);
 
@@ -283,24 +277,23 @@ static int quit_cmd_cb(struct cli *cli, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	NOTUSED(argc);NOTUSED(argv);
+	NOTUSED(argc); NOTUSED(argv);
 
 	cli_p->running = 0;
 
 	return 0;
 }
 
-
 static void print_logo(cli_t *cli_p)
 {
-	cli_p->print_cb("              ......        ......	Marvell Inc. Copyright (c) 2016		\n");
-	cli_p->print_cb("            ##......      ##......	All Rights Reserved			\n");
-	cli_p->print_cb("          ####......    ####......						\n");
-	cli_p->print_cb("        ######......  ######......						\n");
-	cli_p->print_cb("      ######  ......######  ......						\n");
-	cli_p->print_cb("    ######    ....######    ######	MUSDK Device Drivers			\n");
-	cli_p->print_cb("  ######      ..######      ......	Version 0.1				\n");
-	cli_p->print_cb("######        ######        ######	built on %s				\n\n\n",__DATE__);
+	cli_p->print_cb("              ......        ......	Marvell Inc. Copyright (c) 2016\n");
+	cli_p->print_cb("            ##......      ##......	All Rights Reserved\n");
+	cli_p->print_cb("          ####......    ####\n");
+	cli_p->print_cb("        ######......  ######\n");
+	cli_p->print_cb("      ######  ......######\n");
+	cli_p->print_cb("    ######    ....######    ######	MUSDK Device Drivers\n");
+	cli_p->print_cb("  ######      ..######      ......	Version 0.1\n");
+	cli_p->print_cb("######        ######        ######	built on %s\n\n\n", __DATE__);
 }
 
 static void get_hist_lst(cli_t *cli_p)
@@ -321,7 +314,7 @@ static void get_hist_lst(cli_t *cli_p)
 		}
 	} else if (cli_p->line[cli_p->curr_pos] == 'B') { /* down */
 		if ((cli_p->hist_lst_pos != &cli_p->hist_lst) &&
-			(CLI_HISTORY_LINE_OBJ(cli_p->hist_lst_pos)->length != 0)) {
+		    (CLI_HISTORY_LINE_OBJ(cli_p->hist_lst_pos)->length != 0)) {
 			hist_line = CLI_HISTORY_LINE_OBJ(cli_p->hist_lst_pos);
 			clear_line(cli_p);
 			cli_p->print_cb("%s> %s", cli_p->prompt, hist_line->line);
@@ -338,12 +331,12 @@ static int get_line(cli_t *cli_p, int *p_NumOfCharsRead)
 	cli_cmd_hist_t *hist_line;
 
 	do {
-		if ((cli_p->line[cli_p->curr_pos] = cli_p->get_char_cb()) == '\0')
+		cli_p->line[cli_p->curr_pos] = cli_p->get_char_cb();
+		if (cli_p->line[cli_p->curr_pos] == '\0')
 			return -ENOMSG;
 
-		if (cli_p->line[cli_p->curr_pos] == '\x1B') {
+		if (cli_p->line[cli_p->curr_pos] == '\x1B')
 			return -ENOMSG;
-		}
 
 		if (cli_p->line[cli_p->curr_pos] == '[') {
 			cli_p->hist_req = 1;
@@ -373,9 +366,9 @@ static int get_line(cli_t *cli_p, int *p_NumOfCharsRead)
 				break;
 			}
 			cli_p->curr_pos++;
-		}
-		else
+		} else {
 			break;
+		}
 	} while (cli_p->curr_pos < CLI_MAX_LINE_LENGTH);
 	cli_p->line[cli_p->curr_pos] = '\0';
 
@@ -396,7 +389,7 @@ static int get_line(cli_t *cli_p, int *p_NumOfCharsRead)
 	return 0;
 }
 
-static cli_cmd_t * find_cmd(cli_t *cli_p, char *name)
+static cli_cmd_t *find_cmd(cli_t *cli_p, char *name)
 {
 	cli_cmd_t	*cmd;
 	struct list	*lst_pos;
@@ -412,15 +405,15 @@ static cli_cmd_t * find_cmd(cli_t *cli_p, char *name)
 
 static int cmd_is_valid(cli_t *cli_p, const char *cmd)
 {
-	if (strstr (cmd, "|")) {
+	if (strstr(cmd, "|")) {
 		cli_p->print_cb("character | (cmds_lst-pipeline) is not supported!\n");
 		return 0;
 	}
-	if (strstr (cmd, ">") || strstr (cmd, "<")) {
+	if (strstr(cmd, ">") || strstr(cmd, "<")) {
 		cli_p->print_cb("characters < or > (redirections) are not supported!\n");
 		return 0;
 	}
-	if (strstr (cmd, "\t")) {
+	if (strstr(cmd, "\t")) {
 		cli_p->print_cb("character \\t (tab) is not supported! use space instead.\n");
 		return 0;
 	}
@@ -433,17 +426,18 @@ static void main_loop(struct cli *cli)
 	int	 rc;
 	int	 num_chars_read;
 
-	if ((rc = get_line(cli_p, &num_chars_read)) == 0) {
+	rc = get_line(cli_p, &num_chars_read);
+	if (rc == 0) {
 		char		*token;
-		char		 tmp_line[CLI_MAX_LINE_LENGTH+5];
+		char		 tmp_line[CLI_MAX_LINE_LENGTH + 5];
 		cli_cmd_t	*cmd;
 
-		memcpy(tmp_line, cli_p->line, CLI_MAX_LINE_LENGTH+5);
+		memcpy(tmp_line, cli_p->line, CLI_MAX_LINE_LENGTH + 5);
 
-		if (cmd_is_valid(cli_p, tmp_line)){
+		if (cmd_is_valid(cli_p, tmp_line)) {
 			token = strtok(tmp_line, " ");
 
-			if (token){
+			if (token) {
 				cmd = find_cmd(cli_p, token);
 				if (!cmd) {
 					dump_usage(cli_p);
@@ -451,8 +445,7 @@ static void main_loop(struct cli *cli)
 					char	*tokens[CLI_MAX_LINE_LENGTH];
 					int	 tokens_cnt = 0;
 
-					while ((tokens_cnt<CLI_MAX_LINE_LENGTH) && token)
-					{
+					while ((tokens_cnt < CLI_MAX_LINE_LENGTH) && token) {
 						tokens[tokens_cnt++] = token;
 						token = strtok(NULL, " ");
 					}
@@ -461,7 +454,7 @@ static void main_loop(struct cli *cli)
 				}
 			}
 		}
-		memset(cli_p->line,0,(uint32_t)(CLI_MAX_LINE_LENGTH+5));
+		memset(cli_p->line, 0, (uint32_t)(CLI_MAX_LINE_LENGTH + 5));
 		cli_p->print_cb("%s> ", cli_p->prompt);
 	}
 
@@ -498,8 +491,7 @@ static void init_builtin_cmds(cli_t *cli_p)
 	cli_register_cmd(cli_p, &cmd_params);
 }
 
-
-struct cli * cli_init(struct cli_params *cli_params)
+struct cli *cli_init(struct cli_params *cli_params)
 {
 	cli_t	*cli_p;
 	char	 dflt_promt[] = "MUSDK";
@@ -515,16 +507,16 @@ struct cli * cli_init(struct cli_params *cli_params)
 	INIT_LIST(&cli_p->cmds_lst);
 	INIT_LIST(&cli_p->hist_lst);
 
-	if (cli_params->prompt == NULL)
+	if (!cli_params->prompt)
 		cli_params->prompt = dflt_promt;
 
-	cli_p->prompt = (char *)malloc(strlen(cli_params->prompt)+1);
+	cli_p->prompt = (char *)malloc(strlen(cli_params->prompt) + 1);
 	if (!cli_p->prompt) {
 		cli_free(cli_p);
 		pr_err("No mem for CLI-prompt obj\n");
 		return NULL;
 	}
-	memset(cli_p->prompt, 0, strlen(cli_params->prompt)+1);
+	memset(cli_p->prompt, 0, strlen(cli_params->prompt) + 1);
 	cli_p->prompt[strlen(cli_params->prompt)] = '\0';
 
 	memcpy(cli_p->prompt, cli_params->prompt, strlen(cli_params->prompt));
@@ -542,8 +534,9 @@ struct cli * cli_init(struct cli_params *cli_params)
 	init_builtin_cmds(cli_p);
 
 	cli_p->hist_lst_pos = &cli_p->hist_lst;
-	for (i=0; i<CLI_MAX_HISTORY; i++) {
+	for (i = 0; i < CLI_MAX_HISTORY; i++) {
 		cli_cmd_hist_t *hist_line = (cli_cmd_hist_t *)malloc(sizeof(cli_cmd_hist_t));
+
 		if (!hist_line) {
 			cli_free(cli_p);
 			pr_err("No mem for CLI-lines-hist_lst obj\n");
@@ -661,7 +654,7 @@ int cli_register_cmd(struct cli *cli, struct cli_cmd_params *cmd_params)
 	}
 	memset(cmd, 0, sizeof(cli_cmd_t));
 
-	cmd->name = malloc(strlen(cmd_params->name)+1);
+	cmd->name = malloc(strlen(cmd_params->name) + 1);
 	if (!cmd->name) {
 		pr_err("No mem for CLI-command-name obj\n");
 		free(cmd);
@@ -670,7 +663,7 @@ int cli_register_cmd(struct cli *cli, struct cli_cmd_params *cmd_params)
 	memcpy(cmd->name, cmd_params->name, strlen(cmd_params->name));
 	cmd->name[strlen(cmd_params->name)] = '\0';
 
-	cmd->desc = malloc(strlen(cmd_params->desc)+1);
+	cmd->desc = malloc(strlen(cmd_params->desc) + 1);
 	if (!cmd->desc) {
 		pr_err("No mem for CLI-command-desc obj\n");
 		free(cmd->name);
@@ -681,7 +674,7 @@ int cli_register_cmd(struct cli *cli, struct cli_cmd_params *cmd_params)
 	cmd->desc[strlen(cmd_params->desc)] = '\0';
 
 	if (cmd_params->format) {
-		cmd->format = malloc(strlen(cmd_params->format)+1);
+		cmd->format = malloc(strlen(cmd_params->format) + 1);
 		if (!cmd->format) {
 			pr_err("No mem for CLI-command-format obj\n");
 			free(cmd->desc);
@@ -718,7 +711,7 @@ int cli_unregister_cmd(struct cli *cli, char *name)
 
 	if (cmd) {
 		pthread_mutex_lock(&cli_p->lock);
-		list_del(&(cmd->node));
+		list_del(&cmd->node);
 		pthread_mutex_unlock(&cli_p->lock);
 
 		if (cmd->format)
