@@ -283,13 +283,13 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 		rc = -EINVAL;
 		goto err;
 	}
-
+/*
 	if (sam_hw_ring_is_busy(hw_ring)) {
 		pr_err("%s: %d:%d is busy\n",
 			(engine_info->type == HW_EIP197) ? "eip197" : "eip97", engine, ring);
 		goto err;
 	}
-
+*/
 	pr_info("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
 		(engine_info->type == HW_EIP197) ? "eip197" : "eip97",
 		engine, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
