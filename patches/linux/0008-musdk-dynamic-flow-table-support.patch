@@ -1,4 +1,4 @@
-From ddeead5999b53c5d00796ef7beae15b46597d0fa Mon Sep 17 00:00:00 2001
+From cc1b7ba5877e9079746c9967c25dbd58088521df Mon Sep 17 00:00:00 2001
 From: Ehud Naim <ehudn@marvell.com>
 Date: Mon, 2 Jan 2017 11:48:19 +0200
 Subject: [PATCH 8/8] musdk: dynamic flow table support
@@ -9,11 +9,11 @@ and update the cls_shadow->flow_info
 Change-Id: Ic8e9b4d85015d8c7bd83c819167d3328adf09453
 Signed-off-by: Ehud Naim <ehudn@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   | 11 ++--
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |  2 +
- .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |  1 +
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c | 59 ++++++++++++++++++++++
- 4 files changed, 69 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   |   11 ++--
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |    2 +
+ .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |    1 +
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |   66 ++++++++++++++++++++
+ 4 files changed, 76 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
 index 9555b1d..7c149730 100644
@@ -91,7 +91,7 @@ index 5ada1c0..5c1b9a0 100644
  
  /* Classifier engine2 and QoS structure */
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index ca37c6e..cd284bd 100644
+index 2f08174..f0ca970 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 @@ -1849,6 +1849,54 @@ static void mv_pp2x_width_calc(struct mv_pp2x_port *port, u32 *cpu_width,
@@ -161,7 +161,21 @@ index ca37c6e..cd284bd 100644
  		for (i = 0; i < j; i++) {
  			if (flow_idx > data[i])
  				flow_idx = data[i];
-@@ -3574,6 +3627,12 @@ int mv_pp2x_open_cls(struct net_device *dev)
+@@ -2113,6 +2166,13 @@ int mv_pp22_rss_mode_set(struct mv_pp2x_port *port, int rss_mode)
+ 	int data[3];
+ 	struct mv_pp2x_hw *hw = &port->priv->hw;
+ 	struct mv_pp2x_cls_flow_info *flow_info;
++	int err;
++
++	err = mv_pp2x_update_flow_info(hw);
++	if (err) {
++		netdev_err(port->dev, "cannot update flow info\n");
++		return err;
++	}
+ 
+ 	if (port->priv->pp2_cfg.queue_mode == MVPP2_QDIST_SINGLE_MODE)
+ 		return -1;
+@@ -3574,6 +3634,12 @@ int mv_pp2x_open_cls(struct net_device *dev)
  		return err;
  	}
  
@@ -175,5 +189,5 @@ index ca37c6e..cd284bd 100644
  	err = mv_pp2x_cos_classifier_set(port, cos_classifer);
  	if (err) {
 -- 
-1.9.1
+1.7.9.5
 
