@@ -19,18 +19,15 @@ Supported SoCs
 Release Content
 ---------------
 	- Binaries:
-		- binaries-armv8le-musdk-a70x0-a80x0-ga-17.02.0.zip - contains relevant binaries:
+		- binaries-armv8le-musdk-a70x0-a80x0-<version>.zip - contains relevant binaries:
 			- rootfs\usr\local\musdk\lib:
 				- libmusdk.a
 				- libmusdk.la
 			- rootfs\usr\local\musdk\bin:
 				- <all example applications>
 	- Sources:
-		- sources-musdk-armada-17.02.x.zip 	- includes full sources of MUSDK package.
+		- sources-musdk-<version>.x.zip 	- includes full sources of MUSDK package.
 		- sources-eip197-4.7-armada-17.02.x.zip	- include full sources of EIP197 DDK package
-	- Documentation:
-		- doc/musdk-html-17.02.0.zip - includes user documentation and API reference in HTML format.
-		- To get started with guide, unzip the package, open "html.index" and navigate from there.
 
 
 Supported Features
@@ -39,21 +36,24 @@ Supported Features
 	- Tx/Rx interface
 	- Buffer pool interface
 	- Multiple buffer pools
-	- Single traffic class
 	- L4 checksum offload
-	- MUSDK and kernel ports may operate together
 	- MAC filter support
 	- VLAN filter support
 	- Promiscuous mode
 	- MTU change support
 	- RSS support (distribution to Rx queues - configuration by Kernel)
-	- Tested on 1G and 10G ports of A7040 and A8040
+	- Port and queue statistics
+	- Logical port (shared port for kernel and MUSDK)
+	- MUSDK and kernel ports may operate together
 	- Packet-echo example application
-	- MAc & VLAN filters example application
+	- MAC & VLAN filters example application
 
 - Classifier features:
-	- Single 5-tuple classification table per port
+	- Single classification table per port
 	- Supported match actions: select queue or discard packet
+	- Classification by DSA tag
+	- QoS support
+	- Classifier example application
 
 - SAM (Crypto) features:
 	- Create session
@@ -74,50 +74,6 @@ Supported Features
 	- Enqueue/dequeue mode: supports multiple requests
 	- Single-buffer mode
 	- Poll request completion
+	- MUSDK and kernel may operate on separate rings
 	- Test applications
 
-
-Disclaimer
-----------
-This document describes one or more updates to the products described.
-Visit the Marvell web site at www.marvell.com for the latest information on Marvell products.
-No part of this document may be reproduced or transmitted in any form or by any means, electronic or mechanical, including
-photocopying and recording, for any purpose, without the express written permission of Marvell. Marvell retains the right
-to make changes to this document at any time, without notice. Marvell makes no warranty of any kind, expressed or implied,
-with regard to any information contained in this document, including, but not limited to, the implied warranties of
-merchantability or fitness for any particular purpose. Further, Marvell does not warrant the accuracy or completeness of
-the information, text, graphics, or other items contained within this document. Marvell makes no commitment either to
-update or to keep current the information contained in this document. Marvell products are not designed for use in
-life-support equipment or applications that would cause a life-threatening situation if any such products failed.
-Do not use Marvell products in these types of equipment or applications. The user should contact Marvell to obtain the
-latest specifications before finalizing a product design. Marvell assumes no responsibility, either for use of these
-products or for any infringements of patents and trademarks, or other rights of third parties resulting from its use.
-No license is granted under any patents, patent rights, or trademarks of Marvell. These products may include one or more
-optional functions. The user has the choice of implementing any particular optional function. Should the user choose to
-implement any of these optional functions, it is possible that the use could be subject to third party intellectual
-property rights. Marvell recommends that the user investigate whether third party intellectual property rights are
-relevant to the intended use of these products and obtain licenses as appropriate under relevant intellectual property
-rights.
-
-Marvell comprises Marvell Technology Group Ltd. (MTGL) and its subsidiaries, Marvell International Ltd. (MIL),
-Marvell Semiconductor, Inc. (MSI), Marvell Asia Pte Ltd. (MAPL), Marvell Japan K.K. (MJKK),
-Marvell Semiconductor Israel Ltd. (MSIL), SysKonnect GmbH, and Radlan Computer Communications, Ltd.
-Export Controls.
-
-With respect to any of Marvell s Information, the user or recipient, in the absence of appropriate U.S.
-government authorization, agrees: 1) not to re-export or release any such information consisting of technology, software
-or source code controlled for national security reasons by the U.S. Export Control Regulations ("EAR"), to a national of
-EAR Country Groups D:1 or E:2; 2) not to export the direct product of such technology or such software, to EAR Country
-Groups D:1 or E:2, if such technology or software and direct products thereof are controlled for national security reasons
-by the EAR; and, 3) in the case of technology controlled for national security reasons under the EAR where the direct
-product of the technology is a complete plant or component of a plant, not to export to EAR Country Groups D:1 or E:2 the
-direct product of the plant or major component thereof, if such direct product is controlled for national security reasons
-by the EAR, or is subject to controls under the U.S. Munitions List  ("USML"). At all times hereunder, the recipient of
-any such information agrees that they shall be deemed to have manually signed this document in connection with their
-receipt of any such information.
-
-Copyright 2016.  Marvell.  All rights reserved. For example, Marvell, the Marvell logo,
-Moving Forward Faster, Alaska, ARMADA, Avanta, Avastar, CarrierSpan, G.now, HyperDuo, Kinoma, Kirkwood, Link Street,
-LinkCrypt, Marvell Smart, PISC, Prestera, QDEO, the QDEO logo, The World as YOU See It, Virtual Cable Tester, Vmeta,
-Wirespeed by Design, Xelerated, and Yukon are registered trademarks of Marvell; and Andromeda Box, ArmadaBoard, FLC,
-Marvell EZ Connect, Marvell Final Level Cache, Marvell VSOC, MISST, MoChi, NANDEdge, and VectorBoost are trademarks of Marvell.

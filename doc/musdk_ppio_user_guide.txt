@@ -181,6 +181,21 @@ if periodic maintenance (triggered by internal threshold) will be performed duri
 - pp2_ppio_outq_get_statistics():
 	- all counters are 64-bit.
 
+3.7 	Logical port
+---------------------
+If an interface is defined as logical port, traffic is shared between kernel and MUSDK according to received queue.
+In this case, there is a need to define the rules by which the packet processor will know which traffic to send where.
+In order to dsefine an interfase as logical port, it needs to be declared as such in the appropriate DTS file
+(status = "shared" in DTS).
+
+The PPv2 Kernel driver will treat this interface as a regular kernel interface, and MUSDK driver may configure
+additional queues to this interface and retrieve the data from these queues.
+In addition, the classifier needs to be configured to send selected traffic to these logical port queues.
+This is performed through the logical port API (defined in mv_pp2_ppio.h file, struct pp2_ppio_log_port_rule_params).
+Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and
+configure this API.
+
+
 4.  PKT_ECHO example application
 ================================
 
