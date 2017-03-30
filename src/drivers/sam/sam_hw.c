@@ -149,8 +149,8 @@ int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring)
 	val32 |= SAM_RING_64B_MODE_MASK; /* 64 bits mode */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_DESC_SIZE_REG, val32);
 
-	val32 = SAM_RING_FETCH_SIZE_VAL(0x10);		/* Number of words to fetch */
-	val32 |= SAM_RING_FETCH_THRESH_VAL(0x0C);	/* Threshold in words to start fetch */
+	val32 = SAM_RING_FETCH_SIZE_VAL(SAM_CDR_FETCH_SIZE_DEF);	/* Number of words to fetch */
+	val32 |= SAM_RING_FETCH_THRESH_VAL(SAM_CDR_FETCH_THRESH_DEF);	/* Threshold in words to start fetch */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_CFG_REG, val32);
 
 	val32 = SAM_RING_DESC_SWAP_VAL(CONF_DESC_SWAP_VALUE);      /* cd_swap */
@@ -219,19 +219,19 @@ int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring)
 	val32 |= SAM_RING_64B_MODE_MASK; /* 64 bits mode */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_DESC_SIZE_REG, val32);
 
-	val32 = SAM_RING_FETCH_SIZE_VAL(0x50);		/* Number of words to fetch */
-	val32 |= SAM_RING_FETCH_THRESH_VAL(0x14);	/* Threshold in words to start fetch */
+	val32 = SAM_RING_FETCH_SIZE_VAL(SAM_RDR_FETCH_SIZE_DEF);	/* Number of words to fetch */
+	val32 |= SAM_RING_FETCH_THRESH_VAL(SAM_RDR_FETCH_THRESH_DEF);	/* Threshold in words to start fetch */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_CFG_REG, val32);
 
 	val32 = SAM_RING_DESC_SWAP_VAL(CONF_DESC_SWAP_VALUE);      /* rd_swap */
 	val32 |= SAM_RING_DESC_PROTECT_VAL(CONF_DESC_PROT_VALUE);  /* cd_prot */
 	val32 |= SAM_RING_DATA_SWAP_VAL(CONF_DATA_SWAP_VALUE);     /* data_swap*/
 	val32 |= SAM_RING_DATA_PROTECT_VAL(CONF_DESC_PROT_VALUE);  /* data_prot */
-	/* BIT_22 - wr_res_buf */
-	/* BIT_23 - wr_ctrl_buf */
+	/* bit[22] - wr_res_buf */
+	/* bit[23] - wr_ctrl_buf */
 	val32 |= SAM_RING_OWN_BUF_EN_MASK; /* wr_own_buf */
 	val32 |= SAM_RING_WRITE_CACHE_VAL(CONF_WRITE_CACHE_CTRL);  /* wr_cache */
-	/* BIT_28 - pad_to_offset */
+	/* bit[28] - SAM_RING_PAD_TO_OFFSET_MASK; */
 	val32 |= SAM_RING_READ_CACHE_VAL(CONF_READ_CACHE_CTRL);   /* rd_cache */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_DMA_CFG_REG, val32);
 

@@ -182,6 +182,9 @@
 /* Bufferability control for ownership word DMA writes */
 #define SAM_RING_OWN_BUF_EN_MASK		BIT(24)
 
+/* Enables padding the result descriptor to its full programmed offset with 0xAAAAAAAA */
+#define SAM_RING_PAD_TO_OFFSET_MASK		BIT(28)
+
 /* Read and Write cache control */
 #define SAM_RING_WRITE_CACHE_OFFS		25
 #define SAM_RING_READ_CACHE_OFFS		29
@@ -203,14 +206,19 @@
 #define SAM_RDR_STAT_IRQ_MASK			BIT_MASK(SAM_RDR_STAT_IRQ_BITS)
 
 /* Marvell specific configuration values for AXI3 */
-#define CONF_DESC_SWAP_VALUE	0
-#define CONF_DATA_SWAP_VALUE	0
-#define CONF_TOKEN_SWAP_VALUE	0
-#define CONF_DESC_PROT_VALUE	2
-#define CONF_DATA_PROT_VALUE	2
-#define CONF_TOKEN_PROT_VALUE	2
-#define CONF_WRITE_CACHE_CTRL	0x3 /* 0x7 >> 1 */
-#define CONF_READ_CACHE_CTRL	0x5 /* 0xB >> 1 */
+#define CONF_DESC_SWAP_VALUE			0
+#define CONF_DATA_SWAP_VALUE			0
+#define CONF_TOKEN_SWAP_VALUE			0
+#define CONF_DESC_PROT_VALUE			2
+#define CONF_DATA_PROT_VALUE			2
+#define CONF_TOKEN_PROT_VALUE			2
+#define CONF_WRITE_CACHE_CTRL			0x3 /* 0x7 >> 1 */
+#define CONF_READ_CACHE_CTRL			0x5 /* 0xB >> 1 */
+
+#define SAM_CDR_FETCH_SIZE_DEF			0x10
+#define SAM_CDR_FETCH_THRESH_DEF		0x0C
+#define SAM_RDR_FETCH_SIZE_DEF			0x50
+#define SAM_RDR_FETCH_THRESH_DEF		0x14
 
 struct sam_hw_cmd_desc {
 	u32 words[SAM_CDR_ENTRY_WORDS];
@@ -241,7 +249,7 @@ struct sam_hw_res_desc {
 #define SAM_CDR_TOKEN_BYTES_BITS	8
 #define SAM_CDR_TOKEN_BYTES_MASK	BIT_MASK(SAM_CDR_TOKEN_BYTES_BITS)
 
-/* Token header word #6 */
+/* Token header - CDR word #6, Token word #0 */
 
 /* Segment size in bytes for Command and Result descriptors */
 #define SAM_TOKEN_PKT_LEN_OFFS		0
@@ -264,6 +272,13 @@ struct sam_hw_res_desc {
 #define SAM_TOKEN_TYPE_BASIC_MASK	(0x0 << SAM_TOKEN_TYPE_OFFS)
 #define SAM_TOKEN_TYPE_EXTENDED_MASK	(0x1 << SAM_TOKEN_TYPE_OFFS)
 #define SAM_TOKEN_TYPE_AUTO_MASK	(0x3 << SAM_TOKEN_TYPE_OFFS)
+
+/* Application ID - CDR word #7, Token word #1 */
+#define SAM_TOKEN_APPL_ID_OFFS		9
+#define SAM_TOKEN_APPL_ID_BITS		7
+#define SAM_TOKEN_APPL_ID_MASK		BIT_MASK(SAM_TOKEN_APPL_ID_BITS)
+#define SAM_TOKEN_APPL_ID_SET(id)	(((id) & SAM_TOKEN_APPL_ID_MASK) << SAM_TOKEN_APPL_ID_OFFS)
+#define SAM_TOKEN_APPL_ID_GET(v32)	(((v32) >> SAM_TOKEN_APPL_ID_OFFS) & SAM_TOKEN_APPL_ID_MASK)
 
 /* Errors: [E0..E14] - token_result_data[0] */
 #define SAM_TOKEN_RESULT_ERRORS_OFFS	17
@@ -467,7 +482,7 @@ static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int
 	writel_relaxed(token_header_word, &cmd_desc->words[6]);
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
+	writel_relaxed(SAM_TOKEN_APPL_ID_SET(0x76), &cmd_desc->words[7]);
 
 	val32 = lower_32_bits((u64)sa_buf->paddr);
 	writel_relaxed(val32, &cmd_desc->words[8]);
