@@ -73,6 +73,11 @@ directly from user-space applications with minimum overhead and high performance
 	- struct pp2_ppio * pp2_ppio_inq_desc_get_pp_io(struct pp2_ppio_desc *desc)
 	- int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc)
 
+	Statistics:
+	----------
+	- int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *stats, int reset);
+	- int pp2_ppio_inq_get_statistics(struct pp2_ppio *ppio, u8 tc, u8 qid, struct pp2_ppio_inq_statistics *stats, int reset);
+	- int pp2_ppio_outq_get_statistics(struct pp2_ppio *ppio, u8 qid, struct pp2_ppio_outq_statistics *stats, int reset);
 
 2.2	API limitations
 -----------------------
@@ -158,6 +163,23 @@ L2 filtering TCAM by parsing the VLAN ID field.
 	  through the system, while all VLAN traffic not matching one of the configured VLAN ID's will be dropped.
 	- All non-VLAN traffic will pass through the system independently of the VLAN filter configured.
 
+3.6	Statistics
+------------------------------
+All counters are 32-bit in Hardware.
+Counters that are maintainable by nature, are 64-bit in musdk.
+
+"Maintainable counters" are counters for which musdk can guarantee the HW counter will not reach U32_MAX,
+assuming "statistic_maintenance" is performed.
+The other (non-maintainable) counters will latch at U32_MAX, untill read by an API statistics call.
+
+The "maintain_stats" parameter, which is provided during pp2_ppio_init() API determines
+if periodic maintenance (triggered by internal threshold) will be performed during pp2_ppio_recv()/pp2_ppio_send() functions.
+
+- pp2_ppio_inq_get_statistics():
+	- 'enq_desc' counter is 64-bit, other inq_counters are 32-bit.
+
+- pp2_ppio_outq_get_statistics():
+	- all counters are 64-bit.
 
 4.  PKT_ECHO example application
 ================================
@@ -183,7 +205,7 @@ L2 filtering TCAM by parsing the VLAN ID field.
 		  Mechanism demonstrating use of index_based cookies instead virtual_addresses for buffer_pointers.
 	- #define HW_TX_CHKSUM_CALC	(default=undefined)
 		  This causes packet_send to request Hardware to perform L3/L4 checksum calculation.
-	
+
 
 4.2 HOW-TO
 ----------
