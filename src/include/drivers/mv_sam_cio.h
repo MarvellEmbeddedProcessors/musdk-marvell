@@ -157,7 +157,7 @@ int sam_cio_deinit(struct sam_cio *cio);
 int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *num);
 
 /**
- * Enqueue single or multiple crypto operations to crypto IO instance
+ * Dequeue single or multiple crypto operations to crypto IO instance
  *
  * @param[in]	  cio      - crypto IO instance handler.
  * @param[in]	  results  - pointer to results of one or more crypto operations

@@ -36,9 +36,8 @@
 #include <drivers/mv_sam.h>
 #include "std_internal.h"
 
-#include "cs_driver.h"
-
 #ifdef SAM_EIP_DDK_HW_INIT
+#include "cs_driver.h"
 #include "api_driver197_init.h"
 #endif
 

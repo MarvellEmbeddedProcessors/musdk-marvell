@@ -372,6 +372,33 @@ int sam_cio_flush(struct sam_cio *cio)
 	return 0;
 }
 
+static int sam_cio_delete_all_sessions(struct sam_cio *cio)
+{
+	int i, rc = 0, count = 0;
+
+	i = 0;
+	while (i < cio->params.num_sessions) {
+		if (cio->sessions[i].is_valid) {
+			if (sam_session_destroy(&cio->sessions[i])) {
+				/* No more place in CIO. Flush and delete other sessions */
+				rc = sam_cio_flush(cio);
+				if (rc) /* Timeout */
+					break;
+
+				continue;
+			}
+			count++;
+		}
+		i++;
+	}
+
+	if (count) {
+		rc = sam_cio_flush(cio);
+		printf("%d sessions deleted\n", count);
+	}
+	return rc;
+}
+
 int sam_cio_deinit(struct sam_cio *cio)
 {
 	int i;
@@ -379,26 +406,22 @@ int sam_cio_deinit(struct sam_cio *cio)
 	if (!cio)
 		return 0;
 
-	if (cio->operations) {
-		/* Wait for completion of all operations */
-		sam_cio_flush(cio);
-
-		for (i = 0; i < cio->params.size; i++) {
-			sam_dma_buf_free(&cio->operations[i].token_buf);
-		}
-		kfree(cio->operations);
-	}
-
 	if (cio->sessions) {
-		for (i = 0; i < cio->params.num_sessions; i++) {
-			if (cio->sessions[i].is_valid)
-				sam_session_destroy(&cio->sessions[i]);
+		sam_cio_delete_all_sessions(cio);
 
+		for (i = 0; i < cio->params.num_sessions; i++)
 			sam_dma_buf_free(&cio->sessions[i].sa_buf);
-		}
 
 		kfree(cio->sessions);
 		cio->sessions = NULL;
+	}
+
+	if (cio->operations) {
+		for (i = 0; i < cio->params.size; i++)
+			sam_dma_buf_free(&cio->operations[i].token_buf);
+
+		kfree(cio->operations);
+		cio->operations = NULL;
 	}
 
 	if (sam_cios[cio->idx]) {
@@ -708,13 +731,15 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 			cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 			continue;
 		}
+		/* Increment next result index */
+		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
+		if (!result) /* Flush cio */
+			continue;
+
 		sam_hw_res_desc_read(res_desc, result);
 		out_len = result->out_len;
 
 		SAM_STATS(cio->stats.deq_bytes += out_len);
-
-		/* Increment next result index */
-		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 
 		result->cookie = operation->cookie;
 
