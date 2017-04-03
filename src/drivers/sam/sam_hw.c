@@ -127,7 +127,7 @@ int sam_hw_cdr_regs_reset(struct sam_hw_ring *hw_ring)
 
 int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring)
 {
-	u32 val32;
+	u32 val32, desc_size;
 
 	val32 = lower_32_bits(hw_ring->cdr_buf.paddr);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_RING_BASE_ADDR_LO_REG, val32);
@@ -140,17 +140,20 @@ int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring)
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG, val32);
 
 	if (hw_ring->type == HW_EIP197)
-		val32 = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_EXT_WORD_COUNT); /* Extended command descriptor */
+		desc_size = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_EXT_WORD_COUNT); /* Extended command descriptor */
 	else
-		val32 = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_WORD_COUNT); /* Basic Command descriptor */
+		desc_size = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_WORD_COUNT); /* Basic Command descriptor */
 
+	val32 = desc_size;
 	val32 |= SAM_RING_DESC_OFFSET_VAL(SAM_CDR_ENTRY_WORDS); /* distance between descriptors */
 	val32 |= SAM_RING_TOKEN_PTR_MASK; /* acdp_present (Token pointer in the descriptor) */
 	val32 |= SAM_RING_64B_MODE_MASK; /* 64 bits mode */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_DESC_SIZE_REG, val32);
 
-	val32 = SAM_RING_FETCH_SIZE_VAL(SAM_CDR_FETCH_SIZE_DEF);	/* Number of words to fetch */
-	val32 |= SAM_RING_FETCH_THRESH_VAL(SAM_CDR_FETCH_THRESH_DEF);	/* Threshold in words to start fetch */
+	/* Number of words to fetch */
+	val32 = SAM_RING_FETCH_SIZE_VAL(SAM_CDR_ENTRY_WORDS * SAM_CDR_FETCH_COUNT);
+	/* Threshold in words to start fetch */
+	val32 |= SAM_RING_FETCH_THRESH_VAL(desc_size * SAM_CDR_FETCH_COUNT);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_CFG_REG, val32);
 
 	val32 = SAM_RING_DESC_SWAP_VAL(CONF_DESC_SWAP_VALUE);      /* cd_swap */
@@ -219,8 +222,10 @@ int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring)
 	val32 |= SAM_RING_64B_MODE_MASK; /* 64 bits mode */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_DESC_SIZE_REG, val32);
 
-	val32 = SAM_RING_FETCH_SIZE_VAL(SAM_RDR_FETCH_SIZE_DEF);	/* Number of words to fetch */
-	val32 |= SAM_RING_FETCH_THRESH_VAL(SAM_RDR_FETCH_THRESH_DEF);	/* Threshold in words to start fetch */
+	/* Number of words to fetch */
+	val32 = SAM_RING_FETCH_SIZE_VAL(SAM_RDR_ENTRY_WORDS * SAM_RDR_FETCH_COUNT);
+	/* Threshold in words to start fetch */
+	val32 |= SAM_RING_FETCH_THRESH_VAL(SAM_RDR_PREP_WORDS * SAM_RDR_FETCH_COUNT);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_CFG_REG, val32);
 
 	val32 = SAM_RING_DESC_SWAP_VAL(CONF_DESC_SWAP_VALUE);      /* rd_swap */

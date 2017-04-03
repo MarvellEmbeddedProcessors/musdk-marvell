@@ -42,6 +42,7 @@
 /* Command amd Result descriptors size and offset (in 32-bit words) */
 #define SAM_CDR_ENTRY_WORDS            16
 #define SAM_RDR_ENTRY_WORDS            16
+#define SAM_RDR_PREP_WORDS		4
 
 #define SAM_CDR_DSCR_EXT_WORD_COUNT    12
 #define SAM_RDR_DSCR_EXT_WORD_COUNT    12
@@ -215,10 +216,9 @@
 #define CONF_WRITE_CACHE_CTRL			0x3 /* 0x7 >> 1 */
 #define CONF_READ_CACHE_CTRL			0x5 /* 0xB >> 1 */
 
-#define SAM_CDR_FETCH_SIZE_DEF			0x10
-#define SAM_CDR_FETCH_THRESH_DEF		0x0C
-#define SAM_RDR_FETCH_SIZE_DEF			0x50
-#define SAM_RDR_FETCH_THRESH_DEF		0x14
+/* Number of CDR/RDR descriptors used to calculate fetch size and threshold */
+#define SAM_CDR_FETCH_COUNT			1
+#define SAM_RDR_FETCH_COUNT			1
 
 struct sam_hw_cmd_desc {
 	u32 words[SAM_CDR_ENTRY_WORDS];
