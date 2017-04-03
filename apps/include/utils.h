@@ -115,6 +115,7 @@ struct port_desc {
 	int			 pp_id;		/* Packet Processor ID */
 	int			 ppio_id;	/* PPIO port ID */
 	enum pp2_ppio_type	 ppio_type;	/* PPIO type */
+	u32			 first_inq;	/* First RXQ - relative to the Port's first RXQ */
 	u16			 num_tcs;	/* Number of TCs */
 	u16			 num_inqs;	/* Number of Rx queues */
 	u16			 num_outqs;	/* Number of Tx queues */

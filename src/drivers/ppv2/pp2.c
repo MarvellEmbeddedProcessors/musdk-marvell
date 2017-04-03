@@ -178,10 +178,8 @@ static void pp2_bm_flush_pools(uintptr_t cpu_slot, uint16_t bm_pool_reserved_map
 /* Initializes a packet processor control handle and its resources */
 static void pp2_inst_init(struct pp2_inst *inst)
 {
-	u32 val, i, rc;
-	uintptr_t cpu_slot;
+		uintptr_t cpu_slot;
 	struct pp2_hw *hw = &inst->hw;
-	u32 admin_status;
 
 	/* Master thread initializes common part of HW.
 	* This will probably get deprecated by KS driver for the initialization
@@ -194,37 +192,6 @@ static void pp2_inst_init(struct pp2_inst *inst)
 
 	pp2_cls_mng_init(inst);
 
-	/* Disable RXQs, only for ethernet ports (not loopback_port) */
-	for (i = 0; i < PP2_NUM_ETH_PPIO; i++) {
-		struct ppio_init_params	*ppio_param = &inst->parent->init.ppios[inst->id][i];
-
-		if (!ppio_param->is_enabled)
-			continue;
-
-		rc = pp2_netdev_if_admin_status_get(inst->id, i, &admin_status);
-		if (rc) {
-			pr_warn("Unable to find admin status for ppio %d:%d. Set to disabled\n", inst->id, i);
-			ppio_param->is_enabled = 0;
-			continue;
-		}
-
-		if (admin_status != PP2_PORT_MUSDK && admin_status != PP2_PORT_SHARED) {
-			pr_warn("Port %d:%d is not reserved for MUSDK usage in Linux DTS file\n", inst->id, i);
-			ppio_param->is_enabled = 0;
-			continue;
-		}
-
-		for (int j = 0; j < PP2_HW_PORT_NUM_RXQS; j++) {
-			int rxq;
-
-			if (j < ppio_param->first_inq)
-				continue;
-			rxq = i * PP2_HW_PORT_NUM_RXQS + j;
-			val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(rxq));
-			val |= MVPP2_RXQ_DISABLE_MASK;
-			pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(rxq), val);
-		}
-	}
 
 	/* GOP early activation */
 	/* TODO: Revise after device tree adaptation */
@@ -456,21 +423,19 @@ static void pp2_destroy(struct pp2_inst *inst)
 }
 
 /* Check ppio status configured by applications is coherent with dts file */
-static int pp2_status_check(struct netdev_if_params *netdev_params, struct pp2_init_params *params)
+int pp2_ppio_available(int pp2_id, int ppio_id)
 {
-	int i, j;
+	u32 admin_status;
+	int err;
 
-	for (i = 0; i < PP2_NUM_PKT_PROC; i++) {
-		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
-			if ((netdev_params[i * PP2_NUM_ETH_PPIO + j].admin_status == PP2_PORT_DISABLED) &&
-			    (params->ppios[i][j].is_enabled == 1)) {
-				pr_err("configured status does not match dts file for ppio %d:%d\n", i, j);
-				return -EFAULT;
-			}
-		}
-	}
-	return 0;
+
+	err = pp2_netdev_if_admin_status_get(pp2_id, ppio_id, &admin_status);
+
+	if (!err && (admin_status == PP2_PORT_MUSDK || admin_status == PP2_PORT_SHARED))
+		return true;
+	return false;
 }
+
 
 int pp2_init(struct pp2_init_params *params)
 {
@@ -497,9 +462,6 @@ int pp2_init(struct pp2_init_params *params)
 	memset(netdev_params, 0, sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO);
 	pp2_netdev_if_info_get(netdev_params);
 
-	rc = pp2_status_check(netdev_params, params);
-	if (rc)
-		return -EFAULT;
 
 	/* Initialize in an opaque manner from client,
 	* depending on HW, one or two packet processors.
@@ -609,14 +571,14 @@ int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status)
 	return -EFAULT;
 }
 
-/* pp2_netdev_get_port_info()
+/* pp2_netdev_get_ppio_info()
  * Find  pp_id and port_id parameters from ifname.
  * Description: loop through all packet processors and ports in each packet processor
  * and compare the interface name to the one configured for each port. If there is a match,
  * the pp_id and port_id are returned.
  * This function should be called after pp2_init() and before ppio_init().
  */
-int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *ppio_id)
+int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id)
 {
 	int i;
 

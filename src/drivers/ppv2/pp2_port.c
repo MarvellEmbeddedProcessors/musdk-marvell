@@ -1160,8 +1160,12 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	 * TODO: Traffic Mgr and CoS stuff not implemented yet, so only
 	 * the first parameter of the array is used
 	 */
-	first_rxq = port->id * PP2_HW_PORT_NUM_RXQS + pp2->init.ppios[pp2_id][port_id].first_inq;
-	port->first_rxq  = first_rxq;
+
+	first_rxq = port->id * PP2_HW_PORT_NUM_RXQS;
+	if (param->type == PP2_PPIO_T_LOG)
+		first_rxq += param->specific_type_params.log_port_params.first_inq;
+
+	port->first_rxq = first_rxq;
 	port->num_tcs = param->inqs_params.num_tcs;
 	for (i = 0; i < port->num_tcs; i++) {
 		num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;

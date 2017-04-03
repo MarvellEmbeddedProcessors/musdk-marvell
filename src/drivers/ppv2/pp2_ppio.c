@@ -72,10 +72,12 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 		pr_err("[%s] Invalid pp2 instance.\n", __func__);
 		return -ENXIO;
 	}
-	if (pp2_ptr->init.ppios[pp2_id][port_id].is_enabled == 0) {
-		pr_err("[%s] ppio is reserved.\n", __func__);
-		return -EFAULT;
+
+	if (!pp2_ppio_available(pp2_id, port_id)) {
+		pr_err("[%s] %s is not available for musdk.\n", __func__, params->match);
+		return -EINVAL;
 	}
+
 	port = GET_PPIO_PORT_PTR(ppio_array[pp2_id][port_id]);
 	if (*port) {
 		pr_err("[%s] ppio already exists.\n", __func__);

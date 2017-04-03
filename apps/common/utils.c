@@ -280,7 +280,7 @@ int app_find_port_info(struct port_desc *port_desc)
 
 	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "%s", port_desc->name);
-	err = pp2_netdev_get_port_info(name, &pp, &ppio);
+	err = pp2_netdev_get_ppio_info(name, &pp, &ppio);
 	if (err) {
 		pr_err("PP2 Port %s not found!\n", port_desc->name);
 		return err;
@@ -307,6 +307,7 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	port_params->match = name;
 	port_params->type = port->ppio_type;
 	port_params->inqs_params.num_tcs = port->num_tcs;
+	port_params->specific_type_params.log_port_params.first_inq = port->first_inq;
 	for (i = 0; i < port->num_tcs; i++) {
 		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs;

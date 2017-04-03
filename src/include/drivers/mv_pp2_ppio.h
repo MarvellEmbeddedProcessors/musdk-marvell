@@ -263,6 +263,7 @@ struct pp2_ppio_log_port_params {
 			struct pp2_ppio_log_port_rule_params	rules[PP2_MAX_PROTO_SUPPORTED];
 		} rule_sets[PP2_MAX_PROTO_SUPPORTED];
 	} proto_based_target;
+	u32	first_inq;
 };
 
 /**
@@ -1008,6 +1009,10 @@ int pp2_ppio_flush_vlan(struct pp2_ppio *ppio);
  *
  */
 int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *stats, int reset);
+
+
+
+
 
 /*TODO: link state ???*/
 

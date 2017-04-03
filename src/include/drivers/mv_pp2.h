@@ -53,17 +53,6 @@ struct pp2_proto_field {
 	union mv_net_proto_fields	field;
 };
 
-/**
- * ppio init parameters
- *
- */
-struct ppio_init_params {
-	int		is_enabled; /**< Indicates the ppio may be created in musdk */
-	/** First rxq to be used by musdk on this ppv2 port.
-	 * Value is relative to the port's first hardware physical in_queue.
-	 */
-	u32		first_inq;
-};
 
 /**
  *ppio parser parameters definitions
@@ -122,7 +111,6 @@ struct pp2_init_params {
 	u16			bm_pool_reserved_map;
 	/** Bitmap of RSS Tables (0-7). The tables are reserved in all packet_processors. */
 	u8			rss_tbl_reserved_map;
-	struct ppio_init_params	ppios[PP2_NUM_PKT_PROC][PP2_NUM_ETH_PPIO];
 
 	/* TODO FUTURE struct pp2_parse_params	prs_params; */
 };
@@ -154,7 +142,20 @@ void pp2_deinit(void);
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int pp2_netdev_get_port_info(char *ifname, u8 *pp_id, u8 *port_id);
+int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id);
+
+/**
+ * Get port availability for musdk
+ *
+ * @param[in]	pp_id
+ * @param[in]	ppio_id
+ *
+ * @retval	'1' - available
+ * @retval	'0' - not available
+ *
+ */
+int pp2_ppio_available(int pp2_id, int ppio_id);
+
 
 /**
  * Get number of active packet_processors.

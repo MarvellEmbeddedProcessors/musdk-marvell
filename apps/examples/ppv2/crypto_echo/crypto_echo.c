@@ -57,6 +57,7 @@
 #define CRYPT_APP_TX_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
 #define CRYPT_APP_CIO_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
 
+
 #define CRYPT_APP_MAX_BURST_SIZE	((CRYPT_APP_RX_Q_SIZE)>>2)
 #define CRYPT_APP_DFLT_BURST_SIZE	64
 #define CRYPT_APP_CTRL_DFLT_THR		1000
@@ -64,7 +65,9 @@
 
 #define CRYPT_APP_CIOS_RSRV		{ 0x0, 0x0 }
 
+
 #define CRYPT_APP_MAX_NUM_PORTS			2
+#define CRYPT_APP_FIRST_INQ			0
 #define CRYPT_APP_MAX_NUM_TCS_PER_PORT		1
 #define CRYPT_APP_MAX_NUM_QS_PER_CORE		CRYPT_APP_MAX_NUM_TCS_PER_PORT
 #define CRYPT_APP_MAX_NUM_SESSIONS_PER_RING	4
@@ -767,22 +770,7 @@ static int init_all_modules(void)
 	memset(&pp2_params, 0, sizeof(pp2_params));
 	pp2_params.hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
-	/* Enable 10G port */
-	pp2_params.ppios[0][0].is_enabled = 1;
-	pp2_params.ppios[0][0].first_inq = 0;
-	/* Enable 1G ports according to DTS files */
-	if (garg.pp2_num_inst == 1) {
-		pp2_params.ppios[0][2].is_enabled = 1;
-		pp2_params.ppios[0][2].first_inq = 0;
-	}
-	if (garg.pp2_num_inst == 2) {
-		/* Enable 10G port */
-		pp2_params.ppios[1][0].is_enabled = 1;
-		pp2_params.ppios[1][0].first_inq = 0;
-		/* Enable 1G ports */
-		pp2_params.ppios[1][1].is_enabled = 1;
-		pp2_params.ppios[1][1].first_inq = 0;
-	}
+
 	err = pp2_init(&pp2_params);
 	if (err)
 		return err;
@@ -892,6 +880,7 @@ static int init_local_modules(struct glob_arg *garg)
 			port->inq_size	= CRYPT_APP_RX_Q_SIZE;
 			port->num_outqs	= CRYPT_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= CRYPT_APP_TX_Q_SIZE;
+			port->first_inq	= CRYPT_APP_FIRST_INQ;
 
 			err = app_port_init(port, garg->num_pools, garg->pools_desc[port->pp_id], garg->mtu);
 			if (err) {

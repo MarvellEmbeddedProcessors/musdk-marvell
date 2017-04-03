@@ -543,4 +543,5 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);
 int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);
 int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status);
 
+
 #endif /* _PP2_H_ */
