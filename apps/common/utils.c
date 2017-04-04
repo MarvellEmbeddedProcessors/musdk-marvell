@@ -50,9 +50,9 @@ static u16 used_bpools[MVAPPS_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
 static u64 buf_alloc_cnt;
+static u64 buf_free_cnt;
 static u64 hw_rxq_buf_free_cnt;
 static u64 hw_bm_buf_free_cnt;
-static u64 buf_free_cnt;
 static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
@@ -439,17 +439,15 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 		hw_buf_free_cnt += tx_shadow_q_buf_free_cnt[i];
 	hw_buf_free_cnt += hw_bm_buf_free_cnt + hw_rxq_buf_free_cnt;
 
-	if (buf_free_cnt != buf_alloc_cnt)
+	if (buf_free_cnt != buf_alloc_cnt) {
 		pr_err("Not all buffers were released: allocated: %lu, freed: %lu\n",
 		       buf_alloc_cnt, buf_free_cnt);
 
-	if (buf_free_cnt != hw_buf_free_cnt) {
-		pr_err("Error in buffer release: allocated: %lu, app freed: %lu!!!\n",
-		       buf_alloc_cnt, buf_free_cnt);
-
-		pr_err("pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
-		       hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
-			(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
+		if (buf_free_cnt != hw_buf_free_cnt) {
+			pr_err("pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
+			       hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+				(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
+		}
 	}
 
 	pr_debug("allocated: %lu, app freed: %lu, pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
