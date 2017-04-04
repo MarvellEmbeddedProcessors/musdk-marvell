@@ -898,22 +898,21 @@ static int create_sam_sessions(struct sam_cio		*enc_cio,
 	return 0;
 }
 
-static int destroy_sam_sessions(struct sam_cio		*enc_cio,
+static void destroy_sam_sessions(struct sam_cio		*enc_cio,
 				struct sam_cio		*dec_cio,
 				struct sam_sa		*enc_sa,
 				struct sam_sa		*dec_sa)
 {
-	int err;
-
-	if (sam_session_destroy(enc_sa))
-		pr_err("DeC SA destroy failed!\n");
-	if (sam_session_destroy(dec_sa))
+	if (!enc_sa || sam_session_destroy(enc_sa))
 		pr_err("EnC SA destroy failed!\n");
+	if (!dec_sa || sam_session_destroy(dec_sa))
+		pr_err("DeC SA destroy failed!\n");
 
-	err = sam_cio_flush(enc_cio);
-	err = sam_cio_flush(dec_cio);
-
-	return err;
+	if (!enc_cio || sam_cio_flush(enc_cio))
+		pr_err("EnC CIO flush failed!\n");
+	if (dec_cio && (enc_cio != dec_cio))
+		if (sam_cio_flush(dec_cio))
+			pr_err("DeC CIO flush failed!\n");
 }
 
 static int init_local_modules(struct glob_arg *garg)
