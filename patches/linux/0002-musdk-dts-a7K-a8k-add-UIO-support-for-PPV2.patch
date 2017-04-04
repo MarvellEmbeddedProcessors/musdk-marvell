@@ -1,4 +1,4 @@
-From 07d3c843bb6d25e573fc6cc8663ec9a6104699b4 Mon Sep 17 00:00:00 2001
+From 07526cf25de011a7d556b85c4805829d47c495cc Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Wed, 11 Jan 2017 18:04:12 +0200
 Subject: [PATCH 2/8] musdk: dts: a7K: a8k: add UIO support for PPV2
@@ -13,10 +13,10 @@ Signed-off-by: nsamsono <nsamsono@marvell.com>
  4 files changed, 60 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040.dtsi b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
-index 4e000dc..08b7b2e 100644
+index bc310e5..273d952 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
-@@ -119,6 +119,11 @@
+@@ -120,6 +120,11 @@
  			ppv22@000000 {
  				dma-coherent;
  			};
@@ -25,7 +25,7 @@ index 4e000dc..08b7b2e 100644
 +				dma-coherent;
 +				status = "okay";
 +			};
- 			usb3h0: usb3@500000 {
+ 			sata: sata@540000 {
  				#stream-id-cells = <1>;
  			};
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040.dtsi b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
