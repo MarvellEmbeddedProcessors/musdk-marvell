@@ -69,7 +69,6 @@
 #define AUTH_BLOCK_SIZE_64B	64  /* Bytes */
 #define ICV_LEN			12  /* Bytes */
 
-#define CRYPT_APP_MAX_NUM_PORTS			2
 #define CRYPT_APP_FIRST_INQ			0
 #define CRYPT_APP_MAX_NUM_TCS_PER_PORT		1
 #define CRYPT_APP_MAX_NUM_QS_PER_CORE		CRYPT_APP_MAX_NUM_TCS_PER_PORT
@@ -149,7 +148,7 @@ struct glob_arg {
 	int			 prefetch_shift;
 	int			 pp2_num_inst;
 	int			 num_ports;
-	struct port_desc	 ports_desc[CRYPT_APP_MAX_NUM_PORTS];
+	struct port_desc	 ports_desc[MVAPPS_MAX_NUM_PORTS];
 
 	pthread_mutex_t		 trd_lock;
 
@@ -409,9 +408,9 @@ static inline int send_pkts(struct local_arg		*larg,
 	struct pp2_bpool	*bpool;
 	struct pp2_buff_inf	*binf;
 	struct pp2_ppio_desc	*desc;
-	struct pp2_ppio_desc	 descs[CRYPT_APP_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
+	struct pp2_ppio_desc	 descs[MVAPPS_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
 	int			 err;
-	u16			 i, rp, tp, bp, num_got, port_nums[CRYPT_APP_MAX_NUM_PORTS];
+	u16			 i, rp, tp, bp, num_got, port_nums[MVAPPS_MAX_NUM_PORTS];
 
 	for (tp = 0; tp < larg->garg->num_ports; tp++)
 		port_nums[tp] = 0;
@@ -1084,6 +1083,9 @@ static int register_cli_cmds(struct glob_arg *garg)
 	mvapp_register_cli_cmd(&cmd_params);
 #endif /* CHECK_CYCLES */
 
+	app_register_cli_common_cmds(garg->ports_desc);
+
+
 	return 0;
 }
 
@@ -1344,7 +1346,7 @@ static void usage(char *progname)
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       CRYPT_APP_MAX_NUM_PORTS, CRYPT_APP_MAX_BURST_SIZE, DEFAULT_MTU);
+	       MVAPPS_MAX_NUM_PORTS, CRYPT_APP_MAX_BURST_SIZE, DEFAULT_MTU);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
@@ -1398,9 +1400,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			if (garg->num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->num_ports > CRYPT_APP_MAX_NUM_PORTS) {
+			} else if (garg->num_ports > MVAPPS_MAX_NUM_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->num_ports, CRYPT_APP_MAX_NUM_PORTS);
+				       garg->num_ports, MVAPPS_MAX_NUM_PORTS);
 				return -EINVAL;
 			}
 			i += 2;

@@ -45,6 +45,9 @@
 #define MVAPPS_MAX_PKT_PROC		2
 /* Maximum number of CPU cores used by application */
 #define MVAPPS_MAX_NUM_CORES		4
+/* Maximum number of ports used by application */
+#define MVAPPS_MAX_NUM_PORTS		2
+
 /* Maximum number of queues per TC */
 #define MVAPPS_MAX_NUM_QS_PER_TC	MVAPPS_MAX_NUM_CORES
 /* Total number of BM pools supported */
@@ -112,6 +115,7 @@ struct tx_shadow_q {
  */
 struct port_desc {
 	char			 name[15];	/* Port name */
+	int			 initialized;	/* Flag indicated is port was initialized */
 	int			 pp_id;		/* Packet Processor ID */
 	int			 ppio_id;	/* PPIO port ID */
 	enum pp2_ppio_type	 ppio_type;	/* PPIO type */
@@ -234,6 +238,19 @@ void app_disable_all_ports(struct port_desc *ports, int num_ports, u16 num_tcs, 
  * Get line
  */
 int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[]);
+
+/*
+ * Show queue statistics
+ */
+void app_show_queue_stat(struct port_desc *port_desc, u8 q_start, int num_qs, int reset);
+/*
+ * Show port statistics
+ */
+void app_show_port_stat(struct port_desc *port_desc, int reset);
+/*
+ * Register common CLI commands (currently show queue and port statistics)
+ */
+int app_register_cli_common_cmds(struct port_desc *port_desc);
 
 /* Saved sysdma virtual high address*/
 extern u64 sys_dma_high_addr;

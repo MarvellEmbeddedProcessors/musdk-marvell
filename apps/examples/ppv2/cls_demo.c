@@ -64,7 +64,6 @@
 #define CLS_APP_DFLT_BURST_SIZE			256
 
 #define CLS_APP_MAX_NUM_QS_PER_CORE		MVAPPS_MAX_NUM_QS_PER_TC
-#define CLS_APP_MAX_NUM_PORTS			2
 
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
@@ -83,7 +82,7 @@ struct glob_arg {
 	int			qs_map_shift;
 	int			num_ports;
 	int			pp2_num_inst;
-	struct port_desc	ports_desc[CLS_APP_MAX_NUM_PORTS];
+	struct port_desc	ports_desc[MVAPPS_MAX_NUM_PORTS];
 	struct pp2_hif		*hif;
 	int			num_pools;
 	struct bpool_desc	**pools_desc;
@@ -1865,6 +1864,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	register_cli_c3_cmds(ppio);
 	register_cli_c2_cmds(ppio);
 	register_cli_mng_cmds(ppio);
+	app_register_cli_common_cmds(garg->ports_desc);
 
 	return 0;
 }

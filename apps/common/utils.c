@@ -32,6 +32,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <getopt.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -55,6 +56,198 @@ static u64 hw_rxq_buf_free_cnt;
 static u64 hw_bm_buf_free_cnt;
 static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
+
+void app_show_queue_stat(struct port_desc *port_desc, u8 q_start, int num_qs, int reset)
+{
+	int i, j;
+	u8 q_stop = port_desc->num_inqs - q_start;
+	struct pp2_ppio_inq_statistics rxstats;
+	struct pp2_ppio_outq_statistics txstats;
+
+	if (q_start + num_qs >= port_desc->num_inqs) {
+		printf("\nWrong queue parameters: first_qid=%d, num=%d", q_start, num_qs);
+		return;
+	}
+	if (num_qs)
+		q_stop = num_qs + q_start;
+
+	printf("\n-------- Port %d:%d queues stats --------\n", port_desc->pp_id, port_desc->ppio_id);
+	for (i = 0; i < port_desc->num_tcs; i++) {
+		for (j = q_start; j < q_stop; j++) {
+			pp2_ppio_inq_get_statistics(port_desc->ppio, i, j, &rxstats, reset);
+			printf("\t Tc #%d Rxq #%d statistics:\n", i, j);
+			printf("\t\tEnqueued packets:      %lu\n", rxstats.enq_desc);
+			printf("\t\tFull queue drops:      %u\n", rxstats.drop_fullq);
+			printf("\t\tBuffer Manager drops:  %u\n", rxstats.drop_bm);
+			printf("\t\tEarly drops:           %u\n", rxstats.drop_early);
+		}
+		printf("\n");
+	}
+	for (i = 0; i < port_desc->num_outqs; i++) {
+		printf("\t Txq #%d statistics:\n", i);
+		pp2_ppio_outq_get_statistics(port_desc->ppio, i, &txstats, reset);
+		printf("\t\tEnqueued packets:      %lu\n", txstats.enq_desc);
+		printf("\t\tDequeued packets:      %lu\n", txstats.deq_desc);
+		printf("\t\tEnque desc to DDR:     %lu\n", txstats.enq_dec_to_ddr);
+		printf("\t\tEnque buffers to DDR:  %lu\n", txstats.enq_buf_to_ddr);
+	}
+}
+
+void app_show_port_stat(struct port_desc *port_desc, int reset)
+{
+	struct pp2_ppio_statistics stats;
+
+	printf("\n--------  Port %d:%d stats --------\n", port_desc->pp_id, port_desc->ppio_id);
+	pp2_ppio_get_statistics(port_desc->ppio, &stats, reset);
+	printf("\t Rx statistics:\n");
+	printf("\t\tReceived packets:        %lu\n", stats.rx_packets);
+	printf("\t\tFull queue drops:        %u\n", stats.rx_fullq_dropped);
+	printf("\t\tBuffer Manager drops:    %u\n", stats.rx_bm_dropped);
+	printf("\t\tEarly drops:             %u\n", stats.rx_early_dropped);
+	printf("\t\tFIFO overrun drops:      %u\n", stats.rx_fifo_dropped);
+	printf("\t\tClassifier drops:        %u\n", stats.rx_cls_dropped);
+	printf("\n");
+	printf("\t Tx statistics:\n");
+	printf("\t\tSent packets:            %lu\n", stats.tx_packets);
+}
+
+static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int i, reset = 0;
+	u8 qid = 0, port_id = 0;
+	int ports_num = MVAPPS_MAX_NUM_PORTS;
+	int queues_num = 0;
+	struct port_desc *port_desc = (struct port_desc *)arg;
+	char *ret_ptr;
+	int option = 0;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"port", required_argument, 0, 'p'},
+		{"queue", required_argument, 0, 'q'},
+		{"reset", no_argument, 0, 'r'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc > 6) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	/* Get parameters */
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 'p':
+			port_id = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (port_id < 0)) {
+				printf("parsing fail, wrong input for --port\n");
+				return -EINVAL;
+			}
+			ports_num = 1;
+			break;
+		case 'q':
+			qid = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (qid < 0)) {
+				printf("parsing fail, wrong input for --queue\n");
+				return -EINVAL;
+			}
+			queues_num = 1;
+			break;
+		case 'r':
+			reset = 1;
+			break;
+		default:
+			printf("parsing fail, wrong input, line = %d\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	for (i = port_id; i < port_id + ports_num; i++) {
+		if (port_desc[i].initialized)
+			app_show_queue_stat(&port_desc[i], qid, queues_num, reset);
+	}
+
+	return 0;
+}
+
+static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int i, reset = 0;
+	u8 portid = 0;
+	int ports_num = MVAPPS_MAX_NUM_PORTS;
+	struct port_desc *port_desc = (struct port_desc *)arg;
+	char *ret_ptr;
+	int option = 0;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"port", required_argument, 0, 'p'},
+		{"reset", no_argument, 0, 'r'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc > 4) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	/* Get parameters */
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 'p':
+			portid = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (portid < 0)) {
+				printf("parsing fail, wrong input for --port\n");
+				return -EINVAL;
+			}
+			ports_num = 1 + portid;
+			break;
+		case 'r':
+			reset = 1;
+			break;
+		default:
+			printf("parsing fail, wrong input, line = %d\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	for (i = portid; i < ports_num; i++) {
+		if (port_desc[i].initialized)
+			app_show_port_stat(&port_desc[i], reset);
+	}
+
+	return 0;
+}
+
+int app_register_cli_common_cmds(struct port_desc *port_desc)
+{
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "qstat";
+	cmd_params.desc		= "Show queues statistics";
+	cmd_params.format	= "--port --queue --reset\n"
+				  "\t\t--port, -p	port number, if not specified, show for all ports\n"
+				  "\t\t--queue, -q	queue index, if not specified, show for all queues.\n"
+				  "\t\t--reset, -r	reset statistics\n";
+	cmd_params.cmd_arg	= port_desc;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))queue_stat_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "pstat";
+	cmd_params.desc		= "Show ports statistics";
+	cmd_params.format	= "--port --reset\n"
+				  "\t\t--port, -p	port number, if not specified, show for all ports\n"
+				  "\t\t--reset, -r	reset statistics\n";
+	cmd_params.cmd_arg	= port_desc;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_stat_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	return 0;
+}
 
 /*
  * app_get_line()
@@ -345,6 +538,7 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	}
 
 	err = pp2_ppio_enable(port->ppio);
+	port->initialized = 1;
 
 	return err;
 }

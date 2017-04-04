@@ -245,7 +245,7 @@ static void dump_help(cli_t *cli_p)
 
 	LIST_FOR_EACH(lst_pos, &cli_p->cmds_lst) {
 		cmd = CLI_COMMAND_OBJ(lst_pos);
-		cli_p->print_cb("\t%s\t\tUsage: %s", cmd->name, cmd->name);
+		cli_p->print_cb("\t%s\n\t\tUsage: %s", cmd->name, cmd->name);
 		if (cmd->format)
 			cli_p->print_cb(" %s", cmd->format);
 		cli_p->print_cb("\n\t\t%s\n", cmd->desc);

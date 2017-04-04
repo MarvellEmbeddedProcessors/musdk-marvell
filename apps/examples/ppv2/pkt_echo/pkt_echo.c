@@ -82,7 +82,6 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 
 #define PKT_ECHO_APP_DMA_MEM_SIZE		(40 * 1024 * 1024)
 
-#define PKT_ECHO_APP_MAX_NUM_PORTS		2
 #define PKT_ECHO_APP_FIRST_INQ			0
 #define PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT	1
 #define PKT_ECHO_APP_MAX_NUM_QS_PER_CORE	PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT
@@ -117,7 +116,7 @@ struct glob_arg {
 	int			 prefetch_shift;
 	int			 num_ports;
 	int			 pp2_num_inst;
-	struct port_desc	 ports_desc[PKT_ECHO_APP_MAX_NUM_PORTS];
+	struct port_desc	 ports_desc[MVAPPS_MAX_NUM_PORTS];
 
 	pthread_mutex_t		 trd_lock;
 
@@ -160,13 +159,13 @@ static struct glob_arg garg = {};
 #define SET_MAX_BURST(core, port, burst)	\
 	{ if (burst > tx_max_burst[core][port]) tx_max_burst[core][port] = burst; }
 
-u32 rx_buf_cnt[MVAPPS_MAX_NUM_CORES][PKT_ECHO_APP_MAX_NUM_PORTS];
-u32 free_buf_cnt[MVAPPS_MAX_NUM_CORES][PKT_ECHO_APP_MAX_NUM_PORTS];
-u32 tx_buf_cnt[MVAPPS_MAX_NUM_CORES][PKT_ECHO_APP_MAX_NUM_PORTS];
-u32 tx_buf_drop[MVAPPS_MAX_NUM_CORES][PKT_ECHO_APP_MAX_NUM_PORTS];
-u32 tx_buf_retry[MVAPPS_MAX_NUM_CORES][PKT_ECHO_APP_MAX_NUM_PORTS];
-u32 tx_max_resend[MVAPPS_MAX_NUM_CORES][PKT_ECHO_APP_MAX_NUM_PORTS];
-u32 tx_max_burst[MVAPPS_MAX_NUM_CORES][PKT_ECHO_APP_MAX_NUM_PORTS];
+u32 rx_buf_cnt[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
+u32 free_buf_cnt[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
+u32 tx_buf_cnt[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
+u32 tx_buf_drop[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
+u32 tx_buf_retry[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
+u32 tx_max_resend[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
+u32 tx_max_burst[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
 
 #else
 #define INC_RX_COUNT(core, port, cnt)
@@ -819,99 +818,6 @@ static int stat_cmd_cb(void *arg, int argc, char *argv[])
 }
 #endif
 
-static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
-{
-	int i, j, reset = 0;
-	u8 first_q = 0, qid;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio_inq_statistics rxstats;
-	struct pp2_ppio_outq_statistics txstats;
-
-	if (argc > 1) {
-		reset = 1;
-		printf("Statistics will be reset\n");
-	}
-
-	while (!(garg->qs_map & (1 << first_q)))
-		first_q++;
-
-	for (j = 0; j < garg->num_ports; j++) {
-		printf("\n-------- Port #%d queues stats --------\n", j);
-		qid = first_q;
-		for (i = 0; i < garg->cpus; i++) {
-			pp2_ppio_inq_get_statistics(garg->ports_desc[j].ppio, 0, qid, &rxstats, reset);
-			printf("\t Rxq #%d statistics:\n", qid++);
-			printf("\t\tEnqueued packets:      %lu\n", rxstats.enq_desc);
-			printf("\t\tFull queue drops:      %u\n", rxstats.drop_fullq);
-			printf("\t\tBuffer Manager drops:  %u\n", rxstats.drop_bm);
-			printf("\t\tEarly drops:           %u\n", rxstats.drop_early);
-		}
-		printf("\n");
-		for (i = 0; i < PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT; i++) {
-			printf("\t Txq #%d statistics:\n", i);
-			pp2_ppio_outq_get_statistics(garg->ports_desc[j].ppio, i, &txstats, reset);
-			printf("\t\tEnqueued packets:      %lu\n", txstats.enq_desc);
-			printf("\t\tDequeued packets:      %lu\n", txstats.deq_desc);
-			printf("\t\tEnque desc to DDR:     %lu\n", txstats.enq_dec_to_ddr);
-			printf("\t\tEnque buffers to DDR:  %lu\n", txstats.enq_buf_to_ddr);
-		}
-	}
-
-	return 0;
-}
-
-static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
-{
-	int i, reset = 0, cur_port;
-	int first_port, port_num;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct pp2_ppio_statistics stats;
-
-	/* If no parameters specified, show all ports */
-	first_port = 0;
-	port_num = garg->num_ports;
-
-	if (argc > 1) {
-		/* Get port number */
-		first_port = atoi(argv[1]);
-		port_num = 1;
-
-		/* If second parameter is specified, reset statistics */
-		if (argc > 2) {
-			reset = atoi(argv[2]);
-			if (reset) {
-				reset = 1;
-				printf("Statistics will be reset\n");
-			}
-		}
-
-		/* If specified port id is bigger than supported, show stats for all ports*/
-		if (first_port >= garg->num_ports) {
-			pr_warn("Invalid port number (%d). Should be in range [%d-%d].\n",
-				first_port, 0, garg->num_ports - 1);
-			first_port = 0;
-			port_num = garg->num_ports;
-		}
-	}
-
-	for (i = 0, cur_port = first_port; i < port_num; i++, cur_port++) {
-		printf("\n-------- Port #%d stats --------\n", cur_port);
-		pp2_ppio_get_statistics(garg->ports_desc[cur_port].ppio, &stats, reset);
-		printf("\t Rx statistics:\n");
-		printf("\t\tReceived packets:        %lu\n", stats.rx_packets);
-		printf("\t\tFull queue drops:        %u\n", stats.rx_fullq_dropped);
-		printf("\t\tBuffer Manager drops:    %u\n", stats.rx_bm_dropped);
-		printf("\t\tEarly drops:             %u\n", stats.rx_early_dropped);
-		printf("\t\tFIFO overrun drops:      %u\n", stats.rx_fifo_dropped);
-		printf("\t\tClassifier drops:        %u\n", stats.rx_cls_dropped);
-		printf("\n");
-		printf("\t Tx statistics:\n");
-		printf("\t\tSent packets:            %lu\n", stats.tx_packets);
-	}
-
-	return 0;
-}
-
 static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
@@ -932,21 +838,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 #endif
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "qstat";
-	cmd_params.desc		= "Show queues statistics";
-	cmd_params.format	= "<reset>";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))queue_stat_cmd_cb;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "pstat";
-	cmd_params.desc		= "Show queues statistics";
-	cmd_params.format	= "<port> <reset>";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_stat_cmd_cb;
-	mvapp_register_cli_cmd(&cmd_params);
+	app_register_cli_common_cmds(garg->ports_desc);
 
 	return 0;
 }
@@ -1097,7 +989,7 @@ static void usage(char *progname)
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       PKT_ECHO_APP_MAX_NUM_PORTS, PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE);
+	       MVAPPS_MAX_NUM_PORTS, PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
@@ -1147,9 +1039,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			if (garg->num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->num_ports > PKT_ECHO_APP_MAX_NUM_PORTS) {
+			} else if (garg->num_ports > MVAPPS_MAX_NUM_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->num_ports, PKT_ECHO_APP_MAX_NUM_PORTS);
+				       garg->num_ports, MVAPPS_MAX_NUM_PORTS);
 				return -EINVAL;
 			}
 			i += 2;
