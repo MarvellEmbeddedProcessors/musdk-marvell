@@ -369,28 +369,6 @@ int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *
 	return 0;
 }
 
-int sam_hw_engine_load(void)
-{
-#ifdef SAM_EIP_DDK_HW_INIT
-	pr_info("Load SAM HW engine\n");
-
-	if (Driver197_Init()) {
-		pr_err("Can't init eip197 driver\n");
-		return -ENODEV;
-	}
-#endif
-	return 0;
-}
-
-int sam_hw_engine_unload(void)
-{
-#ifdef SAM_EIP_DDK_HW_INIT
-	pr_info("Unload SAM HW engine\n");
-	Driver197_Exit();
-#endif
-	return 0;
-}
-
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 {
 	pr_info("%d:%d CDR registers\n", hw_ring->engine, hw_ring->ring);

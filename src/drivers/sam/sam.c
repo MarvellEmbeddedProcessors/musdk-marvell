@@ -257,11 +257,6 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	int i, engine, ring, cio_idx, scanned;
 	struct sam_cio	*local_cio;
 
-	/* Load SAM HW engine */
-	if (!sam_initialized) {
-		if (sam_hw_engine_load())
-			return -EINVAL;
-	}
 	sam_initialized = true;
 
 	/* Parse match string to ring number */
@@ -430,10 +425,9 @@ int sam_cio_deinit(struct sam_cio *cio)
 		sam_active_cios--;
 	}
 
-	if (sam_initialized && (sam_active_cios == 0)) {
-		sam_hw_engine_unload();
+	if (sam_initialized && (sam_active_cios == 0))
 		sam_initialized = false;
-	}
+
 	kfree(cio);
 
 	return 0;

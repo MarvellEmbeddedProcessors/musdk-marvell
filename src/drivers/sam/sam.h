@@ -36,11 +36,6 @@
 #include <drivers/mv_sam.h>
 #include "std_internal.h"
 
-#ifdef SAM_EIP_DDK_HW_INIT
-#include "cs_driver.h"
-#include "api_driver197_init.h"
-#endif
-
 #include "sa_builder.h"
 #include "sa_builder_basic.h"
 #include "token_builder.h"
