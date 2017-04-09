@@ -30,50 +30,15 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_SAM_H__
-#define __MV_SAM_H__
+#include "std_internal.h"
+#include "drivers/mv_sam.h"
+#include "lib/lib_misc.h"
 
-#include "mv_std.h"
+#include "drivers/mv_sam_cio.h"
+#include "sam.h"
 
-struct sam_cio;
-struct sam_sa;
+int sam_cio_ipsec_enq(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num)
+{
+	return 0;
+}
 
-#include "mv_sam_session.h"
-#include "mv_sam_cio.h"
-
-/** Maximum number of supported crypto engines */
-#define SAM_HW_ENGINE_NUM	2
-
-/* Maximum number of supported rings (cios) per engine */
-#define SAM_HW_RING_NUM		4
-
-/* Maximum number of supported CIOs for all engines */
-#define SAM_MAX_CIO_NUM		(SAM_HW_RING_NUM * SAM_HW_ENGINE_NUM)
-
-#define SAM_SA_DEBUG_FLAG	0x1
-#define SAM_CIO_DEBUG_FLAG	0x2
-
-struct sam_capability {
-	u32 cipher_algos; /** Bit mask of supported cipher algorithms as defined in "enum sam_cipher_alg" */
-	u32 cipher_modes; /** Bit mask of supported cipher modes as defined in "enum sam_cipher_mode" */
-	u32 auth_algos;	  /** Bit mask of supported authentication algorithms as defined in "enum sam_auth_alg" */
-};
-
-/**
- * Return supported algorithms and modes for encryption and authentication.
- *
- * @param[out]     capa		- pointer to capability staructure to be filled
- *
- * @retval	0		- success
- * @retval	Negative	- failure
- */
-int sam_get_capability(struct sam_capability *capa);
-
-/**
- * Return number of crypto engines.
- *
- * @retval      number of crypto engines
- */
-u8 sam_get_num_inst(void);
-
-#endif /* __MV_SAM_H__ */

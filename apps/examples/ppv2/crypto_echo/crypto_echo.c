@@ -841,13 +841,13 @@ static int create_sam_sessions(struct sam_cio		*enc_cio,
 			pr_err("Unknown authetication alg (%d)!\n", sa_params.auth_alg);
 			return -EINVAL;
 		}
-		sa_params.auth_icv_len = ICV_LEN;
+		sa_params.u.basic.auth_icv_len = ICV_LEN;
 	} else {
 		sa_params.auth_key = NULL;    /* auth key */
 		sa_params.auth_key = 0;
-		sa_params.auth_icv_len = 0;   /* Integrity Check Value (ICV) size (in bytes) */
+		sa_params.u.basic.auth_icv_len = 0;   /* Integrity Check Value (ICV) size (in bytes) */
 	}
-	sa_params.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
+	sa_params.u.basic.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
 
 	err = sam_session_create(enc_cio, &sa_params, enc_sa);
 	if (err) {

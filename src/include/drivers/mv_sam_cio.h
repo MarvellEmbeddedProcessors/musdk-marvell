@@ -75,9 +75,12 @@ struct sam_buf_info {
 
 /** Possible crypto operation errors */
 enum sam_cio_op_status {
-	SAM_CIO_OK = 0,  /**< No errors */
-	SAM_CIO_ERR_HW,	 /**< Unexpected error returned by HW */
-	SAM_CIO_ERR_ICV, /**< ICV value mismatch */
+	SAM_CIO_OK = 0,		/**< No errors */
+	SAM_CIO_ERR_HW,		/**< Unexpected error returned by HW */
+	SAM_CIO_ERR_ICV,	/**< ICV value mismatch */
+	SAM_CIO_ERR_PROTO,      /**< Protocol error. Not a valid ESP or AH packet */
+	SAM_CIO_ERR_SA_LOOKUP,  /**< SA lookup failed */
+	SAM_CIO_ERR_ANTIREPLAY, /**< Anti-replay check failed */
 	SAM_CIO_ERR_LAST
 };
 
@@ -120,6 +123,24 @@ struct sam_cio_op_result {
 	void			*cookie; /**< caller cookie passed from request */
 	u32			out_len; /**< output data length */
 	enum sam_cio_op_status	status;  /**< status of crypto operation. */
+};
+
+/**
+ * IPSEC operation request
+ *
+ * Notes:
+ *	- sam_pkt_info and sam+buf_info structures can be local.
+ *	- "dst->mdata" be valid until crypto operation is completed.
+ *	- "src->buf[i].vaddr" and "dst->buf[i].vaddr" must be valid until crypto operation is completed.
+ */
+struct sam_cio_ipsec_params {
+	struct sam_sa       *sa;	/**< IPSEC session handler */
+	void                *cookie;	/**< caller cookie to be return unchanged */
+	u32 num_bufs;			/**< number of input/output buffers */
+	struct sam_buf_info *src;	/**< array of input buffers */
+	struct sam_buf_info *dst;	/**< array of output buffers */
+	u32 l3_offset;                  /**< L3 header offset from beginning of src/dst buffer */
+	u32 pkt_size;                   /**< packet size from beginning of src/dst buffer */
 };
 
 /**
@@ -168,6 +189,19 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
  * @retval	Negative   - dequeue of one or more results failed.
  */
 int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num);
+
+/**
+ * Enqueue single or multiple crypto IPSEC operations to crypto IO instance
+ *
+ * @param[in]	  cio      - crypto IO instance handler.
+ * @param[in]	  requests - pointer to parameters of one or more crypto IPSEC operations
+ * @param[in,out] num      - input:  number of requests to enqueue
+ *                           output: number of requests successfully enqueued
+ *
+ * @retval	0          - all requests are successfully enqueued.
+ * @retval	Negative   - enqueue of one or more requests failed.
+ */
+int sam_cio_ipsec_enq(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num);
 
 /**
  * Flush crypto IO instance. All pending requests/results will be discarded.

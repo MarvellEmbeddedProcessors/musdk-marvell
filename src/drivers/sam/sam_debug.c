@@ -48,8 +48,8 @@ void print_sam_sa_params(struct sam_session_params *sa_params)
 	pr_info("sa_params->auth_alg             = %d\n", sa_params->auth_alg);
 	pr_info("sa_params->auth_key             = %p\n", sa_params->auth_key);
 	pr_info("sa_params->auth_key_len         = %d\n", sa_params->auth_key_len);
-	pr_info("sa_params->auth_icv_len         = %d\n", sa_params->auth_icv_len);
-	pr_info("sa_params->auth_aad_len         = %d\n", sa_params->auth_aad_len);
+	pr_info("sa_params->auth_icv_len         = %d\n", sa_params->u.basic.auth_icv_len);
+	pr_info("sa_params->auth_aad_len         = %d\n", sa_params->u.basic.auth_aad_len);
 	pr_info("\n");
 }
 

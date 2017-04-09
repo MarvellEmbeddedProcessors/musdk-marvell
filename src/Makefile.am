@@ -98,6 +98,7 @@ AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/Firmware/api
 
 libmusdk_la_SOURCES += drivers/sam/sam.c
 libmusdk_la_SOURCES += drivers/sam/sam_hw.c
+libmusdk_la_SOURCES += drivers/sam/sam_ipsec.c
 libmusdk_la_SOURCES += drivers/sam/sam_debug.c
 
 libmusdk_la_SOURCES += drivers/sam/crypto/mv_md5.c

@@ -189,7 +189,7 @@ static int sam_session_auth_init(struct sam_sa *session,
 	}
 	sa_params->AuthAlgo = (SABuilder_Auth_t)params->auth_alg;
 
-	basic_params->ICVByteCount = params->auth_icv_len;
+	basic_params->ICVByteCount = params->u.basic.auth_icv_len;
 	if (params->dir == SAM_DIR_DECRYPT)
 		basic_params->BasicFlags |= SAB_BASIC_FLAG_EXTRACT_ICV;
 
@@ -211,7 +211,7 @@ static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
 	if (request->auth_len) {
 		copylen = request->auth_len;
 		if (session->params.dir == SAM_DIR_DECRYPT)
-			copylen += session->params.auth_icv_len;
+			copylen += session->params.u.basic.auth_icv_len;
 	} else {
 		/* chipher only */
 		copylen = request->cipher_len;
@@ -229,7 +229,7 @@ static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
 	/* process AAD */
 	if (request->auth_aad) {
 		token_params.AAD_p = request->auth_aad;
-		token_params.AdditionalValue = session->params.auth_aad_len;
+		token_params.AdditionalValue = session->params.u.basic.auth_aad_len;
 	} else if (request->auth_len && request->cipher_len)
 		token_params.AdditionalValue = request->auth_len - request->cipher_len;
 

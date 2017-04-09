@@ -255,6 +255,7 @@ static int create_sessions(generic_list tests_db)
 			return -1;
 
 		sa_params[i].dir = direction_str_to_val(encryptedBlockGetDirection(block));
+		sa_params[i].proto = SAM_PROTO_NONE;
 
 		sa_params[i].cipher_alg = cipher_algorithm_str_to_val(encryptedBlockGetAlgorithm(block));
 		if (sa_params[i].cipher_alg != SAM_CIPHER_NONE) {
@@ -276,11 +277,11 @@ static int create_sessions(generic_list tests_db)
 		sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block), auth_key_len);
 		if (sa_params[i].auth_alg != SAM_AUTH_NONE) {
 
-			sa_params[i].auth_icv_len = encryptedBlockGetIcbLen(block, 0);
+			sa_params[i].u.basic.auth_icv_len = encryptedBlockGetIcbLen(block, 0);
 
 			if (sa_params[i].auth_alg == SAM_AUTH_AES_GCM) {
 				/* cipher key used for authentication too */
-				sa_params[i].auth_aad_len = encryptedBlockGetAadLen(block, 0);
+				sa_params[i].u.basic.auth_aad_len = encryptedBlockGetAadLen(block, 0);
 			} else {
 				if (auth_key_len > 0) {
 					u8 auth_key[MAX_AUTH_KEY_SIZE];
@@ -477,8 +478,8 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *ses
 		printf("Warning: cipher_alg and auth_alg are NONE both\n");
 	}
 
-	if (session_params->auth_icv_len > 0) {
-		auth_icv_size = session_params->auth_icv_len;
+	if (session_params->u.basic.auth_icv_len > 0) {
+		auth_icv_size = session_params->u.basic.auth_icv_len;
 		encryptedBlockGetIcb(block, auth_icv_size, auth_icv, 0);
 		if (session_params->dir == SAM_DIR_DECRYPT) {
 			/* copy ICV to end of input buffer */

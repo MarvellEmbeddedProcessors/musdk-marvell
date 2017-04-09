@@ -42,9 +42,6 @@
  *  @{
  */
 
-struct sam_cio;
-struct sam_sa;
-
 /** Crypto operation direction */
 enum sam_dir {
 	SAM_DIR_ENCRYPT = 0, /**< encrypt and/or generate signature */
@@ -104,6 +101,55 @@ enum sam_auth_alg {
 	SAM_AUTH_ALG_LAST,
 };
 
+enum sam_crypto_protocol {
+	SAM_PROTO_NONE,
+	SAM_PROTO_IPSEC,
+	SAM_PROTO_LAST,
+};
+
+struct sam_session_basic_params {
+	u32 auth_icv_len;                /**< Integrity Check Value (ICV) size (in bytes) */
+	u32 auth_aad_len;                /**< Additional Data (AAD) size (in bytes) */
+};
+
+/** IPSEC tunnel parameters: supports IPv4 and IPv6 tunnels */
+struct sam_sa_ipsec_tunnel {
+	union {
+		/** IPv4 header parameters */
+		struct {
+			u8 *sip; /** 4 bytes of IPv4 source address (NETWORK ENDIAN) */
+			u8 *dip; /** 4 bytes of IPv4 destination address (NETWORK ENDIAN) */
+			u8 dscp; /** IPv4 Differentiated Services Code Point */
+			u8 ttl;  /** IPv4 Time To Live */
+			u8 flags;
+		} ipv4;
+		/** IPv6 header parameters */
+		struct {
+			u8 *sip;
+			u8 *dip;
+			/* TBD */
+		} ipv6;
+	} u;
+};
+
+/** NAT-T encapsulation parameters */
+struct sam_sa_ipsec_natt {
+	u16 udp_sport;
+	u16 udp_dport;
+};
+
+struct sam_session_ipsec_params {
+	int is_esp;				/**< true - ESP protocol. must be true. AH is not supported */
+	int is_ip6;				/**< true - IPv6, false - IPv4 */
+	int is_tunnel;				/**< true - tunnel mode, false - transport mode */
+	struct sam_sa_ipsec_tunnel tunnel;	/**< Parameters for tunnel mode */
+	int is_natt;				/**< true - NAT-Traversal is required and "natt" field is valid */
+	struct sam_sa_ipsec_natt natt;		/**< NAT-Traversal parameters */
+	u64 seq;				/**< Initial sequence number */
+	u32 spi;				/**< SPI value */
+};
+
+
 /**
  * Crypto session parameters
  *
@@ -129,8 +175,11 @@ struct sam_session_params {
 	enum sam_auth_alg auth_alg;      /**< authentication algorithm */
 	u8  *auth_key;                   /**< authentication key */
 	u32 auth_key_len;                /**< authentication key size (in bytes) */
-	u32 auth_icv_len;                /**< Integrity Check Value (ICV) size (in bytes) */
-	u32 auth_aad_len;                /**< Additional Data (AAD) size (in bytes) */
+	enum sam_crypto_protocol proto;  /**< prococol: None/IPSec(ESP)/Others */
+	union {
+		struct sam_session_basic_params basic; /**< Parameters for basic crypto */
+		struct sam_session_ipsec_params ipsec; /**< Parameters for IPSec offload */
+	} u;
 };
 
 /**

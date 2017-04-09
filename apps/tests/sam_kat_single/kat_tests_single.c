@@ -85,8 +85,9 @@ static struct sam_session_params aes_cbc_sa = {
 	.auth_alg = SAM_AUTH_NONE, /* authentication algorithm */
 	.auth_key = NULL,    /* authentication key */
 	.auth_key_len = 0,   /* authentication key size (in bytes) */
-	.auth_icv_len = 0,   /* Integrity Check Value (ICV) size (in bytes) */
-	.auth_aad_len = 0,   /* Additional Data (AAD) size (in bytes) */
+	.proto = SAM_PROTO_NONE, /* Basic crypto session */
+	.u.basic.auth_icv_len = 0,   /* Integrity Check Value (ICV) size (in bytes) */
+	.u.basic.auth_aad_len = 0,   /* Additional Data (AAD) size (in bytes) */
 };
 
 static struct sam_cio_op_params aes128_cbc_t1 = {
