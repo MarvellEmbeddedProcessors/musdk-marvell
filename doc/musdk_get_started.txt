@@ -46,29 +46,17 @@ This step is optional and required only when SAM driver is used
 		=> cd <musdk-dir>/modules/sam
 		=> make
 
-3. Install and build EIP197 DDK
---------------------------------
+3. Prepare EIP197 Firmware images
+---------------------------------
 This step is optional and required only when using SAM driver.
 
-3.1. Extract EIP197 DDK sources from the released package (e.g. sources-eip197-4.7-armada-17.02.2.zip)
-     to <eip_dir> directory (e.g. ~/eip197_16_07_2/mv_eip197_driver/)
-
-3.2 Build SA builder and Token Builder libraries from EIP197 DDK
-	=> cd <eip_dir>/eip197/SafeXcel-IP-197_DDK_v4.7/Examples/DemoApp_PEC/build/
-	=> make bld_u
-
-Output files are:
-	- ./libtk_bld_u.a
-	- ./libsa_bld_u.a
-
-3.3 Get EIP197 Firmware from release binaries and copy them to target file system
+3.1 Get EIP197 Firmware from release binaries and copy them to target file system
     under directory "/lib/firmware/eip197"
 
     Binary files: ipue.bin, ifpp.bin
 
 4. Configure and Build MUSDK
 ----------------------------
-To build MUSDK SAM package EIP197 DDK must be installed and built a-priori.
 
 4.1 Set external variables:
 
@@ -84,7 +72,7 @@ To build MUSDK SAM package EIP197 DDK must be installed and built a-priori.
 configure option #1 - build w/o SAM driver:
 		=> ./configure
 configure option #2 - build with SAM driver and SAM test application:
-		=> ./configure --enable-sam --with-is-ddk-path=<eip_dir>/eip197/SafeXcel-IP-197_DDK_v4.7
+		=> ./configure --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
 		=> make -j8
 		=> make install
 

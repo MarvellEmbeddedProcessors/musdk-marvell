@@ -57,21 +57,6 @@ esac],[SAM_DEBUG=false])
 if test x$SAM_DEBUG = xtrue; then
 	SAM_CFLAGS+="-DMVCONF_SAM_DEBUG "
 fi
-
-##########################################################################
-# Set IS_DDK_PATH - using --with-is-ddk-path
-##########################################################################
-AC_ARG_WITH([is-ddk-path],
-AC_HELP_STRING([--with-is-ddk-path=DIR path to Marvell (C) SAM IS-DDK libs and headers],
-               [(or in the default path if not specified).]),
-[IS_DDK_PATH=$withval
-	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/DriverFramework/Basic_Defs_API/incl "
-	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/SABuilder/incl "
-	SAM_CFLAGS+="-I$IS_DDK_PATH/Kit/TokenBuilder/incl "
-
-	SAM_LDFLAGS+="-L$IS_DDK_PATH/Examples/DemoApp_PEC/build "
-	SAM_LIBS+="-lsa_bld_u -ltk_bld_u"
-	],[])
 fi
 
 ##########################################################################

@@ -92,24 +92,18 @@ musdk/
 		- mv_sam_cio.h
 		- mv_sam_session.h
 
-	- src/include/lib/
-		- mv_md5.h
-		- mv_sha1.h
-		- mv_sha2.h
-		- mv_aes.h
-
 	- src/driver/sam/	- SAM driver implementation
 		- sam.h
 		- sam.c
 		- sam_hw.h
 		- sam_hw.c
 		- sam_debug.c
-
-	- src/lib/crypto/
-		- mv_md5.c
-		- mv_sha1.c
-		- mv_sha2.c
-		- mv_aes.c
+		- crypto/	- SW implementation of crypto algorithms, for HMAC and GCM key generation
+			- mv_md5.[c,h]
+			- mv_sha1.[c,h]
+			- mv_sha2.[c,h]
+			- mv_aes.[c,h]
+		- safexcel/	- Token and SA builder from EIP package
 
 	- apps/tests/sam_kat_single/	- Simple AES128-CBC test for predefined values
 		- kat_tests_single.c

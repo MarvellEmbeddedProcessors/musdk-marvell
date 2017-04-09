@@ -87,7 +87,21 @@ nobase_include_HEADERS += include/drivers/mv_sam.h
 nobase_include_HEADERS += include/drivers/mv_sam_cio.h
 nobase_include_HEADERS += include/drivers/mv_sam_session.h
 
+AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/DriverFramework/Basic_Defs_API/incl
+AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/Log/incl
+AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/Log/src/printf
+AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/SABuilder/incl
+AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/SABuilder/build
+AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/TokenBuilder/incl
+AM_CFLAGS += -I$(top_srcdir)/src/drivers/sam/safexcel/TokenBuilder/build
+
 libmusdk_la_SOURCES += drivers/sam/sam.c
 libmusdk_la_SOURCES += drivers/sam/sam_hw.c
 libmusdk_la_SOURCES += drivers/sam/sam_debug.c
+
+libmusdk_la_SOURCES += drivers/sam/safexcel/SABuilder/src/sa_builder.c
+libmusdk_la_SOURCES += drivers/sam/safexcel/SABuilder/src/sa_builder_basic.c
+libmusdk_la_SOURCES += drivers/sam/safexcel/TokenBuilder/src/token_builder_core.c
+libmusdk_la_SOURCES += drivers/sam/safexcel/TokenBuilder/src/token_builder_context.c
+
 endif
