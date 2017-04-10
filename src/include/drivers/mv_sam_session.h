@@ -127,8 +127,8 @@ struct sam_session_params {
 	u8  *cipher_key;                 /**< cipher key */
 	u32 cipher_key_len;              /**< cipher key size (in bytes) */
 	enum sam_auth_alg auth_alg;      /**< authentication algorithm */
-	u8  *auth_inner;                 /**< pointer to authentication inner block */
-	u8  *auth_outer;                 /**< pointer to authentication outer block */
+	u8  *auth_key;                   /**< authentication key */
+	u32 auth_key_len;                /**< authentication key size (in bytes) */
 	u32 auth_icv_len;                /**< Integrity Check Value (ICV) size (in bytes) */
 	u32 auth_aad_len;                /**< Additional Data (AAD) size (in bytes) */
 };

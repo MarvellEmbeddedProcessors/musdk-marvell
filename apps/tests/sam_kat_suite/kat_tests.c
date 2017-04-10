@@ -37,10 +37,6 @@
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
-#include "mv_aes.h"
-#include "mv_sha1.h"
-#include "mv_sha2.h"
-#include "mv_md5.h"
 #include "mv_sam.h"
 #include "utils.h"
 #include "fileSets.h"
@@ -212,39 +208,6 @@ static enum sam_auth_alg auth_algorithm_str_to_val(char *data, int auth_key_len)
 	return SAM_AUTH_NONE;
 }
 
-static void gcm_create_auth_key(u8 *key, int key_len, u8 inner[])
-{
-	u8 key_input[16] = {0};
-	u32 *ptr32 = (u32 *)inner;
-	int i;
-
-	mv_aes_ecb_encrypt(key_input, key, inner, key_len * 8);
-
-	for (i = 0; i < sizeof(key_input) / 4; i++) {
-		u32 val32;
-
-		val32 = *ptr32;
-		*ptr32++ = __bswap_32(val32);
-	}
-}
-
-static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int key_len,
-			   unsigned char inner[], unsigned char outer[])
-{
-	if (auth_alg == SAM_AUTH_HMAC_MD5)
-		mv_md5_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA1)
-		mv_sha1_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA2_256)
-		mv_sha256_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA2_384)
-		mv_sha384_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA2_512)
-		mv_sha512_hmac_iv(key, key_len, inner, outer);
-	else
-		printf("\n%s: Unexpected authentication algorithm - %d\n", __func__, auth_alg);
-}
-
 static int delete_sessions(void)
 {
 	int rc, i, count = 0;
@@ -278,8 +241,6 @@ static int create_sessions(generic_list tests_db)
 	EncryptedBlockPtr block;
 	int i, num_tests, auth_key_len;
 	u8 cipher_key[MAX_CIPHER_KEY_SIZE];
-	u8 auth_inner[MAX_AUTH_ICV_SIZE];
-	u8 auth_outer[MAX_AUTH_ICV_SIZE];
 
 	num_tests = generic_list_get_size(tests_db);
 	if (num_tests > NUM_CONCURRENT_SESSIONS)
@@ -287,9 +248,6 @@ static int create_sessions(generic_list tests_db)
 
 	block = generic_list_get_first(tests_db);
 	for (i = 0; i < num_tests; i++) {
-		memset(auth_inner, 0, sizeof(auth_inner));
-		memset(auth_outer, 0, sizeof(auth_outer));
-
 		if (i > 0)
 			block = generic_list_get_next(tests_db);
 
@@ -321,18 +279,12 @@ static int create_sessions(generic_list tests_db)
 			sa_params[i].auth_icv_len = encryptedBlockGetIcbLen(block, 0);
 
 			if (sa_params[i].auth_alg == SAM_AUTH_AES_GCM) {
+				/* cipher key used for authentication too */
 				sa_params[i].auth_aad_len = encryptedBlockGetAadLen(block, 0);
-				/* Generate authenticationn key from cipher key */
-				gcm_create_auth_key(sa_params[i].cipher_key, sa_params[i].cipher_key_len, auth_inner);
-
-				sa_params[i].auth_inner = auth_inner;
-				sa_params[i].auth_outer = NULL;
-
 			} else {
 				if (auth_key_len > 0) {
 					u8 auth_key[MAX_AUTH_BLOCK_SIZE];
 
-					/* Calculate inner and outer blocks from authentication key */
 					if (auth_key_len > MAX_AUTH_BLOCK_SIZE) {
 						printf("auth_key_len %d bytes is too big. Maximum is %d bytes\n",
 							auth_key_len, MAX_AUTH_BLOCK_SIZE);
@@ -343,11 +295,9 @@ static int create_sessions(generic_list tests_db)
 						printf("Can't get authentication key of %d bytes\n", auth_key_len);
 						return -EINVAL;
 					}
-					hmac_create_iv(sa_params[i].auth_alg, auth_key, auth_key_len,
-							auth_inner, auth_outer);
 
-					sa_params[i].auth_inner = auth_inner;
-					sa_params[i].auth_outer = auth_outer;
+					sa_params[i].auth_key = auth_key;
+					sa_params[i].auth_key_len = auth_key_len;
 				}
 			}
 		}

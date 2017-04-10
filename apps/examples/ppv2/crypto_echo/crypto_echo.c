@@ -50,9 +50,6 @@
 #include "utils.h"
 #include "mvapp.h"
 #include "perf_mon_emu.h"
-#include "mv_md5.h"
-#include "mv_sha2.h"
-#include "mv_sha1.h"
 
 #define CRYPT_APP_DEF_Q_SIZE		256/*1024*/
 #define CRYPT_APP_HIF_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
@@ -805,23 +802,6 @@ static int init_all_modules(void)
 	return 0;
 }
 
-static void hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int key_len,
-			   unsigned char inner[], unsigned char outer[])
-{
-	if (auth_alg == SAM_AUTH_HMAC_MD5)
-		mv_md5_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA1)
-		mv_sha1_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA2_256)
-		mv_sha256_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA2_384)
-		mv_sha384_hmac_iv(key, key_len, inner, outer);
-	else if (auth_alg == SAM_AUTH_HMAC_SHA2_512)
-		mv_sha512_hmac_iv(key, key_len, inner, outer);
-	else
-		printf("\n%s: Unexpected authentication algorithm - %d\n", __func__, auth_alg);
-}
-
 static int create_sam_sessions(struct sam_cio		*enc_cio,
 			       struct sam_cio		*dec_cio,
 			       struct sam_sa		**enc_sa,
@@ -853,23 +833,19 @@ static int create_sam_sessions(struct sam_cio		*enc_cio,
 
 	sa_params.auth_alg = auth_alg; /* authentication algorithm */
 	if (sa_params.auth_alg != SAM_AUTH_NONE) {
-		u8				 auth_sha1_key[] = RFC3602_SHA1_T1_AUTH_KEY;
-		unsigned char			 inner[64];
-		unsigned char			 outer[64];
+		u8 auth_sha1_key[] = RFC3602_SHA1_T1_AUTH_KEY;
 
-		if (sa_params.auth_alg == SAM_AUTH_HMAC_SHA1)
-			hmac_create_iv(sa_params.auth_alg, auth_sha1_key, sizeof(auth_sha1_key), inner, outer);
-		else {
+		if (sa_params.auth_alg == SAM_AUTH_HMAC_SHA1) {
+			sa_params.auth_key = auth_sha1_key;    /* auth key */
+			sa_params.auth_key_len = sizeof(auth_sha1_key); /* auth key size (in bytes) */
+		} else {
 			pr_err("Unknown authetication alg (%d)!\n", sa_params.auth_alg);
 			return -EINVAL;
 		}
-
 		sa_params.auth_icv_len = ICV_LEN;
-		sa_params.auth_inner   = inner;
-		sa_params.auth_outer   = outer;
 	} else {
-		sa_params.auth_inner = NULL;    /* pointer to authentication inner block */
-		sa_params.auth_outer = NULL;    /* pointer to authentication outer block */
+		sa_params.auth_key = NULL;    /* auth key */
+		sa_params.auth_key = 0;
 		sa_params.auth_icv_len = 0;   /* Integrity Check Value (ICV) size (in bytes) */
 	}
 	sa_params.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */

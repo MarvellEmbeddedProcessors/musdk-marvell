@@ -29,11 +29,6 @@ musdk_crypto_echo_SOURCES += ../common/mvapp.c
 musdk_crypto_echo_SOURCES += ../common/utils.c
 musdk_crypto_echo_SOURCES += ppv2/crypto_echo/crypto_echo.c
 
-musdk_crypto_echo_SOURCES += ../common/crypto/mv_md5.c
-musdk_crypto_echo_SOURCES += ../common/crypto/mv_sha1.c
-musdk_crypto_echo_SOURCES += ../common/crypto/mv_sha2.c
-musdk_crypto_echo_SOURCES += ../common/crypto/mv_aes.c
-
 musdk_crypto_echo_LDADD = $(top_builddir)/src/libmusdk.la
 endif
 

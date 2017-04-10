@@ -83,8 +83,8 @@ static struct sam_session_params aes_cbc_sa = {
 	.cipher_key = RFC3602_AES128_CBC_T1_KEY,    /* cipher key */
 	.cipher_key_len = sizeof(RFC3602_AES128_CBC_T1_KEY), /* cipher key size (in bytes) */
 	.auth_alg = SAM_AUTH_NONE, /* authentication algorithm */
-	.auth_inner = NULL,    /* pointer to authentication inner block */
-	.auth_outer = NULL,    /* pointer to authentication outer block */
+	.auth_key = NULL,    /* authentication key */
+	.auth_key_len = 0,   /* authentication key size (in bytes) */
 	.auth_icv_len = 0,   /* Integrity Check Value (ICV) size (in bytes) */
 	.auth_aad_len = 0,   /* Additional Data (AAD) size (in bytes) */
 };

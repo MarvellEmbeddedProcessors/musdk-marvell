@@ -35,6 +35,11 @@
 #include "lib/lib_misc.h"
 
 #include "drivers/mv_sam.h"
+#include "crypto/mv_md5.h"
+#include "crypto/mv_sha1.h"
+#include "crypto/mv_sha2.h"
+#include "crypto/mv_aes.h"
+
 #include "sam.h"
 
 static bool		sam_initialized;
@@ -90,10 +95,45 @@ static void sam_session_free(struct sam_sa *sa)
 	sa->is_valid = false;
 }
 
-static int sam_session_crypto_init(struct sam_session_params *params,
+static void sam_hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int key_len,
+				unsigned char inner[], unsigned char outer[])
+{
+	if (auth_alg == SAM_AUTH_HMAC_MD5)
+		mv_md5_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA1)
+		mv_sha1_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_256)
+		mv_sha256_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_384)
+		mv_sha384_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_512)
+		mv_sha512_hmac_iv(key, key_len, inner, outer);
+	else
+		printf("\n%s: Unexpected authentication algorithm - %d\n", __func__, auth_alg);
+}
+
+static void sam_gcm_create_auth_key(u8 *key, int key_len, u8 inner[])
+{
+	u8 key_input[16] = {0};
+	u32 *ptr32 = (u32 *)inner;
+	int i;
+
+	mv_aes_ecb_encrypt(key_input, key, inner, key_len * 8);
+
+	for (i = 0; i < sizeof(key_input) / 4; i++) {
+		u32 val32;
+
+		val32 = *ptr32;
+		*ptr32++ = __bswap_32(val32);
+	}
+}
+
+static int sam_session_crypto_init(struct sam_sa *session,
 				   SABuilder_Params_Basic_t *basic_params,
 				   SABuilder_Params_t *sa_params)
 {
+	struct sam_session_params *params = &session->params;
+
 	if (params->cipher_alg == SAM_CIPHER_NONE)
 		return 0;
 
@@ -122,10 +162,12 @@ static int sam_session_crypto_init(struct sam_session_params *params,
 	return 0;
 }
 
-static int sam_session_auth_init(struct sam_session_params *params,
+static int sam_session_auth_init(struct sam_sa *session,
 				 SABuilder_Params_Basic_t *basic_params,
 				 SABuilder_Params_t *sa_params)
 {
+	struct sam_session_params *params = &session->params;
+
 	if (params->auth_alg == SAM_AUTH_NONE)
 		return 0;
 
@@ -133,9 +175,19 @@ static int sam_session_auth_init(struct sam_session_params *params,
 	if (sam_max_check((int)params->auth_alg, SAM_AUTH_ALG_LAST, "auth_alg"))
 		return -EINVAL;
 
+	if (params->auth_alg == SAM_AUTH_AES_GCM) {
+		/* Generate authenticationn key from cipher key */
+		sam_gcm_create_auth_key(params->cipher_key, params->cipher_key_len, session->auth_inner);
+		sa_params->AuthKey1_p = session->auth_inner;
+	} else {
+		if (params->auth_key) {
+			sam_hmac_create_iv(params->auth_alg, params->auth_key, params->auth_key_len,
+				   session->auth_inner, session->auth_outer);
+			sa_params->AuthKey1_p = session->auth_inner;
+			sa_params->AuthKey2_p = session->auth_outer;
+		}
+	}
 	sa_params->AuthAlgo = (SABuilder_Auth_t)params->auth_alg;
-	sa_params->AuthKey1_p   = params->auth_inner;
-	sa_params->AuthKey2_p   = params->auth_outer;
 
 	basic_params->ICVByteCount = params->auth_icv_len;
 	if (params->dir == SAM_DIR_DECRYPT)
@@ -449,24 +501,6 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	memset(&session->sa_params, 0, sizeof(session->sa_params));
 	memset(&session->basic_params, 0, sizeof(session->basic_params));
 
-#ifdef MVCONF_SAM_DEBUG
-	if (cio->debug_flags & SAM_SA_DEBUG_FLAG) {
-		print_sam_sa_params(params);
-		if (params->cipher_key) {
-			printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
-			mv_mem_dump(params->cipher_key, params->cipher_key_len);
-		}
-		if (params->auth_inner) {
-			printf("\nAuthentication Inner: %d bytes\n", 64);
-			mv_mem_dump(params->auth_inner, 64);
-		}
-		if (params->auth_outer) {
-			printf("\nAuthentication Outer: %d bytes\n", 64);
-			mv_mem_dump(params->auth_outer, 64);
-		}
-	}
-#endif /* MVCONF_SAM_DEBUG */
-
 	/* Save session params */
 	session->params = *params;
 
@@ -474,11 +508,33 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	SABuilder_Init_Basic(&session->sa_params, &session->basic_params, direction);
 
 	/* Update sa_params and basic_params with session information */
-	if (sam_session_crypto_init(params, &session->basic_params, &session->sa_params))
+	if (sam_session_crypto_init(session, &session->basic_params, &session->sa_params))
 		goto error_session;
 
-	if (sam_session_auth_init(params, &session->basic_params, &session->sa_params))
+	if (sam_session_auth_init(session, &session->basic_params, &session->sa_params))
 		goto error_session;
+
+#ifdef MVCONF_SAM_DEBUG
+	if (cio->debug_flags & SAM_SA_DEBUG_FLAG) {
+		print_sam_sa_params(params);
+		if (params->cipher_key) {
+			printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
+			mv_mem_dump(params->cipher_key, params->cipher_key_len);
+		}
+		if (params->auth_key) {
+			printf("\nAuthentication Key: %d bytes\n", params->auth_key_len);
+			mv_mem_dump(params->auth_key, params->auth_key_len);
+		}
+		if (session->auth_inner) {
+			printf("\nAuthentication Inner: %d bytes\n", (int)sizeof(session->auth_inner));
+			mv_mem_dump(session->auth_inner, sizeof(session->auth_inner));
+		}
+		if (session->auth_outer) {
+			printf("\nAuthentication Outer: %d bytes\n", (int)sizeof(session->auth_outer));
+			mv_mem_dump(session->auth_outer, sizeof(session->auth_outer));
+		}
+	}
+#endif /* MVCONF_SAM_DEBUG */
 
 	/* Sanity check for SA and TCR size */
 	rc = SABuilder_GetSizes(&session->sa_params, &session->sa_words, NULL, NULL);

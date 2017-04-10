@@ -99,6 +99,11 @@ libmusdk_la_SOURCES += drivers/sam/sam.c
 libmusdk_la_SOURCES += drivers/sam/sam_hw.c
 libmusdk_la_SOURCES += drivers/sam/sam_debug.c
 
+libmusdk_la_SOURCES += drivers/sam/crypto/mv_md5.c
+libmusdk_la_SOURCES += drivers/sam/crypto/mv_sha1.c
+libmusdk_la_SOURCES += drivers/sam/crypto/mv_sha2.c
+libmusdk_la_SOURCES += drivers/sam/crypto/mv_aes.c
+
 libmusdk_la_SOURCES += drivers/sam/safexcel/SABuilder/src/sa_builder.c
 libmusdk_la_SOURCES += drivers/sam/safexcel/SABuilder/src/sa_builder_basic.c
 libmusdk_la_SOURCES += drivers/sam/safexcel/TokenBuilder/src/token_builder_core.c
