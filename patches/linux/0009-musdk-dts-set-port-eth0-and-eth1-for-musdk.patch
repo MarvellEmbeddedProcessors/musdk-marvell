@@ -1,0 +1,52 @@
+From 4ffc8deee3004556cc959c598e476b3fdc5ac157 Mon Sep 17 00:00:00 2001
+From: Benjamin Huang <gdhuang@marvell.com>
+Date: Thu, 13 Apr 2017 13:48:06 -0700
+Subject: [PATCH 9/9] musdk: dts set port eth0 and eth1 for musdk
+
+Reserved Ethernet port eth0 and eth1 on the MACCHIATObin board
+to be used by MUSDK. Also in the MACCHIATObin dts file, added the
+loopback ports support for MUSDK use.
+
+Change-Id: Idb49ba3c60654ed9287703c4f8a8c47f0e581efc
+---
+ arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+index 86daf03..bf1eb62 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+@@ -151,7 +151,10 @@
+ 				l4_chksum_jumbo_port = <0>;
+ 				pinctrl-names = "default";
+ 				eth0_0: eth0@010000 {
+-					status = "okay";
++					status = "non-kernel";
++				};
++				lpbk3: lpbk3@040000 {
++					status = "non-kernel";
+ 				};
+ 			};
+ 			eip197@800000 {
+@@ -232,7 +235,7 @@
+ 				l4_chksum_jumbo_port = <0>;
+ 				pinctrl-names = "default";
+ 				eth0_1: eth0@010000 {
+-					status = "okay";
++					status = "non-kernel";
+ 				};
+ 				eth1_1: eth1@020000 {
+ 					status = "okay";
+@@ -240,6 +243,9 @@
+ 				eth2_1: eth2@030000 {
+ 					status = "okay";
+ 				};
++				lpbk3_1: lpbk3@040000 {
++					status = "non-kernel";
++				};
+ 			};
+ 			eip197@800000 {
+ 				status = "okay";
+-- 
+2.7.4
+
