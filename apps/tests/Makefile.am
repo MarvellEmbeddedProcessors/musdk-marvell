@@ -39,6 +39,11 @@ bin_SCRIPTS += sam_kat_suite/aes_sha1_multi.txt sam_kat_suite/aes_1440_multi.txt
 bin_PROGRAMS += musdk_sam_single
 musdk_sam_single_CFLAGS = $(AM_CFLAGS)
 musdk_sam_single_SOURCES  = sam_kat_single/kat_tests_single.c
-
 musdk_sam_single_LDADD = $(top_builddir)/src/libmusdk.la
+
+bin_PROGRAMS += musdk_sam_ipsec
+musdk_sam_ipsec_CFLAGS = $(AM_CFLAGS)
+musdk_sam_ipsec_SOURCES  = sam_kat_single/kat_ipsec_single.c
+musdk_sam_ipsec_LDADD = $(top_builddir)/src/libmusdk.la
+
 endif

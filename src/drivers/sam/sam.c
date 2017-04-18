@@ -136,7 +136,6 @@ static void sam_gcm_create_auth_key(u8 *key, int key_len, u8 inner[])
 }
 
 static int sam_session_crypto_init(struct sam_sa *session,
-				   SABuilder_Params_Basic_t *basic_params,
 				   SABuilder_Params_t *sa_params)
 {
 	struct sam_session_params *params = &session->params;
@@ -164,13 +163,13 @@ static int sam_session_crypto_init(struct sam_sa *session,
 	sa_params->KeyByteCount = params->cipher_key_len;
 	sa_params->Key_p        = params->cipher_key;
 
-	sa_params->IVSrc  = SAB_IV_SRC_TOKEN;
+	if (params->proto == SAM_PROTO_NONE)
+		sa_params->IVSrc  = SAB_IV_SRC_TOKEN;
 
 	return 0;
 }
 
 static int sam_session_auth_init(struct sam_sa *session,
-				 SABuilder_Params_Basic_t *basic_params,
 				 SABuilder_Params_t *sa_params)
 {
 	struct sam_session_params *params = &session->params;
@@ -196,13 +195,93 @@ static int sam_session_auth_init(struct sam_sa *session,
 	}
 	sa_params->AuthAlgo = (SABuilder_Auth_t)params->auth_alg;
 
-	basic_params->ICVByteCount = params->u.basic.auth_icv_len;
-	if (params->dir == SAM_DIR_DECRYPT)
-		basic_params->BasicFlags |= SAB_BASIC_FLAG_EXTRACT_ICV;
-
 	if ((params->auth_alg == SAM_AUTH_AES_GCM) || (params->auth_alg == SAM_AUTH_AES_GMAC))
 		sa_params->flags |= SAB_FLAG_SUPPRESS_HEADER;
 
+	return 0;
+}
+
+static void sam_session_basic_init(struct sam_sa *session, SABuilder_Params_Basic_t *basic_params)
+{
+	struct sam_session_params *params = &session->params;
+
+	session->post_proc_cb = NULL;
+	if (params->auth_alg != SAM_AUTH_NONE) {
+		basic_params->ICVByteCount = params->u.basic.auth_icv_len;
+		if (params->dir == SAM_DIR_DECRYPT)
+			basic_params->BasicFlags |= SAB_BASIC_FLAG_EXTRACT_ICV;
+	}
+}
+
+static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPsec_t *ipsec_params)
+{
+	static u32 context_ref = 1;
+	struct sam_session_params *params = &session->params;
+
+	/* Create a reference to the header processor context. */
+	ipsec_params->ContextRef = context_ref++;
+
+	ipsec_params->IPsecFlags |= SAB_IPSEC_PROCESS_IP_HEADERS;
+	if (params->u.ipsec.is_tunnel) {
+		ipsec_params->SrcIPAddr_p = params->u.ipsec.tunnel.u.ipv4.sip;
+		ipsec_params->DestIPAddr_p = params->u.ipsec.tunnel.u.ipv4.dip;
+	}
+	ipsec_params->PadAlignment = 0;
+
+	if ((!params->u.ipsec.is_tunnel) && params->dir == SAM_DIR_DECRYPT) {
+		if (params->u.ipsec.is_ip6)
+			session->post_proc_cb = sam_ipsec_ip6_transport_in_post_proc;
+		else
+			session->post_proc_cb = sam_ipsec_ip4_transport_in_post_proc;
+	} else if ((params->u.ipsec.is_tunnel) && params->dir == SAM_DIR_ENCRYPT) {
+		if (params->u.ipsec.is_ip6)
+			session->post_proc_cb = sam_ipsec_ip6_tunnel_out_post_proc;
+		else
+			session->post_proc_cb = sam_ipsec_ip4_tunnel_out_post_proc;
+	} else if ((params->u.ipsec.is_tunnel) && params->dir == SAM_DIR_DECRYPT) {
+		if (params->u.ipsec.is_ip6)
+			session->post_proc_cb = sam_ipsec_ip6_tunnel_in_post_proc;
+		else
+			session->post_proc_cb = sam_ipsec_ip4_tunnel_in_post_proc;
+	} else
+		session->post_proc_cb = NULL;
+}
+
+static int sam_token_context_build(struct sam_sa *session)
+{
+	int rc;
+
+	rc = TokenBuilder_GetContextSize(&session->sa_params, &session->tcr_words);
+	if (rc != 0) {
+		pr_err("%s: TokenBuilder_GetContextSize return error, rc = %d\n",
+			__func__, rc);
+		return rc;
+	}
+	if (session->tcr_words > SAM_TCR_DATA_SIZE / 4) {
+		pr_err("%s: TCR size %d words is too big. Maximum = %d words\n",
+			__func__, session->tcr_words, SAM_TCR_DATA_SIZE / 4);
+		return rc;
+	}
+	/* Clear TCR data buffer used allocated for SA */
+	memset(session->tcr_data, 0, 4 * session->tcr_words);
+
+	rc = TokenBuilder_BuildContext(&session->sa_params, session->tcr_data);
+	if (rc != 0) {
+		pr_err("%s: TokenBuilder_BuildContext failed, rc = %d\n", __func__, rc);
+		return rc;
+	}
+
+	rc = TokenBuilder_GetSize(session->tcr_data, &session->token_words);
+	if (rc != 0) {
+		pr_err("%s:: TokenBuilder_GetSize failed.\n", __func__);
+		return rc;
+	}
+
+	if (session->token_words > SAM_TOKEN_DMABUF_SIZE / 4) {
+		pr_err("%s: Token size %d words is too big. Maximum = %d words\n",
+			__func__, session->token_words, SAM_TOKEN_DMABUF_SIZE / 4);
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -444,7 +523,7 @@ int sam_cio_flush(struct sam_cio *cio)
 {
 	int rc;
 	u32 count = 1000;
-	u16 num;
+	u16 num, total = 0;
 
 	/* Wait for completion of all operations */
 	while (!sam_cio_is_empty(cio)) {
@@ -455,14 +534,19 @@ int sam_cio_flush(struct sam_cio *cio)
 			return rc;
 		}
 
-		if (num) /* restart counter */
-			count = 1000;
+		if (num) {
+			total += num;
+			count = 1000; /* restart counter */
+		}
 
 		if (count-- == 0) {
 			pr_err("%s: Timeout\n", __func__);
 			return -EINVAL;
 		}
 	}
+	if (total)
+		printf("%s: %d results were flushed\n", cio->params.match, total);
+
 	return 0;
 }
 
@@ -507,41 +591,41 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 	}
 	/* Clear session structure */
 	memset(&session->sa_params, 0, sizeof(session->sa_params));
-	memset(&session->basic_params, 0, sizeof(session->basic_params));
+	memset(&session->u, 0, sizeof(session->u));
 
 	/* Save session params */
 	session->params = *params;
 
-	/* Initialize sa_params and basic_params */
-	SABuilder_Init_Basic(&session->sa_params, &session->basic_params, direction);
+	if (params->proto == SAM_PROTO_NONE) {
+		/* Initialize sa_params and basic_params */
+		if (SABuilder_Init_Basic(&session->sa_params, &session->u.basic_params, direction) != SAB_STATUS_OK)
+			goto error_session;
 
-	/* Update sa_params and basic_params with session information */
-	if (sam_session_crypto_init(session, &session->basic_params, &session->sa_params))
+		/* Update basic params with session information */
+		sam_session_basic_init(session, &session->u.basic_params);
+	} else if (params->proto == SAM_PROTO_IPSEC) {
+		if (SABuilder_Init_ESP(&session->sa_params, &session->u.ipsec_params, params->u.ipsec.spi,
+				params->u.ipsec.is_tunnel ? SAB_IPSEC_TUNNEL : SAB_IPSEC_TRANSPORT,
+				params->u.ipsec.is_ip6 ? SAB_IPSEC_IPV6 : SAB_IPSEC_IPV4, direction) != SAB_STATUS_OK)
+			goto error_session;
+
+		/* Update ipsec params with session information */
+		sam_session_ipsec_init(session, &session->u.ipsec_params);
+	} else {
+		pr_err("Unexpected protocol %d\n", params->proto);
+		goto error_session;
+	}
+
+	/* Update sa_params with session information */
+	if (sam_session_crypto_init(session, &session->sa_params))
 		goto error_session;
 
-	if (sam_session_auth_init(session, &session->basic_params, &session->sa_params))
+	if (sam_session_auth_init(session, &session->sa_params))
 		goto error_session;
 
 #ifdef MVCONF_SAM_DEBUG
-	if (sam_debug_flags & SAM_SA_DEBUG_FLAG) {
-		print_sam_sa_params(params);
-		if (params->cipher_key) {
-			printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
-			mv_mem_dump(params->cipher_key, params->cipher_key_len);
-		}
-		if (params->auth_key) {
-			printf("\nAuthentication Key: %d bytes\n", params->auth_key_len);
-			mv_mem_dump(params->auth_key, params->auth_key_len);
-		}
-		if (session->auth_inner) {
-			printf("\nAuthentication Inner: %d bytes\n", (int)sizeof(session->auth_inner));
-			mv_mem_dump(session->auth_inner, sizeof(session->auth_inner));
-		}
-		if (session->auth_outer) {
-			printf("\nAuthentication Outer: %d bytes\n", (int)sizeof(session->auth_outer));
-			mv_mem_dump(session->auth_outer, sizeof(session->auth_outer));
-		}
-	}
+	if (sam_debug_flags & SAM_SA_DEBUG_FLAG)
+		print_sam_sa(session);
 #endif /* MVCONF_SAM_DEBUG */
 
 	/* Sanity check for SA and TCR size */
@@ -558,37 +642,11 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 	/* Clear DMA buffer allocated for SA */
 	memset(session->sa_buf.vaddr, 0, 4 * session->sa_words);
 
-	rc = TokenBuilder_GetContextSize(&session->sa_params, &session->tcr_words);
-	if (rc != 0) {
-		pr_err("%s: TokenBuilder_GetContextSize return error, rc = %d\n",
-			__func__, rc);
-		goto error_session;
-	}
-	if (session->tcr_words > SAM_TCR_DATA_SIZE / 4) {
-		pr_err("%s: TCR size %d words is too big. Maximum = %d words\n",
-			__func__, session->tcr_words, SAM_TCR_DATA_SIZE / 4);
-		goto error_session;
-	}
-	/* Clear TCR data buffer used allocated for SA */
-	memset(session->tcr_data, 0, 4 * session->tcr_words);
+	if (params->proto == SAM_PROTO_NONE)
+		sam_token_context_build(session);
 
-	rc = TokenBuilder_BuildContext(&session->sa_params, session->tcr_data);
-	if (rc != 0) {
-		pr_err("%s: TokenBuilder_BuildContext failed, rc = %d\n", __func__, rc);
-		goto error_session;
-	}
-
-	rc = TokenBuilder_GetSize(session->tcr_data, &session->token_words);
-	if (rc != 0) {
-		pr_err("%s:: TokenBuilder_GetSize failed.\n", __func__);
-		goto error_session;
-	}
-
-	if (session->token_words > SAM_TOKEN_DMABUF_SIZE / 4) {
-		pr_err("%s: Token size %d words is too big. Maximum = %d words\n",
-			__func__, session->token_words, SAM_TOKEN_DMABUF_SIZE / 4);
-		goto error_session;
-	}
+	/* Clear SA DMA buffer first */
+	memset(session->sa_buf.vaddr, 0, session->sa_words * 4);
 
 	/* build the SA data and init according the parameters */
 	rc = SABuilder_BuildSA(&session->sa_params, (u32 *)session->sa_buf.vaddr, NULL, NULL);
@@ -600,12 +658,8 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 	sam_htole32_multi(session->sa_buf.vaddr, session->sa_words);
 
 #ifdef MVCONF_SAM_DEBUG
-	if (sam_debug_flags & SAM_SA_DEBUG_FLAG) {
-		print_sa_params(&session->sa_params);
-		print_basic_sa_params(&session->basic_params);
-		printf("\nSA DMA buffer: %d bytes\n", session->sa_words * 4);
-			mv_mem_dump(session->sa_buf.vaddr, session->sa_words * 4);
-	}
+	if (sam_debug_flags & SAM_SA_DEBUG_FLAG)
+		print_sa_builder_params(session);
 #endif /* MVCONF_SAM_DEBUG */
 
 	SAM_STATS(sam_sa_stats.sa_add++);
@@ -728,8 +782,11 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 #ifdef MVCONF_SAM_DEBUG
 		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
 			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_result);
+			struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
 
+			print_result_desc(res_desc, 1);
 			print_cmd_desc(cmd_desc);
+
 			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
 				operation->copy_len, (void *)request->src->paddr);
 			mv_mem_dump(request->src->vaddr, operation->copy_len);
@@ -786,14 +843,18 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		}
 #ifdef MVCONF_SAM_DEBUG
 		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
-			print_result_desc(res_desc);
+			print_result_desc(res_desc, 0);
 #endif
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 		if (!result) /* Flush cio */
 			continue;
 
-		sam_hw_res_desc_read(res_desc, result);
+		if (operation->sa->post_proc_cb)
+			operation->sa->post_proc_cb(operation, res_desc, result);
+		else
+			sam_hw_res_desc_read(res_desc, result);
+
 		out_len = result->out_len;
 
 		SAM_STATS(cio->stats.deq_bytes += out_len);
@@ -808,7 +869,8 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 #ifdef MVCONF_SAM_DEBUG
 		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
-			printf("\nOutput DMA buffer: %d bytes\n", out_len);
+			printf("\nOutput DMA buffer: %d bytes, physAddr = %p\n",
+				out_len, (void *)operation->out_frags[0].paddr);
 			mv_mem_dump(operation->out_frags[0].vaddr, out_len);
 		}
 #endif /* MVCONF_SAM_DEBUG */

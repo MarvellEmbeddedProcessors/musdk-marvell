@@ -38,6 +38,7 @@
 
 #include "sa_builder.h"
 #include "sa_builder_basic.h"
+#include "sa_builder_ipsec.h"
 #include "token_builder.h"
 
 #include "sam_hw.h"
@@ -85,8 +86,11 @@ struct sam_sa {
 	struct sam_session_params	params;
 	struct sam_cio			*cio;
 	/* Fields needed for EIP197 HW */
-	SABuilder_Params_Basic_t	basic_params;
 	SABuilder_Params_t		sa_params;
+	union {
+		SABuilder_Params_Basic_t basic_params;
+		SABuilder_Params_IPsec_t ipsec_params;
+	} u;
 	struct sam_buf_info		sa_buf;		/* DMA buffer for SA */
 	u32				sa_words;
 	u8				tcr_data[SAM_TCR_DATA_SIZE];
@@ -94,7 +98,8 @@ struct sam_sa {
 	u32				token_words;
 	u8				auth_inner[64]; /* authentication inner block */
 	u8				auth_outer[64]; /* authentication outer block */
-
+	void	(*post_proc_cb)(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+				struct sam_cio_op_result *result);
 };
 
 #ifdef MVCONF_SAM_STATS
@@ -164,10 +169,22 @@ static inline int sam_max_check(int value, int limit, const char *name)
 
 extern u32 sam_debug_flags;
 
-/* Debug functions */
-void print_sa_params(SABuilder_Params_t *params);
+void sam_ipsec_ip4_transport_in_post_proc(struct sam_cio_op *operation,
+			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
+void sam_ipsec_ip6_transport_in_post_proc(struct sam_cio_op *operation,
+			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
+void sam_ipsec_ip4_tunnel_in_post_proc(struct sam_cio_op *operation,
+			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
+void sam_ipsec_ip6_tunnel_in_post_proc(struct sam_cio_op *operation,
+			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
+void sam_ipsec_ip4_tunnel_out_post_proc(struct sam_cio_op *operation,
+			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
+void sam_ipsec_ip6_tunnel_out_post_proc(struct sam_cio_op *operation,
+			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
 
-void print_basic_sa_params(SABuilder_Params_Basic_t *params);
+/* Debug functions */
+void print_sam_sa(struct sam_sa *session);
+void print_sa_builder_params(struct sam_sa *session);
 
 void print_token_params(TokenBuilder_Params_t *token);
 

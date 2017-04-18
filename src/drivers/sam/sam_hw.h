@@ -280,7 +280,39 @@ struct sam_hw_res_desc {
 #define SAM_TOKEN_APPL_ID_SET(id)	(((id) & SAM_TOKEN_APPL_ID_MASK) << SAM_TOKEN_APPL_ID_OFFS)
 #define SAM_TOKEN_APPL_ID_GET(v32)	(((v32) >> SAM_TOKEN_APPL_ID_OFFS) & SAM_TOKEN_APPL_ID_MASK)
 
-/* Errors: [E0..E14] - token_result_data[0] */
+/* SA pointer - CDR words #8-9, Token words #2-3 */
+
+/* HW Services - CDR word #10, Token word #4 */
+#define FIRMWARE_HW_SERVICES_OFFS	24
+#define FIRMWARE_HW_SERVICES_BITS	6
+#define FIRMWARE_HW_SERVICES_ALL_MASK	BIT_MASK_OFFS(FIRMWARE_HW_SERVICES_OFFS, FIRMWARE_HW_SERVICES_BITS)
+
+/* Lookaside IPsec packet flow */
+#define FIRMWARE_CMD_PKT_LIP_MASK       (0x02 << FIRMWARE_HW_SERVICES_OFFS)
+
+/* Lookaside Crypto packet Flow */
+#define FIRMWARE_CMD_PKT_LAC_MASK	(0x04 << FIRMWARE_HW_SERVICES_OFFS)
+
+/* Invalidate Transform Record command */
+#define FIRMWARE_CMD_INV_TR_MASK	(0x06 << FIRMWARE_HW_SERVICES_OFFS)
+
+/* CDR word #12, Token word #5 */
+#define SAM_CMD_TOKEN_OFFSET_OFFS	8
+#define SAM_CMD_TOKEN_OFFSET_BITS	8
+#define SAM_CMD_TOKEN_OFFSET_MASK	BIT_MASK(SAM_CMD_TOKEN_OFFSET_BITS)
+#define SAM_CMD_TOKEN_OFFSET_SET(v)	(((v) & SAM_CMD_TOKEN_OFFSET_MASK) << SAM_CMD_TOKEN_OFFSET_OFFS)
+#define SAM_CMD_TOKEN_OFFSET_GET(v)	(((v) >> SAM_CMD_TOKEN_OFFSET_OFFS) & SAM_CMD_TOKEN_OFFSET_MASK)
+
+#define SAM_CMD_TOKEN_NEXT_HDR_OFFS	16
+#define SAM_CMD_TOKEN_NEXT_HDR_BITS	8
+#define SAM_CMD_TOKEN_NEXT_HDR_MASK	BIT_MASK(SAM_CMD_TOKEN_NEXT_HDR_BITS)
+#define SAM_CMD_TOKEN_NEXT_HDR_SET(v)	(((v) & SAM_CMD_TOKEN_NEXT_HDR_MASK) << SAM_CMD_TOKEN_NEXT_HDR_OFFS)
+#define SAM_CMD_TOKEN_NEXT_HDR_GET(v)	(((v) >> SAM_CMD_TOKEN_NEXT_HDR_OFFS) & SAM_CMD_TOKEN_NEXT_HDR_MASK)
+
+
+/******* Result Token fields ********/
+
+/* Errors: [E0..E14] - RDR word #4, Result token word #0 */
 #define SAM_TOKEN_RESULT_ERRORS_OFFS	17
 #define SAM_TOKEN_RESULT_ERRORS_BITS	15
 #define SAM_TOKEN_RESULT_ERRORS_MASK	BIT_MASK(SAM_TOKEN_RESULT_ERRORS_BITS)
@@ -318,19 +350,34 @@ struct sam_hw_res_desc {
 /* E14 - Timeout error occurs */
 #define SAM_RESULT_TIMEOUT_ERROR_MASK		BIT(14)
 
-/* E15 extra error: token_result_data[1] */
+/* RDR word #5, Result token word #1 */
+/* E15 extra error:  */
 #define SAM_TOKEN_RESULT_E15_MASK		BIT(4)
 
-/* HW Services word #11 */
-#define FIRMWARE_HW_SERVICES_OFFS	24
-#define FIRMWARE_HW_SERVICES_BITS	6
-#define FIRMWARE_HW_SERVICES_ALL_MASK	BIT_MASK_OFFS(FIRMWARE_HW_SERVICES_OFFS, FIRMWARE_HW_SERVICES_BITS)
+/* CLE Errors: bits[16..20] */
 
-/* Lookaside Crypto packet Flow */
-#define FIRMWARE_CMD_PKT_LAC_MASK	(0x04 << FIRMWARE_HW_SERVICES_OFFS)
+/* RDR word #6, Result token word #2 */
 
-/* Invalidate Transform Record command */
-#define FIRMWARE_CMD_INV_TR_MASK	(0x06 << FIRMWARE_HW_SERVICES_OFFS)
+/* RDR word #7, Result token word #3 */
+#define SAM_RES_TOKEN_NEXT_HDR_OFFS	0
+#define SAM_RES_TOKEN_NEXT_HDR_BITS	8
+#define SAM_RES_TOKEN_NEXT_HDR_MASK	BIT_MASK(SAM_RES_TOKEN_NEXT_HDR_BITS)
+#define SAM_RES_TOKEN_NEXT_HDR_SET(v)	(((v) & SAM_RES_TOKEN_NEXT_HDR_MASK) << SAM_RES_TOKEN_NEXT_HDR_OFFS)
+#define SAM_RES_TOKEN_NEXT_HDR_GET(v)	(((v) >> SAM_RES_TOKEN_NEXT_HDR_OFFS) & SAM_RES_TOKEN_NEXT_HDR_MASK)
+
+#define SAM_RES_TOKEN_PAD_LEN_OFFS	8
+#define SAM_RES_TOKEN_PAD_LEN_BITS	8
+#define SAM_RES_TOKEN_PAD_LEN_MASK	BIT_MASK(SAM_RES_TOKEN_PAD_LEN_BITS)
+#define SAM_RES_TOKEN_PAD_LEN_SET(v)	(((v) & SAM_RES_TOKEN_PAD_LEN_MASK) << SAM_RES_TOKEN_PAD_LEN_OFFS)
+#define SAM_RES_TOKEN_PAD_LEN_GET(v)	(((v) >> SAM_RES_TOKEN_PAD_LEN_OFFS) & SAM_RES_TOKEN_PAD_LEN_MASK)
+
+#define SAM_RES_TOKEN_OFFSET_OFFS	16
+#define SAM_RES_TOKEN_OFFSET_BITS	8
+#define SAM_RES_TOKEN_OFFSET_MASK	BIT_MASK(SAM_RES_TOKEN_OFFSET_BITS)
+#define SAM_RES_TOKEN_OFFSET_SET(v)	(((v) & SAM_RES_TOKEN_OFFSET_MASK) << SAM_RES_TOKEN_OFFSET_OFFS)
+#define SAM_RES_TOKEN_OFFSET_GET(v)	(((v) >> SAM_RES_TOKEN_OFFSET_OFFS) & SAM_RES_TOKEN_OFFSET_MASK)
+
+
 
 enum sam_hw_type {
 	HW_EIP197,
@@ -514,7 +561,7 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	writel_relaxed(token_header_word, &cmd_desc->words[6]);
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel_relaxed(0x0000ec00, &cmd_desc->words[7]);
+	writel_relaxed(SAM_TOKEN_APPL_ID_SET(0x76), &cmd_desc->words[7]);
 
 	val32 = lower_32_bits(sa_buf->paddr);
 	val32 |= 0x2;
@@ -649,6 +696,6 @@ int sam_hw_engine_unload(void);
 int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
 				u32 next_request);
 void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc);
-void print_result_desc(struct sam_hw_res_desc *res_desc);
+void print_result_desc(struct sam_hw_res_desc *res_desc, int is_prepared);
 
 #endif /* _SAM_HW_H_ */
