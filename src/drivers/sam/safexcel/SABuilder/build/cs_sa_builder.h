@@ -24,13 +24,13 @@
 //#define SAB_EIP96_VERSION_I
 //#define SAB_EIP96_VERSION_IE
 //#define SAB_EIP96_VERSION_IS
-//#define SAB_EIP96_VERSION_IES
+#define SAB_EIP96_VERSION_IES
 //#define SAB_EIP96_VERSION_IW
 //#define SAB_EIP96_VERSION_IEW
 //#define SAB_EIP96_VERSION_IESW
 //#define SAB_EIP96_VERSION_IEX
 //#define SAB_EIP96_VERSION_IESWX
-#define SAB_EIP96_VERSION_IESWXK
+//#define SAB_EIP96_VERSION_IESWXK
 
 /* Enable this if the hardware supports 384-bit sequence number masks. */
 #define SAB_ENABLE_384BIT_SEQMASK
@@ -49,7 +49,7 @@
 
 /* Which protocol families are enabled? */
 #define SAB_ENABLE_PROTO_BASIC
-//#define SAB_ENABLE_PROTO_IPSEC
+#define SAB_ENABLE_PROTO_IPSEC
 //#define SAB_ENABLE_PROTO_SSLTLS
 //#define SAB_ENABLE_PROTO_MACSEC
 //#define SAB_ENABLE_PROTO_SRTP
@@ -60,7 +60,11 @@
 
 /* Enable if the SA Builder must support extended use case for IPsec
    processing */
-//#define SAB_ENABLE_IPSEC_EXTENDED
+#define SAB_ENABLE_IPSEC_EXTENDED
+
+// Set this if tunnel header fields are to be copied into the transform.
+// for extended use case.
+#define SAB_ENABLE_EXTENDED_TUNNEL_HEADER
 
 /* Enable if the SA Builder must support extended use case for DTLS
    processing */
@@ -69,6 +73,7 @@
 /* Enable if the SA Builder must support an engine with fixed SA records
    (e.g. for a record cache) */
 //#define SAB_ENABLE_FIXED_RECORD_SIZE
+//#define SAB_ENABLE_TWO_FIXED_RECORD_SIZES
 
 /* Enable this if you desire to include the ARC4 state in the SA
    record. This requires the hardware to be configured for relative
