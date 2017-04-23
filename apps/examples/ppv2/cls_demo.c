@@ -261,7 +261,7 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 static u32 pp2_cls_first_queue_get(void)
 {
 	/* TODO: need to read from kernel through sysfs function */
-	return (garg.ports_desc[0].port_params.type == PP2_PPIO_T_LOG ?
+	return (garg.ports_desc[0].ppio_type == PP2_PPIO_T_LOG ?
 		CLS_APP_FIRST_LOG_PORT_IN_QUEUE : CLS_APP_FIRST_MUSDK_IN_QUEUE);
 }
 
@@ -1643,7 +1643,6 @@ static int init_local_modules(struct glob_arg *garg)
 
 		err = app_find_port_info(port);
 		if (!err) {
-			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
 			port->num_inqs	= CLS_APP_PP2_MAX_NUM_QS_PER_TC;
 			port->inq_size	= CLS_APP_RX_Q_SIZE;
@@ -1978,10 +1977,10 @@ static void deinit_local(void *arg)
 static void usage(char *progname)
 {
 	printf("\n"
-		"MUSDK cls-test application.\n"
+		"MUSDK cls-demo application.\n"
 		"\n"
 		"Usage: %s OPTIONS\n"
-		"  E.g. %s -i ppio-0:0\n"
+		"  E.g. %s -i eth0\n"
 		"\n"
 		"Mandatory OPTIONS:\n"
 		"\t-i, --interface <eth-interface>\n"
@@ -2006,6 +2005,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int rc;
 	struct pp2_ppio_params *port_params = &garg->ports_desc[0].port_params;
 	struct pp2_init_params *pp2_params = &garg->pp2_params;
+	struct port_desc	*port = &garg->ports_desc[0];
 
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
@@ -2025,7 +2025,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	memset(port_params, 0, sizeof(*port_params));
 	memset(pp2_params, 0, sizeof(*pp2_params));
-	port_params->type = PP2_PPIO_T_NIC;
+	port->ppio_type = PP2_PPIO_T_NIC;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
@@ -2054,7 +2054,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'g':
 			logical_port_params = true;
-			port_params->type = PP2_PPIO_T_LOG;
+			port->ppio_type = PP2_PPIO_T_LOG;
 			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);
