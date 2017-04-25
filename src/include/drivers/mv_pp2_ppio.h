@@ -1010,11 +1010,29 @@ int pp2_ppio_flush_vlan(struct pp2_ppio *ppio);
  */
 int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *stats, int reset);
 
+/**
+ * Get link state
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		en	link enabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_get_link_state(struct pp2_ppio *ppio, int *en);
+
+/**
+ * TODO : Set link state
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		en	link enabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+/* int pp2_ppio_set_link_state(struct pp2_ppio *ppio, int en); */
 
 
-
-
-/*TODO: link state ???*/
 
 /** @} */ /* end of grp_pp2_io */
 

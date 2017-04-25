@@ -404,6 +404,14 @@ int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc)
 	return rc;
 }
 
+int pp2_ppio_get_link_state(struct pp2_ppio *ppio, int *en)
+{
+	int rc;
+
+	rc = pp2_port_get_link_state(GET_PPIO_PORT(ppio), en);
+	return rc;
+}
+
 int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan)
 {
 	int rc;

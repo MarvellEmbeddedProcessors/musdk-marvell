@@ -1569,6 +1569,21 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 	return 0;
 }
 
+/* Get Link State */
+int pp2_port_get_link_state(struct pp2_port *port, int  *en)
+{
+	int rc;
+	struct ifreq s;
+
+	strcpy(s.ifr_name, port->linux_name);
+	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
+	if (rc)
+		return rc;
+
+	(s.ifr_flags & IFF_RUNNING) ? (*en = 1) : (*en = 0);
+	return 0;
+}
+
 static int pp2_port_check_buf_size(struct pp2_port *port, uint32_t size)
 {
 	u32 buf_size;

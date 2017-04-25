@@ -394,6 +394,9 @@ int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr);
 /* Get MAC address */
 int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr);
 
+/* Get Link State */
+int pp2_port_get_link_state(struct pp2_port *port, int  *en);
+
 /* Set MTU */
 int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu);
 
