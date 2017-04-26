@@ -57,32 +57,39 @@ static u64 hw_bm_buf_free_cnt;
 static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
-void app_show_queue_stat(struct port_desc *port_desc, u8 q_start, int num_qs, int reset)
+void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
 {
-	int i, j;
-	u8 q_stop = port_desc->num_inqs - q_start;
+	int i;
+	u8 q_stop;
 	struct pp2_ppio_inq_statistics rxstats;
 	struct pp2_ppio_outq_statistics txstats;
 
-	if (q_start + num_qs >= port_desc->num_inqs) {
+	if (tc > port_desc->num_tcs) {
+		printf("\nWrong tc parameters: tc=%d, num_tcs=%d", tc, port_desc->num_tcs);
+		return;
+	}
+
+	if (q_start + num_qs >= port_desc->num_inqs[tc]) {
 		printf("\nWrong queue parameters: first_qid=%d, num=%d", q_start, num_qs);
 		return;
 	}
+
 	if (num_qs)
 		q_stop = num_qs + q_start;
+	else
+		q_stop = port_desc->num_inqs[tc] - q_start;
 
 	printf("\n-------- Port %d:%d queues stats --------\n", port_desc->pp_id, port_desc->ppio_id);
-	for (i = 0; i < port_desc->num_tcs; i++) {
-		for (j = q_start; j < q_stop; j++) {
-			pp2_ppio_inq_get_statistics(port_desc->ppio, i, j, &rxstats, reset);
-			printf("\t Tc #%d Rxq #%d statistics:\n", i, j);
-			printf("\t\tEnqueued packets:      %lu\n", rxstats.enq_desc);
-			printf("\t\tFull queue drops:      %u\n", rxstats.drop_fullq);
-			printf("\t\tBuffer Manager drops:  %u\n", rxstats.drop_bm);
-			printf("\t\tEarly drops:           %u\n", rxstats.drop_early);
-		}
-		printf("\n");
+	for (i = q_start; i < q_stop; i++) {
+		pp2_ppio_inq_get_statistics(port_desc->ppio, tc, i, &rxstats, reset);
+		printf("\t Tc #%d Rxq #%d statistics:\n", tc, i);
+		printf("\t\tEnqueued packets:      %lu\n", rxstats.enq_desc);
+		printf("\t\tFull queue drops:      %u\n", rxstats.drop_fullq);
+		printf("\t\tBuffer Manager drops:  %u\n", rxstats.drop_bm);
+		printf("\t\tEarly drops:           %u\n", rxstats.drop_early);
 	}
+	printf("\n");
+
 	for (i = 0; i < port_desc->num_outqs; i++) {
 		printf("\t Txq #%d statistics:\n", i);
 		pp2_ppio_outq_get_statistics(port_desc->ppio, i, &txstats, reset);
@@ -113,8 +120,8 @@ void app_show_port_stat(struct port_desc *port_desc, int reset)
 
 static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
-	int i, reset = 0;
-	u8 qid = 0, port_id = 0;
+	int i, j, reset = 0;
+	u8 qid = 0, port_id = 0, tc = (~0);
 	int ports_num = MVAPPS_MAX_NUM_PORTS;
 	int queues_num = 0;
 	struct port_desc *port_desc = (struct port_desc *)arg;
@@ -123,6 +130,7 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 	int long_index = 0;
 	struct option long_options[] = {
 		{"port", required_argument, 0, 'p'},
+		{"tc", required_argument, 0, 't'},
 		{"queue", required_argument, 0, 'q'},
 		{"reset", no_argument, 0, 'r'},
 		{0, 0, 0, 0}
@@ -146,6 +154,13 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 			}
 			ports_num = 1;
 			break;
+		case 't':
+			tc = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (tc < 0)) {
+				printf("parsing fail, wrong input for --tc\n");
+				return -EINVAL;
+			}
+			break;
 		case 'q':
 			qid = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (qid < 0)) {
@@ -164,8 +179,14 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 	}
 
 	for (i = port_id; i < port_id + ports_num; i++) {
-		if (port_desc[i].initialized)
-			app_show_queue_stat(&port_desc[i], qid, queues_num, reset);
+		if (port_desc[i].initialized) {
+			if (tc == (~0)) {
+				for (j = 0; j < port_desc->num_tcs; j++)
+					app_show_queue_stat(&port_desc[i], j, qid, queues_num, reset);
+			} else {
+				app_show_queue_stat(&port_desc[i], tc, qid, queues_num, reset);
+			}
+		}
 	}
 
 	return 0;
@@ -229,13 +250,13 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	cmd_params.name		= "qstat";
 	cmd_params.desc		= "Show queues statistics";
 	cmd_params.format	= "--port --queue --reset\n"
-				  "\t\t--port, -p	port number, if not specified, show for all ports\n"
+				  "\t\t--port,  -p	port number, if not specified, show for all ports\n"
+				  "\t\t--tc,    -t	tc number, if not specified, show for all tcs\n"
 				  "\t\t--queue, -q	queue index, if not specified, show for all queues.\n"
 				  "\t\t--reset, -r	reset statistics\n";
 	cmd_params.cmd_arg	= port_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))queue_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "pstat";
 	cmd_params.desc		= "Show ports statistics";
@@ -503,7 +524,7 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	port_params->specific_type_params.log_port_params.first_inq = port->first_inq;
 	for (i = 0; i < port->num_tcs; i++) {
 		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
-		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs;
+		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
 		inq_params.size = port->inq_size;
 		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
 		for (j = 0; j < num_pools; j++)

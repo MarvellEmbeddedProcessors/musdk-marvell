@@ -49,7 +49,6 @@
 #define CLS_APP_MAX_NUM_TCS_PER_PORT		4
 #define CLS_APP_FIRST_LOG_PORT_IN_QUEUE		4
 #define CLS_APP_FIRST_MUSDK_IN_QUEUE		0
-#define CLS_APP_PP2_MAX_NUM_QS_PER_TC		1
 #define CLS_APP_STR_SIZE_MAX			40
 #define CLS_APP_KEY_SIZE_MAX			37
 #define CLS_APP_MAX_NUM_OF_RULES		20
@@ -1626,6 +1625,7 @@ static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
 	struct bpool_inf		infs[] = CLS_APP_BPOOLS_INF;
+	int				i;
 
 	pr_info("Local initializations ...\n");
 
@@ -1644,7 +1644,8 @@ static int init_local_modules(struct glob_arg *garg)
 		err = app_find_port_info(port);
 		if (!err) {
 			port->num_tcs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
-			port->num_inqs	= CLS_APP_PP2_MAX_NUM_QS_PER_TC;
+			for (i = 0; i < port->num_tcs; i++)
+				port->num_inqs[i] = MVAPPS_MAX_NUM_QS_PER_TC;
 			port->inq_size	= CLS_APP_RX_Q_SIZE;
 			port->num_outqs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
@@ -1673,7 +1674,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 	struct pp2_cls_table_node *tbl_node;
 
 	app_disable_all_ports(garg->ports_desc, garg->num_ports,
-			      CLS_APP_MAX_NUM_TCS_PER_PORT, CLS_APP_PP2_MAX_NUM_QS_PER_TC);
+			      CLS_APP_MAX_NUM_TCS_PER_PORT, MVAPPS_MAX_NUM_QS_PER_TC);
 	app_free_all_pools(garg->pools_desc, garg->num_pools, garg->hif);
 	app_deinit_all_ports(garg->ports_desc, garg->num_ports);
 

@@ -898,6 +898,7 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		std_infs[] = CRYPT_APP_BPOOLS_INF;
 	struct bpool_inf		jumbo_infs[] = CRYPT_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
+	int				i;
 
 	pr_info("Specific modules initializations\n");
 
@@ -924,7 +925,8 @@ static int init_local_modules(struct glob_arg *garg)
 		if (!err) {
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= CRYPT_APP_MAX_NUM_TCS_PER_PORT;
-			port->num_inqs	= MVAPPS_MAX_NUM_QS_PER_TC;
+			for (i = 0; i < port->num_tcs; i++)
+				port->num_inqs[i] = MVAPPS_MAX_NUM_QS_PER_TC;
 			port->inq_size	= CRYPT_APP_RX_Q_SIZE;
 			port->num_outqs	= CRYPT_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= CRYPT_APP_TX_Q_SIZE;
