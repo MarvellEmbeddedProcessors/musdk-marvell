@@ -420,6 +420,46 @@ int pp2_cli_cls_fl_rule_ena(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
+ * pp2_cli_cls_set_rss_mode
+ *
+ * DESCRIPTION: The routine set rss mode
+ *
+ * INPUTS:
+ *	arg - packet port pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
+int pp2_cli_cls_set_rss_mode(void *arg, int argc, char *argv[])
+{
+	int rc, rss_mode;
+	struct pp2_port *port = (struct pp2_port *)arg;
+	char *ret_ptr;
+
+	if (argc != 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	rss_mode = strtoul(argv[1], &ret_ptr, 0);
+	if ((rss_mode < 0) || (rss_mode >= PP2_PPIO_HASH_T_OUT_OF_RANGE)) {
+		printf("parsing fail, wrong input for argv[1] - rss_mode");
+		return -EINVAL;
+	}
+
+	rc = pp2_cls_rss_mode_flows_set(port, rss_mode);
+	if (!rc)
+		printf("success\n");
+	else
+		printf("%s fail\n", __func__);
+
+	return 0;
+}
+
+/*******************************************************************************
  * pp2_cli_cls_fl_rule_dis
  *
  * DESCRIPTION: The routine disables a logical rule according to input array

@@ -97,6 +97,7 @@ enum pp2_cls_act_dump_idx_t {
 	MVPP2_ACT_DUMP_QUEUE_LOW,
 	MVPP2_ACT_DUMP_QUEUE_HIGH,
 	MVPP2_ACT_DUMP_COLOR,
+	MVPP2_ACT_DUMP_RSS,
 	MVPP2_ACT_DUMP_POLICER,
 	MVPP2_ACT_DUMP_FRWD,
 	MVPP2_ACT_DUMP_FLOWID
@@ -163,6 +164,7 @@ int pp2_cls_cli_c2_hw_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_qos_dscp_dump(void *arg, int argc, char *argv[]);
 int pp2_cls_cli_qos_pcp_dump(void *arg, int argc, char *argv[]);
+int pp2_cls_cli_rss_rxq_bind_dump(void *arg, int argc, char *argv[]);
 
 
 /******************************************************************************/

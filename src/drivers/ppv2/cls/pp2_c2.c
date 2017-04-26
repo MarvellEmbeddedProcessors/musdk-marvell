@@ -2234,6 +2234,15 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 		return ret_code;
 	}
 
+	/* Set RSS */
+	ret_code = mv_pp2x_cls_c2_rss_set(&pp2_cls_c2_entry,
+					  c2_entry->action.rss_act,
+					  c2_entry->rss_en);
+	if (ret_code) {
+		pr_err("recvd ret_code(%d)\n", ret_code);
+		return ret_code;
+	}
+
 	/* Set policer */
 	/* TODO - to be added later */
 	/*

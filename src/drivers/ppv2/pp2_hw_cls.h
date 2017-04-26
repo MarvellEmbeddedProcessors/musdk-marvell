@@ -73,16 +73,6 @@ enum mv_pp2x_cos_classifier {
 	MVPP2_COS_CLS_DSCP_VLAN,
 };
 
-enum mv_pp2x_rss_nf_udp_mode {
-	MVPP2_RSS_NF_UDP_2T,	/* non-frag UDP packet hash value
-				 * is calculated based on 2T
-				 */
-	MVPP2_RSS_NF_UDP_5T,	/* non-frag UDP packet hash value
-				 *is calculated based on 5T
-				 */
-};
-
-int mv_pp2x_cls_init(struct pp2_hw *hw);
 int mv_pp2x_c2_init(struct pp2_hw *hw);
 void mv_pp2x_cls_oversize_rxq_set(struct pp2_port *port);
 void mv_pp2x_cls_port_config(struct pp2_port *port);
@@ -109,14 +99,12 @@ int mv_pp2x_cls_hw_rxq_counter_get(uintptr_t cpu_slot, int phy_rxq);
 void mv_pp2x_cls_sw_flow_clear(struct mv_pp2x_cls_flow_entry *fe);
 int mv_pp2x_cls_hw_lkp_clear_all(uintptr_t cpu_slot);
 int mv_pp2x_cls_hw_flow_clear_all(uintptr_t cpu_slot);
-void mv_pp2x_cls_flow_tbl_config(struct pp2_hw *hw);
 void mv_pp2x_cls_lookup_read(struct pp2_hw *hw, int lkpid, int way, struct mv_pp2x_cls_lookup_entry *le);
 int mv_pp2x_cls_hw_lkp_write(uintptr_t cpu_slot, struct mv_pp2x_cls_lookup_entry *fe);
 int mv_pp2x_cls_hw_lkp_read(uintptr_t cpu_slot, int lkpid, int way, struct mv_pp2x_cls_lookup_entry *fe);
 void mv_pp2x_cls_sw_lkp_clear(struct mv_pp2x_cls_lookup_entry *fe);
 int mv_pp2x_cls_hw_lkp_clear(uintptr_t cpu_slot, int lkpid, int way);
 int mv_pp2x_cls_c2_qos_hw_write(struct pp2_hw *hw, struct mv_pp2x_cls_c2_qos_entry *qos);
-void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en);
 int mv_pp2x_cls_sw_lkp_rxq_get(struct mv_pp2x_cls_lookup_entry *lkp, int *rxq);
 int mv_pp2x_cls_sw_lkp_rxq_set(struct mv_pp2x_cls_lookup_entry *lkp, int rxq);
 int mv_pp2x_cls_sw_lkp_mod_get(struct mv_pp2x_cls_lookup_entry *le, int *mod_base);
@@ -128,7 +116,12 @@ int mv_pp2x_cls_hw_cls_enable(uintptr_t cpu_slot, uint32_t en);
 int mv_pp2x_cls_hw_lkp_dump(uintptr_t cpu_slot);
 int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot);
 u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value);
-uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port *port);
+
+int mv_pp22_rss_tbl_entry_set(struct pp2_hw *hw,
+			      struct mv_pp22_rss_entry *rss);
+int pp2_rss_tbl_entry_get(struct pp2_hw *hw,
+			  struct mv_pp22_rss_entry *rss);
+int pp2_rss_c2_enable(struct pp2_port *port, int en);
 
 /*-------------------------------------------------------------------------------*/
 /*	c2 Common utilities							  */
@@ -154,6 +147,7 @@ int mv_pp2x_cls_c2_queue_low_set(struct mv_pp2x_cls_c2_entry *c2,
 				 int cmd, int queue, int from);
 int mv_pp2x_cls_c2_queue_high_set(struct mv_pp2x_cls_c2_entry *c2,
 				  int cmd, int queue, int from);
+int mv_pp2x_cls_c2_rss_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int rss_en);
 int mv_pp2x_cls_c2_forward_set(struct mv_pp2x_cls_c2_entry *c2, int cmd);
 int mv_pp2x_cls_c2_policer_set(struct mv_pp2x_cls_c2_entry *c2, int cmd, int policer_id, int bank);
 int mv_pp2x_cls_c2_flow_id_en(struct mv_pp2x_cls_c2_entry *c2, int flow_id_en);

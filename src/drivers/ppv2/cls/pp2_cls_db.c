@@ -1580,3 +1580,86 @@ int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl)
 	return 0;
 }
 
+void pp2_cls_db_rss_kernel_rsvd_tbl_set(struct pp2_inst *inst, u16 kernel_rss_tbl)
+{
+	inst->cls_db->rss_db.num_kernel_rsrvd_tbls = kernel_rss_tbl;
+}
+
+u16 pp2_cls_db_rss_kernel_rsvd_tbl_get(struct pp2_inst *inst)
+{
+	return inst->cls_db->rss_db.num_kernel_rsrvd_tbls;
+}
+
+void pp2_cls_db_rss_num_musdk_tbl_set(struct pp2_inst *inst, u16 num_musdk_tbl)
+{
+	inst->cls_db->rss_db.num_musdk_tbls = num_musdk_tbl;
+}
+
+u16 pp2_cls_db_rss_num_musdk_tbl_get(struct pp2_inst *inst)
+{
+	return inst->cls_db->rss_db.num_musdk_tbls;
+}
+
+int pp2_cls_db_rss_tbl_map_set(struct pp2_inst *inst, u16 idx, u16 hw_tbl, u16 num_in_q)
+{
+	if (idx > MVPP22_RSS_TBL_NUM)
+		return -EINVAL;
+
+	if (hw_tbl > MVPP22_RSS_TBL_NUM)
+		return -EINVAL;
+
+	inst->cls_db->rss_db.rss_tbl_map[idx].hw_tbl = hw_tbl;
+	inst->cls_db->rss_db.rss_tbl_map[idx].num_in_q = num_in_q;
+
+	return 0;
+}
+
+int pp2_cls_db_rss_tbl_map_get(struct pp2_inst *inst, u16 idx, u16 *hw_tbl, u16 *num_in_q)
+{
+	if (idx > MVPP22_RSS_TBL_NUM)
+		return -EINVAL;
+
+	*hw_tbl = inst->cls_db->rss_db.rss_tbl_map[idx].hw_tbl;
+	*num_in_q = inst->cls_db->rss_db.rss_tbl_map[idx].num_in_q;
+
+	return 0;
+}
+
+int pp2_cls_db_rss_get_hw_tbl_from_in_q(struct pp2_inst *inst, u8 num_in_q)
+{
+	int i;
+
+	for (i = 0; i < MVPP22_RSS_TBL_NUM; i++) {
+		if (inst->cls_db->rss_db.rss_tbl_map[i].num_in_q == num_in_q)
+			return inst->cls_db->rss_db.rss_tbl_map[i].hw_tbl;
+	}
+
+	return 0;
+}
+
+int pp2_cls_db_rss_tbl_map_get_next_free_idx(struct pp2_inst *inst)
+{
+	int i;
+
+	for (i = 0; i < MVPP22_RSS_TBL_NUM; i++) {
+		if (inst->cls_db->rss_db.rss_tbl_map[i].num_in_q == 0)
+			return i;
+	}
+
+	return i;
+}
+
+/* pp2_rss_start
+*  -- Initialize the RSS parameters and dB
+*/
+int pp2_cls_db_rss_init(struct pp2_inst *inst)
+{
+	if (!inst->cls_db)
+		return -EINVAL;
+
+	/* Clear RSS db */
+	memset(&inst->cls_db->rss_db, 0, sizeof(struct pp2_cls_db_rss_t));
+
+	return 0;
+}
+

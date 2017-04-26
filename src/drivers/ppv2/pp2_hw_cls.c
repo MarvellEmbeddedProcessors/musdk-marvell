@@ -325,61 +325,6 @@ void mv_pp2x_cls_lkp_flow_set(struct pp2_hw *hw, int lkpid, int way,
 	mv_pp2x_cls_lookup_write(hw, &le);
 }
 
-/* Classifier default initialization */
-int mv_pp2x_cls_init(struct pp2_hw *hw)
-{
-	struct mv_pp2x_cls_lookup_entry le;
-	struct mv_pp2x_cls_flow_entry fe;
-	int index;
-
-	/* Enable classifier */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS_MODE_REG,
-		      MVPP2_CLS_MODE_ACTIVE_MASK);
-
-	/* Clear classifier flow table */
-	memset(&fe.data, 0, MVPP2_CLS_FLOWS_TBL_DATA_WORDS);
-	for (index = 0; index < MVPP2_CLS_FLOWS_TBL_SIZE; index++) {
-		fe.index = index;
-		mv_pp2x_cls_flow_write(hw, &fe);
-	}
-
-	/* Clear classifier lookup table */
-	le.data = 0;
-	for (index = 0; index < MVPP2_CLS_LKP_TBL_SIZE; index++) {
-		le.lkpid = index;
-		le.way = 0;
-		mv_pp2x_cls_lookup_write(hw, &le);
-
-		le.way = 1;
-		mv_pp2x_cls_lookup_write(hw, &le);
-	}
-
-	hw->cls_shadow = kcalloc(1, sizeof(struct mv_pp2x_cls_shadow), GFP_KERNEL);
-	if (!hw->cls_shadow)
-		return -ENOMEM;
-
-	hw->cls_shadow->flow_info =
-	    kcalloc((MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START),
-		    sizeof(struct mv_pp2x_cls_flow_info), GFP_KERNEL);
-	if (!hw->cls_shadow->flow_info)
-		return -ENOMEM;
-
-	/* Start from entry 1 to allocate flow table */
-	hw->cls_shadow->flow_free_start = 1;
-	for (index = 0; index < (MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START);
-	     index++)
-		hw->cls_shadow->flow_info[index].lkpid = index +
-		    MVPP2_PRS_FL_START;
-
-	/* Init flow table */
-	mv_pp2x_cls_flow_tbl_config(hw);
-
-	/* Init lookup table */
-	mv_pp2x_cls_lookup_tbl_config(hw);
-
-	return 0;
-}
-
 int mv_pp2x_cls_c2_hw_inv(uintptr_t cpu_slot, int index)
 {
 	if (!cpu_slot || index >= MVPP2_CLS_C2_TCAM_SIZE)
@@ -1233,175 +1178,6 @@ static inline void mv_pp2x_cls_flow_cos(struct pp2_hw *hw,
 	hw->cls_shadow->flow_free_start++;
 }
 
-/* Init flow entry for RSS hash in PP22 */
-static inline void mv_pp2x_cls_flow_rss_hash(struct pp2_hw *hw,
-					     struct mv_pp2x_cls_flow_entry *fe,
-					     int lkpid, int rss_mode)
-{
-	int field_id[4] = { 0 };
-	int entry_idx = hw->cls_shadow->flow_free_start;
-	int lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
-
-	/* IP4 packet */
-	if (lkpid_attr & MVPP2_PRS_FL_ATTR_IP4_BIT) {
-		field_id[0] = MVPP2_CLS_FIELD_IP4SA;
-		field_id[1] = MVPP2_CLS_FIELD_IP4DA;
-	} else if (lkpid_attr & MVPP2_PRS_FL_ATTR_IP6_BIT) {
-		field_id[0] = MVPP2_CLS_FIELD_IP6SA;
-		field_id[1] = MVPP2_CLS_FIELD_IP6DA;
-	}
-	/* L4 port */
-	field_id[2] = MVPP2_CLS_FIELD_L4SIP;
-	field_id[3] = MVPP2_CLS_FIELD_L4DIP;
-
-	/* Set SW */
-	memset(fe, 0, sizeof(struct mv_pp2x_cls_flow_entry));
-	if (rss_mode == MVPP2_RSS_HASH_2T) {
-		mv_pp2x_cls_sw_flow_hek_num_set(fe, 2);
-		mv_pp2x_cls_sw_flow_eng_set(fe, MVPP2_CLS_ENGINE_C3HA, 1);
-		mv_pp2x_cls_sw_flow_hek_set(fe, 0, field_id[0]);
-		mv_pp2x_cls_sw_flow_hek_set(fe, 1, field_id[1]);
-	} else {
-		mv_pp2x_cls_sw_flow_hek_num_set(fe, 4);
-		mv_pp2x_cls_sw_flow_hek_set(fe, 0, field_id[0]);
-		mv_pp2x_cls_sw_flow_hek_set(fe, 1, field_id[1]);
-		mv_pp2x_cls_sw_flow_hek_set(fe, 2, field_id[2]);
-		mv_pp2x_cls_sw_flow_hek_set(fe, 3, field_id[3]);
-		mv_pp2x_cls_sw_flow_eng_set(fe, MVPP2_CLS_ENGINE_C3HB, 1);
-	}
-	mv_pp2x_cls_sw_flow_extra_set(fe,
-				      MVPP2_CLS_LKP_HASH, MVPP2_CLS_FL_RSS_PRI);
-	fe->index = entry_idx;
-
-	/* Update last for UDP NF flow */
-	if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT) &&
-	    !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
-		if (!hw->cls_shadow->flow_info[lkpid -
-					       MVPP2_PRS_FL_START].
-		    flow_entry_rss1) {
-			if (rss_mode == MVPP2_RSS_HASH_2T)
-				mv_pp2x_cls_sw_flow_eng_set(fe,
-							    MVPP2_CLS_ENGINE_C3HA, 0);
-			else
-				mv_pp2x_cls_sw_flow_eng_set(fe,
-							    MVPP2_CLS_ENGINE_C3HB, 0);
-		}
-	}
-
-	/* Write HW */
-	mv_pp2x_cls_flow_write(hw, fe);
-
-	/* Update Shadow */
-	if (hw->cls_shadow->flow_info[lkpid -
-				      MVPP2_PRS_FL_START].flow_entry_rss1 == 0)
-		hw->cls_shadow->flow_info[lkpid -
-					  MVPP2_PRS_FL_START].flow_entry_rss1 =
-		    entry_idx;
-	else
-		hw->cls_shadow->flow_info[lkpid -
-					  MVPP2_PRS_FL_START].flow_entry_rss2 =
-		    entry_idx;
-
-	/* Update first available flow entry */
-	hw->cls_shadow->flow_free_start++;
-}
-
-/* Init cls flow table according to different flow id */
-void mv_pp2x_cls_flow_tbl_config(struct pp2_hw *hw)
-{
-	int lkpid, rss_mode, lkpid_attr;
-	struct mv_pp2x_cls_flow_entry fe;
-
-	for (lkpid = MVPP2_PRS_FL_START; lkpid < MVPP2_PRS_FL_LAST; lkpid++) {
-		/* Get lookup id attribute */
-		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
-		/* Default rss hash is based on 5T */
-		rss_mode = MVPP2_RSS_HASH_5T;
-		/* For frag packets or non-TCP&UDP, rss must be based on 2T */
-		if ((lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT) ||
-		    !(lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT |
-				    MVPP2_PRS_FL_ATTR_UDP_BIT)))
-			rss_mode = MVPP2_RSS_HASH_2T;
-
-		/* For untagged IP packets, only need default
-		 * rule and dscp rule
-		 */
-		if ((lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT |
-				   MVPP2_PRS_FL_ATTR_IP6_BIT)) &&
-		    (!(lkpid_attr & MVPP2_PRS_FL_ATTR_VLAN_BIT))) {
-			/* Default rule */
-			mv_pp2x_cls_flow_cos(hw, &fe, lkpid,
-					     MVPP2_COS_TYPE_DEF);
-			/* DSCP rule */
-			mv_pp2x_cls_flow_cos(hw, &fe, lkpid,
-					     MVPP2_COS_TYPE_DSCP);
-			/* RSS hash rule */
-			if ((!(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) &&
-			    (lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT)) {
-				/* RSS hash rules for UDP rss mode update */
-				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
-							  MVPP2_RSS_HASH_2T);
-				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
-							  MVPP2_RSS_HASH_5T);
-			} else {
-				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
-							  rss_mode);
-			}
-		}
-
-		/* For tagged IP packets, only need vlan rule and dscp rule */
-		if ((lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT |
-				   MVPP2_PRS_FL_ATTR_IP6_BIT)) &&
-		    (lkpid_attr & MVPP2_PRS_FL_ATTR_VLAN_BIT)) {
-			/* VLAN rule */
-			mv_pp2x_cls_flow_cos(hw, &fe, lkpid,
-					     MVPP2_COS_TYPE_VLAN);
-			/* DSCP rule */
-			mv_pp2x_cls_flow_cos(hw, &fe, lkpid,
-					     MVPP2_COS_TYPE_DSCP);
-			/* RSS hash rule */
-			if ((!(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) &&
-			    (lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT)) {
-				/* RSS hash rules for UDP rss mode update */
-				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
-							  MVPP2_RSS_HASH_2T);
-				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
-							  MVPP2_RSS_HASH_5T);
-			} else {
-				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
-							  rss_mode);
-			}
-		}
-
-		/* For non-IP packets, only need default rule if untagged,
-		 * vlan rule also needed if tagged
-		 */
-		if (!(lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT |
-				    MVPP2_PRS_FL_ATTR_IP6_BIT))) {
-			/* Default rule */
-			mv_pp2x_cls_flow_cos(hw, &fe, lkpid,
-					     MVPP2_COS_TYPE_DEF);
-			/* VLAN rule if tagged */
-			if (lkpid_attr & MVPP2_PRS_FL_ATTR_VLAN_BIT)
-				mv_pp2x_cls_flow_cos(hw, &fe, lkpid,
-						     MVPP2_COS_TYPE_VLAN);
-		}
-	}
-}
-
-inline uint8_t mv_pp2x_bound_cpu_first_rxq_calc(struct pp2_port
-						       *port)
-{
-	u8 cos_width, bind_cpu;
-
-	cos_width =
-	    ilog2(roundup_pow_of_two
-		  (port->parent->pp2_cfg.cos_cfg.num_cos_queues));
-	bind_cpu = (port->parent->pp2_cfg.rx_cpu_map >> (4 * port->id)) & 0xF;
-
-	return (port->first_rxq + (bind_cpu << cos_width));
-}
-
 int mv_pp2x_cls_c2_qos_hw_read(struct pp2_hw *hw, int tbl_id, int tbl_sel,
 			       int tbl_line, struct mv_pp2x_cls_c2_qos_entry *qos)
 {
@@ -1613,7 +1389,7 @@ void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port,
 {
 	struct mv_pp2x_cls_c2_qos_entry qos_entry;
 	u32 pri, line_num;
-	u8 cos_value, cos_queue, queue;
+	u8 queue;
 
 	if (tbl_sel == MVPP2_QOS_TBL_SEL_PRI)
 		line_num = MVPP2_QOS_TBL_LINE_NUM_PRI;
@@ -1626,19 +1402,8 @@ void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port,
 
 	/* Fill the QoS dscp/pbit table */
 	for (pri = 0; pri < line_num; pri++) {
-		/* cos_value equal to dscp/8 or pbit value */
-		cos_value = ((tbl_sel == MVPP2_QOS_TBL_SEL_PRI) ?
-			     pri : (pri / 8));
-		/* each nibble of pri_map stands for a cos-value,
-		 * nibble value is the queue
-		 */
-		cos_queue = mv_pp2x_cosval_queue_map(port, cos_value);
 		qos_entry.tbl_line = pri;
-		/* map cos queue to physical queue */
-		/* Physical queue contains 2 parts: port ID and CPU ID,
-		 * CPU ID will be used in RSS
-		 */
-		queue = start_queue + cos_queue;
+		queue = start_queue;
 		mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
 		mv_pp2x_cls_c2_qos_hw_write(&port->parent->hw, &qos_entry);
 	}
@@ -1983,6 +1748,11 @@ int mv_pp2x_cls_c2_tcam_byte_get(struct mv_pp2x_cls_c2_entry *c2,
 	*enable = c2->tcam.bytes[TCAM_DATA_MASK(offs)];
 
 	return 0;
+}
+
+u8 pp2_cls_c2_tcam_port_get(struct mv_pp2x_cls_c2_entry *c2)
+{
+	return ((c2->tcam.words[4] >> 8) & 0xFF);
 }
 
 /* C2 rule and Qos table */
@@ -2364,19 +2134,20 @@ int mv_pp2x_c2_sw_dump(struct mv_pp2x_cls_c2_entry *c2)
 	/*	actions 0x1B60		*/
 	/*------------------------------*/
 
-	printf("ACT_CMD:		COLOR	PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	FWD	POLICER	FID\n");
+	printf("ACT_CMD:		COLOR	PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	FWD	POLICER	FID	RSS\n");
 	printf("			");
 
-	printf("%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t",
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_COLOR_MASK) >> MVPP2_CLS2_ACT_COLOR_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_PRI_MASK) >> MVPP2_CLS2_ACT_PRI_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_DSCP_MASK) >> MVPP2_CLS2_ACT_DSCP_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_GEM_MASK) >> MVPP2_CLS2_ACT_GEM_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_QL_MASK) >> MVPP2_CLS2_ACT_QL_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_QH_MASK) >> MVPP2_CLS2_ACT_QH_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_FRWD_MASK) >> MVPP2_CLS2_ACT_FRWD_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_PLCR_MASK) >> MVPP2_CLS2_ACT_PLCR_OFF),
-			((c2->sram.regs.actions & MVPP2_CLS2_ACT_FLD_EN_MASK) >> MVPP2_CLS2_ACT_FLD_EN_OFF));
+	printf("%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t",
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_COLOR_MASK) >> MVPP2_CLS2_ACT_COLOR_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_PRI_MASK) >> MVPP2_CLS2_ACT_PRI_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_DSCP_MASK) >> MVPP2_CLS2_ACT_DSCP_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_GEM_MASK) >> MVPP2_CLS2_ACT_GEM_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_QL_MASK) >> MVPP2_CLS2_ACT_QL_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_QH_MASK) >> MVPP2_CLS2_ACT_QH_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_FRWD_MASK) >> MVPP2_CLS2_ACT_FRWD_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_PLCR_MASK) >> MVPP2_CLS2_ACT_PLCR_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_FLD_EN_MASK) >> MVPP2_CLS2_ACT_FLD_EN_OFF),
+	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_RSS_MASK) >> MVPP2_CLS2_ACT_RSS_OFF));
 	printf("\n\n");
 
 
@@ -2442,12 +2213,13 @@ int mv_pp2x_c2_sw_dump(struct mv_pp2x_cls_c2_entry *c2)
 	/*------------------------------*/
 	/*	rss_attr 0x1B6C		*/
 	/*------------------------------*/
-	printf("RSS_ATTR:		FID	COUNT	POLICER [id    bank]\n");
-	printf("			0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\n",
-	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPID_OFF),
-	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_OFF),
-	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_OFF),
-	      ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_OFF));
+	printf("RSS_ATTR:		FID	COUNT	POLICER [id    bank]	RSS\n");
+	printf("			0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\t0x%1.1x\n",
+	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPID_OFF),
+	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_OFF),
+	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_OFF),
+	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_OFF),
+	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_RSSEN_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_RSSEN_OFF));
 	printf("\n");
 	/*------------------------------*/
 	/*	seq_attr 0x1B70		*/
@@ -2488,328 +2260,6 @@ int mv_pp2x_c2_hw_dump(uintptr_t cpu_slot)
 	return 0;
 }
 
-/* C2 rule set */
-int mv_pp2x_cls_c2_rule_set(struct pp2_port *port, uint8_t start_queue)
-{
-	struct mv_pp2x_c2_add_entry c2_init_entry;
-	int ret;
-	u8 cos_value, cos_queue, queue, lkp_type;
-
-	/* QoS of pbit rule */
-	for (lkp_type = MVPP2_CLS_LKP_VLAN_PRI; lkp_type <=
-	     MVPP2_CLS_LKP_DEFAULT; lkp_type++) {
-		memset(&c2_init_entry, 0, sizeof(struct mv_pp2x_c2_add_entry));
-
-		/* Port info */
-		c2_init_entry.port.port_type = MVPP2_SRC_PORT_TYPE_PHY;
-		c2_init_entry.port.port_value = (1 << port->id);
-		c2_init_entry.port.port_mask = 0xff;
-		/* Lookup type */
-		c2_init_entry.lkp_type = lkp_type;
-		c2_init_entry.lkp_type_mask = 0x3F;
-		/* Action info */
-		c2_init_entry.action.color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT_LOCK;
-		c2_init_entry.action.pri_act = MVPP2_ACTION_TYPE_NO_UPDT_LOCK;
-		c2_init_entry.action.dscp_act = MVPP2_ACTION_TYPE_NO_UPDT_LOCK;
-		c2_init_entry.action.q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
-		c2_init_entry.action.q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
-		c2_init_entry.action.rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
-		/* To CPU */
-		c2_init_entry.action.frwd_act = MVPP2_FRWD_ACTION_TYPE_SWF_LOCK;
-
-		/* QoS info */
-		if (lkp_type != MVPP2_CLS_LKP_DEFAULT) {
-			/* QoS info from C2 QoS table */
-			/* Set the QoS table index equal to port ID */
-			c2_init_entry.qos_info.qos_tbl_index = port->id;
-			c2_init_entry.qos_info.q_low_src =
-			    MVPP2_QOS_SRC_DSCP_PBIT_TBL;
-			c2_init_entry.qos_info.q_high_src =
-			    MVPP2_QOS_SRC_DSCP_PBIT_TBL;
-			if (lkp_type == MVPP2_CLS_LKP_VLAN_PRI) {
-				c2_init_entry.qos_info.qos_tbl_type =
-				    MVPP2_QOS_TBL_SEL_PRI;
-				mv_pp2x_cls_c2_qos_tbl_fill(port,
-							    MVPP2_QOS_TBL_SEL_PRI, start_queue);
-			} else if (lkp_type == MVPP2_CLS_LKP_DSCP_PRI) {
-				c2_init_entry.qos_info.qos_tbl_type =
-				    MVPP2_QOS_TBL_SEL_DSCP;
-				mv_pp2x_cls_c2_qos_tbl_fill(port,
-							    MVPP2_QOS_TBL_SEL_DSCP, start_queue);
-			}
-		} else {
-			/* QoS info from C2 action table */
-			c2_init_entry.qos_info.q_low_src = MVPP2_QOS_SRC_ACTION_TBL;
-			c2_init_entry.qos_info.q_high_src = MVPP2_QOS_SRC_ACTION_TBL;
-			cos_value = port->parent->pp2_cfg.cos_cfg.default_cos;
-			cos_queue = mv_pp2x_cosval_queue_map(port, cos_value);
-			/* map to physical queue */
-			/* Physical queue contains 2 parts: port ID and CPU ID,
-			 * CPU ID will be used in RSS
-			 */
-			queue = start_queue + cos_queue;
-			c2_init_entry.qos_value.q_low = ((uint16_t)queue) &
-			    ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
-			c2_init_entry.qos_value.q_high = ((uint16_t)queue) >>
-			    MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
-		}
-		/* RSS En in PP22 */
-		c2_init_entry.rss_en = port->parent->pp2_cfg.rss_cfg.rss_en;
-
-		/* Add rule to C2 TCAM */
-		ret = mv_pp2x_c2_rule_add(port, &c2_init_entry);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-int mv_pp2x_cos_classifier_set(struct pp2_port *port,
-			       enum mv_pp2x_cos_classifier cos_mode)
-{
-	int index, flow_idx, lkpid;
-	int data[3];
-	struct pp2_hw *hw = &port->parent->hw;
-	struct mv_pp2x_cls_flow_info *flow_info;
-
-	for (index = 0; index < (MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START);
-	     index++) {
-		flow_info = &hw->cls_shadow->flow_info[index];
-		data[0] = MVPP2_FLOW_TBL_SIZE;
-		data[1] = MVPP2_FLOW_TBL_SIZE;
-		data[2] = MVPP2_FLOW_TBL_SIZE;
-		lkpid = index + MVPP2_PRS_FL_START;
-		/* Prepare a temp table for the lkpid */
-		mv_pp2x_cls_flow_tbl_temp_copy(hw, lkpid, &flow_idx);
-		/* Update lookup table to temp flow table */
-		mv_pp2x_cls_lkp_flow_set(hw, lkpid, 0, flow_idx);
-		mv_pp2x_cls_lkp_flow_set(hw, lkpid, 1, flow_idx);
-		/* Update original flow table */
-		/* First, remove the port from original table */
-		if (flow_info->flow_entry_dflt) {
-			mv_pp2x_cls_flow_port_del(hw,
-						  flow_info->flow_entry_dflt,
-						  port->id);
-			data[0] = flow_info->flow_entry_dflt;
-		}
-		if (flow_info->flow_entry_vlan) {
-			mv_pp2x_cls_flow_port_del(hw,
-						  flow_info->flow_entry_vlan,
-						  port->id);
-			data[1] = flow_info->flow_entry_vlan;
-		}
-		if (flow_info->flow_entry_dscp) {
-			mv_pp2x_cls_flow_port_del(hw,
-						  flow_info->flow_entry_dscp,
-						  port->id);
-			data[2] = flow_info->flow_entry_dscp;
-		}
-
-		/* Second, update the port in original table */
-		if (mv_pp2x_prs_flow_id_attr_get(lkpid) &
-		    MVPP2_PRS_FL_ATTR_VLAN_BIT) {
-			if (cos_mode == MVPP2_COS_CLS_VLAN ||
-			    cos_mode == MVPP2_COS_CLS_VLAN_DSCP ||
-			    (cos_mode == MVPP2_COS_CLS_DSCP_VLAN &&
-			     lkpid == MVPP2_PRS_FL_NON_IP_TAG))
-				mv_pp2x_cls_flow_port_add(hw,
-							  flow_info->
-							  flow_entry_vlan,
-							  port->id);
-			/* Hanlde NON-IP tagged packet */
-			else if (cos_mode == MVPP2_COS_CLS_DSCP &&
-				 lkpid == MVPP2_PRS_FL_NON_IP_TAG)
-				mv_pp2x_cls_flow_port_add(hw,
-							  flow_info->
-							  flow_entry_dflt,
-							  port->id);
-			else if (cos_mode == MVPP2_COS_CLS_DSCP ||
-				 cos_mode == MVPP2_COS_CLS_DSCP_VLAN)
-				mv_pp2x_cls_flow_port_add(hw,
-							  flow_info->
-							  flow_entry_dscp,
-							  port->id);
-		} else {
-			if (lkpid == MVPP2_PRS_FL_NON_IP_UNTAG ||
-			    cos_mode == MVPP2_COS_CLS_VLAN)
-				mv_pp2x_cls_flow_port_add(hw,
-							  flow_info->
-							  flow_entry_dflt,
-							  port->id);
-			else if (cos_mode == MVPP2_COS_CLS_DSCP ||
-				 cos_mode == MVPP2_COS_CLS_VLAN_DSCP ||
-				 cos_mode == MVPP2_COS_CLS_DSCP_VLAN)
-				mv_pp2x_cls_flow_port_add(hw,
-							  flow_info->
-							  flow_entry_dscp,
-							  port->id);
-		}
-		/* Restore lookup table */
-		flow_idx = min(data[0], min(data[1], data[2]));
-		mv_pp2x_cls_lkp_flow_set(hw, lkpid, 0, flow_idx);
-		mv_pp2x_cls_lkp_flow_set(hw, lkpid, 1, flow_idx);
-	}
-
-	/* Update it in priv */
-	port->parent->pp2_cfg.cos_cfg.cos_classifier = cos_mode;
-
-	return 0;
-}
-
-/* mv_pp2x_cos_classifier_get
-*  -- Get the cos classifier on the port.
-*/
-int mv_pp2x_cos_classifier_get(struct pp2_port *port)
-{
-	return port->parent->pp2_cfg.cos_cfg.cos_classifier;
-}
-
-/* mv_pp2x_cos_pri_map_set
-*  -- Set priority_map per port, nibble for each cos value(0~7).
-*/
-int mv_pp2x_cos_pri_map_set(struct pp2_port *port, int cos_pri_map)
-{
-	int ret, prev_pri_map;
-	u8 bound_cpu_first_rxq;
-
-	if (port->parent->pp2_cfg.cos_cfg.pri_map == cos_pri_map)
-		return 0;
-
-	prev_pri_map = port->parent->pp2_cfg.cos_cfg.pri_map;
-	port->parent->pp2_cfg.cos_cfg.pri_map = cos_pri_map;
-
-	/* Update C2 rules with nre pri_map */
-	bound_cpu_first_rxq = mv_pp2x_bound_cpu_first_rxq_calc(port);
-	ret = mv_pp2x_cls_c2_rule_set(port, bound_cpu_first_rxq);
-	if (ret) {
-		port->parent->pp2_cfg.cos_cfg.pri_map = prev_pri_map;
-		return ret;
-	}
-
-	return 0;
-}
-
-/* mv_pp2x_cos_pri_map_get
-*  -- Get priority_map on the port.
-*/
-int mv_pp2x_cos_pri_map_get(struct pp2_port *port)
-{
-	return port->parent->pp2_cfg.cos_cfg.pri_map;
-}
-
-/* mv_pp2x_cos_default_value_set
-*  -- Set default cos value for untagged or non-IP packets per port.
-*/
-int mv_pp2x_cos_default_value_set(struct pp2_port *port, int cos_value)
-{
-	int ret, prev_cos_value;
-	u8 bound_cpu_first_rxq;
-
-	if (port->parent->pp2_cfg.cos_cfg.default_cos == cos_value)
-		return 0;
-
-	prev_cos_value = port->parent->pp2_cfg.cos_cfg.default_cos;
-	port->parent->pp2_cfg.cos_cfg.default_cos = cos_value;
-
-	/* Update C2 rules with the pri_map */
-	bound_cpu_first_rxq = mv_pp2x_bound_cpu_first_rxq_calc(port);
-	ret = mv_pp2x_cls_c2_rule_set(port, bound_cpu_first_rxq);
-	if (ret) {
-		port->parent->pp2_cfg.cos_cfg.default_cos = prev_cos_value;
-		return ret;
-	}
-
-	return 0;
-}
-
-/* mv_pp2x_cos_default_value_get
-*  -- Get default cos value for untagged or non-IP packets on the port.
-*/
-int mv_pp2x_cos_default_value_get(struct pp2_port *port)
-{
-	return port->parent->pp2_cfg.cos_cfg.default_cos;
-}
-
-/* The function get the queue in the C2 rule with input index */
-uint8_t mv_pp2x_cls_c2_rule_queue_get(struct pp2_hw *hw, uint32_t rule_idx)
-{
-	u32 reg_val;
-	u8 queue;
-
-	/* Write index reg */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_IDX_REG, rule_idx);
-
-	/* Read Reg CLSC2_ATTR0 */
-	reg_val = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_ACT_QOS_ATTR_REG);
-	queue = (reg_val & (MVPP2_CLS2_ACT_QOS_ATTR_QL_MASK |
-			   MVPP2_CLS2_ACT_QOS_ATTR_QH_MASK)) >>
-	    MVPP2_CLS2_ACT_QOS_ATTR_QL_OFF;
-	return queue;
-}
-
-/* The function set the qos queue in one C2 rule */
-void mv_pp2x_cls_c2_rule_queue_set(struct pp2_hw *hw, uint32_t rule_idx,
-				   uint8_t queue)
-{
-	u32 reg_val;
-
-	/* Write index reg */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_TCAM_IDX_REG, rule_idx);
-
-	/* Read Reg CLSC2_ATTR0 */
-	reg_val = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_ACT_QOS_ATTR_REG);
-	/* Update Value */
-	reg_val &= (~(MVPP2_CLS2_ACT_QOS_ATTR_QL_MASK |
-		     MVPP2_CLS2_ACT_QOS_ATTR_QH_MASK));
-	reg_val |= (((uint32_t)queue) << MVPP2_CLS2_ACT_QOS_ATTR_QL_OFF);
-
-	/* Write Reg CLSC2_ATTR0 */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_ACT_QOS_ATTR_REG, reg_val);
-}
-
-/* The function get the queue in the pbit table entry */
-uint8_t mv_pp2x_cls_c2_pbit_tbl_queue_get(struct pp2_hw *hw, uint8_t tbl_id,
-					  uint8_t tbl_line)
-{
-	u8 queue;
-	u32 reg_val = 0;
-
-	/* write index reg */
-	reg_val |= (tbl_line << MVPP2_CLS2_DSCP_PRI_INDEX_LINE_OFF);
-	reg_val |= (MVPP2_QOS_TBL_SEL_PRI << MVPP2_CLS2_DSCP_PRI_INDEX_SEL_OFF);
-	reg_val |= (tbl_id << MVPP2_CLS2_DSCP_PRI_INDEX_TBL_ID_OFF);
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_DSCP_PRI_INDEX_REG, reg_val);
-	/* Read Reg CLSC2_DSCP_PRI */
-	reg_val = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_QOS_TBL_REG);
-	queue = (reg_val & MVPP2_CLS2_QOS_TBL_QUEUENUM_MASK) >>
-	    MVPP2_CLS2_QOS_TBL_QUEUENUM_OFF;
-
-	return queue;
-}
-
-/* The function set the queue in the pbit table entry */
-void mv_pp2x_cls_c2_pbit_tbl_queue_set(struct pp2_hw *hw,
-				       u8 tbl_id, uint8_t tbl_line,
-				       uint8_t queue)
-{
-	u32 reg_val = 0;
-
-	/* write index reg */
-	reg_val |= (tbl_line << MVPP2_CLS2_DSCP_PRI_INDEX_LINE_OFF);
-	reg_val |= (MVPP2_QOS_TBL_SEL_PRI << MVPP2_CLS2_DSCP_PRI_INDEX_SEL_OFF);
-	reg_val |= (tbl_id << MVPP2_CLS2_DSCP_PRI_INDEX_TBL_ID_OFF);
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_DSCP_PRI_INDEX_REG, reg_val);
-
-	/* Read Reg CLSC2_DSCP_PRI */
-	reg_val = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_QOS_TBL_REG);
-	reg_val &= (~MVPP2_CLS2_QOS_TBL_QUEUENUM_MASK);
-	reg_val |= (((uint32_t)queue) << MVPP2_CLS2_QOS_TBL_QUEUENUM_OFF);
-
-	/* Write Reg CLSC2_DSCP_PRI */
-	pp2_reg_write(hw->base[0].va, MVPP2_CLS2_QOS_TBL_REG, reg_val);
-}
-
 /* RSS */
 /* The function will set rss table entry */
 int mv_pp22_rss_tbl_entry_set(struct pp2_hw *hw,
@@ -2826,12 +2276,15 @@ int mv_pp22_rss_tbl_entry_set(struct pp2_hw *hw,
 		/* Write index */
 		reg_val |= rss->u.pointer.rxq_idx << MVPP22_RSS_IDX_RXQ_NUM_OFF;
 		pp2_reg_write(hw->base[0].va, MVPP22_RSS_IDX_REG, reg_val);
+		pr_debug("rss queue %d, reg_val %x", rss->u.pointer.rxq_idx, reg_val);
 		/* Write entry */
+		reg_val = 0;
 		reg_val &= (~MVPP22_RSS_RXQ2RSS_TBL_POINT_MASK);
 		reg_val |= rss->u.pointer.rss_tbl_ptr <<
 		    MVPP22_RSS_RXQ2RSS_TBL_POINT_OFF;
 		pp2_reg_write(hw->base[0].va, MVPP22_RSS_RXQ2RSS_TBL_REG,
 			      reg_val);
+		pr_debug(", table %d, reg_val %x\n", rss->u.pointer.rss_tbl_ptr, reg_val);
 	} else if (rss->sel == MVPP22_RSS_ACCESS_TBL) {
 		if (rss->u.entry.tbl_id >= MVPP22_RSS_TBL_NUM ||
 		    rss->u.entry.tbl_line >= MVPP22_RSS_TBL_LINE_NUM ||
@@ -2853,275 +2306,77 @@ int mv_pp22_rss_tbl_entry_set(struct pp2_hw *hw,
 	return 0;
 }
 
-/* Translate CPU sequence number to real CPU ID */
-static inline int mv_pp22_cpu_id_from_indir_tbl_get(struct pp2_inst *pp2,
-						    int cpu_seq,
-						    uint32_t *cpu_id)
+/* The function will get rss table entry */
+int pp2_rss_tbl_entry_get(struct pp2_hw *hw,
+			  struct mv_pp22_rss_entry *rss)
 {
-	int i;
-	int seq = 0;
+	unsigned int reg_val = 0;
 
-	if (!pp2 || !cpu_id || cpu_seq >= 16)
+	if (!rss || rss->sel > MVPP22_RSS_ACCESS_TBL)
 		return -EINVAL;
 
-	for (i = 0; i < 16; i++) {
-		if (pp2->cpu_map & (1 << i)) {
-			if (seq == cpu_seq) {
-				*cpu_id = i;
-				return 0;
-			}
-			seq++;
-		}
+	if (rss->sel == MVPP22_RSS_ACCESS_POINTER) {
+		/* Read entry */
+		reg_val |= rss->u.pointer.rxq_idx << MVPP22_RSS_IDX_RXQ_NUM_OFF;
+		pp2_reg_write(hw->base[0].va, MVPP22_RSS_IDX_REG, reg_val);
+		rss->u.pointer.rss_tbl_ptr =
+			pp2_reg_read(hw->base[0].va, MVPP22_RSS_RXQ2RSS_TBL_REG) &
+				     MVPP22_RSS_RXQ2RSS_TBL_POINT_MASK;
+	} else if (rss->sel == MVPP22_RSS_ACCESS_TBL) {
+		if (rss->u.entry.tbl_id >= MVPP22_RSS_TBL_NUM ||
+		    rss->u.entry.tbl_line >= MVPP22_RSS_TBL_LINE_NUM)
+			return -EINVAL;
+		/* Read index */
+		reg_val |= (rss->u.entry.tbl_line <<
+				MVPP22_RSS_IDX_ENTRY_NUM_OFF |
+			   rss->u.entry.tbl_id <<
+				MVPP22_RSS_IDX_TBL_NUM_OFF);
+		pp2_reg_write(hw->base[0].va, MVPP22_RSS_IDX_REG, reg_val);
+		/* Read entry */
+		rss->u.entry.rxq = pp2_reg_read(hw->base[0].va,
+						MVPP22_RSS_TBL_ENTRY_REG) &
+						MVPP22_RSS_TBL_ENTRY_MASK;
+		rss->u.entry.width = pp2_reg_read(hw->base[0].va,
+						  MVPP22_RSS_WIDTH_REG) &
+						  MVPP22_RSS_WIDTH_MASK;
 	}
-
-	return -1;
+	return 0;
 }
 
-/* mv_pp22_rss_default_cpu_set
-*  -- The API to update the default CPU to handle the non-IP packets.
-*/
-int mv_pp22_rss_default_cpu_set(struct pp2_port *port, int default_cpu)
+/* Go over C2 table and enable RSS in default flows */
+int pp2_rss_c2_enable(struct pp2_port *port, int en)
 {
-	u8 index, queue, q_cpu_mask;
-	u32 cpu_width = 0, cos_width = 0;
+	int index;
+	int c2_status;
+	int rc;
+	u8 port_id;
+	struct mv_pp2x_cls_c2_entry c2;
 	struct pp2_hw *hw = &port->parent->hw;
 
-	if (port->parent->pp2_cfg.queue_mode == MVPP2_QDIST_SINGLE_MODE)
-		return -1;
-
-	/* Calculate width */
-	mv_pp2x_width_calc(port->parent, &cpu_width, &cos_width, NULL);
-	q_cpu_mask = (1 << cpu_width) - 1;
-
-	/* Update LSB[cpu_width + cos_width - 1 : cos_width]
-	 * of queue (queue high and low) on c2 rule.
-	 */
-	index = hw->c2_shadow->rule_idx_info[port->id].default_rule_idx;
-	queue = mv_pp2x_cls_c2_rule_queue_get(hw, index);
-	queue &= ~(q_cpu_mask << cos_width);
-	queue |= (default_cpu << cos_width);
-	mv_pp2x_cls_c2_rule_queue_set(hw, index, queue);
-
-	/* Update LSB[cpu_width + cos_width - 1 : cos_width]
-	 * of queue on pbit table, table id equals to port id
-	 */
-	for (index = 0; index < MVPP2_QOS_TBL_LINE_NUM_PRI; index++) {
-		queue = mv_pp2x_cls_c2_pbit_tbl_queue_get(hw, port->id, index);
-		queue &= ~(q_cpu_mask << cos_width);
-		queue |= (default_cpu << cos_width);
-		mv_pp2x_cls_c2_pbit_tbl_queue_set(hw, port->id, index, queue);
+	c2_status = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG);
+	if (!c2_status) {
+		pr_info("c2 is off\n");
+		return -EINVAL;
 	}
 
-	/* Update default cpu in cfg */
-	port->parent->pp2_cfg.rss_cfg.dflt_cpu = default_cpu;
+	mv_pp2x_c2_sw_clear(&c2);
 
-	return 0;
-}
+	for (index = 0; index < MVPP2_CLS_C2_TCAM_SIZE; index++) {
+		mv_pp2x_cls_c2_hw_read(hw->base[0].va, index, &c2);
+		port_id = pp2_cls_c2_tcam_port_get(&c2);
 
-/* mv_pp22_rss_rxfh_indir_set
-*  -- The API set the RSS table according to CPU weight from ethtool
-*/
-int mv_pp22_rss_rxfh_indir_set(struct pp2_port *port)
-{
-	struct mv_pp22_rss_entry rss_entry;
-	int rss_tbl, entry_idx;
-	u32 cos_width = 0, cpu_width = 0, cpu_id = 0;
-	int rss_tbl_needed = port->parent->pp2_cfg.cos_cfg.num_cos_queues;
+		if (c2.inv == 0 && port_id == (1 << port->id)) {
+			/* Set RSS */
+			rc = mv_pp2x_cls_c2_rss_set(&c2, MVPP2_ACTION_TYPE_UPDT_LOCK, en);
+			if (rc)
+				return rc;
+			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
 
-	if (port->parent->pp2_cfg.queue_mode == MVPP2_QDIST_SINGLE_MODE)
-		return -1;
-
-	memset(&rss_entry, 0, sizeof(struct mv_pp22_rss_entry));
-
-	if (!port->parent->cpu_map)
-		return -1;
-
-	/* Calculate cpu and cos width */
-	mv_pp2x_width_calc(port->parent, &cpu_width, &cos_width, NULL);
-
-	rss_entry.u.entry.width = cos_width + cpu_width;
-
-	rss_entry.sel = MVPP22_RSS_ACCESS_TBL;
-
-	for (rss_tbl = 0; rss_tbl < rss_tbl_needed; rss_tbl++) {
-		for (entry_idx = 0; entry_idx < MVPP22_RSS_TBL_LINE_NUM;
-		     entry_idx++) {
-			rss_entry.u.entry.tbl_id = rss_tbl;
-			rss_entry.u.entry.tbl_line = entry_idx;
-			if (mv_pp22_cpu_id_from_indir_tbl_get(port->parent,
-							      port->parent->
-							      rx_table
-							      [entry_idx],
-							      &cpu_id))
-				return -1;
-			/* Value of rss_tbl equals to cos queue */
-			rss_entry.u.entry.rxq = (cpu_id << cos_width) | rss_tbl;
-			if (mv_pp22_rss_tbl_entry_set
-			    (&port->parent->hw, &rss_entry))
-				return -1;
+			mv_pp2x_c2_sw_clear(&c2);
+			mv_pp2x_cls_c2_hw_read(hw->base[0].va, index, &c2);
+			mv_pp2x_c2_sw_dump(&c2);
 		}
 	}
-
-	return 0;
-}
-
-/* The function allocate a rss table for each phisical rxq,
- * they have same cos priority
- */
-int mv_pp22_rss_rxq_set(struct pp2_port *port, uint32_t cos_width)
-{
-	int rxq;
-	struct mv_pp22_rss_entry rss_entry;
-	int cos_mask = ((1 << cos_width) - 1);
-
-	memset(&rss_entry, 0, sizeof(struct mv_pp22_rss_entry));
-
-	rss_entry.sel = MVPP22_RSS_ACCESS_POINTER;
-
-	for (rxq = 0; rxq < port->num_rx_queues; rxq++) {
-		rss_entry.u.pointer.rxq_idx = port->rxqs[rxq]->id;
-		rss_entry.u.pointer.rss_tbl_ptr =
-		    port->rxqs[rxq]->id & cos_mask;
-		if (mv_pp22_rss_tbl_entry_set(&port->parent->hw, &rss_entry))
-			return -1;
-	}
-
-	return 0;
-}
-
-void mv_pp22_rss_c2_enable(struct pp2_port *port, bool en)
-{
-	int lkp_type, reg_val;
-	int c2_index[MVPP2_CLS_LKP_MAX];
-	struct mv_pp2x_c2_rule_idx *rule_idx;
-	uintptr_t cpu_slot = port->cpu_slot;
-
-	rule_idx = &port->parent->hw.c2_shadow->rule_idx_info[port->id];
-
-	/* Get the C2 index from shadow */
-	c2_index[MVPP2_CLS_LKP_VLAN_PRI] = rule_idx->vlan_pri_idx;
-	c2_index[MVPP2_CLS_LKP_DSCP_PRI] = rule_idx->dscp_pri_idx;
-	c2_index[MVPP2_CLS_LKP_DEFAULT] = rule_idx->default_rule_idx;
-
-	for (lkp_type = 0; lkp_type < MVPP2_CLS_LKP_MAX; lkp_type++) {
-		/* For lookup type of MVPP2_CLS_LKP_HASH,
-		 * there is no corresponding C2 rule, so skip it
-		 */
-		if (lkp_type == MVPP2_CLS_LKP_HASH)
-			continue;
-		/* write index reg */
-		pp2_reg_write(cpu_slot, MVPP2_CLS2_TCAM_IDX_REG,
-			      c2_index[lkp_type]);
-		/* Update rss_attr in reg CLSC2_ATTR2 */
-		reg_val = pp2_reg_read(cpu_slot, MVPP2_CLS2_ACT_DUP_ATTR_REG);
-		if (en)
-			reg_val |= MVPP2_CLS2_ACT_DUP_ATTR_RSSEN_MASK;
-		else
-			reg_val &= (~MVPP2_CLS2_ACT_DUP_ATTR_RSSEN_MASK);
-
-		pp2_reg_write(cpu_slot, MVPP2_CLS2_ACT_DUP_ATTR_REG, reg_val);
-	}
-}
-
-/* mv_pp22_rss_enable_set
-*  -- The API enable or disable RSS on the port
-*/
-void mv_pp22_rss_enable(struct pp2_port *port, uint32_t en)
-{
-	u8 bound_cpu_first_rxq;
-
-	if (port->parent->pp2_cfg.rss_cfg.rss_en == en)
-		return;
-
-	bound_cpu_first_rxq = mv_pp2x_bound_cpu_first_rxq_calc(port);
-
-	if (port->parent->pp2_cfg.queue_mode == MVPP2_QDIST_MULTI_MODE) {
-		mv_pp22_rss_c2_enable(port, en);
-		if (en) {
-			if (mv_pp22_rss_default_cpu_set(port,
-							port->parent->pp2_cfg.
-							rss_cfg.dflt_cpu))
-				pr_err("cannot set rss cpu on port(%d)\n",
-					port->id);
-			else
-				port->parent->pp2_cfg.rss_cfg.rss_en = 1;
-		} else {
-			if (mv_pp2x_cls_c2_rule_set(port, bound_cpu_first_rxq))
-				pr_err("cannot set c2, qos table on port(%d)\n",
-					port->id);
-			else
-				port->parent->pp2_cfg.rss_cfg.rss_en = 0;
-		}
-	}
-}
-
-/* mv_pp2x_rss_mode_set
-*  -- The API to update RSS hash mode for non-fragemnt UDP packet per port.
-*/
-int mv_pp22_rss_mode_set(struct pp2_port *port, int rss_mode)
-{
-	int index, flow_idx, flow_idx_rss, lkpid, lkpid_attr;
-	int data[3];
-	struct pp2_hw *hw = &port->parent->hw;
-	struct mv_pp2x_cls_flow_info *flow_info;
-
-	if (port->parent->pp2_cfg.queue_mode == MVPP2_QDIST_SINGLE_MODE)
-		return -1;
-
-	for (index = 0; index < (MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START);
-	     index++) {
-		flow_info = &hw->cls_shadow->flow_info[index];
-		data[0] = MVPP2_FLOW_TBL_SIZE;
-		data[1] = MVPP2_FLOW_TBL_SIZE;
-		data[2] = MVPP2_FLOW_TBL_SIZE;
-		lkpid = index + MVPP2_PRS_FL_START;
-		/* Get lookup ID attribute */
-		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
-		/* Only non-frag UDP can set rss mode */
-		if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT) &&
-		    !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
-			/* Prepare a temp table for the lkpid */
-			mv_pp2x_cls_flow_tbl_temp_copy(hw, lkpid, &flow_idx);
-			/* Update lookup table to temp flow table */
-			mv_pp2x_cls_lkp_flow_set(hw, lkpid, 0, flow_idx);
-			mv_pp2x_cls_lkp_flow_set(hw, lkpid, 1, flow_idx);
-			/* Update original flow table */
-			/* First, remove the port from original table */
-			mv_pp2x_cls_flow_port_del(hw,
-						  flow_info->flow_entry_rss1,
-						  port->id);
-			mv_pp2x_cls_flow_port_del(hw,
-						  flow_info->flow_entry_rss2,
-						  port->id);
-			if (flow_info->flow_entry_dflt)
-				data[0] = flow_info->flow_entry_dflt;
-			if (flow_info->flow_entry_vlan)
-				data[1] = flow_info->flow_entry_vlan;
-			if (flow_info->flow_entry_dscp)
-				data[2] = flow_info->flow_entry_dscp;
-			/* Second, update port in original table -> rss_mode */
-			if (rss_mode == MVPP2_RSS_NF_UDP_2T)
-				flow_idx_rss = flow_info->flow_entry_rss1;
-			else
-				flow_idx_rss = flow_info->flow_entry_rss2;
-			mv_pp2x_cls_flow_port_add(hw, flow_idx_rss, port->id);
-
-			/*Find the ptr of flow table, the min flow index */
-			flow_idx_rss = min(flow_info->flow_entry_rss1,
-					   flow_info->flow_entry_rss2);
-			flow_idx = min(min(data[0], data[1]),
-				       min(data[2], flow_idx_rss));
-			/*Third, restore lookup table */
-			mv_pp2x_cls_lkp_flow_set(hw, lkpid, 0, flow_idx);
-			mv_pp2x_cls_lkp_flow_set(hw, lkpid, 1, flow_idx);
-		} else if (flow_info->flow_entry_rss1) {
-			flow_idx_rss = flow_info->flow_entry_rss1;
-			mv_pp2x_cls_flow_port_add(hw, flow_idx_rss, port->id);
-		}
-	}
-	/* Record it in priv */
-	port->parent->pp2_cfg.rss_cfg.rss_mode = rss_mode;
-
 	return 0;
 }
 

@@ -450,7 +450,7 @@ int pp2_init(struct pp2_init_params *params)
 	}
 	memcpy(&pp2_ptr->init, params, sizeof(*params));
 	pp2_ptr->pp2_common.hif_slot_map = 0;
-	pp2_ptr->pp2_common.rss_tbl_map  = 0;
+	pp2_ptr->pp2_common.rss_tbl_map  = params->rss_tbl_reserved_map;
 	/* TODO: Check first_inq params are valid */
 
 	/* Retrieve netdev if information */

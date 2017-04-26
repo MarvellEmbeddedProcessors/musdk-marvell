@@ -435,9 +435,6 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan);
 /* Remove vlan */
 int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan);
 
-/* Enable or disable RSS */
-void pp2_port_set_rss(struct pp2_port *port, uint32_t en);
-
 /* Get number of Rx descriptors occupied by received packets */
 static inline uint32_t
 pp2_rxq_received(struct pp2_port *port, const int rxq_id)

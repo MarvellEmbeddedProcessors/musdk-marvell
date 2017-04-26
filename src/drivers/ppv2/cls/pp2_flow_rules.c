@@ -44,6 +44,7 @@
 #include "pp2_flow_rules.h"
 #include "pp2_cls_db.h"
 #include "pp2_cls_mng.h"
+#include "pp2_prs.h"
 
 #define SAME_PRIO_ENABLED 0
 #undef MVPP2_CLS_DEBUG
@@ -1854,6 +1855,51 @@ static int pp2_cls_fl_rl_hw_set(uintptr_t cpu_slot,
 }
 
 /*******************************************************************************
+ * pp2_cls_fl_port_hw_read
+ *
+ * DESCRIPTION: Get flow port_bm from the hw
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	rl_log_id - allocated rule logical ID
+ *
+ * OUTPUTS:
+ *	port_bm - return flow port_bm from the hw
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+static int pp2_cls_fl_port_hw_read(struct pp2_inst *inst, int rl_log_id, int *port_bm)
+{
+	struct mv_pp2x_cls_flow_entry fe;
+	int port_type;
+	int rc;
+	u16 off;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+
+	/* get the rule offset according to rule logical ID */
+	rc = pp2_db_cls_rl_off_get(inst, &off, rl_log_id);
+	if (rc) {
+		pr_err("%s(%d): recvd ret_code(%d)\n", __func__, __LINE__, rc);
+		return rc;
+	}
+
+	rc = mv_pp2x_cls_hw_flow_read(cpu_slot, off, &fe);
+	if (rc) {
+		pr_err("%s(%d): recvd ret_code(%d)\n", __func__, __LINE__, rc);
+		return rc;
+	}
+
+	rc = mv_pp2x_cls_sw_flow_port_get(&fe, &port_type, port_bm);
+	if (rc) {
+		pr_err("%s(%d): recvd ret_code(%d)\n", __func__, __LINE__, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
  * pp2_cls_fl_rl_hw_ena
  *
  * DESCRIPTION: The routine enables a flow rule in HW according to rule port_type
@@ -2573,66 +2619,51 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 		/* search for enabled rule (valid port_type and port_bm) to enable */
 		for (rl_off = 0; rl_off < fl_rl_db->flow_len; rl_off++) {
 			rl_db = &fl_rl_db->flow[rl_off];
-			if (rl_en->engine		== rl_db->engine	&&
-			    rl_en->field_id_cnt	== rl_db->field_id_cnt  &&
-				rl_en->lu_type		== rl_db->lu_type	&&
-				rl_en->port_type	== rl_db->port_type	&&
-				rl_en->prio		== rl_db->prio		&&
-				rl_en->udf7		== rl_db->udf7		&&
-				!memcmp(rl_en->field_id, rl_db->field_id,
-					rl_en->field_id_cnt * sizeof(rl_en->field_id[0]))) {
+			if (rl_en->engine	== rl_db->engine	&&
+			    rl_en->field_id_cnt	== rl_db->field_id_cnt	&&
+			    rl_en->lu_type	== rl_db->lu_type	&&
+			    rl_en->port_type	== rl_db->port_type	&&
+			    rl_en->prio		== rl_db->prio		&&
+			    rl_en->udf7		== rl_db->udf7		&&
+			    !memcmp(rl_en->field_id, rl_db->field_id,
+				    rl_en->field_id_cnt * sizeof(rl_en->field_id[0]))) {
 				/* for virt port, port_id does not matter */
 				if (rl_en->port_type != MVPP2_CLASS_VIRT_PORT) {
-					if (rl_en->enabled)
-						rl_db->port_bm |= rl_en->port_bm;
-					else
-						rl_db->port_bm &= ~rl_en->port_bm;
-					port_bm = rl_en->port_bm;
-					if (rl_db->enabled) {
-						u16 fl_rls_port_bm = rl_en->port_bm;
-						u16 fl_rls_log_id = rl_en->rl_log_id;
-						rl_en->port_bm = rl_db->port_bm;
-						/* Update Port BM */
-						rl_en->rl_log_id = rl_db->rl_log_id;
-						rc = pp2_cls_fl_rl_hw_ena(inst, rl_en);
-						if (rc) {
-							pr_err("recvd ret_code(%d)\n", rc);
-							kfree(fl_rl_db);
-							return rc;
-						}
-						/* restore rl_en value */
-						rl_en->port_bm = fl_rls_port_bm;
-						rl_en->rl_log_id = fl_rls_log_id;
+					int read_port_bm;
+
+					rc = pp2_cls_fl_port_hw_read(inst, rl_db->rl_log_id, &read_port_bm);
+					if (rc) {
+						pr_err("recvd ret_code(%d)\n", rc);
+						kfree(fl_rl_db);
+						return rc;
 					}
+					if (rl_en->enabled)
+						rl_db->port_bm = read_port_bm | rl_en->port_bm;
+					else
+						rl_db->port_bm = read_port_bm & (~rl_en->port_bm);
+					port_bm = rl_db->port_bm;
+
+					if (!rl_db->enabled) {
+						MVPP2_MEMSET_ZERO(rl_db->ref_cnt);
+						rl_db->enabled = true;
+					}
+					u16 fl_rls_port_bm = rl_en->port_bm;
+
+					rl_en->port_bm = rl_db->port_bm;
+					/* Update Port BM */
+					rl_en->rl_log_id = rl_db->rl_log_id;
+					rc = pp2_cls_fl_rl_hw_ena(inst, rl_en);
+					if (rc) {
+						pr_err("recvd ret_code(%d)\n", rc);
+						kfree(fl_rl_db);
+						return rc;
+					}
+					/* restore rl_en value */
+					rl_en->port_bm = fl_rls_port_bm;
+					/* update the logical rule id */
+					rl_en->rl_log_id = rl_db->rl_log_id;
 				}
 				break;
-			}
-		}
-
-		if (rl_off == fl_rl_db->flow_len) {
-			/*
-			 * did not find identical rule, search for first rule with
-			 * invalid port_type and port_bm
-			 */
-			for (rl_off = 0; rl_off < fl_rl_db->flow_len; rl_off++) {
-				rl_db = &fl_rl_db->flow[rl_off];
-				if (rl_en->engine	== rl_db->engine	&&
-				    rl_en->field_id_cnt == rl_db->field_id_cnt	&&
-				    rl_en->lu_type	== rl_db->lu_type	&&
-				    rl_db->port_bm	== MVPP2_PORT_BM_INV	&&
-				    rl_db->port_type	== MVPP2_PORT_TYPE_INV	&&
-				    rl_en->prio	== rl_db->prio		&&
-				    rl_en->udf7	== rl_db->udf7		&&
-				    !memcmp(rl_en->field_id, rl_db->field_id, rl_en->field_id_cnt * sizeof(char))) {
-					/*
-					 * found a vacant rule entry that was invalid, update
-					 * port_type and port_bm
-					 */
-					rl_db->port_bm = rl_en->port_bm;
-					rl_db->port_type = rl_en->port_type;
-					port_bm = rl_en->port_bm;
-					break;
-				}
 			}
 		}
 
@@ -2839,6 +2870,111 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 }
 
 /*******************************************************************************
+ * pp2_cls_set_hash_params
+ *
+ * DESCRIPTION: The function set fl_rls variables according to the inputs
+ *
+ * INPUTS:
+ *	fl_rls - packet processor instance
+ *	port - packet port
+ *	engine - engine type
+ *	lkpid - lookup id number
+ *	lkpid_attr - parser attribute
+ *	set - enable or disable
+ *
+ * OUTPUTS:
+ *	fl_rls - modify fl_rls according to the inputs
+ ******************************************************************************/
+static void pp2_cls_set_hash_params(struct pp2_cls_fl_rule_list_t *fl_rls, struct pp2_port *port,
+				    int engine, int lkpid, int lkpid_attr, int set)
+{
+	int lkp_type = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_LKP_MUSDK_LOG_HASH : MVPP2_CLS_LKP_HASH;
+
+	fl_rls->fl_len = 1;
+	fl_rls->fl->enabled = set;
+	fl_rls->fl->fl_log_id = lkpid;
+	fl_rls->fl->port_type = MVPP2_SRC_PORT_TYPE_PHY;
+	fl_rls->fl->port_bm = (1 << port->id);
+	fl_rls->fl->lu_type = lkp_type;
+	fl_rls->fl->prio = pp2_cls_mng_lkp_type_to_prio(lkp_type);
+	fl_rls->fl->engine = engine;
+	fl_rls->fl->udf7 = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_MUSDK_LOG_UDF7 : MVPP2_CLS_MUSDK_NIC_UDF7;
+	fl_rls->fl->seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
+
+	if (engine == MVPP2_CLS_ENGINE_C3HA)
+		fl_rls->fl->field_id_cnt = 2;
+	else
+		fl_rls->fl->field_id_cnt = 4;
+
+	if (lkpid_attr & MVPP2_PRS_FL_ATTR_IP4_BIT) {
+		fl_rls->fl->field_id[0] = MVPP2_CLS_FIELD_IP4SA;
+		fl_rls->fl->field_id[1] = MVPP2_CLS_FIELD_IP4DA;
+	} else if (lkpid_attr & MVPP2_PRS_FL_ATTR_IP6_BIT) {
+		fl_rls->fl->field_id[0] = MVPP2_CLS_FIELD_IP6SA;
+		fl_rls->fl->field_id[1] = MVPP2_CLS_FIELD_IP6DA;
+	}
+	fl_rls->fl->field_id[2] = MVPP2_CLS_FIELD_L4SIP;
+	fl_rls->fl->field_id[3] = MVPP2_CLS_FIELD_L4DIP;
+}
+
+/*******************************************************************************
+ * pp2_cls_rss_mode_flows_set
+ *
+ * DESCRIPTION: update flows bm according to rss mode.
+ *
+ * INPUTS:
+ *	port - packet port
+ *	rss_mode - for example 2/5 tuple
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode)
+{
+	int lkpid, lkpid_attr;
+	int rc;
+	struct pp2_inst *inst = port->parent;
+	struct pp2_cls_fl_rule_list_t *fl_rls_hash;
+
+	if (rss_mode == PP2_PPIO_HASH_T_NONE)
+		return 0;
+
+	fl_rls_hash = kmalloc((sizeof(*fl_rls_hash)), GFP_KERNEL);
+	if (!fl_rls_hash)
+		return -ENOMEM;
+
+	for (lkpid = MVPP2_PRS_FL_START; lkpid < MVPP2_PRS_FL_LAST; lkpid++) {
+		/* Get lookup id attribute */
+		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
+		if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT) &&
+		    !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
+			if (rss_mode == PP2_PPIO_HASH_T_2_TUPLE) {
+				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA,
+							lkpid, lkpid_attr, true);
+				rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HB, lkpid,
+							lkpid_attr, false);
+				rc |= pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+			} else if (rss_mode == PP2_PPIO_HASH_T_5_TUPLE) {
+				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA, lkpid,
+							lkpid_attr, false);
+				rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HB, lkpid,
+							lkpid_attr, true);
+				rc |= pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+			} else {
+				pr_err("%s(%d), unknown rss mode\n", __func__, __LINE__);
+				kfree(fl_rls_hash);
+				return -EINVAL;
+			}
+		}
+	}
+
+	kfree(fl_rls_hash);
+	return 0;
+}
+
+/*******************************************************************************
  * pp2_cls_find_flows_for_lkp
  *
  * DESCRIPTION: searching for HW flows for lookup id  and adding them to flow list
@@ -2854,7 +2990,6 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
  * RETURNS:
  *	0 on success, error-code otherwise
  ******************************************************************************/
-
 static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 				      struct pp2_cls_fl_rule_list_t *fl_rls,
 				      int flow_log_id, int flow_index)
@@ -2936,7 +3071,7 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		fl_rls->fl_len++;
 
 		if (fl_rls->fl_len >= MVPP2_CLS_FLOW_RULE_MAX) {
-			pr_err("to many flow found, fl_len = %d\n", fl_rls->fl_len);
+			pr_err("too many flow found, fl_len = %d\n", fl_rls->fl_len);
 			return -EFAULT;
 		}
 

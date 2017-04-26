@@ -47,6 +47,7 @@
 #include "../pp2_hw_cls.h"
 #include "pp2_cls_mng.h"
 #include "pp2_prs.h"
+#include "pp2_rss.h"
 
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
@@ -378,6 +379,42 @@ static int pp2_cls_mng_get_lkpid_for_lkp_type(int lkp_type, u16 *select_logical_
 	return num_lkpid;
 }
 
+static int pp2_cls_mng_get_lkpid_for_rss(int engine, u16 *select_logical_id, int ipv4_flag, int ipv6_flag)
+{
+	int lkpid, lkpid_attr;
+	int num_lkpid = 0;
+
+	for (lkpid = MVPP2_PRS_FL_START; lkpid < MVPP2_PRS_FL_LAST; lkpid++) {
+		/* Get lookup id attribute */
+		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
+
+		if (!((lkpid_attr & MVPP2_PRS_FL_ATTR_IP4_BIT && ipv4_flag) ||
+		      (lkpid_attr & MVPP2_PRS_FL_ATTR_IP6_BIT && ipv6_flag)))
+			continue;
+
+		/* For frag packets or non-TCP & UDP, rss must be based on 2T */
+		if ((engine == MVPP2_CLS_ENGINE_C3HA) &&
+		    ((lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT) ||
+		    !(lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT | MVPP2_PRS_FL_ATTR_UDP_BIT)))) {
+			select_logical_id[num_lkpid++] = lkpid;
+			continue;
+		}
+
+		if (!(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
+			if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT)) {
+				select_logical_id[num_lkpid++] = lkpid;
+				continue;
+			} else if ((engine == MVPP2_CLS_ENGINE_C3HB) &&
+				  (lkpid_attr & MVPP2_PRS_FL_ATTR_TCP_BIT)) {
+				select_logical_id[num_lkpid++] = lkpid;
+				continue;
+			}
+		}
+	}
+
+	return num_lkpid;
+}
+
 static int pp2_cls_single_flow_enable(struct pp2_port *port, u16 lkp_id, u16 lkp_type, int set)
 {
 	struct pp2_cls_fl_rule_list_t fl_rls;
@@ -464,6 +501,7 @@ static int pp2_cls_mng_add_default_flow(struct pp2_ppio *ppio)
 	struct pp2_cls_tbl_params tbl_params;
 	struct pp2_cls_tbl_rule rule;
 	struct pp2_cls_tbl *tbl;
+	struct pp2_cls_tbl *tbl_hash;
 
 	/* add default flow for all lkpid */
 	tbl_params.type = PP2_CLS_TBL_MASKABLE;
@@ -482,6 +520,62 @@ static int pp2_cls_mng_add_default_flow(struct pp2_ppio *ppio)
 	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_VLAN_PRI);
 	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_DSCP_PRI);
 	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF);
+
+	/* add 2 tuple hash rule fo ipv4 */
+	tbl_params.type = PP2_CLS_TBL_EXACT_MATCH;
+	tbl_params.max_num_rules = 1;
+	tbl_params.key.num_fields = 2;
+	tbl_params.key.key_size = 8;
+	tbl_params.key.proto_field[0].proto = MV_NET_PROTO_IP4;
+	tbl_params.key.proto_field[0].field.eth = MV_NET_IP4_F_SA;
+	tbl_params.key.proto_field[1].proto = MV_NET_PROTO_IP4;
+	tbl_params.key.proto_field[1].field.eth = MV_NET_IP4_F_DA;
+	pp2_cls_mng_tbl_init(&tbl_params, &tbl_hash, MVPP2_CLS_LKP_MUSDK_LOG_HASH);
+
+	/* add 2 tuple hash rule fo ipv6 */
+	tbl_params.type = PP2_CLS_TBL_EXACT_MATCH;
+	tbl_params.max_num_rules = 1;
+	tbl_params.key.num_fields = 2;
+	tbl_params.key.key_size = 8;
+	tbl_params.key.proto_field[0].proto = MV_NET_PROTO_IP6;
+	tbl_params.key.proto_field[0].field.eth = MV_NET_IP6_F_SA;
+	tbl_params.key.proto_field[1].proto = MV_NET_PROTO_IP6;
+	tbl_params.key.proto_field[1].field.eth = MV_NET_IP6_F_DA;
+	pp2_cls_mng_tbl_init(&tbl_params, &tbl_hash, MVPP2_CLS_LKP_MUSDK_LOG_HASH);
+
+	/* add 5 tuple hash rule ipv4 */
+	tbl_params.type = PP2_CLS_TBL_EXACT_MATCH;
+	tbl_params.max_num_rules = 1;
+	tbl_params.key.num_fields = PP2_CLS_TBL_MAX_NUM_FIELDS;
+	tbl_params.key.key_size = 13;
+	tbl_params.key.proto_field[0].proto = MV_NET_PROTO_IP4;
+	tbl_params.key.proto_field[0].field.eth = MV_NET_IP4_F_SA;
+	tbl_params.key.proto_field[1].proto = MV_NET_PROTO_IP4;
+	tbl_params.key.proto_field[1].field.eth = MV_NET_IP4_F_DA;
+	tbl_params.key.proto_field[2].proto = MV_NET_PROTO_L4;
+	tbl_params.key.proto_field[2].field.eth = MV_NET_L4_F_SP;
+	tbl_params.key.proto_field[3].proto = MV_NET_PROTO_L4;
+	tbl_params.key.proto_field[3].field.eth = MV_NET_L4_F_DP;
+	tbl_params.key.proto_field[4].proto = MV_NET_PROTO_IP4;
+	tbl_params.key.proto_field[4].field.eth = MV_NET_IP4_F_PROTO;
+	pp2_cls_mng_tbl_init(&tbl_params, &tbl_hash, MVPP2_CLS_LKP_MUSDK_LOG_HASH);
+
+	/* add 5 tuple hash rule ipv6 */
+	tbl_params.type = PP2_CLS_TBL_EXACT_MATCH;
+	tbl_params.max_num_rules = 1;
+	tbl_params.key.num_fields = PP2_CLS_TBL_MAX_NUM_FIELDS;
+	tbl_params.key.key_size = 36;
+	tbl_params.key.proto_field[0].proto = MV_NET_PROTO_IP6;
+	tbl_params.key.proto_field[0].field.eth = MV_NET_IP6_F_SA;
+	tbl_params.key.proto_field[1].proto = MV_NET_PROTO_IP6;
+	tbl_params.key.proto_field[1].field.eth = MV_NET_IP6_F_DA;
+	tbl_params.key.proto_field[2].proto = MV_NET_PROTO_L4;
+	tbl_params.key.proto_field[2].field.eth = MV_NET_L4_F_SP;
+	tbl_params.key.proto_field[3].proto = MV_NET_PROTO_L4;
+	tbl_params.key.proto_field[3].field.eth = MV_NET_L4_F_DP;
+	tbl_params.key.proto_field[4].proto = MV_NET_PROTO_IP6;
+	tbl_params.key.proto_field[4].field.eth = MV_NET_IP6_F_NEXT_HDR;
+	pp2_cls_mng_tbl_init(&tbl_params, &tbl_hash, MVPP2_CLS_LKP_MUSDK_LOG_HASH);
 
 	/* add default c2 rule */
 	rule.num_fields = 0;
@@ -603,9 +697,11 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 		fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C2;
 	} else if (params->type == PP2_CLS_TBL_EXACT_MATCH) {
 		if (five_tuple)
-			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3B;
+			fl_rls->fl[0].engine = (lkp_type == MVPP2_CLS_LKP_MUSDK_LOG_HASH) ?
+						MVPP2_CLS_ENGINE_C3HB : MVPP2_CLS_ENGINE_C3B;
 		else
-			fl_rls->fl[0].engine = MVPP2_CLS_ENGINE_C3A;
+			fl_rls->fl[0].engine = (lkp_type == MVPP2_CLS_LKP_MUSDK_LOG_HASH) ?
+						MVPP2_CLS_ENGINE_C3HA : MVPP2_CLS_ENGINE_C3A;
 	} else {
 		pr_err("%s(%d) unknown engine type!\n", __func__, __LINE__);
 		return -EINVAL;
@@ -617,7 +713,12 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	/* port ID - TODO set it fixed to 1. this value is used only if
 	 * PortIdSelect bit in CLS_FLOW_TBL1 register is set to 0
 	 */
-	fl_rls->fl[0].port_bm = (1 << port->id);
+
+	if ((fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3HA && port->hash_type != PP2_PPIO_HASH_T_2_TUPLE) ||
+	    (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3HB && port->hash_type != PP2_PPIO_HASH_T_5_TUPLE))
+		fl_rls->fl[0].port_bm = 0;
+	else
+		fl_rls->fl[0].port_bm = (1 << port->id);
 
 	/* lookup_type */
 	fl_rls->fl[0].lu_type = lkp_type;
@@ -630,7 +731,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 
 	fl_rls->fl[0].udf7 = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_MUSDK_LOG_UDF7 : MVPP2_CLS_MUSDK_NIC_UDF7;
 	fl_rls->fl[0].seq_ctrl = MVPP2_CLS_DEF_SEQ_CTRL;
-	fl_rls->fl[0].field_id_cnt = params->key.num_fields - (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3B);
+	fl_rls->fl[0].field_id_cnt = params->key.num_fields - five_tuple;
 
 	pr_debug("ipv4_flag = %d\n", ipv4_flag);
 	pr_debug("ipv6_flag = %d\n", ipv6_flag);
@@ -641,6 +742,9 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	if (lkp_type == MVPP2_CLS_LKP_MUSDK_CLS) {
 		num_lkpid = pp2_cls_mng_get_lkpid_for_flow_type(&select_logical_id[0], ipv4_flag, ipv6_flag,
 								tcp_flag, udp_flag, l4_flag);
+	} else if (lkp_type == MVPP2_CLS_LKP_MUSDK_LOG_HASH) {
+		num_lkpid = pp2_cls_mng_get_lkpid_for_rss(fl_rls->fl[0].engine, &select_logical_id[0],
+							  ipv4_flag, ipv6_flag);
 	} else {
 		num_lkpid = pp2_cls_mng_get_lkpid_for_lkp_type(lkp_type, &select_logical_id[0]);
 	}
@@ -721,7 +825,6 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 	int rc = 0;
 	u32 i;
 	u8 tc_array[MVPP2_QOS_TBL_LINE_NUM_DSCP];
-	u8 start_queue;
 	struct pp2_port *port;
 	struct pp2_cls_tbl *tmp_tbl = NULL;
 
@@ -759,11 +862,10 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 			tc_array[i] = qos_params->pcp_cos_map[i].tc;
 		}
 
-		start_queue = mv_pp2x_bound_cpu_first_rxq_calc(port);
 		mv_pp2x_cls_c2_qos_tbl_fill_array(port,
 						  MVPP2_QOS_TBL_SEL_PRI,
 						  tc_array,
-						  start_queue);
+						  port->first_rxq);
 	}
 
 	/* Set up QoS lookup tables for DSCP*/
@@ -785,11 +887,10 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 			tc_array[i] = qos_params->dscp_cos_map[i].tc;
 		}
 
-		start_queue = mv_pp2x_bound_cpu_first_rxq_calc(port);
 		mv_pp2x_cls_c2_qos_tbl_fill_array(port,
 						  MVPP2_QOS_TBL_SEL_DSCP,
 						  tc_array,
-						  start_queue);
+						  port->first_rxq);
 	}
 
 	rc = pp2_cls_db_mng_tbl_add(&tmp_tbl);
@@ -1137,6 +1238,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
+	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
 	/* for qos rules */
 	if (lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI ||
@@ -1155,7 +1257,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
-		mv_pp2x_cls_c2_qos_tbl_fill(port, tbl_sel, mv_pp2x_bound_cpu_first_rxq_calc(port));
+		mv_pp2x_cls_c2_qos_tbl_fill(port, tbl_sel, port->first_rxq);
 	} else {
 	/* for classifier and default rules */
 		if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
@@ -1188,6 +1290,7 @@ static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
+	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
 	if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
 		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
@@ -1298,6 +1401,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		c2_entry.mng_pkt_key->pkt_key = &pkt_key;
 		c2_entry.lkp_type = lkp_type;
 		c2_entry.lkp_type_mask = MVPP2_C2_HEK_LKP_TYPE_MASK >> MVPP2_C2_HEK_LKP_TYPE_OFFS;
+		c2_entry.rss_en = port->rss_en;
 		pp2_cls_mng_set_c2_action(port, &c2_entry, &pkt_qos, &pkt_action, action, lkp_type);
 
 		memcpy(&c2_entry.port, &rule_port, sizeof(rule_port));
@@ -1318,7 +1422,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		c3_entry.mng_pkt_key = &mng_pkt_key;
 		c3_entry.mng_pkt_key->pkt_key = &pkt_key;
 		c3_entry.lkp_type = lkp_type;
-
+		c3_entry.rss_en = port->rss_en;
 		pp2_cls_mng_set_c3_action(port, &pkt_qos, &pkt_action, action, lkp_type);
 
 		memcpy(&c3_entry.port, &rule_port, sizeof(rule_port));
@@ -1406,6 +1510,53 @@ int pp2_cls_mng_rule_modify(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *ru
 	}
 	return 0;
 }
+
+void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map)
+{
+	int rc;
+	struct pp2_inst *inst = port->parent;
+
+	/* calculate the required musdk rss table map (not including the kernel rss map)*/
+	rc = pp2_rss_musdk_map_get(port);
+	if (rc)
+		return;
+
+	/* Enable hash in port if rss_tbl is not 0 */
+	if (port->hash_type != PP2_PPIO_HASH_T_NONE && pp2_cls_db_rss_num_musdk_tbl_get(inst) != 0)
+		port->rss_en = true;
+	else
+		port->rss_en = false;
+
+	/* bind rxq to rss table for this port */
+	if (pp22_cls_rss_rxq_set(port)) {
+		pr_err("cannot allocate rss table for rxq\n");
+		return;
+	}
+
+	/* Init RSS table */
+	if (pp2_rss_hw_tbl_set(port)) {
+		pr_err("cannot init rss hw table\n");
+		return;
+	}
+
+	/* Enable RSS */
+	if (pp2_rss_enable(port, port->rss_en)) {
+		pr_err("cannot enable rss\n");
+		return;
+	}
+
+	/* Configure hash type only for MUSDK port at this point (flows for logical port are not defined yet
+	 *  at this point, so hash type is configured later for logical ports
+	 */
+	if (port->type == PP2_PPIO_T_NIC) {
+		rc = pp2_cls_rss_mode_flows_set(port, port->hash_type);
+		if (rc) {
+			pr_err("cannot set hash type in flows\n");
+			return;
+		}
+	}
+}
+
 void pp2_cls_mng_init(struct pp2_inst *inst)
 {
 	if (inst->cls_db)
@@ -1416,6 +1567,7 @@ void pp2_cls_mng_init(struct pp2_inst *inst)
 	pp2_cls_init(inst);
 	pp2_cls_c2_start(inst);
 	pp2_cls_c3_start(inst);
+	pp2_cls_rss_init(inst);
 }
 
 void pp2_cls_mng_deinit(struct pp2_inst *inst)

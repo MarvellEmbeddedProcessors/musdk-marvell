@@ -65,5 +65,6 @@ int pp2_cls_mng_set_logical_port_params(struct pp2_ppio *ppio, struct pp2_ppio_p
 int pp2_cls_dscp_flow_modify(struct pp2_port *port, int set);
 int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params, struct pp2_cls_tbl **tbl);
 int pp2_cls_mng_lkp_type_to_prio(int lkp_type);
+void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map);
 
 #endif /* _PP2_MNG_H_ */

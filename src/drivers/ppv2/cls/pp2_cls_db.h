@@ -134,13 +134,23 @@ struct pp2_cls_db_prs_t {
 	struct mv_pp2x_prs_shadow *prs_shadow;
 };
 
+struct rss_tbl_map_t {
+	u16 hw_tbl;
+	u16 num_in_q;
+};
+
+struct pp2_cls_db_rss_t {
+	u32 num_musdk_tbls;					/* number of RSS tables required by MUSDK */
+	u32 num_kernel_rsrvd_tbls;				/* number of RSS tables reserved by kernel */
+	struct rss_tbl_map_t rss_tbl_map[MVPP22_RSS_TBL_NUM];	/* RSS table mapping for MUSDK RSS tables */
+};
 
 struct pp2_cls_db_t {
 	struct pp2_cls_db_c2_t	c2_db;			/* PP2_CLS module C2 db		*/
 	struct pp2_cls_db_c3_t	c3_db;			/* PP2_CLS module C3 db		*/
 	struct pp2_cls_db_cls_t	cls_db;			/* PP2_CLS module CLS db		*/
 	struct pp2_cls_db_prs_t	prs_db;			/* PP2_CLS module PARSER db	*/
-
+	struct pp2_cls_db_rss_t	rss_db;			/* PP2_CLS module RSS db		*/
 };
 
 /* table db is not instance dependent, so it is defined separately in db */
@@ -227,6 +237,18 @@ int pp2_cls_db_mng_tbl_rule_next_get(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl
 int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl);
 int pp2_cls_db_mng_tbl_list_dump(void);
 int pp2_cls_db_mng_qos_tbl_add(struct pp2_cls_tbl **tbl);
+
+/* RSS section */
+int pp2_cls_db_rss_init(struct pp2_inst *inst);
+int pp2_cls_db_rss_check_tbl_entry(u8 num_in_q);
+void pp2_cls_db_rss_kernel_rsvd_tbl_set(struct pp2_inst *inst, u16 kernel_rss_tbl);
+u16 pp2_cls_db_rss_kernel_rsvd_tbl_get(struct pp2_inst *inst);
+void pp2_cls_db_rss_num_musdk_tbl_set(struct pp2_inst *inst, u16 num_musdk_tbl);
+u16 pp2_cls_db_rss_num_musdk_tbl_get(struct pp2_inst *inst);
+int pp2_cls_db_rss_tbl_map_set(struct pp2_inst *inst, u16 idx, u16 hw_tbl, u16 num_in_q);
+int pp2_cls_db_rss_tbl_map_get(struct pp2_inst *inst, u16 idx, u16 *hw_tbl, u16 *num_in_q);
+int pp2_cls_db_rss_get_hw_tbl_from_in_q(struct pp2_inst *inst, u8 num_in_q);
+int pp2_cls_db_rss_tbl_map_get_next_free_idx(struct pp2_inst *inst);
 
 /* DB general section */
 int pp2_cls_db_init(struct pp2_inst *inst);

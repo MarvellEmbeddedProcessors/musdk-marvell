@@ -1811,7 +1811,7 @@ enum mv_pp2x_cls_filed_id {
 	MVPP2_CLS_FIELD_IP4SA = 0x10,
 	MVPP2_CLS_FIELD_IP4DA = 0x11,
 	MVPP2_CLS_FIELD_IP6SA = 0x17,
-	MVPP2_CLS_FIELD_IP6DA = 0x18,
+	MVPP2_CLS_FIELD_IP6DA = 0x1A,
 	MVPP2_CLS_FIELD_L4SIP = 0x1D,
 	MVPP2_CLS_FIELD_L4DIP = 0x1E,
 };
@@ -1820,11 +1820,6 @@ enum mv_pp2x_cos_type {
 	MVPP2_COS_TYPE_DEF = 0,
 	MVPP2_COS_TYPE_VLAN,
 	MVPP2_COS_TYPE_DSCP,
-};
-
-enum mv_pp2x_rss_hash_mode {
-	MVPP2_RSS_HASH_2T = 0,
-	MVPP2_RSS_HASH_5T,
 };
 
 struct mv_pp2x_prs_result_info {

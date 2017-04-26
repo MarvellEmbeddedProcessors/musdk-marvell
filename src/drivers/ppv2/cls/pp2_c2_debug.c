@@ -395,6 +395,9 @@ static void pp2_cls_valid_c2_entry_line_dump(uintptr_t cpu_slot,
 	case MVPP2_ACT_DUMP_COLOR:
 		sprintf(action_str, "COLOR: %s", pp2_cls_color_action_str[c2_entry->action.color_act]);
 		break;
+	case MVPP2_ACT_DUMP_RSS:
+		sprintf(action_str, "RSS: %s", pp2_cls_common_action_str[c2_entry->action.rss_act]);
+		break;
 	case MVPP2_ACT_DUMP_POLICER:
 		sprintf(action_str, "POLICER: %s", pp2_cls_common_action_str[c2_entry->action.policer_act]);
 		break;

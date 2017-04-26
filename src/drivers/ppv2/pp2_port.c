@@ -50,6 +50,8 @@
 #include "pp2_bm.h"
 #include "pp2_hw_cls.h"
 #include "pp2_gop_dbg.h"
+#include "cls/pp2_cls_mng.h"
+
 
 /*
  * pp2_port.c
@@ -1072,6 +1074,8 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 	port->maintain_stats = 0;
 	memset(&port->stats, 0, sizeof(port->stats));
 
+	/* Initialize RSS */
+	pp2_cls_mng_rss_port_init(port, pp2_rss_map_get());
 }
 
 static int32_t
@@ -1965,12 +1969,6 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 	sprintf(buf, "ip link delete %s.%d", port->linux_name, vlan);
 	system(buf);
 	return 0;
-}
-
-/* Enable or disable RSS */
-void pp2_port_set_rss(struct pp2_port *port, uint32_t en)
-{
-	mv_pp22_rss_enable(port, en);
 }
 
 /* Get link status */

@@ -344,6 +344,8 @@ struct pp2_port {
 	struct pp2_tc tc[PP2_PPIO_MAX_NUM_TCS];
 	/* Hash types for his port */
 	enum pp2_ppio_hash_type hash_type;
+	/* rss_en for his port */
+	int rss_en;
 	/* MAC data for this port */
 	struct pp2_mac_data mac_data;
 	/* Linux interface name for this port */
@@ -535,6 +537,11 @@ static inline uintptr_t pp2_default_cpu_slot(struct pp2_inst *inst)
 static inline u16 pp2_hif_map_get(void)
 {
 	return pp2_ptr->pp2_common.hif_slot_map;
+}
+
+static inline u16 pp2_rss_map_get(void)
+{
+	return pp2_ptr->pp2_common.rss_tbl_map;
 }
 
 int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);

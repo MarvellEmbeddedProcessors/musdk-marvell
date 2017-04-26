@@ -194,6 +194,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[]);
 int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[]);
 int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[]);
+int pp2_cli_cls_set_rss_mode(void *arg, int argc, char *argv[]);
 
 /******************************************************************************/
 /*                                PROTOTYPE                                   */
@@ -211,6 +212,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t 
 int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
 			    struct pp2_cls_class_port_t *src_port);
+int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode);
 int pp2_cls_init(struct pp2_inst *inst);
 
 #endif /* _PP2_CLS_H_ */
