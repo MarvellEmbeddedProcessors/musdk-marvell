@@ -78,7 +78,6 @@
 #define PP2_PPIO_MAX_NUM_TCS	8
 #define PP2_PPIO_MAX_NUM_OUTQS	8
 #define PP2_PPIO_TC_MAX_POOLS	2
-#define PP2_PPIO_MAX_NUM_HASH	4
 #endif
 struct pp2;
 extern struct pp2 *pp2_ptr;
@@ -281,7 +280,6 @@ struct pp2_bm_pool {
 
 struct pp2_ppio_tc_config {
 	u16 pkt_offset;    /* Must be multiple of 32 bytes.*/
-	u8 use_hash;
 	u8 num_in_qs;
 	u8 first_rxq;	/* First physical rx_queue for this TC */
 	struct pp2_bm_pool *pools[PP2_PPIO_TC_MAX_POOLS];
@@ -345,7 +343,7 @@ struct pp2_port {
 	/* Array of Traffic Classes */
 	struct pp2_tc tc[PP2_PPIO_MAX_NUM_TCS];
 	/* Hash types for his port */
-	enum pp2_ppio_hash_type hash_type[PP2_PPIO_MAX_NUM_HASH];
+	enum pp2_ppio_hash_type hash_type;
 	/* MAC data for this port */
 	struct pp2_mac_data mac_data;
 	/* Linux interface name for this port */

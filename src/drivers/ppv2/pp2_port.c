@@ -1171,7 +1171,6 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;
 		port->tc[i].rx_ring_size = param->inqs_params.tcs_params[i].inqs_params->size;
 		port->tc[i].tc_config.pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
-		port->tc[i].tc_config.use_hash = param->inqs_params.tcs_params[i].use_hash;
 		port->tc[i].first_log_rxq = total_num_in_qs;
 		port->tc[i].tc_config.num_in_qs = num_in_qs;
 		/*To support RSS, each TC must start at natural rxq boundary */
@@ -1190,8 +1189,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		port->txq_config[i].weight = param->outqs_params.outqs_params[i].weight;
 	}
 
-	for (i = 0; i < PP2_PPIO_MAX_NUM_HASH; i++)
-		port->hash_type[i] = param->inqs_params.hash_type[i];
+	port->hash_type = param->inqs_params.hash_type;
 
 	if (port_id == PP2_LOOPBACK_PORT)
 		port->use_mac_lb = true;
@@ -1204,6 +1202,8 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	pr_debug("PORT: TXQs %u\n", port->num_tx_queues);
 	pr_debug("PORT: RXQs %u\n", port->num_rx_queues);
 	pr_debug("PORT: First Phy RXQ %u\n", port->first_rxq);
+	pr_debug("PORT: Hash type %u\n", port->hash_type);
+
 	for (i = 0; i < port->num_tcs; i++) {
 		pr_debug("PORT: TC%u\n", i);
 		pr_debug("PORT: TC RXQs %u\n", port->tc[i].tc_config.num_in_qs);
@@ -1211,7 +1211,6 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		pr_debug("PORT: TC First Phy RXQ %u\n", port->tc[i].tc_config.first_rxq);
 		pr_debug("PORT: TC RXQ size %u\n", port->tc[i].rx_ring_size);
 		pr_debug("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
-		pr_debug("PORT: TC Use Hash %u\n", port->tc[i].tc_config.use_hash);
 		for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++)
 			pr_debug("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
 	}

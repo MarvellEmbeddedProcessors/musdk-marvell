@@ -94,7 +94,6 @@ struct pp2_port_inq_param {
 struct pp2_port_intc_param {
 	u32 id;
 	u32 qos;
-	u32 use_hash;
 	u32 num_in_qs;
 	struct pp2_port_inq_param *inq_param;
 };

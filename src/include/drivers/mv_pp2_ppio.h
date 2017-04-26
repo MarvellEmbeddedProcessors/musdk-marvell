@@ -70,7 +70,6 @@ struct pp2_bpool;
 #define PP2_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
 #define PP2_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
 #define PP2_PPIO_TC_MAX_POOLS	2 /**< Max. number of bpools per TC. */
-#define PP2_PPIO_MAX_NUM_HASH	4
 
 typedef u8 eth_addr_t[ETH_ADDR_NUM_OCTETS];
 
@@ -80,7 +79,7 @@ enum pp2_ppio_type {
 };
 
 enum pp2_ppio_hash_type {
-	PP2_PPIO_HASH_T_NONE = 0,	/* Invalid hash type */
+	PP2_PPIO_HASH_T_NONE = 0,	/* Invalid hash type (hashing mechanism is disabled) */
 	PP2_PPIO_HASH_T_2_TUPLE,	/* IP-src, IP-dst */
 	PP2_PPIO_HASH_T_5_TUPLE,	/* IP-src, IP-dst, IP-Prot, L4-src, L4-dst */
 	PP2_PPIO_HASH_T_OUT_OF_RANGE
@@ -145,10 +144,11 @@ struct pp2_ppio_inq_statistics {
  *
  */
 struct pp2_ppio_tc_params {
-	int				 use_hash; /**< Use hashing mechanism */
 	u16				 pkt_offset; /**< pkt offset, must be multiple of 32 bytes */
-	u16				 num_in_qs; /**< number of inqs */
-	struct pp2_ppio_inq_params	*inqs_params; /**< pointer to the tc's inq parameters */
+	u16				 num_in_qs;  /**< number of inqs .
+							* Value greater than 1 assumes use of hashing mechanism
+							*/
+	struct pp2_ppio_inq_params	*inqs_params; /**< pointer to the tc's inq parameters */;
 	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS]; /**< bpools used by the tc */
 };
 
@@ -159,10 +159,10 @@ struct pp2_ppio_tc_params {
 struct pp2_ppio_inqs_params {
 	u16				 num_tcs; /**< Number of tcs */
 	struct pp2_ppio_tc_params	 tcs_params[PP2_PPIO_MAX_NUM_TCS]; /**< Parameters for each tc */
-	/** hash engine may be selected only according to "parser-results";
-	 * therefore, we put hash selection on a per port basis.
+	/** Indicate the type of hash to use in hashing mechanism according to pp2_ppio_hash_type.
+	 * The hash type is common to all TC's in ppio
 	 */
-	enum pp2_ppio_hash_type		 hash_type[PP2_PPIO_MAX_NUM_HASH];
+	enum pp2_ppio_hash_type		 hash_type;
 };
 
 /**
