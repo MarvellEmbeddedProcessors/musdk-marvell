@@ -513,6 +513,8 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	char				name[MVAPPS_PPIO_NAME_MAX];
 	int				i, j, err = 0;
 	u16				curr_mtu;
+	char				file[PP2_MAX_BUF_STR_LEN];
+	u32				kernel_first_rxq, kernel_num_rx_queues;
 
 	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "ppio-%d:%d",
@@ -521,12 +523,27 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	port_params->match = name;
 	port_params->type = port->ppio_type;
 	port_params->inqs_params.num_tcs = port->num_tcs;
-	port_params->specific_type_params.log_port_params.first_inq = port->first_inq;
+	port_params->inqs_params.hash_type = port->hash_type;
+
+	if (port->ppio_type == PP2_PPIO_T_LOG) {
+		sprintf(file, "%s/%s", PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_RX_FIRST_RXQ_FILE);
+		kernel_first_rxq = appp_pp2_sysfs_param_get(port->name, file);
+
+		sprintf(file, "%s/%s", PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_RX_NUM_RXQ_FILE);
+		kernel_num_rx_queues = appp_pp2_sysfs_param_get(port->name, file);
+
+		port_params->specific_type_params.log_port_params.first_inq = port->first_inq +
+									      kernel_first_rxq + kernel_num_rx_queues;
+	} else {
+		port_params->specific_type_params.log_port_params.first_inq = port->first_inq;
+	}
+
 	for (i = 0; i < port->num_tcs; i++) {
 		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
 		inq_params.size = port->inq_size;
 		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
+
 		for (j = 0; j < num_pools; j++)
 			port_params->inqs_params.tcs_params[i].pools[j] = pools[j].pool;
 	}
@@ -733,5 +750,33 @@ void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif
 		}
 		free(pools);
 	}
+}
+
+u32 appp_pp2_sysfs_param_get(char *if_name, char *file)
+{
+	FILE *fp;
+	char r_buf[PP2_MAX_BUF_STR_LEN];
+	char w_buf[PP2_MAX_BUF_STR_LEN];
+	u32 param = 0, scanned;
+
+	sprintf(w_buf, "echo %s > %s/%s", if_name, PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_DEBUG_PORT_SET_FILE);
+	system(w_buf);
+
+	fp = fopen(file, "r");
+	if (!fp) {
+		pr_err("error opening file %s\n", file);
+		return -EEXIST;
+	}
+
+	fgets(r_buf, sizeof(r_buf), fp);
+	scanned = sscanf(r_buf, "%d\n", &param);
+	if (scanned != 1) {
+		pr_err("Invalid number of parameters read %s\n", r_buf);
+		fclose(fp);
+		return -EINVAL;
+	}
+
+	fclose(fp);
+	return param;
 }
 

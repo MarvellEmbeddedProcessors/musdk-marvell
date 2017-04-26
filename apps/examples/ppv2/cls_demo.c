@@ -77,6 +77,7 @@ struct glob_arg {
 	int			cli;
 	int			cpus;	/* cpus used for running */
 	int			echo;
+	u32			hash_type;
 	u64			qs_map;
 	int			qs_map_shift;
 	int			num_ports;
@@ -1602,6 +1603,8 @@ static int init_all_modules(void)
 {
 	struct pp2_init_params *pp2_params = &garg.pp2_params;
 	int			 err;
+	char			 file[PP2_MAX_BUF_STR_LEN];
+	u32			 num_rss_tables;
 
 	pr_info("Global initializations ...\n");
 
@@ -1612,6 +1615,10 @@ static int init_all_modules(void)
 	memset(pp2_params, 0, sizeof(*pp2_params));
 	pp2_params->hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
+
+	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
+	num_rss_tables = appp_pp2_sysfs_param_get(garg.ports_desc[0].name, file);
+	pp2_params->rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
 
 	err = pp2_init(pp2_params);
 	if (err)
@@ -1649,7 +1656,8 @@ static int init_local_modules(struct glob_arg *garg)
 			port->inq_size	= CLS_APP_RX_Q_SIZE;
 			port->num_outqs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
-			port->first_inq	= pp2_cls_first_queue_get();
+			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
+			port->hash_type = garg->hash_type;
 
 			err = app_port_init(port, garg->num_pools, garg->pools_desc[port->pp_id], DEFAULT_MTU);
 			if (err) {
@@ -1987,8 +1995,9 @@ static void usage(char *progname)
 		"\t-i, --interface <eth-interface>\n"
 		"\n"
 		"Optional OPTIONS:\n"
-		"\t-e, --echo	(no argument) activate echo packets\n"
-		"\t--ppio_tag_mode	(no argument)configure ppio_tag_mode parameter\n"
+		"\t-e, --echo			(no argument) activate echo packets\n"
+		"\t-b, --hash_type <none, 2-tuple, 5-tuple> 11\n"
+		"\t--ppio_tag_mode		(no argument)configure ppio_tag_mode parameter\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
 		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname)
 		);
@@ -2004,14 +2013,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	char buff[CLS_APP_COMMAND_LINE_SIZE];
 	int argc_cli;
 	int rc;
-	struct pp2_ppio_params *port_params = &garg->ports_desc[0].port_params;
-	struct pp2_init_params *pp2_params = &garg->pp2_params;
+
+	struct pp2_ppio_params	*port_params = &garg->ports_desc[0].port_params;
+	struct pp2_init_params	*pp2_params = &garg->pp2_params;
 	struct port_desc	*port = &garg->ports_desc[0];
 
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
 		{"interface", required_argument, 0, 'i'},
 		{"echo", no_argument, 0, 'e'},
+		{"hash_type", required_argument, 0, 'b'},
 		{"ppio_tag_mode", no_argument, 0, 't'},
 		{"logical_port_params", no_argument, 0, 'g'},
 		{0, 0, 0, 0}
@@ -2021,6 +2032,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->qs_map = 0xf;
 	garg->qs_map_shift = CLS_APP_MAX_NUM_TCS_PER_PORT;
 	garg->echo = 0;
+	garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 	garg->num_ports = 0;
 	garg->cli = 1;
 
@@ -2030,7 +2042,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:n:m:", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:b:etg", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -2049,6 +2061,18 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'e':
 			garg->echo = 1;
+			break;
+		case 'b':
+			if (!strcmp(optarg, "none")) {
+				garg->hash_type = PP2_PPIO_HASH_T_NONE;
+			} else if (!strcmp(optarg, "2-tuple")) {
+				garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
+			} else if (!strcmp(optarg, "5-tuple")) {
+				garg->hash_type = PP2_PPIO_HASH_T_5_TUPLE;
+			} else {
+				printf("parsing fail, wrong input for hash\n");
+				return -EINVAL;
+			}
 			break;
 		case 't':
 			ppio_tag_mode = true;

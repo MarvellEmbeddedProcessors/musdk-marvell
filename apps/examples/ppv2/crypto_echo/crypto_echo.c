@@ -782,6 +782,8 @@ static int init_all_modules(void)
 {
 	struct pp2_init_params	 pp2_params;
 	int			 err;
+	char			 file[PP2_MAX_BUF_STR_LEN];
+	u32			 num_rss_tables;
 
 	pr_info("Global initializations ...\n");
 
@@ -792,6 +794,10 @@ static int init_all_modules(void)
 	memset(&pp2_params, 0, sizeof(pp2_params));
 	pp2_params.hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
+
+	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
+	num_rss_tables = appp_pp2_sysfs_param_get(garg.ports_desc[0].name, file);
+	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
 
 	err = pp2_init(&pp2_params);
 	if (err)
@@ -926,11 +932,15 @@ static int init_local_modules(struct glob_arg *garg)
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= CRYPT_APP_MAX_NUM_TCS_PER_PORT;
 			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] = MVAPPS_MAX_NUM_QS_PER_TC;
+				port->num_inqs[i] = garg->cpus;
 			port->inq_size	= CRYPT_APP_RX_Q_SIZE;
 			port->num_outqs	= CRYPT_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= CRYPT_APP_TX_Q_SIZE;
 			port->first_inq	= CRYPT_APP_FIRST_INQ;
+			if (garg->cpus == 1)
+				port->hash_type = PP2_PPIO_HASH_T_NONE;
+			else
+				port->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 
 			err = app_port_init(port, garg->num_pools, garg->pools_desc[port->pp_id], garg->mtu);
 			if (err) {

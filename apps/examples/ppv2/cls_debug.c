@@ -143,6 +143,15 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 
 #endif
 	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "pp2_rss_mode";
+	cmd_params.desc		= "set rss mode";
+	cmd_params.format	= "2 tuple - 0\n"
+				  "\t\t\t\5 tuple - 1\n";
+	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_set_rss_mode;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_lkp_hits_dump";
 	cmd_params.desc		= "dump all hit decode entry and its DB information";
 	cmd_params.format	= "";

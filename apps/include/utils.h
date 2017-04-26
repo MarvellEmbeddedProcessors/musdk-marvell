@@ -92,6 +92,18 @@
 	((mru) - PP2_MH_SIZE - VLAN_HLEN - \
 	ETH_HLEN - ETH_FCS_LEN)
 
+/* sysfs path for reading relevant parameters from kernel driver */
+#define PP2_SYSFS_MUSDK_PATH		"/sys/devices/platform/pp2/musdk"
+#define PP2_SYSFS_DEBUG_PORT_SET_FILE	"sysfs_current_port"
+#define PP2_SYSFS_RX_FIRST_RXQ_FILE	"first_rxq"
+#define PP2_SYSFS_RX_NUM_RXQ_FILE	"num_rx_queues"
+#define PP2_SYSFS_TX_NUM_TXQ_FILE	"num_tx_queues"
+
+#define PP2_SYSFS_RSS_PATH		"/sys/devices/platform/pp2/rss"
+#define PP2_SYSFS_RSS_NUM_TABLES_FILE	"num_rss_tables"
+
+#define PP2_MAX_BUF_STR_LEN	256
+
 /*
  * Tx shadow queue entry
  */
@@ -125,6 +137,8 @@ struct port_desc {
 	u16			 num_outqs;	/* Number of Tx queues */
 	u32			 inq_size;	/* Rx queue size */
 	u32			 outq_size;	/* Tx queue size */
+	u32			 hash_type;	/* Hash type */
+	u32			 first_rss_tbl;	/* First RSS table */
 	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
 	struct pp2_ppio_params	 port_params;	/* PPIO configuration parameters */
 
@@ -251,6 +265,11 @@ void app_show_port_stat(struct port_desc *port_desc, int reset);
  * Register common CLI commands (currently show queue and port statistics)
  */
 int app_register_cli_common_cmds(struct port_desc *port_desc);
+
+/*
+ * Get sysfs parameter from kernel driver
+ */
+u32 appp_pp2_sysfs_param_get(char *if_name, char *file);
 
 /* Saved sysdma virtual high address*/
 extern u64 sys_dma_high_addr;
