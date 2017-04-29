@@ -86,32 +86,32 @@
 /*
  * BYTE_ORDER NOTE:
  *
- * Please make sure that your system defines BYTE_ORDER.  If your
+ * Please make sure that your system defines __BYTE_ORDER.  If your
  * architecture is little-endian, make sure it also defines
- * LITTLE_ENDIAN and that the two (BYTE_ORDER and LITTLE_ENDIAN) are
+ * __LITTLE_ENDIAN and that the two (__BYTE_ORDER and __LITTLE_ENDIAN) are
  * equivilent.
  *
  * If your system does not define the above, then you can do so by
  * hand like this:
  *
- *   #define LITTLE_ENDIAN 1234
- *   #define BIG_ENDIAN    4321
+ *   #define __LITTLE_ENDIAN 1234
+ *   #define __BIG_ENDIAN    4321
  *
  * And for little-endian machines, add:
  *
- *   #define BYTE_ORDER LITTLE_ENDIAN
+ *   #define __BYTE_ORDER LITTLE_ENDIAN
  *
  * Or for big-endian machines:
  *
- *   #define BYTE_ORDER BIG_ENDIAN
+ *   #define __BYTE_ORDER __BIG_ENDIAN
  *
- * The FreeBSD machine this was written on defines BYTE_ORDER
+ * The FreeBSD machine this was written on defines __BYTE_ORDER
  * appropriately by including <sys/types.h> (which in turn includes
  * <machine/endian.h> where the appropriate definitions are actually
  * made).
  */
-#if !defined(BYTE_ORDER) || (BYTE_ORDER != LITTLE_ENDIAN && BYTE_ORDER != BIG_ENDIAN)
-#error Define BYTE_ORDER to be equal to either LITTLE_ENDIAN or BIG_ENDIAN
+#if !defined(__BYTE_ORDER) || (__BYTE_ORDER != __LITTLE_ENDIAN && __BYTE_ORDER != __BIG_ENDIAN)
+#error Define __BYTE_ORDER to be equal to either __LITTLE_ENDIAN or __BIG_ENDIAN
 #endif
 
 /*** SHA-256/384/512 Various Length Definitions ***********************/
@@ -122,7 +122,7 @@
 
 
 /*** ENDIAN REVERSAL MACROS *******************************************/
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 
 #define REVERSE32(w, x)	\
 do { \
@@ -141,7 +141,7 @@ do { \
 	      ((tmp & 0x0000ffff0000ffffULL) << 16); \
 } while (0)
 
-#endif /* BYTE_ORDER == LITTLE_ENDIAN */
+#endif /* __BYTE_ORDER == __LITTLE_ENDIAN */
 
 /*
  * Macro for incrementally adding the unsigned 64-bit integer n to the
@@ -311,7 +311,7 @@ void mv_sha256_init(SHA256_CTX *context)
 
 /* Unrolled SHA-256 round macros: */
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 
 #define ROUND256_0_TO_15(a, b, c, d, e, f, g, h)	\
 do { \
@@ -324,7 +324,7 @@ do { \
 } while (0)
 
 
-#else /* BYTE_ORDER == LITTLE_ENDIAN */
+#else /* __BYTE_ORDER == __LITTLE_ENDIAN */
 
 #define ROUND256_0_TO_15(a, b, c, d, e, f, g, h)	\
 do { \
@@ -335,7 +335,7 @@ do { \
 	j++; \
 } while (0)
 
-#endif /* BYTE_ORDER == LITTLE_ENDIAN */
+#endif /* __BYTE_ORDER == __LITTLE_ENDIAN */
 
 #define ROUND256(a, b, c, d, e, f, g, h)	\
 do { \
@@ -429,15 +429,15 @@ static void mv_sha256_transform(SHA256_CTX *context, const uint32_t *data)
 
 	j = 0;
 	do {
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 		/* Copy data while converting to host byte order */
 		REVERSE32(*data++, W256[j]);
 		/* Apply the SHA-256 compression function to update a..h */
 		T1 = h + Sigma1_256(e) + Ch(e, f, g) + K256[j] + W256[j];
-#else /* BYTE_ORDER == LITTLE_ENDIAN */
+#else /* __BYTE_ORDER == __LITTLE_ENDIAN */
 		/* Apply the SHA-256 compression function to update a..h with copy */
 		T1 = h + Sigma1_256(e) + Ch(e, f, g) + K256[j] + (W256[j] = *data++);
-#endif /* BYTE_ORDER == LITTLE_ENDIAN */
+#endif /* __BYTE_ORDER == __LITTLE_ENDIAN */
 		T2 = Sigma0_256(a) + Maj(a, b, c);
 		h = g;
 		g = f;
@@ -548,7 +548,7 @@ void mv_sha256_final(uint8_t digest[], SHA256_CTX *context)
 	/* If no digest buffer is passed, we don't bother doing this: */
 	if (digest != (uint8_t *)0) {
 		usedspace = (context->bitcount >> 3) % SHA256_BLOCK_LENGTH;
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 		/* Convert FROM host byte order */
 		REVERSE64(context->bitcount, context->bitcount);
 #endif
@@ -583,7 +583,7 @@ void mv_sha256_final(uint8_t digest[], SHA256_CTX *context)
 		/* Final transform: */
 		mv_sha256_transform(context, (uint32_t *)context->buffer);
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 		{
 			/* Convert TO host byte order */
 			int	j;
@@ -607,7 +607,7 @@ void mv_sha256_result_copy(SHA256_CTX *context, unsigned char *digest)
 {
 	uint32_t	*d = (uint32_t *)digest;
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	{
 		/* Convert TO host byte order */
 		int	j;
@@ -656,15 +656,33 @@ char *mv_sha256_data(const uint8_t *data, size_t len, char digest[SHA256_DIGEST_
 	return mv_sha256_end(&context, digest);
 }
 
+void mv_sha256(const uint8_t *data, size_t len, uint8_t digest[SHA256_DIGEST_LENGTH])
+{
+	SHA256_CTX	context;
+
+	mv_sha256_init(&context);
+	mv_sha256_update(&context, data, len);
+	mv_sha256_final(digest, &context);
+}
+
 void mv_sha256_hmac_iv(unsigned char key[], int key_len,
 		     unsigned char inner[], unsigned char outer[])
 {
 	unsigned char   in[SHA256_BLOCK_LENGTH];
 	unsigned char   out[SHA256_BLOCK_LENGTH];
+	unsigned char   key_buf[SHA256_BLOCK_LENGTH];
 	int             i, max_key_len;
 	SHA256_CTX	ctx;
 
 	max_key_len = SHA256_BLOCK_LENGTH;
+
+	if (key_len > max_key_len) {
+		/* Hash Key first */
+		memset(key_buf, 0, sizeof(key_buf));
+		mv_sha256(key, key_len, key_buf);
+		key = key_buf;
+		key_len = max_key_len;
+	}
 
 	for (i = 0; i < key_len; i++) {
 		in[i] = 0x36 ^ key[i];
@@ -700,7 +718,7 @@ void mv_sha512_init(SHA512_CTX *context)
 #ifdef SHA2_UNROLL_TRANSFORM
 
 /* Unrolled SHA-512 round macros: */
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 
 #define ROUND512_0_TO_15(a, b, c, d, e, f, g, h)	\
 do { \
@@ -713,7 +731,7 @@ do { \
 } while (0)
 
 
-#else /* BYTE_ORDER == LITTLE_ENDIAN */
+#else /* __BYTE_ORDER == __LITTLE_ENDIAN */
 
 #define ROUND512_0_TO_15(a, b, c, d, e, f, g, h)	\
 do { \
@@ -724,7 +742,7 @@ do { \
 	j++; \
 } while (0)
 
-#endif /* BYTE_ORDER == LITTLE_ENDIAN */
+#endif /* __BYTE_ORDER == __LITTLE_ENDIAN */
 
 #define ROUND512(a, b, c, d, e, f, g, h)	\
 do { \
@@ -813,15 +831,15 @@ static void mv_sha512_transform(SHA512_CTX *context, const uint64_t *data)
 
 	j = 0;
 	do {
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 		/* Convert TO host byte order */
 		REVERSE64(*data++, W512[j]);
 		/* Apply the SHA-512 compression function to update a..h */
 		T1 = h + Sigma1_512(e) + Ch(e, f, g) + K512[j] + W512[j];
-#else /* BYTE_ORDER == LITTLE_ENDIAN */
+#else /* __BYTE_ORDER == __LITTLE_ENDIAN */
 		/* Apply the SHA-512 compression function to update a..h with copy */
 		T1 = h + Sigma1_512(e) + Ch(e, f, g) + K512[j] + (W512[j] = *data++);
-#endif /* BYTE_ORDER == LITTLE_ENDIAN */
+#endif /* __BYTE_ORDER == __LITTLE_ENDIAN */
 		T2 = Sigma0_512(a) + Maj(a, b, c);
 		h = g;
 		g = f;
@@ -926,7 +944,7 @@ static void mv_sha512_last(SHA512_CTX *context)
 	uint64_t	*bitcount_ptr;
 
 	usedspace = (context->bitcount[0] >> 3) % SHA512_BLOCK_LENGTH;
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	/* Convert FROM host byte order */
 	REVERSE64(context->bitcount[0], context->bitcount[0]);
 	REVERSE64(context->bitcount[1], context->bitcount[1]);
@@ -956,7 +974,7 @@ static void mv_sha512_last(SHA512_CTX *context)
 		*context->buffer = 0x80;
 	}
 	/* Store the length of input data (in bits): */
-	bitcount_ptr = (uint64_t *)&context->buffer[SHA256_SHORT_BLOCK_LENGTH];
+	bitcount_ptr = (uint64_t *)&context->buffer[SHA512_SHORT_BLOCK_LENGTH];
 	bitcount_ptr[0] = context->bitcount[1];
 	bitcount_ptr[1] = context->bitcount[0];
 
@@ -974,7 +992,7 @@ void mv_sha512_final(uint8_t digest[], SHA512_CTX *context)
 		mv_sha512_last(context);
 
 		/* Save the hash data for output: */
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 		{
 			/* Convert TO host byte order */
 			int	j;
@@ -1014,6 +1032,15 @@ char *mv_sha512_end(SHA512_CTX *context, char buffer[])
 	return buffer;
 }
 
+void mv_sha512(const uint8_t *data, size_t len, uint8_t digest[SHA512_DIGEST_STRING_LENGTH])
+{
+	SHA512_CTX	context;
+
+	mv_sha512_init(&context);
+	mv_sha512_update(&context, data, len);
+	mv_sha512_final(digest, &context);
+}
+
 char *mv_sha512_data(const uint8_t *data, size_t len, char digest[SHA512_DIGEST_STRING_LENGTH])
 {
 	SHA512_CTX	context;
@@ -1028,10 +1055,18 @@ void mv_sha512_hmac_iv(unsigned char key[], int key_len,
 {
 	unsigned char   in[SHA512_BLOCK_LENGTH];
 	unsigned char   out[SHA512_BLOCK_LENGTH];
+	unsigned char   key_buf[SHA512_BLOCK_LENGTH];
 	int             i, max_key_len;
 	SHA512_CTX	context;
 
 	max_key_len = SHA512_BLOCK_LENGTH;
+	if (key_len > max_key_len) {
+		/* Hash Key first */
+		memset(key_buf, 0, sizeof(key_buf));
+		mv_sha512(key, key_len, key_buf);
+		key = key_buf;
+		key_len = max_key_len;
+	}
 
 	for (i = 0; i < key_len; i++) {
 		in[i] = 0x36 ^ key[i];
@@ -1081,7 +1116,7 @@ void mv_sha384_final(uint8_t digest[], SHA384_CTX *context)
 		mv_sha512_last((SHA512_CTX *)context);
 
 		/* Save the hash data for output: */
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 		{
 			/* Convert TO host byte order */
 			int	j;
@@ -1133,12 +1168,21 @@ char *mv_sha384_data(const uint8_t *data, size_t len, char digest[SHA384_DIGEST_
 	return mv_sha384_end(&context, digest);
 }
 
+void mv_sha384(const uint8_t *data, size_t len, uint8_t digest[SHA384_DIGEST_LENGTH])
+{
+	SHA384_CTX	context;
+
+	mv_sha384_init(&context);
+	mv_sha384_update(&context, data, len);
+	mv_sha384_final(digest, &context);
+}
+
 void mv_sha512_result_copy(SHA512_CTX *context, uint8_t digest[])
 {
 	uint64_t	*d = (uint64_t *)digest;
 
 	/* Save the hash data for output: */
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	/* Convert TO host byte order */
 	int	j;
 
@@ -1174,10 +1218,18 @@ void mv_sha384_hmac_iv(unsigned char key[], int key_len,
 {
 	unsigned char   in[SHA384_BLOCK_LENGTH];
 	unsigned char   out[SHA384_BLOCK_LENGTH];
+	unsigned char   key_buf[SHA384_BLOCK_LENGTH];
 	int             i, max_key_len;
 	SHA384_CTX	context;
 
 	max_key_len = SHA384_BLOCK_LENGTH;
+	if (key_len > max_key_len) {
+		/* Hash Key first */
+		memset(key_buf, 0, sizeof(key_buf));
+		mv_sha384(key, key_len, key_buf);
+		key = key_buf;
+		key_len = max_key_len;
+	}
 
 	for (i = 0; i < key_len; i++) {
 		in[i] = 0x36 ^ key[i];

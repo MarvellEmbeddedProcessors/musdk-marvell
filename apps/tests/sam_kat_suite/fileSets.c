@@ -229,6 +229,7 @@ static FileMessage fileSetsGetArgs(FILE *fstr, char *line,
 	char firstArg[CHUNK_SIZE] = { 0 }, secondArg;
 	int scanned = sscanf(line, " %s %c", firstArg, &secondArg);
 	if (scanned != 2) {
+		printf("Wrong scanned %d != 2: line - %s\n", scanned, line);
 		return FILE_NOT_VALID;
 	}
 	*type = fileSetsGetTypeFromString(firstArg);

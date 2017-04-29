@@ -1,0 +1,52 @@
+Algorithm      : NULL
+Authalgorithm  : SHA1
+Name           : AUTH_SHA1_ONLY
+Direction      : encryption
+Testcounter    : 1
+Plaintext      : 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+                   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ICB            : 0x4ca0ef38f1794b28a8f8ee110ee79d48ce13be25
+
+Algorithm      : NULL
+Authalgorithm  : SHA1
+Name           : AUTH_SHA1_ONLY
+Direction      : encryption
+Testcounter    : 1
+Plaintext      : 0xdd4df644eaf3d85bace2b21accaa22b28821f5cddd4df644eaf3d85bace2b21accaa22b28821f5cd \
+                   dd4df644eaf3d85bace2b21accaa22b28821f5cd
+ICB            : 0xfad70ef04bffd4f500831feab8992dea8b0a14ea
+
+Algorithm      : NULL
+Authalgorithm  : SHA1
+Name           : AUTH_SHA1_ONLY
+Direction      : encryption
+Testcounter     : 1
+Plaintext      : "hello word"
+ICB            : 0xe0738b87e67bbfc9c5b77556665064446430e81c
+
+Algorithm      : NULL
+Authalgorithm  : SHA256
+Name           : AUTH_SHA2_256_ONLY
+Direction      : encryption
+Testcounter    : 1
+Plaintext      : "hello word"
+ICB            : 0xf0da559ea59ced68b4d657496bee9753c0447d70702af1a351c7577226d97723
+
+Algorithm      : NULL
+Authalgorithm  : SHA384
+Name           : AUTH_SHA2_384_ONLY
+Direction      : encryption
+Testcounter    : 1
+Plaintext      : "hello word"
+ICB            : 0xa58d27ee06211edc7a64f199b7da55fd0fe31d98b2c949f83fbb95bc7fc3114d \
+                   7957ca5a3ec4b489a026356135681782
+
+Algorithm      : NULL
+Authalgorithm  : SHA512
+Name           : AUTH_SHA2_512_ONLY
+Direction      : encryption
+Testcounter    : 1
+Plaintext      : "hello word"
+ICB            : 0x86dfecbd488d84481bdfc5d54f52734fd40298ef68da014095a52889a35a596a \
+                   3e64a9ea64f005caaa4b4d2b11d9a69f12214a31b79bbddc0872fa7561200bd2

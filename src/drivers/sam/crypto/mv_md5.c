@@ -337,9 +337,16 @@ void mv_md5_hmac_iv(unsigned char key[], int key_len,
 	unsigned char   out[64];
 	int             i, max_key_len;
 	MV_MD5_CONTEXT	ctx;
+	unsigned char   key_buf[64];
 
 	max_key_len = 64;
-
+	if (key_len > max_key_len) {
+		/* Hash Key first */
+		memset(key_buf, 0, sizeof(key_buf));
+		mv_md5(key, key_len, key_buf);
+		key = key_buf;
+		key_len = max_key_len;
+	}
 	for (i = 0; i < key_len; i++) {
 		in[i] = 0x36 ^ key[i];
 		out[i] = 0x5c ^ key[i];

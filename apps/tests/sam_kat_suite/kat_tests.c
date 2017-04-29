@@ -50,7 +50,7 @@
 #define MAX_CIPHER_KEY_SIZE		32 /* 256 Bits = 32 Bytes */
 #define MAX_CIPHER_BLOCK_SIZE		32 /* Bytes */
 #define AUTH_BLOCK_SIZE_64B		64 /* Bytes */
-#define MAX_AUTH_BLOCK_SIZE		128 /* Bytes */
+#define MAX_AUTH_KEY_SIZE		1024 /* Bytes */
 #define MAX_AUTH_ICV_SIZE		64 /* Bytes */
 #define MAX_AAD_SIZE			64 /* Bytes */
 
@@ -283,11 +283,11 @@ static int create_sessions(generic_list tests_db)
 				sa_params[i].auth_aad_len = encryptedBlockGetAadLen(block, 0);
 			} else {
 				if (auth_key_len > 0) {
-					u8 auth_key[MAX_AUTH_BLOCK_SIZE];
+					u8 auth_key[MAX_AUTH_KEY_SIZE];
 
-					if (auth_key_len > MAX_AUTH_BLOCK_SIZE) {
+					if (auth_key_len > MAX_AUTH_KEY_SIZE) {
 						printf("auth_key_len %d bytes is too big. Maximum is %d bytes\n",
-							auth_key_len, MAX_AUTH_BLOCK_SIZE);
+							auth_key_len, MAX_AUTH_KEY_SIZE);
 						return -EINVAL;
 					}
 					if (encryptedBlockGetAuthKey(block, auth_key_len, auth_key) !=

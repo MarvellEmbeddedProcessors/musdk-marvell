@@ -297,16 +297,24 @@ void mv_sha1_hmac_iv(unsigned char key[], int key_len,
 {
 	unsigned char   in[64];
 	unsigned char   out[64];
+	unsigned char   key_buf[64];
 	int             i, max_key_len;
 	MV_SHA1_CTX	ctx;
 
 	max_key_len = 64;
 
+	if (key_len > max_key_len) {
+		/* Hash Key first */
+		memset(key_buf, 0, sizeof(key_buf));
+		mv_sha1(key, key_len, key_buf);
+		key = key_buf;
+		key_len = max_key_len;
+	}
 	for (i = 0; i < key_len; i++) {
 		in[i] = 0x36 ^ key[i];
 		out[i] = 0x5c ^ key[i];
 	}
-	for (i = key_len; i < 64; i++) {
+	for (i = key_len; i < max_key_len; i++) {
 		in[i] = 0x36;
 		out[i] = 0x5c;
 	}
