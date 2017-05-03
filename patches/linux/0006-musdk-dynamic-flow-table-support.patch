@@ -1,7 +1,7 @@
-From cc1b7ba5877e9079746c9967c25dbd58088521df Mon Sep 17 00:00:00 2001
+From b6f489bfa7454f7014f09948d8f7053dd630c566 Mon Sep 17 00:00:00 2001
 From: Ehud Naim <ehudn@marvell.com>
 Date: Mon, 2 Jan 2017 11:48:19 +0200
-Subject: [PATCH 8/8] musdk: dynamic flow table support
+Subject: [PATCH 6/6] musdk: dynamic flow table support
 
 every device open read the current place of the diffrent lkp type
 and update the cls_shadow->flow_info
@@ -9,17 +9,17 @@ and update the cls_shadow->flow_info
 Change-Id: Ic8e9b4d85015d8c7bd83c819167d3328adf09453
 Signed-off-by: Ehud Naim <ehudn@marvell.com>
 ---
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   |   11 ++--
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |    2 +
- .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |    1 +
- drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |   66 ++++++++++++++++++++
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   | 11 ++--
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h   |  2 +
+ .../net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h  |  1 +
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c | 66 ++++++++++++++++++++++
  4 files changed, 76 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
-index 9555b1d..7c149730 100644
+index 516d7ba..1ab59e7 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
-@@ -3114,8 +3114,8 @@ void mv_pp2x_cls_flow_write(struct mv_pp2x_hw *hw,
+@@ -3088,8 +3088,8 @@ void mv_pp2x_cls_flow_write(struct mv_pp2x_hw *hw,
  }
  EXPORT_SYMBOL(mv_pp2x_cls_flow_write);
  
@@ -30,7 +30,7 @@ index 9555b1d..7c149730 100644
  {
  	fe->index = index;
  	/*write index*/
-@@ -3125,6 +3125,7 @@ static void mv_pp2x_cls_flow_read(struct mv_pp2x_hw *hw, int index,
+@@ -3099,6 +3099,7 @@ static void mv_pp2x_cls_flow_read(struct mv_pp2x_hw *hw, int index,
  	fe->data[1] = mv_pp2x_read(hw, MVPP2_CLS_FLOW_TBL1_REG);
  	fe->data[2] = mv_pp2x_read(hw, MVPP2_CLS_FLOW_TBL2_REG);
  }
@@ -38,7 +38,7 @@ index 9555b1d..7c149730 100644
  
  /* Update classification lookup table register */
  static void mv_pp2x_cls_lookup_write(struct mv_pp2x_hw *hw,
-@@ -3576,6 +3577,8 @@ int mv_pp2x_cls_init(struct platform_device *pdev, struct mv_pp2x_hw *hw)
+@@ -3550,6 +3551,8 @@ int mv_pp2x_cls_init(struct platform_device *pdev, struct mv_pp2x_hw *hw)
  
  	/* Start from entry 1 to allocate flow table */
  	hw->cls_shadow->flow_free_start = 1;
@@ -47,7 +47,7 @@ index 9555b1d..7c149730 100644
  	for (index = 0; index < (MVPP2_PRS_FL_LAST - MVPP2_PRS_FL_START);
  		index++)
  		hw->cls_shadow->flow_info[index].lkpid = index +
-@@ -5448,7 +5451,7 @@ void mv_pp2x_cls_flow_tbl_temp_copy(struct mv_pp2x_hw *hw, int lkpid,
+@@ -5422,7 +5425,7 @@ void mv_pp2x_cls_flow_tbl_temp_copy(struct mv_pp2x_hw *hw, int lkpid,
  {
  	struct mv_pp2x_cls_flow_entry fe;
  	int index = lkpid - MVPP2_PRS_FL_START;
@@ -56,7 +56,7 @@ index 9555b1d..7c149730 100644
  	struct mv_pp2x_cls_flow_info *flow_info;
  
  	flow_info = &hw->cls_shadow->flow_info[index];
-@@ -5479,7 +5482,7 @@ void mv_pp2x_cls_flow_tbl_temp_copy(struct mv_pp2x_hw *hw, int lkpid,
+@@ -5453,7 +5456,7 @@ void mv_pp2x_cls_flow_tbl_temp_copy(struct mv_pp2x_hw *hw, int lkpid,
  		mv_pp2x_cls_flow_write(hw, &fe);
  	}
  
@@ -66,7 +66,7 @@ index 9555b1d..7c149730 100644
  
  /* C2 rule and Qos table */
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h
-index f8ccac9..fcb417b 100644
+index c980adf..b8971f4 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.h
 @@ -705,6 +705,8 @@ int mv_pp2x_cls_hw_lkp_hit_get(struct mv_pp2x_hw *hw, int lkpid, int way,
@@ -79,10 +79,10 @@ index f8ccac9..fcb417b 100644
  				 int type, int portid);
  int mv_pp2x_cls_sw_flow_hek_num_set(struct mv_pp2x_cls_flow_entry *fe,
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
-index 5ada1c0..5c1b9a0 100644
+index eed174b..a0304de 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
-@@ -2014,6 +2014,7 @@ struct mv_pp2x_cls_shadow {
+@@ -2030,6 +2030,7 @@ struct mv_pp2x_cls_shadow {
  	struct mv_pp2x_cls_flow_info *flow_info;
  	u32 flow_free_start; /* The start of free entry index in flow table */
  	/* TODO: does need a spin_lock for flow_free_start? */
@@ -91,10 +91,10 @@ index 5ada1c0..5c1b9a0 100644
  
  /* Classifier engine2 and QoS structure */
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index 2f08174..f0ca970 100644
+index dd8a6cf..4d7618e 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-@@ -1849,6 +1849,54 @@ static void mv_pp2x_width_calc(struct mv_pp2x_port *port, u32 *cpu_width,
+@@ -1890,6 +1890,54 @@ static void mv_pp2x_width_calc(struct mv_pp2x_port *port, u32 *cpu_width,
  	}
  }
  
@@ -149,7 +149,7 @@ index 2f08174..f0ca970 100644
  /* CoS API */
  
  /* mv_pp2x_cos_classifier_set
-@@ -1931,6 +1979,11 @@ int mv_pp2x_cos_classifier_set(struct mv_pp2x_port *port,
+@@ -1972,6 +2020,11 @@ int mv_pp2x_cos_classifier_set(struct mv_pp2x_port *port,
  		}
  		/* Restore lookup table */
  		flow_idx = data[0];
@@ -161,7 +161,7 @@ index 2f08174..f0ca970 100644
  		for (i = 0; i < j; i++) {
  			if (flow_idx > data[i])
  				flow_idx = data[i];
-@@ -2113,6 +2166,13 @@ int mv_pp22_rss_mode_set(struct mv_pp2x_port *port, int rss_mode)
+@@ -2151,6 +2204,13 @@ int mv_pp22_rss_mode_set(struct mv_pp2x_port *port, int rss_mode)
  	int data[3];
  	struct mv_pp2x_hw *hw = &port->priv->hw;
  	struct mv_pp2x_cls_flow_info *flow_info;
@@ -175,7 +175,7 @@ index 2f08174..f0ca970 100644
  
  	if (port->priv->pp2_cfg.queue_mode == MVPP2_QDIST_SINGLE_MODE)
  		return -1;
-@@ -3574,6 +3634,12 @@ int mv_pp2x_open_cls(struct net_device *dev)
+@@ -3615,6 +3675,12 @@ int mv_pp2x_open_cls(struct net_device *dev)
  		return err;
  	}
  
@@ -189,5 +189,5 @@ index 2f08174..f0ca970 100644
  	err = mv_pp2x_cos_classifier_set(port, cos_classifer);
  	if (err) {
 -- 
-1.7.9.5
+1.9.1
 

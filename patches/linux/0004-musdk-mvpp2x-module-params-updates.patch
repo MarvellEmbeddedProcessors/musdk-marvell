@@ -1,7 +1,7 @@
-From 460f6ecdc9bea9ecd652fa696f9cec4a0a77f400 Mon Sep 17 00:00:00 2001
+From 8606d26bd40eb99b02333042f5cfdc25ee04a30c Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:27:58 +0200
-Subject: [PATCH 6/8] musdk: mvpp2x module params updates
+Subject: [PATCH 4/6] musdk: mvpp2x module params updates
 
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
@@ -9,7 +9,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index ebafdc5..19edb8d 100644
+index f7be8d6..064cffe 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 @@ -76,16 +76,16 @@

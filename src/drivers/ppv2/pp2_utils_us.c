@@ -46,8 +46,9 @@
 static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 {
 	FILE *fp;
-	char path[PP2_MAX_BUF_STR_LEN];
+	char temppath[PP2_MAX_BUF_STR_LEN];
 	char subpath[PP2_MAX_BUF_STR_LEN];
+	char fullpath[PP2_MAX_BUF_STR_LEN];
 	char buf[PP2_MAX_BUF_STR_LEN];
 	int i, j, idx = 0;
 	u8 num_inst;
@@ -62,22 +63,23 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 
 			idx = i * PP2_NUM_ETH_PPIO + j;
 			if (i == 0)
-				/* TODO -We assume that the path is static.
+				/* TODO -We assume that the temppath is static.
 				* Need to substitute this with a function that searches for the following string:
 				* <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories
-				* and returns the path
+				* and returns the temppath
 				*/
-				sprintf(path, PP2_NETDEV_MASTER_PATH);
+				sprintf(temppath, PP2_NETDEV_MASTER_PATH);
 			else
-				sprintf(path, PP2_NETDEV_SLAVE_PATH);
+				sprintf(temppath, PP2_NETDEV_SLAVE_PATH);
 
 			/* Get port status info */
-			sprintf(subpath, "eth%d@0%d0000/status", j, j + 1);
-			strcat(path, subpath);
-
-			fp = fopen(path, "r");
+			sprintf(subpath, "eth%d@0%d0000", j, j + 1);
+			strcat(temppath, subpath);
+			strcpy(fullpath, temppath);
+			strcat(fullpath, "/status");
+			fp = fopen(fullpath, "r");
 			if (!fp) {
-				pr_err("error opening file %s\n", path);
+				pr_err("error opening file %s\n", fullpath);
 				return -EEXIST;
 			}
 
@@ -85,20 +87,34 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 			netdev_params[idx].pp_id = i;
 
 			fgets(buf, sizeof(buf), fp);
+			fclose(fp);
 			if (strcmp("disabled", buf) == 0) {
 				pr_debug("port %d:%d is disabled\n", i, j);
 				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
-			} else if (strcmp("non-kernel", buf) == 0) {
-				pr_debug("port %d:%d is MUSDK\n", i, j);
-				netdev_params[idx].admin_status = PP2_PORT_MUSDK;
-			} else if (strcmp("shared", buf) == 0) {
-				pr_debug("port %d:%d is logical port\n", i, j);
-				netdev_params[idx].admin_status = PP2_PORT_SHARED;
 			} else {
-				pr_debug("port %d:%d is kernel\n", i, j);
-				netdev_params[idx].admin_status = PP2_PORT_KERNEL;
+				/* Get port musdk-status info */
+				strcpy(fullpath, temppath);
+				strcat(fullpath, "/musdk-status");
+				fp = fopen(fullpath, "r");
+				if (!fp) {
+					pr_debug("port %d:%d is kernel\n", i, j);
+					netdev_params[idx].admin_status = PP2_PORT_KERNEL;
+				} else {
+					fgets(buf, sizeof(buf), fp);
+					fclose(fp);
+					if (strcmp("private", buf) == 0) {
+						pr_debug("port %d:%d is MUSDK\n", i, j);
+						netdev_params[idx].admin_status = PP2_PORT_MUSDK;
+					} else if (strcmp("shared", buf) == 0) {
+						pr_debug("port %d:%d is logical port\n", i, j);
+						netdev_params[idx].admin_status = PP2_PORT_SHARED;
+					} else {
+						pr_debug("port %d:%d is kernel\n", i, j);
+						netdev_params[idx].admin_status = PP2_PORT_KERNEL;
+					}
+				}
 			}
-			fclose(fp);
+
 		}
 	}
 	return 0;
