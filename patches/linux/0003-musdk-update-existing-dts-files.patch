@@ -1,4 +1,4 @@
-From 6347a97c872f2cb0569274ad33d47984adad76a0 Mon Sep 17 00:00:00 2001
+From 00b1ee664e500f4c03d72c61ab75a5459cb7fd3b Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:04:48 +0300
 Subject: [PATCH 3/6] musdk: update existing dts files
@@ -6,10 +6,24 @@ Subject: [PATCH 3/6] musdk: update existing dts files
 Change-Id: I674c3f88610270a3c52ba2d384c1052f7d89a38e
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi     | 2 ++
  arch/arm64/boot/dts/marvell/armada-7040-db-A.dts | 1 +
  arch/arm64/boot/dts/marvell/armada-8040-db-A.dts | 2 ++
- 2 files changed, 3 insertions(+)
+ 3 files changed, 5 insertions(+)
 
+diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
+index b152894..3a48e6a 100644
+--- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
+@@ -49,6 +49,8 @@
+ #include <dt-bindings/phy/phy-armada3700-utmi.h>
+ #include <dt-bindings/phy/phy-comphy-mvebu.h>
+
++#include "musdk-armada-37xx.dtsi"
++
+ / {
+ 	model = "Marvell Armada 37xx SoC";
+ 	compatible = "marvell,armada3700";
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
 index 62063f4..77f9e16 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
