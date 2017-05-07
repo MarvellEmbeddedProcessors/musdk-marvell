@@ -154,7 +154,7 @@ uintptr_t pp2_bm_pool_alloc_memory(struct pp2_bm_pool *bm_pool,
  *
  * @retval           0 on success, error otherwise
  */
-int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
+int pp2_bm_pool_destroy(uintptr_t cpu_slot,
 			struct pp2_bm_pool *bm_pool);
 
 /**
@@ -193,39 +193,6 @@ uint32_t pp2_bm_pool_get_id(struct pp2_bm_pool *bm_pool);
  * @retval           BM Pool handle, NULL if not found
  */
 struct pp2_bm_pool *pp2_bm_pool_get_pool_by_id(struct pp2_inst *pp2_inst, uint32_t pool_id);
-
-/**
- * pp2_bm_buf_get
- *
- * Get (allocate from BM) a free buffer which resides
- * in the specified BM Pool associated with the
- * specified BM-IF object
- *
- * @param bm_if      BM-IF handle
- * @param bm_pool    BM Pool handle
- *
- * @retval           Virtual buffer address
- */
-
-uintptr_t pp2_bm_buf_get(struct pp2_bm_if *bm_if,
-			 struct pp2_bm_pool *bm_pool);
-
-/**
- * pp2_bm_buf_put
- *
- * Put (release to BM) a used buffer which resides
- * in the specified BM Pool associated with the
- * specified BM-IF object
- *
- * @param bm_if      BM-IF handle
- * @param bm_pool    BM Pool handle
- * @param bm_buf     BM Pool virtual buffer address
- *
- * @retval           0 on success, error otherwise
- */
-int pp2_bm_buf_put(struct pp2_bm_if *bm_if,
-		   struct pp2_bm_pool *bm_pool,
-				   uintptr_t bm_buf);
 
 /**
  * pp2_bm_pool_assign

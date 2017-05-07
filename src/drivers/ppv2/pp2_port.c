@@ -1111,7 +1111,7 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 					__func__, param_pools[j]->pp2_id, pp2_inst->id);
 				return -1;
 			}
-			pools[index] = pp2_bm_pool_get_pool_by_id(pp2_inst, param_pools[j]->id);
+			pools[index] = pp2_inst->bm_pools[param_pools[j]->id];
 			if (!pools[index]) {
 				pr_err("%s: pool_id[%d] has no matching struct\n", __func__, param_pools[j]->id);
 				return -1;

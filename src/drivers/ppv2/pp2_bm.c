@@ -176,7 +176,7 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	uintptr_t cpu_slot;
 	u32 bppe_num;
 	u32 bppe_size;
-	u32 bppe_region_size, num_bm_pools;
+	u32 bppe_region_size;
 	struct pp2_bm_pool *bm_pool;
 
 	/* FS_A8K Table 1558: Provided buffer numbers divisible by
@@ -262,8 +262,7 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 #if PP2_BM_BUF_DEBUG
 	pp2_bm_pool_print_regs(cpu_slot, bm_pool->bm_pool_id);
 #endif
-	num_bm_pools = pp2->pp2_inst[param->pp2_id]->num_bm_pools++;
-	pp2->pp2_inst[param->pp2_id]->bm_pools[num_bm_pools] = bm_pool;
+	pp2->pp2_inst[param->pp2_id]->bm_pools[bm_pool->bm_pool_id] = bm_pool;
 
 	return 0;
 }
@@ -303,7 +302,7 @@ uint32_t pp2_bm_pool_flush(uintptr_t cpu_slot, uint32_t pool_id)
 	return resid_bufs;
 }
 
-int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
+int pp2_bm_pool_destroy(uintptr_t cpu_slot,
 			struct pp2_bm_pool *bm_pool)
 {
 	u32 pool_id;
@@ -318,25 +317,20 @@ int pp2_bm_pool_destroy(struct pp2_bm_if *bm_if,
 	 * BM stack of virtual addresses by allocating
 	 * every available buffer from this pool
 	 */
-	resid_bufs = pp2_bm_pool_flush(bm_if->cpu_slot, pool_id);
+	resid_bufs = pp2_bm_pool_flush(cpu_slot, pool_id);
 	if (resid_bufs) {
 		pr_debug("BM: could not clear all buffers from pool ID=%u\n", pool_id);
 		pr_debug("BM: total bufs    : %u\n", bm_pool->bm_pool_buf_num);
 		pr_debug("BM: residual bufs : %u\n", resid_bufs);
 	}
 
-	pp2_bm_hw_pool_destroy(bm_if->cpu_slot, pool_id);
+	pp2_bm_hw_pool_destroy(cpu_slot, pool_id);
 
 	mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
 
 	kfree(bm_pool);
 
 	return 0;
-}
-
-uintptr_t pp2_bm_buf_get(struct pp2_bm_if *bm_if, struct pp2_bm_pool *pool)
-{
-	return pp2_bm_hw_buf_get(bm_if->cpu_slot, pool->bm_pool_id);
 }
 
 void pp2_bm_pool_assign(struct pp2_port *port, uint32_t pool_id,
@@ -367,12 +361,6 @@ uint32_t pp2_bm_pool_get_id(struct pp2_bm_pool *pool)
 
 struct pp2_bm_pool *pp2_bm_pool_get_pool_by_id(struct pp2_inst *pp2_inst, uint32_t pool_id)
 {
-	u32 i;
-
-	for (i = 0; i < pp2_inst->num_bm_pools; i++)
-		if (pool_id == pp2_inst->bm_pools[i]->bm_pool_id)
-			return pp2_inst->bm_pools[i];
-
-	return NULL;
+	return pp2_inst->bm_pools[pool_id];
 }
 

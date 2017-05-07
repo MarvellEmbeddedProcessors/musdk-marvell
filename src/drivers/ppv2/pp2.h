@@ -207,24 +207,6 @@ struct pp2_rx_queue {
 	u32 threshold_rx_pkts;
 };
 
-/**
- * Buffer Manager object (BM-IF) internal layout
- *
- * Up to 9 per packet processor. At run-time, each
- * BM uses a dedicated CPU slot. Each thread that uses
- * BM pools should use a dedicated BM-IF in order to
- * avoid locks on data-path. Multiple BM-IFs can
- * share a BM pool
- */
-struct pp2_bm_if {
-	/* Parent packet processor */
-	struct pp2_inst *parent;
-	/* CPU slot address assigned to this BM object */
-	uintptr_t cpu_slot;
-	/* Slot number relativ to Packet Processor */
-	u32 slot_id;
-};
-
 #define PP2_BM_BUF_DEBUG             (FALSE)
 
 /* Per-BP mandatory alignment */
@@ -459,7 +441,6 @@ struct pp2_inst {
 	u32 num_ports;
 	struct pp2_port *ports[PP2_NUM_PORTS];
 	/* BM Pools associated */
-	u32 num_bm_pools;
 	struct pp2_bm_pool *bm_pools[PP2_BPOOL_NUM_POOLS];
 	/* DM objects associated */
 	u32 num_dm_ifs;

@@ -98,6 +98,7 @@ void pp2_bpool_deinit(struct pp2_bpool *pool)
 	uintptr_t cpu_slot;
 	int pool_id;
 	u32 buf_num;
+	struct pp2_bm_pool *bm_pool;
 
 	cpu_slot = GET_HW_BASE(pool)[PP2_DEFAULT_REGSPACE].va;
 	pool_id = pool->id;
@@ -106,10 +107,18 @@ void pp2_bpool_deinit(struct pp2_bpool *pool)
 	pp2_bpool_get_num_buffs(pool, &buf_num);
 	if (buf_num) {
 		pr_warn("cannot free all buffers in pool %d, buf_num left %d\n",
-			pool->id,
+			pool_id,
 			buf_num);
 	}
-	pp2_bm_hw_pool_destroy(cpu_slot, pool_id);
+
+	bm_pool = pp2_bm_pool_get_pool_by_id(pp2_ptr->pp2_inst[pool->pp2_id], pool_id);
+
+	if (bm_pool && !pp2_bm_pool_destroy(cpu_slot, bm_pool))
+		pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool_id] = NULL;
+	else
+		pr_err("[%s] Can not destroy pool_id-%d:%d !\n", __func__,
+			pool->pp2_id, pool_id);
+
 }
 
 /*TODO, move #define to correct file, maybe already exist in Linux...*/
