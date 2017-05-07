@@ -109,7 +109,15 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 
 void pp2_ppio_deinit(struct pp2_ppio *ppio)
 {
-	pp2_port_close(GET_PPIO_PORT(ppio));
+	struct pp2_port **port_ptr = NULL;
+
+	port_ptr = GET_PPIO_PORT_PTR(ppio_array[ppio->pp2_id][ppio->port_id]);
+
+	if (*port_ptr) {
+		pp2_port_close(*port_ptr);
+		*port_ptr = NULL;
+	} else
+		pr_err("[%s] ppio deinit failed close port %d:%d\n", __func__, ppio->pp2_id, ppio->port_id);
 }
 
 int pp2_ppio_enable(struct pp2_ppio *ppio)
