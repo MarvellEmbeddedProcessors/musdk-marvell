@@ -1681,8 +1681,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 {
 	struct pp2_cls_table_node *tbl_node;
 
-	app_disable_all_ports(garg->ports_desc, garg->num_ports,
-			      CLS_APP_MAX_NUM_TCS_PER_PORT, MVAPPS_MAX_NUM_QS_PER_TC);
+	app_disable_all_ports(garg->ports_desc, garg->num_ports);
 	app_free_all_pools(garg->pools_desc, garg->num_pools, garg->hif);
 	app_deinit_all_ports(garg->ports_desc, garg->num_ports);
 

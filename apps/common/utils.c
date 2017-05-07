@@ -628,14 +628,14 @@ void app_port_local_deinit(struct lcl_port_desc *lcl_port)
 	free(lcl_port->shadow_qs);
 }
 
-static void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs)
+static void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs[])
 {
 	struct pp2_ppio_desc	descs[MVAPPS_MAX_BURST_SIZE];
 	u8			tc = 0, qid = 0;
 	u16			num;
 
 	for (tc = 0; tc < num_tcs; tc++) {
-		for (qid = 0; qid < num_inqs; qid++) {
+		for (qid = 0; qid < num_inqs[tc]; qid++) {
 			num = MVAPPS_MAX_BURST_SIZE;
 			while (num) {
 				pp2_ppio_recv(port, tc, qid, descs, &num);
@@ -645,14 +645,14 @@ static void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs)
 	}
 }
 
-void app_disable_all_ports(struct port_desc *ports, int num_ports, u16 num_tcs, u16 num_inqs)
+void app_disable_all_ports(struct port_desc *ports, int num_ports)
 {
 	int i;
 
 	for (i = 0;  i < num_ports; i++) {
 		if (ports[i].ppio) {
 			pp2_ppio_disable(ports[i].ppio);
-			free_rx_queues(ports[i].ppio, num_tcs, num_inqs);
+			free_rx_queues(ports[i].ppio, ports[i].num_tcs, ports[i].num_inqs);
 		}
 	}
 }

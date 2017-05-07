@@ -245,7 +245,7 @@ void app_port_local_deinit(struct lcl_port_desc *lcl_port);
 /*
  * Disable all ports
  */
-void app_disable_all_ports(struct port_desc *ports, int num_ports, u16 num_tcs, u16 num_inqs);
+void app_disable_all_ports(struct port_desc *ports, int num_ports);
 
 /* TODO: may be need to move to other file */
 /*
