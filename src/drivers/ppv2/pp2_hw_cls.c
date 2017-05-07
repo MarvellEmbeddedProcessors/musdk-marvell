@@ -2374,7 +2374,6 @@ int pp2_rss_c2_enable(struct pp2_port *port, int en)
 
 			mv_pp2x_c2_sw_clear(&c2);
 			mv_pp2x_cls_c2_hw_read(hw->base[0].va, index, &c2);
-			mv_pp2x_c2_sw_dump(&c2);
 		}
 	}
 	return 0;
