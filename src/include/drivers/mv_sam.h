@@ -59,6 +59,10 @@ struct sam_capability {
 	u32 auth_algos;	  /** Bit mask of supported authentication algorithms as defined in "enum sam_auth_alg" */
 };
 
+struct sam_init_params {
+	u32 max_num_sessions; /** Maximum number of concurrent sessions can be created */
+};
+
 /**
  * Return supported algorithms and modes for encryption and authentication.
  *
@@ -75,5 +79,35 @@ int sam_get_capability(struct sam_capability *capa);
  * @retval      number of crypto engines
  */
 u8 sam_get_num_inst(void);
+
+/**
+ * Set debug flags.
+ *
+ * To enable debug information of the SAM driver,
+ *	use "--enable-sam-debug" flag during ./configure
+ *
+ * @param[in]     flags    - debug flags.
+ *                         0x1 - SA, 0x2 - CIO. (default: 0x0)
+ *
+ * @retval      0          - debug flags are set
+ * @retval	-ENOTSUP   - debug flags are not supported
+ */
+int sam_set_debug_flags(u32 flags);
+
+/**
+ * Init SAM driver and allocate global resources.
+ *
+ * @param[in]     params   - pointer to structure with SAM driver
+ *                           initialization parameters.
+ *
+ * @retval      0          - success
+ * @retval	-EINVAL    - failure
+ */
+int sam_init(struct sam_init_params *params);
+
+/**
+ * Deinit SAM driver and free global resources.
+ */
+void sam_deinit(void);
 
 #endif /* __MV_SAM_H__ */

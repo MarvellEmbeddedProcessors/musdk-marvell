@@ -72,7 +72,7 @@
 #define CRYPT_APP_FIRST_INQ			0
 #define CRYPT_APP_MAX_NUM_TCS_PER_PORT		1
 #define CRYPT_APP_MAX_NUM_QS_PER_CORE		CRYPT_APP_MAX_NUM_TCS_PER_PORT
-#define CRYPT_APP_MAX_NUM_SESSIONS_PER_RING	4
+#define CRYPT_APP_MAX_NUM_SESSIONS		32
 #define CRYPT_APP_SAM_TWO_ENG_SUPPORT
 
 /* TODO: find more generic way to get the following parameters */
@@ -807,9 +807,7 @@ static int init_all_modules(void)
 	return 0;
 }
 
-static int create_sam_sessions(struct sam_cio		*enc_cio,
-			       struct sam_cio		*dec_cio,
-			       struct sam_sa		**enc_sa,
+static int create_sam_sessions(struct sam_sa		**enc_sa,
 			       struct sam_sa		**dec_sa,
 			       enum sam_cipher_alg	 cipher_alg,
 			       enum sam_cipher_mode	 cipher_mode,
@@ -855,7 +853,7 @@ static int create_sam_sessions(struct sam_cio		*enc_cio,
 	}
 	sa_params.u.basic.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
 
-	err = sam_session_create(enc_cio, &sa_params, enc_sa);
+	err = sam_session_create(&sa_params, enc_sa);
 	if (err) {
 		pr_err("EnC SA creation failed (%d)!\n", err);
 		return err;
@@ -866,7 +864,7 @@ static int create_sam_sessions(struct sam_cio		*enc_cio,
 	}
 
 	sa_params.dir = SAM_DIR_DECRYPT;   /* operation direction: decode */
-	err = sam_session_create(dec_cio, &sa_params, dec_sa);
+	err = sam_session_create(&sa_params, dec_sa);
 	if (err) {
 		pr_err("DeC SA creation failed (%d)!\n", err);
 		return err;
@@ -898,6 +896,7 @@ static void destroy_sam_sessions(struct sam_cio		*enc_cio,
 
 static int init_local_modules(struct glob_arg *garg)
 {
+	struct sam_init_params		init_params;
 	struct sam_cio_params		cio_params;
 	char				name[15];
 	int				err, port_index, cio_id;
@@ -957,6 +956,10 @@ static int init_local_modules(struct glob_arg *garg)
 	 * to enforce the initialization of the engine.
 	 * TODO: in the future, replace the below code with appropraite initialization of the engine.
 	 */
+
+	init_params.max_num_sessions = CRYPT_APP_MAX_NUM_SESSIONS;
+	sam_init(&init_params);
+
 	cio_id = find_free_cio(0);
 	if (cio_id < 0) {
 		pr_err("free CIO not found!\n");
@@ -968,8 +971,6 @@ static int init_local_modules(struct glob_arg *garg)
 	memset(&cio_params, 0, sizeof(cio_params));
 	cio_params.match = name;
 	cio_params.size = CRYPT_APP_CIO_Q_SIZE;
-	cio_params.num_sessions = CRYPT_APP_MAX_NUM_SESSIONS_PER_RING;
-	cio_params.max_buf_size = garg->mtu + 64;
 	err = sam_cio_init(&cio_params, &garg->cio);
 	if (err != 0)
 		return err;
@@ -993,6 +994,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 
 static void destroy_all_modules(void)
 {
+	sam_deinit();
 	pp2_deinit();
 	mv_sys_dma_mem_destroy();
 }
@@ -1212,8 +1214,6 @@ static int init_local(void *arg, int id, void **_larg)
 		memset(&cio_params, 0, sizeof(cio_params));
 		cio_params.match = name;
 		cio_params.size = CRYPT_APP_CIO_Q_SIZE;
-		cio_params.num_sessions = CRYPT_APP_MAX_NUM_SESSIONS_PER_RING;
-		cio_params.max_buf_size = garg->mtu + 64;
 		err = sam_cio_init(&cio_params, &larg->enc_cio);
 		pthread_mutex_unlock(&garg->trd_lock);
 		if (err != 0)
@@ -1238,8 +1238,6 @@ static int init_local(void *arg, int id, void **_larg)
 		memset(&cio_params, 0, sizeof(cio_params));
 		cio_params.match = name;
 		cio_params.size = CRYPT_APP_CIO_Q_SIZE;
-		cio_params.num_sessions = CRYPT_APP_MAX_NUM_SESSIONS_PER_RING;
-		cio_params.max_buf_size = garg->mtu + 64;
 		err = sam_cio_init(&cio_params, &larg->dec_cio);
 		pthread_mutex_unlock(&garg->trd_lock);
 		if (err != 0)
@@ -1263,9 +1261,7 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->pools_desc             = garg->pools_desc;
 
-	err = create_sam_sessions(larg->enc_cio,
-				  larg->dec_cio,
-				  &larg->enc_sa,
+	err = create_sam_sessions(&larg->enc_sa,
 				  &larg->dec_sa,
 				  garg->cipher_alg,
 				  garg->cipher_mode,
@@ -1292,6 +1288,7 @@ static void deinit_local(void *arg)
 {
 	struct local_arg *larg = (struct local_arg *)arg;
 	struct sam_cio_stats cio_stats;
+	struct sam_session_stats sa_stats;
 	int i;
 
 	if (!larg)
@@ -1299,18 +1296,23 @@ static void deinit_local(void *arg)
 
 	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
 
-	if (!sam_cio_stats_get(larg->enc_cio, &cio_stats, 1)) {
+	if (!sam_cio_get_stats(larg->enc_cio, &cio_stats, 1)) {
 		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
 		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
 		printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
 		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
 		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
 		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
-		printf("Created sessions            : %lu\n", cio_stats.sa_add);
-		printf("Deleted sessions:	    : %lu\n", cio_stats.sa_del);
-		printf("Invalidated sessions:	    : %lu\n", cio_stats.sa_inv);
 	} else {
-		printf("Failed to get sam_cio_stats_get!!!\n");
+		printf("Failed to get cio statistics!!!\n");
+	}
+
+	if (!sam_session_get_stats(&sa_stats, 1)) {
+		printf("Created sessions            : %lu\n", sa_stats.sa_add);
+		printf("Deleted sessions:	    : %lu\n", sa_stats.sa_del);
+		printf("Invalidated sessions:	    : %lu\n", sa_stats.sa_inv);
+	} else {
+		printf("Failed to get session statistics!!!\n");
 	}
 
 	if (larg->ports_desc) {

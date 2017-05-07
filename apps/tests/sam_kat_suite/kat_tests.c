@@ -302,7 +302,7 @@ static int create_sessions(generic_list tests_db)
 				}
 			}
 		}
-		if (sam_session_create(cio_hndl, &sa_params[i], &sa_hndl[i])) {
+		if (sam_session_create(&sa_params[i], &sa_hndl[i])) {
 			printf("%s: failed\n", __func__);
 			return -1;
 		}
@@ -785,8 +785,10 @@ static int parse_args(int argc, char *argv[])
 
 int main(int argc, char **argv)
 {
+	struct sam_init_params init_params;
 	struct sam_cio_params cio_params;
 	struct sam_cio_stats cio_stats;
+	struct sam_session_stats sa_stats;
 	int rc;
 
 	rc = parse_args(argc, argv);
@@ -799,8 +801,6 @@ int main(int argc, char **argv)
 		return rc;
 	}
 
-	cio_params.match = sam_match_str;
-
 	test_db = generic_list_create(fileSetsEncryptedBlockCopyForList,
 				      fileSetsEncryptedBlockDestroyForList);
 	if (test_db == NULL) {
@@ -812,9 +812,11 @@ int main(int argc, char **argv)
 		printf("Can't read tests from file %s\n", sam_tests_file);
 		return -1;
 	}
+	init_params.max_num_sessions = NUM_CONCURRENT_SESSIONS;
+	sam_init(&init_params);
+
+	cio_params.match = sam_match_str;
 	cio_params.size = NUM_CONCURRENT_REQUESTS;
-	cio_params.num_sessions = NUM_CONCURRENT_SESSIONS;
-	cio_params.max_buf_size = MAX_BUFFER_SIZE;
 
 	if (sam_cio_init(&cio_params, &cio_hndl)) {
 		printf("%s: initialization failed\n", argv[0]);
@@ -822,13 +824,13 @@ int main(int argc, char **argv)
 	}
 	printf("%s successfully loaded\n", argv[0]);
 
-	sam_cio_debug_flags_set(cio_hndl, debug_flags);
+	sam_set_debug_flags(debug_flags);
 
 	if (create_sessions(test_db))
 		goto exit;
 
 	/* allocate in_buf and out_bufs */
-	if (allocate_bufs(cio_params.max_buf_size))
+	if (allocate_bufs(MAX_BUFFER_SIZE))
 		goto exit;
 
 	signal(SIGINT, sigint_h);
@@ -841,21 +843,25 @@ exit:
 
 	free_bufs();
 
-	if (!sam_cio_stats_get(cio_hndl, &cio_stats, true)) {
+	if (!sam_cio_get_stats(cio_hndl, &cio_stats, true)) {
 		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
 		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
 		printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
 		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
 		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
 		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
-		printf("Created sessions            : %lu\n", cio_stats.sa_add);
-		printf("Deleted sessions:	    : %lu\n", cio_stats.sa_del);
-		printf("Invalidated sessions:	    : %lu\n", cio_stats.sa_inv);
+	}
+	if (!sam_session_get_stats(&sa_stats, true)) {
+		printf("Created sessions            : %lu\n", sa_stats.sa_add);
+		printf("Deleted sessions:	    : %lu\n", sa_stats.sa_del);
+		printf("Invalidated sessions:	    : %lu\n", sa_stats.sa_inv);
 	}
 	if (sam_cio_deinit(cio_hndl)) {
 		printf("%s: un-initialization failed\n", argv[0]);
 		return 1;
 	}
+	sam_deinit();
+
 	printf("%s successfully unloaded\n", argv[0]);
 	return 0;
 }

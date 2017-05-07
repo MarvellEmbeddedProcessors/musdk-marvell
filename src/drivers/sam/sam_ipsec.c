@@ -37,7 +37,7 @@
 #include "drivers/mv_sam_cio.h"
 #include "sam.h"
 
-int sam_cio_ipsec_enq(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num)
+int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num)
 {
 	return 0;
 }

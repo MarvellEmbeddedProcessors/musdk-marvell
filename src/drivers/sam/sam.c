@@ -42,9 +42,15 @@
 
 #include "sam.h"
 
+u32 sam_debug_flags;
+
 static bool		sam_initialized;
 static int		sam_active_cios;
 static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
+static int		sam_num_sessions;
+static struct sam_sa	*sam_sessions;
+static struct sam_session_stats sam_sa_stats;
+
 
 static int sam_cio_free_idx_get(void)
 {
@@ -64,6 +70,7 @@ int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf)
 		pr_err("Can't allocate input DMA buffer of %d bytes\n", buf_size);
 		return -ENOMEM;
 	}
+	memset(dma_buf->vaddr, 0, buf_size);
 	dma_buf->paddr = mv_sys_dma_mem_virt2phys(dma_buf->vaddr);
 	dma_buf->len = buf_size;
 
@@ -76,14 +83,14 @@ void sam_dma_buf_free(struct sam_buf_info *dma_buf)
 		mv_sys_dma_mem_free(dma_buf->vaddr);
 }
 
-static struct sam_sa *sam_session_alloc(struct sam_cio *cio)
+static struct sam_sa *sam_session_alloc(void)
 {
 	int i;
 
-	for (i = 0; i < cio->params.num_sessions; i++) {
-		if (!cio->sessions[i].is_valid) {
-			cio->sessions[i].is_valid = true;
-			return &cio->sessions[i];
+	for (i = 0; i < sam_num_sessions; i++) {
+		if (!sam_sessions[i].is_valid) {
+			sam_sessions[i].is_valid = true;
+			return &sam_sessions[i];
 		}
 	}
 	pr_err("All sessions are busy\n");
@@ -199,7 +206,7 @@ static int sam_session_auth_init(struct sam_sa *session,
 	return 0;
 }
 
-static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
+static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params *request,
 				  struct sam_cio_op *operation)
 {
 	struct sam_sa *session = request->sa;
@@ -234,7 +241,7 @@ static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
 		token_params.AdditionalValue = request->auth_len - request->cipher_len;
 
 #ifdef MVCONF_SAM_DEBUG
-	if (session->cio->debug_flags & SAM_CIO_DEBUG_FLAG)
+	if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
 		print_token_params(&token_params);
 #endif /* MVCONF_SAM_DEBUG */
 
@@ -252,18 +259,25 @@ static int sam_hw_cmd_token_build(struct sam_cio_op_params *request,
 
 	/* Enable Context Reuse auto detect if no new SA */
 	operation->token_header_word &= ~SAM_TOKEN_REUSE_CONTEXT_MASK;
-	if (session->is_first)
-		session->is_first = false;
-	else
+	if (session->cio != cio) {
+#ifdef MVCONF_SAM_DEBUG
+		if (session->cio != NULL)
+			pr_warn("Session is moved from cio=%d:%d to cio=%d:%d\n",
+				session->cio->hw_ring.engine, session->cio->hw_ring.ring,
+				cio->hw_ring.engine, cio->hw_ring.ring);
+#endif
+		session->cio = cio;
+	} else
 		operation->token_header_word |= SAM_TOKEN_REUSE_AUTO_MASK;
 
 	operation->copy_len = copylen;
 
 #ifdef MVCONF_SAM_DEBUG
-	if (session->cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
+	if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
 		print_sam_cio_operation_info(operation);
 
-		printf("\nToken DMA buffer: %d bytes\n", operation->token_words * 4);
+		printf("\nToken DMA buffer: %d bytes, physAddr = %p\n",
+			operation->token_words * 4, (void *)operation->token_buf.paddr);
 		mv_mem_dump(operation->token_buf.vaddr, operation->token_words * 4);
 	}
 #endif /* MVCONF_SAM_DEBUG */
@@ -304,12 +318,64 @@ u8 sam_get_num_inst(void)
 	return num;
 }
 
+int sam_init(struct sam_init_params *params)
+{
+	int i;
+	u32 num_sessions = params->max_num_sessions;
+
+	if (sam_initialized) {
+		pr_warn("SAM driver already initialized\n");
+		return -EINVAL;
+	}
+	/* Allocate configured number of sam_sa structures */
+	sam_sessions = kcalloc(num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
+	if (!sam_sessions) {
+		pr_err("Can't allocate %u * %lu bytes for sam_sa structures\n",
+			num_sessions, sizeof(struct sam_sa));
+		goto err;
+	}
+
+	/* Allocate DMA buffer for each session */
+	for (i = 0; i < num_sessions; i++) {
+		if (sam_dma_buf_alloc(SAM_SA_DMABUF_SIZE, &sam_sessions[i].sa_buf)) {
+			pr_err("DMA buffers (%d bytes) allocated only for %d of %d sessions\n",
+				SAM_SA_DMABUF_SIZE, i, num_sessions);
+			num_sessions = i;
+			break;
+		}
+	}
+	pr_info("DMA buffers allocated for %d sessions (%d bytes)\n",
+		num_sessions, SAM_SA_DMABUF_SIZE);
+
+	sam_num_sessions = num_sessions;
+	sam_initialized = true;
+	return 0;
+err:
+	/* Release all allocated resources */
+	sam_deinit();
+
+	return -ENOMEM;
+}
+
+void sam_deinit(void)
+{
+	int i;
+
+	if (sam_sessions) {
+		for (i = 0; i < sam_num_sessions; i++)
+			if (sam_sessions[i].is_valid)
+				pr_warn("All sessions must be deleted before %s called\n", __func__);
+			sam_dma_buf_free(&sam_sessions[i].sa_buf);
+
+		kfree(sam_sessions);
+	}
+	sam_initialized = true;
+}
+
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
 	int i, engine, ring, cio_idx, scanned;
 	struct sam_cio	*local_cio;
-
-	sam_initialized = true;
 
 	/* Parse match string to ring number */
 	scanned = sscanf(params->match, "cio-%d:%d\n", &engine, &ring);
@@ -343,25 +409,6 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	sam_cios[cio_idx] = local_cio;
 	local_cio->idx = cio_idx;
 	sam_active_cios++;
-
-	/* Allocate configured number of sam_sa structures */
-	local_cio->sessions = kcalloc(params->num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
-	if (!local_cio->sessions) {
-		pr_err("Can't allocate %u * %lu bytes for sam_sa structures\n",
-			params->num_sessions, sizeof(struct sam_sa));
-		goto err;
-	}
-
-	/* Allocate DMA buffer for each session */
-	for (i = 0; i < params->num_sessions; i++) {
-		if (sam_dma_buf_alloc(SAM_SA_DMABUF_SIZE, &local_cio->sessions[i].sa_buf)) {
-			pr_err("Can't allocate DMA buffer (%d bytes) for Session #%d\n",
-				SAM_SA_DMABUF_SIZE, i);
-			goto err;
-		}
-	}
-	pr_info("DMA buffers allocated for %d sessions (%d bytes)\n",
-		params->num_sessions, SAM_SA_DMABUF_SIZE);
 
 	/* Allocate array of sam_cio_op structures in size of CIO ring */
 	local_cio->operations = kcalloc(params->size, sizeof(struct sam_cio_op), GFP_KERNEL);
@@ -419,49 +466,12 @@ int sam_cio_flush(struct sam_cio *cio)
 	return 0;
 }
 
-static int sam_cio_delete_all_sessions(struct sam_cio *cio)
-{
-	int i, rc = 0, count = 0;
-
-	i = 0;
-	while (i < cio->params.num_sessions) {
-		if (cio->sessions[i].is_valid) {
-			if (sam_session_destroy(&cio->sessions[i])) {
-				/* No more place in CIO. Flush and delete other sessions */
-				rc = sam_cio_flush(cio);
-				if (rc) /* Timeout */
-					break;
-
-				continue;
-			}
-			count++;
-		}
-		i++;
-	}
-
-	if (count) {
-		rc = sam_cio_flush(cio);
-		printf("%d sessions deleted\n", count);
-	}
-	return rc;
-}
-
 int sam_cio_deinit(struct sam_cio *cio)
 {
 	int i;
 
 	if (!cio)
 		return 0;
-
-	if (cio->sessions) {
-		sam_cio_delete_all_sessions(cio);
-
-		for (i = 0; i < cio->params.num_sessions; i++)
-			sam_dma_buf_free(&cio->sessions[i].sa_buf);
-
-		kfree(cio->sessions);
-		cio->sessions = NULL;
-	}
 
 	if (cio->operations) {
 		for (i = 0; i < cio->params.size; i++)
@@ -485,14 +495,14 @@ int sam_cio_deinit(struct sam_cio *cio)
 	return 0;
 }
 
-int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, struct sam_sa **sa)
+int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 {
 	SABuilder_Direction_t direction = (SABuilder_Direction_t)params->dir;
 	struct sam_sa *session;
 	int rc;
 
 	/* Find free session structure */
-	session = sam_session_alloc(cio);
+	session = sam_session_alloc();
 	if (!session) {
 		pr_err("%s: Can't get free session\n", __func__);
 		return -EBUSY;
@@ -515,7 +525,7 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 		goto error_session;
 
 #ifdef MVCONF_SAM_DEBUG
-	if (cio->debug_flags & SAM_SA_DEBUG_FLAG) {
+	if (sam_debug_flags & SAM_SA_DEBUG_FLAG) {
 		print_sam_sa_params(params);
 		if (params->cipher_key) {
 			printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
@@ -592,7 +602,7 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	sam_htole32_multi(session->sa_buf.vaddr, session->sa_words);
 
 #ifdef MVCONF_SAM_DEBUG
-	if (cio->debug_flags & SAM_SA_DEBUG_FLAG) {
+	if (sam_debug_flags & SAM_SA_DEBUG_FLAG) {
 		print_sa_params(&session->sa_params);
 		print_basic_sa_params(&session->basic_params);
 		printf("\nSA DMA buffer: %d bytes\n", session->sa_words * 4);
@@ -600,10 +610,10 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params, s
 	}
 #endif /* MVCONF_SAM_DEBUG */
 
-	SAM_STATS(cio->stats.sa_add++);
+	SAM_STATS(sam_sa_stats.sa_add++);
 
 	session->is_first = true;
-	session->cio = cio;
+	session->cio = NULL;
 	*sa = session;
 
 	return 0;
@@ -618,10 +628,10 @@ int sam_session_destroy(struct sam_sa *session)
 	struct sam_cio *cio = session->cio;
 	struct sam_cio_op *operation;
 
-	if (cio->hw_ring.type == HW_EIP197) {
+	if (cio && (cio->hw_ring.type == HW_EIP197)) {
 		/* Check maximum number of pending requests */
 		if (sam_cio_is_full(cio)) {
-			SAM_STATS(cio->stats.enq_full++);
+			SAM_STATS(session->cio->stats.enq_full++);
 			return -EINVAL;
 		}
 
@@ -631,13 +641,13 @@ int sam_session_destroy(struct sam_sa *session)
 		operation->num_bufs = 0;
 
 		/* Invalidate session in HW */
-		sam_hw_session_invalidate(&cio->hw_ring, &session->sa_buf, cio->next_request);
-		SAM_STATS(cio->stats.sa_inv++);
+		sam_hw_session_invalidate(&session->cio->hw_ring, &session->sa_buf, cio->next_request);
+		SAM_STATS(sam_sa_stats.sa_inv++);
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 	} else {
 		sam_session_free(session);
-		SAM_STATS(cio->stats.sa_del++);
+		SAM_STATS(sam_sa_stats.sa_del++);
 	}
 	return 0;
 }
@@ -686,14 +696,14 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			break;
 		}
 #ifdef MVCONF_SAM_DEBUG
-		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG)
+		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
 			print_sam_cio_op_params(request);
 #endif /* MVCONF_SAM_DEBUG */
 
 		/* Get next operation structure */
 		operation = &cio->operations[cio->next_request];
 
-		if (sam_hw_cmd_token_build(request, operation))
+		if (sam_hw_cmd_token_build(cio, request, operation))
 			goto error_enq;
 
 		/* Save some fields from request needed for result processing */
@@ -719,7 +729,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		}
 
 #ifdef MVCONF_SAM_DEBUG
-		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
+		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
 			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_result);
 
 			print_cmd_desc(cmd_desc);
@@ -768,19 +778,19 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	while ((i < done) && (count < todo)) {
 		res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
 
-#ifdef MVCONF_SAM_DEBUG
-		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG)
-			print_result_desc(res_desc);
-#endif
 		i++;
 		operation = &cio->operations[cio->next_result];
 		if (operation->num_bufs == 0) {
 			/* Inalidate cache entry finished - free session */
 			sam_session_free(operation->sa);
-			SAM_STATS(cio->stats.sa_del++);
+			SAM_STATS(sam_sa_stats.sa_del++);
 			cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 			continue;
 		}
+#ifdef MVCONF_SAM_DEBUG
+		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
+			print_result_desc(res_desc);
+#endif
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 		if (!result) /* Flush cio */
@@ -800,7 +810,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		}
 
 #ifdef MVCONF_SAM_DEBUG
-		if (cio->debug_flags & SAM_CIO_DEBUG_FLAG) {
+		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
 			printf("\nOutput DMA buffer: %d bytes\n", out_len);
 			mv_mem_dump(operation->out_frags[0].vaddr, out_len);
 		}
@@ -819,17 +829,31 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	return 0;
 }
 
-int sam_cio_debug_flags_set(struct sam_cio *cio, u32 debug_flags)
+int sam_set_debug_flags(u32 debug_flags)
 {
 #ifdef MVCONF_SAM_DEBUG
-	cio->debug_flags = debug_flags;
+	sam_debug_flags = debug_flags;
 	return 0;
 #else
 	return -ENOTSUP;
 #endif /* MVCONF_SAM_STATS */
 }
 
-int sam_cio_stats_get(struct sam_cio *cio, struct sam_cio_stats *stats, int reset)
+int sam_session_get_stats(struct sam_session_stats *stats, int reset)
+{
+#ifdef MVCONF_SAM_STATS
+	memcpy(stats, &sam_sa_stats, sizeof(sam_sa_stats));
+
+	if (reset)
+		memset(&sam_sa_stats, 0, sizeof(sam_sa_stats));
+
+	return 0;
+#else
+	return -ENOTSUP;
+#endif /* MVCONF_SAM_STATS */
+}
+
+int sam_cio_get_stats(struct sam_cio *cio, struct sam_cio_stats *stats, int reset)
 {
 #ifdef MVCONF_SAM_STATS
 	memcpy(stats, &cio->stats, sizeof(cio->stats));

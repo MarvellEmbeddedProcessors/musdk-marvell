@@ -112,6 +112,12 @@ struct sam_session_basic_params {
 	u32 auth_aad_len;                /**< Additional Data (AAD) size (in bytes) */
 };
 
+struct sam_session_stats {
+	u64 sa_add;	/**< Number of added sessions */
+	u64 sa_del;	/**< Number of deleted sessions */
+	u64 sa_inv;	/**< Number of invalidated sessions */
+};
+
 /** IPSEC tunnel parameters: supports IPv4 and IPv6 tunnels */
 struct sam_sa_ipsec_tunnel {
 	union {
@@ -185,14 +191,13 @@ struct sam_session_params {
 /**
  * Create new crypto session
  *
- * @param[in]	cio       - crypto IO instance handler.
  * @param[in]	params    - pointer to structure with crypto session parameters.
  * @param[out]	sa        - address of place to save handler of new created crypto session.
  *
  * @retval	0         - success
  * @retval	Negative  - failure
  */
-int sam_session_create(struct sam_cio *cio, struct sam_session_params *params,
+int sam_session_create(struct sam_session_params *params,
 		       struct sam_sa **sa);
 
 /**
@@ -204,6 +209,21 @@ int sam_session_create(struct sam_cio *cio, struct sam_session_params *params,
  * @retval	Negative  - failure
  */
 int sam_session_destroy(struct sam_sa *sa);
+
+/**
+ * Get statistics collected for sessions.
+ *
+ * To enable collect statistics capability of the SAM driver,
+ *	use "--enable-sam-statistics" flag during ./configure
+ *
+ * @param[out]    stats    - pointer to copy statistics.
+ * @param[in]     reset    - 0    : don't reset statistics after copy.
+ *			     other: reset statistics after copy.
+ *
+ * @retval      0          - statistics are valid
+ * @retval	-ENOTSUP   - statistics are not supported
+ */
+int sam_session_get_stats(struct sam_session_stats *stats, int reset);
 
 /** @} */ /* end of grp_sam_se */
 

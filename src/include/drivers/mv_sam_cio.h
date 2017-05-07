@@ -50,8 +50,6 @@
 struct sam_cio_params {
 	const char *match; /**< SAM HW string in DTS file. e.g. "cio-0:0" */
 	u32 size;          /**< ring size in number of descriptors */
-	u32 num_sessions;  /**< number of supported sessions */
-	u32 max_buf_size;  /**< maximum buffer size [in bytes] */
 };
 
 struct sam_cio_stats {
@@ -61,9 +59,6 @@ struct sam_cio_stats {
 	u64 deq_pkts;   /**< Number of dequeued packet */
 	u64 deq_bytes;  /**< Number of dequeued bytes */
 	u64 deq_empty;  /**< Number of times ring was empty on dequeue */
-	u64 sa_add;	/**< Number of added sessions */
-	u64 sa_del;	/**< Number of deleted sessions */
-	u64 sa_inv;	/**< Number of invalidated sessions */
 };
 
 /** DMAable buffer representation */
@@ -201,7 +196,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
  * @retval	0          - all requests are successfully enqueued.
  * @retval	Negative   - enqueue of one or more requests failed.
  */
-int sam_cio_ipsec_enq(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num);
+int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num);
 
 /**
  * Flush crypto IO instance. All pending requests/results will be discarded.
@@ -213,11 +208,24 @@ int sam_cio_ipsec_enq(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
  */
 int sam_cio_flush(struct sam_cio *cio);
 
+/**
+ * Get statistics collected for crypto IO instance.
+ *
+ * To enable collect statistics capability of the SAM driver,
+ *	use "--enable-sam-statistics" flag during ./configure
+ *
+ * @param[in]     cio      - crypto IO instance handler.
+ * @param[out]    stats    - pointer to copy statistics.
+ * @param[in]     reset    - 0    : don't reset statistics after copy.
+ *			     other: reset statistics after copy.
+ *
+ * @retval      0          - statistics are valid
+ * @retval	-ENOTSUP   - statistics are not supported
+ */
+int sam_cio_get_stats(struct sam_cio *cio, struct sam_cio_stats *stats, int reset);
+
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
-
-int sam_cio_stats_get(struct sam_cio *cio, struct sam_cio_stats *stats, int reset);
-int sam_cio_debug_flags_set(struct sam_cio *cio, u32 debug_flags);
 
 /** @} */ /* end of grp_sam_cio */
 

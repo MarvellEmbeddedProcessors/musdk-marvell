@@ -117,7 +117,8 @@ static void dump_buf(const unsigned char *p, unsigned int len)
 	}
 	printf("\n");
 }
-static int create_session(struct sam_cio *cio, struct sam_sa **hndl, const char *name)
+
+static int create_session(struct sam_sa **hndl, const char *name)
 {
 	int rc;
 	struct sam_session_params *sa_params;
@@ -133,7 +134,7 @@ static int create_session(struct sam_cio *cio, struct sam_sa **hndl, const char 
 		return -EINVAL;
 	}
 
-	rc = sam_session_create(cio_hndl, sa_params, hndl);
+	rc = sam_session_create(sa_params, hndl);
 	if (rc) {
 		printf("%s: failed - rc = %d\n", __func__, rc);
 		return rc;
@@ -147,7 +148,7 @@ static int poll_results(struct sam_cio *cio, struct sam_cio_op_result *result,
 	int rc;
 	int count = 1000;
 	u16 to_deq = *num;
-	
+
 	while (count--) {
 		rc = sam_cio_deq(cio, result, num);
 		if (rc) {
@@ -216,6 +217,7 @@ static int check_result(enum sam_dir dir, struct sam_cio_op_params *request,
 int main(int argc, char **argv)
 {
 	struct sam_cio_params cio_params;
+	struct sam_init_params init_params;
 	struct sam_cio_op_result result;
 	u16 num;
 	int rc = 0;
@@ -238,10 +240,11 @@ int main(int argc, char **argv)
 	pr_info("DMA Buffer %d bytes allocated: vaddr = %p, paddr = %p\n",
 		aes128_t1_buf.len, aes128_t1_buf.vaddr, (void *)aes128_t1_buf.paddr);
 
+	init_params.max_num_sessions = 64;
+	sam_init(&init_params);
+
 	cio_params.match = "cio-0:0";
 	cio_params.size = 32;
-	cio_params.num_sessions = 64;
-	cio_params.max_buf_size = 2048;
 
 	if (sam_cio_init(&cio_params, &cio_hndl)) {
 		printf("%s: initialization failed\n", argv[0]);
@@ -250,8 +253,6 @@ int main(int argc, char **argv)
 
 	cio_params.match = "cio-0:1";
 	cio_params.size = 32;
-	cio_params.num_sessions = 64;
-	cio_params.max_buf_size = 2048;
 
 	if (sam_cio_init(&cio_params, &cio_hndl_1)) {
 		printf("%s: initialization failed\n", argv[0]);
@@ -263,15 +264,15 @@ int main(int argc, char **argv)
 	memset(aes128_t1_buf.vaddr, 0, aes128_t1_buf.len);
 	memcpy(aes128_t1_buf.vaddr, RFC3602_AES128_CBC_T1_PT, sizeof(RFC3602_AES128_CBC_T1_PT));
 
-	if (create_session(cio_hndl, &sa_hndl, "aes_cbc_encrypt"))
+	if (create_session(&sa_hndl, "aes_cbc_encrypt"))
 		goto exit;
 
-	pr_info("aes_cbc_encrypt session successfully created on %s\n", "cio-0:0");
+	pr_info("aes_cbc_encrypt session successfully created\n");
 
-	if (create_session(cio_hndl_1, &sa_hndl_1, "aes_cbc_decrypt"))
+	if (create_session(&sa_hndl_1, "aes_cbc_decrypt"))
 		goto exit;
 
-	pr_info("aes_cbc_decrypt session successfully created on %s\n", "cio-0:1");
+	pr_info("aes_cbc_decrypt session successfully created\n");
 
 	/* Do encrypt */
 	num = 1;
@@ -329,6 +330,7 @@ exit:
 			return 1;
 		}
 	}
+	sam_deinit();
 	printf("%s successfully unloaded\n", argv[0]);
 
 	return 0;
