@@ -1127,7 +1127,7 @@ void mv_sha384_final(uint8_t digest[], SHA384_CTX *context)
 			}
 		}
 #else
-		bcopy(context->state, d, SHA384_DIGEST_LENGTH);
+		bcopy(context->state, d, 6 * sizeof(uint64_t));
 #endif
 	}
 
