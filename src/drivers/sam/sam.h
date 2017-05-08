@@ -82,7 +82,6 @@ struct sam_cio {
 
 struct sam_sa {
 	bool is_valid;
-	bool is_first;
 	struct sam_session_params	params;
 	struct sam_cio			*cio;
 	/* Fields needed for EIP197 HW */

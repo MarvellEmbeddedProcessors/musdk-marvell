@@ -53,10 +53,12 @@ static struct sys_iomem *sam_iomem_init(int engine, enum sam_hw_type *type)
 	params.index = engine;
 	for (i = 0; i < ARRAY_SIZE(sam_supported_name); i++) {
 		params.devname = sam_supported_name[i];
-		err = sys_iomem_init(&params, &iomem_info);
-		if (!err) {
-			*type = sam_supported_type[i];
-			return iomem_info;
+		if (sys_iomem_exists(&params)) {
+			err = sys_iomem_init(&params, &iomem_info);
+			if (!err) {
+				*type = sam_supported_type[i];
+				return iomem_info;
+			}
 		}
 	}
 	return NULL;

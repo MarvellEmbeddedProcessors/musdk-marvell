@@ -406,9 +406,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	/* Save configured CIO params */
 	local_cio->params = *params;
 
-	sam_cios[cio_idx] = local_cio;
 	local_cio->idx = cio_idx;
-	sam_active_cios++;
 
 	/* Allocate array of sam_cio_op structures in size of CIO ring */
 	local_cio->operations = kcalloc(params->size, sizeof(struct sam_cio_op), GFP_KERNEL);
@@ -430,6 +428,8 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 		i, SAM_TOKEN_DMABUF_SIZE);
 
 	*cio = local_cio;
+	sam_cios[cio_idx] = local_cio;
+	sam_active_cios++;
 
 	return 0;
 
@@ -473,6 +473,14 @@ int sam_cio_deinit(struct sam_cio *cio)
 	if (!cio)
 		return 0;
 
+	if (sam_cios[cio->idx]) {
+		sam_cio_flush(cio);
+
+		sam_hw_ring_deinit(&cio->hw_ring);
+		sam_cios[cio->idx] = NULL;
+		sam_active_cios--;
+	}
+
 	if (cio->operations) {
 		for (i = 0; i < cio->params.size; i++)
 			sam_dma_buf_free(&cio->operations[i].token_buf);
@@ -480,16 +488,6 @@ int sam_cio_deinit(struct sam_cio *cio)
 		kfree(cio->operations);
 		cio->operations = NULL;
 	}
-
-	if (sam_cios[cio->idx]) {
-		sam_hw_ring_deinit(&cio->hw_ring);
-		sam_cios[cio->idx] = NULL;
-		sam_active_cios--;
-	}
-
-	if (sam_initialized && (sam_active_cios == 0))
-		sam_initialized = false;
-
 	kfree(cio);
 
 	return 0;
@@ -612,7 +610,6 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 
 	SAM_STATS(sam_sa_stats.sa_add++);
 
-	session->is_first = true;
 	session->cio = NULL;
 	*sa = session;
 
