@@ -86,4 +86,40 @@ static inline void mv_cp_eaddr(u8 *dest, const u8 *source)
 	 dst_16[2] = src_16[2];
 }
 
+static inline u16 mv_add_csum16(u16 csum, u16 add)
+{
+	csum += add;
+	return (csum + (csum < add));
+}
+
+static inline u16 mv_sub_csum16(u16 csum, u16 sub)
+{
+	return mv_add_csum16(csum, ~sub);
+}
+
+/* Calculate 16 bits checksum optimized for network protocols
+ * "buf" must be 16 bits aligned.
+ * "shorts" is buffer size in u16 units
+ */
+static inline u16 mv_calc_csum16(const u16 *buf, u32 shorts)
+{
+	int i;
+	u16 csum = 0;
+
+	for (i = 0; i < shorts; i++) {
+		csum = mv_add_csum16(csum, *buf);
+		buf++;
+	}
+	return csum;
+}
+
+/* Calculate IPv4 checksum. "ihl" is IP header length in words.
+ * To generate new checksum "csum" field in IP header must be cleared before
+ * To verify checksum: calculated checksum must be 0
+ */
+static inline u16 mv_ip4_csum(const u16 *iph, u32 ihl)
+{
+	return ~mv_calc_csum16(iph, ihl * 2);
+}
+
 #endif /* __NET_H__ */
