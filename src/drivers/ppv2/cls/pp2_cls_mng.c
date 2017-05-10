@@ -1527,33 +1527,35 @@ void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map)
 	else
 		port->rss_en = false;
 
-	/* bind rxq to rss table for this port */
-	if (pp22_cls_rss_rxq_set(port)) {
-		pr_err("cannot allocate rss table for rxq\n");
-		return;
+	if (port->rss_en == true) {
+		/* bind rxq to rss table for this port */
+		if (pp22_cls_rss_rxq_set(port)) {
+			pr_err("cannot allocate rss table for rxq\n");
+			return;
+		}
+
+		/* Init RSS table */
+		if (pp2_rss_hw_tbl_set(port)) {
+			pr_err("cannot init rss hw table\n");
+			return;
+		}
+
+		/* Configure hash type only for MUSDK port at this point (flows for logical port are not defined yet
+		 *  at this point, so hash type is configured later for logical ports
+		 */
+		if (port->type == PP2_PPIO_T_NIC) {
+			rc = pp2_cls_rss_mode_flows_set(port, port->hash_type);
+			if (rc) {
+				pr_err("cannot set hash type in flows\n");
+				return;
+			}
+		}
 	}
 
-	/* Init RSS table */
-	if (pp2_rss_hw_tbl_set(port)) {
-		pr_err("cannot init rss hw table\n");
-		return;
-	}
-
-	/* Enable RSS */
+	/* Enable or disable RSS*/
 	if (pp2_rss_enable(port, port->rss_en)) {
 		pr_err("cannot enable rss\n");
 		return;
-	}
-
-	/* Configure hash type only for MUSDK port at this point (flows for logical port are not defined yet
-	 *  at this point, so hash type is configured later for logical ports
-	 */
-	if (port->type == PP2_PPIO_T_NIC) {
-		rc = pp2_cls_rss_mode_flows_set(port, port->hash_type);
-		if (rc) {
-			pr_err("cannot set hash type in flows\n");
-			return;
-		}
 	}
 }
 
