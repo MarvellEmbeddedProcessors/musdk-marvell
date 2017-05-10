@@ -1178,7 +1178,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		port->tc[i].first_log_rxq = total_num_in_qs;
 		port->tc[i].tc_config.num_in_qs = num_in_qs;
 		/*To support RSS, each TC must start at natural rxq boundary */
-		first_rxq = roundup(first_rxq, num_in_qs);
+		first_rxq = roundup(first_rxq, roundup_pow_of_two(num_in_qs));
 		port->tc[i].tc_config.first_rxq = first_rxq;
 		rc = populate_tc_pools(inst, param->inqs_params.tcs_params[i].pools, port->tc[i].tc_config.pools);
 		if (rc)
