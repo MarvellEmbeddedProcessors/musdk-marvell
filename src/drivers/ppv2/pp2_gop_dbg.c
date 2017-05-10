@@ -58,6 +58,7 @@ void pp2_gop_register_bases_dump(struct gop_hw *gop)
 void pp2_gop_gmac_regs_dump(struct gop_hw *gop, int port)
 {
 	char reg_name[32];
+	int ind;
 
 	pp2_gop_gmac_print(gop, "PORT_MAC_CTRL0", port, PP2_GMAC_PORT_CTRL0_REG);
 	pp2_gop_gmac_print(gop, "PORT_MAC_CTRL1", port, PP2_GMAC_PORT_CTRL1_REG);
@@ -92,12 +93,12 @@ void pp2_gop_gmac_regs_dump(struct gop_hw *gop, int port)
 			   PP2_GMAC_QSGMII_STATUS_REG);
 	pp2_gop_gmac_print(gop, "QSGMII_PRBS_CNTR", port,
 			   PP2_GMAC_QSGMII_PRBS_CNTR_REG);
-	for (int ind = 0; ind < 8; ind++) {
+	for (ind = 0; ind < 8; ind++) {
 		sprintf(reg_name, "CCFC_PORT_SPEED_TIMER%d", ind);
 		pp2_gop_gmac_print(gop, reg_name, port,
 				   PP2_GMAC_CCFC_PORT_SPEED_TIMER_REG(ind));
 	}
-	for (int ind = 0; ind < 4; ind++) {
+	for (ind = 0; ind < 4; ind++) {
 		sprintf(reg_name, "FC_DSA_TAG%d", ind);
 		pp2_gop_gmac_print(gop, reg_name, port,
 				   PP2_GMAC_FC_DSA_TAG_REG(ind));
@@ -128,6 +129,7 @@ void pp2_gop_gmac_regs_dump(struct gop_hw *gop, int port)
 void pp2_gop_xlg_mac_regs_dump(struct gop_hw *gop, int port)
 {
 	char reg_name[16];
+	int timer;
 
 	pp2_gop_xlg_mac_print(gop, "PORT_MAC_CTRL0", port,
 			      PP2_XLG_PORT_MAC_CTRL0_REG);
@@ -149,7 +151,7 @@ void pp2_gop_xlg_mac_regs_dump(struct gop_hw *gop, int port)
 			      PP2_XLG_PORT_METAL_FIX_REG);
 	pp2_gop_xlg_mac_print(gop, "XG_MIB_CNTRS_CTRL", port,
 			      PP2_XLG_MIB_CNTRS_CTRL_REG);
-	for (int timer = 0; timer < 8; timer++) {
+	for (timer = 0; timer < 8; timer++) {
 		sprintf(reg_name, "CNCCFC_TIMER%d", timer);
 		pp2_gop_xlg_mac_print(gop, reg_name, port,
 				      PP2_XLG_CNCCFC_TIMERI_REG(timer));
@@ -185,15 +187,15 @@ int pp2_gop_port_regs(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pr_info("\n[gop GMAC #%d registers]\n", port_num);
 		pp2_gop_gmac_regs_dump(gop, port_num);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pr_info("\n[gop XLG MAC #%d registers]\n", port_num);
 		pp2_gop_xlg_mac_regs_dump(gop, port_num);
 		break;
@@ -358,6 +360,8 @@ void pp2_gop_serdes_lane_regs_dump(struct gop_hw *gop, int lane)
 
 void pp2_gop_mac_print(struct pp2_mac_data *mac)
 {
+	int i;
+
 	pr_info("\n Emac data structure\n");
 	pr_info("gop_index = %d\n",  mac->gop_index);
 	pr_info("flags = %ld\n",      mac->flags);
@@ -369,7 +373,7 @@ void pp2_gop_mac_print(struct pp2_mac_data *mac)
 	pr_info("duplex = %d\n",     mac->duplex);
 	pr_info("speed = %d\n",      mac->speed);
 	pr_info("MAC = {");
-	for (int i = 0; i < 6; i++)
+	for (i = 0; i < 6; i++)
 		pr_info("%x ", mac->mac[i]);
 	pr_info("}\n");
 }

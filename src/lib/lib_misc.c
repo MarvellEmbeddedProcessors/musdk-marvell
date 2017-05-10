@@ -30,15 +30,46 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
-
 #include "std_internal.h"
 #include "lib/lib_misc.h"
+
+static char *mv_strtok(char *src, const char *pattern)
+{
+	static char *nxt_tok;
+	char *ret_val = NULL;
+
+	if (!src)
+		src = nxt_tok;
+
+	while (*src) {
+		const char *pp = pattern;
+
+		while (*pp) {
+			if (*pp == *src)
+				break;
+
+			pp++;
+		}
+		if (!*pp) {
+			if (!ret_val)
+				ret_val = src;
+			else if (!src[-1])
+				break;
+		} else
+			*src = '\0';
+		src++;
+	}
+
+	nxt_tok = src;
+
+	return ret_val;
+}
 
 int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8 id[])
 {
 	char tmp_str[MAX_OBJ_STRING];
 	char *tok;
+	int rc;
 
 	if (hierarchy_level > 2) {
 		pr_err("Maximum 3 levels of hierarchy supported (given %d)!\n", hierarchy_level);
@@ -47,7 +78,7 @@ int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8
 
 	memcpy(tmp_str, match, strlen(match));
 	tmp_str[strlen(match)] = '\0';
-	tok = strtok(tmp_str, "-");
+	tok = mv_strtok(tmp_str, "-");
 	if (!tok) {
 		pr_err("Illegal match str (%s)!\n",tok);
 		return -1;
@@ -59,25 +90,37 @@ int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8
 	}
 
 	if (hierarchy_level == 1) {
-		tok = strtok(NULL, "");
+		tok = mv_strtok(NULL, "");
 		if (!tok) {
 			pr_err("Illegal match str (%s)!\n", tok);
 			return -1;
 		}
-		id[0] = atoi(tok);
+		rc = kstrtou8(tok, 10, &id[0]);
+		if (rc) {
+			pr_err("String \"%s\" is not a number.\n", tok);
+			return rc;
+		}
 	} else if (hierarchy_level == 2) {
-		tok = strtok(NULL, ":");
+		tok = mv_strtok(NULL, ":");
 		if (!tok) {
 			pr_err("Illegal match str (%s)!\n",tok);
 			return -1;
 		}
-		id[0] = atoi(tok);
-		tok = strtok(NULL, "");
+		rc = kstrtou8(tok, 10, &id[0]);
+		if (rc) {
+			pr_err("String \"%s\" is not a number.\n", tok);
+			return rc;
+		}
+		tok = mv_strtok(NULL, "");
 		if (!tok) {
 			pr_err("Illegal match str (%s)!\n",tok);
 			return -1;
 		}
-		id[1] = atoi(tok);
+		rc = kstrtou8(tok, 10, &id[1]);
+		if (rc) {
+			pr_err("String \"%s\" is not a number.\n", tok);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -100,9 +143,9 @@ void mem_disp(const char *_p, int len)
 		for (j=0; j < 16 && i < len; i++, j++)
 			sprintf(buf+7+j + 48, "%c",
 				isprint(p[i]) ? p[i] : '.');
-		printf("%s\n", buf);
+		printk("%s\n", buf);
 	}
-	printf("\n");
+	printk("\n");
 }
 
 void mv_mem_dump(const unsigned char *p, unsigned int len)
@@ -111,12 +154,11 @@ void mv_mem_dump(const unsigned char *p, unsigned int len)
 
 	while (i < len) {
 		j = 0;
-		printf("%10p: ", (p + i));
+		printk("%10p: ", (p + i));
 		for (j = 0 ; j < 32 && i < len ; j++) {
-			printf("%02x ", p[i]);
+			printk("%02x ", p[i]);
 			i++;
 		}
-		printf("\n");
+		printk("\n");
 	}
 }
-

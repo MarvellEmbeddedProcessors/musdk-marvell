@@ -806,41 +806,41 @@ int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe)
 	if (mv_pp2x_ptr_validate(fe) == MV_ERROR)
 		return MV_ERROR;
 
-	printf("INDEX: F[0] F[1] F[2] F[3] PRT[T  ID] ENG LAST LKP_TYP  PRIO\n");
+	printk("INDEX: F[0] F[1] F[2] F[3] PRT[T  ID] ENG LAST LKP_TYP  PRIO\n");
 
 	/* index */
-	printf("%5d  ", fe->index);
+	printk("%5d  ", fe->index);
 
 	/* filed[0] filed[1] filed[2] filed[3] */
 	status |= mv_pp2x_cls_sw_flow_hek_get(fe, &int32bit_1, fields_arr);
 
 	for (i = 0 ; i < MVPP2_CLS_FLOWS_TBL_FIELDS_MAX; i++)
 		if (i < int32bit_1)
-			printf("0x%2.2x ", fields_arr[i]);
+			printk("0x%2.2x ", fields_arr[i]);
 		else
-			printf(" NA  ");
+			printk(" NA  ");
 
 	/* port_type port_id */
 	status |= mv_pp2x_cls_sw_flow_port_get(fe, &int32bit_1, &int32bit_2);
-	printf("[%1d  0x%3.3x]  ", int32bit_1, int32bit_2);
+	printk("[%1d  0x%3.3x]  ", int32bit_1, int32bit_2);
 
 	/* engine_num last_bit */
 	status |= mv_pp2x_cls_sw_flow_engine_get(fe, &int32bit_1, &int32bit_2);
-	printf("%1d   %1d    ", int32bit_1, int32bit_2);
+	printk("%1d   %1d    ", int32bit_1, int32bit_2);
 
 	/* lookup_type priority */
 	status |= mv_pp2x_cls_sw_flow_extra_get(fe, &int32bit_1, &int32bit_2);
-	printf("0x%2.2x    0x%2.2x", int32bit_1, int32bit_2);
+	printk("0x%2.2x    0x%2.2x", int32bit_1, int32bit_2);
 
-	printf("\n       PPPEO   VLAN   MACME   UDF7   SELECT SEQ_CTRL\n");
-	printf("         %1d      %1d      %1d       %1d      %1d      %1d\n",
+	printk("\n       PPPEO   VLAN   MACME   UDF7   SELECT SEQ_CTRL\n");
+	printk("         %1d      %1d      %1d       %1d      %1d      %1d\n",
 	       (u32)((fe->data[0] & MVPP2_FLOW_PPPOE_MASK) >> MVPP2_FLOW_PPPOE),
 	       (u32)((fe->data[0] & MVPP2_FLOW_VLAN_MASK) >> MVPP2_FLOW_VLAN),
 	       (u32)((fe->data[0] & MVPP2_FLOW_MACME_MASK) >> MVPP2_FLOW_MACME),
 	       (u32)((fe->data[0] & MVPP2_FLOW_UDF7_MASK) >> MVPP2_FLOW_UDF7),
 	       (u32)((fe->data[0] & MVPP2_FLOW_PORT_ID_SEL_MASK) >> MVPP2_FLOW_PORT_ID_SEL),
 	       (u32)((fe->data[1] & MVPP2_FLOW_SEQ_CTRL_MASK) >> MVPP2_FLOW_SEQ_CTRL));
-	printf("\n");
+	printk("\n");
 
 	return 0;
 }
@@ -877,7 +877,7 @@ static int mv_pp2x_cls_hw_flow_hit_get(uintptr_t cpu_slot, int index, unsigned i
 	if (cnt)
 		*cnt = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL_HIT_REG);
 	else
-		printf("HITS = %d\n", pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL_HIT_REG));
+		printk("HITS = %d\n", pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL_HIT_REG));
 
 	return 0;
 }
@@ -895,7 +895,7 @@ int mv_pp2x_cls_hw_lkp_hit_get(uintptr_t cpu_slot, int lkpid, u32 *cnt)
 	if (cnt)
 		*cnt = pp2_reg_read(cpu_slot, MVPP2_CLS_LKP_TBL_HIT_REG);
 	else
-		printf("HITS: %d\n", pp2_reg_read(cpu_slot, MVPP2_CLS_LKP_TBL_HIT_REG));
+		printk("HITS: %d\n", pp2_reg_read(cpu_slot, MVPP2_CLS_LKP_TBL_HIT_REG));
 
 	return 0;
 }
@@ -909,8 +909,8 @@ int mv_pp2x_cls_hw_rxq_counter_get(uintptr_t cpu_slot, int phy_rxq)
 	dropped = pp2_reg_read(cpu_slot, MVPP2_RX_PKT_FULLQ_DROP_REG);
 	dropped += pp2_reg_read(cpu_slot, MVPP2_RX_PKT_EARLY_DROP_REG);
 	dropped += pp2_reg_read(cpu_slot, MVPP2_RX_PKT_BM_DROP_REG);
-	pr_info("rx dropped packet = 0x%8.8x\n", dropped);
-	pr_info("rx enqueue packet = 0x%8.8x\n", pp2_reg_read(cpu_slot, MVPP2_RX_DESC_ENQ_REG));
+	printk("rx dropped packet = 0x%8.8x\n", dropped);
+	printk("rx enqueue packet = 0x%8.8x\n", pp2_reg_read(cpu_slot, MVPP2_RX_DESC_ENQ_REG));
 
 	return 0;
 }
@@ -925,7 +925,7 @@ int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot)
 		mv_pp2x_cls_hw_flow_read(cpu_slot, index, &fe);
 		mv_pp2x_cls_sw_flow_dump(&fe);
 		mv_pp2x_cls_hw_flow_hit_get(cpu_slot, index, NULL);
-		printf("\n");
+		printk("\n");
 	}
 
 	return 0;
@@ -942,7 +942,7 @@ int mv_pp2x_cls_hw_flow_hits_dump(uintptr_t cpu_slot)
 		if (cnt != 0) {
 			mv_pp2x_cls_hw_flow_read(cpu_slot, index, &fe);
 			mv_pp2x_cls_sw_flow_dump(&fe);
-			printf("HITS = %d\n", cnt);
+			printk("HITS = %d\n", cnt);
 		}
 	}
 
@@ -954,11 +954,11 @@ int mv_pp2x_cls_hw_lkp_hits_dump(uintptr_t cpu_slot)
 	int index, way = 0;
 	u32 cnt;
 
-	printf("< ID  WAY >:	HITS\n");
+	printk("< ID  WAY >:	HITS\n");
 	for (index = 0; index < MVPP2_CLS_LKP_TBL_SIZE; index++) {
 		mv_pp2x_cls_hw_lkp_hit_get(cpu_slot, index, &cnt);
 		if (cnt != 0)
-			printf(" 0x%2.2x  %1.1d\t0x%8.8x\n", index, way, cnt);
+			printk(" 0x%2.2x  %1.1d\t0x%8.8x\n", index, way, cnt);
 	}
 	return 0;
 }
@@ -969,21 +969,21 @@ int mv_pp2x_cls_hw_lkp_dump(uintptr_t cpu_slot)
 	u32 uint32bit;
 	struct mv_pp2x_cls_lookup_entry le;
 
-	printf("\n ID :	RXQ	EN	FLOW	MODE_BASE  HITS\n");
+	printk("\n ID :	RXQ	EN	FLOW	MODE_BASE  HITS\n");
 	for (index = 0; index < MVPP2_CLS_LKP_TBL_SIZE; index++) {
 		mv_pp2x_cls_hw_lkp_read(cpu_slot, index, way, &le);
-		printf(" 0x%2.2x \t", le.lkpid);
+		printk(" 0x%2.2x \t", le.lkpid);
 		mv_pp2x_cls_sw_lkp_rxq_get(&le, &rxq);
-		printf("0x%2.2x\t", rxq);
+		printk("0x%2.2x\t", rxq);
 		mv_pp2x_cls_sw_lkp_en_get(&le, &en);
-		printf("%1.1d\t", en);
+		printk("%1.1d\t", en);
 		mv_pp2x_cls_sw_lkp_flow_get(&le, &flow);
-		printf("0x%3.3x\t", flow);
+		printk("0x%3.3x\t", flow);
 		mv_pp2x_cls_sw_lkp_mod_get(&le, &mod);
-		printf(" 0x%2.2x\t", mod);
+		printk(" 0x%2.2x\t", mod);
 		mv_pp2x_cls_hw_lkp_hit_get(cpu_slot, index, &uint32bit);
-		printf(" 0x%8.8x\n", 0);
-		printf("\n");
+		printk(" 0x%8.8x\n", 0);
+		printk("\n");
 	}
 	return 0;
 }
@@ -2045,7 +2045,7 @@ int mv_pp2x_c2_hit_cntr_read(uintptr_t cpu_slot, int index, u32 *cntr)
 	if (cntr)
 		*cntr = value;
 	else
-		pr_info("INDEX: 0x%8.8X	VAL: 0x%8.8X\n", index, value);
+		printk("INDEX: 0x%8.8X	VAL: 0x%8.8X\n", index, value);
 
 	return MV_OK;
 }
@@ -2064,22 +2064,22 @@ int mv_pp2x_c2_sw_words_dump(struct mv_pp2x_cls_c2_entry *c2)
 
 	/* TODO check size */
 	/* hw entry id */
-	printf("[0x%3.3x] ", c2->index);
+	printk("[0x%3.3x] ", c2->index);
 
 	i = MVPP2_CLS_C2_TCAM_WORDS - 1;
 
 	while (i >= 0)
-		printf("%4.4x ", (c2->tcam.words[i--]) & 0xFFFF);
+		printk("%4.4x ", (c2->tcam.words[i--]) & 0xFFFF);
 
 	/* tcam inValid bit */
-	printf("\n%s\n\t", (c2->inv == 1) ? "[inv]" : "[valid]");
+	printk("\n%s\n\t", (c2->inv == 1) ? "[inv]" : "[valid]");
 
 	i = MVPP2_CLS_C2_TCAM_WORDS - 1;
 
 	while (i >= 0)
-		printf("%4.4x ", ((c2->tcam.words[i--] >> 16)  & 0xFFFF));
+		printk("%4.4x ", ((c2->tcam.words[i--] >> 16)  & 0xFFFF));
 
-	printf("\n");
+	printk("\n");
 
 	return 0;
 }
@@ -2093,7 +2093,7 @@ int mv_pp2x_c2_sw_dump(struct mv_pp2x_cls_c2_entry *c2)
 
 	mv_pp2x_c2_sw_words_dump(c2);
 
-	printf("\n");
+	printk("\n");
 
 	/*------------------------------*/
 	/*	action_tbl 0x1B30	*/
@@ -2114,30 +2114,40 @@ int mv_pp2x_c2_sw_dump(struct mv_pp2x_cls_c2_entry *c2)
 	color = ((c2->sram.regs.action_tbl & (MVPP2_CLS2_ACT_DATA_TBL_COLOR_MASK)) >>
 		  MVPP2_CLS2_ACT_DATA_TBL_COLOR_OFF);
 
-	printf("FROM_QOS_%s_TBL[%2.2d]:  ", sel ? "DSCP" : "PRI", id);
-	type ? printf("%s	", sel ? "DSCP" : "PRIO") : 0;
-	color ? printf("COLOR	") : 0;
-	gemid ? printf("GEMID	") : 0;
-	low_q ? printf("LOW_Q	") : 0;
-	high_q ? printf("HIGH_Q	") : 0;
-	printf("\n");
+	printk("FROM_QOS_%s_TBL[%2.2d]:  ", sel ? "DSCP" : "PRI", id);
+	if (type)
+		printk("%s	", sel ? "DSCP" : "PRIO");
+	if (color)
+		printk("COLOR	");
+	if (gemid)
+		printk("GEMID	");
+	if (low_q)
+		printk("LOW_Q	");
+	if (high_q)
+		printk("HIGH_Q	");
+	printk("\n");
 
-	printf("FROM_ACT_TBL:		");
-	(type == 0) ? printf("%s	", sel ? "DSCP" : "PRI") : 0;
-	(gemid == 0) ? printf("GEMID	") : 0;
-	(low_q == 0) ? printf("LOW_Q	") : 0;
-	(high_q == 0) ? printf("HIGH_Q	") : 0;
-	(color == 0) ? printf("COLOR	") : 0;
-	printf("\n\n");
+	printk("FROM_ACT_TBL:		");
+	if (type == 0)
+		printk("%s	", sel ? "DSCP" : "PRI");
+	if (gemid == 0)
+		printk("GEMID	");
+	if (low_q == 0)
+		printk("LOW_Q	");
+	if (high_q == 0)
+		printk("HIGH_Q	");
+	if (color == 0)
+		printk("COLOR	");
+	printk("\n\n");
 
 	/*------------------------------*/
 	/*	actions 0x1B60		*/
 	/*------------------------------*/
 
-	printf("ACT_CMD:		COLOR	PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	FWD	POLICER	FID	RSS\n");
-	printf("			");
+	printk("ACT_CMD:		COLOR	PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	FWD	POLICER	FID	RSS\n");
+	printk("			");
 
-	printf("%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t",
+	printk("%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t%1.1d\t",
 	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_COLOR_MASK) >> MVPP2_CLS2_ACT_COLOR_OFF),
 	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_PRI_MASK) >> MVPP2_CLS2_ACT_PRI_OFF),
 	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_DSCP_MASK) >> MVPP2_CLS2_ACT_DSCP_OFF),
@@ -2148,89 +2158,88 @@ int mv_pp2x_c2_sw_dump(struct mv_pp2x_cls_c2_entry *c2)
 	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_PLCR_MASK) >> MVPP2_CLS2_ACT_PLCR_OFF),
 	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_FLD_EN_MASK) >> MVPP2_CLS2_ACT_FLD_EN_OFF),
 	       ((c2->sram.regs.actions & MVPP2_CLS2_ACT_RSS_MASK) >> MVPP2_CLS2_ACT_RSS_OFF));
-	printf("\n\n");
-
+	printk("\n\n");
 
 	/*------------------------------*/
 	/*	qos_attr 0x1B64		*/
 	/*------------------------------*/
-	printf("ACT_ATTR:		PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	QUEUE\n");
-	printf("		");
+	printk("ACT_ATTR:		PRIO	DSCP	GEMID	LOW_Q	HIGH_Q	QUEUE\n");
+	printk("		");
 	/* modify priority */
 	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_PRI_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_PRI_OFF);
-	printf("	%1.1d\t", value);
+	printk("	%1.1d\t", value);
 
 	/* modify dscp */
 	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_DSCP_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_DSCP_OFF);
-	printf("0x%2.2x\t", value);
+	printk("0x%2.2x\t", value);
 
 	/* modify gemportid */
 	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_GEM_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_GEM_OFF);
-	printf("0x%4.4x\t", value);
+	printk("0x%4.4x\t", value);
 
 	/* modify low Q */
 	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_QL_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_OFF);
-	printf("0x%1.1x\t", value);
+	printk("0x%1.1x\t", value);
 
 	/* modify high Q */
 	value = ((c2->sram.regs.qos_attr & MVPP2_CLS2_ACT_QOS_ATTR_QH_MASK) >> MVPP2_CLS2_ACT_QOS_ATTR_QH_OFF);
-	printf("0x%2.2x\t", value);
+	printk("0x%2.2x\t", value);
 
 	/*modify queue*/
 	value = ((c2->sram.regs.qos_attr & (MVPP2_CLS2_ACT_QOS_ATTR_QL_MASK | MVPP2_CLS2_ACT_QOS_ATTR_QH_MASK)));
 	value >>= MVPP2_CLS2_ACT_QOS_ATTR_QL_OFF;
 
-	printf("0x%2.2x\t", value);
-	printf("\n\n");
+	printk("0x%2.2x\t", value);
+	printk("\n\n");
 
 	/*------------------------------*/
 	/*	hwf_attr 0x1B68		*/
 	/*------------------------------*/
-	printf("HWF_ATTR:		IPTR	DPTR	CHKSM   MTU_IDX\n");
-	printf("			");
+	printk("HWF_ATTR:		IPTR	DPTR	CHKSM   MTU_IDX\n");
+	printk("			");
 
 	/* HWF modification instraction pointer */
 	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_DPTR_MASK) >>
 		     MVPP2_CLS2_ACT_HWF_ATTR_DPTR_OFF);
-	printf("0x%1.1x\t", value);
+	printk("0x%1.1x\t", value);
 
 	/* HWF modification data pointer */
 	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_IPTR_MASK) >>
 		     MVPP2_CLS2_ACT_HWF_ATTR_IPTR_OFF);
-	printf("0x%4.4x\t", value);
+	printk("0x%4.4x\t", value);
 
 	/* HWF modification instraction pointer */
 	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_L4CHK_MASK) >>
 		     MVPP2_CLS2_ACT_HWF_ATTR_L4CHK_OFF);
-	printf("%s\t", value ? "ENABLE " : "DISABLE");
+	printk("%s\t", value ? "ENABLE " : "DISABLE");
 
 	/* mtu index */
 	value = ((c2->sram.regs.hwf_attr & MVPP2_CLS2_ACT_HWF_ATTR_MTUIDX_MASK) >>
 		     MVPP2_CLS2_ACT_HWF_ATTR_MTUIDX_OFF);
-	printf("0x%1.1x\t", value);
-	printf("\n\n");
+	printk("0x%1.1x\t", value);
+	printk("\n\n");
 
 	/*------------------------------*/
 	/*	rss_attr 0x1B6C		*/
 	/*------------------------------*/
-	printf("RSS_ATTR:		FID	COUNT	POLICER [id    bank]	RSS\n");
-	printf("			0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\t0x%1.1x\n",
+	printk("RSS_ATTR:		FID	COUNT	POLICER [id    bank]	RSS\n");
+	printk("			0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\t0x%1.1x\n",
 	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPID_OFF),
 	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_DUPCNT_OFF),
 	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_OFF),
 	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_PLCRBK_OFF),
 	       ((c2->sram.regs.rss_attr & MVPP2_CLS2_ACT_DUP_ATTR_RSSEN_MASK) >> MVPP2_CLS2_ACT_DUP_ATTR_RSSEN_OFF));
-	printf("\n");
+	printk("\n");
 	/*------------------------------*/
 	/*	seq_attr 0x1B70		*/
 	/*------------------------------*/
 	/*PPv2.1 new feature MAS 3.14*/
-	printf("SEQ_ATTR:		ID	MISS\n");
-	printf("			0x%2.2x    0x%2.2x\n",
-	      ((c2->sram.regs.seq_attr & MVPP21_CLS2_ACT_SEQ_ATTR_ID_MASK) >> MVPP21_CLS2_ACT_SEQ_ATTR_ID),
-	      ((c2->sram.regs.seq_attr & MVPP21_CLS2_ACT_SEQ_ATTR_MISS_MASK) >> MVPP21_CLS2_ACT_SEQ_ATTR_MISS_OFF));
+	printk("SEQ_ATTR:		ID	MISS\n");
+	printk("			0x%2.2x    0x%2.2x\n",
+		((c2->sram.regs.seq_attr & MVPP21_CLS2_ACT_SEQ_ATTR_ID_MASK) >> MVPP21_CLS2_ACT_SEQ_ATTR_ID),
+		((c2->sram.regs.seq_attr & MVPP21_CLS2_ACT_SEQ_ATTR_MISS_MASK) >> MVPP21_CLS2_ACT_SEQ_ATTR_MISS_OFF));
 
-	printf("\n\n");
+	printk("\n\n");
 
 
 	return 0;
@@ -2244,9 +2253,9 @@ int mv_pp2x_c2_hw_dump(uintptr_t cpu_slot)
 
 	c2_status = pp2_reg_read(cpu_slot, MVPP2_CLS2_TCAM_CTRL_REG);
 	if (c2_status)
-		pr_info("c2 is running\n");
+		printk("c2 is running\n");
 	else {
-		pr_info("c2 is off\n");
+		pr_err("c2 is off\n");
 		return -EINVAL;
 	}
 
@@ -2355,7 +2364,7 @@ int pp2_rss_c2_enable(struct pp2_port *port, int en)
 
 	c2_status = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG);
 	if (!c2_status) {
-		pr_info("c2 is off\n");
+		pr_err("c2 is off\n");
 		return -EINVAL;
 	}
 
@@ -2888,7 +2897,7 @@ int pp2_cls_c3_hw_query(uintptr_t cpu_slot, struct pp2_cls_c3_entry *c3, u8 *occ
 		/* print to screen - call from sysfs*/
 		for (idx = 0; idx < MVPP2_CLS3_HASH_BANKS_NUM; idx++)
 			pr_info("0x%8.8x	%s\n", pp2_reg_read(cpu_slot, MVPP2_CLS3_QRY_RES_HASH_REG(idx)),
-				 (reg_val & (1 << idx)) ? "OCCUPIED" : "FREE");
+				(reg_val & (1 << idx)) ? "OCCUPIED" : "FREE");
 		return 0;
 	}
 

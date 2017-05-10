@@ -34,7 +34,6 @@
 /* c file declarations */
 /***********************/
 
-#include <string.h>
 #include "drivers/ppv2/pp2.h"
 #include "drivers/ppv2/pp2_hw_type.h"
 #include "drivers/ppv2/pp2_hw_cls.h"
@@ -3014,7 +3013,7 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		}
 
 		if (!engine) {
-			printf("didn't find any flows\n");
+			pr_err("didn't find any flows\n");
 			break;
 		}
 

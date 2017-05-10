@@ -46,6 +46,8 @@
 #include "../pp2_hw_type.h"
 #include "../pp2_hw_cls.h"
 
+struct pp2_cls_db_mng_t *mng_db;		/* PP2_CLS module MNG db */
+
 /*******************************************************************************
  * pp2_cls_db_mem_alloc_init
  *
@@ -1503,28 +1505,28 @@ int pp2_cls_db_mng_tbl_list_dump(void)
 	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
 		if (tbl_node->tbl.type != PP2_CLS_FLOW_TBL)
 			continue;
-		printf("\n");
+		printk("\n");
 		print_horizontal_line(115, "=");
-		printf("|	       | default_action   |		  key\n");
-		printf("|type|num_rules| type  |  tc_num  |key_size|num_fields|");
+		printk("|	       | default_action   |		  key\n");
+		printk("|type|num_rules| type  |  tc_num  |key_size|num_fields|");
 
 		for (i = 0; i < 5; i++)
-			printf("proto,field|");
-		printf("\n");
+			printk("proto,field|");
+		printk("\n");
 		print_horizontal_line(115, "-");
-		printf("|%4d|%9d|", tbl_node->tbl.params.type, tbl_node->tbl.params.max_num_rules);
-		printf("%4d|%6d|", tbl_node->tbl.params.default_act.type, tbl_node->tbl.params.default_act.cos->tc);
-		printf("%8d|%10d|", tbl_node->tbl.params.key.key_size, tbl_node->tbl.params.key.num_fields);
+		printk("|%4d|%9d|", tbl_node->tbl.params.type, tbl_node->tbl.params.max_num_rules);
+		printk("%4d|%6d|", tbl_node->tbl.params.default_act.type, tbl_node->tbl.params.default_act.cos->tc);
+		printk("%8d|%10d|", tbl_node->tbl.params.key.key_size, tbl_node->tbl.params.key.num_fields);
 		for (i = 0; i < tbl_node->tbl.params.key.num_fields; i++) {
-			printf("%5d,%5d|", tbl_node->tbl.params.key.proto_field[i].proto,
+			printk("%5d,%5d|", tbl_node->tbl.params.key.proto_field[i].proto,
 			       tbl_node->tbl.params.key.proto_field[i].field.eth);
 		}
-		printf("\n");
+		printk("\n");
 		print_horizontal_line(115, "=");
-		printf("\n");
+		printk("\n");
 		pp2_cls_db_mng_rule_list_dump(&tbl_node->tbl);
 		print_horizontal_line(115, "=");
-		printf("\n");
+		printk("\n");
 	}
 	return 0;
 }
@@ -1554,24 +1556,24 @@ int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl)
 			num_rules = list_num_objs(&tbl_node->pp2_cls_tbl_rule_head);
 			if (!num_rules)
 				return 0;
-			printf("|num_rules %3d |num_fields | size |               key          |", num_rules);
-			printf("             mask           |   type   | tc |\n");
+			printk("|num_rules %3d |num_fields | size |               key          |", num_rules);
+			printk("             mask           |   type   | tc |\n");
 			print_horizontal_line(110, "=");
 			LIST_FOR_EACH_OBJECT(rule_node, struct pp2_cls_rule_node, &tbl_node->pp2_cls_tbl_rule_head,
 					     list_node) {
-				printf("               |%10d | %4d | %26s | %26s | %8s | %2d |\n",
-				       rule_node->rule.num_fields,
-				       rule_node->rule.fields[0].size,
-				       rule_node->rule.fields[0].key,
-				       rule_node->rule.fields[0].mask,
-				       pp2_cls_utils_tbl_action_type_str_get(rule_node->action.type),
-				       rule_node->action.cos->tc);
+				printk("               |%10d | %4d | %26s | %26s | %8s | %2d |\n",
+					rule_node->rule.num_fields,
+					rule_node->rule.fields[0].size,
+					rule_node->rule.fields[0].key,
+					rule_node->rule.fields[0].mask,
+					pp2_cls_utils_tbl_action_type_str_get(rule_node->action.type),
+					rule_node->action.cos->tc);
 
 				for (i = 1; i < rule_node->rule.num_fields; i++) {
-					printf("               |           | %4d | %26s | %26s |          |    |\n",
-					       rule_node->rule.fields[i].size,
-					       rule_node->rule.fields[i].key,
-					       rule_node->rule.fields[i].mask);
+					printk("               |           | %4d | %26s | %26s |          |    |\n",
+						rule_node->rule.fields[i].size,
+						rule_node->rule.fields[i].key,
+						rule_node->rule.fields[i].mask);
 				}
 				print_horizontal_line(110, "-");
 			}

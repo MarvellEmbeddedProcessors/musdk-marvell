@@ -35,6 +35,8 @@
 
 #include <unistd.h>
 #include <malloc.h>
+#include <stdlib.h>
+#include "env/mv_errno.h"
 
 #define PTR2INT(_p)		((uintptr_t)(_p))
 #define INT2PTR(_i)		((void *)(uintptr_t)(_i))
@@ -137,6 +139,55 @@
 	(((x) & 0x00FF000000000000ULL) >> 8)  |	\
 	(((x) & 0xFF00000000000000ULL) >> 24)))
 #endif
+
+#define le32_to_cpu(x) le32toh(x)
+
+#define in4_pton(src, srclen, dst, delim, end) inet_pton(AF_INET, src, dst)
+#define in6_pton(src, srclen, dst, delim, end) inet_pton(AF_INET6, src, dst)
+
+static inline int kstrtou8(const char *s, unsigned int base, u8 *res)
+{
+	char *endptr;
+	unsigned long ores = strtoul(s, &endptr, base);
+
+	if (endptr == s)
+		return -EINVAL;
+	*res = (u8) ores;
+	return 0;
+}
+
+static inline int kstrtou16(const char *s, unsigned int base, u16 *res)
+{
+	char *endptr;
+	unsigned long ores = strtoul(s, &endptr, base);
+
+	if (endptr == s)
+		return -EINVAL;
+	*res = (u16) ores;
+	return 0;
+}
+
+static inline int kstrtou32(const char *s, unsigned int base, u32 *res)
+{
+	char *endptr;
+	unsigned long ores = strtoul(s, &endptr, base);
+
+	if (endptr == s)
+		return -EINVAL;
+	*res = (u32) ores;
+	return 0;
+}
+
+static inline int kstrtoint(const char *s, unsigned int base, int *res)
+{
+	char *endptr;
+	long ores = strtol(s, &endptr, base);
+
+	if (endptr == s)
+		return -EINVAL;
+	*res = (int) ores;
+	return 0;
+}
 
 /*
  * roundup - roundup to nearest integer
@@ -309,5 +360,6 @@ uint32_t __roundup_pow_of_two(uint32_t n)
 
 /* Kernel Delay */
 #define udelay(us) usleep(us)
+#define usleep_range(us, range) usleep(us)
 
 #endif /* __MV_COMMON_H__ */

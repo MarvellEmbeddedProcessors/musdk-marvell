@@ -30,31 +30,37 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_TYPES_H__
-#define __MV_TYPES_H__
+#include "std_internal.h"
+#include "env/sys_iomem.h"
 
-#ifndef __KERNEL__
+struct sys_iomem {
+};
 
-#include <stdint.h>
+int sys_iomem_exists(struct sys_iomem_params *params)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -ENOTSUP;
+}
 
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef int8_t		s8;
-typedef int16_t		s16;
-typedef int32_t		s32;
-typedef int64_t		s64;
+int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -ENOTSUP;
+}
 
+void sys_iomem_deinit(struct sys_iomem *iomem)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+}
 
-#ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
-typedef u64 dma_addr_t;
-typedef u64 phys_addr_t;
-#else
-typedef u32 dma_addr_t;
-typedef u32 phys_addr_t;
-#endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
+int sys_iomem_map(struct sys_iomem *iomem, const char *name, phys_addr_t *pa, void **va)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -ENOTSUP;
+}
 
-#endif /* __KERNEL__ */
-
-#endif /* __MV_TYPES_H__ */
+int sys_iomem_unmap(struct sys_iomem *iomem, const char *name)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -ENOTSUP;
+}

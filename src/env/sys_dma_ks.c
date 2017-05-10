@@ -30,31 +30,29 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_TYPES_H__
-#define __MV_TYPES_H__
+#include "std_internal.h"
 
-#ifndef __KERNEL__
+phys_addr_t __dma_phys_base;
+void *__dma_virt_base;
 
-#include <stdint.h>
+void *mv_sys_dma_mem_alloc(size_t size, size_t align)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return NULL;
+}
 
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef int8_t		s8;
-typedef int16_t		s16;
-typedef int32_t		s32;
-typedef int64_t		s64;
+void mv_sys_dma_mem_free(void *ptr)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+}
 
+int mv_sys_dma_mem_init(u64 size)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -EINVAL;
+}
 
-#ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
-typedef u64 dma_addr_t;
-typedef u64 phys_addr_t;
-#else
-typedef u32 dma_addr_t;
-typedef u32 phys_addr_t;
-#endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
-
-#endif /* __KERNEL__ */
-
-#endif /* __MV_TYPES_H__ */
+void mv_sys_dma_mem_destroy(void)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+}

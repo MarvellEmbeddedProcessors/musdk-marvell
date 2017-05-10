@@ -41,13 +41,13 @@
 #ifndef _PP2_H_
 #define _PP2_H_
 
+#include "std_internal.h"
 #include "pp2_types.h"
 
 #include "drivers/mv_pp2.h"
 #include "drivers/mv_pp2_bpool.h"
 #include "drivers/mv_pp2_hif.h"
 #include "drivers/mv_pp2_ppio.h"
-#include "std_internal.h"
 #include "lib/net.h"
 
 #include "pp2_hw_type.h"
@@ -529,5 +529,9 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);
 int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);
 int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status);
 
+int pp2_status_check(struct netdev_if_params *netdev_params, struct pp2_init_params *params);
+struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id);
+void pp2_destroy(struct pp2_inst *inst);
+void pp2_inst_init(struct pp2_inst *inst);
 
 #endif /* _PP2_H_ */

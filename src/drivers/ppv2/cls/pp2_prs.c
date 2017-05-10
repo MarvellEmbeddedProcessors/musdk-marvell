@@ -1183,7 +1183,7 @@ static int pp2_prs_log_port_ip4_proto(struct pp2_port *port, u16 proto,
 		mv_pp2x_prs_sram_shift_set(&pe, 12, MVPP2_PRS_SRAM_OP_SEL_SHIFT_ADD);
 		/* Set L4 offset */
 		mv_pp2x_prs_sram_offset_set(&pe, MVPP2_PRS_SRAM_UDF_TYPE_L4,
-					    sizeof(struct iphdr) - 4,
+					    sizeof(struct mv_pp2x_iphdr) - 4,
 					    MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
 		mv_pp2x_prs_sram_ai_update(&pe, MVPP2_PRS_IPV4_DIP_AI_BIT,
 					   MVPP2_PRS_IPV4_DIP_AI_BIT);

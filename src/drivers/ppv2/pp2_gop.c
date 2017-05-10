@@ -235,16 +235,16 @@ int pp2_gop_gmac_mode_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 
 	/* Set TX FIFO thresholds */
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
 		if (mac->speed == 2500)
 			pp2_gop_gmac_sgmii2_5_cfg(gop, mac_num);
 		else
 			pp2_gop_gmac_sgmii_cfg(gop, mac_num);
 		break;
-	case PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
 		pp2_gop_gmac_rgmii_cfg(gop, mac_num);
 		break;
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_qsgmii_cfg(gop, mac_num);
 		break;
 	default:
@@ -762,7 +762,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 	}
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
 		pp2_gop_force_link_mode_set(gop, mac, false, true);
 		pp2_gop_gmac_reset(gop, mac_num, RESET);
 
@@ -784,8 +784,8 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		pp2_gop_gmac_reset(gop, mac_num, UNRESET);
 		pp2_gop_force_link_mode_set(gop, mac, false, false);
 		break;
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		num_of_act_lanes = 1;
 		pp2_gop_force_link_mode_set(gop, mac, false, true);
 		pp2_gop_gmac_reset(gop, mac_num, RESET);
@@ -809,7 +809,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		pp2_gop_gmac_reset(gop, mac_num, UNRESET);
 		pp2_gop_force_link_mode_set(gop, mac, false, false);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
 		num_of_act_lanes = 4;
 		mac_num = 0;
 		/* configure PCS */
@@ -822,7 +822,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		/* mac unreset */
 		pp2_gop_xlg_mac_reset(gop, mac_num, UNRESET);
 		break;
-	case PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
 		num_of_act_lanes = 2;
 		/* mapped to serdes 6 */
 		pp2_gop_serdes_init(gop, 0, PP2_RXAUI);
@@ -847,7 +847,7 @@ int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb)
 		pp2_gop_serdes_reset(gop, 0, false, false, false);
 		pp2_gop_serdes_reset(gop, 1, false, false, false);
 		break;
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_KR:
 
 		num_of_act_lanes = 2;
 		mac_num = 0;
@@ -904,28 +904,28 @@ int pp2_gop_port_reset(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int mac_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		/* pcs unreset */
 		pp2_gop_gpcs_reset(gop, mac_num, RESET);
 		/* mac unreset */
 		pp2_gop_gmac_reset(gop, mac_num, RESET);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
 		/* pcs unreset */
 		pp2_gop_xpcs_reset(gop, RESET);
 		/* mac unreset */
 		pp2_gop_xlg_mac_reset(gop, mac_num, RESET);
 		break;
-	case PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
 		/* pcs unreset */
 		pp2_gop_xpcs_reset(gop, RESET);
 		/* mac unreset */
 		pp2_gop_xlg_mac_reset(gop, mac_num, RESET);
 		break;
 		/* Stefan: need to check KR case */
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		/* pcs unreset */
 		pp2_gop_xpcs_reset(gop, RESET);
 		/* mac unreset */
@@ -947,16 +947,16 @@ void pp2_gop_port_enable(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_port_enable(gop, port_num);
 		pp2_gop_force_link_mode_set(gop, mac, false, false);
 		pp2_gop_gmac_reset(gop, port_num, UNRESET);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_mac_port_enable(gop, port_num);
 		break;
 	default:
@@ -972,16 +972,16 @@ void pp2_gop_port_disable(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_port_disable(gop, port_num);
 		pp2_gop_force_link_mode_set(gop, mac, false, true);
 		pp2_gop_gmac_reset(gop, port_num, RESET);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_mac_port_disable(gop, port_num);
 		break;
 	default:
@@ -998,13 +998,13 @@ void pp2_gop_port_periodic_xon_set(struct gop_hw *gop,
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_port_periodic_xon_set(gop, port_num, enable);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_mac_port_periodic_xon_set(gop, port_num, enable);
 		break;
 	default:
@@ -1018,14 +1018,14 @@ bool pp2_gop_port_is_link_up(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		return pp2_gop_gmac_link_status_get(gop, port_num);
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
-		usleep(1000);
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
+		usleep_range(1000, 2000);
 		return pp2_gop_xlg_mac_link_status_get(gop, port_num);
 	default:
 		pr_err("%s: Wrong port mode gop_port(%d), phy_mode(%d)",
@@ -1040,14 +1040,14 @@ int pp2_gop_port_link_status(struct gop_hw *gop, struct pp2_mac_data *mac,
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_link_status(gop, port_num, pstatus);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_mac_link_status(gop, port_num, pstatus);
 		break;
 	default:
@@ -1062,14 +1062,14 @@ int pp2_gop_port_events_mask(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_port_link_event_mask(gop, port_num);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_port_link_event_mask(gop, port_num);
 		break;
 	default:
@@ -1084,18 +1084,18 @@ int pp2_gop_port_events_unmask(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_port_link_event_unmask(gop, port_num);
 		/* gige interrupt cause connected to CPU via XLG
 		 * external interrupt cause
 		 */
 		pp2_gop_xlg_port_external_event_unmask(gop, 0, 2);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_port_external_event_unmask(gop, port_num, 1);
 		break;
 	default:
@@ -1110,14 +1110,14 @@ int pp2_gop_port_events_clear(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_port_link_event_clear(gop, port_num);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_port_link_event_clear(gop, port_num);
 		break;
 	default:
@@ -1138,22 +1138,22 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 		   (1 << ENABLED)) ? true : false;
 	pr_info("---- GOP ID %d configuration ----\n", port_num);
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
 		pr_info("Port mode               : RGMII\n");
 		break;
-	case PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
 		pr_info("Port mode               : SGMII\n");
 		break;
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pr_info("Port mode               : QSGMII\n");
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
 		pr_info("Port mode               : XAUI\n");
 		break;
-	case PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
 		pr_info("Port mode               : RXAUI\n");
 		break;
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pr_info("Port mode               : KR\n");
 		break;
 	default:
@@ -1166,7 +1166,7 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 	pr_info("Link status             : %s",
 		 (port_status.linkup) ? "link up\n" : "link down\n");
 
-	if ((mac->phy_mode == PHY_INTERFACE_MODE_SGMII) &&
+	if ((mac->phy_mode == PP2_PHY_INTERFACE_MODE_SGMII) &&
 	    (mac->speed == 2500) && (port_status.speed == PP2_PORT_SPEED_1000))
 		port_status.speed = PP2_PORT_SPEED_2500;
 
@@ -1222,14 +1222,14 @@ int pp2_gop_speed_duplex_get(struct gop_hw *gop, struct pp2_mac_data *mac,
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_speed_duplex_get(gop, port_num, speed, duplex);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_mac_speed_duplex_get(gop, port_num, speed, duplex);
 		break;
 	default:
@@ -1247,14 +1247,14 @@ int pp2_gop_speed_duplex_set(struct gop_hw *gop, struct pp2_mac_data *mac,
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_speed_duplex_set(gop, port_num, speed, duplex);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_mac_speed_duplex_set(gop, port_num, speed, duplex);
 		break;
 	default:
@@ -1269,15 +1269,15 @@ int pp2_gop_autoneg_restart(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
 		break;
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_port_autoneg_restart(gop, port_num);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pr_err("%s: on supported for port mode (%d)", __func__,
 			mac->phy_mode);
 		return -1;
@@ -1293,9 +1293,9 @@ int pp2_gop_fl_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		/* disable AN */
 		if (mac->speed == 2500)
 			pp2_gop_speed_duplex_set(gop, mac,
@@ -1308,9 +1308,9 @@ int pp2_gop_fl_cfg(struct gop_hw *gop, struct pp2_mac_data *mac)
 		/* force link */
 		pp2_gop_gmac_force_link_mode_set(gop, port_num, true, false);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
 		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
@@ -1326,16 +1326,16 @@ int pp2_gop_force_link_mode_set(struct gop_hw *gop, struct pp2_mac_data *mac,
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		/* force link */
 		pp2_gop_gmac_force_link_mode_set(gop, port_num,
 						 force_link_up, force_link_down);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
 		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
@@ -1351,16 +1351,16 @@ int pp2_gop_force_link_mode_get(struct gop_hw *gop, struct pp2_mac_data *mac,
 	int port_num = mac->gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		return pp2_gop_gmac_force_link_mode_get(gop, port_num,
 						       force_link_up,
 						       force_link_down);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
 		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
@@ -1376,9 +1376,9 @@ int pp2_gop_loopback_set(struct gop_hw *gop, struct pp2_mac_data *mac, bool lb)
 	enum pp2_lb_type type;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		/* set loopback */
 		if (lb)
 			type = PP2_TX_2_RX_LB;
@@ -1387,9 +1387,9 @@ int pp2_gop_loopback_set(struct gop_hw *gop, struct pp2_mac_data *mac, bool lb)
 
 		pp2_gop_gmac_loopback_cfg(gop, port_num, type);
 		break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		return 0;
 	default:
 		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
@@ -2035,19 +2035,19 @@ uint32_t pp2_gop_netc_cfg_create(struct pp2_mac_data *mac)
 	u32 val = 0;
 
 	if (mac->gop_index == 0) {
-		if (mac->phy_mode == PHY_INTERFACE_MODE_XAUI)
+		if (mac->phy_mode == PP2_PHY_INTERFACE_MODE_XAUI)
 			val |= PP2_NETC_GE_MAC0_XAUI;
-		else if (mac->phy_mode == PHY_INTERFACE_MODE_RXAUI)
+		else if (mac->phy_mode == PP2_PHY_INTERFACE_MODE_RXAUI)
 			val |= PP2_NETC_GE_MAC0_RXAUI_L23;
 	}
 	if (mac->gop_index == 2) {
-		if (mac->phy_mode == PHY_INTERFACE_MODE_SGMII)
+		if (mac->phy_mode == PP2_PHY_INTERFACE_MODE_SGMII)
 			val |= PP2_NETC_GE_MAC2_SGMII;
 	}
 	if (mac->gop_index == 3) {
-		if (mac->phy_mode == PHY_INTERFACE_MODE_SGMII)
+		if (mac->phy_mode == PP2_PHY_INTERFACE_MODE_SGMII)
 			val |= PP2_NETC_GE_MAC3_SGMII;
-		else if (mac->phy_mode == PHY_INTERFACE_MODE_RGMII)
+		else if (mac->phy_mode == PP2_PHY_INTERFACE_MODE_RGMII)
 			val |= PP2_NETC_GE_MAC3_RGMII;
 	}
 

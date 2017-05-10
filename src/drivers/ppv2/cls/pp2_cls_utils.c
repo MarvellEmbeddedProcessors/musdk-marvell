@@ -322,8 +322,8 @@ void print_horizontal_line(u32 char_count, const char *char_val)
 	u32 cnt;
 
 	for (cnt = 0; cnt < char_count; cnt++)
-		printf("%s", char_val);
-	printf("\n");
+		printk("%s", char_val);
+	printk("\n");
 }
 
 int mv_pp2x_ptr_validate(const void *ptr)

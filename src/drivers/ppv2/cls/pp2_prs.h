@@ -89,7 +89,7 @@
 /*			STRUCTURES						*/
 /********************************************************************************/
 
-struct iphdr {
+struct mv_pp2x_iphdr {
 	uint8_t	 ihl:4,
 		 version:4;
 	u8	 tos;
@@ -103,7 +103,7 @@ struct iphdr {
 	u32 daddr;
 };
 
-struct ipv6hdr {
+struct mv_pp2x_ipv6hdr {
 	uint8_t	 priority:4,
 		 version:4;
 	u8	 flow_lbl[3];

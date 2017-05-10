@@ -30,31 +30,31 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_TYPES_H__
-#define __MV_TYPES_H__
+/**
+ * @file pp2_utils_ks.c
+ *
+ * pp2 util functions specific for user space
+ */
 
-#ifndef __KERNEL__
+#include "std_internal.h"
 
-#include <stdint.h>
+#include "pp2.h"
 
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef int8_t		s8;
-typedef int16_t		s16;
-typedef int32_t		s32;
-typedef int64_t		s64;
+/* Get device tree data of the PPV2 ethernet ports.
+ * Does not include the loopback port.
+ */
+static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
+{
+	return -EFAULT;
+}
 
+/* pp2_netdev_if_info_get()
+ * Retireve information from netdev for all instances and ports:
+ * - if name
+ * - port status (disabled/MUSDK/Kernel)
+ */
+int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
+{
+	return -EFAULT;
+}
 
-#ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
-typedef u64 dma_addr_t;
-typedef u64 phys_addr_t;
-#else
-typedef u32 dma_addr_t;
-typedef u32 phys_addr_t;
-#endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
-
-#endif /* __KERNEL__ */
-
-#endif /* __MV_TYPES_H__ */

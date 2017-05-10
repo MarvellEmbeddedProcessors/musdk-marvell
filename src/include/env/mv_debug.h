@@ -36,6 +36,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define printk printf
+
 #define MV_DBG_L_CRIT	1
 #define MV_DBG_L_ERR	2
 #define MV_DBG_L_WARN	3

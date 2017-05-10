@@ -118,8 +118,8 @@ static char *pp2_cls_frwd_action_str[8] = {
 static void pp2_cls_valid_c2_entry_header_dump(void)
 {
 	print_horizontal_line(150, "=");
-	printf("= LKP_Type | Priority | Port_Info |   Field_Name  |      Field_Value     |");
-	printf("            QOS_Info            |    Action_Info     | Hit_Cnt |   INDX    =\n");
+	printk("= LKP_Type | Priority | Port_Info |   Field_Name  |      Field_Value     |");
+	printk("            QOS_Info            |    Action_Info     | Hit_Cnt |   INDX    =\n");
 	print_horizontal_line(150, "=");
 }
 
@@ -430,11 +430,11 @@ static void pp2_cls_valid_c2_entry_line_dump(uintptr_t cpu_slot,
 	    dump_idx <= MVPP2_MOD_DUMP_L4_CHECKSUM ||
 	    dump_idx <= MVPP2_FLOW_DUMP_CNT ||
 	    dump_idx <= MVPP2_INDEX_DUMP_DB) {
-		printf("+ %8s | %8s | %8s  | %13s | %20s | %30s | %18s | %7s | %8s  +\n",
+		printk("+ %8s | %8s | %8s  | %13s | %20s | %30s | %18s | %7s | %8s  +\n",
 		       lookup_type_str, internal_pri_str, port_info_str, field_name_str, field_value_str,
 		       qos_info_str, action_str, hit_cnt_str, index_str);
 		if (field_match)
-			printf("+ %8s | %8s | %8s  | %13s | %20s | %30s | %18s | %7s | %9s +\n",
+			printk("+ %8s | %8s | %8s  | %13s | %20s | %30s | %18s | %7s | %9s +\n",
 			       empty_str, empty_str, empty_str, empty_str, field_value_mask_str,
 			       empty_str, empty_str, empty_str, empty_str);
 	}
@@ -486,7 +486,7 @@ static void pp2_cls_c2_dump_all(struct pp2_inst *inst, u8 lookup_type)
 								 c2_index_node);
 			}
 			print_horizontal_line(150, "-");
-			printf("\n");
+			printk("\n");
 		}
 	}
 }
@@ -507,7 +507,7 @@ static void pp2_cls_c2_dump_all(struct pp2_inst *inst, u8 lookup_type)
 static void pp2_cls_print_free_c2_tcam_dump_head(void)
 {
 	print_horizontal_line(67, "=");
-	printf("=    TOTAL    |                FREE_TCAM_IDX                      =\n");
+	pr_info("=    TOTAL    |                FREE_TCAM_IDX                      =\n");
 	print_horizontal_line(67, "=");
 }
 
@@ -561,19 +561,19 @@ static void pp2_cls_print_tcam_index_dump_line(u32 common_int,
 				tcam_idx_str[j] = 0;
 			if (first_line) {
 				first_line = false;
-				printf("+    %4s     |     %40s      +\n", common_str, tcam_idx_str);
+				printk("+    %4s     |     %40s      +\n", common_str, tcam_idx_str);
 			} else {
-				printf("+    %4s     |     %40s      +\n", "", tcam_idx_str);
+				printk("+    %4s     |     %40s      +\n", "", tcam_idx_str);
 			}
 		} else {
 			if (first_line) {
 				first_line = false;
 				if (tcam_cnt)
-					printf("+    %4s     |     %40s      +\n", common_str, tcam_idx_str);
+					printk("+    %4s     |     %40s      +\n", common_str, tcam_idx_str);
 				else
-					printf("+    %4s     |     %40s      +\n", common_str, "NA");
+					printk("+    %4s     |     %40s      +\n", common_str, "NA");
 			} else {
-				printf("+    %4s     |     %40s      +\n", "", tcam_idx_str);
+				printk("+    %4s     |     %40s      +\n", "", tcam_idx_str);
 			}
 		}
 	}
@@ -626,7 +626,7 @@ static void pp2_cls_c2_dump_freelist(struct pp2_inst *inst)
 static void pp2_cls_print_valid_lkp_type_dump_head(void)
 {
 	print_horizontal_line(67, "=");
-	printf("=   LKP_Type  |                TCAM_IDX                           =\n");
+	printk("=   LKP_Type  |                TCAM_IDX                           =\n");
 	print_horizontal_line(67, "=");
 }
 
@@ -662,7 +662,7 @@ static void pp2_cls_c2_dump_lookup_type_list(struct pp2_inst *inst)
 			tcam_array[i++] = (u8)(c2_index_node->c2_hw_idx);
 		/* Print LKP_type info */
 		pp2_cls_print_tcam_index_dump_line(lkp_type_idx, tcam_array);
-		printf("+-----------------------------------------------------------------+\n");
+		printk("+-----------------------------------------------------------------+\n");
 	}
 	print_horizontal_line(67, "=");
 }
@@ -679,34 +679,22 @@ static void pp2_cls_c2_dump_lookup_type_list(struct pp2_inst *inst)
 int pp2_cls_cli_c2_lkp_type_entry_dump(void *arg, int argc, char *argv[])
 {
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	int long_index = 0;
-	char *ret_ptr;
-	int option;
+	int ret;
 	u32 lookup_type = MVPP2_C2_LKP_TYPE_MAX;
-	struct option long_options[] = {
-		{"type", required_argument, 0, 't'},
-		{0, 0, 0, 0}
-	};
 
-	if (argc != 1 && argc != 3) {
+	if (argc != 1 && argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
-	if (argc == 3) {
-		optind = 0;
-		option = getopt_long_only(argc, argv, "", long_options, &long_index);
-		if (option == 't') {
-			lookup_type = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (lookup_type < 0) || (lookup_type >= MVPP2_C2_LKP_TYPE_MAX)) {
-				printf("parsing fail, wrong input for --type\n");
-				return -EINVAL;
-			}
-		} else {
-			printf("parsing fail, wrong input\n");
+	if (argc == 2) {
+		ret = kstrtou32(argv[1], 10, &lookup_type);
+		if (ret || (lookup_type >= MVPP2_C2_LKP_TYPE_MAX)) {
+			pr_err("parsing fail, wrong input for arg[1]\n");
 			return -EINVAL;
 		}
 	}
+
 	pp2_cls_c2_dump_all(inst, lookup_type);
 
 	return 0;
@@ -772,7 +760,7 @@ int pp2_cls_cli_c2_hw_dump(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[])
 {
-	struct pp2_cls_hit_cnt_t cntr_info[MVPP2_CLS_C2_TCAM_SIZE];
+	struct pp2_cls_hit_cnt_t cntr_info[MVPP2_CLS_C2_TCAM_SIZE]; /* TODO: Remove this from the stack */
 	u32 num_of_counters = MVPP2_CLS_C2_TCAM_SIZE;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	int i;
@@ -782,8 +770,8 @@ int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[])
 	for (i = 0; i < num_of_counters; i++) {
 		if (cntr_info[i].cntr_val == 0)
 			continue;
-		pr_info("index = %d, phys_idx = %d, hits = %d\n",
-			cntr_info[i].log_idx, cntr_info[i].phys_idx, cntr_info[i].cntr_val);
+		printk("index = %d, phys_idx = %d, hits = %d\n",
+		       cntr_info[i].log_idx, cntr_info[i].phys_idx, cntr_info[i].cntr_val);
 	}
 
 	return 0;
@@ -796,20 +784,20 @@ int pp2_cls_cli_qos_dscp_dump(void *arg, int argc, char *argv[])
 	struct mv_pp2x_cls_c2_qos_entry qos;
 
 	for (tbl_id = 0; tbl_id < MVPP2_CLS_C2_QOS_DSCP_TBL_NUM; tbl_id++) {
-		printf("\n------------ DSCP TABLE %d ------------\n", tbl_id);
-		printf("LINE	DSCP	COLOR	GEM_ID	QUEUE\n");
+		printk("\n------------ DSCP TABLE %d ------------\n", tbl_id);
+		printk("LINE	DSCP	COLOR	GEM_ID	QUEUE\n");
 		for (tbl_line = 0; tbl_line < MVPP2_CLS_C2_QOS_DSCP_TBL_SIZE; tbl_line++) {
 			mv_pp2x_cls_c2_qos_hw_read(&inst->hw, tbl_id, 1/*DSCP*/, tbl_line, &qos);
-			printf("0x%2.2x\t", qos.tbl_line);
+			printk("0x%2.2x\t", qos.tbl_line);
 			mv_pp2x_cls_c2_qos_dscp_get(&qos, &val);
-			printf("0x%2.2x\t", val);
+			printk("0x%2.2x\t", val);
 			mv_pp2x_cls_c2_qos_color_get(&qos, &val);
-			printf("0x%1.1x\t", val);
+			printk("0x%1.1x\t", val);
 			mv_pp2x_cls_c2_qos_gpid_get(&qos, &val);
-			printf("0x%3.3x\t", val);
+			printk("0x%3.3x\t", val);
 			mv_pp2x_cls_c2_qos_queue_get(&qos, &val);
-			printf("0x%2.2x", val);
-			printf("\n");
+			printk("0x%2.2x", val);
+			printk("\n");
 		}
 	}
 	return MV_OK;
@@ -822,21 +810,21 @@ int pp2_cls_cli_qos_pcp_dump(void *arg, int argc, char *argv[])
 	struct mv_pp2x_cls_c2_qos_entry qos;
 
 	for (tbl_id = 0; tbl_id < MVPP2_CLS_C2_QOS_PRIO_TBL_NUM; tbl_id++) {
-		printf("\n-------- PRIORITY TABLE %d -----------\n", tbl_id);
-		printf("LINE	PRIO	COLOR	GEM_ID	QUEUE\n");
+		printk("\n-------- PRIORITY TABLE %d -----------\n", tbl_id);
+		printk("LINE	PRIO	COLOR	GEM_ID	QUEUE\n");
 
 		for (tbl_line = 0; tbl_line < MVPP2_CLS_C2_QOS_PRIO_TBL_SIZE; tbl_line++) {
 			mv_pp2x_cls_c2_qos_hw_read(&inst->hw, tbl_id, 0/*PRIO*/, tbl_line, &qos);
-			printf("0x%2.2x\t", qos.tbl_line);
+			printk("0x%2.2x\t", qos.tbl_line);
 			mv_pp2x_cls_c2_qos_prio_get(&qos, &val);
-			printf("0x%1.1x\t", val);
+			printk("0x%1.1x\t", val);
 			mv_pp2x_cls_c2_qos_color_get(&qos, &val);
-			printf("0x%1.1x\t", val);
+			printk("0x%1.1x\t", val);
 			mv_pp2x_cls_c2_qos_gpid_get(&qos, &val);
-			printf("0x%3.3x\t", val);
+			printk("0x%3.3x\t", val);
 			mv_pp2x_cls_c2_qos_queue_get(&qos, &val);
-			printf("0x%2.2x", val);
-			printf("\n");
+			printk("0x%2.2x", val);
+			printk("\n");
 		}
 	}
 	return MV_OK;

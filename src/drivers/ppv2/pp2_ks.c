@@ -30,31 +30,39 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_TYPES_H__
-#define __MV_TYPES_H__
+/**
+ * @file pp2.c
+ *
+ * PPDK container structures and packet processor initialization
+ */
 
-#ifndef __KERNEL__
+#include "std_internal.h"
 
-#include <stdint.h>
+#include "pp2_types.h"
+#include "../../modules/include/mv_pp_uio.h"
 
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef int8_t		s8;
-typedef int16_t		s16;
-typedef int32_t		s32;
-typedef int64_t		s64;
+#include "pp2.h"
+#include "pp2_dm.h"
+#include "pp2_port.h"
+#include "pp2_bm.h"
+#include "pp2_gop_dbg.h"
+#include "pp2_hw_cls.h"
+#include "cls/pp2_cls_mng.h"
 
+int pp2_init(struct pp2_init_params *params)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -EINVAL;
+}
 
-#ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
-typedef u64 dma_addr_t;
-typedef u64 phys_addr_t;
-#else
-typedef u32 dma_addr_t;
-typedef u32 phys_addr_t;
-#endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
+static struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -EINVAL;
+}
 
-#endif /* __KERNEL__ */
-
-#endif /* __MV_TYPES_H__ */
+int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -EINVAL;
+}

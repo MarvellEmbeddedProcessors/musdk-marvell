@@ -71,7 +71,7 @@ static int pp2_cls_c3_common_field_hek_get(u32 pkt_value, u32 field_bytes, u32 f
 	int idx;
 	u32 c3_hek_bytes_used;
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(c3_hek))
@@ -138,7 +138,7 @@ static int pp2_cls_c3_shared_field_hek_get(u32 pkt_value, u32 field_bytes, u32 f
 	u8 comb_flag1;
 	u8 comb_flag2;
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* Para check */
 	if (mv_pp2x_ptr_validate(c3_hek))
@@ -231,7 +231,7 @@ static int pp2_cls_c3_hek_generate(struct pp2_cls_c3_add_entry_t *c3_entry, u32 
 	int rc = MV_OK;
 	u8 l4_info;
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	if (mv_pp2x_ptr_validate(c3_entry))
 		return -EINVAL;
@@ -462,7 +462,7 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 	u8 hek[MVPP2_C3_MAX_HASH_KEY_SIZE];
 	int rc = 0;
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(mng_entry))
@@ -611,7 +611,7 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 {
 	int rc = 0;
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(mng_entry))
@@ -721,7 +721,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 	u32 bits_cnt = 0;
 	int rc = 0;
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -812,7 +812,7 @@ int pp2_cls_c3_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
  */
 int pp2_cls_c3_default_rule_check(struct pp2_cls_c3_add_entry_t *c3_entry)
 {
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* NULL validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -867,7 +867,7 @@ int pp2_cls_c3_rule_add(struct pp2_inst *inst,
 	int idx;
 #endif
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -913,9 +913,9 @@ int pp2_cls_c3_rule_add(struct pp2_inst *inst,
 	MVPP2_MEMSET_ZERO(hash_pair_arr);
 
 #ifdef PP2_CLS_C3_DEBUG
-	pr_debug_fmt("C3 HEK %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-		     c3.key.hek.bytes[35], c3.key.hek.bytes[34], c3.key.hek.bytes[33], c3.key.hek.bytes[32],
-		     c3.key.hek.bytes[31], c3.key.hek.bytes[30], c3.key.hek.bytes[29], c3.key.hek.bytes[28]);
+	pr_debug("C3 HEK %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
+		    c3.key.hek.bytes[35], c3.key.hek.bytes[34], c3.key.hek.bytes[33], c3.key.hek.bytes[32],
+		    c3.key.hek.bytes[31], c3.key.hek.bytes[30], c3.key.hek.bytes[29], c3.key.hek.bytes[28]);
 #endif
 	rc = pp2_cls_c3_hw_query_add(cpu_slot, &c3, max_search_depth, &hash_pair_arr);
 	/* do not need to release logic index since it is still not occuppied */
@@ -928,10 +928,10 @@ int pp2_cls_c3_rule_add(struct pp2_inst *inst,
 	/* update C3 DB multihash index */
 #ifdef PP2_CLS_C3_DEBUG
 	if (hash_pair_arr.pair_num) {
-		pr_debug_fmt("hash pair number=%d\n", hash_pair_arr.pair_num);
+		pr_debug("hash pair number=%d\n", hash_pair_arr.pair_num);
 		for (idx = 0; idx < hash_pair_arr.pair_num; idx++)
-			pr_debug_fmt("hash pair(%d) %x-->%x\n",
-				     idx, hash_pair_arr.old_idx[idx], hash_pair_arr.new_idx[idx]);
+			pr_debug("hash pair(%d) %x-->%x\n",
+				    idx, hash_pair_arr.old_idx[idx], hash_pair_arr.new_idx[idx]);
 	}
 #endif
 	rc = pp2_cls_db_c3_hash_idx_update(inst, &hash_pair_arr);
@@ -972,7 +972,7 @@ int pp2_cls_c3_default_rule_add(struct pp2_inst *inst,
 	int rc = 0;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(c3_entry))
@@ -1037,7 +1037,7 @@ int pp2_cls_c3_rule_del(struct pp2_inst *inst, u32 logic_idx)
 	int rc = 0;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* check C3 rule, return OK if the there is no this logical index */
 	if (mv_pp2x_range_validate(logic_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
@@ -1084,7 +1084,7 @@ int pp2_cls_c3_rule_get(uintptr_t cpu_slot, struct pp2_cls_c3_add_entry_t *c3_en
 {
 	int rc = 0;
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* leave this routine to be implemented in future when needed */
 	return rc;
@@ -1159,7 +1159,7 @@ int pp2_cls_c3_hit_cntr_all_get(struct pp2_inst *inst,
 	u32		cntr_idx;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	if (mv_pp2x_ptr_validate(cntr_info))
 		return -EINVAL;
@@ -1214,7 +1214,7 @@ int pp2_cls_c3_scan_param_set(struct pp2_inst *inst, struct pp2_cls_c3_scan_conf
 	int rc = 0;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(scan_config))
@@ -1311,7 +1311,7 @@ int pp2_cls_c3_scan_result_get(struct pp2_inst *inst, u32 max_entry_num, u32 *en
 	int rc = 0;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* validation */
 	if (mv_pp2x_ptr_validate(entry_num))
@@ -1383,7 +1383,7 @@ int pp2_cls_c3_entry_get(struct pp2_inst *inst, u32 logic_idx, struct pp2_cls_c3
 	struct pp2_cls_c3_entry c3_data;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* Parameter check */
 	if (mv_pp2x_range_validate(logic_idx, 0, MVPP2_CLS_C3_HASH_TBL_SIZE - 1))
@@ -1460,7 +1460,7 @@ int pp2_cls_c3_reset(struct pp2_inst *inst)
 	int rc = 0;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	pr_debug_fmt("reached\n");
+	pr_debug("reached\n");
 
 	/* clear all C3 HW entries */
 	rc = pp2_cls_c3_hw_del_all(cpu_slot);
@@ -1468,7 +1468,7 @@ int pp2_cls_c3_reset(struct pp2_inst *inst)
 		pr_err("fail to delete C3 HW entries\n");
 		return rc;
 	}
-	pr_debug_fmt("PP2_CLS C3 HW entries deleted\n");
+	pr_debug("PP2_CLS C3 HW entries deleted\n");
 
 	/* clear all C3 HW counters */
 	rc = pp2_cls_c3_hit_cntrs_clear_all(cpu_slot);
@@ -1476,7 +1476,7 @@ int pp2_cls_c3_reset(struct pp2_inst *inst)
 		pr_err("fail to clear C3 HW counters\n");
 		return rc;
 	}
-	pr_debug_fmt("PP2_CLS C3 HW counters cleared\n");
+	pr_debug("PP2_CLS C3 HW counters cleared\n");
 
 	/* init PP2_CLS C3 DB */
 	rc = pp2_cls_db_c3_init(inst);
@@ -1484,7 +1484,7 @@ int pp2_cls_c3_reset(struct pp2_inst *inst)
 		pr_err("fail to init PP2_CLS C3 DB\n");
 		return rc;
 	}
-	pr_debug_fmt("PP2_CLS C3 DB initialized\n");
+	pr_debug("PP2_CLS C3 DB initialized\n");
 
 	/* init PP2_CLS C3 HAL */
 	rc = pp2_cls_c3_init(cpu_slot);
@@ -1492,7 +1492,7 @@ int pp2_cls_c3_reset(struct pp2_inst *inst)
 		pr_err("fail to init PP2_CLS C3 DB\n");
 		return rc;
 	}
-	pr_debug_fmt("PP2_CLS C3 DB initialized\n");
+	pr_debug("PP2_CLS C3 DB initialized\n");
 
 	/* set PP2_CLS C3 maximum search depth */
 	rc = pp2_cls_db_c3_search_depth_set(inst, MVPP2_C3_DEFAULT_SEARCH_DEPTH);
@@ -1500,7 +1500,7 @@ int pp2_cls_c3_reset(struct pp2_inst *inst)
 		pr_err("fail to set PP2_CLS C3 max search depth\n");
 		return rc;
 	}
-	pr_debug_fmt("PP2_CLS C3 max depth set to %d\n", MVPP2_C3_DEFAULT_SEARCH_DEPTH);
+	pr_debug("PP2_CLS C3 max depth set to %d\n", MVPP2_C3_DEFAULT_SEARCH_DEPTH);
 
 	return 0;
 }
@@ -1521,7 +1521,7 @@ int pp2_cls_c3_start(struct pp2_inst *inst)
 		pr_err("PP2_CLS C3 start failed\n");
 		return -EIO;
 	}
-	pr_debug_fmt("PP2_CLS C3 started\n");
+	pr_debug("PP2_CLS C3 started\n");
 
 	return 0;
 }

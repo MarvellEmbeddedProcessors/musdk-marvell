@@ -178,8 +178,8 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_print_rxq_counters";
 	cmd_params.desc		= "print rxq counters";
-	cmd_params.format	= "--tc\n"
-				  "\t\t\t\t--tc		(dec) traffic class number";
+	cmd_params.format       = "[tc]...\n"
+				  "\t\t\t\ttc           (dec) traffic class number";
 	cmd_params.cmd_arg	= (void *)port;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_print_rxq_counters;
 	mvapp_register_cli_cmd(&cmd_params);
@@ -260,9 +260,9 @@ int register_cli_c3_cmds(struct pp2_ppio *ppio)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_c3_rule_hit_dump";
 	cmd_params.desc		= "dump C3 entries according to type and index";
-	cmd_params.format	= "--type --var (no arguments)\n"
-				  "\t\t\t\t--type	(dec) C3 dump type, 0: logic idx, 1:hash idx, 2:lookup type\n"
-				  "\t\t\t\t--var	(dec) value according to type, type 0/1:idx, type 2: lookup type\n"
+	cmd_params.format       = "[type] [var] or no arguments\n"
+				  "\t\t\t\ttype (dec) C3 dump type, 0: logic idx, 1:hash idx, 2:lookup type\n"
+				  "\t\t\t\tvar  (dec) value according to type, type 0/1:idx, type 2: lookup type\n"
 				  "\t\t\t\tno arguments -> dumping all flows\n";
 	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c3_type_entry_dump;
@@ -280,8 +280,8 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_c2_rule_hit_dump";
 	cmd_params.desc		= "dump all entries with the lookup type";
-	cmd_params.format	= "--type  (no arguments)\n"
-				  "\t\t\t\t--type	(dec) lookup type number 0 - 64\n"
+	cmd_params.format       = "[type] or no arguments\n"
+				  "\t\t\t\ttype (dec) lookup type number 0 - 64\n"
 				  "\t\t\t\tno arguments -> dumping all flows\n";
 	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_lkp_type_entry_dump;

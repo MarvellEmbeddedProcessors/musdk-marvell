@@ -33,11 +33,27 @@
 #ifndef __STD_INTERNAL_H__
 #define __STD_INTERNAL_H__
 
+#ifdef __KERNEL__
+
+#include <linux/types.h>
+#include <linux/stddef.h>
+#include <linux/inet.h>
+#include <linux/ipv6.h>
+#include <linux/if_arp.h>
+#include <linux/export.h>
+#include <linux/ctype.h>
+#include <asm-generic/io.h>
+
+#include <lib/list_ks.h>
+
+#define ENOTSUP          252
+
+#else /* __KERNEL__ */
+
 #include "mv_std.h"
 
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -50,16 +66,24 @@
 #include <unistd.h>
 #include <assert.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <net/if_arp.h>
 #include <sys/ioctl.h>
 #include <getopt.h>
 #include <ifaddrs.h>
 
 #include "env/of.h"
 #include "env/spinlock.h"
-#include "env/sys_iomem.h"
 #include "env/cma.h"
 #include "env/io.h"
 #include "env/netdev.h"
+#include "lib/list.h"
+
+/* TODO: move to configure script */
+#define MVCONF_IOMEM_USE_UIO
+
+#endif /* __KERNEL__ */
+
+#include "env/sys_iomem.h"
 
 #endif /* __STD_INTERNAL_H__ */
-

@@ -1,21 +1,21 @@
 /******************************************************************************
- *	Copyright (C) 2016 Marvell International Ltd.
+ *      Copyright (C) 2016 Marvell International Ltd.
  *
  *  If you received this File from Marvell, you may opt to use, redistribute
  *  and/or modify this File under the following licensing terms.
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions are met:
  *
- *	* Redistributions of source code must retain the above copyright
- *	  notice, this list of conditions and the following disclaimer.
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
  *
- *	* Redistributions in binary form must reproduce the above copyright
- *	  notice, this list of conditions and the following disclaimer in the
- *	  documentation and/or other materials provided with the distribution.
+ *      * Redistributions in binary form must reproduce the above copyright
+ *        notice, this list of conditions and the following disclaimer in the
+ *        documentation and/or other materials provided with the distribution.
  *
- *	* Neither the name of Marvell nor the names of its contributors may be
- *	  used to endorse or promote products derived from this software
- *	  without specific prior written permission.
+ *      * Neither the name of Marvell nor the names of its contributors may be
+ *        used to endorse or promote products derived from this software
+ *        without specific prior written permission.
  *
  *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -30,31 +30,9 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_TYPES_H__
-#define __MV_TYPES_H__
+#include <linux/export.h>
+#include "std_internal.h"
+#include "drivers/mv_pp2.h"
+#include "drivers/mv_pp2_ppio.h"
 
-#ifndef __KERNEL__
-
-#include <stdint.h>
-
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef int8_t		s8;
-typedef int16_t		s16;
-typedef int32_t		s32;
-typedef int64_t		s64;
-
-
-#ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
-typedef u64 dma_addr_t;
-typedef u64 phys_addr_t;
-#else
-typedef u32 dma_addr_t;
-typedef u32 phys_addr_t;
-#endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
-
-#endif /* __KERNEL__ */
-
-#endif /* __MV_TYPES_H__ */
+EXPORT_SYMBOL(pp2_ppio_init);

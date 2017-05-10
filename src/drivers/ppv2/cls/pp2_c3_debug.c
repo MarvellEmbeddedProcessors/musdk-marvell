@@ -48,7 +48,7 @@
 void pp2_cls_c3_entry_header_dump(void)
 {
 	print_horizontal_line(100, "=");
-	printf("LkTp |PrtInf|L4_Inf|   HEK                  |   Action_Info    | QOS_Info    |   Idx   |Hit_Cnt\n");
+	printk("LkTp |PrtInf|L4_Inf|   HEK                  |   Action_Info    | QOS_Info    |   Idx   |Hit_Cnt\n");
 	print_horizontal_line(100, "=");
 }
 
@@ -248,7 +248,7 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 	    dump_idx <= MVPP2_C3_MOD_DUMP_L4_CHECKSUM ||
 	    dump_idx <= MVPP2_C3_FLOW_DUMP_CNT ||
 	    dump_idx <= MVPP2_INDEX_DUMP_LOGICAL) {
-		printf("+%4s|%6s|%6s|%24s|%18s|%13s|%9s|%8s+\n",
+		printk("+%4s|%6s|%6s|%24s|%18s|%13s|%9s|%8s+\n",
 		       lookup_type_str, port_info_str, l4_info_str, hek_str,
 		       action_str, qos_info_str, index_str, hit_cnt_str);
 	}
@@ -335,7 +335,7 @@ static int pp2_cls_c3_entry_dump(struct pp2_inst *inst, u32 type, u32 value)
 			pp2_cls_c3_entry_line_dump(dump_idx, c3.index, logic_idx, hit_count, &c3_entry);
 
 		print_horizontal_line(100, "-");
-		printf("+");
+		printk("+");
 	}	else if ((type == MVPP2_C3_ENTRY_DUMP_LU_TYPE) || (type == MVPP2_C3_ENTRY_DUMP_ALL)) {
 		/* print header */
 		pp2_cls_c3_entry_header_dump();
@@ -373,12 +373,12 @@ static int pp2_cls_c3_entry_dump(struct pp2_inst *inst, u32 type, u32 value)
 				pp2_cls_c3_entry_line_dump(dump_idx, c3.index, logic_idx, hit_count, &c3_entry);
 
 			print_horizontal_line(100, "-");
-			printf("+\n");
+			printk("+\n");
 
 			num++;
 		}
 
-		printf("Total Number=%d\n", num);
+		printk("Total Number=%d\n", num);
 	}
 
 	return 0;
@@ -392,66 +392,44 @@ static int pp2_cls_c3_entry_dump(struct pp2_inst *inst, u32 type, u32 value)
  ******************************************************************************/
 int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 {
-	int type = -1;
-	int value = -1;
-	int i;
+	u32 type = MVPP2_C3_ENTRY_DUMP_ALL;
+	u32 value = 0;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	char *ret_ptr;
-	int option;
-	int long_index = 0;
-	struct option long_options[] = {
-		{"type", no_argument, 0, 't'},
-		{"var", required_argument, 0, 'v'},
-		{0, 0, 0, 0}
-	};
+	int rc;
 
-	if (argc == 3) {
-		/* every time starting getopt we should reset optind */
-		optind = 0;
-
-		/* Get parameters */
-		for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
-			switch (option) {
-			case 't':
-				type = strtoul(optarg, &ret_ptr, 0);
-				if ((optarg == ret_ptr) || type < 0 || (type > MVPP2_C3_DUMP_TYPE_MAX)) {
-					printf("parsing fail, wrong input for argv[1] - type");
-					return -EINVAL;
-				}
-				break;
-			case 'v':
-				value = strtoul(optarg, &ret_ptr, 0);
-				if ((optarg == ret_ptr) || value < 0 || (value > MVPP2_C3_DUMP_VALUE_MAX)) {
-					printf("parsing fail, wrong input for argv[2] - value");
-					return -EINVAL;
-				}
-				break;
-			default:
-				printf("parsing fail, wrong input\n");
-				return -EINVAL;
-			}
-		}
-		/* check if all the fields are initialized */
-		if (type < 0) {
-			printf("parsing fail, invalid --type\n");
-			return -EINVAL;
-		}
-		if (value < 0) {
-			printf("parsing fail, invalid --value\n");
-			return -EINVAL;
-		}
-	} else if (argc == 1) {
-		type =  MVPP2_C3_ENTRY_DUMP_ALL;
-		value = 0;
-	} else {
+	if (argc != 1 && argc != 3) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
+	if (argc == 3) {
+		rc = kstrtou32(argv[1], 10, &type);
+		if (rc || (type > MVPP2_C3_DUMP_TYPE_MAX)) {
+			pr_err("parsing fail, wrong input for argv[1] - type");
+			return -EINVAL;
+		}
+
+		rc = kstrtou32(argv[2], 10, &value);
+		if (rc) {
+			pr_err("parsing fail, wrong input for argv[2] - value");
+			return -EINVAL;
+		}
+
+		/* check if all the fields are initialized */
+		if (type < 0) {
+			pr_err("parsing fail, invalid --type\n");
+			return -EINVAL;
+		}
+		if (value < 0) {
+			pr_err("parsing fail, invalid --value\n");
+			return -EINVAL;
+		}
+	}
+
 	if (!pp2_cls_c3_entry_dump(inst, type, value))
-		printf("OK\n");
+		printk("OK\n");
 	else
-		printf("FAIL\n");
+		printk("FAIL\n");
 
 	return 0;
 }
@@ -475,9 +453,9 @@ static int pp2_cls_c3_index_dump(struct pp2_inst *inst, u32 type)
 
 	/* dump multihash index table */
 	print_horizontal_line(42, "=");
-	printf("=         Multihash Index Table          =\n");
+	printk("=         Multihash Index Table          =\n");
 	print_horizontal_line(42, "=");
-	printf("= Index  | Logic_Idx | Hash_Idx |  Valid =\n");
+	printk("= Index  | Logic_Idx | Hash_Idx |  Valid =\n");
 
 	for (idx = 0; idx < MVPP2_CLS_C3_HASH_TBL_SIZE; idx++) {
 		rc = pp2_cls_db_c3_hash_idx_get(inst, idx, &hash_idx);
@@ -485,24 +463,24 @@ static int pp2_cls_c3_index_dump(struct pp2_inst *inst, u32 type)
 			sprintf(index_str, "%d", num);
 			sprintf(logic_idx_str, "%d", idx);
 			sprintf(hash_idx_str, "%d", hash_idx);
-			printf("= %6s | %9s | %8s |  %4s  =\n", index_str, logic_idx_str, hash_idx_str, "En");
+			printk("= %6s | %9s | %8s |  %4s  =\n", index_str, logic_idx_str, hash_idx_str, "En");
 			num++;
 		} else if (type == MVPP2_C3_TABLE_DUMP_ALL) {
 			sprintf(index_str, "%d", num);
 			sprintf(logic_idx_str, "%d", idx);
 			sprintf(hash_idx_str, "%d", 0);
-			printf("= %6s | %9s | %8s |  %4s  =\n", index_str, logic_idx_str, hash_idx_str, "Dis");
+			printk("= %6s | %9s | %8s |  %4s  =\n", index_str, logic_idx_str, hash_idx_str, "Dis");
 			num++;
 		}
 	}
 	print_horizontal_line(42, "=");
-	printf("Total number=%d\n", num);
-	printf("\n\n");
+	printk("Total number=%d\n", num);
+	printk("\n\n");
 
 	print_horizontal_line(42, "=");
-	printf("=         Logical Index Table            =\n");
+	printk("=         Logical Index Table            =\n");
 	print_horizontal_line(42, "=");
-	printf("= Index  | Hash_Idx | Logic_Idx |  Valid =\n");
+	printk("= Index  | Hash_Idx | Logic_Idx |  Valid =\n");
 	num = 0;
 	for (idx = 0; idx < MVPP2_CLS_C3_HASH_TBL_SIZE; idx++) {
 		rc = pp2_cls_db_c3_logic_idx_get(inst, idx, &logic_idx);
@@ -510,18 +488,18 @@ static int pp2_cls_c3_index_dump(struct pp2_inst *inst, u32 type)
 			sprintf(index_str, "%d", num);
 			sprintf(hash_idx_str, "%d", idx);
 			sprintf(logic_idx_str, "%d", logic_idx);
-			printf("= %6s | %8s | %9s |  %4s  =\n",	index_str, hash_idx_str, logic_idx_str,	"En");
+			printk("= %6s | %8s | %9s |  %4s  =\n",	index_str, hash_idx_str, logic_idx_str,	"En");
 			num++;
 		} else if (type == MVPP2_C3_TABLE_DUMP_ALL) {
 			sprintf(index_str, "%d", num);
 			sprintf(hash_idx_str, "%d", idx);
 			sprintf(logic_idx_str, "%d", 0);
-			printf("= %6s | %8s | %9s |  %4s  =\n", index_str, hash_idx_str, logic_idx_str, "Dis");
+			printk("= %6s | %8s | %9s |  %4s  =\n", index_str, hash_idx_str, logic_idx_str, "Dis");
 			num++;
 		}
 	}
 	print_horizontal_line(42, "=");
-	printf("Total number=%d\n", num);
+	printk("Total number=%d\n", num);
 	return 0;
 }
 
@@ -534,7 +512,7 @@ static int pp2_cls_c3_index_dump(struct pp2_inst *inst, u32 type)
 int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
 {
 	u32 index_entry;
-	char *ret_ptr;
+	int rc;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (argc != 2) {
@@ -543,16 +521,16 @@ int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
 	}
 
 	/* Get parameters */
-	index_entry = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || index_entry < 0 || (index_entry > MVPP2_C3_DUMP_INDEX_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - index_entry");
+	rc = kstrtou32(argv[1], 10, &index_entry);
+	if (rc || (index_entry > MVPP2_C3_DUMP_INDEX_MAX)) {
+		pr_err("parsing fail, wrong input for argv[1] - index_entry.\n");
 		return -EINVAL;
 	}
 
 	if (!pp2_cls_c3_index_dump(inst, index_entry))
-		printf("OK\n");
+		printk("OK\n");
 	else
-		printf("FAIL\n");
+		printk("FAIL\n");
 
 	return 0;
 }
@@ -565,6 +543,7 @@ int pp2_cls_cli_c3_index_entry_dump(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 {
+	int rc;
 	u32 clear;
 	u32 lkp_type_en;
 	u32 lkp_type;
@@ -574,7 +553,6 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 	u32 threshold;
 	struct pp2_cls_c3_scan_config_t scan_config;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	char *ret_ptr;
 
 	if (argc != 8) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -582,45 +560,45 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 	}
 
 	/* Get parameters */
-	clear = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || clear < 0 || (clear > MVPP2_C3_SCAN_CLEAR_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - clear");
+	rc = kstrtou32(argv[1], 10, &clear);
+	if (rc || (clear > MVPP2_C3_SCAN_CLEAR_MAX)) {
+		pr_err("parsing fail, wrong input for argv[1] - clear.\n");
 		return -EINVAL;
 	}
 
-	lkp_type_en = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[2] == ret_ptr) || lkp_type_en < 0 || (lkp_type_en > MVPP2_C3_SCAN_LKP_EN_MAX)) {
-		printf("parsing fail, wrong input for argv[2] - lkp_type_en");
+	rc = kstrtou32(argv[2], 10, &lkp_type_en);
+	if (rc || (lkp_type_en > MVPP2_C3_SCAN_LKP_EN_MAX)) {
+		pr_err("parsing fail, wrong input for argv[2] - lkp_type_en.\n");
 		return -EINVAL;
 	}
 
-	lkp_type = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[3] == ret_ptr) || lkp_type < 0 || (lkp_type > MVPP2_C3_SCAN_LKP_TYPE_MAX)) {
-		printf("parsing fail, wrong input for argv[3] - lkp_type");
+	rc = kstrtou32(argv[3], 10, &lkp_type);
+	if (rc || (lkp_type > MVPP2_C3_SCAN_LKP_TYPE_MAX)) {
+		pr_err("parsing fail, wrong input for argv[3] - lkp_type.\n");
 		return -EINVAL;
 	}
 
-	mode = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[4] == ret_ptr) || mode < 0 || (mode > MVPP2_C3_SCAN_MODE_MAX)) {
-		printf("parsing fail, wrong input for argv[4] - mode");
+	rc = kstrtou32(argv[4], 10, &mode);
+	if (rc || (mode > MVPP2_C3_SCAN_MODE_MAX)) {
+		pr_err("parsing fail, wrong input for argv[4] - mode.\n");
 		return -EINVAL;
 	}
 
-	start = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[5] == ret_ptr) || start < 0) {
-		printf("parsing fail, wrong input for argv[5] - start");
+	rc = kstrtou32(argv[5], 10, &start);
+	if (rc) {
+		pr_err("parsing fail, wrong input for argv[5] - start.\n");
 		return -EINVAL;
 	}
 
-	delay = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[6] == ret_ptr) || delay < 0) {
-		printf("parsing fail, wrong input for argv[6] - delay");
+	rc = kstrtou32(argv[6], 10, &delay);
+	if (rc) {
+		pr_err("parsing fail, wrong input for argv[6] - delay.\n");
 		return -EINVAL;
 	}
 
-	threshold = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[7] == ret_ptr) || threshold < 0) {
-		printf("parsing fail, wrong input for argv[7] - threshold");
+	rc = kstrtou32(argv[7], 10, &threshold);
+	if (rc) {
+		pr_err("parsing fail, wrong input for argv[7] - threshold.\n");
 		return -EINVAL;
 	}
 
@@ -632,9 +610,9 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
 	scan_config.scan_delay = delay;
 	scan_config.scan_threshold = threshold;
 	if (!pp2_cls_c3_scan_param_set(inst, &scan_config))
-		printf("OK\n");
+		printk("OK\n");
 	else
-		printf("FAIL\n");
+		printk("FAIL\n");
 
 	return 0;
 }
@@ -671,7 +649,7 @@ static int pp2_cls_c3_scan_result_dump(struct pp2_inst *inst, u32 max_num)
 
 	/* dump scan result info */
 	print_horizontal_line(100, "=");
-	printf("= Index | Hash_Idx | Logic_Idx |   Hit_Cnt  =\n");
+	printk("= Index | Hash_Idx | Logic_Idx |   Hit_Cnt  =\n");
 	print_horizontal_line(100, "=");
 
 	for (idx = 0; idx < entry_num; idx++) {
@@ -679,10 +657,10 @@ static int pp2_cls_c3_scan_result_dump(struct pp2_inst *inst, u32 max_num)
 		sprintf(hash_idx_str, "%d", result_entry[idx].hash_idx);
 		sprintf(logic_idx_str, "%d", result_entry[idx].logic_idx);
 		sprintf(hit_cnt_str, "%d", result_entry[idx].hit_cnt);
-		printf("= %8s | %8s | %8s |  %8s  =\n", index_str, hash_idx_str, logic_idx_str,	hit_cnt_str);
+		printk("= %8s | %8s | %8s |  %8s  =\n", index_str, hash_idx_str, logic_idx_str,	hit_cnt_str);
 	}
 	print_horizontal_line(100, "=");
-	printf("Total Number:%d\n", entry_num);
+	printk("Total Number:%d\n", entry_num);
 
 	kfree(result_entry);
 	return 0;
@@ -696,9 +674,9 @@ static int pp2_cls_c3_scan_result_dump(struct pp2_inst *inst, u32 max_num)
  ******************************************************************************/
 int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
 {
+	int rc;
 	u32 scan_num;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	char *ret_ptr;
 
 	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -706,16 +684,16 @@ int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
 	}
 
 	/* Get parameters */
-	scan_num = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || scan_num < 0) {
-		printf("parsing fail, wrong input for argv[1] - scan_num");
+	rc = kstrtou32(argv[1], 10, &scan_num);
+	if (rc) {
+		pr_err("parsing fail, wrong input for argv[1] - scan_num");
 		return -EINVAL;
 	}
 
 	if (!pp2_cls_c3_scan_result_dump(inst, scan_num))
-		printf("OK\n");
+		printk("OK\n");
 	else
-		printf("FAIL\n");
+		printk("FAIL\n");
 	return 0;
 }
 
@@ -727,10 +705,10 @@ int pp2_cls_cli_c3_scan_result_get(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
 {
+	int rc;
 	u32 logic_idx;
 	u32 hit_cnt;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	char *ret_ptr;
 
 	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -738,17 +716,17 @@ int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
 	}
 
 	/* Get parameters */
-	logic_idx = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || logic_idx < 0 || (logic_idx > MVPP2_C3_INDEX_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - logic_idx");
+	rc = kstrtou32(argv[1], 10, &logic_idx);
+	if (rc || (logic_idx > MVPP2_C3_INDEX_MAX)) {
+		pr_err("parsing fail, wrong input for argv[1] - logic_idx");
 		return -EINVAL;
 	}
 
 	if (!pp2_cls_c3_hit_count_get(inst, logic_idx, &hit_cnt)) {
-		printf("Logical index(%d), hit counter=%d\n", logic_idx, hit_cnt);
-		printf("%s success\n", __func__);
+		printk("Logical index(%d), hit counter=%d\n", logic_idx, hit_cnt);
+		printk("%s success\n", __func__);
 	} else {
-		printf("%s fail\n", __func__);
+		printk("%s fail\n", __func__);
 	}
 
 	return 0;
@@ -762,8 +740,8 @@ int pp2_cls_cli_c3_hit_count_get(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
 {
+	int rc;
 	u32 search_depth;
-	char *ret_ptr;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (argc != 2) {
@@ -772,16 +750,16 @@ int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
 	}
 
 	/* Get parameters */
-	search_depth = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || search_depth < 0 || (search_depth > MVPP2_C3_SEARCH_DEPTHX_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - search_depth");
+	rc = kstrtou32(argv[1], 10, &search_depth);
+	if (rc || (search_depth > MVPP2_C3_SEARCH_DEPTHX_MAX)) {
+		pr_err("parsing fail, wrong input for argv[1] - search_depth");
 		return -EINVAL;
 	}
 
 	if (!pp2_cls_db_c3_search_depth_set(inst, search_depth))
-		printf("%s success\n", __func__);
+		printk("%s success\n", __func__);
 	else
-		printf("%s fail\n", __func__);
+		printk("%s fail\n", __func__);
 
 	return 0;
 }
@@ -794,8 +772,8 @@ int pp2_cls_cli_c3_search_depth_set(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[])
 {
+	int rc;
 	u32 logic_idx;
-	char *ret_ptr;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (argc != 2) {
@@ -804,16 +782,16 @@ int pp2_cls_cli_c3_rule_delete(void *arg, int argc, char *argv[])
 	}
 
 	/* Get parameters */
-	logic_idx = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || logic_idx < 0 || (logic_idx > MVPP2_C3_INDEX_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - logic_idx");
+	rc = kstrtou32(argv[1], 10, &logic_idx);
+	if (rc || (logic_idx > MVPP2_C3_INDEX_MAX)) {
+		pr_err("parsing fail, wrong input for argv[1] - logic_idx");
 		return -EINVAL;
 	}
 
 	if (!pp2_cls_c3_rule_del(inst, logic_idx))
-		printf("%s success\n", __func__);
+		printk("%s success\n", __func__);
 	else
-		printf("%s fail\n", __func__);
+		printk("%s fail\n", __func__);
 
 	return 0;
 }
@@ -901,7 +879,7 @@ int pp2_cls_c3_test(struct pp2_inst *inst, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pr_debug_fmt("**************C3 Test#1***********************\n");
+		pr_debug("**************C3 Test#1***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -949,7 +927,7 @@ int pp2_cls_c3_test(struct pp2_inst *inst, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pr_debug_fmt("**************C3 Test#2***********************\n");
+		pr_debug("**************C3 Test#2***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -998,7 +976,7 @@ int pp2_cls_c3_test(struct pp2_inst *inst, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pr_debug_fmt("**************C3 Test#3***********************\n");
+		pr_debug("**************C3 Test#3***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -1060,7 +1038,7 @@ int pp2_cls_c3_test(struct pp2_inst *inst, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pr_debug_fmt("**************C3 Test#4***********************\n");
+		pr_debug("**************C3 Test#4***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);
@@ -1120,7 +1098,7 @@ int pp2_cls_c3_test(struct pp2_inst *inst, int num)
 		u32 logic_idx;
 		int rc = 0;
 
-		pr_debug_fmt("**************C3 Test#5***********************\n");
+		pr_debug("**************C3 Test#5***********************\n");
 		/* init value */
 		MVPP2_MEMSET_ZERO(pkt_key);
 		MVPP2_MEMSET_ZERO(mng_pkt_key);

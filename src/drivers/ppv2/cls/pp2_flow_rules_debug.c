@@ -30,11 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-
 #include "drivers/ppv2/pp2.h"
 #include "drivers/ppv2/pp2_hw_type.h"
 #include "drivers/ppv2/pp2_hw_cls.h"
@@ -65,11 +60,11 @@ static struct pp2_cls_fl_rule_list_t g_fl_rls;
  ******************************************************************************/
 int pp2_cli_cls_lkp_dcod_entry_set(void *arg, int argc, char *argv[])
 {
+	int rc;
 	int flow_log_id;
 	int cpu_q;
 	int flow_len;
 	int ret_val = 0;
-	char *ret_ptr;
 
 	if (argc != 4) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -77,19 +72,19 @@ int pp2_cli_cls_lkp_dcod_entry_set(void *arg, int argc, char *argv[])
 	}
 
 	/* Get parameters */
-	flow_log_id = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || flow_log_id < 0 || (flow_log_id >= MVPP2_MNG_FLOW_ID_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - flow_log_id");
+	rc = kstrtoint(argv[1], 10, &flow_log_id);
+	if (rc || flow_log_id < 0 || (flow_log_id >= MVPP2_MNG_FLOW_ID_MAX)) {
+		pr_err("parsing fail, wrong input for argv[1] - flow_log_id");
 		return -EINVAL;
 	}
-	flow_len = strtoul(argv[2], &ret_ptr, 0);
-	if ((argv[2] == ret_ptr) || flow_len <= 0 || (flow_len >= MVPP2_CLS_FLOW_RULE_MAX)) {
-		printf("parsing fail, wrong input for argv[2] - flow length");
+	rc = kstrtoint(argv[2], 10, &flow_len);
+	if (rc || flow_len <= 0 || (flow_len >= MVPP2_CLS_FLOW_RULE_MAX)) {
+		pr_err("parsing fail, wrong input for argv[2] - flow length");
 		return -EINVAL;
 	}
-	cpu_q = strtoul(argv[3], &ret_ptr, 0);
-	if ((argv[3] == ret_ptr) || cpu_q < 0 || (cpu_q >= ((1 << MVPP2_FLOWID_RXQ_BITS) - 1))) {
-		printf("parsing fail, wrong input for argv[3] - cpu_q");
+	rc = kstrtoint(argv[3], 10, &cpu_q);
+	if (rc || cpu_q < 0 || (cpu_q >= ((1 << MVPP2_FLOWID_RXQ_BITS) - 1))) {
+		pr_err("parsing fail, wrong input for argv[3] - cpu_q");
 		return -EINVAL;
 	}
 
@@ -100,8 +95,8 @@ int pp2_cli_cls_lkp_dcod_entry_set(void *arg, int argc, char *argv[])
 	g_lkp_dcod_entry.flow_log_id = flow_log_id;
 	g_lkp_dcod_entry.luid_num = 0;
 
-	printf("flow_log_id = %d, flow_len_max = %d, cpu_q = %d\n", flow_log_id, flow_len, cpu_q);
-	printf("success\n");
+	printk("flow_log_id = %d, flow_len_max = %d, cpu_q = %d\n", flow_log_id, flow_len, cpu_q);
+	printk("success\n");
 
 	return ret_val;
 }
@@ -122,9 +117,9 @@ int pp2_cli_cls_lkp_dcod_entry_set(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cli_cls_lkp_dcod_luid_set(void *arg, int argc, char *argv[])
 {
+	int rc;
 	int luid[MVPP2_CLS_LOG_FLOW_LUID_MAX], i, num_of_luid;
 	int ret_val = 0;
-	char *ret_ptr;
 
 	if (argc < 2 || argc > MVPP2_CLS_LOG_FLOW_LUID_MAX) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -134,15 +129,15 @@ int pp2_cli_cls_lkp_dcod_luid_set(void *arg, int argc, char *argv[])
 	num_of_luid = argc - 1;
 
 	for (i = 0; i < num_of_luid; i++) {
-		luid[i] = strtoul(argv[1 + i], &ret_ptr, 0);
-		if (argv[1 + i] == ret_ptr || luid[i] < 0 || luid[i] >= MVPP2_CLS_LKP_TBL_SIZE) {
-			printf("parsing fail, wrong input for argv[2 + %d]", i);
+		rc = kstrtoint(argv[1 + i], 10, &luid[i]);
+		if (rc || luid[i] < 0 || luid[i] >= MVPP2_CLS_LKP_TBL_SIZE) {
+			pr_err("parsing fail, wrong input for argv[2 + %d]", i);
 			return -EINVAL;
 		}
 	}
 
 	if ((num_of_luid + g_lkp_dcod_entry.luid_num) >= MVPP2_CLS_LOG_FLOW_LUID_MAX) {
-		printf("too many luid per flow log id");
+		pr_err("too many luid per flow log id");
 		return -EINVAL;
 	}
 
@@ -151,7 +146,7 @@ int pp2_cli_cls_lkp_dcod_luid_set(void *arg, int argc, char *argv[])
 		g_lkp_dcod_entry.luid_num++;
 	}
 
-	printf("success\n");
+	printk("success\n");
 
 	return ret_val;
 }
@@ -175,9 +170,9 @@ int pp2_cli_cls_lkp_dcod_add(void *arg, int argc, char *argv[])
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (pp2_cls_lkp_dcod_set(inst, &g_lkp_dcod_entry))
-		printf("%s fail\n", __func__);
+		printk("%s fail\n", __func__);
 	else
-		printf("success\n");
+		printk("success\n");
 
 	return 0;
 }
@@ -198,10 +193,10 @@ int pp2_cli_cls_lkp_dcod_add(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cli_cls_lkp_dcod_ena(void *arg, int argc, char *argv[])
 {
+	int rc;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	int log_id_en[MVPP2_MNG_FLOW_ID_MAX], i, num_log_id;
 	int ret_val = 0;
-	char *ret_ptr;
 
 	if (argc < 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -212,18 +207,18 @@ int pp2_cli_cls_lkp_dcod_ena(void *arg, int argc, char *argv[])
 
 	/* Get parameters */
 	for (i = 0; i < num_log_id; i++) {
-		log_id_en[i] = strtoul(argv[1 + i], &ret_ptr, 0);
-		if (argv[1 + i] == ret_ptr || log_id_en[i] < 0 || log_id_en[i] >= MVPP2_MNG_FLOW_ID_MAX) {
-			printf("parsing fail, wrong input for argv[2 + %d]", i);
+		rc = kstrtoint(argv[1 + i], 10, &log_id_en[i]);
+		if (rc || log_id_en[i] < 0 || log_id_en[i] >= MVPP2_MNG_FLOW_ID_MAX) {
+			pr_err("parsing fail, wrong input for argv[2 + %d]", i);
 			return -EINVAL;
 		}
 	}
 
 	for (i = 0; i < num_log_id; i++) {
 		if (pp2_cls_lkp_dcod_enable(inst, log_id_en[i]))
-			printf("%s fail\n", __func__);
+			printk("%s fail\n", __func__);
 		else
-			printf("success\n");
+			printk("success\n");
 	}
 
 	return ret_val;
@@ -246,7 +241,7 @@ int pp2_cli_cls_lkp_dcod_ena(void *arg, int argc, char *argv[])
 int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[])
 {
 	memset(&g_fl_rls, 0, sizeof(g_fl_rls));
-	printf("success\n");
+	printk("success\n");
 
 	return 0;
 }
@@ -267,8 +262,8 @@ int pp2_cli_cls_fl_rule_init(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 {
+	int rc;
 	int ret_val = 0;
-	char *ret_ptr;
 	int flow_log_id, port_type, port_bm, enabled;
 	int prio, engine, field_id_cnt;
 	u8 field_id[MVPP2_FLOW_FIELD_COUNT_MAX];
@@ -279,65 +274,65 @@ int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 	}
 
 	if (g_fl_rls.fl_len == (MVPP2_CLS_FLOW_RULE_MAX - 1)) {
-		printf("flow is full of rules: %d\n", g_fl_rls.fl_len);
+		pr_err("flow is full of rules: %d\n", g_fl_rls.fl_len);
 		return -EINVAL;
 	}
 
-	flow_log_id = strtoul(argv[1], &ret_ptr, 0);
-	if ((argv[1] == ret_ptr) || flow_log_id < 0 || (flow_log_id >= MVPP2_MNG_FLOW_ID_MAX)) {
-		printf("parsing fail, wrong input for argv[1] - flow_log_id");
+	rc = kstrtoint(argv[1], 10, &flow_log_id);
+	if (rc || flow_log_id < 0 || (flow_log_id >= MVPP2_MNG_FLOW_ID_MAX)) {
+		pr_err("parsing fail, wrong input for argv[1] - flow_log_id");
 		return -EINVAL;
 	}
 
-	port_type = strtoul(argv[2], &ret_ptr, 0);
-	if (argv[2] == ret_ptr || port_type < 0 || port_type >= MVPP2_SRC_PORT_TYPE_MAX) {
-		printf("parsing fail, wrong input for argv[2] - port_type");
+	rc = kstrtoint(argv[2], 10, &port_type);
+	if (rc || port_type < 0 || port_type >= MVPP2_SRC_PORT_TYPE_MAX) {
+		pr_err("parsing fail, wrong input for argv[2] - port_type");
 		return -EINVAL;
 	}
-	port_bm = strtoul(argv[3], &ret_ptr, 0);
-	if (argv[3] == ret_ptr ||  port_bm < 0 || port_bm > MVPP2_PORT_BM_INV) {
-		printf("parsing fail, wrong input for argv[3] - port_bm");
+	rc = kstrtoint(argv[3], 10, &port_bm);
+	if (rc ||  port_bm < 0 || port_bm > MVPP2_PORT_BM_INV) {
+		pr_err("parsing fail, wrong input for argv[3] - port_bm");
 		return -EINVAL;
 	}
 
-	enabled = strtoul(argv[4], &ret_ptr, 0);
-	if (argv[5] == ret_ptr || enabled < 0 || enabled > 1) {
-		printf("parsing fail, wrong input for argv[5] - enabled");
+	rc = kstrtoint(argv[4], 10, &enabled);
+	if (rc || enabled < 0 || enabled > 1) {
+		pr_err("parsing fail, wrong input for argv[5] - enabled");
 		return -EINVAL;
 	}
-	prio = strtoul(argv[5], &ret_ptr, 0);
-	if (argv[6] == ret_ptr || prio < 0 || (prio >= ((1 << MVPP2_FLOW_FIELD_ID_BITS) - 1))) {
-		printf("parsing fail, wrong input for argv[6] - priority");
+	rc = kstrtoint(argv[5], 10, &prio);
+	if (rc || prio < 0 || (prio >= ((1 << MVPP2_FLOW_FIELD_ID_BITS) - 1))) {
+		pr_err("parsing fail, wrong input for argv[6] - priority");
 		return -EINVAL;
 	}
-	engine = strtoul(argv[6], &ret_ptr, 0);
-	if (argv[7] == ret_ptr || engine < 1 || engine > MVPP2_FLOW_ENGINE_MAX) {
-		printf("parsing fail, wrong input for argv[7] - engine");
+	rc = kstrtoint(argv[6], 10, &engine);
+	if (rc || engine < 1 || engine > MVPP2_FLOW_ENGINE_MAX) {
+		pr_err("parsing fail, wrong input for argv[7] - engine");
 		return -EINVAL;
 	}
-	field_id_cnt = strtoul(argv[7], &ret_ptr, 0);
-	if (argv[8] == ret_ptr || field_id_cnt < 0 || field_id_cnt > MVPP2_FLOW_FIELD_COUNT_MAX) {
-		printf("parsing fail, wrong input for argv[8] - field_id_cnt");
+	rc = kstrtoint(argv[7], 10, &field_id_cnt);
+	if (rc || field_id_cnt < 0 || field_id_cnt > MVPP2_FLOW_FIELD_COUNT_MAX) {
+		pr_err("parsing fail, wrong input for argv[8] - field_id_cnt");
 		return -EINVAL;
 	}
-	field_id[0] = strtoul(argv[8], &ret_ptr, 0);
-	if (argv[9] == ret_ptr || field_id[0] < 0 || field_id[0] >= CLS_FIELD_MAX) {
-		printf("parsing fail, wrong input for argv[9] - field_id[0]");
+	rc = kstrtou8(argv[8], 10, &field_id[0]);
+	if (rc || field_id[0] >= CLS_FIELD_MAX) {
+		pr_err("parsing fail, wrong input for argv[9] - field_id[0]");
 		return -EINVAL;
 	}
-	field_id[1] = strtoul(argv[9], &ret_ptr, 0);
-	if (argv[10] == ret_ptr || field_id[1] < 0 || field_id[1] >= CLS_FIELD_MAX) {
-		printf("parsing fail, wrong input for argv[10] - field_id[1]");
+	rc = kstrtou8(argv[9], 10, &field_id[1]);
+	if (rc || field_id[1] >= CLS_FIELD_MAX) {
+		pr_err("parsing fail, wrong input for argv[10] - field_id[1]");
 		return -EINVAL;
 	}
-	field_id[2] = strtoul(argv[10], &ret_ptr, 0);
-	if (argv[11] == ret_ptr || field_id[2] < 0 || field_id[2] >= CLS_FIELD_MAX) {
-		printf("parsing fail, wrong input for argv[11] - field_id[2]");
+	rc = kstrtou8(argv[10], 10, &field_id[2]);
+	if (rc || field_id[2] >= CLS_FIELD_MAX) {
+		pr_err("parsing fail, wrong input for argv[11] - field_id[2]");
 		return -EINVAL;
 	}
-	field_id[3] = strtoul(argv[11], &ret_ptr, 0);
-	if (argv[12] == ret_ptr || field_id[3] < 0 || field_id[3] >= CLS_FIELD_MAX) {
-		printf("parsing fail, wrong input for argv[12] - field_id[3]");
+	rc = kstrtou8(argv[11], 10, &field_id[3]);
+	if (rc || field_id[3] >= CLS_FIELD_MAX) {
+		pr_err("parsing fail, wrong input for argv[12] - field_id[3]");
 		return -EINVAL;
 	}
 
@@ -351,7 +346,7 @@ int pp2_cli_cls_fl_rule_set(void *arg, int argc, char *argv[])
 	g_fl_rls.fl[g_fl_rls.fl_len].field_id_cnt	= field_id_cnt;
 	memcpy(g_fl_rls.fl[g_fl_rls.fl_len].field_id, field_id, sizeof(field_id));
 	g_fl_rls.fl_len++;
-	printf("success\n");
+	printk("success\n");
 
 	return ret_val;
 }
@@ -378,9 +373,9 @@ int pp2_cli_cls_fl_rule_add(void *arg, int argc, char *argv[])
 	rc = pp2_cls_fl_rule_add(inst, &g_fl_rls);
 
 	if (!rc)
-		printf("success\n");
+		printk("success\n");
 	else
-		printf("%s fail\n", __func__);
+		printk("%s fail\n", __func__);
 
 	return 0;
 }
@@ -408,13 +403,13 @@ int pp2_cli_cls_fl_rule_ena(void *arg, int argc, char *argv[])
 
 	if (!rc) {
 		for (i = 0; i < g_fl_rls.fl_len; i++)
-			printf("rule:%d assigned logical rule ID:%d\n", i, g_fl_rls.fl[i].rl_log_id);
+			printk("rule:%d assigned logical rule ID:%d\n", i, g_fl_rls.fl[i].rl_log_id);
 	}
 
 	if (!rc)
-		printf("success\n");
+		printk("success\n");
 	else
-		printf("%s fail\n", __func__);
+		printk("%s fail\n", __func__);
 
 	return 0;
 }
@@ -435,26 +430,26 @@ int pp2_cli_cls_fl_rule_ena(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cli_cls_set_rss_mode(void *arg, int argc, char *argv[])
 {
-	int rc, rss_mode;
+	int rc;
+	u32 rss_mode;
 	struct pp2_port *port = (struct pp2_port *)arg;
-	char *ret_ptr;
 
 	if (argc != 2) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
-	rss_mode = strtoul(argv[1], &ret_ptr, 0);
-	if ((rss_mode < 0) || (rss_mode >= PP2_PPIO_HASH_T_OUT_OF_RANGE)) {
-		printf("parsing fail, wrong input for argv[1] - rss_mode");
+	rc = kstrtou32(argv[1], 10, &rss_mode);
+	if (rc || (rss_mode >= PP2_PPIO_HASH_T_OUT_OF_RANGE)) {
+		pr_err("parsing fail, wrong input for argv[1] - rss_mode");
 		return -EINVAL;
 	}
 
 	rc = pp2_cls_rss_mode_flows_set(port, rss_mode);
 	if (!rc)
-		printf("success\n");
+		pr_err("success\n");
 	else
-		printf("%s fail\n", __func__);
+		pr_err("%s fail\n", __func__);
 
 	return 0;
 }
@@ -475,13 +470,13 @@ int pp2_cli_cls_set_rss_mode(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 {
+	int rc;
 	int i;
 	u16 rl_log_id[MVPP2_CLS_FLOW_RULE_MAX];
 	u16 rl_log_id_len;
 	int loop = 0;
 	struct pp2_cls_class_port_t src_port;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	char *ret_ptr;
 
 	if (argc < 2 || argc > MVPP2_CLS_FLOW_RULE_MAX) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
@@ -490,9 +485,9 @@ int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 
 	rl_log_id_len = argc - 1;
 	for (i = 0; i < rl_log_id_len; i++) {
-		rl_log_id[i] = strtoul(argv[2 + i], &ret_ptr, 0);
-		if (argv[2 + i] == ret_ptr || rl_log_id[i] < 0 ||  rl_log_id[i] >= MVPP2_FLOW_TBL_SIZE) {
-			printf("parsing fail, wrong input for argv[2 + %d]", i);
+		rc = kstrtou16(argv[2 + i], 10, &rl_log_id[i]);
+		if (rc ||  rl_log_id[i] >= MVPP2_FLOW_TBL_SIZE) {
+			pr_err("parsing fail, wrong input for argv[2 + %d]", i);
 			return -EINVAL;
 		}
 	}
@@ -503,9 +498,9 @@ int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 		if ((1 << loop) & g_fl_rls.fl[0].port_bm) {
 			src_port.class_port = (1 << loop);
 			if (pp2_cls_fl_rule_disable(inst, rl_log_id, rl_log_id_len, &src_port))
-				printf("%s fail\n", __func__);
+				printk("%s fail\n", __func__);
 			else
-				printf("success\n");
+				printk("success\n");
 		}
 	}
 
@@ -533,21 +528,21 @@ int pp2_cli_cls_lkp_dcod_dump(void *arg, int argc, char *argv[])
 	int rc;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	printf("\nlog_id enabled  cpuq  alloc len off luid_no = luid_list (luid)\n");
+	printk("\nlog_id enabled  cpuq  alloc len off luid_no = luid_list (luid)\n");
 	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
 		rc = pp2_db_cls_lkp_dcod_get(inst, i, &lkp_dcod_db);
 		if (rc != 0) {
-			printf("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
-			printf("%s fail\n", __func__);
+			pr_err("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
+			pr_err("%s fail\n", __func__);
 			return -EINVAL;
 		}
-		printf("%6d %-7s  0x%02X %5d %3d %3d %7d = ",
+		printk("%6d %-7s  0x%02X %5d %3d %3d %7d = ",
 		       i, pp2_utils_valid_str_get((int)lkp_dcod_db.enabled),
 		       (int)lkp_dcod_db.cpu_q, (int)lkp_dcod_db.flow_alloc_len,
 		       (int)lkp_dcod_db.flow_len, lkp_dcod_db.flow_off, lkp_dcod_db.luid_num);
 		for (j = 0; j < lkp_dcod_db.luid_num; j++)
-			printf("%2d", lkp_dcod_db.luid_list[j].luid);
-		printf("\n");
+			printk("%2d", lkp_dcod_db.luid_list[j].luid);
+		printk("\n");
 	}
 
 	return 0;
@@ -575,13 +570,13 @@ int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
-	printf("log_id  lkp_id hit_cnt\n");
+	printk("log_id  lkp_id hit_cnt\n");
 
 	/* get the lkpid */
 	for (lkpid = 0; lkpid < MVPP2_CLS_LKP_TBL_SIZE; lkpid++) {
 		rc = mv_pp2x_cls_hw_lkp_hit_get(cpu_slot, lkpid, &hit_cnt);
 		if (rc) {
-			printf("lookup ID%d, hit cnt read fail\n", lkpid);
+			pr_err("lookup ID%d, hit cnt read fail\n", lkpid);
 			return -EINVAL;
 		}
 		if (!hit_cnt)
@@ -591,14 +586,14 @@ int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 		for (flow_log_id = 0; flow_log_id < MVPP2_MNG_FLOW_ID_MAX; flow_log_id++) {
 			rc = pp2_db_cls_lkp_dcod_get(inst, flow_log_id, &lkp_dcod_db);
 			if (rc) {
-				printf("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
+				pr_err("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
 				return 0;
 			}
 			if (lkp_dcod_db.luid_num == 0)
 				continue;
 			for (i = 0; i < lkp_dcod_db.luid_num; i++) {
 				if (lkp_dcod_db.luid_list[i].luid == lkpid) {
-					printf("%3d      %3d    %3d\n",
+					printk("%3d      %3d    %3d\n",
 					       flow_log_id, lkpid, hit_cnt);
 					break;
 				}
@@ -607,7 +602,7 @@ int pp2_cli_cls_lkp_hits_dump(void *arg, int argc, char *argv[])
 				break;
 		}
 		if (flow_log_id == MVPP2_MNG_FLOW_ID_MAX)
-			printf("logical id not found for lkpid %d\n", lkpid);
+			pr_err("logical id not found for lkpid %d\n", lkpid);
 		hit_cnt = 0;
 	}
 
@@ -636,7 +631,7 @@ int pp2_cli_cls_fl_hits_dump(void *arg, int argc, char *argv[])
 
 	rc = mv_pp2x_cls_hw_flow_hits_dump(cpu_slot);
 	if (rc)
-		printf("%s fail\n", __func__);
+		pr_err("%s fail\n", __func__);
 
 	return 0;
 }
@@ -666,29 +661,28 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 
 	fl_rl_list_db = kmalloc(sizeof(*fl_rl_list_db), GFP_KERNEL);
 	if (!fl_rl_list_db) {
-		printf("%s(%d) Error allocating memory!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 	memset(fl_rl_list_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
 
-	printf("log_flow_id enabled offset engine logID lut portBm udf7 portType pri refCnt fid# = field_Ids\n");
+	printk("log_flow_id enabled offset engine logID lut portBm portType pri refCnt fid# = field_Ids\n");
 
 	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
 		rc = pp2_db_cls_lkp_dcod_get(inst, i, &lkp_dcod_db);
 		if (rc) {
-			printf("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
+			printk("pp2_db_cls_lkp_dcod_get returned error %d\n", rc);
 			kfree(fl_rl_list_db);
 			return 0;
 		}
 		if (lkp_dcod_db.flow_len == 0)
 			continue;
 
-		printf("%-11d ", i);
+		printk("%-11d ", i);
 
 		rc = pp2_db_cls_fl_rule_list_get(inst, lkp_dcod_db.flow_off,
 						 lkp_dcod_db.flow_len, fl_rl_list_db->flow);
 		if (rc) {
-			printf("pp2_db_cls_fl_rule_list_get returned error %d\n", rc);
+			pr_err("pp2_db_cls_fl_rule_list_get returned error %d\n", rc);
 			kfree(fl_rl_list_db);
 			return 0;
 		}
@@ -697,33 +691,33 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 			int proto_field = (fl_rl_list_db->flow[j].engine == MVPP2_CLS_ENGINE_C3B ||
 					   fl_rl_list_db->flow[j].engine == MVPP2_CLS_ENGINE_C3HB);
 			if (j != 0)
-				printf("\t    ");
+				printk("\t    ");
 
-			printf("%-6s  %6d %-6s",
-			       pp2_utils_valid_str_get((int)fl_rl_list_db->flow[j].enabled),
-			       lkp_dcod_db.flow_off + j,
-			       pp2_utils_eng_no_str_get((int)fl_rl_list_db->flow[j].engine));
+			printk("%-6s  %6d %-6s",
+				pp2_utils_valid_str_get((int)fl_rl_list_db->flow[j].enabled),
+				lkp_dcod_db.flow_off + j,
+				pp2_utils_eng_no_str_get((int)fl_rl_list_db->flow[j].engine));
 			ref_sum = 0;
 			for (k = 0; k < MVPP2_MAX_NUM_GMACS; k++)
 				ref_sum += fl_rl_list_db->flow[j].ref_cnt[k];
 
-			printf(" %5d %3d %6d %4d %-8s %3d %6d",
-			       fl_rl_list_db->flow[j].rl_log_id,
-			       fl_rl_list_db->flow[j].lu_type,
-			       fl_rl_list_db->flow[j].port_bm,
-			       fl_rl_list_db->flow[j].udf7,
-			       pp2_cls_utils_port_type_str_get(fl_rl_list_db->flow[j].port_type),
-			       fl_rl_list_db->flow[j].prio,
-			       ref_sum);
-			printf(" %4d = ", fl_rl_list_db->flow[j].field_id_cnt + proto_field);
+			printk(" %5d %3d %6d %4d %-8s %3d %6d",
+				fl_rl_list_db->flow[j].rl_log_id,
+				fl_rl_list_db->flow[j].lu_type,
+				fl_rl_list_db->flow[j].port_bm,
+				fl_rl_list_db->flow[j].udf7,
+				pp2_cls_utils_port_type_str_get(fl_rl_list_db->flow[j].port_type),
+				fl_rl_list_db->flow[j].prio,
+				ref_sum);
+			printk(" %4d = ", fl_rl_list_db->flow[j].field_id_cnt + proto_field);
 			for (k = 0; k < fl_rl_list_db->flow[j].field_id_cnt; k++)
-				printf("%s ", pp2_utils_field_id_str_get(fl_rl_list_db->flow[j].field_id[k]));
+				printk("%s ", pp2_utils_field_id_str_get(fl_rl_list_db->flow[j].field_id[k]));
 			if (proto_field)
-				printf("%s ", pp2_utils_field_id_str_get(IPV4_PROTO_FIELD_ID));
-			printf("\n");
+				printk("%s ", pp2_utils_field_id_str_get(IPV4_PROTO_FIELD_ID));
+			printk("\n");
 		}
 		if (lkp_dcod_db.flow_len)
-			printf("\n");
+			printk("\n");
 	}
 
 	kfree(fl_rl_list_db);
@@ -753,26 +747,26 @@ int pp2_cli_cls_fl_log_rls_dump(void *arg, int argc, char *argv[])
 
 	rc = pp2_db_cls_rl_off_get(inst, &off, 0);
 	if (rc) {
-		printf("%s returned error %d\n", __func__, rc);
+		pr_err("%s returned error %d\n", __func__, rc);
 		return 0;
 	}
 
-	printf("number of rules=%d\n", off - MVPP2_CLS_LOG2OFF_START);
+	printk("number of rules=%d\n", off - MVPP2_CLS_LOG2OFF_START);
 
 	if ((off - MVPP2_CLS_LOG2OFF_START) > 0) {
-		printf("log_rule_ID = flow_table_offset\n");
+		printk("log_rule_ID = flow_table_offset\n");
 
 		for (i = 1; i < MVPP2_CLS_LOG2OFF_TBL_SIZE; i++) {
 			rc = pp2_db_cls_rl_off_get(inst, &off, i);
 			if (rc == -EINVAL) {
 				return 0;
 			} else if (rc) {
-				printf("%s returned error %d\n", __func__, rc);
+				pr_err("%s returned error %d\n", __func__, rc);
 				return 0;
 			}
 
 			if (off != MVPP2_CLS_FREE_FL_LOG)
-				printf("%11d = %17d\n", i, off);
+				printk("%11d = %17d\n", i, off);
 		}
 	}
 
@@ -783,51 +777,34 @@ int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[])
 {
 	struct pp2_port *port = (struct pp2_port *)arg;
 	uintptr_t cpu_slot = port->cpu_slot;
-	char *ret_ptr;
-	int i, option;
-	int long_index = 0;
-	int tc_num;
+	int i = 1, j;
+	u32 tc_num;
 	int rc;
 	int phy_rxq;
 
-	struct option long_options[] = {
-		{"tc", required_argument, 0, 't'},
-		{0, 0, 0, 0}
-	};
-
-	if  (argc < 3 || argc > (port->num_tcs * 2 + 1)) {
+	if  (argc < 2 || argc > (port->num_tcs + 1)) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
 
-	/* every time starting getopt we should reset optind */
-	optind = 0;
-	for (i = 0; ((option = getopt_long(argc, argv, "t:", long_options, &long_index)) != -1); i++) {
-		/* Get parameters */
-		switch (option) {
-		case 't':
-			tc_num = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (tc_num < 0) || (tc_num >= port->num_tcs)) {
-				printf("parsing fail, wrong input for --tc\n");
-				return -EINVAL;
-			}
-
-			for (i = 0; i < port->tc[tc_num].tc_config.num_in_qs; i++) {
-				phy_rxq = port->tc[tc_num].tc_config.first_rxq + i;
-				pr_info("\n------ [Port %s, TC %d, queue %d counters] -----\n",
-					port->linux_name, tc_num, i);
-				rc = mv_pp2x_cls_hw_rxq_counter_get(cpu_slot, phy_rxq);
-				if (rc) {
-					pr_err("%s(%d) read rxq counters failed\n", __func__, __LINE__);
-					return -EINVAL;
-				}
-			}
-			break;
-		default:
-			printf("parsing fail, wrong input\n");
+	do {
+		rc = kstrtou32(argv[1], 10, &tc_num);
+		if (rc || (tc_num >= port->num_tcs)) {
+			pr_err("parsing fail, wrong input for --tc\n");
 			return -EINVAL;
 		}
-	}
+
+		for (j = 0; j < port->tc[tc_num].tc_config.num_in_qs; j++) {
+			phy_rxq = port->tc[tc_num].tc_config.first_rxq + j;
+			printk("\n------ [Port %s, TC %d, queue %d counters] -----\n",
+				port->linux_name, tc_num, j);
+			rc = mv_pp2x_cls_hw_rxq_counter_get(cpu_slot, phy_rxq);
+			if (rc) {
+				pr_err("%s(%d) read rxq counters failed\n", __func__, __LINE__);
+				return -EINVAL;
+			}
+		}
+	} while (++i < argc);
 
 	return 0;
 }

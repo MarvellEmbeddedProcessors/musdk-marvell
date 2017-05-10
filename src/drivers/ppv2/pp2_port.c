@@ -37,9 +37,6 @@
  */
 
 #include "std_internal.h"
-#include <sys/ioctl.h>
-#include <net/if_arp.h>
-#include "env/netdev.h"
 
 #include "pp2_types.h"
 
@@ -51,7 +48,7 @@
 #include "pp2_hw_cls.h"
 #include "pp2_gop_dbg.h"
 #include "cls/pp2_cls_mng.h"
-
+#include "cls/pp2_rss.h"
 
 /*
  * pp2_port.c
@@ -142,7 +139,7 @@ pp2_port_egress_disable(struct pp2_port *port)
 			break;
 		}
 		/* Sleep for 1 millisecond */
-		usleep(1000);
+		usleep_range(1000, 2000);
 		tmo++;
 		val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG);
 	} while (val & MVPP2_TXP_SCHED_ENQ_MASK);
@@ -293,15 +290,15 @@ pp2_port_mac_max_rx_size_set(struct pp2_port *port)
 	int mac_num = port->mac_data.gop_index;
 
 	switch (mac->phy_mode) {
-	case PHY_INTERFACE_MODE_RGMII:
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_QSGMII:
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
 		pp2_gop_gmac_max_rx_size_set(gop, mac_num,
 					     port->port_mru);
 		 break;
-	case PHY_INTERFACE_MODE_XAUI:
-	case PHY_INTERFACE_MODE_RXAUI:
-	case PHY_INTERFACE_MODE_KR:
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
 		pp2_gop_xlg_mac_max_rx_size_set(gop,
 						mac_num, port->port_mru);
 		break;
@@ -814,7 +811,7 @@ pp2_txq_clean(struct pp2_port *port,
 			break;
 		}
 		/* Sleep for 1 millisecond */
-		usleep(1000);
+		usleep_range(1000, 2000);
 		delay++;
 		pending = pp2_txq_pend_desc_num_get(port, txq);
 	} while (pending);
@@ -942,7 +939,7 @@ pp2_port_stop_dev(struct pp2_port *port)
 	pp2_port_ingress_disable(port);
 
 	/* Sleep for 10 milliseconds */
-	usleep(10000);
+	usleep_range(10000, 11000);
 
 	/* Disable interrupts on all CPUs */
 	pp2_port_interrupts_disable(port);
@@ -1346,9 +1343,10 @@ static inline void pp2_port_tx_desc_swap_ncopy(struct pp2_desc *dst, struct pp2_
 {
 	u32 *src_cmd = (uint32_t *)src;
 	u32 *dst_cmd = (uint32_t *)dst;
+	int i;
 
-	for (int i = 0; i < (sizeof(*dst) / sizeof(dst->cmd0)); i++) {
-		*dst_cmd = le32toh(*src_cmd);
+	for (i = 0; i < (sizeof(*dst) / sizeof(dst->cmd0)); i++) {
+		*dst_cmd = le32_to_cpu(*src_cmd);
 		dst_cmd++;
 		src_cmd++;
 	}
@@ -1528,65 +1526,6 @@ pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t in_qid,
 }
 
 /* Port Control routines */
-
-/* Set MAC address */
-int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr)
-{
-	int rc = 0;
-	struct ifreq s;
-	int i;
-
-	if (!mv_check_eaddr_valid(addr)) {
-		pr_err("PORT: not a valid eth address\n");
-		return -EINVAL;
-	}
-
-	strcpy(s.ifr_name, port->linux_name);
-	s.ifr_hwaddr.sa_family = ARPHRD_ETHER;
-
-	for (i = 0; i < ETH_ALEN; i++)
-		s.ifr_hwaddr.sa_data[i] = addr[i];
-
-	rc = mv_netdev_ioctl(SIOCSIFHWADDR, &s);
-	if (rc)
-		return rc;
-
-	mv_cp_eaddr(port->mac_data.mac, (const uint8_t *)addr);
-	return 0;
-}
-
-/* Get MAC address */
-int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
-{
-	int rc;
-	struct ifreq s;
-	int i;
-
-	strcpy(s.ifr_name, port->linux_name);
-	rc = mv_netdev_ioctl(SIOCGIFHWADDR, &s);
-	if (rc)
-		return rc;
-
-	for (i = 0; i < ETH_ALEN; i++)
-		addr[i] = s.ifr_hwaddr.sa_data[i];
-	return 0;
-}
-
-/* Get Link State */
-int pp2_port_get_link_state(struct pp2_port *port, int  *en)
-{
-	int rc;
-	struct ifreq s;
-
-	strcpy(s.ifr_name, port->linux_name);
-	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
-	if (rc)
-		return rc;
-
-	(s.ifr_flags & IFF_RUNNING) ? (*en = 1) : (*en = 0);
-	return 0;
-}
-
 static int pp2_port_check_buf_size(struct pp2_port *port, uint32_t size)
 {
 	u32 buf_size;
@@ -1673,302 +1612,10 @@ void pp2_port_get_mru(struct pp2_port *port, uint16_t *len)
 	*len = port->port_mru;
 }
 
-/* Set Unicast promiscuous */
-int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
+/* Enable or disable RSS */
+void pp2_port_set_rss(struct pp2_port *port, uint32_t en)
 {
-	int rc;
-	struct ifreq s;
-
-	strcpy(s.ifr_name, port->linux_name);
-	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
-	if (rc) {
-		pr_err("PORT: unable to read promisc mode from HW\n");
-		return rc;
-	}
-
-	if (en)
-		s.ifr_flags |= IFF_PROMISC;
-	else
-		s.ifr_flags &= ~IFF_PROMISC;
-
-	rc = mv_netdev_ioctl(SIOCSIFFLAGS, &s);
-	if (rc) {
-		pr_err("PORT: unable to set promisc mode to HW\n");
-		return rc;
-	}
-	return 0;
-}
-
-/* Check if unicast promiscuous */
-int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
-{
-	int rc;
-	struct ifreq s;
-
-	*en = 0;
-
-	strcpy(s.ifr_name, port->linux_name);
-	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
-	if (rc) {
-		pr_err("PORT: unable to read promisc mode from HW\n");
-		return rc;
-	}
-
-	if (s.ifr_flags & IFF_PROMISC)
-		*en = 1;
-	return 0;
-}
-
-/* Set Multicast promiscuous */
-int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en)
-{
-	int rc;
-	struct ifreq s;
-
-	strcpy(s.ifr_name, port->linux_name);
-	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
-	if (rc) {
-		pr_err("PORT: unable to read all-multicast mode from HW\n");
-		return rc;
-	}
-
-	if (en)
-		s.ifr_flags |= IFF_ALLMULTI;
-	else
-		s.ifr_flags &= ~IFF_ALLMULTI;
-
-	rc = mv_netdev_ioctl(SIOCSIFFLAGS, &s);
-	if (rc) {
-		pr_err("PORT: unable to set all-multicast mode to HW\n");
-		return rc;
-	}
-	return 0;
-}
-
-/* Check if Multicast promiscuous */
-int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
-{
-	int rc;
-	struct ifreq s;
-
-	*en = 0;
-	strcpy(s.ifr_name, port->linux_name);
-	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
-	if (rc) {
-		pr_err("PORT: unable to read all-multicast mode from HW\n");
-		return rc;
-	}
-
-	if (s.ifr_flags & IFF_ALLMULTI)
-		*en = 1;
-	return 0;
-}
-
-/* Add MAC address */
-int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
-{
-	int rc;
-
-	if (mv_check_eaddr_mc(addr)) {
-		struct ifreq s;
-		int i;
-
-		strcpy(s.ifr_name, port->linux_name);
-		s.ifr_hwaddr.sa_family = AF_UNSPEC;
-		for (i = 0; i < ETH_ALEN; i++)
-			s.ifr_hwaddr.sa_data[i] = addr[i];
-
-		rc = mv_netdev_ioctl(SIOCADDMULTI, &s);
-		if (rc) {
-			pr_err("PORT: unable to add mac sddress\n");
-			return rc;
-		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
-			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-	} else if (mv_check_eaddr_uc(addr)) {
-		int fd;
-		char buf[PP2_MAX_BUF_STR_LEN];
-		char da[PP2_MAX_BUF_STR_LEN];;
-
-		strcpy(buf, port->linux_name);
-		sprintf(da, " %x:%x:%x:%x:%x:%x", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-		strcat(buf, da);
-		fd = open("/sys/devices/platform/pp2/debug/uc_filter_add", O_WRONLY);
-		if (fd == -1) {
-			pr_err("PORT: unable to open sysfs\n");
-			return -EFAULT;
-		}
-		rc = write(fd, &buf, strlen(buf) + 1);
-		if (rc < 0) {
-			pr_err("PORT: unable to write to sysfs\n");
-			return -EFAULT;
-		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
-			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-		close(fd);
-	} else {
-		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
-	}
-	return 0;
-}
-
-/* Remove MAC address */
-int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
-{
-	int rc;
-
-	if (mv_check_eaddr_mc(addr)) {
-		struct ifreq s;
-		int i;
-
-		strcpy(s.ifr_name, port->linux_name);
-		s.ifr_hwaddr.sa_family = AF_UNSPEC;
-		for (i = 0; i < ETH_ALEN; i++)
-			s.ifr_hwaddr.sa_data[i] = addr[i];
-
-		rc = mv_netdev_ioctl(SIOCDELMULTI, &s);
-		if (rc) {
-			pr_err("PORT: unable to remove mac sddress\n");
-			return rc;
-		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
-			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-	} else if (mv_check_eaddr_uc(addr)) {
-		int fd;
-		char buf[PP2_MAX_BUF_STR_LEN];
-		char da[PP2_MAX_BUF_STR_LEN];;
-
-		strcpy(buf, port->linux_name);
-		sprintf(da, " %x:%x:%x:%x:%x:%x", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-		strcat(buf, da);
-		fd = open("/sys/devices/platform/pp2/debug/uc_filter_del", O_WRONLY);
-		if (fd == -1) {
-			pr_err("PORT: unable to open sysfs\n");
-			return -EFAULT;
-		}
-		rc = write(fd, &buf, strlen(buf) + 1);
-		if (rc < 0) {
-			pr_err("PORT: unable to write to sysfs\n");
-			return -EFAULT;
-		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
-			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-		close(fd);
-	} else {
-		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
-	}
-	return 0;
-}
-
-/* Flush MAC address */
-static int parse_hex(char *str, u8 *addr, size_t size)
-{
-	int len = 0;
-
-	while (*str && (len < 2 * size)) {
-		int tmp;
-
-		if (str[1] == 0)
-			return -1;
-		if (sscanf(str, "%02x", &tmp) != 1)
-			return -1;
-		addr[len] = tmp;
-		len++;
-		str += 2;
-	}
-	return len;
-}
-
-int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
-{
-	int rc;
-
-	if (mc) {
-		char buf[PP2_MAX_BUF_STR_LEN];
-		char name[IFNAMSIZ];
-		char addr_str[PP2_MAX_BUF_STR_LEN];
-		u8 mac[ETH_ALEN];
-		FILE *fp = fopen("/proc/net/dev_mcast", "r");
-		int len = 0;
-		int st;
-
-		if (!fp)
-			return -EACCES;
-
-		while (fgets(buf, sizeof(buf), fp)) {
-			if (sscanf(buf, "%*d%s%*d%d%s", name, &st, addr_str) != 3) {
-				pr_err("address not found in file\n");
-				return -EFAULT;
-			}
-
-			if ((strcmp(port->linux_name, name)) || (!st))
-				continue;
-
-			len = parse_hex(addr_str, mac, ETH_ALEN);
-			if (len != ETH_ALEN) {
-				pr_err("len parsing error\n");
-				return -EFAULT;
-			}
-
-			rc = pp2_port_remove_mac_addr(port, mac);
-			if (rc)
-				return rc;
-		}
-		fclose(fp);
-	}
-
-	if (uc) {
-		int fd;
-		char buf[PP2_MAX_BUF_STR_LEN];
-
-		strcpy(buf, port->linux_name);
-		fd = open("/sys/devices/platform/pp2/debug/uc_filter_flush", O_WRONLY);
-		if (fd == -1) {
-			pr_err("PORT: unable to open sysfs\n");
-			return -EFAULT;
-		}
-		rc = write(fd, &buf, strlen(buf) + 1);
-		if (rc < 0) {
-			pr_err("PORT: unable to write to sysfs\n");
-			return -EFAULT;
-		}
-		close(fd);
-	}
-	return 0;
-}
-
-/* Add vlan */
-int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
-{
-	char buf[PP2_MAX_BUF_STR_LEN];
-
-	if ((vlan < 1) || (vlan >= 4095)) {
-		pr_err("invalid vid. Range: 1:4095\n");
-		return -EINVAL;
-	}
-
-	/* build manually the system command */
-	/* [TODO] check other alternatives for setting vlan id */
-	sprintf(buf, "ip link add link %s name %s.%d type vlan id %d", port->linux_name, port->linux_name, vlan, vlan);
-	system(buf);
-	return 0;
-}
-
-/* Remove vlan */
-int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
-{
-	char buf[PP2_MAX_BUF_STR_LEN];
-
-	if ((vlan < 1) || (vlan >= 4095)) {
-		pr_err("invalid vid. Range: 1:4095\n");
-		return -EINVAL;
-	}
-
-	/* build manually the system command */
-	/* [TODO] check other alternatives for setting vlan id */
-	sprintf(buf, "ip link delete %s.%d", port->linux_name, vlan);
-	system(buf);
-	return 0;
+	pp2_rss_enable(port, en);
 }
 
 /* Get link status */

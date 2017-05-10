@@ -30,31 +30,33 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __MV_TYPES_H__
-#define __MV_TYPES_H__
+#ifndef __LIST_KS_H__
+#define __LIST_KS_H__
 
-#ifndef __KERNEL__
+#include <linux/list.h>
 
-#include <stdint.h>
+/* Kernel list implementation wrappers */
 
-typedef uint8_t		u8;
-typedef uint16_t	u16;
-typedef uint32_t	u32;
-typedef uint64_t	u64;
-typedef int8_t		s8;
-typedef int16_t		s16;
-typedef int32_t		s32;
-typedef int64_t		s64;
+#define list			list_head
+#define list_is_empty		list_empty
+#define list_add_to_tail	list_add
+#define LIST_FIRST_OBJECT	list_first_entry
+#define LIST_FOR_EACH		list_for_each
+#define LIST_OBJECT		container_of
+#define INIT_LIST		INIT_LIST_HEAD
 
+#define LIST_FOR_EACH_OBJECT(_pos, _type, _head, _member) \
+	list_for_each_entry(_pos, _head, _member)
+#define LIST_FOR_EACH_OBJECT_REVERSE(_pos, _type, _head, _member) \
+	list_for_each_entry_reverse(_pos, _head, _member)
 
-#ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
-typedef u64 dma_addr_t;
-typedef u64 phys_addr_t;
-#else
-typedef u32 dma_addr_t;
-typedef u32 phys_addr_t;
-#endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
+/* Additional code */
 
-#endif /* __KERNEL__ */
+#define LIST_FIRST(_lst)	((_lst)->next)
+#define LIST_LAST(_lst)		((_lst)->prev)
+#define LIST_NEXT		LIST_FIRST
+#define LIST_PREV		LIST_LAST
 
-#endif /* __MV_TYPES_H__ */
+int list_num_objs(struct list *lst);
+
+#endif /* __LIST_KS_H__ */

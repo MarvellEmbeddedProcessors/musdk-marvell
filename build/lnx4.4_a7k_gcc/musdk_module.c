@@ -1,21 +1,21 @@
 /******************************************************************************
- *	Copyright (C) 2016 Marvell International Ltd.
+ *      Copyright (C) 2016 Marvell International Ltd.
  *
  *  If you received this File from Marvell, you may opt to use, redistribute
  *  and/or modify this File under the following licensing terms.
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions are met:
  *
- *	* Redistributions of source code must retain the above copyright
- *	  notice, this list of conditions and the following disclaimer.
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
  *
- *	* Redistributions in binary form must reproduce the above copyright
- *	  notice, this list of conditions and the following disclaimer in the
- *	  documentation and/or other materials provided with the distribution.
+ *      * Redistributions in binary form must reproduce the above copyright
+ *        notice, this list of conditions and the following disclaimer in the
+ *        documentation and/or other materials provided with the distribution.
  *
- *	* Neither the name of Marvell nor the names of its contributors may be
- *	  used to endorse or promote products derived from this software
- *	  without specific prior written permission.
+ *      * Neither the name of Marvell nor the names of its contributors may be
+ *        used to endorse or promote products derived from this software
+ *        without specific prior written permission.
  *
  *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -31,30 +31,37 @@
  *****************************************************************************/
 
 #include "std_internal.h"
+#include "drivers/mv_pp2.h"
 
-void list_append(struct list *new_lst, struct list *head)
+#define DRIVER_NAME     "musdk"
+#define DRIVER_VERSION  "0.1"
+#define DRIVER_AUTHOR   "Marvell"
+#define DRIVER_DESC     "Marvell User Space Development Kit"
+
+#define MISC_DEV_NAME   "musdk"
+
+#define MUSDK_MODULE_DMA_MEM_SIZE	(48 * 1024 * 1024)
+
+static int __init musdk_init_module(void)
 {
-	struct list *frst = LIST_FIRST(new_lst);
+	int	err;
 
-	if (frst != new_lst) {
-		struct list *last = LIST_LAST(new_lst);
-		struct list *curr = LIST_NEXT(head);
+	err = mv_sys_dma_mem_init(MUSDK_MODULE_DMA_MEM_SIZE);
+	if (err)
+		return err;
 
-		LIST_PREV(frst)  = head;
-		LIST_FIRST(head) = frst;
-		LIST_NEXT(last)  = curr;
-		LIST_LAST(curr)  = last;
-	}
+	/* TODO: complete here …. */
+
+	return 0;
 }
 
-int list_num_objs(struct list *lst)
+static void __exit musdk_cleanup_module(void)
 {
-	struct list *tmp;
-	int			 num_objs = 0;
+	/* TODO: complete here …. */
 
-	if (!list_is_empty(lst))
-		LIST_FOR_EACH(tmp, lst)
-			num_objs++;
-
-	return num_objs;
+	mv_sys_dma_mem_destroy();
 }
+
+module_init(musdk_init_module);
+module_exit(musdk_cleanup_module);
+

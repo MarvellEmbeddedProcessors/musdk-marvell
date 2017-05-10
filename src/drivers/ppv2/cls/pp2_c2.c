@@ -178,7 +178,7 @@ static int pp2_cls_c2_data_entry_db_add(struct pp2_inst *inst,
 		ret_code = pp2_cls_db_c2_data_get(inst, index, c2_entry_db);
 		if (ret_code) {
 			pr_err("recvd ret_code(%d)\n", ret_code);
-			free(c2_entry_db);
+			kfree(c2_entry_db);
 			return ret_code;
 		}
 		if (c2_entry_db->valid == MVPP2_C2_ENTRY_INVALID)
@@ -186,7 +186,7 @@ static int pp2_cls_c2_data_entry_db_add(struct pp2_inst *inst,
 	}
 	if (index == MVPP2_C2_ENTRY_MAX) {
 		pr_err("No free space in DB for C2 entry\n");
-		free(c2_entry_db);
+		kfree(c2_entry_db);
 		return -EINVAL;
 	}
 
@@ -213,14 +213,14 @@ static int pp2_cls_c2_data_entry_db_add(struct pp2_inst *inst,
 	ret_code = pp2_cls_db_c2_data_set(inst, index, c2_entry_db);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
-		free(c2_entry_db);
+		kfree(c2_entry_db);
 		return ret_code;
 	}
 
 	/* Return db index */
 	*c2_db_idx = index;
 
-	free(c2_entry_db);
+	kfree(c2_entry_db);
 	return 0;
 }
 
@@ -252,11 +252,11 @@ static int pp2_cls_c2_data_entry_db_del(struct pp2_inst *inst, u32 c2_db_idx)
 	memset(c2_db_data, 0, sizeof(struct pp2_cls_c2_data_t));
 
 	if (pp2_cls_db_c2_data_set(inst, c2_db_idx, c2_db_data)) {
-		free(c2_db_data);
+		kfree(c2_db_data);
 		return -EINVAL;
 	}
 
-	free(c2_db_data);
+	kfree(c2_db_data);
 	return 0;
 }
 
@@ -317,7 +317,7 @@ static int pp2_cls_c2_lkp_type_list_pri_get(struct pp2_inst *inst,
 
 	/* get C2 db entry data */
 	if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
-		free(c2_entry_data);
+		kfree(c2_entry_data);
 		return -EINVAL;
 	}
 	*hignest_pri = c2_entry_data->priority;
@@ -326,7 +326,7 @@ static int pp2_cls_c2_lkp_type_list_pri_get(struct pp2_inst *inst,
 	/* Search the list */
 	LIST_FOR_EACH_OBJECT(c2_index_node, struct pp2_cls_c2_index_t, lkp_type_list_head, list_node) {
 		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
-			free(c2_entry_data);
+			kfree(c2_entry_data);
 			return -EINVAL;
 		}
 		if ((*hignest_pri) > c2_entry_data->priority)
@@ -335,7 +335,7 @@ static int pp2_cls_c2_lkp_type_list_pri_get(struct pp2_inst *inst,
 			*lowest_pri = c2_entry_data->priority;
 	}
 
-	free(c2_entry_data);
+	kfree(c2_entry_data);
 	return 0;
 }
 
@@ -404,7 +404,7 @@ static int pp2_cls_c2_lkp_type_list_neighbour_pri_get(struct pp2_inst *inst,
 			     list_node) {
 		/* get C2 db entry data */
 		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
-			free(c2_entry_data);
+			kfree(c2_entry_data);
 			return -EINVAL;
 		}
 		if (priority > c2_entry_data->priority)
@@ -416,7 +416,7 @@ static int pp2_cls_c2_lkp_type_list_neighbour_pri_get(struct pp2_inst *inst,
 	*pri_prev = pri_temp_h;
 	*pri_next = pri_temp_l;
 
-	free(c2_entry_data);
+	kfree(c2_entry_data);
 	return 0;
 }
 
@@ -478,7 +478,7 @@ static int pp2_cls_c2_lkp_type_pri_node_info_get(struct pp2_inst *inst,
 			     list_node) {
 		/* get C2 db entry data */
 		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
-			free(c2_entry_data);
+			kfree(c2_entry_data);
 			return -EINVAL;
 		}
 		if (c2_entry_data->priority == priority) {
@@ -504,7 +504,7 @@ static int pp2_cls_c2_lkp_type_pri_node_info_get(struct pp2_inst *inst,
 	}
 	*node_count = i;
 
-	free(c2_entry_data);
+	kfree(c2_entry_data);
 	return 0;
 }
 
@@ -563,7 +563,7 @@ static int pp2_cls_c2_lkp_search_up_block_get(struct pp2_inst *inst,
 				     list_node) {
 		/* get C2 db entry data */
 		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
-			free(c2_entry_data);
+			kfree(c2_entry_data);
 			return -EINVAL;
 		}
 		if (c2_entry_data->priority == pri_start) {
@@ -602,7 +602,7 @@ static int pp2_cls_c2_lkp_search_up_block_get(struct pp2_inst *inst,
 			*c2_search_start = MVPP2_C2_FIRST_ENTRY;
 	}
 
-	free(c2_entry_data);
+	kfree(c2_entry_data);
 	return 0;
 }
 
@@ -661,7 +661,7 @@ static int pp2_cls_c2_lkp_search_down_block_get(struct pp2_inst *inst,
 			     list_node) {
 		/* get C2 db entry data */
 		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
-			free(c2_entry_data);
+			kfree(c2_entry_data);
 			return -EINVAL;
 		}
 		if (c2_entry_data->priority == pri_start) {
@@ -700,7 +700,7 @@ static int pp2_cls_c2_lkp_search_down_block_get(struct pp2_inst *inst,
 			*c2_search_end = MVPP2_C2_LAST_ENTRY;
 	}
 
-	free(c2_entry_data);
+	kfree(c2_entry_data);
 	return 0;
 }
 
@@ -796,7 +796,7 @@ static int pp2_cls_c2_lkp_type_list_add(struct pp2_inst *inst,
 	LIST_FOR_EACH_OBJECT(temp_node, struct pp2_cls_c2_index_t, lkp_type_list_head, list_node) {
 		/* get C2 db entry data */
 		if (pp2_cls_db_c2_data_get(inst, c2_index_node->c2_data_db_idx, c2_entry_data)) {
-			free(c2_entry_data);
+			kfree(c2_entry_data);
 			return -EINVAL;
 		}
 		if (c2_entry_data->priority > priority) {
@@ -806,7 +806,7 @@ static int pp2_cls_c2_lkp_type_list_add(struct pp2_inst *inst,
 		}
 	}
 
-	free(c2_entry_data);
+	kfree(c2_entry_data);
 	return 0;
 }
 
@@ -1827,7 +1827,7 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 
 	field_unmask = kcalloc(MVPP2_FLOW_FIELD_COUNT_MAX, sizeof(struct pp2_cls_field_match_info), GFP_KERNEL);
 	if (!field_unmask) {
-		free(field_info);
+		kfree(field_info);
 		return -ENOMEM;
 	}
 	memset(field_unmask, 0, MVPP2_FLOW_FIELD_COUNT_MAX * sizeof(struct pp2_cls_field_match_info));
@@ -1844,8 +1844,8 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 						  field_info);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
-		free(field_info);
-		free(field_unmask);
+		kfree(field_info);
+		kfree(field_unmask);
 		return ret_code;
 	}
 
@@ -1859,8 +1859,8 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 						  field_unmask);
 	if (ret_code) {
 		pr_err("recvd ret_code(%d)\n", ret_code);
-		free(field_info);
-		free(field_unmask);
+		kfree(field_info);
+		kfree(field_unmask);
 		return ret_code;
 	}
 	/* Set C2 TCAM HEK */
@@ -1909,15 +1909,15 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 									&c2_hek_bytes_used);
 			if (ret_code) {
 				pr_err("recvd ret_code(%d)\n", ret_code);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return ret_code;
 			}
 			/* Check HEK bytes number */
 			if (c2_hek_bytes_used > MVPP2_C2_HEK_OFF_LKP_PORT_TYPE) {
 				pr_info("HEK bytes (%d) beyond C2 capcity\n", c2_hek_bytes_used);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return -EFAULT;
 			}
 			break;
@@ -1929,8 +1929,8 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 			c2_hek_bytes_used++;
 			if (c2_hek_bytes_used > MVPP2_C2_HEK_OFF_LKP_PORT_TYPE) {
 				pr_info("HEK bytes (%d) is beyond C2 capcity\n", c2_hek_bytes_used);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return -EFAULT;
 			}
 			c2_hek[c2_hek_bytes_used - 1] =
@@ -1996,15 +1996,15 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 									&c2_hek_bytes_used);
 			if (ret_code) {
 				pr_err("recvd ret_code(%d)\n", ret_code);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return ret_code;
 			}
 			/* Check HEK bytes number */
 			if (c2_hek_bytes_used > MVPP2_C2_HEK_OFF_LKP_PORT_TYPE) {
 				pr_info("HEK bytes (%d) beyond C2 capcity\n", c2_hek_bytes_used);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return -EFAULT;
 			}
 			break;
@@ -2037,8 +2037,8 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 			/* Check HEK bytes number */
 			if (c2_hek_bytes_used > MVPP2_C2_HEK_OFF_LKP_PORT_TYPE) {
 				pr_info("HEK bytes (%d) beyond C2 capcity\n", c2_hek_bytes_used);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return -EFAULT;
 			}
 			break;
@@ -2058,8 +2058,8 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 			/* Check HEK bytes number */
 			if (c2_hek_bytes_used > MVPP2_C2_HEK_OFF_LKP_PORT_TYPE) {
 				pr_info("HEK bytes (%d) beyond C2 capcity\n", c2_hek_bytes_used);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return -EFAULT;
 			}
 			break;
@@ -2080,8 +2080,8 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 			/* Check HEK bytes number */
 			if (c2_hek_bytes_used > MVPP2_C2_HEK_OFF_LKP_PORT_TYPE) {
 				pr_info("HEK bytes (%d) beyond C2 capcity\n", c2_hek_bytes_used);
-				free(field_info);
-				free(field_unmask);
+				kfree(field_info);
+				kfree(field_unmask);
 				return -EFAULT;
 			}
 			break;
@@ -2089,14 +2089,14 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 		case IPV6_SA_FIELD_ID:
 		case IPV6_DA_FIELD_ID:
 			/* IPv6 SIP and DIP cant not fit into C2 SRAM */
-			free(field_info);
-			free(field_unmask);
+			kfree(field_info);
+			kfree(field_unmask);
 			return -EFAULT;
 
 		default:
 			pr_err("Invalid field ID (%d) on C2 engine\n", field_id);
-			free(field_info);
-			free(field_unmask);
+			kfree(field_info);
+			kfree(field_unmask);
 			return -EFAULT;
 		}
 		/* record previous id */
@@ -2123,8 +2123,8 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 	hek[MVPP2_C2_HEK_OFF_PORT_ID] = c2_entry->port.port_value;
 	hek_mask[MVPP2_C2_HEK_OFF_PORT_ID] = c2_entry->port.port_mask;
 
-	free(field_info);
-	free(field_unmask);
+	kfree(field_info);
+	kfree(field_unmask);
 	return 0;
 }
 
@@ -2730,7 +2730,7 @@ int pp2_cls_c2_rule_sram_get(struct pp2_inst *inst, u32 logic_index,
 	ret_code = pp2_cls_db_c2_data_get(inst, db_idx, c2_data);
 	if (ret_code) {
 		pr_err("C2 DB entry get fail\n");
-		free(c2_data);
+		kfree(c2_data);
 		return ret_code;
 	}
 	/* Get SRAM */
@@ -2740,7 +2740,7 @@ int pp2_cls_c2_rule_sram_get(struct pp2_inst *inst, u32 logic_index,
 	memcpy(&sram->pkt_mod, &c2_data->pkt_mod, sizeof(struct mv_pp2x_engine_pkt_mod));
 	memcpy(&sram->dup_info, &c2_data->flow_info, sizeof(struct mv_pp2x_duplicate_info));
 
-	free(c2_data);
+	kfree(c2_data);
 	return 0;
 }
 
@@ -2913,7 +2913,7 @@ int pp2_cls_c2_rule_sram_update(struct pp2_inst *inst, u32 logic_index,
 	ret_code = pp2_cls_db_c2_data_get(inst, db_idx, db_entry);
 	if (ret_code) {
 		pr_err("failed to read DB\n");
-		free(db_entry);
+		kfree(db_entry);
 		return ret_code;
 	}
 
@@ -2926,11 +2926,11 @@ int pp2_cls_c2_rule_sram_update(struct pp2_inst *inst, u32 logic_index,
 	ret_code = pp2_cls_db_c2_data_set(inst, db_idx, db_entry);
 	if (ret_code) {
 		pr_err("failed to set DB\n");
-		free(db_entry);
+		kfree(db_entry);
 		return ret_code;
 	}
 
-	free(db_entry);
+	kfree(db_entry);
 	return 0;
 }
 

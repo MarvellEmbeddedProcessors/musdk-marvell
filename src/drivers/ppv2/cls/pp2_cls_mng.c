@@ -33,7 +33,6 @@
 /***********************/
 /* c file declarations */
 /***********************/
-#include <arpa/inet.h>
 #include "std_internal.h"
 #include "drivers/ppv2/pp2.h"
 #include "drivers/ppv2/pp2_hw_type.h"
@@ -44,11 +43,10 @@
 #include "pp2_flow_rules.h"
 #include "pp2_cls_db.h"
 #include "drivers/mv_pp2_cls.h"
-#include "../pp2_hw_cls.h"
+#include "drivers/ppv2/pp2_hw_cls.h"
 #include "pp2_cls_mng.h"
 #include "pp2_prs.h"
 #include "pp2_rss.h"
-
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
 #define NOT_SUPPORTED_YET 255
@@ -908,7 +906,6 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				 struct pp2_cls_tbl_rule *rule,
 				 struct pp2_port *port)
 {
-	char *ret_ptr;
 	char *mask_ptr;
 	char mask_arr[3];
 	int rc = 0, i;
@@ -916,6 +913,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 	u32 ipv4_flag = 0;
 	u32 ipv6_flag = 0;
 	u32 field;
+	u16 ipproto;
 	u32 idx1, idx2;
 	u32 field_bm = 0, bm = 0;
 
@@ -1019,9 +1017,11 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			mng_pkt_key->pkt_key->out_pbit =
-				strtol((char *)(rule->fields[idx1].key), NULL, 0);
-
+			rc = kstrtou8((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->out_pbit);
+			if (rc) {
+				pr_err("Failed to parse PCP bits in VLAN header.\n");
+				return rc;
+			}
 			pr_debug("OUT_VLAN_PRI_FIELD_ID = %d\n", mng_pkt_key->pkt_key->out_pbit);
 			break;
 		case OUT_VLAN_ID_FIELD_ID:
@@ -1030,9 +1030,11 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			mng_pkt_key->pkt_key->out_vid =
-				strtol((char *)(rule->fields[idx1].key), NULL, 0);
-
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->out_vid);
+			if (rc) {
+				pr_err("Failed to parse VID in VLAN header.\n");
+				return rc;
+			}
 			pr_debug("OUT_VLAN_ID_FIELD_ID = %d\n", mng_pkt_key->pkt_key->out_vid);
 			break;
 		case IPV4_DSCP_FIELD_ID:
@@ -1041,12 +1043,17 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			mng_pkt_key->pkt_key->ipvx_add.dscp =
-				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+			rc = kstrtou8((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->ipvx_add.dscp);
+			if (rc) {
+				pr_err("Failed to parse DSCP field.\n");
+				return rc;
+			}
 			pr_debug("OUT_VLAN_ID_FIELD_ID = %d\n", mng_pkt_key->pkt_key->ipvx_add.dscp);
-
-			mng_pkt_key->pkt_key->ipvx_add.dscp_mask =
-				strtol((char *)(rule->fields[idx1].mask), NULL, 0);
+			rc = kstrtou8((char *)(rule->fields[idx1].mask), 10, &mng_pkt_key->pkt_key->ipvx_add.dscp_mask);
+			if (rc) {
+				pr_err("Failed to parse DSCP mask.\n");
+				return rc;
+			}
 			pr_debug("OUT_VLAN_ID_FIELD_ID mask = %d\n", mng_pkt_key->pkt_key->ipvx_add.dscp_mask);
 			break;
 		case IPV4_SA_FIELD_ID:
@@ -1055,9 +1062,9 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = inet_pton(AF_INET, (char *)rule->fields[idx1].key,
-				       &mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0]);
-			if (rc <= 0) {
+			rc = in4_pton((char *)rule->fields[idx1].key, strlen((char *)rule->fields[idx1].key),
+				      &mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv4[0], '.', NULL);
+			if (!rc) {
 				pr_err("Unable to parse IPv4 SA\n");
 				return -EINVAL;
 			}
@@ -1068,11 +1075,12 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				return -EINVAL;
 			for (i = 0; i < 4; i++) {
 				strncpy(mask_arr, mask_ptr, 2);
-				mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add_mask.ipv4[i] =
-						strtoul(mask_arr, &ret_ptr, 16);
-
-				if (mask_arr == ret_ptr)
-					return -EINVAL;
+				mask_arr[2] = '\0';
+				rc = kstrtou8(mask_arr, 16, &mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add_mask.ipv4[i]);
+				if (rc) {
+					pr_err("Unable to parse IPv4 SA mask\n");
+					return rc;
+				}
 				mask_ptr += 2;
 			}
 			pr_debug("IPv4 SA: %d.%d.%d.%d\n",
@@ -1087,9 +1095,9 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = inet_pton(AF_INET, (char *)rule->fields[idx1].key,
-				       &mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0]);
-			if (rc <= 0) {
+			rc = in4_pton((char *)rule->fields[idx1].key, strlen((char *)rule->fields[idx1].key),
+				      &mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv4[0], '.', NULL);
+			if (!rc) {
 				pr_err("Unable to parse IPv4 DA\n");
 				return -EINVAL;
 			}
@@ -1100,10 +1108,13 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				return -EINVAL;
 			for (i = 0; i < 4; i++) {
 				strncpy(mask_arr, mask_ptr, 2);
-				mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add_mask.ipv4[i] =
-									strtoul(mask_arr, &ret_ptr, 16);
-				if (mask_arr == ret_ptr)
-					return -EINVAL;
+				mask_arr[2] = '\0';
+				rc = kstrtou8(mask_arr, 16,
+					      &mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add_mask.ipv4[i]);
+				if (rc) {
+					pr_err("Unable to parse IPv4 DA mask\n");
+					return rc;
+				}
 				mask_ptr += 2;
 			}
 
@@ -1115,11 +1126,16 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			break;
 		case IPV4_PROTO_FIELD_ID:
 		case IPV6_NH_FIELD_ID:
-			if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_UDP) {
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &ipproto);
+			if (rc) {
+				pr_err("Unable to parse Ipv6 protocol");
+				return rc;
+			}
+			if (ipproto == IPPROTO_UDP) {
 				pr_debug("udp selected\n");
 				proto_flag = 1;
 				mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_UDP;
-			} else if (strtol((char *)(rule->fields[idx1].key), NULL, 0) == IPPROTO_TCP) {
+			} else if (ipproto == IPPROTO_TCP) {
 				pr_debug("tcp selected\n");
 				proto_flag = 1;
 				mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_TCP;
@@ -1132,9 +1148,9 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				return -EINVAL;
 			}
 
-			rc = inet_pton(AF_INET6, (char *)rule->fields[idx1].key,
-				       &mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[0]);
-			if (rc <= 0) {
+			rc = in6_pton((char *)rule->fields[idx1].key, strlen((char *)rule->fields[idx1].key),
+				      &mng_pkt_key->pkt_key->ipvx_add.ip_src.ip_add.ipv6[0], ':', NULL);
+			if (!rc) {
 				pr_err("Unable to parse IPv6 SA\n");
 				return -EINVAL;
 			}
@@ -1156,9 +1172,9 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				return -EINVAL;
 			}
 
-			rc = inet_pton(AF_INET6, (char *)rule->fields[idx1].key,
-				       &mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[0]);
-			if (rc <= 0) {
+			rc = in6_pton((char *)rule->fields[idx1].key, strlen((char *)rule->fields[idx1].key),
+				      &mng_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add.ipv6[0], ':', NULL);
+			if (!rc) {
 				pr_err("Unable to parse IPv6 DA\n");
 				return -EINVAL;
 			}
@@ -1179,8 +1195,11 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			mng_pkt_key->pkt_key->l4_src =
-				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->l4_src);
+			if (rc) {
+				pr_err("%s(%d)) Falied to parse L4 source port.", __func__, __LINE__);
+				return rc;
+			}
 
 			pr_debug("L4_SRC_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_src);
 			break;
@@ -1190,8 +1209,11 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			mng_pkt_key->pkt_key->l4_dst =
-				strtol((char *)(rule->fields[idx1].key), NULL, 0);
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->l4_dst);
+			if (rc) {
+				pr_err("%s(%d)) Falied to parse L4 destination port.", __func__, __LINE__);
+				return rc;
+			}
 
 			pr_debug("L4_DST_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_dst);
 			break;

@@ -124,7 +124,7 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 	if (field_bm & (MVPP2_MATCH_IPV6_PKT | MVPP2_MATCH_IPV6_PREF | MVPP2_MATCH_IPV6_SUFF))
 		is_ipv4 = false;
 
-	pr_debug_fmt("field_bm 0x%x is_ipv4 %d\n", field_bm, is_ipv4);
+	pr_debug("field_bm 0x%x is_ipv4 %d\n", field_bm, is_ipv4);
 
 	if (field_bm & MVPP2_MATCH_MH && i < field_max) {
 		field_info[i].valid = MVPP2_FIELD_VALID;
@@ -132,10 +132,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->mh;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = pp2_cls_pkt_key->mh_mask;
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 
@@ -167,10 +167,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->out_pbit;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_VID_OUTER && i < field_max) {
@@ -179,10 +179,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->out_vid;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_PBITS_INNER && i < field_max) {
@@ -191,10 +191,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->inn_pbit;
 		field_size = pp2_cls_field_size_get(field_info[i].field_id);
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_VID_INNER && i < field_max) {
@@ -203,10 +203,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->inn_vid;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 
@@ -216,10 +216,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->ether_type;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 
@@ -229,10 +229,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->ppp_info.ppp_session;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 
@@ -242,10 +242,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->ppp_info.ppp_proto;
 		field_size = pp2_cls_field_size_get(field_info[i].field_id);
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if ((field_bm & (MVPP2_MATCH_IP_VERSION)) && i < field_max) {
@@ -254,10 +254,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->ipvx_add.ip_ver;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_IP_DSCP && i < field_max) {
@@ -274,10 +274,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			field_info[i].filed_value.int_data.parsed_int_val_mask =
 				pp2_cls_pkt_key->pkt_key->ipvx_add.dscp_mask;
 		}
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_IPV6_FLBL && i < field_max) {
@@ -286,10 +286,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->ipvx_add.flow_label;
 		field_info[i].filed_value.int_data.parsed_int_val_mask =
 			pp2_cls_pkt_key->pkt_key->ipvx_add.flow_label_mask;
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_TTL && i < field_max) {
@@ -298,10 +298,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->ttl;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (l4_info && field_bm & MVPP2_MATCH_IP_PROTO && i < field_max) {
@@ -318,10 +318,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			field_size = pp2_cls_field_size_array[field_info[i].field_id];
 			field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
 		}
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_IP_SRC && i < field_max) {
@@ -334,16 +334,16 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			memcpy(&field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
 			       &pp2_cls_pkt_key->pkt_key->ipvx_add.ip_src.ip_add_mask.ipv4[0],
 			       IPV4_ADDR_SIZE);
-			pr_debug_fmt("field_info[%d] %s val %d.%d.%d.%d mask %d.%d.%d.%d\n", i,
-				     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[0],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[1],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[2],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[3],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[1],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[2],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[3]);
+			pr_debug("field_info[%d] %s val %d.%d.%d.%d mask %d.%d.%d.%d\n", i,
+				 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[0],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[1],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[2],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[3],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[1],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[2],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[3]);
 			i++;
 		} else {
 			if (field_bm & MVPP2_MATCH_IPV6_PREF) {
@@ -353,10 +353,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			} else if (field_bm & MVPP2_MATCH_IPV6_PKT) {
 				field_info[i].field_id = IPV6_SA_FIELD_ID;
 			} else {
-				pr_debug_fmt("field_bm %s must include %s or %s\n",
-					     pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IPV6_PREF),
-					     pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_SRC),
-					     pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_DST));
+				pr_debug("field_bm %s must include %s or %s\n",
+					 pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IPV6_PREF),
+					 pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_SRC),
+					 pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_DST));
 			}
 			field_info[i].valid = MVPP2_FIELD_VALID;
 			memcpy(&field_info[i].filed_value.ipv6_addr.parsed_ipv6_addr[0],
@@ -378,16 +378,16 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			memcpy(&field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
 			       &pp2_cls_pkt_key->pkt_key->ipvx_add.ip_dst.ip_add_mask.ipv4[0],
 			       IPV4_ADDR_SIZE);
-			pr_debug_fmt("field_info[%d] %s val %d.%d.%d.%d mask %d.%d.%d.%d\n", i,
-				     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[0],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[1],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[2],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[3],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[1],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[2],
-				     field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[3]);
+			pr_debug("field_info[%d] %s val %d.%d.%d.%d mask %d.%d.%d.%d\n", i,
+				 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[0],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[1],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[2],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr[3],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[0],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[1],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[2],
+				 field_info[i].filed_value.ipv4_addr.parsed_ipv4_addr_mask[3]);
 			i++;
 		} else {
 			if (field_bm & MVPP2_MATCH_IPV6_PREF) {
@@ -397,10 +397,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 			} else if (field_bm & MVPP2_MATCH_IPV6_PKT) {
 				field_info[i].field_id = IPV6_DA_FIELD_ID;
 			} else {
-				pr_debug_fmt("field_bm %s must include %s or %s\n",
-					     pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IPV6_PREF),
-					     pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_SRC),
-					     pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_DST));
+				pr_debug("field_bm %s must include %s or %s\n",
+					 pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IPV6_PREF),
+					 pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_SRC),
+					 pp2_cls_utils_field_match_str_get(MVPP2_MATCH_IP_DST));
 			}
 			field_info[i].valid = MVPP2_FIELD_VALID;
 			memcpy(&field_info[i].filed_value.ipv6_addr.parsed_ipv6_addr[0],
@@ -418,10 +418,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->l4_src;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val %d mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val %d mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_L4_DST && i < field_max) {
@@ -430,10 +430,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->l4_dst;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val %d mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val %d mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if ((field_bm & MVPP2_MATCH_TCP_FLAG_RF || field_bm & MVPP2_MATCH_TCP_FLAG_S) && i < field_max) {
@@ -441,10 +441,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].field_id = TCP_FLAGS_FIELD_ID;
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->tcp_flag;
 		field_info[i].filed_value.int_data.parsed_int_val_mask = pp2_cls_pkt_key->tcp_flag_mask;
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 
@@ -467,10 +467,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->out_tpid;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_CFI_OUTER && i < field_max) {
@@ -479,10 +479,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->out_cfi;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_TPID_INNER && i < field_max) {
@@ -491,10 +491,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->inn_tpid;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 	if (field_bm & MVPP2_MATCH_CFI_INNER && i < field_max) {
@@ -503,10 +503,10 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->inn_cfi;
 		field_size = pp2_cls_field_size_array[field_info[i].field_id];
 		field_info[i].filed_value.int_data.parsed_int_val_mask = common_mask_gen(field_size);
-		pr_debug_fmt("field_info[%d] %s val 0x%x mask 0x%x\n", i,
-			     pp2_cls_utils_field_id_str_get(field_info[i].field_id),
-			     field_info[i].filed_value.int_data.parsed_int_val,
-			     field_info[i].filed_value.int_data.parsed_int_val_mask);
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
 		i++;
 	}
 

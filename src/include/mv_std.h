@@ -33,11 +33,19 @@
 #ifndef __MV_STD_H__
 #define __MV_STD_H__
 
+#ifdef __KERNEL__
+
+#else /* __KERNEL__ */
+
 #include "env/mv_types.h"
 #include "env/mv_compiler.h"
 #include "env/mv_common.h"
-#include "env/mv_debug.h"
+
 #include "env/mv_errno.h"
+#include "env/mv_debug.h"
+
+#endif /* __KERNEL__ */
+
 #include "env/mv_sys_dma.h"
 
 #endif /* __MV_STD_H__ */
