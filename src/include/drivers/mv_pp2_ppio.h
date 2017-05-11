@@ -374,11 +374,13 @@ enum pp2_outq_l4_type {
 
 enum pp2_inq_l3_type {
 	PP2_INQ_L3_TYPE_NA = 0,
-	PP2_INQ_L3_TYPE_IPV4_NO_OPTS,
-	PP2_INQ_L3_TYPE_IPV4_OK,
-	PP2_INQ_L3_TYPE_IPV4_TTL_ZERO,
-	PP2_INQ_L3_TYPE_IPV6_NO_EXT,
-	PP2_INQ_L3_TYPE_IPV6_EXT
+	PP2_INQ_L3_TYPE_IPV4_NO_OPTS,	/* IPv4 with IHL=5, TTL>0 */
+	PP2_INQ_L3_TYPE_IPV4_OK,	/* IPv4 with IHL>5, TTL>0 */
+	PP2_INQ_L3_TYPE_IPV4_TTL_ZERO,	/* Other IPV4 packets */
+	PP2_INQ_L3_TYPE_IPV6_NO_EXT,	/* IPV6 without extensions */
+	PP2_INQ_L3_TYPE_IPV6_EXT,	/* IPV6 with extensions */
+	PP2_INQ_L3_TYPE_ARP,		/* ARP */
+	PP2_INQ_L3_TYPE_USER_DEFINED	/* User defined */
 };
 
 enum pp2_inq_l4_type {
@@ -389,12 +391,13 @@ enum pp2_inq_l4_type {
 };
 
 enum pp2_inq_desc_status {
-	PP2_DESC_ERR_MAC_OK = 0,
-	PP2_DESC_ERR_MAC_CRC,
-	PP2_DESC_ERR_MAC_RESOURCE = 0,
-	PP2_DESC_ERR_MAC_OVERRUN,
-	PP2_DESC_ERR_IPV4_HDR,
-	PP2_DESC_ERR_L4_CHECKSUM
+	PP2_DESC_ERR_OK = 0,
+	PP2_DESC_ERR_MAC_CRC,		/* L2 MAC error (for example CRC Error) */
+	PP2_DESC_ERR_MAC_OVERRUN,	/* L2 Overrun Error*/
+	PP2_DESC_ERR_MAC_RESERVED,	/* L2 Reserved */
+	PP2_DESC_ERR_MAC_RESOURCE,	/* L2 Resource Error (No buffers for multi-buffer frame) */
+	PP2_DESC_ERR_IPV4_HDR,		/* L3 IPv4 Header error */
+	PP2_DESC_ERR_L4_CHECKSUM	/* L4 checksum error */
 };
 
 /******** TXQ  ********/
@@ -457,8 +460,8 @@ enum pp2_inq_desc_status {
 #define RXD_POOL_ID_MASK           (0x000F0000)
 #define RXD_HWF_SYNC_MASK          (0x00200000)
 #define RXD_L4_CHK_OK_MASK         (0x00400000)
-#define RXD_L4_IP_FRAG_MASK        (0x00800000)
-#define RXD_IP_HDR_ERR_MASK        (0x01000000)
+#define RXD_L3_IP_FRAG_MASK        (0x00800000)
+#define RXD_L3_IP4_HDR_ERR_MASK    (0x01000000)
 #define RXD_L4_PRS_INFO_MASK       (0x0E000000)
 #define RXD_L3_PRS_INFO_MASK       (0x70000000)
 #define RXD_BUF_HDR_MASK           (0x80000000)
@@ -481,8 +484,8 @@ enum pp2_inq_desc_status {
 #define DM_RXD_GET_POOL_ID(desc)        (((desc)->cmds[0] & RXD_POOL_ID_MASK) >> 16)
 #define DM_RXD_GET_HWF_SYNC(desc)       (((desc)->cmds[0] & RXD_HWF_SYNC_MASK) >> 21)
 #define DM_RXD_GET_L4_CHK_OK(desc)      (((desc)->cmds[0] & RXD_L4_CHK_OK_MASK) >> 22)
-#define DM_RXD_GET_L4_IP_FRAG(desc)     (((desc)->cmds[0] & RXD_L4_IP_FRAG_MASK) >> 23)
-#define DM_RXD_GET_IP_HDR_ERR(desc)     (((desc)->cmds[0] & RXD_IP_HDR_ERR_MASK) >> 24)
+#define DM_RXD_GET_L3_IP_FRAG(desc)     (((desc)->cmds[0] & RXD_L3_IP_FRAG_MASK) >> 23)
+#define DM_RXD_GET_L3_IP4_HDR_ERR(desc) (((desc)->cmds[0] & RXD_L3_IP4_HDR_ERR_MASK) >> 24)
 #define DM_RXD_GET_L4_PRS_INFO(desc)    (((desc)->cmds[0] & RXD_L4_PRS_INFO_MASK) >> 25)
 #define DM_RXD_GET_L3_PRS_INFO(desc)    (((desc)->cmds[0] & RXD_L3_PRS_INFO_MASK) >> 28)
 #define DM_RXD_GET_BUF_HDR(desc)        (((desc)->cmds[0] & RXD_BUF_HDR_MASK) >> 31)
@@ -708,7 +711,54 @@ static inline struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc
 
 
 /**
- * Check if packet in inq packet descriptor has a MAC (CRC) or IP/L4 (checksum) error condition.
+ * Check if packet in inq packet descriptor has a L2 MAC (CRC) error condition.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	see enum pp2_inq_desc_status.
+ */
+
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l2_pkt_error(struct pp2_ppio_desc *desc)
+{
+	if (unlikely(DM_RXD_GET_ES(desc)))
+		return (1 + DM_RXD_GET_EC(desc));
+	return PP2_DESC_ERR_OK;
+}
+
+/**
+ * Check if packet in inq packet descriptor has or L3 IPv4 error condition.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	see enum pp2_inq_desc_status.
+ */
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l3_pkt_error(struct pp2_ppio_desc *desc)
+{
+	if (unlikely(DM_RXD_GET_L3_PRS_INFO(desc) <= PP2_INQ_L3_TYPE_IPV4_TTL_ZERO &&
+		     DM_RXD_GET_L3_IP4_HDR_ERR(desc)))
+		return PP2_DESC_ERR_IPV4_HDR;
+	return PP2_DESC_ERR_OK;
+}
+
+/**
+ * Check if packet in inq packet descriptor has IP/L4 (checksum) error condition.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	see enum pp2_inq_desc_status.
+ */
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l4_pkt_error(struct pp2_ppio_desc *desc)
+{
+	enum pp2_inq_l4_type l4_info = DM_RXD_GET_L4_PRS_INFO(desc);
+
+	if (unlikely((l4_info == PP2_INQ_L4_TYPE_TCP || l4_info == PP2_INQ_L4_TYPE_UDP) &&
+		     !DM_RXD_GET_L3_IP_FRAG(desc) && !DM_RXD_GET_L4_CHK_OK(desc)))
+		return PP2_DESC_ERR_L4_CHECKSUM;
+	return PP2_DESC_ERR_OK;
+}
+
+/**
+ * Check if packet in inq packet descriptor has some error condition.
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
@@ -716,14 +766,17 @@ static inline struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc
  */
 static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *desc)
 {
-	if (unlikely(DM_RXD_GET_ES(desc)))
-		return (1 + DM_RXD_GET_EC(desc));
-	if (unlikely(DM_RXD_GET_IP_HDR_ERR(desc)))
-		return PP2_DESC_ERR_IPV4_HDR;
-	if (likely(DM_RXD_GET_L4_CHK_OK(desc)))
-		return PP2_DESC_ERR_MAC_OK;
+	enum pp2_inq_desc_status status;
 
-	return PP2_DESC_ERR_L4_CHECKSUM;
+	status = pp2_ppio_inq_desc_get_l2_pkt_error(desc);
+	if (unlikely(status))
+		return status;
+
+	status = pp2_ppio_inq_desc_get_l3_pkt_error(desc);
+	if (unlikely(status))
+		return status;
+
+	return pp2_ppio_inq_desc_get_l4_pkt_error(desc);
 }
 
 /**
