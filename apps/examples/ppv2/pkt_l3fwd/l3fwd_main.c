@@ -53,6 +53,7 @@
 #include "byteorder_inlines.h"
 #include "l3fwd_db.h"
 #include "l3fwd_lpm.h"
+#include "ezxml.h"
 
 #define SHOW_STATISTICS
 static const char buf_release_str[] = "SW buffer release";
@@ -135,6 +136,8 @@ struct glob_arg {
 	app_args_t args;
 	pp2h_ethaddr_t		eth_src_mac[MAX_NB_PKTIO];
 	pp2h_ethaddr_t		eth_dest_mac[MAX_NB_PKTIO];
+	char			mac_dst_file[INPUT_FILE_SIZE];
+	char			routing_file[INPUT_FILE_SIZE];
 	/* forward func, hash or lpm */
 	int (*fwd_func)(char *pkt, int l3_off, int l4_off);
 };
@@ -682,6 +685,222 @@ static int find_port_id_by_name(char *name, app_args_t *args)
 	return -1;
 }
 
+static void init_mac_table(if_mac_t *if_mac_table, app_args_t *args)
+{
+	ezxml_t nhop;
+	int i, j;
+	ezxml_t mac_xml = ezxml_parse_file((const char *)&garg.mac_dst_file);
+
+	if (!mac_xml)
+		return;
+
+	pr_info("Parsing next hop table xml\n");
+	for (i = 0, nhop = ezxml_child(mac_xml, "Nexthop"); nhop && (i < MAX_NB_PKTIO); nhop = nhop->next,
+	     i++) {
+		if (ezxml_child(nhop, "If") && ezxml_child(nhop, "Mac")) {
+			strcpy(if_mac_table[i].if_name, ezxml_child(nhop, "If")->txt);
+			if (pp2h_eth_addr_parse(&if_mac_table[i].nexthop_mac_addr,
+						ezxml_child(nhop, "Mac")->txt) != 0) {
+				pr_err("init_mac_table: invalid nexthop MAC address\n");
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
+	ezxml_free(mac_xml);
+
+	for (i = 0; i < MAX_NB_PKTIO; i++) {
+		for (j = 0; j < MAX_NB_PKTIO; j++) {
+			if (args->if_names[i]) {
+				if (strcmp(args->if_names[i], if_mac_table[j].if_name) == 0) {
+					mv_cp_eaddr(garg.eth_dest_mac[i].addr, if_mac_table[j].nexthop_mac_addr.addr);
+					break;
+				}
+			}
+		}
+	}
+}
+
+#ifdef LPM_FRWD
+static void parse_routing_xml(app_args_t *args)
+{
+	ezxml_t rentry;
+	ezxml_t lpm;
+	int outif;
+	fwd_db_entry_t *entry;
+	int i = 0;
+	ezxml_t route_xml = ezxml_parse_file((const char *)&garg.routing_file);
+
+	if (!route_xml)
+		return;
+
+	pr_info("Parsing routing xml\n");
+
+	for (rentry = ezxml_child(route_xml, "RouteEntry"); rentry; rentry = rentry->next) {
+		if (ezxml_child(rentry, "Lpm") && ezxml_child(rentry, "OutIf")) {
+			lpm = ezxml_child(rentry, "Lpm");
+			if (!(ezxml_child(lpm, "Subnet"))) {
+				pr_err("%s: invalid LPM\n", __func__);
+				exit(EXIT_FAILURE);
+			}
+
+			if (fwd_db->index >= MAX_DB) {
+				pr_err("%s: out of space\n", __func__);
+				return;
+			}
+
+			entry = &fwd_db->array[fwd_db->index];
+			if (!entry) {
+				pr_err("%s: not initialized entry\n", __func__);
+				exit(EXIT_FAILURE);
+			}
+			if (parse_ipv4_string(ezxml_child(lpm, "Subnet")->txt,
+					      &entry->subnet.addr, &entry->subnet.depth) == -1) {
+				printf("create_fwd_db_entry: invalid IP address\n");
+				return;
+			}
+			strncpy(entry->oif, ezxml_child(rentry, "OutIf")->txt, OIF_LEN - 1);
+			entry->oif[OIF_LEN - 1] = 0;
+			outif = find_port_id_by_name(entry->oif, args);
+			if (outif == -1) {
+				pr_warn("Skipping xml entry: port %s is not used.\n", entry->oif);
+				memset(entry, 0, sizeof(fwd_db_entry_t));
+				continue;
+			}
+
+			/* Add route to the list */
+			fwd_db->index++;
+			entry->next = fwd_db->list;
+			fwd_db->list = entry;
+			++i;
+		}
+	}
+	ezxml_free(route_xml);
+	pr_info("Routing xml: found %d entries\n", i);
+}
+
+#else
+static void parse_routing_xml(app_args_t *args)
+{
+	ezxml_t rentry;
+	ezxml_t tuple;
+	int outif;
+	fwd_db_entry_t *entry;
+	int i = 0;
+	ezxml_t route_xml = ezxml_parse_file((const char *)&garg.routing_file);
+
+	if (!route_xml)
+		return;
+
+	pr_info("Parsing routing xml\n");
+
+	for (rentry = ezxml_child(route_xml, "RouteEntry"); rentry; rentry = rentry->next) {
+		if (ezxml_child(rentry, "Tuple") && ezxml_child(rentry, "OutIf")) {
+			tuple = ezxml_child(rentry, "Tuple");
+			if (!(ezxml_child(tuple, "SrcIP") &&
+			      ezxml_child(tuple, "DstIP") &&
+			      ezxml_child(tuple, "SrcPort") &&
+			      ezxml_child(tuple, "DstPort") &&
+			      ezxml_child(tuple, "Protocol"))) {
+				pr_err("%s: invalid 5-Tuple\n", __func__);
+				exit(EXIT_FAILURE);
+			}
+
+			if (fwd_db->index >= MAX_DB) {
+				pr_err("%s: out of space\n", __func__);
+				return;
+			}
+
+			entry = &fwd_db->array[fwd_db->index];
+			if (!entry) {
+				pr_err("%s: not initialized entry\n", __func__);
+				exit(EXIT_FAILURE);
+			}
+			if (parse_ipv4_string(ezxml_child(tuple, "SrcIP")->txt, &entry->u.ipv4.src_subnet.addr,
+					      &entry->u.ipv4.src_subnet.depth) == -1) {
+				if (parse_ipv6_string(ezxml_child(tuple, "SrcIP")->txt,
+						      &entry->u.ipv6.src_subnet.addr.u64.ipv6_hi,
+						      &entry->u.ipv6.src_subnet.addr.u64.ipv6_lo,
+						      &entry->u.ipv6.src_subnet.prefix) == -1) {
+					pr_warn("Skipping xml entry: invalid SrcIp\n");
+					memset(entry, 0, sizeof(fwd_db_entry_t));
+					continue;
+				} else {
+					entry->ip_protocol = IP_VERSION_6;
+				}
+			} else {
+				entry->ip_protocol = IP_VERSION_4;
+			}
+			if (entry->ip_protocol == IP_VERSION_4) {
+				if (parse_ipv4_string(ezxml_child(tuple, "DstIP")->txt, &entry->u.ipv4.dst_subnet.addr,
+						      &entry->u.ipv4.dst_subnet.depth) == -1) {
+					pr_warn("Skipping xml entry: invalid DstIp\n");
+					memset(entry, 0, sizeof(fwd_db_entry_t));
+					continue;
+				}
+			} else {
+				if (parse_ipv6_string(ezxml_child(tuple, "DstIP")->txt,
+						      &entry->u.ipv6.dst_subnet.addr.u64.ipv6_hi,
+						      &entry->u.ipv6.dst_subnet.addr.u64.ipv6_lo,
+						      &entry->u.ipv6.dst_subnet.prefix) == -1) {
+					pr_warn("Skipping xml entry: invalid DstIp\n");
+					memset(entry, 0, sizeof(fwd_db_entry_t));
+					continue;
+				}
+			}
+			if (entry->ip_protocol == IP_VERSION_4) {
+				entry->u.ipv4.src_port = atoi(ezxml_child(tuple, "SrcPort")->txt);
+				entry->u.ipv4.dst_port = atoi(ezxml_child(tuple, "DstPort")->txt);
+			} else {
+				entry->u.ipv6.src_port = atoi(ezxml_child(tuple, "SrcPort")->txt);
+				entry->u.ipv6.dst_port = atoi(ezxml_child(tuple, "DstPort")->txt);
+			}
+			if (strcmp(ezxml_child(tuple, "Protocol")->txt, "UDP") == 0) {
+				if (entry->ip_protocol == IP_VERSION_4)
+					entry->u.ipv4.protocol = IP_PROTOCOL_UDP;
+				else
+					entry->u.ipv6.protocol = IP_PROTOCOL_UDP;
+			} else {
+				if (strcmp(ezxml_child(tuple, "Protocol")->txt, "TCP") == 0) {
+					if (entry->ip_protocol == IP_VERSION_4)
+						entry->u.ipv4.protocol = IP_PROTOCOL_TCP;
+					else
+						entry->u.ipv6.protocol = IP_PROTOCOL_TCP;
+				} else {
+					pr_warn("Skipping xml entry: Invalid protocol %s\n",
+						ezxml_child(tuple, "Protocol")->txt);
+					memset(entry, 0, sizeof(fwd_db_entry_t));
+					continue;
+				}
+			}
+
+			strncpy(entry->oif, ezxml_child(rentry, "OutIf")->txt, OIF_LEN - 1);
+			entry->oif[OIF_LEN - 1] = 0;
+			outif = find_port_id_by_name(entry->oif, args);
+			if (outif == -1) {
+				pr_warn("Skipping xml entry: port %s is not used.\n", entry->oif);
+				memset(entry, 0, sizeof(fwd_db_entry_t));
+				continue;
+			}
+
+#ifndef IPV6_ENABLED
+			/* skip IPv6 entries when IPv6 is disabled */
+			if (entry->ip_protocol == IP_VERSION_4) {
+#endif
+			/* Add route to the list */
+			fwd_db->index++;
+			entry->next = fwd_db->list;
+			fwd_db->list = entry;
+			++i;
+#ifndef IPV6_ENABLED
+			}
+#endif
+		}
+	}
+	ezxml_free(route_xml);
+	pr_info("Routing xml: found %d entries\n", i);
+}
+#endif
+
 static void setup_fwd_db(void)
 {
 	fwd_db_entry_t *entry;
@@ -740,6 +959,7 @@ static int init_fp(struct glob_arg *garg)
 	/* read MACs table file and configure interface MAC addresses */
 	memset(if_mac_table, 0, sizeof(if_mac_t) * MAX_NB_PKTIO);
 
+	init_mac_table(if_mac_table, args);
 	init_fwd_db();
 
 	/* Add route into table */
@@ -765,6 +985,9 @@ static int init_fp(struct glob_arg *garg)
 				args->dest_mac_changed[j] = 1;
 		}
 	}
+
+	/* routing xml entries are added to the fw db after command line configuration */
+	parse_routing_xml(args);
 
 	/* Resolve fwd db*/
 	for (i = 0; i < args->if_count; i++) {
@@ -1101,6 +1324,8 @@ static void usage(char *progname)
 	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
 	       "\t--cli                    Use CLI\n"
+	       "\t--routing-file           Use *.xml file\n"
+	       "\t--mac-dst-file           Use *.xml file\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
 	       PKT_FWD_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_FWD_APP_RX_Q_SIZE);
@@ -1118,6 +1343,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"help", no_argument, 0, 'h'},
 		{"interface", required_argument, 0, 'i'},
 		{"route", required_argument, 0, 'r'},
+		{"routing-file", required_argument, 0, 'f'},
+		{"mac-dst-file", required_argument, 0, 'd'},
 		{"burst", required_argument, 0, 'b'},
 		{"mtu", required_argument, 0, 'u'},
 		{"core", required_argument, 0, 'c'},
@@ -1189,6 +1416,12 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			memcpy(local, optarg, strlen(optarg));
 			local[strlen(optarg)] = '\0';
 			garg->args.route_str[route_index++] = local;
+			break;
+		case 'f':
+			strncpy(&garg->routing_file[0], optarg, sizeof(garg->routing_file));
+			break;
+		case 'd':
+			strncpy(&garg->mac_dst_file[0], optarg, sizeof(garg->mac_dst_file));
 			break;
 		case 'b':
 			garg->burst = atoi(optarg);
