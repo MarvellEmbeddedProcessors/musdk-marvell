@@ -40,3 +40,15 @@ musdk_cls_demo_SOURCES += ../common/utils.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo.c
 musdk_cls_demo_SOURCES += ppv2/cls_debug.c
 musdk_cls_demo_LDADD = $(top_builddir)/src/libmusdk.la
+
+bin_PROGRAMS += musdk_pkt_l3fwd
+musdk_pkt_l3fwd_SOURCES  = ../common/lib/cli.c
+musdk_pkt_l3fwd_SOURCES += ../common/mvapp.c
+musdk_pkt_l3fwd_SOURCES += ../common/utils.c
+musdk_pkt_l3fwd_SOURCES += ../common/lib/xxhash.c
+musdk_pkt_l3fwd_SOURCES += ../common/lib//ezxml.c
+musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_main.c
+musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_db.c
+musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_lpm.c
+musdk_pkt_l3fwd_LDADD = $(top_builddir)/src/libmusdk.la
+

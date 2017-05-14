@@ -79,8 +79,23 @@
 #define VLAN_HLEN			4
 /* Ethernet header length */
 #define ETH_HLEN			14
+/* Ethernet address length */
+#define ETH_ALEN			6
 /* Ethernet FCS length */
 #define ETH_FCS_LEN			4
+
+/* IP version 4 */
+#define IP_VERSION_4		4
+/* IPv6 version */
+#define IP_VERSION_6		6
+/* Returns IPv4 version */
+#define IPV4_HDR_VER(ver_ihl)	(((ver_ihl) & 0xf0) >> 4)
+/* IPv6 address length in bytes */
+#define IPV6_ADDR_LEN		16
+
+/* Packet Header defines */
+#define IP_PROTOCOL_TCP		0x06
+#define IP_PROTOCOL_UDP		0x11
 
 /* Macro to convert MTU to MRU */
 #define MVAPPS_MTU_TO_MRU(mtu) \
