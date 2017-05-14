@@ -1,4 +1,4 @@
-From 00b1ee664e500f4c03d72c61ab75a5459cb7fd3b Mon Sep 17 00:00:00 2001
+From b1b85ef2a866375d99956af795ad1301f67cb675 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:04:48 +0300
 Subject: [PATCH 3/6] musdk: update existing dts files
@@ -18,7 +18,7 @@ index b152894..3a48e6a 100644
 @@ -49,6 +49,8 @@
  #include <dt-bindings/phy/phy-armada3700-utmi.h>
  #include <dt-bindings/phy/phy-comphy-mvebu.h>
-
+ 
 +#include "musdk-armada-37xx.dtsi"
 +
  / {
@@ -50,5 +50,5 @@ index b825e2d..7acccdf 100644
  / {
  	model = "Marvell Armada-8040 development board A setup";
 -- 
-1.9.1
+2.7.4
 

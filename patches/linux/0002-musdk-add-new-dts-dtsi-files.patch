@@ -1,4 +1,4 @@
-From f6e160e74827eb6e39f641c9dc39147e64f42a3e Mon Sep 17 00:00:00 2001
+From 10d2b985d7c48c7b2c4fb645106173ebd77b3f98 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
 Subject: [PATCH 2/6] musdk: add new dts,dtsi files
@@ -541,5 +541,5 @@ index 0000000..f4aa343
 +	status = "okay";
 +};
 -- 
-1.9.1
+2.7.4
 

@@ -1,4 +1,4 @@
-From f316874f03e7b192fd35e7cf5fd82c9af7876805 Mon Sep 17 00:00:00 2001
+From a2efb35e6e75e500be22804061dbc0ca342c3126 Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Thu, 2 Feb 2017 17:44:46 +0200
 Subject: [PATCH 1/6] musdk: defconfig: set CONFIG_UIO=y
@@ -10,10 +10,10 @@ Signed-off-by: nsamsono <nsamsono@marvell.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/arm64/configs/mvebu_v8_lsp_defconfig b/arch/arm64/configs/mvebu_v8_lsp_defconfig
-index 5079255..7b4d584 100644
+index 15235cd..5e12e67 100644
 --- a/arch/arm64/configs/mvebu_v8_lsp_defconfig
 +++ b/arch/arm64/configs/mvebu_v8_lsp_defconfig
-@@ -216,6 +216,7 @@ CONFIG_MV_XOR=y
+@@ -217,6 +217,7 @@ CONFIG_MV_XOR=y
  CONFIG_MV_XOR_V2=y
  CONFIG_ASYNC_TX_DMA=y
  CONFIG_DMATEST=y
@@ -22,5 +22,5 @@ index 5079255..7b4d584 100644
  CONFIG_VFIO_PCI=y
  CONFIG_VFIO_PLATFORM=y
 -- 
-1.9.1
+2.7.4
 

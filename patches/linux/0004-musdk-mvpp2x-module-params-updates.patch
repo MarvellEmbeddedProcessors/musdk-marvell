@@ -1,4 +1,4 @@
-From 8606d26bd40eb99b02333042f5cfdc25ee04a30c Mon Sep 17 00:00:00 2001
+From b7ca2af22565130f888ddfc646bf7219b0de6145 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:27:58 +0200
 Subject: [PATCH 4/6] musdk: mvpp2x module params updates
@@ -33,5 +33,5 @@ index f7be8d6..064cffe 100644
  static u16 tx_queue_size = MVPP2_MAX_TXD;
  static u16 buffer_scaling = 100;
 -- 
-1.9.1
+2.7.4
 
