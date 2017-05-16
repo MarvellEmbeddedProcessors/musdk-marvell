@@ -211,7 +211,7 @@ struct neta_ppio_sg_desc {
 #define NETA_RXD_GET_EC(desc)		(((desc)->cmds[0] & NETA_RXD_ERR_CODE_MASK) >> NETA_RXD_ERROR_CODE_OFF)
 #define NETA_RXD_GET_POOL_ID(desc)	(((desc)->cmds[0] & NETA_RXD_BM_POOL_MASK) >> NETA_RXD_BM_POOL_OFF)
 #define NETA_RXD_GET_L4_CHK_OK(desc)	(((desc)->cmds[0] >> NETA_RXD_L4_CHK_OK_OFF) & 1)
-#define NETA_RXD_GET_L4_IP_FRAG(desc)	(((desc)->cmds[0] >> NETA_RXD_IPV4_FRG_OFF) & 1)
+#define NETA_RXD_GET_L3_IP_FRAG(desc)	(((desc)->cmds[0] >> NETA_RXD_IPV4_FRG_OFF) & 1)
 #define NETA_RXD_GET_IP_HDR_ERR(desc)	(((desc)->cmds[0] >> NETA_RXD_IP_HEAD_OK_OFF) & 1)
 #define NETA_RXD_GET_L4_PRS_INFO(desc)	(((desc)->cmds[0] & NETA_RXD_L4_PRS_MASK) >> 21)
 #define NETA_RXD_GET_L3_PRS_INFO(desc)	(((desc)->cmds[0] & NETA_RXD_L3_PRS_MASK) >> 24)
@@ -390,22 +390,72 @@ int neta_ppio_inq_desc_get_ip_isfrag(struct neta_ppio_desc *desc);
 struct neta_bpool *neta_ppio_inq_desc_get_bpool(struct neta_ppio_desc *desc, struct neta_ppio *ppio);
 
 /**
- * Check if packet in inq packet descriptor has a MAC (CRC) or IP/L4 (checksum) error condition.
+ * Check if packet in inq packet descriptor has a L2 MAC (CRC) error condition.
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum neta_inq_desc_status.
+ * @retval	see enum mv_inq_desc_status.
  */
-static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_pkt_error(struct neta_ppio_desc *desc)
+
+static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l2_pkt_error(struct neta_ppio_desc *desc)
 {
 	if (unlikely(NETA_RXD_GET_ES(desc)))
 		return (1 + NETA_RXD_GET_EC(desc));
-	if (unlikely(NETA_RXD_GET_IP_HDR_ERR(desc)))
-		return MV_DESC_ERR_IPV4_HDR;
-	if (likely(NETA_RXD_GET_L4_CHK_OK(desc)))
-		return MV_DESC_ERR_L4_CHECKSUM;
-
 	return MV_DESC_ERR_OK;
+}
+
+/**
+ * Check if packet in inq packet descriptor has or L3 IPv4 error condition.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	see enum mv_inq_desc_status.
+ */
+static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l3_pkt_error(struct neta_ppio_desc *desc)
+{
+	if (unlikely(NETA_RXD_GET_L3_PRS_INFO(desc) <= MV_INQ_L3_TYPE_IPV4_TTL_ZERO &&
+		     NETA_RXD_GET_IP_HDR_ERR(desc)))
+		return MV_DESC_ERR_IPV4_HDR;
+	return MV_DESC_ERR_OK;
+}
+
+/**
+ * Check if packet in inq packet descriptor has IP/L4 (checksum) error condition.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	see enum mv_inq_desc_status.
+ */
+static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l4_pkt_error(struct neta_ppio_desc *desc)
+{
+	enum mv_inq_l4_type l4_info = NETA_RXD_GET_L4_PRS_INFO(desc);
+
+	if (unlikely((l4_info == MV_INQ_L4_TYPE_TCP || l4_info == MV_INQ_L4_TYPE_UDP) &&
+		     !NETA_RXD_GET_L3_IP_FRAG(desc) && !NETA_RXD_GET_L4_CHK_OK(desc)))
+		return MV_DESC_ERR_L4_CHECKSUM;
+	return MV_DESC_ERR_OK;
+}
+
+/**
+ * Check if packet in inq packet descriptor has some error condition.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	see enum mv_inq_desc_status.
+ */
+static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_pkt_error(struct neta_ppio_desc *desc)
+{
+	enum mv_inq_desc_status status;
+
+	status = neta_ppio_inq_desc_get_l2_pkt_error(desc);
+	if (unlikely(status))
+		return status;
+
+	status = neta_ppio_inq_desc_get_l3_pkt_error(desc);
+	if (unlikely(status))
+		return status;
+
+	return neta_ppio_inq_desc_get_l4_pkt_error(desc);
 }
 
 /**
@@ -468,7 +518,6 @@ int neta_ppio_get_num_outq_done(struct neta_ppio	*ppio,
  * Receive packets on a ppio.
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[in]		tc	traffic class on which to receive frames
  * @param[in]		qid	out-Q id on which to receive the frames.
  * @param[in]		descs	A pointer to an array of descriptors represents the
  *				received frames.

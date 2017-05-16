@@ -83,6 +83,11 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_rss.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_hw_cls.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_hw_cls_dbg.c
 
+# NETA driver
+libmusdk_la_SOURCES += drivers/neta/neta.c
+libmusdk_la_SOURCES += drivers/neta/neta_ppio.c
+libmusdk_la_SOURCES += drivers/neta/neta_hw.c
+
 if SAM_BUILD
 # Definitions for SAM driver compilation
 nobase_include_HEADERS += include/drivers/mv_sam.h

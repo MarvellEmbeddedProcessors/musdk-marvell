@@ -248,6 +248,35 @@ enum neta_port_type {
 	PORT_TYPE_1000BASE_X
 };
 
+/* Interface Mode definitions */
+enum phy_interface {
+	PHY_INTERFACE_MODE_NA,
+	PHY_INTERFACE_MODE_MII,
+	PHY_INTERFACE_MODE_GMII,
+	PHY_INTERFACE_MODE_SGMII,
+	PHY_INTERFACE_MODE_TBI,
+	PHY_INTERFACE_MODE_REVMII,
+	PHY_INTERFACE_MODE_RMII,
+	PHY_INTERFACE_MODE_RGMII,
+	PHY_INTERFACE_MODE_RGMII_ID,
+	PHY_INTERFACE_MODE_RGMII_RXID,
+	PHY_INTERFACE_MODE_RGMII_TXID,
+	PHY_INTERFACE_MODE_RTBI,
+	PHY_INTERFACE_MODE_SMII,
+	PHY_INTERFACE_MODE_XGMII,
+	PHY_INTERFACE_MODE_MOCA,
+	PHY_INTERFACE_MODE_QSGMII,
+	PHY_INTERFACE_MODE_XAUI,
+	PHY_INTERFACE_MODE_RXAUI,
+	PHY_INTERFACE_MODE_KR,
+	PHY_INTERFACE_MODE_MAX,
+};
+
+#define MVNETA_TX_CSUM_DEF_SIZE		1600
+#define MVNETA_TX_CSUM_MAX_SIZE		9800
+#define MVNETA_ACC_MODE_EXT1		1
+#define MVNETA_ACC_MODE_EXT2		2
+
 static inline void neta_reg_write_relaxed(void *base, u32 offset, u32 data)
 {
 	void *addr = base + offset;
@@ -297,5 +326,10 @@ static inline u32 neta_reg_read(void *base, u32 offset)
 
 	return data;
 }
+
+int neta_port_open(int port_id, struct neta_port *pp);
+int neta_port_hw_init(struct neta_port *pp);
+int neta_port_hw_deinit(struct neta_port *pp);
+void neta_hw_reg_print(char *reg_name, void *base, u32 offset);
 
 #endif /* _MVNETA_HW_H_ */
