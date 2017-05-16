@@ -65,13 +65,11 @@ struct pp2_bpool;
 #define PP2_MH_SIZE		2
 
 
-#define ETH_ADDR_NUM_OCTETS	6 /**< Number of octets (8-bit bytes) in an ethernet address */
-
 #define PP2_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
 #define PP2_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
 #define PP2_PPIO_TC_MAX_POOLS	2 /**< Max. number of bpools per TC. */
 
-typedef u8 eth_addr_t[ETH_ADDR_NUM_OCTETS];
+typedef u8 eth_addr_t[MV_ETH_ALEN];
 
 enum pp2_ppio_type {
 	PP2_PPIO_T_LOG = 0,	/*  Logical-port is only a set of Out-Qs and In-TCs (i.e. no link, l2-filters) */

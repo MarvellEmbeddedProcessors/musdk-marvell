@@ -33,6 +33,10 @@
 #ifndef __MV_NET_H__
 #define __MV_NET_H__
 
+
+/* Number of octets (8-bit bytes) in an ethernet address */
+#define MV_ETH_ALEN		6
+
 /* Similar to if_vlan.h */
 #define MV_VLAN_PRIO_MASK	0xe000 /* Priority Code Point */
 #define MV_VLAN_PRIO_SHIFT	13
