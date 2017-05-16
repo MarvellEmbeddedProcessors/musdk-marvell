@@ -1,4 +1,4 @@
-From a2efb35e6e75e500be22804061dbc0ca342c3126 Mon Sep 17 00:00:00 2001
+From 6a20c210a510d602d0ad16d0fa0634508ba61ea6 Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Thu, 2 Feb 2017 17:44:46 +0200
 Subject: [PATCH 1/6] musdk: defconfig: set CONFIG_UIO=y

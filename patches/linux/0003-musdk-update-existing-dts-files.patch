@@ -1,4 +1,4 @@
-From b1b85ef2a866375d99956af795ad1301f67cb675 Mon Sep 17 00:00:00 2001
+From 4ed50cfda554795051ad913bede2fc2c0bc43c49 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:04:48 +0300
 Subject: [PATCH 3/6] musdk: update existing dts files
@@ -6,10 +6,11 @@ Subject: [PATCH 3/6] musdk: update existing dts files
 Change-Id: I674c3f88610270a3c52ba2d384c1052f7d89a38e
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi     | 2 ++
- arch/arm64/boot/dts/marvell/armada-7040-db-A.dts | 1 +
- arch/arm64/boot/dts/marvell/armada-8040-db-A.dts | 2 ++
- 3 files changed, 5 insertions(+)
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi      | 2 ++
+ arch/arm64/boot/dts/marvell/armada-7040-db-A.dts  | 1 +
+ arch/arm64/boot/dts/marvell/armada-8040-db-A.dts  | 2 ++
+ arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 1 +
+ 4 files changed, 6 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 index b152894..3a48e6a 100644
@@ -49,6 +50,18 @@ index b825e2d..7acccdf 100644
  
  / {
  	model = "Marvell Armada-8040 development board A setup";
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+index 324943e..9572c19 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+@@ -45,6 +45,7 @@
+  */
+ 
+ #include "armada-8040.dtsi"
++#include "musdk-armada-8040-mcbin.dtsi"
+ 
+ / {
+ 	model = "Marvell 8040 MACHIATOBin";
 -- 
 2.7.4
 

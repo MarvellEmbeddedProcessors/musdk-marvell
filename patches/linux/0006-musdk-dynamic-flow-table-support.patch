@@ -1,4 +1,4 @@
-From 1e0a705b7735170b4549c8e8a17a338755dcbe62 Mon Sep 17 00:00:00 2001
+From dd80a23902b6515ccdd5cd8cc8ae78e5a181aaf2 Mon Sep 17 00:00:00 2001
 From: Ehud Naim <ehudn@marvell.com>
 Date: Mon, 2 Jan 2017 11:48:19 +0200
 Subject: [PATCH 6/6] musdk: dynamic flow table support

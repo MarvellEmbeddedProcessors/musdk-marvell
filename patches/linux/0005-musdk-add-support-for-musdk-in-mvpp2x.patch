@@ -1,4 +1,4 @@
-From 7b0546193f3778e53e2adc7e241f6f06ae5ba1af Mon Sep 17 00:00:00 2001
+From 68d7f16438edb26f217ccd86d393f36bd283012b Mon Sep 17 00:00:00 2001
 From: Alan Winkowski <walan@marvell.com>
 Date: Tue, 14 Mar 2017 14:50:28 +0200
 Subject: [PATCH 5/6] musdk: add support for musdk in mvpp2x
