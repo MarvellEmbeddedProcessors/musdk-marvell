@@ -1,4 +1,4 @@
-From 9e125c310d68bf07eafc09bf189c98f406d91135 Mon Sep 17 00:00:00 2001
+From 8c0af3f1e4bb64cd823efe1ea024feff8d5317c9 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:27:58 +0200
 Subject: [PATCH 4/6] musdk: mvpp2x module params updates

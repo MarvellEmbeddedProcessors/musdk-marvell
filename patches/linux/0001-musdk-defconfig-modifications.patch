@@ -1,18 +1,27 @@
-From 6a20c210a510d602d0ad16d0fa0634508ba61ea6 Mon Sep 17 00:00:00 2001
+From 112cbfbe8b8f3a28f858f63f97117de212ad33bd Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Thu, 2 Feb 2017 17:44:46 +0200
-Subject: [PATCH 1/6] musdk: defconfig: set CONFIG_UIO=y
+Subject: [PATCH 1/6] musdk: defconfig's modifications
 
 Change-Id: I59597175e15ce8dd0ee9b8d0c6dc75092b28d813
 Signed-off-by: nsamsono <nsamsono@marvell.com>
 ---
- arch/arm64/configs/mvebu_v8_lsp_defconfig | 1 +
- 1 file changed, 1 insertion(+)
+ arch/arm64/configs/mvebu_v8_lsp_defconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/arch/arm64/configs/mvebu_v8_lsp_defconfig b/arch/arm64/configs/mvebu_v8_lsp_defconfig
-index 15235cd..5e12e67 100644
+index 15235cd..009d811 100644
 --- a/arch/arm64/configs/mvebu_v8_lsp_defconfig
 +++ b/arch/arm64/configs/mvebu_v8_lsp_defconfig
+@@ -75,7 +75,7 @@ CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
+ CONFIG_DEVTMPFS=y
+ CONFIG_DEVTMPFS_MOUNT=y
+ CONFIG_DMA_CMA=y
+-CONFIG_CMA_SIZE_MBYTES=64
++CONFIG_CMA_SIZE_MBYTES=256
+ CONFIG_VEXPRESS_CONFIG=y
+ CONFIG_MTD=y
+ CONFIG_MTD_CMDLINE_PARTS=y
 @@ -217,6 +217,7 @@ CONFIG_MV_XOR=y
  CONFIG_MV_XOR_V2=y
  CONFIG_ASYNC_TX_DMA=y

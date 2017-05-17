@@ -1,4 +1,4 @@
-From 941a214b9c8af5f7bdddb1cd7d83f2f68d2ee0ae Mon Sep 17 00:00:00 2001
+From 5f2b89db860f19bf778b6892d69073fd2889c420 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
 Subject: [PATCH 2/6] musdk: add new dts,dtsi files
@@ -423,7 +423,7 @@ index 0000000..c175e5c
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi
 new file mode 100644
-index 0000000..a6d9cc2
+index 0000000..19e23be
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi
 @@ -0,0 +1,69 @@

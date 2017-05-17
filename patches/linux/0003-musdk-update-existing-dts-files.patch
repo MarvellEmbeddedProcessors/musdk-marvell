@@ -1,4 +1,4 @@
-From 4ed50cfda554795051ad913bede2fc2c0bc43c49 Mon Sep 17 00:00:00 2001
+From 77b635110c384b28ef55e923d1581738a0561fd2 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:04:48 +0300
 Subject: [PATCH 3/6] musdk: update existing dts files
