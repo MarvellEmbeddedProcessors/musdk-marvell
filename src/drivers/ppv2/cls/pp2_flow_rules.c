@@ -2945,7 +2945,7 @@ int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode)
 	for (lkpid = MVPP2_PRS_FL_START; lkpid < MVPP2_PRS_FL_LAST; lkpid++) {
 		/* Get lookup id attribute */
 		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
-		if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT) &&
+		if ((lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT | MVPP2_PRS_FL_ATTR_UDP_BIT)) &&
 		    !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
 			if (rss_mode == PP2_PPIO_HASH_T_2_TUPLE) {
 				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA,
@@ -2966,6 +2966,10 @@ int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode)
 				kfree(fl_rls_hash);
 				return -EINVAL;
 			}
+		} else if (lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT | MVPP2_PRS_FL_ATTR_IP6_BIT)) {
+			pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA,
+						lkpid, lkpid_attr, true);
+			rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
 		}
 	}
 

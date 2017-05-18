@@ -399,7 +399,7 @@ static int pp2_cls_mng_get_lkpid_for_rss(int engine, u16 *select_logical_id, int
 		}
 
 		if (!(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
-			if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT)) {
+			if (lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT | MVPP2_PRS_FL_ATTR_UDP_BIT)) {
 				select_logical_id[num_lkpid++] = lkpid;
 				continue;
 			} else if ((engine == MVPP2_CLS_ENGINE_C3HB) &&
@@ -500,6 +500,7 @@ static int pp2_cls_mng_add_default_flow(struct pp2_ppio *ppio)
 	struct pp2_cls_tbl_rule rule;
 	struct pp2_cls_tbl *tbl;
 	struct pp2_cls_tbl *tbl_hash;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
 
 	/* add default flow for all lkpid */
 	tbl_params.type = PP2_CLS_TBL_MASKABLE;
@@ -580,6 +581,9 @@ static int pp2_cls_mng_add_default_flow(struct pp2_ppio *ppio)
 	pp2_cls_mng_rule_add(tbl, &rule, &tbl_params.default_act, MVPP2_CLS_LKP_MUSDK_VLAN_PRI);
 	pp2_cls_mng_rule_add(tbl, &rule, &tbl_params.default_act, MVPP2_CLS_LKP_MUSDK_DSCP_PRI);
 	pp2_cls_mng_rule_add(tbl, &rule, &tbl_params.default_act, MVPP2_CLS_LKP_MUSDK_LOG_PORT_DEF);
+
+	/* set rss mode */
+	pp2_cls_rss_mode_flows_set(port, port->hash_type);
 
 	kfree(tbl_params.default_act.cos);
 
@@ -712,11 +716,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	 * PortIdSelect bit in CLS_FLOW_TBL1 register is set to 0
 	 */
 
-	if ((fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3HA && port->hash_type != PP2_PPIO_HASH_T_2_TUPLE) ||
-	    (fl_rls->fl[0].engine == MVPP2_CLS_ENGINE_C3HB && port->hash_type != PP2_PPIO_HASH_T_5_TUPLE))
-		fl_rls->fl[0].port_bm = 0;
-	else
-		fl_rls->fl[0].port_bm = (1 << port->id);
+	fl_rls->fl[0].port_bm = (1 << port->id);
 
 	/* lookup_type */
 	fl_rls->fl[0].lu_type = lkp_type;
