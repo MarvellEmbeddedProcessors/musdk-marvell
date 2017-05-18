@@ -136,8 +136,8 @@ void pp2_deinit(void);
  * These parameters are needed for initializing the corresponding ppio
  *
  * @param[in]	ifname	A pointer to the interface name.
- * @param[out]	pp_id	A pointer to the corresponding pp_id.
- * @param[out]	port_id	A pointer to the corresponding port_id.
+ * @param[out]	pp_id	A pointer to the corresponding packet prosessor id.
+ * @param[out]	ppio_id	A pointer to the corresponding port id.
  *
  * @retval	0 on success
  * @retval	<0 on failure
@@ -147,14 +147,14 @@ int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id);
 /**
  * Get port availability for musdk
  *
- * @param[in]	pp_id
- * @param[in]	ppio_id
+ * @param[in]	pp_id	A pointer to the corresponding packet prosessor id.
+ * @param[in]	ppio_id	A pointer to the corresponding port id.
  *
  * @retval	'1' - available
  * @retval	'0' - not available
  *
  */
-int pp2_ppio_available(int pp2_id, int ppio_id);
+int pp2_ppio_available(int pp_id, int ppio_id);
 
 
 /**

@@ -87,8 +87,7 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool);
 /**
  * Destroy a Buffer Pool (bpool)
  *
- * @param[in]	hif	A hif handle.
- * @param[in]	bpool	A bpool handle.
+ * @param[in]	pool	A bpool handle.
  *
  */
 void pp2_bpool_deinit(struct pp2_bpool *pool);

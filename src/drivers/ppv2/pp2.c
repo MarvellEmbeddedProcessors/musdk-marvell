@@ -425,13 +425,13 @@ void pp2_destroy(struct pp2_inst *inst)
 }
 
 /* Check ppio status configured by applications is coherent with dts file */
-int pp2_ppio_available(int pp2_id, int ppio_id)
+int pp2_ppio_available(int pp_id, int ppio_id)
 {
 	u32 admin_status;
 	int err;
 
 
-	err = pp2_netdev_if_admin_status_get(pp2_id, ppio_id, &admin_status);
+	err = pp2_netdev_if_admin_status_get(pp_id, ppio_id, &admin_status);
 
 	if (!err && (admin_status == PP2_PORT_MUSDK || admin_status == PP2_PORT_SHARED))
 		return true;
