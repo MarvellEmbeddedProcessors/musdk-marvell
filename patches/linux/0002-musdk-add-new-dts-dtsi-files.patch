@@ -1,4 +1,4 @@
-From 5f2b89db860f19bf778b6892d69073fd2889c420 Mon Sep 17 00:00:00 2001
+From aabd5019cfef027fe77e871c813303f454d6048b Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
 Subject: [PATCH 2/6] musdk: add new dts,dtsi files
@@ -11,16 +11,18 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi | 63 ++++++++++++++++
  .../boot/dts/marvell/musdk-armada-8040-db.dtsi     | 81 +++++++++++++++++++++
  .../boot/dts/marvell/musdk-armada-8040-mcbin.dtsi  | 84 ++++++++++++++++++++++
- arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi | 69 ++++++++++++++++++
+ arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi | 75 +++++++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi | 68 ++++++++++++++++++
  .../boot/dts/marvell/musdk-armada-cp110-1.dtsi     | 62 ++++++++++++++++
  .../arm64/boot/dts/marvell/musdk-armada-cp110.dtsi | 62 ++++++++++++++++
- 8 files changed, 560 insertions(+)
+ 9 files changed, 634 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-8040-db.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-8040-mcbin.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi
+ create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-ap806.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-cp110-1.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-cp110.dtsi
 
@@ -423,10 +425,10 @@ index 0000000..c175e5c
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi
 new file mode 100644
-index 0000000..19e23be
+index 0000000..09fd263
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,75 @@
 +/*
 + * Copyright (C) 2016 Marvell Technology Group Ltd.
 + *
@@ -477,7 +479,13 @@ index 0000000..19e23be
 +/ {
 +	model = "Marvell Armada 8040";
 +	compatible = "marvell,armada8040", "marvell,armada-ap806-quad",
-+				"marvell,armada-ap806";
++		     "marvell,armada-ap806";
++
++	ap806 {
++		config-space {
++			#include "musdk-armada-ap806.dtsi"
++		};
++	};
 +
 +	cpn-110-master {
 +		config-space {
@@ -496,6 +504,80 @@ index 0000000..19e23be
 +	};
 +
 +};
+diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-ap806.dtsi
+new file mode 100644
+index 0000000..a16b031
+--- /dev/null
++++ b/arch/arm64/boot/dts/marvell/musdk-armada-ap806.dtsi
+@@ -0,0 +1,68 @@
++/*
++ * Copyright (C) 2016 Marvell Technology Group Ltd.
++ *
++ * This file is dual-licensed: you can use it either under the terms
++ * of the GPLv2 or the X11 license, at your option. Note that this dual
++ * licensing only applies to this file, and not this project as a
++ * whole.
++ *
++ *  a) This library is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of the
++ *     License, or (at your option) any later version.
++ *
++ *     This library is distributed in the hope that it will be useful,
++ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *     GNU General Public License for more details.
++ *
++ * Or, alternatively,
++ *
++ *  b) Permission is hereby granted, free of charge, to any person
++ *     obtaining a copy of this software and associated documentation
++ *     files (the "Software"), to deal in the Software without
++ *     restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or
++ *     sell copies of the Software, and to permit persons to whom the
++ *     Software is furnished to do so, subject to the following
++ *     conditions:
++ *
++ *     The above copyright notice and this permission notice shall be
++ *     included in all copies or substantial portions of the Software.
++ *
++ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *     OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++/*
++ * Device Tree file for the Armada 8040 SoC, made of an AP806 Quad and
++ * two CP110.
++ */
++
++uio-xor0 {
++	compatible = "marvell,uio-xor-v2";
++	xor_access = <&ap_xor0>;
++	status = "okay";
++};
++uio-xor1 {
++	compatible = "marvell,uio-xor-v2";
++	xor_access = <&ap_xor1>;
++	status = "okay";
++};
++uio-xor2 {
++	compatible = "marvell,uio-xor-v2";
++	xor_access = <&ap_xor2>;
++	status = "okay";
++};
++uio-xor3 {
++	compatible = "marvell,uio-xor-v2";
++	xor_access = <&ap_xor3>;
++	status = "okay";
++};
++
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-cp110-1.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-cp110-1.dtsi
 new file mode 100644
 index 0000000..4810055
@@ -633,5 +715,5 @@ index 0000000..f4aa343
 +	status = "okay";
 +};
 -- 
-2.7.4
+1.9.1
 
