@@ -1017,7 +1017,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = kstrtou8((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->out_pbit);
+			rc = kstrtou8((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->out_pbit);
 			if (rc) {
 				pr_err("Failed to parse PCP bits in VLAN header.\n");
 				return rc;
@@ -1030,7 +1030,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->out_vid);
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->out_vid);
 			if (rc) {
 				pr_err("Failed to parse VID in VLAN header.\n");
 				return rc;
@@ -1043,13 +1043,13 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = kstrtou8((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->ipvx_add.dscp);
+			rc = kstrtou8((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->ipvx_add.dscp);
 			if (rc) {
 				pr_err("Failed to parse DSCP field.\n");
 				return rc;
 			}
 			pr_debug("OUT_VLAN_ID_FIELD_ID = %d\n", mng_pkt_key->pkt_key->ipvx_add.dscp);
-			rc = kstrtou8((char *)(rule->fields[idx1].mask), 10, &mng_pkt_key->pkt_key->ipvx_add.dscp_mask);
+			rc = kstrtou8((char *)(rule->fields[idx1].mask), 0, &mng_pkt_key->pkt_key->ipvx_add.dscp_mask);
 			if (rc) {
 				pr_err("Failed to parse DSCP mask.\n");
 				return rc;
@@ -1126,7 +1126,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			break;
 		case IPV4_PROTO_FIELD_ID:
 		case IPV6_NH_FIELD_ID:
-			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &ipproto);
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &ipproto);
 			if (rc) {
 				pr_err("Unable to parse Ipv6 protocol");
 				return rc;
@@ -1195,7 +1195,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->l4_src);
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->l4_src);
 			if (rc) {
 				pr_err("%s(%d)) Falied to parse L4 source port.", __func__, __LINE__);
 				return rc;
@@ -1209,7 +1209,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = kstrtou16((char *)(rule->fields[idx1].key), 10, &mng_pkt_key->pkt_key->l4_dst);
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->l4_dst);
 			if (rc) {
 				pr_err("%s(%d)) Falied to parse L4 destination port.", __func__, __LINE__);
 				return rc;
