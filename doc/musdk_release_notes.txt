@@ -41,7 +41,7 @@ Supported Features
 	- VLAN filter support
 	- Promiscuous mode
 	- MTU change support
-	- RSS support (distribution to Rx queues - configuration by Kernel)
+	- RSS support (distribution to Rx queues)
 	- Port and queue statistics
 	- Logical port (shared port for kernel and MUSDK)
 	- MUSDK and kernel ports may operate together
