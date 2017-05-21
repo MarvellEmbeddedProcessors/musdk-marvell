@@ -40,7 +40,7 @@
 /* pkt offset, must be multiple of 32 bytes */
 #define MVAPPS_PKT_OFFS			64
 /* pkt offset including Marvell header */
-#define MVAPPS_PKT_EFEC_OFFS		(MVAPPS_PKT_OFFS + PP2_MH_SIZE)
+#define MVAPPS_PKT_EFEC_OFFS		(MVAPPS_PKT_OFFS + MV_MH_SIZE)
 /* Maximum number of packet processors used by application */
 #define MVAPPS_MAX_PKT_PROC		2
 /* Maximum number of CPU cores used by application */
@@ -99,12 +99,12 @@
 
 /* Macro to convert MTU to MRU */
 #define MVAPPS_MTU_TO_MRU(mtu) \
-	((mtu) + PP2_MH_SIZE + VLAN_HLEN + \
+	((mtu) + MV_MH_SIZE + VLAN_HLEN + \
 	ETH_HLEN + ETH_FCS_LEN)
 
 /* Macro to convert MRU to MTU */
 #define MVAPPS_MRU_TO_MTU(mru) \
-	((mru) - PP2_MH_SIZE - VLAN_HLEN - \
+	((mru) - MV_MH_SIZE - VLAN_HLEN - \
 	ETH_HLEN - ETH_FCS_LEN)
 
 /* sysfs path for reading relevant parameters from kernel driver */

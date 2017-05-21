@@ -40,7 +40,7 @@
 #include "lib/lib_misc.h"
 
 #define DUMMY_PKT_OFFS	64
-#define DUMMY_PKT_EFEC_OFFS	(DUMMY_PKT_OFFS + PP2_MH_SIZE)
+#define DUMMY_PKT_EFEC_OFFS	(DUMMY_PKT_OFFS + MV_MH_SIZE)
 
 #define GET_HW_BASE(pool)	((struct base_addr *)(pool)->internal_param)
 #define SET_HW_BASE(pool, base)	{ (pool)->internal_param = (base); }

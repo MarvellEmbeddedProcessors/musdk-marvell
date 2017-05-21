@@ -1747,7 +1747,7 @@ int pp2_gop_xlg_mac_max_rx_size_set(struct gop_hw *gop, int mac_num,
 
 	reg_val = pp2_gop_xlg_mac_read(gop, mac_num, PP2_XLG_PORT_MAC_CTRL1_REG);
 	reg_val &= ~PP2_XLG_MAC_CTRL1_FRAMESIZELIMIT_MASK;
-	reg_val |= (((max_rx_size - PP2_MH_SIZE) / 2) <<
+	reg_val |= (((max_rx_size - MV_MH_SIZE) / 2) <<
 		    PP2_XLG_MAC_CTRL1_FRAMESIZELIMIT_OFFS);
 	pp2_gop_xlg_mac_write(gop, mac_num, PP2_XLG_PORT_MAC_CTRL1_REG, reg_val);
 

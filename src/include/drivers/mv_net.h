@@ -33,6 +33,14 @@
 #ifndef __MV_NET_H__
 #define __MV_NET_H__
 
+/* The two bytes Marvell header ("MH"). Either contains a special value used
+ * by Marvell switches when a specific hardware mode is enabled (not
+ * supported by this driver), or is filled automatically by zeroes on
+ * the RX side. These two bytes are at the front of the Ethernet
+ * header, allow to have the IP header aligned on a 4 bytes
+ * boundary.
+ */
+#define MV_MH_SIZE		2
 
 /* Number of octets (8-bit bytes) in an ethernet address */
 #define MV_ETH_ALEN		6
@@ -139,5 +147,7 @@ union mv_net_proto_fields {
 	enum mv_net_udp_fields		udp;
 	enum mv_net_tcp_fields		tcp;
 };
+
+typedef u8 eth_addr_t[MV_ETH_ALEN];
 
 #endif /* __MV_NET_H__ */

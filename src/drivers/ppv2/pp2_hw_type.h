@@ -1337,15 +1337,15 @@
 #define ETH_FCS_LEN  4
 
 #define MVPP2_MTU_PKT_SIZE(mtu) \
-	(ALIGN((mtu) + PP2_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
+	(ALIGN((mtu) + MV_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
 	      ETH_HLEN + ETH_FCS_LEN, L1_CACHE_LINE_BYTES))
 
 #define MVPP2_MTU_TO_MRU(mtu) \
-	((mtu) + PP2_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
+	((mtu) + MV_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
 	ETH_HLEN + ETH_FCS_LEN)
 
 #define MVPP2_MRU_TO_MTU(mru) \
-	((mru) - PP2_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
+	((mru) - MV_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
 	ETH_HLEN - ETH_FCS_LEN)
 
 #define MVPP2_MRU_PKT_SIZE(mru)		(ALIGN((mru), L1_CACHE_LINE_BYTES))
@@ -1354,7 +1354,7 @@
 #define MVPP2_MTU_BUF_SIZE(mtu)		(MVPP2_MTU_PKT_SIZE(mtu) + PP2_PACKET_OFFSET)
 
 #define MVPP2_RX_MTU_SIZE(pkt_size) \
-	(pkt_size - PP2_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
+	(pkt_size - MV_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
 	 ETH_HLEN - ETH_FCS_LEN)
 
 /* IPv6 max L3 address size */

@@ -117,7 +117,7 @@
 
 
 /* packet data is stored relative to an offset */
-#define PP2_BUFF_START_ADDR(addr)   ((addr) + PP2_PACKET_OFFSET + PP2_MH_SIZE)
-#define PP2_BUFF_SIZE(buff_size)    ((buff_size) + PP2_PACKET_OFFSET + PP2_MH_SIZE)
+#define PP2_BUFF_START_ADDR(addr)   ((addr) + PP2_PACKET_OFFSET + MV_MH_SIZE)
+#define PP2_BUFF_SIZE(buff_size)    ((buff_size) + PP2_PACKET_OFFSET + MV_MH_SIZE)
 
 #endif /* _PP2_PLAT_H_ */
