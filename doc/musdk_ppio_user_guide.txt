@@ -81,15 +81,7 @@ directly from user-space applications with minimum overhead and high performance
 
 2.2	API limitations
 -----------------------
-	- int pp2_init(struct pp2_init_params *params)
-		<struct pp2_init_params>
-			- 'rss_tbl_reserved_map' is not supported
 
-	- int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
-		<struct pp2_ppio_params>, following are not supported:
-			- 'pkt_offset'
-			- 'inqs_params.hash_type'
-			- 'inqs_params.tcs_params.use_hash
 
 2.3	Generic Limitations
 ---------------------------
@@ -131,8 +123,21 @@ In transmit side, if MUSDK client SW would like to utilize this offload, appropr
 
 3.3	Multicore support for RSS
 ---------------------------------
-Marvell PPv2.2 hardware supports RSS in order to spread traffic evenly on all CPUs.
-This feature is supported by the Linux kernel baseline driver. See some examples below.
+RSS is a statistical load balancing technique for distributing packet flows that arrive on the same ethernet port
+between the cores of a multi-core CPU. Packets of the same flow are always directed to the same queue and CPU, and
+therefore order within flows is preserved.
+The load balancing improves the performance of Symmetrical Multi-Processing (SMP) cores.
+
+RSS selects an RSS-queue according to key hash, which is mapped to an RX queue by configuration.
+
+The supported hash types are as follows :
+	- 2-tuple: IP source address and IP destination address (IPv4 and IPv6) or
+	- 5-tuple: IP source address, IP destination address, IP protocol (TCP/UDP only), L4 source port, L4 destination
+		   port (IPv4 and IPv6)
+
+RSS is enabled by setting the hash_type parameter in pp2_ppio_inqs_params struct, and by setting the num_in_qs in
+pp2_ppio_tc_params struct (according to the required number of RSS queues required).
+
 
 3.4	MAC address filtering
 ------------------------------
@@ -265,12 +270,6 @@ d. 1G eth3, queue 0, cpu_core 3
 
 Examples for two cores, with RSS
 --------------------------------
-Additional linux commands configuration:
-
-		> ethtool -K eth0 rxhash on
-		> ethtool -X eth0 equal 2
-		> ethtool -K eth2 rxhash on
-		> ethtool -X eth2 equal 2
 
 a. 10G eth0, queue 0,1, core 1,2
 
@@ -285,9 +284,14 @@ c. 10G eth0 <-> eth2, queue 0,1 core 1,2
 		> ./musdk_pkt_echo -i eth0,eth2 -c 2 -m 1:1 -a 1
 
 
-5. Cls_dbg example application
+5. Cls_demo example application
 ===============================
-- The 'musdk_cls_dbg' example application allows for configuring 5-tuple table in PPv2 classifier,
-  as well as to configure MAC address filtering,  VLAN filtering and promiscuous mode.
+- The 'musdk_cls_demo' example application allows configuring several classifier related features as follows:
+	- Classifier table in PPv2 classifier
+	- MAC address filtering
+	- VLAN filtering
+	- Promiscuous mode
+	- QoS
+
 - For a full description of the application and how to run, please refer to MUSDK classifier 'how-to' section.
 
