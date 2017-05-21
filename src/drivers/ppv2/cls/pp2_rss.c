@@ -30,7 +30,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 #include "../pp2.h"
-#include "../pp2_hw_cls.h"
+#include "pp2_hw_cls.h"
 #include "pp2_rss.h"
 
 #include "pp2_cls_types.h"

@@ -32,12 +32,12 @@
 
 #include "std_internal.h"
 
-#include "pp2_types.h"
+#include "../pp2_types.h"
 
-#include "pp2.h"
+#include "../pp2.h"
 #include "pp2_hw_cls.h"
-#include "pp2_hw_type.h"
-#include "cls/pp2_prs.h"
+#include "../pp2_hw_type.h"
+#include "pp2_prs.h"
 
 /* TODO: Keep these until classifier phase */
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
@@ -3721,5 +3721,7 @@ int pp2_cls_c3_scan_num_of_res_get(uintptr_t cpu_slot, int *res_num)
 }
 
 /*-------------------------------------------------------------------------------*/
+
+
 
 /* *INDENT-ON* */

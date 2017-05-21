@@ -37,7 +37,7 @@
 #include "pp2_types.h"
 #include "pp2.h"
 #include "pp2_hw_type.h"
-#include "pp2_hw_cls.h"
+#include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_db.h"
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT

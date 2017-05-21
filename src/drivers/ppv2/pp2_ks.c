@@ -46,7 +46,7 @@
 #include "pp2_port.h"
 #include "pp2_bm.h"
 #include "pp2_gop_dbg.h"
-#include "pp2_hw_cls.h"
+#include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
 
 int pp2_init(struct pp2_init_params *params)

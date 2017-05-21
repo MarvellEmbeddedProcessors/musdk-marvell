@@ -46,8 +46,8 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 #include "pp2_bm.h"
-#include "pp2_hw_cls.h"
 #include "pp2_gop_dbg.h"
+#include "cls/pp2_hw_cls.h"
 
 /* Port Control routines */
 static int parse_hex(char *str, u8 *addr, size_t size)

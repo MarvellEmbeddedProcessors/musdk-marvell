@@ -32,7 +32,7 @@
 
 #include "drivers/ppv2/pp2.h"
 #include "drivers/ppv2/pp2_hw_type.h"
-#include "drivers/ppv2/pp2_hw_cls.h"
+#include "pp2_hw_cls.h"
 #include "pp2_cls_types.h"
 #include "pp2_cls_internal_types.h"
 #include "pp2_cls_common.h"

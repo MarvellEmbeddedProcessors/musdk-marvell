@@ -62,8 +62,6 @@ libmusdk_la_SOURCES += drivers/ppv2/pp2_port_us.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_mem.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_gop.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_gop_dbg.c
-libmusdk_la_SOURCES += drivers/ppv2/pp2_hw_cls.c
-libmusdk_la_SOURCES += drivers/ppv2/pp2_hw_cls_dbg.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_bpool.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_hif.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_ppio.c
@@ -82,6 +80,8 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c3_debug.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c2.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c2_debug.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_rss.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_hw_cls.c
+libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_hw_cls_dbg.c
 
 if SAM_BUILD
 # Definitions for SAM driver compilation

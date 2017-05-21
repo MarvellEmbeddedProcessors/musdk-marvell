@@ -41,8 +41,8 @@
 #ifndef _PP2_HW_CLS_DEBUG_H_
 #define _PP2_HW_CLS_DEBUG_H_
 
-#include "pp2_types.h"
-#include "pp2_hw_type.h"
+#include "../pp2_types.h"
+#include "../pp2_hw_type.h"
 
 #define HEK_EXT_FMT				"%8.8x %8.8x %8.8x | %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x"
 #define HEK_EXT_VAL(p)				p[8], p[7], p[6], p[5], p[4], p[3], p[2], p[1], p[0]

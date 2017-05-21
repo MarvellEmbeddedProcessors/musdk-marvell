@@ -43,7 +43,7 @@
 #include "../pp2_types.h"
 #include "../pp2.h"
 #include "../pp2_hw_type.h"
-#include "../pp2_hw_cls.h"
+#include "pp2_hw_cls.h"
 
 void pp2_cls_c3_entry_header_dump(void)
 {

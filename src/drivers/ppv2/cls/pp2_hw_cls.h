@@ -43,17 +43,17 @@
 
 #include "std_internal.h"
 
-#include "pp2_types.h"
-#include "pp2_hw_type.h"
+#include "../pp2_types.h"
+#include "../pp2_hw_type.h"
 
-#include "cls/pp2_cls_types.h"
-#include "cls/pp2_cls_internal_types.h"
-#include "cls/pp2_cls_common.h"
-#include "cls/pp2_cls_utils.h"
-#include "cls/pp2_flow_rules.h"
-#include "cls/pp2_c3.h"
-#include "cls/pp2_c2.h"
-#include "cls/pp2_cls_db.h"
+#include "pp2_cls_types.h"
+#include "pp2_cls_internal_types.h"
+#include "pp2_cls_common.h"
+#include "pp2_cls_utils.h"
+#include "pp2_flow_rules.h"
+#include "pp2_c3.h"
+#include "pp2_c2.h"
+#include "pp2_cls_db.h"
 
 #define MV_ERROR		(-1)
 #define MV_OK			(0)
@@ -64,6 +64,7 @@
 #define DWORD_BITS_LEN		(32)
 #define RETRIES_EXCEEDED	(15000)
 #define MVPP2_CLS_C3_SC_RES_TBL_SIZE	(256)
+#define MVPP2_PLCR_NUM		48
 
 enum mv_pp2x_cos_classifier {
 	MVPP2_COS_CLS_VLAN,	/* CoS based on VLAN pri */
@@ -240,5 +241,27 @@ int pp2_cls_c3_scan_start_index_set(uintptr_t cpu_slot, int idx);
 int pp2_cls_c3_scan_delay_set(uintptr_t cpu_slot, u32 time);
 int pp2_cls_c3_scan_res_read(uintptr_t cpu_slot, int index, int *addr, int *cnt);
 int pp2_cls_c3_scan_num_of_res_get(uintptr_t cpu_slot, int *res_num);
+
+/*-------------------------------------------------------------------------------*/
+/*	 APIs for Policer								  */
+/*-------------------------------------------------------------------------------*/
+void mv_pp2x_plcr_hw_regs(uintptr_t cpu_slot);
+void mv_pp2x_plcr_hw_dump_all(uintptr_t cpu_slot);
+void mv_pp2x_plcr_hw_dump_single(uintptr_t cpu_slot, int plcr);
+void mv_pp2x_plcr_tb_cnt_dump(uintptr_t cpu_slot, int plcr);
+int	mv_pp2x_plcr_hw_base_period_set(uintptr_t cpu_slot, int period);
+int	mv_pp2x_plcr_hw_base_rate_gen_enable(uintptr_t cpu_slot, int enable);
+int	mv_pp2x_plcr_hw_enable(uintptr_t cpu_slot, int plcr, int enable);
+int	mv_pp2x_plcr_hw_mode(uintptr_t cpu_slot, int mode);
+int	mv_pp2x_plcr_hw_min_pkt_len(uintptr_t cpu_slot, int bytes);
+int	mv_pp2x_plcr_hw_early_drop_set(uintptr_t cpu_slot, int enable);
+int	mv_pp2x_plcr_hw_token_config(uintptr_t cpu_slot, int plcr, int unit, int type);
+int	mv_pp2x_plcr_hw_token_value(uintptr_t cpu_slot, int plcr, int value);
+int	mv_pp2x_plcr_hw_color_mode_set(uintptr_t cpu_slot, int plcr, int enable);
+int	mv_pp2x_plcr_hw_bucket_size_set(uintptr_t cpu_slot, int plcr, int commit, int excess);
+int	mv_pp2x_plcr_hw_cpu_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
+int	mv_pp2x_plcr_hw_hwf_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
+int	mv_pp2x_plcr_hw_rxq_thresh_set(uintptr_t cpu_slot, int rxq, int idx);
+int	mv_pp2x_plcr_hw_txq_thresh_set(uintptr_t cpu_slot, int txq, int idx);
 
 #endif /* _PP2_HW_CLS_H_ */

@@ -44,7 +44,7 @@
 #include "../pp2_types.h"
 #include "../pp2.h"
 #include "../pp2_hw_type.h"
-#include "../pp2_hw_cls.h"
+#include "pp2_hw_cls.h"
 
 char g_unknown_str[] = "none";
 

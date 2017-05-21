@@ -43,7 +43,7 @@
 #include "../pp2_types.h"
 #include "../pp2.h"
 #include "../pp2_hw_type.h"
-#include "../pp2_hw_cls.h"
+#include "pp2_hw_cls.h"
 
 /* source port type name string */
 static char *pp2_cls_port_type_str_tbl[3] = {
