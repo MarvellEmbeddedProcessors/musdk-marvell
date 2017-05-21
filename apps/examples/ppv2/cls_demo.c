@@ -46,6 +46,7 @@
 #include "lib/list.h"
 
 #define CLS_APP_DMA_MEM_SIZE			(10 * 1024 * 1024)
+#define CLS_APP_QS_MAP_MASK			0xFFFF
 #define CLS_APP_MAX_NUM_TCS_PER_PORT		4
 #define CLS_APP_FIRST_LOG_PORT_IN_QUEUE		4
 #define CLS_APP_FIRST_MUSDK_IN_QUEUE		0
@@ -1572,7 +1573,6 @@ static int loop_1p(struct local_arg *larg, int *running)
 					tc = 0;
 			}
 		} while (!(larg->qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + qid))));
-
 		err = loop_sw_recycle(larg, 0, 0, 0, tc, qid, num);
 		if (err)
 			return err;
@@ -2028,7 +2028,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	};
 
 	garg->cpus = 1;
-	garg->qs_map = 0xf;
+	garg->qs_map = CLS_APP_QS_MAP_MASK;
 	garg->qs_map_shift = CLS_APP_MAX_NUM_TCS_PER_PORT;
 	garg->echo = 0;
 	garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
