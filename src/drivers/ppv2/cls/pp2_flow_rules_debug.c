@@ -788,7 +788,7 @@ int pp2_cls_print_rxq_counters(void *arg, int argc, char *argv[])
 	}
 
 	do {
-		rc = kstrtou32(argv[1], 10, &tc_num);
+		rc = kstrtou32(argv[i], 0, &tc_num);
 		if (rc || (tc_num >= port->num_tcs)) {
 			pr_err("parsing fail, wrong input for --tc\n");
 			return -EINVAL;
