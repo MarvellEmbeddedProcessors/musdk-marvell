@@ -675,7 +675,7 @@ static int init_all_modules(void)
 	struct pp2_init_params	 pp2_params;
 	int			 err;
 	char			 file[PP2_MAX_BUF_STR_LEN];
-	u32			 num_rss_tables;
+	int			 num_rss_tables = 0;
 
 	pr_info("Global initializations ...\n");
 
@@ -687,8 +687,17 @@ static int init_all_modules(void)
 	pp2_params.hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
-	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-	num_rss_tables = appp_pp2_sysfs_param_get(garg.ports_desc[0].name, file);
+	/* Check how many RSS tables are in use by kernel. This parameter is needed for configuring RSS */
+	/* Relevant only if cpus is bigger than 1 */
+	if (garg.cpus > 1) {
+		sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
+		num_rss_tables = appp_pp2_sysfs_param_get(garg.ports_desc[0].name, file);
+		if (num_rss_tables < 0) {
+			pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
+			return -EFAULT;
+		}
+	}
+
 	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
 
 	err = pp2_init(&pp2_params);
