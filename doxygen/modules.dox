@@ -18,6 +18,10 @@
 	/** @addtogroup grp_sam_cio */
 /** @} */ // end of grp_sam
 
+/** @addtogroup grp_dma DMAX2 Copy Module
+ *  @{
+	/** @addtogroup grp_dmax2 */
+/** @} */ // end of grp_dmax2
 
 /** @addtogroup grp_infra MUSDK Infrastructure
  *  @{

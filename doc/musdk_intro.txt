@@ -48,6 +48,14 @@ and for retrieving the crypto operation outcome from the HW engine.
 
 Please refer to SAM User Guide and API reference for more details.
 
+DMA-copy engine module (DMAX2)
+------------------------------
+The MUSDK DMA driver provides low-level access to the DMA XOR v2 engines, to perform regular DMA
+data transfers and memory filling (with pattern) operations.
+This allows user-space driver/application to directly process copy operations using the DMA engine.
+
+Please refer to DMA User Guide and API reference for more details.
+
 DMA-able Memory Allocation
 --------------------------
 MUSDK provides API to allocate a single contiguous memory region for run-time DMA-able data buffers.
