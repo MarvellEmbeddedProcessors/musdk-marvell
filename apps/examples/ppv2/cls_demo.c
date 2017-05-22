@@ -1604,7 +1604,7 @@ static int init_all_modules(void)
 	struct pp2_init_params *pp2_params = &garg.pp2_params;
 	int			 err;
 	char			 file[PP2_MAX_BUF_STR_LEN];
-	u32			 num_rss_tables;
+	int			 num_rss_tables = 0;
 
 	pr_info("Global initializations ...\n");
 
@@ -1618,6 +1618,10 @@ static int init_all_modules(void)
 
 	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
 	num_rss_tables = appp_pp2_sysfs_param_get(garg.ports_desc[0].name, file);
+	if (num_rss_tables < 0) {
+		pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
+		return -EFAULT;
+	}
 	pp2_params->rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
 
 	err = pp2_init(pp2_params);
@@ -1995,7 +1999,7 @@ static void usage(char *progname)
 		"\n"
 		"Optional OPTIONS:\n"
 		"\t-e, --echo			(no argument) activate echo packets\n"
-		"\t-b, --hash_type <none, 2-tuple, 5-tuple> 11\n"
+		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
 		"\t--ppio_tag_mode		(no argument)configure ppio_tag_mode parameter\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
 		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname)
