@@ -77,3 +77,6 @@ Supported Features
 	- MUSDK and kernel may operate on separate rings
 	- Test applications
 
+- DMAX2 (DMA engine) features
+	- Pure-DMA data transfer (source-buffer to destination-buffer)
+	- supported memory targets: Cacheable, Non-Cacheable/IO

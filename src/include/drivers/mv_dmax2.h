@@ -43,6 +43,13 @@
 
 struct dmax2;
 
+/** @addtogroup grp_dmax2 DMA v2 engine
+ *
+ *  DMA Copy Engine API documentation
+ *
+ *  @{
+ */
+
 enum dmax2_mem_direction {
 	DMAX2_TRANS_MEM_ATTR_NONE = 0,
 	DMAX2_TRANS_MEM_ATTR_NOT_CACHABLE,
@@ -186,6 +193,14 @@ int dmax2_deq(struct dmax2 *dmax2, struct dmax2_trans_complete_desc *descs, u16 
  * @param    dmax2	pointer for DMA engine struct
  */
 int dmax2_get_enq_num_available(struct dmax2 *dmax2);
+
+/**
+ * Get count of descriptors ready to be dequeued (How many descriptors Engine finished processing)
+ *
+ * @param    dmax2	pointer for DMA engine struct
+ */
 int dmax2_get_deq_num_available(struct dmax2 *dmax2);
+
+/** @} */ /* end of grp_dmax2 */
 
 #endif /* __MV_DMAX2_H__ */

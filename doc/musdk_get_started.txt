@@ -46,6 +46,12 @@ This step is optional and required only when SAM driver is used
 		=> cd <musdk-dir>/modules/sam
 		=> make
 
+2.5. Build the DMA UIO kernel module and install it:
+This step is optional and required only when DMA driver is used
+
+		=> cd <musdk-dir>/modules/dmax2
+		=> make
+
 3. Prepare EIP197 Firmware images
 ---------------------------------
 This step is optional and required only when using SAM driver.
@@ -89,6 +95,7 @@ NOTE: Default install directory is: <musdk-dir>/usr/local
 5.3. Insert MUSDK kernel space modules
 		=> insmod musdk_uio.ko
 		=> insmod mv_pp_uio.ko
+		=> insmod mv_dmax2_uio.ko
 
 5.4 Insert Marvell sysfs kernel module (optional - needed only to run "musdk_cls_demo", in case unicast address
     filtering is required)
@@ -118,3 +125,5 @@ Note: rings=x,y means how many EIP197 rings allocated for kernel usage.
 6.3. To run musdk_sam_single / musdk_sam_kat applications - please see instructions in "SAM User Guide"
 
 6.4. To run musdk_cls_demo - please see instructions in "CLS User Guide"
+
+6.5  To run musdk_dmax2_dma - please see instructions in "DMA User Guide"
