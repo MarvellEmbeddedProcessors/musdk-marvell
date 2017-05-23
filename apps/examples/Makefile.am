@@ -32,15 +32,6 @@ musdk_crypto_echo_SOURCES += ppv2/crypto_echo/crypto_echo.c
 musdk_crypto_echo_LDADD = $(top_builddir)/src/libmusdk.la
 endif
 
-bin_PROGRAMS += musdk_cls_demo
-musdk_cls_demo_CFLAGS = $(AM_CFLAGS)
-musdk_cls_demo_SOURCES  = ../common/lib/cli.c
-musdk_cls_demo_SOURCES += ../common/mvapp.c
-musdk_cls_demo_SOURCES += ../common/pp2_utils.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo.c
-musdk_cls_demo_SOURCES += ppv2/cls_debug.c
-musdk_cls_demo_LDADD = $(top_builddir)/src/libmusdk.la
-
 bin_PROGRAMS += musdk_pkt_l3fwd
 musdk_pkt_l3fwd_SOURCES  = ../common/lib/cli.c
 musdk_pkt_l3fwd_SOURCES += ../common/mvapp.c

@@ -22,6 +22,19 @@ musdk_dmax2_dma_SOURCES  = dmax2_dma_test.c
 musdk_dmax2_dma_SOURCES  += ../common/lib/perf_mon_emu.c
 musdk_dmax2_dma_LDADD = $(top_builddir)/src/libmusdk.la
 
+bin_PROGRAMS += musdk_cls_demo
+musdk_cls_demo_CFLAGS = $(AM_CFLAGS)
+musdk_cls_demo_SOURCES  = ../common/lib/cli.c
+musdk_cls_demo_SOURCES += ../common/mvapp.c
+musdk_cls_demo_SOURCES += ../common/pp2_utils.c
+musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_main.c
+musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_filter.c
+musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_qos.c
+musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_tables.c
+musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_logical_port.c
+musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_debug.c
+musdk_cls_demo_LDADD = $(top_builddir)/src/libmusdk.la
+
 if SAM_BUILD
 bin_PROGRAMS += musdk_sam_kat
 musdk_sam_kat_CFLAGS = $(AM_CFLAGS)
