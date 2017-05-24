@@ -49,7 +49,7 @@
 #include "mv_pp2_bpool.h"
 #include "mv_pp2_ppio.h"
 
-#include "utils.h"
+#include "pp2_utils.h"
 #include "byteorder_inlines.h"
 #include "l3fwd_db.h"
 #include "l3fwd_lpm.h"
@@ -125,7 +125,7 @@ struct glob_arg {
 	int			 prefetch_shift;
 	int			 num_ports;
 	int			 pp2_num_inst;
-	struct port_desc	 ports_desc[MVAPPS_MAX_NUM_PORTS];
+	struct port_desc	 ports_desc[MVAPPS_PP2_MAX_NUM_PORTS];
 
 	pthread_mutex_t		 trd_lock;
 
@@ -289,13 +289,13 @@ static inline int l3fwd_pkt_hash(char *pkt, int l3_off, int l4_off)
 #define SET_MAX_BURST(core, port, burst)	\
 	{ if (burst > tx_max_burst[core][port]) tx_max_burst[core][port] = burst; }
 
-u32 rx_buf_cnt[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
-u32 free_buf_cnt[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
-u32 tx_buf_cnt[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
-u32 tx_buf_drop[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
-u32 tx_buf_retry[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
-u32 tx_max_resend[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
-u32 tx_max_burst[MVAPPS_MAX_NUM_CORES][MVAPPS_MAX_NUM_PORTS];
+u32 rx_buf_cnt[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
+u32 free_buf_cnt[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
+u32 tx_buf_cnt[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
+u32 tx_buf_drop[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
+u32 tx_buf_retry[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
+u32 tx_max_resend[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
+u32 tx_max_burst[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
 
 #else
 #define INC_RX_COUNT(core, port, cnt)
@@ -463,13 +463,13 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #ifdef PKT_FWD_APP_USE_PREFETCH
 	if (num > prefetch_shift) {
 		tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr + prefetch_shift);
-		tmp_buff += MVAPPS_PKT_EFEC_OFFS;
+		tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
 		tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 		prefetch(tmp_buff);
 	}
 #endif /* PKT_FWD_APP_USE_PREFETCH */
 	tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-	tmp_buff += MVAPPS_PKT_EFEC_OFFS;
+	tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
 
 	pp2_ppio_inq_desc_get_l3_info(desc_ptr, &l3_type, &l3_offset);
 #ifndef LPM_FRWD
@@ -487,7 +487,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	} else {
 		pp2_ppio_outq_desc_reset(desc_ptr);
 		pp2_ppio_outq_desc_set_phys_addr(desc_ptr, pa);
-		pp2_ppio_outq_desc_set_pkt_offset(desc_ptr, MVAPPS_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(desc_ptr, MVAPPS_PP2_PKT_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(desc_ptr, len);
 
 		shadow_q = &larg->ports_desc[dif].shadow_qs[tc];
@@ -519,13 +519,13 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			if (num - i > prefetch_shift) {
 				tmp_buff =
 					(char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr_cur + prefetch_shift);
-				tmp_buff += MVAPPS_PKT_EFEC_OFFS;
+				tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				prefetch(tmp_buff);
 			}
 #endif /* PKT_FWD_APP_USE_PREFETCH */
 			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-			tmp_buff += MVAPPS_PKT_EFEC_OFFS;
+			tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
 
 			pp2_ppio_inq_desc_get_l3_info(desc_ptr_cur, &l3_type, &l3_offset);
 #ifndef LPM_FRWD
@@ -542,7 +542,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			}
 			pp2_ppio_outq_desc_reset(desc_ptr_cur);
 			pp2_ppio_outq_desc_set_phys_addr(desc_ptr_cur, pa);
-			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_cur, MVAPPS_PKT_EFEC_OFFS);
+			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_cur, MVAPPS_PP2_PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(desc_ptr_cur, len);
 			shadow_q = &larg->ports_desc[dif].shadow_qs[tc];
 			shadow_q_size = larg->ports_desc[dif].shadow_q_size;
@@ -611,13 +611,13 @@ static int l3fw(struct local_arg *larg, int *running)
 		/* Find next queue to consume */
 		do {
 			qid++;
-			if (qid == MVAPPS_MAX_NUM_QS_PER_TC) {
+			if (qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
 				qid = 0;
 				tc++;
 				if (tc == PKT_FWD_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(qs_map & (1 << ((tc * MVAPPS_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + qid))));
 
 		for (i = 0; i < num_ports; i++)
 			err |= loop_sw_recycle(larg, i, tc, qid, num);
@@ -1396,9 +1396,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			if (garg->num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->num_ports > MVAPPS_MAX_NUM_PORTS) {
+			} else if (garg->num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->num_ports, MVAPPS_MAX_NUM_PORTS);
+				       garg->num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
 				return -EINVAL;
 			}
 			break;
@@ -1471,20 +1471,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		       garg->burst, PKT_FWD_APP_MAX_BURST_SIZE);
 		return -EINVAL;
 	}
-	if (garg->cpus > MVAPPS_MAX_NUM_CORES) {
+	if (garg->cpus > MVAPPS_PP2_MAX_NUM_CORES) {
 		pr_err("illegal num cores requested (%d vs %d)!\n",
-		       garg->cpus, MVAPPS_MAX_NUM_CORES);
+		       garg->cpus, MVAPPS_PP2_MAX_NUM_CORES);
 		return -EINVAL;
 	}
 	if ((garg->affinity != -1) &&
-	    ((garg->cpus + garg->affinity) > MVAPPS_MAX_NUM_CORES)) {
+	    ((garg->cpus + garg->affinity) > MVAPPS_PP2_MAX_NUM_CORES)) {
 		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
-		       garg->cpus, garg->affinity, MVAPPS_MAX_NUM_CORES);
+		       garg->cpus, garg->affinity, MVAPPS_PP2_MAX_NUM_CORES);
 		return -EINVAL;
 	}
 
 	if (garg->qs_map &&
-	    (MVAPPS_MAX_NUM_QS_PER_TC == 1) &&
+	    (MVAPPS_PP2_MAX_NUM_QS_PER_TC == 1) &&
 	    (PKT_FWD_APP_MAX_NUM_TCS_PER_PORT == 1)) {
 		pr_warn("no point in queues-mapping; ignoring.\n");
 		garg->qs_map = 1;
@@ -1537,7 +1537,7 @@ int main(int argc, char *argv[])
 	mvapp_params.main_loop_cb	= main_loop;
 
 #ifdef SHOW_STATISTICS
-	for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++) {
+	for (i = 0; i < MVAPPS_PP2_MAX_NUM_CORES; i++) {
 		int j;
 
 		for (j = 0; j < garg.num_ports; j++) {

@@ -62,7 +62,9 @@
 #define PP2_NETDEV_MASTER_PATH	"/proc/device-tree/cpn-110-master/config-space/ppv22@000000/"
 #define PP2_NETDEV_SLAVE_PATH	"/proc/device-tree/cpn-110-slave/config-space/ppv22@000000/"
 
+#ifndef PP2_MAX_BUF_STR_LEN
 #define PP2_MAX_BUF_STR_LEN	256
+#endif
 
 #define GET_PPIO_PORT(ppio) ((struct pp2_port *)(ppio)->internal_param)
 #define GET_PPIO_PORT_PTR(ppio) ((struct pp2_port **)&(ppio).internal_param)

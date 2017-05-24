@@ -45,9 +45,6 @@
 #include "pp2_types.h"
 #include "pp2_dm.h"
 
-
-#define PP2_MAX_BUF_STR_LEN		256
-
 #define PP2_LOOPBACK_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_64
 #define PP2_ETH_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_16
 

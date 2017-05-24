@@ -41,13 +41,12 @@
 #include "mvapp.h"
 #include "mv_pp2.h"
 #include "mv_pp2_bpool.h"
-#include "utils.h"
+#include "pp2_utils.h"
 
-#define MVAPPS_MAX_BURST_SIZE 256
 
 u64 sys_dma_high_addr;
 
-static u16 used_bpools[MVAPPS_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
+static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
 static u64 buf_alloc_cnt;
@@ -55,7 +54,7 @@ static u64 buf_free_cnt;
 static u64 hw_rxq_buf_free_cnt;
 static u64 hw_bm_buf_free_cnt;
 static u64 hw_buf_free_cnt;
-static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
+static u64 tx_shadow_q_buf_free_cnt[MVAPPS_PP2_MAX_NUM_CORES];
 
 void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
 {
@@ -122,7 +121,7 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i, j, reset = 0;
 	u8 qid = 0, port_id = 0, tc = (~0);
-	int ports_num = MVAPPS_MAX_NUM_PORTS;
+	int ports_num = MVAPPS_PP2_MAX_NUM_PORTS;
 	int queues_num = 0;
 	struct port_desc *port_desc = (struct port_desc *)arg;
 	char *ret_ptr;
@@ -196,7 +195,7 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i, reset = 0;
 	u8 portid = 0;
-	int ports_num = MVAPPS_MAX_NUM_PORTS;
+	int ports_num = MVAPPS_PP2_MAX_NUM_PORTS;
 	struct port_desc *port_desc = (struct port_desc *)arg;
 	char *ret_ptr;
 	int option = 0;
@@ -266,51 +265,6 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	cmd_params.cmd_arg	= port_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-
-	return 0;
-}
-
-/*
- * app_get_line()
- * get input from stdin into buffer and according to it
- * create argc and argv, which need while calling for getopt
- */
-int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[])
-{
-	int ch, extra;
-	char *p2;
-
-	/* because getopt starting parsing from argument = 1 we are skipping argument zero */
-	*argc = 1;
-
-	/* Get line with buffer overrun protection */
-	if (prmpt) {
-		printf("%s", prmpt);
-		fflush(stdout);
-	}
-	if (!fgets(buff, sz, stdin))
-		return -EINVAL;
-
-	/*
-	 * if it was too long, there'll be no newline. In that case, we flush
-	 * to end of line so that excess doesn't affect the next call.
-	 */
-	if (buff[strlen(buff) - 1] != '\n') {
-		extra = 0;
-		while (((ch = getchar()) != '\n') && (ch != EOF))
-		extra = 1;
-		return (extra == 1) ? -EFAULT : 0;
-	}
-
-	/* otherwise remove newline and give string back to caller */
-	buff[strlen(buff) - 1] = '\0';
-
-	p2 = strtok(buff, " ");
-	while (p2 && *argc < sz - 1) {
-		argv[(*argc)++] = p2;
-		p2 = strtok(NULL, " ");
-	}
-	argv[*argc] = NULL;
 
 	return 0;
 }
@@ -539,7 +493,7 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	}
 
 	for (i = 0; i < port->num_tcs; i++) {
-		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
+		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PP2_PKT_OFFS >> 2;
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
 		inq_params.size = port->inq_size;
 		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
@@ -667,7 +621,7 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 	}
 
 	/* Calculate number of buffers released from PP2 */
-	for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++)
+	for (i = 0; i < MVAPPS_PP2_MAX_NUM_CORES; i++)
 		hw_buf_free_cnt += tx_shadow_q_buf_free_cnt[i];
 	hw_buf_free_cnt += hw_bm_buf_free_cnt + hw_rxq_buf_free_cnt;
 

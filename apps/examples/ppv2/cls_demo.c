@@ -35,12 +35,12 @@
 #include <getopt.h>
 #include "mv_std.h"
 #include "mvapp.h"
+#include "pp2_utils.h"
 #include "mv_pp2.h"
 #include "mv_pp2_ppio.h"
 
 #include "drivers/mv_pp2_cls.h"
 #include "src/drivers/ppv2/pp2.h"
-#include "utils.h"
 #include "cls_debug.h"
 
 #include "lib/list.h"
@@ -62,7 +62,7 @@
 #define CLS_APP_MAX_BURST_SIZE			(CLS_APP_RX_Q_SIZE >> 1)
 #define CLS_APP_DFLT_BURST_SIZE			256
 
-#define CLS_APP_MAX_NUM_QS_PER_CORE		MVAPPS_MAX_NUM_QS_PER_TC
+#define CLS_APP_MAX_NUM_QS_PER_CORE		MVAPPS_PP2_MAX_NUM_QS_PER_TC
 
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
@@ -82,7 +82,7 @@ struct glob_arg {
 	int			qs_map_shift;
 	int			num_ports;
 	int			pp2_num_inst;
-	struct port_desc	ports_desc[MVAPPS_MAX_NUM_PORTS];
+	struct port_desc	ports_desc[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct pp2_hif		*hif;
 	int			num_pools;
 	struct bpool_desc	**pools_desc;
@@ -1496,7 +1496,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #ifdef CLS_APP_USE_APP_PREFETCH
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
-				tmp_buff += MVAPPS_PKT_EFEC_OFFS;
+				tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
 				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
@@ -1505,14 +1505,14 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #endif /* CLS_APP_USE_APP_PREFETCH */
 			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
 			pr_debug("buff2(%p)\n", tmp_buff);
-			tmp_buff += MVAPPS_PKT_EFEC_OFFS;
+			tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
 		}
 #endif /* CLS_APP_PKT_ECHO_SUPPORT */
 		pp2_ppio_outq_desc_reset(&descs[i]);
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PP2_PKT_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
@@ -1565,13 +1565,13 @@ static int loop_1p(struct local_arg *larg, int *running)
 		/* Find next queue to consume */
 		do {
 			qid++;
-			if (qid == MVAPPS_MAX_NUM_QS_PER_TC) {
+			if (qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
 				qid = 0;
 				tc++;
 				if (tc == CLS_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(larg->qs_map & (1 << ((tc * MVAPPS_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(larg->qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + qid))));
 
 		err = loop_sw_recycle(larg, 0, 0, 0, tc, qid, num);
 		if (err)
@@ -1652,7 +1652,7 @@ static int init_local_modules(struct glob_arg *garg)
 		if (!err) {
 			port->num_tcs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
 			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] = MVAPPS_MAX_NUM_QS_PER_TC;
+				port->num_inqs[i] = MVAPPS_PP2_MAX_NUM_QS_PER_TC;
 			port->inq_size	= CLS_APP_RX_Q_SIZE;
 			port->num_outqs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
