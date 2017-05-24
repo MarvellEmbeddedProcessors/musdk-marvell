@@ -113,17 +113,10 @@ Note: rings=x,y means how many EIP197 rings allocated for kernel usage.
 	x - for cp0 engine
 	y - for cp1 engine (if exist)
 
+
 6. Run MUSDK application examples
 ---------------------------------
+Please see instructions in "Running MUSDK Examples" section.
 
-6.1. To run DMA memory test
-
-		=> musdk_dma_mem
-
-6.2. To run pkt-echo application - please see instructions in "PPIO User Guide"
-
-6.3. To run musdk_sam_single / musdk_sam_kat applications - please see instructions in "SAM User Guide"
-
-6.4. To run musdk_cls_demo - please see instructions in "CLS User Guide"
-
-6.5  To run musdk_dmax2_dma - please see instructions in "DMA User Guide"
+In addition, some module-specific test applications are described in the corresponding user guide section.
+ 
