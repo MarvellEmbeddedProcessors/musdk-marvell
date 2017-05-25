@@ -470,3 +470,39 @@ f. Once the application is invoked, it will enter cli mode, where different comm
 	| cls_mng_table_dump	| dump all tables and defined rules in db						|
 	|-----------------------|---------------------------------------------------------------------------------------|
 
+
+4. CRYPTO-ECHO
+===============
+
+The crypto-echo application receives packets from the network (using musdk network driver) and performs the following operations:
+	- encrypts the received packet
+	- switches ip addresses - source address is replaced by destination address and vice versa.
+	- decrypts the packet
+	- sends the packet (not encrypted).
+	- if only a single Eth-interface (-i, --interface) is used, received packets are echoed back to the same interface
+
+Application usage:
+
+		> ./musdk_crypto_echo OPTIONS
+
+where:
+
+		-i, --interface <Eth-interfaces> (comma-separated, no spaces)
+			  Interface count min 1, max 2
+
+OPTIONS:
+
+		-b <size>               - Burst size (default is 64)
+		-c, --cores <number>    - Number of CPUs to use
+		-a, --affinity <number> - Use set affinity (default is no affinity)
+		-t <mtu>                - Set MTU (default is 1500)
+		-v                      - Increase verbose debug (default is 0).
+					  With every '-v', the debug is increased by one.
+					  0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump.
+		--alg <cipher-alg>      - Crypto cipher algorithm to use; support - aes128, 3des (default is AES128).
+		--hmac <hmac-alg>       - Use crypto with HMAC; support - sha1 (default is none).
+		--no-echo               - No echo packets
+		--cli                   - Use CLI to operate the application while it runs.
+		?, -h, --help           - Display help and exit.
+
+In order to test crypto performance using musdk_crypo_echo, user should inject packets (udp or tcp), into the MUSDK interface selected for the application.
