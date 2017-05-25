@@ -54,6 +54,7 @@ typedef enum {
 	DIRECTION,
 	CRYPTO_OFFSET,
 	AUTH_OFFSET,
+	TEXT_LEN,
 	LAST
 } EncryptedBlockType;
 
@@ -83,7 +84,9 @@ static inline int isEncryptedBlockTypeOperation(EncryptedBlockType type)
 		(type == PLAINTEXT) ||
 		(type == CIPHERTEXT) ||
 		(type == CRYPTO_OFFSET) ||
-		(type == AUTH_OFFSET));
+		(type == AUTH_OFFSET) ||
+		(type == TEXT_LEN)
+		);
 }
 
 /** Type used for returning message from encrypted block functions */

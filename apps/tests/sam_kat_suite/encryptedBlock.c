@@ -48,8 +48,9 @@
  * iv           - The initial vector for the operation.
  * aad          - The additional authentication data for the operation.
  * icb          - The digest for the operation.
- * plainText    - The plain text for the operation.
- * cipherText   - The cipher text for the operation.
+ * textLen	- The plain/cipher text length. If 0 - use sizeof(plainText).
+ * plainText    - The plain text for the operation. If NULL use random.
+ * cipherText   - The cipher text for the operation. If NULL use random.
  * cryptoOffset - The offset to start encryption.
  * authOffset   - The offset to start authentication.
  */
@@ -59,6 +60,7 @@ struct operation {
 	ArrayPtr icb;
 	ArrayPtr plainText;
 	ArrayPtr cipherText;
+	int textLen;
 	int cryptoOffset;
 	int authOffset;
 };
@@ -349,6 +351,9 @@ EncryptedBlockMessage encryptedBlockOperationAddElement(EncryptedBlockPtr encryp
 	case AUTH_OFFSET:
 		encryptedBlock->operations[index]->authOffset = elementLen;
 		break;
+	case TEXT_LEN:
+		encryptedBlock->operations[index]->textLen = elementLen;
+		break;
 	default:
 		printf("Unexpected operation type = %d\n", type);
 		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;
@@ -438,14 +443,19 @@ EncryptedBlockMessage encryptedBlockGetPlainText(
 		EncryptedBlockPtr encryptedBlock, int size, unsigned char* outputArray,
 		int index)
 {
+	int copylen;
+
 	if (!encryptedBlock || !encryptedBlock->operations[index] || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
 	if (!encryptedBlock->operations[index]->plainText) {
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	arrayGetData(encryptedBlock->operations[index]->plainText, outputArray, size);
-
+	while (size) {
+		copylen = arrayGetData(encryptedBlock->operations[index]->plainText, outputArray, size);
+		outputArray += copylen;
+		size -= copylen;
+	}
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
 
@@ -453,14 +463,20 @@ EncryptedBlockMessage encryptedBlockGetCipherText(
 		EncryptedBlockPtr encryptedBlock, int size, unsigned char* outputArray,
 		int index)
 {
+	int copylen;
+
 	if (!encryptedBlock || !encryptedBlock->operations[index] || !outputArray) {
 		return ENCRYPTEDBLOCK_NULL_ARGS;
 	}
 	if (!encryptedBlock->operations[index]->cipherText) {
+		/* TBD: Generate random data */
 		return ENCRYPTEDBLOCK_NO_ELEMENT;
 	}
-	arrayGetData(encryptedBlock->operations[index]->cipherText, outputArray, size);
-
+	while (size) {
+		copylen = arrayGetData(encryptedBlock->operations[index]->cipherText, outputArray, size);
+		outputArray += copylen;
+		size -= copylen;
+	}
 	return ENCRYPTEDBLOCK_SUCCESS;
 }
 
@@ -509,20 +525,30 @@ int encryptedBlockGetIcbLen(EncryptedBlockPtr encryptedBlock, int index)
 
 int encryptedBlockGetPlainTextLen(EncryptedBlockPtr encryptedBlock, int index)
 {
-	if (!encryptedBlock || !encryptedBlock->operations[index] ||
-	    !encryptedBlock->operations[index]->plainText) {
+	if (!encryptedBlock || !encryptedBlock->operations[index])
 		return 0;
-	}
-	return arrayGetLen(encryptedBlock->operations[index]->plainText);
+
+	if (encryptedBlock->operations[index]->textLen)
+		return encryptedBlock->operations[index]->textLen;
+
+	if (encryptedBlock->operations[index]->plainText)
+		return arrayGetLen(encryptedBlock->operations[index]->plainText);
+
+	return 0;
 }
 
 int encryptedBlockGetCipherTextLen(EncryptedBlockPtr encryptedBlock, int index)
 {
-	if (!encryptedBlock || !encryptedBlock->operations[index] ||
-	    !encryptedBlock->operations[index]->cipherText) {
+	if (!encryptedBlock || !encryptedBlock->operations[index])
 		return 0;
-	}
-	return arrayGetLen(encryptedBlock->operations[index]->cipherText);
+
+	if (encryptedBlock->operations[index]->textLen)
+		return encryptedBlock->operations[index]->textLen;
+
+	if (encryptedBlock->operations[index]->cipherText)
+		return arrayGetLen(encryptedBlock->operations[index]->cipherText);
+
+	return 0;
 }
 
 int encryptedBlockGetTestCounter(EncryptedBlockPtr encryptedBlock)

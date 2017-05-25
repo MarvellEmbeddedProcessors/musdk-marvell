@@ -383,10 +383,10 @@ static void print_results(int test, char *test_name, int operations, int errors,
 	mbps = kpps * in_data_size * 8 / 1000;
 
 	if (errors == 0)
-		printf("%2d. FINISHED %s: passed %d times * %d Bytes		- %u.%03u secs\n",
+		printf("%2d. FINISHED %-32s: passed %d times * %d Bytes        - %u.%03u secs\n",
 			test, test_name, operations, in_data_size, secs, usecs / 1000);
 	else
-		printf("%2d. FINISHED %s: failed %d of %d times * %d Bytes      - %u.%03u secs\n",
+		printf("%2d. FINISHED %-32s: failed %d of %d times * %d Bytes  - %u.%03u secs\n",
 			test, test_name, errors, operations, in_data_size, secs, usecs / 1000);
 
 	printf("      Rate: %u Kpps, %u Mbps\n", kpps, mbps);

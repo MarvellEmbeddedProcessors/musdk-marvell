@@ -4,76 +4,34 @@ Testcounter    : 500000
 Mode           : CBC
 Key            : 0xc286696d887c9aa0611bbb3e2025a45a
 Direction      : encryption
+Textlen        : 1440
 Plaintext      : 0xdddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-                   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
-		   dddddddddddddddddddddddddddddddddddddddd \
                    dddddddddddddddddddddddddddddddddddddddd
 IV             : 0x562e17996d093d28ddb3ba695a2e6f58
+
+Algorithm      : AES
+Authalgorithm  : SHA1
+Name           : AES_CBC_SHA1_Encrypt_1440B
+Testcounter    : 500000
+Mode           : CBC
+Key            : 0xc286696d887c9aa0611bbb3e2025a45a
+Authkey        : 0x0281BCF7DCDEA1AD3BBB77ED1CAC2086FF65153D
+Direction      : encryption
+Textlen        : 1440
+Plaintext      : 0xdddddddddddddddddddddddddddddddddddddddd \
+                   dddddddddddddddddddddddddddddddddddddddd
+IV             : 0x562e17996d093d28ddb3ba695a2e6f58
+
+Algorithm      : AES
+Authalgorithm  : MD5
+Name           : AES_CBC_MD5_Encrypt_1440B
+Testcounter    : 500000
+Mode           : CBC
+Key            : 0xc286696d887c9aa0611bbb3e2025a45a
+Authkey        : 0x0281BCF7DCDEA1AD3BBB77ED1CAC2086
+Direction      : encryption
+Textlen        : 1440
+Plaintext      : 0xdddddddddddddddddddddddddddddddddddddddd \
+                   dddddddddddddddddddddddddddddddddddddddd
+IV             : 0x562e17996d093d28ddb3ba695a2e6f58
+

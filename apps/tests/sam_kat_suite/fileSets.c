@@ -242,6 +242,7 @@ static FileMessage fileSetsGetArgs(FILE *fstr, char *line,
 	case TESTCOUNTER:
 	case CRYPTO_OFFSET:
 	case AUTH_OFFSET:
+	case TEXT_LEN:
 		return fileSetsGetCounter(line, outputDataNumber);
 		break;
 	case NAME:
@@ -371,6 +372,9 @@ static EncryptedBlockType fileSetsGetTypeFromString(char* str) {
 
 	if (strcmp(str, "Direction") == 0)
 		return DIRECTION;
+
+	if (strcmp(str, "Textlen") == 0)
+		return TEXT_LEN;
 
 	return INVALID;
 }
