@@ -92,11 +92,28 @@ directly from user-space applications with minimum overhead and high performance
 - The system is initialized with interfaces that are "non-kernel" in the dts.
   These interfaces are reserved for musdk, and only they may be used by musdk.
 
+	- The default configuration for the interfaces is as follows:
+
+		- Armada-8040
+			- eth0 reserved for MUSDK usage
+			- eth1 reserved for kernel usage
+			- eth2 reserved for MUSDK usage
+			- eth3 reserved for MUSDK usage
+
+		- Armada-7040
+			- eth0 reserved for MUSDK usage
+			- eth1 reserved for kernel usage
+			- eth2 reserved for MUSDK usage
+
+		- Armada-8040-mcbin
+			- eth0 reserved for MUSDK usage
+			- eth1 reserved for MUSDK usage
+			- eth2 reserved for kernel usage
+			- eth3 reserved for MUSDK usage
+
 - Linux interfaces in "non-kernel" state (intended for musdk) :
-	- Do not produce a "link up" message, when they are brought up.
 	- Do not support being stopped by Linux.
 	- Do not support MTU change by Linux.
-
 
 3. Feature description
 ======================
