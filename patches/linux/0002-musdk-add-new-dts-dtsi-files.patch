@@ -1,4 +1,4 @@
-From aabd5019cfef027fe77e871c813303f454d6048b Mon Sep 17 00:00:00 2001
+From 6169bd1afc1fadc0aedd8a537bf891abb17b34d2 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
 Subject: [PATCH 2/6] musdk: add new dts,dtsi files
@@ -6,16 +6,16 @@ Subject: [PATCH 2/6] musdk: add new dts,dtsi files
 Change-Id: I394db38b111557bab572228c6981a34e60d156fc
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi | 70 ++++++++++++++++++
- .../boot/dts/marvell/musdk-armada-7040-db.dtsi     | 69 ++++++++++++++++++
- arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi | 63 ++++++++++++++++
- .../boot/dts/marvell/musdk-armada-8040-db.dtsi     | 81 +++++++++++++++++++++
- .../boot/dts/marvell/musdk-armada-8040-mcbin.dtsi  | 84 ++++++++++++++++++++++
- arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi | 75 +++++++++++++++++++
- .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi | 68 ++++++++++++++++++
- .../boot/dts/marvell/musdk-armada-cp110-1.dtsi     | 62 ++++++++++++++++
- .../arm64/boot/dts/marvell/musdk-armada-cp110.dtsi | 62 ++++++++++++++++
- 9 files changed, 634 insertions(+)
+ arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi |   70 +++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-7040-db.dtsi     |   69 +++++++++++++++++
+ arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi |   63 +++++++++++++++
+ .../boot/dts/marvell/musdk-armada-8040-db.dtsi     |   81 ++++++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-8040-mcbin.dtsi  |   81 ++++++++++++++++++++
+ arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi |   75 ++++++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi |   68 ++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-cp110-1.dtsi     |   62 +++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-cp110.dtsi |   62 +++++++++++++++
+ 9 files changed, 631 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi
@@ -335,10 +335,10 @@ index 0000000..fd07ab8
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8040-mcbin.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8040-mcbin.dtsi
 new file mode 100644
-index 0000000..c175e5c
+index 0000000..e6386f5
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-8040-mcbin.dtsi
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,81 @@
 +/*
 + * Copyright (C) 2016 Marvell Technology Group Ltd.
 + *
@@ -408,9 +408,6 @@ index 0000000..c175e5c
 +		config-space {
 +			ppv22@000000 {
 +				eth0_1: eth0@010000 {
-+					musdk-status = "private";
-+				};
-+				eth1_1: eth1@020000 {
 +					musdk-status = "private";
 +				};
 +				eth2_1: eth2@030000 {
@@ -715,5 +712,5 @@ index 0000000..f4aa343
 +	status = "okay";
 +};
 -- 
-1.9.1
+1.7.9.5
 
