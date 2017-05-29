@@ -104,10 +104,12 @@ void print_sam_sa_params(struct sam_session_params *sa_params)
 		pr_info("ipsec.is_esp         = %d\n", sa_params->u.ipsec.is_esp);
 		pr_info("ipsec.is_ip6         = %d\n", sa_params->u.ipsec.is_ip6);
 		pr_info("ipsec.is_tunnel      = %d\n", sa_params->u.ipsec.is_tunnel);
-		pr_info("ipsec.spi            = %d\n", sa_params->u.ipsec.spi);
+		pr_info("ipsec.spi            = 0x%x\n", sa_params->u.ipsec.spi);
 		pr_info("ipsec.seq            = 0x%lx\n", sa_params->u.ipsec.seq);
-		pr_info("ipsec.sip            = 0x%p\n", sa_params->u.ipsec.tunnel.u.ipv4.sip);
-		pr_info("ipsec.dip            = 0x%p\n", sa_params->u.ipsec.tunnel.u.ipv4.dip);
+		pr_info("ipsec.sip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.sip);
+		mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.sip, 4);
+		pr_info("ipsec.dip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.dip);
+		mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.dip, 4);
 	}
 	pr_info("\n");
 }

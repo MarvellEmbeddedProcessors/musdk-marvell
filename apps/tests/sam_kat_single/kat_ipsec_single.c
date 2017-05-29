@@ -40,6 +40,7 @@
 #include "env/mv_sys_dma.h"
 #include "lib/lib_misc.h"
 #include "lib/net.h"
+#include "utils.h"
 
 #include "mv_sam.h"
 
@@ -53,14 +54,16 @@ static struct sam_cio *cio_hndl_1;
 static struct sam_sa  *sa_hndl;
 static struct sam_sa  *sa_hndl_1;
 
-/*
- * Case #1: Encrypting 16 bytes (1 block) using AES-CBC with 128-bit key
- * Key       : 0x06a9214036b8a15b512e03d534120006
- * IV        : 0x3dafba429d9eb430b422da802c9fac41
- * L2 header :
- * Plaintext : "Single block msg"
- * Ciphertext: 0xe353779c1079aeb82708942dbe77181a
- */
+static char *test_names[] = {
+	/* 0 */ "ip4_transport_aes_cbc",
+	/* 1 */ "ip4_transport_aes_cbc_sha1",
+	/* 2 */ "ip4_tunnel_aes_cbc",
+	/* 3 */ "ip4_tunnel_aes_cbc_sha1",
+};
+
+static int test_id;
+static int num_pkts = 1;
+static u32 debug_flags = 0x3;
 
 static u8 IPSEC_ESP_L2_HEADER[] = {
 	0x00, 0x01, 0x01, 0x01, 0x55, 0x66,
@@ -82,9 +85,15 @@ static u8 IPSEC_ESP_UDP_HEADER[] = {
 };
 
 
-static uint8_t ExampleAESKey[] = {
+static u8 ExampleAESKey[] = {
 	0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
 	0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50
+};
+
+static u8 ExampleHmacKey[] = {
+	0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
+	0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
+	0x0b, 0x0b, 0x0b, 0x0b
 };
 
 static u8 IPSEC_ESP_AES128_CBC_T1_PT[] = { /* "Single block msg" */
@@ -94,6 +103,15 @@ static u8 IPSEC_ESP_AES128_CBC_T1_PT[] = { /* "Single block msg" */
 
 static u8 SrcIP4[] = {192, 168, 2, 3};
 static u8 DstIP4[] = {192, 168, 2, 5};
+
+static u8 SrcIP6[] = {
+	0x20, 0x00, 0x1f, 0x3c, 0x55, 0x18, 0x00, 0x00,
+	0x00, 0x00, 0x1f, 0x33, 0x44, 0x55, 0x66, 0x77
+};
+static u8 DstIP6[] = {
+	0x20, 0x00, 0x1f, 0x3c, 0x55, 0x18, 0x00, 0x00,
+	0x00, 0x00, 0x1f, 0x33, 0x44, 0x55, 0x66, 0x88
+};
 
 static struct sam_buf_info aes128_t1_buf;
 static u8 expected_data[MAX_BUF_SIZE];
@@ -114,7 +132,25 @@ static struct sam_session_params aes_cbc_sa = {
 	.u.ipsec.is_tunnel = 0,
 	.u.ipsec.is_natt = 0,
 	.u.ipsec.spi = 0xABCD,
-	.u.ipsec.seq = 0x0,
+	.u.ipsec.seq = 0x4,
+};
+
+static struct sam_session_params aes_cbc_sha1_sa = {
+	.dir = SAM_DIR_ENCRYPT,   /* operation direction: encode/decode */
+	.cipher_alg = SAM_CIPHER_AES,  /* cipher algorithm */
+	.cipher_mode = SAM_CIPHER_CBC, /* cipher mode */
+	.cipher_key = ExampleAESKey,    /* cipher key */
+	.cipher_key_len = sizeof(ExampleAESKey), /* cipher key size (in bytes) */
+	.auth_alg = SAM_AUTH_HMAC_SHA1, /* authentication algorithm */
+	.auth_key = ExampleHmacKey,    /* pointer to authentication key */
+	.auth_key_len = sizeof(ExampleHmacKey),    /* authentication key size (in bytes) */
+	.proto = SAM_PROTO_IPSEC,
+	.u.ipsec.is_esp = 1,
+	.u.ipsec.is_ip6 = 0,
+	.u.ipsec.is_tunnel = 0,
+	.u.ipsec.is_natt = 0,
+	.u.ipsec.spi = 0x1234,
+	.u.ipsec.seq = 0x6,
 };
 
 static struct sam_cio_ipsec_params aes128_cbc_t1 = {
@@ -126,24 +162,47 @@ static struct sam_cio_ipsec_params aes128_cbc_t1 = {
 	/* all auth fields are zero */
 };
 
-static int create_session(struct sam_sa **hndl, const char *name)
+static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir dir)
 {
 	int rc;
 	struct sam_session_params *sa_params;
 
-	if (!strcmp(name, "aes_cbc_encrypt")) {
+	if (!strcmp(name, "ip4_transport_aes_cbc")) {
 		sa_params = &aes_cbc_sa;
-		sa_params->dir = SAM_DIR_ENCRYPT;
-	} else if (!strcmp(name, "aes_cbc_decrypt")) {
+		sa_params->u.ipsec.is_tunnel = 0;
+	} else if (!strcmp(name, "ip4_transport_aes_cbc_sha1")) {
+		sa_params = &aes_cbc_sha1_sa;
+		sa_params->u.ipsec.is_tunnel = 0;
+	} else if (!strcmp(name, "ip4_tunnel_aes_cbc")) {
 		sa_params = &aes_cbc_sa;
-		sa_params->dir = SAM_DIR_DECRYPT;
+		sa_params->u.ipsec.is_tunnel = 1;
+	} else if (!strcmp(name, "ip4_tunnel_aes_cbc_sha1")) {
+		sa_params = &aes_cbc_sha1_sa;
+		sa_params->u.ipsec.is_tunnel = 1;
 	} else {
 		printf("%s: unknown session name - %s\n", __func__, name);
 		return -EINVAL;
 	}
+	sa_params->dir = dir;
+
 	if (sa_params->u.ipsec.is_tunnel) {
-		sa_params->u.ipsec.tunnel.u.ipv4.sip = SrcIP4;
-		sa_params->u.ipsec.tunnel.u.ipv4.dip = DstIP4;
+		if (sa_params->u.ipsec.is_ip6) {
+			sa_params->u.ipsec.tunnel.u.ipv6.sip = SrcIP6;
+			sa_params->u.ipsec.tunnel.u.ipv6.dip = DstIP6;
+			sa_params->u.ipsec.tunnel.u.ipv6.dscp = 0;
+			sa_params->u.ipsec.tunnel.u.ipv6.hlimit = 64;
+			sa_params->u.ipsec.tunnel.u.ipv6.flabel = 0;
+
+		} else {
+			sa_params->u.ipsec.tunnel.u.ipv4.sip = SrcIP4;
+			sa_params->u.ipsec.tunnel.u.ipv4.dip = DstIP4;
+			sa_params->u.ipsec.tunnel.u.ipv4.dscp = 0;
+			sa_params->u.ipsec.tunnel.u.ipv4.ttl = 64;
+			sa_params->u.ipsec.tunnel.u.ipv4.df = 0;
+		}
+		sa_params->u.ipsec.tunnel.copy_flabel = 0;
+		sa_params->u.ipsec.tunnel.copy_dscp = 0;
+		sa_params->u.ipsec.tunnel.copy_df = 0;
 	}
 	rc = sam_session_create(sa_params, hndl);
 	if (rc) {
@@ -272,6 +331,88 @@ static int check_udp_pkt_after_decrypt(struct sam_buf_info *buf_info, struct sam
 	return 0;
 }
 
+static void usage(char *progname)
+{
+	printf("Usage: %s [OPTIONS]\n", MVAPPS_NO_PATH(progname));
+	printf("OPTIONS are optional:\n");
+	printf("\t-t <number>      - Test ID (default: %d)\n", test_id);
+	printf("\t-n <number>      - Number of packets (default: %d)\n", num_pkts);
+	printf("\t-f <bitmask>     - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x%x)\n",
+					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
+}
+
+static int parse_args(int argc, char *argv[])
+{
+	int i = 1;
+
+	while (i < argc) {
+		if ((strcmp(argv[i], "?") == 0) ||
+		    (strcmp(argv[i], "-h") == 0) ||
+		    (strcmp(argv[i], "--help") == 0)) {
+			usage(argv[0]);
+			exit(0);
+		}
+		if (strcmp(argv[i], "-t") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			test_id = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-n") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			num_pkts = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-f") == 0) {
+			int scanned;
+
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			scanned = sscanf(argv[i + 1], "0x%x", &debug_flags);
+			if (scanned != 1) {
+				pr_err("Invalid number if scanned arguments: %d != 1\n",
+					scanned);
+				return -EINVAL;
+			}
+			i += 2;
+		} else {
+			pr_err("argument (%s) not supported!\n", argv[i]);
+			return -EINVAL;
+		}
+	}
+	if (test_id >= ARRAY_SIZE(test_names)) {
+		pr_err("test_id (%d) is out of range [0 .. %d]\n",
+			test_id, (unsigned)ARRAY_SIZE(test_names));
+
+		return -EINVAL;
+	}
+
+	/* Print all inputs arguments */
+	printf("Test ID     : %d\n", test_id);
+	printf("Test name   : %s\n", test_names[test_id]);
+	printf("Debug flags : 0x%x\n", debug_flags);
+
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	struct sam_init_params init_params;
@@ -281,7 +422,11 @@ int main(int argc, char **argv)
 	struct sam_session_stats sa_stats;
 	u16 num;
 	int rc = 0;
-	int input_size;
+	int input_size, i;
+
+	rc = parse_args(argc, argv);
+	if (rc)
+		return rc;
 
 	rc = mv_sys_dma_mem_init(SAM_DMA_MEM_SIZE);
 	if (rc) {
@@ -311,7 +456,7 @@ int main(int argc, char **argv)
 		printf("%s: initialization failed\n", argv[0]);
 		return 1;
 	}
-	sam_set_debug_flags(0x3);
+	sam_set_debug_flags(debug_flags);
 
 	cio_params.match = "cio-0:1";
 	cio_params.size = 32;
@@ -321,17 +466,17 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	printf("%s successfully loaded\n", argv[0]);
-	sam_set_debug_flags(0x3);
+	sam_set_debug_flags(debug_flags);
 
-	if (create_session(&sa_hndl, "aes_cbc_encrypt"))
+	if (create_session(&sa_hndl, test_names[test_id], SAM_DIR_ENCRYPT))
 		goto exit;
 
-	pr_info("aes_cbc_encrypt session successfully created on %s\n", "cio-0:0");
+	pr_info("%s encrypt session successfully created on %s\n", test_names[test_id], "cio-0:0");
 
-	if (create_session(&sa_hndl_1, "aes_cbc_decrypt"))
+	if (create_session(&sa_hndl_1, test_names[test_id], SAM_DIR_DECRYPT))
 		goto exit;
 
-	pr_info("aes_cbc_decrypt session successfully created on %s\n", "cio-0:1");
+	pr_info("%s decrypt session successfully created on %s\n", test_names[test_id], "cio-0:1");
 
 	memset(aes128_t1_buf.vaddr, 0, aes128_t1_buf.len);
 
@@ -341,47 +486,48 @@ int main(int argc, char **argv)
 	printf("\nInput buffer    : %d bytes\n", input_size);
 	mv_mem_dump(aes128_t1_buf.vaddr, input_size);
 
-	/* Do encrypt */
-	num = 1;
-	aes128_cbc_t1.sa = sa_hndl;
-	aes128_cbc_t1.l3_offset = sizeof(IPSEC_ESP_L2_HEADER);
-	aes128_cbc_t1.pkt_size = input_size;
+	for (i = 0; i < num_pkts; i++) {
+		/* Do encrypt */
+		num = 1;
+		aes128_cbc_t1.sa = sa_hndl;
+		aes128_cbc_t1.l3_offset = sizeof(IPSEC_ESP_L2_HEADER);
+		aes128_cbc_t1.pkt_size = input_size;
 
-	rc = sam_cio_enq_ipsec(cio_hndl, &aes128_cbc_t1, &num);
-	if ((rc != 0) || (num != 1)) {
-		printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
-			__func__, num, rc);
-		goto exit;
-	}
-	/* polling for result */
-	rc = poll_results(cio_hndl, &result, &num);
-	if ((rc != 0) || (num != 1)) {
-		pr_err("No result: rc = %d, num = %d\n", rc, num);
-		goto exit;
-	}
-	if (check_udp_pkt_after_encrypt(&aes128_t1_buf, &result))
-		goto exit;
+		rc = sam_cio_enq_ipsec(cio_hndl, &aes128_cbc_t1, &num);
+		if ((rc != 0) || (num != 1)) {
+			printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
+				__func__, num, rc);
+			goto exit;
+		}
+		/* polling for result */
+		rc = poll_results(cio_hndl, &result, &num);
+		if ((rc != 0) || (num != 1)) {
+			pr_err("No result: rc = %d, num = %d\n", rc, num);
+			goto exit;
+		}
+		if (check_udp_pkt_after_encrypt(&aes128_t1_buf, &result))
+			goto exit;
 
-	/* Do decrypt */
-	num = 1;
-	aes128_cbc_t1.sa = sa_hndl_1;
-	aes128_cbc_t1.pkt_size = result.out_len;
+		/* Do decrypt */
+		num = 1;
+		aes128_cbc_t1.sa = sa_hndl_1;
+		aes128_cbc_t1.pkt_size = result.out_len;
 
-	rc = sam_cio_enq_ipsec(cio_hndl_1, &aes128_cbc_t1, &num);
-	if ((rc != 0) || (num != 1)) {
-		printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
-			__func__, num, rc);
-		goto exit;
+		rc = sam_cio_enq_ipsec(cio_hndl_1, &aes128_cbc_t1, &num);
+		if ((rc != 0) || (num != 1)) {
+			printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
+				__func__, num, rc);
+			goto exit;
+		}
+		/* polling for result */
+		rc = poll_results(cio_hndl_1, &result, &num);
+		if ((rc != 0) || (num != 1)) {
+			pr_err("No result: rc = %d, num = %d\n", rc, num);
+			goto exit;
+		}
+		if (check_udp_pkt_after_decrypt(&aes128_t1_buf, &result))
+			goto exit;
 	}
-	/* polling for result */
-	rc = poll_results(cio_hndl_1, &result, &num);
-	if ((rc != 0) || (num != 1)) {
-		pr_err("No result: rc = %d, num = %d\n", rc, num);
-		goto exit;
-	}
-	if (check_udp_pkt_after_decrypt(&aes128_t1_buf, &result))
-		goto exit;
-
 exit:
 	if (sa_hndl) {
 		if (sam_session_destroy(sa_hndl))

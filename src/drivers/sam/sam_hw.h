@@ -354,6 +354,15 @@ struct sam_hw_res_desc {
 /* E15 extra error:  */
 #define SAM_TOKEN_RESULT_E15_MASK		BIT(4)
 
+/* Bits[12-5] - TOS/TC from inner IP header */
+#define SAM_RES_TOKEN_TOS_OFFS		5
+#define SAM_RES_TOKEN_TOS_BITS		8
+#define SAM_RES_TOKEN_TOS_MASK		BIT_MASK(SAM_RES_TOKEN_TOS_BITS)
+#define SAM_RES_TOKEN_TOS_GET(v)	(((v) >> SAM_RES_TOKEN_TOS_OFFS) & SAM_RES_TOKEN_TOS_MASK)
+
+/* Bit[13] - Don't fragment flag from inner header */
+#define SAM_TOKEN_RESULT_DF_MASK	BIT(13)
+
 /* CLE Errors: bits[16..20] */
 
 /* RDR word #6, Result token word #2 */

@@ -113,72 +113,140 @@ static inline void sam_hw_ring_ipsec_desc_write(struct sam_hw_ring *hw_ring, int
 	writel_relaxed(val32, &cmd_desc->words[11]);
 }
 
+void sam_ipsec_prepare_tunnel_header(struct sam_session_params *params, u8 *tunnel_header)
+{
+	if (!params->u.ipsec.is_tunnel)
+		return;
+
+	if (params->u.ipsec.is_ip6) {
+		/* TBD */
+	} else {
+		struct iphdr *iph = (struct iphdr *)tunnel_header;
+
+		memset(iph, 0, sizeof(struct iphdr));
+		iph->ihl = 5; /* 20 Bytes */
+		iph->version = 4;
+
+		if (params->u.ipsec.tunnel.u.ipv4.df)
+			iph->frag_off = IP_DF;
+
+		iph->ttl = params->u.ipsec.tunnel.u.ipv4.ttl;
+		iph->protocol = IPPROTO_ESP;
+
+		if (params->u.ipsec.tunnel.u.ipv4.sip)
+			memcpy(&iph->saddr, params->u.ipsec.tunnel.u.ipv4.sip, 4);
+
+		if (params->u.ipsec.tunnel.u.ipv4.dip)
+			memcpy(&iph->daddr, params->u.ipsec.tunnel.u.ipv4.dip, 4);
+	}
+}
+
 void sam_ipsec_ip4_transport_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 					  struct sam_cio_op_result *result)
 {
 	u32 val32;
 	u8 next_hdr, l3_offset;
-	u8 *ip4;
-	u16 *ptr16, *csum_p, csum, ip_len;
+	struct iphdr *iph;
+	u16 csum, ip_len, *ptr16;
 
-	sam_hw_res_desc_read(res_desc, result);
 	val32 = readl_relaxed(&res_desc->words[7]);
 	next_hdr = SAM_RES_TOKEN_NEXT_HDR_GET(val32);
 	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
 
-	ip4 = operation->out_frags[0].vaddr + l3_offset;
+	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
 	ip_len = htobe16((u16)(result->out_len - l3_offset));
 
 	/* Read old checksum */
-	csum_p = (u16 *)&ip4[10];
-	csum = ~(*csum_p);
+	csum = ~(iph->check);
 
 	/* Update IP total length field */
-	ptr16 = (u16 *)&ip4[2];
-	csum = mv_sub_csum16(csum, *ptr16);
+	csum = mv_sub_csum16(csum, iph->tot_len);
 	csum = mv_add_csum16(csum, ip_len);
-	*ptr16 = ip_len;
+	iph->tot_len = ip_len;
 
 	/* read 16 bits TTL + Protocol */
-	ptr16 = (u16 *)&ip4[8];
+	ptr16 = (u16 *)&iph->ttl;
 	csum = mv_sub_csum16(csum, *ptr16);
 
 	/* Set protocol field */
-	ip4[9] = next_hdr;
+	iph->protocol = next_hdr;
 	csum = mv_add_csum16(csum, *ptr16);
 
 	/* Set recalculated IP4 checksum */
-	*csum_p = ~csum;
+	iph->check = ~csum;
 }
 
 void sam_ipsec_ip6_transport_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
-					struct sam_cio_op_result *result)
+					  struct sam_cio_op_result *result)
 {
-	pr_info("%s: Called\n", __func__);
+	pr_info("%s: Not supported yet\n", __func__);
 }
 
 void sam_ipsec_ip4_tunnel_out_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 					struct sam_cio_op_result *result)
 {
-	pr_info("%s: Called\n", __func__);
+	u32 val32;
+	u16 ip_len;
+	u8 l3_offset;
+	struct sam_session_params *params = &operation->sa->params;
+	struct iphdr *iph;
+
+	val32 = readl_relaxed(&res_desc->words[7]);
+	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
+	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
+
+	ip_len = htobe16((u16)(result->out_len - l3_offset));
+
+	val32 = readl_relaxed(&res_desc->words[5]);
+
+	/* Build IPv4 header */
+	memcpy(iph, operation->sa->tunnel_header, sizeof(struct iphdr));
+
+	if (params->u.ipsec.tunnel.copy_dscp)
+		iph->tos = SAM_RES_TOKEN_TOS_GET(val32);
+
+	iph->tot_len = ip_len;
+	if (params->u.ipsec.tunnel.copy_df) {
+		if (val32 & SAM_TOKEN_RESULT_DF_MASK)
+			iph->frag_off |= IP_DF;
+		else
+			iph->frag_off &= ~IP_DF;
+	}
 }
 
 void sam_ipsec_ip6_tunnel_out_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 					struct sam_cio_op_result *result)
 {
-	pr_info("%s: Called\n", __func__);
+	pr_info("%s: Not supported yet\n", __func__);
 }
 
 void sam_ipsec_ip4_tunnel_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 					struct sam_cio_op_result *result)
 {
-	pr_info("%s: Called\n", __func__);
+	u32 val32;
+	u8 l3_offset;
+	struct sam_session_params *params = &operation->sa->params;
+	struct iphdr *iph;
+
+	val32 = readl_relaxed(&res_desc->words[7]);
+	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
+	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
+
+	if (params->u.ipsec.tunnel.copy_dscp)
+		iph->tos = SAM_RES_TOKEN_TOS_GET(val32);
+
+	if (params->u.ipsec.tunnel.copy_df) {
+		if (val32 & SAM_TOKEN_RESULT_DF_MASK)
+			iph->frag_off |= IP_DF;
+		else
+			iph->frag_off &= ~IP_DF;
+	}
 }
 
 void sam_ipsec_ip6_tunnel_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 					struct sam_cio_op_result *result)
 {
-	pr_info("%s: Called\n", __func__);
+	pr_info("%s: Not supported yet\n", __func__);
 }
 
 int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num)

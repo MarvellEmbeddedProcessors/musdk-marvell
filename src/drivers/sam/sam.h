@@ -98,6 +98,7 @@ struct sam_sa {
 	u32				token_words;
 	u8				auth_inner[64]; /* authentication inner block */
 	u8				auth_outer[64]; /* authentication outer block */
+	u8				tunnel_header[40]; /* Maximum needed place for tunnel header */
 	void	(*post_proc_cb)(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 				struct sam_cio_op_result *result);
 };
@@ -169,6 +170,7 @@ static inline int sam_max_check(int value, int limit, const char *name)
 
 extern u32 sam_debug_flags;
 
+void sam_ipsec_prepare_tunnel_header(struct sam_session_params *params, u8 *tunnel_header);
 void sam_ipsec_ip4_transport_in_post_proc(struct sam_cio_op *operation,
 			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
 void sam_ipsec_ip6_transport_in_post_proc(struct sam_cio_op *operation,

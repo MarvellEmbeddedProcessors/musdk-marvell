@@ -222,18 +222,21 @@ static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPse
 	ipsec_params->ContextRef = context_ref++;
 
 	ipsec_params->IPsecFlags |= SAB_IPSEC_PROCESS_IP_HEADERS;
+	ipsec_params->SeqNum = params->u.ipsec.seq;
 	if (params->u.ipsec.is_tunnel) {
 		ipsec_params->SrcIPAddr_p = params->u.ipsec.tunnel.u.ipv4.sip;
 		ipsec_params->DestIPAddr_p = params->u.ipsec.tunnel.u.ipv4.dip;
 	}
 	ipsec_params->PadAlignment = 0;
 
+	session->post_proc_cb = NULL;
 	if ((!params->u.ipsec.is_tunnel) && params->dir == SAM_DIR_DECRYPT) {
 		if (params->u.ipsec.is_ip6)
 			session->post_proc_cb = sam_ipsec_ip6_transport_in_post_proc;
 		else
 			session->post_proc_cb = sam_ipsec_ip4_transport_in_post_proc;
 	} else if ((params->u.ipsec.is_tunnel) && params->dir == SAM_DIR_ENCRYPT) {
+		sam_ipsec_prepare_tunnel_header(params, session->tunnel_header);
 		if (params->u.ipsec.is_ip6)
 			session->post_proc_cb = sam_ipsec_ip6_tunnel_out_post_proc;
 		else
@@ -241,10 +244,11 @@ static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPse
 	} else if ((params->u.ipsec.is_tunnel) && params->dir == SAM_DIR_DECRYPT) {
 		if (params->u.ipsec.is_ip6)
 			session->post_proc_cb = sam_ipsec_ip6_tunnel_in_post_proc;
-		else
-			session->post_proc_cb = sam_ipsec_ip4_tunnel_in_post_proc;
-	} else
-		session->post_proc_cb = NULL;
+		else {
+			if (params->u.ipsec.tunnel.copy_dscp || params->u.ipsec.tunnel.copy_df)
+				session->post_proc_cb = sam_ipsec_ip4_tunnel_in_post_proc;
+		}
+	}
 }
 
 static int sam_token_context_build(struct sam_sa *session)
@@ -850,10 +854,9 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		if (!result) /* Flush cio */
 			continue;
 
+		sam_hw_res_desc_read(res_desc, result);
 		if (operation->sa->post_proc_cb)
 			operation->sa->post_proc_cb(operation, res_desc, result);
-		else
-			sam_hw_res_desc_read(res_desc, result);
 
 		out_len = result->out_len;
 
@@ -865,6 +868,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		if (operation->out_frags[0].len < out_len) {
 			pr_err("%s: out_len %d bytes is larger than output buffer %d bytes\n",
 				__func__, out_len, operation->out_frags[0].len);
+			out_len = operation->out_frags[0].len;
 		}
 
 #ifdef MVCONF_SAM_DEBUG

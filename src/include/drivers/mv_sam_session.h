@@ -127,15 +127,24 @@ struct sam_sa_ipsec_tunnel {
 			u8 *dip; /** 4 bytes of IPv4 destination address (NETWORK ENDIAN) */
 			u8 dscp; /** IPv4 Differentiated Services Code Point */
 			u8 ttl;  /** IPv4 Time To Live */
-			u8 flags;
+			u8 df;   /** IPv4 Don't Fragment bit */
 		} ipv4;
 		/** IPv6 header parameters */
 		struct {
-			u8 *sip;
-			u8 *dip;
-			/* TBD */
+			u8 *sip;     /** 16 bytes of IPv6 source address (NETWORK ENDIAN) */
+			u8 *dip;     /** 16 bytes of IPv6 destination address (NETWORK ENDIAN) */
+			u8 dscp;     /** IPv6 Differentiated Services Code Point */
+			u8 hlimit;   /** IPv6 hop limit */
+			u32 flabel;  /** IPv6 flow label */
 		} ipv6;
 	} u;
+	/** Flags control copy fields between IP inner and outer headers.
+	  *   1 - copy field from inner to outer header on outbound and vice versa on inbound.
+	  *   0 - use values from ipsec tunnel parameters above.
+	  */
+	int copy_dscp;   /** 1 - copy DSCP field from IP header, 0 - use "dscp" value above */
+	int copy_flabel; /** 1 - copy flabel field from IP header, 0 - use "flabel" value above  */
+	int copy_df;     /** 1 - copy df field from IP header, 0 - use "df" value above  */
 };
 
 /** NAT-T encapsulation parameters */
@@ -145,9 +154,10 @@ struct sam_sa_ipsec_natt {
 };
 
 struct sam_session_ipsec_params {
-	int is_esp;				/**< true - ESP protocol. must be true. AH is not supported */
-	int is_ip6;				/**< true - IPv6, false - IPv4 */
-	int is_tunnel;				/**< true - tunnel mode, false - transport mode */
+	int is_esp;				/**< 1 - ESP protocol. Must be 1. AH is not supported */
+	int is_ip6;				/**< 1 - IPv6, 0 - IPv4 */
+	int is_tunnel;				/**< 1 - tunnel mode, 0 - transport mode */
+	int is_esn;				/**< 1 - extended (64 bits) sequence number, 0 - 32 bits */
 	struct sam_sa_ipsec_tunnel tunnel;	/**< Parameters for tunnel mode */
 	int is_natt;				/**< true - NAT-Traversal is required and "natt" field is valid */
 	struct sam_sa_ipsec_natt natt;		/**< NAT-Traversal parameters */
