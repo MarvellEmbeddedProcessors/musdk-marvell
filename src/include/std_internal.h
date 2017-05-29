@@ -43,11 +43,19 @@
 #include <linux/if_arp.h>
 #include <linux/export.h>
 #include <linux/ctype.h>
+#include <linux/spinlock.h>
 #include <asm-generic/io.h>
 
-#include <lib/list_ks.h>
+#include "env/spinlock.h"
 
 #define ENOTSUP          252
+
+#ifndef __BIG_ENDIAN
+	#define __BIG_ENDIAN __ORDER_BIG_ENDIAN__
+#endif
+#ifndef __BYTE_ORDER
+	#define __BYTE_ORDER __BYTE_ORDER__
+#endif
 
 #else /* __KERNEL__ */
 
@@ -82,7 +90,6 @@
 #include "env/cma.h"
 #include "env/io.h"
 #include "env/netdev.h"
-#include "lib/list.h"
 
 /* TODO: move to configure script */
 #define MVCONF_IOMEM_USE_UIO

@@ -37,6 +37,7 @@
 
 struct pp2_hif {
 	int regspace_slot;
+	struct pp2_ppio_desc *rel_descs;
 };
 
 #if 0

@@ -49,7 +49,7 @@ struct sys_iomem;
 enum sys_iomem_type {
 	SYS_IOMEM_T_MMAP = 0, /**< type mmap */
 	SYS_IOMEM_T_UIO,      /**< type UIO */
-	SYS_IOMEM_T_VFIO      /**< type VFIO; TODO: not supported yet! */
+	SYS_IOMEM_T_VFIO,     /**< type VFIO; TODO: not supported yet! */
 };
 
 struct sys_iomem_params {

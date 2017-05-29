@@ -1253,6 +1253,9 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/* Assign linux name to port */
 	pp2_netdev_ifname_get(pp2_id, port_id, port->linux_name);
 
+	pr_debug("PORT: name: %s admin_status: %d param->type == %d\n", port->linux_name,
+		 port->admin_status, param->type);
+
 	if ((port->admin_status == PP2_PORT_SHARED && param->type == PP2_PPIO_T_LOG) ||
 	    (port->admin_status == PP2_PORT_MUSDK && param->type == PP2_PPIO_T_NIC)) {
 		port->type = param->type;
@@ -1280,7 +1283,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 static void
 pp2_port_deinit(struct pp2_port *port)
 {
-	free(port->stats_name);
+	kfree(port->stats_name);
 
 	/* Reset/disable TXQs/RXQs from hardware */
 	pp2_port_rxqs_deinit(port);

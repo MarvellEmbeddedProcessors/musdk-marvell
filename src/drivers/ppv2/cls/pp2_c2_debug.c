@@ -760,10 +760,13 @@ int pp2_cls_cli_c2_hw_dump(void *arg, int argc, char *argv[])
  ******************************************************************************/
 int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[])
 {
-	struct pp2_cls_hit_cnt_t cntr_info[MVPP2_CLS_C2_TCAM_SIZE]; /* TODO: Remove this from the stack */
+	struct pp2_cls_hit_cnt_t *cntr_info =
+		kcalloc(MVPP2_CLS_C2_TCAM_SIZE, sizeof(struct pp2_cls_hit_cnt_t), GFP_KERNEL);
 	u32 num_of_counters = MVPP2_CLS_C2_TCAM_SIZE;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 	int i;
+
+	memset(cntr_info, 0, MVPP2_CLS_C2_TCAM_SIZE * sizeof(struct pp2_cls_hit_cnt_t));
 
 	pp2_cls_c2_hit_cntr_all_get(inst, 0, cntr_info, &num_of_counters);
 
@@ -773,6 +776,8 @@ int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[])
 		printk("index = %d, phys_idx = %d, hits = %d\n",
 		       cntr_info[i].log_idx, cntr_info[i].phys_idx, cntr_info[i].cntr_val);
 	}
+
+	kfree(cntr_info);
 
 	return 0;
 }

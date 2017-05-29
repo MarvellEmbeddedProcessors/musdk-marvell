@@ -63,9 +63,9 @@ int pp2_cls_c3_hw_miss_dump(uintptr_t cpu_slot)
 
 	for (index = 0; index < MVPP2_CLS_C3_MISS_TBL_SIZE; index++) {
 		pp2_cls_c3_hw_miss_read(cpu_slot, &c3, index);
-		pr_info("INDEX[0x%3.3X]\n", index);
+		printk("INDEX[0x%3.3X]\n", index);
 		pp2_cls_c3_sw_act_dump(&c3);
-		pr_info("----------------------------------------------------------------------\n");
+		printk("----------------------------------------------------------------------\n");
 	}
 
 	return 0;
@@ -77,7 +77,7 @@ int pp2_cls_c3_hw_ext_dump(uintptr_t cpu_slot)
 	int index, i;
 	u32 hash_ext_data[MVPP2_CLS3_HASH_EXT_DATA_REG_NUM];
 
-	pr_info("INDEX    DATA\n");
+	printk("INDEX    DATA\n");
 
 	for (index = 0; index <  MVPP2_CLS_C3_EXT_TBL_SIZE; index++)
 		if (pp2_cls_c3_shadow_ext_status_get(index) == IN_USE) {
@@ -88,7 +88,7 @@ int pp2_cls_c3_hw_ext_dump(uintptr_t cpu_slot)
 			for (i = 0; i < MVPP2_CLS3_HASH_EXT_DATA_REG_NUM; i++)
 				hash_ext_data[i] = pp2_reg_read(cpu_slot, MVPP2_CLS3_HASH_EXT_DATA_REG(i));
 
-			pr_info("[0x%2.2x] %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x\n",
+			printk("[0x%2.2x] %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x\n",
 				index, hash_ext_data[6], hash_ext_data[5], hash_ext_data[4],
 				 hash_ext_data[3], hash_ext_data[2], hash_ext_data[1], hash_ext_data[0]);
 		} /* if */
@@ -104,36 +104,36 @@ int pp2_cls_c3_sw_dump(struct pp2_cls_c3_entry *c3)
 	if (mv_pp2x_ptr_validate(c3))
 		return -EINVAL;
 
-	pr_info("\n");
-	pr_info("INDEX[0x%3.3x] ", c3->index);
+	printk("\n");
+	printk("INDEX[0x%3.3x] ", c3->index);
 
 	hek_size = ((c3->key.key_ctrl & KEY_CTRL_HEK_SIZE_MASK) >> KEY_CTRL_HEK_SIZE);
 
 	/* print extension index if exist*/
 	if (hek_size > MVPP2_CLS_C3_HEK_BYTES)
 		/* extension */
-		pr_info("EXT_INDEX[0x%2.2x] ", c3->ext_index);
+		printk("EXT_INDEX[0x%2.2x] ", c3->ext_index);
 	else
 		/* without extension */
-		pr_info("EXT_INDEX[ NA ] ");
+		printk("EXT_INDEX[ NA ] ");
 
-	pr_info("SIZE[0x%2.2x] ", hek_size);
-	pr_info("PRT[ID = 0x%2.2x,TYPE = 0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_PRT_ID_MASK) >> KEY_CTRL_PRT_ID),
+	printk("SIZE[0x%2.2x] ", hek_size);
+	printk("PRT[ID = 0x%2.2x,TYPE = 0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_PRT_ID_MASK) >> KEY_CTRL_PRT_ID),
 		((c3->key.key_ctrl & KEY_CTRL_PRT_ID_TYPE_MASK) >> KEY_CTRL_PRT_ID_TYPE));
 
-	pr_info("LKP_TYPE[0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_LKP_TYPE_MASK) >> KEY_CTRL_LKP_TYPE));
+	printk("LKP_TYPE[0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_LKP_TYPE_MASK) >> KEY_CTRL_LKP_TYPE));
 
-	pr_info("L4INFO[0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_L4_MASK) >> KEY_CTRL_L4));
+	printk("L4INFO[0x%1.1x] ", ((c3->key.key_ctrl & KEY_CTRL_L4_MASK) >> KEY_CTRL_L4));
 
-	pr_info("\n\n");
-	pr_info("HEK	");
+	printk("\n\n");
+	printk("HEK	");
 	if (hek_size > MVPP2_CLS_C3_HEK_BYTES)
 		/* extension */
-		pr_info(HEK_EXT_FMT, HEK_EXT_VAL(c3->key.hek.words));
+		printk(HEK_EXT_FMT, HEK_EXT_VAL(c3->key.hek.words));
 	else
 		/* without extension */
-		pr_info(HEK_FMT, HEK_VAL(c3->key.hek.words));
-	pr_info("\n");
+		printk(HEK_FMT, HEK_VAL(c3->key.hek.words));
+	printk("\n");
 	return pp2_cls_c3_sw_act_dump(c3);
 }
 
@@ -143,14 +143,14 @@ static int pp2_cls_c3_sw_act_dump(struct pp2_cls_c3_entry *c3)
 	if (mv_pp2x_ptr_validate(c3))
 		return -EINVAL;
 
-	pr_info("\n");
+	printk("\n");
 
 	/*------------------------------*/
 	/*	actions 0x1D40		*/
 	/*------------------------------*/
 
-	pr_info("ACT_TBL: COLOR   LOW_Q   HIGH_Q     FWD   POLICER  FID\n");
-	pr_info("CMD:     [%1d]      [%1d]    [%1d]        [%1d]   [%1d]      [%1d]\n",
+	printk("ACT_TBL: COLOR   LOW_Q   HIGH_Q     FWD   POLICER  FID\n");
+	printk("CMD:     [%1d]      [%1d]    [%1d]        [%1d]   [%1d]      [%1d]\n",
 		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_COLOR_MASK)) >> MVPP2_CLS3_ACT_COLOR),
 		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_LOW_Q_MASK)) >> MVPP2_CLS3_ACT_LOW_Q),
 		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_HIGH_Q_MASK)) >> MVPP2_CLS3_ACT_HIGH_Q),
@@ -158,39 +158,39 @@ static int pp2_cls_c3_sw_act_dump(struct pp2_cls_c3_entry *c3)
 		(u32)((c3->sram.regs.actions & (MVPP2_CLS3_ACT_POLICER_SELECT_MASK)) >> MVPP2_CLS3_ACT_POLICER_SELECT),
 		(u32)((c3->sram.regs.actions & MVPP2_CLS3_ACT_FLOW_ID_EN_MASK) >> MVPP2_CLS3_ACT_FLOW_ID_EN));
 
-	pr_info("VAL:              [%1d]    [0x%x]\n",
+	printk("VAL:              [%1d]    [0x%x]\n",
 		((c3->sram.regs.qos_attr & (MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q_MASK)) >> MVPP2_CLS3_ACT_QOS_ATTR_LOW_Q),
 		 ((c3->sram.regs.qos_attr & (MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q_MASK)) >> MVPP2_CLS3_ACT_QOS_ATTR_HIGH_Q));
 
-	pr_info("\n");
+	printk("\n");
 	/*------------------------------*/
 	/*	hwf_attr 0x1D48		*/
 	/*------------------------------*/
 
-	pr_info("HWF_ATTR: IPTR	DPTR	 CHKSM     MTU_IDX\n");
-	pr_info("          0x%1.1x   0x%4.4x   %s   0x%1.1x\n",
+	printk("HWF_ATTR: IPTR	DPTR	 CHKSM     MTU_IDX\n");
+	printk("          0x%1.1x   0x%4.4x   %s   0x%1.1x\n",
 		(u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_IPTR_MASK) >> MVPP2_CLS3_ACT_HWF_ATTR_IPTR),
 		(u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_DPTR_MASK) >> MVPP2_CLS3_ACT_HWF_ATTR_DPTR),
 		((u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN_MASK) >>
 		MVPP2_CLS3_ACT_HWF_ATTR_CHKSM_EN) ? "ENABLE" : "DISABLE"),
 		(u32)((c3->sram.regs.hwf_attr & MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX_MASK) >>
 		MVPP2_CLS3_ACT_HWF_ATTR_MTU_INX));
-	pr_info("\n");
+	printk("\n");
 	/*------------------------------*/
 	/*	dup_attr 0x1D4C		*/
 	/*------------------------------*/
-	pr_info("DUP_ATTR:FID	COUNT	POLICER [id    bank]\n");
-	pr_info("         0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\n",
+	printk("DUP_ATTR:FID	COUNT	POLICER [id    bank]\n");
+	printk("         0x%2.2x\t0x%1.1x\t\t[0x%2.2x   0x%1.1x]\n",
 		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_FID_MASK) >> MVPP2_CLS3_ACT_DUP_FID),
 		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_COUNT_MASK) >> MVPP2_CLS3_ACT_DUP_COUNT),
 		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_POLICER_MASK) >> MVPP2_CLS3_ACT_DUP_POLICER_ID),
 		(u32)((c3->sram.regs.dup_attr & MVPP2_CLS3_ACT_DUP_POLICER_BANK_MASK) >>
 		   MVPP2_CLS3_ACT_DUP_POLICER_BANK_BIT));
-	pr_info("\n");
-	pr_info("SEQ_ATTR: HIGH[32:37] LOW[0:31]\n");
-	pr_info("          0x%2.2x        0x%8.8x", c3->sram.regs.seq_h_attr, c3->sram.regs.seq_l_attr);
+	printk("\n");
+	printk("SEQ_ATTR: HIGH[32:37] LOW[0:31]\n");
+	printk("          0x%2.2x        0x%8.8x", c3->sram.regs.seq_h_attr, c3->sram.regs.seq_l_attr);
 
-	pr_info("\n\n");
+	printk("\n\n");
 
 	return 0;
 }
@@ -210,7 +210,7 @@ int pp2_cls_c3_hw_dump(uintptr_t cpu_slot)
 		if (size > 0) {
 			pp2_cls_c3_hw_read(cpu_slot, &c3, index);
 			pp2_cls_c3_sw_dump(&c3);
-			pr_info("----------------------------------------------------------------------\n");
+			printk("----------------------------------------------------------------------\n");
 		}
 	}
 
@@ -228,27 +228,27 @@ int pp2_cls_c3_scan_regs_dump(uintptr_t cpu_slot)
 	prop = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_REG);
 	prop_val = pp2_reg_read(cpu_slot, MVPP2_CLS3_SC_PROP_VAL_REG);
 
-	pr_info("%-32s: 0x%x = 0x%08x\n", "MVPP2_CLS3_SC_PROP_REG", MVPP2_CLS3_SC_PROP_REG, prop);
-	pr_info("%-32s: 0x%x = 0x%08x\n", "MVPP2_CLS3_SC_PROP_VAL_REG", MVPP2_CLS3_SC_PROP_VAL_REG, prop_val);
-	pr_info("\n");
+	printk("%-32s: 0x%x = 0x%08x\n", "MVPP2_CLS3_SC_PROP_REG", MVPP2_CLS3_SC_PROP_REG, prop);
+	printk("%-32s: 0x%x = 0x%08x\n", "MVPP2_CLS3_SC_PROP_VAL_REG", MVPP2_CLS3_SC_PROP_VAL_REG, prop_val);
+	printk("\n");
 
-	pr_info("MODE      = %s\n", ((MVPP2_CLS3_SC_PROP_TH_MODE_MASK & prop) == 0) ? "Below" : "Above");
-	pr_info("CLEAR     = %s\n", ((MVPP2_CLS3_SC_PROP_CLEAR_MASK & prop) == 0) ? "NoClear" : "Clear  ");
+	printk("MODE      = %s\n", ((MVPP2_CLS3_SC_PROP_TH_MODE_MASK & prop) == 0) ? "Below" : "Above");
+	printk("CLEAR     = %s\n", ((MVPP2_CLS3_SC_PROP_CLEAR_MASK & prop) == 0) ? "NoClear" : "Clear  ");
 
 	/* lookup type */
 	if ((MVPP2_CLS3_SC_PROP_LKP_TYPE_EN_MASK & prop) == 0)
-		pr_info("LKP_TYPE  = NA\n");
+		printk("LKP_TYPE  = NA\n");
 	else
-		pr_info("LKP_TYPE  = 0x%x\n",
+		printk("LKP_TYPE  = 0x%x\n",
 			((MVPP2_CLS3_SC_PROP_LKP_TYPE_MASK & prop) >> MVPP2_CLS3_SC_PROP_LKP_TYPE));
 
 	/* start index */
-	pr_info("START     = 0x%x\n", (MVPP2_CLS3_SC_PROP_START_ENTRY_MASK & prop) >> MVPP2_CLS3_SC_PROP_START_ENTRY);
+	printk("START     = 0x%x\n", (MVPP2_CLS3_SC_PROP_START_ENTRY_MASK & prop) >> MVPP2_CLS3_SC_PROP_START_ENTRY);
 	/* threshold */
-	pr_info("THRESHOLD = 0x%x\n", (MVPP2_CLS3_SC_TH_MASK & treshhold) >> MVPP2_CLS3_SC_TH);
+	printk("THRESHOLD = 0x%x\n", (MVPP2_CLS3_SC_TH_MASK & treshhold) >> MVPP2_CLS3_SC_TH);
 
 	/* delay value */
-	pr_info("DELAY     = 0x%x\n\n",
+	printk("DELAY     = 0x%x\n\n",
 		(MVPP2_CLS3_SC_PROP_VAL_DELAY_MASK & prop_val) >> MVPP2_CLS3_SC_PROP_VAL_DELAY);
 
 	return 0;
@@ -261,10 +261,10 @@ int pp2_cls_c3_scan_res_dump(uintptr_t cpu_slot)
 
 	pp2_cls_c3_scan_num_of_res_get(cpu_slot, &res_num);
 
-	pr_info("INDEX	ADDRESS		COUNTER\n");
+	printk("INDEX	ADDRESS		COUNTER\n");
 	for (index = 0; index < res_num; index++) {
 		pp2_cls_c3_scan_res_read(cpu_slot, index, &addr, &cnt);
-		pr_info("[0x%2.2x]\t[0x%3.3x]\t[0x%6.6x]\n", index, addr, cnt);
+		printk("[0x%2.2x]\t[0x%3.3x]\t[0x%6.6x]\n", index, addr, cnt);
 	}
 
 	return 0;

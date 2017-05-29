@@ -32,20 +32,32 @@
 
 #include "std_internal.h"
 
-
-
 spinlock_t * spin_lock_create(void)
 {
-    pthread_mutex_t *mutex = (pthread_mutex_t *)kmalloc(sizeof(pthread_mutex_t), GFP_KERNEL);
-    int err = pthread_mutex_init(mutex, NULL);
-    if (err) return NULL;
+#ifdef __KERNEL__
+	spinlock_t *mutex = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
 
-    return (spinlock_t *)mutex;
+	spin_lock_init(mutex);
+	return (spinlock_t *)mutex;
+#else
+	pthread_mutex_t *mutex = kmalloc(sizeof(pthread_mutex_t), GFP_KERNEL);
+	int err = pthread_mutex_init(mutex, NULL);
+
+	if (err)
+		return NULL;
+
+	return (spinlock_t *)mutex;
+#endif
 }
 
 void spin_lock_destroy(spinlock_t *lock)
 {
+#ifdef __KERNEL__
+	kfree(lock);
+#else
 	pthread_mutex_t *mutex = (pthread_mutex_t *)lock;
 	if (mutex)
 		kfree(mutex);
+#endif
 }
+

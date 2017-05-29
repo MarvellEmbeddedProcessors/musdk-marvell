@@ -43,6 +43,7 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 {
 	int rc;
 	u8 hif_slot, pp2_id;
+	struct pp2_ppio_desc *descs;
 
 	if (mv_sys_match(params->match, "hif", 1, &hif_slot)) {
 		pr_err("[%s] Invalid match string (%s)!\n", __func__, params->match);
@@ -65,6 +66,11 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 		pr_err("[%s] hif already exists.\n", __func__);
 		return(-EEXIST);
 	}
+
+	descs = kcalloc(PP2_NUM_PKT_PROC * PP2_MAX_NUM_PUT_BUFFS, sizeof(struct pp2_ppio_desc), GFP_KERNEL);
+	if (!descs)
+		return(-ENOMEM);
+
 	/* Create AGGR_TXQ for each of the PPV2 instances. */
 	for (pp2_id = 0; pp2_id < pp2_ptr->num_pp2_inst; pp2_id++) {
 		rc = pp2_dm_if_init(pp2_ptr, hif_slot, pp2_id, params->out_size);
@@ -78,6 +84,8 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 
 	pp2_ptr->pp2_common.hif_slot_map |= (1 << hif_slot);
 	*hif = &pp2_hif[hif_slot];
+	(*hif)->rel_descs = descs;
+
 	return 0;
 }
 
@@ -95,6 +103,8 @@ void pp2_hif_deinit(struct pp2_hif *hif)
 		pr_err("[%s] hif slot %d does not exist.\n", __func__, hif_slot);
 		return;
 	}
+
+	kfree(hif->rel_descs);
 
 	for (pp2_id = 0; pp2_id < pp2_ptr->num_pp2_inst; pp2_id++)
 		pp2_dm_if_deinit(pp2_ptr, hif_slot, pp2_id);

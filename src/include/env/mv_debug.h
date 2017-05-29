@@ -64,7 +64,7 @@ do {						\
 #endif /* !pr_warn */
 #ifndef pr_info
 #define pr_info(...) \
-	mv_print(MV_DBG_L_INFO, "[INFO] "__VA_ARGS__)
+	mv_print(MV_DBG_L_INFO, __VA_ARGS__)
 #endif /* !pr_info */
 #ifndef pr_debug
 #ifdef DEBUG

@@ -134,7 +134,7 @@ int pp2_port_initialize_statistics(struct pp2_port *port)
 	return -EINVAL;
 }
 
-int pp2_port_get_statistics(struct pp2_port *port)
+int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *stats)
 {
 	pr_err("[%s] not implemented yet\n", __func__);
 	return -EINVAL;

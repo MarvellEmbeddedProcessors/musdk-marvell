@@ -31,6 +31,7 @@
  *****************************************************************************/
 
 #include "std_internal.h"
+#include "lib/list.h"
 
 void list_append(struct list *new_lst, struct list *head)
 {

@@ -30,6 +30,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+#include <linux/platform_device.h>
+
 #include "std_internal.h"
 #include "drivers/mv_pp2.h"
 
@@ -42,26 +44,52 @@
 
 #define MUSDK_MODULE_DMA_MEM_SIZE	(48 * 1024 * 1024)
 
-static int __init musdk_init_module(void)
+static int musdk_probe(struct platform_device *pdev)
 {
-	int	err;
+	struct device *dev = &pdev->dev;
+	int err;
 
-	err = mv_sys_dma_mem_init(MUSDK_MODULE_DMA_MEM_SIZE);
+	if (!dev->of_node) {
+		dev_err(dev, "Device Tree does not contain a \"marvell,musdk-uio\" node.\n");
+		return -EINVAL;
+	}
+
+	err = mv_sys_dma_mem_init(dev, MUSDK_MODULE_DMA_MEM_SIZE);
 	if (err)
 		return err;
+
 
 	/* TODO: complete here …. */
 
 	return 0;
 }
 
-static void __exit musdk_cleanup_module(void)
+static int musdk_remove(struct platform_device *pdev)
 {
-	/* TODO: complete here …. */
-
 	mv_sys_dma_mem_destroy();
+
+	return 0;
 }
 
-module_init(musdk_init_module);
-module_exit(musdk_cleanup_module);
+static const struct of_device_id musdk_of_match[] = {
+	{ .compatible   = "marvell,musdk-uio", },
+	{ }
+};
 
+static struct platform_driver musdk_driver = {
+	.driver = {
+		.owner		= THIS_MODULE,
+		.name		= DRIVER_NAME,
+		.of_match_table = musdk_of_match,
+	},
+	.probe  = musdk_probe,
+	.remove = musdk_remove,
+};
+
+module_platform_driver(musdk_driver);
+
+MODULE_VERSION(DRIVER_VERSION);
+MODULE_LICENSE("GPL v2");
+MODULE_AUTHOR(DRIVER_AUTHOR);
+MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_ALIAS("platform:" DRIVER_NAME);

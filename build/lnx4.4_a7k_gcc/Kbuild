@@ -8,13 +8,13 @@ musdk-y += ../../src/drivers/ppv2/pp2_dm.o
 musdk-y += ../../src/drivers/ppv2/pp2_gop.o
 musdk-y += ../../src/drivers/ppv2/pp2_gop_dbg.o
 musdk-y += ../../src/drivers/ppv2/pp2_hif.o
-musdk-y += ../../src/drivers/ppv2/pp2_hw_cls.o
-musdk-y += ../../src/drivers/ppv2/pp2_hw_cls_dbg.o
 musdk-y += ../../src/drivers/ppv2/pp2_port.o
 musdk-y += ../../src/drivers/ppv2/pp2_ppio.o
 musdk-y += ../../src/drivers/ppv2/pp2_port_ks.o
 musdk-y += ../../src/drivers/ppv2/pp2_utils_ks.o
 
+musdk-y += ../../src/drivers/ppv2/cls/pp2_hw_cls.o
+musdk-y += ../../src/drivers/ppv2/cls/pp2_hw_cls_dbg.o
 musdk-y += ../../src/drivers/ppv2/cls/pp2_c2.o
 musdk-y += ../../src/drivers/ppv2/cls/pp2_c2_debug.o
 musdk-y += ../../src/drivers/ppv2/cls/pp2_c3.o
@@ -30,9 +30,13 @@ musdk-y += ../../src/drivers/ppv2/cls/pp2_rss.o
 
 musdk-y += ../../src/env/sys_iomem_ks.o
 musdk-y += ../../src/env/sys_dma_ks.o
+#musdk-y += ../../src/env/cma_ks.o
+#musdk-y += ../../src/env/sys_dma.o
+musdk-y += ../../src/env/spinlock.o
 
 musdk-y += ../../src/lib/lib_misc.o
 musdk-y += ../../src/lib/list.o
+musdk-y += ../../src/lib/mem_mng.o
 
 musdk-y += exports.o
 musdk-y += musdk_module.o
@@ -41,4 +45,4 @@ ccflags-y := -I$(src)/../../src/include
 ccflags-y += -I$(src)/../../src
 ccflags-y += -I$(src)
 
-ccflags-y += -include ./xflags.h
+ccflags-y += -include ./xflags.h -Wno-unused-function

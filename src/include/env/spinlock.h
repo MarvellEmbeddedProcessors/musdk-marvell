@@ -33,15 +33,12 @@
 #ifndef __SPINLOCK_H__
 #define __SPINLOCK_H__
 
+#ifndef __KERNEL__
 #include <pthread.h>
 #include "env/mv_debug.h"
 
 #ifndef spinlock_t
-
 #define spinlock_t		pthread_mutex_t
-
-spinlock_t *spin_lock_create(void);
-void spin_lock_destroy(spinlock_t *lock);
 
 #define spin_lock_init(_lock)							\
 	do {									\
@@ -73,5 +70,9 @@ void spin_lock_destroy(spinlock_t *lock);
 	} while (0)
 
 #endif /* !spinlock_t */
+#endif /* __KERNEL__ */
+
+spinlock_t *spin_lock_create(void);
+void spin_lock_destroy(spinlock_t *lock);
 
 #endif /* __SPINLOCK_H__ */

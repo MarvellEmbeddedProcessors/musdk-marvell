@@ -140,6 +140,7 @@
 	(((x) & 0xFF00000000000000ULL) >> 24)))
 #endif
 
+#define be32_to_cpu(x) be32toh(x)
 #define le32_to_cpu(x) le32toh(x)
 
 #define in4_pton(src, srclen, dst, delim, end) inet_pton(AF_INET, src, dst)

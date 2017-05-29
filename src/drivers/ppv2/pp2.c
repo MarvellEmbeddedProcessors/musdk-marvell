@@ -49,6 +49,8 @@
 #include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
 
+#define PP_UIO_MEM_NAME "pp"
+
 struct pp2 *pp2_ptr;
 struct netdev_if_params *netdev_params;
 
@@ -396,6 +398,7 @@ u8 pp2_get_num_inst(void)
 	pp2_num_inst += sys_iomem_exists(&iomem_params);
 
 	pr_debug("pp2_num_inst=%d\n", pp2_num_inst);
+
 	return pp2_num_inst;
 }
 
@@ -516,7 +519,7 @@ int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id)
 		if (strcmp(netdev_params[i].if_name, ifname) == 0) {
 			*pp_id = netdev_params[i].pp_id;
 			*ppio_id = netdev_params[i].ppio_id;
-			pr_info("%s: ppio-%d,%d\n", ifname, *pp_id, *ppio_id);
+			pr_info("%s: %s: ppio-%d,%d\n", __func__, ifname, *pp_id, *ppio_id);
 			return 0;
 		}
 	}

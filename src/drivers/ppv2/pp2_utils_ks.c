@@ -30,31 +30,92 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-/**
+/*
  * @file pp2_utils_ks.c
  *
- * pp2 util functions specific for user space
+ * pp2 util functions specific for kernel space
  */
 
 #include "std_internal.h"
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
 
 #include "pp2.h"
 
-/* Get device tree data of the PPV2 ethernet ports.
- * Does not include the loopback port.
- */
-static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
-{
-	return -EFAULT;
-}
+#define PP2_NETDEV_MASTER_PATH_K	"/cpn-110-master/config-space/ppv22@000000/"
+#define PP2_NETDEV_SLAVE_PATH_K		"/cpn-110-slave/config-space/ppv22@000000/"
 
-/* pp2_netdev_if_info_get()
- * Retireve information from netdev for all instances and ports:
- * - if name
- * - port status (disabled/MUSDK/Kernel)
+/*
+ * Get device tree data of the PPV2 ethernet ports.
+ * Does not include the loopback port.
  */
 int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 {
-	return -EFAULT;
-}
+	struct device_node *port_node;
+	const char *musdk_status, *status;
+	char subpath[PP2_MAX_BUF_STR_LEN];
+	char fullpath[PP2_MAX_BUF_STR_LEN];
+	u32 if_id = 0;
+	int i, j, idx;
+	u8 num_inst;
 
+	num_inst = 2; /*pp2_get_num_inst();*/
+
+	for (i = 0; i < num_inst; i++) {
+
+		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
+
+			idx = i * PP2_NUM_ETH_PPIO + j;
+
+			if (i == 0) {
+				/* TODO -We assume that the temppath is static.
+				 * Need to substitute this with a function that searches for the following string:
+				 * <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories
+				 * and returns the temppath
+				 */
+				sprintf(fullpath, PP2_NETDEV_MASTER_PATH_K);
+			} else {
+				sprintf(fullpath, PP2_NETDEV_SLAVE_PATH_K);
+			}
+
+			netdev_params[idx].ppio_id = j;
+			netdev_params[idx].pp_id = i;
+			sprintf(subpath, "eth%d@0%d0000", j, j + 1);
+			strcat(fullpath, subpath);
+			pr_debug("%s: of_find_node_by_path(%s)\n", __func__, fullpath);
+			port_node = of_find_node_by_path(fullpath);
+
+			if (!port_node) {
+				pr_err("Failed to find device-tree node: %s\n", fullpath);
+				return -ENODEV;
+			}
+			status = of_get_property(port_node, "status", NULL);
+			if (!strcmp("disabled", status)) {
+				pr_debug("%s: port %d:%d is disabled\n", __func__, i, j);
+				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
+			} else {
+				sprintf(netdev_params[idx].if_name, "eth%d", if_id++);
+				musdk_status = of_get_property(port_node, "musdk-status", NULL);
+				/* Set musdk_flag, only if status is "private", not if status is "shared" */
+				if (musdk_status && !strcmp(musdk_status, "private")) {
+					pr_debug("private\n");
+					netdev_params[idx].admin_status = PP2_PORT_MUSDK;
+				} else if (musdk_status && !strcmp(musdk_status, "shared")) {
+					pr_debug("shared\n");
+					netdev_params[idx].admin_status = PP2_PORT_SHARED;
+				} else {
+					pr_debug("kernel\n");
+					netdev_params[idx].admin_status = PP2_PORT_KERNEL;
+				}
+			}
+			pr_debug("%s: Port '%s' (ppio%d:%d) is %s.\n", __func__, netdev_params[idx].if_name, i, j,
+				 netdev_params[idx].admin_status == PP2_PORT_DISABLED ? "disabled" :
+				 netdev_params[idx].admin_status == PP2_PORT_MUSDK ? "owned by musdk" :
+				 netdev_params[idx].admin_status == PP2_PORT_SHARED ? "shared" :
+				 netdev_params[idx].admin_status == PP2_PORT_KERNEL ? "owned by kernel" :
+				 "in an unknown state");
+		}
+	}
+
+	return 0;
+}

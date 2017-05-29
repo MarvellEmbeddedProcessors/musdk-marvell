@@ -68,7 +68,11 @@ extern void *__dma_virt_base;
  * @retval	0 on success.
  * @retval	error code on failure.
  */
+#ifdef __KERNEL__
+int mv_sys_dma_mem_init(struct device *dev, u64 size);
+#else
 int mv_sys_dma_mem_init(u64 size);
+#endif
 
 /**
  * Destroy the system DMA memory manager.

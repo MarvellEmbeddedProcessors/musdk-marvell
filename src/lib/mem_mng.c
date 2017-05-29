@@ -30,15 +30,11 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-
 #include "std_internal.h"
 #include "lib/mem_mng.h"
 
-
-
 #define MAKE_ALIGNED(addr, align)	\
 	(((u64)(addr) + ((align) - 1)) & (~(((u64)align) - 1)))
-
 
 /* mem_blk_t data structure defines parameters of the Memory Block */
 typedef struct mem_blk {
@@ -64,7 +60,6 @@ typedef struct mem_mng {
 
 	u64		 free_mem_size; /* Total size of free memory (in bytes) */
 } mm_t;
-
 
 static busy_mem_blk_t * create_busy_blk(u64 base, u64 size, const char *name)
 {
@@ -349,7 +344,6 @@ static u64 get_greater_align(mm_t *mm, u64 size, u64 alignment, const char* name
 	return (hold_base);
 }
 
-
 /**********************************************************************
  *			 MM API routines set			      *
  **********************************************************************/
@@ -460,7 +454,7 @@ u64 mem_mng_get(struct mem_mng *mm, u64 size, u64 alignment, const char *name)
 	free_mem_blk_t	*free_blk;
 	busy_mem_blk_t	*new_blk;
 	u64		 hold_base, hold_end, j, i = 0;
-	u32		 flags;
+	unsigned long	 flags;
 
 	if (!mm) {
 		pr_err("Invalid handle provided!\n");
@@ -536,7 +530,7 @@ u64 mem_mng_put(struct mem_mng *mm, u64 base)
 {
 	busy_mem_blk_t	*busy_blk, *prev_blk;
 	u64		 size;
-	u32		 flags;
+	unsigned long	 flags;
 
 	if (!mm) {
 		pr_err("Invalid handle provided!\n");
@@ -621,9 +615,9 @@ void mem_mng_dump(struct mem_mng *mm)
 	}
 
 	busy_blk = mm->busy_blks;
-	printf("List of busy blocks:\n");
+	pr_info("List of busy blocks:\n");
 	while (busy_blk) {
-		printf("\t0x%p: (%s: b=0x%llx, e=0x%llx)\n",
+		pr_info("\t0x%p: (%s: b=0x%llx, e=0x%llx)\n",
 			busy_blk,
 			busy_blk->name,
 			(long long unsigned int)busy_blk->base,
@@ -631,17 +625,17 @@ void mem_mng_dump(struct mem_mng *mm)
 		busy_blk = busy_blk->next;
 	}
 
-	printf("\nLists of free blocks according to alignment:\n");
+	pr_info("\nLists of free blocks according to alignment:\n");
 	for (i=0; i <= MEM_MNG_MAX_ALIGNMENT; i++) {
-		printf("%d alignment:\n", (0x1 << i));
+		pr_info("%d alignment:\n", (0x1 << i));
 		free_blk = mm->free_blks[i];
 		while (free_blk) {
-			printf("\t0x%p: (b=0x%llx, e=0x%llx)\n",
+			pr_info("\t0x%p: (b=0x%llx, e=0x%llx)\n",
 				free_blk,
 				(long long unsigned int)free_blk->base,
 				(long long unsigned int)free_blk->end);
 			free_blk = free_blk->next;
 		}
-		printf("\n");
+		pr_info("\n");
 	}
 }

@@ -40,6 +40,11 @@
 
 #include "pp2.h"
 
+#define PP2_NETDEV_PATH		"/sys/class/net/"
+
+#define PP2_NETDEV_MASTER_PATH	"/proc/device-tree/cpn-110-master/config-space/ppv22@000000/"
+#define PP2_NETDEV_SLAVE_PATH	"/proc/device-tree/cpn-110-slave/config-space/ppv22@000000/"
+
 /* Get device tree data of the PPV2 ethernet ports.
  * Does not include the loopback port.
  */
@@ -88,6 +93,7 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 
 			fgets(buf, sizeof(buf), fp);
 			fclose(fp);
+
 			if (strcmp("disabled", buf) == 0) {
 				pr_debug("port %d:%d is disabled\n", i, j);
 				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
@@ -114,7 +120,6 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 					}
 				}
 			}
-
 		}
 	}
 	return 0;
@@ -195,4 +200,3 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 	freeifaddrs(ifap);
 	return 0;
 }
-

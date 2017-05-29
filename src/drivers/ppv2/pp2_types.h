@@ -47,7 +47,4 @@ struct base_addr {
 	phys_addr_t pa;
 };
 
-#define TRUE    (true)
-#define FALSE   (false)
-
 #endif /* _PP2_TYPES_H_ */

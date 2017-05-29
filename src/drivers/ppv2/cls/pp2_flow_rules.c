@@ -53,10 +53,10 @@ void debug_dump_cls_fl(char *name, struct pp2_cls_fl_t *flow)
 {
 	int i;
 
-	pr_info("dumping flow_log_id %d %s\n", flow->fl_log_id, name);
+	printk("dumping flow_log_id %d %s\n", flow->fl_log_id, name);
 
 	for (i = 0; i < flow->fl_len; i++) {
-		pr_info("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d udf7 %2d ref_cnt %2d skip %d\n",
+		printk("en %d eng %d fid_cnt %d lut %2d port_bm %5d port_t %5d pri %2d udf7 %2d ref_cnt %2d skip %d\n",
 			(int)flow->fl[i].enabled,
 			(int)flow->fl[i].engine,
 			(int)flow->fl[i].field_id_cnt,
@@ -74,9 +74,9 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 {
 	int i;
 
-	pr_info("dumping pp2_db_cls_lkp_dcod_t %s\n", name);
+	printk("dumping pp2_db_cls_lkp_dcod_t %s\n", name);
 
-	pr_info("CPUq %d enabled %d alloc_len %d flow_len %d flow_off %d luid_num %d\n",
+	printk("CPUq %d enabled %d alloc_len %d flow_len %d flow_off %d luid_num %d\n",
 		(int)lkp_dcod_db->cpu_q,
 		(int)lkp_dcod_db->enabled,
 		(int)lkp_dcod_db->flow_alloc_len,
@@ -87,7 +87,7 @@ void debug_dump_lkp_dcod_db(char *name, struct pp2_db_cls_lkp_dcod_t *lkp_dcod_d
 	for (i = 0; i < lkp_dcod_db->luid_num; i++)
 		pr_info("luid[%d]=%d/%d ",
 			i, lkp_dcod_db->luid_list[i].luid);
-	pr_info("\n");
+	printk("\n");
 }
 #endif
 
@@ -2580,6 +2580,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 	int rc;
 	int loop;
 	u16 port_bm = 0;
+	u16 fl_rls_port_bm;
 
 	if (!fl_rls) {
 		pr_err("%s: null pointer\n", __func__);
@@ -2646,7 +2647,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 						MVPP2_MEMSET_ZERO(rl_db->ref_cnt);
 						rl_db->enabled = true;
 					}
-					u16 fl_rls_port_bm = rl_en->port_bm;
+					fl_rls_port_bm = rl_en->port_bm;
 
 					rl_en->port_bm = rl_db->port_bm;
 					/* Update Port BM */

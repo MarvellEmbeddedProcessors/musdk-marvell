@@ -31,28 +31,93 @@
  *****************************************************************************/
 
 #include "std_internal.h"
+#include "lib/mem_mng.h"
 
-phys_addr_t __dma_phys_base;
-void *__dma_virt_base;
+#include <linux/dma-mapping.h>
+
+struct mem_mng	*mm;
+dma_addr_t	 __dma_phys_base;
+void		*__dma_virt_base;
+struct device	*dev;
+size_t		 dma_size;
 
 void *mv_sys_dma_mem_alloc(size_t size, size_t align)
 {
-	pr_err("[%s] not implemented yet\n", __func__);
-	return NULL;
+	u64 ret;
+
+	if (!mm) {
+		pr_err("%s: Memory Manager uninitialized.\n", __func__);
+		return NULL;
+	}
+
+	ret = mem_mng_get(mm, size, align, "temp");
+
+	if (ret == MEM_MNG_ILLEGAL_BASE) {
+
+		pr_err("%s: Memory Manager: Illegal Base.", __func__);
+		return NULL;
+	}
+
+	return (void *)ret;
 }
 
 void mv_sys_dma_mem_free(void *ptr)
 {
-	pr_err("[%s] not implemented yet\n", __func__);
+	if (!mm)
+		pr_err("%s: Memory Manager uninitialized.\n", __func__);
+	else
+		mem_mng_put(mm, (u64)ptr);
 }
 
-int mv_sys_dma_mem_init(u64 size)
+int mv_sys_dma_mem_init(struct device *adev, u64 size)
 {
-	pr_err("[%s] not implemented yet\n", __func__);
-	return -EINVAL;
+	int err;
+
+	dev = adev;
+	dma_size = size;
+
+	if (mm) {
+		dev_err(dev, "Memory Manager already initialized.\n");
+		return -EEXIST;
+	}
+
+	if (!dev->archdata.dma_coherent)
+		dev_warn(dev, "dma_coherent not set. Using coherent mode anyway.\n");
+
+	/* Setting up DMA subsystem */
+	dev->dma_mask = devm_kzalloc(dev, sizeof(*dev->dma_mask), GFP_KERNEL);
+	err = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	if (err) {
+		dev_err(dev, "Cannot set dma_mask.\n");
+		return err;
+	}
+
+	/* Allocating DMA memory */
+	__dma_virt_base = dma_zalloc_coherent(dev, size, &__dma_phys_base, GFP_KERNEL | GFP_DMA);
+
+	if (!__dma_virt_base) {
+		dev_err(dev, "Not enough CMA memory to allocate %llu bytes.\n", size);
+		return -ENOMEM;
+	}
+
+	/* Giving the memory to manager */
+	err = mem_mng_init((u64)__dma_virt_base, size, &mm);
+
+	if (err) {
+		dma_free_coherent(dev, size, __dma_virt_base, __dma_phys_base);
+
+		dev_err(dev, "Failed to initialize memory manager.\n");
+		return err;
+	}
+
+	return 0;
 }
 
 void mv_sys_dma_mem_destroy(void)
 {
-	pr_err("[%s] not implemented yet\n", __func__);
+	if (!mm)
+		return;
+
+	mem_mng_free(mm);
+	dma_free_coherent(dev, dma_size, __dma_virt_base, __dma_phys_base);
 }

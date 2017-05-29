@@ -42,16 +42,16 @@
 
 void pp2_gop_register_bases_dump(struct gop_hw *gop)
 {
-	pr_info("  %-32s: 0x%lx\n", "GMAC", gop->gmac.base.pa);
-	pr_info("  %-32s: 0x%lx\n", "XLG_MAC", gop->xlg_mac.base.pa);
-	pr_info("  %-32s: 0x%lx\n", "SERDES", gop->serdes.base.pa);
-	pr_info("  %-32s: 0x%lx\n", "XMIB", gop->xmib.base.pa);
-	pr_info("  %-32s: 0x%lx\n", "SMI", gop->smi.pa);
-	pr_info("  %-32s: 0x%lx\n", "XSMI", gop->xsmi.pa);
-	pr_info("  %-32s: 0x%lx\n", "MSPG", gop->mspg.pa);
-	pr_info("  %-32s: 0x%lx\n", "XPCS", gop->xpcs.pa);
-	pr_info("  %-32s: 0x%lx\n", "PTP", gop->ptp.base.pa);
-	pr_info("  %-32s: 0x%lx\n", "RFU1", gop->rfu1.pa);
+	pr_info("  %-32s: %#zx\n", "GMAC", (size_t)gop->gmac.base.pa);
+	pr_info("  %-32s: %#zx\n", "XLG_MAC", (size_t)gop->xlg_mac.base.pa);
+	pr_info("  %-32s: %#zx\n", "SERDES", (size_t)gop->serdes.base.pa);
+	pr_info("  %-32s: %#zx\n", "XMIB", (size_t)gop->xmib.base.pa);
+	pr_info("  %-32s: %#zx\n", "SMI", (size_t)gop->smi.pa);
+	pr_info("  %-32s: %#zx\n", "XSMI", (size_t)gop->xsmi.pa);
+	pr_info("  %-32s: %#zx\n", "MSPG", (size_t)gop->mspg.pa);
+	pr_info("  %-32s: %#zx\n", "XPCS", (size_t)gop->xpcs.pa);
+	pr_info("  %-32s: %#zx\n", "PTP", (size_t)gop->ptp.base.pa);
+	pr_info("  %-32s: %#zx\n", "RFU1", (size_t)gop->rfu1.pa);
 }
 
 /* print value of unit registers */
@@ -226,7 +226,7 @@ static void pp2_gop_mib_print(struct gop_hw *gop, int port, uint32_t offset,
 	u64 val;
 
 	val = pp2_gop_mib_read64(gop, port, offset);
-	pr_info("  %-32s: 0x%02x = %lu\n", mib_name, offset, val);
+	pr_info("  %-32s: 0x%02x = %#zx\n", mib_name, offset, (size_t)val);
 }
 
 void pp2_gop_mib_counters_show(struct gop_hw *gop, int port)

@@ -127,6 +127,7 @@ static int iomem_uio_io_exists(const char *name, int index)
 	else
 		ans = 0;
 	free(tmp_name);
+
 	return ans;
 }
 

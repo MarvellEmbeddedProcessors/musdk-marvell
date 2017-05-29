@@ -183,16 +183,14 @@ static inline void pp2_bpool_put_buffs_core(int pp2_id, int num_buffs, int dm_if
 
 /* This function does not support _not_ releasing all buffs, it continues to try until it has finished all buffers. */
 int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entry[], u16 *num)
-
 {
-	struct pp2_ppio_desc descs[PP2_NUM_PKT_PROC][PP2_MAX_NUM_PUT_BUFFS];
 	struct pp2_ppio_desc *cur_desc;
 	int i, pp2_id;
 	int pp_ind[PP2_NUM_PKT_PROC] = {0};
 
 	for (i = 0; i < (*num); i++) {
 		pp2_id = buff_entry[i].bpool->pp2_id;
-		cur_desc = &descs[pp2_id][pp_ind[pp2_id]];
+		cur_desc = hif->rel_descs + PP2_MAX_NUM_PUT_BUFFS * pp2_id + pp_ind[pp2_id];
 		pp2_ppio_outq_desc_reset(cur_desc);
 		pp2_ppio_outq_desc_set_phys_addr(cur_desc, buff_entry[i].buff.addr);
 		/* TODO: ASAP, check if setting to 0 creates issues. */
@@ -204,9 +202,11 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
 		pp_ind[pp2_id]++;
 	}
 	if (pp_ind[PP2_ID0])
-		pp2_bpool_put_buffs_core(PP2_ID0, pp_ind[PP2_ID0], hif->regspace_slot, descs[PP2_ID0]);
+		pp2_bpool_put_buffs_core(PP2_ID0, pp_ind[PP2_ID0], hif->regspace_slot,
+					 hif->rel_descs + PP2_MAX_NUM_PUT_BUFFS * PP2_ID0);
 	if (pp_ind[PP2_ID1])
-		pp2_bpool_put_buffs_core(PP2_ID1, pp_ind[PP2_ID1], hif->regspace_slot, descs[PP2_ID1]);
+		pp2_bpool_put_buffs_core(PP2_ID1, pp_ind[PP2_ID1], hif->regspace_slot,
+					 hif->rel_descs + PP2_MAX_NUM_PUT_BUFFS * PP2_ID1);
 
 	return 0;
 }

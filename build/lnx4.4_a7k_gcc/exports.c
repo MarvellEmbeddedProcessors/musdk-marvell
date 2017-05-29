@@ -36,3 +36,23 @@
 #include "drivers/mv_pp2_ppio.h"
 
 EXPORT_SYMBOL(pp2_ppio_init);
+EXPORT_SYMBOL(pp2_init);
+EXPORT_SYMBOL(mv_sys_dma_mem_destroy);
+EXPORT_SYMBOL(pp2_get_num_inst);
+EXPORT_SYMBOL(pp2_deinit);
+EXPORT_SYMBOL(pp2_hif_init);
+EXPORT_SYMBOL(__dma_virt_base);
+EXPORT_SYMBOL(pp2_bpool_init);
+EXPORT_SYMBOL(pp2_ppio_set_mru);
+EXPORT_SYMBOL(pp2_bpool_put_buff);
+EXPORT_SYMBOL(pp2_ppio_get_mtu);
+EXPORT_SYMBOL(__dma_phys_base);
+EXPORT_SYMBOL(mv_sys_dma_mem_alloc);
+EXPORT_SYMBOL(pp2_ppio_set_mtu);
+EXPORT_SYMBOL(pp2_netdev_get_ppio_info);
+EXPORT_SYMBOL(pp2_ppio_enable);
+EXPORT_SYMBOL(pp2_ppio_recv);
+EXPORT_SYMBOL(pp2_ppio_get_num_outq_done);
+EXPORT_SYMBOL(pp2_ppio_send);
+EXPORT_SYMBOL(pp2_bpools);
+EXPORT_SYMBOL(pp2_bpool_put_buffs);

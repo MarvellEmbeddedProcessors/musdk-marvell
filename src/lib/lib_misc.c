@@ -172,9 +172,9 @@ void mv_mem_dump_words(const u32 *p, u32 words, int be)
 		printk("%10p: ", (p + i));
 		for (j = 0; (j < 8) && (i < words); j++) {
 			if (be)
-				printk("%08x ", be32toh(p[i]));
+				printk("%08x ", be32_to_cpu(p[i]));
 			else
-				printk("%08x ", le32toh(p[i]));
+				printk("%08x ", le32_to_cpu(p[i]));
 
 			i++;
 		}

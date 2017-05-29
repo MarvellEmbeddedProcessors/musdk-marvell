@@ -55,13 +55,6 @@
 #include "pp2_plat.h"
 #include "pp2_mem.h"
 
-#define PP_UIO_DEV_NAME "uio_mv_pp"
-#define PP_UIO_MEM_NAME "pp"
-
-#define PP2_NETDEV_PATH		"/sys/class/net/"
-#define PP2_NETDEV_MASTER_PATH	"/proc/device-tree/cpn-110-master/config-space/ppv22@000000/"
-#define PP2_NETDEV_SLAVE_PATH	"/proc/device-tree/cpn-110-slave/config-space/ppv22@000000/"
-
 #ifndef PP2_MAX_BUF_STR_LEN
 #define PP2_MAX_BUF_STR_LEN	256
 #endif
@@ -218,7 +211,7 @@ struct pp2_rx_queue {
 	u32 threshold_rx_pkts;
 };
 
-#define PP2_BM_BUF_DEBUG             (FALSE)
+#define PP2_BM_BUF_DEBUG             (0)
 
 /* Per-BP mandatory alignment */
 #define BM_BUF_ALIGN                (32)
