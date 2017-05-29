@@ -38,6 +38,7 @@
 #include <linux/types.h>
 #include <linux/stddef.h>
 #include <linux/inet.h>
+#include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/if_arp.h>
 #include <linux/export.h>
@@ -66,6 +67,8 @@
 #include <unistd.h>
 #include <assert.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <sys/ioctl.h>
