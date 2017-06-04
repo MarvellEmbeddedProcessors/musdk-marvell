@@ -641,22 +641,44 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	u32 l4_flag = 0;
 	u16 select_logical_id[30];
 
-	/* Para check */
-	if (mv_pp2x_ptr_validate(params))
+	if (mv_pp2x_ptr_validate(params)) {
+		pr_err("%s(%d) fail, param = NULL\n", __func__, __LINE__);
 		return -EINVAL;
-
-	if (mv_pp2x_range_validate(params->key.num_fields, 0, PP2_CLS_TBL_MAX_NUM_FIELDS))
-		return -EINVAL;
-	pr_debug("key.num_fields = %d\n", params->key.num_fields);
-
-	fl_rls = kmalloc(sizeof(*fl_rls), GFP_KERNEL);
-	if (!fl_rls)
-		return -ENOMEM;
+	}
 
 	/* get packet processor instance */
 	ppio = params->default_act.cos->ppio;
 	port = GET_PPIO_PORT(ppio);
 	inst = port->parent;
+
+	if ((params->type != PP2_CLS_TBL_EXACT_MATCH) && (params->type != PP2_CLS_TBL_MASKABLE)) {
+		pr_err("%s(%d) fail, engine type = %d is out of range\n", __func__, __LINE__, params->type);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_range_validate(params->default_act.cos->tc, 0, port->num_tcs)) {
+		pr_err("%s(%d) fail, tc = %d is out of range\n", __func__, __LINE__, params->default_act.cos->tc);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_range_validate(params->key.key_size, 0, CLS_MNG_KEY_SIZE_MAX)) {
+		pr_err("%s(%d) fail, key_size = %d is out of range\n", __func__, __LINE__, params->key.key_size);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_range_validate(params->key.num_fields, 0, PP2_CLS_TBL_MAX_NUM_FIELDS)) {
+		pr_err("%s(%d) fail, num_fields = %d is out of range\n", __func__, __LINE__, params->key.num_fields);
+		return -EINVAL;
+	}
+
+	if ((params->default_act.type != PP2_CLS_TBL_ACT_DROP) && (params->default_act.type != PP2_CLS_TBL_ACT_DONE)) {
+		pr_err("%s(%d) fail, action type = %d is out of range\n", __func__, __LINE__, params->default_act.type);
+		return -EINVAL;
+	}
+
+	fl_rls = kmalloc(sizeof(*fl_rls), GFP_KERNEL);
+	if (!fl_rls)
+		return -ENOMEM;
 
 	fl_rls->fl_len = 1;
 	field_index = 0;
@@ -797,6 +819,11 @@ int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl)
 	struct pp2_cls_tbl_rule *rule = NULL;
 	u32 rc;
 
+	if (mv_pp2x_ptr_validate(tbl)) {
+		pr_err("%s(%d) fail, tbl = NULL\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
 	/* Remove configured rules in table */
 	for (i = 0; i < tbl->params.max_num_rules; i++) {
 		rc = pp2_cls_db_mng_tbl_rule_next_get(tbl, &rule);
@@ -828,7 +855,7 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 
 	/* Para check */
 	if (mv_pp2x_ptr_validate(qos_params)) {
-		pr_err("NULL params.\n");
+		pr_err("%s(%d) fail, params = NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
@@ -1409,6 +1436,22 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 
 	port = GET_PPIO_PORT(params->default_act.cos->ppio);
 	inst = port->parent;
+
+	if (mv_pp2x_range_validate(rule->num_fields, 0, PP2_CLS_TBL_MAX_NUM_FIELDS)) {
+		pr_err("%s(%d) fail, num_fields = %d is out of range\n", __func__, __LINE__, rule->num_fields);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_range_validate(action->cos->tc, 0, port->num_tcs)) {
+		pr_err("%s(%d) fail, tc = %d is out of range\n", __func__, __LINE__, action->cos->tc);
+		return -EINVAL;
+	}
+
+	if ((action->type != PP2_CLS_TBL_ACT_DROP) && (action->type != PP2_CLS_TBL_ACT_DONE)) {
+		pr_err("%s(%d) fail, action type = %d is out of range\n", __func__, __LINE__, action->type);
+		return -EINVAL;
+	}
+
 	rc = pp2_cls_set_rule_info(&mng_pkt_key, &rule_port, params, rule, port);
 	if (rc) {
 		pr_err("%s(%d) pp2_cls_set_rule_info failed\n", __func__, __LINE__);

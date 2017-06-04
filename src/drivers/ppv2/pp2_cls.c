@@ -66,6 +66,11 @@ void pp2_cls_tbl_deinit(struct pp2_cls_tbl *tbl)
 
 	/* TODO: check table type in all API functions, */
 
+	if (mv_pp2x_ptr_validate(tbl)) {
+		pr_err("%s(%d) fail, tbl = NULL\n", __func__, __LINE__);
+		return;
+	}
+
 	rc = pp2_cls_mng_table_deinit(tbl);
 	if (rc) {
 		pr_err("cls manager table deinit error\n");
@@ -77,8 +82,10 @@ int pp2_cls_qos_tbl_init(struct pp2_cls_qos_tbl_params *params, struct pp2_cls_t
 	u32 rc;
 
 	/* Para check */
-	if (mv_pp2x_ptr_validate(params))
+	if (mv_pp2x_ptr_validate(params)) {
+		pr_err("%s(%d) fail, params = NULL\n", __func__, __LINE__);
 		return -EINVAL;
+	}
 
 	rc = pp2_cls_mng_qos_tbl_init(params, tbl);
 	if (rc) {
@@ -91,6 +98,9 @@ int pp2_cls_qos_tbl_init(struct pp2_cls_qos_tbl_params *params, struct pp2_cls_t
 
 void pp2_cls_qos_tbl_deinit(struct pp2_cls_tbl *tbl)
 {
+	if (mv_pp2x_ptr_validate(tbl)) {
+		pr_err("%s(%d) fail, tbl = NULL\n", __func__, __LINE__);
+	}
 }
 
 int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,

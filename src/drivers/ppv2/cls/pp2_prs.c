@@ -1657,6 +1657,7 @@ int pp2_prs_eth_start_hdr_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr
 		reg_val |= MVPP2_DSA_EXTENDED;
 		break;
 	default:
+		pr_err("invalid eth_start_hdr, eth_start_hdr = %d\n", eth_start_hdr);
 		return -EINVAL;
 	}
 
