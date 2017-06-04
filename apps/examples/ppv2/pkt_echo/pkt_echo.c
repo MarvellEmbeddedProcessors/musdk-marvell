@@ -188,23 +188,23 @@ static inline void prefetch(const void *ptr)
 #endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
 
 #ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
-static inline enum pp2_outq_l3_type pp2_l3_type_inq_to_outq(enum pp2_inq_l3_type l3_inq)
+static inline enum mv_outq_l3_type pp2_l3_type_inq_to_outq(enum mv_inq_l3_type l3_inq)
 {
-	if (unlikely(l3_inq & PP2_INQ_L3_TYPE_IPV6_NO_EXT))
-		return PP2_OUTQ_L3_TYPE_IPV6;
+	if (unlikely(l3_inq & MV_INQ_L3_TYPE_IPV6_NO_EXT))
+		return MV_OUTQ_L3_TYPE_IPV6;
 
-	if (likely(l3_inq != PP2_INQ_L3_TYPE_NA))
-		return PP2_OUTQ_L3_TYPE_IPV4;
+	if (likely(l3_inq != MV_INQ_L3_TYPE_NA))
+		return MV_OUTQ_L3_TYPE_IPV4;
 
-	return PP2_OUTQ_L3_TYPE_OTHER;
+	return MV_OUTQ_L3_TYPE_OTHER;
 }
 
-static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type l4_inq)
+static inline enum mv_outq_l4_type pp2_l4_type_inq_to_outq(enum mv_inq_l4_type l4_inq)
 {
-	if (likely(l4_inq == PP2_INQ_L4_TYPE_TCP || l4_inq == PP2_INQ_L4_TYPE_UDP))
+	if (likely(l4_inq == MV_INQ_L4_TYPE_TCP || l4_inq == MV_INQ_L4_TYPE_UDP))
 		return (l4_inq - 1);
 
-	return PP2_OUTQ_L4_TYPE_OTHER;
+	return MV_OUTQ_L4_TYPE_OTHER;
 }
 #endif
 
@@ -428,9 +428,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	int			 prefetch_shift = larg->prefetch_shift;
 #endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
 #ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
-	enum pp2_inq_l3_type     l3_type;
-	enum pp2_inq_l4_type     l4_type;
-	u8                       l3_offset, l4_offset;
+	enum mv_inq_l3_type     l3_type;
+	enum mv_inq_l4_type     l4_type;
+	u8                      l3_offset, l4_offset;
 #endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
 
 	shadow_q = &larg->ports_desc[tx_ppio_id].shadow_qs[tc];

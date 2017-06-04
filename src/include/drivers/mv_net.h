@@ -137,6 +137,46 @@ enum mv_net_proto {
 	MV_NET_PROTO_LAST
 };
 
+enum mv_outq_l3_type {
+	MV_OUTQ_L3_TYPE_IPV4 = 0,
+	MV_OUTQ_L3_TYPE_IPV6,
+	MV_OUTQ_L3_TYPE_OTHER
+};
+
+enum mv_outq_l4_type {
+	MV_OUTQ_L4_TYPE_TCP = 0,
+	MV_OUTQ_L4_TYPE_UDP,
+	MV_OUTQ_L4_TYPE_OTHER
+};
+
+enum mv_inq_l3_type {
+	MV_INQ_L3_TYPE_NA = 0,
+	MV_INQ_L3_TYPE_IPV4_NO_OPTS,	/* IPv4 with IHL=5, TTL>0 */
+	MV_INQ_L3_TYPE_IPV4_OK,		/* IPv4 with IHL>5, TTL>0 */
+	MV_INQ_L3_TYPE_IPV4_TTL_ZERO,	/* Other IPV4 packets */
+	MV_INQ_L3_TYPE_IPV6_NO_EXT,	/* IPV6 without extensions */
+	MV_INQ_L3_TYPE_IPV6_EXT,	/* IPV6 with extensions */
+	MV_INQ_L3_TYPE_ARP,		/* ARP */
+	MV_INQ_L3_TYPE_USER_DEFINED	/* User defined */
+};
+
+enum mv_inq_l4_type {
+	MV_INQ_L4_TYPE_NA = 0,
+	MV_INQ_L4_TYPE_TCP = 1,
+	MV_INQ_L4_TYPE_UDP = 2,
+	MV_INQ_L4_TYPE_OTHER = 3
+};
+
+enum mv_inq_desc_status {
+	MV_DESC_ERR_OK = 0,
+	MV_DESC_ERR_MAC_CRC,		/* L2 MAC error (for example CRC Error) */
+	MV_DESC_ERR_MAC_OVERRUN,	/* L2 Overrun Error*/
+	MV_DESC_ERR_MAC_RESERVED,	/* L2 Reserved */
+	MV_DESC_ERR_MAC_RESOURCE,	/* L2 Resource Error (No buffers for multi-buffer frame) */
+	MV_DESC_ERR_IPV4_HDR,		/* L3 IPv4 Header error */
+	MV_DESC_ERR_L4_CHECKSUM		/* L4 checksum error */
+};
+
 union mv_net_proto_fields {
 	enum mv_net_eth_fields		eth;
 	enum mv_net_eth_dsa_fields	eth_dsa;
