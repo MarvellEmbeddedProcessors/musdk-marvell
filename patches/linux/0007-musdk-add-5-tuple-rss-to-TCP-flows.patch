@@ -1,0 +1,71 @@
+From 40603a44004d653401bed852ac5527a286a3db27 Mon Sep 17 00:00:00 2001
+From: Ehud Naim <ehudn@marvell.com>
+Date: Thu, 18 May 2017 10:47:00 +0300
+Subject: [PATCH 7/7] musdk: add 5-tuple rss to TCP flows
+
+Change-Id: I53818f477a4d7655e3d42460736505e48e543222
+Signed-off-by: Ehud Naim <ehudn@marvell.com>
+---
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c   | 16 +++++++++-------
+ drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c |  4 ++--
+ 2 files changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
+index 1ab59e774b2b..1228fd447d4b 100644
+--- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
++++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw.c
+@@ -3271,9 +3271,9 @@ static void mv_pp2x_cls_flow_rss_hash(struct mv_pp2x_hw *hw,
+ 				      MVPP2_CLS_LKP_HASH, MVPP2_CLS_FL_RSS_PRI);
+ 	fe->index = entry_idx;
+ 
+-	/* Update last for UDP NF flow */
+-	if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT) &&
+-	    !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
++	/* Update last for TCP & UDP NF flow */
++	if (((lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT | MVPP2_PRS_FL_ATTR_UDP_BIT)) &&
++	     !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT))) {
+ 		if (!hw->cls_shadow->flow_info[lkpid -
+ 			MVPP2_PRS_FL_START].flow_entry_rss1) {
+ 			if (rss_mode == MVPP2_RSS_HASH_2T)
+@@ -3332,8 +3332,9 @@ void mv_pp2x_cls_flow_tbl_config(struct mv_pp2x_hw *hw)
+ 					     MVPP2_COS_TYPE_DSCP);
+ 			/* RSS hash rule */
+ 			if ((!(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) &&
+-			    (lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT)) {
+-				/* RSS hash rules for UDP rss mode update */
++			    (lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT |
++				MVPP2_PRS_FL_ATTR_UDP_BIT))) {
++				/* RSS hash rules for TCP & UDP rss mode update */
+ 				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
+ 							  MVPP2_RSS_HASH_2T);
+ 				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
+@@ -3356,8 +3357,9 @@ void mv_pp2x_cls_flow_tbl_config(struct mv_pp2x_hw *hw)
+ 					     MVPP2_COS_TYPE_DSCP);
+ 			/* RSS hash rule */
+ 			if ((!(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) &&
+-			    (lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT)) {
+-				/* RSS hash rules for UDP rss mode update */
++			    (lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT |
++				MVPP2_PRS_FL_ATTR_UDP_BIT))) {
++				/* RSS hash rules for TCP & UDP rss mode update */
+ 				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
+ 							  MVPP2_RSS_HASH_2T);
+ 				mv_pp2x_cls_flow_rss_hash(hw, &fe, lkpid,
+diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
+index 448f97bb3486..4738bbf80c61 100644
+--- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
++++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
+@@ -2230,8 +2230,8 @@ int mv_pp22_rss_mode_set(struct mv_pp2x_port *port, int rss_mode)
+ 		lkpid = index + MVPP2_PRS_FL_START;
+ 		/* Get lookup ID attribute */
+ 		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
+-		/* Only non-frag UDP can set rss mode */
+-		if ((lkpid_attr & MVPP2_PRS_FL_ATTR_UDP_BIT) &&
++		/* Only non-frag TCP & UDP can set rss mode */
++		if ((lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT | MVPP2_PRS_FL_ATTR_UDP_BIT)) &&
+ 		    !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
+ 			/* Prepare a temp table for the lkpid */
+ 			mv_pp2x_cls_flow_tbl_temp_copy(hw, lkpid, &flow_idx);
+-- 
+2.11.0
+

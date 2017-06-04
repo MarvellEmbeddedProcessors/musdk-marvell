@@ -1,7 +1,7 @@
-From bbed2ae3557331e89aef7dde0d75a490ce831f00 Mon Sep 17 00:00:00 2001
+From 7cb44b418a37e842afc2c253fcd5cf0b31bb7fce Mon Sep 17 00:00:00 2001
 From: Alan Winkowski <walan@marvell.com>
 Date: Tue, 14 Mar 2017 14:50:28 +0200
-Subject: [PATCH 5/6] musdk: add support for musdk in mvpp2x
+Subject: [PATCH 5/7] musdk: add support for musdk in mvpp2x
 
 Change-Id: I2e955b8bf90c06cafed60185ee3483e00bf2d63a
 Signed-off-by: Alan Winkowski <walan@marvell.com>
@@ -13,7 +13,7 @@ Signed-off-by: Alan Winkowski <walan@marvell.com>
  4 files changed, 214 insertions(+), 66 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x.h b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x.h
-index 87dfad5..b0ec127 100644
+index 87dfad5ab55f..b0ec127457ce 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x.h
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x.h
 @@ -797,6 +797,7 @@ int mv_pp2x_setup_rxqs(struct mv_pp2x_port *port);
@@ -25,7 +25,7 @@ index 87dfad5..b0ec127 100644
  int mv_pp2x_cos_classifier_set(struct mv_pp2x_port *port,
  			       enum mv_pp2x_cos_classifier cos_mode);
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_ethtool.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_ethtool.c
-index 2bde5be..d320e9f 100644
+index 2bde5be80c1e..d320e9fb7ab2 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_ethtool.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_ethtool.c
 @@ -1186,7 +1186,43 @@ static const struct ethtool_ops mv_pp2x_eth_tool_ops = {
@@ -73,7 +73,7 @@ index 2bde5be..d320e9f 100644
 +}
 +
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
-index 8e4d1fe..21b4a29 100644
+index 8e4d1fe9f2a0..21b4a297210f 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_hw_type.h
 @@ -1270,7 +1270,9 @@
@@ -88,7 +88,7 @@ index 8e4d1fe..21b4a29 100644
  /* Marvell tag types */
  enum mv_pp2x_tag_type {
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index 064cffe..38b46be 100644
+index 064cffeb0cfc..38b46bef47f4 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 @@ -2925,6 +2925,12 @@ out_no_tx_desc:
@@ -566,5 +566,5 @@ index 064cffe..38b46be 100644
  
  	if (priv->pp2_version == PPV22) {
 -- 
-2.7.4
+2.11.0
 
