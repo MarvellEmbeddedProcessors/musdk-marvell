@@ -111,6 +111,8 @@ struct pp2_init_params {
 	u16			bm_pool_reserved_map;
 	/** Bitmap of RSS Tables (0-7). The tables are reserved in all packet_processors. */
 	u8			rss_tbl_reserved_map;
+	/** Bitmap of reserved policers (0-30). The policers are reserved in all packet_processors. */
+	u32			policers_reserved_map;
 
 	/* TODO FUTURE struct pp2_parse_params	prs_params; */
 };

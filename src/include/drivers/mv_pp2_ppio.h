@@ -109,6 +109,12 @@ enum pp2_ppio_cls_target {
 	PP2_CLS_TARGET_OTHER		/* traffic forwarded to MUSDK and logical port rules to kernel */
 };
 
+enum pp2_ppio_color {
+	PP2_PPIO_COLOR_GREEN	= 0,	/* Treat as green for Policer */
+	PP2_PPIO_COLOR_YELLOW,		/* Treat as yellow for Policer */
+	PP2_PPIO_COLOR_RED		/* drop packet */
+};
+
 /**
  * ppio inq parameters
  *
@@ -131,7 +137,6 @@ struct pp2_ppio_inq_statistics {
 	u16	drop_bm;	/**< ppio inq BM dropped packets counter */
 };
 
-
 /**
  * ppio tc parameters
  *
@@ -143,6 +148,7 @@ struct pp2_ppio_tc_params {
 							*/
 	struct pp2_ppio_inq_params	*inqs_params; /**< pointer to the tc's inq parameters */;
 	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS]; /**< bpools used by the tc */
+	enum pp2_ppio_color		default_color; /**< Default color for this TC */
 };
 
 /**
@@ -150,12 +156,13 @@ struct pp2_ppio_tc_params {
  *
  */
 struct pp2_ppio_inqs_params {
-	u16				 num_tcs; /**< Number of tcs */
-	struct pp2_ppio_tc_params	 tcs_params[PP2_PPIO_MAX_NUM_TCS]; /**< Parameters for each tc */
+	u16				num_tcs; /**< Number of tcs */
+	struct pp2_ppio_tc_params	tcs_params[PP2_PPIO_MAX_NUM_TCS]; /**< Parameters for each tc */
 	/** Indicate the type of hash to use in hashing mechanism according to pp2_ppio_hash_type.
 	 * The hash type is common to all TC's in ppio
 	 */
-	enum pp2_ppio_hash_type		 hash_type;
+	enum pp2_ppio_hash_type		hash_type;
+	struct pp2_cls_plcr		*plcr; /**< pointer to a default policer handle; if 'NULL' it doens't set */
 };
 
 /**

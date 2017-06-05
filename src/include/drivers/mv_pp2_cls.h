@@ -44,8 +44,10 @@
  */
 
 struct pp2_cls_tbl;
+struct pp2_cls_plcr;
 
-#define PP2_CLS_TBL_MAX_NUM_FIELDS		5
+#define PP2_CLS_TBL_MAX_NUM_FIELDS	5
+#define PP2_CLS_PLCR_NUM		31
 
 enum pp2_cls_tbl_type {
 	PP2_CLS_TBL_EXACT_MATCH = 0,
@@ -88,6 +90,36 @@ enum pp2_cls_tbl_action_type {
 	/* TODO: PP2_CLS_TBL_ACT_LU */
 };
 
+enum pp2_cls_plcr_token_unit {
+	PP2_CLS_PLCR_BYTES_TOKEN_UNIT = 0,/* token unit is based on number of bytes	*/
+	PP2_CLS_PLCR_PACKETS_TOKEN_UNIT	/* token unit is based on number of packets	*/
+};
+
+enum pp2_cls_plcr_color_mode {
+	PP2_CLS_PLCR_COLOR_BLIND_MODE = 0,/* color blind mode	*/
+	PP2_CLS_PLCR_COLOR_AWARE_MODE	/* color aware mode	*/
+};
+
+struct pp2_cls_plcr_params {
+	/** Used for DTS access to find appropriate Policer obj;
+	 * E.g. "policer-0:0" means PPv2[0],policer[0]
+	 */
+	const char		*match;
+
+	enum pp2_cls_plcr_token_unit token_unit;	/* token in unit of bytes or packets	*/
+	enum pp2_cls_plcr_color_mode color_mode;	/* color mode, blind or aware of former color	*/
+	u32	cir;		/** commit information rate in unit of Kbps or pps.
+				 *  minimum value - 104Kbps or 100pps. value of '0' means maximum value.
+				 *  In Byte mode, the final value is a multiple of 8.
+				 */
+	u32	cbs;		/** commit burst size in unit of KB or number of packets;
+				 *  minimum value - 64KB or 1Kpps. value of '0' means maximum value.
+				 */
+	u32	ebs;		/** excess burst size in unit of KB or number of packets
+				 *  minimum value - 64KB or 1Kpps. value of '0' means maximum value.
+				 */
+};
+
 struct pp2_cls_cos_desc {
 	struct pp2_ppio	*ppio;
 	u8		 tc;
@@ -107,6 +139,8 @@ struct pp2_cls_tbl_action {
 	*/
 	/** 'NULL' value means no-cos change; i.e. keep original cos */
 	struct pp2_cls_cos_desc		*cos;
+	/** 'NULL' value means no-plcr change; i.e. keep original plcr */
+	struct pp2_cls_plcr		*plcr;
 };
 
 struct pp2_cls_tbl_key {
@@ -225,6 +259,26 @@ int pp2_cls_tbl_modify_rule(struct pp2_cls_tbl		*tbl,
  */
 int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl		*tbl,
 			    struct pp2_cls_tbl_rule	*rule);
+
+/**
+ * Create a classifier policer object
+ *
+ * @param[in]	params	A pointer to the classifier policer parameters
+ * @param[out]	tbl	A pointer to an allocated classifier policer
+ *
+ * @retval		0 on success
+ * @retval		error-code otherwise
+ */
+int pp2_cls_plcr_init(struct pp2_cls_plcr_params *params, struct pp2_cls_plcr **plcr);
+
+/**
+ * Deinit a classifier policer object
+ *
+ * @param[in]	plcr	A pointer to a classifier policer object
+ *
+ * @retval		0 on success
+ */
+void pp2_cls_plcr_deinit(struct pp2_cls_plcr *plcr);
 
 /** @} */ /* end of grp_pp2_cls */
 
