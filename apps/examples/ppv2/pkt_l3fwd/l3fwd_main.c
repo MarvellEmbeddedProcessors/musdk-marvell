@@ -115,10 +115,7 @@ struct glob_arg {
 	u16			 burst;
 	u16			 mtu;
 	u16			 rxq_size;
-	u32			 busy_wait;
-	int			 multi_buffer_release;
 	int			 affinity;
-	int			 loopback;
 	int			 maintain_stats;
 	u64			 qs_map;
 	int			 qs_map_shift;
@@ -153,10 +150,7 @@ struct local_arg {
 	struct bpool_desc	**pools_desc;
 
 	u16			 burst;
-	u32			 busy_wait;
 	int			 id;
-	int			 multi_buffer_release;
-
 	struct glob_arg		*garg;
 };
 
@@ -406,19 +400,14 @@ static inline u16 free_multi_buffers(struct lcl_port_desc	*rx_port,
 static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
 				     struct lcl_port_desc	*tx_port,
 				     struct pp2_hif		*hif,
-				     u8				 tc,
-				     int			 multi_buffer_release)
+				     u8				 tc)
 {
 	u16 tx_num;
 
 	pp2_ppio_get_num_outq_done(tx_port->ppio, hif, tc, &tx_num);
 
-	if (multi_buffer_release)
-		tx_port->shadow_qs[tc].read_ind = free_multi_buffers(rx_port, tx_port, hif,
-								     tx_port->shadow_qs[tc].read_ind, tx_num, tc);
-	else
-		tx_port->shadow_qs[tc].read_ind = free_buffers(rx_port, tx_port, hif,
-							       tx_port->shadow_qs[tc].read_ind, tx_num, tc);
+	tx_port->shadow_qs[tc].read_ind = free_multi_buffers(rx_port, tx_port, hif,
+							     tx_port->shadow_qs[tc].read_ind, tx_num, tc);
 }
 
 static struct buff_release_entry drop_buff[PKT_FWD_APP_DFLT_BURST_SIZE];
@@ -437,7 +426,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct pp2_hif		*hif = larg->hif;
 	struct pp2_bpool	*bpool;
 	int			shadow_q_size;
-	int			dif, dst_port, mycyc;
+	int			dif, dst_port;
 	int			prefetch_shift = larg->prefetch_shift;
 	u16			i, tx_num, tx_count, len;
 	u16			num_drops = 0, desc_idx = 0, cnt = 0;
@@ -558,8 +547,6 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		}
 
 		SET_MAX_BURST(larg->id, rx_ppio_id, tx_count);
-		for (mycyc = 0; mycyc < larg->busy_wait; mycyc++)
-			asm volatile("");
 		while (tx_count) {
 			desc_idx = 0;
 			tx_ppio = larg->ports_desc[dst_port].ppio;
@@ -575,8 +562,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				tx_count -= tx_num;
 				INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
 			}
-			free_sent_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[dst_port],
-					  hif, tc, larg->multi_buffer_release);
+			free_sent_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[dst_port], hif, tc);
 		}
 		desc_ptr += i;
 		num -= i;
@@ -1252,8 +1238,6 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->id                = id;
 	larg->burst		= garg->burst;
-	larg->busy_wait		= garg->busy_wait;
-	larg->multi_buffer_release = garg->multi_buffer_release;
 	larg->prefetch_shift	= garg->prefetch_shift;
 	larg->num_ports         = garg->num_ports;
 	larg->ports_desc = (struct lcl_port_desc *)malloc(larg->num_ports * sizeof(struct lcl_port_desc));
@@ -1329,7 +1313,6 @@ static void usage(char *progname)
 	       "\t-c, --cores <number>     Number of CPUs to use\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t-s                       Maintain statistics\n"
-	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t--routing-file           Use *.xml file\n"
@@ -1358,7 +1341,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"core", required_argument, 0, 'c'},
 		{"affinity", required_argument, 0, 'a'},
 		{"stats", no_argument, 0, 's'},
-		{"wait", required_argument, 0, 'w'},
 		{"rxq", required_argument, 0, 'q'},
 		{"qs-map", no_argument, 0, 'm'},
 		{"cli", no_argument, 0, 'l'},
@@ -1370,9 +1352,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->affinity = -1;
 	garg->burst = PKT_FWD_APP_DFLT_BURST_SIZE;
 	garg->mtu = DEFAULT_MTU;
-	garg->busy_wait	= 0;
 	garg->rxq_size = PKT_FWD_APP_RX_Q_SIZE;
-	garg->multi_buffer_release = 1;
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
 	garg->prefetch_shift = PKT_FWD_APP_PREFETCH_SHIFT;
@@ -1445,9 +1425,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 's':
 			garg->maintain_stats = 1;
-			break;
-		case 'w':
-			garg->busy_wait = atoi(optarg);
 			break;
 		case 'q':
 			garg->rxq_size = atoi(optarg);
