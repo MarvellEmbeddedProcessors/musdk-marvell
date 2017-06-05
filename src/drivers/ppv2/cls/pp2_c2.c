@@ -2244,17 +2244,14 @@ static int pp2_cls_c2_tcam_set(uintptr_t cpu_slot, struct mv_pp2x_c2_add_entry *
 	}
 
 	/* Set policer */
-	/* TODO - to be added later */
-	/*
-	 * ret_code = mv_pp2x_cls_c2_policer_set(&pp2_cls_c2_entry,
-	 *				c2_entry->action.policer_act,
-	 *				c2_entry->qos_info.policer_id & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MAX,
-	 *				MVPP2_POLICER_2_BANK(c2_entry->qos_info.policer_id));
-	 * if (ret_code) {
-	 *	pr_err("recvd ret_code(%d)\n", ret_code);
-	 *	return ret_code;
-	 * }
-	 */
+	ret_code = mv_pp2x_cls_c2_policer_set(&pp2_cls_c2_entry,
+					      c2_entry->action.policer_act,
+					      c2_entry->qos_info.policer_id & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MAX,
+					      MVPP2_POLICER_2_BANK(c2_entry->qos_info.policer_id));
+	if (ret_code) {
+		pr_err("recvd ret_code(%d)\n", ret_code);
+		return ret_code;
+	}
 
 	/* Set flowID(not for multicast) */
 	ret_code = mv_pp2x_cls_c2_flow_id_en(&pp2_cls_c2_entry,

@@ -110,6 +110,12 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 		}
 	}
 
+	pp2_cls_mng_set_default_policing(*ppio, false);
+	if (rc) {
+		pr_err("[%s] ppio init failed while initialize policing\n", __func__);
+		return -EFAULT;
+	}
+
 	pp2_ppio_get_statistics(*ppio, NULL, true);
 	pp2_ppio_set_loopback(*ppio, false);
 
@@ -123,6 +129,9 @@ void pp2_ppio_deinit(struct pp2_ppio *ppio)
 	port_ptr = GET_PPIO_PORT_PTR(ppio_array[ppio->pp2_id][ppio->port_id]);
 
 	if (*port_ptr) {
+		if (pp2_cls_mng_set_default_policing(ppio, true))
+			pr_err("[%s] ppio deinit failed while deinitialize policing\n", __func__);
+
 		pp2_port_close(*port_ptr);
 		*port_ptr = NULL;
 	} else

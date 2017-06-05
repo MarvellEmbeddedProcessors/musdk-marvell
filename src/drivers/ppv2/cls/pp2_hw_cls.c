@@ -1272,6 +1272,18 @@ int mv_pp2x_cls_c2_qos_queue_set(struct mv_pp2x_cls_c2_qos_entry *qos,
 	return 0;
 }
 
+int mv_pp2x_cls_c2_qos_color_set(struct mv_pp2x_cls_c2_qos_entry *qos,
+				 int color)
+{
+	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
+		return MV_ERROR;
+
+	qos->data &= ~MVPP2_CLS2_QOS_TBL_COLOR_MASK;
+	qos->data |= color << MVPP2_CLS2_QOS_TBL_COLOR_OFF;
+
+	return 0;
+}
+
 int mv_pp2x_cls_c2_qos_prio_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *prio)
 {
 	if (mv_pp2x_ptr_validate(qos) == MV_ERROR)
@@ -1348,11 +1360,12 @@ int mv_pp2x_cls_c2_qos_queue_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *queu
  * RETURNS:	0 not found, 1 found
  */
 int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
-				       u8 tbl_sel, uint8_t cos_values[])
+				       u8 tbl_sel, uint8_t tc_values[])
 {
 	struct mv_pp2x_cls_c2_qos_entry qos_entry;
 	u32 pri, line_num;
 	u8 queue;
+	enum pp2_ppio_color color;
 	int rc;
 
 	if (tbl_sel == MVPP2_QOS_TBL_SEL_PRI)
@@ -1374,12 +1387,19 @@ int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
 		/* Physical queue contains 2 parts: port ID and CPU ID,
 		* CPU ID will be used in RSS
 		*/
-		queue = port->tc[cos_values[pri]].tc_config.first_rxq;
-		pr_debug("cos_val[%d] %d, queue %d\n", pri, cos_values[pri], queue);
+		queue = port->tc[tc_values[pri]].tc_config.first_rxq;
+		color = port->tc[tc_values[pri]].tc_config.default_color;
+		pr_info("tc_val[%d] %d, queue %d, color %d\n", pri, tc_values[pri], queue, (int)color);
 
 		rc = mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
 		if (rc) {
 			pr_err("mv_pp2x_cls_c2_qos_queue_set failed\n");
+			return -EFAULT;
+		}
+
+		mv_pp2x_cls_c2_qos_color_set(&qos_entry, color);
+		if (rc) {
+			pr_info("mv_pp2x_cls_c2_qos_color_set failed\n");
 			return -EFAULT;
 		}
 
@@ -1393,41 +1413,6 @@ int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
 }
 
 /* CoS API */
-
-/* mv_pp2x_cos_classifier_set
-*  -- The API supplies interface to config cos classifier:
-*     0: cos based on vlan pri;
-*     1: cos based on dscp;
-*     2: cos based on vlan for tagged packets,
-*		and based on dscp for untagged IP packets;
-*     3: cos based on dscp for IP packets, and based on vlan for non-IP packets;
-*/
-/* Fill the qos table with queue */
-void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port,
-				 u8 tbl_sel, uint8_t start_queue)
-{
-	struct mv_pp2x_cls_c2_qos_entry qos_entry;
-	u32 pri, line_num;
-	u8 queue;
-
-	if (tbl_sel == MVPP2_QOS_TBL_SEL_PRI)
-		line_num = MVPP2_QOS_TBL_LINE_NUM_PRI;
-	else
-		line_num = MVPP2_QOS_TBL_LINE_NUM_DSCP;
-
-	memset(&qos_entry, 0, sizeof(struct mv_pp2x_cls_c2_qos_entry));
-	qos_entry.tbl_id = QOS_LOG_PORT_TABLE_OFF(port->id);
-	qos_entry.tbl_sel = tbl_sel;
-
-	/* Fill the QoS dscp/pbit table */
-	for (pri = 0; pri < line_num; pri++) {
-		qos_entry.tbl_line = pri;
-		queue = start_queue;
-		mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
-		mv_pp2x_cls_c2_qos_hw_write(&port->parent->hw, &qos_entry);
-	}
-}
-
 int mv_pp2x_cls_c2_qos_tbl_set(struct mv_pp2x_cls_c2_entry *c2,
 			       int tbl_id, int tbl_sel)
 {
@@ -2482,6 +2467,74 @@ int pp2_rss_c2_enable(struct pp2_port *port, int en)
 
 			mv_pp2x_c2_sw_clear(&c2);
 			mv_pp2x_cls_c2_hw_read(hw->base[0].va, index, &c2);
+		}
+	}
+	return 0;
+}
+
+/* Go over C2 table and set/clear policer/color in default flows */
+int pp2_c2_set_default_policing(struct pp2_port *port, int clear)
+{
+	int index;
+	int c2_status;
+	int rc;
+	u8 port_id;
+	struct mv_pp2x_cls_c2_entry c2;
+	struct pp2_hw *hw = &port->parent->hw;
+	enum mv_pp2x_color_action_type color_action = 0;
+
+	c2_status = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG);
+	if (!c2_status) {
+		pr_err("c2 is off\n");
+		return -EINVAL;
+	}
+
+	if (clear)
+		color_action = MVPP2_COLOR_ACTION_TYPE_GREEN;
+	else {
+		switch (port->tc[0].tc_config.default_color) {
+		case PP2_PPIO_COLOR_GREEN:
+			color_action = MVPP2_COLOR_ACTION_TYPE_GREEN;
+			break;
+		case PP2_PPIO_COLOR_YELLOW:
+			color_action = MVPP2_COLOR_ACTION_TYPE_YELLOW;
+			break;
+		case PP2_PPIO_COLOR_RED:
+			color_action = MVPP2_COLOR_ACTION_TYPE_RED;
+			break;
+		}
+	}
+
+	mv_pp2x_c2_sw_clear(&c2);
+
+	for (index = 0; index < MVPP2_CLS_C2_TCAM_SIZE; index++) {
+		mv_pp2x_cls_c2_hw_read(hw->base[0].va, index, &c2);
+		port_id = pp2_cls_c2_tcam_port_get(&c2);
+
+		if (c2.inv == 0 && port_id == (1 << port->id)) {
+			if (port->default_plcr) {
+				int plcr_id;
+
+				if (clear)
+					plcr_id = MVPP2_PLCR_BANK0_DEFAULT_ENTRY_ID;
+				else
+					plcr_id = port->default_plcr->id & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MAX;
+
+				rc = mv_pp2x_cls_c2_policer_set(&c2,
+								MVPP2_ACTION_TYPE_UPDT,
+								plcr_id,
+								MVPP2_POLICER_2_BANK(plcr_id));
+				if (rc)
+					return rc;
+			}
+			rc = mv_pp2x_cls_c2_color_set(&c2,
+						      color_action,
+						      MVPP2_QOS_SRC_ACTION_TBL);
+			if (rc)
+				return rc;
+
+			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
+
 		}
 	}
 	return 0;
@@ -3821,6 +3874,173 @@ int pp2_cls_c3_scan_num_of_res_get(uintptr_t cpu_slot, int *res_num)
 
 /*-------------------------------------------------------------------------------*/
 
+int mv_pp2x_plcr_hw_base_rate_gen_enable(uintptr_t cpu_slot, int enable)
+{
+	u32 regVal;
 
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_BASE_PERIOD_REG);
+	if (enable)
+		regVal |= MVPP2_PLCR_ADD_TOKENS_EN_MASK;
+	else
+		regVal &= ~MVPP2_PLCR_ADD_TOKENS_EN_MASK;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_BASE_PERIOD_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_base_period_set(uintptr_t cpu_slot, int period)
+{
+	u32 regVal;
+
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_BASE_PERIOD_REG);
+	regVal &= ~MVPP2_PLCR_BASE_PERIOD_ALL_MASK;
+	regVal |= MVPP2_PLCR_BASE_PERIOD_MASK(period);
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_BASE_PERIOD_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_mode(uintptr_t cpu_slot, int mode)
+{
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_MODE_REG, mode);
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_enable(uintptr_t cpu_slot, int plcr, int enable)
+{
+	u32 regVal;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TABLE_INDEX_REG, plcr);
+
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG);
+	if (enable)
+		regVal |= MVPP2_PLCR_ENABLE_MASK;
+	else
+		regVal &= ~MVPP2_PLCR_ENABLE_MASK;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_min_pkt_len(uintptr_t cpu_slot, int bytes)
+{
+	u32 regVal;
+
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_MIN_PKT_LEN_REG);
+	regVal &= ~MVPP2_PLCR_MIN_PKT_LEN_ALL_MASK;
+	regVal |= MVPP2_PLCR_MIN_PKT_LEN_MASK(bytes);
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_MIN_PKT_LEN_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_early_drop_set(uintptr_t cpu_slot, int enable)
+{
+	u32 regVal;
+
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_EDROP_EN_REG);
+	if (enable)
+		regVal |= MVPP2_PLCR_EDROP_EN_MASK;
+	else
+		regVal &= ~MVPP2_PLCR_EDROP_EN_MASK;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_EN_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_token_config(uintptr_t cpu_slot, int plcr, int unit, int type)
+{
+	u32 regVal;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TABLE_INDEX_REG, plcr);
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG);
+	if (unit)
+		regVal |= MVPP2_PLCR_TOKEN_UNIT_MASK;
+	else
+		regVal &= ~MVPP2_PLCR_TOKEN_UNIT_MASK;
+
+	regVal &= ~MVPP2_PLCR_TOKEN_TYPE_ALL_MASK;
+	regVal |= MVPP2_PLCR_TOKEN_TYPE_MASK(type);
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_token_value(uintptr_t cpu_slot, int plcr, int value)
+{
+	u32 regVal;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TABLE_INDEX_REG, plcr);
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG);
+
+	regVal &= ~MVPP2_PLCR_TOKEN_VALUE_ALL_MASK;
+	regVal |= MVPP2_PLCR_TOKEN_VALUE_MASK(value);
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_color_mode_set(uintptr_t cpu_slot, int plcr, int enable)
+{
+	u32 regVal;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TABLE_INDEX_REG, plcr);
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG);
+	if (enable)
+		regVal |= MVPP2_PLCR_COLOR_MODE_MASK;
+	else
+		regVal &= ~MVPP2_PLCR_COLOR_MODE_MASK;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TOKEN_CFG_REG, regVal);
+
+	return MV_OK;
+}
+
+
+int mv_pp2x_plcr_hw_bucket_size_set(uintptr_t cpu_slot, int plcr, int commit, int excess)
+{
+	u32 regVal;
+
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_TABLE_INDEX_REG, plcr);
+	regVal = MVPP2_PLCR_EXCESS_SIZE_MASK(excess) | MVPP2_PLCR_COMMIT_SIZE_MASK(commit);
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_BUCKET_SIZE_REG, regVal);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_cpu_thresh_set(uintptr_t cpu_slot, int idx, int threshold)
+{
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_CPU_TR_REG(idx), threshold);
+
+	return MV_OK;
+}
+
+
+int mv_pp2x_plcr_hw_hwf_thresh_set(uintptr_t cpu_slot, int idx, int threshold)
+{
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_HWF_TR_REG(idx), threshold);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_rxq_thresh_set(uintptr_t cpu_slot, int rxq, int idx)
+{
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_RXQ_REG, rxq);
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_RXQ_TR_REG, idx);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_txq_thresh_set(uintptr_t cpu_slot, int txq, int idx)
+{
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_TXQ_REG, txq);
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_TXQ_TR_REG, idx);
+
+	return MV_OK;
+}
 
 /* *INDENT-ON* */

@@ -96,7 +96,8 @@ enum pp2_cls_c3_act_dump_idx_t {
 
 enum pp2_cls_c3_qos_dump_idx_t {
 	MVPP2_C3_QOS_DUMP_QUEUE_LOW = 0,
-	MVPP2_C3_QOS_DUMP_QUEUE_HIGH
+	MVPP2_C3_QOS_DUMP_QUEUE_HIGH,
+	MVPP2_C3_QOS_DUMP_POLICER_ID,
 };
 
 enum pp2_cls_c3_mod_dump_idx_t {

@@ -270,6 +270,7 @@ struct pp2_ppio_tc_config {
 	u8 num_in_qs;
 	u8 first_rxq;	/* First physical rx_queue for this TC */
 	struct pp2_bm_pool *pools[PP2_PPIO_TC_MAX_POOLS];
+	enum pp2_ppio_color default_color; /**< Default color for this TC */
 /* TODO: future:
  *	int							 qos;
  */
@@ -346,6 +347,8 @@ struct pp2_port {
 	struct pp2_ppio_statistics stats;
 	/* Logical or nic port */
 	enum pp2_ppio_type type;
+	/* Default policer. Can be NULL */
+	struct pp2_cls_plcr *default_plcr;
 };
 
 /**

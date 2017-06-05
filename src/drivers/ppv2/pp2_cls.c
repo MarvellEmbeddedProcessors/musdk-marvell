@@ -39,6 +39,7 @@
 #include "pp2_hw_type.h"
 #include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_db.h"
+#include "lib/lib_misc.h" /* for mv_sys_match */
 
 #define MVPP2_CLS_PROTO_SHIFT	MVPP2_CLS_PROTO_SHIFT
 #define NOT_SUPPORTED_YET 255
@@ -175,3 +176,70 @@ int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl		*tbl,
 
 	return rc;
 }
+
+int pp2_cls_plcr_init(struct pp2_cls_plcr_params *params, struct pp2_cls_plcr **plcr)
+{
+	u8 match[2];
+	int policer_id, pp2_id, rc;
+	enum pp2_cls_plcr_entry_state_t state;
+
+	/* Para check */
+	if (mv_pp2x_ptr_validate(params))
+		return -EINVAL;
+
+	if (mv_sys_match(params->match, "policer", 2, match))
+		return(-ENXIO);
+
+	if (pp2_is_init() == false)
+		return(-EPERM);
+
+	pp2_id = match[0];
+	policer_id = match[1];
+
+	if (policer_id < 0 || policer_id >= PP2_CLS_PLCR_NUM) {
+		pr_err("[%s] Invalid match string!\n", __func__);
+		return(-ENXIO);
+	}
+
+	if (pp2_id < 0 || pp2_id >= pp2_ptr->num_pp2_inst) {
+		pr_err("[%s] Invalid match string!\n", __func__);
+		return(-ENXIO);
+	}
+
+	if (pp2_ptr->init.policers_reserved_map & (1 << policer_id)) {
+		pr_err("[%s] policer-id is reserved.\n", __func__);
+		return(-EFAULT);
+	}
+
+	rc = pp2_cls_plcr_entry_state_get(pp2_ptr->pp2_inst[pp2_id], policer_id+1, &state);
+	if (rc || state == MVPP2_PLCR_ENTRY_VALID_STATE) {
+		pr_err("[%s] policer already exists.\n", __func__);
+		return(-EEXIST);
+	}
+
+	*plcr = kmalloc(sizeof(struct pp2_cls_plcr), GFP_KERNEL);
+	if (!*plcr)
+		return -ENOMEM;
+	(*plcr)->pp2_id = pp2_id;
+	(*plcr)->id = policer_id+1;
+	rc = pp2_cls_plcr_entry_add(pp2_ptr->pp2_inst[pp2_id], params, policer_id+1);
+	if (rc) {
+		kfree(*plcr);
+		*plcr = NULL;
+	}
+
+	return rc;
+}
+
+void pp2_cls_plcr_deinit(struct pp2_cls_plcr *plcr)
+{
+	int rc;
+
+	if (mv_pp2x_ptr_validate(plcr))
+		pr_err("%s(%d) fail, plcr = NULL\n", __func__, __LINE__);
+
+	rc = pp2_cls_plcr_entry_del(pp2_ptr->pp2_inst[plcr->pp2_id], plcr->id);
+	if (rc)
+		pr_err("[%s] cls policer deinit error\n", __func__);
+}
+

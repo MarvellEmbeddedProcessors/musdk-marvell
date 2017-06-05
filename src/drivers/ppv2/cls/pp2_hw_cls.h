@@ -64,7 +64,6 @@
 #define DWORD_BITS_LEN		(32)
 #define RETRIES_EXCEEDED	(15000)
 #define MVPP2_CLS_C3_SC_RES_TBL_SIZE	(256)
-#define MVPP2_PLCR_NUM		48
 
 enum mv_pp2x_cos_classifier {
 	MVPP2_COS_CLS_VLAN,	/* CoS based on VLAN pri */
@@ -122,6 +121,8 @@ int mv_pp22_rss_tbl_entry_set(struct pp2_hw *hw,
 int pp2_rss_tbl_entry_get(struct pp2_hw *hw,
 			  struct mv_pp22_rss_entry *rss);
 int pp2_rss_c2_enable(struct pp2_port *port, int en);
+int pp2_c2_set_default_policing(struct pp2_port *port, int clear);
+
 
 /*-------------------------------------------------------------------------------*/
 /*	c2 Common utilities							  */
@@ -157,7 +158,7 @@ int mv_pp2x_cls_c2_seq_set(struct mv_pp2x_cls_c2_entry *c2, int miss, int id);
 void mv_pp2x_c2_sw_clear(struct mv_pp2x_cls_c2_entry *c2);
 int mv_pp2x_c2_hit_cntr_read(uintptr_t cpu_slot, int index, u32 *cntr);
 int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
-				       u8 tbl_sel, uint8_t cos_values[]);
+				       u8 tbl_sel, uint8_t tc_values[]);
 int mv_pp2x_cls_c2_qos_hw_read(struct pp2_hw *hw, int tbl_id, int tbl_sel,
 			       int tbl_line, struct mv_pp2x_cls_c2_qos_entry *qos);
 int mv_pp2x_cls_c2_qos_prio_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *prio);
@@ -165,7 +166,6 @@ int mv_pp2x_cls_c2_qos_dscp_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *dscp)
 int mv_pp2x_cls_c2_qos_color_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *color);
 int mv_pp2x_cls_c2_qos_gpid_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *gpid);
 int mv_pp2x_cls_c2_qos_queue_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *queue);
-void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port, u8 tbl_sel, uint8_t start_queue);
 int pp2_c2_config_default_queue(struct pp2_port *port, u16 queue);
 
 /*-------------------------------------------------------------------------------*/
@@ -221,7 +221,7 @@ int pp2_cls_c3_dup_set(struct pp2_cls_c3_entry *c3, int dupid, int count);
 int pp2_cls_c3_seq_set(struct pp2_cls_c3_entry *c3, int id, int bits_offs, int bits);
 
 /*-------------------------------------------------------------------------------*/
-/*	APIs for Classification C3 Hit counters management				  */
+/*	APIs for Classification C3 Hit counters management			 */
 /*-------------------------------------------------------------------------------*/
 int pp2_cls_c3_hit_cntrs_read(uintptr_t cpu_slot, int index, u32 *cntr);
 int pp2_cls_c3_hit_cntrs_clear_all(uintptr_t cpu_slot);
@@ -230,7 +230,7 @@ int pp2_cls_c3_hit_cntrs_clear(uintptr_t cpu_slot, int lkp_type);
 int pp2_cls_c3_hit_cntrs_miss_read(uintptr_t cpu_slot, int lkp_type, u32 *cntr);
 
 /*-------------------------------------------------------------------------------*/
-/*	 APIs for Classification C3 hit counters scan fields operation			  */
+/*	 APIs for Classification C3 hit counters scan fields operation		 */
 /*-------------------------------------------------------------------------------*/
 int pp2_cls_c3_scan_start(uintptr_t cpu_slot);
 int pp2_cls_c3_scan_thresh_set(uintptr_t cpu_slot, int mode, int thresh);
@@ -242,25 +242,25 @@ int pp2_cls_c3_scan_res_read(uintptr_t cpu_slot, int index, int *addr, int *cnt)
 int pp2_cls_c3_scan_num_of_res_get(uintptr_t cpu_slot, int *res_num);
 
 /*-------------------------------------------------------------------------------*/
-/*	 APIs for Policer								  */
+/*	 APIs for Policer							 */
 /*-------------------------------------------------------------------------------*/
 void mv_pp2x_plcr_hw_regs(uintptr_t cpu_slot);
 void mv_pp2x_plcr_hw_dump_all(uintptr_t cpu_slot);
 void mv_pp2x_plcr_hw_dump_single(uintptr_t cpu_slot, int plcr);
 void mv_pp2x_plcr_tb_cnt_dump(uintptr_t cpu_slot, int plcr);
-int	mv_pp2x_plcr_hw_base_period_set(uintptr_t cpu_slot, int period);
-int	mv_pp2x_plcr_hw_base_rate_gen_enable(uintptr_t cpu_slot, int enable);
-int	mv_pp2x_plcr_hw_enable(uintptr_t cpu_slot, int plcr, int enable);
-int	mv_pp2x_plcr_hw_mode(uintptr_t cpu_slot, int mode);
-int	mv_pp2x_plcr_hw_min_pkt_len(uintptr_t cpu_slot, int bytes);
-int	mv_pp2x_plcr_hw_early_drop_set(uintptr_t cpu_slot, int enable);
-int	mv_pp2x_plcr_hw_token_config(uintptr_t cpu_slot, int plcr, int unit, int type);
-int	mv_pp2x_plcr_hw_token_value(uintptr_t cpu_slot, int plcr, int value);
-int	mv_pp2x_plcr_hw_color_mode_set(uintptr_t cpu_slot, int plcr, int enable);
-int	mv_pp2x_plcr_hw_bucket_size_set(uintptr_t cpu_slot, int plcr, int commit, int excess);
-int	mv_pp2x_plcr_hw_cpu_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
-int	mv_pp2x_plcr_hw_hwf_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
-int	mv_pp2x_plcr_hw_rxq_thresh_set(uintptr_t cpu_slot, int rxq, int idx);
-int	mv_pp2x_plcr_hw_txq_thresh_set(uintptr_t cpu_slot, int txq, int idx);
+int mv_pp2x_plcr_hw_base_period_set(uintptr_t cpu_slot, int period);
+int mv_pp2x_plcr_hw_base_rate_gen_enable(uintptr_t cpu_slot, int enable);
+int mv_pp2x_plcr_hw_enable(uintptr_t cpu_slot, int plcr, int enable);
+int mv_pp2x_plcr_hw_mode(uintptr_t cpu_slot, int mode);
+int mv_pp2x_plcr_hw_min_pkt_len(uintptr_t cpu_slot, int bytes);
+int mv_pp2x_plcr_hw_early_drop_set(uintptr_t cpu_slot, int enable);
+int mv_pp2x_plcr_hw_token_config(uintptr_t cpu_slot, int plcr, int unit, int type);
+int mv_pp2x_plcr_hw_token_value(uintptr_t cpu_slot, int plcr, int value);
+int mv_pp2x_plcr_hw_color_mode_set(uintptr_t cpu_slot, int plcr, int enable);
+int mv_pp2x_plcr_hw_bucket_size_set(uintptr_t cpu_slot, int plcr, int commit, int excess);
+int mv_pp2x_plcr_hw_cpu_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
+int mv_pp2x_plcr_hw_hwf_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
+int mv_pp2x_plcr_hw_rxq_thresh_set(uintptr_t cpu_slot, int rxq, int idx);
+int mv_pp2x_plcr_hw_txq_thresh_set(uintptr_t cpu_slot, int txq, int idx);
 
 #endif /* _PP2_HW_CLS_H_ */

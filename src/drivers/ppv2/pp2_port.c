@@ -1215,6 +1215,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 			port->tc[i].tc_config.pkt_offset = PP2_PACKET_DEF_OFFSET;
 		port->tc[i].first_log_rxq = total_num_in_qs;
 		port->tc[i].tc_config.num_in_qs = num_in_qs;
+		port->tc[i].tc_config.default_color = param->inqs_params.tcs_params[i].default_color;
 		/*To support RSS, each TC must start at natural rxq boundary */
 		first_rxq = roundup(first_rxq, roundup_pow_of_two(num_in_qs));
 		port->tc[i].tc_config.first_rxq = first_rxq;
@@ -1232,6 +1233,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	}
 
 	port->hash_type = param->inqs_params.hash_type;
+	port->default_plcr = param->inqs_params.plcr;
 
 	if (port_id == PP2_LOOPBACK_PORT)
 		port->use_mac_lb = true;

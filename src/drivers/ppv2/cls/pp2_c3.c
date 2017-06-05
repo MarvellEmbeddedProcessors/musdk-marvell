@@ -558,17 +558,15 @@ int pp2_cls_c3_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, struct pp2
 		return rc;
 	}
 
-	/* set policer */
-/* [AW] - To be added later */
-	/*
-	* rc = pp2_cls_c3_policer_set(hw_entry, mng_entry->action.policer_act,
-	*			  mng_entry->qos_info.policer_id & MVPP2_CLS3_ACT_DUP_POLICER_MAX,
-	*			  MVPP2_POLICER_2_BANK(mng_entry->qos_info.policer_id));
-	* if (rc {
-	*	pr_err("failed to call pp2_cls_c3_policer_set\n");
-	*	return rc;
-	*}
-	*/
+	/* Set policer */
+	rc = pp2_cls_c3_policer_set(hw_entry,
+				    mng_entry->action.policer_act,
+				    mng_entry->qos_info.policer_id & MVPP2_CLS3_ACT_DUP_POLICER_MAX,
+				    MVPP2_POLICER_2_BANK(mng_entry->qos_info.policer_id));
+	if (rc) {
+		pr_err("failed to call pp2_cls_c3_policer_set\n");
+		return rc;
+	}
 
 	/* set flow ID */
 	rc = pp2_cls_c3_flow_id_en(hw_entry, mng_entry->action.flowid_act);
@@ -665,18 +663,15 @@ int pp2_cls_c3_default_rule_convert(struct pp2_cls_c3_add_entry_t *mng_entry, st
 		return rc;
 	}
 
-	/* set policer */
-/* [AW] - To be added later */
-	/*
-	* rc = pp2_cls_c3_policer_set(hw_entry,
-	*			  mng_entry->action.policer_act,
-	*			  mng_entry->qos_info.policer_id & MVPP2_CLS3_ACT_DUP_POLICER_MAX,
-	*			  MVPP2_POLICER_2_BANK(mng_entry->qos_info.policer_id));
-	* if (rc) {
-	*	pr_err("failed to call pp2_cls_c3_policer_set\n");
-	*	return rc;
-	*}
-	*/
+	/* Set policer */
+	rc = pp2_cls_c3_policer_set(hw_entry,
+				    mng_entry->action.policer_act,
+				    mng_entry->qos_info.policer_id & MVPP2_CLS3_ACT_DUP_POLICER_MAX,
+				    MVPP2_POLICER_2_BANK(mng_entry->qos_info.policer_id));
+	if (rc) {
+		pr_err("failed to call pp2_cls_c3_policer_set\n");
+		return rc;
+	}
 
 	/* set flow ID */
 	rc = pp2_cls_c3_flow_id_en(hw_entry, mng_entry->action.flowid_act);

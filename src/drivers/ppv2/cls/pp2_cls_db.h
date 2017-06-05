@@ -44,6 +44,7 @@
 #define _PP2_CLS_DB_H_
 
 #include "drivers/mv_pp2_cls.h"
+#include "pp2_plcr.h"
 
 #define MVPP2_MNG_FLOW_ID_MAX 50
 /********************************************************************************/
@@ -159,12 +160,27 @@ struct pp2_cls_db_rss_t {
 	struct rss_tbl_map_t rss_tbl_map[MVPP22_RSS_TBL_NUM];	/* RSS table mapping for MUSDK RSS tables */
 };
 
+struct pp2_cls_db_plcr_entry_t {
+	int				valid;		/* whether this policer entry is valid	*/
+	struct pp2_cls_plcr_params	plcr_entry;	/* policer entry			*/
+	u32				rules_ref_cnt;	/* reference counter of CLS rules	*/
+	u32				ppios_ref_cnt;	/* reference counter of PPIOs		*/
+};
+
+/* policer module DB structure */
+struct pp2_cls_db_plcr_t {
+	struct pp2_cls_plcr_gen_cfg_t	gen_cfg;			/* general configuration	*/
+	struct pp2_cls_db_plcr_entry_t	plcr_arr[MVPP2_PLCR_MAX];	/* policer entry array		*/
+	struct pp2_cls_plcr_early_drop_t	early_drop;			/* early drop configuration	*/
+};
+
 struct pp2_cls_db_t {
 	struct pp2_cls_db_c2_t	c2_db;			/* PP2_CLS module C2 db		*/
 	struct pp2_cls_db_c3_t	c3_db;			/* PP2_CLS module C3 db		*/
 	struct pp2_cls_db_cls_t	cls_db;			/* PP2_CLS module CLS db		*/
 	struct pp2_cls_db_prs_t	prs_db;			/* PP2_CLS module PARSER db	*/
 	struct pp2_cls_db_rss_t	rss_db;			/* PP2_CLS module RSS db		*/
+	struct pp2_cls_db_plcr_t plcr_db;		/* PP2 CLS module PLCR db		*/
 };
 
 /* table db is not instance dependent, so it is defined separately in db */
@@ -243,7 +259,10 @@ int pp2_cls_db_mng_tbl_num_get(void);
 int pp2_cls_db_mng_tbl_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule **rule, u32 logic_index,
 				struct pp2_cls_tbl_action **action);
 int pp2_cls_db_mng_rule_check(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule);
-int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, u32 *logic_index);
+int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl,
+				struct pp2_cls_tbl_rule *rule,
+				u32 *logic_index,
+				struct pp2_cls_tbl_action *action);
 int pp2_cls_db_mng_tbl_rule_next_get(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule **rule);
 int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl);
 int pp2_cls_db_mng_tbl_list_dump(void);
@@ -260,6 +279,20 @@ int pp2_cls_db_rss_tbl_map_set(struct pp2_inst *inst, u16 idx, u16 hw_tbl, u16 n
 int pp2_cls_db_rss_tbl_map_get(struct pp2_inst *inst, u16 idx, int *hw_tbl, u16 *num_in_q);
 int pp2_cls_db_rss_get_hw_tbl_from_in_q(struct pp2_inst *inst, u8 num_in_q);
 int pp2_cls_db_rss_tbl_map_get_next_free_idx(struct pp2_inst *inst);
+
+/* policer section */
+int pp2_cls_db_plcr_entry_set(struct pp2_inst *inst, u8 policer_id, struct pp2_cls_db_plcr_entry_t *plcr_entry);
+int pp2_cls_db_plcr_entry_get(struct pp2_inst *inst, u8 policer_id, struct pp2_cls_db_plcr_entry_t *plcr_entry);
+int pp2_cls_db_plcr_ref_cnt_update(struct pp2_inst *inst,
+				   u8 policer_id,
+				   enum pp2_cls_plcr_ref_cnt_action_t cnt_action,
+				   int update_ppio);
+int pp2_cls_db_plcr_gen_cfg_set(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_t *gen_cfg);
+int pp2_cls_db_plcr_gen_cfg_get(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_t *gen_cfg);
+int pp2_cls_db_plcr_early_drop_set(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop);
+int pp2_cls_db_plcr_early_drop_get(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop);
+int pp2_cls_db_plcr_init(struct pp2_inst *inst);
+int pp2_cls_db_plcr_dump(void *arg);
 
 /* DB general section */
 int pp2_cls_db_init(struct pp2_inst *inst);

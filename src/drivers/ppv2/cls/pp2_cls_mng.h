@@ -70,5 +70,6 @@ void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map);
 void pp2_cls_mng_config_default_cos_queue(struct pp2_port *port);
 int pp2_cls_mng_eth_start_header_params_set(struct pp2_ppio *ppio,
 					    enum pp2_ppio_eth_start_hdr eth_start_hdr);
+int pp2_cls_mng_set_default_policing(struct pp2_ppio *ppio, int clear);
 
 #endif /* _PP2_MNG_H_ */

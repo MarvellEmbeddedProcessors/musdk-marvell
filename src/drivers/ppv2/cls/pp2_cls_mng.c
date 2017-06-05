@@ -619,6 +619,45 @@ int pp2_cls_mng_eth_start_header_params_set(struct pp2_ppio *ppio,
 	return 0;
 }
 
+/*
+ * pp2_cls_mng_set_policing()
+ * configure policer and color for defaults flows
+ */
+int pp2_cls_mng_set_default_policing(struct pp2_ppio *ppio, int clear)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	u32 ref_cnt;
+	int rc;
+
+	if (!port->default_plcr)
+		return 0;
+
+	if (!clear) {
+		rc = pp2_cls_plcr_ref_cnt_get(pp2_ptr->pp2_inst[ppio->pp2_id], port->default_plcr->id, NULL, &ref_cnt);
+		if (rc || ref_cnt) {
+			pr_err("[%s] policer already in use by other ppio\n", __func__);
+			return -EFAULT;
+		}
+	}
+
+	rc = pp2_c2_set_default_policing(port, clear);
+	if (rc) {
+		pr_err("%s(%d) pp2_cls_mng_set_policing fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	rc = pp2_cls_plcr_ref_cnt_update(pp2_ptr->pp2_inst[ppio->pp2_id],
+					 port->default_plcr->id,
+					 (clear) ? MVPP2_PLCR_REF_CNT_DEC : MVPP2_PLCR_REF_CNT_INC,
+					 true);
+	if (rc) {
+		pr_err("%s(%d) pp2_cls_plcr_ref_cnt_update fail\n", __func__, __LINE__);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl, int lkp_type)
 {
 	struct pp2_cls_fl_rule_list_t *fl_rls;
@@ -1365,22 +1404,38 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 }
 
 static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
-				      struct mv_pp2x_c2_add_entry *c2_entry,
-				      struct mv_pp2x_qos_value *pkt_qos,
-				      struct mv_pp2x_engine_pkt_action *pkt_action,
-				      struct pp2_cls_tbl_action *action,
-				      int lkp_type)
+				   struct mv_pp2x_engine_qos_info *qos_info,
+				   struct mv_pp2x_qos_value *pkt_qos,
+				   struct mv_pp2x_engine_pkt_action *pkt_action,
+				   struct pp2_cls_tbl_action *action,
+				   int lkp_type)
 {
-	u8 queue;
+	u8 queue, default_tc = 0;
 
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
-	else
-		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
+	else {
+		switch (port->tc[action->cos->tc].tc_config.default_color) {
+		case PP2_PPIO_COLOR_GREEN:
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
+			break;
+		case PP2_PPIO_COLOR_YELLOW:
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_YELLOW;
+			break;
+		case PP2_PPIO_COLOR_RED:
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED;
+			break;
+		}
+	}
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+
+	if (action->plcr) {
+		pkt_action->policer_act = MVPP2_ACTION_TYPE_UPDT;
+		qos_info->policer_id = action->plcr->id;
+	}
 
 	/* for qos rules (only activated when logical port is initialized) */
 	if (lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI ||
@@ -1392,14 +1447,15 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 		else if (lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI)
 			tbl_sel = MVPP2_QOS_TBL_SEL_DSCP;
 
-		c2_entry->qos_info.qos_tbl_index = QOS_LOG_PORT_TABLE_OFF(port->id);
-		c2_entry->qos_info.q_low_src = MVPP2_QOS_SRC_DSCP_PBIT_TBL;
-		c2_entry->qos_info.q_high_src = MVPP2_QOS_SRC_DSCP_PBIT_TBL;
-		c2_entry->qos_info.qos_tbl_type = tbl_sel;
+		qos_info->qos_tbl_index = QOS_LOG_PORT_TABLE_OFF(port->id);
+		qos_info->q_low_src = MVPP2_QOS_SRC_DSCP_PBIT_TBL;
+		qos_info->q_high_src = MVPP2_QOS_SRC_DSCP_PBIT_TBL;
+		qos_info->color_src = MVPP2_QOS_SRC_DSCP_PBIT_TBL;
+		qos_info->qos_tbl_type = tbl_sel;
 		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
-		mv_pp2x_cls_c2_qos_tbl_fill(port, tbl_sel, port->first_rxq);
+		mv_pp2x_cls_c2_qos_tbl_fill_array(port, tbl_sel, &default_tc);
 	} else {
 	/* for classifier and default rules */
 		if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
@@ -1418,21 +1474,38 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 }
 
 static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
-				      struct mv_pp2x_qos_value *pkt_qos,
-				      struct mv_pp2x_engine_pkt_action *pkt_action,
-				      struct pp2_cls_tbl_action *action,
-				      int lkp_type)
+				   struct mv_pp2x_engine_qos_info *qos_info,
+				   struct mv_pp2x_qos_value *pkt_qos,
+				   struct mv_pp2x_engine_pkt_action *pkt_action,
+				   struct pp2_cls_tbl_action *action,
+				   int lkp_type)
 {
 	u8 queue;
 
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
-	else
-		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
+	else {
+		switch (port->tc[action->cos->tc].tc_config.default_color) {
+		case PP2_PPIO_COLOR_GREEN:
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
+			break;
+		case PP2_PPIO_COLOR_YELLOW:
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_YELLOW;
+			break;
+		case PP2_PPIO_COLOR_RED:
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED;
+			break;
+		}
+	}
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+
+	if (action->plcr) {
+		pkt_action->policer_act = MVPP2_ACTION_TYPE_UPDT;
+		qos_info->policer_id = action->plcr->id;
+	}
 
 	if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
 		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
@@ -1475,7 +1548,7 @@ static int pp2_cls_mng_rule_update_db(struct pp2_cls_tbl_rule *rule, struct pp2_
 		memcpy(mask, rule->fields[i].mask, CLS_MNG_KEY_SIZE_MAX);
 		rule_db->fields[i].mask = mask;
 	}
-
+	action_db->plcr = action->plcr;
 	action_db->cos = kmalloc(sizeof(*action_db->cos), GFP_KERNEL);
 	if (!action_db->cos)
 		return -ENOMEM;
@@ -1490,8 +1563,6 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 {
 	struct pp2_cls_pkt_key_t pkt_key;
 	struct pp2_cls_mng_pkt_key_t mng_pkt_key;
-	struct mv_pp2x_engine_pkt_action pkt_action;
-	struct mv_pp2x_qos_value pkt_qos;
 	struct mv_pp2x_src_port rule_port;
 	struct pp2_port *port;
 	struct pp2_inst *inst;
@@ -1523,8 +1594,6 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 	/* init value */
 	MVPP2_MEMSET_ZERO(pkt_key);
 	MVPP2_MEMSET_ZERO(mng_pkt_key);
-	MVPP2_MEMSET_ZERO(pkt_action);
-	MVPP2_MEMSET_ZERO(pkt_qos);
 	mng_pkt_key.pkt_key = &pkt_key;
 
 	port = GET_PPIO_PORT(params->default_act.cos->ppio);
@@ -1560,11 +1629,14 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		c2_entry.lkp_type = lkp_type;
 		c2_entry.lkp_type_mask = MVPP2_C2_HEK_LKP_TYPE_MASK >> MVPP2_C2_HEK_LKP_TYPE_OFFS;
 		c2_entry.rss_en = port->rss_en;
-		pp2_cls_mng_set_c2_action(port, &c2_entry, &pkt_qos, &pkt_action, action, lkp_type);
+		pp2_cls_mng_set_c2_action(port,
+					  &c2_entry.qos_info,
+					  &c2_entry.qos_value,
+					  &c2_entry.action,
+					  action,
+					  lkp_type);
 
 		memcpy(&c2_entry.port, &rule_port, sizeof(rule_port));
-		memcpy(&c2_entry.action, &pkt_action, sizeof(pkt_action));
-		memcpy(&c2_entry.qos_value, &pkt_qos, sizeof(pkt_qos));
 
 		/* add rule */
 		rc = pp2_cls_c2_rule_add(inst, &c2_entry, &logic_idx);
@@ -1581,11 +1653,14 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		c3_entry.mng_pkt_key->pkt_key = &pkt_key;
 		c3_entry.lkp_type = lkp_type;
 		c3_entry.rss_en = port->rss_en;
-		pp2_cls_mng_set_c3_action(port, &pkt_qos, &pkt_action, action, lkp_type);
+		pp2_cls_mng_set_c3_action(port,
+					  &c3_entry.qos_info,
+					  &c3_entry.qos_value,
+					  &c3_entry.action,
+					  action,
+					  lkp_type);
 
 		memcpy(&c3_entry.port, &rule_port, sizeof(rule_port));
-		memcpy(&c3_entry.action, &pkt_action, sizeof(pkt_action));
-		memcpy(&c3_entry.qos_value, &pkt_qos, sizeof(pkt_qos));
 
 		/* add rule */
 		rc = pp2_cls_c3_rule_add(inst, &c3_entry, &logic_idx);
@@ -1607,6 +1682,12 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 	if (rc)
 		return -EFAULT;
 
+	if (action->plcr) {
+		rc = pp2_cls_plcr_ref_cnt_update(inst, action->plcr->id, MVPP2_PLCR_REF_CNT_INC, false);
+		if (rc)
+			return -EFAULT;
+	}
+
 	return 0;
 }
 
@@ -1615,6 +1696,7 @@ int pp2_cls_mng_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *ru
 	struct pp2_port *port;
 	u32 rc;
 	struct pp2_cls_tbl_params *params = &tbl->params;
+	struct pp2_cls_tbl_action action;
 	u32 logic_index;
 	struct pp2_inst *inst;
 
@@ -1628,7 +1710,7 @@ int pp2_cls_mng_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *ru
 	port = GET_PPIO_PORT(params->default_act.cos->ppio);
 	inst = port->parent;
 
-	rc = pp2_cls_db_mng_tbl_rule_remove(tbl, rule, &logic_index);
+	rc = pp2_cls_db_mng_tbl_rule_remove(tbl, rule, &logic_index, &action);
 	if (rc)
 		return -EFAULT;
 
@@ -1641,6 +1723,13 @@ int pp2_cls_mng_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *ru
 		pr_err("%s(%d) unknown engine type!\n", __func__, __LINE__);
 		return -EINVAL;
 	}
+
+	if (action.plcr) {
+		rc = pp2_cls_plcr_ref_cnt_update(inst, action.plcr->id, MVPP2_PLCR_REF_CNT_DEC, false);
+		if (rc)
+			return -EFAULT;
+	}
+
 	return 0;
 }
 
@@ -1740,11 +1829,13 @@ void pp2_cls_mng_init(struct pp2_inst *inst)
 	pp2_cls_c2_start(inst);
 	pp2_cls_c3_start(inst);
 	pp2_cls_rss_init(inst);
+	pp2_cls_plcr_start(inst);
 }
 
 void pp2_cls_mng_deinit(struct pp2_inst *inst)
 {
 	pp2_cls_prs_deinit(inst);
+	pp2_cls_plcr_finish(inst);
 }
 
 

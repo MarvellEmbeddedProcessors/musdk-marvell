@@ -269,6 +269,24 @@ static struct pp2_cls_enum_str_t g_enum_prs_log_port[] = {
 	{ PP2_CLS_TARGET_OTHER,		"PP2_CLS_TARGET_OTHER"},
 };
 
+/* policer valid state string */
+static struct pp2_cls_enum_str_t g_pp2_cls_policer_entry_state[] = {
+	{MVPP2_PLCR_ENTRY_INVALID_STATE, "Dis"},
+	{MVPP2_PLCR_ENTRY_VALID_STATE,	 "En"},
+};
+
+/* policer token unit type */
+static struct pp2_cls_enum_str_t g_pp2_cls_policer_token_type[] = {
+	{PP2_CLS_PLCR_BYTES_TOKEN_UNIT,	  "Byte"},
+	{PP2_CLS_PLCR_PACKETS_TOKEN_UNIT, "Packet"},
+};
+
+/* policer token color mode */
+static struct pp2_cls_enum_str_t g_pp2_cls_policer_color_mode[] = {
+	{PP2_CLS_PLCR_COLOR_BLIND_MODE,	"Blind"},
+	{PP2_CLS_PLCR_COLOR_AWARE_MODE,	"Aware"},
+};
+
 /******************************************************************************
  *
  * Function   : common_mask_gen
@@ -420,7 +438,20 @@ const char *pp2_g_enum_prs_log_port_str_get(int value)
 	return lookup_enum_str(g_enum_prs_log_port, MVPP2_MEMBER_NUM(g_enum_prs_log_port), value);
 }
 
+const char *pp2_cls_utils_plcr_state_str_get(int value)
+{
+	return lookup_enum_str(g_pp2_cls_policer_entry_state, MVPP2_MEMBER_NUM(g_pp2_cls_policer_entry_state), value);
+}
 
+const char *pp2_cls_utils_plcr_token_type_str_get(int value)
+{
+	return lookup_enum_str(g_pp2_cls_policer_token_type, MVPP2_MEMBER_NUM(g_pp2_cls_policer_token_type), value);
+}
+
+const char *pp2_cls_utils_plcr_color_mode_str_get(int value)
+{
+	return lookup_enum_str(g_pp2_cls_policer_color_mode, MVPP2_MEMBER_NUM(g_pp2_cls_policer_color_mode), value);
+}
 
 void print_horizontal_line(u32 char_count, const char *char_val)
 {

@@ -226,6 +226,9 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 	case MVPP2_C3_QOS_DUMP_QUEUE_HIGH:
 		sprintf(qos_info_str, "Q_HIGH=%d", c3_entry->qos_value.q_high);
 		break;
+	case MVPP2_C3_QOS_DUMP_POLICER_ID:
+		sprintf(qos_info_str, "POLICER_ID=%d", c3_entry->policer_id);
+		break;
 	default:
 		break;
 	}

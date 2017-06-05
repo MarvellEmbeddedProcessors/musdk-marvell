@@ -1442,7 +1442,10 @@ int pp2_cls_db_mng_tbl_rule_next_get(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl
  * RETURN:
  *	0 on success, error-code otherwise
  *******************************************************************************/
-int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, u32 *logic_index)
+int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl,
+				struct pp2_cls_tbl_rule *rule,
+				u32 *logic_index,
+				struct pp2_cls_tbl_action *action)
 {
 	struct pp2_cls_tbl_node *tbl_node;
 	struct pp2_cls_rule_node *rule_node;
@@ -1472,10 +1475,12 @@ int pp2_cls_db_mng_tbl_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_r
 					*logic_index = rule_node->logic_index;
 					list_del(&rule_node->list_node);
 					kfree(rule_node->action.cos);
+					rule_node->action.cos = NULL;
 					for (i = 0; i < rule->num_fields; i++) {
 						kfree(rule_node->rule.fields[i].key);
 						kfree(rule_node->rule.fields[i].mask);
 					}
+					memcpy(action, &rule_node->action, sizeof(struct pp2_cls_tbl_action));
 					kfree(rule_node);
 					return 0;
 				}
@@ -1983,6 +1988,186 @@ int pp2_cli_cls_db_prs_tcam_neg_proto_dump(void *arg, int argc, char *argv[])
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	pp2_prs_tcam_neg_proto_dump(inst);
+	return 0;
+}
+
+int pp2_cls_db_plcr_entry_set(struct pp2_inst *inst, u8 policer_id, struct pp2_cls_db_plcr_entry_t *plcr_entry)
+{
+	if (mv_pp2x_range_validate(policer_id, MVPP2_PLCR_MIN_ENTRY_ID, MVPP2_PLCR_MAX - 1)) {
+		pr_err("invalid policer ID %d, out of range[%d, %d]\n",	policer_id,
+			MVPP2_PLCR_MIN_ENTRY_ID, MVPP2_PLCR_MAX - 1);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_ptr_validate(plcr_entry))
+		return -EINVAL;
+
+	memcpy(&inst->cls_db->plcr_db.plcr_arr[policer_id], plcr_entry, sizeof(struct pp2_cls_db_plcr_entry_t));
+
+	/* Clear this policer entry in invalid case */
+	if (inst->cls_db->plcr_db.plcr_arr[policer_id].valid == MVPP2_PLCR_ENTRY_INVALID_STATE) {
+		memset(&inst->cls_db->plcr_db.plcr_arr[policer_id], 0, sizeof(struct pp2_cls_db_plcr_entry_t));
+		inst->cls_db->plcr_db.plcr_arr[policer_id].valid = MVPP2_PLCR_ENTRY_INVALID_STATE;
+	}
+
+	return 0;
+}
+
+int pp2_cls_db_plcr_entry_get(struct pp2_inst *inst, u8 policer_id, struct pp2_cls_db_plcr_entry_t *plcr_entry)
+{
+	if (mv_pp2x_range_validate(policer_id, MVPP2_PLCR_MIN_ENTRY_ID, MVPP2_PLCR_MAX - 1)) {
+		pr_err("invalid policer ID %d, out of range[%d, %d]\n",	policer_id,
+			MVPP2_PLCR_MIN_ENTRY_ID, MVPP2_PLCR_MAX - 1);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_ptr_validate(plcr_entry))
+		return -EINVAL;
+
+	memcpy(plcr_entry, &inst->cls_db->plcr_db.plcr_arr[policer_id], sizeof(struct pp2_cls_db_plcr_entry_t));
+	return 0;
+}
+
+int pp2_cls_db_plcr_ref_cnt_update(struct pp2_inst *inst,
+			      u8 policer_id,
+			      enum pp2_cls_plcr_ref_cnt_action_t cnt_action,
+			      int update_ppio)
+{
+	struct pp2_cls_db_plcr_entry_t *plcr_arr = NULL;
+	u32 *ref_cnt;
+
+	if (mv_pp2x_range_validate(policer_id, MVPP2_PLCR_MIN_ENTRY_ID, MVPP2_PLCR_MAX - 1)) {
+		pr_err("invalid policer ID %d, out of range[%d, %d]\n",	policer_id,
+			MVPP2_PLCR_MIN_ENTRY_ID, MVPP2_PLCR_MAX - 1);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_range_validate(cnt_action, 0, MVPP2_PLCR_REF_CNT_CLEAR)) {
+		pr_err("invalid reference counter action %d, out of range[%d, %d]\n", cnt_action,
+			0, MVPP2_PLCR_REF_CNT_CLEAR);
+		return -EINVAL;
+	}
+
+	/* check the policer ID */
+	plcr_arr = &inst->cls_db->plcr_db.plcr_arr[policer_id];
+	if (((cnt_action == MVPP2_PLCR_REF_CNT_INC) ||
+	     (cnt_action == MVPP2_PLCR_REF_CNT_DEC) ||
+	     (cnt_action == MVPP2_PLCR_REF_CNT_CLEAR))
+	    && (plcr_arr->valid == MVPP2_PLCR_ENTRY_INVALID_STATE)) {
+		pr_err("policer ID(%d) is invalid\n", policer_id);
+		return -EINVAL;
+	}
+
+	/* action to reference counter */
+	if (update_ppio)
+		ref_cnt = &plcr_arr->ppios_ref_cnt;
+	else
+		ref_cnt = &plcr_arr->rules_ref_cnt;
+
+	switch (cnt_action) {
+	case MVPP2_PLCR_REF_CNT_INC:
+		(*ref_cnt)++;
+		break;
+	case MVPP2_PLCR_REF_CNT_DEC:
+		(*ref_cnt)--;
+		break;
+	case MVPP2_PLCR_REF_CNT_CLEAR:
+		(*ref_cnt) = 0;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+int pp2_cls_db_plcr_gen_cfg_set(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_t *gen_cfg)
+{
+	if (mv_pp2x_ptr_validate(gen_cfg))
+		return -EINVAL;
+
+	memcpy(&inst->cls_db->plcr_db.gen_cfg, gen_cfg, sizeof(struct pp2_cls_plcr_gen_cfg_t));
+	return 0;
+}
+
+int pp2_cls_db_plcr_gen_cfg_get(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_t *gen_cfg)
+{
+	if (mv_pp2x_ptr_validate(gen_cfg))
+		return -EINVAL;
+
+	memcpy(gen_cfg, &inst->cls_db->plcr_db.gen_cfg, sizeof(struct pp2_cls_plcr_gen_cfg_t));
+	return 0;
+}
+
+int pp2_cls_db_plcr_early_drop_set(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop)
+{
+	if (mv_pp2x_ptr_validate(early_drop))
+		return -EINVAL;
+
+	memcpy(&inst->cls_db->plcr_db.early_drop, early_drop, sizeof(struct pp2_cls_plcr_early_drop_t));
+	return 0;
+}
+
+int pp2_cls_db_plcr_early_drop_get(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop)
+{
+	if (mv_pp2x_ptr_validate(early_drop))
+		return -EINVAL;
+
+	memcpy(early_drop, &inst->cls_db->plcr_db.early_drop, sizeof(struct pp2_cls_plcr_early_drop_t));
+	return 0;
+}
+
+int pp2_cls_db_plcr_init(struct pp2_inst *inst)
+{
+	u32 idx = 0;
+	u32 gmac = 0;
+
+	/* clear policer DB */
+	memset(&inst->cls_db->plcr_db, 0, sizeof(struct pp2_cls_db_plcr_t));
+
+	/* set policer entry to invalid state */
+	for (idx = 0; idx < MVPP2_PLCR_MAX; idx++)
+		inst->cls_db->plcr_db.plcr_arr[idx].valid = MVPP2_PLCR_ENTRY_INVALID_STATE;
+
+	/* disable early drop and queue threshold index */
+	inst->cls_db->plcr_db.early_drop.state = MVPP2_PLCR_EARLY_DROP_DISABLE;
+	for (idx = 0; idx < MVPP2_RXQ_TOTAL_NUM; idx++)
+		inst->cls_db->plcr_db.early_drop.rxq_idx[idx] = MVPP2_PLCR_INVALID_Q_THESH_IDX;
+
+	for (gmac = 0; gmac < MVPP2_MAX_PORTS; gmac++) {
+		for (idx = 0; idx < MVPP2_MAX_TXQ; idx++)
+			inst->cls_db->plcr_db.early_drop.txq_idx[gmac][idx] = MVPP2_PLCR_INVALID_Q_THESH_IDX;
+	}
+
+	return 0;
+}
+
+int pp2_cls_db_plcr_dump(void *arg)
+{
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+	struct pp2_cls_db_plcr_entry_t *plcr_arr = NULL;
+	u32 i;
+
+	print_horizontal_line(95, "=");
+	printk("=                                     Policer Table                                           =\n");
+	print_horizontal_line(95, "=");
+	printk("= Index | State | Token_Unit | Color_Mode |     CIR    |     CBS     |     EBS     | Ref_Cnt  =\n");
+
+	for (i = MVPP2_PLCR_MIN_ENTRY_ID; i < MVPP2_PLCR_MAX; i++) {
+		plcr_arr = &inst->cls_db->plcr_db.plcr_arr[i];
+		if (plcr_arr->valid != MVPP2_PLCR_ENTRY_VALID_STATE)
+			continue;
+		printk("= %5d | %5s | %10s | %10s |  %8d  |  %8d  |  %8d  | %7d  =\n",
+			i,
+			pp2_cls_utils_plcr_state_str_get(plcr_arr->valid),
+			pp2_cls_utils_plcr_token_type_str_get(plcr_arr->plcr_entry.token_unit),
+			pp2_cls_utils_plcr_color_mode_str_get(plcr_arr->plcr_entry.color_mode),
+			plcr_arr->plcr_entry.cir,
+			plcr_arr->plcr_entry.cbs,
+			plcr_arr->plcr_entry.ebs,
+			plcr_arr->rules_ref_cnt);
+	}
+
 	return 0;
 }
 
