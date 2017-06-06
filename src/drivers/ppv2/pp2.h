@@ -260,7 +260,8 @@ struct pp2_bm_pool {
 /* MAC address length */
 #define PP2_ETHADDR_LEN          (6)
 
-#define PP2_PORT_FLAGS_L4_CHKSUM (0x1)
+#define PP2_PORT_FLAGS_L4_CHKSUM	(0x1)
+#define PP2_PORT_FLAGS_LOOPBACK		(0x2)
 
 struct pp2_ppio_tc_config {
 	u16 pkt_offset;    /* Must be multiple of 32 bytes.*/

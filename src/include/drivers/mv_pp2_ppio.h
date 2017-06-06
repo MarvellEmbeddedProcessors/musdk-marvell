@@ -920,6 +920,8 @@ int pp2_ppio_set_mtu(struct pp2_ppio *ppio, u16 mtu); /* For debug only, check m
 int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu);
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len);
 int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len);
+int pp2_ppio_set_loopback(struct pp2_ppio *ppio, int en);
+int pp2_ppio_get_loopback(struct pp2_ppio *ppio, int *en);
 
 /**
  * Set ppio to promiscuous mode

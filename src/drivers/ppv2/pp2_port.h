@@ -405,6 +405,12 @@ int pp2_port_set_mru(struct pp2_port *port, uint16_t len);
 /* Get MRU */
 void pp2_port_get_mru(struct pp2_port *port, uint16_t *len);
 
+/* Set Loopback */
+int pp2_port_set_loopback(struct pp2_port *port, int en);
+
+/* Get Loopback */
+int pp2_port_get_loopback(struct pp2_port *port, int *en);
+
 /* Set Unicast promiscuous */
 int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en);
 

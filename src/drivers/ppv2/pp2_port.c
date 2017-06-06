@@ -307,6 +307,30 @@ pp2_port_mac_max_rx_size_set(struct pp2_port *port)
 	}
 }
 
+static void
+pp2_port_mac_set_loopback(struct pp2_port *port, int en)
+{
+	struct gop_hw *gop = &port->parent->hw.gop;
+	struct pp2_mac_data *mac = &port->mac_data;
+	int mac_num = port->mac_data.gop_index;
+	enum pp2_lb_type lb = (en) ? PP2_TX_2_RX_LB : PP2_DISABLE_LB;
+
+	switch (mac->phy_mode) {
+	case PP2_PHY_INTERFACE_MODE_RGMII:
+	case PP2_PHY_INTERFACE_MODE_SGMII:
+	case PP2_PHY_INTERFACE_MODE_QSGMII:
+		pp2_gop_gmac_loopback_cfg(gop, mac_num, lb);
+		break;
+	case PP2_PHY_INTERFACE_MODE_XAUI:
+	case PP2_PHY_INTERFACE_MODE_RXAUI:
+	case PP2_PHY_INTERFACE_MODE_KR:
+		pp2_gop_xlg_mac_loopback_cfg(gop, mac_num, lb);
+		break;
+	default:
+		break;
+	}
+}
+
 /* Get number of Tx descriptors waiting to be transmitted by HW */
 static uint32_t
 pp2_txq_pend_desc_num_get(struct pp2_port *port,
@@ -1610,6 +1634,27 @@ void pp2_port_get_mru(struct pp2_port *port, uint16_t *len)
 	 * maximum size their RX BM pool buffers should have
 	 */
 	*len = port->port_mru;
+}
+
+/* Set Loopback */
+int pp2_port_set_loopback(struct pp2_port *port, int en)
+{
+	pp2_port_mac_set_loopback(port, en);
+
+	if (en)
+		port->flags |= PP2_PORT_FLAGS_LOOPBACK;
+	else
+		port->flags &= ~PP2_PORT_FLAGS_LOOPBACK;
+
+	return 0;
+}
+
+/* Get Loopback */
+int pp2_port_get_loopback(struct pp2_port *port, int *en)
+{
+	*en = !!(port->flags & PP2_PORT_FLAGS_LOOPBACK);
+
+	return 0;
 }
 
 /* Enable or disable RSS */

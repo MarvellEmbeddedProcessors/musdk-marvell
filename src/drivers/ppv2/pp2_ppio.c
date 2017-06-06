@@ -360,6 +360,22 @@ int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len)
 	return 0;
 }
 
+int pp2_ppio_set_loopback(struct pp2_ppio *ppio, int en)
+{
+	int rc;
+
+	rc = pp2_port_set_loopback(GET_PPIO_PORT(ppio), en);
+	return rc;
+}
+
+int pp2_ppio_get_loopback(struct pp2_ppio *ppio, int *en)
+{
+	int rc;
+
+	rc = pp2_port_get_loopback(GET_PPIO_PORT(ppio), en);
+	return rc;
+}
+
 int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)
 {
 	int rc;
