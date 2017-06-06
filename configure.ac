@@ -18,6 +18,19 @@ AC_PREFIX_DEFAULT($(pwd)/usr/local)
 AC_SUBST(includedir, '${exec_prefix}')
 
 ##########################################################################
+# Set NETA_BUILD - using --enable-neta
+##########################################################################
+AC_ARG_ENABLE([neta],
+[  --enable-neta         Enable neta / disable pp2 driver and applications build],
+[case "${enableval}" in
+  yes) neta=true ;;
+  no)  neta=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-neta]) ;;
+esac],[neta=false])
+AM_CONDITIONAL([NETA_BUILD], [test x$neta = xtrue])
+AM_CONDITIONAL([PP2_BUILD], [test x$neta = xfalse])
+
+##########################################################################
 # Set SAM_BUILD - using --enable-sam
 ##########################################################################
 AC_ARG_ENABLE([sam],

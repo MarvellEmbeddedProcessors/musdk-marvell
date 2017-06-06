@@ -47,6 +47,7 @@ libmusdk_la_SOURCES += env/of.c
 libmusdk_la_SOURCES += env/netdev.c
 libmusdk_la_SOURCES += env/sys_iomem.c
 
+if PP2_BUILD
 nobase_include_HEADERS += include/drivers/mv_net.h
 nobase_include_HEADERS += include/drivers/mv_pp2.h
 nobase_include_HEADERS += include/drivers/mv_pp2_bpool.h
@@ -82,11 +83,13 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_c2_debug.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_rss.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_hw_cls.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_hw_cls_dbg.c
+endif
 
-# NETA driver
+if NETA_BUILD
 libmusdk_la_SOURCES += drivers/neta/neta.c
 libmusdk_la_SOURCES += drivers/neta/neta_ppio.c
 libmusdk_la_SOURCES += drivers/neta/neta_hw.c
+endif
 
 if SAM_BUILD
 # Definitions for SAM driver compilation

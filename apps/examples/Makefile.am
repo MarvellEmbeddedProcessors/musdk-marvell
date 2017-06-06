@@ -17,10 +17,17 @@ EXTRA_DIST =
 bin_PROGRAMS = musdk_pkt_echo
 musdk_pkt_echo_SOURCES  = ../common/lib/cli.c
 musdk_pkt_echo_SOURCES += ../common/mvapp.c
+if NETA_BUILD
+musdk_pkt_echo_SOURCES += neta/neta_utils.c
+musdk_pkt_echo_SOURCES += neta/pkt_echo.c
+endif
+if PP2_BUILD
 musdk_pkt_echo_SOURCES += ../common/pp2_utils.c
 musdk_pkt_echo_SOURCES += ppv2/pkt_echo/pkt_echo.c
+endif
 musdk_pkt_echo_LDADD = $(top_builddir)/src/libmusdk.la
 
+if PP2_BUILD
 if SAM_BUILD
 bin_PROGRAMS += musdk_crypto_echo
 musdk_crypto_echo_SOURCES  = ../common/lib/cli.c
@@ -55,3 +62,4 @@ musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_main.c
 musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_db.c
 musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_lpm.c
 musdk_pkt_l3fwd_LDADD = $(top_builddir)/src/libmusdk.la
+endif
