@@ -345,6 +345,46 @@ struct pp2_ppio_sg_desc {
 	struct pp2_ppio_desc	 descs[PP2_PPIO_DESC_NUM_FRAGS];
 };
 
+enum pp2_outq_l3_type {
+	PP2_OUTQ_L3_TYPE_IPV4 = 0,
+	PP2_OUTQ_L3_TYPE_IPV6,
+	PP2_OUTQ_L3_TYPE_OTHER
+};
+
+enum pp2_outq_l4_type {
+	PP2_OUTQ_L4_TYPE_TCP = 0,
+	PP2_OUTQ_L4_TYPE_UDP,
+	PP2_OUTQ_L4_TYPE_OTHER
+};
+
+enum pp2_inq_l3_type {
+	PP2_INQ_L3_TYPE_NA = 0,
+	PP2_INQ_L3_TYPE_IPV4_NO_OPTS,	/* IPv4 with IHL=5, TTL>0 */
+	PP2_INQ_L3_TYPE_IPV4_OK,	/* IPv4 with IHL>5, TTL>0 */
+	PP2_INQ_L3_TYPE_IPV4_TTL_ZERO,	/* Other IPV4 packets */
+	PP2_INQ_L3_TYPE_IPV6_NO_EXT,	/* IPV6 without extensions */
+	PP2_INQ_L3_TYPE_IPV6_EXT,	/* IPV6 with extensions */
+	PP2_INQ_L3_TYPE_ARP,		/* ARP */
+	PP2_INQ_L3_TYPE_USER_DEFINED	/* User defined */
+};
+
+enum pp2_inq_l4_type {
+	PP2_INQ_L4_TYPE_NA = 0,
+	PP2_INQ_L4_TYPE_TCP = 1,
+	PP2_INQ_L4_TYPE_UDP = 2,
+	PP2_INQ_L4_TYPE_OTHER = 3
+};
+
+enum pp2_inq_desc_status {
+	PP2_DESC_ERR_OK = 0,
+	PP2_DESC_ERR_MAC_CRC,		/* L2 MAC error (for example CRC Error) */
+	PP2_DESC_ERR_MAC_OVERRUN,	/* L2 Overrun Error*/
+	PP2_DESC_ERR_MAC_RESERVED,	/* L2 Reserved */
+	PP2_DESC_ERR_MAC_RESOURCE,	/* L2 Resource Error (No buffers for multi-buffer frame) */
+	PP2_DESC_ERR_IPV4_HDR,		/* L3 IPv4 Header error */
+	PP2_DESC_ERR_L4_CHECKSUM	/* L4 checksum error */
+};
+
 /******** TXQ  ********/
 
 /* TODO: Add PTP, PME, L4Icheck */
@@ -517,8 +557,8 @@ void pp2_ppio_outq_desc_set_pool(struct pp2_ppio_desc *desc, struct pp2_bpool *p
  * @param[in]	gen_l4_chk	Set to '1' to generate TCP/UDP checksum.
  *
  */
-static inline void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc, enum mv_outq_l3_type l3_type,
-						     enum mv_outq_l4_type l4_type, u8  l3_offset, u8 l4_offset,
+static inline void pp2_ppio_outq_desc_set_proto_info(struct pp2_ppio_desc *desc, enum pp2_outq_l3_type l3_type,
+						     enum pp2_outq_l4_type l4_type, u8  l3_offset, u8 l4_offset,
 						     int gen_l3_chk, int gen_l4_chk)
 {
 	DM_TXD_SET_L3_TYPE(desc, l3_type);
@@ -608,7 +648,7 @@ static inline u16 pp2_ppio_inq_desc_get_pkt_len(struct pp2_ppio_desc *desc)
  * @param[out]	offset	A pointer to l3 offset, relative to start of frame-on-the-wire (not including MH).
  *
  */
-static inline void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enum mv_inq_l3_type *type, u8 *offset)
+static inline void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enum pp2_inq_l3_type *type, u8 *offset)
 {
 	*type   = (desc->cmds[0] & RXD_L3_PRS_INFO_MASK) >> 28;
 	*offset = (desc->cmds[0] & RXD_L3_OFF_MASK) >> 0;
@@ -623,7 +663,7 @@ static inline void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enu
  * @param[out]	offset	A pointer to l4 offset.
  *
  */
-static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enum mv_inq_l4_type *type, u8 *offset)
+static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enum pp2_inq_l4_type *type, u8 *offset)
 {
 	*type   = (desc->cmds[0] & RXD_L4_PRS_INFO_MASK) >> 25;
 	*offset = ((desc->cmds[0] & RXD_L3_OFF_MASK) >> 0) + sizeof(u32)*((desc->cmds[0] & RXD_IPHDR_LEN_MASK) >> 8);
@@ -660,14 +700,14 @@ static inline struct pp2_bpool *pp2_ppio_inq_desc_get_bpool(struct pp2_ppio_desc
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum pp2_inq_desc_status.
  */
 
-static inline enum mv_inq_desc_status pp2_ppio_inq_desc_get_l2_pkt_error(struct pp2_ppio_desc *desc)
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l2_pkt_error(struct pp2_ppio_desc *desc)
 {
 	if (unlikely(DM_RXD_GET_ES(desc)))
 		return (1 + DM_RXD_GET_EC(desc));
-	return MV_DESC_ERR_OK;
+	return PP2_DESC_ERR_OK;
 }
 
 /**
@@ -675,14 +715,14 @@ static inline enum mv_inq_desc_status pp2_ppio_inq_desc_get_l2_pkt_error(struct 
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum pp2_inq_desc_status.
  */
-static inline enum mv_inq_desc_status pp2_ppio_inq_desc_get_l3_pkt_error(struct pp2_ppio_desc *desc)
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l3_pkt_error(struct pp2_ppio_desc *desc)
 {
-	if (unlikely(DM_RXD_GET_L3_PRS_INFO(desc) <= MV_INQ_L3_TYPE_IPV4_TTL_ZERO &&
+	if (unlikely(DM_RXD_GET_L3_PRS_INFO(desc) <= PP2_INQ_L3_TYPE_IPV4_TTL_ZERO &&
 		     DM_RXD_GET_L3_IP4_HDR_ERR(desc)))
-		return MV_DESC_ERR_IPV4_HDR;
-	return MV_DESC_ERR_OK;
+		return PP2_DESC_ERR_IPV4_HDR;
+	return PP2_DESC_ERR_OK;
 }
 
 /**
@@ -690,16 +730,16 @@ static inline enum mv_inq_desc_status pp2_ppio_inq_desc_get_l3_pkt_error(struct 
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum pp2_inq_desc_status.
  */
-static inline enum mv_inq_desc_status pp2_ppio_inq_desc_get_l4_pkt_error(struct pp2_ppio_desc *desc)
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l4_pkt_error(struct pp2_ppio_desc *desc)
 {
-	enum mv_inq_l4_type l4_info = DM_RXD_GET_L4_PRS_INFO(desc);
+	enum pp2_inq_l4_type l4_info = DM_RXD_GET_L4_PRS_INFO(desc);
 
-	if (unlikely((l4_info == MV_INQ_L4_TYPE_TCP || l4_info == MV_INQ_L4_TYPE_UDP) &&
+	if (unlikely((l4_info == PP2_INQ_L4_TYPE_TCP || l4_info == PP2_INQ_L4_TYPE_UDP) &&
 		     !DM_RXD_GET_L3_IP_FRAG(desc) && !DM_RXD_GET_L4_CHK_OK(desc)))
-		return MV_DESC_ERR_L4_CHECKSUM;
-	return MV_DESC_ERR_OK;
+		return PP2_DESC_ERR_L4_CHECKSUM;
+	return PP2_DESC_ERR_OK;
 }
 
 /**
@@ -707,11 +747,11 @@ static inline enum mv_inq_desc_status pp2_ppio_inq_desc_get_l4_pkt_error(struct 
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum pp2_inq_desc_status.
  */
-static inline enum mv_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *desc)
+static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp2_ppio_desc *desc)
 {
-	enum mv_inq_desc_status status;
+	enum pp2_inq_desc_status status;
 
 	status = pp2_ppio_inq_desc_get_l2_pkt_error(desc);
 	if (unlikely(status))
