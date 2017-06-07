@@ -43,7 +43,8 @@
 /* Flag bits for the BasicFlags field. Combine any values using a
    bitwise or.
  */
-#define SAB_BASIC_FLAG_EXTRACT_ICV   BIT_0 /* Extract and verify ICV from packet*/
+#define SAB_BASIC_FLAG_EXTRACT_ICV        BIT_0 /* Extract and verify ICV from packet*/
+#define SAB_BASIC_FLAG_ENCRYPT_AFTER_HASH BIT_1 /* Encrypt the hashed data */
 
 /* Extension record for SAParams_t. Protocol_Extension_p must point
    to this structure when the Basic crypto/hash protocol is used.

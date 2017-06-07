@@ -223,6 +223,8 @@ SABuilder_SetExtendedIPsecParams(SABuilder_Params_t *const SAParams_p,
             ExtSeq = 1;
         if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_384) != 0)
             AntiReplay *= 12;
+        else if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_256) != 0)
+            AntiReplay *= 8;
         else if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_128) != 0)
             AntiReplay *= 4;
         else if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_32) == 0)

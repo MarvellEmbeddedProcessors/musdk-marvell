@@ -133,6 +133,10 @@ PayloadSize(TokenContext_Internal_p, EVAL_packetsize() - EVAL_bypass(), 0)+1 :\
 #define EVAL_pad_bytes_basic() (PaddedSize(EVAL_packetsize() - EVAL_bypass() -EVAL_antireplay() - EVAL_aadlen_pkt(), \
                   TokenContext_Internal_p->PadBlockByteCount) -  \
                                 EVAL_packetsize()+EVAL_bypass()+EVAL_antireplay()+EVAL_aadlen_pkt())
+#define EVAL_pad_bytes_hashenc() ComputePadBytes(TokenContext_Internal_p, \
+            EVAL_packetsize() - EVAL_bypass() + \
+             TokenContext_Internal_p->PadBlockByteCount - EVAL_aadlen_pkt(), \
+            PadBlockSize(TokenContext_Internal_p->PadBlockByteCount,TKBParams_p->PadByte + 1))
 
 
 #define EVAL_srtp_iv0() (TokenContext_Internal_p->u.srtp.SaltKey0)
@@ -180,7 +184,7 @@ PadRemainder(unsigned int ByteCount,
 }
 #endif
 
-#if TKB_HAVE_PROTO_IPSEC==1|TKB_HAVE_PROTO_SSLTLS==1||TKB_HAVE_PROTO_BASIC==1
+#if TKB_HAVE_PROTO_IPSEC==1||TKB_HAVE_PROTO_SSLTLS==1||TKB_HAVE_PROTO_BASIC==1
 /*----------------------------------------------------------------------------
  * PaddedSize
  *
@@ -197,7 +201,7 @@ PaddedSize(unsigned int ByteCount,
 }
 #endif
 
-#if TKB_HAVE_PROTO_IPSEC==1|TKB_HAVE_PROTO_SSLTLS==1
+#if TKB_HAVE_PROTO_IPSEC==1||TKB_HAVE_PROTO_SSLTLS==1||TKB_HAVE_PROTO_BASIC==1
 /*----------------------------------------------------------------------------
  * PadBlockSize
  *
@@ -296,7 +300,7 @@ PacketOptions(const TokenBuilder_Context_t * TokenContext_p,
     return val;
 }
 
-#if TKB_HAVE_PROTO_IPSEC==1||TKB_HAVE_PROTO_SSLTLS==1
+#if TKB_HAVE_PROTO_IPSEC==1||TKB_HAVE_PROTO_SSLTLS==1|TKB_HAVE_PROTO_BASIC==1
 /*----------------------------------------------------------------------------
  * ComputePadBytes
  *
@@ -313,7 +317,8 @@ ComputePadBytes(const TokenBuilder_Context_t *TokenContext_p,
                 unsigned int PadBlockByteCount)
 {
     unsigned int PadByteCount;
-    if(TokenContext_p->protocol == TKB_PROTO_SSLTLS_OUT)
+    if(TokenContext_p->protocol == TKB_PROTO_SSLTLS_OUT ||
+        TokenContext_p->protocol == TKB_PROTO_BASIC_HASHENC)
     {
         PadByteCount = PaddedSize(PayloadByteCount + 1 +
                                   TokenContext_p->IVByteCount +
@@ -434,6 +439,9 @@ SRTP_IV1(
         SSRCOffset = 8;
     }
 
+    if (Packet_p == NULL)
+        return 0;
+
     return TokenContext_p->u.srtp.SaltKey1 ^ ((Packet_p[SSRCOffset]) |
                                               (Packet_p[SSRCOffset+1]<<8) |
                                               (Packet_p[SSRCOffset+2]<<16) |
@@ -453,6 +461,10 @@ SRTP_IV2(
         unsigned int AdditionalValue)
 {
     unsigned int ByteOffset;
+
+    if (Packet_p == NULL)
+        return 0;
+
     if (TokenContext_p->ExtSeq != 0)
     { // SRTCP
         uint32_t SRTCP_Index;
@@ -490,6 +502,10 @@ SRTP_IV3(
         unsigned int AdditionalValue)
 {
     unsigned int ByteOffset;
+
+    if (Packet_p == NULL)
+        return 0;
+
     if (TokenContext_p->ExtSeq != 0)
     { // SRTCP
         uint32_t SRTCP_Index;
@@ -530,6 +546,9 @@ SRTP_Offset(
 {
     unsigned int ByteOffset;
     if (TokenContext_p->IVByteCount == 0)
+        return 0;
+
+    if (Packet_p == NULL)
         return 0;
 
     if (TokenContext_p->ExtSeq != 0)

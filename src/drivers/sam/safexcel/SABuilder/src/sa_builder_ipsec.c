@@ -143,7 +143,7 @@ SABuilder_Init_ESP(
     SAParams_p->AuthKey2_p = NULL;
     SAParams_p->AuthKey3_p = NULL;
     SAParams_p->AuthKeyByteCount = 0;
-    
+
     SAParams_p->OffsetARC4StateRecord = 0;
     SAParams_p->CW0 = 0;
     SAParams_p->CW1 = 0;
@@ -290,7 +290,7 @@ SABuilder_SetIPsecParams(SABuilder_Params_t *const SAParams_p,
 
 #ifdef SAB_ENABLE_384BIT_SEQMASK
     if (SAParams_p->direction == SAB_DIRECTION_INBOUND &&
-        (SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_384) != 0)
+        (SAParamsIPsec_p->IPsecFlags & (SAB_IPSEC_MASK_384 | SAB_IPSEC_MASK_256)) != 0)
     {
         /* Take care to insert the IV (nonce) just after the SPI. */
         IVOffset = SAState_p->CurrentOffset;
@@ -489,17 +489,31 @@ SABuilder_SetIPsecParams(SABuilder_Params_t *const SAParams_p,
             SAState_p->CW0 |= SAB_CW0_SEQNUM_APPEND;
 
 #ifdef SAB_ENABLE_384BIT_SEQMASK
-        if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_384) != 0)
+        if ((SAParamsIPsec_p->IPsecFlags & (SAB_IPSEC_MASK_384 | SAB_IPSEC_MASK_256)) != 0)
         {
+            unsigned int MaskWordCount;
+            if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_384) != 0)
+            {
+                MaskWordCount = 12;
+            }
+            else
+            {  /* 256-bit mask */
+                MaskWordCount = 8;
+            }
             if(SABuffer_p != NULL)
             {
                 unsigned int i;
-                for (i=0; i<12; i++)
+                for (i = 0; i < MaskWordCount; i++)
                     SABuffer_p[SAState_p->CurrentOffset+i] =
                         SAParamsIPsec_p->SeqMask[i];
+                /* For 256-bit mask, fill the remaining words with all-one,
+                   so the hardware will consider these sequence numbers
+                   invalid*/
+                for (i= MaskWordCount; i < 12; i++)
+                    SABuffer_p[SAState_p->CurrentOffset+i] = 0xffffffff;
             }
             SAState_p->CurrentOffset += 12;
-            SAParams_p->SeqMaskWord32Count = 12;
+            SAParams_p->SeqMaskWord32Count = MaskWordCount;
             SAState_p->CW0 |= SAB_CW0_MASK_384_FIX;
         }
         else

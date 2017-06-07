@@ -68,6 +68,7 @@
 #define SAB_IPSEC_MASK_384        BIT_15 /* Use 384-bit anti-replay mask instead of 64-bit */
 #define SAB_IPSEC_APPEND_SEQNUM   BIT_16 /* Cause the hardware to append sequence number to output */
 #define SAB_IPSEC_CLEAR_ECN       BIT_17 /* Clear ECN bits in tunnel header for compatibility mode */
+#define SAB_IPSEC_MASK_256        BIT_18 /* Use 256-bit anti-replay mask instead of 64-bit */
 
 /* Extension record for SAParams_t. Protocol_Extension_p must point
    to this structure when the IPsec protocol is used.

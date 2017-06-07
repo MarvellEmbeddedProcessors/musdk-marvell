@@ -69,6 +69,10 @@ typedef enum
     SAB_MACSEC_PROTO_OUT_GMAC = 18,
     SAB_MACSEC_PROTO_IN_GCM = 19,
     SAB_MACSEC_PROTO_IN_GMAC = 20,
+    SAB_BASIC_PROTO_OUT_ENCHASH = 21,
+    SAB_BASIC_PROTO_IN_HASHDEC = 22,
+    SAB_BASIC_PROTO_OUT_HASHENC = 23,
+    SAB_BASIC_PROTO_IN_DECHASH = 24,
 } SABuilder_ESPProtocol_t;
 
 typedef enum
@@ -115,6 +119,11 @@ typedef enum
     /* MACsec */
     SAB_HDR_MACSEC_OUT = 33,
     SAB_HDR_MACSEC_IN = 34,
+
+    /* BASIC */
+    SAB_HDR_BASIC_OUT_ZPAD  = 35,
+    SAB_HDR_BASIC_IN = 36,
+    SAB_HDR_BASIC_OUT_TPAD  = 37,
 } SABuilder_HeaderProtocol_t;
 
 
@@ -166,6 +175,12 @@ typedef enum
                                           protocols, combined with unused
                                           offset in record */
 
+
+/* Used to construct RETR/INS instructions for IV */
+#define SA_RETR_HASH_IV0 0x42a00000
+#define SA_INS_NONE_IV0  0x20a00000
+#define SA_RETR_HASH_IV1 0x42a80000
+#define SA_INS_NONE_IV1  0x20a80000
 
 /*----------------------------------------------------------------------------
  * SABuilder_SetExtendedIPsecParams

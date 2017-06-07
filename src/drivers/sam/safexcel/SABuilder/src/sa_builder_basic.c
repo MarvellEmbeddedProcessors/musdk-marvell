@@ -234,6 +234,8 @@ SABuilder_SetBasicParams(
             else if (SAParams_p->AuthAlgo==SAB_AUTH_AES_CCM ||
                      SAParams_p->AuthAlgo==SAB_AUTH_AES_GMAC)
                 SAState_p->CW0 |= SAB_CW0_TOP_HASH_ENCRYPT;
+            else if ( (SAParamsBasic_p->BasicFlags & SAB_BASIC_FLAG_ENCRYPT_AFTER_HASH) != 0)
+                SAState_p->CW0 |= SAB_CW0_TOP_HASH_ENCRYPT;
             else
                 SAState_p->CW0 |= SAB_CW0_TOP_ENCRYPT_HASH;
         else
@@ -241,6 +243,12 @@ SABuilder_SetBasicParams(
                 SAState_p->CW0 |= SAB_CW0_TOP_DECRYPT;
             else if (SAParams_p->AuthAlgo==SAB_AUTH_AES_CCM)
                 SAState_p->CW0 |= SAB_CW0_TOP_DECRYPT_HASH;
+            else if ( (SAParamsBasic_p->BasicFlags & SAB_BASIC_FLAG_ENCRYPT_AFTER_HASH) != 0)
+            {
+                SAState_p->CW0 |= SAB_CW0_TOP_DECRYPT_HASH;
+                SAState_p->CW1 |= SAB_CW1_PREPKT_OP;
+                SAState_p->CW1 |= SAB_CW1_PAD_TLS;
+            }
             else
                 SAState_p->CW0 |= SAB_CW0_TOP_HASH_DECRYPT;
 
@@ -249,6 +257,14 @@ SABuilder_SetBasicParams(
             SAParams_p->CryptoMode == SAB_CRYPTO_MODE_CFB8)
         {
             LOG_CRIT("SABuilder: crypto algorithm/mode not supported\n");
+            return SAB_INVALID_PARAMETER;
+        }
+
+        /* Reject crypto modes other than CBC for ENCRYPT_AFTER_HASH */
+        if ( (SAParamsBasic_p->BasicFlags & SAB_BASIC_FLAG_ENCRYPT_AFTER_HASH) != 0 &&
+            SAParams_p->CryptoMode != SAB_CRYPTO_MODE_CBC)
+        {
+            LOG_CRIT("SABuilder: crypto algorithm/mode not supported for encrypt after hash\n");
             return SAB_INVALID_PARAMETER;
         }
 

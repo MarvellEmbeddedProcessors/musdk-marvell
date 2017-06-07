@@ -102,6 +102,8 @@ typedef enum
     TKB_PROTO_BASIC_KASUMI_HASH = 24,
     TKB_PROTO_BASIC_SNOW_HASH = 25,
     TKB_PROTO_BASIC_ZUC_HASH = 26,
+    TKB_PROTO_BASIC_HASHENC = 27,
+    TKB_PROTO_BASIC_DECHASH = 28,
 } TokenBuilder_Protocol_t;
 
 /* The IV handling values have to agree with those used in token_builder_core.c
