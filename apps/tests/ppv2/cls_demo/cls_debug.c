@@ -174,15 +174,6 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_fl_rls_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_print_rxq_counters";
-	cmd_params.desc		= "print rxq counters";
-	cmd_params.format       = "[tc]...\n"
-				  "\t\t\t\ttc           (dec) traffic class number";
-	cmd_params.cmd_arg	= (void *)port;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_print_rxq_counters;
-	mvapp_register_cli_cmd(&cmd_params);
-
 	return 0;
 }
 
@@ -286,21 +277,6 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_lkp_type_entry_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_qos_pcp_table_dump";
-	cmd_params.desc		= "dump pcp qos table";
-	cmd_params.format	= "(no arguments)\n";
-	cmd_params.cmd_arg	= (void *)inst;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_pcp_dump;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_qos_dscp_table_dump";
-	cmd_params.desc		= "dump dscp qos table";
-	cmd_params.format	= "(no arguments)\n";
-	cmd_params.cmd_arg	= (void *)inst;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_dscp_dump;
-	mvapp_register_cli_cmd(&cmd_params);
 
 #ifdef CLS_DEBUG
 	memset(&cmd_params, 0, sizeof(cmd_params));
@@ -335,6 +311,31 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_hw_hit_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 #endif
+
+	return 0;
+}
+
+int register_cli_qos_cmds(struct pp2_ppio *ppio)
+{
+	struct cli_cmd_params cmd_params;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	struct pp2_inst *inst = port->parent;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_qos_pcp_table_dump";
+	cmd_params.desc		= "dump pcp qos table";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_pcp_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_qos_dscp_table_dump";
+	cmd_params.desc		= "dump dscp qos table";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_dscp_dump;
+	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
 }

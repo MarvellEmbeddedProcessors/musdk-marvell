@@ -45,9 +45,8 @@ static struct	pp2_cls_tbl		*flow_tbl;
  * an example for init 5-tuple table with exact match engine
  * 5-tuple: ip4 src, ip4 dst, l4 src, l4 dst and ip4 proto
  */
-static int pp2_cls_cli_add_5_tuple_table(void *arg, int argc, char *argv[])
+int pp2_cls_add_5_tuple_table(struct port_desc *ports_desc)
 {
-	struct port_desc *ports_desc = (struct port_desc *)arg;
 	struct pp2_cls_tbl_params *tbl_params;
 	u32 idx = 0;
 	u32 proto[PP2_CLS_TBL_MAX_NUM_FIELDS];
@@ -112,7 +111,7 @@ static int pp2_cls_cli_add_5_tuple_table(void *arg, int argc, char *argv[])
 }
 
 /*
- * pp2_cls_cli_cls_example_rule_key()
+ * pp2_cls_example_rule_key()
  * add rule key with the 5-tuple table
  * 1. set tc = 0
  * 2. select 5-tuple table
@@ -122,9 +121,8 @@ static int pp2_cls_cli_add_5_tuple_table(void *arg, int argc, char *argv[])
  *				l4_dst = 0x400
  *				protocol = UDP
  */
-static int pp2_cls_cli_example_rule_key(void *arg, int argc, char *argv[])
+int pp2_cls_example_rule_key(struct port_desc *ports_desc)
 {
-	struct port_desc *ports_desc = (struct port_desc *)arg;
 	u32 idx = 0;
 	int rc;
 	struct pp2_cls_tbl_rule *rule;
@@ -206,27 +204,3 @@ rule_add_fail:
 	return -ENOMEM;
 }
 
-int register_cli_cls_api_cmds(struct port_desc *arg)
-{
-	struct cli_cmd_params cmd_params;
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_5_tuple_tbl_init";
-	cmd_params.desc		= "create 5-tuple classifier table";
-	cmd_params.format	= "";
-	cmd_params.cmd_arg	= arg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_add_5_tuple_table;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_example_rule_key_add";
-	cmd_params.desc		= "add the following key classifier rule to existing 5-tuple table:\n"
-				  "\t\t\t\tip4_src = 1.1.1.10, ip4_dst = 192.168.1.10\n"
-				  "\t\t\t\tl4_src = 0x400, l4_dst = 0x400, protocol = UDP\n";
-	cmd_params.format	= "";
-	cmd_params.cmd_arg	= arg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_example_rule_key;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	return 0;
-}

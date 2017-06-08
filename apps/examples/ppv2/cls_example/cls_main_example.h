@@ -37,10 +37,14 @@
 #include "pp2_utils.h"
 #include "lib/list.h"
 
-int register_cli_cls_api_cmds(struct port_desc *arg);
-int register_cli_cls_api_qos_cmds(struct pp2_ppio *ppio);
-int register_cli_filter_cmds(struct pp2_ppio *ppio);
 int pp2_cls_logical_port_params_example(struct pp2_ppio_params *port_params,
 					enum pp2_ppio_type *port_type);
+
+int pp2_cls_add_5_tuple_table(struct port_desc *ports_desc);
+int pp2_cls_example_rule_key(struct port_desc *ports_desc);
+
+int pp2_cls_qos_table_add_example(struct pp2_ppio *ppio);
+
+int register_cli_filter_cmds(struct pp2_ppio *ppio);
 
 #endif /*__CLS_MAIN_EXAMPLE_H__*/

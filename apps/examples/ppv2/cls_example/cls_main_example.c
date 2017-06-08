@@ -69,6 +69,9 @@ struct glob_arg {
 	struct bpool_desc	**pools_desc;
 	struct pp2_init_params	pp2_params;
 	int			logical_port_flag;
+	int			qos_flag;
+	int			cls_table_flag;
+	int			filter_flag;
 };
 
 struct local_arg {
@@ -181,6 +184,12 @@ static int init_local_modules(struct glob_arg *garg)
 			return err;
 		}
 	}
+	if (garg->cls_table_flag) {
+		pp2_cls_add_5_tuple_table(garg->ports_desc);
+		pp2_cls_example_rule_key(garg->ports_desc);
+	}
+	if (garg->qos_flag)
+		pp2_cls_qos_table_add_example(garg->ports_desc[0].ppio);
 
 	pr_info("done\n");
 	return 0;
@@ -209,13 +218,15 @@ static int register_cli_cmds(struct glob_arg *garg)
 	if (!garg->cli)
 		return -EFAULT;
 
-	register_cli_cls_api_cmds(garg->ports_desc);
-	register_cli_cls_api_qos_cmds(ppio);
-	register_cli_filter_cmds(ppio);
-	register_cli_cls_cmds(ppio);
-	register_cli_c3_cmds(ppio);
-	register_cli_c2_cmds(ppio);
-	register_cli_mng_cmds(ppio);
+	if (garg->filter_flag)
+		register_cli_filter_cmds(ppio);
+	if (garg->qos_flag)
+		register_cli_qos_cmds(ppio);
+	if (garg->logical_port_flag)
+		register_cli_c2_cmds(ppio);
+	if (garg->cls_table_flag)
+		register_cli_c3_cmds(ppio);
+
 	app_register_cli_common_cmds(garg->ports_desc);
 
 	return 0;
@@ -336,8 +347,12 @@ static void usage(char *progname)
 		"\t-i, --interface <eth-interface>\n"
 		"\n"
 		"Optional OPTIONS:\n"
-		"\t-s, --hash_type <none, 2-tuple, 5-tuple>\n"
-		"\t--logical_port	(no argument)configure logical port parameters\n"
+		"\t--hash_type <none, 2-tuple, 5-tuple>\n"
+		"\t--logical_port	(no argument) configure logical port parameters\n"
+		"\t--cls_table	(no argument) init hardcode 5-tuple table & rule key, and add relevant cli\n"
+		"\t--qos\t	(no argument) init hardcode qos table and add relevant cli\n"
+		"\t--filter	(no argument) add filter cli\n"
+
 		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname)
 		);
 }
@@ -356,6 +371,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"interface", required_argument, 0, 'i'},
 		{"hash_type", required_argument, 0, 's'},
 		{"logical_port", no_argument, 0, 'g'},
+		{"cls_table", no_argument, 0, 't'},
+		{"qos", no_argument, 0, 'q'},
+		{"filter", no_argument, 0, 'f'},
 		{0, 0, 0, 0}
 	};
 
@@ -368,6 +386,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	memset(pp2_params, 0, sizeof(*pp2_params));
 	port->ppio_type = PP2_PPIO_T_NIC;
 	garg->logical_port_flag = false;
+	garg->qos_flag = false;
+	garg->cls_table_flag = false;
+	garg->filter_flag = false;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
@@ -402,6 +423,15 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'g':
 			garg->logical_port_flag = true;
+			break;
+		case 't':
+			garg->cls_table_flag = true;
+			break;
+		case 'q':
+			garg->qos_flag = true;
+			break;
+		case 'f':
+			garg->filter_flag = true;
 			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);

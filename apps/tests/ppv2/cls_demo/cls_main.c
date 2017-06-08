@@ -375,6 +375,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	register_cli_cls_cmds(ppio);
 	register_cli_c3_cmds(ppio);
 	register_cli_c2_cmds(ppio);
+	register_cli_qos_cmds(ppio);
 	register_cli_mng_cmds(ppio);
 	app_register_cli_common_cmds(garg->ports_desc);
 

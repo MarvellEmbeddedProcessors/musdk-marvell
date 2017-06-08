@@ -36,26 +36,20 @@
 #include "cls_main_example.h"
 
 /*
- * pp2_cls_cli_qos_table_add_example()
+ * pp2_cls_qos_table_add_example()
  * is example for qos setting,
  * 1. set qos type to vlan-ip
  * 2. fill all pcp  table with q='2' except for index 1 -> q='1' and index 2 -> q='0'
  * 3. fill all dscp table with q='2' except for index 4 -> q='1' and index 6 -> q='3'
  */
-static int pp2_cls_cli_qos_table_add_example(void *arg, int argc, char *argv[])
+int pp2_cls_qos_table_add_example(struct pp2_ppio *ppio)
 {
-	struct pp2_ppio *ppio = (struct pp2_ppio *)arg;
 	int type;
 	int pcp_map[MV_VLAN_PRIO_NUM];
 	int dscp_map[MV_DSCP_NUM];
 	struct pp2_cls_tbl		*tbl;
 	struct pp2_cls_qos_tbl_params	*qos_tbl_params;
 	int i;
-
-	if (argc != 1) {
-		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
-		return -EINVAL;
-	}
 
 	/* set qos to vlan-ip  */
 	type = PP2_CLS_QOS_TBL_VLAN_IP_PRI;
@@ -100,21 +94,6 @@ static int pp2_cls_cli_qos_table_add_example(void *arg, int argc, char *argv[])
 		printf("OK\n");
 	else
 		printf("FAIL\n");
-
-	return 0;
-}
-
-int register_cli_cls_api_qos_cmds(struct pp2_ppio *ppio)
-{
-	struct cli_cmd_params cmd_params;
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_qos_example_tbl_init";
-	cmd_params.desc		= "create an example for QoS classifier table";
-	cmd_params.format	= "";
-	cmd_params.cmd_arg	= ppio;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_table_add_example;
-	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
 }
