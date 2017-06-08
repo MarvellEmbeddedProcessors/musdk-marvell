@@ -155,8 +155,27 @@ void mv_mem_dump(const unsigned char *p, unsigned int len)
 	while (i < len) {
 		j = 0;
 		printk("%10p: ", (p + i));
-		for (j = 0 ; j < 32 && i < len ; j++) {
+		for (j = 0; (j < 32) && (i < len); j++) {
 			printk("%02x ", p[i]);
+			i++;
+		}
+		printk("\n");
+	}
+}
+
+void mv_mem_dump_words(const u32 *p, u32 words, int be)
+{
+	u32 i = 0, j;
+
+	while (i < words) {
+		j = 0;
+		printk("%10p: ", (p + i));
+		for (j = 0; (j < 8) && (i < words); j++) {
+			if (be)
+				printk("%08x ", be32toh(p[i]));
+			else
+				printk("%08x ", le32toh(p[i]));
+
 			i++;
 		}
 		printk("\n");

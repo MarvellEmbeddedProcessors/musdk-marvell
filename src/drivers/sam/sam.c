@@ -359,9 +359,9 @@ static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params 
 	if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
 		print_sam_cio_operation_info(operation);
 
-		printf("\nToken DMA buffer: %d bytes, physAddr = %p\n",
-			operation->token_words * 4, (void *)operation->token_buf.paddr);
-		mv_mem_dump(operation->token_buf.vaddr, operation->token_words * 4);
+		printf("\nToken DMA buffer: %d words, physAddr = %p\n",
+			operation->token_words, (void *)operation->token_buf.paddr);
+		mv_mem_dump_words(operation->token_buf.vaddr, operation->token_words, 0);
 	}
 #endif /* MVCONF_SAM_DEBUG */
 
@@ -643,8 +643,6 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 			__func__, session->sa_words, SAM_SA_DMABUF_SIZE / 4);
 		goto error_session;
 	}
-	/* Clear DMA buffer allocated for SA */
-	memset(session->sa_buf.vaddr, 0, 4 * session->sa_words);
 
 	if (params->proto == SAM_PROTO_NONE)
 		sam_token_context_build(session);

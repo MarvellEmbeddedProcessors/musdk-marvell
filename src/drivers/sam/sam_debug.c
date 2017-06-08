@@ -205,9 +205,9 @@ void print_sa_builder_params(struct sam_sa *session)
 	else if (session->params.proto == SAM_PROTO_IPSEC)
 		print_ipsec_sa_params(&session->u.ipsec_params);
 
-	printf("\nSA DMA buffer: %d words, %d bytes, physAddr = %p\n",
-			session->sa_words, session->sa_words * 4, (void *)session->sa_buf.paddr);
-	mv_mem_dump(session->sa_buf.vaddr, session->sa_words * 4);
+	printf("\nSA DMA buffer: %d words, physAddr = %p\n",
+			session->sa_words, (void *)session->sa_buf.paddr);
+	mv_mem_dump_words(session->sa_buf.vaddr, session->sa_words, 0);
 }
 
 void print_result_desc(struct sam_hw_res_desc *res_desc, int is_prepared)
