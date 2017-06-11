@@ -56,7 +56,7 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa);
 - Only synchronous mode of session create is supported
 - Cipher algorithms: NULL, AES, 3DES
 - Cipher key length: 128, 192, 256 bits
-- Cipher modes: ECB, CBC, GCM
+- Cipher modes: ECB, CBC, CTR, GCM
 - Authentication algorithms: NULL, SHA1, MD5, SHA2 (384/256/512)
 - Authentication modes: HASH, HMAC
 - Encryption: encryption only, authentication only, encryption and then authentication
@@ -188,17 +188,18 @@ This test application reads test data from the input file, runs the tests one by
 optionally checks the output validity.
 
 See format of the input files in the examples under directory: "apps/tests/sam_kat_suite/"
-- aes_tests.txt  	- AES ECB/CBC encryption and decryption tests
-- aes_gcm.txt		- AES GCM encryption and decryption tests
-- 3des_tests.txt 	- 3DES encryption and decryption tests
-- hash_only.txt 	- MD5/SHA1/SHA2 Hash tests
-- hmac_tests.txt 	- HMAC MD5/SHA1/SHA2 authentication tests
-- hmac_tests_large.txt 	- HMAC MD5/SHA1/SHA2 authentication tests
-			with authentication key larger than block size
-- aes_chain_test.txt	- AES encryption + SHA1 authentication and
-			SHA1 auhentication + AES decryption tests
-- aes_sha1_multi.txt	- AES128-CBC + HMAC-SHA1 64 bytes data - 2,000,000 iterations
-- aes_1440_multi.txt	- AES128-CBC           1440 bytes data - 500,000 iterations
+- aes_tests.txt  	   - AES-ECB/CBC encryption and decryption tests
+- aes_gcm.txt		   - AES-GCM encryption and decryption tests
+- aes_ctr.txt		   - AES-CTR encryption and decryption tests
+- 3des_tests.txt 	   - 3DES encryption and decryption tests
+- hash_only.txt 	   - MD5/SHA1/SHA2 Hash tests
+- hmac_tests.txt 	   - HMAC MD5/SHA1/SHA2 authentication tests
+- hmac_tests_large.txt 	   - HMAC MD5/SHA1/SHA2 authentication tests
+			   with authentication key larger than block size
+- aes_chain_test.txt	   - AES encryption + SHA1 authentication and
+			   SHA1 auhentication + AES decryption tests
+- aes_sha1_multi.txt	   - AES128-CBC + HMAC-SHA1 64 bytes data - 2,000,000 iterations
+- aes_sha1_1440_multi.txt  - AES128-CBC + HMAC-SHA1 1440 bytes data - 500,000 iterations
 
 Application usage:
 => ./musdk_sam_kat <match> <test_file> [OPTIONS]
