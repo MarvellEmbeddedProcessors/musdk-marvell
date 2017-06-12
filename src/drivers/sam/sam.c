@@ -49,7 +49,9 @@ static int		sam_active_cios;
 static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
 static int		sam_num_sessions;
 static struct sam_sa	*sam_sessions;
+#ifdef MVCONF_SAM_STATS
 static struct sam_session_stats sam_sa_stats;
+#endif /* MVCONF_SAM_STATS */
 
 
 static int sam_cio_free_idx_get(void)
@@ -897,7 +899,7 @@ int sam_set_debug_flags(u32 debug_flags)
 	return 0;
 #else
 	return -ENOTSUP;
-#endif /* MVCONF_SAM_STATS */
+#endif /* MVCONF_SAM_DEBUG */
 }
 
 int sam_session_get_stats(struct sam_session_stats *stats, int reset)

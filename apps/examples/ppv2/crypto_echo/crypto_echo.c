@@ -1296,8 +1296,10 @@ static int init_local(void *arg, int id, void **_larg)
 static void deinit_local(void *arg)
 {
 	struct local_arg *larg = (struct local_arg *)arg;
+#ifdef MVCONF_SAM_STATS
 	struct sam_cio_stats cio_stats;
 	struct sam_session_stats sa_stats;
+#endif /* MVCONF_SAM_STATS */
 	int i;
 
 	if (!larg)
@@ -1305,6 +1307,7 @@ static void deinit_local(void *arg)
 
 	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
 
+#ifdef MVCONF_SAM_STATS
 	if (!sam_cio_get_stats(larg->enc_cio, &cio_stats, 1)) {
 		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
 		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
@@ -1323,6 +1326,7 @@ static void deinit_local(void *arg)
 	} else {
 		printf("Failed to get session statistics!!!\n");
 	}
+#endif /* MVCONF_SAM_STATS */
 
 	if (larg->ports_desc) {
 		for (i = 0; i < larg->num_ports; i++)
