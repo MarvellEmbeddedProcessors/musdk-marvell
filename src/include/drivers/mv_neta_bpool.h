@@ -71,6 +71,7 @@ struct neta_bpool_params {
  */
 };
 
+
 /**
  * Initialize a Buffer Pool (bpool)
  *
@@ -136,8 +137,18 @@ int neta_bpool_get_buff(struct neta_bpool *pool, struct neta_buff_inf *buff);
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int neta_bpool_put_buffs(struct buff_release_entry buff_entry[], u16 *num);
+int neta_bpool_put_buffs(struct buff_release_entry buff_entry[], int *num);
 
+/**
+ * Add one buffer to buffers pool.
+ *
+ * @param[in]	buff_entry	A pointer to array of buffers to add.
+ * @param[in]	num		Number of buffers to add.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int neta_bpool_put_buff(struct neta_bpool *pool, struct neta_buff_inf *buff_entry);
 
 /**
  * Get the number of buffers in buffers pool.

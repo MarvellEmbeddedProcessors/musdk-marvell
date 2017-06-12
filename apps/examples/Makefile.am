@@ -19,7 +19,7 @@ musdk_pkt_echo_SOURCES  = ../common/lib/cli.c
 musdk_pkt_echo_SOURCES += ../common/mvapp.c
 if NETA_BUILD
 musdk_pkt_echo_SOURCES += neta/neta_utils.c
-musdk_pkt_echo_SOURCES += neta/pkt_echo.c
+musdk_pkt_echo_SOURCES += neta/pkt_echo/pkt_echo.c
 endif
 if PP2_BUILD
 musdk_pkt_echo_SOURCES += ../common/pp2_utils.c

@@ -115,8 +115,6 @@ int app_build_port_bpools(struct bpool_desc **ppools, int num_pools, struct bpoo
 		return -EINVAL;
 	}
 
-	neta_bm_init();
-
 	pools = (struct bpool_desc *)malloc(sizeof(struct bpool_desc) * num_pools);
 	if (!pools) {
 		pr_err("no mem for bpool_desc array!\n");
@@ -136,7 +134,6 @@ int app_build_port_bpools(struct bpool_desc **ppools, int num_pools, struct bpoo
 		memset(&bpool_params, 0, sizeof(bpool_params));
 		bpool_params.match = name;
 		bpool_params.buff_len = infs[j].buff_size;
-		bpool_params.pool_capacity = infs[j].num_buffs;
 
 		pr_info("%s: buff_size %d, num_buffs %d\n", name, infs[j].buff_size, infs[j].num_buffs);
 		err = neta_bpool_init(&bpool_params, &pools[j].pool);
@@ -180,11 +177,11 @@ int app_build_port_bpools(struct bpool_desc **ppools, int num_pools, struct bpoo
 			/* cookie contains lower_32_bits of the va */
 			buffs_inf[k].cookie = lower_32_bits((u64)buff_virt_addr);
 			*(u32 *)buff_virt_addr = buffs_inf[k].cookie;
+			err = neta_bpool_put_buff(pools[j].pool, &buffs_inf[k]);
+			if (err)
+				return err;
 		}
 
-		err = neta_bpool_put_buffs(pools[j].pool, buffs_inf, &infs[j].num_buffs);
-		if (err)
-			return err;
 		buf_alloc_cnt += infs[j].num_buffs;
 	}
 	return 0;

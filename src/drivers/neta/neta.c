@@ -36,16 +36,12 @@
  * PPDK container structures and packet processor initialization
  */
 
+#define DEBUG
 #include "std_internal.h"
 #include "drivers/mv_neta.h"
 #include "drivers/mv_neta_ppio.h"
 #include "neta_ppio.h"
 
-struct mv_neta_platform_data {
-	u8   max_port_rxqs;
-	u8   num_port_irq;
-	bool interrupt_tx_done;
-};
 
 struct neta_uio {
 	struct uio_info_t *uio_info;
@@ -62,20 +58,23 @@ struct neta {
 
 	/* BM Pools associated */
 	/*struct pp2_bm_pool *bm_pools[PP2_BPOOL_NUM_POOLS];*/
-
-	/* UIO context */
-	struct neta_uio uio;
-	/* UIO handle for mapping PP and GOP register spaces */
-	struct sys_iomem *sys_iomem;
 };
 
-static struct neta *neta_ptr;
+static struct neta	*neta_ptr;
+
+int neta_is_initialized(void)
+{
+	return (neta_ptr) ? 1 : 0;
+}
 
 int neta_init(struct neta_init_params *params)
 {
 	int i;
-	struct neta_ppio_params ppio_params;
 
+	if (neta_ptr) {
+		pr_warn("NETA US driver already initialized\n");
+		return -EINVAL;
+	}
 	neta_ptr = kcalloc(1, sizeof(struct neta), GFP_KERNEL);
 	if (unlikely(!neta_ptr)) {
 		pr_err("%s: out of memory for NETA driver allocation\n", __func__);
@@ -83,6 +82,7 @@ int neta_init(struct neta_init_params *params)
 	}
 	memcpy(&neta_ptr->init, params, sizeof(*params));
 
+	/* TBD: do it only US ports */
 	neta_ptr->num_ports = NETA_NUM_ETH_PPIO;
 	for (i = 0; i < neta_ptr->num_ports; i++) {
 		struct neta_ppio *port = kcalloc(1, sizeof(struct neta_ppio), GFP_KERNEL);
@@ -91,12 +91,7 @@ int neta_init(struct neta_init_params *params)
 			pr_err("%s out of memory neta_port alloc\n", __func__);
 			break;
 		}
-		/* Static ID assignment */
-		port->port_id = i;
 		neta_ptr->ports[i] = port;
-
-		/* TBD: Init neta_ppio_params from DTS data */
-		neta_ppio_init(&ppio_params, &port);
 	}
 
 	pr_debug("NETA PP run\n");
@@ -107,6 +102,9 @@ int neta_init(struct neta_init_params *params)
 void neta_deinit(void)
 {
 	int i;
+
+	if (neta_is_initialized())
+		return;
 
 	for (i = 0; i < neta_ptr->num_ports; i++) {
 		struct neta_ppio *port = neta_ptr->ports[i];
@@ -127,6 +125,11 @@ int neta_netdev_get_port_info(char *ifname, u8 *port_id)
 {
 	struct neta_port *port;
 	int i;
+
+	if (neta_is_initialized()) {
+		pr_warn("NETA US driver not initialized\n");
+		return -EINVAL;
+	}
 
 	for (i = 0; i < NETA_NUM_ETH_PPIO; i++) {
 		if (!neta_ptr->ports[i])

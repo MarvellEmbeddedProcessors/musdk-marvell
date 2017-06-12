@@ -33,6 +33,7 @@
 #include "std_internal.h"
 #include "drivers/mv_neta.h"
 #include "drivers/mv_neta_ppio.h"
+#include "drivers/mv_neta_bpool.h"
 #include "neta_ppio.h"
 #include "neta_hw.h"
 #include "lib/lib_misc.h"
@@ -52,6 +53,7 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 {
 	u8  match[2];
 	int port_id, rc;
+	struct neta_ppio *ppio_ptr;
 	struct neta_port *port;
 
 	if (mv_sys_match(params->match, "neta", 1, match)) {
@@ -59,6 +61,12 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 		return -ENXIO;
 	}
 
+	ppio_ptr = kcalloc(1, sizeof(struct neta_ppio), GFP_KERNEL);
+	if (unlikely(!ppio_ptr)) {
+		pr_err("%s: out of memory for NETA driver allocation\n", __func__);
+		return -ENOMEM;
+	}
+	/* check that application port is US port */
 	port_id = match[0];
 
 	if (port_id >= NETA_NUM_ETH_PPIO) {
@@ -67,15 +75,26 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	}
 
 	port = &port_array[port_id];
+	port->txq_number = params->outqs_params.num_outqs;
+	port->rxq_number = params->inqs_params.num_tcs;
+	/* all queues have the same size */
+	port->rx_ring_size = params->inqs_params.tcs_params[0].size;
+	port->tx_ring_size = params->outqs_params.outqs_params[0].size;
+	port->pool_short = (struct mvneta_bm_pool *)(params->inqs_params.pools[0]->internal_param);
+	port->pool_long = (struct mvneta_bm_pool *)params->inqs_params.pools[1]->internal_param;
 
 	rc = neta_port_open(port_id, port);
 	if (rc) {
 		pr_err("[%s] ppio init failed.\n", __func__);
 		return(-EFAULT);
 	}
+	neta_bm_pool_bufsize_set(port, 256, 0);
+	neta_bm_pool_bufsize_set(port, 1600, 1);
+
 	neta_port_hw_init(port);
-	(*ppio)->port_id = port_id;
-	(*ppio)->internal_param = port;
+	ppio_ptr->port_id = port_id;
+	ppio_ptr->internal_param = port;
+	*ppio = ppio_ptr;
 
 	return rc;
 }
@@ -88,6 +107,8 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
  */
 void neta_ppio_deinit(struct neta_ppio *ppio)
 {
+	neta_port_hw_deinit(ppio->internal_param);
+	free(ppio);
 }
 
 /**
@@ -97,8 +118,17 @@ void neta_ppio_deinit(struct neta_ppio *ppio)
  * desc		A pointer to a packet descriptor structure.
  * pool		A bpool handle.
  */
-void neta_ppio_outq_desc_set_pool(struct neta_ppio_desc *desc, struct neta_bpool *pool)
+void neta_ppio_outq_desc_set_pool(struct neta_ppio_desc *desc, struct neta_bpool *ppool)
 {
+	int pid = ppool->id;
+
+	(desc)->cmds[0] = ((desc)->cmds[0] & ~NETA_TXD_POOL_ID_MASK) | ((pid << 13) & NETA_TXD_POOL_ID_MASK);
+	/* Set the HW buffer release mode in an outq packet descriptor */
+	(desc)->cmds[0] = ((desc)->cmds[0] & ~NETA_TXD_BUFF_REL_MASK) | NETA_TXD_BUFF_REL_MASK;
+
+	(desc)->cmds[0] |= NETA_TXD_FLZ_DESC_MASK;
+	return;
+
 }
 
 /**
@@ -127,7 +157,10 @@ int neta_ppio_inq_desc_get_ip_isfrag(struct neta_ppio_desc *desc)
 
 struct neta_bpool *neta_ppio_inq_desc_get_bpool(struct neta_ppio_desc *desc, struct neta_ppio *ppio)
 {
-	return NULL;
+	struct neta_bpool *ppool;
+
+	ppool = &neta_bpools[NETA_RXD_GET_POOL_ID(desc)];
+	return ppool;
 }
 
 /**
@@ -144,6 +177,9 @@ int neta_ppio_get_num_outq_done(struct neta_ppio	*ppio,
 				u8			qid,
 				u16			*num)
 {
+	struct neta_port *port = GET_PPIO_PORT(ppio);
+
+	*num = mvneta_txq_sent_desc_num_get(port, qid);
 	return 0;
 }
 
@@ -201,12 +237,13 @@ static struct neta_ppio_desc *neta_rxq_get_desc(struct neta_rx_queue *rxq,
 /* Update num of rx desc called upon return from rx path */
 static void neta_port_inq_update(struct neta_port *pp,
 				     struct neta_rx_queue *rxq,
-				     int rx_done)
+				     int rx_done, int rx_filled)
 {
 	u32 val;
 
-	if (rx_done <= 0xff) {
-		val = rx_done;
+	if ((rx_done <= 0xff) && (rx_filled <= 0xff)) {
+		val = rx_done |
+		  (rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT);
 		neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
 		return;
 	}
@@ -215,7 +252,7 @@ static void neta_port_inq_update(struct neta_port *pp,
 	wmb();
 
 	/* Only 255 descriptors can be added at once */
-	while (rx_done > 0) {
+	while ((rx_done > 0) || (rx_filled > 0)) {
 		if (rx_done <= 0xff) {
 			val = rx_done;
 			rx_done = 0;
@@ -223,7 +260,14 @@ static void neta_port_inq_update(struct neta_port *pp,
 			val = 0xff;
 			rx_done -= 0xff;
 		}
-		neta_reg_write_relaxed(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
+		if (rx_filled <= 0xff) {
+			val |= rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
+			rx_filled = 0;
+		} else {
+			val |= 0xff << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
+			rx_filled -= 0xff;
+		}
+		neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
 	}
 }
 
@@ -267,11 +311,17 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 		rxq->desc_received = neta_rxq_busy_desc_num_get(port, rxq->id);
 		if (unlikely(recv_req > rxq->desc_received)) {
 			recv_req = rxq->desc_received;
-			*num = recv_req;
 		}
 	}
 
+	if (!rxq->desc_received) {
+		*num = 0;
+		return 0;
+	}
+
+	pr_debug("%s: receive %d (%d) packets.\n", __func__, rxq->desc_received, recv_req);
 	rx_desc = neta_rxq_get_desc(rxq, &recv_req, &extra_rx_desc, &extra_num);
+
 #if __BYTE_ORDER == __BIG_ENDIAN
 	for (int i = 0; i < recv_req; i++)
 		neta_ppio_desc_swap_ncopy(&descs[i], &rx_desc[i]);
@@ -283,8 +333,9 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 		recv_req += extra_num; /* Put the split numbers back together */
 	}
 	/*  Update HW */
-	neta_port_inq_update(port, rxq, recv_req);
+	neta_port_inq_update(port, rxq, recv_req, recv_req);
 	rxq->desc_received -= recv_req;
+	*num = recv_req;
 
 #ifdef NETA_STATS_SUPPORT
 /* TBD */
@@ -315,6 +366,11 @@ static void neta_txq_pend_desc_add(struct neta_port *pp,
 	txq->pending = 0;
 }
 
+/* Get number of free TX descriptor */
+static int neta_txq_free_desc_num(struct neta_tx_queue *txq)
+{
+	return (txq->size - txq->count);
+}
 /* Get pointer to next TX descriptor to be processed (send) by HW */
 static struct neta_ppio_desc *neta_txq_next_desc_get(struct neta_tx_queue *txq)
 {
@@ -335,12 +391,22 @@ static void neta_txq_desc_put(struct neta_tx_queue *txq)
 		txq->next_desc_to_proc--;
 }
 
-/* Increment txq put counter */
-static void neta_txq_inc_put(struct neta_tx_queue *txq)
+/* Handle end of transmission */
+static int neta_txq_done(struct neta_port *pp,
+			  struct neta_tx_queue *txq)
 {
-	txq->txq_put_index++;
-	if (txq->txq_put_index == txq->size)
-		txq->txq_put_index = 0;
+	int tx_done;
+
+	/* Get number of sent descriptors */
+	tx_done = mvneta_txq_sent_desc_num_get(pp, txq->id);
+
+	/* Decrement sent descriptors counter */
+	if (tx_done)
+		mvneta_txq_sent_desc_dec(pp, txq, tx_done);
+
+	txq->count -= tx_done;
+
+	return (txq->size - txq->count);
 }
 
 static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio_desc *descs, u16 num)
@@ -348,6 +414,12 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 	struct neta_tx_queue *txq = &port->txqs[txq_id];
 	struct neta_ppio_desc *tx_desc;
 	int i;
+	int free_desc = neta_txq_free_desc_num(txq);
+
+	if (free_desc < num) {
+		free_desc = neta_txq_done(port, txq);
+		num = (free_desc < num) ? free_desc : num;
+	}
 
 	for (i = 0; i < num; i++) {
 		/* Get a descriptor for the packet */
@@ -355,13 +427,15 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 #if __BYTE_ORDER == __BIG_ENDIAN
 		neta_ppio_desc_swap_ncopy(&tx_desc, &descs[i]);
 #else
-		__builtin_memcpy(&tx_desc, &descs[i], sizeof(*tx_desc));
+		memcpy(tx_desc, &descs[i], sizeof(struct neta_ppio_desc));
 #endif
-		neta_txq_inc_put(txq);
+		/* be sure TX descriptor is ready to transmit */
+		wmb();
 		neta_txq_pend_desc_add(port, txq, 1);
 	}
+	txq->count += i;
 
-	return 0;
+	return i;
 }
 
 /*
@@ -408,3 +482,18 @@ int neta_ppio_send(struct neta_ppio	*ppio,
 	return 0;
 }
 
+int neta_ppio_enable(struct neta_ppio *ppio)
+{
+	struct neta_port *port = GET_PPIO_PORT(ppio);
+
+	if (!port)
+		return -1;
+
+	neta_port_up(port);
+	return 0;
+}
+
+int neta_ppio_disable(struct neta_ppio *ppio)
+{
+	return 0;
+}

@@ -33,11 +33,6 @@
 #ifndef __NETA_PP_IO_H_
 #define __NETA_PP_IO_H_
 
-struct neta_ppio {
-	u32	port_id;		/* port Id */
-	void	*internal_param;	/* parameters for internal use */
-};
-
 /* internal structures */
 struct neta_tx_queue {
 	/* Number of this TX queue, in the range 0-7 */
@@ -114,10 +109,13 @@ struct neta_rx_queue {
 };
 
 struct neta_port {
-	u8 id;
-	char if_name[16];
+	u32	id; /* port Id */
+	char	if_name[16];
 
-	void __iomem *base;
+	struct sys_iomem	*sys_iomem;
+	uintptr_t		base;  /* virtual address for engine registers */
+	phys_addr_t		paddr; /* physical address for engine registers */
+
 	unsigned long flags;
 
 	int pkt_size;
@@ -145,9 +143,9 @@ struct neta_port {
 	unsigned int tx_csum_limit;
 	unsigned int use_inband_status:1;
 
-	struct neta_bm *bm_priv;
-	struct neta_bm_pool *pool_long;
-	struct neta_bm_pool *pool_short;
+	struct mvneta_bm *bm_priv;
+	struct mvneta_bm_pool *pool_long;
+	struct mvneta_bm_pool *pool_short;
 	int bm_win_id;
 
 	/*struct mvneta_pcpu_stats __percpu	*stats;*/
@@ -165,5 +163,9 @@ struct neta_port {
 /* Descriptor ring Macros */
 #define MVNETA_QUEUE_NEXT_DESC(q, index)	\
 	(((index) < (q)->last_desc) ? ((index) + 1) : 0)
+
+#define MVNETA_TX_MTU_MAX		0x3ffff
+
+int neta_is_initialized(void);
 
 #endif /* __NETA_PP_IO_H_ */

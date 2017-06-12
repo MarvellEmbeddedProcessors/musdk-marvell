@@ -277,23 +277,37 @@ enum phy_interface {
 #define MVNETA_ACC_MODE_EXT1		1
 #define MVNETA_ACC_MODE_EXT2		2
 
-static inline void neta_reg_write_relaxed(void *base, u32 offset, u32 data)
-{
-	void *addr = base + offset;
+#define NETA_VLAN_TAG_LEN		4
+#define NETA_ETH_HLEN			14
+#define NETA_ETH_FCS_LEN		4
 
-	writel_relaxed(data, addr);
+/* descriptor aligned size */
+#define MVNETA_DESC_ALIGNED_SIZE	32
+
+/* 64bytes cache line - arm64 spec */
+#define L1_CACHE_LINE_BYTES      BIT(6)
+
+#define MVNETA_RX_PKT_SIZE(mtu) \
+	((mtu) + MV_MH_SIZE + NETA_VLAN_TAG_LEN + NETA_ETH_HLEN + NETA_ETH_FCS_LEN)
+
+
+static inline void neta_reg_write_relaxed(struct neta_port *pp, u32 offset, u32 data)
+{
+	uintptr_t addr = pp->base + offset;
+
+	writel_relaxed(data, (void *)addr);
 
 #ifdef NETA_REG_WRITE_DEBUG
 	pr_info("%s: %8p + 0x%04x = 0x%x\n", __func__, base, offset, data);
 #endif
 }
 
-static inline u32 neta_reg_read_relaxed(void *base, u32 offset)
+static inline u32 neta_reg_read_relaxed(struct neta_port *pp, u32 offset)
 {
-	void *addr = base + offset;
+	uintptr_t addr = pp->base + offset;
 	u32 data;
 
-	data = readl_relaxed(addr);
+	data = readl_relaxed((void *)addr);
 
 #ifdef NETA_REG_READ_DEBUG
 	pr_info("%s: %8p + 0x%04x = 0x%x\n", __func__, base, offset, data);
@@ -302,23 +316,23 @@ static inline u32 neta_reg_read_relaxed(void *base, u32 offset)
 	return data;
 }
 
-static inline void neta_reg_write(void *base, u32 offset, u32 data)
+static inline void neta_reg_write(struct neta_port *pp, u32 offset, u32 data)
 {
-	void *addr = base + offset;
+	uintptr_t addr = pp->base + offset;
 
-	writel(data, addr);
+	writel(data, (void *)addr);
 
 #ifdef NETA_REG_WRITE_DEBUG
 	pr_info("%s: %8p + 0x%04x = 0x%x\n", __func__, base, offset, data);
 #endif
 }
 
-static inline u32 neta_reg_read(void *base, u32 offset)
+static inline u32 neta_reg_read(struct neta_port *pp, u32 offset)
 {
-	void *addr = base + offset;
+	uintptr_t addr = pp->base + offset;
 	u32 data;
 
-	data = readl(addr);
+	data = readl((void *)addr);
 
 #ifdef NETA_REG_READ_DEBUG
 	pr_info("%s : %8p + 0x%04x = 0x%x\n", __func__, base, offset, data);
@@ -331,5 +345,11 @@ int neta_port_open(int port_id, struct neta_port *pp);
 int neta_port_hw_init(struct neta_port *pp);
 int neta_port_hw_deinit(struct neta_port *pp);
 void neta_hw_reg_print(char *reg_name, void *base, u32 offset);
+void neta_bm_pool_bufsize_set(struct neta_port *pp, int buf_size, u8 pool_id);
+void neta_port_up(struct neta_port *pp);
+int mvneta_txq_sent_desc_num_get(struct neta_port *pp, int qid);
+void mvneta_txq_sent_desc_dec(struct neta_port *pp,
+				     struct neta_tx_queue *txq,
+				     int sent_desc);
 
 #endif /* _MVNETA_HW_H_ */

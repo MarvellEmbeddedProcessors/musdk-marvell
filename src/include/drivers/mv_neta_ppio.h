@@ -44,20 +44,15 @@
  *  @{
  */
 
-struct neta_ppio;
 
 #define NETA_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
 #define NETA_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
 #define NETA_PPIO_MAX_POOLS	2
 
-/* The two bytes Marvell header ("MH"). Either contains a special value used
- * by Marvell switches when a specific hardware mode is enabled (not
- * supported by this driver), or is filled automatically by zeroes on
- * the RX side. These two bytes are at the front of the Ethernet
- * header, allow to have the IP header aligned on a 4 bytes
- * boundary.
- */
-#define NETA_MH_SIZE		2
+struct neta_ppio {
+	u32	port_id;		/* port Id */
+	void	*internal_param;	/* parameters for internal use */
+};
 
 /**
  * ppio tc parameters
@@ -209,9 +204,9 @@ struct neta_ppio_sg_desc {
 #define NETA_TXD_L4_ICHK_MASK		(0x0000FFFF)
 #define NETA_TXD_PKT_SIZE_MASK		(0xFFFF0000)
 
-#define NETA_TXD_FLZ_DESC_MASK		(NETA_TXD_Z_PAD  | \
-					 NETA_TXD_L_DESC | \
-					 NETA_TXD_F_DESC)
+#define NETA_TXD_FLZ_DESC_MASK		(NETA_TXD_Z_PAD_MASK  | \
+					 NETA_TXD_L_DESC_MASK | \
+					 NETA_TXD_F_DESC_MASK)
 
 #define NETA_TXD_SET_L3_OFF(desc, data)		\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~NETA_TXD_L3_OFF_MASK) | ((data << 0) & NETA_TXD_L3_OFF_MASK))
@@ -289,7 +284,6 @@ static inline void neta_ppio_outq_desc_set_phys_addr(struct neta_ppio_desc *desc
 static inline void neta_ppio_outq_desc_set_cookie(struct neta_ppio_desc *desc, u64 cookie)
 {
 	desc->cmds[6] = (u32)cookie;
-/*	desc->cmds[7] = (desc->cmds[7] & ~TXD_BUF_PHYS_HI_MASK) | (cookie >> 32 & TXD_BUF_PHYS_HI_MASK);*/
 }
 
 /**
@@ -339,6 +333,13 @@ static inline void neta_ppio_outq_desc_set_proto_info(struct neta_ppio_desc *des
  */
 void neta_ppio_outq_desc_set_dsa_tag(struct neta_ppio_desc *desc);
 
+/**
+ * Set the offset of the packet (in bytes) from the beginning of the buffer
+ *
+ * @param[out]	desc	A pointer to a packet descriptor structure.
+ * @param[in]	offset	The packet oofset inside buffer.
+ *
+ */
 static inline void neta_ppio_outq_desc_set_pkt_offset(struct neta_ppio_desc *desc, u8  offset)
 {
 	NETA_TXD_SET_PKT_OFFSET(desc, offset);
