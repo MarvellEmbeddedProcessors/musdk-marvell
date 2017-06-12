@@ -114,6 +114,46 @@ struct neta_ppio_params {
 	struct neta_ppio_outqs_params	outqs_params; /**<  ppio outq parameters structure */
 };
 
+enum neta_outq_l3_type {
+	NETA_OUTQ_L3_TYPE_IPV4 = 0,
+	NETA_OUTQ_L3_TYPE_IPV6,
+	NETA_OUTQ_L3_TYPE_OTHER
+};
+
+enum neta_outq_l4_type {
+	NETA_OUTQ_L4_TYPE_TCP = 0,
+	NETA_OUTQ_L4_TYPE_UDP,
+	NETA_OUTQ_L4_TYPE_OTHER
+};
+
+enum neta_inq_l3_type {
+	NETA_INQ_L3_TYPE_NA = 0,
+	NETA_INQ_L3_TYPE_IPV4_NO_OPTS,	/* IPv4 with IHL=5, TTL>0 */
+	NETA_INQ_L3_TYPE_IPV4_OK,	/* IPv4 with IHL>5, TTL>0 */
+	NETA_INQ_L3_TYPE_IPV4_TTL_ZERO,	/* Other IPV4 packets */
+	NETA_INQ_L3_TYPE_IPV6_NO_EXT,	/* IPV6 without extensions */
+	NETA_INQ_L3_TYPE_IPV6_EXT,	/* IPV6 with extensions */
+	NETA_INQ_L3_TYPE_ARP,		/* ARP */
+	NETA_INQ_L3_TYPE_USER_DEFINED	/* User defined */
+};
+
+enum neta_inq_l4_type {
+	NETA_INQ_L4_TYPE_NA = 0,
+	NETA_INQ_L4_TYPE_TCP = 1,
+	NETA_INQ_L4_TYPE_UDP = 2,
+	NETA_INQ_L4_TYPE_OTHER = 3
+};
+
+enum neta_inq_desc_status {
+	NETA_DESC_ERR_OK = 0,
+	NETA_DESC_ERR_MAC_CRC,		/* L2 MAC error (for example CRC Error) */
+	NETA_DESC_ERR_MAC_OVERRUN,	/* L2 Overrun Error*/
+	NETA_DESC_ERR_MAC_RESERVED,	/* L2 Reserved */
+	NETA_DESC_ERR_MAC_RESOURCE,	/* L2 Resource Error (No buffers for multi-buffer frame) */
+	NETA_DESC_ERR_IPV4_HDR,		/* L3 IPv4 Header error */
+	NETA_DESC_ERR_L4_CHECKSUM	/* L4 checksum error */
+};
+
 /**
  * Initialize a ppio
  *
@@ -273,8 +313,8 @@ void neta_ppio_outq_desc_set_pool(struct neta_ppio_desc *desc, struct neta_bpool
  *
  */
 static inline void neta_ppio_outq_desc_set_proto_info(struct neta_ppio_desc *desc,
-					     int l3_offs, enum mv_outq_l3_type l3_proto,
-					     int ip_hdr_len, enum mv_outq_l4_type l4_proto)
+					     int l3_offs, enum neta_outq_l3_type l3_proto,
+					     int ip_hdr_len, enum neta_outq_l4_type l4_proto)
 {
 	/* Fields: L3_offset, IP_hdrlen, L3_type, G_IPv4_chk,
 	 * G_L4_chk, L4_type; required only for checksum
@@ -285,7 +325,7 @@ static inline void neta_ppio_outq_desc_set_proto_info(struct neta_ppio_desc *des
 	NETA_TXD_SET_L3_TYPE(desc, l3_proto);
 	NETA_TXD_SET_L4_TYPE(desc, l4_proto);
 
-	if ((l4_proto == MV_OUTQ_L4_TYPE_TCP) || (l4_proto == MV_OUTQ_L4_TYPE_UDP))
+	if ((l4_proto == NETA_OUTQ_L4_TYPE_TCP) || (l4_proto == NETA_OUTQ_L4_TYPE_UDP))
 		NETA_TXD_SET_L4_FULL_CSUM(desc);
 	else
 		NETA_TXD_SET_L4_NO_CSUM(desc);
@@ -361,7 +401,7 @@ static inline u16 neta_ppio_inq_desc_get_pkt_len(struct neta_ppio_desc *desc)
  * @param[out]	type	A pointer to l3 type.
  *
  */
-static inline void neta_ppio_inq_desc_get_l3_info(struct neta_ppio_desc *desc, enum mv_inq_l3_type *type)
+static inline void neta_ppio_inq_desc_get_l3_info(struct neta_ppio_desc *desc, enum neta_inq_l3_type *type)
 {
 	*type  = NETA_RXD_GET_L3_PRS_INFO(desc);
 }
@@ -373,7 +413,7 @@ static inline void neta_ppio_inq_desc_get_l3_info(struct neta_ppio_desc *desc, e
  * @param[out]	type	A pointer to l4 type.
  *
  */
-static inline void neta_ppio_inq_desc_get_l4_info(struct neta_ppio_desc *desc, enum mv_inq_l4_type *type)
+static inline void neta_ppio_inq_desc_get_l4_info(struct neta_ppio_desc *desc, enum neta_inq_l4_type *type)
 {
 	*type = NETA_RXD_GET_L4_PRS_INFO(desc);
 }
@@ -394,14 +434,14 @@ struct neta_bpool *neta_ppio_inq_desc_get_bpool(struct neta_ppio_desc *desc, str
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum neta_inq_desc_status.
  */
 
-static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l2_pkt_error(struct neta_ppio_desc *desc)
+static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l2_pkt_error(struct neta_ppio_desc *desc)
 {
 	if (unlikely(NETA_RXD_GET_ES(desc)))
 		return (1 + NETA_RXD_GET_EC(desc));
-	return MV_DESC_ERR_OK;
+	return NETA_DESC_ERR_OK;
 }
 
 /**
@@ -409,14 +449,14 @@ static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l2_pkt_error(struct
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum neta_inq_desc_status.
  */
-static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l3_pkt_error(struct neta_ppio_desc *desc)
+static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l3_pkt_error(struct neta_ppio_desc *desc)
 {
-	if (unlikely(NETA_RXD_GET_L3_PRS_INFO(desc) <= MV_INQ_L3_TYPE_IPV4_TTL_ZERO &&
+	if (unlikely(NETA_RXD_GET_L3_PRS_INFO(desc) <= NETA_INQ_L3_TYPE_IPV4_TTL_ZERO &&
 		     NETA_RXD_GET_IP_HDR_ERR(desc)))
-		return MV_DESC_ERR_IPV4_HDR;
-	return MV_DESC_ERR_OK;
+		return NETA_DESC_ERR_IPV4_HDR;
+	return NETA_DESC_ERR_OK;
 }
 
 /**
@@ -424,16 +464,16 @@ static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l3_pkt_error(struct
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum neta_inq_desc_status.
  */
-static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l4_pkt_error(struct neta_ppio_desc *desc)
+static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l4_pkt_error(struct neta_ppio_desc *desc)
 {
-	enum mv_inq_l4_type l4_info = NETA_RXD_GET_L4_PRS_INFO(desc);
+	enum neta_inq_l4_type l4_info = NETA_RXD_GET_L4_PRS_INFO(desc);
 
-	if (unlikely((l4_info == MV_INQ_L4_TYPE_TCP || l4_info == MV_INQ_L4_TYPE_UDP) &&
+	if (unlikely((l4_info == NETA_INQ_L4_TYPE_TCP || l4_info == NETA_INQ_L4_TYPE_UDP) &&
 		     !NETA_RXD_GET_L3_IP_FRAG(desc) && !NETA_RXD_GET_L4_CHK_OK(desc)))
-		return MV_DESC_ERR_L4_CHECKSUM;
-	return MV_DESC_ERR_OK;
+		return NETA_DESC_ERR_L4_CHECKSUM;
+	return NETA_DESC_ERR_OK;
 }
 
 /**
@@ -441,11 +481,11 @@ static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_l4_pkt_error(struct
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	see enum mv_inq_desc_status.
+ * @retval	see enum neta_inq_desc_status.
  */
-static inline enum mv_inq_desc_status neta_ppio_inq_desc_get_pkt_error(struct neta_ppio_desc *desc)
+static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_pkt_error(struct neta_ppio_desc *desc)
 {
-	enum mv_inq_desc_status status;
+	enum neta_inq_desc_status status;
 
 	status = neta_ppio_inq_desc_get_l2_pkt_error(desc);
 	if (unlikely(status))
