@@ -49,6 +49,7 @@ musdk_sam_kat_LDADD = $(top_builddir)/src/libmusdk.la
 
 bin_SCRIPTS = sam_kat_suite/3des_tests.txt sam_kat_suite/aes_tests.txt
 bin_SCRIPTS += sam_kat_suite/aes_chain_test.txt sam_kat_suite/aes_gcm.txt
+bin_SCRIPTS += sam_kat_suite/aes_ctr.txt
 bin_SCRIPTS += sam_kat_suite/hash_only.txt
 bin_SCRIPTS += sam_kat_suite/hmac_tests.txt sam_kat_suite/hmac_tests_large.txt
 bin_SCRIPTS += sam_kat_suite/aes_sha1_multi.txt sam_kat_suite/aes_sha1_1440_multi.txt
