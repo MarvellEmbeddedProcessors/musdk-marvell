@@ -785,8 +785,8 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 
 #ifdef MVCONF_SAM_DEBUG
 		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
-			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_result);
-			struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
+			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_request);
+			struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_request);
 
 			print_result_desc(res_desc, 1);
 			print_cmd_desc(cmd_desc);

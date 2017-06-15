@@ -97,7 +97,7 @@ void sam_hw_reg_print(char *reg_name, void *base, u32 offset)
 {
 	void *addr = base + offset;
 
-	pr_info("%-32s: %8p = 0x%08x\n", reg_name, addr, readl(addr));
+	pr_info("%-32s: 0x%06x = 0x%08x\n", reg_name, offset, readl(addr));
 }
 
 int sam_hw_cdr_regs_reset(struct sam_hw_ring *hw_ring)
@@ -373,7 +373,8 @@ int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *
 
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 {
-	pr_info("%d:%d CDR registers\n", hw_ring->engine, hw_ring->ring);
+	pr_info("%d:%d CDR registers - paddr = 0x%08lx, vaddr = %p\n",
+		hw_ring->engine, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
 	sam_hw_reg_print("HIA_CDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_CDR_RING_BASE_ADDR_LO_REG);
 	sam_hw_reg_print("HIA_CDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG);
 	sam_hw_reg_print("HIA_CDR_DESC_SIZE_REG", hw_ring->regs_vbase, HIA_CDR_DESC_SIZE_REG);
@@ -385,7 +386,8 @@ void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 
 void sam_hw_rdr_regs_show(struct sam_hw_ring *hw_ring)
 {
-	pr_info("%d:%d RDR registers\n", hw_ring->engine, hw_ring->ring);
+	pr_info("%d:%d RDR registers - paddr = 0x%08lx, vaddr = %p\n",
+		hw_ring->engine, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
 	sam_hw_reg_print("HIA_RDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_RDR_RING_BASE_ADDR_LO_REG);
 	sam_hw_reg_print("HIA_RDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_RDR_RING_SIZE_REG);
 	sam_hw_reg_print("HIA_RDR_DESC_SIZE_REG", hw_ring->regs_vbase, HIA_RDR_DESC_SIZE_REG);
