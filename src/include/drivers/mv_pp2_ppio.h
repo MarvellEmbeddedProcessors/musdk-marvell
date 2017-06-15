@@ -96,9 +96,12 @@ enum pp2_ppio_log_port_rule_type {
 	PP2_RULE_TYPE_PROTO_FIELD
 };
 
+/**
+ * The enum below defines the logical port target
+ */
 enum pp2_ppio_cls_target {
-	PP2_CLS_TARGET_LOCAL_PPIO = 0,
-	PP2_CLS_TARGET_OTHER
+	PP2_CLS_TARGET_LOCAL_PPIO = 0,	/* traffic forwarded to kernel and logical port rules to MUSDK */
+	PP2_CLS_TARGET_OTHER		/* traffic forwarded to MUSDK and logical port rules to kernel */
 };
 
 /**
