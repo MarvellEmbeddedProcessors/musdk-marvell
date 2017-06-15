@@ -242,7 +242,7 @@ pp2_txp_max_tx_size_set(struct pp2_port *port)
 	u32 txq, tx_port_num;
 	uintptr_t cpu_slot = port->cpu_slot;
 
-	mtu = port->port_mru * 8;
+	mtu = port->port_mtu * 8;
 	if (mtu > MVPP2_TXP_MTU_MAX)
 		mtu = MVPP2_TXP_MTU_MAX;
 
