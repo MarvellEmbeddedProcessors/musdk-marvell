@@ -436,6 +436,10 @@ int pp2_ppio_get_link_state(struct pp2_ppio *ppio, int *en)
 {
 	int rc;
 
+	rc = pp2_port_get_loopback(GET_PPIO_PORT(ppio), en);
+	if (!rc && *en)
+		return rc;
+
 	rc = pp2_port_get_link_state(GET_PPIO_PORT(ppio), en);
 	return rc;
 }
