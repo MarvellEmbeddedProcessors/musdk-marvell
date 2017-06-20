@@ -1830,13 +1830,34 @@ static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
 void pp2_cls_prs_deinit(struct pp2_inst *inst)
 {
 	u32 i;
+	struct mv_pp2x_prs_entry pe;
 	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	/* Invalidate all MUSDK added entries */
 	for (i = 0; i < MVPP2_PRS_TCAM_SRAM_SIZE; i++) {
-		if (prs_shadow[i].valid_in_kernel)
+		if (prs_shadow[i].valid_in_kernel) {
+			/* Return parser to initial kernel configuration, except MH since
+			 * all flows are changed to look at UDF7 bit
+			 */
+			pe.index = i;
+			mv_pp2x_prs_hw_read(cpu_slot, &pe);
+			pe.sram.word[MVPP2_PRS_SRAM_RI_WORD] = prs_shadow[i].ri;
+			pe.sram.word[MVPP2_PRS_SRAM_RI_CTRL_WORD] = prs_shadow[i].ri_mask;
+			pe.tcam.byte[HW_BYTE_OFFS(MVPP2_PRS_TCAM_EN_OFFS(MVPP2_PRS_TCAM_PORT_BYTE))] =
+				prs_shadow[i].tcam.byte[HW_BYTE_OFFS(MVPP2_PRS_TCAM_EN_OFFS(MVPP2_PRS_TCAM_PORT_BYTE))];
+
+			pr_debug("%d ri %x, mask %x port %x\n", i, pe.sram.word[MVPP2_PRS_SRAM_RI_WORD],
+				pe.sram.word[MVPP2_PRS_SRAM_RI_CTRL_WORD],
+				pe.tcam.byte[HW_BYTE_OFFS(MVPP2_PRS_TCAM_EN_OFFS(MVPP2_PRS_TCAM_PORT_BYTE))]);
+
+			if (prs_shadow[i].lu == MVPP2_PRS_LU_MH) {
+				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_CLEAR, MVPP2_PRS_RI_UDF7_MASK);
+				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_NIC, MVPP2_PRS_RI_UDF7_MASK);
+			}
+			mv_pp2x_prs_hw_write(cpu_slot, &pe);
 			continue;
+		}
 
 		if (prs_shadow[i].valid) {
 			pr_debug("parser: removing idx %d\n", i);
