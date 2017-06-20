@@ -883,33 +883,54 @@ static int pp2_prs_tcam_lk_idx_list_get(struct pp2_inst *inst, u32 lookup,
 {
 	int tid, i = 0;
 	u8 byte;
+	u16 word;
 	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
 
 	for (tid = MVPP2_PE_FIRST_FREE_TID;
 	     tid <= MVPP2_PE_LAST_FREE_TID; tid++) {
-		if ((prs_shadow[tid].valid) &&
-		    (prs_shadow[tid].lu == lookup)) {
-			if (proto) {
-				byte = prs_shadow[tid].tcam.byte[TCAM_DATA_BYTE(5)];
-				if (byte == proto) {
-					*(tcam_list->idx + i) = tid;
-					if (prs_shadow[tid].ri & ri)
-						*(tcam_list->log_port + i) = 1;
-					pr_debug("%d, idx %d, log_port %d\n", i, *(tcam_list->idx + i),
-					       *(tcam_list->log_port + i));
-					i++;
-				}
-			} else {
+		if (!prs_shadow[tid].valid)
+			continue;
+
+		if (prs_shadow[tid].lu != lookup)
+			continue;
+
+		switch (proto) {
+		case ARP_PROTO:
+			word = (prs_shadow[tid].tcam.byte[TCAM_DATA_BYTE(0)] << 8) +
+				prs_shadow[tid].tcam.byte[TCAM_DATA_BYTE(1)];
+			if (word == proto) {
 				*(tcam_list->idx + i) = tid;
 				if (prs_shadow[tid].ri & ri)
 					*(tcam_list->log_port + i) = 1;
-				pr_debug("%d, idx %d, log_port %d\n", i, *(tcam_list->idx + i),
-				       *(tcam_list->log_port + i));
+				pr_debug("%d, proto: %x , idx %d, log_port %d\n", i, proto, *(tcam_list->idx + i),
+					*(tcam_list->log_port + i));
 				i++;
 			}
+			break;
+		case IPPROTO_TCP:
+		case IPPROTO_UDP:
+		case IPPROTO_IGMP:
+		case IPPROTO_ICMP:
+			byte = prs_shadow[tid].tcam.byte[TCAM_DATA_BYTE(5)];
+			if (byte == proto) {
+				*(tcam_list->idx + i) = tid;
+				if (prs_shadow[tid].ri & ri)
+					*(tcam_list->log_port + i) = 1;
+				pr_debug("%d, proto: %x , idx %d, log_port %d\n", i, proto, *(tcam_list->idx + i),
+					*(tcam_list->log_port + i));
+				i++;
+			}
+			break;
+		default:
+			*(tcam_list->idx + i) = tid;
+			if (prs_shadow[tid].ri & ri)
+				*(tcam_list->log_port + i) = 1;
+			pr_debug("%d, idx %d, log_port %d\n", i, *(tcam_list->idx + i), *(tcam_list->log_port + i));
+			i++;
 		}
 	}
 	tcam_list->size = i;
+
 	return 0;
 }
 
@@ -1008,6 +1029,90 @@ static int pp2_prs_non_log_port_update(struct pp2_port *port, struct prs_lkp_tca
 	}
 	return 0;
 }
+
+
+/* pp2_prs_log_port_arp
+ *
+ * DESCRIPTION:	Configure parser IPv4 specific protocol for logical port
+ *
+ * INPUTS:	port	- logical port to be configured
+ *		target	- target classification (logical port or nic)
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+static int pp2_prs_log_port_arp(struct pp2_port *port, enum pp2_ppio_cls_target target)
+{
+	struct mv_pp2x_prs_entry pe;
+	int tid;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
+	struct prs_lkp_tcam_list tcam_list;
+	u32 ri = 0, nri = 0;
+	u32 ri_mask = 0;
+
+	memset(&tcam_list, 0, sizeof(struct prs_lkp_tcam_list));
+
+	if (target == PP2_CLS_TARGET_LOCAL_PPIO) {
+		ri |= MVPP2_PRS_RI_UDF7_LOG_PORT;
+		nri |= MVPP2_PRS_RI_UDF7_NIC;
+	} else {
+		ri |= MVPP2_PRS_RI_UDF7_NIC;
+		nri |= MVPP2_PRS_RI_UDF7_LOG_PORT;
+	}
+
+	ri_mask |= MVPP2_PRS_RI_UDF7_MASK;
+
+	/* get the current indexes with lookup id MVPP2_PRS_LU_L2 and specified proto */
+	pp2_prs_tcam_lk_idx_list_get(inst, MVPP2_PRS_LU_L2, ARP_PROTO, &tcam_list, ri);
+
+	pr_debug("%s target %d, ri %x, nri %x, mask %x\n", __func__, target, ri, nri, ri_mask);
+
+	if (!pp2_prs_log_port_tcam_check(&tcam_list)) {
+		/* Create new parser entries for the specified logical port */
+		tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID,
+						  MVPP2_PE_LAST_FREE_TID);
+		if (tid < 0)
+			return tid;
+
+		memset(&pe, 0, sizeof(struct mv_pp2x_prs_entry));
+		mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_L2);
+		pe.index = tid;
+
+		mv_pp2x_prs_match_etype(&pe, 0, ARP_PROTO);
+
+		/* Generate flow in the next iteration*/
+		mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_FLOWS);
+		mv_pp2x_prs_sram_bits_set(&pe, MVPP2_PRS_SRAM_LU_GEN_BIT, 1);
+		mv_pp2x_prs_sram_ri_update(&pe, ri | MVPP2_PRS_RI_L3_ARP, ri_mask | MVPP2_PRS_RI_L3_PROTO_MASK);
+
+		/* Set L3 offset */
+		mv_pp2x_prs_sram_offset_set(&pe, MVPP2_PRS_SRAM_UDF_TYPE_L3,
+					    MVPP2_ETH_TYPE_LEN,
+					    MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
+
+		/* Mask all ports */
+		mv_pp2x_prs_tcam_port_map_set(&pe, 0);
+
+		/* Update port mask */
+		mv_pp2x_prs_tcam_port_set(&pe, port->id, true);
+
+		/* Update shadow table and hw entry */
+		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_L2);
+		prs_shadow[pe.index].udf = MVPP2_PRS_UDF_L2_DEF;
+		prs_shadow[pe.index].finish = true;
+		mv_pp2x_prs_shadow_ri_set(inst, pe.index, ri | MVPP2_PRS_RI_L3_ARP,
+					  ri_mask | MVPP2_PRS_RI_L3_PROTO_MASK);
+		mv_pp2x_prs_hw_write(cpu_slot, &pe);
+	}
+
+	pp2_prs_non_log_port_update(port, &tcam_list, nri, ri_mask);
+
+	return 0;
+}
+
 
 /* pp2_prs_log_port_pppoe
  *
@@ -1173,7 +1278,7 @@ static int pp2_prs_log_port_ip4_proto(struct pp2_port *port, u16 proto, u32 ri, 
 	u32 nri = 0;
 
 	if ((proto != IPPROTO_TCP) && (proto != IPPROTO_UDP) &&
-	    (proto != IPPROTO_IGMP))
+	    (proto != IPPROTO_IGMP) && (proto != IPPROTO_ICMP))
 		return -EINVAL;
 
 	memset(&tcam_list, 0, sizeof(struct prs_lkp_tcam_list));
@@ -1522,6 +1627,9 @@ static int pp2_prs_log_port_proto_set(struct pp2_port *port, enum mv_net_proto p
 	int err = 0;
 
 	switch (proto) {
+	case MV_NET_PROTO_ARP:
+		err = pp2_prs_log_port_arp(port, target);
+		break;
 	case MV_NET_PROTO_VLAN:
 	case MV_NET_PROTO_IP:
 	case MV_NET_PROTO_IP6:
@@ -1531,32 +1639,30 @@ static int pp2_prs_log_port_proto_set(struct pp2_port *port, enum mv_net_proto p
 		err = pp2_prs_log_port_pppoe(port, target);
 		break;
 	case MV_NET_PROTO_IP4:
-		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_UDP,
-						 MVPP2_PRS_RI_L4_UDP,
-						 MVPP2_PRS_RI_L4_PROTO_MASK, target);
-		if (err)
-			return -EFAULT;
-
-		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_TCP,
-						 MVPP2_PRS_RI_L4_TCP,
-						 MVPP2_PRS_RI_L4_PROTO_MASK, target);
-		if (err)
-			return -EFAULT;
-		break;
 	case MV_NET_PROTO_UDP:
 		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_UDP,
 						 MVPP2_PRS_RI_L4_UDP,
 						 MVPP2_PRS_RI_L4_PROTO_MASK, target);
 		if (err)
 			return -EFAULT;
-		break;
+		if (proto == MV_NET_PROTO_UDP)
+			break;
 	case MV_NET_PROTO_TCP:
 		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_TCP,
 						 MVPP2_PRS_RI_L4_TCP,
 						 MVPP2_PRS_RI_L4_PROTO_MASK, target);
 		if (err)
 			return -EFAULT;
-		break;
+		if (proto == MV_NET_PROTO_TCP)
+			break;
+	case MV_NET_PROTO_ICMP:
+		err = pp2_prs_log_port_ip4_proto(port, IPPROTO_ICMP,
+						 MVPP2_PRS_RI_L4_OTHER,
+						 MVPP2_PRS_RI_L4_PROTO_MASK, target);
+		if (err)
+			return -EFAULT;
+		if (proto == MV_NET_PROTO_ICMP)
+			break;
 	default:
 		pr_err("log port proto %d not supported\n", proto);
 		break;

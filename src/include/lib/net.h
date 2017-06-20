@@ -35,6 +35,7 @@
 
 #define PPP_PROTO_IPV4		0x21
 #define PPP_PROTO_IPV6		0x57
+#define ARP_PROTO		0x806	/* Address Resolution packet	*/
 
 static inline bool mv_check_eaddr_mc(const u8 *eaddr)
 {
