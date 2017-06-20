@@ -60,7 +60,7 @@ struct sys_iomem_params {
 	 * mmap examples: for PPv2, use 'marvell,mv-pp22', for DMA-XOR, use 'marvell,mv-xor-v2'.
 	 */
 	const char		*devname;
-	int			 index; /**< the device index */
+	int			 index; /**< the device index, or -1 for single device (like BM) */
 };
 
 /**

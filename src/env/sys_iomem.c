@@ -117,7 +117,10 @@ static int iomem_uio_io_exists(const char *name, int index)
 		return -ENOMEM;
 	}
 	memset(tmp_name, 0, size);
-	snprintf(tmp_name, size, "uio_%s_%d", name, index);
+	if (index < 0)
+		snprintf(tmp_name, size, "uio_%s", name);
+	else
+		snprintf(tmp_name, size, "uio_%s_%d", name, index);
 
 	if (uio_find_devices_byname(tmp_name))
 		ans = 1;
@@ -136,7 +139,10 @@ static int iomem_uio_ioinit(struct mem_uio *uiom, const char *name, int index)
 		return -ENOMEM;
 	}
 	memset(tmp_name, 0, strlen(name)+8);
-	snprintf(tmp_name, strlen(name)+8, "uio_%s_%d", name, index);
+	if (index < 0)
+		snprintf(tmp_name, strlen(name)+8, "uio_%s", name);
+	else
+		snprintf(tmp_name, strlen(name)+8, "uio_%s_%d", name, index);
 
 	uiom->info = uio_find_devices_byname(tmp_name);
 	if (!uiom->info) {
