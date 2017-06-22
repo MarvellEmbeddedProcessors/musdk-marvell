@@ -1097,6 +1097,9 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 
 	/* Initialize RSS */
 	pp2_cls_mng_rss_port_init(port, pp2_rss_map_get());
+
+	/* Set initial cos value */
+	pp2_cls_mng_config_default_cos_queue(port);
 }
 
 static int32_t

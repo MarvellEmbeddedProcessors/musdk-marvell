@@ -168,6 +168,7 @@ int mv_pp2x_cls_c2_qos_color_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *colo
 int mv_pp2x_cls_c2_qos_gpid_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *gpid);
 int mv_pp2x_cls_c2_qos_queue_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *queue);
 void mv_pp2x_cls_c2_qos_tbl_fill(struct pp2_port *port, u8 tbl_sel, uint8_t start_queue);
+int pp2_c2_config_default_queue(struct pp2_port *port, u16 queue);
 
 /*-------------------------------------------------------------------------------*/
 /*	C3 Common utilities							  */

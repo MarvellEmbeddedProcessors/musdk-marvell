@@ -1755,6 +1755,11 @@ u8 pp2_cls_c2_tcam_port_get(struct mv_pp2x_cls_c2_entry *c2)
 	return ((c2->tcam.words[4] >> 8) & 0xFF);
 }
 
+u8 pp2_cls_c2_tcam_lkp_type_get(struct mv_pp2x_cls_c2_entry *c2)
+{
+	return (c2->tcam.words[4] & MVPP2_CLS_C2_HEK_LKP_TYPE_MASK);
+}
+
 /* C2 rule and Qos table */
 int mv_pp2x_cls_c2_hw_write(uintptr_t cpu_slot, int index,
 			    struct mv_pp2x_cls_c2_entry *c2)
@@ -2032,6 +2037,57 @@ static int mv_pp2x_c2_rule_add(struct pp2_port *port,
 	return 0;
 }
 
+
+/*
+* This function is called at init time.
+* Go over C2 table and set default queue in The TCAM rule index for the flows:
+* VLAN pri check, DSCP check and untagged and non-IP
+*/
+int pp2_c2_config_default_queue(struct pp2_port *port, u16 queue)
+{
+	int index;
+	int c2_status;
+	int rc;
+	u8 port_id, lkp_type;
+	struct mv_pp2x_cls_c2_entry c2;
+	struct pp2_hw *hw = &port->parent->hw;
+	int q_low, q_high;
+
+	c2_status = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG);
+	if (!c2_status) {
+		pr_err("c2 is off\n");
+		return -EINVAL;
+	}
+
+	mv_pp2x_c2_sw_clear(&c2);
+
+	for (index = 0; index < MVPP2_CLS_C2_TCAM_SIZE; index++) {
+		mv_pp2x_cls_c2_hw_read(hw->base[0].va, index, &c2);
+		port_id = pp2_cls_c2_tcam_port_get(&c2);
+		lkp_type = pp2_cls_c2_tcam_lkp_type_get(&c2);
+
+		if (c2.inv == 0 && port_id == (1 << port->id) &&
+		    (lkp_type == MVPP2_CLS_LKP_VLAN_PRI ||
+		     lkp_type == MVPP2_CLS_LKP_DSCP_PRI ||
+		     lkp_type == MVPP2_CLS_LKP_DEFAULT)) {
+
+			/* Set default queue */
+			q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
+			q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
+			rc = mv_pp2x_cls_c2_queue_low_set(&c2, MVPP2_ACTION_TYPE_UPDT_LOCK, q_low,
+							  MVPP2_QOS_SRC_ACTION_TBL);
+			if (rc)
+				return rc;
+			rc = mv_pp2x_cls_c2_queue_high_set(&c2, MVPP2_ACTION_TYPE_UPDT_LOCK, q_high,
+							  MVPP2_QOS_SRC_ACTION_TBL);
+			if (rc)
+				return rc;
+
+			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
+		}
+	}
+	return 0;
+}
 
 int mv_pp2x_c2_hit_cntr_read(uintptr_t cpu_slot, int index, u32 *cntr)
 {
