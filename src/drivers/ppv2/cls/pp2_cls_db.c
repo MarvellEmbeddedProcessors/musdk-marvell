@@ -1616,7 +1616,7 @@ int pp2_cls_db_rss_tbl_map_set(struct pp2_inst *inst, u16 idx, u16 hw_tbl, u16 n
 	return 0;
 }
 
-int pp2_cls_db_rss_tbl_map_get(struct pp2_inst *inst, u16 idx, u16 *hw_tbl, u16 *num_in_q)
+int pp2_cls_db_rss_tbl_map_get(struct pp2_inst *inst, u16 idx, int *hw_tbl, u16 *num_in_q)
 {
 	if (idx > MVPP22_RSS_TBL_NUM)
 		return -EINVAL;
@@ -1632,11 +1632,12 @@ int pp2_cls_db_rss_get_hw_tbl_from_in_q(struct pp2_inst *inst, u8 num_in_q)
 	int i;
 
 	for (i = 0; i < MVPP22_RSS_TBL_NUM; i++) {
+		pr_debug("%d num_in_q %d, %d\n", i, inst->cls_db->rss_db.rss_tbl_map[i].num_in_q, num_in_q);
 		if (inst->cls_db->rss_db.rss_tbl_map[i].num_in_q == num_in_q)
 			return inst->cls_db->rss_db.rss_tbl_map[i].hw_tbl;
 	}
 
-	return 0;
+	return -1;
 }
 
 int pp2_cls_db_rss_tbl_map_get_next_free_idx(struct pp2_inst *inst)

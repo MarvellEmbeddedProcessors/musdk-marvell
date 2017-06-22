@@ -48,7 +48,8 @@ int pp2_rss_musdk_map_get(struct pp2_port *port)
 	int i, idx;
 	int rss_en = false;
 	struct pp2_inst *inst = port->parent;
-	u16 hw_tbl, num_in_q;
+	int hw_tbl;
+	u16 num_in_q;
 
 	/* Calculate number of TC's which require RSS */
 	for (i = 0; i < port->num_tcs; i++) {
@@ -56,7 +57,7 @@ int pp2_rss_musdk_map_get(struct pp2_port *port)
 			rss_en = true;
 
 		hw_tbl = pp2_cls_db_rss_get_hw_tbl_from_in_q(inst, port->tc[i].tc_config.num_in_qs);
-		if (!hw_tbl) {
+		if (hw_tbl < 0) {
 			/* entry in rss_tbl_map is empty. Fill dB with new values */
 			idx = pp2_cls_db_rss_tbl_map_get_next_free_idx(inst);
 			if (idx == MVPP22_RSS_TBL_NUM) {
@@ -99,14 +100,14 @@ int pp2_rss_hw_tbl_set(struct pp2_port *port)
 	int entry_idx;
 	u16 width;
 	struct pp2_inst *inst = port->parent;
-	u16 hw_tbl;
+	int hw_tbl;
 
 	memset(&rss_entry, 0, sizeof(struct mv_pp22_rss_entry));
 	rss_entry.sel = MVPP22_RSS_ACCESS_TBL;
 
 	for (i = 0; i < port->num_tcs; i++) {
 		hw_tbl = pp2_cls_db_rss_get_hw_tbl_from_in_q(inst, port->tc[i].tc_config.num_in_qs);
-		if (!hw_tbl) {
+		if (hw_tbl < 0) {
 			pr_err("%s RSS table index not found\n", __func__);
 			return -EFAULT;
 		}
@@ -134,7 +135,7 @@ int pp22_cls_rss_rxq_set(struct pp2_port *port)
 	int i, j;
 	struct mv_pp22_rss_entry rss_entry;
 	struct pp2_inst *inst = port->parent;
-	u16 hw_tbl;
+	int hw_tbl;
 
 	memset(&rss_entry, 0, sizeof(struct mv_pp22_rss_entry));
 	rss_entry.sel = MVPP22_RSS_ACCESS_POINTER;
@@ -142,8 +143,9 @@ int pp22_cls_rss_rxq_set(struct pp2_port *port)
 	for (i = 0; i < port->num_tcs; i++) {
 		/* Set the table index to be used according to rss_map */
 		hw_tbl = pp2_cls_db_rss_get_hw_tbl_from_in_q(inst, port->tc[i].tc_config.num_in_qs);
-		if (!hw_tbl) {
-			pr_err("%s RSS table index not found. Check mvpp2x_sysfs.ko module is loaded\n", __func__);
+		if (hw_tbl < 0) {
+			pr_err("%s RSS table index not found %d. Check mvpp2x_sysfs.ko module is loaded\n", __func__,
+				port->tc[i].tc_config.num_in_qs);
 			return -EFAULT;
 		}
 		rss_entry.u.pointer.rss_tbl_ptr = hw_tbl;

@@ -244,7 +244,7 @@ u16 pp2_cls_db_rss_kernel_rsvd_tbl_get(struct pp2_inst *inst);
 void pp2_cls_db_rss_num_musdk_tbl_set(struct pp2_inst *inst, u16 num_musdk_tbl);
 u16 pp2_cls_db_rss_num_musdk_tbl_get(struct pp2_inst *inst);
 int pp2_cls_db_rss_tbl_map_set(struct pp2_inst *inst, u16 idx, u16 hw_tbl, u16 num_in_q);
-int pp2_cls_db_rss_tbl_map_get(struct pp2_inst *inst, u16 idx, u16 *hw_tbl, u16 *num_in_q);
+int pp2_cls_db_rss_tbl_map_get(struct pp2_inst *inst, u16 idx, int *hw_tbl, u16 *num_in_q);
 int pp2_cls_db_rss_get_hw_tbl_from_in_q(struct pp2_inst *inst, u8 num_in_q);
 int pp2_cls_db_rss_tbl_map_get_next_free_idx(struct pp2_inst *inst);
 
