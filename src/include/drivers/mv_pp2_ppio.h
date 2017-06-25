@@ -113,14 +113,14 @@ struct pp2_ppio_inq_params {
  * ppio inq statistics
  *
  * Note: Drop counters are 32 bit counters and they will be updated up to
- *       32 bit maximum value (0xFFFFFFFF) and will not be wrapped around.
+ *       32/16 bit maximum value (0xFFFFFFFF/0xFFFF) and will not be wrapped around.
  *
  */
 struct pp2_ppio_inq_statistics {
 	u64	enq_desc;	/**< ppio inq descriptors enqueue counter */
-	u32	drop_early;	/**< ppio inq early dropped packets counter */
 	u32	drop_fullq;	/**< ppio inq full queue dropped packets counter */
-	u32	drop_bm;	/**< ppio inq BM dropped packets counter */
+	u16	drop_early;	/**< ppio inq early dropped packets counter */
+	u16	drop_bm;	/**< ppio inq BM dropped packets counter */
 };
 
 
@@ -300,14 +300,20 @@ struct pp2_ppio_params {
  */
 struct pp2_ppio_statistics {
 	/* Rx port statistics */
+	u64	rx_bytes;		/**< RX Bytes Counter */
 	u64	rx_packets;		/**< RX Packets Counter */
+	u64	rx_unicast_packets;	/**< RX Unicast Packets Counter */
+	u64	rx_errors;		/**< RX MAC Errors Counter */
 	u32	rx_fullq_dropped;	/**< RX Full Queue Dropped Counter */
-	u32	rx_bm_dropped;		/**< RX BM Dropped Counter */
-	u32	rx_early_dropped;	/**< RX Early Dropped Counter  */
 	u32	rx_fifo_dropped;	/**< RX FIFO Overrun Counter */
 	u32	rx_cls_dropped;		/**< RX CLS Dropped Counter */
+	u16	rx_bm_dropped;		/**< RX BM Dropped Counter */
+	u16	rx_early_dropped;	/**< RX Early Dropped Counter  */
 	/* Tx port statistics */
+	u64	tx_bytes;		/**< TX Bytes Counter */
 	u64	tx_packets;		/**< TX Packets Counter */
+	u64	tx_unicast_packets;	/**< TX Unicast Packets Counter */
+	u64	tx_errors;		/**< TX MAC Errors Counter */
 };
 
 /**
