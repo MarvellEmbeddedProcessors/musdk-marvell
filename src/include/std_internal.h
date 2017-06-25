@@ -72,6 +72,8 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <sys/ioctl.h>
+#include <linux/ethtool.h>
+#include <linux/sockios.h>
 #include <getopt.h>
 #include <ifaddrs.h>
 

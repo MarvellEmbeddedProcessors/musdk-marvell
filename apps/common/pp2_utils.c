@@ -106,15 +106,21 @@ void app_show_port_stat(struct port_desc *port_desc, int reset)
 	printf("\n--------  Port %d:%d stats --------\n", port_desc->pp_id, port_desc->ppio_id);
 	pp2_ppio_get_statistics(port_desc->ppio, &stats, reset);
 	printf("\t Rx statistics:\n");
+	printf("\t\tReceived bytes:          %lu\n", stats.rx_bytes);
 	printf("\t\tReceived packets:        %lu\n", stats.rx_packets);
-	printf("\t\tFull queue drops:        %u\n", stats.rx_fullq_dropped);
+	printf("\t\tReceived unicast:        %lu\n", stats.rx_unicast_packets);
+	printf("\t\tReceived errors:         %lu\n", stats.rx_errors);
+	printf("\t\tFull queue drops:        %lu\n", stats.rx_fullq_dropped);
 	printf("\t\tBuffer Manager drops:    %u\n", stats.rx_bm_dropped);
 	printf("\t\tEarly drops:             %u\n", stats.rx_early_dropped);
 	printf("\t\tFIFO overrun drops:      %u\n", stats.rx_fifo_dropped);
 	printf("\t\tClassifier drops:        %u\n", stats.rx_cls_dropped);
 	printf("\n");
 	printf("\t Tx statistics:\n");
+	printf("\t\tSent bytes:              %lu\n", stats.tx_bytes);
 	printf("\t\tSent packets:            %lu\n", stats.tx_packets);
+	printf("\t\tSent unicast:            %lu\n", stats.tx_unicast_packets);
+	printf("\t\tSent errors:             %lu\n", stats.tx_errors);
 }
 
 static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])

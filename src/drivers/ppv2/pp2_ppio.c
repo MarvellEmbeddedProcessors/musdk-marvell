@@ -104,6 +104,9 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 		}
 	}
 
+	pp2_ppio_get_statistics(*ppio, NULL, true);
+	pp2_ppio_set_loopback(*ppio, false);
+
 	return rc;
 }
 
@@ -158,8 +161,8 @@ int pp2_ppio_inq_get_statistics(struct pp2_ppio *ppio, u8 tc, u8 qid,
 	pp2_relaxed_reg_write(cpu_slot, MVPP2_CNT_IDX_REG, rxq->id);
 	PP2_READ_UPDATE_CNT64(rxq->stats.enq_desc, cpu_slot, MVPP2_RX_DESC_ENQ_REG);
 	PP2_READ_UPDATE_CNT32(rxq->stats.drop_fullq, cpu_slot, MVPP2_RX_PKT_FULLQ_DROP_REG);
-	PP2_READ_UPDATE_CNT32(rxq->stats.drop_early, cpu_slot, MVPP2_RX_PKT_EARLY_DROP_REG);
-	PP2_READ_UPDATE_CNT32(rxq->stats.drop_bm, cpu_slot, MVPP2_RX_PKT_BM_DROP_REG);
+	PP2_READ_UPDATE_CNT16(rxq->stats.drop_early, cpu_slot, MVPP2_RX_PKT_EARLY_DROP_REG);
+	PP2_READ_UPDATE_CNT16(rxq->stats.drop_bm, cpu_slot, MVPP2_RX_PKT_BM_DROP_REG);
 
 	if (stats)
 		memcpy(stats, &rxq->stats, sizeof(rxq->stats));
@@ -468,49 +471,43 @@ int pp2_ppio_flush_vlan(struct pp2_ppio *ppio)
 
 int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *stats, int reset)
 {
+	struct pp2_ppio_statistics cur_stats;
 	struct pp2_port *port = GET_PPIO_PORT(ppio);
 	int qid, tc;
-	u32 rx_fifo_dropped, rx_cls_dropped;
 
-	/*
-	* Reset all port statistics updated from queues statistics
-	* except of rx_fifo_dropped and rx_cls_dropped that will be
-	* read and aggregated from HW registers.
-	*/
-	rx_fifo_dropped = port->stats.rx_fifo_dropped;
-	rx_cls_dropped = port->stats.rx_cls_dropped;
-	memset(&port->stats, 0, sizeof(port->stats));
+	memset(&cur_stats, 0, sizeof(struct pp2_ppio_statistics));
+	pp2_port_get_statistics(port, &cur_stats);
 
-	port->stats.rx_fifo_dropped = rx_fifo_dropped;
-	port->stats.rx_cls_dropped = rx_cls_dropped;
-	PP2_READ_UPDATE_CNT32(port->stats.rx_fifo_dropped, port->cpu_slot, MV_PP2_OVERRUN_DROP_REG(port->id));
-	PP2_READ_UPDATE_CNT32(port->stats.rx_cls_dropped, port->cpu_slot, MV_PP2_CLS_DROP_REG(port->id));
-
-	/* Update Rx Statistics */
+	/* Update Rx Qs Statistics */
 	for (tc = 0; tc < port->num_tcs; tc++) {
 		for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
 			struct pp2_ppio_inq_statistics rx_stats;
 
 			pp2_ppio_inq_get_statistics(ppio, tc, qid, &rx_stats, reset);
-			PP2_UPDATE_CNT64(port->stats.rx_packets, rx_stats.enq_desc);
-			PP2_UPDATE_CNT32(port->stats.rx_fullq_dropped, rx_stats.drop_fullq);
-			PP2_UPDATE_CNT32(port->stats.rx_bm_dropped, rx_stats.drop_bm);
-			PP2_UPDATE_CNT32(port->stats.rx_early_dropped, rx_stats.drop_early);
+			cur_stats.rx_fullq_dropped += rx_stats.drop_fullq;
+			cur_stats.rx_bm_dropped += rx_stats.drop_bm;
+			cur_stats.rx_early_dropped += rx_stats.drop_early;
 		}
 	}
 
-	/* Update Tx Statistics */
-	for (qid = 0; qid < port->num_tx_queues; qid++) {
-		struct pp2_ppio_outq_statistics tx_stats;
-
-		pp2_ppio_outq_get_statistics(ppio, qid, &tx_stats, reset);
-		PP2_UPDATE_CNT64(port->stats.tx_packets, tx_stats.enq_desc);
+	if (stats) {
+		stats->rx_bytes = cur_stats.rx_bytes - port->stats.rx_bytes;
+		stats->rx_packets = cur_stats.rx_packets - port->stats.rx_packets;
+		stats->rx_unicast_packets = cur_stats.rx_unicast_packets - port->stats.rx_unicast_packets;
+		stats->rx_errors = cur_stats.rx_errors - port->stats.rx_errors;
+		stats->rx_fullq_dropped = cur_stats.rx_fullq_dropped;
+		stats->rx_bm_dropped = cur_stats.rx_bm_dropped;
+		stats->rx_early_dropped = cur_stats.rx_early_dropped;
+		stats->rx_fifo_dropped = cur_stats.rx_fifo_dropped - port->stats.rx_fifo_dropped;
+		stats->rx_cls_dropped = cur_stats.rx_cls_dropped - port->stats.rx_cls_dropped;
+		stats->tx_bytes = cur_stats.tx_bytes - port->stats.tx_bytes;
+		stats->tx_packets = cur_stats.tx_packets - port->stats.tx_packets;
+		stats->tx_unicast_packets = cur_stats.tx_unicast_packets - port->stats.tx_unicast_packets;
+		stats->tx_errors = cur_stats.tx_errors - port->stats.tx_errors;
 	}
-	if (stats)
-		memcpy(stats, &port->stats, sizeof(port->stats));
 
 	if (reset)
-		memset(&port->stats, 0, sizeof(port->stats));
+		memcpy(&port->stats, &cur_stats, sizeof(struct pp2_ppio_statistics));
 
 	return 0;
 

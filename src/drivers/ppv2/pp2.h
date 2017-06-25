@@ -138,6 +138,15 @@ struct pp2_txq_dm_if {
 /* Automatic statistics update threshold (in received packetes) */
 #define PP2_STAT_UPDATE_THRESHOLD	(0xEFFFFFFF)
 
+#define PP2_UPDATE_CNT16(counter, value) {						\
+	counter = ((u32)(counter + value) > USHRT_MAX) ? USHRT_MAX : counter + value;	\
+	}
+
+#define PP2_READ_UPDATE_CNT16(counter, cpu_slot, reg)	{	\
+	u32 value = pp2_relaxed_reg_read(cpu_slot, reg);	\
+	PP2_UPDATE_CNT16(counter, value);			\
+}
+
 #define PP2_UPDATE_CNT32(counter, value) {						\
 	counter = ((u64)(counter + value) > UINT_MAX) ? UINT_MAX : counter + value;	\
 	}
@@ -340,6 +349,7 @@ struct pp2_port {
 	/* Flag to indicate the automatic statistics update */
 	int maintain_stats;
 	/* Port statistics */
+	struct ethtool_gstrings *stats_name;
 	struct pp2_ppio_statistics stats;
 	/* Logical or nic port */
 	enum pp2_ppio_type type;

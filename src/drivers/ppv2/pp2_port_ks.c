@@ -127,3 +127,16 @@ int pp2_port_get_link_state(struct pp2_port *port, int  *en)
 	pr_err("[%s] not implemented yet\n", __func__);
 	return -EINVAL;
 }
+
+int pp2_port_initialize_statistics(struct pp2_port *port)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -EINVAL;
+}
+
+int pp2_port_get_statistics(struct pp2_port *port)
+{
+	pr_err("[%s] not implemented yet\n", __func__);
+	return -EINVAL;
+}
+
