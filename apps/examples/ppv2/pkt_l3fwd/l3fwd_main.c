@@ -50,7 +50,6 @@
 #include "mv_pp2_ppio.h"
 
 #include "pp2_utils.h"
-#include "byteorder_inlines.h"
 #include "l3fwd_db.h"
 #include "l3fwd_lpm.h"
 #include "ezxml.h"
@@ -163,13 +162,13 @@ static struct glob_arg garg = {};
  */
 static inline void ipv4_dec_ttl_csum_update(pp2h_ipv4hdr_t *ip)
 {
-	u16 a = ~pp2_cpu_to_be_16(1 << 8);
+	u16 a = ~htobe16(1 << 8);
 
 	ip->ttl--;
 	if (ip->chksum >= a)
 		ip->chksum -= a;
 	else
-		ip->chksum += pp2_cpu_to_be_16(1 << 8);
+		ip->chksum += htobe16(1 << 8);
 }
 
 static inline int l3fwd_pkt_lpm(char *pkt, int l3_off, int l4_off)
@@ -184,7 +183,7 @@ static inline int l3fwd_pkt_lpm(char *pkt, int l3_off, int l4_off)
 	eth = (pp2h_ethhdr_t *)pkt;
 
 	/* network byte order maybe different from host */
-	ret = fib_tbl_lookup(pp2_be_to_cpu_32(ip->dst_addr), &dif);
+	ret = fib_tbl_lookup(be32toh(ip->dst_addr), &dif);
 	if (ret)
 		return -EINVAL;
 
@@ -213,7 +212,7 @@ static inline int l3fwd_pkt_hash(char *pkt, int l3_off, int l4_off)
 #ifdef IPV6_ENABLED
 	if (likely(IPV4_HDR_VER(ip->ver_ihl) == IP_VERSION_4)) {
 #endif
-		key.u5t.ipv4_5t.dst_ip = pp2_be_to_cpu_32(ip->dst_addr);
+		key.u5t.ipv4_5t.dst_ip = be32toh(ip->dst_addr);
 		if (unlikely((ip->ttl <= 1) || !((ip->proto == IP_PROTOCOL_UDP) ||
 						 (ip->proto == IP_PROTOCOL_TCP)))) {
 			/* drop zero TTL or not TCP/UDP traffic */
@@ -222,7 +221,7 @@ static inline int l3fwd_pkt_hash(char *pkt, int l3_off, int l4_off)
 
 #ifndef LPM_FRWD
 		key.ip_protocol = IP_VERSION_4;
-		key.u5t.ipv4_5t.src_ip = pp2_be_to_cpu_32(ip->src_addr);
+		key.u5t.ipv4_5t.src_ip = be32toh(ip->src_addr);
 		key.u5t.ipv4_5t.proto = ip->proto;
 
 		udp = (pp2h_udphdr_t *)(pkt + l4_off);

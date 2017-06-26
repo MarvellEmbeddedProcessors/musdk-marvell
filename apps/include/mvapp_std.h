@@ -35,4 +35,6 @@
 
 #include "mv_std.h"
 
+#include <endian.h>
+
 #endif /* __MVAPP_STD_H__ */

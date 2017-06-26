@@ -12,12 +12,11 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "byteorder_inlines.h"
 #include "l3fwd_db.h"
 #include "xxhash.h"
 #include "lib/net.h"
 
-inline void pp2_rwlock_read_lock(pp2_rwlock_t *rwlock)
+static inline void pp2_rwlock_read_lock(pp2_rwlock_t *rwlock)
 {
 	u32 cnt;
 	int  is_locked = 0;
@@ -33,12 +32,12 @@ inline void pp2_rwlock_read_lock(pp2_rwlock_t *rwlock)
 	}
 }
 
-inline void pp2_rwlock_write_unlock(pp2_rwlock_t *rwlock)
+static inline void pp2_rwlock_write_unlock(pp2_rwlock_t *rwlock)
 {
 	pp2_atomic_store_rel_u32(&rwlock->cnt, 0);
 }
 
-inline void pp2_rwlock_write_lock(pp2_rwlock_t *rwlock)
+static inline void pp2_rwlock_write_lock(pp2_rwlock_t *rwlock)
 {
 	u32 cnt;
 	int is_locked = 0;
@@ -56,12 +55,12 @@ inline void pp2_rwlock_write_lock(pp2_rwlock_t *rwlock)
 	}
 }
 
-inline void pp2_rwlock_read_unlock(pp2_rwlock_t *rwlock)
+static inline void pp2_rwlock_read_unlock(pp2_rwlock_t *rwlock)
 {
 	pp2_atomic_sub_rel_u32(&rwlock->cnt, 1);
 }
 
-inline void pp2_rwlock_init(pp2_rwlock_t *rwlock)
+static inline void pp2_rwlock_init(pp2_rwlock_t *rwlock)
 {
 	pp2_atomic_init_u32(&rwlock->cnt, 0);
 }
@@ -158,7 +157,7 @@ int parse_ipv4_string(char *ipaddress, u32 *addr, u32 *depth)
 		return -1;
 
 	addr_le = b[0] | b[1] << 8 | b[2] << 16 | b[3] << 24;
-	*addr = pp2_le_to_cpu_32(addr_le);
+	*addr = le32toh(addr_le);
 	*depth = qualifier;
 
 	return 0;
@@ -241,10 +240,10 @@ int parse_ipv6_string(char *ipaddress, u64 *addr_hi, u64 *addr_lo, u32 *depth)
 	if ((qualifier < 0) || (qualifier > 128))
 		return -1;
 
-	*addr_hi = (u64)pp2_cpu_to_be_16(b[0]) | (u64)pp2_cpu_to_be_16(b[1]) << 16 |
-			(u64)pp2_cpu_to_be_16(b[2]) << 32 | (u64)pp2_cpu_to_be_16(b[3]) << 48;
-	*addr_lo = (u64)pp2_cpu_to_be_16(b[4]) | (u64)pp2_cpu_to_be_16(b[5]) << 16 |
-			(u64)pp2_cpu_to_be_16(b[6]) << 32 | (u64)pp2_cpu_to_be_16(b[7]) << 48;
+	*addr_hi = (u64)htobe16(b[0]) | (u64)htobe16(b[1]) << 16 |
+			(u64)htobe16(b[2]) << 32 | (u64)htobe16(b[3]) << 48;
+	*addr_lo = (u64)htobe16(b[4]) | (u64)htobe16(b[5]) << 16 |
+			(u64)htobe16(b[6]) << 32 | (u64)htobe16(b[7]) << 48;
 
 	*depth = qualifier;
 	return 0;
@@ -285,8 +284,8 @@ char *ipv6_subnet_str(char *b, ipv6_addr_range_t *range)
 {
 	u64 temp_hi, temp_lo;
 
-	temp_hi = pp2_cpu_to_be_64(range->addr.u64.ipv6_hi);
-	temp_lo = pp2_cpu_to_be_64(range->addr.u64.ipv6_lo);
+	temp_hi = htobe64(range->addr.u64.ipv6_hi);
+	temp_lo = htobe64(range->addr.u64.ipv6_lo);
 
 	sprintf(b, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x/%d",
 		(u32)(0xFFFF & (temp_hi >> 48)),
@@ -567,15 +566,15 @@ void init_fwd_hash_cache(void)
 					memcpy(&key.u5t.ipv6_5t.dst_ipv6,
 					       &entry->u.ipv6.dst_subnet.addr.u8.ipv6_u8, IPV6_ADDR_LEN);
 
-					if (((u32)pp2_cpu_to_be_16(entry->u.ipv6.src_subnet.addr.u16.ipv6_u16[7]) + i) >
+					if (((u32)htobe16(entry->u.ipv6.src_subnet.addr.u16.ipv6_u16[7]) + i) >
 					     0xFFFF)
 						break;
-					if (((u32)pp2_cpu_to_be_16(entry->u.ipv6.dst_subnet.addr.u16.ipv6_u16[7]) + j) >
+					if (((u32)htobe16(entry->u.ipv6.dst_subnet.addr.u16.ipv6_u16[7]) + j) >
 					     0xFFFF)
 						continue;
 
-					src_tmp = pp2_cpu_to_be_16(entry->u.ipv6.src_subnet.addr.u16.ipv6_u16[7]) + i;
-					dst_tmp = pp2_cpu_to_be_16(entry->u.ipv6.dst_subnet.addr.u16.ipv6_u16[7]) + j;
+					src_tmp = htobe16(entry->u.ipv6.src_subnet.addr.u16.ipv6_u16[7]) + i;
+					dst_tmp = htobe16(entry->u.ipv6.dst_subnet.addr.u16.ipv6_u16[7]) + j;
 					key.u5t.ipv6_5t.src_ipv6[14] = (src_tmp >> 8) & 0xFF;
 					key.u5t.ipv6_5t.dst_ipv6[14] = (dst_tmp >> 8) & 0xFF;
 					key.u5t.ipv6_5t.src_ipv6[15] = src_tmp & 0xFF;

@@ -45,22 +45,22 @@ struct pp2_rwlock_s {
 
 typedef struct pp2_rwlock_s pp2_rwlock_t;
 
-inline void pp2_atomic_store_rel_u32(pp2_atomic_u32_t *atom, u32 val)
+static inline void pp2_atomic_store_rel_u32(pp2_atomic_u32_t *atom, u32 val)
 {
 	__atomic_store_n(&atom->v, val, __ATOMIC_RELEASE);
 }
 
-inline void pp2_atomic_sub_rel_u32(pp2_atomic_u32_t *atom, u32 val)
+static inline void pp2_atomic_sub_rel_u32(pp2_atomic_u32_t *atom, u32 val)
 {
 	(void)__atomic_fetch_sub(&atom->v, val, __ATOMIC_RELEASE);
 }
 
-inline u32 pp2_atomic_load_u32(pp2_atomic_u32_t *atom)
+static inline u32 pp2_atomic_load_u32(pp2_atomic_u32_t *atom)
 {
 	return __atomic_load_n(&atom->v, __ATOMIC_RELAXED);
 }
 
-inline int pp2_atomic_cas_acq_u32(pp2_atomic_u32_t *atom,
+static inline int pp2_atomic_cas_acq_u32(pp2_atomic_u32_t *atom,
 				   u32 *old_val, u32 new_val)
 {
 	return __atomic_compare_exchange_n(&atom->v, old_val, new_val,
@@ -69,7 +69,7 @@ inline int pp2_atomic_cas_acq_u32(pp2_atomic_u32_t *atom,
 					   __ATOMIC_RELAXED);
 }
 
-inline void pp2_atomic_init_u32(pp2_atomic_u32_t *atom, u32 val)
+static inline void pp2_atomic_init_u32(pp2_atomic_u32_t *atom, u32 val)
 {
 	__atomic_store_n(&atom->v, val, __ATOMIC_RELAXED);
 }
@@ -81,7 +81,7 @@ typedef struct __attribute__((__packed__)) {
 	u8 addr[ETH_ALEN]; /* Address */
 } pp2h_ethaddr_t;
 
-inline int pp2h_eth_addr_parse(pp2h_ethaddr_t *mac, const char *str)
+static inline int pp2h_eth_addr_parse(pp2h_ethaddr_t *mac, const char *str)
 {
 	int byte[ETH_ALEN];
 	int i;

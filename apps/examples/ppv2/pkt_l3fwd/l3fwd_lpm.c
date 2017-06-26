@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "byteorder_inlines.h"
 #include "l3fwd_db.h"
 #include "l3fwd_lpm.h"
 
