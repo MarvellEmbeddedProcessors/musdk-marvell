@@ -32,6 +32,7 @@ if SAM_BUILD
 bin_PROGRAMS += musdk_crypto_echo
 musdk_crypto_echo_SOURCES  = ../common/lib/cli.c
 musdk_crypto_echo_SOURCES += ../common/lib/perf_mon_emu.c
+musdk_crypto_echo_SOURCES += ../common/lib/mv_stack.c
 musdk_crypto_echo_SOURCES += ../common/mvapp.c
 musdk_crypto_echo_SOURCES += ../common/pp2_utils.c
 musdk_crypto_echo_SOURCES += ppv2/crypto_echo/crypto_echo.c
