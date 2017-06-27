@@ -39,6 +39,7 @@
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
+#include "mv_stack.h"
 #include "env/mv_sys_dma.h"
 
 #include "mv_pp2.h"
@@ -58,12 +59,12 @@
 #define CRYPT_APP_CIO_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
 
 
-#define CRYPT_APP_MAX_BURST_SIZE	((CRYPT_APP_RX_Q_SIZE)>>2)
+#define CRYPT_APP_MAX_BURST_SIZE	(CRYPT_APP_RX_Q_SIZE >> 2)
 #define CRYPT_APP_DFLT_BURST_SIZE	64
-#define CRYPT_APP_CTRL_DFLT_THR		1000
-#define CRYPT_APP_DMA_MEM_SIZE		(48*1024*1024)
+#define CRYPT_APP_CTRL_DFLT_THR		2000
+#define CRYPT_APP_DMA_MEM_SIZE		(48 * 1024 * 1024)
 
-#define CRYPT_APP_CIOS_RSRV		{ 0x0, 0x0 }
+#define CRYPT_APP_CIOS_RSRV		{0x0, 0x0}
 
 #define MAX_AUTH_BLOCK_SIZE	128 /* Bytes */
 #define AUTH_BLOCK_SIZE_64B	64  /* Bytes */
@@ -73,7 +74,6 @@
 #define CRYPT_APP_MAX_NUM_TCS_PER_PORT		1
 #define CRYPT_APP_MAX_NUM_QS_PER_CORE		CRYPT_APP_MAX_NUM_TCS_PER_PORT
 #define CRYPT_APP_MAX_NUM_SESSIONS		32
-#define CRYPT_APP_SAM_TWO_ENG_SUPPORT
 
 /* TODO: find more generic way to get the following parameters */
 #define CRYPT_APP_TOTAL_NUM_CIOS	4
@@ -83,20 +83,10 @@
 #define CRYPT_APP_PKT_ECHO_SUPPORT
 #define CRYPT_APP_PREFETCH_SHIFT	4
 
-#define COOKIE_SET_DIR(_c, _d)		((_c) = (void *)(((uintptr_t)(_c) & ~0x1) | ((_d) << 0)))
-#define COOKIE_SET_RX_PORT(_c, _p)	((_c) = (void *)(((uintptr_t)(_c) & ~0x4) | ((_p) << 2)))
-#define COOKIE_SET_TX_PORT(_c, _p)	((_c) = (void *)(((uintptr_t)(_c) & ~0x8) | ((_p) << 3)))
-#define COOKIE_SET_ALL_INFO(_c, _rp, _tp, _bp, _d)	\
-	((_c) = (void *)(((uintptr_t)(_c) & ~0x3d) | \
-		(((_d) << 0) | ((_rp) << 2) | ((_tp) << 3) | ((_bp) << 4))))
 #define PP2_COOKIE_SET_ALL_INFO(_c, _rp, _tp, _bp, _d)	\
 	((_c) = (((_c) & ~0x3d) | \
 		(((_d) << 0) | ((_rp) << 2) | ((_tp) << 3) | ((_bp) << 4))))
-#define COOKIE_GET_DIR(_c)		((uintptr_t)(_c) & 0x1)
-#define COOKIE_GET_RX_PORT(_c)		(((uintptr_t)(_c) & 0x4) >> 2)
-#define COOKIE_GET_TX_PORT(_c)		(((uintptr_t)(_c) & 0x8) >> 3)
-#define COOKIE_GET_BPOOL(_c)		(((uintptr_t)(_c) & 0x30) >> 4)
-#define COOKIE_CLEAR_ALL_INFO(_c)	((_c) = (void *)((uintptr_t)(_c) & ~0x3d))
+
 #define PP2_COOKIE_CLEAR_ALL_INFO(_c)	((_c) = ((_c) & ~0x3d))
 
 /*#define CRYPT_APP_BPOOLS_INF	{ {384, 4096}, {2048, 1024} }*/
@@ -126,44 +116,69 @@
 	0xFF, 0x65, 0x15, 0x3D				\
 }
 
+struct pkt_mdata {
+	u8 state; /* as defined in enum pkt_state */
+	u8 rx_port;
+	u8 tx_port;
+	u8 data_offs;
+	void *buf_vaddr;
+	struct pp2_bpool *bpool;
+};
+
+enum pkt_state {
+	PKT_STATE_FREE = 0,
+	PKT_STATE_RX,
+	PKT_STATE_TX,
+	PKT_STATE_ENC,
+	PKT_STATE_DEC,
+	PKT_STATE_LAST
+};
+
+enum crypto_dir {
+	CRYPTO_ENC = 0,
+	CRYPTO_DEC,
+	CRYPTO_LB,
+	CRYPTO_LAST
+};
 
 struct local_arg;
 
 struct glob_arg {
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-	int			 verbose;
+	int				verbose;
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
-	int			 cli;
-	int			 cpus;	/* cpus used for running */
-	u16			 burst;
-	u16			 mtu;
-	int			 affinity;
-	int			 loopback;
-	int			 echo;
-	enum sam_cipher_alg	 cipher_alg;
-	enum sam_cipher_mode	 cipher_mode;
-	enum sam_auth_alg	 auth_alg;
-	u64			 qs_map;
-	int			 qs_map_shift;
-	int			 prefetch_shift;
-	int			 pp2_num_inst;
-	int			 num_ports;
-	struct port_desc	 ports_desc[MVAPPS_PP2_MAX_NUM_PORTS];
+	int				cli;
+	int				cpus;	/* cpus used for running */
+	u16				burst;
+	u16				mtu;
+	int				affinity;
+	int				echo;
+	enum crypto_dir			dir;
+	enum sam_crypto_protocol	crypto_proto;
+	enum sam_cipher_alg		cipher_alg;
+	enum sam_cipher_mode		cipher_mode;
+	enum sam_auth_alg		auth_alg;
+	u64				qs_map;
+	int				qs_map_shift;
+	int				prefetch_shift;
+	int				pp2_num_inst;
+	int				num_ports;
+	struct port_desc		ports_desc[MVAPPS_PP2_MAX_NUM_PORTS];
 
-	pthread_mutex_t		 trd_lock;
+	pthread_mutex_t			trd_lock;
 
-	struct pp2_hif		*hif;
+	struct pp2_hif			*hif;
 
-	int			 num_pools;
-	struct bpool_desc	**pools_desc;
+	int				num_pools;
+	int				num_bufs;
+	struct bpool_desc		**pools_desc;
 
-	int			 ctrl_thresh;
-	struct timeval		 ctrl_trd_last_time;
-	u64			 lst_rx_cnt;
-	u64			 lst_tx_cnt;
+	int				ctrl_thresh;
+	struct timeval			ctrl_trd_last_time;
+	u64				lst_rx_cnt;
+	u64				lst_tx_cnt;
 
-	struct sam_cio		*cio;
-	struct local_arg	*largs[MVAPPS_PP2_MAX_NUM_CORES];
+	struct local_arg		*largs[MVAPPS_PP2_MAX_NUM_CORES];
 };
 
 struct local_arg {
@@ -172,6 +187,7 @@ struct local_arg {
 	struct pp2_hif		*hif;
 	int			 num_ports;
 	struct lcl_port_desc	*ports_desc;
+	struct mv_stack		*stack_hndl;
 
 	struct bpool_desc	**pools_desc;
 
@@ -186,6 +202,7 @@ struct local_arg {
 
 	u16			 burst;
 	int			 echo;
+	int			 dir;
 	int			 id;
 
 	struct glob_arg		*garg;
@@ -211,28 +228,47 @@ static inline void prefetch(const void *ptr)
 	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
 }
 
+static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
+{
+	struct pkt_mdata	*mdata = (struct pkt_mdata *)cookie;
+	char			*buff = mdata->buf_vaddr;
+	dma_addr_t		pa;
+	struct pp2_bpool	*bpool;
+	struct pp2_buff_inf	binf;
+
+	pa = mv_sys_dma_mem_virt2phys(buff);
+	bpool = mdata->bpool;
+	binf.addr = pa;
+	binf.cookie = lower_32_bits((uintptr_t)(buff));
+	pp2_bpool_put_buff(larg->hif, bpool, &binf);
+	mv_stack_push(larg->stack_hndl, mdata);
+}
+
 #ifdef CRYPT_APP_PKT_ECHO_SUPPORT
 static inline void echo_pkts(struct local_arg		*larg,
 			     struct sam_cio_op_result	*sam_res_descs,
 			    u16				 num)
 {
-	char			*tmp_buff;
-	int			 prefetch_shift = larg->garg->prefetch_shift;
-	u16			 i;
+	char	*tmp_buff;
+	int	prefetch_shift = larg->garg->prefetch_shift;
+	u16	i;
+	struct pkt_mdata *mdata;
 
 	for (i = 0; i < num; i++) {
 		if (num - i > prefetch_shift) {
-			tmp_buff = sam_res_descs[i + prefetch_shift].cookie;
-			COOKIE_CLEAR_ALL_INFO(tmp_buff);
-			prefetch(tmp_buff);
+			mdata = sam_res_descs[i + prefetch_shift].cookie;
+			tmp_buff = mdata->buf_vaddr;
+			prefetch(tmp_buff + MVAPPS_PP2_PKT_OFFS);
 		}
-		tmp_buff = sam_res_descs[i].cookie;
-		COOKIE_CLEAR_ALL_INFO(tmp_buff);
+		/* pointer to MAC header */
+		mdata = sam_res_descs[i].cookie;
+		tmp_buff = mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
+
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose > 1) {
 			printf("pkt before echo (len %d):\n",
-			       sam_res_descs[i].out_len - MVAPPS_PP2_PKT_EFEC_OFFS);
-			mem_disp(tmp_buff, sam_res_descs[i].out_len - MVAPPS_PP2_PKT_EFEC_OFFS);
+			       sam_res_descs[i].out_len);
+			mv_mem_dump((u8 *)tmp_buff, sam_res_descs[i].out_len);
 		}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 		swap_l2(tmp_buff);
@@ -243,66 +279,98 @@ static inline void echo_pkts(struct local_arg		*larg,
 }
 #endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
 
-static inline int enc_pkts(struct local_arg		*larg,
-			   u8				 rx_ppio_id,
-			   u8				 tx_ppio_id,
-			   struct pp2_ppio_desc	*descs,
-			   u16				 num)
+static inline int proc_rx_pkts(struct local_arg *larg,
+			   u8 rx_ppio_id, u8 tx_ppio_id,
+			   struct pp2_ppio_desc	*descs, u16 num)
 {
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
+	struct sam_sa		 *sa;
+	struct sam_cio		 *cio;
+	enum pkt_state		 state;
 	int			 err;
 	u16			 i, bpool_buff_len, num_got;
 	u8			 cipher_iv[] = RFC3602_AES128_CBC_T1_IV;
-	u8			 l4_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
+	u8			 data_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
 
-	/* TODO: is this enough?!?!?! */
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+	if (larg->garg->verbose)
+		pr_info("%s: %d packets received. %d -> %d\n", __func__, num, rx_ppio_id, tx_ppio_id);
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
+
+	/* TODO: Get current buffer size */
 	bpool_buff_len = larg->garg->mtu + 64;
-
-	larg->rx_cnt += num;
 
 	memset(sam_descs, 0, sizeof(sam_descs));
 
-	for (i = 0; i < num; i++) {
-		src_buf_infs[i].vaddr = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
-		src_buf_infs[i].paddr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
-		/* source buffer length is received packet size + headroom size */
-		src_buf_infs[i].len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) + MVAPPS_PP2_PKT_EFEC_OFFS;
+	if ((larg->dir == CRYPTO_ENC) || (larg->dir == CRYPTO_LB)) {
+		cio = larg->enc_cio;
+		sa = larg->enc_sa;
+		state = PKT_STATE_ENC;
+	} else {
+		cio = larg->dec_cio;
+		sa = larg->dec_sa;
+		state = PKT_STATE_DEC;
+	}
 
-		src_buf_infs[i].vaddr += MVAPPS_PP2_PKT_EFEC_OFFS;
-		src_buf_infs[i].vaddr = (char *)(((uintptr_t)(src_buf_infs[i].vaddr)) | sys_dma_high_addr);
+	for (i = 0; i < num; i++) {
+		char *vaddr;
+		struct pp2_bpool *bpool;
+		struct pkt_mdata *mdata;
+
+		vaddr = (char *)((uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]) | sys_dma_high_addr);
+		bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].ppio);
+
+		mdata = (struct pkt_mdata *)mv_stack_pop(larg->stack_hndl);
+		if (!mdata)
+			break;
+
+		mdata->state = state;
+		mdata->rx_port = rx_ppio_id;
+		mdata->tx_port = tx_ppio_id;
+		mdata->bpool = bpool;
+		mdata->buf_vaddr = vaddr;
+		mdata->data_offs = data_offs;
+
+		sam_descs[i].cookie = mdata;
+
+		/* Set vaddr and paddr to MAC address of the packet */
+		vaddr += MVAPPS_PP2_PKT_EFEC_OFFS;
+		src_buf_infs[i].vaddr = (char *)((uintptr_t)vaddr);
+
+		src_buf_infs[i].paddr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]) + MVAPPS_PP2_PKT_EFEC_OFFS;
+
+		/* Exclude MH from packet length */
+		src_buf_infs[i].len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose > 1) {
 			printf("Received packet (va:%p, pa 0x%08x, len %d):\n",
 			       src_buf_infs[i].vaddr,
 			       (unsigned int)src_buf_infs[i].paddr,
-			       src_buf_infs[i].len - MVAPPS_PP2_PKT_EFEC_OFFS);
-			mem_disp(src_buf_infs[i].vaddr, src_buf_infs[i].len - MVAPPS_PP2_PKT_EFEC_OFFS);
+			       src_buf_infs[i].len);
+			mv_mem_dump(src_buf_infs[i].vaddr, src_buf_infs[i].len);
 		}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
-		/* Mark the cookie with '1' (first bit) so we know it is for encrypt */
 		dst_buf_infs[i].vaddr = src_buf_infs[i].vaddr;
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
-		sam_descs[i].sa = larg->enc_sa;
-		sam_descs[i].cookie = dst_buf_infs[i].vaddr;
-		/* TODO: find appropriate BPool-id! */
-		COOKIE_SET_ALL_INFO(sam_descs[i].cookie, rx_ppio_id, tx_ppio_id, 0, 1);
+		sam_descs[i].sa = sa;
+
 		sam_descs[i].num_bufs = 1;
 		sam_descs[i].src = &src_buf_infs[i];
 		sam_descs[i].dst = &dst_buf_infs[i];
 		sam_descs[i].cipher_iv = cipher_iv;
-		sam_descs[i].cipher_offset = MVAPPS_PP2_PKT_EFEC_OFFS + l4_offs;
+		sam_descs[i].cipher_offset = data_offs;
 		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 	}
+	num_got = i;
 
-	num_got = num;
 START_COUNT_CYCLES(pme_ev_cnt_enq);
-	err = sam_cio_enq(larg->enc_cio, sam_descs, &num_got);
+	err = sam_cio_enq(cio, sam_descs, &num_got);
 STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 	if (unlikely(err)) {
 		pr_err("SAM EnQ (EnC) failed (%d)!\n", err);
@@ -313,19 +381,15 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		struct pp2_buff_inf	 binf;
 
 		for (i = num_got; i < num; i++) {
-			char			*buff = (char *)(uintptr_t)sam_descs[i].cookie;
-			dma_addr_t		 pa;
-
-			COOKIE_CLEAR_ALL_INFO(buff);
-			buff -= MVAPPS_PP2_PKT_EFEC_OFFS;
-			pa = mv_sys_dma_mem_virt2phys(buff);
-			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(sam_descs[i].cookie)].pp_id]
-							[COOKIE_GET_BPOOL(sam_descs[i].cookie)].pool;
-			binf.addr = pa;
-			binf.cookie = lower_32_bits((uintptr_t)(buff));
+			binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
+			binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
+			bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].ppio);
 			pp2_bpool_put_buff(larg->hif, bpool, &binf);
+			if (sam_descs[i].cookie)
+				mv_stack_push(larg->stack_hndl, sam_descs[i].cookie);
 		}
-		larg->drop_cnt += num - num_got;
+		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
+		larg->drop_cnt += (num - num_got);
 	}
 
 	return 0;
@@ -338,10 +402,11 @@ static inline int dec_pkts(struct local_arg		*larg,
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
+	struct pkt_mdata	*mdata;
 	int			 err;
 	u16			 i, bpool_buff_len, num_got;
 	u8			 cipher_iv[] = RFC3602_AES128_CBC_T1_IV;
-	u8			 l4_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
+	u8			 data_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
 
 	/* TODO: is this enough?!?!?! */
 	bpool_buff_len = larg->garg->mtu + 64;
@@ -350,23 +415,34 @@ static inline int dec_pkts(struct local_arg		*larg,
 
 	/* For decryption crypto parameters are caclulated from cookie and out_len */
 	for (i = 0; i < num; i++) {
-		sam_descs[i].cookie = sam_res_descs[i].cookie;
-		src_buf_infs[i].vaddr = (char *)(uintptr_t)sam_descs[i].cookie;
-		COOKIE_CLEAR_ALL_INFO(src_buf_infs[i].vaddr);
-		src_buf_infs[i].paddr = mv_sys_dma_mem_virt2phys(src_buf_infs[i].vaddr - MVAPPS_PP2_PKT_EFEC_OFFS);
+		mdata = sam_res_descs[i].cookie;
+
+		src_buf_infs[i].vaddr = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
+		src_buf_infs[i].paddr = mv_sys_dma_mem_virt2phys(src_buf_infs[i].vaddr);
 		src_buf_infs[i].len = sam_res_descs[i].out_len;
 
 		dst_buf_infs[i].vaddr = src_buf_infs[i].vaddr;
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
+		sam_descs[i].cookie = mdata;
 		sam_descs[i].sa = larg->dec_sa;
 		sam_descs[i].num_bufs = 1;
 		sam_descs[i].src = &src_buf_infs[i];
 		sam_descs[i].dst = &dst_buf_infs[i];
 		sam_descs[i].cipher_iv = cipher_iv;
-		sam_descs[i].cipher_offset = MVAPPS_PP2_PKT_EFEC_OFFS + l4_offs;
+		sam_descs[i].cipher_offset = data_offs;
 		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+		if (larg->garg->verbose > 1) {
+			printf("Encrypted packet (va:%p, pa 0x%08x, len %d):\n",
+			       src_buf_infs[i].vaddr,
+			       (unsigned int)src_buf_infs[i].paddr,
+			       src_buf_infs[i].len);
+			mv_mem_dump(src_buf_infs[i].vaddr, src_buf_infs[i].len);
+		}
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
 	}
 	num_got = num;
 START_COUNT_CYCLES(pme_ev_cnt_enq);
@@ -377,25 +453,12 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		return -EFAULT;
 	}
 	if (num_got < num) {
-		struct pp2_bpool	*bpool;
-		struct pp2_buff_inf	 binf;
+		for (i = num_got; i < num; i++)
+			free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
 
-		for (i = num_got; i < num; i++) {
-			char			*buff = (char *)(uintptr_t)sam_descs[i].cookie;
-			dma_addr_t		 pa;
-
-			COOKIE_CLEAR_ALL_INFO(buff);
-			buff -= MVAPPS_PP2_PKT_EFEC_OFFS;
-			pa = mv_sys_dma_mem_virt2phys(buff);
-			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(sam_descs[i].cookie)].pp_id]
-							[COOKIE_GET_BPOOL(sam_descs[i].cookie)].pool;
-			binf.addr = pa;
-			binf.cookie = lower_32_bits((uintptr_t)(buff));
-			pp2_bpool_put_buff(larg->hif, bpool, &binf);
-		}
-		larg->drop_cnt += num - num_got;
+		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
+		larg->drop_cnt += (num - num_got);
 	}
-
 	return 0;
 }
 
@@ -410,33 +473,31 @@ static inline int send_pkts(struct local_arg		*larg,
 	struct pp2_ppio_desc	*desc;
 	struct pp2_ppio_desc	 descs[MVAPPS_PP2_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
 	int			 err;
-	u16			 i, rp, tp, bp, num_got, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
+	u16			 i, tp, num_got, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
 
 	for (tp = 0; tp < larg->garg->num_ports; tp++)
 		port_nums[tp] = 0;
 
 	for (i = 0; i < num; i++) {
-		char			*buff = (char *)(uintptr_t)sam_res_descs[i].cookie;
-		dma_addr_t		 pa;
-		/* TODO: size is incorrect!!! */
-		u16			 len = sam_res_descs[i].out_len - MVAPPS_PP2_PKT_EFEC_OFFS;
+		char			*buff;
+		dma_addr_t		pa;
+		u16			len = sam_res_descs[i].out_len;
+		struct pkt_mdata	*mdata;
 
-		COOKIE_CLEAR_ALL_INFO(buff);
-		pa = mv_sys_dma_mem_virt2phys(buff - MVAPPS_PP2_PKT_EFEC_OFFS);
+		mdata = (struct pkt_mdata *)(uintptr_t)sam_res_descs[i].cookie;
+		buff = mdata->buf_vaddr;
+		pa = mv_sys_dma_mem_virt2phys(buff);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose > 1) {
 			printf("Sending packet (va:%p, pa 0x%08x, len %d):\n",
 			       buff, (unsigned int)pa, len);
-			mem_disp(buff, len);
+			mv_mem_dump((u8 *)buff + MVAPPS_PP2_PKT_EFEC_OFFS, len);
 		}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
-		buff -= MVAPPS_PP2_PKT_EFEC_OFFS;
-
-		rp = COOKIE_GET_RX_PORT(sam_res_descs[i].cookie);
-		tp = COOKIE_GET_TX_PORT(sam_res_descs[i].cookie);
-		bp = COOKIE_GET_BPOOL(sam_res_descs[i].cookie);
+		tp = mdata->tx_port;
+		bpool = mdata->bpool;
 		desc = &descs[tp][port_nums[tp]];
 		shadow_q = &larg->ports_desc[tp].shadow_qs[tc];
 		pp2_ppio_outq_desc_reset(desc);
@@ -444,17 +505,21 @@ static inline int send_pkts(struct local_arg		*larg,
 		pp2_ppio_outq_desc_set_pkt_offset(desc, MVAPPS_PP2_PKT_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(desc, len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
-		PP2_COOKIE_SET_ALL_INFO(shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie, rp, tp, bp, 0);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
+		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == CRYPT_APP_TX_Q_SIZE)
 			shadow_q->write_ind = 0;
 		port_nums[tp]++;
+
+		/* We don't need metadata more */
+		mv_stack_push(larg->stack_hndl, mdata);
 	}
 
 	for (tp = 0; tp < larg->garg->num_ports; tp++) {
 		num = num_got = port_nums[tp];
 		shadow_q = &larg->ports_desc[tp].shadow_qs[tc];
+
 START_COUNT_CYCLES(pme_ev_cnt_tx);
 		if (num_got) {
 			err = pp2_ppio_send(larg->ports_desc[tp].ppio, larg->hif, tc, descs[tp], &num_got);
@@ -462,10 +527,12 @@ START_COUNT_CYCLES(pme_ev_cnt_tx);
 				return err;
 		}
 STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
+
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose && num_got)
 			printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
+
 		if (num_got < num) {
 			for (i = 0; i < num - num_got; i++) {
 				if (shadow_q->write_ind == 0)
@@ -477,19 +544,14 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 						shadow_q->write_ind, (u64)binf->cookie, (u64)binf->addr);
 					continue;
 				}
-				bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(binf->cookie)].pp_id]
-								[COOKIE_GET_BPOOL(binf->cookie)].pool;
-				PP2_COOKIE_CLEAR_ALL_INFO(binf->cookie);
+				bpool = shadow_q->ents[shadow_q->write_ind].bpool;
 				pp2_bpool_put_buff(larg->hif,
 						   bpool,
 						   binf);
 			}
-			larg->drop_cnt += num - num_got;
+			/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
+			larg->drop_cnt += (num - num_got);
 		}
-#ifdef CRYPT_APP_VERBOSE_DEBUG
-	if (larg->garg->verbose && num_got)
-		printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
-#endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 		pp2_ppio_get_num_outq_done(larg->ports_desc[tp].ppio, larg->hif, tc, &num);
 		for (i = 0; i < num; i++) {
@@ -499,98 +561,84 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 					shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
 				continue;
 			}
-			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(binf->cookie)].pp_id]
-							[COOKIE_GET_BPOOL(binf->cookie)].pool;
-			PP2_COOKIE_CLEAR_ALL_INFO(binf->cookie);
-			pp2_bpool_put_buff(larg->hif,
-					   bpool,
-					   binf);
+			bpool = shadow_q->ents[shadow_q->read_ind].bpool;
+			pp2_bpool_put_buff(larg->hif, bpool, binf);
+
 			shadow_q->read_ind++;
 			if (shadow_q->read_ind == CRYPT_APP_TX_Q_SIZE)
 				shadow_q->read_ind = 0;
 		}
 		larg->tx_cnt += num;
 	}
-
 	return 0;
 }
 
-static inline int deq_n_proc_pkts(struct local_arg	*larg,
+static inline int deq_crypto_pkts(struct local_arg	*larg,
 				  struct sam_cio	*cio,
 				  u8			 tc)
 {
-	struct sam_cio_op_result sam_res_descs[CRYPT_APP_MAX_BURST_SIZE];
-	struct sam_cio_op_result sam_enc_res_descs[CRYPT_APP_MAX_BURST_SIZE];
-	struct sam_cio_op_result sam_dec_res_descs[CRYPT_APP_MAX_BURST_SIZE];
+	struct sam_cio_op_result res_descs[CRYPT_APP_MAX_BURST_SIZE];
+	struct sam_cio_op_result res_descs_to_dec[CRYPT_APP_MAX_BURST_SIZE];
+	struct sam_cio_op_result res_descs_to_send[CRYPT_APP_MAX_BURST_SIZE];
+	struct sam_cio_op_result *to_send_ptr, *to_dec_ptr;
 	int			 err;
-	u16			 i, num, num_enc, num_dec;
+	u16			 i, num, num_to_send, num_to_dec;
 
 	num = CRYPT_APP_MAX_BURST_SIZE;
 START_COUNT_CYCLES(pme_ev_cnt_deq);
-	err = sam_cio_deq(cio, sam_res_descs, &num);
+	err = sam_cio_deq(cio, res_descs, &num);
 STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 	if (unlikely(err)) {
 		pr_err("SAM DeQ (EnC) failed (%d)!\n", err);
 		return -EFAULT;
 	}
-#ifdef CRYPT_APP_VERBOSE_CHECKS
-	for (i = 0; i < num; i++) {
-		if (sam_res_descs[i].status != SAM_CIO_OK) {
-			struct pp2_bpool	*bpool;
-			struct pp2_buff_inf	 binf;
-			char			*buff = (char *)(uintptr_t)sam_res_descs[i].cookie;
-			dma_addr_t		 pa;
+	num_to_send = num_to_dec = 0;
+	if (larg->dir == CRYPTO_LB) {
+		for (i = 0; i < num; i++) {
+			struct pkt_mdata *mdata;
 
-			pr_warn("SAM operation (EnC) failed (%d)!\n", sam_res_descs[i].status);
-
-			COOKIE_CLEAR_ALL_INFO(buff);
-			pa = mv_sys_dma_mem_virt2phys(buff - MVAPPS_PP2_PKT_EFEC_OFFS);
-			bpool = larg->pools_desc[larg->ports_desc[COOKIE_GET_RX_PORT(sam_res_descs[i].cookie)].pp_id]
-							[COOKIE_GET_BPOOL(sam_res_descs[i].cookie)].pool;
-			binf.addr = pa;
-			binf.cookie = lower_32_bits((uintptr_t)(buff));
-			pp2_bpool_put_buff(larg->hif, bpool, &binf);
-			if (i < (num - 1)) {
-				memcpy(&sam_res_descs[i],
-				       &sam_res_descs[i + 1],
-				       sizeof(struct sam_cio_op_result) * (num - i - 1));
-				i--;
-				num--;
+			if (unlikely(!res_descs[i].cookie)) {
+				pr_err("SAM operation (EnC) failed (no cookie: %d,%d)!\n", i, res_descs[i].out_len);
+				larg->drop_cnt++;
+				continue;
 			}
-			larg->drop_cnt++;
 
-			continue;
+			if (res_descs[i].status != SAM_CIO_OK) {
+				pr_warn("SAM operation (EnC) failed (%d)!\n", res_descs[i].status);
+				/* Free buffer */
+				free_buf_from_sam_cookie(larg, res_descs[i].cookie);
+				larg->drop_cnt++;
+				continue;
+			}
+			mdata = (struct pkt_mdata *)res_descs[i].cookie;
+			if (mdata->state == (u8)PKT_STATE_ENC) {
+				mdata->state = (u8)PKT_STATE_DEC;
+				res_descs_to_dec[num_to_dec++] = res_descs[i];
+			} else {
+				res_descs_to_send[num_to_send++] = res_descs[i];
+			}
+			to_dec_ptr = res_descs_to_dec;
+			to_send_ptr = res_descs_to_send;
 		}
-		if (unlikely(!sam_res_descs[i].cookie)) {
-			pr_err("SAM operation (EnC) failed (no cookie: %d,%d)!\n", i, sam_res_descs[i].out_len);
-			return -EFAULT;
-		}
+	} else {
+		to_send_ptr = res_descs;
+		num_to_send = num;
 	}
-#endif /* CRYPT_APP_VERBOSE_CHECKS */
 
-	for (i = num_enc = num_dec = 0; i < num; i++) {
-		if (COOKIE_GET_DIR(sam_res_descs[i].cookie) == 0x1) {
-			COOKIE_SET_DIR(sam_res_descs[i].cookie, 0);
-			sam_enc_res_descs[num_enc++] = sam_res_descs[i];
-		} else {
-			sam_dec_res_descs[num_dec++] = sam_res_descs[i];
-		}
-	}
-
-	if (num_enc) {
-#ifdef CRYPT_APP_PKT_ECHO_SUPPORT
-		if (likely(larg->echo))
-			echo_pkts(larg, sam_enc_res_descs, num_enc);
-#endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
-
-		err = dec_pkts(larg, sam_enc_res_descs, num_enc);
+	if (num_to_dec) {
+		err = dec_pkts(larg, to_dec_ptr, num_to_dec);
 		if (unlikely(err))
 			return err;
 	}
 
-	if (num_dec)
-		return send_pkts(larg, tc, sam_dec_res_descs, num_dec);
+	if (num_to_send) {
+#ifdef CRYPT_APP_PKT_ECHO_SUPPORT
+		if (likely(larg->echo))
+			echo_pkts(larg, to_send_ptr, num_to_send);
+#endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
 
+		return send_pkts(larg, tc, to_send_ptr, num_to_send);
+	}
 	return 0;
 }
 
@@ -608,22 +656,28 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 START_COUNT_CYCLES(pme_ev_cnt_rx);
 	err = pp2_ppio_recv(larg->ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
 STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
+
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	if (larg->garg->verbose && num)
 		printf("recv %d pkts on ppio %d, tc %d, qid %d\n", num, rx_ppio_id, tc, qid);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	if (num) {
-		err = enc_pkts(larg, rx_ppio_id, tx_ppio_id, descs, num);
+		larg->rx_cnt += num;
+
+		err = proc_rx_pkts(larg, rx_ppio_id, tx_ppio_id, descs, num);
+		if (unlikely(err))
+			return err;
+	}
+	if (larg->enc_cio) {
+		err = deq_crypto_pkts(larg, larg->enc_cio, tc);
 		if (unlikely(err))
 			return err;
 	}
 
-	err = deq_n_proc_pkts(larg, larg->enc_cio, tc);
-	if (unlikely(err))
-		return err;
-	if (larg->dec_cio != larg->enc_cio)
-		return deq_n_proc_pkts(larg, larg->dec_cio, tc);
+	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio))
+		return deq_crypto_pkts(larg, larg->dec_cio, tc);
+
 	return 0;
 }
 
@@ -816,11 +870,10 @@ static int init_all_modules(void)
 	return 0;
 }
 
-static int create_sam_sessions(struct sam_sa		**enc_sa,
-			       struct sam_sa		**dec_sa,
-			       enum sam_cipher_alg	 cipher_alg,
-			       enum sam_cipher_mode	 cipher_mode,
-			       enum sam_auth_alg	 auth_alg)
+static int create_sam_sessions(struct sam_sa **enc_sa, struct sam_sa **dec_sa,
+			       enum sam_crypto_protocol crypto_proto,
+			       enum sam_cipher_alg cipher_alg, enum sam_cipher_mode cipher_mode,
+			       enum sam_auth_alg auth_alg)
 {
 	struct sam_session_params	 sa_params;
 	int				 err;
@@ -828,7 +881,8 @@ static int create_sam_sessions(struct sam_sa		**enc_sa,
 	u8				 cipher_3des_key[] = RFC3602_3DES_CBC_T1_KEY;
 
 	memset(&sa_params, 0, sizeof(sa_params));
-	sa_params.dir = SAM_DIR_ENCRYPT;   /* operation direction: encode */
+	sa_params.proto = crypto_proto;
+
 	sa_params.cipher_alg = cipher_alg;  /* cipher algorithm */
 	sa_params.cipher_mode = cipher_mode; /* cipher mode */
 	sa_params.cipher_iv = NULL;     /* default IV */
@@ -854,14 +908,26 @@ static int create_sam_sessions(struct sam_sa		**enc_sa,
 			pr_err("Unknown authetication alg (%d)!\n", sa_params.auth_alg);
 			return -EINVAL;
 		}
-		sa_params.u.basic.auth_icv_len = ICV_LEN;
 	} else {
 		sa_params.auth_key = NULL;    /* auth key */
 		sa_params.auth_key = 0;
-		sa_params.u.basic.auth_icv_len = 0;   /* Integrity Check Value (ICV) size (in bytes) */
 	}
-	sa_params.u.basic.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
+	if (crypto_proto == SAM_PROTO_IPSEC) {
+		sa_params.u.ipsec.is_esp = 1;
+		sa_params.u.ipsec.is_ip6 = 0;
+		sa_params.u.ipsec.is_tunnel = 0;
+		sa_params.u.ipsec.is_natt = 0;
+		sa_params.u.ipsec.spi = 0x1234;
+		sa_params.u.ipsec.seq = 0x6;
+	} else {
+		sa_params.u.basic.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
+		if (sa_params.auth_alg != SAM_AUTH_NONE)
+			sa_params.u.basic.auth_icv_len = ICV_LEN;
+		else
+			sa_params.u.basic.auth_icv_len = 0;
+	}
 
+	sa_params.dir = SAM_DIR_ENCRYPT;   /* operation direction: encode */
 	err = sam_session_create(&sa_params, enc_sa);
 	if (err) {
 		pr_err("EnC SA creation failed (%d)!\n", err);
@@ -882,7 +948,6 @@ static int create_sam_sessions(struct sam_sa		**enc_sa,
 		pr_err("DeC SA creation failed!\n");
 		return -EFAULT;
 	}
-
 	return 0;
 }
 
@@ -891,24 +956,31 @@ static void destroy_sam_sessions(struct sam_cio		*enc_cio,
 				struct sam_sa		*enc_sa,
 				struct sam_sa		*dec_sa)
 {
-	if (!enc_sa || sam_session_destroy(enc_sa))
-		pr_err("EnC SA destroy failed!\n");
-	if (!dec_sa || sam_session_destroy(dec_sa))
-		pr_err("DeC SA destroy failed!\n");
+	if (enc_sa) {
+		if (sam_session_destroy(enc_sa))
+			pr_err("EnC SA destroy failed!\n");
+	}
 
-	if (!enc_cio || sam_cio_flush(enc_cio))
-		pr_err("EnC CIO flush failed!\n");
-	if (dec_cio && (enc_cio != dec_cio))
+	if (dec_sa) {
+		if (sam_session_destroy(dec_sa))
+			pr_err("DeC SA destroy failed!\n");
+	}
+
+	if (enc_cio) {
+		if (sam_cio_flush(enc_cio))
+			pr_err("EnC CIO flush failed!\n");
+	}
+
+	if (dec_cio && (enc_cio != dec_cio)) {
 		if (sam_cio_flush(dec_cio))
 			pr_err("DeC CIO flush failed!\n");
+	}
 }
 
 static int init_local_modules(struct glob_arg *garg)
 {
 	struct sam_init_params		init_params;
-	struct sam_cio_params		cio_params;
-	char				name[15];
-	int				err, port_index, cio_id;
+	int				err, port_index;
 	struct bpool_inf		std_infs[] = CRYPT_APP_BPOOLS_INF;
 	struct bpool_inf		jumbo_infs[] = CRYPT_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
@@ -927,6 +999,10 @@ static int init_local_modules(struct glob_arg *garg)
 		infs = std_infs;
 		garg->num_pools = ARRAY_SIZE(std_infs);
 	}
+	/* Calculate total number of buffers in the pools */
+	garg->num_bufs = 0;
+	for (i = 0; i < garg->num_pools; i++)
+		garg->num_bufs += infs[i].num_buffs;
 
 	err = app_build_all_bpools(&garg->pools_desc, garg->num_pools, infs, garg->hif);
 	if (err)
@@ -968,25 +1044,6 @@ static int init_local_modules(struct glob_arg *garg)
 
 	init_params.max_num_sessions = CRYPT_APP_MAX_NUM_SESSIONS;
 	sam_init(&init_params);
-
-	cio_id = find_free_cio(0);
-	if (cio_id < 0) {
-		pr_err("free CIO not found!\n");
-		return cio_id;
-	}
-	memset(name, 0, sizeof(name));
-	snprintf(name, sizeof(name), "cio-%d:%d", 0, cio_id);
-	pr_debug("found cio: %s\n", name);
-	memset(&cio_params, 0, sizeof(cio_params));
-	cio_params.match = name;
-	cio_params.size = CRYPT_APP_CIO_Q_SIZE;
-	err = sam_cio_init(&cio_params, &garg->cio);
-	if (err != 0)
-		return err;
-	if (!garg->cio) {
-		pr_err("CIO init failed!\n");
-		return -EIO;
-	}
 
 	return 0;
 }
@@ -1184,7 +1241,8 @@ static int init_local(void *arg, int id, void **_larg)
 {
 	struct glob_arg		*garg = (struct glob_arg *)arg;
 	struct local_arg	*larg;
-	struct sam_cio_params	 cio_params;
+	struct sam_cio_params	cio_params;
+	struct sam_cio		*cio;
 	char			 name[15];
 	int			 i, err, cio_id;
 
@@ -1207,38 +1265,45 @@ static int init_local(void *arg, int id, void **_larg)
 	if (err)
 		return err;
 
-	if (id == 0) {
-		larg->enc_cio = garg->cio;
-	} else {
-		pthread_mutex_lock(&garg->trd_lock);
-		cio_id = find_free_cio(0);
-		if (cio_id < 0) {
-			pr_err("free CIO not found!\n");
-			pthread_mutex_unlock(&garg->trd_lock);
-			return cio_id;
-		}
-		memset(name, 0, sizeof(name));
-		snprintf(name, sizeof(name), "cio-%d:%d", 0, cio_id);
-		pr_info("found cio: %s\n", name);
-		memset(&cio_params, 0, sizeof(cio_params));
-		cio_params.match = name;
-		cio_params.size = CRYPT_APP_CIO_Q_SIZE;
-		err = sam_cio_init(&cio_params, &larg->enc_cio);
+	pthread_mutex_lock(&garg->trd_lock);
+	cio_id = find_free_cio(0);
+	if (cio_id < 0) {
+		pr_err("free CIO not found!\n");
 		pthread_mutex_unlock(&garg->trd_lock);
-		if (err != 0)
-			return err;
+		return cio_id;
 	}
-	if (!larg->enc_cio) {
+	memset(name, 0, sizeof(name));
+	snprintf(name, sizeof(name), "cio-%d:%d", 0, cio_id);
+	pr_info("found cio: %s\n", name);
+	memset(&cio_params, 0, sizeof(cio_params));
+	cio_params.match = name;
+	cio_params.size = CRYPT_APP_CIO_Q_SIZE;
+	err = sam_cio_init(&cio_params, &cio);
+	pthread_mutex_unlock(&garg->trd_lock);
+	if (err != 0) {
 		pr_err("CIO init failed!\n");
-		return -EIO;
+		return err;
 	}
-#ifdef CRYPT_APP_SAM_TWO_ENG_SUPPORT
-	if (garg->pp2_num_inst == 2) {
+	if (garg->dir == CRYPTO_ENC)
+		larg->enc_cio = cio;
+	else if (garg->dir == CRYPTO_DEC)
+		larg->dec_cio = cio;
+	else if (garg->dir == CRYPTO_LB) {
+		int sam_engine;
+
+		larg->enc_cio = cio;
+
+		if (garg->pp2_num_inst == 2)
+			sam_engine = 1;
+		else
+			sam_engine = 0;
+
 		pthread_mutex_lock(&garg->trd_lock);
-		cio_id = find_free_cio(1);
+		cio_id = find_free_cio(sam_engine);
+		pthread_mutex_unlock(&garg->trd_lock);
+
 		if (cio_id < 0) {
 			pr_err("free CIO not found!\n");
-			pthread_mutex_unlock(&garg->trd_lock);
 			return cio_id;
 		}
 		memset(name, 0, sizeof(name));
@@ -1248,16 +1313,14 @@ static int init_local(void *arg, int id, void **_larg)
 		cio_params.match = name;
 		cio_params.size = CRYPT_APP_CIO_Q_SIZE;
 		err = sam_cio_init(&cio_params, &larg->dec_cio);
-		pthread_mutex_unlock(&garg->trd_lock);
 		if (err != 0)
 			return err;
-	} else
-#endif /* CRYPT_APP_SAM_TWO_ENG_SUPPORT */
-		larg->dec_cio = larg->enc_cio;
+	}
 
 	larg->id                = id;
 	larg->burst		= garg->burst;
 	larg->echo              = garg->echo;
+	larg->dir               = garg->dir;
 	larg->num_ports         = garg->num_ports;
 	larg->ports_desc = (struct lcl_port_desc *)malloc(larg->num_ports * sizeof(struct lcl_port_desc));
 	if (!larg->ports_desc) {
@@ -1268,15 +1331,32 @@ static int init_local(void *arg, int id, void **_larg)
 	for (i = 0; i < larg->num_ports; i++)
 		app_port_local_init(i, larg->id, &larg->ports_desc[i], &garg->ports_desc[i]);
 
-	larg->pools_desc             = garg->pools_desc;
+	larg->pools_desc = garg->pools_desc;
 
-	err = create_sam_sessions(&larg->enc_sa,
-				  &larg->dec_sa,
-				  garg->cipher_alg,
-				  garg->cipher_mode,
+	err = mv_stack_create(garg->num_bufs, &larg->stack_hndl);
+	if (err) {
+		pr_err("failed to create Stack for %d elements!\n", garg->num_bufs);
+		return -EFAULT;
+	}
+	/* Allocate packet metadata structures for all buffers */
+	for (i = 0; i < garg->num_bufs; i++) {
+		struct pkt_mdata *mdata = malloc(sizeof(struct pkt_mdata));
+
+		if (!mdata) {
+			pr_warn("Can't allocate all metadata structures\n");
+			break;
+		}
+		mv_stack_push(larg->stack_hndl, mdata);
+	}
+	pr_info("%d of %d metadata structures allocated\n", i, garg->num_bufs);
+
+	err = create_sam_sessions(&larg->enc_sa, &larg->dec_sa,
+				  garg->crypto_proto,
+				  garg->cipher_alg, garg->cipher_mode,
 				  garg->auth_alg);
 	if (err)
 		return err;
+
 	if (!larg->enc_sa || !larg->dec_sa) {
 		pr_err("failed to create SAM sesions!\n");
 		return -EFAULT;
@@ -1296,6 +1376,7 @@ static int init_local(void *arg, int id, void **_larg)
 static void deinit_local(void *arg)
 {
 	struct local_arg *larg = (struct local_arg *)arg;
+	struct pkt_mdata *mdata;
 #ifdef MVCONF_SAM_STATS
 	struct sam_cio_stats cio_stats;
 	struct sam_session_stats sa_stats;
@@ -1308,18 +1389,33 @@ static void deinit_local(void *arg)
 	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
 
 #ifdef MVCONF_SAM_STATS
-	if (!sam_cio_get_stats(larg->enc_cio, &cio_stats, 1)) {
-		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
-		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
-		printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
-		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
-		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
-		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
-	} else {
-		printf("Failed to get cio statistics!!!\n");
+	if (larg->enc_cio) {
+		if (!sam_cio_get_stats(larg->enc_cio, &cio_stats, 1)) {
+			printf("\nEncryption statistics\n");
+			printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
+			printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
+			printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
+			printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
+			printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
+			printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
+		} else
+			printf("Failed to get cio statistics!!!\n");
+	}
+	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio)) {
+		if (!sam_cio_get_stats(larg->dec_cio, &cio_stats, 1)) {
+			printf("\nDecryption statistics\n");
+			printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
+			printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
+			printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
+			printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
+			printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
+			printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
+		} else
+			printf("Failed to get cio statistics!!!\n");
 	}
 
 	if (!sam_session_get_stats(&sa_stats, 1)) {
+		printf("\nSession statistics\n");
 		printf("Created sessions            : %lu\n", sa_stats.sa_add);
 		printf("Deleted sessions:	    : %lu\n", sa_stats.sa_del);
 		printf("Invalidated sessions:	    : %lu\n", sa_stats.sa_inv);
@@ -1333,6 +1429,15 @@ static void deinit_local(void *arg)
 			app_port_local_deinit(&larg->ports_desc[i]);
 		free(larg->ports_desc);
 	}
+	/* Free all pkt_mdata structures and delete stack instance */
+	while (!mv_stack_is_empty(larg->stack_hndl)) {
+		mdata = mv_stack_pop(larg->stack_hndl);
+		if (!mdata)
+			break;
+
+		free(mdata);
+	}
+	mv_stack_delete(larg->stack_hndl);
 
 	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio))
 		sam_cio_deinit(larg->dec_cio);
@@ -1366,8 +1471,11 @@ static void usage(char *progname)
 	       "\t         With every '-v', the debug is increased by one.\n"
 	       "\t         0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump\n"
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
-	       "\t--alg <cipher-alg>       Crypto cipher algorithm to use; support - aes128, 3des (default is AES128).\n"
-	       "\t--hmac <hmac-alg>        Use crypto with HMAC; support - sha1 (default is none).\n"
+	       "\t--crypto_proto <proto>   Crypto protocol. Support: [none, esp]. (default: none).\n"
+	       "\t--cipher-alg   <alg>     Cipher algorithm. Support: [none, aes128, 3des]. (default: aes128).\n"
+	       "\t--cipher-mode  <alg>     Cipher mode. Support: [cbc, ecb]. (default: cbc).\n"
+	       "\t--auth-alg     <alg>	   Authentication algorithm. Support: [none, sha1]. (default: none).\n"
+	       "\t--direction    <dir>     Operation direction. Support: [enc, dec, lb]. (default: lb)\n"
 	       "\t--no-echo                No Echo packets\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
@@ -1388,6 +1496,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->burst = CRYPT_APP_DFLT_BURST_SIZE;
 	garg->mtu = DEFAULT_MTU;
 	garg->echo = 1;
+	garg->dir = CRYPTO_LB;
+	garg->crypto_proto = SAM_PROTO_NONE;
 	garg->cipher_alg = SAM_CIPHER_AES;
 	garg->cipher_mode = SAM_CIPHER_CBC;
 	garg->auth_alg = SAM_AUTH_NONE;
@@ -1492,7 +1602,29 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--no-echo") == 0) {
 			garg->echo = 0;
 			i += 1;
-		} else if (strcmp(argv[i], "--alg") == 0) {
+		} else if (strcmp(argv[i], "--direction") == 0) {
+			if (strcmp(argv[i+1], "enc") == 0)
+				garg->dir = CRYPTO_ENC;
+			else if (strcmp(argv[i+1], "dec") == 0)
+				garg->dir = CRYPTO_DEC;
+			else if (strcmp(argv[i+1], "lb") == 0)
+				garg->dir = CRYPTO_LB;
+			else {
+				pr_err("Direction (%s) not supported!\n", argv[i+1]);
+				return -EINVAL;
+			}
+			i += 2;
+		} else if (strcmp(argv[i], "--crypto-proto") == 0) {
+			if (strcmp(argv[i+1], "esp") == 0)
+				garg->crypto_proto = SAM_PROTO_IPSEC;
+			else if (strcmp(argv[i+1], "none") == 0)
+				garg->crypto_proto = SAM_PROTO_NONE;
+			else {
+				pr_err("Crypto protocol (%s) not supported!\n", argv[i+1]);
+				return -EINVAL;
+			}
+			i += 2;
+		} else if (strcmp(argv[i], "--cipher-alg") == 0) {
 			if (strcmp(argv[i+1], "aes128") == 0)
 				garg->cipher_alg = SAM_CIPHER_AES;
 			else if (strcmp(argv[i+1], "3des") == 0)
@@ -1502,10 +1634,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			i += 2;
-		} else if (strcmp(argv[i], "--hmac") == 0) {
+		} else if (strcmp(argv[i], "--cipher-mode") == 0) {
+			if (strcmp(argv[i+1], "cbc") == 0)
+				garg->cipher_alg = SAM_CIPHER_CBC;
+			else if (strcmp(argv[i+1], "ecb") == 0)
+				garg->cipher_alg = SAM_CIPHER_ECB;
+			else {
+				pr_err("Cipher mode (%s) not supported!\n", argv[i+1]);
+				return -EINVAL;
+			}
+			i += 2;
+		} else if (strcmp(argv[i], "--auth-alg") == 0) {
 			if (strcmp(argv[i+1], "sha1") == 0)
 				garg->auth_alg = SAM_AUTH_HMAC_SHA1;
-			else if (strcmp(argv[i+1], "sha2") == 0)
+			else if (strcmp(argv[i+1], "sha256") == 0)
 				garg->auth_alg = SAM_AUTH_HMAC_SHA2_256;
 			else if (strcmp(argv[i+1], "md5") == 0)
 				garg->auth_alg = SAM_AUTH_HMAC_MD5;
