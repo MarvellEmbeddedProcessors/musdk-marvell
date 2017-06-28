@@ -284,15 +284,17 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			   struct pp2_ppio_desc	*descs, u16 num)
 {
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
+	struct sam_cio_ipsec_params ipsec_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
-	struct sam_sa		 *sa;
-	struct sam_cio		 *cio;
-	enum pkt_state		 state;
-	int			 err;
-	u16			 i, bpool_buff_len, num_got;
-	u8			 cipher_iv[] = RFC3602_AES128_CBC_T1_IV;
-	u8			 data_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
+	struct pkt_mdata	*mdata;
+	struct sam_sa		*sa;
+	struct sam_cio		*cio;
+	enum pkt_state		state;
+	int			err;
+	u16			i, bpool_buff_len, num_got;
+	u8			cipher_iv[] = RFC3602_AES128_CBC_T1_IV;
+	u8			data_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	if (larg->garg->verbose)
@@ -317,7 +319,6 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	for (i = 0; i < num; i++) {
 		char *vaddr;
 		struct pp2_bpool *bpool;
-		struct pkt_mdata *mdata;
 
 		vaddr = (char *)((uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]) | sys_dma_high_addr);
 		bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].ppio);
@@ -332,8 +333,6 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->bpool = bpool;
 		mdata->buf_vaddr = vaddr;
 		mdata->data_offs = data_offs;
-
-		sam_descs[i].cookie = mdata;
 
 		/* Set vaddr and paddr to MAC address of the packet */
 		vaddr += MVAPPS_PP2_PKT_EFEC_OFFS;
@@ -358,20 +357,39 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
-		sam_descs[i].sa = sa;
+		if (larg->garg->crypto_proto == SAM_PROTO_NONE) {
+			sam_descs[i].sa = sa;
+			sam_descs[i].cookie = mdata;
 
-		sam_descs[i].num_bufs = 1;
-		sam_descs[i].src = &src_buf_infs[i];
-		sam_descs[i].dst = &dst_buf_infs[i];
-		sam_descs[i].cipher_iv = cipher_iv;
-		sam_descs[i].cipher_offset = data_offs;
-		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+			sam_descs[i].num_bufs = 1;
+			sam_descs[i].src = &src_buf_infs[i];
+			sam_descs[i].dst = &dst_buf_infs[i];
+			sam_descs[i].cipher_iv = cipher_iv;
+			sam_descs[i].cipher_offset = data_offs;
+			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+		} else if (larg->garg->crypto_proto == SAM_PROTO_IPSEC) {
+			ipsec_descs[i].sa = sa;
+			ipsec_descs[i].cookie = mdata;
+
+			ipsec_descs[i].num_bufs = 1;
+			ipsec_descs[i].src = &src_buf_infs[i];
+			ipsec_descs[i].dst = &dst_buf_infs[i];
+			ipsec_descs[i].l3_offset = 14;
+			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
+		} else {
+			pr_err("Unknown crypto_proto = %d\n", larg->garg->crypto_proto);
+			return -EFAULT;
+		}
 	}
 	num_got = i;
 
 START_COUNT_CYCLES(pme_ev_cnt_enq);
-	err = sam_cio_enq(cio, sam_descs, &num_got);
+	if (larg->garg->crypto_proto == SAM_PROTO_NONE)
+		err = sam_cio_enq(cio, sam_descs, &num_got);
+	else
+		err = sam_cio_enq_ipsec(cio, ipsec_descs, &num_got);
 STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
+
 	if (unlikely(err)) {
 		pr_err("SAM EnQ (EnC) failed (%d)!\n", err);
 		return -EFAULT;
@@ -385,8 +403,13 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 			binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
 			bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].ppio);
 			pp2_bpool_put_buff(larg->hif, bpool, &binf);
-			if (sam_descs[i].cookie)
-				mv_stack_push(larg->stack_hndl, sam_descs[i].cookie);
+			if (larg->garg->crypto_proto == SAM_PROTO_NONE)
+				mdata = sam_descs[i].cookie;
+			else
+				mdata = ipsec_descs[i].cookie;
+
+			if (mdata)
+				mv_stack_push(larg->stack_hndl, mdata);
 		}
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 		larg->drop_cnt += (num - num_got);
@@ -400,6 +423,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 			   u16				 num)
 {
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
+	struct sam_cio_ipsec_params ipsec_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct pkt_mdata	*mdata;
@@ -425,14 +449,25 @@ static inline int dec_pkts(struct local_arg		*larg,
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
-		sam_descs[i].cookie = mdata;
-		sam_descs[i].sa = larg->dec_sa;
-		sam_descs[i].num_bufs = 1;
-		sam_descs[i].src = &src_buf_infs[i];
-		sam_descs[i].dst = &dst_buf_infs[i];
-		sam_descs[i].cipher_iv = cipher_iv;
-		sam_descs[i].cipher_offset = data_offs;
-		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+		if (larg->garg->crypto_proto == SAM_PROTO_NONE) {
+			sam_descs[i].cookie = mdata;
+			sam_descs[i].sa = larg->dec_sa;
+			sam_descs[i].num_bufs = 1;
+			sam_descs[i].src = &src_buf_infs[i];
+			sam_descs[i].dst = &dst_buf_infs[i];
+			sam_descs[i].cipher_iv = cipher_iv;
+			sam_descs[i].cipher_offset = data_offs;
+			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+		} else if (larg->garg->crypto_proto == SAM_PROTO_IPSEC) {
+			ipsec_descs[i].sa = larg->dec_sa;
+			ipsec_descs[i].cookie = mdata;
+
+			ipsec_descs[i].num_bufs = 1;
+			ipsec_descs[i].src = &src_buf_infs[i];
+			ipsec_descs[i].dst = &dst_buf_infs[i];
+			ipsec_descs[i].l3_offset = 14;
+			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
+		}
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose > 1) {
@@ -445,27 +480,33 @@ static inline int dec_pkts(struct local_arg		*larg,
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 	}
 	num_got = num;
+
 START_COUNT_CYCLES(pme_ev_cnt_enq);
-	err = sam_cio_enq(larg->dec_cio, sam_descs, &num_got);
+	if (larg->garg->crypto_proto == SAM_PROTO_NONE)
+		err = sam_cio_enq(larg->dec_cio, sam_descs, &num_got);
+	else
+		err = sam_cio_enq_ipsec(larg->dec_cio, ipsec_descs, &num_got);
 STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
+
 	if (unlikely(err)) {
 		pr_err("SAM EnQ (DeC) failed (%d)!\n", err);
 		return -EFAULT;
 	}
 	if (num_got < num) {
-		for (i = num_got; i < num; i++)
-			free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
-
+		for (i = num_got; i < num; i++) {
+			if (larg->garg->crypto_proto == SAM_PROTO_NONE)
+				free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
+			else
+				free_buf_from_sam_cookie(larg, ipsec_descs[i].cookie);
+		}
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 		larg->drop_cnt += (num - num_got);
 	}
 	return 0;
 }
 
-static inline int send_pkts(struct local_arg		*larg,
-			    u8				 tc,
-			    struct sam_cio_op_result	*sam_res_descs,
-			    u16				 num)
+static inline int send_pkts(struct local_arg *larg, u8 tc,
+			    struct sam_cio_op_result *sam_res_descs, u16 num)
 {
 	struct tx_shadow_q	*shadow_q;
 	struct pp2_bpool	*bpool;
