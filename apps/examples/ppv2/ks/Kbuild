@@ -1,0 +1,7 @@
+obj-m := pkt-echo.o
+
+pkt-echo-y += ks_pkt_echo.o
+
+ccflags-y := -I$(src)/../../../../src/include
+ccflags-y += -I$(src)/../../../../src
+ccflags-y += -I$(src)/../../../../apps/include
