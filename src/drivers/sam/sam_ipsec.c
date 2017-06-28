@@ -50,10 +50,6 @@ static int sam_cio_check_ipsec_params(struct sam_cio_ipsec_params *request)
 	return 0;
 }
 
-static void print_sam_cio_ipsec_params(struct sam_cio_ipsec_params *request)
-{
-}
-
 static inline void sam_hw_cdr_ipsec_cmd_desc_write(struct sam_hw_cmd_desc *cmd_desc,
 						dma_addr_t src_paddr, u32 data_bytes)
 {

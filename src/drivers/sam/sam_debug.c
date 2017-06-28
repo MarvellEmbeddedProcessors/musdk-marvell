@@ -106,10 +106,12 @@ void print_sam_sa_params(struct sam_session_params *sa_params)
 		pr_info("ipsec.is_tunnel      = %d\n", sa_params->u.ipsec.is_tunnel);
 		pr_info("ipsec.spi            = 0x%x\n", sa_params->u.ipsec.spi);
 		pr_info("ipsec.seq            = 0x%lx\n", sa_params->u.ipsec.seq);
-		pr_info("ipsec.sip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.sip);
-		mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.sip, 4);
-		pr_info("ipsec.dip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.dip);
-		mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.dip, 4);
+		if (sa_params->u.ipsec.is_tunnel) {
+			pr_info("ipsec.sip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.sip);
+			mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.sip, 4);
+			pr_info("ipsec.dip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.dip);
+			mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.dip, 4);
+		}
 	}
 	pr_info("\n");
 }
@@ -135,6 +137,20 @@ void print_sam_cio_op_params(struct sam_cio_op_params *request)
 	pr_info("request->auth_len               = %d\n", request->auth_len);
 	pr_info("request->auth_icv_offset        = %d\n", request->auth_icv_offset);
 	pr_info("\n");
+}
+
+void print_sam_cio_ipsec_params(struct sam_cio_ipsec_params *request)
+{
+	pr_info("\n");
+	pr_info("----------- struct sam_cio_ipsec_params *request ---------\n");
+	pr_info("request->sa                     = %p\n", request->sa);
+	pr_info("request->cookie                 = %p\n", request->cookie);
+	pr_info("request->num_bufs               = %d\n", request->num_bufs);
+
+	pr_info("request->src[0].vaddr           = %p\n", request->src[0].vaddr);
+	pr_info("request->dst[0].vaddr           = %p\n", request->dst[0].vaddr);
+	pr_info("request->l3_offset              = %d\n", request->l3_offset);
+	pr_info("request->pkt_size               = %d\n", request->pkt_size);
 }
 
 void print_sam_cio_operation_info(struct sam_cio_op *operation)

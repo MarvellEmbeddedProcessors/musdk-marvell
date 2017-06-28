@@ -191,6 +191,7 @@ void print_sa_builder_params(struct sam_sa *session);
 void print_token_params(TokenBuilder_Params_t *token);
 
 void print_sam_cio_op_params(struct sam_cio_op_params *request);
+void print_sam_cio_ipsec_params(struct sam_cio_ipsec_params *request);
 void print_sam_sa_params(struct sam_session_params *sa_params);
 void print_sam_cio_operation_info(struct sam_cio_op *operation);
 
