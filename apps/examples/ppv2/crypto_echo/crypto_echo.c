@@ -294,7 +294,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	int			err;
 	u16			i, bpool_buff_len, num_got;
 	u8			cipher_iv[] = RFC3602_AES128_CBC_T1_IV;
-	u8			data_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
+	u8			data_offs;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	if (larg->garg->verbose)
@@ -332,7 +332,6 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->tx_port = tx_ppio_id;
 		mdata->bpool = bpool;
 		mdata->buf_vaddr = vaddr;
-		mdata->data_offs = data_offs;
 
 		/* Set vaddr and paddr to MAC address of the packet */
 		vaddr += MVAPPS_PP2_PKT_EFEC_OFFS;
@@ -358,6 +357,12 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		dst_buf_infs[i].len = bpool_buff_len;
 
 		if (larg->garg->crypto_proto == SAM_PROTO_NONE) {
+			enum pp2_inq_l4_type type;
+
+			/* SAM_PROTO_NONE: data_offs - L4 offset */
+			pp2_ppio_inq_desc_get_l4_info(&descs[i], &type, &data_offs);
+			mdata->data_offs = data_offs;
+
 			sam_descs[i].sa = sa;
 			sam_descs[i].cookie = mdata;
 
@@ -365,16 +370,24 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			sam_descs[i].src = &src_buf_infs[i];
 			sam_descs[i].dst = &dst_buf_infs[i];
 			sam_descs[i].cipher_iv = cipher_iv;
+
 			sam_descs[i].cipher_offset = data_offs;
 			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 		} else if (larg->garg->crypto_proto == SAM_PROTO_IPSEC) {
+			enum pp2_inq_l3_type type;
+
+			/* SAM_PROTO_IPsec: data_offs - L3 offset */
+			pp2_ppio_inq_desc_get_l3_info(&descs[i], &type, &data_offs);
+			mdata->data_offs = data_offs;
+
 			ipsec_descs[i].sa = sa;
 			ipsec_descs[i].cookie = mdata;
 
 			ipsec_descs[i].num_bufs = 1;
 			ipsec_descs[i].src = &src_buf_infs[i];
 			ipsec_descs[i].dst = &dst_buf_infs[i];
-			ipsec_descs[i].l3_offset = 14;
+
+			ipsec_descs[i].l3_offset = data_offs;
 			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
 		} else {
 			pr_err("Unknown crypto_proto = %d\n", larg->garg->crypto_proto);
@@ -430,7 +443,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	int			 err;
 	u16			 i, bpool_buff_len, num_got;
 	u8			 cipher_iv[] = RFC3602_AES128_CBC_T1_IV;
-	u8			 data_offs = (14 + 20); /* TODO: hardcoded for eth/ipv4! */
+	u8			 data_offs;
 
 	/* TODO: is this enough?!?!?! */
 	bpool_buff_len = larg->garg->mtu + 64;
@@ -440,6 +453,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	/* For decryption crypto parameters are caclulated from cookie and out_len */
 	for (i = 0; i < num; i++) {
 		mdata = sam_res_descs[i].cookie;
+		data_offs = mdata->data_offs;
 
 		src_buf_infs[i].vaddr = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
 		src_buf_infs[i].paddr = mv_sys_dma_mem_virt2phys(src_buf_infs[i].vaddr);
@@ -465,7 +479,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 			ipsec_descs[i].num_bufs = 1;
 			ipsec_descs[i].src = &src_buf_infs[i];
 			ipsec_descs[i].dst = &dst_buf_infs[i];
-			ipsec_descs[i].l3_offset = 14;
+			ipsec_descs[i].l3_offset = data_offs;
 			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
 		}
 
