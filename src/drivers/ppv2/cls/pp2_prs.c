@@ -1048,7 +1048,6 @@ static int pp2_prs_log_port_arp(struct pp2_port *port, enum pp2_ppio_cls_target 
 	int tid;
 	struct pp2_inst *inst = port->parent;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
-	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
 	struct prs_lkp_tcam_list tcam_list;
 	u32 ri = 0, nri = 0;
 	u32 ri_mask = 0;
@@ -1101,8 +1100,6 @@ static int pp2_prs_log_port_arp(struct pp2_port *port, enum pp2_ppio_cls_target 
 
 		/* Update shadow table and hw entry */
 		mv_pp2x_prs_shadow_set(inst, pe.index, MVPP2_PRS_LU_L2);
-		prs_shadow[pe.index].udf = MVPP2_PRS_UDF_L2_DEF;
-		prs_shadow[pe.index].finish = true;
 		mv_pp2x_prs_shadow_ri_set(inst, pe.index, ri | MVPP2_PRS_RI_L3_ARP,
 					  ri_mask | MVPP2_PRS_RI_L3_PROTO_MASK);
 		mv_pp2x_prs_hw_write(cpu_slot, &pe);

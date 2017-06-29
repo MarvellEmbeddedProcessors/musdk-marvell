@@ -1718,15 +1718,6 @@ enum mv_pp2x_tag_type {
 #define MVPP22_RSS_TBL_LINE_NUM			32
 #define MVPP22_RSS_WIDTH_MAX			8
 
-/* MAC entries, shadow udf */
-enum mv_pp2x_prs_udf {
-	MVPP2_PRS_UDF_MAC_DEF,
-	MVPP2_PRS_UDF_MAC_RANGE,
-	MVPP2_PRS_UDF_L2_DEF,
-	MVPP2_PRS_UDF_L2_DEF_COPY,
-	MVPP2_PRS_UDF_L2_USER,
-};
-
 /* Lookup ID */
 enum mv_pp2x_prs_lookup {
 	MVPP2_PRS_LU_MH,
@@ -2039,24 +2030,12 @@ struct mv_pp2x_prs_entry {
 };
 
 struct mv_pp2x_prs_shadow {
-	u32 valid;
-	u32 finish;
-
-	/* Lookup ID */
-	int lu;
-
-	/* User defined offset */
-	int udf;
-
-	/* Result info */
-	u32 ri;
-	u32 ri_mask;
-
-	/* TCAM */
-	union mv_pp2x_prs_tcam_entry tcam;
-
-	/* The following is used for restoring kernel parser when MUSDK deinit */
-	u32 valid_in_kernel;
+	u32 valid;				/* Entry is valid or not */
+	int lu;					/* Lookup ID */
+	u32 ri;					/* Result info */
+	u32 ri_mask;				/* Result info mask*/
+	union mv_pp2x_prs_tcam_entry tcam;	/* TCAM */
+	u32 valid_in_kernel;			/* Used for restoring kernel parser at deinit */
 
 };
 
