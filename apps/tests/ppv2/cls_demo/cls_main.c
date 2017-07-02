@@ -118,15 +118,6 @@ int pp2_cls_table_next_index_get(struct list *cls_tbl_head)
 	return idx + 1;
 }
 
-#ifdef CLS_APP_PKT_ECHO_SUPPORT
-#ifdef CLS_APP_USE_APP_PREFETCH
-static inline void prefetch(const void *ptr)
-{
-	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
-}
-#endif /* CLS_APP_USE_APP_PREFETCH */
-
-#endif /* CLS_APP_PKT_ECHO_SUPPORT */
 
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,

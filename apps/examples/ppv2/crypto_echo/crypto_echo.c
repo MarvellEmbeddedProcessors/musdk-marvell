@@ -223,10 +223,6 @@ static int pme_ev_cnt_rx = -1, pme_ev_cnt_enq = -1, pme_ev_cnt_deq = -1, pme_ev_
 #define STOP_COUNT_CYCLES(_ev_cnt, _num)
 #endif /* CHECK_CYCLES */
 
-static inline void prefetch(const void *ptr)
-{
-	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
-}
 
 static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
 {

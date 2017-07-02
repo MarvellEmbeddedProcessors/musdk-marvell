@@ -300,13 +300,6 @@ u32 tx_max_burst[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
 #define SET_MAX_BURST(core, port, cnt)
 #endif /* SHOW_STATISTICS */
 
-#ifdef PKT_FWD_APP_USE_PREFETCH
-static inline void prefetch(const void *ptr)
-{
-	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
-}
-#endif /* PKT_FWD_APP_USE_PREFETCH */
-
 #ifdef PKT_FWD_APP_HW_TX_CHKSUM_CALC
 static inline enum pp2_outq_l3_type pp2_l3_type_inq_to_outq(enum pp2_inq_l3_type l3_inq)
 {
