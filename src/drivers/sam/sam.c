@@ -183,7 +183,7 @@ static int sam_session_auth_init(struct sam_sa *session,
 	if (sam_max_check((int)params->auth_alg, SAM_AUTH_ALG_LAST, "auth_alg"))
 		return -EINVAL;
 
-	if (params->auth_alg == SAM_AUTH_AES_GCM) {
+	if ((params->auth_alg == SAM_AUTH_AES_GCM) || (params->auth_alg == SAM_AUTH_AES_GMAC)) {
 		/* Generate authenticationn key from cipher key */
 		sam_gcm_create_auth_key(params->cipher_key, params->cipher_key_len, session->auth_inner);
 		sa_params->AuthKey1_p = session->auth_inner;

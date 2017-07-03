@@ -1,0 +1,33 @@
+# AES 128 GMAC test configuration file
+
+Algorithm     : AES
+Authalgorithm : AES_GMAC
+Name          : Encrypting_AES128_GMAC
+Mode          : GMAC
+Key           : 0xF89370CA901AF1A99070273F0E90DB57
+Direction     : encryption
+Testcounter   : 1
+Plaintext     : 0x91909dc90000000173e18b41080000004500006400050000ff01a28a0c000001 \
+		  0d0000090800294d0005000000000000016f5389abcdabcdabcdabcdabcdabcd \
+		  abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd \
+		  abcdabcdabcdabcdabcdabcdabcdabcdabcdabcd01020204
+Cryptoffset   : 0
+IV            : 0x2f5af3fc73e18b410800000000000001
+AAD           : 0x91909dc900000001
+ICB           : 0x8FF59C004238788F41A38A69C8FE3855
+
+Algorithm     : AES
+Authalgorithm : AES_GMAC
+Name          : Decrypting_AES128_GMAC
+Mode          : GMAC
+Key           : 0xF89370CA901AF1A99070273F0E90DB57
+Direction     : decryption
+Testcounter   : 1
+Plaintext     : 0x91909dc90000000173e18b41080000004500006400050000ff01a28a0c000001 \
+		  0d0000090800294d0005000000000000016f5389abcdabcdabcdabcdabcdabcd \
+		  abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd \
+		  abcdabcdabcdabcdabcdabcdabcdabcdabcdabcd01020204
+Cryptoffset   : 0
+IV            : 0x2f5af3fc73e18b410800000000000001
+AAD           : 0x91909dc900000001
+ICB           : 0x8FF59C004238788F41A38A69C8FE3855

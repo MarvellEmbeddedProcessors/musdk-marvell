@@ -437,7 +437,7 @@ static void prepare_bufs(EncryptedBlockPtr block, struct sam_session_params *ses
 	if (num > NUM_CONCURRENT_REQUESTS)
 		num = NUM_CONCURRENT_REQUESTS;
 
-	if (session_params->cipher_alg != SAM_CIPHER_NONE) {
+	if ((session_params->cipher_alg != SAM_CIPHER_NONE) && (session_params->cipher_mode != SAM_CIPHER_GMAC)) {
 		/* plain text and cipher text must be valid */
 		if (session_params->dir == SAM_DIR_ENCRYPT) {
 			expected_data_size = encryptedBlockGetCipherTextLen(block, 0);
