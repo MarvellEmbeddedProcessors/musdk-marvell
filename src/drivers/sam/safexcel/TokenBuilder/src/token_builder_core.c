@@ -50,7 +50,7 @@ TokenBuilder_GetSize(
 #if TKB_HAVE_PROTO_BASIC == 1u
     uint32_t seq_offset;
 #endif
-#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u) || (TKB_HAVE_PROTO_SSLTLS == 1u && !TKB_SINGLE_PASS_SSLTLS == 1u)
+#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u) || (TKB_HAVE_PROTO_SSLTLS == 1u && !TKB_SINGLE_PASS_SSLTLS == 1u) || TKB_HAVE_PROTO_BASIC == 1u
     uint32_t ivlen;
 #endif
 #if TKB_HAVE_PROTO_IPSEC == 1u || TKB_HAVE_PROTO_SRTP == 1u
@@ -66,7 +66,7 @@ TokenBuilder_GetSize(
 #if TKB_HAVE_PROTO_SSLTLS == 1u || TKB_HAVE_PROTO_BASIC == 1u || TKB_HAVE_CRYPTO_XTS == 1u
     uint32_t upd_handling;
 #endif
-#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u)
+#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u) || TKB_HAVE_PROTO_BASIC == 1u
     uint32_t cipher_is_aes;
 #endif
 #if TKB_HAVE_PROTO_SSLTLS == 1u || TKB_HAVE_PROTO_BASIC == 1u
@@ -88,7 +88,10 @@ TokenBuilder_GetSize(
     proto = EVAL_proto();
     if (proto >= 25u)
     {
-        *TokenWord32Count_p += 1u;
+        if (proto <= 26u)
+        {
+            *TokenWord32Count_p += 1u;
+        }
     }
 #endif
     ivhandling = EVAL_ivhandling();
@@ -888,11 +891,23 @@ TokenBuilder_GetSize(
     case 17: /* basic_out_gcm */
 #if TKB_HAVE_PROTO_BASIC == 1u
         *TokenWord32Count_p += 17u;
-        if (ivhandling == 0u)
+        switch(ivhandling)
         {
+        case 0: /* iv_inbound_ctr */
+            *TokenWord32Count_p += 2u;
+            break;
+        case 5: /* iv_copy_ctr */
+            *TokenWord32Count_p += 2u;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            *TokenWord32Count_p += 2u;
+            break;
+        default:
             *TokenWord32Count_p += 1u;
+            ;
         }
-        *TokenWord32Count_p += 3u;
+        *TokenWord32Count_p += 2u;
         seq_offset = EVAL_seq_offset();
         if (seq_offset > 0u)
         {
@@ -908,11 +923,23 @@ TokenBuilder_GetSize(
     case 18: /* basic_in_gcm */
 #if TKB_HAVE_PROTO_BASIC == 1u
         *TokenWord32Count_p += 17u;
-        if (ivhandling == 0u)
+        switch(ivhandling)
         {
+        case 0: /* iv_inbound_ctr */
+            *TokenWord32Count_p += 2u;
+            break;
+        case 5: /* iv_copy_ctr */
+            *TokenWord32Count_p += 2u;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            *TokenWord32Count_p += 2u;
+            break;
+        default:
             *TokenWord32Count_p += 1u;
+            ;
         }
-        *TokenWord32Count_p += 3u;
+        *TokenWord32Count_p += 2u;
         seq_offset = EVAL_seq_offset();
         if (seq_offset > 0u)
         {
@@ -928,15 +955,23 @@ TokenBuilder_GetSize(
     case 19: /* basic_out_gmac */
 #if TKB_HAVE_PROTO_BASIC == 1u
         *TokenWord32Count_p += 17u;
-        if (ivhandling == 5u)
+        switch(ivhandling)
         {
-            *TokenWord32Count_p += 1u;
+        case 0: /* iv_inbound_ctr */
+            *TokenWord32Count_p += 3u;
+            break;
+        case 5: /* iv_copy_ctr */
+            *TokenWord32Count_p += 3u;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            *TokenWord32Count_p += 3u;
+            break;
+        default:
+            *TokenWord32Count_p += 2u;
+            ;
         }
-        else
-        {
-            *TokenWord32Count_p += 1u;
-        }
-        *TokenWord32Count_p += 3u;
+        *TokenWord32Count_p += 1u;
         seq_offset = EVAL_seq_offset();
         if (seq_offset > 0u)
         {
@@ -952,11 +987,23 @@ TokenBuilder_GetSize(
     case 20: /* basic_in_gmac */
 #if TKB_HAVE_PROTO_BASIC == 1u
         *TokenWord32Count_p += 17u;
-        if (ivhandling == 0u)
+        switch(ivhandling)
         {
-            *TokenWord32Count_p += 1u;
+        case 0: /* iv_inbound_ctr */
+            *TokenWord32Count_p += 3u;
+            break;
+        case 5: /* iv_copy_ctr */
+            *TokenWord32Count_p += 3u;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            *TokenWord32Count_p += 3u;
+            break;
+        default:
+            *TokenWord32Count_p += 2u;
+            ;
         }
-        *TokenWord32Count_p += 3u;
+        *TokenWord32Count_p += 1u;
         seq_offset = EVAL_seq_offset();
         if (seq_offset > 0u)
         {
@@ -1028,6 +1075,49 @@ TokenBuilder_GetSize(
             *TokenWord32Count_p += 1u;
         }
         *TokenWord32Count_p += 2u;
+#else
+#endif
+        break;
+    case 27: /* basic_hashenc */
+#if TKB_HAVE_PROTO_BASIC == 1u
+        *TokenWord32Count_p += 17u;
+        switch(ivhandling)
+        {
+        case 4: /* iv_copy_cbc */
+            *TokenWord32Count_p += 1u;
+            break;
+        case 6: /* iv_outbound_2words */
+        case 9: /* iv_copy_token_2words */
+            *TokenWord32Count_p += 1u;
+            break;
+        case 7: /* iv_outbound_4words */
+        case 15: /* iv_copy_token_4words */
+            *TokenWord32Count_p += 1u;
+            break;
+        }
+        *TokenWord32Count_p += 3u;
+#else
+#endif
+        break;
+    case 28: /* basic_dechash */
+#if TKB_HAVE_PROTO_BASIC == 1u
+        *TokenWord32Count_p += 1u;
+        cipher_is_aes = EVAL_cipher_is_aes();
+        if (cipher_is_aes == 0u)
+        {
+            *TokenWord32Count_p += 6u;
+        }
+        else
+        {
+            *TokenWord32Count_p += 10u;
+        }
+        *TokenWord32Count_p += 21u;
+        ivlen = EVAL_ivlen();
+        if (ivlen > 0u)
+        {
+            *TokenWord32Count_p += 1u;
+        }
+        *TokenWord32Count_p += 4u;
 #else
 #endif
         break;
@@ -1198,7 +1288,7 @@ TokenBuilder_BuildToken(
 #if TKB_HAVE_PROTO_SSLTLS == 1u || TKB_HAVE_PROTO_BASIC == 1u || TKB_HAVE_CRYPTO_XTS == 1u
     uint32_t upd_handling;
 #endif
-#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u)
+#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u) || TKB_HAVE_PROTO_BASIC == 1u
     uint32_t cipher_is_aes;
 #endif
 #if TKB_HAVE_PROTO_BASIC == 1u || TKB_HAVE_CRYPTO_WIRELESS == 1u
@@ -1209,6 +1299,9 @@ TokenBuilder_BuildToken(
 #endif
 #if TKB_HAVE_PROTO_SSLTLS == 1u || TKB_HAVE_PROTO_BASIC == 1u
     uint32_t hstatelen;
+#endif
+#if TKB_HAVE_PROTO_BASIC == 1u
+    uint32_t pad_bytes_hashenc;
 #endif
 #if TKB_HAVE_PROTO_SRTP == 1u
     uint32_t srtp_offset;
@@ -1226,10 +1319,10 @@ TokenBuilder_BuildToken(
     uint32_t cw0;
     uint32_t cw1;
     const uint8_t *iv;
-#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u)
+#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u) || TKB_HAVE_PROTO_BASIC == 1u
     const uint8_t *ssltls_lastblock;
 #endif
-#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u)
+#if (TKB_HAVE_PROTO_SSLTLS == 1u && TKB_SINGLE_PASS_SSLTLS == 1u) || TKB_HAVE_PROTO_BASIC == 1u
     const uint8_t *ssltls_lastword;
 #endif
 #if TKB_HAVE_PROTO_BASIC == 1u
@@ -1274,9 +1367,12 @@ TokenBuilder_BuildToken(
 #if TKB_HAVE_CRYPTO_WIRELESS == 1u
     if (proto >= 25u)
     {
-        /* DATA32 nextheader   ; Specify number of valid bits in last byte for */
-        nextheader = EVAL_nextheader();
-        *tp++=0x00000000 | ((nextheader)&0xffffffffu)<<0;
+        if (proto <= 26u)
+        {
+            /* DATA32 nextheader   ; Specify number of valid bits in last byte for */
+            nextheader = EVAL_nextheader();
+            *tp++=0x00000000 | ((nextheader)&0xffffffffu)<<0;
+        }
     }
 #endif
     ivhandling = EVAL_ivhandling();
@@ -1337,8 +1433,11 @@ TokenBuilder_BuildToken(
     {
         if (proto != 9u)
         {
-            /* DIR OUT,bypass */
-            *tp++=0x01000000 | ((bypass)&0x1ffffu)<<0;
+            if (proto != 28u)
+            {
+                /* DIR OUT,bypass */
+                *tp++=0x01000000 | ((bypass)&0x1ffffu)<<0;
+            }
         }
     }
     packetsize = EVAL_packetsize();
@@ -3291,14 +3390,45 @@ TokenBuilder_BuildToken(
                 *tp++=0x0a000000 | ((aadlen_pkt)&0x1ffffu)<<0;
             }
         }
-        if (ivhandling == 0u)
+        switch(ivhandling)
         {
+        case 0: /* iv_inbound_ctr */
             /* RETR NONE,ORIG_IV1,8 ; IV from input packet, CTR. */
             *tp++=0x40a80000 | ((8u)&0x1ffffu)<<0;
+            /* REMRES   bypass+aadlen_out,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 5: /* iv_copy_ctr */
+            if (aadlen_pkt+aadlen_tkn == 0u)
+            {
+                LOG_WARN("TokenBuilder: bad packet, null aad illegal for gcm and copy iv\n");
+                return TKB_BAD_PACKET;
+            }
+            /* RETR OUT,ORIG_IV1,8 ; IV from input packet, copy iv */
+            *tp++=0x41a80000 | ((8u)&0x1ffffu)<<0;
+            /* REMRES   bypass+aadlen_out+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            if (aadlen_pkt+aadlen_tkn == 0u)
+            {
+                LOG_WARN("TokenBuilder: bad packet, null aad illegal for gcm and copy iv\n");
+                return TKB_BAD_PACKET;
+            }
+            /* INS OUT,ORIG_IV1,8 ; IV from token, copy iv */
+            *tp++=0x21a80000 | ((8u)&0x1ffffu)<<0;
+            /* REMRES   bypass+aadlen_out+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        default:
+            /* REMRES   bypass+aadlen_out,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         }
-        /* REMRES   bypass+aadlen_out,16 */
-        aadlen_out = EVAL_aadlen_out();
-        *tp++=0xa0000000 | ((bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         /* INS      CRYPT, PAD_ZERO, 0, 16 */
         *tp++=0x25000000 | ((0u)&0xffu)<<9 | ((16u)&0x1ffu)<<0;
         /* DIR      CRYPTHASH,packetsize - bypass - aadlen_pkt - ivlen, LAST,LASTHASH */
@@ -3370,14 +3500,45 @@ TokenBuilder_BuildToken(
                 *tp++=0x0a000000 | ((aadlen_pkt)&0x1ffffu)<<0;
             }
         }
-        if (ivhandling == 0u)
+        switch(ivhandling)
         {
+        case 0: /* iv_inbound_ctr */
             /* RETR NONE,ORIG_IV1,8 ; IV from input packet, CTR. */
             *tp++=0x40a80000 | ((8u)&0x1ffffu)<<0;
+            /* REMRES   bypass+aadlen_out,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 5: /* iv_copy_ctr */
+            if (aadlen_pkt+aadlen_tkn == 0u)
+            {
+                LOG_WARN("TokenBuilder: bad packet, null aad illegal for gcm and copy iv\n");
+                return TKB_BAD_PACKET;
+            }
+            /* RETR OUT,ORIG_IV1,8 ; IV from input packet, copy iv */
+            *tp++=0x41a80000 | ((8u)&0x1ffffu)<<0;
+            /* REMRES   bypass+aadlen_out+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            if (aadlen_pkt+aadlen_tkn == 0u)
+            {
+                LOG_WARN("TokenBuilder: bad packet, null aad illegal for gcm and copy iv\n");
+                return TKB_BAD_PACKET;
+            }
+            /* INS OUT,ORIG_IV1,8 ; IV from token, copy iv */
+            *tp++=0x21a80000 | ((8u)&0x1ffffu)<<0;
+            /* REMRES   bypass+aadlen_out+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        default:
+            /* REMRES   bypass+aadlen_out,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         }
-        /* REMRES   bypass+aadlen_out,16 */
-        aadlen_out = EVAL_aadlen_out();
-        *tp++=0xa0000000 | ((bypass+aadlen_out)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         /* INS      CRYPT, PAD_ZERO, 0, 16 */
         *tp++=0x25000000 | ((0u)&0xffu)<<9 | ((16u)&0x1ffu)<<0;
         /* DIR      CRYPTHASH,packetsize - bypass - aadlen_pkt - ivlen - icvlen, LAST,LASTHASH */
@@ -3450,21 +3611,43 @@ TokenBuilder_BuildToken(
                 *tp++=0x02000000 | ((aadlen_pkt)&0x1ffffu)<<0;
             }
         }
-        if (ivhandling == 5u)
+        switch(ivhandling)
         {
-            /* RETR HASH,ORIG_IV1,8 ; IV from input packet, CTR. */
+        case 0: /* iv_inbound_ctr */
+            /* RETR HASHONLY,ORIG_IV1,8 ; IV from input packet, CTR. */
+            *tp++=0x42a80000 | ((8u)&0x1ffffu)<<0;
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen, LAST,LASTHASH */
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((packetsize+aadlen_out-aadlen_pkt-ivlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 5: /* iv_copy_ctr */
+            /* RETR HASH,ORIG_IV1,8 ; IV from input packet, copy iv */
             *tp++=0x43a80000 | ((8u)&0x1ffffu)<<0;
-        }
-        else
-        {
-            /* INS OUT, ORIG_IV1,8 */
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen, LAST,LASTHASH */
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+packetsize+aadlen_out-aadlen_pkt-ivlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            /* INS OUT,ORIG_IV1,8 ; IV from token, copy iv. */
             *tp++=0x21a80000 | ((8u)&0x1ffffu)<<0;
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen, LAST,LASTHASH */
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+packetsize+aadlen_out-aadlen_pkt-ivlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        default:
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen, LAST,LASTHASH */
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((packetsize+aadlen_out-aadlen_pkt-ivlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         }
-        /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen, LAST,LASTHASH */
-        *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen)&0x1ffffu)<<0;
-        /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen+8,16 */
-        aadlen_out = EVAL_aadlen_out();
-        *tp++=0xa0000000 | ((8u+packetsize+aadlen_out-aadlen_pkt-ivlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         /* INS      CRYPT, PAD_ZERO, 0, 16,LAST */
         *tp++=0x2d000000 | ((0u)&0xffu)<<9 | ((16u)&0x1ffu)<<0;
         seq_offset = EVAL_seq_offset();
@@ -3534,17 +3717,47 @@ TokenBuilder_BuildToken(
                 *tp++=0x02000000 | ((aadlen_pkt)&0x1ffffu)<<0;
             }
         }
-        if (ivhandling == 0u)
+        switch(ivhandling)
         {
+        case 0: /* iv_inbound_ctr */
             /* RETR HASHONLY,ORIG_IV1,8 ; IV from input packet, CTR. */
             *tp++=0x42a80000 | ((8u)&0x1ffffu)<<0;
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen - icvlen, LAST,LASTHASH */
+            icvlen = EVAL_icvlen();
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen-icvlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 5: /* iv_copy_ctr */
+            /* RETR HASH,ORIG_IV1,8 ; IV from input packet, copy iv */
+            *tp++=0x43a80000 | ((8u)&0x1ffffu)<<0;
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen - icvlen, LAST,LASTHASH */
+            icvlen = EVAL_icvlen();
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen-icvlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        case 15: /* iv_copy_token_4words */
+        case 2: /* iv_outbound_ctr */
+            /* INS OUT,ORIG_IV1,8 ; IV from token, copy iv Do not authenticate IV */
+            *tp++=0x21a80000 | ((8u)&0x1ffffu)<<0;
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen - icvlen, LAST,LASTHASH */
+            icvlen = EVAL_icvlen();
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen-icvlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen+8,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((8u+packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
+            break;
+        default:
+            /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen - icvlen, LAST,LASTHASH */
+            icvlen = EVAL_icvlen();
+            *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen-icvlen)&0x1ffffu)<<0;
+            /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen,16 */
+            aadlen_out = EVAL_aadlen_out();
+            *tp++=0xa0000000 | ((packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         }
-        /* DIR      HASH,packetsize - bypass - aadlen_pkt - ivlen - icvlen, LAST,LASTHASH */
-        icvlen = EVAL_icvlen();
-        *tp++=0x0b020000 | ((packetsize-bypass-aadlen_pkt-ivlen-icvlen)&0x1ffffu)<<0;
-        /* REMRES   packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen,16 */
-        aadlen_out = EVAL_aadlen_out();
-        *tp++=0xa0000000 | ((packetsize+aadlen_out-aadlen_pkt-ivlen-icvlen)&0xffffu)<<0 | ((16u)&0x3fu)<<19;
         /* INS      CRYPT, PAD_ZERO, 0, 16,LAST */
         *tp++=0x2d000000 | ((0u)&0xffu)<<9 | ((16u)&0x1ffu)<<0;
         seq_offset = EVAL_seq_offset();
@@ -3729,6 +3942,181 @@ TokenBuilder_BuildToken(
             /* INS OUT,PAD_ZERO,0,0,LASTHASHPKT */
             *tp++=0x21060000 | ((0u)&0xffu)<<9 | ((0u)&0x1ffu)<<0;
         }
+#else
+        LOG_WARN("TokenBuilder: bad protocol\n");
+        return TKB_BAD_PROTOCOL;
+#endif
+        break;
+    case 27: /* basic_hashenc */
+#if TKB_HAVE_PROTO_BASIC == 1u
+        aadlen_pkt = EVAL_aadlen_pkt();
+        ivlen = EVAL_ivlen();
+        if (packetsize < bypass+aadlen_pkt+ivlen)
+        {
+            LOG_WARN("TokenBuilder: bad packet, too short for basic crypthash\n");
+            return TKB_BAD_PACKET;
+        }
+        aadlen_tkn = EVAL_aadlen_tkn();
+        if (aadlen_tkn > 0u)
+        {
+            extseq = EVAL_extseq();
+            if (extseq > 0u)
+            {
+                /* INS HASH,ORIG_TOKEN,aadlen_tkn */
+                *tp++=0x23d80000 | ((aadlen_tkn)&0x1ffffu)<<0;
+            }
+            else
+            {
+                /* INS HASHONLY,ORIG_TOKEN,aadlen_tkn */
+                *tp++=0x22d80000 | ((aadlen_tkn)&0x1ffffu)<<0;
+            }
+            aad = EVAL_aad();
+            if (aadlen_tkn > 64)
+            {
+                LOG_CRIT("Field too large\n");
+                return TKB_BAD_FIELD_SIZE;
+            }
+            TokenBuilder_CopyBytes(tp, aad, aadlen_tkn);
+            tp += (aadlen_tkn + 3)/4;
+        }
+        else if (aadlen_pkt > 0u)
+        {
+            extseq = EVAL_extseq();
+            if (extseq > 0u)
+            {
+                /* DIR HASH,aadlen_pkt */
+                *tp++=0x03000000 | ((aadlen_pkt)&0x1ffffu)<<0;
+            }
+            else
+            {
+                /* DIR HASHONLY,aadlen_pkt */
+                *tp++=0x02000000 | ((aadlen_pkt)&0x1ffffu)<<0;
+            }
+        }
+        switch(ivhandling)
+        {
+        case 4: /* iv_copy_cbc */
+            /* RETR OUT,ORIG_IV0,ivlen ; IV from input packet CBC */
+            *tp++=0x41a00000 | ((ivlen)&0x1ffffu)<<0;
+            break;
+        case 6: /* iv_outbound_2words */
+        case 9: /* iv_copy_token_2words */
+            /* INS  OUT,ORIG_IV0,8 */
+            *tp++=0x21a00000 | ((8u)&0x1ffffu)<<0;
+            break;
+        case 7: /* iv_outbound_4words */
+        case 15: /* iv_copy_token_4words */
+            /* INS  OUT,ORIG_IV0,16 */
+            *tp++=0x21a00000 | ((16u)&0x1ffffu)<<0;
+            break;
+        }
+        /* DIR CRYPTHASH,packetsize-ivlen-bypass-aadlen_pkt,LASTHASH */
+        *tp++=0x07020000 | ((packetsize-ivlen-bypass-aadlen_pkt)&0x1ffffu)<<0;
+        /* INS CRYPT,ORIG_HASH,icvlen,LASTHASH */
+        icvlen = EVAL_icvlen();
+        *tp++=0x25e20000 | ((icvlen)&0x1ffffu)<<0;
+        /* INS CRYPT,PAD_TLS,0,pad_bytes_hashenc,LAST,LASTHASHPKT */
+        pad_bytes_hashenc = EVAL_pad_bytes_hashenc();
+        *tp++=0x2d2e0000 | ((0u)&0xffu)<<9 | ((pad_bytes_hashenc)&0x1ffu)<<0;
+#else
+        LOG_WARN("TokenBuilder: bad protocol\n");
+        return TKB_BAD_PROTOCOL;
+#endif
+        break;
+    case 28: /* basic_dechash */
+#if TKB_HAVE_PROTO_BASIC == 1u
+        aadlen_pkt = EVAL_aadlen_pkt();
+        aadlen_tkn = EVAL_aadlen_tkn();
+        if (aadlen_pkt+aadlen_tkn < 2u)
+        {
+            LOG_WARN("TokenBuilder: bad packet, aad too short\n");
+            return TKB_BAD_PACKET;
+        }
+        /* REMRES 0,4,NOUPDCHK */
+        *tp++=0xa0020000 | ((0u)&0xffffu)<<0 | ((4u)&0x3fu)<<19;
+        cipher_is_aes = EVAL_cipher_is_aes();
+        if (cipher_is_aes == 0u)
+        {
+            ivlen = EVAL_ivlen();
+            if (packetsize < 16u+bypass+aadlen_pkt+ivlen)
+            {
+                LOG_WARN("TokenBuilder: bad packet, too short for basic dechash\n");
+                return TKB_BAD_PACKET;
+            }
+            /* INS CRYPTONLY,ORIG_TOKEN,12 */
+            *tp++=0x24d80000 | ((12u)&0x1ffffu)<<0;
+            ssltls_lastblock = EVAL_ssltls_lastblock();
+            TokenBuilder_CopyBytes(tp, ssltls_lastblock, 12);
+            tp += 3;
+            /* INS CRYPT,ORIG_TOKEN,4 */
+            *tp++=0x25d80000 | ((4u)&0x1ffffu)<<0;
+            ssltls_lastword = EVAL_ssltls_lastword();
+            TokenBuilder_CopyBytes(tp, ssltls_lastword, 4);
+            tp += 1;
+        }
+        else
+        {
+            ivlen = EVAL_ivlen();
+            if (packetsize < 32u+bypass+aadlen_pkt+ivlen)
+            {
+                LOG_WARN("TokenBuilder: bad packet, too short for basic dechash\n");
+                return TKB_BAD_PACKET;
+            }
+            /* INS CRYPTONLY,ORIG_TOKEN,28 */
+            *tp++=0x24d80000 | ((28u)&0x1ffffu)<<0;
+            ssltls_lastblock = EVAL_ssltls_lastblock();
+            TokenBuilder_CopyBytes(tp, ssltls_lastblock, 28);
+            tp += 7;
+            /* INS CRYPT,ORIG_TOKEN,4 */
+            *tp++=0x25d80000 | ((4u)&0x1ffffu)<<0;
+            ssltls_lastword = EVAL_ssltls_lastword();
+            TokenBuilder_CopyBytes(tp, ssltls_lastword, 4);
+            tp += 1;
+        }
+        /* DIR NONE,0,LAST */
+        *tp++=0x08000000 | ((0u)&0x1ffffu)<<0;
+        if (bypass > 0u)
+        {
+            /* DIR OUT,bypass */
+            *tp++=0x01000000 | ((bypass)&0x1ffffu)<<0;
+        }
+        if (aadlen_tkn > 0u)
+        {
+            /* INS HASHONLY,ORIG_TOKEN,aadlen_tkn-2 */
+            *tp++=0x22d80000 | ((-2u+aadlen_tkn)&0x1ffffu)<<0;
+            aad = EVAL_aad();
+            if (-2u+aadlen_tkn > 64)
+            {
+                LOG_CRIT("Field too large\n");
+                return TKB_BAD_FIELD_SIZE;
+            }
+            TokenBuilder_CopyBytes(tp, aad, -2u+aadlen_tkn);
+            tp += (-2u+aadlen_tkn + 3)/4;
+        }
+        else if (aadlen_pkt > 0u)
+        {
+            /* DIR HASHONLY,aadlen_pkt-2 */
+            *tp++=0x02000000 | ((-2u+aadlen_pkt)&0x1ffffu)<<0;
+        }
+        /* INS HASHONLY,ORIG_LENCOR,packetsize-bypass-aadlen_pkt-ivlen-icvlen-1 */
+        ivlen = EVAL_ivlen();
+        icvlen = EVAL_icvlen();
+        *tp++=0x22780000 | ((-1u+packetsize-bypass-aadlen_pkt-ivlen-icvlen)&0x1ffffu)<<0;
+        /* REM 2 */
+        *tp++=0x40d80000 | ((2u)&0x1ffffu)<<0;
+        if (ivlen > 0u)
+        {
+            /* RETR NONE,ORIG_IV0,ivlen */
+            *tp++=0x40a00000 | ((ivlen)&0x1ffffu)<<0;
+        }
+        /* REMRES bypass,icvlen,NOUPDCHK          ; Cause the MAC to be removed */
+        *tp++=0xa0020000 | ((bypass)&0xffffu)<<0 | ((icvlen)&0x3fu)<<19;
+        /* DIRX CRYPTHASH,ORIG_LENCOR,0,LASTHASH */
+        *tp++=0x077a0000 | ((0u)&0x1ffffu)<<0;
+        /* DIRX CRYPT,ORIG_LENCOR,icvlen+1,LAST,LASTHASHPKT */
+        *tp++=0x0d7e0000 | ((1u+icvlen)&0x1ffffu)<<0;
+        /* VERIFY icvlen,P,H */
+        *tp++=0xd1070000 | ((icvlen)&0x7fu)<<0;
 #else
         LOG_WARN("TokenBuilder: bad protocol\n");
         return TKB_BAD_PROTOCOL;

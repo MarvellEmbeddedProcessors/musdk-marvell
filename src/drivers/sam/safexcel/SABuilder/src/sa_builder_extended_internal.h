@@ -122,8 +122,9 @@ typedef enum
 
     /* BASIC */
     SAB_HDR_BASIC_OUT_ZPAD  = 35,
-    SAB_HDR_BASIC_IN = 36,
+    SAB_HDR_BASIC_IN_NO_PAD = 36,
     SAB_HDR_BASIC_OUT_TPAD  = 37,
+    SAB_HDR_BASIC_IN_PAD    = 38,
 } SABuilder_HeaderProtocol_t;
 
 

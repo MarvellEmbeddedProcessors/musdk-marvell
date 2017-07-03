@@ -122,7 +122,7 @@ SABuilder_SetExtendedBasicParams(SABuilder_Params_t *const SAParams_p,
             {
                 ESPProto = SAB_BASIC_PROTO_IN_DECHASH;
                 TokenHeaderWord |= SAB_HEADER_PAD_VERIFY;
-                HeaderProto = SAB_HDR_BASIC_IN;
+                HeaderProto = SAB_HDR_BASIC_IN_PAD;
             }
         }
         else
@@ -135,7 +135,7 @@ SABuilder_SetExtendedBasicParams(SABuilder_Params_t *const SAParams_p,
             else
             {
                 ESPProto = SAB_BASIC_PROTO_IN_HASHDEC;
-                HeaderProto = SAB_HDR_BASIC_IN;
+                HeaderProto = SAB_HDR_BASIC_IN_NO_PAD;
             }
         }
 

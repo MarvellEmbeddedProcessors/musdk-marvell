@@ -190,6 +190,8 @@ TokenBuilder_BuildContext(
                     }
                 if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_384) != 0)
                     TokenContext_Internal_p->AntiReplay *= 12;
+                else if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_256) != 0)
+                    TokenContext_Internal_p->AntiReplay *= 8;
                 else if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_128) != 0)
                     TokenContext_Internal_p->AntiReplay *= 4;
                 else if ((SAParamsIPsec_p->IPsecFlags & SAB_IPSEC_MASK_32) == 0)
@@ -601,9 +603,26 @@ TokenBuilder_BuildContext(
         if (SAParams_p->CryptoAlgo != SAB_CRYPTO_NULL)
         {   /* Basic crypto */
             if (SAParams_p->AuthAlgo == SAB_AUTH_NULL)
+            {
                 TokenContext_Internal_p->protocol = TKB_PROTO_BASIC_CRYPTO;
+            }
+            else if ((SAParamsBasic_p->BasicFlags & SAB_BASIC_FLAG_ENCRYPT_AFTER_HASH) != 0)
+            {
+                if (SAParams_p->direction == SAB_DIRECTION_OUTBOUND)
+                {
+                    TokenContext_Internal_p->protocol = TKB_PROTO_BASIC_HASHENC;
+                }
+                else
+                {
+                    TokenContext_Internal_p->protocol = TKB_PROTO_BASIC_DECHASH;
+                    TokenContext_Internal_p->TokenHeaderWord |=
+                        TKB_HEADER_PAD_VERIFY;
+                }
+            }
             else
+            {
                 TokenContext_Internal_p->protocol = TKB_PROTO_BASIC_CRYPTHASH;
+            }
             switch (SAParams_p->CryptoAlgo)
             {
             case SAB_CRYPTO_ARCFOUR:
@@ -867,7 +886,10 @@ TokenBuilder_BuildContext(
                 TokenContext_Internal_p->DigestWordCount = 16 + 16;
                 break;
             case SAB_AUTH_HMAC_SHA2_384:
-                TokenContext_Internal_p->ICVByteCount = 64;
+                if ((SAParamsBasic_p->BasicFlags & SAB_BASIC_FLAG_ENCRYPT_AFTER_HASH) != 0)
+                    TokenContext_Internal_p->ICVByteCount = 48;
+                else
+                    TokenContext_Internal_p->ICVByteCount = 64;
                 TokenContext_Internal_p->DigestWordCount = 16;
                 break;
             case SAB_AUTH_HASH_SHA2_512:
