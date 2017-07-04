@@ -348,8 +348,6 @@ void neta_hw_reg_print(char *reg_name, void *base, u32 offset);
 void neta_bm_pool_bufsize_set(struct neta_port *pp, int buf_size, u8 pool_id);
 void neta_port_up(struct neta_port *pp);
 int mvneta_txq_sent_desc_num_get(struct neta_port *pp, int qid);
-void mvneta_txq_sent_desc_dec(struct neta_port *pp,
-				     struct neta_tx_queue *txq,
-				     int sent_desc);
+void mvneta_txq_sent_desc_dec(struct neta_port *pp, int qid, int sent_desc);
 
 #endif /* _MVNETA_HW_H_ */

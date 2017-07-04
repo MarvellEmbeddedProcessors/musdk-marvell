@@ -48,7 +48,11 @@
 
 #include "../neta_utils.h"
 
+#ifdef HW_BUFF_RECYLCE
 static const char buf_release_str[] = "HW buffer release";
+#else
+static const char buf_release_str[] = "SW buffer release";
+#endif
 
 static const char tx_retry_str[] = "Tx Retry disabled";
 
@@ -65,6 +69,8 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 #define PKT_ECHO_APP_FIRST_INQ			0
 #define PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT	1
 #define PKT_ECHO_APP_MAX_NUM_QS_PER_CORE	PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT
+
+#define PKT_ECHO_APP_PREFETCH_SHIFT		4
 
 #define PKT_ECHO_APP_BPOOLS_INF		{ {256, PKT_ECHO_APP_TX_Q_SIZE}, {1600, PKT_ECHO_APP_TX_Q_SIZE} }
 #define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {384, PKT_ECHO_APP_TX_Q_SIZE}, {4096, PKT_ECHO_APP_TX_Q_SIZE} }
@@ -102,6 +108,7 @@ struct local_arg {
 
 	struct bpool_desc	*pools_desc;
 
+	int			 prefetch_shift;
 	u16			 burst;
 	u32			 busy_wait;
 	int			 echo;
@@ -184,6 +191,9 @@ static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
 
 	neta_ppio_get_num_outq_done(tx_port->ppio, tc, &tx_num);
 
+	if (unlikely(!tx_num))
+		return;
+	/* release sent buffers */
 	tx_port->shadow_qs[tc].read_ind = free_buffers(rx_port, tx_port,
 					       tx_port->shadow_qs[tc].read_ind, tx_num, tc);
 }
@@ -203,6 +213,7 @@ void neta_packet_dump(char *buff, u16 len)
 }
 #endif
 
+#ifdef HW_BUFF_RECYLCE
 static inline int loop_hw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tx_ppio_id,
@@ -210,6 +221,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 				  u16			 num)
 {
 	struct neta_ppio_desc	 descs[PKT_ECHO_APP_MAX_BURST_SIZE];
+	int			 prefetch_shift = larg->prefetch_shift;
 	u16			 i, tx_num, err;
 
 	neta_ppio_recv(larg->ports_desc[rx_ppio_id].ppio, qid, descs, &num);
@@ -221,14 +233,16 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 		u16 len = neta_ppio_inq_desc_get_pkt_len(&descs[i]);
 		struct neta_bpool *ppool = neta_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].ppio);
 
-		neta_ppio_outq_desc_reset(&descs[i]);
-		neta_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-		neta_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_NETA_PKT_EFEC_OFFS);
-		neta_ppio_outq_desc_set_pkt_len(&descs[i], len - (ETH_FCS_LEN + MV_MH_SIZE));
-		neta_ppio_outq_desc_set_pool(&descs[i], ppool);
-
 		if (likely(larg->echo)) {
 			char *tmp_buff;
+
+			if ((num - i) > prefetch_shift) {
+				tmp_buff = (char *)(uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
+				tmp_buff += MVAPPS_NETA_PKT_EFEC_OFFS;
+				tmp_buff = (char *)(((uintptr_t)tmp_buff) | neta_sys_dma_high_addr);
+				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
+				prefetch(tmp_buff);
+			}
 
 			tmp_buff = (char *)(((uintptr_t)(buff)) | neta_sys_dma_high_addr);
 			pr_debug("buff2(%p)\n", tmp_buff);
@@ -238,6 +252,11 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 			swap_l3(tmp_buff);
 			/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 		}
+		neta_ppio_outq_desc_reset(&descs[i]);
+		neta_ppio_outq_desc_set_phys_addr(&descs[i], pa);
+		neta_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_NETA_PKT_EFEC_OFFS);
+		neta_ppio_outq_desc_set_pkt_len(&descs[i], len - (ETH_FCS_LEN + MV_MH_SIZE));
+		neta_ppio_outq_desc_set_pool(&descs[i], ppool);
 	}
 
 	if (num) {
@@ -263,6 +282,84 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 	return 0;
 }
 
+#else /* HW_BUFF_RECYLCE */
+static inline int loop_sw_recycle(struct local_arg	*larg,
+				  u8			 rx_ppio_id,
+				  u8			 tx_ppio_id,
+				  u8			 qid,
+				  u16			 num)
+{
+	struct neta_ppio_desc	 descs[PKT_ECHO_APP_MAX_BURST_SIZE];
+	u16			 i, tx_num;
+	struct tx_shadow_q	*shadow_q;
+	int			 shadow_q_size;
+	int			 prefetch_shift = larg->prefetch_shift;
+
+	shadow_q = &larg->ports_desc[tx_ppio_id].shadow_qs[qid];
+	shadow_q_size = larg->ports_desc[tx_ppio_id].shadow_q_size;
+
+	neta_ppio_recv(larg->ports_desc[rx_ppio_id].ppio, qid, descs, &num);
+	INC_RX_COUNT(larg->id, rx_ppio_id, num);
+
+	for (i = 0; i < num; i++) {
+		char		*buff = (char *)(uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i]);
+		dma_addr_t	 pa = neta_ppio_inq_desc_get_phys_addr(&descs[i]);
+		u16 len = neta_ppio_inq_desc_get_pkt_len(&descs[i]);
+		struct neta_bpool *ppool = neta_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].ppio);
+
+		if (likely(larg->echo)) {
+			char *tmp_buff;
+
+			if ((num - i) > prefetch_shift) {
+				tmp_buff = (char *)(uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
+				tmp_buff += MVAPPS_NETA_PKT_EFEC_OFFS;
+				tmp_buff = (char *)(((uintptr_t)tmp_buff) | neta_sys_dma_high_addr);
+				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
+				prefetch(tmp_buff);
+			}
+
+			tmp_buff = (char *)(((uintptr_t)(buff)) | neta_sys_dma_high_addr);
+			tmp_buff += MVAPPS_NETA_PKT_EFEC_OFFS;
+			swap_l2(tmp_buff);
+			swap_l3(tmp_buff);
+		}
+		neta_ppio_outq_desc_reset(&descs[i]);
+		neta_ppio_outq_desc_set_phys_addr(&descs[i], pa);
+		neta_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_NETA_PKT_EFEC_OFFS);
+		neta_ppio_outq_desc_set_pkt_len(&descs[i], len - (ETH_FCS_LEN + MV_MH_SIZE));
+
+		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
+		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
+		shadow_q->ents[shadow_q->write_ind].bpool = ppool;
+		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
+		shadow_q->write_ind++;
+		if (shadow_q->write_ind == shadow_q_size)
+			shadow_q->write_ind = 0;
+	}
+
+	if (num) {
+		tx_num = num;
+		neta_ppio_send(larg->ports_desc[tx_ppio_id].ppio, qid, descs, &tx_num);
+		if (num > tx_num) {
+			u16 not_sent = num - tx_num;
+
+			pr_warn("Cannot sent %d packets from %d.\n", not_sent, num);
+			/* Free not sent buffers */
+			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
+						(shadow_q_size - not_sent + shadow_q->write_ind) :
+						shadow_q->write_ind - not_sent;
+			free_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[tx_ppio_id],
+				     shadow_q->write_ind, not_sent, qid);
+			INC_TX_DROP_COUNT(larg->id, rx_ppio_id, not_sent);
+		}
+		INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
+	}
+
+	free_sent_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[tx_ppio_id], qid);
+	return 0;
+}
+#endif /* HW_BUFF_RECYLCE */
+
 static int loop_1p(struct local_arg *larg, int *running)
 {
 	int			err;
@@ -284,7 +381,11 @@ static int loop_1p(struct local_arg *larg, int *running)
 				qid = 0;
 		} while (!(larg->qs_map & (1 << qid)));
 
+#ifdef HW_BUFF_RECYLCE
 		err = loop_hw_recycle(larg, 0, 0, qid, num);
+#else
+		err = loop_sw_recycle(larg, 0, 0, qid, num);
+#endif
 		if (err != 0)
 			return err;
 	}
@@ -313,8 +414,13 @@ static int loop_2ps(struct local_arg *larg, int *running)
 				qid = 0;
 		} while (!(larg->qs_map & (1 << qid)));
 
+#ifdef HW_BUFF_RECYLCE
 		err  = loop_hw_recycle(larg, 0, 1, qid, num);
 		err |= loop_hw_recycle(larg, 1, 0, qid, num);
+#else
+		err  = loop_sw_recycle(larg, 0, 1, qid, num);
+		err |= loop_sw_recycle(larg, 1, 0, qid, num);
+#endif
 		if (err != 0)
 			return err;
 	}
@@ -573,6 +679,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->busy_wait		= garg->busy_wait;
 	larg->multi_buffer_release = garg->multi_buffer_release;
 	larg->echo              = garg->echo;
+	larg->prefetch_shift	= garg->prefetch_shift;
 	larg->num_ports         = garg->num_ports;
 	larg->ports_desc = (struct lcl_port_desc *)malloc(larg->num_ports * sizeof(struct lcl_port_desc));
 	if (!larg->ports_desc) {
@@ -654,6 +761,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->echo = 1;
 	garg->qs_map = 0;
 	garg->qs_map_shift = 0;
+	garg->prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
 	garg->maintain_stats = 0;
 
 	while (i < argc) {

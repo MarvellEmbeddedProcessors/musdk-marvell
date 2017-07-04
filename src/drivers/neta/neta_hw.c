@@ -159,21 +159,19 @@ void neta_port_up(struct neta_port *pp)
 }
 
 /* Decrement sent descriptors counter */
-void mvneta_txq_sent_desc_dec(struct neta_port *pp,
-				     struct neta_tx_queue *txq,
-				     int sent_desc)
+void mvneta_txq_sent_desc_dec(struct neta_port *pp, int qid, int sent_desc)
 {
 	u32 val;
 
 	/* Only 255 TX descriptors can be updated at once */
 	while (sent_desc > 0xff) {
 		val = 0xff << MVNETA_TXQ_DEC_SENT_SHIFT;
-		neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(txq->id), val);
+		neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(qid), val);
 		sent_desc = sent_desc - 0xff;
 	}
 
 	val = sent_desc << MVNETA_TXQ_DEC_SENT_SHIFT;
-	neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(txq->id), val);
+	neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(qid), val);
 }
 
 /* Get number of TX descriptors already sent by HW */

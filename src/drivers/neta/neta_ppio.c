@@ -36,9 +36,12 @@
 #include "drivers/mv_neta_bpool.h"
 #include "neta_ppio.h"
 #include "neta_hw.h"
+#include "neta_bm.h"
 #include "lib/lib_misc.h"
 
 static struct neta_port port_array[NETA_NUM_ETH_PPIO];
+
+static int neta_txq_done(struct neta_port *pp, struct neta_tx_queue *txq);
 
 /**
  * Initialize a ppio
@@ -126,7 +129,6 @@ void neta_ppio_outq_desc_set_pool(struct neta_ppio_desc *desc, struct neta_bpool
 	/* Set the HW buffer release mode in an outq packet descriptor */
 	(desc)->cmds[0] = ((desc)->cmds[0] & ~NETA_TXD_BUFF_REL_MASK) | NETA_TXD_BUFF_REL_MASK;
 
-	(desc)->cmds[0] |= NETA_TXD_FLZ_DESC_MASK;
 	return;
 
 }
@@ -178,8 +180,18 @@ int neta_ppio_get_num_outq_done(struct neta_ppio	*ppio,
 				u16			*num)
 {
 	struct neta_port *port = GET_PPIO_PORT(ppio);
+	struct neta_tx_queue *txq = &port->txqs[qid];
+	int tx_done;
 
-	*num = mvneta_txq_sent_desc_num_get(port, qid);
+	/* Get number of sent descriptors */
+	tx_done = mvneta_txq_sent_desc_num_get(port, qid);
+
+	/* Decrement sent descriptors counter */
+	if (tx_done)
+		mvneta_txq_sent_desc_dec(port, qid, tx_done);
+	txq->count -= tx_done;
+
+	*num = tx_done;
 	return 0;
 }
 
@@ -304,6 +316,8 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 	struct neta_ppio_desc *rx_desc, *extra_rx_desc;
 	struct neta_rx_queue *rxq;
 	u32 recv_req = *num, extra_num = 0;
+	struct neta_bpool *bpool;
+	struct mvneta_bm_pool *bm_pool;
 
 	rxq = &port->rxqs[qid];
 
@@ -332,6 +346,11 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 		memcpy(&descs[recv_req], extra_rx_desc, extra_num * sizeof(*descs));
 		recv_req += extra_num; /* Put the split numbers back together */
 	}
+	bpool = &neta_bpools[NETA_RXD_GET_POOL_ID(rx_desc)];
+	bm_pool = (struct mvneta_bm_pool *)bpool->internal_param;
+
+	bm_pool->buffs_num -= recv_req;
+
 	/*  Update HW */
 	neta_port_inq_update(port, rxq, recv_req, recv_req);
 	rxq->desc_received -= recv_req;
@@ -402,7 +421,7 @@ static int neta_txq_done(struct neta_port *pp,
 
 	/* Decrement sent descriptors counter */
 	if (tx_done)
-		mvneta_txq_sent_desc_dec(pp, txq, tx_done);
+		mvneta_txq_sent_desc_dec(pp, txq->id, tx_done);
 
 	txq->count -= tx_done;
 
