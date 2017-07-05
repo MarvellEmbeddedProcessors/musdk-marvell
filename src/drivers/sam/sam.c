@@ -212,6 +212,9 @@ static void sam_session_basic_init(struct sam_sa *session, SABuilder_Params_Basi
 		basic_params->ICVByteCount = params->u.basic.auth_icv_len;
 		if (params->dir == SAM_DIR_DECRYPT)
 			basic_params->BasicFlags |= SAB_BASIC_FLAG_EXTRACT_ICV;
+
+		if ((params->cipher_alg != SAM_CIPHER_NONE) && params->u.basic.auth_then_encrypt)
+			basic_params->BasicFlags |= SAB_BASIC_FLAG_ENCRYPT_AFTER_HASH;
 	}
 }
 

@@ -108,8 +108,12 @@ enum sam_crypto_protocol {
 };
 
 struct sam_session_basic_params {
-	u32 auth_icv_len;                /**< Integrity Check Value (ICV) size (in bytes) */
-	u32 auth_aad_len;                /**< Additional Data (AAD) size (in bytes) */
+	int auth_then_encrypt;  /**< Operations order:
+				 * 0 - encrypt_then_auth and auth_then_decrypt
+				 * 1 - auth_then_encrypt and decrypt_then_auth
+				 */
+	u32 auth_icv_len;       /**< Integrity Check Value (ICV) size (in bytes) */
+	u32 auth_aad_len;       /**< Additional Data (AAD) size (in bytes) */
 };
 
 struct sam_session_stats {

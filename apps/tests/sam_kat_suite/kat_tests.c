@@ -276,7 +276,7 @@ static int create_sessions(generic_list tests_db)
 		auth_key_len = encryptedBlockGetAuthKeyLen(block);
 		sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block), auth_key_len);
 		if (sa_params[i].auth_alg != SAM_AUTH_NONE) {
-
+			sa_params[i].u.basic.auth_then_encrypt = 0;
 			sa_params[i].u.basic.auth_icv_len = encryptedBlockGetIcbLen(block, 0);
 
 			if (sa_params[i].auth_alg == SAM_AUTH_AES_GCM) {
