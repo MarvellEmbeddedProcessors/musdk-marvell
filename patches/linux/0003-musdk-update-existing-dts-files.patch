@@ -7,8 +7,8 @@ Change-Id: I674c3f88610270a3c52ba2d384c1052f7d89a38e
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/armada-37xx.dtsi      | 2 ++
- arch/arm64/boot/dts/marvell/armada-7040-db-A.dts  | 1 +
- arch/arm64/boot/dts/marvell/armada-8040-db-A.dts  | 2 ++
+ arch/arm64/boot/dts/marvell/armada-7040-db.dts  | 1 +
+ arch/arm64/boot/dts/marvell/armada-8040-db.dts  | 2 ++
  arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 1 +
  4 files changed, 6 insertions(+)
 
@@ -25,10 +25,10 @@ index 715dc32..29e6d0a 100644
  / {
  	model = "Marvell Armada 37xx SoC";
  	compatible = "marvell,armada3700";
-diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
+diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db.dts b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
 index 62063f4..77f9e16 100644
---- a/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-7040-db-A.dts
+--- a/arch/arm64/boot/dts/marvell/armada-7040-db.dts
++++ b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
 @@ -46,6 +46,7 @@
   */
  
@@ -37,10 +37,10 @@ index 62063f4..77f9e16 100644
  
  / {
  	model = "Marvell Armada-7040 development board A setup";
-diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db.dts b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 index b825e2d..7acccdf 100644
---- a/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-8040-db-A.dts
+--- a/arch/arm64/boot/dts/marvell/armada-8040-db.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 @@ -47,6 +47,8 @@
   */
  
