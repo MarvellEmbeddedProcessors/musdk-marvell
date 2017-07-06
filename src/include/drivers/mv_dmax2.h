@@ -41,8 +41,6 @@
 #define MV_XOR_V2_DESC_RESERVED_SIZE	12
 #define MV_XOR_V2_DESC_BUFF_D_ADDR_SIZE	12
 
-struct dmax2;
-
 /** @addtogroup grp_dmax2 DMA v2 engine
  *
  *  DMA Copy Engine API documentation
@@ -135,71 +133,71 @@ struct dmax2_params {
  * Initialize DMA engine
  *
  * @param    params	required parameters struct for initialization
- * @param    dmax2	pointer for DMA engine struct
+ * @param    dmax2	void pointer for DMA engine struct
  *
  * @retval 0 Success.
  */
-int dmax2_init(struct dmax2_params *params, struct dmax2 **dmax2);
+int dmax2_init(struct dmax2_params *params, void **dmax2);
 
 /**
  * Free DMA engine resources
  *
- * @param    dmax2	pointer for DMA engine struct
+ * @param    dmax2	void pointer for DMA engine struct
  *
  * @retval 0 Success.
  */
-int dmax2_deinit(struct dmax2 *dmax2);
+int dmax2_deinit(void *dmax2);
 
 /**
  * configure memory attributes for DMA source/destination
  *
- * @param    dmax2	pointer for DMA engine struct
+ * @param    dmax2	void pointer for DMA engine struct
  * @param    location	location settings (Source / Destination / Source & Destination)
  * @param    mem_attr	attribute type settings
  *
  * @retval 0 Success.
  *
  */
-int dmax2_set_mem_attributes(struct dmax2		*dmax2,
-			     enum dmax2_trans_location	 location,
-			     enum dmax2_mem_direction	 mem_attr);
+int dmax2_set_mem_attributes(void *dmax2,
+			     enum dmax2_trans_location	location,
+			     enum dmax2_mem_direction	mem_attr);
 
 /**
  * Enqueue descriptors to DMA HW queue
  *
- * @param    dmax2	pointer for DMA engine struct
+ * @param    dmax2	void pointer for DMA engine struct
  * @param    descs	Pointer to requested descriptor's array
  * @param    num	Pointer for number of requested descriptors to enqueue
  *
  * @retval 0 Success
  */
-int dmax2_enq(struct dmax2 *dmax2, struct dmax2_desc *descs, u16 *num);
+int dmax2_enq(void *dmax2, struct dmax2_desc *descs, u16 *num);
 
 /**
  * Dequeue descriptors to DMA HW queue
  *
- * @param    dmax2	pointer for DMA engine struct
+ * @param    dmax2	void pointer for DMA engine struct
  * @param    descs	Pointer to Completed descriptor's array
  * @param    num	Pointer for number of requested descriptors to dequeue
  * @param    verify	Boolean to indicate if need to verify and return descriptor's content & status
  *
  * @retval 0 Success
  */
-int dmax2_deq(struct dmax2 *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, int verify);
+int dmax2_deq(void *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, int verify);
 
 /**
  * Get free space in DMA descriptor's HW Queue (How many descriptors can be queued?)
  *
- * @param    dmax2	pointer for DMA engine struct
+ * @param    dmax2	void pointer for DMA engine struct
  */
-int dmax2_get_enq_num_available(struct dmax2 *dmax2);
+int dmax2_get_enq_num_available(void *dmax2);
 
 /**
  * Get count of descriptors ready to be dequeued (How many descriptors Engine finished processing)
  *
- * @param    dmax2	pointer for DMA engine struct
+ * @param    dmax2	void pointer for DMA engine struct
  */
-int dmax2_get_deq_num_available(struct dmax2 *dmax2);
+int dmax2_get_deq_num_available(void *dmax2);
 
 /** @} */ /* end of grp_dmax2 */
 
