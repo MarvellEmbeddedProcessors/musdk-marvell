@@ -49,7 +49,7 @@
 #endif
 
 #define MMAP_FILE_NAME	"/dev/mem"
-#define DMAX2_INTERFACE_COUNT	4
+#define DMAX2_INTERFACE_COUNT	8
 #define DMAX2_MAX_DESC_SIZE	(2*MB_SIZE)
 #define DMAX2_DFLT_DESC_SIZE	(0x2000) /* 8Kb */
 
