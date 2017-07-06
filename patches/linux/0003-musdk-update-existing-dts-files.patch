@@ -1,19 +1,19 @@
-From 5a4227a3164c65653954ec746c9b3b1349460c67 Mon Sep 17 00:00:00 2001
-From: Yuval Caduri <cyuval@marvell.com>
-Date: Sun, 30 Apr 2017 17:04:48 +0300
-Subject: [PATCH 3/6] musdk: update existing dts files
+From f0e7e48af3365ec932a4921acb796857044aae3e Mon Sep 17 00:00:00 2001
+From: Lior Amsalem <alior@marvell.com>
+Date: Thu, 6 Jul 2017 11:16:11 +0300
+Subject: [PATCH 1/1] musdk: update existing dts files
 
-Change-Id: I674c3f88610270a3c52ba2d384c1052f7d89a38e
-Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+Change-Id: I7f386b72ae4a87685d10839337c92a759c9e6e07
+Signed-off-by: Lior Amsalem <alior@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/armada-37xx.dtsi      | 2 ++
- arch/arm64/boot/dts/marvell/armada-7040-db.dts  | 1 +
- arch/arm64/boot/dts/marvell/armada-8040-db.dts  | 2 ++
+ arch/arm64/boot/dts/marvell/armada-7040-db.dts    | 1 +
+ arch/arm64/boot/dts/marvell/armada-8040-db.dts    | 2 ++
  arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 1 +
  4 files changed, 6 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index 715dc32..29e6d0a 100644
+index 14854a0..1ada70b 100644
 --- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 @@ -49,6 +49,8 @@
@@ -26,7 +26,7 @@ index 715dc32..29e6d0a 100644
  	model = "Marvell Armada 37xx SoC";
  	compatible = "marvell,armada3700";
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db.dts b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-index 62063f4..77f9e16 100644
+index a93883e..d8777a0 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
 @@ -46,6 +46,7 @@
@@ -36,9 +36,9 @@ index 62063f4..77f9e16 100644
 +#include "musdk-armada-7040-db.dtsi"
  
  / {
- 	model = "Marvell Armada-7040 development board A setup";
+ 	model = "Marvell Armada-7040 development board default (A) setup";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db.dts b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
-index b825e2d..7acccdf 100644
+index 78d6c66..24902c2 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 @@ -47,6 +47,8 @@
@@ -49,7 +49,7 @@ index b825e2d..7acccdf 100644
 +
  
  / {
- 	model = "Marvell Armada-8040 development board A setup";
+ 	model = "Marvell Armada-8040 development board default (A) setup";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
 index 5c6c394..be1cb20 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
