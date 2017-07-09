@@ -187,18 +187,18 @@ L2 filtering TCAM by parsing the VLAN ID field.
 
 3.6	Statistics
 ------------------------------
-All counters are 32-bit in Hardware.
+HW counters are 16/32-bit.
 Counters that are maintainable by nature, are 64-bit in musdk.
 
-"Maintainable counters" are counters for which musdk can guarantee the HW counter will not reach U32_MAX,
+"Maintainable counters" are counters for which musdk can guarantee the HW counter will not reach U32_MAX/U16_MAX,
 assuming "statistic_maintenance" is performed.
-The other (non-maintainable) counters will latch at U32_MAX, untill read by an API statistics call.
+The other (non-maintainable) counters will latch at U32_MAX/U16_MAX, until read by an API statistics call.
 
 The "maintain_stats" parameter, which is provided during pp2_ppio_init() API determines
 if periodic maintenance (triggered by internal threshold) will be performed during pp2_ppio_recv()/pp2_ppio_send() functions.
 
 - pp2_ppio_inq_get_statistics():
-	- 'enq_desc' counter is 64-bit, other inq_counters are 32-bit.
+	- 'enq_desc' counter is 64-bit, other inq_counters are 16/32-bit.
 
 - pp2_ppio_outq_get_statistics():
 	- all counters are 64-bit.
