@@ -303,20 +303,36 @@ struct pp2_ppio_params {
  */
 struct pp2_ppio_statistics {
 	/* Rx port statistics */
-	u64	rx_bytes;		/**< RX Bytes Counter */
+	u64	rx_bytes;		/**< RX Bytes Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
 	u64	rx_packets;		/**< RX Packets Counter */
-	u64	rx_unicast_packets;	/**< RX Unicast Packets Counter */
-	u64	rx_errors;		/**< RX MAC Errors Counter */
+	u64	rx_unicast_packets;	/**< RX Unicast Packets Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
+	u64	rx_errors;		/**< RX MAC Errors Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
 	u64	rx_fullq_dropped;	/**< RX Full Queue Dropped Counter */
 	u32	rx_bm_dropped;		/**< RX BM Dropped Counter */
 	u32	rx_early_dropped;	/**< RX Early Dropped Counter  */
-	u32	rx_fifo_dropped;	/**< RX FIFO Overrun Counter */
-	u32	rx_cls_dropped;		/**< RX CLS Dropped Counter */
+	u32	rx_fifo_dropped;	/**< RX FIFO Overrun Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
+	u32	rx_cls_dropped;		/**< RX CLS Dropped Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
 	/* Tx port statistics */
-	u64	tx_bytes;		/**< TX Bytes Counter */
+	u64	tx_bytes;		/**< TX Bytes Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
 	u64	tx_packets;		/**< TX Packets Counter */
-	u64	tx_unicast_packets;	/**< TX Unicast Packets Counter */
-	u64	tx_errors;		/**< TX MAC Errors Counter */
+	u64	tx_unicast_packets;	/**< TX Unicast Packets Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
+	u64	tx_errors;		/**< TX MAC Errors Counter;
+					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
+					*/
 };
 
 /**

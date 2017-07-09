@@ -484,24 +484,34 @@ int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *s
 			struct pp2_ppio_inq_statistics rx_stats;
 
 			pp2_ppio_inq_get_statistics(ppio, tc, qid, &rx_stats, reset);
+			cur_stats.rx_packets += rx_stats.enq_desc;
 			cur_stats.rx_fullq_dropped += rx_stats.drop_fullq;
 			cur_stats.rx_bm_dropped += rx_stats.drop_bm;
 			cur_stats.rx_early_dropped += rx_stats.drop_early;
 		}
 	}
 
+	/* Update Tx Qs Statistics */
+	for (qid = 0; qid < port->num_tx_queues; qid++) {
+		struct pp2_ppio_outq_statistics tx_stats;
+
+		pp2_ppio_outq_get_statistics(ppio, qid, &tx_stats, reset);
+		cur_stats.tx_packets += tx_stats.enq_desc;
+	}
+
 	if (stats) {
-		stats->rx_bytes = cur_stats.rx_bytes - port->stats.rx_bytes;
-		stats->rx_packets = cur_stats.rx_packets - port->stats.rx_packets;
-		stats->rx_unicast_packets = cur_stats.rx_unicast_packets - port->stats.rx_unicast_packets;
-		stats->rx_errors = cur_stats.rx_errors - port->stats.rx_errors;
+		stats->rx_packets = cur_stats.rx_packets;
 		stats->rx_fullq_dropped = cur_stats.rx_fullq_dropped;
 		stats->rx_bm_dropped = cur_stats.rx_bm_dropped;
 		stats->rx_early_dropped = cur_stats.rx_early_dropped;
+		stats->tx_packets = cur_stats.tx_packets - port->stats.tx_packets;
+		/* From KS */
+		stats->rx_bytes = cur_stats.rx_bytes - port->stats.rx_bytes;
+		stats->rx_unicast_packets = cur_stats.rx_unicast_packets - port->stats.rx_unicast_packets;
+		stats->rx_errors = cur_stats.rx_errors - port->stats.rx_errors;
 		stats->rx_fifo_dropped = cur_stats.rx_fifo_dropped - port->stats.rx_fifo_dropped;
 		stats->rx_cls_dropped = cur_stats.rx_cls_dropped - port->stats.rx_cls_dropped;
 		stats->tx_bytes = cur_stats.tx_bytes - port->stats.tx_bytes;
-		stats->tx_packets = cur_stats.tx_packets - port->stats.tx_packets;
 		stats->tx_unicast_packets = cur_stats.tx_unicast_packets - port->stats.tx_unicast_packets;
 		stats->tx_errors = cur_stats.tx_errors - port->stats.tx_errors;
 	}

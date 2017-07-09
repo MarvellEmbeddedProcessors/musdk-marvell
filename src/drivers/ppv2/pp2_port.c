@@ -1275,7 +1275,8 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/* At this point, the port is default allocated and configured */
 	*port_hdl = port;
 
-	pp2_port_initialize_statistics(port);
+	if (param->type == PP2_PPIO_T_NIC)
+		pp2_port_initialize_statistics(port);
 
 	return 0;
 }
