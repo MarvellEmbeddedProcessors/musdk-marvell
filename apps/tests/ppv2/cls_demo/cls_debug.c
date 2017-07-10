@@ -365,3 +365,29 @@ int register_cli_mng_cmds(struct pp2_ppio *ppio)
 	return 0;
 }
 
+int register_cli_prs_cmds(struct pp2_ppio *ppio)
+{
+#ifdef CLS_DEBUG
+	struct cli_cmd_params cmd_params;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	struct pp2_inst *inst = port->parent;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "prs_log_port_negated_proto_dump";
+	cmd_params.desc		= "dumps negated protocols in logical port";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_db_prs_tcam_neg_proto_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name	= "prs_log_port_match_list_dump";
+	cmd_params.desc	= "dumps existing parser entries which were matched when starting logical port";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_db_prs_match_list_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+#endif
+	return 0;
+}
+

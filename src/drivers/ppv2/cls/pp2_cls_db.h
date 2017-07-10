@@ -130,8 +130,22 @@ struct pp2_cls_db_cls_t {
 	struct pp2_db_cls_lkp_dcod_t	lkp_dcod[MVPP2_MNG_FLOW_ID_MAX];	/* lookup decode DB	*/
 };
 
+struct prs_log_port_tcam_node {
+	struct list			list_node;
+	u32				idx;		/* TCAM matching index*/
+	u32				proto;		/* TCAM matching protocol*/
+	int				log_port;	/* Indication if TCAM index is for a logical port.*/
+};
+
+struct prs_log_port_tcam_negated_proto_node {
+	struct list			list_node;
+	u32				proto;		/* negated protocol*/
+};
+
 struct pp2_cls_db_prs_t {
-	struct mv_pp2x_prs_shadow *prs_shadow;
+	struct mv_pp2x_prs_shadow	*prs_shadow;
+	struct list			tcam_match_list;	/* List of PRS TCAM indexes matching log port rules */
+	struct list			tcam_neg_proto_list;	/* List of logical port negated protocols */
 };
 
 struct rss_tbl_map_t {
@@ -172,7 +186,6 @@ struct pp2_cls_tbl_node {
 	struct pp2_cls_tbl		tbl;
 	struct list			list_node;
 	struct list			pp2_cls_tbl_rule_head;
-	struct pp2_cls_rule_node	rule_node;
 };
 
 struct pp2_cls_db_mng_t {
@@ -251,5 +264,20 @@ int pp2_cls_db_rss_tbl_map_get_next_free_idx(struct pp2_inst *inst);
 /* DB general section */
 int pp2_cls_db_init(struct pp2_inst *inst);
 int pp2_cls_db_exit(struct pp2_inst *inst);
+
+/* PRS section */
+int pp2_cls_db_prs_init_list(struct pp2_inst *inst);
+int pp2_cls_db_prs_match_list_add(struct pp2_inst *inst, u32 idx, int log_port);
+int pp2_cls_db_prs_match_list_check(struct pp2_inst *inst, u32 index);
+int pp2_cls_db_prs_match_list_log_port_check(struct pp2_inst *inst);
+int pp2_cls_db_prs_match_list_idx_get(struct pp2_inst *inst, u32 index, struct prs_log_port_tcam_node *tcam_match_node);
+int pp2_cls_db_prs_match_list_remove_idx(struct pp2_inst *inst, u32 index);
+int pp2_cls_db_prs_match_list_dump(struct pp2_inst *inst);
+int pp2_cls_db_prs_match_list_num_get(struct pp2_inst *inst);
+int pp2_cls_db_prs_match_list_remove(struct pp2_inst *inst);
+int pp2_prs_tcam_neg_proto_check(struct pp2_inst *inst, u32 proto);
+int pp2_prs_tcam_neg_proto_dump(struct pp2_inst *inst);
+int pp2_cli_cls_db_prs_match_list_dump(void *arg, int argc, char *argv[]);
+int pp2_cli_cls_db_prs_tcam_neg_proto_dump(void *arg, int argc, char *argv[]);
 
 #endif /* _PP2_CLS_DB_H_ */

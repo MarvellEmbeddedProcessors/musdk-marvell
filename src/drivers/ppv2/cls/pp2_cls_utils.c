@@ -191,6 +191,57 @@ static struct pp2_cls_enum_str_t g_enum_tbl_action_type[] = {
 	{ PP2_CLS_TBL_ACT_DONE, "IN_QUEUE"},
 };
 
+/* Lookup ID */
+static struct pp2_cls_enum_str_t g_enum_prs_lookup[] = {
+	{ MVPP2_PRS_LU_MH,	"MVPP2_PRS_LU_MH"},
+	{ MVPP2_PRS_LU_MAC,	"MVPP2_PRS_LU_MAC"},
+	{ MVPP2_PRS_LU_DSA,	"MVPP2_PRS_LU_DSA"},
+	{ MVPP2_PRS_LU_VLAN,	"MVPP2_PRS_LU_VLAN"},
+	{ MVPP2_PRS_LU_VID,	"MVPP2_PRS_LU_VID"},
+	{ MVPP2_PRS_LU_L2,	"MVPP2_PRS_LU_L2"},
+	{ MVPP2_PRS_LU_PPPOE,	"MVPP2_PRS_LU_PPPOE"},
+	{ MVPP2_PRS_LU_IP4,	"MVPP2_PRS_LU_IP4"},
+	{ MVPP2_PRS_LU_IP6,	"MVPP2_PRS_LU_IP6"},
+	{ MVPP2_PRS_LU_FLOWS,	"MVPP2_PRS_LU_FLOWS"},
+	{ MVPP2_PRS_LU_LAST,	"MVPP2_PRS_LU_LAST"},
+};
+
+/* API Protocol (from mv_net.h)*/
+static struct pp2_cls_enum_str_t g_enum_prs_net_proto[] = {
+	{ MV_NET_PROTO_NONE,	"MV_NET_PROTO_NONE"},
+	{ MV_NET_PROTO_ETH,	"MV_NET_PROTO_ETH"},
+	{ MV_NET_PROTO_ETH_DSA,	"MV_NET_PROTO_ETH_DSA"},
+	{ MV_NET_PROTO_VLAN,	"MV_NET_PROTO_VLAN"},
+	{ MV_NET_PROTO_PPPOE,	"MV_NET_PROTO_PPPOE"},
+	{ MV_NET_PROTO_IP,	"MV_NET_PROTO_IP"},
+	{ MV_NET_PROTO_IP4,	"MV_NET_PROTO_IP4"},
+	{ MV_NET_PROTO_IP6,	"MV_NET_PROTO_IP6"},
+	{ MV_NET_PROTO_L4,	"MV_NET_PROTO_L4"},
+	{ MV_NET_PROTO_TCP,	"MV_NET_PROTO_TCP"},
+	{ MV_NET_PROTO_UDP,	"MV_NET_PROTO_UDP"},
+	{ MV_NET_PROTO_ICMP,	"MV_NET_PROTO_ICMP"},
+	{ MV_NET_PROTO_ARP,	"MV_NET_PROTO_ARP"},
+};
+
+/* Protocol number*/
+static struct pp2_cls_enum_str_t g_enum_prs_proto_num[] = {
+	{ ETH_P_8021Q,	"VLAN1"},
+	{ ETH_P_8021AD,	"VLAN2"},
+	{ ARP_PROTO,	"ARP"},
+	{ PPPOE_PROTO,	"PPPOE"},
+	{ ETH_P_IP,	"IPv4"},
+	{ ETH_P_IPV6,	"IPv6"},
+	{ IPPROTO_TCP,	"TCP"},
+	{ IPPROTO_UDP,	"UDP"},
+	{ IPPROTO_ICMP,	"ICMP"},
+};
+
+/* Logical port destination*/
+static struct pp2_cls_enum_str_t g_enum_prs_log_port[] = {
+	{ PP2_CLS_TARGET_LOCAL_PPIO,	"PP2_CLS_TARGET_LOCAL_PPIO"},
+	{ PP2_CLS_TARGET_OTHER,		"PP2_CLS_TARGET_OTHER"},
+};
+
 /******************************************************************************
  *
  * Function   : common_mask_gen
@@ -316,6 +367,28 @@ const char *pp2_cls_utils_tbl_action_type_str_get(int value)
 {
 	return lookup_enum_str(g_enum_tbl_action_type, MVPP2_MEMBER_NUM(g_enum_tbl_action_type), value);
 }
+
+const char *pp2_g_enum_prs_lookup_str_get(int value)
+{
+	return lookup_enum_str(g_enum_prs_lookup, MVPP2_MEMBER_NUM(g_enum_prs_lookup), value);
+}
+
+const char *pp2_g_enum_prs_net_proto_str_get(int value)
+{
+	return lookup_enum_str(g_enum_prs_net_proto, MVPP2_MEMBER_NUM(g_enum_prs_net_proto), value);
+}
+
+const char *pp2_g_enum_prs_proto_num_str_get(int value)
+{
+	return lookup_enum_str(g_enum_prs_proto_num, MVPP2_MEMBER_NUM(g_enum_prs_proto_num), value);
+}
+
+const char *pp2_g_enum_prs_log_port_str_get(int value)
+{
+	return lookup_enum_str(g_enum_prs_log_port, MVPP2_MEMBER_NUM(g_enum_prs_log_port), value);
+}
+
+
 
 void print_horizontal_line(u32 char_count, const char *char_val)
 {

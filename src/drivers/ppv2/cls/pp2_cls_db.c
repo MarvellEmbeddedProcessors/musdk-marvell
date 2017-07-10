@@ -1666,3 +1666,318 @@ int pp2_cls_db_rss_init(struct pp2_inst *inst)
 	return 0;
 }
 
+/*******************************************************************************
+ * pp2_cls_db_prs_list_init()
+ *
+ * DESCRIPTION: Initialize parser lists
+ *
+ * INPUTS:	inst     - instance
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_prs_init_list(struct pp2_inst *inst)
+{
+	INIT_LIST(&inst->cls_db->prs_db.tcam_match_list);
+	INIT_LIST(&inst->cls_db->prs_db.tcam_neg_proto_list);
+
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_add()
+ *
+ * DESCRIPTION: Add a table to CLS PRS match db.
+ *
+ * INPUTS:	inst     - instance
+ *		idx      - index to add to the node
+ *		log_port - logical port indication to add to the node
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_add(struct pp2_inst *inst, u32 idx, int log_port)
+{
+	struct prs_log_port_tcam_node *match_node;
+
+	match_node = kmalloc(sizeof(*match_node), GFP_KERNEL);
+	if (!match_node)
+		return -ENOMEM;
+
+	match_node->idx = idx;
+	match_node->log_port = log_port;
+
+	/* add table to db */
+	list_add_to_tail(&match_node->list_node, &inst->cls_db->prs_db.tcam_match_list);
+
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_check()
+ *
+ * DESCRIPTION: check if a table exists in db.
+ *
+ * INPUTS:	inst   - instance
+ *		index  - index to check
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *		0 if index was not found,
+ *		1 if index was found
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_check(struct pp2_inst *inst, u32 index)
+{
+	struct prs_log_port_tcam_node *tcam_match_node;
+
+	LIST_FOR_EACH_OBJECT(tcam_match_node, struct prs_log_port_tcam_node,
+			     &inst->cls_db->prs_db.tcam_match_list, list_node) {
+			if (tcam_match_node->idx == index)
+				return 1;
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_log_port_check()
+ *
+ * DESCRIPTION: Check if log_port is set in list
+ *
+ * INPUTS:	inst   - instance
+ *
+ * OUTPUTS:	none
+ *
+ * RETURN:
+ *		0 if index was not found,
+ *		1 if index was found
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_log_port_check(struct pp2_inst *inst)
+{
+	struct prs_log_port_tcam_node *tcam_match_node;
+
+	LIST_FOR_EACH_OBJECT(tcam_match_node, struct prs_log_port_tcam_node,
+			     &inst->cls_db->prs_db.tcam_match_list, list_node) {
+			if (tcam_match_node->log_port == 1)
+				return 1;
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_idx_get()
+ *
+ * DESCRIPTION: get an index
+ *
+ * INPUTS:	inst   - instance
+ *		idx    - pointer to the idx to get.
+ *
+ * OUTPUTS: node   - pointer to tcam node parameters for returning the index
+ *
+ * RETURN:
+ *		0 if index was not found,
+ *		1 if index was found
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_idx_get(struct pp2_inst *inst, u32 index, struct prs_log_port_tcam_node *node)
+{
+	int i = 0;
+	struct prs_log_port_tcam_node *tcam_match_node;
+
+	LIST_FOR_EACH_OBJECT(tcam_match_node, struct prs_log_port_tcam_node,
+			     &inst->cls_db->prs_db.tcam_match_list, list_node) {
+			if (i == index) {
+				node->idx = tcam_match_node->idx;
+				node->log_port = tcam_match_node->log_port;
+				pr_debug("%d, index %d, log_port %d\n", i, node->idx, node->log_port);
+				return 1;
+			}
+			i++;
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_remove_idx()
+ *
+ * DESCRIPTION: Remove an index to CLS PRS match db.
+ *
+ * INPUTS:	inst   - instance
+  *		idx    - pointer to the idx to remove.
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *		0 if index was not found
+		1 if index was found and removed
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_remove_idx(struct pp2_inst *inst, u32 index)
+{
+	struct prs_log_port_tcam_node *tcam_match_node;
+
+	LIST_FOR_EACH_OBJECT(tcam_match_node, struct prs_log_port_tcam_node,
+			     &inst->cls_db->prs_db.tcam_match_list, list_node) {
+			if (tcam_match_node->idx == index) {
+				list_del(&tcam_match_node->list_node);
+				kfree(tcam_match_node);
+				pr_debug("removed %d from table\n", index);
+				return 1;
+			}
+	}
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_remove()
+ *
+ * DESCRIPTION: Remove all CLS PRS match db.
+ *
+ * INPUTS:	inst   - instance
+ *
+ * OUTPUTS:	None.
+ *
+ * RETURN:
+ *		0 if index was not found
+ *		1 if index was found and removed
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_remove(struct pp2_inst *inst)
+{
+	struct prs_log_port_tcam_node *tcam_match_node;
+
+	LIST_FOR_EACH_OBJECT(tcam_match_node, struct prs_log_port_tcam_node,
+			     &inst->cls_db->prs_db.tcam_match_list, list_node) {
+			list_del(&tcam_match_node->list_node);
+			kfree(tcam_match_node);
+			return 1;
+	}
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_num_get()
+ *
+ * DESCRIPTION: Get the number of tables in CLS Manager db.
+ *
+ * INPUTS:	inst   - instance
+ *
+ * OUTPUTS: none
+ *
+ * RETURN:
+ *	number of table in database
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_num_get(struct pp2_inst *inst)
+{
+	return list_num_objs(&inst->cls_db->prs_db.tcam_match_list);
+}
+
+/*******************************************************************************
+ * pp2_cls_db_prs_match_list_dump()
+ *
+ * DESCRIPTION: Remove an index to CLS PRS match db.
+ *
+ * INPUTS:	inst   - instance
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *		0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_cls_db_prs_match_list_dump(struct pp2_inst *inst)
+{
+	struct prs_log_port_tcam_node *tcam_match_node;
+
+	if (!list_num_objs(&inst->cls_db->prs_db.tcam_match_list))
+		return 0;
+
+	printk("Logical port indexes to be copied\n");
+	printk("index ,           target           ");
+	printk("\n");
+	LIST_FOR_EACH_OBJECT(tcam_match_node, struct prs_log_port_tcam_node,
+			     &inst->cls_db->prs_db.tcam_match_list, list_node) {
+		printk("%6d,%28s\n", tcam_match_node->idx,
+			pp2_g_enum_prs_log_port_str_get(tcam_match_node->log_port));
+	}
+	printk("\n");
+
+	return 0;
+}
+
+int pp2_cli_cls_db_prs_match_list_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+
+	pp2_cls_db_prs_match_list_dump(inst);
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_prs_tcam_neg_proto_check()
+ *
+ * DESCRIPTION: Check if negative protocol is already in the list.
+ *
+ * INPUTS:	inst   - instance
+ *		proto  - protocol to check
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *		0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_prs_tcam_neg_proto_check(struct pp2_inst *inst, u32 proto)
+{
+	struct prs_log_port_tcam_negated_proto_node *neg_proto_node;
+
+	LIST_FOR_EACH_OBJECT(neg_proto_node, struct prs_log_port_tcam_negated_proto_node,
+			     &inst->cls_db->prs_db.tcam_neg_proto_list, list_node) {
+			if (neg_proto_node->proto == proto)
+				return 1;
+	}
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_prs_tcam_neg_proto_dump()
+ *
+ * DESCRIPTION: Dump negated protocol list.
+ *
+ * INPUTS:	inst   - instance
+ *
+ * OUTPUTS: None.
+ *
+ * RETURN:
+ *		0 on success, error-code otherwise
+ *******************************************************************************/
+int pp2_prs_tcam_neg_proto_dump(struct pp2_inst *inst)
+{
+	struct prs_log_port_tcam_negated_proto_node *neg_proto_node;
+	int num, idx = 0;
+
+	num = list_num_objs(&inst->cls_db->prs_db.tcam_neg_proto_list);
+	if (!num)
+		return 0;
+
+	printk("Negated protocols: ");
+	LIST_FOR_EACH_OBJECT(neg_proto_node, struct prs_log_port_tcam_negated_proto_node,
+			     &inst->cls_db->prs_db.tcam_neg_proto_list, list_node) {
+		if (++idx < num)
+			printk("%s ", pp2_g_enum_prs_proto_num_str_get(neg_proto_node->proto));
+		else
+			printk("and %s\n", pp2_g_enum_prs_proto_num_str_get(neg_proto_node->proto));
+	}
+	return 0;
+}
+
+int pp2_cli_cls_db_prs_tcam_neg_proto_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+
+	pp2_prs_tcam_neg_proto_dump(inst);
+	return 0;
+}
+

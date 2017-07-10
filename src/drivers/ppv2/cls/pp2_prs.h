@@ -81,6 +81,9 @@
 #define TCAM_DATA_BYTE(_offs_) (HW_BYTE_OFFS(TCAM_DATA_BYTE_OFFS_LE(_offs_)))
 #define TCAM_DATA_MASK(_offs_) (HW_BYTE_OFFS(TCAM_DATA_MASK_OFFS_LE(_offs_)))
 
+#define MAX_LOOKUP	3
+#define MAX_PROTO_NUM	3
+
 /********************************************************************************/
 /*			ENUMERATIONS						*/
 /********************************************************************************/
@@ -116,10 +119,14 @@ struct mv_pp2x_ipv6hdr {
 	struct	 in6_addr daddr;
 };
 
-struct prs_lkp_tcam_list {
-	u32 size;
-	u32 idx[MVPP2_PE_TID_SIZE];
-	int log_port[MVPP2_PE_TID_SIZE];
+/* Parser definition array */
+struct pp2_prs_dynamic {
+	u32	valid;
+	u32	proto;
+	u32	lookup;
+	u32	sram_bits;
+	u32	tcam_bits;
+	u32	num_entries;
 };
 
 /********************************************************************************/
