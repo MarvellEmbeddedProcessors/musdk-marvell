@@ -1,7 +1,7 @@
 From f0e7e48af3365ec932a4921acb796857044aae3e Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Thu, 6 Jul 2017 11:16:11 +0300
-Subject: [PATCH 1/1] musdk: update existing dts files
+Subject: [PATCH 3/6] musdk: update existing dts files
 
 Change-Id: I7f386b72ae4a87685d10839337c92a759c9e6e07
 Signed-off-by: Lior Amsalem <alior@marvell.com>

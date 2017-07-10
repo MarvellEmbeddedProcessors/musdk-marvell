@@ -1,7 +1,7 @@
 From 638ca1e46c2eda8a3dc89bda170b1877831c536a Mon Sep 17 00:00:00 2001
 From: Yelena Krivosheev <yelena@marvell.com>
 Date: Mon, 12 Jun 2017 10:49:51 +0300
-Subject: [PATCH 7/7] musdk: support musdk port init in neta driver
+Subject: [PATCH 6/6] musdk: support musdk port init in neta driver
 
 Change-Id: I5ad4a24dcdb6c7c671d0fd49e0adf3973a816420
 Signed-off-by: Yelena Krivosheev <yelena@marvell.com>
