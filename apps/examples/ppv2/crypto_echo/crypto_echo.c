@@ -36,6 +36,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <sys/time.h>
+#include <netinet/ip.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -131,11 +132,19 @@ static u8 tunnel_dst_ip6[] = {
 	0x00, 0x00, 0x1f, 0x33, 0x44, 0x55, 0x66, 0x88
 };
 
+/* Masks for mdata flags field */
+#define MDATA_FLAGS_IP4_SEQID_MASK	BIT(0)   /* Set seqid field in IP header before send */
+
+#define MDATA_FLAGS_IP4_CSUM_MASK	BIT(14)  /* Recalculate IPv4 checksum on TX */
+#define MDATA_FLAGS_L4_CSUM_MASK	BIT(15)  /* Recalculate L4 checksum on TX */
+
 struct pkt_mdata {
 	u8 state; /* as defined in enum pkt_state */
 	u8 rx_port;
 	u8 tx_port;
 	u8 data_offs;
+	u16 flags;
+	u16 reserved;
 	void *buf_vaddr;
 	struct pp2_bpool *bpool;
 };
@@ -210,6 +219,7 @@ struct local_arg {
 
 	struct sam_cio		*enc_cio;
 	struct sam_sa		*enc_sa;
+	u32                     seq_id[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct sam_cio		*dec_cio;
 	struct sam_sa		*dec_sa;
 	enum crypto_dir		dir;
@@ -259,7 +269,7 @@ static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
 #ifdef CRYPT_APP_PKT_ECHO_SUPPORT
 static inline void echo_pkts(struct local_arg		*larg,
 			     struct sam_cio_op_result	*sam_res_descs,
-			    u16				 num)
+			     u16			 num)
 {
 	char	*tmp_buff;
 	int	prefetch_shift = larg->garg->prefetch_shift;
@@ -274,7 +284,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 		}
 		/* pointer to MAC header */
 		mdata = sam_res_descs[i].cookie;
-		tmp_buff = mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
+		tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose > 1) {
@@ -304,7 +314,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	struct sam_cio		*cio;
 	enum pkt_state		state;
 	int			err;
-	u16			i, bpool_buff_len, num_got;
+	u16			i, bpool_buff_len, num_got, flags;
 	u8			data_offs;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
@@ -326,6 +336,10 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		sa = larg->dec_sa;
 		state = PKT_STATE_DEC;
 	}
+	if ((larg->dir == CRYPTO_ENC) && larg->garg->tunnel && !larg->garg->ip6)
+		flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_IP4_SEQID_MASK;
+	else
+		flags = 0;
 
 	for (i = 0; i < num; i++) {
 		char *vaddr;
@@ -343,6 +357,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->tx_port = tx_ppio_id;
 		mdata->bpool = bpool;
 		mdata->buf_vaddr = vaddr;
+		mdata->flags = flags;
 
 		/* Set vaddr and paddr to MAC address of the packet */
 		vaddr += MVAPPS_PP2_PKT_EFEC_OFFS;
@@ -553,6 +568,31 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		buff = mdata->buf_vaddr;
 		pa = mv_sys_dma_mem_virt2phys(buff);
 
+		tp = mdata->tx_port;
+		bpool = mdata->bpool;
+		desc = &descs[tp][port_nums[tp]];
+		shadow_q = &larg->ports_desc[tp].shadow_qs[tc];
+
+		if (mdata->flags & MDATA_FLAGS_IP4_SEQID_MASK) {
+			/* Set SeqID to IPv4 header of the packet */
+			struct iphdr *iph = (struct iphdr *)
+					((char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS + mdata->data_offs);
+
+			iph->id = htobe16(larg->seq_id[tp]++);
+		}
+
+		pp2_ppio_outq_desc_reset(desc);
+		pp2_ppio_outq_desc_set_phys_addr(desc, pa);
+		pp2_ppio_outq_desc_set_pkt_offset(desc, MVAPPS_PP2_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_len(desc, len);
+
+		if (mdata->flags & MDATA_FLAGS_IP4_CSUM_MASK) {
+			/* Recalculate IPv4 checksum */
+			pp2_ppio_outq_desc_set_proto_info(desc, PP2_OUTQ_L3_TYPE_IPV4,
+						  PP2_OUTQ_L4_TYPE_OTHER,
+						  mdata->data_offs,
+						  mdata->data_offs + sizeof(struct iphdr), 1, 0);
+		}
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->garg->verbose > 1) {
 			printf("Sending packet (va:%p, pa 0x%08x, len %d):\n",
@@ -561,14 +601,6 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
-		tp = mdata->tx_port;
-		bpool = mdata->bpool;
-		desc = &descs[tp][port_nums[tp]];
-		shadow_q = &larg->ports_desc[tp].shadow_qs[tc];
-		pp2_ppio_outq_desc_reset(desc);
-		pp2_ppio_outq_desc_set_phys_addr(desc, pa);
-		pp2_ppio_outq_desc_set_pkt_offset(desc, MVAPPS_PP2_PKT_EFEC_OFFS);
-		pp2_ppio_outq_desc_set_pkt_len(desc, len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
@@ -1558,7 +1590,7 @@ static void usage(char *progname)
 	       "\t--cipher-alg   <alg>     Cipher algorithm. Support: [none, aes128, 3des]. (default: aes128).\n"
 	       "\t--cipher-mode  <alg>     Cipher mode. Support: [cbc, ecb]. (default: cbc).\n"
 	       "\t--auth-alg     <alg>	   Authentication algorithm. Support: [none, sha1]. (default: none).\n"
-	       "\t--direction    <dir>     Operation direction. Support: [enc, dec, lb]. (default: lb)\n"
+	       "\t--dir    <dir>           Operation direction. Support: [enc, dec, lb]. (default: lb)\n"
 	       "\t--no-echo                No Echo packets\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
@@ -1693,7 +1725,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--ip6") == 0) {
 			garg->ip6 = 1;
 			i += 1;
-		} else if (strcmp(argv[i], "--direction") == 0) {
+		} else if (strcmp(argv[i], "--dir") == 0) {
 			if (strcmp(argv[i+1], "enc") == 0)
 				garg->dir = CRYPTO_ENC;
 			else if (strcmp(argv[i+1], "dec") == 0)
