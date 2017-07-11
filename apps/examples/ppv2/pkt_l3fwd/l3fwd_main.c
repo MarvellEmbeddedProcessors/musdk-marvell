@@ -108,49 +108,26 @@ typedef struct {
 } app_args_t;
 
 struct glob_arg {
-	int			 verbose;
-	int			 cli;
-	int			 cpus;	/* cpus used for running */
-	u16			 burst;
-	u16			 mtu;
-	u16			 rxq_size;
-	int			 affinity;
-	int			 maintain_stats;
-	u64			 qs_map;
-	int			 qs_map_shift;
-	int			 prefetch_shift;
-	int			 num_ports;
-	int			 pp2_num_inst;
-	struct port_desc	 ports_desc[MVAPPS_PP2_MAX_NUM_PORTS];
+	struct glb_common_args	cmn_args;  /* Keep first */
 
-	pthread_mutex_t		 trd_lock;
+	u16				rxq_size;
+	int				maintain_stats;
 
-	struct pp2_hif		*hif;
+	pthread_mutex_t			trd_lock;
 
-	int			 num_pools;
-	struct bpool_desc	**pools_desc;
-	app_args_t args;
-	pp2h_ethaddr_t		eth_src_mac[MAX_NB_PKTIO];
-	pp2h_ethaddr_t		eth_dest_mac[MAX_NB_PKTIO];
-	char			mac_dst_file[INPUT_FILE_SIZE];
-	char			routing_file[INPUT_FILE_SIZE];
+	app_args_t			args;
+
+	pp2h_ethaddr_t			eth_src_mac[MAX_NB_PKTIO];
+	pp2h_ethaddr_t			eth_dest_mac[MAX_NB_PKTIO];
+	char				mac_dst_file[INPUT_FILE_SIZE];
+	char				routing_file[INPUT_FILE_SIZE];
+
 	/* forward func, hash or lpm */
 	int (*fwd_func)(char *pkt, int l3_off, int l4_off);
 };
 
 struct local_arg {
-	int			 prefetch_shift;
-	u64			 qs_map;
-
-	struct pp2_hif		*hif;
-	int			 num_ports;
-	struct lcl_port_desc	*ports_desc;
-
-	struct bpool_desc	**pools_desc;
-
-	u16			 burst;
-	int			 id;
-	struct glob_arg		*garg;
+	struct local_common_args	cmn_args;  /* Keep first */
 };
 
 static struct glob_arg garg = {};
@@ -270,137 +247,6 @@ static inline int l3fwd_pkt_hash(char *pkt, int l3_off, int l4_off)
 	return dif;
 }
 
-#ifdef SHOW_STATISTICS
-#define INC_RX_COUNT(core, port, cnt)		(rx_buf_cnt[core][port] += cnt)
-#define INC_TX_COUNT(core, port, cnt)		(tx_buf_cnt[core][port] += cnt)
-#define INC_TX_RETRY_COUNT(core, port, cnt)	(tx_buf_retry[core][port] += cnt)
-#define INC_TX_DROP_COUNT(core, port, cnt)	(tx_buf_drop[core][port] += cnt)
-#define INC_FREE_COUNT(core, port, cnt)		(free_buf_cnt[core][port] += cnt)
-#define SET_MAX_RESENT(core, port, cnt)		\
-	{ if (cnt > tx_max_resend[core][port]) tx_max_resend[core][port] = cnt; }
-
-#define SET_MAX_BURST(core, port, burst)	\
-	{ if (burst > tx_max_burst[core][port]) tx_max_burst[core][port] = burst; }
-
-u32 rx_buf_cnt[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
-u32 free_buf_cnt[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
-u32 tx_buf_cnt[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
-u32 tx_buf_drop[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
-u32 tx_buf_retry[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
-u32 tx_max_resend[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
-u32 tx_max_burst[MVAPPS_PP2_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
-
-#else
-#define INC_RX_COUNT(core, port, cnt)
-#define INC_TX_COUNT(core, port, cnt)
-#define INC_TX_RETRY_COUNT(core, port, cnt)
-#define INC_TX_DROP_COUNT(core, port, cnt)
-#define INC_FREE_COUNT(core, port, cnt)
-#define SET_MAX_RESENT(core, port, cnt)
-#define SET_MAX_BURST(core, port, cnt)
-#endif /* SHOW_STATISTICS */
-
-#ifdef PKT_FWD_APP_HW_TX_CHKSUM_CALC
-static inline enum pp2_outq_l3_type pp2_l3_type_inq_to_outq(enum pp2_inq_l3_type l3_inq)
-{
-	if (unlikely(l3_inq & PP2_INQ_L3_TYPE_IPV6_NO_EXT))
-		return PP2_OUTQ_L3_TYPE_IPV6;
-
-	if (likely(l3_inq != PP2_INQ_L3_TYPE_NA))
-		return PP2_OUTQ_L3_TYPE_IPV4;
-
-	return PP2_OUTQ_L3_TYPE_OTHER;
-}
-
-static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type l4_inq)
-{
-	if (likely(l4_inq == PP2_INQ_L4_TYPE_TCP || l4_inq == PP2_INQ_L4_TYPE_UDP))
-		return (l4_inq - 1);
-
-	return PP2_OUTQ_L4_TYPE_OTHER;
-}
-#endif
-
-static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
-			       struct lcl_port_desc	*tx_port,
-			       struct pp2_hif		*hif,
-			       u16			 start_idx,
-			       u16			 num,
-			       u8			 tc)
-{
-	u16			i, free_cnt = 0, idx = start_idx;
-	struct pp2_buff_inf	*binf;
-	struct tx_shadow_q	*shadow_q;
-
-	shadow_q = &tx_port->shadow_qs[tc];
-
-	for (i = 0; i < num; i++) {
-		struct pp2_bpool *bpool = shadow_q->ents[idx].bpool;
-
-		binf = &shadow_q->ents[idx].buff_ptr;
-		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
-			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
-				i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
-			continue;
-		}
-		pp2_bpool_put_buff(hif, bpool, binf);
-		free_cnt++;
-
-		if (++idx == tx_port->shadow_q_size)
-			idx = 0;
-	}
-
-	INC_FREE_COUNT(rx_port->lcl_id, rx_port->id, free_cnt);
-	return idx;
-}
-
-static inline u16 free_multi_buffers(struct lcl_port_desc	*rx_port,
-				     struct lcl_port_desc	*tx_port,
-				     struct pp2_hif		*hif,
-				     u16			 start_idx,
-				     u16			 num,
-				     u8			 tc)
-{
-	u16			idx = start_idx;
-	u16			cont_in_shadow, req_num;
-	struct tx_shadow_q	*shadow_q;
-
-	shadow_q = &tx_port->shadow_qs[tc];
-
-	cont_in_shadow = tx_port->shadow_q_size - start_idx;
-
-	if (num <= cont_in_shadow) {
-		req_num = num;
-		pp2_bpool_put_buffs(hif, (struct buff_release_entry *)&shadow_q->ents[idx], &req_num);
-		idx = idx + num;
-		if (idx == tx_port->shadow_q_size)
-			idx = 0;
-	} else {
-		req_num = cont_in_shadow;
-		pp2_bpool_put_buffs(hif, (struct buff_release_entry *)&shadow_q->ents[idx], &req_num);
-
-		req_num = num - cont_in_shadow;
-		pp2_bpool_put_buffs(hif, (struct buff_release_entry *)&shadow_q->ents[0], &req_num);
-		idx = num - cont_in_shadow;
-	}
-
-	INC_FREE_COUNT(rx_port->lcl_id, rx_port->id, num);
-
-	return idx;
-}
-
-static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
-				     struct lcl_port_desc	*tx_port,
-				     struct pp2_hif		*hif,
-				     u8				 tc)
-{
-	u16 tx_num;
-
-	pp2_ppio_get_num_outq_done(tx_port->ppio, hif, tc, &tx_num);
-
-	tx_port->shadow_qs[tc].read_ind = free_multi_buffers(rx_port, tx_port, hif,
-							     tx_port->shadow_qs[tc].read_ind, tx_num, tc);
-}
 
 static struct buff_release_entry drop_buff[PKT_FWD_APP_DFLT_BURST_SIZE];
 
@@ -411,15 +257,16 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u16			 num)
 {
 	struct pp2_ppio_desc	descs[PKT_FWD_APP_MAX_BURST_SIZE];
+	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct tx_shadow_q	*shadow_q;
 	struct pp2_ppio_desc	*desc_ptr;
 	struct pp2_ppio_desc	*desc_ptr_cur;
 	struct pp2_ppio		*tx_ppio;
-	struct pp2_hif		*hif = larg->hif;
+	struct pp2_hif		*hif = pp2_args->hif;
 	struct pp2_bpool	*bpool;
 	int			shadow_q_size;
 	int			dif, dst_port;
-	int			prefetch_shift = larg->prefetch_shift;
+	int			prefetch_shift = larg->cmn_args.prefetch_shift;
 	u16			i, tx_num, tx_count, len;
 	u16			num_drops = 0, desc_idx = 0, cnt = 0;
 	char			*tmp_buff, *buff;
@@ -430,8 +277,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #endif
 	u8			l3_offset, l4_offset = 0;
 
-	pp2_ppio_recv(larg->ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
-	INC_RX_COUNT(larg->id, rx_ppio_id, num);
+	pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
+	INC_RX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num);
 
 	if (num < 1)
 		return 0;
@@ -440,7 +287,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr);
 	pa = pp2_ppio_inq_desc_get_phys_addr(desc_ptr);
 	len = pp2_ppio_inq_desc_get_pkt_len(desc_ptr);
-	bpool = pp2_ppio_inq_desc_get_bpool(desc_ptr, larg->ports_desc[rx_ppio_id].ppio);
+	bpool = pp2_ppio_inq_desc_get_bpool(desc_ptr, pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 #ifdef PKT_FWD_APP_USE_PREFETCH
 	if (num > prefetch_shift) {
 		tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr + prefetch_shift);
@@ -471,8 +318,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		pp2_ppio_outq_desc_set_pkt_offset(desc_ptr, MVAPPS_PP2_PKT_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(desc_ptr, len);
 
-		shadow_q = &larg->ports_desc[dif].shadow_qs[tc];
-		shadow_q_size = larg->ports_desc[dif].shadow_q_size;
+		shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
+		shadow_q_size = pp2_args->lcl_ports_desc[dif].shadow_q_size;
 
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
@@ -494,7 +341,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr_cur);
 			pa = pp2_ppio_inq_desc_get_phys_addr(desc_ptr_cur);
 			len = pp2_ppio_inq_desc_get_pkt_len(desc_ptr_cur);
-			bpool = pp2_ppio_inq_desc_get_bpool(desc_ptr_cur, larg->ports_desc[rx_ppio_id].ppio);
+			bpool = pp2_ppio_inq_desc_get_bpool(desc_ptr_cur,
+							    pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 
 #ifdef PKT_FWD_APP_USE_PREFETCH
 			if (num - i > prefetch_shift) {
@@ -525,8 +373,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			pp2_ppio_outq_desc_set_phys_addr(desc_ptr_cur, pa);
 			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_cur, MVAPPS_PP2_PKT_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(desc_ptr_cur, len);
-			shadow_q = &larg->ports_desc[dif].shadow_qs[tc];
-			shadow_q_size = larg->ports_desc[dif].shadow_q_size;
+			shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
+			shadow_q_size = pp2_args->lcl_ports_desc[dif].shadow_q_size;
 			shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 			shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 			shadow_q->ents[shadow_q->write_ind].bpool = bpool;
@@ -538,23 +386,24 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			tx_count++;
 		}
 
-		SET_MAX_BURST(larg->id, rx_ppio_id, tx_count);
+		SET_MAX_BURST(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_count);
 		while (tx_count) {
 			desc_idx = 0;
-			tx_ppio = larg->ports_desc[dst_port].ppio;
+			tx_ppio = pp2_args->lcl_ports_desc[dst_port].ppio;
 			tx_num = tx_count;
 			if (tx_count) {
 				pp2_ppio_send(tx_ppio, hif, tc, desc_ptr + desc_idx, &tx_num);
 				if (tx_count > tx_num) {
 					if (!cnt)
-						INC_TX_RETRY_COUNT(larg->id, rx_ppio_id, tx_count - tx_num);
+					INC_TX_RETRY_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
 					cnt++;
 				}
 				desc_idx += tx_num;
 				tx_count -= tx_num;
-				INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
+			INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
 			}
-			free_sent_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[dst_port], hif, tc);
+			free_sent_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id],
+					  &pp2_args->lcl_ports_desc[dst_port], hif, tc, 1);
 		}
 		desc_ptr += i;
 		num -= i;
@@ -575,8 +424,8 @@ static int l3fw(struct local_arg *larg, int *running)
 	int			err = 0;
 	u16			num;
 	u8			tc = 0, qid = 0;
-	int			num_ports = larg->num_ports;
-	u64			qs_map = larg->qs_map;
+	int			num_ports = larg->cmn_args.num_ports;
+	u64			qs_map = larg->cmn_args.qs_map;
 	int i;
 
 	if (!larg) {
@@ -584,7 +433,7 @@ static int l3fw(struct local_arg *larg, int *running)
 		return -EINVAL;
 	}
 
-	num = larg->burst;
+	num = larg->cmn_args.burst;
 	while (*running) {
 		/* Find next queue to consume */
 		do {
@@ -622,6 +471,7 @@ static int main_loop(void *arg, int *running)
 static int init_all_modules(void)
 {
 	struct pp2_init_params	 pp2_params;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
 	int			 err;
 	char			 file[PP2_MAX_BUF_STR_LEN];
 	u32			 num_rss_tables = 0;
@@ -638,9 +488,9 @@ static int init_all_modules(void)
 
 	/* Check how many RSS tables are in use by kernel. This parameter is needed for configuring RSS */
 	/* Relevant only if cpus is bigger than 1 */
-	if (garg.cpus > 1) {
+	if (garg.cmn_args.cpus > 1) {
 		sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-		num_rss_tables = appp_pp2_sysfs_param_get(garg.ports_desc[0].name, file);
+	num_rss_tables = appp_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
 		if (num_rss_tables < 0) {
 			pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
 			return -EFAULT;
@@ -922,6 +772,7 @@ static int init_fp(struct glob_arg *garg)
 	int i, j, rc;
 	app_args_t *args = &garg->args;
 	if_mac_t if_mac_table[MAX_NB_PKTIO];
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	char *oif;
 
 	/* Decide ip lookup method */
@@ -930,9 +781,9 @@ static int init_fp(struct glob_arg *garg)
 	else
 		garg->fwd_func = l3fwd_pkt_lpm;
 
-	args->if_count = garg->num_ports;
+	args->if_count = garg->cmn_args.num_ports;
 	for (i = 0; i < args->if_count; i++)
-		args->if_names[i] = (char *)&garg->ports_desc[i].name;
+		args->if_names[i] = (char *)&pp2_args->ports_desc[i].name;
 
 	/* initialize the dest mac as 2:0:0:0:0:x */
 	memset(mac, 0, ETH_ALEN);
@@ -980,7 +831,7 @@ static int init_fp(struct glob_arg *garg)
 		char *if_name;
 
 		if_name = args->if_names[i];
-		rc = pp2_ppio_get_mac_addr(garg->ports_desc[i].ppio, mac);
+		rc = pp2_ppio_get_mac_addr(pp2_args->ports_desc[i].ppio, mac);
 		if (rc) {
 			pr_err("Unable to get mac address\n");
 			return -EINVAL;
@@ -1002,45 +853,47 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		std_infs[] = PKT_FWD_APP_BPOOLS_INF;
 	struct bpool_inf		jumbo_infs[] = PKT_FWD_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	int				i;
 
 	pr_info("Local initializations ...\n");
 
-	err = app_hif_init(&garg->hif, PKT_FWD_APP_HIF_Q_SIZE);
+	err = app_hif_init(&pp2_args->hif, PKT_FWD_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
-	if (garg->mtu > DEFAULT_MTU) {
+	if (garg->cmn_args.mtu > DEFAULT_MTU) {
 		infs = jumbo_infs;
-		garg->num_pools = ARRAY_SIZE(jumbo_infs);
+		pp2_args->num_pools = ARRAY_SIZE(jumbo_infs);
 	} else {
 		infs = std_infs;
-		garg->num_pools = ARRAY_SIZE(std_infs);
+		pp2_args->num_pools = ARRAY_SIZE(std_infs);
 	}
 
-	err = app_build_all_bpools(&garg->pools_desc, garg->num_pools, infs, garg->hif);
+	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
 	if (err)
 		return err;
 
-	for (port_index = 0; port_index < garg->num_ports; port_index++) {
-		struct port_desc *port = &garg->ports_desc[port_index];
+	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++) {
+		struct port_desc *port = &pp2_args->ports_desc[port_index];
 
 		err = app_find_port_info(port);
 		if (!err) {
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= PKT_FWD_APP_MAX_NUM_TCS_PER_PORT;
 			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] =  garg->cpus;
+				port->num_inqs[i] =  garg->cmn_args.cpus;
 			port->inq_size	= garg->rxq_size;
 			port->num_outqs	= PKT_FWD_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= PKT_FWD_APP_TX_Q_SIZE;
 			port->first_inq	= PKT_FWD_APP_FIRST_INQ;
-			if (garg->cpus == 1)
+			if (garg->cmn_args.cpus == 1)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
 			else
 				port->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 
-			err = app_port_init(port, garg->num_pools, garg->pools_desc[port->pp_id], garg->mtu);
+			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
+					    garg->cmn_args.mtu);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -1059,97 +912,27 @@ static int init_local_modules(struct glob_arg *garg)
 	return 0;
 }
 
-static void destroy_local_modules(struct glob_arg *garg)
-{
-	app_disable_all_ports(garg->ports_desc, garg->num_ports);
-	app_free_all_pools(garg->pools_desc, garg->num_pools, garg->hif);
-	app_deinit_all_ports(garg->ports_desc, garg->num_ports);
-
-	if (garg->hif)
-		pp2_hif_deinit(garg->hif);
-}
-
-static void destroy_all_modules(void)
-{
-	pp2_deinit();
-	mv_sys_dma_mem_destroy();
-}
-
-static int prefetch_cmd_cb(void *arg, int argc, char *argv[])
-{
-	struct glob_arg *garg = (struct glob_arg *)arg;
-
-	if (!garg) {
-		pr_err("no garg obj passed!\n");
-		return -EINVAL;
-	}
-	if ((argc != 1) && (argc != 2)) {
-		pr_err("Invalid number of arguments for prefetch cmd!\n");
-		return -EINVAL;
-	}
-
-	if (argc == 1) {
-		printf("%d\n", garg->prefetch_shift);
-		return 0;
-	}
-
-	garg->prefetch_shift = atoi(argv[1]);
-
-	return 0;
-}
-
-#ifdef SHOW_STATISTICS
-static int stat_cmd_cb(void *arg, int argc, char *argv[])
-{
-	int i, j, reset = 0;
-	struct glob_arg *garg = (struct glob_arg *)arg;
-
-	if (argc > 1)
-		reset = 1;
-	printf("reset stats: %d\n", reset);
-	for (j = 0; j < garg->num_ports; j++) {
-		printf("Port%d stats:\n", j);
-		for (i = 0; i < garg->cpus; i++) {
-			printf("cpu%d: rx_bufs=%u, tx_bufs=%u, free_bufs=%u, tx_resend=%u, max_retries=%u, ",
-			       i, rx_buf_cnt[i][j], tx_buf_cnt[i][j], free_buf_cnt[i][j],
-				tx_buf_retry[i][j], tx_max_resend[i][j]);
-			printf(" tx_drops=%u, max_burst=%u\n", tx_buf_drop[i][j], tx_max_burst[i][j]);
-			if (reset) {
-				rx_buf_cnt[i][j] = 0;
-				tx_buf_cnt[i][j] = 0;
-				free_buf_cnt[i][j] = 0;
-				tx_buf_retry[i][j] = 0;
-				tx_buf_drop[i][j] = 0;
-				tx_max_burst[i][j] = 0;
-				tx_max_resend[i][j] = 0;
-			}
-		}
-	}
-	return 0;
-}
-#endif
 
 static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "prefetch";
 	cmd_params.desc		= "Prefetch ahead shift (number of buffers)";
 	cmd_params.format	= "<shift>";
 	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))prefetch_cmd_cb;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_pp2_prefetch_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-#ifdef SHOW_STATISTICS
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "stat";
 	cmd_params.desc		= "Show app statistics";
 	cmd_params.format	= "<reset>";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))stat_cmd_cb;
+	cmd_params.cmd_arg	= &garg->cmn_args;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_pp2_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-#endif
-	app_register_cli_common_cmds(garg->ports_desc);
+	app_register_cli_common_cmds(pp2_args->ports_desc);
 
 	return 0;
 }
@@ -1183,7 +966,7 @@ static int init_global(void *arg)
 	if (err)
 		return err;
 
-	if (garg->cli) {
+	if (garg->cmn_args.cli) {
 		err = register_cli_cmds(garg);
 		if (err)
 			return err;
@@ -1192,22 +975,13 @@ static int init_global(void *arg)
 	return 0;
 }
 
-static void deinit_global(void *arg)
-{
-	struct glob_arg *garg = (struct glob_arg *)arg;
-
-	if (!garg)
-		return;
-	if (garg->cli)
-		unregister_cli_cmds(garg);
-	destroy_local_modules(garg);
-	destroy_all_modules();
-}
 
 static int init_local(void *arg, int id, void **_larg)
 {
 	struct glob_arg		*garg = (struct glob_arg *)arg;
 	struct local_arg	*larg;
+	struct pp2_glb_common_args *glb_pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
+	struct pp2_lcl_common_args *lcl_pp2_args;
 	int			 i, err;
 
 	if (!garg) {
@@ -1222,54 +996,55 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(larg, 0, sizeof(struct local_arg));
 
+	larg->cmn_args.plat = (struct pp2_lcl_common_args *)malloc(sizeof(struct pp2_lcl_common_args));
+	if (!larg) {
+		pr_err("No mem for local plat arg obj!\n");
+		free(larg);
+		return -ENOMEM;
+	}
+	lcl_pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
+
+	larg->cmn_args.id		= id;
+	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
+	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
+					   malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
+	if (!lcl_pp2_args->lcl_ports_desc) {
+		pr_err("no mem for local-port-desc obj!\n");
+		free(larg->cmn_args.plat);
+		free(larg);
+		return -ENOMEM;
+	}
+	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	pthread_mutex_lock(&garg->trd_lock);
-	err = app_hif_init(&larg->hif, PKT_FWD_APP_HIF_Q_SIZE);
+	err = app_hif_init(&lcl_pp2_args->hif, PKT_FWD_APP_HIF_Q_SIZE);
 	pthread_mutex_unlock(&garg->trd_lock);
 	if (err)
 		return err;
 
-	larg->id                = id;
-	larg->burst		= garg->burst;
-	larg->prefetch_shift	= garg->prefetch_shift;
-	larg->num_ports         = garg->num_ports;
-	larg->ports_desc = (struct lcl_port_desc *)malloc(larg->num_ports * sizeof(struct lcl_port_desc));
-	if (!larg->ports_desc) {
-		pr_err("no mem for local-port-desc obj!\n");
-		return -ENOMEM;
-	}
-	memset(larg->ports_desc, 0, larg->num_ports * sizeof(struct lcl_port_desc));
-	for (i = 0; i < larg->num_ports; i++)
-		app_port_local_init(i, larg->id, &larg->ports_desc[i], &garg->ports_desc[i]);
+	larg->cmn_args.id                = id;
+	larg->cmn_args.burst		= garg->cmn_args.burst;
+	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
+	larg->cmn_args.num_ports         = garg->cmn_args.num_ports;
+	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
+					malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
+	for (i = 0; i < larg->cmn_args.num_ports; i++)
+		app_port_local_init(i, larg->cmn_args.id, &lcl_pp2_args->lcl_ports_desc[i],
+				    &glb_pp2_args->ports_desc[i]);
 
-	larg->pools_desc	= garg->pools_desc;
-	larg->garg              = garg;
+	lcl_pp2_args->pools_desc	= glb_pp2_args->pools_desc;
+	larg->cmn_args.garg              = garg;
+	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
 
-	larg->qs_map = garg->qs_map << (garg->qs_map_shift * id);
+	/* Update garg refs to local */
+	garg->cmn_args.largs[id] = larg;
+	for (i = 0; i < larg->cmn_args.num_ports; i++)
+		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = lcl_pp2_args->lcl_ports_desc;
+
 	pr_debug("thread %d (cpu %d) mapped to Qs %llx using %s\n",
-		 larg->id, sched_getcpu(), (unsigned long long)larg->qs_map, name);
+		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map, name);
 
 	*_larg = larg;
 	return 0;
-}
-
-static void deinit_local(void *arg)
-{
-	struct local_arg *larg = (struct local_arg *)arg;
-	int i;
-
-	if (!larg)
-		return;
-
-	if (larg->ports_desc) {
-		for (i = 0; i < larg->num_ports; i++)
-			app_port_local_deinit(&larg->ports_desc[i]);
-		free(larg->ports_desc);
-	}
-
-	if (larg->hif)
-		pp2_hif_deinit(larg->hif);
-
-	free(larg);
 }
 
 static void usage(char *progname)
@@ -1316,12 +1091,14 @@ static void usage(char *progname)
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 {
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	char *local;
 	char *token;
 	int rc;
 	int route_index = 0;
 	int option;
 	int long_index = 0;
+
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
 		{"interface", required_argument, 0, 'i'},
@@ -1339,15 +1116,15 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{0, 0, 0, 0}
 	};
 
-	garg->cli = 0;
-	garg->cpus = 1;
-	garg->affinity = -1;
-	garg->burst = PKT_FWD_APP_DFLT_BURST_SIZE;
-	garg->mtu = DEFAULT_MTU;
+	garg->cmn_args.cli = 0;
+	garg->cmn_args.cpus = 1;
+	garg->cmn_args.affinity = -1;
+	garg->cmn_args.burst = PKT_FWD_APP_DFLT_BURST_SIZE;
+	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->rxq_size = PKT_FWD_APP_RX_Q_SIZE;
-	garg->qs_map = 0;
-	garg->qs_map_shift = 0;
-	garg->prefetch_shift = PKT_FWD_APP_PREFETCH_SHIFT;
+	garg->cmn_args.qs_map = 0;
+	garg->cmn_args.qs_map_shift = 0;
+	garg->cmn_args.prefetch_shift = PKT_FWD_APP_PREFETCH_SHIFT;
 	garg->maintain_stats = 0;
 
 #ifdef LPM_FRWD
@@ -1366,19 +1143,19 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'i':
 			/* count the number of tokens separated by ',' */
-			for (token = strtok(optarg, ","), garg->num_ports = 0;
+			for (token = strtok(optarg, ","), garg->cmn_args.num_ports = 0;
 			     token;
-			     token = strtok(NULL, ","), garg->num_ports++)
-				snprintf(garg->ports_desc[garg->num_ports].name,
-					 sizeof(garg->ports_desc[garg->num_ports].name),
+			     token = strtok(NULL, ","), garg->cmn_args.num_ports++)
+				snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
+					 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name),
 					 "%s", token);
 
-			if (garg->num_ports == 0) {
+			if (garg->cmn_args.num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
+			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
+				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
 				return -EINVAL;
 			}
 			break;
@@ -1404,16 +1181,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			strncpy(&garg->mac_dst_file[0], optarg, sizeof(garg->mac_dst_file));
 			break;
 		case 'b':
-			garg->burst = atoi(optarg);
+			garg->cmn_args.burst = atoi(optarg);
 			break;
 		case 'u':
-			garg->mtu = atoi(optarg);
+			garg->cmn_args.mtu = atoi(optarg);
 			break;
 		case 'c':
-			garg->cpus = atoi(optarg);
+			garg->cmn_args.cpus = atoi(optarg);
 			break;
 		case 'a':
-			garg->affinity = atoi(optarg);
+			garg->cmn_args.affinity = atoi(optarg);
 			break;
 		case 's':
 			garg->maintain_stats = 1;
@@ -1422,14 +1199,15 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			garg->rxq_size = atoi(optarg);
 			break;
 		case 'm':
-			rc = sscanf(optarg, "%x:%x", (unsigned int *)&garg->qs_map, &garg->qs_map_shift);
+			rc = sscanf(optarg, "%x:%x", (unsigned int *)&garg->cmn_args.qs_map,
+				    &garg->cmn_args.qs_map_shift);
 			if (rc != 2) {
 				pr_err("Failed to parse -m parameter\n");
 				return -EINVAL;
 			}
 			break;
 		case 'l':
-			garg->cli = 1;
+			garg->cmn_args.cli = 1;
 			break;
 		default:
 			pr_err("parsing fail, wrong input\n");
@@ -1438,41 +1216,41 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	/* Now, check validity of all inputs */
-	if (!garg->num_ports ||
-	    !garg->ports_desc[0].name) {
+	if (!garg->cmn_args.num_ports ||
+	    !pp2_args->ports_desc[0].name) {
 		pr_err("No port defined!\n");
 		return -EINVAL;
 	}
-	if (garg->burst > PKT_FWD_APP_MAX_BURST_SIZE) {
+	if (garg->cmn_args.burst > PKT_FWD_APP_MAX_BURST_SIZE) {
 		pr_err("illegal burst size requested (%d vs %d)!\n",
-		       garg->burst, PKT_FWD_APP_MAX_BURST_SIZE);
+		       garg->cmn_args.burst, PKT_FWD_APP_MAX_BURST_SIZE);
 		return -EINVAL;
 	}
-	if (garg->cpus > MVAPPS_PP2_MAX_NUM_CORES) {
+	if (garg->cmn_args.cpus > MVAPPS_MAX_NUM_CORES) {
 		pr_err("illegal num cores requested (%d vs %d)!\n",
-		       garg->cpus, MVAPPS_PP2_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, MVAPPS_MAX_NUM_CORES);
 		return -EINVAL;
 	}
-	if ((garg->affinity != -1) &&
-	    ((garg->cpus + garg->affinity) > MVAPPS_PP2_MAX_NUM_CORES)) {
+	if ((garg->cmn_args.affinity != -1) &&
+	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > MVAPPS_MAX_NUM_CORES)) {
 		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
-		       garg->cpus, garg->affinity, MVAPPS_PP2_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, garg->cmn_args.affinity, MVAPPS_MAX_NUM_CORES);
 		return -EINVAL;
 	}
 
-	if (garg->qs_map &&
+	if (garg->cmn_args.qs_map &&
 	    (MVAPPS_PP2_MAX_NUM_QS_PER_TC == 1) &&
 	    (PKT_FWD_APP_MAX_NUM_TCS_PER_PORT == 1)) {
 		pr_warn("no point in queues-mapping; ignoring.\n");
-		garg->qs_map = 1;
-		garg->qs_map_shift = 1;
-	} else if (!garg->qs_map) {
-		garg->qs_map = 1;
-		garg->qs_map_shift = PKT_FWD_APP_MAX_NUM_TCS_PER_PORT;
+		garg->cmn_args.qs_map = 1;
+		garg->cmn_args.qs_map_shift = 1;
+	} else if (!garg->cmn_args.qs_map) {
+		garg->cmn_args.qs_map = 1;
+		garg->cmn_args.qs_map_shift = PKT_FWD_APP_MAX_NUM_TCS_PER_PORT;
 	}
 
-	if ((garg->cpus != 1) &&
-	    (garg->qs_map & (garg->qs_map << garg->qs_map_shift))) {
+	if ((garg->cmn_args.cpus != 1) &&
+	    (garg->cmn_args.qs_map & (garg->cmn_args.qs_map << garg->cmn_args.qs_map_shift))) {
 		pr_err("Invalid queues-mapping (ovelapping CPUs)!\n");
 		return -EINVAL;
 	}
@@ -1484,6 +1262,7 @@ int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
 	u64			cores_mask;
+	struct pp2_glb_common_args *pp2_args;
 	int			i, err;
 
 	setbuf(stdout, NULL);
@@ -1491,42 +1270,36 @@ int main(int argc, char *argv[])
 
 	pr_debug("pr_debug is enabled\n");
 
+	garg.cmn_args.plat = (struct pp2_glb_common_args *)malloc(sizeof(struct pp2_glb_common_args));
+	if (!garg.cmn_args.plat) {
+		pr_err("No mem for global plat arg obj!\n");
+		return -ENOMEM;
+	}
+	pp2_args = (struct pp2_glb_common_args *) garg.cmn_args.plat;
 	err = parse_args(&garg, argc, argv);
-	if (err)
+	if (err) {
+		free(garg.cmn_args.plat);
 		return err;
+	}
 
-	garg.pp2_num_inst = pp2_get_num_inst();
+	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
 	cores_mask = 0;
-	for (i = 0; i < garg.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
+	for (i = 0; i < garg.cmn_args.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
 		;
-	cores_mask <<= (garg.affinity != -1) ? garg.affinity : 0;
+	cores_mask <<= (garg.cmn_args.affinity != -1) ? garg.cmn_args.affinity : 0;
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
-	mvapp_params.use_cli		= garg.cli;
-	mvapp_params.num_cores		= garg.cpus;
+	mvapp_params.use_cli		= garg.cmn_args.cli;
+	mvapp_params.num_cores		= garg.cmn_args.cpus;
 	mvapp_params.cores_mask		= cores_mask;
 	mvapp_params.global_arg		= (void *)&garg;
 	mvapp_params.init_global_cb	= init_global;
-	mvapp_params.deinit_global_cb	= deinit_global;
+	mvapp_params.deinit_global_cb	= apps_pp2_deinit_global;
 	mvapp_params.init_local_cb	= init_local;
-	mvapp_params.deinit_local_cb	= deinit_local;
+	mvapp_params.deinit_local_cb	= apps_pp2_deinit_local;
 	mvapp_params.main_loop_cb	= main_loop;
 
-#ifdef SHOW_STATISTICS
-	for (i = 0; i < MVAPPS_PP2_MAX_NUM_CORES; i++) {
-		int j;
 
-		for (j = 0; j < garg.num_ports; j++) {
-			rx_buf_cnt[i][j] = 0;
-			tx_buf_cnt[i][j] = 0;
-			free_buf_cnt[i][j] = 0;
-			tx_buf_retry[i][j] = 0;
-			tx_buf_drop[i][j] = 0;
-			tx_max_burst[i][j] = 0;
-			tx_max_resend[i][j] = 0;
-		}
-	}
-#endif
 	return mvapp_go(&mvapp_params);
 }

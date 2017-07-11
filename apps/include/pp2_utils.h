@@ -44,13 +44,11 @@
 #define MVAPPS_PP2_PKT_EFEC_OFFS		(MVAPPS_PP2_PKT_OFFS + MV_MH_SIZE)
 /* Maximum number of packet processors used by application */
 #define MVAPPS_PP2_MAX_PKT_PROC		2
-/* Maximum number of CPU cores used by application */
-#define MVAPPS_PP2_MAX_NUM_CORES		4
 /* Maximum number of ports used by application */
 #define MVAPPS_PP2_MAX_NUM_PORTS		2
 
 /* Maximum number of queues per TC */
-#define MVAPPS_PP2_MAX_NUM_QS_PER_TC	MVAPPS_PP2_MAX_NUM_CORES
+#define MVAPPS_PP2_MAX_NUM_QS_PER_TC	MVAPPS_MAX_NUM_CORES
 /* Total number of BM pools supported */
 #define MVAPPS_PP2_TOTAL_NUM_BPOOLS	(PP2_PPIO_TC_MAX_POOLS * PP2_PPIO_MAX_NUM_TCS)
 /* Number of BM pools reserved by kernel */
@@ -79,6 +77,22 @@
 
 #define PP2_MAX_BUF_STR_LEN		MV_MAX_BUF_STR_LEN
 
+
+/* Macroes to handle PP2 counters */
+#define INC_RX_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.rx_buf_cnt += cnt)
+#define INC_TX_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.tx_buf_cnt += cnt)
+#define INC_TX_RETRY_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.tx_buf_retry += cnt)
+#define INC_TX_DROP_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.tx_buf_drop += cnt)
+#define INC_FREE_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.free_buf_cnt += cnt)
+#define SET_MAX_RESENT(lcl_port_desc, cnt)		\
+	{ if (cnt > (lcl_port_desc)->cntrs.tx_max_resend) \
+		(lcl_port_desc)->cntrs.tx_max_resend = cnt; }
+
+#define SET_MAX_BURST(lcl_port_desc, burst)	\
+	{ if (burst > (lcl_port_desc)->cntrs.tx_max_burst) \
+		(lcl_port_desc)->cntrs.tx_max_burst = burst; }
+
+
 /*
  * Tx shadow queue entry
  */
@@ -96,6 +110,20 @@ struct tx_shadow_q {
 
 	struct tx_shadow_q_entry	*ents;		/* array of entries */
 };
+
+
+
+struct pp2_counters {
+	u32		rx_buf_cnt;
+	u32		free_buf_cnt;
+	u32		tx_buf_cnt;
+	u32		tx_buf_drop;
+	u32		tx_buf_retry;
+	u32		tx_max_resend;
+	u32		tx_max_burst;
+};
+
+
 
 /*
  * General port parameters
@@ -116,21 +144,22 @@ struct port_desc {
 	u32			 first_rss_tbl;	/* First RSS table */
 	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
 	struct pp2_ppio_params	 port_params;	/* PPIO configuration parameters */
-
+	struct lcl_port_desc	*lcl_ports_desc[MVAPPS_MAX_NUM_CORES];
 };
 
 /*
  * Local thread port parameters
  */
 struct lcl_port_desc {
-	int			 id;		/* Local port ID*/
-	int			 lcl_id;	/* Local thread ID*/
-	int			 pp_id;		/* Packet Processor ID */
-	int			 ppio_id;	/* PPIO port ID */
+	int			id;		/* Local port ID*/
+	int			lcl_id;		/* Local thread ID*/
+	int			pp_id;		/* Packet Processor ID */
+	int			ppio_id;	/* PPIO port ID */
 	struct pp2_ppio		*ppio;		/* PPIO object returned by pp2_ppio_init() */
-	int			 num_shadow_qs;	/* Number of Tx shadow queues */
-	int			 shadow_q_size;	/* Size of Tx shadow queue */
+	int			num_shadow_qs;	/* Number of Tx shadow queues */
+	int			shadow_q_size;	/* Size of Tx shadow queue */
 	struct tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
+	struct pp2_counters	cntrs;
 };
 
 /*
@@ -149,6 +178,130 @@ struct bpool_desc {
 	struct pp2_buff_inf	*buffs_inf;	/* array of buffer objects */
 	int			 num_buffs;	/* number of buffers */
 };
+
+
+struct pp2_lcl_common_args {
+	struct pp2_hif		*hif;
+	struct lcl_port_desc	*lcl_ports_desc;
+	struct bpool_desc	**pools_desc;
+};
+
+
+struct pp2_glb_common_args {
+	struct port_desc	ports_desc[MVAPPS_PP2_MAX_NUM_PORTS]; /* TODO: dynamic_size, as lcl_ports_desc */
+	int			num_pools;
+	int			pp2_num_inst;
+	struct pp2_hif		*hif;
+	struct bpool_desc	**pools_desc;
+};
+
+
+static inline enum pp2_outq_l3_type pp2_l3_type_inq_to_outq(enum pp2_inq_l3_type l3_inq)
+{
+	if (unlikely(l3_inq & PP2_INQ_L3_TYPE_IPV6_NO_EXT))
+		return PP2_OUTQ_L3_TYPE_IPV6;
+
+	if (likely(l3_inq != PP2_INQ_L3_TYPE_NA))
+		return PP2_OUTQ_L3_TYPE_IPV4;
+
+	return PP2_OUTQ_L3_TYPE_OTHER;
+}
+
+static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type l4_inq)
+{
+	if (likely(l4_inq == PP2_INQ_L4_TYPE_TCP || l4_inq == PP2_INQ_L4_TYPE_UDP))
+		return (l4_inq - 1);
+
+	return PP2_OUTQ_L4_TYPE_OTHER;
+}
+
+#ifndef HW_BUFF_RECYLCE
+static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
+			       struct lcl_port_desc	*tx_port,
+			       struct pp2_hif		*hif,
+			       u16			 start_idx,
+			       u16			 num,
+			       u8			 tc)
+{
+	u16			i, free_cnt = 0, idx = start_idx;
+	struct pp2_buff_inf	*binf;
+	struct tx_shadow_q	*shadow_q;
+
+	shadow_q = &tx_port->shadow_qs[tc];
+
+	for (i = 0; i < num; i++) {
+		struct pp2_bpool *bpool = shadow_q->ents[idx].bpool;
+
+		binf = &shadow_q->ents[idx].buff_ptr;
+		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
+			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
+				i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
+			continue;
+		}
+		pp2_bpool_put_buff(hif, bpool, binf);
+		free_cnt++;
+
+		if (++idx == tx_port->shadow_q_size)
+			idx = 0;
+	}
+
+	INC_FREE_COUNT(rx_port, free_cnt);
+	return idx;
+}
+
+static inline u16 free_multi_buffers(struct lcl_port_desc	*rx_port,
+				     struct lcl_port_desc	*tx_port,
+				     struct pp2_hif		*hif,
+				     u16			 start_idx,
+				     u16			 num,
+				     u8			 tc)
+{
+	u16			idx = start_idx;
+	u16			cont_in_shadow, req_num;
+	struct tx_shadow_q	*shadow_q;
+
+	shadow_q = &tx_port->shadow_qs[tc];
+
+	cont_in_shadow = tx_port->shadow_q_size - start_idx;
+
+	if (num <= cont_in_shadow) {
+		req_num = num;
+		pp2_bpool_put_buffs(hif, (struct buff_release_entry *)&shadow_q->ents[idx], &req_num);
+		idx = idx + num;
+		if (idx == tx_port->shadow_q_size)
+			idx = 0;
+	} else {
+		req_num = cont_in_shadow;
+		pp2_bpool_put_buffs(hif, (struct buff_release_entry *)&shadow_q->ents[idx], &req_num);
+
+		req_num = num - cont_in_shadow;
+		pp2_bpool_put_buffs(hif, (struct buff_release_entry *)&shadow_q->ents[0], &req_num);
+		idx = num - cont_in_shadow;
+	}
+
+	INC_FREE_COUNT(rx_port, num);
+
+	return idx;
+}
+
+static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
+				     struct lcl_port_desc	*tx_port,
+				     struct pp2_hif		*hif,
+				     u8				 tc,
+				     int			 multi_buffer_release)
+{
+	u16 tx_num;
+
+	pp2_ppio_get_num_outq_done(tx_port->ppio, hif, tc, &tx_num);
+
+	if (multi_buffer_release)
+		tx_port->shadow_qs[tc].read_ind = free_multi_buffers(rx_port, tx_port, hif,
+								     tx_port->shadow_qs[tc].read_ind, tx_num, tc);
+	else
+		tx_port->shadow_qs[tc].read_ind = free_buffers(rx_port, tx_port, hif,
+							       tx_port->shadow_qs[tc].read_ind, tx_num, tc);
+}
+#endif
 
 /*
  * Init HIF object
@@ -211,6 +364,33 @@ int app_register_cli_common_cmds(struct port_desc *port_desc);
  * Get sysfs parameter from kernel driver
  */
 u32 appp_pp2_sysfs_param_get(char *if_name, char *file);
+
+/*
+ * Standard deinit_local, for local_threads deinitialization.
+ */
+void apps_pp2_deinit_local(void *arg);
+/*
+ * Standard destroy_local_modules.
+ */
+void apps_pp2_destroy_local_modules(void *arg);
+
+/*
+ * Standard destroy_all_modules.
+ */
+void apps_pp2_destroy_all_modules(void);
+/*
+ * Standard deinit_global, for global deinitialization.
+ */
+void apps_pp2_deinit_global(void *arg);
+
+int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[]);
+int apps_pp2_prefetch_cmd_cb(void *arg, int argc, char *argv[]);
+
+
+
+
+
+
 
 /* Saved sysdma virtual high address*/
 extern u64 sys_dma_high_addr;

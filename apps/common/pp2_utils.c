@@ -54,7 +54,7 @@ static u64 buf_free_cnt;
 static u64 hw_rxq_buf_free_cnt;
 static u64 hw_bm_buf_free_cnt;
 static u64 hw_buf_free_cnt;
-static u64 tx_shadow_q_buf_free_cnt[MVAPPS_PP2_MAX_NUM_CORES];
+static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
 void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
 {
@@ -627,7 +627,7 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 	}
 
 	/* Calculate number of buffers released from PP2 */
-	for (i = 0; i < MVAPPS_PP2_MAX_NUM_CORES; i++)
+	for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++)
 		hw_buf_free_cnt += tx_shadow_q_buf_free_cnt[i];
 	hw_buf_free_cnt += hw_bm_buf_free_cnt + hw_rxq_buf_free_cnt;
 
@@ -739,4 +739,119 @@ u32 appp_pp2_sysfs_param_get(char *if_name, char *file)
 	fclose(fp);
 	return param;
 }
+
+
+void apps_pp2_deinit_local(void *arg)
+{
+	struct local_common_args *common_arg = (struct local_common_args *)arg;
+	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) common_arg->plat;
+	int i;
+
+	if (!common_arg)
+		return;
+
+	if (pp2_args->lcl_ports_desc) {
+		for (i = 0; i < common_arg->num_ports; i++)
+			app_port_local_deinit(&pp2_args->lcl_ports_desc[i]);
+		free(pp2_args->lcl_ports_desc);
+	}
+
+	if (pp2_args->hif)
+		pp2_hif_deinit(pp2_args->hif);
+	free((void *)pp2_args);
+	free(common_arg);
+}
+
+void apps_pp2_destroy_local_modules(void *arg)
+{
+	struct glb_common_args *common_arg = (struct glb_common_args *)arg;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) common_arg->plat;
+
+	app_disable_all_ports(pp2_args->ports_desc, common_arg->num_ports);
+	app_free_all_pools(pp2_args->pools_desc, pp2_args->num_pools, pp2_args->hif);
+	app_deinit_all_ports(pp2_args->ports_desc, common_arg->num_ports);
+
+	if (pp2_args->hif)
+		pp2_hif_deinit(pp2_args->hif);
+}
+
+void apps_pp2_destroy_all_modules(void)
+{
+	pp2_deinit();
+	mv_sys_dma_mem_destroy();
+}
+
+
+void apps_pp2_deinit_global(void *arg)
+{
+	struct glb_common_args *common_arg = (struct glb_common_args *)arg;
+
+	if (!common_arg)
+		return;
+
+	if (common_arg->cli && common_arg->cli_unregister_cb)
+		common_arg->cli_unregister_cb(common_arg);
+	apps_pp2_destroy_local_modules(common_arg);
+	apps_pp2_destroy_all_modules();
+
+	if (common_arg->plat)
+		free(common_arg->plat);
+}
+
+int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int i, j, reset = 0;
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) g_cmn_args->plat;
+	struct pp2_counters *cntrs;
+
+	if (argc > 1)
+		reset = 1;
+	printf("reset stats: %d\n", reset);
+	for (j = 0; j < g_cmn_args->num_ports; j++) {
+		printf("Port%d stats:\n", j);
+		for (i = 0; i < g_cmn_args->cpus; i++) {
+			cntrs = &(pp2_args->ports_desc[j].lcl_ports_desc[i]->cntrs);
+			printf("cpu%d: rx_bufs=%u, tx_bufs=%u, free_bufs=%u, tx_resend=%u, max_retries=%u, ",
+			       i,  cntrs->rx_buf_cnt, cntrs->tx_buf_cnt, cntrs->free_buf_cnt,
+				cntrs->tx_buf_retry, cntrs->tx_max_resend);
+			printf(" tx_drops=%u, max_burst=%u\n", cntrs->tx_buf_drop, cntrs->tx_max_burst);
+			if (reset) {
+				cntrs->rx_buf_cnt = 0;
+				cntrs->tx_buf_cnt = 0;
+				cntrs->free_buf_cnt = 0;
+				cntrs->tx_buf_retry = 0;
+				cntrs->tx_buf_drop = 0;
+				cntrs->tx_max_burst = 0;
+				cntrs->tx_max_resend = 0;
+			}
+		}
+	}
+	return 0;
+}
+
+/* TODO: Move to new file, utils.c */
+int apps_pp2_prefetch_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+
+	if (!g_cmn_args) {
+		pr_err("no garg obj passed!\n");
+		return -EINVAL;
+	}
+	if ((argc != 1) && (argc != 2)) {
+		pr_err("Invalid number of arguments for prefetch cmd!\n");
+		return -EINVAL;
+	}
+
+	if (argc == 1) {
+		printf("%d\n", g_cmn_args->prefetch_shift);
+		return 0;
+	}
+
+	g_cmn_args->prefetch_shift = atoi(argv[1]);
+
+	return 0;
+}
+
 

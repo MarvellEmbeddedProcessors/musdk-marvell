@@ -45,6 +45,10 @@
 #define MV_MAX_BUF_STR_LEN		256
 #define MVAPPS_MAX_BURST_SIZE		256
 
+/* Maximum number of CPU cores used by application */
+#define MVAPPS_MAX_NUM_CORES		4
+
+
 /* Default MTU */
 #define DEFAULT_MTU			1500
 /* VLAN header length */
@@ -78,6 +82,37 @@
 #define MVAPPS_MRU_TO_MTU(mru) \
 	((mru) - MV_MH_SIZE - VLAN_HLEN - \
 	ETH_HLEN - ETH_FCS_LEN)
+
+
+struct glb_common_args {
+	u64			qs_map;
+	int			prefetch_shift;
+	int			num_ports;
+	int			echo;
+	u16			burst;
+	int			cpus;
+	int			affinity;
+	int			verbose;
+	int			cli;
+	int			(*cli_unregister_cb)(void *);
+	int			qs_map_shift;
+	u16			mtu;
+	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
+	void			*plat;
+};
+
+struct local_common_args {
+	u64			qs_map;
+	int			prefetch_shift;
+	int			num_ports;
+	int			id;
+	int			echo;
+	u16			burst;
+	int			verbose;
+	struct glob_arg		*garg;
+	void			*plat;
+};
+
 
 /* CA-72 prefetch command */
 static inline void prefetch(const void *ptr)

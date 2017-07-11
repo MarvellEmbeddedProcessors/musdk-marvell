@@ -35,6 +35,7 @@
 #include <getopt.h>
 #include "mv_std.h"
 #include "mvapp.h"
+#include "pp2_utils.h"
 #include "mv_pp2.h"
 
 #include "cls_main_example.h"
@@ -58,30 +59,18 @@
 #define CLS_APP_BPOOLS_INF		{ {2048, 1024} }
 
 struct glob_arg {
-	int			cli;
-	int			cpus;	/* cpus used for running */
-	u32			hash_type;
-	int			num_ports;
-	int			pp2_num_inst;
-	struct port_desc	ports_desc[MVAPPS_PP2_MAX_NUM_PORTS];
-	struct pp2_hif		*hif;
-	int			num_pools;
-	struct bpool_desc	**pools_desc;
-	struct pp2_init_params	pp2_params;
-	int			logical_port_flag;
-	int			qos_flag;
-	int			cls_table_flag;
-	int			filter_flag;
+	struct glb_common_args	cmn_args;  /* Keep first */
+
+	u32				hash_type;
+	struct pp2_init_params		pp2_params;
+	int				logical_port_flag;
+	int				qos_flag;
+	int				cls_table_flag;
+	int				filter_flag;
 };
 
 struct local_arg {
-	struct tx_shadow_q	shadow_qs[CLS_APP_MAX_NUM_QS_PER_CORE];
-	struct pp2_hif		*hif;
-	int			 num_ports;
-	struct lcl_port_desc	*ports_desc;
-	struct bpool_desc	**pools_desc;
-	int			 id;
-	struct glob_arg		*garg;
+	struct local_common_args	cmn_args;  /* Keep first */
 };
 
 static struct glob_arg garg = {};
@@ -104,6 +93,7 @@ static int main_loop(void *arg, int *running)
 static int init_all_modules(void)
 {
 	struct pp2_init_params *pp2_params = &garg.pp2_params;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
 	int			 err;
 	char			 file[PP2_MAX_BUF_STR_LEN];
 	int			 num_rss_tables = 0;
@@ -119,7 +109,7 @@ static int init_all_modules(void)
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
 	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-	num_rss_tables = appp_pp2_sysfs_param_get(garg.ports_desc[0].name, file);
+	num_rss_tables = appp_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
 	if (num_rss_tables < 0) {
 		pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
 		return -EFAULT;
@@ -138,24 +128,25 @@ static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
 	struct bpool_inf		infs[] = CLS_APP_BPOOLS_INF;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	int				i;
 
 	pr_info("Local initializations ...\n");
 
-	err = app_hif_init(&garg->hif, CLS_APP_HIF_Q_SIZE);
+	err = app_hif_init(&pp2_args->hif, CLS_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
-	garg->num_pools = ARRAY_SIZE(infs);
-	err = app_build_all_bpools(&garg->pools_desc, garg->num_pools, infs, garg->hif);
+	pp2_args->num_pools = ARRAY_SIZE(infs);
+	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
 	if (err)
 		return err;
 
-	for (port_index = 0; port_index < garg->num_ports; port_index++) {
-		struct port_desc *port = &garg->ports_desc[port_index];
+	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++) {
+		struct port_desc *port = &pp2_args->ports_desc[port_index];
 
 		if (garg->logical_port_flag) {
-			err = pp2_cls_logical_port_params_example(&garg->ports_desc[port_index].port_params,
+			err = pp2_cls_logical_port_params_example(&pp2_args->ports_desc[port_index].port_params,
 								  &port->ppio_type);
 			if (err) {
 				pr_err("pp2_cls_logical_port_params failed!\n");
@@ -174,7 +165,8 @@ static int init_local_modules(struct glob_arg *garg)
 			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
 			port->hash_type = garg->hash_type;
 
-			err = app_port_init(port, garg->num_pools, garg->pools_desc[port->pp_id], DEFAULT_MTU);
+			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
+					    DEFAULT_MTU);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -185,37 +177,24 @@ static int init_local_modules(struct glob_arg *garg)
 		}
 	}
 	if (garg->cls_table_flag) {
-		pp2_cls_add_5_tuple_table(garg->ports_desc);
-		pp2_cls_example_rule_key(garg->ports_desc);
+		pp2_cls_add_5_tuple_table(pp2_args->ports_desc);
+		pp2_cls_example_rule_key(pp2_args->ports_desc);
 	}
 	if (garg->qos_flag)
-		pp2_cls_qos_table_add_example(garg->ports_desc[0].ppio);
+		pp2_cls_qos_table_add_example(pp2_args->ports_desc[0].ppio);
 
 	pr_info("done\n");
 	return 0;
 }
 
-static void destroy_local_modules(struct glob_arg *garg)
-{
-	app_disable_all_ports(garg->ports_desc, garg->num_ports);
-	app_free_all_pools(garg->pools_desc, garg->num_pools, garg->hif);
-	app_deinit_all_ports(garg->ports_desc, garg->num_ports);
-
-	if (garg->hif)
-		pp2_hif_deinit(garg->hif);
-}
-
-static void destroy_all_modules(void)
-{
-	pp2_deinit();
-	mv_sys_dma_mem_destroy();
-}
 
 static int register_cli_cmds(struct glob_arg *garg)
 {
-	struct pp2_ppio *ppio = garg->ports_desc[0].ppio;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 
-	if (!garg->cli)
+	struct pp2_ppio *ppio = pp2_args->ports_desc[0].ppio;
+
+	if (!garg->cmn_args.cli)
 		return -EFAULT;
 
 	if (garg->filter_flag)
@@ -227,7 +206,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	if (garg->cls_table_flag)
 		register_cli_c3_cmds(ppio);
 
-	app_register_cli_common_cmds(garg->ports_desc);
+	app_register_cli_common_cmds(pp2_args->ports_desc);
 
 	return 0;
 }
@@ -263,23 +242,14 @@ static int init_global(void *arg)
 	return 0;
 }
 
-static void deinit_global(void *arg)
-{
-	struct glob_arg *garg = (struct glob_arg *)arg;
-
-	if (!garg)
-		return;
-	if (garg->cli)
-		unregister_cli_cmds(garg);
-
-	destroy_local_modules(garg);
-	destroy_all_modules();
-}
 
 static int init_local(void *arg, int id, void **_larg)
 {
 	struct glob_arg		*garg = (struct glob_arg *)arg;
 	struct local_arg	*larg;
+	struct pp2_glb_common_args *glb_pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
+	struct pp2_lcl_common_args *lcl_pp2_args;
+
 	int			 i, err;
 
 	if (!garg) {
@@ -292,47 +262,45 @@ static int init_local(void *arg, int id, void **_larg)
 		pr_err("No mem for local arg obj!\n");
 		return -ENOMEM;
 	}
+	memset(larg, 0, sizeof(struct local_arg));
 
-	err = app_hif_init(&larg->hif, CLS_APP_HIF_Q_SIZE);
+	larg->cmn_args.plat = (struct pp2_lcl_common_args *)malloc(sizeof(struct pp2_lcl_common_args));
+	if (!larg->cmn_args.plat) {
+		pr_err("No mem for local plat arg obj!\n");
+		free(larg);
+		return -ENOMEM;
+	}
+	memset(larg->cmn_args.plat, 0, sizeof(struct pp2_lcl_common_args));
+	lcl_pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
+
+	larg->cmn_args.id		= id;
+	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
+
+	lcl_pp2_args->lcl_ports_desc	= (struct lcl_port_desc *)
+					   malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
+	if (!lcl_pp2_args->lcl_ports_desc) {
+		pr_err("no mem for local-port-desc obj!\n");
+		free(larg->cmn_args.plat);
+		free(larg);
+		return -ENOMEM;
+	}
+	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
+
+	err = app_hif_init(&lcl_pp2_args->hif, CLS_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
-	larg->id		= id;
-	larg->num_ports		= garg->num_ports;
-	larg->ports_desc	= (struct lcl_port_desc *)malloc(larg->num_ports * sizeof(struct lcl_port_desc));
-	if (!larg->ports_desc) {
-		pr_err("no mem for local-port-desc obj!\n");
-		return -ENOMEM;
-	}
-	memset(larg->ports_desc, 0, larg->num_ports * sizeof(struct lcl_port_desc));
-	for (i = 0; i < larg->num_ports; i++)
-		app_port_local_init(i, larg->id, &larg->ports_desc[i], &garg->ports_desc[i]);
+	for (i = 0; i < larg->cmn_args.num_ports; i++)
+		app_port_local_init(i, larg->cmn_args.id, &lcl_pp2_args->lcl_ports_desc[i],
+				    &glb_pp2_args->ports_desc[i]);
 
-	larg->pools_desc	= garg->pools_desc;
-	larg->garg              = garg;
+	lcl_pp2_args->pools_desc	= glb_pp2_args->pools_desc;
+	larg->cmn_args.garg              = garg;
+	garg->cmn_args.largs[id] = larg;
+
 
 	*_larg = larg;
 	return 0;
-}
-
-static void deinit_local(void *arg)
-{
-	struct local_arg *larg = (struct local_arg *)arg;
-	int i;
-
-	if (!larg)
-		return;
-
-	if (larg->ports_desc) {
-		for (i = 0; i < larg->num_ports; i++)
-			app_port_local_deinit(&larg->ports_desc[i]);
-		free(larg->ports_desc);
-	}
-
-	if (larg->hif)
-		pp2_hif_deinit(larg->hif);
-
-	free(larg);
 }
 
 static void usage(char *progname)
@@ -362,9 +330,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int i = 1;
 	int option;
 	int long_index = 0;
-	struct pp2_ppio_params	*port_params = &garg->ports_desc[0].port_params;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
+	struct pp2_ppio_params	*port_params = &pp2_args->ports_desc[0].port_params;
 	struct pp2_init_params	*pp2_params = &garg->pp2_params;
-	struct port_desc	*port = &garg->ports_desc[0];
+	struct port_desc	*port = &pp2_args->ports_desc[0];
 
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
@@ -377,10 +346,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{0, 0, 0, 0}
 	};
 
-	garg->cpus = 1;
+	garg->cmn_args.cpus = 1;
 	garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
-	garg->num_ports = 0;
-	garg->cli = 1;
+	garg->cmn_args.num_ports = 0;
+	garg->cmn_args.cli = 1;
 
 	memset(port_params, 0, sizeof(*port_params));
 	memset(pp2_params, 0, sizeof(*pp2_params));
@@ -399,13 +368,13 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			exit(0);
 			break;
 		case 'i':
-			snprintf(garg->ports_desc[garg->num_ports].name,
-				 sizeof(garg->ports_desc[garg->num_ports].name), "%s", optarg);
-			garg->num_ports++;
+			snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
+				 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name), "%s", optarg);
+			garg->cmn_args.num_ports++;
 			/* currently supporting only 1 port */
-			if (garg->num_ports > 1) {
+			if (garg->cmn_args.num_ports > 1) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->num_ports, 1);
+				       garg->cmn_args.num_ports, 1);
 				return -EINVAL;
 			}
 			break;
@@ -440,7 +409,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	/* Now, check validity of all inputs */
-	if (!garg->num_ports) {
+	if (!garg->cmn_args.num_ports) {
 		pr_err("No port defined!\n");
 		return -EINVAL;
 	}
@@ -451,26 +420,38 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
+	struct pp2_glb_common_args *pp2_args;
 	int			err;
 
 	setbuf(stdout, NULL);
 
 	pr_debug("pr_debug is enabled\n");
 
-	err = parse_args(&garg, argc, argv);
-	if (err)
-		return err;
+	garg.cmn_args.plat = (struct pp2_glb_common_args *)malloc(sizeof(struct pp2_glb_common_args));
 
-	garg.pp2_num_inst = pp2_get_num_inst();
+	if (!garg.cmn_args.plat) {
+		pr_err("No mem for global plat arg obj!\n");
+		return -ENOMEM;
+	}
+
+	pp2_args = (struct pp2_glb_common_args *) garg.cmn_args.plat;
+
+	err = parse_args(&garg, argc, argv);
+	if (err) {
+		free(garg.cmn_args.plat);
+		return err;
+	}
+
+	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
-	mvapp_params.use_cli		= garg.cli;
-	mvapp_params.num_cores		= garg.cpus;
+	mvapp_params.use_cli		= garg.cmn_args.cli;
+	mvapp_params.num_cores		= garg.cmn_args.cpus;
 	mvapp_params.global_arg		= (void *)&garg;
 	mvapp_params.init_global_cb	= init_global;
-	mvapp_params.deinit_global_cb	= deinit_global;
+	mvapp_params.deinit_global_cb	= apps_pp2_deinit_global;
 	mvapp_params.init_local_cb	= init_local;
-	mvapp_params.deinit_local_cb	= deinit_local;
+	mvapp_params.deinit_local_cb	= apps_pp2_deinit_local;
 	mvapp_params.main_loop_cb	= main_loop;
 	return mvapp_go(&mvapp_params);
 }
