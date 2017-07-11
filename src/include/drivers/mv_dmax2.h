@@ -41,6 +41,12 @@
 #define MV_XOR_V2_DESC_RESERVED_SIZE	12
 #define MV_XOR_V2_DESC_BUFF_D_ADDR_SIZE	12
 
+/* According to the spec, descriptors list base address must be aligned to 256
+ * Bytes (addr[7:0] == 0x0).
+ */
+#define DMAX2_DESC_ADDR_ALIGN	0x100
+
+
 /** @addtogroup grp_dmax2 DMA v2 engine
  *
  *  DMA Copy Engine API documentation

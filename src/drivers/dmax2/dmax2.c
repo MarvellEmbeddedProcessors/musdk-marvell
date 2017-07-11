@@ -141,7 +141,7 @@ int dmax2_init(struct dmax2_params *params, void **dmax2)
 	 */
 	dmax2_lcl->hw_desq_virt =
 		mv_sys_dma_mem_alloc((sizeof(struct dmax2_desc) * dmax2_lcl->desc_q_size),
-				     sizeof(struct dmax2_desc));
+				DMAX2_DESC_ADDR_ALIGN);
 	if (!dmax2_lcl->hw_desq_virt) {
 		ret = -ENOMEM;
 		goto free_dev;
