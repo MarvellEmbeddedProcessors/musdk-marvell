@@ -947,8 +947,8 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->garg              = garg;
 
 	larg->qs_map = garg->qs_map << (garg->qs_map_shift * id);
-	pr_debug("thread %d (cpu %d) mapped to Qs %llx using %s\n",
-		 larg->id, sched_getcpu(), (unsigned long long)larg->qs_map, name);
+	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
+		 larg->id, sched_getcpu(), (unsigned long long)larg->qs_map);
 
 	*_larg = larg;
 	return 0;
