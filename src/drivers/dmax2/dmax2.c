@@ -129,7 +129,7 @@ int dmax2_init(struct dmax2_params *params, void **dmax2)
 	if ((params->queue_size  & (params->queue_size - 1)) != 0) {
 		pr_err("DMAX2 Queue size must be power of 2 (requested Queue size: %d)\n", params->queue_size);
 		ret = -EINVAL;
-		goto free_dev;
+		goto free_dev_mem;
 	}
 
 	dmax2_lcl->desc_q_size = params->queue_size;
@@ -144,7 +144,7 @@ int dmax2_init(struct dmax2_params *params, void **dmax2)
 				DMAX2_DESC_ADDR_ALIGN);
 	if (!dmax2_lcl->hw_desq_virt) {
 		ret = -ENOMEM;
-		goto free_dev;
+		goto free_dev_mem;
 	}
 	dmax2_lcl->hw_desq = mv_sys_dma_mem_virt2phys(dmax2_lcl->hw_desq_virt);
 	memset(dmax2_lcl->hw_desq_virt, 0, sizeof(struct dmax2_desc) * dmax2_lcl->desc_q_size);
@@ -154,8 +154,14 @@ int dmax2_init(struct dmax2_params *params, void **dmax2)
 	*dmax2 = (void *) dmax2_lcl;
 	return 0;
 
+free_dev_mem:
+	deinit_dmax2_mem(dmax2_lcl);
 free_dev:
-	dmax2_deinit(dmax2_lcl);
+	if (dmax2_lcl->hw_desq_virt)
+		mv_sys_dma_mem_free(dmax2_lcl->hw_desq_virt);
+
+	kfree(dmax2_lcl);
+
 	return ret;
 }
 
@@ -168,6 +174,8 @@ int dmax2_deinit(void *dmax2)
 
 	if (dmax2_lcl->hw_desq_virt)
 		mv_sys_dma_mem_free(dmax2_lcl->hw_desq_virt);
+
+	deinit_dmax2_mem(dmax2);
 
 	kfree(dmax2_lcl);
 	return 0;

@@ -66,3 +66,10 @@ int init_dmax2_mem(struct dmax2 *dmax2)
 
 	return 0;
 }
+
+void deinit_dmax2_mem(struct dmax2 *dmax2)
+{
+	sys_iomem_unmap(dmax2->iomem, "1");
+	sys_iomem_unmap(dmax2->iomem, "0");
+	sys_iomem_deinit(dmax2->iomem);
+}

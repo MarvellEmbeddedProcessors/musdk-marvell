@@ -123,5 +123,6 @@ struct dmax2 {
 };
 
 int init_dmax2_mem(struct dmax2 *dmax2);
+void deinit_dmax2_mem(struct dmax2 *dmax2);
 
 #endif /* __DMAX2_H__ */
