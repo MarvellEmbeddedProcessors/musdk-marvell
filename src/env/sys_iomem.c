@@ -72,8 +72,11 @@ struct sys_iomem {
 		struct mem_uio		 uio;
 		struct mem_mmap		 mmap;
 	} u;
+	struct list	 node;
 };
 
+/* initialized iomem devices list */
+static struct list iomem_maps_lst = LIST_INIT(iomem_maps_lst);
 
 static void iomem_uio_add_entry(struct uio_mem_t **headp, struct uio_mem_t *entry)
 {
@@ -382,6 +385,20 @@ int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
 {
 	struct sys_iomem	*liomem;
 	int			 err;
+	struct list		*pos;
+	struct sys_iomem	*liomem_node;
+
+	/* Check if requested iomem device already initialized */
+	if (!list_is_empty(&iomem_maps_lst)) {
+		LIST_FOR_EACH(pos, &iomem_maps_lst) {
+			liomem_node = LIST_OBJECT(pos, struct sys_iomem, node);
+			if (strcmp(liomem_node->name, params->devname) == 0
+				&& liomem_node->index == params->index) {
+				pr_err("requested iomem device already initialized\n");
+				return -EEXIST;
+			}
+		}
+	}
 
 	liomem = malloc(sizeof(struct sys_iomem));
 	if (!liomem) {
@@ -420,12 +437,38 @@ int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
 		return -ENOTSUP;
 	}
 
+	/* add to list: name & index */
+	list_add_to_tail(&liomem->node, &iomem_maps_lst);
+
 	*iomem = liomem;
 	return 0;
 }
 
 void sys_iomem_deinit(struct sys_iomem *iomem)
 {
+	bool device_exists	= false;
+	struct list		*pos;
+	struct sys_iomem	*liomem_node;
+
+	/* Check if requested iomem device is actually initialized */
+	if (!list_is_empty(&iomem_maps_lst)) {
+		LIST_FOR_EACH(pos, &iomem_maps_lst) {
+			liomem_node = LIST_OBJECT(pos, struct sys_iomem, node);
+			if (strcmp(liomem_node->name, iomem->name) == 0
+				&& liomem_node->index == iomem->index) {
+				device_exists = true;
+			}
+		}
+	}
+
+	if (!device_exists) {
+		pr_err("requested iomem device to deinit wasn't initialized\n");
+		return;
+	}
+
+	/* Remove from list of iomem devices */
+	list_del(&iomem->node);
+
 	if (iomem->type == SYS_IOMEM_T_UIO)
 		iomem_uio_iodestroy(&iomem->u.uio);
 	else if (iomem->type == SYS_IOMEM_T_MMAP)
