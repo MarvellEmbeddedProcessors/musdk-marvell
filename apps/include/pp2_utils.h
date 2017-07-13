@@ -142,6 +142,7 @@ struct port_desc {
 	u32			 outq_size;	/* Tx queue size */
 	u32			 hash_type;	/* Hash type */
 	u32			 first_rss_tbl;	/* First RSS table */
+	u32			 traffic_dir;	/* Traffic direction (1 - Rx, 2 - Tx, 3 - Rx+Tx) */
 	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
 	struct pp2_ppio_params	 port_params;	/* PPIO configuration parameters */
 	struct lcl_port_desc	*lcl_ports_desc[MVAPPS_MAX_NUM_CORES];

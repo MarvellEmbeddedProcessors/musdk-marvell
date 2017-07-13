@@ -63,4 +63,13 @@ musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_main.c
 musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_db.c
 musdk_pkt_l3fwd_SOURCES += ppv2/pkt_l3fwd/l3fwd_lpm.c
 musdk_pkt_l3fwd_LDADD = $(top_builddir)/src/libmusdk.la
+
+bin_PROGRAMS += musdk_pkt_gen
+musdk_pkt_gen_SOURCES  = ../common/lib/cli.c
+musdk_pkt_gen_SOURCES += ../common/mvapp.c
+musdk_pkt_gen_SOURCES += ../common/pp2_utils.c
+musdk_pkt_gen_SOURCES += ../common/lib/xxhash.c
+musdk_pkt_gen_SOURCES += ../common/lib//ezxml.c
+musdk_pkt_gen_SOURCES += ppv2/pkt_gen/pkt_gen.c
+musdk_pkt_gen_LDADD = $(top_builddir)/src/libmusdk.la
 endif
