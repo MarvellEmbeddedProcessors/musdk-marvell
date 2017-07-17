@@ -1,0 +1,157 @@
+NETA driver User Guide
+=============================================
+
+1. Introduction
+===============
+
+MUSDK NETA driver and test applications are part of the whole MUSDK package and
+applicable for A3700 platforms.
+
+MUSDK NETA driver provides capability of usage NETA HW unit directly from user-space
+applications with minimum overhead and high performance.
+
+2.  Supported Features
+======================
+
+2.1 NETA initialization
+-----------------------
+int neta_init(struct neta_init_params *params);
+
+- Initialize the global NETA resources.
+- Fields in "struct neta_init_params" are:
+  - bm_pool_reserved_map	- buffer manager pools reserved by kernel space.
+
+2.2 NETA shutdown
+-----------------
+int neta_deinit(void);
+
+- Destroy NETA driver and free global resources.
+
+2.3 BM Pool
+-----------
+	APIs to work with BM pools:
+
+	- int neta_bpool_init(struct neta_bpool_params *params, struct neta_bpool **bpool);
+	- void neta_bpool_deinit(struct neta_bpool *pool);
+	- int neta_bpool_get_buff(struct neta_bpool *pool, struct neta_buff_inf *buff);
+	- int neta_bpool_put_buffs(struct buff_release_entry buff_entry[], int *num);
+	- int neta_bpool_put_buff(struct neta_bpool *pool, struct neta_buff_inf *buff_entry);
+	- int neta_bpool_get_num_buffs(struct neta_bpool *pool, u32 *num_buffs);
+
+2.4 PPIO
+----------
+	Init:
+	-----
+	- int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio);
+	- void neta_ppio_deinit(struct neta_ppio *ppio);
+	- int neta_ppio_enable(struct neta_ppio *ppio);
+	- int neta_ppio_disable(struct neta_ppio *ppio);
+
+	Send/Receive:
+	------------
+	- int neta_ppio_send(struct neta_ppio *ppio, u8 qid, struct neta_ppio_desc *descs, u16 *num)
+	- int neta_ppio_recv(struct neta_ppio *ppio, u8 qid, struct neta_ppio_desc *descs, u16 *num);
+	- int neta_ppio_get_num_outq_done(struct neta_ppio *ppio, u8 qid, u16 *num);
+
+	Filtering:
+	---------
+	Not supported.
+
+	Outqueue:
+	---------
+	Support all neta_ppio_outq_xxx API's
+
+	Inqueue:
+	--------
+	Support all neta_ppio_inq_xxx API's
+
+	Statistics:
+	----------
+	Not supported.
+
+
+3. Source tree
+==============
+Sources:
+
+musdk/
+	- src/include/driver/	- public include files for NETA driver
+		- mv_neta.h
+		- mv_neta_ppio.h
+		- mv_neta_bpool.h
+
+	- src/driver/neta/	- NETA driver implementation
+		- neta.c
+		- neta_hw.h
+		- neta_hw.c
+		- neta_ppio.h
+		- neta_ppio.c
+		- neta_bm.h
+		- neta_bm.c
+
+	- apps/examples/neta/pkt_echo/	- is a basic forwarding application supplied with MUSDK framework
+		- pkt_echo.c
+
+Binaries:
+	- libmusdk.a		- MUSDK APIs implementation library
+	- musdk_pkt_echo	- simple test application
+
+
+4.  NETA test applications
+===============================
+To run MUSDK NETA test applications, mv_neta_uio.ko kernel modules must be loaded before.
+For more details please refer to musdk_get_started.txt chapter "5. Insert kernel modules".
+
+4.1. Test application "musdk_pkt_echo"
+----------------------------------------
+Base configuration for Armada 3720 DB, both ports belong to User Space:
+
+		> ifconfig eth0 up
+		> ifconfig eth1 up
+		> sleep 1
+		> insmod musdk_uio.ko
+		> insmod mv_neta_uio.ko
+
+Command parameters:
+
+	See help in application:
+
+	MUSDK packet-echo application.
+
+	Usage: musdk_pkt_echo OPTIONS
+	E.g. musdk_pkt_echo -i eth0,eth1 -c 1
+
+	Mandatory OPTIONS:
+        -i, --interface <Eth-interfaces> (comma-separated, no spaces)
+                  Interface count min 1, max 2
+
+	Optional OPTIONS:
+        -b <size>                Burst size, num_pkts handled in a batch. Currently not supported.
+				 (default is 256)
+        --mtu <mtu>              Set MTU (default is 1500). Currently not supported.
+        -c, --cores <number>     Number of CPUs to use
+        -s                       Maintain statistics. Currently not supported.
+        --rxq <size>             Size of rx_queue. Currently not supported. (default is 512)
+        --cli                    Use CLI. Currently not supported.
+        ?, -h, --help            Display help and exit.
+
+
+
+Limitations
+	- It is assumed the interface is brought up in Linux before being used by musdk_pkt_echo.
+	- No RSS support.
+
+
+4.1.1. Example for single core
+-------------------------------------
+	> ./musdk_pkt_echo -i eth0
+
+4.1.2. Example for single core and two ports
+-------------------------------------
+	> ./musdk_pkt_echo -i eth0,eth1
+
+4.1.2. Example for two core and two ports
+-------------------------------------
+	> ./musdk_pkt_echo -i eth0,eth1 -c 2
+
+

@@ -53,6 +53,12 @@ This step is optional and required only when DMA driver is used
 		=> cd <musdk-dir>/modules/dmax2
 		=> make
 
+2.6. Build the NETA UIO kernel module and install it:
+This step is optional and required only when NETA driver is used
+
+		=> cd <musdk-dir>/modules/neta
+		=> make
+
 3. Prepare EIP197 Firmware images
 ---------------------------------
 This step is optional and required only when using SAM driver.
@@ -76,10 +82,21 @@ This step is optional and required only when using SAM driver.
 		=> cd <musdk-dir>
 		=> ./bootstrap
 
-configure option #1 - build w/o SAM driver:
+For A7040/8040 use:
+
+configure option #1 - build PP2 driver and related applications:
 		=> ./configure
-configure option #2 - build with SAM driver and SAM test application:
+
+configure option #2 - build PP2 with SAM driver and SAM test application:
 		=> ./configure --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+
+For A3700 use:
+configure option #3 - build NETA driver and related applications:
+		=> ./configure --enable-neta
+
+configure option #4 - build NETA driver with SAM driver and SAM test application:
+		=> ./configure --enable-neta --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+
 		=> make -j8
 		=> make install
 
@@ -94,11 +111,14 @@ NOTE: Default install directory is: <musdk-dir>/usr/local
 5.2. Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
 
 5.3. Insert MUSDK kernel space modules
-		=> insmod musdk_uio.ko
-		=> insmod mv_pp_uio.ko
-		=> insmod mv_dmax2_uio.ko
+		=> insmod musdk_uio.ko     (mandatory)
+For A7040/8040:
+		=> insmod mv_pp_uio.ko     (mandatory)
+		=> insmod mv_dmax2_uio.ko  (optional)
+For A3700:
+                => insmod mv_neta_uio.ko   (mandatory)
 
-5.4 Insert Marvell sysfs kernel module (optional - needed only to run "musdk_cls_demo", in case unicast address
+5.4 Insert Marvell PP2 sysfs kernel module (optional - needed only to run "musdk_cls_demo", in case unicast address
     filtering is required)
 		=> insmod mvpp2x_sysfs.ko
 
@@ -110,7 +130,7 @@ To run MUSDK SAM test applications kernel modules below must be loaded first:
 5.6 Load kernel module for global EIP197 initializations
 		=> insmod crypto_safexcel.ko rings=0,0
 
-Note: rings=x,y means how many EIP197 rings allocated for kernel usage.
+Note: rings=x,y means how many EIP197/EIP97 rings allocated for kernel usage.
 	x - for cp0 engine
 	y - for cp1 engine (if exist)
 
@@ -120,4 +140,4 @@ Note: rings=x,y means how many EIP197 rings allocated for kernel usage.
 Please see instructions in "Running MUSDK Examples" section.
 
 In addition, some module-specific test applications are described in the corresponding user guide section.
- 
+
