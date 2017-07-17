@@ -1040,8 +1040,8 @@ static int init_local(void *arg, int id, void **_larg)
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = lcl_pp2_args->lcl_ports_desc;
 
-	pr_debug("thread %d (cpu %d) mapped to Qs %llx using %s\n",
-		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map, name);
+	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
+		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
 
 	*_larg = larg;
 	return 0;
