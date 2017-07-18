@@ -169,10 +169,6 @@ struct local_arg;
 
 struct glob_arg {
 	struct glb_common_args	cmn_args;  /* Keep first */
-
-#ifdef CRYPT_APP_VERBOSE_DEBUG
-	int				verbose;
-#endif /* CRYPT_APP_VERBOSE_DEBUG */
 	enum crypto_dir			dir;
 	enum sam_crypto_protocol	crypto_proto;
 	enum sam_cipher_alg		cipher_alg;
@@ -197,7 +193,7 @@ struct local_arg {
 	struct mv_stack			*stack_hndl;
 	struct sam_cio			*enc_cio;
 	struct sam_sa			*enc_sa;
-	u32                     seq_id[MVAPPS_PP2_MAX_NUM_PORTS];
+	u32				seq_id[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct sam_cio			*dec_cio;
 	struct sam_sa			*dec_sa;
 	enum crypto_dir			dir;
@@ -246,7 +242,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 			     u16			 num)
 {
 	char	*tmp_buff;
-	int	prefetch_shift = larg->cmn_args.garg->cmn_args.prefetch_shift;
+	int	prefetch_shift = larg->cmn_args.prefetch_shift;
 	u16	i;
 	struct pkt_mdata *mdata;
 
@@ -261,7 +257,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 		tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->cmn_args.garg->cmn_args.verbose > 1) {
+		if (larg->cmn_args.verbose > 1) {
 			printf("pkt before echo (len %d):\n",
 			       sam_res_descs[i].out_len);
 			mv_mem_dump((u8 *)tmp_buff, sam_res_descs[i].out_len);
@@ -293,7 +289,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	u8			data_offs;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-	if (larg->cmn_args.garg->cmn_args.verbose)
+	if (larg->cmn_args.verbose)
 		pr_info("%s: %d packets received. %d -> %d\n", __func__, num, rx_ppio_id, tx_ppio_id);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
@@ -344,7 +340,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		src_buf_infs[i].len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->cmn_args.garg->cmn_args.verbose > 1) {
+		if (larg->cmn_args.verbose > 1) {
 			printf("Received packet (va:%p, pa 0x%08x, len %d):\n",
 			       src_buf_infs[i].vaddr,
 			       (unsigned int)src_buf_infs[i].paddr,
@@ -484,7 +480,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 		}
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->cmn_args.garg->cmn_args.verbose > 1) {
+		if (larg->cmn_args.verbose > 1) {
 			printf("Encrypted packet (va:%p, pa 0x%08x, len %d):\n",
 			       src_buf_infs[i].vaddr,
 			       (unsigned int)src_buf_infs[i].paddr,
@@ -532,7 +528,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 
 
-	for (tp = 0; tp < larg->cmn_args.garg->cmn_args.num_ports; tp++)
+	for (tp = 0; tp < larg->cmn_args.num_ports; tp++)
 		port_nums[tp] = 0;
 
 	for (i = 0; i < num; i++) {
@@ -571,7 +567,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 						  mdata->data_offs + sizeof(struct iphdr), 1, 0);
 		}
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->cmn_args.garg->verbose > 1) {
+		if (larg->cmn_args.verbose > 1) {
 			printf("Sending packet (va:%p, pa 0x%08x, len %d):\n",
 			       buff, (unsigned int)pa, len);
 			mv_mem_dump((u8 *)buff + MVAPPS_PP2_PKT_EFEC_OFFS, len);
@@ -590,7 +586,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		mv_stack_push(larg->stack_hndl, mdata);
 	}
 
-	for (tp = 0; tp < larg->cmn_args.garg->cmn_args.num_ports; tp++) {
+	for (tp = 0; tp < larg->cmn_args.num_ports; tp++) {
 		num = num_got = port_nums[tp];
 		shadow_q = &pp2_args->lcl_ports_desc[tp].shadow_qs[tc];
 
@@ -604,7 +600,7 @@ START_COUNT_CYCLES(pme_ev_cnt_tx);
 STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->cmn_args.garg->cmn_args.verbose && num_got)
+		if (larg->cmn_args.verbose && num_got)
 			printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
@@ -735,7 +731,7 @@ START_COUNT_CYCLES(pme_ev_cnt_rx);
 STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-	if (larg->cmn_args.garg->cmn_args.verbose && num)
+	if (larg->cmn_args.verbose && num)
 		printf("recv %d pkts on ppio %d, tc %d, qid %d\n", num, rx_ppio_id, tc, qid);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
@@ -1374,7 +1370,6 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 
 	lcl_pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
-	larg->cmn_args.id		= id;
 	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
 
 	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
@@ -1445,11 +1440,15 @@ static int init_local(void *arg, int id, void **_larg)
 			return err;
 	}
 
-	larg->cmn_args.id                = id;
+	larg->cmn_args.id               = id;
+	larg->cmn_args.verbose		= garg->cmn_args.verbose;
 	larg->cmn_args.burst		= garg->cmn_args.burst;
-	larg->cmn_args.echo              = garg->cmn_args.echo;
-	larg->dir               = garg->dir;
-	larg->cmn_args.num_ports         = garg->cmn_args.num_ports;
+	larg->cmn_args.echo             = garg->cmn_args.echo;
+	larg->cmn_args.prefetch_shift   = garg->cmn_args.prefetch_shift;
+	larg->cmn_args.num_ports        = garg->cmn_args.num_ports;
+
+	larg->dir			= garg->dir;
+
 	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
 					malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	if (!lcl_pp2_args->lcl_ports_desc) {
@@ -1621,10 +1620,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int	i = 1;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 
-
-#ifdef CRYPT_APP_VERBOSE_DEBUG
 	garg->cmn_args.verbose = 0;
-#endif /* CRYPT_APP_VERBOSE_DEBUG */
 	garg->cmn_args.cli = 0;
 	garg->cmn_args.cpus = 1;
 	garg->cmn_args.affinity = -1;
