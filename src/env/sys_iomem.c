@@ -394,8 +394,7 @@ int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
 			liomem_node = LIST_OBJECT(pos, struct sys_iomem, node);
 			if (strcmp(liomem_node->name, params->devname) == 0
 				&& liomem_node->index == params->index) {
-				pr_err("requested iomem device already initialized\n");
-				return -EEXIST;
+				pr_warn("requested iomem device already initialized\n");
 			}
 		}
 	}
