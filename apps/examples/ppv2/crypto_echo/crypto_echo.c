@@ -250,11 +250,11 @@ static inline void echo_pkts(struct local_arg		*larg,
 		if (num - i > prefetch_shift) {
 			mdata = sam_res_descs[i + prefetch_shift].cookie;
 			tmp_buff = mdata->buf_vaddr;
-			prefetch(tmp_buff + MVAPPS_PP2_PKT_OFFS);
+			prefetch(tmp_buff + MVAPPS_PP2_PKT_DEF_OFFS);
 		}
 		/* pointer to MAC header */
 		mdata = sam_res_descs[i].cookie;
-		tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
+		tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
@@ -266,7 +266,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 		swap_l2(tmp_buff);
 		swap_l3(tmp_buff);
 		/*printf("pkt after echo:\n");*/
-		/*mem_disp(tmp_buff, sam_res_descs[i].out_len  - MVAPPS_PP2_PKT_EFEC_OFFS);*/
+		/*mem_disp(tmp_buff, sam_res_descs[i].out_len  - MVAPPS_PP2_PKT_DEF_EFEC_OFFS);*/
 	}
 }
 #endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
@@ -331,10 +331,10 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->flags = flags;
 
 		/* Set vaddr and paddr to MAC address of the packet */
-		vaddr += MVAPPS_PP2_PKT_EFEC_OFFS;
+		vaddr += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 		src_buf_infs[i].vaddr = (char *)((uintptr_t)vaddr);
 
-		src_buf_infs[i].paddr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]) + MVAPPS_PP2_PKT_EFEC_OFFS;
+		src_buf_infs[i].paddr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]) + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
 		/* Exclude MH from packet length */
 		src_buf_infs[i].len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
@@ -451,7 +451,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 		mdata = sam_res_descs[i].cookie;
 		data_offs = mdata->data_offs;
 
-		src_buf_infs[i].vaddr = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS;
+		src_buf_infs[i].vaddr = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 		src_buf_infs[i].paddr = mv_sys_dma_mem_virt2phys(src_buf_infs[i].vaddr);
 		src_buf_infs[i].len = sam_res_descs[i].out_len;
 
@@ -549,14 +549,14 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		if (mdata->flags & MDATA_FLAGS_IP4_SEQID_MASK) {
 			/* Set SeqID to IPv4 header of the packet */
 			struct iphdr *iph = (struct iphdr *)
-					((char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_EFEC_OFFS + mdata->data_offs);
+					((char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS + mdata->data_offs);
 
 			iph->id = htobe16(larg->seq_id[tp]++);
 		}
 
 		pp2_ppio_outq_desc_reset(desc);
 		pp2_ppio_outq_desc_set_phys_addr(desc, pa);
-		pp2_ppio_outq_desc_set_pkt_offset(desc, MVAPPS_PP2_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(desc, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(desc, len);
 
 		if (mdata->flags & MDATA_FLAGS_IP4_CSUM_MASK) {
@@ -570,7 +570,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		if (larg->cmn_args.verbose > 1) {
 			printf("Sending packet (va:%p, pa 0x%08x, len %d):\n",
 			       buff, (unsigned int)pa, len);
-			mv_mem_dump((u8 *)buff + MVAPPS_PP2_PKT_EFEC_OFFS, len);
+			mv_mem_dump((u8 *)buff + MVAPPS_PP2_PKT_DEF_EFEC_OFFS, len);
 		}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
@@ -1120,8 +1120,9 @@ static int init_local_modules(struct glob_arg *garg)
 			else
 				port->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 
+			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools,
-					    pp2_args->pools_desc[port->pp_id], garg->cmn_args.mtu);
+					    pp2_args->pools_desc[port->pp_id], garg->cmn_args.mtu, 0);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -1636,6 +1637,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->auth_alg = SAM_AUTH_HMAC_SHA1;
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
+	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.prefetch_shift = CRYPT_APP_PREFETCH_SHIFT;
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
 	garg->ctrl_thresh = CRYPT_APP_CTRL_DFLT_THR;

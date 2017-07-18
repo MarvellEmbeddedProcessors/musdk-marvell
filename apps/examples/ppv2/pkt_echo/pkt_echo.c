@@ -48,6 +48,7 @@
 
 #include "pp2_utils.h"
 
+
 /* #define HW_BUFF_RECYLCE */
 /* #define PORTS_LOOPBACK */
 #define APP_TX_RETRY
@@ -159,20 +160,17 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 #ifdef PKT_ECHO_APP_PKT_ECHO_SUPPORT
 	int			 prefetch_shift = larg->cmn_args.prefetch_shift;
 #endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
+	struct lcl_port_desc	*lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
+	u16 pkt_offset = MVAPPS_PP2_PKT_EFEC_OFFS(lcl_port_desc->pkt_offset[tc]);
 
-/* pr_info("tid %d check on tc %d, qid %d\n", larg->cmn_args.id, tc, qid); */
-/* pthread_mutex_lock(&larg->cmn_args.garg->trd_lock); */
-	pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
-/* pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock); */
-/* if (num) pr_info("got %d pkts on thd %d, tc %d, qid %d\n", num, larg->cmn_args.id, tc, qid); */
-	INC_RX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num);
+	pp2_ppio_recv(lcl_port_desc->ppio, tc, qid, descs, &num);
+	INC_RX_COUNT(lcl_port_desc->ppio, num);
 
 	for (i = 0; i < num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
-		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i],
-								      pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
+		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], lcl_port_desc->ppio);
 
 #ifdef PKT_ECHO_APP_PKT_ECHO_SUPPORT
 		if (likely(larg->cmn_args.echo)) {
@@ -180,7 +178,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 #ifdef PKT_ECHO_APP_USE_PREFETCH
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
-				tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+				tmp_buff += pkt_offset;
 				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
@@ -189,23 +187,21 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 #endif /* PKT_ECHO_APP_USE_PREFETCH */
 			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
 			pr_debug("buff2(%p)\n", tmp_buff);
-			tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
-			/* printf("packet:\n"); mem_disp(tmp_buff, len); */
+			tmp_buff += pkt_offset;
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
-			/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 		}
 #endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
 
 		pp2_ppio_outq_desc_reset(&descs[i]);
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PP2_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], pkt_offset);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 		pp2_ppio_outq_desc_set_cookie(&descs[i], (uintptr_t)(buff));
 		pp2_ppio_outq_desc_set_pool(&descs[i], bpool);
 	}
 
-	SET_MAX_BURST(&pp2_args->lcl_ports_desc[rx_ppio_id], num);
+	SET_MAX_BURST(lcl_port_desc, num);
 #ifdef APP_TX_RETRY
 	while (num) {
 		tx_num = num;
@@ -214,24 +210,24 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 
 		if (num > tx_num) {
 			if (!cnt)
-				INC_TX_RETRY_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
+				INC_TX_RETRY_COUNT(lcl_port_desc, num - tx_num);
 			cnt++;
 			usleep(PKT_ECHO_APP_TX_RETRY_WAIT);
 		}
 		desc_idx += tx_num;
 		num -= tx_num;
-		INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
+		INC_TX_COUNT(lcl_port_desc, tx_num);
 	}
-	SET_MAX_RESENT(&pp2_args->lcl_ports_desc[rx_ppio_id], cnt);
+	SET_MAX_RESENT(lcl_port_desc, cnt);
 #else
 	if (num) {
 		tx_num = num;
 		pp2_ppio_send(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif, tc, descs, &tx_num);
 		if (num > tx_num) {
 			free_buffers(larg, &descs[tx_num], num - tx_num, rx_ppio_id);
-			INC_TX_DROP_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
+			INC_TX_DROP_COUNT(lcl_port_desc, num - tx_num);
 		}
-		INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
+		INC_TX_COUNT(lcl_port_desc, tx_num);
 	}
 #endif /* APP_TX_RETRY */
 	return 0;
@@ -264,23 +260,25 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	enum pp2_inq_l4_type     l4_type;
 	u8                       l3_offset, l4_offset;
 #endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
+	struct lcl_port_desc	*lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
+	u16 pkt_offset = MVAPPS_PP2_PKT_EFEC_OFFS(lcl_port_desc->pkt_offset[tc]);
+
 
 	shadow_q = &pp2_args->lcl_ports_desc[tx_ppio_id].shadow_qs[tc];
 	shadow_q_size = pp2_args->lcl_ports_desc[tx_ppio_id].shadow_q_size;
 
 /* pr_info("tid %d check on tc %d, qid %d\n", larg->cmn_args.id, tc, qid); */
 /* pthread_mutex_lock(&larg->cmn_args.garg->trd_lock); */
-	pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
+	pp2_ppio_recv(lcl_port_desc->ppio, tc, qid, descs, &num);
 /* pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock); */
 /* if (num) pr_info("got %d pkts on tc %d, qid %d\n", num, tc, qid); */
-	INC_RX_COUNT(&(pp2_args->lcl_ports_desc[rx_ppio_id]), num);
+	INC_RX_COUNT(lcl_port_desc, num);
 
 	for (i = 0; i < num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
-		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i],
-								      pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
+		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], lcl_port_desc->ppio);
 
 #ifdef PKT_ECHO_APP_PKT_ECHO_SUPPORT
 		if (likely(larg->cmn_args.echo)) {
@@ -288,7 +286,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #ifdef PKT_ECHO_APP_USE_PREFETCH
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
-				tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+				tmp_buff += pkt_offset;
 				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
@@ -297,7 +295,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #endif /* PKT_ECHO_APP_USE_PREFETCH */
 			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
 			pr_debug("buff2(%p)\n", tmp_buff);
-			tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+			tmp_buff += pkt_offset;
 			/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
@@ -319,7 +317,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #endif /* (PKT_ECHO_APP_HW_TX_IPV4_CHKSUM_CALC ||  ... */
 #endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PP2_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], pkt_offset);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
@@ -329,7 +327,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		if (shadow_q->write_ind == shadow_q_size)
 			shadow_q->write_ind = 0;
 	}
-	SET_MAX_BURST(&pp2_args->lcl_ports_desc[rx_ppio_id], num);
+	SET_MAX_BURST(lcl_port_desc, num);
 	for (mycyc = 0; mycyc < larg->busy_wait; mycyc++)
 		asm volatile("");
 #ifdef APP_TX_RETRY
@@ -340,18 +338,17 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				      &descs[desc_idx], &tx_num);
 			if (num > tx_num) {
 				if (!cnt)
-					INC_TX_RETRY_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
+					INC_TX_RETRY_COUNT(lcl_port_desc, num - tx_num);
 				cnt++;
 			}
 			desc_idx += tx_num;
 			num -= tx_num;
-			INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
+			INC_TX_COUNT(lcl_port_desc, tx_num);
 		}
-		free_sent_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id],
-				  &pp2_args->lcl_ports_desc[tx_ppio_id], pp2_args->hif, tc,
-				  larg->multi_buffer_release);
+		free_sent_buffers(lcl_port_desc, &pp2_args->lcl_ports_desc[tx_ppio_id], pp2_args->hif,
+				  tc, larg->multi_buffer_release);
 	} while (num);
-	SET_MAX_RESENT(&pp2_args->lcl_ports_desc[rx_ppio_id], cnt);
+	SET_MAX_RESENT(lcl_port_desc, cnt);
 #else
 	if (num) {
 		tx_num = num;
@@ -362,15 +359,15 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 						(shadow_q_size - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
-			free_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id],
+			free_buffers(lcl_port_desc,
 				     &pp2_args->lcl_ports_desc[tx_ppio_id], pp2_args->hif,
 				     shadow_q->write_ind, not_sent, tc);
-			INC_TX_DROP_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], not_sent);
+			INC_TX_DROP_COUNT(lcl_port_desc, not_sent);
 		}
-		INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
+		INC_TX_COUNT(lcl_port_desc, tx_num);
 	}
-	free_sent_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id], &pp2_args->lcl_ports_desc[tx_ppio_id],
-			  pp2_args->hif, tc, larg->multi_buffer_release);
+	free_sent_buffers(lcl_port_desc, &pp2_args->lcl_ports_desc[tx_ppio_id], pp2_args->hif, tc,
+			  larg->multi_buffer_release);
 #endif /* APP_TX_RETRY */
 
 	return 0;
@@ -592,7 +589,7 @@ static int init_local_modules(struct glob_arg *garg)
 				port->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
-					    garg->cmn_args.mtu);
+					    garg->cmn_args.mtu, garg->cmn_args.pkt_offset);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -743,7 +740,6 @@ static int init_local(void *arg, int id, void **_larg)
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = lcl_pp2_args->lcl_ports_desc;
 
-
 	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
 		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
 
@@ -772,12 +768,14 @@ static void usage(char *progname)
 	       "\t-s                       Maintain statistics\n"
 	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
+	       "\t--pkt-offset <size>      Packet offset in buffer, must be multiple of 32-byte (default is %d)\n"
 	       "\t--old-tx-desc-release    Use pp2_bpool_put_buff(), instead of NEW pp2_bpool_put_buffs() API\n"
 	       "\t--no-echo                Don't perform 'pkt_echo', N/A w/o define PKT_ECHO_APP_PKT_ECHO_SUPPORT\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       MVAPPS_PP2_MAX_NUM_PORTS, PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE);
+	       MVAPPS_PP2_MAX_NUM_PORTS, PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
+	       MVAPPS_PP2_PKT_DEF_OFFS);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
@@ -797,6 +795,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.echo = 1;
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
+	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
 	garg->maintain_stats = 0;
 
@@ -879,6 +878,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			i += 2;
 		} else if (strcmp(argv[i], "--rxq") == 0) {
 			garg->rxq_size = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "--pkt-offset") == 0) {
+			garg->cmn_args.pkt_offset = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "--old-tx-desc-release") == 0) {
 			garg->multi_buffer_release = 0;

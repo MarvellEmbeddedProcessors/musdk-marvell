@@ -39,9 +39,11 @@
 #include "mv_pp2_ppio.h"
 
 /* pkt offset, must be multiple of 32 bytes */
-#define MVAPPS_PP2_PKT_OFFS			64
+#define MVAPPS_PP2_PKT_DEF_OFFS			64
 /* pkt offset including Marvell header */
-#define MVAPPS_PP2_PKT_EFEC_OFFS		(MVAPPS_PP2_PKT_OFFS + MV_MH_SIZE)
+#define MVAPPS_PP2_PKT_DEF_EFEC_OFFS		(MVAPPS_PP2_PKT_DEF_OFFS + MV_MH_SIZE)
+#define MVAPPS_PP2_PKT_EFEC_OFFS(pkt_offset)	(pkt_offset + MV_MH_SIZE)
+
 /* Maximum number of packet processors used by application */
 #define MVAPPS_PP2_MAX_PKT_PROC		2
 /* Maximum number of ports used by application */
@@ -161,6 +163,7 @@ struct lcl_port_desc {
 	int			shadow_q_size;	/* Size of Tx shadow queue */
 	struct tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
 	struct pp2_counters	cntrs;
+	u16			pkt_offset[PP2_PPIO_MAX_NUM_TCS];
 };
 
 /*
@@ -324,7 +327,8 @@ int app_find_port_info(struct port_desc *port_desc);
 /*
  * Init port
  */
-int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu);
+int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset);
+
 /*
  * Init local port object per thread according to port parameters
  */

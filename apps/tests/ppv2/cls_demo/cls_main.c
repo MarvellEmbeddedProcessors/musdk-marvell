@@ -133,7 +133,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #ifdef CLS_APP_USE_APP_PREFETCH
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
-				tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+				tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
@@ -142,14 +142,14 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #endif /* CLS_APP_USE_APP_PREFETCH */
 			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
 			pr_debug("buff2(%p)\n", tmp_buff);
-			tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
 		}
 #endif /* CLS_APP_PKT_ECHO_SUPPORT */
 		pp2_ppio_outq_desc_reset(&descs[i]);
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PP2_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
@@ -301,9 +301,9 @@ static int init_local_modules(struct glob_arg *garg)
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
 			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
 			port->hash_type = garg->hash_type;
-
+			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
-					    DEFAULT_MTU);
+					    DEFAULT_MTU, 0);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -491,6 +491,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.cpus = 1;
 	garg->cmn_args.qs_map = CLS_APP_QS_MAP_MASK;
 	garg->cmn_args.qs_map_shift = CLS_APP_MAX_NUM_TCS_PER_PORT;
+	garg->cmn_args.pkt_offset = 0;
+
 	garg->cmn_args.echo = 0;
 	garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 	garg->cmn_args.num_ports = 0;

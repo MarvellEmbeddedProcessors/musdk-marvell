@@ -466,7 +466,7 @@ int app_find_port_info(struct port_desc *port_desc)
 	return 0;
 }
 
-int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu)
+int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset)
 {
 	struct pp2_ppio_params		*port_params = &port->port_params;
 	struct pp2_ppio_inq_params	inq_params;
@@ -499,7 +499,7 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	}
 
 	for (i = 0; i < port->num_tcs; i++) {
-		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PP2_PKT_OFFS >> 2;
+		port_params->inqs_params.tcs_params[i].pkt_offset = (pkt_offset) ? pkt_offset : MVAPPS_PP2_PKT_DEF_OFFS;
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
 		inq_params.size = port->inq_size;
 		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
@@ -562,6 +562,8 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 		lcl_port->shadow_qs[i].ents =
 			(struct tx_shadow_q_entry *)malloc(port->outq_size * sizeof(struct tx_shadow_q_entry));
 	}
+	for (i = 0; i < port->num_tcs; i++)
+		lcl_port->pkt_offset[i] = port->port_params.inqs_params.tcs_params[i].pkt_offset;
 }
 
 void app_port_local_deinit(struct lcl_port_desc *lcl_port)

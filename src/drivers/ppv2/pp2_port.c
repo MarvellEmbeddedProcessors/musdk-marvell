@@ -621,13 +621,14 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 	pp2_reg_write(cpu_slot, MVPP2_RXQ_DESC_SIZE_REG, rxq->desc_total);
 	pp2_reg_write(cpu_slot, MVPP2_RXQ_INDEX_REG, 0x0);
 
-	/* Set Offset - cache line */
-	pp2_rxq_offset_set(port, rxq->id, PP2_PACKET_OFFSET);
 	tc = pp2_rxq_tc_get(port, rxq->id);
 	if (!tc) {
 		pr_err("port(%d) phy_rxq(%d), not found in tc range\n", port->id, rxq->id);
 		return;
 	}
+	/* Set Offset */
+	pp2_rxq_offset_set(port, rxq->id,  tc->tc_config.pkt_offset);
+
 	pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL]->bm_pool_id, rxq->id,
 			   BM_TYPE_SHORT_BUF_POOL);
 	pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, rxq->id,
@@ -1196,9 +1197,22 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	port->first_rxq = first_rxq;
 	port->num_tcs = param->inqs_params.num_tcs;
 	for (i = 0; i < port->num_tcs; i++) {
+		u16 tc_pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
 		num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;
 		port->tc[i].rx_ring_size = param->inqs_params.tcs_params[i].inqs_params->size;
-		port->tc[i].tc_config.pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
+		if (tc_pkt_offset > PP2_MAX_PACKET_OFFSET) {
+			pr_err("port %s: tc[%d] pkt_offset[%u] too large\n", port->linux_name, i, tc_pkt_offset);
+			return -EINVAL;
+		}
+		if (tc_pkt_offset % PP2_BUFFER_OFFSET_GRAN) {
+			pr_err("port %s: tc[%d] pkt_offset[%u] must be multiple of %d\n", port->linux_name, i,
+				tc_pkt_offset, PP2_BUFFER_OFFSET_GRAN);
+			return -EINVAL;
+		}
+		if (tc_pkt_offset)
+			port->tc[i].tc_config.pkt_offset = tc_pkt_offset;
+		else
+			port->tc[i].tc_config.pkt_offset = PP2_PACKET_DEF_OFFSET;
 		port->tc[i].first_log_rxq = total_num_in_qs;
 		port->tc[i].tc_config.num_in_qs = num_in_qs;
 		/*To support RSS, each TC must start at natural rxq boundary */
@@ -1562,16 +1576,19 @@ pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t in_qid,
 }
 
 /* Port Control routines */
-static int pp2_port_check_buf_size(struct pp2_port *port, uint32_t size)
+static int pp2_port_check_buf_size(struct pp2_port *port, uint16_t mru)
 {
-	u32 buf_size;
+	u16 pool_buf_size, req_buf_size, pkt_offset;
 	int i;
 
 	for (i = 0; i < port->num_tcs; i++) {
-		buf_size = port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_buf_sz;
-		if (buf_size < size) {
-			pr_err("PORT: Oversize pkt_size=[%u]. tc[%u]:pool_id[%u]:buf_sz=[%u]\n",
-				size, port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, i, buf_size);
+		pkt_offset = port->tc[i].tc_config.pkt_offset;
+		req_buf_size = MVPP2_MRU_BUF_SIZE(mru, pkt_offset);
+		pool_buf_size = port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_buf_sz;
+		if (pool_buf_size < req_buf_size) {
+			pr_err("PORT: Oversize required buf_size=[%u]. tc[%u]:pool_id[%u]:buf_size=[%u]\n",
+				req_buf_size, port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, i,
+				pool_buf_size);
 			return -EINVAL;
 		}
 	}
@@ -1618,7 +1635,7 @@ static int pp2_port_check_mru_valid(struct pp2_port *port, uint16_t mru)
 	}
 	/* Check the port's related bm_pools buffer_sizes are adequate */
 	if (mru > port->port_mru)
-		err = pp2_port_check_buf_size(port, MVPP2_MRU_BUF_SIZE(mru));
+		err = pp2_port_check_buf_size(port, mru);
 
 	return err;
 }

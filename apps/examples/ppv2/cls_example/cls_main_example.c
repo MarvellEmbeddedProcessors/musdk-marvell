@@ -164,9 +164,9 @@ static int init_local_modules(struct glob_arg *garg)
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
 			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
 			port->hash_type = garg->hash_type;
-
+			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
-					    DEFAULT_MTU);
+					    DEFAULT_MTU, 0);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -358,6 +358,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->qos_flag = false;
 	garg->cls_table_flag = false;
 	garg->filter_flag = false;
+	garg->cmn_args.pkt_offset = 0;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;

@@ -108,16 +108,15 @@
  * This is valid for the first buffer of the packet,
  * all other buffers have a fixed offset = 32bytes
  */
-#define PP2_PACKET_OFFSET         (L1_CACHE_LINE_BYTES)
+#define PP2_PACKET_DEF_OFFSET     (L1_CACHE_LINE_BYTES)
+#define PP2_MAX_PACKET_OFFSET     (7*32)
+#define PP2_BUFFER_OFFSET_GRAN    (32)
+
 
 /* 32bytes always used by HW, found  at the beginning of buffers
  * It is also part of the packet offset(PP2_PACKET_OFFSET), first buffer
  */
 #define PP2_BUFFER_OFFSET         (32)
 
-
-/* packet data is stored relative to an offset */
-#define PP2_BUFF_START_ADDR(addr)   ((addr) + PP2_PACKET_OFFSET + MV_MH_SIZE)
-#define PP2_BUFF_SIZE(buff_size)    ((buff_size) + PP2_PACKET_OFFSET + MV_MH_SIZE)
 
 #endif /* _PP2_PLAT_H_ */

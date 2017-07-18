@@ -103,6 +103,7 @@ struct glb_common_args {
 	int			cli;
 	int			(*cli_unregister_cb)(void *);
 	int			qs_map_shift;
+	u16			pkt_offset; /* Zero maintains default pkt_offset */
 	u16			mtu;
 	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
 	void			*plat;

@@ -1348,10 +1348,8 @@
 	((mru) - MV_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
 	ETH_HLEN - ETH_FCS_LEN)
 
-#define MVPP2_MRU_PKT_SIZE(mru)		(ALIGN((mru), L1_CACHE_LINE_BYTES))
-
-#define MVPP2_MRU_BUF_SIZE(mru)		(MVPP2_MRU_PKT_SIZE(mru) + PP2_PACKET_OFFSET)
-#define MVPP2_MTU_BUF_SIZE(mtu)		(MVPP2_MTU_PKT_SIZE(mtu) + PP2_PACKET_OFFSET)
+#define MVPP2_MRU_BUF_SIZE(mru, offset)		(ALIGN((offset + mru), L1_CACHE_LINE_BYTES))
+#define MVPP2_MTU_BUF_SIZE(mtu, offset)		(ALIGN(offset + MVPP2_MTU_PKT_SIZE(mtu)), L1_CACHE_LINE_BYTES)
 
 #define MVPP2_RX_MTU_SIZE(pkt_size) \
 	(pkt_size - MV_MH_SIZE - MVPP2_VLAN_TAG_LEN - \

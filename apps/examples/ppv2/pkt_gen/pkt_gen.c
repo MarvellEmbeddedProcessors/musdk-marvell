@@ -231,7 +231,7 @@ static inline int loop_rx(struct local_arg	*larg,
 
 			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
 			pr_debug("buff2(%p)\n", tmp_buff);
-			tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 			printf("Received packet (va:%p, pa 0x%08x, len %d):\n",
 			       tmp_buff,
 			       (unsigned int)pa,
@@ -495,8 +495,9 @@ static int init_local_modules(struct glob_arg *garg)
 			else
 				port->hash_type = PP2_PPIO_HASH_T_5_TUPLE;
 
+			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
-					    garg->cmn_args.mtu);
+					    garg->cmn_args.mtu, 0);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -644,7 +645,9 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.verbose		= garg->cmn_args.verbose;
 
 	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
+
 	garg->cmn_args.largs[id] = larg;
+
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = lcl_pp2_args->lcl_ports_desc;
 	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
@@ -835,7 +838,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.prefetch_shift = PKT_GEN_APP_PREFETCH_SHIFT;
-
+	garg->cmn_args.pkt_offset = 0;
 	garg->busy_wait	= DEFAULT_WAIT_CYCLE;
 	garg->rxq_size = PKT_GEN_APP_RX_Q_SIZE;
 	garg->multi_buffer_release = 1;

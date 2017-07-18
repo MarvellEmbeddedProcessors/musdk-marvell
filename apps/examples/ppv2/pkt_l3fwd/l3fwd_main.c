@@ -291,13 +291,13 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #ifdef PKT_FWD_APP_USE_PREFETCH
 	if (num > prefetch_shift) {
 		tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr + prefetch_shift);
-		tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+		tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 		tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 		prefetch(tmp_buff);
 	}
 #endif /* PKT_FWD_APP_USE_PREFETCH */
 	tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-	tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+	tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
 	pp2_ppio_inq_desc_get_l3_info(desc_ptr, &l3_type, &l3_offset);
 #ifndef LPM_FRWD
@@ -315,7 +315,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	} else {
 		pp2_ppio_outq_desc_reset(desc_ptr);
 		pp2_ppio_outq_desc_set_phys_addr(desc_ptr, pa);
-		pp2_ppio_outq_desc_set_pkt_offset(desc_ptr, MVAPPS_PP2_PKT_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(desc_ptr, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(desc_ptr, len);
 
 		shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
@@ -348,13 +348,13 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			if (num - i > prefetch_shift) {
 				tmp_buff =
 					(char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr_cur + prefetch_shift);
-				tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+				tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				prefetch(tmp_buff);
 			}
 #endif /* PKT_FWD_APP_USE_PREFETCH */
 			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-			tmp_buff += MVAPPS_PP2_PKT_EFEC_OFFS;
+			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
 			pp2_ppio_inq_desc_get_l3_info(desc_ptr_cur, &l3_type, &l3_offset);
 #ifndef LPM_FRWD
@@ -371,7 +371,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			}
 			pp2_ppio_outq_desc_reset(desc_ptr_cur);
 			pp2_ppio_outq_desc_set_phys_addr(desc_ptr_cur, pa);
-			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_cur, MVAPPS_PP2_PKT_EFEC_OFFS);
+			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_cur, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(desc_ptr_cur, len);
 			shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
 			shadow_q_size = pp2_args->lcl_ports_desc[dif].shadow_q_size;
@@ -891,9 +891,9 @@ static int init_local_modules(struct glob_arg *garg)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
 			else
 				port->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
-
+			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
-					    garg->cmn_args.mtu);
+					    garg->cmn_args.mtu, 0);
 			if (err) {
 				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
@@ -1125,6 +1125,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.prefetch_shift = PKT_FWD_APP_PREFETCH_SHIFT;
+	garg->cmn_args.pkt_offset = 0;
 	garg->maintain_stats = 0;
 
 #ifdef LPM_FRWD

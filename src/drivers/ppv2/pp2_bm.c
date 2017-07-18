@@ -190,9 +190,9 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	/* FS_A8K Table 1713: Buffer 32-byte aligned and greater
 	 * than packet offset configured in RXSWQCFG register
 	 */
-	if (param->buf_size < PP2_PACKET_OFFSET) {
-		pr_err("BM: pool buffer size must be 32-byte aligned and greater than PP2_PACKET_OFFSET(%lu)\n",
-			PP2_PACKET_OFFSET);
+	if ((param->buf_size < PP2_BUFFER_OFFSET) || (param->buf_size % PP2_BUFFER_OFFSET_GRAN)) {
+		pr_err("BM: pool buffer size must be %u-byte aligned and greater or equal %u-bytes\n",
+			PP2_BUFFER_OFFSET_GRAN, PP2_BUFFER_OFFSET);
 		return -EACCES;
 	}
 	/* Allocate space for pool handler */
