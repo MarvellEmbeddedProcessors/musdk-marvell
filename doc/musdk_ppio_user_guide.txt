@@ -46,6 +46,8 @@ directly from user-space applications with minimum overhead and high performance
 	- int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu)
 	- int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len)
 	- int pp2_ppio_get_mru(struct pp2_ppio *ppio, u16 *len)
+	- int pp2_ppio_set_loopback(struct pp2_ppio *ppio, int en)
+	- int pp2_ppio_get_loopback(struct pp2_ppio *ppio, int *en)
 
 	unsupported:
 	- int pp2_ppio_send_sg(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2_ppio_sg_desc *descs, u16 *num)
@@ -203,7 +205,7 @@ if periodic maintenance (triggered by internal threshold) will be performed duri
 - pp2_ppio_outq_get_statistics():
 	- all counters are 64-bit.
 
-3.7 	Logical port
+3.7	Logical port
 ---------------------
 If an interface is defined as logical port, traffic is shared between kernel and MUSDK according to received queue.
 In this case, there is a need to define the rules by which the packet processor will know which traffic to send where.
@@ -217,4 +219,8 @@ This is performed through the logical port API (defined in mv_pp2_ppio.h file, s
 Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and
 configure this API.
 
+3.8	Loopback
+---------------------
+Marvell PPv2.2 incorporates hardware support for loopback operation.
 
+If an interface operates in loopback mode, all TX traffic is looped back into the RX side
