@@ -80,7 +80,7 @@ struct glob_arg {
 
 static struct glob_arg garg = {};
 
-static void	*dmax2;
+static struct	dmax2 *dmax2;
 static		u64 sys_dma_high_addr;
 off_t		page_offset;
 int		dev_mem_fd;

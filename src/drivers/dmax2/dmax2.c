@@ -103,7 +103,7 @@ static int mv_xor_v2_descq_init(struct dmax2 *dmax2)
 	return 0;
 }
 
-int dmax2_init(struct dmax2_params *params, void **dmax2)
+int dmax2_init(struct dmax2_params *params, struct dmax2 **dmax2)
 {
 	struct dmax2 *dmax2_lcl;
 	int ret = 0;
@@ -151,7 +151,7 @@ int dmax2_init(struct dmax2_params *params, void **dmax2)
 
 	mv_xor_v2_descq_init(dmax2_lcl);
 
-	*dmax2 = (void *) dmax2_lcl;
+	*dmax2 = dmax2_lcl;
 	return 0;
 
 free_dev_mem:
@@ -165,28 +165,25 @@ free_dev:
 	return ret;
 }
 
-int dmax2_deinit(void *dmax2)
+int dmax2_deinit(struct dmax2 *dmax2)
 {
-	struct dmax2 *dmax2_lcl = (struct dmax2 *)dmax2;
-
-	if (!dmax2_lcl)
+	if (!dmax2)
 		return -EINVAL;
 
-	if (dmax2_lcl->hw_desq_virt)
-		mv_sys_dma_mem_free(dmax2_lcl->hw_desq_virt);
+	if (dmax2->hw_desq_virt)
+		mv_sys_dma_mem_free(dmax2->hw_desq_virt);
 
 	deinit_dmax2_mem(dmax2);
 
-	kfree(dmax2_lcl);
+	kfree(dmax2);
 	return 0;
 }
 
-int dmax2_set_mem_attributes(void *dmax2,
+int dmax2_set_mem_attributes(struct dmax2		*dmax2,
 			     enum dmax2_trans_location	location,
 			     enum dmax2_mem_direction	mem_attr)
 {
 	u32	reg, attr;
-	struct dmax2 *dmax2_lcl = (struct dmax2 *)dmax2;
 
 	/* Prepare mask and value for memory attributes */
 	switch (mem_attr) {
@@ -210,65 +207,61 @@ int dmax2_set_mem_attributes(void *dmax2,
 
 	if (location == DMAX2_TRANS_LOCATION_SRC ||
 	    location == DMAX2_TRANS_LOCATION_SRC_AND_DST) {
-		reg = readl(dmax2_lcl->dma_base + DMA_DESQ_ARATTR_OFF);
+		reg = readl(dmax2->dma_base + DMA_DESQ_ARATTR_OFF);
 		reg &= ~(DMA_DESC_ATTR_ARDOMAIN_MASK | DMA_DESC_ATTR_ARCACHE_MASK);
 		reg |= attr;
-		writel(reg, dmax2_lcl->dma_base + DMA_DESQ_ARATTR_OFF);
+		writel(reg, dmax2->dma_base + DMA_DESQ_ARATTR_OFF);
 	}
 	if (location == DMAX2_TRANS_LOCATION_DST ||
 	    location == DMAX2_TRANS_LOCATION_SRC_AND_DST) {
-		reg = readl(dmax2_lcl->dma_base + DMA_DESQ_AWATTR_OFF);
+		reg = readl(dmax2->dma_base + DMA_DESQ_AWATTR_OFF);
 		reg &= ~(DMA_DESC_ATTR_ARDOMAIN_MASK | DMA_DESC_ATTR_ARCACHE_MASK);
 		reg |= attr;
-		writel(reg, dmax2_lcl->dma_base + DMA_DESQ_AWATTR_OFF);
+		writel(reg, dmax2->dma_base + DMA_DESQ_AWATTR_OFF);
 	}
 
 	return 0;
 }
 
 /* return number of DESCs in the queue that are pending and ready SW processing */
-int dmax2_get_deq_num_available(void *dmax2)
+int dmax2_get_deq_num_available(struct dmax2 *dmax2)
 {
 	int completed;
 	u32 reg;
-	struct dmax2 *dmax2_lcl = (struct dmax2 *)dmax2;
 
-	reg = mv_readl_relaxed(dmax2_lcl->dma_base + DMA_DESQ_DONE_OFF);
+	reg = mv_readl_relaxed(dmax2->dma_base + DMA_DESQ_DONE_OFF);
 	completed = ((reg >> DMA_DESQ_DONE_PENDING_SHIFT) & DMA_DESQ_DONE_PENDING_MASK);
 
 	return completed;
 }
 
 /* return DMA Queue space: How many descriptors available be pushed to Queue */
-int dmax2_get_enq_num_available(void *dmax2)
+int dmax2_get_enq_num_available(struct dmax2 *dmax2)
 {
-	struct dmax2 *dmax2_lcl = (struct dmax2 *)dmax2;
 	/* if push pointer is at pop pointer:
 	 * - if any descriptors are ready and pending, than Q is full, and Q-Space = 0.
 	 * - else, if no descriptors are ready and pending, than Q is empty, and Q-Space = Q-size.
 	 */
 
-	if (unlikely(dmax2_lcl->desc_push_idx == dmax2_lcl->desc_pop_idx)) {
+	if (unlikely(dmax2->desc_push_idx == dmax2->desc_pop_idx)) {
 		int completed_pending, reg;
 
-		reg = mv_readl_relaxed(dmax2_lcl->dma_base + DMA_DESQ_DONE_OFF);
+		reg = mv_readl_relaxed(dmax2->dma_base + DMA_DESQ_DONE_OFF);
 		completed_pending = ((reg >> DMA_DESQ_DONE_PENDING_SHIFT) & DMA_DESQ_DONE_PENDING_MASK);
 
 		if (unlikely(completed_pending == 0))
-			return dmax2_lcl->desc_q_size;
+			return dmax2->desc_q_size;
 		else
 			return 0;
 	}
 
-	return (dmax2_lcl->desc_q_size - dmax2_lcl->desc_push_idx + dmax2_lcl->desc_pop_idx)
-		& (dmax2_lcl->desc_q_size  - 1);
+	return (dmax2->desc_q_size - dmax2->desc_push_idx + dmax2->desc_pop_idx) & (dmax2->desc_q_size  - 1);
 }
 
-int dmax2_enq(void *dmax2, struct dmax2_desc *descs, u16 *num)
+int dmax2_enq(struct dmax2 *dmax2, struct dmax2_desc *descs, u16 *num)
 {
-	struct dmax2 *dmax2_lcl = (struct dmax2 *)dmax2;
 	struct dmax2_desc	*desc;
-	u16			desc_copy_num = *num, queue_space = dmax2_get_enq_num_available(dmax2_lcl);
+	u16			desc_copy_num = *num, queue_space = dmax2_get_enq_num_available(dmax2);
 
 	if (unlikely(*num > queue_space)) {
 		pr_err("not enough space to queue %d descriptors (queue space = %d)\n", *num, queue_space);
@@ -279,15 +272,15 @@ int dmax2_enq(void *dmax2, struct dmax2_desc *descs, u16 *num)
 	 * 1. Copy descriptors to HW-Q, up to end of HW-Q,
 	 * 2. Point push index to start of HW-Q, and copy rest of descriptors to start of HW-Q
 	 */
-	if (dmax2_lcl->desc_push_idx + *num > dmax2_lcl->desc_q_size) {
-		desc = &dmax2_lcl->hw_desq_virt[dmax2_lcl->desc_push_idx];
+	if (dmax2->desc_push_idx + *num > dmax2->desc_q_size) {
+		desc = &dmax2->hw_desq_virt[dmax2->desc_push_idx];
 
 		/* copy descriptors only up to end of HW-Q */
-		desc_copy_num = dmax2_lcl->desc_q_size - dmax2_lcl->desc_push_idx;
+		desc_copy_num = dmax2->desc_q_size - dmax2->desc_push_idx;
 		__builtin_memcpy(desc, descs, desc_copy_num * sizeof(struct dmax2_desc));
 
 		/* point push index to start of HW-Q */
-		dmax2_lcl->desc_push_idx = 0;
+		dmax2->desc_push_idx = 0;
 
 		/* update array & number of descriptors left to copy to start of HW-Q */
 		descs = &descs[desc_copy_num];
@@ -295,21 +288,20 @@ int dmax2_enq(void *dmax2, struct dmax2_desc *descs, u16 *num)
 	}
 
 	/* copy to where push index points to */
-	desc = &dmax2_lcl->hw_desq_virt[dmax2_lcl->desc_push_idx];
+	desc = &dmax2->hw_desq_virt[dmax2->desc_push_idx];
 	__builtin_memcpy(desc, descs, desc_copy_num * sizeof(struct dmax2_desc));
 
-	dmax2_lcl->desc_push_idx = (dmax2_lcl->desc_push_idx + desc_copy_num) & (dmax2_lcl->desc_q_size  - 1);
+	dmax2->desc_push_idx = (dmax2->desc_push_idx + desc_copy_num) & (dmax2->desc_q_size  - 1);
 
-	writel(*num, dmax2_lcl->dma_base + DMA_DESQ_ADD_OFF);
+	writel(*num, dmax2->dma_base + DMA_DESQ_ADD_OFF);
 
 	return 0;
 }
 
-int dmax2_deq(void *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, int verify)
+int dmax2_deq(struct dmax2 *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, int verify)
 {
-	struct dmax2 *dmax2_lcl = (struct dmax2 *)dmax2;
 	u16	i, next_indx;
-	u32	reg = mv_readl_relaxed(dmax2_lcl->dma_base + DMA_DESQ_DONE_OFF);
+	u32	reg = mv_readl_relaxed(dmax2->dma_base + DMA_DESQ_DONE_OFF);
 	u16	hw_pending_num = ((reg >> DMA_DESQ_DONE_PENDING_SHIFT) & DMA_DESQ_DONE_PENDING_MASK);
 	struct dmax2_desc	*desc;
 
@@ -319,20 +311,20 @@ int dmax2_deq(void *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, in
 
 	/* no verify (Fast mode): only update pop index that these descriptors have been released */
 	if (!verify)
-		dmax2_lcl->desc_pop_idx =  (dmax2_lcl->desc_pop_idx + *num) & (dmax2_lcl->desc_q_size  - 1);
+		dmax2->desc_pop_idx =  (dmax2->desc_pop_idx + *num) & (dmax2->desc_q_size  - 1);
 	else {
 		/* Else, return every descriptor's cookie & status, so it could be verified if needed */
 		for (i = 0; i < *num; i++) {
-			next_indx = (dmax2_lcl->desc_pop_idx + 1) & (dmax2_lcl->desc_q_size  - 1);
-			desc = &dmax2_lcl->hw_desq_virt[dmax2_lcl->desc_pop_idx];
+			next_indx = (dmax2->desc_pop_idx + 1) & (dmax2->desc_q_size  - 1);
+			desc = &dmax2->hw_desq_virt[dmax2->desc_pop_idx];
 			descs[i].desc_id = desc->desc_id;
 
 			descs[i].status = desc->flags;
-			dmax2_lcl->desc_pop_idx = next_indx;
+			dmax2->desc_pop_idx = next_indx;
 		}
 		*num = i;
 	}
 
-	mv_writel_relaxed(*num, dmax2_lcl->dma_base + DMA_DESQ_DEALLOC_OFF);
+	mv_writel_relaxed(*num, dmax2->dma_base + DMA_DESQ_DEALLOC_OFF);
 	return 0;
 }
