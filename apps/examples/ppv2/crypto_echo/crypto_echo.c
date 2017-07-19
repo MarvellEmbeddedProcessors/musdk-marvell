@@ -1582,7 +1582,7 @@ static void deinit_local(void *arg)
 static void usage(char *progname)
 {
 	printf("\n"
-	       "MUSDK packet-echo application.\n"
+	       "MUSDK crypto-echo application.\n"
 	       "\n"
 	       "Usage: %s OPTIONS\n"
 	       "  E.g. %s -i eth0,eth1 -c 1\n"
@@ -1592,22 +1592,22 @@ static void usage(char *progname)
 	       "                  Interface count min 1, max %i\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
-	       "\t-b <size>                Burst size (default is %d)\n"
-	       "\t-c, --cores <number>     Number of CPUs to use.\n"
+	       "\t-b             <size>    Burst size (default is %d)\n"
+	       "\t-c, --cores    <number>  Number of CPUs to use.\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity).\n"
-	       "\t-t <mtu>                 Set MTU (default is %d)\n"
+	       "\t-t             <mtu>     Set MTU (default is %d)\n"
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	       "\t-v                       Increase verbose debug (default is 0).\n"
-	       "\t         With every '-v', the debug is increased by one.\n"
-	       "\t         0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump\n"
+	       "\t                         With every '-v', the debug is increased by one.\n"
+	       "\t                         0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump\n"
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
-	       "\t--crypto_proto <proto>   Crypto protocol. Support: [none, esp]. (default: none).\n"
+	       "\t--crypto-proto <proto>   Crypto protocol. Support: [none, esp]. (default: none).\n"
 	       "\t--tunnel                 IPSec tunnel mode. (default: transport)\n"
-	       "\t--ip6			   ESP over IPv6. (default: ESP over IPv4)\n"
+	       "\t--ip6                    ESP over IPv6. (default: ESP over IPv4)\n"
 	       "\t--cipher-alg   <alg>     Cipher algorithm. Support: [none, aes128, 3des]. (default: aes128).\n"
 	       "\t--cipher-mode  <alg>     Cipher mode. Support: [cbc, ecb]. (default: cbc).\n"
-	       "\t--auth-alg     <alg>	   Authentication algorithm. Support: [none, sha1]. (default: none).\n"
-	       "\t--dir    <dir>           Operation direction. Support: [enc, dec, lb]. (default: lb)\n"
+	       "\t--auth-alg     <alg>     Authentication algorithm. Support: [none, sha1]. (default: sha1).\n"
+	       "\t--dir          <dir>     Operation direction. Support: [enc, dec, lb]. (default: lb)\n"
 	       "\t--no-echo                No Echo packets\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
@@ -1633,7 +1633,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->crypto_proto = SAM_PROTO_NONE;
 	garg->cipher_alg = SAM_CIPHER_AES;
 	garg->cipher_mode = SAM_CIPHER_CBC;
-	garg->auth_alg = SAM_AUTH_NONE;
+	garg->auth_alg = SAM_AUTH_HMAC_SHA1;
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.prefetch_shift = CRYPT_APP_PREFETCH_SHIFT;
