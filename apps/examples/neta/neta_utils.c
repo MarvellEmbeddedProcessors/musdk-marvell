@@ -319,7 +319,7 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 			neta_ppio_deinit(ports[i].ppio);
 	}
 
-	/* Calculate number of buffers released from PP2 */
+	/* Calculate number of buffers released from PPIO */
 	for (i = 0; i < MVAPPS_NETA_MAX_NUM_CORES; i++)
 		hw_buf_free_cnt += tx_shadow_q_buf_free_cnt[i];
 	hw_buf_free_cnt += hw_bm_buf_free_cnt + hw_rxq_buf_free_cnt;
@@ -329,14 +329,14 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 		       buf_alloc_cnt, buf_free_cnt);
 
 		if (buf_free_cnt != hw_buf_free_cnt) {
-			pr_err("pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
+			pr_err("neta freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
 			       hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
 				(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
 		}
 	}
 
-	pr_debug("allocated: %lu, app freed: %lu, pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
-		 buf_alloc_cnt, buf_free_cnt, hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+	pr_debug("allocated: %lu, app freed: %lu, bm free: %lu, rxq free: %lu, tx free: %lu !\n",
+		 buf_alloc_cnt, buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
 		(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
 }
 
@@ -356,7 +356,6 @@ static void flush_pool(struct neta_bpool *bpool)
 				break;
 			}
 		}
-		pr_err("pool %d: pa = 0x%lx, va = 0x%x\n", bpool->id, buff.addr, buff.cookie);
 		if (err) {
 			if (err == 10000) {
 				pr_err("flush_pool: pool_id=%d: Got NULL buf (%d of %d)\n",
@@ -391,6 +390,7 @@ void app_free_all_pools(struct bpool_desc *pool, int num_pools)
 	if (pool) {
 		for (j = 0; j < num_pools; j++) {
 			if (pool[j].pool) {
+				pr_info("Release pool-%d: buffers %d\n", pool[j].pool->id, pool[j].num_buffs);
 				flush_pool(pool[j].pool);
 				free_pool_buffers(pool[j].buffs_inf, pool[j].num_buffs);
 				free(pool[j].buffs_inf);

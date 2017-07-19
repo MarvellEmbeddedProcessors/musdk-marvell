@@ -97,7 +97,7 @@ struct glob_arg {
 	pthread_mutex_t		 trd_lock;
 
 	int			 num_pools;
-	struct bpool_desc	*pools_desc;
+	struct bpool_desc	*pools_desc[MVAPPS_NETA_MAX_NUM_PORTS];
 };
 
 struct local_arg {
@@ -428,6 +428,44 @@ static int loop_2ps(struct local_arg *larg, int *running)
 	return 0;
 }
 
+static int loop_2ps_2cs(struct local_arg *larg, int *running)
+{
+	int			 err;
+	u16			 num;
+	u8			 qid = 0;
+	u8			 src_port, dst_port;
+
+	if (!larg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	num = larg->burst;
+	src_port = larg->id;
+	dst_port = 1 - src_port;
+	pr_info("Run loop 2 ports: port %d -> port %d\n", src_port, dst_port);
+
+	while (*running) {
+
+		/* Find next queue to consume */
+		do {
+			qid++;
+			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC)
+				qid = 0;
+		} while (!(larg->qs_map & (1 << qid)));
+
+#ifdef HW_BUFF_RECYLCE
+		err  = loop_sw_recycle(larg, src_port, dst_port, qid, num);
+#else
+		err  = loop_sw_recycle(larg, src_port, dst_port, qid, num);
+#endif
+		if (err != 0)
+			return err;
+	}
+
+	return 0;
+}
+
 static int main_loop(void *arg, int *running)
 {
 	struct local_arg	*larg = (struct local_arg *)arg;
@@ -440,7 +478,10 @@ static int main_loop(void *arg, int *running)
 	if (larg->num_ports == 1)
 		return loop_1p(larg, running);
 
-	return loop_2ps(larg, running);
+	if (garg.cpus == 1)
+		return loop_2ps(larg, running);
+	else
+		return loop_2ps_2cs(larg, running);
 }
 
 static int init_all_modules(void)
@@ -490,7 +531,7 @@ static int init_local_modules(struct glob_arg *garg)
 		if (err)
 			return err;
 
-		err = app_build_port_bpools(&garg->pools_desc, garg->num_pools, infs);
+		err = app_build_port_bpools(&garg->pools_desc[port_index], garg->num_pools, infs);
 		if (err)
 			return err;
 
@@ -501,8 +542,9 @@ static int init_local_modules(struct glob_arg *garg)
 		port->num_outqs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
 		port->outq_size	= PKT_ECHO_APP_TX_Q_SIZE;
 		port->first_inq	= PKT_ECHO_APP_FIRST_INQ;
+		port->ppio_id	= port_index;
 
-		err = app_port_init(port, garg->num_pools, &garg->pools_desc[port->ppio_id], garg->mtu);
+		err = app_port_init(port, garg->num_pools, garg->pools_desc[port_index], garg->mtu);
 		if (err) {
 			pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 			       port->ppio_id);
@@ -516,8 +558,11 @@ static int init_local_modules(struct glob_arg *garg)
 
 static void destroy_local_modules(struct glob_arg *garg)
 {
+	int port_index;
+
 	app_disable_all_ports(garg->ports_desc, garg->num_ports);
-	app_free_all_pools(garg->pools_desc, garg->num_pools);
+	for (port_index = 0; port_index < garg->num_ports; port_index++)
+		app_free_all_pools(garg->pools_desc[port_index], garg->num_pools);
 	app_deinit_all_ports(garg->ports_desc, garg->num_ports);
 }
 
@@ -690,11 +735,11 @@ static int init_local(void *arg, int id, void **_larg)
 	for (i = 0; i < larg->num_ports; i++)
 		app_port_local_init(i, larg->id, &larg->ports_desc[i], &garg->ports_desc[i]);
 
-	larg->pools_desc	= garg->pools_desc;
+	larg->pools_desc	= garg->pools_desc[larg->id];
 	larg->garg              = garg;
 
-	larg->qs_map = garg->qs_map << (garg->qs_map_shift * id);
-	pr_debug("thread %d (cpu %d) mapped to Qs %llx using %s\n",
+	larg->qs_map = garg->qs_map;
+	pr_info("thread %d (cpu %d) mapped to Qs %llx using %s\n",
 		 larg->id, sched_getcpu(), (unsigned long long)larg->qs_map, "neta");
 
 	*_larg = larg;

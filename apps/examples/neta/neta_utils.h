@@ -54,7 +54,7 @@
 /* Number of BM pools reserved by kernel */
 #define MVAPPS_NETA_NUM_BPOOLS_RSRV	2
 /* Reserved BM pools mask */
-#define MVAPPS_NETA_BPOOLS_RSRV		(0xC)
+#define MVAPPS_NETA_BPOOLS_RSRV		(0)
 /* Maximum number of pools per packet processor */
 #define MVAPPS_NETA_MAX_NUM_BPOOLS	(MVAPPS_NETA_TOTAL_NUM_BPOOLS - MVAPPS_NETA_NUM_BPOOLS_RSRV)
 

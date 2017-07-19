@@ -203,11 +203,9 @@ int neta_bpool_init(struct neta_bpool_params *params, struct neta_bpool **bpool)
 
 void neta_bpool_deinit(struct neta_bpool *pool)
 {
-	int i;
+	struct mvneta_bm_pool *bm_pool = (struct mvneta_bm_pool *)pool->internal_param;
 
-	for (i = 0; i < NETA_BPOOL_NUM_POOLS; i++)
-		mvneta_bm_pool_destroy(&musdk_bm, &musdk_bm_pools[i]);
-
+	mvneta_bm_pool_destroy(&musdk_bm, bm_pool);
 }
 
 int neta_bpool_put_buffs(struct buff_release_entry buff_entry[], int *num)
