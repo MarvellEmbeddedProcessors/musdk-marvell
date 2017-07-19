@@ -10,8 +10,9 @@ Note: "0004-musdk-dts-set-ports-status-non-kernel.patch" is an _example_ how to 
 	the PPV2 ports that belong to musdk.
 
 1.2. Build Linux kernel Image:
+		=> make mrproper
 		=> make mvebu_v8_lsp_defconfig
-		=> make Image
+		=> make
 
 1.3 Build Safexcel crypto driver and copy "crypto_safexcel.ko" to file system
 This step is optional and required only when using SAM driver.
