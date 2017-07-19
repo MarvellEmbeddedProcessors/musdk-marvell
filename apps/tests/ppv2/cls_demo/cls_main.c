@@ -125,7 +125,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 
-		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]) - MV_MH_SIZE;
+		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 
 #ifdef CLS_APP_PKT_ECHO_SUPPORT
 		if (likely(larg->cmn_args.echo)) {
