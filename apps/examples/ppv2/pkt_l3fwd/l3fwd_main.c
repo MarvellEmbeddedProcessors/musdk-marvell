@@ -74,6 +74,8 @@ static const char tx_retry_str[] = "Tx Retry enabled";
 #define PKT_FWD_APP_DFLT_BURST_SIZE		256
 
 #define PKT_FWD_APP_DMA_MEM_SIZE		(40 * 1024 * 1024)
+#define PKT_FWD_APP_CTRL_DFLT_THR		1000
+
 
 #define PKT_FWD_APP_FIRST_INQ			0
 #define PKT_FWD_APP_MAX_NUM_TCS_PER_PORT	1
@@ -258,6 +260,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 {
 	struct pp2_ppio_desc	descs[PKT_FWD_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	struct tx_shadow_q	*shadow_q;
 	struct pp2_ppio_desc	*desc_ptr;
 	struct pp2_ppio_desc	*desc_ptr_cur;
@@ -279,6 +282,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 	pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
 	INC_RX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num);
+	perf_cntrs->rx_cnt += num;
 
 	if (num < 1)
 		return 0;
@@ -401,6 +405,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				desc_idx += tx_num;
 				tx_count -= tx_num;
 			INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
+			perf_cntrs->tx_cnt += tx_num;
 			}
 			free_sent_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id],
 					  &pp2_args->lcl_ports_desc[dst_port], hif, tc, 1);
@@ -1126,6 +1131,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.prefetch_shift = PKT_FWD_APP_PREFETCH_SHIFT;
 	garg->cmn_args.pkt_offset = 0;
+	garg->cmn_args.ctrl_thresh = PKT_FWD_APP_CTRL_DFLT_THR;
 	garg->maintain_stats = 0;
 
 #ifdef LPM_FRWD
@@ -1301,6 +1307,8 @@ int main(int argc, char *argv[])
 	mvapp_params.deinit_local_cb	= apps_pp2_deinit_local;
 	mvapp_params.main_loop_cb	= main_loop;
 
+	if (!mvapp_params.use_cli)
+		mvapp_params.ctrl_cb	= app_ctrl_cb;
 
 	return mvapp_go(&mvapp_params);
 }

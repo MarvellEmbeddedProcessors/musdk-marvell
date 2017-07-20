@@ -105,10 +105,21 @@ struct glb_common_args {
 	int			qs_map_shift;
 	u16			pkt_offset; /* Zero maintains default pkt_offset */
 	u16			mtu;
+	int			ctrl_thresh;
+	struct timeval		ctrl_trd_last_time;
+	u64			last_rx_cnt;
+	u64			last_tx_cnt;
+
 	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
 	void			*plat;
 };
 
+
+struct perf_cmn_cntrs {
+	u64			rx_cnt;
+	u64			tx_cnt;
+	u64			drop_cnt;
+};
 struct local_common_args {
 	u64			qs_map;
 	int			prefetch_shift;
@@ -117,6 +128,7 @@ struct local_common_args {
 	int			echo;
 	u16			burst;
 	int			verbose;
+	struct perf_cmn_cntrs	perf_cntrs;
 	struct glob_arg		*garg;
 	void			*plat;
 };
@@ -207,6 +219,12 @@ static inline int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, ch
 
 	return 0;
 }
+
+int apps_perf_dump(struct glb_common_args *cmn_args);
+int app_ctrl_cb(void *arg);
+
+
+
 
 #endif /*__MVUTILS_H__*/
 

@@ -82,6 +82,7 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 #define PKT_ECHO_APP_DFLT_BURST_SIZE		256
 
 #define PKT_ECHO_APP_DMA_MEM_SIZE		(40 * 1024 * 1024)
+#define PKT_ECHO_APP_CTRL_DFLT_THR		1000
 
 #define PKT_ECHO_APP_FIRST_INQ			0
 #define PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT	1
@@ -153,6 +154,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 {
 	struct pp2_ppio_desc	 descs[PKT_ECHO_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	u16			 i, tx_num;
 #ifdef APP_TX_RETRY
 	u16			 desc_idx = 0, cnt = 0;
@@ -164,6 +166,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 	u16 pkt_offset = MVAPPS_PP2_PKT_EFEC_OFFS(lcl_port_desc->pkt_offset[tc]);
 
 	pp2_ppio_recv(lcl_port_desc->ppio, tc, qid, descs, &num);
+	perf_cntrs->rx_cnt += num;
 	INC_RX_COUNT(lcl_port_desc->ppio, num);
 
 	for (i = 0; i < num; i++) {
@@ -217,6 +220,7 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 		desc_idx += tx_num;
 		num -= tx_num;
 		INC_TX_COUNT(lcl_port_desc, tx_num);
+		perf_cntrs->drop_cnt += tx_num;
 	}
 	SET_MAX_RESENT(lcl_port_desc, cnt);
 #else
@@ -226,8 +230,10 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 		if (num > tx_num) {
 			free_buffers(larg, &descs[tx_num], num - tx_num, rx_ppio_id);
 			INC_TX_DROP_COUNT(lcl_port_desc, num - tx_num);
+			perf_cntrs->drop_cnt += (num - tx_num);
 		}
 		INC_TX_COUNT(lcl_port_desc, tx_num);
+		perf_cntrs->tx_cnt += tx_num;
 	}
 #endif /* APP_TX_RETRY */
 	return 0;
@@ -245,7 +251,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	int			 shadow_q_size;
 	struct pp2_ppio_desc	 descs[PKT_ECHO_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
-
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	u16			 i, tx_num;
 	int			 mycyc;
 #ifdef APP_TX_RETRY
@@ -267,11 +273,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	shadow_q = &pp2_args->lcl_ports_desc[tx_ppio_id].shadow_qs[tc];
 	shadow_q_size = pp2_args->lcl_ports_desc[tx_ppio_id].shadow_q_size;
 
-/* pr_info("tid %d check on tc %d, qid %d\n", larg->cmn_args.id, tc, qid); */
-/* pthread_mutex_lock(&larg->cmn_args.garg->trd_lock); */
 	pp2_ppio_recv(lcl_port_desc->ppio, tc, qid, descs, &num);
-/* pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock); */
-/* if (num) pr_info("got %d pkts on tc %d, qid %d\n", num, tc, qid); */
+	perf_cntrs->rx_cnt += num;
 	INC_RX_COUNT(lcl_port_desc, num);
 
 	for (i = 0; i < num; i++) {
@@ -344,6 +347,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			desc_idx += tx_num;
 			num -= tx_num;
 			INC_TX_COUNT(lcl_port_desc, tx_num);
+			perf_cntrs->tx_cnt += tx_num;
 		}
 		free_sent_buffers(lcl_port_desc, &pp2_args->lcl_ports_desc[tx_ppio_id], pp2_args->hif,
 				  tc, larg->multi_buffer_release);
@@ -363,8 +367,10 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				     &pp2_args->lcl_ports_desc[tx_ppio_id], pp2_args->hif,
 				     shadow_q->write_ind, not_sent, tc);
 			INC_TX_DROP_COUNT(lcl_port_desc, not_sent);
+			perf_cntrs->drop_cnt += not_sent;
 		}
 		INC_TX_COUNT(lcl_port_desc, tx_num);
+		perf_cntrs->tx_cnt += tx_num;
 	}
 	free_sent_buffers(lcl_port_desc, &pp2_args->lcl_ports_desc[tx_ppio_id], pp2_args->hif, tc,
 			  larg->multi_buffer_release);
@@ -797,7 +803,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
+	garg->cmn_args.ctrl_thresh = PKT_ECHO_APP_CTRL_DFLT_THR;
 	garg->maintain_stats = 0;
+
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -1000,6 +1008,8 @@ int main(int argc, char *argv[])
 	mvapp_params.init_local_cb	= init_local;
 	mvapp_params.deinit_local_cb	= apps_pp2_deinit_local;
 	mvapp_params.main_loop_cb	= main_loop;
+	if (!mvapp_params.use_cli)
+		mvapp_params.ctrl_cb	= app_ctrl_cb;
 
 	return mvapp_go(&mvapp_params);
 }

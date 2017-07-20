@@ -27,6 +27,7 @@ bin_PROGRAMS += musdk_cls_demo
 musdk_cls_demo_CFLAGS = $(AM_CFLAGS)
 musdk_cls_demo_SOURCES  = ../common/lib/cli.c
 musdk_cls_demo_SOURCES += ../common/mvapp.c
+musdk_cls_demo_SOURCES += ../common/utils.c
 musdk_cls_demo_SOURCES += ../common/pp2_utils.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_main.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_filter.c

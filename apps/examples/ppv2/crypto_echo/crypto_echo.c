@@ -180,11 +180,6 @@ struct glob_arg {
 	pthread_mutex_t			trd_lock;
 
 	int				num_bufs;
-
-	int				ctrl_thresh;
-	struct timeval			ctrl_trd_last_time;
-	u64				lst_rx_cnt;
-	u64				lst_tx_cnt;
 };
 
 struct local_arg {
@@ -197,9 +192,6 @@ struct local_arg {
 	struct sam_cio			*dec_cio;
 	struct sam_sa			*dec_sa;
 	enum crypto_dir			dir;
-	u64				rx_cnt;
-	u64				tx_cnt;
-	u64				drop_cnt;
 };
 
 static struct glob_arg garg = {};
@@ -287,6 +279,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	int			err;
 	u16			i, bpool_buff_len, num_got, flags;
 	u8			data_offs;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	if (larg->cmn_args.verbose)
@@ -422,7 +415,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 				mv_stack_push(larg->stack_hndl, mdata);
 		}
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
-		larg->drop_cnt += (num - num_got);
+		perf_cntrs->drop_cnt += (num - num_got);
 	}
 
 	return 0;
@@ -440,6 +433,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	int			 err;
 	u16			 i, bpool_buff_len, num_got;
 	u8			 data_offs;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
 	/* TODO: is this enough?!?!?! */
 	bpool_buff_len = larg->cmn_args.garg->cmn_args.mtu + 64;
@@ -510,7 +504,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 				free_buf_from_sam_cookie(larg, ipsec_descs[i].cookie);
 		}
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
-		larg->drop_cnt += (num - num_got);
+		perf_cntrs->drop_cnt += (num - num_got);
 	}
 	return 0;
 }
@@ -526,6 +520,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 	int			 err;
 	u16			 i, tp, num_got, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
 
 	for (tp = 0; tp < larg->cmn_args.num_ports; tp++)
@@ -621,7 +616,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 						   binf);
 			}
 			/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
-			larg->drop_cnt += (num - num_got);
+			perf_cntrs->drop_cnt += (num - num_got);
 		}
 
 		pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tp].ppio, pp2_args->hif, tc, &num);
@@ -639,7 +634,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 			if (shadow_q->read_ind == CRYPT_APP_TX_Q_SIZE)
 				shadow_q->read_ind = 0;
 		}
-		larg->tx_cnt += num;
+		perf_cntrs->tx_cnt += num;
 	}
 	return 0;
 }
@@ -654,6 +649,7 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 	struct sam_cio_op_result *to_send_ptr, *to_dec_ptr;
 	int			 err;
 	u16			 i, num, num_to_send, num_to_dec;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
 	num = CRYPT_APP_MAX_BURST_SIZE;
 START_COUNT_CYCLES(pme_ev_cnt_deq);
@@ -670,7 +666,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 
 			if (unlikely(!res_descs[i].cookie)) {
 				pr_err("SAM operation (EnC) failed (no cookie: %d,%d)!\n", i, res_descs[i].out_len);
-				larg->drop_cnt++;
+				perf_cntrs->drop_cnt++;
 				continue;
 			}
 
@@ -678,7 +674,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 				pr_warn("SAM operation (EnC) failed (%d)!\n", res_descs[i].status);
 				/* Free buffer */
 				free_buf_from_sam_cookie(larg, res_descs[i].cookie);
-				larg->drop_cnt++;
+				perf_cntrs->drop_cnt++;
 				continue;
 			}
 			mdata = (struct pkt_mdata *)res_descs[i].cookie;
@@ -722,7 +718,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 {
 	struct pp2_ppio_desc	 descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
-
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	int			 err;
 
 /*pr_info("tid %d check on tc %d, qid %d\n", larg->cmn_args.id, tc, qid);*/
@@ -736,7 +732,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	if (num) {
-		larg->rx_cnt += num;
+		perf_cntrs->rx_cnt += num;
 
 		err = proc_rx_pkts(larg, rx_ppio_id, tx_ppio_id, descs, num);
 		if (unlikely(err))
@@ -838,40 +834,6 @@ static int loop_2ps(struct local_arg *larg, int *running)
 	return 0;
 }
 
-static int dump_perf(struct glob_arg *garg)
-{
-	struct timeval	 curr_time;
-	u64		 tmp_time_inter;
-	u32		 tmp_rx_cnt, tmp_tx_cnt, drop_cnt;
-	int		 i;
-
-	gettimeofday(&curr_time, NULL);
-	tmp_time_inter = (curr_time.tv_sec - garg->ctrl_trd_last_time.tv_sec) * 1000;
-	tmp_time_inter += (curr_time.tv_usec - garg->ctrl_trd_last_time.tv_usec) / 1000;
-
-	drop_cnt = 0;
-	for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++)
-		if (garg->cmn_args.largs[i])
-			drop_cnt += garg->cmn_args.largs[i]->drop_cnt;
-	tmp_rx_cnt = tmp_tx_cnt = 0;
-	for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++)
-		if (garg->cmn_args.largs[i]) {
-			tmp_rx_cnt += garg->cmn_args.largs[i]->rx_cnt;
-			tmp_tx_cnt += garg->cmn_args.largs[i]->tx_cnt;
-		}
-	printf("Perf: %dKpps (Rx: %dKpps)",
-	       (int)((tmp_tx_cnt - garg->lst_tx_cnt) / tmp_time_inter),
-		(int)((tmp_rx_cnt - garg->lst_rx_cnt) / tmp_time_inter));
-	garg->lst_rx_cnt = tmp_rx_cnt;
-	garg->lst_tx_cnt = tmp_tx_cnt;
-	if (drop_cnt)
-		printf(", drop: %u", drop_cnt);
-	printf("\n");
-	gettimeofday(&garg->ctrl_trd_last_time, NULL);
-
-	return 0;
-}
-
 static int main_loop_cb(void *arg, int *running)
 {
 	struct local_arg	*larg = (struct local_arg *)arg;
@@ -886,24 +848,6 @@ static int main_loop_cb(void *arg, int *running)
 	return loop_2ps(larg, running);
 }
 
-static int ctrl_cb(void *arg)
-{
-	struct glob_arg *garg = (struct glob_arg *)arg;
-	struct timeval	 curr_time;
-	u64		 tmp_time_inter;
-
-	if (!garg) {
-		pr_err("no obj!\n");
-		return -EINVAL;
-	}
-
-	gettimeofday(&curr_time, NULL);
-	tmp_time_inter = (curr_time.tv_sec - garg->ctrl_trd_last_time.tv_sec) * 1000;
-	tmp_time_inter += (curr_time.tv_usec - garg->ctrl_trd_last_time.tv_usec) / 1000;
-	if (tmp_time_inter >= garg->ctrl_thresh)
-		return dump_perf(garg);
-	return 0;
-}
 
 static int init_all_modules(void)
 {
@@ -1199,7 +1143,7 @@ static int perf_cmd_cb(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	return dump_perf(garg);
+	return apps_perf_dump(&garg->cmn_args);
 }
 
 #ifdef CHECK_CYCLES
@@ -1297,7 +1241,7 @@ static int init_global(void *arg)
 			return err;
 	}
 
-	gettimeofday(&garg->ctrl_trd_last_time, NULL);
+	gettimeofday(&garg->cmn_args.ctrl_trd_last_time, NULL);
 
 #ifdef CHECK_CYCLES
 	pme_ev_cnt_rx = pme_ev_cnt_create("PP-IO Recv", 1000000, 0);
@@ -1640,7 +1584,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.prefetch_shift = CRYPT_APP_PREFETCH_SHIFT;
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
-	garg->ctrl_thresh = CRYPT_APP_CTRL_DFLT_THR;
+	garg->cmn_args.ctrl_thresh = CRYPT_APP_CTRL_DFLT_THR;
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -1889,6 +1833,6 @@ int main(int argc, char *argv[])
 	mvapp_params.deinit_local_cb	= deinit_local;
 	mvapp_params.main_loop_cb	= main_loop_cb;
 	if (!mvapp_params.use_cli)
-		mvapp_params.ctrl_cb	= ctrl_cb;
+		mvapp_params.ctrl_cb	= app_ctrl_cb;
 	return mvapp_go(&mvapp_params);
 }
