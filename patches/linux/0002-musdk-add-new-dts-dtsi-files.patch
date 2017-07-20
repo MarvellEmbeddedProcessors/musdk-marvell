@@ -1,7 +1,7 @@
 From b792c8a5ec3f355abd505e83c9ab9e15458529af Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
-Subject: [PATCH 2/2] musdk: add new dts,dtsi files
+Subject: [PATCH 2/5] musdk: add new dts,dtsi files
 
 Change-Id: I394db38b111557bab572228c6981a34e60d156fc
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>

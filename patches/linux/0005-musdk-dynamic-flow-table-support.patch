@@ -1,7 +1,7 @@
 From 418b839f4000dc00aacaf79f3c763372f799d06b Mon Sep 17 00:00:00 2001
 From: Ehud Naim <ehudn@marvell.com>
 Date: Mon, 2 Jan 2017 11:48:19 +0200
-Subject: [PATCH 5/6] musdk: dynamic flow table support
+Subject: [PATCH 5/5] musdk: dynamic flow table support
 
 every device open read the current place of the diffrent lkp type
 and update the cls_shadow->flow_info

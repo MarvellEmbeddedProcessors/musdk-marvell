@@ -1,7 +1,7 @@
 From 0528d39e9f0821e4cb161fc65f2f94fd28a02f31 Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Thu, 2 Feb 2017 17:44:46 +0200
-Subject: [PATCH 1/6] musdk: defconfig modifications
+Subject: [PATCH 1/5] musdk: defconfig modifications
 
 Change-Id: I59597175e15ce8dd0ee9b8d0c6dc75092b28d813
 Signed-off-by: nsamsono <nsamsono@marvell.com>
