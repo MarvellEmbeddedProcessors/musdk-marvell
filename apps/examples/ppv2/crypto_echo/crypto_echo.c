@@ -1714,6 +1714,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				garg->cipher_alg = SAM_CIPHER_AES;
 			else if (strcmp(argv[i+1], "3des") == 0)
 				garg->cipher_alg = SAM_CIPHER_3DES;
+			else if (strcmp(argv[i+1], "none") == 0)
+				garg->cipher_alg = SAM_CIPHER_NONE;
 			else {
 				pr_err("Cipher alg (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
@@ -1736,6 +1738,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				garg->auth_alg = SAM_AUTH_HMAC_SHA2_256;
 			else if (strcmp(argv[i+1], "md5") == 0)
 				garg->auth_alg = SAM_AUTH_HMAC_MD5;
+			else if (strcmp(argv[i+1], "none") == 0)
+				garg->auth_alg = SAM_AUTH_NONE;
 			else {
 				pr_err("Auth alg (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
@@ -1792,6 +1796,21 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	if (garg->cmn_args.prefetch_shift > garg->cmn_args.burst)
 		garg->cmn_args.prefetch_shift = garg->cmn_args.burst - 1;
+
+	/* Print all inputs arguments */
+	pr_info("cpus          : %d\n", garg->cmn_args.cpus);
+	pr_info("ports         : %d\n", garg->cmn_args.num_ports);
+	pr_info("burst         : %d\n", garg->cmn_args.burst);
+
+	pr_info("direction     : %d\n", garg->dir);
+	pr_info("swap addr     : %s\n", garg->cmn_args.echo ? "Swap" : "Not swap");
+	pr_info("cipher-alg    : %d\n", garg->cipher_alg);
+	pr_info("cipher-mode   : %d\n", garg->cipher_mode);
+	pr_info("auth-alg      : %d\n", garg->auth_alg);
+	pr_info("crypto-proto  : %s\n", garg->crypto_proto == SAM_PROTO_IPSEC ? "IPSec" : "None");
+
+	if (garg->crypto_proto == SAM_PROTO_IPSEC)
+		pr_info("IPSec mode    : %s\n", garg->tunnel ? "Tunnel" : "Transport");
 
 	return 0;
 }
