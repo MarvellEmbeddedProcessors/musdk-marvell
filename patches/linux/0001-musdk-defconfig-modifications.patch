@@ -1,19 +1,21 @@
-From 0528d39e9f0821e4cb161fc65f2f94fd28a02f31 Mon Sep 17 00:00:00 2001
+From 791fb64d70c0e8276625f12a147ac05b0f405487 Mon Sep 17 00:00:00 2001
 From: nsamsono <nsamsono@marvell.com>
 Date: Thu, 2 Feb 2017 17:44:46 +0200
-Subject: [PATCH 1/5] musdk: defconfig modifications
+Subject: [PATCH 1/1] musdk: defconfig modifications
+
+Support HW BM for NETA MUSDK
 
 Change-Id: I59597175e15ce8dd0ee9b8d0c6dc75092b28d813
 Signed-off-by: nsamsono <nsamsono@marvell.com>
 ---
- arch/arm64/configs/mvebu_v8_lsp_defconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ arch/arm64/configs/mvebu_v8_lsp_defconfig |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/arch/arm64/configs/mvebu_v8_lsp_defconfig b/arch/arm64/configs/mvebu_v8_lsp_defconfig
-index 15235cd..009d811 100644
+index 7fe59ef..7c7673d 100644
 --- a/arch/arm64/configs/mvebu_v8_lsp_defconfig
 +++ b/arch/arm64/configs/mvebu_v8_lsp_defconfig
-@@ -75,7 +75,7 @@ CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
+@@ -74,7 +74,7 @@ CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
  CONFIG_DEVTMPFS=y
  CONFIG_DEVTMPFS_MOUNT=y
  CONFIG_DMA_CMA=y
@@ -22,7 +24,26 @@ index 15235cd..009d811 100644
  CONFIG_VEXPRESS_CONFIG=y
  CONFIG_MTD=y
  CONFIG_MTD_CMDLINE_PARTS=y
-@@ -217,6 +217,7 @@ CONFIG_MV_XOR=y
+@@ -125,6 +125,7 @@ CONFIG_IGBVF=y
+ CONFIG_IXGB=y
+ CONFIG_IXGBE=y
+ CONFIG_IXGBEVF=y
++CONFIG_MVNETA_BM=y
+ CONFIG_MVNETA=y
+ CONFIG_MVPP2X=y
+ CONFIG_SKY2=y
+@@ -153,9 +154,9 @@ CONFIG_I2C_CHARDEV=y
+ CONFIG_I2C_MV64XXX=y
+ CONFIG_I2C_PXA=y
+ CONFIG_SPI=y
++CONFIG_SPI_ARMADA_3700=y
+ CONFIG_SPI_ORION=y
+ CONFIG_SPI_PL022=y
+-CONFIG_SPI_ARMADA_3700=y
+ CONFIG_GPIOLIB=y
+ CONFIG_GPIO_SYSFS=y
+ CONFIG_GPIO_MVEBU_A3700=y
+@@ -216,6 +217,7 @@ CONFIG_MV_XOR=y
  CONFIG_MV_XOR_V2=y
  CONFIG_ASYNC_TX_DMA=y
  CONFIG_DMATEST=y
@@ -31,5 +52,5 @@ index 15235cd..009d811 100644
  CONFIG_VFIO_PCI=y
  CONFIG_VFIO_PLATFORM=y
 -- 
-1.9.1
+1.7.9.5
 
