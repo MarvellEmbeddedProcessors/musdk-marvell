@@ -154,9 +154,20 @@ The supported hash types are as follows :
 	- 5-tuple: IP source address, IP destination address, IP protocol (TCP/UDP only), L4 source port, L4 destination
 		   port (IPv4 and IPv6)
 
-RSS is enabled by setting the hash_type parameter in pp2_ppio_inqs_params struct, and by setting the num_in_qs in
-pp2_ppio_tc_params struct (according to the required number of RSS queues required).
+	- RSS is enabled by setting the following parameters in MUSDK API:
+		- hash_type parameter in pp2_ppio_inqs_params struct. Possible values are:
+			- PP2_PPIO_HASH_T_NONE:		Invalid hash type (hashing mechanism is disabled)
+			- PP2_PPIO_HASH_T_2_TUPLE:	Hash performed on IP source and IP destination fields
+			- PP2_PPIO_HASH_T_5_TUPLE:	Hash performed on IP source, IP destination, IP protocol, L4 source and L4 destination
 
+		- num_in_qs in pp2_ppio_tc_params struct. This parameter defines the number of RSS queues as follows:
+			- Value of 1: one RSS-queue is defined in the traffic class (TC) and all incoming traffic is directed to this queue
+			- Value of 2: two RSS-queues are defined in the TC and all incoming traffic is distributed between these 2 queues
+			- Value of 3: three RSS-queues are defined in the TC and all incoming traffic is distributed between these 3 queues
+			- Value of 4: four RSS-queues are defined in the TC and all incoming traffic is distributed between these 4 queues
+
+Limitations:
+	- All traffic is equally weighted between the defined RSS queues (no option to define weighted RSS queues)
 
 3.4	MAC address filtering
 ------------------------------
