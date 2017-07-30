@@ -15,6 +15,7 @@ Supported SoCs
 ---------------
 	- Armada-80x0
 	- Armada-70x0
+	- Armada-37x0
 
 Release Content
 ---------------
@@ -27,7 +28,6 @@ Release Content
 				- <all example applications>
 	- Sources:
 		- sources-musdk-<version>.x.zip 	- includes full sources of MUSDK package.
-		- sources-eip197-4.7-armada-17.02.x.zip	- include full sources of EIP197 DDK package
 
 
 Supported Features
@@ -47,6 +47,7 @@ Supported Features
 	- MUSDK and kernel ports may operate together
 	- Packet-echo example application
 	- MAC & VLAN filters example application
+	- Packet-gen example application
 
 - Classifier features:
 	- Single classification table per port
@@ -60,9 +61,9 @@ Supported Features
 	- Delete session
 	- Cipher algorithms: NULL, AES, 3DES
 	- Cipher key lengths: 128 bits, 192 bits, 256 bits
-	- Cipher modes: CBC, ECB,
+	- Cipher modes: CBC, ECB, GCM, CTR
 	- Authentication algorithms: NULL, SHA1, SHA2(384/256/512), MD5
-	- Authentication modes: HASH, HMAC
+	- Authentication modes: HASH, HMAC, GMAC
 	- Encryption modes:
 		- Encryption only
 		- Authentication only
@@ -75,6 +76,8 @@ Supported Features
 	- Single-buffer mode
 	- Poll request completion
 	- MUSDK and kernel may operate on separate rings
+	- IPSec protocol offload (IPv4) by the Crypto engine (Armada-70x0/80x0 only)
+	- Crypto-echo example application (Armada-70x0/80x0 only)
 	- Test applications
 
 - DMAX2 (DMA engine) features
