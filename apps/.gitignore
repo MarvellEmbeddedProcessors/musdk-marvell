@@ -1,2 +1,4 @@
 examples/musdk_*
+examples/ppv2/musdk_*
+examples/neta/musdk_*
 tests/musdk_*

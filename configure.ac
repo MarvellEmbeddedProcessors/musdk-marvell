@@ -176,6 +176,8 @@ AC_CONFIG_FILES([Makefile
 		apps/Makefile
 		apps/tests/Makefile
 		apps/examples/Makefile
+		apps/examples/ppv2/Makefile
+		apps/examples/neta/Makefile
 ])
 
 ##########################################################################
