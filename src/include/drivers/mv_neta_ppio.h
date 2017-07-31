@@ -122,14 +122,10 @@ enum neta_outq_l4_type {
 };
 
 enum neta_inq_l3_type {
-	NETA_INQ_L3_TYPE_NA = 0,
-	NETA_INQ_L3_TYPE_IPV4_NO_OPTS,	/* IPv4 with IHL=5, TTL>0 */
-	NETA_INQ_L3_TYPE_IPV4_OK,	/* IPv4 with IHL>5, TTL>0 */
-	NETA_INQ_L3_TYPE_IPV4_TTL_ZERO,	/* Other IPV4 packets */
-	NETA_INQ_L3_TYPE_IPV6_NO_EXT,	/* IPV6 without extensions */
-	NETA_INQ_L3_TYPE_IPV6_EXT,	/* IPV6 with extensions */
-	NETA_INQ_L3_TYPE_ARP,		/* ARP */
-	NETA_INQ_L3_TYPE_USER_DEFINED	/* User defined */
+	NETA_INQ_L3_TYPE_NA       = 0,	/* Unknown L3 protocol */
+	NETA_INQ_L3_TYPE_IPV4_BAD = 1,	/* L3 type is IPv4. IP header is not OK */
+	NETA_INQ_L3_TYPE_IPV6     = 2,	/* L3 type is IPv6 */
+	NETA_INQ_L3_TYPE_IPV4_OK  = 3,	/* L3 type is IPv4. IP header is OK */
 };
 
 enum neta_inq_l4_type {
@@ -235,6 +231,8 @@ struct neta_ppio_sg_desc {
 #define NETA_RXD_ERROR_CODE_OFF		17
 #define NETA_RXD_BM_POOL_MASK		(BIT(13) | BIT(14))
 #define NETA_RXD_ERR_CODE_MASK		(BIT(17) | BIT(18))
+#define NETA_RXD_VLAN_OFF		19
+#define NETA_RXD_BPDU_OFF		20
 #define NETA_RXD_L4_PRS_MASK		(BIT(21) | BIT(22))
 #define NETA_RXD_L3_PRS_MASK		(BIT(24) | BIT(25))
 #define NETA_RXD_FIRST_LAST_DESC_MASK	(BIT(26) | BIT(27))
@@ -245,6 +243,7 @@ struct neta_ppio_sg_desc {
 #define NETA_RXD_GET_ES(desc)		(((desc)->cmds[0] >> NETA_RXD_ERROR_SUM_OFF) & 1)
 #define NETA_RXD_GET_EC(desc)		(((desc)->cmds[0] & NETA_RXD_ERR_CODE_MASK) >> NETA_RXD_ERROR_CODE_OFF)
 #define NETA_RXD_GET_POOL_ID(desc)	(((desc)->cmds[0] & NETA_RXD_BM_POOL_MASK) >> NETA_RXD_BM_POOL_OFF)
+#define NETA_RXD_GET_VLAN_INFO(desc)	(((desc)->cmds[0] >> NETA_RXD_VLAN_OFF) & 1)
 #define NETA_RXD_GET_L4_CHK_OK(desc)	(((desc)->cmds[0] >> NETA_RXD_L4_CHK_OK_OFF) & 1)
 #define NETA_RXD_GET_L3_IP_FRAG(desc)	(((desc)->cmds[0] >> NETA_RXD_IPV4_FRG_OFF) & 1)
 #define NETA_RXD_GET_IP_HDR_ERR(desc)	(((desc)->cmds[0] >> NETA_RXD_IP_HEAD_OK_OFF) & 1)
@@ -301,26 +300,33 @@ void neta_ppio_outq_desc_set_pool(struct neta_ppio_desc *desc, struct neta_bpool
  * Set TXQ descriptors fields relevant for CSUM calculation
  *
  * @param[out]	desc		A pointer to a packet descriptor structure.
+ * @param[in]	l3_type		The l3 type of the packet.
+ * @param[in]	l4_type		The l4 type of the packet.
  * @param[in]	l3_offset	The l3 offset of the packet.
- * @param[in]	l3_proto	The l3 type of the packet.
- * @param[in]	ip_hdr_len	The IP header length of the packet.
- * @param[in]	l4_proto	The l4 type of the packet.
+ * @param[in]	l4_offset	The l4 offset of the packet.
+ * @param[in]	gen_l3_chk	Set to '1' to generate IPV4 checksum.
+ * @param[in]	gen_l4_chk	Set to '1' to generate TCP/UDP checksum.
  *
  */
-static inline void neta_ppio_outq_desc_set_proto_info(struct neta_ppio_desc *desc,
-					     int l3_offs, enum neta_outq_l3_type l3_proto,
-					     int ip_hdr_len, enum neta_outq_l4_type l4_proto)
+static inline void neta_ppio_outq_desc_set_proto_info(struct neta_ppio_desc *desc, enum neta_outq_l3_type l3_proto,
+						     enum neta_outq_l4_type l4_proto, u8 l3_offs, u8 l4_offs,
+						     int gen_l3_chk, int gen_l4_chk)
 {
 	/* Fields: L3_offset, IP_hdrlen, L3_type, G_IPv4_chk,
 	 * G_L4_chk, L4_type; required only for checksum
 	 * calculation
 	 */
 	NETA_TXD_SET_L3_OFF(desc, l3_offs);
-	NETA_TXD_SET_IP_HLEN(desc, ip_hdr_len);
+	NETA_TXD_SET_IP_HLEN(desc, (l4_offs - l3_offs) / sizeof(u32));
 	NETA_TXD_SET_L3_TYPE(desc, l3_proto);
 	NETA_TXD_SET_L4_TYPE(desc, l4_proto);
 
-	if ((l4_proto == NETA_OUTQ_L4_TYPE_TCP) || (l4_proto == NETA_OUTQ_L4_TYPE_UDP))
+	if (gen_l3_chk)
+		desc->cmds[0] |= NETA_TXD_IP_CSUM_MASK;
+	else
+		desc->cmds[0] &= ~NETA_TXD_IP_CSUM_MASK;
+
+	if (gen_l4_chk)
 		NETA_TXD_SET_L4_FULL_CSUM(desc);
 	else
 		NETA_TXD_SET_L4_NO_CSUM(desc);
@@ -397,15 +403,43 @@ static inline u16 neta_ppio_inq_desc_get_pkt_len(struct neta_ppio_desc *desc)
 }
 
 /**
- * Get the Layer information from an inq packet descriptor.
+ * Get the L3 type from an inq packet descriptor.
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  * @param[out]	type	A pointer to l3 type.
  *
  */
-static inline void neta_ppio_inq_desc_get_l3_info(struct neta_ppio_desc *desc, enum neta_inq_l3_type *type)
+static inline void neta_ppio_inq_desc_get_l3_type(struct neta_ppio_desc *desc, enum neta_inq_l3_type *type)
 {
 	*type  = NETA_RXD_GET_L3_PRS_INFO(desc);
+}
+
+/**
+ * Get the L3 information from an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ * @param[out]	type	A pointer to l3 type.
+ *
+ */
+static inline void neta_ppio_inq_desc_get_l3_info(struct neta_ppio_desc *desc, enum neta_inq_l3_type *type, u8 *offset)
+{
+	*type  = NETA_RXD_GET_L3_PRS_INFO(desc);
+
+	*offset = 14; /* DA + SA + ETYPE */
+	if (NETA_RXD_GET_VLAN_INFO(desc))
+		*offset += 4; /* VLAN tag */
+}
+
+/**
+ * Get the L4 type from an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ * @param[out]	type	A pointer to l4 type.
+ *
+ */
+static inline void neta_ppio_inq_desc_get_l4_type(struct neta_ppio_desc *desc, enum neta_inq_l4_type *type)
+{
+	*type = NETA_RXD_GET_L4_PRS_INFO(desc);
 }
 
 /**
@@ -415,9 +449,19 @@ static inline void neta_ppio_inq_desc_get_l3_info(struct neta_ppio_desc *desc, e
  * @param[out]	type	A pointer to l4 type.
  *
  */
-static inline void neta_ppio_inq_desc_get_l4_info(struct neta_ppio_desc *desc, enum neta_inq_l4_type *type)
+static inline void neta_ppio_inq_desc_get_l4_info(struct neta_ppio_desc *desc, enum neta_inq_l4_type *type, u8 *offset)
 {
+	enum neta_inq_l3_type l3_type;
+	u8 l3_offset;
+
 	*type = NETA_RXD_GET_L4_PRS_INFO(desc);
+
+	neta_ppio_inq_desc_get_l3_info(desc, &l3_type, &l3_offset);
+
+	if (l3_type == NETA_INQ_L3_TYPE_IPV4_OK)
+		*offset = l3_offset + 20;
+	else
+		*offset = 0;
 }
 
 /**
@@ -455,8 +499,7 @@ static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l2_pkt_error(stru
  */
 static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l3_pkt_error(struct neta_ppio_desc *desc)
 {
-	if (unlikely(NETA_RXD_GET_L3_PRS_INFO(desc) <= NETA_INQ_L3_TYPE_IPV4_TTL_ZERO &&
-		     NETA_RXD_GET_IP_HDR_ERR(desc)))
+	if (NETA_RXD_GET_IP_HDR_ERR(desc))
 		return NETA_DESC_ERR_IPV4_HDR;
 	return NETA_DESC_ERR_OK;
 }
