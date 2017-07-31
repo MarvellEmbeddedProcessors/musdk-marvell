@@ -624,7 +624,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.desc		= "Prefetch ahead shift (number of buffers)";
 	cmd_params.format	= "<shift>";
 	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_pp2_prefetch_cmd_cb;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_prefetch_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "stat";

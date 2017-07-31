@@ -389,7 +389,6 @@ void apps_pp2_destroy_all_modules(void);
 void apps_pp2_deinit_global(void *arg);
 
 int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[]);
-int apps_pp2_prefetch_cmd_cb(void *arg, int argc, char *argv[]);
 
 
 

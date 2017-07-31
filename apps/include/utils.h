@@ -222,6 +222,7 @@ static inline int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, ch
 
 int apps_perf_dump(struct glb_common_args *cmn_args);
 int app_ctrl_cb(void *arg);
+int apps_prefetch_cmd_cb(void *arg, int argc, char *argv[]);
 
 
 

@@ -94,4 +94,27 @@ int app_ctrl_cb(void *arg)
 	return 0;
 }
 
+int apps_prefetch_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+
+	if (!g_cmn_args) {
+		pr_err("no garg obj passed!\n");
+		return -EINVAL;
+	}
+	if ((argc != 1) && (argc != 2)) {
+		pr_err("Invalid number of arguments for prefetch cmd!\n");
+		return -EINVAL;
+	}
+
+	if (argc == 1) {
+		printf("%d\n", g_cmn_args->prefetch_shift);
+		return 0;
+	}
+
+	g_cmn_args->prefetch_shift = atoi(argv[1]);
+
+	return 0;
+}
+
 
