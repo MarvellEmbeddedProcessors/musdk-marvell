@@ -65,6 +65,11 @@
 /* Reserved HIFs mask */
 #define MVAPPS_PP2_HIFS_RSRV		((1 << MVAPPS_PP2_NUM_HIFS_RSRV) - 1)
 
+/* Number of policers reserved by kernel */
+#define MVAPPS_PP2_NUM_POLICERS_RSRV	0
+/* Reserved policers mask */
+#define MVAPPS_PP2_POLICERSS_RSRV	((1 << MVAPPS_PP2_NUM_POLICERS_RSRV) - 1)
+
 /* sysfs path for reading relevant parameters from kernel driver */
 #define PP2_SYSFS_MUSDK_PATH		"/sys/devices/platform/pp2/musdk"
 #define PP2_SYSFS_DEBUG_PORT_SET_FILE	"sysfs_current_port"
@@ -143,6 +148,8 @@ struct port_desc {
 	u32			 hash_type;	/* Hash type */
 	u32			 first_rss_tbl;	/* First RSS table */
 	u32			 traffic_dir;	/* Traffic direction (1 - Rx, 2 - Tx, 3 - Rx+Tx) */
+	int			 plcr_argc;	/* policer params argc */
+	char			 *plcr_argv[10];/* policer params argv */
 	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
 	struct pp2_ppio_params	 port_params;	/* PPIO configuration parameters */
 	struct lcl_port_desc	*lcl_ports_desc[MVAPPS_MAX_NUM_CORES];
@@ -391,7 +398,6 @@ void apps_pp2_destroy_all_modules(void);
 void apps_pp2_deinit_global(void *arg);
 
 int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[]);
-
 
 
 

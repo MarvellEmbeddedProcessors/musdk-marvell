@@ -369,11 +369,13 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 	struct port_desc *ports_desc = (struct port_desc *)arg;
 	u32 idx = 0;
 	int tbl_idx = -1;
+	int plcr_idx = -1;
 	int traffic_class = -1;
 	int action_type = PP2_CLS_TBL_ACT_DONE;
 	int rc;
 	u32 num_fields;
 	struct pp2_cls_tbl *tbl;
+	struct pp2_cls_plcr *plcr = NULL;
 	struct pp2_cls_tbl_rule *rule;
 	struct pp2_cls_tbl_action *action;
 	u32 key_size[PP2_CLS_TBL_MAX_NUM_FIELDS];
@@ -391,6 +393,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		{"key", required_argument, 0, 'k'},
 		{"mask", required_argument, 0, 'm'},
 		{"table_index", required_argument, 0, 't'},
+		{"policer_index", required_argument, 0, 'p'},
 		{"drop", no_argument, 0, 'd'},
 		{"tc", required_argument, 0, 'q'},
 		{0, 0, 0, 0}
@@ -421,6 +424,14 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 				printf("parsing fail, wrong input for --table_index\n");
 				return -EINVAL;
 			}
+			break;
+		case 'p':
+			plcr_idx = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (plcr_idx < 1) || (plcr_idx > PP2_CLS_PLCR_NUM)) {
+				printf("parsing fail, wrong input for --policer_index\n");
+				return -EINVAL;
+			}
+			plcr_idx -= 1;
 			break;
 		case 'd':
 			action_type = PP2_CLS_TBL_ACT_DROP;
@@ -475,6 +486,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		printf("parsing fail, invalid --table_index\n");
 		return -EINVAL;
 	}
+
 	if (traffic_class < 0) {
 		printf("parsing fail, invalid --tc\n");
 		return -EINVAL;
@@ -496,6 +508,14 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
+	if ((cmd != 3) && (plcr_idx >= 0)) {
+		rc = cli_cls_policer_get(plcr_idx, &plcr);
+		if (rc) {
+			printf("policer not found for index %d\n", plcr_idx+1);
+			return -EINVAL;
+		}
+	}
+
 	rule = malloc(sizeof(*rule));
 	if (!rule)
 		goto rule_add_fail;
@@ -513,7 +533,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		action = malloc(sizeof(*action));
 		if (!action)
 			goto rule_add_fail1;
-
+		memset(action, 0, sizeof(struct pp2_cls_tbl_action));
 		action->cos = malloc(sizeof(*action->cos));
 		if (!action->cos)
 			goto rule_add_fail2;
@@ -521,6 +541,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		action->type = action_type;
 		action->cos->tc = traffic_class;
 		action->cos->ppio = ports_desc->ppio;
+		action->plcr = plcr;
 
 		if (cmd == 1)
 			rc = pp2_cls_tbl_add_rule(tbl, rule, action);
@@ -636,20 +657,22 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_rule_key";
 	cmd_params.desc		= "add/modify/remove a classifier rule key to existing table";
-	cmd_params.format	= "\t--add    --table_index --tc --drop(optional) --size --key --mask...\n"
-				  "\t\t\t\t\t--modify --table_index --tc --drop(optional) --size --key --mask...\n"
-				  "\t\t\t\t\t--remove --table_index --tc --drop(optional) --size --key --mask...\n"
-				  "\t\t\t\t--table_index	(dec) index to existing table\n"
-				  "\t\t\t\t--tc			(dec) 1..8\n"
-				  "\t\t\t\t--drop		(optional)(no argument)\n"
-				  "\t\t\t\t--size		(dec) size in bytes of the key\n"
-				  "\t\t\t\t--key		(dec or hex) key\n"
-				  "\t\t\t\t			   i.e ipv4: 192.168.10.5\n"
-				  "\t\t\t\t			   i.e ipv6: 2605:2700:0:3::4713:93e3\n"
-				  "\t\t\t\t			   i.e port: 0x1234\n"
-				  "\t\t\t\t			   i.e udp: 17(IPPROTO_UDP)\n"
-				  "\t\t\t\t			   i.e tcp: 6(IPPROTO_TCP)\n"
-				  "\t\t\t\t--mask		(hex) mask for the key (if maskable is used)\n";
+	cmd_params.format	=
+		"\t--add    --table_index --tc --drop(optional) --policer_index(optional) --size --key --mask...\n"
+		"\t\t\t\t\t--modify --table_index --tc --drop(optional) --size --key --mask...\n"
+		"\t\t\t\t\t--remove --table_index --tc --drop(optional) --size --key --mask...\n"
+		"\t\t\t\t--table_index	(dec) index to existing table\n"
+		"\t\t\t\t--tc			(dec) 1..8\n"
+		"\t\t\t\t--drop		(optional)(no argument)\n"
+		"\t\t\t\t--policer_index	(optional)(dec) index to existing policer\n"
+		"\t\t\t\t--size		(dec) size in bytes of the key\n"
+		"\t\t\t\t--key		(dec or hex) key\n"
+		"\t\t\t\t			   i.e ipv4: 192.168.10.5\n"
+		"\t\t\t\t			   i.e ipv6: 2605:2700:0:3::4713:93e3\n"
+		"\t\t\t\t			   i.e port: 0x1234\n"
+		"\t\t\t\t			   i.e udp: 17(IPPROTO_UDP)\n"
+		"\t\t\t\t			   i.e tcp: 6(IPPROTO_TCP)\n"
+		"\t\t\t\t--mask		(hex) mask for the key (if maskable is used)\n";
 	cmd_params.cmd_arg	= arg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_rule_key;
 	mvapp_register_cli_cmd(&cmd_params);

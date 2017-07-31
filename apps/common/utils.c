@@ -41,7 +41,6 @@
 #include "utils.h"
 
 
-
 int apps_perf_dump(struct glb_common_args *cmn_args)
 {
 	struct timeval	 curr_time;

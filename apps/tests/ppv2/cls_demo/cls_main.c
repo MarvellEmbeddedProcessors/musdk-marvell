@@ -102,7 +102,6 @@ int pp2_cls_table_next_index_get(struct list *cls_tbl_head)
 	return idx + 1;
 }
 
-
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tx_ppio_id,
@@ -252,8 +251,6 @@ static int init_all_modules(void)
 	err = mv_sys_dma_mem_init(CLS_APP_DMA_MEM_SIZE);
 	if (err)
 		return err;
-
-	memset(pp2_params, 0, sizeof(*pp2_params));
 	pp2_params->hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
@@ -268,6 +265,8 @@ static int init_all_modules(void)
 	err = pp2_init(pp2_params);
 	if (err)
 		return err;
+
+	cli_cls_prepare_policers_db(pp2_params->policers_reserved_map);
 
 	pr_info("done\n");
 	return 0;
@@ -304,6 +303,15 @@ static int init_local_modules(struct glob_arg *garg)
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
 			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
 			port->hash_type = garg->hash_type;
+
+			if (port->plcr_argc) {
+				err = cli_cls_policer_params(port);
+				if (err) {
+					pr_err("cli_cls_policer_params failed!\n");
+					return -EINVAL;
+				}
+			}
+
 			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
 					    DEFAULT_MTU, 0);
@@ -343,6 +351,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	register_cli_cls_api_cmds(pp2_args->ports_desc);
 	register_cli_mng_cmds(ppio);
 	register_cli_cls_api_qos_cmds(pp2_args->ports_desc);
+	register_cli_cls_api_plcr_cmds(pp2_args->ports_desc);
 	register_cli_filter_cmds(ppio);
 	register_cli_cls_cmds(ppio);
 	register_cli_c3_cmds(ppio);
@@ -459,7 +468,9 @@ static void usage(char *progname)
 		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
 		"\t--ppio_tag_mode		(no argument)configure ppio_tag_mode parameter\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
-		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname)
+		"\t--policers_range		(dec)-(dec) valid range [1-%d]\n"
+		"\t--policer_params		(no argument)configure default policer parameters\n"
+		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname), PP2_CLS_PLCR_NUM
 		);
 }
 
@@ -470,6 +481,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int long_index = 0;
 	int ppio_tag_mode = 0;
 	int logical_port_params = 0;
+	int policer_params = 0;
 	char buff[CLS_APP_COMMAND_LINE_SIZE];
 	int argc_cli;
 	int rc;
@@ -491,7 +503,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"num_tcs", required_argument, 0, 't'},
 		{"hash_type", required_argument, 0, 'b'},
 		{"eth_start_hdr", no_argument, 0, 's'},
+		{"policers_range", required_argument, 0, 'r'},
 		{"logical_port_params", no_argument, 0, 'g'},
+		{"policer_params", no_argument, 0, 'p'},
 		{0, 0, 0, 0}
 	};
 
@@ -504,11 +518,13 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	memset(port_params, 0, sizeof(*port_params));
 	memset(pp2_params, 0, sizeof(*pp2_params));
+
+	pp2_params->policers_reserved_map = MVAPPS_PP2_POLICERSS_RSRV;
 	port->ppio_type = PP2_PPIO_T_NIC;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:b:c:t:esg", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:b:c:t:r:epsg", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -552,6 +568,28 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 't':
 			num_tcs = strtoul(optarg, &ret_ptr, 0);
+		case 'p':
+			policer_params = true;
+			break;
+		case 'r':
+			{
+				int ranges[2];
+				char *ret_ptr, *token;
+
+				token = strtok(optarg, "-");
+				ranges[0] = strtoul(token, &ret_ptr, 0);
+				token = strtok(NULL, "-");
+				ranges[1] = strtoul(token, &ret_ptr, 0);
+				if ((ranges[0] < 1 || ranges[0] > PP2_CLS_PLCR_NUM) ||
+				    (ranges[1] < 1 || ranges[1] > PP2_CLS_PLCR_NUM) ||
+				    (ranges[0] > ranges[1])) {
+					printf("parsing fail, wrong input for policers ranges\n");
+					return -EINVAL;
+				}
+				pp2_params->policers_reserved_map = (u32)~0;
+				for (i = ranges[0]-1; i <= ranges[1]-1; i++)
+					pp2_params->policers_reserved_map &= ~(1 << i);
+			}
 			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);
@@ -598,6 +636,26 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			return -EINVAL;
 		}
 	}
+
+	if (policer_params) {
+		rc = app_get_line("please enter policer params:\n"
+				  "\t\t\t--policer_index   (dec)\n"
+				  "\t\t\t--token_unit	   (dec)\n"
+				  "\t\t\t--color_mode	   (dec)\n"
+				  "\t\t\t--cir		   (dec)\n"
+				  "\t\t\t--cbs	           (dec)\n"
+				  "\t\t\t--ebs		   (dec)\n",
+				  buff, sizeof(buff), &argc_cli, argv);
+		if (rc) {
+			pr_err("app_get_line failed!\n");
+			return -EINVAL;
+		}
+
+		pp2_args->ports_desc[0].plcr_argc = argc_cli;
+		for (i = 0; i < argc_cli; i++)
+			pp2_args->ports_desc[0].plcr_argv[i] = strdup(argv[i]);
+	}
+
 	/* Now, check validity of all inputs */
 	if (!garg->cmn_args.num_ports) {
 		pr_err("No port defined!\n");

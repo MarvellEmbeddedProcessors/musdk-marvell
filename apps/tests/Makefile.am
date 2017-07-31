@@ -33,6 +33,7 @@ musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_main.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_filter.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_qos.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_tables.c
+musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_plcr.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_logical_port.c
 musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_debug.c
 musdk_cls_demo_LDADD = $(top_builddir)/src/libmusdk.la
