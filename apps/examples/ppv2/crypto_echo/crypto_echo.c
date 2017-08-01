@@ -1361,7 +1361,7 @@ static int init_local(void *arg, int id, void **_larg)
 
 		larg->enc_cio = cio;
 
-		if (glb_pp2_args->pp2_num_inst == 2)
+		if (sam_get_num_inst() == 2)
 			sam_engine = 1;
 		else
 			sam_engine = 0;
@@ -1375,7 +1375,7 @@ static int init_local(void *arg, int id, void **_larg)
 			return cio_id;
 		}
 		memset(name, 0, sizeof(name));
-		snprintf(name, sizeof(name), "cio-%d:%d", 1, cio_id);
+		snprintf(name, sizeof(name), "cio-%d:%d", sam_engine, cio_id);
 		pr_info("found cio: %s\n", name);
 		memset(&cio_params, 0, sizeof(cio_params));
 		cio_params.match = name;
