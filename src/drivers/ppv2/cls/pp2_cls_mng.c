@@ -1627,13 +1627,14 @@ void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map)
 /*
  * Configure default cos queue for the specified port.
  * The cos queue configured is according to the first rx queue defined for the port.
+ * Configuration is not needed for logical port
  * TODO review whenever API for configuring default cos queue is available
  */
 void pp2_cls_mng_config_default_cos_queue(struct pp2_port *port)
 {
-	pp2_c2_config_default_queue(port, port->first_rxq);
+	if (port->type == PP2_PPIO_T_NIC)
+		pp2_c2_config_default_queue(port, port->first_rxq);
 }
-
 
 void pp2_cls_mng_init(struct pp2_inst *inst)
 {
