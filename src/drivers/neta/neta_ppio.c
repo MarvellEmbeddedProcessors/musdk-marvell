@@ -77,12 +77,18 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 		return -ENXIO;
 	}
 
+	if (params->inqs_params.tcs_params[0].pkt_offset > 120) {
+		pr_err("[%s] Cannot support packet offset > %d.\n",
+		       __func__, params->inqs_params.tcs_params[0].pkt_offset);
+		return -EINVAL;
+	}
 	port = &port_array[port_id];
 	port->txq_number = params->outqs_params.num_outqs;
 	port->rxq_number = params->inqs_params.num_tcs;
 	/* all queues have the same size */
 	port->rx_ring_size = params->inqs_params.tcs_params[0].size;
 	port->tx_ring_size = params->outqs_params.outqs_params[0].size;
+	port->rx_offset = params->inqs_params.tcs_params[0].pkt_offset;
 	port->pool_short = (struct mvneta_bm_pool *)(params->inqs_params.pools[0]->internal_param);
 	port->pool_long = (struct mvneta_bm_pool *)params->inqs_params.pools[1]->internal_param;
 

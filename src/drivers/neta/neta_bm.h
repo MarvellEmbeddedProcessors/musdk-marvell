@@ -128,7 +128,6 @@ struct mvneta_bm {
 	/* BPPI physical base address */
 	dma_addr_t		 bppi_phys_addr;
 
-	u16			 rx_offset_correction;
 	/* BM pools */
 	struct mvneta_bm_pool	*bm_pools;
 };

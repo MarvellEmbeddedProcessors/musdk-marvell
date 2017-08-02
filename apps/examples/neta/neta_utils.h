@@ -140,7 +140,7 @@ int app_find_port_info(struct port_desc *port_desc);
 /*
  * Init port
  */
-int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu);
+int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset);
 /*
  * Init local port object per thread according to port parameters
  */

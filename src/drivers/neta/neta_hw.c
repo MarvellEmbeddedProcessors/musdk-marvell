@@ -643,7 +643,6 @@ void neta_bm_pool_bufsize_set(struct neta_port *pp,
 {
 	u32 val;
 
-	buf_size -= pp->rx_offset_correction;
 	if (!IS_ALIGNED(buf_size, 8)) {
 		pr_err("illegal buf_size value %d, round to %d\n",
 		       buf_size, ALIGN(buf_size, 8));
@@ -681,7 +680,6 @@ static int mvneta_rxq_init(struct neta_port *pp,
 
 {
 	rxq->size = pp->rx_ring_size;
-	pp->rx_offset_correction = 8;
 
 	/* Allocate memory for RX descriptors */
 	rxq->descs =  mv_sys_dma_mem_alloc(rxq->size * MVNETA_DESC_ALIGNED_SIZE,
@@ -696,7 +694,7 @@ static int mvneta_rxq_init(struct neta_port *pp,
 	neta_reg_write(pp, MVNETA_RXQ_SIZE_REG(rxq->id), rxq->size);
 
 	/* Set Offset */
-	mvneta_rxq_offset_set(pp, rxq, pp->rx_offset_correction);
+	mvneta_rxq_offset_set(pp, rxq, pp->rx_offset);
 
 	mvneta_rxq_bm_enable(pp, rxq);
 	mvneta_rxq_long_pool_set(pp, rxq);

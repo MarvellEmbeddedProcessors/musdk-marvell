@@ -193,7 +193,7 @@ int app_find_port_info(struct port_desc *port_desc)
 	return 0;
 }
 
-int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu)
+int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset)
 {
 	struct neta_ppio_params		*port_params = &port->port_params;
 	char				name[MVAPPS_PPIO_NAME_MAX];
@@ -206,7 +206,8 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	port_params->inqs_params.num_tcs = port->num_tcs;
 
 	for (i = 0; i < port->num_tcs; i++) {
-		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_NETA_PKT_OFFS >> 2;
+		port_params->inqs_params.tcs_params[i].pkt_offset =
+			(pkt_offset) ? pkt_offset : MVAPPS_NETA_PKT_OFFS;
 		port_params->inqs_params.tcs_params[i].size = port->inq_size;
 
 		for (j = 0; j < num_pools; j++)

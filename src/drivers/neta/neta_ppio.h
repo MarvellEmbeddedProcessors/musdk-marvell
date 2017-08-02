@@ -155,7 +155,7 @@ struct neta_port {
 #ifdef CONFIG_64BIT
 	u64 data_high;
 #endif
-	u16 rx_offset_correction;
+	u16 rx_offset;
 };
 
 #define GET_PPIO_PORT(ppio) ((struct neta_port *)(ppio)->internal_param)

@@ -238,7 +238,6 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 
 			if ((num - i) > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
-				tmp_buff += MVAPPS_NETA_PKT_EFEC_OFFS;
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | neta_sys_dma_high_addr);
 				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
 				prefetch(tmp_buff);
@@ -312,14 +311,14 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 			if ((num - i) > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
-				tmp_buff += MVAPPS_NETA_PKT_EFEC_OFFS;
 				tmp_buff = (char *)(((uintptr_t)tmp_buff) | neta_sys_dma_high_addr);
-				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
+				tmp_buff += MVAPPS_NETA_PKT_EFEC_OFFS;
 				prefetch(tmp_buff);
 			}
 
 			tmp_buff = (char *)(((uintptr_t)(buff)) | neta_sys_dma_high_addr);
 			tmp_buff += MVAPPS_NETA_PKT_EFEC_OFFS;
+			pr_debug("buffer pointer is %p, tmp_buff for swap (%p)\n", buff, tmp_buff);
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
 		}
@@ -544,7 +543,8 @@ static int init_local_modules(struct glob_arg *garg)
 		port->first_inq	= PKT_ECHO_APP_FIRST_INQ;
 		port->ppio_id	= port_index;
 
-		err = app_port_init(port, garg->num_pools, garg->pools_desc[port_index], garg->mtu);
+		err = app_port_init(port, garg->num_pools, garg->pools_desc[port_index], garg->mtu,
+				    MVAPPS_NETA_PKT_OFFS);
 		if (err) {
 			pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 			       port->ppio_id);
