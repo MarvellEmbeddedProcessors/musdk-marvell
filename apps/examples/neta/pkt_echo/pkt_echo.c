@@ -166,13 +166,18 @@ static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
 	for (i = 0; i < num; i++) {
 		struct neta_bpool *bpool = shadow_q->ents[idx].bpool;
 
+		if (!bpool) {
+			pr_warn("Shadow memory @%d: wrong\n", idx);
+			return idx;
+		}
 		binf = &shadow_q->ents[idx].buff_ptr;
 		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
 			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
-				i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
+				idx, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
 			continue;
 		}
 		neta_bpool_put_buff(bpool, binf);
+		shadow_q->ents[idx].bpool = NULL;
 		free_cnt++;
 
 		if (++idx == tx_port->shadow_q_size)
@@ -187,15 +192,20 @@ static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
 				     struct lcl_port_desc	*tx_port,
 				     u8				 tc)
 {
-	u16 tx_num;
+	u16 tx_num = 0;
 
 	neta_ppio_get_num_outq_done(tx_port->ppio, tc, &tx_num);
 
 	if (unlikely(!tx_num))
 		return;
+
 	/* release sent buffers */
 	tx_port->shadow_qs[tc].read_ind = free_buffers(rx_port, tx_port,
 					       tx_port->shadow_qs[tc].read_ind, tx_num, tc);
+
+#ifdef NETA_BM_DEBUG
+	neta_bmpools_status();
+#endif
 }
 
 
@@ -289,7 +299,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u16			 num)
 {
 	struct neta_ppio_desc	 descs[PKT_ECHO_APP_MAX_BURST_SIZE];
-	u16			 i, tx_num;
+	u16			 i, tx_num = 0;
 	struct tx_shadow_q	*shadow_q;
 	int			 shadow_q_size;
 	int			 prefetch_shift = larg->prefetch_shift;
@@ -305,6 +315,11 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		dma_addr_t	 pa = neta_ppio_inq_desc_get_phys_addr(&descs[i]);
 		u16 len = neta_ppio_inq_desc_get_pkt_len(&descs[i]);
 		struct neta_bpool *ppool = neta_ppio_inq_desc_get_bpool(&descs[i], larg->ports_desc[rx_ppio_id].ppio);
+
+		if (!buff  || !pa) {
+			pr_err("Receive empty descriptor on port %d\n", rx_ppio_id);
+			continue;
+		}
 
 		if (likely(larg->echo)) {
 			char *tmp_buff;
@@ -327,6 +342,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		neta_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_NETA_PKT_EFEC_OFFS);
 		neta_ppio_outq_desc_set_pkt_len(&descs[i], len - (ETH_FCS_LEN + MV_MH_SIZE));
 
+		if (shadow_q->ents[shadow_q->write_ind].bpool)
+			pr_warn("Shadow entry not free: %d\n", shadow_q->write_ind);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->ents[shadow_q->write_ind].bpool = ppool;
@@ -347,7 +364,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 						(shadow_q_size - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
-			free_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[tx_ppio_id],
+			shadow_q->read_ind =
+				free_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[tx_ppio_id],
 				     shadow_q->write_ind, not_sent, qid);
 			INC_TX_DROP_COUNT(larg->id, rx_ppio_id, not_sent);
 		}

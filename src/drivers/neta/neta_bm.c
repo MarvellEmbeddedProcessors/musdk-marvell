@@ -219,10 +219,6 @@ int neta_bpool_put_buffs(struct buff_release_entry buff_entry[], int *num)
 		bm_pool = (struct mvneta_bm_pool *)pool->internal_param;
 
 		mvneta_bm_pool_put_bp(&musdk_bm, bm_pool, buff_entry[i].buff.addr);
-		bm_pool->buffs_num++;
-		if (pool->id == 0)
-		pr_debug("Add (%d) to pool %d: paddr 0x%lx, cookie 0x%x\n",
-			i, pool->id, buff_entry[i].buff.addr, buff_entry[i].buff.cookie);
 	}
 	*num = i;
 
@@ -237,7 +233,6 @@ int neta_bpool_put_buff(struct neta_bpool *pool, struct neta_buff_inf *buff_entr
 		return -1;
 
 	mvneta_bm_pool_put_bp(&musdk_bm, bm_pool, buff_entry->addr);
-	bm_pool->buffs_num++;
 
 	return 0;
 }
@@ -247,6 +242,7 @@ int neta_bpool_get_num_buffs(struct neta_bpool *pool, u32 *num_buffs)
 	struct mvneta_bm_pool *bm_pool = (struct mvneta_bm_pool *)pool->internal_param;
 
 	*num_buffs = bm_pool->buffs_num;
+
 	return 0;
 }
 

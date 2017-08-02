@@ -254,7 +254,7 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 		lcl_port->shadow_qs[i].write_ind = 0;
 
 		lcl_port->shadow_qs[i].ents =
-			(struct tx_shadow_q_entry *)malloc(port->outq_size * sizeof(struct tx_shadow_q_entry));
+			(struct tx_shadow_q_entry *)malloc(lcl_port->shadow_q_size * sizeof(struct tx_shadow_q_entry));
 	}
 }
 

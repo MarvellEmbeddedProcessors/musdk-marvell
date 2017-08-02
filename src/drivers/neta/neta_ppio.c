@@ -97,8 +97,8 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 		pr_err("[%s] ppio init failed.\n", __func__);
 		return(-EFAULT);
 	}
-	neta_bm_pool_bufsize_set(port, 256, 0);
-	neta_bm_pool_bufsize_set(port, 1600, 1);
+	neta_bm_pool_bufsize_set(port, port->pool_short->buf_size, port->pool_short->id);
+	neta_bm_pool_bufsize_set(port, port->pool_long->buf_size, port->pool_long->id);
 
 	neta_port_hw_init(port);
 	ppio_ptr->port_id = port_id;
@@ -321,9 +321,8 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 	struct neta_port *port = GET_PPIO_PORT(ppio);
 	struct neta_ppio_desc *rx_desc, *extra_rx_desc;
 	struct neta_rx_queue *rxq;
-	u32 recv_req = *num, extra_num = 0;
-	struct neta_bpool *bpool;
-	struct mvneta_bm_pool *bm_pool;
+	u32 recv_req = *num, extra_num = 0, tmp;
+	int i;
 
 	rxq = &port->rxqs[qid];
 
@@ -340,23 +339,21 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 	}
 
 	pr_debug("%s: receive %d (%d) packets.\n", __func__, rxq->desc_received, recv_req);
-	rx_desc = neta_rxq_get_desc(rxq, &recv_req, &extra_rx_desc, &extra_num);
 
+	for (i = 0; i < recv_req; i++) {
+		tmp = 1;
+		rmb(); /* get real descriptor */
+		rx_desc = neta_rxq_get_desc(rxq, &tmp, &extra_rx_desc, &extra_num);
 #if __BYTE_ORDER == __BIG_ENDIAN
-	for (int i = 0; i < recv_req; i++)
-		neta_ppio_desc_swap_ncopy(&descs[i], &rx_desc[i]);
+		neta_ppio_desc_swap_ncopy(&descs[i], rx_desc);
 #else
-	memcpy(descs, rx_desc, recv_req * sizeof(*descs));
+		memcpy(&descs[i], rx_desc, sizeof(struct neta_ppio_desc));
 #endif
+	}
 	if (extra_num) {
-		memcpy(&descs[recv_req], extra_rx_desc, extra_num * sizeof(*descs));
+		memcpy(&descs[recv_req], extra_rx_desc, extra_num * sizeof(struct neta_ppio_desc));
 		recv_req += extra_num; /* Put the split numbers back together */
 	}
-	bpool = &neta_bpools[NETA_RXD_GET_POOL_ID(rx_desc)];
-	bm_pool = (struct mvneta_bm_pool *)bpool->internal_param;
-
-	bm_pool->buffs_num -= recv_req;
-
 	/*  Update HW */
 	neta_port_inq_update(port, rxq, recv_req, recv_req);
 	rxq->desc_received -= recv_req;
@@ -441,10 +438,8 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 	int i;
 	int free_desc = neta_txq_free_desc_num(txq);
 
-	if (free_desc < num) {
-		free_desc = neta_txq_done(port, txq);
+	if (free_desc < num)
 		num = (free_desc < num) ? free_desc : num;
-	}
 
 	for (i = 0; i < num; i++) {
 		/* Get a descriptor for the packet */
@@ -522,3 +517,20 @@ int neta_ppio_disable(struct neta_ppio *ppio)
 {
 	return 0;
 }
+
+#ifdef NETA_BM_DEBUG
+void neta_bmpools_status(void)
+{
+	int i;
+	struct mvneta_bm_pool *bm_pool;
+
+	for (i = 0; i < 4; i++) {
+		bm_pool = (struct mvneta_bm_pool *)neta_bpools[i].internal_param;
+		if (bm_pool) {
+			pr_info("pool-%d: get %d, put %d, capacity %d, buffers %d\n",
+				neta_bpools[i].id, neta_bpools[i].get_bufs, neta_bpools[i].put_bufs,
+				bm_pool->capacity, bm_pool->buffs_num);
+		}
+	}
+}
+#endif /* NETA_BM_DEBUG */
