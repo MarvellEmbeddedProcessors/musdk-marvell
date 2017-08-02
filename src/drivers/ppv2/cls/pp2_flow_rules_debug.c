@@ -637,6 +637,33 @@ int pp2_cli_cls_fl_hits_dump(void *arg, int argc, char *argv[])
 }
 
 /*******************************************************************************
+ * pp2_cli_cls_flow_dump
+ *
+ * DESCRIPTION: The routine dumps all flow table entry.
+ *
+ * INPUTS:
+ *	arg - packet processor instance pointer
+ *	argc - arguments count
+ *	argv[] - arguments pointer
+ *
+ * RETURNS:
+ *	On success, the function returns 0. On error different types are returned
+ *	according to the case.
+ ******************************************************************************/
+int pp2_cli_cls_flow_dump(void *arg, int argc, char *argv[])
+{
+	int rc;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+
+	rc = mv_pp2x_cls_hw_flow_dump(cpu_slot);
+	if (rc)
+		pr_err("%s fail\n", __func__);
+
+	return 0;
+}
+
+/*******************************************************************************
  * pp2_cli_cls_fl_rls_dump
  *
  * DESCRIPTION: The routine dump all logical flow ID rules.

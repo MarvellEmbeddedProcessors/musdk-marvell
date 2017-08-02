@@ -918,11 +918,16 @@ int mv_pp2x_cls_hw_rxq_counter_get(uintptr_t cpu_slot, int phy_rxq)
 int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot)
 {
 	int index;
+	int type, priority;
 
 	struct mv_pp2x_cls_flow_entry fe;
 
 	for (index = 0; index < MVPP2_CLS_FLOWS_TBL_SIZE; index++) {
 		mv_pp2x_cls_hw_flow_read(cpu_slot, index, &fe);
+		/* lookup_type priority */
+		mv_pp2x_cls_sw_flow_extra_get(&fe, &type, &priority);
+		if (type == 0)
+			continue;
 		mv_pp2x_cls_sw_flow_dump(&fe);
 		mv_pp2x_cls_hw_flow_hit_get(cpu_slot, index, NULL);
 		printk("\n");

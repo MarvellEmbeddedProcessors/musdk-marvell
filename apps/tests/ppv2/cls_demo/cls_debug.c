@@ -149,6 +149,15 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 	cmd_params.cmd_arg	= (void *)port;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_set_rss_mode;
 	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_flow_dump";
+	cmd_params.desc		= "dump all flows table entry";
+	cmd_params.format	= "";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_flow_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
 #endif
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_lkp_hits_dump";
