@@ -35,6 +35,19 @@
 
 #include "mv_types.h"
 
+/* CA-72 prefetch command */
+#if __WORDSIZE == 64
+static inline void prefetch(const void *ptr)
+{
+	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
+}
+#else
+static inline void prefetch(const void *ptr)
+{
+	__asm__ __volatile__("pld\t%a0"	: : "p" (ptr));
+}
+#endif
+
 #define local_irq_disable()	do {; } while (0)
 #define local_irq_enable()	do {; } while (0)
 #define local_irq_save(_flags)	do {_flags = 0; } while (0)
@@ -42,25 +55,25 @@
 
 #define __iomem
 
-/* TODO: Use it or lose it. */
-#ifdef MVCONF_DMB_ISH_BARRIERS
-#define mb()		asm volatile("dmb ish" ::: "memory")
-#define wmb()		asm volatile("dmb ishst" ::: "memory")
-#define rmb()		asm volatile("dmb ishld" ::: "memory")
-#else
-#define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
-#define mb()		dsb(sy)
+#if __WORDSIZE == 64
+#define dsb(opt)       asm volatile("dsb " #opt : : : "memory")
 #define rmb()		dsb(ld)
 #define wmb()		dsb(st)
+#define __iormb()	rmb()
+#define __iowmb()	wmb()
+#else
+#define dmb(opt)       asm volatile("dmb " #opt : : : "memory")
+#define rmb()		dmb(sy)
+#define wmb()		dmb(sy)
+#define __iormb()	rmb()
+#define __iowmb()	wmb()
 #endif
-
-#define __iormb()		rmb()
-#define __iowmb()		wmb()
 
 /*
  * Generic IO read/write.  These perform native-endian accesses.
 */
 
+#if __WORDSIZE == 64
 static inline u8 __raw_mv_readb(const volatile void __iomem *addr)
 {
 	u8 val;
@@ -112,6 +125,56 @@ static inline void __raw_mv_writeq(u64 val, volatile void __iomem *addr)
 {
 	asm volatile("str %0, [%1]" : : "r" (val), "r" (addr));
 }
+
+#else
+static inline u8 __raw_mv_readb(const volatile void __iomem *addr)
+{
+	u8 val;
+
+	asm volatile("ldrb %0, %1"
+		     : "=r" (val)
+		     : "Qo" (*(volatile u8 *)addr));
+	return val;
+}
+
+static inline u16 __raw_mv_readw(const volatile void __iomem *addr)
+{
+	u16 val;
+
+	asm volatile("ldrh %0, %1"
+		     : "=r" (val)
+		     : "Q" (*(u16 *)addr));
+	return val;
+}
+
+static inline u32 __raw_mv_readl(const volatile void __iomem *addr)
+{
+	u32 val;
+
+	asm volatile("ldr %0, %1"
+		     : "=r" (val)
+		     : "Qo" (*(u32 *)addr));
+	return val;
+}
+
+static inline void __raw_mv_writeb(u8 val, volatile void __iomem *addr)
+{
+	asm volatile("strb %1, %0"
+		: : "Qo" (*(u8 *)addr), "r" (val));
+}
+
+static inline void __raw_mv_writew(u16 val, volatile void __iomem *addr)
+{
+	asm volatile("strh %1, %0"
+		     : : "Q" (*(u16 *)addr), "r" (val));
+}
+
+static inline void __raw_mv_writel(u32 val, volatile void __iomem *addr)
+{
+	asm volatile("str %1, %0"
+		     : : "Qo" (*(u32 *)addr), "r" (val));
+}
+#endif
 
 /*
  * Relaxed I/O memory access primitives. These follow the Device memory

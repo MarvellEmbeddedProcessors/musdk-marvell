@@ -42,6 +42,7 @@
 #include "lib/lib_misc.h"
 #include "mv_stack.h"
 #include "env/mv_sys_dma.h"
+#include "env/io.h"
 
 #include "mv_neta.h"
 #include "mv_neta_bpool.h"

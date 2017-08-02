@@ -134,13 +134,6 @@ struct local_common_args {
 };
 
 
-/* CA-72 prefetch command */
-static inline void prefetch(const void *ptr)
-{
-	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
-}
-
-
 /*
  * Swap source and destination MAC addresses
  */

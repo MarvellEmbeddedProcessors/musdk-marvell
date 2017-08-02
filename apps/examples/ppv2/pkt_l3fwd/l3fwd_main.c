@@ -42,6 +42,7 @@
 #include "lib/lib_misc.h"
 #include "lib/net.h"
 #include "env/mv_sys_dma.h"
+#include "env/io.h"
 
 #include "mvapp.h"
 #include "mv_pp2.h"

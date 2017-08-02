@@ -43,6 +43,7 @@
 #include "mv_std.h"
 #include "lib/lib_misc.h"
 #include "env/mv_sys_dma.h"
+#include "env/io.h"
 
 #include "mvapp.h"
 #include "mv_pp2.h"
