@@ -139,7 +139,7 @@ struct port_desc {
 	enum pp2_ppio_type	 ppio_type;	/* PPIO type */
 	u32			 first_inq;	/* First RXQ - relative to the Port's first RXQ */
 	u16			 num_tcs;	/* Number of TCs */
-	u16			 num_inqs[MVAPPS_PP2_MAX_NUM_QS_PER_TC];	/* Number of Rx queues */
+	u16			 num_inqs[PP2_PPIO_MAX_NUM_TCS];	/* Number of Rx queues per TC*/
 	u16			 num_outqs;	/* Number of Tx queues */
 	u32			 inq_size;	/* Rx queue size */
 	u32			 outq_size;	/* Tx queue size */

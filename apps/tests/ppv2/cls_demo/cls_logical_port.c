@@ -43,7 +43,7 @@ int pp2_cls_cli_ppio_tag_mode(struct pp2_ppio_params *port_params, int argc, cha
 	int long_index = 0;
 	enum pp2_ppio_eth_start_hdr eth_hdr = -1;
 	struct option long_options[] = {
-		{"none", no_argument, 0, 'n'},
+		{"eth", no_argument, 0, 'n'},
 		{"dsa", no_argument, 0, 'd'},
 		{"extended_dsa", no_argument, 0, 'e'},
 		{0, 0, 0, 0}
