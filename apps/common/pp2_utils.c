@@ -185,7 +185,7 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 
 	for (i = port_id; i < port_id + ports_num; i++) {
 		if (port_desc[i].initialized) {
-			if (tc == (~0)) {
+			if (tc == (u8)(~0)) {
 				for (j = 0; j < port_desc->num_tcs; j++)
 					app_show_queue_stat(&port_desc[i], j, qid, queues_num, reset);
 			} else {
@@ -228,7 +228,7 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 				printf("parsing fail, wrong input for --port\n");
 				return -EINVAL;
 			}
-			ports_num = 1 + portid;
+			ports_num = 1;
 			break;
 		case 'r':
 			reset = 1;
