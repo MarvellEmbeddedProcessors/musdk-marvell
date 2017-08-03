@@ -116,7 +116,6 @@ int mv_pp2x_cls_sw_lkp_en_set(struct mv_pp2x_cls_lookup_entry *lkp, int en);
 int mv_pp2x_cls_hw_cls_enable(uintptr_t cpu_slot, uint32_t en);
 int mv_pp2x_cls_hw_lkp_dump(uintptr_t cpu_slot);
 int mv_pp2x_cls_hw_flow_dump(uintptr_t cpu_slot);
-u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value);
 
 int mv_pp22_rss_tbl_entry_set(struct pp2_hw *hw,
 			      struct mv_pp22_rss_entry *rss);
@@ -157,9 +156,8 @@ int mv_pp2x_cls_c2_dup_set(struct mv_pp2x_cls_c2_entry *c2, int dupid, int count
 int mv_pp2x_cls_c2_seq_set(struct mv_pp2x_cls_c2_entry *c2, int miss, int id);
 void mv_pp2x_c2_sw_clear(struct mv_pp2x_cls_c2_entry *c2);
 int mv_pp2x_c2_hit_cntr_read(uintptr_t cpu_slot, int index, u32 *cntr);
-void mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
-				       u8 tbl_sel, uint8_t cos_values[],
-				       uint8_t start_queue);
+int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
+				       u8 tbl_sel, uint8_t cos_values[]);
 int mv_pp2x_cls_c2_qos_hw_read(struct pp2_hw *hw, int tbl_id, int tbl_sel,
 			       int tbl_line, struct mv_pp2x_cls_c2_qos_entry *qos);
 int mv_pp2x_cls_c2_qos_prio_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *prio);

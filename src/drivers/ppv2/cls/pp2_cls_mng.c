@@ -894,16 +894,20 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 			}
 			if (qos_params->pcp_cos_map->tc < 0 ||
 			    qos_params->pcp_cos_map->tc > MV_VLAN_PRIO_NUM) {
-				pr_err("pcp tc value out of range.%d", qos_params->pcp_cos_map->tc);
+				pr_err("pcp tc value out of range.%d",
+					qos_params->pcp_cos_map->tc);
 				return -EINVAL;
 			}
 			tc_array[i] = qos_params->pcp_cos_map[i].tc;
 		}
 
-		mv_pp2x_cls_c2_qos_tbl_fill_array(port,
+		rc = mv_pp2x_cls_c2_qos_tbl_fill_array(port,
 						  MVPP2_QOS_TBL_SEL_PRI,
-						  tc_array,
-						  port->first_rxq);
+						  tc_array);
+		if (rc) {
+			pr_err("mv_pp2x_cls_c2_qos_tbl_fill_array failed\n");
+			return -EINVAL;
+		}
 	}
 
 	/* Set up QoS lookup tables for DSCP*/
@@ -918,17 +922,21 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 
 			if (qos_params->dscp_cos_map->tc < 0 ||
 			    qos_params->dscp_cos_map->tc > MV_DSCP_NUM) {
-				pr_err("dscp tc value out of range.%d", qos_params->dscp_cos_map->tc);
+				pr_err("dscp tc value out of range.%d",
+					qos_params->dscp_cos_map->tc);
 				return -EINVAL;
 			}
 
 			tc_array[i] = qos_params->dscp_cos_map[i].tc;
 		}
 
-		mv_pp2x_cls_c2_qos_tbl_fill_array(port,
+		rc = mv_pp2x_cls_c2_qos_tbl_fill_array(port,
 						  MVPP2_QOS_TBL_SEL_DSCP,
-						  tc_array,
-						  port->first_rxq);
+						  tc_array);
+		if (rc) {
+			pr_err("mv_pp2x_cls_c2_qos_tbl_fill_array failed\n");
+			return -EINVAL;
+		}
 	}
 
 	rc = pp2_cls_db_mng_tbl_add(&tmp_tbl);
@@ -1302,7 +1310,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
-	/* for qos rules */
+	/* for qos rules (only activated when logical port is initialized) */
 	if (lkp_type == MVPP2_CLS_LKP_MUSDK_DSCP_PRI ||
 	    lkp_type == MVPP2_CLS_LKP_MUSDK_VLAN_PRI) {
 		u8 tbl_sel;

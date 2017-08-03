@@ -1332,14 +1332,28 @@ int mv_pp2x_cls_c2_qos_queue_get(struct mv_pp2x_cls_c2_qos_entry *qos, int *queu
 	return MV_OK;
 }
 
-/* Fill the qos table with queue array supplied by user */
-void mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
-				       u8 tbl_sel, uint8_t cos_values[],
-				       uint8_t start_queue)
+/* mv_pp2x_cls_c2_qos_tbl_fill_array
+ *
+ * DESCRIPTION: CoS API: fills the qos table with queue array supplied by user
+ *
+ * INPUTS:	port	   - list of TCAM indexes to update
+ *		tbl_sel   - 0: cos based on vlan pri;
+ *			    1: cos based on dscp;
+ *			    2: cos based on vlan for tagged packets, and based on dscp for untagged IP packets;
+ *			    3: cos based on dscp for IP packets, and based on vlan for non-IP packets;
+ *		cos_values - array with TC values
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 not found, 1 found
+ */
+int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
+				       u8 tbl_sel, uint8_t cos_values[])
 {
 	struct mv_pp2x_cls_c2_qos_entry qos_entry;
 	u32 pri, line_num;
 	u8 queue;
+	int rc;
 
 	if (tbl_sel == MVPP2_QOS_TBL_SEL_PRI)
 		line_num = MVPP2_QOS_TBL_LINE_NUM_PRI;
@@ -1360,22 +1374,22 @@ void mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
 		/* Physical queue contains 2 parts: port ID and CPU ID,
 		* CPU ID will be used in RSS
 		*/
-		queue = start_queue + cos_values[pri];
+		queue = port->tc[cos_values[pri]].tc_config.first_rxq;
+		pr_info("cos_val[%d] %d, queue %d\n", pri, cos_values[pri], queue);
 
-		pr_debug("%d start_queue %d, queue %d\n", pri, start_queue, queue);
+		rc = mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
+		if (rc) {
+			pr_info("mv_pp2x_cls_c2_qos_queue_set failed\n");
+			return -EFAULT;
+		}
 
-		mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
-		mv_pp2x_cls_c2_qos_hw_write(&port->parent->hw, &qos_entry);
+		rc = mv_pp2x_cls_c2_qos_hw_write(&port->parent->hw, &qos_entry);
+		if (rc) {
+			pr_info("mv_pp2x_cls_c2_qos_hw_write failed\n");
+			return -EFAULT;
+		}
 	}
-}
-
-u8 mv_pp2x_cosval_queue_map(struct pp2_port *port, uint8_t cos_value)
-{
-	int cos_width, cos_mask;
-
-	cos_width = ilog2(roundup_pow_of_two(port->num_tcs));
-	cos_mask = (1 << cos_width) - 1;
-	return ((port->parent->pp2_cfg.cos_cfg.pri_map >> (cos_value * 4)) & cos_mask);
+	return 0;
 }
 
 /* CoS API */
@@ -2043,6 +2057,31 @@ static int mv_pp2x_c2_rule_add(struct pp2_port *port,
 }
 
 
+/* Configure queue in HW queue */
+static int pp2_c2_config_queue(struct mv_pp2x_cls_c2_entry *c2, u16 queue, int from)
+{
+	int q_low, q_high;
+	int rc;
+
+	q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
+	q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
+
+	rc = mv_pp2x_cls_c2_queue_low_set(c2,
+					  MVPP2_ACTION_TYPE_UPDT_LOCK,
+					  q_low,
+					  from);
+	if (rc)
+		return rc;
+	rc = mv_pp2x_cls_c2_queue_high_set(c2,
+					   MVPP2_ACTION_TYPE_UPDT_LOCK,
+					   q_high,
+					   from);
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
 /*
 * This function is called at init time.
 * Go over C2 table and set default queue in The TCAM rule index for the flows:
@@ -2056,7 +2095,6 @@ int pp2_c2_config_default_queue(struct pp2_port *port, u16 queue)
 	u8 port_id, lkp_type;
 	struct mv_pp2x_cls_c2_entry c2;
 	struct pp2_hw *hw = &port->parent->hw;
-	int q_low, q_high;
 
 	c2_status = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG);
 	if (!c2_status) {
@@ -2071,23 +2109,23 @@ int pp2_c2_config_default_queue(struct pp2_port *port, u16 queue)
 		port_id = pp2_cls_c2_tcam_port_get(&c2);
 		lkp_type = pp2_cls_c2_tcam_lkp_type_get(&c2);
 
-		if (c2.inv == 0 && port_id == (1 << port->id) &&
-		    (lkp_type == MVPP2_CLS_LKP_VLAN_PRI ||
-		     lkp_type == MVPP2_CLS_LKP_DSCP_PRI ||
-		     lkp_type == MVPP2_CLS_LKP_DEFAULT)) {
+		if (c2.inv != 0 || port_id != (1 << port->id))
+			continue;
 
-			/* Set default queue */
-			q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
-			q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
-			rc = mv_pp2x_cls_c2_queue_low_set(&c2, MVPP2_ACTION_TYPE_UPDT_LOCK, q_low,
-							  MVPP2_QOS_SRC_ACTION_TBL);
+		if (lkp_type == MVPP2_CLS_LKP_DEFAULT) {
+			rc = pp2_c2_config_queue(&c2, queue, MVPP2_QOS_SRC_ACTION_TBL);
 			if (rc)
-				return rc;
-			rc = mv_pp2x_cls_c2_queue_high_set(&c2, MVPP2_ACTION_TYPE_UPDT_LOCK, q_high,
-							  MVPP2_QOS_SRC_ACTION_TBL);
-			if (rc)
-				return rc;
+				return -EFAULT;
 
+			pr_info("Writing index %#x, queue %d, from %d\n", index, queue, MVPP2_QOS_SRC_ACTION_TBL);
+			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
+		} else if (lkp_type == MVPP2_CLS_LKP_DSCP_PRI ||
+			lkp_type == MVPP2_CLS_LKP_VLAN_PRI) {
+			rc = pp2_c2_config_queue(&c2, queue, MVPP2_QOS_SRC_DSCP_PBIT_TBL);
+			if (rc)
+				return -EFAULT;
+
+			pr_info("Writing index %#x, queue %d, from %d\n", index, queue, MVPP2_QOS_SRC_DSCP_PBIT_TBL);
 			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
 		}
 	}
