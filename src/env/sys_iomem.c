@@ -324,7 +324,7 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 	close(dev_mem_fd);
 	if (unlikely(mmap_nd->va == MAP_FAILED)) {
 		pr_err("mmap() of 0x%016llx = %d (%s)\n",
-			(unsigned long long int)pa, -errno, strerror(errno));
+			(unsigned long long int)mmap_nd->pa, -errno, strerror(errno));
 		return -EFAULT;
 	}
 	list_add_to_tail(&mmap_nd->node, &mmapm->maps_lst);

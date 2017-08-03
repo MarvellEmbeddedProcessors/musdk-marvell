@@ -36,6 +36,7 @@
 #ifndef __KERNEL__
 
 #include <stdint.h>
+#include <inttypes.h>
 
 typedef uint8_t		u8;
 typedef uint16_t	u16;
@@ -50,9 +51,11 @@ typedef int64_t		s64;
 #ifdef MVCONF_ARCH_DMA_ADDR_T_64BIT
 typedef u64 dma_addr_t;
 typedef u64 phys_addr_t;
+#define PRIdma         PRIx64
 #else
 typedef u32 dma_addr_t;
 typedef u32 phys_addr_t;
+#define PRIdma         PRIx32
 #endif /* MVCONF_ARCH_DMA_ADDR_T_64BIT */
 
 #endif /* __KERNEL__ */
