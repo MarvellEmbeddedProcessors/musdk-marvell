@@ -1025,8 +1025,8 @@ static int init_local_modules(struct glob_arg *garg)
 		port->first_inq	= CRYPT_APP_FIRST_INQ;
 
 		/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
-		err = app_port_init(port, garg->num_pools,
-				    garg->pools_desc[port_index], garg->cmn_args.mtu);
+		err = app_port_init(port, garg->num_pools, garg->pools_desc[port_index],
+				    garg->cmn_args.mtu, MVAPPS_NETA_PKT_OFFS);
 		if (err) {
 			pr_err("Failed to initialize port %d\n", port_index);
 			return err;
