@@ -157,8 +157,8 @@ int register_cli_cls_cmds(struct pp2_ppio *ppio)
 	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_flow_dump;
 	mvapp_register_cli_cmd(&cmd_params);
-
 #endif
+
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_lkp_hits_dump";
 	cmd_params.desc		= "dump all hit decode entry and its DB information";
@@ -328,13 +328,12 @@ int register_cli_qos_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
 	struct pp2_port *port = GET_PPIO_PORT(ppio);
-	struct pp2_inst *inst = port->parent;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_qos_pcp_table_dump";
 	cmd_params.desc		= "dump pcp qos table";
 	cmd_params.format	= "(no arguments)\n";
-	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.cmd_arg	= (void *)port;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_pcp_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
@@ -342,7 +341,7 @@ int register_cli_qos_cmds(struct pp2_ppio *ppio)
 	cmd_params.name		= "cls_qos_dscp_table_dump";
 	cmd_params.desc		= "dump dscp qos table";
 	cmd_params.format	= "(no arguments)\n";
-	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.cmd_arg	= (void *)port;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_dscp_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 

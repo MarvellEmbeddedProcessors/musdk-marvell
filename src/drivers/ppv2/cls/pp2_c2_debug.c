@@ -784,53 +784,63 @@ int pp2_cls_cli_c2_hw_hit_dump(void *arg, int argc, char *argv[])
 
 int pp2_cls_cli_qos_dscp_dump(void *arg, int argc, char *argv[])
 {
-	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	int tbl_id, tbl_line, val;
+	struct pp2_port *port = (struct pp2_port *)arg;
+	struct pp2_inst *inst = port->parent;
+	int tbl_line, val;
 	struct mv_pp2x_cls_c2_qos_entry qos;
+	int tbl_id;
 
-	for (tbl_id = 0; tbl_id < MVPP2_CLS_C2_QOS_DSCP_TBL_NUM; tbl_id++) {
-		printk("\n------------ DSCP TABLE %d ------------\n", tbl_id);
-		printk("LINE	DSCP	COLOR	GEM_ID	QUEUE\n");
-		for (tbl_line = 0; tbl_line < MVPP2_CLS_C2_QOS_DSCP_TBL_SIZE; tbl_line++) {
-			mv_pp2x_cls_c2_qos_hw_read(&inst->hw, tbl_id, 1/*DSCP*/, tbl_line, &qos);
-			printk("0x%2.2x\t", qos.tbl_line);
-			mv_pp2x_cls_c2_qos_dscp_get(&qos, &val);
-			printk("0x%2.2x\t", val);
-			mv_pp2x_cls_c2_qos_color_get(&qos, &val);
-			printk("0x%1.1x\t", val);
-			mv_pp2x_cls_c2_qos_gpid_get(&qos, &val);
-			printk("0x%3.3x\t", val);
-			mv_pp2x_cls_c2_qos_queue_get(&qos, &val);
-			printk("0x%2.2x", val);
-			printk("\n");
-		}
+	if (port->type == PP2_PPIO_T_LOG)
+		tbl_id = QOS_LOG_PORT_TABLE_OFF(port->id);
+	else
+		tbl_id = port->id;
+
+	printk("\n------------ DSCP TABLE ---------------\n");
+	printk("LINE	DSCP	COLOR	GEM_ID	QUEUE\n");
+	for (tbl_line = 0; tbl_line < MVPP2_CLS_C2_QOS_DSCP_TBL_SIZE; tbl_line++) {
+		mv_pp2x_cls_c2_qos_hw_read(&inst->hw, tbl_id, 1/*DSCP*/, tbl_line, &qos);
+		printk("0x%2.2x\t", qos.tbl_line);
+		mv_pp2x_cls_c2_qos_dscp_get(&qos, &val);
+		printk("0x%2.2x\t", val);
+		mv_pp2x_cls_c2_qos_color_get(&qos, &val);
+		printk("0x%1.1x\t", val);
+		mv_pp2x_cls_c2_qos_gpid_get(&qos, &val);
+		printk("0x%3.3x\t", val);
+		mv_pp2x_cls_c2_qos_queue_get(&qos, &val);
+		printk("0x%2.2x", val);
+		printk("\n");
 	}
 	return MV_OK;
 }
 
 int pp2_cls_cli_qos_pcp_dump(void *arg, int argc, char *argv[])
 {
-	struct pp2_inst *inst = (struct pp2_inst *)arg;
-	int tbl_id, tbl_line, val;
+	struct pp2_port *port = (struct pp2_port *)arg;
+	struct pp2_inst *inst = port->parent;
+	int tbl_line, val;
 	struct mv_pp2x_cls_c2_qos_entry qos;
+	int tbl_id;
 
-	for (tbl_id = 0; tbl_id < MVPP2_CLS_C2_QOS_PRIO_TBL_NUM; tbl_id++) {
-		printk("\n-------- PRIORITY TABLE %d -----------\n", tbl_id);
-		printk("LINE	PRIO	COLOR	GEM_ID	QUEUE\n");
+	if (port->type == PP2_PPIO_T_LOG)
+		tbl_id = QOS_LOG_PORT_TABLE_OFF(port->id);
+	else
+		tbl_id = port->id;
 
-		for (tbl_line = 0; tbl_line < MVPP2_CLS_C2_QOS_PRIO_TBL_SIZE; tbl_line++) {
-			mv_pp2x_cls_c2_qos_hw_read(&inst->hw, tbl_id, 0/*PRIO*/, tbl_line, &qos);
-			printk("0x%2.2x\t", qos.tbl_line);
-			mv_pp2x_cls_c2_qos_prio_get(&qos, &val);
-			printk("0x%1.1x\t", val);
-			mv_pp2x_cls_c2_qos_color_get(&qos, &val);
-			printk("0x%1.1x\t", val);
-			mv_pp2x_cls_c2_qos_gpid_get(&qos, &val);
-			printk("0x%3.3x\t", val);
-			mv_pp2x_cls_c2_qos_queue_get(&qos, &val);
-			printk("0x%2.2x", val);
-			printk("\n");
-		}
+	printk("\n---------- PRIORITY TABLE -----------\n");
+	printk("LINE	PRIO	COLOR	GEM_ID	QUEUE\n");
+
+	for (tbl_line = 0; tbl_line < MVPP2_CLS_C2_QOS_PRIO_TBL_SIZE; tbl_line++) {
+		mv_pp2x_cls_c2_qos_hw_read(&inst->hw, tbl_id, 0/*PRIO*/, tbl_line, &qos);
+		printk("0x%2.2x\t", qos.tbl_line);
+		mv_pp2x_cls_c2_qos_prio_get(&qos, &val);
+		printk("0x%1.1x\t", val);
+		mv_pp2x_cls_c2_qos_color_get(&qos, &val);
+		printk("0x%1.1x\t", val);
+		mv_pp2x_cls_c2_qos_gpid_get(&qos, &val);
+		printk("0x%3.3x\t", val);
+		mv_pp2x_cls_c2_qos_queue_get(&qos, &val);
+		printk("0x%2.2x", val);
+		printk("\n");
 	}
 	return MV_OK;
 }
