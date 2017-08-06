@@ -1511,27 +1511,11 @@ static int pp2_prs_tag_mode_set(struct pp2_port *port, int type, int val, enum p
 
 	switch (type) {
 	case MVPP2_TAG_TYPE_EDSA:
-		/* Add port to EDSA entries */
-		pp2_prs_port_update(port, true, MVPP2_PE_EDSA_TAGGED, nri, ri_mask);
-		pp2_prs_port_update(port, true, MVPP2_PE_EDSA_UNTAGGED, nri, ri_mask);
-
-		/* Remove port from DSA entries */
-		pp2_prs_port_update(port, false, MVPP2_PE_DSA_TAGGED, nri, ri_mask);
-		pp2_prs_port_update(port, false, MVPP2_PE_DSA_UNTAGGED, nri, ri_mask);
-
 		/* create new entries for DSA mode*/
 		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_TAGGED, MVPP2_PRS_EDSA, ri, ri_mask);
 		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_UNTAGGED, MVPP2_PRS_EDSA, ri, ri_mask);
 		break;
 	case MVPP2_TAG_TYPE_DSA:
-		/* Add port to DSA entries */
-		pp2_prs_port_update(port, true, MVPP2_PE_DSA_TAGGED, nri, ri_mask);
-		pp2_prs_port_update(port, true, MVPP2_PE_DSA_UNTAGGED, nri, ri_mask);
-
-		/* Remove port from EDSA entries */
-		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_TAGGED, nri, ri_mask);
-		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_UNTAGGED, nri, ri_mask);
-
 		/* create new entries for DSA mode*/
 		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_TAGGED, MVPP2_PRS_DSA, ri, ri_mask);
 		pp2_prs_dsa_tag_mode_set(port, val, MVPP2_PRS_UNTAGGED, MVPP2_PRS_DSA, ri, ri_mask);
@@ -1916,6 +1900,69 @@ static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
 		prs_shadow[i].valid = invalid ? 0 : 1;
 		prs_shadow[i].valid_in_kernel = invalid ? 0 : 1;
 	}
+	return 0;
+}
+
+
+/* pp2_prs_eth_start_header_set
+ *
+ * DESCRIPTION:	Configure a port to be DSA aware
+ *
+ * INPUTS:	port
+ *		dsa-val
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+int pp2_prs_eth_start_header_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr mode)
+{
+	u32 type;
+	int rc;
+	u32 nri = 0, ri_mask = 0;
+
+	rc = pp2_prs_eth_start_hdr_set(port, mode);
+	if (rc)
+		return -EFAULT;
+
+	/*Get MH register configured mode */
+	type = pp2_prs_eth_start_hdr_get(port);
+
+	/* Configure parser DSA entries */
+	switch (type) {
+	case MVPP2_TAG_TYPE_EDSA:
+		/* Add port to EDSA entries */
+		pp2_prs_port_update(port, true, MVPP2_PE_EDSA_TAGGED, nri, ri_mask);
+		pp2_prs_port_update(port, true, MVPP2_PE_EDSA_UNTAGGED, nri, ri_mask);
+
+		/* Remove port from DSA entries */
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_TAGGED, nri, ri_mask);
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_UNTAGGED, nri, ri_mask);
+
+		break;
+	case MVPP2_TAG_TYPE_DSA:
+		/* Add port to DSA entries */
+		pp2_prs_port_update(port, true, MVPP2_PE_DSA_TAGGED, nri, ri_mask);
+		pp2_prs_port_update(port, true, MVPP2_PE_DSA_UNTAGGED, nri, ri_mask);
+
+		/* Remove port from EDSA entries */
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_TAGGED, nri, ri_mask);
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_UNTAGGED, nri, ri_mask);
+
+		break;
+	case MVPP2_TAG_TYPE_MH:
+	case MVPP2_TAG_TYPE_NONE:
+		/* Remove port form EDSA and DSA entries */
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_TAGGED, nri, ri_mask);
+		pp2_prs_port_update(port, false, MVPP2_PE_DSA_UNTAGGED, nri, ri_mask);
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_TAGGED, nri, ri_mask);
+		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_UNTAGGED, nri, ri_mask);
+		break;
+	default:
+		if ((type < 0) || (type > MVPP2_TAG_TYPE_EDSA))
+			return -EINVAL;
+	}
+
 	return 0;
 }
 

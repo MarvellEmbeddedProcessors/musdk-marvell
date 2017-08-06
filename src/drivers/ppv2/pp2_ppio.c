@@ -96,6 +96,12 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 	(*ppio)->pp2_id = pp2_id;
 	(*ppio)->port_id = port_id;
 
+	rc = pp2_cls_mng_eth_start_header_params_set(*ppio, params->eth_start_hdr);
+	if (rc) {
+		pr_err("[%s] ppio init failed while initialize ethernet start header\n", __func__);
+		return -EFAULT;
+	}
+
 	if (params->type == PP2_PPIO_T_LOG) {
 		rc = pp2_cls_mng_set_logical_port_params(*ppio, params);
 		if (rc) {

@@ -605,15 +605,28 @@ int pp2_cls_mng_set_logical_port_params(struct pp2_ppio *ppio, struct pp2_ppio_p
 		return -EINVAL;
 	}
 
-	rc = pp2_prs_eth_start_hdr_set(port, params->eth_start_hdr);
-	if (rc) {
-		pr_err("%s(%d) pp2_prs_eth_start_hdr_set fail\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
 	rc = pp2_prs_set_log_port(port, &params->specific_type_params.log_port_params);
 	if (rc) {
 		pr_err("%s(%d) pp2_prs_set_log_port fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * pp2_cls_mng_eth_start_header_params_set()
+ * configure parser ethernet start header (for DSA)
+ */
+int pp2_cls_mng_eth_start_header_params_set(struct pp2_ppio *ppio,
+					    enum pp2_ppio_eth_start_hdr eth_start_hdr)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	int rc;
+
+	rc = pp2_prs_eth_start_header_set(port, eth_start_hdr);
+	if (rc) {
+		pr_err("%s(%d) pp2_prs_eth_start_header_set fail\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 

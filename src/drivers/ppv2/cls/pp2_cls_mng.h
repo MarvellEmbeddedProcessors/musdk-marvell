@@ -67,5 +67,7 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params, struct p
 int pp2_cls_mng_lkp_type_to_prio(int lkp_type);
 void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map);
 void pp2_cls_mng_config_default_cos_queue(struct pp2_port *port);
+int pp2_cls_mng_eth_start_header_params_set(struct pp2_ppio *ppio,
+					    enum pp2_ppio_eth_start_hdr eth_start_hdr);
 
 #endif /* _PP2_MNG_H_ */
