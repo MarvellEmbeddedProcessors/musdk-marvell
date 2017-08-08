@@ -70,6 +70,11 @@ enum pp2_ppio_hash_type {
 	PP2_PPIO_HASH_T_OUT_OF_RANGE
 };
 
+struct pp2_ppio_rate_limit_params {
+	u64 cbs;	/* committed_burst_size, in kilobytes. Min: 64kB */
+	u64 cir;	/* committed_information_rate, in kilobits per second. Min: 100kbps */
+};
+
 /**
  * The enum below defines the possible ethernet header formats
  */
@@ -157,11 +162,26 @@ struct pp2_ppio_inqs_params {
  * ppio outq parameters
  *
  */
+enum pp2_ppio_outq_sched_mode {
+	PP2_PPIO_SCHED_M_WRR = 0,
+	PP2_PPIO_SCHED_M_SP
+};
+
 struct pp2_ppio_outq_params {
 	u32	size;	/**< q_size in number of descriptors */
-	u8	weight; /**< The weight is relative among the PP-IO out-Qs */
 
-/* TODO: add rate-limit (burst, throughput) */
+	enum pp2_ppio_outq_sched_mode	sched_mode;
+
+	/** The weight is relative among the PP-IO out-Qs; this field is relevant only if
+	 * PP2_PPIO_SCHED_M_WRR scheduler is selected for this out-Q.
+	 * Weight is in the range 0-255.
+	 */
+	u8				weight;
+
+	int				rate_limit_enable;
+
+	/** this field is relevant only if this out-Q has rate-limit enabled */
+	struct pp2_ppio_rate_limit_params rate_limit_params;
 };
 
 /**
@@ -183,9 +203,7 @@ struct pp2_ppio_outqs_params {
 	u16				 num_outqs; /**< Number of outqs */
 	struct pp2_ppio_outq_params	 outqs_params[PP2_PPIO_MAX_NUM_OUTQS]; /**< Parameters for each outq */
 
-/* TODO: scheduling mode and parameters (WRR/Strict)
- *	enum pp2_ppio_outqs_sched_mode	sched_mode;
- */
+	int				 sched_enable;
 };
 
 /**
@@ -291,6 +309,13 @@ struct pp2_ppio_params {
 	} specific_type_params;
 
 	enum pp2_ppio_eth_start_hdr		eth_start_hdr;
+
+	int					rate_limit_enable;
+	/** this field is relevant only if this PP-IO rate-limit is enabled.
+	 * Please note that when PP-IO rate limit is enable, the entire port
+	 * is impact by this setting (i.e. even in case of logical-port).
+	 */
+	struct pp2_ppio_rate_limit_params rate_limit_params;
 
 /* TODO: do we need extra pools per port?
  *	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
