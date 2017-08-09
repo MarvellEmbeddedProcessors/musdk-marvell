@@ -69,9 +69,9 @@ extern void *__dma_virt_base;
  * @retval	error code on failure.
  */
 #ifdef __KERNEL__
-int mv_sys_dma_mem_init(struct device *dev, u64 size);
+int mv_sys_dma_mem_init(struct device *dev, size_t size);
 #else
-int mv_sys_dma_mem_init(u64 size);
+int mv_sys_dma_mem_init(size_t size);
 #endif
 
 /**
@@ -110,7 +110,7 @@ void *mv_sys_dma_mem_phys2virt(phys_addr_t pa);
 #else /* !MVCONF_SYS_DMA_HUGE_PAGE */
 static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
 {
-	return (void *)((u64)(pa - __dma_phys_base) + (u64)__dma_virt_base);
+	return (void *)((pa - __dma_phys_base) + (phys_addr_t)__dma_virt_base);
 }
 #endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 
@@ -127,7 +127,7 @@ phys_addr_t mv_sys_dma_mem_virt2phys(void *va);
 #else /* !MVCONF_SYS_DMA_HUGE_PAGE */
 static inline phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
-	return ((u64)va - (u64)__dma_virt_base) + __dma_phys_base;
+	return ((phys_addr_t)va - (phys_addr_t)__dma_virt_base) + __dma_phys_base;
 }
 #endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 

@@ -57,6 +57,29 @@
 
 #define MAX_UIO_DEVS	3
 
+#define CMA_MAGIC_NUMBER	0xAA55AA55
+#define CMA_PAGE_SIZE		4096
+
+/*
+ * Administration area used to keep information about each contiguous
+ * buffer allocated
+ */
+struct cma_admin {
+	union {
+		struct {
+			u32			magic;
+			/* Physical memory address of buffer allocated */
+			phys_addr_t		paddr;
+			/* Kernel virtual memory address */
+			void			*kvaddr;
+			/* size of buffer with admin area */
+			size_t			size;
+			struct list_head	list;
+		};
+		u8				rsvd[CMA_PAGE_SIZE];
+	};
+};
+
 
 /* CMA information about buffers - used by garbage collection */
 struct cma_ctx {
@@ -109,6 +132,23 @@ static int cma_check_buf(struct cma_admin *ptr)
 	return 0;
 }
 
+static struct cma_admin *cma_find_admin_by_paddr(struct uio_pdrv_musdk_info *cma_pdrv,
+						 phys_addr_t paddr)
+{
+	struct list_head *node, *q;
+	struct cma_admin *adm, *ptr = NULL;
+
+	/* Find cma_admin handle by paddr */
+	list_for_each_safe(node, q, &cma_pdrv->cma_client.list) {
+		adm = list_entry(node, struct cma_admin, list);
+		if (paddr == adm->paddr) {
+			ptr = adm;
+			break;
+		}
+	}
+	return ptr;
+}
+
 /*
  * cma_calloc() - CMA allocator
  *
@@ -126,24 +166,30 @@ static int cma_calloc(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 		return -EFAULT;
 	}
 
+	ptr = kmalloc(sizeof(struct cma_admin), GFP_KERNEL);
+	if (!ptr)
+		return -ENOMEM;
+
 	size  = PAGE_ALIGN(size);
 
 	/* allocate space from CMA */
-	ptr = dma_zalloc_coherent(uio_pdrv_musdk->dev, size, &paddr,
+	ptr->kvaddr = dma_zalloc_coherent(uio_pdrv_musdk->dev, size, &paddr,
 			GFP_KERNEL | GFP_DMA);
-	if (!ptr) {
+	if (!ptr->kvaddr) {
 		pr_err("Not enough CMA memory to alloc %lld bytes", size);
+		kfree(ptr);
 		return -ENOMEM;
 	}
 
 	ptr->magic = CMA_MAGIC_NUMBER;
 	ptr->paddr = paddr;
 	ptr->size  = size;
-	ptr->kvaddr = (u64)ptr;
+	ptr->kvaddr = ptr;
 
-	param = (u64)ptr;
+	pr_debug("CMA buffer allocated: size = %zd Bytes, kvaddr = %p, paddr = 0x%llx\n",
+		(size_t)size, ptr->kvaddr, paddr);
 
-	pr_debug("Alloc %p = %lld Bytes\n", (void *)ptr, size);
+	param = (u64)paddr;
 
 	if (copy_to_user(argp, &param, sizeof(param))) {
 		dma_free_coherent(uio_pdrv_musdk->dev, ptr->size,
@@ -179,7 +225,8 @@ static int _cma_free(struct uio_pdrv_musdk_info *uio_pdrv_musdk,
 	/* To avoid double free on the same buffer */
 	ptr->magic = ~CMA_MAGIC_NUMBER;
 
-	pr_debug("CMA released: %p = %ld Bytes\n", (void *)ptr->paddr, ptr->size);
+	pr_debug("CMA buffer released: size = %zd Bytes, kvaddr = %p, paddr = 0x%llx\n",
+		(size_t)ptr->size, (void *)ptr->kvaddr, ptr->paddr);
 
 	atomic_inc(&ctx->buf_free);
 	list_del(&ptr->list);
@@ -196,10 +243,13 @@ static int _cma_free(struct uio_pdrv_musdk_info *uio_pdrv_musdk,
  */
 static int cma_free(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 {
-	struct cma_admin *ptr;
+	u64 paddr;
+	struct cma_admin *ptr = NULL;
 
-	if (copy_from_user(&ptr, argp, sizeof(struct cma_admin *)))
+	if (copy_from_user(&paddr, argp, sizeof(paddr)))
 		return -EFAULT;
+
+	ptr = cma_find_admin_by_paddr(uio_pdrv_musdk, (phys_addr_t)paddr);
 
 	return _cma_free(uio_pdrv_musdk, ptr);
 }
@@ -223,49 +273,29 @@ static int cma_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct uio_pdrv_musdk_info *uio_pdrv_musdk =
 	    container_of(misc, struct uio_pdrv_musdk_info, misc);
 	int err = 0;
-
-	/* vm_pgoff is multiple of page size  */
-	struct cma_admin *ptr = (struct cma_admin *)
-					(((u64)vma->vm_pgoff) << 12);
+	phys_addr_t paddr = vma->vm_pgoff << PAGE_SHIFT;
+	struct cma_admin *ptr;
 
 	if (vma->vm_pgoff == 0)
 		return -EFAULT;
 
+	/* Find cma_admin handle */
+	ptr = cma_find_admin_by_paddr(uio_pdrv_musdk, paddr);
+
 	if (cma_check_buf(ptr)) {
 		return -EFAULT;
 	}
-
-	/*
-	 * vm_pgoff was used to encode kernel virtual address of admin area,
-	 * its value must be set to zero in order to avoid -ENXIO in
-	 * dma_mmap_coherent().
-	 */
 	vma->vm_pgoff = 0;
 
-	if (vma->vm_flags & VM_WRITE) {
-		err = dma_mmap_coherent(uio_pdrv_musdk->dev, vma,
-				(void *)((u64)ptr->kvaddr + CMA_PAGE_SIZE),
-				ptr->paddr + CMA_PAGE_SIZE,
-				ptr->size - CMA_PAGE_SIZE);
-		if (err)
-			return err;
-		else {
-			ptr->uvaddr = vma->vm_start;
-			pr_debug("Mapped payload vaddr: %p, paddr: %p = %ld Bytes\n",
-					(void *)ptr->uvaddr,
-					(void *)ptr->kvaddr,
-					ptr->size);
-		}
-	} else {
-		/* The user map signal admin area only */
-		err = dma_mmap_coherent(uio_pdrv_musdk->dev, vma,
-					(void *)ptr->kvaddr,
-					ptr->paddr, CMA_PAGE_SIZE);
-		if (err)
-			return err;
-		pr_debug("Mapped admin %p = %d Bytes\n", (void *)ptr->paddr,
-				CMA_PAGE_SIZE);
+	err = dma_mmap_coherent(uio_pdrv_musdk->dev, vma,
+				ptr->kvaddr, ptr->paddr, ptr->size);
+	if (err) {
+		pr_err("Can't mmap CMA buffer. err = %d, size = %zd\n",
+			err, ptr->size);
+		return err;
 	}
+	pr_debug("CMA buffer remapped: vm_start=0x%lx, size = %ld bytes, paddr = 0x%llx\n",
+		vma->vm_start, vma->vm_end - vma->vm_start, paddr);
 
 	return 0;
 }
@@ -311,7 +341,6 @@ static long cma_ioctl(struct file *filp,
  */
 static int cma_release(struct inode *inode, struct file *filp)
 {
-
 	struct miscdevice *misc = filp->private_data;
 	struct uio_pdrv_musdk_info *uio_pdrv_musdk =
 	    container_of(misc, struct uio_pdrv_musdk_info, misc);
@@ -446,6 +475,7 @@ static const struct file_operations musdk_misc_fops = {
 	.mmap		= cma_mmap,
 	.release	= cma_release,
 	.unlocked_ioctl	= cma_ioctl,
+	.compat_ioctl	= cma_ioctl,
 };
 
 static const struct of_device_id musdk_of_match[] = {

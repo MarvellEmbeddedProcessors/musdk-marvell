@@ -33,6 +33,7 @@
 #include "std_internal.h"
 #include "lib/mem_mng.h"
 #include "hugepage_mem.h"
+#include "cma.h"
 
 struct sys_dma {
 	struct mem_mng	*mm;
@@ -40,7 +41,7 @@ struct sys_dma {
 	phys_addr_t	dma_phys_base;
 	int		en;
 #ifdef MVCONF_SYS_DMA_UIO
-	uintptr_t       cma_ptr;
+	void		*cma_ptr;
 #endif /* MVCONF_SYS_DMA_UIO */
 #ifdef MVCONF_SYS_DMA_HUGE_PAGE
 	void		*mem_ptr;
@@ -57,7 +58,7 @@ struct sys_dma	*sys_dma = NULL;
  * 2. Huge pages
  */
 #ifdef MVCONF_SYS_DMA_HUGE_PAGE
-static int init_mem(struct sys_dma *sdma, u64 size)
+static int init_mem(struct sys_dma *sdma, size_t size)
 {
 	if (sdma->en) {
 		pr_err("%s: Memory allocation already initialized!\n" , __func__);
@@ -89,11 +90,10 @@ static void free_mem(struct sys_dma *sdma)
 }
 
 #elif defined MVCONF_SYS_DMA_UIO /* MVCONF_SYS_DMA_HUGE_PAGE */
-/* TODO: Update pp_cma_calloc to accept u64 */
-static int init_mem(struct sys_dma *sdma, u64 size)
+static int init_mem(struct sys_dma *sdma, size_t size)
 {
 	BUG_ON(!sdma);
-	uintptr_t cma_ptr;
+	void *cma_ptr;
 
 	if (!sdma->en) {
 		int err;
@@ -125,28 +125,33 @@ static void free_mem(struct sys_dma *sdma)
 }
 
 #else /* MVCONF_SYS_DMA_UIO */
-static int init_mem(struct sys_dma *sdma, u64 size)
+static int init_mem(struct sys_dma *sdma, size_t size)
 {
-        BUG_ON(!sdma);
-        sdma->dma_virt_base = kmalloc(size, GFP_KERNEL);
-        if (!sdma->dma_virt_base) {
-                pr_err("Failed to allocate DMA memory!\n");
-                return -ENOMEM;
-        }
-        sdma->dma_phys_base = (u64)sdma->dma_virt_base;
-        return 0;
+	WARN_ON(!sdma);
+	if (!sdma)
+		return -EINVAL;
+
+	sdma->dma_virt_base = kmalloc(size, GFP_KERNEL);
+	if (!sdma->dma_virt_base)
+		return -ENOMEM;
+
+	sdma->dma_phys_base = (phys_addr_t)sdma->dma_virt_base;
+	return 0;
 }
 
 static void free_mem(struct sys_dma *sdma)
 {
-        BUG_ON(!sdma);
-        if (!sdma->dma_virt_base)
-                return;
-        kfree(sdma->dma_virt_base);
+	WARN_ON(!sdma);
+	if (!sdma)
+		return -EINVAL;
+
+	if (!sdma->dma_virt_base)
+		return;
+	kfree(sdma->dma_virt_base);
 }
 #endif /* MVCONF_SYS_DMA_UIO */
 
-int mv_sys_dma_mem_init(u64 size)
+int mv_sys_dma_mem_init(size_t size)
 {
 	struct sys_dma	*i_sys_dma;
 	int err;
@@ -167,9 +172,9 @@ int mv_sys_dma_mem_init(u64 size)
 	if ((err = init_mem(i_sys_dma, size)) != 0)
 		return err;
 
-	if ((err = mem_mng_init((u64)i_sys_dma->dma_virt_base,
-							size,
-							&i_sys_dma->mm)) != 0)
+	err = mem_mng_init((u64)(uintptr_t)i_sys_dma->dma_virt_base,
+				size, &i_sys_dma->mm);
+	if (err != 0)
 		return err;
 
 	if (!sys_dma) {
@@ -216,7 +221,7 @@ void *mv_sys_dma_mem_alloc(size_t size, size_t align)
 		return NULL;
 	}
 
-	return (void *)ans;
+	return (void *)(uintptr_t)ans;
 }
 
 void mv_sys_dma_mem_free(void *ptr)
@@ -226,5 +231,5 @@ void mv_sys_dma_mem_free(void *ptr)
 		return;
 	}
 
-	mem_mng_put(sys_dma->mm, (u64)ptr);
+	mem_mng_put(sys_dma->mm, (u64)(uintptr_t)ptr);
 }

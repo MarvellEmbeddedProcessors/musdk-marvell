@@ -87,7 +87,6 @@
 
 #include "env/of.h"
 #include "env/spinlock.h"
-#include "env/cma.h"
 #include "env/io.h"
 #include "env/netdev.h"
 

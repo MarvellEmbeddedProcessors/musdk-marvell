@@ -66,7 +66,7 @@ void cma_deinit(void);
  * @retval NULL Failure.
  *
  */
-uintptr_t cma_calloc(size_t size);
+void *cma_calloc(size_t size);
 
 /**
  * Free physical memory
@@ -74,7 +74,7 @@ uintptr_t cma_calloc(size_t size);
  * @param    buf             Handle to buff
  *
  */
-void cma_free(uintptr_t buf);
+void cma_free(void *handle);
 
 /**
  * Get virtual address from pp CMA
@@ -85,7 +85,7 @@ void cma_free(uintptr_t buf);
  * @retval NULL Failure.
  *
  */
-uintptr_t cma_get_vaddr(uintptr_t buf);
+void *cma_get_vaddr(void *handle);
 
 /**
  * Get physical address from pp CMA
@@ -96,6 +96,6 @@ uintptr_t cma_get_vaddr(uintptr_t buf);
  * @retval NULL Failure.
  *
  */
-uintptr_t cma_get_paddr(uintptr_t buf);
+phys_addr_t cma_get_paddr(void *handle);
 
 #endif /* __CMA_H__ */

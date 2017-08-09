@@ -47,33 +47,6 @@
 #define MUSDK_IOC_NUM(n)		(n)
 /* @} */
 
-#define CMA_MAGIC_NUMBER	0xAA55AA55
-#define CMA_PAGE_SIZE		4096
-
-/*
- * Administration area used to keep information about each contiguous
- * buffer allocated
- */
-struct cma_admin {
-	union {
-		struct {
-			u32					magic;
-			/* Physical memory address of buffer allocated */
-			u64					paddr;
-			/* Kernel virtual memory address */
-			u64					kvaddr;
-			/* User virtual memory address */
-			u64					uvaddr;
-			/* size of buffer with admin area */
-			size_t				size;
-#ifdef __KERNEL__
-			struct list_head	list;
-#endif /* __KERNEL__ */
-		};
-		u8						rsvd[CMA_PAGE_SIZE];
-	};
-};
-
 /**
  * Allocate DMA-memory.
  *
@@ -90,6 +63,6 @@ struct cma_admin {
  *
  * @return	0 on success.
  */
-#define MUSDK_IOC_CMA_FREE		_IOW(MUSDK_IOC_TYPE_BASE, MUSDK_IOC_NUM(2), struct cma_admin)
+#define MUSDK_IOC_CMA_FREE		_IOW(MUSDK_IOC_TYPE_BASE, MUSDK_IOC_NUM(2), u64)
 
 #endif /* __MUSDK_UIO_IOCTLS_H___ */
