@@ -351,7 +351,6 @@ int register_cli_qos_cmds(struct pp2_ppio *ppio)
 
 int register_cli_mng_cmds(struct pp2_ppio *ppio)
 {
-#ifdef CLS_DEBUG
 	struct cli_cmd_params cmd_params;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
@@ -361,7 +360,6 @@ int register_cli_mng_cmds(struct pp2_ppio *ppio)
 	cmd_params.cmd_arg	= NULL;
 	cmd_params.do_cmd_cb	= (void *)pp2_cls_db_mng_tbl_list_dump;
 	mvapp_register_cli_cmd(&cmd_params);
-#endif
 	return 0;
 }
 

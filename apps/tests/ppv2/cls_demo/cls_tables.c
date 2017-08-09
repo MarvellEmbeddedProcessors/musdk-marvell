@@ -325,9 +325,9 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	strcpy(&tbl_node->ppio_name[0], name);
 
 	if (!pp2_cls_tbl_init(tbl_params, &tbl_node->tbl))
-		printf("OK\n");
+		pr_info("table created, table_index %d\n", tbl_node->idx);
 	else
-		printf("FAIL\n");
+		pr_info("FAIL\n");
 
 	return 0;
 }
@@ -342,6 +342,7 @@ int pp2_cls_table_remove(u32 tbl_idx, struct list *cls_tbl_head)
 		if (tbl_node->idx == tbl_idx) {
 			struct pp2_cls_tbl_params *tbl_ptr = &tbl_node->tbl_params;
 
+			pr_info("Removing table %d\n", tbl_idx);
 			pp2_cls_tbl_deinit(tbl_node->tbl);
 			list_del(&tbl_node->list_node);
 			free(tbl_ptr->default_act.cos);
@@ -375,7 +376,7 @@ static int pp2_cls_cli_table_remove(void *arg, int argc, char *argv[])
 		switch (option) {
 		case 't':
 			tbl_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= list_num_objs(&cls_flow_tbl_head))) {
+			if ((optarg == ret_ptr) || (tbl_idx <= 0) || (tbl_idx > list_num_objs(&cls_flow_tbl_head))) {
 				printf("parsing fail, wrong input for --table_index\n");
 				return -EINVAL;
 			}
@@ -679,9 +680,9 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_rule_key";
 	cmd_params.desc		= "add/modify/remove a classifier rule key to existing table";
-	cmd_params.format	= "--add    --table_index --tc --drop(optional) --size --key --mask...\n"
-				  "--modify --table_index --tc --drop(optional) --size --key --mask...\n"
-				  "--remove --table_index --tc --drop(optional) --size --key --mask...\n"
+	cmd_params.format	= "\t--add    --table_index --tc --drop(optional) --size --key --mask...\n"
+				  "\t\t\t\t\t--modify --table_index --tc --drop(optional) --size --key --mask...\n"
+				  "\t\t\t\t\t--remove --table_index --tc --drop(optional) --size --key --mask...\n"
 				  "\t\t\t\t--table_index	(dec) index to existing table\n"
 				  "\t\t\t\t--tc			(dec) 1..8\n"
 				  "\t\t\t\t--drop		(optional)(no argument)\n"

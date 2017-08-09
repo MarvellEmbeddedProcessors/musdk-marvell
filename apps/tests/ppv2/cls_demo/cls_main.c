@@ -340,13 +340,13 @@ static int register_cli_cmds(struct glob_arg *garg)
 	garg->cmn_args.cli_unregister_cb = unregister_cli_cmds;
 
 	register_cli_cls_api_cmds(pp2_args->ports_desc);
+	register_cli_mng_cmds(ppio);
 	register_cli_cls_api_qos_cmds(ppio);
 	register_cli_filter_cmds(ppio);
 	register_cli_cls_cmds(ppio);
 	register_cli_c3_cmds(ppio);
 	register_cli_c2_cmds(ppio);
 	register_cli_qos_cmds(ppio);
-	register_cli_mng_cmds(ppio);
 	register_cli_prs_cmds(ppio);
 	app_register_cli_common_cmds(pp2_args->ports_desc);
 
