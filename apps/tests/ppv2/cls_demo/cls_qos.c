@@ -58,10 +58,10 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 	int long_index = 0;
 	struct option long_options[] = {
 		{"type", required_argument, 0, 't'},
-		{"pcp_dflt", required_argument, 0, 'p'},
+		{"pcp_default", required_argument, 0, 'p'},
 		{"pcp_idx", required_argument, 0, 'i'},
 		{"pcp_val", required_argument, 0, 'v'},
-		{"dscp_dflt", required_argument, 0, 'q'},
+		{"dscp_default", required_argument, 0, 'q'},
 		{"dscp_idx", required_argument, 0, 'j'},
 		{"dscp_val", required_argument, 0, 'w'},
 		{0, 0, 0, 0}

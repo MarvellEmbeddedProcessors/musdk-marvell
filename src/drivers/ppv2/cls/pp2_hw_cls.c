@@ -1375,17 +1375,17 @@ int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
 		* CPU ID will be used in RSS
 		*/
 		queue = port->tc[cos_values[pri]].tc_config.first_rxq;
-		pr_info("cos_val[%d] %d, queue %d\n", pri, cos_values[pri], queue);
+		pr_debug("cos_val[%d] %d, queue %d\n", pri, cos_values[pri], queue);
 
 		rc = mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
 		if (rc) {
-			pr_info("mv_pp2x_cls_c2_qos_queue_set failed\n");
+			pr_err("mv_pp2x_cls_c2_qos_queue_set failed\n");
 			return -EFAULT;
 		}
 
 		rc = mv_pp2x_cls_c2_qos_hw_write(&port->parent->hw, &qos_entry);
 		if (rc) {
-			pr_info("mv_pp2x_cls_c2_qos_hw_write failed\n");
+			pr_err("mv_pp2x_cls_c2_qos_hw_write failed\n");
 			return -EFAULT;
 		}
 	}
@@ -2117,7 +2117,7 @@ int pp2_c2_config_default_queue(struct pp2_port *port, u16 queue)
 			if (rc)
 				return -EFAULT;
 
-			pr_info("Writing index %#x, queue %d, from %d\n", index, queue, MVPP2_QOS_SRC_ACTION_TBL);
+			pr_debug("Writing index %#x, queue %d, from %d\n", index, queue, MVPP2_QOS_SRC_ACTION_TBL);
 			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
 		} else if (lkp_type == MVPP2_CLS_LKP_DSCP_PRI ||
 			lkp_type == MVPP2_CLS_LKP_VLAN_PRI) {
@@ -2125,7 +2125,7 @@ int pp2_c2_config_default_queue(struct pp2_port *port, u16 queue)
 			if (rc)
 				return -EFAULT;
 
-			pr_info("Writing index %#x, queue %d, from %d\n", index, queue, MVPP2_QOS_SRC_DSCP_PBIT_TBL);
+			pr_debug("Writing index %#x, queue %d, from %d\n", index, queue, MVPP2_QOS_SRC_DSCP_PBIT_TBL);
 			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
 		}
 	}
