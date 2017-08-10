@@ -1507,21 +1507,26 @@ int pp2_cls_db_mng_tbl_list_dump(void)
 			continue;
 		printk("\n");
 		print_horizontal_line(115, "=");
-		printk("|	       | default_action   |		  key\n");
-		printk("|type|num_rules| type  |  tc_num  |key_size|num_fields|");
-
-		for (i = 0; i < 5; i++)
-			printk("proto,field|");
+		printk("|	       |default_action|		  key\n");
+		printk("|type|num_rules| type | tc_num|key_size|num_fields|");
+		printk("       proto        ,              field      |");
 		printk("\n");
 		print_horizontal_line(115, "-");
 		printk("|%4d|%9d|", tbl_node->tbl.params.type, tbl_node->tbl.params.max_num_rules);
-		printk("%4d|%6d|", tbl_node->tbl.params.default_act.type, tbl_node->tbl.params.default_act.cos->tc);
+		printk("%6d|%7d|", tbl_node->tbl.params.default_act.type, tbl_node->tbl.params.default_act.cos->tc);
 		printk("%8d|%10d|", tbl_node->tbl.params.key.key_size, tbl_node->tbl.params.key.num_fields);
 		for (i = 0; i < tbl_node->tbl.params.key.num_fields; i++) {
-			printk("%5d,%5d|", tbl_node->tbl.params.key.proto_field[i].proto,
-			       tbl_node->tbl.params.key.proto_field[i].field.eth);
+			if (i == 0)
+				printk("%20s,%25s|\n",
+				       pp2_g_enum_prs_net_proto_str_get(tbl_node->tbl.params.key.proto_field[i].proto),
+				       pp2_g_enum_prs_net_proto_field_str_get(
+						tbl_node->tbl.params.key.proto_field[i].field.eth));
+			else
+				printk("%71s,%25s|\n",
+				       pp2_g_enum_prs_net_proto_str_get(tbl_node->tbl.params.key.proto_field[i].proto),
+				       pp2_g_enum_prs_net_proto_field_str_get(
+						tbl_node->tbl.params.key.proto_field[i].field.eth));
 		}
-		printk("\n");
 		print_horizontal_line(115, "=");
 		printk("\n");
 		pp2_cls_db_mng_rule_list_dump(&tbl_node->tbl);

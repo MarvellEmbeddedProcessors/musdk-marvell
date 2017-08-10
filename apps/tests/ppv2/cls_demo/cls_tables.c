@@ -81,14 +81,6 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 		*proto = MV_NET_PROTO_VLAN;
 		*field = MV_NET_VLAN_F_TCI;
 		key_size = 1;
-	} else if (!strcmp(optarg, "pppoe")) {
-		*proto = MV_NET_PROTO_PPPOE;
-		*field = 0;
-		key_size = 1;
-	} else if (!strcmp(optarg, "ip")) {
-		*proto = MV_NET_PROTO_IP;
-		*field = 0;
-		key_size = 1;
 	} else if (!strcmp(optarg, "ip4_tos")) {
 		*proto = MV_NET_PROTO_IP4;
 		*field = MV_NET_IP4_F_TOS;
@@ -149,14 +141,6 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 		*proto = MV_NET_PROTO_UDP;
 		*field = MV_NET_UDP_F_DP;
 		key_size = 2;
-	} else if (!strcmp(optarg, "icmp")) {
-		*proto = MV_NET_PROTO_ICMP;
-		*field = 0;
-		key_size = 1;
-	} else if (!strcmp(optarg, "arp")) {
-		*proto = MV_NET_PROTO_ARP;
-		*field = 0;
-		key_size = 1;
 	}
 	return key_size;
 }
@@ -639,8 +623,6 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 				  "\t\t\t\t			vlan_prio - vlan, priority\n"
 				  "\t\t\t\t			vlan_id - vlan, id\n"
 				  "\t\t\t\t			vlan_tci - vlan, tci\n"
-				  "\t\t\t\t			pppoe - pppoe\n"
-				  "\t\t\t\t			ip - ip\n"
 				  "\t\t\t\t			ip4_tos - ipv4, tos\n"
 				  "\t\t\t\t			ip4_src - ipv4, souce address\n"
 				  "\t\t\t\t			ip4_dst - ipv4, destination address\n"
@@ -652,15 +634,10 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 				  "\t\t\t\t			ip6_next_hdr - ipv6, next header\n"
 				  "\t\t\t\t			l4_src - layer4, source port\n"
 				  "\t\t\t\t			l4_dst - layer4, destination port\n"
-				  "\t\t\t\t			l4_csum - layer4, checksum\n"
 				  "\t\t\t\t			tcp_src - tcp, source port\n"
 				  "\t\t\t\t			tcp_dst - tcp, destination port\n"
-				  "\t\t\t\t			tcp_csum - tcp, checksum\n"
 				  "\t\t\t\t			udp_src - udp, source port\n"
-				  "\t\t\t\t			udp_dst - udp, destination port\n"
-				  "\t\t\t\t			udp_csum - udp, checksum\n"
-				  "\t\t\t\t			icmp - icmp\n"
-				  "\t\t\t\t			arp - arp\n";
+				  "\t\t\t\t			udp_dst - udp, destination port\n";
 	cmd_params.cmd_arg	= arg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_table_add;
 	mvapp_register_cli_cmd(&cmd_params);

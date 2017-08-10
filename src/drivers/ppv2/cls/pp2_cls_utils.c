@@ -223,6 +223,33 @@ static struct pp2_cls_enum_str_t g_enum_prs_net_proto[] = {
 	{ MV_NET_PROTO_ARP,	"MV_NET_PROTO_ARP"},
 };
 
+/* API protocol fields (from mv_net.h)*/
+static struct pp2_cls_enum_str_t g_enum_prs_net_proto_fields[] = {
+
+	{ MV_NET_ETH_F_SA,		"MV_NET_ETH_F_SA"},
+	{ MV_NET_ETH_F_DA,		"MV_NET_ETH_F_DA"},
+	{ MV_NET_ETH_F_TYPE,		"MV_NET_ETH_F_TYPE"},
+	{ MV_NET_ETH_F_DSA_TAG_MODE,	"MV_NET_ETH_F_DSA_TAG_MODE"},
+	{ MV_NET_VLAN_F_PRI,		"MV_NET_VLAN_F_PRI"},
+	{ MV_NET_VLAN_F_ID,		"MV_NET_VLAN_F_ID"},
+	{ MV_NET_VLAN_F_TCI,		"MV_NET_VLAN_F_TCI"},
+	{ MV_NET_IP4_F_TOS,		"MV_NET_IP4_F_TOS"},
+	{ MV_NET_IP4_F_SA,		"MV_NET_IP4_F_SA"},
+	{ MV_NET_IP4_F_DA,		"MV_NET_IP4_F_DA"},
+	{ MV_NET_IP4_F_PROTO,		"MV_NET_IP4_F_PROTO"},
+	{ MV_NET_IP6_F_TC,		"MV_NET_IP6_F_TC"},
+	{ MV_NET_IP6_F_SA,		"MV_NET_IP6_F_SA"},
+	{ MV_NET_IP6_F_DA,		"MV_NET_IP6_F_DA"},
+	{ MV_NET_IP6_F_FLOW,		"MV_NET_IP6_F_FLOW"},
+	{ MV_NET_IP6_F_NEXT_HDR,	"MV_NET_IP6_F_NEXT_HDR"},
+	{ MV_NET_L4_F_SP,		"MV_NET_L4_F_SP"},
+	{ MV_NET_L4_F_DP,		"MV_NET_L4_F_DP"},
+	{ MV_NET_UDP_F_SP,		"MV_NET_UDP_F_SP"},
+	{ MV_NET_UDP_F_DP,		"MV_NET_UDP_F_DP"},
+	{ MV_NET_TCP_F_SP,		"MV_NET_TCP_F_SP"},
+	{ MV_NET_TCP_F_DP,		"MV_NET_TCP_F_DP"},
+};
+
 /* Protocol number*/
 static struct pp2_cls_enum_str_t g_enum_prs_proto_num[] = {
 	{ ETH_P_8021Q,	"VLAN1"},
@@ -376,6 +403,11 @@ const char *pp2_g_enum_prs_lookup_str_get(int value)
 const char *pp2_g_enum_prs_net_proto_str_get(int value)
 {
 	return lookup_enum_str(g_enum_prs_net_proto, MVPP2_MEMBER_NUM(g_enum_prs_net_proto), value);
+}
+
+const char *pp2_g_enum_prs_net_proto_field_str_get(int value)
+{
+	return lookup_enum_str(g_enum_prs_net_proto_fields, MVPP2_MEMBER_NUM(g_enum_prs_net_proto_fields), value);
 }
 
 const char *pp2_g_enum_prs_proto_num_str_get(int value)

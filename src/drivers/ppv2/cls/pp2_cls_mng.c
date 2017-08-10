@@ -71,10 +71,6 @@ static struct cls_field_convert_t g_cls_field_convert[] = {
 	{MV_NET_PROTO_VLAN, MV_NET_VLAN_F_ID, OUT_VLAN_ID_FIELD_ID, MVPP2_MATCH_VID_OUTER},
 	/* vlan, tci */
 	{MV_NET_PROTO_VLAN, MV_NET_VLAN_F_TCI, NOT_SUPPORTED_YET, 0},
-	/* pppoe */
-	{MV_NET_PROTO_PPPOE, 0, PPPOE_FIELD_ID, MVPP2_MATCH_PPPOE_PROTO},
-	/* ip */
-	{MV_NET_PROTO_IP, 0, IP_VER_FIELD_ID, MVPP2_MATCH_IP_VERSION},
 	/* ipv4, tos  [AW: check] */
 	{MV_NET_PROTO_IP4, MV_NET_IP4_F_TOS, IPV4_DSCP_FIELD_ID, MVPP2_MATCH_IP_DSCP},
 	/* ipv4, souce address */
@@ -105,10 +101,6 @@ static struct cls_field_convert_t g_cls_field_convert[] = {
 	{MV_NET_PROTO_UDP, MV_NET_UDP_F_SP, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},
 	/* udp, destination port */
 	{MV_NET_PROTO_UDP, MV_NET_UDP_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
-	/* icmp */
-	{MV_NET_PROTO_ICMP, 0, NOT_SUPPORTED_YET, 0},
-	/* arp */
-	{MV_NET_PROTO_ARP, 0, ARP_IPV4_DA_FIELD_ID, MVPP2_MATCH_ARP_TRGT_IP_ADDR},
 };
 
 static u32 lookup_field_id(u32 proto, u32 field, u32 *field_id, u32 *match_bm)
@@ -1032,7 +1024,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				pr_err("Unable to parse MAC DA\n");
 				return -EINVAL;
 			}
-			pr_debug("MAC SA: %02x:%02x:%02x:%02x:%02x:%02x\n",
+			pr_debug("MAC DA: %02x:%02x:%02x:%02x:%02x:%02x\n",
 				 mng_pkt_key->pkt_key->eth_dst.eth_add[0],
 				 mng_pkt_key->pkt_key->eth_dst.eth_add[1],
 				 mng_pkt_key->pkt_key->eth_dst.eth_add[2],
@@ -1045,13 +1037,26 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				pr_err("Unable to parse MAC DA mask\n");
 				return -EINVAL;
 			}
-			pr_debug("MAC SA MASK: %02x:%02x:%02x:%02x:%02x:%02x\n",
+			pr_debug("MAC DA MASK: %02x:%02x:%02x:%02x:%02x:%02x\n",
 				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[0],
 				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[1],
 				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[2],
 				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[3],
 				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[4],
 				 mng_pkt_key->pkt_key->eth_dst.eth_add_mask[5]);
+			break;
+		case ETH_TYPE_FIELD_ID:
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(ETH_TYPE_FIELD_SIZE))) {
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->ether_type);
+			if (rc) {
+				pr_err("Failed to parse eth_type header.\n");
+				return rc;
+			}
+			pr_debug("ETH_TYPE_FIELD_ID = %d\n", mng_pkt_key->pkt_key->ether_type);
 			break;
 		case OUT_VLAN_PRI_FIELD_ID:
 			if (rule->fields[idx1].size != (GET_NUM_BYTES(OUT_VLAN_PRI_FIELD_SIZE))) {
@@ -1229,6 +1234,40 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 					pr_info(":");
 				else
 					pr_info("\n");
+			}
+			break;
+		case IPV6_FLOW_LBL_FIELD_ID:
+			if (rule->fields[idx1].size != (GET_NUM_BYTES(IPV6_FLOW_LBL_FIELD_SIZE))) {
+				pr_err("%s(%d) field size does not match! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+
+			rc = kstrtou32((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->ipvx_add.flow_label);
+			if (rc) {
+				pr_err("%s(%d)) Falied to parse IPv6 flow label.", __func__, __LINE__);
+				return rc;
+			}
+			pr_debug("IPV6_FLOW_LBL_FIELD_ID = %x\n", mng_pkt_key->pkt_key->ipvx_add.flow_label);
+
+			if (mng_pkt_key->pkt_key->ipvx_add.flow_label > (1 << IPV6_FLOW_LBL_FIELD_SIZE) - 1) {
+				pr_err("%s(%d)) IPv6 flow label.value too big. Max value %x", __func__, __LINE__,
+				       ((1 << IPV6_FLOW_LBL_FIELD_SIZE) - 1));
+				return -EFAULT;
+			}
+
+			rc = kstrtou32((char *)(rule->fields[idx1].mask), 0,
+					&mng_pkt_key->pkt_key->ipvx_add.flow_label_mask);
+			if (rc) {
+				pr_err("Failed to parse IPv6 flow label mask.\n");
+				return rc;
+			}
+			pr_debug("IPV6_FLOW_LBL_FIELD_ID mask = %x\n", mng_pkt_key->pkt_key->ipvx_add.flow_label_mask);
+
+			if (mng_pkt_key->pkt_key->ipvx_add.flow_label_mask > (1 << IPV6_FLOW_LBL_FIELD_SIZE) - 1) {
+				pr_err("%s(%d)) IPv6 flow label.mask value too big. Max value %x", __func__, __LINE__,
+				       ((1 << IPV6_FLOW_LBL_FIELD_SIZE) - 1));
+				return -EFAULT;
 			}
 			break;
 		case L4_SRC_FIELD_ID:

@@ -80,6 +80,7 @@ const char *pp2_cls_utils_scan_mode_str_get(int value);
 const char *pp2_cls_utils_tbl_action_type_str_get(int value);
 const char *pp2_g_enum_prs_proto_num_str_get(int value);
 const char *pp2_g_enum_prs_net_proto_str_get(int value);
+const char *pp2_g_enum_prs_net_proto_field_str_get(int value);
 const char *pp2_g_enum_prs_lookup_str_get(int value);
 const char *pp2_g_enum_prs_log_port_str_get(int value);
 void print_horizontal_line(u32 char_count, const char *char_val);
