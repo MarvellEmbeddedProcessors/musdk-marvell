@@ -310,7 +310,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	if (rc)
 		goto err;
 
-	pr_info("DMA buffer (%d bytes) for CDR #%d allocated: paddr = 0x%lx, vaddr = %p\n",
+	pr_info("DMA buffer (%d bytes) for CDR #%d allocated: paddr = 0x%" PRIdma" , vaddr = %p\n",
 		ring_size, ring, hw_ring->cdr_buf.paddr, hw_ring->cdr_buf.vaddr);
 
 	memset(hw_ring->cdr_buf.vaddr, 0, ring_size);
@@ -325,7 +325,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	if (rc)
 		goto err;
 
-	pr_info("DMA buffer (%d bytes) for RDR #%d allocated: paddr = 0x%lx, vaddr = %p\n",
+	pr_info("DMA buffer (%d bytes) for RDR #%d allocated: paddr = 0x%" PRIdma", vaddr = %p\n",
 		ring_size, ring, hw_ring->rdr_buf.paddr, hw_ring->rdr_buf.vaddr);
 
 	memset(hw_ring->rdr_buf.vaddr, 0, ring_size);
@@ -373,7 +373,7 @@ int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *
 
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 {
-	pr_info("%d:%d CDR registers - paddr = 0x%08lx, vaddr = %p\n",
+	pr_info("%d:%d CDR registers - paddr = 0x%" PRIdma ", vaddr = %p\n",
 		hw_ring->engine, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
 	sam_hw_reg_print("HIA_CDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_CDR_RING_BASE_ADDR_LO_REG);
 	sam_hw_reg_print("HIA_CDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG);
@@ -386,7 +386,7 @@ void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 
 void sam_hw_rdr_regs_show(struct sam_hw_ring *hw_ring)
 {
-	pr_info("%d:%d RDR registers - paddr = 0x%08lx, vaddr = %p\n",
+	pr_info("%d:%d RDR registers - paddr = 0x%" PRIdma ", vaddr = %p\n",
 		hw_ring->engine, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
 	sam_hw_reg_print("HIA_RDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_RDR_RING_BASE_ADDR_LO_REG);
 	sam_hw_reg_print("HIA_RDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_RDR_RING_SIZE_REG);

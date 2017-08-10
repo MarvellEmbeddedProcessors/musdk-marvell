@@ -844,17 +844,17 @@ exit:
 	free_bufs();
 
 	if (!sam_cio_get_stats(cio_hndl, &cio_stats, true)) {
-		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
-		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
-		printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
-		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
-		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
-		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
+		printf("Enqueue packets             : %" PRIu64 " packets\n", cio_stats.enq_pkts);
+		printf("Enqueue bytes               : %" PRIu64 " bytes\n", cio_stats.enq_bytes);
+		printf("Enqueue full                : %" PRIu64 " times\n", cio_stats.enq_full);
+		printf("Dequeue packets             : %" PRIu64 " packets\n", cio_stats.deq_pkts);
+		printf("Dequeue bytes               : %" PRIu64 " bytes\n", cio_stats.deq_bytes);
+		printf("Dequeue empty               : %" PRIu64 " times\n", cio_stats.deq_empty);
 	}
 	if (!sam_session_get_stats(&sa_stats, true)) {
-		printf("Created sessions            : %lu\n", sa_stats.sa_add);
-		printf("Deleted sessions:	    : %lu\n", sa_stats.sa_del);
-		printf("Invalidated sessions:	    : %lu\n", sa_stats.sa_inv);
+		printf("Created sessions            : %" PRIu64 "\n", sa_stats.sa_add);
+		printf("Deleted sessions:	    : %" PRIu64 "\n", sa_stats.sa_del);
+		printf("Invalidated sessions:	    : %" PRIu64 "\n", sa_stats.sa_inv);
 	}
 	if (sam_cio_deinit(cio_hndl)) {
 		printf("%s: un-initialization failed\n", argv[0]);
