@@ -105,19 +105,16 @@ enum mv_net_ipv6_fields {
 enum mv_net_l4_fields {
 	MV_NET_L4_F_SP = 0,
 	MV_NET_L4_F_DP,
-	MV_NET_L4_F_CSUM
 };
 
 enum mv_net_udp_fields {
 	MV_NET_UDP_F_SP = 0,
 	MV_NET_UDP_F_DP,
-	MV_NET_UDP_F_CSUM
 };
 
 enum mv_net_tcp_fields {
 	MV_NET_TCP_F_SP = 0,
 	MV_NET_TCP_F_DP,
-	MV_NET_TCP_F_CSUM
 };
 
 enum mv_net_proto {

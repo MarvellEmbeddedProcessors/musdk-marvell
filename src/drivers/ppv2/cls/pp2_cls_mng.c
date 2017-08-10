@@ -97,20 +97,14 @@ static struct cls_field_convert_t g_cls_field_convert[] = {
 	{MV_NET_PROTO_L4, MV_NET_L4_F_SP, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},
 	/* layer4, destination port */
 	{MV_NET_PROTO_L4, MV_NET_L4_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
-	/* layer4, checksum */
-	{MV_NET_PROTO_L4, MV_NET_L4_F_CSUM, NOT_SUPPORTED_YET, 0},
 	/* tcp, source port */
 	{MV_NET_PROTO_TCP, MV_NET_TCP_F_SP, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},
 	/* tcp, destination port */
 	{MV_NET_PROTO_TCP, MV_NET_TCP_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
-	/* tcp, checksum */
-	{MV_NET_PROTO_TCP, MV_NET_TCP_F_CSUM, NOT_SUPPORTED_YET, 0},
 	/* udp, source port */
 	{MV_NET_PROTO_UDP, MV_NET_UDP_F_SP, L4_SRC_FIELD_ID, MVPP2_MATCH_L4_SRC},
 	/* udp, destination port */
 	{MV_NET_PROTO_UDP, MV_NET_UDP_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
-	/* udp, checksum */
-	{MV_NET_PROTO_UDP, MV_NET_UDP_F_CSUM, NOT_SUPPORTED_YET, 0},
 	/* icmp */
 	{MV_NET_PROTO_ICMP, 0, NOT_SUPPORTED_YET, 0},
 	/* arp */

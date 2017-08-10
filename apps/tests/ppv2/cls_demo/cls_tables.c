@@ -133,10 +133,6 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 		*proto = MV_NET_PROTO_L4;
 		*field = MV_NET_L4_F_DP;
 		key_size = 2;
-	} else if (!strcmp(optarg, "l4_csum")) {
-		*proto = MV_NET_PROTO_L4;
-		*field = MV_NET_L4_F_CSUM;
-		key_size = 2;
 	} else if (!strcmp(optarg, "tcp_src")) {
 		*proto = MV_NET_PROTO_TCP;
 		*field = MV_NET_TCP_F_SP;
@@ -145,10 +141,6 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 		*proto = MV_NET_PROTO_TCP;
 		*field = MV_NET_TCP_F_DP;
 		key_size = 2;
-	} else if (!strcmp(optarg, "tcp_csum")) {
-		*proto = MV_NET_PROTO_TCP;
-		*field = MV_NET_TCP_F_CSUM;
-		key_size = 2;
 	} else if (!strcmp(optarg, "udp_src")) {
 		*proto = MV_NET_PROTO_UDP;
 		*field = MV_NET_UDP_F_SP;
@@ -156,10 +148,6 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 	} else if (!strcmp(optarg, "udp_dst")) {
 		*proto = MV_NET_PROTO_UDP;
 		*field = MV_NET_UDP_F_DP;
-		key_size = 2;
-	} else if (!strcmp(optarg, "udp_csum")) {
-		*proto = MV_NET_PROTO_UDP;
-		*field = MV_NET_UDP_F_CSUM;
 		key_size = 2;
 	} else if (!strcmp(optarg, "icmp")) {
 		*proto = MV_NET_PROTO_ICMP;
