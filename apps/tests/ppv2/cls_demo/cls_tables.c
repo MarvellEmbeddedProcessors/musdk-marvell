@@ -44,15 +44,6 @@
 
 static struct list cls_flow_tbl_head;
 
-static void app_print_horizontal_line(u32 char_count, const char *char_val)
-{
-	u32 cnt;
-
-	for (cnt = 0; cnt < char_count; cnt++)
-		printf("%s", char_val);
-	printf("\n");
-}
-
 static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 {
 	int key_size = -1;
@@ -664,19 +655,19 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "cls_tbl_dump";
-	cmd_params.desc		= "display classifier defined tables in cls_demo application";
-	cmd_params.format	= "";
-	cmd_params.cmd_arg	= arg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_table_dump;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_tbl_deinit";
 	cmd_params.desc		= "remove a specified table";
 	cmd_params.format	= "--table_index (dec) index to existing table\n";
 	cmd_params.cmd_arg	= arg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_table_remove;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_tbl_dump";
+	cmd_params.desc		= "display classifier defined tables in cls_demo application";
+	cmd_params.format	= "";
+	cmd_params.cmd_arg	= arg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_cls_table_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;

@@ -117,4 +117,12 @@ int apps_prefetch_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+void app_print_horizontal_line(u32 char_count, const char *char_val)
+{
+	u32 cnt;
+
+	for (cnt = 0; cnt < char_count; cnt++)
+		printf("%s", char_val);
+	printf("\n");
+}
 

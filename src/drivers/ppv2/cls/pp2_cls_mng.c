@@ -860,7 +860,7 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 
 	if (qos_params->type <= PP2_CLS_QOS_TBL_NONE ||
 	    qos_params->type >= PP2_CLS_QOS_TBL_OUT_OF_RANGE) {
-		pr_err("QoS type %u out of range.", qos_params->type);
+		pr_err("QoS type %u out of range\n", qos_params->type);
 		return -EINVAL;
 	}
 
@@ -932,6 +932,45 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 	*tbl = tmp_tbl;
 
 	return rc;
+}
+
+int pp2_cls_mng_qos_tbl_deinit(struct pp2_cls_tbl *tbl)
+{
+	int rc = 0;
+	u32 i;
+	struct pp2_port *port;
+	u8 tc_array[MVPP2_QOS_TBL_LINE_NUM_DSCP];
+
+	port = GET_PPIO_PORT(tbl->qos_params.dscp_cos_map[0].ppio);
+
+	/*Disable flows */
+	pp2_cls_dscp_flows_set(port, PP2_CLS_QOS_TBL_NONE);
+
+	for (i = 0; i < MV_DSCP_NUM; i++)
+		tc_array[i] = 0;
+
+	rc = mv_pp2x_cls_c2_qos_tbl_fill_array(port,
+					  MVPP2_QOS_TBL_SEL_DSCP,
+					  tc_array);
+	if (rc) {
+		pr_err("mv_pp2x_cls_c2_qos_tbl_fill_array failed\n");
+		return -EINVAL;
+	}
+
+	rc = mv_pp2x_cls_c2_qos_tbl_fill_array(port,
+					  MVPP2_QOS_TBL_SEL_PRI,
+					  tc_array);
+	if (rc) {
+		pr_err("mv_pp2x_cls_c2_qos_tbl_fill_array failed\n");
+		return -EINVAL;
+	}
+
+	rc = pp2_cls_db_mng_tbl_remove(tbl);
+	if (rc) {
+		pr_err("removing qos table from db failed\n");
+		return -EFAULT;
+	}
+	return 0;
 }
 
 static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,

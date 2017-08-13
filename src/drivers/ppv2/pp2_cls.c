@@ -98,9 +98,17 @@ int pp2_cls_qos_tbl_init(struct pp2_cls_qos_tbl_params *params, struct pp2_cls_t
 
 void pp2_cls_qos_tbl_deinit(struct pp2_cls_tbl *tbl)
 {
+	u32 rc;
+
 	if (mv_pp2x_ptr_validate(tbl)) {
 		pr_err("%s(%d) fail, tbl = NULL\n", __func__, __LINE__);
 	}
+
+	rc = pp2_cls_mng_qos_tbl_deinit(tbl);
+	if (rc)
+		pr_err("cls manager table init error: %d\n", rc);
+
+	return;
 }
 
 int pp2_cls_tbl_add_rule(struct pp2_cls_tbl		*tbl,

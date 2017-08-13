@@ -64,6 +64,7 @@ int pp2_cls_mng_rule_remove(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *ru
 int pp2_cls_mng_set_logical_port_params(struct pp2_ppio *ppio, struct pp2_ppio_params *params);
 int pp2_cls_dscp_flow_modify(struct pp2_port *port, int set);
 int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params, struct pp2_cls_tbl **tbl);
+int pp2_cls_mng_qos_tbl_deinit(struct pp2_cls_tbl *tbl);
 int pp2_cls_mng_lkp_type_to_prio(int lkp_type);
 void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map);
 void pp2_cls_mng_config_default_cos_queue(struct pp2_port *port);

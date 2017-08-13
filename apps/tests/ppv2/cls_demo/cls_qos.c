@@ -67,7 +67,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 		{0, 0, 0, 0}
 	};
 
-	if (argc < 5 || argc > 145) {
+	if (argc < 3 || argc > 145) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
@@ -166,7 +166,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 	}
 
 	/* check if all the fields are initialized */
-	if (type < 0) {
+	if (type <= 0) {
 		printf("parsing fail, invalid --type\n");
 		return -EINVAL;
 	}
@@ -207,9 +207,9 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 	}
 
 	if (!pp2_cls_qos_tbl_init(qos_tbl_params, &tbl_node->tbl))
-		printf("OK\n");
+		pr_info("table created, table_index %d\n", tbl_node->idx);
 	else
-		printf("FAIL\n");
+		pr_info("FAIL\n");
 
 	return 0;
 }
@@ -254,8 +254,8 @@ static int pp2_cls_cli_qos_table_remove(void *arg, int argc, char *argv[])
 		switch (option) {
 		case 't':
 			tbl_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (tbl_idx < 0) || (tbl_idx >= list_num_objs(&cls_qos_tbl_head))) {
-				printf("parsing fail, wrong input for --table_index\n");
+			if ((optarg == ret_ptr) || (tbl_idx <= 0) || (tbl_idx > list_num_objs(&cls_qos_tbl_head))) {
+				printf("parsing fail, wrong input for --qos_table_index\n");
 				return -EINVAL;
 			}
 			break;
@@ -279,12 +279,82 @@ static int pp2_cls_cli_qos_table_remove(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+static int pp2_cls_cli_qos_cls_table_dump(void *arg, int argc, char *argv[])
+{
+	int tbl_idx = -1;
+	char *ret_ptr;
+	int option = 0;
+	int long_index = 0;
+	u32 i;
+	struct pp2_cls_table_node *tbl_node;
+	u32 num_tables = list_num_objs(&cls_qos_tbl_head);
+	struct option long_options[] = {
+		{"qos_table_index", required_argument, 0, 't'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc != 3) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	/* Get parameters */
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 't':
+			tbl_idx = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (tbl_idx <= 0) || (tbl_idx > num_tables)) {
+				printf("parsing fail, wrong input for --qos_table_index\n");
+				return -EINVAL;
+			}
+			break;
+		default:
+			printf("parsing fail, wrong input, line = %d\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	/* check if all the fields are initialized */
+	if (tbl_idx < 0) {
+		printf("parsing fail, invalid --table_index\n");
+		return -EINVAL;
+	}
+
+
+	printf("total indexes: %d\n", num_tables);
+	if (num_tables > 0) {
+		app_print_horizontal_line(14, "=");
+
+		LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_qos_tbl_head, list_node) {
+			struct pp2_cls_qos_tbl_params *tbl_ptr = &tbl_node->qos_tbl_params;
+
+			printf("table Index %d\n", tbl_node->idx);
+			printf("|idx|dscp|pcp|\n");
+
+			for (i = 0; i < MV_DSCP_NUM; i++) {
+				if (i < MV_VLAN_PRIO_NUM)
+					printf("|%3d|%4d|%3d|", i, tbl_ptr->dscp_cos_map[i].tc,
+					       tbl_ptr->pcp_cos_map[i].tc);
+				else
+					printf("|%3d|%4d|   |", i, tbl_ptr->dscp_cos_map[i].tc);
+				printf("\n");
+				app_print_horizontal_line(14, "-");
+			}
+		}
+	}
+	printf("OK\n");
+
+	return 0;
+}
+
 void unregister_cli_cls_api_qos_cmds(void)
 {
 	struct pp2_cls_table_node *tbl_node;
 
 	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, &cls_qos_tbl_head, list_node) {
-		pp2_cls_table_remove(tbl_node->idx,  &cls_qos_tbl_head);
+		pp2_cls_qos_table_remove(tbl_node->idx);
 	}
 }
 
@@ -298,7 +368,7 @@ int register_cli_cls_api_qos_cmds(struct pp2_ppio *ppio)
 	cmd_params.name		= "cls_qos_tbl_init";
 	cmd_params.desc		= "create a QoS classifier table";
 	cmd_params.format	= "--type --pcp_map --dscp_map\n"
-				  "\t\t\t\t--type	(string) none, vlan, ip, vlan_ip, ip_vlan\n"
+				  "\t\t\t\t--type	(string) vlan, ip, vlan_ip, ip_vlan\n"
 				  "\t\t\t\t--pcp_default	TC number - default TC for all table values\n"
 				  "\t\t\t\t			except for values defined in pcp_idx and pcp_val\n"
 				  "\t\t\t\t--pcp_idx		index in pcp_map table\n"
@@ -317,8 +387,16 @@ int register_cli_cls_api_qos_cmds(struct pp2_ppio *ppio)
 	cmd_params.name		= "cls_qos_tbl_deinit";
 	cmd_params.desc		= "remove a specified qos table";
 	cmd_params.format	= "--qos_table_index (dec) index to existing table\n";
-	cmd_params.cmd_arg	= ppio;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_table_remove;
+	cmd_params.cmd_arg	= NULL;
+	cmd_params.do_cmd_cb	= (void *)pp2_cls_cli_qos_table_remove;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "cls_qos_tbl_dump";
+	cmd_params.desc		= "display classifier defined tables in cls_demo application";
+	cmd_params.format	= "";
+	cmd_params.cmd_arg	= NULL;
+	cmd_params.do_cmd_cb	= (void *)pp2_cls_cli_qos_cls_table_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;

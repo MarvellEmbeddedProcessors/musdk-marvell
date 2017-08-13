@@ -692,7 +692,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 	}
 	memset(fl_rl_list_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
 
-	printk("log_flow_id enabled offset engine logID lut portBm portType pri refCnt fid# = field_Ids\n");
+	printk("log_flow_id enabled offset engine logID lut portBm udf7 portType pri refCnt fid# = field_Ids\n");
 
 	for (i = 0; i < MVPP2_MNG_FLOW_ID_MAX; i++) {
 		rc = pp2_db_cls_lkp_dcod_get(inst, i, &lkp_dcod_db);
