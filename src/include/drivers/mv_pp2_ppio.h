@@ -400,6 +400,26 @@ enum pp2_inq_l4_type {
 	PP2_INQ_L4_TYPE_OTHER = 3
 };
 
+enum pp2_inq_vlan_tag {
+	PP2_INQ_VLAN_TAG_NONE = 0,	/* No VLANs */
+	PP2_INQ_VLAN_TAG_SINGLE,	/* Single VLAN */
+	PP2_INQ_VLAN_TAG_DOUBLE,	/* Double VLANs */
+	PP2_INQ_VLAN_TAG_TRIPLE,	/* Triple VLANs */
+};
+
+enum pp2_inq_l2_cast_type {
+	PP2_INQ_L2_UNICAST = 0,		/* L2 Unicast */
+	PP2_INQ_L2_MULTICAST,		/* L2 Multicast */
+	PP2_INQ_L2_BROADCAST,		/* L2 Broadcast */
+};
+
+enum pp2_inq_l3_cast_type {
+	PP2_INQ_L3_UNICAST = 0,		/* L3 Unicast */
+	PP2_INQ_L3_MULTICAST,		/* L3 Multicast */
+	PP2_INQ_L3_ANYCAST,		/* L3 Anycast */
+	PP2_INQ_L3_BROADCAST,		/* L3 Broadcast */
+};
+
 enum pp2_inq_desc_status {
 	PP2_DESC_ERR_OK = 0,
 	PP2_DESC_ERR_MAC_CRC,		/* L2 MAC error (for example CRC Error) */
@@ -477,6 +497,9 @@ enum pp2_inq_desc_status {
 #define RXD_BUF_HDR_MASK           (0x80000000)
 /* cmd 1 */
 #define RXD_BYTE_COUNT_MASK        (0xFFFF0000)
+#define RXD_VLAN_INFO_MASK	   (0x0000C000)
+#define RXD_L2_CAST_INFO_MASK	   (0x00003000)
+#define RXD_L3_CAST_INFO_MASK	   (0x00000C00)
 /* cmd 4 */
 #define RXD_BUF_PHYS_LO_MASK       (0xFFFFFFFF)
 /* cmd 5 */
@@ -499,6 +522,10 @@ enum pp2_inq_desc_status {
 #define DM_RXD_GET_L4_PRS_INFO(desc)    (((desc)->cmds[0] & RXD_L4_PRS_INFO_MASK) >> 25)
 #define DM_RXD_GET_L3_PRS_INFO(desc)    (((desc)->cmds[0] & RXD_L3_PRS_INFO_MASK) >> 28)
 #define DM_RXD_GET_BUF_HDR(desc)        (((desc)->cmds[0] & RXD_BUF_HDR_MASK) >> 31)
+
+#define DM_RXD_GET_VLAN_INFO(desc)	(((desc)->cmds[1] & RXD_VLAN_INFO_MASK) >> 14)
+#define DM_RXD_GET_L2_CAST_INFO(desc)	(((desc)->cmds[1] & RXD_L2_CAST_INFO_MASK) >> 12)
+#define DM_RXD_GET_L3_CAST_INFO(desc)	(((desc)->cmds[1] & RXD_L3_CAST_INFO_MASK) >> 10)
 
 #define DM_TXD_SET_GEN_L4_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
@@ -666,7 +693,7 @@ static inline u16 pp2_ppio_inq_desc_get_pkt_len(struct pp2_ppio_desc *desc)
 }
 
 /**
- * Get the Layer information from an inq packet descriptor.
+ * Get the Layer 3 information from an inq packet descriptor.
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  * @param[out]	type	A pointer to l3 type.
@@ -681,7 +708,7 @@ static inline void pp2_ppio_inq_desc_get_l3_info(struct pp2_ppio_desc *desc, enu
 }
 
 /**
- * Get the Layer information from an inq packet descriptor.
+ * Get the Layer 4 information from an inq packet descriptor.
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  * @param[out]	type	A pointer to l4 type.
@@ -695,6 +722,43 @@ static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enu
 	*offset -= MV_MH_SIZE;
 }
 
+
+/**
+ * Get the VLAN tag information from an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ * @param[out]	tag	A pointer to vlan tag.
+ *
+ */
+static inline void pp2_ppio_inq_desc_get_vlan_tag(struct pp2_ppio_desc *desc, enum pp2_inq_vlan_tag *tag)
+{
+	*tag = DM_RXD_GET_VLAN_INFO(desc);
+}
+
+/**
+ * Get the Layer 2 casting information from an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ * @param[out]	type	A pointer to cast type.
+ *
+ */
+static inline void pp2_ppio_inq_desc_get_l2_cast_info(struct pp2_ppio_desc *desc, enum pp2_inq_l2_cast_type *type)
+{
+	*type = DM_RXD_GET_L2_CAST_INFO(desc);
+}
+
+/**
+ * Get the Layer 3 casting information from an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ * @param[out]	type	A pointer to cast type.
+ *
+ */
+static inline void pp2_ppio_inq_desc_get_l3_cast_info(struct pp2_ppio_desc *desc, enum pp2_inq_l3_cast_type *type)
+{
+	*type = DM_RXD_GET_L3_CAST_INFO(desc);
+}
+
 /**
  * TODO - Check if there is IPV4 fragmentation in an inq packet descriptor.
  *
@@ -702,8 +766,10 @@ static inline void pp2_ppio_inq_desc_get_l4_info(struct pp2_ppio_desc *desc, enu
  *
  * @retval	0 - not fragmented, 1 - fragmented.
  */
-int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc);
-
+static inline int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc)
+{
+	return DM_RXD_GET_L3_IP_FRAG(desc);
+}
 
 /**
  * Get the bpool of an inq packet descriptor.
