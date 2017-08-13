@@ -37,6 +37,7 @@
 #include "utils.h"
 #include "mv_pp2_hif.h"
 #include "mv_pp2_ppio.h"
+#include "mv_pp2_bpool.h"
 
 /* pkt offset, must be multiple of 32 bytes */
 #define MVAPPS_PP2_PKT_DEF_OFFS			64
@@ -238,8 +239,8 @@ static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
 
 		binf = &shadow_q->ents[idx].buff_ptr;
 		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
-			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
-				i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
+			pr_warn("Shadow memory @%d: cookie(0x%" PRIpp2cookie "), pa(0x%" PRIpp2dma "), pool(%p)!\n",
+				i, binf->cookie, binf->addr, bpool);
 			continue;
 		}
 		pp2_bpool_put_buff(hif, bpool, binf);
@@ -397,7 +398,7 @@ int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[]);
 
 
 /* Saved sysdma virtual high address*/
-extern u64 sys_dma_high_addr;
+extern uintptr_t sys_dma_high_addr;
 
 #endif /*__MVUTILS_H__*/
 

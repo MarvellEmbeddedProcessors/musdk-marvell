@@ -41,16 +41,16 @@
 #include "std_internal.h"
 
 /* DMA test variables */
-#define MB_SIZE		(u64)(1024*1024)
+#define MB_SIZE		(u64)(1024 * 1024)
 #ifdef MVCONF_SYS_DMA_HUGE_PAGE
-#define DMA_MEM_SIZE	(120*MB_SIZE)
+#define DMA_MEM_SIZE	(120 * MB_SIZE)
 #else
-#define DMA_MEM_SIZE	(50*MB_SIZE) /* CMA allocations */
+#define DMA_MEM_SIZE	(50 * MB_SIZE) /* CMA allocations */
 #endif
 
 #define MMAP_FILE_NAME	"/dev/mem"
 #define DMAX2_INTERFACE_COUNT	8
-#define DMAX2_MAX_DESC_SIZE	(2*MB_SIZE)
+#define DMAX2_MAX_DESC_SIZE	(2 * MB_SIZE)
 #define DMAX2_DFLT_DESC_SIZE	(0x2000) /* 8Kb */
 
 /** Get rid of path in filename - only for unix-type paths using '/' */
@@ -142,7 +142,7 @@ static int verify_io_mem(phys_addr_t io_base_pa, int desc_size, enum dmax2_mem_d
 	dev_mem_fd = open(MMAP_FILE_NAME, O_RDWR);
 	io_base_va = mmap(NULL, page_offset + desc_size, PROT_READ | PROT_WRITE, MAP_SHARED, dev_mem_fd, page_base);
 	if (io_base_va == MAP_FAILED) {
-		pr_err("Failed to map IO memory (address = 0x%lx)\n", io_base_pa);
+		pr_err("Failed to map IO memory (address = 0x%" PRIdma ")\n", io_base_pa);
 		return -EFAULT;
 	}
 	/* add destination offset to page base */
@@ -156,14 +156,15 @@ static int verify_io_mem(phys_addr_t io_base_pa, int desc_size, enum dmax2_mem_d
 		src_buff[i] = (u32)temp_val;
 		rmb(); /* make sure we read actual register value */
 		if (src_buff[i] != temp_val) {
-			pr_err("Failed writing/reading from requested IO address (0x%lx)\n", io_base_pa + i * 4);
+			pr_err("Failed writing/reading from requested IO address (0x%" PRIdma ")\n",
+				io_base_pa + i * 4);
 			return -EFAULT;
 		}
 	}
 
 	/* print destination IO prior to DMA copy */
 	for (i = 0; i < desc_size / sizeof(u32); i++)
-		pr_debug("IO mem prior to DMA: 0x%lx = 0x%x\n", io_base_pa + i * sizeof(u32), io_base_va[i]);
+		pr_debug("IO mem prior to DMA: 0x%" PRIdma " = 0x%x\n", io_base_pa + i * sizeof(u32), io_base_va[i]);
 
 	return 0;
 }
@@ -210,7 +211,7 @@ static int prepare_mem_buffers(int desc_num, int desc_size, int align,
 			dst_mems[i].pa = mv_sys_dma_mem_virt2phys(dst_mems[i].va);
 		}
 
-		pr_debug("DST: va=0x%p, pa=0x%llx\n", dst_mems[i].va, (unsigned long long int)dst_mems[i].pa);
+		pr_debug("DST: va=0x%p, pa=0x%" PRIdma "\n", dst_mems[i].va, dst_mems[i].pa);
 	}
 	return 0;
 
@@ -227,7 +228,7 @@ static void prepare_descriptors(struct mem *src_mems, struct mem *dst_mems, int 
 	u32 i, rand_io_value[desc_size / 4];
 
 	/* Save high address part of VA */
-	sys_dma_high_addr = ((u64)src_mems[0].va) & (~((1ULL << 32) - 1));
+	sys_dma_high_addr = ((u64)(uintptr_t)src_mems[0].va) & (~((1ULL << 32) - 1));
 
 	/* Initialize random data */
 	srand(time(NULL));
@@ -259,7 +260,7 @@ static void prepare_descriptors(struct mem *src_mems, struct mem *dst_mems, int 
 			} else
 				src_buff[j] = rand();
 		}
-		if ((upper_32_bits((u64)src_mems[i].va)) != (sys_dma_high_addr >> 32)) {
+		if ((upper_32_bits((u64)(uintptr_t)src_mems[i].va)) != (sys_dma_high_addr >> 32)) {
 			pr_err("va(%p) upper out of range; skipping this buff\n", src_mems[i].va);
 			continue;
 		}
@@ -291,8 +292,8 @@ static inline int verify_data_integrity(struct dmax2_trans_complete_desc *res_de
 			if (dst_buff[j] != src_buff[j]) {
 				pr_err("Desc %d mismatch (offset = 0x%x): ", res_descs[i].desc_id, j * 4);
 				printf("SRC = 0x%x,  DST = 0x%x\n", src_buff[j], dst_buff[j]);
-				printf("Comparing desc %d with sourc desc (desc_id) %d, src_buff = 0x%lx\n"
-					, i, res_descs[i].desc_id, (u64)src_buff);
+				printf("Comparing desc %d with sourc desc (desc_id) %d, src_buff = %p\n",
+					i, res_descs[i].desc_id, src_buff);
 				printf("Source buffer around mismatch point:\n");
 				mem_disp((void *)(src_buff + j), 8);
 				printf("Destination buffer around mismatch point:\n");
@@ -438,10 +439,11 @@ static int single_test(int desc_num, int desc_size, int align,
 
 	printf("\n<<< Test %d Summary >>>\n", test_num);
 
-	printf("Target: %3s, desc num =%4d, desc_size(bytes) =%-7d"
-		, (mem_attr == DMAX2_TRANS_MEM_ATTR_IO) ? "IO" : "MEM", desc_num, desc_size);
-	printf(", total=%ld%s\n", actuall_overall_size > MB_SIZE ? actuall_overall_size/MB_SIZE : actuall_overall_size
-				, actuall_overall_size > MB_SIZE ? "MB" : "b");
+	printf("Target: %3s, desc num =%4d, desc_size(bytes) =%-7d",
+		(mem_attr == DMAX2_TRANS_MEM_ATTR_IO) ? "IO" : "MEM", desc_num, desc_size);
+	printf(", total=%" PRId64 "%s\n",
+		actuall_overall_size > MB_SIZE ? actuall_overall_size / MB_SIZE : actuall_overall_size,
+		actuall_overall_size > MB_SIZE ? "MB" : "b");
 
 	if (garg.cycle_measure) {
 		/* dump counters */
@@ -455,10 +457,11 @@ static int single_test(int desc_num, int desc_size, int align,
 		pme_ev_cnt_destroy(pme_ev_cnt_desc_deq);
 	}
 
-	printf("Copied %.2fMB with %ld descriptors: "
-		, ((double)actuall_overall_size)/MB_SIZE, actuall_overall_size/desc_size);
-	printf("%.2f seconds\n", usecs/1000000.0);
-	printf("Test %d Average perf:%.2f MB/s\n", test_num++, (((actuall_overall_size/MB_SIZE)*1000000.0)/usecs));
+	printf("Copied %.2fMB with %" PRId64 "descriptors: ",
+		((double)actuall_overall_size) / MB_SIZE, actuall_overall_size / desc_size);
+	printf("%.2f seconds\n", usecs / 1000000.0);
+	printf("Test %d Average perf:%.2f MB/s\n",
+		test_num++, (((actuall_overall_size / MB_SIZE) * 1000000.0) / usecs));
 	usecs = 0;
 
 	free(src_mems);
@@ -473,7 +476,7 @@ static void usage(char *progname)
 		"  Run with no PARAMS will run various IO/MEM DMA tests:\n"
 
 		"\nOptional OPTIONS:\n"
-		"\t-i <DMA-engine-#> Interface number: min 0, max %i (default 0)\n"
+		"\t-i <DMA-engine-#> Interface number: min 0, max %d (default 0)\n"
 		"\t-t, <total_size>  Total copy size - in MB (default 100MB).\n"
 					"\t\t\t  (set 0 for a single burst)\n"
 		"\t-r, <repeat_count> How many times to repeat test.\n"
@@ -483,7 +486,7 @@ static void usage(char *progname)
 		"\t-d, <destination>  Destination: mem / io (default MEM)\n"
 		"\t-a, <IO address>  IO address register (default IO addr = 0x%x)\n"
 		"\t-c, <desc_count>  Descriptor count (default %d, max %d).\n"
-		"\t-s, <desc_size>   Descriptor size - bytes (default %db, max %ldb).\n"
+		"\t-s, <desc_size>   Descriptor size - bytes (default %db, max %" PRId64 "b).\n"
 		"\t?, -h, --help     Display help and exit.\n\n"
 		"Examples:\n"
 		"  E.g. 1: use various tests with DMA engine #1, 100MB, with cycle & data integrity:\n"
@@ -610,7 +613,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	if (!garg->desc_size || garg->desc_size > DMAX2_MAX_DESC_SIZE) {
-		pr_err("Invalid Descriptor's size: %d (max size supported= %ld)\n\n"
+		pr_err("Invalid Descriptor's size: %d (max size supported= %" PRIu64 ")\n\n"
 			, garg->desc_size, DMAX2_MAX_DESC_SIZE);
 		return -EINVAL;
 	}
@@ -632,14 +635,14 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	printf("Repeat count \t\t= %d\n", garg->repeat);
 
 	if (garg->manual_test) {
-		printf("DMA engine #%d\ndesc count \t\t= %d\ndesc size \t\t= %d\noverall size \t\t= %ldMB"
-			, garg->engine, garg->desc_num, garg->desc_size, garg->overall_size / MB_SIZE);
+		printf("DMA engine #%d\ndesc count \t\t= %d\ndesc size \t\t= %d\noverall size \t\t= %dMB"
+			, garg->engine, garg->desc_num, garg->desc_size, (u32)(garg->overall_size / MB_SIZE));
 		if (!garg->overall_size)
 			printf(" (Single Burst)");
 		if (garg->mem_attr == DMAX2_TRANS_MEM_ATTR_CACHABLE)
 			printf("\nDestination MEM (MEM_ATTR_CACHABLE)\n");
 		else if (garg->mem_attr == DMAX2_TRANS_MEM_ATTR_IO)
-			printf("\nDestination IO (MEM_ATTR_IO) = 0x%lx\n", garg->io_base_pa);
+			printf("\nDestination IO (MEM_ATTR_IO) = 0x%" PRIdma "\n", garg->io_base_pa);
 	} else
 		printf("\nRunning series of DMA test...\n");
 

@@ -383,7 +383,7 @@ static int stat_loop_cb(void *arg)
 			pps = (pkts - rx_pkts_prev) / timeout;
 			bps = (bytes - rx_bytes_prev) / timeout * 8;
 
-			printf("RX: %lu kpps, %lu kbps\t", pps / 1000, bps / 1000);
+			printf("RX: %" PRIu64 " kpps, %" PRIu64 " kbps\t", pps / 1000, bps / 1000);
 
 			rx_pkts_prev = pkts;
 			rx_bytes_prev = bytes;
@@ -402,7 +402,8 @@ static int stat_loop_cb(void *arg)
 			pps = (pkts - tx_pkts_prev) / timeout;
 			bps = (bytes - tx_bytes_prev) / timeout * 8;
 
-			printf("TX: %lu kpps, %lu kbps, %lu kdrops\t", pps / 1000, bps / 1000, drops / 1000);
+			printf("TX: %" PRIu64 " kpps, %" PRIu64 " kbps, %" PRIu64 " kdrops\t",
+				pps / 1000, bps / 1000, drops / 1000);
 
 			tx_pkts_prev = pkts;
 			tx_bytes_prev = bytes;

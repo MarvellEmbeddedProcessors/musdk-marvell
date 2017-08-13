@@ -335,9 +335,9 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
-			printf("Received packet (va:%p, pa 0x%08x, len %d):\n",
+			printf("Received packet (va:%p, pa 0x%08" PRIdma ", len %d):\n",
 			       src_buf_infs[i].vaddr,
-			       (unsigned int)src_buf_infs[i].paddr,
+			       src_buf_infs[i].paddr,
 			       src_buf_infs[i].len);
 			mv_mem_dump(src_buf_infs[i].vaddr, src_buf_infs[i].len);
 		}
@@ -476,9 +476,9 @@ static inline int dec_pkts(struct local_arg		*larg,
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
-			printf("Encrypted packet (va:%p, pa 0x%08x, len %d):\n",
+			printf("Encrypted packet (va:%p, pa 0x%08" PRIdma ", len %d):\n",
 			       src_buf_infs[i].vaddr,
-			       (unsigned int)src_buf_infs[i].paddr,
+			       src_buf_infs[i].paddr,
 			       src_buf_infs[i].len);
 			mv_mem_dump(src_buf_infs[i].vaddr, src_buf_infs[i].len);
 		}
@@ -607,8 +607,8 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 				shadow_q->write_ind--;
 				binf = &shadow_q->ents[shadow_q->write_ind].buff_ptr;
 				if (unlikely(!binf->cookie || !binf->addr)) {
-					pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-						shadow_q->write_ind, (u64)binf->cookie, (u64)binf->addr);
+					pr_warn("Shadow memory @%d: cookie(%" PRIpp2cookie "), pa(%" PRIpp2dma ")!\n",
+						shadow_q->write_ind, binf->cookie, binf->addr);
 					continue;
 				}
 				bpool = shadow_q->ents[shadow_q->write_ind].bpool;
@@ -624,8 +624,8 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 		for (i = 0; i < num; i++) {
 			binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
 			if (unlikely(!binf->cookie || !binf->addr)) {
-				pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-					shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
+				pr_warn("Shadow memory @%d: cookie(%" PRIpp2cookie "), pa(%" PRIpp2dma ")!\n",
+					shadow_q->read_ind, binf->cookie, binf->addr);
 				continue;
 			}
 			bpool = shadow_q->ents[shadow_q->read_ind].bpool;

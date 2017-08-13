@@ -172,8 +172,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	for (i = 0; i < num; i++) {
 		binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
 		if (unlikely(!binf->cookie || !binf->addr)) {
-			pr_err("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-			       shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
+			pr_err("Shadow memory @%d: cookie(%" PRIpp2cookie "), pa(%" PRIpp2dma ")!\n",
+			       shadow_q->read_ind, binf->cookie, binf->addr);
 			continue;
 		}
 		pp2_bpool_put_buff(pp2_args->hif,

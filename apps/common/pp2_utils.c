@@ -33,6 +33,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <limits.h>
+
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -44,7 +46,7 @@
 #include "pp2_utils.h"
 
 
-u64 sys_dma_high_addr;
+uintptr_t sys_dma_high_addr;
 
 static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
@@ -82,7 +84,7 @@ void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num
 	for (i = q_start; i < q_stop; i++) {
 		pp2_ppio_inq_get_statistics(port_desc->ppio, tc, i, &rxstats, reset);
 		printf("\t Tc #%d Rxq #%d statistics:\n", tc, i);
-		printf("\t\tEnqueued packets:      %lu\n", rxstats.enq_desc);
+		printf("\t\tEnqueued packets:      %" PRIu64 "\n", rxstats.enq_desc);
 		printf("\t\tFull queue drops:      %u\n", rxstats.drop_fullq);
 		printf("\t\tBuffer Manager drops:  %u\n", rxstats.drop_bm);
 		printf("\t\tEarly drops:           %u\n", rxstats.drop_early);
@@ -92,10 +94,10 @@ void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num
 	for (i = 0; i < port_desc->num_outqs; i++) {
 		printf("\t Txq #%d statistics:\n", i);
 		pp2_ppio_outq_get_statistics(port_desc->ppio, i, &txstats, reset);
-		printf("\t\tEnqueued packets:      %lu\n", txstats.enq_desc);
-		printf("\t\tDequeued packets:      %lu\n", txstats.deq_desc);
-		printf("\t\tEnque desc to DDR:     %lu\n", txstats.enq_dec_to_ddr);
-		printf("\t\tEnque buffers to DDR:  %lu\n", txstats.enq_buf_to_ddr);
+		printf("\t\tEnqueued packets:      %" PRIu64 "\n", txstats.enq_desc);
+		printf("\t\tDequeued packets:      %" PRIu64 "\n", txstats.deq_desc);
+		printf("\t\tEnque desc to DDR:     %" PRIu64 "\n", txstats.enq_dec_to_ddr);
+		printf("\t\tEnque buffers to DDR:  %" PRIu64 "\n", txstats.enq_buf_to_ddr);
 	}
 }
 
@@ -106,21 +108,21 @@ void app_show_port_stat(struct port_desc *port_desc, int reset)
 	printf("\n--------  Port %d:%d stats --------\n", port_desc->pp_id, port_desc->ppio_id);
 	pp2_ppio_get_statistics(port_desc->ppio, &stats, reset);
 	printf("\t Rx statistics:\n");
-	printf("\t\tReceived bytes:          %lu\n", stats.rx_bytes);
-	printf("\t\tReceived packets:        %lu\n", stats.rx_packets);
-	printf("\t\tReceived unicast:        %lu\n", stats.rx_unicast_packets);
-	printf("\t\tReceived errors:         %lu\n", stats.rx_errors);
-	printf("\t\tFull queue drops:        %lu\n", stats.rx_fullq_dropped);
+	printf("\t\tReceived bytes:          %" PRIu64 "\n", stats.rx_bytes);
+	printf("\t\tReceived packets:        %" PRIu64 "\n", stats.rx_packets);
+	printf("\t\tReceived unicast:        %" PRIu64 "\n", stats.rx_unicast_packets);
+	printf("\t\tReceived errors:         %" PRIu64 "\n", stats.rx_errors);
+	printf("\t\tFull queue drops:        %" PRIu64 "\n", stats.rx_fullq_dropped);
 	printf("\t\tBuffer Manager drops:    %u\n", stats.rx_bm_dropped);
 	printf("\t\tEarly drops:             %u\n", stats.rx_early_dropped);
 	printf("\t\tFIFO overrun drops:      %u\n", stats.rx_fifo_dropped);
 	printf("\t\tClassifier drops:        %u\n", stats.rx_cls_dropped);
 	printf("\n");
 	printf("\t Tx statistics:\n");
-	printf("\t\tSent bytes:              %lu\n", stats.tx_bytes);
-	printf("\t\tSent packets:            %lu\n", stats.tx_packets);
-	printf("\t\tSent unicast:            %lu\n", stats.tx_unicast_packets);
-	printf("\t\tSent errors:             %lu\n", stats.tx_errors);
+	printf("\t\tSent bytes:              %" PRIu64 "\n", stats.tx_bytes);
+	printf("\t\tSent packets:            %" PRIu64 "\n", stats.tx_packets);
+	printf("\t\tSent unicast:            %" PRIu64 "\n", stats.tx_unicast_packets);
+	printf("\t\tSent errors:             %" PRIu64 "\n", stats.tx_errors);
 }
 
 static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
@@ -413,17 +415,17 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 					return -1;
 				}
 				if (k == 0) {
-					sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL << 32) - 1));
+					sys_dma_high_addr = (uintptr_t)buff_virt_addr & (~(uintptr_t)UINT_MAX);
 					pr_debug("sys_dma_high_addr (0x%lx)\n", sys_dma_high_addr);
 				}
-				if ((upper_32_bits((u64)buff_virt_addr)) != (sys_dma_high_addr >> 32)) {
+				if ((upper_32_bits((uintptr_t)buff_virt_addr)) != upper_32_bits(sys_dma_high_addr)) {
 					pr_err("buff_virt_addr(%p)  upper out of range; skipping this buff\n",
 					       buff_virt_addr);
 					continue;
 				}
 				buffs_inf[k].addr = (bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
 				/* cookie contains lower_32_bits of the va */
-				buffs_inf[k].cookie = lower_32_bits((u64)buff_virt_addr);
+				buffs_inf[k].cookie = lower_32_bits((uintptr_t)buff_virt_addr);
 			}
 
 			for (k = 0; k < infs[j].num_buffs; k++) {
@@ -634,18 +636,24 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 	hw_buf_free_cnt += hw_bm_buf_free_cnt + hw_rxq_buf_free_cnt;
 
 	if (buf_free_cnt != buf_alloc_cnt) {
-		pr_err("Not all buffers were released: allocated: %lu, freed: %lu\n",
+		pr_err("Not all buffers were released: allocated: %" PRIu64 ", freed: %" PRIu64 "\n",
 		       buf_alloc_cnt, buf_free_cnt);
 
 		if (buf_free_cnt != hw_buf_free_cnt) {
-			pr_err("pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
-			       hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+			pr_err("pp2 freed : %" PRIu64 "\n", hw_buf_free_cnt);
+			pr_err("bm freed  : %" PRIu64 "\n", hw_bm_buf_free_cnt);
+			pr_err("rxq freed : %" PRIu64 "\n", hw_rxq_buf_free_cnt);
+			pr_err("tx freed  : %" PRIu64 "\n",
 				(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
 		}
 	}
 
-	pr_debug("allocated: %lu, app freed: %lu, pp2 freed: %lu bm free: %lu, rxq free: %lu, tx free: %lu !\n",
-		 buf_alloc_cnt, buf_free_cnt, hw_buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
+	pr_debug("allocated : %" PRIu64 "\n", buf_alloc_cnt);
+	pr_debug("app freed : %" PRIu64 "\n", buf_free_cnt);
+	pr_debug("pp2 freed : %" PRIu64 "\n", hw_buf_free_cnt);
+	pr_debug("bm freed  : %" PRIu64 "\n", hw_bm_buf_free_cnt);
+	pr_debug("rxq freed : %" PRIu64 "\n", hw_rxq_buf_free_cnt);
+	pr_debug("tx freed  : %" PRIu64 "\n",
 		(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
 }
 
