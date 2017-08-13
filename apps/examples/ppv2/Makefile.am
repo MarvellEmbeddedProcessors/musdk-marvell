@@ -30,6 +30,7 @@ musdk_pp2_crypto_echo_SOURCES += ../../common/lib/mv_stack.c
 musdk_pp2_crypto_echo_SOURCES += ../../common/mvapp.c
 musdk_pp2_crypto_echo_SOURCES += ../../common/utils.c
 musdk_pp2_crypto_echo_SOURCES += ../../common/pp2_utils.c
+musdk_pp2_crypto_echo_SOURCES += ../../common/sam_utils.c
 musdk_pp2_crypto_echo_SOURCES += crypto_echo/crypto_echo.c
 
 musdk_pp2_crypto_echo_LDADD = $(top_builddir)/src/libmusdk.la

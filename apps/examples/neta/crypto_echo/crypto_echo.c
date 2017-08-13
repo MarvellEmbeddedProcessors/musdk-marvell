@@ -50,6 +50,7 @@
 #include "mv_sam.h"
 
 #include "../neta_utils.h"
+#include "sam_utils.h"
 #include "mvapp.h"
 #include "perf_mon_emu.h"
 
@@ -1389,10 +1390,6 @@ static void deinit_local(void *arg)
 {
 	struct local_arg *larg = (struct local_arg *)arg;
 	struct pkt_mdata *mdata;
-#ifdef MVCONF_SAM_STATS
-	struct sam_cio_stats cio_stats;
-	struct sam_session_stats sa_stats;
-#endif /* MVCONF_SAM_STATS */
 	int i;
 
 	if (!larg)
@@ -1401,39 +1398,13 @@ static void deinit_local(void *arg)
 	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
 
 #ifdef MVCONF_SAM_STATS
-	if (larg->enc_cio) {
-		if (!sam_cio_get_stats(larg->enc_cio, &cio_stats, 1)) {
-			printf("\nEncryption statistics\n");
-			printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
-			printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
-			printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
-			printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
-			printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
-			printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
-		} else
-			printf("Failed to get cio statistics!!!\n");
-	}
-	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio)) {
-		if (!sam_cio_get_stats(larg->dec_cio, &cio_stats, 1)) {
-			printf("\nDecryption statistics\n");
-			printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
-			printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
-			printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
-			printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
-			printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
-			printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
-		} else
-			printf("Failed to get cio statistics!!!\n");
-	}
+	if (larg->enc_cio)
+		app_sam_show_cio_stats(larg->enc_cio, "encrypt", 1);
 
-	if (!sam_session_get_stats(&sa_stats, 1)) {
-		printf("\nSession statistics\n");
-		printf("Created sessions            : %lu\n", sa_stats.sa_add);
-		printf("Deleted sessions:	    : %lu\n", sa_stats.sa_del);
-		printf("Invalidated sessions:	    : %lu\n", sa_stats.sa_inv);
-	} else {
-		printf("Failed to get session statistics!!!\n");
-	}
+	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio))
+		app_sam_show_cio_stats(larg->dec_cio, "decrypt", 1);
+
+	app_sam_show_stats(1);
 #endif /* MVCONF_SAM_STATS */
 
 	if (larg->lcl_ports_desc) {

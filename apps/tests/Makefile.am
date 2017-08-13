@@ -47,6 +47,7 @@ musdk_sam_kat_SOURCES += sam_kat_suite/fileSets.c
 musdk_sam_kat_SOURCES += sam_kat_suite/array.c
 musdk_sam_kat_SOURCES += sam_kat_suite/generic_list.c
 musdk_sam_kat_SOURCES += sam_kat_suite/encryptedBlock.c
+musdk_sam_kat_SOURCES += ../common/sam_utils.c
 
 musdk_sam_kat_LDADD = $(top_builddir)/src/libmusdk.la
 
@@ -66,5 +67,6 @@ musdk_sam_single_LDADD = $(top_builddir)/src/libmusdk.la
 bin_PROGRAMS += musdk_sam_ipsec
 musdk_sam_ipsec_CFLAGS = $(AM_CFLAGS)
 musdk_sam_ipsec_SOURCES  = sam_kat_single/kat_ipsec_single.c
+musdk_sam_ipsec_SOURCES += ../common/sam_utils.c
 musdk_sam_ipsec_LDADD = $(top_builddir)/src/libmusdk.la
 endif

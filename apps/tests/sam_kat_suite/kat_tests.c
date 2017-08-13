@@ -38,7 +38,8 @@
 #include "mv_std.h"
 #include "lib/lib_misc.h"
 #include "mv_sam.h"
-#include "pp2_utils.h"
+#include "utils.h"
+#include "sam_utils.h"
 #include "fileSets.h"
 #include "encryptedBlock.h"
 
@@ -787,8 +788,6 @@ int main(int argc, char **argv)
 {
 	struct sam_init_params init_params;
 	struct sam_cio_params cio_params;
-	struct sam_cio_stats cio_stats;
-	struct sam_session_stats sa_stats;
 	int rc;
 
 	rc = parse_args(argc, argv);
@@ -843,19 +842,9 @@ exit:
 
 	free_bufs();
 
-	if (!sam_cio_get_stats(cio_hndl, &cio_stats, true)) {
-		printf("Enqueue packets             : %" PRIu64 " packets\n", cio_stats.enq_pkts);
-		printf("Enqueue bytes               : %" PRIu64 " bytes\n", cio_stats.enq_bytes);
-		printf("Enqueue full                : %" PRIu64 " times\n", cio_stats.enq_full);
-		printf("Dequeue packets             : %" PRIu64 " packets\n", cio_stats.deq_pkts);
-		printf("Dequeue bytes               : %" PRIu64 " bytes\n", cio_stats.deq_bytes);
-		printf("Dequeue empty               : %" PRIu64 " times\n", cio_stats.deq_empty);
-	}
-	if (!sam_session_get_stats(&sa_stats, true)) {
-		printf("Created sessions            : %" PRIu64 "\n", sa_stats.sa_add);
-		printf("Deleted sessions:	    : %" PRIu64 "\n", sa_stats.sa_del);
-		printf("Invalidated sessions:	    : %" PRIu64 "\n", sa_stats.sa_inv);
-	}
+	app_sam_show_cio_stats(cio_hndl, sam_match_str, 1);
+	app_sam_show_stats(1);
+
 	if (sam_cio_deinit(cio_hndl)) {
 		printf("%s: un-initialization failed\n", argv[0]);
 		return 1;

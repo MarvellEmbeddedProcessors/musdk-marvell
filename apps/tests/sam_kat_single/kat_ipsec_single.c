@@ -41,6 +41,7 @@
 #include "lib/lib_misc.h"
 #include "lib/net.h"
 #include "utils.h"
+#include "sam_utils.h"
 
 #include "mv_sam.h"
 
@@ -418,8 +419,6 @@ int main(int argc, char **argv)
 	struct sam_init_params init_params;
 	struct sam_cio_params cio_params;
 	struct sam_cio_op_result result;
-	struct sam_cio_stats cio_stats;
-	struct sam_session_stats sa_stats;
 	u16 num;
 	int rc = 0;
 	int input_size, i;
@@ -546,32 +545,10 @@ exit:
 	if (aes128_t1_buf.vaddr)
 		mv_sys_dma_mem_free(aes128_t1_buf.vaddr);
 
-	if (!sam_cio_get_stats(cio_hndl, &cio_stats, true)) {
-		printf("------- cio_hndl Statistics -------\n");
-		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
-		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
-		printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
-		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
-		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
-		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
-	}
+	app_sam_show_cio_stats(cio_hndl, "encrypt", 1);
+	app_sam_show_cio_stats(cio_hndl_1, "decrypt", 1);
+	app_sam_show_stats(1);
 
-	if (!sam_cio_get_stats(cio_hndl_1, &cio_stats, true)) {
-		printf("------- cio_hndl_1 Statistics -------\n");
-		printf("Enqueue packets             : %lu packets\n", cio_stats.enq_pkts);
-		printf("Enqueue bytes               : %lu bytes\n", cio_stats.enq_bytes);
-		printf("Enqueue full                : %lu times\n", cio_stats.enq_full);
-		printf("Dequeue packets             : %lu packets\n", cio_stats.deq_pkts);
-		printf("Dequeue bytes               : %lu bytes\n", cio_stats.deq_bytes);
-		printf("Dequeue empty               : %lu times\n", cio_stats.deq_empty);
-	}
-
-	if (!sam_session_get_stats(&sa_stats, true)) {
-		printf("------- Session Statistics -------\n");
-		printf("Created sessions            : %lu\n", sa_stats.sa_add);
-		printf("Deleted sessions:	    : %lu\n", sa_stats.sa_del);
-		printf("Invalidated sessions:	    : %lu\n", sa_stats.sa_inv);
-	}
 	if (cio_hndl) {
 		if (sam_cio_deinit(cio_hndl)) {
 			printf("%s: un-initialization failed\n", argv[0]);

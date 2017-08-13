@@ -29,6 +29,7 @@ musdk_neta_crypto_echo_SOURCES += ../../common/lib/perf_mon_emu.c
 musdk_neta_crypto_echo_SOURCES += ../../common/lib/mv_stack.c
 musdk_neta_crypto_echo_SOURCES += ../../common/mvapp.c
 musdk_neta_crypto_echo_SOURCES += ../../common/utils.c
+musdk_neta_crypto_echo_SOURCES += ../../common/sam_utils.c
 musdk_neta_crypto_echo_SOURCES += neta_utils.c
 musdk_neta_crypto_echo_SOURCES += crypto_echo/crypto_echo.c
 
