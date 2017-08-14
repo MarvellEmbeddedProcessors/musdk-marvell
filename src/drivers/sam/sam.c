@@ -429,7 +429,7 @@ int sam_init(struct sam_init_params *params)
 			break;
 		}
 	}
-	pr_info("DMA buffers allocated for %d sessions (%d bytes)\n",
+	pr_debug("DMA buffers allocated for %d sessions (%d bytes)\n",
 		num_sessions, SAM_SA_DMABUF_SIZE);
 
 	sam_num_sessions = num_sessions;
@@ -469,6 +469,17 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 			params->match);
 		return -EINVAL;
 	}
+	/* Check validity of engine and ring values */
+	if (engine >= sam_get_num_inst()) {
+		pr_err("SAM engine #%d is out of valid range [0 .. %d]",
+			engine, sam_get_num_inst() - 1);
+		return -EINVAL;
+	}
+	if (ring >= SAM_HW_RING_NUM) {
+		pr_err("SAM ring #%d is out of valid range [0 .. %d]",
+			engine, SAM_HW_RING_NUM - 1);
+		return -EINVAL;
+	}
 	cio_idx = sam_cio_free_idx_get();
 	if (cio_idx < 0) {
 		pr_err("No free place for new CIO: active_cios = %d, max_cios = %d\n",
@@ -503,7 +514,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 			goto err;
 		}
 	}
-	pr_info("DMA buffers allocated for %d operations. Tokens - %d bytes\n",
+	pr_debug("DMA buffers allocated for %d operations. Tokens - %d bytes\n",
 		i, SAM_TOKEN_DMABUF_SIZE);
 
 	*cio = local_cio;

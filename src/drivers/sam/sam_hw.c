@@ -269,7 +269,12 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 			return -ENOMEM;
 		}
 	}
-	engine_info->active_rings++;
+	if (engine_info->active_rings & BIT(ring)) {
+		pr_err("Engine #%d: Ring #%d is busy. Active rings map is 0x%x\n",
+			engine, ring, engine_info->active_rings);
+		return -EBUSY;
+	}
+	engine_info->active_rings |= BIT(ring);
 
 	/* Add 1 to ring size for lockless ring management */
 	params->size += 1;
@@ -352,7 +357,7 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	sam_dma_buf_free(&hw_ring->cdr_buf);
 	sam_dma_buf_free(&hw_ring->rdr_buf);
 
-	engine_info->active_rings--;
+	engine_info->active_rings &= ~BIT(hw_ring->ring);
 	if (engine_info->active_rings == 0) {
 		sys_iomem_unmap(engine_info->iomem_info, engine_info->name);
 		sys_iomem_deinit(engine_info->iomem_info);
