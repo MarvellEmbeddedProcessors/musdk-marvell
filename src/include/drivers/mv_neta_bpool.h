@@ -92,24 +92,13 @@ int neta_bpool_init(struct neta_bpool_params *params, struct neta_bpool **bpool)
 void neta_bpool_deinit(struct neta_bpool *pool);
 
 
-#ifdef CONF_NETA_BPOOL_DMA_ADDR_USE_32B
-typedef u32	bpool_dma_addr_t;
-#else
-typedef dma_addr_t bpool_dma_addr_t;
-#endif
+typedef u32	neta_dma_addr_t;
 
-#if CONF_NETA_BPOOL_COOKIE_SIZE == 64
-typedef u64	cookie_t;
-#else
-typedef u32	cookie_t;
-#endif
+typedef u32	neta_cookie_t;
 
 struct neta_buff_inf {
-	/**< Note: in 64bits systems and user would like to use only 32bits,
-	 * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B
-	 */
-	bpool_dma_addr_t addr;
-	cookie_t         cookie;
+	neta_dma_addr_t addr;
+	neta_cookie_t   cookie;
 };
 
 struct buff_release_entry {

@@ -173,7 +173,7 @@ int app_build_port_bpools(struct bpool_desc **ppools, int num_pools, struct bpoo
 				       buff_virt_addr);
 				continue;
 			}
-			buffs_inf[k].addr = (bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
+			buffs_inf[k].addr = (neta_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
 			/* cookie contains lower_32_bits of the va */
 			buffs_inf[k].cookie = lower_32_bits((u64)buff_virt_addr);
 			*(u32 *)buff_virt_addr = buffs_inf[k].cookie;

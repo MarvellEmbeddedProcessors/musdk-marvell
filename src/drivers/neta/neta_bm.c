@@ -283,7 +283,7 @@ int neta_bpool_get_buff(struct neta_bpool *pool, struct neta_buff_inf *buff)
 	buf_phys_addr = mvneta_bm_pool_get_bp(&musdk_bm, bm_pool);
 	neta_bm_config_clear_empty();
 
-	buff->cookie = (bpool_dma_addr_t)mv_sys_dma_mem_phys2virt(buf_phys_addr);
-	buff->addr = buf_phys_addr;
+	buff->cookie = (neta_cookie_t)(uintptr_t)mv_sys_dma_mem_phys2virt(buf_phys_addr);
+	buff->addr = (neta_dma_addr_t)buf_phys_addr;
 	return 0;
 }
