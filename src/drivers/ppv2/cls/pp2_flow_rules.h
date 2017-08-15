@@ -156,7 +156,7 @@ struct pp2_cls_fl_rule_list_t {
 struct pp2_cls_rl_entry_t {
 	u16			rl_log_id;	/* rule logical id		*/
 	u16			rl_off;				/* rule offset			*/
-	u16			ref_cnt[MVPP2_MAX_NUM_GMACS];	/* rule reference count         */
+	u16			ref_cnt[PP2_NUM_PORTS];	/* rule reference count         */
 	u16			port_type;			/* port type			*/
 	u16			port_bm;			/* port bitmap			*/
 	u16			lu_type;	/* lookup type                  */
@@ -212,7 +212,7 @@ int pp2_cls_fl_rule_add(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl
 int pp2_cls_fl_rule_enable(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl_rls);
 int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
-			    struct pp2_cls_class_port_t *src_port);
+			    u32 port_id);
 int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode);
 int pp2_cls_init(struct pp2_inst *inst);
 

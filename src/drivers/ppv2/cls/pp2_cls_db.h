@@ -114,7 +114,7 @@ struct pp2_db_cls_fl_rule_t {
 	u8			udf7;
 	u8			field_id_cnt;			/* field ID count		*/
 	u8			field_id[MVPP2_FLOW_FIELD_COUNT_MAX];/* field IDs			*/
-	u16			ref_cnt[MVPP2_MAX_NUM_GMACS];	/* reference count		*/
+	u16			ref_cnt[PP2_NUM_PORTS];	/* reference count		*/
 	u16			rl_log_id;			/* rule logical id              */
 };
 

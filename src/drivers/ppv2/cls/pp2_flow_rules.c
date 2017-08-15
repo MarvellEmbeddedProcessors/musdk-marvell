@@ -1704,7 +1704,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_inst *inst,
 		}
 
 		/* this rule is not new, use the current ref_count */
-		memcpy(&rl_db.ref_cnt[0], &rl->ref_cnt[0], MVPP2_MAX_NUM_GMACS * sizeof(u16));
+		memcpy(&rl_db.ref_cnt[0], &rl->ref_cnt[0], PP2_NUM_PORTS * sizeof(u16));
 		/* same rule logical id */
 		rl_db.rl_log_id = rl->rl_log_id;
 		break;
@@ -1718,7 +1718,7 @@ static int pp2_cls_fl_rl_db_set(struct pp2_inst *inst,
 
 	if (rl->state != MVPP2_MRG_NOT_NEW) {
 		/* update ref_count for new entries only */
-		for (loop = 0; loop < MVPP2_MAX_NUM_GMACS; loop++) {
+		for (loop = 0; loop < PP2_NUM_PORTS; loop++) {
 			if ((1 << loop) & rl->port_bm)
 				rl_db.ref_cnt[loop] = (rl->enabled) ? rl->ref_cnt[loop] + 1 : 0;
 		}
@@ -2189,7 +2189,7 @@ static int pp2_cls_fl_cur_get(struct pp2_inst *inst,
 		cur_fl->fl[i].udf7	= fl_rl_db->flow[i].udf7;
 		memcpy(&cur_fl->fl[i].ref_cnt[0],
 		       &fl_rl_db->flow[i].ref_cnt[0],
-			MVPP2_MAX_NUM_GMACS * sizeof(u16));
+			PP2_NUM_PORTS * sizeof(u16));
 		cur_fl->fl[i].rl_log_id = fl_rl_db->flow[i].rl_log_id;
 		cur_fl->fl[i].state	= MVPP2_MRG_NOT_NEW;
 		cur_fl->fl[i].skip	= 0;
@@ -2628,7 +2628,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 			    !memcmp(rl_en->field_id, rl_db->field_id,
 				    rl_en->field_id_cnt * sizeof(rl_en->field_id[0]))) {
 				/* for virt port, port_id does not matter */
-				if (rl_en->port_type != MVPP2_CLASS_VIRT_PORT) {
+				if (rl_en->port_type != MVPP2_SRC_PORT_TYPE_VIR) {
 					int read_port_bm;
 
 					rc = pp2_cls_fl_port_hw_read(inst, rl_db->rl_log_id, &read_port_bm);
@@ -2711,7 +2711,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 		}
 
 		/* increment the reference counter */
-		for (loop = 0; loop < MVPP2_MAX_NUM_GMACS; loop++) {
+		for (loop = 0; loop < PP2_NUM_PORTS; loop++) {
 			if (1 << loop & port_bm)
 				rl_db->ref_cnt[loop]++;
 		}
@@ -2754,7 +2754,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
  ******************************************************************************/
 int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
-			    struct pp2_cls_class_port_t *src_port)
+			    u32 port_id)
 {
 	u16 rl_off, i;
 	struct pp2_db_cls_fl_rule_t rl_db;
@@ -2762,16 +2762,10 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 	u16 ref_sum = 0;
 	int loop;
 	struct pp2_cls_fl_rule_entry_t rl_en;
-	u32 port_id = 0;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	if (!rl_log_id) {
 		pr_err("%s: rl_log_id is null pointer\n", __func__);
-		return -EFAULT;
-	}
-
-	if (!src_port) {
-		pr_err("%s: src_port is null pointer\n", __func__);
 		return -EFAULT;
 	}
 
@@ -2799,7 +2793,7 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 
 		/* last reference count, need to disable in HW */
 		ref_sum = 0;
-		for (loop = 0; loop < MVPP2_MAX_NUM_GMACS; loop++)
+		for (loop = 0; loop < PP2_NUM_PORTS; loop++)
 			ref_sum += rl_db.ref_cnt[loop];
 		if (ref_sum == 1) {
 			rc = pp2_cls_fl_rl_hw_dis(cpu_slot, rl_off);
@@ -2811,27 +2805,6 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			rl_db.enabled = false;
 			rl_db.port_type = MVPP2_PORT_TYPE_INV;
 			rl_db.port_bm = MVPP2_PORT_BM_INV;
-		}
-
-		/* update port_bm */
-		switch (src_port->class_port) {
-		case MVPP2_PP_GMAC0:
-			port_id = MVPP2_ENUM_GMAC_0;
-			break;
-		case MVPP2_PP_GMAC1:
-			port_id = MVPP2_ENUM_GMAC_1;
-			break;
-		case MVPP2_PP_PMAC:
-			port_id = MVPP2_ENUM_PMAC;
-			break;
-		case MVPP2_PP_LPBK:
-			port_id = MVPP2_ENUM_GMAC_LPK;
-			break;
-		default:
-			if (rc) {
-				pr_err("recvd ret_code(%d)\n", rc);
-				return rc;
-			}
 		}
 
 		if (ref_sum > 1 && rl_db.ref_cnt[port_id] == 1) {

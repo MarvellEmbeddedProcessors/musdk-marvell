@@ -66,15 +66,6 @@
 /********************************************************************************/
 /*			ENUMERATIONS						*/
 /********************************************************************************/
-enum pp2_cls_gmacs_enum_t {
-	MVPP2_INVALID_GMAC = -1,
-	MVPP2_ENUM_GMAC_0,
-	MVPP2_ENUM_GMAC_1,
-	MVPP2_ENUM_GMAC_LPK,
-	MVPP2_ENUM_PMAC = 7,
-	MVPP2_MAX_GMAC = MVPP2_ENUM_PMAC,
-	MVPP2_MAX_NUM_GMACS
-};
 
 enum pp2_cls_field_match_t {
 	/* L2 */
@@ -163,11 +154,6 @@ enum pp2_cls_qos_sel_t {
 	MVPP2_QOS_NONE		= 0,	/* Do not use QoS Table */
 	MVPP2_QOS_DSCP		= 1,	/* Use DSCP to select QoS Table */
 	MVPP2_QOS_PBIT		= 2	/* Use Pbits to select QoS Table */
-};
-
-enum pp2_cls_class_port_type_t {
-	MVPP2_CLASS_PP_PORT_BM,
-	MVPP2_CLASS_VIRT_PORT
 };
 
 enum pp2_cls_port_id_t {
@@ -290,11 +276,6 @@ struct pp2_cls_5t_t {
 	u16			l4_dst;		/* Destination Port */
 	union pp2_cls_ipvx_add	ip_src;		/* Source IP address */
 	union pp2_cls_ipvx_add	ip_dst;		/* Destination IP address */
-};
-
-struct pp2_cls_class_port_t {
-	enum pp2_cls_class_port_type_t	port_type;
-	u32			class_port;
 };
 
 struct pp2_cls_exact_match_t {

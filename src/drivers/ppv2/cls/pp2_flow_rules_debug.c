@@ -475,7 +475,6 @@ int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 	u16 rl_log_id[MVPP2_CLS_FLOW_RULE_MAX];
 	u16 rl_log_id_len;
 	int loop = 0;
-	struct pp2_cls_class_port_t src_port;
 	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
 	if (argc < 2 || argc > MVPP2_CLS_FLOW_RULE_MAX) {
@@ -485,22 +484,21 @@ int pp2_cli_cls_fl_rule_dis(void *arg, int argc, char *argv[])
 
 	rl_log_id_len = argc - 1;
 	for (i = 0; i < rl_log_id_len; i++) {
-		rc = kstrtou16(argv[2 + i], 10, &rl_log_id[i]);
+		rc = kstrtou16(argv[i + 1], 10, &rl_log_id[i]);
+		pr_debug("rl_log_id[%d] %d, len %d\n", i, rl_log_id[i], rl_log_id_len);
+
 		if (rc ||  rl_log_id[i] >= MVPP2_FLOW_TBL_SIZE) {
 			pr_err("parsing fail, wrong input for argv[2 + %d]", i);
 			return -EINVAL;
 		}
 	}
 
-	src_port.port_type = (enum pp2_cls_class_port_type_t)g_fl_rls.fl[0].port_type;
-
-	for (loop = 0; loop < MVPP2_MAX_NUM_GMACS; loop++) {
+	for (loop = 0; loop < PP2_NUM_PORTS; loop++) {
 		if ((1 << loop) & g_fl_rls.fl[0].port_bm) {
-			src_port.class_port = (1 << loop);
-			if (pp2_cls_fl_rule_disable(inst, rl_log_id, rl_log_id_len, &src_port))
-				printk("%s fail\n", __func__);
+			if (pp2_cls_fl_rule_disable(inst, rl_log_id, rl_log_id_len, loop))
+				pr_err("%s fail\n", __func__);
 			else
-				printk("success\n");
+				pr_info("success\n");
 		}
 	}
 
@@ -725,7 +723,7 @@ int pp2_cli_cls_fl_rls_dump(void *arg, int argc, char *argv[])
 				lkp_dcod_db.flow_off + j,
 				pp2_utils_eng_no_str_get((int)fl_rl_list_db->flow[j].engine));
 			ref_sum = 0;
-			for (k = 0; k < MVPP2_MAX_NUM_GMACS; k++)
+			for (k = 0; k < PP2_NUM_PORTS; k++)
 				ref_sum += fl_rl_list_db->flow[j].ref_cnt[k];
 
 			printk(" %5d %3d %6d %4d %-8s %3d %6d",
