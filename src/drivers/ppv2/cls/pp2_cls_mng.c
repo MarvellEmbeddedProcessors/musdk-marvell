@@ -854,8 +854,13 @@ end:
 int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl)
 {
 	int i;
+	struct pp2_port *port;
 	struct pp2_cls_tbl_rule *rule = NULL;
 	u32 rc;
+	struct pp2_cls_fl_rule_entry_t fl;
+	int idx;
+	u32 field, match_bm;
+	u32 field_index;
 
 	if (mv_pp2x_ptr_validate(tbl)) {
 		pr_err("%s(%d) fail, tbl = NULL\n", __func__, __LINE__);
@@ -869,7 +874,27 @@ int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl)
 			pp2_cls_mng_rule_remove(tbl, rule);
 	}
 
-	/*TODO remove flow from HW */
+	/* Remove flow from HW */
+	port = GET_PPIO_PORT(tbl->params.default_act.cos->ppio);
+	field_index = 0;
+	fl.lu_type = MVPP2_CLS_LKP_MUSDK_CLS;
+	fl.port_type = MVPP2_SRC_PORT_TYPE_PHY;
+	fl.port_bm = (1 << port->id);
+
+	for (idx = 0; idx < tbl->params.key.num_fields; idx++) {
+		rc = lookup_field_id(tbl->params.key.proto_field[idx].proto,
+				     tbl->params.key.proto_field[idx].field.eth, &field, &match_bm);
+		if (rc) {
+			pr_err("%s(%d) lookup id error!\n", __func__, __LINE__);
+			return -EFAULT;
+		}
+		fl.field_id[field_index++] = field;
+	}
+
+	(tbl->params.key.num_fields < 5) ?
+		(fl.field_id_cnt = tbl->params.key.num_fields) :
+		(fl.field_id_cnt = tbl->params.key.num_fields - 1);
+	pp2_cls_rule_disable(port, &fl);
 
 	/* Remove rules and table from database */
 	kfree(tbl->params.default_act.cos);

@@ -2843,6 +2843,116 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 }
 
 /*******************************************************************************
+ * pp2_cls_rule_disable
+ *
+ * DESCRIPTION: The function disables all flows for specific lookup type and lookup fields
+ *
+ * INPUTS:
+ *	port	- packet port
+ *	fl	- flow rule entry including the lookup type and lookup fields to match
+ *
+ * OUTPUTS:
+ *	None
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_rule_disable(struct pp2_port *port, struct pp2_cls_fl_rule_entry_t *fl)
+{
+	int index;
+	int rc, i;
+	struct pp2_inst *inst = port->parent;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	struct pp2_db_cls_fl_rule_t rl_db;
+	u16 ref_sum = 0;
+	int loop;
+	struct pp2_cls_fl_rule_entry_t rl_en;
+
+	for (index = 0; index < MVPP2_CLS_FLOWS_TBL_SIZE; index++) {
+		/* get the rule DB entry for the offset */
+		rc = pp2_db_cls_fl_rule_get(inst, index, &rl_db);
+		if (rc) {
+			pr_err("recvd ret_code(%d)\n", rc);
+			return rc;
+		}
+
+		if (rl_db.lu_type != fl->lu_type)
+			continue;
+
+		if (rl_db.field_id_cnt !=  fl->field_id_cnt)
+			continue;
+
+		for (i = 0; i < rl_db.field_id_cnt; i++) {
+			if (rl_db.field_id[i] != fl->field_id[i])
+				continue;
+		}
+
+		pr_debug("index %d, type %d, count %d, fields %x %x %x %x\n", index,
+			rl_db.lu_type,
+			rl_db.field_id_cnt,
+			rl_db.field_id[0],
+			rl_db.field_id[1],
+			rl_db.field_id[2],
+			rl_db.field_id[3]);
+
+		/* rule already disabled, skip */
+		if (!rl_db.enabled) {
+			pr_debug("index=%d already disabled\n", index);
+			continue;
+		}
+
+		/* last reference count, need to disable in HW */
+		ref_sum = 0;
+		for (loop = 0; loop < PP2_NUM_PORTS; loop++)
+			ref_sum += rl_db.ref_cnt[loop];
+		if (ref_sum == 1) {
+			rc = pp2_cls_fl_rl_hw_dis(cpu_slot, index);
+			if (rc) {
+				pr_err("recvd ret_code(%d)\n", rc);
+				return rc;
+			}
+
+			rl_db.enabled = false;
+			rl_db.port_type = MVPP2_PORT_TYPE_INV;
+			rl_db.port_bm = MVPP2_PORT_BM_INV;
+		}
+
+		if (ref_sum > 1 && rl_db.ref_cnt[port->id] == 1) {
+			rl_db.port_bm &= ~(1 << port->id);
+			rl_en.enabled = rl_db.enabled;
+			rl_en.engine = rl_db.engine;
+			memcpy(rl_en.field_id, rl_db.field_id, MVPP2_FLOW_FIELD_COUNT_MAX * sizeof(u8));
+			rl_en.field_id_cnt = rl_db.field_id_cnt;
+			rl_en.lu_type = rl_db.lu_type;
+			rl_en.port_bm = rl_db.port_bm;
+			rl_en.port_type = rl_db.port_type;
+			rl_en.prio = rl_db.prio;
+			rl_en.udf7 = rl_db.udf7;
+			rl_en.rl_log_id = rl_db.rl_log_id;
+			rc = pp2_cls_fl_rl_hw_ena(inst, &rl_en);
+			if (rc) {
+				pr_err("recvd ret_code(%d)\n", rc);
+				return rc;
+			}
+		}
+		rl_db.ref_cnt[port->id]--;
+
+		pr_debug("disable: rl_off[%d] rl_log_id[%d] port_type[%x] port_bm[%x] prio[%d]",
+			 index, rl_db.rl_log_id, rl_db.port_type, rl_db.port_bm, rl_db.prio);
+		pr_debug("lu_type[%d] engine[%d] udf7[%d] field_id_cnt[%d]\n",
+			 rl_db.lu_type, rl_db.engine, rl_db.udf7, rl_db.field_id_cnt);
+
+		/* update rule entry in DB */
+		rc = pp2_db_cls_fl_rule_set(inst, index, &rl_db);
+		if (rc) {
+			pr_err("recvd ret_code(%d)\n", rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
+/*******************************************************************************
  * pp2_cls_set_hash_params
  *
  * DESCRIPTION: The function set fl_rls variables according to the inputs

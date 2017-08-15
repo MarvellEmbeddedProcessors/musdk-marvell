@@ -214,6 +214,7 @@ int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
 			    u32 port_id);
 int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode);
+int pp2_cls_rule_disable(struct pp2_port *port, struct pp2_cls_fl_rule_entry_t *fl);
 int pp2_cls_init(struct pp2_inst *inst);
 
 #endif /* _PP2_CLS_H_ */
