@@ -302,7 +302,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 		goto err;
 	}
 */
-	pr_info("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
+	pr_debug("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
 		(engine_info->type == HW_EIP197) ? "eip197" : "eip97",
 		engine, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
@@ -315,7 +315,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	if (rc)
 		goto err;
 
-	pr_info("DMA buffer (%d bytes) for CDR #%d allocated: paddr = 0x%" PRIdma" , vaddr = %p\n",
+	pr_debug("DMA buffer (%d bytes) for CDR #%d allocated: paddr = 0x%" PRIdma" , vaddr = %p\n",
 		ring_size, ring, hw_ring->cdr_buf.paddr, hw_ring->cdr_buf.vaddr);
 
 	memset(hw_ring->cdr_buf.vaddr, 0, ring_size);
@@ -330,7 +330,7 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	if (rc)
 		goto err;
 
-	pr_info("DMA buffer (%d bytes) for RDR #%d allocated: paddr = 0x%" PRIdma", vaddr = %p\n",
+	pr_debug("DMA buffer (%d bytes) for RDR #%d allocated: paddr = 0x%" PRIdma", vaddr = %p\n",
 		ring_size, ring, hw_ring->rdr_buf.paddr, hw_ring->rdr_buf.vaddr);
 
 	memset(hw_ring->rdr_buf.vaddr, 0, ring_size);
