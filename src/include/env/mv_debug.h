@@ -38,11 +38,14 @@
 
 #define printk printf
 
-#define MV_DBG_L_CRIT	1
-#define MV_DBG_L_ERR	2
-#define MV_DBG_L_WARN	3
-#define MV_DBG_L_INFO	4
-#define MV_DBG_L_DBG	5
+#define MV_DBG_L_EMERG	0
+#define MV_DBG_L_ALERT	1
+#define MV_DBG_L_CRIT	2
+#define MV_DBG_L_ERR	3
+#define MV_DBG_L_WARN	4
+#define MV_DBG_L_NOTICE	5
+#define MV_DBG_L_INFO	6
+#define MV_DBG_L_DBG	7
 
 #define mv_print(_level, ...)			\
 do {						\
@@ -50,6 +53,14 @@ do {						\
 		printf(__VA_ARGS__);		\
 } while (0)
 
+#ifndef pr_emerg
+#define pr_emerg(...) \
+	mv_print(MV_DBG_L_EMERG, __VA_ARGS__)
+#endif /* !pr_emerg */
+#ifndef pr_alert
+#define pr_alert(...) \
+	mv_print(MV_DBG_L_ALERT, __VA_ARGS__)
+#endif /* !pr_alert */
 #ifndef pr_crit
 #define pr_crit(...) \
 	mv_print(MV_DBG_L_CRIT, "[CRITICAL] " __VA_ARGS__)
@@ -62,6 +73,10 @@ do {						\
 #define pr_warn(...) \
 	mv_print(MV_DBG_L_WARN, "[WARN] " __VA_ARGS__)
 #endif /* !pr_warn */
+#ifndef pr_notice
+#define pr_notice(...) \
+	mv_print(MV_DBG_L_NOTICE, __VA_ARGS__)
+#endif /* !pr_notice */
 #ifndef pr_info
 #define pr_info(...) \
 	mv_print(MV_DBG_L_INFO, __VA_ARGS__)

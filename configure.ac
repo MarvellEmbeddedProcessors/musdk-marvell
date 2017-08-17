@@ -75,10 +75,10 @@ fi
 ##########################################################################
 # Set MUSDK debug level
 ##########################################################################
-MUSDK_DEBUG=4
+MUSDK_DEBUG=6
 AC_ARG_ENABLE([debug-level],
-[  --enable-debug-level    Set musdk debug-level: Range 1-5],
-[if test $enableval -ge 1 -a $enableval -le 9; then
+[  --enable-debug-level    Set musdk debug-level: Range 0-7],
+[if test $enableval -ge 0 -a $enableval -le 7; then
 	MUSDK_DEBUG=$enableval
 fi])
 MUSDK_CFLAGS+="-DMVCONF_DBG_LEVEL=$MUSDK_DEBUG "
