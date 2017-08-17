@@ -36,6 +36,19 @@
 #include "mv_std.h"
 #include "mv_net.h"
 
+/* CA-72 prefetch command */
+#if __WORDSIZE == 64
+static inline void prefetch(const void *ptr)
+{
+	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
+}
+#else
+static inline void prefetch(const void *ptr)
+{
+	__asm__ __volatile__("pld\t%a0"	: : "p" (ptr));
+}
+#endif
+
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define MVAPPS_NO_PATH(file_name)	(strrchr((file_name), '/') ? \
 					 strrchr((file_name), '/') + 1 : (file_name))

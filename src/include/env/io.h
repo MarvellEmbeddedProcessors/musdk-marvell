@@ -35,19 +35,6 @@
 
 #include "mv_types.h"
 
-/* CA-72 prefetch command */
-#if __WORDSIZE == 64
-static inline void prefetch(const void *ptr)
-{
-	asm volatile("prfm pldl1keep, %a0\n" : : "p" (ptr));
-}
-#else
-static inline void prefetch(const void *ptr)
-{
-	__asm__ __volatile__("pld\t%a0"	: : "p" (ptr));
-}
-#endif
-
 #define local_irq_disable()	do {; } while (0)
 #define local_irq_enable()	do {; } while (0)
 #define local_irq_save(_flags)	do {_flags = 0; } while (0)
