@@ -56,8 +56,8 @@ directly from user-space applications with minimum overhead and high performance
 	---------
 	- int pp2_ppio_set_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)
 	- int pp2_ppio_get_mac_addr(struct pp2_ppio *ppio, eth_addr_t addr)
-	- int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)
-	- int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en)
+	- int pp2_ppio_set_promisc(struct pp2_ppio *ppio, int en)
+	- int pp2_ppio_get_promisc(struct pp2_ppio *ppio, int *en)
 	- int pp2_ppio_set_mc_promisc(struct pp2_ppio *ppio, int en)
 	- int pp2_ppio_get_mc_promisc(struct pp2_ppio *ppio, int *en)
 	- int pp2_ppio_add_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr)

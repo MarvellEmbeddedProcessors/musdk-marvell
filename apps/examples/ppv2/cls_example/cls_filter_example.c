@@ -122,7 +122,7 @@ static int pp2_cls_cli_promisc_state_set(void *arg, int argc, char *argv[])
 		printf("wrong value for enable = %d\n", en);
 		return -EINVAL;
 	}
-	rc = pp2_ppio_set_uc_promisc(ppio, en);
+	rc = pp2_ppio_set_promisc(ppio, en);
 	if (rc) {
 		printf("Unable to enable unicast promiscuous mode\n");
 		return -rc;

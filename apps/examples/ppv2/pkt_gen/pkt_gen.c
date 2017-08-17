@@ -507,7 +507,7 @@ static int init_local_modules(struct glob_arg *garg)
 			}
 #ifdef CRYPT_APP_ONE_PORT_LOOP
 			if (port_index) {
-				err = pp2_ppio_set_uc_promisc(port->ppio, 1);
+				err = pp2_ppio_set_promisc(port->ppio, 1);
 				if (err)
 					return err;
 			}

@@ -1055,7 +1055,7 @@ int pp2_ppio_get_loopback(struct pp2_ppio *ppio, int *en);
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en);
+int pp2_ppio_set_promisc(struct pp2_ppio *ppio, int en);
 
 /**
  * Get ppio promiscuous mode
@@ -1066,7 +1066,7 @@ int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en);
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en);
+int pp2_ppio_get_promisc(struct pp2_ppio *ppio, int *en);
 
 /**
  * Set ppio to listen to all multicast mode

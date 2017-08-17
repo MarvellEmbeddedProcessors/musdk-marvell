@@ -126,8 +126,8 @@ int pp2_port_get_link_state(struct pp2_port *port, int  *en)
 	return 0;
 }
 
-/* Set Unicast promiscuous */
-int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
+/* Set promiscuous */
+int pp2_port_set_promisc(struct pp2_port *port, uint32_t en)
 {
 	int rc;
 	struct ifreq s;
@@ -152,8 +152,8 @@ int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
 	return 0;
 }
 
-/* Check if unicast promiscuous */
-int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
+/* Check if promiscuous */
+int pp2_port_get_promisc(struct pp2_port *port, uint32_t *en)
 {
 	int rc;
 	struct ifreq s;

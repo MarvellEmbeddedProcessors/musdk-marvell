@@ -60,14 +60,14 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr)
 }
 
 /* Set Unicast promiscuous */
-int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en)
+int pp2_port_set_promisc(struct pp2_port *port, uint32_t en)
 {
 	pr_err("[%s] not implemented yet\n", __func__);
 	return -EINVAL;
 }
 
 /* Check if unicast promiscuous */
-int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en)
+int pp2_port_get_promisc(struct pp2_port *port, uint32_t *en)
 {
 	pr_err("[%s] not implemented yet\n", __func__);
 	return -EINVAL;

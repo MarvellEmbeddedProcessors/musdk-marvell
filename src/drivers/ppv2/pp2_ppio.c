@@ -396,19 +396,19 @@ int pp2_ppio_get_loopback(struct pp2_ppio *ppio, int *en)
 	return rc;
 }
 
-int pp2_ppio_set_uc_promisc(struct pp2_ppio *ppio, int en)
+int pp2_ppio_set_promisc(struct pp2_ppio *ppio, int en)
 {
 	int rc;
 
-	rc = pp2_port_set_uc_promisc(GET_PPIO_PORT(ppio), en);
+	rc = pp2_port_set_promisc(GET_PPIO_PORT(ppio), en);
 	return rc;
 }
 
-int pp2_ppio_get_uc_promisc(struct pp2_ppio *ppio, int *en)
+int pp2_ppio_get_promisc(struct pp2_ppio *ppio, int *en)
 {
 	int rc;
 
-	rc = pp2_port_get_uc_promisc(GET_PPIO_PORT(ppio), (u32 *)en);
+	rc = pp2_port_get_promisc(GET_PPIO_PORT(ppio), (u32 *)en);
 	return rc;
 }
 

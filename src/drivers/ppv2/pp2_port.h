@@ -412,10 +412,10 @@ int pp2_port_set_loopback(struct pp2_port *port, int en);
 int pp2_port_get_loopback(struct pp2_port *port, int *en);
 
 /* Set Unicast promiscuous */
-int pp2_port_set_uc_promisc(struct pp2_port *port, uint32_t en);
+int pp2_port_set_promisc(struct pp2_port *port, uint32_t en);
 
 /* Check if Unicast promiscuous */
-int pp2_port_get_uc_promisc(struct pp2_port *port, uint32_t *en);
+int pp2_port_get_promisc(struct pp2_port *port, uint32_t *en);
 
 /* Set Multicast promiscuous */
 int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en);

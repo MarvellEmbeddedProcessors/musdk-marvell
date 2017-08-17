@@ -155,14 +155,11 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 	int i, option;
 	int long_index = 0;
 	int en = -1;
-	int mode = -1;
 	int cmd = -1;
 	struct option long_options[] = {
 		{"on", no_argument, 0, 'n'},
 		{"off", no_argument, 0, 'f'},
 		{"get", no_argument, 0, 'g'},
-		{"uc", no_argument, 0, 'u'},
-		{"mc", no_argument, 0, 'm'},
 		{0, 0, 0, 0}
 	};
 
@@ -192,13 +189,75 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 			if (cmd < 0)
 				cmd = 0;
 			break;
-		case 'u':
-			if (mode < 0)
-				mode = 1;
+		default:
+			printf("parsing fail, wrong input\n");
+			return -EINVAL;
+		}
+	}
+
+	if (cmd == 1) {
+		rc = pp2_ppio_set_promisc(ppio, en);
+		if (rc) {
+			printf("Unable to enable promiscuous mode\n");
+			return -rc;
+		}
+	} else if (cmd == 0) {
+		rc = pp2_ppio_get_promisc(ppio, &en);
+		if (rc) {
+			printf("Unable to get promiscuous mode\n");
+			return -rc;
+		}
+		if (en)
+			printf("promiscuous mode: enabled\n");
+		else
+			printf("promiscuous mode: disabled\n");
+	} else {
+		pr_err("Option not supported\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
+static int pp2_cls_cli_multicast_mode(void *arg, int argc, char *argv[])
+{
+	struct pp2_ppio *ppio = (struct pp2_ppio *)arg;
+	int rc;
+	int i, option;
+	int long_index = 0;
+	int en = -1;
+	int cmd = -1;
+	struct option long_options[] = {
+		{"on", no_argument, 0, 'n'},
+		{"off", no_argument, 0, 'f'},
+		{"get", no_argument, 0, 'g'},
+		{0, 0, 0, 0}
+	};
+
+	if  (argc < 2 || argc > 3) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
+		/* Get parameters */
+		switch (option) {
+		case 'n':
+			if (cmd < 0) {
+				cmd = 1;
+				en = 1;
+			}
 			break;
-		case 'm':
-			if (mode < 0)
-				mode = 0;
+		case 'f':
+			if (cmd < 0) {
+				cmd = 1;
+				en = 0;
+			}
+			break;
+		case 'g':
+			if (cmd < 0)
+				cmd = 0;
 			break;
 		default:
 			printf("parsing fail, wrong input\n");
@@ -206,34 +265,13 @@ static int pp2_cls_cli_promisc_mode(void *arg, int argc, char *argv[])
 		}
 	}
 
-	if ((mode < 0) || (cmd < 0)) {
-		printf("Wrong inputs in promiscuous mode command\n");
-		return -EINVAL;
-	}
-
-	if (cmd && mode) {
-		rc = pp2_ppio_set_uc_promisc(ppio, en);
-		if (rc) {
-			printf("Unable to enable unicast promiscuous mode\n");
-			return -rc;
-		}
-	} else if (cmd && !mode) {
+	if (cmd == 1) {
 		rc = pp2_ppio_set_mc_promisc(ppio, en);
 		if (rc) {
 			printf("Unable to enable all multicast mode\n");
 			return -rc;
 		}
-	} else if (!cmd && mode) {
-		rc = pp2_ppio_get_uc_promisc(ppio, &en);
-		if (rc) {
-			printf("Unable to get unicast promiscuous mode\n");
-			return -rc;
-		}
-		if (en)
-			printf("unicast promiscuous mode: enabled\n");
-		else
-			printf("unicast promiscuous mode: disabled\n");
-	} else if (!cmd && !mode) {
+	} else if (cmd == 0) {
 		rc = pp2_ppio_get_mc_promisc(ppio, &en);
 		if (rc) {
 			printf("Unable to get all multicast mode\n");
@@ -336,10 +374,18 @@ int register_cli_filter_cmds(struct pp2_ppio *ppio)
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "promisc";
-	cmd_params.desc		= "set/get ppio unicast/multicast promiscuous mode";
-	cmd_params.format	= "--<uc/mc> --<on/off/get>\n";
+	cmd_params.desc		= "set/get ppio promiscuous mode";
+	cmd_params.format	= "--<on/off/get>\n";
 	cmd_params.cmd_arg	= ppio;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_promisc_mode;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "multicast";
+	cmd_params.desc		= "set/get ppio all multicast mode";
+	cmd_params.format	= "--<on/off/get>\n";
+	cmd_params.cmd_arg	= ppio;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_multicast_mode;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
