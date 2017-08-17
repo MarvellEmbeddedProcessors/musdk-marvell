@@ -95,7 +95,7 @@ static inline bool mv_stack_is_empty(struct mv_stack *stack)
 static inline int mv_stack_push(struct mv_stack *stack, void *value)
 {
 	if (stack->stack_idx == stack->num_of_elements) {
-		pr_warn("%s: Stack is FULL\n", __func__);
+		pr_err("%s: Stack is FULL\n", __func__);
 		return -1;
 	}
 
@@ -115,7 +115,7 @@ static inline int mv_stack_push(struct mv_stack *stack, void *value)
 static inline void *mv_stack_pop(struct mv_stack *stack)
 {
 	if (stack->stack_idx == 0) {
-		pr_warn("%s: Stack is EMPTY\n", __func__);
+		pr_debug("%s: Stack is EMPTY\n", __func__);
 		return NULL;
 	}
 
