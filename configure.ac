@@ -99,6 +99,20 @@ AC_ARG_ENABLE([debug-level],
 fi])
 MUSDK_CFLAGS+="-DMVCONF_DBG_LEVEL=$MUSDK_DEBUG "
 ##########################################################################
+# Enable MUSDK log facility
+##########################################################################
+AC_ARG_ENABLE([log],
+[  --enable-log         Enable syslog utility],
+[case "${enableval}" in
+  yes) log=true ;;
+  no)  log=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-log]) ;;
+esac],[log=false])
+if test x$log = xtrue; then
+	MUSDK_CFLAGS+="-DMVCONF_SYSLOG "
+fi
+AM_CONDITIONAL([LOG_BUILD], [test x$log = xtrue])
+##########################################################################
 # Set BPOOL_COOKIE_SIZE
 ##########################################################################
 BPOOL_COOKI_SZ=32

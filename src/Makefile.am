@@ -49,6 +49,10 @@ libmusdk_la_SOURCES += env/of.c
 libmusdk_la_SOURCES += env/netdev.c
 libmusdk_la_SOURCES += env/sys_iomem.c
 
+if LOG_BUILD
+libmusdk_la_SOURCES += env/log.c
+endif
+
 if PP2_BUILD
 nobase_include_HEADERS += include/drivers/mv_net.h
 nobase_include_HEADERS += include/drivers/mv_pp2.h

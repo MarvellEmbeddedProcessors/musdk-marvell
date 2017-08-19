@@ -35,6 +35,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef MVCONF_SYSLOG
+#include <syslog.h>
+#endif
+
+#ifndef log_fmt
+#define log_fmt(fmt) fmt
+#endif
 
 #define printk printf
 
@@ -47,11 +54,21 @@
 #define MV_DBG_L_INFO	6
 #define MV_DBG_L_DBG	7
 
-#define mv_print(_level, ...)			\
-do {						\
-	if ((_level) <= (MVCONF_DBG_LEVEL))	\
-		printf(__VA_ARGS__);		\
+#ifndef MVCONF_SYSLOG
+#define mv_print(_level, fmt, ...)			\
+do {							\
+	if ((_level) <= (MVCONF_DBG_LEVEL))		\
+		printf(log_fmt(fmt), ##__VA_ARGS__);	\
 } while (0)
+#else /* MVCONF_SYSLOG */
+
+#define mv_print(_level, fmt, ...)		\
+	syslog(_level, log_fmt(fmt), ##__VA_ARGS__)
+
+void log_init(int log_to_stderr);
+void log_close(void);
+
+#endif /* MVCONF_SYSLOG */
 
 #ifndef pr_emerg
 #define pr_emerg(...) \

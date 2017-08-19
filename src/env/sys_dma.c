@@ -156,6 +156,13 @@ int mv_sys_dma_mem_init(size_t size)
 	struct sys_dma	*i_sys_dma;
 	int err;
 
+#ifdef MVCONF_SYSLOG
+	/* Enable the logging facility
+	 * Temporarily set always print to stderr
+	 */
+	log_init(1);
+#endif
+
 	if (sys_dma) {
 		pr_err("Dma object already exits.\n");
 		return -EEXIST;
