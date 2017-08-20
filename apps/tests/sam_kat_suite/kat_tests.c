@@ -280,7 +280,8 @@ static int create_sessions(generic_list tests_db)
 			sa_params[i].u.basic.auth_then_encrypt = 0;
 			sa_params[i].u.basic.auth_icv_len = encryptedBlockGetIcbLen(block, 0);
 
-			if (sa_params[i].auth_alg == SAM_AUTH_AES_GCM) {
+			if ((sa_params[i].auth_alg == SAM_AUTH_AES_GCM) ||
+			    (sa_params[i].auth_alg == SAM_AUTH_AES_GMAC)) {
 				/* cipher key used for authentication too */
 				sa_params[i].u.basic.auth_aad_len = encryptedBlockGetAadLen(block, 0);
 			} else {
