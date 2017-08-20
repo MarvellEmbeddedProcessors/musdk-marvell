@@ -109,21 +109,6 @@ static u8 rfc3602_sha1_t1_auth_key[] = {
 	0xFF, 0x65, 0x15, 0x3D
 };
 
-static u32 t1_spi = 0x1234;
-static u64 t1_seq = 0x6;
-
-static u8 tunnel_src_ip4[] = {192, 168, 2, 3};
-static u8 tunnel_dst_ip4[] = {192, 168, 2, 5};
-
-static u8 tunnel_src_ip6[] = {
-	0x20, 0x00, 0x1f, 0x3c, 0x55, 0x18, 0x00, 0x00,
-	0x00, 0x00, 0x1f, 0x33, 0x44, 0x55, 0x66, 0x77
-};
-static u8 tunnel_dst_ip6[] = {
-	0x20, 0x00, 0x1f, 0x3c, 0x55, 0x18, 0x00, 0x00,
-	0x00, 0x00, 0x1f, 0x33, 0x44, 0x55, 0x66, 0x88
-};
-
 /* Masks for mdata flags field */
 #define MDATA_FLAGS_IP4_SEQID_MASK	BIT(0)   /* Set seqid field in IP header before send */
 
@@ -162,15 +147,11 @@ struct local_arg;
 struct glob_arg {
 	struct glb_common_args		cmn_args;  /* Keep first */
 	enum crypto_dir			dir;
-	enum sam_crypto_protocol	crypto_proto;
 	enum sam_cipher_alg		cipher_alg;
 	enum sam_cipher_mode		cipher_mode;
 	enum sam_auth_alg		auth_alg;
-	int				tunnel;
-	int				ip6;
 	pthread_mutex_t			trd_lock;
 	int				num_bufs;
-	int				num_ports;
 	struct port_desc		ports_desc[MVAPPS_NETA_MAX_NUM_PORTS];
 	int				num_pools;
 	struct bpool_desc		*pools_desc[MVAPPS_NETA_MAX_NUM_PORTS];
@@ -265,7 +246,6 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			   struct neta_ppio_desc *descs, u16 num)
 {
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
-	struct sam_cio_ipsec_params ipsec_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct pkt_mdata	*mdata;
@@ -273,7 +253,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	struct sam_cio		*cio;
 	enum pkt_state		state;
 	int			err;
-	u16			i, bpool_buff_len, num_got, flags;
+	u16			i, bpool_buff_len, num_got;
 	u8			data_offs;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
@@ -296,14 +276,11 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		sa = larg->dec_sa;
 		state = PKT_STATE_DEC;
 	}
-	if ((larg->dir == CRYPTO_ENC) && larg->cmn_args.garg->tunnel && !larg->cmn_args.garg->ip6)
-		flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_IP4_SEQID_MASK;
-	else
-		flags = 0;
 
 	for (i = 0; i < num; i++) {
 		char *vaddr;
 		struct neta_bpool *bpool;
+		enum neta_inq_l4_type type;
 
 		vaddr = (char *)((uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i]) | neta_sys_dma_high_addr);
 		bpool = neta_ppio_inq_desc_get_bpool(&descs[i], larg->lcl_ports_desc[rx_ppio_id].ppio);
@@ -317,7 +294,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->tx_port = tx_ppio_id;
 		mdata->bpool = bpool;
 		mdata->buf_vaddr = vaddr;
-		mdata->flags = flags;
+		mdata->flags = 0;
 
 		/* Set vaddr and paddr to MAC address of the packet */
 		vaddr += MVAPPS_NETA_PKT_EFEC_OFFS;
@@ -330,9 +307,9 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
-			printf("Received packet (va:%p, pa 0x%08x, len %d):\n",
+			printf("Received packet (va:%p, pa 0x%08" PRIdma ", len %d):\n",
 			       src_buf_infs[i].vaddr,
-			       (unsigned int)src_buf_infs[i].paddr,
+			       src_buf_infs[i].paddr,
 			       src_buf_infs[i].len);
 			mv_mem_dump(src_buf_infs[i].vaddr, src_buf_infs[i].len);
 		}
@@ -342,51 +319,25 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
-		if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE) {
-			enum neta_inq_l4_type type;
+		/* data_offs - L4 offset */
+		neta_ppio_inq_desc_get_l4_info(&descs[i], &type, &data_offs);
+		mdata->data_offs = data_offs;
 
-			/* SAM_PROTO_NONE: data_offs - L4 offset */
-			neta_ppio_inq_desc_get_l4_info(&descs[i], &type, &data_offs);
-			mdata->data_offs = data_offs;
+		sam_descs[i].sa = sa;
+		sam_descs[i].cookie = mdata;
 
-			sam_descs[i].sa = sa;
-			sam_descs[i].cookie = mdata;
+		sam_descs[i].num_bufs = 1;
+		sam_descs[i].src = &src_buf_infs[i];
+		sam_descs[i].dst = &dst_buf_infs[i];
+		sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
 
-			sam_descs[i].num_bufs = 1;
-			sam_descs[i].src = &src_buf_infs[i];
-			sam_descs[i].dst = &dst_buf_infs[i];
-			sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
-
-			sam_descs[i].cipher_offset = data_offs;
-			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
-		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
-			enum neta_inq_l3_type type;
-
-			/* SAM_PROTO_IPsec: data_offs - L3 offset */
-			neta_ppio_inq_desc_get_l3_info(&descs[i], &type, &data_offs);
-			mdata->data_offs = data_offs;
-
-			ipsec_descs[i].sa = sa;
-			ipsec_descs[i].cookie = mdata;
-
-			ipsec_descs[i].num_bufs = 1;
-			ipsec_descs[i].src = &src_buf_infs[i];
-			ipsec_descs[i].dst = &dst_buf_infs[i];
-
-			ipsec_descs[i].l3_offset = data_offs;
-			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
-		} else {
-			pr_err("Unknown crypto_proto = %d\n", larg->cmn_args.garg->crypto_proto);
-			return -EFAULT;
-		}
+		sam_descs[i].cipher_offset = data_offs;
+		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 	}
 	num_got = i;
 
 START_COUNT_CYCLES(pme_ev_cnt_enq);
-	if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
-		err = sam_cio_enq(cio, sam_descs, &num_got);
-	else
-		err = sam_cio_enq_ipsec(cio, ipsec_descs, &num_got);
+	err = sam_cio_enq(cio, sam_descs, &num_got);
 STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 
 	if (unlikely(err)) {
@@ -402,10 +353,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 			binf.cookie = neta_ppio_inq_desc_get_cookie(&descs[i]);
 			bpool = neta_ppio_inq_desc_get_bpool(&descs[i], larg->lcl_ports_desc[rx_ppio_id].ppio);
 			neta_bpool_put_buff(bpool, &binf);
-			if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
-				mdata = sam_descs[i].cookie;
-			else
-				mdata = ipsec_descs[i].cookie;
+			mdata = sam_descs[i].cookie;
 
 			if (mdata)
 				mv_stack_push(larg->stack_hndl, mdata);
@@ -422,7 +370,6 @@ static inline int dec_pkts(struct local_arg		*larg,
 			   u16				 num)
 {
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
-	struct sam_cio_ipsec_params ipsec_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct pkt_mdata	*mdata;
@@ -449,31 +396,20 @@ static inline int dec_pkts(struct local_arg		*larg,
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
-		if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE) {
-			sam_descs[i].cookie = mdata;
-			sam_descs[i].sa = larg->dec_sa;
-			sam_descs[i].num_bufs = 1;
-			sam_descs[i].src = &src_buf_infs[i];
-			sam_descs[i].dst = &dst_buf_infs[i];
-			sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
-			sam_descs[i].cipher_offset = data_offs;
-			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
-		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
-			ipsec_descs[i].sa = larg->dec_sa;
-			ipsec_descs[i].cookie = mdata;
-
-			ipsec_descs[i].num_bufs = 1;
-			ipsec_descs[i].src = &src_buf_infs[i];
-			ipsec_descs[i].dst = &dst_buf_infs[i];
-			ipsec_descs[i].l3_offset = data_offs;
-			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
-		}
+		sam_descs[i].cookie = mdata;
+		sam_descs[i].sa = larg->dec_sa;
+		sam_descs[i].num_bufs = 1;
+		sam_descs[i].src = &src_buf_infs[i];
+		sam_descs[i].dst = &dst_buf_infs[i];
+		sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
+		sam_descs[i].cipher_offset = data_offs;
+		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
-			printf("Encrypted packet (va:%p, pa 0x%08x, len %d):\n",
+			printf("Encrypted packet (va:%p, pa 0x%08" PRIdma ", len %d):\n",
 			       src_buf_infs[i].vaddr,
-			       (unsigned int)src_buf_infs[i].paddr,
+			       src_buf_infs[i].paddr,
 			       src_buf_infs[i].len);
 			mv_mem_dump(src_buf_infs[i].vaddr, src_buf_infs[i].len);
 		}
@@ -482,10 +418,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	num_got = num;
 
 START_COUNT_CYCLES(pme_ev_cnt_enq);
-	if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
-		err = sam_cio_enq(larg->dec_cio, sam_descs, &num_got);
-	else
-		err = sam_cio_enq_ipsec(larg->dec_cio, ipsec_descs, &num_got);
+	err = sam_cio_enq(larg->dec_cio, sam_descs, &num_got);
 STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 
 	if (unlikely(err)) {
@@ -493,12 +426,9 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		return -EFAULT;
 	}
 	if (num_got < num) {
-		for (i = num_got; i < num; i++) {
-			if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
-				free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
-			else
-				free_buf_from_sam_cookie(larg, ipsec_descs[i].cookie);
-		}
+		for (i = num_got; i < num; i++)
+			free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
+
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 		perf_cntrs->drop_cnt += (num - num_got);
 	}
@@ -861,7 +791,6 @@ static int init_all_modules(void)
 }
 
 static int create_sam_sessions(struct sam_sa **enc_sa, struct sam_sa **dec_sa,
-			       enum sam_crypto_protocol crypto_proto, int tunnel, int ip6,
 			       enum sam_cipher_alg cipher_alg, enum sam_cipher_mode cipher_mode,
 			       enum sam_auth_alg auth_alg)
 {
@@ -869,7 +798,7 @@ static int create_sam_sessions(struct sam_sa **enc_sa, struct sam_sa **dec_sa,
 	int				 err;
 
 	memset(&sa_params, 0, sizeof(sa_params));
-	sa_params.proto = crypto_proto;
+	sa_params.proto = SAM_PROTO_NONE;
 
 	sa_params.cipher_alg = cipher_alg;  /* cipher algorithm */
 	sa_params.cipher_mode = cipher_mode; /* cipher mode */
@@ -898,40 +827,11 @@ static int create_sam_sessions(struct sam_sa **enc_sa, struct sam_sa **dec_sa,
 		sa_params.auth_key = NULL;    /* auth key */
 		sa_params.auth_key = 0;
 	}
-	if (crypto_proto == SAM_PROTO_IPSEC) {
-		sa_params.u.ipsec.is_esp = 1;
-		sa_params.u.ipsec.is_natt = 0;
-		sa_params.u.ipsec.spi = t1_spi;
-		sa_params.u.ipsec.seq = t1_seq;
-
-		if (tunnel) {
-			sa_params.u.ipsec.is_tunnel = 1;
-			if (ip6) {
-				sa_params.u.ipsec.is_ip6 = 1;
-				sa_params.u.ipsec.tunnel.u.ipv6.sip = tunnel_src_ip6;
-				sa_params.u.ipsec.tunnel.u.ipv6.dip = tunnel_dst_ip6;
-				sa_params.u.ipsec.tunnel.u.ipv6.dscp = 0;
-				sa_params.u.ipsec.tunnel.u.ipv6.hlimit = 64;
-				sa_params.u.ipsec.tunnel.u.ipv6.flabel = 0;
-			} else {
-				sa_params.u.ipsec.is_ip6 = 0;
-				sa_params.u.ipsec.tunnel.u.ipv4.sip = tunnel_src_ip4;
-				sa_params.u.ipsec.tunnel.u.ipv4.dip = tunnel_dst_ip4;
-				sa_params.u.ipsec.tunnel.u.ipv4.dscp = 0;
-				sa_params.u.ipsec.tunnel.u.ipv4.ttl = 64;
-				sa_params.u.ipsec.tunnel.u.ipv4.df = 0;
-			}
-			sa_params.u.ipsec.tunnel.copy_flabel = 0;
-			sa_params.u.ipsec.tunnel.copy_dscp = 0;
-			sa_params.u.ipsec.tunnel.copy_df = 0;
-		}
-	} else {
-		sa_params.u.basic.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
-		if (sa_params.auth_alg != SAM_AUTH_NONE)
-			sa_params.u.basic.auth_icv_len = ICV_LEN;
-		else
-			sa_params.u.basic.auth_icv_len = 0;
-	}
+	sa_params.u.basic.auth_aad_len = 0;   /* Additional Data (AAD) size (in bytes) */
+	if (sa_params.auth_alg != SAM_AUTH_NONE)
+		sa_params.u.basic.auth_icv_len = ICV_LEN;
+	else
+		sa_params.u.basic.auth_icv_len = 0;
 
 	sa_params.dir = SAM_DIR_ENCRYPT;   /* operation direction: encode */
 	err = sam_session_create(&sa_params, enc_sa);
@@ -1052,7 +952,7 @@ static void destroy_local_modules(struct glob_arg *garg)
 
 	app_disable_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
 
-	for (port_index = 0; port_index < garg->num_ports; port_index++)
+	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++)
 		app_free_all_pools(garg->pools_desc[port_index], garg->num_pools);
 
 	app_deinit_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
@@ -1361,10 +1261,9 @@ static int init_local(void *arg, int id, void **_larg)
 		}
 		mv_stack_push(larg->stack_hndl, mdata);
 	}
-	pr_info("%d of %d metadata structures allocated\n", i, garg->num_bufs);
+	pr_debug("%d of %d metadata structures allocated\n", i, garg->num_bufs);
 
 	err = create_sam_sessions(&larg->enc_sa, &larg->dec_sa,
-				  garg->crypto_proto, garg->tunnel, garg->ip6,
 				  garg->cipher_alg, garg->cipher_mode,
 				  garg->auth_alg);
 	if (err)
@@ -1413,13 +1312,16 @@ static void deinit_local(void *arg)
 		free(larg->lcl_ports_desc);
 	}
 	/* Free all pkt_mdata structures and delete stack instance */
+	i = 0;
 	while (!mv_stack_is_empty(larg->stack_hndl)) {
 		mdata = mv_stack_pop(larg->stack_hndl);
 		if (!mdata)
 			break;
-
+		i++;
 		free(mdata);
 	}
+	pr_debug("%d of %d metadata structures freed\n", i, garg->num_bufs);
+
 	mv_stack_delete(larg->stack_hndl);
 
 	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio))
@@ -1452,9 +1354,6 @@ static void usage(char *progname)
 	       "\t                         With every '-v', the debug is increased by one.\n"
 	       "\t                         0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump\n"
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
-	       "\t--crypto-proto <proto>   Crypto protocol. Support: [none, esp]. (default: none).\n"
-	       "\t--tunnel                 IPSec tunnel mode. (default: transport)\n"
-	       "\t--ip6                    ESP over IPv6. (default: ESP over IPv4)\n"
 	       "\t--cipher-alg   <alg>     Cipher algorithm. Support: [none, aes128, 3des]. (default: aes128).\n"
 	       "\t--cipher-mode  <alg>     Cipher mode. Support: [cbc, ecb]. (default: cbc).\n"
 	       "\t--auth-alg     <alg>     Authentication algorithm. Support: [none, sha1]. (default: sha1).\n"
@@ -1478,9 +1377,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->cmn_args.echo = 1;
 	garg->dir = CRYPTO_LB;
-	garg->tunnel = 0;
-	garg->ip6 = 0;
-	garg->crypto_proto = SAM_PROTO_NONE;
 	garg->cipher_alg = SAM_CIPHER_AES;
 	garg->cipher_mode = SAM_CIPHER_CBC;
 	garg->auth_alg = SAM_AUTH_HMAC_SHA1;
@@ -1585,12 +1481,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--no-echo") == 0) {
 			garg->cmn_args.echo = 0;
 			i += 1;
-		} else if (strcmp(argv[i], "--tunnel") == 0) {
-			garg->tunnel = 1;
-			i += 1;
-		} else if (strcmp(argv[i], "--ip6") == 0) {
-			garg->ip6 = 1;
-			i += 1;
 		} else if (strcmp(argv[i], "--dir") == 0) {
 			if (strcmp(argv[i+1], "enc") == 0)
 				garg->dir = CRYPTO_ENC;
@@ -1600,16 +1490,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				garg->dir = CRYPTO_LB;
 			else {
 				pr_err("Direction (%s) not supported!\n", argv[i+1]);
-				return -EINVAL;
-			}
-			i += 2;
-		} else if (strcmp(argv[i], "--crypto-proto") == 0) {
-			if (strcmp(argv[i+1], "esp") == 0)
-				garg->crypto_proto = SAM_PROTO_IPSEC;
-			else if (strcmp(argv[i+1], "none") == 0)
-				garg->crypto_proto = SAM_PROTO_NONE;
-			else {
-				pr_err("Crypto protocol (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
 			}
 			i += 2;
@@ -1711,10 +1591,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	pr_info("cipher-alg    : %d\n", garg->cipher_alg);
 	pr_info("cipher-mode   : %d\n", garg->cipher_mode);
 	pr_info("auth-alg      : %d\n", garg->auth_alg);
-	pr_info("crypto-proto  : %s\n", garg->crypto_proto == SAM_PROTO_IPSEC ? "IPSec" : "None");
-
-	if (garg->crypto_proto == SAM_PROTO_IPSEC)
-		pr_info("IPSec mode    : %s\n", garg->tunnel ? "Tunnel" : "Transport");
 
 	return 0;
 }
