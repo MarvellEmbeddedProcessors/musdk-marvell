@@ -354,9 +354,13 @@ void app_disable_all_ports(struct port_desc *ports, int num_ports);
 int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[]);
 
 /*
- * Show queue statistics
+ * Show rx queue statistics
  */
-void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset);
+void app_show_rx_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset);
+/*
+ * Show tx queue statistics
+ */
+void app_show_tx_queue_stat(struct port_desc *port_desc, int reset);
 /*
  * Show port statistics
  */

@@ -58,12 +58,11 @@ static u64 hw_bm_buf_free_cnt;
 static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
-void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
+void app_show_rx_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
 {
 	int i;
 	u8 q_stop;
 	struct pp2_ppio_inq_statistics rxstats;
-	struct pp2_ppio_outq_statistics txstats;
 
 	if (tc > port_desc->num_tcs) {
 		printf("\nWrong tc parameters: tc=%d, num_tcs=%d", tc, port_desc->num_tcs);
@@ -80,24 +79,30 @@ void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num
 	else
 		q_stop = port_desc->num_inqs[tc] - q_start;
 
-	printf("\n-------- Port %d:%d queues stats --------\n", port_desc->pp_id, port_desc->ppio_id);
 	for (i = q_start; i < q_stop; i++) {
 		pp2_ppio_inq_get_statistics(port_desc->ppio, tc, i, &rxstats, reset);
-		printf("\t Tc #%d Rxq #%d statistics:\n", tc, i);
+		printf("\tPort %d:%d Tc #%d Rxq #%d statistics:\n", port_desc->pp_id, port_desc->ppio_id, tc, i);
 		printf("\t\tEnqueued packets:      %" PRIu64 "\n", rxstats.enq_desc);
 		printf("\t\tFull queue drops:      %u\n", rxstats.drop_fullq);
 		printf("\t\tBuffer Manager drops:  %u\n", rxstats.drop_bm);
 		printf("\t\tEarly drops:           %u\n", rxstats.drop_early);
 	}
 	printf("\n");
+}
+
+void app_show_tx_queue_stat(struct port_desc *port_desc, int reset)
+{
+	int i;
+	struct pp2_ppio_outq_statistics txstats;
 
 	for (i = 0; i < port_desc->num_outqs; i++) {
-		printf("\t Txq #%d statistics:\n", i);
+		printf("\tPort %d:%d Txq #%d statistics:\n", port_desc->pp_id, port_desc->ppio_id, i);
 		pp2_ppio_outq_get_statistics(port_desc->ppio, i, &txstats, reset);
 		printf("\t\tEnqueued packets:      %" PRIu64 "\n", txstats.enq_desc);
 		printf("\t\tDequeued packets:      %" PRIu64 "\n", txstats.deq_desc);
 		printf("\t\tEnque desc to DDR:     %" PRIu64 "\n", txstats.enq_dec_to_ddr);
 		printf("\t\tEnque buffers to DDR:  %" PRIu64 "\n", txstats.enq_buf_to_ddr);
+		printf("\n");
 	}
 }
 
@@ -189,10 +194,11 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 		if (port_desc[i].initialized) {
 			if (tc == (u8)(~0)) {
 				for (j = 0; j < port_desc->num_tcs; j++)
-					app_show_queue_stat(&port_desc[i], j, qid, queues_num, reset);
+					app_show_rx_queue_stat(&port_desc[i], j, qid, queues_num, reset);
 			} else {
-				app_show_queue_stat(&port_desc[i], tc, qid, queues_num, reset);
+				app_show_rx_queue_stat(&port_desc[i], tc, qid, queues_num, reset);
 			}
+			app_show_tx_queue_stat(&port_desc[i], reset);
 		}
 	}
 
