@@ -907,6 +907,30 @@ int sam_set_debug_flags(u32 debug_flags)
 #endif /* MVCONF_SAM_DEBUG */
 }
 
+int sam_cio_show_regs(struct sam_cio *cio, enum sam_cio_regs regs)
+{
+#ifdef MVCONF_SAM_DEBUG
+	switch (regs) {
+	case SAM_CIO_REGS_ALL:
+		sam_hw_cdr_regs_show(&cio->hw_ring);
+		sam_hw_rdr_regs_show(&cio->hw_ring);
+		break;
+	case SAM_CIO_REGS_CDR:
+		sam_hw_cdr_regs_show(&cio->hw_ring);
+		break;
+	case SAM_CIO_REGS_RDR:
+		sam_hw_rdr_regs_show(&cio->hw_ring);
+		break;
+	default:
+		pr_err("Unsupported group of CIO registers - %u\n", regs);
+		break;
+	}
+	return 0;
+#else
+	return -ENOTSUP;
+#endif /* MVCONF_SAM_DEBUG */
+}
+
 int sam_session_get_stats(struct sam_session_stats *stats, int reset)
 {
 #ifdef MVCONF_SAM_STATS

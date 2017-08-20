@@ -79,6 +79,14 @@ enum sam_cio_op_status {
 	SAM_CIO_ERR_LAST
 };
 
+/** Possible registers to be printed */
+enum sam_cio_regs {
+	SAM_CIO_REGS_ALL = 0,	/**< Show all registers */
+	SAM_CIO_REGS_CDR,	/**< Show CDR (Command Descriptors Ring) registers */
+	SAM_CIO_REGS_RDR,	/**< Show RDR (Result Descriptors Ring) registers */
+	SAM_CIO_REGS_LAST
+};
+
 /**
  * Crypto operation parameters
  *
@@ -219,10 +227,24 @@ int sam_cio_flush(struct sam_cio *cio);
  * @param[in]     reset    - 0    : don't reset statistics after copy.
  *			     other: reset statistics after copy.
  *
- * @retval      0          - statistics are valid
- * @retval	-ENOTSUP   - statistics are not supported
+ * @retval      0          - Success
+ * @retval	-ENOTSUP   - Debug capability is not supported
  */
 int sam_cio_get_stats(struct sam_cio *cio, struct sam_cio_stats *stats, int reset);
+
+/**
+ * Show (Command Descriptors Ring) registers for crypto IO instance.
+ *
+ * To enable debug capability of the SAM driver,
+ *	use "--enable-sam-debug" flag during ./configure
+ *
+ * @param[in]     cio      - crypto IO instance handler.
+ * @param[in]     regs     - group(s) of registers to be shown
+ *
+ * @retval      0          - Success
+ * @retval	-ENOTSUP   - Debug capability is not supported
+ */
+int sam_cio_show_regs(struct sam_cio *cio, enum sam_cio_regs regs);
 
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
