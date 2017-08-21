@@ -41,7 +41,7 @@ static struct list cls_qos_tbl_head;
 
 static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 {
-	struct pp2_ppio *ppio = (struct pp2_ppio *)arg;
+	struct port_desc *ports_desc = (struct port_desc *)arg;
 	int type = -1;
 	u32 pcp_dflt = 0;
 	int pcp_idx = -1;
@@ -104,7 +104,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 		case 'p':
 			pcp_dflt = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (pcp_dflt < 0) ||
-			    (pcp_dflt > CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+			    (pcp_dflt > ports_desc->num_tcs)) {
 				printf("parsing fail, wrong input for --pcp_dflt\n");
 				return -EINVAL;
 			}
@@ -120,7 +120,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 			if (option == 'v') {
 				pcp_val = strtoul(optarg, &ret_ptr, 0);
 				if ((optarg == ret_ptr) || (pcp_val < 0) ||
-				    (pcp_val >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+				    (pcp_val >= ports_desc->num_tcs)) {
 					printf("parsing fail, wrong input for pcp_val\n");
 					return -EINVAL;
 				}
@@ -133,7 +133,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 		case 'q':
 			dscp_dflt = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (dscp_dflt < 0) ||
-			    (dscp_dflt > CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+			    (dscp_dflt > ports_desc->num_tcs)) {
 				printf("parsing fail, wrong input for --pcp_dflt\n");
 				return -EINVAL;
 			}
@@ -149,7 +149,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 			if (option == 'w') {
 				dscp_val = strtoul(optarg, &ret_ptr, 0);
 				if ((optarg == ret_ptr) || (dscp_val < 0) ||
-				    (dscp_val >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+				    (dscp_val >= ports_desc->num_tcs)) {
 					printf("parsing fail, wrong input for dscp_val\n");
 					return -EINVAL;
 				}
@@ -192,7 +192,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 			qos_tbl_params->pcp_cos_map[i].tc = pcp_dflt;
 		else
 			qos_tbl_params->pcp_cos_map[i].tc = pcp_map[i];
-		qos_tbl_params->pcp_cos_map[i].ppio = ppio;
+		qos_tbl_params->pcp_cos_map[i].ppio = ports_desc->ppio;
 		pr_debug("pcp[%d] %d\n", i, qos_tbl_params->pcp_cos_map[i].tc);
 	}
 
@@ -202,7 +202,7 @@ static int pp2_cls_cli_qos_table_add(void *arg, int argc, char *argv[])
 			qos_tbl_params->dscp_cos_map[i].tc = dscp_dflt;
 		else
 			qos_tbl_params->dscp_cos_map[i].tc = dscp_map[i];
-		qos_tbl_params->dscp_cos_map[i].ppio = ppio;
+		qos_tbl_params->dscp_cos_map[i].ppio = ports_desc->ppio;
 		pr_debug("dscp[%d] %d\n", i, qos_tbl_params->dscp_cos_map[i].tc);
 	}
 
@@ -358,7 +358,7 @@ void unregister_cli_cls_api_qos_cmds(void)
 	}
 }
 
-int register_cli_cls_api_qos_cmds(struct pp2_ppio *ppio)
+int register_cli_cls_api_qos_cmds(struct port_desc *arg)
 {
 	struct cli_cmd_params cmd_params;
 
@@ -379,7 +379,7 @@ int register_cli_cls_api_qos_cmds(struct pp2_ppio *ppio)
 				  "\t\t\t\t--dscp_idx		index in pcp_map table\n"
 				  "\t\t\t\t--dscp_val		TC value in pcp_map table\n"
 				  "\t\t\t\t			pcp_idx and pcp_val need to be set together\n";
-	cmd_params.cmd_arg	= ppio;
+	cmd_params.cmd_arg	= arg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_qos_table_add;
 	mvapp_register_cli_cmd(&cmd_params);
 

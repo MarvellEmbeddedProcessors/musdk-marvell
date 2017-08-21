@@ -205,7 +205,7 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 		case 'q':
 			traffic_class = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (traffic_class < 0) ||
-			    (traffic_class >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+			    (traffic_class >= ports_desc->num_tcs)) {
 				printf("parsing fail, wrong input for --tc\n");
 				return -EINVAL;
 			}
@@ -428,7 +428,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		case 'q':
 			traffic_class = strtoul(optarg, &ret_ptr, 0);
 			if ((optarg == ret_ptr) || (traffic_class < 0) ||
-			    (traffic_class >= CLS_APP_MAX_NUM_TCS_PER_PORT)) {
+			    (traffic_class >= ports_desc->num_tcs)) {
 				printf("parsing fail, wrong input for --tc\n");
 				return -EINVAL;
 			}

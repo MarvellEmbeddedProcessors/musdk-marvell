@@ -54,12 +54,6 @@
 #define CLS_APP_MAX_BURST_SIZE			(CLS_APP_RX_Q_SIZE >> 1)
 #define CLS_APP_DFLT_BURST_SIZE			256
 
-/* TODO: currently MUSDK only accepts up to 8 TC's.
- * Need to allow up to 32 TC's per port
- */
-#define CLS_APP_MAX_NUM_TCS			8
-#define CLS_APP_MAX_NUM_QS_PER_PORT		32
-
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
 #define CLS_APP_PREFETCH_SHIFT			7
@@ -70,7 +64,7 @@
 
 /* Structure containing a map of queues per core */
 struct queue_map {
-	int		tc_inq[CLS_APP_MAX_NUM_TCS];
+	int		tc_inq[PP2_PPIO_MAX_NUM_TCS];
 };
 
 
@@ -113,8 +107,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tx_ppio_id,
 				  u8			 bpool_id,
-				  u8			 tc,
-				  u8			 qid,
+				  u8			 rx_tc,
+				  u8			 rx_qid,
+				  u8			 tx_qid,
 				  u16			 num)
 {
 	struct pp2_bpool *bpool;
@@ -128,9 +123,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	int prefetch_shift = CLS_APP_PREFETCH_SHIFT;
 #endif /* CLS_APP_PKT_ECHO_SUPPORT */
 	bpool = pp2_args->pools_desc[pp2_args->lcl_ports_desc[rx_ppio_id].pp_id][bpool_id].pool;
-	shadow_q = &pp2_args->lcl_ports_desc[tx_ppio_id].shadow_qs[tc];
+	shadow_q = &pp2_args->lcl_ports_desc[tx_ppio_id].shadow_qs[tx_qid];
 
-	err = pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
+	err = pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, rx_tc, rx_qid, descs, &num);
 
 	for (i = 0; i < num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
@@ -172,14 +167,14 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 	if (num) {
 		err = pp2_ppio_send(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif,
-				    tc, descs, &num);
+				    tx_qid, descs, &num);
 		if (err) {
 			pr_err("pp2_ppio_send\n");
 			return err;
 		}
 	}
 
-	pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif, tc, &num);
+	pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif, tx_qid, &num);
 	for (i = 0; i < num; i++) {
 		binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
 		if (unlikely(!binf->cookie || !binf->addr)) {
@@ -201,7 +196,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 {
 	int err;
 	u16 num;
-	u8 tc = 0, qid = 0;
+	u8 tc = 0, qid = 0, tx_qid = 0;
 
 	if (!larg) {
 		pr_err("no obj!\n");
@@ -216,8 +211,9 @@ static int loop_1p(struct local_arg *larg, int *running)
 		if (tc == larg->num_tcs)
 			tc = 0;
 		qid = larg->core_queue->tc_inq[tc];
-		pr_debug("thread %d, tc %d, qid %d\n", larg->cmn_args.id, tc, qid);
-		err = loop_sw_recycle(larg, 0, 0, 0, tc, qid, num);
+		tx_qid = tc % PP2_PPIO_MAX_NUM_OUTQS;
+		pr_debug("thread %d, tc %d, qid %d tx_qid %d\n", larg->cmn_args.id, tc, qid, tx_qid);
+		err = loop_sw_recycle(larg, 0, 0, 0, tc, qid, tx_qid, num);
 		if (err)
 			return err;
 	}
@@ -304,7 +300,7 @@ static int init_local_modules(struct glob_arg *garg)
 			for (i = 0; i < port->num_tcs; i++)
 				port->num_inqs[i] = garg->cmn_args.cpus;
 			port->inq_size	= CLS_APP_RX_Q_SIZE;
-			port->num_outqs	= garg->num_tcs;
+			port->num_outqs	= PP2_PPIO_MAX_NUM_OUTQS;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
 			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
 			port->hash_type = garg->hash_type;
@@ -346,7 +342,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 
 	register_cli_cls_api_cmds(pp2_args->ports_desc);
 	register_cli_mng_cmds(ppio);
-	register_cli_cls_api_qos_cmds(ppio);
+	register_cli_cls_api_qos_cmds(pp2_args->ports_desc);
 	register_cli_filter_cmds(ppio);
 	register_cli_cls_cmds(ppio);
 	register_cli_c3_cmds(ppio);
@@ -618,15 +614,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	pr_debug("cpus: %d\n", garg->cmn_args.cpus);
 
 	/* Check num_tcs validity */
-	if (num_tcs > CLS_APP_MAX_NUM_TCS) {
-		pr_err("Number of TC'exceeds maximum of %d\n", CLS_APP_MAX_NUM_TCS);
+	if (num_tcs > PP2_PPIO_MAX_NUM_TCS) {
+		pr_err("Number of TC'exceeds maximum of %d\n", PP2_PPIO_MAX_NUM_TCS);
 		return -EINVAL;
 	}
 
 	/* Check if number of TC's and number of cores are acceptable */
-	if ((num_tcs * garg->cmn_args.cpus) > (CLS_APP_MAX_NUM_QS_PER_PORT)) {
-		pr_err("%d TC's scpecified can not be allocated in %d cpus %d\n", num_tcs, garg->cmn_args.cpus,
-			(num_tcs * garg->cmn_args.cpus));
+	if ((num_tcs * garg->cmn_args.cpus) > (PP2_PPIO_MAX_NUM_TCS)) {
+		pr_err("not enough hw queues to allocate %d TCs and %d CPUs. Needed %d queues, available %d\n",
+			num_tcs, garg->cmn_args.cpus, (num_tcs * garg->cmn_args.cpus), PP2_PPIO_MAX_NUM_TCS);
+		pr_info("Allowed values: |   TCs  |  CPUs  |\n");
+		pr_info("                |-----------------|\n");
+		pr_info("                | (1..8) | (1..4) |\n");
+		pr_info("                | (8.16) | (1..2) |\n");
+		pr_info("                |(16..32)|   1    |\n");
 		return -EINVAL;
 	}
 

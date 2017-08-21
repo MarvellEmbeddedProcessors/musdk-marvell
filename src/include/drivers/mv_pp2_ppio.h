@@ -54,7 +54,7 @@ struct pp2_ppio {
 
 struct pp2_bpool;
 
-#define PP2_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
+#define PP2_PPIO_MAX_NUM_TCS	32 /**< Max. number of TCs per ppio. */
 #define PP2_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
 #define PP2_PPIO_TC_MAX_POOLS	2 /**< Max. number of bpools per TC. */
 

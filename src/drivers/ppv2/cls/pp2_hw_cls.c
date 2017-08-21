@@ -1389,7 +1389,7 @@ int mv_pp2x_cls_c2_qos_tbl_fill_array(struct pp2_port *port,
 		*/
 		queue = port->tc[tc_values[pri]].tc_config.first_rxq;
 		color = port->tc[tc_values[pri]].tc_config.default_color;
-		pr_info("tc_val[%d] %d, queue %d, color %d\n", pri, tc_values[pri], queue, (int)color);
+		pr_debug("tc_val[%d] %d, queue %d, color %d\n", pri, tc_values[pri], queue, (int)color);
 
 		rc = mv_pp2x_cls_c2_qos_queue_set(&qos_entry, queue);
 		if (rc) {

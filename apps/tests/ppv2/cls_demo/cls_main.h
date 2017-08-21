@@ -37,8 +37,6 @@
 #include "pp2_utils.h"
 #include "lib/list.h"
 
-#define CLS_APP_MAX_NUM_TCS_PER_PORT		4
-
 struct pp2_cls_table_node {
 	u32				idx;
 	struct	pp2_cls_tbl		*tbl;
@@ -49,7 +47,7 @@ struct pp2_cls_table_node {
 };
 
 int register_cli_cls_api_cmds(struct port_desc *arg);
-int register_cli_cls_api_qos_cmds(struct pp2_ppio *ppio);
+int register_cli_cls_api_qos_cmds(struct port_desc *arg);
 int register_cli_filter_cmds(struct pp2_ppio *ppio);
 
 void unregister_cli_cls_api_cmds(void);
