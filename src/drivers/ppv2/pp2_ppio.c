@@ -222,7 +222,6 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 	struct pp2_dm_if *dm_if;
 	u16 desc_sent, desc_req = *num;
 	struct pp2_port *port = GET_PPIO_PORT(ppio);
-	int ret = 0;
 
 	dm_if = pp2_dm_if_get(ppio, hif);
 
@@ -231,7 +230,6 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __func__,
 			 ppio->pp2_id, ppio->port_id, qid, *num, desc_sent);
 		*num = desc_sent;
-		ret = -EAGAIN;
 	}
 
 	if (port->maintain_stats) {
@@ -244,7 +242,7 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 			txq->threshold_tx_pkts = 0;
 		}
 	}
-	return ret;
+	return 0;
 }
 
 int pp2_ppio_send_sg(struct pp2_ppio *ppio,

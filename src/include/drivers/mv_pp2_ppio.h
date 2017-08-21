@@ -900,8 +900,8 @@ static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_pkt_error(struct pp
  *				frames to be sent.
  * @param[in,out]	num	input: number of frames to be sent; output: number of frames sent.
  *
- * @retval	 0	if all frames were sent
- * @retval	-EAGAIN	otherwise
+ * @retval	0 on success
+ * @retval	error-code otherwise
  */
 int pp2_ppio_send(struct pp2_ppio	*ppio,
 		  struct pp2_hif	*hif,
