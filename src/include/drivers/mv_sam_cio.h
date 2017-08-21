@@ -175,8 +175,8 @@ int sam_cio_deinit(struct sam_cio *cio);
  * @param[in,out] num      - input:  number of requests to enqueue
  *                           output: number of requests successfully enqueued
  *
- * @retval	0          - all requests are successfully enqueued.
- * @retval	Negative   - enqueue of one or more requests failed.
+ * @retval	0          - success
+ * @retval	Negative   - failure
  */
 int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *num);
 
@@ -188,8 +188,8 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
  * @param[in,out] num      - input:  number of results to dequeue
  *                           output: number of results successfully dequeued
  *
- * @retval	0          - all results are successfully dequeued.
- * @retval	Negative   - dequeue of one or more results failed.
+ * @retval	0          - success
+ * @retval	Negative   - failed
  */
 int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num);
 

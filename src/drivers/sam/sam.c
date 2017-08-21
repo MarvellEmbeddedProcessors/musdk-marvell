@@ -736,7 +736,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 {
 	struct sam_cio_op *operation;
 	struct sam_cio_op_params *request;
-	int i, j, err, todo;
+	int i, j, todo, err = 0;
 
 	todo = *num;
 	if (todo >= cio->params.size)
@@ -748,7 +748,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Check request validity */
 		err = sam_cio_check_op_params(request);
 		if (err)
-			return err;
+			break;
 
 		/* Check maximum number of pending requests */
 		if (sam_cio_is_full(cio)) {
@@ -763,8 +763,9 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Get next operation structure */
 		operation = &cio->operations[cio->next_request];
 
-		if (sam_hw_cmd_token_build(cio, request, operation))
-			goto error_enq;
+		err = sam_hw_cmd_token_build(cio, request, operation);
+		if (err)
+			break;
 
 		/* Save some fields from request needed for result processing */
 		operation->sa = request->sa;
@@ -812,10 +813,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 	}
 	*num = (u16)i;
 
-	return 0;
-
-error_enq:
-	return -EINVAL;
+	return err;
 }
 
 /* Process crypto operation result */
