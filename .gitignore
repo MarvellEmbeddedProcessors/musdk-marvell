@@ -41,4 +41,5 @@ m4
 missing
 stamp-h1
 .gitreview
+src/include/env/mv_autogen_*.h
 

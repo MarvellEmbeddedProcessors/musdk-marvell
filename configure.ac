@@ -18,7 +18,7 @@ AC_PREFIX_DEFAULT($(pwd)/usr/local)
 AC_SUBST(includedir, '${exec_prefix}')
 
 ##########################################################################
-# Set PP2_BUILD - using --enable-pp2
+# Set PP2_BUILD and PP2_ASSERT - using --enable-pp2
 ##########################################################################
 AC_ARG_ENABLE([pp2],
 [  --enable-pp2         Enable pp2 driver and applications build],
@@ -28,6 +28,11 @@ AC_ARG_ENABLE([pp2],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-pp2]) ;;
 esac],[pp2=true])
 AM_CONDITIONAL([PP2_BUILD], [test x$pp2 = xtrue])
+if test x$pp2 = xtrue; then
+PP2_ASSERT=1
+else
+PP2_ASSERT=0
+fi
 
 ##########################################################################
 # Set NETA_BUILD - using --enable-neta
@@ -102,19 +107,17 @@ AC_ARG_ENABLE([bpool-cookie],
 [if test $enableval -eq 32 -o $enableval -eq 64; then
 	BPOOL_COOKI_SZ=$enableval
 fi])
-MUSDK_CFLAGS+="-DCONF_PP2_BPOOL_COOKIE_SIZE=$BPOOL_COOKI_SZ "
+MUSDK_CFLAGS+="-DMVCONF_PP2_BPOOL_COOKIE_SIZE=$BPOOL_COOKI_SZ "
 ##########################################################################
-# Set BPOOL_DMA_ADDR_USE_32B
+# Set BPOOL_DMA_ADDR_SIZE
 ##########################################################################
-BPOOL_DMA_ADDR_USE_32B=32
+BPOOL_DMA_ADDR_SIZE=32
 AC_ARG_ENABLE([bpool-dma],
 [  --enable-bpool-dma    Set bpool dma_addr size: 32/64],
 [if test $enableval -eq 32 -o $enableval -eq 64; then
-	BPOOL_DMA_ADDR_USE_32B=$enableval
+	BPOOL_DMA_ADDR_SIZE=$enableval
 fi])
-if test $BPOOL_DMA_ADDR_USE_32B -eq 32; then
-	MUSDK_CFLAGS+="-DCONF_PP2_BPOOL_DMA_ADDR_USE_32B "
-fi
+MUSDK_CFLAGS+="-DMVCONF_PP2_BPOOL_DMA_ADDR_SIZE=$BPOOL_DMA_ADDR_SIZE "
 ##########################################################################
 # Set DMA_ADDR_SIZE
 ##########################################################################
@@ -124,9 +127,7 @@ AC_ARG_ENABLE([dma-addr],
 [if test $enableval -eq 32 -o $enableval -eq 64; then
 	DMA_ADDR_SIZE=$enableval
 fi])
-if test $DMA_ADDR_SIZE -eq 64; then
-	MUSDK_CFLAGS+="-DMVCONF_ARCH_DMA_ADDR_T_64BIT "
-fi
+MUSDK_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_SIZE=$DMA_ADDR_SIZE "
 ##########################################################################
 # Set MVCONF_SYS_DMA_UIO
 ##########################################################################
@@ -155,6 +156,12 @@ esac])
 if test x$HUGE_PG = xtrue; then
 	MUSDK_CFLAGS+="-DMVCONF_SYS_DMA_HUGE_PAGE "
 fi
+
+# Add MUSDK types flags. They are always defined in musdk_lib compilation,
+# and are optional during user compilation.
+MUSDK_CFLAGS+="-DMVCONF_TYPES_PUBLIC "
+MUSDK_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_PUBLIC "
+
 
 # Checks for programs.
 AC_PROG_CC
@@ -190,6 +197,20 @@ AC_CONFIG_FILES([Makefile
 		apps/examples/ppv2/Makefile
 		apps/examples/neta/Makefile
 ])
+# Auto-created code files
+AC_CONFIG_FILES([src/include/env/mv_autogen_build_assert.h])
+AC_CONFIG_FILES([src/include/env/mv_autogen_comp_flags.h])
+
+# Variables used by auto-created code files.
+# Should not be distributed among Makefiles.
+AC_SUBST([DMA_ADDR_SIZE])
+AM_SUBST_NOTMAKE([DMA_ADDR_SIZE])
+AC_SUBST([PP2_ASSERT])
+AM_SUBST_NOTMAKE([PP2_ASSERT])
+AC_SUBST([BPOOL_COOKI_SZ])
+AM_SUBST_NOTMAKE([BPOOL_COOKI_SZ])
+AC_SUBST([BPOOL_DMA_ADDR_SIZE])
+AM_SUBST_NOTMAKE([BPOOL_DMA_ADDR_SIZE])
 
 ##########################################################################
 # distribute the changed variables among the Makefiles
@@ -200,6 +221,8 @@ AC_SUBST([CPPFLAGS])
 AC_SUBST([CFLAGS])
 AC_SUBST([AM_LDFLAGS])
 AC_SUBST([LDFLAGS])
+
+
 
 AC_OUTPUT
 AC_MSG_RESULT([

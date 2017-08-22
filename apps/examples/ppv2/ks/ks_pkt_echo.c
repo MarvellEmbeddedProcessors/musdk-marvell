@@ -30,9 +30,9 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#define CONF_PP2_BPOOL_COOKIE_SIZE 32
-#define CONF_PP2_BPOOL_DMA_ADDR_USE_32B
-#define MVCONF_ARCH_DMA_ADDR_T_64BIT
+#define MVCONF_PP2_BPOOL_COOKIE_SIZE 32
+#define MVCONF_PP2_BPOOL_DMA_ADDR_SIZE 32
+#define MVCONF_DMA_PHYS_ADDR_T_SIZE 64
 #define APP_TX_RETRY
 #define PKT_ECHO_APP_PKT_ECHO_SUPPORT
 #define PKT_ECHO_APP_USE_PREFETCH

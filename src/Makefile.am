@@ -16,6 +16,8 @@ nobase_include_HEADERS += include/env/mv_debug.h
 nobase_include_HEADERS += include/env/mv_errno.h
 nobase_include_HEADERS += include/env/mv_sys_dma.h
 nobase_include_HEADERS += include/env/mv_types.h
+nobase_include_HEADERS += include/env/mv_autogen_build_assert.h
+nobase_include_HEADERS += include/env/mv_autogen_comp_flags.h
 
 libmusdk_la_CFLAGS = $(AM_CFLAGS)
 libmusdk_la_LDFLAGS = $(AM_LDFLAGS)

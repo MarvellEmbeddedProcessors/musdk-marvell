@@ -92,7 +92,7 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool);
  */
 void pp2_bpool_deinit(struct pp2_bpool *pool);
 
-#ifdef CONF_PP2_BPOOL_DMA_ADDR_USE_32B
+#if (MVCONF_PP2_BPOOL_DMA_ADDR_SIZE == 32)
 typedef u32	bpool_dma_addr_t;
 #define PRIpp2dma PRIx32
 #else
@@ -100,24 +100,20 @@ typedef dma_addr_t bpool_dma_addr_t;
 #define PRIpp2dma PRIdma
 #endif
 
-#ifdef CONF_PP2_BPOOL_COOKIE_SIZE
-#if CONF_PP2_BPOOL_COOKIE_SIZE == 64
-typedef u64	pp2_cookie_t;
-#define PRIpp2cookie PRIx64
-#else
+#if (MVCONF_PP2_BPOOL_COOKIE_SIZE == 32)
 typedef u32	pp2_cookie_t;
 #define PRIpp2cookie PRIx32
-#endif
+#else
+typedef u64	pp2_cookie_t;
+#define PRIpp2cookie PRIx64
 #endif
 
 struct pp2_buff_inf {
 	/**< Note: in 64bits systems and user would like to use only 32bits,
-	 * use CONF_PP2_BPOOL_DMA_ADDR_USE_32B
+	 * set MVCONF_PP2_BPOOL_DMA_ADDR_SIZE to 32
 	 */
 	bpool_dma_addr_t addr;
-#ifdef CONF_PP2_BPOOL_COOKIE_SIZE
 	pp2_cookie_t    cookie;
-#endif
 };
 
 struct buff_release_entry {
