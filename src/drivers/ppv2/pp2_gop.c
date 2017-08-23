@@ -1131,11 +1131,8 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 {
 	int port_num = mac->gop_index;
 	struct pp2_port_link_status port_status;
-	bool port_en = false;
 
 	pp2_gop_port_link_status(gop, mac, &port_status);
-	port_en = (gop->gop_port_debug[port_num].flags &
-		   (1 << ENABLED)) ? true : false;
 	pr_info("---- GOP ID %d configuration ----\n", port_num);
 	switch (mac->phy_mode) {
 	case PP2_PHY_INTERFACE_MODE_RGMII:
@@ -1161,8 +1158,6 @@ int pp2_gop_status_show(struct gop_hw *gop, struct pp2_mac_data *mac)
 		return -1;
 	}
 
-	pr_info("MAC status              : %s",
-		 (port_en) ? "enabled\n" : "disabled\n");
 	pr_info("Link status             : %s",
 		 (port_status.linkup) ? "link up\n" : "link down\n");
 

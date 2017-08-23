@@ -519,7 +519,7 @@ int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id)
 		if (strcmp(netdev_params[i].if_name, ifname) == 0) {
 			*pp_id = netdev_params[i].pp_id;
 			*ppio_id = netdev_params[i].ppio_id;
-			pr_info("%s: %s: ppio-%d,%d\n", __func__, ifname, *pp_id, *ppio_id);
+			pr_debug("%s: %s: ppio-%d,%d\n", __func__, ifname, *pp_id, *ppio_id);
 			return 0;
 		}
 	}

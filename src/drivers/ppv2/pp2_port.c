@@ -162,7 +162,7 @@ pp2_port_egress_enable(struct pp2_port *port)
 	}
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, qmap);
-	pr_info("Port: Egress enable tx_port_num=%u qmap=0x%X\n", tx_port_num, qmap);
+	pr_debug("Port: Egress enable tx_port_num=%u qmap=0x%X\n", tx_port_num, qmap);
 }
 
 static void
@@ -1704,10 +1704,10 @@ int pp2_port_link_status(struct pp2_port *port)
 	link_is_up = pp2_gop_port_is_link_up(gop, &port->mac_data);
 
 	if (link_is_up) {
-		pr_info("PORT: Port%u - link is up\n", port->id);
+		pr_debug("PORT: Port%u - link is up\n", port->id);
 		port->mac_data.flags |= MV_EMAC_F_LINK_UP;
 	} else {
-		pr_info("PORT: Port%u - link is down\n", port->id);
+		pr_debug("PORT: Port%u - link is down\n", port->id);
 		port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
 	}
 
