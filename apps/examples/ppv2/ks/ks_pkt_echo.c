@@ -63,9 +63,7 @@
 
 #define MVAPPS_PP2_NUM_BPOOLS_RSRV        3
 #define MVAPPS_PP2_BPOOLS_RSRV            ((1 << MVAPPS_PP2_NUM_BPOOLS_RSRV) - 1)
-#define MVAPPS_PP2_TOTAL_NUM_BPOOLS       (PP2_PPIO_TC_MAX_POOLS * PP2_PPIO_MAX_NUM_TCS)
-#define MVAPPS_PP2_MAX_NUM_BPOOLS	  min(PP2_PPIO_TC_MAX_POOLS * PP2_PPIO_MAX_NUM_TCS, \
-					  MVAPPS_PP2_TOTAL_NUM_BPOOLS - MVAPPS_PP2_NUM_BPOOLS_RSRV)
+#define MVAPPS_PP2_MAX_NUM_BPOOLS	  (PP2_BPOOL_NUM_POOLS - MVAPPS_PP2_NUM_BPOOLS_RSRV)
 
 #define MVAPPS_MAX_NUM_QS_PER_TC	  1
 #define MVAPPS_MAX_NUM_TCS_PER_PORT	  1
@@ -458,13 +456,13 @@ static int find_free_bpool(u32 pp_id)
 {
 	int i;
 
-	for (i = 0; i < MVAPPS_PP2_TOTAL_NUM_BPOOLS; i++) {
+	for (i = 0; i < PP2_BPOOL_NUM_POOLS; i++) {
 		if (!((1 << i) & used_bpools[pp_id])) {
 			used_bpools[pp_id] |= (1 << i);
 			break;
 		}
 	}
-	if (i == MVAPPS_PP2_TOTAL_NUM_BPOOLS) {
+	if (i == PP2_BPOOL_NUM_POOLS) {
 		pr_err("no free BPool found!\n");
 		return -ENOSPC;
 	}

@@ -287,13 +287,13 @@ static int find_free_bpool(u32 pp_id)
 {
 	int i;
 
-	for (i = 0; i < MVAPPS_PP2_TOTAL_NUM_BPOOLS; i++) {
+	for (i = 0; i < PP2_BPOOL_NUM_POOLS; i++) {
 		if (!((1 << i) & used_bpools[pp_id])) {
 			used_bpools[pp_id] |= (1 << i);
 			break;
 		}
 	}
-	if (i == MVAPPS_PP2_TOTAL_NUM_BPOOLS) {
+	if (i == PP2_BPOOL_NUM_POOLS) {
 		pr_err("no free BPool found!\n");
 		return -ENOSPC;
 	}
