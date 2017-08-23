@@ -1435,7 +1435,8 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 				   struct pp2_cls_tbl_action *action,
 				   int lkp_type)
 {
-	u8 queue, default_tc = 0;
+	u8 queue;
+	u8 tc_array[MVPP2_QOS_TBL_LINE_NUM_DSCP] = {0};
 
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
@@ -1480,7 +1481,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
-		mv_pp2x_cls_c2_qos_tbl_fill_array(port, tbl_sel, &default_tc);
+		mv_pp2x_cls_c2_qos_tbl_fill_array(port, tbl_sel, tc_array);
 	} else {
 	/* for classifier and default rules */
 		if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
