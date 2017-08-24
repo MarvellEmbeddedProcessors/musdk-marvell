@@ -1217,6 +1217,7 @@
 #define MVPP2_BM_QSET_SET_CNTRS_REG		0x6824
 
 /* TX Scheduler registers */
+#define MVPP2_TX_PORT_NUM(port)			(0x10 | port)
 #define MVPP2_TXP_SCHED_PORT_INDEX_REG		0x8000
 #define MVPP2_TXP_SCHED_Q_CMD_REG		0x8004
 #define MVPP2_TXP_SCHED_ENQ_MASK		0xff

@@ -70,6 +70,7 @@ libmusdk_la_SOURCES += drivers/ppv2/pp2_hif.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_ppio.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_cls.c
 libmusdk_la_SOURCES += drivers/ppv2/pp2_utils_us.c
+libmusdk_la_SOURCES += drivers/ppv2/pp2_txsched.c
 
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_common.c
 libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_cls_utils.c

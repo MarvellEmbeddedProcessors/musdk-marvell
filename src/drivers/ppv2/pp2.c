@@ -580,6 +580,7 @@ int pp2_init(struct pp2_init_params *params)
 	}
 
 	pr_debug("PackProcs   %2u\n", pp2_num_inst);
+	memset(&lb_port_params, 0, sizeof(lb_port_params));
 	lb_port_params.type = PP2_PPIO_T_NIC;
 	lb_port_params.inqs_params.num_tcs = 0;
 	lb_port_params.outqs_params.num_outqs = PP2_LPBK_PORT_NUM_TXQ;

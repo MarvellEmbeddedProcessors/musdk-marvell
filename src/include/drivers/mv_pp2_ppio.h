@@ -70,9 +70,12 @@ enum pp2_ppio_hash_type {
 	PP2_PPIO_HASH_T_OUT_OF_RANGE
 };
 
+#define PP2_PPIO_MIN_CBS	64
+#define PP2_PPIO_MIN_CIR	100
+
 struct pp2_ppio_rate_limit_params {
-	u64 cbs;	/* committed_burst_size, in kilobytes. Min: 64kB */
-	u64 cir;	/* committed_information_rate, in kilobits per second. Min: 100kbps */
+	u32 cbs;	/* committed_burst_size, in kilobytes. Min: 64kB */
+	u32 cir;	/* committed_information_rate, in kilobits per second. Min: 100kbps */
 };
 
 /**

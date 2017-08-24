@@ -284,7 +284,10 @@ struct pp2_tc {
 
 struct pp2_txq_config {
 	u16 size;
+	enum pp2_ppio_outq_sched_mode sched_mode;
 	u16 weight;
+	int rate_limit_enable;
+	struct  pp2_ppio_rate_limit_params rate_limit_params;
 };
 
 enum port_status {
@@ -347,6 +350,10 @@ struct pp2_port {
 	struct pp2_ppio_statistics stats;
 	/* Logical or nic port */
 	enum pp2_ppio_type type;
+	/* Enable rate limiting */
+	int enable_port_rate_limit;
+	/* Rate limiting parameters */
+	struct pp2_ppio_rate_limit_params rate_limit_params;
 	/* Default policer. Can be NULL */
 	struct pp2_cls_plcr *default_plcr;
 };

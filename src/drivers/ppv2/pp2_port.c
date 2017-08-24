@@ -1101,6 +1101,9 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 
 	/* Set initial cos value */
 	pp2_cls_mng_config_default_cos_queue(port);
+
+	/* Set egress rate limits and packet arbitration */
+	pp2_port_config_txsched(port);
 }
 
 static int32_t
@@ -1229,8 +1232,38 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	port->num_tx_queues = param->outqs_params.num_outqs;
 	for (i = 0; i < port->num_tx_queues; i++) {
 		port->txq_config[i].size = param->outqs_params.outqs_params[i].size;
+		port->txq_config[i].sched_mode = param->outqs_params.outqs_params[i].sched_mode;
 		port->txq_config[i].weight = param->outqs_params.outqs_params[i].weight;
+		port->txq_config[i].rate_limit_enable = param->outqs_params.outqs_params[i].rate_limit_enable;
+		if (param->outqs_params.outqs_params[i].rate_limit_enable &&
+		    param->outqs_params.outqs_params[i].rate_limit_params.cbs < PP2_PPIO_MIN_CBS) {
+			pr_err("port %s: CBS for egress queue %u has to be at least %ukB.\n",
+			       port->linux_name, i, PP2_PPIO_MIN_CBS);
+			return -EINVAL;
+		}
+		if (param->outqs_params.outqs_params[i].rate_limit_enable &&
+		    param->outqs_params.outqs_params[i].rate_limit_params.cir < PP2_PPIO_MIN_CIR) {
+			pr_err("port %s: CIR for egress queue %u has to be at least %ukbps.\n",
+			       port->linux_name, i, PP2_PPIO_MIN_CIR);
+			return -EINVAL;
+		}
+		port->txq_config[i].rate_limit_params.cbs = param->outqs_params.outqs_params[i].rate_limit_params.cbs;
+		port->txq_config[i].rate_limit_params.cir = param->outqs_params.outqs_params[i].rate_limit_params.cir;
 	}
+
+	port->enable_port_rate_limit = param->rate_limit_enable;
+	if (param->rate_limit_enable &&
+	    param->outqs_params.outqs_params[i].rate_limit_params.cbs < PP2_PPIO_MIN_CBS) {
+		pr_err("port %s: CBS has to be at least %ukB.\n", port->linux_name, PP2_PPIO_MIN_CBS);
+		return -EINVAL;
+	}
+	if (param->rate_limit_enable &&
+	    param->outqs_params.outqs_params[i].rate_limit_params.cir < PP2_PPIO_MIN_CIR) {
+		pr_err("port %s: CIR has to be at least %ukbps.\n", port->linux_name, PP2_PPIO_MIN_CIR);
+		return -EINVAL;
+	}
+	port->rate_limit_params.cbs = param->rate_limit_params.cbs;
+	port->rate_limit_params.cir = param->rate_limit_params.cir;
 
 	port->hash_type = param->inqs_params.hash_type;
 	port->default_plcr = param->inqs_params.plcr;
@@ -1301,6 +1334,9 @@ static void
 pp2_port_deinit(struct pp2_port *port)
 {
 	kfree(port->stats_name);
+
+	/* Restore rate limits and arbitration to original state */
+	pp2_port_deinit_txsched(port);
 
 	/* Reset/disable TXQs/RXQs from hardware */
 	pp2_port_rxqs_deinit(port);

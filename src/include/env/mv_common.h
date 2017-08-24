@@ -38,6 +38,10 @@
 #include <stdlib.h>
 #include "env/mv_errno.h"
 
+#ifndef BITS_PER_BYTE
+#define BITS_PER_BYTE	(8)
+#endif
+
 #define PTR2INT(_p)		((uintptr_t)(_p))
 #define INT2PTR(_i)		((void *)(uintptr_t)(_i))
 
