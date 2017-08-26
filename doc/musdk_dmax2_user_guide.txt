@@ -1,43 +1,52 @@
-DMA copy engine (XOR v2) User Guide
-====================================
+DMA Engine (XOR v2) User Guide
+===============================
 
-1. Introduction
-===============
+Introduction
+------------
 
 MUSDK DMA XOR v2 driver and DMA Copy test applications are part of the MUSDK package.
 
 MUSDK DMA driver provides capability of usage DMA (XOR v2) engine directly from
 user-space applications with minimum overhead and high performance.
 
-2.  Supported Features
-======================
+Supported Features
+------------------
 
-2.1	DMA engine initialization
----------------------------------
-int dmax2_init(struct dmax2_params *params, struct dmax2 **dmax2)
+DMA engine initialization
+~~~~~~~~~~~~~~~~~~~~~~~~~
+::
+
+	int dmax2_init(struct dmax2_params *params, struct dmax2 **dmax2)
 
 - Init DMA driver and allocate global resources.
-- Fields in "struct dmax2_params" are:
-  - match 	- DTS string format is "dmax2-e", where:
-			'e' is engine ID.
-			4 crypto engines supported for A7k/A8k, so valid engine IDs are 0..3
-  - queue_size  - DMA queue size in number of descriptors
 
-2.2	DMA engine shutdown
----------------------------
-int dmax2_deinit(struct dmax2 *dmax2)
+- Fields in ``struct dmax2_params`` are:
+
+	- match 	- DTS string format is "dmax2-e", where 'e' is engine ID;
+			  4 crypto engines are supported for A7k/A8k, valid IDs are 0..3.
+
+	- queue_size	- DMA queue size in number of descriptors
+
+DMA engine shutdown
+~~~~~~~~~~~~~~~~~~~~
+::
+
+	int dmax2_deinit(struct dmax2 *dmax2)
 
 - Deinit DMA driver and free global resources.
 	- dmax2 - struct of dma engine to shutdown
 
-2.3	DMA engine memory attribute configuration
--------------------------------------------------
-int dmax2_set_mem_attributes(struct dmax2		*dmax2,
-				enum dmax2_trans_location	 location,
-				enum dmax2_mem_direction	 mem_attr);
+DMA engine memory attribute configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+::
 
-- Configure DMA engine memory attributes for reading/writing data buffers
-	this will configure the ARCACHE/AWCACHE & ARDOMAIN/AWDOMAIN settings.
+	int dmax2_set_mem_attributes(struct dmax2		*dmax2,
+				     enum dmax2_trans_location	 location,
+				     enum dmax2_mem_direction	 mem_attr);
+
+- Configure DMA engine memory attributes for reading/writing data buffers.
+  This will configure the ARCACHE/AWCACHE & ARDOMAIN/AWDOMAIN settings.
+
 	- dmax2:	struct pointer of associated DMA engine
 	- location:	location settings:	Source (Read)
 						Destination (Write)
@@ -47,144 +56,161 @@ int dmax2_set_mem_attributes(struct dmax2		*dmax2,
 				- DMAX2_TRANS_MEM_ATTR_NOT_CACHABLE / DMAX2_TRANS_MEM_ATTR_IO
 				- DMAX2_TRANS_MEM_ATTR_CACHABLE
 
-2.4 DMA get number of descriptors available to dequeue
-------------------------------------------------------
-int dmax2_get_deq_num_available(struct dmax2 *dmax2)
+DMA get number of descriptors available to dequeue
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+::
 
-- returns the number of descriptors available to be dequeued (descriptors that were processed by engine)
+	int dmax2_get_deq_num_available(struct dmax2 *dmax2)
 
-2.5 DMA get number of descriptors available to enqueue
-------------------------------------------------------
-int dmax2_get_enq_num_available(struct dmax2 *dmax2)
+- Returns the number of descriptors available to be dequeued (descriptors that were processed by engine)
 
-- returns queue space for new descriptors: must be checked prior to each Enqueue operation,
+DMA get number of descriptors available to enqueue
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+::
+
+	int dmax2_get_enq_num_available(struct dmax2 *dmax2)
+
+- Returns queue space for new descriptors: must be checked prior to each Enqueue operation,
   to ensure how many more descriptors can be queued.
 - If not enough space in Queue, than wait until some descriptors are available to be dequeued
   by checking dmax2_get_deq_num_available().
 
-2.6	DMA enqueue operation
------------------------------
-int dmax2_enq(struct dmax2 *dmax2, struct dmax2_desc *descs, u16 *num)
+DMA enqueue operation
+~~~~~~~~~~~~~~~~~~~~~~~
+::
+
+	int dmax2_enq(struct dmax2 *dmax2, struct dmax2_desc *descs, u16 *num)
 
 - Valid source and valid destination buffers must be provided by caller.
 - Caller must make sure that requested descriptor number to be enqueued doesn't pass dmax2_get_enq_num_available()
 
-2.7	DMA enqueue operation
------------------------------
-int dmax2_deq(struct dmax2 *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, int verify)
+DMA enqueue operation
+~~~~~~~~~~~~~~~~~~~~~~~
+::
+
+	int dmax2_deq(struct dmax2 *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, int verify)
 
 - Caller must make sure that requested descriptor number to be dequeued doesn't pass dmax2_get_deq_num_available()
   (the lower value between [dmax2_get_enq_num_availabe, num] will be used as dequeue descriptor count)
 - to verify correctness of enqueue/dequeue operation (verify = 1), descriptor ID must be initialized before enqueue,
   and verified after dequeue
 
-3. Source tree
-==============
-Sources:
 
-musdk/
-	- src/include/driver/	- public include files for DMA driver
-		- mv_dmax2.h
+Source Tree
+-----------
 
-	- src/driver/dmax2/	- DMA driver implementation
-		- dmax2.c
-		- dmax2.h
-		- dmax2_mem.c
+Sources::
 
-	- apps/tests/sam_kat_single/	- predefined test suit for DMA copy of random values and predefined targets/parameters
-					- manual test mode for user selected targets/parameters
-		- dmax2_dma_test.c
+	musdk/
+		- src/include/driver/	- public include files for DMA driver
+			- mv_dmax2.h
+
+		- src/driver/dmax2/	- DMA driver implementation
+			- dmax2.c
+			- dmax2.h
+			- dmax2_mem.c
+
+		- apps/tests/dma_mem.c
+			- Predefined test suite for DMA copy of random values and predefined   targets/parameters
+
+		- apps/tests/dmax2_dma_test.c
+			- Manual test mode for user selected targets/parameters
 
 Binaries:
 	- libmusdk.a		- MUSDK APIs implementation library
 	- musdk_dmax2_dma	- simple test application
 
-4.  DMA engine test applications
-================================
+
+DMA engine test applications
+----------------------------
 To run MUSDK DMA test application, MUSDK kernel space modules must be loaded before.
 For more details please refer to musdk_get_started.txt chapter "5. Insert kernel modules".
 
 This application supports 2 test modes:
-1. Predefined test suits with several test cases, each with different targets & parameters
-2. Manual test mode with user selected inputs for test parameters,
-   including CPU cycle measurements and data integrity verifications stage
 
-4.1. Predefined test suit test application "musdk_dmax2_dma"
-------------------------------------------------------------
-to run Predefined test suit (described below)
-=> ./musdk_dmax2_dma
+	(1) Predefined test suits with several test cases, each with different targets & parameters
+
+	(2) Manual test mode with user selected inputs for test parameters, including CPU cycle
+	    measurements and data integrity verifications stage
+
+Test application "musdk_dmax2_dma"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To run Predefined test suit (described below)::
+
+	> ./musdk_dmax2_dma
 
 Predefined test suit will perform multiple copy operations of 100MB (each) with
 the following parameters:
 
--  300  descriptors, 65536   bytes per descriptor, from RAM to DRAM
--  1000 descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
--  100  descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
--  1000 descriptors, 8       bytes per descriptor, from DRAM to DRAM
--  10   descriptors, 524288  bytes per descriptor, from DRAM to DRAM
--  2048 descriptors, 64      bytes per descriptor, from DRAM to DRAM
--  100  descriptors, 1000    bytes per descriptor, from DRAM to DRAM
--  2048 descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
--  2048 descriptors, 100     bytes per descriptor, from DRAM to DRAM
--  4    descriptors, 1048576 bytes per descriptor, from DRAM to DRAM
--  2    descriptors, 1376256 bytes per descriptor, from DRAM to DRAM
--  100  descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
--  100  descriptors, 4       bytes per descriptor, from DRAM to IO (SoC internal registers)
+	-  300  descriptors, 65536   bytes per descriptor, from RAM to DRAM
+	-  1000 descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
+	-  100  descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
+	-  1000 descriptors, 8       bytes per descriptor, from DRAM to DRAM
+	-  10   descriptors, 524288  bytes per descriptor, from DRAM to DRAM
+	-  2048 descriptors, 64      bytes per descriptor, from DRAM to DRAM
+	-  100  descriptors, 1000    bytes per descriptor, from DRAM to DRAM
+	-  2048 descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
+	-  2048 descriptors, 100     bytes per descriptor, from DRAM to DRAM
+	-  4    descriptors, 1048576 bytes per descriptor, from DRAM to DRAM
+	-  2    descriptors, 1376256 bytes per descriptor, from DRAM to DRAM
+	-  100  descriptors, 8       bytes per descriptor, from DRAM to IO (SoC internal registers)
+	-  100  descriptors, 4       bytes per descriptor, from DRAM to IO (SoC internal registers)
 
 Additionally, if huge-pages support is compiled, it will also perform the following:
--  29  descriptors, 2MB per descriptor, from DRAM to DRAM
--  4   descriptors, 1500000 bytes per descriptor, from DRAM to DRAM
 
+	-  29  descriptors, 2MB per descriptor, from DRAM to DRAM
+	-  4   descriptors, 1500000 bytes per descriptor, from DRAM to DRAM
 
-4.2. Manual test mode with user selected inputs for test parameters
--------------------------------------------------------------------
+Manual test mode with user selected inputs for test parameters:
 This mode supports multiple user selected parameters (described below), CPU cycle measurements,
 and data integrity verification stage selection
 
-Application usage:
-./musdk_dmax2_dma <OPTIONS> <TEST_PARAMS>
-	- Run with no PARAMS will run various IO/MEM DMA tests:
+Application usage::
 
-Optional <OPTIONS>:
-	- -i <DMA-engine-#> Interface number: min 0, max 3 (default 0)
+	> ./musdk_dmax2_dma <OPTIONS> <TEST_PARAMS>
 
-	- -t, <total_size>  Total copy size - in MB
-                - default 100MB
-                - set 0 for a single burst
+   Running with no PARAMS will run various IO/MEM DMA tests, as described above.
 
-	- -r, <repeat_count> How many times to repeat test.
+Optional <OPTIONS>::
+	-i <DMA-engine-#> Interface number: min 0, max 3 (default 0)
 
-	- --cycle           Show Cycle measurements (disabled by default)
+	-t, <total_size>  Total copy size - in MB
+                          - default 100MB
+                          - set 0 for a single burst
 
-	- --verify          Data integrity verification - slow down DMA process
-                (disabled by default)
+	-r, <repeat_count> How many times to repeat test.
+
+	--cycle           Show Cycle measurements (disabled by default)
+
+	--verify          Data integrity verification - slow down DMA process
+                          (disabled by default)
 
 
-User defined test <TEST_PARAMS>:
-	- -d, <destination>  Destination: mem / io (default MEM)
+User defined test <TEST_PARAMS>::
+	-d, <destination>  Destination: mem / io (default MEM)
 
-	- -a, <IO address>  IO address register (default IO addr = 0xf2281008)
+	-a, <IO address>  IO address register (default IO addr = 0xf2281008)
 
-	- -c, <desc_count>  Descriptor count (default 2048, max 2048).
+	-c, <desc_count>  Descriptor count (default 2048, max 2048).
 
-	- -s, <desc_size>   Descriptor size - bytes (default 8192b, max 2097152b).
+	-s, <desc_size>   Descriptor size - bytes (default 8192b, max 2097152b).
 
-	- ?, -h, --help     Display help and exit.
+	?, -h, --help     Display help and exit.
 
 Examples:
-	E.g. 1: use various tests with DMA engine #1, 100MB, with cycle & data integrity:
 
-		musdk_dmax2_dma -i 1 -t 100 --cycle --verify
+	(1) Use various tests with DMA engine #1, 100MB, with cycle & data integrity::
 
-
-	E.g. 2: single DMA test to 'mem', 5000MB, 2048 descriptors, desc size = 32768:
-
-		musdk_dmax2_dma -t 5000 -d mem -c 2048 -s 32768
+		> ./musdk_dmax2_dma -i 1 -t 100 --cycle --verify
 
 
-	E.g. 3: single DMA test to IO reg 0xf20064c0, 100MB with 2000 descriptors,
+	(2) Single DMA test to 'mem', 5000MB, 2048 descriptors, desc size = 32768::
 
-	desc size = 4, with data integrity verification
+		> ./musdk_dmax2_dma -t 5000 -d mem -c 2048 -s 32768
 
-		musdk_dmax2_dma -t 100 -c 2000 -s 4 -d io -a 0xf20064c0 --verify
+
+	(3) Single DMA test to IO reg 0xf20064c0, 100MB with 2000 descriptors,
+	    desc size = 4, with data integrity verification::
+
+		> ./musdk_dmax2_dma -t 100 -c 2000 -s 4 -d io -a 0xf20064c0 --verify
 

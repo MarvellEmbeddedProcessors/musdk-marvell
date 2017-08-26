@@ -1,143 +1,150 @@
 Getting Started with MUSDK
 ===========================
 
+Build Linux Kernel
+------------------
 
-1. Build Linux kernel
----------------------
-1.1. Apply all patches from: "<musdk-dir>/patches/linux"
+(1) Apply all patches in: "<musdk-dir>/patches/linux"
 
-Note: "0004-musdk-dts-set-ports-status-non-kernel.patch" is an _example_ how to configure
+  .. note::
+	"0004-musdk-dts-set-ports-status-non-kernel.patch" is an *example* how to configure
 	the PPV2 ports that belong to musdk.
 
-1.2. Build Linux kernel Image:
-		=> make mrproper
-		=> make mvebu_v8_lsp_defconfig
-		=> make
+(2) Build Linux kernel image::
+	> make mrproper
+	> make mvebu_v8_lsp_defconfig
+	> make
 
-1.3 Build Safexcel crypto driver and copy "crypto_safexcel.ko" to file system
-This step is optional and required only when using SAM driver.
+(3) Build Safexcel crypto driver and copy "crypto_safexcel.ko" to file system.
+    This step is optional and required only when using SAM driver::
 
-		=> make modules M=drivers/crypto/inside-secure/
+	> make modules M=drivers/crypto/inside-secure/
 
-2. Build required Kernel modules
---------------------------------
-2.1. Set environment variables:
 
-- Cross compiler for compilation of modules, must be same as compiler that was used for Kernel.
-  For example:
-		=> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
+Build Required Kernel Modules
+-----------------------------
+(1) Set environment variables:
 
-- Kernel directory.
-  For example:
-		=> export KDIR=~/linux-4.4.52-devel/kernel
+	- Cross compiler for compilation of modules, must be same as compiler that was used for Kernel. for example::
 
-2.2. Build the MUSDK UIO kernel module and install it:
+		> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
 
-		=> cd <musdk-dir>/modules/uio
-		=> make
+	- Kernel directory. for example::
 
-2.3. Build the PP2-tmp kernel module and install it:
+		> export KDIR=~/linux-4.4.52-devel/kernel
 
-		=> cd <musdk-dir>/modules/pp2
-		=> make
+(2) Build the MUSDK UIO kernel module and install it::
 
-2.4. Build the SAM UIO kernel module and install it:
-This step is optional and required only when SAM driver is used
+	> cd <musdk-dir>/modules/uio
+	> make
 
-		=> cd <musdk-dir>/modules/sam
-		=> make
+(3) Build the PP2 kernel module and install it::
 
-2.5. Build the DMA UIO kernel module and install it:
-This step is optional and required only when DMA driver is used
+	> cd <musdk-dir>/modules/pp2
+	> make
+
+(4) Build the SAM UIO kernel module and install it.
+    This step is optional and required only when SAM driver is used::
+
+	> cd <musdk-dir>/modules/sam
+	> make
+
+(5) Build the DMA UIO kernel module and install it.
+    This step is optional and required only when DMA driver is used::
 
 		=> cd <musdk-dir>/modules/dmax2
 		=> make
 
-2.6. Build the NETA UIO kernel module and install it:
-This step is optional and required only when NETA driver is used
+(6) Build the NETA UIO kernel module and install it.
+    This step is optional and required only when NETA driver is used::
 
 		=> cd <musdk-dir>/modules/neta
 		=> make
 
-3. Prepare EIP197 Firmware images
----------------------------------
+
+Prepare EIP197 Firmware images
+-------------------------------
 This step is optional and required only when using SAM driver.
 
-3.1 Get EIP197 Firmware from release binaries and copy them to target file system
-    under directory "/lib/firmware/eip197"
+Get EIP197 Firmware from release binaries and copy them to target file system
+under directory "/lib/firmware/eip197".
 
-    Binary files: ipue.bin, ifpp.bin
+Binary files: ipue.bin, ifpp.bin
 
-4. Configure and Build MUSDK
-----------------------------
 
-4.1 Set external variables:
+Configure and Build MUSDK
+-------------------------
+Set external variables:
 
-- Cross compiler for compilation of user space libraries and applications. For example:
+   - Cross compiler for compilation of user space libraries and applications. For example::
 
-		=> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
+	> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
 
-4.2 Build the MUSDK package:
+Build the MUSDK package::
 
-		=> cd <musdk-dir>
-		=> ./bootstrap
+	> cd <musdk-dir>
+	> ./bootstrap
 
-For A7040/8040 use:
+   For A7040/8040 use:
 
-configure option #1 - build PP2 driver and related applications:
-		=> ./configure
+	configure option #1 - build PP2 driver and related applications::
+		> ./configure
 
-configure option #2 - build PP2 with SAM driver and SAM test application:
-		=> ./configure --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+	configure option #2 - build PP2 with SAM driver and SAM test application::
+		> ./configure --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
 
-For A3700 use:
-configure option #3 - build NETA driver and related applications:
-		=> ./configure --enable-neta
+   For A3700 use:
 
-configure option #4 - build NETA driver with SAM driver and SAM test application:
-		=> ./configure --enable-neta --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+	configure option #3 - build NETA driver and related applications::
+		> ./configure --enable-neta
 
-		=> make -j8
-		=> make install
+	configure option #4 - build NETA driver with SAM driver and SAM test application::
+		> ./configure --enable-neta --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
 
-NOTE: Default install directory is: <musdk-dir>/usr/local
-	Install directory can be changed using option --prefix=<install-dir>
+		> make -j8
+		> make install
 
-5. Insert kernel modules
-------------------------
+	..note::
 
-5.1. Copy the kernel modules (musdk_uio.ko, etc.) to the target board file-system.
+		Default install directory is: <musdk-dir>/usr/local.
+		Install directory can be changed using option --prefix=<install-dir>
 
-5.2. Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
+Insert Kernel Modules
+---------------------
+(1) Copy the kernel modules (musdk_uio.ko, etc.) to the target board file-system.
 
-5.3. Insert MUSDK kernel space modules
-		=> insmod musdk_uio.ko     (mandatory)
-For A7040/8040:
-		=> insmod mv_pp_uio.ko     (mandatory)
-		=> insmod mv_dmax2_uio.ko  (optional)
-For A3700:
-                => insmod mv_neta_uio.ko   (mandatory)
+(2) Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
 
-5.4 Insert Marvell PP2 sysfs kernel module (optional - needed only to run "musdk_cls_demo", in case unicast address
-    filtering is required)
-		=> insmod mvpp2x_sysfs.ko
+(3) Insert MUSDK kernel space modules::
+	> insmod musdk_uio.ko     (mandatory)
+
+    For A7040/8040::
+	> insmod mv_pp_uio.ko     (mandatory)
+	> insmod mv_dmax2_uio.ko  (optional)
+
+    For A3700::
+        > insmod mv_neta_uio.ko   (mandatory)
+
+(4) Insert Marvell PP2 sysfs kernel module (optional - needed only for "musdk_cls_demo" with unicast filtering)::
+	> insmod mvpp2x_sysfs.ko
 
 To run MUSDK SAM test applications kernel modules below must be loaded first:
 
-5.5 Load kernel module for SAM UIO support
-		=> insmod mv_sam_uio.ko
+(5) Load kernel module for SAM UIO support::
+	> insmod mv_sam_uio.ko
 
-5.6 Load kernel module for global EIP197 initializations
-		=> insmod crypto_safexcel.ko rings=0,0
+(6) Load kernel module for global EIP197 initializations::
+	> insmod crypto_safexcel.ko rings=0,0
 
-Note: rings=x,y means how many EIP197/EIP97 rings allocated for kernel usage.
-	x - for cp0 engine
-	y - for cp1 engine (if exist)
+    .. note::
+
+	rings=x,y means how many EIP197/EIP97 rings allocated for kernel usage:
+		- x - for cp0 engine
+		- y - for cp1 engine (if exist)
 
 
-6. Run MUSDK application examples
----------------------------------
+Run MUSDK Application Examples
+------------------------------
 Please see instructions in "Running MUSDK Examples" section.
 
 In addition, some module-specific test applications are described in the corresponding user guide section.
-

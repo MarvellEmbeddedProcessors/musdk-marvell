@@ -1,190 +1,142 @@
 Security Acceleration Module (SAM) User Guide
 =============================================
 
-1. Introduction
-===============
-
+Introduction
+------------
 MUSDK SAM driver and SAM test applications are part of the whole MUSDK package.
 
 MUSDK SAM driver provides capability of usage Security Accelerator HW (EIP197)
 directly from user-space applications with minimum overhead and high performance.
 
-2.  Supported Features
-======================
+Features Set
+------------
 
-2.1	SAM initialization
---------------------------
-int sam_init(struct sam_init_params *params);
+SAM initialization
+~~~~~~~~~~~~~~~~~~
+Function name: ``sam_cio_init``
 
-- Init SAM driver and allocate global resources.
-- Fields in "struct sam_init_params" are:
-  - max_num_sessions	- maximum number of supported sessions
+- Returns handle to Crypto IO instance (struct sam_cio)
+- Valid range for the following fields in "struct sam_cio_params" is defined by
+  EIP197 DDK compilation:
 
-2.2	SAM shutdown
---------------------
-int sam_deinit(void);
+  - match		- DTS string format is "cio-0:0", where
+				first number is engine ID and second number is ring ID.
+				Only single engine is supported, so first number must be 0.
+				Second number (ring ID) must be less than SAM_HW_RING_NUM.
+  - size		- ring size in number of descriptors must be less or equal than SAM_HW_RING_SIZE
+  - num_sessions	- number of supported sessions must be less or equal than SAM_HW_SA_NUM
+  - max_buf_size	- maximum buffer size [in bytes] must be less or equal than SAM_SA_DMABUF_SIZE
 
-- Deinit SAM driver and free global resources.
-
-2.3	SAM crypto IO instance initialization
----------------------------------------------
-int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
-
-- Create Crypto IO instance and allocate all required resources
-- Fields in "struct sam_cio_params":
-  - match		- DTS string format is "cio-e:r", where:
-			'e' is engine ID.
-				a8k has 2 crypto engines, so valid engine IDs are 0..1
-				a7k has 1 crypto engine, so valid engine ID is 0 only.
-			'r' is ring ID. Valid ring ID must be less than SAM_HW_RING_NUM.
-  - size		- ring size in number of descriptors
-
-2.4	SAM crypto IO instance shutdown
----------------------------------------
-int sam_cio_deinit(struct sam_cio *cio);
-
-2.5	SAM flush crypto IO instance
-------------------------------------
-int sam_cio_flush(struct sam_cio *cio);
-
-- All pending requests/results will be discarded.
-
-2.6	SAM create session
---------------------------
-int sam_session_create(struct sam_session_params *params, struct sam_sa **sa);
+SAM create session
+~~~~~~~~~~~~~~~~~~
+Function name: ``sam_session_create``
 
 - Only synchronous mode of session create is supported
 - Cipher algorithms: NULL, AES, 3DES
 - Cipher key length: 128, 192, 256 bits
-- Cipher modes: ECB, CBC, CTR, GCM
+- Cipher modes: CBC, ECB
 - Authentication algorithms: NULL, SHA1, MD5, SHA2 (384/256/512)
-- Authentication modes: HASH, HMAC, GMAC
-- Encryption: encryption only, authentication only,
-              encryption and then authentication, authentication and then encryption
-- Decryption: decryption only, authentication only,
-              authentication and then decryption, decryption and then authentication
-- IPSec ESP over IPv4 offload is supported
-- Transport and Tunnel modes are supported
+- Authentication modes: HASH, HMAC
+- Encryption: encryption only, authentication only, encryption and then authentication
+- Decryption: decryption only, authentication only, authentication and then decryption
 
-2.7	SAM delete session
---------------------------
-int sam_session_destroy(struct sam_sa *sa);
+SAM delete session
+~~~~~~~~~~~~~~~~~~
+Function name: ``sam_session_destroy``
 
-2.8	SAM enqueue operation
------------------------------
-int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *num);
-
-- Only asynchronous mode is supported.
-- Multiple buffers mode is not supported. (requests->num_bufs must be 1)
-- Valid source and valid destination buffers must be provided by caller.
-  Source and destination buffers can be the same one.
-- Cipher IV in the buffer is not supported (field "cipher_iv_offset" is ignored)
-- AAD in the buffer is not supported (field "auth_aad_offset" is ignored)
-- "auth_icv_offset" must be equal to ("auth_offset" + "auth_len")
-
-2.9	SAM enqueue IPsec operation
-int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num);
+SAM enqueue operation
+~~~~~~~~~~~~~~~~~~~~~
+Function name: ``sam_cio_enq``
 
 - Only asynchronous mode is supported.
 - Multiple buffers mode is not supported. (requests->num_bufs must be 1)
 - Valid source and valid destination buffers must be provided by caller.
   Source and Destination buffer can be the same one.
+- Cipher IV in the buffer is not supported (field "cipher_iv_offset" is ignored)
+- AAD is not supported, so fields "auth_aad_offset" and "and auth_aad" are ignored
+- "auth_icv_offset" must be equal to ("auth_offset" + "auth_len")
 
-2.10	SAM dequeue operation
------------------------------
-int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num)
+SAM dequeue operation
+~~~~~~~~~~~~~~~~~~~~~
+Function name: ``sam_cio_deq``
 
 - Only polling mode is supported.
 
-2.11	SAM get crypto IO instance statistics
----------------------------------------------
-int sam_cio_get_stats(struct sam_cio *cio, struct sam_cio_stats *stats, int reset);
+SAM shutdown
+~~~~~~~~~~~~
+Function name: ``sam_cio_deinit``
 
-- To enable collect statistics capability of the SAM driver,
-	use "--enable-sam-statistics" flag during ./configure
-
-2.12	SAM get session statistics
-----------------------------------
-int sam_session_get_stats(struct sam_session_stats *stats, int reset);
-
-- To enable collect statistics capability of the SAM driver,
-	use "--enable-sam-statistics" flag during ./configure
-
-2.13	SAM set debug flags
----------------------------
-int sam_set_debug_flags(u32 debug_flags);
-
-- To enable debug information of the SAM driver,
-	use "--enable-sam-debug" flag during ./configure
-
-2.14	SAM get number of available HW crypto engines
------------------------------------------------------
-u8 sam_get_num_inst(void);
-
-2.15	SAM get HW offload capabilities
----------------------------------------
-int sam_get_capability(struct sam_capability *capa)
-
-2.16	SAM enable/disable
---------------------------
+SAM enable/disable
+~~~~~~~~~~~~~~~~~~
 Currently, these functions are not supported.
 
-int sam_cio_enable(struct sam_cio *cio);
-int sam_cio_disable(struct sam_cio *cio);
+Function name: ``sam_cio_enable``, ``sam_cio_disable``
 
-3. Source tree
-==============
-Sources:
+Debug capabilities
+~~~~~~~~~~~~~~~~~~
+To enable debug information during create session use::
 
-musdk/
-	- src/include/driver/	- public include files for SAM driver
-		- mv_sam.h
-		- mv_sam_cio.h
-		- mv_sam_session.h
+	#define SAM_SA_DEBUG
 
-	- src/driver/sam/	- SAM driver implementation
-		- sam.h
-		- sam.c
-		- sam_hw.h
-		- sam_hw.c
-		- sam_debug.c
-		- sam_ipsec.c
-		- crypto/	- SW implementation of crypto algorithms, for HMAC and GCM key generation
-			- mv_md5.[c,h]
-			- mv_sha1.[c,h]
-			- mv_sha2.[c,h]
-			- mv_aes.[c,h]
-		- safexcel/	- Token and SA builder from EIP package
+To enable debug information during enqueue/dequeue operation use::
 
-	- apps/tests/sam_kat_single/
-		- kat_tests_single.c	- Simple AES128-CBC test for predefined values
-		- kat_ipsec_single.c	- Simple IPsec ESP loopback example with predefined values
+	#define SAM_CIO_DEBUG
 
-	- apps/tests/sam_kat_suite/	- SAM KAT test suite using input text files to run multiple tests
-		- kat_tests.c
-		- other *.c and *.h files
-		- *.txt - input data files examples.
+
+Source tree
+-----------
+Sources::
+
+	musdk/
+		- src/include/driver/	- public include files for SAM driver
+			- mv_sam.h
+			- mv_sam_cio.h
+			- mv_sam_session.h
+
+		- src/include/lib/
+			- mv_md5.h
+			- mv_sha1.h
+			- mv_sha2.h
+			- mv_aes.h
+
+		- src/driver/sam/	- SAM driver implementation
+			- sam.h
+			- sam.c
+			- sam_debug.c
+
+		- src/lib/crypto/
+			- mv_md5.c
+			- mv_sha1.c
+			- mv_sha2.c
+			- mv_aes.c
+
+		- apps/tests/sam_kat_single/	- Simple AES128-CBC test for predefined values
+			- kat_tests_single.c
+
+		- apps/tests/sam_kat_suite/	- SAM KAT test suite using input text files to run multiple tests
+			- kat_tests.c
+			- other *.c and *.h files
+			- aes_testc.txt, 3des_tests.txt, hmac_tests.txt - input data files examples.
 
 Binaries:
 	- libmusdk.a		- MUSDK APIs implementation library
-	- musdk_sam_single	- simple basic crypto test application
-	- musdk_sam_ipsec	- simple IPSec ESP test application
+	- musdk_sam_single	- simple test application
 	- musdk_sam_kat		- test suite using input text files for session and operation data
 
 
-4.  SAM test applications
-===============================
-To run MUSDK SAM test applications, crypto_safexcel.ko kernel modules must be loaded before.
-For more details please refer to musdk_get_started.txt chapter "5. Insert kernel modules".
+SAM Test Applications
+---------------------
+To run MUSDK SAM test applications eip197 driver kernel module must be loaded before.
+For more details please refer to "EIP197 Framework Usage" section in "EIP197 Release Notes".
 
-4.1. Test application "musdk_sam_single"
-----------------------------------------
+Test application: "musdk_sam_single"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This application run single AES128-CBC encryption and decryption on predefined inputs
 and check validity of the output.
 For encryption CIO instance cio-0:0 is used.
 For decryption CIO instance cio-0:1 is used.
 
-Predefined test inputs are shown below:
+Predefined test inputs are shown below::
 
 	/*
 	 * Case #1: Encrypting 16 bytes (1 block) using AES-CBC with 128-bit key
@@ -194,85 +146,36 @@ Predefined test inputs are shown below:
 	 * Ciphertext: 0xe353779c1079aeb82708942dbe77181a
 	 */
 
-Application doesn't get extra input parameters.
+Application usage::
 
 	> ./musdk_sam_single
 
-4.2. Test application "musdk_sam_ipsec"
-----------------------------------------
-This application runs configurable number of IPSec ESP encryption and decryption operations
-on predefined inputs and checks validity of the output.
-For encryption CIO instance cio-0:0 is used.
-For decryption CIO instance cio-1:0 is used if possible (A8K).
-
-There are four predefined test cases can be chosen by -t <number> argument:
-	-# ESP IP4 Transport mode - AES128-CBC
-	-# ESP IP4 Transport mode - AES128-CBC + HMAC-SHA1
-	-# ESP IP4 Tunnel mode    - AES128-CBC
-	-# ESP IP4 Tunnel mode    - AES128-CBC + HMAC-SHA1
-
-Predefined test inputs are shown below:
-
-	AES Key       : 0x4142434445464748494a4b4c4d4e4f50
-	HMAC-SHA1 Key : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
-	MAC Header    : 0x0001010155660002020277880800
-	IPv4 header   : 0x4500000000010000401100005000000A3C00000A
-	UDP header    : 0x0063006400000000
-	Plaintext     : "Single block msg"
-	SPI (t=0,2)   : 0xABCD
-	SPI (t=1,3)   : 0x1234
-	SeqId (t=0,2) : 0x4
-	SeqId (t=1,3) : 0x6
-	Tunnel SrcIP  : {192, 168, 2, 3}
-	Tunnel DstIP  : {192, 168, 2, 5}
-
-Application usage:
-
-	> ./musdk_sam_ipsec [OPTIONS]
-
-OPTIONS are optional:
-
-	-t <number>      - Test ID (default: 0)
-	-n <number>      - Number of packets (default: 1)
-	-f <bitmask>     - Debug flags: 0x1 - SA, 0x2 - CIO. (default: 0x3)
-
-4.3. Test application "musdk_sam_kat"
-------------------------------------
+Test application: "musdk_sam_kat"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This test application reads test data from the input file, runs the tests one by one and
 optionally checks the output validity.
 
 See format of the input files in the examples under directory: "apps/tests/sam_kat_suite/"
-- aes_tests.txt  	   - AES-ECB/CBC encryption and decryption tests
-- aes_gcm.txt		   - AES-GCM encryption and decryption tests
-- aes_gmac.txt		   - AES-GMAC authentication tests
-- aes_ctr.txt		   - AES-CTR encryption and decryption tests
-- 3des_tests.txt 	   - 3DES encryption and decryption tests
-- hash_only.txt 	   - MD5/SHA1/SHA2 Hash tests
-- hmac_tests.txt 	   - HMAC MD5/SHA1/SHA2 authentication tests
-- hmac_tests_large.txt 	   - HMAC MD5/SHA1/SHA2 authentication tests
-			   with authentication key larger than block size
-- aes_chain_test.txt	   - AES encryption + SHA1 authentication and
-			   SHA1 auhentication + AES decryption tests
-- aes_sha1_multi.txt	   - AES128-CBC + HMAC-SHA1 64 bytes data - 2,000,000 iterations
-- aes_sha1_1440_multi.txt  - AES128-CBC + HMAC-SHA1 1440 bytes data - 500,000 iterations
+- aes_tests.txt  	- AES encryption and decryption tests
+- 3des_tests.txt 	- 3DES encryption and decryption tests
+- hmac_tests.txt 	- HMAC MDD5/SHA1/SHA2 authentication tests
+- aes_chain_test.txt	- encryption + authentication and auhentication + decryption tests
 
-Application usage:
+Application usage::
 
 	> ./musdk_sam_kat <match> <test_file> [OPTIONS]
 
 where:
+	<match> string format is "cio-0:x"
 
-	<match> string format is cio-e:r
 	[OPTIONS] are optional:
-		-c <number>      - Number of requests to check (default: 10)
-		-p <number>      - Number of requests to print (default: 1)
-		-e <number>      - Maximum burst for enqueue (default: 32)
-		-d <number>      - Maximum burst for dequeue (default: 32)
-		-f <bitmask>     - Debug flags: 0x1 - SA, 0x2 - CIO. (default: 0x0)
-				 Available only if "--enable-debug" flag was used.
-		--same_bufs      - Use the same buffer as src and dst (default: "no")
+
+		-c <number>      Number of requests to check (default: 10)
+		-p <number>      Number of requests to print (default: 1)
+		-e <number>      Maximum burst for enqueue (default: 32)
+		-d <number>      Maximum burst for dequeue (default: 32)
+		--same_bufs      Use the same buffer as src and dst (default: "no")
 
 To run performance tests using "musdk_sam_kat" application:
-- set "Testcounter" field in the <test_file> to large number (e.g. 10000) and
-run "musdk_sam_kat" application with "-c 0" option
-
+	- set "Testcounter" field in the <test_file> to large number (e.g. 10000), and
+	- run "musdk_sam_kat" application with "-c 0" option

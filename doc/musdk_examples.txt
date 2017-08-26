@@ -1,36 +1,41 @@
 Running MUSDK Examples
 ======================
 
-1. PKT-ECHO
-===========
+PKT-ECHO
+--------
 
-1.1 Functional Overview
-------------------------
+Functional Overview
+~~~~~~~~~~~~~~~~~~~
 The pkt-echo application performs all required initializations, using the MUSDK API's.
 
-The application provides several compile-time options, as described below:
+The application provides several compile-time options, as described below::
 
-	- #define PKT_ECHO_SUPPORT	(default=defined)
+	#define PKT_ECHO_SUPPORT	(default=defined)
 		  PKT_ECHO_SUPPORT will scrub the packet_header, by swapping L2 MAC addresses and IPV4 addresses.
 		  Without it, pkt_echo application will not touch the packet at all.
-	- #define USE_APP_PREFETCH	(default=defined)
+
+	#define USE_APP_PREFETCH	(default=defined)
 		  USE_APP_PREFETCH prefetches the pkt_buffer of a packet that is few packets behind
 		  the currently_handled packet in the receive_queue.
 		  This significantly improves performance for usecases where packets are being modified.
-	- #define PREFETCH_SHIFT	(7)
+
+	#define PREFETCH_SHIFT	(7)
 		  PREFETCH_SHIFT defines the number-of-packets-ahead in the receive_queue that is prefetched.
-	- #define HW_BUFF_RECYLC	(default=undefined)
+
+	#define HW_BUFF_RECYLC	(default=undefined)
 		  This mode makes use of Hardware Buffer Recycling:
 		  The buffer of the transmitted packet is returned to the Buffer Manager automatically by Hardware.
 		  Example usecase is when the bpool of received packet and the transmitted packet is the same.
-	- #define SW_BUFF_RECYLCE	(default=undefined)
+
+	#define SW_BUFF_RECYLCE	(default=undefined)
 		  Mechanism demonstrating use of index_based cookies instead virtual_addresses for buffer_pointers.
-	- #define HW_TX_CHKSUM_CALC	(default=undefined)
+
+	#define HW_TX_CHKSUM_CALC	(default=undefined)
 		  This causes packet_send to request Hardware to perform L3/L4 checksum calculation.
 
-1.2 HOW-TO
-----------
-Base Configuration for 8040-DB:
+How To Run
+~~~~~~~~~~
+    Base Configuration for A8040-DB::
 
 		> ifconfig eth0 10.10.10.1 netmask 255.255.255.0 up
 		> ifconfig eth1 11.11.11.1 netmask 255.255.255.0 up
@@ -41,50 +46,50 @@ Base Configuration for 8040-DB:
 		> insmod mv_pp_uio.ko
 		> insmod mvpp2x_sysfs.ko
 
-Command parameters:
+    Command parameters:
 
 	See help in application.
 
-Limitations
+    Limitations
 	- It is assumed the interface is brought up in Linux before being used by musdk_pkt_echo.
 
 
-1.3. Examples for single core, no RSS
--------------------------------------
-a. 10G eth0 queue 0, cpu_core 3
+    1. Examples for single core, no RSS::
+
+	a. 10G eth0 queue 0, cpu_core 3
 
 		> ./musdk_pkt_echo -i eth0 -a 3
 
-b. 10G eth2, queue 0, cpu_core 3
+	b. 10G eth2, queue 0, cpu_core 3
 
 		> ./musdk_pkt_echo -i eth2 -a 3
 
-c. 10G eth0 <-> eth2, queue 0, cpu_core 3
+	c. 10G eth0 <-> eth2, queue 0, cpu_core 3
 
 		> ./musdk_pkt_echo -i eth0,eth2 -a 3
 
-d. 1G eth3, queue 0, cpu_core 3
+	d. 1G eth3, queue 0, cpu_core 3
 
 		> ./musdk_pkt_echo -i eth3 -a 3
 
-1.4. Examples for two cores, with RSS
--------------------------------------
 
-a. 10G eth0, queue 0,1, core 1,2
+    2. Examples for two cores, with RSS::
+
+	a. 10G eth0, queue 0,1, core 1,2
 
 		> ./musdk_pkt_echo -i eth0 -c 2 -m 1:1 -a 1
 
-b. 10G eth2, queue 0,1, core 1,2
+	b. 10G eth2, queue 0,1, core 1,2
 
 		> ./musdk_pkt_echo -i eth2 -c 2 -m 1:1 -a 1
 
-c. 10G eth0 <-> eth2, queue 0,1 core 1,2
+	c. 10G eth0 <-> eth2, queue 0,1 core 1,2
 
 		> ./musdk_pkt_echo -i eth0,eth2 -c 2 -m 1:1 -a 1
 
 
-2. PKT_L3FWD
-=============
+PKT_L3FWD
+---------
 The musdk_pkt_l3fwd is a basic L3 forwarding application supplied with MUSDK framework, and is based on destination
 IP forwarding (LPM). Marvell L3 FWD application is extended to support full Layer3 - 5-tuple forwarding. Original destination
 IP forwarding is supported as well.
@@ -94,22 +99,24 @@ User can choose between the L3 forwarding application types by using the next fl
 
 In order to enable the 5-tuple forwarding the application should be recompiled without the above #define.
 
-2.1. Basic configuration
+Basic Configuration
+~~~~~~~~~~~~~~~~~~~
 
 A default configuration option is supplied by MUSDK framework through command line.
 The L3 Forwarding applet is invoked by calling: musdk_pkt_l3fwd.
 
-Mandatory OPTIONS:
+Mandatory OPTIONS::
 
 		-i, --interface eth interfaces (comma-separated, no spaces)
 
-For LPM forwarding:
+For LPM forwarding::
 		-r, --route SubNet,Intf[,NextHopMAC] NextHopMAC can be optional
 
-For 5-tuple forwarding:
+For 5-tuple forwarding::
 		-r, --route Src_SubNet,Dst_SubNet,Src_Port,Dst_Port,0-UDP/1-TCP,Dst_Intf[,NextHopMAC] NextHopMAC can be optional
 
-Optional OPTIONS:
+Optional OPTIONS::
+
 		-b <size>                Burst size, num_pkts handled in a batch.(default is 1024)
 		--mtu <mtu>              Set MTU (default is 1500)
 		-c, --cores <number>     Number of CPUs to use
@@ -122,14 +129,14 @@ Optional OPTIONS:
 		--mac-dst-file           Use *.xml file
 		?, -h, --help            Display help and exit.
 
-Example for LPM forwarding:
+Example for LPM forwarding::
 
 		> ./musdk_pkt_l3fwd -i eth1,eth3 -r 192.168.1.0/24,eth3 -r 1.1.1.0/24,eth1
 
 The above command will initialize eth1 and eth3 ports. in addition, all traffic with subnet 192.168.1.0/24 will
 forward to eth3, and all traffic with subnet  r 1.1.1.0/24 will forward to eth1, other traffic will be dropped.
 
-Example for 5-tuple forwarding:
+Example for 5-tuple forwarding::
 
 		> musdk_pkt_l3fwd -i eth0,eth2 -r 1.1.1.10/24,192.168.1.10/24,1024,1024,0,eth0
 
@@ -137,16 +144,16 @@ The above command line will initialize eth0 and eth2 ports. in addition,  all tr
 dst ip: 192.168.10, src port: 1024, dst port: 1024 and UDP,  will forward to eth0, other traffic will be dropped.
 
 
-2.2. XML files
-
+XML files
+~~~~~~~~~
 Marvell applet support optional configuration using xml files. When there are valid XML files the applet will take the
 configuration first from command line and the rest configuration from XML file up to 64K entries.
 The XML filename and path may be passed to the applet through command line (see --routing-file and
 --mac-dst-file options above).
 
 The following xml files supported:
-	- Forwarding table for L3 FWD application based on LPM forwarding.
-		> example: l3_routing_lpm.xml
+
+	- Forwarding table for L3 FWD application based on LPM forwarding. Example: l3_routing_lpm.xml::
 
 			<?xml version="1.0"?>
 			<L3Route>
@@ -164,8 +171,7 @@ The following xml files supported:
 			  </RouteEntry>
 			</L3Route>
 
-	- Forwarding table for L3 FWD application based on 5-tuple forwarding.
-		> example: l3_routing_hash.xml
+	- Forwarding table for L3 FWD application based on 5-tuple forwarding. Example: l3_routing_hash.xml::
 
 			<?xml version="1.0"?>
 			<L3Route>
@@ -191,8 +197,7 @@ The following xml files supported:
 			   </RouteEntry>
 			</L3Route>
 
-	- Next hop table containing a list of destination mac address.
-		> example: if_to_mac.xml
+	- Next hop table containing a list of destination mac address. Example: if_to_mac.xml::
 
 			<?xml version="1.0"?>
 			<IF_MAC>
@@ -215,11 +220,11 @@ The following xml files supported:
 			</IF_MAC>
 
 
-3. CLS-DEMO
-===========
+CLS-DEMO
+----------
 
-3.1 Functional Overview
------------------------
+Functional Overview
+~~~~~~~~~~~~~~~~~~~~
 The 'musdk_cls_demo' example application allows configuring several classifier related features as follows:
 		- classification rules
 		- logical port parameters
@@ -232,31 +237,35 @@ The application performs all required initializations, using the MUSDK API's.
 It includes an "echo" mode allowing to loopback traffic sent to the specific port.
 
 
-3.2 How To Run The Example Application
----------------------------------------
-a. Preferrably use a A8040-A1-DB or A7040-A0-DB board.
-b. Compile code as written in the "Getting Started" section.
+How To Run
+~~~~~~~~~~
+(1) Preferrably use a A8040-A1-DB or A7040-A0-DB board.
+
+(2) Compile code as written in the "Getting Started" section:
 	- Skip SAM compilation phase.
 	- Make sure ALL patches are applied.
-c. In Linux, bring up the required interfaces
-d. Bring up the modules. Below output is for a 8040-A1-DB:
 
-				> cd /
-				> insmod musdk_uio.ko
-				Registered cma device: uio-cma
-				> insmod mv_pp_uio.ko
-				Registered 2 uio devices, having 6 register maps attached
-				Registered 2 uio devices, having 6 register maps attached
+(3) In Linux, bring up the required interfaces
 
-	In case MAC filtering is used for configuring unicast address, or RSS is used, the following is also needed
+(4) Bring up the modules. Below output is for a A8040-DB::
 
-				> insmod mvpp2x_sysfs.ko
+		> cd /
+		> insmod musdk_uio.ko
+		Registered cma device: uio-cma
+		> insmod mv_pp_uio.ko
+		Registered 2 uio devices, having 6 register maps attached
+		Registered 2 uio devices, having 6 register maps attached
 
-e. Run the musdk_cls_demo application:
+    In case MAC filtering is used for configuring unicast address, or RSS is used, the following is also needed::
 
-					> ./musdk_cls_demo -i <eth>
+		> insmod mvpp2x_sysfs.ko
 
-   Parameters:
+(5) Run the musdk_cls_demo application::
+
+		> ./musdk_cls_demo -i <eth>
+
+    Parameters::
+
 	- '-i eth0' is the linux interface name.
 	- '--echo' - sets the cls_demo application in echo mode, enabling loopback of received traffic over the
 	  same openned port
@@ -271,29 +280,29 @@ e. Run the musdk_cls_demo application:
 
   Examples:
 
-  1. For MUSDK port
+  (a) For MUSDK port::
 
-					> ./musdk_cls_demo -i <eth> --echo
+		> ./musdk_cls_demo -i <eth> --echo
 
-  2. For logical port
+  (b) For logical port::
 
-					> ./musdk_cls_demo -i ppio-0:0 --echo --logical_port_params
+		> ./musdk_cls_demo -i ppio-0:0 --echo --logical_port_params
 
-	When the --logical_port_params is provided, the application will prompt for the user to enter
-	the relevant logical_port classifier parameters as follows:
+	When the --logical_port_params is provided, the application prompts the user
+	to enter the relevant logical_port classifier parameters as follows::
 
-	please enter logical port params:
-		* --target                (dec)
-		* --num_proto_rule_sets   (dec)
-		* --num_rules             (dec)
-		* --rule_type             (dec)
-		* --proto                 (dec)
-		* --proto_val             (dec)
-		* --special_proto         (dec)
-		* --special_fields        (dec)
-		* --field_val             (dec)
+		please enter logical port params:
+			* --target                (dec)
+			* --num_proto_rule_sets   (dec)
+			* --num_rules             (dec)
+			* --rule_type             (dec)
+			* --proto                 (dec)
+			* --proto_val             (dec)
+			* --special_proto         (dec)
+			* --special_fields        (dec)
+			* --field_val             (dec)
 
-	where:
+	where::
 
 			--target:		Indicate whether the network protocol rules defined will be used for
 						the logical-port (target = 0) or for the NIC (target = 1)
@@ -324,155 +333,143 @@ e. Run the musdk_cls_demo application:
 
 	Example configurations for logical port:
 
-	logical port + tcp filter:
+	logical port + tcp filter::
 
-					> musdk_cls_demo -i eth1 --echo --logical_port_params
-					  --target 0 --num_proto_rule_sets 1 --num_rules 1 --rule_type 0
-					  --proto 9 --proto_val 0
+			> musdk_cls_demo -i eth1 --echo --logical_port_params
+			  --target 0 --num_proto_rule_sets 1 --num_rules 1 --rule_type 0
+			  --proto 9 --proto_val 0
 
-	logical port + tcp&udp filter:
+	logical port + tcp&udp filter::
 
-					> musdk_cls_demo -i eth1 --echo --logical_port_params
-					  --target 0 --num_proto_rule_sets 1 --num_rules 2
-					  --rule_type 0 --proto 9 --proto_val 0
-					  --rule_type 0 --proto 10 --proto_val 0
+			> musdk_cls_demo -i eth1 --echo --logical_port_params
+			  --target 0 --num_proto_rule_sets 1 --num_rules 2
+			  --rule_type 0 --proto 9 --proto_val 0
+			  --rule_type 0 --proto 10 --proto_val 0
 
-  3. For logical port with special tag filtering
+  (c) For logical port with special tag filtering::
 
-					> musdk_cls_demo -i eth1 --echo --logical_port_params --ppio_tag_mode
+			> musdk_cls_demo -i eth1 --echo --logical_port_params --ppio_tag_mode
 
-	please enter tag_mode:
-		* --none 		no tag
-		* --dsa			dsa tag
-		* --extended_dsa	extended dsa tag
+			please enter tag_mode:
+				* --none 		no tag
+				* --dsa			dsa tag
+				* --extended_dsa	extended dsa tag
 
-	Example configuration for logical port with DSA tag mode filtering:
+	Example configuration for logical port with DSA tag mode filtering::
 
-					> musdk_cls_demo -i eth1 --echo --logical_port_params --ppio_tag_mode
-					  --dsa
-					  --target 0 --num_proto_rule_sets 1 --num_rules 4
-					  --rule_type 1 --special_proto 2 --special_fields 0 --field_val 3
+			> musdk_cls_demo -i eth1 --echo --logical_port_params --ppio_tag_mode
+			  --dsa
+			  --target 0 --num_proto_rule_sets 1 --num_rules 4
+			  --rule_type 1 --special_proto 2 --special_fields 0 --field_val 3
 
-f. Once the application is invoked, it will enter cli mode, where different commands may be issued.
-   The following cli commands are supported:
+(6) Once the application is invoked, it will enter cli mode, where different commands may be issued.
 
+   The following CLI commands are supported::
 
+	+-----------------------+---------------------------------------------------------------------------------------+
 	| Command		| Description									       	|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	+=======================+=======================================================================================+
 	| help          	| print command description/usage							|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	+-----------------------+---------------------------------------------------------------------------------------+
 	| ?          	     	| Alias for help									|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_tbl_init		| create a classifier table according to key and default action				|
-	|			|	cls_tbl_init --engine_type --tc --drop(opt) --key				|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_tbl_init		| create a classifier table according to key and default action:                        |
+	|                       |                                                                                       |
+	|			|	``cls_tbl_init --engine_type --tc --drop --key``				|
 	|			|											|
-	|			| 	--engine_type  (string) exact_match, maskable					|
-	|			| 	--tc           (dec) 1..8   - By default only 1is supported, unless kernel is	|
-	|			|                	configured to support more than	one queue (refer to Marvell SDK	|
-	|			|			for ARMADA Embedded SoCs documentation, under PPv2.2 Kernel  	|
-	|			|			Module Parameters chapter					|
-	|			| 	--drop         (no argument) optional						|
-	|			| 	--key          (string) the following keys are functional in this release:	|
-	|			|				ip4_src   - ipv4, souce address				|
-	|			|				ip4_dst   - ipv4, destination address			|
-	|			|				ip4_proto - ipv4, proto					|
-	|			|				l4_src    - layer4, source port				|
-	|			|				l4_dst    - layer4, destination port			|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_tbl_deinit	| remove a specified table								|
-	|			| 	cls_tbl_deinit --table_index (dec) index to existing table			|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_rule_key          | add a classifier rule key to existing table						|
-	|			|       cls_rule_key --add    --table_index --tc --drop(optional) --size --key --mask	|
-	|			|	cls_rule_key --modify --table_index --tc --drop(optional) --size --key --mask	|
-	|			|	cls_rule_key --remove --table_index --size --key --mask				|
+	|			| --engine_type  (string) exact_match, maskable						|
+	|                       |                                                                                       |
+	|			| --tc           (dec) 1..8 - number of traffic classes					|
+	|                       |                                                                                       |
+	|			|	| By default only 1 is supported, unless kernel					|
+	|			|	| is configured to support more than one queue.					|
+	|			|	| Please refer to the section: 							|
+	|			|	| "PPv2.2 Kernel Module Parameters" 						|
+	|                       |                                                                                       |
+	|			| --drop         (no argument) optional							|
+	|                       |                                                                                       |
+	|			| --key          (string) the following are currently supported:      			|
 	|			|											|
-	|			|	--table_index   (dec) index to existing table					|
-	|			|	--tc            (dec) 1..8							|
-	|			|	--drop          (optional)(no argument)						|
-	|			|	--size          (dec) size in bytes of the key					|
-	|			|	--key           (dec or hex) key						|
-	|			|			i.e ipv4: 192.168.10.5						|
-	|			|		   	i.e ipv6: 2605:2700:0:3::4713:93e3				|
-	|			|		   	i.e port: 0x1234						|
-	|			|		   	i.e udp: 17(IPPROTO_UDP)					|
-	|			|		   	i.e tcp: 6(IPPROTO_TCP)						|
-	|			|	--mask          (hex) mask for the key (if maskable is used)			|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_qos_tbl_init	| create a QoS classifier table								|
-	|			|	cls_qos_tbl_init --type --pcp_default --pcp_idx --pcp_val 			|
-	|			|			 --dscp_default --dscp_idx --dscp_val				|
+	|			|	| ip4_src   - ipv4, souce address						|
+	|			|	| ip4_dst   - ipv4, destination address						|
+	|			|	| ip4_proto - ipv4, proto							|
+	|			|	| l4_src    - layer4, source port						|
+	|			|	| l4_dst    - layer4, destination port			        		|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_rule_key_add      | add a classifier rule key to existing table:						|
+	|                       |                                                                                       |
+	|			|	``cls_rule_key_add --table_index --tc --drop --size --key --mask``		|
 	|			|											|
-	|			|	--type  (string) none, vlan, ip, vlan_ip, ip_vlan				|
-	|			|	--pcp_default   TC number - default TC for all table values			|
-	|			|			except for values defined in pcp_idx and pcp_val		|
-	|			|	--pcp_idx	index in pcp_map table						|
-	|			|	--pcp_val	TC value in pcp_map table					|
-	|			|			pcp_idx and pcp_val need to be set together, and more than one	|
-	|			|			idx/val tuple may be defined 					|
-	|			|	--dscp_default  TC number - default TC for all table values			|
-	|			|			except for values defined in pcp_idx and pcp_val		|
-	|			|	--dscp_idx	index in pcp_map table						|
-	|			|	--dscp_val	TC value in pcp_map table					|
-	|			|			pcp_idx and pcp_val need to be set together, and more than one	|
-	|			|			idx/val tuple may be defined 					|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_qos_tbl_deinit	| remove a specified qos table								|
-	|			| 	cls_qos_tbl_deinit --qos_table_index (dec) index to existing table		|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| mac_addr		| set/get/add/remove/flush ppio MAC address						|
-	|			|	mac_addr --set <xx:xx:xx:xx:xx:xx>						|
-	|			|	mac_addr --get									|
-	|			|	mac_addr --add <xx:xx:xx:xx:xx:xx>						|
-	|			|	mac_addr --remove <xx:xx:xx:xx:xx:xx>						|
-	|			|	mac_addr --flush --uc --mc							|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| promisc  	       	| set/get ppio unicast/multicast promiscuous mode					|
-	|			| 	promisc --<uc/mc> --<on/off/get>						|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| vlan          	| set/remove/flush ppio vlan filter							|
-	|			| 	vlan --set <vlan_id>								|
-	|			|	vlan --remove <vlan_id>								|
-	|			|	vlan --flush									|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_print_rxq_counters| print rxq counters									|
-	|			| 	cls_print_rxq_counters --tc							|
-	|			|											|
-	|			|	--tc            (dec) traffic class number					|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	|			| --table_index   (dec) index to existing table						|
+	|                       |                                                                                       |
+	|			| --tc            (dec) 1..8								|
+	|                       |                                                                                       |
+	|			| --drop          (no argument) optional						|
+	|                       |                                                                                       |
+	|			| --size          (dec) size in bytes of the key					|
+	|                       |                                                                                       |
+	|			| --key           (dec or hex) key, for example:					|
+	|                       |                                                                                       |
+	|			| 		   	| ipv4: 192.168.10.5						|
+	|			| 		   	| ipv6: 2605:2700:0:3::4713:93e3				|
+	|			| 		   	| port: 0x1234							|
+	|			| 		   	| udp: 17(IPPROTO_UDP)						|
+	|			| 		   	| tcp: 6(IPPROTO_TCP)						|
+	|                       |                                                                                       |
+	|			| --mask          (hex) mask for the key (if maskable is used)				|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| mac_addr		| set/get/add/remove/flush ppio MAC address:						|
+	|                       |                                                                                       |
+	|			|	``mac_addr --set <xx:xx:xx:xx:xx:xx>``						|
+	|                       |                                                                                       |
+	|			|	``mac_addr --get``								|
+	|                       |                                                                                       |
+	|			|	``mac_addr --add <xx:xx:xx:xx:xx:xx>``						|
+	|                       |                                                                                       |
+	|			|	``mac_addr --remove <xx:xx:xx:xx:xx:xx>``					|
+	|                       |                                                                                       |
+	|			|	``mac_addr --flush --uc --mc``							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| promisc  	       	| set/get ppio unicast/multicast promiscuous mode:					|
+	|                       |                                                                                       |
+	|			| 	``promisc --<uc/mc> --<on/off/get>``						|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| vlan          	| set/remove/flush ppio vlan filter:							|
+	|                       |                                                                                       |
+	|			| 	``vlan --set <vlan_id>``							|
+	|                       |                                                                                       |
+	|			|	``vlan --remove <vlan_id>``							|
+	|                       |                                                                                       |
+	|			|	``vlan --flush``								|
+	+-----------------------+---------------------------------------------------------------------------------------+
 	| cls_table_dump	| display classifier defined tables							|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_rule_key_dump	| display classifier defined rule_keys							|
+	+-----------------------+---------------------------------------------------------------------------------------+
 	| cls_fl_log_rls_dump   | dump all logical flow ID and rule offset						|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	+-----------------------+---------------------------------------------------------------------------------------+
 	| cls_lkp_hits_dump     | dump all hit decode entry and its DB information					|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	+-----------------------+---------------------------------------------------------------------------------------+
 	| cls_fl_hits_dump      | dump all hit flow table entry								|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	+-----------------------+---------------------------------------------------------------------------------------+
 	| cls_fl_rls_dump       | dump all logical flow ID rules							|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_c3_rule_hit_dump  | dump exact_match entries according to type and index					|
-	|			| 	cls_c3_rule_hit_dump --type --var (no arguments)				|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_c3_rule_hit_dump  | dump C3 entries according to type and index:						|
+	|                       |                                                                                       |
+	|			| 	``cls_c3_rule_hit_dump --type --var`` 						|
 	|			|											|
-	|			|	--type  (dec) exact_match dump type, 0: logic idx, 1:hash idx, 2:lookup type	|
-	|			|	--var   (dec) value according to type, type 0/1:idx, type 2: lookup type	|
-	|			|	no arguments -> dumping all flows						|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_c2_rule_hit_dump	| dump maskable entries with the lookup type						|
-	|			| 	cls_c2_rule_hit_dump --type  (no arguments)					|
+	|			| --type  (dec) C3 dump type, 0: logic idx, 1:hash idx, 2:lookup type			|
+	|                       |                                                                                       |
+	|			| --var   (dec) value according to type:						|
 	|			|											|
-	|			|	--type  	(dec) lookup type number 0 - 64					|
-	|			|	no arguments -> dumping all flows						|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_qos_pcp_table_dump| dump pcp qos table									|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	|cls_qos_dscp_table_dump| dump dscp qos table									|
-	|-----------------------|---------------------------------------------------------------------------------------|
-	| cls_mng_table_dump	| dump all tables and defined rules in db						|
-	|-----------------------|---------------------------------------------------------------------------------------|
+	|			|		- type 0/1: idx								|
+	|			|		- type 2: lookup type							|
+	|			| 		- no arguments: dumping all flows					|
+	+-----------------------+---------------------------------------------------------------------------------------+
 
 
-4. CRYPTO-ECHO
-===============
+CRYPTO-ECHO
+------------
 
 The crypto-echo application does the following operations:
 	- receives packets from the network interface
@@ -481,17 +478,17 @@ The crypto-echo application does the following operations:
 	- switches source and destination mac and ip addresses (optional).
 	- sends the packet to the network interface
 
-Application usage:
+Application usage::
 
 	> musdk_crypto_echo OPTIONS
 
-Mandatory OPTIONS:
+Mandatory OPTIONS::
 
         -i, --interface <Eth-interfaces> (comma-separated, no spaces)
                   Interface count min 1, max 2
                   e.g. -i eth1,eth3
 
-Optional OPTIONS:
+Optional OPTIONS::
 
         -b             <size>    Burst size in bytes (default is 64)
         -c, --cores    <number>  Number of CPUs to use.
@@ -511,15 +508,16 @@ Optional OPTIONS:
         --cli                    Use CLI
         ?, -h, --help            Display help and exit.
 
-- Two CIO are created: one for encryption and other for decryption
-If possible CIOs are taken from different engines.
-For example in case of A8040 - encryption is done on cio-0:0, and decryption on cio-1:0
-   in case of A7040 or A3700 - encryption is done on cio-0:0, and decryption on cio-0:1
+Two CIO are created, one for encryption and other for decryption; if possible CIOs are taken from different engines.
+
+For example:
+   - in case of A8040 - encryption is done on cio-0:0, and decryption on cio-1:0
+   - in case of A7040 or A3700 - encryption is done on cio-0:0, and decryption on cio-0:1
 
 - If "--dir enc" - ingress packet will be only encrypted and will be sent out encrypted
 - If "--dir dec" - ingress packet will be only decrypted and will be sent out decrypted
-- If "--dir lb"  - ingress packet will be encrypted and then decrypted, so egress packet must be
-		 the same as ingress.
+- If "--dir lb"  - ingress packet will be encrypted and then decrypted, so egress packet
+		   must be the same as ingress.
 
 - IPv6 mode is not supported, so --ip6 argument should not be set
 

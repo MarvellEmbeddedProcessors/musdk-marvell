@@ -1,29 +1,29 @@
 Packet Processor Classifier (CLS) User Guide
 ============================================
 
-1. Introduction
-===============
+Introduction
+------------
 MUSDK Classifier and applications are part of the MUSDK package.
 
 MUSDK Classifier provides the capability of configuring the Packet Processor HW Classifier Engine
-from user-space applications.
+for user-space applications.
 
-2.  Feature Set
-===============
+Feature Set
+-----------
 
-2.1 Supported API's
--------------------
-	- int pp2_cls_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl **tbl);
-	- void pp2_cls_tbl_deinit(struct pp2_cls_tbl *tbl);
-	- int pp2_cls_qos_tbl_init(struct pp2_cls_qos_tbl_params *params, struct pp2_cls_tbl **tbl);
-	- void pp2_cls_qos_tbl_deinit(struct pp2_cls_tbl *tbl);
-	- int pp2_cls_tbl_add_rule(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action *action);
-	- int pp2_cls_tbl_modify_rule(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule, struct pp2_cls_tbl_action	*action);
-	- int pp2_cls_tbl_remove_rule(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule);
+Supported API's
+~~~~~~~~~~~~~~~
+	- pp2_cls_tbl_init
+	- pp2_cls_tbl_deinit
+	- pp2_cls_qos_tbl_init
+	- pp2_cls_tbl_add_rule
 
-2.3 General Limitations
------------------------
-	- Only one classifier table is supported
+	- pp2_cls_tbl_modify_rule
+	- pp2_cls_tbl_remove_rule
+
+General Limitations
+~~~~~~~~~~~~~~~~~~~
+	- This release supports only 5-tuple classification
 	- Default queue can not be set from MUSDK API. The default queue is taken from Kernel configuration. For
 	  configuring the default queue, please refer to PPv2.2 Kernel Module Parameters chapter.
 	- By default, MUSDK supports only one Traffic Class (TC). For configuring multiple TC's, the kernel driver
@@ -34,45 +34,60 @@ from user-space applications.
 	- Maskable engine was added to the version, although not all capabilities were tested (see 4.3 Classifier
 	  pre-defined capabilities below). Some of the capabilities may not work properly.
 
-2.4 Known issues
-----------------
+Known Issues
+~~~~~~~~~~~~
 	- It is possible to add new flows even if the same flow was just added
 	- After MUSDK is initialized, it is not possible to add more flows through Kernel (i.e. through sysfs)
 	- The musdk_cls_demo application supports configuration of only a single port at a time
 
-3.  Feature Description
-=======================
+
+Functional Overview
+~~~~~~~~~~~~~~~~~~~
+	- The 'musdk_cls_dbg' example application allows for configuring 5 tuples table in PPv2 classifier, as well as
+	  to configure MAC address filtering and VLAN filtering.
+	- Performs all required initializations, using the MUSDK API's.
+	- Includes an "echo" mode allowing to loopback traffic sent to the specific port openned. This allows for
+	  testing the configured feature.
+	- The following ports are supported:
+		- ppio-0:0 - CP0-port0 (10G), in A7040/A8040.
+		- ppio-0:1 - CP0-port1 (1G), in A7040.
+		- ppio-0:2 - CP0-port1 (1G), in A8040.
+		- ppio-0:2 - CP0-port2 (1G), in A7040.
+
+
+Feature Description
+-------------------
 The Armada A70x0/A80x0 contains a Parser unit and a Classifier unit.
 
-3.1 Parser unit
----------------
+Parser Unit
+~~~~~~~~~~~
 The Parser unit performs configurable pipelined parsing for interleaved arriving packets. The Parser unit identifies
 the packet header and forwards the results to the classifier controller.
-The parser main role is parsing, Identification of the networking protocol stack as passing indications to the Classifier block.
-Processing of packets of all networking ports are done with a single TCAM with flexible configuration and partitioning,
+
+The parser's main role is parsing, identification of the networking protocol stack and passing indications to the Classifier block.
+Packet processing for all networking ports is done with a single TCAM with flexible configuration and partitioning,
 through several lookup iterations.
+
 Following is a list of default parsing fields:
-	- Single and double VLAN tagged packets (ether type  0x8100 and 0x88a8)
-	- Ether type parse: Ether type parser includes:
+	- Single and double VLAN tagged packets (ether type 0x8100 and 0x88a8)
+	- Ether type parse - includes:
 		- ARP (0x0806)
 		- IPV4 (0x0800, non-opt and opt, no PPPoE and over PPPoE)
 		- IPV6 (0x86dd, no PPPoE and over PPPoE)
 		- unknown ether type
-	- L4 info parse: L4 info parse includes:
+	- L4 info parse - includes:
 		- Both TCP and UDP including IPV4 non-frag and frag
 		- unknown L4 info
 	- PPPoE parse: (ether type 0x8864)
 	- IGMP parsing
-	- Broadcast, unicast(MTM and non-MTM), multicast parse
+	- Broadcast, unicast (MTM and non-MTM), multicast parse
 
-3.2 Classifier unit
--------------------
+Classifier Unit
+~~~~~~~~~~~~~~~
 The Classifier unit performs packets classification. Packets classification is done based on the parsing results
 received from the Parser and on lookups performed by the various classification engines.
-The Classifier generates the various actions required for the packet, such as:
-	- Drop
-	- Set target queue
 
+The Classifier determines the various actions required for the packet: **Drop** or **Set target queue**.
 These actions are transferred to the RX FIFO.
 
 The following steps are taken in each packet classification:
@@ -84,66 +99,66 @@ The following steps are taken in each packet classification:
 The classification engines consist of the following:
 	- Maskable: the Maskable Engine provides TCAM based lookup for a key and generates the required
 	  actions based on the lookup results
-	- Exact Match: the Exact Match engine performs lookup of a key in an internal preconfigured database
-	 (Exact Match Search Engine)
-	- RSS: The RSS engine’s task is to enable statistical load balancing between the cores of a multi-core CPU
+	- Exact Match: the Exact Match engine performs lookup of a key in an internal
+	  preconfigured database (Exact Match Search Engine)
+	- RSS: The RSS engine’s task is to enable statistical load balancing between multiple cores
 
 - The task of the classification engines is to perform the lookups and generate the resulting actions to the actions resolver
 - The action resolver resolves the received actions and generates the Classification results
 
-3.3 Classifier pre-defined capabilities
----------------------------------------
+Classifier Pre-defined Capabilities
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 In current release, the following capabilities are supported by MUSDK classifier.
 
-	| 			Capability				|
-	|-------------------------------|-------------------------------|
-	| Classifier			| Engine support		|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
+	| Classifier capability		| Engine support		|
+	+===============================+===============================+
 	| SIP+DIP+SPORT+DPORT+PROT	| Exact match			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| SPORT+DPORT+PROT		| Maskable 			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DPORT+PROT			| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| SPORT+PROT			| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DSCP				| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DMAC + VID			| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DMAC				| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DIP + VID			| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DIP				| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| SMAC + VID			| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| SMAC				| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| SIP + VID			| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| SIP				| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DSCP + VID			| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| SIP				| Maskable			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DIP + SIP + VID		| Exact match			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DIP + SIP + VID		| Exact match			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 	| DMAC + SIP + VID		| Exact match			|
-	|-------------------------------|-------------------------------|
+	+-------------------------------+-------------------------------+
 
-Notes:
-	1. all entries which are defined as Maskable engine support may also be configured as exact match engine
-	2. only one table may be defined
+.. note::
+	1. All entries which are defined as Maskable may also be configured as exact match engine
+	2. Only one table may be defined
 	3. Not all combinations were tested
 
-3.4 QoS
+QoS
 ---------
 Quality of Service is supported in classifier. The QoS maps traffic types to queues.
+
 The following traffic types are supported:
 	- VLAN priority:	QoS according to VLAN-priority (outer tag) if exists; otherwise, use default
 	- IP-ToS priority:	QoS according to IP-priority (i.e. DSCP) if exists; otherwise, use default
