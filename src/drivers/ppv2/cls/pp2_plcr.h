@@ -145,8 +145,8 @@ struct pp2_cls_plcr_token_type_t {
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
 int pp2_cls_plcr_entry_add(struct pp2_inst *inst,
-		    struct pp2_cls_plcr_params *policer_entry,
-		    u8 policer_id);
+			   const struct pp2_cls_plcr_params *policer_entry,
+			   u8 policer_id);
 int pp2_cls_plcr_entry_del(struct pp2_inst *inst, u8 policer_id);
 int pp2_cls_plcr_ref_cnt_update(struct pp2_inst *inst,
 				u8 policer_id,

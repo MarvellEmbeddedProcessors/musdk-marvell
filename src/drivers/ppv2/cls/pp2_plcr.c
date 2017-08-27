@@ -101,7 +101,7 @@ static int pp2_cls_plcr_calc_token_type(const struct pp2_cls_plcr_params *police
 	else
 		token_arr = g_pp2_byte_token_type;
 
-	cir = policer_entry->cir;
+	cir = roundup(policer_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
 	if (cir == MVPP2_PLCR_CIR_NO_LIMIT) {
 		*token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
 		*token_value = MVPP2_PLCR_MAX_TOKEN_VALUE;
@@ -146,7 +146,7 @@ static int pp2_cls_plcr_calc_token_type(const struct pp2_cls_plcr_params *police
 *******************************************************************************/
 static int pp2_cls_plcr_hw_entry_add(struct pp2_inst				*inst,
 				     u8						policer_id,
-				     struct pp2_cls_plcr_params			*policer_entry,
+				     const struct pp2_cls_plcr_params		*policer_entry,
 				     enum pp2_cls_plcr_token_update_type_t	token_type,
 				     u64					token_value)
 {
@@ -262,7 +262,7 @@ static int pp2_cls_plcr_hw_entry_del(struct pp2_inst *inst, u8 policer_id)
 *	On success, the function returns 0. On error different types are returned
 *	according to the case - see pp2_error_code_t.
 *******************************************************************************/
-static int pp2_cls_plcr_entry_convert(struct pp2_cls_plcr_params		*input_entry,
+static int pp2_cls_plcr_entry_convert(const struct pp2_cls_plcr_params		*input_entry,
 				      struct pp2_cls_plcr_params		*output_entry,
 				      enum pp2_cls_plcr_token_update_type_t	token_type)
 {
@@ -287,6 +287,7 @@ static int pp2_cls_plcr_entry_convert(struct pp2_cls_plcr_params		*input_entry,
 	/* convert the CIR if it is not multiple time of the resolution */
 	token_entry = &token_arr[token_type];
 
+	output_entry->cir = roundup(input_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
 	if (output_entry->cir == MVPP2_PLCR_CIR_NO_LIMIT)
 		output_entry->cir = token_entry->max_rate;
 	if (output_entry->cir % token_entry->rate_resl) {
@@ -337,12 +338,13 @@ static int pp2_cls_plcr_entry_convert(struct pp2_cls_plcr_params		*input_entry,
 *	On success, the function returns 0. On error different types are returned
 *	according to the case - see pp2_error_code_t.
 *******************************************************************************/
-static int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry,
+static int pp2_cls_plcr_entry_check(const struct pp2_cls_plcr_params *policer_entry,
 				    enum pp2_cls_plcr_token_update_type_t *token_type,
 				    u64 *token_value)
 {
 	struct pp2_cls_plcr_token_type_t *token_arr;
 	struct pp2_cls_plcr_token_type_t *token_entry;
+	u32 cir;
 
 	if (mv_pp2x_ptr_validate(policer_entry))
 		return -EFAULT;
@@ -385,12 +387,12 @@ static int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry,
 			return -EINVAL;
 		}
 	} else {
-		policer_entry->cir = roundup(policer_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
-		if ((policer_entry->cir != MVPP2_PLCR_CIR_NO_LIMIT) &&
-		    ((policer_entry->cir < g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
-		     (policer_entry->cir > g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate))) {
+		cir = roundup(policer_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
+		if ((cir != MVPP2_PLCR_CIR_NO_LIMIT) &&
+		    ((cir < g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
+		     (cir > g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate))) {
 			pr_err("invalid CIR value %d, out of range[%d, %d]\n",
-				policer_entry->cir * 8,
+				cir * 8,
 				g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate * 8,
 				g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate * 8);
 			return -EINVAL;
@@ -445,8 +447,8 @@ static int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry,
 *	according to the case - see pp2_error_code_t.
 *******************************************************************************/
 int pp2_cls_plcr_entry_add(struct pp2_inst			*inst,
-			struct pp2_cls_plcr_params	*policer_entry,
-			u8				policer_id)
+			   const struct pp2_cls_plcr_params	*policer_entry,
+			   u8					policer_id)
 {
 	struct pp2_cls_db_plcr_entry_t l_plcr_entry;
 	enum pp2_cls_plcr_token_update_type_t token_type;
