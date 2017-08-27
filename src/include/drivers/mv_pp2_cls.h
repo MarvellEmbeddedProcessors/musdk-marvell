@@ -108,8 +108,8 @@ struct pp2_cls_plcr_params {
 
 	enum pp2_cls_plcr_token_unit token_unit;	/* token in unit of bytes or packets	*/
 	enum pp2_cls_plcr_color_mode color_mode;	/* color mode, blind or aware of former color	*/
-	u32	cir;		/** commit information rate in unit of Kbps or pps.
-				 *  minimum value - 104Kbps or 100pps. value of '0' means maximum value.
+	u32	cir;		/** commit information rate in unit of Kbps (data rate) or pps.
+				 *  minimum value - 104Kbps or 125pps. value of '0' means maximum value.
 				 *  In Byte mode, the final value is a multiple of 8.
 				 */
 	u32	cbs;		/** commit burst size in unit of KB or number of packets;

@@ -62,6 +62,7 @@ struct pp2_cls_plcr {
 #define MVPP2_PLCR_MIN_PKT_LEN		(0)	/* default min packet length	*/
 #define MVPP2_PLCR_CIR_NO_LIMIT		(0)	/* do not limit CIR		*/
 #define MVPP2_PLCR_BURST_SIZE_NO_LIMIT	(0)	/* maximum burst size		*/
+#define MVPP2_PLCR_MAX_TOKEN_VALUE	((1 << MVPP2_PLCR_TOKEN_VALUE_BITS) - 1)/* maximum token value	*/
 
 #define MVPP2_POLICER_2_BANK(policer)	(policer / (ACT_DUP_POLICER_MAX + 1))
 
@@ -143,7 +144,6 @@ struct pp2_cls_plcr_token_type_t {
 /******************************************************************************/
 /*                                PROTOTYPE                                   */
 /******************************************************************************/
-int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry);
 int pp2_cls_plcr_entry_add(struct pp2_inst *inst,
 		    struct pp2_cls_plcr_params *policer_entry,
 		    u8 policer_id);

@@ -71,6 +71,63 @@ struct pp2_cls_plcr_token_type_t g_pp2_byte_token_type[] = {
  * Function Definition
  ******************************************************************************/
 
+static int pp2_cls_plcr_calc_token_type(const struct pp2_cls_plcr_params *policer_entry,
+					enum pp2_cls_plcr_token_update_type_t *token_type,
+					u64 *token_value)
+{
+	struct pp2_cls_plcr_token_type_t *token_arr;
+	struct pp2_cls_plcr_token_type_t *token_entry;
+	u64 cir, token_update_period[] = {10000, 1000, 100, 10, 1};
+
+	/*
+	 *	The formula to calculate obtained bandwidth is as follows:
+	 *	Parameters:
+	 *	BaseClockFrequency = 333MHz. ==> 'BaseClockCycles' ~= 3ns
+	 *	'TokenUpdateBasePeriod' = 800*BaseClockCycles (register 0x1304, is 800 for this 'BaseClockFrequency')
+	 *	'TokenUpdatePeriod'   = UpdateFactor*'TokenUpdateBasePeriod'
+	 *	'TokenUpdateAddition' = 3*'TokenUpdateValue' tokens.
+	 *	'UpdateFactor': defined by 'TokenUpdateType' (register 0x131c, bits 12-14)
+	 *	CIR = (TokenUpdateAddition) / (TokenUpdatePeriod)
+	 *		= 3*TokenUpdateValue / (UpdateFactor*TokenUpdateBasePeriod)
+	 *		= 3*TokenUpdateValue / (UpdateFactor*800*3*E-09)
+	 *		=   TokenUpdateValue / (UpdateFactor*800*E-09)
+	 *	TokenUpdateValue = CIR * (UpdateFactor*800*E-09)
+	 *			 = CIRKbps * (UpdateFactor*800*E-06)
+	 *	UpdateFactor Example: For TokenUpdateType=2, UpdateFactor=100
+	 */
+
+	if (policer_entry->token_unit == PP2_CLS_PLCR_PACKETS_TOKEN_UNIT)
+		token_arr = g_pp2_pkt_token_type;
+	else
+		token_arr = g_pp2_byte_token_type;
+
+	cir = policer_entry->cir;
+	if (cir == MVPP2_PLCR_CIR_NO_LIMIT) {
+		*token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
+		*token_value = MVPP2_PLCR_MAX_TOKEN_VALUE;
+		return 0;
+	}
+
+	*token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B;
+	do {
+		token_entry = &token_arr[*token_type];
+		if (cir % token_entry->rate_resl)
+			cir = roundup(cir, token_entry->rate_resl);
+		*token_value = cir * MVPP2_TOKEN_PERIOD_800_CORE_CLOCK * token_update_period[*token_type];
+		*token_value /= 1000000;
+		if (policer_entry->token_unit == PP2_CLS_PLCR_PACKETS_TOKEN_UNIT)
+			*token_value /= 1000;
+	} while ((*token_value > MVPP2_PLCR_MAX_TOKEN_VALUE) &&
+		 (++(*token_type) <= MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB));
+
+	if (*token_type > MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB) {
+		pr_err("invalid state\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /*******************************************************************************
 * pp2_cls_plcr_hw_entry_add()
 *
@@ -87,16 +144,15 @@ struct pp2_cls_plcr_token_type_t g_pp2_byte_token_type[] = {
 *	On success, the function returns 0. On error different types are returned
 *	according to the case - see pp2_error_code_t.
 *******************************************************************************/
-static int pp2_cls_plcr_hw_entry_add(struct pp2_inst		*inst,
-				  u8				policer_id,
-				  struct pp2_cls_plcr_params	*policer_entry)
+static int pp2_cls_plcr_hw_entry_add(struct pp2_inst				*inst,
+				     u8						policer_id,
+				     struct pp2_cls_plcr_params			*policer_entry,
+				     enum pp2_cls_plcr_token_update_type_t	token_type,
+				     u64					token_value)
 {
-	enum pp2_cls_plcr_token_update_type_t token_type;
 	struct pp2_cls_plcr_token_type_t *token_arr;
 	struct pp2_cls_plcr_token_type_t *token_entry;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
-	u32 token_update_period[] = {10000, 1000, 100, 10, 1};
-	u64 token_value;
 	int rc = 0;
 
 	if (mv_pp2x_ptr_validate(policer_entry))
@@ -113,34 +169,7 @@ static int pp2_cls_plcr_hw_entry_add(struct pp2_inst		*inst,
 	else
 		token_arr = g_pp2_byte_token_type;
 
-	if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B;
-	else if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B;
-	else if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B;
-	else if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B;
-	else
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
 	token_entry = &token_arr[token_type];
-	/*
-	 *	The formulae to calculate obtained bandwidth is as follows:
-	 *	CIR = (3*TokenUpdateValue) / (800*UpdatePeriod*3E-09) =
-	 *		TokenUpdateValue / (800*UpdatePeriod*E-09)
-	 *	TokenUpdateValue = CIR * (800*UpdatePeriod*E-09) =
-	 *		CIRKbps * (800*UpdatePeriod*E-06) =
-	 *		(CIRKbps * 800 * UpdatePeriod) * E-6
-	 *
-	 *	800:Token Update Base period (register 0x1304, must be 800 for this clock)
-	 *	UpdatePeriod: defined by TokenUpdateType (register 0x131c, bits 12-14). For example,
-	 *	for type 0x2 the tokens are updated every 100* TokenUpdateBasePeriod clock cycles.
-	 *	In every update 3* TokenUpdateValue tokens are added.
-	 *	3E-09: 3ns, base clock period (calculated as "=(1/(333.333*POWER(10,6)))" in Excel.
-	 */
-
-	token_value = policer_entry->cir * MVPP2_TOKEN_PERIOD_800_CORE_CLOCK * token_update_period[token_type];
-	token_value /= 1000000;
 
 	/* set token unit and type */
 	rc = mv_pp2x_plcr_hw_token_config(cpu_slot, policer_id, policer_entry->token_unit, token_type);
@@ -233,10 +262,10 @@ static int pp2_cls_plcr_hw_entry_del(struct pp2_inst *inst, u8 policer_id)
 *	On success, the function returns 0. On error different types are returned
 *	according to the case - see pp2_error_code_t.
 *******************************************************************************/
-static int pp2_cls_plcr_entry_convert(struct pp2_cls_plcr_params	*input_entry,
-				  struct pp2_cls_plcr_params	*output_entry)
+static int pp2_cls_plcr_entry_convert(struct pp2_cls_plcr_params		*input_entry,
+				      struct pp2_cls_plcr_params		*output_entry,
+				      enum pp2_cls_plcr_token_update_type_t	token_type)
 {
-	enum pp2_cls_plcr_token_update_type_t token_type;
 	struct pp2_cls_plcr_token_type_t *token_arr;
 	struct pp2_cls_plcr_token_type_t *token_entry;
 	int rc = 0;
@@ -256,23 +285,10 @@ static int pp2_cls_plcr_entry_convert(struct pp2_cls_plcr_params	*input_entry,
 		token_arr = g_pp2_byte_token_type;
 
 	/* convert the CIR if it is not multiple time of the resolution */
-	if (output_entry->cir == MVPP2_PLCR_CIR_NO_LIMIT) {
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
-		output_entry->cir = token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate;
-	} else if (output_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B;
-	else if (output_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B;
-	else if (output_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B;
-	else if (output_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B;
-	else if (output_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
-	else
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
 	token_entry = &token_arr[token_type];
 
+	if (output_entry->cir == MVPP2_PLCR_CIR_NO_LIMIT)
+		output_entry->cir = token_entry->max_rate;
 	if (output_entry->cir % token_entry->rate_resl) {
 		pr_warn("CIR(%d) is not multiple times of resolution(%d), will be adjusted to (%d)\n",
 			    output_entry->cir,
@@ -321,9 +337,10 @@ static int pp2_cls_plcr_entry_convert(struct pp2_cls_plcr_params	*input_entry,
 *	On success, the function returns 0. On error different types are returned
 *	according to the case - see pp2_error_code_t.
 *******************************************************************************/
-int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry)
+static int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry,
+				    enum pp2_cls_plcr_token_update_type_t *token_type,
+				    u64 *token_value)
 {
-	enum pp2_cls_plcr_token_update_type_t token_type;
 	struct pp2_cls_plcr_token_type_t *token_arr;
 	struct pp2_cls_plcr_token_type_t *token_entry;
 
@@ -344,8 +361,9 @@ int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry)
 
 	/* check CIR, CBS/EBS range */
 	if (policer_entry->token_unit == PP2_CLS_PLCR_PACKETS_TOKEN_UNIT) {
-		if ((policer_entry->cir < g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
-		    (policer_entry->cir > g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate)) {
+		if ((policer_entry->cir != MVPP2_PLCR_CIR_NO_LIMIT) &&
+		    ((policer_entry->cir < g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
+		     (policer_entry->cir > g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate))) {
 			pr_err("invalid CIR value %d, out of range[%d, %d]\n",
 				policer_entry->cir,
 				g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate,
@@ -368,8 +386,9 @@ int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry)
 		}
 	} else {
 		policer_entry->cir = roundup(policer_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
-		if ((policer_entry->cir < g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
-		    (policer_entry->cir > g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate)) {
+		if ((policer_entry->cir != MVPP2_PLCR_CIR_NO_LIMIT) &&
+		    ((policer_entry->cir < g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
+		     (policer_entry->cir > g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate))) {
 			pr_err("invalid CIR value %d, out of range[%d, %d]\n",
 				policer_entry->cir * 8,
 				g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate * 8,
@@ -392,25 +411,13 @@ int pp2_cls_plcr_entry_check(struct pp2_cls_plcr_params *policer_entry)
 		}
 	}
 
+	pp2_cls_plcr_calc_token_type(policer_entry, token_type, token_value);
 	/* Check that CBS and EBS values compatible with CIR */
 	if (policer_entry->token_unit == PP2_CLS_PLCR_PACKETS_TOKEN_UNIT)
 		token_arr = g_pp2_pkt_token_type;
 	else
 		token_arr = g_pp2_byte_token_type;
-
-	if (policer_entry->cir == MVPP2_PLCR_CIR_NO_LIMIT)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
-	else if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B;
-	else if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B;
-	else if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B;
-	else if (policer_entry->cir <= token_arr[MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B].max_rate)
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B;
-	else
-		token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
-	token_entry = &token_arr[token_type];
+	token_entry = &token_arr[*token_type];
 
 	if ((policer_entry->cbs > token_entry->max_burst_size) ||
 	    (policer_entry->ebs > token_entry->max_burst_size)) {
@@ -442,13 +449,15 @@ int pp2_cls_plcr_entry_add(struct pp2_inst			*inst,
 			u8				policer_id)
 {
 	struct pp2_cls_db_plcr_entry_t l_plcr_entry;
+	enum pp2_cls_plcr_token_update_type_t token_type;
+	u64 token_value;
 	int rc = 0;
 
 	if (mv_pp2x_ptr_validate(policer_entry))
 		return -EFAULT;
 
 	/* validate the input policer entry */
-	rc = pp2_cls_plcr_entry_check(policer_entry);
+	rc = pp2_cls_plcr_entry_check(policer_entry, &token_type, &token_value);
 	if (rc) {
 		pr_err("failed to check policer entry\n");
 		return rc;
@@ -456,14 +465,14 @@ int pp2_cls_plcr_entry_add(struct pp2_inst			*inst,
 
 	/* Convert CIR and other parameters */
 	MVPP2_MEMSET_ZERO(l_plcr_entry);
-	rc = pp2_cls_plcr_entry_convert(policer_entry, &l_plcr_entry.plcr_entry);
+	rc = pp2_cls_plcr_entry_convert(policer_entry, &l_plcr_entry.plcr_entry, token_type);
 	if (rc) {
 		pr_err("failed to convert policer entry\n");
 		return rc;
 	}
 
 	/* Add policer entry to HW */
-	rc = pp2_cls_plcr_hw_entry_add(inst, policer_id, &l_plcr_entry.plcr_entry);
+	rc = pp2_cls_plcr_hw_entry_add(inst, policer_id, &l_plcr_entry.plcr_entry, token_type, token_value);
 	if (rc) {
 		pr_err("failed to add policer entry to HW\n");
 		return rc;
