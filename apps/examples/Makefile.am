@@ -61,6 +61,14 @@ musdk_pkt_gen_SOURCES += ../common/lib/xxhash.c
 musdk_pkt_gen_SOURCES += ../common/lib//ezxml.c
 musdk_pkt_gen_SOURCES += ppv2/pkt_gen/pkt_gen.c
 
+bin_PROGRAMS += musdk_pp2_dma_echo
+musdk_pp2_dma_echo_SOURCES  = ../common/lib/cli.c
+musdk_pp2_dma_echo_SOURCES += ../common/lib/mv_stack.c
+musdk_pp2_dma_echo_SOURCES += ../common/mvapp.c
+musdk_pp2_dma_echo_SOURCES += ../common/utils.c
+musdk_pp2_dma_echo_SOURCES += ../common/pp2_utils.c
+musdk_pp2_dma_echo_SOURCES += ppv2/dma_echo/dma_echo.c
+
 if SAM_BUILD
 bin_PROGRAMS += musdk_pp2_crypto_echo
 musdk_pp2_crypto_echo_SOURCES  = ../common/lib/cli.c
