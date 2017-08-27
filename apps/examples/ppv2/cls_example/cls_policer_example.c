@@ -30,23 +30,33 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __CLS_MAIN_EXAMPLE_H__
-#define __CLS_MAIN_EXAMPLE_H__
+#include <string.h>
+#include <stdio.h>
+#include "cls_main_example.h"
 
-#include "drivers/mv_pp2_cls.h"
-#include "pp2_utils.h"
-#include "lib/list.h"
+/*
+ * pp2_cls_policer_params_example()
+ * example for policer setting.
+ * 1. create policer . one for each pp2 instance
+ * 2. attach the instance's policer to the port
+ */
+int pp2_cls_policer_params_example(struct port_desc *port)
+{
+	struct pp2_cls_plcr_params policer_params = {0};
+	static struct pp2_cls_plcr *policers[] = { NULL, NULL};
 
-int pp2_cls_logical_port_params_example(struct pp2_ppio_params *port_params,
-					enum pp2_ppio_type *port_type);
+	if (policers[0] == NULL && policers[1] == NULL) {
+		policer_params.token_unit = PP2_CLS_PLCR_BYTES_TOKEN_UNIT;
+		policer_params.cir = 200;
+		policer_params.cbs = 0;
+		policer_params.ebs = 0;
+		policer_params.match = "policer-0:0";
+		pp2_cls_plcr_init(&policer_params, &policers[0]);
+		policer_params.match = "policer-1:0";
+		pp2_cls_plcr_init(&policer_params, &policers[1]);
+	}
 
-int pp2_cls_add_5_tuple_table(struct port_desc *ports_desc);
-int pp2_cls_example_rule_key(struct port_desc *ports_desc);
+	port->port_params.inqs_params.plcr = policers[port->pp_id];
 
-int pp2_cls_qos_table_add_example(struct pp2_ppio *ppio);
-
-int register_cli_filter_cmds(struct pp2_ppio *ppio);
-
-int pp2_cls_policer_params_example(struct port_desc *port);
-
-#endif /*__CLS_MAIN_EXAMPLE_H__*/
+	return 0;
+}

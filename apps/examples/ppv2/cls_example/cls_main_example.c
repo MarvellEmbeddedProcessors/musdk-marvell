@@ -66,6 +66,7 @@ struct glob_arg {
 	int				logical_port_flag;
 	int				qos_flag;
 	int				cls_table_flag;
+	int				policer_flag;
 	int				filter_flag;
 };
 
@@ -107,6 +108,7 @@ static int init_all_modules(void)
 	memset(pp2_params, 0, sizeof(*pp2_params));
 	pp2_params->hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
+	pp2_params->policers_reserved_map = MVAPPS_PP2_POLICERSS_RSRV;
 
 	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
 	num_rss_tables = appp_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
@@ -153,6 +155,9 @@ static int init_local_modules(struct glob_arg *garg)
 				return -EINVAL;
 			}
 		}
+
+		if (garg->policer_flag)
+			pp2_cls_policer_params_example(port);
 
 		err = app_find_port_info(port);
 		if (!err) {
@@ -320,6 +325,7 @@ static void usage(char *progname)
 		"\t--cls_table	(no argument) init hardcode 5-tuple table & rule key, and add relevant cli\n"
 		"\t--qos\t	(no argument) init hardcode qos table and add relevant cli\n"
 		"\t--filter	(no argument) add filter cli\n"
+		"\t--policer	(no argument) init hardcoded policer and add it to ppio\n"
 
 		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname)
 		);
@@ -343,6 +349,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"cls_table", no_argument, 0, 't'},
 		{"qos", no_argument, 0, 'q'},
 		{"filter", no_argument, 0, 'f'},
+		{"policer", no_argument, 0, 'p'},
 		{0, 0, 0, 0}
 	};
 
@@ -358,11 +365,12 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->qos_flag = false;
 	garg->cls_table_flag = false;
 	garg->filter_flag = false;
+	garg->policer_flag = false;
 	garg->cmn_args.pkt_offset = 0;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:b:etg", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:b:etgp", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -402,6 +410,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'f':
 			garg->filter_flag = true;
+			break;
+		case 'p':
+			garg->policer_flag = true;
 			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);
