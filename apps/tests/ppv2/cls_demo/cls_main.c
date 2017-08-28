@@ -466,7 +466,7 @@ static void usage(char *progname)
 		"\t-c, --cores <number>		Number of CPUs to use\n"
 		"\t-t, --num_tcs <number>	Number of Traffic classes (TCs) to use\n"
 		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
-		"\t--ppio_tag_mode		(no argument)configure ppio_tag_mode parameter\n"
+		"\t--eth_start_hdr		(no argument)configure ethernet start header\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
 		"\t--policers_range		(dec)-(dec) valid range [1-%d]\n"
 		"\t--policer_params		(no argument)configure default policer parameters\n"
