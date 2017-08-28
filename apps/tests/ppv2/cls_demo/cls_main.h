@@ -58,6 +58,7 @@ void unregister_cli_cls_api_plcr_cmds(void);
 
 int pp2_cls_cli_ppio_tag_mode(struct pp2_ppio_params *port_params, int argc, char *argv[]);
 int pp2_cls_logical_port_params(struct pp2_ppio_params *port_params, int argc, char *argv[]);
+int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, char *argv[]);
 
 int pp2_cls_table_remove(u32 tbl_idx, struct list *cls_tbl_head);
 int pp2_cls_table_next_index_get(struct list *cls_tbl_head);

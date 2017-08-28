@@ -251,6 +251,8 @@ static int init_all_modules(void)
 	err = mv_sys_dma_mem_init(CLS_APP_DMA_MEM_SIZE);
 	if (err)
 		return err;
+
+	memset(pp2_params, 0, sizeof(*pp2_params));
 	pp2_params->hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
@@ -468,6 +470,7 @@ static void usage(char *progname)
 		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
 		"\t--eth_start_hdr		(no argument)configure ethernet start header\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
+		"\t-s, --egress_scheduler_params	(no argument)configure egress scheduler parameters\n"
 		"\t--policers_range		(dec)-(dec) valid range [1-%d]\n"
 		"\t--policer_params		(no argument)configure default policer parameters\n"
 		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname), PP2_CLS_PLCR_NUM
@@ -481,6 +484,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int long_index = 0;
 	int ppio_tag_mode = 0;
 	int logical_port_params = 0;
+	int egress_scheduler_params = 0;
 	int policer_params = 0;
 	char buff[CLS_APP_COMMAND_LINE_SIZE];
 	int argc_cli;
@@ -503,6 +507,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"num_tcs", required_argument, 0, 't'},
 		{"hash_type", required_argument, 0, 'b'},
 		{"eth_start_hdr", no_argument, 0, 's'},
+		{"egress_scheduler_params", no_argument, 0, 'q'},
 		{"policers_range", required_argument, 0, 'r'},
 		{"logical_port_params", no_argument, 0, 'g'},
 		{"policer_params", no_argument, 0, 'p'},
@@ -524,7 +529,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:b:c:t:r:epsg", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:b:c:t:r:epsgq", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -565,6 +570,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		case 'g':
 			logical_port_params = true;
 			port->ppio_type = PP2_PPIO_T_LOG;
+			break;
+		case 'q':
+			egress_scheduler_params = true;
 			break;
 		case 't':
 			num_tcs = strtoul(optarg, &ret_ptr, 0);
@@ -633,6 +641,28 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		rc = pp2_cls_logical_port_params(&pp2_args->ports_desc[0].port_params, argc_cli, argv);
 		if (rc) {
 			pr_err("pp2_cls_logical_port_params failed!\n");
+			return -EINVAL;
+		}
+	}
+
+	if (egress_scheduler_params) {
+		rc = app_get_line("please enter egress scheduler params:\n"
+				  "\t\t\t--port_rate_limit_enable (no argument)\n"
+				  "\t\t\t--port_rate_limit	  (kbps min: 100)\n"
+				  "\t\t\t--port_burst_size	  (kB min: 64)\n"
+				  "\t\t\t--txq_rate_limit_enable  (qid)\n"
+				  "\t\t\t--txq_rate_limit	  (qid,kbps min: 100)\n"
+				  "\t\t\t--txq_burst_size	  (qid,kB min: 64)\n"
+				  "\t\t\t--txq_arb_mode		  (qid,0=wrr 1=fp)\n"
+				  "\t\t\t--txq_wrr_weight	  (qid,0-255)\n",
+				  buff, sizeof(buff), &argc_cli, argv);
+		if (rc) {
+			pr_err("app_get_line failed!\n");
+			return -EINVAL;
+		}
+		rc = pp2_egress_scheduler_params(&pp2_args->ports_desc[0].port_params, argc_cli, argv);
+		if (rc) {
+			pr_err("pp2_egress_scheduler_params failed!\n");
 			return -EINVAL;
 		}
 	}
