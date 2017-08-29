@@ -474,13 +474,19 @@ CRYPTO-ECHO
 The crypto-echo application does the following operations:
 	- receives packets from the network interface
 	- encrypts the received packet (optional)
+	- IPSec ESP encapsulation (tunnel or transport modes) only for A8040/A7040 (optional)
 	- decrypts the packet (optional)
+	- IPSec ESP decapsulation (tunnel or transport modes) only for A8040/A7040 (optional)
 	- switches source and destination mac and ip addresses (optional).
 	- sends the packet to the network interface
 
-Application usage::
+Application usage (A8040, A7040)::
 
-	> musdk_crypto_echo OPTIONS
+	> musdk_pp2_crypto_echo OPTIONS
+
+Application usage (A3700)::
+
+	> musdk_neta_crypto_echo OPTIONS
 
 Mandatory OPTIONS::
 
@@ -488,21 +494,26 @@ Mandatory OPTIONS::
                   Interface count min 1, max 2
                   e.g. -i eth1,eth3
 
+The interfaces must be brought up using "ifconfig <ifname> up" before running the application
+
 Optional OPTIONS::
 
         -b             <size>    Burst size in bytes (default is 64)
         -c, --cores    <number>  Number of CPUs to use.
-        -a, --affinity <number>  Use setaffinity (default is no affinity).
+        -a, --affinity <number>  Use setaffinity (default is no affinity)
         -t             <mtu>     Set MTU in bytes (default is 1500)
-        -v                       Increase verbose debug (default is 0).
+        -v                       Increase verbose debug (default is 0)
                                  With every '-v', the debug is increased by one.
                                  0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump
-        --crypto-proto <proto>   Crypto protocol. Supports: [none, esp]. (default: none).
+        --crypto-proto <proto>   Crypto protocol. Supports: [none, esp]. (default: none)
+                                 Not supported for A3700.
         --tunnel                 IPSec tunnel mode. (default: transport)
+                                 Valid only with "--crypto-proto esp"
         --ip6                    ESP over IPv6. (default: ESP over IPv4)
-        --cipher-alg   <alg>     Cipher algorithm. Supports: [none, aes128, 3des]. (default: aes128).
-        --cipher-mode  <alg>     Cipher mode. Support: [cbc, ecb]. (default: cbc).
-        --auth-alg     <alg>     Authentication algorithm. Supports: [none, sha1]. (default: sha1).
+                                 Valid only with "--crypto-proto esp"
+        --cipher-alg   <alg>     Cipher algorithm. Supports: [none, aes128, 3des]. (default: aes128)
+        --cipher-mode  <alg>     Cipher mode. Support: [cbc, ecb]. (default: cbc)
+        --auth-alg     <alg>     Authentication algorithm. Supports: [none, sha1]. (default: sha1)
         --dir          <dir>     Operation direction. Supports: [enc, dec, lb]. (default: lb)
         --no-echo                No swap of MAC and L3 addresses
         --cli                    Use CLI
