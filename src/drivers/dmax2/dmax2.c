@@ -261,13 +261,16 @@ int dmax2_get_enq_num_available(struct dmax2 *dmax2)
 int dmax2_enq(struct dmax2 *dmax2, struct dmax2_desc *descs, u16 *num)
 {
 	struct dmax2_desc	*desc;
-	u16			desc_copy_num = *num, queue_space = dmax2_get_enq_num_available(dmax2);
+	u16			desc_copy_num, queue_space = dmax2_get_enq_num_available(dmax2);
 
 	if (unlikely(*num > queue_space)) {
-		pr_err("not enough space to queue %d descriptors (queue space = %d)\n", *num, queue_space);
-		return -EINVAL;
+		pr_debug("not enough space to queue %d descriptors (queue space = %d)\n", *num, queue_space);
+		*num = queue_space;
+		if (unlikely(!*num))
+			return 0;
 	}
 
+	desc_copy_num = *num;
 	/* if Requested descriptor count is going to reach end of HW-Q, than need to split memcpy:
 	 * 1. Copy descriptors to HW-Q, up to end of HW-Q,
 	 * 2. Point push index to start of HW-Q, and copy rest of descriptors to start of HW-Q
