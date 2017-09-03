@@ -493,6 +493,10 @@ int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *s
 	memset(&cur_stats, 0, sizeof(struct pp2_ppio_statistics));
 	pp2_port_get_statistics(port, &cur_stats);
 
+	/* Get rx and tx packets counters from queues and not from GOP */
+	cur_stats.rx_packets = 0;
+	cur_stats.tx_packets = 0;
+
 	/* Update Rx Qs Statistics */
 	for (tc = 0; tc < port->num_tcs; tc++) {
 		for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
@@ -519,7 +523,7 @@ int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *s
 		stats->rx_fullq_dropped = cur_stats.rx_fullq_dropped;
 		stats->rx_bm_dropped = cur_stats.rx_bm_dropped;
 		stats->rx_early_dropped = cur_stats.rx_early_dropped;
-		stats->tx_packets = cur_stats.tx_packets - port->stats.tx_packets;
+		stats->tx_packets = cur_stats.tx_packets;
 		/* From KS */
 		stats->rx_bytes = cur_stats.rx_bytes - port->stats.rx_bytes;
 		stats->rx_unicast_packets = cur_stats.rx_unicast_packets - port->stats.rx_unicast_packets;
