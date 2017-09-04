@@ -236,7 +236,7 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to add mac sddress\n");
 			return rc;
 		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
+		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
@@ -256,7 +256,7 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
 		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
+		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 		close(fd);
 	} else {
@@ -284,7 +284,7 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to remove mac sddress\n");
 			return rc;
 		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
+		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
@@ -304,7 +304,7 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to write to sysfs\n");
 			return -EFAULT;
 		}
-		pr_info("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
+		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 		close(fd);
 	} else {
