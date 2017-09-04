@@ -281,47 +281,9 @@ static int pp2_cls_cli_qos_table_remove(void *arg, int argc, char *argv[])
 
 static int pp2_cls_cli_qos_cls_table_dump(void *arg, int argc, char *argv[])
 {
-	int tbl_idx = -1;
-	char *ret_ptr;
-	int option = 0;
-	int long_index = 0;
 	u32 i;
 	struct pp2_cls_table_node *tbl_node;
 	u32 num_tables = list_num_objs(&cls_qos_tbl_head);
-	struct option long_options[] = {
-		{"qos_table_index", required_argument, 0, 't'},
-		{0, 0, 0, 0}
-	};
-
-	if (argc != 3) {
-		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
-		return -EINVAL;
-	}
-
-	/* every time starting getopt we should reset optind */
-	optind = 0;
-	/* Get parameters */
-	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
-		switch (option) {
-		case 't':
-			tbl_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (tbl_idx <= 0) || (tbl_idx > num_tables)) {
-				printf("parsing fail, wrong input for --qos_table_index\n");
-				return -EINVAL;
-			}
-			break;
-		default:
-			printf("parsing fail, wrong input, line = %d\n", __LINE__);
-			return -EINVAL;
-		}
-	}
-
-	/* check if all the fields are initialized */
-	if (tbl_idx < 0) {
-		printf("parsing fail, invalid --table_index\n");
-		return -EINVAL;
-	}
-
 
 	printf("total indexes: %d\n", num_tables);
 	if (num_tables > 0) {
@@ -366,7 +328,7 @@ int register_cli_cls_api_qos_cmds(struct port_desc *arg)
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "cls_qos_tbl_init";
-	cmd_params.desc		= "create a QoS classifier table";
+	cmd_params.desc		= "create a QoS classifier table (one table per interface)\n";
 	cmd_params.format	= "--type --pcp_map --dscp_map\n"
 				  "\t\t\t\t--type	(string) vlan, ip, vlan_ip, ip_vlan\n"
 				  "\t\t\t\t--pcp_default	TC number - default TC for all table values\n"
