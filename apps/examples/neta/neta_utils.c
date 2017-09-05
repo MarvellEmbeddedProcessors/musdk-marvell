@@ -40,12 +40,9 @@
 
 #include "mvapp.h"
 #include "mv_neta.h"
-#include "mv_neta_bpool.h"
 #include "neta_utils.h"
 
 u64 neta_sys_dma_high_addr;
-
-static u16 used_bpools = MVAPPS_NETA_BPOOLS_RSRV;
 
 static u64 buf_alloc_cnt;
 static u64 buf_free_cnt;
@@ -85,133 +82,31 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	return 0;
 }
 
-static int find_free_bpool(void)
-{
-	int i;
-
-	for (i = 0; i < MVAPPS_NETA_TOTAL_NUM_BPOOLS; i++) {
-		if (!((1 << i) & used_bpools)) {
-			used_bpools |= (1 << i);
-			break;
-		}
-	}
-	if (i == MVAPPS_NETA_TOTAL_NUM_BPOOLS) {
-		pr_err("no free BPool found!\n");
-		return -ENOSPC;
-	}
-	return i;
-}
-
-int app_build_port_bpools(struct bpool_desc **ppools, int num_pools, struct bpool_inf infs[])
-{
-	struct neta_bpool_params	bpool_params;
-	int				j, k, err, pool_id;
-	char				name[15];
-	struct bpool_desc		*pools = NULL;
-	struct neta_buff_inf		*buffs_inf = NULL;
-
-	if (num_pools > MVAPPS_NETA_MAX_NUM_BPOOLS) {
-		pr_err("only %d pools allowed!\n", MVAPPS_NETA_MAX_NUM_BPOOLS);
-		return -EINVAL;
-	}
-
-	pools = (struct bpool_desc *)malloc(sizeof(struct bpool_desc) * num_pools);
-	if (!pools) {
-		pr_err("no mem for bpool_desc array!\n");
-		return -ENOMEM;
-	}
-
-	*ppools = pools;
-
-	for (j = 0; j < num_pools; j++) {
-		pool_id = find_free_bpool();
-		if (pool_id < 0) {
-			pr_err("free bpool not found!\n");
-			return pool_id;
-		}
-		memset(name, 0, sizeof(name));
-		snprintf(name, sizeof(name), "pool-%d", pool_id);
-		memset(&bpool_params, 0, sizeof(bpool_params));
-		bpool_params.match = name;
-		bpool_params.buff_len = infs[j].buff_size;
-
-		pr_info("%s: buff_size %d, num_buffs %d\n", name, infs[j].buff_size, infs[j].num_buffs);
-		err = neta_bpool_init(&bpool_params, &pools[j].pool);
-		if (err)
-			return err;
-
-		if (!pools[j].pool) {
-			pr_err("pool id%d init failed!\n", pool_id);
-			return -EIO;
-		}
-
-		pools[j].buffs_inf =
-			(struct neta_buff_inf *)malloc(infs[j].num_buffs * sizeof(struct neta_buff_inf));
-
-		if (!pools[j].buffs_inf) {
-			pr_err("no mem for bpools-inf array!\n");
-			return -ENOMEM;
-		}
-
-		buffs_inf = pools[j].buffs_inf;
-		pools[j].num_buffs = infs[j].num_buffs;
-
-		for (k = 0; k < infs[j].num_buffs; k++) {
-			void *buff_virt_addr;
-
-			buff_virt_addr = mv_sys_dma_mem_alloc(infs[j].buff_size, 4);
-			if (!buff_virt_addr) {
-				pr_err("failed to allocate mem (%d)!\n", k);
-				return -1;
-			}
-			if (k == 0) {
-				neta_sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL << 32) - 1));
-				pr_debug("neta_sys_dma_high_addr (0x%lx)\n", neta_sys_dma_high_addr);
-			}
-			if ((upper_32_bits((u64)buff_virt_addr)) != (neta_sys_dma_high_addr >> 32)) {
-				pr_err("buff_virt_addr(%p)  upper out of range; skipping this buff\n",
-				       buff_virt_addr);
-				continue;
-			}
-			buffs_inf[k].addr = (neta_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
-			/* cookie contains lower_32_bits of the va */
-			buffs_inf[k].cookie = lower_32_bits((u64)buff_virt_addr);
-			*(u32 *)buff_virt_addr = buffs_inf[k].cookie;
-			err = neta_bpool_put_buff(pools[j].pool, &buffs_inf[k]);
-			if (err)
-				return err;
-		}
-
-		buf_alloc_cnt += infs[j].num_buffs;
-	}
-	return 0;
-}
-
 int app_find_port_info(struct port_desc *port_desc)
 {
 	/* TBD: get port info */
 	return 0;
 }
 
-int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset)
+int app_port_init(struct port_desc *port, u16 mtu, u16 pkt_offset)
 {
 	struct neta_ppio_params		*port_params = &port->port_params;
 	char				name[MVAPPS_PPIO_NAME_MAX];
-	int				i, j, err = 0;
+	int				i, err = 0;
 
 	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "neta-%d", port->ppio_id);
 	pr_debug("found port: %s\n", name);
 	port_params->match = name;
 	port_params->inqs_params.num_tcs = port->num_tcs;
+	port_params->inqs_params.b.buf_size =
+		MVAPPS_MTU_TO_MRU(mtu) + MVAPPS_NETA_PKT_OFFS;
 
 	for (i = 0; i < port->num_tcs; i++) {
 		port_params->inqs_params.tcs_params[i].pkt_offset =
 			(pkt_offset) ? pkt_offset : MVAPPS_NETA_PKT_OFFS;
 		port_params->inqs_params.tcs_params[i].size = port->inq_size;
 
-		for (j = 0; j < num_pools; j++)
-			port_params->inqs_params.pools[j] = pools[j].pool;
 	}
 	port_params->outqs_params.num_outqs = port->num_outqs;
 	for (i = 0; i < port->num_outqs; i++) {
@@ -229,7 +124,12 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 		pr_err("PP-IO init failed!\n");
 		return -EIO;
 	}
-	/* TBD: Change port MTU if needed */
+	return err;
+}
+
+int app_port_enable(struct port_desc *port)
+{
+	int err;
 
 	err = neta_ppio_enable(port->ppio);
 	port->initialized = 1;
@@ -339,64 +239,4 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 	pr_debug("allocated: %lu, app freed: %lu, bm free: %lu, rxq free: %lu, tx free: %lu !\n",
 		 buf_alloc_cnt, buf_free_cnt, hw_bm_buf_free_cnt, hw_rxq_buf_free_cnt,
 		(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
-}
-
-static void flush_pool(struct neta_bpool *bpool)
-{
-	u32 i, buf_num, cnt = 0, err = 0;
-
-	neta_bpool_get_num_buffs(bpool, &buf_num);
-	for (i = 0; i < buf_num; i++) {
-		struct neta_buff_inf buff;
-
-		err = 0;
-		while (neta_bpool_get_buff(bpool, &buff)) {
-			err++;
-			if (err == 10000) {
-				buff.cookie = 0;
-				break;
-			}
-		}
-		if (err) {
-			if (err == 10000) {
-				pr_err("flush_pool: pool_id=%d: Got NULL buf (%d of %d)\n",
-				       bpool->id, i, buf_num);
-				continue;
-			}
-			pr_warn("flush_pool: pool_id=%d: Got buf (%d of %d) after %d retries\n",
-				bpool->id, i, buf_num, err);
-		}
-		cnt++;
-	}
-	hw_bm_buf_free_cnt += cnt;
-	neta_bpool_deinit(bpool);
-}
-
-static void free_pool_buffers(struct neta_buff_inf *buffs, int num)
-{
-	int i;
-
-	for (i = 0; i < num; i++) {
-		void *buff_virt_addr = (char *)(((uintptr_t)(buffs[i].cookie)) | neta_sys_dma_high_addr);
-
-		mv_sys_dma_mem_free(buff_virt_addr);
-		buf_free_cnt++;
-	}
-}
-
-void app_free_all_pools(struct bpool_desc *pool, int num_pools)
-{
-	int j;
-
-	if (pool) {
-		for (j = 0; j < num_pools; j++) {
-			if (pool[j].pool) {
-				pr_info("Release pool-%d: buffers %d\n", pool[j].pool->id, pool[j].num_buffs);
-				flush_pool(pool[j].pool);
-				free_pool_buffers(pool[j].buffs_inf, pool[j].num_buffs);
-				free(pool[j].buffs_inf);
-			}
-		}
-		free(pool);
-	}
 }

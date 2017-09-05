@@ -49,6 +49,14 @@
 #define NETA_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
 #define NETA_PPIO_MAX_POOLS	2
 
+typedef u32	neta_dma_addr_t;
+typedef u32	neta_cookie_t;
+
+struct neta_buff_inf {
+	neta_dma_addr_t addr;
+	neta_cookie_t   cookie;
+};
+
 struct neta_ppio {
 	u32	port_id;		/* port Id */
 	void	*internal_param;	/* parameters for internal use */
@@ -75,7 +83,19 @@ struct neta_ppio_inqs_params {
 	u16				num_tcs; /**< Number of Traffic-Classes */
 	/** Parameters for each TC */
 	struct neta_ppio_tc_params	tcs_params[NETA_PPIO_MAX_NUM_TCS];
-	struct neta_bpool		*pools[NETA_PPIO_MAX_POOLS];
+
+	int				hw_bm_en;
+	union {
+		/** the following bpools array is relevant only in case
+		 * when working in "HW-BM" enabled
+		 */
+		struct neta_bpool	*pools[NETA_PPIO_MAX_POOLS];
+
+		/** the following buffer size is relevant only in case
+		 * when working in "SW-BM" enabled
+		 */
+		u16			buf_size;
+	} b;
 };
 
 /**
@@ -603,7 +623,7 @@ int neta_ppio_get_num_outq_done(struct neta_ppio	*ppio,
  * Receive packets on a ppio.
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[in]		qid	out-Q id on which to receive the frames.
+ * @param[in]		qid	in-Q id on which to receive the frames.
  * @param[in]		descs	A pointer to an array of descriptors represents the
  *				received frames.
  * @param[in,out]	num	input: Max number of frames to receive;
@@ -617,6 +637,23 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 		   struct neta_ppio_desc	*descs,
 		   u16				*num);
 
+/**
+ * Fill RX descriptors ring with buffer pointers
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	in-Q id to fill.
+ * @param[in]		bufs	A pointer to an array of buffers to put to descriptors.
+ * @param[in,out]	num_of_buffs	input: number of buffers in array;
+ *					output: number of buffers were put
+ *					to descriptors.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
+			    u8				qid,
+			    struct neta_buff_inf	*bufs,
+			    u16				*num_of_buffs);
 
 /* Run-time Control API */
 

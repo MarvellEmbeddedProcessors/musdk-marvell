@@ -49,21 +49,12 @@
 /* Maximum number of queues per TC */
 #define MVAPPS_NETA_MAX_NUM_QS_PER_TC	MVAPPS_NETA_MAX_NUM_CORES
 
-/* Total number of BM pools supported */
-#define MVAPPS_NETA_TOTAL_NUM_BPOOLS	(4)
-/* Number of BM pools reserved by kernel */
-#define MVAPPS_NETA_NUM_BPOOLS_RSRV	2
-/* Reserved BM pools mask */
-#define MVAPPS_NETA_BPOOLS_RSRV		(0)
-/* Maximum number of pools per packet processor */
-#define MVAPPS_NETA_MAX_NUM_BPOOLS	(MVAPPS_NETA_TOTAL_NUM_BPOOLS - MVAPPS_NETA_NUM_BPOOLS_RSRV)
 
 /*
  * Tx shadow queue entry
  */
 struct tx_shadow_q_entry {
 	struct neta_buff_inf	 buff_ptr;	/* pointer to the buffer object */
-	struct neta_bpool	*bpool;		/* pointer to the bpool object */
 };
 
 /*
@@ -106,41 +97,22 @@ struct lcl_port_desc {
 	struct tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
 };
 
-/*
- * BM pool size parameters
- */
-struct bpool_inf {
-	int	buff_size;	/* buffer size */
-	int	num_buffs;	/* number of buffers */
-};
-
-/*
- * BM pool parameters
- */
-struct bpool_desc {
-	struct neta_bpool	*pool;		/* pointer to the bpool object */
-	struct neta_buff_inf	*buffs_inf;	/* array of buffer objects */
-	int			 num_buffs;	/* number of buffers */
-};
-
-/*
- * Build all pools
- */
-int app_build_port_bpools(struct bpool_desc **ppools, int num_pools, struct bpool_inf infs[]);
-/*
- * Free all pools
- */
-void app_free_all_pools(struct bpool_desc *pools, int num_pools);
-void app_free_port_pools(struct bpool_desc *pools, int num_pools);
 
 /*
  * Parse port pp_id and ppio_id from port name
  */
 int app_find_port_info(struct port_desc *port_desc);
+
 /*
- * Init port
+ * Init port, This function doesn't enable port.
  */
-int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset);
+int app_port_init(struct port_desc *port, u16 mtu, u16 pkt_offset);
+
+/*
+ * Enable port.
+ */
+int app_port_enable(struct port_desc *port);
+
 /*
  * Init local port object per thread according to port parameters
  */

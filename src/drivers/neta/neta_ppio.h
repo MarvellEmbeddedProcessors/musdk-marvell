@@ -106,6 +106,11 @@ struct neta_rx_queue {
 
 	/* Index of the next RX DMA descriptor to process */
 	int next_desc_to_proc;
+
+	/* Index of the next RX DMA descriptor to refill with new buffer pointer */
+	int next_desc_to_refill;
+	u32 to_refill_cntr;
+
 };
 
 struct neta_port {
@@ -118,8 +123,9 @@ struct neta_port {
 
 	unsigned long flags;
 
-	int pkt_size;
-	unsigned int frag_size;
+	int buf_size;
+	u16 rx_offset;
+
 	u16 tx_ring_size;
 	u16 rx_ring_size;
 	u16 txq_number;
@@ -146,16 +152,9 @@ struct neta_port {
 	struct mvneta_bm *bm_priv;
 	struct mvneta_bm_pool *pool_long;
 	struct mvneta_bm_pool *pool_short;
-	int bm_win_id;
 
 	/*struct mvneta_pcpu_stats __percpu	*stats;*/
 
-	/* Flags for special SoC configurations */
-	bool neta_armada3700;
-#ifdef CONFIG_64BIT
-	u64 data_high;
-#endif
-	u16 rx_offset;
 };
 
 #define GET_PPIO_PORT(ppio) ((struct neta_port *)(ppio)->internal_param)

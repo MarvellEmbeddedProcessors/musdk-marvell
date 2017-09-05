@@ -34,6 +34,7 @@
 #define __MV_NETA_BPOOL_H__
 
 #include "mv_std.h"
+#include "mv_neta_ppio.h"
 
 /** @addtogroup grp_neta_bp Packet Processor: Buffer Pool
  *
@@ -91,15 +92,6 @@ int neta_bpool_init(struct neta_bpool_params *params, struct neta_bpool **bpool)
  */
 void neta_bpool_deinit(struct neta_bpool *pool);
 
-
-typedef u32	neta_dma_addr_t;
-
-typedef u32	neta_cookie_t;
-
-struct neta_buff_inf {
-	neta_dma_addr_t addr;
-	neta_cookie_t   cookie;
-};
 
 struct buff_release_entry {
 	struct neta_buff_inf	buff;

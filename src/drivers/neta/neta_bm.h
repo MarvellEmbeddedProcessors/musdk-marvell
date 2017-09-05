@@ -34,12 +34,6 @@
 
 #include "mv_std.h"
 
-/* Number of bytes to be taken into account by HW when putting incoming data
- * to the buffers. It is needed in case NET_SKB_PAD exceeds maximum packet
- * offset supported in MVNETA_RXQ_CONFIG_REG(q) registers.
- */
-#define MVNETA_RX_PKT_OFFSET_CORRECTION		64
-
 /* BM Configuration Register */
 #define MVNETA_BM_CONFIG_REG			0x0
 #define    MVNETA_BM_STATUS_MASK		0x30
@@ -110,8 +104,6 @@
 #define MVNETA_BM_POOL_ACCESS_OFFS		8
 
 #define MVNETA_BM_BPPI_SIZE			0x100000
-
-#define MVNETA_RX_BUF_SIZE(pkt_size)   ((pkt_size) + NET_SKB_PAD)
 
 enum mvneta_bm_type {
 	MVNETA_BM_FREE,

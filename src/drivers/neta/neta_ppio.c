@@ -89,16 +89,24 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	port->rx_ring_size = params->inqs_params.tcs_params[0].size;
 	port->tx_ring_size = params->outqs_params.outqs_params[0].size;
 	port->rx_offset = params->inqs_params.tcs_params[0].pkt_offset;
-	port->pool_short = (struct mvneta_bm_pool *)(params->inqs_params.pools[0]->internal_param);
-	port->pool_long = (struct mvneta_bm_pool *)params->inqs_params.pools[1]->internal_param;
+	if (params->inqs_params.hw_bm_en) {
+		port->pool_short =
+			(struct mvneta_bm_pool *)(params->inqs_params.b.pools[0]->internal_param);
+		port->pool_long =
+			(struct mvneta_bm_pool *)params->inqs_params.b.pools[1]->internal_param;
+		port->bm_priv = port->pool_short->priv;
+	}
 
+	port->buf_size = params->inqs_params.b.buf_size;
 	rc = neta_port_open(port_id, port);
 	if (rc) {
 		pr_err("[%s] ppio init failed.\n", __func__);
 		return(-EFAULT);
 	}
-	neta_bm_pool_bufsize_set(port, port->pool_short->buf_size, port->pool_short->id);
-	neta_bm_pool_bufsize_set(port, port->pool_long->buf_size, port->pool_long->id);
+	if (params->inqs_params.hw_bm_en) {
+		neta_bm_pool_bufsize_set(port, port->pool_short->buf_size, port->pool_short->id);
+		neta_bm_pool_bufsize_set(port, port->pool_long->buf_size, port->pool_long->id);
+	}
 
 	neta_port_hw_init(port);
 	ppio_ptr->port_id = port_id;
@@ -116,6 +124,7 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
  */
 void neta_ppio_deinit(struct neta_ppio *ppio)
 {
+	neta_ppio_disable(ppio->internal_param);
 	neta_port_hw_deinit(ppio->internal_param);
 	free(ppio);
 }
@@ -201,15 +210,6 @@ int neta_ppio_get_num_outq_done(struct neta_ppio	*ppio,
 	return 0;
 }
 
-/* Get number of RX descriptors occupied by received packets */
-static int neta_rxq_busy_desc_num_get(struct neta_port *pp, int qid)
-{
-	int val;
-
-	val = neta_reg_read(pp, MVNETA_RXQ_STATUS_REG(qid));
-	return val & MVNETA_RXQ_OCCUPIED_ALL_MASK;
-}
-
 /* Get pointer to the next RX descriptor to be processed by SW, and update the descriptor next index */
 static struct neta_ppio_desc *neta_rxq_get_desc(struct neta_rx_queue *rxq,
 						u32 *num_recv,
@@ -250,43 +250,6 @@ static struct neta_ppio_desc *neta_rxq_get_desc(struct neta_rx_queue *rxq,
  */
 
 	return (rxq->descs + rx_idx);
-}
-
-/* Update num of rx desc called upon return from rx path */
-static void neta_port_inq_update(struct neta_port *pp,
-				     struct neta_rx_queue *rxq,
-				     int rx_done, int rx_filled)
-{
-	u32 val;
-
-	if ((rx_done <= 0xff) && (rx_filled <= 0xff)) {
-		val = rx_done |
-		  (rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT);
-		neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
-		return;
-	}
-
-	/* do one write barrier and use relaxed write in loop */
-	wmb();
-
-	/* Only 255 descriptors can be added at once */
-	while ((rx_done > 0) || (rx_filled > 0)) {
-		if (rx_done <= 0xff) {
-			val = rx_done;
-			rx_done = 0;
-		} else {
-			val = 0xff;
-			rx_done -= 0xff;
-		}
-		if (rx_filled <= 0xff) {
-			val |= rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
-			rx_filled = 0;
-		} else {
-			val |= 0xff << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
-			rx_filled -= 0xff;
-		}
-		neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
-	}
 }
 
 static inline void neta_ppio_desc_swap_ncopy(struct neta_ppio_desc *dst, struct neta_ppio_desc *src)
@@ -342,20 +305,17 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 
 	for (i = 0; i < recv_req; i++) {
 		tmp = 1;
-		rmb(); /* get real descriptor */
 		rx_desc = neta_rxq_get_desc(rxq, &tmp, &extra_rx_desc, &extra_num);
-#if __BYTE_ORDER == __BIG_ENDIAN
-		neta_ppio_desc_swap_ncopy(&descs[i], rx_desc);
-#else
 		memcpy(&descs[i], rx_desc, sizeof(struct neta_ppio_desc));
-#endif
 	}
 	if (extra_num) {
 		memcpy(&descs[recv_req], extra_rx_desc, extra_num * sizeof(struct neta_ppio_desc));
 		recv_req += extra_num; /* Put the split numbers back together */
 	}
-	/*  Update HW */
-	neta_port_inq_update(port, rxq, recv_req, recv_req);
+	rxq->to_refill_cntr += recv_req;
+
+	/* update HW with rx_done descriptors */
+	neta_port_inq_update(port, rxq, recv_req, 0);
 	rxq->desc_received -= recv_req;
 	*num = recv_req;
 
@@ -515,22 +475,80 @@ int neta_ppio_enable(struct neta_ppio *ppio)
 
 int neta_ppio_disable(struct neta_ppio *ppio)
 {
+	struct neta_port *port = GET_PPIO_PORT(ppio);
+
+	if (!port)
+		return -1;
+
+	neta_port_down(port);
 	return 0;
 }
 
-#ifdef NETA_BM_DEBUG
-void neta_bmpools_status(void)
+static inline int neta_ppio_inq_put_buff(struct neta_port *pp,
+				    struct neta_rx_queue *rxq,
+				    struct neta_buff_inf *buf)
 {
-	int i;
-	struct mvneta_bm_pool *bm_pool;
+	struct neta_ppio_desc *rx_desc;
 
-	for (i = 0; i < 4; i++) {
-		bm_pool = (struct mvneta_bm_pool *)neta_bpools[i].internal_param;
-		if (bm_pool) {
-			pr_info("pool-%d: get %d, put %d, capacity %d, buffers %d\n",
-				neta_bpools[i].id, neta_bpools[i].get_bufs, neta_bpools[i].put_bufs,
-				bm_pool->capacity, bm_pool->buffs_num);
-		}
+	if (unlikely(!buf->cookie || !buf->addr)) {
+		pr_err("port %d: queue %d: try to refill with worng buffer: cookie(%lx), pa(%lx)!\n",
+			pp->id, rxq->id, (u64)buf->cookie, (u64)buf->addr);
+		return -1;
 	}
+
+	rx_desc = rxq->descs + rxq->next_desc_to_refill;
+
+	if ((rxq->next_desc_to_refill + 1) == rxq->size)
+		rxq->next_desc_to_refill = 0;
+	else
+		rxq->next_desc_to_refill++;
+
+	rxq->to_refill_cntr--;
+
+	rx_desc->cmds[4] = buf->cookie;
+	rx_desc->cmds[2] = buf->addr;
+
+	return 0;
 }
-#endif /* NETA_BM_DEBUG */
+
+/**
+ * Fill RX descriptors ring with buffer pointers
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	in-Q id to fill.
+ * @param[in]		bufs	A pointer to an array of buffers to put to descriptors.
+ * @param[in,out]	num_of_buffs	input: number of buffers in array;
+ *					output: number of buffers were put
+ *					to descriptors.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
+			    u8				qid,
+			    struct neta_buff_inf	*bufs,
+			    u16				*num_of_buffs)
+{
+	struct neta_port *pp = GET_PPIO_PORT(ppio);
+	struct neta_rx_queue *rxq;
+	int refill_cnt = *num_of_buffs;
+	int i;
+
+	rxq = &pp->rxqs[qid];
+	if (!rxq->to_refill_cntr)
+		pr_warn("port %d: queue %d: queue is full, nothing to refill\n",
+			pp->id, qid);
+
+	if (refill_cnt > rxq->to_refill_cntr)
+		refill_cnt = rxq->to_refill_cntr;
+
+	for (i = 0; i < refill_cnt; i++) {
+		if (neta_ppio_inq_put_buff(pp, rxq, &bufs[i]))
+			break;
+	}
+
+	pr_debug("port %d: queue %d: refill %d buffers\n", pp->id, qid, i);
+	neta_port_inq_update(pp, rxq, 0, i);
+	return 0;
+}
+
