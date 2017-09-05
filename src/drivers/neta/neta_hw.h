@@ -33,7 +33,6 @@
 #ifndef _MVNETA_HW_H_
 #define _MVNETA_HW_H_
 
-
 /* Registers */
 #define MVNETA_RXQ_CONFIG_REG(q)                (0x1400 + ((q) << 2))
 #define      MVNETA_RXQ_HW_BUF_ALLOC            BIT(0)
@@ -272,6 +271,10 @@ enum phy_interface {
 	PHY_INTERFACE_MODE_MAX,
 };
 
+#define MVNETA_TX_DISABLE_TIMEOUT_MSEC	1000
+#define MVNETA_RX_DISABLE_TIMEOUT_MSEC	1000
+#define MVNETA_TX_FIFO_EMPTY_TIMEOUT	10000
+
 #define MVNETA_TX_CSUM_DEF_SIZE		1600
 #define MVNETA_TX_CSUM_MAX_SIZE		9800
 #define MVNETA_ACC_MODE_EXT1		1
@@ -287,9 +290,6 @@ enum phy_interface {
 /* 64bytes cache line - arm64 spec */
 #define L1_CACHE_LINE_BYTES      BIT(6)
 
-#define MVNETA_RX_PKT_SIZE(mtu) \
-	((mtu) + MV_MH_SIZE + NETA_VLAN_TAG_LEN + NETA_ETH_HLEN + NETA_ETH_FCS_LEN)
-
 
 static inline void neta_reg_write_relaxed(struct neta_port *pp, u32 offset, u32 data)
 {
@@ -298,7 +298,7 @@ static inline void neta_reg_write_relaxed(struct neta_port *pp, u32 offset, u32 
 	writel_relaxed(data, (void *)addr);
 
 #ifdef NETA_REG_WRITE_DEBUG
-	pr_info("%s: %8p + 0x%04x = 0x%x\n", __func__, base, offset, data);
+	pr_info("%s: 0x%8lx + 0x%04x = 0x%x\n", __func__, pp->base, offset, data);
 #endif
 }
 
@@ -310,7 +310,7 @@ static inline u32 neta_reg_read_relaxed(struct neta_port *pp, u32 offset)
 	data = readl_relaxed((void *)addr);
 
 #ifdef NETA_REG_READ_DEBUG
-	pr_info("%s: %8p + 0x%04x = 0x%x\n", __func__, base, offset, data);
+	pr_info("%s: %8p + 0x%04x = 0x%x\n", __func__, pp->base, offset, data);
 #endif
 
 	return data;
@@ -323,7 +323,7 @@ static inline void neta_reg_write(struct neta_port *pp, u32 offset, u32 data)
 	writel(data, (void *)addr);
 
 #ifdef NETA_REG_WRITE_DEBUG
-	pr_info("%s: %8p + 0x%04x = 0x%x\n", __func__, base, offset, data);
+	pr_info("%s: 0x%8lx + 0x%04x = 0x%x\n", __func__, pp->base, offset, data);
 #endif
 }
 
@@ -341,13 +341,88 @@ static inline u32 neta_reg_read(struct neta_port *pp, u32 offset)
 	return data;
 }
 
+/* Get number of TX descriptors already sent by HW */
+static inline int mvneta_txq_sent_desc_num_get(struct neta_port *pp, int qid)
+{
+	u32 val;
+	int sent_desc;
+
+	val = neta_reg_read(pp, MVNETA_TXQ_STATUS_REG(qid));
+	sent_desc = (val & MVNETA_TXQ_SENT_DESC_MASK) >>
+		MVNETA_TXQ_SENT_DESC_SHIFT;
+
+	return sent_desc;
+}
+
+
+/* Decrement sent descriptors counter */
+static inline void mvneta_txq_sent_desc_dec(struct neta_port *pp, int qid, int sent_desc)
+{
+	u32 val;
+
+	/* Only 255 TX descriptors can be updated at once */
+	while (sent_desc > 0xff) {
+		val = 0xff << MVNETA_TXQ_DEC_SENT_SHIFT;
+		neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(qid), val);
+		sent_desc = sent_desc - 0xff;
+	}
+
+	val = sent_desc << MVNETA_TXQ_DEC_SENT_SHIFT;
+	neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(qid), val);
+}
+
+/* Update num of rx desc called upon return from rx path */
+static inline void neta_port_inq_update(struct neta_port *pp,
+			  struct neta_rx_queue *rxq,
+			  int rx_done, int rx_filled)
+{
+	u32 val;
+
+	if ((rx_done <= 0xff) && (rx_filled <= 0xff)) {
+		val = rx_done |
+		  (rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT);
+		neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
+		return;
+	}
+
+	/* do one write barrier and use relaxed write in loop */
+	wmb();
+
+	/* Only 255 descriptors can be added at once */
+	while ((rx_done > 0) || (rx_filled > 0)) {
+		if (rx_done <= 0xff) {
+			val = rx_done;
+			rx_done = 0;
+		} else {
+			val = 0xff;
+			rx_done -= 0xff;
+		}
+		if (rx_filled <= 0xff) {
+			val |= rx_filled << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
+			rx_filled = 0;
+		} else {
+			val |= 0xff << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT;
+			rx_filled -= 0xff;
+		}
+		neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id), val);
+	}
+}
+
+/* Get number of RX descriptors occupied by received packets */
+static inline int neta_rxq_busy_desc_num_get(struct neta_port *pp, int qid)
+{
+	int val;
+
+	val = neta_reg_read(pp, MVNETA_RXQ_STATUS_REG(qid));
+	return val & MVNETA_RXQ_OCCUPIED_ALL_MASK;
+}
+
 int neta_port_open(int port_id, struct neta_port *pp);
 int neta_port_hw_init(struct neta_port *pp);
 int neta_port_hw_deinit(struct neta_port *pp);
 void neta_hw_reg_print(char *reg_name, void *base, u32 offset);
 void neta_bm_pool_bufsize_set(struct neta_port *pp, int buf_size, u8 pool_id);
 void neta_port_up(struct neta_port *pp);
-int mvneta_txq_sent_desc_num_get(struct neta_port *pp, int qid);
-void mvneta_txq_sent_desc_dec(struct neta_port *pp, int qid, int sent_desc);
+void neta_port_down(struct neta_port *pp);
 
 #endif /* _MVNETA_HW_H_ */

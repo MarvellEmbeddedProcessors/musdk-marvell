@@ -32,14 +32,11 @@
 
 #include "std_internal.h"
 #include "env/sys_iomem.h"
-
 #include "drivers/mv_neta.h"
 #include "drivers/mv_neta_ppio.h"
 #include "neta_bm.h"
 #include "neta_ppio.h"
 #include "neta_hw.h"
-
-/* Various constants */
 
 
 void neta_hw_reg_print(char *reg_name, void *base, u32 offset)
@@ -156,40 +153,78 @@ void neta_port_up(struct neta_port *pp)
 			q_map |= (1 << queue);
 	}
 	neta_reg_write(pp, MVNETA_RXQ_CMD, q_map);
+
+	/* start the Rx/Tx activity */
+	mvneta_port_enable(pp);
+
 }
 
-/* Decrement sent descriptors counter */
-void mvneta_txq_sent_desc_dec(struct neta_port *pp, int qid, int sent_desc)
+/* Stop the Ethernet port activity */
+void neta_port_down(struct neta_port *pp)
 {
 	u32 val;
+	int count;
 
-	/* Only 255 TX descriptors can be updated at once */
-	while (sent_desc > 0xff) {
-		val = 0xff << MVNETA_TXQ_DEC_SENT_SHIFT;
-		neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(qid), val);
-		sent_desc = sent_desc - 0xff;
-	}
+	/* Stop Rx port activity. Check port Rx activity. */
+	val = neta_reg_read(pp, MVNETA_RXQ_CMD) & MVNETA_RXQ_ENABLE_MASK;
 
-	val = sent_desc << MVNETA_TXQ_DEC_SENT_SHIFT;
-	neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(qid), val);
-}
+	/* Issue stop command for active channels only */
+	if (val != 0)
+		neta_reg_write(pp, MVNETA_RXQ_CMD,
+			    val << MVNETA_RXQ_DISABLE_SHIFT);
 
-/* Get number of TX descriptors already sent by HW */
-int mvneta_txq_sent_desc_num_get(struct neta_port *pp, int qid)
-{
-	u32 val;
-	int sent_desc;
+	/* Wait for all Rx activity to terminate. */
+	count = 0;
+	do {
+		if (count++ >= MVNETA_RX_DISABLE_TIMEOUT_MSEC) {
+			pr_warn("TIMEOUT for RX stopped ! rx_queue_cmd: 0x%08x\n", val);
+			break;
+		}
+		udelay(1);
 
-	val = neta_reg_read(pp, MVNETA_TXQ_STATUS_REG(qid));
-	sent_desc = (val & MVNETA_TXQ_SENT_DESC_MASK) >>
-		MVNETA_TXQ_SENT_DESC_SHIFT;
+		val = neta_reg_read(pp, MVNETA_RXQ_CMD);
+	} while (val & MVNETA_RXQ_ENABLE_MASK);
 
-	return sent_desc;
+	/* Stop Tx port activity. Check port Tx activity. Issue stop
+	 * command for active channels only
+	 */
+	val = (neta_reg_read(pp, MVNETA_TXQ_CMD)) & MVNETA_TXQ_ENABLE_MASK;
+
+	if (val != 0)
+		neta_reg_write(pp, MVNETA_TXQ_CMD,
+			    (val << MVNETA_TXQ_DISABLE_SHIFT));
+
+	/* Wait for all Tx activity to terminate. */
+	count = 0;
+	do {
+		if (count++ >= MVNETA_TX_DISABLE_TIMEOUT_MSEC) {
+			pr_warn("TIMEOUT for TX stopped status=0x%08x\n", val);
+			break;
+		}
+		udelay(1);
+
+		/* Check TX Command reg that all Txqs are stopped */
+		val = neta_reg_read(pp, MVNETA_TXQ_CMD);
+
+	} while (val & MVNETA_TXQ_ENABLE_MASK);
+
+	/* Double check to verify that TX FIFO is empty */
+	count = 0;
+	do {
+		if (count++ >= MVNETA_TX_FIFO_EMPTY_TIMEOUT) {
+			pr_warn("TX FIFO empty timeout status=0x%08x\n", val);
+			break;
+		}
+		udelay(1);
+
+		val = neta_reg_read(pp, MVNETA_PORT_STATUS);
+	} while (!(val & MVNETA_TX_FIFO_EMPTY) &&
+		 (val & MVNETA_TX_IN_PRGRS));
+
+	udelay(200);
 }
 
 /* Multicast tables methods */
-
-/*MSD*/
 /* Set all entries in Unicast MAC Table; queue==-1 means reject all */
 static void mvneta_set_ucast_table(struct neta_port *pp, int queue)
 {
@@ -378,28 +413,9 @@ static void neta_defaults_set(struct neta_port *pp)
 	/*for_each_present_cpu(cpu) {*/
 	for (cpu = 0; cpu < max_cpu; cpu++) {
 		int rxq_map = 0, txq_map = 0;
-		int rxq, txq;
 
-		if (!pp->neta_armada3700) {
-			for (rxq = 0; rxq < pp->rxq_number; rxq++)
-				if ((rxq % max_cpu) == cpu)
-					rxq_map |= MVNETA_CPU_RXQ_ACCESS(rxq);
-
-			for (txq = 0; txq < pp->txq_number; txq++)
-				if ((txq % max_cpu) == cpu)
-					txq_map |= MVNETA_CPU_TXQ_ACCESS(txq);
-
-			/* With only one TX queue we configure a special case
-			 * which will allow to get all the irq on a single
-			 * CPU.
-			 */
-			if (pp->txq_number == 1)
-				txq_map = (cpu == pp->rxq_def) ?
-					MVNETA_CPU_TXQ_ACCESS(1) : 0;
-		} else {
-			txq_map = MVNETA_CPU_TXQ_ACCESS_ALL_MASK;
-			rxq_map = MVNETA_CPU_RXQ_ACCESS_ALL_MASK;
-		}
+		txq_map = MVNETA_CPU_TXQ_ACCESS_ALL_MASK;
+		rxq_map = MVNETA_CPU_RXQ_ACCESS_ALL_MASK;
 
 		neta_reg_write(pp, MVNETA_CPU_MAP(cpu), rxq_map | txq_map);
 	}
@@ -417,19 +433,6 @@ static void neta_defaults_set(struct neta_port *pp)
 
 	neta_reg_write(pp, MVNETA_PORT_TX_RESET, 0);
 	neta_reg_write(pp, MVNETA_PORT_RX_RESET, 0);
-#if 0
-	/* Set Port Acceleration Mode */
-	if (pp->bm_priv)
-		/* HW buffer management + legacy parser */
-		val = MVNETA_ACC_MODE_EXT2;
-	else
-		/* SW buffer management + legacy parser */
-		val = MVNETA_ACC_MODE_EXT1;
-	neta_reg_write(pp, MVNETA_ACC_MODE, val);
-	/* TBD */
-	if (pp->bm_priv)
-		neta_reg_write(pp, MVNETA_BM_ADDRESS, pp->bm_priv->bppi_phys_addr);
-#endif
 
 	/* Update val of portCfg register accordingly with all RxQueue types */
 	val = MVNETA_PORT_CONFIG_DEFL_VALUE(pp->rxq_def);
@@ -460,7 +463,7 @@ static void neta_defaults_set(struct neta_port *pp)
 	val = neta_reg_read(pp, MVNETA_UNIT_CONTROL);
 	val &= ~MVNETA_PHY_POLLING_ENABLE;
 	neta_reg_write(pp, MVNETA_UNIT_CONTROL, val);
-
+#if 0
 	mvneta_mac_config(pp);
 	mvneta_set_ucast_table(pp, -1);
 	mvneta_set_special_mcast_table(pp, -1);
@@ -470,13 +473,8 @@ static void neta_defaults_set(struct neta_port *pp)
 	neta_reg_write(pp, MVNETA_INTR_ENABLE,
 		    (MVNETA_RXQ_INTR_ENABLE_ALL_MASK
 		     | MVNETA_TXQ_INTR_ENABLE_ALL_MASK));
-
+#endif
 	neta_mib_counters_clear(pp);
-}
-
-int neta_port_hw_deinit(struct neta_port *pp)
-{
-	return 0;
 }
 
 int neta_port_open(int port_id, struct neta_port *pp)
@@ -655,25 +653,6 @@ void neta_bm_pool_bufsize_set(struct neta_port *pp,
 	neta_reg_write(pp, MVNETA_PORT_POOL_BUFFER_SZ_REG(pool_id), val);
 }
 
-/* Add number of descriptors ready to receive new packets */
-static void mvneta_rxq_non_occup_desc_add(struct neta_port *pp,
-					  struct neta_rx_queue *rxq,
-					  int ndescs)
-{
-	/* Only MVNETA_RXQ_ADD_NON_OCCUPIED_MAX (255) descriptors can
-	 * be added at once
-	 */
-	while (ndescs > MVNETA_RXQ_ADD_NON_OCCUPIED_MAX) {
-		neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id),
-			    (MVNETA_RXQ_ADD_NON_OCCUPIED_MAX <<
-			     MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT));
-		ndescs -= MVNETA_RXQ_ADD_NON_OCCUPIED_MAX;
-	}
-
-	neta_reg_write(pp, MVNETA_RXQ_STATUS_UPDATE_REG(rxq->id),
-		    (ndescs << MVNETA_RXQ_ADD_NON_OCCUPIED_SHIFT));
-}
-
 /* Create a specified RX queue */
 static int mvneta_rxq_init(struct neta_port *pp,
 			   struct neta_rx_queue *rxq)
@@ -682,12 +661,13 @@ static int mvneta_rxq_init(struct neta_port *pp,
 	rxq->size = pp->rx_ring_size;
 
 	/* Allocate memory for RX descriptors */
-	rxq->descs =  mv_sys_dma_mem_alloc(rxq->size * MVNETA_DESC_ALIGNED_SIZE,
+	rxq->descs =  mv_sys_dma_mem_alloc(rxq->size * sizeof(struct neta_ppio_desc),
 					   MVNETA_DESC_ALIGNED_SIZE);
 	if (rxq->descs == NULL)
 		return -ENOMEM;
 	rxq->descs_phys = mv_sys_dma_mem_virt2phys(rxq->descs);
 	rxq->last_desc = rxq->size - 1;
+	rxq->to_refill_cntr = rxq->size;
 
 	/* Set Rx descriptors queue starting address */
 	neta_reg_write(pp, MVNETA_RXQ_BASE_ADDR_REG(rxq->id), rxq->descs_phys);
@@ -696,19 +676,45 @@ static int mvneta_rxq_init(struct neta_port *pp,
 	/* Set Offset */
 	mvneta_rxq_offset_set(pp, rxq, pp->rx_offset);
 
-	mvneta_rxq_bm_enable(pp, rxq);
-	mvneta_rxq_long_pool_set(pp, rxq);
-	mvneta_rxq_short_pool_set(pp, rxq);
-	mvneta_rxq_non_occup_desc_add(pp, rxq, rxq->size);
+	/* Configure Buffer Manager SW / HW */
+	if (pp->bm_priv) {
+		mvneta_rxq_bm_enable(pp, rxq);
+		mvneta_rxq_long_pool_set(pp, rxq);
+		mvneta_rxq_short_pool_set(pp, rxq);
+		neta_port_inq_update(pp, rxq, 0, rxq->size);
+	} else {
+		mvneta_rxq_buf_size_set(pp, rxq, pp->buf_size);
+		mvneta_rxq_bm_disable(pp, rxq);
+	}
 
 	return 0;
+}
+
+/* Drop packets received by the RXQ and free buffers */
+static void mvneta_rxq_drop_pkts(struct neta_port *pp,
+				 struct neta_rx_queue *rxq)
+{
+	int rx_done, i;
+
+	rx_done = neta_rxq_busy_desc_num_get(pp, rxq->id);
+	if (rx_done)
+		neta_port_inq_update(pp, rxq, 0, rx_done);
+
+	for (i = 0; i < rxq->size; i++) {
+		struct neta_ppio_desc *rx_desc = rxq->descs + i;
+		void *data = (u8 *)(uintptr_t)rx_desc->cmds[4];
+
+		if (!data)
+			continue;
+		/* TBD mv_sys_dma_mem_free(data); */
+	}
 }
 
 /* Cleanup Rx queue */
 static void mvneta_rxq_deinit(struct neta_port *pp,
 			      struct neta_rx_queue *rxq)
 {
-	/* TBD mvneta_rxq_drop_pkts(pp, rxq);*/
+	mvneta_rxq_drop_pkts(pp, rxq);
 
 	if (rxq->descs)
 		mv_sys_dma_mem_free(rxq->descs);
@@ -803,22 +809,6 @@ static void mvneta_cleanup_rxqs(struct neta_port *pp)
 static int mvneta_setup_rxqs(struct neta_port *pp)
 {
 	int queue;
-#ifdef CONFIG_64BIT
-	void *data_tmp;
-
-	/* In Neta HW only 32 bits data is supported, so in order to
-	 * obtain whole 64 bits address from RX descriptor, we store the
-	 * upper 32 bits when allocating buffer, and put it back
-	 * when using buffer cookie for accessing packet in memory.
-	 * Frags should be allocated from single 'memory' region, hence
-	 * common upper address half should be sufficient.
-	 */
-	data_tmp = mvneta_frag_alloc(pp->frag_size);
-	if (data_tmp) {
-		pp->data_high = (u64)data_tmp & 0xffffffff00000000;
-		mvneta_frag_free(pp->frag_size, data_tmp);
-	}
-#endif
 
 	for (queue = 0; queue < pp->rxq_number; queue++) {
 		int err = mvneta_rxq_init(pp, &pp->rxqs[queue]);
@@ -853,9 +843,7 @@ static int mvneta_setup_txqs(struct neta_port *pp)
 
 static int mvneta_open(struct neta_port *pp)
 {
-	int ret;
-
-	pp->pkt_size = MVNETA_RX_PKT_SIZE(1514);
+	int ret, val;
 
 	ret = mvneta_setup_rxqs(pp);
 	if (ret)
@@ -866,15 +854,21 @@ static int mvneta_open(struct neta_port *pp)
 		goto err_cleanup_rxqs;
 
 	/* Start port */
-	mvneta_max_rx_size_set(pp, pp->pkt_size);
-	mvneta_txq_max_tx_size_set(pp, pp->pkt_size);
+	mvneta_max_rx_size_set(pp, pp->buf_size);
+	mvneta_txq_max_tx_size_set(pp, pp->buf_size);
 
-	pp->bm_priv = pp->pool_short->priv;
-	neta_reg_write(pp, MVNETA_ACC_MODE, MVNETA_ACC_MODE_EXT2);
-	neta_reg_write(pp, MVNETA_BM_ADDRESS, pp->bm_priv->bppi_phys_addr);
+	/* Set Port Acceleration Mode */
+	if (pp->bm_priv)
+		/* HW buffer management + legacy parser */
+		val = MVNETA_ACC_MODE_EXT2;
+	else
+		/* SW buffer management + legacy parser */
+		val = MVNETA_ACC_MODE_EXT1;
 
-	/* start the Rx/Tx activity */
-	mvneta_port_enable(pp);
+	neta_reg_write(pp, MVNETA_ACC_MODE, val);
+
+	if (pp->bm_priv)
+		neta_reg_write(pp, MVNETA_BM_ADDRESS, pp->bm_priv->bppi_phys_addr);
 
 	return 0;
 
@@ -883,11 +877,32 @@ err_cleanup_rxqs:
 	return ret;
 }
 
+/* Free all packets pending transmit from all TXQs and reset TX port */
+static void mvneta_tx_reset(struct neta_port *pp)
+{
+
+	/* free the skb's in the tx ring */
+/* TBD	for (queue = 0; queue < txq_number; queue++)
+ *		mvneta_txq_done_force(pp, &pp->txqs[queue]);
+*/
+	neta_reg_write(pp, MVNETA_PORT_TX_RESET, MVNETA_PORT_TX_DMA_RESET);
+	neta_reg_write(pp, MVNETA_PORT_TX_RESET, 0);
+}
+
+static void mvneta_rx_reset(struct neta_port *pp)
+{
+	neta_reg_write(pp, MVNETA_PORT_RX_RESET, MVNETA_PORT_RX_DMA_RESET);
+	neta_reg_write(pp, MVNETA_PORT_RX_RESET, 0);
+}
+
 /* Stop the port, free port interrupt line */
 static int mvneta_stop(struct neta_port *pp)
 {
 	mvneta_cleanup_rxqs(pp);
 	mvneta_cleanup_txqs(pp);
+
+	mvneta_tx_reset(pp);
+	mvneta_rx_reset(pp);
 
 	return 0;
 }
@@ -925,5 +940,11 @@ int neta_port_hw_init(struct neta_port *pp)
 	}
 
 	mvneta_open(pp);
+	return 0;
+}
+
+int neta_port_hw_deinit(struct neta_port *pp)
+{
+	mvneta_stop(pp);
 	return 0;
 }
