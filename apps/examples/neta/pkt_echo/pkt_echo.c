@@ -114,34 +114,23 @@ struct local_arg {
 
 static struct glob_arg garg = {};
 
+#define SHOW_STATISTICS
 #ifdef SHOW_STATISTICS
 #define INC_RX_COUNT(core, port, cnt)		(rx_buf_cnt[core][port] += cnt)
 #define INC_TX_COUNT(core, port, cnt)		(tx_buf_cnt[core][port] += cnt)
-#define INC_TX_RETRY_COUNT(core, port, cnt)	(tx_buf_retry[core][port] += cnt)
 #define INC_TX_DROP_COUNT(core, port, cnt)	(tx_buf_drop[core][port] += cnt)
 #define INC_FREE_COUNT(core, port, cnt)		(free_buf_cnt[core][port] += cnt)
-#define SET_MAX_RESENT(core, port, cnt)		\
-	{ if (cnt > tx_max_resend[core][port]) tx_max_resend[core][port] = cnt; }
-
-#define SET_MAX_BURST(core, port, burst)	\
-	{ if (burst > tx_max_burst[core][port]) tx_max_burst[core][port] = burst; }
 
 u32 rx_buf_cnt[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
 u32 free_buf_cnt[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
 u32 tx_buf_cnt[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
 u32 tx_buf_drop[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_buf_retry[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_max_resend[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_max_burst[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
 
 #else
 #define INC_RX_COUNT(core, port, cnt)
 #define INC_TX_COUNT(core, port, cnt)
-#define INC_TX_RETRY_COUNT(core, port, cnt)
 #define INC_TX_DROP_COUNT(core, port, cnt)
 #define INC_FREE_COUNT(core, port, cnt)
-#define SET_MAX_RESENT(core, port, cnt)
-#define SET_MAX_BURST(core, port, cnt)
 #endif /* SHOW_STATISTICS */
 
 
@@ -567,18 +556,13 @@ static int stat_cmd_cb(void *arg, int argc, char *argv[])
 	for (j = 0; j < garg->num_ports; j++) {
 		printf("Port%d stats:\n", j);
 		for (i = 0; i < garg->cpus; i++) {
-			printf("cpu%d: rx_bufs=%u, tx_bufs=%u, free_bufs=%u, tx_resend=%u, max_retries=%u, ",
-			       i, rx_buf_cnt[i][j], tx_buf_cnt[i][j], free_buf_cnt[i][j],
-				tx_buf_retry[i][j], tx_max_resend[i][j]);
-			printf(" tx_drops=%u, max_burst=%u\n", tx_buf_drop[i][j], tx_max_burst[i][j]);
+			printf("cpu%d: rx_bufs=%u, tx_bufs=%u, free_bufs=%u, tx_drops=%u\n",
+			       i, rx_buf_cnt[i][j], tx_buf_cnt[i][j], free_buf_cnt[i][j], tx_buf_drop[i][j]);
 			if (reset) {
 				rx_buf_cnt[i][j] = 0;
 				tx_buf_cnt[i][j] = 0;
 				free_buf_cnt[i][j] = 0;
-				tx_buf_retry[i][j] = 0;
 				tx_buf_drop[i][j] = 0;
-				tx_max_burst[i][j] = 0;
-				tx_max_resend[i][j] = 0;
 			}
 		}
 	}
@@ -962,10 +946,7 @@ int main(int argc, char *argv[])
 			rx_buf_cnt[i][j] = 0;
 			tx_buf_cnt[i][j] = 0;
 			free_buf_cnt[i][j] = 0;
-			tx_buf_retry[i][j] = 0;
 			tx_buf_drop[i][j] = 0;
-			tx_max_burst[i][j] = 0;
-			tx_max_resend[i][j] = 0;
 		}
 	}
 #endif
