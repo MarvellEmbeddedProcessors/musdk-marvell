@@ -180,7 +180,7 @@ int neta_bpool_init(struct neta_bpool_params *params, struct neta_bpool **bpool)
 
 	pool_id = match[0];
 
-	pool = (struct neta_bpool *)malloc(sizeof(struct neta_bpool));
+	pool = kmalloc(sizeof(struct neta_bpool), GFP_KERNEL);
 	if (!pool) {
 		pr_err("no mem for neta pool\n");
 		return -ENOMEM;
@@ -206,6 +206,7 @@ void neta_bpool_deinit(struct neta_bpool *pool)
 	struct mvneta_bm_pool *bm_pool = (struct mvneta_bm_pool *)pool->internal_param;
 
 	mvneta_bm_pool_destroy(&musdk_bm, bm_pool);
+	kfree(pool);
 }
 
 int neta_bpool_put_buffs(struct buff_release_entry buff_entry[], int *num)
