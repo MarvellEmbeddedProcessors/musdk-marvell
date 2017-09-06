@@ -30,14 +30,22 @@ int __uio_line_from_file(char *filename, char *linebuf)
 {
 	char *s;
 	int i;
-	memset(linebuf, 0, UIO_MAX_NAME_SIZE);
 	FILE* file = fopen(filename,"r");
-	if (!file) return -1;
-	s = fgets(linebuf,UIO_MAX_NAME_SIZE,file);
-	if (!s) return -2;
-	for (i=0; (*s)&&(i<UIO_MAX_NAME_SIZE); i++) {
-		if (*s == '\n') *s = 0;
+
+	if (!file)
+		return -1;
+
+	memset(linebuf, 0, UIO_MAX_NAME_SIZE);
+	s = fgets(linebuf, UIO_MAX_NAME_SIZE, file);
+	if (!s) {
+		fclose(file);
+		return -2;
+	}
+	for (i = 0; (*s) && (i < UIO_MAX_NAME_SIZE); i++) {
+		if (*s == '\n')
+			*s = 0;
 		s++;
 	}
+	fclose(file);
 	return 0;
 }
