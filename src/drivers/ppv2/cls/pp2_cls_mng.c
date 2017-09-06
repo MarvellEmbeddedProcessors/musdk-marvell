@@ -501,6 +501,7 @@ static int pp2_cls_mng_add_default_flow(struct pp2_ppio *ppio)
 	tbl_params.default_act.type = PP2_CLS_TBL_ACT_DONE;
 	tbl_params.default_act.cos->ppio = ppio;
 	tbl_params.default_act.cos->tc = 0;
+	tbl_params.default_act.plcr = NULL;
 
 	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_VLAN_PRI);
 	pp2_cls_mng_tbl_init(&tbl_params, &tbl, MVPP2_CLS_LKP_MUSDK_DSCP_PRI);
