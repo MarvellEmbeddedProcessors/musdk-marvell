@@ -145,46 +145,59 @@ u32 tx_max_burst[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
 #endif /* SHOW_STATISTICS */
 
 
+static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
+			       struct lcl_port_desc	*tx_port,
+			       u16			 start_idx,
+			       u32			 num,
+			       u8			 tc)
+{
+	u16			idx = start_idx;
+	u16			free_cnt = 0;
+	struct neta_buff_inf	*binf;
+	struct tx_shadow_q	*shadow_q;
+	u16 bufs_num, extra_bufs;
+
+	shadow_q = &tx_port->shadow_qs[tc];
+	binf = &shadow_q->ents[idx].buff_ptr;
+
+	if ((idx + num) < tx_port->shadow_q_size) {
+		bufs_num = num;
+		neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &bufs_num);
+		idx += bufs_num;
+	} else {
+		bufs_num = tx_port->shadow_q_size - idx;
+		neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &bufs_num);
+		idx = 0;
+		extra_bufs = num - bufs_num;
+		if (extra_bufs) {
+			binf = &shadow_q->ents[idx].buff_ptr;
+			neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &extra_bufs);
+			idx += extra_bufs;
+		}
+		num = bufs_num + extra_bufs;
+	}
+
+	free_cnt += num;
+	INC_FREE_COUNT(rx_port->lcl_id, rx_port->port_id, free_cnt);
+
+	return idx;
+}
+
 static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
 				     struct lcl_port_desc	*tx_port,
 				     u8				 tc)
 {
-	u16			free_cnt = 0;
-	u16			idx = tx_port->shadow_qs[tc].read_ind;
-	struct neta_buff_inf	*binf;
-	struct tx_shadow_q	*shadow_q;
+	u16			idx;
 	u16 tx_num = 0;
-	u16 bufs_num, extra_bufs;
 
 	neta_ppio_get_num_outq_done(tx_port->ppio, tc, &tx_num);
 
 	if (unlikely(!tx_num))
 		return;
 
-	shadow_q = &tx_port->shadow_qs[tc];
-	binf = &shadow_q->ents[idx].buff_ptr;
-
-	if ((idx + tx_num) < tx_port->shadow_q_size) {
-		neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &tx_num);
-		idx += tx_num;
-	} else {
-		bufs_num = tx_port->shadow_q_size - idx;
-		neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &bufs_num);
-		idx = 0;
-		extra_bufs = tx_num - bufs_num;
-		if (extra_bufs) {
-			binf = &shadow_q->ents[idx].buff_ptr;
-			neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &extra_bufs);
-			idx += extra_bufs;
-		}
-		tx_num = bufs_num + extra_bufs;
-	}
-
-	free_cnt += tx_num;
-	INC_FREE_COUNT(rx_port->lcl_id, rx_port->port_id, free_cnt);
+	idx = free_buffers(rx_port, tx_port, tx_port->shadow_qs[tc].read_ind, tx_num, tc);
 	tx_port->shadow_qs[tc].read_ind = idx;
 }
-
 
 #ifdef DEBUG_NETA
 void neta_packet_dump(char *buff, u16 len)
@@ -268,10 +281,10 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 						(shadow_q_size - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
-/* TBD			shadow_q->read_ind =
- *				free_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[tx_ppio_id],
- *				     shadow_q->write_ind, not_sent, qid);
-*/
+			shadow_q->read_ind = free_buffers(&larg->ports_desc[rx_ppio_id],
+							  &larg->ports_desc[tx_ppio_id],
+							  shadow_q->write_ind, not_sent, qid);
+
 			INC_TX_DROP_COUNT(larg->id, rx_ppio_id, not_sent);
 		}
 		INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
