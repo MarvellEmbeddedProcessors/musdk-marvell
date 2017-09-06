@@ -77,6 +77,11 @@ struct neta_tx_queue {
 
 	/* DMA address of TSO headers */
 	dma_addr_t tso_hdrs_phys;
+
+	/* statistics */
+	u32	tx_pkts;
+	u32	tx_drop;
+
 };
 
 struct neta_rx_queue {
@@ -110,6 +115,10 @@ struct neta_rx_queue {
 	/* Index of the next RX DMA descriptor to refill with new buffer pointer */
 	int next_desc_to_refill;
 	u32 to_refill_cntr;
+
+	/* statistics */
+	u32	rx_pkts;
+	u32	refill_bufs;
 
 };
 
@@ -152,9 +161,6 @@ struct neta_port {
 	struct mvneta_bm *bm_priv;
 	struct mvneta_bm_pool *pool_long;
 	struct mvneta_bm_pool *pool_short;
-
-	/*struct mvneta_pcpu_stats __percpu	*stats;*/
-
 };
 
 #define GET_PPIO_PORT(ppio) ((struct neta_port *)(ppio)->internal_param)

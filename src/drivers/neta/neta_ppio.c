@@ -320,14 +320,7 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 	*num = recv_req;
 
 #ifdef NETA_STATS_SUPPORT
-/* TBD */
-	if (port->maintain_stats) {
-		rxq->threshold_rx_pkts += recv_req;
-		if (unlikely(rxq->threshold_rx_pkts > PP2_STAT_UPDATE_THRESHOLD)) {
-			pp2_ppio_inq_get_statistics(ppio, tc, qid, NULL, 0);
-			rxq->threshold_rx_pkts = 0;
-		}
-	}
+	rxq->rx_pkts += recv_req;
 #endif
 	return 0;
 }
@@ -448,17 +441,14 @@ int neta_ppio_send(struct neta_ppio	*ppio,
 	}
 
 #ifdef NETA_STATS_SUPPORT
-	if (port->maintain_stats) {
+	{
 		struct neta_tx_queue *txq;
 
-		txq = port->txqs[qid];
-		txq->threshold_tx_pkts += desc_sent;
-		if (unlikely(txq->threshold_tx_pkts > PP2_STAT_UPDATE_THRESHOLD)) {
-			neta_ppio_outq_get_statistics(ppio, qid, NULL, 0);
-			txq->threshold_tx_pkts = 0;
-		}
+		txq = &port->txqs[qid];
+		txq->tx_pkts += desc_sent;
 	}
-#endif /* NETA_STATS_SUPPORT */
+#endif
+
 	return 0;
 }
 
@@ -549,6 +539,11 @@ int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
 
 	pr_debug("port %d: queue %d: refill %d buffers\n", pp->id, qid, i);
 	neta_port_inq_update(pp, rxq, 0, i);
+
+#ifdef NETA_STATS_SUPPORT
+	rxq->refill_bufs += i;
+#endif
+
 	return 0;
 }
 
