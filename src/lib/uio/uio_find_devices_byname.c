@@ -63,14 +63,17 @@ struct uio_info_t *uio_find_devices_byname(const char *filter_name)
 	int n;
 
 	n = scandir("/sys/class/uio", &namelist, 0, alphasort);
-	if (n < 0)
+	if (n <= 0) {
+		pr_err("scandir for /sys/class/uio failed. errno = %d (%s)\n",
+			errno, strerror(errno));
 		return NULL;
-
+	}
 	while(n--) {
 		infp = __uio_info_byname(namelist[n]->d_name, filter_name);
 		kfree(namelist[n]);
 		if (!infp)
 			continue;
+
 		if (!infolist)
 			infolist = infp;
 		else
