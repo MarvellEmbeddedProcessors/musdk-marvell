@@ -88,15 +88,6 @@ static inline uint32_t pp2_port_get_tx_fifo(struct pp2_port *port)
 	return (MVPP22_TX_FIFO_SIZE_MASK & pp2_reg_read(port->cpu_slot, MVPP22_TX_FIFO_SIZE_REG(port->id)));
 }
 
-/* Mask the current CPU's Rx/Tx interrupts */
-static inline void
-pp2_port_interrupts_mask(struct pp2_port *port)
-{
-	uintptr_t cpu_slot = port->cpu_slot;
-
-	pp2_reg_write(cpu_slot, MVPP2_ISR_RX_TX_MASK_REG(port->id), 0);
-}
-
 static void
 pp2_rxq_offset_set(struct pp2_port *port,
 		   int prxq, int offset)
@@ -1358,11 +1349,6 @@ pp2_port_stop(struct pp2_port *port)
 {
 	/* Stop new packets from arriving to RXQs */
 	pp2_port_stop_dev(port);
-
-	/* Redundant since IRQs already disabled at
-	 * port init, but keep it for simmetry
-	 */
-	pp2_port_interrupts_mask(port);
 }
 
 /* External */
