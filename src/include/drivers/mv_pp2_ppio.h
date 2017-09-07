@@ -469,10 +469,14 @@ enum pp2_inq_desc_status {
 
 /* TODO: Add PTP, PME, L4Icheck */
 
-/* NOTE: Following functions must be called
+/* NOTE: Following functions must be called.
+ * 'pp2_ppio_outq_desc_set_pkt_offset' is optimized for performance so it MUST be called before
+ *	'pp2_ppio_outq_desc_set_pkt_len'
+ *
  *	pp2_ppio_outq_desc_reset ()
  *	pp2_ppio_outq_desc_set_phys_addr()
  *	pp2_ppio_outq_desc_set_proto_info()
+ *	pp2_ppio_outq_desc_set_pkt_offset()
  *	pp2_ppio_outq_desc_set_pkt_len()
  */
 
