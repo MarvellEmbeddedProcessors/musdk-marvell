@@ -1,3 +1,5 @@
+.. _MUSDK-Installation:
+
 Getting Started with MUSDK
 ===========================
 

@@ -129,6 +129,8 @@ of the Rx descriptor.
 
 In transmit side, if MUSDK client SW would like to utilize this offload, appropriate fields in the Tx descriptor should be set using the appropriate API. The PPv2.2 HW will than calculate and generate L3 and/or L4 CSum.
 
+.. _rss_support:
+
 Multicore Support for RSS
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 RSS is a statistical load balancing technique for distributing packet flows that arrive on the same ethernet port
@@ -158,6 +160,8 @@ The supported hash types are as follows :
 Limitations:
 	- All traffic is equally weighted between the defined RSS queues (no option to define weighted RSS queues)
 
+.. _mac_filtering:
+
 MAC address filtering
 ~~~~~~~~~~~~~~~~~~~~~
 MAC filtering is implemented by hardware on A70x0 and A80x0. MAC filtering is done in a dedicated parser &
@@ -174,6 +178,8 @@ L2 filtering TCAM by parsing the DMAC field.
 		- State1: non-promisc & non-allmulti
 		- State2: Promisc mode
 		- State3: non-promisc & allmulti
+
+.. _vlan_filtering:
 
 VLAN filtering
 ~~~~~~~~~~~~~~
