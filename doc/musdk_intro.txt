@@ -2,7 +2,7 @@ Introduction to MUSDK
 =====================
 Marvell User-Space SDK (MUSDK) is a light-weight user-space I/O driver for Marvell's
 Embedded Networking SoC's. The MUSDK library provides a simple and direct access to Marvell's
-SoC blocks to networking applications and networking infrastrucutre.
+SoC blocks to networking applications and networking infrastructure.
 
 
 MUSDK Components
@@ -28,18 +28,18 @@ The kernel-space UIO component exposes the device via a set of Linux standard me
 The user-space component searches for these entries, reads the device address ranges and maps them to user space memory.
 The user-space component can then perform any device-management tasks directly, including I/O from the device.
 
-Packet Processor I/O Interface (PPIO)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The MUSDK PPIO driver provides low-level network interface API for User-Space network drivers/applications.
-The PPIO infrastrcuture maps Marvell's Packet Processor (PPv2) configuration space and I/O descriptors space
+Packet Processor V2 Interface
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The MUSDK PPV2 driver provides low-level network interface API for User-Space network drivers/applications.
+The driver's infrastructure maps Marvell's Packet Processor (PPv2) configuration space and I/O descriptors space
 directly to user-space memory. This allows user-space driver/application to directly process the
 packet processor I/O rings from user space, without any overhead of a copy operation.
 
-Please refer to PPIO User Guide and API reference for more details.
+Please refer to :ref:`Packet Processor V2 (PPV2) User Guide and API reference <ppv2_user_guide>` for more details.
 
-Packet Processor Classifier Interface
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The MUSDK Classifier provides low-level network interface API to enable applications program Marvell's
+Packet Processor V2 Classifier Interface
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The MUSDK Classifier provides a low-level network interface API to enable applications program Marvell's
 Packet Processor (PPv2) hardware in order to assist in prioritization, classification and filtering of
 each packet.
 
@@ -68,4 +68,66 @@ MUSDK provides API to allocate a single contiguous memory region for run-time DM
 This memory region is then mapped to user space to serve of drivers and applications.
 MUSDK also provides API for driver/application to allocate data buffers from this memory region,
 and then to release them back once they were processed.
+
+
+Software Environment
+--------------------
+Endianness
+~~~~~~~~~~~
+MUSDK supports both Little-Endian and Big-Endian modes. No dedicated compilation flags are required.
+
+Memory address width
+~~~~~~~~~~~~~~~~~~~~
+Following compilation flags concern width of types that have to do with addresses.
+
+#.    MVCONF_DMA_PHYS_ADDR_T_PUBLIC
+	- Flag defines if dma_addr_t and phys_addr_t types should be defined inside MUSDK.
+	- The user application should define this flag in its compilation, if these types are not already defined internally,
+	  and are therefore required to be taken from MUSDK.
+	- Flag is used in src/include/env/mv_types.h.
+
+#.    MVCONF_DMA_PHYS_ADDR_T_SIZE
+	- Flag defines if dma_addr_t and phys_addr_t types are u64 or u32.
+	- Flag _must_ be defined in user application, and it must match the value that was used during musdk_lib compilation
+	  ./configure stage (MUSDK configure.ac default=64).
+	- Values:(32,64).
+	- Flag is used in src/include/env/mv_types.h and in MUSDK implementation.
+
+#.    MVCONF_PP2_BPOOL_COOKIE_SIZE
+	- Flag sets the size of the user_defined cookie type (i.e. packet meta-data or virtual pointer) in a frame_buffer
+	  of the ppv2 driver.
+	- Flag _must_ be defined in user application, and it must match the value that was used during musdk_lib compilation
+	  ./configure stage (MUSDK configure.ac default=32).
+	- Values:(32,64).
+	- Flag is used in src/include/drivers/mv_pp2_bpool.h and in MUSDK implementation.
+
+#.    MVCONF_PP2_BPOOL_DMA_ADDR_SIZE
+	- Flag sets the size of the frame_buffer type. Usually this would be the same size as dma_addr_t, but in certain cases the
+	  user may decide to make it smaller than dma_addr_t.
+	- Flag _must_ be defined in user application, and it must match the value that was used during musdk_lib compilation
+	  ./configure stage (MUSDK configure.ac default=32).
+	- Values:(32,64).
+	- Flag is used in src/include/drivers/mv_pp2_bpool.h and in MUSDK implementation.
+
+HW Resource Management
+----------------------
+
+MUSDK shares a number of HW resources with the Kernel. MUSDK does not perform resource management, but does provide some means to assist the user application to perform such management.
+
+Linux Resource Mapping
+~~~~~~~~~~~~~~~~~~~~~~
+
+MUSDK introduces a new musdk-status “attribute” into the Linux DTS file that allows the KS driver to determine if a HW Port is allocated to MUSDK or not.
+
+.. _MUSDK-INTRO-DTS:
+
+DTS attribute
+	- **musdk-status = 'private'** states that a port belongs to MUSDK, and not to the kernel.
+	- **musdk-status = 'shared'** states that a port is shared by MUSDK and the kernel. (MUSDK logical port)::
+
+		e.g.
+		eth0: eth0@010000 {
+			musdk-status = "private";
+		};
+
 
