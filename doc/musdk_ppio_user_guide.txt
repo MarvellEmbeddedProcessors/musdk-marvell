@@ -1,13 +1,101 @@
-Packet Processor IO (PPIO) User Guide
-======================================
-
+.. _ppv2_user_guide:
+Packet Processor V2 (PPV2) User Guide
+=====================================
 Introduction
 ------------
 
-MUSDK PPIO driver and applications are part of the MUSDK package.
+MUSDK PPV2 driver and applications are part of the MUSDK package.
 
-MUSDK PPIO driver provides capability of usage of the Packet Processing HW Engine (PPv2.2)
+MUSDK PPV2 driver provides capability of usage of the Packet Processing HW Engine (PPv2.2)
 directly from user-space applications with minimum overhead and high performance.
+
+
+Kernel Dependencies
+~~~~~~~~~~~~~~~~~~~
+The MUSDK PPV2 driver depends on the KS driver for following purposes:
+	- Read DTS file and extract all common HW resources information as well as all the KS specific HW resources (e.g. HIFs, Ports, BM-Pools, RxQs, etc.).
+	- Initialize and maintain PHY and link state for all NICs (both KS and US), and expose API’s (ioctl/ethtool/sysfs) for NIC and Phy functionality on the MUSDK ports.
+
+  .. Note::
+	NICs that are associated with US MUSDK are initialized by the KS driver with a default MAC-address (according to DTS attributes)
+
+Resource Mapping
+~~~~~~~~~~~~~~~~
+
+PPV2
+^^^^
+The PPV2 HW has a number of resources that are shared between MUSDK and the Kernel: HIF, BPOOL, RSS_TABLES and POLICERS.
+
+It is up to the user application to identify which resources are used by the Kernel. These resources must not be used by MUSDK.
+
+The pp2_init() API provides a set of fields to supply ‘reserved resource maps’ (e.g. reserved by Kernel) for each of the above resources. MUSDK later on uses these ‘reserved resource maps’ to validate resource availability during the Init API functions for each resource (i.e. pp2_hif_init(), pp2_bpool_init(), etc.).
+
+Objects Overview
+~~~~~~~~~~~~~~~~
+
+     .. _fig_musdk_ppv2:
+
+     .. figure:: /images/musdk_ppv2_intro.*
+        :align: center
+
+
+Intro
+^^^^^
+	- Any Marvell SoC containing PPV2 HW may have a number of **'PPV2 HW Instances'**.
+	- i.e. The A7040 has 1 'PPV2 HW Instance', and A8040 has 2 'PPV2 HW Instances'.
+
+	- A **'PPV2 HW Instance'** is *not* a MUSDK object, it is however an important concept since some of the MUSDK objects are
+	  local to a specific 'PPV2 HW Instance'.
+
+	- For these types of objects, the 'PPV2 HW Instance' number is *specified as part of the object's name*
+	  during the object Init.
+	- The **pp2_get_num_inst() API** allows the user application to learn the number of 'PPV2 HW Instances' existing in the
+	  system.
+
+HIF
+^^^
+A Host-Interface (HIF) object is required to access BM-Pools and TX-Qs for run-time operations.
+A HIF objects exists across *all* 'PPV2 HW Instances', meaning that in the MUSDK implementation it is physically instantiated in each of the 'PPV2 HW Instances'.
+
+Operations that require a HIF:
+	- Putting and getting buffers to/from a BM-Pool.
+	- Enqueuing packets to TX-Qs.
+
+HIF Behavior
+	- Each HIF must only be used in a single context simultaneously. *This is a hard requirement*,
+	  that for performance considerations *is not enforced in MUSDK*.
+	- Allocating a HIF for each CPU thread is recommended, in order to prevent the need to lock access to the HIF
+	  in the user application.
+	- HIFs are also used in the kernel, and the HIF resource must be managed by the user application.
+	- In the current kernel driver, the first 4 HIFs are used. The user application should reserve these,
+	  by adding them to the 'hif_reserved_map' parameter in the pp2_init() API.
+
+
+BPOOL
+^^^^^
+	- The BPOOL object is required to make use of the PPV2 HW Buffer Management, which is the mandatory Buffer Manager
+	  for PPV2 PPIO's.
+	- A BPOOL object is created on a certain 'PPV2 HW Instance'.
+	- The PPIO and the BPOOL object have a 'many-to-many' relationship, meaning that a PPIO Object can use multiple BPOOLs,
+	- and a BPOOL object may be shared by multiple PPIO's. The BPOOL and PPIO must reside in the same 'PPV2 HW Instance'.
+
+
+
+PPIO
+^^^^
+	- The PPIO object is the MUSDK presentation of an interface.
+	- A PPIO object is a logical port capable of receiving and transmitting packets.
+	- As a minimum, a PPIO has a collection of RX queues (RX-Qs) and TX queues (TX-Qs), at least one of each.
+	  In addition, a PPIO is associated with one or more BPOOLS (See TC below).
+
+**PPIO TC** - Traffic Class (TC) is an important sub-structure of the PPIO. Multiple TC's enable multiple priority levels in the RX direction in the PPIO. The user application may configure which traffic is sent to each TC by using the PPV2 Classifier, and choose to empty the RX-Qs associated with one TC before the RX-Qs of another TC.
+A TC consists of a group of RX-Qs, and the BPools used by those RX-Qs. A TC may be associated with up to 2 BPOOLs. RX-Qs within the TC are selected by the PPIO's hash function.
+
+
+  .. Note::
+	When a TC is associated with multiple BPools, the specific BPOOL for each incoming packet is selected by HW, according to
+	the best size match.
+
 
 Feature Set
 -----------
@@ -17,60 +105,29 @@ Supported APIs
 
 PP2:
 	- Support all API's
-
 HIF:
 	- Support all API's
-
 BPOOL:
 	- Support all API's
-	- pp2_bpool_put_buffs() is replacing pp2_bpool_put_buff() in this version.
-	  Currently both are supported, pp2_bpool_put_buff() is to be phased out soon.
+	- pp2_bpool_put_buffs() and pp2_bpool_put_buff() both exist.
+	  Currently both are supported, pp2_bpool_put_buff() is to be phased out.
 
 PPIO:
-	- Init:
-		- pp2_ppio_init
-		- pp2_ppio_enable
-		- pp2_ppio_disable
-
-		- Unsupported:
-			- pp2_ppio_deinit
-
+	- Init, Filtering, Statistics:
+		- Support all API's *excluding* :
+			- pp2_ppio_flush_vlan
 	- Send/Receive:
-		- pp2_ppio_send
-		- pp2_ppio_recv
-		- pp2_ppio_get_num_outq_done
-		- pp2_ppio_set_mtu
-		- pp2_ppio_get_mtu
-		- pp2_ppio_set_mru
-		- pp2_ppio_get_mru
-
-		- Unsupported:
+		- Support all API's *excluding* :
 			- pp2_ppio_send_sg
-
-	- Filtering:
-		- pp2_ppio_set_mac_addr
-		- pp2_ppio_get_mac_addr
-		- pp2_ppio_set_promisc
-		- pp2_ppio_get_promisc
-		- pp2_ppio_set_mc_promisc
-		- pp2_ppio_get_mc_promisc
-		- pp2_ppio_add_mac_addr
-		- pp2_ppio_flush_mac_addrs
-		- pp2_ppio_add_vlan
-		- pp2_ppio_remove_vlan
-		- pp2_ppio_flush_vlan
-
 	- Outqueue:
 		- Support all pp2_ppio_outq_xxx API's, *excluding* :
 			- pp2_ppio_outq_desc_set_dsa_tag
+			- pp2_ppio_get_outq_state
 		- Support all pp2_ppio_inq_xxx API's, *excluding* :
 			- pp2_ppio_inq_desc_get_pp_io
-			- pp2_ppio_inq_desc_get_ip_isfrag
-	- Statistics:
-		- pp2_ppio_get_statistics
-		- pp2_ppio_inq_get_statistics
-		- pp2_ppio_outq_get_statistics
-
+	- Link & NIC:
+		- Support all API's *excluding* :
+			- pp2_ppio_set_link_state
 
 
 General Limitations
@@ -80,7 +137,7 @@ General Limitations
   in Linux and not tinkered with afterwards. See '3.2 HOW-TO' for further details.
 
 - The system is initialized with interfaces that are "non-kernel" in the dts.
-  These interfaces are reserved for musdk, and only they may be used by musdk.
+  These interfaces are reserved for MUSDK, and only they may be used by MUSDK.
 
 	- The default configuration for the interfaces is as follows:
 
@@ -101,7 +158,7 @@ General Limitations
 			- eth2 reserved for kernel usage
 			- eth3 reserved for MUSDK usage
 
-- Linux interfaces in "non-kernel" state (intended for musdk) :
+- Linux interfaces in "non-kernel" state (intended for MUSDK) :
 	- Do not support being stopped by Linux.
 	- Do not support MTU change by Linux.
 
@@ -196,9 +253,9 @@ L2 filtering TCAM by parsing the VLAN ID field.
 Statistics
 ~~~~~~~~~~
 HW counters are 16/32-bit.
-Counters that are maintainable by nature, are 64-bit in musdk.
+Counters that are maintainable by nature, are 64-bit in MUSDK.
 
-"Maintainable counters" are counters for which musdk can guarantee the HW counter will not reach U32_MAX/U16_MAX,
+"Maintainable counters" are counters for which MUSDK can guarantee the HW counter will not reach U32_MAX/U16_MAX,
 assuming "statistic_maintenance" is performed.
 The other (non-maintainable) counters will latch at U32_MAX/U16_MAX, until read by an API statistics call.
 
@@ -213,10 +270,9 @@ if periodic maintenance (triggered by internal threshold) will be performed duri
 
 Logical port
 ~~~~~~~~~~~~
-If an interface is defined as logical port, traffic is shared between kernel and MUSDK according to received queue.
-In this case, there is a need to define the rules by which the packet processor will know which traffic to send where.
-In order to dsefine an interfase as logical port, it needs to be declared as such in the appropriate DTS file
-(status = "shared" in DTS).
+If an interface is defined as a logical port, traffic is shared between kernel and MUSDK according to the RX-Q.
+To create a logical port, first it needs to be declared as such in the appropriate DTS file,
+see :ref:`DTS attribute <MUSDK-INTRO-DTS>`
 
 The PPv2 Kernel driver will treat this interface as a regular kernel interface, and MUSDK driver may configure
 additional queues to this interface and retrieve the data from these queues.
