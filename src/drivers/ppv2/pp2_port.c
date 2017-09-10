@@ -229,8 +229,8 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 static void
 pp2_txp_max_tx_size_set(struct pp2_port *port)
 {
-	u32 val, size, mtu;
-	u32 txq, tx_port_num;
+	u32 val, mtu;
+	u32 tx_port_num;
 	uintptr_t cpu_slot = port->cpu_slot;
 
 	mtu = port->port_mtu * 8;
@@ -250,27 +250,8 @@ pp2_txp_max_tx_size_set(struct pp2_port *port)
 	val |= mtu;
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_MTU_REG, val);
 
-	/* TXP token size and all TXQs token size must be larger that MTU */
-	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG);
-	size = val & MVPP2_TXP_TOKEN_SIZE_MAX;
-	if (size < mtu) {
-		size = mtu;
-		val &= ~MVPP2_TXP_TOKEN_SIZE_MAX;
-		val |= size;
-		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG, val);
-	}
-
-	for (txq = 0; txq < port->num_tx_queues; txq++) {
-		val = pp2_reg_read(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq));
-		size = val & MVPP2_TXQ_TOKEN_SIZE_MAX;
-
-		if (size < mtu) {
-			size = mtu;
-			val &= ~MVPP2_TXQ_TOKEN_SIZE_MAX;
-			val |= size;
-			pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq), val);
-		}
-	}
+	/* Recalculate rate limits according to new MTU */
+	pp2_port_config_txsched(port);
 }
 
 static void
@@ -393,7 +374,7 @@ static void
 pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 {
 	uintptr_t cpu_slot;
-	u32 j, val, tx_port_num, desc_per_txq, pref_buf_size, desc;
+	u32 j, val, desc_per_txq, pref_buf_size, desc;
 	struct pp2_hw *hw;
 
 	hw = &port->parent->hw;
@@ -456,19 +437,6 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 	 pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG,
 		       MVPP2_PREF_BUF_PTR(desc) | pref_buf_size |
 		 MVPP2_PREF_BUF_THRESH(PP2_TXQ_PREFETCH_16 / 2));
-
-	/* WRR / EJP configuration - indirect access */
-	tx_port_num = MVPP2_MAX_TCONT + port->id;
-	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-
-	val = pp2_reg_read(cpu_slot, MVPP2_TXQ_SCHED_REFILL_REG(txq->log_id));
-	val &= ~MVPP2_TXQ_REFILL_PERIOD_ALL_MASK;
-	val |= MVPP2_TXQ_REFILL_PERIOD_MASK(1);
-	val |= MVPP2_TXQ_REFILL_TOKENS_ALL_MASK;
-	pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_REFILL_REG(txq->log_id), val);
-
-	val = MVPP2_TXQ_TOKEN_SIZE_MAX;
-	pp2_reg_write(cpu_slot, MVPP2_TXQ_SCHED_TOKEN_SIZE_REG(txq->log_id), val);
 
 	/* Lastly, clear all ETH_TXQS for all future DM-IFs */
 	for (j = 0; j < PP2_NUM_REGSPACES; j++) {
@@ -1092,9 +1060,6 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 
 	/* Set initial cos value */
 	pp2_cls_mng_config_default_cos_queue(port);
-
-	/* Set egress rate limits and packet arbitration */
-	pp2_port_config_txsched(port);
 }
 
 static int32_t
@@ -1243,13 +1208,11 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	}
 
 	port->enable_port_rate_limit = param->rate_limit_enable;
-	if (param->rate_limit_enable &&
-	    param->outqs_params.outqs_params[i].rate_limit_params.cbs < PP2_PPIO_MIN_CBS) {
+	if (param->rate_limit_enable && param->rate_limit_params.cbs < PP2_PPIO_MIN_CBS) {
 		pr_err("port %s: CBS has to be at least %ukB.\n", port->linux_name, PP2_PPIO_MIN_CBS);
 		return -EINVAL;
 	}
-	if (param->rate_limit_enable &&
-	    param->outqs_params.outqs_params[i].rate_limit_params.cir < PP2_PPIO_MIN_CIR) {
+	if (param->rate_limit_enable && param->rate_limit_params.cir < PP2_PPIO_MIN_CIR) {
 		pr_err("port %s: CIR has to be at least %ukbps.\n", port->linux_name, PP2_PPIO_MIN_CIR);
 		return -EINVAL;
 	}
