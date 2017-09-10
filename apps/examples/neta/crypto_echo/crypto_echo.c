@@ -45,7 +45,6 @@
 #include "env/io.h"
 
 #include "mv_neta.h"
-#include "mv_neta_bpool.h"
 #include "mv_neta_ppio.h"
 #include "mv_sam.h"
 
@@ -84,9 +83,6 @@
 #define CRYPT_APP_PKT_ECHO_SUPPORT
 #define CRYPT_APP_PREFETCH_SHIFT	4
 
-#define CRYPT_APP_BPOOLS_INF		{ {256, CRYPT_APP_TX_Q_SIZE * 2}, {1600, CRYPT_APP_TX_Q_SIZE} }
-#define CRYPT_APP_BPOOLS_JUMBO_INF	{ {384, CRYPT_APP_TX_Q_SIZE}, {4096, CRYPT_APP_TX_Q_SIZE} }
-
 static u8 rfc3602_aes128_cbc_t1_key[] = {
 	0x06, 0xa9, 0x21, 0x40, 0x36, 0xb8, 0xa1, 0x5b,
 	0x51, 0x2e, 0x03, 0xd5, 0x34, 0x12, 0x00, 0x06
@@ -118,12 +114,12 @@ static u8 rfc3602_sha1_t1_auth_key[] = {
 struct pkt_mdata {
 	u8 state; /* as defined in enum pkt_state */
 	u8 rx_port;
+	u8 rx_queue;
 	u8 tx_port;
 	u8 data_offs;
 	u16 flags;
 	u16 reserved;
 	void *buf_vaddr;
-	struct neta_bpool *bpool;
 };
 
 enum pkt_state {
@@ -153,8 +149,6 @@ struct glob_arg {
 	pthread_mutex_t			trd_lock;
 	int				num_bufs;
 	struct port_desc		ports_desc[MVAPPS_NETA_MAX_NUM_PORTS];
-	int				num_pools;
-	struct bpool_desc		*pools_desc[MVAPPS_NETA_MAX_NUM_PORTS];
 
 };
 
@@ -170,7 +164,6 @@ struct local_arg {
 	enum crypto_dir			dir;
 	int				num_ports;
 	struct lcl_port_desc		*lcl_ports_desc;
-	struct bpool_desc		*pools_desc;
 };
 
 static struct glob_arg garg = {};
@@ -188,21 +181,64 @@ static int pme_ev_cnt_rx = -1, pme_ev_cnt_enq = -1, pme_ev_cnt_deq = -1, pme_ev_
 #define STOP_COUNT_CYCLES(_ev_cnt, _num)
 #endif /* CHECK_CYCLES */
 
+static inline int free_buf_from_tx_shadow(struct local_arg *larg,
+					  struct lcl_port_desc *tx_port,
+					  u8 tc, u16 idx)
+{
+	struct neta_buff_inf	*binf;
+	struct tx_shadow_q	*shadow_q;
+	struct lcl_port_desc	*rx_port;
+	u8 rp, rq;
+	u16 bufs_num = 1;
+
+	shadow_q = &tx_port->shadow_qs[tc];
+	binf = &shadow_q->ents[idx].buff_ptr;
+	rp = shadow_q->ents[idx].rx_port;
+	rq = shadow_q->ents[idx].rx_queue;
+	rx_port = &larg->lcl_ports_desc[rp];
+
+	neta_ppio_inq_put_buffs(rx_port->ppio, rq, binf, &bufs_num);
+	return 0;
+}
+
+static inline void free_sent_buffers(struct local_arg *larg, struct lcl_port_desc *tx_port, u8 tc)
+{
+	u16 tx_num = 0;
+	int i, idx;
+
+	neta_ppio_get_num_outq_done(tx_port->ppio, tc, &tx_num);
+
+	if (unlikely(!tx_num))
+		return;
+
+	idx = tx_port->shadow_qs[tc].read_ind;
+	for (i = 0; i < tx_num; i++) {
+		free_buf_from_tx_shadow(larg, tx_port, tc, idx);
+		idx++;
+		if (idx == CRYPT_APP_TX_Q_SIZE)
+			idx = 0;
+	}
+	tx_port->shadow_qs[tc].read_ind = idx;
+}
 
 static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
 {
 	struct pkt_mdata	*mdata = (struct pkt_mdata *)cookie;
-
+	struct lcl_port_desc	*rx_port;
 	char			*buff = mdata->buf_vaddr;
 	dma_addr_t		pa;
-	struct neta_bpool	*bpool;
+	u16			bufs_num;
+	u8			rp;
 	struct neta_buff_inf	binf;
 
 	pa = mv_sys_dma_mem_virt2phys(buff);
-	bpool = mdata->bpool;
 	binf.addr = pa;
 	binf.cookie = lower_32_bits((uintptr_t)(buff));
-	neta_bpool_put_buff(bpool, &binf);
+	rp = mdata->rx_port;
+	rx_port = &larg->lcl_ports_desc[rp];
+
+	bufs_num = 1;
+	neta_ppio_inq_put_buffs(rx_port->ppio, mdata->rx_queue, &binf, &bufs_num);
 	mv_stack_push(larg->stack_hndl, mdata);
 }
 
@@ -242,7 +278,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 #endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
 
 static inline int proc_rx_pkts(struct local_arg *larg,
-			   u8 rx_ppio_id, u8 tx_ppio_id,
+			   u8 rx_ppio_id, u8 tx_ppio_id, u8 rx_q,
 			   struct neta_ppio_desc *descs, u16 num)
 {
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
@@ -253,7 +289,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	struct sam_cio		*cio;
 	enum pkt_state		state;
 	int			err;
-	u16			i, bpool_buff_len, num_got;
+	u16			i, buff_len, num_got;
 	u8			data_offs;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
@@ -263,7 +299,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	/* TODO: Get current buffer size */
-	bpool_buff_len = larg->cmn_args.garg->cmn_args.mtu + 64;
+	buff_len = larg->cmn_args.garg->cmn_args.mtu + 64;
 
 	memset(sam_descs, 0, sizeof(sam_descs));
 
@@ -279,11 +315,9 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 	for (i = 0; i < num; i++) {
 		char *vaddr;
-		struct neta_bpool *bpool;
 		enum neta_inq_l4_type type;
 
 		vaddr = (char *)((uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i]) | neta_sys_dma_high_addr);
-		bpool = neta_ppio_inq_desc_get_bpool(&descs[i], larg->lcl_ports_desc[rx_ppio_id].ppio);
 
 		mdata = (struct pkt_mdata *)mv_stack_pop(larg->stack_hndl);
 		if (!mdata)
@@ -291,8 +325,8 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 		mdata->state = state;
 		mdata->rx_port = rx_ppio_id;
+		mdata->rx_queue = rx_q;
 		mdata->tx_port = tx_ppio_id;
-		mdata->bpool = bpool;
 		mdata->buf_vaddr = vaddr;
 		mdata->flags = 0;
 
@@ -317,7 +351,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 		dst_buf_infs[i].vaddr = src_buf_infs[i].vaddr;
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
-		dst_buf_infs[i].len = bpool_buff_len;
+		dst_buf_infs[i].len = buff_len;
 
 		/* data_offs - L4 offset */
 		neta_ppio_inq_desc_get_l4_info(&descs[i], &type, &data_offs);
@@ -345,19 +379,9 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		return -EFAULT;
 	}
 	if (num_got < num) {
-		struct neta_bpool	*bpool;
-		struct neta_buff_inf	 binf;
+		for (i = num_got; i < num; i++)
+			free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
 
-		for (i = num_got; i < num; i++) {
-			binf.addr = neta_ppio_inq_desc_get_phys_addr(&descs[i]);
-			binf.cookie = neta_ppio_inq_desc_get_cookie(&descs[i]);
-			bpool = neta_ppio_inq_desc_get_bpool(&descs[i], larg->lcl_ports_desc[rx_ppio_id].ppio);
-			neta_bpool_put_buff(bpool, &binf);
-			mdata = sam_descs[i].cookie;
-
-			if (mdata)
-				mv_stack_push(larg->stack_hndl, mdata);
-		}
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 		perf_cntrs->drop_cnt += (num - num_got);
 	}
@@ -374,12 +398,12 @@ static inline int dec_pkts(struct local_arg		*larg,
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct pkt_mdata	*mdata;
 	int			 err;
-	u16			 i, bpool_buff_len, num_got;
+	u16			 i, buff_len, num_got;
 	u8			 data_offs;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
 	/* TODO: is this enough?!?!?! */
-	bpool_buff_len = larg->cmn_args.garg->cmn_args.mtu + 64;
+	buff_len = larg->cmn_args.garg->cmn_args.mtu + 64;
 
 	memset(sam_descs, 0, sizeof(sam_descs));
 
@@ -394,7 +418,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 
 		dst_buf_infs[i].vaddr = src_buf_infs[i].vaddr;
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
-		dst_buf_infs[i].len = bpool_buff_len;
+		dst_buf_infs[i].len = buff_len;
 
 		sam_descs[i].cookie = mdata;
 		sam_descs[i].sa = larg->dec_sa;
@@ -439,8 +463,6 @@ static inline int send_pkts(struct local_arg *larg,
 			    struct sam_cio_op_result *sam_res_descs, u16 num)
 {
 	struct tx_shadow_q	*shadow_q;
-	struct neta_bpool	*bpool;
-	struct neta_buff_inf	*binf;
 	struct neta_ppio_desc	*desc;
 	struct neta_ppio_desc	 descs[MVAPPS_NETA_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
 	int			 err, tc = 0;
@@ -461,7 +483,6 @@ static inline int send_pkts(struct local_arg *larg,
 		pa = mv_sys_dma_mem_virt2phys(buff);
 
 		tp = mdata->tx_port;
-		bpool = mdata->bpool;
 		desc = &descs[tp][port_nums[tp]];
 		shadow_q = &larg->lcl_ports_desc[tp].shadow_qs[tc];
 
@@ -495,7 +516,8 @@ static inline int send_pkts(struct local_arg *larg,
 
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
-		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
+		shadow_q->ents[shadow_q->write_ind].rx_port = mdata->rx_port;
+		shadow_q->ents[shadow_q->write_ind].rx_queue = mdata->rx_queue;
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == CRYPT_APP_TX_Q_SIZE)
 			shadow_q->write_ind = 0;
@@ -528,34 +550,13 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 				if (shadow_q->write_ind == 0)
 					shadow_q->write_ind = CRYPT_APP_TX_Q_SIZE;
 				shadow_q->write_ind--;
-				binf = &shadow_q->ents[shadow_q->write_ind].buff_ptr;
-				if (unlikely(!binf->cookie || !binf->addr)) {
-					pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-						shadow_q->write_ind, (u64)binf->cookie, (u64)binf->addr);
-					continue;
-				}
-				bpool = shadow_q->ents[shadow_q->write_ind].bpool;
-				neta_bpool_put_buff(bpool, binf);
+				free_buf_from_tx_shadow(larg, &larg->lcl_ports_desc[tp],
+							tc, shadow_q->write_ind);
 			}
 			/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 			perf_cntrs->drop_cnt += (num - num_got);
 		}
-
-		neta_ppio_get_num_outq_done(larg->lcl_ports_desc[tp].ppio, tc, &num);
-		for (i = 0; i < num; i++) {
-			binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
-			if (unlikely(!binf->cookie || !binf->addr)) {
-				pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx)!\n",
-					shadow_q->read_ind, (u64)binf->cookie, (u64)binf->addr);
-				continue;
-			}
-			bpool = shadow_q->ents[shadow_q->read_ind].bpool;
-			neta_bpool_put_buff(bpool, binf);
-
-			shadow_q->read_ind++;
-			if (shadow_q->read_ind == CRYPT_APP_TX_Q_SIZE)
-				shadow_q->read_ind = 0;
-		}
+		free_sent_buffers(larg, &larg->lcl_ports_desc[tp], tc);
 		perf_cntrs->tx_cnt += num;
 	}
 	return 0;
@@ -653,7 +654,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 	if (num) {
 		perf_cntrs->rx_cnt += num;
 
-		err = proc_rx_pkts(larg, rx_ppio_id, tx_ppio_id, descs, num);
+		err = proc_rx_pkts(larg, rx_ppio_id, tx_ppio_id, qid, descs, num);
 		if (unlikely(err))
 			return err;
 	}
@@ -780,7 +781,6 @@ static int init_all_modules(void)
 		return err;
 
 	memset(&params, 0, sizeof(params));
-	params.bm_pool_reserved_map = MVAPPS_NETA_BPOOLS_RSRV;
 
 	err = neta_init(&params);
 	if (err)
@@ -883,28 +883,69 @@ static void destroy_sam_sessions(struct sam_cio		*enc_cio,
 	}
 }
 
+static int port_inq_fill(struct port_desc *port, u16 mtu, u16 qid)
+{
+	struct neta_buff_inf buffs_inf[CRYPT_APP_RX_Q_SIZE];
+	u16 buff_size;
+	u16 i, num_of_buffs;
+
+	if (port->inq_size > CRYPT_APP_RX_Q_SIZE)
+		port->inq_size = CRYPT_APP_RX_Q_SIZE;
+
+	buff_size = port->port_params.inqs_params.b.buf_size;
+	/* do it only once to store high 32 bits of memory address */
+	if (!neta_sys_dma_high_addr) {
+		void *tmp_addr;
+
+		tmp_addr = mv_sys_dma_mem_alloc(buff_size, 4);
+		if (!tmp_addr) {
+			pr_err("failed to allocate mem for neta_sys_dma_high_addr!\n");
+			return -1;
+		}
+		neta_sys_dma_high_addr = ((u64)tmp_addr) & (~((1ULL << 32) - 1));
+		mv_sys_dma_mem_free(tmp_addr);
+	}
+	for (i = 0; i < port->inq_size; i++) {
+		void *buff_virt_addr;
+
+		buff_virt_addr = mv_sys_dma_mem_alloc(buff_size, 4);
+		if (!buff_virt_addr) {
+			pr_err("port %d: queue %d: failed to allocate buffer memory (%d)!\n",
+				port->ppio_id, qid, i);
+			return -1;
+		}
+		buffs_inf[i].addr = (neta_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
+		/* cookie contains lower_32_bits of the va */
+		buffs_inf[i].cookie = lower_32_bits((u64)buff_virt_addr);
+	}
+	num_of_buffs = i;
+
+	neta_ppio_inq_put_buffs(port->ppio, qid, buffs_inf, &num_of_buffs);
+	pr_debug("port %d: queue %d: %d buffers added.\n", port->ppio_id, qid, num_of_buffs);
+
+	return 0;
+}
+
+static int port_inqs_fill(struct port_desc *port, u16 mtu)
+{
+	int err = 0;
+	u16 tc, qid;
+
+	for (tc = 0; tc < port->num_tcs; tc++) {
+		for (qid = 0; qid < port->num_inqs[tc]; qid++)
+			err |= port_inq_fill(port, mtu, qid);
+	}
+
+	return err;
+}
+
 static int init_local_modules(struct glob_arg *garg)
 {
 	struct sam_init_params		init_params;
 	int				err, port_index;
-	struct bpool_inf		std_infs[] = CRYPT_APP_BPOOLS_INF;
-	struct bpool_inf		jumbo_infs[] = CRYPT_APP_BPOOLS_JUMBO_INF;
-	struct bpool_inf		*infs;
 	int				i;
 
 	pr_info("Specific modules initializations\n");
-
-	if (garg->cmn_args.mtu > DEFAULT_MTU) {
-		infs = jumbo_infs;
-		garg->num_pools = ARRAY_SIZE(jumbo_infs);
-	} else {
-		infs = std_infs;
-		garg->num_pools = ARRAY_SIZE(std_infs);
-	}
-	/* Calculate total number of buffers in the pools */
-	garg->num_bufs = 0;
-	for (i = 0; i < garg->num_pools; i++)
-		garg->num_bufs += infs[i].num_buffs;
 
 	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++) {
 		struct port_desc *port = &garg->ports_desc[port_index];
@@ -913,13 +954,9 @@ static int init_local_modules(struct glob_arg *garg)
 		if (err)
 			return err;
 
-		err = app_build_port_bpools(&garg->pools_desc[port_index], garg->num_pools, infs);
-		if (err)
-			return err;
-
 		port->num_tcs	= CRYPT_APP_MAX_NUM_TCS_PER_PORT;
 		for (i = 0; i < port->num_tcs; i++)
-			port->num_inqs[i] = garg->cmn_args.cpus;
+			port->num_inqs[i] = CRYPT_APP_MAX_NUM_TCS_PER_PORT;
 
 		port->inq_size	= CRYPT_APP_RX_Q_SIZE;
 		port->num_outqs	= CRYPT_APP_MAX_NUM_TCS_PER_PORT;
@@ -927,12 +964,16 @@ static int init_local_modules(struct glob_arg *garg)
 		port->first_inq	= CRYPT_APP_FIRST_INQ;
 
 		/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
-		err = app_port_init(port, garg->num_pools, garg->pools_desc[port_index],
-				    garg->cmn_args.mtu, MVAPPS_NETA_PKT_OFFS);
+		err = app_port_init(port, garg->cmn_args.mtu, MVAPPS_NETA_PKT_OFFS);
 		if (err) {
 			pr_err("Failed to initialize port %d\n", port_index);
 			return err;
 		}
+		/* fill RX queues with buffers */
+		port_inqs_fill(port, garg->cmn_args.mtu);
+
+		/* enable port */
+		err = app_port_enable(port);
 	}
 
 	/* In that stage, we're initializaing CIO for global-arg just in order
@@ -948,13 +989,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 static void destroy_local_modules(struct glob_arg *garg)
 {
-	int port_index;
-
 	app_disable_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
-
-	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++)
-		app_free_all_pools(garg->pools_desc[port_index], garg->num_pools);
-
 	app_deinit_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
 }
 
@@ -1243,8 +1278,6 @@ static int init_local(void *arg, int id, void **_larg)
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		app_port_local_init(i, larg->cmn_args.id,
 				    &larg->lcl_ports_desc[i], &garg->ports_desc[i]);
-
-	larg->pools_desc = garg->pools_desc[larg->cmn_args.id];
 
 	err = mv_stack_create(garg->num_bufs, &larg->stack_hndl);
 	if (err) {

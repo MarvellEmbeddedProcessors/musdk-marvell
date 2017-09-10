@@ -54,7 +54,9 @@
  * Tx shadow queue entry
  */
 struct tx_shadow_q_entry {
-	struct neta_buff_inf	 buff_ptr;	/* pointer to the buffer object */
+	struct neta_buff_inf	buff_ptr;	/* pointer to the buffer object */
+	u8			rx_port;
+	u8			rx_queue;
 };
 
 /*
