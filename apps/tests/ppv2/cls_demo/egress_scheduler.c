@@ -55,7 +55,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 		{0, 0, 0, 0}
 	};
 
-	if  (argc < 2 || argc > (6 + 4 * port_params->outqs_params.num_outqs)) {
+	if  (argc < 2 || argc > (6 + 4 * PP2_PPIO_MAX_NUM_OUTQS)) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
@@ -101,7 +101,8 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 				       txq);
 				return -EINVAL;
 			}
-			port_params->outqs_params.outqs_params[i].rate_limit_params.cir =
+			optarg = ret_ptr;
+			port_params->outqs_params.outqs_params[txq].rate_limit_params.cir =
 				strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("Invalid rate limit in txq_rate_limit.\n");
@@ -119,7 +120,8 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 				       txq);
 				return -EINVAL;
 			}
-			port_params->outqs_params.outqs_params[i].rate_limit_params.cbs =
+			optarg = ret_ptr;
+			port_params->outqs_params.outqs_params[txq].rate_limit_params.cbs =
 				strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("Invalid burst size in txq_burst_size.\n");
@@ -137,6 +139,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 				       txq);
 				return -EINVAL;
 			}
+			optarg = ret_ptr;
 			port_params->outqs_params.outqs_params[txq].sched_mode = strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("Invalid burst size in txq_arb_mode.\n");
@@ -154,6 +157,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 				       txq);
 				return -EINVAL;
 			}
+			optarg = ret_ptr;
 			port_params->outqs_params.outqs_params[txq].weight = strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("Invalid burst size in txq_arb_mode.\n");
