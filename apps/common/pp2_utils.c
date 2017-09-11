@@ -518,7 +518,6 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	port_params->outqs_params.num_outqs = port->num_outqs;
 	for (i = 0; i < port->num_outqs; i++) {
 		port_params->outqs_params.outqs_params[i].size = port->outq_size;
-		port_params->outqs_params.outqs_params[i].weight = 1;
 	}
 
 	err = pp2_ppio_init(port_params, &port->ppio);
