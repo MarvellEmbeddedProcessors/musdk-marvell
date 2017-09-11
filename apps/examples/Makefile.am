@@ -1,7 +1,9 @@
 if PP2_BUILD
-SUBDIRS = ppv2
+PP2_DIR = ppv2
 endif
 
 if NETA_BUILD
-SUBDIRS = neta
+NETA_DIR = neta
 endif
+
+SUBDIRS = $(PP2_DIR) $(NETA_DIR)
