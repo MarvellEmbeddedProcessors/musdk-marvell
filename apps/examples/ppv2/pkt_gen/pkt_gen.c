@@ -86,7 +86,7 @@
 #define DEFAULT_PKT_SIZE		DEFAULT_MTU
 
 #define DEFAULT_REPORT_TIME 1 /* 1 second */
-#define DEFAULT_WAIT_CYCLE  0
+#define DEFAULT_RATE_USECS  0
 #define DEFAULT_SRC_IP 0x0a000001
 #define DEFAULT_DST_IP 0x0a000002
 #define DEFAULT_SRC_PORT 1024
@@ -284,7 +284,6 @@ static int loop_tx(struct local_arg	*larg,
 	struct pp2_ppio_desc	 descs[PKT_GEN_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *)larg->cmn_args.plat;
 	u16			 i, tx_num;
-	int			 mycyc;
 
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
 	enum pp2_inq_l3_type     l3_type = PP2_INQ_L3_TYPE_IPV4_OK;
@@ -330,8 +329,8 @@ static int loop_tx(struct local_arg	*larg,
 		larg->trf_cntrs.tx_drop += (num - tx_num);
 	}
 
-	for (mycyc = 0; mycyc < larg->cmn_args.busy_wait; mycyc++)
-		asm volatile("");
+	if (unlikely(larg->cmn_args.busy_wait))
+		udelay(larg->cmn_args.busy_wait);
 
 	return 0;
 }
@@ -535,13 +534,6 @@ static int init_local_modules(struct glob_arg *garg)
 				       port->pp_id);
 				return err;
 			}
-#ifdef CRYPT_APP_ONE_PORT_LOOP
-			if (port_index) {
-				err = pp2_ppio_set_promisc(port->ppio, 1);
-				if (err)
-					return err;
-			}
-#endif /* CRYPT_APP_ONE_PORT_LOOP */
 		} else {
 			return err;
 		}
@@ -658,7 +650,7 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->cmn_args.id               = id;
 	larg->cmn_args.burst		= garg->cmn_args.burst;
-	larg->cmn_args.busy_wait			= garg->cmn_args.busy_wait;
+	larg->cmn_args.busy_wait	= garg->cmn_args.busy_wait;
 	larg->cmn_args.echo              = garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
 	larg->cmn_args.num_ports         = garg->cmn_args.num_ports;
@@ -744,7 +736,8 @@ static void usage(char *progname)
 	       "\t                            source IP address or range\n"
 	       "\t-D, --dst-mac <XX:XX:XX:XX:XX:XX>    destination MAC address\n"
 	       "\t-S, --src-mac <XX:XX:XX:XX:XX:XX>    source MAC address\n"
-	       "\t-w, --wait-time <cycles>    cycles between tx bursts.(default is no wait)\n"
+	       "\t-R, --rate-limit <pps>      maximum rate to generate in packets-per-second (default is none).\n"
+	       "\t                            'K'/'M' may be used for KILO/MEGA (e.g. 100K for 100000pps).\n"
 	       "Common OPTIONS:\n"
 	       "\t-T, --report-time <second>  time in seconds between reports.(default is %ds)\n"
 	       "\t-c, --cores <number>        number of CPUs to use\n"
@@ -834,7 +827,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int rv, curr_port_index = 0;
 	int port_dir[MVAPPS_PP2_MAX_I_OPTION_PORTS] = {0};
 	int common_dir = 0;
-	const char short_options[] = "hi:b:l:c:a:m:T:w:S:D:s:d:rtv";
+	int mult;
+	const char short_options[] = "hi:b:l:c:a:m:T:w:R:S:D:s:d:rtv";
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
 		{"interface", required_argument, 0, 'i'},
@@ -846,7 +840,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"affinity", required_argument, 0, 'a'},
 		{"qmap", required_argument, 0, 'm'},
 		{"report-time", required_argument, 0, 'T'},
-		{"wait-time", required_argument, 0, 'w'},
+		{"rate-limit", required_argument, 0, 'R'},
 		{"src-mac", required_argument, 0, 'S'},
 		{"dst-mac", required_argument, 0, 'D'},
 		{"src-ip", required_argument, 0, 's'},
@@ -869,7 +863,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.prefetch_shift = PKT_GEN_APP_PREFETCH_SHIFT;
 	garg->cmn_args.pkt_offset = 0;
-	garg->cmn_args.busy_wait	= DEFAULT_WAIT_CYCLE;
+	garg->cmn_args.busy_wait	= DEFAULT_RATE_USECS;
 	garg->rxq_size = PKT_GEN_APP_RX_Q_SIZE;
 	garg->maintain_stats = 0;
 	garg->report_time = DEFAULT_REPORT_TIME;
@@ -952,9 +946,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			garg->report_time = atoi(optarg);
 			pr_debug("Set report_time to %d\n", garg->report_time);
 			break;
-		case 'w':
-			garg->cmn_args.busy_wait = atoi(optarg);
-			pr_debug("Set busy_wait time to %d\n", garg->cmn_args.busy_wait);
+		case 'R':
+			mult = 1;
+			if (optarg[strlen(optarg)-1] == 'K') {
+				optarg[strlen(optarg)-1] = '\0';
+				mult = 1000;
+			} else if (optarg[strlen(optarg)-1] == 'M') {
+				optarg[strlen(optarg)-1] = '\0';
+				mult = 1000000;
+			}
+			garg->cmn_args.busy_wait = atoi(optarg) * mult;
 			break;
 		case 'S':
 			rv = sscanf(optarg, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
@@ -1055,6 +1056,18 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		pr_err("illegal packet size (%d vs %d)!\n",
 		       garg->pkt_size, DEFAULT_PKT_SIZE);
 		return -EINVAL;
+	}
+
+	/* in case rate-limit was requested, convert here from pkts-per-second given
+	 * by the user to busy-wait time in u-secs
+	 */
+	if (garg->cmn_args.busy_wait) {
+		/* we need to calculate here how much time we need to wait in u-secs
+		 * per burst. so, the formula is: wait = (1000000/PPS)*burst
+		 */
+		u64 tmp = 1000000 * garg->cmn_args.burst;
+
+		garg->cmn_args.busy_wait = tmp / garg->cmn_args.busy_wait;
 	}
 
 	return 0;
