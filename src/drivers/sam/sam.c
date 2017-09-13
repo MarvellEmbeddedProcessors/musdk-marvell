@@ -45,6 +45,7 @@
 u32 sam_debug_flags;
 
 static bool		sam_initialized;
+static int		sam_num_instances;
 static int		sam_active_cios;
 static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
 static int		sam_num_sessions;
@@ -399,11 +400,16 @@ u8 sam_get_num_inst(void)
 	int i;
 	u8 num = 0;
 
+	if (sam_num_instances)
+		return sam_num_instances;
+
 	for (i = 0; i < SAM_HW_ENGINE_NUM; i++) {
 		if (sam_hw_engine_exist(i))
 			num++;
 	}
-	return num;
+	sam_num_instances = num;
+
+	return sam_num_instances;
 }
 
 int sam_init(struct sam_init_params *params)
