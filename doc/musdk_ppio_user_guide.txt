@@ -227,7 +227,7 @@ Please refer to MUSDK classifier section "How To Run The Example Application" fo
 
 MAC address filtering
 ~~~~~~~~~~~~~~~~~~~~~
-MAC filtering is implemented by hardware on A70x0 and A80x0. MAC filtering is done in a dedicated parser &
+MAC filtering is implemented by PPv2.2 hardware. MAC filtering is done in a dedicated parser &
 L2 filtering TCAM by parsing the DMAC field.
 
 - Filtering capability: For each MUSDK port, it is possible to configure up to 25 UC and MC filtering entries.
@@ -247,7 +247,7 @@ Please refer to MUSDK classifier section "How To Run The Example Application" fo
 
 VLAN filtering
 ~~~~~~~~~~~~~~
-VLAN filtering is implemented by hardware on A70x0 and A80x0. VLAN filtering is done in a dedicated parser &
+VLAN filtering is implemented by PPv2.2 hardware. VLAN filtering is done in a dedicated parser &
 L2 filtering TCAM by parsing the VLAN ID field.
 
 - Filtering capability: For each MUSDK port, it is possible to configure up to 10 VLAN ID filtering entries.
@@ -351,3 +351,27 @@ Loopback
 Marvell PPv2.2 incorporates hardware support for loopback operation.
 
 If an interface operates in loopback mode, all TX traffic is looped back into the RX side
+
+Policing
+~~~~~~~~~~~~~~
+Policing is implemented by PPv2.2 hardware.
+
+The Policer applies bandwidth control, according to RFC 2697, over the flows that are metered. A flow that does not confirm to the subscribed policy (bandwidth and burst size)
+is marked and may be dropped as a result.
+Incoming packets to the Policer are already marked by the classifier. In color aware mode, the Policer uses the input color, and in color blind mode,
+it ignores the input color Each input packet is marked by the Policer as either green, yellow, or red. The marking is based on the Committed Information.
+Rate (CIR) and 2 associated burst sizes:
+* A Committed Burst Size (CBS)
+* An Excessive Burst Size (EBS).
+A packet is marked:
+* Green if it does not exceed the CBS
+* Yellow if it exceed the CBS but does not exceed the EBS
+* Red otherwise
+
+- For each MUSDK port, it is possible to configure one policer-profile.
+- A policer-profile can only be attached to one MUSDK port.
+- Both regular and logical port can be attached with policer-profile.
+- Initial policer profile may be configured during port initialization.
+- The policer profile may be assigned using classifier API (see 'musdk_cls_user_guide').
+- For each TC user can set initial color that may be used as the input color for the policer. the default color is GREEN.
+

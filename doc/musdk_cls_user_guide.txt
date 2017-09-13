@@ -19,6 +19,8 @@ Supported API's
 	- pp2_cls_tbl_remove_rule
 	- pp2_cls_qos_tbl_init
 	- pp2_cls_qos_tbl_deinit
+	- pp2_cls_plcr_init
+	- pp2_cls_plcr_deinit
 
 General Limitations
 ~~~~~~~~~~~~~~~~~~~
@@ -241,3 +243,16 @@ The following traffic types are supported:
 				otherwise, use VLAN-priority (outer tag)  if exists; otherwise, use default
 
 Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
+
+Policer Unit
+~~~~~~~~~~~~~~~
+
+Policing is performed by HW policer unit. The classifier allows selection of a policer profile for a specific rule.
+
+Please follow the sequence below to activate the policer function for a specific flow:
+1. Call pp2_cls_plcr_init API with appropriate parameters (such as rate, burst, etc.)
+2. Assign the returned policer-profile ID to a rule's action by calling either pp2_cls_tbl_add_rule (for new rule)
+	or pp2_cls_tbl_modify_rule for exisiting rule.
+
+When a packet hits a rule for which a policer-profile-id was assigned, the policer HW activates the policer algorithm for it.
+If the policer decides to set the color of the packet to RED, the packet is dropped.
