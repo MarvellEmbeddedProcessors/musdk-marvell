@@ -6,4 +6,8 @@ if NETA_BUILD
 NETA_DIR = neta
 endif
 
-SUBDIRS = $(PP2_DIR) $(NETA_DIR)
+if GIU_BUILD
+GIU_DIR = giu
+endif
+
+SUBDIRS = $(PP2_DIR) $(NETA_DIR) $(GIU_DIR)

@@ -233,6 +233,7 @@ AC_CONFIG_FILES([Makefile
 		apps/examples/Makefile
 		apps/examples/ppv2/Makefile
 		apps/examples/neta/Makefile
+		apps/examples/giu/Makefile
 ])
 # Auto-created code files
 AC_CONFIG_FILES([src/include/env/mv_autogen_build_assert.h])
