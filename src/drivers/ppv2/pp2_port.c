@@ -225,35 +225,6 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 	return 0;
 }
 
-/* Set max sizes for Tx queues */
-static void
-pp2_txp_max_tx_size_set(struct pp2_port *port)
-{
-	u32 val, mtu;
-	u32 tx_port_num;
-	uintptr_t cpu_slot = port->cpu_slot;
-
-	mtu = port->port_mtu * 8;
-	if (mtu > MVPP2_TXP_MTU_MAX)
-		mtu = MVPP2_TXP_MTU_MAX;
-
-	/* WA for wrong Token bucket update: Set MTU value = 3*real MTU value */
-	mtu = 3 * mtu;
-
-	/* Indirect access to registers */
-	tx_port_num = MVPP2_MAX_TCONT + port->id;
-	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-
-	/* Set MTU */
-	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_MTU_REG);
-	val &= ~MVPP2_TXP_MTU_MAX;
-	val |= mtu;
-	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_MTU_REG, val);
-
-	/* Recalculate rate limits according to new MTU */
-	pp2_port_config_txsched(port);
-}
-
 static void
 pp2_port_mac_max_rx_size_set(struct pp2_port *port)
 {
@@ -883,7 +854,7 @@ pp2_port_start_dev(struct pp2_port *port)
 		pp2_port_mac_max_rx_size_set(port);
 
 	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
-		pp2_txp_max_tx_size_set(port);
+		pp2_port_config_txsched(port);
 
 	pr_debug("start_dev: tx_port_num %d, traffic mode %s%s\n",
 		MVPP2_MAX_TCONT + port->id,

@@ -41,8 +41,12 @@
 #include "pp2.h"
 #include "pp2_port.h"
 
-#define PP2_AMPLIFY_FACTOR_MTU		(3)
-#define PP2_WRR_WEIGHT_UNIT		(8)
+#define PP2_AMPLIFY_FACTOR_MTU			(3)
+#define PP2_WRR_WEIGHT_UNIT			(8)
+#define MVPP2_TXP_MAX_CONFIGURABLE_BUCKET_SIZE	(MVPP2_TXP_TOKEN_SIZE_MAX - MVPP2_TXP_REFILL_TOKENS_MAX)
+#define MVPP2_TXQ_MAX_CONFIGURABLE_BUCKET_SIZE	(MVPP2_TXQ_TOKEN_SIZE_MAX - MVPP2_TXQ_REFILL_TOKENS_MAX)
+#define MVPP2_TXP_REFILL_PERIOD_MIN		(1)
+#define MVPP2_TXQ_REFILL_PERIOD_MIN		(1)
 
 /* Calculate period and tokens accordingly with required rate and accuracy [kbps] */
 static int pp2_txsched_rate_calc(u32 rate, u32 accuracy, u32 *pperiod, u32 *ptokens)
@@ -96,23 +100,26 @@ static int pp2_txsched_port_rate_set(struct pp2_port *port, int rate)
 	u32	regVal;
 	u32	tokens, period, txPortNum, accuracy = 0;
 
-	if (!port->enable_port_rate_limit)
-		return 0;
-
 	txPortNum = MVPP2_TX_PORT_NUM(port->id);
 	pp2_reg_write(port->cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, txPortNum);
 
-	rc = pp2_txsched_rate_calc(rate, accuracy, &period, &tokens);
-	if (rc) {
-		pr_err("%s: Can't provide rate of %d [Kbps] with accuracy of %d [%%]\n",
-		       __func__, rate, accuracy);
-		return rc;
-	}
-	if (tokens > MVPP2_TXP_REFILL_TOKENS_MAX)
-		tokens = MVPP2_TXP_REFILL_TOKENS_MAX;
+	if (port->enable_port_rate_limit) {
 
-	if (period > MVPP2_TXP_REFILL_PERIOD_MAX)
-		period = MVPP2_TXP_REFILL_PERIOD_MAX;
+		rc = pp2_txsched_rate_calc(rate, accuracy, &period, &tokens);
+		if (rc) {
+			pr_err("%s: Can't provide rate of %d [Kbps] with accuracy of %d [%%]\n",
+			       __func__, rate, accuracy);
+			return rc;
+		}
+
+		if (tokens > MVPP2_TXP_REFILL_TOKENS_MAX)
+			tokens = MVPP2_TXP_REFILL_TOKENS_MAX;
+		if (period > MVPP2_TXP_REFILL_PERIOD_MAX)
+			period = MVPP2_TXP_REFILL_PERIOD_MAX;
+	} else {
+		period = MVPP2_TXP_REFILL_PERIOD_MIN;
+		tokens = MVPP2_TXP_REFILL_TOKENS_MAX;
+	}
 
 	regVal = pp2_reg_read(port->cpu_slot, MVPP2_TXP_SCHED_REFILL_REG);
 
@@ -137,7 +144,7 @@ static int pp2_txsched_port_burst_set(struct pp2_port *port, int burst)
 	u32 txPortNum;
 
 	if (!port->enable_port_rate_limit)
-		return 0;
+		burst = MVPP2_TXP_MAX_CONFIGURABLE_BUCKET_SIZE / 8;
 
 	txPortNum = MVPP2_TX_PORT_NUM(port->id);
 	pp2_reg_write(port->cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, txPortNum);
@@ -169,24 +176,27 @@ static int pp2_txsched_queue_rate_set(struct pp2_port *port, int txq, int rate)
 	u32 txPortNum, period, tokens, accuracy = 0;
 	int rc;
 
-	if (!port->txq_config[txq].rate_limit_enable)
-		return 0;
-
-	rc = pp2_txsched_rate_calc(rate, accuracy, &period, &tokens);
-	if (rc) {
-		pr_err("%s: Can't provide rate of %d [Kbps] with accuracy of %d [%%]\n",
-		       __func__, rate, accuracy);
-		return rc;
-	}
-
 	txPortNum = MVPP2_TX_PORT_NUM(port->id);
 	pp2_reg_write(port->cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, txPortNum);
 
-	if (tokens > MVPP2_TXQ_REFILL_TOKENS_MAX)
-		tokens = MVPP2_TXQ_REFILL_TOKENS_MAX;
+	if (port->txq_config[txq].rate_limit_enable) {
 
-	if (period > MVPP2_TXQ_REFILL_PERIOD_MAX)
-		period = MVPP2_TXQ_REFILL_PERIOD_MAX;
+		rc = pp2_txsched_rate_calc(rate, accuracy, &period, &tokens);
+		if (rc) {
+			pr_err("%s: Can't provide rate of %d [Kbps] with accuracy of %d [%%]\n",
+			       __func__, rate, accuracy);
+			return rc;
+		}
+
+		if (tokens > MVPP2_TXQ_REFILL_TOKENS_MAX)
+			tokens = MVPP2_TXQ_REFILL_TOKENS_MAX;
+
+		if (period > MVPP2_TXQ_REFILL_PERIOD_MAX)
+			period = MVPP2_TXQ_REFILL_PERIOD_MAX;
+	} else {
+		tokens = MVPP2_TXQ_REFILL_TOKENS_MAX;
+		period = MVPP2_TXQ_REFILL_PERIOD_MIN;
+	}
 
 	regVal = pp2_reg_read(port->cpu_slot, MVPP2_TXQ_SCHED_REFILL_REG(txq));
 
@@ -211,7 +221,7 @@ static int pp2_txsched_queue_burst_set(struct pp2_port *port, int txq, int burst
 	int txPortNum;
 
 	if (!port->txq_config[txq].rate_limit_enable)
-		return 0;
+		burst = MVPP2_TXQ_MAX_CONFIGURABLE_BUCKET_SIZE / 8;
 
 	txPortNum = MVPP2_TX_PORT_NUM(port->id);
 	pp2_reg_write(port->cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, txPortNum);
@@ -311,13 +321,44 @@ static int pp2_txsched_queue_arbitration_set(struct pp2_port *port, u8 txq,
 	return -EINVAL;
 }
 
+/* Sets the register called MTU.
+ *   Although, it really sets it to value of [frame_tx_size-CRC], which is
+ *   the frame_size as viewed by the tx_scheduler.
+ */
+static void pp2_port_txsched_set_mtu(struct pp2_port *port)
+{
+	u32 val, mtu;
+	u32 tx_port_num;
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	mtu = (port->port_mtu + ETH_HLEN) * 8;
+
+	/* WA for wrong Token bucket update: Set MTU value = 3*real MTU value */
+	mtu = 3 * mtu;
+
+	if (mtu > MVPP2_TXP_MTU_MAX)
+		mtu = MVPP2_TXP_MTU_MAX;
+
+	/* Indirect access to registers */
+	tx_port_num = MVPP2_TX_PORT_NUM(port->id);
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+
+	/* Set MTU */
+	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_MTU_REG);
+	val &= ~MVPP2_TXP_MTU_MAX;
+	val |= mtu;
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_MTU_REG, val);
+}
+
 /* Initialize port and queue rate limits and txq arbitration */
 int pp2_port_config_txsched(struct pp2_port *port)
 {
 	int rc, txq;
+
 	/* Store hardware state */
 
-	/* Set/verify scheduler period */
+	/* Set port MTU (which is used later in the initialization) */
+	pp2_port_txsched_set_mtu(port);
 
 	/* Set port rate limit and burst size */
 	rc = pp2_txsched_port_rate_set(port, port->rate_limit_params.cir);
