@@ -105,12 +105,18 @@ libmusdk_la_SOURCES += drivers/neta/neta_bm.c
 endif
 
 if GIU_BUILD
+nobase_include_HEADERS += include/drivers/mv_giu_gpio.h
+nobase_include_HEADERS += include/drivers/mv_giu_bpool.h
 nobase_include_HEADERS += include/drivers/mv_mqa.h
 nobase_include_HEADERS += include/drivers/mv_mqa_queue.h
 nobase_include_HEADERS += include/mng/mv_nmp.h
 nobase_include_HEADERS += include/mng/mv_nmp_dispatch.h
 
 libmusdk_la_SOURCES += drivers/giu/giu.c
+libmusdk_la_SOURCES += drivers/giu/giu_gpio.c
+libmusdk_la_SOURCES += drivers/giu/giu_bpool.c
+libmusdk_la_SOURCES += drivers/giu/giu_queue_topology.c
+libmusdk_la_SOURCES += drivers/giu/file_map.c
 
 libmusdk_la_SOURCES += drivers/mqa/mqa.c
 libmusdk_la_SOURCES += drivers/mqa/mqa_queue.c
