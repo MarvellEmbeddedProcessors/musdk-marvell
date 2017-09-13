@@ -441,7 +441,7 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan);
 int pp2_port_initialize_statistics(struct pp2_port *port);
 int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *stats);
 
-/* Initialize port and queue rate limits and txq arbitration */
+/* Initialize MTU, port and queue rate limits and txq arbitration */
 int pp2_port_config_txsched(struct pp2_port *port);
 
 /* Deinitialize port and queue rate limits and txq arbitration */
