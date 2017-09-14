@@ -136,8 +136,8 @@ General Limitations
   such as Classification and Link related functionality. It is assumed that interfaces are brought up
   in Linux and not tinkered with afterwards. See '3.2 HOW-TO' for further details.
 
-- The system is initialized with interfaces that are "non-kernel" in the dts.
-  These interfaces are reserved for MUSDK, and only they may be used by MUSDK.
+- The system is initialized with interfaces that are "non-kernel" in the dtb file.
+  These interfaces are reserved for musdk, and only they may be used by musdk.
 
 	- The default configuration for the interfaces is as follows:
 
@@ -162,6 +162,10 @@ General Limitations
 	- Do not support being stopped by Linux.
 	- Do not support MTU change by Linux.
 
+- When setting the tx descriptor, the length field needs to be written after the offset. Otherwise the length field is overwritten
+
+- The example applications do not perform MTU size checking. In case traffic is sent with MTU size bigger than the
+  configured MTU size, packets will not be discarded but rather truncated.
 
 Features Description
 --------------------
@@ -217,6 +221,8 @@ The supported hash types are as follows :
 Limitations:
 	- All traffic is equally weighted between the defined RSS queues (no option to define weighted RSS queues)
 
+Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
+
 .. _mac_filtering:
 
 MAC address filtering
@@ -228,15 +234,16 @@ L2 filtering TCAM by parsing the DMAC field.
 - By default, the maximum number of UC entries is 4, and the maximum number of MC entries is 21( 25 - max UC entries).
 - It is possible to change the maximum number of UC entries by configuring the uc_filter_max module parameter in the
   kernel driver. Please refer to PPv2.2 Kernel Module Parameters chapter.
-- MAC filtering behavior: The filtering behavior is defined as following.
-	- UC filtering: If UC entries > max UC entries, the port is set to promisc mode.
+- MAC filtering behavior: The filtering behavior is defined as follows:
+	- UC filtering: If UC entries > max UC entries (default is 4), the port is set to unicast promisc mode.
 	- MC filtering: If MC entries > (25- max UC entries), the port is set to all-multi mode.
-	- From the behavior definition, there are 3 states for each port:
-		- State1: non-promisc & non-allmulti
-		- State2: Promisc mode
-		- State3: non-promisc & allmulti
+	- From the behavior definition, there are 4 states for each port:
+		- State1: non-unicast promisc & non-allmulti
+		- State2: unicast promisc mode & non-allmulti
+		- State3: non-unicast promisc & allmulti
+		- State4: unicast promisc & allmulti
 
-.. _vlan_filtering:
+Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
 
 VLAN filtering
 ~~~~~~~~~~~~~~
@@ -246,9 +253,20 @@ L2 filtering TCAM by parsing the VLAN ID field.
 - Filtering capability: For each MUSDK port, it is possible to configure up to 10 VLAN ID filtering entries.
 - VLAN filtering behaviour:
 	- If no VLAN filtering entries are set, the system allows passing through all VLAN traffic.
-	- Whenever one or more VLAN ID filters are configured, all VLAN traffic matching one of the VLAN ID will pass
-	  through the system, while all VLAN traffic not matching one of the configured VLAN ID's will be dropped.
+	- Whenever one or more VLAN ID filters is configured, all VLAN traffic matching one of the VLAN ID's will pass
+	  through the system, while all VLAN traffic not matching the configured VLAN ID's will be dropped.
 	- All non-VLAN traffic will pass through the system independently of the VLAN filter configured.
+
+Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
+
+Promiscuous and multicast mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- When promisc mode is set (ifconfig +promisc) , the port is set to promisc mode and all unicast and multicast traffic will pass through.
+- When promic mode is unset (ifconfig -promisc), the port is set to normal mode and only unicast and multicast traffic defined in MAC address filtering will pass through.
+- When all-multi mode is set (ifconfig +allmulti) , the port is set to all multicast mode and all unicast and multicast traffic will pass through.
+- When all-multi mode is unset (ifconfig -allmulti), the port is set to normal mode and only multicast traffic defined in MAC address filtering will pass through.
+
+Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
 
 Statistics
 ~~~~~~~~~~
@@ -270,16 +288,63 @@ if periodic maintenance (triggered by internal threshold) will be performed duri
 
 Logical port
 ~~~~~~~~~~~~
-If an interface is defined as a logical port, traffic is shared between kernel and MUSDK according to the RX-Q.
-To create a logical port, first it needs to be declared as such in the appropriate DTS file,
-see :ref:`DTS attribute <MUSDK-INTRO-DTS>`
+The MUSDK logical port is based on the concept where a NIC is being shared between Kernel Space (KS) and User Space (US).
+In this case, the basic NIC will be handled by the KS driver while the US will be introduced as a “logical-port”.
+i.e. only some traffic flows will be directed according to a specific dedicated classification stage to a group of
+queues that will be directed towards the US driver.
 
-The PPv2 Kernel driver will treat this interface as a regular kernel interface, and MUSDK driver may configure
-additional queues to this interface and retrieve the data from these queues.
-In addition, the classifier needs to be configured to send selected traffic to these logical port queues.
-This is performed through the logical port API (defined in mv_pp2_ppio.h file, struct pp2_ppio_log_port_rule_params).
-Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and
-configure this API.
+The MUSDK API allows configuring a logical port according to the following:
+
+	- In current stage, logical ports are defined in MUSDK statically in kernel device tree (dtb file).
+		In order to define an interface as logical port, it needs to be declared as such in the appropriate DTS file
+		(status = "shared" in DTS), and compile the DTB file
+		According to the platform used, the relevant DTS files are:
+			- musdk-armada-8040-db.dtsi
+			- musdk-armada-7040-db.dtsi
+			- musdk-armada-8040-mcbin.dtsi
+
+		The allowed values are:
+			- musdk-status = "private"	- port is reserved for MUSDK use only
+			- musdk-status = "shared"	- port is shared between kernel and MUSDK (logical port)
+			- musdk-status not specified	- port is reserved for kernel use only
+
+		Once the dts file has been modified, the DTB file needs to be created
+
+	- The logical port parameters are configured when opening a PP-IO object (packet processor interface).
+		- This is performed through the MUSDK logical port API (defined in mv_pp2_ppio.h file, struct pp2_ppio_log_port_rule_params).
+
+	- The parameters provided in MUSDK API for logical port include a list of specific protocols which the software needs to route differently between KS and US.
+
+	- The API also allows the following configuration flexibility:
+		- Define whether the traffic will be forwarded to KS and specific protocols to US, or the inverse (traffic will be forwarded to US and specific protocols to US)
+			- PP2_CLS_TARGET_LOCAL_PPIO	-> default traffic going to kernel and logical port to MUSDK
+			- PP2_CLS_TARGET_OTHER		-> default traffic going to MUSDK and logical port to kernel
+
+		- Define classification according to different network protocols (defined in mv_net.h API file)
+			Supported protocols:
+				- MV_NET_PROTO_VLAN
+				- MV_NET_PROTO_PPPOE
+				- MV_NET_PROTO_IP
+				- MV_NET_PROTO_IP4
+				- MV_NET_PROTO_IP6
+				- MV_NET_PROTO_TCP
+				- MV_NET_PROTO_UDP
+				- MV_NET_PROTO_ICMP
+				- MV_NET_PROTO_ARP
+
+		- Define classification also according to special bits in a protocol
+			Supported special protocols fields:
+				- MV_NET_PROTO_ETH_DSA
+			Supported fields:
+				- MV_NET_ETH_F_DSA_TAG_MODE
+
+		- Define whether the classification will be performed on a specific protocol or the negated protocol
+			i.e. send all UDP traffic to US or send all non-UDP traffic to US
+
+		- It is possible to configure more than one set of rules to match
+			NOTE: in current release only one set is supported
+
+Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
 
 Loopback
 ~~~~~~~~
