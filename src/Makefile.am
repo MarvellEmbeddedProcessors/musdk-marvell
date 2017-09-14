@@ -53,6 +53,10 @@ if LOG_BUILD
 libmusdk_la_SOURCES += env/log.c
 endif
 
+if TRACE_BUILD
+libmusdk_la_SOURCES += env/trace.c
+endif
+
 if PP2_BUILD
 nobase_include_HEADERS += include/drivers/mv_net.h
 nobase_include_HEADERS += include/drivers/mv_pp2.h

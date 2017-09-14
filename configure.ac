@@ -113,6 +113,17 @@ if test x$log = xtrue; then
 fi
 AM_CONDITIONAL([LOG_BUILD], [test x$log = xtrue])
 ##########################################################################
+# Enable MUSDK trave facility
+##########################################################################
+AC_ARG_ENABLE([trace],
+[  --enable-trace         Enable lttng trace utility],
+[case "${enableval}" in
+  yes) trace=true ;;
+  no)  trace=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-trace]) ;;
+esac],[trace=false])
+AM_CONDITIONAL([TRACE_BUILD], [test x$trace = xtrue])
+##########################################################################
 # Set BPOOL_COOKIE_SIZE
 ##########################################################################
 BPOOL_COOKI_SZ=32
