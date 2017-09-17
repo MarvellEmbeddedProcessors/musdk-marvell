@@ -48,6 +48,7 @@
 #define NETA_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
 #define NETA_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
 #define NETA_PPIO_MAX_POOLS	2
+#define NETA_PPIO_RX_BUF_ALIGN	8 /**< RX buffer must be 64 bits = 8 bytes aligned */
 
 typedef u32	neta_dma_addr_t;
 typedef u32	neta_cookie_t;
