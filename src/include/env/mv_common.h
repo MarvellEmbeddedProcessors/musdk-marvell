@@ -107,6 +107,44 @@
 	_max1 > _max2 ? _max1 : _max2; })
 #endif
 
+/**
+ * clamp - return a value clamped to a given range with strict type-checking
+ * @val: current value
+ * @lo: lowest allowable value
+ * @hi: highest allowable value
+ */
+#ifndef clamp
+#define clamp(val, lo, hi) min((typeof(val))max(val, lo), hi)
+#endif
+
+/*
+ * min_t()/max_t()/clamp_t() macros that do no type-checking and uses temporary
+ * variables of type 'type' to make all the comparisons.
+ * should be used when min/max/clamp are called with type casting
+ */
+#ifndef min_t
+#define min_t(type, x, y) ({			\
+	type __min1 = (x);			\
+	type __min2 = (y);			\
+	__min1 < __min2 ? __min1 : __min2; })
+#endif
+
+#ifndef max_t
+#define max_t(type, x, y) ({			\
+	type __max1 = (x);			\
+	type __max2 = (y);			\
+	__max1 > __max2 ? __max1 : __max2; })
+#endif
+
+/**
+ * clamp_t - return a value clamped to a given range using a given type
+ * @type: the type of variable to use
+ * @val: current value
+ * @lo: minimum allowable value
+ * @hi: maximum allowable value
+ */
+#define clamp_t(type, val, lo, hi) min_t(type, max_t(type, val, lo), hi)
+
 #define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
 #define lower_32_bits(n) ((u32)(n))
 
