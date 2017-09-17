@@ -337,7 +337,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		src_buf_infs[i].paddr = neta_ppio_inq_desc_get_phys_addr(&descs[i]) + MVAPPS_NETA_PKT_EFEC_OFFS;
 
 		/* Exclude MH from packet length */
-		src_buf_infs[i].len = neta_ppio_inq_desc_get_pkt_len(&descs[i]);
+		src_buf_infs[i].len = neta_ppio_inq_desc_get_pkt_len(&descs[i]) - (MV_MH_SIZE + ETH_FCS_LEN);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
@@ -385,7 +385,6 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 		perf_cntrs->drop_cnt += (num - num_got);
 	}
-
 	return 0;
 }
 
@@ -886,6 +885,7 @@ static void destroy_sam_sessions(struct sam_cio		*enc_cio,
 static int port_inq_fill(struct port_desc *port, u16 mtu, u16 qid)
 {
 	struct neta_buff_inf buffs_inf[CRYPT_APP_RX_Q_SIZE];
+	void *buff_virt_addr;
 	u16 buff_size;
 	u16 i, num_of_buffs;
 
@@ -900,19 +900,17 @@ static int port_inq_fill(struct port_desc *port, u16 mtu, u16 qid)
 		tmp_addr = mv_sys_dma_mem_alloc(buff_size, NETA_PPIO_RX_BUF_ALIGN);
 		if (!tmp_addr) {
 			pr_err("failed to allocate mem for neta_sys_dma_high_addr!\n");
-			return -1;
+			return 0;
 		}
 		neta_sys_dma_high_addr = ((u64)tmp_addr) & (~((1ULL << 32) - 1));
 		mv_sys_dma_mem_free(tmp_addr);
 	}
 	for (i = 0; i < port->inq_size; i++) {
-		void *buff_virt_addr;
-
 		buff_virt_addr = mv_sys_dma_mem_alloc(buff_size, NETA_PPIO_RX_BUF_ALIGN);
 		if (!buff_virt_addr) {
 			pr_err("port %d: queue %d: failed to allocate buffer memory (%d)!\n",
 				port->ppio_id, qid, i);
-			return -1;
+			break;
 		}
 		buffs_inf[i].addr = (neta_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
 		/* cookie contains lower_32_bits of the va */
@@ -921,22 +919,30 @@ static int port_inq_fill(struct port_desc *port, u16 mtu, u16 qid)
 	num_of_buffs = i;
 
 	neta_ppio_inq_put_buffs(port->ppio, qid, buffs_inf, &num_of_buffs);
-	pr_debug("port %d: queue %d: %d buffers added.\n", port->ppio_id, qid, num_of_buffs);
 
-	return 0;
+	pr_debug("port %d: queue %d: %d of %d buffers added.\n",
+		port->ppio_id, qid, num_of_buffs, port->inq_size);
+
+	/* Not all buffers are put to queue - free them */
+	while (i > num_of_buffs) {
+		i--;
+		buff_virt_addr = (void *)(((uintptr_t)buffs_inf[i].cookie) | neta_sys_dma_high_addr);
+		mv_sys_dma_mem_free(buff_virt_addr);
+	}
+	return num_of_buffs;
 }
 
 static int port_inqs_fill(struct port_desc *port, u16 mtu)
 {
-	int err = 0;
+	int num = 0;
 	u16 tc, qid;
 
 	for (tc = 0; tc < port->num_tcs; tc++) {
 		for (qid = 0; qid < port->num_inqs[tc]; qid++)
-			err |= port_inq_fill(port, mtu, qid);
+			num += port_inq_fill(port, mtu, qid);
 	}
 
-	return err;
+	return num;
 }
 
 static int init_local_modules(struct glob_arg *garg)
@@ -947,6 +953,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	pr_info("Specific modules initializations\n");
 
+	garg->num_bufs = 0;
 	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++) {
 		struct port_desc *port = &garg->ports_desc[port_index];
 
@@ -970,7 +977,7 @@ static int init_local_modules(struct glob_arg *garg)
 			return err;
 		}
 		/* fill RX queues with buffers */
-		port_inqs_fill(port, garg->cmn_args.mtu);
+		garg->num_bufs += port_inqs_fill(port, garg->cmn_args.mtu);
 
 		/* enable port */
 		err = app_port_enable(port);
