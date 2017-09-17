@@ -426,7 +426,7 @@ static int port_inq_fill(struct port_desc *port, u16 mtu, u16 qid)
 	if (!neta_sys_dma_high_addr) {
 		void *tmp_addr;
 
-		tmp_addr = mv_sys_dma_mem_alloc(buff_size, 4);
+		tmp_addr = mv_sys_dma_mem_alloc(buff_size, NETA_PPIO_RX_BUF_ALIGN);
 		if (!tmp_addr) {
 			pr_err("failed to allocate mem for neta_sys_dma_high_addr!\n");
 			return -1;
@@ -437,7 +437,7 @@ static int port_inq_fill(struct port_desc *port, u16 mtu, u16 qid)
 	for (i = 0; i < port->inq_size; i++) {
 		void *buff_virt_addr;
 
-		buff_virt_addr = mv_sys_dma_mem_alloc(buff_size, 4);
+		buff_virt_addr = mv_sys_dma_mem_alloc(buff_size, NETA_PPIO_RX_BUF_ALIGN);
 		if (!buff_virt_addr) {
 			pr_err("port %d: queue %d: failed to allocate buffer memory (%d)!\n",
 				port->ppio_id, qid, i);
