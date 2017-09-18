@@ -81,6 +81,8 @@
 #define DMA_DESQ_DEALLOC_OFF		0x804
 #define DMA_DESQ_ADD_OFF		0x808
 
+#define DMA_DESQ_STATUS_MASK		0xFE00
+
 /* XOR Global registers */
 #define GLOB_BW_CTRL			0x4
 #define GLOB_BW_CTRL_NUM_OSTD_RD_SHIFT	0
