@@ -87,6 +87,7 @@ enum dmax2_trans_location {
 struct dmax2_desc {
 	u16 desc_id;
 	u16 flags;
+#define DESC_FLAGS_SYNC		BIT(8)
 	u32 crc32_result;
 	u32 desc_ctrl;
 
