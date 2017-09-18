@@ -52,6 +52,7 @@
 #define DMAX2_INTERFACE_COUNT	8
 #define DMAX2_MAX_DESC_SIZE	(2 * MB_SIZE)
 #define DMAX2_DFLT_DESC_SIZE	(0x2000) /* 8Kb */
+#define DMAX2_DFLT_NUM_DESCS	(DMAX2_BURST_SIZE-1)
 
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define NO_PATH(file_name) (strrchr((file_name), '/') ? \
@@ -496,8 +497,8 @@ static void usage(char *progname)
 		"  E.g. 3: single DMA test to IO reg 0xf20064c0, 100MB with 2000 descriptors,\n"
 		"          desc size = 4, with data integrity verification\n"
 		"  \t%s -t 100 -c 2000 -s 4 -d io -a 0xf20064c0 --verify\n"
-		"\n", NO_PATH(progname), DMAX2_INTERFACE_COUNT-1, 0xF2281008, DMAX2_BURST_SIZE,
-			DMAX2_BURST_SIZE, DMAX2_DFLT_DESC_SIZE, DMAX2_MAX_DESC_SIZE,
+		"\n", NO_PATH(progname), DMAX2_INTERFACE_COUNT-1, 0xF2281008, DMAX2_DFLT_NUM_DESCS,
+			DMAX2_DFLT_NUM_DESCS, DMAX2_DFLT_DESC_SIZE, DMAX2_MAX_DESC_SIZE,
 			NO_PATH(progname), NO_PATH(progname), NO_PATH(progname)
 		);
 }
@@ -512,7 +513,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->manual_test = 0;
 
 	garg->engine = 0;
-	garg->desc_num = DMAX2_BURST_SIZE;
+	garg->desc_num = DMAX2_DFLT_NUM_DESCS;
 	garg->desc_size = DMAX2_DFLT_DESC_SIZE;
 	garg->align = DMAX2_DFLT_DESC_SIZE;
 	garg->mem_attr = DMAX2_TRANS_MEM_ATTR_CACHABLE;
@@ -607,7 +608,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (garg->desc_num > DMAX2_BURST_SIZE) {
+	if (garg->desc_num >= DMAX2_BURST_SIZE) {
 		pr_err("Invalid Descriptor count! (supported max %d descriptors)\n", DMAX2_BURST_SIZE);
 		return -EINVAL;
 	}
@@ -708,13 +709,13 @@ int main(int argc, char *argv[])
 			err |= single_test(4, 1500000, 2*MB_SIZE, 0, DMAX2_TRANS_MEM_ATTR_CACHABLE);
 #endif
 		if (!err)
-			err |= single_test(DMAX2_BURST_SIZE, 64, 4, 0, DMAX2_TRANS_MEM_ATTR_CACHABLE);
+			err |= single_test(garg.desc_num, 64, 4, 0, DMAX2_TRANS_MEM_ATTR_CACHABLE);
 		if (!err)
 			err |= single_test(100, 1000, 64, 0, DMAX2_TRANS_MEM_ATTR_CACHABLE);
 		if (!err)
-			err |= single_test(DMAX2_BURST_SIZE, 0x8, 0x4, 0xF2281008, DMAX2_TRANS_MEM_ATTR_IO);
+			err |= single_test(garg.desc_num, 0x8, 0x4, 0xF2281008, DMAX2_TRANS_MEM_ATTR_IO);
 		if (!err)
-			err |= single_test(DMAX2_BURST_SIZE, 100, 4, 0, DMAX2_TRANS_MEM_ATTR_CACHABLE);
+			err |= single_test(garg.desc_num, 100, 4, 0, DMAX2_TRANS_MEM_ATTR_CACHABLE);
 		if (!err)
 			err |= single_test(4, 0x100000, MB_SIZE, 0, DMAX2_TRANS_MEM_ATTR_CACHABLE);
 		if (!err)

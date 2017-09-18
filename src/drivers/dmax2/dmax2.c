@@ -238,30 +238,13 @@ int dmax2_get_deq_num_available(struct dmax2 *dmax2)
 /* return DMA Queue space: How many descriptors available be pushed to Queue */
 int dmax2_get_enq_num_available(struct dmax2 *dmax2)
 {
-	/* if push pointer is at pop pointer:
-	 * - if any descriptors are ready and pending, than Q is full, and Q-Space = 0.
-	 * - else, if no descriptors are ready and pending, than Q is empty, and Q-Space = Q-size.
-	 */
-
-	if (unlikely(dmax2->desc_push_idx == dmax2->desc_pop_idx)) {
-		int completed_pending, reg;
-
-		reg = mv_readl_relaxed(dmax2->dma_base + DMA_DESQ_DONE_OFF);
-		completed_pending = ((reg >> DMA_DESQ_DONE_PENDING_SHIFT) & DMA_DESQ_DONE_PENDING_MASK);
-
-		if (unlikely(completed_pending == 0))
-			return dmax2->desc_q_size;
-		else
-			return 0;
-	}
-
-	return (dmax2->desc_q_size - dmax2->desc_push_idx + dmax2->desc_pop_idx) & (dmax2->desc_q_size  - 1);
+	return DMAX2_Q_SPACE(dmax2);
 }
 
 int dmax2_enq(struct dmax2 *dmax2, struct dmax2_desc *descs, u16 *num)
 {
 	struct dmax2_desc	*desc;
-	u16			desc_copy_num, queue_space = dmax2_get_enq_num_available(dmax2);
+	u16			desc_copy_num, queue_space = DMAX2_Q_SPACE(dmax2);
 
 	if (unlikely(*num > queue_space)) {
 		pr_debug("not enough space to queue %d descriptors (queue space = %d)\n", *num, queue_space);

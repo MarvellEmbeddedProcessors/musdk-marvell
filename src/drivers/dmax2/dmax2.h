@@ -101,6 +101,10 @@
 #define MV_XOR_V2_DESC_RESERVED_SIZE	12
 #define MV_XOR_V2_DESC_BUFF_D_ADDR_SIZE	12
 
+#define DMAX2_Q_OCCUPANCY(_d)	((_d->desc_push_idx - _d->desc_pop_idx + _d->desc_q_size) & (_d->desc_q_size - 1))
+#define DMAX2_Q_SPACE(_d)		(_d->desc_q_size - DMAX2_Q_OCCUPANCY(_d) - 1)
+
+
 /**
  * struct dmax2 - implements a xor device
  * @sw_ll_lock: serializes enqueue/dequeue operations to the sw
