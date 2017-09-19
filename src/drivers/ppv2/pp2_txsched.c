@@ -42,7 +42,7 @@
 #include "pp2_port.h"
 
 #define PP2_AMPLIFY_FACTOR_MTU			(3)
-#define PP2_WRR_WEIGHT_UNIT			(8)
+#define PP2_WRR_WEIGHT_UNIT			(256)
 #define MVPP2_TXP_MAX_CONFIGURABLE_BUCKET_SIZE	(MVPP2_TXP_TOKEN_SIZE_MAX - MVPP2_TXP_REFILL_TOKENS_MAX)
 #define MVPP2_TXQ_MAX_CONFIGURABLE_BUCKET_SIZE	(MVPP2_TXQ_TOKEN_SIZE_MAX - MVPP2_TXQ_REFILL_TOKENS_MAX)
 #define MVPP2_TXP_REFILL_PERIOD_MIN		(1)
@@ -245,37 +245,15 @@ static int pp2_txsched_queue_burst_set(struct pp2_port *port, int txq, int burst
 	return 0;
 }
 
-/* Performs linear mapping of the 1-255 range given to the user to the
- *   weight_min-255 range restricted by the current MTU.
- */
-static u8 pp2_txsched_weight_remap(u32 weight, u32 weight_min)
-{
-	if (weight_min > MVPP2_TXQ_WRR_WEIGHT_MAX)
-		return MVPP2_TXQ_WRR_WEIGHT_MAX;
-
-	return weight_min + ((MVPP2_TXQ_WRR_WEIGHT_MAX - weight_min) * weight) / MVPP2_TXQ_WRR_WEIGHT_MAX;
-}
-
 /* Set TXQ to work in WRR mode and set relative weight. */
 /*   Weight range [1..N] */
 static int pp2_txsched_queue_wrr_set(struct pp2_port *port, u8 txq, u8 weight)
 {
-	u32 regVal, mtu, mtu_aligned, weight_min;
+	u32 regVal;
 	int txPortNum;
 
 	txPortNum = MVPP2_TX_PORT_NUM(port->id);
 	pp2_reg_write(port->cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, txPortNum);
-
-	/* Weight * 256 bytes * 8 bits must be larger then MTU [bits] */
-	mtu = pp2_reg_read(port->cpu_slot, MVPP2_TXP_SCHED_MTU_REG);
-
-	/* WA for wrong Token bucket update: Set MTU value = 3*real MTU value, now get read MTU*/
-	mtu /= PP2_AMPLIFY_FACTOR_MTU;
-	mtu /= BITS_PER_BYTE; /* move to bytes */
-	mtu_aligned = ALIGN(mtu, PP2_WRR_WEIGHT_UNIT);
-	weight_min = mtu_aligned / PP2_WRR_WEIGHT_UNIT;
-
-	weight = pp2_txsched_weight_remap(weight, weight_min);
 
 	regVal = pp2_reg_read(port->cpu_slot, MVPP2_TXQ_SCHED_WRR_REG(txq));
 
@@ -350,10 +328,91 @@ static void pp2_port_txsched_set_mtu(struct pp2_port *port)
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_MTU_REG, val);
 }
 
+/* If the user requested weight range does cannot be fitted into the dynamic range allowed by the hardware after
+ * MTU restrictions, it has to be compressed under the following terms --
+ * - User supplied 0/1 weight must be remapped to the minimum allowed by hw,
+ * - User supplied 255 weight must be remapped to 255,
+ * - The slope of the mapping near the minimum must be equal to the minimum, so that if the user requests 1,2, the
+ *   result will be e.g. 8,16.
+ * This is accomplished using a first order rational function (Ax + B) / (Cx + D)
+ */
+static u8 pp2_txsched_rational_weight_remap(u32 weight, u32 min, u32 max)
+{
+	/* The solution for minimum weight of 1 contains square roots, but doesn't for minimum weight of 0, so we
+	 * offset the parameters by -1 and offset the result back.
+	 */
+	weight -= 1;
+	min -= 1;
+	max -= 1;
+	return ((min * max * max + min - max) * weight + min * max * (max - 1)) /
+	       ((min * max + min - max) * weight + max * (max - 1)) + 1;
+}
+
+/* The user supplied WRR weights need to be remapped to comply with hardware requirements --
+ * - The weights must be larger than the MTU/256,
+ * - The smallest weight must be equal to MTU/256
+ * We perform a linear mapping if there is enough dynamic range, or a non-linear one if there isn't.
+ */
+static void pp2_txsched_remap_weights(struct pp2_port *port, u8 remapped_weights[])
+{
+	u32 hw_min, user_min = 0xff, user_max = 0x0;
+	u8 txq;
+	u32 mtu;
+	int txPortNum;
+	int accommodating_dynamic_range; /* Can user requested range be met after MTU restriction */
+
+	txPortNum = MVPP2_TX_PORT_NUM(port->id);
+	pp2_reg_write(port->cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, txPortNum);
+
+	/* Weight * 256 bytes * 8 bits must be larger then MTU [bits] */
+	mtu = pp2_reg_read(port->cpu_slot, MVPP2_TXP_SCHED_MTU_REG);
+	mtu /= PP2_AMPLIFY_FACTOR_MTU;
+	mtu /= BITS_PER_BYTE; /* move to bytes */
+	mtu = ALIGN(mtu, PP2_WRR_WEIGHT_UNIT);
+	hw_min = mtu / PP2_WRR_WEIGHT_UNIT;
+
+	for (txq = 0; txq < port->num_tx_queues; txq++) {
+
+		if (port->txq_config[txq].sched_mode == PP2_PPIO_SCHED_M_WRR) {
+
+			if (port->txq_config[txq].weight == 0)
+				port->txq_config[txq].weight = 1;
+
+			if (port->txq_config[txq].weight > user_max)
+				user_max = port->txq_config[txq].weight;
+
+			if (port->txq_config[txq].weight < user_min)
+				user_min = port->txq_config[txq].weight;
+		}
+	}
+
+	if (user_min > user_max) /* WRR unused */
+		return;
+
+	if ((user_max / user_min) < (MVPP2_TXQ_WRR_WEIGHT_MAX / hw_min))
+		accommodating_dynamic_range = 1;
+	else
+		accommodating_dynamic_range = 0;
+
+	for (txq = 0; txq < port->num_tx_queues; txq++) {
+
+		if (port->txq_config[txq].sched_mode == PP2_PPIO_SCHED_M_WRR) {
+
+			if (accommodating_dynamic_range)
+				remapped_weights[txq] = port->txq_config[txq].weight * hw_min / user_min;
+			else
+				remapped_weights[txq] =
+					pp2_txsched_rational_weight_remap(port->txq_config[txq].weight,
+									  hw_min, MVPP2_TXQ_WRR_WEIGHT_MAX);
+		}
+	}
+}
+
 /* Initialize port and queue rate limits and txq arbitration */
 int pp2_port_config_txsched(struct pp2_port *port)
 {
 	int rc, txq;
+	u8 remapped_weights[MVPP2_MAX_TXQ];
 
 	/* Store hardware state */
 
@@ -369,6 +428,8 @@ int pp2_port_config_txsched(struct pp2_port *port)
 	if (rc)
 		return rc;
 
+	pp2_txsched_remap_weights(port, remapped_weights);
+
 	/* Set txq rate limits, burst sizes, arbitration mode and WRR weight */
 	for (txq = 0; txq < port->num_tx_queues; txq++) { /* This only works in logical ports post reprioritization */
 
@@ -382,7 +443,7 @@ int pp2_port_config_txsched(struct pp2_port *port)
 
 		if (port->num_tx_queues > 1 && port->id != PP2_LOOPBACK_PORT) {
 			rc = pp2_txsched_queue_arbitration_set(port, txq, port->txq_config[txq].sched_mode,
-							       port->txq_config[txq].weight);
+							       remapped_weights[txq]);
 			if (rc)
 				return rc;
 		}
