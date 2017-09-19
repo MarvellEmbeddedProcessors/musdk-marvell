@@ -107,11 +107,24 @@ endif
 if GIU_BUILD
 nobase_include_HEADERS += include/drivers/mv_mqa.h
 nobase_include_HEADERS += include/drivers/mv_mqa_queue.h
+nobase_include_HEADERS += include/mng/mv_nmp.h
+nobase_include_HEADERS += include/mng/mv_nmp_dispatch.h
+
+libmusdk_la_SOURCES += drivers/giu/giu.c
 
 libmusdk_la_SOURCES += drivers/mqa/mqa.c
 libmusdk_la_SOURCES += drivers/mqa/mqa_queue.c
 
 libmusdk_la_SOURCES += hw_emul/gie/gie.c
+
+libmusdk_la_SOURCES += mng/lf/pf/pf.c
+libmusdk_la_SOURCES += mng/lf/pf/pf_profile.c
+libmusdk_la_SOURCES += mng/lf/pf/pf_regfile.c
+libmusdk_la_SOURCES += mng/lf/pf/pf_topology.c
+libmusdk_la_SOURCES += mng/db.c
+libmusdk_la_SOURCES += mng/dev_mng.c
+libmusdk_la_SOURCES += mng/dispatch.c
+libmusdk_la_SOURCES += mng/nmp.c
 
 endif
 
