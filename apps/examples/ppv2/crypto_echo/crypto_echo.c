@@ -350,6 +350,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 		if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE) {
 			enum pp2_inq_l4_type type;
+			u32 block_size, pad_size;
 
 			/* SAM_PROTO_NONE: data_offs - L4 offset */
 			pp2_ppio_inq_desc_get_l4_info(&descs[i], &type, &data_offs);
@@ -365,6 +366,30 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 			sam_descs[i].cipher_offset = data_offs;
 			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+
+			/* cipher_len must be block size aligned. Block size is always power of 2 */
+			block_size = app_sam_cipher_block_size(larg->cmn_args.garg->cipher_alg);
+			if (block_size && (sam_descs[i].cipher_len & (block_size - 1))) {
+				pad_size = block_size - (sam_descs[i].cipher_len & (block_size - 1));
+				/* clear padding data */
+				memset(src_buf_infs[i].vaddr + sam_descs[i].cipher_offset + sam_descs[i].cipher_len,
+				       0, pad_size);
+				sam_descs[i].cipher_len += pad_size;
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+				if (larg->cmn_args.verbose > 1)
+					pr_info("%s: cipher_len after padding = %d bytes, pad_size = %d bytes\n",
+						__func__, sam_descs[i].cipher_len, pad_size);
+#endif
+			}
+			if (larg->cmn_args.garg->auth_alg != SAM_AUTH_NONE) {
+				if (larg->dir == CRYPTO_DEC)
+					sam_descs[i].cipher_len -= ICV_LEN;
+
+				sam_descs[i].auth_len = sam_descs[i].cipher_len;
+				sam_descs[i].auth_offset = sam_descs[i].cipher_offset;
+				sam_descs[i].auth_icv_offset = sam_descs[i].auth_offset + sam_descs[i].auth_len;
+			}
+
 		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
 			enum pp2_inq_l3_type type;
 
@@ -396,7 +421,7 @@ START_COUNT_CYCLES(pme_ev_cnt_enq);
 STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 
 	if (unlikely(err)) {
-		pr_err("SAM EnQ (EnC) failed (%d)!\n", err);
+		pr_err("SAM enqueue failed (%d)!\n", err);
 		return -EFAULT;
 	}
 	if (num_got < num) {
@@ -464,6 +489,12 @@ static inline int dec_pkts(struct local_arg		*larg,
 			sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
 			sam_descs[i].cipher_offset = data_offs;
 			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+			if (larg->cmn_args.garg->auth_alg != SAM_AUTH_NONE) {
+				sam_descs[i].cipher_len -= ICV_LEN;
+				sam_descs[i].auth_len = sam_descs[i].cipher_len;
+				sam_descs[i].auth_offset = sam_descs[i].cipher_offset;
+				sam_descs[i].auth_icv_offset = sam_descs[i].auth_offset + sam_descs[i].auth_len;
+			}
 		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
 			ipsec_descs[i].sa = larg->dec_sa;
 			ipsec_descs[i].cookie = mdata;
@@ -658,7 +689,7 @@ START_COUNT_CYCLES(pme_ev_cnt_deq);
 	err = sam_cio_deq(cio, res_descs, &num);
 STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 	if (unlikely(err)) {
-		pr_err("SAM DeQ (EnC) failed (%d)!\n", err);
+		pr_err("SAM dequeue failed (%d)!\n", err);
 		return -EFAULT;
 	}
 	num_to_send = num_to_dec = 0;
@@ -667,19 +698,27 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 			struct pkt_mdata *mdata;
 
 			if (unlikely(!res_descs[i].cookie)) {
-				pr_err("SAM operation (EnC) failed (no cookie: %d,%d)!\n", i, res_descs[i].out_len);
+				pr_err("SAM operation failed (no cookie: %d,%d)!\n", i, res_descs[i].out_len);
 				perf_cntrs->drop_cnt++;
 				continue;
 			}
 
+			mdata = (struct pkt_mdata *)res_descs[i].cookie;
 			if (res_descs[i].status != SAM_CIO_OK) {
-				pr_warn("SAM operation (EnC) failed (%d)!\n", res_descs[i].status);
+				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
+
+				pr_warn("SAM operation (%s) %d of %d failed (%d)!\n",
+					(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
+					i, num, res_descs[i].status);
+
+				printf("pkt failed (len %d):\n", res_descs[i].out_len);
+				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
+
 				/* Free buffer */
 				free_buf_from_sam_cookie(larg, res_descs[i].cookie);
 				perf_cntrs->drop_cnt++;
 				continue;
 			}
-			mdata = (struct pkt_mdata *)res_descs[i].cookie;
 			if (mdata->state == (u8)PKT_STATE_ENC) {
 				mdata->state = (u8)PKT_STATE_DEC;
 				res_descs_to_dec[num_to_dec++] = res_descs[i];
