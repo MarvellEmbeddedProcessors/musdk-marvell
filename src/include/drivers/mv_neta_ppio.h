@@ -280,7 +280,7 @@ struct neta_ppio_sg_desc {
 static inline void neta_ppio_outq_desc_reset(struct neta_ppio_desc *desc)
 {
 	memset(desc, 0, sizeof(struct neta_ppio_desc));
-	(desc)->cmds[0] |= NETA_TXD_FLZ_DESC_MASK;
+	(desc)->cmds[0] |= (NETA_TXD_FLZ_DESC_MASK | NETA_TXD_L4_NO_CSUM_MASK);
 }
 
 /**
