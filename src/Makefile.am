@@ -111,6 +111,8 @@ nobase_include_HEADERS += include/drivers/mv_mqa_queue.h
 libmusdk_la_SOURCES += drivers/mqa/mqa.c
 libmusdk_la_SOURCES += drivers/mqa/mqa_queue.c
 
+libmusdk_la_SOURCES += hw_emul/gie/gie.c
+
 endif
 
 if SAM_BUILD
