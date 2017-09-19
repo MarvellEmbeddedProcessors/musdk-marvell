@@ -144,26 +144,16 @@ static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
 	u16			free_cnt = 0;
 	struct neta_buff_inf	*binf;
 	struct tx_shadow_q	*shadow_q;
-	u16 bufs_num, extra_bufs;
+	u16 bufs_num, extra_bufs, i;
 
 	shadow_q = &tx_port->shadow_qs[tc];
-	binf = &shadow_q->ents[idx].buff_ptr;
+	bufs_num = 1;
 
-	if ((idx + num) < tx_port->shadow_q_size) {
-		bufs_num = num;
+	for (i = 0; i < num; i++) {
+		binf = &shadow_q->ents[idx++].buff_ptr;
 		neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &bufs_num);
-		idx += bufs_num;
-	} else {
-		bufs_num = tx_port->shadow_q_size - idx;
-		neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &bufs_num);
-		idx = 0;
-		extra_bufs = num - bufs_num;
-		if (extra_bufs) {
-			binf = &shadow_q->ents[idx].buff_ptr;
-			neta_ppio_inq_put_buffs(rx_port->ppio, tc, binf, &extra_bufs);
-			idx += extra_bufs;
-		}
-		num = bufs_num + extra_bufs;
+		if (idx == tx_port->shadow_q_size)
+			idx = 0;
 	}
 
 	free_cnt += num;
