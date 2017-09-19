@@ -104,6 +104,15 @@ libmusdk_la_SOURCES += drivers/neta/neta_hw.c
 libmusdk_la_SOURCES += drivers/neta/neta_bm.c
 endif
 
+if GIU_BUILD
+nobase_include_HEADERS += include/drivers/mv_mqa.h
+nobase_include_HEADERS += include/drivers/mv_mqa_queue.h
+
+libmusdk_la_SOURCES += drivers/mqa/mqa.c
+libmusdk_la_SOURCES += drivers/mqa/mqa_queue.c
+
+endif
+
 if SAM_BUILD
 # Definitions for SAM driver compilation
 nobase_include_HEADERS += include/drivers/mv_sam.h

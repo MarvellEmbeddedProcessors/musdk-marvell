@@ -47,6 +47,18 @@ esac],[neta=false])
 AM_CONDITIONAL([NETA_BUILD], [test x$neta = xtrue])
 
 ##########################################################################
+# Set GIU_BUILD - using --enable-giu
+##########################################################################
+AC_ARG_ENABLE([giu],
+[  --enable-giu         Enable giu driver and applications build],
+[case "${enableval}" in
+  yes) giu=true ;;
+  no)  giu=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-giu]) ;;
+esac],[giu=false])
+AM_CONDITIONAL([GIU_BUILD], [test x$giu = xtrue])
+
+##########################################################################
 # Set SAM_BUILD - using --enable-sam
 ##########################################################################
 AC_ARG_ENABLE([sam],
