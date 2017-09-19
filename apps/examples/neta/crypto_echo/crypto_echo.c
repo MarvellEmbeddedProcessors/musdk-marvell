@@ -291,6 +291,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	int			err;
 	u16			i, buff_len, num_got;
 	u8			data_offs;
+	u32			block_size, pad_size;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
@@ -367,6 +368,27 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 		sam_descs[i].cipher_offset = data_offs;
 		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+		/* cipher_len must be block size aligned. Block size is always power of 2 */
+		block_size = app_sam_cipher_block_size(larg->cmn_args.garg->cipher_alg);
+		if (block_size && (sam_descs[i].cipher_len & (block_size - 1))) {
+			pad_size = block_size - (sam_descs[i].cipher_len & (block_size - 1));
+			/* clear padding data */
+			memset(src_buf_infs[i].vaddr + sam_descs[i].cipher_offset + sam_descs[i].cipher_len,
+			       0, pad_size);
+			sam_descs[i].cipher_len += pad_size;
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+			if (larg->cmn_args.verbose > 1)
+				pr_info("%s: cipher_len after padding = %d bytes, pad_size = %d bytes\n",
+					__func__, sam_descs[i].cipher_len, pad_size);
+#endif
+		}
+		if (larg->cmn_args.garg->auth_alg != SAM_AUTH_NONE) {
+			if (larg->dir == CRYPTO_DEC)
+				sam_descs[i].cipher_len -= ICV_LEN;
+			sam_descs[i].auth_len = sam_descs[i].cipher_len;
+			sam_descs[i].auth_offset = sam_descs[i].cipher_offset;
+			sam_descs[i].auth_icv_offset = sam_descs[i].auth_offset + sam_descs[i].auth_len;
+		}
 	}
 	num_got = i;
 
@@ -427,6 +449,12 @@ static inline int dec_pkts(struct local_arg		*larg,
 		sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
 		sam_descs[i].cipher_offset = data_offs;
 		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
+		if (larg->cmn_args.garg->auth_alg != SAM_AUTH_NONE) {
+			sam_descs[i].cipher_len -= ICV_LEN;
+			sam_descs[i].auth_len = sam_descs[i].cipher_len;
+			sam_descs[i].auth_offset = sam_descs[i].cipher_offset;
+			sam_descs[i].auth_icv_offset = sam_descs[i].auth_offset + sam_descs[i].auth_len;
+		}
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
@@ -997,6 +1025,8 @@ static int init_local_modules(struct glob_arg *garg)
 static void destroy_local_modules(struct glob_arg *garg)
 {
 	app_disable_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
+
+	/* Free all RX buffers */
 	app_deinit_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
 }
 
