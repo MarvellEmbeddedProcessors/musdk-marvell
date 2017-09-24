@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/io.h>
 #include <linux/uio_driver.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
@@ -35,25 +36,72 @@
 #define DRIVER_AUTHOR	"Marvell"
 #define DRIVER_DESC	"UIO platform driver for Security Accelerator"
 
-#define MAX_UIO_DEVS	3
+/* UIO device per SAM CIO/Ring to support Interrupt per ring */
+#define MAX_UIO_DEVS			4
+
+#define SAM_EIP197_xDR_REGS_OFFS	0x80000
+#define SAM_EIP97_xDR_REGS_OFFS		0x0
+
+#define SAM_RING_OFFS(ring)		((ring) * 0x1000)
+
+#define HIA_RDR_REGS_OFFSET		0x800
+#define HIA_RDR_STAT_REG		(HIA_RDR_REGS_OFFSET + 0x3C)
+
+/* HIA_RDR_y_STAT register */
+#define SAM_RDR_STAT_IRQ_OFFS		0
+#define SAM_RDR_STAT_IRQ_BITS		8
+#define SAM_RDR_STAT_IRQ_MASK		GENMASK(SAM_RDR_STAT_IRQ_OFFS + SAM_RDR_STAT_IRQ_BITS, SAM_RDR_STAT_IRQ_OFFS)
+
+struct sam_uio_ring_info {
+	int ring;
+	char ring_name[32];
+	char *xdr_regs_vbase;
+	struct uio_info uio;
+};
 
 /*
  * sam_uio_pdev_info
  * local information for uio module driver
  *
  * @uio_num:  number of uio devices
- * @map_num:  number of uio memory regions
  * @dev:      device pointer
  * @info:     uio_info array
  *
  */
 struct sam_uio_pdev_info {
 	int uio_num;
-	int map_num;
 	struct device *dev;
 	char name[16];
-	struct uio_info uio[MAX_UIO_DEVS];
+	char *regs_vbase;
+	struct sam_uio_ring_info rings[MAX_UIO_DEVS];
 };
+
+
+static int sam_uio_remove(struct platform_device *pdev);
+
+static inline void sam_uio_ring_ack_irq(struct sam_uio_ring_info *ring_priv, u32 mask)
+{
+	u32 *addr, val32;
+
+	addr = (u32 *)(ring_priv->xdr_regs_vbase + HIA_RDR_STAT_REG);
+
+	val32 = mask & SAM_RDR_STAT_IRQ_MASK;
+
+	/* pr_debug("%s: writel: %p = 0x%08x\n", __func__, addr, val32); */
+	writel(val32, addr);
+}
+
+irqreturn_t sam_ring_irq_handler(int irq, struct uio_info *dev_info)
+{
+	struct sam_uio_ring_info *ring_priv;
+
+	ring_priv = (struct sam_uio_ring_info *)dev_info->priv;
+
+	/* Ack all interrupts */
+	sam_uio_ring_ack_irq(ring_priv, SAM_RDR_STAT_IRQ_MASK);
+
+	return IRQ_HANDLED;
+}
 
 /*
  * sam_uio_probe() - mv_pp_uio_drv platform driver probe routine
@@ -68,7 +116,9 @@ static int sam_uio_probe(struct platform_device *pdev)
 	struct sam_uio_pdev_info  *pdev_info;
 	struct uio_info *uio;
 	struct resource *res;
-	int err = 0, mem_cnt = 0;
+	int err = 0;
+	char irq_name[6] = {0};
+	char *xdr_regs_vbase;
 	static u8 cpn_count;
 
 	if (!np) {
@@ -82,6 +132,7 @@ static int sam_uio_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto fail;
 	}
+	platform_set_drvdata(pdev, pdev_info);
 
 	pdev_info->dev = dev;
 
@@ -95,52 +146,67 @@ static int sam_uio_probe(struct platform_device *pdev)
 	if (!eip_pdev)
 		goto fail_uio;
 
-	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
-		int i;
+	res = platform_get_resource(eip_pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		goto fail_uio;
 
-		uio = &pdev_info->uio[idx];
-		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_%s_%d",  eip_node->name, cpn_count);
-		uio->name = pdev_info->name;
-		uio->version = DRIVER_VERSION;
-
-		for (i = 0; i < MAX_UIO_MAPS; i++, ++mem_cnt) {
-			res = platform_get_resource(eip_pdev, IORESOURCE_MEM, mem_cnt);
-			if (!res)
-				break;
-
-			uio->mem[i].memtype = UIO_MEM_PHYS;
-			uio->mem[i].addr = res->start & PAGE_MASK;
-			uio->mem[i].size = PAGE_ALIGN(resource_size(res));
-			uio->mem[i].name = "regs";
-		}
-		if (i) {
-			err = uio_register_device(dev, uio);
-			if (err) {
-				dev_err(dev, "Failed to register uio device\n");
-				goto fail_uio;
-			}
-			pdev_info->uio_num++;
-		}
-		if (!res)
-			break;
+	pdev_info->regs_vbase = devm_ioremap(dev, res->start, resource_size(res));
+	if (IS_ERR(pdev_info->regs_vbase)) {
+		dev_err(dev, "failed to get resource\n");
+		goto fail_uio;
 	}
-	if (!mem_cnt) {
-		err = -EIO;
+	if (!strcmp(eip_node->name, "eip197"))
+		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
+	else if (!strcmp(eip_node->name, "eip97"))
+		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP97_xDR_REGS_OFFS;
+	else {
+		dev_err(dev, "unknown HW type\n");
 		goto fail_uio;
 	}
 
-	pdev_info->map_num = mem_cnt;
+	snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_%s_%d",  eip_node->name, cpn_count);
 
-	dev_info(dev, "Registered %d uio devices, %d register maps attached\n",
-		pdev_info->uio_num, pdev_info->map_num);
+	for (int idx = 0; idx < MAX_UIO_DEVS; idx++) {
+		struct sam_uio_ring_info *ring_info = &pdev_info->rings[idx];
 
-	platform_set_drvdata(pdev, pdev_info);
+		uio = &ring_info->uio;
+
+		snprintf(ring_info->ring_name, sizeof(ring_info->ring_name), "%s:%d",  pdev_info->name, idx);
+		ring_info->ring = idx;
+		ring_info->xdr_regs_vbase = xdr_regs_vbase + SAM_RING_OFFS(ring_info->ring);
+		uio->name = ring_info->ring_name;
+		uio->version = DRIVER_VERSION;
+
+		snprintf(irq_name, sizeof(irq_name), "ring%d", idx);
+		uio->irq = platform_get_irq_byname(eip_pdev, irq_name);
+		if (uio->irq < 0) {
+			dev_warn(dev, "unable to get IRQ number for '%s'\n", irq_name);
+		} else {
+			pr_debug("%s - irq #%ld\n", irq_name, uio->irq);
+			uio->irq_flags = IRQF_SHARED;
+			uio->handler = sam_ring_irq_handler;
+		}
+		uio->priv = (void *)ring_info;
+
+		uio->mem[0].memtype = UIO_MEM_PHYS;
+		uio->mem[0].addr = res->start & PAGE_MASK;
+		uio->mem[0].size = PAGE_ALIGN(resource_size(res));
+		uio->mem[0].name = "regs";
+
+		err = uio_register_device(dev, uio);
+		if (err) {
+			dev_err(dev, "Failed to register uio device\n");
+			goto fail_uio;
+		}
+		pdev_info->uio_num++;
+	}
+	dev_info(dev, "Registered %d uio devices\n", pdev_info->uio_num);
 
 	cpn_count++;
 	return 0;
 
 fail_uio:
-	devm_kfree(dev, pdev_info);
+	sam_uio_remove(pdev);
 fail:
 	return err;
 }
@@ -157,8 +223,8 @@ static int sam_uio_remove(struct platform_device *pdev)
 		return -EINVAL;
 
 	if (pdev_info->uio_num != 0) {
-		for (int idx = 0; idx <= pdev_info->uio_num; ++idx)
-			uio_unregister_device(&pdev_info->uio[idx]);
+		for (int idx = 0; idx < pdev_info->uio_num; idx++)
+			uio_unregister_device(&pdev_info->rings[idx].uio);
 	}
 
 	devm_kfree(&pdev->dev, pdev_info);
