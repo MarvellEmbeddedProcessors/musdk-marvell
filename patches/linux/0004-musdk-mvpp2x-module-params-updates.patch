@@ -1,4 +1,4 @@
-From 70765f1815bcf2831a4a660b0899451145eb4260 Mon Sep 17 00:00:00 2001
+From 2e05bf38219ef8bee3fb9e312d02663b6f0ac136 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Mon, 19 Dec 2016 11:27:58 +0200
 Subject: [PATCH 4/5] musdk: mvpp2x module params updates
@@ -9,7 +9,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
-index 50cb381..afb5c9b 100644
+index bb53227..74bef81 100644
 --- a/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 +++ b/drivers/net/ethernet/marvell/mvpp2x/mv_pp2x_main.c
 @@ -76,16 +76,16 @@
@@ -21,7 +21,7 @@ index 50cb381..afb5c9b 100644
  #endif
 -static u8 mv_pp2x_queue_mode = MVPP2_QDIST_SINGLE_MODE;
 +static u8 mv_pp2x_queue_mode = MVPP2_QDIST_MULTI_MODE;
- static u8 rss_mode;
+ static u8 rss_mode = MVPP2_RSS_5T; /* Set 5-tuple default RSS mode */
  static u8 default_cpu;
  static u8 cos_classifer;
  static u32 pri_map = 0x3210; /* As default, cos0--rxq0, cos1--rxq1,

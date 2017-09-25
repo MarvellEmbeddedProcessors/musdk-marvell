@@ -1,21 +1,21 @@
-From 83b1bed376e5a9f509c2563a258dfb87f969eaa8 Mon Sep 17 00:00:00 2001
+From 875774e3f500d1a7ea4f1c13b792ea3d498ee2b9 Mon Sep 17 00:00:00 2001
 From: Alan Winkowski <walan@marvell.com>
 Date: Mon, 21 Aug 2017 12:51:40 +0300
-Subject: [PATCH 1/1] musdk: defconfig modifications
+Subject: [PATCH 1/5] musdk: defconfig modifications
 
 Disable HW BM for NETA MUSDK
 
 Change-Id: I4e4eaf376a4d35c6e617680cdd663488b1a28e0a
 Signed-off-by: Alan Winkowski <walan@marvell.com>
 ---
- arch/arm64/configs/mvebu_v8_lsp_defconfig |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ arch/arm64/configs/mvebu_v8_lsp_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/arm64/configs/mvebu_v8_lsp_defconfig b/arch/arm64/configs/mvebu_v8_lsp_defconfig
-index 372ba0c..b7b3375 100644
+index b08ce48..24384c7 100644
 --- a/arch/arm64/configs/mvebu_v8_lsp_defconfig
 +++ b/arch/arm64/configs/mvebu_v8_lsp_defconfig
-@@ -75,7 +75,7 @@ CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
+@@ -76,7 +76,7 @@ CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
  CONFIG_DEVTMPFS=y
  CONFIG_DEVTMPFS_MOUNT=y
  CONFIG_DMA_CMA=y
@@ -24,34 +24,6 @@ index 372ba0c..b7b3375 100644
  CONFIG_VEXPRESS_CONFIG=y
  CONFIG_MTD=y
  CONFIG_MTD_CMDLINE_PARTS=y
-@@ -91,6 +91,7 @@ CONFIG_BLK_DEV_RAM_COUNT=1
- CONFIG_BLK_DEV_RAM_SIZE=48000
- CONFIG_VIRTIO_BLK=y
- CONFIG_BLK_DEV_NVME=y
-+CONFIG_SRAM=y
- CONFIG_EEPROM_AT24=y
- # CONFIG_SCSI_PROC_FS is not set
- CONFIG_BLK_DEV_SD=y
-@@ -154,10 +155,9 @@ CONFIG_I2C_CHARDEV=y
- CONFIG_I2C_MV64XXX=y
- CONFIG_I2C_PXA=y
- CONFIG_SPI=y
-+CONFIG_SPI_ARMADA_3700=y
- CONFIG_SPI_ORION=y
- CONFIG_SPI_PL022=y
--CONFIG_SPI_ARMADA_3700=y
--CONFIG_GPIOLIB=y
- CONFIG_GPIO_SYSFS=y
- CONFIG_GPIO_PL061=y
- CONFIG_GPIO_XGENE=y
-@@ -216,6 +216,7 @@ CONFIG_MV_XOR=y
- CONFIG_MV_XOR_V2=y
- CONFIG_ASYNC_TX_DMA=y
- CONFIG_DMATEST=y
-+CONFIG_UIO=y
- CONFIG_VFIO=y
- CONFIG_VFIO_PCI=y
- CONFIG_VFIO_PLATFORM=y
 -- 
-1.7.9.5
+1.9.1
 
