@@ -1,0 +1,311 @@
+CLS-DEMO Functional Overview
+----------------------------
+The 'musdk_cls_demo' example application is intended for testing and debugging only and contains all ingress flow API's,
+as well as other debug capabilities for displaying different components from HW.
+The following is a list of features supported
+		- L2 MAC address filtering
+		- L2 VLAN filtering
+		- Promiscuous mode
+		- Multicast mode
+		- classification rules
+		- QoS
+		- Policing
+		- logical port
+		- Egress rate limiting and arbitration
+
+The application performs all required initializations, using the MUSDK API's.
+It includes also an "echo" mode allowing to loopback the received traffic for a specific port. This allows to test the features
+also with the help of an external traffic generator.
+Only one interface is implemented.
+
+How To Run
+~~~~~~~~~~
+(1) Preferably use a A8040-A1-DB or A7040-A0-DB board.
+
+(2) Compile code as written in the "Getting Started" section:
+	- Skip SAM compilation phase.
+	- Make sure ALL patches are applied.
+
+(3) In Linux, bring up the required interfaces
+
+(4) Bring up the modules. Below output is for a A8040-DB::
+
+		> cd /
+		> insmod musdk_uio.ko
+		Registered cma device: uio-cma
+		> insmod mv_pp_uio.ko
+		Registered 2 uio devices, having 6 register maps attached
+		Registered 2 uio devices, having 6 register maps attached
+
+    In case MAC filtering is used for configuring unicast address, or RSS is used, the following is also needed::
+
+		> insmod mvpp2x_sysfs.ko
+
+(5) Run the musdk_cls_demo application::
+
+		> ./musdk_cls_demo OPTIONS
+
+Mandatory OPTIONS::
+
+        -i, --interface <Eth-interface>
+                  e.g. -i eth1
+	Note: only one interface is permitted
+
+The interface must be brought up using "ifconfig <ifname> up" before running the application
+
+Optional OPTIONS::
+
+	-e, --echo 		sets the cls_demo application in echo mode, enabling loopback of received traffic over the
+				same openned port
+        -c, --cores    <number> Number of CPUs to use.
+        -t, --num_tcs <number>  Number of Traffic classes (TCs) to use
+        -b, --hash_type <none, 2-tuple, 5-tuple>
+				sets the hash type to be used for RSS according to the following values:
+				- none:		hash is disabled
+				- 2-tuple:	hash is calculated using IP source address and IP destination address (IPv4 and IPv6)
+				- 5-tuple:	hash is calculated using IP source address, IP destination address, IP protocol(TCP/UDP only),
+						L4 source port, L4 destination port (IPv4 and IPv6)
+        --eth_start_hdr         (no argument)configure Ethernet start header
+        --logical_port_params   (no argument)configure logical port parameters
+	--policers_range 	sets the policers ranges. valid range [1-31]
+	--policer_params 	configure default policer parameters for this port.
+	--egress_scheduler_params Opens the outbound rate limits and arbitration settings menu.
+
+  Examples:
+
+  (a) For MUSDK port::
+
+		> ./musdk_cls_demo -i <eth> --echo
+
+  (b) For logical port::
+
+		> ./musdk_cls_demo -i eth1 --echo --logical_port_params
+
+	When the --logical_port_params is provided, the application prompts the user
+	to enter the relevant logical_port classifier parameters as follows::
+
+		please enter logical port params:
+			* --target                (dec)
+			* --num_proto_rule_sets   (dec)
+			* --num_rules             (dec)
+			* --rule_type             (dec)
+			* --proto                 (dec)
+			* --proto_val             (dec)
+			* --special_proto         (dec)
+			* --special_fields        (dec)
+			* --field_val             (dec)
+
+	where::
+
+			--target:		Indicate whether the network protocol rules defined will be used for
+						the logical-port (target = 0) or for the NIC (target = 1)
+						NOTE: In current release only target = 0 is supported
+			--num_proto_rule_sets: 	Number of protocol rule sets to be defined
+						NOTE: In current release only num_proto_rule_sets = 1 is supported
+			--num_rules:		Number of rules defined for each protocol set
+			--rule_type:     	Defines if the rule is a protocol rule or a special field in a protocol
+						rule_type = 0 (protocol rule), rule_type = 1 (protocol field rule)
+			--proto         	Defines the protocol to match
+						NOTE: In current release only UDP or TCP protocols are supported
+						(values according to mv_net.h file)
+						proto = 9 (TCP), proto = 10 (UDP)
+			--proto_val             Indicates whether the selected network protocol is to be matched
+						or the negated network protocol is to be matched
+						i.e. if VLAN protocol is specified:
+						val = 0 indicates all tagged frames are to be matched
+						val = 1 indicates all untagged frames are to be matched
+						NOTE: In current release protocol_val = 0 is supported
+			--special_proto 	Defines a network special protocol to be supported by logical port
+						NOTE: in current release, the following special protocols are supported:
+						special_proto = 2 (DSA tag)
+			--special_fields        NOTE: in current release, the following special protocols fields are supported:
+						special_field = 0 (DSA tag mode)
+			--field_val             Defines the value of the specified special protocol field
+						the available values are defined in mv_net.h under mv_net_eth_dsa_tag_mode_values:
+						i.e. field_val = 3 for DSA tag mode forward
+
+	Example configurations for logical port:
+
+	logical port + tcp filter::
+
+			> musdk_cls_demo -i eth1 --echo --logical_port_params
+			  --target 0 --num_proto_rule_sets 1 --num_rules 1 --rule_type 0
+			  --proto 9 --proto_val 0
+
+	logical port + tcp&udp filter::
+
+			> musdk_cls_demo -i eth1 --echo --logical_port_params
+			  --target 0 --num_proto_rule_sets 1 --num_rules 2
+			  --rule_type 0 --proto 9 --proto_val 0
+			  --rule_type 0 --proto 10 --proto_val 0
+
+  (c) For logical port with special tag filtering::
+
+			> musdk_cls_demo -i eth1 --echo --logical_port_params --eth_start_hdr
+
+			please enter the Ethernet start header tag:
+				* --none 		no tag
+				* --dsa			dsa tag
+				* --extended_dsa	extended dsa tag
+
+	Example configuration for logical port with DSA tag mode filtering::
+
+			> musdk_cls_demo -i eth1 --echo --logical_port_params --eth_start_hdr
+			  --dsa
+			  --target 0 --num_proto_rule_sets 1 --num_rules 4
+			  --rule_type 1 --special_proto 2 --special_fields 0 --field_val 3
+
+  (d) For MUSDK port with policer::
+
+		> ./musdk_cls_demo -i <eth> --echo --policer_params
+
+	When the --policer_params is provided, the application prompts the user
+	to enter the relevant policer parameters as follows::
+
+		please enter policer params:
+                        --policer_index   (dec)
+                        --token_unit       (dec)
+                        --color_mode       (dec)
+                        --cir              (dec)
+                        --cbs              (dec)
+                        --ebs              (dec)
+
+  (e) For MUSDK port with modified egress scheduler:
+
+			> musdk_cls_demo -i eth1 --echo --egress_scheduler_params
+
+			please enter egress scheduler params:
+				* --port_rate_limit_enable (no argument)
+				* --port_rate_limit         (kbps min: 100)
+				* --port_burst_size         (kB min: 64)
+				* --txq_rate_limit_enable  (qid)
+				* --txq_rate_limit          (qid,kbps min: 100)
+				* --txq_burst_size          (qid,kB min: 64)
+				* --txq_arb_mode            (qid,0=wrr 1=fp)
+				* --txq_wrr_weight          (qid,1-255)
+
+	Example configuration for a rate limited port with two fixed priority queues:
+
+			> musdk_cls_demo -i eth1 --echo --egress_scheduler_params
+			  --port_rate_limit_enable --port_rate_limit 10000000 --port_burst_size 1000000
+			  --txq_arb_mode 0,1 --txq_arb_mode 1,1
+
+(6) Once the application is invoked, it will enter cli mode, where different commands may be issued.
+
+   The following CLI commands are supported::
+
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| Command		| Description									       	|
+	+=======================+=======================================================================================+
+	| help          	| print command description/usage							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| ?          	     	| Alias for help									|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_tbl_init		| create a classifier table according to key and default action:                        |
+	|                       |                                                                                       |
+	|			|	``cls_tbl_init --engine_type --tc --drop --key``				|
+	|			|											|
+	|			| --engine_type  (string) exact_match, maskable						|
+	|                       |                                                                                       |
+	|			| --tc           (dec) 1..8 - number of traffic classes					|
+	|                       |                                                                                       |
+	|			|	| By default only 1 is supported, unless kernel					|
+	|			|	| is configured to support more than one queue.					|
+	|			|	| Please refer to the section: 							|
+	|			|	| "PPv2.2 Kernel Module Parameters" 						|
+	|                       |                                                                                       |
+	|			| --drop         (no argument) optional							|
+	|                       |                                                                                       |
+	|			| --key          (string) the following are currently supported:      			|
+	|			|											|
+	|			|	| ip4_src   - ipv4, souce address						|
+	|			|	| ip4_dst   - ipv4, destination address						|
+	|			|	| ip4_proto - ipv4, proto							|
+	|			|	| l4_src    - layer4, source port						|
+	|			|	| l4_dst    - layer4, destination port			        		|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_rule_key_add      | add a classifier rule key to existing table:						|
+	|                       |                                                                                       |
+	|			|	``cls_rule_key_add --table_index --tc --drop --size --key --mask``		|
+	|			|											|
+	|			| --table_index   (dec) index to existing table						|
+	|                       |                                                                                       |
+	|			| --tc            (dec) 1..8								|
+	|                       |                                                                                       |
+	|			| --drop          (no argument) optional						|
+	|                       |                                                                                       |
+	|			| --size          (dec) size in bytes of the key					|
+	|                       |                                                                                       |
+	|			| --key           (dec or hex) key, for example:					|
+	|                       |                                                                                       |
+	|			| 		   	| ipv4: 192.168.10.5						|
+	|			| 		   	| ipv6: 2605:2700:0:3::4713:93e3				|
+	|			| 		   	| port: 0x1234							|
+	|			| 		   	| udp: 17(IPPROTO_UDP)						|
+	|			| 		   	| tcp: 6(IPPROTO_TCP)						|
+	|                       |                                                                                       |
+	|			| --mask          (hex) mask for the key (if maskable is used)				|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| mac_addr		| set/get/add/remove/flush ppio MAC address:						|
+	|                       |                                                                                       |
+	|			|	``mac_addr --set <xx:xx:xx:xx:xx:xx>``						|
+	|                       |                                                                                       |
+	|			|	``mac_addr --get``								|
+	|                       |                                                                                       |
+	|			|	``mac_addr --add <xx:xx:xx:xx:xx:xx>``						|
+	|                       |                                                                                       |
+	|			|	``mac_addr --remove <xx:xx:xx:xx:xx:xx>``					|
+	|                       |                                                                                       |
+	|			|	``mac_addr --flush --uc --mc``							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| promisc  	       	| set/get ppio promiscuous mode:							|
+	|                       |                                                                                       |
+	|			| 	``promisc --<on/off/get>``							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| multicast  	       	| set/get ppio allmulti mode:								|
+	|                       |                                                                                       |
+	|			| 	``multicast --<on/off/get>``							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| vlan          	| set/remove/flush ppio vlan filter:							|
+	|                       |                                                                                       |
+	|			| 	``vlan --set <vlan_id>``							|
+	|                       |                                                                                       |
+	|			|	``vlan --remove <vlan_id>``							|
+	|                       |                                                                                       |
+	|			|	``vlan --flush``								|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_plcr_init         | create a policer profile								|
+	|                       |                                                                                       |
+	|			|	``cls_plcr_init --policer_index --token_unit --color_mode --cir --cbs --ebs``	|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_plcr_deinit       | remove a specified policer								|
+	|                       |                                                                                       |
+	|			|	``cls_plcr_deinit --policer_index``						|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_plcr_dump         | dump cls policers profiles								|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_table_dump	| display classifier defined tables							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_rule_key_dump	| display classifier defined rule_keys							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_fl_log_rls_dump   | dump all logical flow ID and rule offset						|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_lkp_hits_dump     | dump all hit decode entry and its DB information					|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_fl_hits_dump      | dump all hit flow table entry								|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_fl_rls_dump       | dump all logical flow ID rules							|
+	+-----------------------+---------------------------------------------------------------------------------------+
+	| cls_c3_rule_hit_dump  | dump C3 entries according to type and index:						|
+	|                       |                                                                                       |
+	|			| 	``cls_c3_rule_hit_dump --type --var`` 						|
+	|			|											|
+	|			| --type  (dec) C3 dump type, 0: logic idx, 1:hash idx, 2:lookup type			|
+	|                       |                                                                                       |
+	|			| --var   (dec) value according to type:						|
+	|			|											|
+	|			|		- type 0/1: idx								|
+	|			|		- type 2: lookup type							|
+	|			| 		- no arguments: dumping all flows					|
+	+-----------------------+---------------------------------------------------------------------------------------+
+
