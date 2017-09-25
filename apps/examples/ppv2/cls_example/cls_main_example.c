@@ -68,6 +68,7 @@ struct glob_arg {
 	int				cls_table_flag;
 	int				policer_flag;
 	int				filter_flag;
+	int				txsched_flag;
 };
 
 struct local_arg {
@@ -158,6 +159,9 @@ static int init_local_modules(struct glob_arg *garg)
 
 		if (garg->policer_flag)
 			pp2_cls_policer_params_example(port);
+
+		if (garg->txsched_flag)
+			pp2_cls_txsched_params_example(port);
 
 		err = app_find_port_info(port);
 		if (!err) {
@@ -326,6 +330,7 @@ static void usage(char *progname)
 		"\t--qos\t	(no argument) init hardcode qos table and add relevant cli\n"
 		"\t--filter	(no argument) add filter cli\n"
 		"\t--policer	(no argument) init hardcoded policer and add it to ppio\n"
+		"\t--txsched	(no argument) init hardcoded txsched parameters\n"
 
 		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname)
 		);
@@ -350,6 +355,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"qos", no_argument, 0, 'q'},
 		{"filter", no_argument, 0, 'f'},
 		{"policer", no_argument, 0, 'p'},
+		{"txsched", no_argument, 0, 'x'},
 		{0, 0, 0, 0}
 	};
 
@@ -370,7 +376,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:b:etgp", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:b:etgpx", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -413,6 +419,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'p':
 			garg->policer_flag = true;
+			break;
+		case 'x':
+			garg->txsched_flag = true;
 			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);

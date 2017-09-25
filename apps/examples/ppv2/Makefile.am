@@ -48,6 +48,7 @@ musdk_cls_example_SOURCES += cls_example/cls_qos_example.c
 musdk_cls_example_SOURCES += cls_example/cls_tables_example.c
 musdk_cls_example_SOURCES += cls_example/cls_logical_port_example.c
 musdk_cls_example_SOURCES += cls_example/cls_policer_example.c
+musdk_cls_example_SOURCES += cls_example/cls_txsched_example.c
 musdk_cls_example_SOURCES += ../../tests/ppv2/cls_demo/cls_debug.c
 musdk_cls_example_LDADD = $(top_builddir)/src/libmusdk.la
 
