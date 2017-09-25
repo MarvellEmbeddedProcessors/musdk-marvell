@@ -30,25 +30,30 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __CLS_MAIN_EXAMPLE_H__
-#define __CLS_MAIN_EXAMPLE_H__
+#include <string.h>
+#include <stdio.h>
+#include "cls_main_example.h"
 
-#include "drivers/mv_pp2_cls.h"
-#include "pp2_utils.h"
-#include "lib/list.h"
+/*
+ * pp2_cls_txsched_params_example()
+ * example for txsched setting.
+ */
+int pp2_cls_txsched_params_example(struct port_desc *port)
+{
+	port->port_params.rate_limit_enable = 1;
+	port->port_params.rate_limit_params.cbs = 1000;  /* burst size, in kB */
+	port->port_params.rate_limit_params.cir = 10000; /* rate limit, in kbps */
 
-int pp2_cls_logical_port_params_example(struct pp2_ppio_params *port_params,
-					enum pp2_ppio_type *port_type);
+	port->port_params.outqs_params.outqs_params[0].sched_mode = PP2_PPIO_SCHED_M_WRR; /* Weighted Round Robin */
+	port->port_params.outqs_params.outqs_params[0].weight = 1;
 
-int pp2_cls_add_5_tuple_table(struct port_desc *ports_desc);
-int pp2_cls_example_rule_key(struct port_desc *ports_desc);
+	port->port_params.outqs_params.outqs_params[1].sched_mode = PP2_PPIO_SCHED_M_WRR;
+	port->port_params.outqs_params.outqs_params[1].weight = 10;
 
-int pp2_cls_qos_table_add_example(struct pp2_ppio *ppio);
+	port->port_params.outqs_params.outqs_params[2].sched_mode = PP2_PPIO_SCHED_M_SP; /* Strict Priority */
+	port->port_params.outqs_params.outqs_params[2].rate_limit_enable = 1;
+	port->port_params.outqs_params.outqs_params[2].rate_limit_params.cbs = 1000;
+	port->port_params.outqs_params.outqs_params[2].rate_limit_params.cir = 1000;
 
-int register_cli_filter_cmds(struct pp2_ppio *ppio);
-
-int pp2_cls_policer_params_example(struct port_desc *port);
-
-int pp2_cls_txsched_params_example(struct port_desc *port);
-
-#endif /*__CLS_MAIN_EXAMPLE_H__*/
+	return 0;
+}
