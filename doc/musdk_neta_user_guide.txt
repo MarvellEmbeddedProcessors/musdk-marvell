@@ -31,16 +31,6 @@ NETA shutdown
 
 - Destroy NETA driver and free global resources.
 
-BM Pool
-~~~~~~~
-APIs to work with BM pools:
-
-	- neta_bpool_init
-	- neta_bpool_deinit
-	- neta_bpool_get_buff
-	- neta_bpool_put_buffs
-	- neta_bpool_put_buff
-	- neta_bpool_get_num_buffs
 
 PPIO
 ~~~~
@@ -127,7 +117,7 @@ Command parameters:
 		-c, --cores <number>     Number of CPUs to use
 		-s                       Maintain statistics. Currently not supported.
 		--rxq <size>             Size of rx_queue. Currently not supported. (default is 512)
-		--cli                    Use CLI. Currently not supported.
+		--cli                    Use CLI.
 		?, -h, --help            Display help and exit.
 
     Limitations:

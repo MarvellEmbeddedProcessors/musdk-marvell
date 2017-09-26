@@ -98,10 +98,10 @@ Build the MUSDK package::
    For A3700 use:
 
 	configure option #3 - build NETA driver and related applications::
-		> ./configure --enable-neta
+		> ./configure --enable-neta --enable-pp2=no
 
 	configure option #4 - build NETA driver with SAM driver and SAM test application::
-		> ./configure --enable-neta --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+		> ./configure --enable-neta --enable-pp2=no --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
 
 		> make -j8
 		> make install
