@@ -93,7 +93,7 @@ Sources::
 
 Binaries:
 	- libmusdk.a		- MUSDK APIs implementation library
-	- musdk_pkt_echo	- simple test application
+	- musdk_neta_pkt_echo	- simple test application
 
 
 NETA Test Applications
@@ -101,8 +101,8 @@ NETA Test Applications
 To run MUSDK NETA test applications, mv_neta_uio.ko kernel modules must be loaded before.
 For more details please refer to musdk_get_started.txt chapter "5. Insert kernel modules".
 
-musdk_pkt_echo
-~~~~~~~~~~~~~~~
+musdk_neta_pkt_echo
+~~~~~~~~~~~~~~~~~~~
 Basic configuration for Armada-37x0 DB, both ports belong to User Space::
 
 		> ifconfig eth0 up
@@ -113,7 +113,7 @@ Basic configuration for Armada-37x0 DB, both ports belong to User Space::
 
 Command parameters:
 
-	Usage: musdk_pkt_echo OPTIONS
+	Usage: musdk_neta_pkt_echo OPTIONS
 
 	Mandatory OPTIONS::
 
@@ -131,20 +131,20 @@ Command parameters:
 		?, -h, --help            Display help and exit.
 
     Limitations:
-	- It is assumed the interface is brought up in Linux before being used by musdk_pkt_echo.
+	- It is assumed the interface is brought up in Linux before being used by musdk_neta_pkt_echo.
 	- No RSS support.
 
 
     Example for single core::
 
-	> ./musdk_pkt_echo -i eth0
+	> ./musdk_neta_pkt_echo -i eth0
 
     Example for single core and two ports::
 
-	> ./musdk_pkt_echo -i eth0,eth1
+	> ./musdk_neta_pkt_echo -i eth0,eth1
 
     Example for two core and two ports::
 
-	> ./musdk_pkt_echo -i eth0,eth1 -c 2
+	> ./musdk_neta_pkt_echo -i eth0,eth1 -c 2
 
 

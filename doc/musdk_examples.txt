@@ -51,41 +51,41 @@ How To Run
 	See help in application.
 
     Limitations
-	- It is assumed the interface is brought up in Linux before being used by musdk_pkt_echo.
+	- It is assumed the interface is brought up in Linux before being used by musdk_pp2_pkt_echo.
 
 
     1. Examples for single core, no RSS::
 
 	a. 10G eth0 queue 0, cpu_core 3
 
-		> ./musdk_pkt_echo -i eth0 -a 3
+		> ./musdk_pp2_pkt_echo -i eth0 -a 3
 
 	b. 10G eth2, queue 0, cpu_core 3
 
-		> ./musdk_pkt_echo -i eth2 -a 3
+		> ./musdk_pp2_pkt_echo -i eth2 -a 3
 
 	c. 10G eth0 <-> eth2, queue 0, cpu_core 3
 
-		> ./musdk_pkt_echo -i eth0,eth2 -a 3
+		> ./musdk_pp2_pkt_echo -i eth0,eth2 -a 3
 
 	d. 1G eth3, queue 0, cpu_core 3
 
-		> ./musdk_pkt_echo -i eth3 -a 3
+		> ./musdk_pp2_pkt_echo -i eth3 -a 3
 
 
     2. Examples for two cores, with RSS::
 
 	a. 10G eth0, queue 0,1, core 1,2
 
-		> ./musdk_pkt_echo -i eth0 -c 2 -m 1:1 -a 1
+		> ./musdk_pp2_pkt_echo -i eth0 -c 2 -m 1:1 -a 1
 
 	b. 10G eth2, queue 0,1, core 1,2
 
-		> ./musdk_pkt_echo -i eth2 -c 2 -m 1:1 -a 1
+		> ./musdk_pp2_pkt_echo -i eth2 -c 2 -m 1:1 -a 1
 
 	c. 10G eth0 <-> eth2, queue 0,1 core 1,2
 
-		> ./musdk_pkt_echo -i eth0,eth2 -c 2 -m 1:1 -a 1
+		> ./musdk_pp2_pkt_echo -i eth0,eth2 -c 2 -m 1:1 -a 1
 
 
 PKT_L3FWD
