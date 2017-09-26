@@ -185,7 +185,7 @@ Checksum offload
 ~~~~~~~~~~~~~~~~
 Marvell PPv2.2 incorporates hardware support for L3 and L4 checksum offloads.
 
-On receive side, checkum is validated automatically by the PPv2.2 hardware. An error indication will be raised as part
+On receive side, checksum is validated automatically by the PPv2.2 hardware. An error indication will be raised as part
 of the Rx descriptor.
 
 In transmit side, if MUSDK client SW would like to utilize this offload, appropriate fields in the Tx descriptor should be set using the appropriate API. The PPv2.2 HW will than calculate and generate L3 and/or L4 CSum.
@@ -251,7 +251,7 @@ VLAN filtering is implemented by PPv2.2 hardware. VLAN filtering is done in a de
 L2 filtering TCAM by parsing the VLAN ID field.
 
 - Filtering capability: For each MUSDK port, it is possible to configure up to 10 VLAN ID filtering entries.
-- VLAN filtering behaviour:
+- VLAN filtering behavior:
 	- If no VLAN filtering entries are set, the system allows passing through all VLAN traffic.
 	- Whenever one or more VLAN ID filters is configured, all VLAN traffic matching one of the VLAN ID's will pass
 	  through the system, while all VLAN traffic not matching the configured VLAN ID's will be dropped.
@@ -262,7 +262,7 @@ Please refer to MUSDK classifier section "How To Run The Example Application" fo
 Promiscuous and multicast mode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - When promisc mode is set (ifconfig +promisc) , the port is set to promisc mode and all unicast and multicast traffic will pass through.
-- When promic mode is unset (ifconfig -promisc), the port is set to normal mode and only unicast and multicast traffic defined in MAC address filtering will pass through.
+- When promisc mode is unset (ifconfig -promisc), the port is set to normal mode and only unicast and multicast traffic defined in MAC address filtering will pass through.
 - When all-multi mode is set (ifconfig +allmulti) , the port is set to all multicast mode and all unicast and multicast traffic will pass through.
 - When all-multi mode is unset (ifconfig -allmulti), the port is set to normal mode and only multicast traffic defined in MAC address filtering will pass through.
 
@@ -289,7 +289,7 @@ if periodic maintenance (triggered by internal threshold) will be performed duri
 Logical port
 ~~~~~~~~~~~~
 The MUSDK logical port is based on the concept where a NIC is being shared between Kernel Space (KS) and User Space (US).
-In this case, the basic NIC will be handled by the KS driver while the US will be introduced as a “logical-port”.
+In this case, the basic NIC will be handled by the KS driver while the US will be introduced as a logical-port.
 i.e. only some traffic flows will be directed according to a specific dedicated classification stage to a group of
 queues that will be directed towards the US driver.
 
