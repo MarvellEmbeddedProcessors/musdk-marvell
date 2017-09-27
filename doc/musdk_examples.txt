@@ -228,6 +228,7 @@ Functional Overview
 -------------------
 The 'musdk_cls_example' application is provided to show different examples on the use of MUSDK API's for configuring the
 different ingress flow features:
+
 		- L2 MAC address and VLAN filtering
 		- Classification rules
 		- QoS
