@@ -1,4 +1,5 @@
 .. _ppv2_user_guide:
+
 Packet Processor V2 (PPV2) User Guide
 =====================================
 Introduction
@@ -293,22 +294,20 @@ In this case, the basic NIC will be handled by the KS driver while the US will b
 i.e. only some traffic flows will be directed according to a specific dedicated classification stage to a group of
 queues that will be directed towards the US driver.
 
-The MUSDK API allows configuring a logical port according to the following:
+The MUSDK API allows configuring a logical port as following:
 
-	- In current stage, logical ports are defined in MUSDK statically in kernel device tree (dtb file).
-		In order to define an interface as logical port, it needs to be declared as such in the appropriate DTS file
-		(status = "shared" in DTS), and compile the DTB file
-		According to the platform used, the relevant DTS files are:
-			- musdk-armada-8040-db.dtsi
-			- musdk-armada-7040-db.dtsi
-			- musdk-armada-8040-mcbin.dtsi
+Logical ports are defined in MUSDK statically in kernel device tree (dtb file). In order to define an interface as a logical port, it needs to be declared as such in the appropriate DTS file (status = "shared" in DTS).
 
-		The allowed values are:
-			- musdk-status = "private"	- port is reserved for MUSDK use only
-			- musdk-status = "shared"	- port is shared between kernel and MUSDK (logical port)
-			- musdk-status not specified	- port is reserved for kernel use only
+	- Depending on the platform used, the DTS file is one of the following:
+		- musdk-armada-8040-db.dtsi
+		- musdk-armada-7040-db.dtsi
+		- musdk-armada-8040-mcbin.dtsi
+	- The allowed values are:
+		- musdk-status = "private"	- port is reserved for MUSDK use only
+		- musdk-status = "shared"	- port is shared between kernel and MUSDK (logical port)
+		- musdk-status not specified	- port is reserved for kernel use only
 
-		Once the dts file has been modified, the DTB file needs to be created
+Once the dts file has been modified, the DTB file needs to be created
 
 	- The logical port parameters are configured when opening a PP-IO object (packet processor interface).
 		- This is performed through the MUSDK logical port API (defined in mv_pp2_ppio.h file, struct pp2_ppio_log_port_rule_params).
