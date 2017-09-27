@@ -4,11 +4,8 @@ Marvell User-Space SDK (MUSDK) is a light-weight user-space I/O driver for Marve
 Embedded Networking SoC's. The MUSDK library provides a simple and direct access to Marvell's
 SoC blocks for networking applications and networking infrastructure.
 
-Notes:
-------
-- This is an Alpha-level engineering drop of MUSDK package.
-- The package is only partially tested, user should expect all kinds of issues.
-- The package was tested in Little-Endian mode only.
+.. Note::
+	The MUSDK package is still in development and only partially tested.
 
 
 Supported SoCs
@@ -43,6 +40,10 @@ Supported Features
 	- MTU change support
 	- RSS support (distribution to Rx queues)
 	- Port and queue statistics
+	- Port loopback support
+	- Rx policer support
+	- Tx scheduler support (strict priority / WRR)
+	- Tx rate limiter support
 	- Logical port (shared port for kernel and MUSDK)
 	- MUSDK and kernel ports may operate together
 	- Packet-echo example application
