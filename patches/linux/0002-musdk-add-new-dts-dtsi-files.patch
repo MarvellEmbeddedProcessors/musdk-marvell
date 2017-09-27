@@ -1,7 +1,7 @@
-From 88d8f9fff3cebd7c7c4bbfb967439bd8976a5449 Mon Sep 17 00:00:00 2001
+From e3dd6c6d95a4f5b6cc234870f7f1715f2e098eb3 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
-Subject: [PATCH 2/5] musdk: add new dts,dtsi files
+Subject: [PATCH 2/6] musdk: add new dts,dtsi files
 
 Change-Id: I394db38b111557bab572228c6981a34e60d156fc
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
@@ -9,14 +9,14 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi | 89 ++++++++++++++++++++++
  .../boot/dts/marvell/musdk-armada-7040-db.dtsi     | 69 +++++++++++++++++
  .../boot/dts/marvell/musdk-armada-7040-pcac.dtsi   | 66 ++++++++++++++++
- arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi | 63 +++++++++++++++
+ arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi | 69 +++++++++++++++++
  .../boot/dts/marvell/musdk-armada-8040-db.dtsi     | 81 ++++++++++++++++++++
  .../boot/dts/marvell/musdk-armada-8040-mcbin.dtsi  | 81 ++++++++++++++++++++
  arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi | 75 ++++++++++++++++++
- .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi | 68 +++++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi | 67 ++++++++++++++++
  .../boot/dts/marvell/musdk-armada-cp110-1.dtsi     | 74 ++++++++++++++++++
  .../arm64/boot/dts/marvell/musdk-armada-cp110.dtsi | 76 ++++++++++++++++++
- 10 files changed, 742 insertions(+)
+ 10 files changed, 747 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040-pcac.dtsi
@@ -272,10 +272,10 @@ index 0000000..2d756e0
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi
 new file mode 100644
-index 0000000..386b14c
+index 0000000..1178f7d
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,69 @@
 +/*
 + * Copyright (C) 2016 Marvell Technology Group Ltd.
 + *
@@ -327,6 +327,12 @@ index 0000000..386b14c
 +	model = "Marvell Armada 7040";
 +	compatible = "marvell,armada7040", "marvell,armada-ap806-quad",
 +		     "marvell,armada-ap806";
++
++	ap806 {
++		config-space {
++			#include "musdk-armada-ap806.dtsi"
++		};
++	};
 +
 +	cpn-110-master {
 +		config-space {
@@ -596,10 +602,10 @@ index 0000000..09fd263
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-ap806.dtsi
 new file mode 100644
-index 0000000..a16b031
+index 0000000..3a1a1f6
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-ap806.dtsi
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,67 @@
 +/*
 + * Copyright (C) 2016 Marvell Technology Group Ltd.
 + *
@@ -643,8 +649,7 @@ index 0000000..a16b031
 + */
 +
 +/*
-+ * Device Tree file for the Armada 8040 SoC, made of an AP806 Quad and
-+ * two CP110.
++ * Device Tree file for the Armada AP806 device.
 + */
 +
 +uio-xor0 {
