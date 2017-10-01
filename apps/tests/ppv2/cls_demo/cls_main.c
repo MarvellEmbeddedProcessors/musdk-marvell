@@ -43,16 +43,16 @@
 #include "cls_debug.h"
 #include "cls_main.h"
 
-#define CLS_APP_DMA_MEM_SIZE			(10 * 1024 * 1024)
+#define CLS_APP_DMA_MEM_SIZE			(40 * 1024 * 1024)
 #define CLS_APP_FIRST_MUSDK_IN_QUEUE		0
-#define CLS_APP_COMMAND_LINE_SIZE		256
+#define CLS_APP_COMMAND_LINE_SIZE		1024
 #define CLS_APP_DEF_Q_SIZE			1024
-#define CLS_APP_HIF_Q_SIZE			CLS_APP_DEF_Q_SIZE
+#define CLS_APP_HIF_Q_SIZE			(8 * CLS_APP_DEF_Q_SIZE)
 #define CLS_APP_RX_Q_SIZE			CLS_APP_DEF_Q_SIZE
-#define CLS_APP_TX_Q_SIZE			CLS_APP_DEF_Q_SIZE
+#define CLS_APP_TX_Q_SIZE			(CLS_APP_DEF_Q_SIZE >> 1)
 
-#define CLS_APP_MAX_BURST_SIZE			(CLS_APP_RX_Q_SIZE >> 1)
-#define CLS_APP_DFLT_BURST_SIZE			256
+#define CLS_APP_MAX_BURST_SIZE			(CLS_APP_RX_Q_SIZE)
+#define CLS_APP_DFLT_BURST_SIZE			64
 
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
@@ -60,7 +60,7 @@
 #define CLS_APP_PKT_ECHO_SUPPORT
 #define CLS_APP_USE_APP_PREFETCH
 
-#define CLS_APP_BPOOLS_INF		{ {2048, 1024} }
+#define CLS_APP_BPOOLS_INF			{ {2048, 8192} }
 
 /* Structure containing a map of queues per core */
 struct queue_map {
