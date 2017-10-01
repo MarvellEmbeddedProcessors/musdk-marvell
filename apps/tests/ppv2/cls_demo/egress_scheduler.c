@@ -160,7 +160,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 			optarg = ret_ptr;
 			port_params->outqs_params.outqs_params[txq].weight = strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
-				pr_err("Invalid burst size in txq_arb_mode.\n");
+				pr_err("Invalid weight in txq_wrr_weight.\n");
 				return -EINVAL;
 			}
 			break;

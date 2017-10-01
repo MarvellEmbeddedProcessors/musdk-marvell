@@ -113,18 +113,22 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 {
 	struct pp2_bpool *bpool;
 	struct tx_shadow_q *shadow_q;
-	struct pp2_buff_inf *binf;
 	struct pp2_ppio_desc descs[CLS_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
-	int err;
-	u16 i;
+	struct lcl_port_desc	*rx_lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
+	struct lcl_port_desc	*tx_lcl_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
+
+	u16 i, tx_num;
+	int shadow_q_size;
 #ifdef CLS_APP_PKT_ECHO_SUPPORT
 	int prefetch_shift = CLS_APP_PREFETCH_SHIFT;
 #endif /* CLS_APP_PKT_ECHO_SUPPORT */
-	bpool = pp2_args->pools_desc[pp2_args->lcl_ports_desc[rx_ppio_id].pp_id][bpool_id].pool;
-	shadow_q = &pp2_args->lcl_ports_desc[tx_ppio_id].shadow_qs[tx_qid];
+	bpool = pp2_args->pools_desc[rx_lcl_port_desc->pp_id][bpool_id].pool;
 
-	err = pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, rx_tc, rx_qid, descs, &num);
+	shadow_q = &tx_lcl_port_desc->shadow_qs[tx_qid];
+	shadow_q_size = tx_lcl_port_desc->shadow_q_size;
+
+	pp2_ppio_recv(rx_lcl_port_desc->ppio, rx_tc, rx_qid, descs, &num);
 
 	for (i = 0; i < num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
@@ -158,6 +162,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
+		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
 		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == CLS_APP_TX_Q_SIZE)
@@ -165,29 +170,21 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	}
 
 	if (num) {
-		err = pp2_ppio_send(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif,
-				    tx_qid, descs, &num);
-		if (err) {
-			pr_err("pp2_ppio_send\n");
-			return err;
+		tx_num = num;
+		pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif,
+				    tx_qid, descs, &tx_num);
+		if (num > tx_num) {
+			u16 not_sent = num - tx_num;
+			/* Free not sent buffers */
+			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
+						(shadow_q_size - not_sent + shadow_q->write_ind) :
+						shadow_q->write_ind - not_sent;
+			free_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
+				     pp2_args->hif, shadow_q->write_ind, not_sent, tx_qid);
 		}
 	}
-
-	pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif, tx_qid, &num);
-	for (i = 0; i < num; i++) {
-		binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
-		if (unlikely(!binf->cookie || !binf->addr)) {
-			pr_err("Shadow memory @%d: cookie(%" PRIpp2cookie "), pa(%" PRIpp2dma ")!\n",
-			       shadow_q->read_ind, binf->cookie, binf->addr);
-			continue;
-		}
-		pp2_bpool_put_buff(pp2_args->hif,
-				   bpool,
-				   binf);
-		shadow_q->read_ind++;
-		if (shadow_q->read_ind == CLS_APP_TX_Q_SIZE)
-			shadow_q->read_ind = 0;
-	}
+	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
+			  pp2_args->hif, tx_qid, 1 /*multi_buffer_release*/);
 	return 0;
 }
 
