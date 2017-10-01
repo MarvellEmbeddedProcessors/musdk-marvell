@@ -1,0 +1,45 @@
+Networking Management Proxy (NMP) User Guide
+============================================
+
+Introduction
+------------
+
+MUSDK NMP driver provides ...
+
+
+Features Set
+------------
+
+
+Source tree
+-----------
+
+Sources::
+
+	musdk/
+	  - src/include/mng/ - public include files for NMP Package.
+		- mv_nmp_dispatch.h
+		- mv_nmp.h
+
+	  - src/mng/	- NMP Package implementation
+		- db.c
+		- db.h
+		- dev_mng.c
+		- dev_mng.h
+		- dispatch.c
+		- dispatch.h
+		- nmp.c
+		- pci_ep_def.h
+		- lf/pf
+			- pf.c
+			- pf.h
+			- pf_mng_cmd_desc.h
+			- pf_pci_if_desc.h
+			- pf_profile.c
+			- pf_profile.h
+			- pf_queue_topology.h
+			- pf_regfile.c
+			- pf_regfile.h
+			- pf_topology.c
+			- pf_topology.h
+

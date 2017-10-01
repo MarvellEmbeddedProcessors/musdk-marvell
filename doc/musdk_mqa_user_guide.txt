@@ -1,0 +1,26 @@
+Management Queue Allocator (MQA) User Guide
+===========================================
+
+Introduction
+------------
+
+MUSDK MQA driver provides ...
+
+
+Features Set
+------------
+
+
+Source tree
+-----------
+
+Sources::
+
+	musdk/
+	  - src/include/drivers/ - public include files for MQA driver.
+		- mv_mqa.h
+		- mv_mqa_queue.h
+
+	  - src/drivers/giu/	- MQA driver implementation
+		- mqa.c
+		- mqa_queue.c
