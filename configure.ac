@@ -47,6 +47,18 @@ esac],[neta=false])
 AM_CONDITIONAL([NETA_BUILD], [test x$neta = xtrue])
 
 ##########################################################################
+# Set NMP_BUILD - using --enable-nmp
+##########################################################################
+AC_ARG_ENABLE([nmp],
+[  --enable-nmp         Enable nmp build],
+[case "${enableval}" in
+  yes) nmp=true ;;
+  no)  nmp=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-nmp]) ;;
+esac],[nmp=false])
+AM_CONDITIONAL([NMP_BUILD], [test x$nmp = xtrue])
+
+##########################################################################
 # Set GIU_BUILD - using --enable-giu
 ##########################################################################
 AC_ARG_ENABLE([giu],
@@ -57,6 +69,8 @@ AC_ARG_ENABLE([giu],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-giu]) ;;
 esac],[giu=false])
 AM_CONDITIONAL([GIU_BUILD], [test x$giu = xtrue])
+#enable NMP builf if GIU build was enabled
+AM_CONDITIONAL([NMP_BUILD], [test x$giu = xtrue])
 
 ##########################################################################
 # Set SAM_BUILD - using --enable-sam
