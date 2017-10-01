@@ -108,7 +108,7 @@ int mqa_queue_alloc(struct mqa *mqa, u32 *q);
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int mqa_queue_destroy(struct mqa *mqa, u32 queue_id);
+int mqa_queue_free(struct mqa *mqa, u32 queue_id);
 
 /**
  *	A wrapper function for queue allocation.
@@ -134,7 +134,7 @@ int mqa_queue_create(struct mqa *mqa, struct mqa_queue_params *q_params, struct 
  *	@retval	q_Id on success
  *	@retval	error-code otherwise
  */
-int mqa_queue_free(struct mqa *mqa, struct mqa_q *q);
+int mqa_queue_destroy(struct mqa *mqa, struct mqa_q *q);
 
 /**
  *	Associate src queue with target dest queue Id.

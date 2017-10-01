@@ -110,9 +110,9 @@ static int mqa_queue_setup(struct mqa *mqa, void *local_queue_virt_addr, struct 
 }
 
 /*
- *	mqa_queue_destroy
+ *	mqa_queue_free
  *
- *	This function destroys a queue config in the MQA
+ *	This function frees the queue config in the MQA
  *
  *	@param[in]	mqa		A pointer to MQA object
  *	@param[in]	queue_id	queue Id
@@ -121,7 +121,7 @@ static int mqa_queue_setup(struct mqa *mqa, void *local_queue_virt_addr, struct 
  *	@retval	error-code otherwise
  */
 
-int mqa_queue_destroy(struct mqa *mqa, u32 queue_id)
+int mqa_queue_free(struct mqa *mqa, u32 queue_id)
 {
 	/* Free the Queue in MQA */
 	queue_free(queue_id);
@@ -221,7 +221,7 @@ int mqa_queue_create(struct mqa *mqa, struct mqa_queue_params *queue_params, str
 	}
 
 	if (ret != 0) {
-		mqa_queue_destroy(mqa, (u32)queue_params->idx);
+		mqa_queue_free(mqa, (u32)queue_params->idx);
 		return ret;
 	}
 
@@ -239,7 +239,7 @@ int mqa_queue_create(struct mqa *mqa, struct mqa_queue_params *queue_params, str
 	}
 
 	if (ret != 0) {
-		mqa_queue_destroy(mqa, (u32)queue_params->idx);
+		mqa_queue_free(mqa, (u32)queue_params->idx);
 		return ret;
 	}
 
@@ -272,7 +272,7 @@ int mqa_queue_associate_pair(struct mqa *mqa, u32 src_queue_id, u32 dest_queue_i
 
 
 /*
- *	mqa_queue_free
+ *	mqa_queue_destroy
  *
  *	This function release all queue allocated memory and return queue Id to MQA
  *
@@ -282,7 +282,7 @@ int mqa_queue_associate_pair(struct mqa *mqa, u32 src_queue_id, u32 dest_queue_i
  *	@retval	q_Id on success
  *	@retval	error-code otherwise
  */
-int mqa_queue_free(struct mqa *mqa, struct mqa_q *q)
+int mqa_queue_destroy(struct mqa *mqa, struct mqa_q *q)
 {
 	if (q == NULL)
 		return -EINVAL;

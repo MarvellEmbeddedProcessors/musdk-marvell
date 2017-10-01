@@ -737,7 +737,7 @@ lcl_ing_queue_error:
 				ret = db_queue_reset(db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to reset queue Idx %x in DB\n", db_q_p->params.idx);
-				ret = mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+				ret = mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to free queue Idx %x in MQA\n", db_q_p->params.idx);
 			}
@@ -755,7 +755,7 @@ lcl_eg_queue_error:
 				ret = db_queue_reset(db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to free queue Idx %x in DB\n", db_q_p->params.idx);
-				ret = mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+				ret = mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to free queue Idx %x in MQA\n", db_q_p->params.idx);
 			}
@@ -770,7 +770,7 @@ lcl_bm_queue_error:
 			ret  = db_queue_reset(db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in DB\n", db_q_p->params.idx);
-			ret = mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+			ret = mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", db_q_p->params.idx);
 		}
@@ -1061,10 +1061,10 @@ exit_error:
 
 	if (local_cmd_queue >= 0) {
 		db_q_p = db_queue_get(local_cmd_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free Local Cmd Q %d in DB\n", local_cmd_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, local_cmd_queue);
+		ret = mqa_queue_free(nic_pf->mqa, local_cmd_queue);
 		if (ret < 0)
 			pr_err("Failed to free Local Cmd Q %d in MQA\n", local_cmd_queue);
 
@@ -1074,10 +1074,10 @@ exit_error:
 
 	if (local_notify_queue >= 0) {
 		db_q_p = db_queue_get(local_notify_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free Local Notify Q %d in DB\n", local_notify_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, local_notify_queue);
+		ret = mqa_queue_free(nic_pf->mqa, local_notify_queue);
 		if (ret < 0)
 			pr_err("Failed to free Local Notify Q %d in MQA\n", local_notify_queue);
 
@@ -1087,10 +1087,10 @@ exit_error:
 
 	if (remote_cmd_queue >= 0) {
 		db_q_p = db_queue_get(remote_cmd_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free remote Cmd Q %d in DB\n", remote_cmd_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, remote_cmd_queue);
+		ret = mqa_queue_free(nic_pf->mqa, remote_cmd_queue);
 		if (ret < 0)
 			pr_err("Failed to free remote Cmd Q %d in MQA\n", remote_cmd_queue);
 
@@ -1100,10 +1100,10 @@ exit_error:
 
 	if (remote_notify_queue >= 0) {
 		db_q_p = db_queue_get(remote_notify_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free Remote Notify Q %d in DB\n", remote_notify_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, remote_notify_queue);
+		ret = mqa_queue_free(nic_pf->mqa, remote_notify_queue);
 		if (ret < 0)
 			pr_err("Failed to free Remote Notify Q %d in MQA\n", remote_notify_queue);
 
@@ -1203,10 +1203,10 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	local_cmd_queue = nic_pf->topology_data.lcl_mng_ctrl.cmd_queue_id;
 	if (local_cmd_queue >= 0) {
 		db_q_p = db_queue_get(local_cmd_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free Local Cmd Q %d in DB\n", local_cmd_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, local_cmd_queue);
+		ret = mqa_queue_free(nic_pf->mqa, local_cmd_queue);
 		if (ret < 0)
 			pr_err("Failed to free Local Cmd Q %d in MQA\n", local_cmd_queue);
 
@@ -1217,10 +1217,10 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	local_notify_queue = nic_pf->topology_data.lcl_mng_ctrl.notify_queue_id;
 	if (local_notify_queue >= 0) {
 		db_q_p = db_queue_get(local_notify_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free Local Notify Q %d in DB\n", local_notify_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, local_notify_queue);
+		ret = mqa_queue_free(nic_pf->mqa, local_notify_queue);
 		if (ret < 0)
 			pr_err("Failed to free Local Notify Q %d in MQA\n", local_notify_queue);
 
@@ -1231,10 +1231,10 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	remote_cmd_queue = nic_pf->topology_data.host_mng_ctrl.cmd_queue_id;
 	if (remote_cmd_queue >= 0) {
 		db_q_p = db_queue_get(remote_cmd_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free remote Cmd Q %d in DB\n", remote_cmd_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, remote_cmd_queue);
+		ret = mqa_queue_free(nic_pf->mqa, remote_cmd_queue);
 		if (ret < 0)
 			pr_err("Failed to free remote Cmd Q %d in MQA\n", remote_cmd_queue);
 
@@ -1245,10 +1245,10 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	remote_notify_queue = nic_pf->topology_data.host_mng_ctrl.notify_queue_id;
 	if (remote_notify_queue >= 0) {
 		db_q_p = db_queue_get(remote_notify_queue);
-		ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 		if (ret < 0)
 			pr_err("Failed to free Remote Notify Q %d in DB\n", remote_notify_queue);
-		ret = mqa_queue_destroy(nic_pf->mqa, remote_notify_queue);
+		ret = mqa_queue_free(nic_pf->mqa, remote_notify_queue);
 		if (ret < 0)
 			pr_err("Failed to free Remote Notify Q %d in MQA\n", remote_notify_queue);
 
@@ -1453,7 +1453,7 @@ bpool_exit:
 			ret = db_queue_reset(q_id);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in DB\n", q_id);
-			ret = mqa_queue_destroy(nic_pf->mqa, q_id);
+			ret = mqa_queue_free(nic_pf->mqa, q_id);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", q_id);
 		}
@@ -1657,7 +1657,7 @@ ingress_queue_exit:
 			ret = db_queue_reset(q_id);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in DB\n", q_id);
-			ret = mqa_queue_destroy(nic_pf->mqa, q_id);
+			ret = mqa_queue_free(nic_pf->mqa, q_id);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", q_id);
 		}
@@ -1752,7 +1752,7 @@ egress_queue_exit:
 			ret = db_queue_reset(q_id);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in DB\n", q_id);
-			mqa_queue_destroy(nic_pf->mqa, q_id);
+			mqa_queue_free(nic_pf->mqa, q_id);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", q_id);
 		}
@@ -1835,10 +1835,10 @@ host_queue_error:
 			ret = giu_remove_bm_queue(nic_pf->giu.tx_giu, db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to remove queue Idx %x from GIU TX\n", db_q_p->params.idx);
-			ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+			ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in DB\n", db_q_p->params.idx);
-			ret = mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+			ret = mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", db_q_p->params.idx);
 
@@ -1855,10 +1855,10 @@ lcl_queue_error:
 			ret = giu_remove_bm_queue(nic_pf->giu.tx_giu, db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to remove queue Idx %x from GIU TX\n", db_q_p->params.idx);
-			ret = mqa_queue_free(nic_pf->mqa, db_q_p->q);
+			ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in DB\n", db_q_p->params.idx);
-			ret = mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+			ret = mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", db_q_p->params.idx);
 
@@ -2027,7 +2027,7 @@ host_eg_queue_error:
 				ret  = db_queue_reset(db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 				ret = giu_remove_queue(nic_pf->giu.rx_giu, db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x from GIU RX\n", db_q_p->params.idx);
@@ -2046,7 +2046,7 @@ host_ing_queue_error:
 				ret  = db_queue_reset(db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 				ret = giu_remove_queue(nic_pf->giu.tx_giu, db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x from GIU RX\n", db_q_p->params.idx);
@@ -2065,7 +2065,7 @@ lcl_ing_queue_error:
 				ret  = db_queue_reset(db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 			}
 		}
 	}
@@ -2081,7 +2081,7 @@ lcl_eg_queue_error:
 				ret  = db_queue_reset(db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_destroy(nic_pf->mqa, (u32)db_q_p->params.idx);
+				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 			}
 		}
 	}
