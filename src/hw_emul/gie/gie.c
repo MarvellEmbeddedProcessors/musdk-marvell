@@ -66,6 +66,14 @@
  * msg_head_virt	virtual address to read/write head updates to/from
  * msg_tail_virt	virtual address to read/write tail updates to/from
  * host_remap		base address of the host memory in local memory space
+ * packets		number of packets processed by this queue
+ *
+ * idx_ring_virt	the following four parameters describe the index ring.
+ * idx_ring_phys	A ring that temporarily holds head/tail values until
+ * idx_ring_size	the DMA engine copies them to the destination
+ * idx_ring_ptr		_virt/_phys = address of ring. _ptr = location in ring
+ *
+ * tc			the traffic class associated with the ring
  * qlen			size of queue in elements
  * qesize		size of queue element
  * qid			the global queue id
@@ -122,6 +130,10 @@ struct gie_queue {
 	u64	msg_tail_virt;
 	u64	host_remap;
 	u64	packets;
+	u16	*idx_ring_virt;
+	u16	*idx_ring_phys;
+	u32	idx_ring_size;
+	u32	idx_ring_ptr;
 	u32	tc;
 	u16	qlen;
 	u16	qid;
@@ -455,7 +467,7 @@ static void alloc_shadow_indices(struct gie *gie, struct gie_queue *q, u16 qid)
 	*q->head = *q->tail = 0;
 }
 
-static void gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue *mqa, int is_remote, u16 qid)
+static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue *mqa, int is_remote, u16 qid)
 {
 	q->ring_phys = mqa->ring_phy_addr;
 	q->ring_virt = mqa->ring_virt_addr;
@@ -468,6 +480,14 @@ static void gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queu
 	q->qesize = mqa->entry_size;
 	q->tc = mqa->queue_prio;
 	q->packets = 0;
+
+	q->idx_ring_virt = mv_sys_dma_mem_alloc(sizeof(u16) * q->qlen, sizeof(u16));
+	if (!q->idx_ring_virt)
+		return -ENOMEM;
+
+	q->idx_ring_phys = (u16 *)mv_sys_dma_mem_virt2phys(q->idx_ring_virt);
+	q->idx_ring_size = q->qlen;
+	q->idx_ring_ptr = 0;
 
 	q->qe_tail = q->qe_head = 0;
 	alloc_shadow_indices(gie, q, qid);
@@ -492,6 +512,8 @@ static void gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queu
 	}
 
 	gie_show_queue(q);
+
+	return 0;
 }
 
 int gie_add_queue(void *giu, u16 qid, int is_remote)
@@ -501,7 +523,7 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	struct mqa_qct_entry *qcd;
 	struct mqa_qpt_entry *qpd;
 	struct gie_bpool *bpool;
-	int i, copy_payload;
+	int i, copy_payload, ret;
 	u32 tc;
 
 	pr_debug("adding qid %d to %s-giu\n", qid, gie->name);
@@ -524,11 +546,15 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		return -ENOSPC;
 	}
 
-	gie_init_queue(gie, &qp->src_q, &qcd->common, is_remote, qid);
+	ret = gie_init_queue(gie, &qp->src_q, &qcd->common, is_remote, qid);
+	if (ret)
+		return ret;
 	qp->src_q.qid = qid;
 	qp->qcd = qcd;
 
-	gie_init_queue(gie, &qp->dst_q, &qpd->common, is_remote, qcd->spec.dest_queue_id);
+	ret = gie_init_queue(gie, &qp->dst_q, &qpd->common, is_remote, qcd->spec.dest_queue_id);
+	if (ret)
+		return ret;
 	qp->dst_q.qid = qcd->spec.dest_queue_id;
 	qp->qpd = qpd;
 
@@ -616,7 +642,10 @@ int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
 	src_q = &pool->src_q;
 	qcd = (struct mqa_qct_entry *)gie->regs->gct_base + qid;
 
-	gie_init_queue(gie, src_q, &qcd->common, is_remote, qid);
+	ret = gie_init_queue(gie, src_q, &qcd->common, is_remote, qid);
+	if (ret)
+		return ret;
+
 	src_q->qid = qid;
 	src_q->qesize = sizeof(struct host_bpool_desc);
 	pool->buf_size = buf_size;
@@ -1010,12 +1039,33 @@ bpool_empty:
 	return cnt;
 }
 
+/* create a backup of the tail/head idx to be used for DMA copy
+ * this allows us to continue changing the main tail/head during DMA operation
+ */
+static u64 gie_idx_backup(struct gie_queue *q, u16 idx_val)
+{
+	u64 phys_bkp;
+
+	q->idx_ring_virt[q->idx_ring_ptr] = idx_val;
+	phys_bkp = (u64)(q->idx_ring_phys + q->idx_ring_ptr);
+
+	q_idx_add(q->idx_ring_ptr, 1, q->idx_ring_size);
+
+	return phys_bkp;
+}
+
 static void gie_produce_q(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q, int qes_completed)
 {
-	q_idx_add(*dst_q->tail, qes_completed, dst_q->qlen);
+	u64 head_bkp, tail_bkp;
+
 	q_idx_add(*src_q->head, qes_completed, src_q->qlen);
-	gie_copy_index(dma, src_q->head_phys, src_q->msg_head_phys);
-	gie_copy_index(dma, dst_q->tail_phys, dst_q->msg_tail_phys);
+	q_idx_add(*dst_q->tail, qes_completed, dst_q->qlen);
+
+	head_bkp = gie_idx_backup(src_q, *src_q->head);
+	tail_bkp = gie_idx_backup(dst_q, *dst_q->tail);
+
+	gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
+	gie_copy_index(dma, tail_bkp, dst_q->msg_tail_phys);
 	src_q->packets += qes_completed;
 	dst_q->packets += qes_completed;
 
