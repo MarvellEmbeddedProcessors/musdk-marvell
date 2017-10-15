@@ -4,17 +4,54 @@ Management Queue Allocator (MQA) User Guide
 Introduction
 ------------
 
-MUSDK MQA driver provides ...
+The Management Queue Allocator (MQA) module provides service that enable creating and configuring queues
+which can be associated to each other and passed to other MUSDK modules such as the GIU and NMP.
+The module creates a common descriptor for it's queues which is used and updated by other modules.
+
+When the module is initialized, it sets up 4 tables used to describe and setup a queue.
+ - Global Consumer Table (GCT) - A descriptor table that describes the queue for the consumer side
+ - Global Producer Table (GPT) - Same for the producer side
+ - Global Notification Consumer Table (GNCT) - A u16 table that contains the queue consumer index
+ - Global Notification Producer Table (GNPT) - Same table for producer index
+
+Each MQA queue is identified by a unique 16-bit queue-id. The queue-id is the index of the queue's descriptors
+in the 4 tables above. Essentially, each time the MQA allocates a queue, it sequentailly allocates a queue-id and
+updates the appropriate locations in the above tables.
+
+The GCT and GPT tables holds basic information on the queue such as descriptor ring physical and virtual address,
+the ring size, the ring element size, interrupt information, etc. They also contain the addresses to be used in the
+GNCT and GNPT. Everytime a queue processing node consumes/produces elements in a queue it updates the consumer/prodcuer
+index which is located in the GNCT/GNPT	tables.
 
 
 Features Set
 ------------
+- support allocating and freeing queues
+- support queue configuration
+- support binding of source queues to destination queues
 
+Supported APIs
+~~~~~~~~~~~~~~
+
+MQA init/shutdown
+~~~~~~~~~~~~~~~~~~
+::
+	mqa_init
+	mqa_deinit
+
+MQA Queue services
+~~~~~~~~~~~~~~~~~~
+::
+	mqa_queue_alloc
+	mqa_queue_free
+	mqa_queue_create
+	mqa_queue_destroy
+	mqa_queue_associate_pair
 
 Source tree
 -----------
 
-Sources::
+Sources:
 
 	musdk/
 	  - src/include/drivers/ - public include files for MQA driver.
