@@ -48,7 +48,9 @@
 
 #define ____cacheline_aligned __attribute__((aligned(L1_CACHE_BYTES)))
 
+#ifndef container_of
 #define container_of(p, t, f) (t *)((void *)p - offsetof(t, f))
+#endif
 
 #define __stringify_1(x) #x
 #define __stringify(x)	__stringify_1(x)
