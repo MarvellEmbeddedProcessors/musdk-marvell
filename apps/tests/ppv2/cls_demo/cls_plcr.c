@@ -92,7 +92,7 @@ static int cli_cls_policer_add(void *arg, int argc, char *argv[])
 		{"color_mode", required_argument, 0, 'm'},
 		{"cir", required_argument, 0, 'r'},
 		{"cbs", required_argument, 0, 'c'},
-		{"ebd", required_argument, 0, 'e'},
+		{"ebs", required_argument, 0, 'e'},
 		{0, 0, 0, 0}
 	};
 
