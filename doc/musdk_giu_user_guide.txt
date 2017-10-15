@@ -4,23 +4,155 @@ Generic Interface Unit (GIU) User Guide
 Introduction
 ------------
 
-MUSDK GIU driver provides ...
+MUSDK GIU driver and applications are part of the MUSDK package.
+
+MUSDK GIU driver exposed the interface to the GIU/GIE (GIU Emulation) unit directly from
+user-space applications with minimum overhead and high performance.
+
+The Generic Interface Unit (GIU) is a future HW block that is responsible to move packets between local InQs/OutQs and remote InQs/OutQs.
+In this generation of the chips, the GIU is not available so it is being emulated by SW using DMA-XOR-v2 engine for the descriptors and data mem-copy operation.
+In addition, the GIU HW block is responsible for scheduling and moving descriptors between the host queues and the queues (both directions).
+
+The GIU driver is responsible for the implementation of the Local side of the GIU. It handles the “local” Qs and the local BPools.
+It exposes an APIs for initialization and run-time control which are used by the user application or a management application.
+It also exposes some run-time APIs which are used by the user (forwarding) application.
+
+Note: though this document might reference multiple TCs/queues operations of the GIE, current implementation supports single TC with a single queue.
+
+GIE Run Time Flows
+~~~~~~~~~~~~~~~~~~
+Note: in this section the MQA operation mode is referred. For more in formation, please see the MQA user-guide.
+
+Egress Flow
+
+- Remote Side
+  Once the remote side wishes to send a network frame through the GIU to the local side, the remote side driver shell extract the user's frame buffer and information and build a descriptor according the GIU descriptor format
+  (buffer address, offset, len, cookie, l3/4 info, etc.). The remote side driver shell enqueue the descriptor into an OutQ. In this stage, the descriptor and the data buffer are allocated on the remote memory-space.
+  Once the remote side driver completes the enqueue operation, it should update the producer-index that is actually a “register” found on the local memory-space.
+  (Note: It is recommended to use burst of several frames (~32 frames) before incrementing the producer-index).
+  In that stage, the remote side driver shell iterate and see which frames were transmitted, according to the consumer-index (that is also a “register” found on the local memory-space)
+  and free back the frame-context (e.g. skb) to the remote stack (e.g. the Linux network stack).
+
+
+- GIE
+  On the local side, the GIE is be triggered upon the producer-index change. The GIE decides which remote-OutQ to serve according to a simple SRR/WRR scheduling for the QoS and then simple RR within a QoS.
+  It uses the DMA engine to initiate a transaction for copy the descriptors from the remote-OutQ to the local-InQ in the relevant consumer-intermediate-index.
+  Once the descriptors are copied, It initiate a transaction for copying the data buffers from the remote memory-space into the local memory-space. The data is copied to a local buffer pointer that
+  was allocated by the GIE from the local-poolQ.
+
+  Once the data buffer are copied it increments the local producer-index and remove consumer-index.
+
+- GPIO
+  Once the GPIO is being polled for receive frames, it iterates all frames descriptors found in the appropriate InQ within the required TC and pass them to the GPIO user (e.g. ODP PacketIO, MUSDK Pkt-Echo, etc.).
+  Once completed, the GPIO updates the InQ consumer-index. At this stage, the GPIO user extracts the needed information (such as buf-address, offset, len, l3/4 info, etc.), allocates the application specific packet structure
+  (e.g. in ODP, an odp-pkt) and build it with the appropriate information.
+  Eventually, the GPIO user passes all packets to the user Application.
+  Once the operation is completed ,it updated the consumer-index of the local-InQ.
+
+  In addition, when the application returns the buffer (see User Application section), the GPIO enqueues the buffer back the local-poolQ and updates its producer-index .
+
+- User Application
+  It is the responsibility of user Application worker to call the GPIO and its ‘recv’ routine and request for a burst of packets from a specific TC and InQ.
+  Once a worker completes the application packet processing and once its ready for the packet retirement, the application puts the buffer into the original local BPool that it was allocated from.
+  In Egress flow, the original buffer pool belongs to the GPIO
+
+
+  Ingress Flow
+
+- User Application
+  Once the application completes the packet processing, it calls directly the SPIO ‘send’ routine with a specific local-TC-OutQ and send a burst of packets toward the GIU port.
+
+- GPIO
+  The GPIO user (e.g. ODP PacketIO, MUSDK Pkt-Echo, etc.) prepared a GPIO local-OutQ descriptor and enqueued it. It initializes all the required fields for parsing-off (such as l3/4 info, etc.).
+  The GPIO user maintains a “shadow-Q” for every local-OutQ so it may store there the buffer context (i.e. the cookie) for every buffer that it sends to enqueue to the local-OutQ.
+  For all done frames, the GPIO user collects them out from the “shadow-Q” and extract the buffer context; then it puts the buffer into the original BPool that it was allocated originally.
+  Also note that it is the responsibility of the GPIO to update the local-outDoneQ consumer-index once it is called by the user for “outq-get-all-done” API by the user application.
+
+- GIE
+  The GIE is triggered upon the producer-index change. The GIE decides which local-OutQ to serve according to calculating SRR for the QoS and then simple RR within a QoS.
+  Then GIE shall allocates a buffer from the relevant remote BPool that is actually a remote-poolQ that is indicated within the specific remote-InQ description. Once a buffer is allocated, the GIE
+  uses DMA engine to copy the data from the local memory to the remote memory. On that time, the GIE updates the descriptor with the local buffer pointer.
+  It then initiates a transaction to copy the descriptors from the local-OutQ to the remote-InQ.
+  On this stage, both frame descriptor as well as the data buffer are placed on the remote memory-space.
+  Once the GIE completes a transaction to a remote-InQ it updates the producer-index in the remote-inQ.
+  In addition, the GIE de-allocates the packet associated buffer back into the PPv2 local-poolQ (the information should reside within the packet descriptor).
+
+- Remote Side
+  The remote side driver is triggered by a timer.
+  The remote side driver is responsible for collecting the buffer from the remote-InQ and extracting relevant information from the buffer descriptor (e.g. buff address, offset, len, etc.), creating the
+  relevant SW context (e.g. in Linux, it is an SKB). Eventually, it should update the remote-InQ consumer-index.
+  In addition, the remote side driver shall ‘re-fill’ the host BPool by pushing a buffer into the relevant remote-poolQ and increment the producer-index.
+
+
+Resource Mapping
+~~~~~~~~~~~~~~~~
+
+GIE
+	- The BPOOL object is required to make use of the GIE Buffer Management.
+	- A BPOOL object is created on a certain GIE Instance.
+
+
+
+BPOOL
+	- The BPOOL object is required to make use of the GIE Buffer Management.
+	- A BPOOL object is created on a certain GIE Instance.
+
+
+
+GPIO
+	- The GPIO object is the MUSDK presentation of an interface.
+	- A GPIO object is a logical port capable of receiving and transmitting packets.
+	- As a minimum, a GPIO has a collection of RX queues (RX-Qs) and TX queues (TX-Qs), at least one of each.
 
 
 Features Set
 ------------
 
+Supported APIs
+~~~~~~~~~~~~~~
+
+	- Interface Prove/Remove
+	- Interface Capabilities Getter
+	- Packets Send/Receive
+	- Descriptor Setters/Getters
+
+BPOOL:
+	- Support all API's
+
+
+GPIO
+	- Init:
+		- Support all API's *excluding* :
+			- giu_gpio_remove
+			- giu_gpio_enable
+			- giu_gpio_disable
+
+	- Send/Receive:
+		- Support all API's
+
+	- Outqueue:
+		- Support all giu_gpio_outq_xxx API's
+
+	- Inqueue:
+		- Support all giu_gpio_inq_xxx API's
+
+	- Statistics:
+		- Not supported.
+
 
 Source tree
 -----------
 
-Sources::
+Sources:
 
 	musdk/
 	  - src/include/drivers/ - public include files for GIU driver.
 		- mv_giu_gpio.h
-		- ...
+		- mv_giu_bpool.h
 
 	  - src/drivers/giu/	- GIU driver implementation
 		- giu_gpio.c
-		- ...
+		- giu_bpool.c
+		- giu.c
+		- giu_queue_topology.c
+		- giu_queue_topology.h
