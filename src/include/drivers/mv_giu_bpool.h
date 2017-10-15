@@ -35,9 +35,9 @@
 
 #include "mv_std.h"
 
-/** @addtogroup grp_giu_bp Packet Processor: Buffer Pool
+/** @addtogroup grp_giu_bp GIU Port I/O (GP-IO): Buffer Pool
  *
- *  Packet Processor Buffer Pool API documentation
+ *  GP-IO Buffer Pool API documentation
  *
  *  @{
  */

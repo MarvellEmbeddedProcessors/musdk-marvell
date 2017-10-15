@@ -33,7 +33,14 @@
 #ifndef _MV_NMP_DISPATCH_H
 #define _MV_NMP_DISPATCH_H
 
-#define MV_NMP_Q_PAIR_MAX (1)
+/** @addtogroup grp_nmp_dispatch NMP Dispatch
+ *
+ *  Networking Management Proxy (NMP) Dispatch API documentation
+ *
+ *  @{
+ */
+
+#define MV_NMP_Q_PAIR_MAX (1)	/**< Max Queue Pair */
 
 struct nmdisp;
 
@@ -41,32 +48,66 @@ struct nmdisp_params {
 	/* TODO: */
 };
 
-/* dispatcher client queue parameters */
+/**
+ *  struct nmdisp_q_pair_params - dispatcher client queue
+ *  parameters
+ */
 struct nmdisp_q_pair_params {
-	struct mqa_q cmd_q;
-	struct mqa_q notify_q;
-
+	struct mqa_q cmd_q;	/**< Command Queue */
+	struct mqa_q notify_q;	/**< Notification Queue */
 };
 
-/* dispatcher client parameters */
+/**
+ *  struct nmdisp_client_params - dispatcher client
+ *  parameters
+ */
 struct nmdisp_client_params {
-	u8 client_type;
-	u8 client_id;
+	u8 client_type;	/**< Client Type */
+	u8 client_id;	/**< Client ID */
+
+	/** Pointer to Client func */
 	int (*client_sr_cb)(void *client, u8 code, void *msg);
-	void *client;
+
+	void *client;	/**< Pointer to Client */
 };
 
-/* dispatcher initialization API's */
+/**
+ *  Dispatcher initialization API
+ */
 int nmdisp_init(struct nmdisp_params *params, struct nmdisp **nmdisp);
+
+/**
+ *  Dispatcher release (deinit) API
+ */
 void nmdisp_deinit(struct nmdisp *nmdisp);
 
-/* dispatcher configuration API's */
+/**
+ *  Dispatcher configuration API - Register a new Client
+ */
 int nmdisp_register_client(struct nmdisp *nmdisp, struct nmdisp_client_params *params);
+
+/**
+ *  Dispatcher configuration API - De-Register a Client
+ */
 int nmdisp_deregister_client(struct nmdisp *nmdisp, u8 client, u8 id);
+
+/**
+ *  Dispatcher configuration API - Add Queue to a Client
+ */
 int nmdisp_add_queue(struct nmdisp *nmdisp, u8 client, u8 id, struct nmdisp_q_pair_params *q_params);
 
-/* dispatcher execution API's */
+/**
+ *  Dispatcher execution API - Run Dispatcher
+ */
 int nmdisp_dispatch(struct nmdisp *nmdisp);
+
+/**
+ *  Dispatcher execution API - Send Message
+ */
 int nmdisp_send(struct nmdisp *nmdisp, u8 client, u8 id, u8 qid, void *msg);
+
+
+
+/** @} */ /* end of grp_nmp_dispatch */
 
 #endif /* _MV_NMP_DISPATCH_H */

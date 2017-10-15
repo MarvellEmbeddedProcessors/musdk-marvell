@@ -33,6 +33,15 @@
 #ifndef _MV_NMP_INIT_H
 #define _MV_NMP_INIT_H
 
+/** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
+ *
+ *  Networking Management Proxy (NMP) Initialization API
+ *  documentation
+ *
+ *  @{
+ */
+
+
 /**
  *	Initialize the NMP.
  *
@@ -48,6 +57,8 @@ int nmp_init(void);
  *	@retval	<0 on failure
  */
 int nmp_schedule(void);
+
+/** @} */ /* end of grp_nmp_init */
 
 #endif /* _MV_NMP_INIT_H */
 

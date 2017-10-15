@@ -35,54 +35,52 @@
 
 #include "drivers/mv_mqa.h"
 
-#define QUEUE_BPOOL_ARRAY	(3) /** Number of BM pools associated with data queue */
-#define QUEUE_UNUSED_PARAM	(-1)/** Number of BM pools associated with data queue */
+/** @addtogroup grp_mqa_queue MQA Queue
+ *
+ *  MQA Queue API documentation
+ *
+ *  @{
+ */
 
-/*
- * @param[in]	  len		  ring length
- * @param[in]	  size		  ring element size
- * @param[in]	  attr		  Attributes for Queue definition (bitwise):
- *				  ==> EGRESS_QUEUE  - To define as Egress Queue
- *				  ==> INGRESS_QUEUE - To define as Ingress Queue
- *				  ==> LOCAL_QUEUE   - To define as Local.Queue
- *				  ==> REMOTE_QUEUE  - To define as Remote Queue
- * @param[in]	  prio		  priority
- * @param[out]	  phy_base_addr	  ring physical base address
- * @param[out]	  virt_base_addr  ring virtual base address
- * @param[in/out]  prod_phys	  producer physical address
- * @param[in/out] cons_phys	  consumer physical address
- * @param[in/out] prod_virt	  producer virtual address
- * @param[in/out] cons_virt	  consumer virtual address
- * @param[in]	  remote_phy_addr Remote Physical address (== NULL if local queue)
- * @param[in]	  host_remap
- * @param[in]	  msix_id	  MSI-X interrupt Id      (0 = unused)
- * @param[in]	  msi_id	  MSI interrupt Id        (0 = unused)
- * @param[in]	  peer_id	  Peer Id                 (0 = unused)
- * @param[in]	  bpool_num	  Number of BPools        (0 = unused)
- * @param[in]	  bpool_qids	  list of BPool queue Id  (0 = unused)
- * @param[in]	  copy_payload	  whether to copy the payload or not
+#define QUEUE_BPOOL_ARRAY	(3) /**< Number of BM pools associated with data queue */
+#define QUEUE_UNUSED_PARAM	(-1)/**< Number of BM pools associated with data queue */
+
+/**
+ * struct mqa_queue_params - MQA Queue Params
  */
 struct mqa_queue_params {
-	u32 idx;
-	u32 len;
-	u32 size;
-	u32 attr;
-	u32 prio;
 
-	void *phy_base_addr;
-	void *virt_base_addr;
-	void *prod_phys;
-	void *cons_phys;
-	void *prod_virt;
-	void *cons_virt;
-	void *remote_phy_addr;
+	u32 idx;	/**< Queue index */
+	u32 len;	/**< Ring length */
+	u32 size;	/**< Ring element size */
+
+	/**< Attributes for Queue definition (bitwise):.  */
+	/**<   EGRESS_QUEUE  - To define as Egress Queue. */
+	/**<   INGRESS_QUEUE - To define as Ingress Queue.*/
+	/**<   LOCAL_QUEUE   - To define as Local Queue.  */
+	/**<   REMOTE_QUEUE  - To define as Remote Queue. */
+
+	u32 attr;
+	u32 prio;	/**< Priority   */
+
+	void *phy_base_addr;	/**< Ring physical base address */
+	void *virt_base_addr;   /**< Ring virtual base address */
+	void *prod_phys;	/**< Producer physical address */
+	void *cons_phys;        /**< Consumer physical address */
+	void *prod_virt;        /**< Producer virtual address */
+	void *cons_virt;        /**< Consumer virtual address */
+	void *remote_phy_addr;	/**< Remote Physical address (== NULL if local queue) */
 	void *host_remap;
 
-	u32 msix_id;
-	u32 msi_id;
-	u32 peer_id;
-	u32 bpool_num;
+	u32 msix_id;	/**< MSI-X interrupt Id (0 = unused) */
+	u32 msi_id;	/**< MSI interrupt Id   (0 = unused) */
+	u32 peer_id;	/**< Peer Id            (0 = unused) */
+	u32 bpool_num;	/**< Number of BPools   (0 = unused) */
+
+	/** List of BPool queue Id  (0 = unused) */
 	s32 bpool_qids[MQA_BM_QUEUE_ARRAY];
+
+	/** Whether to copy the payload or not */
 	int copy_payload;
 };
 
@@ -147,6 +145,8 @@ int mqa_queue_destroy(struct mqa *mqa, struct mqa_q *q);
  *	@retval	<0 on failure
  */
 int mqa_queue_associate_pair(struct mqa *mqa, u32 src_queue_id, u32 dest_queue_id);
+
+/** @} */ /* end of grp_mqa_queue */
 
 #endif /* _MV_MQA_QUEUE_H */
 

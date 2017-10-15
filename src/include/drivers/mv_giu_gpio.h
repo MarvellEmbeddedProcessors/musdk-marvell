@@ -37,9 +37,9 @@
 #include "mv_giu_bpool.h"
 #include "mv_pp2_ppio.h" /* for descriptor inspection functionality */
 
-/** @addtogroup grp_giu_io Packet Processor: I/O
+/** @addtogroup grp_giu_io GIU Port: I/O (GP-IO)
  *
- *  Packet Processor I/O API documentation
+ *  GIU Port I/O (GP-IO) API documentation
  *
  *  @{
  */
