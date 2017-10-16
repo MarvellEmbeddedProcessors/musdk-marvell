@@ -183,22 +183,29 @@ int dmax2_set_mem_attributes(struct dmax2		*dmax2,
 			     enum dmax2_trans_location	location,
 			     enum dmax2_mem_direction	mem_attr)
 {
-	u32	reg, attr;
+	u16	reg, reg_mask, src_attr, dst_attr;
 
 	/* Prepare mask and value for memory attributes */
+	src_attr = dst_attr = DMA_ATTR_NONE;
+	reg_mask = (DMA_DESC_ATTR_ARDOMAIN_MASK | DMA_DESC_ATTR_ARCACHE_MASK);
 	switch (mem_attr) {
+	case (DMAX2_TRANS_MEM_ATTR_CACHABLE_STASH):
+		break;
 	case (DMAX2_TRANS_MEM_ATTR_NOT_CACHABLE):
 	case (DMAX2_TRANS_MEM_ATTR_IO):
-		attr = DMA_ATTR_ARDOMAIN_DEVICE_SYSTEM_SHAREABLE |
-			((1 << DMA_ATTR_ARCACHE_BUFFERABLE_OFFSET) << DMA_DESC_ATTR_ARCACHE_OFFSET);
+		src_attr = dst_attr = DMA_ATTR_IO_N_NOT_CACHABLE;
 		break;
 	case (DMAX2_TRANS_MEM_ATTR_CACHABLE):
-		attr =	DMA_ATTR_ARDOMAIN_OUTER_SHAREABLE |
-			((1 << DMA_ATTR_ARCACHE_BUFFERABLE_OFFSET) |
-			(1 << DMA_ATTR_ARCACHE_MODIFIABLE_OFFSET) |
-			(1 << DMA_ATTR_ARCACHE_ALLOCATE_OFFSET) |
-			(1 << DMA_ATTR_ARCACHE_OTHER_ALLOCATE_OFFSET))
-			<< DMA_DESC_ATTR_ARCACHE_OFFSET;
+		src_attr = dst_attr = DMA_ATTR_CACHABLE;
+		break;
+	case (DMAX2_TRANS_MEM_ATTR_CACHABLE_WR_THROUGH_NO_ALLOC):
+		src_attr = DMA_ATTR_AR_WR_NO_ALLOC;
+		dst_attr = DMA_ATTR_AW_WR_NO_ALLOC;
+		/*
+		 * WR_THROUGH_NO_ALLOC memory attribute requires configuration of both
+		 * DESC and DATA fields, therefore these memory attribute is checked
+		 */
+		reg_mask |= (DMA_DATA_ATTR_ARDOMAIN_MASK | DMA_DATA_ATTR_ARCACHE_MASK);
 		break;
 	default:
 		pr_err("DMAX2: requested unsupported memory attribute (%d)\n", mem_attr);
@@ -208,15 +215,15 @@ int dmax2_set_mem_attributes(struct dmax2		*dmax2,
 	if (location == DMAX2_TRANS_LOCATION_SRC ||
 	    location == DMAX2_TRANS_LOCATION_SRC_AND_DST) {
 		reg = readl(dmax2->dma_base + DMA_DESQ_ARATTR_OFF);
-		reg &= ~(DMA_DESC_ATTR_ARDOMAIN_MASK | DMA_DESC_ATTR_ARCACHE_MASK);
-		reg |= attr;
+		reg &= ~reg_mask;
+		reg |= src_attr;
 		writel(reg, dmax2->dma_base + DMA_DESQ_ARATTR_OFF);
 	}
 	if (location == DMAX2_TRANS_LOCATION_DST ||
 	    location == DMAX2_TRANS_LOCATION_SRC_AND_DST) {
 		reg = readl(dmax2->dma_base + DMA_DESQ_AWATTR_OFF);
-		reg &= ~(DMA_DESC_ATTR_ARDOMAIN_MASK | DMA_DESC_ATTR_ARCACHE_MASK);
-		reg |= attr;
+		reg &= ~reg_mask;
+		reg |= dst_attr;
 		writel(reg, dmax2->dma_base + DMA_DESQ_AWATTR_OFF);
 	}
 
