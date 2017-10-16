@@ -836,6 +836,21 @@ static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct g
 		   dst_q->qid, *dst_q->head, *dst_q->tail);
 }
 
+/* create a backup of the tail/head idx to be used for DMA copy
+ * this allows us to continue changing the main tail/head during DMA operation
+ */
+static u64 gie_idx_backup(struct gie_queue *q, u16 idx_val)
+{
+	u64 phys_bkp;
+
+	q->idx_ring_virt[q->idx_ring_ptr] = idx_val;
+	phys_bkp = (u64)(q->idx_ring_phys + q->idx_ring_ptr);
+
+	q_idx_add(q->idx_ring_ptr, 1, q->idx_ring_size);
+
+	return phys_bkp;
+}
+
 static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 {
 	struct gie_queue *src_q = &pool->src_q;
@@ -843,6 +858,7 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 	int fill_size = GIE_SHADOW_FILL_SIZE;
 	int src_q_fill;
 	u32 qes_copied;
+	u64 head_bkp;
 
 	/* did we already submit a copy ? if yes, wait till it's done */
 	if (qes_in_copy(src_q))
@@ -854,7 +870,8 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 		q_idx_add(*shadow_q->tail, qes_copied, shadow_q->qlen);
 		q_idx_add(*src_q->head, qes_copied, src_q->qlen);
 
-		gie_copy_index(dma, src_q->head_phys, src_q->msg_head_phys);
+		head_bkp = gie_idx_backup(src_q, *src_q->head);
+		gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
 		return;
 	}
 
@@ -930,6 +947,7 @@ static void gie_bpool_consume(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 {
 	struct gie_bpool *pool;
 	struct gie_queue *bpool_q;
+	u64 head_bkp;
 	int i;
 
 	/* Find the bpool that matches the min buffer size */
@@ -947,7 +965,8 @@ static void gie_bpool_consume(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 	/* remote bpools indixes are managed in refill routine */
 	if (!(pool->flags & GIE_BPOOL_REMOTE)) {
 		bpool_q = &pool->src_q;
-		gie_copy_index(dma, bpool_q->head_phys, bpool_q->msg_head_phys);
+		head_bkp = gie_idx_backup(bpool_q, *bpool_q->head);
+		gie_copy_index(dma, head_bkp, bpool_q->msg_head_phys);
 	}
 }
 
@@ -1037,21 +1056,6 @@ bpool_empty:
 	}
 
 	return cnt;
-}
-
-/* create a backup of the tail/head idx to be used for DMA copy
- * this allows us to continue changing the main tail/head during DMA operation
- */
-static u64 gie_idx_backup(struct gie_queue *q, u16 idx_val)
-{
-	u64 phys_bkp;
-
-	q->idx_ring_virt[q->idx_ring_ptr] = idx_val;
-	phys_bkp = (u64)(q->idx_ring_phys + q->idx_ring_ptr);
-
-	q_idx_add(q->idx_ring_ptr, 1, q->idx_ring_size);
-
-	return phys_bkp;
 }
 
 static void gie_produce_q(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q, int qes_completed)
