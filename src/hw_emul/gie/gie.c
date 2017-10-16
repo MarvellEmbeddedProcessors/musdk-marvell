@@ -137,10 +137,8 @@ struct gie_queue {
 	u32	tc;
 	u16	qlen;
 	u16	qid;
-	u16	*tail;
-	u16	*head;
-	u64	tail_phys;
-	u64	head_phys;
+	u16	tail;
+	u16	head;
 	u16	qe_tail;
 	u16	qe_head;
 	u16	desc_len_pos;
@@ -267,10 +265,6 @@ struct gie {
 	struct gie_regfile	*regs;
 	struct gie_q_pair	qpairs[GIE_MAX_TCS][GIE_MAX_Q_PER_TC];
 	struct gie_bpool	bpools[GIE_MAX_BPOOLS];
-	u16			*shadow_cons_virt;
-	u16			*shadow_prod_virt;
-	u64			shadow_cons_phys;
-	u64			shadow_prod_phys;
 	u16			q_cnt[GIE_MAX_TCS];
 	u16			bp_cnt;
 	u16			curr_q;
@@ -280,14 +274,14 @@ struct gie {
 #define map_host_addr(host_addr, q)	(q->host_remap + host_addr)
 
 /* queue handling macros. assumes q size is always power of 2 */
-#define q_occupancy(q)		((*q->tail - *q->head + q->qlen) & (q->qlen - 1))
+#define q_occupancy(q)		((q->tail - q->head + q->qlen) & (q->qlen - 1))
 #define q_space(q)		(q->qlen - q_occupancy(q) - 1)
-#define q_empty(q)		(*q->tail == *q->head)
-#define q_wraps(q)		(*q->tail < *q->head)
+#define q_empty(q)		(q->tail == q->head)
+#define q_wraps(q)		(q->tail < q->head)
 
-#define qes_to_copy(q)			((*q->tail - q->qe_tail + q->qlen) & (q->qlen - 1))
+#define qes_to_copy(q)			((q->tail - q->qe_tail + q->qlen) & (q->qlen - 1))
 #define qes_in_copy(q)			((q->qe_tail - q->qe_head + q->qlen) & (q->qlen - 1))
-#define qes_copied(q)			((q->qe_head - *q->head + q->qlen) & (q->qlen - 1))
+#define qes_copied(q)			((q->qe_head - q->head + q->qlen) & (q->qlen - 1))
 #define bufs_to_copy(q)			qes_copied(q)
 
 #define q_idx_add(idx, val, qlen) (idx = (idx + val) & (qlen - 1))
@@ -340,25 +334,8 @@ void *gie_init(void *gie_regs, int dma_id, char *name)
 	dma->job_tail = dma->job_head = 0;
 	dma->job_qlen = GIE_MAX_DMA_JOBS;
 
-	/* allocate a dma buffer pool for indices (prod/cons), so we can dma from/to them */
-	gie->shadow_cons_virt = mv_sys_dma_mem_alloc(GIE_MAX_QID * sizeof(u16), sizeof(u16));
-	if (!gie->shadow_cons_virt) {
-		err = -ENOMEM;
-		goto attr_error;
-	}
-	gie->shadow_cons_phys = mv_sys_dma_mem_virt2phys((void *)gie->shadow_cons_virt);
-
-	gie->shadow_prod_virt = mv_sys_dma_mem_alloc(GIE_MAX_QID * sizeof(u16), sizeof(u16));
-	if (!gie->shadow_prod_virt) {
-		err = -ENOMEM;
-		goto alloc_err;
-	}
-	gie->shadow_prod_phys = mv_sys_dma_mem_virt2phys((void *)gie->shadow_prod_virt);
-
 	return gie;
 
-alloc_err:
-	mv_sys_dma_mem_free(gie->shadow_cons_virt);
 attr_error:
 	dmax2_deinit(dma->dmax2);
 init_error:
@@ -390,11 +367,6 @@ int gie_terminate(void *giu)
 	ret = dmax2_deinit(gie->dma.dmax2);
 	if (ret)
 		pr_warn("Failed to close MUSDK DMA channel\n");
-
-	if (gie->shadow_cons_virt)
-		mv_sys_dma_mem_free(gie->shadow_cons_virt);
-	if (gie->shadow_prod_virt)
-		mv_sys_dma_mem_free(gie->shadow_prod_virt);
 
 	kfree(gie);
 	return ret;
@@ -430,10 +402,10 @@ static struct gie_bpool *gie_find_bpool(struct gie_bpool *pools, int max, u16 qi
 static void gie_show_q_indices(struct gie_queue *q)
 {
 	pr_debug("-------------\n");
-	pr_debug("tail:      %d\n", *q->tail);
+	pr_debug("tail:      %d\n", q->tail);
 	pr_debug("qe_tail:   %d\n", q->qe_tail);
 	pr_debug("qe_head:   %d\n", q->qe_head);
-	pr_debug("head:      %d\n", *q->head);
+	pr_debug("head:      %d\n", q->head);
 	pr_debug("-------------\n");
 }
 
@@ -455,16 +427,6 @@ static void gie_show_queue(struct gie_queue *q)
 	pr_debug("host_remap:		%p\n", (void *)q->host_remap);
 	pr_debug("qlen:		0x%x\n", q->qlen);
 	pr_debug("qesize:		0x%x\n", q->qesize);
-}
-
-static void alloc_shadow_indices(struct gie *gie, struct gie_queue *q, u16 qid)
-{
-	q->head = gie->shadow_cons_virt + qid;
-	q->tail = gie->shadow_prod_virt + qid;
-	q->head_phys = gie->shadow_cons_phys + sizeof(u16) * qid;
-	q->tail_phys = gie->shadow_prod_phys + sizeof(u16) * qid;
-
-	*q->head = *q->tail = 0;
 }
 
 static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue *mqa, int is_remote, u16 qid)
@@ -490,7 +452,7 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 	q->idx_ring_ptr = 0;
 
 	q->qe_tail = q->qe_head = 0;
-	alloc_shadow_indices(gie, q, qid);
+	q->tail = q->head = 0;
 
 	/* remap the ring phys address once */
 	q->ring_phys += q->host_remap;
@@ -594,11 +556,10 @@ static int gie_alloc_bpool_shadow(struct gie *gie,  struct gie_bpool *pool)
 	shadow->qesize = src_q->qesize;
 	shadow->qlen = src_q->qlen;
 	shadow->qe_tail = shadow->qe_head = 0;
+	shadow->tail = shadow->head = 0;
 
 	/* set a fake qid for the shadow queue, so we can identify it */
 	shadow->qid = UINT16_MAX - src_q->qid;
-
-	alloc_shadow_indices(gie, shadow, shadow->qid);
 
 	pr_debug("allocated bpool shadow at phys %p virt %p\n", (void *)shadow->ring_phys, (void *)shadow->ring_virt);
 
@@ -832,8 +793,8 @@ static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct g
 		dma_cnt++;
 	}
 
-	tracepoint(gie, queue, "QE copy", qes_to_copy, src_q->qid, first_qe, *src_q->tail,
-		   dst_q->qid, *dst_q->head, *dst_q->tail);
+	tracepoint(gie, queue, "QE copy", qes_to_copy, src_q->qid, first_qe, src_q->tail,
+		   dst_q->qid, dst_q->head, dst_q->tail);
 }
 
 /* create a backup of the tail/head idx to be used for DMA copy
@@ -867,16 +828,16 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 	qes_copied = qes_copied(src_q);
 	if (qes_copied) {
 		/* previous copy completed, update pointers */
-		q_idx_add(*shadow_q->tail, qes_copied, shadow_q->qlen);
-		q_idx_add(*src_q->head, qes_copied, src_q->qlen);
+		q_idx_add(shadow_q->tail, qes_copied, shadow_q->qlen);
+		q_idx_add(src_q->head, qes_copied, src_q->qlen);
 
-		head_bkp = gie_idx_backup(src_q, *src_q->head);
+		head_bkp = gie_idx_backup(src_q, src_q->head);
 		gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
 		return;
 	}
 
 	/* okay, let's submit a copy */
-	*src_q->tail = q_read_idx(src_q->msg_tail_virt);
+	src_q->tail = q_read_idx(src_q->msg_tail_virt);
 	src_q_fill = q_occupancy(src_q);
 	if (!src_q_fill)
 		/* TODO: Add a trancepoint. */
@@ -920,7 +881,7 @@ static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 			gie_bpool_fill_shadow(dma, pool);
 	} else {
 		bpool_q = &pool->src_q;
-		*bpool_q->tail = q_read_idx(bpool_q->msg_tail_virt);
+		bpool_q->tail = q_read_idx(bpool_q->msg_tail_virt);
 		bufs_avail = q_occupancy(bpool_q);
 	}
 
@@ -932,13 +893,13 @@ static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 	 * of buffers until wrap around, so the caller doesn't need to wrap
 	 */
 	if (q_wraps(bpool_q))
-		buf_cnt = min(buf_cnt, bpool_q->qlen - *bpool_q->head);
+		buf_cnt = min(buf_cnt, bpool_q->qlen - bpool_q->head);
 
 	/* increment an internal index to indicate these buffers are already used we still
 	 * don't update the remote head until the user is done with the buffers to avoid override
 	 */
-	*bp_bufs = (struct host_bpool_desc *)bpool_q->ring_virt + *bpool_q->head;
-	q_idx_add(*bpool_q->head, buf_cnt, bpool_q->qlen);
+	*bp_bufs = (struct host_bpool_desc *)bpool_q->ring_virt + bpool_q->head;
+	q_idx_add(bpool_q->head, buf_cnt, bpool_q->qlen);
 
 	return buf_cnt;
 }
@@ -965,7 +926,7 @@ static void gie_bpool_consume(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 	/* remote bpools indixes are managed in refill routine */
 	if (!(pool->flags & GIE_BPOOL_REMOTE)) {
 		bpool_q = &pool->src_q;
-		head_bkp = gie_idx_backup(bpool_q, *bpool_q->head);
+		head_bkp = gie_idx_backup(bpool_q, bpool_q->head);
 		gie_copy_index(dma, head_bkp, bpool_q->msg_head_phys);
 	}
 }
@@ -990,7 +951,7 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 	cookie_pos = src_q->desc_cookie_pos;
 	len_pos = src_q->desc_len_pos;
 
-	i = *src_q->head;
+	i = src_q->head;
 
 another_pass:
 	/* fetch buffers from the bpool. the returned pointer points directly to the
@@ -1051,8 +1012,8 @@ bpool_empty:
 		 */
 		gie_bpool_consume(dma, qp, 1500);
 
-		tracepoint(gie, queue, "buffer copy", cnt, src_q->qid, *src_q->head, *src_q->tail,
-			   dst_q->qid, *dst_q->head, *dst_q->tail);
+		tracepoint(gie, queue, "buffer copy", cnt, src_q->qid, src_q->head, src_q->tail,
+			   dst_q->qid, dst_q->head, dst_q->tail);
 	}
 
 	return cnt;
@@ -1062,19 +1023,19 @@ static void gie_produce_q(struct dma_info *dma, struct gie_queue *src_q, struct 
 {
 	u64 head_bkp, tail_bkp;
 
-	q_idx_add(*src_q->head, qes_completed, src_q->qlen);
-	q_idx_add(*dst_q->tail, qes_completed, dst_q->qlen);
+	q_idx_add(src_q->head, qes_completed, src_q->qlen);
+	q_idx_add(dst_q->tail, qes_completed, dst_q->qlen);
 
-	head_bkp = gie_idx_backup(src_q, *src_q->head);
-	tail_bkp = gie_idx_backup(dst_q, *dst_q->tail);
+	head_bkp = gie_idx_backup(src_q, src_q->head);
+	tail_bkp = gie_idx_backup(dst_q, dst_q->tail);
 
 	gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
 	gie_copy_index(dma, tail_bkp, dst_q->msg_tail_phys);
 	src_q->packets += qes_completed;
 	dst_q->packets += qes_completed;
 
-	tracepoint(gie, queue, "QE produce", qes_completed, src_q->qid, *src_q->head, *src_q->tail,
-		   dst_q->qid, *dst_q->head, *dst_q->tail);
+	tracepoint(gie, queue, "QE produce", qes_completed, src_q->qid, src_q->head, src_q->tail,
+		   dst_q->qid, dst_q->head, dst_q->tail);
 }
 
 static int gie_clip_batch(struct gie_queue *dst_q, int required_copy)
@@ -1104,8 +1065,8 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	(void)qe_limit;
 
 	/* Get the updated tail & head from the notification area */
-	*src_q->tail = q_read_idx(src_q->msg_tail_virt);
-	*dst_q->head = q_read_idx(dst_q->msg_head_virt);
+	src_q->tail = q_read_idx(src_q->msg_tail_virt);
+	dst_q->head = q_read_idx(dst_q->msg_head_virt);
 
 	/* check for any pending work (qes, buffers, etc) */
 	if (q_empty(src_q))
@@ -1147,8 +1108,8 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	(void)qe_limit;
 
 	/* Get the updated tail & head from the notification area */
-	*src_q->tail = q_read_idx(src_q->msg_tail_virt);
-	*dst_q->head = q_read_idx(dst_q->msg_head_virt);
+	src_q->tail = q_read_idx(src_q->msg_tail_virt);
+	dst_q->head = q_read_idx(dst_q->msg_head_virt);
 
 	/* check for any pending work (qes, buffers, etc) */
 	if (q_empty(src_q))
@@ -1170,7 +1131,7 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 		return 0;
 
 	/* Copy the QEs */
-	gie_copy_qes(dma, src_q, dst_q, qes, *src_q->head, 0);
+	gie_copy_qes(dma, src_q, dst_q, qes, src_q->head, 0);
 
 	/* Update the prod/cons index by dma */
 	gie_produce_q(dma, src_q, dst_q, qes);
