@@ -700,13 +700,13 @@ index 0000000..9b60648
 +
 +uio-xor0 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cp1_xor0>;
++	xor_access = <&cps_xor0>;
 +	status = "okay";
 +};
 +
 +uio-xor1 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cp1_xor1>;
++	xor_access = <&cps_xor1>;
 +	status = "okay";
 +};
 +
@@ -781,13 +781,13 @@ index 0000000..bf0d38f
 +
 +uio-xor0 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cp0_xor0>;
++	xor_access = <&cpm_xor0>;
 +	status = "okay";
 +};
 +
 +uio-xor1 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cp0_xor1>;
++	xor_access = <&cpm_xor1>;
 +	status = "okay";
 +};
 +
