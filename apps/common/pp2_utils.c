@@ -560,7 +560,8 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 	lcl_port->ppio		= port->ppio;
 
 	lcl_port->num_shadow_qs = port->num_outqs;
-	lcl_port->shadow_q_size	= port->outq_size;
+	/* Below shadow_q size is enough to hold tx_q + any_size burst from all a thread's rx_qs */
+	lcl_port->shadow_q_size	= port->outq_size + port->num_tcs*port->inq_size;
 	lcl_port->shadow_qs = (struct tx_shadow_q *)malloc(port->num_outqs * sizeof(struct tx_shadow_q));
 
 	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
@@ -568,7 +569,7 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 		lcl_port->shadow_qs[i].write_ind = 0;
 
 		lcl_port->shadow_qs[i].ents =
-			(struct tx_shadow_q_entry *)malloc(port->outq_size * sizeof(struct tx_shadow_q_entry));
+			(struct tx_shadow_q_entry *)malloc(lcl_port->shadow_q_size * sizeof(struct tx_shadow_q_entry));
 	}
 	for (i = 0; i < port->num_tcs; i++)
 		lcl_port->pkt_offset[i] = port->port_params.inqs_params.tcs_params[i].pkt_offset;
