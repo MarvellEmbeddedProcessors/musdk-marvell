@@ -118,7 +118,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct lcl_port_desc	*rx_lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
 	struct lcl_port_desc	*tx_lcl_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
 
-	u16 i, tx_num;
+	u16 i, j, tx_num;
 	int shadow_q_size;
 #ifdef CLS_APP_PKT_ECHO_SUPPORT
 	int prefetch_shift = CLS_APP_PREFETCH_SHIFT;
@@ -165,14 +165,35 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
 		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 		shadow_q->write_ind++;
-		if (shadow_q->write_ind == CLS_APP_TX_Q_SIZE)
+		if (shadow_q->write_ind == shadow_q_size)
 			shadow_q->write_ind = 0;
+
+		/* Below condition should never happen, if shadow_q size is large enough */
+		if (unlikely(shadow_q->write_ind == shadow_q->read_ind)) {
+			pr_err("%s: port(%d), txq_id(%d), shadow_q size=%d is too small, performing emergency drops\n",
+				__func__, tx_ppio_id, tx_qid, shadow_q_size);
+			/* Drop all following packets, and also this packet */
+			for (j = i; j < num; j++) {
+				struct pp2_buff_inf binf;
+
+				binf.cookie = (pp2_cookie_t)pp2_ppio_inq_desc_get_cookie(&descs[j]);
+				binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
+				pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
+			}
+			/* Rollback write_index by 1 */
+			if (shadow_q->write_ind > 0)
+				shadow_q->write_ind--;
+			else
+				shadow_q->write_ind = shadow_q_size - 1;
+			/* Update num of packets that may be sent */
+			num = i;
+			break;
+		}
 	}
 
 	if (num) {
 		tx_num = num;
-		pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif,
-				    tx_qid, descs, &tx_num);
+		pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif, tx_qid, descs, &tx_num);
 		if (num > tx_num) {
 			u16 not_sent = num - tx_num;
 			/* Free not sent buffers */
