@@ -2,19 +2,101 @@ Networking Management Proxy (NMP) User Guide
 ============================================
 
 Introduction
-------------
+============
 
-MUSDK NMP driver provides ...
+The Networking Management Proxy (NMP) is a "sub-system" that includes several SW modules
+The NMP is responsible for the initialization, configuration and maintenance of the network related interfaces and using their drivers.
+The NMP should initialize the network drivers according to a given "topology".
+The NMP is also responsible for dispatching of various management commands from InQs toward the relevant SW module that should handle the request.
+It exposes APIs toward the host application for the initialization and the configuration of its logical-interfaces,
+such as PF configurations parameters including number of outQs, outDoneQs, inQs, etc.
+it also exposes APIs toward the host for controlling the network drivers such as link up/down, set/get MTU, add/remove l2-filter, etc.
+The NMP may be configured and run by the user application as either separate thread/process or integrated along with all user modules in the same thread/process.
+
+Here are some examples of operation that the NMP, only partial are supported:
+-	Qs:
+-		Alloc/Free Q
+-		Create Q
+-	NIC basic:
+-		Set/get MTU
+-		Set/get l2-filter
+-	SW/NIC tables:
+-		add/remove flow
+-		get flow stats
+-		Add/remove tunnel
+-	Crypto:
+-		Create/destroy SA
+
+
+The NMP is built from the following modules
+
+NMP Master
+==========
+Master module is responsible for creation of the networking management sub-system according to input "topology".
+It is also responsible for initialization of all the NMP SW modules; i.e. the NMP-dispatch, GIU, NMP-PF, NMP-custom, etc.
+
+NMP Dispatcher
+==============
+This SW module is responsible for collecting management commands from the management input Qs and dispatch them (according to a unique/dedicated field in the management-descriptor)
+Between the various management elements. I.e. there will be commands that are targeted to the PF while other commands are targeted to the customer application.
+
+NMP Database
+============
+This SW module is centralized database including all configuration, debug and performance monitoring information
+
+NMP PF/VF/vSwitch
+=================
+These are SW modules that are part of the NMP "Logical Function" layer and are responsible for the operation of the MUSDK networking drivers;
+ i.e. the MVPP2, MVSAM, MVGIU. It should initialize and control the drivers through the MUSDK API (and not through the ODP/DPDK API).
+
+NMP Custom
+==========
+This module is currently not supported
+This module is actually just a pipe for the management commands that are dedicated to the user forwarding application.
+It will communicate with the customer-app through a Q.
+It will expose an API for the customer application to register a command callback.
+
 
 
 Features Set
-------------
+============
+
+
+Supported APIs
+==============
+
+NMP
+	- NMP initialization
+	- NMP de-initialization
+	- NMP schedule dispatch
+	- NMP schedule gir
+
+Dispatcher
+	- Dispatcher initialization
+	- Dispatcher de-initialization
+	- Dispatcher register client
+	- Dispatcher de-register client
+	- Dispatcher add queue
+	- Dispatcher send msg
+	- Dispatch
+
+PF (Physical function)
+	- PF initialization
+	- PF de-initialization
+
+
+Not-Supported APIs
+==================
+
+CUSTOM
+	- Custom initialization
+	- Custom de-initialization
 
 
 Source tree
------------
+===========
 
-Sources::
+Sources:
 
 	musdk/
 	  - src/include/mng/ - public include files for NMP Package.
@@ -42,4 +124,5 @@ Sources::
 			- pf_regfile.h
 			- pf_topology.c
 			- pf_topology.h
+
 
