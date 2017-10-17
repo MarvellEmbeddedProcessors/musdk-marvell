@@ -209,7 +209,7 @@ static inline int loop_rx(struct local_arg	*larg,
 	int			 shadow_q_size;
 	struct pp2_ppio_desc	 descs[PKT_GEN_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *)larg->cmn_args.plat;
-	u16			 i;
+	u16			 i, j;
 
 	shadow_q = &pp2_args->lcl_ports_desc[rx_ppio_id].shadow_qs[tc];
 	shadow_q_size = pp2_args->lcl_ports_desc[rx_ppio_id].shadow_q_size;
@@ -248,6 +248,30 @@ static inline int loop_rx(struct local_arg	*larg,
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == shadow_q_size)
 			shadow_q->write_ind = 0;
+
+		/* Below condition should never happen, if shadow_q size is large enough */
+		if (unlikely(shadow_q->write_ind == shadow_q->read_ind)) {
+			pr_err("%s: port(%d), tc(%d) qid(%d), shadow_q size=%d is too small, perform emergency drops\n",
+				__func__, rx_ppio_id, tc, qid, shadow_q_size);
+			/* Drop all following packets, and also this packet */
+			for (j = i; j < num; j++) {
+				struct pp2_buff_inf binf;
+
+				binf.cookie = (pp2_cookie_t)pp2_ppio_inq_desc_get_cookie(&descs[j]);
+				binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
+				pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
+			}
+			/* Rollback write_index by 1 */
+			if (shadow_q->write_ind > 0)
+				shadow_q->write_ind--;
+			else
+				shadow_q->write_ind = shadow_q_size - 1;
+			/* Update num of packets that may be handled */
+			num = i;
+			break;
+		}
+
+
 	}
 
 	shadow_q->read_ind = free_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id], &pp2_args->lcl_ports_desc[rx_ppio_id],
