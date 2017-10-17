@@ -211,43 +211,25 @@ int neta_ppio_get_num_outq_done(struct neta_ppio	*ppio,
 }
 
 /* Get pointer to the next RX descriptor to be processed by SW, and update the descriptor next index */
-static struct neta_ppio_desc *neta_rxq_get_desc(struct neta_rx_queue *rxq,
-						u32 *num_recv,
-						struct neta_ppio_desc **extra_desc,
-						u32 *extra_num)
+static struct neta_ppio_desc *neta_rxq_get_desc(struct neta_rx_queue *rxq)
 {
 	u32 rx_idx;
 
 	rx_idx = rxq->next_desc_to_proc;
-	*extra_num = 0;
-	*extra_desc = NULL;
 
-	/*
-	* It looks that the continues memory allocated for rx desc
-	* is treated by the HW as an circular queue.
-	* When the rx desc index is very close to the end of the rx desc array
-	* the next descriptors are be stored to the end of the array AND
-	* from the beginning of the rx desc array. In this case the return from
-	* this function will be 2 arrays of desc:
-	* 1 - at the end of the array
-	* 2 - starting from the beginning(extra)
-	*/
+	/* validate RX descriptor */
+	if (neta_ppio_inq_desc_get_pkt_len(rxq->descs + rx_idx) == 0) {
+		pr_debug("Bad RX descriptor %d: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", rx_idx,
+			(rxq->descs + rx_idx)->cmds[0], (rxq->descs + rx_idx)->cmds[1],
+			(rxq->descs + rx_idx)->cmds[2], (rxq->descs + rx_idx)->cmds[3],
+			(rxq->descs + rx_idx)->cmds[4]);
 
-	if (unlikely((rx_idx + *num_recv) > rxq->size)) {
-		*extra_desc = rxq->descs;
-		/* extra_num is relative to start of desc array */
-		*extra_num  = rx_idx + *num_recv - rxq->size;
-		/* num_recv is relative to end of desc array */
-		*num_recv = rxq->size - rx_idx;
-		rxq->next_desc_to_proc = *extra_num;
-	} else {
-		rxq->next_desc_to_proc = (((rx_idx + *num_recv) == rxq->size) ? 0 : (rx_idx + *num_recv));
+		/* do it to read real descriptor next time */
+		rmb();
+		return NULL;
 	}
 
-/*
- *	pr_debug("%s\tdesc array: cur_idx=%d\tlast_idx=%d\n",__func__, rx_idx, rxq->desc_last_idx);
- *	pr_debug("%s\tdesc array: num_recv=%d\textra_num=%d\n",__func__,*num_recv, *extra_num);
- */
+	rxq->next_desc_to_proc = (((rx_idx + 1) == rxq->size) ? 0 : (rx_idx + 1));
 
 	return (rxq->descs + rx_idx);
 }
@@ -282,9 +264,9 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 		   u16				*num)
 {
 	struct neta_port *port = GET_PPIO_PORT(ppio);
-	struct neta_ppio_desc *rx_desc, *extra_rx_desc;
+	struct neta_ppio_desc *rx_desc;
 	struct neta_rx_queue *rxq;
-	u32 recv_req = *num, extra_num = 0, tmp;
+	u32 recv_req = *num;
 	int i;
 
 	rxq = &port->rxqs[qid];
@@ -304,23 +286,23 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 	pr_debug("%s: receive %d (%d) packets.\n", __func__, rxq->desc_received, recv_req);
 
 	for (i = 0; i < recv_req; i++) {
-		tmp = 1;
-		rx_desc = neta_rxq_get_desc(rxq, &tmp, &extra_rx_desc, &extra_num);
+		rx_desc = neta_rxq_get_desc(rxq);
+		if (!rx_desc)
+			break;
+
 		memcpy(&descs[i], rx_desc, sizeof(struct neta_ppio_desc));
+		/* clean packet length field to invalidate descriptor */
+		rx_desc->cmds[1] = 0;
 	}
-	if (extra_num) {
-		memcpy(&descs[recv_req], extra_rx_desc, extra_num * sizeof(struct neta_ppio_desc));
-		recv_req += extra_num; /* Put the split numbers back together */
-	}
-	rxq->to_refill_cntr += recv_req;
+	rxq->to_refill_cntr += i;
 
 	/* update HW with rx_done descriptors */
-	neta_port_inq_update(port, rxq, recv_req, 0);
-	rxq->desc_received -= recv_req;
-	*num = recv_req;
+	neta_port_inq_update(port, rxq, i, 0);
+	rxq->desc_received -= i;
+	*num = i;
 
 #ifdef NETA_STATS_SUPPORT
-	rxq->rx_pkts += recv_req;
+	rxq->rx_pkts += i;
 #endif
 	return 0;
 }
@@ -546,4 +528,3 @@ int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
 
 	return 0;
 }
-
