@@ -1447,10 +1447,22 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			/* count the number of tokens separated by ',' */
 			for (token = strtok(argv[i + 1], ","), garg->cmn_args.num_ports = 0;
 			     token;
-			     token = strtok(NULL, ","), garg->cmn_args.num_ports++)
+			     token = strtok(NULL, ","), garg->cmn_args.num_ports++) {
+				int tmp;
+
 				snprintf(garg->ports_desc[garg->cmn_args.num_ports].name,
 					 sizeof(garg->ports_desc[garg->cmn_args.num_ports].name),
 					 "%s", token);
+				tmp = sscanf(garg->ports_desc[garg->cmn_args.num_ports].name, "eth%d",
+				       &garg->ports_desc[garg->cmn_args.num_ports].ppio_id);
+				if ((tmp != 1) ||
+				    (garg->ports_desc[garg->cmn_args.num_ports].ppio_id >
+				     MVAPPS_NETA_MAX_NUM_PORTS)) {
+					pr_err("Invalid interface number %d!\n",
+						garg->ports_desc[garg->cmn_args.num_ports].ppio_id);
+					return -EINVAL;
+				}
+			}
 
 			if (garg->cmn_args.num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
