@@ -144,7 +144,7 @@ static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
 	u16			free_cnt = 0;
 	struct neta_buff_inf	*binf;
 	struct tx_shadow_q	*shadow_q;
-	u16 bufs_num, extra_bufs, i;
+	u16 bufs_num, i;
 
 	shadow_q = &tx_port->shadow_qs[tc];
 	bufs_num = 1;
@@ -480,7 +480,6 @@ static int init_local_modules(struct glob_arg *garg)
 		port->num_outqs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
 		port->outq_size	= PKT_ECHO_APP_TX_Q_SIZE;
 		port->first_inq	= PKT_ECHO_APP_FIRST_INQ;
-		port->ppio_id	= port_index;
 
 		err = app_port_init(port, garg->mtu, MVAPPS_NETA_PKT_OFFS);
 		if (err) {
@@ -763,11 +762,22 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			/* count the number of tokens separated by ',' */
 			for (token = strtok(argv[i + 1], ","), garg->num_ports = 0;
 			     token;
-			     token = strtok(NULL, ","), garg->num_ports++)
+			     token = strtok(NULL, ","), garg->num_ports++) {
+				int tmp;
+
 				snprintf(garg->ports_desc[garg->num_ports].name,
 					 sizeof(garg->ports_desc[garg->num_ports].name),
 					 "%s", token);
-
+				tmp = sscanf(garg->ports_desc[garg->num_ports].name, "eth%d",
+				       &garg->ports_desc[garg->num_ports].ppio_id);
+				if ((tmp != 1) ||
+				    (garg->ports_desc[garg->num_ports].ppio_id >
+				     MVAPPS_NETA_MAX_NUM_PORTS)) {
+					pr_err("Invalid interface number %d!\n",
+						garg->ports_desc[garg->num_ports].ppio_id);
+					return -EINVAL;
+				}
+			}
 			if (garg->num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
