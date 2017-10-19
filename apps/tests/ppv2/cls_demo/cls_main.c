@@ -672,10 +672,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				  "\t\t\t--txq_rate_limit	  (qid,kbps min: 100)\n"
 				  "\t\t\t--txq_burst_size	  (qid,kB min: 64)\n"
 				  "\t\t\t--txq_arb_mode		  (qid,0=wrr 1=fp)\n"
-				  "\t\t\t--txq_wrr_weight	  (qid,0-255)\n",
+				  "\t\t\t--txq_wrr_weight	  (qid,1-255)\n",
 				  buff, sizeof(buff), &argc_cli, argv);
 		if (rc) {
-			pr_err("app_get_line failed!\n");
+			pr_err("egress scheduler app_get_line failed!\n");
 			return -EINVAL;
 		}
 		rc = pp2_egress_scheduler_params(&pp2_args->ports_desc[0].port_params, argc_cli, argv);
