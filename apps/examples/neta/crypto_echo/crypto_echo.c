@@ -156,9 +156,11 @@ struct local_arg {
 	struct local_common_args	cmn_args;  /* Keep first */
 
 	struct mv_stack			*stack_hndl;
+	char				enc_name[15];
 	struct sam_cio			*enc_cio;
 	struct sam_sa			*enc_sa;
 	u32				seq_id[MVAPPS_NETA_MAX_NUM_PORTS];
+	char				dec_name[15];
 	struct sam_cio			*dec_cio;
 	struct sam_sa			*dec_sa;
 	enum crypto_dir			dir;
@@ -1205,6 +1207,10 @@ static void deinit_global(void *arg)
 		return;
 	if (garg->cmn_args.cli)
 		unregister_cli_cmds(garg);
+
+#ifdef MVCONF_SAM_STATS
+	app_sam_show_stats(1);
+#endif
 	destroy_local_modules(garg);
 	destroy_all_modules();
 }
@@ -1215,8 +1221,7 @@ static int init_local(void *arg, int id, void **_larg)
 	struct local_arg	*larg;
 	struct sam_cio_params	cio_params;
 	struct sam_cio		*cio;
-	char			 name[15];
-	int			 i, err, cio_id;
+	int			 i, err, cio_id, sam_engine;
 
 	pr_info("Local initializations for thread %d\n", id);
 
@@ -1245,17 +1250,17 @@ static int init_local(void *arg, int id, void **_larg)
 	memset(larg->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
 	pthread_mutex_lock(&garg->trd_lock);
-	cio_id = find_free_cio(0);
+	sam_engine = id % sam_get_num_inst();
+	cio_id = find_free_cio(sam_engine);
 	if (cio_id < 0) {
 		pr_err("free CIO not found!\n");
 		pthread_mutex_unlock(&garg->trd_lock);
 		return cio_id;
 	}
-	memset(name, 0, sizeof(name));
-	snprintf(name, sizeof(name), "cio-%d:%d", 0, cio_id);
-	pr_info("found cio: %s\n", name);
+	memset(larg->enc_name, 0, sizeof(larg->enc_name));
+	snprintf(larg->enc_name, sizeof(larg->enc_name), "cio-%d:%d", sam_engine, cio_id);
 	memset(&cio_params, 0, sizeof(cio_params));
-	cio_params.match = name;
+	cio_params.match = larg->enc_name;
 	cio_params.size = CRYPT_APP_CIO_Q_SIZE;
 	err = sam_cio_init(&cio_params, &cio);
 	pthread_mutex_unlock(&garg->trd_lock);
@@ -1268,14 +1273,11 @@ static int init_local(void *arg, int id, void **_larg)
 	else if (garg->dir == CRYPTO_DEC)
 		larg->dec_cio = cio;
 	else if (garg->dir == CRYPTO_LB) {
-		int sam_engine;
 
 		larg->enc_cio = cio;
 
-		if (sam_get_num_inst() == 2)
-			sam_engine = 1;
-		else
-			sam_engine = 0;
+		/* Take other engine if available */
+		sam_engine = (sam_engine + 1) % sam_get_num_inst();
 
 		pthread_mutex_lock(&garg->trd_lock);
 		cio_id = find_free_cio(sam_engine);
@@ -1285,11 +1287,10 @@ static int init_local(void *arg, int id, void **_larg)
 			pr_err("free CIO not found!\n");
 			return cio_id;
 		}
-		memset(name, 0, sizeof(name));
-		snprintf(name, sizeof(name), "cio-%d:%d", sam_engine, cio_id);
-		pr_info("found cio: %s\n", name);
+		memset(larg->dec_name, 0, sizeof(larg->dec_name));
+		snprintf(larg->dec_name, sizeof(larg->dec_name), "cio-%d:%d", sam_engine, cio_id);
 		memset(&cio_params, 0, sizeof(cio_params));
-		cio_params.match = name;
+		cio_params.match = larg->dec_name;
 		cio_params.size = CRYPT_APP_CIO_Q_SIZE;
 		err = sam_cio_init(&cio_params, &larg->dec_cio);
 		if (err != 0)
@@ -1348,8 +1349,10 @@ static int init_local(void *arg, int id, void **_larg)
 	garg->cmn_args.largs[id] = larg;
 
 	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
-	pr_info("thread %d (cpu %d) mapped to Qs %llx using %s\n",
-		larg->cmn_args.id, sched_getcpu(), (unsigned int long long)larg->cmn_args.qs_map, name);
+
+	pr_info("Local thread #%d (cpu #%d): Encrypt - %s, Decrypt - %s, qs_map = 0x%lx\n",
+		id, sched_getcpu(), larg->enc_name,
+		larg->dec_cio ? larg->dec_name : "None", larg->cmn_args.qs_map);
 
 	*_larg = larg;
 	return 0;
@@ -1367,13 +1370,17 @@ static void deinit_local(void *arg)
 	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
 
 #ifdef MVCONF_SAM_STATS
-	if (larg->enc_cio)
+	pthread_mutex_lock(&larg->cmn_args.garg->trd_lock);
+	if (larg->enc_cio) {
+		pr_info("cpu #%d: %s\n", sched_getcpu(), larg->enc_name);
 		app_sam_show_cio_stats(larg->enc_cio, "encrypt", 1);
+	}
 
-	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio))
+	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio)) {
+		pr_info("cpu #%d: %s\n", sched_getcpu(), larg->dec_name);
 		app_sam_show_cio_stats(larg->dec_cio, "decrypt", 1);
-
-	app_sam_show_stats(1);
+	}
+	pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
 #endif /* MVCONF_SAM_STATS */
 
 	if (larg->lcl_ports_desc) {
@@ -1390,7 +1397,7 @@ static void deinit_local(void *arg)
 		i++;
 		free(mdata);
 	}
-	pr_debug("%d of %d metadata structures freed\n", i, garg->num_bufs);
+	pr_debug("%d of %d metadata structures freed\n", i, larg->cmn_args.garg->num_bufs);
 
 	mv_stack_delete(larg->stack_hndl);
 
