@@ -311,7 +311,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		char *vaddr;
 		struct pp2_bpool *bpool;
 
-		vaddr = (char *)((uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]) | sys_dma_high_addr);
+		vaddr = (char *)((uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]));
 		bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 
 		mdata = (struct pkt_mdata *)mv_stack_pop(larg->stack_hndl);
@@ -639,7 +639,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 				shadow_q->write_ind--;
 				binf = &shadow_q->ents[shadow_q->write_ind].buff_ptr;
 				if (unlikely(!binf->cookie || !binf->addr)) {
-					pr_warn("Shadow memory @%d: cookie(%" PRIpp2cookie "), pa(%" PRIpp2dma ")!\n",
+					pr_warn("Shadow memory @%d: cookie(%" PRIx64 "), pa(%" PRIdma ")!\n",
 						shadow_q->write_ind, binf->cookie, binf->addr);
 					continue;
 				}
@@ -656,7 +656,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 		for (i = 0; i < num; i++) {
 			binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
 			if (unlikely(!binf->cookie || !binf->addr)) {
-				pr_warn("Shadow memory @%d: cookie(%" PRIpp2cookie "), pa(%" PRIpp2dma ")!\n",
+				pr_warn("Shadow memory @%d: cookie(%" PRIx64 "), pa(%" PRIdma ")!\n",
 					shadow_q->read_ind, binf->cookie, binf->addr);
 				continue;
 			}

@@ -183,14 +183,11 @@ static inline int loop_hw_recycle(struct local_arg	*larg,
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
 				tmp_buff += pkt_offset;
-				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
-				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
-				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
 				prefetch(tmp_buff);
 			}
 #endif /* PKT_ECHO_APP_USE_PREFETCH */
-			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-			pr_debug("buff2(%p)\n", tmp_buff);
+			tmp_buff = buff;
+			pr_debug("buff(%p)\n", tmp_buff);
 			tmp_buff += pkt_offset;
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
@@ -291,19 +288,14 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
 				tmp_buff += pkt_offset;
-				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
-				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
-				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
 				prefetch(tmp_buff);
 			}
 #endif /* PKT_ECHO_APP_USE_PREFETCH */
-			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-			pr_debug("buff2(%p)\n", tmp_buff);
+			tmp_buff = buff;
+			pr_debug("buff(%p)\n", tmp_buff);
 			tmp_buff += pkt_offset;
-			/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
-			/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 		}
 #endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
 #ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
@@ -339,7 +331,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			for (j = i; j < num; j++) {
 				struct pp2_buff_inf binf;
 
-				binf.cookie = (pp2_cookie_t)pp2_ppio_inq_desc_get_cookie(&descs[j]);
+				binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
 				binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
 				pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
 			}

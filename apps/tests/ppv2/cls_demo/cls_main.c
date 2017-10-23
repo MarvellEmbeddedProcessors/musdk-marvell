@@ -143,14 +143,11 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
 				tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
-				pr_debug("tmp_buff_before(%p)\n", tmp_buff);
-				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
-				pr_debug("tmp_buff_after(%p)\n", tmp_buff);
 				prefetch(tmp_buff);
 			}
 #endif /* CLS_APP_USE_APP_PREFETCH */
-			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-			pr_debug("buff2(%p)\n", tmp_buff);
+			tmp_buff = buff;
+			pr_debug("buff(%p)\n", tmp_buff);
 			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
@@ -163,7 +160,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
-		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
+		pr_debug("buff_ptr.cookie(0x%lx)\n", shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == shadow_q_size)
 			shadow_q->write_ind = 0;
@@ -176,7 +173,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			for (j = i; j < num; j++) {
 				struct pp2_buff_inf binf;
 
-				binf.cookie = (pp2_cookie_t)pp2_ppio_inq_desc_get_cookie(&descs[j]);
+				binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
 				binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
 				pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
 			}

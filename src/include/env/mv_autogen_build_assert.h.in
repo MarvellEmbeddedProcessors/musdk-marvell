@@ -44,20 +44,5 @@
 #error "MVCONF_DMA_PHYS_ADDR_T_SIZE must match size used during musdk_lib compilation."
 #endif
 
-/* TODO: Create following section dynamically, instead of putting under #if */
-#if @PP2_ASSERT@ /* PP2_BUILD */
-
-#if MVCONF_PP2_BPOOL_DMA_ADDR_SIZE != @BPOOL_DMA_ADDR_SIZE@
-#error "MVCONF_PP2_BPOOL_DMA_ADDR_SIZE must match size used during musdk_lib compilation."
-#endif
-
-#if MVCONF_PP2_BPOOL_COOKIE_SIZE != @BPOOL_COOKI_SZ@
-#error "MVCONF_PP2_BPOOL_COOKIE_SIZE must match size used during musdk_lib compilation."
-#endif
-
-#endif /* PP2_BUILD */
-
-
-
 
 #endif /* __MV_AUTOGEN_ASSERT_H__ */

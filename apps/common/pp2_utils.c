@@ -46,7 +46,6 @@
 #include "pp2_utils.h"
 
 
-uintptr_t sys_dma_high_addr;
 
 static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
@@ -420,18 +419,8 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 					pr_err("failed to allocate mem (%d)!\n", k);
 					return -1;
 				}
-				if (k == 0) {
-					sys_dma_high_addr = (uintptr_t)buff_virt_addr & (~(uintptr_t)UINT_MAX);
-					pr_debug("sys_dma_high_addr (0x%lx)\n", sys_dma_high_addr);
-				}
-				if ((upper_32_bits((uintptr_t)buff_virt_addr)) != upper_32_bits(sys_dma_high_addr)) {
-					pr_err("buff_virt_addr(%p)  upper out of range; skipping this buff\n",
-					       buff_virt_addr);
-					continue;
-				}
-				buffs_inf[k].addr = (bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
-				/* cookie contains lower_32_bits of the va */
-				buffs_inf[k].cookie = lower_32_bits((uintptr_t)buff_virt_addr);
+				buffs_inf[k].addr = mv_sys_dma_mem_virt2phys(buff_virt_addr);
+				buffs_inf[k].cookie = (uintptr_t)buff_virt_addr;
 			}
 
 			for (k = 0; k < infs[j].num_buffs; k++) {
@@ -700,7 +689,7 @@ static void free_pool_buffers(struct pp2_buff_inf *buffs, int num)
 	int i;
 
 	for (i = 0; i < num; i++) {
-		void *buff_virt_addr = (char *)(((uintptr_t)(buffs[i].cookie)) | sys_dma_high_addr);
+		void *buff_virt_addr = (void *)(uintptr_t)buffs[i].cookie;
 
 		mv_sys_dma_mem_free(buff_virt_addr);
 		buf_free_cnt++;

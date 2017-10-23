@@ -126,9 +126,9 @@ void pp2_bpool_deinit(struct pp2_bpool *pool)
 int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff)
 {
 	uintptr_t cpu_slot;
-	bpool_dma_addr_t paddr;
+	dma_addr_t paddr;
 	int pool_id;
-	pp2_cookie_t vaddr;
+	u64 vaddr, high_addr_reg;
 
 	cpu_slot = GET_HW_BASE(pool)[hif->regspace_slot].va;
 	pool_id = pool->id;
@@ -140,21 +140,12 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	}
 
 	vaddr = pp2_reg_read(cpu_slot, MVPP2_BM_VIRT_ALLOC_REG);
-#if ((MVCONF_PP2_BPOOL_COOKIE_SIZE == 64) || (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64 && \
-	MVCONF_PP2_BPOOL_DMA_ADDR_SIZE == 64))
-	{
-		u64 high_addr_reg;
 
-		high_addr_reg = pp2_reg_read(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_ALLOC_REG);
+	high_addr_reg = pp2_reg_read(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_ALLOC_REG);
+	vaddr |= ((high_addr_reg & MVPP22_BM_VIRT_HIGH_ALLOC_MASK) << (32 - MVPP22_BM_VIRT_HIGH_ALLOC_OFFSET));
 
-#if (MVCONF_PP2_BPOOL_COOKIE_SIZE == 64)
-		vaddr |= ((high_addr_reg & MVPP22_BM_VIRT_HIGH_ALLOC_MASK) << (32 - MVPP22_BM_VIRT_HIGH_ALLOC_OFFSET));
-#endif
-
-#if (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64 && MVCONF_PP2_BPOOL_DMA_ADDR_SIZE == 64)
-		paddr |= ((high_addr_reg & MVPP22_BM_PHY_HIGH_ALLOC_MASK) <<  (32 - MVPP22_BM_PHY_HIGH_ALLOC_OFFSET));
-#endif
-	}
+#if (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64)
+	paddr |= ((high_addr_reg & MVPP22_BM_PHY_HIGH_ALLOC_MASK) <<  (32 - MVPP22_BM_PHY_HIGH_ALLOC_OFFSET));
 #endif
 	buff->addr = paddr;
 
@@ -209,17 +200,19 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
 #if 1
 int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_buff_inf *buff)
 {
-	u32 phys_lo;
 	uintptr_t cpu_slot;
-	bpool_dma_addr_t paddr;
-	pp2_cookie_t vaddr;
-	u32 virt_lo;
+	dma_addr_t paddr;
+	u64 vaddr;
+	u32 virt_lo, virt_hi, phys_hi, phys_lo, high_addr_reg = 0;
 
 	vaddr = buff->cookie;
 	virt_lo = (u32)vaddr;
+	virt_hi = vaddr >> 32;
 
 	cpu_slot = GET_HW_BASE(pool)[hif->regspace_slot].va;
 	paddr = buff->addr;
+	phys_lo = (u32)paddr;
+	phys_hi = paddr >> 32;
 
 #if PP2_BM_BUF_DEBUG
 	/* The buffers should be 32 bytes aligned */
@@ -230,31 +223,16 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	pr_info("BM: BufPut %p\n", (void *)vaddr);
 #endif
 
-	phys_lo = (u32)paddr;
-
 	/* First set the virt and phys hi addresses and the virt lo address.
 	 * Lastly, write phys lo to BM_PHYS_RLS to trigger the BM release
 	 */
 
-#if ((MVCONF_PP2_BPOOL_COOKIE_SIZE == 64) || (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64 && \
-	MVCONF_PP2_BPOOL_DMA_ADDR_SIZE == 64))
-	{
-		u32 high_addr_reg = 0;
-
-#if (MVCONF_PP2_BPOOL_COOKIE_SIZE == 64)
-		u32 virt_hi = vaddr >> 32;
-
-		high_addr_reg |= (virt_hi << MVPP22_BM_VIRT_HIGH_RLS_OFFST);
-#endif
-#if (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64 && MVCONF_PP2_BPOOL_DMA_ADDR_SIZE == 64)
-		u32 phys_hi = paddr >> 32;
-
-		high_addr_reg |= (phys_hi << MVPP22_BM_PHY_HIGH_RLS_OFFSET);
+	high_addr_reg |= (virt_hi << MVPP22_BM_VIRT_HIGH_RLS_OFFST);
+#if (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64)
+	high_addr_reg |= (phys_hi << MVPP22_BM_PHY_HIGH_RLS_OFFSET);
 #endif
 
-		pp2_relaxed_reg_write(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_RLS_REG, high_addr_reg);
-	}
-#endif
+	pp2_relaxed_reg_write(cpu_slot, MVPP22_BM_PHY_VIRT_HIGH_RLS_REG, high_addr_reg);
 	pp2_relaxed_reg_write(cpu_slot, MVPP2_BM_VIRT_RLS_REG, virt_lo);
 	pp2_relaxed_reg_write(cpu_slot, MVPP2_BM_PHY_RLS_REG(pool->id), phys_lo);
 

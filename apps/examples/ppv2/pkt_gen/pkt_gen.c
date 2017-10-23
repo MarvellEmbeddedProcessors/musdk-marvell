@@ -230,8 +230,8 @@ static inline int loop_rx(struct local_arg	*larg,
 		if (unlikely(larg->cmn_args.verbose > 1)) {
 			char *tmp_buff;
 
-			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-			pr_debug("buff2(%p)\n", tmp_buff);
+			tmp_buff = buff;
+			pr_debug("buff(%p)\n", tmp_buff);
 			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 			printf("Received packet (va:%p, pa 0x%08x, len %d):\n",
 			       tmp_buff,
@@ -244,7 +244,7 @@ static inline int loop_rx(struct local_arg	*larg,
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
-		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
+		pr_debug("buff_ptr.cookie(0x%lx)\n", shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == shadow_q_size)
 			shadow_q->write_ind = 0;
@@ -257,7 +257,7 @@ static inline int loop_rx(struct local_arg	*larg,
 			for (j = i; j < num; j++) {
 				struct pp2_buff_inf binf;
 
-				binf.cookie = (pp2_cookie_t)pp2_ppio_inq_desc_get_cookie(&descs[j]);
+				binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
 				binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
 				pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
 			}
