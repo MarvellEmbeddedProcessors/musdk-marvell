@@ -89,7 +89,7 @@ Function: ``int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *reque
   - Valid source and valid destination buffers must be provided by caller.
     Source and destination buffers can be the same one.
   - Cipher IV in the buffer is not supported (field ``cipher_iv_offset`` is ignored)
-  - AAD is not supported, so fields "auth_aad_offset" and "and auth_aad" are ignored
+  - AAD in the buffer is not supported (field ``auth_aad_offset`` is ignored)
   - ``auth_icv_offset`` must be equal to (``auth_offset``+ ``auth_len``)
 
 SAM enqueue IPsec operation
