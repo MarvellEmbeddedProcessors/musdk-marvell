@@ -243,7 +243,7 @@ static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
 
 		binf = &shadow_q->ents[idx].buff_ptr;
 		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
-			pr_warn("Shadow memory @%d: cookie(0x%" PRIpp2cookie "), pa(0x%" PRIpp2dma "), pool(%p)!\n",
+			pr_warn("Shadow memory @%d: cookie(0x%" PRIx64 "), pa(0x%" PRIdma "), pool(%p)!\n",
 				i, binf->cookie, binf->addr, bpool);
 			continue;
 		}
@@ -404,8 +404,6 @@ int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[]);
 
 
 
-/* Saved sysdma virtual high address*/
-extern uintptr_t sys_dma_high_addr;
 
 #endif /*__MVUTILS_H__*/
 

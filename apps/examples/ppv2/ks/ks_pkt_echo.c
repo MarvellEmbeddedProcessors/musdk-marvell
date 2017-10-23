@@ -30,8 +30,6 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#define MVCONF_PP2_BPOOL_COOKIE_SIZE 32
-#define MVCONF_PP2_BPOOL_DMA_ADDR_SIZE 32
 #define MVCONF_DMA_PHYS_ADDR_T_SIZE 64
 #define APP_TX_RETRY
 #define PKT_ECHO_APP_PKT_ECHO_SUPPORT
@@ -541,18 +539,8 @@ int musdk_pkt_echo_build_all_bpools(struct bpool_desc ***ppools, int num_pools,
 					pr_err("failed to allocate mem (%d)!\n", k);
 					return -1;
 				}
-				if (k == 0) {
-					sys_dma_high_addr = ((u64)buff_virt_addr) & (~((1ULL << 32) - 1));
-					pr_debug("sys_dma_high_addr (0x%llx)\n", sys_dma_high_addr);
-				}
-				if ((upper_32_bits((u64)buff_virt_addr)) != (sys_dma_high_addr >> 32)) {
-					pr_err("buff_virt_addr(%p)  upper out of range; skipping this buff\n",
-					       buff_virt_addr);
-					continue;
-				}
-				buffs_inf[k].addr = (bpool_dma_addr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
-				/* cookie contains lower_32_bits of the va */
-				buffs_inf[k].cookie = lower_32_bits((u64)buff_virt_addr);
+				buffs_inf[k].addr = mv_sys_dma_mem_virt2phys(buff_virt_addr);
+				buffs_inf[k].cookie = (uintptr_t)buff_virt_addr;
 			}
 
 			for (k = 0; k < infs[j].num_buffs; k++) {
@@ -669,19 +657,14 @@ static inline int loop_sw_recycle(u8			 rx_ppio_id,
 		if (num - i > prefetch_shift) {
 			tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
 			tmp_buff += MVAPPS_PKT_EFEC_OFFS;
-			pr_debug("tmp_buff_before(%p)\n", tmp_buff);
-			tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
-			pr_debug("tmp_buff_after(%p)\n", tmp_buff);
 			prefetch(tmp_buff);
 		}
 #endif /* PKT_ECHO_APP_USE_PREFETCH */
-		tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
-		pr_debug("buff2(%p)\n", tmp_buff);
+		tmp_buff = buff;
+		pr_debug("buff(%p)\n", tmp_buff);
 		tmp_buff += MVAPPS_PKT_EFEC_OFFS;
-		/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 		swap_l2(tmp_buff);
 		swap_l3(tmp_buff);
-		/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 #endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
 #ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
 		pp2_ppio_inq_desc_get_l3_info(&descs[i], &l3_type, &l3_offset);

@@ -93,22 +93,6 @@ Following compilation flags concern width of types that have to do with addresse
 	- Values:(32,64).
 	- Flag is used in src/include/env/mv_types.h and in MUSDK implementation.
 
-#.    MVCONF_PP2_BPOOL_COOKIE_SIZE
-	- Flag sets the size of the user_defined cookie type (i.e. packet meta-data or virtual pointer) in a frame_buffer
-	  of the ppv2 driver.
-	- Flag _must_ be defined in user application, and it must match the value that was used during musdk_lib compilation
-	  ./configure stage (MUSDK configure.ac default=32).
-	- Values:(32,64).
-	- Flag is used in src/include/drivers/mv_pp2_bpool.h and in MUSDK implementation.
-
-#.    MVCONF_PP2_BPOOL_DMA_ADDR_SIZE
-	- Flag sets the size of the frame_buffer type. Usually this would be the same size as dma_addr_t, but in certain cases the
-	  user may decide to make it smaller than dma_addr_t.
-	- Flag _must_ be defined in user application, and it must match the value that was used during musdk_lib compilation
-	  ./configure stage (MUSDK configure.ac default=32).
-	- Values:(32,64).
-	- Flag is used in src/include/drivers/mv_pp2_bpool.h and in MUSDK implementation.
-
 HW Resource Management
 ----------------------
 

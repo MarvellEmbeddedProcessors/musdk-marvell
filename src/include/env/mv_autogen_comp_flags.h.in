@@ -46,10 +46,4 @@
 
 #define MVCONF_DMA_PHYS_ADDR_T_SIZE	@DMA_ADDR_SIZE@
 
-/* TODO: Create following section dynamically, instead of putting under #if */
-#if @PP2_ASSERT@ /* PP2_BUILD */
-#define MVCONF_PP2_BPOOL_COOKIE_SIZE	@BPOOL_COOKI_SZ@
-#define MVCONF_PP2_BPOOL_DMA_ADDR_SIZE	@BPOOL_DMA_ADDR_SIZE@
-#endif /* PP2_BUILD */
-
 #endif /* __MV_AUTOGEN_COMP_FLAGS_H__ */

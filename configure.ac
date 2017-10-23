@@ -28,11 +28,6 @@ AC_ARG_ENABLE([pp2],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-pp2]) ;;
 esac],[pp2=true])
 AM_CONDITIONAL([PP2_BUILD], [test x$pp2 = xtrue])
-if test x$pp2 = xtrue; then
-PP2_ASSERT=1
-else
-PP2_ASSERT=0
-fi
 
 ##########################################################################
 # Set NETA_BUILD - using --enable-neta
@@ -150,26 +145,6 @@ AC_ARG_ENABLE([trace],
 esac],[trace=false])
 AM_CONDITIONAL([TRACE_BUILD], [test x$trace = xtrue])
 ##########################################################################
-# Set BPOOL_COOKIE_SIZE
-##########################################################################
-BPOOL_COOKI_SZ=32
-AC_ARG_ENABLE([bpool-cookie],
-[  --enable-bpool-cookie    Set bpool cookie size: 32/64],
-[if test $enableval -eq 32 -o $enableval -eq 64; then
-	BPOOL_COOKI_SZ=$enableval
-fi])
-MUSDK_CFLAGS+="-DMVCONF_PP2_BPOOL_COOKIE_SIZE=$BPOOL_COOKI_SZ "
-##########################################################################
-# Set BPOOL_DMA_ADDR_SIZE
-##########################################################################
-BPOOL_DMA_ADDR_SIZE=32
-AC_ARG_ENABLE([bpool-dma],
-[  --enable-bpool-dma    Set bpool dma_addr size: 32/64],
-[if test $enableval -eq 32 -o $enableval -eq 64; then
-	BPOOL_DMA_ADDR_SIZE=$enableval
-fi])
-MUSDK_CFLAGS+="-DMVCONF_PP2_BPOOL_DMA_ADDR_SIZE=$BPOOL_DMA_ADDR_SIZE "
-##########################################################################
 # Set DMA_ADDR_SIZE
 ##########################################################################
 DMA_ADDR_SIZE=64
@@ -257,12 +232,6 @@ AC_CONFIG_FILES([src/include/env/mv_autogen_comp_flags.h])
 # Should not be distributed among Makefiles.
 AC_SUBST([DMA_ADDR_SIZE])
 AM_SUBST_NOTMAKE([DMA_ADDR_SIZE])
-AC_SUBST([PP2_ASSERT])
-AM_SUBST_NOTMAKE([PP2_ASSERT])
-AC_SUBST([BPOOL_COOKI_SZ])
-AM_SUBST_NOTMAKE([BPOOL_COOKI_SZ])
-AC_SUBST([BPOOL_DMA_ADDR_SIZE])
-AM_SUBST_NOTMAKE([BPOOL_DMA_ADDR_SIZE])
 
 ##########################################################################
 # distribute the changed variables among the Makefiles

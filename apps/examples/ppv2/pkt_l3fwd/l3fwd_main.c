@@ -297,11 +297,10 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	if (num > prefetch_shift) {
 		tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr + prefetch_shift);
 		tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
-		tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 		prefetch(tmp_buff);
 	}
 #endif /* PKT_FWD_APP_USE_PREFETCH */
-	tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
+	tmp_buff = buff;
 	tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
 	pp2_ppio_inq_desc_get_l3_info(desc_ptr, &l3_type, &l3_offset);
@@ -354,11 +353,10 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 				tmp_buff =
 					(char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr_cur + prefetch_shift);
 				tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
-				tmp_buff = (char *)(((uintptr_t)tmp_buff) | sys_dma_high_addr);
 				prefetch(tmp_buff);
 			}
 #endif /* PKT_FWD_APP_USE_PREFETCH */
-			tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
+			tmp_buff = buff;
 			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
 			pp2_ppio_inq_desc_get_l3_info(desc_ptr_cur, &l3_type, &l3_offset);
