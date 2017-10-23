@@ -45,7 +45,7 @@
 /******************************************************************************
  * Type Definition
  ******************************************************************************/
-/* minimum rate/burst of '0'means preceding maximum value */
+/* minimum rate/burst of '0' means preceding maximum value */
 
 struct pp2_cls_plcr_token_type_t g_pp2_pkt_token_type[] = {
 	/*          token type			rate res      min rate	max rate   burst res  min burst max burst */
@@ -56,14 +56,14 @@ struct pp2_cls_plcr_token_type_t g_pp2_pkt_token_type[] = {
 	{MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB,    1250000,	0,	1278750000,	4096,	0,	268431360},
 };
 
-/* The table assumes that the API is in Kbps and KB*/
+/* The table assumes that the API is in KBps and KB*/
 struct pp2_cls_plcr_token_type_t g_pp2_byte_token_type[] = {
 	/*          token type			rate res      min rate	max rate   burst res  min burst	max burst */
-	{MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B,	   1,		13,	1023,		1,	64,	64},
-	{MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B,	   10,		0,	10230,		8,	0,	512},
-	{MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B,   100,		0,	102300,		64,	0,	4096},
-	{MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B,	   1000,	0,	1023000,	512,	0,	32768},
-	{MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB,	   10000,	0,	10230000,	4096,	0,	262144},
+	{MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B,	   1,		13,	127,		1,	64,	64},
+	{MVPP2_PLCR_TOKEN_RATE_TYPE_10KBPS_8B,	   10,		0,	1270,		8,	0,	512},
+	{MVPP2_PLCR_TOKEN_RATE_TYPE_100KBPS_64B,   100,		0,	12700,		64,	0,	4096},
+	{MVPP2_PLCR_TOKEN_RATE_TYPE_1MBPS_512B,	   1000,	0,	127000,		512,	0,	32768},
+	{MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB,	   10000,	0,	1270000,	4096,	0,	262144},
 };
 
 
@@ -78,6 +78,12 @@ static int pp2_cls_plcr_calc_token_type(const struct pp2_cls_plcr_params *police
 	struct pp2_cls_plcr_token_type_t *token_arr;
 	struct pp2_cls_plcr_token_type_t *token_entry;
 	u64 cir, token_update_period[] = {10000, 1000, 100, 10, 1};
+
+	if (policer_entry->cir == MVPP2_PLCR_CIR_NO_LIMIT) {
+		*token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
+		*token_value = MVPP2_PLCR_MAX_TOKEN_VALUE;
+		return 0;
+	}
 
 	/*
 	 *	The formula to calculate obtained bandwidth is as follows:
@@ -101,12 +107,9 @@ static int pp2_cls_plcr_calc_token_type(const struct pp2_cls_plcr_params *police
 	else
 		token_arr = g_pp2_byte_token_type;
 
-	cir = roundup(policer_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
-	if (cir == MVPP2_PLCR_CIR_NO_LIMIT) {
-		*token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB;
-		*token_value = MVPP2_PLCR_MAX_TOKEN_VALUE;
-		return 0;
-	}
+	cir = policer_entry->cir;
+	if (policer_entry->token_unit == PP2_CLS_PLCR_BYTES_TOKEN_UNIT)
+		cir = roundup(policer_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
 
 	*token_type = MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B;
 	do {
@@ -287,11 +290,13 @@ static int pp2_cls_plcr_entry_convert(const struct pp2_cls_plcr_params		*input_e
 	/* convert the CIR if it is not multiple time of the resolution */
 	token_entry = &token_arr[token_type];
 
-	output_entry->cir = roundup(input_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
+	if (output_entry->token_unit == PP2_CLS_PLCR_BYTES_TOKEN_UNIT)
+		output_entry->cir = roundup(input_entry->cir, 8) / 8; /* need to adjust the value to Bytes */
+
 	if (output_entry->cir == MVPP2_PLCR_CIR_NO_LIMIT)
 		output_entry->cir = token_entry->max_rate;
 	if (output_entry->cir % token_entry->rate_resl) {
-		pr_warn("CIR(%d) is not multiple times of resolution(%d), will be adjusted to (%d)\n",
+		pr_warn("CIR(%u) is not multiple times of resolution(%u), will be adjusted to (%u)\n",
 			    output_entry->cir,
 			    token_entry->rate_resl,
 			    roundup(output_entry->cir, token_entry->rate_resl));
@@ -302,7 +307,7 @@ static int pp2_cls_plcr_entry_convert(const struct pp2_cls_plcr_params		*input_e
 	if (output_entry->cbs == MVPP2_PLCR_BURST_SIZE_NO_LIMIT)
 		output_entry->cbs = token_entry->max_burst_size;
 	if (output_entry->cbs % token_entry->burst_size_resl) {
-		pr_warn("CBS(%d) is not multiple times of resolution(%d), will be adjusted to (%d)\n",
+		pr_warn("CBS(%u) is not multiple times of resolution(%u), will be adjusted to (%u)\n",
 			    output_entry->cbs,
 			    token_entry->burst_size_resl,
 			    roundup(output_entry->cbs, token_entry->burst_size_resl));
@@ -313,7 +318,7 @@ static int pp2_cls_plcr_entry_convert(const struct pp2_cls_plcr_params		*input_e
 	if (output_entry->ebs == MVPP2_PLCR_BURST_SIZE_NO_LIMIT)
 		output_entry->ebs = token_entry->max_burst_size;
 	if (output_entry->ebs % token_entry->burst_size_resl) {
-		pr_warn("EBS(%d) is not multiple times of resolution(%d), will be adjusted to (%d)\n",
+		pr_warn("EBS(%u) is not multiple times of resolution(%u), will be adjusted to (%u)\n",
 			    output_entry->ebs,
 			    token_entry->burst_size_resl,
 			    roundup(output_entry->ebs, token_entry->burst_size_resl));
@@ -366,7 +371,7 @@ static int pp2_cls_plcr_entry_check(const struct pp2_cls_plcr_params *policer_en
 		if ((policer_entry->cir != MVPP2_PLCR_CIR_NO_LIMIT) &&
 		    ((policer_entry->cir < g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
 		     (policer_entry->cir > g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate))) {
-			pr_err("invalid CIR value %d, out of range[%d, %d]\n",
+			pr_err("invalid CIR value %u, out of range[%u, %u]\n",
 				policer_entry->cir,
 				g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate,
 				g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate);
@@ -375,14 +380,14 @@ static int pp2_cls_plcr_entry_check(const struct pp2_cls_plcr_params *policer_en
 
 		if ((policer_entry->cbs != MVPP2_PLCR_BURST_SIZE_NO_LIMIT) &&
 		    (policer_entry->cbs < g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size)) {
-			pr_err("invalid cbs value %d, must be at least %d\n", policer_entry->cbs,
+			pr_err("invalid cbs value %u, must be at least %u\n", policer_entry->cbs,
 				g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size);
 			return -EINVAL;
 		}
 
 		if ((policer_entry->ebs != MVPP2_PLCR_BURST_SIZE_NO_LIMIT) &&
 		    (policer_entry->ebs < g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size)) {
-			pr_err("invalid ebs value %d, must be at least %d\n", policer_entry->ebs,
+			pr_err("invalid ebs value %u, must be at least %u\n", policer_entry->ebs,
 				g_pp2_pkt_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size);
 			return -EINVAL;
 		}
@@ -391,7 +396,7 @@ static int pp2_cls_plcr_entry_check(const struct pp2_cls_plcr_params *policer_en
 		if ((cir != MVPP2_PLCR_CIR_NO_LIMIT) &&
 		    ((cir < g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate) ||
 		     (cir > g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate))) {
-			pr_err("invalid CIR value %d, out of range[%d, %d]\n",
+			pr_err("invalid CIR value %u, out of range[%u, %u]\n",
 				cir * 8,
 				g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_rate * 8,
 				g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB].max_rate * 8);
@@ -400,14 +405,14 @@ static int pp2_cls_plcr_entry_check(const struct pp2_cls_plcr_params *policer_en
 
 		if ((policer_entry->cbs != MVPP2_PLCR_BURST_SIZE_NO_LIMIT) &&
 		    (policer_entry->cbs < g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size)) {
-			pr_err("invalid cbs value %d, must be at least %d\n", policer_entry->cbs,
+			pr_err("invalid cbs value %u, must be at least %u\n", policer_entry->cbs,
 				g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size);
 			return -EINVAL;
 		}
 
 		if ((policer_entry->ebs != MVPP2_PLCR_BURST_SIZE_NO_LIMIT) &&
 		    (policer_entry->ebs < g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size)) {
-			pr_err("invalid ebs value %d, must be at least %d\n", policer_entry->ebs,
+			pr_err("invalid ebs value %u, must be at least %u\n", policer_entry->ebs,
 				g_pp2_byte_token_type[MVPP2_PLCR_TOKEN_RATE_TYPE_1KBPS_1B].min_burst_size);
 			return -EINVAL;
 		}
@@ -423,7 +428,7 @@ static int pp2_cls_plcr_entry_check(const struct pp2_cls_plcr_params *policer_en
 
 	if ((policer_entry->cbs > token_entry->max_burst_size) ||
 	    (policer_entry->ebs > token_entry->max_burst_size)) {
-		pr_err("cbs(%d) and/or ebs(%d) must be at most %d\n", policer_entry->cbs, policer_entry->ebs,
+		pr_err("cbs(%u) and/or ebs(%u) must be at most %u\n", policer_entry->cbs, policer_entry->ebs,
 			token_entry->max_burst_size);
 		return -EINVAL;
 	}
