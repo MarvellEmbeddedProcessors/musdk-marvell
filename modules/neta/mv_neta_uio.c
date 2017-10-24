@@ -55,37 +55,6 @@ struct neta_uio_pdev_info {
 	struct uio_info uio[MAX_UIO_DEVS];
 };
 
-static struct uio_mem get_bm_sram_params(struct device_node *bm_node, struct device *dev)
-{
-	struct device_node *node = of_parse_phandle(bm_node, "internal-mem", 0);
-	struct resource *res_mem;
-	struct platform_device *mem;
-	struct uio_mem uio_mem;
-
-	dev_info(dev, "try to register internal-mem\n");
-	if (!node) {
-		dev_err(dev, "bm internal-mem node is not found\n");
-		return uio_mem;
-	}
-	mem = of_find_device_by_node(node);
-	if (!mem) {
-		dev_err(dev, "bm internal-mem device is not found\n");
-		return uio_mem;
-	}
-
-	res_mem = platform_get_resource(mem, IORESOURCE_MEM, 0);
-	if (!res_mem) {
-		dev_err(dev, "bm internal-mem resource is not found\n");
-		return uio_mem;
-	}
-
-	uio_mem.memtype = UIO_MEM_PHYS;
-	uio_mem.addr = res_mem->start & PAGE_MASK;
-	uio_mem.size = PAGE_ALIGN(resource_size(res_mem));
-	uio_mem.name = "bm_sram";
-
-	return uio_mem;
-}
 /*
  * neta_uio_probe() - mv_pp_uio_drv platform driver probe routine
  * - register uio devices filled with memory maps retrieved from device tree
@@ -95,7 +64,7 @@ static int neta_uio_probe(struct platform_device *pdev)
 	struct platform_device *mem;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct device_node *port_node, *bm_node;
+	struct device_node *port_node;
 	struct neta_uio_pdev_info  *pdev_info;
 	struct uio_info *uio;
 	struct resource *res;
@@ -115,22 +84,16 @@ static int neta_uio_probe(struct platform_device *pdev)
 	}
 
 	pdev_info->dev = dev;
-	port_node = bm_node = NULL;
+	port_node = NULL;
 	mem = NULL;
 
 	port_node = of_parse_phandle(np, "port_access", 0);
 	if (!port_node) {
-		bm_node = of_parse_phandle(np, "bm_access", 0);
-		if (!bm_node) {
-			dev_err(dev, "port_access or bm_access node is not found\n");
-			err = -EINVAL;
-			goto fail_uio;
-		}
+		dev_err(dev, "port_access node is not found\n");
+		err = -EINVAL;
+		goto fail_uio;
 	}
-	if (port_node)
-		mem = of_find_device_by_node(port_node);
-	else if (bm_node)
-		mem = of_find_device_by_node(bm_node);
+	mem = of_find_device_by_node(port_node);
 
 	if (!mem)
 		goto fail_uio;
@@ -139,10 +102,7 @@ static int neta_uio_probe(struct platform_device *pdev)
 		int i;
 
 		uio = &pdev_info->uio[idx];
-		if (port_node)
-			snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_neta_%d", port_cntr);
-		else
-			snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_bm");
+		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_neta_%d", port_cntr);
 		uio->name = pdev_info->name;
 		uio->version = DRIVER_VERSION;
 
@@ -154,16 +114,8 @@ static int neta_uio_probe(struct platform_device *pdev)
 			uio->mem[i].memtype = UIO_MEM_PHYS;
 			uio->mem[i].addr = res->start & PAGE_MASK;
 			uio->mem[i].size = PAGE_ALIGN(resource_size(res));
-			if (port_node) {
-				uio->mem[i].name = "neta_regs";
-				port_cntr++;
-			} else {
-				uio->mem[i].name = "bm_regs";
-				i++;
-				/* for BM unit add internal SRAM uio */
-				uio->mem[i] = get_bm_sram_params(bm_node, dev);
-				mem_cnt++;
-			}
+			uio->mem[i].name = "neta_regs";
+			port_cntr++;
 		}
 		if (i) {
 			err = uio_register_device(dev, uio);
