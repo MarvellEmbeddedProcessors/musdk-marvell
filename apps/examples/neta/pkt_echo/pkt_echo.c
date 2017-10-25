@@ -71,79 +71,21 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 #define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {384, PKT_ECHO_APP_TX_Q_SIZE}, {4096, PKT_ECHO_APP_TX_Q_SIZE} }
 
 struct glob_arg {
-	int			 verbose;
-	int			 cli;
-	int			 cpus;	/* cpus used for running */
-	u16			 burst;
-	u16			 mtu;
-	u16			 rxq_size;
-	u32			 busy_wait;
-	int			 multi_buffer_release;
-	int			 affinity;
-	int			 loopback;
-	int			 echo;
-	int			 maintain_stats;
-	u64			 qs_map;
-	int			 qs_map_shift;
-	int			 prefetch_shift;
-	int			 num_ports;
-	struct port_desc	 ports_desc[MVAPPS_NETA_MAX_NUM_PORTS];
+	struct glb_common_args		cmn_args;  /* Keep first */
+	u16				rxq_size;
+	int				loopback;
+	int				maintain_stats;
+	struct port_desc		ports_desc[MVAPPS_NETA_MAX_NUM_PORTS];
 
-	pthread_mutex_t		 trd_lock;
-
-	int			 num_pools;
+	pthread_mutex_t			trd_lock;
 };
 
 struct local_arg {
-	u64			 qs_map;
-
-	int			 num_ports;
-	struct lcl_port_desc	*ports_desc;
-
-	struct bpool_desc	*pools_desc;
-
-	int			 prefetch_shift;
-	u16			 burst;
-	u32			 busy_wait;
-	int			 echo;
-	int			 id;
-	int			 multi_buffer_release;
-
-	struct glob_arg		*garg;
+	struct local_common_args	cmn_args;  /* Keep first */
+	struct lcl_port_desc		*ports_desc;
 };
 
 static struct glob_arg garg = {};
-
-#ifdef SHOW_STATISTICS
-#define INC_RX_COUNT(core, port, cnt)		(rx_buf_cnt[core][port] += cnt)
-#define INC_TX_COUNT(core, port, cnt)		(tx_buf_cnt[core][port] += cnt)
-#define INC_TX_RETRY_COUNT(core, port, cnt)	(tx_buf_retry[core][port] += cnt)
-#define INC_TX_DROP_COUNT(core, port, cnt)	(tx_buf_drop[core][port] += cnt)
-#define INC_FREE_COUNT(core, port, cnt)		(free_buf_cnt[core][port] += cnt)
-#define SET_MAX_RESENT(core, port, cnt)		\
-	{ if (cnt > tx_max_resend[core][port]) tx_max_resend[core][port] = cnt; }
-
-#define SET_MAX_BURST(core, port, burst)	\
-	{ if (burst > tx_max_burst[core][port]) tx_max_burst[core][port] = burst; }
-
-u32 rx_buf_cnt[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 free_buf_cnt[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_buf_cnt[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_buf_drop[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_buf_retry[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_max_resend[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-u32 tx_max_burst[MVAPPS_NETA_MAX_NUM_CORES][MVAPPS_NETA_MAX_NUM_PORTS];
-
-#else
-#define INC_RX_COUNT(core, port, cnt)
-#define INC_TX_COUNT(core, port, cnt)
-#define INC_TX_RETRY_COUNT(core, port, cnt)
-#define INC_TX_DROP_COUNT(core, port, cnt)
-#define INC_FREE_COUNT(core, port, cnt)
-#define SET_MAX_RESENT(core, port, cnt)
-#define SET_MAX_BURST(core, port, cnt)
-#endif /* SHOW_STATISTICS */
-
 
 static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
 			       struct lcl_port_desc	*tx_port,
@@ -168,7 +110,7 @@ static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
 	}
 
 	free_cnt += num;
-	INC_FREE_COUNT(rx_port->lcl_id, rx_port->port_id, free_cnt);
+	INC_FREE_COUNT(rx_port, free_cnt);
 
 	return idx;
 }
@@ -213,13 +155,13 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	u16			 i, tx_num = 0;
 	struct tx_shadow_q	*shadow_q;
 	int			 shadow_q_size;
-	int			 prefetch_shift = larg->prefetch_shift;
+	int			 prefetch_shift = larg->cmn_args.prefetch_shift;
 
 	shadow_q = &larg->ports_desc[tx_ppio_id].shadow_qs[qid];
 	shadow_q_size = larg->ports_desc[tx_ppio_id].shadow_q_size;
 
 	neta_ppio_recv(larg->ports_desc[rx_ppio_id].ppio, qid, descs, &num);
-	INC_RX_COUNT(larg->id, rx_ppio_id, num);
+	INC_RX_COUNT(&larg->ports_desc[rx_ppio_id], num);
 
 	for (i = 0; i < num; i++) {
 		char		*buff = (char *)(uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i]);
@@ -230,8 +172,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			pr_err("Receive empty descriptor on port %d\n", rx_ppio_id);
 			continue;
 		}
+		INC_RX_BYTES_COUNT(&larg->ports_desc[rx_ppio_id], len - MV_MH_SIZE);
 
-		if (likely(larg->echo)) {
+		if (likely(larg->cmn_args.echo)) {
 			char *tmp_buff;
 
 			if ((num - i) > prefetch_shift) {
@@ -251,6 +194,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		neta_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 		neta_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_NETA_PKT_EFEC_OFFS);
 		neta_ppio_outq_desc_set_pkt_len(&descs[i], len - (ETH_FCS_LEN + MV_MH_SIZE));
+		INC_TX_BYTES_COUNT(&larg->ports_desc[tx_ppio_id], len - MV_MH_SIZE);
 
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
@@ -275,9 +219,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 							  &larg->ports_desc[tx_ppio_id],
 							  shadow_q->write_ind, not_sent, qid);
 
-			INC_TX_DROP_COUNT(larg->id, rx_ppio_id, not_sent);
+			INC_TX_DROP_COUNT(&larg->ports_desc[tx_ppio_id], not_sent);
 		}
-		INC_TX_COUNT(larg->id, rx_ppio_id, tx_num);
+		INC_TX_COUNT(&larg->ports_desc[tx_ppio_id], tx_num);
 	}
 
 	free_sent_buffers(&larg->ports_desc[rx_ppio_id], &larg->ports_desc[tx_ppio_id], qid);
@@ -295,7 +239,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 		return -EINVAL;
 	}
 
-	num = larg->burst;
+	num = larg->cmn_args.burst;
 
 	while (*running) {
 		/* Find next queue to consume */
@@ -303,7 +247,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 			qid++;
 			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC)
 				qid = 0;
-		} while (!(larg->qs_map & (1 << qid)));
+		} while (!(larg->cmn_args.qs_map & (1 << qid)));
 
 		err = loop_sw_recycle(larg, 0, 0, qid, num);
 		if (err != 0)
@@ -324,7 +268,7 @@ static int loop_2ps(struct local_arg *larg, int *running)
 		return -EINVAL;
 	}
 
-	num = larg->burst;
+	num = larg->cmn_args.burst;
 	while (*running) {
 
 		/* Find next queue to consume */
@@ -332,7 +276,7 @@ static int loop_2ps(struct local_arg *larg, int *running)
 			qid++;
 			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC)
 				qid = 0;
-		} while (!(larg->qs_map & (1 << qid)));
+		} while (!(larg->cmn_args.qs_map & (1 << qid)));
 
 		err  = loop_sw_recycle(larg, 0, 1, qid, num);
 		err |= loop_sw_recycle(larg, 1, 0, qid, num);
@@ -355,8 +299,8 @@ static int loop_2ps_2cs(struct local_arg *larg, int *running)
 		return -EINVAL;
 	}
 
-	num = larg->burst;
-	src_port = larg->id;
+	num = larg->cmn_args.burst;
+	src_port = larg->cmn_args.id;
 	dst_port = 1 - src_port;
 	pr_info("Run loop 2 ports: port %d -> port %d\n", src_port, dst_port);
 
@@ -367,7 +311,7 @@ static int loop_2ps_2cs(struct local_arg *larg, int *running)
 			qid++;
 			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC)
 				qid = 0;
-		} while (!(larg->qs_map & (1 << qid)));
+		} while (!(larg->cmn_args.qs_map & (1 << qid)));
 
 		err  = loop_sw_recycle(larg, src_port, dst_port, qid, num);
 		if (err != 0)
@@ -386,10 +330,10 @@ static int main_loop(void *arg, int *running)
 		return -EINVAL;
 	}
 
-	if (larg->num_ports == 1)
+	if (larg->cmn_args.num_ports == 1)
 		return loop_1p(larg, running);
 
-	if (garg.cpus == 1)
+	if (garg.cmn_args.cpus == 1)
 		return loop_2ps(larg, running);
 	else
 		return loop_2ps_2cs(larg, running);
@@ -476,7 +420,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	pr_info("Local initializations ...\n");
 
-	for (port_index = 0; port_index < garg->num_ports; port_index++) {
+	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++) {
 		struct port_desc *port = &garg->ports_desc[port_index];
 
 		err = app_find_port_info(port);
@@ -492,14 +436,14 @@ static int init_local_modules(struct glob_arg *garg)
 		port->outq_size	= PKT_ECHO_APP_TX_Q_SIZE;
 		port->first_inq	= PKT_ECHO_APP_FIRST_INQ;
 
-		err = app_port_init(port, garg->mtu, MVAPPS_NETA_PKT_OFFS);
+		err = app_port_init(port, garg->cmn_args.mtu, MVAPPS_NETA_PKT_OFFS);
 		if (err) {
 			pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
 			       port->ppio_id);
 			return err;
 		}
 		/* fill RX queues with buffers */
-		port_inqs_fill(port, garg->mtu);
+		port_inqs_fill(port, garg->cmn_args.mtu);
 
 		/* enable port */
 		err = app_port_enable(port);
@@ -511,8 +455,8 @@ static int init_local_modules(struct glob_arg *garg)
 
 static void destroy_local_modules(struct glob_arg *garg)
 {
-	app_disable_all_ports(garg->ports_desc, garg->num_ports);
-	app_deinit_all_ports(garg->ports_desc, garg->num_ports);
+	app_disable_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
+	app_deinit_all_ports(garg->ports_desc, garg->cmn_args.num_ports);
 }
 
 static void destroy_all_modules(void)
@@ -521,59 +465,37 @@ static void destroy_all_modules(void)
 	mv_sys_dma_mem_destroy();
 }
 
-static int prefetch_cmd_cb(void *arg, int argc, char *argv[])
+static int neta_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
-	struct glob_arg *garg = (struct glob_arg *)arg;
 
-	if (!garg) {
-		pr_err("no garg obj passed!\n");
-		return -EINVAL;
-	}
-	if ((argc != 1) && (argc != 2)) {
-		pr_err("Invalid number of arguments for prefetch cmd!\n");
-		return -EINVAL;
-	}
-
-	if (argc == 1) {
-		printf("%d\n", garg->prefetch_shift);
-		return 0;
-	}
-
-	garg->prefetch_shift = atoi(argv[1]);
-
-	return 0;
-}
-
-#ifdef SHOW_STATISTICS
-static int stat_cmd_cb(void *arg, int argc, char *argv[])
-{
 	int i, j, reset = 0;
-	struct glob_arg *garg = (struct glob_arg *)arg;
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+	struct neta_counters *cntrs;
 
 	if (argc > 1)
 		reset = 1;
 	printf("reset stats: %d\n", reset);
-	for (j = 0; j < garg->num_ports; j++) {
+	for (j = 0; j < g_cmn_args->num_ports; j++) {
 		printf("Port%d stats:\n", j);
-		for (i = 0; i < garg->cpus; i++) {
-			printf("cpu%d: rx_bufs=%u, tx_bufs=%u, free_bufs=%u, tx_resend=%u, max_retries=%u, ",
-			       i, rx_buf_cnt[i][j], tx_buf_cnt[i][j], free_buf_cnt[i][j],
-				tx_buf_retry[i][j], tx_max_resend[i][j]);
-			printf(" tx_drops=%u, max_burst=%u\n", tx_buf_drop[i][j], tx_max_burst[i][j]);
+		for (i = 0; i < g_cmn_args->cpus; i++) {
+			cntrs = &(g_cmn_args->largs[i]->ports_desc[j].cntrs);
+
+			printf("cpu%d: rx_bufs=%u (%lu bytes), tx_bufs=%u (%lu bytes), free_bufs=%u, tx_drops=%u\n",
+			       i, cntrs->rx_buf_cnt, cntrs->rx_bytes_cnt, cntrs->tx_buf_cnt,
+			       cntrs->tx_bytes_cnt, cntrs->free_buf_cnt, cntrs->tx_buf_drop);
+
 			if (reset) {
-				rx_buf_cnt[i][j] = 0;
-				tx_buf_cnt[i][j] = 0;
-				free_buf_cnt[i][j] = 0;
-				tx_buf_retry[i][j] = 0;
-				tx_buf_drop[i][j] = 0;
-				tx_max_burst[i][j] = 0;
-				tx_max_resend[i][j] = 0;
+				cntrs->rx_buf_cnt = 0;
+				cntrs->tx_buf_cnt = 0;
+				cntrs->free_buf_cnt = 0;
+				cntrs->rx_bytes_cnt = 0;
+				cntrs->tx_bytes_cnt = 0;
+				cntrs->tx_buf_drop = 0;
 			}
 		}
 	}
 	return 0;
 }
-#endif
 
 static int register_cli_cmds(struct glob_arg *garg)
 {
@@ -584,17 +506,16 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.desc		= "Prefetch ahead shift (number of buffers)";
 	cmd_params.format	= "<shift>";
 	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))prefetch_cmd_cb;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_prefetch_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-#ifdef SHOW_STATISTICS
+
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "stat";
 	cmd_params.desc		= "Show app statistics";
 	cmd_params.format	= "<reset>";
-	cmd_params.cmd_arg	= garg;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))stat_cmd_cb;
+	cmd_params.cmd_arg	= &garg->cmn_args;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))neta_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-#endif
 	app_register_cli_common_cmds(garg->ports_desc);
 
 	return 0;
@@ -629,7 +550,7 @@ static int init_global(void *arg)
 	if (err)
 		return err;
 
-	if (garg->cli) {
+	if (garg->cmn_args.cli) {
 		err = register_cli_cmds(garg);
 		if (err)
 			return err;
@@ -644,7 +565,7 @@ static void deinit_global(void *arg)
 
 	if (!garg)
 		return;
-	if (garg->cli)
+	if (garg->cmn_args.cli)
 		unregister_cli_cmds(garg);
 	destroy_local_modules(garg);
 	destroy_all_modules();
@@ -668,27 +589,27 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(larg, 0, sizeof(struct local_arg));
 
-	larg->id                = id;
-	larg->burst		= garg->burst;
-	larg->busy_wait		= garg->busy_wait;
-	larg->multi_buffer_release = garg->multi_buffer_release;
-	larg->echo              = garg->echo;
-	larg->prefetch_shift	= garg->prefetch_shift;
-	larg->num_ports         = garg->num_ports;
-	larg->ports_desc = (struct lcl_port_desc *)malloc(larg->num_ports * sizeof(struct lcl_port_desc));
+	larg->cmn_args.id		= id;
+	larg->cmn_args.burst		= garg->cmn_args.burst;
+	larg->cmn_args.echo		= garg->cmn_args.echo;
+	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
+	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
+	larg->ports_desc = (struct lcl_port_desc *)malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	if (!larg->ports_desc) {
 		pr_err("no mem for local-port-desc obj!\n");
 		return -ENOMEM;
 	}
-	memset(larg->ports_desc, 0, larg->num_ports * sizeof(struct lcl_port_desc));
-	for (i = 0; i < larg->num_ports; i++)
-		app_port_local_init(i, larg->id, &larg->ports_desc[i], &garg->ports_desc[i]);
+	memset(larg->ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
+	for (i = 0; i < larg->cmn_args.num_ports; i++)
+		app_port_local_init(i, larg->cmn_args.id, &larg->ports_desc[i], &garg->ports_desc[i]);
 
-	larg->garg              = garg;
+	larg->cmn_args.garg              = garg;
 
-	larg->qs_map = garg->qs_map;
+	larg->cmn_args.qs_map = garg->cmn_args.qs_map;
 	pr_info("thread %d (cpu %d) mapped to Qs %llx using %s\n",
-		 larg->id, sched_getcpu(), (unsigned long long)larg->qs_map, "neta");
+		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map, "neta");
+
+	garg->cmn_args.largs[sched_getcpu()] = larg;
 
 	*_larg = larg;
 	return 0;
@@ -703,7 +624,7 @@ static void deinit_local(void *arg)
 		return;
 
 	if (larg->ports_desc) {
-		for (i = 0; i < larg->num_ports; i++)
+		for (i = 0; i < larg->cmn_args.num_ports; i++)
 			app_port_local_deinit(&larg->ports_desc[i]);
 		free(larg->ports_desc);
 	}
@@ -729,7 +650,6 @@ static void usage(char *progname)
 	       "\t-c, --cores <number>     Number of CPUs to use\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t-s                       Maintain statistics\n"
-	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
 	       "\t--old-tx-desc-release    Use neta_bpool_put_buff(), instead of NEW neta_bpool_put_buffs() API\n"
 	       "\t--no-echo                Don't perform 'pkt_echo', N/A w/o define PKT_ECHO_APP_PKT_ECHO_SUPPORT\n"
@@ -743,18 +663,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 {
 	int	i = 1;
 
-	garg->cli = 0;
-	garg->cpus = 1;
-	garg->affinity = -1;
-	garg->burst = PKT_ECHO_APP_DFLT_BURST_SIZE;
-	garg->mtu = DEFAULT_MTU;
-	garg->busy_wait	= 0;
+	garg->cmn_args.cli = 0;
+	garg->cmn_args.cpus = 1;
+	garg->cmn_args.affinity = -1;
+	garg->cmn_args.burst = PKT_ECHO_APP_DFLT_BURST_SIZE;
+	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->rxq_size = PKT_ECHO_APP_RX_Q_SIZE;
-	garg->multi_buffer_release = 1;
-	garg->echo = 1;
-	garg->qs_map = 0;
-	garg->qs_map_shift = 0;
-	garg->prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
+	garg->cmn_args.echo = 1;
+	garg->cmn_args.qs_map = 0;
+	garg->cmn_args.qs_map_shift = 0;
+	garg->cmn_args.prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
 	garg->maintain_stats = 0;
 
 	while (i < argc) {
@@ -776,30 +694,30 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			}
 
 			/* count the number of tokens separated by ',' */
-			for (token = strtok(argv[i + 1], ","), garg->num_ports = 0;
+			for (token = strtok(argv[i + 1], ","), garg->cmn_args.num_ports = 0;
 			     token;
-			     token = strtok(NULL, ","), garg->num_ports++) {
+			     token = strtok(NULL, ","), garg->cmn_args.num_ports++) {
 				int tmp;
 
-				snprintf(garg->ports_desc[garg->num_ports].name,
-					 sizeof(garg->ports_desc[garg->num_ports].name),
+				snprintf(garg->ports_desc[garg->cmn_args.num_ports].name,
+					 sizeof(garg->ports_desc[garg->cmn_args.num_ports].name),
 					 "%s", token);
-				tmp = sscanf(garg->ports_desc[garg->num_ports].name, "eth%d",
-				       &garg->ports_desc[garg->num_ports].ppio_id);
+				tmp = sscanf(garg->ports_desc[garg->cmn_args.num_ports].name, "eth%d",
+				       &garg->ports_desc[garg->cmn_args.num_ports].ppio_id);
 				if ((tmp != 1) ||
-				    (garg->ports_desc[garg->num_ports].ppio_id >
+				    (garg->ports_desc[garg->cmn_args.num_ports].ppio_id >
 				     MVAPPS_NETA_MAX_NUM_PORTS)) {
 					pr_err("Invalid interface number %d!\n",
-						garg->ports_desc[garg->num_ports].ppio_id);
+						garg->ports_desc[garg->cmn_args.num_ports].ppio_id);
 					return -EINVAL;
 				}
 			}
-			if (garg->num_ports == 0) {
+			if (garg->cmn_args.num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->num_ports > MVAPPS_NETA_MAX_NUM_PORTS) {
+			} else if (garg->cmn_args.num_ports > MVAPPS_NETA_MAX_NUM_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->num_ports, MVAPPS_NETA_MAX_NUM_PORTS);
+				       garg->cmn_args.num_ports, MVAPPS_NETA_MAX_NUM_PORTS);
 				return -EINVAL;
 			}
 			i += 2;
@@ -812,7 +730,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				pr_err("Invalid arguments format!\n");
 				return -EINVAL;
 			}
-			garg->burst = atoi(argv[i + 1]);
+			garg->cmn_args.burst = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "--mtu") == 0) {
 			if (argc < (i + 2)) {
@@ -823,7 +741,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				pr_err("Invalid arguments format!\n");
 				return -EINVAL;
 			}
-			garg->mtu = atoi(argv[i + 1]);
+			garg->cmn_args.mtu = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-c") == 0) {
 			if (argc < (i + 2)) {
@@ -834,23 +752,17 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				pr_err("Invalid arguments format!\n");
 				return -EINVAL;
 			}
-			garg->cpus = atoi(argv[i + 1]);
+			garg->cmn_args.cpus = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-a") == 0) {
-			garg->affinity = atoi(argv[i + 1]);
+			garg->cmn_args.affinity = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-s") == 0) {
 			garg->maintain_stats = 1;
 			i += 1;
-		} else if (strcmp(argv[i], "-w") == 0) {
-			garg->busy_wait = atoi(argv[i + 1]);
-			i += 2;
 		} else if (strcmp(argv[i], "--rxq") == 0) {
 			garg->rxq_size = atoi(argv[i + 1]);
 			i += 2;
-		} else if (strcmp(argv[i], "--old-tx-desc-release") == 0) {
-			garg->multi_buffer_release = 0;
-			i += 1;
 		} else if (strcmp(argv[i], "-m") == 0) {
 			int rv;
 
@@ -862,17 +774,18 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				pr_err("Invalid arguments format!\n");
 				return -EINVAL;
 			}
-			rv = sscanf(argv[i + 1], "%x:%x", (unsigned int *)&garg->qs_map, &garg->qs_map_shift);
+			rv = sscanf(argv[i + 1], "%x:%x", (unsigned int *)&garg->cmn_args.qs_map,
+				    &garg->cmn_args.qs_map_shift);
 			if (rv != 2) {
 				pr_err("Failed to parse -m parameter\n");
 				return -EINVAL;
 			}
 			i += 2;
 		} else if (strcmp(argv[i], "--no-echo") == 0) {
-			garg->echo = 0;
+			garg->cmn_args.echo = 0;
 			i += 1;
 		} else if (strcmp(argv[i], "--cli") == 0) {
-			garg->cli = 1;
+			garg->cmn_args.cli = 1;
 			i += 1;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
@@ -881,41 +794,41 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	/* Now, check validity of all inputs */
-	if (!garg->num_ports ||
+	if (!garg->cmn_args.num_ports ||
 	    !garg->ports_desc[0].name) {
 		pr_err("No port defined!\n");
 		return -EINVAL;
 	}
-	if (garg->burst > PKT_ECHO_APP_MAX_BURST_SIZE) {
+	if (garg->cmn_args.burst > PKT_ECHO_APP_MAX_BURST_SIZE) {
 		pr_err("illegal burst size requested (%d vs %d)!\n",
-		       garg->burst, PKT_ECHO_APP_MAX_BURST_SIZE);
+		       garg->cmn_args.burst, PKT_ECHO_APP_MAX_BURST_SIZE);
 		return -EINVAL;
 	}
-	if (garg->cpus > MVAPPS_NETA_MAX_NUM_CORES) {
+	if (garg->cmn_args.cpus > MVAPPS_NETA_MAX_NUM_CORES) {
 		pr_err("illegal num cores requested (%d vs %d)!\n",
-		       garg->cpus, MVAPPS_NETA_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, MVAPPS_NETA_MAX_NUM_CORES);
 		return -EINVAL;
 	}
-	if ((garg->affinity != -1) &&
-	    ((garg->cpus + garg->affinity) > MVAPPS_NETA_MAX_NUM_CORES)) {
+	if ((garg->cmn_args.affinity != -1) &&
+	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > MVAPPS_NETA_MAX_NUM_CORES)) {
 		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
-		       garg->cpus, garg->affinity, MVAPPS_NETA_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, garg->cmn_args.affinity, MVAPPS_NETA_MAX_NUM_CORES);
 		return -EINVAL;
 	}
 
-	if (garg->qs_map &&
+	if (garg->cmn_args.qs_map &&
 	    (MVAPPS_NETA_MAX_NUM_QS_PER_TC == 1) &&
 	    (PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT == 1)) {
 		pr_warn("no point in queues-mapping; ignoring.\n");
-		garg->qs_map = 1;
-		garg->qs_map_shift = 1;
-	} else if (!garg->qs_map) {
-		garg->qs_map = 1;
-		garg->qs_map_shift = PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
+		garg->cmn_args.qs_map = 1;
+		garg->cmn_args.qs_map_shift = 1;
+	} else if (!garg->cmn_args.qs_map) {
+		garg->cmn_args.qs_map = 1;
+		garg->cmn_args.qs_map_shift = PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
 	}
 
-	if ((garg->cpus != 1) &&
-	    (garg->qs_map & (garg->qs_map << garg->qs_map_shift))) {
+	if ((garg->cmn_args.cpus != 1) &&
+	    (garg->cmn_args.qs_map & (garg->cmn_args.qs_map << garg->cmn_args.qs_map_shift))) {
 		pr_err("Invalid queues-mapping (ovelapping CPUs)!\n");
 		return -EINVAL;
 	}
@@ -939,13 +852,13 @@ int main(int argc, char *argv[])
 		return err;
 
 	cores_mask = 0;
-	for (i = 0; i < garg.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
+	for (i = 0; i < garg.cmn_args.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
 		;
-	cores_mask <<= (garg.affinity != -1) ? garg.affinity : 0;
+	cores_mask <<= (garg.cmn_args.affinity != -1) ? garg.cmn_args.affinity : 0;
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
-	mvapp_params.use_cli		= garg.cli;
-	mvapp_params.num_cores		= garg.cpus;
+	mvapp_params.use_cli		= garg.cmn_args.cli;
+	mvapp_params.num_cores		= garg.cmn_args.cpus;
 	mvapp_params.cores_mask		= cores_mask;
 	mvapp_params.global_arg		= (void *)&garg;
 	mvapp_params.init_global_cb	= init_global;
@@ -954,20 +867,5 @@ int main(int argc, char *argv[])
 	mvapp_params.deinit_local_cb	= deinit_local;
 	mvapp_params.main_loop_cb	= main_loop;
 
-#ifdef SHOW_STATISTICS
-	for (i = 0; i < MVAPPS_NETA_MAX_NUM_CORES; i++) {
-		int j;
-
-		for (j = 0; j < garg.num_ports; j++) {
-			rx_buf_cnt[i][j] = 0;
-			tx_buf_cnt[i][j] = 0;
-			free_buf_cnt[i][j] = 0;
-			tx_buf_retry[i][j] = 0;
-			tx_buf_drop[i][j] = 0;
-			tx_max_burst[i][j] = 0;
-			tx_max_resend[i][j] = 0;
-		}
-	}
-#endif
 	return mvapp_go(&mvapp_params);
 }
