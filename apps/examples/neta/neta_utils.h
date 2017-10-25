@@ -87,6 +87,15 @@ struct port_desc {
 
 };
 
+struct neta_counters {
+	u32		rx_buf_cnt;
+	u32		free_buf_cnt;
+	u32		tx_buf_cnt;
+	u32		tx_buf_drop;
+	u64		tx_bytes_cnt;
+	u64		rx_bytes_cnt;
+};
+
 /*
  * Local thread port parameters
  */
@@ -97,8 +106,16 @@ struct lcl_port_desc {
 	int			 num_shadow_qs;	/* Number of Tx shadow queues */
 	int			 shadow_q_size;	/* Size of Tx shadow queue */
 	struct tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
+	struct neta_counters	 cntrs;		/* Port statistics */
 };
 
+/* Macroes to handle counters */
+#define INC_RX_BYTES_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.rx_bytes_cnt += cnt)
+#define INC_TX_BYTES_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.tx_bytes_cnt += cnt)
+#define INC_RX_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.rx_buf_cnt += cnt)
+#define INC_TX_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.tx_buf_cnt += cnt)
+#define INC_TX_DROP_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.tx_buf_drop += cnt)
+#define INC_FREE_COUNT(lcl_port_desc, cnt)	((lcl_port_desc)->cntrs.free_buf_cnt += cnt)
 
 /*
  * Parse port pp_id and ppio_id from port name
