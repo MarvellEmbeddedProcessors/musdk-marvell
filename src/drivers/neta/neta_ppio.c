@@ -291,6 +291,7 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 			break;
 
 		memcpy(&descs[i], rx_desc, sizeof(struct neta_ppio_desc));
+		rx_desc->cmds[1] = 0;
 	}
 	rxq->to_refill_cntr += i;
 
