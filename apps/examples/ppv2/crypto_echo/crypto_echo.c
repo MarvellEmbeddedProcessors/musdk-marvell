@@ -1565,7 +1565,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.verbose = 0;
 	garg->cmn_args.cli = 0;
 	garg->cmn_args.cpus = 1;
-	garg->cmn_args.affinity = -1;
+	garg->cmn_args.affinity = MVAPPS_INVALID_AFFINITY;
 	garg->cmn_args.burst = CRYPT_APP_DFLT_BURST_SIZE;
 	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->cmn_args.echo = 1;
@@ -1816,7 +1816,7 @@ int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
 	u64			cores_mask;
-	int			i, err;
+	int			err;
 
 	setbuf(stdout, NULL);
 
@@ -1833,10 +1833,7 @@ int main(int argc, char *argv[])
 		return err;
 	}
 
-	cores_mask = 0;
-	for (i = 0; i < garg.cmn_args.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
-		;
-	cores_mask <<= (garg.cmn_args.affinity != -1) ? garg.cmn_args.affinity : 0;
+	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;

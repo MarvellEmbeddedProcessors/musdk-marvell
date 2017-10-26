@@ -1122,7 +1122,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	garg->cmn_args.cli = 0;
 	garg->cmn_args.cpus = 1;
-	garg->cmn_args.affinity = -1;
+	garg->cmn_args.affinity = MVAPPS_INVALID_AFFINITY;
 	garg->cmn_args.burst = PKT_FWD_APP_DFLT_BURST_SIZE;
 	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->rxq_size = PKT_FWD_APP_RX_Q_SIZE;
@@ -1269,7 +1269,7 @@ int main(int argc, char *argv[])
 	struct mvapp_params	mvapp_params;
 	u64			cores_mask;
 	struct pp2_glb_common_args *pp2_args;
-	int			i, err;
+	int			err;
 
 	setbuf(stdout, NULL);
 	pr_info("pkt-l3fwd is started:\n\t%s\n\t%s\n\t%s\n", app_mode_str, buf_release_str, tx_retry_str);
@@ -1290,10 +1290,7 @@ int main(int argc, char *argv[])
 
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
-	cores_mask = 0;
-	for (i = 0; i < garg.cmn_args.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
-		;
-	cores_mask <<= (garg.cmn_args.affinity != -1) ? garg.cmn_args.affinity : 0;
+	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;
