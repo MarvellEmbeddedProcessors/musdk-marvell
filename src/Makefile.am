@@ -102,6 +102,7 @@ libmusdk_la_SOURCES += drivers/neta/neta.c
 libmusdk_la_SOURCES += drivers/neta/neta_ppio.c
 libmusdk_la_SOURCES += drivers/neta/neta_hw.c
 libmusdk_la_SOURCES += drivers/neta/neta_bm.c
+libmusdk_la_SOURCES += drivers/neta/neta_port_us.c
 endif
 
 if GIU_BUILD

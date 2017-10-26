@@ -157,6 +157,7 @@ struct neta_port {
 	unsigned int speed;
 	unsigned int tx_csum_limit;
 	unsigned int use_inband_status:1;
+	u8           mac[ETH_ALEN];
 
 	struct mvneta_bm *bm_priv;
 	struct mvneta_bm_pool *pool_long;
@@ -172,5 +173,49 @@ struct neta_port {
 #define MVNETA_TX_MTU_MAX		0x3ffff
 
 int neta_is_initialized(void);
+
+/* PP-IO control routines */
+
+/* Set MAC address */
+int neta_port_set_mac_addr(struct neta_port *port, const uint8_t *addr);
+
+/* Get MAC address */
+int neta_port_get_mac_addr(struct neta_port *port, uint8_t *addr);
+
+/* Get Link State */
+int neta_port_get_link_state(struct neta_port *port, int  *en);
+
+/* Set MTU */
+int neta_port_set_mtu(struct neta_port *port, uint16_t mtu);
+
+/* Get MTU */
+void neta_port_get_mtu(struct neta_port *port, uint16_t *mtu);
+
+/* Set MRU */
+int neta_port_set_mru(struct neta_port *port, uint16_t len);
+
+/* Get MRU */
+void neta_port_get_mru(struct neta_port *port, uint16_t *len);
+
+/* Set promiscuous */
+int neta_port_set_promisc(struct neta_port *port, uint32_t en);
+
+/* Check if promiscuous */
+int neta_port_get_promisc(struct neta_port *port, uint32_t *en);
+
+/* Set Multicast promiscuous */
+int neta_port_set_mc_promisc(struct neta_port *port, uint32_t en);
+
+/* Check if Multicast promiscuous */
+int neta_port_get_mc_promisc(struct neta_port *port, uint32_t *en);
+
+/* Add MAC address */
+int neta_port_add_mac_addr(struct neta_port *port, const uint8_t *addr);
+
+/* Remove MAC address */
+int neta_port_remove_mac_addr(struct neta_port *port, const uint8_t *addr);
+
+/* Delete all multicast MAC addresses */
+int neta_port_flush_mac_addrs(struct neta_port *port);
 
 #endif /* __NETA_PP_IO_H_ */
