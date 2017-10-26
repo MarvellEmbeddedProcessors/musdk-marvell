@@ -70,6 +70,8 @@ struct queue_map {
 
 struct glob_arg {
 	struct glb_common_args		cmn_args;  /* Keep first */
+	u32				busy_wait;
+	int				multi_buffer_release;
 	u32				hash_type;
 	struct pp2_init_params		pp2_params;
 	struct queue_map		core_queues[MVAPPS_MAX_NUM_CORES];
@@ -80,6 +82,8 @@ struct local_arg {
 	struct local_common_args	cmn_args;  /* Keep first */
 	struct queue_map		*core_queue;
 	int				num_tcs;
+	u32				busy_wait;
+	int				multi_buffer_release;
 };
 
 static struct glob_arg garg = {};
@@ -105,36 +109,47 @@ int pp2_cls_table_next_index_get(struct list *cls_tbl_head)
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tx_ppio_id,
-				  u8			 bpool_id,
-				  u8			 rx_tc,
-				  u8			 rx_qid,
+				  u8			 tc,
+				  u8			 tc_qid,
 				  u8			 tx_qid,
 				  u16			 num)
 {
-	struct pp2_bpool *bpool;
 	struct tx_shadow_q *shadow_q;
+	int			 shadow_q_size;
 	struct pp2_ppio_desc descs[CLS_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	struct lcl_port_desc	*rx_lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
 	struct lcl_port_desc	*tx_lcl_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
 
 	u16 i, j, tx_num;
-	int shadow_q_size;
+	int			 mycyc;
+#ifdef APP_TX_RETRY
+	u16			 desc_idx = 0, cnt = 0;
+#endif
 #ifdef CLS_APP_PKT_ECHO_SUPPORT
-	int prefetch_shift = CLS_APP_PREFETCH_SHIFT;
+	int			 prefetch_shift = larg->cmn_args.prefetch_shift;
 #endif /* CLS_APP_PKT_ECHO_SUPPORT */
-	bpool = pp2_args->pools_desc[rx_lcl_port_desc->pp_id][bpool_id].pool;
+#ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
+	enum pp2_inq_l3_type     l3_type;
+	enum pp2_inq_l4_type     l4_type;
+	u8                       l3_offset, l4_offset;
+#endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
+	u16 pkt_offset = MVAPPS_PP2_PKT_EFEC_OFFS(rx_lcl_port_desc->pkt_offset[tc]);
 
 	shadow_q = &tx_lcl_port_desc->shadow_qs[tx_qid];
 	shadow_q_size = tx_lcl_port_desc->shadow_q_size;
 
-	pp2_ppio_recv(rx_lcl_port_desc->ppio, rx_tc, rx_qid, descs, &num);
+	pp2_ppio_recv(rx_lcl_port_desc->ppio, tc, tc_qid, descs, &num);
+	perf_cntrs->rx_cnt += num;
+	INC_RX_COUNT(rx_lcl_port_desc, num);
 
 	for (i = 0; i < num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
+		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], rx_lcl_port_desc->ppio);
 
 #ifdef CLS_APP_PKT_ECHO_SUPPORT
 		if (likely(larg->cmn_args.echo)) {
@@ -142,20 +157,32 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #ifdef CLS_APP_USE_APP_PREFETCH
 			if (num - i > prefetch_shift) {
 				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
-				tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
+				tmp_buff += pkt_offset;
 				prefetch(tmp_buff);
 			}
 #endif /* CLS_APP_USE_APP_PREFETCH */
 			tmp_buff = buff;
 			pr_debug("buff(%p)\n", tmp_buff);
-			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
+			tmp_buff += pkt_offset;
 			swap_l2(tmp_buff);
 			swap_l3(tmp_buff);
 		}
 #endif /* CLS_APP_PKT_ECHO_SUPPORT */
+#ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
+		pp2_ppio_inq_desc_get_l3_info(&descs[i], &l3_type, &l3_offset);
+		pp2_ppio_inq_desc_get_l4_info(&descs[i], &l4_type, &l4_offset);
+#endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
 		pp2_ppio_outq_desc_reset(&descs[i]);
+#ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
+#if (PKT_ECHO_APP_HW_TX_IPV4_CHKSUM_CALC || PKT_ECHO_APP_HW_TX_CHKSUM_CALC)
+		pp2_ppio_outq_desc_set_proto_info(&descs[i], pp2_l3_type_inq_to_outq(l3_type),
+						  pp2_l4_type_inq_to_outq(l4_type), l3_offset,
+						  l4_offset, PKT_ECHO_APP_HW_TX_IPV4_CHKSUM_CALC,
+						  PKT_ECHO_APP_HW_TX_CHKSUM_CALC);
+#endif /* (PKT_ECHO_APP_HW_TX_IPV4_CHKSUM_CALC ||  ... */
+#endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
-		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
+		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], pkt_offset);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
@@ -187,7 +214,29 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			break;
 		}
 	}
-
+	SET_MAX_BURST(rx_lcl_port_desc, num);
+	for (mycyc = 0; mycyc < larg->busy_wait; mycyc++)
+		asm volatile("");
+#ifdef APP_TX_RETRY
+	do {
+		tx_num = num;
+		if (num) {
+			pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif, tc, &descs[desc_idx], &tx_num);
+			if (num > tx_num) {
+				if (!cnt)
+					INC_TX_RETRY_COUNT(rx_lcl_port_desc, num - tx_num);
+				cnt++;
+			}
+			desc_idx += tx_num;
+			num -= tx_num;
+			INC_TX_COUNT(rx_lcl_port_desc, tx_num);
+			perf_cntrs->tx_cnt += tx_num;
+		}
+		free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
+				  tx_qid, larg->multi_buffer_release);
+	} while (num);
+	SET_MAX_RESENT(rx_lcl_port_desc, cnt);
+#else
 	if (num) {
 		tx_num = num;
 		pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif, tx_qid, descs, &tx_num);
@@ -199,10 +248,15 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 						shadow_q->write_ind - not_sent;
 			free_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
 				     pp2_args->hif, shadow_q->write_ind, not_sent, tx_qid);
+			INC_TX_DROP_COUNT(rx_lcl_port_desc, not_sent);
+			perf_cntrs->drop_cnt += not_sent;
 		}
+		INC_TX_COUNT(rx_lcl_port_desc, tx_num);
+		perf_cntrs->tx_cnt += tx_num;
 	}
-	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
-			  pp2_args->hif, tx_qid, 1 /*multi_buffer_release*/);
+	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
+			  tx_qid, larg->multi_buffer_release);
+#endif /* APP_TX_RETRY */
 	return 0;
 }
 
@@ -210,7 +264,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 {
 	int err;
 	u16 num;
-	u8 tc = 0, qid = 0, tx_qid = 0;
+	u8 tc = 0, tc_qid = 0, tx_qid = 0;
 
 	if (!larg) {
 		pr_err("no obj!\n");
@@ -224,10 +278,10 @@ static int loop_1p(struct local_arg *larg, int *running)
 		tc++;
 		if (tc == larg->num_tcs)
 			tc = 0;
-		qid = larg->core_queue->tc_inq[tc];
+		tc_qid = larg->core_queue->tc_inq[tc];
 		tx_qid = tc % PP2_PPIO_MAX_NUM_OUTQS;
-		pr_debug("thread %d, tc %d, qid %d tx_qid %d\n", larg->cmn_args.id, tc, qid, tx_qid);
-		err = loop_sw_recycle(larg, 0, 0, 0, tc, qid, tx_qid, num);
+		pr_debug("thread %d, tc %d, tc_qid %d tx_qid %d\n", larg->cmn_args.id, tc, tc_qid, tx_qid);
+		err = loop_sw_recycle(larg, 0, 0, tc, tc_qid, tx_qid, num);
 		if (err)
 			return err;
 	}
@@ -436,7 +490,6 @@ static int init_local(void *arg, int id, void **_larg)
 	lcl_pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 
 	larg->cmn_args.id		= id;
-	larg->cmn_args.echo		= garg->cmn_args.echo;
 	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
 	larg->num_tcs			= garg->num_tcs;
 	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
@@ -453,7 +506,11 @@ static int init_local(void *arg, int id, void **_larg)
 	if (err)
 		return err;
 
-	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
+	larg->busy_wait			= garg->busy_wait;
+	larg->multi_buffer_release	= garg->multi_buffer_release;
+	larg->cmn_args.echo		= garg->cmn_args.echo;
+	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
+
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		app_port_local_init(i, larg->cmn_args.id, &lcl_pp2_args->lcl_ports_desc[i],
 				    &glb_pp2_args->ports_desc[i]);
@@ -461,6 +518,8 @@ static int init_local(void *arg, int id, void **_larg)
 	lcl_pp2_args->pools_desc	= glb_pp2_args->pools_desc;
 	larg->cmn_args.garg              = garg;
 	garg->cmn_args.largs[id] = larg;
+	for (i = 0; i < larg->cmn_args.num_ports; i++)
+		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = lcl_pp2_args->lcl_ports_desc;
 	larg->core_queue = &garg->core_queues[larg->cmn_args.id];
 
 	*_larg = larg;
@@ -530,11 +589,14 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	};
 
 	garg->cmn_args.pkt_offset = 0;
-
+	garg->busy_wait	= 0;
+	garg->multi_buffer_release = 1;
 	garg->cmn_args.echo = 0;
 	garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 	garg->cmn_args.num_ports = 0;
 	garg->cmn_args.cli = 1;
+	garg->cmn_args.prefetch_shift = CLS_APP_PREFETCH_SHIFT;
+
 
 	memset(port_params, 0, sizeof(*port_params));
 	memset(pp2_params, 0, sizeof(*pp2_params));
