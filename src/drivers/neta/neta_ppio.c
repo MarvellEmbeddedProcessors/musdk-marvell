@@ -528,3 +528,104 @@ int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
 
 	return 0;
 }
+
+int neta_ppio_set_mac_addr(struct neta_ppio *ppio, const eth_addr_t addr)
+{
+	int rc;
+
+	rc = neta_port_set_mac_addr(GET_PPIO_PORT(ppio), (const uint8_t *)addr);
+	return rc;
+}
+
+int neta_ppio_get_mac_addr(struct neta_ppio *ppio, eth_addr_t addr)
+{
+	int rc;
+
+	rc = neta_port_get_mac_addr(GET_PPIO_PORT(ppio), (uint8_t *)addr);
+	return rc;
+}
+
+int neta_ppio_set_uc_promisc(struct neta_ppio *ppio, int en)
+{
+	int rc;
+
+	rc = neta_port_set_promisc(GET_PPIO_PORT(ppio), en);
+	return rc;
+}
+
+int neta_ppio_get_uc_promisc(struct neta_ppio *ppio, int *en)
+{
+	int rc;
+
+	rc = neta_port_get_promisc(GET_PPIO_PORT(ppio), (u32 *)en);
+	return rc;
+}
+
+int neta_ppio_set_mc_promisc(struct neta_ppio *ppio, int en)
+{
+	int rc;
+
+	rc = neta_port_set_mc_promisc(GET_PPIO_PORT(ppio), en);
+	return rc;
+}
+
+int neta_ppio_get_mc_promisc(struct neta_ppio *ppio, int *en)
+{
+	int rc;
+
+	rc = neta_port_get_mc_promisc(GET_PPIO_PORT(ppio), (u32 *)en);
+	return rc;
+}
+
+int neta_ppio_add_mac_addr(struct neta_ppio *ppio, const eth_addr_t addr)
+{
+	int rc;
+
+	rc = neta_port_add_mac_addr(GET_PPIO_PORT(ppio), (const uint8_t *)addr);
+	return rc;
+}
+
+int neta_ppio_remove_mac_addr(struct neta_ppio *ppio, const eth_addr_t addr)
+{
+	int rc;
+
+	rc = neta_port_remove_mac_addr(GET_PPIO_PORT(ppio), (const uint8_t *)addr);
+	return rc;
+}
+
+int neta_ppio_flush_mac_addrs(struct neta_ppio *ppio, int uc, int mc)
+{
+	int rc;
+
+	if (uc)
+		pr_warn("[%s]: cannot remove unicast address\n", __func__);
+
+	rc = neta_port_flush_mac_addrs(GET_PPIO_PORT(ppio));
+	return rc;
+}
+
+int neta_ppio_get_link_state(struct neta_ppio *ppio, int *en)
+{
+	int rc;
+
+	rc = neta_port_get_link_state(GET_PPIO_PORT(ppio), en);
+	return rc;
+}
+
+int neta_ppio_add_vlan(struct neta_ppio *ppio, u16 vlan)
+{
+	pr_err("[%s] routine not supported yet!\n", __func__);
+	return -ENOTSUP;
+}
+
+int neta_ppio_remove_vlan(struct neta_ppio *ppio, u16 vlan)
+{
+	pr_err("[%s] routine not supported yet!\n", __func__);
+	return -ENOTSUP;
+}
+
+int neta_ppio_flush_vlan(struct neta_ppio *ppio)
+{
+	pr_err("[%s] routine not supported yet!\n", __func__);
+	return -ENOTSUP;
+}
