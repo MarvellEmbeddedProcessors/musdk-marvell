@@ -41,6 +41,18 @@
 #include "utils.h"
 
 
+int apps_cores_mask_create(int cpus, int affinity)
+{
+	u64 cores_mask = 0;
+	int i;
+
+	for (i = 0; i < cpus; i++, cores_mask <<= 1, cores_mask |= 1)
+		;
+	cores_mask <<= (affinity != MVAPPS_INVALID_AFFINITY) ? affinity : MVAPPS_DEFAULT_AFFINITY;
+	return cores_mask;
+}
+
+
 int apps_perf_dump(struct glb_common_args *cmn_args)
 {
 	struct timeval	 curr_time;

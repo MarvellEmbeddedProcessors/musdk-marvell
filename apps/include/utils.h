@@ -61,6 +61,10 @@ static inline void prefetch(const void *ptr)
 /* Maximum number of CPU cores used by application */
 #define MVAPPS_MAX_NUM_CORES		4
 
+#define MVAPPS_DEFAULT_AFFINITY		0
+#define MVAPPS_INVALID_AFFINITY		-1
+
+
 
 /* Default MTU */
 #define DEFAULT_MTU			1500
@@ -231,6 +235,8 @@ int apps_perf_dump(struct glb_common_args *cmn_args);
 int app_ctrl_cb(void *arg);
 int apps_prefetch_cmd_cb(void *arg, int argc, char *argv[]);
 void app_print_horizontal_line(u32 char_count, const char *char_val);
+int apps_cores_mask_create(int cpus, int affinity);
+
 
 #endif /*__MVUTILS_H__*/
 

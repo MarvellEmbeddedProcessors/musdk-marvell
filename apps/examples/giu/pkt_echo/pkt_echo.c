@@ -1120,7 +1120,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	garg->cmn_args.cli = 0;
 	garg->cmn_args.cpus = 1;
-	garg->cmn_args.affinity = -1;
+	garg->cmn_args.affinity = MVAPPS_INVALID_AFFINITY;
 	garg->cmn_args.burst = PKT_ECHO_APP_DFLT_BURST_SIZE;
 	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->cmn_args.busy_wait	= 0;
@@ -1346,7 +1346,7 @@ int main(int argc, char *argv[])
 	struct mvapp_params		 mvapp_params;
 	struct pp2_glb_common_args	*pp2_args;
 	u64				 cores_mask;
-	int				 i, err;
+	int				 err;
 
 	setbuf(stdout, NULL);
 	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
@@ -1366,10 +1366,7 @@ int main(int argc, char *argv[])
 
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
-	cores_mask = 0;
-	for (i = 0; i < garg.cmn_args.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
-		;
-	cores_mask <<= (garg.cmn_args.affinity != -1) ? garg.cmn_args.affinity : 0;
+	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
 
 	init_app_params(&mvapp_params, cores_mask);
 
