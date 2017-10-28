@@ -70,8 +70,6 @@ struct queue_map {
 
 struct glob_arg {
 	struct glb_common_args		cmn_args;  /* Keep first */
-	u32				busy_wait;
-	int				multi_buffer_release;
 	u32				hash_type;
 	struct pp2_init_params		pp2_params;
 	struct queue_map		core_queues[MVAPPS_MAX_NUM_CORES];
@@ -82,8 +80,6 @@ struct local_arg {
 	struct local_common_args	cmn_args;  /* Keep first */
 	struct queue_map		*core_queue;
 	int				num_tcs;
-	u32				busy_wait;
-	int				multi_buffer_release;
 };
 
 static struct glob_arg garg = {};
@@ -215,7 +211,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		}
 	}
 	SET_MAX_BURST(rx_lcl_port_desc, num);
-	for (mycyc = 0; mycyc < larg->busy_wait; mycyc++)
+	for (mycyc = 0; mycyc < larg->cmn_args.busy_wait; mycyc++)
 		asm volatile("");
 #ifdef APP_TX_RETRY
 	do {
@@ -233,7 +229,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			perf_cntrs->tx_cnt += tx_num;
 		}
 		free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
-				  tx_qid, larg->multi_buffer_release);
+				  tx_qid, pp2_args->multi_buffer_release);
 	} while (num);
 	SET_MAX_RESENT(rx_lcl_port_desc, cnt);
 #else
@@ -255,7 +251,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		perf_cntrs->tx_cnt += tx_num;
 	}
 	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
-			  tx_qid, larg->multi_buffer_release);
+			  tx_qid, pp2_args->multi_buffer_release);
 #endif /* APP_TX_RETRY */
 	return 0;
 }
@@ -506,8 +502,7 @@ static int init_local(void *arg, int id, void **_larg)
 	if (err)
 		return err;
 
-	larg->busy_wait			= garg->busy_wait;
-	larg->multi_buffer_release	= garg->multi_buffer_release;
+	larg->cmn_args.busy_wait			= garg->cmn_args.busy_wait;
 	larg->cmn_args.echo		= garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
 
@@ -516,6 +511,7 @@ static int init_local(void *arg, int id, void **_larg)
 				    &glb_pp2_args->ports_desc[i]);
 
 	lcl_pp2_args->pools_desc	= glb_pp2_args->pools_desc;
+	lcl_pp2_args->multi_buffer_release = glb_pp2_args->multi_buffer_release;
 	larg->cmn_args.garg              = garg;
 	garg->cmn_args.largs[id] = larg;
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
@@ -589,14 +585,14 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	};
 
 	garg->cmn_args.pkt_offset = 0;
-	garg->busy_wait	= 0;
-	garg->multi_buffer_release = 1;
+	garg->cmn_args.busy_wait	= 0;
 	garg->cmn_args.echo = 0;
 	garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 	garg->cmn_args.num_ports = 0;
 	garg->cmn_args.cli = 1;
 	garg->cmn_args.prefetch_shift = CLS_APP_PREFETCH_SHIFT;
 
+	pp2_args->multi_buffer_release = 1;
 
 	memset(port_params, 0, sizeof(*port_params));
 	memset(pp2_params, 0, sizeof(*pp2_params));
