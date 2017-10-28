@@ -193,6 +193,7 @@ struct pp2_lcl_common_args {
 	struct pp2_hif		*hif;
 	struct lcl_port_desc	*lcl_ports_desc;
 	struct bpool_desc	**pools_desc;
+	int			multi_buffer_release;
 };
 
 
@@ -202,6 +203,7 @@ struct pp2_glb_common_args {
 	int			pp2_num_inst;
 	struct pp2_hif		*hif;
 	struct bpool_desc	**pools_desc;
+	int			multi_buffer_release;
 };
 
 

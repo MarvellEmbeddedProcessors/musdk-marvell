@@ -122,7 +122,7 @@ struct glb_common_args {
 	struct timeval		ctrl_trd_last_time;
 	u64			last_rx_cnt;
 	u64			last_tx_cnt;
-
+	u32			busy_wait;
 	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
 	void			*plat;
 };
@@ -141,6 +141,7 @@ struct local_common_args {
 	int			echo;
 	u16			burst;
 	int			verbose;
+	u32			busy_wait;
 	struct perf_cmn_cntrs	perf_cntrs;
 	struct glob_arg		*garg;
 	void			*plat;

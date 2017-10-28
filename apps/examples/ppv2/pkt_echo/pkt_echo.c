@@ -106,8 +106,6 @@ struct glob_arg {
 	struct glb_common_args	cmn_args; /* Keep first */
 
 	u16				rxq_size;
-	u32				busy_wait;
-	int				multi_buffer_release;
 	int				loopback;
 	int				maintain_stats;
 	pthread_mutex_t			trd_lock;
@@ -115,9 +113,6 @@ struct glob_arg {
 
 struct local_arg {
 	struct local_common_args	cmn_args; /* Keep first */
-
-	u32				busy_wait;
-	int				multi_buffer_release;
 };
 
 static struct glob_arg garg = {};
@@ -354,7 +349,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 	}
 	SET_MAX_BURST(rx_lcl_port_desc, num);
-	for (mycyc = 0; mycyc < larg->busy_wait; mycyc++)
+	for (mycyc = 0; mycyc < larg->cmn_args.busy_wait; mycyc++)
 		asm volatile("");
 #ifdef APP_TX_RETRY
 	do {
@@ -373,7 +368,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			perf_cntrs->tx_cnt += tx_num;
 		}
 		free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
-				  tx_qid, larg->multi_buffer_release);
+				  tx_qid, pp2_args->multi_buffer_release);
 	} while (num);
 	SET_MAX_RESENT(rx_lcl_port_desc, cnt);
 #else
@@ -395,7 +390,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		perf_cntrs->tx_cnt += tx_num;
 	}
 	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
-			  tx_qid, larg->multi_buffer_release);
+			  tx_qid, pp2_args->multi_buffer_release);
 #endif /* APP_TX_RETRY */
 
 	return 0;
@@ -749,8 +744,7 @@ static int init_local(void *arg, int id, void **_larg)
 		return err;
 
 	larg->cmn_args.burst		= garg->cmn_args.burst;
-	larg->busy_wait		= garg->busy_wait;
-	larg->multi_buffer_release = garg->multi_buffer_release;
+	larg->cmn_args.busy_wait		= garg->cmn_args.busy_wait;
 	larg->cmn_args.echo              = garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
 
@@ -759,6 +753,7 @@ static int init_local(void *arg, int id, void **_larg)
 				    &glb_pp2_args->ports_desc[i]);
 
 	lcl_pp2_args->pools_desc	= glb_pp2_args->pools_desc;
+	lcl_pp2_args->multi_buffer_release = glb_pp2_args->multi_buffer_release;
 	larg->cmn_args.garg             = garg;
 
 	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
@@ -817,9 +812,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.affinity = -1;
 	garg->cmn_args.burst = PKT_ECHO_APP_DFLT_BURST_SIZE;
 	garg->cmn_args.mtu = DEFAULT_MTU;
-	garg->busy_wait	= 0;
+	garg->cmn_args.busy_wait	= 0;
 	garg->rxq_size = PKT_ECHO_APP_RX_Q_SIZE;
-	garg->multi_buffer_release = 1;
 	garg->cmn_args.echo = 1;
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
@@ -828,6 +822,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.ctrl_thresh = PKT_ECHO_APP_CTRL_DFLT_THR;
 	garg->maintain_stats = 0;
 
+	pp2_args->multi_buffer_release = 1;
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -904,7 +899,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			garg->maintain_stats = 1;
 			i += 1;
 		} else if (strcmp(argv[i], "-w") == 0) {
-			garg->busy_wait = atoi(argv[i + 1]);
+			garg->cmn_args.busy_wait = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "--rxq") == 0) {
 			garg->rxq_size = atoi(argv[i + 1]);
@@ -913,7 +908,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			garg->cmn_args.pkt_offset = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "--old-tx-desc-release") == 0) {
-			garg->multi_buffer_release = 0;
+			pp2_args->multi_buffer_release = 0;
 			i += 1;
 		} else if (strcmp(argv[i], "-m") == 0) {
 			int rv;

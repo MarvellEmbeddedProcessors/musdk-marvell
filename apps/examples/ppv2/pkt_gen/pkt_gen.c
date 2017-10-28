@@ -126,8 +126,6 @@ struct glob_arg {
 	struct glb_common_args	cmn_args; /* Keep first */
 
 	u16			rxq_size;
-	u32			busy_wait;
-	int			multi_buffer_release;
 	int			loopback;
 	int			maintain_stats;
 	pthread_mutex_t		trd_lock;
@@ -154,8 +152,6 @@ struct traffic_counters {
 struct local_arg {
 	struct local_common_args	cmn_args; /* Keep first */
 
-	u32				busy_wait;
-	int				multi_buffer_release;
 	void				*buffer;
 	struct buffer_dec		buf_dec[PKT_GEN_APP_MAX_BURST_SIZE];
 	int				pkt_size;
@@ -334,7 +330,7 @@ static int loop_tx(struct local_arg	*larg,
 		larg->trf_cntrs.tx_drop += (num - tx_num);
 	}
 
-	for (mycyc = 0; mycyc < larg->busy_wait; mycyc++)
+	for (mycyc = 0; mycyc < larg->cmn_args.busy_wait; mycyc++)
 		asm volatile("");
 
 	return 0;
@@ -654,8 +650,7 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->cmn_args.id               = id;
 	larg->cmn_args.burst		= garg->cmn_args.burst;
-	larg->busy_wait			= garg->busy_wait;
-	larg->multi_buffer_release = garg->multi_buffer_release;
+	larg->cmn_args.busy_wait			= garg->cmn_args.busy_wait;
 	larg->cmn_args.echo              = garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
 	larg->cmn_args.num_ports         = garg->cmn_args.num_ports;
@@ -671,6 +666,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.verbose		= garg->cmn_args.verbose;
 
 	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
+	lcl_pp2_args->multi_buffer_release = glb_pp2_args->multi_buffer_release;
 
 	garg->cmn_args.largs[id] = larg;
 
@@ -865,9 +861,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.prefetch_shift = PKT_GEN_APP_PREFETCH_SHIFT;
 	garg->cmn_args.pkt_offset = 0;
-	garg->busy_wait	= DEFAULT_WAIT_CYCLE;
+	garg->cmn_args.busy_wait	= DEFAULT_WAIT_CYCLE;
 	garg->rxq_size = PKT_GEN_APP_RX_Q_SIZE;
-	garg->multi_buffer_release = 1;
 	garg->maintain_stats = 0;
 	garg->report_time = DEFAULT_REPORT_TIME;
 	garg->pkt_size = DEFAULT_PKT_SIZE;
@@ -877,6 +872,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->dst_ip.port0 = garg->dst_ip.port1 = garg->dst_ip.port_curr = DEFAULT_DST_PORT;
 	memcpy(garg->dst_mac, default_dst_mac, MV_ETH_ALEN);
 	memcpy(garg->src_mac, default_src_mac, MV_ETH_ALEN);
+
+	pp2_args->multi_buffer_release = 1;
+
 
 	optind = 0;
 	while ((option = getopt_long(argc, argv, short_options, long_options, &long_index)) != -1) {
@@ -947,8 +945,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			pr_debug("Set report_time to %d\n", garg->report_time);
 			break;
 		case 'w':
-			garg->busy_wait = atoi(optarg);
-			pr_debug("Set busy_wait time to %d\n", garg->busy_wait);
+			garg->cmn_args.busy_wait = atoi(optarg);
+			pr_debug("Set busy_wait time to %d\n", garg->cmn_args.busy_wait);
 			break;
 		case 'S':
 			rv = sscanf(optarg, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
