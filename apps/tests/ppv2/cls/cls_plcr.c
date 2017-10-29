@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include "mvapp.h"
-#include "cls_main.h"
+#include "../pp2_tests_main.h"
 #include "src/drivers/ppv2/pp2.h"
 #include "src/drivers/ppv2/cls/pp2_cls_types.h"
 #include "src/drivers/ppv2/cls/pp2_cls_internal_types.h"

@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include "mvapp.h"
-#include "cls_main.h"
+#include "../pp2_tests_main.h"
 #include "drivers/mv_pp2_cls.h"
 
 static struct list cls_qos_tbl_head;
