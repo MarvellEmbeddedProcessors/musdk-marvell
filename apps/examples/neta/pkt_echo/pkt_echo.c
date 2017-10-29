@@ -370,7 +370,7 @@ static int port_inq_fill(struct port_desc *port, u16 mtu, u16 qid)
 	u16 buff_size;
 	u16 i, num_of_buffs;
 
-	buff_size = port->port_params.inqs_params.b.buf_size;
+	buff_size = MVAPPS_MTU_TO_MRU(port->port_params.inqs_params.b.mtu) + MVAPPS_NETA_PKT_OFFS;
 	/* do it only once to store high 32 bits of memory address */
 	if (!neta_sys_dma_high_addr) {
 		void *tmp_addr;
