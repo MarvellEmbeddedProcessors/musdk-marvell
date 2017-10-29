@@ -169,6 +169,7 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	char *ret_ptr;
 	struct pp2_cls_table_node *tbl_node;
 	struct pp2_cls_tbl_params *tbl_params;
+	struct list *node;
 	int i, option;
 	int long_index = 0;
 	struct option long_options[] = {
@@ -256,9 +257,9 @@ static int pp2_cls_cli_table_add(void *arg, int argc, char *argv[])
 	memset(tbl_node, 0, sizeof(*tbl_node));
 
 	/* add table to db */
-	list_add_to_tail(&tbl_node->list_node, &cls_flow_tbl_head);
-
 	tbl_node->idx = pp2_cls_table_next_index_get(&cls_flow_tbl_head);
+	node = pp2_cls_table_next_node_get(&cls_flow_tbl_head, tbl_node->idx);
+	list_add_to_tail(&tbl_node->list_node, node);
 
 	tbl_params = &tbl_node->tbl_params;
 	tbl_params->type = engine_type;
@@ -310,9 +311,10 @@ int pp2_cls_table_remove(u32 tbl_idx, struct list *cls_tbl_head)
 			list_del(&tbl_node->list_node);
 			free(tbl_ptr->default_act.cos);
 			free(tbl_node);
+			return 0;
 		}
 	}
-	return 0;
+	return -EINVAL;
 }
 
 static int pp2_cls_cli_table_remove(void *arg, int argc, char *argv[])
@@ -339,7 +341,7 @@ static int pp2_cls_cli_table_remove(void *arg, int argc, char *argv[])
 		switch (option) {
 		case 't':
 			tbl_idx = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (tbl_idx <= 0) || (tbl_idx > list_num_objs(&cls_flow_tbl_head))) {
+			if (optarg == ret_ptr) {
 				printf("parsing fail, wrong input for --table_index\n");
 				return -EINVAL;
 			}
@@ -351,7 +353,7 @@ static int pp2_cls_cli_table_remove(void *arg, int argc, char *argv[])
 	}
 
 	/* check if all the fields are initialized */
-	if (tbl_idx < 0) {
+	if (tbl_idx <= 0) {
 		printf("parsing fail, invalid --table_index\n");
 		return -EINVAL;
 	}

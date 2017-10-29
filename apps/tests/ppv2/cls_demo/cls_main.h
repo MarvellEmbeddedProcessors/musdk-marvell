@@ -62,6 +62,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 
 int pp2_cls_table_remove(u32 tbl_idx, struct list *cls_tbl_head);
 int pp2_cls_table_next_index_get(struct list *cls_tbl_head);
+struct list *pp2_cls_table_next_node_get(struct list *cls_tbl_head, u32 index);
 int cli_cls_policer_get(u32 idx, struct pp2_cls_plcr **plcr);
 void cli_cls_prepare_policers_db(u32 policers_reserved_map);
 int cli_cls_policer_params(struct port_desc *port_desc);
