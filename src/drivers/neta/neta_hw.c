@@ -854,8 +854,8 @@ static int mvneta_open(struct neta_port *pp)
 		goto err_cleanup_rxqs;
 
 	/* Start port */
-	mvneta_max_rx_size_set(pp, pp->buf_size);
-	mvneta_txq_max_tx_size_set(pp, pp->buf_size);
+	mvneta_max_rx_size_set(pp, pp->mru);
+	mvneta_txq_max_tx_size_set(pp, pp->mtu);
 
 	/* Set Port Acceleration Mode */
 	if (pp->bm_priv)
@@ -947,4 +947,98 @@ int neta_port_hw_deinit(struct neta_port *pp)
 {
 	mvneta_stop(pp);
 	return 0;
+}
+
+static int neta_port_check_mtu_valid(struct neta_port *port, uint16_t mtu)
+{
+	/* Validate MTU */
+	if (mtu < MVNETA_PORT_MIN_MTU) {
+		pr_err("PORT: cannot change MTU to less than %u bytes\n", MVNETA_PORT_MIN_MTU);
+		return -EINVAL;
+	}
+
+	/* Buffer_pool sizes are not relevant for mtu, only mru. */
+
+	return 0;
+}
+
+/* Set and update the port MTU */
+int neta_port_set_mtu(struct neta_port *port, uint16_t mtu)
+{
+	int err = 0;
+
+	err = neta_port_check_mtu_valid(port, mtu);
+	if (err)
+		return err;
+
+	/* Stop the port internals */
+	neta_port_down(port);
+	mvneta_stop(port);
+
+	port->buf_size = MVNETA_MTU_TO_MRU(mtu) + port->rx_offset;
+	port->mtu = mtu;
+
+	/* Start and update the port internals */
+	mvneta_open(port);
+	neta_port_up(port);
+
+	return err;
+}
+
+/* Get MTU */
+void neta_port_get_mtu(struct neta_port *port, uint16_t *mtu)
+{
+	/* Straightforward. Useful for informing clients the
+	 * maximum size their TX BM pool buffers should have,
+	 * physical TXQs capabilities, packet fragmentation etc.
+	 */
+	*mtu = port->mtu;
+}
+
+static int neta_port_check_mru_valid(struct neta_port *port, uint16_t mru)
+{
+	int err = 0;
+
+	if (mru < MVNETA_PORT_MIN_MRU) {
+		pr_err("PORT: cannot change MRU to less than %u bytes\n", MVNETA_PORT_MIN_MRU);
+		return -EINVAL;
+	}
+	/* Check the port's related bm_pools buffer_sizes are adequate */
+	if (mru > (port->buf_size - port->rx_offset)) {
+		pr_err("PORT: cannot change MRU to less than buffer size %u bytes\n", port->buf_size);
+		return -EINVAL;
+	}
+
+	return err;
+}
+
+/* Set and update the port MRU. The function assumes mru valid is valid */
+int neta_port_set_mru(struct neta_port *port, uint16_t mru)
+{
+	int err = 0;
+
+	err = neta_port_check_mru_valid(port, mru);
+	if (err)
+		return err;
+
+	/* Stop the port internals */
+	neta_port_down(port);
+	mvneta_stop(port);
+
+	port->mru = mru;
+
+	/* Start and update the port internals */
+	mvneta_open(port);
+	neta_port_up(port);
+
+	return err;
+}
+
+/* Get MRU */
+void neta_port_get_mru(struct neta_port *port, uint16_t *len)
+{
+	/* Straightforward. Useful for informing clients the
+	 * maximum size their RX BM pool buffers should have
+	 */
+	*len = port->mru;
 }

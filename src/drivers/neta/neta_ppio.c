@@ -97,7 +97,10 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 		port->bm_priv = port->pool_short->priv;
 	}
 
-	port->buf_size = params->inqs_params.b.buf_size;
+	port->mtu = params->inqs_params.b.mtu;
+	port->mru = MVNETA_MTU_TO_MRU(port->mtu);
+	port->buf_size = port->mru + port->rx_offset;
+
 	rc = neta_port_open(port_id, port);
 	if (rc) {
 		pr_err("[%s] ppio init failed.\n", __func__);
@@ -543,6 +546,35 @@ int neta_ppio_get_mac_addr(struct neta_ppio *ppio, eth_addr_t addr)
 
 	rc = neta_port_get_mac_addr(GET_PPIO_PORT(ppio), (uint8_t *)addr);
 	return rc;
+}
+
+int neta_ppio_set_mtu(struct neta_ppio *ppio, u16 mtu)
+{
+	int rc;
+
+	rc = neta_port_set_mtu(GET_PPIO_PORT(ppio), mtu);
+	return rc;
+}
+
+int neta_ppio_get_mtu(struct neta_ppio *ppio, u16 *mtu)
+{
+	neta_port_get_mtu(GET_PPIO_PORT(ppio), mtu);
+	return 0;
+}
+
+int neta_ppio_set_mru(struct neta_ppio *ppio, u16 len)
+{
+	int rc;
+
+	rc = neta_port_set_mru(GET_PPIO_PORT(ppio), len);
+	return rc;
+}
+
+int neta_ppio_get_mru(struct neta_ppio *ppio, u16 *len)
+{
+	neta_port_get_mru(GET_PPIO_PORT(ppio), len);
+
+	return 0;
 }
 
 int neta_ppio_set_uc_promisc(struct neta_ppio *ppio, int en)

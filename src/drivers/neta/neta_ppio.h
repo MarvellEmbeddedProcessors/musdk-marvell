@@ -151,13 +151,15 @@ struct neta_port {
 
 	u8 mcast_count[256];
 
-	unsigned int cause_rx_tx;
 	unsigned int link;
 	unsigned int duplex;
 	unsigned int speed;
 	unsigned int tx_csum_limit;
 	unsigned int use_inband_status:1;
 	u8           mac[ETH_ALEN];
+
+	uint16_t mtu;
+	uint16_t mru;
 
 	struct mvneta_bm *bm_priv;
 	struct mvneta_bm_pool *pool_long;
@@ -170,7 +172,24 @@ struct neta_port {
 #define MVNETA_QUEUE_NEXT_DESC(q, index)	\
 	(((index) < (q)->last_desc) ? ((index) + 1) : 0)
 
+/* Port TX FIFO constants */
 #define MVNETA_TX_MTU_MAX		0x3ffff
+
+/* Port minimum MTU in bytes */
+#define MVNETA_PORT_MIN_MTU		(68) /* Required to support IPV4, per RFC791 */
+#define MVNETA_PORT_MIN_MRU		(MVNETA_MTU_TO_MRU(MVNETA_PORT_MIN_MTU))
+
+/* Port default MTU in bytes */
+#define MVNETA_PORT_DEFAULT_MTU		(1500)
+
+#define MVNETA_MTU_TO_MRU(mtu) \
+	((mtu) + MV_MH_SIZE + NETA_VLAN_TAG_LEN + \
+	ETH_HLEN + ETH_FCS_LEN)
+
+#define MVNETA_MRU_TO_MTU(mru) \
+	((mru) - MV_MH_SIZE - NETA_VLAN_TAG_LEN - \
+	ETH_HLEN - ETH_FCS_LEN)
+
 
 int neta_is_initialized(void);
 
