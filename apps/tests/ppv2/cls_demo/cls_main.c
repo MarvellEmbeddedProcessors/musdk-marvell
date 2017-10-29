@@ -104,11 +104,22 @@ int pp2_cls_table_next_index_get(struct list *cls_tbl_head)
 	int idx = 0;
 
 	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_table_node, cls_tbl_head, list_node) {
+		pr_debug("tbl_node->idx %d, idx %d\n", tbl_node->idx, idx);
 		if ((tbl_node->idx == 0) || ((tbl_node->idx - idx) > 1))
 			return idx + 1;
 		idx++;
 	}
 	return idx + 1;
+}
+
+struct list *pp2_cls_table_next_node_get(struct list *cls_tbl_head, u32 index)
+{
+	int i;
+	struct list *node = cls_tbl_head;
+
+	for (i = 0; i < index; i++)
+		node = LIST_NEXT(node);
+	return node;
 }
 
 static int loop_1p(struct local_arg *larg, int *running)
