@@ -92,10 +92,10 @@ struct neta_ppio_inqs_params {
 		 */
 		struct neta_bpool	*pools[NETA_PPIO_MAX_POOLS];
 
-		/** the following buffer size is relevant only in case
+		/** the following size is relevant only in case
 		 * when working in "SW-BM" enabled
 		 */
-		u16			buf_size;
+		u16			mtu;
 	} b;
 };
 

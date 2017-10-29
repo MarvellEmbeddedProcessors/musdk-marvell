@@ -99,8 +99,7 @@ int app_port_init(struct port_desc *port, u16 mtu, u16 pkt_offset)
 	pr_debug("found port: %s\n", name);
 	port_params->match = name;
 	port_params->inqs_params.num_tcs = port->num_tcs;
-	port_params->inqs_params.b.buf_size =
-		MVAPPS_MTU_TO_MRU(mtu) + MVAPPS_NETA_PKT_OFFS;
+	port_params->inqs_params.b.mtu = mtu;
 
 	for (i = 0; i < port->num_tcs; i++) {
 		port_params->inqs_params.tcs_params[i].pkt_offset =
