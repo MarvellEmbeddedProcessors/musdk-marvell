@@ -127,6 +127,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 	int err;
 	u16 num;
 	u8 tc = 0, tc_qid = 0, tx_qid = 0;
+	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 
 	if (!larg) {
 		pr_err("no obj!\n");
@@ -134,6 +135,11 @@ static int loop_1p(struct local_arg *larg, int *running)
 	}
 
 	num = CLS_APP_DFLT_BURST_SIZE;
+	if (pp2_args->lcl_ports_desc->first_txq >= PP2_PPIO_MAX_NUM_OUTQS) {
+		pr_err("All TX queues in use by kernel. Exiting application\n");
+		return -EINVAL;
+	}
+	tx_qid = pp2_args->lcl_ports_desc->first_txq;
 
 	while (*running) {
 		/* Find next queue to consume */
@@ -141,7 +147,8 @@ static int loop_1p(struct local_arg *larg, int *running)
 		if (tc == larg->num_tcs)
 			tc = 0;
 		tc_qid = larg->core_queue->tc_inq[tc];
-		tx_qid = tc % PP2_PPIO_MAX_NUM_OUTQS;
+		if (++tx_qid >= PP2_PPIO_MAX_NUM_OUTQS)
+			tx_qid = pp2_args->lcl_ports_desc->first_txq;
 		pr_debug("thread %d, tc %d, tc_qid %d tx_qid %d\n", larg->cmn_args.id, tc, tc_qid, tx_qid);
 		err = loop_sw_recycle(&larg->cmn_args, 0, 0, tc, tc_qid, tx_qid, num);
 		if (err)

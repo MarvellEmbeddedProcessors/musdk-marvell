@@ -540,6 +540,8 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, struct port_desc *port)
 {
 	int i;
+	char	file[PP2_MAX_BUF_STR_LEN];
+	u32	kernel_num_tx_queues;
 
 	lcl_port->id		= id;
 	lcl_port->lcl_id	= lcl_id;
@@ -561,6 +563,19 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 	}
 	for (i = 0; i < port->num_tcs; i++)
 		lcl_port->pkt_offset[i] = port->port_params.inqs_params.tcs_params[i].pkt_offset;
+
+	if (port->ppio_type == PP2_PPIO_T_LOG) {
+		sprintf(file, "%s/%s", PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_TX_NUM_TXQ_FILE);
+		kernel_num_tx_queues = appp_pp2_sysfs_param_get(port->name, file);
+		if (kernel_num_tx_queues < PP2_PPIO_MAX_NUM_OUTQS) {
+			lcl_port->first_txq = kernel_num_tx_queues;
+		} else {
+			pr_err("All TX queues are reserved by Kernel");
+			lcl_port->first_txq = PP2_PPIO_MAX_NUM_OUTQS;
+		}
+	} else {
+		lcl_port->first_txq = 0;
+	}
 }
 
 void app_port_local_deinit(struct lcl_port_desc *lcl_port)

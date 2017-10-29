@@ -168,6 +168,7 @@ struct lcl_port_desc {
 	int			shadow_q_size;	/* Size of Tx shadow queue */
 	struct tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
 	struct pp2_counters	cntrs;
+	u32			first_txq;	/* First TXQ -relevant for logical port only */
 	u16			pkt_offset[PP2_PPIO_MAX_NUM_TCS];
 };
 
