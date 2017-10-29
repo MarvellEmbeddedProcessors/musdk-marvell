@@ -515,7 +515,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.garg              = garg;
 	garg->cmn_args.largs[id] = larg;
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
-		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = lcl_pp2_args->lcl_ports_desc;
+		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = &lcl_pp2_args->lcl_ports_desc[i];
 	larg->core_queue = &garg->core_queues[larg->cmn_args.id];
 
 	*_larg = larg;
