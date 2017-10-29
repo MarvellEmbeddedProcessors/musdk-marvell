@@ -30,8 +30,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __CLS_DEMO_H__
-#define __CLS_DEMO_H__
+#ifndef __PP2_MAIN_H__
+#define __PP2_MAIN_H__
 
 #include "drivers/mv_pp2_cls.h"
 #include "pp2_utils.h"
@@ -45,7 +45,6 @@ struct pp2_cls_table_node {
 	char				ppio_name[MVAPPS_PPIO_NAME_MAX];
 	struct list			list_node;
 };
-
 
 int register_cli_cls_api_cmds(struct port_desc *arg);
 int register_cli_cls_api_qos_cmds(struct port_desc *arg);
@@ -67,4 +66,4 @@ int cli_cls_policer_get(u32 idx, struct pp2_cls_plcr **plcr);
 void cli_cls_prepare_policers_db(u32 policers_reserved_map);
 int cli_cls_policer_params(struct port_desc *port_desc);
 
-#endif /*__CLS_DEMO_H__*/
+#endif /*__PP2_MAIN_H__*/

@@ -35,7 +35,7 @@
 #include <getopt.h>
 #include "mvapp.h"
 #include "mv_pp2_ppio.h"
-#include "cls_main.h"
+#include "pp2_tests_main.h"
 
 int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, char *argv[])
 {

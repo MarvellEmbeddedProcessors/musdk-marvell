@@ -45,7 +45,7 @@
  * It is added here only to show cls capabilities but should be avoided in other applications.
  * i.e. when adding a 5-tuple rule (table and key), it allows to dump the flow tables and C3 tables.
  */
-#include "../../../tests/ppv2/cls_demo/cls_debug.h"
+#include "../../../tests/ppv2/cls/cls_debug.h"
 
 #define CLS_APP_DMA_MEM_SIZE			(10 * 1024 * 1024)
 #define CLS_APP_QS_MAP_MASK			0xFFFF

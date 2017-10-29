@@ -47,8 +47,8 @@
 
 #include "src/drivers/ppv2/pp2.h"
 
-#include "cls_debug.h"
-#include "cls_main.h"
+#include "cls/cls_debug.h"
+#include "pp2_tests_main.h"
 
 #define CLS_APP_DMA_MEM_SIZE			(40 * 1024 * 1024)
 #define CLS_APP_FIRST_MUSDK_IN_QUEUE		0

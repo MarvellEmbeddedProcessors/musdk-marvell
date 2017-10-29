@@ -23,21 +23,21 @@ musdk_dmax2_dma_SOURCES  += ../common/lib/perf_mon_emu.c
 musdk_dmax2_dma_LDADD = $(top_builddir)/src/libmusdk.la
 
 if PP2_BUILD
-bin_PROGRAMS += musdk_cls_demo
-musdk_cls_demo_CFLAGS = $(AM_CFLAGS)
-musdk_cls_demo_SOURCES  = ../common/lib/cli.c
-musdk_cls_demo_SOURCES += ../common/mvapp.c
-musdk_cls_demo_SOURCES += ../common/utils.c
-musdk_cls_demo_SOURCES += ../common/pp2_utils.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_main.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_filter.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_qos.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_tables.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_plcr.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_logical_port.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/cls_debug.c
-musdk_cls_demo_SOURCES += ppv2/cls_demo/egress_scheduler.c
-musdk_cls_demo_LDADD = $(top_builddir)/src/libmusdk.la
+bin_PROGRAMS += musdk_pp2_tests
+musdk_pp2_tests_CFLAGS = $(AM_CFLAGS)
+musdk_pp2_tests_SOURCES  = ../common/lib/cli.c
+musdk_pp2_tests_SOURCES += ../common/mvapp.c
+musdk_pp2_tests_SOURCES += ../common/utils.c
+musdk_pp2_tests_SOURCES += ../common/pp2_utils.c
+musdk_pp2_tests_SOURCES += ppv2/pp2_tests_main.c
+musdk_pp2_tests_SOURCES += ppv2/cls/cls_filter.c
+musdk_pp2_tests_SOURCES += ppv2/cls/cls_qos.c
+musdk_pp2_tests_SOURCES += ppv2/cls/cls_tables.c
+musdk_pp2_tests_SOURCES += ppv2/cls/cls_plcr.c
+musdk_pp2_tests_SOURCES += ppv2/cls/cls_logical_port.c
+musdk_pp2_tests_SOURCES += ppv2/cls/cls_debug.c
+musdk_pp2_tests_SOURCES += ppv2/egress_scheduler.c
+musdk_pp2_tests_LDADD = $(top_builddir)/src/libmusdk.la
 endif
 
 if SAM_BUILD
