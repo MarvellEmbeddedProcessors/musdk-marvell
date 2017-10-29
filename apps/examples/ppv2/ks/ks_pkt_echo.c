@@ -626,14 +626,14 @@ static inline int loop_sw_recycle(u8			 rx_ppio_id,
 	u16			 desc_idx = 0, cnt = 0;
 #endif
 
-#ifdef PKT_ECHO_APP_PKT_ECHO_SUPPORT
+#ifdef APP_PKT_ECHO_SUPPORT
 	int			 prefetch_shift = PREFETCH_SHIFT;
-#endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
-#ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
+#endif /* APP_PKT_ECHO_SUPPORT */
+#ifdef APP_HW_TX_CHKSUM_CALC
 	enum pp2_inq_l3_type     l3_type;
 	enum pp2_inq_l4_type     l4_type;
 	u8                       l3_offset, l4_offset;
-#endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
+#endif /* APP_HW_TX_CHKSUM_CALC */
 
 	shadow_q = &app_data.ports_desc[tx_ppio_id].shadow_qs[tc];
 	shadow_q_size = app_data.ports_desc[tx_ppio_id].shadow_q_size;
@@ -651,35 +651,35 @@ static inline int loop_sw_recycle(u8			 rx_ppio_id,
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], app_data.ports_desc[rx_ppio_id].ppio);
 
-#ifdef PKT_ECHO_APP_PKT_ECHO_SUPPORT
+#ifdef APP_PKT_ECHO_SUPPORT
 		char *tmp_buff;
-#ifdef PKT_ECHO_APP_USE_PREFETCH
+#ifdef APP_USE_PREFETCH
 		if (num - i > prefetch_shift) {
 			tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
 			tmp_buff += MVAPPS_PKT_EFEC_OFFS;
 			prefetch(tmp_buff);
 		}
-#endif /* PKT_ECHO_APP_USE_PREFETCH */
+#endif /* APP_USE_PREFETCH */
 		tmp_buff = buff;
 		pr_debug("buff(%p)\n", tmp_buff);
 		tmp_buff += MVAPPS_PKT_EFEC_OFFS;
 		swap_l2(tmp_buff);
 		swap_l3(tmp_buff);
-#endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
-#ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
+#endif /* APP_PKT_ECHO_SUPPORT */
+#ifdef APP_HW_TX_CHKSUM_CALC
 		pp2_ppio_inq_desc_get_l3_info(&descs[i], &l3_type, &l3_offset);
 		pp2_ppio_inq_desc_get_l4_info(&descs[i], &l4_type, &l4_offset);
-#endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
+#endif /* APP_HW_TX_CHKSUM_CALC */
 
 		pp2_ppio_outq_desc_reset(&descs[i]);
-#ifdef PKT_ECHO_APP_HW_TX_CHKSUM_CALC
-#if (PKT_ECHO_APP_HW_TX_IPV4_CHKSUM_CALC || PKT_ECHO_APP_HW_TX_CHKSUM_CALC)
+#ifdef APP_HW_TX_CHKSUM_CALC
+#if (APP_HW_TX_IPV4_CHKSUM_CALC || APP_HW_TX_CHKSUM_CALC)
 		pp2_ppio_outq_desc_set_proto_info(&descs[i], pp2_l3_type_inq_to_outq(l3_type),
 						  pp2_l4_type_inq_to_outq(l4_type), l3_offset,
-						  l4_offset, PKT_ECHO_APP_HW_TX_IPV4_CHKSUM_CALC,
-						  PKT_ECHO_APP_HW_TX_CHKSUM_CALC);
-#endif /* (PKT_ECHO_APP_HW_TX_IPV4_CHKSUM_CALC ||  ... */
-#endif /* PKT_ECHO_APP_HW_TX_CHKSUM_CALC */
+						  l4_offset, APP_HW_TX_IPV4_CHKSUM_CALC,
+						  APP_HW_TX_CHKSUM_CALC);
+#endif /* (APP_HW_TX_IPV4_CHKSUM_CALC ||  ... */
+#endif /* APP_HW_TX_CHKSUM_CALC */
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_PKT_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
