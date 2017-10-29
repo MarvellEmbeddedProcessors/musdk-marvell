@@ -129,6 +129,23 @@ void app_show_port_stat(struct port_desc *port_desc, int reset)
 	printf("\t\tSent errors:             %" PRIu64 "\n", stats.tx_errors);
 }
 
+void app_show_port_eth_tool_get(struct port_desc *port_desc)
+{
+	char buf[50] = "ethtool ";
+
+	strcat(buf, port_desc->name);
+	system(buf);
+}
+
+void app_set_port_enable(struct port_desc *port_desc, int enable)
+{
+	if (enable)
+		pp2_ppio_enable(port_desc->ppio);
+	else
+		pp2_ppio_disable(port_desc->ppio);
+}
+
+
 static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i, j, reset = 0;
@@ -254,6 +271,107 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+
+static int port_enable_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int enable = 0, portid = 0, port_set = 0;
+	struct port_desc *port_desc = (struct port_desc *)arg;
+	char *ret_ptr;
+	int option = 0;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"port", required_argument, 0, 'p'},
+		{"enable", required_argument, 0, 'e'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc > 5) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	/* Get parameters */
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 'p':
+			portid = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (portid < 0)) {
+				printf("parsing fail, wrong input for --port\n");
+				return -EINVAL;
+			}
+			port_set = 1;
+			break;
+		case 'e':
+			enable = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (enable < 0) || (enable > 1)) {
+				printf("parsing fail, wrong input for --enable\n");
+				return -EINVAL;
+			}
+			break;
+		default:
+			printf("parsing fail, wrong input, line = %d\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+	if (!port_set) {
+		pr_err("port option must be set for %s\n", __func__);
+		return -EINVAL;
+	}
+	app_set_port_enable(&port_desc[portid], enable);
+
+	return 0;
+}
+
+
+static int port_ethtool_get_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int i;
+	u8 portid = 0;
+	int ports_num = MVAPPS_PP2_MAX_NUM_PORTS;
+	struct port_desc *port_desc = (struct port_desc *)arg;
+	char *ret_ptr;
+	int option = 0;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"port", required_argument, 0, 'p'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc > 3) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	/* Get parameters */
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 'p':
+			portid = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (portid < 0)) {
+				printf("parsing fail, wrong input for --port\n");
+				return -EINVAL;
+			}
+			ports_num = 1;
+			break;
+		default:
+			printf("parsing fail, wrong input, line = %d\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	for (i = portid; i < (portid + ports_num); i++) {
+		if (port_desc[i].initialized)
+			app_show_port_eth_tool_get(&port_desc[i]);
+	}
+
+	return 0;
+}
+
+
 int app_register_cli_common_cmds(struct port_desc *port_desc)
 {
 	struct cli_cmd_params cmd_params;
@@ -278,6 +396,26 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	cmd_params.cmd_arg	= port_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+
+	cmd_params.name		= "pmac";
+	cmd_params.desc		= "Show port ethtool get";
+	cmd_params.format	= "--port\n"
+				  "\t\t--port, -p	port number, if not specified, show for all ports\n";
+	cmd_params.cmd_arg	= port_desc;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_ethtool_get_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	cmd_params.name		= "penable";
+	cmd_params.desc		= "Port enable/disable";
+	cmd_params.format	= "--port --enable\n"
+				  "\t\t--port, -p	port number, required param\n"
+				  "\t\t--enable, -e	0-disable, 1-enable, disable if unspecified\n";
+	cmd_params.cmd_arg	= port_desc;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_enable_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
 
 	return 0;
 }

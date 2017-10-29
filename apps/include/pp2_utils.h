@@ -533,6 +533,16 @@ void app_show_tx_queue_stat(struct port_desc *port_desc, int reset);
  */
 void app_show_port_stat(struct port_desc *port_desc, int reset);
 /*
+ * Show port ethtool get settings
+ */
+void app_show_port_eth_tool_get(struct port_desc *port_desc);
+
+/*
+ * Set port enable/disable
+ */
+void app_set_port_enable(struct port_desc *port_desc, int enable);
+
+/*
  * Register common CLI commands (currently show queue and port statistics)
  */
 int app_register_cli_common_cmds(struct port_desc *port_desc);
