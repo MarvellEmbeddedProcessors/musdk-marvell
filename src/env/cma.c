@@ -95,7 +95,7 @@ void *cma_calloc(size_t size)
 	ptr->size = size;
 
 	pr_debug("%s: cma_buf_info = %p, uvaddr=%p, paddr=0x%lx, size=%ld\n",
-		__func__, ptr, ptr->magic, ptr->uvaddr, ptr->paddr, ptr->size);
+		__func__, ptr, ptr->uvaddr, ptr->paddr, ptr->size);
 
 	return (void *)ptr;
 }
@@ -137,7 +137,7 @@ void *cma_get_vaddr(void *handle)
 	if (!ptr)
 		return NULL;
 
-	pr_debug("cma_buf_info = %p, vaddr = %p\n", ptr, ret);
+	pr_debug("cma_buf_info = %p, vaddr = %p\n", ptr, ptr->uvaddr);
 
 	return ptr->uvaddr;
 }
@@ -149,7 +149,7 @@ phys_addr_t cma_get_paddr(void *handle)
 	if (!ptr)
 		return 0;
 
-	pr_debug("cma_admin = %p, paddr = 0x%lx\n", ptr, ret);
+	pr_debug("cma_admin = %p, paddr = 0x%lx\n", ptr, ptr->paddr);
 
 	return ptr->paddr;
 }

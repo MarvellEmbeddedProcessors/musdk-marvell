@@ -36,7 +36,10 @@
  * PPDK container structures and packet processor initialization
  */
 
+#ifndef DEBUG
 #define DEBUG
+#endif
+
 #include "std_internal.h"
 #include "drivers/mv_neta.h"
 #include "drivers/mv_neta_ppio.h"
