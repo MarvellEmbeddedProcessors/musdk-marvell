@@ -35,7 +35,6 @@
 #include <getopt.h>
 #include <limits.h>
 
-
 #include "mv_std.h"
 #include "lib/lib_misc.h"
 #include "env/mv_sys_dma.h"
@@ -44,8 +43,7 @@
 #include "mv_pp2.h"
 #include "mv_pp2_bpool.h"
 #include "pp2_utils.h"
-
-
+#include "src/drivers/ppv2/pp2.h"
 
 static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
@@ -144,7 +142,6 @@ void app_set_port_enable(struct port_desc *port_desc, int enable)
 	else
 		pp2_ppio_disable(port_desc->ppio);
 }
-
 
 static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
@@ -271,7 +268,6 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
-
 static int port_enable_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int enable = 0, portid = 0, port_set = 0;
@@ -324,7 +320,6 @@ static int port_enable_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
-
 static int port_ethtool_get_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i;
@@ -371,10 +366,192 @@ static int port_ethtool_get_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+static char *pp2_desc_l2_info_str(unsigned int l2_info)
+{
+	switch (l2_info << MVPP2_PRS_RI_L2_CAST_OFFS) {
+	case MVPP2_PRS_RI_L2_UCAST:
+		return "Ucast";
+	case MVPP2_PRS_RI_L2_MCAST:
+		return "Mcast";
+	case MVPP2_PRS_RI_L2_BCAST:
+		return "Bcast";
+	default:
+		return "Unknown";
+	}
+	return NULL;
+}
+
+static char *pp2_desc_vlan_info_str(unsigned int vlan_info)
+{
+	switch (vlan_info << MVPP2_PRS_RI_VLAN_OFFS) {
+	case MVPP2_PRS_RI_VLAN_NONE:
+		return "None";
+	case MVPP2_PRS_RI_VLAN_SINGLE:
+		return "Single";
+	case MVPP2_PRS_RI_VLAN_DOUBLE:
+		return "Double";
+	case MVPP2_PRS_RI_VLAN_TRIPLE:
+		return "Triple";
+	default:
+		return "Unknown";
+	}
+	return NULL;
+}
+
+static void pp2_rx_descriptor_dump(struct port_desc *ports_desc)
+{
+	int i, j;
+	struct mv_pp2x_rx_desc *desc = NULL;
+
+	for (j = 0; j < MVAPPS_MAX_NUM_CORES; j++) {
+		if (!ports_desc->lcl_ports_desc[j])
+			continue;
+
+		if (ports_desc->lcl_ports_desc[j]->save_desc_data) {
+			desc = (struct mv_pp2x_rx_desc *)&ports_desc->lcl_ports_desc[j]->last_rx_descr_data.cmds[0];
+			pr_info("Core %d - RX desc - %p: ", j, (void *)desc);
+			for (i = 0; i < PP2_PPIO_DESC_NUM_WORDS; i++)
+				pr_info("%8.8x ", ports_desc->lcl_ports_desc[j]->last_rx_descr_data.cmds[i]);
+			pr_info("\n");
+
+			pr_info("pkt_size=%d, L3_offs=%d, IP_hlen=%d, ",
+			       desc->data_size,
+			       (desc->status & MVPP2_RXD_L3_OFFSET_MASK) >> MVPP2_RXD_L3_OFFSET_OFFS,
+			       (desc->status & MVPP2_RXD_IP_HLEN_MASK) >> MVPP2_RXD_IP_HLEN_OFFS);
+
+			pr_info("L2=%s, ",
+				pp2_desc_l2_info_str((desc->rsrvd_parser & MVPP2_RXD_L2_CAST_MASK) >>
+						     MVPP2_RXD_L2_CAST_OFFS));
+
+			pr_info("VLAN=");
+			pr_info("%s, ",
+				pp2_desc_vlan_info_str((desc->rsrvd_parser & MVPP2_RXD_VLAN_INFO_MASK) >>
+							MVPP2_RXD_VLAN_INFO_OFFS));
+
+			pr_info("L3=");
+			if (MVPP2_RXD_L3_IS_IP4(desc->status))
+				pr_info("IPv4 (hdr=%s), ", MVPP2_RXD_IP4_HDR_ERR(desc->status) ? "bad" : "ok");
+			else if (MVPP2_RXD_L3_IS_IP4_OPT(desc->status))
+				pr_info("IPv4 Options (hdr=%s), ", MVPP2_RXD_IP4_HDR_ERR(desc->status) ? "bad" : "ok");
+			else if (MVPP2_RXD_L3_IS_IP4_OTHER(desc->status))
+				pr_info("IPv4 Other (hdr=%s), ", MVPP2_RXD_IP4_HDR_ERR(desc->status) ? "bad" : "ok");
+			else if (MVPP2_RXD_L3_IS_IP6(desc->status))
+				pr_info("IPv6, ");
+			else if (MVPP2_RXD_L3_IS_IP6_EXT(desc->status))
+				pr_info("IPv6 Ext, ");
+			else
+				pr_info("Unknown, ");
+
+			if (desc->status & MVPP2_RXD_IP_FRAG_MASK)
+				pr_info("Frag, ");
+
+			printk("L4=");
+			if (MVPP2_RXD_L4_IS_TCP(desc->status))
+				pr_info("TCP (csum=%s)", (desc->status & MVPP2_RXD_L4_CHK_OK_MASK) ? "Ok" : "Bad");
+			else if (MVPP2_RXD_L4_IS_UDP(desc->status))
+				pr_info("UDP (csum=%s)", (desc->status & MVPP2_RXD_L4_CHK_OK_MASK) ? "Ok" : "Bad");
+			else
+				pr_info("Unknown");
+
+			pr_info("\n");
+
+			pr_info("Lookup_ID=0x%x, cpu_code=0x%x\n",
+				(desc->rsrvd_parser & MVPP2_RXD_LKP_ID_MASK) >> MVPP2_RXD_LKP_ID_OFFS,
+				(desc->rsrvd_parser & MVPP2_RXD_CPU_CODE_MASK) >> MVPP2_RXD_CPU_CODE_OFFS);
+		} else {
+			pr_info("saving descriptor data is disabled\n");
+		}
+	}
+}
+
+static void pp2_tx_descriptor_dump(struct port_desc *ports_desc)
+{
+	int i, j;
+	struct mv_pp2x_tx_desc *desc = NULL;
+
+	for (j = 0; j < MVAPPS_MAX_NUM_CORES; j++) {
+		if (!ports_desc->lcl_ports_desc[j])
+			continue;
+
+		if (ports_desc->lcl_ports_desc[j]->save_desc_data) {
+			desc = (struct mv_pp2x_tx_desc *)&ports_desc->lcl_ports_desc[j]->last_tx_descr_data.cmds[0];
+
+			pr_info("TX desc - %p: ", (void *)desc);
+			for (i = 0; i < PP2_PPIO_DESC_NUM_WORDS; i++)
+				pr_info("%8.8x ", ports_desc->lcl_ports_desc[j]->last_tx_descr_data.cmds[i]);
+			pr_info("\n");
+		} else {
+			pr_info("saving descriptor data is disabled\n");
+		}
+	}
+}
+
+static int pp2_descriptor_params(void *arg, int argc, char *argv[])
+{
+	struct port_desc *ports_desc = (struct port_desc *)arg;
+	int i, option;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"rx", no_argument, 0, 'r'},
+		{"tx", no_argument, 0, 't'},
+		{"set", no_argument, 0, 's'},
+		{"clear", no_argument, 0, 'c'},
+		{0, 0, 0, 0}
+	};
+
+	if  (argc < 1 || argc > 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
+		/* Get parameters */
+		switch (option) {
+		case 'r':
+			pp2_rx_descriptor_dump(ports_desc);
+			break;
+		case 't':
+			pp2_tx_descriptor_dump(ports_desc);
+			break;
+		case 's':
+			for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++) {
+				if (ports_desc->lcl_ports_desc[i]) {
+					pr_info("setting save_desc_data on core %d\n", i);
+					ports_desc->lcl_ports_desc[i]->save_desc_data = 1;
+				}
+			}
+			break;
+		case 'c':
+			for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++) {
+				if (ports_desc->lcl_ports_desc[i])
+					ports_desc->lcl_ports_desc[i]->save_desc_data = 0;
+			}
+			break;
+		default:
+			printf("(%d) parsing fail, wrong input\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
 
 int app_register_cli_common_cmds(struct port_desc *port_desc)
 {
 	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "descriptors";
+	cmd_params.desc		= "dump information on rx/tx descriptors";
+	cmd_params.format	= "--set		start collecting information on last descriptor\n"
+				  "\t\t\t\t--clear	clear collecting information on last descriptor\n"
+				  "\t\t\t\t--rx		dump last received RX descriptor\n"
+				  "\t\t\t\t--tx		dump last received TX descriptor\n";
+	cmd_params.cmd_arg	= port_desc;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_descriptor_params;
+	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "qstat";
@@ -415,7 +592,6 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	cmd_params.cmd_arg	= port_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_enable_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-
 
 	return 0;
 }
@@ -987,5 +1163,4 @@ int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[])
 	}
 	return 0;
 }
-
 
