@@ -522,6 +522,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 't':
 			num_tcs = strtoul(optarg, &ret_ptr, 0);
+			break;
 		case 'p':
 			policer_params = true;
 			break;
