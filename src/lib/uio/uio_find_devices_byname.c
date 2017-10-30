@@ -44,7 +44,7 @@ static struct uio_info_t *__uio_info_byname(char* name, const char *filter_name)
 	if (__uio_line_from_file(filename, linebuf))
 		return NULL;
 
-	if (strncmp(linebuf, filter_name, UIO_MAX_NAME_SIZE))
+	if (strncmp(linebuf, filter_name, strlen(filter_name)))
 		return NULL;
 
 	info = kmalloc(sizeof(struct uio_info_t), GFP_KERNEL);
