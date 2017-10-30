@@ -110,6 +110,20 @@ fi
 fi
 
 ##########################################################################
+# Set DEBUG - using --enable-debug
+##########################################################################
+AC_ARG_ENABLE([debug],
+[  --enable-debug    Enable musdk debug],
+[case "${enableval}" in
+  yes) DEBUG=true ;;
+  no)  DEBUG=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-debug]) ;;
+esac],[DEBUG=false])
+if test x$DEBUG = xtrue; then
+	MUSDK_CFLAGS+="-DDEBUG "
+fi
+
+##########################################################################
 # Set MUSDK debug level
 ##########################################################################
 MUSDK_DEBUG=6

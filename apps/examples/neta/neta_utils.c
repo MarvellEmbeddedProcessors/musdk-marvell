@@ -172,8 +172,8 @@ void app_port_local_deinit(struct lcl_port_desc *lcl_port)
 			cnt = shadow_q->write_ind - shadow_q->read_ind;
 			tx_shadow_q_buf_free_cnt[lcl_port->lcl_id] += cnt;
 		}
-		pr_debug("Release %d buffers from shadow_q-%d port:%d:%d\n",
-			 cnt, i, lcl_port->pp_id, lcl_port->ppio_id);
+		pr_debug("Release %d buffers from shadow_q-%d port:%d\n",
+			 cnt, i, lcl_port->port_id);
 		shadow_q->read_ind = 0;
 		shadow_q->write_ind = 0;
 		free(shadow_q->ents);

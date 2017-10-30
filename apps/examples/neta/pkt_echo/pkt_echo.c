@@ -36,7 +36,10 @@
 #include <pthread.h>
 #include <sched.h>
 
+#ifndef DEBUG
 #define DEBUG
+#endif
+
 #include "mv_std.h"
 #include "lib/lib_misc.h"
 #include "env/mv_sys_dma.h"
