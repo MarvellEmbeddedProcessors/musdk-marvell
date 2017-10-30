@@ -170,6 +170,9 @@ struct lcl_port_desc {
 	struct pp2_counters	cntrs;
 	u32			first_txq;	/* First TXQ -relevant for logical port only */
 	u16			pkt_offset[PP2_PPIO_MAX_NUM_TCS];
+	u16			save_desc_data;	/* flag to indicate descriptors are saved for debug dump */
+	struct pp2_ppio_desc	last_rx_descr_data;
+	struct pp2_ppio_desc	last_tx_descr_data;
 };
 
 /*
@@ -383,6 +386,11 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 		pp2_ppio_inq_desc_get_l4_info(&descs[i], &l4_type, &l4_offset);
 #endif /* APP_HW_TX_CHKSUM_CALC */
 
+#ifdef APP_DESCRIPTORS_DUMP
+		if (unlikely(rx_lcl_port_desc->save_desc_data))
+			memcpy(&rx_lcl_port_desc->last_rx_descr_data, &descs[i], sizeof(struct pp2_ppio_desc));
+#endif /* APP_DESCRIPTORS_DUMP */
+
 		pp2_ppio_outq_desc_reset(&descs[i]);
 #ifdef APP_HW_TX_CHKSUM_CALC
 #if (APP_HW_TX_IPV4_CHKSUM_CALC || APP_HW_TX_CHKSUM_CALC)
@@ -429,6 +437,12 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 	SET_MAX_BURST(rx_lcl_port_desc, num);
 	for (mycyc = 0; mycyc < larg_cmn->busy_wait; mycyc++)
 		asm volatile("");
+
+#ifdef APP_DESCRIPTORS_DUMP
+	if (unlikely(rx_lcl_port_desc->save_desc_data))
+		memcpy(&tx_lcl_port_desc->last_tx_descr_data, &descs[i], sizeof(struct pp2_ppio_desc));
+#endif /* APP_DESCRIPTORS_DUMP */
+
 #ifdef APP_TX_RETRY
 	do {
 		tx_num = num;

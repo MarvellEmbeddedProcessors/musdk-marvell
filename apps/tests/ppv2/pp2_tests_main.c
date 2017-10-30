@@ -42,6 +42,8 @@
 #define APP_MAX_BURST_SIZE			1024
 #define USE_PP2_UTILS_LPBK_SW_RECYCLE
 
+#define APP_DESCRIPTORS_DUMP
+
 #include "pp2_utils.h"
 #include "mv_pp2.h"
 
