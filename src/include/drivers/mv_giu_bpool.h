@@ -82,7 +82,7 @@ void giu_bpool_remove(struct giu_bpool *pool);
  * TODO: change this to host_bpool_desc structure
  */
 struct giu_buff_inf {
-	phys_addr_t	addr; /**< physical address of the buffer */
+	dma_addr_t	addr; /**< physical address of the buffer */
 	u64		cookie; /**< cookie of the buffer */
 };
 
