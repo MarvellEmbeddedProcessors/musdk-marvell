@@ -206,7 +206,7 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 		}
 	}
 
-	for (i = port_id; i < port_id + ports_num; i++) {
+	for (i = port_id; i < (port_id + ports_num); i++) {
 		if (port_desc[i].initialized) {
 			if (tc == (u8)(~0)) {
 				for (j = 0; j < port_desc->num_tcs; j++)
@@ -263,7 +263,7 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 		}
 	}
 
-	for (i = portid; i < ports_num; i++) {
+	for (i = portid; i < (portid + ports_num); i++) {
 		if (port_desc[i].initialized)
 			app_show_port_stat(&port_desc[i], reset);
 	}
