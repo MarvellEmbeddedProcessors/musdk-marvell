@@ -12,6 +12,7 @@ musdk-y += ../../src/drivers/ppv2/pp2_port.o
 musdk-y += ../../src/drivers/ppv2/pp2_ppio.o
 musdk-y += ../../src/drivers/ppv2/pp2_port_ks.o
 musdk-y += ../../src/drivers/ppv2/pp2_utils_ks.o
+musdk-y += ../../src/drivers/ppv2/pp2_txsched.o
 
 musdk-y += ../../src/drivers/ppv2/cls/pp2_hw_cls.o
 musdk-y += ../../src/drivers/ppv2/cls/pp2_hw_cls_dbg.o
@@ -27,6 +28,7 @@ musdk-y += ../../src/drivers/ppv2/cls/pp2_flow_rules.o
 musdk-y += ../../src/drivers/ppv2/cls/pp2_flow_rules_debug.o
 musdk-y += ../../src/drivers/ppv2/cls/pp2_prs.o
 musdk-y += ../../src/drivers/ppv2/cls/pp2_rss.o
+musdk-y += ../../src/drivers/ppv2/cls/pp2_plcr.o
 
 musdk-y += ../../src/env/sys_iomem_ks.o
 musdk-y += ../../src/env/sys_dma_ks.o
