@@ -901,6 +901,56 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 	return 0;
 }
 
+int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *params, struct mv_sys_event **ev)
+{
+	int err;
+	struct mv_sys_event_params ev_params;
+
+	snprintf(ev_params.name, sizeof(ev_params.name), "%s_%d:%d",
+			(cio->hw_ring.type == HW_EIP197) ? "eip197" : "eip97",
+			cio->hw_ring.engine, cio->hw_ring.ring);
+
+	err = mv_sys_event_create(&ev_params, ev);
+	if (err) {
+		pr_err("Can't open CIO event: %s\n", ev_params.name);
+		return err;
+	}
+	if (params) {
+		cio->pkt_coal = params->pkt_coal;
+		cio->usec_coal = params->usec_coal;
+	} else {
+		cio->pkt_coal = SAM_ISR_PKTS_COAL_DEF;
+		cio->usec_coal = SAM_ISR_TIME_COAL_DEF;
+	}
+	/* IRQ will not occurred until triggered */
+	sam_hw_ring_enable_irq(&cio->hw_ring);
+	sam_hw_ring_prepare_rdr_thresh(&cio->hw_ring, cio->pkt_coal, cio->usec_coal);
+
+	pr_info("CIO event created for %s\n", ev_params.name);
+	return 0;
+}
+
+int sam_cio_delete_event(struct sam_cio *cio, struct mv_sys_event *ev)
+{
+	sam_hw_ring_disable_irq(&cio->hw_ring);
+
+	return mv_sys_event_destroy(ev);
+}
+
+int sam_cio_set_event(struct sam_cio *cio, struct mv_sys_event *ev, int en)
+{
+	if (en)
+		sam_hw_ring_trigger_irq(&cio->hw_ring);
+	else {
+		/* Untrigger IRQ */
+		sam_hw_ring_prepare_rdr_thresh(&cio->hw_ring, 0, 0);
+		sam_hw_ring_trigger_irq(&cio->hw_ring);
+		sam_hw_ring_ack_irq(&cio->hw_ring);
+	}
+
+	return 0;
+}
+
 int sam_set_debug_flags(u32 debug_flags)
 {
 #ifdef MVCONF_SAM_DEBUG

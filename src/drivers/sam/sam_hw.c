@@ -1,4 +1,4 @@
-/******************************************************************************
+﻿/******************************************************************************
  *	Copyright (C) 2016 Marvell International Ltd.
  *
  *  If you received this File from Marvell, you may opt to use, redistribute
@@ -62,6 +62,51 @@ static struct sys_iomem *sam_iomem_init(int engine, enum sam_hw_type *type)
 		}
 	}
 	return NULL;
+}
+
+int sam_hw_ring_enable_irq(struct sam_hw_ring *hw_ring)
+{
+	/* Enable the RDR interrupt for the ring */
+	sam_hw_reg_write(hw_ring->aic_regs_vbase, SAM_AIC_RING_ENABLE_REG,
+			 SAM_RDR_IRQ(hw_ring->ring));
+
+	return 0;
+}
+
+int sam_hw_ring_disable_irq(struct sam_hw_ring *hw_ring)
+{
+	/* Disable the RDR interrupt for the ring */
+	sam_hw_reg_write(hw_ring->aic_regs_vbase, SAM_AIC_RING_ENABLE_CLR_REG,
+			 SAM_RDR_IRQ(hw_ring->ring));
+
+	return 0;
+}
+
+int sam_hw_ring_prepare_rdr_thresh(struct sam_hw_ring *hw_ring, u32 pkts_coal, u32 usec_coal)
+{
+	u32 timeout;
+
+	/* multiple of 256 clock cycles of HIA clock */
+	timeout = (SAM_HIA_CLOCK_FREQ * usec_coal) / 256;
+	if (timeout > SAM_RING_TIMEOUT_MASK) {
+		pr_warn("ISR time coalescing %d usecs is too large. Cut to maximum value %d usecs\n",
+			usec_coal, (SAM_RING_TIMEOUT_MASK * 256) / SAM_HIA_CLOCK_FREQ);
+		usec_coal = (SAM_RING_TIMEOUT_MASK * 256) / SAM_HIA_CLOCK_FREQ;
+		timeout = SAM_RING_TIMEOUT_MASK;
+	}
+	if (pkts_coal > SAM_RING_PKT_THRESH_MASK) {
+		pr_warn("ISR packets coalescing %d pkts is too large. Cut to maximum value %d pkts\n",
+			pkts_coal, SAM_RING_PKT_THRESH_MASK);
+		pkts_coal = SAM_RING_PKT_THRESH_MASK;
+	}
+
+	hw_ring->rdr_thresh_val = SAM_RING_PKT_MODE_MASK | SAM_RING_PKT_THRESH_VALUE(pkts_coal) |
+				  SAM_RING_TIMEOUT_VAL(timeout);
+
+	pr_debug("pkts = %u, usecs = %u, rdr_thresh_val = 0x%08x\n",
+		 pkts_coal, usec_coal, hw_ring->rdr_thresh_val);
+
+	return 0;
 }
 
 static bool sam_hw_ring_is_busy(struct sam_hw_ring *hw_ring)
@@ -176,6 +221,10 @@ int sam_hw_rdr_regs_reset(struct sam_hw_ring *hw_ring)
 {
 	u32 val32;
 
+	/* Disable the interrupt and clear the ring interrupt */
+	sam_hw_reg_write(hw_ring->aic_regs_vbase, SAM_AIC_RING_ENABLE_CLR_REG,
+			 SAM_AIC_RING_ALL_IRQS_MASK(hw_ring->ring));
+
 	/* Clear RDR count */
 	val32 = SAM_RING_COUNT_CLEAR_MASK;
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
@@ -194,6 +243,8 @@ int sam_hw_rdr_regs_reset(struct sam_hw_ring *hw_ring)
 	/* EIP202_RDR_CFG_DEFAULT_WR(Device); */
 	/* EIP202_RDR_DMA_CFG_DEFAULT_WR(Device); */
 	/* EIP202_RDR_THRESH_DEFAULT_WR(Device); - needed for interrupt */
+
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_THRESH_REG, 0);
 
 	/* Clear and disable all RDR interrupts */
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_STAT_REG, SAM_RDR_STAT_IRQ_MASK);
@@ -285,6 +336,8 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 	hw_ring->ring_size = params->size; /* number of descriptors in the ring */
 
 	if (engine_info->type == HW_EIP197) {
+		hw_ring->aic_regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP197_AIC_RING_REGS_OFFS(ring));
+		hw_ring->aic_regs_paddr = engine_info->paddr + SAM_EIP197_AIC_RING_REGS_OFFS(ring);
 		hw_ring->regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
 		hw_ring->paddr = engine_info->paddr + SAM_EIP197_RING_REGS_OFFS(ring);
 	} else if (engine_info->type == HW_EIP97) {
@@ -374,6 +427,16 @@ int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *
 	sam_hw_ring_submit(hw_ring, 1);
 
 	return 0;
+}
+
+void sam_hw_aic_ring_regs_show(struct sam_hw_ring *hw_ring)
+{
+	pr_info("%d:%d AIC Ring registers - paddr = 0x%" PRIdma ", vaddr = %p\n",
+		hw_ring->engine, hw_ring->ring, hw_ring->aic_regs_paddr, hw_ring->aic_regs_vbase);
+
+	sam_hw_reg_print("SAM_AIC_RING_ENABLE_REG", hw_ring->aic_regs_vbase, SAM_AIC_RING_ENABLE_REG);
+	sam_hw_reg_print("SAM_AIC_RING_RAW_STAT_REG", hw_ring->aic_regs_vbase, SAM_AIC_RING_RAW_STAT_REG);
+	sam_hw_reg_print("SAM_AIC_RING_STAT_ACK_REG", hw_ring->aic_regs_vbase, SAM_AIC_RING_STAT_ACK_REG);
 }
 
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
