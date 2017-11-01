@@ -471,18 +471,19 @@ static inline void mv_pp2x_width_calc(struct pp2_inst *pp2, uint32_t *cpu_width,
 		/* Calculate CPU width */
 		if (cpu_width)
 			*cpu_width =
-			    ilog2(roundup_pow_of_two
+			    mvlog2(roundup_pow_of_two
 				  (mv_pp2x_num_online_cpu_get(pp2)));
+
 
 		/* Calculate cos queue width */
 		if (cos_width)
 			*cos_width =
-			    ilog2(roundup_pow_of_two
+			    mvlog2(roundup_pow_of_two
 				  (pp2->pp2_cfg.cos_cfg.num_cos_queues));
 		/* Calculate rx queue width on the port */
 		if (port_rxq_width)
 			*port_rxq_width =
-			    ilog2(roundup_pow_of_two
+			    mvlog2(roundup_pow_of_two
 				  (pp2->pp2xdata.pp2x_max_port_rxqs));
 	}
 }
