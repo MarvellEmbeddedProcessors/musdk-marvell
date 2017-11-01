@@ -29,7 +29,6 @@ libmusdk_la_SOURCES += lib/uio/uio_find_devices.c
 libmusdk_la_SOURCES += lib/uio/uio_find_devices_byname.c
 libmusdk_la_SOURCES += lib/uio/uio_free.c
 libmusdk_la_SOURCES += lib/uio/uio_get_all_info.c
-libmusdk_la_SOURCES += lib/uio/uio_get_device_attributes.c
 libmusdk_la_SOURCES += lib/uio/uio_get_event_count.c
 libmusdk_la_SOURCES += lib/uio/uio_get_mem_addr.c
 libmusdk_la_SOURCES += lib/uio/uio_get_mem_size.c

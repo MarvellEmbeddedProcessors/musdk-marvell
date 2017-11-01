@@ -107,7 +107,6 @@ int uio_get_event_count(struct uio_info_t *info);
 int uio_get_name(struct uio_info_t *info);
 int uio_get_version(struct uio_info_t *info);
 int uio_get_all_info(struct uio_info_t *info);
-int uio_get_device_attributes(struct uio_info_t *info);
 
 void *uio_single_mmap(struct uio_info_t *info, int map_num, int fd);
 
