@@ -54,6 +54,12 @@
 /* max TCR data size in bytes */
 #define SAM_TCR_DATA_SIZE		(9 * 4)
 
+/* default packets ISR coalescing value */
+#define SAM_ISR_PKTS_COAL_DEF		16
+
+/* default time ISR coalescing value in usecs */
+#define SAM_ISR_TIME_COAL_DEF		100
+
 struct sam_cio_op {
 	bool is_valid;
 	struct sam_sa *sa;
@@ -79,6 +85,8 @@ struct sam_cio {
 	struct sam_hw_ring hw_ring;
 	u32 next_request;
 	u32 next_result;
+	u32 pkt_coal;
+	u32 usec_coal;
 };
 
 struct sam_sa {

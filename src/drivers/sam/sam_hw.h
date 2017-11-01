@@ -39,6 +39,26 @@
 /*#define SAM_REG_READ_DEBUG*/
 /*#define SAM_REG_WRITE_DEBUG*/
 
+/* Clcok frequency in MHz */
+#define SAM_HIA_CLOCK_FREQ		500
+
+#define SAM_EIP197_AIC_RING_REGS_OFFS(ring)	(0x9E800 - (ring) * 0x1000)
+#define SAM_AIC_RING_POL_REG		0x0
+#define SAM_AIC_RING_TYPE_REG		0x4
+#define SAM_AIC_RING_ENABLE_REG		0x8
+#define SAM_AIC_RING_RAW_STAT_REG	0xC	/* Read */
+#define SAM_AIC_RING_ENABLE_SET_REG	0xC	/* Write*/
+#define SAM_AIC_RING_STAT_ACK_REG	0x10
+#define SAM_AIC_RING_ENABLE_CLR_REG	0x14
+#define SAM_AIC_RING_OPTIONS_REG	0x18
+#define SAM_AIC_RING_VERSION_REG	0x1C
+
+/* EIP197_HIA_AIC_R_ENABLE_CTRL */
+#define SAM_CDR_IRQ(n)			BIT((n) * 2)
+#define SAM_RDR_IRQ(n)			BIT((n) * 2 + 1)
+
+#define SAM_AIC_RING_ALL_IRQS_MASK(n)	(SAM_CDR_IRQ(n) | SAM_RDR_IRQ(n))
+
 /* Command amd Result descriptors size and offset (in 32-bit words) */
 #define SAM_CDR_ENTRY_WORDS            16
 #define SAM_RDR_ENTRY_WORDS            16
@@ -50,8 +70,8 @@
 #define SAM_CDR_DSCR_WORD_COUNT        10
 #define SAM_RDR_DSCR_WORD_COUNT        10
 
-#define SAM_EIP197_RING_REGS_OFFS(ring) (0x80000 + (ring) * 0x1000)
-#define SAM_EIP97_RING_REGS_OFFS(ring)  (0x0 + (ring) * 0x1000)
+#define SAM_EIP197_RING_REGS_OFFS(ring)		(0x80000 + (ring) * 0x1000)
+#define SAM_EIP97_RING_REGS_OFFS(ring)		(0x0 + (ring) * 0x1000)
 
 /* CDR and RDR Registers addresses and fields */
 #define HIA_RDR_REGS_OFFSET		0x800
@@ -195,6 +215,22 @@
 
 #define SAM_RING_WRITE_CACHE_VAL(val)		(((val) & SAM_RING_CACHE_CTRL_MASK) << SAM_RING_WRITE_CACHE_OFFS)
 #define SAM_RING_READ_CACHE_VAL(val)		(((val) & SAM_RING_CACHE_CTRL_MASK) << SAM_RING_READ_CACHE_OFFS)
+
+/* HIA_CDR_y_THRESH and HIA_RDR_y_THRESH register */
+#define SAM_RING_PKT_THRESH_OFFS		0
+#define SAM_RING_PKT_THRESH_BITS		16
+#define SAM_RING_PKT_THRESH_MASK		BIT_MASK(SAM_RING_PKT_THRESH_BITS)
+#define SAM_RING_PKT_THRESH_VALUE(val)		(((val) & SAM_RING_PKT_THRESH_MASK) << SAM_RING_PKT_THRESH_OFFS)
+
+#define SAM_RING_PROC_MODE_MASK			BIT(22)
+#define SAM_RING_PKT_MODE_MASK			BIT(23)
+
+#define SAM_RING_TIMEOUT_OFFS			24
+#define SAM_RING_TIMEOUT_BITS			8
+#define SAM_RING_TIMEOUT_MASK			BIT_MASK(SAM_RING_TIMEOUT_BITS)
+#define SAM_RING_TIMEOUT_VAL(val)		(((val) & SAM_RING_TIMEOUT_MASK) << SAM_RING_TIMEOUT_OFFS)
+
+/* HIA_RDR_y_THRESH register */
 
 /* HIA_CDR_y_STAT register */
 #define SAM_CDR_STAT_IRQ_OFFS			0
@@ -418,8 +454,6 @@ struct sam_hw_res_desc {
 #define SAM_RES_TOKEN_OFFSET_SET(v)	(((v) & SAM_RES_TOKEN_OFFSET_MASK) << SAM_RES_TOKEN_OFFSET_OFFS)
 #define SAM_RES_TOKEN_OFFSET_GET(v)	(((v) >> SAM_RES_TOKEN_OFFSET_OFFS) & SAM_RES_TOKEN_OFFSET_MASK)
 
-
-
 enum sam_hw_type {
 	HW_EIP197,
 	HW_EIP97,
@@ -438,10 +472,13 @@ struct sam_hw_engine_info {
 struct sam_hw_ring {
 	u32 engine;
 	u32 ring;
+	void *aic_regs_vbase;			/* virtual address for ring AIC registers */
+	dma_addr_t aic_regs_paddr;		/* physical address for ring AIC registers */
 	void *regs_vbase;			/* virtual address for ring registers */
 	dma_addr_t paddr;			/* physical address for ring registers */
 	enum sam_hw_type type;			/* EIP197 or EIP97 */
 	u32 ring_size;                          /* CDR and RDR size in descriptors */
+	u32 rdr_thresh_val;			/* Value for HIA_RDR_THRESH_REG */
 	struct sam_buf_info cdr_buf;            /* DMA memory buffer allocated for command descriptors */
 	struct sam_buf_info rdr_buf;            /* DMA memory buffer allocated for result descriptors */
 	struct sam_hw_cmd_desc *cmd_desc_first;	/* Pointer to first command descriptors in DMA memory */
@@ -721,11 +758,30 @@ static inline void sam_hw_ring_update(struct sam_hw_ring *hw_ring, u32 done)
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PROC_COUNT_REG, val32);
 }
 
+static inline void sam_hw_ring_ack_irq(struct sam_hw_ring *hw_ring)
+{
+	u32 val32;
+
+	val32 = SAM_RDR_STAT_IRQ_MASK;
+
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_STAT_REG, val32);
+}
+
+static inline void sam_hw_ring_trigger_irq(struct sam_hw_ring *hw_ring)
+{
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_THRESH_REG, hw_ring->rdr_thresh_val);
+}
+
 int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf);
 void sam_dma_buf_free(struct sam_buf_info *dma_buf);
 
 bool sam_hw_engine_exist(int engine);
 
+int sam_hw_ring_enable_irq(struct sam_hw_ring *hw_ring);
+int sam_hw_ring_disable_irq(struct sam_hw_ring *hw_ring);
+int sam_hw_ring_prepare_rdr_thresh(struct sam_hw_ring *hw_ring, u32 pkts_coal, u32 usec_coal);
+
+void sam_hw_aic_ring_regs_show(struct sam_hw_ring *hw_ring);
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring);
 void sam_hw_rdr_regs_show(struct sam_hw_ring *hw_ring);
 void sam_hw_reg_print(char *reg_name, void *base, u32 offset);

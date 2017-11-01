@@ -34,6 +34,8 @@
 #define __MV_SAM_CIO_H__
 
 #include "mv_std.h"
+#include "env/mv_sys_event.h"
+
 #include "mv_sam_session.h"
 
 /** @addtogroup grp_sam_cio Security Acceleration Module: Crypto I/O
@@ -85,6 +87,11 @@ enum sam_cio_regs {
 	SAM_CIO_REGS_CDR,	/**< Show CDR (Command Descriptors Ring) registers */
 	SAM_CIO_REGS_RDR,	/**< Show RDR (Result Descriptors Ring) registers */
 	SAM_CIO_REGS_LAST
+};
+
+struct sam_cio_event_params {
+	u32 pkt_coal;
+	u32 usec_coal;
 };
 
 /**
@@ -245,6 +252,43 @@ int sam_cio_get_stats(struct sam_cio *cio, struct sam_cio_stats *stats, int rese
  * @retval	-ENOTSUP   - Debug capability is not supported
  */
 int sam_cio_show_regs(struct sam_cio *cio, enum sam_cio_regs regs);
+
+
+/**
+ * Create crypto IO event.
+ *
+ * @param[in]	cio        - crypto IO instance handler.
+ * @param[in]	params     - event parameters
+ * @param[out]  ev         - address of place to save handler of new created crypto IO event.
+ *
+ * @retval      0          - success
+ * @retval      Negative   - failure
+ */
+int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *params,
+			 struct mv_sys_event **ev);
+
+/**
+ * Delete crypto IO event.
+ *
+ * @param[in]	cio        - crypto IO instance handler.
+ * @param[in]	ev         - event handler.
+ *
+ * @retval      0          - success.
+ * @retval      Negative   - failure.
+ */
+int sam_cio_delete_event(struct sam_cio *cio, struct mv_sys_event *ev);
+
+/**
+ * Enable/Disable crypto IO event.
+ *
+ * @param[in]	cio        - crypto IO instance handler.
+ * @param[in]	ev         - event handler.
+ * @param[in]	en         - 0 - disable, 1 -enable.
+ *
+ * @retval      0          - success.
+ * @retval      Negative   - failure.
+ */
+int sam_cio_set_event(struct sam_cio *cio, struct mv_sys_event *ev, int en);
 
 int sam_cio_enable(struct sam_cio *cio);
 int sam_cio_disable(struct sam_cio *cio);
