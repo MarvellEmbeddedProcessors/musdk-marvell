@@ -312,7 +312,7 @@ int musdk_pkt_echo_port_init(struct port_desc *port, int num_pools, struct bpool
 	port_params->specific_type_params.log_port_params.first_inq = port->first_inq;
 
 	for (i = 0; i < port->num_tcs; i++) {
-		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS >> 2;
+		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PKT_OFFS;
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
 		inq_params.size = port->inq_size;
 		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
