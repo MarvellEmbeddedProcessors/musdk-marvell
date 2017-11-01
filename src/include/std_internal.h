@@ -49,6 +49,8 @@
 #include "env/spinlock.h"
 
 #define ENOTSUP          252
+#define mvlog2(n)	ilog2(n)
+
 
 #ifndef __BIG_ENDIAN
 	#define __BIG_ENDIAN __ORDER_BIG_ENDIAN__

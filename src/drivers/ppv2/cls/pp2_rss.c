@@ -113,7 +113,7 @@ int pp2_rss_hw_tbl_set(struct pp2_port *port)
 		}
 		rss_entry.u.entry.tbl_id = hw_tbl;
 
-		width = ilog2(roundup_pow_of_two(port->tc[i].tc_config.num_in_qs));
+		width = mvlog2(roundup_pow_of_two(port->tc[i].tc_config.num_in_qs));
 		pr_debug("setting rss table %d, width %d\n", rss_entry.u.entry.tbl_id, width);
 		rss_entry.u.entry.width = width;
 
