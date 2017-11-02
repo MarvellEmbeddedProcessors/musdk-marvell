@@ -60,8 +60,10 @@ static inline void prefetch(const void *ptr)
 
 /* Maximum number of CPU cores used by application */
 #define MVAPPS_MAX_NUM_CORES		4
+#define MVAPPS_MAX_CORES_MASK		((1 << MVAPPS_MAX_NUM_CORES) - 1)
 
-#define MVAPPS_DEFAULT_AFFINITY		0
+
+#define MVAPPS_DEFAULT_AFFINITY		1
 #define MVAPPS_INVALID_AFFINITY		-1
 
 
