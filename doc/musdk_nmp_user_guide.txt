@@ -35,12 +35,12 @@ The NMP is built from the following modules:
 
 	- NMP Master:
 		Master module is responsible for creation of the networking management sub-system according to input 'topology'.
-		
+
 		It is also responsible for initialization of all the NMP SW modules; i.e. the NMP-dispatch, GIU, NMP-PF, NMP-custom, etc.
 
 	- NMP Dispatcher:
 		This SW module is responsible for collecting management commands from the management input Qs and dispatch them (according to a unique/dedicated field in the management-descriptor)
-		
+
 		Between the various management elements. I.e. there will be commands that are targeted to the PF while other commands are targeted to the customer application.
 
 	- NMP Database:
@@ -48,13 +48,13 @@ The NMP is built from the following modules:
 
 	- NMP PF/VF/vSwitch:
 		These are SW modules that are part of the NMP "Logical Function" layer and are responsible for the operation of the MUSDK networking drivers;
-		i.e. the MVPP2, MVSAM, MVGIU. 
-		
+		i.e. the MVPP2, MVSAM, MVGIU.
+
 		It should initialize and control the drivers through the MUSDK API (and not through the ODP/DPDK API).
 
 	- NMP Custom:
 		This module is currently not supported.
-		
+
 	  | This module is actually just a pipe for the management commands that are dedicated to the user forwarding application.
 	  | It will communicate with the customer-app through a Q.
 	  | It will expose an API for the customer application to register a command callback.

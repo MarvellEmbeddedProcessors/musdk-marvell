@@ -67,7 +67,7 @@ GIE Run Time Flows
 - User Application:
 
 	Once the application completes the packet processing, it calls directly the SPIO ‘send’ routine with a specific local-TC-OutQ and send a burst of packets toward the GIU port.
-  
+
 - GPIO:
 
 	The GPIO user (e.g. ODP PacketIO, MUSDK Pkt-Echo, etc.) prepared a GPIO local-OutQ descriptor and enqueued it. It initializes all the required fields for parsing-off (such as l3/4 info, etc.).
