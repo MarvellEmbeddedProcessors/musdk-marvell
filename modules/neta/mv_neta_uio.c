@@ -69,7 +69,8 @@ static int neta_uio_probe(struct platform_device *pdev)
 	struct uio_info *uio;
 	struct resource *res;
 	int err = 0, mem_cnt = 0;
-	static u8 port_cntr;
+	const char *if_name;
+	int tmp, port_cntr;
 
 	if (!np) {
 		dev_err(dev, "Non DT case is not supported\n");
@@ -94,8 +95,12 @@ static int neta_uio_probe(struct platform_device *pdev)
 		goto fail_uio;
 	}
 	mem = of_find_device_by_node(port_node);
-
 	if (!mem)
+		goto fail_uio;
+
+	of_property_read_string(np, "port_name", &if_name);
+	tmp = sscanf(if_name, "eth%d", &port_cntr);
+	if (tmp != 1)
 		goto fail_uio;
 
 	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
@@ -115,7 +120,6 @@ static int neta_uio_probe(struct platform_device *pdev)
 			uio->mem[i].addr = res->start & PAGE_MASK;
 			uio->mem[i].size = PAGE_ALIGN(resource_size(res));
 			uio->mem[i].name = "neta_regs";
-			port_cntr++;
 		}
 		if (i) {
 			err = uio_register_device(dev, uio);
