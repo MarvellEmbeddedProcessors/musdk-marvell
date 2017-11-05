@@ -45,7 +45,6 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 #include "pp2_bm.h"
-#include "pp2_gop_dbg.h"
 #include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
 
@@ -186,7 +185,7 @@ void pp2_inst_init(struct pp2_inst *inst)
 static int pp2_get_hw_data(struct pp2_inst *inst)
 {
 	int err = 0;
-	u32 reg_id, i;
+	u32 i, reg_id;
 	uintptr_t mem_base;
 	struct pp2_hw *hw = &inst->hw;
 	struct sys_iomem_params iomem_params;
@@ -217,74 +216,21 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 	for (reg_id = 0; reg_id < ARRAY_SIZE(hw->base); reg_id++)
 		hw->base[reg_id].va = mem_base + (reg_id * PP2_REGSPACE_SIZE);
 
-	err = sys_iomem_map(pp2_sys_iomem, "serdes", &hw->gop.serdes.base.pa, (void **)(&mem_base));
-	if (err) {
-		sys_iomem_unmap(pp2_sys_iomem, "pp");
-		sys_iomem_deinit(pp2_sys_iomem);
-		return err;
-	}
-	hw->gop.serdes.base.va = mem_base;
-	hw->gop.serdes.obj_size = 0x1000;
-
-	err = sys_iomem_map(pp2_sys_iomem, "xmib", &hw->gop.xmib.base.pa, (void **)(&mem_base));
-	if (err) {
-		sys_iomem_unmap(pp2_sys_iomem, "serdes");
-		sys_iomem_unmap(pp2_sys_iomem, "pp");
-		sys_iomem_deinit(pp2_sys_iomem);
-		return err;
-	}
-	hw->gop.xmib.base.va = mem_base;
-	hw->gop.xmib.obj_size = 0x0100;
-
-	err = sys_iomem_map(pp2_sys_iomem, "smi", &hw->gop.smi.pa, (void **)(&mem_base));
-	if (err) {
-		sys_iomem_unmap(pp2_sys_iomem, "xmib");
-		sys_iomem_unmap(pp2_sys_iomem, "serdes");
-		sys_iomem_unmap(pp2_sys_iomem, "pp");
-		sys_iomem_deinit(pp2_sys_iomem);
-		return err;
-	}
-	hw->gop.smi.va = mem_base;
-	hw->gop.smi.va += 0x200;
-	hw->gop.smi.pa += 0x200;
 
 	err = sys_iomem_map(pp2_sys_iomem, "mspg", &hw->gop.mspg.pa, (void **)(&mem_base));
 	if (err) {
-		sys_iomem_unmap(pp2_sys_iomem, "smi");
-		sys_iomem_unmap(pp2_sys_iomem, "xmib");
-		sys_iomem_unmap(pp2_sys_iomem, "serdes");
 		sys_iomem_unmap(pp2_sys_iomem, "pp");
 		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
 	hw->gop.mspg.va = mem_base;
 
-	err = sys_iomem_map(pp2_sys_iomem, "rfu1", &hw->gop.rfu1.pa, (void **)(&mem_base));
-	if (err) {
-		sys_iomem_unmap(pp2_sys_iomem, "mspg");
-		sys_iomem_unmap(pp2_sys_iomem, "smi");
-		sys_iomem_unmap(pp2_sys_iomem, "xmib");
-		sys_iomem_unmap(pp2_sys_iomem, "serdes");
-		sys_iomem_unmap(pp2_sys_iomem, "pp");
-		sys_iomem_deinit(pp2_sys_iomem);
-		return err;
-	}
-	hw->gop.rfu1.va = mem_base;
 
 	/**
 	* Only memory maps aligned with PAGE_SIZE (ARM64 arch 0x1000) can be
 	* mapped. Hence, the registers base address lower than PAGE_SIZE
 	* alignment will be computed here and not extracted from device tree.
 	*/
-	hw->gop.xsmi.va = hw->gop.smi.va + 0x400;
-	hw->gop.xsmi.pa = hw->gop.smi.pa + 0x400;
-
-	hw->gop.xpcs.va = hw->gop.mspg.va + 0x400;
-	hw->gop.xpcs.pa = hw->gop.mspg.pa + 0x400;
-
-	hw->gop.ptp.base.va = hw->gop.mspg.va + 0x800;
-	hw->gop.ptp.base.pa = hw->gop.mspg.pa + 0x800;
-	hw->gop.ptp.obj_size = 0x1000;
 
 	hw->gop.gmac.base.va = hw->gop.mspg.va + 0xE00;
 	hw->gop.gmac.base.pa = hw->gop.mspg.pa + 0xE00;
@@ -387,11 +333,7 @@ void pp2_destroy(struct pp2_inst *inst)
 	u32 i;
 
 	sys_iomem_unmap(inst->pp2_sys_iomem, "pp");
-	sys_iomem_unmap(inst->pp2_sys_iomem, "serdes");
-	sys_iomem_unmap(inst->pp2_sys_iomem, "xmib");
-	sys_iomem_unmap(inst->pp2_sys_iomem, "smi");
 	sys_iomem_unmap(inst->pp2_sys_iomem, "mspg");
-	sys_iomem_unmap(inst->pp2_sys_iomem, "rfu1");
 	sys_iomem_deinit(inst->pp2_sys_iomem);
 
 	/* No dangling handles */
