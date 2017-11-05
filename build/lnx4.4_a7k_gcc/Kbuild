@@ -6,7 +6,6 @@ musdk-y += ../../src/drivers/ppv2/pp2_bpool.o
 musdk-y += ../../src/drivers/ppv2/pp2_cls.o
 musdk-y += ../../src/drivers/ppv2/pp2_dm.o
 musdk-y += ../../src/drivers/ppv2/pp2_gop.o
-musdk-y += ../../src/drivers/ppv2/pp2_gop_dbg.o
 musdk-y += ../../src/drivers/ppv2/pp2_hif.o
 musdk-y += ../../src/drivers/ppv2/pp2_port.o
 musdk-y += ../../src/drivers/ppv2/pp2_ppio.o

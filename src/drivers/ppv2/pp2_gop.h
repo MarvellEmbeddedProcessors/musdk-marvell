@@ -119,14 +119,7 @@ struct gop_port_ctrl {
 struct gop_hw {
 	struct pp2_mac_unit_desc gmac;
 	struct pp2_mac_unit_desc xlg_mac;
-	struct pp2_mac_unit_desc serdes;
-	struct pp2_mac_unit_desc xmib;
-	struct pp2_mac_unit_desc ptp;
-	struct base_addr smi;
-	struct base_addr xsmi;
 	struct base_addr mspg;
-	struct base_addr xpcs;
-	struct base_addr rfu1;
 	struct gop_port_ctrl gop_port_debug[PP2_GOP_MAC_NUM];
 };
 
@@ -180,35 +173,6 @@ enum pp2_lb_type {
 
 enum sd_media_mode { PP2_RXAUI, PP2_XAUI, };
 
-/** Net Complex */
-enum pp2_netc_topology {
-	PP2_NETC_GE_MAC0_RXAUI_L23 = BIT(0),
-	PP2_NETC_GE_MAC0_RXAUI_L45 = BIT(1),
-	PP2_NETC_GE_MAC0_XAUI = BIT(2),
-	PP2_NETC_GE_MAC2_SGMII = BIT(3),
-	PP2_NETC_GE_MAC3_SGMII = BIT(4),
-	PP2_NETC_GE_MAC3_RGMII = BIT(5),
-};
-
-enum pp2_netc_phase {
-	PP2_NETC_FIRST_PHASE,
-	PP2_NETC_SECOND_PHASE,
-};
-
-enum pp2_netc_sgmii_xmi_mode {
-	PP2_NETC_GBE_SGMII,
-	PP2_NETC_GBE_XMII,
-};
-
-enum pp2_netc_mii_mode {
-	PP2_NETC_GBE_RGMII,
-	PP2_NETC_GBE_MII,
-};
-
-enum pp2_netc_lanes {
-	PP2_NETC_LANE_23,
-	PP2_NETC_LANE_45,
-};
 
 enum gop_port_flags { NOT_CREATED, CREATED, UNDER_RESET, ENABLED };
 
@@ -234,8 +198,6 @@ static inline void pp2_gop_gen_write(uintptr_t base, uint32_t offset,
 }
 
 /** GOP port configuration functions */
-int pp2_gop_port_init(struct gop_hw *gop, struct pp2_mac_data *mac, uint32_t lb);
-int pp2_gop_port_reset(struct gop_hw *gop, struct pp2_mac_data *mac);
 void pp2_gop_port_enable(struct gop_hw *gop, struct pp2_mac_data *mac);
 void pp2_gop_port_disable(struct gop_hw *gop, struct pp2_mac_data *mac);
 void pp2_gop_port_periodic_xon_set(struct gop_hw *gop,
@@ -266,70 +228,8 @@ int pp2_gop_loopback_set(struct gop_hw *gop, struct pp2_mac_data *mac, bool lb);
 int pp2_gop_gpcs_mode_cfg(struct gop_hw *gop, int pcs_num, bool en);
 int pp2_gop_gpcs_reset(struct gop_hw *gop, int pcs_num, enum pp2_reset act);
 
-/** SERDES Functions */
-static inline uint32_t pp2_gop_serdes_read(struct gop_hw *gop, int lane_num,
-					   uint32_t offset)
-{
-	return (pp2_gop_gen_read(gop->serdes.base.va,
-				 lane_num * gop->serdes.obj_size + offset));
-}
 
-static inline void pp2_gop_serdes_write(struct gop_hw *gop, int lane_num,
-					u32 offset, uint32_t data)
-{
-	pp2_gop_gen_write(gop->serdes.base.va,
-			  lane_num * gop->serdes.obj_size + offset, data);
-}
 
-void pp2_gop_serdes_init(struct gop_hw *gop, int lane, enum sd_media_mode mode);
-void pp2_gop_serdes_reset(struct gop_hw *gop, int lane, bool analog_reset,
-			  bool core_reset, bool digital_reset);
-
-/** MPCS Functions */
-static inline uint32_t pp2_gop_mpcs_global_read(struct gop_hw *gop,
-						uint32_t offset)
-{
-	return pp2_gop_gen_read(gop->mspg.va, offset);
-}
-
-static inline void pp2_gop_mpcs_global_write(struct gop_hw *gop, uint32_t offset,
-					     uint32_t data)
-{
-	pp2_gop_gen_write(gop->mspg.va, offset, data);
-}
-
-/** XPCS Functions */
-static inline uint32_t pp2_gop_xpcs_global_read(struct gop_hw *gop,
-						uint32_t offset)
-{
-	return pp2_gop_gen_read(gop->xpcs.va, offset);
-}
-
-static inline void pp2_gop_xpcs_global_write(struct gop_hw *gop, uint32_t offset,
-					     uint32_t data)
-{
-	pp2_gop_gen_write(gop->xpcs.va, offset, data);
-}
-
-static inline uint32_t pp2_gop_xpcs_lane_read(struct gop_hw *gop, int lane_num,
-					      uint32_t offset)
-{
-	(void)lane_num;
-
-	return pp2_gop_gen_read(gop->xpcs.va, offset);
-}
-
-static inline void pp2_gop_xpcs_lane_write(struct gop_hw *gop, int lane_num,
-					   u32 offset, uint32_t data)
-{
-	(void)lane_num;
-
-	pp2_gop_gen_write(gop->xpcs.va, offset, data);
-}
-
-int pp2_gop_xpcs_reset(struct gop_hw *gop, enum pp2_reset reset);
-int pp2_gop_xpcs_mode(struct gop_hw *gop, int num_of_lanes);
-int pp2_gop_mpcs_mode(struct gop_hw *gop);
 
 /** XLG MAC Functions */
 static inline uint32_t pp2_gop_xlg_mac_read(struct gop_hw *gop, int mac_num,
@@ -346,20 +246,7 @@ static inline void pp2_gop_xlg_mac_write(struct gop_hw *gop, int mac_num,
 			  mac_num * gop->xlg_mac.obj_size + offset, data);
 }
 
-/** MIB MAC Functions */
-static inline uint32_t pp2_gop_xmib_mac_read(struct gop_hw *gop, int mac_num,
-					     uint32_t offset)
-{
-	return (pp2_gop_gen_read(gop->xmib.base.va,
-				 mac_num * gop->xmib.obj_size + offset));
-}
 
-static inline void pp2_gop_xmib_mac_write(struct gop_hw *gop, int mac_num,
-					  u32 offset, uint32_t data)
-{
-	pp2_gop_gen_write(gop->xmib.base.va,
-			  mac_num * gop->xmib.obj_size + offset, data);
-}
 
 int pp2_gop_xlg_mac_reset(struct gop_hw *gop, int mac_num, enum pp2_reset reset);
 int pp2_gop_xlg_mac_mode_cfg(struct gop_hw *gop, int mac_num,
@@ -444,54 +331,5 @@ void pp2_gop_gmac_port_link_event_unmask(struct gop_hw *gop, int mac_num);
 void pp2_gop_gmac_port_link_event_clear(struct gop_hw *gop, int mac_num);
 int pp2_gop_gmac_port_autoneg_restart(struct gop_hw *gop, int mac_num);
 
-/** SMI Functions */
-static inline uint32_t pp2_gop_smi_read(struct gop_hw *gop, uint32_t offset)
-{
-	return pp2_gop_gen_read(gop->smi.va, offset);
-}
-
-static inline void pp2_gop_smi_write(struct gop_hw *gop, uint32_t offset,
-				     uint32_t data)
-{
-	pp2_gop_gen_write(gop->smi.va, offset, data);
-}
-
-/** RFU1 Functions */
-static inline uint32_t pp2_gop_rfu1_read(struct gop_hw *gop, uint32_t offset)
-{
-	return pp2_gop_gen_read(gop->rfu1.va, offset);
-}
-
-static inline void pp2_gop_rfu1_write(struct gop_hw *gop, uint32_t offset,
-				      uint32_t data)
-{
-	pp2_gop_gen_write(gop->rfu1.va, offset, data);
-}
-
-/** PTP Functions */
-static inline uint32_t pp2_gop_ptp_read(struct gop_hw *gop, int mac_num,
-					uint32_t offset)
-{
-	return pp2_gop_gen_read(gop->ptp.base.va,
-			       mac_num * gop->ptp.obj_size + offset);
-}
-
-static inline void pp2_gop_ptp_write(struct gop_hw *gop, int mac_num,
-				     u32 offset, uint32_t data)
-{
-	pp2_gop_gen_write(gop->ptp.base.va,
-			  mac_num * gop->ptp.obj_size + offset, data);
-}
-
-void pp2_gop_ptp_enable(struct gop_hw *gop, int port, bool state);
-
-int pp2_gop_smi_init(struct gop_hw *gop);
-int pp2_gop_smi_phy_addr_cfg(struct gop_hw *gop, int port, int addr);
-
-/** RFU Functions */
-int pp2_gop_netc_init(struct gop_hw *gop,
-		      u32 net_comp_config, enum pp2_netc_phase phase);
-void pp2_gop_netc_active_port(struct gop_hw *gop, uint32_t port, uint32_t val);
-uint32_t pp2_gop_netc_cfg_create(struct pp2_mac_data *mac);
 
 #endif /*_PP2_GOP_H_*/

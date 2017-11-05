@@ -45,7 +45,6 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 #include "pp2_bm.h"
-#include "pp2_gop_dbg.h"
 #include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
 #include "cls/pp2_rss.h"
@@ -876,11 +875,6 @@ pp2_port_start_dev(struct pp2_port *port)
 
 	if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
 		pp2_port_ingress_enable(port);
-
-	/* TBD: Do we have interrupt issues? Check following...*/
-#ifdef NO_MVPP2X_DRIVER
-	pp2_gop_port_events_unmask(gop, mac);
-#endif
 }
 
 /* Set hw internals when stopping port */
@@ -906,28 +900,6 @@ pp2_port_stop_dev(struct pp2_port *port)
 	}
 }
 
-static int
-pp2_port_mac_hw_init(struct pp2_port *port)
-{
-	struct gop_hw *gop = &port->parent->hw.gop;
-	struct pp2_mac_data *mac = &port->mac_data;
-	int gop_port = mac->gop_index;
-
-	if (mac->flags & MV_EMAC_F_INIT)
-		return 0;
-
-	/* configure port PHY address */
-	pp2_gop_smi_phy_addr_cfg(gop, gop_port, mac->phy_addr);
-
-	pp2_gop_port_init(gop, mac, port->use_mac_lb);
-
-	if (mac->force_link)
-		pp2_gop_fl_cfg(gop, mac);
-
-	mac->flags |= MV_EMAC_F_INIT;
-
-	return 0;
-}
 
 void
 pp2_port_config_inq(struct pp2_port *port)
@@ -964,16 +936,8 @@ pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slow
 static void
 pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 {
-#ifdef NO_MVPP2X_DRIVER
-	struct gop_hw *gop = &port->parent->hw.gop;
-	struct pp2_mac_data *mac = &port->mac_data;
-#endif
 	/* Disable port transmission */
 	pp2_port_egress_disable(port);
-
-#ifdef NO_MVPP2X_DRIVER
-	pp2_gop_port_disable(gop, mac);
-#endif
 
 	/* Allocate TXQ slots for this port */
 	port->txqs = kcalloc(1, sizeof(struct pp2_tx_queue *) * port->num_tx_queues, GFP_KERNEL);
@@ -1015,10 +979,6 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 	 */
 #if 0
 	pp2_port_interrupts_mask(port);
-#endif
-
-#ifdef NO_MVPP2X_DRIVER
-	pp2_port_mac_hw_init(port);
 #endif
 	/* Get tx_fifo_size from hw_register, value was configured by Linux */
 	port->tx_fifo_size = pp2_port_get_tx_fifo(port);
