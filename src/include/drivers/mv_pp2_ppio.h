@@ -55,6 +55,7 @@ struct pp2_ppio {
 struct pp2_bpool;
 
 #define PP2_PPIO_MAX_NUM_TCS		32 /**< Max. number of TCs per ppio. */
+#define PP2_PPIO_MAX_NUM_INQS		32 /**< Max. number of inqs per ppio. */
 #define PP2_PPIO_MAX_NUM_OUTQS		8 /**< Max. number of outqs per ppio. */
 #define PP2_PPIO_TC_CLUSTER_MAX_POOLS	2 /**< Max. number of bpools per TC per mem_id. */
 #define PP2_PPIO_TC_MAX_POOLS		\
@@ -1011,6 +1012,67 @@ int pp2_ppio_inq_get_statistics(struct pp2_ppio *ppio, u8 tc, u8 qid,
  ****************************************************************************/
 
 /**
+ * pp2 ppio in tc queue capabilities info
+ *
+ */
+struct pp2_ppio_q_info {
+	u16		size;
+};
+
+/**
+ * pp2 ppio in tc capabilities info
+ *
+ */
+struct pp2_ppio_intc_info {
+	u16				pkt_offset;
+	u8				num_inqs;
+	struct pp2_ppio_q_info		inqs_infs[PP2_PPIO_MAX_NUM_INQS];
+	struct pp2_bpool		pools[PP2_PPIO_TC_MAX_POOLS];
+};
+
+/**
+ * pp2 ppio in tcs capabilities info
+ *
+ */
+struct pp2_ppio_intcs_info {
+	u8				num_intcs;
+	struct pp2_ppio_intc_info	intcs_infs[PP2_PPIO_MAX_NUM_TCS];
+};
+
+/**
+ * pp2 ppio out queues capabilities info
+ *
+ */
+struct pp2_ppio_outqs_info {
+	u8				num_outtcs;
+	struct pp2_ppio_q_info		outqs_infs[PP2_PPIO_MAX_NUM_OUTQS];
+};
+
+/**
+ * pp2 ppio capabilities
+ *
+ */
+struct pp2_ppio_capabilities {
+	u8	id;
+	struct pp2_ppio_intcs_info	intcs_inf;
+	struct pp2_ppio_outqs_info	outqs_inf;
+};
+
+/**
+ * Get ppio capabilities
+ *
+.* This API should be called by the user application in order to retrieve the information and capabilities needed
+ * for a probed ppio object.
+ *
+ * @param[in]	ppio		ppio probed structure
+ * @param[out]	capa		ppio information and capabilities
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_ppio_get_capabilities(struct pp2_ppio *ppio, struct pp2_ppio_capabilities *capa);
+
+/**
  * Enable a ppio
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
@@ -1256,7 +1318,63 @@ int pp2_ppio_set_rx_pause(struct pp2_ppio *ppio, int en);
  */
 int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en);
 
+/**
+ * Serialize the ppio parameters
+ *
+ * The serialization API is called by the 'master' user application to serialize a local ppio object.
+ * The output string is created in a JSON format.
+ * Below is how a ppio config-string looks like:
+ *	ppio-<pp2_id>:<port-id>: {
+ *	iomap_filename: <str>,	(TBD)
+ *	pp2_id: <int>,
+ *	port-id: <int>,
+ *	num-in-tcs: <int>,		(used for in QoS according to #priorities)
+ *	intc: {
+ *		num-inqs : <int>,	(used for in RSS (according to remote side #cores))
+ *		inqs : {[<int>>],…,[<int>]}, ([q-size])
+ *		bpool : <int>
+ *	},
+ *	…
+ *	num-out-qs: <int>,	(used for out QoS according to #priorities)
+ *	outq: {
+ *		outqs : {[<int>],…,[<int>]}, ([q-size])
+ *		}
+ *	}
+ *
+ * The guest application can then access the buffer ppio object, and retrieve the ppio config string
+ *
+ * @param[in]	ppio		A ppio handle.
+ * @param[in]	buff		Buffer ppio object.
+ * @param[in]	size		size of buffer.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int pp2_ppio_serialize(struct pp2_ppio *ppio, char buff[], u32 size);
 
+/**
+ * Probe a ppio
+ *
+ * The probe API should be called by the user application to create the buffer-ppio object for a guest application.
+ *
+ * @param[in]	match		The matching string to search for in the Buffer pool object.
+ * @param[in]	buff		Buffer ppio object.
+ * @param[out]	ppio		ppio structure containing the results of the match
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio);
+
+/**
+ * Remove a ppio
+ *
+ * @param[in]	ppio		ppio structure to remove
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_ppio_remove(struct pp2_ppio *ppio);
 
 /** @} */ /* end of grp_pp2_io */
 
