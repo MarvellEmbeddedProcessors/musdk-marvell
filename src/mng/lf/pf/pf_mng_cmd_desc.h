@@ -73,6 +73,7 @@ enum cmd_codes {
 	CC_PF_DISABLE,
 
 	CC_PF_MGMT_ECHO,
+	CC_PF_LINK_STATUS,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -210,6 +211,8 @@ struct mgmt_cmd_resp {
 			u32	q_id;
 			u64	q_prod_cons_phys_addr;
 		} q_add_resp;
+
+		u32 link_status;
 
 		struct {
 			u8 align[20];

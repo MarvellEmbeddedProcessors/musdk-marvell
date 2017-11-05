@@ -2134,6 +2134,27 @@ static int nic_pf_mgmt_echo_command(struct nic_pf *nic_pf,
 
 
 /*
+ *	nic_pf_link_status_command
+ */
+static int nic_pf_link_status_command(struct nic_pf *nic_pf,
+					struct cmd_desc *cmd, struct notif_desc *resp)
+{
+	pr_debug("Link status message idx:%d.\n", cmd->cmd_idx);
+
+	nic_pf = nic_pf;
+
+	/* Generate response message */
+	nic_pf_gen_resp_msg(0, cmd, resp);
+
+	/* TODO: check PP2 link and report it back to the host */
+	pr_warn("GIU Link status is set to 'up'\n");
+	resp->resp_data.link_status = 1;
+
+	return 0;
+}
+
+
+/*
  *	nic_pf_process_command
  *
  *	This function process all PF initialization commands
@@ -2202,6 +2223,12 @@ int nic_pf_process_command(void *nic_pf, u8 cmd_code, void *cmd)
 		ret = nic_pf_mgmt_echo_command((struct nic_pf *)nic_pf, (struct cmd_desc *)cmd, &resp);
 		if (ret)
 			pr_err("PF_MGMT_ECHO message failed\n");
+		break;
+
+	case CC_PF_LINK_STATUS:
+		ret = nic_pf_link_status_command((struct nic_pf *)nic_pf, (struct cmd_desc *)cmd, &resp);
+		if (ret)
+			pr_err("PF_LINK_STATUS message failed\n");
 		break;
 
 	default:
