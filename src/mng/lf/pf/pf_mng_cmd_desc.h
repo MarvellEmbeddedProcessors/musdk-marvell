@@ -247,7 +247,7 @@ struct notif_desc {
 	u8 flags;
 
 #define NOTIF_STATUS_OK	(0)
-#define NOTIF_ATSTUS_FAIL	(1)
+#define NOTIF_STATUS_FAIL	(1)
 #define NOTIF_STATUS_NOTIF	(0xFF)
 	u8 status;
 	u8 pad[2];

@@ -2203,6 +2203,13 @@ int nic_pf_process_command(void *nic_pf, u8 cmd_code, void *cmd)
 		if (ret)
 			pr_err("PF_MGMT_ECHO message failed\n");
 		break;
+
+	default:
+		/* Unknown command code */
+		pr_err("Unknown command code %d!! Unable to process command.\n", cmd_code);
+		resp.status = NOTIF_STATUS_FAIL;
+
+		break;
 	}
 
 	ret = nmdisp_send(((struct nic_pf *)nic_pf)->nmdisp, CDT_PF,
