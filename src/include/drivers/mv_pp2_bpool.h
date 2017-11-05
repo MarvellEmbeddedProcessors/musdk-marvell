@@ -130,6 +130,32 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
  */
 int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entry[], u16 *num);
 
+/****************************************************************************
+ *	Run-time Control API
+ ****************************************************************************/
+
+/**
+ * pp2 bpool capabilities
+ *
+ */
+struct pp2_bpool_capabilities {
+	u32	max_num_buffs;
+	u32	buff_len;
+};
+
+/**
+ * Get bpool capabilities
+ *
+.* This API should be called by the user application in order to retrieve the information and capabilities needed
+ * for a probed bPool object.
+ *
+ * @param[in]	pool		bpool probed structure
+ * @param[out]	capa		bpool information and capabilities
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_bpool_get_capabilities(struct pp2_bpool *pool, struct pp2_bpool_capabilities *capa);
 
 /**
  * Get the number of buffers in ppv2 buffer pool.
@@ -141,6 +167,56 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
  * @retval	<0 on failure
  */
 int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs);
+
+/**
+ * Serialize the bpool parameters
+ *
+ * The serialization API is called by the 'master' user application to serialize a buffer-pool object.
+ * The output string is created in a JSON format.
+ * Below is how a bpool config-string looks like:
+ *	pool-<pp2-id>:<id> : {
+ *	 iomap_filename: <str>,	(TBD)
+ *	 pp2_id : <int>,
+ *	 id : <int>,
+ *	 buff_len : <int>,
+ *	 max_num_buffs : <int>,
+ *	 base_addr : <dma-addr>	(TBD)
+ * }
+ *
+ * The guest application can then access the created buffer pool object, and retrieve the bpool config string
+ *
+ * @param[in]	pool		A bpool handle.
+ * @param[in]	buff		Buffer pool object.
+ * @param[in]	size		size of buffer.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int pp2_bpool_serialize(struct pp2_bpool *pool, char buff[], u32 size);
+
+/**
+ * Probe a bpool
+ *
+ * The probe API should be called by the user application to create the buffer-pool object for a guest application.
+ *
+ * @param[in]	match		The matching string to search for in the Buffer pool object.
+ * @param[in]	buff		Buffer pool object.
+ * @param[out]	pool		bpool structure containing the results of the match
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **pool);
+
+/**
+ * Remove a bpool
+ *
+ * @param[in]	pool		bpool structure to remove
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_bpool_remove(struct pp2_bpool *pool);
 
 /** @} */ /* end of grp_pp2_bp */
 
