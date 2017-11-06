@@ -37,6 +37,7 @@
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
+#include "env/mv_sys_event.h"
 #include "mv_sam.h"
 #include "utils.h"
 #include "sam_utils.h"
@@ -80,6 +81,9 @@ static int			num_requests_per_enq = 32;
 static int			num_requests_before_deq = 32;
 static int			num_requests_per_deq = 32;
 static u32			debug_flags;
+static bool			use_events;
+static int			ev_pkts_coal = 16;
+static int			ev_usec_coal = 100;
 
 static bool			running;
 static generic_list		test_db;
@@ -555,6 +559,19 @@ static int run_tests(generic_list tests_db)
 	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
 	int rc, count, total_passed, total_errors, errors;
 	struct timeval tv_start, tv_end;
+	struct mv_sys_event *ev = NULL;
+	struct sam_cio_event_params ev_params;
+
+	if (use_events) {
+		ev_params.pkt_coal = ev_pkts_coal;
+		ev_params.usec_coal = ev_usec_coal;
+		err = sam_cio_create_event(cio_hndl, &ev_params, &ev);
+		if (err) {
+			printf("Can't create CIO event");
+			return -EINVAL;
+		}
+		ev->events = MV_SYS_EVENT_POLLIN;
+	}
 
 	num_tests = generic_list_get_size(tests_db);
 	if (num_tests > NUM_CONCURRENT_SESSIONS)
@@ -629,6 +646,18 @@ static int run_tests(generic_list tests_db)
 					break;
 			}
 
+			/* Trigger ISR */
+			if (ev) {
+				sam_cio_set_event(cio_hndl, ev, 1);
+
+				rc = mv_sys_event_poll(ev, 1, -1);
+				if ((rc != 1) || (ev->revents != MV_SYS_EVENT_POLLIN))
+					pr_warn("Error during event poll: rc = %d, revents=0x%x\n",
+						rc, ev->revents);
+
+				/*pr_debug("mv_sys_event_poll returned - %d\n", rc);*/
+			}
+
 			/* Get all ready results together */
 			to_deq = min(in_process, num_requests_per_deq);
 			num = (u16)to_deq;
@@ -659,6 +688,11 @@ sig_exit:
 		total_errors += errors;
 		total_passed += (count - errors);
 	}
+	if (ev) {
+		sam_cio_set_event(cio_hndl, ev, 0);
+		sam_cio_delete_event(cio_hndl, ev);
+	}
+
 	printf("\n");
 	printf("SAM tests passed:   %d\n", total_passed);
 	printf("SAM tests failed:   %d\n", total_errors);
@@ -680,6 +714,10 @@ static void usage(char *progname)
 					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG);
 	printf("\t--same_bufs      - Use the same buffer as src and dst (default: %s)\n",
 		same_bufs ? "same" : "different");
+	printf("\t--use_events     - Use events to wait for requests completed (default: %s)\n",
+		use_events ? "events" : "polling");
+	printf("\t-pkts <number>   - Packets coalescing (default: %d)\n", ev_pkts_coal);
+	printf("\t-time <number>   - Time coalescing in usecs (default: %d)\n", ev_usec_coal);
 }
 
 static int parse_args(int argc, char *argv[])
@@ -767,11 +805,40 @@ static int parse_args(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--same_bufs") == 0) {
 			same_bufs = true;
 			i += 1;
+		} else if (strcmp(argv[i], "--use-events") == 0) {
+			use_events = true;
+			i += 1;
+		} else if (strcmp(argv[i], "-pkts") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			ev_pkts_coal = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-time") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			ev_usec_coal = atoi(argv[i + 1]);
+			i += 2;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
 		}
 	}
+	/* Check validity */
+	if (ev_pkts_coal > num_requests_before_deq)
+		ev_pkts_coal = num_requests_before_deq;
+
 	/* Print all inputs arguments */
 	printf("CIO match_str  : %s\n", sam_match_str);
 	printf("Tests file name: %s\n", sam_tests_file);
@@ -781,7 +848,11 @@ static int parse_args(int argc, char *argv[])
 	printf("Number per deq : %u\n", num_requests_per_deq);
 	printf("Debug flags    : 0x%x\n", debug_flags);
 	printf("src / dst bufs : %s\n", same_bufs ? "same" : "different");
-
+	printf("Wait mode      : %s\n", use_events ? "events" : "polling");
+	if (use_events) {
+		printf("Pkts coalesing : %u pkts\n", ev_pkts_coal);
+		printf("Time coalesing : %u usecs\n", ev_usec_coal);
+	}
 	return 0;
 }
 
