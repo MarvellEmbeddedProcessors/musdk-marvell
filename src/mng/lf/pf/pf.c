@@ -1871,6 +1871,33 @@ lcl_queue_error:
 }
 
 
+static int nic_pf_free_tc_queues(struct nic_pf *nic_pf, struct tc_params *tc, void *giu)
+{
+	struct db_q *db_q_p;
+	u32 q_idx;
+	int ret;
+
+	for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
+		db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
+		if (db_q_p != NULL) {
+			ret  = db_queue_reset(db_q_p->params.idx);
+			if (ret)
+				pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
+			mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
+
+			/* If needed, unregister the queue from GIU polling */
+			if (giu) {
+				ret = giu_remove_queue(giu, db_q_p->params.idx);
+				if (ret)
+					pr_err("Failed to remove queue Idx %x from GIU TX\n", db_q_p->params.idx);
+			}
+		}
+	}
+
+	return 0;
+}
+
+
 /*
  *	nic_pf_giu_gpio_init
  *
@@ -1938,7 +1965,6 @@ static int nic_pf_giu_gpio_init(struct nic_pf *nic_pf)
 			}
 		}
 	}
-
 
 	pr_info("Initializing Host Ingress TC queues\n");
 
@@ -2021,18 +2047,12 @@ host_eg_queue_error:
 	for (tc_idx = 0; tc_idx < q_top->host_eg_tcs_num; tc_idx++) {
 		tc = &(q_top->host_eg_tcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
-			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
-			if (db_q_p != NULL) {
-				ret  = db_queue_reset(db_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
-				ret = giu_remove_queue(nic_pf->giu.rx_giu, db_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to remove queue Idx %x from GIU RX\n", db_q_p->params.idx);
-			}
-		}
+		/* Free queue resources and registrations.
+		 * for Egress, also un-register from Tx GIU.
+		 */
+		ret = nic_pf_free_tc_queues(nic_pf, tc, nic_pf->giu.tx_giu);
+		if (ret)
+			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
 
 host_ing_queue_error:
@@ -2040,18 +2060,12 @@ host_ing_queue_error:
 	for (tc_idx = 0; tc_idx < q_top->host_ing_tcs_num; tc_idx++) {
 		tc = &(q_top->host_ing_tcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
-			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
-			if (db_q_p != NULL) {
-				ret  = db_queue_reset(db_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
-				ret = giu_remove_queue(nic_pf->giu.tx_giu, db_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to remove queue Idx %x from GIU RX\n", db_q_p->params.idx);
-			}
-		}
+		/* Free queue resources and registrations.
+		 * No need to unregister the Q from GIU as it's done on local side.
+		 */
+		ret = nic_pf_free_tc_queues(nic_pf, tc, 0);
+		if (ret)
+			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
 
 lcl_ing_queue_error:
@@ -2059,15 +2073,12 @@ lcl_ing_queue_error:
 	for (tc_idx = 0; tc_idx < q_top->lcl_ing_tcs_num; tc_idx++) {
 		tc = &(q_top->lcl_ing_tcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
-			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
-			if (db_q_p != NULL) {
-				ret  = db_queue_reset(db_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
-			}
-		}
+		/* Free queue resources and registrations.
+		 * for Ingress, also un-register from Rx GIU.
+		 */
+		ret = nic_pf_free_tc_queues(nic_pf, tc, nic_pf->giu.rx_giu);
+		if (ret)
+			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
 
 lcl_eg_queue_error:
@@ -2075,15 +2086,12 @@ lcl_eg_queue_error:
 	for (tc_idx = 0; tc_idx < q_top->lcl_eg_tcs_num; tc_idx++) {
 		tc = &(q_top->lcl_eg_tcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
-			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
-			if (db_q_p != NULL) {
-				ret  = db_queue_reset(db_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to free queue Idx %x\n", db_q_p->params.idx);
-				mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
-			}
-		}
+		/* Free queue resources and registrations.
+		 * No need to unregister the Q from GIU as it was done on remote side.
+		 */
+		ret = nic_pf_free_tc_queues(nic_pf, tc, 0);
+		if (ret)
+			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
 
 	return -1;
