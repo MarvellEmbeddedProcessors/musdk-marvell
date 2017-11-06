@@ -1832,7 +1832,7 @@ host_queue_error:
 	for (bm_idx = 0; bm_idx < q_top->host_bm_qs_num; bm_idx++) {
 		db_q_p = db_queue_get(q_top->host_bm_qs_idx[bm_idx]);
 		if (db_q_p != NULL) {
-			ret = giu_remove_bm_queue(nic_pf->giu.tx_giu, db_q_p->params.idx);
+			ret = giu_remove_bm_queue(nic_pf->giu.rx_giu, db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to remove queue Idx %x from GIU TX\n", db_q_p->params.idx);
 			ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
@@ -1842,7 +1842,7 @@ host_queue_error:
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", db_q_p->params.idx);
 
-			/* Reset the Queue entry in the SNIC-DB */
+			/* Reset the Queue DB entry */
 			db_queue_reset(db_q_p->params.idx);
 		}
 	}
@@ -1862,7 +1862,7 @@ lcl_queue_error:
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", db_q_p->params.idx);
 
-			/* Reset the Queue entry in the SNIC-DB */
+			/* Reset the Queue DB entry */
 			db_queue_reset(db_q_p->params.idx);
 		}
 	}
