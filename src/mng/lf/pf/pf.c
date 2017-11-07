@@ -1634,7 +1634,7 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 		goto ingress_queue_exit;
 	}
 
-	pr_debug("Host Ingress TC[%d], queue %d added and index %d\n", msg_tc, q->q_id, active_q_id);
+	pr_debug("Host Ingress TC[%d], queue %d added and index %d\n", msg_tc, q_id, active_q_id);
 
 	/* Update queue topology database */
 	tc->tc_queues_idx[active_q_id] = (u32)q_id;
@@ -1729,7 +1729,7 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 		goto egress_queue_exit;
 	}
 
-	pr_debug("Host Egress TC[%d], queue %d added and index %d\n", msg_tc, q->q_id, active_q_id);
+	pr_debug("Host Egress TC[%d], queue %d added and index %d\n", msg_tc, q_id, active_q_id);
 
 	/* Update queue topology database */
 	tc->tc_queues_idx[active_q_id] = (u32)q_id;
