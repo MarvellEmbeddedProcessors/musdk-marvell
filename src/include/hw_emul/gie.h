@@ -66,7 +66,7 @@ enum gie_desc_type {
  * @retval	handler to the emulator.
  *
  */
-struct gie *gie_init(void *gie_regs, int dma_id, char *name);
+int gie_init(struct gie_params *gie_pars, struct gie **gie);
 
 /**
  * Terminate the emulator.

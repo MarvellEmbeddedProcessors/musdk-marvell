@@ -312,35 +312,34 @@ static void gie_clean_dma_jobs(struct dma_info *dma);
  * the register base and the DMA engine from the caller.
  * The rest is initializations of local data structures
  */
-struct gie *gie_init(void *gie_pars, int dma_id, char *name)
+int gie_init(struct gie_params *gie_pars, struct gie **gie)
 {
 	struct dmax2_params dmax2_params;
 	struct dma_info *dma;
 	struct gie_regfile *gie_regs;
-	struct gie *gie;
-	char dma_name[16];
-	int err;
+	int err = 0;
 
-	pr_info("Initializing %s-giu instance\n", name);
+	pr_info("Initializing %s-giu instance\n", gie_pars->name_match);
 
-	gie = kcalloc(1, sizeof(struct gie), GFP_KERNEL);
-	if (gie == NULL)
-		return NULL;
+	/* allocate GIU emulator handler */
+	*gie = kcalloc(1, sizeof(struct gie), GFP_KERNEL);
+	if (*gie == NULL)
+		return -ENOMEM;
 
 	/* allocate pseudo regfile for the GIU emulator */
 	gie_regs = kcalloc(1, sizeof(struct gie_regfile), GFP_KERNEL);
 	if (gie_regs == NULL) {
-		kfree(gie);
-		return NULL;
+		kfree(*gie);
+		return -ENOMEM;
 	}
-	strncpy(gie->name, name, GIE_MAX_NAME);
-	dma = &gie->dma;
+
+	strncpy((*gie)->name, gie_pars->name_match, GIE_MAX_NAME);
+	dma = &((*gie)->dma);
 
 	/* Open a MUSDK DMAx2 channel */
-	sprintf(dma_name, "dmax2-%d", dma_id);
-	dmax2_params.match = dma_name;
+	dmax2_params.match = gie_pars->dmax_match;
 	dmax2_params.queue_size = DMAX2_BURST_SIZE;
-	err = dmax2_init(&dmax2_params, &dma->dmax2);
+	err = dmax2_init(&dmax2_params, &(dma->dmax2));
 	if (err) {
 		pr_err("Failed to initialize MUSDK dmax2\n");
 		goto init_error;
@@ -352,26 +351,29 @@ struct gie *gie_init(void *gie_pars, int dma_id, char *name)
 		goto attr_error;
 	}
 
-	gie_regs->gct_base  = ((struct gie_params *)gie_pars)->gct_base;
-	gie_regs->gpt_base  = ((struct gie_params *)gie_pars)->gpt_base;
-	gie_regs->gncs_base = ((struct gie_params *)gie_pars)->gncs_base;
-	gie_regs->gnps_base = ((struct gie_params *)gie_pars)->gnps_base;
-	gie_regs->msi_base  = ((struct gie_params *)gie_pars)->msi_base;
-	gie_regs->msix_base = ((struct gie_params *)gie_pars)->msix_base;
+	gie_regs->gct_base  = gie_pars->gct_base;
+	gie_regs->gpt_base  = gie_pars->gpt_base;
+	gie_regs->gncs_base = gie_pars->gncs_base;
+	gie_regs->gnps_base = gie_pars->gnps_base;
+	gie_regs->msi_base  = gie_pars->msi_base;
+	gie_regs->msix_base = gie_pars->msix_base;
 
-	gie->regs = gie_regs;
+	(*gie)->regs = gie_regs;
 
 	/* reset the dma job queue */
 	dma->job_tail = dma->job_head = 0;
 	dma->job_qlen = GIE_MAX_DMA_JOBS;
 
-	return gie;
+	return 0;
 
 attr_error:
 	dmax2_deinit(dma->dmax2);
+
 init_error:
-	kfree(gie);
-	return NULL;
+	kfree(*gie);
+	kfree(gie_regs);
+
+	return err;
 }
 
 /* Close the GIU emulator device.
@@ -398,9 +400,12 @@ int gie_terminate(struct gie *gie)
 	if (ret)
 		pr_warn("Failed to close MUSDK DMA channel\n");
 
+	kfree(gie->regs);
+
 	kfree(gie);
 	return ret;
 }
+
 
 void *gie_regs(void *giu)
 {

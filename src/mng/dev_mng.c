@@ -234,6 +234,8 @@ static int dev_mng_mqa_init(struct nmp_dev *dev)
 static int dev_mng_init_gie(struct nmp_dev *dev)
 {
 	struct gie_params gie_pars;
+	char dma_name[16];
+	int ret;
 
 	/* Initialize the management GIU instance */
 	pr_info("Initializing GIU devices\n");
@@ -247,20 +249,33 @@ static int dev_mng_init_gie(struct nmp_dev *dev)
 	gie_pars.msi_base = 0;
 	gie_pars.msix_base = 0;
 
-	dev->nic_pf.gie.mng_gie = gie_init(&gie_pars, 0, "mng");
-	if (!dev->nic_pf.gie.mng_gie) {
+
+	sprintf(dma_name, "dmax2-%d", 0);
+	gie_pars.dmax_match = dma_name;
+	gie_pars.name_match = (char *)"mng";
+
+	ret = gie_init(&gie_pars, &(dev->nic_pf.gie.mng_gie));
+	if (ret) {
 		pr_err("Failed to initialize management GIU\n");
 		return -ENODEV;
 	}
 
-	dev->nic_pf.gie.rx_gie = gie_init(&gie_pars, 1, "rx");
-	if (!dev->nic_pf.gie.rx_gie) {
+	sprintf(dma_name, "dmax2-%d", 1);
+	gie_pars.dmax_match = dma_name;
+	gie_pars.name_match = (char *)"rx";
+
+	ret = gie_init(&gie_pars, &(dev->nic_pf.gie.rx_gie));
+	if (ret) {
 		pr_err("Failed to initialize RX GIU\n");
 		goto error;
 	}
 
-	dev->nic_pf.gie.tx_gie = gie_init(&gie_pars, 2, "tx");
-	if (!dev->nic_pf.gie.tx_gie) {
+	sprintf(dma_name, "dmax2-%d", 2);
+	gie_pars.dmax_match = dma_name;
+	gie_pars.name_match = (char *)"tx";
+
+	ret = gie_init(&gie_pars, &(dev->nic_pf.gie.tx_gie));
+	if (ret) {
 		pr_err("Failed to initialize TX GIU\n");
 		goto error;
 	}
