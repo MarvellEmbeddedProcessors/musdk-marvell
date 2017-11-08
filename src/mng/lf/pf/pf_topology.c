@@ -39,29 +39,29 @@
 #include "pf.h"
 #include "pf_topology.h"
 
-int pf_topology_init(void)
+int pf_topology_init(struct nmp *nmp)
 {
 	int ret;
 
 	/* Retrieve PF profile information */
-	ret = profile_load(&dev.nic_pf.profile_data);
+	ret = profile_load(&nmp->nic_pf.profile_data);
 	if (ret)
 		return ret;
 
 	/* Initialize the NIC-PF */
-	ret = nic_pf_init(&dev.nic_pf);
+	ret = nic_pf_init(&nmp->nic_pf);
 	if (ret)
 		return ret;
 
 	return 0;
 }
 
-int pf_topology_terminate(void)
+int pf_topology_terminate(struct nmp *nmp)
 {
 	int ret;
 
 	/* Initialize the NIC-PF */
-	ret = nic_pf_terminate(&dev.nic_pf);
+	ret = nic_pf_terminate(&nmp->nic_pf);
 	if (ret)
 		return ret;
 

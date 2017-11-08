@@ -38,6 +38,7 @@
 #include "mng/dispatch.h"
 #include "config.h"
 
+static struct nmp *nmp;
 
 int nmp_init(void)
 {
@@ -45,10 +46,15 @@ int nmp_init(void)
 
 	pr_info("Starting %s %s\n", "giu_main", VERSION);
 
+	nmp = kcalloc(1, sizeof(struct nmp), GFP_KERNEL);
+	if (nmp == NULL)
+		return -ENOMEM;
+
 	/* Initialize the device management */
-	ret = dev_mng_init();
+	ret = dev_mng_init(nmp);
 	if (ret) {
 		pr_err("Management init failed with error %d\n", ret);
+		kfree(nmp);
 		exit(ret);
 	}
 
@@ -59,10 +65,10 @@ int nmp_init(void)
 
 int nmp_schedule(void)
 {
-	gie_schedule(dev.nic_pf.gie.mng_gie, 0, 1);
-	gie_schedule(dev.nic_pf.gie.rx_gie, 0, 1);
-	gie_schedule(dev.nic_pf.gie.tx_gie, 0, 1);
-	nmdisp_dispatch(dev.nmdisp);
+	gie_schedule(nmp->nic_pf.gie.mng_gie, 0, 1);
+	gie_schedule(nmp->nic_pf.gie.rx_gie, 0, 1);
+	gie_schedule(nmp->nic_pf.gie.tx_gie, 0, 1);
+	nmdisp_dispatch(nmp->nmdisp);
 
 	return 0;
 }

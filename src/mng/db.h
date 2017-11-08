@@ -118,20 +118,18 @@ struct nic_pf {
  *  giu		stores GIU related data
  *  mqa_global	MQA tables parameters
  */
-struct nmp_dev {
+struct nmp {
 	struct nic_pf nic_pf;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
 };
-
-extern struct nmp_dev dev;
 
 struct db_q {
 	struct mqa_queue_params params;
 	struct mqa_q *q;
 };
 
-int db_init(void);
+int db_init(struct nmp *nmp);
 int db_tc_init(u32 tc_type, u32 tc_num, u32 q_num);
 int db_tc_free(u32 tc_type, u32 tc_num);
 int db_bm_init(u32 bm_type, u32 bm_num);

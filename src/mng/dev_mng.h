@@ -33,8 +33,7 @@
 #ifndef _DEV_MNG_H
 #define _DEV_MNG_H
 
-int dev_mng_init(void);
-int dev_mng_terminate(void);
-
+int dev_mng_init(struct nmp *nmp);
+int dev_mng_terminate(struct nmp *nmp);
 
 #endif /* _DEV_MNG_H */

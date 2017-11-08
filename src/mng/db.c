@@ -36,14 +36,15 @@
 #include "env/trace/trc_pf.h"
 #include "db.h"
 
-struct nmp_dev dev;
-struct nic_pf *nic_pf = &(dev.nic_pf);
+struct nic_pf *nic_pf;
 struct db_q *pf_giu_queue_table;
 
 
-int db_init(void)
+int db_init(struct nmp *nmp)
 {
 	u32 q_idx;
+
+	nic_pf = &(nmp->nic_pf);
 
 	/* Allocate queue batabase */
 	pf_giu_queue_table = kmalloc((MQA_QUEUE_MAX * (sizeof(struct db_q))), GFP_KERNEL);

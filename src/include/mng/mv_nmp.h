@@ -41,6 +41,8 @@
  *  @{
  */
 
+/* nmp handler declaration */
+struct nmp;
 
 /**
  *	Initialize the NMP.
