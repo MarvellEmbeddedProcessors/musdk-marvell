@@ -34,7 +34,7 @@
 
 #include "std_internal.h"
 #include "env/trace/trc_pf.h"
-#include "drivers/giu_internal.h"
+#include "hw_emul/gie.h"
 #include "drivers/mv_mqa.h"
 #include "db.h"
 #include "lf/pf/pf.h"
@@ -230,37 +230,37 @@ static int dev_mng_mqa_init(struct nmp_dev *dev)
 }
 
 
-/* Initialize the management, TX, and RX giu instances */
-static int dev_mng_init_giu(struct nmp_dev *dev)
+/* Initialize the management, TX, and RX gie instances */
+static int dev_mng_init_gie(struct nmp_dev *dev)
 {
-	struct giu_params giu_pars;
+	struct gie_params gie_pars;
 
 	/* Initialize the management GIU instance */
 	pr_info("Initializing GIU devices\n");
 
-	giu_pars.gct_base = (u64)dev->nic_pf.mqa->qct_base;
-	giu_pars.gpt_base = (u64)dev->nic_pf.mqa->qpt_base;
-	giu_pars.gncs_base = (u64)dev->nic_pf.mqa->qnct_base;
-	giu_pars.gnps_base = (u64)dev->nic_pf.mqa->qnpt_base;
+	gie_pars.gct_base = (u64)dev->nic_pf.mqa->qct_base;
+	gie_pars.gpt_base = (u64)dev->nic_pf.mqa->qpt_base;
+	gie_pars.gncs_base = (u64)dev->nic_pf.mqa->qnct_base;
+	gie_pars.gnps_base = (u64)dev->nic_pf.mqa->qnpt_base;
 
 	/* TODO - setup the MSI/MSI-X tables */
-	giu_pars.msi_base = 0;
-	giu_pars.msix_base = 0;
+	gie_pars.msi_base = 0;
+	gie_pars.msix_base = 0;
 
-	dev->nic_pf.giu.mng_giu = giu_open(&giu_pars, "mng");
-	if (!dev->nic_pf.giu.mng_giu) {
+	dev->nic_pf.gie.mng_gie = gie_init(&gie_pars, 0, "mng");
+	if (!dev->nic_pf.gie.mng_gie) {
 		pr_err("Failed to initialize management GIU\n");
 		return -ENODEV;
 	}
 
-	dev->nic_pf.giu.rx_giu = giu_open(&giu_pars, "rx");
-	if (!dev->nic_pf.giu.rx_giu) {
+	dev->nic_pf.gie.rx_gie = gie_init(&gie_pars, 1, "rx");
+	if (!dev->nic_pf.gie.rx_gie) {
 		pr_err("Failed to initialize RX GIU\n");
 		goto error;
 	}
 
-	dev->nic_pf.giu.tx_giu = giu_open(&giu_pars, "tx");
-	if (!dev->nic_pf.giu.tx_giu) {
+	dev->nic_pf.gie.tx_gie = gie_init(&gie_pars, 2, "tx");
+	if (!dev->nic_pf.gie.tx_gie) {
 		pr_err("Failed to initialize TX GIU\n");
 		goto error;
 	}
@@ -268,9 +268,9 @@ static int dev_mng_init_giu(struct nmp_dev *dev)
 	return 0;
 
 error:
-	giu_close(dev->nic_pf.giu.mng_giu);
-	if (dev->nic_pf.giu.rx_giu)
-		giu_close(dev->nic_pf.giu.rx_giu);
+	gie_terminate(dev->nic_pf.gie.mng_gie);
+	if (dev->nic_pf.gie.rx_gie)
+		gie_terminate(dev->nic_pf.gie.rx_gie);
 
 	return -ENODEV;
 }
@@ -306,7 +306,7 @@ static int dev_mng_hw_init(void)
 	if (ret)
 		return ret;
 
-	ret = dev_mng_init_giu(&dev);
+	ret = dev_mng_init_gie(&dev);
 	if (ret)
 		return ret;
 
@@ -376,15 +376,15 @@ static int dev_mng_terminate_giu(struct nmp_dev *dev)
 {
 	int ret;
 
-	ret = giu_close(dev->nic_pf.giu.mng_giu);
+	ret = gie_terminate(dev->nic_pf.gie.mng_gie);
 	if (ret)
 		pr_warn("Failed to close management GIU\n");
 
-	ret = giu_close(dev->nic_pf.giu.rx_giu);
+	ret = gie_terminate(dev->nic_pf.gie.rx_gie);
 	if (ret)
 		pr_warn("Failed to close RX GIU\n");
 
-	ret = giu_close(dev->nic_pf.giu.tx_giu);
+	ret = gie_terminate(dev->nic_pf.gie.tx_gie);
 	if (ret)
 		pr_warn("Failed to close TX GIU\n");
 

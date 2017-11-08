@@ -54,6 +54,18 @@
 
 #define GIE_MAX_QID		(UINT16_MAX + 1)
 
+
+struct gie_regfile {
+	u32	ctrl;
+	u32	status;
+	u64	gct_base;
+	u64	gpt_base;
+	u64	gncs_base;
+	u64	gnps_base;
+	u64	msi_base;
+	u64	msix_base;
+};
+
 /* This structure describes a queue from the GIE perspective
  * it may be used for buffer pool queues and data queues alike
  * some of the members are copied from the QCE .This is done to
@@ -300,10 +312,11 @@ static void gie_clean_dma_jobs(struct dma_info *dma);
  * the register base and the DMA engine from the caller.
  * The rest is initializations of local data structures
  */
-void *gie_init(void *gie_regs, int dma_id, char *name)
+struct gie *gie_init(void *gie_pars, int dma_id, char *name)
 {
 	struct dmax2_params dmax2_params;
 	struct dma_info *dma;
+	struct gie_regfile *gie_regs;
 	struct gie *gie;
 	char dma_name[16];
 	int err;
@@ -314,6 +327,12 @@ void *gie_init(void *gie_regs, int dma_id, char *name)
 	if (gie == NULL)
 		return NULL;
 
+	/* allocate pseudo regfile for the GIU emulator */
+	gie_regs = kcalloc(1, sizeof(struct gie_regfile), GFP_KERNEL);
+	if (gie_regs == NULL) {
+		kfree(gie);
+		return NULL;
+	}
 	strncpy(gie->name, name, GIE_MAX_NAME);
 	dma = &gie->dma;
 
@@ -333,7 +352,14 @@ void *gie_init(void *gie_regs, int dma_id, char *name)
 		goto attr_error;
 	}
 
-	gie->regs = (struct gie_regfile *)gie_regs;
+	gie_regs->gct_base  = ((struct gie_params *)gie_pars)->gct_base;
+	gie_regs->gpt_base  = ((struct gie_params *)gie_pars)->gpt_base;
+	gie_regs->gncs_base = ((struct gie_params *)gie_pars)->gncs_base;
+	gie_regs->gnps_base = ((struct gie_params *)gie_pars)->gnps_base;
+	gie_regs->msi_base  = ((struct gie_params *)gie_pars)->msi_base;
+	gie_regs->msix_base = ((struct gie_params *)gie_pars)->msix_base;
+
+	gie->regs = gie_regs;
 
 	/* reset the dma job queue */
 	dma->job_tail = dma->job_head = 0;
@@ -352,9 +378,8 @@ init_error:
  * At this point we assume that there is no active traffic.
  * We basically Close the MUSDK DMAx2 channel and free memory
  */
-int gie_terminate(void *giu)
+int gie_terminate(struct gie *gie)
 {
-	struct gie *gie = (struct gie *)giu;
 	int ret;
 
 	pr_info("Terminating %s-giu instance\n", gie->name);

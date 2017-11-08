@@ -85,14 +85,14 @@ struct pci_plat_func_map {
 };
 
 
-/* Structure containing all the GIU related data
+/* Structure containing all the GIE related data
  *
- *  mng/rx/tx_giu	GIU device handles
+ *  mng/rx/tx_gie	GIE device handles
  */
-struct giu_data {
-	void *mng_giu;
-	void *rx_giu;
-	void *tx_giu;
+struct gie_data {
+	struct gie *mng_gie;
+	struct gie *rx_gie;
+	struct gie *tx_gie;
 };
 
 
@@ -102,7 +102,7 @@ struct giu_data {
  */
 struct nic_pf {
 	int pf_id;
-	struct giu_data giu;
+	struct gie_data gie;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
 	struct pci_plat_func_map map;

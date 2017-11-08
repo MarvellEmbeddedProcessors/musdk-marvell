@@ -34,7 +34,7 @@
 #include "mng/mv_nmp.h"
 #include "db.h"
 #include "dev_mng.h"
-#include "drivers/giu_internal.h"
+#include "hw_emul/gie.h"
 #include "mng/dispatch.h"
 #include "config.h"
 
@@ -57,19 +57,11 @@ int nmp_init(void)
 	return 0;
 }
 
-
 int nmp_schedule(void)
 {
-	/* Schedule management traffic */
-	giu_schedule(dev.nic_pf.giu.mng_giu, 0, 1);
-
-	/* Schedule ingress data traffic */
-	giu_schedule(dev.nic_pf.giu.rx_giu, 0, 1);
-
-	/* Schedule egress data traffic */
-	giu_schedule(dev.nic_pf.giu.tx_giu, 0, 1);
-
-	/* Schedule dispatcher execution */
+	gie_schedule(dev.nic_pf.gie.mng_gie, 0, 1);
+	gie_schedule(dev.nic_pf.gie.rx_gie, 0, 1);
+	gie_schedule(dev.nic_pf.gie.tx_gie, 0, 1);
 	nmdisp_dispatch(dev.nmdisp);
 
 	return 0;

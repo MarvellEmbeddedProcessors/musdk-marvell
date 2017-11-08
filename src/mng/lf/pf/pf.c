@@ -34,7 +34,6 @@
 
 #include "std_internal.h"
 #include "hw_emul/gie.h"
-#include "drivers/giu_internal.h"
 #include "drivers/mv_mqa_queue.h"
 #include "pf_mng_cmd_desc.h"
 #include "mng/db.h"
@@ -1039,10 +1038,10 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 	/* ================== */
 
 	/* Register Command channel */
-	giu_add_queue(nic_pf->giu.mng_giu, remote_cmd_queue, 1);
+	gie_add_queue(nic_pf->gie.mng_gie, remote_cmd_queue, 1);
 
 	/* Register Notification channel */
-	giu_add_queue(nic_pf->giu.mng_giu, local_notify_queue, 0);
+	gie_add_queue(nic_pf->gie.mng_gie, local_notify_queue, 0);
 
 
 	/* Device Ready */
@@ -1794,7 +1793,7 @@ static int nic_pf_giu_bpool_init(struct nic_pf *nic_pf)
 		}
 
 		/* Register Local BM Queue to GIU */
-		ret = giu_add_bm_queue(nic_pf->giu.tx_giu, db_q_p->params.idx, prof->lcl_bm_buf_size, GIU_LCL_Q_IND);
+		ret = gie_add_bm_queue(nic_pf->gie.tx_gie, db_q_p->params.idx, prof->lcl_bm_buf_size, GIU_LCL_Q_IND);
 		if (ret) {
 			pr_err("Failed to register BM Queue %d to GIU\n", db_q_p->params.idx);
 			goto lcl_queue_error;
@@ -1817,7 +1816,7 @@ static int nic_pf_giu_bpool_init(struct nic_pf *nic_pf)
 		}
 
 		/* Register Host BM Queue to GIU */
-		ret = giu_add_bm_queue(nic_pf->giu.rx_giu, db_q_p->params.idx, db_q_p->params.size, GIU_REM_Q_IND);
+		ret = gie_add_bm_queue(nic_pf->gie.rx_gie, db_q_p->params.idx, db_q_p->params.size, GIU_REM_Q_IND);
 		if (ret) {
 			pr_err("Failed to register BM Queue %d to GIU\n", db_q_p->params.idx);
 			goto host_queue_error;
@@ -1832,7 +1831,7 @@ host_queue_error:
 	for (bm_idx = 0; bm_idx < q_top->host_bm_qs_num; bm_idx++) {
 		db_q_p = db_queue_get(q_top->host_bm_qs_idx[bm_idx]);
 		if (db_q_p != NULL) {
-			ret = giu_remove_bm_queue(nic_pf->giu.rx_giu, db_q_p->params.idx);
+			ret = gie_remove_bm_queue(nic_pf->gie.rx_gie, db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to remove queue Idx %x from GIU TX\n", db_q_p->params.idx);
 			ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
@@ -1852,7 +1851,7 @@ lcl_queue_error:
 	for (bm_idx = 0; bm_idx < q_top->lcl_bm_qs_num; bm_idx++) {
 		db_q_p = db_queue_get(q_top->lcl_bm_qs_idx[bm_idx]);
 		if (db_q_p != NULL) {
-			ret = giu_remove_bm_queue(nic_pf->giu.tx_giu, db_q_p->params.idx);
+			ret = gie_remove_bm_queue(nic_pf->gie.tx_gie, db_q_p->params.idx);
 			if (ret)
 				pr_err("Failed to remove queue Idx %x from GIU TX\n", db_q_p->params.idx);
 			ret = mqa_queue_destroy(nic_pf->mqa, db_q_p->q);
@@ -1871,7 +1870,7 @@ lcl_queue_error:
 }
 
 
-static int nic_pf_free_tc_queues(struct nic_pf *nic_pf, struct tc_params *tc, void *giu)
+static int nic_pf_free_tc_queues(struct nic_pf *nic_pf, struct tc_params *tc, void *gie)
 {
 	struct db_q *db_q_p;
 	u32 q_idx;
@@ -1886,8 +1885,8 @@ static int nic_pf_free_tc_queues(struct nic_pf *nic_pf, struct tc_params *tc, vo
 			mqa_queue_free(nic_pf->mqa, (u32)db_q_p->params.idx);
 
 			/* If needed, unregister the queue from GIU polling */
-			if (giu) {
-				ret = giu_remove_queue(giu, db_q_p->params.idx);
+			if (gie) {
+				ret = gie_remove_queue(gie, db_q_p->params.idx);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x from GIU TX\n", db_q_p->params.idx);
 			}
@@ -1993,7 +1992,7 @@ static int nic_pf_giu_gpio_init(struct nic_pf *nic_pf)
 					goto host_ing_queue_error;
 				}
 
-				ret = giu_add_queue(nic_pf->giu.rx_giu, pair_qid, GIU_LCL_Q_IND);
+				ret = gie_add_queue(nic_pf->gie.rx_gie, pair_qid, GIU_LCL_Q_IND);
 				if (ret) {
 					pr_err("Failed to register Host Egress Queue %d to GIU\n", db_q_p->params.idx);
 					goto host_ing_queue_error;
@@ -2031,7 +2030,7 @@ static int nic_pf_giu_gpio_init(struct nic_pf *nic_pf)
 				}
 
 				/* Register Host Egress Queue to GIU */
-				ret = giu_add_queue(nic_pf->giu.tx_giu, db_q_p->params.idx, GIU_REM_Q_IND);
+				ret = gie_add_queue(nic_pf->gie.tx_gie, db_q_p->params.idx, GIU_REM_Q_IND);
 				if (ret) {
 					pr_err("Failed to register Host Egress Queue %d to GIU\n", db_q_p->params.idx);
 					goto host_eg_queue_error;
@@ -2050,7 +2049,7 @@ host_eg_queue_error:
 		/* Free queue resources and registrations.
 		 * for Egress, also un-register from Tx GIU.
 		 */
-		ret = nic_pf_free_tc_queues(nic_pf, tc, nic_pf->giu.tx_giu);
+		ret = nic_pf_free_tc_queues(nic_pf, tc, nic_pf->gie.tx_gie);
 		if (ret)
 			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
@@ -2076,7 +2075,7 @@ lcl_ing_queue_error:
 		/* Free queue resources and registrations.
 		 * for Ingress, also un-register from Rx GIU.
 		 */
-		ret = nic_pf_free_tc_queues(nic_pf, tc, nic_pf->giu.rx_giu);
+		ret = nic_pf_free_tc_queues(nic_pf, tc, nic_pf->gie.rx_gie);
 		if (ret)
 			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}

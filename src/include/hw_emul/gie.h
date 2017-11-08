@@ -35,15 +35,18 @@
 
 #include "mv_std.h"
 
-struct gie_regfile {
-	u32	ctrl;
-	u32	status;
-	u64	gct_base;
-	u64	gpt_base;
-	u64	gncs_base;
-	u64	gnps_base;
-	u64	msi_base;
-	u64	msix_base;
+struct gie;
+
+struct gie_params {
+	u64 gct_base;
+	u64 gpt_base;
+	u64 gncs_base;
+	u64 gnps_base;
+	u64 msi_base;
+	u64 msix_base;
+
+	char *name_match;
+	char *dmax_match;
 };
 
 enum gie_desc_type {
@@ -63,7 +66,7 @@ enum gie_desc_type {
  * @retval	handler to the emulator.
  *
  */
-void *gie_init(void *gie_regs, int dma_id, char *name);
+struct gie *gie_init(void *gie_regs, int dma_id, char *name);
 
 /**
  * Terminate the emulator.
@@ -74,7 +77,7 @@ void *gie_init(void *gie_regs, int dma_id, char *name);
  * @retval	<0 on failure
  *
  */
-int gie_terminate(void *gie);
+int gie_terminate(struct gie *gie);
 
 /**
  * Return the GIE registers.
