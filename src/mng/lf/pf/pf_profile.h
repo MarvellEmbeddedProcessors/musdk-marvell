@@ -62,7 +62,5 @@ struct pf_profile {
 
 };
 
-int profile_load(struct pf_profile *profile_data);
-
 #endif /* _PF_PROFILE_H */
 

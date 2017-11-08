@@ -50,6 +50,14 @@ int nmp_init(void)
 	if (nmp == NULL)
 		return -ENOMEM;
 
+	nmp->nic_pf.profile_data.lcl_egress_q_num   = 1;
+	nmp->nic_pf.profile_data.lcl_egress_q_size  = 2048;
+	nmp->nic_pf.profile_data.lcl_ingress_q_num  = 1;
+	nmp->nic_pf.profile_data.lcl_ingress_q_size = 2048;
+	nmp->nic_pf.profile_data.lcl_bm_q_num       = 1;
+	nmp->nic_pf.profile_data.lcl_bm_q_size      = 2048;
+	nmp->nic_pf.profile_data.lcl_bm_buf_size    = 2048;
+
 	/* Initialize the device management */
 	ret = dev_mng_init(nmp);
 	if (ret) {

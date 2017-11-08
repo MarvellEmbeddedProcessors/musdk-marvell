@@ -35,18 +35,12 @@
 #include "std_internal.h"
 #include "env/trace/trc_pf.h"
 #include "mng/db.h"
-#include "pf_profile.h"
 #include "pf.h"
 #include "pf_topology.h"
 
 int pf_topology_init(struct nmp *nmp)
 {
 	int ret;
-
-	/* Retrieve PF profile information */
-	ret = profile_load(&nmp->nic_pf.profile_data);
-	if (ret)
-		return ret;
 
 	/* Initialize the NIC-PF */
 	ret = nic_pf_init(&nmp->nic_pf);
