@@ -116,6 +116,7 @@ struct glob_arg {
 	pthread_mutex_t			 trd_lock;
 
 	struct giu_gpio			*giu_gpio;
+	struct nmp			*nmp;
 };
 
 struct local_arg {
@@ -705,6 +706,34 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 	return 0;
 }
 
+static int nmp_preinit(struct nmp_params *params)
+{
+	/* NMP initializations */
+	params->lfs_params = kcalloc(1, sizeof(union nmp_lf_params), GFP_KERNEL);
+	if (params->lfs_params == NULL)
+		return -1;
+
+	/* nmp profile parameters */
+	params->lfs_params->pf.lcl_egress_q_num   = 1;
+	params->lfs_params->pf.lcl_egress_q_size  = 2048;
+	params->lfs_params->pf.lcl_ingress_q_num  = 1;
+	params->lfs_params->pf.lcl_ingress_q_size = 2048;
+	params->lfs_params->pf.lcl_bm_q_num       = 1;
+	params->lfs_params->pf.lcl_bm_q_size      = 2048;
+	params->lfs_params->pf.lcl_bm_buf_size    = 2048;
+
+	return 0;
+}
+
+static void nmp_schedule_all(struct nmp *nmp)
+{
+	/* nmp gir instances schedule */
+	nmp_schedule(nmp, NMP_SCHED_MNG);
+	nmp_schedule(nmp, NMP_SCHED_RX);
+	nmp_schedule(nmp, NMP_SCHED_TX);
+}
+
+
 static int loop_2ps(struct local_arg *larg, int *running)
 {
 	int			 err = 0;
@@ -719,7 +748,10 @@ static int loop_2ps(struct local_arg *larg, int *running)
 
 	num = larg->cmn_args.burst;
 	while (*running) {
-		nmp_schedule();
+
+		/* Schedule GIE execution */
+		nmp_schedule_all(garg.nmp);
+
 		/* Find next queue to consume */
 #if 0 /* TODO: enable this code to support multi tc/queue */
 		do {
@@ -774,7 +806,9 @@ static int wait_for_pf_init_done(void)
 
 	/* wait for regfile to be opened by NMP */
 	do {
-		nmp_schedule();
+		/* Schedule GIE execution */
+		nmp_schedule_all(garg.nmp);
+
 		fd = open(file_name, O_RDWR);
 		if (fd > 0) {
 			close(fd);
@@ -790,7 +824,9 @@ static int wait_for_pf_init_done(void)
 	}
 
 	/* Make sure that last command response is sent to host. */
-	nmp_schedule();
+
+	/* Schedule GIE execution */
+	nmp_schedule_all(garg.nmp);
 
 	return 0;
 }
@@ -799,9 +835,10 @@ static int init_all_modules(void)
 {
 	struct pp2_init_params	 pp2_params;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
-	int			 err;
-	char			 file[PP2_MAX_BUF_STR_LEN];
-	int			 num_rss_tables = 0;
+	int			err;
+	char			file[PP2_MAX_BUF_STR_LEN];
+	int			num_rss_tables = 0;
+	struct			nmp_params nmp_params;
 
 	pr_info("Global initializations ...\n");
 	err = mv_sys_dma_mem_init(PKT_ECHO_APP_DMA_MEM_SIZE);
@@ -809,7 +846,11 @@ static int init_all_modules(void)
 		return err;
 
 	/* NMP initializations */
-	nmp_init();
+	if (nmp_preinit(&nmp_params)) {
+		pr_err("NMP init failed.\n");
+		return -EFAULT;
+	}
+	nmp_init(&nmp_params, &(garg.nmp));
 
 	/* PP2 initializations */
 	memset(&pp2_params, 0, sizeof(pp2_params));
@@ -1374,3 +1415,4 @@ int main(int argc, char *argv[])
 
 	return mvapp_go(&mvapp_params);
 }
+

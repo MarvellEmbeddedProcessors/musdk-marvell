@@ -38,28 +38,27 @@
 #include "mng/dispatch.h"
 #include "config.h"
 
-static struct nmp *nmp;
-
-int nmp_init(void)
+int nmp_init(struct nmp_params *params, struct nmp **nmp)
 {
 	int ret;
 
 	pr_info("Starting %s %s\n", "giu_main", VERSION);
 
-	nmp = kcalloc(1, sizeof(struct nmp), GFP_KERNEL);
-	if (nmp == NULL)
+	*nmp = kcalloc(1, sizeof(struct nmp), GFP_KERNEL);
+	if (*nmp == NULL) {
+		pr_err("Failed to allocate NMP handler\n");
 		return -ENOMEM;
+	}
 
-	nmp->nic_pf.profile_data.lcl_egress_q_num   = 1;
-	nmp->nic_pf.profile_data.lcl_egress_q_size  = 2048;
-	nmp->nic_pf.profile_data.lcl_ingress_q_num  = 1;
-	nmp->nic_pf.profile_data.lcl_ingress_q_size = 2048;
-	nmp->nic_pf.profile_data.lcl_bm_q_num       = 1;
-	nmp->nic_pf.profile_data.lcl_bm_q_size      = 2048;
-	nmp->nic_pf.profile_data.lcl_bm_buf_size    = 2048;
+	(*nmp)->nic_pf.profile_data.lcl_egress_q_num   = params->lfs_params->pf.lcl_egress_q_num;
+	(*nmp)->nic_pf.profile_data.lcl_egress_q_size  = params->lfs_params->pf.lcl_egress_q_size;
+	(*nmp)->nic_pf.profile_data.lcl_ingress_q_num  = params->lfs_params->pf.lcl_ingress_q_num;
+	(*nmp)->nic_pf.profile_data.lcl_ingress_q_size = params->lfs_params->pf.lcl_ingress_q_size;
+	(*nmp)->nic_pf.profile_data.lcl_bm_q_num       = params->lfs_params->pf.lcl_bm_q_num;
+	(*nmp)->nic_pf.profile_data.lcl_bm_q_size      = params->lfs_params->pf.lcl_bm_q_size;
+	(*nmp)->nic_pf.profile_data.lcl_bm_buf_size    = params->lfs_params->pf.lcl_bm_buf_size;
 
-	/* Initialize the device management */
-	ret = dev_mng_init(nmp);
+	ret = dev_mng_init(*nmp);
 	if (ret) {
 		pr_err("Management init failed with error %d\n", ret);
 		kfree(nmp);
@@ -71,13 +70,23 @@ int nmp_init(void)
 	return 0;
 }
 
-int nmp_schedule(void)
+int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
 {
-	gie_schedule(nmp->nic_pf.gie.mng_gie, 0, 1);
-	gie_schedule(nmp->nic_pf.gie.rx_gie, 0, 1);
-	gie_schedule(nmp->nic_pf.gie.tx_gie, 0, 1);
-	nmdisp_dispatch(nmp->nmdisp);
+	switch (type) {
 
+	case NMP_SCHED_MNG:
+		gie_schedule(nmp->nic_pf.gie.mng_gie, 0, 1);
+		nmdisp_dispatch(nmp->nmdisp);
+		break;
+
+	case NMP_SCHED_RX:
+		gie_schedule(nmp->nic_pf.gie.rx_gie, 0, 1);
+		break;
+
+	case NMP_SCHED_TX:
+		gie_schedule(nmp->nic_pf.gie.tx_gie, 0, 1);
+		break;
+	}
 	return 0;
 }
 

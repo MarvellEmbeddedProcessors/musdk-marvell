@@ -44,13 +44,53 @@
 /* nmp handler declaration */
 struct nmp;
 
+/* nmp parameters definition */
+
+/* nmp logical functional type */
+enum nmp_lf_type {
+	NMP_LF_T_NONE = 0,
+	NMP_LF_T_PF,
+	NMP_LF_T_VF,
+	NMP_LF_T_LAST,
+};
+
+/* nmp scheduling options */
+enum nmp_sched_type {
+	NMP_SCHED_RX = 0,
+	NMP_SCHED_TX,
+	NMP_SCHED_MNG
+};
+
+/* nmp PF parameters */
+struct nmp_lf_pf_params {
+	enum nmp_lf_type type;
+	int  pci_en;
+	int  lcl_egress_q_num;
+	int  lcl_egress_q_size;
+	int  lcl_ingress_q_num;
+	int  lcl_ingress_q_size;
+	int  lcl_bm_q_num;
+	int  lcl_bm_q_size;
+	int  lcl_bm_buf_size;
+};
+
+/* nmp union for logical functions types */
+union nmp_lf_params {
+	struct nmp_lf_pf_params pf;
+};
+
+struct nmp_params {
+	u8     num_lfs;
+	union nmp_lf_params *lfs_params;
+};
+
 /**
  *	Initialize the NMP.
  *
  *	@retval	0 on success
  *	@retval	<0 on failure
  */
-int nmp_init(void);
+int nmp_init(struct nmp_params *params, struct nmp **nmp);
 
 /**
  *	Start NMP scheduling.
@@ -58,7 +98,7 @@ int nmp_init(void);
  *	@retval	0 on success
  *	@retval	<0 on failure
  */
-int nmp_schedule(void);
+int nmp_schedule(struct nmp *nmp, enum nmp_sched_type);
 
 /** @} */ /* end of grp_nmp_init */
 
