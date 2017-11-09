@@ -525,6 +525,22 @@ db_error:
 
 
 /*
+ *	nic_pf_db_local_tc_free
+ *
+ *	This function frees the local TC resources in DB
+ */
+static void nic_pf_db_local_tc_free(struct nic_pf *nic_pf)
+{
+	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+
+	pr_debug("Free Local queues DB\n");
+	db_tc_free(DB_LCL_EG_TC, q_top->lcl_eg_tcs_num);
+	db_tc_free(DB_LCL_ING_TC, q_top->lcl_ing_tcs_num);
+	db_bm_free(DB_LCL_BM);
+}
+
+
+/*
  *	nic_pf_db_remote_queue_init
  *
  *	This function initialize NIC PF remote queue
@@ -578,6 +594,42 @@ db_error:
 
 	return -ENOMEM;
 }
+
+
+/*
+ *	nic_pf_db_remote_tc_free
+ *
+ *	This function frees the remote TC resources in DB
+ */
+static int nic_pf_db_remote_tc_free(struct nic_pf *nic_pf)
+{
+	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+
+	pr_debug("Free Remote queues DB\n");
+	db_tc_free(DB_HOST_EG_TC, q_top->host_eg_tcs_num);
+	db_tc_free(DB_HOST_ING_TC, q_top->host_ing_tcs_num);
+	db_bm_free(DB_HOST_BM);
+
+	return 0;
+}
+
+
+/*
+ *	nic_pf_db_tc_free
+ *
+ *	This function frees both local & remote TC resources in DB
+ */
+static int nic_pf_db_tc_free(struct nic_pf *nic_pf)
+{
+	/* Free Local TC DB structures */
+	nic_pf_db_local_tc_free(nic_pf);
+
+	/* Free Remote TC DB structures */
+	nic_pf_db_remote_tc_free(nic_pf);
+
+	return 0;
+}
+
 
 /*
  *	nic_pf_db_local_queue_cfg
@@ -1761,6 +1813,46 @@ egress_queue_exit:
 	return ret;
 }
 
+/*
+ *	nic_pf_queue_remove
+ */
+static int nic_pf_queue_remove(struct nic_pf *nic_pf, struct db_q *db_q, enum queue_type queue_type, void *giu_handle)
+{
+	u32 q_id = db_q->params.idx;
+	int ret = 0;
+
+	pr_debug("Remove queue %d (type %d)\n", q_id, queue_type);
+
+	if (giu_handle) {
+		/* Un-register Q from GIU */
+		if (queue_type == LOCAL_BM_QUEUE ||
+		    queue_type == HOST_BM_QUEUE)
+			ret = gie_remove_bm_queue(giu_handle, q_id);
+		else
+			ret = gie_remove_queue(giu_handle, q_id);
+		if (ret)
+			pr_err("Failed to remove queue Idx %x from GIU\n", q_id);
+	}
+
+	/* For local queue: destroy the queue (as it was allocated by the NIC */
+	if (queue_type == LOCAL_INGRESS_DATA_QUEUE ||
+	    queue_type == LOCAL_EGRESS_DATA_QUEUE ||
+	    queue_type == LOCAL_BM_QUEUE) {
+		ret = mqa_queue_destroy(nic_pf->mqa, db_q->q);
+		if (ret)
+			pr_err("Failed to free queue Idx %x in DB\n", q_id);
+	}
+
+	/* Free the MQA resource */
+	ret = mqa_queue_free(nic_pf->mqa, q_id);
+	if (ret)
+		pr_err("Failed to free queue Idx %x in MQA\n", q_id);
+
+	/* Reset the Queue DB entry */
+	db_queue_reset(q_id);
+
+	return ret;
+}
 
 /*
  *	nic_pf_giu_bpool_init
@@ -1867,6 +1959,46 @@ lcl_queue_error:
 	}
 
 	return -1;
+}
+
+
+/*
+ *	nic_pf_giu_bpool_deinit
+ *
+ *
+ *	@param[in]	nic_pf - pointer to NIC PF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+static int nic_pf_giu_bpool_deinit(struct nic_pf *nic_pf)
+{
+	int ret;
+	u32 bm_idx;
+	struct db_q *db_q_p;
+	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+
+	pr_debug("De-initializing Remote BM queues\n");
+	for (bm_idx = 0; bm_idx < q_top->host_bm_qs_num; bm_idx++) {
+		db_q_p = db_queue_get(q_top->host_bm_qs_idx[bm_idx]);
+		if (db_q_p != NULL) {
+			ret = nic_pf_queue_remove(nic_pf, db_q_p, HOST_BM_QUEUE, nic_pf->gie.rx_gie);
+			if (ret)
+				pr_err("Failed to remove queue Idx %x\n", db_q_p->params.idx);
+		}
+	}
+
+	pr_debug("De-initializing Local BM queues\n");
+	for (bm_idx = 0; bm_idx < q_top->lcl_bm_qs_num; bm_idx++) {
+		db_q_p = db_queue_get(q_top->lcl_bm_qs_idx[bm_idx]);
+		if (db_q_p != NULL) {
+			ret = nic_pf_queue_remove(nic_pf, db_q_p, LOCAL_BM_QUEUE, nic_pf->gie.tx_gie);
+			if (ret)
+				pr_err("Failed to remove queue Idx %x\n", db_q_p->params.idx);
+		}
+	}
+
+	return 0;
 }
 
 
@@ -2094,6 +2226,88 @@ lcl_eg_queue_error:
 	}
 
 	return -1;
+}
+
+
+/*
+ *	nic_pf_giu_gpio_deinit
+ *
+ *
+ *	@param[in]	nic_pf - pointer to NIC PF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+static int nic_pf_giu_gpio_deinit(struct nic_pf *nic_pf)
+{
+	int ret;
+	u32 tc_idx;
+	u32 q_idx;
+	struct tc_params *tc;
+	struct db_q *db_q_p;
+	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+
+	pr_debug("De-initializing Host Egress TC queues\n");
+
+	for (tc_idx = 0; tc_idx < q_top->host_eg_tcs_num; tc_idx++) {
+		tc = &(q_top->host_eg_tcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
+			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
+			if (db_q_p != NULL) {
+				ret = nic_pf_queue_remove(nic_pf, db_q_p, HOST_EGRESS_DATA_QUEUE, nic_pf->gie.tx_gie);
+				if (ret)
+					pr_err("Failed to remove queue Idx %x\n", db_q_p->params.idx);
+			}
+		}
+	}
+
+	pr_debug("De-initializing Host Ingress TC queues\n");
+
+	for (tc_idx = 0; tc_idx < q_top->host_ing_tcs_num; tc_idx++) {
+		tc = &(q_top->host_ing_tcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
+			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
+			if (db_q_p != NULL) {
+				ret = nic_pf_queue_remove(nic_pf, db_q_p, HOST_INGRESS_DATA_QUEUE, 0);
+				if (ret)
+					pr_err("Failed to remove queue Idx %x\n", db_q_p->params.idx);
+			}
+		}
+	}
+
+	pr_debug("De-initializing Local Ingress TC queues\n");
+
+	for (tc_idx = 0; tc_idx < q_top->lcl_ing_tcs_num; tc_idx++) {
+		tc = &(q_top->lcl_ing_tcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
+			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
+			if (db_q_p != NULL) {
+				ret = nic_pf_queue_remove(nic_pf, db_q_p, LOCAL_INGRESS_DATA_QUEUE, nic_pf->gie.rx_gie);
+				if (ret)
+					pr_err("Failed to remove queue Idx %x\n", db_q_p->params.idx);
+			}
+		}
+	}
+
+	pr_debug("De-initializing Local Egress TC queues\n");
+
+	for (tc_idx = 0; tc_idx < q_top->lcl_eg_tcs_num; tc_idx++) {
+		tc = &(q_top->lcl_eg_tcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < tc->num_of_queues; q_idx++) {
+			db_q_p = db_queue_get(tc->tc_queues_idx[q_idx]);
+			if (db_q_p != NULL) {
+				ret = nic_pf_queue_remove(nic_pf, db_q_p, LOCAL_EGRESS_DATA_QUEUE, 0);
+				if (ret)
+					pr_err("Failed to remove queue Idx %x\n", db_q_p->params.idx);
+			}
+		}
+	}
+
+	return 0;
 }
 
 
