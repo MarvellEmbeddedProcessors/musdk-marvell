@@ -42,8 +42,8 @@
 
 #include "pp2.h"
 
-#define PP2_NETDEV_MASTER_PATH_K	"/cpn-110-master/config-space/ppv22@000000/"
-#define PP2_NETDEV_SLAVE_PATH_K		"/cpn-110-slave/config-space/ppv22@000000/"
+#define PP2_NETDEV_MASTER_PATH_K	"/cp110-0/config-space/ppv22@000000/"
+#define PP2_NETDEV_SLAVE_PATH_K		"/cp110-1/config-space/ppv22@000000/"
 
 /*
  * Get device tree data of the PPV2 ethernet ports.
