@@ -2376,6 +2376,53 @@ static int nic_pf_link_status_command(struct nic_pf *nic_pf,
 
 
 /*
+ *	nic_pf_close_command
+ */
+static int nic_pf_close_command(struct nic_pf *nic_pf,
+				struct cmd_desc *cmd, struct notif_desc *resp)
+{
+	int ret;
+
+	pr_debug("Close message idx:%d.\n", cmd->cmd_idx);
+	pr_info("Closing PF data path resources\n");
+
+	/* Close stages:
+	 * 1) NMP should disable the PP2 and GIU disable
+	 * 2) Inform the guest app about if down (it should remove GIU and PP2)
+	 * 3) Wait till guest app completes the operation (serialized file is deleted)
+	 * 4) De-init PP2 and GIU
+	 * 5) Free resources
+	 *
+	 * Note: only stage 5 implemented below.
+	 * TODO: implement other stages
+	 */
+
+	/* Free Data Qs and Un-register in MQA/GIE */
+	pr_debug("Free Data Qs\n");
+	ret = nic_pf_giu_gpio_deinit(nic_pf);
+	if (ret)
+		pr_err("Failed to free data Qs resources\n");
+
+	/* Free BPools and Un-register in MQA/GIE */
+	pr_debug("Free BM Qs\n");
+	ret = nic_pf_giu_bpool_deinit(nic_pf);
+	if (ret)
+		pr_err("Failed to free BM Qs resources\n");
+
+	/*Free DB TCs */
+	pr_debug("Free DB structures\n");
+	ret = nic_pf_db_tc_free(nic_pf);
+	if (ret)
+		pr_err("Failed to free DB resources\n");
+
+	/* Generate response message */
+	nic_pf_gen_resp_msg(0, cmd, resp);
+
+	return 0;
+}
+
+
+/*
  *	nic_pf_process_command
  *
  *	This function process all PF initialization commands
@@ -2450,6 +2497,12 @@ int nic_pf_process_command(void *nic_pf, u8 cmd_code, void *cmd)
 		ret = nic_pf_link_status_command((struct nic_pf *)nic_pf, (struct cmd_desc *)cmd, &resp);
 		if (ret)
 			pr_err("PF_LINK_STATUS message failed\n");
+		break;
+
+	case CC_PF_CLOSE:
+		ret = nic_pf_close_command((struct nic_pf *)nic_pf, (struct cmd_desc *)cmd, &resp);
+		if (ret)
+			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
 	default:

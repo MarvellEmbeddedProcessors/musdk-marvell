@@ -74,6 +74,7 @@ enum cmd_codes {
 
 	CC_PF_MGMT_ECHO,
 	CC_PF_LINK_STATUS,
+	CC_PF_CLOSE,
 	CMD_CODE_LAST = 0XFF,
 };
 
