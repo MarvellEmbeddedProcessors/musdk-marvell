@@ -1,4 +1,4 @@
-From e3f4187cdd271e8c1355868886b9255e21fef08d Mon Sep 17 00:00:00 2001
+From 54c7466914da9d9e795e32c7635f6f4d77ffd4cc Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
 Subject: [PATCH 1/4] musdk: add new dts,dtsi files
@@ -6,16 +6,16 @@ Subject: [PATCH 1/4] musdk: add new dts,dtsi files
 Change-Id: I394db38b111557bab572228c6981a34e60d156fc
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi |   84 ++++++++++++++++++++
- .../boot/dts/marvell/musdk-armada-7040-db.dtsi     |   69 ++++++++++++++++
- .../boot/dts/marvell/musdk-armada-7040-pcac.dtsi   |   66 +++++++++++++++
- arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi |   69 ++++++++++++++++
- .../boot/dts/marvell/musdk-armada-8040-db.dtsi     |   81 +++++++++++++++++++
- .../boot/dts/marvell/musdk-armada-8040-mcbin.dtsi  |   81 +++++++++++++++++++
- arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi |   75 +++++++++++++++++
- .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi |   67 ++++++++++++++++
- .../boot/dts/marvell/musdk-armada-cp110-1.dtsi     |   74 +++++++++++++++++
- .../arm64/boot/dts/marvell/musdk-armada-cp110.dtsi |   76 ++++++++++++++++++
+ arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi | 84 ++++++++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-7040-db.dtsi     | 69 ++++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-7040-pcac.dtsi   | 66 +++++++++++++++++
+ arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi | 69 ++++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-8040-db.dtsi     | 81 +++++++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-8040-mcbin.dtsi  | 81 +++++++++++++++++++++
+ arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi | 75 +++++++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi | 67 +++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-cp110-1.dtsi     | 74 +++++++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-cp110.dtsi | 76 ++++++++++++++++++++
  10 files changed, 742 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi
@@ -120,7 +120,7 @@ index 0000000..333d970
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi
 new file mode 100644
-index 0000000..764ee85
+index 0000000..fa7bcc3
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi
 @@ -0,0 +1,69 @@
@@ -177,7 +177,7 @@ index 0000000..764ee85
 +	compatible = "marvell,armada7040-db", "marvell,armada7040",
 +			"marvell,armada-ap806-quad", "marvell,armada-ap806";
 +
-+	cpn-110-master {
++	cp110-0 {
 +		config-space {
 +			ppv22@000000 {
 +				eth0: eth0@010000 {
@@ -195,7 +195,7 @@ index 0000000..764ee85
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-7040-pcac.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-7040-pcac.dtsi
 new file mode 100644
-index 0000000..2d756e0
+index 0000000..9694de5
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-7040-pcac.dtsi
 @@ -0,0 +1,66 @@
@@ -252,7 +252,7 @@ index 0000000..2d756e0
 +	compatible = "marvell,armada7040-pcac", "marvell,armada7040",
 +			"marvell,armada-ap806-quad", "marvell,armada-ap806";
 +
-+	cpn-110-master {
++	cp110-0 {
 +		config-space {
 +			ppv22@000000 {
 +				eth0: eth0@010000 {
@@ -267,7 +267,7 @@ index 0000000..2d756e0
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi
 new file mode 100644
-index 0000000..1178f7d
+index 0000000..d6641cd
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi
 @@ -0,0 +1,69 @@
@@ -329,7 +329,7 @@ index 0000000..1178f7d
 +		};
 +	};
 +
-+	cpn-110-master {
++	cp110-0 {
 +		config-space {
 +			#include "musdk-armada-cp110.dtsi"
 +			musdk_uio {
@@ -342,7 +342,7 @@ index 0000000..1178f7d
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8040-db.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8040-db.dtsi
 new file mode 100644
-index 0000000..fd07ab8
+index 0000000..06a0234
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-8040-db.dtsi
 @@ -0,0 +1,81 @@
@@ -399,7 +399,7 @@ index 0000000..fd07ab8
 +	compatible = "marvell,armada8040-db", "marvell,armada8040",
 +			"marvell,armada-ap806-quad", "marvell,armada-ap806";
 +
-+	cpn-110-master {
++	cp110-0 {
 +		config-space {
 +			ppv22@000000 {
 +				eth0: eth0@010000 {
@@ -411,7 +411,7 @@ index 0000000..fd07ab8
 +			};
 +		};
 +	};
-+	cpn-110-slave {
++	cp110-1 {
 +		config-space {
 +			ppv22@000000 {
 +				eth0_1: eth0@010000 {
@@ -429,7 +429,7 @@ index 0000000..fd07ab8
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8040-mcbin.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8040-mcbin.dtsi
 new file mode 100644
-index 0000000..e6386f5
+index 0000000..7094348
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-8040-mcbin.dtsi
 @@ -0,0 +1,81 @@
@@ -486,7 +486,7 @@ index 0000000..e6386f5
 +	compatible = "marvell,armada8040-mcbin", "marvell,armada8040",
 +			"marvell,armada-ap806-quad", "marvell,armada-ap806";
 +
-+	cpn-110-master {
++	cp110-0 {
 +		config-space {
 +			ppv22@000000 {
 +				eth0: eth0@010000 {
@@ -498,7 +498,7 @@ index 0000000..e6386f5
 +			};
 +		};
 +	};
-+	cpn-110-slave {
++	cp110-1 {
 +		config-space {
 +			ppv22@000000 {
 +				eth0_1: eth0@010000 {
@@ -516,7 +516,7 @@ index 0000000..e6386f5
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi
 new file mode 100644
-index 0000000..09fd263
+index 0000000..5861e62
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-8040.dtsi
 @@ -0,0 +1,75 @@
@@ -578,7 +578,7 @@ index 0000000..09fd263
 +		};
 +	};
 +
-+	cpn-110-master {
++	cp110-0 {
 +		config-space {
 +			#include "musdk-armada-cp110.dtsi"
 +			musdk_uio {
@@ -588,7 +588,7 @@ index 0000000..09fd263
 +			};
 +		};
 +	};
-+	cpn-110-slave {
++	cp110-1 {
 +		config-space {
 +			#include "musdk-armada-cp110-1.dtsi"
 +		};
@@ -670,7 +670,7 @@ index 0000000..3a1a1f6
 +
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-cp110-1.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-cp110-1.dtsi
 new file mode 100644
-index 0000000..2984455
+index 0000000..1d922b4
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-cp110-1.dtsi
 @@ -0,0 +1,74 @@
@@ -695,13 +695,13 @@ index 0000000..2984455
 +
 +uio-xor0 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cps_xor0>;
++	xor_access = <&cp1_xor0>;
 +	status = "okay";
 +};
 +
 +uio-xor1 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cps_xor1>;
++	xor_access = <&cp1_xor1>;
 +	status = "okay";
 +};
 +
@@ -722,8 +722,8 @@ index 0000000..2984455
 +	compatible = "marvell,mv-pp-uio";
 +	reg = <0x0 0x90000 0x120000 0x9000 0x129000 0x600 0x12a200 0x200 0x130000 0x6000 0x441000 0x1000>;
 +	reg-names = "pp", "serdes", "xmib", "smi", "mspg", "rfu1";
-+	clocks = <&cpm_syscon0 1 3>, <&cpm_syscon0 1 18>, <&cpm_syscon0 1 9>,
-+		<&cpm_syscon0 1 6>, <&cpm_syscon0 1 5>;
++	clocks = <&cp0_syscon0 1 3>, <&cp0_syscon0 1 18>, <&cp0_syscon0 1 9>,
++		<&cp0_syscon0 1 6>, <&cp0_syscon0 1 5>;
 +	clock-names = "pp_clk", "gop_core_clk", "gop_clk", "mg_core_clk", "mg_clk";
 +	status = "okay";
 +/* Note: Ports are currently not read by musdk.
@@ -745,12 +745,12 @@ index 0000000..2984455
 +
 +uio-sam {
 +	compatible = "marvell,uio-sam";
-+	eip_access = <&cps_eip197>;
++	eip_access = <&cp1_eip197>;
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-cp110.dtsi
 new file mode 100644
-index 0000000..f3ab90a1
+index 0000000..bd2fb4f
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-armada-cp110.dtsi
 @@ -0,0 +1,76 @@
@@ -776,13 +776,13 @@ index 0000000..f3ab90a1
 +
 +uio-xor0 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cpm_xor0>;
++	xor_access = <&cp0_xor0>;
 +	status = "okay";
 +};
 +
 +uio-xor1 {
 +	compatible = "marvell,uio-xor-v2";
-+	xor_access = <&cpm_xor1>;
++	xor_access = <&cp0_xor1>;
 +	status = "okay";
 +};
 +
@@ -804,8 +804,8 @@ index 0000000..f3ab90a1
 +	compatible = "marvell,mv-pp-uio";
 +	reg = <0x0 0x90000 0x120000 0x9000 0x129000 0x600 0x12a200 0x200 0x130000 0x6000 0x441000 0x1000>;
 +	reg-names = "pp", "serdes", "xmib", "smi", "mspg", "rfu1";
-+	clocks = <&cpm_syscon0 1 3>, <&cpm_syscon0 1 18>, <&cpm_syscon0 1 9>,
-+		<&cpm_syscon0 1 6>, <&cpm_syscon0 1 5>;
++	clocks = <&cp0_syscon0 1 3>, <&cp0_syscon0 1 18>, <&cp0_syscon0 1 9>,
++		<&cp0_syscon0 1 6>, <&cp0_syscon0 1 5>;
 +	clock-names = "pp_clk", "gop_core_clk", "gop_clk", "mg_core_clk", "mg_clk";
 +	status = "okay";
 +/* Note: Ports are currently not read by musdk.
@@ -827,9 +827,9 @@ index 0000000..f3ab90a1
 +
 +uio-sam {
 +	compatible = "marvell,uio-sam";
-+	eip_access = <&cpm_eip197>;
++	eip_access = <&cp0_eip197>;
 +	status = "okay";
 +};
 -- 
-1.7.9.5
+1.9.1
 
