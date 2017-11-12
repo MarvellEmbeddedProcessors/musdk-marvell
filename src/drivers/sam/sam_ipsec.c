@@ -203,7 +203,7 @@ void sam_ipsec_ip4_tunnel_out_post_proc(struct sam_cio_op *operation, struct sam
 
 	iph->tot_len = ip_len;
 	if (params->u.ipsec.tunnel.copy_df) {
-		if (val32 & SAM_TOKEN_RESULT_DF_MASK)
+		if (val32 & SAM_RES_TOKEN_DF_MASK)
 			iph->frag_off |= IP_DF;
 		else
 			iph->frag_off &= ~IP_DF;
@@ -232,7 +232,7 @@ void sam_ipsec_ip4_tunnel_in_post_proc(struct sam_cio_op *operation, struct sam_
 		iph->tos = SAM_RES_TOKEN_TOS_GET(val32);
 
 	if (params->u.ipsec.tunnel.copy_df) {
-		if (val32 & SAM_TOKEN_RESULT_DF_MASK)
+		if (val32 & SAM_RES_TOKEN_DF_MASK)
 			iph->frag_off |= IP_DF;
 		else
 			iph->frag_off &= ~IP_DF;
