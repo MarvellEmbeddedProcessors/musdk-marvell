@@ -186,12 +186,11 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
 		cur_desc->cmds[3] = TXD_ERR_SUM_MASK;
 		pp_ind[pp2_id]++;
 	}
-	if (pp_ind[PP2_ID0])
-		pp2_bpool_put_buffs_core(PP2_ID0, pp_ind[PP2_ID0], hif->regspace_slot,
-					 hif->rel_descs + PP2_MAX_NUM_PUT_BUFFS * PP2_ID0);
-	if (pp_ind[PP2_ID1])
-		pp2_bpool_put_buffs_core(PP2_ID1, pp_ind[PP2_ID1], hif->regspace_slot,
-					 hif->rel_descs + PP2_MAX_NUM_PUT_BUFFS * PP2_ID1);
+	for (i = 0; i < PP2_NUM_PKT_PROC; i++) {
+		if (pp_ind[i])
+			pp2_bpool_put_buffs_core(i, pp_ind[i], hif->regspace_slot,
+						 hif->rel_descs + PP2_MAX_NUM_PUT_BUFFS * i);
+	}
 
 	return 0;
 }
