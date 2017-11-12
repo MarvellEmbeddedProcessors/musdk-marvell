@@ -42,7 +42,7 @@ static struct pp2_hif pp2_hif[PP2_NUM_REGSPACES];
 int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 {
 	int rc;
-	u8 hif_slot, pp2_id;
+	u8 hif_slot, pp2_id, i;
 	struct pp2_ppio_desc *descs;
 
 	if (mv_sys_match(params->match, "hif", 1, &hif_slot)) {
@@ -74,9 +74,10 @@ int pp2_hif_init(struct pp2_hif_params *params, struct pp2_hif **hif)
 	/* Create AGGR_TXQ for each of the PPV2 instances. */
 	for (pp2_id = 0; pp2_id < pp2_ptr->num_pp2_inst; pp2_id++) {
 		rc = pp2_dm_if_init(pp2_ptr, hif_slot, pp2_id, params->out_size);
+		/* Rollback created instances */
 		if (rc) {
-			if (pp2_id == PP2_ID1)
-				pp2_dm_if_deinit(pp2_ptr, hif_slot, PP2_ID0);
+			for (i = 0; i < pp2_id; i++)
+				pp2_dm_if_deinit(pp2_ptr, hif_slot, i);
 			return rc;
 		}
 	}

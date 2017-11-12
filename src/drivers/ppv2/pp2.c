@@ -130,25 +130,7 @@ static struct pp2_mac_data hc_gop_mac_data[6] = {
 	}
 };
 
-static const char *pp2_id_uio_name(u8 pp2_id)
-{
-	static const char * const pp2_names[] = {UIO_PP_0, UIO_PP_1};
 
-	if (pp2_id <= PP2_ID1)
-		return pp2_names[pp2_id];
-
-	pr_err("%s Invalid pp2_id(%d)\n", __func__, pp2_id);
-	return NULL;
-}
-
-static void pp2_init_rxfhindir(struct pp2_inst *inst)
-{
-	u32 i;
-
-	/* Init RXFHINDIR table */
-	for (i = 0; i < MVPP22_RSS_TBL_LINE_NUM; i++)
-		inst->rx_table[i] = i % PP2_NUM_CPUS;
-}
 
 /* Internal. Called once per packet processor initialization*/
 static void pp2_bm_flush_pools(uintptr_t cpu_slot, uint16_t bm_pool_reserved_map)
@@ -386,17 +368,15 @@ struct pp2_inst *pp2_inst_create(struct pp2 *pp2, uint32_t pp2_id)
 
 u8 pp2_get_num_inst(void)
 {
-	u8 pp2_num_inst = 0;
+	u8 i, pp2_num_inst = 0;
 	struct sys_iomem_params  iomem_params;
 
 	iomem_params.type = SYS_IOMEM_T_UIO;
 	iomem_params.devname = PP_UIO_MEM_NAME;
-
-	iomem_params.index = PP2_ID0;
-	pp2_num_inst += sys_iomem_exists(&iomem_params);
-	iomem_params.index = PP2_ID1;
-	pp2_num_inst += sys_iomem_exists(&iomem_params);
-
+	for (i = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
+		iomem_params.index = i;
+		pp2_num_inst += sys_iomem_exists(&iomem_params);
+	}
 	pr_debug("pp2_num_inst=%d\n", pp2_num_inst);
 
 	return pp2_num_inst;
@@ -528,7 +508,7 @@ int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id)
 
 int pp2_init(struct pp2_init_params *params)
 {
-	u32 pp2_id, pp2_num_inst;
+	u32 pp2_id, pp2_num_inst, i;
 	struct pp2_ppio_params *lb_port_params;
 	int rc;
 
@@ -567,11 +547,9 @@ int pp2_init(struct pp2_init_params *params)
 		inst = pp2_inst_create(pp2_ptr, pp2_id);
 		if (!inst) {
 			pr_err("cannot create PP%u\n", pp2_id);
-
-			if (pp2_id == PP2_ID1) {
-				/* Also destroy the previous instance */
-				pp2_destroy(pp2_ptr->pp2_inst[PP2_ID0]);
-			}
+			/* Rollback creation of previous instances */
+			for (i = 0; i < pp2_id; i++)
+				pp2_destroy(pp2_ptr->pp2_inst[i]);
 			kfree(pp2_ptr);
 			kfree(lb_port_params);
 

@@ -55,15 +55,13 @@
  * after platform and resource offsets have been established
  */
 
-/* Number of physical CPUs */
-#define PP2_NUM_CPUS                 (4)
 
 /* Absolute number of hardware ports */
 #define PP2_NUM_PORTS                (4)
 /* Absolute number of hardware register spaces */
 #define PP2_NUM_REGSPACES            (9)
 /* Absolute number of hardware packet processors */
-#define PP2_MAX_NUM_PACKPROCS        (2)
+#define PP2_MAX_NUM_PACKPROCS        (4)
 
 /* Number of RXQs per port */
 #define PP2_HW_PORT_NUM_RXQS         (32)
@@ -86,9 +84,6 @@
  * common hardware parts
  */
 #define PP2_DEFAULT_REGSPACE  (0)
-/* Packet processor IDs */
-#define PP2_ID0               (0)
-#define PP2_ID1               (1)
 
 /* Number of RXQs per port - configured */
 #define PP2_PORT_NUM_RXQS         (1)

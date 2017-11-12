@@ -461,8 +461,6 @@ struct pp2_inst {
 	/* DM objects associated */
 	u32 num_dm_ifs;
 	struct pp2_dm_if *dm_ifs[PP2_NUM_REGSPACES];
-	/* CPU index according to weight. */
-	u32 rx_table[MVPP22_RSS_TBL_LINE_NUM];
 	/* UIO context */
 	struct pp2_uio uio;
 	/* Handle to parent instance */
