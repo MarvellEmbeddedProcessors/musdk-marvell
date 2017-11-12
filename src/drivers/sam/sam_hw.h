@@ -313,9 +313,9 @@ struct sam_hw_res_desc {
 /******* Result Token fields ********/
 
 /* Errors: [E0..E14] - RDR word #4, Result token word #0 */
-#define SAM_TOKEN_RESULT_ERRORS_OFFS	17
-#define SAM_TOKEN_RESULT_ERRORS_BITS	15
-#define SAM_TOKEN_RESULT_ERRORS_MASK	BIT_MASK(SAM_TOKEN_RESULT_ERRORS_BITS)
+#define SAM_RES_TOKEN_ERRORS_OFFS	17
+#define SAM_RER_TOKEN_ERRORS_BITS	15
+#define SAM_RES_TOKEN_ERRORS_MASK	BIT_MASK(SAM_RES_TOKEN_ERRORS_BITS)
 
 /* E0 - Packet length error: token instructions versus input or input DMA fetch */
 #define SAM_RESULT_PKT_LEN_ERROR_MASK		BIT(0)
@@ -351,19 +351,51 @@ struct sam_hw_res_desc {
 #define SAM_RESULT_TIMEOUT_ERROR_MASK		BIT(14)
 
 /* RDR word #5, Result token word #1 */
-/* E15 extra error:  */
-#define SAM_TOKEN_RESULT_E15_MASK		BIT(4)
+
+/* Bits[0-3] - Bypass data length */
+#define SAM_RES_TOKEN_BYPASS_LEN_OFFS		0
+#define SAM_RES_TOKEN_BYPASS_LEN_BITS		4
+#define SAM_RES_TOKEN_BYPASS_LEN_MASK		BIT_MASK(SAM_RES_TOKEN_BYPASS_LEN_BITS)
+#define SAM_RES_TOKEN_BYPASS_LEN_GET(v)		(((v) >> SAM_RES_TOKEN_BYPASS_LEN_OFFS) & SAM_RES_TOKEN_BYPASS_LEN_MASK)
+
+/* Bit[4] - E15 extra error:  */
+#define SAM_RES_TOKEN_E15_MASK			BIT(4)
 
 /* Bits[12-5] - TOS/TC from inner IP header */
-#define SAM_RES_TOKEN_TOS_OFFS		5
-#define SAM_RES_TOKEN_TOS_BITS		8
-#define SAM_RES_TOKEN_TOS_MASK		BIT_MASK(SAM_RES_TOKEN_TOS_BITS)
-#define SAM_RES_TOKEN_TOS_GET(v)	(((v) >> SAM_RES_TOKEN_TOS_OFFS) & SAM_RES_TOKEN_TOS_MASK)
+#define SAM_RES_TOKEN_TOS_OFFS			5
+#define SAM_RES_TOKEN_TOS_BITS			8
+#define SAM_RES_TOKEN_TOS_MASK			BIT_MASK(SAM_RES_TOKEN_TOS_BITS)
+#define SAM_RES_TOKEN_TOS_GET(v)		(((v) >> SAM_RES_TOKEN_TOS_OFFS) & SAM_RES_TOKEN_TOS_MASK)
 
 /* Bit[13] - Don't fragment flag from inner header */
-#define SAM_TOKEN_RESULT_DF_MASK	BIT(13)
+#define SAM_RES_TOKEN_DF_MASK			BIT(13)
 
-/* CLE Errors: bits[16..20] */
+/* Bits[16..20] - CLE Errors */
+#define SAM_RES_TOKEN_CLE_OFFS			16
+#define SAM_RES_TOKEN_CLE_BITS			5
+#define SAM_RES_TOKEN_CLE_MASK			BIT_MASK(SAM_RES_TOKEN_CLE_BITS)
+#define SAM_RES_TOKEN_CLE_GET(v)		(((v) >> SAM_RES_TOKEN_CLE_OFFS) & SAM_RES_TOKEN_CLE_MASK)
+
+/* Bit[21] - HASH Bytes appended */
+#define SAM_RES_TOKEN_HASH_ADDED_MASK		BIT(21)
+
+/* Bits[22..27] - Hash Bytes */
+#define SAM_RES_TOKEN_HASH_BYTES_OFFS		22
+#define SAM_RES_TOKEN_HASH_BYTES_BITS		6
+#define SAM_RES_TOKEN_HASH_BYTES_MASK		BIT_MASK(SAM_RES_TOKEN_HASH_BYTES_BITS)
+#define SAM_RES_TOKEN_HASH_BYTES_GET(v)		(((v) >> SAM_RES_TOKEN_HASH_BYTES_OFFS) & SAM_RES_TOKEN_HASH_BYTES_MASK)
+
+/* Bit[28] - Generic bytes appended at the end of packet */
+#define SAM_RES_TOKEN_B_MASK			BIT(28)
+
+/* Bit[29] - Checksum value appended at the end of packet */
+#define SAM_RES_TOKEN_C_MASK			BIT(29)
+
+/* Bit[30] - Next header appended at the end of packet */
+#define SAM_RES_TOKEN_N_MASK			BIT(30)
+
+/* Bit[31] - Length value appended at the end of packet */
+#define SAM_RES_TOKEN_L_MASK			BIT(31)
 
 /* RDR word #6, Result token word #2 */
 
@@ -625,33 +657,37 @@ static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, in
 
 static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result)
 {
-	u32 val32, errors;
+	u32 val32, errors, cle_err;
 
 	/* Result Token Data - token_data[0] */
 	val32 = readl_relaxed(&res_desc->words[4]);
 	result->out_len = val32 & SAM_TOKEN_PKT_LEN_MASK;
 
-	errors = (val32 >> SAM_TOKEN_RESULT_ERRORS_OFFS);
+	errors = (val32 >> SAM_RES_TOKEN_ERRORS_OFFS);
 
 	/* token_data[1] */
 	val32 = readl_relaxed(&res_desc->words[5]);
-	if (val32 & SAM_TOKEN_RESULT_E15_MASK)
+	if (val32 & SAM_RES_TOKEN_E15_MASK)
 		errors |= BIT(15);
 
 	/* ControlWord - Bit[20] - Descr_Oflo and Bit[21] - Buffer_Oflo */
 	val32 = readl_relaxed(&res_desc->words[0]);
 	errors |= (val32 & (SAM_DESC_DESCR_OFLO_MASK | SAM_DESC_BUF_OFLO_MASK));
 
-	/* CLO errors bits for extended usage */
-	/* clo_err = ((val32 >> 16) & MASK_5_BITS); */
+	/* Result Token Data - token_data[1] */
+	val32 = readl_relaxed(&res_desc->words[5]);
 
-	if (errors == 0)
+	/* CLE errors bits for extended usage */
+	 cle_err = SAM_RES_TOKEN_CLE_GET(val32);
+
+	if ((errors == 0) && (cle_err == 0))
 		result->status = SAM_CIO_OK;
 	else if (errors & SAM_RESULT_AUTH_ERROR_MASK)
 		result->status = SAM_CIO_ERR_ICV;
 	else {
 		result->status = SAM_CIO_ERR_HW;
-		pr_warn("HW error: 0x%08x\n", errors);
+		pr_warn("HW error: errors = 0x%08x, cle_err = 0x%08x\n",
+			errors, cle_err);
 	}
 }
 
