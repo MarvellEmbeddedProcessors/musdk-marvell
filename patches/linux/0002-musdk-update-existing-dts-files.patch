@@ -1,16 +1,16 @@
-From 7c3dfa2e044e2ee7fd650842f6193dad65ed5056 Mon Sep 17 00:00:00 2001
+From 7e5e34af7e02e61d53ce84c4ee2ee439318ab46c Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Thu, 6 Jul 2017 11:16:11 +0300
-Subject: [PATCH 2/4] musdk: update existing dts files
+Subject: [PATCH 2/3] musdk: update existing dts files
 
 Change-Id: I7f386b72ae4a87685d10839337c92a759c9e6e07
 Signed-off-by: Lior Amsalem <alior@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi      |    2 ++
- arch/arm64/boot/dts/marvell/armada-7040-db.dts    |    1 +
- arch/arm64/boot/dts/marvell/armada-7040-pcac.dts  |    1 +
- arch/arm64/boot/dts/marvell/armada-8040-db.dts    |    2 ++
- arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts |    1 +
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi      | 2 ++
+ arch/arm64/boot/dts/marvell/armada-7040-db.dts    | 1 +
+ arch/arm64/boot/dts/marvell/armada-7040-pcac.dts  | 1 +
+ arch/arm64/boot/dts/marvell/armada-8040-db.dts    | 2 ++
+ arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 1 +
  5 files changed, 7 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
@@ -27,7 +27,7 @@ index e6f170a..49e2bcf 100644
  	model = "Marvell Armada 37xx SoC";
  	compatible = "marvell,armada3700";
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db.dts b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-index bd15daf..80c8f7a 100644
+index 57f31aa..85b2ed3 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
 @@ -46,6 +46,7 @@
@@ -39,7 +39,7 @@ index bd15daf..80c8f7a 100644
  / {
  	model = "Marvell Armada-7040 development board default (A) setup";
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts b/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts
-index feccefc..fc934da 100644
+index 5bad8be..252b1ed 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts
 @@ -45,6 +45,7 @@
@@ -51,7 +51,7 @@ index feccefc..fc934da 100644
  / {
  	model = "Marvell Armada 7040 PCAC board";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db.dts b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
-index 071d5c2..55f4a0f 100644
+index 0f5a4b2..2b4b33f 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 @@ -47,6 +47,8 @@
@@ -64,7 +64,7 @@ index 071d5c2..55f4a0f 100644
  / {
  	model = "Marvell Armada-8040 development board default (A) setup";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-index 450da44..4bc5ea6 100644
+index e9a731e..97c12cb 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
 @@ -45,6 +45,7 @@
@@ -76,5 +76,5 @@ index 450da44..4bc5ea6 100644
  / {
  	model = "Marvell 8040 MACHIATOBin";
 -- 
-1.7.9.5
+1.9.1
 
