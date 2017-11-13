@@ -226,7 +226,7 @@ static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
 	pa = mv_sys_dma_mem_virt2phys(buff);
 	bpool = mdata->bpool;
 	binf.addr = pa;
-	binf.cookie = lower_32_bits((uintptr_t)(buff));
+	binf.cookie = (u64)((uintptr_t)(buff));
 	pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
 	mv_stack_push(larg->stack_hndl, mdata);
 }
