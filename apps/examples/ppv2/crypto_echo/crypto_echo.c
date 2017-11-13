@@ -680,7 +680,6 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 	struct sam_cio_op_result res_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_cio_op_result res_descs_to_dec[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_cio_op_result res_descs_to_send[CRYPT_APP_MAX_BURST_SIZE];
-	struct sam_cio_op_result *to_send_ptr, *to_dec_ptr;
 	int			 err;
 	u16			 i, num, num_to_send, num_to_dec;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
@@ -694,48 +693,44 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 		return -EFAULT;
 	}
 	num_to_send = num_to_dec = 0;
-	if (larg->dir == CRYPTO_LB) {
-		for (i = 0; i < num; i++) {
-			struct pkt_mdata *mdata;
+	for (i = 0; i < num; i++) {
+		struct pkt_mdata *mdata;
 
-			if (unlikely(!res_descs[i].cookie)) {
-				pr_err("SAM operation failed (no cookie: %d,%d)!\n", i, res_descs[i].out_len);
-				perf_cntrs->drop_cnt++;
-				continue;
-			}
+		if (unlikely(!res_descs[i].cookie)) {
+			pr_err("SAM operation failed (no cookie: %d,%d)!\n", i, res_descs[i].out_len);
+			perf_cntrs->drop_cnt++;
+			continue;
+		}
 
-			mdata = (struct pkt_mdata *)res_descs[i].cookie;
-			if (res_descs[i].status != SAM_CIO_OK) {
+		mdata = (struct pkt_mdata *)res_descs[i].cookie;
+		if (res_descs[i].status != SAM_CIO_OK) {
+
+			pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
+				(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
+				i, num, res_descs[i].status, res_descs[i].out_len);
+
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+			if (larg->cmn_args.verbose > 1) {
 				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
-				pr_warn("SAM operation (%s) %d of %d failed (%d)!\n",
-					(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
-					i, num, res_descs[i].status);
-
-				printf("pkt failed (len %d):\n", res_descs[i].out_len);
 				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
-
-				/* Free buffer */
-				free_buf_from_sam_cookie(larg, res_descs[i].cookie);
-				perf_cntrs->drop_cnt++;
-				continue;
 			}
-			if (mdata->state == (u8)PKT_STATE_ENC) {
-				mdata->state = (u8)PKT_STATE_DEC;
-				res_descs_to_dec[num_to_dec++] = res_descs[i];
-			} else {
-				res_descs_to_send[num_to_send++] = res_descs[i];
-			}
-			to_dec_ptr = res_descs_to_dec;
-			to_send_ptr = res_descs_to_send;
+#endif
+			/* Free buffer */
+			free_buf_from_sam_cookie(larg, res_descs[i].cookie);
+			perf_cntrs->drop_cnt++;
+			continue;
 		}
-	} else {
-		to_send_ptr = res_descs;
-		num_to_send = num;
+		if ((larg->dir == CRYPTO_LB) && (mdata->state == (u8)PKT_STATE_ENC)) {
+			mdata->state = (u8)PKT_STATE_DEC;
+			res_descs_to_dec[num_to_dec++] = res_descs[i];
+		} else {
+			res_descs_to_send[num_to_send++] = res_descs[i];
+		}
 	}
 
 	if (num_to_dec) {
-		err = dec_pkts(larg, to_dec_ptr, num_to_dec);
+		err = dec_pkts(larg, res_descs_to_dec, num_to_dec);
 		if (unlikely(err))
 			return err;
 	}
@@ -743,10 +738,10 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 	if (num_to_send) {
 #ifdef CRYPT_APP_PKT_ECHO_SUPPORT
 		if (likely(larg->cmn_args.echo))
-			echo_pkts(larg, to_send_ptr, num_to_send);
+			echo_pkts(larg, res_descs_to_send, num_to_send);
 #endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
 
-		return send_pkts(larg, tc, to_send_ptr, num_to_send);
+		return send_pkts(larg, tc, res_descs_to_send, num_to_send);
 	}
 	return 0;
 }
