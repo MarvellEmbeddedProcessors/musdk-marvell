@@ -300,6 +300,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	register_cli_c2_cmds(ppio);
 	register_cli_qos_cmds(ppio);
 	register_cli_prs_cmds(ppio);
+	app_register_cli_desc_cmds(pp2_args->ports_desc);
 	app_register_cli_common_cmds(pp2_args->ports_desc);
 
 	return 0;
