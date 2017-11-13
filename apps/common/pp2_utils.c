@@ -727,6 +727,52 @@ static int pp2_descriptor_params(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+static char *pp2_admin_status_str_get(u32 admin_status)
+{
+	char *str;
+
+	switch (admin_status) {
+	case PP2_PORT_DISABLED:
+		str = "DISABLED";
+		break;
+	case PP2_PORT_KERNEL:
+		str = "KERNEL";
+		break;
+	case PP2_PORT_MUSDK:
+		str = "MUSDK";
+		break;
+	case PP2_PORT_SHARED:
+		str = "SHARED";
+		break;
+	case PP2_PORT_MUSDK_LOOPBACK:
+		str = "MUSDK LOOPBACK";
+		break;
+	default:
+		str = "Admin Status not found";
+	}
+	return str;
+}
+
+static int pp2_misc_get_port_info(void *arg, int argc, char *argv[])
+{
+	int i, j;
+	u32 admin_status;
+	char if_name[PP2_NUM_ETH_PPIO * PP2_NUM_PKT_PROC][15];
+
+	for (i = 0; i < PP2_NUM_ETH_PPIO; i++) {
+		for (j = 0; j < PP2_NUM_PKT_PROC; j++) {
+			pp2_netdev_ifname_get(i, j, &if_name[i * PP2_NUM_ETH_PPIO + j][0]);
+			if (strncmp(&if_name[i * PP2_NUM_ETH_PPIO + j][0], "eth", 3) != 0)
+				continue;
+			pp2_netdev_if_admin_status_get(i, j, &admin_status);
+			pr_info("%5s: %10s\n", if_name[i * PP2_NUM_ETH_PPIO + j],
+				pp2_admin_status_str_get(admin_status));
+		}
+	}
+
+	return 0;
+}
+
 int app_register_cli_common_cmds(struct glb_common_args *glb_args)
 {
 	struct cli_cmd_params cmd_params;
@@ -814,6 +860,21 @@ int app_register_cli_desc_cmds(struct port_desc *port_desc)
 
 	return 0;
 }
+
+int app_register_cli_padmin_stat_cmd(void)
+{
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "padmin_stat_info";
+	cmd_params.desc		= "get port admin status info";
+	cmd_params.format	= "no arguments\n";
+	cmd_params.cmd_arg	= NULL;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_misc_get_port_info;
+	mvapp_register_cli_cmd(&cmd_params);
+	return 0;
+}
+
 
 static int find_free_bpool(u32 pp_id)
 {

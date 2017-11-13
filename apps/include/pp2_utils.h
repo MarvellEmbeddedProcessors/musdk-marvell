@@ -644,6 +644,11 @@ void app_set_port_enable(struct port_desc *port_desc, int enable);
 int app_register_cli_common_cmds(struct glb_common_args *glb_args);
 
 /*
+ * Register port admin status info CLI command
+ */
+int app_register_cli_padmin_stat_cmd(void);
+
+/*
  * Register descriptor CLI commands
  */
 int app_register_cli_desc_cmds(struct port_desc *port_desc);
