@@ -391,7 +391,6 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 		SET_MAX_BURST(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_count);
 		while (tx_count) {
-			desc_idx = 0;
 			tx_ppio = pp2_args->lcl_ports_desc[dst_port].ppio;
 			tx_num = tx_count;
 			if (tx_count) {
