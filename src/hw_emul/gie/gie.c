@@ -280,6 +280,11 @@ struct gie {
 #define q_wraps(q)		(q->tail < q->head)
 
 #define qes_to_copy(q)			((q->tail - q->qe_tail + q->qlen) & (q->qlen - 1))
+/* How many "empty" QEs we have in queue.
+ * i.e. How many QE DMA operations we can perform on the "dest" queue before we
+ * reach the constumer pointer of that queue.
+ */
+#define qes_copy_space(q)		((q->head - q->qe_tail + q->qlen - 1) & (q->qlen - 1))
 #define qes_in_copy(q)			((q->qe_tail - q->qe_head + q->qlen) & (q->qlen - 1))
 #define qes_copied(q)			((q->qe_head - q->head + q->qlen) & (q->qlen - 1))
 #define bufs_to_copy(q)			qes_copied(q)
@@ -1058,7 +1063,7 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	struct gie_queue *src_q = &qp->src_q;
 	struct gie_queue *dst_q = &qp->dst_q;
 	int copy_payload = qp->flags & GIE_QPAIR_CP_PAYLOAD;
-	int qes_copied, qes_to_copy;
+	int qes_copied, qes_to_copy, qes_copy_space;
 	int completed = 0;
 
 	/* TODO - consider this limitation in the future */
@@ -1074,10 +1079,13 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 
 	/* First phase - Copy the QEs to destination queue */
 	qes_to_copy = qes_to_copy(src_q);
+	qes_copy_space = qes_copy_space(dst_q);
+	qes_to_copy = min(qes_to_copy, qes_copy_space);
 	if (qes_to_copy) {
 		qes_to_copy = gie_clip_batch(dst_q, qes_to_copy);
 		gie_copy_qes(dma, src_q, dst_q, qes_to_copy, src_q->qe_tail, 1);
 		q_idx_add(src_q->qe_tail, qes_to_copy, src_q->qlen);
+		q_idx_add(dst_q->qe_tail, qes_to_copy, dst_q->qlen);
 	}
 
 	/* Second phase - copy the buffers and update prod/cons index */
