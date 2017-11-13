@@ -543,17 +543,6 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	struct cli_cmd_params cmd_params;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "descriptors";
-	cmd_params.desc		= "dump information on rx/tx descriptors";
-	cmd_params.format	= "--set		start collecting information on last descriptor\n"
-				  "\t\t\t\t--clear	clear collecting information on last descriptor\n"
-				  "\t\t\t\t--rx		dump last received RX descriptor\n"
-				  "\t\t\t\t--tx		dump last received TX descriptor\n";
-	cmd_params.cmd_arg	= port_desc;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_descriptor_params;
-	mvapp_register_cli_cmd(&cmd_params);
-
-	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "qstat";
 	cmd_params.desc		= "Show queues statistics";
 	cmd_params.format	= "--port --queue --reset\n"
@@ -591,6 +580,24 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 				  "\t\t--enable, -e	0-disable, 1-enable, disable if unspecified\n";
 	cmd_params.cmd_arg	= port_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_enable_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	return 0;
+}
+
+int app_register_cli_desc_cmds(struct port_desc *port_desc)
+{
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "descriptors";
+	cmd_params.desc		= "dump information on rx/tx descriptors";
+	cmd_params.format	= "--set		start collecting information on last descriptor\n"
+				  "\t\t\t\t--clear	clear collecting information on last descriptor\n"
+				  "\t\t\t\t--rx		dump last received RX descriptor\n"
+				  "\t\t\t\t--tx		dump last received TX descriptor\n";
+	cmd_params.cmd_arg	= port_desc;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_descriptor_params;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;

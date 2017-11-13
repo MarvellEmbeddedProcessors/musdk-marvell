@@ -562,6 +562,11 @@ void app_set_port_enable(struct port_desc *port_desc, int enable);
 int app_register_cli_common_cmds(struct port_desc *port_desc);
 
 /*
+ * Register descriptor CLI commands
+ */
+int app_register_cli_desc_cmds(struct port_desc *port_desc);
+
+/*
  * Get sysfs parameter from kernel driver
  */
 u32 appp_pp2_sysfs_param_get(char *if_name, char *file);
