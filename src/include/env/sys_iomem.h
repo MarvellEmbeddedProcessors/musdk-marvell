@@ -50,17 +50,24 @@ enum sys_iomem_type {
 	SYS_IOMEM_T_MMAP = 0, /**< type mmap */
 	SYS_IOMEM_T_UIO,      /**< type UIO */
 	SYS_IOMEM_T_VFIO,     /**< type VFIO; TODO: not supported yet! */
+	SYS_IOMEM_T_SHMEM     /**< type Shared Memory */
 };
 
 struct sys_iomem_params {
 	enum sys_iomem_type	 type; /**< select to a method for the mapping */
 	/** A device name as it is exposed by the device driver (in case of
 	 * UIO/VFIO) or Device-Tree (in case of mmap).
+	 * For 'shmem', devname is the shmem file name of the device as created by the
+	 * master process.
 	 * UIO examples: for PPv2, use 'pp'; for SAM, use 'eip197'.
 	 * mmap examples: for PPv2, use 'marvell,mv-pp22', for DMA-XOR, use 'marvell,mv-xor-v2'.
 	 */
 	const char		*devname;
 	int			 index; /**< the device index, or -1 for single device (like BM) */
+	/** The size of memory to be allocated. Relevant only for shmem mapping type.
+	 * If absent, default size value is set to 1 page size (_SC_PAGE_SIZE)
+	 */
+	size_t			 size;
 };
 
 /**

@@ -98,4 +98,22 @@ void *cma_get_vaddr(void *handle);
  */
 phys_addr_t cma_get_paddr(void *handle);
 
+/**
+ * Get device name from pp CMA
+ *
+ * @param    handle             CMA object handle
+ *
+ * @retval pointer to CMA object device name
+ */
+int cma_get_dev_name(char *dev_name);
+
+/**
+ * Get size from pp CMA
+ *
+ * @param    handle             CMA object handle
+ *
+ * @retval size of allocated CMA object
+ */
+size_t cma_get_size(void *handle);
+
 #endif /* __CMA_H__ */

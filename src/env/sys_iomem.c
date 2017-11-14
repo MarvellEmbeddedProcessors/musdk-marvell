@@ -43,6 +43,7 @@
 #define MMAP_FILE_NAME	"/dev/mem"
 #define PAGE_SZ		0x400
 
+#define SHM_MAX_NAME_STRING_SIZE	64
 
 struct mem_mmap_nd {
 	char		*name;
@@ -63,6 +64,13 @@ struct mem_uio {
 	struct uio_mem_t	*mem;
 };
 
+struct mem_shm {
+	char		dev_name[SHM_MAX_NAME_STRING_SIZE];
+	void		*va;
+	phys_addr_t	 pa;
+	size_t		 size;
+};
+
 struct sys_iomem {
 	char				*name;
 	int				 index;
@@ -71,6 +79,7 @@ struct sys_iomem {
 	union {
 		struct mem_uio		 uio;
 		struct mem_mmap		 mmap;
+		struct mem_shm		 shmem;
 	} u;
 	struct list	 node;
 };
@@ -373,6 +382,61 @@ static int iomem_mmap_iounmap(struct mem_mmap *mmapm, const char *name)
 	return 0;
 }
 
+static int iomem_shmem_ioinit(struct mem_shm *shm, char *name, int index, u32 size)
+{
+	memcpy(shm->dev_name, name, sizeof(shm->dev_name));
+	if (!size)
+		size = sysconf(_SC_PAGE_SIZE);
+	shm->size = size;
+
+	return 0;
+}
+
+static void iomem_shmem_iodestroy(struct mem_uio *uiom)
+{
+	/* Nothing to do */
+}
+
+static int iomem_shmem_iomap(struct mem_shm	*shm,
+			   const char		*name,
+			   phys_addr_t		*pa,
+			   void			**va)
+{
+	int fd;
+	void *ptr;
+
+	fd = open(shm->dev_name, O_RDWR);
+	if (fd < 0) {
+		pr_err("CMA: open() failed\n");
+		return -1;
+	}
+
+	ptr = mmap(NULL, shm->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)*pa);
+	if (ptr == MAP_FAILED) {
+		pr_err("mmap failed\n");
+		return -1;
+	}
+
+	shm->pa = *pa;
+	shm->va = ptr;
+	pr_info("shm->name %s, pa 0x%lx, va %p, size %zu\n", shm->dev_name, shm->pa, shm->va, shm->size);
+
+	*va = shm->va;
+	return 0;
+}
+
+static int iomem_shmem_iounmap(struct mem_shm *shm, const char *name)
+{
+	int err;
+
+	err = munmap(shm->va, shm->size);
+	if (err != 0) {
+		pr_err("munmap failed\n");
+		return -1;
+	}
+	return 0;
+}
+
 int sys_iomem_exists(struct sys_iomem_params *params)
 {
 	if (params->type == SYS_IOMEM_T_UIO)
@@ -431,6 +495,13 @@ int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
 			free(liomem);
 			return err;
 		}
+	} else if (liomem->type == SYS_IOMEM_T_SHMEM) {
+		err = iomem_shmem_ioinit(&liomem->u.shmem, liomem->name, liomem->index, params->size);
+		if (err) {
+			free(liomem->name);
+			free(liomem);
+			return err;
+		}
 	} else {
 		pr_err("IOtype not supported yet!\n");
 		return -ENOTSUP;
@@ -472,6 +543,8 @@ void sys_iomem_deinit(struct sys_iomem *iomem)
 		iomem_uio_iodestroy(&iomem->u.uio);
 	else if (iomem->type == SYS_IOMEM_T_MMAP)
 		iomem_mmap_iodestroy(&iomem->u.mmap);
+	else if (iomem->type == SYS_IOMEM_T_SHMEM)
+		iomem_shmem_iodestroy(&iomem->u.uio);
 	else {
 		pr_warn("IOtype not supported yet!\n");
 		return;
@@ -486,6 +559,8 @@ int sys_iomem_map(struct sys_iomem *iomem, const char *name, phys_addr_t *pa, vo
 		return iomem_mmap_iomap(&iomem->u.mmap, name, pa, va);
 	if (iomem->type == SYS_IOMEM_T_UIO)
 		return iomem_uio_iomap(&iomem->u.uio, name, pa, va);
+	if (iomem->type == SYS_IOMEM_T_SHMEM)
+		return iomem_shmem_iomap(&iomem->u.shmem, name, pa, va);
 	pr_err("IOtype not supported yet!\n");
 	return -ENOTSUP;
 }
@@ -496,6 +571,8 @@ int sys_iomem_unmap(struct sys_iomem *iomem, const char *name)
 		return iomem_mmap_iounmap(&iomem->u.mmap, name);
 	if (iomem->type == SYS_IOMEM_T_UIO)
 		return iomem_uio_iounmap(&iomem->u.uio, name);
+	if (iomem->type == SYS_IOMEM_T_SHMEM)
+		return iomem_shmem_iounmap(&iomem->u.shmem, name);
 	pr_err("IOtype not supported yet!\n");
 	return -ENOTSUP;
 }

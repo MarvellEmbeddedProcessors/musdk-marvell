@@ -51,7 +51,6 @@
 extern phys_addr_t __dma_phys_base;
 extern void *__dma_virt_base;
 
-
 #define MV_SYS_DMA_MAX_NUM_MEM_ID		4
 #define MV_SYS_DMA_MAX_MEM_ID			(MV_SYS_DMA_MAX_NUM_MEM_ID - 1)
 
@@ -72,6 +71,11 @@ struct mv_sys_dma_mem_region_params {
 					/* TODO: change after understanding DRAM */
 };
 
+struct mv_sys_dma_mem_info {
+	char		*name;
+	size_t		 size;
+	phys_addr_t	 paddr;
+};
 
 /**
  * Initialize the system DMA memory manager
@@ -118,6 +122,13 @@ void *mv_sys_dma_mem_alloc(size_t size, size_t align);
  * @param[in]	ptr		A pointer to a DMA memory.
  */
 void mv_sys_dma_mem_free(void *ptr);
+
+/**
+ * Retrieve DMA associated info
+ *
+ * @param[out]	mem_info	DMA associated info
+ */
+int mv_sys_dma_mem_get_info(struct mv_sys_dma_mem_info *mem_info);
 
 /**
  * Physical to Virtual address translation of an allocated DMA memory.
