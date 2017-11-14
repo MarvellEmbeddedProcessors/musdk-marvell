@@ -18,7 +18,7 @@ AC_PREFIX_DEFAULT($(pwd)/usr/local)
 AC_SUBST(includedir, '${exec_prefix}')
 
 ##########################################################################
-# Set PP2_BUILD and PP2_ASSERT - using --enable-pp2
+# Set PP2_BUILD - using --enable-pp2
 ##########################################################################
 AC_ARG_ENABLE([pp2],
 [  --enable-pp2         Enable pp2 driver and applications build],
@@ -28,7 +28,36 @@ AC_ARG_ENABLE([pp2],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-pp2]) ;;
 esac],[pp2=true])
 AM_CONDITIONAL([PP2_BUILD], [test x$pp2 = xtrue])
-
+if test x$pp2 = xtrue; then
+##########################################################################
+# Set pp2-lock - using --enable-pp2-lock
+##########################################################################
+AC_ARG_ENABLE([pp2-lock],
+[  --enable-pp2-lock    Enable musdk pp2 driver HIF/TX locking],
+[case "${enableval}" in
+  yes) pp2_lock=true ;;
+  no)  pp2_lock=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-pp2-lock]) ;;
+esac],[pp2_lock=false])
+if test x$pp2_lock = xtrue; then
+	PP2_CFLAGS+="-DMVCONF_PP2_LOCK "
+fi
+if test x$pp2_lock = xtrue; then
+##########################################################################
+# Set pp2-lock-stat - using --enable-pp2-lock-stat
+##########################################################################
+AC_ARG_ENABLE([pp2-lock-stat],
+[  --enable-pp2-lock-stat    Enable musdk pp2 driver HIF/TX locking stats],
+[case "${enableval}" in
+  yes) pp2_lock_stat=true ;;
+  no)  pp2_lock_stat=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-pp2-lock-stat]) ;;
+esac],[pp2_lock_stat=false])
+if test x$pp2_lock_stat = xtrue; then
+	PP2_CFLAGS+="-DMVCONF_PP2_LOCK_STAT "
+fi
+fi
+fi
 ##########################################################################
 # Set NETA_BUILD - using --enable-neta
 ##########################################################################
@@ -219,7 +248,7 @@ CFLAGS="-Wall "
 CFLAGS+="-Wstrict-prototypes "
 CFLAGS+="-Wmissing-prototypes "
 CFLAGS+="-pthread "
-CFLAGS+="$MUSDK_CFLAGS $SAM_CFLAGS"
+CFLAGS+="$MUSDK_CFLAGS $SAM_CFLAGS $PP2_CFLAGS"
 LDFLAGS+="$SAM_LDFLAGS"
 LIBS+="$SAM_LIBS"
 CC=${CROSS_COMPILE}gcc

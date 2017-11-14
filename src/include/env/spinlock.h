@@ -47,15 +47,9 @@
 			pr_warn("Failed to initialize spinlock (%d)!", err);	\
 	} while (0)
 
-#define spin_lock(_lock)			\
-	do {					\
-		pthread_mutex_lock(_lock);	\
-	} while (0)
-
-#define spin_unlock(_lock)			\
-	do {					\
-		pthread_mutex_unlock(_lock);	\
-	} while (0)
+#define spin_lock(lock)			pthread_mutex_lock(lock)
+#define spin_trylock(lock)		pthread_mutex_trylock(lock)
+#define spin_unlock(lock)		pthread_mutex_unlock(lock)
 
 #define spin_lock_irqsave(_lock, _flags)\
 	do {				\

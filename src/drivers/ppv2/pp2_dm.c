@@ -43,6 +43,21 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 
+
+static void dm_lock_create(struct pp2_dm_if *dm_if)
+{
+#ifdef MVCONF_PP2_LOCK
+	dm_if->dm_lock.lock = spin_lock_create();
+#endif
+}
+
+static void dm_lock_destroy(struct pp2_dm_if *dm_if)
+{
+#ifdef MVCONF_PP2_LOCK
+	spin_lock_destroy(dm_if->dm_lock.lock);
+#endif
+}
+
 static void pp2_dm_aggr_queue_config(struct pp2_dm_if *dm_if, uintptr_t addr, u32 size)
 {
 	pp2_reg_write(dm_if->cpu_slot, MVPP2_AGGR_TXQ_INIT(dm_if->id), 0x01);
@@ -95,6 +110,8 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
 	inst->dm_ifs[dm_id] = dm_if;
 	inst->num_dm_ifs++;
 
+	/* Create dm_lock for aggregation_queue locking */
+	dm_lock_create(dm_if);
 	pr_debug("DM:(AQ%u)(PP%u) created\n", dm_id, pp2_id);
 
 	return 0;
@@ -114,6 +131,7 @@ void pp2_dm_if_deinit(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id)
 
 	/* Reset the aggregation queue under this DM object */
 	pp2_dm_aggr_queue_config(dm_if, 0, 0);
+	dm_lock_destroy(dm_if);
 
 	pr_debug("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
 	mv_sys_dma_mem_free(dm_if->desc_virt_arr);

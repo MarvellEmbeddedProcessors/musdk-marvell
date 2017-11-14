@@ -1384,7 +1384,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 		}
 	}
 #endif
-
+	dm_spin_lock(&dm_if->dm_lock);
 	if (unlikely(dm_if->free_count < num_txds)) {
 		u32 occ_desc;
 		/* Update AGGR_Q status, just once */
@@ -1417,8 +1417,9 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 		}
 	}
 	if (!num_txds) {
-	pr_debug("[%s] num_txds is zero\n", __func__);
-	return 0;
+		pr_debug("[%s] num_txds is zero\n", __func__);
+		dm_spin_unlock(&dm_if->dm_lock);
+		return 0;
 	}
 
 	tx_desc = pp2_dm_if_next_desc_block_get(dm_if, num_txds, &block_size);
@@ -1467,6 +1468,7 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 	dm_if->free_count -= num_txds;
 	txq_dm_if->desc_rsrvd -= num_txds;
 
+	dm_spin_unlock(&dm_if->dm_lock);
 	return num_txds;
 }
 
