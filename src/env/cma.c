@@ -155,3 +155,20 @@ phys_addr_t cma_get_paddr(void *handle)
 
 	return ptr->paddr;
 }
+
+int cma_get_dev_name(char *dev_name)
+{
+	memcpy(dev_name, MUSDK_DEV_FILE, sizeof(MUSDK_DEV_FILE));
+	return 0;
+}
+
+size_t cma_get_size(void *handle)
+{
+	struct cma_buf_info *ptr = (struct cma_buf_info *)handle;
+
+	if (!ptr)
+		return 0;
+
+	return ptr->size;
+}
+

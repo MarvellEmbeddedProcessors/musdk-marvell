@@ -42,6 +42,7 @@ struct sys_dma {
 	struct mem_mng	*mm;
 	void		*dma_virt_base;
 	phys_addr_t	dma_phys_base;
+	size_t		dma_size;
 	int		en;
 #ifdef MVCONF_SYS_DMA_UIO
 	void		*cma_ptr;
@@ -66,6 +67,7 @@ struct mv_sys_dma_mem_region	*sys_dma_regions[MEM_DMA_MAX_REGIONS] = {NULL};
 
 phys_addr_t __dma_phys_base = 0;
 void *__dma_virt_base = NULL;
+size_t __dma_size;
 struct sys_dma	*sys_dma = NULL;
 
 /* UIO supports 2 memory allocations types:
@@ -127,6 +129,7 @@ static int init_mem(struct sys_dma *sdma, size_t size)
 
 	sdma->dma_virt_base = (void *)cma_get_vaddr(cma_ptr);
 	sdma->dma_phys_base = (phys_addr_t)cma_get_paddr(cma_ptr);
+	sdma->dma_size = (size_t)cma_get_size(cma_ptr);
 	sdma->cma_ptr = cma_ptr;
 	return 0;
 }
@@ -137,6 +140,23 @@ static void free_mem(struct sys_dma *sdma)
 	if (!sdma->dma_virt_base)
 		return;
 	cma_free(sdma->cma_ptr);
+}
+
+int mv_sys_dma_mem_get_info(struct mv_sys_dma_mem_info *mem_info)
+{
+	int err;
+
+	if (mem_info->name) {
+		err = cma_get_dev_name(mem_info->name);
+		if (err) {
+			pr_err("Unable to retrieve sys dma device name\n");
+			return -EINVAL;
+		}
+	}
+
+	mem_info->size = __dma_size;
+	mem_info->paddr = __dma_phys_base;
+	return 0;
 }
 
 #else /* MVCONF_SYS_DMA_UIO */
@@ -203,9 +223,10 @@ int mv_sys_dma_mem_init(size_t size)
 		sys_dma = i_sys_dma;
 		__dma_phys_base = sys_dma->dma_phys_base;
 		__dma_virt_base = sys_dma->dma_virt_base;
+		__dma_size = sys_dma->dma_size;
 	}
-	pr_debug("[%s] __dma_phys_base(0x%lx) __dma_virt_base(%p)\n", __FUNCTION__,
-		  __dma_phys_base, __dma_virt_base);
+	pr_debug("[%s] __dma_phys_base(0x%lx) __dma_virt_base(%p) __dma_size (%zu)\n", __func__,
+		  __dma_phys_base, __dma_virt_base, __dma_size);
 #ifdef DEBUG
 	for (int i = 0; i < size; i++) {
 		*((char *)__dma_virt_base + i) = 0xA;
