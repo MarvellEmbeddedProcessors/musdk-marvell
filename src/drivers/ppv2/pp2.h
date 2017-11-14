@@ -65,6 +65,30 @@
 #define PP2_LPBK_PORT_TXQ_SIZE 4096
 #define PP2_LPBK_PORT_NUM_TXQ  1
 
+#ifdef MVCONF_PP2_LOCK
+	#ifdef MVCONF_PP2_LOCK_STAT
+		#define dm_spin_lock(dm_lock)						\
+			do {								\
+				int pre_locked = spin_trylock((dm_lock)->lock);		\
+				(dm_lock)->lock_fail_count += !!pre_locked;		\
+				(dm_lock)->lock_success_count += !pre_locked;		\
+				if (pre_locked)						\
+					spin_lock((dm_lock)->lock);			\
+			} while (0)
+	#else
+		#define dm_spin_lock(dm_lock)	spin_lock((dm_lock)->lock)
+	#endif /* MVCONF_PP2_LOCK_STAT */
+	#define dm_spin_unlock(dm_lock) spin_unlock((dm_lock)->lock)
+#else
+	#define dm_spin_lock(dm_lock)	\
+		do {			\
+		} while (0)
+	#define dm_spin_unlock(dm_lock) \
+		do {			\
+		} while (0)
+#endif /* #ifdef MVCONF_PP2_LOCK */
+
+
 
 /* TODO: Decide if to duplicate the below defines, under different name,
  * or split the definitions from the mvpp2io.h, and other header files, and use them here.
@@ -98,6 +122,16 @@ struct pp2_match_param {
 	int id;
 };
 
+#ifdef MVCONF_PP2_LOCK
+struct pp2_dm_lock {
+	spinlock_t *lock;
+#ifdef MVCONF_PP2_LOCK_STAT
+	u32 lock_fail_count;
+	u32 lock_success_count;
+#endif
+};
+#endif
+
 struct pp2_dm_if {
 	/* Aggregator Queue physical ID */
 	u32 id;
@@ -115,6 +149,10 @@ struct pp2_dm_if {
 	struct pp2_inst *parent;
 	/* CPU slot address assigned to this DM object */
 	uintptr_t cpu_slot;
+#ifdef MVCONF_PP2_LOCK
+	struct pp2_dm_lock dm_lock;
+#endif
+
 };
 
 /* Number of descriptors to prefetch from DRAM for this TXQ */
