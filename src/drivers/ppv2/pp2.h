@@ -216,6 +216,8 @@ struct pp2_tx_queue {
 	struct pp2_ppio_outq_statistics stats;
 	/* TXQ statistics update threshold */
 	u32 threshold_tx_pkts;
+	/* TXQ disable flag */
+	int disabled;
 };
 
 /**

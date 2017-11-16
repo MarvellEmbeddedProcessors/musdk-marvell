@@ -1136,7 +1136,6 @@ int pp2_ppio_remove_mac_addr(struct pp2_ppio *ppio, const eth_addr_t addr);
 int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc);
 
 int pp2_ppio_get_phys_in_q(struct pp2_ppio *ppio, u8 tc, u8 qid, u8 *pq);
-int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid);
 
 /**
  * Add ppio filtering vlan id
@@ -1201,6 +1200,32 @@ int pp2_ppio_get_link_state(struct pp2_ppio *ppio, int *en);
  * @retval	error-code otherwise
  */
 /* int pp2_ppio_set_link_state(struct pp2_ppio *ppio, int en); */
+
+/**
+ * Set outq state
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	Out-Q id.
+ * @param[in]		en	A flag indicates if queue should be
+ *				enabled or disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+
+int pp2_ppio_set_outq_state(struct pp2_ppio *ppio, u8 qid, int en);
+/**
+ * Get outq state
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	Out-Q id.
+ * @param[out]		en	A flag indicates if queue is
+ *				enabled or disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid, int *en);
 
 
 

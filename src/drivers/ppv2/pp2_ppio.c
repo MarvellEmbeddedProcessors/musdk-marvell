@@ -217,6 +217,57 @@ int pp2_ppio_outq_get_statistics(struct pp2_ppio *ppio, u8 qid,
 
 }
 
+int pp2_ppio_set_outq_state(struct pp2_ppio *ppio, u8 qid, int en)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	struct pp2_tx_queue *txq;
+
+	if (unlikely(qid >= port->num_tx_queues)) {
+		pr_err("[%s] invalid queue id (%d)!\n", __func__, qid);
+		return -EINVAL;
+	}
+	txq = port->txqs[qid];
+
+	if (unlikely(!txq || !txq->desc_virt_arr)) {
+		pr_err("[%s] invalid queue id (%d)!\n", __func__, qid);
+		return -EINVAL;
+	}
+
+	return pp2_port_set_outq_state(port, txq, en);
+
+}
+
+int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid, int *en)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	uintptr_t cpu_slot = port->cpu_slot;
+	struct pp2_tx_queue *txq;
+	u32 val = 0, mask;
+
+	if (unlikely(qid >= port->num_tx_queues)) {
+		pr_err("[%s] invalid queue id (%d)!\n", __func__, qid);
+		return -EINVAL;
+	}
+	txq = port->txqs[qid];
+
+	if (unlikely(!txq->desc_virt_arr)) {
+		pr_err("[%s] invalid queue id (%d)!\n", __func__, qid);
+		return -EINVAL;
+	}
+
+	/* Get active channels mask */
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, MVPP2_MAX_TCONT + port->id);
+	val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG) & MVPP2_TXP_SCHED_ENQ_MASK);
+	mask = 1 << qid;
+
+	if (val & mask)
+		*en = 1;
+	else
+		*en = 0;
+
+	return 0;
+}
+
 int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2_ppio_desc *descs, u16 *num)
 {
 	struct pp2_dm_if *dm_if;

@@ -430,6 +430,7 @@ pp2_port_txqs_init(struct pp2_port *port)
 		struct pp2_tx_queue *txq = port->txqs[qid];
 
 		pp2_txq_init(port, txq);
+		pp2_port_set_outq_state(port, txq, true);
 	}
 }
 
@@ -731,58 +732,56 @@ pp2_port_rxqs_deinit(struct pp2_port *port)
 		pp2_rxq_deinit(port, port->rxqs[queue]);
 }
 
-/* Per-TXQ port cleanup
- * Hardware access
- */
-static void
-pp2_txq_clean(struct pp2_port *port,
-	      struct pp2_tx_queue *txq)
+int
+pp2_port_set_outq_state(struct pp2_port *port, struct pp2_tx_queue *txq, int en)
 {
-	volatile u32 delay;
-	u32 pending;
-	u32 val;
-	u32 egress_en = false;
-	int tx_port_num = MVPP2_MAX_TCONT + port->id;
 	uintptr_t cpu_slot = port->cpu_slot;
+	int tx_port_num = MVPP2_MAX_TCONT + port->id;
+	u32 val = 0, mask;
 
-	pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
-	val = pp2_reg_read(cpu_slot, MVPP2_TXQ_PREF_BUF_REG);
-	val |= MVPP2_TXQ_DRAIN_EN_MASK;
-	pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG, val);
-
-	/* Enable egress queue in order to allow releasing all packets*/
+/* TODO: add lock to protect MVPP2_TXP_SCHED_PORT_INDEX_REG */
+	/* Get active channels mask */
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-	val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG);
-	if (!(val & (1 << txq->log_id))) {
-		val |= 1 << txq->log_id;
-		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, val);
-		egress_en = true;
-	}
-	delay = 0;
-	do {
-		if (delay >= MVPP2_TX_PENDING_TIMEOUT_MSEC) {
-			pr_warn("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
-			break;
+	val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG) & MVPP2_TXP_SCHED_ENQ_MASK);
+	mask = 1 << txq->log_id;
+
+	if (en) {
+		if (!(val & mask)) {
+			/* Enable transmit packets to aggregation queue */
+			txq->disabled = 0;
+
+			/* Enable Tx queue */
+			pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+			pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, mask);
 		}
-		/* Sleep for 1 millisecond */
-		usleep_range(1000, 2000);
-		delay++;
-		pending = pp2_txq_pend_desc_num_get(port, txq);
-	} while (pending);
+	} else {
+		if (val & mask) {
+			u32 delay = 0;
+			u32 pending;
 
-	/* Disable egress queue */
-	if (egress_en) {
-		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-		val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG)) &
-					 MVPP2_TXP_SCHED_ENQ_MASK;
-		val |= 1 << txq->log_id;
-		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG,
-			      (val << MVPP2_TXP_SCHED_DISQ_OFFSET));
-		egress_en = false;
+			/* Disable transmit packets to aggregation queue */
+			txq->disabled = 1;
+
+			/* Flush Tx queue */
+			do {
+				if (delay >= MVPP2_TX_PENDING_TIMEOUT_USEC) {
+					pr_warn("Port%u: TXQ=%u clean timed out\n", port->id, txq->log_id);
+					break;
+				}
+				/* Sleep for 1 microsecond */
+				udelay(1);
+				delay++;
+				pending = pp2_txq_pend_desc_num_get(port, txq);
+				pr_debug("pp2_txq_clean: Port%u: TXQ=%u pending: %d\n", port->id, txq->log_id, pending);
+			} while (pending);
+
+			/* Disable Tx queue */
+			pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+			pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, mask << MVPP2_TXP_SCHED_DISQ_OFFSET);
+		}
 	}
 
-	val &= ~MVPP2_TXQ_DRAIN_EN_MASK;
-	pp2_reg_write(cpu_slot, MVPP2_TXQ_PREF_BUF_REG, val);
+	return 0;
 }
 
 /* Per-TXQ hardware related deinitialization/cleanup
@@ -825,7 +824,8 @@ pp2_port_txqs_deinit(struct pp2_port *port)
 
 	for (queue = 0; queue < port->num_tx_queues; queue++) {
 		txq = port->txqs[queue];
-		pp2_txq_clean(port, txq);
+		/* Disable and flush Tx queue */
+		pp2_port_set_outq_state(port, txq, false);
 		pp2_txq_deinit(port, txq);
 
 		/* Lastly, clear all ETH_TXQS for all previous DM-IFs */
@@ -1333,6 +1333,9 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 
 	txq = port->txqs[out_qid];
 	cpu_slot = dm_if->cpu_slot;
+
+	if (unlikely(txq->disabled))
+		return 0;
 
 #ifdef DEBUG
 	if ((port->flags & PP2_PORT_FLAGS_L4_CHKSUM) == 0) {
