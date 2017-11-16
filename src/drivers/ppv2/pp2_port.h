@@ -313,6 +313,22 @@ uint32_t pp2_port_outq_get_id(struct pp2_port *port, uint32_t outq_id);
 uint32_t pp2_port_outq_status(struct pp2_dm_if *dm_if, uint32_t out_physid);
 
 /**
+ * pp2_port_outq_status
+ *
+ * Enable/disable Tx queue
+ *
+ * @param    port     Logical egress port ID
+ *
+ * @param    txq      pointer Tx queue object
+ *
+ * @param    en       A flag indicates if queue is enabled or disabled
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_port_set_outq_state(struct pp2_port *port, struct pp2_tx_queue *txq, int en);
+
+/**
  * pp2_port_poll
  *
  * Core polling based routine. Internally, this either reports miscellaneous
