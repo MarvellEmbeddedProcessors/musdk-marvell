@@ -79,7 +79,8 @@ int sys_iomem_params_to_node(struct sys_iomem_params *params, struct device_node
 		node = of_find_compatible_node(node, NULL, compat);
 
 		if (!node) {
-			pr_err("%s: Node '%s' no. %d not found.\n", __func__, params->devname, index);
+			pr_debug("%s: Node '%s' (compat='%s') no. %d not found.\n",
+				 __func__, params->devname, compat, index);
 			return -ENOENT;
 		}
 
