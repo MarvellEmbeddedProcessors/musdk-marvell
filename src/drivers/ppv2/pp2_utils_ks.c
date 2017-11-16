@@ -42,8 +42,7 @@
 
 #include "pp2.h"
 
-#define PP2_NETDEV_MASTER_PATH_K	"/cp110-0/config-space/ppv22@000000/"
-#define PP2_NETDEV_SLAVE_PATH_K		"/cp110-1/config-space/ppv22@000000/"
+#define PP2_NETDEV_PATH_TEMPLATE_K	"/cp110-%u/config-space/ppv22@000000/"
 
 /*
  * Get device tree data of the PPV2 ethernet ports.
@@ -59,7 +58,7 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 	int i, j, idx;
 	u8 num_inst;
 
-	num_inst = 2; /*pp2_get_num_inst();*/
+	num_inst = pp2_get_num_inst();
 
 	for (i = 0; i < num_inst; i++) {
 
@@ -67,22 +66,19 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 
 			idx = i * PP2_NUM_ETH_PPIO + j;
 
-			if (i == 0) {
-				/* TODO -We assume that the temppath is static.
-				 * Need to substitute this with a function that searches for the following string:
-				 * <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories
-				 * and returns the temppath
-				 */
-				sprintf(fullpath, PP2_NETDEV_MASTER_PATH_K);
-			} else {
-				sprintf(fullpath, PP2_NETDEV_SLAVE_PATH_K);
-			}
+			/* TODO -We assume that the temppath is static.
+			 * Need to substitute this with a function that searches for the following string:
+			 * <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories
+			 * and returns the temppath
+			 */
+			sprintf(fullpath, PP2_NETDEV_PATH_TEMPLATE_K, i);
 
 			netdev_params[idx].ppio_id = j;
 			netdev_params[idx].pp_id = i;
 			sprintf(subpath, "eth%d@0%d0000", j, j + 1);
 			strcat(fullpath, subpath);
 			pr_debug("%s: of_find_node_by_path(%s)\n", __func__, fullpath);
+
 			port_node = of_find_node_by_path(fullpath);
 
 			if (!port_node) {
