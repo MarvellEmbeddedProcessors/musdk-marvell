@@ -43,6 +43,9 @@
 
 #include "sam_hw.h"
 
+/** Maximum number of supported crypto engines */
+#define SAM_HW_DEVICE_NUM	        2
+
 #define SAM_AAD_IN_TOKEN_MAX_SIZE	(64)
 
 /* max token size in bytes */

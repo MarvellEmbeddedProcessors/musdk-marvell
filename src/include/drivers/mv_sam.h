@@ -41,14 +41,8 @@ struct sam_sa;
 #include "mv_sam_session.h"
 #include "mv_sam_cio.h"
 
-/** Maximum number of supported crypto engines */
-#define SAM_HW_ENGINE_NUM	2
-
 /* Maximum number of supported rings (cios) per engine */
 #define SAM_HW_RING_NUM		4
-
-/* Maximum number of supported CIOs for all engines */
-#define SAM_MAX_CIO_NUM		(SAM_HW_RING_NUM * SAM_HW_ENGINE_NUM)
 
 #define SAM_SA_DEBUG_FLAG	0x1
 #define SAM_CIO_DEBUG_FLAG	0x2
@@ -79,6 +73,8 @@ int sam_get_capability(struct sam_capability *capa);
  * @retval      number of crypto engines
  */
 u8 sam_get_num_inst(void);
+
+u32 sam_get_num_cios(u32 inst);
 
 /**
  * Set debug flags.

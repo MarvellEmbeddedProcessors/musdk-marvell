@@ -65,7 +65,7 @@ static inline void sam_hw_cdr_ipsec_cmd_desc_write(struct sam_hw_cmd_desc *cmd_d
 	writel_relaxed(lower_32_bits(src_paddr), &cmd_desc->words[2]);
 	writel_relaxed(upper_32_bits(src_paddr), &cmd_desc->words[3]);
 
-	/* Token will be built inside the engine */
+	/* Token will be built inside the device */
 	writel_relaxed(0, &cmd_desc->words[4]);
 	writel_relaxed(0, &cmd_desc->words[5]);
 }
@@ -85,7 +85,7 @@ static inline void sam_hw_ring_ipsec_desc_write(struct sam_hw_ring *hw_ring, int
 	/* Write CDR descriptor */
 	sam_hw_cdr_ipsec_cmd_desc_write(cmd_desc, src_buf->paddr, pkt_len);
 
-	/* Token is built inside the engine */
+	/* Token is built inside the device */
 	token_header_word = (pkt_len & SAM_TOKEN_PKT_LEN_MASK);
 	token_header_word |= SAM_TOKEN_TYPE_AUTO_MASK;
 	if (reuse)
@@ -294,8 +294,8 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 #ifdef MVCONF_SAM_DEBUG
 			if (session->cio != NULL) {
 				pr_warn("Session is moved from cio=%d:%d to cio=%d:%d\n",
-					session->cio->hw_ring.engine, session->cio->hw_ring.ring,
-					cio->hw_ring.engine, cio->hw_ring.ring);
+					session->cio->hw_ring.device, session->cio->hw_ring.ring,
+					cio->hw_ring.device, cio->hw_ring.ring);
 			}
 #endif
 			reuse = 0;
