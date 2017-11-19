@@ -322,6 +322,83 @@ static int port_enable_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
+static int txqueue_enable_cmd_cb(void *arg, int argc, char *argv[])
+{
+	int enable = -1, portid = 0, qid = 0, en;
+	struct glb_common_args *glb_args = (struct glb_common_args *) arg;
+	struct port_desc *port_desc = ((struct pp2_glb_common_args *) glb_args->plat)->ports_desc;
+	int ports_num = glb_args->num_ports;
+	int queues_num = 0, num;
+	char *ret_ptr;
+	int option = 0, i, j;
+	int long_index = 0;
+	struct option long_options[] = {
+		{"port", required_argument, 0, 'p'},
+		{"queue", required_argument, 0, 'q'},
+		{"enable", required_argument, 0, 'e'},
+		{0, 0, 0, 0}
+	};
+
+	if (argc > 7) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	/* Get parameters */
+	while ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1) {
+		switch (option) {
+		case 'p':
+			portid = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (portid < 0)) {
+				printf("parsing fail, wrong input for --port\n");
+				return -EINVAL;
+			}
+			ports_num = 1;
+			break;
+		case 'q':
+			qid = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (qid < 0)) {
+				printf("parsing fail, wrong input for --tc\n");
+				return -EINVAL;
+			}
+			queues_num = 1;
+			break;
+		case 'e':
+			enable = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (enable < 0) || (enable > 1)) {
+				printf("parsing fail, wrong input for --enable\n");
+				return -EINVAL;
+			}
+			break;
+		default:
+			printf("parsing fail, wrong input, line = %d\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+
+	if (portid == -1 || qid == -1) {
+		pr_err("Invalid port or queue id: portid: %d, qid: %d\n", portid, qid);
+		return -EINVAL;
+	}
+
+	for (i = portid; i < (portid + ports_num); i++) {
+		num = (queues_num) ? queues_num : port_desc[portid].num_outqs;
+		for (j = qid; j < qid + num; j++) {
+			if (enable != (-1)) {
+				pp2_ppio_set_outq_state(port_desc[i].ppio, j, enable);
+				printf("%s queue %d of port %d\n", (enable) ? "Enable" : "Disable", j, i);
+			}
+			pp2_ppio_get_outq_state(port_desc[i].ppio, j, &en);
+			printf("Queue %d of port %d is %s\n", j, i, (en) ? "enabled" : "disabled");
+		}
+	}
+
+	return 0;
+
+}
+
 static int port_ethtool_get_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i;
@@ -595,6 +672,17 @@ int app_register_cli_common_cmds(struct glb_common_args *glb_args)
 				  "\t\t--enable, -e	0-disable, 1-enable, disable if unspecified\n";
 	cmd_params.cmd_arg	= pp2_args->ports_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_enable_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	cmd_params.name		= "txqstate";
+	cmd_params.desc		= "Tx Queue enable/disable";
+	cmd_params.format	= "--port --queue --enable\n"
+				  "\t\t--port, -p	port number, if not specified, applied for all ports\n"
+				  "\t\t--queue, -q	tx queue index, if not specified, applied for all queues\n"
+				  "\t\t--enable, -e	0-disable, 1-enable, show current if unspecified\n";
+
+	cmd_params.cmd_arg	= glb_args;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))txqueue_enable_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
