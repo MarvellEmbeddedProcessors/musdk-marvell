@@ -460,17 +460,19 @@ enum sam_hw_type {
 	HW_TYPE_LAST
 };
 
-struct sam_hw_engine_info {
+struct sam_hw_device_info {
 	struct sys_iomem *iomem_info;
 	enum sam_hw_type type;
 	char *name;
-	void *vaddr;		/* virtual address for engine registers */
-	dma_addr_t paddr;	/* physical address for engine registers */
+	void *vaddr;		/* virtual address for device registers */
+	dma_addr_t paddr;	/* physical address for device registers */
+	int rings_num;
+	u32 available_rings;
 	u32 active_rings;
 };
 
 struct sam_hw_ring {
-	u32 engine;
+	u32 device;
 	u32 ring;
 	void *aic_regs_vbase;			/* virtual address for ring AIC registers */
 	dma_addr_t aic_regs_paddr;		/* physical address for ring AIC registers */
@@ -775,7 +777,8 @@ static inline void sam_hw_ring_trigger_irq(struct sam_hw_ring *hw_ring)
 int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf);
 void sam_dma_buf_free(struct sam_buf_info *dma_buf);
 
-bool sam_hw_engine_exist(int engine);
+bool sam_hw_device_exist(u32 device, int *rings);
+int sam_hw_get_rings_num(u32 device);
 
 int sam_hw_ring_enable_irq(struct sam_hw_ring *hw_ring);
 int sam_hw_ring_disable_irq(struct sam_hw_ring *hw_ring);
@@ -789,11 +792,11 @@ int sam_hw_cdr_regs_reset(struct sam_hw_ring *hw_ring);
 int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring);
 int sam_hw_rdr_regs_reset(struct sam_hw_ring *hw_ring);
 int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring);
-int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
+int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 		     struct sam_hw_ring *hw_ring);
 int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring);
-int sam_hw_engine_load(void);
-int sam_hw_engine_unload(void);
+int sam_hw_device_load(void);
+int sam_hw_device_unload(void);
 int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
 				u32 next_request);
 void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc);

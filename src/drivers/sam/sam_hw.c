@@ -1,4 +1,4 @@
-﻿/******************************************************************************
+/******************************************************************************
  *	Copyright (C) 2016 Marvell International Ltd.
  *
  *  If you received this File from Marvell, you may opt to use, redistribute
@@ -37,12 +37,12 @@
 #include "sam.h"
 #include "sam_hw.h"
 
-static struct sam_hw_engine_info sam_hw_engine_info[SAM_HW_ENGINE_NUM];
+static struct sam_hw_device_info sam_hw_device_info[SAM_HW_DEVICE_NUM];
 
 static const char *const sam_supported_name[] = {"eip197", "eip97"};
 static enum sam_hw_type sam_supported_type[] = {HW_EIP197, HW_EIP97};
 
-static struct sys_iomem *sam_iomem_init(int engine, enum sam_hw_type *type)
+static struct sys_iomem *sam_iomem_init(int device, enum sam_hw_type *type)
 {
 	struct sys_iomem *iomem_info;
 	int i, err;
@@ -50,7 +50,7 @@ static struct sys_iomem *sam_iomem_init(int engine, enum sam_hw_type *type)
 
 	/* We support two HW types: eip197 or eip97 */
 	params.type = SYS_IOMEM_T_UIO;
-	params.index = engine;
+	params.index = device;
 	for (i = 0; i < ARRAY_SIZE(sam_supported_name); i++) {
 		params.devname = sam_supported_name[i];
 		if (sys_iomem_exists(&params)) {
@@ -121,21 +121,50 @@ static bool sam_hw_ring_is_busy(struct sam_hw_ring *hw_ring)
 
 	return false;
 }
-
-bool sam_hw_engine_exist(int engine)
+int sam_hw_get_rings_num(u32 device)
 {
-	int i;
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
+
+	if (device_info->rings_num != 0)
+		return device_info->rings_num;
+
+	sam_hw_device_exist(device, &device_info->rings_num);
+
+	return device_info->rings_num;
+}
+
+bool sam_hw_device_exist(u32 device, int *rings)
+{
+	int i, j, num = 0;
+	u32 map = 0;
+	char ring_name[16];
 	struct sys_iomem_params params;
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
 
 	/* We support two HW types: eip197 or eip97 */
 	params.type = SYS_IOMEM_T_UIO;
-	params.index = engine;
+	params.index = -1;
 	for (i = 0; i < ARRAY_SIZE(sam_supported_name); i++) {
 		params.devname = sam_supported_name[i];
-		if (sys_iomem_exists(&params))
-			return true;
+		for (j = 0; j < SAM_HW_RING_NUM; j++) {
+			snprintf(ring_name, sizeof(ring_name), "%s_%d:%d",
+				 sam_supported_name[i], device, j);
+			if (sys_iomem_exists(&params)) {
+				map |= BIT(j);
+				num++;
+			}
+		}
 	}
-	return false;
+	pr_info("%s: device #%d: rings: num = %d, map = 0x%x\n",
+		__func__, device, num, map);
+
+	if (rings)
+		*rings = num;
+
+	device_info->rings_num = num;
+	device_info->rings_num = num;
+
+	return (num != 0);
 }
 
 void sam_hw_reg_print(char *reg_name, void *base, u32 offset)
@@ -296,68 +325,68 @@ int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring)
 	return 0;
 }
 
-int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
+int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 		     struct sam_hw_ring *hw_ring)
 {
 	u32 ring_size;
 	int rc;
-	struct sam_hw_engine_info *engine_info = &sam_hw_engine_info[engine];
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
 
-	if (!engine_info->iomem_info) {
-		engine_info->name = "regs";
-		engine_info->iomem_info = sam_iomem_init(engine, &engine_info->type);
-		if (!engine_info->iomem_info) {
-			pr_err("Can't init IOMEM area for engine #%d\n", engine);
+	if (!device_info->iomem_info) {
+		device_info->name = "regs";
+		device_info->iomem_info = sam_iomem_init(device, &device_info->type);
+		if (!device_info->iomem_info) {
+			pr_err("Can't init IOMEM area for device #%d\n", device);
 			return -EINVAL;
 		}
-		rc = sys_iomem_map(engine_info->iomem_info, engine_info->name,
-				   &engine_info->paddr, &engine_info->vaddr);
+		rc = sys_iomem_map(device_info->iomem_info, device_info->name,
+				   &device_info->paddr, &device_info->vaddr);
 		if (rc) {
-			pr_err("Can't map %s IOMEM area for engine #%d, rc = %d\n",
-				engine_info->name, engine, rc);
-			sys_iomem_deinit(engine_info->iomem_info);
-			engine_info->iomem_info = NULL;
+			pr_err("Can't map %s IOMEM area for device #%d, rc = %d\n",
+				device_info->name, device, rc);
+			sys_iomem_deinit(device_info->iomem_info);
+			device_info->iomem_info = NULL;
 			return -ENOMEM;
 		}
 	}
-	if (engine_info->active_rings & BIT(ring)) {
-		pr_err("Engine #%d: Ring #%d is busy. Active rings map is 0x%x\n",
-			engine, ring, engine_info->active_rings);
+	if (device_info->active_rings & BIT(ring)) {
+		pr_err("device #%d: Ring #%d is busy. Active rings map is 0x%x\n",
+			device, ring, device_info->active_rings);
 		return -EBUSY;
 	}
-	engine_info->active_rings |= BIT(ring);
+	device_info->active_rings |= BIT(ring);
 
 	/* Add 1 to ring size for lockless ring management */
 	params->size += 1;
 
-	hw_ring->engine = engine;
-	hw_ring->type = engine_info->type;
+	hw_ring->device = device;
+	hw_ring->type = device_info->type;
 	hw_ring->ring = ring;
 	hw_ring->ring_size = params->size; /* number of descriptors in the ring */
 
-	if (engine_info->type == HW_EIP197) {
-		hw_ring->aic_regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP197_AIC_RING_REGS_OFFS(ring));
-		hw_ring->aic_regs_paddr = engine_info->paddr + SAM_EIP197_AIC_RING_REGS_OFFS(ring);
-		hw_ring->regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
-		hw_ring->paddr = engine_info->paddr + SAM_EIP197_RING_REGS_OFFS(ring);
-	} else if (engine_info->type == HW_EIP97) {
-		hw_ring->regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
-		hw_ring->paddr = engine_info->paddr + SAM_EIP97_RING_REGS_OFFS(ring);
+	if (device_info->type == HW_EIP197) {
+		hw_ring->aic_regs_vbase = (((char *)device_info->vaddr) + SAM_EIP197_AIC_RING_REGS_OFFS(ring));
+		hw_ring->aic_regs_paddr = device_info->paddr + SAM_EIP197_AIC_RING_REGS_OFFS(ring);
+		hw_ring->regs_vbase = (((char *)device_info->vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
+		hw_ring->paddr = device_info->paddr + SAM_EIP197_RING_REGS_OFFS(ring);
+	} else if (device_info->type == HW_EIP97) {
+		hw_ring->regs_vbase = (((char *)device_info->vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
+		hw_ring->paddr = device_info->paddr + SAM_EIP97_RING_REGS_OFFS(ring);
 	} else {
-		pr_err("%s: Unexpected HW type = %d\n", __func__, engine_info->type);
+		pr_err("%s: Unexpected HW type = %d\n", __func__, device_info->type);
 		rc = -EINVAL;
 		goto err;
 	}
 /*
 	if (sam_hw_ring_is_busy(hw_ring)) {
 		pr_err("%s: %d:%d is busy\n",
-			(engine_info->type == HW_EIP197) ? "eip197" : "eip97", engine, ring);
+			(device_info->type == HW_EIP197) ? "eip197" : "eip97", device, ring);
 		goto err;
 	}
 */
 	pr_debug("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
-		(engine_info->type == HW_EIP197) ? "eip197" : "eip97",
-		engine, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
+		(device_info->type == HW_EIP197) ? "eip197" : "eip97",
+		device, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
 	sam_hw_cdr_regs_reset(hw_ring);
 	sam_hw_rdr_regs_reset(hw_ring);
@@ -400,7 +429,7 @@ err:
 
 int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 {
-	struct sam_hw_engine_info *engine_info = &sam_hw_engine_info[hw_ring->engine];
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[hw_ring->device];
 
 	if (hw_ring->regs_vbase) {
 		sam_hw_cdr_regs_reset(hw_ring);
@@ -410,11 +439,11 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	sam_dma_buf_free(&hw_ring->cdr_buf);
 	sam_dma_buf_free(&hw_ring->rdr_buf);
 
-	engine_info->active_rings &= ~BIT(hw_ring->ring);
-	if (engine_info->active_rings == 0) {
-		sys_iomem_unmap(engine_info->iomem_info, engine_info->name);
-		sys_iomem_deinit(engine_info->iomem_info);
-		engine_info->iomem_info = NULL;
+	device_info->active_rings &= ~BIT(hw_ring->ring);
+	if (device_info->active_rings == 0) {
+		sys_iomem_unmap(device_info->iomem_info, device_info->name);
+		sys_iomem_deinit(device_info->iomem_info);
+		device_info->iomem_info = NULL;
 	}
 	return 0;
 }
@@ -432,7 +461,7 @@ int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *
 void sam_hw_aic_ring_regs_show(struct sam_hw_ring *hw_ring)
 {
 	pr_info("%d:%d AIC Ring registers - paddr = 0x%" PRIdma ", vaddr = %p\n",
-		hw_ring->engine, hw_ring->ring, hw_ring->aic_regs_paddr, hw_ring->aic_regs_vbase);
+		hw_ring->device, hw_ring->ring, hw_ring->aic_regs_paddr, hw_ring->aic_regs_vbase);
 
 	sam_hw_reg_print("SAM_AIC_RING_ENABLE_REG", hw_ring->aic_regs_vbase, SAM_AIC_RING_ENABLE_REG);
 	sam_hw_reg_print("SAM_AIC_RING_RAW_STAT_REG", hw_ring->aic_regs_vbase, SAM_AIC_RING_RAW_STAT_REG);
@@ -442,7 +471,7 @@ void sam_hw_aic_ring_regs_show(struct sam_hw_ring *hw_ring)
 void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 {
 	pr_info("%d:%d CDR registers - paddr = 0x%" PRIdma ", vaddr = %p\n",
-		hw_ring->engine, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
+		hw_ring->device, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
 	sam_hw_reg_print("HIA_CDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_CDR_RING_BASE_ADDR_LO_REG);
 	sam_hw_reg_print("HIA_CDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG);
 	sam_hw_reg_print("HIA_CDR_DESC_SIZE_REG", hw_ring->regs_vbase, HIA_CDR_DESC_SIZE_REG);
@@ -455,7 +484,7 @@ void sam_hw_cdr_regs_show(struct sam_hw_ring *hw_ring)
 void sam_hw_rdr_regs_show(struct sam_hw_ring *hw_ring)
 {
 	pr_info("%d:%d RDR registers - paddr = 0x%" PRIdma ", vaddr = %p\n",
-		hw_ring->engine, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
+		hw_ring->device, hw_ring->ring, hw_ring->paddr, hw_ring->regs_vbase);
 	sam_hw_reg_print("HIA_RDR_RING_BASE_ADDR_LO_REG", hw_ring->regs_vbase, HIA_RDR_RING_BASE_ADDR_LO_REG);
 	sam_hw_reg_print("HIA_RDR_RING_SIZE_REG", hw_ring->regs_vbase, HIA_RDR_RING_SIZE_REG);
 	sam_hw_reg_print("HIA_RDR_DESC_SIZE_REG", hw_ring->regs_vbase, HIA_RDR_DESC_SIZE_REG);

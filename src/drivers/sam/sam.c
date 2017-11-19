@@ -42,6 +42,9 @@
 
 #include "sam.h"
 
+/* Maximum number of supported CIOs for all devices */
+#define SAM_MAX_CIO_NUM		(SAM_HW_RING_NUM * SAM_HW_DEVICE_NUM)
+
 u32 sam_debug_flags;
 
 static bool		sam_initialized;
@@ -352,8 +355,8 @@ static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params 
 #ifdef MVCONF_SAM_DEBUG
 		if (session->cio != NULL)
 			pr_warn("Session is moved from cio=%d:%d to cio=%d:%d\n",
-				session->cio->hw_ring.engine, session->cio->hw_ring.ring,
-				cio->hw_ring.engine, cio->hw_ring.ring);
+				session->cio->hw_ring.device, session->cio->hw_ring.ring,
+				cio->hw_ring.device, cio->hw_ring.ring);
 #endif
 		session->cio = cio;
 	} else
@@ -395,6 +398,11 @@ int sam_get_capability(struct sam_capability *capa)
 	return 0;
 }
 
+u32 sam_get_num_cios(u32 inst)
+{
+	return sam_hw_get_rings_num(inst);
+}
+
 u8 sam_get_num_inst(void)
 {
 	int i;
@@ -403,8 +411,8 @@ u8 sam_get_num_inst(void)
 	if (sam_num_instances)
 		return sam_num_instances;
 
-	for (i = 0; i < SAM_HW_ENGINE_NUM; i++) {
-		if (sam_hw_engine_exist(i))
+	for (i = 0; i < SAM_HW_DEVICE_NUM; i++) {
+		if (sam_hw_device_exist(i, NULL))
 			num++;
 	}
 	sam_num_instances = num;
@@ -465,25 +473,25 @@ void sam_deinit(void)
 
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
-	int i, engine, ring, cio_idx, scanned;
+	int i, device, ring, cio_idx, scanned;
 	struct sam_cio	*local_cio;
 
 	/* Parse match string to ring number */
-	scanned = sscanf(params->match, "cio-%d:%d\n", &engine, &ring);
+	scanned = sscanf(params->match, "cio-%d:%d\n", &device, &ring);
 	if (scanned != 2) {
 		pr_err("Invalid match string %s. Expected: cio-0:X\n",
 			params->match);
 		return -EINVAL;
 	}
-	/* Check validity of engine and ring values */
-	if (engine >= sam_get_num_inst()) {
-		pr_err("SAM engine #%d is out of valid range [0 .. %d]",
-			engine, sam_get_num_inst() - 1);
+	/* Check validity of device and ring values */
+	if (device >= sam_get_num_inst()) {
+		pr_err("SAM device #%d is out of valid range [0 .. %d]",
+			device, sam_get_num_inst() - 1);
 		return -EINVAL;
 	}
 	if (ring >= SAM_HW_RING_NUM) {
 		pr_err("SAM ring #%d is out of valid range [0 .. %d]",
-			engine, SAM_HW_RING_NUM - 1);
+			device, SAM_HW_RING_NUM - 1);
 		return -EINVAL;
 	}
 	cio_idx = sam_cio_free_idx_get();
@@ -499,7 +507,7 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 		return -ENOMEM;
 
 	/* Initialize HW ring */
-	if (sam_hw_ring_init(engine, ring, params, &local_cio->hw_ring))
+	if (sam_hw_ring_init(device, ring, params, &local_cio->hw_ring))
 		goto err;
 
 	/* Save configured CIO params */
@@ -908,7 +916,7 @@ int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *param
 
 	snprintf(ev_params.name, sizeof(ev_params.name), "%s_%d:%d",
 			(cio->hw_ring.type == HW_EIP197) ? "eip197" : "eip97",
-			cio->hw_ring.engine, cio->hw_ring.ring);
+			cio->hw_ring.device, cio->hw_ring.ring);
 
 	err = mv_sys_event_create(&ev_params, ev);
 	if (err) {
