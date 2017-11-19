@@ -36,9 +36,6 @@
 #define DRIVER_AUTHOR	"Marvell"
 #define DRIVER_DESC	"UIO platform driver for Security Accelerator"
 
-/* UIO device per SAM CIO/Ring to support Interrupt per ring */
-#define MAX_UIO_DEVS			4
-
 #define SAM_EIP197_xDR_REGS_OFFS	0x80000
 #define SAM_EIP97_xDR_REGS_OFFS		0x0
 
@@ -50,7 +47,15 @@
 /* HIA_RDR_y_STAT register */
 #define SAM_RDR_STAT_IRQ_OFFS		0
 #define SAM_RDR_STAT_IRQ_BITS		8
-#define SAM_RDR_STAT_IRQ_MASK		GENMASK(SAM_RDR_STAT_IRQ_OFFS + SAM_RDR_STAT_IRQ_BITS, SAM_RDR_STAT_IRQ_OFFS)
+#define SAM_RDR_STAT_IRQ_MASK		GENMASK(SAM_RDR_STAT_IRQ_OFFS + SAM_RDR_STAT_IRQ_BITS - 1, \
+						SAM_RDR_STAT_IRQ_OFFS)
+
+/* HIA Options Register */
+#define SAM_HIA_OPTIONS_REG		0x9FFF8
+
+#define SAM_N_RINGS_OFFS		0
+#define SAM_N_RINGS_BITS		4
+#define SAM_N_RINGS_MASK		GENMASK(SAM_N_RINGS_OFFS + SAM_N_RINGS_BITS - 1, SAM_N_RINGS_OFFS)
 
 struct sam_uio_ring_info {
 	int ring;
@@ -73,11 +78,24 @@ struct sam_uio_pdev_info {
 	struct device *dev;
 	char name[16];
 	char *regs_vbase;
-	struct sam_uio_ring_info rings[MAX_UIO_DEVS];
+	int rings_num;
+	struct sam_uio_ring_info *rings;
 };
 
 
 static int sam_uio_remove(struct platform_device *pdev);
+
+static inline int sam_uio_get_rings_num(struct sam_uio_pdev_info *pdev_info)
+{
+	u32 *addr, val32;
+
+	addr = (u32 *)(pdev_info->regs_vbase + SAM_HIA_OPTIONS_REG);
+
+	val32 = readl(addr);
+	pdev_info->rings_num = val32 & SAM_N_RINGS_MASK;
+
+	return pdev_info->rings_num;
+}
 
 static inline void sam_uio_ring_ack_irq(struct sam_uio_ring_info *ring_priv, u32 mask)
 {
@@ -116,7 +134,7 @@ static int sam_uio_probe(struct platform_device *pdev)
 	struct sam_uio_pdev_info  *pdev_info;
 	struct uio_info *uio;
 	struct resource *res;
-	int err = 0;
+	int rings_num, err = 0;
 	char irq_name[6] = {0};
 	char *xdr_regs_vbase;
 	static u8 cpn_count;
@@ -155,6 +173,7 @@ static int sam_uio_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to get resource\n");
 		goto fail_uio;
 	}
+
 	if (!strcmp(eip_node->name, "eip197"))
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
 	else if (!strcmp(eip_node->name, "eip97"))
@@ -163,10 +182,18 @@ static int sam_uio_probe(struct platform_device *pdev)
 		dev_err(dev, "unknown HW type\n");
 		goto fail_uio;
 	}
+	/* Read number of HW Rings from HIA_OPTIONS register */
+	rings_num = sam_uio_get_rings_num(pdev_info);
+	pdev_info->rings = devm_kzalloc(dev, rings_num * sizeof(struct sam_uio_ring_info),
+					GFP_KERNEL);
+	if (!pdev_info->rings) {
+		err = -ENOMEM;
+		goto fail;
+	}
 
 	snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_%s_%d",  eip_node->name, cpn_count);
 
-	for (int idx = 0; idx < MAX_UIO_DEVS; idx++) {
+	for (int idx = 0; idx < rings_num; idx++) {
 		struct sam_uio_ring_info *ring_info = &pdev_info->rings[idx];
 
 		uio = &ring_info->uio;
@@ -226,7 +253,7 @@ static int sam_uio_remove(struct platform_device *pdev)
 		for (int idx = 0; idx < pdev_info->uio_num; idx++)
 			uio_unregister_device(&pdev_info->rings[idx].uio);
 	}
-
+	devm_kfree(&pdev->dev, pdev_info->rings);
 	devm_kfree(&pdev->dev, pdev_info);
 	platform_set_drvdata(pdev, NULL);
 
