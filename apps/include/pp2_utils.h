@@ -563,7 +563,7 @@ void app_set_port_enable(struct port_desc *port_desc, int enable);
 /*
  * Register common CLI commands (currently show queue and port statistics)
  */
-int app_register_cli_common_cmds(struct port_desc *port_desc);
+int app_register_cli_common_cmds(struct glb_common_args *glb_args);
 
 /*
  * Register descriptor CLI commands

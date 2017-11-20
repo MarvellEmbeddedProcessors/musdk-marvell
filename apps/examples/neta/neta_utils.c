@@ -75,7 +75,7 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 	return 0;
 }
 
-int app_register_cli_common_cmds(struct port_desc *port_desc)
+int app_register_cli_common_cmds(struct glb_common_args *glb_args)
 {
 	/* TBD: NETA CLI commands */
 

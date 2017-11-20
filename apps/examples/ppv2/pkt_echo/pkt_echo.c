@@ -480,8 +480,6 @@ static int init_local_modules(struct glob_arg *garg)
 static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
-	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "prefetch";
@@ -497,7 +495,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.cmd_arg	= &garg->cmn_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_pp2_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-	app_register_cli_common_cmds(pp2_args->ports_desc);
+	app_register_cli_common_cmds(&garg->cmn_args);
 
 	return 0;
 }

@@ -147,9 +147,10 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i, j, reset = 0;
 	u8 qid = 0, port_id = 0, tc = (~0);
-	int ports_num = MVAPPS_PP2_MAX_NUM_PORTS;
+	struct glb_common_args *glb_args = (struct glb_common_args *) arg;
+	struct port_desc *port_desc = ((struct pp2_glb_common_args *) glb_args->plat)->ports_desc;
+	int ports_num = glb_args->num_ports;
 	int queues_num = 0;
-	struct port_desc *port_desc = (struct port_desc *)arg;
 	char *ret_ptr;
 	int option = 0;
 	int long_index = 0;
@@ -222,8 +223,9 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i, reset = 0;
 	u8 portid = 0;
-	int ports_num = MVAPPS_PP2_MAX_NUM_PORTS;
-	struct port_desc *port_desc = (struct port_desc *)arg;
+	struct glb_common_args *glb_args = (struct glb_common_args *) arg;
+	struct port_desc *port_desc = ((struct pp2_glb_common_args *) glb_args->plat)->ports_desc;
+	int ports_num = glb_args->num_ports;
 	char *ret_ptr;
 	int option = 0;
 	int long_index = 0;
@@ -324,8 +326,9 @@ static int port_ethtool_get_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int i;
 	u8 portid = 0;
-	int ports_num = MVAPPS_PP2_MAX_NUM_PORTS;
-	struct port_desc *port_desc = (struct port_desc *)arg;
+	struct glb_common_args *glb_args = (struct glb_common_args *) arg;
+	struct port_desc *port_desc = ((struct pp2_glb_common_args *) glb_args->plat)->ports_desc;
+	int ports_num = glb_args->num_ports;
 	char *ret_ptr;
 	int option = 0;
 	int long_index = 0;
@@ -491,7 +494,10 @@ static int pp2_descriptor_params(void *arg, int argc, char *argv[])
 	struct port_desc *ports_desc = (struct port_desc *)arg;
 	int i, option;
 	int long_index = 0;
+	u8 port_id = 0;
+	char *ret_ptr;
 	struct option long_options[] = {
+		{"port", required_argument, 0, 'p'},
 		{"rx", no_argument, 0, 'r'},
 		{"tx", no_argument, 0, 't'},
 		{"set", no_argument, 0, 's'},
@@ -499,7 +505,7 @@ static int pp2_descriptor_params(void *arg, int argc, char *argv[])
 		{0, 0, 0, 0}
 	};
 
-	if  (argc < 1 || argc > 2) {
+	if  (argc < 1 || argc > 4) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
@@ -509,24 +515,31 @@ static int pp2_descriptor_params(void *arg, int argc, char *argv[])
 	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
 		/* Get parameters */
 		switch (option) {
+		case 'p':
+			port_id = strtoul(optarg, &ret_ptr, 0);
+			if ((optarg == ret_ptr) || (port_id < 0)) {
+				printf("parsing fail, wrong input for --port\n");
+				return -EINVAL;
+			}
+			break;
 		case 'r':
-			pp2_rx_descriptor_dump(ports_desc);
+			pp2_rx_descriptor_dump(&ports_desc[port_id]);
 			break;
 		case 't':
-			pp2_tx_descriptor_dump(ports_desc);
+			pp2_tx_descriptor_dump(&ports_desc[port_id]);
 			break;
 		case 's':
 			for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++) {
-				if (ports_desc->lcl_ports_desc[i]) {
+				if (ports_desc[port_id].lcl_ports_desc[i]) {
 					pr_info("setting save_desc_data on core %d\n", i);
-					ports_desc->lcl_ports_desc[i]->save_desc_data = 1;
+					ports_desc[port_id].lcl_ports_desc[i]->save_desc_data = 1;
 				}
 			}
 			break;
 		case 'c':
 			for (i = 0; i < MVAPPS_MAX_NUM_CORES; i++) {
-				if (ports_desc->lcl_ports_desc[i])
-					ports_desc->lcl_ports_desc[i]->save_desc_data = 0;
+				if (ports_desc[port_id].lcl_ports_desc[i])
+					ports_desc[port_id].lcl_ports_desc[i]->save_desc_data = 0;
 			}
 			break;
 		default:
@@ -538,9 +551,10 @@ static int pp2_descriptor_params(void *arg, int argc, char *argv[])
 	return 0;
 }
 
-int app_register_cli_common_cmds(struct port_desc *port_desc)
+int app_register_cli_common_cmds(struct glb_common_args *glb_args)
 {
 	struct cli_cmd_params cmd_params;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) glb_args->plat;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "qstat";
@@ -550,16 +564,17 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 				  "\t\t--tc,    -t	tc number, if not specified, show for all tcs\n"
 				  "\t\t--queue, -q	queue index, if not specified, show for all queues.\n"
 				  "\t\t--reset, -r	reset statistics\n";
-	cmd_params.cmd_arg	= port_desc;
+	cmd_params.cmd_arg	= glb_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))queue_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
+
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "pstat";
 	cmd_params.desc		= "Show ports statistics";
 	cmd_params.format	= "--port --reset\n"
 				  "\t\t--port, -p	port number, if not specified, show for all ports\n"
 				  "\t\t--reset, -r	reset statistics\n";
-	cmd_params.cmd_arg	= port_desc;
+	cmd_params.cmd_arg	= glb_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 
@@ -569,7 +584,7 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	cmd_params.desc		= "Show port ethtool get";
 	cmd_params.format	= "--port\n"
 				  "\t\t--port, -p	port number, if not specified, show for all ports\n";
-	cmd_params.cmd_arg	= port_desc;
+	cmd_params.cmd_arg	= glb_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_ethtool_get_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 
@@ -578,7 +593,7 @@ int app_register_cli_common_cmds(struct port_desc *port_desc)
 	cmd_params.format	= "--port --enable\n"
 				  "\t\t--port, -p	port number, required param\n"
 				  "\t\t--enable, -e	0-disable, 1-enable, disable if unspecified\n";
-	cmd_params.cmd_arg	= port_desc;
+	cmd_params.cmd_arg	= pp2_args->ports_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_enable_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 
@@ -592,10 +607,12 @@ int app_register_cli_desc_cmds(struct port_desc *port_desc)
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "descriptors";
 	cmd_params.desc		= "dump information on rx/tx descriptors";
-	cmd_params.format	= "--set		start collecting information on last descriptor\n"
-				  "\t\t\t\t--clear	clear collecting information on last descriptor\n"
-				  "\t\t\t\t--rx		dump last received RX descriptor\n"
-				  "\t\t\t\t--tx		dump last received TX descriptor\n";
+	cmd_params.format	= "\t\t--port --set/--clear --rx/--tx\n"
+				  "\t\t\t\t--port, -p	port number, if not specified, show for port 0\n"
+				  "\t\t\t\t--set, -s	start collecting information on last descriptor\n"
+				  "\t\t\t\t--clear, -c	clear collecting information on last descriptor\n"
+				  "\t\t\t\t--rx, -r	dump last received RX descriptor\n"
+				  "\t\t\t\t--tx, -t	dump last received TX descriptor\n";
 	cmd_params.cmd_arg	= port_desc;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_descriptor_params;
 	mvapp_register_cli_cmd(&cmd_params);

@@ -215,7 +215,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	if (garg->cls_table_flag)
 		register_cli_c3_cmds(ppio);
 
-	app_register_cli_common_cmds(pp2_args->ports_desc);
+	app_register_cli_common_cmds(&garg->cmn_args);
 
 	return 0;
 }

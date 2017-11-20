@@ -1131,7 +1131,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	mvapp_register_cli_cmd(&cmd_params);
 #endif /* CHECK_CYCLES */
 
-	app_register_cli_common_cmds(garg->ports_desc);
+	app_register_cli_common_cmds(&garg->cmn_args);
 
 
 	return 0;
