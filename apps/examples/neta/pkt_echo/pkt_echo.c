@@ -520,7 +520,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.cmd_arg	= &garg->cmn_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))neta_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
-	app_register_cli_common_cmds(garg->ports_desc);
+	app_register_cli_common_cmds(&garg->cmn_args);
 
 	return 0;
 }
