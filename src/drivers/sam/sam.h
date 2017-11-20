@@ -46,6 +46,9 @@
 /** Maximum number of supported crypto engines */
 #define SAM_HW_DEVICE_NUM	        2
 
+/** Maximum number of supported rings per crypto engines */
+#define SAM_HW_RING_NUM			8
+
 #define SAM_AAD_IN_TOKEN_MAX_SIZE	(64)
 
 /* max token size in bytes */

@@ -41,9 +41,6 @@ struct sam_sa;
 #include "mv_sam_session.h"
 #include "mv_sam_cio.h"
 
-/* Maximum number of supported rings (cios) per engine */
-#define SAM_HW_RING_NUM		4
-
 #define SAM_SA_DEBUG_FLAG	0x1
 #define SAM_CIO_DEBUG_FLAG	0x2
 

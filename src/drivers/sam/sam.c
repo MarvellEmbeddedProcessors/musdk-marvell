@@ -489,9 +489,9 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 			device, sam_get_num_inst() - 1);
 		return -EINVAL;
 	}
-	if (ring >= SAM_HW_RING_NUM) {
-		pr_err("SAM ring #%d is out of valid range [0 .. %d]",
-			device, SAM_HW_RING_NUM - 1);
+	if (ring >= sam_get_num_cios(device)) {
+		pr_err("SAM CIO #%d is out of valid range [0 .. %d]",
+			device, sam_get_num_cios(device) - 1);
 		return -EINVAL;
 	}
 	cio_idx = sam_cio_free_idx_get();
