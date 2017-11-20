@@ -33,7 +33,7 @@ Build Required Kernel Modules
 
 	- Kernel directory. for example::
 
-		> export KDIR=~/linux-4.4.52-devel/kernel
+		> export KDIR=~/linux-4.4.52-devel
 
 (2) Build the MUSDK UIO kernel module and install it::
 
