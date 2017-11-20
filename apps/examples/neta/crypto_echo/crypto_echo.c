@@ -64,8 +64,6 @@
 #define CRYPT_APP_CTRL_DFLT_THR		2000
 #define CRYPT_APP_DMA_MEM_SIZE		(48 * 1024 * 1024)
 
-#define CRYPT_APP_CIOS_RSRV		{0x0, 0x0}
-
 #define MAX_AUTH_BLOCK_SIZE	128 /* Bytes */
 #define AUTH_BLOCK_SIZE_64B	64  /* Bytes */
 #define ICV_LEN			12  /* Bytes */
@@ -74,9 +72,6 @@
 #define CRYPT_APP_MAX_NUM_TCS_PER_PORT		1
 #define CRYPT_APP_MAX_NUM_QS_PER_CORE		CRYPT_APP_MAX_NUM_TCS_PER_PORT
 #define CRYPT_APP_MAX_NUM_SESSIONS		32
-
-/* TODO: find more generic way to get the following parameters */
-#define CRYPT_APP_TOTAL_NUM_CIOS	4
 
 /*#define CRYPT_APP_VERBOSE_CHECKS*/
 #define CRYPT_APP_VERBOSE_DEBUG
@@ -169,7 +164,7 @@ struct local_arg {
 };
 
 static struct glob_arg garg = {};
-static u8	used_cios[] = CRYPT_APP_CIOS_RSRV;
+static u8	used_cios[] = {0x0, 0x0};
 
 #define CHECK_CYCLES
 #ifdef CHECK_CYCLES
@@ -597,7 +592,6 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 	struct sam_cio_op_result res_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_cio_op_result res_descs_to_dec[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_cio_op_result res_descs_to_send[CRYPT_APP_MAX_BURST_SIZE];
-	struct sam_cio_op_result *to_send_ptr, *to_dec_ptr;
 	int			 err;
 	u16			 i, num, num_to_send, num_to_dec;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
@@ -629,7 +623,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 			if (larg->cmn_args.verbose > 1) {
-				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_NETA_PKT_DEF_EFEC_OFFS;
+				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_NETA_PKT_EFEC_OFFS;
 
 				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
 			}
@@ -703,17 +697,18 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 	return 0;
 }
 
-static int find_free_cio(u8 eng)
+static int find_free_cio(u8 device)
 {
 	int	i;
+	u32 num_cios = sam_get_num_cios(device);
 
-	for (i = 0; i < CRYPT_APP_TOTAL_NUM_CIOS; i++) {
-		if (!((uint64_t)(1 << i) & used_cios[eng])) {
-			used_cios[eng] |= (uint64_t)(1 << i);
+	for (i = 0; i < num_cios; i++) {
+		if (!((uint64_t)(1 << i) & used_cios[device])) {
+			used_cios[device] |= (uint64_t)(1 << i);
 			break;
 		}
 	}
-	if (i == CRYPT_APP_TOTAL_NUM_CIOS) {
+	if (i == num_cios) {
 		pr_err("no free CIO found!\n");
 		return -ENOSPC;
 	}
@@ -1017,11 +1012,7 @@ static int init_local_modules(struct glob_arg *garg)
 		err = app_port_enable(port);
 	}
 
-	/* In that stage, we're initializaing CIO for global-arg just in order
-	 * to enforce the initialization of the engine.
-	 * TODO: in the future, replace the below code with appropraite initialization of the engine.
-	 */
-
+	/* SAM driver global initialization */
 	init_params.max_num_sessions = CRYPT_APP_MAX_NUM_SESSIONS;
 	sam_init(&init_params);
 
@@ -1225,7 +1216,7 @@ static int init_local(void *arg, int id, void **_larg)
 	struct local_arg	*larg;
 	struct sam_cio_params	cio_params;
 	struct sam_cio		*cio;
-	int			 i, err, cio_id, sam_engine;
+	int			 i, err, cio_id, sam_device;
 
 	pr_info("Local initializations for thread %d\n", id);
 
@@ -1254,15 +1245,15 @@ static int init_local(void *arg, int id, void **_larg)
 	memset(larg->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
 	pthread_mutex_lock(&garg->trd_lock);
-	sam_engine = id % sam_get_num_inst();
-	cio_id = find_free_cio(sam_engine);
+	sam_device = id % sam_get_num_inst();
+	cio_id = find_free_cio(sam_device);
 	if (cio_id < 0) {
 		pr_err("free CIO not found!\n");
 		pthread_mutex_unlock(&garg->trd_lock);
 		return cio_id;
 	}
 	memset(larg->enc_name, 0, sizeof(larg->enc_name));
-	snprintf(larg->enc_name, sizeof(larg->enc_name), "cio-%d:%d", sam_engine, cio_id);
+	snprintf(larg->enc_name, sizeof(larg->enc_name), "cio-%d:%d", sam_device, cio_id);
 	memset(&cio_params, 0, sizeof(cio_params));
 	cio_params.match = larg->enc_name;
 	cio_params.size = CRYPT_APP_CIO_Q_SIZE;
@@ -1280,27 +1271,34 @@ static int init_local(void *arg, int id, void **_larg)
 
 		larg->enc_cio = cio;
 
-		/* Take other engine if available */
-		sam_engine = (sam_engine + 1) % sam_get_num_inst();
+		/* If number of Cores > number of available CIOs then use the same cio or
+		 * encrypt and decrypt
+		 */
+		if (2 * garg->cmn_args.cpus > sam_get_num_inst() * sam_get_num_cios(sam_device)) {
+			strcpy(larg->dec_name, larg->enc_name);
+			larg->dec_cio = larg->enc_cio;
+		} else {
+			/* Take other device if available */
+			sam_device = (sam_device + 1) % sam_get_num_inst();
 
-		pthread_mutex_lock(&garg->trd_lock);
-		cio_id = find_free_cio(sam_engine);
-		pthread_mutex_unlock(&garg->trd_lock);
+			pthread_mutex_lock(&garg->trd_lock);
+			cio_id = find_free_cio(sam_device);
+			pthread_mutex_unlock(&garg->trd_lock);
 
-		if (cio_id < 0) {
-			pr_err("free CIO not found!\n");
-			return cio_id;
+			if (cio_id < 0) {
+				pr_err("free CIO not found!\n");
+				return cio_id;
+			}
+			memset(larg->dec_name, 0, sizeof(larg->dec_name));
+			snprintf(larg->dec_name, sizeof(larg->dec_name), "cio-%d:%d", sam_device, cio_id);
+			memset(&cio_params, 0, sizeof(cio_params));
+			cio_params.match = larg->dec_name;
+			cio_params.size = CRYPT_APP_CIO_Q_SIZE;
+			err = sam_cio_init(&cio_params, &larg->dec_cio);
+			if (err != 0)
+				return err;
 		}
-		memset(larg->dec_name, 0, sizeof(larg->dec_name));
-		snprintf(larg->dec_name, sizeof(larg->dec_name), "cio-%d:%d", sam_engine, cio_id);
-		memset(&cio_params, 0, sizeof(cio_params));
-		cio_params.match = larg->dec_name;
-		cio_params.size = CRYPT_APP_CIO_Q_SIZE;
-		err = sam_cio_init(&cio_params, &larg->dec_cio);
-		if (err != 0)
-			return err;
 	}
-
 	larg->cmn_args.id               = id;
 	larg->cmn_args.verbose		= garg->cmn_args.verbose;
 	larg->cmn_args.burst		= garg->cmn_args.burst;
