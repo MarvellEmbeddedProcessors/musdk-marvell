@@ -1,4 +1,4 @@
-From 7e5e34af7e02e61d53ce84c4ee2ee439318ab46c Mon Sep 17 00:00:00 2001
+From 860b1c0bbedc24bfb2b89cecf24551cc3b785e89 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Thu, 6 Jul 2017 11:16:11 +0300
 Subject: [PATCH 2/3] musdk: update existing dts files
@@ -11,7 +11,8 @@ Signed-off-by: Lior Amsalem <alior@marvell.com>
  arch/arm64/boot/dts/marvell/armada-7040-pcac.dts  | 1 +
  arch/arm64/boot/dts/marvell/armada-8040-db.dts    | 2 ++
  arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 1 +
- 5 files changed, 7 insertions(+)
+ arch/arm64/boot/dts/marvell/armada-8040-ocp.dts   | 1 +
+ 6 files changed, 8 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 index e6f170a..49e2bcf 100644
@@ -75,6 +76,18 @@ index e9a731e..97c12cb 100644
  
  / {
  	model = "Marvell 8040 MACHIATOBin";
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-ocp.dts b/arch/arm64/boot/dts/marvell/armada-8040-ocp.dts
+index c003fd4..72ffdc2 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8040-ocp.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-ocp.dts
+@@ -45,6 +45,7 @@
+  */
+ 
+ #include "armada-8040.dtsi"
++#include "musdk-armada-8040-ocp.dtsi"
+ 
+ / {
+ 	model = "Armada 8040 OCP";
 -- 
 1.9.1
 
