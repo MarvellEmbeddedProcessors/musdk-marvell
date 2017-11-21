@@ -1227,6 +1227,30 @@ int pp2_ppio_set_outq_state(struct pp2_ppio *ppio, u8 qid, int en);
  */
 int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid, int *en);
 
+/**
+ * Enable/disable rx flow control
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		en	A flag indicates if rx pause should be
+ *				enabled or disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_set_rx_pause(struct pp2_ppio *ppio, int en);
+
+/**
+ * Get rx flow control status
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		en	A flag indicates if rx pause is
+ *				enabled or disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en);
+
 
 
 /** @} */ /* end of grp_pp2_io */

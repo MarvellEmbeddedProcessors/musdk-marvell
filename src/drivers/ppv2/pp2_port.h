@@ -409,6 +409,12 @@ int pp2_port_get_mac_addr(struct pp2_port *port, uint8_t *addr);
 /* Get Link State */
 int pp2_port_get_link_state(struct pp2_port *port, int  *en);
 
+/* Get Rx Pause FC status */
+int pp2_port_get_rx_pause(struct pp2_port *port, int *en);
+
+/* Set Rx Pause FC */
+int pp2_port_set_rx_pause(struct pp2_port *port, int en);
+
 /* Set MTU */
 int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu);
 
