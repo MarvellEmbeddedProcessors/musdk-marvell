@@ -513,6 +513,24 @@ int pp2_ppio_get_link_state(struct pp2_ppio *ppio, int *en)
 	return rc;
 }
 
+int pp2_ppio_set_rx_pause(struct pp2_ppio *ppio, int en)
+{
+	int rc;
+
+	rc = pp2_port_set_rx_pause(GET_PPIO_PORT(ppio), en);
+	return rc;
+
+}
+
+int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en)
+{
+	int rc;
+
+	rc = pp2_port_get_rx_pause(GET_PPIO_PORT(ppio), en);
+	return rc;
+
+}
+
 int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan)
 {
 	int rc;
