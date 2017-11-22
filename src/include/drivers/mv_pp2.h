@@ -36,7 +36,7 @@
 #include "mv_std.h"
 #include "mv_net.h"
 
-#define PP2_NUM_PKT_PROC		2 /**< Maximum number of packet processors */
+#define PP2_NUM_PKT_PROC		4 /**< Maximum number of packet processors */
 #define PP2_NUM_ETH_PPIO		3 /**< Maximum number of ppio instances in each packet processor */
 #define PP2_MAX_PROTO_SUPPORTED		8 /**< Maximum number of net protocols supported in pp2 parser */
 #define PP2_MAX_FIELDS_SUPPORTED	2 /**< Maximum number of net protocol special fields supported in pp2 parser*/

@@ -232,11 +232,30 @@ static inline int kstrtoint(const char *s, unsigned int base, int *res)
 	return 0;
 }
 
+
+
+static inline int bit_count(u64 mask)
+{
+	int count = 0, i;
+
+	for (i = 0; i < 64; i++) {
+		count += (mask & 1);
+		mask >>= 1;
+	}
+	return count;
+}
+
+
 /*
  * roundup - roundup to nearest integer
  */
 #ifndef roundup
 #define roundup(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
+#endif
+
+/* Returns the least number N such that N * Y >= X.  */
+#ifndef ceil
+#define ceil(x, y) ((((x) + ((y) - 1)) / (y)))
 #endif
 
 /*

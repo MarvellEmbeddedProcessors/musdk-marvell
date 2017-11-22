@@ -55,7 +55,6 @@
 #define CLS_APP_HIF_Q_SIZE			CLS_APP_DEF_Q_SIZE
 #define CLS_APP_RX_Q_SIZE			CLS_APP_DEF_Q_SIZE
 #define CLS_APP_TX_Q_SIZE			CLS_APP_DEF_Q_SIZE
-#define CLS_APP_MAX_NUM_QS_PER_CORE		MVAPPS_PP2_MAX_NUM_QS_PER_TC
 #define CLS_APP_BPOOLS_INF		{ {2048, 1024} }
 
 struct glob_arg {
@@ -167,7 +166,7 @@ static int init_local_modules(struct glob_arg *garg)
 		if (!err) {
 			port->num_tcs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
 			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] = MVAPPS_PP2_MAX_NUM_QS_PER_TC;
+				port->num_inqs[i] = mvapp_pp2_max_num_qs_per_tc;
 			port->inq_size	= CLS_APP_RX_Q_SIZE;
 			port->num_outqs	= CLS_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
@@ -445,6 +444,7 @@ int main(int argc, char *argv[])
 	int			err;
 
 	setbuf(stdout, NULL);
+	app_set_max_num_qs_per_tc();
 
 	pr_debug("pr_debug is enabled\n");
 

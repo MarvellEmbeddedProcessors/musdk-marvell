@@ -32,7 +32,8 @@
 
 #ifndef __MV_PP2_UTILS_H__
 #define __MV_PP2_UTILS_H__
-
+#include <stdbool.h>
+#include <pthread.h>
 #include "mv_std.h"
 #include "utils.h"
 #include "mv_pp2_hif.h"
@@ -50,8 +51,7 @@
 /* Maximum number of ports used by application */
 #define MVAPPS_PP2_MAX_NUM_PORTS		2
 
-/* Maximum number of queues per TC */
-#define MVAPPS_PP2_MAX_NUM_QS_PER_TC	MVAPPS_MAX_NUM_CORES
+
 /* Number of BM pools reserved by kernel */
 #define MVAPPS_PP2_NUM_BPOOLS_RSRV	3
 /* Reserved BM pools mask */
@@ -98,6 +98,14 @@
 		(lcl_port_desc)->cntrs.tx_max_burst = burst; }
 
 
+
+extern u8 mvapp_pp2_max_num_qs_per_tc;
+static inline void app_set_max_num_qs_per_tc(void)
+{
+	mvapp_pp2_max_num_qs_per_tc = system_ncpus();
+}
+
+
 /*
  * Tx shadow queue entry
  */
@@ -112,8 +120,11 @@ struct tx_shadow_q_entry {
 struct tx_shadow_q {
 	u16				read_ind;	/* read index */
 	u16				write_ind;	/* write index */
-
+	bool				shared_q;
+	pthread_mutex_t			read_lock;
+	pthread_mutex_t			write_lock;
 	struct tx_shadow_q_entry	*ents;		/* array of entries */
+	int				size;
 };
 
 
@@ -128,6 +139,13 @@ struct pp2_counters {
 	u32		tx_max_burst;
 };
 
+
+struct app_shadowqs {
+	u32			local_thr_id_mask; /* Mask of lcl_threads that use this set of shadow_qs */
+	int			num_shadow_qs;
+	int			shadow_q_size;	/* Size of Tx shadow queue */
+	struct tx_shadow_q	*shadow_qs;
+};
 
 
 /*
@@ -152,7 +170,8 @@ struct port_desc {
 	char			 *plcr_argv[10];/* policer params argv */
 	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
 	struct pp2_ppio_params	 port_params;	/* PPIO configuration parameters */
-	struct lcl_port_desc	*lcl_ports_desc[MVAPPS_MAX_NUM_CORES];
+	struct lcl_port_desc	*lcl_ports_desc[MVAPPS_MAX_NUM_CORES]; /* Index is the thread_id */
+	struct app_shadowqs	 *shared_qs[MVAPPS_PP2_TOTAL_NUM_HIFS];
 };
 
 /*
@@ -167,6 +186,7 @@ struct lcl_port_desc {
 	int			num_shadow_qs;	/* Number of Tx shadow queues */
 	int			shadow_q_size;	/* Size of Tx shadow queue */
 	struct tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
+	bool			shared_shadow_qs;
 	struct pp2_counters	cntrs;
 	u32			first_txq;	/* First TXQ -relevant for logical port only */
 	u16			pkt_offset[PP2_PPIO_MAX_NUM_TCS];
@@ -195,19 +215,25 @@ struct bpool_desc {
 
 struct pp2_lcl_common_args {
 	struct pp2_hif		*hif;
+	bool			shared_hif;
 	struct lcl_port_desc	*lcl_ports_desc;
 	struct bpool_desc	**pools_desc;
 	int			multi_buffer_release;
 };
 
+struct pp2_app_hif {
+	u32			local_thr_id_mask;
+	struct pp2_hif		*hif;
+};
 
 struct pp2_glb_common_args {
 	struct port_desc	ports_desc[MVAPPS_PP2_MAX_NUM_PORTS]; /* TODO: dynamic_size, as lcl_ports_desc */
 	int			num_pools;
 	int			pp2_num_inst;
-	struct pp2_hif		*hif;
+	struct pp2_hif		*hif; /* Global HIF for the control thread, equals to the first HIF */
 	struct bpool_desc	**pools_desc;
 	int			multi_buffer_release;
+	struct pp2_app_hif	*app_hif[MVAPPS_PP2_TOTAL_NUM_HIFS]; /* hifs for all local_threads */
 };
 
 
@@ -229,6 +255,7 @@ static inline enum pp2_outq_l4_type pp2_l4_type_inq_to_outq(enum pp2_inq_l4_type
 
 	return PP2_OUTQ_L4_TYPE_OTHER;
 }
+
 
 #ifndef HW_BUFF_RECYLCE
 static inline u16 free_buffers(struct lcl_port_desc	*rx_port,
@@ -306,15 +333,21 @@ static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
 				     int			 multi_buffer_release)
 {
 	u16 tx_num;
+	struct tx_shadow_q *shadow_q = &tx_port->shadow_qs[tc];
+
+	/* If shadow_q is locked, another thread is currently running free_sent_buffers for this shadow_q */
+	if (shadow_q->shared_q && pthread_mutex_trylock(&shadow_q->read_lock))
+		return;
 
 	pp2_ppio_get_num_outq_done(tx_port->ppio, hif, tc, &tx_num);
 
 	if (multi_buffer_release)
-		tx_port->shadow_qs[tc].read_ind = free_multi_buffers(rx_port, tx_port, hif,
-								     tx_port->shadow_qs[tc].read_ind, tx_num, tc);
+		shadow_q->read_ind = free_multi_buffers(rx_port, tx_port, hif, shadow_q->read_ind, tx_num, tc);
 	else
-		tx_port->shadow_qs[tc].read_ind = free_buffers(rx_port, tx_port, hif,
-							       tx_port->shadow_qs[tc].read_ind, tx_num, tc);
+		shadow_q->read_ind = free_buffers(rx_port, tx_port, hif, shadow_q->read_ind, tx_num, tc);
+
+	if (shadow_q->shared_q)
+		pthread_mutex_unlock(&shadow_q->read_lock);
 }
 #endif
 
@@ -334,8 +367,8 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 	struct perf_cmn_cntrs	*perf_cntrs = &larg_cmn->perf_cntrs;
 	struct lcl_port_desc	*rx_lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
 	struct lcl_port_desc	*tx_lcl_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
-	u16			 i, j, tx_num;
-	int			 mycyc;
+	u16			 i, j, tx_num, shadowq_full_drop_num = 0, write_ind, read_ind;
+	int			 mycyc, max_write;
 #ifdef APP_TX_RETRY
 	u16			 desc_idx = 0, cnt = 0;
 #endif
@@ -357,6 +390,34 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 	pp2_ppio_recv(rx_lcl_port_desc->ppio, tc, tc_qid, descs, &num);
 	perf_cntrs->rx_cnt += num;
 	INC_RX_COUNT(rx_lcl_port_desc, num);
+
+	/* read_index need not be locked, just sampled */
+	read_ind = shadow_q->read_ind;
+
+	/* write_index will be updated */
+	if (shadow_q->shared_q)
+		pthread_mutex_lock(&shadow_q->write_lock);
+
+	/* Calculate indexes, and possible overflow conditions */
+	if (read_ind > shadow_q->write_ind)
+		max_write = (read_ind - 1) - shadow_q->write_ind;
+	else
+		max_write = (shadow_q_size - shadow_q->write_ind) + (read_ind - 1);
+	if (unlikely(num > max_write)) {
+		shadowq_full_drop_num = num - max_write;
+		num = max_write;
+	}
+	/* Work with local copy */
+	write_ind = shadow_q->write_ind;
+	if (((shadow_q_size - 1) - shadow_q->write_ind) >= num)
+		shadow_q->write_ind += num;
+	else
+		shadow_q->write_ind = num - (shadow_q_size - shadow_q->write_ind);
+
+#ifdef APP_TX_RETRY
+	if (shadow_q->shared_q)
+		pthread_mutex_unlock(&shadow_q->write_lock);
+#endif
 
 	for (i = 0; i < num; i++) {
 		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
@@ -403,38 +464,32 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], pkt_offset);
 		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
-		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
-		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
-		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
-		pr_debug("buff_ptr.cookie(0x%lx)\n", shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
-		shadow_q->write_ind++;
-		if (shadow_q->write_ind == shadow_q_size)
-			shadow_q->write_ind = 0;
-
-		/* Below condition should never happen, if shadow_q size is large enough */
-		if (unlikely(shadow_q->write_ind == shadow_q->read_ind)) {
-			pr_err("%s: port(%d), txq_id(%d), shadow_q size=%d is too small, performing emergency drops\n",
-				__func__, tx_ppio_id, tx_qid, shadow_q_size);
-			/* Drop all following packets, and also this packet */
-			for (j = i; j < num; j++) {
-				struct pp2_buff_inf binf;
-
-				binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
-				binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
-				pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
-			}
-			/* Rollback write_index by 1 */
-			if (shadow_q->write_ind > 0)
-				shadow_q->write_ind--;
-			else
-				shadow_q->write_ind = shadow_q_size - 1;
-			/* Update num of packets that may be sent */
-			num = i;
-			break;
-		}
-
+		shadow_q->ents[write_ind].buff_ptr.cookie = (uintptr_t)buff;
+		shadow_q->ents[write_ind].buff_ptr.addr = pa;
+		shadow_q->ents[write_ind].bpool = bpool;
+		pr_debug("buff_ptr.cookie(0x%lx)\n", shadow_q->ents[write_ind].buff_ptr.cookie);
+		write_ind++;
+		if (write_ind == shadow_q_size)
+			write_ind = 0;
 	}
 	SET_MAX_BURST(rx_lcl_port_desc, num);
+
+	/* Below condition should never happen, if shadow_q size is large enough */
+	if (unlikely(shadowq_full_drop_num)) {
+		pr_err("%s: port(%d), txq_id(%d), shadow_q size=%d is too small, performing emergency drops\n",
+			__func__, tx_ppio_id, tx_qid, shadow_q_size);
+		/* Drop all following packets, and also this packet */
+		for (j = num; j < (num + shadowq_full_drop_num); j++) {
+			struct pp2_buff_inf binf;
+			struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[j], rx_lcl_port_desc->ppio);
+
+			binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
+			binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
+
+			pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
+		}
+	}
+
 	for (mycyc = 0; mycyc < larg_cmn->busy_wait; mycyc++)
 		asm volatile("");
 
@@ -473,18 +528,27 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 						(shadow_q_size - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
+			/* TODO: Only for shadow_qs that have a lock, copy shadow_buffers that will be freed locally,
+			 *       so that below pthread_mutex_unlock() can be done here, before free_multi_buffers().
+			 */
 			if (pp2_args->multi_buffer_release)
 				free_multi_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
-						   pp2_args->hif, shadow_q->write_ind, not_sent, tx_qid);
+						   pp2_args->hif, write_ind, not_sent, tx_qid);
 			else
 				free_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
 					     pp2_args->hif, shadow_q->write_ind, not_sent, tx_qid);
+
 			INC_TX_DROP_COUNT(rx_lcl_port_desc, not_sent);
 			perf_cntrs->drop_cnt += not_sent;
 		}
 		INC_TX_COUNT(rx_lcl_port_desc, tx_num);
 		perf_cntrs->tx_cnt += tx_num;
 	}
+
+	/* Unlock only after shadow_q->write_ind has been finalized, and buffers have been free */
+	if (shadow_q->shared_q)
+		pthread_mutex_unlock(&shadow_q->write_lock);
+
 	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
 			  tx_qid, pp2_args->multi_buffer_release);
 #endif /* APP_TX_RETRY */
@@ -493,10 +557,18 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 }
 #endif
 
+
 /*
  * Init HIF object
  */
+
+int available_hifs(void);
 int app_hif_init(struct pp2_hif **hif, u32 queue_size);
+int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_common_args *glb_pp2_args,
+		      struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size);
+
+int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize);
+
 /*
  * Build all pools
  */
@@ -518,6 +590,9 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 /*
  * Init local port object per thread according to port parameters
  */
+int app_port_shared_shadowq_create(struct app_shadowqs	**app_shadow_q, u32 thr_mask, int num_shadow_qs,
+				   int shadow_q_size);
+
 void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, struct port_desc *port);
 /*
  * Deinit all ports
@@ -527,6 +602,7 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports);
  * Deinit local port object
  */
 void app_port_local_deinit(struct lcl_port_desc *lcl_port);
+void app_shared_shadowq_deinit(struct app_shadowqs *app_shadow_q);
 /*
  * Disable all ports
  */

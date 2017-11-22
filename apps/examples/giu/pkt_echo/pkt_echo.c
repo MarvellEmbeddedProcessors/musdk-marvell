@@ -756,13 +756,13 @@ static int loop_2ps(struct local_arg *larg, int *running)
 #if 0 /* TODO: enable this code to support multi tc/queue */
 		do {
 			qid++;
-			if (qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
+			if (qid == mvapp_pp2_max_num_qs_per_tc) {
 				qid = 0;
 				tc++;
 				if (tc == PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(larg->qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(larg->qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
 #endif
 		/* PP2 is Rx port and GIU is Tx port */
 		err  = loop_sw_ingress(larg, pp2_port_id, giu_port_id, tc, qid, num);
@@ -1326,7 +1326,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	if (garg->cmn_args.qs_map &&
-	    (MVAPPS_PP2_MAX_NUM_QS_PER_TC == 1) &&
+	    (mvapp_pp2_max_num_qs_per_tc == 1) &&
 	    (PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT == 1)) {
 		pr_warn("no point in queues-mapping; ignoring.\n");
 		garg->cmn_args.qs_map = 1;
@@ -1389,8 +1389,9 @@ int main(int argc, char *argv[])
 	int				 err;
 
 	setbuf(stdout, NULL);
-	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
+	app_set_max_num_qs_per_tc();
 
+	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
 	pr_debug("pr_debug is enabled\n");
 
 	garg.cmn_args.plat = (struct pp2_glb_common_args *)malloc(sizeof(struct pp2_glb_common_args));
