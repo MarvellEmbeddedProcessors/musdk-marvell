@@ -473,8 +473,12 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 						(shadow_q_size - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
-			free_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
-				     pp2_args->hif, shadow_q->write_ind, not_sent, tx_qid);
+			if (pp2_args->multi_buffer_release)
+				free_multi_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
+						   pp2_args->hif, shadow_q->write_ind, not_sent, tx_qid);
+			else
+				free_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
+					     pp2_args->hif, shadow_q->write_ind, not_sent, tx_qid);
 			INC_TX_DROP_COUNT(rx_lcl_port_desc, not_sent);
 			perf_cntrs->drop_cnt += not_sent;
 		}
