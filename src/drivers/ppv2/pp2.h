@@ -318,7 +318,7 @@ struct pp2_ppio_tc_config {
 
 struct pp2_tc {
 	u32 first_log_rxq;
-	u32 rx_ring_size;
+	u32 rx_ring_size[PP2_HW_PORT_NUM_RXQS];
 	struct pp2_ppio_tc_config tc_config;
 };
 

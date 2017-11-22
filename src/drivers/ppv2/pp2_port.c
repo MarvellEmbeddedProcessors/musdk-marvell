@@ -605,7 +605,7 @@ pp2_port_rxqs_create(struct pp2_port *port)
 			}
 			rxq->id = port->tc[tc].tc_config.first_rxq + qid;
 			rxq->log_id = port->tc[tc].first_log_rxq + qid;
-			rxq->desc_total = port->tc[tc].rx_ring_size;
+			rxq->desc_total = port->tc[tc].rx_ring_size[qid];
 			/* Double check of queue index */
 			if (rxq->log_id != id) {
 				pr_err("%s invalid log_id %d value (should be %d)\n",
@@ -1089,7 +1089,8 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	for (i = 0; i < port->num_tcs; i++) {
 		u16 tc_pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
 		num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;
-		port->tc[i].rx_ring_size = param->inqs_params.tcs_params[i].inqs_params->size;
+		for (j = 0; j < num_in_qs; j++)
+			port->tc[i].rx_ring_size[j] = param->inqs_params.tcs_params[i].inqs_params[j].size;
 		if (tc_pkt_offset > PP2_MAX_PACKET_OFFSET) {
 			pr_err("port %s: tc[%d] pkt_offset[%u] too large\n", port->linux_name, i, tc_pkt_offset);
 			return -EINVAL;
@@ -1171,8 +1172,9 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		pr_debug("PORT: TC RXQs %u\n", port->tc[i].tc_config.num_in_qs);
 		pr_debug("PORT: TC First Log RXQ %u\n", port->tc[i].first_log_rxq);
 		pr_debug("PORT: TC First Phy RXQ %u\n", port->tc[i].tc_config.first_rxq);
-		pr_debug("PORT: TC RXQ size %u\n", port->tc[i].rx_ring_size);
 		pr_debug("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
+		for (j = 0; j < port->tc[i].tc_config.num_in_qs; j++)
+			pr_debug("PORT: TC RXQ#%u size = %u\n", j, port->tc[i].rx_ring_size[j]);
 		for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++)
 			pr_debug("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
 	}
