@@ -966,7 +966,7 @@ int app_find_port_info(struct port_desc *port_desc)
 int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset)
 {
 	struct pp2_ppio_params		*port_params = &port->port_params;
-	struct pp2_ppio_inq_params	inq_params;
+	struct pp2_ppio_inq_params	inq_params[PP2_HW_PORT_NUM_RXQS];
 	char				name[MVAPPS_PPIO_NAME_MAX];
 	int				i, j, err = 0;
 	u16				curr_mtu;
@@ -998,8 +998,9 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	for (i = 0; i < port->num_tcs; i++) {
 		port_params->inqs_params.tcs_params[i].pkt_offset = (pkt_offset) ? pkt_offset : MVAPPS_PP2_PKT_DEF_OFFS;
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
-		inq_params.size = port->inq_size;
-		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
+		for (j = 0; j < port->num_inqs[i]; j++)
+			inq_params[j].size = port->inq_size;
+		port_params->inqs_params.tcs_params[i].inqs_params = inq_params;
 
 		for (j = 0; j < num_pools; j++)
 			port_params->inqs_params.tcs_params[i].pools[j] = pools[j].pool;
