@@ -35,6 +35,8 @@
 
 #include "mv_std.h"
 #include "mv_net.h"
+#include <stdbool.h>
+#include <sys/sysinfo.h>
 
 /* CA-72 prefetch command */
 #if __WORDSIZE == 64
@@ -59,9 +61,7 @@ static inline void prefetch(const void *ptr)
 #define MVAPPS_MAX_BURST_SIZE		256
 
 /* Maximum number of CPU cores used by application */
-#define MVAPPS_MAX_NUM_CORES		4
-#define MVAPPS_MAX_CORES_MASK		((1 << MVAPPS_MAX_NUM_CORES) - 1)
-
+#define MVAPPS_MAX_NUM_CORES		16
 
 #define MVAPPS_DEFAULT_AFFINITY		1
 #define MVAPPS_INVALID_AFFINITY		-1
@@ -110,6 +110,9 @@ static inline void prefetch(const void *ptr)
 	ETH_HLEN - ETH_FCS_LEN)
 
 
+/* GNU flavor of num_cpus */
+#define system_ncpus()		get_nprocs()
+
 struct glb_common_args {
 	u64			qs_map;
 	int			prefetch_shift;
@@ -129,6 +132,8 @@ struct glb_common_args {
 	u64			last_rx_cnt;
 	u64			last_tx_cnt;
 	u32			busy_wait;
+	pthread_mutex_t		thread_lock; /* General Purpose Lock, not intended for data-path */
+	bool			shared_hifs; /* Indicates system has shared hifs. */
 	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
 	void			*plat;
 };

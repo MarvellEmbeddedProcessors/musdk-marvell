@@ -259,13 +259,13 @@ static int loop_1p(struct local_arg *larg, int *running)
 		/* Find next queue to consume */
 		do {
 			tc_qid++;
-			if (tc_qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
+			if (tc_qid == mvapp_pp2_max_num_qs_per_tc) {
 				tc_qid = 0;
 				tc++;
 				if (tc == PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + tc_qid))));
+		} while (!(larg->cmn_args.qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + tc_qid))));
 
 		tx_qid = tc % PP2_PPIO_MAX_NUM_OUTQS;
 
@@ -312,13 +312,13 @@ static int loop_2ps(struct local_arg *larg, int *running)
 		/* Find next queue to consume */
 		do {
 			tc_qid++;
-			if (tc_qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
+			if (tc_qid == mvapp_pp2_max_num_qs_per_tc) {
 				tc_qid = 0;
 				tc++;
 				if (tc == PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + tc_qid))));
+		} while (!(larg->cmn_args.qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + tc_qid))));
 #endif
 		tx_qid = tc % PP2_PPIO_MAX_NUM_OUTQS;
 #ifdef HW_BUFF_RECYLCE
@@ -420,11 +420,11 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		jumbo_infs[] = PKT_ECHO_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-	int				i;
+	int				i = 0;
 
 	pr_info("Local initializations ...\n");
-	err = app_hif_init(&pp2_args->hif, PKT_ECHO_APP_HIF_Q_SIZE);
 
+	err = app_build_common_hifs(&garg->cmn_args, PKT_ECHO_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
@@ -457,7 +457,23 @@ static int init_local_modules(struct glob_arg *garg)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
 			else
 				port->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
+			/* Create shared shadow_qs for all shared_hifs
+			 * TODO: Refine this check, to create shared_shadow_qs only for those threads that
+			 *       have shared_hif w/other thread, which are also sending on this port.
+			*/
+			if (garg->cmn_args.shared_hifs) {
+				int shadow_qsize = port->outq_size + port->num_tcs*port->inq_size;
+				int num_shadow_qs = port->num_outqs;
 
+				i = 0;
+				while (i < MVAPPS_PP2_TOTAL_NUM_HIFS && pp2_args->app_hif[i]) {
+					u32 thr_mask = pp2_args->app_hif[i]->local_thr_id_mask;
+
+					app_port_shared_shadowq_create(&(port->shared_qs[i]),
+						thr_mask, num_shadow_qs, shadow_qsize);
+					i++;
+				}
+			}
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
 					    garg->cmn_args.mtu, garg->cmn_args.pkt_offset);
 			if (err) {
@@ -580,9 +596,7 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
-	pthread_mutex_lock(&garg->trd_lock);
-	err = app_hif_init(&lcl_pp2_args->hif, PKT_ECHO_APP_HIF_Q_SIZE);
-	pthread_mutex_unlock(&garg->trd_lock);
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, PKT_ECHO_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
@@ -794,20 +808,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		       garg->cmn_args.burst, APP_MAX_BURST_SIZE);
 		return -EINVAL;
 	}
-	if (garg->cmn_args.cpus > MVAPPS_MAX_NUM_CORES) {
+	if (garg->cmn_args.cpus > system_ncpus()) {
 		pr_err("illegal num cores requested (%d vs %d)!\n",
-		       garg->cmn_args.cpus, MVAPPS_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, system_ncpus());
 		return -EINVAL;
 	}
 	if ((garg->cmn_args.affinity != -1) &&
-	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > MVAPPS_MAX_NUM_CORES)) {
+	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > system_ncpus())) {
 		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
-		       garg->cmn_args.cpus, garg->cmn_args.affinity, MVAPPS_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, garg->cmn_args.affinity, system_ncpus());
 		return -EINVAL;
 	}
 
 	if (garg->cmn_args.qs_map &&
-	    (MVAPPS_PP2_MAX_NUM_QS_PER_TC == 1) &&
+	    (mvapp_pp2_max_num_qs_per_tc == 1) &&
 	    (PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT == 1)) {
 		pr_warn("no point in queues-mapping; ignoring.\n");
 		garg->cmn_args.qs_map = 1;
@@ -835,8 +849,9 @@ int main(int argc, char *argv[])
 	int			err;
 
 	setbuf(stdout, NULL);
-	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
+	app_set_max_num_qs_per_tc();
 
+	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
 	pr_debug("pr_debug is enabled\n");
 
 	garg.cmn_args.plat = (struct pp2_glb_common_args *)malloc(sizeof(struct pp2_glb_common_args));

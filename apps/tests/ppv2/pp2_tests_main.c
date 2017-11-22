@@ -643,8 +643,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	/* Check num_cpus validity */
-	if (num_cpus < 0 || num_cpus > MVAPPS_MAX_NUM_CORES) {
-		pr_err("Number of TC'exceeds maximum of %d\n", MVAPPS_MAX_NUM_CORES);
+	if (num_cpus < 0 || num_cpus > system_ncpus()) {
+		pr_err("Number of TC'exceeds maximum of %d\n", system_ncpus());
 		return -EINVAL;
 	}
 

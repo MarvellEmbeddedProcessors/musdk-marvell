@@ -969,6 +969,7 @@ static void launch_pp_threads(void)
 				data->shadow_qs[port][txq] = kmalloc(sizeof(struct tx_shadow_q), GFP_KERNEL);
 				data->shadow_qs[port][txq]->read_ind = 0;
 				data->shadow_qs[port][txq]->write_ind = 0;
+				data->shadow_qs[port][txq]->shared_q = false;
 				data->shadow_qs[port][txq]->ents =
 					kmalloc_array(app_data.ports_desc[port].shadow_q_size,
 						      sizeof(struct tx_shadow_q_entry), GFP_KERNEL);

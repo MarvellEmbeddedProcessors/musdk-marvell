@@ -55,6 +55,9 @@ static u64 hw_bm_buf_free_cnt;
 static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
+u8 mvapp_pp2_max_num_qs_per_tc;
+
+
 void app_show_rx_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
 {
 	int i;
@@ -548,7 +551,7 @@ static void pp2_rx_descriptor_dump(struct port_desc *ports_desc)
 	int i, j;
 	struct mv_pp2x_rx_desc *desc = NULL;
 
-	for (j = 0; j < MVAPPS_MAX_NUM_CORES; j++) {
+	for (j = 0; j < system_ncpus(); j++) {
 		if (!ports_desc->lcl_ports_desc[j])
 			continue;
 
@@ -817,6 +820,19 @@ static int find_free_hif(void)
 	return i;
 }
 
+int available_hifs(void)
+{
+	int i, free_hifs = 0;
+
+	for (i = 0; i < MVAPPS_PP2_TOTAL_NUM_HIFS; i++) {
+		if (!((1 << i) & used_hifs))
+			free_hifs++;
+	}
+
+	return free_hifs;
+}
+
+
 int app_hif_init(struct pp2_hif **hif, u32 queue_size)
 {
 	int hif_id;
@@ -846,6 +862,101 @@ int app_hif_init(struct pp2_hif **hif, u32 queue_size)
 
 	return 0;
 }
+
+static struct pp2_hif *app_shared_hif_exist(struct pp2_glb_common_args *glb_pp2_args, int thr_id)
+{
+	int i = 0;
+
+	while ((i < MVAPPS_PP2_TOTAL_NUM_HIFS) && glb_pp2_args->app_hif[i]) {
+		struct pp2_app_hif *shared_hif = glb_pp2_args->app_hif[i];
+
+		if (shared_hif->local_thr_id_mask & (1 << thr_id))
+			return shared_hif->hif;
+		i++;
+	}
+	return NULL;
+}
+
+
+
+int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_common_args *glb_pp2_args,
+	struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size)
+{
+	struct pp2_hif *shared_hif;
+	int err;
+
+	pthread_mutex_lock(thr_lock);
+	shared_hif = app_shared_hif_exist(glb_pp2_args, thr_id);
+	if (shared_hif) {
+		lcl_pp2_args->hif = shared_hif;
+		lcl_pp2_args->shared_hif = true;
+		pthread_mutex_unlock(thr_lock);
+		return 0;
+	}
+	err = app_hif_init(&lcl_pp2_args->hif, queue_size);
+	lcl_pp2_args->shared_hif = false;
+	pthread_mutex_unlock(thr_lock);
+	return err;
+}
+
+int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize)
+{
+	int				err;
+	int				num_threads, expected_free_hifs, usable_hifs, ratio, thr_id = 0, i = 0;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) glb_args->plat;
+	u32				thread_mask;
+
+
+
+	/* Following is cntrl_thread hif, which may or may not be shared with threads in the data_plane. */
+	err = app_hif_init(&pp2_args->hif, hif_qsize);
+
+	if (err)
+		return err;
+
+
+	num_threads = glb_args->cpus;
+	expected_free_hifs = available_hifs();
+
+	pr_debug("num_threads(%d), free_hifs(%d)\n", num_threads, expected_free_hifs);
+
+	/* If hifs must be shared among local_threads, create all of them up front and use the above control_hif
+	 * for a local_thread as well
+	 */
+	if (num_threads > expected_free_hifs) {
+		glb_args->shared_hifs = true;
+		usable_hifs = expected_free_hifs + 1;
+		ratio = ceil(num_threads, usable_hifs);
+		while (num_threads) {
+			pp2_args->app_hif[i] = (struct pp2_app_hif *)malloc(sizeof(struct pp2_app_hif));
+			if (!pp2_args->app_hif[i]) {
+				pr_err("No mem for app_hif arg obj!\n");
+				return -ENOMEM;
+			}
+			if (i == 0)
+				pp2_args->app_hif[i]->hif = pp2_args->hif; /* Use the pre-existing cntrl_thread hif */
+			else {
+				err = app_hif_init(&(pp2_args->app_hif[i]->hif), hif_qsize);
+				if (err)
+					return err;
+			}
+			thread_mask = ((1 << ratio) - 1) << thr_id;
+			pp2_args->app_hif[i]->local_thr_id_mask = thread_mask;
+			thr_id += ratio;
+			num_threads -= ratio;
+			pr_debug("shared_hif(%d) thr_mask(0x%x)\n", i, thread_mask);
+			i++;
+			usable_hifs--;
+			if (num_threads <= usable_hifs*(ratio-1))
+				ratio--;
+		}
+
+	} else {
+		glb_args->shared_hifs = false;
+	}
+	return 0;
+}
+
 
 int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif)
 {
@@ -1038,6 +1149,91 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	return err;
 }
 
+
+/* TODO: Create common internal function for and app_port_shared_shadowq_create() and app_port_shadowq_init() */
+int app_port_shared_shadowq_create(struct app_shadowqs	**app_shadow_q, u32 thr_mask,
+				   int num_shadow_qs, int shadow_q_size)
+{
+	struct app_shadowqs *app_q;
+	int i;
+
+	app_q = (struct app_shadowqs *) malloc(sizeof(struct app_shadowqs));
+	if (!app_q)
+		return -ENOMEM;
+	app_q->local_thr_id_mask = thr_mask;
+	app_q->num_shadow_qs = num_shadow_qs;
+	app_q->shadow_q_size = shadow_q_size;
+
+	app_q->shadow_qs = (struct tx_shadow_q *)malloc(num_shadow_qs * sizeof(struct tx_shadow_q));
+	if (!app_q->shadow_qs)
+		return -ENOMEM;
+
+	for (i = 0; i < num_shadow_qs; i++) {
+		app_q->shadow_qs[i].read_ind = 0;
+		app_q->shadow_qs[i].write_ind = 0;
+		app_q->shadow_qs[i].size = shadow_q_size;
+		app_q->shadow_qs[i].shared_q = true;
+		app_q->shadow_qs[i].ents =
+			(struct tx_shadow_q_entry *)malloc(shadow_q_size * sizeof(struct tx_shadow_q_entry));
+		if (!app_q->shadow_qs[i].ents)
+			return -ENOMEM;
+		pthread_mutex_init(&app_q->shadow_qs[i].read_lock, NULL);
+		pthread_mutex_init(&app_q->shadow_qs[i].write_lock, NULL);
+	}
+
+	*app_shadow_q = app_q;
+
+	return 0;
+}
+
+
+static struct app_shadowqs *app_shared_shadowq_exist(struct port_desc *port, int thr_id)
+{
+	int i = 0;
+
+	while ((i < MVAPPS_PP2_TOTAL_NUM_HIFS) && port->shared_qs[i]) {
+		struct app_shadowqs *shared_q = port->shared_qs[i];
+
+		if (shared_q->local_thr_id_mask & (1 << thr_id))
+			return shared_q;
+		i++;
+	}
+	return NULL;
+}
+
+
+static void app_port_shadowq_init(int lcl_id, struct lcl_port_desc *lcl_port, struct port_desc *port)
+{
+	struct app_shadowqs *shared_q;
+	int i;
+
+	shared_q = app_shared_shadowq_exist(port, lcl_id);
+	if (shared_q) {
+		lcl_port->shadow_qs = shared_q->shadow_qs;
+		lcl_port->shadow_q_size = shared_q->shadow_q_size;
+		lcl_port->num_shadow_qs = shared_q->num_shadow_qs;
+		lcl_port->shared_shadow_qs = true;
+		return;
+	}
+	/* Create the shadow_queues for this thread only */
+	lcl_port->shared_shadow_qs = false;
+
+	/* Below shadow_q size is enough to hold tx_q + any_size burst from all a thread's rx_qs */
+	lcl_port->shadow_q_size	= port->outq_size + port->num_tcs*port->inq_size;
+	lcl_port->shadow_qs = (struct tx_shadow_q *)malloc(port->num_outqs * sizeof(struct tx_shadow_q));
+	lcl_port->num_shadow_qs = port->num_outqs;
+
+	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
+		lcl_port->shadow_qs[i].read_ind = 0;
+		lcl_port->shadow_qs[i].write_ind = 0;
+		lcl_port->shadow_qs[i].shared_q = false;
+		lcl_port->shadow_qs[i].size = lcl_port->shadow_q_size;
+		lcl_port->shadow_qs[i].ents =
+			(struct tx_shadow_q_entry *)malloc(lcl_port->shadow_q_size * sizeof(struct tx_shadow_q_entry));
+	}
+}
+
+
 void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, struct port_desc *port)
 {
 	int i;
@@ -1050,18 +1246,7 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 	lcl_port->ppio_id	= port->ppio_id;
 	lcl_port->ppio		= port->ppio;
 
-	lcl_port->num_shadow_qs = port->num_outqs;
-	/* Below shadow_q size is enough to hold tx_q + any_size burst from all a thread's rx_qs */
-	lcl_port->shadow_q_size	= port->outq_size + port->num_tcs*port->inq_size;
-	lcl_port->shadow_qs = (struct tx_shadow_q *)malloc(port->num_outqs * sizeof(struct tx_shadow_q));
-
-	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
-		lcl_port->shadow_qs[i].read_ind = 0;
-		lcl_port->shadow_qs[i].write_ind = 0;
-
-		lcl_port->shadow_qs[i].ents =
-			(struct tx_shadow_q_entry *)malloc(lcl_port->shadow_q_size * sizeof(struct tx_shadow_q_entry));
-	}
+	app_port_shadowq_init(lcl_id, lcl_port, port);
 	for (i = 0; i < port->num_tcs; i++)
 		lcl_port->pkt_offset[i] = port->port_params.inqs_params.tcs_params[i].pkt_offset;
 
@@ -1079,29 +1264,47 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 	}
 }
 
-void app_port_local_deinit(struct lcl_port_desc *lcl_port)
+static void app_shadowqs_deinit(struct tx_shadow_q *shadow_q, int num_shadow_qs, int lcl_thr_id)
 {
 	int i, cnt = 0;
 
-	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
-		struct tx_shadow_q *shadow_q = &lcl_port->shadow_qs[i];
-
+	for (i = 0; i < num_shadow_qs; i++) {
 		if (shadow_q->read_ind > shadow_q->write_ind) {
-			cnt = lcl_port->shadow_q_size - shadow_q->read_ind + shadow_q->write_ind;
-			tx_shadow_q_buf_free_cnt[lcl_port->lcl_id] += cnt;
+			cnt = shadow_q->size - shadow_q->read_ind + shadow_q->write_ind;
+			tx_shadow_q_buf_free_cnt[lcl_thr_id] += cnt;
 		} else {
 			cnt = shadow_q->write_ind - shadow_q->read_ind;
-			tx_shadow_q_buf_free_cnt[lcl_port->lcl_id] += cnt;
+			tx_shadow_q_buf_free_cnt[lcl_thr_id] += cnt;
 		}
-		pr_debug("Release %d buffers from shadow_q-%d port:%d:%d\n",
-			 cnt, i, lcl_port->pp_id, lcl_port->ppio_id);
 		shadow_q->read_ind = 0;
 		shadow_q->write_ind = 0;
 		free(shadow_q->ents);
+		shadow_q++;
 	}
+}
 
+void app_port_local_deinit(struct lcl_port_desc *lcl_port)
+{
+	if (lcl_port->shared_shadow_qs)
+		return;
+
+	app_shadowqs_deinit(&lcl_port->shadow_qs[0], lcl_port->num_shadow_qs, lcl_port->lcl_id);
 	free(lcl_port->shadow_qs);
 }
+
+void app_shared_shadowq_deinit(struct app_shadowqs *app_shadow_q)
+{
+	int lowest_shadowq_thr_id = 0;
+
+	/* shadow_q is shared between multiple threads. Use lowest thr_id to add the counters for */
+	while (!(app_shadow_q->local_thr_id_mask & (1 << lowest_shadowq_thr_id)))
+		lowest_shadowq_thr_id++;
+
+	app_shadowqs_deinit(&app_shadow_q->shadow_qs[0], app_shadow_q->num_shadow_qs, lowest_shadowq_thr_id);
+	free(app_shadow_q->shadow_qs);
+	free(app_shadow_q);
+}
+
 
 static void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs[])
 {
@@ -1135,6 +1338,15 @@ void app_disable_all_ports(struct port_desc *ports, int num_ports)
 void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 {
 	int i;
+
+	for (i = 0;  i < num_ports; i++) {
+		int j = 0;
+
+		while ((j < MVAPPS_PP2_TOTAL_NUM_HIFS) && ports[i].shared_qs[j]) {
+			app_shared_shadowq_deinit(ports[i].shared_qs[j]);
+			j++;
+		}
+	}
 
 	for (i = 0;  i < num_ports; i++) {
 		if (ports[i].ppio)
@@ -1276,8 +1488,8 @@ void apps_pp2_deinit_local(void *arg)
 			app_port_local_deinit(&pp2_args->lcl_ports_desc[i]);
 		free(pp2_args->lcl_ports_desc);
 	}
-
-	if (pp2_args->hif)
+	/* Deleye the locl hif, only if it is not shared */
+	if (pp2_args->hif && (!pp2_args->shared_hif))
 		pp2_hif_deinit(pp2_args->hif);
 	free((void *)pp2_args);
 	free(common_arg);
@@ -1287,11 +1499,26 @@ void apps_pp2_destroy_local_modules(void *arg)
 {
 	struct glb_common_args *common_arg = (struct glb_common_args *)arg;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) common_arg->plat;
+	int i = 0;
 
 	app_disable_all_ports(pp2_args->ports_desc, common_arg->num_ports);
 	app_free_all_pools(pp2_args->pools_desc, pp2_args->num_pools, pp2_args->hif);
 	app_deinit_all_ports(pp2_args->ports_desc, common_arg->num_ports);
 
+
+	while (pp2_args->app_hif[i]) {
+		if (pp2_args->app_hif[i]->hif)
+			pp2_hif_deinit(pp2_args->app_hif[i]->hif);
+		free(pp2_args->app_hif[i]);
+
+		/*If this hif was shared for data + control, the control_hif was destroyed as well */
+		if (pp2_args->app_hif[i]->hif == pp2_args->hif)
+			pp2_args->hif = NULL;
+
+		pp2_args->app_hif[i] = NULL;
+		i++;
+	}
+	/* control_hif was a separate hif */
 	if (pp2_args->hif)
 		pp2_hif_deinit(pp2_args->hif);
 }
@@ -1317,6 +1544,9 @@ void apps_pp2_deinit_global(void *arg)
 
 	if (common_arg->plat)
 		free(common_arg->plat);
+
+	pthread_mutex_destroy(&common_arg->thread_lock);
+
 }
 
 int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[])

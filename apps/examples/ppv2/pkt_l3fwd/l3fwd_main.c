@@ -37,6 +37,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <stdbool.h>
+#include <sys/sysinfo.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -441,13 +442,13 @@ static int l3fw(struct local_arg *larg, int *running)
 		/* Find next queue to consume */
 		do {
 			qid++;
-			if (qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
+			if (qid == mvapp_pp2_max_num_qs_per_tc) {
 				qid = 0;
 				tc++;
 				if (tc == PKT_FWD_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
 
 		for (i = 0; i < num_ports; i++)
 			err |= loop_sw_recycle(larg, i, tc, qid, num);
@@ -1230,20 +1231,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		       garg->cmn_args.burst, PKT_FWD_APP_MAX_BURST_SIZE);
 		return -EINVAL;
 	}
-	if (garg->cmn_args.cpus > MVAPPS_MAX_NUM_CORES) {
+	if (garg->cmn_args.cpus > system_ncpus()) {
 		pr_err("illegal num cores requested (%d vs %d)!\n",
-		       garg->cmn_args.cpus, MVAPPS_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, system_ncpus());
 		return -EINVAL;
 	}
 	if ((garg->cmn_args.affinity != -1) &&
-	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > MVAPPS_MAX_NUM_CORES)) {
+	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > system_ncpus())) {
 		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
-		       garg->cmn_args.cpus, garg->cmn_args.affinity, MVAPPS_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, garg->cmn_args.affinity, system_ncpus());
 		return -EINVAL;
 	}
 
 	if (garg->cmn_args.qs_map &&
-	    (MVAPPS_PP2_MAX_NUM_QS_PER_TC == 1) &&
+	    (mvapp_pp2_max_num_qs_per_tc == 1) &&
 	    (PKT_FWD_APP_MAX_NUM_TCS_PER_PORT == 1)) {
 		pr_warn("no point in queues-mapping; ignoring.\n");
 		garg->cmn_args.qs_map = 1;
@@ -1270,6 +1271,8 @@ int main(int argc, char *argv[])
 	int			err;
 
 	setbuf(stdout, NULL);
+	app_set_max_num_qs_per_tc();
+
 	pr_info("pkt-l3fwd is started:\n\t%s\n\t%s\n\t%s\n", app_mode_str, buf_release_str, tx_retry_str);
 
 	pr_debug("pr_debug is enabled\n");

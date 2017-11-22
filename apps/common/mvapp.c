@@ -38,6 +38,7 @@
 #include <termios.h>
 
 #include "mvapp_std.h"
+#include "utils.h"
 #include "cli.h"
 #include "mvapp.h"
 
@@ -79,29 +80,6 @@ struct mvapp {
 
 struct mvapp *_mvapp;
 
-/* sysctl wrapper to return the number of active CPUs */
-static int system_ncpus(void)
-{
-	int ncpus;
-#if defined(__FreeBSD__)
-	int mib[2] = { CTL_HW, HW_NCPU };
-	size_t len = sizeof(mib);
-
-	sysctl(mib, 2, &ncpus, &len, NULL, 0);
-#elif defined(linux)
-	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined(_WIN32)
-	{
-		SYSTEM_INFO sysinfo;
-
-		GetSystemInfo(&sysinfo);
-		ncpus = sysinfo.dwNumberOfProcessors;
-	}
-#else /* others */
-	ncpus = 1;
-#endif /* others */
-	return ncpus;
-}
 
 /* set the thread affinity. */
 static int setaffinity(pthread_t me, int i)

@@ -817,13 +817,13 @@ static int loop_1p(struct local_arg *larg, int *running)
 		/* Find next queue to consume */
 		do {
 			qid++;
-			if (qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
+			if (qid == mvapp_pp2_max_num_qs_per_tc) {
 				qid = 0;
 				tc++;
 				if (tc == CRYPT_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(larg->cmn_args.qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
 
 		err = loop_sw_recycle(larg, 0, 0, tc, qid, num);
 		if (err != 0)
@@ -850,13 +850,13 @@ static int loop_2ps(struct local_arg *larg, int *running)
 		/* Find next queue to consume */
 		do {
 			qid++;
-			if (qid == MVAPPS_PP2_MAX_NUM_QS_PER_TC) {
+			if (qid == mvapp_pp2_max_num_qs_per_tc) {
 				qid = 0;
 				tc++;
 				if (tc == CRYPT_APP_MAX_NUM_TCS_PER_PORT)
 					tc = 0;
 			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * MVAPPS_PP2_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(larg->cmn_args.qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
 
 		err  = loop_sw_recycle(larg, 0, 1, tc, qid, num);
 		err |= loop_sw_recycle(larg, 1, 0, tc, qid, num);
@@ -1756,20 +1756,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		       garg->cmn_args.burst, CRYPT_APP_MAX_BURST_SIZE);
 		return -EINVAL;
 	}
-	if (garg->cmn_args.cpus > MVAPPS_MAX_NUM_CORES) {
+	if (garg->cmn_args.cpus > system_ncpus()) {
 		pr_err("illegal num cores requested (%d vs %d)!\n",
-		       garg->cmn_args.cpus, MVAPPS_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, system_ncpus());
 		return -EINVAL;
 	}
 	if ((garg->cmn_args.affinity != -1) &&
-	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > MVAPPS_MAX_NUM_CORES)) {
+	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > system_ncpus())) {
 		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
-		       garg->cmn_args.cpus, garg->cmn_args.affinity, MVAPPS_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, garg->cmn_args.affinity, system_ncpus());
 		return -EINVAL;
 	}
 
 	if (garg->cmn_args.qs_map &&
-	    (MVAPPS_PP2_MAX_NUM_QS_PER_TC == 1) &&
+	    (mvapp_pp2_max_num_qs_per_tc == 1) &&
 	    (CRYPT_APP_MAX_NUM_TCS_PER_PORT == 1)) {
 		pr_warn("no point in queues-mapping; ignoring.\n");
 		garg->cmn_args.qs_map = 1;
@@ -1813,6 +1813,7 @@ int main(int argc, char *argv[])
 	int			err;
 
 	setbuf(stdout, NULL);
+	app_set_max_num_qs_per_tc();
 
 	pr_debug("pr_debug is enabled\n");
 

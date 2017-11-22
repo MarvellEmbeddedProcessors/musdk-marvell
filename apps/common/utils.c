@@ -41,17 +41,19 @@
 #include "utils.h"
 
 
+
 int apps_cores_mask_create(int cpus, int affinity)
 {
-	u64 cores_mask_orig = 0, cores_mask;
+	u64 cores_mask_orig = 0, max_cores_mask, cores_mask;
 
+	max_cores_mask = (1 << system_ncpus());
 	cores_mask_orig = (1 << cpus) - 1;
 
 	cores_mask = cores_mask_orig;
 	cores_mask <<= (affinity != MVAPPS_INVALID_AFFINITY) ? affinity : MVAPPS_DEFAULT_AFFINITY;
 
 	/* cores_mask must stay in CPU boundaries */
-	if (cores_mask > MVAPPS_MAX_CORES_MASK)
+	if (cores_mask > max_cores_mask)
 		cores_mask = cores_mask_orig;
 
 	return cores_mask;
