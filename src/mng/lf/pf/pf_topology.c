@@ -79,7 +79,7 @@ int pf_topology_terminate(struct nmp *nmp)
  */
 static struct tc_params **tc_queue_get(u32 tc_type)
 {
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	switch (tc_type) {
 	case LCL_EG_TC:
@@ -111,7 +111,7 @@ static struct tc_params **tc_queue_get(u32 tc_type)
  */
 static int tc_queue_num_set(u32 tc_type, u32 tc_num)
 {
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	switch (tc_type) {
 	case LCL_EG_TC:
@@ -246,7 +246,7 @@ int pf_tc_queue_free(u32 tc_type, u32 tc_num)
  */
 static struct giu_gpio_q **pf_bm_queue_get(u32 bm_type)
 {
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	switch (bm_type) {
 	case LCL_BM:
@@ -274,7 +274,7 @@ int pf_bm_queue_init(u32 bm_type, u32 bm_num)
 {
 	struct giu_gpio_q **bm_p;
 	struct giu_gpio_q *bm;
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_debug("Initializing DB BM type - %d\n", bm_type);
 	pr_debug("Num of BM - %d\n", bm_num);

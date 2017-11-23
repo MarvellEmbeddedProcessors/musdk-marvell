@@ -108,7 +108,8 @@ struct nic_pf {
 	struct pci_plat_func_map map;
 	struct pf_profile profile_data;
 	struct giu_regfile regfile_data;
-	struct pf_queue_topology topology_data;
+	struct giu_mng_topology mng_data;
+	struct giu_queue_topology topology_data;
 	void *internal;
 };
 

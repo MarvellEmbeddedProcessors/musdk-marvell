@@ -167,7 +167,15 @@ struct mng_ch_params {
  *
  *	lcl_mng_ctrl     - local management control channels
  *	host_mng_ctrl    - host management control channels
- *
+ */
+struct giu_mng_topology {
+
+	struct mng_ch_params lcl_mng_ctrl;
+	struct mng_ch_params host_mng_ctrl;
+
+};
+
+/*
  *	lcl_ing_tcs_num  - number of local ingress traffic class
  *	lcl_ing_tcs      - array of local ingress TCs
  *
@@ -187,10 +195,7 @@ struct mng_ch_params {
  *	host_bm_qs_active- index of last allocated bm index
  *	host_bm_qs_idx   - array of host bm queue ids
  */
-struct pf_queue_topology {
-
-	struct mng_ch_params lcl_mng_ctrl;
-	struct mng_ch_params host_mng_ctrl;
+struct giu_queue_topology {
 
 	u32 lcl_ing_tcs_num;
 	struct tc_params *lcl_ing_tcs;

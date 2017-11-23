@@ -501,7 +501,7 @@ static int nic_pf_topology_local_queue_init(struct nic_pf *nic_pf)
 {
 	int ret;
 	struct pf_profile *prof = &(nic_pf->profile_data);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Initializing Local Queues in management Database\n");
 
@@ -545,7 +545,7 @@ queue_error:
  */
 static void nic_pf_topology_local_tc_free(struct nic_pf *nic_pf)
 {
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_debug("Free Local queues DB\n");
 	pf_tc_queue_free(LCL_EG_TC, q_top->lcl_eg_tcs_num);
@@ -569,7 +569,7 @@ static void nic_pf_topology_local_tc_free(struct nic_pf *nic_pf)
 static int nic_pf_topology_remote_queue_init(struct nic_pf *nic_pf)
 {
 	int ret;
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Initializing Remote Queues in management Database\n");
 
@@ -617,7 +617,7 @@ queue_error:
  */
 static int nic_pf_topology_remote_tc_free(struct nic_pf *nic_pf)
 {
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_debug("Free Remote queues DB\n");
 	pf_tc_queue_free(HOST_EG_TC, q_top->host_eg_tcs_num);
@@ -668,7 +668,7 @@ static int nic_pf_topology_local_queue_cfg(struct nic_pf *nic_pf)
 	struct giu_gpio_q giu_gpio_q;
 	struct giu_gpio_q *giu_gpio_q_p;
 	struct pf_profile *prof = &(nic_pf->profile_data);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Local BM queues\n");
 
@@ -892,7 +892,7 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 		goto exit_error;
 	}
 
-	nic_pf->topology_data.lcl_mng_ctrl.cmd_queue = (struct giu_gpio_q *)lcl_cmd_queue_p;
+	nic_pf->mng_data.lcl_mng_ctrl.cmd_queue = (struct giu_gpio_q *)lcl_cmd_queue_p;
 
 
 	/* Allocate and Register Local Notification queue in MQA */
@@ -921,7 +921,7 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 		goto exit_error;
 	}
 
-	nic_pf->topology_data.lcl_mng_ctrl.notify_queue = (struct giu_gpio_q *)lcl_notify_queue_p;
+	nic_pf->mng_data.lcl_mng_ctrl.notify_queue = (struct giu_gpio_q *)lcl_notify_queue_p;
 
 
 
@@ -1014,7 +1014,7 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 	/*pcie_cfg->cmd_q.producer_idx_addr = (u64)(giu_gpio_q_p->params.prod_phys - qnpt_phys) / sizeof(u32);*/
 	pcie_cfg->cmd_q.producer_idx_addr = (u64)(rem_cmd_queue_p->params.prod_phys - qnpt_phys) / sizeof(u32);
 
-	nic_pf->topology_data.host_mng_ctrl.cmd_queue = (struct giu_gpio_q *)rem_cmd_queue_p;
+	nic_pf->mng_data.host_mng_ctrl.cmd_queue = (struct giu_gpio_q *)rem_cmd_queue_p;
 
 
 	/* Register Host Notification queue */
@@ -1059,7 +1059,7 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 	/* Update PCI BAR0 with consumer address (Entry index in notification table) */
 	pcie_cfg->notif_q.consumer_idx_addr = (u64)(rem_notify_queue_p->params.cons_phys - qnct_phys) / sizeof(u32);
 
-	nic_pf->topology_data.host_mng_ctrl.notify_queue = (struct giu_gpio_q *)rem_notify_queue_p;
+	nic_pf->mng_data.host_mng_ctrl.notify_queue = (struct giu_gpio_q *)rem_notify_queue_p;
 
 	/* Register Qs in GIU */
 	/* ================== */
@@ -1152,7 +1152,7 @@ int nic_pf_init(struct nic_pf *nic_pf)
 	struct nmdisp_q_pair_params q_params;
 
 	/* Clear queue topology batabase */
-	memset(&(nic_pf->topology_data), 0, sizeof(struct pf_queue_topology));
+	memset(&(nic_pf->topology_data), 0, sizeof(struct giu_queue_topology));
 
 	nic_pf->pf_id = 0;
 
@@ -1171,8 +1171,8 @@ int nic_pf_init(struct nic_pf *nic_pf)
 	if (ret)
 		return ret;
 
-	q_params.cmd_q    = nic_pf->topology_data.lcl_mng_ctrl.cmd_queue;
-	q_params.notify_q = nic_pf->topology_data.lcl_mng_ctrl.notify_queue;
+	q_params.cmd_q    = nic_pf->mng_data.lcl_mng_ctrl.cmd_queue;
+	q_params.notify_q = nic_pf->mng_data.lcl_mng_ctrl.notify_queue;
 
 	ret = nmdisp_add_queue(nic_pf->nmdisp, params.client_type, params.client_id, &q_params);
 	if (ret)
@@ -1223,10 +1223,10 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	int remote_cmd_queue, remote_notify_queue;
 	int ret = 0;
 
-	struct giu_gpio_q *lcl_cmd_queue_p    = nic_pf->topology_data.lcl_mng_ctrl.cmd_queue;
-	struct giu_gpio_q *lcl_notify_queue_p = nic_pf->topology_data.lcl_mng_ctrl.notify_queue;
-	struct giu_gpio_q *rem_cmd_queue_p    = nic_pf->topology_data.host_mng_ctrl.cmd_queue;
-	struct giu_gpio_q *rem_notify_queue_p = nic_pf->topology_data.host_mng_ctrl.notify_queue;
+	struct giu_gpio_q *lcl_cmd_queue_p    = nic_pf->mng_data.lcl_mng_ctrl.cmd_queue;
+	struct giu_gpio_q *lcl_notify_queue_p = nic_pf->mng_data.lcl_mng_ctrl.notify_queue;
+	struct giu_gpio_q *rem_cmd_queue_p    = nic_pf->mng_data.host_mng_ctrl.cmd_queue;
+	struct giu_gpio_q *rem_notify_queue_p = nic_pf->mng_data.host_mng_ctrl.notify_queue;
 
 	if (lcl_cmd_queue_p) {
 		local_cmd_queue = lcl_cmd_queue_p->params.idx;
@@ -1346,7 +1346,7 @@ static int nic_pf_pf_init_command(struct nic_pf *nic_pf,
 	int ret;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_debug("PF INIT\n");
 	pr_debug("Num of - Ing TC %d, Eg TC %d, Bpool %d\n",
@@ -1417,7 +1417,7 @@ static int nic_pf_bpool_add_command(struct nic_pf *nic_pf,
 
 	struct giu_gpio_q giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Host BM queues\n");
 
@@ -1483,7 +1483,7 @@ static int nic_pf_egress_tc_add_command(struct nic_pf *nic_pf,
 	struct giu_gpio_q *tc_queues;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Host Egress TC[%d] Queues\n", params->pf_egress_tc_add.tc_prio);
 
@@ -1527,7 +1527,7 @@ static int nic_pf_ingress_tc_add_command(struct nic_pf *nic_pf,
 	struct giu_gpio_q *tc_queues;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Host Ingress TC[%d] Queues\n", params->pf_ingress_tc_add.tc_prio);
 
@@ -1596,7 +1596,7 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 
 	struct giu_gpio_q giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 	struct tc_params *tc;
 
 	msg_tc = params->pf_ingress_data_q_add.tc_prio;
@@ -1682,7 +1682,7 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 
 	struct giu_gpio_q giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 	struct tc_params *tc;
 
 	pr_info("Configure Host Egress TC queues\n");
@@ -1808,7 +1808,7 @@ static int nic_pf_giu_bpool_init(struct nic_pf *nic_pf)
 	u32 bm_idx;
 	struct giu_gpio_q *giu_gpio_q_p;
 	struct pf_profile *prof = &(nic_pf->profile_data);
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Initializing Local BM queues\n");
 
@@ -1915,7 +1915,7 @@ static int nic_pf_giu_bpool_deinit(struct nic_pf *nic_pf)
 	int ret;
 	u32 bm_idx;
 	struct giu_gpio_q *giu_gpio_q_p;
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_debug("De-initializing Remote BM queues\n");
 	for (bm_idx = 0; bm_idx < q_top->host_bm_qs_num; bm_idx++) {
@@ -1984,7 +1984,7 @@ static int nic_pf_giu_gpio_init(struct nic_pf *nic_pf)
 	s32 pair_qid;
 	struct tc_params *tc;
 	struct giu_gpio_q *giu_gpio_q_p;
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_info("Initializing Local Egress TC queues\n");
 
@@ -2187,7 +2187,7 @@ static int nic_pf_giu_gpio_deinit(struct nic_pf *nic_pf)
 	u32 q_idx;
 	struct tc_params *tc;
 	struct giu_gpio_q *giu_gpio_q_p;
-	struct pf_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
 	pr_debug("De-initializing Host Egress TC queues\n");
 
