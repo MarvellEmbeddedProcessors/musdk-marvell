@@ -108,6 +108,32 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 #define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096}, {2048, 1024} }
 #define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }
 
+#define PKT_ECHO_MAX_FLOW_REQUESTS		64
+
+struct wired_data_flow {
+	u8 rx_ppio_id;
+	u8 tc;
+	u8 tc_qid;
+	u8 tx_ppio_id;
+	u8 tx_qid;
+};
+
+struct local_thr_params {
+	int lcl_id;
+	int num_flows;
+	struct wired_data_flow flows[PKT_ECHO_MAX_FLOW_REQUESTS];
+	/* TODO: Make use of following two fields in local_thread */
+	u32 rx_port_mask; /* Bitmap of rx_ports, each bit represents a port of the garg */
+	u32 tx_port_mask; /* Bitmap of tx_ports, each bit represents a port of the garg */
+};
+
+struct flow_request {
+	u32 cpu_mask;		/* cpu_mask, not thread_mask */
+	int rx_port;
+	int tx_port;
+};
+
+
 struct glob_arg {
 	struct glb_common_args	cmn_args; /* Keep first */
 
@@ -115,10 +141,22 @@ struct glob_arg {
 	int				loopback;
 	int				maintain_stats;
 	pthread_mutex_t			trd_lock;
+
+	/* Following fields are related to multi-port option (hard-nailed flows) */
+	u64				cores_mask;
+	u16				num_flows;
+	/* Flows in user requested format */
+	struct flow_request		flows[PKT_ECHO_MAX_FLOW_REQUESTS];
+	/* Number of rx_queues per port */
+	int				port_num_inqs[MVAPPS_PP2_MULTI_PORT_MAX_NUM_PORTS];
+	/* Parameters for the local_threads */
+	struct local_thr_params		*lcl_params;
 };
 
 struct local_arg {
 	struct local_common_args	cmn_args; /* Keep first */
+	int				num_flows;
+	struct wired_data_flow		*flows;
 };
 
 static struct glob_arg garg = {};
@@ -241,6 +279,49 @@ static inline int loop_hw_recycle(struct local_common_args *larg_cmn,
 
 #else
 #endif /* HW_BUFF_RECYLCE */
+
+
+static int loop_flows(struct local_arg *larg, int *running)
+{
+	int			err;
+	u16			num;
+	u8			tc = 0, tc_qid = 0, tx_qid = 0;
+	u8			flow = 0, rx_ppio, tx_ppio;
+
+	if (!larg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	num = larg->cmn_args.burst;
+
+	while (*running) {
+		/* Find next flow to consume */
+		rx_ppio = larg->flows[flow].rx_ppio_id;
+		tc	= larg->flows[flow].tc;
+		tc_qid	= larg->flows[flow].tc_qid;
+		tx_ppio = larg->flows[flow].tx_ppio_id;
+		tx_qid	= larg->flows[flow].tx_qid;
+		pr_debug("thr_id(%d) flow(%d) rx_ppio(%d) tc(%d) tc_qid(%d) tx_ppio(%d) tx_qid(%d)\n",
+			 larg->cmn_args.id, flow, rx_ppio, tc, tc_qid, tx_ppio, tx_qid);
+		flow++;
+		if (flow == larg->num_flows)
+			flow = 0;
+
+#ifdef HW_BUFF_RECYLCE
+		err = loop_hw_recycle(&larg->cmn_args, rx_ppio, tx_ppio, tc, tc_qid, tx_qid, num);
+#else
+		err = loop_sw_recycle(&larg->cmn_args, rx_ppio, tx_ppio, tc, tc_qid, tx_qid, num);
+#endif /* HW_BUFF_RECYLCE */
+		if (err != 0)
+			return err;
+	}
+
+	return 0;
+}
+
+
+
 
 static int loop_1p(struct local_arg *larg, int *running)
 {
@@ -369,6 +450,9 @@ static int main_loop(void *arg, int *running)
 		return -EINVAL;
 	}
 
+	if (larg->num_flows)
+		return loop_flows(larg, running);
+
 	if (larg->cmn_args.num_ports == 1)
 		return loop_1p(larg, running);
 	return loop_2ps(larg, running);
@@ -413,6 +497,58 @@ static int init_all_modules(void)
 	return 0;
 }
 
+
+static void set_local_flows(struct glob_arg *garg)
+{
+	int i;
+
+	garg->lcl_params = (struct local_thr_params *) malloc((sizeof(struct local_thr_params))*garg->cmn_args.cpus);
+	memset(garg->lcl_params, 0, (sizeof(struct local_thr_params)) * garg->cmn_args.cpus);
+
+	for (i = 0; i < garg->num_flows; i++) {
+		int thr_id = 0;
+		u32 garg_cores_mask = garg->cores_mask;
+		u32 flow_cores_mask = garg->flows[i].cpu_mask;
+		int rx_port = garg->flows[i].rx_port;
+		int tx_port = garg->flows[i].tx_port;
+
+		while (flow_cores_mask) {
+			/* Copy flow into the local_threads that participate in the flow_cpu_mask.
+			 * Per port, first N rx_qs are allocated to flow#0, next M rx_qs to flow#1, etc.
+			*/
+			if ((flow_cores_mask & BIT(0))) {
+				struct local_thr_params *lcl_param = &garg->lcl_params[thr_id];
+
+				lcl_param->lcl_id = thr_id;
+				lcl_param->rx_port_mask |= BIT(rx_port);
+				lcl_param->tx_port_mask |= BIT(tx_port);
+
+				lcl_param->flows[lcl_param->num_flows].rx_ppio_id = rx_port;
+				lcl_param->flows[lcl_param->num_flows].tc = 0; /* Hardcoded to 0, TODO make define */
+				lcl_param->flows[lcl_param->num_flows].tc_qid = garg->port_num_inqs[rx_port];
+
+				lcl_param->flows[lcl_param->num_flows].tx_ppio_id = tx_port;
+				lcl_param->flows[lcl_param->num_flows].tx_qid = 0; /* TODO: Decide which options */
+
+				lcl_param->num_flows++;
+				garg->port_num_inqs[rx_port]++;
+			}
+
+			/* Thread(n) affinity is the N-th 1-BIT of garg_cores_mask.
+			 * ==> thr_id is increased, only if garg_cores_mask bit(n)=1.
+			*/
+			if (garg_cores_mask & BIT(0))
+				thr_id++;
+
+			/* Both masks get shifted each iteration. */
+			garg_cores_mask = (garg_cores_mask >> 1);
+			flow_cores_mask = (flow_cores_mask >> 1);
+
+		}
+
+	}
+}
+
 static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
@@ -420,7 +556,7 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		jumbo_infs[] = PKT_ECHO_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-	int				i = 0;
+	int				i = 0, j;
 
 	pr_info("Local initializations ...\n");
 
@@ -439,7 +575,26 @@ static int init_local_modules(struct glob_arg *garg)
 	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
 	if (err)
 		return err;
+	printf("app_build_all_bpools done\n");
 
+	/* Fill in local_thread flows */
+	if (garg->num_flows) {
+		set_local_flows(garg);
+
+		/* Debug, TODO: Replace with pr_debug after verification */
+		for (i = 0; i < garg->cmn_args.cpus; i++) {
+			struct local_thr_params *lcl_param = &garg->lcl_params[i];
+
+			printf(" thr_id(%d), num_flows(%d), rx_mask(0x%x) tx_mask(0x%x)\n",
+				i, lcl_param->num_flows, lcl_param->rx_port_mask, lcl_param->tx_port_mask);
+			for (j = 0; j < lcl_param->num_flows; j++) {
+				struct wired_data_flow *flow = &lcl_param->flows[j];
+
+				printf("\t flow(%2d): rx_port(%u), tc(%u) tc_qid(%2u) tx_port(%u) txq(%u)\n",
+					j, flow->rx_ppio_id, flow->tc, flow->tc_qid, flow->tx_ppio_id, flow->tx_qid);
+			}
+		}
+	}
 	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++) {
 		struct port_desc *port = &pp2_args->ports_desc[port_index];
 
@@ -447,8 +602,17 @@ static int init_local_modules(struct glob_arg *garg)
 		if (!err) {
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
-			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] =  garg->cmn_args.cpus;
+			if ((port->num_tcs > 1) && garg->port_num_inqs[port_index]) {
+				pr_err("Multiple TCs not supported with this option\n");
+				return -EIO;
+			}
+			for (i = 0; i < port->num_tcs; i++) {
+				int config_inqs = garg->port_num_inqs[port_index];
+
+				port->num_inqs[i] = (config_inqs) ? config_inqs : garg->cmn_args.cpus;
+				printf("port(%d-%d-tc(%d)), inqs(%d)\n",
+					port->pp_id, port->ppio_id, i, port->num_inqs[i]);
+			}
 			port->inq_size	= garg->rxq_size;
 			port->num_outqs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= PKT_ECHO_APP_TX_Q_SIZE;
@@ -560,6 +724,13 @@ static int init_global(void *arg)
 }
 
 
+static void local_params_update(struct local_thr_params *lcl_param, struct local_arg *lcl_arg)
+{
+	lcl_arg->num_flows = lcl_param->num_flows;
+	lcl_arg->flows = malloc(lcl_arg->num_flows * sizeof(struct wired_data_flow));
+	memcpy(lcl_arg->flows, lcl_param->flows, lcl_param->num_flows * sizeof(struct wired_data_flow));
+}
+
 static int init_local(void *arg, int id, void **_larg)
 {
 	struct glob_arg		*garg = (struct glob_arg *)arg;
@@ -610,6 +781,9 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.echo              = garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
 
+	if (garg->lcl_params)
+		local_params_update(&garg->lcl_params[id], larg);
+
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		app_port_local_init(i, larg->cmn_args.id, &lcl_pp2_args->lcl_ports_desc[i],
 				    &glb_pp2_args->ports_desc[i]);
@@ -644,12 +818,17 @@ static void usage(char *progname)
 	       "Mandatory OPTIONS:\n"
 	       "\t-i, --interface <Eth-interfaces> (comma-separated, no spaces)\n"
 	       "                  Interface count min 1, max %i\n"
+	       "\tOptional Sub-Options for -i option:\n"
+	       "\t\t--cmask <number> cores_mask, create wired_flows between the 2 interfaces for each cpu in cmask\n"
+	       "\t\t-u      unidir, create flows only from first(rx) interface to second (tx)interface\n"
+	       "\t\tNote: When --cmask suboption is added, the -i option may be added multiple times\n"
+	       "\t\t      e.g. -i eth0,eth2 --cmask 0x3 -i eth2,eth3 --cmask 0xc -u\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
 	       "\t-b <size>                Burst size, num_pkts handled in a batch.(default is %d)\n"
 	       "\t--mtu <mtu>              Set MTU (default is %d)\n"
-	       "\t-c, --cores <number>     Number of CPUs to use\n"
-	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
+	       "\t\t-c, --cores <number>     Number of CPUs to use\n"
+	       "\t\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t-s                       Maintain statistics\n"
 	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
@@ -659,7 +838,7 @@ static void usage(char *progname)
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       MVAPPS_PP2_MAX_NUM_PORTS, APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
+	       MVAPPS_PP2_MAX_I_OPTION_PORTS, APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
 	       MVAPPS_PP2_PKT_DEF_OFFS);
 }
 
@@ -667,7 +846,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 {
 	int	i = 1;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-
+	bool flow_based = false, port_based = false;
 
 	garg->cmn_args.cli = 0;
 	garg->cmn_args.cpus = 1;
@@ -694,6 +873,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			exit(0);
 		} else if (strcmp(argv[i], "-i") == 0) {
 			char *token;
+			int port_found[MVAPPS_PP2_MAX_I_OPTION_PORTS] = {-1, -1};
+			int j, port;
+			u32 cmask = 0;
+			bool unidir = false, current_flow_based;
 
 			if (argc < (i + 2)) {
 				pr_err("Invalid number of arguments!\n");
@@ -705,33 +888,82 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			}
 
 			/* count the number of tokens separated by ',' */
-			for (token = strtok(argv[i + 1], ","), garg->cmn_args.num_ports = 0;
-			     token;
-			     token = strtok(NULL, ","), garg->cmn_args.num_ports++)
-				snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
-					 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name),
-					 "%s", token);
+			for (token = strtok(argv[i + 1], ","), j = 0; token; token = strtok(NULL, ",")) {
 
-			if (garg->cmn_args.num_ports == 0) {
-				pr_err("Invalid interface arguments format!\n");
+				if (j == MVAPPS_PP2_MAX_I_OPTION_PORTS)  {
+					pr_err("too many ports specified in -i option, max(%d)\n",
+						MVAPPS_PP2_MAX_I_OPTION_PORTS);
+					return -EINVAL;
+				}
+				/* Check if port was added in previous -i option */
+				for (port = 0; port < garg->cmn_args.num_ports; port++) {
+					if (strcmp(pp2_args->ports_desc[port].name, token) == 0) {
+						port_found[j] = port;
+						break;
+					}
+				}
+				/* A new port */
+				if (port_found[j] < 0) {
+					if (garg->cmn_args.num_ports >= MVAPPS_PP2_MULTI_PORT_MAX_NUM_PORTS) {
+						pr_err("too many ports specified, more than %d\n",
+						       MVAPPS_PP2_MULTI_PORT_MAX_NUM_PORTS);
+						return -EINVAL;
+					}
+					snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
+						 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name),
+						 "%s", token);
+					port_found[j] = garg->cmn_args.num_ports;
+					garg->cmn_args.num_ports++;
+				}
+				j++;
+			}
+			i += 2;
+			/* Check "--cmask" and "-u" suboptions */
+			while (i < argc) {
+				if (strcmp(argv[i], "--cmask") == 0) {
+					flow_based = true;
+					current_flow_based = true;
+					cmask = strtol(argv[i + 1], NULL, 0);
+					i += 2;
+				} else if (strcmp(argv[i], "-u") == 0) {
+					unidir = true;
+					i += 1;
+				} else {
+					if (!current_flow_based)
+						port_based = true;
+					break;
+				}
+			}
+			if (port_based && flow_based) {
+				pr_err("Invalid to use -i option both with and without --cmask option\n");
 				return -EINVAL;
-			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
+			}
+			if (port_based && garg->cmn_args.num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
 				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
 				return -EINVAL;
 			}
-			i += 2;
-		} else if (strcmp(argv[i], "-b") == 0) {
-			if (argc < (i + 2)) {
-				pr_err("Invalid number of arguments!\n");
-				return -EINVAL;
+			if (current_flow_based) {
+				struct flow_request *flow;
+				/* Single port means there is only a single flow */
+				if (port_found[1] < 0) {
+					unidir = true;
+					port_found[1] = port_found[0];
+				}
+				flow = &garg->flows[garg->num_flows];
+				flow->cpu_mask = cmask;
+				flow->rx_port = port_found[0];
+				flow->tx_port = port_found[1];
+				garg->num_flows++;
+				if (!unidir) {
+					/* Add reverse direction */
+					flow++;
+					flow->cpu_mask = cmask;
+					flow->rx_port = port_found[1];
+					flow->tx_port = port_found[0];
+					garg->num_flows++;
+				}
 			}
-			if (argv[i + 1][0] == '-') {
-				pr_err("Invalid arguments format!\n");
-				return -EINVAL;
-			}
-			garg->cmn_args.burst = atoi(argv[i + 1]);
-			i += 2;
 		} else if (strcmp(argv[i], "--mtu") == 0) {
 			if (argc < (i + 2)) {
 				pr_err("Invalid number of arguments!\n");
@@ -848,10 +1080,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
-	u64			cores_mask;
+	u64			cores_mask = 0;
 	struct pp2_glb_common_args *pp2_args;
 
-	int			err;
+	int			err, i;
 
 	setbuf(stdout, NULL);
 	app_set_max_num_qs_per_tc();
@@ -873,7 +1105,30 @@ int main(int argc, char *argv[])
 
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
-	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
+	if (garg.num_flows) {
+#ifndef MVCONF_PP2_LOCK
+		pr_err("For multi-port pkt_echo (using --cmask), musdk must be compiled with --enable-pp2-lock\n");
+		return -EPERM;
+#endif
+		for (i = 0; i < garg.num_flows; i++)
+			cores_mask |= garg.flows[i].cpu_mask;
+		garg.cmn_args.cpus = bit_count(cores_mask);
+
+		pr_debug("cores_mask(0x%lx) cpus(%d)\n", cores_mask, garg.cmn_args.cpus);
+	} else
+		cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
+
+	garg.cores_mask = cores_mask;
+
+	/* Debug_code. TODO: Replace with pr_debug. */
+	for (i = 0; i < garg.num_flows; i++) {
+		struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg.cmn_args.plat;
+
+		printf("flow(%d), rx_port(%d,%s), tx_port(%d,%s) cpu_mask(0x%x)\n",
+			i, garg.flows[i].rx_port, pp2_args->ports_desc[garg.flows[i].rx_port].name,
+			garg.flows[i].tx_port, pp2_args->ports_desc[garg.flows[i].tx_port].name,
+			garg.flows[i].cpu_mask);
+	}
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;
