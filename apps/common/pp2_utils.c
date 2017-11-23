@@ -65,12 +65,12 @@ void app_show_rx_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int 
 	struct pp2_ppio_inq_statistics rxstats;
 
 	if (tc > port_desc->num_tcs) {
-		printf("\nWrong tc parameters: tc=%d, num_tcs=%d", tc, port_desc->num_tcs);
+		printf("Wrong tc parameters: tc=%d, num_tcs=%d\n", tc, port_desc->num_tcs);
 		return;
 	}
 
 	if (q_start + num_qs >= port_desc->num_inqs[tc]) {
-		printf("\nWrong queue parameters: first_qid=%d, num=%d", q_start, num_qs);
+		printf("Wrong queue parameters: first_qid=%d, num=%d\n", q_start, num_qs);
 		return;
 	}
 
@@ -177,7 +177,7 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 		switch (option) {
 		case 'p':
 			port_id = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (port_id < 0)) {
+			if (optarg == ret_ptr) {
 				printf("parsing fail, wrong input for --port\n");
 				return -EINVAL;
 			}
@@ -205,6 +205,12 @@ static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
 			printf("parsing fail, wrong input, line = %d\n", __LINE__);
 			return -EINVAL;
 		}
+	}
+
+	if (port_id < 0 || port_id >= glb_args->num_ports) {
+		pr_err("Invalid port ID (%d). Must be in range [0 - %d]\n",
+			port_id, glb_args->num_ports - 1);
+		return -EINVAL;
 	}
 
 	for (i = port_id; i < (port_id + ports_num); i++) {
@@ -265,6 +271,12 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 		}
 	}
 
+	if (portid < 0 || portid >= glb_args->num_ports) {
+		pr_err("Invalid port ID (%d). Must be in range [0 - %d]\n",
+			portid, glb_args->num_ports - 1);
+		return -EINVAL;
+	}
+
 	for (i = portid; i < (portid + ports_num); i++) {
 		if (port_desc[i].initialized)
 			app_show_port_stat(&port_desc[i], reset);
@@ -276,7 +288,8 @@ static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 static int port_enable_cmd_cb(void *arg, int argc, char *argv[])
 {
 	int enable = 0, portid = 0, port_set = 0;
-	struct port_desc *port_desc = (struct port_desc *)arg;
+	struct glb_common_args *glb_args = (struct glb_common_args *) arg;
+	struct port_desc *port_desc = ((struct pp2_glb_common_args *) glb_args->plat)->ports_desc;
 	char *ret_ptr;
 	int option = 0;
 	int long_index = 0;
@@ -320,6 +333,11 @@ static int port_enable_cmd_cb(void *arg, int argc, char *argv[])
 		pr_err("port option must be set for %s\n", __func__);
 		return -EINVAL;
 	}
+	if (portid < 0 || portid >= glb_args->num_ports) {
+		pr_err("Invalid port ID (%d). Must be in range [0 - %d]\n",
+			portid, glb_args->num_ports - 1);
+		return -EINVAL;
+	}
 	app_set_port_enable(&port_desc[portid], enable);
 
 	return 0;
@@ -354,7 +372,7 @@ static int txqueue_enable_cmd_cb(void *arg, int argc, char *argv[])
 		switch (option) {
 		case 'p':
 			portid = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (portid < 0)) {
+			if (optarg == ret_ptr) {
 				printf("parsing fail, wrong input for --port\n");
 				return -EINVAL;
 			}
@@ -381,8 +399,15 @@ static int txqueue_enable_cmd_cb(void *arg, int argc, char *argv[])
 		}
 	}
 
-	if (portid == -1 || qid == -1) {
-		pr_err("Invalid port or queue id: portid: %d, qid: %d\n", portid, qid);
+	if (portid < 0 || portid >= glb_args->num_ports) {
+		pr_err("Invalid port ID (%d). Must be in range [0 - %d]\n",
+			portid, glb_args->num_ports - 1);
+		return -EINVAL;
+	}
+
+	if (qid < 0 || qid >= port_desc[portid].num_outqs) {
+		pr_err("Invalid qid (%d). Must be in range [0 - %d]\n",
+			qid, port_desc[portid].num_outqs - 1);
 		return -EINVAL;
 	}
 
@@ -439,6 +464,12 @@ static int port_ethtool_get_cmd_cb(void *arg, int argc, char *argv[])
 			printf("parsing fail, wrong input, line = %d\n", __LINE__);
 			return -EINVAL;
 		}
+	}
+
+	if (portid < 0 || portid >= glb_args->num_ports) {
+		pr_err("Invalid port ID (%d). Must be in range [0 - %d]\n",
+			portid, glb_args->num_ports - 1);
+		return -EINVAL;
 	}
 
 	for (i = portid; i < (portid + ports_num); i++) {
@@ -699,7 +730,6 @@ static int pp2_descriptor_params(void *arg, int argc, char *argv[])
 int app_register_cli_common_cmds(struct glb_common_args *glb_args)
 {
 	struct cli_cmd_params cmd_params;
-	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) glb_args->plat;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "qstat";
@@ -738,7 +768,7 @@ int app_register_cli_common_cmds(struct glb_common_args *glb_args)
 	cmd_params.format	= "--port --enable\n"
 				  "\t\t--port, -p	port number, required param\n"
 				  "\t\t--enable, -e	0-disable, 1-enable, disable if unspecified\n";
-	cmd_params.cmd_arg	= pp2_args->ports_desc;
+	cmd_params.cmd_arg	= glb_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_enable_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 
