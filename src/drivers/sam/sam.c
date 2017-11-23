@@ -438,9 +438,14 @@ int sam_get_capability(struct sam_capability *capa)
 	return 0;
 }
 
+u32 sam_get_available_cios(u32 inst, u32 *map)
+{
+	return sam_hw_get_rings_num(inst, map);
+}
+
 u32 sam_get_num_cios(u32 inst)
 {
-	return sam_hw_get_rings_num(inst);
+	return sam_hw_get_rings_num(inst, NULL);
 }
 
 u8 sam_get_num_inst(void)
@@ -452,7 +457,7 @@ u8 sam_get_num_inst(void)
 		return sam_num_instances;
 
 	for (i = 0; i < SAM_HW_DEVICE_NUM; i++) {
-		if (sam_hw_device_exist(i, NULL))
+		if (sam_hw_device_exist(i))
 			num++;
 	}
 	sam_num_instances = num;
@@ -514,7 +519,8 @@ void sam_deinit(void)
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 {
 	int i, device, ring, cio_idx, scanned;
-	struct sam_cio	*local_cio;
+	u32 rings_map;
+	struct sam_cio *local_cio;
 
 	/* Parse match string to ring number */
 	scanned = sscanf(params->match, "cio-%d:%d\n", &device, &ring);
@@ -525,13 +531,14 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	}
 	/* Check validity of device and ring values */
 	if (device >= sam_get_num_inst()) {
-		pr_err("SAM device #%d is out of valid range [0 .. %d]",
+		pr_err("SAM device #%d is out of valid range [0 .. %d]\n",
 			device, sam_get_num_inst() - 1);
 		return -EINVAL;
 	}
-	if (ring >= sam_get_num_cios(device)) {
-		pr_err("SAM CIO #%d is out of valid range [0 .. %d]",
-			device, sam_get_num_cios(device) - 1);
+	sam_hw_get_rings_num(device, &rings_map);
+	if (!(rings_map & BIT(ring))) {
+		pr_err("SAM cio #%d is not valid for device %d: valid cios map = 0x%x\n",
+			ring, device, rings_map);
 		return -EINVAL;
 	}
 	cio_idx = sam_cio_free_idx_get();

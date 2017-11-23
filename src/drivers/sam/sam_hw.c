@@ -121,19 +121,20 @@ static bool sam_hw_ring_is_busy(struct sam_hw_ring *hw_ring)
 
 	return false;
 }
-int sam_hw_get_rings_num(u32 device)
+int sam_hw_get_rings_num(u32 device, u32 *map)
 {
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
 
-	if (device_info->rings_num != 0)
-		return device_info->rings_num;
+	if (device_info->rings_num == 0)
+		sam_hw_device_exist(device);
 
-	sam_hw_device_exist(device, &device_info->rings_num);
+	if (map)
+		*map = device_info->available_rings;
 
 	return device_info->rings_num;
 }
 
-bool sam_hw_device_exist(u32 device, int *rings)
+bool sam_hw_device_exist(u32 device)
 {
 	int i, j, num = 0;
 	u32 map = 0;
@@ -145,24 +146,22 @@ bool sam_hw_device_exist(u32 device, int *rings)
 	params.type = SYS_IOMEM_T_UIO;
 	params.index = -1;
 	for (i = 0; i < ARRAY_SIZE(sam_supported_name); i++) {
-		params.devname = sam_supported_name[i];
 		for (j = 0; j < SAM_HW_RING_NUM; j++) {
 			snprintf(ring_name, sizeof(ring_name), "%s_%d:%d",
 				 sam_supported_name[i], device, j);
+			params.devname = ring_name;
 			if (sys_iomem_exists(&params)) {
 				map |= BIT(j);
 				num++;
 			}
 		}
 	}
-	pr_info("%s: device #%d: rings: num = %d, map = 0x%x\n",
-		__func__, device, num, map);
-
-	if (rings)
-		*rings = num;
+	if (num)
+		pr_info("%s: device #%d: rings: num = %d, map = 0x%x\n",
+			__func__, device, num, map);
 
 	device_info->rings_num = num;
-	device_info->rings_num = num;
+	device_info->available_rings = map;
 
 	return (num != 0);
 }

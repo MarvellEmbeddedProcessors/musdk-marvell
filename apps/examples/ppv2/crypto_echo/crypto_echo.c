@@ -66,6 +66,8 @@
 #define CRYPT_APP_CTRL_DFLT_THR		10000 /* 10 sec */
 #define CRYPT_APP_DMA_MEM_SIZE		(48 * 1024 * 1024)
 
+#define CRYPT_APP_CIOS_RSRV		0x0
+
 #define MAX_AUTH_BLOCK_SIZE	128 /* Bytes */
 #define AUTH_BLOCK_SIZE_64B	64  /* Bytes */
 #define ICV_LEN			12  /* Bytes */
@@ -177,10 +179,10 @@ struct glob_arg {
 	int				tunnel;
 	int				ip6;
 	int				capwap;
-
 	pthread_mutex_t			trd_lock;
-
 	int				num_bufs;
+	int                             num_devs;
+	u32                             *free_cios; /* per device */
 };
 
 struct local_arg {
@@ -198,7 +200,6 @@ struct local_arg {
 };
 
 static struct glob_arg garg = {};
-static u8	used_cios[] = {0x0, 0x0};
 
 #define CHECK_CYCLES
 #ifdef CHECK_CYCLES
@@ -848,21 +849,25 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 	return 0;
 }
 
-static int find_free_cio(u8 device)
+static int find_free_cio(struct glob_arg *garg, u8 device)
 {
 	int	i;
-	u32 num_cios = sam_get_num_cios(device);
+	u32	cios_map = garg->free_cios[device];
 
-	for (i = 0; i < num_cios; i++) {
-		if (!((uint64_t)(1 << i) & used_cios[device])) {
-			used_cios[device] |= (uint64_t)(1 << i);
-			break;
-		}
-	}
-	if (i == num_cios) {
+	if (cios_map == 0) {
 		pr_err("no free CIO found!\n");
 		return -ENOSPC;
 	}
+
+	i = 0;
+	while (cios_map != 0) {
+		if ((u32)(1 << i) & cios_map) {
+			cios_map &= ~(u32)(1 << i);
+			break;
+		}
+		i++;
+	}
+	garg->free_cios[device] = cios_map;
 	return i;
 }
 
@@ -1294,7 +1299,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 static int init_global(void *arg)
 {
 	struct glob_arg *garg = (struct glob_arg *)arg;
-	int		 err;
+	int		 err, dev;
 
 	if (!garg) {
 		pr_err("no obj!\n");
@@ -1304,6 +1309,15 @@ static int init_global(void *arg)
 	if (pthread_mutex_init(&garg->trd_lock, NULL) != 0) {
 		pr_err("init lock failed!\n");
 		return -EIO;
+	}
+	garg->num_devs = sam_get_num_inst();
+	garg->free_cios = calloc(garg->num_devs, sizeof(u32));
+	if (!garg->free_cios)
+		return -ENOMEM;
+
+	for (dev = 0; dev < garg->num_devs; dev++) {
+		sam_get_available_cios(dev, &garg->free_cios[dev]);
+		garg->free_cios[dev] &= ~CRYPT_APP_CIOS_RSRV;
 	}
 
 	err = init_all_modules();
@@ -1360,6 +1374,9 @@ static void deinit_global(void *arg)
 #endif
 	sam_deinit();
 
+	if (garg->free_cios)
+		free(garg->free_cios);
+
 	apps_pp2_deinit_global(garg);
 }
 
@@ -1415,7 +1432,7 @@ static int init_local(void *arg, int id, void **_larg)
 
 	pthread_mutex_lock(&garg->trd_lock);
 	sam_device = id % sam_get_num_inst();
-	cio_id = find_free_cio(sam_device);
+	cio_id = find_free_cio(garg, sam_device);
 	if (cio_id < 0) {
 		pr_err("free CIO not found!\n");
 		pthread_mutex_unlock(&garg->trd_lock);
@@ -1451,7 +1468,7 @@ static int init_local(void *arg, int id, void **_larg)
 			sam_device = (sam_device + 1) % sam_get_num_inst();
 
 			pthread_mutex_lock(&garg->trd_lock);
-			cio_id = find_free_cio(sam_device);
+			cio_id = find_free_cio(garg, sam_device);
 			pthread_mutex_unlock(&garg->trd_lock);
 
 			if (cio_id < 0) {

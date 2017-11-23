@@ -820,8 +820,8 @@ static inline void sam_hw_ring_trigger_irq(struct sam_hw_ring *hw_ring)
 int sam_dma_buf_alloc(u32 buf_size, struct sam_buf_info *dma_buf);
 void sam_dma_buf_free(struct sam_buf_info *dma_buf);
 
-bool sam_hw_device_exist(u32 device, int *rings);
-int sam_hw_get_rings_num(u32 device);
+bool sam_hw_device_exist(u32 device);
+int sam_hw_get_rings_num(u32 device, u32 *rings_map);
 
 int sam_hw_ring_enable_irq(struct sam_hw_ring *hw_ring);
 int sam_hw_ring_disable_irq(struct sam_hw_ring *hw_ring);
