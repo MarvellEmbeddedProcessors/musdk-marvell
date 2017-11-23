@@ -49,7 +49,9 @@
 /* Maximum number of packet processors used by application */
 #define MVAPPS_PP2_MAX_PKT_PROC		2
 /* Maximum number of ports used by application */
-#define MVAPPS_PP2_MAX_NUM_PORTS		2
+#define MVAPPS_PP2_MAX_NUM_PORTS		2 /* Used for all apps, except pp2_pkt_echo */
+#define MVAPPS_PP2_MULTI_PORT_MAX_NUM_PORTS	4 /* Used for pp2_pkt_echo */
+#define MVAPPS_PP2_MAX_I_OPTION_PORTS		2 /* Used for pp2_pkt_echo */
 
 
 /* Number of BM pools reserved by kernel */
