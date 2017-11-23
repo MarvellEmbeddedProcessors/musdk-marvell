@@ -65,13 +65,28 @@ struct sam_init_params {
 int sam_get_capability(struct sam_capability *capa);
 
 /**
- * Return number of crypto engines.
+ * Return number of crypto devices.
  *
- * @retval      number of crypto engines
+ * @retval      number of crypto devices
  */
 u8 sam_get_num_inst(void);
 
+/**
+ * Return number of available crypto IOs.
+ *
+ * @retval      number of available crypto IOs
+ */
 u32 sam_get_num_cios(u32 inst);
+
+/**
+ * Return bit map of available crypto IOs.
+ *
+ * @param[in]     inst - crypto device number.
+ * @param[out]    map  - bit map of available crypto IOs.
+ *
+ * @retval	number of available crypto IOs
+ */
+u32 sam_get_available_cios(u32 inst, u32 *map);
 
 /**
  * Set debug flags.
