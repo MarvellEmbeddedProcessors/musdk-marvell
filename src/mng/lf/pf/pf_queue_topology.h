@@ -69,7 +69,8 @@ struct tc_params {
 	u32 tc_id;
 	u32 num_of_queues;
 	u32 rss_type;
-	u32 *tc_queues_idx;
+	struct giu_gpio_q *tc_queue_params;
+
 };
 
 /*	Management Channels information
@@ -78,8 +79,8 @@ struct tc_params {
  *	notify_queue_id - notification queue Id
  */
 struct mng_ch_params {
-	u32 cmd_queue_id;
-	u32 notify_queue_id;
+	struct giu_gpio_q *cmd_queue;
+	struct giu_gpio_q *notify_queue;
 };
 
 /*	Physical Function Queue Topology information
@@ -174,7 +175,7 @@ struct mng_ch_params {
  *	lcl_eg_tcs       - array of local egress TCs
  *
  *	lcl_bm_qs_num    - number of local bm queues
- *	lcl_bm_qs_idx    - array of local bm queue ids
+ *	lcl_bm_qs_params - array of local bm queue ids
  *
  *	host_ing_tcs_num - number of host ingress traffic class
  *	host_ing_tcs     - array of host ingress TCs
@@ -198,7 +199,7 @@ struct pf_queue_topology {
 	struct tc_params *lcl_eg_tcs;
 
 	u32 lcl_bm_qs_num;
-	u32 *lcl_bm_qs_idx;
+	struct giu_gpio_q *lcl_bm_qs_params;
 
 	u32 host_ing_tcs_num;
 	struct tc_params *host_ing_tcs;
@@ -207,7 +208,7 @@ struct pf_queue_topology {
 	struct tc_params *host_eg_tcs;
 
 	u32 host_bm_qs_num;
-	u32 *host_bm_qs_idx;
+	struct giu_gpio_q *host_bm_qs_params;
 
 };
 

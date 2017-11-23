@@ -42,13 +42,13 @@
 #define MAX_PCI_FUNC_NAME	256
 #define MAX_PCI_FUNC_BARS	3
 
-#define DB_LCL_EG_TC   (1)
-#define DB_LCL_ING_TC  (2)
-#define DB_HOST_EG_TC  (3)
-#define DB_HOST_ING_TC (4)
+#define LCL_EG_TC   (1)
+#define LCL_ING_TC  (2)
+#define HOST_EG_TC  (3)
+#define HOST_ING_TC (4)
 
-#define DB_LCL_BM      (1)
-#define DB_HOST_BM     (2)
+#define LCL_BM      (1)
+#define HOST_BM     (2)
 
 struct uio_mem {
 	void *phys_addr;
@@ -124,19 +124,13 @@ struct nmp {
 	struct nmdisp *nmdisp;
 };
 
-struct db_q {
+struct giu_gpio_q {
 	struct mqa_queue_params params;
 	struct mqa_q *q;
 };
 
-int db_init(struct nmp *nmp);
-int db_tc_init(u32 tc_type, u32 tc_num, u32 q_num);
-int db_tc_free(u32 tc_type, u32 tc_num);
-int db_bm_init(u32 bm_type, u32 bm_num);
-int db_bm_free(u32 bm_type);
-int db_queue_set(u32 queue_Id, struct db_q *db_q);
-int db_queue_reset(u32 queue_Id);
-struct db_q *db_queue_get(u32 queue_Id);
-int db_queue_dump(u32 queue_Id);
-
+int pf_tc_queue_init(u32 tc_type, u32 tc_num, u32 q_num);
+int pf_tc_queue_free(u32 tc_type, u32 tc_num);
+int pf_bm_queue_init(u32 bm_type, u32 bm_num);
+int pf_bm_queue_free(u32 bm_type);
 #endif /* _DB_H */

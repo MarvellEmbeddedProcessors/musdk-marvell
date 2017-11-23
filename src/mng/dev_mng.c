@@ -339,11 +339,6 @@ static int dev_mng_sw_init(struct nmp *nmp)
 
 	pr_info("Initializing Device software\n");
 
-	/* Initialize DB */
-	ret = db_init(nmp);
-	if (ret)
-		return ret;
-
 	/* Initialize Dispatcher */
 	ret = nmdisp_init(&params, &(nmp->nmdisp));
 	if (ret)

@@ -50,8 +50,8 @@
 #define q_full(q, p, c)		(((p + 1) & (q->len - 1)) == c)
 #define q_empty(p, c)		(p == c)
 
-static int nmdisp_msg_recv(u32 queue_id, struct cmd_desc *msg);
-static int nmdisp_msg_transmit(u32 queue_id, struct notif_desc *msg);
+static int nmdisp_msg_recv(struct giu_gpio_q *q, struct cmd_desc *msg);
+static int nmdisp_msg_transmit(struct giu_gpio_q *q, struct notif_desc *msg);
 
 
 /*
@@ -130,7 +130,7 @@ static int nmdisp_free_client_q_get(struct nmdisp *nmdisp_p, u8 client, u8 id)
 
 	for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
 		q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
-		if ((q->cmd_q.q_id == 0) && (q->notify_q.q_id == 0))
+		if ((q->cmd_q == NULL) && (q->notify_q == NULL))
 			return q_idx;
 	}
 
@@ -221,6 +221,7 @@ int nmdisp_register_client(struct nmdisp *nmdisp_p, struct nmdisp_client_params 
 	return 0;
 }
 
+
 /*
  *	nmdisp_deregister_client
  *
@@ -263,13 +264,12 @@ int nmdisp_deregister_client(struct nmdisp *nmdisp_p, u8 client, u8 id)
 
 	for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
 		q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
-		q->cmd_q.q_id    = 0;
-		q->notify_q.q_id = 0;
+		q->cmd_q->q->q_id    = 0;
+		q->notify_q->q->q_id = 0;
 	}
 
 	return 0;
 }
-
 
 /*
  *	nmdisp_add_queue
@@ -290,6 +290,7 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 	u32 q_idx;
 	struct nmdisp_q_pair_params *q;
 
+
 	client_idx = nmdisp_client_id_get(nmdisp_p, client, id);
 	if (client_idx < 0) {
 		pr_err("Failed to ad queue to dispatcher - client not found\n");
@@ -304,8 +305,8 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 
 	/* configure dispatcher client queue table */
 	q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
-	q->cmd_q.q_id    = q_params->cmd_q.q_id;
-	q->notify_q.q_id = q_params->notify_q.q_id;
+	q->cmd_q    = q_params->cmd_q;
+	q->notify_q = q_params->notify_q;
 
 	return 0;
 }
@@ -338,7 +339,7 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 			for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
 				q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
 
-				ret = nmdisp_msg_recv(q->cmd_q.q_id, &cmd);
+				ret = nmdisp_msg_recv(q->cmd_q, &cmd);
 				if (ret <= 0)
 					return ret;
 
@@ -351,7 +352,6 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 
 	return 0;
 }
-
 
 /*
  *	nmdisp_msg_recv
@@ -366,22 +366,14 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
  *	@retval	= 1 yes, message received
  *	@retval	error-code otherwise
  */
-int nmdisp_msg_recv(u32 queue_id, struct cmd_desc *msg)
+static int nmdisp_msg_recv(struct giu_gpio_q *q, struct cmd_desc *msg)
 {
-	struct db_q *db_q;
 	struct mqa_queue_params *queue_info;
 	struct cmd_desc *recv_desc;
 	u32 cons_idx;
 	u32 prod_idx;
 
-	/* Extract queue parameters */
-	db_q = db_queue_get(queue_id);
-	if (db_q == NULL) {
-		pr_err("Failed to get queue %d parameters\n", queue_id);
-		return -EINVAL;
-	}
-
-	queue_info = &db_q->params;
+	queue_info = &(q->params);
 
 	cons_idx = q_rd_cons(queue_info);
 	prod_idx = q_rd_prod(queue_info);
@@ -392,6 +384,7 @@ int nmdisp_msg_recv(u32 queue_id, struct cmd_desc *msg)
 
 	/* Place message */
 	recv_desc = ((struct cmd_desc *)queue_info->virt_base_addr) + cons_idx;
+
 	memcpy(msg, recv_desc, sizeof(struct cmd_desc));
 
 	/* Memory barrier */
@@ -432,7 +425,7 @@ int nmdisp_send(struct nmdisp *nmdisp_p, u8 client, u8 id, u8 qid, void *msg)
 
 	client_p = &(nmdisp_p->clients[client_idx]);
 
-	ret = nmdisp_msg_transmit(client_p->client_q[qid].notify_q.q_id, (struct notif_desc *)msg);
+	ret = nmdisp_msg_transmit(client_p->client_q[qid].notify_q, (struct notif_desc *)msg);
 	if (ret <= 0)
 		return ret;
 
@@ -453,22 +446,14 @@ int nmdisp_send(struct nmdisp *nmdisp_p, u8 client, u8 id, u8 qid, void *msg)
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int nmdisp_msg_transmit(u32 queue_id, struct notif_desc *msg)
+int nmdisp_msg_transmit(struct giu_gpio_q *q, struct notif_desc *msg)
 {
-	struct db_q *db_q;
 	struct mqa_queue_params *queue_info;
 	struct notif_desc *trans_desc;
 	u32 cons_idx;
 	u32 prod_idx;
 
-	/* Retrieve queue parameters */
-	db_q = db_queue_get(queue_id);
-	if (db_q == NULL) {
-		pr_err("Failed to get queue %d parameters\n", queue_id);
-		return -EINVAL;
-	}
-
-	queue_info = &db_q->params;
+	queue_info = &(q->params);
 
 	cons_idx = q_rd_cons(queue_info);
 	prod_idx = q_rd_prod(queue_info);
