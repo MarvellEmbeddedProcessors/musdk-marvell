@@ -42,13 +42,8 @@
 #define MAX_PCI_FUNC_NAME	256
 #define MAX_PCI_FUNC_BARS	3
 
-#define LCL_EG_TC   (1)
-#define LCL_ING_TC  (2)
-#define HOST_EG_TC  (3)
-#define HOST_ING_TC (4)
-
-#define LCL_BM      (1)
-#define HOST_BM     (2)
+#define LCL	(1)
+#define REM	(2)
 
 struct uio_mem {
 	void *phys_addr;
@@ -130,8 +125,14 @@ struct giu_gpio_q {
 	struct mqa_q *q;
 };
 
-int pf_tc_queue_init(u32 tc_type, u32 tc_num, u32 q_num);
-int pf_tc_queue_free(u32 tc_type, u32 tc_num);
-int pf_bm_queue_init(u32 bm_type, u32 bm_num);
-int pf_bm_queue_free(u32 bm_type);
+int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num);
+int pf_outtc_queue_free(u32 type, u32 tc_num);
+int pf_outtc_bm_queue_init(u32 bm_num);
+int pf_outtc_bm_queue_free(void);
+
+int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num);
+int pf_intc_queue_free(u32 type, u32 tc_num);
+int pf_intc_bm_queue_init(u32 bm_num);
+int pf_intc_bm_queue_free(void);
+
 #endif /* _DB_H */

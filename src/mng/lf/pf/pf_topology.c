@@ -68,74 +68,7 @@ int pf_topology_terminate(struct nmp *nmp)
 }
 
 /*
- *	tc_queue_get
- *
- *	This function return TC params object pointer from queue topology
- *
- *	@param[in]	tc_type - traffic class type
- *
- *	@retval	pointer to TC params object on success
- *	@retval	NULL otherwise
- */
-static struct tc_params **tc_queue_get(u32 tc_type)
-{
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
-
-	switch (tc_type) {
-	case LCL_EG_TC:
-		return &(q_top->lcl_eg_tcs);
-
-	case LCL_ING_TC:
-		return &(q_top->lcl_ing_tcs);
-
-	case HOST_EG_TC:
-		return &(q_top->host_eg_tcs);
-
-	case HOST_ING_TC:
-		return &(q_top->host_ing_tcs);
-	}
-
-	return NULL;
-}
-
-/*
- *	tc_queue_num_set
- *
- *	This function set TC num in queue topology
- *
- *	@param[in]	tc_type - traffic class type
- *	@param[in]	tc_num - number of traffic classes
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-static int tc_queue_num_set(u32 tc_type, u32 tc_num)
-{
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
-
-	switch (tc_type) {
-	case LCL_EG_TC:
-		q_top->lcl_eg_tcs_num = tc_num;
-		break;
-
-	case LCL_ING_TC:
-		q_top->lcl_ing_tcs_num = tc_num;
-		break;
-
-	case HOST_EG_TC:
-		q_top->host_eg_tcs_num = tc_num;
-		break;
-
-	case HOST_ING_TC:
-		q_top->host_ing_tcs_num = tc_num;
-		break;
-	}
-
-	return 0;
-}
-
-/*
- *	pf_tc_queue_init
+ *	pf_outtc_queue_init
  *
  *	This function initilaize TC params object in queue topology
  *
@@ -146,63 +79,156 @@ static int tc_queue_num_set(u32 tc_type, u32 tc_num)
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int pf_tc_queue_init(u32 tc_type, u32 tc_num, u32 q_num)
+int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num)
 {
-	int ret;
 	u32 tc_idx;
-	struct tc_params **tc_p;
-	struct tc_params *tc;
+	struct giu_gpio_outtc_params *outtc_p;
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
 
-	pr_debug("Initializing DB TC type - %d\n", tc_type);
-	pr_debug("Num of TCs - %d, Num of queues - %d\n", tc_num, q_num);
+	if (q_top->outtcs_params.outtc_params == NULL) {
+		q_top->outtcs_params.outtc_params = kcalloc(tc_num, sizeof(struct giu_gpio_outtc_params), GFP_KERNEL);
+		if (q_top->outtcs_params.outtc_params == NULL)
+			return -ENOMEM;
+	}
 
-	tc = kcalloc(tc_num, sizeof(struct tc_params), GFP_KERNEL);
-	if (tc == NULL)
-		return -ENOMEM;
-
-	tc_p = tc_queue_get(tc_type);
-	*tc_p = tc;
-	pr_debug("TCs Array addr - %p\n", *tc_p);
+	outtc_p = &(q_top->outtcs_params.outtc_params[0]);
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
 
-		tc[tc_idx].tc_id = tc_idx;
-		tc[tc_idx].num_of_queues = q_num;
-		tc[tc_idx].rss_type = 0; /* Not used */
-		/* TC init for Host queues is based in PF_INIT parameters which include
-		 * Ingress / Egress TC number, but does not include queue number per TC
-		 * Therefore q_num == 0, is valid
-		 */
-		if (q_num != 0) {
-			tc[tc_idx].tc_queue_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
-			if (tc[tc_idx].tc_queue_params == NULL)
-				goto tc_error;
+		if (type == LCL) {
+			outtc_p[tc_idx].tc_id = tc_idx;
+			outtc_p[tc_idx].num_outqs = q_num;
+			/*outtc_p[tc_idx].rss_type = 0; *//* Not used */
+			/* TC init for Host queues is based in PF_INIT parameters which include
+			 * Ingress / Egress TC number, but does not include queue number per TC
+			 * Therefore q_num == 0, is valid
+			 */
+			if (q_num != 0) {
+				outtc_p[tc_idx].outqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				if (outtc_p[tc_idx].outqs_params == NULL)
+					goto tc_error;
+
+				pr_info("Out TC[%d]\n"
+						"Num of output queues %d, Q-Array addr - %p\n",
+						tc_idx, outtc_p[tc_idx].num_outqs, outtc_p[tc_idx].outqs_params);
+			}
+		} else if (type == REM) {
+
+			outtc_p[tc_idx].num_rem_inqs = q_num;
+			if (q_num != 0) {
+				outtc_p[tc_idx].rem_inqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				if (outtc_p[tc_idx].rem_inqs_params == NULL)
+					goto tc_error;
+
+				pr_info("Out TC[%d]\n"
+						"Num of remote input queues %d, Q-Array addr - %p\n",
+						tc_idx, outtc_p[tc_idx].num_rem_inqs, outtc_p[tc_idx].rem_inqs_params);
+			}
 		}
-
-		pr_debug("TC[%d], Num of queues %d, Q-Array addr - %p\n",
-				tc_idx, tc[tc_idx].num_of_queues, tc[tc_idx].tc_queue_params);
 	}
-
-	ret = tc_queue_num_set(tc_type, tc_num);
-	if (ret)
-		return ret;
 
 	return 0;
 
 tc_error:
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
-		if (tc[tc_idx].tc_queue_params != NULL)
-			kfree(tc[tc_idx].tc_queue_params);
+		if (type == LCL) {
+			if (outtc_p[tc_idx].outqs_params != NULL)
+				kfree(outtc_p[tc_idx].outqs_params);
+		} else if (type == REM) {
+			if (outtc_p[tc_idx].rem_inqs_params != NULL)
+				kfree(outtc_p[tc_idx].rem_inqs_params);
+		}
 	}
 
-	kfree(tc);
+	kfree(outtc_p);
 
 	return -ENOMEM;
 }
 
 /*
- *	pf_tc_queue_free
+ *	pf_intc_queue_init
+ *
+ *	This function initilaize TC params object in queue topology
+ *
+ *	@param[in]	tc_type - traffic class type
+ *	@param[in]	tc_num - number of traffic classes
+ *	@param[in]	q_num - number of queues in traffic class
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num)
+{
+	u32 tc_idx;
+	struct giu_gpio_intc_params *intc_p;
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+
+	if (q_top->intcs_params.intc_params == NULL) {
+		q_top->intcs_params.intc_params = kcalloc(tc_num, sizeof(struct giu_gpio_intc_params), GFP_KERNEL);
+		if (q_top->intcs_params.intc_params == NULL)
+			return -ENOMEM;
+	}
+
+	intc_p = &(q_top->intcs_params.intc_params[0]);
+
+	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
+
+		if (type == LCL) {
+			intc_p[tc_idx].tc_id = tc_idx;
+			intc_p[tc_idx].num_inqs = q_num;
+			/*intc_p[tc_idx].rss_type = 0; *//* Not used */
+			/* TC init for Host queues is based in PF_INIT parameters which include
+			 * Ingress / Egress TC number, but does not include queue number per TC
+			 * Therefore q_num == 0, is valid
+			 */
+			if (q_num != 0) {
+				intc_p[tc_idx].inqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				if (intc_p[tc_idx].inqs_params == NULL)
+					goto tc_error;
+
+				pr_debug("In TC[%d]\n"
+						 "Num of input queues %d, Q-Array addr - %p\n",
+						 tc_idx, intc_p[tc_idx].num_inqs, intc_p[tc_idx].inqs_params);
+			}
+		} else if (type == REM) {
+			intc_p[tc_idx].num_rem_outqs = q_num;
+
+			if (q_num != 0) {
+				intc_p[tc_idx].rem_outqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				if (intc_p[tc_idx].rem_outqs_params == NULL)
+					goto tc_error;
+
+				pr_debug("In TC[%d]\n"
+						 "Num of remote output queues %d, Q-Array addr - %p\n",
+						 tc_idx, intc_p[tc_idx].num_rem_outqs, intc_p[tc_idx].rem_outqs_params);
+			}
+		}
+	}
+
+	return 0;
+
+tc_error:
+
+	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
+		if (type == LCL) {
+			if (intc_p[tc_idx].inqs_params != NULL)
+				kfree(intc_p[tc_idx].inqs_params);
+		} else if (type == REM) {
+			if (intc_p[tc_idx].rem_outqs_params != NULL)
+				kfree(intc_p[tc_idx].rem_outqs_params);
+		}
+	}
+
+	kfree(intc_p);
+
+	return -ENOMEM;
+}
+
+
+
+/*
+ *	pf_outtc_queue_free
  *
  *	This function release TC params object in queue topology
  *
@@ -212,55 +238,82 @@ tc_error:
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int pf_tc_queue_free(u32 tc_type, u32 tc_num)
+int pf_outtc_queue_free(u32 type, u32 tc_num)
 {
 	u32 tc_idx;
-	struct tc_params *tc;
-	struct tc_params **tc_p;
+	static u32 clear_outtc;
 
-	tc_p = tc_queue_get(tc_type);
-	tc = *tc_p;
-	if (tc == NULL)
-		return -ENOENT;
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_outtc_params *outtc_p = q_top->outtcs_params.outtc_params;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
-		if (tc[tc_idx].tc_queue_params != NULL)
-			kfree(tc[tc_idx].tc_queue_params);
+		if (type == LCL) {
+			if (outtc_p[tc_idx].outqs_params != NULL) {
+				kfree(outtc_p[tc_idx].outqs_params);
+				clear_outtc++;
+			}
+		} else if (type == REM) {
+			if (outtc_p[tc_idx].rem_inqs_params != NULL) {
+				kfree(outtc_p[tc_idx].rem_inqs_params);
+				clear_outtc++;
+			}
+		}
 	}
 
-	kfree(tc);
+	if (clear_outtc >= 2) {
+		kfree(outtc_p);
+		clear_outtc = 0;
+	}
 
-	return -ENOMEM;
+
+	return 0;
 }
 
 
 /*
- *	pf_bm_queue_get
+ *	pf_intc_queue_free
  *
- *	This function return BM params object pointer from queue topology
+ *	This function release TC params object in queue topology
  *
- *	@param[in]	bm_type - buffer pool type
+ *	@param[in]	tc_type - traffic class type
+ *	@param[in]	tc_num - number of traffic classes
  *
- *	@retval	pointer to BM params object on success
- *	@retval	NULL otherwise
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
  */
-static struct giu_gpio_q **pf_bm_queue_get(u32 bm_type)
+int pf_intc_queue_free(u32 type, u32 tc_num)
 {
+	u32 tc_idx;
+	static u32 clear_intc;
+
 	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
 
-	switch (bm_type) {
-	case LCL_BM:
-		return &(q_top->lcl_bm_qs_params);
-
-	case HOST_BM:
-		return &(q_top->host_bm_qs_params);
+	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
+		if (type == LCL) {
+			if (intc_p[tc_idx].inqs_params != NULL) {
+				kfree(intc_p[tc_idx].inqs_params);
+				clear_intc++;
+			}
+		} else if (type == REM) {
+			if (intc_p[tc_idx].rem_outqs_params != NULL) {
+				kfree(intc_p[tc_idx].rem_outqs_params);
+				clear_intc++;
+			}
+		}
 	}
 
-	return NULL;
+	if (clear_intc >= 2) {
+		kfree(intc_p);
+		clear_intc = 0;
+	}
+
+	return 0;
 }
 
+
 /*
- *	pf_bm_queue_init
+ *	pf_outtc_bm_queue_init
  *
  *	This function initilaize BM params object in queue topology
  *
@@ -270,52 +323,120 @@ static struct giu_gpio_q **pf_bm_queue_get(u32 bm_type)
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int pf_bm_queue_init(u32 bm_type, u32 bm_num)
+int pf_outtc_bm_queue_init(u32 bm_num)
 {
-	struct giu_gpio_q **bm_p;
-	struct giu_gpio_q *bm;
+	u32 tc_idx;
 	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_outtc_params *outtc_p = q_top->outtcs_params.outtc_params;
 
-	pr_debug("Initializing DB BM type - %d\n", bm_type);
-	pr_debug("Num of BM - %d\n", bm_num);
+	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
 
-	bm = kcalloc(bm_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
-	if (bm == NULL)
-		return -ENOMEM;
-
-	bm_p = pf_bm_queue_get(bm_type);
-	*bm_p = bm;
-	pr_debug("BMs Array addr - %p\n", *bm_p);
-
-	/* Setting number of bm queues is relevant for local queues
-	 * remote queues are update upon message arrival
-	 */
-	if (bm_type == LCL_BM)
-		q_top->lcl_bm_qs_num = bm_num;
+		outtc_p[tc_idx].host_bm_qs_num = bm_num;
+		if (bm_num != 0) {
+			outtc_p[tc_idx].rem_poolqs_params = kcalloc(bm_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+			if (outtc_p[tc_idx].rem_poolqs_params == NULL)
+				goto bm_error;
+		}
+	}
 
 	return 0;
+
+bm_error:
+
+	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
+		if (outtc_p[tc_idx].rem_poolqs_params != NULL)
+			kfree(outtc_p[tc_idx].rem_poolqs_params);
+	}
+
+	return -ENOMEM;
 }
 
+
 /*
- *	pf_bm_queue_free
+ *	pf_intc_bm_queue_init
  *
- *	This function release BM params object in queue topology database
+ *	This function initilaize BM params object in queue topology
  *
  *	@param[in]	bm_type - buffer pool type
+ *	@param[in]	bm_num - number of buffer pools
  *
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int pf_bm_queue_free(u32 bm_type)
+int pf_intc_bm_queue_init(u32 bm_num)
 {
-	struct giu_gpio_q **bm_p;
+	u32 tc_idx;
 
-	bm_p = pf_bm_queue_get(bm_type);
-	if (*bm_p == NULL)
-		return -ENOENT;
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
 
-	kfree(*bm_p);
+	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
+
+		intc_p[tc_idx].num_inpools = bm_num;
+		if (bm_num != 0) {
+			intc_p[tc_idx].pools = kcalloc(bm_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+			if (intc_p[tc_idx].pools == NULL)
+				goto bm_error;
+		}
+	}
+
+	return 0;
+
+bm_error:
+
+	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
+		if (intc_p[tc_idx].pools != NULL)
+			kfree(intc_p[tc_idx].pools);
+	}
+
+	return -ENOMEM;
+}
+
+
+/*
+ *	pf_outtc_bm_queue_free
+ *
+ *	This function release BM params object in queue topology
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int pf_outtc_bm_queue_free(void)
+{
+	u32 tc_idx;
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_outtc_params *outtc_p = q_top->outtcs_params.outtc_params;
+
+	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
+		if (outtc_p[tc_idx].rem_poolqs_params != NULL)
+			kfree(outtc_p[tc_idx].rem_poolqs_params);
+	}
 
 	return 0;
 }
+
+
+/*
+ *	pf_intc_bm_queue_free
+ *
+ *	This function release BM params object in queue topology
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int pf_intc_bm_queue_free(void)
+{
+	u32 tc_idx;
+
+	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
+
+	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
+		if (intc_p[tc_idx].pools != NULL)
+			kfree(intc_p[tc_idx].pools);
+	}
+
+	return 0;
+}
+
 

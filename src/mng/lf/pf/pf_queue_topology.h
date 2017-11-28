@@ -55,7 +55,8 @@ enum queue_type {
 enum rss_hash_type {
 	RSS_HASH_NONE = 0,
 	RSS_HASH_2_TUPLE,
-	RSS_HASH_5_TUPLE,
+	RSS_HASH_5_TUPLE
+
 };
 
 /*	Traffic Class information
@@ -81,140 +82,73 @@ struct tc_params {
 struct mng_ch_params {
 	struct giu_gpio_q *cmd_queue;
 	struct giu_gpio_q *notify_queue;
+
 };
 
-/*	Physical Function Queue Topology information
- *
- *  Following is an example of PF Queue topology
- *
- *   Management
- *  +-----------+           Queue List
- *  |           +--------->+-----+-----+
- *  +-----------+          | 001 + 002 +
- *  |           +          +-----+-----+
- *  +-----------+             |     |                             Queue Array
- *  |           +             |     |                            +-----------+
- *  +-----------+             +-----|--------------------------->|    001    |
- *                                  |                            +-----------+
- *   Local Ingress TC               +--------------------------->|    002    |
- *  +-----------+                                                +-----------+
- *  |           +           Queue List                           |           |
- *  +-----------+--------->+-----+-----+-----+                   +-----------+
- *  |           +          | 100 + 101 + 102 +                   |           |
- *  +-----------+          +-----+-----+-----+                   +-----------+
- *  |           +             |     |     |                      |           |
- *  +-----------+             |     |     |                      +-----------+
- *                            +-----|-----|--------------------->|    100    |
- *                                  |     |                      +-----------+
- *                                  +-----|--------------------->|    101    |
- *                                        |                      +-----------+
- *   Local Egress TC                      +--------------------->|    102    |
- *  +-----------+                                                +-----------+
- *  |           +           Queue List                           |           |
- *  +-----------+--------->+-----+-----+-----+                   +-----------+
- *  |           +          | 120 + 121 + 122 +                   |           |
- *  +-----------+          +-----+-----+-----+                   +-----------+
- *  |           +             |     |     |                      |           |
- *  +-----------+             |     |     |                      +-----------+
- *                             +-----|-----|-------------------->|    120    |
- *                                   |     |                     +-----------+
- *                                   +-----|-------------------->|    121    |
- *                                         |                     +-----------+
- *   Local BM Queues ------>+-----+        +-------------------->|    122    |
- *                          | 130 +                              +-----------+
- *                          +-----+                              |           |
- *                             |                                 +-----------+
- *                             +-------------------------------->|    130    |
- *                                                               +-----------+
- *   Host Ingress TC                                             |           |
- *  +-----------+                                                +-----------+
- *  |           +           Queue List                           |           |
- *  +-----------+--------->+-----+-----+-----+                   +-----------+
- *  |           +          | 200 + 201 + 202 +                   |           |
- *  +-----------+          +-----+-----+-----+                   +-----------+
- *  |           +             |     |     |                      |           |
- *  +-----------+             |     |     |                      +-----------+
- *                            +-----|-----|--------------------->|    200    |
- *                                  |     |                      +-----------+
- *                                  +-----|--------------------->|    201    |
- *                                        |                      +-----------+
- *   Host Egress TC                       +--------------------->|    202    |
- *  +-----------+                                                +-----------+
- *  |           +           Queue List                           |           |
- *  +-----------+--------->+-----+-----+-----+                   +-----------+
- *  |           +          | 220 + 221 + 222 +                   |           |
- *  +-----------+          +-----+-----+-----+                   +-----------+
- *  |           +             |     |     |                      |           |
- *  +-----------+             |     |     |                      +-----------+
- *                             +-----|-----|-------------------->|    220    |
- *                                   |     |                     +-----------+
- *                                   +-----|-------------------->|    221    |
- *                                         |                     +-----------+
- *                                         +-------------------->|    222    |
- *                                                               +-----------+
- *                                                               |           |
- *                                                               +-----------+
- *   Host BM Queues ------->+-----+-----+-----+                  |           |
- *                          | 230 + 231 + 232 +                  +-----------+
- *                          +-----+-----+-----+                  |           |
- *                             |     |     |                     +-----------+
- *                             +-----|-----|-------------------->|    230    |
- *                                   |     |                     +-----------+
- *                                   +-----|-------------------->|    231    |
- *                                         |                     +-----------+
- *                                         +-------------------->|    232    |
- *                                                               +-----------+
- *
- *	lcl_mng_ctrl     - local management control channels
- *	host_mng_ctrl    - host management control channels
- */
+/* Mng Queue topology */
 struct giu_mng_topology {
-
 	struct mng_ch_params lcl_mng_ctrl;
 	struct mng_ch_params host_mng_ctrl;
 
 };
 
-/*
- *	lcl_ing_tcs_num  - number of local ingress traffic class
- *	lcl_ing_tcs      - array of local ingress TCs
- *
- *	lcl_eg_tcs_num   - number of local egress traffic class
- *	lcl_eg_tcs       - array of local egress TCs
- *
- *	lcl_bm_qs_num    - number of local bm queues
- *	lcl_bm_qs_params - array of local bm queue ids
- *
- *	host_ing_tcs_num - number of host ingress traffic class
- *	host_ing_tcs     - array of host ingress TCs
- *
- *	host_eg_tcs_num  - number of host egress traffic class
- *	host_eg_tcs      - array of host egress TCs
- *
- *	host_bm_qs_num   - number of host bm queues
- *	host_bm_qs_active- index of last allocated bm index
- *	host_bm_qs_idx   - array of host bm queue ids
- */
-struct giu_queue_topology {
+/* In TC - Queue topology */
+struct giu_gpio_intc_params {
+	u32 tc_id;
 
-	u32 lcl_ing_tcs_num;
-	struct tc_params *lcl_ing_tcs;
+	/* lcl_eg_tcs */
+	u32 num_inqs;
+	struct giu_gpio_q *inqs_params;
 
-	u32 lcl_eg_tcs_num;
-	struct tc_params *lcl_eg_tcs;
+	/* lcl_bm_qs_num */
+	u32 num_inpools;
+	/* lcl_bm_qs_params */
+	struct giu_gpio_q *pools;
 
-	u32 lcl_bm_qs_num;
-	struct giu_gpio_q *lcl_bm_qs_params;
+	/* host_eg_tcs */
+	u32 num_rem_outqs;
+	struct giu_gpio_q *rem_outqs_params;
 
-	u32 host_ing_tcs_num;
-	struct tc_params *host_ing_tcs;
+};
 
-	u32 host_eg_tcs_num;
-	struct tc_params *host_eg_tcs;
+struct giu_gpio_intcs_params {
+	u32 num_intcs;
+	struct giu_gpio_intc_params *intc_params;
+
+};
+
+/* Out TC - Queue topology */
+struct giu_gpio_outtc_params {
+	u32 tc_id;
+
+	/* lcl_ing_tcs */
+	u32 num_outqs;
+	struct giu_gpio_q *outqs_params;
+
+	/* host_ing_tcs */
+	u32 num_rem_inqs;
+	u8 rss_type;
+	struct giu_gpio_q *rem_inqs_params;
 
 	u32 host_bm_qs_num;
-	struct giu_gpio_q *host_bm_qs_params;
+	struct giu_gpio_q *rem_poolqs_params;
+
+};
+
+struct giu_gpio_outtcs_params {
+	u32 num_outtcs;
+	struct giu_gpio_outtc_params *outtc_params;
+
+};
+
+/* Queue topology */
+struct giu_queue_topology {
+	u8 id;
+
+	struct giu_gpio_intcs_params  intcs_params;
+	struct giu_gpio_outtcs_params outtcs_params;
 
 };
 
 #endif /* _PF_QUEUE_TOPOLOGY_H */
+
