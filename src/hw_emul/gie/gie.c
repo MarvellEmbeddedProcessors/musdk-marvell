@@ -977,7 +977,7 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 	u64 src_remap, dst_remap;
 	u64 *qe_cookie, *qe_buff;
 	u16 *qe_byte_cnt;
-	int i = 0, buf_cnt;
+	int i = 0;
 	void *qe;
 	u16 cnt = 0;
 
@@ -989,7 +989,6 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 
 	i = src_q->head;
 
-another_pass:
 	/* fetch buffers from the bpool. the returned pointer points directly to the
 	 * bpool queue elements to avoid copying them. therefore, when the queue is
 	 * about the wrap, we only get the last items in the queue, so we dont need to
@@ -997,13 +996,11 @@ another_pass:
 	 * multiple times, first to get the last n elements in the queue, and then
 	 * to get bufs_to_copy-n elements.
 	 */
-	buf_cnt = gie_get_bpool_bufs(dma, qp, 1500, &bp_buf, bufs_to_copy);
-	if (!buf_cnt)
+	bufs_to_copy = gie_get_bpool_bufs(dma, qp, 1500, &bp_buf, bufs_to_copy);
+	if (!bufs_to_copy)
 		goto bpool_empty;
 
-	bufs_to_copy -= buf_cnt;
-
-	while (buf_cnt--) {
+	while (bufs_to_copy--) {
 		qe = (void *)qes_q->ring_virt + i * qes_q->qesize;
 		qe_buff = qe + addr_pos;
 		qe_cookie = qe + cookie_pos;
@@ -1025,9 +1022,6 @@ another_pass:
 		q_idx_add(i, 1, src_q->qlen);
 		bp_buf++;
 	}
-
-	if (bufs_to_copy)
-		goto another_pass;
 
 bpool_empty:
 	/* we can reach here after 1 pass or no pass at all */
