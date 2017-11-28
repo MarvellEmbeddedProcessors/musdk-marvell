@@ -42,8 +42,10 @@
 #include "drivers/mv_dmax2.h"
 
 #define GIE_MAX_NAME		256
-#define GIE_MAX_DMA_JOBS	1024
-#define GIE_MAX_QES_IN_BATCH	32
+#define GIE_MAX_DMA_JOBS	4096
+#define GIE_DMAX2_Q_SIZE	4096
+
+#define GIE_MAX_QES_IN_BATCH	64
 
 #define GIE_MAX_TCS		8
 #define GIE_MAX_Q_PER_TC	128
@@ -304,7 +306,6 @@ struct gie {
 #define q_idx_add(idx, val, qlen) (idx = (idx + val) & (qlen - 1))
 #define q_read_idx(idx)                (*((u16 *)idx))
 
-
 /* forward function declarations. */
 static void gie_clean_dma_jobs(struct dma_info *dma);
 
@@ -338,7 +339,7 @@ int gie_init(struct gie_params *gie_params, struct gie **gie)
 
 	/* Open a MUSDK DMAx2 channel */
 	dmax2_params.match = gie_params->dmax_match;
-	dmax2_params.queue_size = DMAX2_BURST_SIZE;
+	dmax2_params.queue_size = GIE_DMAX2_Q_SIZE;
 	err = dmax2_init(&dmax2_params, &(dma->dmax2));
 	if (err) {
 		pr_err("Failed to initialize MUSDK dmax2\n");
