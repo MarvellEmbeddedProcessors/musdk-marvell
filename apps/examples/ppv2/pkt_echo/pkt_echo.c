@@ -537,6 +537,11 @@ static int init_global(void *arg)
 		return -EIO;
 	}
 
+	if (pthread_mutex_init(&garg->cmn_args.thread_lock, NULL) != 0) {
+		pr_err("init lock failed!\n");
+		return -EIO;
+	}
+
 	err = init_all_modules();
 	if (err)
 		return err;

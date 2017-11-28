@@ -885,7 +885,10 @@ int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_comm
 	struct pp2_hif *shared_hif;
 	int err;
 
-	pthread_mutex_lock(thr_lock);
+	err = pthread_mutex_lock(thr_lock);
+	if (err)
+		pr_err("(%s) lock not initialized\n", __func__);
+
 	shared_hif = app_shared_hif_exist(glb_pp2_args, thr_id);
 	if (shared_hif) {
 		lcl_pp2_args->hif = shared_hif;
@@ -924,6 +927,10 @@ int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize)
 	 * for a local_thread as well
 	 */
 	if (num_threads > expected_free_hifs) {
+#ifndef MVCONF_PP2_LOCK
+		pr_err("To support shared hifs, musdk must be compiled with --enable-pp2-lock\n");
+			return -EPERM;
+#endif
 		glb_args->shared_hifs = true;
 		usable_hifs = expected_free_hifs + 1;
 		ratio = ceil(num_threads, usable_hifs);
