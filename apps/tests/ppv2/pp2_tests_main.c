@@ -412,6 +412,7 @@ static void usage(char *progname)
 		"Optional OPTIONS:\n"
 		"\t-e, --echo			(no argument) activate echo packets\n"
 		"\t-c, --cores <number>		Number of CPUs to use\n"
+		"\t-a, --affinity <number>	Use set affinity (default is no affinity)\n"
 		"\t-t, --num_tcs <number>	Number of Traffic classes (TCs) to use\n"
 		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
 		"\t--eth_start_hdr		(no argument)configure ethernet start header\n"
@@ -438,6 +439,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	char *ret_ptr;
 	int num_tcs = 8;
 	int num_cpus = 1;
+	int affinity = MVAPPS_INVALID_AFFINITY;
 
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	struct pp2_ppio_params	*port_params = &pp2_args->ports_desc[0].port_params;
@@ -450,6 +452,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"interface", required_argument, 0, 'i'},
 		{"echo", no_argument, 0, 'e'},
 		{"cpu", required_argument, 0, 'c'},
+		{"affinity", required_argument, 0, 'a'},
 		{"num_tcs", required_argument, 0, 't'},
 		{"hash_type", required_argument, 0, 'b'},
 		{"eth_start_hdr", no_argument, 0, 's'},
@@ -478,7 +481,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:b:c:t:r:epsgq", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:b:c:t:r:a:epsgq", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -500,6 +503,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'c':
 			num_cpus = strtoul(optarg, &ret_ptr, 0);
+			break;
+		case 'a':
+			affinity = strtoul(optarg, &ret_ptr, 0);
 			break;
 		case 'b':
 			if (!strcmp(optarg, "none")) {
@@ -651,6 +657,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.cpus = num_cpus;
 	pr_debug("cpus: %d\n", garg->cmn_args.cpus);
 
+	/* Check affinity validity */
+	if ((affinity != MVAPPS_INVALID_AFFINITY) &&
+	    ((garg->cmn_args.cpus + affinity) > system_ncpus())) {
+		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
+		       garg->cmn_args.cpus, affinity, system_ncpus());
+		return -EINVAL;
+	}
+
+	garg->cmn_args.affinity = affinity;
+
 	/* Check num_tcs validity */
 	if (num_tcs > PP2_PPIO_MAX_NUM_TCS) {
 		pr_err("Number of TC'exceeds maximum of %d\n", PP2_PPIO_MAX_NUM_TCS);
@@ -686,6 +702,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
+	u64			cores_mask;
 	struct pp2_glb_common_args *pp2_args;
 	int			err;
 
@@ -710,9 +727,12 @@ int main(int argc, char *argv[])
 
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
+	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
+
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;
 	mvapp_params.num_cores		= garg.cmn_args.cpus;
+	mvapp_params.cores_mask		= cores_mask;
 	mvapp_params.global_arg		= (void *)&garg;
 	mvapp_params.init_global_cb	= init_global;
 	mvapp_params.deinit_global_cb	= apps_pp2_deinit_global;
