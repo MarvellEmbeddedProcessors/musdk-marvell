@@ -35,6 +35,9 @@
 #include "hugepage_mem.h"
 #include "cma.h"
 
+
+#define MEM_DMA_MAX_REGIONS	16
+
 struct sys_dma {
 	struct mem_mng	*mm;
 	void		*dma_virt_base;
@@ -47,6 +50,18 @@ struct sys_dma {
 	void		*mem_ptr;
 #endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 };
+
+struct sys_mem_dma_region_priv {
+	struct mem_mng	*mm;
+#ifdef MVCONF_SYS_DMA_UIO
+	void		*cma_ptr;
+#endif /* MVCONF_SYS_DMA_UIO */
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
+	void		*mem_ptr;
+#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
+};
+
+struct mv_sys_dma_mem_region	*sys_dma_regions[MEM_DMA_MAX_REGIONS] = {NULL};
 
 
 phys_addr_t __dma_phys_base = 0;
@@ -239,4 +254,203 @@ void mv_sys_dma_mem_free(void *ptr)
 	}
 
 	mem_mng_put(sys_dma->mm, (u64)(uintptr_t)ptr);
+}
+
+
+
+static bool mem_region_exist(struct mv_sys_dma_mem_region *mem)
+{
+	int i;
+
+	for (i = 0; i < MEM_DMA_MAX_REGIONS; i++)
+		if (sys_dma_regions[i] == mem)
+			return true;
+	return false;
+}
+
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
+static int init_mem_region(struct mv_sys_dma_mem_region *mem)
+{
+	return (-1);
+}
+
+static void free_mem_region(struct mv_sys_dma_mem_region *mem)
+{
+	return (-1);
+}
+
+#elif defined MVCONF_SYS_DMA_UIO /* MVCONF_SYS_DMA_HUGE_PAGE */
+static int init_mem_region(struct mv_sys_dma_mem_region *mem)
+{
+	void *cma_ptr;
+	struct sys_mem_dma_region_priv *priv;
+
+
+	cma_ptr = cma_calloc(mem->size);
+	if (!cma_ptr) {
+		pr_err("Failed to allocate DMA memory!\n");
+		return -ENOMEM;
+	}
+	mem->dma_virt_base = (void *)cma_get_vaddr(cma_ptr);
+	mem->dma_phys_base = (phys_addr_t)cma_get_paddr(cma_ptr);
+
+	priv = mem->priv;
+	priv->cma_ptr = cma_ptr;
+	return 0;
+}
+
+static void free_mem_region(struct mv_sys_dma_mem_region *mem)
+{
+	struct sys_mem_dma_region_priv *priv;
+
+	if (!mem->dma_virt_base)
+		return;
+
+	priv = mem->priv;
+	cma_free(priv->cma_ptr);
+}
+
+#else /* MVCONF_SYS_DMA_UIO */
+static int init_mem_region(struct mv_sys_dma_mem_region *mem)
+{
+	WARN_ON(!mem);
+	if (!mem)
+		return -EINVAL;
+
+	mem->dma_virt_base = kmalloc(mem->size, GFP_KERNEL);
+	if (!mem->dma_virt_base)
+		return -ENOMEM;
+
+	mem->dma_phys_base = (phys_addr_t)mem->dma_virt_base;
+	return 0;
+}
+
+static void free_mem_region(struct mv_sys_dma_mem_region *mem)
+{
+	if (!mem->dma_virt_base)
+		return;
+	kfree(mem->dma_virt_base);
+}
+#endif /* MVCONF_SYS_DMA_UIO */
+
+int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, struct mv_sys_dma_mem_region **mem)
+{
+	int i, err;
+	struct mv_sys_dma_mem_region *region;
+	struct sys_mem_dma_region_priv *priv;
+
+	/* Get next Region */
+	for (i = 0; i < MEM_DMA_MAX_REGIONS; i++)
+		if (!sys_dma_regions[i])
+			break;
+	if (i == MEM_DMA_MAX_REGIONS) {
+		pr_err("Exceeded maximum number of regions (%d)\n", i);
+		return -ENOSPC;
+	}
+	if (params->mem_id > MV_SYS_DMA_MAX_MEM_ID)
+		return -EINVAL;
+
+	region = kzalloc(sizeof(struct mv_sys_dma_mem_region), GFP_KERNEL);
+	if (!region)
+		return -ENOMEM;
+	priv = kzalloc(sizeof(struct sys_mem_dma_region_priv), GFP_KERNEL);
+	if (!priv) {
+		kfree(region);
+		return -ENOMEM;
+	}
+	region->priv = priv;
+	region->size = params->size;
+	region->manage = params->manage;
+	region->mem_id = params->mem_id;
+
+	err = init_mem_region(region);
+	if (!err)
+		goto err;
+	if (region->manage)
+		err = mem_mng_init((u64)(uintptr_t)region->dma_virt_base, region->size, &priv->mm);
+	if (err != 0)
+		goto err;
+
+	sys_dma_regions[i] = region;
+
+	/* Set Output */
+	(*mem) = sys_dma_regions[i];
+
+	return 0;
+err:
+	pr_err("%s failed\n", __func__);
+	free_mem_region(region);
+	kfree(priv);
+	kfree(region);
+	return err;
+}
+
+void mv_sys_dma_mem_region_destroy(struct mv_sys_dma_mem_region *mem)
+{
+	struct sys_mem_dma_region_priv *priv;
+
+	if (!mem || !mem_region_exist(mem)) {
+		pr_err("memory region not created\n");
+		return;
+	}
+
+	priv = mem->priv;
+	if (mem->manage)
+		mem_mng_free(priv->mm);
+	free_mem_region(mem);
+	kfree(priv);
+	kfree(mem);
+
+}
+
+void *mv_sys_dma_mem_region_alloc(struct mv_sys_dma_mem_region *mem, size_t size, size_t align)
+{
+	u64	ans;
+	struct sys_mem_dma_region_priv *priv;
+
+	if (!mem)
+		return mv_sys_dma_mem_alloc(size, align);
+
+	if (!mem_region_exist(mem)) {
+		pr_err("memory region not created\n");
+		return NULL;
+	}
+
+	priv = mem->priv;
+	ans = mem_mng_get(priv->mm, size, align, "temp");
+	if (ans == MEM_MNG_ILLEGAL_BASE) {
+		pr_err("failed to alloc mem!\n");
+		return NULL;
+	}
+
+	return (void *)(uintptr_t)ans;
+}
+
+void mv_sys_dma_mem_region_free(struct mv_sys_dma_mem_region *mem, void *ptr)
+{
+	struct sys_mem_dma_region_priv *priv;
+
+	if (!mem) {
+		mv_sys_dma_mem_free(ptr);
+		return;
+	}
+
+	if (!mem_region_exist(mem)) {
+		pr_err("memory region not created\n");
+		return;
+	}
+
+	priv = mem->priv;
+	mem_mng_put(priv->mm, (u64)(uintptr_t)ptr);
+}
+
+struct mv_sys_dma_mem_region *mv_sys_dma_mem_region_get(u32 mem_id)
+{
+	int i;
+
+	for (i = 0; i < MEM_DMA_MAX_REGIONS; i++) {
+		if (sys_dma_regions[i] && sys_dma_regions[i]->mem_id == mem_id)
+			return sys_dma_regions[i];
+	}
+	return NULL;
 }

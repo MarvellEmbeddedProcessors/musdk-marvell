@@ -51,6 +51,28 @@
 extern phys_addr_t __dma_phys_base;
 extern void *__dma_virt_base;
 
+
+#define MV_SYS_DMA_MAX_NUM_MEM_ID		4
+#define MV_SYS_DMA_MAX_MEM_ID			(MV_SYS_DMA_MAX_NUM_MEM_ID - 1)
+
+
+struct mv_sys_dma_mem_region {
+	void		*dma_virt_base;
+	phys_addr_t	dma_phys_base;
+	u64		size;
+	int		manage;		/* Is this region managed by alloc and free functions */
+	void		*priv;
+	u32		mem_id;		/* Which DRAM will the region be allocated on. */
+};
+
+struct mv_sys_dma_mem_region_params {
+	u64		size;
+	int		manage;		/* Is this region managed by alloc and free functions */
+	u32		mem_id;		/* Which DRAM will the region be allocated on. */
+					/* TODO: change after understanding DRAM */
+};
+
+
 /**
  * Initialize the system DMA memory manager
  *
@@ -131,6 +153,46 @@ static inline phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 }
 #endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 
-/** @} */ /* end of grp_pp2_hif */
+int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, struct mv_sys_dma_mem_region **mem);
+void mv_sys_dma_mem_region_destroy(struct mv_sys_dma_mem_region *mem);
+void *mv_sys_dma_mem_region_alloc(struct mv_sys_dma_mem_region *mem, size_t size, size_t align);
+void mv_sys_dma_mem_region_free(struct mv_sys_dma_mem_region *mem, void *ptr);
+
+static inline void *mv_sys_dma_mem_region_get_vaddr_base(struct mv_sys_dma_mem_region *mem)
+{
+	return mem->dma_virt_base;
+}
+
+static inline phys_addr_t mv_sys_dma_mem_region_get_paddr_base(struct mv_sys_dma_mem_region *mem)
+{
+	return mem->dma_phys_base;
+}
+
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
+void *mv_sys_dma_mem_region_phys2virt(struct mv_sys_dma_mem_region *mem, phys_addr_t pa);
+#else
+static inline void *mv_sys_dma_mem_region_phys2virt(struct mv_sys_dma_mem_region *mem, phys_addr_t pa)
+{
+	if (!mem)
+		return mv_sys_dma_mem_phys2virt(pa);
+	return (void *)((pa - mem->dma_phys_base) + (phys_addr_t)mem->dma_virt_base);
+}
+#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
+
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
+phys_addr_t mv_sys_dma_mem_region_virt2phys(struct mv_sys_dma_mem_region *mem, void *va);
+#else
+static inline phys_addr_t mv_sys_dma_mem_region_virt2phys(struct mv_sys_dma_mem_region *mem, void *va)
+{
+	if (!mem)
+		return mv_sys_dma_mem_virt2phys(va);
+	return ((phys_addr_t)va - (phys_addr_t)mem->dma_virt_base) + mem->dma_phys_base;
+}
+#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
+
+struct mv_sys_dma_mem_region *mv_sys_dma_mem_region_get(u32 mem_id);
+
+
+/** @} */ /* end of grp_sys_dma */
 
 #endif /* __MV_SYS_DMA_H__ */

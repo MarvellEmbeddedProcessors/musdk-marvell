@@ -49,12 +49,14 @@ struct cma_buf_info {
 
 int cma_init(void)
 {
+	if (fd >= 0)
+		return 0;
+
 	fd = open(MUSDK_DEV_FILE, O_RDWR);
 	if (fd < 0) {
 		pr_err("CMA: open() failed\n");
 		return -1;
-	}
-	else
+	} else
 		return 0;
 }
 
