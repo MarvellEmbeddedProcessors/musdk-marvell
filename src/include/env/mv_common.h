@@ -331,6 +331,7 @@ static __always_inline u32 fls_64(u64 x)
 
 /* Kernel Memory Allocation */
 #define kmalloc(size, gfp) malloc(size)
+#define kzalloc(size, gfp) kcalloc(1, size, gfp)
 #define kcalloc(num, size, gfp) calloc(num, size)
 #define kfree(ptr) if(ptr) free(ptr)
 
