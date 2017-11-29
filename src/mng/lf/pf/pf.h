@@ -36,5 +36,6 @@
 int nic_pf_init(struct nic_pf *nic_pf);
 int nic_pf_terminate(struct nic_pf *nic_pf);
 int nic_pf_process_command(void *nic_pf, u8 cmd_code, void *cmd);
+int nic_pf_send_notification(void *nic_pf, u8 notif_code, void *data);
 
 #endif /* _PF_H */
