@@ -38,23 +38,45 @@
 #include "drivers/mv_sam_cio.h"
 #include "sam.h"
 
-struct sam_hw_ipsec_result {
-	u8 next_header;
-	u8 l3_offset;
-	u8 pad_len;
-	u8 reserved;
-};
+u16 sam_ssltls_version_convert(enum sam_ssltls_version version)
+{
+	u16 ver;
 
-static int sam_cio_check_ipsec_params(struct sam_cio_ipsec_params *request)
+	switch (version) {
+	case SAM_SSL_VERSION_3_0:
+		ver = SAB_SSL_VERSION_3_0;
+		break;
+	case SAM_TLS_VERSION_1_0:
+		ver = SAB_TLS_VERSION_1_0;
+		break;
+	case SAM_TLS_VERSION_1_1:
+		ver = SAB_TLS_VERSION_1_1;
+		break;
+	case SAM_TLS_VERSION_1_2:
+		ver = SAB_TLS_VERSION_1_2;
+		break;
+	case SAM_DTLS_VERSION_1_0:
+		ver = SAB_DTLS_VERSION_1_0;
+		break;
+	case SAM_DTLS_VERSION_1_2:
+		ver = SAB_DTLS_VERSION_1_2;
+		break;
+	default:
+		pr_err("Unexpected SSLTLS version %d\n", version);
+		ver = 0;
+	}
+	return ver;
+}
+
+static int sam_cio_check_ssltls_params(struct sam_cio_ssltls_params *request)
 {
 	return 0;
 }
 
-static inline void sam_hw_ring_ipsec_request_set(struct sam_hw_ring *hw_ring, int next_request,
-						 struct sam_sa *session, struct sam_cio_ipsec_params *request,
-						 int reuse)
+static inline void sam_hw_ring_ssltls_request_write(struct sam_hw_ring *hw_ring, int next_request,
+				struct sam_sa *session, struct sam_cio_ssltls_params *request)
 {
-	u32 proto_word, token_header_word;
+	u32 token_header_word, proto_word;
 	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
 	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
 
@@ -67,49 +89,22 @@ static inline void sam_hw_ring_ipsec_request_set(struct sam_hw_ring *hw_ring, in
 	/* Token is built inside the device */
 	token_header_word = (request->pkt_size & SAM_TOKEN_PKT_LEN_MASK);
 	token_header_word |= SAM_TOKEN_TYPE_AUTO_MASK;
-	if (reuse)
-		token_header_word |= SAM_TOKEN_REUSE_AUTO_MASK;
+
+	if (session->params.dir == SAM_DIR_DECRYPT) {
+		token_header_word |= SAM_TOKEN_DTLS_INBOUND_MASK;
+
+		if (session->params.u.ssltls.is_capwap)
+			token_header_word |= SAM_TOKEN_DTLS_CAPWAP_MASK;
+	} else
+		token_header_word |= SAM_TOKEN_DTLS_CONTENT_SET(request->type);
 
 	proto_word = SAM_CMD_TOKEN_OFFSET_SET(request->l3_offset);
-	if (session->params.dir == SAM_DIR_ENCRYPT)
-		proto_word |= SAM_CMD_TOKEN_NEXT_HDR_SET(IPPROTO_ESP);
-	else
-		proto_word |= SAM_CMD_TOKEN_NEXT_HDR_SET(0);
-
 	sam_hw_cdr_ext_token_write(cmd_desc, &request->sa->sa_buf, token_header_word,
-					FIRMWARE_CMD_PKT_LIP_MASK, proto_word);
+					FIRMWARE_CMD_PKT_LDT_MASK, proto_word);
 }
 
-void sam_ipsec_prepare_tunnel_header(struct sam_session_params *params, u8 *tunnel_header)
-{
-	if (!params->u.ipsec.is_tunnel)
-		return;
-
-	if (params->u.ipsec.is_ip6) {
-		/* TBD */
-	} else {
-		struct iphdr *iph = (struct iphdr *)tunnel_header;
-
-		memset(iph, 0, sizeof(struct iphdr));
-		iph->ihl = 5; /* 20 Bytes */
-		iph->version = 4;
-
-		if (params->u.ipsec.tunnel.u.ipv4.df)
-			iph->frag_off = IP_DF;
-
-		iph->ttl = params->u.ipsec.tunnel.u.ipv4.ttl;
-		iph->protocol = IPPROTO_ESP;
-
-		if (params->u.ipsec.tunnel.u.ipv4.sip)
-			memcpy(&iph->saddr, params->u.ipsec.tunnel.u.ipv4.sip, 4);
-
-		if (params->u.ipsec.tunnel.u.ipv4.dip)
-			memcpy(&iph->daddr, params->u.ipsec.tunnel.u.ipv4.dip, 4);
-	}
-}
-
-void sam_ipsec_ip4_transport_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
-					  struct sam_cio_op_result *result)
+void sam_dtls_ip4_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+			       struct sam_cio_op_result *result)
 {
 	u32 val32;
 	u8 next_hdr, l3_offset;
@@ -143,85 +138,19 @@ void sam_ipsec_ip4_transport_in_post_proc(struct sam_cio_op *operation, struct s
 	iph->check = ~csum;
 }
 
-void sam_ipsec_ip6_transport_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
-					  struct sam_cio_op_result *result)
+void sam_dtls_ip6_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+			       struct sam_cio_op_result *result)
 {
 	pr_info("%s: Not supported yet\n", __func__);
 }
 
-void sam_ipsec_ip4_tunnel_out_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
-					struct sam_cio_op_result *result)
-{
-	u32 val32;
-	u16 ip_len;
-	u8 l3_offset;
-	struct sam_session_params *params = &operation->sa->params;
-	struct iphdr *iph;
 
-	val32 = readl_relaxed(&res_desc->words[7]);
-	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
-	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
-
-	ip_len = htobe16((u16)(result->out_len - l3_offset));
-
-	val32 = readl_relaxed(&res_desc->words[5]);
-
-	/* Build IPv4 header */
-	memcpy(iph, operation->sa->tunnel_header, sizeof(struct iphdr));
-
-	if (params->u.ipsec.tunnel.copy_dscp)
-		iph->tos = SAM_RES_TOKEN_TOS_GET(val32);
-
-	iph->tot_len = ip_len;
-	if (params->u.ipsec.tunnel.copy_df) {
-		if (val32 & SAM_RES_TOKEN_DF_MASK)
-			iph->frag_off |= IP_DF;
-		else
-			iph->frag_off &= ~IP_DF;
-	}
-}
-
-void sam_ipsec_ip6_tunnel_out_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
-					struct sam_cio_op_result *result)
-{
-	pr_info("%s: Not supported yet\n", __func__);
-}
-
-void sam_ipsec_ip4_tunnel_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
-					struct sam_cio_op_result *result)
-{
-	u32 val32;
-	u8 l3_offset;
-	struct sam_session_params *params = &operation->sa->params;
-	struct iphdr *iph;
-
-	val32 = readl_relaxed(&res_desc->words[7]);
-	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
-	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
-
-	if (params->u.ipsec.tunnel.copy_dscp)
-		iph->tos = SAM_RES_TOKEN_TOS_GET(val32);
-
-	if (params->u.ipsec.tunnel.copy_df) {
-		if (val32 & SAM_RES_TOKEN_DF_MASK)
-			iph->frag_off |= IP_DF;
-		else
-			iph->frag_off &= ~IP_DF;
-	}
-}
-
-void sam_ipsec_ip6_tunnel_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
-					struct sam_cio_op_result *result)
-{
-	pr_info("%s: Not supported yet\n", __func__);
-}
-
-int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num)
+int sam_cio_enq_ssltls(struct sam_cio *cio, struct sam_cio_ssltls_params *requests, u16 *num)
 {
 	struct sam_sa *session;
 	struct sam_cio_op *operation;
-	struct sam_cio_ipsec_params *request;
-	int i, j, err, todo, reuse;
+	struct sam_cio_ssltls_params *request;
+	int i, j, err, todo;
 
 	todo = *num;
 	if (todo >= cio->params.size)
@@ -231,7 +160,7 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 		request = &requests[i];
 
 		/* Check request validity */
-		err = sam_cio_check_ipsec_params(request);
+		err = sam_cio_check_ssltls_params(request);
 		if (err)
 			return err;
 
@@ -242,7 +171,7 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 		}
 #ifdef MVCONF_SAM_DEBUG
 		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
-			print_sam_cio_ipsec_params(request);
+			print_sam_cio_ssltls_params(request);
 #endif /* MVCONF_SAM_DEBUG */
 
 		session = request->sa;
@@ -269,14 +198,12 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 					cio->hw_ring.device, cio->hw_ring.ring);
 			}
 #endif
-			reuse = 0;
 			session->cio = cio;
-		} else
-			reuse = 1;
+		}
 
 		if (cio->hw_ring.type == HW_EIP197) {
-			sam_hw_ring_ipsec_request_set(&cio->hw_ring, cio->next_request,
-						      session, request, reuse);
+			sam_hw_ring_ssltls_request_write(&cio->hw_ring, cio->next_request,
+							 session, request);
 		} else {
 			goto error_enq;
 		}
@@ -310,5 +237,4 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 error_enq:
 	return -EINVAL;
 }
-
 

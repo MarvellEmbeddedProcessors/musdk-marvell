@@ -64,6 +64,19 @@ static void print_ipsec_sa_params(SABuilder_Params_IPsec_t *params)
 	pr_info("\n");
 }
 
+static void print_ssltls_sa_params(SABuilder_Params_SSLTLS_t *params)
+{
+	pr_info("\n");
+	pr_info("----------- SABuilder_Params_IPsec_t ipsec_params ---------\n");
+	pr_info("SSLTLSFlags             = 0x%x\n", params->SSLTLSFlags);
+	pr_info("version                 = 0x%04x\n", params->version);
+	pr_info("SeqNum                  = 0x%x\n", params->SeqNum);
+	pr_info("SeqNumHi                = 0x%x\n", params->SeqNumHi);
+	pr_info("PadAlignment            = %d\n", params->PadAlignment);
+	pr_info("epoch                   = 0x%04x\n", params->epoch);
+	pr_info("\n");
+}
+
 void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc)
 {
 	pr_info("\n");
@@ -151,6 +164,21 @@ void print_sam_cio_ipsec_params(struct sam_cio_ipsec_params *request)
 	pr_info("request->dst[0].vaddr           = %p\n", request->dst[0].vaddr);
 	pr_info("request->l3_offset              = %d\n", request->l3_offset);
 	pr_info("request->pkt_size               = %d\n", request->pkt_size);
+}
+
+void print_sam_cio_ssltls_params(struct sam_cio_ssltls_params *request)
+{
+	pr_info("\n");
+	pr_info("----------- struct sam_cio_ssltls_params *request ---------\n");
+	pr_info("request->sa                     = %p\n", request->sa);
+	pr_info("request->cookie                 = %p\n", request->cookie);
+	pr_info("request->num_bufs               = %d\n", request->num_bufs);
+
+	pr_info("request->src[0].vaddr           = %p\n", request->src[0].vaddr);
+	pr_info("request->dst[0].vaddr           = %p\n", request->dst[0].vaddr);
+	pr_info("request->l3_offset              = %d\n", request->l3_offset);
+	pr_info("request->pkt_size               = %d\n", request->pkt_size);
+	pr_info("request->type                   = %d\n", request->type);
 }
 
 void print_sam_cio_operation_info(struct sam_cio_op *operation)
