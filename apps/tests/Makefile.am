@@ -71,4 +71,10 @@ musdk_sam_ipsec_CFLAGS = $(AM_CFLAGS)
 musdk_sam_ipsec_SOURCES  = sam_kat_single/kat_ipsec_single.c
 musdk_sam_ipsec_SOURCES += ../common/sam_utils.c
 musdk_sam_ipsec_LDADD = $(top_builddir)/src/libmusdk.la
+
+bin_PROGRAMS += musdk_sam_ssltls
+musdk_sam_ssltls_CFLAGS = $(AM_CFLAGS)
+musdk_sam_ssltls_SOURCES  = sam_kat_single/kat_ssltls_single.c
+musdk_sam_ssltls_SOURCES += ../common/sam_utils.c
+musdk_sam_ssltls_LDADD = $(top_builddir)/src/libmusdk.la
 endif
