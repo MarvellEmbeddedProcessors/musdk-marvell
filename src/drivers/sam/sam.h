@@ -39,6 +39,7 @@
 #include "sa_builder.h"
 #include "sa_builder_basic.h"
 #include "sa_builder_ipsec.h"
+#include "sa_builder_ssltls.h"
 #include "token_builder.h"
 
 #include "sam_hw.h"
@@ -104,6 +105,7 @@ struct sam_sa {
 	union {
 		SABuilder_Params_Basic_t basic_params;
 		SABuilder_Params_IPsec_t ipsec_params;
+		SABuilder_Params_SSLTLS_t ssltls_params;
 	} u;
 	struct sam_buf_info		sa_buf;		/* DMA buffer for SA */
 	u32				sa_words;
@@ -198,6 +200,12 @@ void sam_ipsec_ip4_tunnel_out_post_proc(struct sam_cio_op *operation,
 void sam_ipsec_ip6_tunnel_out_post_proc(struct sam_cio_op *operation,
 			struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result);
 
+u16 sam_ssltls_version_convert(enum sam_ssltls_version version);
+void sam_dtls_ip4_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+			       struct sam_cio_op_result *result);
+void sam_dtls_ip6_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+			       struct sam_cio_op_result *result);
+
 /* Debug functions */
 void print_sam_sa(struct sam_sa *session);
 void print_sa_builder_params(struct sam_sa *session);
@@ -206,6 +214,7 @@ void print_token_params(TokenBuilder_Params_t *token);
 
 void print_sam_cio_op_params(struct sam_cio_op_params *request);
 void print_sam_cio_ipsec_params(struct sam_cio_ipsec_params *request);
+void print_sam_cio_ssltls_params(struct sam_cio_ssltls_params *request);
 void print_sam_sa_params(struct sam_session_params *sa_params);
 void print_sam_cio_operation_info(struct sam_cio_op *operation);
 

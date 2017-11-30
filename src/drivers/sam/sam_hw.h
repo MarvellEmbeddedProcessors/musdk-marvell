@@ -310,6 +310,16 @@ struct sam_hw_res_desc {
 #define SAM_TOKEN_TYPE_EXTENDED_MASK	(0x1 << SAM_TOKEN_TYPE_OFFS)
 #define SAM_TOKEN_TYPE_AUTO_MASK	(0x3 << SAM_TOKEN_TYPE_OFFS)
 
+/* Bits in token header work special for DTLS flow */
+#define SAM_TOKEN_DTLS_CAPWAP_MASK	BIT(26)
+#define SAM_TOKEN_DTLS_INBOUND_MASK	BIT(27)
+
+/* DTLS Content Type */
+#define SAM_TOKEN_DTLS_CONTENT_OFFS	28
+#define SAM_TOKEN_DTLS_CONTENT_MASK	(0x3)
+#define SAM_TOKEN_DTLS_CONTENT_SET(v)	(((v) & SAM_TOKEN_DTLS_CONTENT_MASK) << SAM_TOKEN_DTLS_CONTENT_OFFS)
+#define SAM_TOKEN_DTLS_CONTENT_GET(v)	(((v) >> SAM_TOKEN_DTLS_CONTENT_OFFS) & SAM_TOKEN_DTLS_CONTENT_MASK)
+
 /* Application ID - CDR word #7, Token word #1 */
 #define SAM_TOKEN_APPL_ID_OFFS		9
 #define SAM_TOKEN_APPL_ID_BITS		7
@@ -332,6 +342,9 @@ struct sam_hw_res_desc {
 
 /* Invalidate Transform Record command */
 #define FIRMWARE_CMD_INV_TR_MASK	(0x06 << FIRMWARE_HW_SERVICES_OFFS)
+
+/* Look-aside DTLS with optional CAPWAP (LDT-NPH-TB) */
+#define FIRMWARE_CMD_PKT_LDT_MASK       (0x28 << FIRMWARE_HW_SERVICES_OFFS)
 
 /* CDR word #12, Token word #5 */
 #define SAM_CMD_TOKEN_OFFSET_OFFS	8
@@ -588,6 +601,26 @@ static inline void sam_hw_cdr_cmd_desc_write(struct sam_hw_cmd_desc *cmd_desc,
 	writel_relaxed(upper_32_bits(token_paddr), &cmd_desc->words[5]);
 }
 
+static inline void sam_hw_cdr_proto_cmd_desc_write(struct sam_hw_cmd_desc *cmd_desc,
+						dma_addr_t src_paddr, u32 data_bytes)
+{
+	u32 ctrl_word;
+
+	ctrl_word = (data_bytes & SAM_DESC_SEG_BYTES_MASK);
+	ctrl_word |= (SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);  /* Last and First */
+
+	writel_relaxed(ctrl_word, &cmd_desc->words[0]);
+	writel_relaxed(0, &cmd_desc->words[1]); /* skip this write */
+
+	/* Write Source Packet Data address */
+	writel_relaxed(lower_32_bits(src_paddr), &cmd_desc->words[2]);
+	writel_relaxed(upper_32_bits(src_paddr), &cmd_desc->words[3]);
+
+	/* Token will be built inside the device */
+	writel_relaxed(0, &cmd_desc->words[4]);
+	writel_relaxed(0, &cmd_desc->words[5]);
+}
+
 static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int next_request,
 				struct sam_buf_info *src_buf, struct sam_buf_info *dst_buf,
 				u32 copy_len, struct sam_buf_info *sa_buf,
@@ -619,12 +652,34 @@ static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int
 	writel_relaxed(val32, &cmd_desc->words[9]);
 }
 
-static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_request,
+static inline void sam_hw_cdr_ext_token_write(struct sam_hw_cmd_desc *cmd_desc,
+					struct sam_buf_info *sa_buf, u32 token_header_word,
+					u32 hw_service, u32 proto_word)
+{
+	u32 val32;
+
+	writel_relaxed(token_header_word, &cmd_desc->words[6]);
+
+	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
+	writel_relaxed(SAM_TOKEN_APPL_ID_SET(0x76), &cmd_desc->words[7]);
+
+	val32 = lower_32_bits(sa_buf->paddr);
+	val32 |= 0x2;
+	writel_relaxed(val32, &cmd_desc->words[8]);
+
+	val32 = upper_32_bits(sa_buf->paddr);
+	writel_relaxed(val32, &cmd_desc->words[9]);
+
+	writel_relaxed(hw_service, &cmd_desc->words[10]);
+
+	writel_relaxed(proto_word, &cmd_desc->words[11]);
+}
+
+static inline void sam_hw_ring_ext_desc_write(struct sam_hw_ring *hw_ring, int next_request,
 				struct sam_buf_info *src_buf, struct sam_buf_info *dst_buf,
 				u32 copy_len, struct sam_buf_info *sa_buf,
 				struct sam_buf_info *token_buf, u32 token_header_word, u32 token_words)
 {
-	u32 val32;
 	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
 	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
 
@@ -639,21 +694,8 @@ static inline void sam_hw_ring_desc_write(struct sam_hw_ring *hw_ring, int next_
 	token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
 	token_header_word |= SAM_TOKEN_TYPE_EXTENDED_MASK;
 
-	writel_relaxed(token_header_word, &cmd_desc->words[6]);
-
-	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel_relaxed(SAM_TOKEN_APPL_ID_SET(0x76), &cmd_desc->words[7]);
-
-	val32 = lower_32_bits(sa_buf->paddr);
-	val32 |= 0x2;
-	writel_relaxed(val32, &cmd_desc->words[8]);
-
-	val32 = upper_32_bits(sa_buf->paddr);
-	writel_relaxed(val32, &cmd_desc->words[9]);
-
-	writel_relaxed(FIRMWARE_CMD_PKT_LAC_MASK, &cmd_desc->words[10]);
-
-	writel_relaxed(0, &cmd_desc->words[11]);
+	sam_hw_cdr_ext_token_write(cmd_desc, sa_buf, token_header_word,
+				   FIRMWARE_CMD_PKT_LAC_MASK, 0);
 }
 
 static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, int next_request, dma_addr_t paddr)

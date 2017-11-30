@@ -52,15 +52,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // SAB_LARGE_RECORD_TRHESHOLD_WORD_COUNT.
 //#define SAB_ENABLE_TWO_FIXED_RECORD_SIZES
 
-// Set this if tunnel header fields are to be copied into the transform.
-// for extended use case.
-//#define SAB_ENABLE_EXTENDED_TUNNEL_HEADER
-
-
 /* Which protocol families are enabled? */
 #define SAB_ENABLE_PROTO_BASIC
 #define SAB_ENABLE_PROTO_IPSEC
-//#define SAB_ENABLE_PROTO_SSLTLS
+#define SAB_ENABLE_PROTO_SSLTLS
 //#define SAB_ENABLE_PROTO_MACSEC
 //#define SAB_ENABLE_PROTO_SRTP
 
@@ -78,7 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* Enable if the SA Builder must support extended use case for DTLS
    processing */
-//#define SAB_ENABLE_DTLS_EXTENDED
+#define SAB_ENABLE_DTLS_EXTENDED
 
 /* Enable if the SA Builder must support an engine with fixed SA records
    (e.g. for a record cache) */

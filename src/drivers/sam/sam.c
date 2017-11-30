@@ -260,6 +260,46 @@ static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPse
 	}
 }
 
+static void sam_session_ssltls_init(struct sam_sa *session, SABuilder_Params_SSLTLS_t *ssltls_params)
+{
+	static u32 context_ref = 1;
+	struct sam_session_params *params = &session->params;
+
+	/* Create a reference to the header processor context. */
+	ssltls_params->ContextRef = context_ref++;
+
+	session->u.ssltls_params.epoch = params->u.ssltls.epoch;
+	session->u.ssltls_params.SeqNum      = lower_32_bits(params->u.ssltls.seq);
+	session->u.ssltls_params.SeqNumHi    = upper_32_bits(params->u.ssltls.seq);
+	session->u.ssltls_params.PadAlignment = 0; /* use algorithm defaults */
+
+	if ((params->u.ssltls.seq_mask_size > SAM_DTLS_MASK_NONE) &&
+	    (params->u.ssltls.seq_mask_size < SAM_DTLS_MASK_LAST)) {
+		memcpy(session->u.ssltls_params.SeqMask,
+			params->u.ssltls.seq_mask, sizeof(session->u.ssltls_params.SeqMask));
+		if (params->u.ssltls.seq_mask_size == SAM_DTLS_MASK_32B)
+			session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_MASK_32;
+		else if (params->u.ssltls.seq_mask_size == SAM_DTLS_MASK_128B)
+			session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_MASK_128;
+
+	} else
+		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_NO_ANTI_REPLAY;
+
+	if (params->u.ssltls.is_ip6)
+		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_IPV6;
+	else
+		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_IPV4;
+
+	if (params->u.ssltls.is_capwap)
+		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_CAPWAP;
+
+	if (params->u.ssltls.is_udp_lite)
+		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_UDPLITE;
+
+	session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_PROCESS_IP_HEADERS;
+
+}
+
 static int sam_token_context_build(struct sam_sa *session)
 {
 	int rc;
@@ -636,6 +676,15 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 
 		/* Update ipsec params with session information */
 		sam_session_ipsec_init(session, &session->u.ipsec_params);
+	} else if (params->proto == SAM_PROTO_SSLTLS) {
+		u16 version = sam_ssltls_version_convert(params->u.ssltls.version);
+
+		if (SABuilder_Init_SSLTLS(&session->sa_params, &session->u.ssltls_params,
+					  version, direction) != SAB_STATUS_OK)
+			goto error_session;
+
+		/* Update ssltls params with session information */
+		sam_session_ssltls_init(session, &session->u.ssltls_params);
 	} else {
 		pr_err("Unexpected protocol %d\n", params->proto);
 		goto error_session;
@@ -792,7 +841,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			operation->out_frags[j].len = request->dst[j].len;
 		}
 		if (cio->hw_ring.type == HW_EIP197) {
-			sam_hw_ring_desc_write(&cio->hw_ring, cio->next_request,
+			sam_hw_ring_ext_desc_write(&cio->hw_ring, cio->next_request,
 					request->src, request->dst, operation->copy_len,
 					&request->sa->sa_buf, &operation->token_buf,
 					operation->token_header_word, operation->token_words);
