@@ -139,8 +139,7 @@ struct sam_cio_op_result {
  * IPSEC operation request
  *
  * Notes:
- *	- sam_pkt_info and sam+buf_info structures can be local.
- *	- "dst->mdata" be valid until crypto operation is completed.
+ *	- "src" and "dst" structures can be local.
  *	- "src->buf[i].vaddr" and "dst->buf[i].vaddr" must be valid until crypto operation is completed.
  */
 struct sam_cio_ipsec_params {
@@ -151,6 +150,33 @@ struct sam_cio_ipsec_params {
 	struct sam_buf_info *dst;	/**< array of output buffers */
 	u32 l3_offset;                  /**< L3 header offset from beginning of src/dst buffer */
 	u32 pkt_size;                   /**< packet size from beginning of src/dst buffer */
+};
+
+/** DTLS content type for outbound packet flow */
+enum sam_cio_dtls_type {
+	SAM_DTLS_CHANGE,
+	SAM_DTLS_ALERT,
+	SAM_DTLS_HANDSHAKE,
+	SAM_DTLS_DATA,
+	SAM_DTLS_TYPE_LAST
+};
+
+/**
+ * SSL/TLS/DTLS operation request
+ *
+ * Notes:
+ *	- "src" and "dst" structures can be local.
+ *	- "src->buf[i].vaddr" and "dst->buf[i].vaddr" must be valid until crypto operation is completed.
+ */
+struct sam_cio_ssltls_params {
+	struct sam_sa       *sa;	/**< session handler */
+	void                *cookie;	/**< caller cookie to be return unchanged */
+	u32 num_bufs;			/**< number of input/output buffers */
+	struct sam_buf_info *src;	/**< array of input buffers */
+	struct sam_buf_info *dst;	/**< array of output buffers */
+	u32 l3_offset;                  /**< L3 header offset from beginning of src/dst buffer */
+	u32 pkt_size;                   /**< packet size from beginning of src/dst buffer */
+	enum sam_cio_dtls_type type;	/**< DTLS content type for outbound packet flow */
 };
 
 /**
@@ -212,6 +238,8 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
  * @retval	Negative   - enqueue of one or more requests failed.
  */
 int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num);
+
+int sam_cio_enq_ssltls(struct sam_cio *cio, struct sam_cio_ssltls_params *requests, u16 *num);
 
 /**
  * Flush crypto IO instance. All pending requests/results will be discarded.

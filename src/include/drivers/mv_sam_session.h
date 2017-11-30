@@ -104,7 +104,26 @@ enum sam_auth_alg {
 enum sam_crypto_protocol {
 	SAM_PROTO_NONE,
 	SAM_PROTO_IPSEC,
+	SAM_PROTO_SSLTLS,
 	SAM_PROTO_LAST,
+};
+
+enum sam_ssltls_version {
+	SAM_SSL_VERSION_3_0,
+	SAM_TLS_VERSION_1_0,
+	SAM_TLS_VERSION_1_1,
+	SAM_TLS_VERSION_1_2,
+	SAM_DTLS_VERSION_1_0,
+	SAM_DTLS_VERSION_1_2,
+	SAM_SSLTLS_VERSION_LAST,
+};
+
+enum sam_dtls_mask_size {
+	SAM_DTLS_MASK_NONE, /**< 0 - Disable anti-replay protection */
+	SAM_DTLS_MASK_32B,  /**< 1 - Use 32-bit anti-replay mask */
+	SAM_DTLS_MASK_64B,  /**< 2 - Use 64-bit anti-replay mask (default) */
+	SAM_DTLS_MASK_128B, /**< 3 - Use 128-bit anti-replay mask */
+	SAM_DTLS_MASK_LAST
 };
 
 struct sam_session_basic_params {
@@ -169,6 +188,17 @@ struct sam_session_ipsec_params {
 	u32 spi;				/**< SPI value */
 };
 
+/** SSL/TLS/DTLS session parameters */
+struct sam_session_ssltls_params {
+	enum sam_ssltls_version version;	/**< SSL, TLS and DTLS versions */
+	u16 epoch;				/**< for DTLS only */
+	u64 seq;				/**< Initial sequence number */
+	int is_ip6;				/**< DTLS transported over: 1 - UDP/IPv6, 0 - UDP/IPv4 */
+	int is_udp_lite;			/**< 1 - use UDPLite, 0 - use UDP */
+	int is_capwap;				/**< 1 - use CAPWAP/DTLS, 0 - use DTLS */
+	enum sam_dtls_mask_size seq_mask_size;	/**< anti-replay seq mask size */
+	u32 seq_mask[4];			/**< up to 128-bit mask window used with inbound DTLS */
+};
 
 /**
  * Crypto session parameters
@@ -197,8 +227,9 @@ struct sam_session_params {
 	u32 auth_key_len;                /**< authentication key size (in bytes) */
 	enum sam_crypto_protocol proto;  /**< prococol: None/IPSec(ESP)/Others */
 	union {
-		struct sam_session_basic_params basic; /**< Parameters for basic crypto */
-		struct sam_session_ipsec_params ipsec; /**< Parameters for IPSec offload */
+		struct sam_session_basic_params  basic; /**< Parameters for basic crypto */
+		struct sam_session_ipsec_params  ipsec; /**< Parameters for IPSec offload */
+		struct sam_session_ssltls_params ssltls; /**< Parameters for SSL/TLS offload */
 	} u;
 };
 
