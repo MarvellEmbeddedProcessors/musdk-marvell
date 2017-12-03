@@ -91,4 +91,15 @@ int mv_sys_event_destroy(struct mv_sys_event *ev);
  */
 int mv_sys_event_poll(struct mv_sys_event *ev, int num, int timeout);
 
+/**
+ * Return event file descriptor
+ *
+ * @param[in]	ev	  - system event instance handler.
+ * @param[out]	fd	  - file descriptor.
+ *
+ * @retval	0         - success
+ * @retval	Negative  - failure
+ */
+int mv_sys_event_get_fd(struct mv_sys_event *ev, int *fd);
+
 #endif /* __MV_SYS_EVENT_H__ */
