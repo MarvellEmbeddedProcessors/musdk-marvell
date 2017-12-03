@@ -100,6 +100,18 @@ int mv_sys_event_destroy(struct mv_sys_event *ev)
 	return 0;
 }
 
+int mv_sys_event_get_fd(struct mv_sys_event *ev, int *fd)
+{
+	struct sys_event_priv *ev_priv = (struct sys_event_priv *)ev->priv;
+
+	if (!ev || !fd)
+		return -1;
+
+	*fd = ev_priv->fd;
+
+	return 0;
+}
+
 #define USE_POLL
 #if defined(USE_POLL)
 #define MAX_POLL_EVENTS		32
