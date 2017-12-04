@@ -318,11 +318,13 @@ static inline void free_sent_buffers(struct port_desc		*rx_port,
 int musdk_pkt_echo_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu)
 {
 	struct pp2_ppio_params		*port_params;
-	struct pp2_ppio_inq_params	inq_params;
+	struct pp2_ppio_inq_params	*inq_params;
 	char				name[MVAPPS_PPIO_NAME_MAX];
 	int				i, j, err = 0;
 	u16				curr_mtu;
 	static int			id;
+
+	inq_params = kmalloc_array(num_cpus, sizeof(struct pp2_ppio_inq_params), GFP_KERNEL | __GFP_ZERO);
 
 	port->num_tcs   = MVAPPS_MAX_NUM_TCS_PER_PORT;
 	for (i = 0; i < port->num_tcs; i++)
@@ -346,17 +348,22 @@ int musdk_pkt_echo_port_init(struct port_desc *port, int num_pools, struct bpool
 
 	port_params->specific_type_params.log_port_params.first_inq = port->first_inq;
 
+	for (j = 0; j < num_cpus; j++) {
+		inqs_params[j].size = port->inq_size;
+		inqs_params[j].mem = NULL;
+		inqs_params[j].tc_pools_mem_id_index = 0;
+	}
+
 	for (i = 0; i < port->num_tcs; i++) {
 		port_params->inqs_params.tcs_params[i].pkt_offset = MVAPPS_PP2_PKT_DEF_OFFS;
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
-		inq_params.size = port->inq_size;
-		inq_params.mem = NULL;
-		inq_params.tc_pools_mem_id_index = 0;
-		port_params->inqs_params.tcs_params[i].inqs_params = &inq_params;
 
 		for (j = 0; j < num_pools; j++)
 			port_params->inqs_params.tcs_params[i].pools[0][j] = pools[j].pool;
+
+		port_params->inqs_params.tcs_params[i].inqs_params = inq_params;
 	}
+
 	port_params->outqs_params.num_outqs = port->num_outqs;
 	for (i = 0; i < port->num_outqs; i++) {
 		port_params->outqs_params.outqs_params[i].size = port->outq_size;
@@ -373,11 +380,13 @@ int musdk_pkt_echo_port_init(struct port_desc *port, int num_pools, struct bpool
 	err = pp2_ppio_init(port_params, &port->ppio);
 	if (err) {
 		pr_err("PP-IO init failed (error: %d)!\n", err);
+		kfree(inq_params);
 		return err;
 	}
 
 	if (!port->ppio) {
 		pr_err("PP-IO init failed!\n");
+		kfree(inq_params);
 		return -EIO;
 	}
 
@@ -396,6 +405,7 @@ int musdk_pkt_echo_port_init(struct port_desc *port, int num_pools, struct bpool
 	port->initialized = 1;
 	port->id = id++;
 
+	kfree(inq_params);
 	return err;
 }
 
