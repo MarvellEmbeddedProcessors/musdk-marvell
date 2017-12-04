@@ -79,6 +79,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <netinet/udp.h>
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <sys/ioctl.h>

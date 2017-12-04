@@ -297,7 +297,7 @@ static void sam_session_ssltls_init(struct sam_sa *session, SABuilder_Params_SSL
 		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_UDPLITE;
 
 	session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_PROCESS_IP_HEADERS;
-
+	session->post_proc_cb = sam_dtls_ip4_post_proc;
 }
 
 static int sam_token_context_build(struct sam_sa *session)
