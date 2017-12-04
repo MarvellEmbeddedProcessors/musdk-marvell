@@ -341,6 +341,8 @@ int sam_hw_ring_init(u32 engine, u32 ring, struct sam_cio_params *params,
 		hw_ring->regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
 		hw_ring->paddr = engine_info->paddr + SAM_EIP197_RING_REGS_OFFS(ring);
 	} else if (engine_info->type == HW_EIP97) {
+		hw_ring->aic_regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP97_AIC_RING_REGS_OFFS(ring));
+		hw_ring->aic_regs_paddr = engine_info->paddr + SAM_EIP97_AIC_RING_REGS_OFFS(ring);
 		hw_ring->regs_vbase = (((char *)engine_info->vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
 		hw_ring->paddr = engine_info->paddr + SAM_EIP97_RING_REGS_OFFS(ring);
 	} else {
