@@ -370,6 +370,8 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 		hw_ring->regs_vbase = (((char *)device_info->vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
 		hw_ring->paddr = device_info->paddr + SAM_EIP197_RING_REGS_OFFS(ring);
 	} else if (device_info->type == HW_EIP97) {
+		hw_ring->aic_regs_vbase = (((char *)device_info->vaddr) + SAM_EIP97_AIC_RING_REGS_OFFS(ring));
+		hw_ring->aic_regs_paddr = device_info->paddr + SAM_EIP97_AIC_RING_REGS_OFFS(ring);
 		hw_ring->regs_vbase = (((char *)device_info->vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
 		hw_ring->paddr = device_info->paddr + SAM_EIP97_RING_REGS_OFFS(ring);
 	} else {

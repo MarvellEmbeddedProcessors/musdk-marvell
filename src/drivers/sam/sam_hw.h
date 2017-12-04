@@ -43,6 +43,7 @@
 #define SAM_HIA_CLOCK_FREQ		500
 
 #define SAM_EIP197_AIC_RING_REGS_OFFS(ring)	(0x9E800 - (ring) * 0x1000)
+#define SAM_EIP97_AIC_RING_REGS_OFFS(ring)	(0x0E000 - (ring) * 0x1000)
 #define SAM_AIC_RING_POL_REG		0x0
 #define SAM_AIC_RING_TYPE_REG		0x4
 #define SAM_AIC_RING_ENABLE_REG		0x8
