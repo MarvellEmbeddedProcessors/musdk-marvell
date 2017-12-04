@@ -103,39 +103,31 @@ static inline void sam_hw_ring_ssltls_request_write(struct sam_hw_ring *hw_ring,
 					FIRMWARE_CMD_PKT_LDT_MASK, proto_word);
 }
 
-void sam_dtls_ip4_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+/* Update "total length" and "csum" field in IP header and "length" field in UDP header
+ */
+void sam_dtls_ip4_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 			       struct sam_cio_op_result *result)
 {
 	u32 val32;
-	u8 next_hdr, l3_offset;
+	u8 iph_len, l3_offset;
 	struct iphdr *iph;
-	u16 csum, ip_len, *ptr16;
+	struct udphdr *udph;
+	u16 ip_len, udp_len;
 
 	val32 = readl_relaxed(&res_desc->words[7]);
-	next_hdr = SAM_RES_TOKEN_NEXT_HDR_GET(val32);
 	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
 
 	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
 	ip_len = htobe16((u16)(result->out_len - l3_offset));
 
-	/* Read old checksum */
-	csum = ~(iph->check);
-
 	/* Update IP total length field */
-	csum = mv_sub_csum16(csum, iph->tot_len);
-	csum = mv_add_csum16(csum, ip_len);
 	iph->tot_len = ip_len;
 
-	/* read 16 bits TTL + Protocol */
-	ptr16 = (u16 *)&iph->ttl;
-	csum = mv_sub_csum16(csum, *ptr16);
-
-	/* Set protocol field */
-	iph->protocol = next_hdr;
-	csum = mv_add_csum16(csum, *ptr16);
-
 	/* Set recalculated IP4 checksum */
-	iph->check = ~csum;
+	iph_len = iph->ihl * 4;
+	udph = (struct udphdr *)((char *)iph + iph_len);
+	udp_len = ip_len - htobe16(iph_len);
+	udph->len = udp_len;
 }
 
 void sam_dtls_ip6_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,

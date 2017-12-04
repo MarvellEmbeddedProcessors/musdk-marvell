@@ -304,10 +304,14 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		sa = larg->dec_sa;
 		state = PKT_STATE_DEC;
 	}
-	if ((larg->dir == CRYPTO_ENC) && larg->cmn_args.garg->tunnel && !larg->cmn_args.garg->ip6)
-		flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_IP4_SEQID_MASK;
-	else
-		flags = 0;
+	flags = 0;
+	if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_SSLTLS) {
+		/* packets must be IPv4/IPv6 + UDP/UDPLite */
+		flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_L4_CSUM_MASK;
+	} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
+		if ((larg->dir == CRYPTO_ENC) && larg->cmn_args.garg->tunnel && !larg->cmn_args.garg->ip6)
+			flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_IP4_SEQID_MASK;
+	}
 
 	for (i = 0; i < num; i++) {
 		char *vaddr;
@@ -576,6 +580,28 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 	return 0;
 }
 
+static inline void prepare_tx_csum(struct pkt_mdata *mdata, struct pp2_ppio_desc *desc)
+{
+	enum pp2_outq_l4_type l4_type = PP2_OUTQ_L4_TYPE_OTHER;
+	enum pp2_outq_l3_type l3_type = PP2_OUTQ_L3_TYPE_IPV4;
+	int gen_l3_chk = 0, gen_l4_chk = 0;
+
+	if (mdata->flags & MDATA_FLAGS_L4_CSUM_MASK) {
+		/* Recalculate L4 checksum */
+		gen_l4_chk = 1;
+		l4_type = PP2_OUTQ_L4_TYPE_UDP;
+	}
+	if (mdata->flags & MDATA_FLAGS_IP4_CSUM_MASK) {
+		/* Recalculate IPv4 checksum */
+		gen_l3_chk = 1;
+	}
+	if (gen_l3_chk || gen_l4_chk) {
+		pp2_ppio_outq_desc_set_proto_info(desc, l3_type, l4_type,
+						  mdata->data_offs, mdata->data_offs + sizeof(struct iphdr),
+						  gen_l3_chk, gen_l4_chk);
+	}
+}
+
 static inline int send_pkts(struct local_arg *larg, u8 tc,
 			    struct sam_cio_op_result *sam_res_descs, u16 num)
 {
@@ -588,7 +614,6 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 	u16			 i, tp, num_got, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
-
 
 	for (tp = 0; tp < larg->cmn_args.num_ports; tp++)
 		port_nums[tp] = 0;
@@ -621,13 +646,8 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		pp2_ppio_outq_desc_set_pkt_offset(desc, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
 		pp2_ppio_outq_desc_set_pkt_len(desc, len);
 
-		if (mdata->flags & MDATA_FLAGS_IP4_CSUM_MASK) {
-			/* Recalculate IPv4 checksum */
-			pp2_ppio_outq_desc_set_proto_info(desc, PP2_OUTQ_L3_TYPE_IPV4,
-						  PP2_OUTQ_L4_TYPE_OTHER,
-						  mdata->data_offs,
-						  mdata->data_offs + sizeof(struct iphdr), 1, 0);
-		}
+		prepare_tx_csum(mdata, desc);
+
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {
 			printf("Sending packet (va:%p, pa 0x%08x, len %d):\n",
