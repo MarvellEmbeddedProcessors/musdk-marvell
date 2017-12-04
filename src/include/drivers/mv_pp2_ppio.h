@@ -855,7 +855,10 @@ static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l2_pkt_error(struct
  */
 static inline enum pp2_inq_desc_status pp2_ppio_inq_desc_get_l3_pkt_error(struct pp2_ppio_desc *desc)
 {
-	if (unlikely(DM_RXD_GET_L3_PRS_INFO(desc) <= PP2_INQ_L3_TYPE_IPV4_TTL_ZERO &&
+	enum pp2_inq_l3_type l3_info = DM_RXD_GET_L3_PRS_INFO(desc);
+
+	if (unlikely((l3_info > PP2_INQ_L3_TYPE_NA) &&
+		     (l3_info <= PP2_INQ_L3_TYPE_IPV4_TTL_ZERO) &&
 		     DM_RXD_GET_L3_IP4_HDR_ERR(desc)))
 		return PP2_DESC_ERR_IPV4_HDR;
 	return PP2_DESC_ERR_OK;
