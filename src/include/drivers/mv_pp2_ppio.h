@@ -54,9 +54,11 @@ struct pp2_ppio {
 
 struct pp2_bpool;
 
-#define PP2_PPIO_MAX_NUM_TCS	32 /**< Max. number of TCs per ppio. */
-#define PP2_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
-#define PP2_PPIO_TC_MAX_POOLS	2 /**< Max. number of bpools per TC. */
+#define PP2_PPIO_MAX_NUM_TCS		32 /**< Max. number of TCs per ppio. */
+#define PP2_PPIO_MAX_NUM_OUTQS		8 /**< Max. number of outqs per ppio. */
+#define PP2_PPIO_TC_CLUSTER_MAX_POOLS	2 /**< Max. number of bpools per TC per mem_id. */
+#define PP2_PPIO_TC_MAX_POOLS		\
+	(PP2_PPIO_TC_CLUSTER_MAX_POOLS * MV_SYS_DMA_MAX_NUM_MEM_ID) /**< Max. number of bpools per TC. */
 
 enum pp2_ppio_type {
 	PP2_PPIO_T_LOG = 0,	/*  Logical-port is only a set of Out-Qs and In-TCs (i.e. no link, l2-filters) */
@@ -124,6 +126,8 @@ enum pp2_ppio_color {
  */
 struct pp2_ppio_inq_params {
 	u32	size; /**< q_size in number of descriptors */
+	struct mv_sys_dma_mem_region *mem;
+	u8	tc_pools_mem_id_index;	/* 0..(MV_SYS_DMA_MAX_NUM_MEM_ID-1) */
 };
 
 /**
@@ -150,7 +154,8 @@ struct pp2_ppio_tc_params {
 							* Value greater than 1 assumes use of hashing mechanism
 							*/
 	struct pp2_ppio_inq_params	*inqs_params; /**< pointer to the tc's inq parameters */;
-	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS]; /**< bpools used by the tc */
+	/**< bpools used by the tc */
+	struct pp2_bpool		*pools[MV_SYS_DMA_MAX_NUM_MEM_ID][PP2_PPIO_TC_CLUSTER_MAX_POOLS];
 	enum pp2_ppio_color		default_color; /**< Default color for this TC */
 };
 

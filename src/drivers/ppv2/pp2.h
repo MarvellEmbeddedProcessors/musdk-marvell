@@ -250,6 +250,8 @@ struct pp2_rx_queue {
 	struct pp2_ppio_inq_statistics stats;
 	/* RXQ statistics update threshold */
 	u32 threshold_rx_pkts;
+	struct mv_sys_dma_mem_region *mem;
+	u32 bm_pool_id[PP2_PPIO_TC_CLUSTER_MAX_POOLS];
 };
 
 #define PP2_BM_BUF_DEBUG             (0)
@@ -316,16 +318,21 @@ struct pp2_ppio_tc_config {
 	u16 pkt_offset;    /* Must be multiple of 32 bytes.*/
 	u8 num_in_qs;
 	u8 first_rxq;	/* First physical rx_queue for this TC */
-	struct pp2_bm_pool *pools[PP2_PPIO_TC_MAX_POOLS];
+	struct pp2_bm_pool *pools[MV_SYS_DMA_MAX_NUM_MEM_ID][PP2_PPIO_TC_CLUSTER_MAX_POOLS];
 	enum pp2_ppio_color default_color; /**< Default color for this TC */
 /* TODO: future:
  *	int							 qos;
  */
 };
 
+struct pp2_rxq {
+	u32 ring_size;
+	struct mv_sys_dma_mem_region *mem;
+	u8 tc_pools_mem_id_index;
+};
 struct pp2_tc {
 	u32 first_log_rxq;
-	u32 rx_ring_size[PP2_HW_PORT_NUM_RXQS];
+	struct pp2_rxq rx_qs[PP2_HW_PORT_NUM_RXQS];
 	struct pp2_ppio_tc_config tc_config;
 };
 
@@ -403,6 +410,7 @@ struct pp2_port {
 	struct pp2_ppio_rate_limit_params rate_limit_params;
 	/* Default policer. Can be NULL */
 	struct pp2_cls_plcr *default_plcr;
+	struct mv_sys_dma_mem_region *tx_qs_mem;
 };
 
 /**
