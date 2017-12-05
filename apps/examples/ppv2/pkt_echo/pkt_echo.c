@@ -159,7 +159,7 @@ struct local_arg {
 	struct wired_data_flow		*flows;
 };
 
-static struct glob_arg garg = {};
+static struct glob_arg garg;
 
 
 
@@ -610,8 +610,9 @@ static int init_local_modules(struct glob_arg *garg)
 				int config_inqs = garg->port_num_inqs[port_index];
 
 				port->num_inqs[i] = (config_inqs) ? config_inqs : garg->cmn_args.cpus;
-				printf("port(%d-%d-tc(%d)), inqs(%d)\n",
-					port->pp_id, port->ppio_id, i, port->num_inqs[i]);
+				if (garg->num_flows)
+					printf("port(%d-%d-tc(%d)), inqs(%d)\n",
+					       port->pp_id, port->ppio_id, i, port->num_inqs[i]);
 			}
 			port->inq_size	= garg->rxq_size;
 			port->num_outqs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
@@ -876,7 +877,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			int port_found[MVAPPS_PP2_MAX_I_OPTION_PORTS] = {-1, -1};
 			int j, port;
 			u32 cmask = 0;
-			bool unidir = false, current_flow_based;
+			bool unidir = false, current_flow_based = false;
 
 			if (argc < (i + 2)) {
 				pr_err("Invalid number of arguments!\n");
@@ -1090,7 +1091,6 @@ int main(int argc, char *argv[])
 
 	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
 	pr_debug("pr_debug is enabled\n");
-
 	garg.cmn_args.plat = (struct pp2_glb_common_args *)malloc(sizeof(struct pp2_glb_common_args));
 	if (!garg.cmn_args.plat) {
 		pr_err("No mem for global plat arg obj!\n");
