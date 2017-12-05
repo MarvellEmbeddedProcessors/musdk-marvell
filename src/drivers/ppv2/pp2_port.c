@@ -357,17 +357,17 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 
 	/* FS_A8K Table 1542: The SWF ring size + a prefetch size for HWF */
 	txq->desc_total = port->txq_config[txq->log_id].size;
-	txq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((txq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
-								     MVPP2_DESC_Q_ALIGN);
+	txq->desc_virt_arr = mv_sys_dma_mem_region_alloc(port->tx_qs_mem, (txq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
+							  MVPP2_DESC_Q_ALIGN);
 	if (unlikely(!txq->desc_virt_arr)) {
 		pr_err("PP: cannot allocate egress descriptor array\n");
 		return;
 	}
-	txq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(txq->desc_virt_arr);
+	txq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_region_virt2phys(port->tx_qs_mem, txq->desc_virt_arr);
 	if (!IS_ALIGNED(txq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
 		pr_err("PP: egress descriptor array must be %u-byte aligned\n",
 			MVPP2_DESC_Q_ALIGN);
-		mv_sys_dma_mem_free(txq->desc_virt_arr);
+		mv_sys_dma_mem_region_free(port->tx_qs_mem, txq->desc_virt_arr);
 		return;
 	}
 
@@ -467,7 +467,7 @@ pp2_port_txqs_destroy(struct pp2_port *port)
 	for (qid = 0; qid < port->num_tx_queues; qid++) {
 		struct pp2_tx_queue *txq = port->txqs[qid];
 
-		mv_sys_dma_mem_free(txq->desc_virt_arr);
+		mv_sys_dma_mem_region_free(port->tx_qs_mem, txq->desc_virt_arr);
 		kfree(txq);
 	}
 }
@@ -524,17 +524,17 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 
 	cpu_slot = port->cpu_slot;
 
-	rxq->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((rxq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
-								      MVPP2_DESC_Q_ALIGN);
+	rxq->desc_virt_arr = mv_sys_dma_mem_region_alloc(rxq->mem, (rxq->desc_total * MVPP2_DESC_ALIGNED_SIZE),
+							  MVPP2_DESC_Q_ALIGN);
 	if (unlikely(!rxq->desc_virt_arr)) {
 		pr_err("PP: cannot allocate ingress descriptor array\n");
 		return;
 	}
-	rxq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(rxq->desc_virt_arr);
+	rxq->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_region_virt2phys(rxq->mem, rxq->desc_virt_arr);
 	if (!IS_ALIGNED(rxq->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
 		pr_err("PP: ingress descriptor array must be %u-byte aligned\n",
 			MVPP2_DESC_Q_ALIGN);
-		mv_sys_dma_mem_free(rxq->desc_virt_arr);
+		mv_sys_dma_mem_region_free(rxq->mem, rxq->desc_virt_arr);
 		return;
 	}
 
@@ -559,10 +559,8 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 	/* Set Offset */
 	pp2_rxq_offset_set(port, rxq->id,  tc->tc_config.pkt_offset);
 
-	pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_SHORT_BUF_POOL]->bm_pool_id, rxq->id,
-			   BM_TYPE_SHORT_BUF_POOL);
-	pp2_bm_pool_assign(port, tc->tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, rxq->id,
-			   BM_TYPE_LONG_BUF_POOL);
+	pp2_bm_pool_assign(port, rxq->bm_pool_id[BM_TYPE_SHORT_BUF_POOL], rxq->id, BM_TYPE_SHORT_BUF_POOL);
+	pp2_bm_pool_assign(port, rxq->bm_pool_id[BM_TYPE_LONG_BUF_POOL],  rxq->id, BM_TYPE_LONG_BUF_POOL);
 
 	/* Add number of descriptors ready for receiving packets */
 	val = (0 | (rxq->desc_total << MVPP2_RXQ_NUM_NEW_OFFSET));
@@ -596,16 +594,28 @@ pp2_port_rxqs_create(struct pp2_port *port)
 	u32 qid, tc, id = 0;
 
 	for (tc = 0; tc < port->num_tcs; tc++) {
+		struct pp2_ppio_tc_config *tc_cfg = &(port->tc[tc].tc_config);
+
 		for (qid = 0; qid < port->tc[tc].tc_config.num_in_qs; qid++) {
 			struct pp2_rx_queue *rxq = kcalloc(1, sizeof(struct pp2_rx_queue), GFP_KERNEL);
+			u8 mem_index = port->tc[tc].rx_qs[qid].tc_pools_mem_id_index;
+			u32 tmp_bpool_id;
 
 			if (unlikely(!rxq)) {
 				pr_err("%s out of memory rxq alloc\n", __func__);
 				return;
 			}
-			rxq->id = port->tc[tc].tc_config.first_rxq + qid;
+			rxq->id = tc_cfg->first_rxq + qid;
 			rxq->log_id = port->tc[tc].first_log_rxq + qid;
-			rxq->desc_total = port->tc[tc].rx_ring_size[qid];
+			rxq->desc_total = port->tc[tc].rx_qs[qid].ring_size;
+			rxq->mem = port->tc[tc].rx_qs[qid].mem;
+
+			tmp_bpool_id = tc_cfg->pools[mem_index][BM_TYPE_SHORT_BUF_POOL]->bm_pool_id;
+			rxq->bm_pool_id[BM_TYPE_SHORT_BUF_POOL] = tmp_bpool_id;
+
+			tmp_bpool_id = tc_cfg->pools[mem_index][BM_TYPE_LONG_BUF_POOL]->bm_pool_id;
+			rxq->bm_pool_id[BM_TYPE_LONG_BUF_POOL] = tmp_bpool_id;
+
 			/* Double check of queue index */
 			if (rxq->log_id != id) {
 				pr_err("%s invalid log_id %d value (should be %d)\n",
@@ -630,7 +640,7 @@ pp2_port_rxqs_destroy(struct pp2_port *port)
 	for (qid = 0; qid < port->num_rx_queues; qid++) {
 		struct pp2_rx_queue *rxq = port->rxqs[qid];
 
-		mv_sys_dma_mem_free(rxq->desc_virt_arr);
+		mv_sys_dma_mem_region_free(rxq->mem, rxq->desc_virt_arr);
 		kfree(rxq);
 	}
 }
@@ -917,6 +927,12 @@ pp2_port_config_outq(struct pp2_port *port)
 	/* TODO: change according to port type! */
 	/* pp2_port_tx_fifo_config(port, PP2_TX_FIFO_SIZE_3KB, PP2_TX_FIFO_THRS_3KB); */
 	/* Initialize hardware internals for TXQs */
+
+	/* TODO: Temporary code to for testing, mechanism required to find this pp2's mem_id */
+	u32 mem_id = port->parent->id;
+
+	port->tx_qs_mem = mv_sys_dma_mem_region_get(mem_id);
+	pr_debug("(%s)Got pointer %p for mem_id(%d)\n", __func__, port->tx_qs_mem, mem_id);
 	pp2_port_txqs_init(port);
 }
 
@@ -1012,43 +1028,46 @@ pp2_port_validate_id(const char *if_name)
 	return pid;
 }
 
-static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[], struct pp2_bm_pool *pools[])
+static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS],
+			     struct pp2_bm_pool *pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS])
 {
-	u8 index = 0, j;
+	u8 index = 0, j, k;
 	struct pp2_bm_pool *temp_pool;
 
 	/* check pool0/pool1 */
 
-	for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++) {
-		if (param_pools[j]) {
-			if (param_pools[j]->pp2_id != pp2_inst->id) {
-				pr_err("%s: pool_ppid[%d] does not match pp2_id[%d]\n",
-					__func__, param_pools[j]->pp2_id, pp2_inst->id);
-				return -1;
+	for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
+		index = 0;
+		for (k = 0; k < PP2_PPIO_TC_CLUSTER_MAX_POOLS; k++) {
+			if (param_pools[j][k]) {
+				if (param_pools[j][k]->pp2_id != pp2_inst->id) {
+					pr_err("%s: pool_ppid[%d] does not match pp2_id[%d]\n",
+						__func__, param_pools[j][k]->pp2_id, pp2_inst->id);
+					return -1;
+				}
+				pools[j][index] = pp2_inst->bm_pools[param_pools[j][k]->id];
+				if (!pools[j][index]) {
+					pr_err("%s: pool_id[%d] has no matching struct\n", __func__,
+					       param_pools[j][k]->id);
+					return -1;
+				}
+				index++;
 			}
-			pools[index] = pp2_inst->bm_pools[param_pools[j]->id];
-			if (!pools[index]) {
-				pr_err("%s: pool_id[%d] has no matching struct\n", __func__, param_pools[j]->id);
-				return -1;
+		}
+		/* Set pool with smallest buf_size first */
+		if (index == 2) {
+			if (pools[j][0]->bm_pool_buf_sz > pools[j][1]->bm_pool_buf_sz) {
+				temp_pool = pools[j][0];
+				pools[j][0] = pools[j][1];
+				pools[j][1] = temp_pool;
 			}
-			index++;
+		} else if (index == 1) {
+			pools[j][1] = pools[j][0]; /* Both small and long pool are the same one */
+		} else {
+			pr_err("%s: pool_params do not exist\n", __func__);
+			return -1;
 		}
 	}
-
-	/* Set pool with smallest buf_size first */
-	if (index == 2) {
-		if (pools[0]->bm_pool_buf_sz > pools[1]->bm_pool_buf_sz) {
-			temp_pool = pools[0];
-			pools[0] = pools[1];
-			pools[1] = temp_pool;
-		}
-	} else if (index == 1) {
-		pools[1] = pools[0]; /* Both small and long pool are the same one */
-	} else {
-		pr_err("%s: pool_params do not exist\n", __func__);
-		return -1;
-	}
-
 	return 0;
 }
 
@@ -1062,7 +1081,7 @@ int
 pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port_id,
 	      struct pp2_port **port_hdl)
 {
-	u32 i, j, first_rxq, num_in_qs;
+	u32 i, j, k, first_rxq, num_in_qs;
 	u32 total_num_in_qs = 0;
 	struct pp2_inst *inst;
 	struct pp2_port *port;
@@ -1089,8 +1108,14 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	for (i = 0; i < port->num_tcs; i++) {
 		u16 tc_pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
 		num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;
-		for (j = 0; j < num_in_qs; j++)
-			port->tc[i].rx_ring_size[j] = param->inqs_params.tcs_params[i].inqs_params[j].size;
+		for (j = 0; j < num_in_qs; j++) {
+			struct pp2_rxq *rx_q = &(port->tc[i].rx_qs[j]);
+			struct pp2_ppio_inq_params *inqs_params = &(param->inqs_params.tcs_params[i].inqs_params[j]);
+
+			rx_q->ring_size = inqs_params->size;
+			rx_q->mem = inqs_params->mem;
+			rx_q->tc_pools_mem_id_index = inqs_params->tc_pools_mem_id_index;
+		}
 		if (tc_pkt_offset > PP2_MAX_PACKET_OFFSET) {
 			pr_err("port %s: tc[%d] pkt_offset[%u] too large\n", port->linux_name, i, tc_pkt_offset);
 			return -EINVAL;
@@ -1173,10 +1198,15 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		pr_debug("PORT: TC First Log RXQ %u\n", port->tc[i].first_log_rxq);
 		pr_debug("PORT: TC First Phy RXQ %u\n", port->tc[i].tc_config.first_rxq);
 		pr_debug("PORT: TC PKT Offset %u\n", port->tc[i].tc_config.pkt_offset);
-		for (j = 0; j < port->tc[i].tc_config.num_in_qs; j++)
-			pr_debug("PORT: TC RXQ#%u size = %u\n", j, port->tc[i].rx_ring_size[j]);
-		for (j = 0; j < PP2_PPIO_TC_MAX_POOLS; j++)
-			pr_debug("PORT: TC Pool#%u = %u\n", j, port->tc[i].tc_config.pools[j]->bm_pool_id);
+		for (j = 0; j < port->tc[i].tc_config.num_in_qs; j++) {
+			pr_debug("PORT: TC RXQ#%u size = %u tc_pool_pair = %u\n", j,
+				 port->tc[i].rx_qs[j].ring_size, port->tc[i].rx_qs[j].tc_pools_mem_id_index);
+		}
+		for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++)
+			for (k = 0; k < PP2_PPIO_TC_CLUSTER_MAX_POOLS; k++)
+				if (port->tc[i].tc_config.pools[j][k])
+					pr_debug("PORT: TC Pool#%u = %u\n",
+						 j, port->tc[i].tc_config.pools[j][k]->bm_pool_id);
 	}
 
 	/* Assing a CPU slot to avoid send cpu_slot as argument further */
@@ -1504,17 +1534,22 @@ pp2_port_poll(struct pp2_port *port, struct pp2_desc **desc, uint32_t in_qid,
 static int pp2_port_check_buf_size(struct pp2_port *port, uint16_t mru)
 {
 	u16 pool_buf_size, req_buf_size, pkt_offset;
-	int i;
+	int i, j;
 
 	for (i = 0; i < port->num_tcs; i++) {
 		pkt_offset = port->tc[i].tc_config.pkt_offset;
 		req_buf_size = MVPP2_MRU_BUF_SIZE(mru, pkt_offset);
-		pool_buf_size = port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_buf_sz;
-		if (pool_buf_size < req_buf_size) {
-			pr_err("PORT: Oversize required buf_size=[%u]. tc[%u]:pool_id[%u]:buf_size=[%u]\n",
-				req_buf_size, port->tc[i].tc_config.pools[BM_TYPE_LONG_BUF_POOL]->bm_pool_id, i,
-				pool_buf_size);
-			return -EINVAL;
+		for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
+			struct pp2_bm_pool *long_pool = port->tc[i].tc_config.pools[j][BM_TYPE_LONG_BUF_POOL];
+
+			if (long_pool) {
+				pool_buf_size = long_pool->bm_pool_buf_sz;
+				if (pool_buf_size < req_buf_size) {
+					pr_err("PORT: Oversize required buf_size=[%u]. tc[%u]:pool_id[%u]:buf_size=[%u]\n",
+						req_buf_size, long_pool->bm_pool_id, i, pool_buf_size);
+					return -EINVAL;
+				}
+			}
 		}
 	}
 	return 0;
