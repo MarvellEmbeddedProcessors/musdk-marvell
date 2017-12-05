@@ -178,6 +178,7 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	u32 bppe_size;
 	u32 bppe_region_size;
 	struct pp2_bm_pool *bm_pool;
+	u32 mem_id;
 
 	/* FS_A8K Table 1558: Provided buffer numbers divisible by
 	 * PP2_BPPE_UNIT_SIZE in order to avoid incomplete BPPEs
@@ -225,19 +226,26 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	pr_debug("BM: pool=%u buf_num %u bppe_num %u bppe_region_size %u\n",
 		bm_pool->bm_pool_id, bm_pool->bm_pool_buf_num, bppe_num, bppe_region_size);
 
-	bm_pool->bm_pool_virt_base = (uintptr_t)mv_sys_dma_mem_alloc(bppe_region_size, MVPP2_BM_POOL_PTR_ALIGN);
+	/* TODO: Temporary code to for testing, mechanism required to find this pp2's mem_id */
+	mem_id = param->pp2_id;
+	bm_pool->bppe_mem = mv_sys_dma_mem_region_get(mem_id);
+	pr_debug("(%s)Got pointer %p for mem_id(%d)\n", __func__, bm_pool->bppe_mem, mem_id);
+
+	bm_pool->bm_pool_virt_base = (uintptr_t)mv_sys_dma_mem_region_alloc(bm_pool->bppe_mem, bppe_region_size,
+									     MVPP2_BM_POOL_PTR_ALIGN);
 	if (unlikely(!bm_pool->bm_pool_virt_base)) {
 		pr_err("BM: cannot allocate region for pool BPPEs\n");
 		kfree(bm_pool);
 		return -ENOMEM;
 	}
 
-	bm_pool->bm_pool_phys_base = (uintptr_t)mv_sys_dma_mem_virt2phys((void *)bm_pool->bm_pool_virt_base);
+	bm_pool->bm_pool_phys_base = (uintptr_t)mv_sys_dma_mem_region_virt2phys(bm_pool->bppe_mem,
+										 (void *)bm_pool->bm_pool_virt_base);
 
 	if (!IS_ALIGNED(bm_pool->bm_pool_phys_base, MVPP2_BM_POOL_PTR_ALIGN)) {
 		pr_err("BM: pool=%u is not %u bytes aligned", param->id,
 			MVPP2_BM_POOL_PTR_ALIGN);
-		mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
+		mv_sys_dma_mem_region_free(bm_pool->bppe_mem, (void *)bm_pool->bm_pool_virt_base);
 		kfree(bm_pool);
 		return -EIO;
 	}
@@ -252,7 +260,7 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	if (pp2_bm_hw_pool_create(cpu_slot, bm_pool->bm_pool_id,
 				  bppe_num, bm_pool->bm_pool_phys_base)) {
 		pr_err("BM: could not initialize hardware pool%u\n", bm_pool->bm_pool_id);
-		mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
+		mv_sys_dma_mem_region_free(bm_pool->bppe_mem, (void *)bm_pool->bm_pool_virt_base);
 		kfree(bm_pool);
 		return -EIO;
 	}
@@ -326,7 +334,7 @@ int pp2_bm_pool_destroy(uintptr_t cpu_slot,
 
 	pp2_bm_hw_pool_destroy(cpu_slot, pool_id);
 
-	mv_sys_dma_mem_free((void *)bm_pool->bm_pool_virt_base);
+	mv_sys_dma_mem_region_free(bm_pool->bppe_mem, (void *)bm_pool->bm_pool_virt_base);
 
 	kfree(bm_pool);
 

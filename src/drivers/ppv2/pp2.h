@@ -285,6 +285,12 @@ struct pp2_bm_pool {
 	uintptr_t bm_pool_virt_base;
 	/* BM pool physical address (BPPE) */
 	uintptr_t bm_pool_phys_base;
+	/* Likely memory to be used when adding data_buffers to the pool.
+	 * This is only used as a hint, that creates warnings under DEBUG.
+	 */
+	struct mv_sys_dma_mem_region *likely_buffer_mem;
+	/* Memory used by BM for Buffer Pointers in DRAM (BPPE) */
+	struct mv_sys_dma_mem_region *bppe_mem;
 };
 
 /* Port minimum MTU in bytes */

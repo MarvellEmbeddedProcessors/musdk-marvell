@@ -64,7 +64,8 @@ struct pp2_bpool_params {
 	 * E.g. "pool-0:0" means PPv2[0],pool[0]
 	 */
 	const char			*match;
-	u32				 buff_len; /**< buffer length */
+	u32				buff_len; /**< buffer length */
+	struct mv_sys_dma_mem_region	*likely_buffer_mem; /**< Memory likely to be used for putting buffers */
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ
  *	int				 (*empty_cb) (void *arg, u32 status);
  *	void				 *emty_cb_arg;

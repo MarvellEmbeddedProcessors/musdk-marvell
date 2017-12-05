@@ -83,6 +83,7 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 	param.buf_size = params->buff_len;
 	param.id = pool_id;
 	param.pp2_id = pp2_id;
+	param.likely_buffer_mem = params->likely_buffer_mem;
 	rc = pp2_bm_pool_create(pp2_ptr, &param);
 	if (!rc) {
 		pp2_bpools[pp2_id][pool_id].id = pool_id;
@@ -185,6 +186,22 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
 		pp2_ppio_outq_desc_set_pool(cur_desc, buff_entry[i].bpool);
 		cur_desc->cmds[3] = TXD_ERR_SUM_MASK;
 		pp_ind[pp2_id]++;
+#ifdef DEBUG
+	do {
+		int pool_id;
+		struct mv_sys_dma_mem_region *likely_mem;
+		dma_addr_t buf_addr = buff_entry[i].buff.addr;
+
+		pool_id = buff_entry[i].bpool->id;
+		likely_mem = pp2_ptr->pp2_inst[pp2_id]->bm_pools[pool_id]->likely_buffer_mem;
+
+		if (likely_mem)
+			if ((buf_addr < likely_mem->dma_phys_base) ||
+			    (buf_addr > (likely_mem->dma_phys_base + likely_mem->size)))
+				pr_debug("(%s): buf_addr" PRIdma ", not in likely_mem range mem_id(%d)\n",
+					 __func__, buf_addr, likely_mem->mem_id);
+	} while (0);
+#endif
 	}
 	for (i = 0; i < PP2_NUM_PKT_PROC; i++) {
 		if (pp_ind[i])
