@@ -103,9 +103,33 @@ Function: ``int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_para
 
 SAM dequeue operation
 ~~~~~~~~~~~~~~~~~~~~~
-Function: ``int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num)``
+Function: ``int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num);``
 
-  - Only polling mode is supported.
+  - Non-blocking function.
+  - Return results for up to "*num" ready requests.
+
+SAM create event
+~~~~~~~~~~~~~~~~
+Function: ``int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *params,
+				     struct mv_sys_event **ev);``
+  - Event allows application to wait for number of crypto requests ready for dequeue in blocking mode without
+    waste of CPU cycles and power.
+  - Fields in "struct sam_cio_event_params":
+	pkt_coal  - number of requests to be ready for dequeue before waking up the waiting thread.
+      	usec_coal - time in micro seconds. Waiting thread will be woken up after this time
+                    even if number of requests ready for dequeue is less than "pkt_coal".
+  - Use ``mv_sys_event_poll()`` API to wait for event in blocking mode.
+
+SAM delete event
+~~~~~~~~~~~~~~~~
+Function: ``int sam_cio_delete_event(struct sam_cio *cio, struct mv_sys_event *ev);``
+
+SAM enable/disable event
+~~~~~~~~~~~~~~~~~~~~~~~~
+Function: ``int sam_cio_set_event(struct sam_cio *cio, struct mv_sys_event *ev, int en);``
+
+  - Caller thread must enable the event each time after processing previous event
+    and before waiting for new one.
 
 SAM get crypto I/O instance statistics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
