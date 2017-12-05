@@ -66,7 +66,8 @@ static void pp2_dm_aggr_queue_config(struct pp2_dm_if *dm_if, uintptr_t addr, u3
 }
 
 /* Internal. Creates a DM object */
-int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc)
+int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc,
+		   struct mv_sys_dma_mem_region *mem)
 {
 	struct pp2_inst *inst;
 	struct pp2_dm_if *dm_if;
@@ -81,20 +82,21 @@ int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t nu
 	}
 	dm_if->id = dm_id;
 	dm_if->desc_total = num_desc;
+	dm_if->mem = mem;
 
 	/* Allocate a region via CMA for TXDs and setup their addresses */
-	dm_if->desc_virt_arr = (struct pp2_desc *)mv_sys_dma_mem_alloc((num_desc * MVPP2_DESC_ALIGNED_SIZE),
-									MVPP2_DESC_Q_ALIGN);
+	dm_if->desc_virt_arr = mv_sys_dma_mem_region_alloc(mem, (num_desc * MVPP2_DESC_ALIGNED_SIZE),
+							    MVPP2_DESC_Q_ALIGN);
 	if (unlikely(!dm_if->desc_virt_arr)) {
 		pr_err("DM: cannot allocate DM region\n");
 		kfree(dm_if);
 		return -ENOMEM;
 	}
-	dm_if->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_virt2phys(dm_if->desc_virt_arr);
+	dm_if->desc_phys_arr = (uintptr_t)mv_sys_dma_mem_region_virt2phys(mem, dm_if->desc_virt_arr);
 	if (!IS_ALIGNED(dm_if->desc_phys_arr, MVPP2_DESC_Q_ALIGN)) {
 		pr_err("DM: Descriptor array must be %u-byte aligned\n",
 			MVPP2_DESC_Q_ALIGN);
-		mv_sys_dma_mem_free(dm_if->desc_virt_arr);
+		mv_sys_dma_mem_region_free(mem, dm_if->desc_virt_arr);
 		kfree(dm_if);
 		return -EPERM;
 	}
@@ -134,7 +136,7 @@ void pp2_dm_if_deinit(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id)
 	dm_lock_destroy(dm_if);
 
 	pr_debug("DM: (AQ%u)(PP%u) destroyed\n", dm_if->id, inst->id);
-	mv_sys_dma_mem_free(dm_if->desc_virt_arr);
+	mv_sys_dma_mem_region_free(dm_if->mem, dm_if->desc_virt_arr);
 	kfree(dm_if);
 	inst->num_dm_ifs--;
 	inst->dm_ifs[dm_id] = NULL;

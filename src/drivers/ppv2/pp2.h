@@ -149,6 +149,7 @@ struct pp2_dm_if {
 	struct pp2_inst *parent;
 	/* CPU slot address assigned to this DM object */
 	uintptr_t cpu_slot;
+	struct mv_sys_dma_mem_region *mem; /* mem_region used to create the dm. May be NULL. */
 #ifdef MVCONF_PP2_LOCK
 	struct pp2_dm_lock dm_lock;
 #endif

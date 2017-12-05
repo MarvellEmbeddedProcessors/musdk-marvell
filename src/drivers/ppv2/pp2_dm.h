@@ -179,7 +179,8 @@ struct pp2_dm_if_param {
  *
  * @retval		DM-IF object handle on success, NULL otherwise
  */
-int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc);
+int pp2_dm_if_init(struct pp2 *pp2, uint32_t dm_id, uint32_t pp2_id, uint32_t num_desc,
+		   struct mv_sys_dma_mem_region *mem);
 
 /**
  * pp2_dm_if_deinit

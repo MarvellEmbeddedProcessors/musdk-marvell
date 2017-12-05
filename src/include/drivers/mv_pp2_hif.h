@@ -54,6 +54,7 @@ struct pp2_hif_params {
 	 */
 	const char	*match;
 	u32		 out_size; /**< TX-Aggregation q_size */
+	struct mv_sys_dma_mem_region *mem;
 };
 
 /**
