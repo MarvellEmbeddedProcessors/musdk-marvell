@@ -53,11 +53,18 @@
 						SAM_RDR_STAT_IRQ_OFFS)
 
 /* HIA Options Register */
-#define SAM_HIA_OPTIONS_REG		0x9FFF8
+#define SAM_EIP197_HIA_OPTIONS_REG	0x9FFF8
+#define SAM_EIP97_HIA_OPTIONS_REG	0x0FFF8
 
 #define SAM_N_RINGS_OFFS		0
 #define SAM_N_RINGS_BITS		4
 #define SAM_N_RINGS_MASK		GENMASK(SAM_N_RINGS_OFFS + SAM_N_RINGS_BITS - 1, SAM_N_RINGS_OFFS)
+
+enum sam_hw_type {
+	HW_EIP197,
+	HW_EIP97,
+	HW_TYPE_LAST
+};
 
 struct sam_uio_ring_info {
 	int ring;
@@ -80,9 +87,11 @@ struct sam_uio_pdev_info {
 	struct device *dev;
 	struct clk *clk;
 	char name[16];
+	enum sam_hw_type type;
 	char *regs_vbase;
 	u32 hw_rings_num;
 	u32 rings_map;
+	u32 busy_rings_map;
 	struct sam_uio_ring_info *rings;
 };
 
@@ -93,8 +102,14 @@ static inline int sam_uio_get_rings_num(struct sam_uio_pdev_info *pdev_info)
 {
 	u32 *addr, val32;
 
-	addr = (u32 *)(pdev_info->regs_vbase + SAM_HIA_OPTIONS_REG);
-
+	if (pdev_info->type == HW_EIP197)
+		addr = (u32 *)(pdev_info->regs_vbase + SAM_EIP197_HIA_OPTIONS_REG);
+	else if (pdev_info->type == HW_EIP97)
+		addr = (u32 *)(pdev_info->regs_vbase + SAM_EIP97_HIA_OPTIONS_REG);
+	else {
+		dev_err(pdev_info->dev, "unknown HW type %d\n", pdev_info->type);
+		return 0;
+	}
 	val32 = readl(addr);
 	pdev_info->hw_rings_num = val32 & SAM_N_RINGS_MASK;
 
@@ -213,17 +228,21 @@ static int sam_uio_probe(struct platform_device *pdev)
 		goto fail_uio;
 	}
 
-	if (!strcmp(eip_node->name, "eip197"))
+	if (!strcmp(eip_node->name, "eip197")) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
-	else if (!strcmp(eip_node->name, "eip97"))
+		pdev_info->type = HW_EIP197;
+	} else if (!strcmp(eip_node->name, "eip97")) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP97_xDR_REGS_OFFS;
-	else {
+		pdev_info->type = HW_EIP97;
+	} else {
 		err = -EINVAL;
-		dev_err(dev, "unknown HW type\n");
+		dev_err(dev, "unknown HW type - %s\n", eip_node->name);
 		goto fail_uio;
 	}
+
 	/* Read number of HW Rings from HIA_OPTIONS register */
 	rings_num = sam_uio_get_rings_num(pdev_info);
+
 	pdev_info->rings = devm_kzalloc(dev, rings_num * sizeof(struct sam_uio_ring_info),
 					GFP_KERNEL);
 	if (!pdev_info->rings) {
@@ -241,8 +260,10 @@ static int sam_uio_probe(struct platform_device *pdev)
 		ring_info->ring = idx;
 		ring_info->xdr_regs_vbase = xdr_regs_vbase + SAM_RING_OFFS(ring_info->ring);
 		/* Check how many rings already in use */
-		if (sam_uio_ring_is_busy(ring_info))
+		if (sam_uio_ring_is_busy(ring_info)) {
+			pdev_info->busy_rings_map |= BIT(idx);
 			continue;
+		}
 
 		snprintf(ring_info->ring_name, sizeof(ring_info->ring_name), "%s:%d",  pdev_info->name, idx);
 		uio->name = ring_info->ring_name;
@@ -273,8 +294,8 @@ static int sam_uio_probe(struct platform_device *pdev)
 		pdev_info->rings_map |= BIT(idx);
 		pdev_info->uio_num++;
 	}
-	dev_info(dev, "Registered %d uio devices, available rings map 0x%x\n",
-		pdev_info->uio_num, pdev_info->rings_map);
+	dev_info(dev, "Registered %d uio devices, Rings: free = 0x%x, busy = 0x%x\n",
+		pdev_info->uio_num, pdev_info->rings_map, pdev_info->busy_rings_map);
 
 	cpn_count++;
 	return 0;
