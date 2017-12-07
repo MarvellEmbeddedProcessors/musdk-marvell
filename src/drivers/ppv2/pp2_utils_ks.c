@@ -42,7 +42,7 @@
 
 #include "pp2.h"
 
-#define PP2_NETDEV_PATH_TEMPLATE_K	"/cp110-%u/config-space/ppv22@000000/"
+#define PP2_NETDEV_PATH_TEMPLATE_K	"/cp%u/config-space/ppv22@000000/"
 
 /*
  * Get device tree data of the PPV2 ethernet ports.
