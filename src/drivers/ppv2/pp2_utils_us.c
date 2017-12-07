@@ -42,8 +42,8 @@
 
 #define PP2_NETDEV_PATH		"/sys/class/net/"
 
-#define PP2_NETDEV_MASTER_PATH	"/proc/device-tree/cp110-0/config-space/ppv22@000000/"
-#define PP2_NETDEV_SLAVE_PATH	"/proc/device-tree/cp110-1/config-space/ppv22@000000/"
+#define PP2_NETDEV_MASTER_PATH	"/proc/device-tree/cp0/config-space/ppv22@000000/"
+#define PP2_NETDEV_SLAVE_PATH	"/proc/device-tree/cp1/config-space/ppv22@000000/"
 
 /* Get device tree data of the PPV2 ethernet ports.
  * Does not include the loopback port.
