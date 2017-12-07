@@ -1032,14 +1032,17 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 			     struct pp2_bm_pool *pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS])
 {
 	u8 index = 0, j, k;
+	bool param_pool_exist;
 	struct pp2_bm_pool *temp_pool;
 
 	/* check pool0/pool1 */
 
 	for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
 		index = 0;
+		param_pool_exist = false;
 		for (k = 0; k < PP2_PPIO_TC_CLUSTER_MAX_POOLS; k++) {
 			if (param_pools[j][k]) {
+				param_pool_exist = true;
 				if (param_pools[j][k]->pp2_id != pp2_inst->id) {
 					pr_err("%s: pool_ppid[%d] does not match pp2_id[%d]\n",
 						__func__, param_pools[j][k]->pp2_id, pp2_inst->id);
@@ -1063,7 +1066,7 @@ static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_
 			}
 		} else if (index == 1) {
 			pools[j][1] = pools[j][0]; /* Both small and long pool are the same one */
-		} else {
+		} else if (param_pool_exist) {
 			pr_err("%s: pool_params do not exist\n", __func__);
 			return -1;
 		}
