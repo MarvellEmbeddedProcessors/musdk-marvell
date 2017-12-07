@@ -321,8 +321,10 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 
 		mdata = (struct pkt_mdata *)mv_stack_pop(larg->stack_hndl);
-		if (!mdata)
+		if (!mdata) {
+			printf("Can't get mdata from stack for packet %d of %d\n", i, num);
 			break;
+		}
 
 		mdata->state = state;
 		mdata->rx_port = rx_ppio_id;
@@ -460,8 +462,10 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 			pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
 			if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
 				mdata = sam_descs[i].cookie;
-			else
+			else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC)
 				mdata = ipsec_descs[i].cookie;
+			else
+				mdata = ssltls_descs[i].cookie;
 
 			if (mdata)
 				mv_stack_push(larg->stack_hndl, mdata);
@@ -571,8 +575,10 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		for (i = num_got; i < num; i++) {
 			if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
 				free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
-			else
+			else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC)
 				free_buf_from_sam_cookie(larg, ipsec_descs[i].cookie);
+			else
+				free_buf_from_sam_cookie(larg, ssltls_descs[i].cookie);
 		}
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 		perf_cntrs->drop_cnt += (num - num_got);
@@ -610,13 +616,15 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 	struct pp2_buff_inf	*binf;
 	struct pp2_ppio_desc	*desc;
 	struct pp2_ppio_desc	 descs[MVAPPS_PP2_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
-	int			 err;
-	u16			 i, tp, num_got, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
+	int			 err, shadow_q_size[MVAPPS_PP2_MAX_NUM_PORTS];
+	u16			 i, tp, num_got, num_done, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
-	for (tp = 0; tp < larg->cmn_args.num_ports; tp++)
+	for (tp = 0; tp < larg->cmn_args.num_ports; tp++) {
 		port_nums[tp] = 0;
+		shadow_q_size[tp] = pp2_args->lcl_ports_desc[tp].shadow_q_size;
+	}
 
 	for (i = 0; i < num; i++) {
 		char			*buff;
@@ -660,7 +668,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
 		shadow_q->write_ind++;
-		if (shadow_q->write_ind == CRYPT_APP_TX_Q_SIZE)
+		if (shadow_q->write_ind == shadow_q_size[tp])
 			shadow_q->write_ind = 0;
 		port_nums[tp]++;
 
@@ -689,39 +697,39 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 		if (num_got < num) {
 			for (i = 0; i < num - num_got; i++) {
 				if (shadow_q->write_ind == 0)
-					shadow_q->write_ind = CRYPT_APP_TX_Q_SIZE;
+					shadow_q->write_ind = shadow_q_size[tp];
 				shadow_q->write_ind--;
 				binf = &shadow_q->ents[shadow_q->write_ind].buff_ptr;
 				if (unlikely(!binf->cookie || !binf->addr)) {
-					pr_warn("Shadow memory @%d: cookie(%" PRIx64 "), pa(%" PRIdma ")!\n",
-						shadow_q->write_ind, binf->cookie, binf->addr);
+					pr_warn("TX drop: bad buff - num=%d, num_got=%d, i=%d, write=%d, read=%d\n",
+						num, num_got, i, shadow_q->write_ind, shadow_q->read_ind);
 					continue;
 				}
 				bpool = shadow_q->ents[shadow_q->write_ind].bpool;
-				pp2_bpool_put_buff(pp2_args->hif,
-						   bpool,
-						   binf);
+				pp2_bpool_put_buff(pp2_args->hif, bpool, binf);
+
 			}
 			/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 			perf_cntrs->drop_cnt += (num - num_got);
 		}
 
-		pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tp].ppio, pp2_args->hif, tc, &num);
-		for (i = 0; i < num; i++) {
+		pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tp].ppio, pp2_args->hif, tc, &num_done);
+		for (i = 0; i < num_done; i++) {
 			binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
-			if (unlikely(!binf->cookie || !binf->addr)) {
-				pr_warn("Shadow memory @%d: cookie(%" PRIx64 "), pa(%" PRIdma ")!\n",
-					shadow_q->read_ind, binf->cookie, binf->addr);
-				continue;
-			}
 			bpool = shadow_q->ents[shadow_q->read_ind].bpool;
-			pp2_bpool_put_buff(pp2_args->hif, bpool, binf);
 
 			shadow_q->read_ind++;
-			if (shadow_q->read_ind == CRYPT_APP_TX_Q_SIZE)
+			if (shadow_q->read_ind == shadow_q_size[tp])
 				shadow_q->read_ind = 0;
+
+			if (unlikely(!binf->cookie || !binf->addr)) {
+				pr_warn("TX done: bad buff - num_done=%d, i=%d, write=%d, read=%d\n",
+					num_done, i, shadow_q->write_ind, shadow_q->read_ind);
+				continue;
+			}
+			pp2_bpool_put_buff(pp2_args->hif, bpool, binf);
 		}
-		perf_cntrs->tx_cnt += num;
+		perf_cntrs->tx_cnt += num_done;
 	}
 	return 0;
 }
@@ -758,13 +766,13 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 		mdata = (struct pkt_mdata *)res_descs[i].cookie;
 		if (res_descs[i].status != SAM_CIO_OK) {
 
-			pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
-				(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
-				i, num, res_descs[i].status, res_descs[i].out_len);
-
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-			if (larg->cmn_args.verbose > 1) {
+			if (larg->cmn_args.verbose) {
 				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
+
+				pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
+					(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
+					i, num, res_descs[i].status, res_descs[i].out_len);
 
 				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
 			}

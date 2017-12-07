@@ -61,7 +61,7 @@
 
 #define CRYPT_APP_MAX_BURST_SIZE	(CRYPT_APP_RX_Q_SIZE >> 2)
 #define CRYPT_APP_DFLT_BURST_SIZE	64
-#define CRYPT_APP_CTRL_DFLT_THR		2000
+#define CRYPT_APP_CTRL_DFLT_THR		10000 /* 10 sec */
 #define CRYPT_APP_DMA_MEM_SIZE		(48 * 1024 * 1024)
 
 #define MAX_AUTH_BLOCK_SIZE	128 /* Bytes */
@@ -212,7 +212,7 @@ static inline void free_sent_buffers(struct local_arg *larg, struct lcl_port_des
 	for (i = 0; i < tx_num; i++) {
 		free_buf_from_tx_shadow(larg, tx_port, tc, idx);
 		idx++;
-		if (idx == CRYPT_APP_TX_Q_SIZE)
+		if (idx == tx_port->shadow_q_size)
 			idx = 0;
 	}
 	tx_port->shadow_qs[tc].read_ind = idx;
@@ -318,8 +318,10 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		vaddr = (char *)((uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i]) | neta_sys_dma_high_addr);
 
 		mdata = (struct pkt_mdata *)mv_stack_pop(larg->stack_hndl);
-		if (!mdata)
+		if (!mdata) {
+			printf("Can't get mdata from stack for packet %d of %d\n", i, num);
 			break;
+		}
 
 		mdata->state = state;
 		mdata->rx_port = rx_ppio_id;
@@ -489,12 +491,14 @@ static inline int send_pkts(struct local_arg *larg,
 	struct tx_shadow_q	*shadow_q;
 	struct neta_ppio_desc	*desc;
 	struct neta_ppio_desc	 descs[MVAPPS_NETA_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
-	int			 err, tc = 0;
+	int			 err, tc = 0, shadow_q_size[MVAPPS_NETA_MAX_NUM_PORTS];
 	u16			 i, tp, num_got, port_nums[MVAPPS_NETA_MAX_NUM_PORTS];
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
-	for (tp = 0; tp < larg->cmn_args.num_ports; tp++)
+	for (tp = 0; tp < larg->cmn_args.num_ports; tp++) {
 		port_nums[tp] = 0;
+		shadow_q_size[tp] = larg->lcl_ports_desc[tp].shadow_q_size;
+	}
 
 	for (i = 0; i < num; i++) {
 		char			*buff;
@@ -543,7 +547,7 @@ static inline int send_pkts(struct local_arg *larg,
 		shadow_q->ents[shadow_q->write_ind].rx_port = mdata->rx_port;
 		shadow_q->ents[shadow_q->write_ind].rx_queue = mdata->rx_queue;
 		shadow_q->write_ind++;
-		if (shadow_q->write_ind == CRYPT_APP_TX_Q_SIZE)
+		if (shadow_q->write_ind == shadow_q_size[tp])
 			shadow_q->write_ind = 0;
 		port_nums[tp]++;
 
@@ -572,7 +576,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 		if (num_got < num) {
 			for (i = 0; i < num - num_got; i++) {
 				if (shadow_q->write_ind == 0)
-					shadow_q->write_ind = CRYPT_APP_TX_Q_SIZE;
+					shadow_q->write_ind = shadow_q_size[tp];
 				shadow_q->write_ind--;
 				free_buf_from_tx_shadow(larg, &larg->lcl_ports_desc[tp],
 							tc, shadow_q->write_ind);
@@ -601,7 +605,7 @@ START_COUNT_CYCLES(pme_ev_cnt_deq);
 	err = sam_cio_deq(cio, res_descs, &num);
 STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 	if (unlikely(err)) {
-		pr_err("SAM DeQ (EnC) failed (%d)!\n", err);
+		pr_err("SAM dequeue failed (%d)!\n", err);
 		return -EFAULT;
 	}
 	num_to_send = num_to_dec = 0;
@@ -617,13 +621,13 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 		mdata = (struct pkt_mdata *)res_descs[i].cookie;
 		if (res_descs[i].status != SAM_CIO_OK) {
 
-			pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
-				(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
-				i, num, res_descs[i].status, res_descs[i].out_len);
-
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-			if (larg->cmn_args.verbose > 1) {
+			if (larg->cmn_args.verbose) {
 				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_NETA_PKT_EFEC_OFFS;
+
+				pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
+					(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
+					i, num, res_descs[i].status, res_descs[i].out_len);
 
 				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
 			}

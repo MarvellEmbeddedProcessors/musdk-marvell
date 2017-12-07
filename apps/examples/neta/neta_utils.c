@@ -145,7 +145,7 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 	lcl_port->ppio		= port->ppio;
 
 	lcl_port->num_shadow_qs = port->num_outqs;
-	lcl_port->shadow_q_size	= port->outq_size;
+	lcl_port->shadow_q_size	= port->outq_size * 2; /* Shadow queue must be larger than TXQ at least on burst size */
 	lcl_port->shadow_qs = (struct tx_shadow_q *)malloc(port->num_outqs * sizeof(struct tx_shadow_q));
 
 	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
