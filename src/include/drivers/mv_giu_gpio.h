@@ -63,6 +63,106 @@ struct giu_gpio_desc {
 	u32                      cmds[GIU_GPIO_DESC_NUM_WORDS];
 };
 
+enum giu_inq_l3_type {
+	GIU_INQ_L3_TYPE_IPV4 = 0,
+	GIU_INQ_L3_TYPE_IPV6,
+	GIU_INQ_L3_TYPE_OTHER
+};
+
+enum giu_inq_l4_type {
+	GIU_INQ_L4_TYPE_TCP = 0,
+	GIU_INQ_L4_TYPE_UDP,
+	GIU_INQ_L4_TYPE_OTHER
+};
+
+enum giu_outq_l3_type {
+	GIU_OUTQ_L3_TYPE_NA = 0,
+	GIU_OUTQ_L3_TYPE_IPV4_NO_OPTS,	/* IPv4 with IHL=5, TTL>0 */
+	GIU_OUTQ_L3_TYPE_IPV4_OK,	/* IPv4 with IHL>5, TTL>0 */
+	GIU_OUTQ_L3_TYPE_IPV4_TTL_ZERO,	/* Other IPV4 packets */
+	GIU_OUTQ_L3_TYPE_IPV6_NO_EXT,	/* IPV6 without extensions */
+	GIU_OUTQ_L3_TYPE_IPV6_EXT,	/* IPV6 with extensions */
+	GIU_OUTQ_L3_TYPE_ARP,		/* ARP */
+	GIU_OUTQ_L3_TYPE_USER_DEFINED	/* User defined */
+};
+
+enum giu_outq_l4_type {
+	GIU_OUTQ_L4_TYPE_NA = 0,
+	GIU_OUTQ_L4_TYPE_TCP = 1,
+	GIU_OUTQ_L4_TYPE_UDP = 2,
+	GIU_OUTQ_L4_TYPE_OTHER = 3
+};
+
+
+/******** RXQ-Desc ********/
+/* cmd 0 */
+#define GIU_RXD_FIRST			(0x2)
+#define GIU_RXD_LAST			(0x1)
+#define GIU_RXD_FIRST_LAST		(0x3)
+#define GIU_RXD_L_MASK			(0x10000000)
+#define GIU_RXD_F_MASK			(0x20000000)
+#define GIU_RXD_FL_MASK			(TXD_F_MASK | TXD_L_MASK)
+#define GIU_RXD_L3_TYPE_MASK		(0x0C000000)
+#define GIU_RXD_L4_TYPE_MASK		(0x03000000)
+#define GIU_RXD_BUFMODE_MASK		(0x00200000)
+#define GIU_RXD_POOL_ID_MASK		(0x001F0000)
+#define GIU_RXD_GEN_IP_CHK_MASK		(0x00008000)
+#define GIU_RXD_GEN_L4_CHK_MASK		(0x00006000)
+#define GIU_RXD_IP_HEAD_LEN_MASK	(0x00001F00)
+#define GIU_RXD_L3_OFFSET_MASK		(0x0000007F)
+/* cmd 1 */
+#define GIU_RXD_PKT_OFF_MASK		(0x000000FF)
+#define GIU_RXD_BYTE_COUNT_MASK		(0xFFFF0000)
+/* cmd 2 */
+#define GIU_RXD_L4_INITIAL_CHK		(0xFFFF0000)
+
+
+#define GIU_RXD_GET_L3_OFF(desc)         (((desc)->cmds[0] & GIU_RXD_L3_OFFSET_MASK) >> 0)
+#define GIU_RXD_GET_IPHDR_LEN(desc)      (((desc)->cmds[0] & GIU_RXD_IP_HEAD_LEN_MASK) >> 8)
+#define GIU_RXD_GET_POOL_ID(desc)        (((desc)->cmds[0] & GIU_RXD_POOL_ID_MASK) >> 16)
+#define GIU_RXD_GET_L4_PRS_INFO(desc)    (((desc)->cmds[0] & GIU_RXD_L4_TYPE_MASK) >> 24)
+#define GIU_RXD_GET_L3_PRS_INFO(desc)    (((desc)->cmds[0] & GIU_RXD_L3_TYPE_MASK) >> 26)
+
+
+
+/******** TXQ-Desc ********/
+/* cmd 0 */
+#define GIU_TXD_L3_OFF_MASK		(0x0000007F)
+#define GIU_TXD_IPHDR_LEN_MASK		(0x00001F00)
+#define GIU_TXD_EC_MASK			(0x00006000)
+#define GIU_TXD_ES_MASK			(0x00008000)
+#define GIU_TXD_L4_CHK_OK_MASK		(0x00400000)
+#define GIU_TXD_L3_IP4_HDR_ERR_MASK	(0x01000000)
+#define GIU_TXD_L4_PRS_INFO_MASK	(0x0E000000)
+#define GIU_TXD_L3_PRS_INFO_MASK	(0x70000000)
+/* cmd 1 */
+#define GIU_TXD_PKT_OFF_MASK		(0x000000FF)
+#define GIU_TXD_DP_MASK			(0x00001800)
+#define GIU_TXD_BYTE_COUNT_MASK		(0xFFFF0000)
+#define GIU_TXD_PORT_NUM_MASK		(0x0000E000)
+/* cmd 2 */
+#define GIU_TXD_L4_INITIAL_CHK		(0xFFFF0000)
+#define GIU_TXD_DEST_QID		(0x00001FFF)
+
+
+#define GIU_TXD_SET_L3_OFF(desc, data)	\
+		((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_OFF_MASK) | (data << 0 & GIU_TXD_L3_OFF_MASK))
+#define GIU_TXD_SET_IP_HEAD_LEN(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_IPHDR_LEN_MASK) | (data << 8 & GIU_TXD_IPHDR_LEN_MASK))
+#define GIU_TXD_SET_L3_TYPE(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_PRS_INFO_MASK) | (data << 28 & GIU_TXD_L3_PRS_INFO_MASK))
+#define GIU_TXD_SET_L4_TYPE(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L4_PRS_INFO_MASK) | (data << 25 & GIU_TXD_L4_PRS_INFO_MASK))
+#define GIU_TXD_SET_DEST_QID(desc, data)	\
+		((desc)->cmds[2] = ((desc)->cmds[2] & ~GIU_TXD_DEST_QID) | (data << 0 & GIU_TXD_DEST_QID))
+
+#define GIU_TXD_GET_L3_OFF(desc)	(((desc)->cmds[0] & GIU_TXD_L3_OFF_MASK) >> 0)
+#define GIU_TXD_GET_IPHDR_LEN(desc)	(((desc)->cmds[0] & GIU_TXD_IPHDR_LEN_MASK) >> 8)
+#define GIU_TXD_GET_PKT_OFF(desc)	(((desc)->cmds[1] & GIU_TXD_PKT_OFF_MASK) >> 0)
+#define GIU_TXD_GET_L4_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L4_PRS_INFO_MASK) >> 25)
+#define GIU_TXD_GET_L3_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L3_PRS_INFO_MASK) >> 28)
+#define GIU_TXD_GET_DEST_QID(desc)	(((desc)->cmds[2] & GIU_TXD_DEST_QID) >> 0)
+
 /**
  * Initialize a gpio
  *
@@ -292,6 +392,26 @@ static inline void giu_gpio_outq_desc_set_pkt_len(struct giu_gpio_desc *desc, u1
 	return pp2_ppio_outq_desc_set_pkt_len((struct pp2_ppio_desc *)desc, len);
 }
 
+/**
+ * Set the protocol info in an outq packet descriptor.
+ * This API must always be called.
+ *
+ * @param[out]	desc		A pointer to a packet descriptor structure.
+ * @param[in]	l3_type		The l3 type of the packet.
+ * @param[in]	l4_type		The l4 type of the packet.
+ * @param[in]	l3_offset	The l3 offset of the packet.
+ * @param[in]	l4_offset	The l4 offset of the packet.
+ *
+ */
+static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc, enum giu_outq_l3_type l3_type,
+						     enum giu_outq_l4_type l4_type, u8  l3_offset, u8 l4_offset)
+{
+	GIU_TXD_SET_L3_TYPE(desc, l3_type);
+	GIU_TXD_SET_L4_TYPE(desc, l4_type);
+	GIU_TXD_SET_L3_OFF(desc, l3_offset);
+	GIU_TXD_SET_IP_HEAD_LEN(desc, (l4_offset - l3_offset)/sizeof(u32));
+}
+
 /******** RXQ  ********/
 
 /**
@@ -344,7 +464,7 @@ static inline u16 giu_gpio_inq_desc_get_pkt_len(struct giu_gpio_desc *desc)
 static inline struct giu_bpool *giu_gpio_inq_desc_get_bpool(struct giu_gpio_desc *desc,
 							    struct giu_gpio *gpio __attribute__((__unused__)))
 {
-	return &giu_bpools[DM_RXD_GET_POOL_ID((struct pp2_ppio_desc *)desc)];
+	return &giu_bpools[GIU_RXD_GET_POOL_ID(desc)];
 }
 
 /** @} */ /* end of grp_giu_io */
