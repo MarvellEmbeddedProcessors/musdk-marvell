@@ -37,6 +37,56 @@
 #define PPP_PROTO_IPV6		0x57
 #define ARP_PROTO		0x806	/* Address Resolution packet	*/
 #define PPPOE_PROTO		0x8864	/* PPPoE packet	*/
+#define MV_ETHADDR_LEN		6	/**< Layer 2 ethernet address length */
+#define MV_ETHHDR_LEN		14	/**< Ethernet header length */
+#define MV_IPV4ADDR_LEN		4	/**< IP version 4 address length */
+#define MV_IPV6ADDR_LEN		16	/**< IP version 6 address length */
+#define MV_IP_VER_4		4	/**< IP version 4, version number */
+#define MV_IP_VER_6		6	/**< IP version 6, version number */
+#define MV_IPV4_HL_MIN		5	/**< IP version 4, header length in words */
+#define MV_IP_PROTO_NH_LEN	1	/**< IP protocol/next-header length */
+#define MV_L4_PORT_LEN		2	/**< L4 port length */
+
+/** IPv4 header */
+struct mv_ipv4hdr {
+#ifdef __BIG_ENDIAN
+	u8	version:4, ihl:4;
+#else
+	u8	ihl:4, version:4;
+#endif
+	u8	dscp_ecn;		/**< DSCP / ECN */
+	u16	total_len;		/**< Total length */
+	u16	id;			/**< ID */
+	u16	frag_offset;		/**< Fragmentation offset */
+	u8	ttl;			/**< Time to live */
+	u8	proto;			/**< Protocol */
+	u16	chksum;			/**< Checksum */
+	u8	src_addr[MV_IPV4ADDR_LEN];	/**< Source address as array of Bytes */
+	u8	dst_addr[MV_IPV4ADDR_LEN];	/**< Destination address as array of Bytes */
+} __packed;
+
+/** IPv6 header */
+struct mv_ipv6hdr {
+#ifdef __BIG_ENDIAN
+	u8	version:4, priority:4;
+#else
+	u8	priority:4, version:4;
+#endif
+	u8	flow_lbl[3];
+	u16	pl_len;
+	u8	next_header;
+	u8	hop_limit;
+	u8	src_addr[MV_IPV6ADDR_LEN];
+	u8	dst_addr[MV_IPV6ADDR_LEN];
+} __packed;
+
+/** UDP header */
+struct mv_udphdr {
+	u16	src_port; /**< Source port */
+	u16	dst_port; /**< Destination port */
+	u16	length;   /**< UDP datagram length in bytes (header+data) */
+	u16	chksum;   /**< UDP header and data checksum (0 if not used) */
+} __packed;
 
 static inline bool mv_check_eaddr_mc(const u8 *eaddr)
 {
