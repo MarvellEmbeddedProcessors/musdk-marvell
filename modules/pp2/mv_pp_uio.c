@@ -102,6 +102,7 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err = 0, mem_cnt = 0;
 	static u8 cpn_count = 0;
+	char temp_buff[20];
 
 	if (!np) {
 		dev_err(dev, "Non DT case is not supported\n");
@@ -122,7 +123,8 @@ static int mv_pp_uio_probe(struct platform_device *pdev)
 
 	for (int idx = 0; idx < MAX_UIO_DEVS; ++idx) {
 		uio = &uio_pdrv_pp->uio[idx];
-		uio->name = (cpn_count == 0) ? UIO_PP_0 : UIO_PP_1;
+		snprintf(temp_buff, sizeof(temp_buff), UIO_PP_HDR, cpn_count);
+		uio->name = devm_kstrdup(dev, temp_buff, GFP_KERNEL);
 		uio->version = DRIVER_VERSION;
 
 		for (int i = 0; i < MAX_UIO_MAPS; ++i, ++mem_cnt) {
@@ -177,14 +179,17 @@ fail:
 static int mv_pp_uio_remove(struct platform_device *pdev)
 {
 	struct uio_pdrv_pp_info *uio_pdrv_pp = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
 
 	if (!uio_pdrv_pp)
 		return -EINVAL;
 
-	if (uio_pdrv_pp->uio_num != -EIO)
-		for (int idx = 0; idx <= uio_pdrv_pp->uio_num; ++idx)
+	if (uio_pdrv_pp->uio_num != -EIO) {
+		for (int idx = 0; idx <= uio_pdrv_pp->uio_num; ++idx) {
+			devm_kfree(dev, (void *)uio_pdrv_pp->uio[idx].name);
 			uio_unregister_device(&uio_pdrv_pp->uio[idx]);
-
+		}
+	}
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
