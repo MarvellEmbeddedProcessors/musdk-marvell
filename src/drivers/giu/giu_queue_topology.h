@@ -105,6 +105,8 @@ struct giu_gpio_tc {
 	} hash_type;
 	u8			num_qs; /**< number of q in TC */
 	struct giu_gpio_queue	*queues; /**< gpio q parameters */
+	/* Remote parameters */
+	u8			dest_num_qs; /**< number of q in Remote TC */
 };
 
 /**

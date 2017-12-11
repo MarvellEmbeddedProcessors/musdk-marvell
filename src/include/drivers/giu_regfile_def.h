@@ -81,12 +81,15 @@ struct giu_queue {
  *  num_queues		Number queues in this TC
  *  ingress_rss_type	Ingress RSS type (for egress should be set to HASH_NONE)
  *  queues		array of queue structures
+ *  dest_num_queues	number of queues in Remote TC (for egress should be set to 0)
  */
 struct giu_tc {
 	int id;
 	int num_queues;
 	enum giu_ingress_hash_type ingress_rss_type;
 	struct giu_queue *queues;
+	/* Remote parameters */
+	int dest_num_queues;
 };
 
 /* Contains PF's queues information

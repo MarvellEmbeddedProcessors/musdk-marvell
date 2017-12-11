@@ -305,6 +305,7 @@ static int nic_pf_regfile_register_intc(struct nic_pf *nic_pf,
 	reg_giu_tc.ingress_rss_type	= 0/*intc_params->rss_type*/;
 	reg_giu_tc.num_queues		= intc_params->num_inqs;
 	reg_giu_tc.queues		= NULL;
+	reg_giu_tc.dest_num_queues	= 0;
 
 	/* Copy TC parameters */
 	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
@@ -353,6 +354,7 @@ static int nic_pf_regfile_register_outtc(struct nic_pf *nic_pf,
 	reg_giu_tc.ingress_rss_type	= outtc_params->rss_type;
 	reg_giu_tc.num_queues		= outtc_params->num_outqs;
 	reg_giu_tc.queues		= NULL;
+	reg_giu_tc.dest_num_queues	= outtc_params->num_rem_inqs;
 
 	/* Copy TC parameters */
 	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
@@ -1635,7 +1637,7 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 	}
 	outtc->rem_inqs_bpool_num = bm_pool_num;
 
-	active_q_id = tc_q_next_entry_get(outtc->rem_inqs_params, q_top->outtcs_params.num_outtcs);
+	active_q_id = tc_q_next_entry_get(outtc->rem_inqs_params, outtc->num_rem_inqs);
 	if (active_q_id < 0) {
 		pr_err("Failed to configure queue in Host Ingress TC[%d] queue list\n", msg_tc);
 		ret = active_q_id;
@@ -1711,7 +1713,7 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 										nic_pf->map.host_map.virt_addr);
 	giu_gpio_q.rem_q.host_remap   = nic_pf->map.host_map.phys_addr;
 
-	active_q_id = tc_q_next_entry_get(intc->rem_outqs_params, q_top->intcs_params.num_intcs);
+	active_q_id = tc_q_next_entry_get(intc->rem_outqs_params, intc->num_rem_outqs);
 	if (active_q_id < 0) {
 		pr_err("Failed to configure queue in Host Egress TC[%d] queue list\n", msg_tc);
 		ret = active_q_id;
@@ -1744,7 +1746,6 @@ egress_queue_exit:
 
 	return ret;
 }
-
 
 /*
  *	nic_pf_pf_init_done_command

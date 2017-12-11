@@ -41,7 +41,11 @@
 #include "hw_emul/gie.h"
 #include "giu_queue_topology.h"
 #include "giu_internal.h"
+#include "crc.h"
+
 #include "lib/lib_misc.h"
+#include "lib/net.h"
+
 
 
 /**
@@ -174,7 +178,6 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 
 			giu_gpio_q_p = &(outtc->rem_inqs_params[q_idx]);
 			if (giu_gpio_q_p) {
-
 				outtc_pair = &(init_params->outtcs_params.outtc_params[params.prio]);
 				pair_qid = outtc_pair->outqs_params[0].lcl_q.q_id;
 
@@ -213,7 +216,6 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 
 			giu_gpio_q_p = &(intc->rem_outqs_params[q_idx]);
 			if (giu_gpio_q_p) {
-
 				memset(&params, 0, sizeof(struct mqa_queue_params));
 
 				params.idx  = intc->rem_outqs_params[q_idx].rem_q.q_id;
@@ -452,9 +454,78 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 	return 0;
 }
 
-static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *desc)
+static inline u64 giu_gpio_outq_desc_get_phys_addr(struct giu_gpio_desc *desc)
 {
-	/* TODO: need to calculate RSS and update the descriptor target Q field */
+	/* cmd[4] and cmd[5] holds the buffer physical address (Low and High parts) */
+	return ((u64)desc->cmds[5] << 32) | ((u64)(desc->cmds[4]));
+}
+
+static inline void *giu_gpio_outq_desc_get_addr(struct giu_gpio_desc *desc)
+{
+	return mv_sys_dma_mem_phys2virt(giu_gpio_outq_desc_get_phys_addr(desc));
+}
+
+#define MAX_EXTRACTION_SIZE	(MV_IPV6ADDR_LEN * 2 + MV_IP_PROTO_NH_LEN + MV_L4_PORT_LEN * 2)
+
+static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_desc *desc)
+{
+	struct giu_gpio_params *giu_params = gpio->params;
+	struct giu_gpio_tc *gpio_tc = &giu_params->outqs_params.tcs[tc];
+	uint8_t key_size = 0, extracted_key[MAX_EXTRACTION_SIZE];
+	const uint8_t *ip_frame;
+	uint64_t crc64 = 0;
+	enum giu_outq_l3_type l3_info = GIU_TXD_GET_L3_PRS_INFO(desc);
+	enum giu_outq_l4_type l4_info = GIU_TXD_GET_L4_PRS_INFO(desc);
+	int ipv4;
+	u16 queue_index;
+
+	if (unlikely(!(l3_info >= GIU_OUTQ_L3_TYPE_IPV4_NO_OPTS && l3_info <= GIU_OUTQ_L3_TYPE_IPV6_EXT))) {
+		/* Not a IP packet. No need to perform RSS. Set Dest-Qid as index '0' */
+		GIU_TXD_SET_DEST_QID(desc, 0);
+		return 0;
+	}
+
+	/* Need to Perform RSS and Packet is IP */
+	if (l3_info >= GIU_OUTQ_L3_TYPE_IPV4_NO_OPTS && l3_info <= GIU_OUTQ_L3_TYPE_IPV4_TTL_ZERO)
+		ipv4 = 1;
+
+	ip_frame = (uint8_t *)giu_gpio_outq_desc_get_addr(desc) + GIU_TXD_GET_PKT_OFF(desc) + GIU_TXD_GET_L3_OFF(desc);
+	struct mv_ipv4hdr *ipv4hdr = (struct mv_ipv4hdr *)ip_frame;
+	struct mv_ipv6hdr *ipv6hdr = (struct mv_ipv6hdr *)ip_frame;
+
+	if (ipv4) {
+		memcpy(&extracted_key[key_size], ipv4hdr->src_addr, MV_IPV4ADDR_LEN);
+		key_size += MV_IPV4ADDR_LEN;
+		memcpy(&extracted_key[key_size], ipv4hdr->dst_addr, MV_IPV4ADDR_LEN);
+		key_size += MV_IPV4ADDR_LEN;
+	} else {
+		memcpy(&extracted_key[key_size], ipv6hdr->src_addr, MV_IPV6ADDR_LEN);
+		key_size += MV_IPV6ADDR_LEN;
+		memcpy(&extracted_key[key_size], ipv6hdr->dst_addr, MV_IPV6ADDR_LEN);
+		key_size += MV_IPV6ADDR_LEN;
+	}
+
+	if ((gpio_tc->hash_type == GIU_GPIO_HASH_T_5_TUPLE) &&
+		(l4_info == GIU_OUTQ_L4_TYPE_TCP || l4_info == GIU_OUTQ_L4_TYPE_UDP)) {
+		if (ipv4)
+			extracted_key[key_size] = ipv4hdr->proto;
+		else
+			extracted_key[key_size] = ipv6hdr->next_header;
+		key_size += MV_IP_PROTO_NH_LEN;
+
+		struct mv_udphdr *l4hdr = (struct mv_udphdr *)(ip_frame + (GIU_TXD_GET_IPHDR_LEN(desc) * 4));
+
+		memcpy(&extracted_key[key_size], &l4hdr->src_port, MV_L4_PORT_LEN);
+		key_size += MV_L4_PORT_LEN;
+		memcpy(&extracted_key[key_size], &l4hdr->dst_port, MV_L4_PORT_LEN);
+		key_size += MV_L4_PORT_LEN;
+	}
+
+	crc64 = crc64_compute(extracted_key, key_size);
+
+	queue_index = crc64 % gpio_tc->dest_num_qs;
+	GIU_TXD_SET_DEST_QID(desc, queue_index);
+
 	return 0;
 }
 
@@ -481,6 +552,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 		return -1;
 	}
 #endif
+
 	/* Set number of sent packets to 0 for any case we exit due to error */
 	*num = 0;
 
@@ -527,9 +599,11 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	 * Note that there should be no more than 2 iterations.
 	 **/
 	do {
-		/* Calculate RSS and update descriptor */
-		for (i = 0; i < block_size; i++)
-			giu_gpio_update_rss(gpio, tc, qid, &descs[i + index]);
+		if (giu_params->outqs_params.tcs[tc].dest_num_qs) {
+			/* Calculate RSS and update descriptor */
+			for (i = 0; i < block_size; i++)
+				giu_gpio_update_rss(gpio, tc, &descs[i + index]);
+		}
 
 		/* Copy bulk of descriptors to descriptor ring */
 		memcpy(&tx_ring_base[txq->prod_val_shadow], &descs[index], sizeof(*tx_ring_base) * block_size);

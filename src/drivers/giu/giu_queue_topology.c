@@ -104,6 +104,7 @@ static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_q
 		}
 
 		/* Set TC Parameters */
+		tc_params->dest_num_qs = giu_tc->dest_num_queues;
 		tc_params->hash_type = (enum giu_gpio_hash_type)giu_tc->ingress_rss_type;
 		tc_params->num_qs = giu_tc->num_queues;
 		tc_params->queues = kmalloc((tc_params->num_qs * sizeof(struct giu_gpio_queue)), GFP_KERNEL);
