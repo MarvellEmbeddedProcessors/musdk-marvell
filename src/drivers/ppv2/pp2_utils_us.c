@@ -42,8 +42,7 @@
 
 #define PP2_NETDEV_PATH		"/sys/class/net/"
 
-#define PP2_NETDEV_MASTER_PATH	"/proc/device-tree/cp0/config-space/ppv22@000000/"
-#define PP2_NETDEV_SLAVE_PATH	"/proc/device-tree/cp1/config-space/ppv22@000000/"
+#define PP2_NETDEV_PATH_TEMPLATE_US	"/proc/device-tree/cp%u/config-space/ppv22@000000/"
 
 /* Get device tree data of the PPV2 ethernet ports.
  * Does not include the loopback port.
@@ -67,15 +66,7 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
 
 			idx = i * PP2_NUM_ETH_PPIO + j;
-			if (i == 0)
-				/* TODO -We assume that the temppath is static.
-				* Need to substitute this with a function that searches for the following string:
-				* <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories
-				* and returns the temppath
-				*/
-				sprintf(temppath, PP2_NETDEV_MASTER_PATH);
-			else
-				sprintf(temppath, PP2_NETDEV_SLAVE_PATH);
+			sprintf(temppath, PP2_NETDEV_PATH_TEMPLATE_US, i);
 
 			/* Get port status info */
 			sprintf(subpath, "eth%d@0%d0000", j, j + 1);
