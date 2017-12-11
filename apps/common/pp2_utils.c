@@ -45,7 +45,8 @@
 #include "pp2_utils.h"
 #include "src/drivers/ppv2/pp2.h"
 
-static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
+static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV,
+						   MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
 static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
 
 static u64 buf_alloc_cnt;

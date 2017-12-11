@@ -54,7 +54,7 @@ struct pp2 *pp2_ptr;
 struct netdev_if_params *netdev_params;
 
 /* TBD: remove hc_gop_mac_data variable after port/mac is read from device tree*/
-static struct pp2_mac_data hc_gop_mac_data[6] = {
+static struct pp2_mac_data hc_gop_mac_data[12] = {
 	{
 		.gop_index = 0,
 		.flags = 0,
@@ -126,7 +126,80 @@ static struct pp2_mac_data hc_gop_mac_data[6] = {
 		.duplex = 0,
 		.speed = 0,
 		.mac = {0, 0, 0, 0, 0, 6},
+	},
+	{
+		.gop_index = 0,
+		.flags = 0,
+		.phy_addr = 0,
+		.phy_mode = 18,
+		.force_link = 0,
+		.autoneg = 0,
+		.link = 0,
+		.duplex = 0,
+		.speed = 0,
+		.mac = {0, 0, 0, 0, 0, 7},
+	},
+	{
+		.gop_index = 2,
+		.flags = 0,
+		.phy_addr = 0,
+		.phy_mode = 7,
+		.force_link = 0,
+		.autoneg = 0,
+		.link = 0,
+		.duplex = 0,
+		.speed = 0,
+		.mac = {0, 0, 0, 0, 0, 8},
+	},
+	{
+		.gop_index = 3,
+		.flags = 0,
+		.phy_addr = 0,
+		.phy_mode = 7,
+		.force_link = 0,
+		.autoneg = 0,
+		.link = 0,
+		.duplex = 0,
+		.speed = 0,
+		.mac = {0, 0, 0, 0, 0, 9},
+	},
+	{
+		.gop_index = 0,
+		.flags = 0,
+		.phy_addr = 0,
+		.phy_mode = 18,
+		.force_link = 0,
+		.autoneg = 0,
+		.link = 0,
+		.duplex = 0,
+		.speed = 0,
+		.mac = {0, 0, 0, 0, 0, 0xa},
+	},
+	{
+		.gop_index = 2,
+		.flags = 0,
+		.phy_addr = 0,
+		.phy_mode = 7,
+		.force_link = 0,
+		.autoneg = 0,
+		.link = 0,
+		.duplex = 0,
+		.speed = 0,
+		.mac = {0, 0, 0, 0, 0, 0xb},
+	},
+	{
+		.gop_index = 3,
+		.flags = 0,
+		.phy_addr = 0,
+		.phy_mode = 7,
+		.force_link = 0,
+		.autoneg = 0,
+		.link = 0,
+		.duplex = 0,
+		.speed = 0,
+		.mac = {0, 0, 0, 0, 0, 0xc},
 	}
+
 };
 
 
