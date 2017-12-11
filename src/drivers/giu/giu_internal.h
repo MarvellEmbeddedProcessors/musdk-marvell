@@ -30,62 +30,43 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#include "std_internal.h"
-#include "mng/mv_nmp.h"
-#include "db.h"
-#include "dev_mng.h"
-#include "mng/dispatch.h"
-#include "config.h"
+#ifndef __GIU_INTERNAL_H__
+#define __GIU_INTERNAL_H__
 
-int nmp_init(struct nmp_params *params, struct nmp **nmp)
-{
-	int ret;
 
-	pr_info("Starting %s %s\n", "giu_main", VERSION);
+/**
+ * queue type
+ *
+ */
+enum queue_type {
+	MNG_CMD_QUEUE,
+	MNG_NOTIFY_QUEUE,
+	LOCAL_INGRESS_DATA_QUEUE,
+	LOCAL_EGRESS_DATA_QUEUE,
+	LOCAL_BM_QUEUE,
+	HOST_INGRESS_DATA_QUEUE,
+	HOST_EGRESS_DATA_QUEUE,
+	HOST_BM_QUEUE
 
-	*nmp = kcalloc(1, sizeof(struct nmp), GFP_KERNEL);
-	if (*nmp == NULL) {
-		pr_err("Failed to allocate NMP handler\n");
-		return -ENOMEM;
-	}
+};
 
-	(*nmp)->nic_pf.profile_data.lcl_egress_q_num   = params->lfs_params->pf.lcl_egress_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_egress_q_size  = params->lfs_params->pf.lcl_egress_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_ingress_q_num  = params->lfs_params->pf.lcl_ingress_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_ingress_q_size = params->lfs_params->pf.lcl_ingress_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_bm_q_num       = params->lfs_params->pf.lcl_bm_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_bm_q_size      = params->lfs_params->pf.lcl_bm_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_bm_buf_size    = params->lfs_params->pf.lcl_bm_buf_size;
+#define GIU_LCL_Q_IND (0)
+#define GIU_REM_Q_IND (1)
 
-	ret = dev_mng_init(*nmp);
-	if (ret) {
-		pr_err("Management init failed with error %d\n", ret);
-		kfree(nmp);
-		exit(ret);
-	}
+/**
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int giu_free_tc_queues(struct mqa *mqa, struct giu_gpio_q *giu_gpio_q,
+						u32 queue_num, void *gie);
 
-	pr_info("Completed management init\n");
+/**
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int giu_queue_remove(struct mqa *mqa, struct giu_gpio_q *giu_gpio_q_p,
+					 enum queue_type queue_type, void *giu_handle);
 
-	return 0;
-}
-
-int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
-{
-	switch (type) {
-
-	case NMP_SCHED_MNG:
-		gie_schedule(nmp->nic_pf.gie.mng_gie, 0, 1);
-		nmdisp_dispatch(nmp->nmdisp);
-		break;
-
-	case NMP_SCHED_RX:
-		gie_schedule(nmp->nic_pf.gie.rx_gie, 0, 1);
-		break;
-
-	case NMP_SCHED_TX:
-		gie_schedule(nmp->nic_pf.gie.tx_gie, 0, 1);
-		break;
-	}
-	return 0;
-}
-
+#endif /* __GIU_INTERNAL_H__ */

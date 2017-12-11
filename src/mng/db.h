@@ -38,6 +38,9 @@
 #include "lf/pf/pf_profile.h"
 #include "drivers/mv_mqa_queue.h"
 #include "drivers/mqa/mqa_internal.h"
+#include "drivers/mv_giu_gpio_init.h"
+#include "drivers/giu/giu_queue_topology.h"
+#include "hw_emul/gie.h"
 
 #define MAX_PCI_FUNC_NAME	256
 #define MAX_PCI_FUNC_BARS	3
@@ -80,31 +83,20 @@ struct pci_plat_func_map {
 };
 
 
-/* Structure containing all the GIE related data
- *
- *  mng/rx/tx_gie	GIE device handles
- */
-struct gie_data {
-	struct gie *mng_gie;
-	struct gie *rx_gie;
-	struct gie *tx_gie;
-};
-
-
 /* Structure containing all the NIC-PF related data
- *
- *  map		Includes the mapping of the PCI function resources
  */
 struct nic_pf {
 	int pf_id;
-	struct gie_data gie;
-	struct mqa *mqa;
-	struct nmdisp *nmdisp;
-	struct pci_plat_func_map map;
-	struct pf_profile profile_data;
-	struct giu_regfile regfile_data;
-	struct giu_mng_topology mng_data;
-	struct giu_queue_topology topology_data;
+	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
+	struct gie_data gie;                        /* GIE */
+	struct mqa *mqa;                            /* MQA */
+	struct nmdisp *nmdisp;                      /* Dispatcher */
+	struct pf_profile profile_data;             /* Profile */
+	struct giu_gpio *giu_gpio;                  /* GIU Gpio */
+	struct giu_bpool *giu_bpool;                /* GIU Bpool */
+	struct giu_gpio_init_params topology_data;  /* GIU Queue Topology */
+	struct giu_mng_topology mng_data;           /* GIU Management Topology */
+	struct giu_regfile regfile_data;            /* GIU Register File */
 	void *internal;
 };
 
@@ -118,11 +110,6 @@ struct nmp {
 	struct nic_pf nic_pf;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
-};
-
-struct giu_gpio_q {
-	struct mqa_queue_params params;
-	struct mqa_q *q;
 };
 
 int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num);

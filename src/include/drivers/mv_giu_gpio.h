@@ -34,6 +34,8 @@
 #define __MV_GIU_GPIO_H__
 
 #include "mv_std.h"
+#include "mv_mqa.h"
+#include "mv_giu_gpio_init.h"
 #include "mv_giu_bpool.h"
 #include "mv_pp2_ppio.h" /* for descriptor inspection functionality */
 
@@ -60,6 +62,25 @@ struct giu_gpio;
 struct giu_gpio_desc {
 	u32                      cmds[GIU_GPIO_DESC_NUM_WORDS];
 };
+
+/**
+ * Initialize a gpio
+ *
+ * @param[in]	init_params	gpio initialization parameters
+ * @param[out]	gpio		A pointer to opaque gpio handle of type 'struct giu_gpio *'.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gpio);
+
+/**
+ * De-initialize a gpio
+ *
+ * @param[in]	gpio	A gpio handle.
+ *
+ */
+void giu_gpio_deinit(struct giu_gpio *gpio);
 
 /**
  * Probe a gpio

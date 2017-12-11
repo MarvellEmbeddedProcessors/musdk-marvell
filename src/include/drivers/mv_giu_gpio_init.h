@@ -30,62 +30,82 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#include "std_internal.h"
-#include "mng/mv_nmp.h"
-#include "db.h"
-#include "dev_mng.h"
-#include "mng/dispatch.h"
-#include "config.h"
+#ifndef _MV_GIU_GPIO_INIT_H
+#define _MV_GIU_GPIO_INIT_H
 
-int nmp_init(struct nmp_params *params, struct nmp **nmp)
-{
-	int ret;
+/* RSS Hash Type
+ *
+ *	HASH_2_TUPLE - IP-src, IP-dst
+ *	HASH_5_TUPLE - IP-src, IP-dst, IP-Prot, L4-src, L4-dst
+ */
+enum rss_hash_type {
+	RSS_HASH_NONE = 0,
+	RSS_HASH_2_TUPLE,
+	RSS_HASH_5_TUPLE
 
-	pr_info("Starting %s %s\n", "giu_main", VERSION);
+};
 
-	*nmp = kcalloc(1, sizeof(struct nmp), GFP_KERNEL);
-	if (*nmp == NULL) {
-		pr_err("Failed to allocate NMP handler\n");
-		return -ENOMEM;
-	}
+/* In TC - Queue topology */
+struct giu_gpio_intc_params {
+	u32 tc_id;
 
-	(*nmp)->nic_pf.profile_data.lcl_egress_q_num   = params->lfs_params->pf.lcl_egress_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_egress_q_size  = params->lfs_params->pf.lcl_egress_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_ingress_q_num  = params->lfs_params->pf.lcl_ingress_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_ingress_q_size = params->lfs_params->pf.lcl_ingress_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_bm_q_num       = params->lfs_params->pf.lcl_bm_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_bm_q_size      = params->lfs_params->pf.lcl_bm_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_bm_buf_size    = params->lfs_params->pf.lcl_bm_buf_size;
+	/* lcl_eg_tcs */
+	u32 num_inqs;
+	struct giu_gpio_q *inqs_params;
 
-	ret = dev_mng_init(*nmp);
-	if (ret) {
-		pr_err("Management init failed with error %d\n", ret);
-		kfree(nmp);
-		exit(ret);
-	}
+	/* lcl_bm_qs_num */
+	u32 num_inpools;
+	u32 pool_buf_size;
+	/* lcl_bm_qs_params */
+	struct giu_gpio_q *pools;
 
-	pr_info("Completed management init\n");
+	/* host_eg_tcs */
+	u32 num_rem_outqs;
+	struct giu_gpio_q *rem_outqs_params;
 
-	return 0;
-}
+};
 
-int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
-{
-	switch (type) {
+struct giu_gpio_intcs_params {
+	u32 num_intcs;
+	struct giu_gpio_intc_params *intc_params;
 
-	case NMP_SCHED_MNG:
-		gie_schedule(nmp->nic_pf.gie.mng_gie, 0, 1);
-		nmdisp_dispatch(nmp->nmdisp);
-		break;
+};
 
-	case NMP_SCHED_RX:
-		gie_schedule(nmp->nic_pf.gie.rx_gie, 0, 1);
-		break;
+/* Out TC - Queue topology */
+struct giu_gpio_outtc_params {
+	u32 tc_id;
 
-	case NMP_SCHED_TX:
-		gie_schedule(nmp->nic_pf.gie.tx_gie, 0, 1);
-		break;
-	}
-	return 0;
-}
+	/* lcl_ing_tcs */
+	u32 num_outqs;
+	struct giu_gpio_q *outqs_params;
+
+	/* host_ing_tcs */
+	u32 num_rem_inqs;
+	u8 rss_type;
+	struct giu_gpio_q *rem_inqs_params;
+
+	u32 host_bm_qs_num;
+	struct giu_gpio_q *rem_poolqs_params;
+
+};
+
+struct giu_gpio_outtcs_params {
+	u32 num_outtcs;
+	struct giu_gpio_outtc_params *outtc_params;
+
+};
+
+/* Queue topology */
+struct giu_gpio_init_params {
+	u8 id;
+
+	struct mqa *mqa;
+	struct gie_data *gie;
+
+	struct giu_gpio_intcs_params  intcs_params;
+	struct giu_gpio_outtcs_params outtcs_params;
+
+};
+
+#endif /* _MV_GIU_GPIO_INIT_H */
 

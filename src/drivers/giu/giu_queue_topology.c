@@ -32,6 +32,8 @@
 
 #include "std_internal.h"
 
+#include "drivers/mv_mqa.h"
+#include "drivers/mv_mqa_queue.h"
 #include "giu_queue_topology.h"
 #include "drivers/giu_regfile_def.h"
 #include "file_map.h"

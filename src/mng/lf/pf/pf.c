@@ -34,7 +34,10 @@
 
 #include "std_internal.h"
 #include "hw_emul/gie.h"
+#include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
+#include "drivers/mv_giu_gpio.h"
+#include "drivers/giu/giu_queue_topology.h"
 #include "pf_mng_cmd_desc.h"
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
@@ -55,9 +58,6 @@
  */
 #define LOCAL_CMD_QUEUE_SIZE	256
 #define LOCAL_NOTIFY_QUEUE_SIZE	256
-
-#define GIU_LCL_Q_IND (0)
-#define GIU_REM_Q_IND (1)
 
 #define REGFILE_VERSION		000002	/* Version Format: XX.XX.XX*/
 
@@ -120,7 +120,7 @@ static int nic_pf_regfile_size(struct nic_pf *nic_pf)
 	u32 tc_id;
 	struct giu_gpio_intc_params *intc;
 	struct giu_gpio_outtc_params *outtc;
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	/* Main topology structure size */
 	size = sizeof(struct giu_regfile);
@@ -420,7 +420,7 @@ static int nic_pf_config_topology_and_update_regfile(struct nic_pf *nic_pf)
 {
 	void *file_map;
 	struct giu_regfile *regfile_data = &nic_pf->regfile_data;
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 	int tc_idx, queue_idx;
 	void *pf_cfg_base;
 	int ret = 0;
@@ -545,7 +545,7 @@ static int nic_pf_topology_local_queue_init(struct nic_pf *nic_pf)
 {
 	int ret;
 	struct pf_profile *prof = &(nic_pf->profile_data);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_info("Initializing Local Queues in management Database\n");
 
@@ -589,7 +589,7 @@ queue_error:
  */
 static void nic_pf_topology_local_tc_free(struct nic_pf *nic_pf)
 {
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_debug("Free Local queues DB\n");
 	pf_intc_queue_free(LCL, q_top->intcs_params.num_intcs);
@@ -613,7 +613,7 @@ static void nic_pf_topology_local_tc_free(struct nic_pf *nic_pf)
 static int nic_pf_topology_remote_queue_init(struct nic_pf *nic_pf, u32 outtc_rem_bm_pools)
 {
 	int ret;
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_info("Initializing Remote Queues in management Database\n");
 
@@ -661,7 +661,7 @@ queue_error:
  */
 static int nic_pf_topology_remote_tc_free(struct nic_pf *nic_pf)
 {
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_debug("Free Remote queues DB\n");
 	pf_intc_queue_free(REM, q_top->intcs_params.num_intcs);
@@ -713,7 +713,7 @@ static int nic_pf_topology_local_queue_cfg(struct nic_pf *nic_pf)
 	struct giu_gpio_q giu_gpio_q;
 	struct giu_gpio_q *giu_gpio_q_p;
 	struct pf_profile *prof = &(nic_pf->profile_data);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Local BM queues\n");
 
@@ -743,9 +743,9 @@ static int nic_pf_topology_local_queue_cfg(struct nic_pf *nic_pf)
 
 		pr_debug("Configure BM[%d], Id %d\n\n",
 				bm_idx, q_top->intcs_params.intc_params.pools[bm_idx].params.idx);
-
 	}
 
+	q_top->intcs_params.intc_params->pool_buf_size = prof->lcl_bm_buf_size;
 
 	pr_info("Configure Local Egress TC queues\n");
 
@@ -1198,7 +1198,10 @@ int nic_pf_init(struct nic_pf *nic_pf)
 	struct nmdisp_q_pair_params q_params;
 
 	/* Clear queue topology batabase */
-	memset(&(nic_pf->topology_data), 0, sizeof(struct giu_queue_topology));
+	memset(&(nic_pf->topology_data), 0, sizeof(struct giu_gpio_init_params));
+
+	nic_pf->topology_data.mqa = nic_pf->mqa;
+	nic_pf->topology_data.gie = &(nic_pf->gie);
 
 	nic_pf->pf_id = 0;
 
@@ -1392,7 +1395,7 @@ static int nic_pf_pf_init_command(struct nic_pf *nic_pf,
 	int ret;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_debug("PF INIT\n");
 	pr_debug("Num of - Ing TC %d, Eg TC %d, Bpool %d\n",
@@ -1462,7 +1465,7 @@ static int nic_pf_bpool_add_command(struct nic_pf *nic_pf,
 
 	struct giu_gpio_q giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Host BM queues\n");
 
@@ -1530,7 +1533,7 @@ static int nic_pf_egress_tc_add_command(struct nic_pf *nic_pf,
 	struct giu_gpio_q *tc_queues;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Host Egress TC[%d] Queues\n", params->pf_egress_tc_add.tc_prio);
 
@@ -1574,7 +1577,7 @@ static int nic_pf_ingress_tc_add_command(struct nic_pf *nic_pf,
 	struct giu_gpio_q *tc_queues;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	pr_info("Configure Host Ingress TC[%d] Queues\n", params->pf_ingress_tc_add.tc_prio);
 
@@ -1643,7 +1646,7 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 
 	struct giu_gpio_q giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 	struct giu_gpio_outtc_params *outtc;
 
 	msg_tc = params->pf_ingress_data_q_add.tc_prio;
@@ -1730,7 +1733,7 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 
 	struct giu_gpio_q giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 	struct giu_gpio_intc_params *intc;
 
 	pr_info("Configure Host Egress TC queues\n");
@@ -1800,512 +1803,6 @@ egress_queue_exit:
 	return ret;
 }
 
-/*
- *	nic_pf_queue_remove
- */
-static int nic_pf_queue_remove(struct nic_pf *nic_pf, struct giu_gpio_q *giu_gpio_q_p,
-							   enum queue_type queue_type, void *giu_handle)
-{
-	u32 q_id = giu_gpio_q_p->params.idx;
-	int ret = 0;
-
-	pr_debug("Remove queue %d (type %d)\n", q_id, queue_type);
-
-	if (giu_handle) {
-		/* Un-register Q from GIU */
-		if (queue_type == LOCAL_BM_QUEUE ||
-		    queue_type == HOST_BM_QUEUE)
-			ret = gie_remove_bm_queue(giu_handle, q_id);
-		else
-			ret = gie_remove_queue(giu_handle, q_id);
-		if (ret)
-			pr_err("Failed to remove queue Idx %x from GIU\n", q_id);
-	}
-
-	/* For local queue: destroy the queue (as it was allocated by the NIC */
-	if (queue_type == LOCAL_INGRESS_DATA_QUEUE ||
-	    queue_type == LOCAL_EGRESS_DATA_QUEUE ||
-	    queue_type == LOCAL_BM_QUEUE) {
-		ret = mqa_queue_destroy(nic_pf->mqa, giu_gpio_q_p->q);
-		if (ret)
-			pr_err("Failed to free queue Idx %x in DB\n", q_id);
-	}
-
-	/* Free the MQA resource */
-	ret = mqa_queue_free(nic_pf->mqa, q_id);
-	if (ret)
-		pr_err("Failed to free queue Idx %x in MQA\n", q_id);
-
-	memset(giu_gpio_q_p, 0, sizeof(struct giu_gpio_q));
-
-	return ret;
-}
-
-/*
- *	nic_pf_giu_bpool_init
- *
- *
- *	@param[in]	nic_pf - pointer to NIC PF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-static int nic_pf_giu_bpool_init(struct nic_pf *nic_pf)
-{
-	int ret;
-	u32 bm_idx;
-	struct giu_gpio_q *giu_gpio_q_p;
-	struct pf_profile *prof = &(nic_pf->profile_data);
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
-
-	pr_info("Initializing Local BM queues\n");
-
-	/* Create Local BM queues */
-	for (bm_idx = 0; bm_idx < q_top->intcs_params.intc_params->num_inpools; bm_idx++) {
-		giu_gpio_q_p = &(q_top->intcs_params.intc_params->pools[bm_idx]);
-
-		ret = mqa_queue_create(nic_pf->mqa, &giu_gpio_q_p->params, &(giu_gpio_q_p->q));
-		if (ret < 0) {
-			pr_err("Failed to allocate Local BM queues\n");
-			goto lcl_queue_error;
-		}
-
-		/* Register Local BM Queue to GIU */
-		ret = gie_add_bm_queue(nic_pf->gie.tx_gie, giu_gpio_q_p->params.idx, prof->lcl_bm_buf_size,
-							   GIU_LCL_Q_IND);
-		if (ret) {
-			pr_err("Failed to register BM Queue %d to GIU\n", giu_gpio_q_p->params.idx);
-			goto lcl_queue_error;
-		}
-		pr_debug("Local BM[%d], queue Id %d, Registered to GIU TX\n\n", bm_idx, giu_gpio_q_p->params.idx);
-	}
-
-
-	pr_info("Initializing Remote BM queues\n");
-
-	/* Create Remote BM queues */
-	for (bm_idx = 0; bm_idx < q_top->outtcs_params.outtc_params->host_bm_qs_num; bm_idx++) {
-		giu_gpio_q_p = &(q_top->outtcs_params.outtc_params->rem_poolqs_params[bm_idx]);
-
-		ret = mqa_queue_create(nic_pf->mqa, &giu_gpio_q_p->params, &(giu_gpio_q_p->q));
-		if (ret < 0) {
-			pr_err("Failed to allocate queue for Host BM\n");
-			goto host_queue_error;
-		}
-
-		/* Register Host BM Queue to GIU */
-		ret = gie_add_bm_queue(nic_pf->gie.rx_gie, giu_gpio_q_p->params.idx, giu_gpio_q_p->params.size,
-							   GIU_REM_Q_IND);
-		if (ret) {
-			pr_err("Failed to register BM Queue %d to GIU\n", giu_gpio_q_p->params.idx);
-			goto host_queue_error;
-		}
-		pr_debug("Host BM[%d], queue Id %d, Registered to GIU RX\n\n", bm_idx, giu_gpio_q_p->params.idx);
-	}
-
-	return 0;
-
-host_queue_error:
-
-	for (bm_idx = 0; bm_idx < q_top->outtcs_params.outtc_params->host_bm_qs_num; bm_idx++) {
-		giu_gpio_q_p = &(q_top->outtcs_params.outtc_params->rem_poolqs_params[bm_idx]);
-
-		if (giu_gpio_q_p != NULL) {
-			ret = gie_remove_bm_queue(nic_pf->gie.rx_gie, giu_gpio_q_p->params.idx);
-			if (ret)
-				pr_err("Failed to remove queue Idx %x from GIU TX\n", giu_gpio_q_p->params.idx);
-			ret = mqa_queue_destroy(nic_pf->mqa, giu_gpio_q_p->q);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in DB\n", giu_gpio_q_p->params.idx);
-			ret = mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->params.idx);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->params.idx);
-
-			memset(giu_gpio_q_p, 0, sizeof(struct giu_gpio_q));
-		}
-	}
-
-lcl_queue_error:
-
-	for (bm_idx = 0; bm_idx < q_top->intcs_params.intc_params->num_inpools; bm_idx++) {
-		giu_gpio_q_p = &(q_top->intcs_params.intc_params->pools[bm_idx]);
-
-		if (giu_gpio_q_p != NULL) {
-			ret = gie_remove_bm_queue(nic_pf->gie.tx_gie, giu_gpio_q_p->params.idx);
-			if (ret)
-				pr_err("Failed to remove queue Idx %x from GIU TX\n", giu_gpio_q_p->params.idx);
-			ret = mqa_queue_destroy(nic_pf->mqa, giu_gpio_q_p->q);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in DB\n", giu_gpio_q_p->params.idx);
-			ret = mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->params.idx);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->params.idx);
-
-			memset(giu_gpio_q_p, 0, sizeof(struct giu_gpio_q));
-		}
-	}
-
-	return -1;
-}
-
-
-/*
- *	nic_pf_giu_bpool_deinit
- *
- *
- *	@param[in]	nic_pf - pointer to NIC PF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-static int nic_pf_giu_bpool_deinit(struct nic_pf *nic_pf)
-{
-	int ret;
-	u32 bm_idx;
-	struct giu_gpio_q *giu_gpio_q_p;
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
-
-	pr_debug("De-initializing Remote BM queues\n");
-	for (bm_idx = 0; bm_idx < q_top->outtcs_params.outtc_params->host_bm_qs_num; bm_idx++) {
-		giu_gpio_q_p = &(q_top->outtcs_params.outtc_params->rem_poolqs_params[bm_idx]);
-		if (giu_gpio_q_p) {
-			ret = nic_pf_queue_remove(nic_pf, giu_gpio_q_p, HOST_BM_QUEUE, nic_pf->gie.rx_gie);
-			if (ret)
-				pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->params.idx);
-		}
-	}
-
-	pr_debug("De-initializing Local BM queues\n");
-	for (bm_idx = 0; bm_idx < q_top->intcs_params.intc_params->num_inpools; bm_idx++) {
-		giu_gpio_q_p = &(q_top->intcs_params.intc_params->pools[bm_idx]);
-		if (giu_gpio_q_p) {
-			ret = nic_pf_queue_remove(nic_pf, giu_gpio_q_p, LOCAL_BM_QUEUE, nic_pf->gie.tx_gie);
-			if (ret)
-				pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->params.idx);
-		}
-	}
-
-	return 0;
-}
-
-
-static int nic_pf_free_tc_queues(struct nic_pf *nic_pf, struct giu_gpio_q *giu_gpio_q, u32 queue_num, void *gie)
-{
-	u32 q_idx;
-	int ret;
-	struct giu_gpio_q *giu_gpio_q_p;
-
-	for (q_idx = 0; q_idx < queue_num; q_idx++) {
-		giu_gpio_q_p = &(giu_gpio_q[q_idx]);
-		if (giu_gpio_q_p != NULL) {
-			mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->params.idx);
-
-			/* If needed, unregister the queue from GIU polling */
-			if (gie) {
-				ret = gie_remove_queue(gie, giu_gpio_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to remove queue Idx %x from GIU TX\n", giu_gpio_q_p->params.idx);
-			}
-
-			memset(giu_gpio_q_p, 0, sizeof(struct giu_gpio_q));
-		}
-	}
-
-	return 0;
-}
-
-
-/*
- *	nic_pf_giu_gpio_init
- *
- *
- *	@param[in]	nic_pf - pointer to NIC PF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-static int nic_pf_giu_gpio_init(struct nic_pf *nic_pf)
-{
-	int ret;
-	u32 tc_idx;
-	u32 q_idx;
-	s32 pair_qid;
-	struct giu_gpio_outtc_params *outtc, *outtc_pair;
-	struct giu_gpio_intc_params *intc, *intc_pair;
-	struct giu_gpio_q *giu_gpio_q_p;
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
-
-	pr_info("Initializing Local Egress TC queues\n");
-
-	/* Create Local Egress TC queues */
-	pr_debug("Num of Egress TC - %d\n", q_top->intcs_params.num_intcs);
-	pr_debug("Egress TCs Array addr - %p\n", q_top->intcs_params.intc_params);
-
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
-
-		pr_debug("Egress TC[%d] addr - %p\n", tc_idx, &(q_top->intcs_params.intc_params[tc_idx]));
-		intc = &(q_top->intcs_params.intc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-
-			giu_gpio_q_p = &(intc->inqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-				ret = mqa_queue_create(nic_pf->mqa, &giu_gpio_q_p->params, &(giu_gpio_q_p->q));
-				if (ret < 0) {
-					pr_err("Failed to allocate queue for Host BM\n");
-					goto lcl_eg_queue_error;
-				}
-			}
-		}
-	}
-
-
-	pr_info("Initializing Local Ingress TC queues\n");
-
-	/* Create Local Ingress TC queues */
-	pr_debug("Num of Ingress TC - %d\n", q_top->outtcs_params.num_outtcs);
-	pr_debug("Ingress TCs Array addr - %p\n", q_top->outtcs_params.outtc_params);
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-
-		pr_debug("Ingress TC[%d] addr - %p\n", tc_idx, &(q_top->outtcs_params.outtc_params[tc_idx]));
-		outtc = &(q_top->outtcs_params.outtc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-
-			giu_gpio_q_p = &(outtc->outqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-				ret = mqa_queue_create(nic_pf->mqa, &giu_gpio_q_p->params, &(giu_gpio_q_p->q));
-				if (ret < 0) {
-					pr_err("Failed to allocate queue for Host BM\n");
-					goto lcl_ing_queue_error;
-				}
-			}
-		}
-	}
-
-	pr_info("Initializing Host Ingress TC queues\n");
-
-	/* Create Host Ingress TC queues */
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-
-		pr_info("Host ingress TC[%d] addr - %p\n", tc_idx, &(q_top->outtcs_params.outtc_params[tc_idx]));
-		outtc = &(q_top->outtcs_params.outtc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-
-			giu_gpio_q_p = &(outtc->rem_inqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-
-				outtc_pair = &(q_top->outtcs_params.outtc_params[giu_gpio_q_p->params.prio]);
-				pair_qid = outtc_pair->outqs_params[0].params.idx;
-
-				ret = mqa_queue_create(nic_pf->mqa, &giu_gpio_q_p->params, &(giu_gpio_q_p->q));
-				if (ret < 0) {
-					pr_err("Failed to allocate queue for Host BM\n");
-					goto host_ing_queue_error;
-				}
-
-				ret = mqa_queue_associate_pair(nic_pf->mqa, pair_qid, giu_gpio_q_p->params.idx);
-				if (ret) {
-					pr_err("Failed to associate remote egress Queue %d\n",
-						   giu_gpio_q_p->params.idx);
-					goto host_ing_queue_error;
-				}
-
-				ret = gie_add_queue(nic_pf->gie.rx_gie, pair_qid, GIU_LCL_Q_IND);
-				if (ret) {
-					pr_err("Failed to register Host Egress Queue %d to GIU\n",
-						   giu_gpio_q_p->params.idx);
-					goto host_ing_queue_error;
-				}
-			}
-		}
-	}
-
-
-	pr_info("Initializing Host Egress TC queues\n");
-
-	/* Create Host Egress TC queues */
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
-
-		pr_info("Host Egress TC[%d] addr - %p\n", tc_idx, &(q_top->intcs_params.intc_params[tc_idx]));
-		intc = &(q_top->intcs_params.intc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-
-			giu_gpio_q_p = &(intc->rem_outqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-
-				intc_pair = &(q_top->intcs_params.intc_params[giu_gpio_q_p->params.prio]);
-				pair_qid = intc_pair->inqs_params[0].params.idx;
-
-				ret = mqa_queue_create(nic_pf->mqa, &giu_gpio_q_p->params, &(giu_gpio_q_p->q));
-				if (ret < 0) {
-					pr_err("Failed to allocate queue for Host BM\n");
-					goto host_eg_queue_error;
-				}
-
-				ret = mqa_queue_associate_pair(nic_pf->mqa, giu_gpio_q_p->params.idx, pair_qid);
-				if (ret) {
-					pr_err("Failed to associate remote egress Queue %d\n",
-						   giu_gpio_q_p->params.idx);
-					goto host_eg_queue_error;
-				}
-
-				/* Register Host Egress Queue to GIU */
-				ret = gie_add_queue(nic_pf->gie.tx_gie, giu_gpio_q_p->params.idx, GIU_REM_Q_IND);
-				if (ret) {
-					pr_err("Failed to register Host Egress Queue %d to GIU\n",
-						   giu_gpio_q_p->params.idx);
-					goto host_eg_queue_error;
-				}
-			}
-		}
-	}
-
-	return 0;
-
-host_eg_queue_error:
-
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
-		intc = &(q_top->intcs_params.intc_params[tc_idx]);
-
-		/* Free queue resources and registrations.
-		 * for Egress, also un-register from Tx GIU.
-		 */
-		ret = nic_pf_free_tc_queues(nic_pf, intc->rem_outqs_params, intc->num_rem_outqs, nic_pf->gie.tx_gie);
-		if (ret)
-			pr_err("Failed to free TC %d queues\n", tc_idx);
-	}
-
-host_ing_queue_error:
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-		outtc = &(q_top->outtcs_params.outtc_params[tc_idx]);
-
-		/* Free queue resources and registrations.
-		 * No need to unregister the Q from GIU as it's done on local side.
-		 */
-		ret = nic_pf_free_tc_queues(nic_pf, outtc->rem_inqs_params, outtc->num_rem_inqs, 0);
-		if (ret)
-			pr_err("Failed to free TC %d queues\n", tc_idx);
-	}
-
-lcl_ing_queue_error:
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-		outtc = &(q_top->outtcs_params.outtc_params[tc_idx]);
-
-		/* Free queue resources and registrations.
-		 * for Ingress, also un-register from Rx GIU.
-		 */
-		ret = nic_pf_free_tc_queues(nic_pf, outtc->outqs_params, outtc->num_outqs, nic_pf->gie.rx_gie);
-		if (ret)
-			pr_err("Failed to free TC %d queues\n", tc_idx);
-	}
-
-lcl_eg_queue_error:
-
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
-		intc = &(q_top->intcs_params.intc_params[tc_idx]);
-
-		/* Free queue resources and registrations.
-		 * No need to unregister the Q from GIU as it was done on remote side.
-		 */
-		ret = nic_pf_free_tc_queues(nic_pf, intc->inqs_params, intc->num_inqs, 0);
-		if (ret)
-			pr_err("Failed to free TC %d queues\n", tc_idx);
-	}
-
-	return -1;
-}
-
-
-/*
- *	nic_pf_giu_gpio_deinit
- *
- *
- *	@param[in]	nic_pf - pointer to NIC PF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-static int nic_pf_giu_gpio_deinit(struct nic_pf *nic_pf)
-{
-	int ret;
-	u32 tc_idx;
-	u32 q_idx;
-	struct giu_gpio_outtc_params *outtc;
-	struct giu_gpio_intc_params *intc;
-	struct giu_gpio_q *giu_gpio_q_p;
-	struct giu_queue_topology *q_top = &(nic_pf->topology_data);
-
-	pr_debug("De-initializing Host Egress TC queues\n");
-
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
-		intc = &(q_top->intcs_params.intc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-			giu_gpio_q_p = &(intc->rem_outqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-				ret = nic_pf_queue_remove(nic_pf,
-							giu_gpio_q_p, HOST_EGRESS_DATA_QUEUE, nic_pf->gie.tx_gie);
-				if (ret)
-					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->params.idx);
-			}
-		}
-	}
-
-	pr_debug("De-initializing Host Ingress TC queues\n");
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-		outtc = &(q_top->outtcs_params.outtc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			giu_gpio_q_p = &(outtc->rem_inqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-				ret = nic_pf_queue_remove(nic_pf, giu_gpio_q_p, HOST_INGRESS_DATA_QUEUE, 0);
-				if (ret)
-					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->params.idx);
-			}
-		}
-	}
-
-	pr_debug("De-initializing Local Ingress TC queues\n");
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-		outtc = &(q_top->outtcs_params.outtc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			giu_gpio_q_p = &(outtc->outqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-				ret = nic_pf_queue_remove(nic_pf,
-							giu_gpio_q_p, LOCAL_INGRESS_DATA_QUEUE, nic_pf->gie.rx_gie);
-				if (ret)
-					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->params.idx);
-			}
-		}
-	}
-
-	pr_debug("De-initializing Local Egress TC queues\n");
-
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
-		intc = &(q_top->intcs_params.intc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-			giu_gpio_q_p = &(intc->inqs_params[q_idx]);
-			if (giu_gpio_q_p) {
-				ret = nic_pf_queue_remove(nic_pf, giu_gpio_q_p, LOCAL_EGRESS_DATA_QUEUE, 0);
-				if (ret)
-					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->params.idx);
-			}
-		}
-	}
-
-	return 0;
-}
-
 
 /*
  *	nic_pf_pf_init_done_command
@@ -2315,12 +1812,11 @@ static void nic_pf_pf_init_done_command(struct nic_pf *nic_pf,
 {
 	int ret;
 
-
-	ret = nic_pf_giu_bpool_init(nic_pf);
+	ret = giu_bpool_init(&(nic_pf->topology_data), &(nic_pf->giu_bpool));
 	if (ret)
 		pr_err("Failed to init giu bpool\n");
 
-	ret = nic_pf_giu_gpio_init(nic_pf);
+	ret = giu_gpio_init(&(nic_pf->topology_data), &(nic_pf->giu_gpio));
 	if (ret)
 		pr_err("Failed to init giu gpio\n");
 
@@ -2395,15 +1891,11 @@ static int nic_pf_close_command(struct nic_pf *nic_pf,
 
 	/* Free Data Qs and Un-register in MQA/GIE */
 	pr_debug("Free Data Qs\n");
-	ret = nic_pf_giu_gpio_deinit(nic_pf);
-	if (ret)
-		pr_err("Failed to free data Qs resources\n");
+	giu_gpio_deinit(nic_pf->giu_gpio);
 
 	/* Free BPools and Un-register in MQA/GIE */
 	pr_debug("Free BM Qs\n");
-	ret = nic_pf_giu_bpool_deinit(nic_pf);
-	if (ret)
-		pr_err("Failed to free BM Qs resources\n");
+	giu_bpool_deinit(nic_pf->giu_bpool);
 
 	/*Free DB TCs */
 	pr_debug("Free DB structures\n");

@@ -34,6 +34,8 @@
 #define __MV_GIU_BPOOL_H__
 
 #include "mv_std.h"
+#include "mv_mqa.h"
+#include "mv_giu_gpio_init.h"
 
 /** @addtogroup grp_giu_bp GIU Port I/O (GP-IO): Buffer Pool
  *
@@ -52,9 +54,30 @@ struct giu_bpool {
 
 	/* Buffer Pool Q parameters */
 	void	*queue;
+	void	*params;
+
 };
 
 extern struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS];
+
+/**
+ * Initialize a Buffer Pool (bpool)
+ *
+ * @param[in]	init_params	bpool initialization parameters
+ * @param[out]	bpool		A pointer to opaque bpool handle of type 'struct giu_bpool *'.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **bpool);
+
+/**
+ * De-initialize a Buffer Pool (bpool)
+ *
+ * @param[in]	bpool	A bpool handle.
+ *
+ */
+void giu_bpool_deinit(struct giu_bpool *bpool);
 
 /**
  * Probe the Buffer Pool (bpool)

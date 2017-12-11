@@ -64,6 +64,11 @@ enum giu_gpio_outqs_sched_mode {
  *	gpio queue structures
  ****************************************************************************/
 
+struct giu_gpio_q {
+	struct mqa_queue_params params;
+	struct mqa_q *q;
+};
+
 /**
  * gpio queue parameters
  *

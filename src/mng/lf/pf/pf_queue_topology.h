@@ -35,44 +35,6 @@
 
 #define QUEUE_FREE_STATUS (-1)
 
-enum queue_type {
-	MNG_CMD_QUEUE,
-	MNG_NOTIFY_QUEUE,
-	LOCAL_INGRESS_DATA_QUEUE,
-	LOCAL_EGRESS_DATA_QUEUE,
-	LOCAL_BM_QUEUE,
-	HOST_INGRESS_DATA_QUEUE,
-	HOST_EGRESS_DATA_QUEUE,
-	HOST_BM_QUEUE
-
-};
-
-/* RSS Hash Type
- *
- *	HASH_2_TUPLE - IP-src, IP-dst
- *	HASH_5_TUPLE - IP-src, IP-dst, IP-Prot, L4-src, L4-dst
- */
-enum rss_hash_type {
-	RSS_HASH_NONE = 0,
-	RSS_HASH_2_TUPLE,
-	RSS_HASH_5_TUPLE
-
-};
-
-/*	Traffic Class information
- *
- *	tc_id	      - traffic class Id
- *	num_queues    - number queues in traffic class
- *	rss_type      - Ingress RSS type (Egress type should be set to HASH_NONE)
- *	tc_queues_idx - array of queue indexs associated with this traffic class
- */
-struct tc_params {
-	u32 tc_id;
-	u32 num_of_queues;
-	u32 rss_type;
-	struct giu_gpio_q *tc_queue_params;
-
-};
 
 /*	Management Channels information
  *
@@ -89,64 +51,6 @@ struct mng_ch_params {
 struct giu_mng_topology {
 	struct mng_ch_params lcl_mng_ctrl;
 	struct mng_ch_params host_mng_ctrl;
-
-};
-
-/* In TC - Queue topology */
-struct giu_gpio_intc_params {
-	u32 tc_id;
-
-	/* lcl_eg_tcs */
-	u32 num_inqs;
-	struct giu_gpio_q *inqs_params;
-
-	/* lcl_bm_qs_num */
-	u32 num_inpools;
-	/* lcl_bm_qs_params */
-	struct giu_gpio_q *pools;
-
-	/* host_eg_tcs */
-	u32 num_rem_outqs;
-	struct giu_gpio_q *rem_outqs_params;
-
-};
-
-struct giu_gpio_intcs_params {
-	u32 num_intcs;
-	struct giu_gpio_intc_params *intc_params;
-
-};
-
-/* Out TC - Queue topology */
-struct giu_gpio_outtc_params {
-	u32 tc_id;
-
-	/* lcl_ing_tcs */
-	u32 num_outqs;
-	struct giu_gpio_q *outqs_params;
-
-	/* host_ing_tcs */
-	u32 num_rem_inqs;
-	u8 rss_type;
-	struct giu_gpio_q *rem_inqs_params;
-
-	u32 host_bm_qs_num;
-	struct giu_gpio_q *rem_poolqs_params;
-
-};
-
-struct giu_gpio_outtcs_params {
-	u32 num_outtcs;
-	struct giu_gpio_outtc_params *outtc_params;
-
-};
-
-/* Queue topology */
-struct giu_queue_topology {
-	u8 id;
-
-	struct giu_gpio_intcs_params  intcs_params;
-	struct giu_gpio_outtcs_params outtcs_params;
 
 };
 
