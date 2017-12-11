@@ -33,7 +33,7 @@
 #ifndef __MV_PP_UIO_H__
 #define __MV_PP_UIO_H__
 
-#define UIO_PP_0 "uio_pp_0"
-#define UIO_PP_1 "uio_pp_1"
+
+#define UIO_PP_HDR "uio_pp_%u"
 
 #endif /* __MV_PP_UIO_H__ */
