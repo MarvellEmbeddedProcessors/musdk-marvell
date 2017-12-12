@@ -480,6 +480,9 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 	u16			 i, tx_num, free_count;
 	u16			 desc_idx = 0, cnt = 0;
 	u16			 pkt_offset = MVAPPS_PP2_PKT_EFEC_OFFS(pp2_port_desc->pkt_offset[tc]);
+	enum pp2_inq_l3_type     l3_type;
+	enum pp2_inq_l4_type     l4_type;
+	u8                       l3_offset, l4_offset;
 
 	/* Note: PP2 descriptors and GIU descriptors has similar
 	 *	 structure so it's ok to use the same descriptors
@@ -538,6 +541,8 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 		tmp_buff += pkt_offset;
 		printf("In packet: (@%p,0x%x)\n", buff, pa); mem_disp(tmp_buff, len);
 #endif
+		pp2_ppio_inq_desc_get_l3_info(&pp2_descs[i], &l3_type, &l3_offset);
+		pp2_ppio_inq_desc_get_l4_info(&pp2_descs[i], &l4_type, &l4_offset);
 
 		/* Reset the descriptor */
 		giu_gpio_outq_desc_reset(&giu_descs[i]);
@@ -546,6 +551,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 		giu_gpio_outq_desc_set_phys_addr(&giu_descs[i], pa + pkt_offset);
 		giu_gpio_outq_desc_set_pkt_offset(&giu_descs[i], 0);
 		giu_gpio_outq_desc_set_pkt_len(&giu_descs[i], len);
+		giu_gpio_outq_desc_set_proto_info(&giu_descs[i], l3_type, l4_type, l3_offset, l4_offset);
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
