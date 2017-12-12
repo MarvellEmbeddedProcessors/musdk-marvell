@@ -52,6 +52,8 @@
 #include "drivers/mv_pp2_bpool.h"
 #include "drivers/mv_pp2_ppio.h"
 
+#include "mv_pp2x.h"
+
 #define DRIVER_NAME     "pkt_echo"
 #define DRIVER_VERSION  "0.2"
 #define DRIVER_AUTHOR   "Marvell"
@@ -349,9 +351,9 @@ int musdk_pkt_echo_port_init(struct port_desc *port, int num_pools, struct bpool
 	port_params->specific_type_params.log_port_params.first_inq = port->first_inq;
 
 	for (j = 0; j < num_cpus; j++) {
-		inqs_params[j].size = port->inq_size;
-		inqs_params[j].mem = NULL;
-		inqs_params[j].tc_pools_mem_id_index = 0;
+		inq_params[j].size = port->inq_size;
+		inq_params[j].mem = NULL;
+		inq_params[j].tc_pools_mem_id_index = 0;
 	}
 
 	for (i = 0; i < port->num_tcs; i++) {
@@ -436,83 +438,38 @@ int musdk_pkt_echo_find_port_info(struct port_desc *port_desc)
 	return 0;
 }
 
-/* TODO : Replace with native call to kernel driver, after that will be added. */
-static int musdk_pkt_echo_write_file(char *filename, char *data)
+static int musdk_pkt_echo_match_device(struct device *dev, void *data)
 {
-	struct file *filp;
-	loff_t pos = 0;
-	int rc = 0;
-	mm_segment_t old_fs = get_fs();
-
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(filename, O_WRONLY, 0644);
-
-	if (IS_ERR(filp)) {
-		rc = PTR_ERR(filp);
-		pr_err("%s: Failed to open %s for writing (%d).\n", __func__, filename, rc);
-	} else {
-		rc = vfs_write(filp, data, strlen(data), &pos);
-		if (rc > 0) { /* Wrote rc bytes */
-			rc = 0;
-		} else if (rc == 0) {
-			pr_err("%s: Wrote 0 bytes to %s.\n", __func__, filename);
-			rc = -1;
-		}
-		filp_close(filp, NULL);
-	}
-
-	set_fs(old_fs);
-
-	return rc;
+	return 1;
 }
 
-static int musdk_pkt_echo_read_file(char *filename, char *data, u32 max_len)
-{
-	int rc = 0;
-	u64 offset = 0;
-	struct file *filp;
-	mm_segment_t old_fs = get_fs();
-
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(filename, O_RDONLY, 0);
-	if (IS_ERR(filp)) {
-		rc = PTR_ERR(filp);
-		pr_err("%s: Failed to open %s for reading(%d).\n", __func__, filename, rc);
-	} else {
-
-		rc = vfs_read(filp, data, max_len, &offset);
-		if (rc > 0) {
-			data[rc] = '\0';
-			rc = 0;
-		} else if (rc == 0) {
-			pr_err("%s: File %s has 0 length.\n", __func__, filename);
-			rc = -1;
-		}
-		filp_close(filp, NULL);
-	}
-
-	set_fs(old_fs);
-	return rc;
-}
-
-#define PP2_SYSFS_DEBUG_PORT_SET_FILE "/sys/devices/platform/pp2/musdk/sysfs_current_port"
-#define PP2_SYSFS_RSS_NUM_TABLES_FILE "/sys/devices/platform/pp2/rss/num_rss_tables"
-#define PP2_SYSFS_BUFLEN	      16
+/* Gets the number of used RSS tables by acquiring the private data of the first
+ * packet processor and casting it into the included data structure.
+ * This number is identical for all packet processors.
+ */
+#define MVPP2_DRIVER_NAME "mvpp2"
 static int musdk_pkt_echo_rss_tbl_reserved_map_get(u8 *rss_map)
 {
-	char buff[PP2_SYSFS_BUFLEN];
-	u8 num_tables;
+	struct device_driver *pp2_drv;
+	struct device *pp2_dev;
+	struct mv_pp2x *priv;
 
-	if (!musdk_pkt_echo_write_file(PP2_SYSFS_DEBUG_PORT_SET_FILE, interfaces[0]) &&
-	    !musdk_pkt_echo_read_file(PP2_SYSFS_RSS_NUM_TABLES_FILE, buff, PP2_SYSFS_BUFLEN - 1) &&
-	    !kstrtou8(buff, 10, &num_tables)) {
-		*rss_map = (1 << num_tables) - 1;
-	} else {
-		pr_warn("Failed to read number of RSS tables from sysfs. Using a default instead.\n");
-		*rss_map = 0xf; /* Default is 4 tables for the driver, 4 for musdk */
-	}
+	pp2_drv = driver_find(MVPP2_DRIVER_NAME, &platform_bus_type);
+
+	if (!pp2_drv)
+		return -ENOENT;
+
+	pp2_dev = driver_find_device(pp2_drv, NULL, NULL, musdk_pkt_echo_match_device);
+
+	if (!pp2_dev)
+		return -ENOENT;
+
+	priv = dev_get_drvdata(pp2_dev);
+
+	if (!priv)
+		return -ENOENT;
+
+	*rss_map = (1 << priv->num_rss_tables) - 1;
 
 	return 0;
 }

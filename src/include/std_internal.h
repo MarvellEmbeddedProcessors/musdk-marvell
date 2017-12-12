@@ -44,6 +44,8 @@
 #include <linux/export.h>
 #include <linux/ctype.h>
 #include <linux/spinlock.h>
+#include <linux/etherdevice.h>
+#include <linux/if_vlan.h>
 #include <asm-generic/io.h>
 
 #include "env/spinlock.h"
