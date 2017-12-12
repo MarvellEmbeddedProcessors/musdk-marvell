@@ -1363,7 +1363,7 @@ static int nic_pf_pf_init_command(struct nic_pf *nic_pf,
 	ret = nic_pf_topology_remote_queue_init(nic_pf, params->pf_init.num_host_bm_pools);
 	if (ret)
 		pr_err("Failed to update remote DB queue info\n");
-
+#ifndef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 	/* Initialize local queues database */
 	ret = nic_pf_topology_local_queue_init(nic_pf);
 	if (ret) {
@@ -1375,8 +1375,8 @@ static int nic_pf_pf_init_command(struct nic_pf *nic_pf,
 	ret = nic_pf_topology_local_queue_cfg(nic_pf);
 	if (ret)
 		pr_err("Failed to configure PF regfile\n");
-
 pf_init_exit:
+#endif
 
 	/* Generate response message */
 	nic_pf_gen_resp_msg(ret, cmd, resp);
@@ -1754,6 +1754,28 @@ static void nic_pf_pf_init_done_command(struct nic_pf *nic_pf,
 					struct cmd_desc *cmd, struct notif_desc *resp)
 {
 	int ret;
+
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
+
+	/* Override Local Ingress number of queues */
+	nic_pf->profile_data.lcl_ingress_q_num =
+		q_top->outtcs_params.outtc_params[0].num_rem_inqs;
+
+	/* Override Local Egress number of queues */
+	nic_pf->profile_data.lcl_egress_q_num =
+		q_top->intcs_params.intc_params[0].num_rem_outqs;
+
+	/* Initialize local queues database */
+	ret = nic_pf_topology_local_queue_init(nic_pf);
+	if (ret)
+		pr_err("Failed to update local DB queue info\n");
+
+	/* Allocate and configure local queues in the database */
+	ret = nic_pf_topology_local_queue_cfg(nic_pf);
+	if (ret)
+		pr_err("Failed to configure PF regfile\n");
+#endif
 
 	ret = giu_bpool_init(&(nic_pf->topology_data), &(nic_pf->giu_bpool));
 	if (ret)

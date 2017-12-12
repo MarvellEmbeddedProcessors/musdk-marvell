@@ -35,6 +35,8 @@
 
 #include "mv_std.h"
 
+#define GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+
 struct gie;
 
 struct gie_data {

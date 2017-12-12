@@ -45,6 +45,7 @@
 
 #include "lib/lib_misc.h"
 #include "lib/net.h"
+#include "hw_emul/gie.h"
 
 
 
@@ -180,6 +181,9 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 			if (giu_gpio_q_p) {
 				outtc_pair = &(init_params->outtcs_params.outtc_params[params.prio]);
 				pair_qid = outtc_pair->outqs_params[0].lcl_q.q_id;
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+				pair_qid = outtc_pair->outqs_params[q_idx].lcl_q.q_id;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS*/
 
 				ret = mqa_queue_create(init_params->mqa, &params, &(giu_gpio_q_p->rem_q.q));
 				if (ret < 0) {
@@ -231,6 +235,9 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 
 				intc_pair = &(init_params->intcs_params.intc_params[params.prio]);
 				pair_qid = intc_pair->inqs_params[0].lcl_q.q_id;
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+				pair_qid = intc_pair->inqs_params[q_idx].lcl_q.q_id;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS*/
 
 				ret = mqa_queue_create(init_params->mqa, &params, &(giu_gpio_q_p->rem_q.q));
 				if (ret < 0) {
@@ -529,6 +536,51 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 	return 0;
 }
 
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_desc *descs, u16 *num)
+{
+	struct giu_gpio_params *giu_params = gpio->params;
+	struct giu_gpio_tc *gpio_tc = &giu_params->outqs_params.tcs[tc];
+	struct giu_gpio_queue *txq;
+	struct giu_gpio_desc *tx_ring_base;
+	u16 dest_qid;
+	int i;
+
+	/* Calculate RSS and update descriptor */
+	for (i = 0; i < *num; i++) {
+		giu_gpio_update_rss(gpio, tc, &descs[i]);
+		dest_qid = GIU_TXD_GET_DEST_QID(&descs[i]);
+		/* Get queue params */
+		txq = &gpio_tc->queues[dest_qid];
+
+		if (QUEUE_FULL(txq->prod_val_shadow, *txq->cons_addr, txq->desc_total))
+			continue;
+
+		/* Get ring base */
+		tx_ring_base = (struct giu_gpio_desc *)txq->desc_ring_base;
+
+		/* Copy descriptor to descriptor ring */
+		memcpy(&tx_ring_base[txq->prod_val_shadow], &descs[i], sizeof(*tx_ring_base));
+
+		/* Increment producer index, update remaining descriptors count and block size */
+		txq->prod_val_shadow = QUEUE_INDEX_INC(txq->prod_val_shadow, 1, txq->desc_total);
+	}
+
+	/* make sure all writes are done (i.e. descriptor were copied)
+	 * before incrementing the producer index
+	 */
+	wmb();
+
+	for (i = 0; i < gpio_tc->dest_num_qs; i++) {
+		txq = &gpio_tc->queues[i];
+		/* Update Producer index in GNPT */
+		*txq->prod_addr = txq->prod_val_shadow;
+	}
+
+	return 0;
+}
+#endif
+
 int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
 {
 	struct giu_gpio_queue *txq;
@@ -553,6 +605,10 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	}
 #endif
 
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+	if (giu_params->outqs_params.tcs[tc].dest_num_qs)
+		return giu_gpio_send_multi_q(gpio, tc, descs, num);
+#endif
 	/* Set number of sent packets to 0 for any case we exit due to error */
 	*num = 0;
 
@@ -630,7 +686,11 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 }
 
 /* Calculate the number of transmitted packets by consumer value */
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+static inline int giu_gpio_get_num_outq_done_internal(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
+#else
 int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS*/
 {
 	u32 tx_num = 0;
 	u32 cons_val;
@@ -651,7 +711,27 @@ int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 	return 0;
 }
 
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
+{
+	u16 tx_num = 0;
+	u8 i;
+	struct giu_gpio_params *giu_params = gpio->params;
+
+	for (*num = 0, i = 0; i < giu_params->outqs_params.tcs[tc].num_qs; i++) {
+		giu_gpio_get_num_outq_done_internal(gpio, tc, i, &tx_num);
+		*num += tx_num;
+	}
+
+	return 0;
+}
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+static inline int giu_gpio_recv_internal(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
+#else
 int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 {
 	struct giu_gpio_queue *rxq;
 	struct giu_gpio_desc *rx_ring_base;
@@ -674,6 +754,7 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 		return -1;
 	}
 #endif
+
 	rxq = &giu_params->inqs_params.tcs[tc].queues[qid];
 
 	/* Get ring base */
@@ -733,6 +814,29 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 
 	return 0;
 }
+
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
+{
+	static u8 curr_qid;
+	u8 i;
+	u16 recv_req = *num, total_got = 0;
+	struct giu_gpio_params *giu_params = gpio->params;
+
+	for (i = 0; (i < giu_params->inqs_params.tcs[tc].num_qs) && (total_got != recv_req); i++) {
+		*num = recv_req - total_got;
+		giu_gpio_recv_internal(gpio, tc, curr_qid, &descs[total_got], num);
+		total_got += *num;
+		curr_qid++;
+		if (curr_qid == giu_params->inqs_params.tcs[tc].num_qs)
+			curr_qid = 0;
+	}
+
+	*num = total_got;
+
+	return 0;
+}
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilities *capa)
 {
