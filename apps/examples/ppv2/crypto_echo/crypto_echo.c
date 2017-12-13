@@ -178,6 +178,7 @@ struct glob_arg {
 	enum sam_ssltls_version         ssl_version;
 	int				tunnel;
 	int				ip6;
+	int				seq64;
 	int				capwap;
 	pthread_mutex_t			trd_lock;
 	int				num_bufs;
@@ -1032,6 +1033,7 @@ static int create_sam_sessions(struct local_arg	*larg)
 		sa_params.u.ipsec.is_natt = 0;
 		sa_params.u.ipsec.spi = t1_spi;
 		sa_params.u.ipsec.seq = t1_seq;
+		sa_params.u.ipsec.is_esn = garg->seq64;
 
 		if (garg->tunnel) {
 			sa_params.u.ipsec.is_tunnel = 1;
@@ -1624,6 +1626,7 @@ static void usage(char *progname)
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 	       "\t--crypto-proto <proto>   Crypto protocol. Support: [none, esp, ssl]. (default: none).\n"
 	       "\t--tunnel                 IPSec tunnel mode. (default: transport)\n"
+	       "\t--seq64                  Use 64-bits extended sequence number. (default: 32-bits)\n"
 	       "\t--capwap                 DTLS with capwap mode. (default: no capwap)\n"
 	       "\t--ssl_version <ver>      SSL/TLS version. (default: dtls_1_0)\n"
 	       "\t--ip6                    ESP/SSL over IPv6. (default: ESP/SSL over IPv4)\n"
@@ -1652,6 +1655,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.echo = 1;
 	garg->dir = CRYPTO_LB;
 	garg->tunnel = 0;
+	garg->seq64 = 0;
 	garg->ip6 = 0;
 	garg->capwap = 0;
 	garg->ssl_version = SAM_DTLS_VERSION_1_0;
@@ -1766,6 +1770,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			i += 1;
 		} else if (strcmp(argv[i], "--ip6") == 0) {
 			garg->ip6 = 1;
+			i += 1;
+		} else if (strcmp(argv[i], "--seq64") == 0) {
+			garg->seq64 = 1;
 			i += 1;
 		} else if (strcmp(argv[i], "--capwap") == 0) {
 			garg->capwap = 1;
@@ -1906,6 +1913,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	if (garg->crypto_proto == SAM_PROTO_IPSEC) {
 		pr_info("crypto-proto  : %s\n", "IPSec");
 		pr_info("IPSec mode    : %s\n", garg->tunnel ? "Tunnel" : "Transport");
+		pr_info("seq number    : %u bits\n", garg->seq64 ? 64 : 32);
 	} else if (garg->crypto_proto == SAM_PROTO_SSLTLS) {
 		pr_info("crypto-proto  : %s\n", "SSL/TLS");
 		pr_info("SSL version   : %d\n", garg->ssl_version);
