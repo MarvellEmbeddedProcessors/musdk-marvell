@@ -231,7 +231,11 @@ static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPse
 	ipsec_params->ContextRef = context_ref++;
 
 	ipsec_params->IPsecFlags |= SAB_IPSEC_PROCESS_IP_HEADERS;
-	ipsec_params->SeqNum = params->u.ipsec.seq;
+	if (params->u.ipsec.is_esn)
+		ipsec_params->IPsecFlags |= SAB_IPSEC_LONG_SEQ;
+
+	ipsec_params->SeqNum = lower_32_bits(params->u.ipsec.seq);
+	ipsec_params->SeqNumHi = upper_32_bits(params->u.ipsec.seq);
 	if (params->u.ipsec.is_tunnel) {
 		ipsec_params->SrcIPAddr_p = params->u.ipsec.tunnel.u.ipv4.sip;
 		ipsec_params->DestIPAddr_p = params->u.ipsec.tunnel.u.ipv4.dip;
