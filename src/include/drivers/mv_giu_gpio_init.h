@@ -45,23 +45,50 @@ enum rss_hash_type {
 
 };
 
+struct lcl_q_params {
+	struct mqa_q *q;
+	u32 q_id;
+	u32 len;
+
+};
+
+struct rem_q_params {
+	struct mqa_q *q;
+	u32 q_id;
+	u32 len;
+	u32 size;
+	void        *host_remap;
+	phys_addr_t  q_base_pa;
+	void        *prod_base_va;
+	phys_addr_t  prod_base_pa;
+	void        *cons_base_va;
+	phys_addr_t  cons_base_pa;
+
+};
+
+union giu_gpio_q_params {
+	struct lcl_q_params lcl_q;
+	struct rem_q_params rem_q;
+
+};
+
 /* In TC - Queue topology */
 struct giu_gpio_intc_params {
 	u32 tc_id;
 
 	/* lcl_eg_tcs */
 	u32 num_inqs;
-	struct giu_gpio_q *inqs_params;
+	union giu_gpio_q_params *inqs_params;
 
 	/* lcl_bm_qs_num */
 	u32 num_inpools;
 	u32 pool_buf_size;
 	/* lcl_bm_qs_params */
-	struct giu_gpio_q *pools;
+	union giu_gpio_q_params *pools;
 
 	/* host_eg_tcs */
 	u32 num_rem_outqs;
-	struct giu_gpio_q *rem_outqs_params;
+	union giu_gpio_q_params *rem_outqs_params;
 
 };
 
@@ -77,15 +104,20 @@ struct giu_gpio_outtc_params {
 
 	/* lcl_ing_tcs */
 	u32 num_outqs;
-	struct giu_gpio_q *outqs_params;
+	union giu_gpio_q_params *outqs_params;
 
 	/* host_ing_tcs */
 	u32 num_rem_inqs;
 	u8 rss_type;
-	struct giu_gpio_q *rem_inqs_params;
+	/* The following two parameters are added inorder not to break the init flow
+	 * between Netdev and GIU - It should be update at later phase
+	 */
+	u32	rem_inqs_bpool_num;
+	u32	rem_inqs_bpool_list[4];
+	union giu_gpio_q_params *rem_inqs_params;
 
 	u32 host_bm_qs_num;
-	struct giu_gpio_q *rem_poolqs_params;
+	union giu_gpio_q_params *rem_poolqs_params;
 
 };
 
