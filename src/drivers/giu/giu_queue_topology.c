@@ -128,7 +128,7 @@ static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_q
 			gpio_q->prod_addr_phys = giu_queue->prod_addr;
 			gpio_q->payload_offset = giu_queue->payload_offset;
 
-			pr_info("Queue Params (TC %d):\n", giu_tc->id);
+			pr_info("Queue Params (TC %d Q %d):\n", giu_tc->id, giu_queue->hw_id);
 			pr_info("\tdesc_ring_base %p\n", giu_queue->phy_base_addr);
 			pr_info("\tsize 0x%x\n", giu_queue->size);
 			pr_info("\tcons_addr %p\n", giu_queue->cons_addr);

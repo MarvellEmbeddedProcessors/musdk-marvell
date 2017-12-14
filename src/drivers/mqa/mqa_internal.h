@@ -181,9 +181,13 @@ struct mqa_region_params {
  */
 struct mqa_q {
 	u32 q_id;
+	u32 len;
 	void *phy_base_addr;
 	void *virt_base_addr;
-
+	void *prod_phys;
+	void *cons_phys;
+	void *prod_virt;
+	void *cons_virt;
 };
 
 

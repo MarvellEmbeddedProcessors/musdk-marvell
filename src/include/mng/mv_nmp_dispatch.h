@@ -53,8 +53,8 @@ struct nmdisp_params {
  *  parameters
  */
 struct nmdisp_q_pair_params {
-	struct giu_gpio_q *cmd_q;	/**< Command Queue */
-	struct giu_gpio_q *notify_q;	/**< Notification Queue */
+	struct mqa_q *cmd_q;	/**< Command Queue */
+	struct mqa_q *notify_q;	/**< Notification Queue */
 };
 
 /**

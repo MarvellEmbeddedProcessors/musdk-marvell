@@ -719,7 +719,6 @@ static void queue_dbg_table_entry_dump(struct mqa *mqa, u32 queue_id)
 	pr_debug("Ring_virt_addr 0x%lx\n", qpt->common.ring_virt_addr);
 	pr_debug("Ring_size      %d\n", qpt->common.ring_size);
 	pr_debug("Entry_size     %d\n",  qpt->common.entry_size);
-	pr_debug("Queue_tc       %d\n",  qpt->common.q_tc);
 	pr_debug("Consumer_phys  0x%lx\n", qpt->common.cons_phys);
 	pr_debug("Producer_phys  0x%lx\n", qpt->common.prod_phys);
 	pr_debug("Consumer_virt  0x%lx\n", qpt->common.cons_virt);

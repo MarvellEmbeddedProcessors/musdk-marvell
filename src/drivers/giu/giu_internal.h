@@ -58,15 +58,15 @@ enum queue_type {
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int giu_free_tc_queues(struct mqa *mqa, struct giu_gpio_q *giu_gpio_q,
-						u32 queue_num, void *gie);
+int giu_free_tc_queues(struct mqa *mqa, union giu_gpio_q_params *giu_gpio_q,
+						u32 queue_num, u32 queue_type, void *gie);
 
 /**
  *
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int giu_queue_remove(struct mqa *mqa, struct giu_gpio_q *giu_gpio_q_p,
+int giu_queue_remove(struct mqa *mqa, struct mqa_q *q,
 					 enum queue_type queue_type, void *giu_handle);
 
 #endif /* __GIU_INTERNAL_H__ */

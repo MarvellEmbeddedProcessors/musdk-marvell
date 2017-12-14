@@ -104,7 +104,8 @@ int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num)
 			 * Therefore q_num == 0, is valid
 			 */
 			if (q_num != 0) {
-				outtc_p[tc_idx].outqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				outtc_p[tc_idx].outqs_params =
+						kcalloc(q_num, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 				if (outtc_p[tc_idx].outqs_params == NULL)
 					goto tc_error;
 
@@ -116,7 +117,8 @@ int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num)
 
 			outtc_p[tc_idx].num_rem_inqs = q_num;
 			if (q_num != 0) {
-				outtc_p[tc_idx].rem_inqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				outtc_p[tc_idx].rem_inqs_params =
+						kcalloc(q_num, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 				if (outtc_p[tc_idx].rem_inqs_params == NULL)
 					goto tc_error;
 
@@ -165,7 +167,8 @@ int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num)
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
 	if (q_top->intcs_params.intc_params == NULL) {
-		q_top->intcs_params.intc_params = kcalloc(tc_num, sizeof(struct giu_gpio_intc_params), GFP_KERNEL);
+		q_top->intcs_params.intc_params =
+				kcalloc(tc_num, sizeof(struct giu_gpio_intc_params), GFP_KERNEL);
 		if (q_top->intcs_params.intc_params == NULL)
 			return -ENOMEM;
 	}
@@ -183,7 +186,8 @@ int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num)
 			 * Therefore q_num == 0, is valid
 			 */
 			if (q_num != 0) {
-				intc_p[tc_idx].inqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				intc_p[tc_idx].inqs_params =
+						kcalloc(q_num, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 				if (intc_p[tc_idx].inqs_params == NULL)
 					goto tc_error;
 
@@ -195,7 +199,8 @@ int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num)
 			intc_p[tc_idx].num_rem_outqs = q_num;
 
 			if (q_num != 0) {
-				intc_p[tc_idx].rem_outqs_params = kcalloc(q_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+				intc_p[tc_idx].rem_outqs_params =
+						kcalloc(q_num, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 				if (intc_p[tc_idx].rem_outqs_params == NULL)
 					goto tc_error;
 
@@ -333,7 +338,8 @@ int pf_outtc_bm_queue_init(u32 bm_num)
 
 		outtc_p[tc_idx].host_bm_qs_num = bm_num;
 		if (bm_num != 0) {
-			outtc_p[tc_idx].rem_poolqs_params = kcalloc(bm_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+			outtc_p[tc_idx].rem_poolqs_params =
+						kcalloc(bm_num, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 			if (outtc_p[tc_idx].rem_poolqs_params == NULL)
 				goto bm_error;
 		}
@@ -374,7 +380,8 @@ int pf_intc_bm_queue_init(u32 bm_num)
 
 		intc_p[tc_idx].num_inpools = bm_num;
 		if (bm_num != 0) {
-			intc_p[tc_idx].pools = kcalloc(bm_num, sizeof(struct giu_gpio_q), GFP_KERNEL);
+			intc_p[tc_idx].pools =
+						kcalloc(bm_num, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 			if (intc_p[tc_idx].pools == NULL)
 				goto bm_error;
 		}

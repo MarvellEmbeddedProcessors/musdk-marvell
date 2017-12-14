@@ -34,12 +34,12 @@
 #define _DB_H
 
 #include "drivers/giu_regfile_def.h"
+#include "drivers/mv_mqa.h"
+#include "drivers/mv_mqa_queue.h"
 #include "lf/pf/pf_queue_topology.h"
 #include "lf/pf/pf_profile.h"
-#include "drivers/mv_mqa_queue.h"
 #include "drivers/mqa/mqa_internal.h"
 #include "drivers/mv_giu_gpio_init.h"
-#include "drivers/giu/giu_queue_topology.h"
 #include "hw_emul/gie.h"
 
 #define MAX_PCI_FUNC_NAME	256

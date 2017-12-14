@@ -33,6 +33,8 @@
 #define log_fmt(fmt) "dispatch: " fmt
 
 #include "std_internal.h"
+#include "drivers/mv_mqa.h"
+#include "drivers/mv_mqa_queue.h"
 #include "lf/pf/pf_mng_cmd_desc.h"
 #include "lf/pf/pf_queue_topology.h"
 #include "db.h"
@@ -50,8 +52,8 @@
 #define q_full(q, p, c)		(((p + 1) & (q->len - 1)) == c)
 #define q_empty(p, c)		(p == c)
 
-static int nmdisp_msg_recv(struct giu_gpio_q *q, struct cmd_desc *msg);
-static int nmdisp_msg_transmit(struct giu_gpio_q *q, struct notif_desc *msg);
+static int nmdisp_msg_recv(struct mqa_q *q, struct cmd_desc *msg);
+static int nmdisp_msg_transmit(struct mqa_q *q, struct notif_desc *msg);
 
 
 /*
@@ -264,8 +266,8 @@ int nmdisp_deregister_client(struct nmdisp *nmdisp_p, u8 client, u8 id)
 
 	for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
 		q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
-		q->cmd_q->q->q_id    = 0;
-		q->notify_q->q->q_id = 0;
+		q->cmd_q->q_id    = 0;
+		q->notify_q->q_id = 0;
 	}
 
 	return 0;
@@ -366,24 +368,21 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
  *	@retval	= 1 yes, message received
  *	@retval	error-code otherwise
  */
-static int nmdisp_msg_recv(struct giu_gpio_q *q, struct cmd_desc *msg)
+static int nmdisp_msg_recv(struct mqa_q *q, struct cmd_desc *msg)
 {
-	struct mqa_queue_params *queue_info;
 	struct cmd_desc *recv_desc;
 	u32 cons_idx;
 	u32 prod_idx;
 
-	queue_info = &(q->params);
-
-	cons_idx = q_rd_cons(queue_info);
-	prod_idx = q_rd_prod(queue_info);
+	cons_idx = q_rd_cons(q);
+	prod_idx = q_rd_prod(q);
 
 	/* Check for pending message */
 	if (q_empty(prod_idx, cons_idx))
 		return 0;
 
 	/* Place message */
-	recv_desc = ((struct cmd_desc *)queue_info->virt_base_addr) + cons_idx;
+	recv_desc = ((struct cmd_desc *)q->virt_base_addr) + cons_idx;
 
 	memcpy(msg, recv_desc, sizeof(struct cmd_desc));
 
@@ -391,7 +390,7 @@ static int nmdisp_msg_recv(struct giu_gpio_q *q, struct cmd_desc *msg)
 	wmb();
 
 	/* Increament queue consumer */
-	q_wr_cons(queue_info, q_inc_idx(queue_info, cons_idx));
+	q_wr_cons(q, q_inc_idx(q, cons_idx));
 
 	return 1;
 }
@@ -446,31 +445,28 @@ int nmdisp_send(struct nmdisp *nmdisp_p, u8 client, u8 id, u8 qid, void *msg)
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int nmdisp_msg_transmit(struct giu_gpio_q *q, struct notif_desc *msg)
+int nmdisp_msg_transmit(struct mqa_q *q, struct notif_desc *msg)
 {
-	struct mqa_queue_params *queue_info;
 	struct notif_desc *trans_desc;
 	u32 cons_idx;
 	u32 prod_idx;
 
-	queue_info = &(q->params);
-
-	cons_idx = q_rd_cons(queue_info);
-	prod_idx = q_rd_prod(queue_info);
+	cons_idx = q_rd_cons(q);
+	prod_idx = q_rd_prod(q);
 
 	/* Check for free space */
-	if (q_full(queue_info, prod_idx, cons_idx))
+	if (q_full(q, prod_idx, cons_idx))
 		return 0;
 
 	/* Place message */
-	trans_desc = ((struct notif_desc *)queue_info->virt_base_addr) + prod_idx;
+	trans_desc = ((struct notif_desc *)q->virt_base_addr) + prod_idx;
 	memcpy(trans_desc, msg, sizeof(struct notif_desc));
 
 	/* Memory barrier */
 	wmb();
 
 	/* Increament queue producer */
-	q_wr_prod(queue_info, q_inc_idx(queue_info, prod_idx));
+	q_wr_prod(q, q_inc_idx(q, prod_idx));
 
 	return 0;
 }

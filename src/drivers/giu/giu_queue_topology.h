@@ -35,6 +35,7 @@
 
 
 #define GIU_MAX_NUM_GPIO		3 /**< Maximum number of gpio instances */
+#define GIU_MAX_NUM_TC			3
 
 /** @addtogroup grp_giu_queue_toppology Queue Topology
  *
@@ -63,11 +64,6 @@ enum giu_gpio_outqs_sched_mode {
 /****************************************************************************
  *	gpio queue structures
  ****************************************************************************/
-
-struct giu_gpio_q {
-	struct mqa_queue_params params;
-	struct mqa_q *q;
-};
 
 /**
  * gpio queue parameters

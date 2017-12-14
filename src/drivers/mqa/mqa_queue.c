@@ -192,8 +192,13 @@ int mqa_queue_create(struct mqa *mqa, struct mqa_queue_params *queue_params, str
 	}
 
 	(*q)->q_id = queue_params->idx;
-	(*q)->phy_base_addr = queue_params->phy_base_addr;
+	(*q)->len  = queue_params->len;
+	(*q)->phy_base_addr  = queue_params->phy_base_addr;
 	(*q)->virt_base_addr = queue_params->virt_base_addr;
+	(*q)->prod_phys = queue_params->prod_phys;
+	(*q)->cons_phys = queue_params->cons_phys;
+	(*q)->prod_virt = queue_params->prod_virt;
+	(*q)->cons_virt = queue_params->cons_virt;
 
 	/* Operations for Queue association in MQA */
 	/* ======================================= */

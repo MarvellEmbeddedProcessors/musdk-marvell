@@ -37,7 +37,6 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "drivers/mv_giu_gpio.h"
-#include "drivers/giu/giu_queue_topology.h"
 #include "pf_mng_cmd_desc.h"
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
@@ -60,44 +59,6 @@
 #define LOCAL_NOTIFY_QUEUE_SIZE	256
 
 #define REGFILE_VERSION		000002	/* Version Format: XX.XX.XX*/
-
-/*
- *	bpool_q_list_set
- *
- *	This function initialize queue configuration parameters
- *	with bpool array received from control message
- */
-static void bpool_q_list_set(struct mqa_queue_params *params,
-						struct giu_gpio_q *bm_pool_q_id_list, u32 max_bm_pool)
-{
-	u32 bm_pool_num;
-
-	for (bm_pool_num = 0; bm_pool_num < max_bm_pool; bm_pool_num++) {
-		if (bm_pool_q_id_list[bm_pool_num].params.idx != 0xFFFF) {
-			params->bpool_qids[bm_pool_num] = bm_pool_q_id_list[bm_pool_num].params.idx;
-			pr_debug("BP ID: %d.\n", params->bpool_qids[bm_pool_num].params.idx);
-		} else
-			break;
-	}
-
-	params->bpool_num = bm_pool_num;
-}
-
-static void host_bpool_q_list_set(struct mqa_queue_params *params,
-						u32 *bm_pool_q_id_list, u32 max_bm_pool)
-{
-	u32 bm_pool_num;
-
-	for (bm_pool_num = 0; bm_pool_num < max_bm_pool; bm_pool_num++) {
-		if (bm_pool_q_id_list[bm_pool_num] != 0xFFFF) {
-			params->bpool_qids[bm_pool_num] = bm_pool_q_id_list[bm_pool_num];
-			pr_debug("BP ID: %d.\n", params->bpool_qids[bm_pool_num]);
-		} else
-			break;
-	}
-
-	params->bpool_num = bm_pool_num;
-}
 
 /**
  * NIC PF Register File Section
@@ -283,24 +244,24 @@ static void *get_queue_cons_phys_addr(struct nic_pf *nic_pf, int hw_q_id)
  *	@retval	error-code otherwise (< 0)
  */
 static int nic_pf_regfile_register_queue(struct nic_pf *nic_pf,
-					struct giu_gpio_q *giu_gpio_q_p,
+					union giu_gpio_q_params *giu_gpio_q_p,
 					int q_type, void **file_map)
 {
 	struct giu_queue reg_giu_queue;
 
 	if (giu_gpio_q_p == NULL) {
-		pr_err("Failed to get queue params from DB (Queue: %d)\n", (int)giu_gpio_q_p->params.idx);
+		pr_err("Failed to get queue params from DB (Queue: %d)\n", (int)giu_gpio_q_p->lcl_q.q_id);
 		return -ENODEV;
 	}
 
-	reg_giu_queue.hw_id		= giu_gpio_q_p->params.idx;
+	reg_giu_queue.hw_id		= giu_gpio_q_p->lcl_q.q_id;
 	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
-	reg_giu_queue.size		= giu_gpio_q_p->params.len;
+	reg_giu_queue.size		= giu_gpio_q_p->lcl_q.len;
 	reg_giu_queue.type		= q_type;
-	reg_giu_queue.phy_base_addr	= giu_gpio_q_p->params.phy_base_addr;
+	reg_giu_queue.phy_base_addr	= giu_gpio_q_p->lcl_q.q->phy_base_addr;
 	/* Prod/Cons addr are Virtual. Needs to translate them to Phys addr */
-	reg_giu_queue.prod_addr	= get_queue_prod_phys_addr(nic_pf, giu_gpio_q_p->params.idx);
-	reg_giu_queue.cons_addr	= get_queue_cons_phys_addr(nic_pf, giu_gpio_q_p->params.idx);
+	reg_giu_queue.prod_addr	= get_queue_prod_phys_addr(nic_pf, giu_gpio_q_p->lcl_q.q_id);
+	reg_giu_queue.cons_addr	= get_queue_cons_phys_addr(nic_pf, giu_gpio_q_p->lcl_q.q_id);
 
 	/* Note: buff_size & payload_offset are union and they are set
 	 *	 acoording to the Q type.
@@ -321,15 +282,14 @@ static int nic_pf_regfile_register_queue(struct nic_pf *nic_pf,
 
 
 /*
- *	nic_pf_config_topology_tcs_and_update_regfile
+ *	nic_pf_regfile_register_intc
  *
- *	This function configures TC params in register file TC structure
- *	It gets the info from general NIC-PF TC params struct, and finally updates the regfile
+ *	This function configures In TC params in register file TC structure
  *
- *      @param[in]	nic_pf           - Pointer to the NIC-PF struct which defines the topology
- *			tc_params        - Pointer to TC format of the NIC-PF (part of array of such struct)
- *			tc_queue_type    - Type of the Queues in this specific TC
- *			file_map         - Pointer to Pointer to Regfile mempry map
+ *      @param[in]	nic_pf - Pointer to the NIC-PF struct which defines the topology
+ *			intc_params    - Pointer to In TC format of the giu gpio queue topology
+ *			tc_queue_type  - Type of the Queues in this specific TC
+ *			file_map       - Pointer to Pointer to Regfile mempry map
  *
  *	@retval	0 on success
  *	@retval	error-code otherwise (< 0)
@@ -353,7 +313,7 @@ static int nic_pf_regfile_register_intc(struct nic_pf *nic_pf,
 
 	if (intc_params->inqs_params != NULL) {
 		for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
-			struct giu_gpio_q *hw_q_id = &(intc_params->inqs_params[queue_idx]);
+			union giu_gpio_q_params *hw_q_id = &(intc_params->inqs_params[queue_idx]);
 
 			ret = nic_pf_regfile_register_queue(nic_pf, hw_q_id, tc_queue_type, file_map);
 
@@ -368,6 +328,20 @@ static int nic_pf_regfile_register_intc(struct nic_pf *nic_pf,
 
 }
 
+
+/*
+ *	nic_pf_regfile_register_outtc
+ *
+ *	This function configures Out TC params in register file TC structure
+ *
+ *      @param[in]	nic_pf - Pointer to the NIC-PF struct which defines the topology
+ *			outtc_params   - Pointer to Out TC format of the giu gpio queue topology
+ *			tc_queue_type  - Type of the Queues in this specific TC
+ *			file_map       - Pointer to Pointer to Regfile mempry map
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise (< 0)
+ */
 static int nic_pf_regfile_register_outtc(struct nic_pf *nic_pf,
 					struct giu_gpio_outtc_params *outtc_params,
 					int tc_queue_type, void **file_map)
@@ -387,7 +361,7 @@ static int nic_pf_regfile_register_outtc(struct nic_pf *nic_pf,
 
 	if (outtc_params->outqs_params != NULL) {
 		for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
-			struct giu_gpio_q *hw_q_id = &(outtc_params->outqs_params[queue_idx]);
+			union giu_gpio_q_params *hw_q_id = &(outtc_params->outqs_params[queue_idx]);
 
 			ret = nic_pf_regfile_register_queue(nic_pf, hw_q_id, tc_queue_type, file_map);
 
@@ -424,6 +398,7 @@ static int nic_pf_config_topology_and_update_regfile(struct nic_pf *nic_pf)
 	int tc_idx, queue_idx;
 	void *pf_cfg_base;
 	int ret = 0;
+	int bm_tc_id = 0;
 
 	/* Update Regfile general info */
 	regfile_data->version		= REGFILE_VERSION;
@@ -440,12 +415,12 @@ static int nic_pf_config_topology_and_update_regfile(struct nic_pf *nic_pf)
 	regfile_data->cons_tbl_base_phys = get_queue_cons_phys_addr(nic_pf, 0);
 	regfile_data->cons_tbl_base_virt = (void *)(pf_cfg_base + PCI_BAR0_MQA_QNCT_BASE);
 
-	pr_info("PCI tables addr: cp: %p, cv: %p, pp: %p, pv: %p.\n", regfile_data->prod_tbl_base_phys,
-			regfile_data->prod_tbl_base_virt, regfile_data->cons_tbl_base_phys,
-			regfile_data->cons_tbl_base_virt);
+	pr_debug("PCI tables addr: pp: %p, pv: %p, cp: %p, cv: %p.\n",
+			regfile_data->prod_tbl_base_phys, regfile_data->prod_tbl_base_virt,
+			regfile_data->cons_tbl_base_phys, regfile_data->cons_tbl_base_virt);
 
-	pr_info("Start Topology configuration to register file [Regfile ver (%d), NIC-PF number (%d)]\n",
-		  regfile_data->version, nic_pf->pf_id);
+	pr_debug("Start Topology configuration to register file [Regfile ver (%d), NIC-PF number (%d)]\n",
+			regfile_data->version, nic_pf->pf_id);
 
 	ret = nic_pf_regfile_open(nic_pf, &file_map);
 
@@ -460,12 +435,11 @@ static int nic_pf_config_topology_and_update_regfile(struct nic_pf *nic_pf)
 		goto config_error;
 
 	/* Setup BM Queues  */
-	pr_info("Configure BM Queues Topology (num of BM Queues %d)\n", regfile_data->num_bm_qs);
-
-	if (q_top->intcs_params.intc_params->pools != NULL) {
+	if (q_top->intcs_params.intc_params[bm_tc_id].pools != NULL) {
 		for (queue_idx = 0; queue_idx < regfile_data->num_bm_qs; queue_idx++) {
 
-			struct giu_gpio_q *hw_q_id = &(q_top->intcs_params.intc_params->pools[queue_idx]);
+			union giu_gpio_q_params *hw_q_id =
+						&(q_top->intcs_params.intc_params[bm_tc_id].pools[queue_idx]);
 
 			ret = nic_pf_regfile_register_queue(nic_pf, hw_q_id, QUEUE_BP, &file_map);
 
@@ -478,8 +452,6 @@ static int nic_pf_config_topology_and_update_regfile(struct nic_pf *nic_pf)
 	}
 
 	/* Setup Egress TCs  */
-	pr_info("Configure Egress TCs Topology (num of TCs %d)\n", regfile_data->num_egress_tcs);
-
 	if (q_top->intcs_params.intc_params != NULL) {
 		for (tc_idx = 0; tc_idx < regfile_data->num_egress_tcs; tc_idx++) {
 
@@ -497,8 +469,6 @@ static int nic_pf_config_topology_and_update_regfile(struct nic_pf *nic_pf)
 
 
 	/* Setup Ingress TCs  */
-	pr_info("Configure Ingress TCs Topology (num of TCs %d)\n", regfile_data->num_ingress_tcs);
-
 	if (q_top->outtcs_params.outtc_params != NULL) {
 		for (tc_idx = 0; tc_idx < regfile_data->num_ingress_tcs; tc_idx++) {
 
@@ -547,7 +517,7 @@ static int nic_pf_topology_local_queue_init(struct nic_pf *nic_pf)
 	struct pf_profile *prof = &(nic_pf->profile_data);
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
-	pr_info("Initializing Local Queues in management Database\n");
+	pr_debug("Initializing Local Queues in management Database\n");
 
 	/* Local Egress TC */
 	ret = pf_intc_queue_init(LCL, q_top->intcs_params.num_intcs, prof->lcl_egress_q_num);
@@ -615,7 +585,7 @@ static int nic_pf_topology_remote_queue_init(struct nic_pf *nic_pf, u32 outtc_re
 	int ret;
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
-	pr_info("Initializing Remote Queues in management Database\n");
+	pr_debug("Initializing Remote Queues in management Database\n");
 
 	/* Remote Egress TC */
 	/* TC queues will be update upon "tc_add" command */
@@ -704,63 +674,62 @@ static int nic_pf_topology_local_queue_cfg(struct nic_pf *nic_pf)
 {
 	int ret;
 	u32 tc_idx;
-	u32 q_idx;
 	u32 bm_idx;
+	u32 q_idx;
 	u32 q_id;
 
 	struct giu_gpio_outtc_params *outtc;
 	struct giu_gpio_intc_params *intc;
-	struct giu_gpio_q giu_gpio_q;
-	struct giu_gpio_q *giu_gpio_q_p;
+	union  giu_gpio_q_params giu_gpio_q;
+	union  giu_gpio_q_params *giu_gpio_q_p;
 	struct pf_profile *prof = &(nic_pf->profile_data);
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 
-	pr_info("Configure Local BM queues\n");
-
 	/* Create Local BM queues */
-	pr_debug("Num of BM queues - %d\n", q_top->intcs_params.num_inpools);
-
-	for (bm_idx = 0; bm_idx < q_top->intcs_params.intc_params->num_inpools; bm_idx++) {
-		/* Clear queue structure */
-		memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_q));
-
-		/* Allocate queue from MQA */
-		ret = mqa_queue_alloc(nic_pf->mqa, &q_id);
-		if (ret < 0) {
-			pr_err("Failed to allocate queue from MQA\n");
-			goto lcl_bm_queue_error;
-		}
-
-		/* Init queue parameters */
-		giu_gpio_q.params.idx  = q_id;
-		giu_gpio_q.params.len  = prof->lcl_bm_q_size;
-		giu_gpio_q.params.size = gie_get_desc_size(BUFF_DESC);
-		giu_gpio_q.params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
-
-		/* Save queue info */
-		memcpy(&(q_top->intcs_params.intc_params->pools[bm_idx]),
-				&(giu_gpio_q.params), sizeof(struct giu_gpio_q));
-
-		pr_debug("Configure BM[%d], Id %d\n\n",
-				bm_idx, q_top->intcs_params.intc_params.pools[bm_idx].params.idx);
-	}
-
-	q_top->intcs_params.intc_params->pool_buf_size = prof->lcl_bm_buf_size;
-
-	pr_info("Configure Local Egress TC queues\n");
-
-	/* Create Local Egress TC queues */
-	pr_debug("Num of Egress TC - %d\n", q_top->intcs_params.num_intcs);
+	pr_debug("Configure Local BM queues (Num of queues %d)\n", q_top->intcs_params.num_inpools);
 
 	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
 
-		pr_debug("Egress TC[%d] addr - %p\n", tc_idx, &(q_top->intcs_params[tc_idx]));
+		intc = &(q_top->intcs_params.intc_params[tc_idx]);
+
+		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
+
+			/* Clear queue structure */
+			memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(nic_pf->mqa, &q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto lcl_bm_queue_error;
+			}
+
+			/* Init queue parameters */
+			giu_gpio_q.lcl_q.q_id = q_id;
+			giu_gpio_q.lcl_q.len = prof->lcl_bm_q_size;
+
+			/* Save queue info */
+			memcpy(&(intc->pools[bm_idx]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
+
+			pr_debug("Configure BM[%d] TC[%d], Id %d\n\n",
+					tc_idx, bm_idx, intc->pools[bm_idx].lcl_q.q_id);
+		}
+
+		intc->pool_buf_size = prof->lcl_bm_buf_size;
+	}
+
+
+	/* Create Local Egress TC queues */
+	pr_debug("Configure Local Egress TC queues (Num of queues %d)\n", q_top->intcs_params.num_intcs);
+
+	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
+
 		intc = &(q_top->intcs_params.intc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
 
 			/* Clear queue structure */
-			memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_q));
+			memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
 			/* Allocate queue from MQA */
 			ret = mqa_queue_alloc(nic_pf->mqa, &q_id);
@@ -769,36 +738,29 @@ static int nic_pf_topology_local_queue_cfg(struct nic_pf *nic_pf)
 				goto lcl_eg_queue_error;
 			}
 
-			giu_gpio_q.params.idx  = q_id;
-			giu_gpio_q.params.len  = prof->lcl_egress_q_size;
-			giu_gpio_q.params.size = gie_get_desc_size(TX_DESC);
-			giu_gpio_q.params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
-			bpool_q_list_set(&(giu_gpio_q.params), q_top->intcs_params.intc_params->pools,
-						q_top->intcs_params.intc_params->num_inpools);
+			giu_gpio_q.lcl_q.q_id = q_id;
+			giu_gpio_q.lcl_q.len  = prof->lcl_egress_q_size;
 
 			/* Save queue info */
-			memcpy(&(intc->inqs_params[q_idx]), &(giu_gpio_q.params), sizeof(struct giu_gpio_q));
+			memcpy(&(intc->inqs_params[q_idx]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
 			pr_debug("Configure Egress TC[%d], queue[%d] = Id %d\n\n",
-					tc_idx, q_idx, intc->inqs_params[q_idx]);
+					tc_idx, q_idx, intc->inqs_params[q_idx].lcl_q.q_id);
 		}
 	}
 
 
-	pr_info("Configure Local Ingress TC queues\n");
-
 	/* Create Local Ingress TC queues */
-	pr_debug("Num of Ingress TC - %d\n", q_top->outtcs_params.num_outtcs);
+	pr_debug("Configure Local Ingress TC queues (Num of queues %d)\n", q_top->outtcs_params.num_outtcs);
 
 	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
 
-		pr_debug("Ingress TC[%d] addr - %p\n", tc_idx, &(q_top->outtcs_params.outtc_params[tc_idx]));
 		outtc = &(q_top->outtcs_params.outtc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
 
 			/* Clear queue structure */
-			memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_q));
+			memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
 			/* Allocate queue from MQA */
 			ret = mqa_queue_alloc(nic_pf->mqa, &q_id);
@@ -807,17 +769,14 @@ static int nic_pf_topology_local_queue_cfg(struct nic_pf *nic_pf)
 				goto lcl_ing_queue_error;
 			}
 
-			giu_gpio_q.params.idx          = (u32)q_id;
-			giu_gpio_q.params.len          = prof->lcl_ingress_q_size;
-			giu_gpio_q.params.size         = gie_get_desc_size(RX_DESC);
-			giu_gpio_q.params.attr         = LOCAL_QUEUE | INGRESS_QUEUE;
-			giu_gpio_q.params.copy_payload = 1;
+			giu_gpio_q.lcl_q.q_id = q_id;
+			giu_gpio_q.lcl_q.len  = prof->lcl_ingress_q_size;
 
 			/* Save queue info */
-			memcpy(&(outtc->outqs_params[q_idx]), &(giu_gpio_q.params), sizeof(struct giu_gpio_q));
+			memcpy(&(outtc->outqs_params[q_idx]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
 			pr_debug("Configure Ingress TC[%d], queue[%d] = Id %d\n\n",
-					tc_idx, q_idx, outtc->outqs_params[q_idx]);
+					tc_idx, q_idx, outtc->outqs_params[q_idx].lcl_q.q_id);
 		}
 	}
 
@@ -831,11 +790,12 @@ lcl_ing_queue_error:
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
 			giu_gpio_q_p = &(outtc->outqs_params[q_idx]);
 			if (giu_gpio_q_p != NULL) {
-				ret = mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->params.idx);
-				if (ret)
-					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->params.idx);
 
-				memset(&(giu_gpio_q_p->params), 0, sizeof(struct giu_gpio_q));
+				ret = mqa_queue_free(nic_pf->mqa, giu_gpio_q_p->lcl_q.q_id);
+				if (ret)
+					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
+
+				memset(&(giu_gpio_q_p), 0, sizeof(union giu_gpio_q_params));
 			}
 		}
 	}
@@ -848,11 +808,12 @@ lcl_eg_queue_error:
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
 			giu_gpio_q_p = &(intc->inqs_params[q_idx]);
 			if (giu_gpio_q_p != NULL) {
-				ret = mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->params.idx);
+
+				ret = mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->lcl_q.q_id);
 				if (ret)
-					pr_err("Failed to free queue Idx %x in MQA\n",
-						   giu_gpio_q_p->params.idx);
-				memset(&(giu_gpio_q_p->params), 0, sizeof(struct giu_gpio_q));
+					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
+
+				memset(&(giu_gpio_q_p), 0, sizeof(union giu_gpio_q_params));
 			}
 		}
 	}
@@ -862,11 +823,12 @@ lcl_bm_queue_error:
 	for (bm_idx = 0; bm_idx < q_top->intcs_params.intc_params->num_inpools; bm_idx++) {
 		giu_gpio_q_p = &(q_top->intcs_params.intc_params->pools[bm_idx]);
 		if (giu_gpio_q_p != NULL) {
-			ret = mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->params.idx);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->params.idx);
 
-			memset(&(giu_gpio_q_p->params), 0, sizeof(struct giu_gpio_q));
+			ret = mqa_queue_free(nic_pf->mqa, (u32)giu_gpio_q_p->lcl_q.q_id);
+			if (ret)
+				pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
+
+			memset(&(giu_gpio_q_p), 0, sizeof(union giu_gpio_q_params));
 		}
 	}
 
@@ -903,10 +865,11 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 	u32 remote_cmd_queue, remote_notify_queue;
 	int ret = 0;
 
-	struct giu_gpio_q *lcl_cmd_queue_p    = NULL;
-	struct giu_gpio_q *lcl_notify_queue_p = NULL;
-	struct giu_gpio_q *rem_cmd_queue_p    = NULL;
-	struct giu_gpio_q *rem_notify_queue_p = NULL;
+	struct mqa_queue_params params;
+	struct mqa_q *lcl_cmd_queue_p    = NULL;
+	struct mqa_q *lcl_notify_queue_p = NULL;
+	struct mqa_q *rem_cmd_queue_p    = NULL;
+	struct mqa_q *rem_notify_queue_p = NULL;
 
 	/*  Create Local Queues */
 	/* ==================== */
@@ -922,23 +885,21 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 		goto exit_error;
 	}
 
-	lcl_cmd_queue_p = kcalloc(1, sizeof(struct giu_gpio_q), GFP_KERNEL);
-	if (lcl_cmd_queue_p == NULL)
-		goto exit_error;
+	memset(&params, 0, sizeof(struct mqa_queue_params));
 
-	lcl_cmd_queue_p->params.idx  = local_cmd_queue;
-	lcl_cmd_queue_p->params.len  = LOCAL_CMD_QUEUE_SIZE;
-	lcl_cmd_queue_p->params.size = sizeof(struct cmd_desc);
-	lcl_cmd_queue_p->params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
-	lcl_cmd_queue_p->params.prio = 0;
+	params.idx  = local_cmd_queue;
+	params.len  = LOCAL_CMD_QUEUE_SIZE;
+	params.size = sizeof(struct cmd_desc);
+	params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
+	params.prio = 0;
 
-	ret = mqa_queue_create(nic_pf->mqa, &(lcl_cmd_queue_p->params), &(lcl_cmd_queue_p->q));
+	ret = mqa_queue_create(nic_pf->mqa, &(params), &(lcl_cmd_queue_p));
 	if (ret < 0) {
 		pr_info("Failed to register Host Management Q\n");
 		goto exit_error;
 	}
 
-	nic_pf->mng_data.lcl_mng_ctrl.cmd_queue = (struct giu_gpio_q *)lcl_cmd_queue_p;
+	nic_pf->mng_data.lcl_mng_ctrl.cmd_queue = (struct mqa_q *)lcl_cmd_queue_p;
 
 
 	/* Allocate and Register Local Notification queue in MQA */
@@ -951,24 +912,21 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 		goto exit_error;
 	}
 
-	lcl_notify_queue_p = kcalloc(1, sizeof(struct giu_gpio_q), GFP_KERNEL);
-	if (lcl_notify_queue_p == NULL)
-		goto exit_error;
+	memset(&params, 0, sizeof(struct mqa_queue_params));
 
-	lcl_notify_queue_p->params.idx   = local_notify_queue;
-	lcl_notify_queue_p->params.len   = LOCAL_NOTIFY_QUEUE_SIZE;
-	lcl_notify_queue_p->params.size  = sizeof(struct notif_desc);
-	lcl_notify_queue_p->params.attr  = LOCAL_QUEUE | INGRESS_QUEUE;
-	lcl_notify_queue_p->params.prio  = 0;
+	params.idx   = local_notify_queue;
+	params.len   = LOCAL_NOTIFY_QUEUE_SIZE;
+	params.size  = sizeof(struct notif_desc);
+	params.attr  = LOCAL_QUEUE | INGRESS_QUEUE;
+	params.prio  = 0;
 
-	ret = mqa_queue_create(nic_pf->mqa, &(lcl_notify_queue_p->params), &(lcl_notify_queue_p->q));
+	ret = mqa_queue_create(nic_pf->mqa, &(params), &(lcl_notify_queue_p));
 	if (ret < 0) {
 		pr_info("Failed to register Host Management Q\n");
 		goto exit_error;
 	}
 
-	nic_pf->mng_data.lcl_mng_ctrl.notify_queue = (struct giu_gpio_q *)lcl_notify_queue_p;
-
+	nic_pf->mng_data.lcl_mng_ctrl.notify_queue = (struct mqa_q *)lcl_notify_queue_p;
 
 
 	/*  Host Ready Check */
@@ -1033,34 +991,30 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 		goto exit_error;
 	}
 
-	rem_cmd_queue_p = kcalloc(1, sizeof(struct giu_gpio_q), GFP_KERNEL);
-	if (rem_cmd_queue_p == NULL)
-		goto exit_error;
+	memset(&params, 0, sizeof(struct mqa_queue_params));
 
-	rem_cmd_queue_p->params.idx             = remote_cmd_queue;
-	rem_cmd_queue_p->params.len             = pcie_cfg->cmd_q.len;
-	rem_cmd_queue_p->params.size            = sizeof(struct cmd_desc);
-	rem_cmd_queue_p->params.attr            = REMOTE_QUEUE | EGRESS_QUEUE;
-	rem_cmd_queue_p->params.prio            = 0;
-	rem_cmd_queue_p->params.remote_phy_addr = (void *)pcie_cfg->cmd_q.q_addr;
-	rem_cmd_queue_p->params.cons_phys       =
-		(void *)(pcie_cfg->cmd_q.consumer_idx_addr + nic_pf->map.host_map.phys_addr);
-	rem_cmd_queue_p->params.cons_virt       =
-		(void *)(pcie_cfg->cmd_q.consumer_idx_addr + nic_pf->map.host_map.virt_addr);
-	rem_cmd_queue_p->params.host_remap      = nic_pf->map.host_map.phys_addr;
-	rem_cmd_queue_p->params.peer_id         = local_cmd_queue;
+	params.idx             = remote_cmd_queue;
+	params.len             = pcie_cfg->cmd_q.len;
+	params.size            = sizeof(struct cmd_desc);
+	params.attr            = REMOTE_QUEUE | EGRESS_QUEUE;
+	params.prio            = 0;
+	params.remote_phy_addr = (void *)pcie_cfg->cmd_q.q_addr;
+	params.cons_phys       = (void *)(pcie_cfg->cmd_q.consumer_idx_addr + nic_pf->map.host_map.phys_addr);
+	params.cons_virt       = (void *)(pcie_cfg->cmd_q.consumer_idx_addr + nic_pf->map.host_map.virt_addr);
+	params.host_remap      = nic_pf->map.host_map.phys_addr;
+	params.peer_id         = local_cmd_queue;
 
-	ret = mqa_queue_create(nic_pf->mqa, &(rem_cmd_queue_p->params), &(rem_cmd_queue_p->q));
+	/* Allocate queue from MQA */
+	ret = mqa_queue_create(nic_pf->mqa, &(params), &(rem_cmd_queue_p));
 	if (ret < 0) {
 		pr_err("Failed to register Host Management Q\n");
 		goto exit_error;
 	}
 
 	/* Update PCI BAR0 with producer address (Entry index in notification table) */
-	/*pcie_cfg->cmd_q.producer_idx_addr = (u64)(giu_gpio_q_p->params.prod_phys - qnpt_phys) / sizeof(u32);*/
-	pcie_cfg->cmd_q.producer_idx_addr = (u64)(rem_cmd_queue_p->params.prod_phys - qnpt_phys) / sizeof(u32);
+	pcie_cfg->cmd_q.producer_idx_addr = (u64)(rem_cmd_queue_p->prod_phys - qnpt_phys) / sizeof(u32);
 
-	nic_pf->mng_data.host_mng_ctrl.cmd_queue = (struct giu_gpio_q *)rem_cmd_queue_p;
+	nic_pf->mng_data.host_mng_ctrl.cmd_queue = (struct mqa_q *)rem_cmd_queue_p;
 
 
 	/* Register Host Notification queue */
@@ -1073,23 +1027,19 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 		goto exit_error;
 	}
 
-	rem_notify_queue_p = kcalloc(1, sizeof(struct giu_gpio_q), GFP_KERNEL);
-	if (rem_notify_queue_p == NULL)
-		goto exit_error;
+	memset(&params, 0, sizeof(struct mqa_queue_params));
 
-	rem_notify_queue_p->params.idx             = remote_notify_queue;
-	rem_notify_queue_p->params.len             = pcie_cfg->notif_q.len;
-	rem_notify_queue_p->params.size            = sizeof(struct notif_desc);
-	rem_notify_queue_p->params.attr            = REMOTE_QUEUE | INGRESS_QUEUE;
-	rem_notify_queue_p->params.prio            = 0;
-	rem_notify_queue_p->params.remote_phy_addr = (void *)pcie_cfg->notif_q.q_addr;
-	rem_notify_queue_p->params.prod_phys       =
-		(void *)(pcie_cfg->notif_q.producer_idx_addr + nic_pf->map.host_map.phys_addr);
-	rem_notify_queue_p->params.prod_virt       =
-		(void *)(pcie_cfg->notif_q.producer_idx_addr + nic_pf->map.host_map.virt_addr);
-	rem_notify_queue_p->params.host_remap      = nic_pf->map.host_map.phys_addr;
+	params.idx             = remote_notify_queue;
+	params.len             = pcie_cfg->notif_q.len;
+	params.size            = sizeof(struct notif_desc);
+	params.attr            = REMOTE_QUEUE | INGRESS_QUEUE;
+	params.prio            = 0;
+	params.remote_phy_addr = (void *)pcie_cfg->notif_q.q_addr;
+	params.prod_phys       = (void *)(pcie_cfg->notif_q.producer_idx_addr + nic_pf->map.host_map.phys_addr);
+	params.prod_virt       = (void *)(pcie_cfg->notif_q.producer_idx_addr + nic_pf->map.host_map.virt_addr);
+	params.host_remap      = nic_pf->map.host_map.phys_addr;
 
-	ret = mqa_queue_create(nic_pf->mqa, &(rem_notify_queue_p->params), &(rem_notify_queue_p->q));
+	ret = mqa_queue_create(nic_pf->mqa, &(params), &(rem_notify_queue_p));
 	if (ret < 0) {
 		pr_err("Failed to register Host Management Q\n");
 		goto exit_error;
@@ -1103,9 +1053,9 @@ static int nic_pf_mng_chn_init(struct nic_pf *nic_pf)
 	}
 
 	/* Update PCI BAR0 with consumer address (Entry index in notification table) */
-	pcie_cfg->notif_q.consumer_idx_addr = (u64)(rem_notify_queue_p->params.cons_phys - qnct_phys) / sizeof(u32);
+	pcie_cfg->notif_q.consumer_idx_addr = (u64)(rem_notify_queue_p->cons_phys - qnct_phys) / sizeof(u32);
 
-	nic_pf->mng_data.host_mng_ctrl.notify_queue = (struct giu_gpio_q *)rem_notify_queue_p;
+	nic_pf->mng_data.host_mng_ctrl.notify_queue = (struct mqa_q *)rem_notify_queue_p;
 
 	/* Register Qs in GIU */
 	/* ================== */
@@ -1133,7 +1083,7 @@ exit_error:
 
 	if (local_cmd_queue >= 0) {
 		if (lcl_cmd_queue_p) {
-			ret = mqa_queue_destroy(nic_pf->mqa, lcl_cmd_queue_p->q);
+			ret = mqa_queue_destroy(nic_pf->mqa, lcl_cmd_queue_p);
 			if (ret < 0)
 				pr_err("Failed to free Local Cmd Q %d in DB\n", local_cmd_queue);
 			kfree(lcl_cmd_queue_p);
@@ -1145,7 +1095,7 @@ exit_error:
 
 	if (local_notify_queue >= 0) {
 		if (lcl_notify_queue_p) {
-			ret = mqa_queue_destroy(nic_pf->mqa, lcl_notify_queue_p->q);
+			ret = mqa_queue_destroy(nic_pf->mqa, lcl_notify_queue_p);
 			if (ret < 0)
 				pr_err("Failed to free Local Notify Q %d in DB\n", local_notify_queue);
 			kfree(lcl_notify_queue_p);
@@ -1157,7 +1107,7 @@ exit_error:
 
 	if (remote_cmd_queue >= 0) {
 		if (rem_cmd_queue_p) {
-			ret = mqa_queue_destroy(nic_pf->mqa, rem_cmd_queue_p->q);
+			ret = mqa_queue_destroy(nic_pf->mqa, rem_cmd_queue_p);
 			if (ret < 0)
 				pr_err("Failed to free remote Cmd Q %d in DB\n", remote_cmd_queue);
 			kfree(rem_cmd_queue_p);
@@ -1169,7 +1119,7 @@ exit_error:
 
 	if (remote_notify_queue >= 0) {
 		if (rem_notify_queue_p) {
-			ret = mqa_queue_destroy(nic_pf->mqa, rem_notify_queue_p->q);
+			ret = mqa_queue_destroy(nic_pf->mqa, rem_notify_queue_p);
 			if (ret < 0)
 				pr_err("Failed to free Remote Notify Q %d in DB\n", remote_notify_queue);
 			kfree(rem_notify_queue_p);
@@ -1272,14 +1222,14 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	int remote_cmd_queue, remote_notify_queue;
 	int ret = 0;
 
-	struct giu_gpio_q *lcl_cmd_queue_p    = nic_pf->mng_data.lcl_mng_ctrl.cmd_queue;
-	struct giu_gpio_q *lcl_notify_queue_p = nic_pf->mng_data.lcl_mng_ctrl.notify_queue;
-	struct giu_gpio_q *rem_cmd_queue_p    = nic_pf->mng_data.host_mng_ctrl.cmd_queue;
-	struct giu_gpio_q *rem_notify_queue_p = nic_pf->mng_data.host_mng_ctrl.notify_queue;
+	struct mqa_q *lcl_cmd_queue_p    = nic_pf->mng_data.lcl_mng_ctrl.cmd_queue;
+	struct mqa_q *lcl_notify_queue_p = nic_pf->mng_data.lcl_mng_ctrl.notify_queue;
+	struct mqa_q *rem_cmd_queue_p    = nic_pf->mng_data.host_mng_ctrl.cmd_queue;
+	struct mqa_q *rem_notify_queue_p = nic_pf->mng_data.host_mng_ctrl.notify_queue;
 
 	if (lcl_cmd_queue_p) {
-		local_cmd_queue = lcl_cmd_queue_p->params.idx;
-		ret = mqa_queue_destroy(nic_pf->mqa, lcl_cmd_queue_p->q);
+		local_cmd_queue = lcl_cmd_queue_p->q_id;
+		ret = mqa_queue_destroy(nic_pf->mqa, lcl_cmd_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free Local Cmd Q %d in DB\n", local_cmd_queue);
 		ret = mqa_queue_free(nic_pf->mqa, local_cmd_queue);
@@ -1290,8 +1240,8 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	}
 
 	if (lcl_notify_queue_p) {
-		local_notify_queue = lcl_notify_queue_p->params.idx;
-		ret = mqa_queue_destroy(nic_pf->mqa, lcl_notify_queue_p->q);
+		local_notify_queue = lcl_notify_queue_p->q_id;
+		ret = mqa_queue_destroy(nic_pf->mqa, lcl_notify_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free Local Notify Q %d in DB\n", local_notify_queue);
 		ret = mqa_queue_free(nic_pf->mqa, local_notify_queue);
@@ -1302,8 +1252,8 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	}
 
 	if (rem_cmd_queue_p) {
-		remote_cmd_queue = rem_cmd_queue_p->params.idx;
-		ret = mqa_queue_destroy(nic_pf->mqa, rem_cmd_queue_p->q);
+		remote_cmd_queue = rem_cmd_queue_p->q_id;
+		ret = mqa_queue_destroy(nic_pf->mqa, rem_cmd_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free remote Cmd Q %d in DB\n", remote_cmd_queue);
 		ret = mqa_queue_free(nic_pf->mqa, remote_cmd_queue);
@@ -1314,8 +1264,8 @@ static int nic_pf_mng_chn_terminate(struct nic_pf *nic_pf)
 	}
 
 	if (rem_notify_queue_p) {
-		remote_notify_queue = rem_notify_queue_p->params.idx;
-		ret = mqa_queue_destroy(nic_pf->mqa, rem_notify_queue_p->q);
+		remote_notify_queue = rem_notify_queue_p->q_id;
+		ret = mqa_queue_destroy(nic_pf->mqa, rem_notify_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free Remote Notify Q %d in DB\n", remote_notify_queue);
 		ret = mqa_queue_free(nic_pf->mqa, remote_notify_queue);
@@ -1440,12 +1390,12 @@ pf_init_exit:
  *
  *	This function return next available queue in bpool array
  */
-static int bpool_next_q_get(struct giu_gpio_q *bpool_q_id_list, u32 bpool_q_num)
+static int bpool_next_q_get(union giu_gpio_q_params *bpool_q_id_list, u32 bpool_q_num)
 {
 	u32 bpool_q_idx;
 
 	for (bpool_q_idx = 0; bpool_q_idx < bpool_q_num; bpool_q_idx++) {
-		if (bpool_q_id_list[bpool_q_idx].params.idx == 0)
+		if (bpool_q_id_list[bpool_q_idx].rem_q.q_id == 0)
 			return bpool_q_idx;
 	}
 
@@ -1462,12 +1412,14 @@ static int nic_pf_bpool_add_command(struct nic_pf *nic_pf,
 	int ret = 0;
 	s32 next_q_id;
 	u32 q_id;
+	u32 tc_id = 0; /* NO Support for BM POOL Per TC */
 
-	struct giu_gpio_q giu_gpio_q;
+	union giu_gpio_q_params giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_outtc_params *outtc = &(q_top->outtcs_params.outtc_params[tc_id]);
 
-	pr_info("Configure Host BM queues\n");
+	pr_debug("Configure Host BM queues\n");
 
 	if (nic_pf->profile_data.lcl_bm_buf_size < params->bm_pool_add.q_buf_size) {
 		pr_err("Host BM buffer size should be at most %d\n", nic_pf->profile_data.lcl_bm_buf_size);
@@ -1475,15 +1427,14 @@ static int nic_pf_bpool_add_command(struct nic_pf *nic_pf,
 		goto bpool_exit;
 	}
 
-	next_q_id = bpool_next_q_get(q_top->outtcs_params.outtc_params->rem_poolqs_params,
-				q_top->outtcs_params.outtc_params->host_bm_qs_num);
+	next_q_id = bpool_next_q_get(outtc->rem_poolqs_params, outtc->host_bm_qs_num);
 	if (next_q_id < 0) {
 		pr_err("Host BM queue add failed, No free entry\n");
 		return next_q_id;
 	}
 
 	/* Clear queue structure */
-	memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_q));
+	memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
 	/* Allocate queue from MQA */
 	ret = mqa_queue_alloc(nic_pf->mqa, &q_id);
@@ -1493,25 +1444,25 @@ static int nic_pf_bpool_add_command(struct nic_pf *nic_pf,
 	}
 
 	/* Init queue parameters */
-	giu_gpio_q.params.idx             = q_id;
-	giu_gpio_q.params.len             = params->bm_pool_add.q_len;
-	giu_gpio_q.params.size            = params->bm_pool_add.q_buf_size;
-	giu_gpio_q.params.attr            = REMOTE_QUEUE | EGRESS_QUEUE;
-	giu_gpio_q.params.remote_phy_addr = (void *)params->bm_pool_add.q_phys_addr;
-	giu_gpio_q.params.cons_phys       =
-		(void *)(params->bm_pool_add.q_cons_phys_addr + nic_pf->map.host_map.phys_addr);
-	giu_gpio_q.params.cons_virt       =
-		(void *)(params->bm_pool_add.q_cons_phys_addr + nic_pf->map.host_map.virt_addr);
-	giu_gpio_q.params.host_remap      = nic_pf->map.host_map.phys_addr;
+	giu_gpio_q.rem_q.q_id         = q_id;
+	giu_gpio_q.rem_q.len          = params->bm_pool_add.q_len;
+	giu_gpio_q.rem_q.size         = params->bm_pool_add.q_buf_size;
+	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->bm_pool_add.q_phys_addr;
+	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(params->bm_pool_add.q_cons_phys_addr +
+									nic_pf->map.host_map.phys_addr);
+	giu_gpio_q.rem_q.cons_base_va = (void *)(params->bm_pool_add.q_cons_phys_addr +
+									nic_pf->map.host_map.virt_addr);
+	giu_gpio_q.rem_q.host_remap   = nic_pf->map.host_map.phys_addr;
 
-	memcpy(&(q_top->outtcs_params.outtc_params->rem_poolqs_params[next_q_id]),
-			&(giu_gpio_q.params), sizeof(struct giu_gpio_q));
+	memcpy(&(q_top->outtcs_params.outtc_params[tc_id].rem_poolqs_params[next_q_id]),
+			&(giu_gpio_q), sizeof(union giu_gpio_q_params));
+
+	pr_info("Configure Host BM[%d] TC[%d], rem q Id %d\n\n",
+			tc_id, next_q_id, outtc->rem_poolqs_params[next_q_id].rem_q.q_id);
 
 	/* Set queue Id in response message in case of success */
 	resp->resp_data.q_add_resp.q_id = q_id;
 	resp->resp_data.q_add_resp.q_prod_cons_phys_addr = q_id;
-
-	pr_debug("BM POOL ADD, Done\n\n");
 
 bpool_exit:
 
@@ -1536,26 +1487,23 @@ static int nic_pf_egress_tc_add_command(struct nic_pf *nic_pf,
 					struct cmd_desc *cmd, struct notif_desc *resp)
 {
 	int ret = 0;
-	struct giu_gpio_q *tc_queues;
+	union giu_gpio_q_params *tc_queues;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_intc_params *intc = &(q_top->intcs_params.intc_params[params->pf_egress_tc_add.tc_prio]);
 
-	pr_info("Configure Host Egress TC[%d] Queues\n", params->pf_egress_tc_add.tc_prio);
+	pr_debug("Configure Host Egress TC[%d] Queues\n", params->pf_egress_tc_add.tc_prio);
 
-	tc_queues = kcalloc(params->pf_egress_tc_add.num_queues_per_tc, sizeof(struct giu_gpio_q), GFP_KERNEL);
+	tc_queues = kcalloc(params->pf_egress_tc_add.num_queues_per_tc, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 	if (tc_queues == NULL) {
 		ret = -ENOMEM;
 		goto tc_exit;
 	}
 
 	/* Update queue topology database */
-	q_top->intcs_params.intc_params[params->pf_egress_tc_add.tc_prio].rem_outqs_params = tc_queues;
-	q_top->intcs_params.intc_params[params->pf_egress_tc_add.tc_prio].num_rem_outqs =
-						params->pf_egress_tc_add.num_queues_per_tc;
-
-
-	pr_debug("EGRESS TC ADD, Done\n\n");
+	intc->rem_outqs_params = tc_queues;
+	intc->num_rem_outqs = params->pf_egress_tc_add.num_queues_per_tc;
 
 tc_exit:
 
@@ -1580,29 +1528,25 @@ static int nic_pf_ingress_tc_add_command(struct nic_pf *nic_pf,
 					struct cmd_desc *cmd, struct notif_desc *resp)
 {
 	int ret = 0;
-	struct giu_gpio_q *tc_queues;
+	union giu_gpio_q_params *tc_queues;
 
 	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
+	struct giu_gpio_outtc_params *outtc = &(q_top->outtcs_params.outtc_params[params->pf_ingress_tc_add.tc_prio]);
 
-	pr_info("Configure Host Ingress TC[%d] Queues\n", params->pf_ingress_tc_add.tc_prio);
+	pr_debug("Configure Host Ingress TC[%d] Queues\n", params->pf_ingress_tc_add.tc_prio);
 
-	tc_queues = kcalloc(params->pf_ingress_tc_add.num_queues_per_tc, sizeof(struct giu_gpio_q), GFP_KERNEL);
+	tc_queues = kcalloc(params->pf_ingress_tc_add.num_queues_per_tc, sizeof(union giu_gpio_q_params), GFP_KERNEL);
 	if (tc_queues == NULL) {
 		ret = -ENOMEM;
 		goto tc_exit;
 	}
 
 	/* Update queue topology database */
-	q_top->outtcs_params.outtc_params[params->pf_ingress_tc_add.tc_prio].rem_inqs_params = tc_queues;
-
-	q_top->outtcs_params.outtc_params[params->pf_ingress_tc_add.tc_prio].num_rem_inqs =
-						params->pf_ingress_tc_add.num_queues_per_tc;
-	q_top->outtcs_params.outtc_params[params->pf_ingress_tc_add.tc_prio].rss_type =
-						params->pf_ingress_tc_add.hash_type;
+	outtc->rem_inqs_params = tc_queues;
+	outtc->num_rem_inqs = params->pf_ingress_tc_add.num_queues_per_tc;
+	outtc->rss_type = params->pf_ingress_tc_add.hash_type;
 	/** TODO - Add support for params->pf_ingress_tc_add.pkt_offset */
-
-	pr_info("INGRESS TC ADD, Done\n\n");
 
 tc_exit:
 
@@ -1626,12 +1570,12 @@ tc_exit:
  *	This function return next free queue index in TC queue array
  *	in case no available index return -1
  */
-static int tc_q_next_entry_get(struct giu_gpio_q *q_id_list, u32 q_num)
+static int tc_q_next_entry_get(union giu_gpio_q_params *q_id_list, u32 q_num)
 {
 	u32 q_idx;
 
 	for (q_idx = 0; q_idx < q_num; q_idx++) {
-		if (q_id_list[q_idx].params.idx == 0)
+		if (q_id_list[q_idx].rem_q.q_id == 0)
 			return q_idx;
 	}
 
@@ -1647,10 +1591,11 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 {
 	int ret = 0;
 	s32 active_q_id;
+	u32 bm_pool_num;
 	u32 msg_tc;
 	u32 q_id;
 
-	struct giu_gpio_q giu_gpio_q;
+	union giu_gpio_q_params giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 	struct giu_gpio_outtc_params *outtc;
@@ -1658,14 +1603,10 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 	msg_tc = params->pf_ingress_data_q_add.tc_prio;
 	outtc = &(q_top->outtcs_params.outtc_params[msg_tc]);
 
-
-	pr_info("Configure Host Ingress TC queues\n");
-
-	pr_debug("INGRESS_DATA_Q_ADD\n");
-	pr_debug("Host Ingress TC[%d], queue Add (num of queues %d)\n", msg_tc, q_top->outtcs_params.num_outtcs);
+	pr_debug("Host Ingress TC[%d], queue Add (num of queues %d)\n", msg_tc, outtc->num_rem_inqs);
 
 	/* Clear queue structure */
-	memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_q));
+	memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
 	/* Allocate queue from MQA */
 	ret = mqa_queue_alloc(nic_pf->mqa, &q_id);
@@ -1675,19 +1616,24 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 	}
 
 	/* Init queue parameters */
-	giu_gpio_q.params.idx             = q_id;
-	giu_gpio_q.params.len             = params->pf_ingress_data_q_add.q_len;
-	giu_gpio_q.params.size            = gie_get_desc_size(RX_DESC);
-	giu_gpio_q.params.attr            = REMOTE_QUEUE | INGRESS_QUEUE;
-	giu_gpio_q.params.prio            = msg_tc;
-	giu_gpio_q.params.remote_phy_addr = (void *)params->pf_ingress_data_q_add.q_phys_addr;
-	giu_gpio_q.params.prod_phys       = (void *)(params->pf_ingress_data_q_add.q_prod_phys_addr +
-											nic_pf->map.host_map.phys_addr);
-	giu_gpio_q.params.prod_virt       = (void *)(params->pf_ingress_data_q_add.q_prod_phys_addr +
-											nic_pf->map.host_map.virt_addr);
-	giu_gpio_q.params.host_remap      = nic_pf->map.host_map.phys_addr;
-	host_bpool_q_list_set(&giu_gpio_q.params, params->pf_ingress_data_q_add.bm_pool_q_id_list,
-						  q_top->outtcs_params.outtc_params->host_bm_qs_num);
+	giu_gpio_q.rem_q.q_id         = q_id;
+	giu_gpio_q.rem_q.len          = params->pf_ingress_data_q_add.q_len;
+	giu_gpio_q.rem_q.size         = gie_get_desc_size(RX_DESC);
+	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.q_phys_addr;
+	giu_gpio_q.rem_q.prod_base_pa = (phys_addr_t)(params->pf_ingress_data_q_add.q_prod_phys_addr +
+										nic_pf->map.host_map.phys_addr);
+	giu_gpio_q.rem_q.prod_base_va = (void *)(params->pf_ingress_data_q_add.q_prod_phys_addr +
+										nic_pf->map.host_map.virt_addr);
+	giu_gpio_q.rem_q.host_remap   = nic_pf->map.host_map.phys_addr;
+
+	for (bm_pool_num = 0; bm_pool_num < outtc->host_bm_qs_num; bm_pool_num++) {
+		if (params->pf_ingress_data_q_add.bm_pool_q_id_list[bm_pool_num] != 0xFFFF) {
+			outtc->rem_inqs_bpool_list[bm_pool_num] =
+				params->pf_ingress_data_q_add.bm_pool_q_id_list[bm_pool_num];
+		} else
+			break;
+	}
+	outtc->rem_inqs_bpool_num = bm_pool_num;
 
 	active_q_id = tc_q_next_entry_get(outtc->rem_inqs_params, q_top->outtcs_params.num_outtcs);
 	if (active_q_id < 0) {
@@ -1696,9 +1642,9 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 		goto ingress_queue_exit;
 	}
 
-	pr_debug("Host Ingress TC[%d], queue %d added and index %d\n", msg_tc, q_id, active_q_id);
+	pr_debug("Host Ingress TC[%d], queue %d added at index %d\n", msg_tc, q_id, active_q_id);
 
-	memcpy(&(outtc->rem_inqs_params[active_q_id]), &(giu_gpio_q.params), sizeof(struct giu_gpio_q));
+	memcpy(&(outtc->rem_inqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
 	/* Set queue Id in and prod/cons address in response.
 	 * we use the qid as the prod/cons idx in the notification space
@@ -1706,8 +1652,6 @@ static int nic_pf_ingress_queue_add_command(struct nic_pf *nic_pf,
 	 */
 	resp->resp_data.q_add_resp.q_id = q_id;
 	resp->resp_data.q_add_resp.q_prod_cons_phys_addr = q_id;
-
-	pr_debug("INGRESS_DATA_Q_ADD, Done\n");
 
 ingress_queue_exit:
 
@@ -1737,21 +1681,18 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 	u32 msg_tc;
 	u32 q_id;
 
-	struct giu_gpio_q giu_gpio_q;
+	union giu_gpio_q_params giu_gpio_q;
 	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
 	struct giu_gpio_intc_params *intc;
 
-	pr_info("Configure Host Egress TC queues\n");
-
 	msg_tc = params->pf_egress_q_add.tc_prio;
 	intc = &(q_top->intcs_params.intc_params[msg_tc]);
 
-	pr_debug("EGRESS_DATA_Q_ADD\n");
-	pr_debug("Host Engress TC[%d], queue Add\n", msg_tc);
+	pr_debug("Host Egress TC[%d], queue Add (num of queues %d)\n", msg_tc, intc->num_rem_outqs);
 
 	/* Clear queue structure */
-	memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_q));
+	memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
 	/* Allocate queue from MQA */
 	ret = mqa_queue_alloc(nic_pf->mqa, &q_id);
@@ -1760,18 +1701,15 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 		return ret;
 	}
 
-	giu_gpio_q.params.idx             = q_id;
-	giu_gpio_q.params.len             = params->pf_egress_q_add.q_len;
-	giu_gpio_q.params.size            = gie_get_desc_size(TX_DESC);
-	giu_gpio_q.params.attr            = REMOTE_QUEUE | EGRESS_QUEUE;
-	giu_gpio_q.params.prio            = msg_tc;
-	giu_gpio_q.params.remote_phy_addr = (void *)params->pf_egress_q_add.q_phys_addr;
-	giu_gpio_q.params.host_remap      = nic_pf->map.host_map.phys_addr;
-	giu_gpio_q.params.cons_phys       = (void *)(params->pf_egress_q_add.q_cons_phys_addr +
-											nic_pf->map.host_map.phys_addr);
-	giu_gpio_q.params.cons_virt       = (void *)(params->pf_egress_q_add.q_cons_phys_addr +
-											nic_pf->map.host_map.virt_addr);
-	giu_gpio_q.params.copy_payload    = 1;
+	giu_gpio_q.rem_q.q_id         = q_id;
+	giu_gpio_q.rem_q.len          = params->pf_egress_q_add.q_len;
+	giu_gpio_q.rem_q.size         = gie_get_desc_size(TX_DESC);
+	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_egress_q_add.q_phys_addr;
+	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(params->pf_egress_q_add.q_cons_phys_addr +
+										nic_pf->map.host_map.phys_addr);
+	giu_gpio_q.rem_q.cons_base_va = (void *)(params->pf_egress_q_add.q_cons_phys_addr +
+										nic_pf->map.host_map.virt_addr);
+	giu_gpio_q.rem_q.host_remap   = nic_pf->map.host_map.phys_addr;
 
 	active_q_id = tc_q_next_entry_get(intc->rem_outqs_params, q_top->intcs_params.num_intcs);
 	if (active_q_id < 0) {
@@ -1782,7 +1720,7 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 
 	pr_debug("Host Egress TC[%d], queue %d added and index %d\n", msg_tc, q_id, active_q_id);
 
-	memcpy(&(intc[active_q_id].rem_outqs_params[active_q_id]), &(giu_gpio_q.params), sizeof(struct giu_gpio_q));
+	memcpy(&(intc->rem_outqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
 	/* Set queue Id in and prod/cons address in response.
 	 * we use the qid as the prod/cons idx in the notification space
@@ -1790,8 +1728,6 @@ static int nic_pf_egress_queue_add_command(struct nic_pf *nic_pf,
 	 */
 	resp->resp_data.q_add_resp.q_id = q_id;
 	resp->resp_data.q_add_resp.q_prod_cons_phys_addr = q_id;
-
-	pr_debug("EGRESS_DATA_Q_ADD, Done\n");
 
 egress_queue_exit:
 

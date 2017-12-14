@@ -35,15 +35,14 @@
 
 #define QUEUE_FREE_STATUS (-1)
 
-
 /*	Management Channels information
  *
  *	cmd_queue_id	 - command queue Id
  *	notify_queue_id - notification queue Id
  */
 struct mng_ch_params {
-	struct giu_gpio_q *cmd_queue;
-	struct giu_gpio_q *notify_queue;
+	struct mqa_q *cmd_queue;
+	struct mqa_q *notify_queue;
 
 };
 
