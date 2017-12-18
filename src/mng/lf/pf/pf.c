@@ -1469,6 +1469,12 @@ static int nic_pf_bpool_add_command(struct nic_pf *nic_pf,
 
 	pr_info("Configure Host BM queues\n");
 
+	if (nic_pf->profile_data.lcl_bm_buf_size < params->bm_pool_add.q_buf_size) {
+		pr_err("Host BM buffer size should be at most %d\n", nic_pf->profile_data.lcl_bm_buf_size);
+		ret = -1;
+		goto bpool_exit;
+	}
+
 	next_q_id = bpool_next_q_get(q_top->outtcs_params.outtc_params->rem_poolqs_params,
 				q_top->outtcs_params.outtc_params->host_bm_qs_num);
 	if (next_q_id < 0) {
