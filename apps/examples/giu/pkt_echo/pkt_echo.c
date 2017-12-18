@@ -726,7 +726,7 @@ static int nmp_preinit(struct nmp_params *params)
 	params->lfs_params->pf.lcl_ingress_q_size = 2048;
 	params->lfs_params->pf.lcl_bm_q_num       = 1;
 	params->lfs_params->pf.lcl_bm_q_size      = 2048;
-	params->lfs_params->pf.lcl_bm_buf_size    = 2048;
+	params->lfs_params->pf.lcl_bm_buf_size    = 4096;
 
 	return 0;
 }
