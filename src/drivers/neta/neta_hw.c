@@ -150,6 +150,7 @@ void neta_port_up(struct neta_port *pp)
 	}
 	neta_reg_write(pp, MVNETA_TXQ_CMD, q_map);
 
+	q_map = 0;
 	/* Enable all initialized RXQs. */
 	for (queue = 0; queue < pp->rxq_number; queue++) {
 		struct neta_rx_queue *rxq = &pp->rxqs[queue];
