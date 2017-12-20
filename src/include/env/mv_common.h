@@ -233,6 +233,16 @@ static inline int kstrtoint(const char *s, unsigned int base, int *res)
 }
 
 
+static inline int kstrtou64(const char *s, unsigned int base, u64 *res)
+{
+	char *endptr;
+	unsigned long ores = strtoull(s, &endptr, base);
+
+	if (endptr == s)
+		return -EINVAL;
+	*res = (u64) ores;
+	return 0;
+}
 
 static inline int bit_count(u64 mask)
 {
@@ -244,7 +254,6 @@ static inline int bit_count(u64 mask)
 	}
 	return count;
 }
-
 
 /*
  * roundup - roundup to nearest integer
