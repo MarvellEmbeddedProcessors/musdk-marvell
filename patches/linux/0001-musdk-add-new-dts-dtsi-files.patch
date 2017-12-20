@@ -1,4 +1,4 @@
-From 81bc2cfc0a2155d388b3694451f37adb949bd0bf Mon Sep 17 00:00:00 2001
+From 1784c2c095dd2fbb21aedb16d10566ef9fbf412f Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Sun, 30 Apr 2017 17:02:31 +0300
 Subject: [PATCH 1/3] musdk: add new dts,dtsi files
@@ -7,6 +7,7 @@ Change-Id: I394db38b111557bab572228c6981a34e60d156fc
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi | 84 +++++++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-3900-db.dtsi     | 62 ++++++++++++++++
  .../boot/dts/marvell/musdk-armada-7040-db.dtsi     | 69 +++++++++++++++++
  .../boot/dts/marvell/musdk-armada-7040-pcac.dtsi   | 66 +++++++++++++++++
  arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi | 74 +++++++++++++++++++
@@ -17,8 +18,9 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  .../arm64/boot/dts/marvell/musdk-armada-ap806.dtsi | 67 +++++++++++++++++
  .../boot/dts/marvell/musdk-armada-cp110-1.dtsi     | 69 +++++++++++++++++
  .../arm64/boot/dts/marvell/musdk-armada-cp110.dtsi | 71 ++++++++++++++++++
- 11 files changed, 814 insertions(+)
+ 12 files changed, 876 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-37xx.dtsi
+ create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-3900-db.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040-db.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040-pcac.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-7040.dtsi
@@ -116,6 +118,74 @@ index 0000000..333d970
 +				compatible = "marvell,musdk-uio";
 +				dma-coherent;
 +				status = "okay";
++			};
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-3900-db.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-3900-db.dtsi
+new file mode 100644
+index 0000000..1784f85
+--- /dev/null
++++ b/arch/arm64/boot/dts/marvell/musdk-armada-3900-db.dtsi
+@@ -0,0 +1,62 @@
++/*
++ * Copyright (C) 2017 Marvell Technology Group Ltd.
++ *
++ * This file is dual-licensed: you can use it either under the terms
++ * of the GPLv2 or the X11 license, at your option. Note that this dual
++ * licensing only applies to this file, and not this project as a
++ * whole.
++ *
++ *  a) This library is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of the
++ *     License, or (at your option) any later version.
++ *
++ *     This library is distributed in the hope that it will be useful,
++ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *     GNU General Public License for more details.
++ *
++ * Or, alternatively,
++ *
++ *  b) Permission is hereby granted, free of charge, to any person
++ *     obtaining a copy of this software and associated documentation
++ *     files (the "Software"), to deal in the Software without
++ *     restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or
++ *     sell copies of the Software, and to permit persons to whom the
++ *     Software is furnished to do so, subject to the following
++ *     conditions:
++ *
++ *     The above copyright notice and this permission notice shall be
++ *     included in all copies or substantial portions of the Software.
++ *
++ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *     OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++#include "musdk-armada-7040.dtsi"
++
++/ {
++	model = "Marvell Armada 3900-Z1";
++	compatible = "marvell,armada7040", "marvell,armada-ap806-quad",
++	             "marvell,armada-ap806";
++
++	cp0 {
++		config-space {
++			ppv22@000000 {
++				eth0: eth0@010000 {
++					musdk-status = "private";
++				};
++				lpbk3: lpbk3@040000 {
++					musdk-status = "private";
++				};
 +			};
 +		};
 +	};
@@ -911,5 +981,5 @@ index 0000000..8ddca73
 +};
 +
 -- 
-1.9.1
+2.7.4
 
