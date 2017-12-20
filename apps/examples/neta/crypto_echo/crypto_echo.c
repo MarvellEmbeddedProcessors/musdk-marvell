@@ -203,7 +203,7 @@ static inline int free_buf_from_tx_shadow(struct local_arg *larg,
 	return 0;
 }
 
-static inline void free_sent_buffers(struct local_arg *larg, struct lcl_port_desc *tx_port, u8 tc)
+static inline int free_sent_buffers(struct local_arg *larg, struct lcl_port_desc *tx_port, u8 tc)
 {
 	u16 tx_num = 0;
 	int i, idx;
@@ -211,7 +211,7 @@ static inline void free_sent_buffers(struct local_arg *larg, struct lcl_port_des
 	neta_ppio_get_num_outq_done(tx_port->ppio, tc, &tx_num);
 
 	if (unlikely(!tx_num))
-		return;
+		return 0;
 
 	idx = tx_port->shadow_qs[tc].read_ind;
 	for (i = 0; i < tx_num; i++) {
@@ -221,6 +221,7 @@ static inline void free_sent_buffers(struct local_arg *larg, struct lcl_port_des
 			idx = 0;
 	}
 	tx_port->shadow_qs[tc].read_ind = idx;
+	return tx_num;
 }
 
 static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
@@ -406,7 +407,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		for (i = num_got; i < num; i++)
 			free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
 
-		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
+		/*pr_warn("%s rx_ppio=%d: %d packets dropped\n", __func__, rx_ppio_id, num - num_got);*/
 		perf_cntrs->drop_cnt += (num - num_got);
 	}
 	return 0;
@@ -574,6 +575,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 			printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
+		perf_cntrs->tx_cnt += num_got;
 		if (num_got < num) {
 			for (i = 0; i < num - num_got; i++) {
 				if (shadow_q->write_ind == 0)
@@ -582,11 +584,17 @@ STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 				free_buf_from_tx_shadow(larg, &larg->lcl_ports_desc[tp],
 							tc, shadow_q->write_ind);
 			}
-			/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
+			/*pr_warn("%s tc_port=%d: %d packets dropped\n", __func__, tp, num - num_got);*/
 			perf_cntrs->drop_cnt += (num - num_got);
 		}
-		free_sent_buffers(larg, &larg->lcl_ports_desc[tp], tc);
-		perf_cntrs->tx_cnt += num;
+
+		if (shadow_q->write_ind != shadow_q->read_ind) {
+			int tx_done = free_sent_buffers(larg, &larg->lcl_ports_desc[tp], tc);
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+			if (larg->cmn_args.verbose && tx_done)
+				printf("tx_done %d buffs on ppio %d, tc %d\n", tx_done, tp, tc);
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
+		}
 	}
 	return 0;
 }
@@ -720,7 +728,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 {
 	int			 err;
 	u16			 num;
-	u8			 tc = 0, qid = 0;
+	u8			 qid = 0;
 
 	if (!larg) {
 		pr_err("no obj!\n");
@@ -735,13 +743,39 @@ static int loop_1p(struct local_arg *larg, int *running)
 			qid++;
 			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC) {
 				qid = 0;
-				tc++;
-				if (tc == CRYPT_APP_MAX_NUM_TCS_PER_PORT)
-					tc = 0;
 			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * MVAPPS_NETA_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(larg->cmn_args.qs_map & (1 << qid)));
 
 		err = loop_sw_recycle(larg, 0, 0, qid, num);
+		if (err != 0)
+			return err;
+	}
+	return 0;
+}
+
+static int loop_2ps_1cs(struct local_arg *larg, int *running)
+{
+	int			 err;
+	u16			 num;
+	u8			 qid = 0;
+
+	if (!larg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	num = larg->cmn_args.burst;
+
+	while (*running) {
+		/* Find next queue to consume */
+		do {
+			qid++;
+			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC)
+				qid = 0;
+		} while (!(larg->cmn_args.qs_map & (1 << qid)));
+
+		err  = loop_sw_recycle(larg, 0, 1, qid, num);
+		err |= loop_sw_recycle(larg, 1, 0, qid, num);
 		if (err != 0)
 			return err;
 	}
@@ -749,11 +783,11 @@ static int loop_1p(struct local_arg *larg, int *running)
 	return 0;
 }
 
-static int loop_2ps(struct local_arg *larg, int *running)
+static int loop_2ps_2cs(struct local_arg *larg, int *running)
 {
 	int			 err;
 	u16			 num;
-	u8			 tc = 0, qid = 0;
+	u8			 src_port, dst_port, qid = 0;
 
 	if (!larg) {
 		pr_err("no obj!\n");
@@ -761,21 +795,20 @@ static int loop_2ps(struct local_arg *larg, int *running)
 	}
 
 	num = larg->cmn_args.burst;
+	src_port = larg->cmn_args.id;
+	dst_port = 1 - src_port;
+	pr_info("2 ports - 2 CPUs: cpu #%d: port %d -> port %d\n",
+		larg->cmn_args.id, src_port, dst_port);
 
 	while (*running) {
 		/* Find next queue to consume */
 		do {
 			qid++;
-			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC) {
+			if (qid == MVAPPS_NETA_MAX_NUM_QS_PER_TC)
 				qid = 0;
-				tc++;
-				if (tc == CRYPT_APP_MAX_NUM_TCS_PER_PORT)
-					tc = 0;
-			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * MVAPPS_NETA_MAX_NUM_QS_PER_TC) + qid))));
+		} while (!(larg->cmn_args.qs_map & (1 << qid)));
 
-		err  = loop_sw_recycle(larg, 0, 1, qid, num);
-		err |= loop_sw_recycle(larg, 1, 0, qid, num);
+		err = loop_sw_recycle(larg, src_port, dst_port, qid, num);
 		if (err != 0)
 			return err;
 	}
@@ -794,7 +827,18 @@ static int main_loop_cb(void *arg, int *running)
 
 	if (larg->cmn_args.num_ports == 1)
 		return loop_1p(larg, running);
-	return loop_2ps(larg, running);
+
+	if (larg->cmn_args.num_ports == 2) {
+		if (garg.cmn_args.cpus == 1)
+			return loop_2ps_1cs(larg, running);
+
+		if (garg.cmn_args.cpus == 2)
+			return loop_2ps_2cs(larg, running);
+	}
+	pr_err("Bad configuration: ports = %d, cpus = %d\n",
+		larg->cmn_args.num_ports, garg.cmn_args.cpus);
+
+	return -EINVAL;
 }
 
 
@@ -1348,7 +1392,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.garg = garg;
 	garg->cmn_args.largs[id] = larg;
 
-	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
+	larg->cmn_args.qs_map = garg->cmn_args.qs_map;
 
 	pr_info("Local thread #%d (cpu #%d): Encrypt - %s, Decrypt - %s, qs_map = 0x%lx\n",
 		id, sched_getcpu(), larg->enc_name,
