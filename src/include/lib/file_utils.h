@@ -30,77 +30,25 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __STD_INTERNAL_H__
-#define __STD_INTERNAL_H__
+#ifndef __FILE_UTILS_H__
+#define __FILE_UTILS_H__
 
-#ifdef __KERNEL__
+/**
+ * Write a buffer to file
+ *
+ * @param[in]	file_name	path to file.
+ * @param[in]	buff		pointer to buffer to write.
+ * @param[in]	size		size of buffer to write.
+ */
+int write_buf_to_file(char *file_name, char *buff, u32 size);
 
-#include <linux/types.h>
-#include <linux/stddef.h>
-#include <linux/inet.h>
-#include <linux/ip.h>
-#include <linux/ipv6.h>
-#include <linux/if_arp.h>
-#include <linux/export.h>
-#include <linux/ctype.h>
-#include <linux/spinlock.h>
-#include <linux/etherdevice.h>
-#include <linux/if_vlan.h>
-#include <asm-generic/io.h>
+/**
+ * Read a file to buffer
+ *
+ * @param[in]	file_name	path to file.
+ * @param[in]	size		size of buffer to read.
+ * @param[out]	buff		pointer to buffer to read the file
+ */
+int read_file_to_buf(char *file_name, char *buff, u32 size);
 
-#include "env/spinlock.h"
-
-#define ENOTSUP          252
-#define mvlog2(n)	ilog2(n)
-
-
-#ifndef __BIG_ENDIAN
-	#define __BIG_ENDIAN __ORDER_BIG_ENDIAN__
-#endif
-#ifndef __BYTE_ORDER
-	#define __BYTE_ORDER __BYTE_ORDER__
-#endif
-
-#else /* __KERNEL__ */
-
-#include "mv_std.h"
-
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <pthread.h>
-#include <sys/mman.h>
-#include <stropts.h>
-#include <unistd.h>
-#include <assert.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/udp.h>
-#include <arpa/inet.h>
-#include <net/if_arp.h>
-#include <sys/ioctl.h>
-#include <linux/ethtool.h>
-#include <linux/sockios.h>
-#include <getopt.h>
-#include <ifaddrs.h>
-
-#include "env/of.h"
-#include "env/spinlock.h"
-#include "env/io.h"
-#include "env/netdev.h"
-#include <lib/file_utils.h>
-
-/* TODO: move to configure script */
-#define MVCONF_IOMEM_USE_UIO
-
-#endif /* __KERNEL__ */
-
-#include "env/sys_iomem.h"
-
-#endif /* __STD_INTERNAL_H__ */
+#endif /* __FILE_UTILS_H__ */

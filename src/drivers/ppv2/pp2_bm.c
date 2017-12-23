@@ -124,7 +124,7 @@ void pp2_bm_hw_pool_destroy(uintptr_t cpu_slot, uint32_t pool_id)
 }
 
 /* BM pool hardware enable */
-static uint32_t
+uint32_t
 pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 		      u32 bppe_num, uintptr_t pool_phys_addr)
 {

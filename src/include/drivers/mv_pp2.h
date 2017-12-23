@@ -113,7 +113,8 @@ struct pp2_init_params {
 	u8			rss_tbl_reserved_map;
 	/** Bitmap of reserved policers (0-30). The policers are reserved in all packet_processors. */
 	u32			policers_reserved_map;
-
+	/** flag indicating to skip hw initializations (useful for guest mode) */
+	int			skip_hw_init;
 	/* TODO FUTURE struct pp2_parse_params	prs_params; */
 };
 

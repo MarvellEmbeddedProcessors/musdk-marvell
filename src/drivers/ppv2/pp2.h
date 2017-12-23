@@ -352,7 +352,8 @@ struct pp2_txq_config {
 
 enum port_status {
 	PP2_PORT_DISABLED,
-	PP2_PORT_KERNEL
+	PP2_PORT_KERNEL,
+	PP2_PORT_LAST
 };
 
 struct pp2_port_uio {
@@ -529,6 +530,8 @@ struct pp2_inst {
 	/* UIO handle for mapping PP and GOP register spaces */
 	struct sys_iomem *pp2_sys_iomem;
 	struct pp2_cls_db_t *cls_db;
+	u32 skip_hw_init;
+
 };
 
 struct pp2_common_cfg {

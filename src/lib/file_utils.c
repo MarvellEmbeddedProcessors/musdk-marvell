@@ -30,77 +30,57 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __STD_INTERNAL_H__
-#define __STD_INTERNAL_H__
+#include "std_internal.h"
+#include "lib/file_utils.h"
 
-#ifdef __KERNEL__
+/**********************
+ * File reading/writing utilities
+ ***********************/
+int write_buf_to_file(char *file_name, char *buff, u32 size)
+{
+	size_t	s;
+	int	fd;
 
-#include <linux/types.h>
-#include <linux/stddef.h>
-#include <linux/inet.h>
-#include <linux/ip.h>
-#include <linux/ipv6.h>
-#include <linux/if_arp.h>
-#include <linux/export.h>
-#include <linux/ctype.h>
-#include <linux/spinlock.h>
-#include <linux/etherdevice.h>
-#include <linux/if_vlan.h>
-#include <asm-generic/io.h>
+	fd = open(file_name, O_RDWR | O_CREAT);
+	if (fd == -1) {
+		pr_err("Failed to open file %s\n", file_name);
+		return -EIO;
+	}
 
-#include "env/spinlock.h"
+	/* Position offset to end of file */
+	lseek(fd, 0, SEEK_END);
 
-#define ENOTSUP          252
-#define mvlog2(n)	ilog2(n)
+	s = write(fd, buff, size);
+	if (s == -1) {
+		pr_info("error %d\n", errno);
+		close(fd);
+		return -EIO;
+	}
 
+	close(fd);
+	return 0;
+}
 
-#ifndef __BIG_ENDIAN
-	#define __BIG_ENDIAN __ORDER_BIG_ENDIAN__
-#endif
-#ifndef __BYTE_ORDER
-	#define __BYTE_ORDER __BYTE_ORDER__
-#endif
+int read_file_to_buf(char *file_name, char *buff, u32 size)
+{
+	size_t	s;
+	int	fd;
 
-#else /* __KERNEL__ */
+	/* Open file */
+	fd = open(file_name, O_RDONLY);
+	if (fd == -1) {
+		pr_err("Failed to open file %s\n", file_name);
+		return -EINVAL;
+	}
 
-#include "mv_std.h"
+	/* Read file */
+	s = read(fd, buff, size);
+	if (s == -1) {
+		pr_err("error %d\n", errno);
+		close(fd);
+		return -EINVAL;
+	}
+	close(fd);
+	return 0;
+}
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <pthread.h>
-#include <sys/mman.h>
-#include <stropts.h>
-#include <unistd.h>
-#include <assert.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/udp.h>
-#include <arpa/inet.h>
-#include <net/if_arp.h>
-#include <sys/ioctl.h>
-#include <linux/ethtool.h>
-#include <linux/sockios.h>
-#include <getopt.h>
-#include <ifaddrs.h>
-
-#include "env/of.h"
-#include "env/spinlock.h"
-#include "env/io.h"
-#include "env/netdev.h"
-#include <lib/file_utils.h>
-
-/* TODO: move to configure script */
-#define MVCONF_IOMEM_USE_UIO
-
-#endif /* __KERNEL__ */
-
-#include "env/sys_iomem.h"
-
-#endif /* __STD_INTERNAL_H__ */

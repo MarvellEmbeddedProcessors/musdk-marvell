@@ -438,7 +438,7 @@ pp2_port_txqs_init(struct pp2_port *port)
 /* Allocates and sets control data for TXQs
  * No hardware access
  */
-static void
+void
 pp2_port_txqs_create(struct pp2_port *port)
 {
 	u32 qid;
@@ -589,7 +589,7 @@ pp2_port_rxqs_init(struct pp2_port *port)
 /* Allocates and sets control data for TXQs
  * No hardware access
  */
-static void
+void
 pp2_port_rxqs_create(struct pp2_port *port)
 {
 	u32 qid, tc, id = 0;
@@ -1020,7 +1020,7 @@ pp2_port_validate_id(const char *if_name)
 	return pid;
 }
 
-static int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS],
+int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS],
 			     struct pp2_bm_pool *pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS])
 {
 	u8 index = 0, j, k;

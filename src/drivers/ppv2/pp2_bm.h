@@ -237,4 +237,8 @@ uintptr_t pp2_bm_pa2va(struct pp2_bm_pool *bm_pool, uintptr_t pa);
  */
 uintptr_t pp2_bm_va2pa(struct pp2_bm_pool *bm_pool, uintptr_t va);
 
+uint32_t pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
+			       u32 bppe_num, uintptr_t pool_phys_addr);
+
+
 #endif /* _PP2_BM_H_ */
