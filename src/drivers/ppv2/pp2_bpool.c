@@ -277,3 +277,284 @@ int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs)
 	return 0;
 }
 
+int pp2_bpool_get_capabilities(struct pp2_bpool *pool, struct pp2_bpool_capabilities *capa)
+{
+	capa->buff_len = pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool->id]->bm_pool_buf_sz;
+	capa->max_num_buffs = pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool->id]->bm_pool_buf_num;
+	return 0;
+}
+
+int pp2_bpool_serialize(struct pp2_bpool *pool, char buff[], u32 size)
+{
+	size_t				 pos = 0;
+	u32				 poffset;
+	struct mv_sys_dma_mem_info	 mem_info;
+	char				 dev_name[100];
+	char				*sec = NULL;
+
+	/* Serialize bpool parameters*/
+
+	/* Find if there is already a pool-info section */
+	sec = strstr(buff, "pool-info");
+	if (!sec) {
+		/* no pool-info section, create one */
+		pos = strlen(buff);
+		json_print_to_buffer(buff, size, 1, "\"pool-info\": {\n");
+	} else {
+		/* Find the last bpool instance
+		 * Note, it is assumed that all bpools are written together at the end of the buffer
+		 * i.e. "insertion" of a bpool section is not supported
+		 */
+		/* If this is not the first object, add a "," after the last "}" to sepparate the objects*/
+		pos = strlen(buff) - JSON_LEVEL_2_TAB_COMMA_ADDITION_LEN;
+		json_print_to_buffer(buff, size, 0, "},\n");
+	}
+
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+	poffset = pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool->id]->bm_pool_phys_base - mem_info.paddr;
+
+	json_print_to_buffer(buff, size, 2, "\"pool-%d:%d\": {\n", pool->pp2_id, pool->id);
+	json_print_to_buffer(buff, size, 3, "\"pp2_id\": %u,\n", pool->pp2_id);
+	json_print_to_buffer(buff, size, 3, "\"id\": %u,\n", pool->id);
+	json_print_to_buffer(buff, size, 3, "\"phy_offset\": %#x,\n", poffset);
+	json_print_to_buffer(buff, size, 3, "\"buff_size\": %u,\n",
+			     pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool->id]->bm_pool_buf_sz);
+	json_print_to_buffer(buff, size, 3, "\"max_num_buffs\": %u\n",
+			     pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool->id]->bm_pool_buf_num);
+
+	json_print_to_buffer(buff, size, 2, "}\n");
+	json_print_to_buffer(buff, size, 1, "}\n");
+
+	return 0;
+}
+
+int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **bpool)
+{
+	char				*sec = NULL;
+	u8				 id_match[2];
+	int				 pool_id = 0, pp2_id = 0, rc;
+	phys_addr_t			 paddr;
+	size_t				 reg_size = 0;
+	u32				 poffset = 0;
+	struct sys_iomem_params		 iomem_params;
+	struct sys_iomem		*sys_iomem;
+	char				 dev_name[FILE_MAX_LINE_CHARS];
+	uintptr_t			 va;
+	struct pp2_bm_pool		*bm_pool;
+	char				*lbuff;
+
+	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, buff, strlen(buff));
+
+	sec = strstr(lbuff, "dma-info");
+	if (!sec) {
+		pr_err("'dma-info' not found\n");
+		rc = -EINVAL;
+		goto bp_probe_exit1;
+	}
+
+	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
+	/* get the master DMA device name */
+	json_buffer_to_input_str(sec, "file_name", dev_name);
+	if (dev_name[0] == 0) {
+		pr_err("'file_name' not found\n");
+		rc = -EINVAL;
+		goto bp_probe_exit1;
+	}
+
+	/* get the master DMA region size */
+	json_buffer_to_input(sec, "region_size", reg_size);
+	if (reg_size == 0) {
+		pr_err("reg_size is 0\n");
+		rc = -EINVAL;
+		goto bp_probe_exit1;
+	}
+
+	/* get the master DMA physical address */
+	json_buffer_to_input(sec, "phys_addr", paddr);
+	if (!paddr) {
+		pr_err("'phys_addr' not found\n");
+		rc = -EINVAL;
+		goto bp_probe_exit1;
+	}
+
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = dev_name;
+	iomem_params.index = 1;
+	iomem_params.size = reg_size;
+
+	if (sys_iomem_init(&iomem_params, &sys_iomem)) {
+		pr_err("sys_iomem_init error\n");
+		rc = -EFAULT;
+		goto bp_probe_exit1;
+	}
+	/* Map the iomem physical address */
+	if (sys_iomem_map(sys_iomem, NULL, (phys_addr_t *)&paddr,
+			  (void **)&va)) {
+		pr_err("sys_iomem_map error\n");
+		sys_iomem_deinit(sys_iomem);
+		rc = -EFAULT;
+		goto bp_probe_exit1;
+	}
+
+	/* Search for the pool-info section */
+	sec = strstr(sec, "pool-info");
+	if (!sec) {
+		pr_err("pool-info section not found\n");
+		rc = -EINVAL;
+		goto bp_probe_exit1;
+	}
+
+	/* Search for match (pool-x:x) */
+	sec = strstr(sec, match);
+	if (!sec) {
+		pr_err("match not found %s\n", match);
+		rc = -EINVAL;
+		goto bp_probe_exit1;
+	}
+
+	/* Retireve pp2_id and pool_id */
+	json_buffer_to_input(sec, "pp2_id", pp2_id);
+	json_buffer_to_input(sec, "id", pool_id);
+
+	if (mv_sys_match(match, "pool", 2, id_match)) {
+		rc = -ENXIO;
+		goto bp_probe_exit1;
+	}
+
+	if (pp2_is_init() == false) {
+		rc = -EPERM;
+		goto bp_probe_exit1;
+	}
+
+	if (pp2_id != id_match[0]) {
+		pr_err("[%s] wrong pp2_id: found %d, requested %d\n", __func__, pp2_id,  match[0]);
+		rc = -ENXIO;
+		goto bp_probe_exit1;
+	}
+
+	if (pool_id != id_match[1]) {
+		pr_err("[%s] wrong pool_id: found %d, requested %d\n", __func__, pool_id,  match[1]);
+		rc = -ENXIO;
+		goto bp_probe_exit1;
+	}
+
+	if (pool_id < 0 || pool_id >= PP2_BPOOL_NUM_POOLS) {
+		pr_err("[%s] Invalid match string!\n", __func__);
+		rc = -ENXIO;
+		goto bp_probe_exit1;
+	}
+	if (pp2_id < 0 || pp2_id >= pp2_ptr->num_pp2_inst) {
+		pr_err("[%s] Invalid match string!\n", __func__);
+		rc = -ENXIO;
+		goto bp_probe_exit1;
+	}
+
+	if (pp2_ptr->init.bm_pool_reserved_map & (1 << pool_id)) {
+		pr_err("[%s] bm_pool is reserved.\n", __func__);
+		rc = -EFAULT;
+		goto bp_probe_exit1;
+	}
+
+	if (pp2_ptr->pp2_inst[pp2_id]->bm_pools[pool_id]) {
+		pr_warn("[%s] bm_pool already exists.\n", __func__);
+		*bpool = &pp2_bpools[pp2_id][pool_id];
+		rc = 0;
+		goto bp_probe_exit1;
+	}
+
+	/* get the physical offset address of the bpool descriptor section*/
+	json_buffer_to_input(sec, "phy_offset", poffset);
+
+	/* Allocate space for pool handler */
+	bm_pool = kcalloc(1, sizeof(struct pp2_bm_pool), GFP_KERNEL);
+	if (unlikely(!bm_pool)) {
+		pr_err("BM: cannot allocate memory for a BM pool\n");
+		rc = -ENOMEM;
+		goto bp_probe_exit1;
+	}
+
+	bm_pool->pp2_id = pp2_id;
+	bm_pool->bm_pool_id = pool_id;
+
+	/* get the buffer size*/
+	json_buffer_to_input(sec, "buff_size", bm_pool->bm_pool_buf_sz);
+	if (bm_pool->bm_pool_buf_sz == 0) {
+		pr_err("bpool buf_size is 0\n");
+		rc = -EINVAL;
+		goto bp_probe_exit2;
+	}
+
+	/* get the maximum number of buffers */
+	json_buffer_to_input(sec, "max_num_buffs", bm_pool->bm_pool_buf_num);
+	if (bm_pool->bm_pool_buf_num == 0) {
+		pr_err("bpool max_num_buffs is 0\n");
+		rc = -EINVAL;
+		goto bp_probe_exit2;
+	}
+
+	bm_pool->bm_pool_phys_base = paddr + poffset;
+	bm_pool->bm_pool_virt_base = (uintptr_t)((phys_addr_t)va + poffset);
+
+	pr_debug("pp2_id %d, id %d, buff_size %d, max_num_buffs %d, paddr %llx, reg_size %zu\n",
+		 pp2_id, pool_id, bm_pool->bm_pool_buf_sz, bm_pool->bm_pool_buf_num,
+		 (unsigned long long)paddr, reg_size);
+
+	pp2_ptr->pp2_inst[pp2_id]->bm_pools[pool_id] = bm_pool;
+	pp2_bpools[pp2_id][pool_id].id = pool_id;
+	pp2_bpools[pp2_id][pool_id].pp2_id = pp2_id;
+	SET_HW_BASE(&pp2_bpools[pp2_id][pool_id], &pp2_ptr->pp2_inst[pp2_id]->hw.base[0]);
+	*bpool = &pp2_bpools[pp2_id][pool_id];
+
+	kfree(lbuff);
+	return 0;
+
+bp_probe_exit2:
+	kfree(bm_pool);
+bp_probe_exit1:
+	kfree(lbuff);
+	return rc;
+}
+
+int pp2_bpool_remove(struct pp2_bpool *pool)
+{
+	uintptr_t		 cpu_slot;
+	int			 pool_id;
+	u32			 buf_num;
+	struct pp2_bm_pool	*bm_pool;
+	u32			 resid_bufs = 0;
+
+	cpu_slot = GET_HW_BASE(pool)[PP2_DEFAULT_REGSPACE].va;
+	pool_id = pool->id;
+
+	/* Check buffer counters after free */
+	pp2_bpool_get_num_buffs(pool, &buf_num);
+	if (buf_num) {
+		pr_warn("cannot free all buffers in pool %d, buf_num left %d\n",
+			pool_id,
+			buf_num);
+	}
+
+	bm_pool = pp2_bm_pool_get_pool_by_id(pp2_ptr->pp2_inst[pool->pp2_id], pool_id);
+
+	if (bm_pool) {
+		resid_bufs = pp2_bm_pool_flush(cpu_slot, pool_id);
+		if (resid_bufs) {
+			pr_debug("BM: could not clear all buffers from pool ID=%u\n", pool_id);
+			pr_debug("BM: total bufs    : %u\n", bm_pool->bm_pool_buf_num);
+			pr_debug("BM: residual bufs : %u\n", resid_bufs);
+		}
+		kfree(bm_pool);
+		pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool_id] = NULL;
+	} else {
+		pr_err("[%s] Can not destroy pool_id-%d:%d !\n", __func__,
+			pool->pp2_id, pool_id);
+	}
+
+	return 0;
+}
+

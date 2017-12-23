@@ -26,6 +26,7 @@ libmusdk_la_LDFLAGS = $(AM_LDFLAGS)
 libmusdk_la_SOURCES  = lib/list.c
 libmusdk_la_SOURCES += lib/lib_misc.c
 libmusdk_la_SOURCES += lib/mem_mng.c
+libmusdk_la_SOURCES += lib/file_utils.c
 libmusdk_la_SOURCES += lib/uio/uio_find_devices.c
 libmusdk_la_SOURCES += lib/uio/uio_find_devices_byname.c
 libmusdk_la_SOURCES += lib/uio/uio_free.c

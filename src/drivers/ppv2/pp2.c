@@ -245,11 +245,12 @@ void pp2_inst_init(struct pp2_inst *inst)
 	*/
 	cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
 
-	/* Clear BM */
-	pp2_bm_flush_pools(cpu_slot, inst->parent->init.bm_pool_reserved_map);
+	if (!inst->skip_hw_init) {
+		/* Clear BM */
+		pp2_bm_flush_pools(cpu_slot, inst->parent->init.bm_pool_reserved_map);
 
-	pp2_cls_mng_init(inst);
-
+		pp2_cls_mng_init(inst);
+	}
 
 	/* GOP early activation */
 	/* TODO: Revise after device tree adaptation */
@@ -444,14 +445,14 @@ void pp2_deinit(void)
 		struct pp2_inst *inst = pp2_ptr->pp2_inst[pp2_id];
 		struct pp2_port *lpbk_port;
 
-		lpbk_port = inst->ports[PP2_LOOPBACK_PORT];
-		/* Close internal loopback port */
-		pp2_port_stop(lpbk_port);
-		pp2_port_close(lpbk_port);
-
-		/* Deinit cls manager */
-		pp2_cls_mng_deinit(inst);
-
+		if (!inst->skip_hw_init) {
+			lpbk_port = inst->ports[PP2_LOOPBACK_PORT];
+			/* Close internal loopback port */
+			pp2_port_stop(lpbk_port);
+			pp2_port_close(lpbk_port);
+			/* Deinit cls manager */
+			pp2_cls_mng_deinit(inst);
+		}
 		pp2_destroy(inst);
 	}
 
@@ -523,17 +524,12 @@ int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id)
 
 int pp2_init(struct pp2_init_params *params)
 {
-	u32 pp2_id, pp2_num_inst, i;
-	struct pp2_ppio_params *lb_port_params;
+	u32 pp2_id, lp_pp2_id, pp2_num_inst, i;
 	int rc;
 
-	lb_port_params = kmalloc(sizeof(struct pp2_ppio_params), GFP_KERNEL);
-	if (!lb_port_params)
-		return -ENOMEM;
 	pp2_ptr = kcalloc(1, sizeof(struct pp2), GFP_KERNEL);
 	if (unlikely(!pp2_ptr)) {
 		pr_err("%s out of memory pp2 alloc\n", __func__);
-		kfree(lb_port_params);
 		return -ENOMEM;
 	}
 	memcpy(&pp2_ptr->init, params, sizeof(*params));
@@ -546,7 +542,6 @@ int pp2_init(struct pp2_init_params *params)
 	netdev_params = kmalloc(sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO, GFP_KERNEL);
 	if (!netdev_params) {
 		kfree(pp2_ptr);
-		kfree(lb_port_params);
 		return -ENOMEM;
 	}
 
@@ -562,13 +557,9 @@ int pp2_init(struct pp2_init_params *params)
 		inst = pp2_inst_create(pp2_ptr, pp2_id);
 		if (!inst) {
 			pr_err("cannot create PP%u\n", pp2_id);
-			/* Rollback creation of previous instances */
-			for (i = 0; i < pp2_id; i++)
-				pp2_destroy(pp2_ptr->pp2_inst[i]);
-			kfree(pp2_ptr);
-			kfree(lb_port_params);
-
-			return -ENOMEM;
+			rc = -ENOMEM;
+			pp2_id--;
+			goto pp2_init_err;
 		}
 		/* Store the PPDK handle as parent and store
 		 * this instance as child handle for the PPDK
@@ -576,31 +567,54 @@ int pp2_init(struct pp2_init_params *params)
 		pp2_ptr->pp2_inst[pp2_id] = inst;
 
 		/* Initialize this packet processor */
+		inst->skip_hw_init = params->skip_hw_init;
 		pp2_inst_init(inst);
 		pp2_ptr->num_pp2_inst++;
 	}
 
 	pr_debug("PackProcs   %2u\n", pp2_num_inst);
-	memset(lb_port_params, 0, sizeof(*lb_port_params));
-	lb_port_params->type = PP2_PPIO_T_NIC;
-	lb_port_params->inqs_params.num_tcs = 0;
-	lb_port_params->outqs_params.num_outqs = PP2_LPBK_PORT_NUM_TXQ;
-	lb_port_params->outqs_params.outqs_params[0].size = PP2_LPBK_PORT_TXQ_SIZE;
+	if (!params->skip_hw_init) {
+		struct pp2_ppio_params *lb_port_params;
 
-	/* Initialize the loopback port */
-	for (pp2_id = 0; pp2_id < pp2_num_inst; pp2_id++) {
-		struct pp2_port *port;
-
-		rc = pp2_port_open(pp2_ptr, lb_port_params, pp2_id, PP2_LOOPBACK_PORT, &port);
-		if (rc) {
-			pr_err("[%s] ppio init failed.\n", __func__);
-			kfree(lb_port_params);
-			return(-EFAULT); /* TODO: pp2_destroy on error (currently error_ret not possible) */
+		lb_port_params = kmalloc(sizeof(struct pp2_ppio_params), GFP_KERNEL);
+		if (!lb_port_params) {
+			rc = -ENOMEM;
+			goto pp2_init_err;
 		}
-		pp2_port_config_outq(port);
-		pp2_port_start(port, PP2_TRAFFIC_EGRESS);
-	}
 
-	kfree(lb_port_params);
+		memset(lb_port_params, 0, sizeof(*lb_port_params));
+		lb_port_params->type = PP2_PPIO_T_NIC;
+		lb_port_params->inqs_params.num_tcs = 0;
+		lb_port_params->outqs_params.num_outqs = PP2_LPBK_PORT_NUM_TXQ;
+		lb_port_params->outqs_params.outqs_params[0].size = PP2_LPBK_PORT_TXQ_SIZE;
+
+		/* Initialize the loopback port */
+		for (lp_pp2_id = 0; lp_pp2_id < pp2_num_inst; lp_pp2_id++) {
+			struct pp2_port *port;
+
+			rc = pp2_port_open(pp2_ptr, lb_port_params, lp_pp2_id, PP2_LOOPBACK_PORT, &port);
+			if (rc) {
+				pr_err("[%s] ppio init failed.\n", __func__);
+				kfree(lb_port_params);
+				rc = -EFAULT;
+				/* TODO: in case of error during the loop, need to revert pp2_port_config_outq and
+				 * pp2_port_start
+				 */
+				goto pp2_init_err;
+			}
+			pp2_port_config_outq(port);
+			pp2_port_start(port, PP2_TRAFFIC_EGRESS);
+		}
+		kfree(lb_port_params);
+	}
 	return 0;
+
+pp2_init_err:
+	/* Rollback creation of pp2 instances */
+	for (i = 0; i < pp2_id; i++)
+		pp2_destroy(pp2_ptr->pp2_inst[i]);
+	kfree(netdev_params);
+	kfree(pp2_ptr);
+	return rc;
 }
+

@@ -493,4 +493,9 @@ int mv_pp2x_port_musdk_set(void *netdev_priv);
 int mv_pp2x_port_musdk_clear(void *netdev_priv);
 
 
+int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS],
+			     struct pp2_bm_pool *pools[][PP2_PPIO_TC_CLUSTER_MAX_POOLS]);
+void pp2_port_rxqs_create(struct pp2_port *port);
+void pp2_port_txqs_create(struct pp2_port *port);
+
 #endif /* __PP2_PORT_H__ */
