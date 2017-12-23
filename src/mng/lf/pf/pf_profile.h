@@ -36,6 +36,8 @@
 #define PROFILE_NAME_LEN (32)
 #define PROFILE_DESC_LEN (128)
 
+#include "mng/mv_nmp.h"
+
 
 /* SNIC PF / VF Instance profile
  *
@@ -59,7 +61,12 @@ struct pf_profile {
 	u32 lcl_bm_q_num;
 	u32 lcl_bm_q_size;
 	u32 lcl_bm_buf_size;
-
+	/* additions (including pp2)*/
+	u16 dflt_pkt_offset;
+	u8 max_num_tcs;
+	u16 pp2_bm_pool_reserved_map;
+	enum nmp_lf_nicpf_type port_type;
+	struct nmp_lf_nicpf_pp2_port_params pp2_port;
 };
 
 #endif /* _PF_PROFILE_H */

@@ -41,6 +41,8 @@
 #include "drivers/mqa/mqa_internal.h"
 #include "drivers/mv_giu_gpio_init.h"
 #include "hw_emul/gie.h"
+#include "mng/mv_nmp.h"
+#include "drivers/mv_pp2_ppio.h"
 
 #define MAX_PCI_FUNC_NAME	256
 #define MAX_PCI_FUNC_BARS	3
@@ -82,13 +84,54 @@ struct pci_plat_func_map {
 	enum func_type type;
 };
 
+/*
+ * PPv2x BM pool descriptor parameters
+ */
+struct nmp_pp2_bpool_desc {
+	struct pp2_bpool	*pool;		/* pointer to the bpool object */
+	u32			 num_buffs;	/* number of buffers */
+	u32			 buff_size;	/* buffer size */
+};
+
+/*
+ * PPv2x port descriptor parameters
+ */
+struct nmp_pp2_port_desc {
+	u32			 pp_id;		/* Packet Processor ID */
+	u32			 ppio_id;	/* PPIO port ID */
+	enum pp2_ppio_type	 ppio_type;	/* PPIO type */
+	u32			 first_inq;	/* First RXQ - relative to the Port's first RXQ */
+	u16			 max_num_tcs;	/* Maximum number of TCs */
+	u16			 num_tcs;	/* Number of TCs */
+	u16			 num_inqs[PP2_PPIO_MAX_NUM_TCS];	/* Number of Rx queues per TC*/
+	u16			 num_outqs;	/* Number of Tx queues */
+	u32			 inq_size;	/* Rx queue size */
+	u32			 outq_size;	/* Tx queue size */
+	u32			 hash_type;	/* Hash type */
+	u32			 first_rss_tbl;	/* First RSS table */
+	u32			 pkt_offst;	/* Packet Processor ID */
+	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
+	u32			 num_pools;
+	struct nmp_pp2_bpool_desc *pools_desc;
+};
+
+/*
+ * Structure containing the PPv2x related data
+ */
+struct pp2_data {
+	u32				 num_ports;
+	u32				 reserved_bpools;
+	struct nmp_pp2_port_desc	*ports_desc;
+};
 
 /* Structure containing all the NIC-PF related data
  */
 struct nic_pf {
 	int pf_id;
+	u32 guest_id;
 	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
 	struct gie_data gie;                        /* GIE */
+	struct pp2_data pp2;                        /* PP2 */
 	struct mqa *mqa;                            /* MQA */
 	struct nmdisp *nmdisp;                      /* Dispatcher */
 	struct pf_profile profile_data;             /* Profile */
@@ -97,9 +140,14 @@ struct nic_pf {
 	struct giu_gpio_init_params topology_data;  /* GIU Queue Topology */
 	struct giu_mng_topology mng_data;           /* GIU Management Topology */
 	struct giu_regfile regfile_data;            /* GIU Register File */
+	void (*f_ready_cb)(void *arg);
 	void *internal;
 };
 
+struct nmpp2 {
+	int pp2_en;				/* Flag inidicating PP2 interface is present*/
+	struct nmp_pp2_params pp2_params;	/* PP2 initialization params */
+};
 /* Main PF data structure
  *
  *  nic-pf	all NIC-PF related data
@@ -110,6 +158,7 @@ struct nmp {
 	struct nic_pf nic_pf;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
+	struct nmpp2 nmpp2;
 };
 
 int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num);

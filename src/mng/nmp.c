@@ -37,9 +37,14 @@
 #include "mng/dispatch.h"
 #include "config.h"
 
+#define NMP_MAX_BUF_STR_LEN		256
+
 int nmp_init(struct nmp_params *params, struct nmp **nmp)
 {
-	int ret;
+	int				 k, ret;
+	char				 pp2_name[NMP_MAX_BUF_STR_LEN];
+	struct pf_profile		*pf_profile;
+	struct nmp_lf_params_new	*lf_params;
 
 	pr_info("Starting %s %s\n", "giu_main", VERSION);
 
@@ -49,13 +54,55 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 		return -ENOMEM;
 	}
 
-	(*nmp)->nic_pf.profile_data.lcl_egress_q_num   = params->lfs_params->pf.lcl_egress_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_egress_q_size  = params->lfs_params->pf.lcl_egress_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_ingress_q_num  = params->lfs_params->pf.lcl_ingress_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_ingress_q_size = params->lfs_params->pf.lcl_ingress_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_bm_q_num       = params->lfs_params->pf.lcl_bm_q_num;
-	(*nmp)->nic_pf.profile_data.lcl_bm_q_size      = params->lfs_params->pf.lcl_bm_q_size;
-	(*nmp)->nic_pf.profile_data.lcl_bm_buf_size    = params->lfs_params->pf.lcl_bm_buf_size;
+	pf_profile = &(*nmp)->nic_pf.profile_data;
+
+	/* TODO: remove this API from nmp_params. Left for backwards compatibility */
+	/* GIU params should be retrieved from params->containers_params[0].lfs_params[0] */
+	pf_profile->lcl_egress_q_num   = params->lfs_params->pf.lcl_egress_q_num;
+	pf_profile->lcl_egress_q_size  = params->lfs_params->pf.lcl_egress_q_size;
+	pf_profile->lcl_ingress_q_num  = params->lfs_params->pf.lcl_ingress_q_num;
+	pf_profile->lcl_ingress_q_size = params->lfs_params->pf.lcl_ingress_q_size;
+	pf_profile->lcl_bm_q_num       = params->lfs_params->pf.lcl_bm_q_num;
+	pf_profile->lcl_bm_q_size      = params->lfs_params->pf.lcl_bm_q_size;
+	pf_profile->lcl_bm_buf_size    = params->lfs_params->pf.lcl_bm_buf_size;
+
+	/* pp2 init params */
+	(*nmp)->nmpp2.pp2_en = params->pp2_en;
+	(*nmp)->nmpp2.pp2_params.bm_pool_reserved_map = params->pp2_params.bm_pool_reserved_map;
+
+	/*TODO: currently only one container is supported*/
+	if (params->num_containers > 1) {
+		pr_err("NMP supports only one container in current release\n");
+		ret = -EINVAL;
+		kfree(nmp);
+		return ret;
+	}
+
+	/*TODO: currently only one LF is supported*/
+	if (params->containers_params[0].num_lfs > 1) {
+		pr_err("NMP supports only one container in current release\n");
+		ret = -EINVAL;
+		kfree(nmp);
+		return ret;
+	}
+
+	lf_params = &params->containers_params[0].lfs_params[0];
+
+	pf_profile->pp2_bm_pool_reserved_map = params->pp2_params.bm_pool_reserved_map;
+	pf_profile->dflt_pkt_offset = lf_params->u.nicpf.dflt_pkt_offset;
+	pf_profile->max_num_tcs = lf_params->u.nicpf.max_num_tcs;
+	pf_profile->port_type = lf_params->u.nicpf.type;
+	strcpy(pp2_name, lf_params->u.nicpf.port_params.pp2_port.match);
+	pf_profile->pp2_port.match = pp2_name;
+	pf_profile->pp2_port.lcl_num_bpools = lf_params->u.nicpf.port_params.pp2_port.lcl_num_bpools;
+	for (k = 0; k < pf_profile->pp2_port.lcl_num_bpools; k++) {
+		pf_profile->pp2_port.lcl_bpools_params[k].buff_size =
+			lf_params->u.nicpf.port_params.pp2_port.lcl_bpools_params[k].buff_size;
+		pf_profile->pp2_port.lcl_bpools_params[k].max_num_buffs =
+			lf_params->u.nicpf.port_params.pp2_port.lcl_bpools_params[k].max_num_buffs;
+	}
+
+	(*nmp)->nic_pf.guest_id = params->containers_params[0].guest_id;
 
 	ret = dev_mng_init(*nmp);
 	if (ret) {

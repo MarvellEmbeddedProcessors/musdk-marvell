@@ -44,6 +44,7 @@
 #include "mng/mv_nmp_dispatch.h"
 
 #include "dev_mng.h"
+#include "dev_mng_pp2.h"
 #include "pci_ep_def.h"
 #include "dispatch.h"
 
@@ -321,6 +322,10 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	if (ret)
 		return ret;
 
+	ret = dev_mng_pp2_init(nmp);
+	if (ret)
+		return ret;
+
 	ret = dev_mng_init_gie(nmp);
 	if (ret)
 		return ret;
@@ -332,12 +337,25 @@ static int dev_mng_hw_init(struct nmp *nmp)
 /** Software Functionality **/
 /** ====================== **/
 
+/* Initialize the PP2 interface */
+static void dev_mng_pf_init_done(void *args)
+{
+	struct nic_pf *nic_pf = (struct nic_pf *)args;
+
+	pr_info("nmp_pf_init_done reached\n");
+
+	dev_mng_pp2_serialize(nic_pf);
+}
+
 static int dev_mng_sw_init(struct nmp *nmp)
 {
 	int ret;
 	struct nmdisp_params params;
 
 	pr_info("Initializing Device software\n");
+
+	/* Assign the pf_init_done callback */
+	nmp->nic_pf.f_ready_cb = dev_mng_pf_init_done;
 
 	/* Initialize Dispatcher */
 	ret = nmdisp_init(&params, &(nmp->nmdisp));
@@ -433,6 +451,11 @@ static int dev_mng_hw_terminate(struct nmp *nmp)
 	int ret;
 
 	pr_info("Terminating Device Manager Init\n");
+
+	/* terminate PP2 */
+	ret = dev_mng_pp2_terminate(nmp);
+	if (ret)
+		return ret;
 
 	/* TODO - for now just close the GIU instances */
 	ret = dev_mng_terminate_giu(nmp);
