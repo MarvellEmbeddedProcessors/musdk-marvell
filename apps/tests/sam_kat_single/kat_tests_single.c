@@ -186,6 +186,11 @@ static int check_result(enum sam_dir dir, struct sam_cio_op_params *request,
 		expected_size = sizeof(RFC3602_AES128_CBC_T1_PT);
 		name = "Decrypt";
 	}
+	if (result->status != SAM_CIO_OK) {
+		printf("%s: Error! result->status = %d\n",
+			__func__, result->status);
+		return -EINVAL;
+	}
 
 	printf("\nInput buffer:");
 	dump_buf(input_buf, input_size);
@@ -259,20 +264,18 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	printf("%s successfully loaded\n", argv[0]);
-
 	memset(aes128_t1_buf.vaddr, 0, aes128_t1_buf.len);
 	memcpy(aes128_t1_buf.vaddr, RFC3602_AES128_CBC_T1_PT, sizeof(RFC3602_AES128_CBC_T1_PT));
 
 	if (create_session(&sa_hndl, "aes_cbc_encrypt"))
 		goto exit;
 
-	pr_info("aes_cbc_encrypt session successfully created\n");
+	pr_info("aes_cbc_encrypt session created\n");
 
 	if (create_session(&sa_hndl_1, "aes_cbc_decrypt"))
 		goto exit;
 
-	pr_info("aes_cbc_decrypt session successfully created\n");
+	pr_info("aes_cbc_decrypt session created\n");
 
 	/* Do encrypt */
 	num = 1;
@@ -331,7 +334,6 @@ exit:
 		}
 	}
 	sam_deinit();
-	printf("%s successfully unloaded\n", argv[0]);
 
 	return 0;
 }

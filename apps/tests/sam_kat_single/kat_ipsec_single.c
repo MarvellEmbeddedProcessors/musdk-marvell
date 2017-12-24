@@ -64,7 +64,8 @@ static char *test_names[] = {
 
 static int test_id;
 static int num_pkts = 1;
-static u32 debug_flags = 0x3;
+static u32 debug_flags;
+static u32 verbose;
 
 static u8 IPSEC_ESP_L2_HEADER[] = {
 	0x00, 0x01, 0x01, 0x01, 0x55, 0x66,
@@ -286,17 +287,21 @@ static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info)
 
 static int check_udp_pkt_after_encrypt(struct sam_buf_info *buf_info, struct sam_cio_op_result *result)
 {
+	if (result->status != SAM_CIO_OK) {
+		printf("%s: Error! result->status = %d\n",
+			__func__, result->status);
+		return -EFAULT;
+	}
+
 	if (result->out_len > buf_info->len) {
 		printf("%s: result->out_len  = %u > buf_info->len = %u\n",
 			__func__, result->out_len, buf_info->len);
-		return 1;
+		return -EINVAL;
 	}
-	printf("\nAfter encryption: %d bytes\n", result->out_len);
-	mv_mem_dump(buf_info->vaddr, result->out_len);
-
-	if (result->out_len == 0)
-		return 1;
-
+	if (verbose) {
+		printf("\nAfter encryption: %d bytes\n", result->out_len);
+		mv_mem_dump(buf_info->vaddr, result->out_len);
+	}
 	return 0;
 }
 
@@ -304,42 +309,48 @@ static int check_udp_pkt_after_decrypt(struct sam_buf_info *buf_info, struct sam
 {
 	int err = 0;
 
+	if (result->status != SAM_CIO_OK) {
+		printf("%s: Error! result->status = %d\n",
+			__func__, result->status);
+		return -EFAULT;
+	}
 	if (result->out_len > buf_info->len) {
 		printf("%s: result->out_len  = %u > buf_info->len = %u\n",
 			__func__, result->out_len, buf_info->len);
-		return 1;
+		return -EINVAL;
 	}
-	printf("\nAfter decryption: %d bytes\n", result->out_len);
-	mv_mem_dump(buf_info->vaddr, result->out_len);
+	if (verbose) {
+		printf("\nAfter decryption: %d bytes\n", result->out_len);
+		mv_mem_dump(buf_info->vaddr, result->out_len);
 
-	printf("\nExpected data: %d bytes\n", expected_data_size);
-	mv_mem_dump(expected_data, expected_data_size);
-
+		printf("\nExpected data: %d bytes\n", expected_data_size);
+		mv_mem_dump(expected_data, expected_data_size);
+	}
 	/* Compare output and expected data */
 	if (result->out_len != expected_data_size) {
 		printf("Error: out_len = %u != expected_data_size = %u\n",
 			result->out_len, expected_data_size);
-		err = 1;
+		err = -EINVAL;
 	} else if (memcmp(buf_info->vaddr, expected_data, result->out_len)) {
 		printf("Error: out_data != expected_data\n");
-		err = 1;
+		err = -EFAULT;
 	}
-
-	printf("\n");
-	printf("Loopback test: %s\n", err ? "failed" : "success");
-	printf("\n");
-
-	return 0;
+	return err;
 }
 
 static void usage(char *progname)
 {
+	int id;
+
 	printf("Usage: %s [OPTIONS]\n", MVAPPS_NO_PATH(progname));
 	printf("OPTIONS are optional:\n");
 	printf("\t-t <number>      - Test ID (default: %d)\n", test_id);
+	for (id = 0; id < ARRAY_SIZE(test_names); id++)
+		printf("\t                 %d - %s\n", id, test_names[id]);
 	printf("\t-n <number>      - Number of packets (default: %d)\n", num_pkts);
-	printf("\t-f <bitmask>     - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x%x)\n",
+	printf("\t-f <bitmask>     - Debug flags: 0x%x - SA, 0x%x - CIO,  (default: 0x%x)\n",
 					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
+	printf("\t-v               - Increase verbose level (default is 0).\n");
 }
 
 static int parse_args(int argc, char *argv[])
@@ -393,6 +404,9 @@ static int parse_args(int argc, char *argv[])
 				return -EINVAL;
 			}
 			i += 2;
+		} else if (strcmp(argv[i], "-v") == 0) {
+			verbose++;
+			i += 1;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
@@ -408,6 +422,7 @@ static int parse_args(int argc, char *argv[])
 	/* Print all inputs arguments */
 	printf("Test ID     : %d\n", test_id);
 	printf("Test name   : %s\n", test_names[test_id]);
+	printf("Packets     : %d\n", num_pkts);
 	printf("Debug flags : 0x%x\n", debug_flags);
 
 
@@ -464,27 +479,27 @@ int main(int argc, char **argv)
 		printf("%s: initialization failed\n", argv[0]);
 		return 1;
 	}
-	printf("%s successfully loaded\n", argv[0]);
 	sam_set_debug_flags(debug_flags);
 
 	if (create_session(&sa_hndl, test_names[test_id], SAM_DIR_ENCRYPT))
 		goto exit;
 
-	pr_info("%s encrypt session successfully created on %s\n", test_names[test_id], "cio-0:0");
+	pr_info("%s encrypt session created on %s\n", test_names[test_id], "cio-0:0");
 
 	if (create_session(&sa_hndl_1, test_names[test_id], SAM_DIR_DECRYPT))
 		goto exit;
 
-	pr_info("%s decrypt session successfully created on %s\n", test_names[test_id], "cio-0:1");
+	pr_info("%s decrypt session created on %s\n", test_names[test_id], "cio-0:1");
 
 	memset(aes128_t1_buf.vaddr, 0, aes128_t1_buf.len);
 
 	/* Build input packet for encryption */
 	input_size = build_udp_pkt_for_encrypt(&aes128_t1_buf);
 
-	printf("\nInput buffer    : %d bytes\n", input_size);
-	mv_mem_dump(aes128_t1_buf.vaddr, input_size);
-
+	if (verbose) {
+		printf("\nInput buffer    : %d bytes\n", input_size);
+		mv_mem_dump(aes128_t1_buf.vaddr, input_size);
+	}
 	for (i = 0; i < num_pkts; i++) {
 		/* Do encrypt */
 		num = 1;
@@ -527,6 +542,8 @@ int main(int argc, char **argv)
 		if (check_udp_pkt_after_decrypt(&aes128_t1_buf, &result))
 			goto exit;
 	}
+
+	printf("\n%s: success\n\n", argv[0]);
 exit:
 	if (sa_hndl) {
 		if (sam_session_destroy(sa_hndl))
@@ -563,8 +580,6 @@ exit:
 		}
 	}
 	sam_deinit();
-
-	printf("%s successfully unloaded\n", argv[0]);
 
 	return 0;
 }
