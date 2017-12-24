@@ -65,6 +65,12 @@
 #define PP2_LPBK_PORT_TXQ_SIZE 4096
 #define PP2_LPBK_PORT_NUM_TXQ  1
 
+
+/*Copied from Linux mv_pp2x driver */
+#define UIO_PP2_STRING  "uio_pp_%d"
+#define UIO_PORT_STRING "uio_pp_port_%d:%d"
+
+
 #ifdef MVCONF_PP2_LOCK
 	#ifdef MVCONF_PP2_LOCK_STAT
 		#define dm_spin_lock(dm_lock)						\
@@ -346,18 +352,17 @@ struct pp2_txq_config {
 
 enum port_status {
 	PP2_PORT_DISABLED,
-	PP2_PORT_KERNEL,
-	PP2_PORT_MUSDK,
-	PP2_PORT_SHARED,
-	PP2_PORT_MUSDK_LOOPBACK,
+	PP2_PORT_KERNEL
+};
+
+struct pp2_port_uio {
+	int fd;
 };
 
 /* PP Port internal structure */
 struct pp2_port {
 	/* Port ID */
 	u32 id;
-	/* Port status */
-	u32 admin_status;
 	/* Port Flags */
 	u32 flags;
 	/* Number of RXQs used by this port */
@@ -411,6 +416,7 @@ struct pp2_port {
 	/* Default policer. Can be NULL */
 	struct pp2_cls_plcr *default_plcr;
 	struct mv_sys_dma_mem_region *tx_qs_mem;
+	struct pp2_port_uio uio_port;
 };
 
 /**

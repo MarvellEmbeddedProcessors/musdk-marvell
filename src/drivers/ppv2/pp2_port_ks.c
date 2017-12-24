@@ -43,6 +43,7 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 
+
 /* Helper function to access kernel network device */
 struct net_device *pp2_port_get_netdev(struct pp2_port *port)
 {
@@ -429,3 +430,70 @@ int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *s
 
 	return 0;
 }
+
+/* Set Port enabled */
+int pp2_port_set_enable(struct pp2_port *port, uint32_t en)
+{
+	struct net_device *netdev = pp2_port_get_netdev(port);
+	int err;
+
+	if (!netdev) {
+		pr_err("%s: Failed to locate network device '%s'.\n", __func__, port->linux_name);
+		return -EINVAL;
+	}
+	if (en)
+		err = dev_open(netdev);
+	else
+		err = dev_close(netdev);
+
+	if (err < 0)  {
+		pr_err("%s: Failed to set network device '%s' to %s.\n", __func__, port->linux_name,
+			(en) ? "enabled" : "disabled");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/* Check if Port enabled */
+int pp2_port_get_enable(struct pp2_port *port, uint32_t *en)
+{
+	struct net_device *netdev = pp2_port_get_netdev(port);
+
+	if (!netdev) {
+		pr_err("%s: Failed to locate network device '%s'.\n", __func__, port->linux_name);
+		return -EINVAL;
+	}
+
+	*en = !!(netdev->flags & IFF_UP);
+	return 0;
+}
+
+int pp2_port_open_uio(struct pp2_port *port)
+{
+	struct net_device *netdev = pp2_port_get_netdev(port);
+	int err;
+
+	if (!netdev) {
+		pr_err("%s: Failed to locate network device '%s'.\n", __func__, port->linux_name);
+		return -EINVAL;
+	}
+	err = mv_pp2x_port_musdk_set(netdev_priv(netdev));
+	if (err)
+		pr_err("%s: Failed to set musdk_mode on network device '%s'", __func__, port->linux_name);
+	return err;
+}
+int pp2_port_close_uio(struct pp2_port *port)
+{
+	struct net_device *netdev = pp2_port_get_netdev(port);
+	int err;
+
+	if (!netdev) {
+		pr_err("%s: Failed to locate network device '%s'.\n", __func__, port->linux_name);
+		return -EINVAL;
+	}
+	err = mv_pp2x_port_musdk_clear(netdev_priv(netdev));
+
+	return err;
+}
+

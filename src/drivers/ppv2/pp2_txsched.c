@@ -441,7 +441,7 @@ int pp2_port_config_txsched(struct pp2_port *port)
 		if (rc)
 			return rc;
 
-		if (port->num_tx_queues > 1 && port->id != PP2_LOOPBACK_PORT) {
+		if (port->num_tx_queues > 1 && NOT_LPBK_PORT(port)) {
 			rc = pp2_txsched_queue_arbitration_set(port, txq, port->txq_config[txq].sched_mode,
 							       remapped_weights[txq]);
 			if (rc)

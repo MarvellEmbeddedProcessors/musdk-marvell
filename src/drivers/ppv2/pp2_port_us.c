@@ -47,6 +47,8 @@
 #include "pp2_port.h"
 #include "pp2_bm.h"
 #include "cls/pp2_hw_cls.h"
+#include "lib/uio_helper.h"
+
 
 /* Port Control routines */
 static int parse_hex(char *str, u8 *addr, size_t size)
@@ -561,4 +563,89 @@ int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *s
 
 	return 0;
 }
+int pp2_port_open_uio(struct pp2_port *port)
+{
+	char *tmp_name;
+	char dev_name[16];
+	struct uio_info_t *uio_info;
+	int fd;
+	int max_uio_port_str_size = sizeof(UIO_PORT_STRING) + 8;
+
+	tmp_name = kmalloc(max_uio_port_str_size, GFP_KERNEL);
+	snprintf(tmp_name, max_uio_port_str_size, UIO_PORT_STRING, port->parent->id, port->id);
+	uio_info = uio_find_devices_byname(tmp_name);
+	if (!uio_info) {
+		pr_err("UIO device (%s) not found!\n", tmp_name);
+		kfree(tmp_name);
+		return -ENODEV;
+	}
+	kfree(tmp_name);
+	snprintf(dev_name, sizeof(dev_name), "/dev/uio%d", uio_info->uio_num);
+	fd = open(dev_name, O_RDWR);
+	if (fd < 0) {
+		pr_err("Could not open file (%s)\n", dev_name);
+		return errno;
+	}
+	port->uio_port.fd = fd;
+	return 0;
+}
+
+int pp2_port_close_uio(struct pp2_port *port)
+{
+	int err;
+
+	err = close(port->uio_port.fd);
+	if (err < 0)
+		pr_err(" Could not close file (%s)\n", strerror(errno));
+	port->uio_port.fd = -1;
+	return err;
+}
+
+/* Set Port enabled */
+int pp2_port_set_enable(struct pp2_port *port, uint32_t en)
+{
+	int rc;
+	struct ifreq s;
+
+	strcpy(s.ifr_name, port->linux_name);
+	pr_debug("pp2_port_set_enable : port->id %d, port->linux_name: %s, enable(%d)\n", port->id,
+		 port->linux_name, en);
+	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
+	if (rc) {
+		pr_err("PORT: unable to read port enabled\n");
+		return rc;
+	}
+
+	if (en)
+		s.ifr_flags |= IFF_UP;
+	else
+		s.ifr_flags &= ~IFF_UP;
+
+	rc = mv_netdev_ioctl(SIOCSIFFLAGS, &s);
+	if (rc) {
+		pr_err("PORT: unable to set port enabled\n");
+		return rc;
+	}
+	return 0;
+}
+
+/* Check if Port enabled */
+int pp2_port_get_enable(struct pp2_port *port, uint32_t *en)
+{
+	int rc;
+	struct ifreq s;
+
+	*en = 0;
+	strcpy(s.ifr_name, port->linux_name);
+	rc = mv_netdev_ioctl(SIOCGIFFLAGS, &s);
+	if (rc) {
+		pr_err("PORT: unable to read port enabled\n");
+		return rc;
+	}
+
+	if (s.ifr_flags & IFF_UP)
+		*en = 1;
+	return 0;
+}
+
 

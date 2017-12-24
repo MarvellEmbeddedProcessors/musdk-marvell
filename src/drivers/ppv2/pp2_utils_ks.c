@@ -90,24 +90,10 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 				pr_debug("%s: port %d:%d is disabled\n", __func__, i, j);
 				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
 			} else {
-				sprintf(netdev_params[idx].if_name, "eth%d", if_id++);
-				musdk_status = of_get_property(port_node, "musdk-status", NULL);
-				/* Set musdk_flag, only if status is "private", not if status is "shared" */
-				if (musdk_status && !strcmp(musdk_status, "private")) {
-					pr_debug("private\n");
-					netdev_params[idx].admin_status = PP2_PORT_MUSDK;
-				} else if (musdk_status && !strcmp(musdk_status, "shared")) {
-					pr_debug("shared\n");
-					netdev_params[idx].admin_status = PP2_PORT_SHARED;
-				} else {
-					pr_debug("kernel\n");
-					netdev_params[idx].admin_status = PP2_PORT_KERNEL;
-				}
+				netdev_params[idx].admin_status = PP2_PORT_KERNEL;
 			}
 			pr_debug("%s: Port '%s' (ppio%d:%d) is %s.\n", __func__, netdev_params[idx].if_name, i, j,
 				 netdev_params[idx].admin_status == PP2_PORT_DISABLED ? "disabled" :
-				 netdev_params[idx].admin_status == PP2_PORT_MUSDK ? "owned by musdk" :
-				 netdev_params[idx].admin_status == PP2_PORT_SHARED ? "shared" :
 				 netdev_params[idx].admin_status == PP2_PORT_KERNEL ? "owned by kernel" :
 				 "in an unknown state");
 		}

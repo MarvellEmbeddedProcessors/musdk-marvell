@@ -431,7 +431,7 @@ int pp2_ppio_available(int pp_id, int ppio_id)
 
 	err = pp2_netdev_if_admin_status_get(pp_id, ppio_id, &admin_status);
 
-	if (!err && (admin_status == PP2_PORT_MUSDK || admin_status == PP2_PORT_SHARED))
+	if (!err && (admin_status != PP2_PORT_DISABLED))
 		return true;
 	return false;
 }
