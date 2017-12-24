@@ -70,6 +70,10 @@
 
 #define PP2_LOOPBACK_PORT             (3)
 
+#define LPBK_PORT(x)			((x)->id == PP2_LOOPBACK_PORT)
+#define NOT_LPBK_PORT(x)		(!((x)->id == PP2_LOOPBACK_PORT))
+
+
 /******************************************************************************/
 /*    Hardware Resources Offsets(reserved to OS/slow path) per Platform       */
 

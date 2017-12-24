@@ -49,6 +49,7 @@
 #include "cls/pp2_cls_mng.h"
 #include "cls/pp2_rss.h"
 
+
 /*
  * pp2_port.c
  *
@@ -350,7 +351,7 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 	hw = &port->parent->hw;
 	cpu_slot = port->cpu_slot;
 
-	if (port->id == PP2_LOOPBACK_PORT)
+	if (LPBK_PORT(port))
 		desc_per_txq = PP2_LOOPBACK_PORT_TXQ_PREFETCH;
 	else
 		desc_per_txq = PP2_ETH_PORT_TXQ_PREFETCH;
@@ -856,9 +857,6 @@ pp2_port_txqs_deinit(struct pp2_port *port)
 static void
 pp2_port_start_dev(struct pp2_port *port)
 {
-	struct gop_hw *gop = &port->parent->hw.gop;
-	struct pp2_mac_data *mac = &port->mac_data;
-
 	if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
 		pp2_port_mac_max_rx_size_set(port);
 
@@ -869,16 +867,6 @@ pp2_port_start_dev(struct pp2_port *port)
 		MVPP2_MAX_TCONT + port->id,
 	((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS) ? " ingress " : "",
 	((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS) ? " egress " : "");
-
-	/* No need for port interrupts enable */
-	if (port->use_mac_lb == false) {
-		pp2_gop_port_events_mask(gop, mac);
-		pp2_gop_port_enable(gop, mac);
-
-		/* Link status. Indirect access */
-		pp2_port_link_status(port);
-		pp2_gop_status_show(gop, mac);
-	}
 
 	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS)
 		pp2_port_egress_enable(port);
@@ -891,23 +879,15 @@ pp2_port_start_dev(struct pp2_port *port)
 static void
 pp2_port_stop_dev(struct pp2_port *port)
 {
-	struct gop_hw *gop = &port->parent->hw.gop;
-	struct pp2_mac_data *mac = &port->mac_data;
-
 	/* Stop new packets from arriving to RXQs */
 	pp2_port_ingress_disable(port);
 
 	/* Sleep for 10 milliseconds */
-	usleep_range(10000, 11000);
+	mdelay(10);
 
 	/* Disable interrupts on all CPUs */
 	pp2_port_interrupts_disable(port);
 	pp2_port_egress_disable(port);
-	if (port->use_mac_lb == false) {
-		pp2_gop_port_events_mask(gop, mac);
-		pp2_gop_port_disable(gop, mac);
-		port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
-	}
 }
 
 
@@ -940,9 +920,21 @@ pp2_port_config_outq(struct pp2_port *port)
 void
 pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slowpath */
 {
+
+	pr_debug("pp2_port_start: %s\n", port->linux_name);
 	port->t_mode = t_mode;
 
+	/* For non-loopback port, admin_up interface in Linux. Takes care of Phy/MAC. */
+	if (NOT_LPBK_PORT(port))
+		pp2_port_set_enable(port, 1);
+
 	pp2_port_start_dev(port);
+
+	if (NOT_LPBK_PORT(port)) {
+		/* Sleep to allow link to come up before showing status */
+		mdelay(800);
+		pp2_gop_status_show(&port->parent->hw.gop, &port->mac_data);
+	}
 }
 
 /* Internal.
@@ -1097,6 +1089,11 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	port = inst->ports[port_id];
 	port->parent = inst;
 
+
+	/* Assign linux name to port */
+	pp2_netdev_ifname_get(pp2_id, port_id, port->linux_name);
+	pr_debug("pp2_port_open: pp2_id(%d), port_id(%d), port->linux_name(%s)\n", pp2_id, port_id, port->linux_name);
+
 	/* Setup port based on client params
 	 * TODO: Traffic Mgr and CoS stuff not implemented yet, so only
 	 * the first parameter of the array is used
@@ -1182,7 +1179,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	port->hash_type = param->inqs_params.hash_type;
 	port->default_plcr = param->inqs_params.plcr;
 
-	if (port_id == PP2_LOOPBACK_PORT)
+	if (LPBK_PORT(port))
 		port->use_mac_lb = true;
 	else
 		port->use_mac_lb = false;
@@ -1216,25 +1213,17 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	hw = &inst->hw;
 	port->cpu_slot = hw->base[PP2_DEFAULT_REGSPACE].va;
 
-	/* Assign admin status port */
-	pp2_netdev_if_admin_status_get(pp2_id, port_id, &port->admin_status);
+	if (param->type != PP2_PPIO_T_NIC && param->type != PP2_PPIO_T_LOG)
+		return -EINVAL;
 
-	/* Assign linux name to port */
-	pp2_netdev_ifname_get(pp2_id, port_id, port->linux_name);
+	port->type = param->type;
 
-	pr_debug("PORT: name: %s admin_status: %d param->type == %d\n", port->linux_name,
-		 port->admin_status, param->type);
-
-	if ((port->admin_status == PP2_PORT_SHARED && param->type == PP2_PPIO_T_LOG) ||
-	    (port->admin_status == PP2_PORT_MUSDK && param->type == PP2_PPIO_T_NIC)) {
-		port->type = param->type;
-	} else {
-		if (port->admin_status != PP2_PORT_DISABLED) {
-			pr_err("port %s: configured type does not match dts file\n", port->linux_name);
-			return -EFAULT;
-		}
+	/* For MUSDK Ethernet ports, call uio_open to request port ownership from Linux */
+	if (NOT_LPBK_PORT(port) && port->type == PP2_PPIO_T_NIC) {
+		rc = pp2_port_open_uio(port);
+		if (rc)
+			return rc;
 	}
-
 	/* Assign and initialize port private data and hardware */
 	pp2_port_init(port);
 
@@ -1244,7 +1233,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/* At this point, the port is default allocated and configured */
 	*port_hdl = port;
 
-	if ((port_id != PP2_LOOPBACK_PORT) && (param->type == PP2_PPIO_T_NIC))
+	if (NOT_LPBK_PORT(port) && (param->type == PP2_PPIO_T_NIC))
 		pp2_port_initialize_statistics(port);
 
 	return 0;
@@ -1277,23 +1266,33 @@ void
 pp2_port_stop(struct pp2_port *port)
 {
 	/* Stop new packets from arriving to RXQs */
+	pr_debug("pp2_port_stop: %s\n", port->linux_name);
+
 	pp2_port_stop_dev(port);
+
+	/* For non-loopback port, ifconfig down the interface in Linux */
+	if (NOT_LPBK_PORT(port))
+		pp2_port_set_enable(port, 0);
 }
 
 /* External */
 void
 pp2_port_close(struct pp2_port *port)
 {
-	 struct pp2_inst *inst;
+	struct pp2_inst *inst;
 
 	if (!port)
 		return;
 
 	 inst = port->parent;
 	 pp2_port_deinit(port);
-
 	 inst->num_ports--;
+
+	/* Close uio_device file, returns ownership to Linux */
+	if (NOT_LPBK_PORT(port) && port->type == PP2_PPIO_T_NIC)
+		pp2_port_close_uio(port);
 }
+
 
 /* Get RXQ based on which bit is set in the EthOccIC */
 static inline struct pp2_rx_queue *
@@ -1666,10 +1665,8 @@ int pp2_port_link_status(struct pp2_port *port)
 
 	if (link_is_up) {
 		pr_debug("PORT: Port%u - link is up\n", port->id);
-		port->mac_data.flags |= MV_EMAC_F_LINK_UP;
 	} else {
 		pr_debug("PORT: Port%u - link is down\n", port->id);
-		port->mac_data.flags &= ~MV_EMAC_F_LINK_UP;
 	}
 
 	return link_is_up;

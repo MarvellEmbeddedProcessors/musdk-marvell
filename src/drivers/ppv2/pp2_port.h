@@ -445,6 +445,12 @@ int pp2_port_set_mc_promisc(struct pp2_port *port, uint32_t en);
 /* Check if Multicast promiscuous */
 int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en);
 
+/* Set Port enable */
+int pp2_port_set_enable(struct pp2_port *port, uint32_t en);
+
+/* Check if Port enabled */
+int pp2_port_get_enable(struct pp2_port *port, uint32_t *en);
+
 /* Add MAC address */
 int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr);
 
@@ -477,5 +483,14 @@ pp2_rxq_received(struct pp2_port *port, const int rxq_id)
 
 	return (val & MVPP2_RXQ_OCCUPIED_MASK);
 }
+/* Open uio_device associated with a port */
+int pp2_port_open_uio(struct pp2_port *port);
+/* Close uio_device associated with a port */
+int pp2_port_close_uio(struct pp2_port *port);
+
+/* Functions from mvpp2x driver, for ks implementation */
+int mv_pp2x_port_musdk_set(void *netdev_priv);
+int mv_pp2x_port_musdk_clear(void *netdev_priv);
+
 
 #endif /* __PP2_PORT_H__ */

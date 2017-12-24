@@ -338,5 +338,6 @@ static __always_inline u32 fls_64(u64 x)
 /* Kernel Delay */
 #define udelay(us) usleep(us)
 #define usleep_range(us, range) usleep(us)
+#define mdelay(ms) usleep(ms*1000)
 
 #endif /* __MV_COMMON_H__ */

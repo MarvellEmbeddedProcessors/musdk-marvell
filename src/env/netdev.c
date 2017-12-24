@@ -48,7 +48,7 @@ int mv_netdev_ioctl(u32 ctl, struct ifreq *s)
 
 	rc = ioctl(fd, ctl, (char *)s);
 	if (rc == -1) {
-		pr_debug("ioctl request failed: errno %d\n", errno);
+		pr_err("ioctl request failed: errno %d\n", errno);
 		close(fd);
 		return -EFAULT;
 	}

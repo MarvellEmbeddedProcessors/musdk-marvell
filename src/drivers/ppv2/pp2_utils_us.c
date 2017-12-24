@@ -89,27 +89,7 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 				pr_debug("port %d:%d is disabled\n", i, j);
 				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
 			} else {
-				/* Get port musdk-status info */
-				strcpy(fullpath, temppath);
-				strcat(fullpath, "/musdk-status");
-				fp = fopen(fullpath, "r");
-				if (!fp) {
-					pr_debug("port %d:%d is kernel\n", i, j);
-					netdev_params[idx].admin_status = PP2_PORT_KERNEL;
-				} else {
-					fgets(buf, sizeof(buf), fp);
-					fclose(fp);
-					if (strcmp("private", buf) == 0) {
-						pr_debug("port %d:%d is MUSDK\n", i, j);
-						netdev_params[idx].admin_status = PP2_PORT_MUSDK;
-					} else if (strcmp("shared", buf) == 0) {
-						pr_debug("port %d:%d is logical port\n", i, j);
-						netdev_params[idx].admin_status = PP2_PORT_SHARED;
-					} else {
-						pr_debug("port %d:%d is kernel\n", i, j);
-						netdev_params[idx].admin_status = PP2_PORT_KERNEL;
-					}
-				}
+				netdev_params[idx].admin_status = PP2_PORT_KERNEL;
 			}
 		}
 	}
@@ -119,7 +99,7 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 /* pp2_netdev_if_info_get()
  * Retireve information from netdev for all instances and ports:
  * - if name
- * - port status (disabled/MUSDK/Kernel)
+ * - port status (disabled/Kernel)
  */
 int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 {
