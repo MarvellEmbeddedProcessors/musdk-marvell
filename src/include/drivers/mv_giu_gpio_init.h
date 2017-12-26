@@ -107,18 +107,10 @@ struct giu_gpio_outtc_params {
 	union giu_gpio_q_params *outqs_params;
 
 	/* host_ing_tcs */
-	u32 num_rem_inqs;
 	u8 rss_type;
-	/* The following two parameters are added inorder not to break the init flow
-	 * between Netdev and GIU - It should be update at later phase
-	 */
-	u32	rem_inqs_bpool_num;
-	u32	rem_inqs_bpool_list[4];
+	u32 num_rem_inqs;
 	union giu_gpio_q_params *rem_inqs_params;
-
-	u32 host_bm_qs_num;
 	union giu_gpio_q_params *rem_poolqs_params;
-
 };
 
 struct giu_gpio_outtcs_params {
