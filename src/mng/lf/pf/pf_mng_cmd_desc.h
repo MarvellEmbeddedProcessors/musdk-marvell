@@ -63,7 +63,6 @@ enum app_codes {
 enum cmd_codes {
 	CC_PF_INIT = 0x1,
 	CC_PF_INIT_DONE,
-	CC_PF_BM_POOL_ADD,
 	CC_PF_EGRESS_TC_ADD,
 	CC_PF_EGRESS_DATA_Q_ADD,
 	CC_PF_INGRESS_TC_ADD,
@@ -105,20 +104,12 @@ enum ingress_hash_type {
 struct mgmt_cmd_params {
 	union {
 		struct {
-			u32	num_host_bm_pools;
 			u32	num_host_egress_tc;
 			u32	num_host_ingress_tc;
 			u16	mtu_override;
 			u16	mru_override;
 			u8	egress_sched; /* enum aos_egress_sched */
 		} pf_init;
-
-		struct {
-			u64	q_phys_addr;
-			u32	q_len;
-			u64	q_cons_phys_addr;
-			u32	q_buf_size;
-		} bm_pool_add;
 
 		struct {
 			u32	tc_prio;
@@ -144,10 +135,12 @@ struct mgmt_cmd_params {
 		struct {
 			u64	q_phys_addr;
 			u64	q_prod_phys_addr;
+			u64	bpool_q_phys_addr;
+			u64	bpool_q_cons_phys_addr;
 			u32	q_len;
 			u32	msix_id;
 			u32	tc_prio;
-			u32	bm_pool_q_id_list[4];
+			u32	q_buf_size;
 		} pf_ingress_data_q_add;
 
 		struct {
@@ -215,8 +208,8 @@ struct mgmt_cmd_resp {
 		 * created (ingress or egress).
 		 */
 		struct {
-			u32	q_id;
 			u64	q_prod_cons_phys_addr;
+			u64	bpool_q_prod_cons_phys_addr;
 		} q_add_resp;
 
 		u32 link_status;

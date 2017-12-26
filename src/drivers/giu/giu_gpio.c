@@ -168,14 +168,8 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 			params.prod_phys       = (void *)outtc->rem_inqs_params[q_idx].rem_q.prod_base_pa;
 			params.prod_virt       = outtc->rem_inqs_params[q_idx].rem_q.prod_base_va;
 			params.host_remap      = outtc->rem_inqs_params[q_idx].rem_q.host_remap;
-
-			for (bm_pool_num = 0; bm_pool_num < outtc->host_bm_qs_num; bm_pool_num++) {
-				if (outtc->rem_inqs_bpool_list[bm_pool_num] != 0xFFFF)
-					params.bpool_qids[bm_pool_num] = outtc->rem_inqs_bpool_list[bm_pool_num];
-				else
-					break;
-			}
-			params.bpool_num = outtc->rem_inqs_bpool_num;
+			params.bpool_num       = 1;
+			params.bpool_qids[0]   = outtc->rem_poolqs_params[q_idx].rem_q.q_id;
 
 			giu_gpio_q_p = &(outtc->rem_inqs_params[q_idx]);
 			if (giu_gpio_q_p) {

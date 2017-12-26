@@ -103,7 +103,7 @@ int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **
 
 		outtc = &(init_params->outtcs_params.outtc_params[tc_idx]);
 
-		for (bm_idx = 0; bm_idx < outtc->host_bm_qs_num; bm_idx++) {
+		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
 
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 
@@ -130,7 +130,8 @@ int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **
 				pr_err("Failed to register BM Queue %d to GIU\n", params.idx);
 				goto host_queue_error;
 			}
-			pr_debug("Host BM[%d], queue Id %d, Registered to GIU RX\n\n", bm_idx, params.idx);
+			pr_debug("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
+				 tc_idx, bm_idx, params.idx);
 		}
 	}
 
@@ -142,7 +143,7 @@ host_queue_error:
 
 		outtc = &(init_params->outtcs_params.outtc_params[tc_idx]);
 
-		for (bm_idx = 0; bm_idx < outtc->host_bm_qs_num; bm_idx++) {
+		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
 
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 
@@ -208,7 +209,7 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 
 		outtc = &(init_params->outtcs_params.outtc_params[tc_idx]);
 
-		for (bm_idx = 0; bm_idx < outtc->host_bm_qs_num; bm_idx++) {
+		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
 
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 			if (giu_gpio_q_p->rem_q.q_id) {

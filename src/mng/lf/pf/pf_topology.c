@@ -262,6 +262,9 @@ int pf_outtc_queue_free(u32 type, u32 tc_num)
 				kfree(outtc_p[tc_idx].rem_inqs_params);
 				clear_outtc++;
 			}
+
+			if (outtc_p[tc_idx].rem_poolqs_params != NULL)
+				kfree(outtc_p[tc_idx].rem_poolqs_params);
 		}
 	}
 
@@ -269,7 +272,6 @@ int pf_outtc_queue_free(u32 type, u32 tc_num)
 		kfree(outtc_p);
 		clear_outtc = 0;
 	}
-
 
 	return 0;
 }
@@ -318,47 +320,6 @@ int pf_intc_queue_free(u32 type, u32 tc_num)
 
 
 /*
- *	pf_outtc_bm_queue_init
- *
- *	This function initilaize BM params object in queue topology
- *
- *	@param[in]	bm_type - buffer pool type
- *	@param[in]	bm_num - number of buffer pools
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int pf_outtc_bm_queue_init(u32 bm_num)
-{
-	u32 tc_idx;
-	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
-	struct giu_gpio_outtc_params *outtc_p = q_top->outtcs_params.outtc_params;
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-
-		outtc_p[tc_idx].host_bm_qs_num = bm_num;
-		if (bm_num != 0) {
-			outtc_p[tc_idx].rem_poolqs_params =
-						kcalloc(bm_num, sizeof(union giu_gpio_q_params), GFP_KERNEL);
-			if (outtc_p[tc_idx].rem_poolqs_params == NULL)
-				goto bm_error;
-		}
-	}
-
-	return 0;
-
-bm_error:
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-		if (outtc_p[tc_idx].rem_poolqs_params != NULL)
-			kfree(outtc_p[tc_idx].rem_poolqs_params);
-	}
-
-	return -ENOMEM;
-}
-
-
-/*
  *	pf_intc_bm_queue_init
  *
  *	This function initilaize BM params object in queue topology
@@ -397,29 +358,6 @@ bm_error:
 	}
 
 	return -ENOMEM;
-}
-
-
-/*
- *	pf_outtc_bm_queue_free
- *
- *	This function release BM params object in queue topology
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int pf_outtc_bm_queue_free(void)
-{
-	u32 tc_idx;
-	struct giu_gpio_init_params *q_top = &(nic_pf->topology_data);
-	struct giu_gpio_outtc_params *outtc_p = q_top->outtcs_params.outtc_params;
-
-	for (tc_idx = 0; tc_idx < q_top->outtcs_params.num_outtcs; tc_idx++) {
-		if (outtc_p[tc_idx].rem_poolqs_params != NULL)
-			kfree(outtc_p[tc_idx].rem_poolqs_params);
-	}
-
-	return 0;
 }
 
 
