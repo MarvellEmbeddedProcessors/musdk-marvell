@@ -56,6 +56,14 @@ typedef enum
     SAB_ERROR
 } SABuilder_Status_t;
 
+typedef enum
+{
+	SAB_FW_VER_2_4 = 0,
+	SAB_FW_VER_2_7 = 1,
+	SAB_FW_VER_LAST
+} SABuilder_FW_Ver_t;
+
+int SABuilderLib_SetFwVersion(SABuilder_FW_Ver_t fw_ver);
 
 /*----------------------------------------------------------------------------
  * SABuilder_GetSizes();
