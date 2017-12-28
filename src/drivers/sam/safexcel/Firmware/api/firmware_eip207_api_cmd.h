@@ -13,12 +13,12 @@
 /* -------------------------------------------------------------------------- */
 /*                                                                            */
 /*   Module        : firmware_eip197                                          */
-/*   Version       : 2.4                                                      */
+/*   Version       : 2.4 / 2.7                                                */
 /*   Configuration : FIRMWARE-GENERIC-NO-PP                                   */
 /*                                                                            */
-/*   Date          : 2015-Feb-25                                              */
+/*   Date          : 2017-Jun-19                                              */
 /*                                                                            */
-/* Copyright (c) 2011-2015 INSIDE Secure B.V. All Rights Reserved             */
+/* Copyright (c) 2012-2017 INSIDE Secure B.V. All Rights Reserved             */
 /*                                                                            */
 /* This confidential and proprietary software may be used only as authorized  */
 /* by a licensing agreement from INSIDE Secure.                               */
@@ -28,7 +28,7 @@
 /* INSIDE Secure.                                                             */
 /*                                                                            */
 /* For more information or support, please go to our online support system at */
-/* https://essoemsupport.insidesecure.com.                                    */
+/* https://customersupport.insidesecure.com.                                  */
 /* In case you do not have an account for this system, please send an e-mail  */
 /* to ESSEmbeddedHW-Support@insidesecure.com.                                 */
 /* -------------------------------------------------------------------------- */
@@ -60,8 +60,20 @@
 // Inline IPsec packet flow
 #define FIRMWARE_EIP207_CMD_PKT_IIP       0x02
 
+// Lookaside IPsec packet flow, custom classification - FW 2.7 only
+#define FIRMWARE_EIP207_CMD_PKT_LIP_CUST  0x03
+
+// Inline IPsec packet flow, custom classification - FW 2.7 only
+#define FIRMWARE_EIP207_CMD_PKT_IIP_CUST  0x03
+
 // Lookaside IPsec with Token Builder offload packet flow
 #define FIRMWARE_EIP207_CMD_PKT_LAIP_TB   0x18
+
+// Lookaside Basic with Token Builder offload packet flow - FW 2.7 only
+#define FIRMWARE_EIP207_CMD_PKT_LAB_TB    0x20
+
+// Inline Basic with Token Builder offload packet flow - FW 2.7 only
+#define FIRMWARE_EIP207_CMD_PKT_IB_TB    0x20
 
 // Lookaside DTLS (including CAPWAP)
 #define FIRMWARE_EIP207_CMD_PKT_LDT       0x28

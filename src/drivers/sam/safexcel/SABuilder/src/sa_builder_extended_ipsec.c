@@ -436,12 +436,12 @@ SABuilder_SetExtendedIPsecParams(SABuilder_Params_t *const SAParams_p,
 #ifdef SAB_ENABLE_TWO_FIXED_RECORD_SIZES
             if (SAParams_p->OffsetSeqNum > SAB_SEQNUM_LO_FIX_OFFSET)
             {
-                CtxInstructionWord = SAB_CTX_NONE + FIRMWARE_EIP207_CS_FLOW_TRC_RECORD_WORD_COUNT_LARGE - 1;
+                CtxInstructionWord = SAB_CTX_NONE + sab_record_word_count_large - 1;
             }
             else
 #endif
             {
-                CtxInstructionWord = SAB_CTX_NONE + FIRMWARE_EIP207_CS_FLOW_TRC_RECORD_WORD_COUNT - 1;
+                CtxInstructionWord = SAB_CTX_NONE + sab_record_word_count - 1;
             }
         }
         else if (ExtSeq != 0 ||

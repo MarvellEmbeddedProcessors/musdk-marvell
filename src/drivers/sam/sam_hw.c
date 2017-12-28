@@ -121,6 +121,18 @@ static bool sam_hw_ring_is_busy(struct sam_hw_ring *hw_ring)
 
 	return false;
 }
+
+static int sam_hw_get_pes_num(struct sam_hw_device_info *device_info)
+{
+	int num_pes;
+	u32 val32;
+
+	val32 = sam_hw_reg_read(device_info->vaddr, SAM_EIP197_HIA_OPTIONS_REG);
+	num_pes = SAM_N_PES_GET(val32);
+
+	return num_pes;
+}
+
 int sam_hw_get_rings_num(u32 device, u32 *map)
 {
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
@@ -328,7 +340,7 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 		     struct sam_hw_ring *hw_ring)
 {
 	u32 ring_size;
-	int rc;
+	int rc, nr_pes = 1;
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
 
 	if (!device_info->iomem_info) {
@@ -347,6 +359,11 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 			device_info->iomem_info = NULL;
 			return -ENOMEM;
 		}
+		nr_pes = sam_hw_get_pes_num(device_info);
+		if (nr_pes == 1)
+			SABuilderLib_SetFwVersion(SAB_FW_VER_2_4);
+		else
+			SABuilderLib_SetFwVersion(SAB_FW_VER_2_7);
 	}
 	if (device_info->active_rings & BIT(ring)) {
 		pr_err("device #%d: Ring #%d is busy. Active rings map is 0x%x\n",

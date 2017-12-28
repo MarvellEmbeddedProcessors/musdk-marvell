@@ -9,12 +9,12 @@
 /* -------------------------------------------------------------------------- */
 /*                                                                            */
 /*   Module        : firmware_eip197                                          */
-/*   Version       : 2.4                                                      */
+/*   Version       : 2.4 / 2.7                                                */
 /*   Configuration : FIRMWARE-GENERIC-NO-PP                                   */
 /*                                                                            */
-/*   Date          : 2015-Feb-25                                              */
+/*   Date          : 2017-Jun-19                                              */
 /*                                                                            */
-/* Copyright (c) 2011-2015 INSIDE Secure B.V. All Rights Reserved             */
+/* Copyright (c) 2012-2017 INSIDE Secure B.V. All Rights Reserved             */
 /*                                                                            */
 /* This confidential and proprietary software may be used only as authorized  */
 /* by a licensing agreement from INSIDE Secure.                               */
@@ -24,7 +24,7 @@
 /* INSIDE Secure.                                                             */
 /*                                                                            */
 /* For more information or support, please go to our online support system at */
-/* https://essoemsupport.insidesecure.com.                                    */
+/* https://customersupport.insidesecure.com.                                  */
 /* In case you do not have an account for this system, please send an e-mail  */
 /* to ESSEmbeddedHW-Support@insidesecure.com.                                 */
 /* -------------------------------------------------------------------------- */
@@ -45,8 +45,8 @@
 
 // IPUE firmware program counter value where the engine must be started from
 // in order to perform the firmware version check in the debug mode
-#define FIRMWARE_EIP207_DWLD_IPUE_VERSION_CHECK_DBG_PROG_CNTR      0x03F0
-
+#define FIRMWARE_EIP207b_DWLD_IPUE_VERSION_CHECK_DBG_PROG_CNTR      0x03F0
+#define FIRMWARE_EIP207d_DWLD_IPUE_VERSION_CHECK_DBG_PROG_CNTR      0x05F0
 // IFPP firmware program counter value where the engine must be started from
 // in order to perform the firmware version check in the debug mode
 #define FIRMWARE_EIP207_DWLD_IFPP_VERSION_CHECK_DBG_PROG_CNTR      0x0BF0

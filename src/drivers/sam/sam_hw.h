@@ -42,6 +42,20 @@
 /* Clcok frequency in MHz */
 #define SAM_HIA_CLOCK_FREQ		500
 
+/* HIA Options Register */
+#define SAM_EIP197_HIA_OPTIONS_REG	0x9FFF8
+#define SAM_EIP97_HIA_OPTIONS_REG	0x0FFF8
+
+#define SAM_N_RINGS_OFFS		0
+#define SAM_N_RINGS_BITS		4
+#define SAM_N_RINGS_MASK		BIT_MASK(SAM_N_RINGS_BITS)
+#define SAM_N_RINGS_GET(v32)		(((v32) >> SAM_N_RINGS_OFFS) & SAM_N_RINGS_MASK)
+
+#define SAM_N_PES_OFFS			4
+#define SAM_N_PES_BITS			3
+#define SAM_N_PES_MASK			BIT_MASK(SAM_N_PES_BITS)
+#define SAM_N_PES_GET(v32)		(((v32) >> SAM_N_PES_OFFS) & SAM_N_PES_MASK)
+
 #define SAM_EIP197_AIC_RING_REGS_OFFS(ring)	(0x9E800 - (ring) * 0x1000)
 #define SAM_EIP97_AIC_RING_REGS_OFFS(ring)	(0x0E000 - (ring) * 0x1000)
 #define SAM_AIC_RING_POL_REG		0x0

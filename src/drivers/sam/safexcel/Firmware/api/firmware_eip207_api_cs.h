@@ -10,12 +10,12 @@
 /* -------------------------------------------------------------------------- */
 /*                                                                            */
 /*   Module        : firmware_eip197                                          */
-/*   Version       : 2.4                                                      */
+/*   Version       : 2.4 / 2.7                                                */
 /*   Configuration : FIRMWARE-GENERIC-NO-PP                                   */
 /*                                                                            */
-/*   Date          : 2015-Feb-25                                              */
+/*   Date          : 2017-Jun-19                                              */
 /*                                                                            */
-/* Copyright (c) 2011-2015 INSIDE Secure B.V. All Rights Reserved             */
+/* Copyright (c) 2012-2017 INSIDE Secure B.V. All Rights Reserved             */
 /*                                                                            */
 /* This confidential and proprietary software may be used only as authorized  */
 /* by a licensing agreement from INSIDE Secure.                               */
@@ -25,7 +25,7 @@
 /* INSIDE Secure.                                                             */
 /*                                                                            */
 /* For more information or support, please go to our online support system at */
-/* https://essoemsupport.insidesecure.com.                                    */
+/* https://customersupport.insidesecure.com.                                  */
 /* In case you do not have an account for this system, please send an e-mail  */
 /* to ESSEmbeddedHW-Support@insidesecure.com.                                 */
 /* -------------------------------------------------------------------------- */
@@ -52,46 +52,6 @@
 // the recommended value for combining the write command in the cache client
 #define FIRMWARE_EIP207_RC_DMA_WR_COMB_DLY       0x07
 
-
-// Size of the Flow Record in 32-bit words
-#define FIRMWARE_EIP207_CS_FRC_RECORD_WORD_COUNT                \
-                                    FIRMWARE_EIP207_CS_FLOW_FRC_RECORD_WORD_COUNT
-
-// Size of the Small Transform Record in 32-bit words
-#define FIRMWARE_EIP207_CS_TRC_RECORD_WORD_COUNT                \
-                                    FIRMWARE_EIP207_CS_FLOW_TRC_RECORD_WORD_COUNT
-
-// Size of the Large Transform Record in 32-bit words
-#define FIRMWARE_EIP207_CS_TRC_RECORD_WORD_COUNT_LARGE          \
-                                    FIRMWARE_EIP207_CS_FLOW_TRC_RECORD_WORD_COUNT_LARGE
-
-// Size of the Small ARC4 State Record in 32-bit words
-#define FIRMWARE_EIP207_CS_ARC4RC_RECORD_WORD_COUNT                \
-                                    FIRMWARE_EIP207_CS_FLOW_ARC4RC_RECORD_WORD_COUNT
-
-// Size of the Large ARC4 State Record in 32-bit words
-#define FIRMWARE_EIP207_CS_ARC4RC_RECORD_WORD_COUNT_LARGE          \
-                                    FIRMWARE_EIP207_CS_FLOW_ARC4RC_RECORD_WORD_COUNT_LARGE
-
-// Word offset of the Flow ID field in the flow record
-#define FIRMWARE_EIP207_CS_HASH_ID_WORD_OFFSET                  \
-                                    FIRMWARE_EIP207_CS_FLOW_FR_FLOW_ID_WORD_OFFSET
-
-// Flow ID field length in 32-bit words
-#define FIRMWARE_EIP207_CS_HASH_ID_FIELD_WORD_COUNT             \
-                                    FIRMWARE_EIP207_CS_FLOW_HASH_ID_FIELD_WORD_COUNT
-
-// Word offset of the Next Record Pointer field in the flow record
-#define FIRMWARE_EIP207_CS_NEXT_RECORD_WORD_OFFSET              \
-                                    FIRMWARE_EIP207_CS_FLOW_FR_NEXT_ADDR_WORD_OFFSET
-
-// Word offset of the Transform Record Pointer field in the flow record
-#define FIRMWARE_EIP207_CS_XFORM_RECORD_WORD_OFFSET             \
-                                    FIRMWARE_EIP207_CS_FLOW_FR_XFORM_OFFS_WORD_OFFSET
-
-// Word offset of the ARC4 State Record Pointer field in the flow record
-#define FIRMWARE_EIP207_CS_ARC4_RECORD_WORD_OFFSET              \
-                                    FIRMWARE_EIP207_CS_FLOW_FR_ARC4_ADDR_WORD_OFFSET
 
 // Classification Engine clocks per one tick for
 // the blocking next command logic
@@ -196,7 +156,7 @@ typedef enum
                     (FIRMWARE_EIP207_CS_ADMIN_RAM_REC_SIZE_BYTE_OFFSET + 4)
 
 // token format
-#define FIRMWARE_EIP207_CS_ADMIN_RAM_TOKEN_FORMAT_OFFSET        (24 * FIRMWARE_EIP207_CS_WORD_OFFS)
+#define FIRMWARE_EIP207_CS_ADMIN_RAM_TOKEN_FORMAT_BYTE_OFFSET   (24 * FIRMWARE_EIP207_CS_WORD_OFFS)
 
 // ARC4 offset control
 #define FIRMWARE_EIP207_CS_ADMIN_RAM_ARC4_OFFSET_OFFSET         (25 * FIRMWARE_EIP207_CS_WORD_OFFS)
