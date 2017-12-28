@@ -1,4 +1,4 @@
-From c671fa35542c35984028259b53d25df446a68b8e Mon Sep 17 00:00:00 2001
+From eeb7d9d720dff957145081b868e657a73eb9bbc0 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Thu, 6 Jul 2017 11:16:11 +0300
 Subject: [PATCH 2/3] musdk: update existing dts files
@@ -29,14 +29,14 @@ index e6f170a..49e2bcf 100644
  	model = "Marvell Armada 37xx SoC";
  	compatible = "marvell,armada3700";
 diff --git a/arch/arm64/boot/dts/marvell/armada-3900-db-vd.dts b/arch/arm64/boot/dts/marvell/armada-3900-db-vd.dts
-index 4369f5a..05b6f9f 100644
+index 4369f5a..e819c9f 100644
 --- a/arch/arm64/boot/dts/marvell/armada-3900-db-vd.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-3900-db-vd.dts
 @@ -41,6 +41,7 @@
   */
  
  #include "armada-3900-db.dtsi"
-+#include "musdk-armada-3900-db.dtsi"
++#include "musdk-armada-7040.dtsi"
  
  / {
  	model = "Marvell Armada 3900 Validation Development board";
@@ -78,7 +78,7 @@ index a84b6bb..618dde6 100644
  / {
  	model = "Marvell Armada-8040 development board default (A) setup";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-index f2e7c9d..17866c2 100644
+index fc5b37c..6230fdc 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
 @@ -45,6 +45,7 @@
