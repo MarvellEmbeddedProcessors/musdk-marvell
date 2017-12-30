@@ -66,6 +66,11 @@ static inline void prefetch(const void *ptr)
 #define MVAPPS_DEFAULT_AFFINITY		1
 #define MVAPPS_INVALID_AFFINITY		-1
 
+/* JSON Serializatiion definitions */
+#define SER_FILE_VAR_DIR	"/var/"
+#define SER_FILE_NAME_PREFIX	"musdk-serial-cfg"
+#define SER_MAX_FILE_NAME	64
+#define SER_MAX_FILE_SIZE	(30 * 1024)
 
 
 /* Default MTU */
@@ -113,6 +118,14 @@ static inline void prefetch(const void *ptr)
 /* GNU flavor of num_cpus */
 #define system_ncpus()		get_nprocs()
 
+enum pp2_op_mode_type {
+	PP2_OP_MODE_SINGLE_PROCESS = 0,		/* App operational mode is single process, only one process allowed*/
+	PP2_OP_MODE_MASTER,			/* App operational mode is master */
+	PP2_OP_MODE_GUEST,			/* App operational mode is guest */
+	PP2_OP_MODE_NMP_MASTER,			/* App operational mode is master and NMP is started*/
+	PP2_OP_MODE_NMP_GUEST			/* App operational mode is NMP guest */
+};
+
 struct glb_common_args {
 	u64			qs_map;
 	int			prefetch_shift;
@@ -136,6 +149,8 @@ struct glb_common_args {
 	bool			shared_hifs; /* Indicates system has shared hifs. */
 	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
 	void			*plat;
+	int			op_mode;
+	u32			guest_id;
 };
 
 
