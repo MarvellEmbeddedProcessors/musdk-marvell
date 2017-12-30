@@ -575,6 +575,13 @@ int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize);
  * Build all pools
  */
 int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif);
+
+/*
+ * Allocate buffers to pools
+ */
+int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_inf,
+			     struct pp2_bpool *pool, struct pp2_hif *hif);
+
 /*
  * Free all pools
  */
@@ -673,11 +680,11 @@ void apps_pp2_deinit_global(void *arg);
 
 int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[]);
 
+int find_free_bpool(u32 pp_id);
 
+int find_free_hif(void);
 
-
-
-
+void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs[]);
 
 #endif /*__MVUTILS_H__*/
 

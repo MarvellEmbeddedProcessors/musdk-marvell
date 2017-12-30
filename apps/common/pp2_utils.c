@@ -817,7 +817,7 @@ int app_register_cli_desc_cmds(struct port_desc *port_desc)
 	return 0;
 }
 
-static int find_free_bpool(u32 pp_id)
+int find_free_bpool(u32 pp_id)
 {
 	int i;
 
@@ -834,7 +834,7 @@ static int find_free_bpool(u32 pp_id)
 	return i;
 }
 
-static int find_free_hif(void)
+int find_free_hif(void)
 {
 	int i;
 
@@ -996,11 +996,41 @@ int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize)
 	return 0;
 }
 
+int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_inf,
+			     struct pp2_bpool *pool, struct pp2_hif *hif)
+{
+	int k, err;
+
+	for (k = 0; k < inf->num_buffs; k++) {
+		void *buff_virt_addr;
+
+		buff_virt_addr = mv_sys_dma_mem_alloc(inf->buff_size, 4);
+		if (!buff_virt_addr) {
+			pr_err("failed to allocate mem (%d)!\n", k);
+			return -1;
+		}
+		buffs_inf[k].addr = mv_sys_dma_mem_virt2phys(buff_virt_addr);
+		buffs_inf[k].cookie = (uintptr_t)buff_virt_addr;
+	}
+
+	for (k = 0; k < inf->num_buffs; k++) {
+		struct pp2_buff_inf	tmp_buff_inf;
+
+		tmp_buff_inf.cookie = buffs_inf[k].cookie;
+		tmp_buff_inf.addr   = buffs_inf[k].addr;
+		err = pp2_bpool_put_buff(hif, pool, &tmp_buff_inf);
+		if (err)
+			return err;
+		buf_alloc_cnt++;
+	}
+	return 0;
+}
+
 
 int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif)
 {
 	struct pp2_bpool_params		bpool_params;
-	int				i, j, k, err, pool_id;
+	int				i, j, err, pool_id;
 	char				name[15];
 	struct bpool_desc		**pools = NULL;
 	struct pp2_buff_inf		*buffs_inf = NULL;
@@ -1061,28 +1091,18 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 			buffs_inf = pools[i][j].buffs_inf;
 			pools[i][j].num_buffs = infs[j].num_buffs;
 
-			for (k = 0; k < infs[j].num_buffs; k++) {
-				void *buff_virt_addr;
-
-				buff_virt_addr = mv_sys_dma_mem_alloc(infs[j].buff_size, 4);
-				if (!buff_virt_addr) {
-					pr_err("failed to allocate mem (%d)!\n", k);
-					return -1;
-				}
-				buffs_inf[k].addr = mv_sys_dma_mem_virt2phys(buff_virt_addr);
-				buffs_inf[k].cookie = (uintptr_t)buff_virt_addr;
+			/* If hif is NULL, no need to allocate buffers to bpool
+			 * used mainly for master/guest mode, in case master decides
+			 * not to allocate buffers.
+			 */
+			if (!hif) {
+				pr_info("No hif, skip allocating buffers to Bpool\n");
+				continue;
 			}
 
-			for (k = 0; k < infs[j].num_buffs; k++) {
-				struct pp2_buff_inf	tmp_buff_inf;
-
-				tmp_buff_inf.cookie = buffs_inf[k].cookie;
-				tmp_buff_inf.addr   = buffs_inf[k].addr;
-				err = pp2_bpool_put_buff(hif, pools[i][j].pool, &tmp_buff_inf);
-				if (err)
-					return err;
-				buf_alloc_cnt++;
-			}
+			err = app_allocate_bpool_buffs(&infs[j], buffs_inf, pools[i][j].pool, hif);
+			if (err)
+				return err;
 		}
 	}
 	return 0;
@@ -1348,7 +1368,7 @@ void app_shared_shadowq_deinit(struct app_shadowqs *app_shadow_q)
 }
 
 
-static void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs[])
+void free_rx_queues(struct pp2_ppio *port, u16 num_tcs, u16 num_inqs[])
 {
 	struct pp2_ppio_desc	descs[MVAPPS_MAX_BURST_SIZE];
 	u8			tc = 0, qid = 0;

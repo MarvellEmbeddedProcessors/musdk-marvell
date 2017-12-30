@@ -20,7 +20,11 @@ musdk_giu_pkt_echo_SOURCES  = ../../common/lib/cli.c
 musdk_giu_pkt_echo_SOURCES += ../../common/mvapp.c
 musdk_giu_pkt_echo_SOURCES += ../../common/utils.c
 musdk_giu_pkt_echo_SOURCES += ../../common/pp2_utils.c
+musdk_giu_pkt_echo_SOURCES += ../../common/nmp_guest_utils.c
 musdk_giu_pkt_echo_SOURCES += ../../common/giu_utils.c
 musdk_giu_pkt_echo_SOURCES += pkt_echo/pkt_echo.c
 musdk_giu_pkt_echo_LDADD = $(top_builddir)/src/libmusdk.la
+
+bin_SCRIPTS = pkt_echo/nmp-config
+
 endif

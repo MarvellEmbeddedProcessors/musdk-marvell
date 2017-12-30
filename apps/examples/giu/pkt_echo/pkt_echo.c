@@ -40,6 +40,7 @@
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
+#include "lib/file_utils.h"
 #include "env/mv_sys_dma.h"
 
 #include "mvapp.h"
@@ -50,9 +51,11 @@
 
 #include "pp2_utils.h"
 
+#include "nmp_guest_utils.h"
 #include "mv_giu_gpio.h"
 #include "giu_utils.h"
 #include "mng/mv_nmp.h"
+#include "mng/mv_nmp_guest.h"
 
 #define APP_TX_RETRY
 
@@ -100,6 +103,10 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 #define QUEUE_SPACE(prod, cons, q_size)	\
 	((q_size) - QUEUE_OCCUPANCY((prod), (cons), (q_size)) - 1)
 
+/* NMP Guest ID */
+#define PKT_ECHO_APP_NMP_GUEST_ID	2
+/* NMP Guest Timeout (ms)*/
+#define PKT_ECHO_APP_NMP_GUEST_TIMEOUT	1000
 /* When pkt-echo is running as part of the management application
  * the egress/ingress loop code is running as part of the management scheduling.
  * Therefore, we would like to limit it to a single pass/loop over the
@@ -117,6 +124,9 @@ struct glob_arg {
 
 	struct giu_gpio			*giu_gpio;
 	struct nmp			*nmp;
+	struct nmp_guest		*nmp_guest;
+	struct pp2_info			 pp2_info;
+	char				*prb_str;
 };
 
 struct local_arg {
@@ -536,7 +546,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 
 #if 0
 		/* This code displays the packet' buffer */
-		char *tmp_buff = (char *)(((uintptr_t)(buff)) | sys_dma_high_addr);
+		char *tmp_buff = (char *)((uintptr_t)(buff));
 
 		tmp_buff += pkt_offset;
 		printf("In packet: (@%p,0x%x)\n", buff, pa); mem_disp(tmp_buff, len);
@@ -552,6 +562,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 		giu_gpio_outq_desc_set_pkt_offset(&giu_descs[i], 0);
 		giu_gpio_outq_desc_set_pkt_len(&giu_descs[i], len);
 		giu_gpio_outq_desc_set_proto_info(&giu_descs[i], l3_type, l4_type, l3_offset, l4_offset);
+
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
 		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
@@ -712,12 +723,14 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 	return 0;
 }
 
-static int nmp_preinit(struct nmp_params *params)
+static int nmp_preinit(struct nmp_params *params, struct pp2_glb_common_args *pp2_args)
 {
+	int	ret;
+
 	/* NMP initializations */
 	params->lfs_params = kcalloc(1, sizeof(union nmp_lf_params), GFP_KERNEL);
 	if (params->lfs_params == NULL)
-		return -1;
+		return -ENOMEM;
 
 	/* nmp profile parameters */
 	params->lfs_params->pf.lcl_egress_q_num   = 1;
@@ -728,6 +741,11 @@ static int nmp_preinit(struct nmp_params *params)
 	params->lfs_params->pf.lcl_bm_q_size      = 2048;
 	params->lfs_params->pf.lcl_bm_buf_size    = 4096;
 
+	ret = nmp_read_cfg_file(params);
+	if (ret) {
+		pr_err("NMP preinit failed with error %d\n", ret);
+		return -EIO;
+	}
 	return 0;
 }
 
@@ -845,6 +863,7 @@ static int init_all_modules(void)
 	char			file[PP2_MAX_BUF_STR_LEN];
 	int			num_rss_tables = 0;
 	struct			nmp_params nmp_params;
+	struct			nmp_guest_params nmp_guest_params;
 
 	pr_info("Global initializations ...\n");
 	err = mv_sys_dma_mem_init(PKT_ECHO_APP_DMA_MEM_SIZE);
@@ -852,11 +871,16 @@ static int init_all_modules(void)
 		return err;
 
 	/* NMP initializations */
-	if (nmp_preinit(&nmp_params)) {
+	if (nmp_preinit(&nmp_params, pp2_args)) {
 		pr_err("NMP init failed.\n");
 		return -EFAULT;
 	}
 	nmp_init(&nmp_params, &(garg.nmp));
+
+	/* Wait till PF was initialized */
+	err = wait_for_pf_init_done();
+	if (err)
+		return err;
 
 	/* PP2 initializations */
 	memset(&pp2_params, 0, sizeof(pp2_params));
@@ -875,29 +899,33 @@ static int init_all_modules(void)
 	}
 
 	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
+	pp2_params.skip_hw_init = 1;
 
 	err = pp2_init(&pp2_params);
 	if (err)
 		return err;
 
-	/* Wait till PF was initialized */
-	err = wait_for_pf_init_done();
-	if (err)
-		return err;
+	/* NMP Guest initializations */
+	nmp_guest_params.id = garg.cmn_args.guest_id;
+	nmp_guest_params.timeout = PKT_ECHO_APP_NMP_GUEST_TIMEOUT;
+	nmp_guest_init(&nmp_guest_params, &garg.nmp_guest);
+
+	nmp_guest_get_probe_str(garg.nmp_guest, &garg.prb_str);
 
 	return 0;
 }
 
 static int init_local_modules(struct glob_arg *garg)
 {
-	int				err, port_index;
+	int				err;
 	struct bpool_inf		std_infs[] = PKT_ECHO_APP_BPOOLS_INF;
 	struct bpool_inf		jumbo_infs[] = PKT_ECHO_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct bpool_inf		giu_bpool_inf = PKT_ECHO_APP_GIU_BPOOLS_INF;
 	struct pp2_glb_common_args	*pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-	int				i;
 	int				giu_id = 0; /* Should be retrieved from garg */
+	char				 file_name[SER_MAX_FILE_NAME];
+	char				*buff;
 
 	pr_info("Local initializations ...\n");
 
@@ -916,41 +944,31 @@ static int init_local_modules(struct glob_arg *garg)
 		pp2_args->num_pools = ARRAY_SIZE(std_infs);
 	}
 
-	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
-	if (err)
+	buff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
+	if (buff == NULL)
+		return -ENOMEM;
+
+	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR,
+		 SER_FILE_NAME_PREFIX, garg->cmn_args.guest_id);
+
+	err = read_file_to_buf(file_name, buff, SER_MAX_FILE_SIZE);
+	if (err) {
+		pr_err("app_read_config_file failed for %s\n", file_name);
+		kfree(buff);
 		return err;
+	}
 
-	for (port_index = 0; port_index < garg->cmn_args.num_ports; port_index++) {
-		struct port_desc *port = &pp2_args->ports_desc[port_index];
+	guest_util_get_relations_info(garg->prb_str, &garg->pp2_info);
 
-		err = app_find_port_info(port);
-		if (!err) {
-			port->ppio_type	= PP2_PPIO_T_NIC;
-			port->num_tcs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
-			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] =  garg->cmn_args.cpus;
-			port->inq_size	= garg->rxq_size;
-			port->num_outqs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
-			port->outq_size	= PKT_ECHO_APP_TX_Q_SIZE;
-			port->first_inq	= PKT_ECHO_APP_FIRST_INQ;
-			if (garg->cmn_args.cpus == 1)
-				port->hash_type = PP2_PPIO_HASH_T_NONE;
-			else
-				port->hash_type = PP2_PPIO_HASH_T_5_TUPLE;
-
-			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
-					    garg->cmn_args.mtu, garg->cmn_args.pkt_offset);
-			if (err) {
-				pr_err("Failed to initialize port %d (pp_id: %d)\n", port_index,
-				       port->pp_id);
-				return err;
-			}
-			err = pp2_ppio_set_promisc(port->ppio, 1);
-			if (err)
-				return err;
-		} else {
-			return err;
-		}
+	err = app_guest_utils_build_all_bpools(buff, &garg->pp2_info, &pp2_args->pools_desc, pp2_args, infs);
+	if (err) {
+		kfree(buff);
+		return err;
+	}
+	err = app_nmp_guest_port_init(buff, &garg->pp2_info, &pp2_args->ports_desc[0]);
+	if (err) {
+		kfree(buff);
+		return err;
 	}
 
 	/**************************/
@@ -959,15 +977,20 @@ static int init_local_modules(struct glob_arg *garg)
 	err = app_giu_port_init(giu_id, &garg->giu_gpio);
 	if (err) {
 		pr_err("Failed to initialize GIU Port %d\n", giu_id);
-		return -1;
+		kfree(buff);
+		return err;
 	}
 
 	err = app_giu_build_bpool(0, &giu_bpool_inf);
 	if (err) {
 		pr_err("Failed to build GIU Bpool\n");
-		return -1;
+		kfree(buff);
+		return err;
 	}
 
+	garg->cmn_args.num_ports = garg->pp2_info.num_ports;
+
+	kfree(buff);
 	return 0;
 }
 
@@ -1063,6 +1086,13 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(larg, 0, sizeof(struct local_arg));
 
+	larg->cmn_args.id		= id;
+	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
+	larg->cmn_args.burst		= garg->cmn_args.burst;
+	larg->cmn_args.busy_wait	= garg->cmn_args.busy_wait;
+	larg->cmn_args.echo		= garg->cmn_args.echo;
+	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
+
 	larg->cmn_args.plat = (struct pp2_lcl_common_args *)malloc(sizeof(struct pp2_lcl_common_args));
 	if (!larg) {
 		pr_err("No mem for local plat arg obj!\n");
@@ -1070,9 +1100,6 @@ static int init_local(void *arg, int id, void **_larg)
 		return -ENOMEM;
 	}
 	lcl_pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
-
-	larg->cmn_args.id		= id;
-	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
 	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
 					   malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	if (!lcl_pp2_args->lcl_ports_desc) {
@@ -1089,13 +1116,6 @@ static int init_local(void *arg, int id, void **_larg)
 	if (err)
 		return err;
 
-	larg->cmn_args.burst		= garg->cmn_args.burst;
-	larg->cmn_args.busy_wait		= garg->cmn_args.busy_wait;
-	larg->cmn_args.echo              = garg->cmn_args.echo;
-	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
-	larg->cmn_args.num_ports         = garg->cmn_args.num_ports;
-	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
-					malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		app_port_local_init(i, larg->cmn_args.id, &lcl_pp2_args->lcl_ports_desc[i],
 				    &glb_pp2_args->ports_desc[i]);
@@ -1103,8 +1123,7 @@ static int init_local(void *arg, int id, void **_larg)
 	lcl_pp2_args->pools_desc	= glb_pp2_args->pools_desc;
 	lcl_pp2_args->multi_buffer_release = glb_pp2_args->multi_buffer_release;
 
-	larg->cmn_args.garg             = garg;
-
+	larg->cmn_args.garg = garg;
 	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
 
 	/* Update garg refs to local */
@@ -1137,8 +1156,7 @@ static void usage(char *progname)
 	       "  E.g. %s -i eth0,eth1 -c 1\n"
 	       "\n"
 	       "Mandatory OPTIONS:\n"
-	       "\t-i, --interface <Eth-interfaces> (comma-separated, no spaces)\n"
-	       "                  Interface count min 1, max %i\n"
+	       "\t-g, --guestid <id>      Guest ID for retrieving parameters from cfg file.\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
 	       "\t-b <size>                Burst size, num_pkts handled in a batch.(default is %d)\n"
@@ -1155,7 +1173,7 @@ static void usage(char *progname)
 	       "\t--no-stat                Disable the packet's runtime statistics display\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       MVAPPS_PP2_MAX_NUM_PORTS, PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
+	       PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
 	       MVAPPS_PP2_PKT_DEF_OFFS);
 }
 
@@ -1179,6 +1197,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.ctrl_thresh = PKT_ECHO_APP_CTRL_DFLT_THR;
 	garg->maintain_stats = 0;
 	garg->pkt_rate_stats = 1;
+	garg->cmn_args.guest_id = PKT_ECHO_APP_NMP_GUEST_ID;
 
 	pp2_args->multi_buffer_release = 1;
 
@@ -1195,6 +1214,17 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		    (strcmp(argv[i], "--help") == 0)) {
 			usage(argv[0]);
 			exit(0);
+		} else if (strcmp(argv[i], "-g") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			garg->cmn_args.guest_id = atoi(argv[i + 1]);
+			i += 2;
 		} else if (strcmp(argv[i], "-i") == 0) {
 			char *token;
 
