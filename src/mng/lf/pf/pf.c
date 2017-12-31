@@ -41,7 +41,6 @@
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
 #include "mng/pci_ep_def.h"
-#include "mng/dispatch.h"
 #include "pf_regfile.h"
 #include "pf.h"
 #include "pf_topology.h"
@@ -1285,11 +1284,10 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 		return ret;
 
 	/* Register NIC PF to dispatcher */
-	params.client_type  = CDT_PF;
-	params.client_id    = nmnicpf->pf_id;
-	params.client_sr_cb = nmnicpf_process_command;
-	params.client       = nmnicpf;
-
+	params.client_type	= CDT_PF;
+	params.client_id	= nmnicpf->pf_id;
+	params.f_client_ctrl_cb = nmnicpf_process_command;
+	params.client		= nmnicpf;
 	ret = nmdisp_register_client(nmnicpf->nmdisp, &params);
 	if (ret)
 		return ret;
@@ -1437,36 +1435,13 @@ int nmnicpf_deinit(struct nmnicpf *nmnicpf)
  */
 
 /*
- *	nmnicpf_gen_resp_msg
- *
- *	This function initialize response message generic parameters
- *	=== Important: Response data is updated at the scope of
- *	nmnicpf_process_init_command / nmnicpf_process_exec_command APIs
- *
- *	@param[in]	status - command execution result
- *	@param[in]	cmd - pointer to cmd_desc object
- *	@param[out]	resp - pointer to notif_desc object
- *
- *	@retval	none
- */
-static void nmnicpf_gen_resp_msg(u32 status, struct cmd_desc *cmd,
-					struct notif_desc *resp)
-{
-	resp->cmd_idx  = cmd->cmd_idx;
-	resp->app_code = AC_HOST_SNIC_NETDEV;
-	resp->resp_data.status = (u8)status;
-	resp->flags    = 0;
-}
-
-/*
  *	nmnicpf_pf_init_command
  */
 static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+				  struct mgmt_cmd_params *params,
+				  struct mgmt_cmd_resp *resp_data)
 {
 	int ret, i;
-
-	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
 
 	pr_debug("PF INIT\n");
@@ -1505,9 +1480,6 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 pf_init_exit:
 #endif
 
-	/* Generate response message */
-	nmnicpf_gen_resp_msg(ret, cmd, resp);
-
 	pr_debug("PF INIT, Done\n\n");
 
 	return ret;
@@ -1518,12 +1490,12 @@ pf_init_exit:
  *	nic_pf_egress_tc_add_command
  */
 static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+					struct mgmt_cmd_params *params,
+					struct mgmt_cmd_resp *resp_data)
 {
 	int ret = 0;
 	union giu_gpio_q_params *tc_queues;
 
-	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_intc_params *intc = &(q_top->intcs_params.intc_params[params->pf_egress_tc_add.tc_prio]);
 
@@ -1541,9 +1513,6 @@ static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
 
 tc_exit:
 
-	/* Generate response message */
-	nmnicpf_gen_resp_msg(ret, cmd, resp);
-
 	if (ret) {
 		if (tc_queues != NULL)
 			kfree(tc_queues);
@@ -1559,11 +1528,11 @@ tc_exit:
  *	nmnicpf_egress_tc_add_command
  */
 static int nmnicpf_ingress_tc_add_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+					 struct mgmt_cmd_params *params,
+					 struct mgmt_cmd_resp *resp_data)
 {
 	int ret = 0;
 
-	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_outtc_params *outtc = &(q_top->outtcs_params.outtc_params[params->pf_ingress_tc_add.tc_prio]);
 
@@ -1591,9 +1560,6 @@ static int nmnicpf_ingress_tc_add_command(struct nmnicpf *nmnicpf,
 	/** TODO - Add support for params->pf_ingress_tc_add.pkt_offset */
 
 tc_exit:
-
-	/* Generate response message */
-	nmnicpf_gen_resp_msg(ret, cmd, resp);
 
 	if (ret) {
 		if (outtc->rem_inqs_params != NULL)
@@ -1632,7 +1598,8 @@ static int tc_q_next_entry_get(union giu_gpio_q_params *q_id_list, u32 q_num)
  *	nmnicpf_ingress_queue_add_command
  */
 static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+					    struct mgmt_cmd_params *params,
+					    struct mgmt_cmd_resp *resp_data)
 {
 	int ret = 0;
 	s32 active_q_id;
@@ -1640,7 +1607,6 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	u32 q_id, bpool_q_id;
 
 	union giu_gpio_q_params giu_gpio_q;
-	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_outtc_params *outtc;
 
@@ -1690,7 +1656,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	 * we use the qid as the prod/cons idx in the notification space
 	 * since that is the how CP-125 HW works
 	 */
-	resp->resp_data.q_add_resp.q_prod_cons_phys_addr = q_id;
+	resp_data->q_add_resp.q_prod_cons_phys_addr = q_id;
 
 	/* Clear queue structure */
 	memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
@@ -1716,11 +1682,9 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	memcpy(&(outtc->rem_poolqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
 	/* Set queue Id in response message in case of success */
-	resp->resp_data.q_add_resp.bpool_q_prod_cons_phys_addr = bpool_q_id;
+	resp_data->q_add_resp.bpool_q_prod_cons_phys_addr = bpool_q_id;
 
 ingress_queue_exit:
-
-	nmnicpf_gen_resp_msg(ret, cmd, resp);
 
 	if (ret < 0) {
 		if (q_id > 0) {
@@ -1744,7 +1708,8 @@ ingress_queue_exit:
  *	nmnicpf_egress_queue_add_command
  */
 static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+					   struct mgmt_cmd_params *params,
+					   struct mgmt_cmd_resp *resp_data)
 {
 	int ret = 0;
 	s32 active_q_id;
@@ -1752,7 +1717,6 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	u32 q_id;
 
 	union giu_gpio_q_params giu_gpio_q;
-	struct mgmt_cmd_params *params = &(cmd->params);
 	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_intc_params *intc;
 
@@ -1796,11 +1760,9 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	 * we use the qid as the prod/cons idx in the notification space
 	 * since that is the how CP-125 HW works
 	 */
-	resp->resp_data.q_add_resp.q_prod_cons_phys_addr = q_id;
+	resp_data->q_add_resp.q_prod_cons_phys_addr = q_id;
 
 egress_queue_exit:
-
-	nmnicpf_gen_resp_msg(ret, cmd, resp);
 
 	if (ret < 0) {
 		if (q_id > 0) {
@@ -1965,8 +1927,9 @@ static int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 /*
  *	nmnicpf_pf_init_done_command
  */
-static void nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
+					struct mgmt_cmd_params *params,
+					struct mgmt_cmd_resp *resp_data)
 {
 	int ret;
 
@@ -2016,22 +1979,20 @@ static void nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
 	if (ret)
 		pr_err("Failed to configure PF regfile\n");
-	/* Generate response message */
-	nmnicpf_gen_resp_msg(ret, cmd, resp);
+
+	return ret;
 }
 
 /*
  *	nmnicpf_mgmt_echo_command
  */
 static int nmnicpf_mgmt_echo_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+				    struct mgmt_cmd_params *params,
+				    struct mgmt_cmd_resp *resp_data)
 {
-	pr_debug("Management echo message idx:%d.\n", cmd->cmd_idx);
+	pr_debug("Management echo message.\n");
 
 	nmnicpf = nmnicpf;
-
-	/* Generate response message */
-	nmnicpf_gen_resp_msg(0, cmd, resp);
 
 	return 0;
 }
@@ -2041,18 +2002,16 @@ static int nmnicpf_mgmt_echo_command(struct nmnicpf *nmnicpf,
  *	nmnicpf_link_status_command
  */
 static int nmnicpf_link_status_command(struct nmnicpf *nmnicpf,
-					struct cmd_desc *cmd, struct notif_desc *resp)
+				      struct mgmt_cmd_params *params,
+				      struct mgmt_cmd_resp *resp_data)
 {
-	pr_debug("Link status message idx:%d.\n", cmd->cmd_idx);
+	pr_debug("Link status message\n");
 
 	nmnicpf = nmnicpf;
 
-	/* Generate response message */
-	nmnicpf_gen_resp_msg(0, cmd, resp);
-
 	/* TODO: check PP2 link and report it back to the host */
 	pr_warn("GIU Link status is set to 'up'\n");
-	resp->resp_data.link_status = 1;
+	resp_data->link_status = 1;
 
 	return 0;
 }
@@ -2062,11 +2021,12 @@ static int nmnicpf_link_status_command(struct nmnicpf *nmnicpf,
  *	nmnicpf_close_command
  */
 static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
-				struct cmd_desc *cmd, struct notif_desc *resp)
+				struct mgmt_cmd_params *params,
+				struct mgmt_cmd_resp *resp_data)
 {
 	int ret;
 
-	pr_debug("Close message idx:%d.\n", cmd->cmd_idx);
+	pr_debug("Close message.\n");
 	pr_info("Closing PF data path resources\n");
 
 	/* Close stages:
@@ -2094,9 +2054,6 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 	if (ret)
 		pr_err("Failed to free DB resources\n");
 
-	/* Generate response message */
-	nmnicpf_gen_resp_msg(0, cmd, resp);
-
 	return 0;
 }
 
@@ -2114,12 +2071,14 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int nmnicpf_process_command(void *nmnicpf, u8 cmd_code, void *cmd)
+int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 {
+	struct mgmt_cmd_resp resp_data;
+	struct mgmt_cmd_params *cmd_params = msg->msg;
+	struct nmnicpf *nmnicpf = (struct nmnicpf *)arg;
 	int ret;
-	struct notif_desc resp;
 
-	switch (cmd_code) {
+	switch (msg->code) {
 
 	case CC_PF_ENABLE:
 		break;
@@ -2128,67 +2087,74 @@ int nmnicpf_process_command(void *nmnicpf, u8 cmd_code, void *cmd)
 		break;
 
 	case CC_PF_INIT:
-		ret = nmnicpf_pf_init_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_pf_init_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_INIT message failed\n");
 		break;
 
 	case CC_PF_EGRESS_TC_ADD:
-		ret = nmnicpf_egress_tc_add_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_egress_tc_add_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_EGRESS_TC_ADD message failed\n");
 		break;
 
 	case CC_PF_EGRESS_DATA_Q_ADD:
-		ret = nmnicpf_egress_queue_add_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_egress_queue_add_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_EGRESS_DATA_Q_ADD message failed\n");
 		break;
 
 	case CC_PF_INGRESS_TC_ADD:
-		ret = nmnicpf_ingress_tc_add_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_ingress_tc_add_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_INGRESS_TC_ADD message failed\n");
 		break;
 
 	case CC_PF_INGRESS_DATA_Q_ADD:
-		ret = nmnicpf_ingress_queue_add_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_ingress_queue_add_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_INGRESS_DATA_Q_ADD message failed\n");
 		break;
 
 	case CC_PF_INIT_DONE:
-		nmnicpf_pf_init_done_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		nmnicpf_pf_init_done_command(nmnicpf, cmd_params, &resp_data);
 		break;
 
 	case CC_PF_MGMT_ECHO:
-		ret = nmnicpf_mgmt_echo_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_mgmt_echo_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_MGMT_ECHO message failed\n");
 		break;
 
 	case CC_PF_LINK_STATUS:
-		ret = nmnicpf_link_status_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_link_status_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_LINK_STATUS message failed\n");
 		break;
 
 	case CC_PF_CLOSE:
-		ret = nmnicpf_close_command((struct nmnicpf *)nmnicpf, (struct cmd_desc *)cmd, &resp);
+		ret = nmnicpf_close_command(nmnicpf, cmd_params, &resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
 	default:
 		/* Unknown command code */
-		pr_err("Unknown command code %d!! Unable to process command.\n", cmd_code);
-		resp.resp_data.status = NOTIF_STATUS_FAIL;
-
+		pr_err("Unknown command code %d!! Unable to process command.\n", msg->code);
+		ret = -1;
 		break;
 	}
 
-	ret = nmdisp_send(((struct nmnicpf *)nmnicpf)->nmdisp, CDT_PF,
-					  ((struct nmnicpf *)nmnicpf)->pf_id, 0, (void *)&resp);
+	if (ret)
+		resp_data.status = NOTIF_STATUS_FAIL;
+	else
+		resp_data.status = NOTIF_STATUS_OK;
+
+	msg->src_client = CDT_PF;
+	msg->src_id = nmnicpf->pf_id;
+	msg->msg = (void *)&resp_data;
+	msg->msg_len = sizeof(resp_data);
+	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, msg);
 	if (ret) {
 		pr_err("failed to send response message\n");
 		return ret;

@@ -38,7 +38,6 @@
 #include "lf/pf/pf_mng_cmd_desc.h"
 #include "lf/pf/pf_queue_topology.h"
 #include "db.h"
-#include "mng/mv_nmp_dispatch.h"
 #include "dispatch.h"
 
 #define q_inc_idx(q, idx)	((idx + 1) & (q->len - 1))
@@ -68,7 +67,7 @@ static int nmdisp_msg_transmit(struct mqa_q *q, struct notif_desc *msg);
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-static int nmdisp_client_id_get(struct nmdisp *nmdisp_p, u8 client, u8 id)
+static inline int nmdisp_client_id_get(struct nmdisp *nmdisp_p, u8 client, u8 id)
 {
 	u32 client_idx;
 
@@ -217,7 +216,7 @@ int nmdisp_register_client(struct nmdisp *nmdisp_p, struct nmdisp_client_params 
 	/* configure dispatcher client table */
 	nmdisp_p->clients[free_client_idx].client_type  = params->client_type;
 	nmdisp_p->clients[free_client_idx].client_id    = params->client_id;
-	nmdisp_p->clients[free_client_idx].client_sr_cb = params->client_sr_cb;
+	nmdisp_p->clients[free_client_idx].client_ctrl_cb = params->f_client_ctrl_cb;
 	nmdisp_p->clients[free_client_idx].client       = params->client;
 
 	return 0;
@@ -261,7 +260,7 @@ int nmdisp_deregister_client(struct nmdisp *nmdisp_p, u8 client, u8 id)
 	/* clear dispatcher client table */
 	nmdisp_p->clients[client_idx].client_type  = 0;
 	nmdisp_p->clients[client_idx].client_id    = 0;
-	nmdisp_p->clients[client_idx].client_sr_cb = NULL;
+	nmdisp_p->clients[client_idx].client_ctrl_cb = NULL;
 	nmdisp_p->clients[client_idx].client       = NULL;
 
 	for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
@@ -291,7 +290,6 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 	u32 client_idx;
 	u32 q_idx;
 	struct nmdisp_q_pair_params *q;
-
 
 	client_idx = nmdisp_client_id_get(nmdisp_p, client, id);
 	if (client_idx < 0) {
@@ -327,11 +325,12 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 {
 	int ret;
-	u32 client_idx;
+	u32 client_idx, dst_client_idx;
 	u32 q_idx;
-	struct nmdisp_client *client_p;
+	struct nmdisp_client *client_p, *dst_client_p;
 	struct nmdisp_q_pair_params *q;
 	struct cmd_desc cmd;
+	struct nmdisp_msg msg;
 
 	for (client_idx = 0; client_idx < NMDISP_MAX_CLIENTS; client_idx++) {
 
@@ -341,12 +340,35 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 			for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
 				q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
 
+				if (q->cmd_q == NULL)
+					continue;
+
+				/* TODO - who should handle S/G? 'this function' or 'nmdisp_msg_recv' */
 				ret = nmdisp_msg_recv(q->cmd_q, &cmd);
-				if (ret <= 0)
+				if (ret == 0)
+					/* queue is empty */
+					continue;
+				if (ret < 0)
 					return ret;
 
-				ret = client_p->client_sr_cb(client_p->client, cmd.cmd_code, (void *)&cmd);
-				if (ret <= 0)
+				msg.ext = 1;
+				msg.src_client = client_p->client_type;
+				msg.src_id = client_p->client_id;
+				msg.dst_client = cmd.dest_type;
+				msg.dst_id = cmd.dest_id;
+				msg.code = cmd.cmd_code;
+				msg.indx = cmd.cmd_idx;
+				msg.msg = (void *)&cmd.params;
+				msg.msg_len = sizeof(cmd.params);
+
+				dst_client_idx = nmdisp_client_id_get(nmdisp_p, msg.dst_client, msg.dst_id);
+				if (dst_client_idx < 0) {
+					pr_err("can't dispatch msg, dst-client not found\n");
+					return -1;
+				}
+				dst_client_p = &nmdisp_p->clients[dst_client_idx];
+				ret = dst_client_p->client_ctrl_cb(dst_client_p->client, &msg);
+				if (ret < 0)
 					return ret;
 			}
 		}
@@ -410,21 +432,34 @@ static int nmdisp_msg_recv(struct mqa_q *q, struct cmd_desc *msg)
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int nmdisp_send(struct nmdisp *nmdisp_p, u8 client, u8 id, u8 qid, void *msg)
+int nmdisp_send_msg(struct nmdisp *nmdisp, u8 qid, struct nmdisp_msg *msg)
 {
 	int ret;
 	u32 client_idx;
 	struct nmdisp_client *client_p;
 
-	client_idx = nmdisp_client_id_get(nmdisp_p, client, id);
+	client_idx = nmdisp_client_id_get(nmdisp, msg->dst_client, msg->dst_id);
 	if (client_idx < 0) {
 		pr_err("Failed to ad queue to dispatcher - client not found\n");
 		return -1;
 	}
 
-	client_p = &(nmdisp_p->clients[client_idx]);
+	client_p = &(nmdisp->clients[client_idx]);
 
-	ret = nmdisp_msg_transmit(client_p->client_q[qid].notify_q, (struct notif_desc *)msg);
+	if (msg->ext) {
+		struct notif_desc notification;
+		/* who should handle S/G? 'send_msg' or 'msg_transmit' */
+		notification.cmd_idx = msg->indx;
+/*		notification.app_code =*/
+		notification.cmd_code = msg->code;
+		notification.dest_type = msg->src_client;
+		notification.dest_id = msg->src_id;
+		notification.flags = 0;
+		memcpy(&notification.resp_data, msg->msg, sizeof(struct mgmt_cmd_resp));
+		ret = nmdisp_msg_transmit(client_p->client_q[qid].notify_q, &notification);
+	} else {
+		ret = client_p->client_ctrl_cb(client_p->client, msg);
+	}
 	if (ret <= 0)
 		return ret;
 

@@ -57,18 +57,27 @@ struct nmdisp_q_pair_params {
 	struct mqa_q *notify_q;	/**< Notification Queue */
 };
 
+struct nmdisp_msg {
+	int	 ext;
+	u8	 src_client;
+	u8	 src_id;
+	u8	 dst_client; /**< relevant only for 'send_msg' routine */
+	u8	 dst_id; /**< relevant only for 'send_msg' routine */
+	u8	 code;
+	u16	 indx;
+	u16	 msg_len;
+	void	*msg;
+};
+
 /**
  *  struct nmdisp_client_params - dispatcher client
  *  parameters
  */
 struct nmdisp_client_params {
-	u8 client_type;	/**< Client Type */
-	u8 client_id;	/**< Client ID */
-
-	/** Pointer to Client func */
-	int (*client_sr_cb)(void *client, u8 code, void *msg);
-
-	void *client;	/**< Pointer to Client */
+	u8 client_type;
+	u8 client_id;
+	void *client;
+	int (*f_client_ctrl_cb)(void *client, struct nmdisp_msg *msg);
 };
 
 /**
@@ -104,7 +113,7 @@ int nmdisp_dispatch(struct nmdisp *nmdisp);
 /**
  *  Dispatcher execution API - Send Message
  */
-int nmdisp_send(struct nmdisp *nmdisp, u8 client, u8 id, u8 qid, void *msg);
+int nmdisp_send_msg(struct nmdisp *nmdisp, u8 qid, struct nmdisp_msg *msg);
 
 
 

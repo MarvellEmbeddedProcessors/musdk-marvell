@@ -241,8 +241,8 @@ struct notif_desc {
 
 #define CMD_FLAG_EXT_BUFF	BIT(3) /* Inline cmd params, or external buff */
 #define CMD_FLAG_NO_RESP	BIT(2) /* No response is required for this cmd */
-#define CMD_FLAG_FIRST	BIT(1) /* Marks the first descriptor in a series */
-#define CMD_FLAG_LAST	BIT(0) /* Marks the last descriptor in a series */
+#define CMD_FLAG_FIRST		BIT(1) /* Marks the first descriptor in a series */
+#define CMD_FLAG_LAST		BIT(0) /* Marks the last descriptor in a series */
 	u8 flags;
 
 	struct mgmt_cmd_resp resp_data;

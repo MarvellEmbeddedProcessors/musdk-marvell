@@ -35,16 +35,16 @@
 
 #include "mng/mv_nmp_dispatch.h"
 
-#define NMDISP_MAX_CLIENTS      (1)
-#define NMDISP_MAX_CLIENTS_TYPE (1)
-#define NMDISP_MAX_CLIENTS_ID   (1)
+#define NMDISP_MAX_CLIENTS      (10)
+#define NMDISP_MAX_CLIENTS_TYPE (5)
+#define NMDISP_MAX_CLIENTS_ID   (10)
 
 /* dispatcher client parameters */
 struct nmdisp_client {
 	u8 client_type;
 	u8 client_id;
-	int (*client_sr_cb)(void *client, u8 code, void *msg);
 	void *client;
+	int (*client_ctrl_cb)(void *client, struct nmdisp_msg *msg);
 	struct nmdisp_q_pair_params client_q[MV_NMP_Q_PAIR_MAX];
 };
 
