@@ -238,11 +238,11 @@ static int pme_ev_cnt_rx = -1, pme_ev_cnt_enq = -1, pme_ev_cnt_deq = -1, pme_ev_
 #endif /* CHECK_CYCLES */
 
 #ifdef CRYPT_APP_STATS_SUPPORT
-static void print_local_stats(struct local_arg *larg, int reset)
+static void print_local_stats(struct local_arg *larg, int cpu, int reset)
 {
 	int i;
 
-	printf("\n-------- Crypto-echo local CPU #%d statistics ------\n", larg->cmn_args.id);
+	printf("\n-------- Crypto-echo local CPU #%d statistics ------\n", cpu);
 	for (i = 0; i < larg->cmn_args.num_ports; i++) {
 		printf("RX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.rx_pkts[i]);
 		printf("RX drops (port #%d)         : %" PRIu64 " packets\n", i, larg->stats.rx_drop[i]);
@@ -1308,7 +1308,7 @@ static int stats_cmd_cb(void *arg, int argc, char *argv[])
 {
 	struct glob_arg *garg = (struct glob_arg *)arg;
 	int i, reset = 0;
-	int cpu = -1;
+	int thread, cpu = -1;
 
 	if (!garg) {
 		pr_err("no garg obj passed!\n");
@@ -1326,11 +1326,6 @@ static int stats_cmd_cb(void *arg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			cpu = atoi(argv[i + 1]);
-			if ((cpu < 0) || (cpu >= garg->cmn_args.cpus)) {
-				pr_err("CPU number #%d is out of range [0..%d]\n",
-					cpu, garg->cmn_args.cpus - 1);
-				return -EINVAL;
-			}
 			i += 2;
 		} else if (strcmp(argv[i], "--reset") == 0) {
 			reset = 1;
@@ -1340,12 +1335,20 @@ static int stats_cmd_cb(void *arg, int argc, char *argv[])
 			return -EINVAL;
 		}
 	}
-	if (cpu > 0)
-		print_local_stats(garg->cmn_args.largs[cpu], reset);
-	else {
-		for (i = 0; i < garg->cmn_args.cpus; i++) {
-			if (garg->cmn_args.largs[i])
-				print_local_stats(garg->cmn_args.largs[i], reset);
+
+	if (cpu >= 0) {
+		thread = apps_cpu_to_thread(&garg->cmn_args, cpu);
+		if (thread < 0) {
+			pr_err("Invalid CPU number #%d\n", cpu);
+			return -EINVAL;
+		}
+		print_local_stats(garg->cmn_args.largs[thread], cpu, reset);
+	} else {
+		for (thread = 0; thread < garg->cmn_args.cpus; thread++) {
+			if (garg->cmn_args.largs[thread]) {
+				cpu = apps_thread_to_cpu(&garg->cmn_args, thread);
+				print_local_stats(garg->cmn_args.largs[thread], cpu, reset);
+			}
 		}
 	}
 	return 0;
@@ -1685,14 +1688,15 @@ static void deinit_local(void *arg)
 	if (!larg)
 		return;
 
-#ifdef CRYPT_APP_STATS_SUPPORT
-	print_local_stats(larg, 0);
-#endif
-
 	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
 
-#ifdef MVCONF_SAM_STATS
 	pthread_mutex_lock(&larg->cmn_args.garg->trd_lock);
+
+#ifdef CRYPT_APP_STATS_SUPPORT
+	print_local_stats(larg, sched_getcpu(), 0);
+#endif
+
+#ifdef MVCONF_SAM_STATS
 	if (larg->enc_cio) {
 		pr_info("cpu #%d: %s\n", sched_getcpu(), larg->enc_name);
 		app_sam_show_cio_stats(larg->enc_cio, "encrypt", 1);
@@ -1702,8 +1706,9 @@ static void deinit_local(void *arg)
 		pr_info("cpu #%d: %s\n", sched_getcpu(), larg->dec_name);
 		app_sam_show_cio_stats(larg->dec_cio, "decrypt", 1);
 	}
-	pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
 #endif /* MVCONF_SAM_STATS */
+
+	pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
 
 	if (pp2_args->lcl_ports_desc) {
 		for (i = 0; i < larg->cmn_args.num_ports; i++)
@@ -2032,6 +2037,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* Print all inputs arguments */
 	pr_info("cpus          : %d\n", garg->cmn_args.cpus);
+	pr_info("affinity      : %d\n", garg->cmn_args.affinity);
 	pr_info("ports         : %d\n", garg->cmn_args.num_ports);
 	pr_info("burst         : %d\n", garg->cmn_args.burst);
 
@@ -2074,7 +2080,6 @@ int main(int argc, char *argv[])
 		free(garg.cmn_args.plat);
 		return err;
 	}
-
 	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));

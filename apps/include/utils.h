@@ -243,7 +243,8 @@ int app_ctrl_cb(void *arg);
 int apps_prefetch_cmd_cb(void *arg, int argc, char *argv[]);
 void app_print_horizontal_line(u32 char_count, const char *char_val);
 int apps_cores_mask_create(int cpus, int affinity);
-
+int apps_thread_to_cpu(struct glb_common_args *cmn_args, int thread);
+int apps_cpu_to_thread(struct glb_common_args *cmn_args, int cpu);
 
 #endif /*__MVUTILS_H__*/
 
