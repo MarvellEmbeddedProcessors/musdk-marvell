@@ -1454,12 +1454,8 @@ static void nmnicpf_gen_resp_msg(u32 status, struct cmd_desc *cmd,
 {
 	resp->cmd_idx  = cmd->cmd_idx;
 	resp->app_code = AC_HOST_SNIC_NETDEV;
-	resp->status   = (u8)status;
+	resp->resp_data.status = (u8)status;
 	resp->flags    = 0;
-
-	/* TODO - Add desc / resp parameters size */
-	resp->resp_param_size = 0;
-	resp->desc_param_size = 0;
 }
 
 /*
@@ -2186,7 +2182,7 @@ int nmnicpf_process_command(void *nmnicpf, u8 cmd_code, void *cmd)
 	default:
 		/* Unknown command code */
 		pr_err("Unknown command code %d!! Unable to process command.\n", cmd_code);
-		resp.status = NOTIF_STATUS_FAIL;
+		resp.resp_data.status = NOTIF_STATUS_FAIL;
 
 		break;
 	}

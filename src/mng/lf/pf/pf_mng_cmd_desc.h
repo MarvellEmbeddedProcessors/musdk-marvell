@@ -41,8 +41,8 @@
 
 enum cmd_dest_type {
 	CDT_INVALID = 0,
-	CDT_PF = 1,
-	CDT_VF = 2
+	CDT_PF,
+	CDT_VF
 };
 
 /*
@@ -138,7 +138,7 @@ struct mgmt_cmd_params {
 		} pf_ingress_data_q_add;
 
 		struct {
-			u8 align[52];
+			u8 align[56];
 		} align;
 	};
 };
@@ -180,9 +180,6 @@ struct cmd_desc {
 #define CMD_FLAG_LAST	BIT(0) /* Marks the last descriptor in a series */
 	u8 flags;
 
-	u16 cmd_param_size;
-	u16 desc_param_size;
-
 	struct mgmt_cmd_params params;
 };
 #pragma pack()
@@ -191,10 +188,15 @@ struct cmd_desc {
 /*
  * mgmt_cmd_resp - Encapsulates the different responses that can be
  * received from the SNIC as a result of a management command.
+ * status - Command execution status (0 - Ok, 1 - Fail, 0xFF - Notification).
  */
 /* Make sure structure is portable along different systems. */
 #pragma pack(1)
 struct mgmt_cmd_resp {
+#define NOTIF_STATUS_OK	(0)
+#define NOTIF_STATUS_FAIL	(1)
+#define NOTIF_STATUS_NOTIF	(0xFF)
+	u8 status;
 	union {
 		/* Use same response structure for all Q add operations.
 		 * The prod_cons_phys_addr wil hold either the consumer or the
@@ -209,7 +211,7 @@ struct mgmt_cmd_resp {
 		u32 link_status;
 
 		struct {
-			u8 align[20];
+			u8 align[23];
 		} align;
 	};
 };
@@ -221,12 +223,6 @@ struct mgmt_cmd_resp {
  *   Notification – Set to 0xFFFF
  * app_code - Target application Id.
  * flags - Bitmask of AOS_NOTIF_FLAG_XX.
- * status - Command execution status (0 - Ok, 1 - Fail, 0xFF - Notification).
- * resp_param_size - Size (Bytes) of the response parameters (Refers to the total
- *   size of the parameters, and not only the one included as part of this
- *   descriptor).
- * desc_param_size - Size (Bytes) of the response parameters transmitted as part
- *   of this descriptor.
  * notif_params - Notification parameters
  *   if (flags & FLAG_EXT_BUFF):
  *     Notif parameters include physical address of the buffer containing the
@@ -239,20 +235,17 @@ struct mgmt_cmd_resp {
 struct notif_desc {
 	u16 cmd_idx;
 	u16 app_code;
+	u8 cmd_code;
+	u8 dest_id;
+	u8 dest_type;
 
-#define NOTIF_FLAG_EXT_BUFF	BIT(0) /* Inline notif params, or external buff */
+#define CMD_FLAG_EXT_BUFF	BIT(3) /* Inline cmd params, or external buff */
+#define CMD_FLAG_NO_RESP	BIT(2) /* No response is required for this cmd */
+#define CMD_FLAG_FIRST	BIT(1) /* Marks the first descriptor in a series */
+#define CMD_FLAG_LAST	BIT(0) /* Marks the last descriptor in a series */
 	u8 flags;
 
-#define NOTIF_STATUS_OK	(0)
-#define NOTIF_STATUS_FAIL	(1)
-#define NOTIF_STATUS_NOTIF	(0xFF)
-	u8 status;
-	u8 pad[2];
-
-	u16 resp_param_size;
-	u16 desc_param_size;
 	struct mgmt_cmd_resp resp_data;
-
 };
 #pragma pack()
 
