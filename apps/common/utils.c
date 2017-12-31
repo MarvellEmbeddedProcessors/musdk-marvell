@@ -59,6 +59,43 @@ int apps_cores_mask_create(int cpus, int affinity)
 	return cores_mask;
 }
 
+int apps_thread_to_cpu(struct glb_common_args *cmn_args, int thread)
+{
+	int j = 0, i = 0;
+	u64 core_mask = apps_cores_mask_create(cmn_args->cpus, cmn_args->affinity);
+
+	while (core_mask) {
+		for (; !((1 << j) & core_mask); j++)
+			;
+
+		if (i++ == thread)
+			return j;
+
+		core_mask &= ~(1 << j);
+	}
+	printf("CPU not found for thread #%d\n", thread);
+	return -1;
+}
+
+int apps_cpu_to_thread(struct glb_common_args *cmn_args, int cpu)
+{
+	int j = 0, i = 0;
+	u64 core_mask = apps_cores_mask_create(cmn_args->cpus, cmn_args->affinity);
+
+	while (core_mask) {
+		for (; !((1 << j) & core_mask); j++)
+			;
+
+		if (j == cpu)
+			return i;
+
+		i++;
+		core_mask &= ~(1 << j);
+	}
+	printf("Thread not found for CPU #%d\n", cpu);
+	return -1;
+
+}
 
 int apps_perf_dump(struct glb_common_args *cmn_args)
 {
