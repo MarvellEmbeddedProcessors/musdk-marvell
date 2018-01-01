@@ -48,16 +48,16 @@
  *
  * Some examples for writing to JSON format file:
  * 1) Write a new section for bpool-x:x:
- *	json_print_to_buffer(buff, "\t\t\"pool-%d:%d\": {\n", pool->pp2_id, pool->id);
+ *	json_print_to_buffer(buff, size, "\t\t\"pool-%d:%d\": {\n", pool->pp2_id, pool->id);
  *
  * 2) Write pool_id and pp2_id parameters (inside the above section):
- *	json_print_to_buffer(buff, "\t\t\t\"pp2_id\": %u,\n", pool->pp2_id);
- *	json_print_to_buffer(buff, "\t\t\t\"id\": %u,\n", pool->id);
+ *	json_print_to_buffer(buff, size, "\t\t\t\"pp2_id\": %u,\n", pool->pp2_id);
+ *	json_print_to_buffer(buff, size, "\t\t\t\"id\": %u,\n", pool->id);
  *
  * @param[in]	buf	A pointer to the writing buffer.
  * @param[in]	...	__VA_ARGS__ containing the string to write and the formating options
  */
-#define json_print_to_buffer(buff, ...)					\
+#define json_print_to_buffer(buff, size, ...)					\
 do {									\
 	/* Check the input string can be written in the input buffer */	\
 	char tmp_buf[FILE_MAX_LINE_CHARS];				\
