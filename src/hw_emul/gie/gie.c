@@ -196,12 +196,30 @@ struct gie_q_pair {
 	struct mqa_qpt_entry	*qpd;
 	struct gie_queue	src_q;
 	struct gie_queue	dst_q;
-#define		GIE_QPAIR_VALID	(1 << 0)
+#define		GIE_QPAIR_VALID		(1 << 0)
 #define		GIE_QPAIR_ACTIVE	(1 << 1)
 #define		GIE_QPAIR_CP_PAYLOAD	(1 << 4)
 #define		GIE_QPAIR_REMOTE	(1 << 5)
 	u32	flags;
 	struct	gie_bpool *dst_bpools[GIE_MAX_BM_PER_Q];
+};
+
+/* variables specific to priorities
+ *
+ * flags	misc flags
+ *		GIE_PRIO_VALID	priority is valid
+ *		GIE_PRIO_ACTIVE	priority should be processed
+ * q_cnt	indicate how many queues available within this priority
+ * curr_q	the current queue to schedule
+ * qpairs	queue pair descriptors
+ */
+struct gie_prio {
+#define		GIE_PRIO_VALID	(1 << 0)
+#define		GIE_PRIO_ACTIVE	(1 << 1)
+	u32			flags;
+	u16			q_cnt;
+	u16			curr_q;
+	struct gie_q_pair	qpairs[GIE_MAX_Q_PER_PRIO];
 };
 
 /* Describes transactions submitted to dma
@@ -266,22 +284,18 @@ struct dma_job {
  * name		name of the GIU instance
  * dmax2	a handle to the MUSDK dma engine
  * regs		the GIU register file
- * qpairs	queue pair descriptors
  * bpools	BM queue descriptors
  * q_cnt	queue pair count per priority
  * bp_cnt	buffer pool count
- * curr_q	the current queue to schedule
  * curr_prio	the current priority to schedule
  */
 struct gie {
 	char			name[GIE_MAX_NAME];
 	struct dma_info		dma;
 	struct gie_regfile	*regs;
-	struct gie_q_pair	qpairs[GIE_MAX_PRIOS][GIE_MAX_Q_PER_PRIO];
+	struct gie_prio		prios[GIE_MAX_PRIOS];
 	struct gie_bpool	bpools[GIE_MAX_BPOOLS];
-	u16			q_cnt[GIE_MAX_PRIOS];
 	u16			bp_cnt;
-	u16			curr_q;
 	u16			curr_prio;
 };
 
@@ -533,8 +547,8 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 
 	/* Find an empty q_pair slot */
 	for (i = 0; i < GIE_MAX_Q_PER_PRIO; i++) {
-		if (!(gie->qpairs[prio][i].flags & GIE_QPAIR_VALID)) {
-			qp = &gie->qpairs[prio][i];
+		if (!(gie->prios[prio].qpairs[i].flags & GIE_QPAIR_VALID)) {
+			qp = &gie->prios[prio].qpairs[i];
 			break;
 		}
 	}
@@ -573,8 +587,9 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		qp->flags |= GIE_QPAIR_REMOTE;
 	if (copy_payload)
 		qp->flags |= GIE_QPAIR_CP_PAYLOAD;
+	gie->prios[prio].flags = GIE_PRIO_VALID | GIE_PRIO_ACTIVE;
 
-	gie->q_cnt[prio]++;
+	gie->prios[prio].q_cnt++;
 
 	return 0;
 }
@@ -669,14 +684,17 @@ int gie_remove_queue(void *giu, u16 qid)
 	struct gie *gie = (struct gie *)giu;
 	struct gie_q_pair *qp;
 
-	qp = gie_find_q_pair(&gie->qpairs[0][0], GIE_MAX_PRIOS * GIE_MAX_Q_PER_PRIO, qid);
+	qp = gie_find_q_pair(&gie->prios[0].qpairs[0], GIE_MAX_PRIOS * GIE_MAX_Q_PER_PRIO, qid);
 	if (qp == NULL) {
 		pr_warn("Cannot find queue %d to remove\n", qid);
 		return -ENODEV;
 	}
 
+	gie->prios[qp->src_q.prio].q_cnt--;
+	if (!gie->prios[qp->src_q.prio].q_cnt)
+		gie->prios[qp->src_q.prio].flags = 0;
 	qp->flags = 0;
-	gie->q_cnt[qp->src_q.prio]--;
+
 	return 0;
 }
 
@@ -700,28 +718,58 @@ int gie_remove_bm_queue(void *giu, u16 qid)
 	return 0;
 }
 
-static void gie_start_schedule(struct gie *gie)
-{
-	gie->curr_prio = 0;
-	gie->curr_q = 0;
-}
-
 /* Find the next queue to service according to the
  * scheduling algorithm and queue counters
- * TODO - we currently implement a dumb round robin
- * on priority 0 only.
+ * We currently implement simple round robin on all Qs of all Priorities
  */
-static struct gie_q_pair *gie_get_next_q(struct gie *gie)
+static struct gie_q_pair *gie_get_next_q(struct gie *gie, u16 *scanned_prios, u16 *scanned_qs)
 {
-	struct gie_q_pair *qp;
-	int prio = 0;
+	struct gie_prio		*prio;
+	struct gie_q_pair	*qp;
+	u16			 i = *scanned_prios;
+	u16			 j = *scanned_qs;
 
-	while (gie->curr_q < gie->q_cnt[prio]) {
-		qp = &gie->qpairs[prio][gie->curr_q];
-		gie->curr_q++;
-		if (qp->flags | GIE_QPAIR_ACTIVE)
-			return qp;
+	/* Iterate all the priorities and look for the next to serve */
+	while (i < GIE_MAX_PRIOS) {
+		prio = &gie->prios[gie->curr_prio];
+		/* Iterate all the queues in this priority and look for the next to serve */
+		while (j < prio->q_cnt) {
+			/* If priority is not active, skip it */
+			if (!(prio->flags & GIE_PRIO_ACTIVE))
+				break;
+			qp = &prio->qpairs[prio->curr_q];
+			prio->curr_q++;
+			if (prio->curr_q == prio->q_cnt)
+				prio->curr_q = 0;
+			j++;
+			/* If we found an active queue within the priority, return it */
+			if (qp->flags & GIE_QPAIR_ACTIVE) {
+				/* save how many prios/qs we scanned so next time we'll know when to bail out */
+				*scanned_prios = i;
+				*scanned_qs = j;
+				/* Move to next priority for next round */
+				/* TODO: this will create simple round robin between prios. in future, add here
+				 * a mechanism for WRR/SRR/WFQ/etc.
+				 */
+				gie->curr_prio++;
+				if (gie->curr_prio == GIE_MAX_PRIOS)
+					gie->curr_prio = 0;
+				return qp;
+			}
+		}
+		/* we scanned all queues in this priority; try next one */
+		j = 0;
+		gie->curr_prio++;
+		if (gie->curr_prio == GIE_MAX_PRIOS)
+			gie->curr_prio = 0;
+		i++;
 	}
+	/* scanned all prios, set prio to 0 */
+	if (i == GIE_MAX_PRIOS)
+		i = 0;
+	/* save how many prios/qs we scanned so next time we'll know when to bail out */
+	*scanned_prios = i;
+	*scanned_qs = j;
 
 	/* no more active queues */
 	return NULL;
@@ -1233,7 +1281,8 @@ int gie_schedule(void *giu, u64 time_limit, u64 qe_limit)
 {
 	struct gie *gie = (struct gie *)giu;
 	struct gie_q_pair *qp;
-	int qes;
+	int qes = 0;
+	u16 scanned_prios = 0, scanned_qs = 0;
 
 	if (qe_limit == 0)
 		qe_limit = UINT64_MAX;
@@ -1244,24 +1293,19 @@ int gie_schedule(void *giu, u64 time_limit, u64 qe_limit)
 
 	gie_clean_dma_jobs(&gie->dma);
 
-	gie_start_schedule(gie);
-
-	while (1) {
-
-		/* TODO - consider time and qe limit as stop conditions */
-		qp = gie_get_next_q(gie);
+	while (qes < qe_limit) {
+		/* TODO - consider time as stop condition */
+		qp = gie_get_next_q(gie, &scanned_prios, &scanned_qs);
 		if (qp == NULL)
 			break;
 
 		if (qp->flags & GIE_QPAIR_REMOTE)
-			qes = gie_process_remote_q(&gie->dma, qp, qe_limit);
+			qes += gie_process_remote_q(&gie->dma, qp, qe_limit);
 		else
-			qes = gie_process_local_q(&gie->dma, qp, qe_limit);
-
-		qe_limit -= qes;
+			qes += gie_process_local_q(&gie->dma, qp, qe_limit);
 	}
 
-	return 0;
+	return qes;
 }
 
 int gie_get_desc_size(enum gie_desc_type type)

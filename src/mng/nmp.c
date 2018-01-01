@@ -38,6 +38,8 @@
 #include "config.h"
 
 #define NMP_MAX_BUF_STR_LEN		256
+#define SCHED_MAX_MNG_ELEMENTS		10
+#define SCHED_MAX_DATA_ELEMENTS		1000
 
 int nmp_init(struct nmp_params *params, struct nmp **nmp)
 {
@@ -126,21 +128,23 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 
 int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
 {
+	int ans = 0;
+
 	switch (type) {
 
 	case NMP_SCHED_MNG:
-		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, 1);
+		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS);
 		nmdisp_dispatch(nmp->nmdisp);
+		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS);
 		break;
 
 	case NMP_SCHED_RX:
-		gie_schedule(nmp->nmnicpf.gie.rx_gie, 0, 1);
+		ans = gie_schedule(nmp->nmnicpf.gie.rx_gie, 0, SCHED_MAX_DATA_ELEMENTS);
 		break;
 
 	case NMP_SCHED_TX:
-		gie_schedule(nmp->nmnicpf.gie.tx_gie, 0, 1);
+		ans = gie_schedule(nmp->nmnicpf.gie.tx_gie, 0, SCHED_MAX_DATA_ELEMENTS);
 		break;
 	}
-	return 0;
+	return ans;
 }
-
