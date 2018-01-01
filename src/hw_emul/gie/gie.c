@@ -1026,6 +1026,9 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 bpool_empty:
 	/* we can reach here after 1 pass or no pass at all */
 	if (cnt) {
+		u16 tmp_cnt, tmp_left;
+		int timeout = 1000;
+
 		/* log the job in the dma job queue */
 		job_info = dma->dma_jobs + dma->job_tail;
 		q_idx_add(dma->job_tail, 1, dma->job_qlen);
@@ -1033,9 +1036,24 @@ bpool_empty:
 		job_info->cookie = src_q;
 		job_info->elements_per_desc = 1;
 		job_info->flags = 0;
-
-		dmax2_enq(dma->dmax2, desc, &cnt);
 		job_info->desc_count = cnt;
+
+		tmp_cnt = tmp_left = cnt;
+		do {
+			dmax2_enq(dma->dmax2, desc, &tmp_cnt);
+			tmp_left -= tmp_cnt;
+			tmp_cnt = tmp_left;
+			if (!tmp_cnt)
+				break;
+			timeout--;
+			usleep(1);
+		} while (timeout);
+
+		if (!timeout) {
+			/* Not much to do in case of failure, something went wrong. */
+			pr_err("BUG: Could not cleanup DMA after copy_single failure.");
+			exit(1);
+		}
 
 		/* release the bpool elements only after we used them
 		 * to avoid override by producer
