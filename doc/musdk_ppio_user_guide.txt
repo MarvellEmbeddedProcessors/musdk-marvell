@@ -345,12 +345,6 @@ Once the dts file has been modified, the DTB file needs to be created
 
 Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
 
-Loopback
-~~~~~~~~
-Marvell PPv2.2 incorporates hardware support for loopback operation.
-
-If an interface operates in loopback mode, all TX traffic is looped back into the RX side
-
 Policing
 ~~~~~~~~~~~~~~
 Policing is implemented by PPv2.2 hardware.
@@ -374,17 +368,26 @@ A packet is marked:
 - The policer profile may be assigned using classifier API (see 'musdk_cls_user_guide').
 - For each TC user can set initial color that may be used as the input color for the policer. the default color is GREEN.
 
-Egress rate limiting and arbitration
+Egress Scheduling and Rate-Limiting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The maximum transmission rate can be limited for both individual egress queues and for entire ports. These rates
-have to be at least 100kbps, and can only be exceeded for short bursts of data with configurable size. The minimum
+Egress scheduling and rate limiting are implemented by PPv2.2 hardware.
+
+The egress scheduler is working in such a way that when multiple egress queues have pending packets, the order in which
+they are transmitted can be chosen to be either by fixed priority, where packets in queues with lower IDs are
+transmitted before those with higher IDs, or using a weighted round robin (WRR) scheme, where packets are
+scheduled from all queues, in correlation to their configured weights. When some queues are set to the fixed
+priority mode and some to WRR mode, fixed priority packets have precedence over WRR ones. The weight range is
+between 1 and 255 and WRR is the default mode.
+
+The rate-limiter applies bandwidth control according to 'single-rate' with Committed Information Rate (CIR) and Committed Burst Size (CBS).
+The maximum transmission rate can be limited for both individual egress queues and for entire ports.
+These rates have to be at least 100kbps, and can only be exceeded for short bursts of data with configurable size. The minimum
 of the burst is 64kB.
 
-When multiple egress queues have pending packets, the order in which they are transmitted can be chosen to be either
-by fixed priority, where packets in queues with lower IDs will be transmitted before those with higher IDs, or using
-a weighted round robin (WRR) scheme, where packets will be scheduled from all queues, in correlation to their
-configured weights. When some queues are set to the fixed priority mode and some to WRR mode, fixed priority
-packets have precedence over WRR ones. The weight range is between 1 and 255 and WRR is the default mode.
+Scheduler and Rate limiter parameters are set during port initialization using the pp2_ppio_params struct and cannot be modified in runtime.
 
-Rate limiting and arbitration are set during port initialization using the pp2_ppio_params struct and cannot be
-modified in runtime.
+Loopback
+~~~~~~~~
+Marvell PPv2.2 incorporates hardware support for loopback operation.
+
+If an interface operates in loopback mode, all TX traffic is looped back into the RX side
