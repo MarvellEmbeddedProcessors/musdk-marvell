@@ -42,7 +42,7 @@
 #define ENOENT		2
 #endif /* ENOENT */
 #ifndef EIO
-#define EIO			5
+#define EIO		5
 #endif /* EIO */
 #ifndef ENXIO
 #define ENXIO		6
@@ -68,6 +68,9 @@
 #ifndef EINVAL
 #define EINVAL		22
 #endif /* EINVAL */
+#ifndef ENOSPC
+#define ENOSPC		28
+#endif /* ENOSPC */
 #ifndef ENOMSG
 #define ENOMSG		42
 #endif /* ENOMSG */
