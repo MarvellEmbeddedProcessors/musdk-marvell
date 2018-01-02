@@ -97,9 +97,9 @@ int nmp_guest_get_probe_str(struct nmp_guest *g, char **prb_str);
  *	Run-time API
  ****************************************************************************/
 
-#define NMP_GUEST_EV_CUSTOM 0x1LL
-#define NMP_GUEST_EV_PF_MTU 0x2LL
-#define NMP_GUEST_EV_PF_MAC_ADDR 0x3LL
+#define NMP_GUEST_EV_CUSTOM		0x1LL
+#define NMP_GUEST_EV_NICPF_MTU		0x2LL
+#define NMP_GUEST_EV_NICPF_MAC_ADDR	0x3LL
 
 /**
  * NMP Guest LF Type
@@ -107,7 +107,8 @@ int nmp_guest_get_probe_str(struct nmp_guest *g, char **prb_str);
  */
 enum nmp_guest_lf_type {
 	NMP_GUEST_LF_T_NONE = 0,
-	NMP_GUEST_LF_T_PF,
+	NMP_GUEST_LF_T_NICPF,
+	NMP_GUEST_LF_T_CUSTOM,
 	NMP_GUEST_LF_T_LAST
 };
 
@@ -118,7 +119,8 @@ enum nmp_guest_lf_type {
  * in order to register events that this guest would like to listen.
  *
  * @param[in]	g		pointer to a guest handle.
- * @param[in]	lf_type		LF type.
+ * @param[in]	lf_type		LF type for notifications from non-CUSTOM LF
+ * @param[in]	lf_id		LF id
  * @param[in]	ev_mask		event mask.
  * @param[in]	client		dispatcher client.
  * @param[in]	guest_ev_cb	event callback function.
@@ -131,7 +133,7 @@ int nmp_guest_register_event_handler(struct nmp_guest *g,
 				     u8 lf_id,
 				     u64 ev_mask,
 				     void *arg,
-				     int (*guest_ev_cb)(void *arg, u8 client, u8 id, u8 code,
+				     int (*guest_ev_cb)(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code,
 							u16 indx, void *msg, u16 len));
 
 /**

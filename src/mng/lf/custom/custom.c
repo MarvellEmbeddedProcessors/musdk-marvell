@@ -46,6 +46,8 @@
 		(1 + ceil((MAX_MSG_DATA_LEN - MGMT_DESC_DATA_LEN), sizeof(struct cmd_desc)))
 #define NOTIFY_QUEUE_SIZE	(CMD_QUEUE_SIZE)
 
+struct nmcstm *nmcstm_for_guest;
+
 /*
  *	nmcstm_mng_chn_init
  *
@@ -232,6 +234,8 @@ int nmcstm_init(struct nmcstm_params *params, struct nmcstm **nmcstm_ptr)
 		goto init_exit;
 
 	*nmcstm_ptr = nmcstm;
+
+	nmcstm_for_guest = nmcstm;
 init_exit:
 	if (ret) {
 		nmcstm_deinit(nmcstm);

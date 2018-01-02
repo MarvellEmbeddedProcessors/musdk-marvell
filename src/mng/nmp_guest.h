@@ -1,5 +1,5 @@
 /******************************************************************************
- *	Copyright (C) 2016 Marvell International Ltd.
+ *	Copyright (C) 2017 Marvell International Ltd.
  *
  *  If you received this File from Marvell, you may opt to use, redistribute
  *  and/or modify this File under the following licensing terms.
@@ -29,58 +29,53 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
+#ifndef _NMP_GUEST_H
+#define _NMP_GUEST_H
 
-#ifndef __MV_ERRNO_H__
-#define __MV_ERRNO_H__
+#include "mng/mv_nmp_guest.h"
+#include "lf/mng_cmd_desc.h"
 
-#include <errno.h>
+extern struct nmcstm *nmcstm_for_guest;
 
-#ifndef EPERM
-#define EPERM		1
-#endif /* EPERM */
-#ifndef ENOENT
-#define ENOENT		2
-#endif /* ENOENT */
-#ifndef EIO
-#define EIO		5
-#endif /* EIO */
-#ifndef ENXIO
-#define ENXIO		6
-#endif /* ENXIO */
-#ifndef ENOMEM
-#define ENOMEM		12
-#endif /* ENOMEM */
-#ifndef EACCES
-#define EACCES		13
-#endif /* EACCES */
-#ifndef EFAULT
-#define EFAULT		14
-#endif /* EFAULT */
-#ifndef EBUSY
-#define EBUSY		16
-#endif /* EBUSY */
-#ifndef EEXIST
-#define EEXIST		17
-#endif /* EEXIST */
-#ifndef ENODEV
-#define ENODEV		19
-#endif /* ENODEV */
-#ifndef EINVAL
-#define EINVAL		22
-#endif /* EINVAL */
-#ifndef ENOSPC
-#define ENOSPC		28
-#endif /* ENOSPC */
-#ifndef ENOMSG
-#define ENOMSG		42
-#endif /* ENOMSG */
+#define q_inc_idx(q, idx)	((idx + 1) & (q->len - 1))
+#define q_rd_idx(idx)		(*((u32 *)idx))
+#define q_wr_idx(idx, val)	(*((u32 *)idx) = val)
+#define q_rd_cons(q)		q_rd_idx(q->cons_virt)
+#define q_rd_prod(q)		q_rd_idx(q->prod_virt)
+#define q_wr_cons(q, val)	q_wr_idx(q->cons_virt, val)
+#define q_wr_prod(q, val)	q_wr_idx(q->prod_virt, val)
 
-#ifndef ENOBUFS
-#define ENOBUFS		105
-#endif /* ENOBUFS */
+#define q_full(q, p, c)		(((p + 1) & (q->len - 1)) == c)
+#define q_empty(p, c)		(p == c)
 
-#ifndef ENOTSUP
-#define ENOTSUP		252
-#endif /* ENOTSUP */
+struct nmp_guest_queue {
+	u32		len; /**< number of descriptors in the ring */
+	void		*base_addr_phys;    /**< descriptor ring physical address */
+	struct cmd_desc	*base_addr_virt; /**< descriptor ring virtual address */
+	void		*prod_phys; /**< producer index phys address */
+	void		*cons_phys; /**< consumer index phys address */
+	u32		*prod_virt; /**< producer index virtual address */
+	u32		*cons_virt; /**< consumer index virtual address */
+};
 
-#endif /* __MV_ERRNO_H__ */
+struct nmp_guest {
+	u8	 id;
+	u32	 timeout;
+	char	*prb_str;
+	struct nmp_guest_queue cmd_queue;
+	struct nmp_guest_queue notify_queue;
+
+	/* Guest App parameters */
+	u8 *msg;
+	/* TODO - need to handle multiple app_cb */
+	struct {
+		enum nmp_guest_lf_type lf_type;
+		u8 lf_id;
+		u64 ev_mask;
+		void *arg;
+		int (*guest_ev_cb)(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code,
+			   u16 indx, void *msg, u16 len);
+	} app_cb;
+};
+#endif /* _NMP_GUEST_H */
+
