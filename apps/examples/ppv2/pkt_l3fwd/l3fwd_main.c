@@ -1158,9 +1158,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			if (garg->cmn_args.num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
+			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_I_OPTION_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
+				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_I_OPTION_PORTS);
 				return -EINVAL;
 			}
 			break;
