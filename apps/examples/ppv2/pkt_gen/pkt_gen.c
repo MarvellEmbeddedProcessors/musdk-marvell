@@ -823,7 +823,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int option;
 	int long_index = 0;
 	int rv, curr_port_index = 0;
-	int port_dir[MVAPPS_PP2_MAX_NUM_PORTS] = {0};
+	int port_dir[MVAPPS_PP2_MAX_I_OPTION_PORTS] = {0};
 	int common_dir = 0;
 	const char short_options[] = "hi:b:l:c:a:m:T:w:S:D:s:d:rtv";
 	struct option long_options[] = {
@@ -895,9 +895,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			if (garg->cmn_args.num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
+			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_I_OPTION_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
+				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_I_OPTION_PORTS);
 				return -EINVAL;
 			}
 			break;
