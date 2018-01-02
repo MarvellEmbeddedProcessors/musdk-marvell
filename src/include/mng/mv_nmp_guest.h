@@ -130,8 +130,8 @@ int nmp_guest_register_event_handler(struct nmp_guest *g,
 				     enum nmp_guest_lf_type lf_type,
 				     u8 lf_id,
 				     u64 ev_mask,
-				     void *client,
-				     int (*guest_ev_cb)(void *client, u8 client, u8 id, u8 code,
+				     void *arg,
+				     int (*guest_ev_cb)(void *arg, u8 client, u8 id, u8 code,
 							u16 indx, void *msg, u16 len));
 
 /**
