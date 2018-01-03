@@ -33,6 +33,7 @@
 #define _GNU_SOURCE         /* See feature_test_macros(7) */
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <sched.h>
@@ -41,6 +42,8 @@
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
+#include "lib/net.h"
+
 #include "mv_stack.h"
 #include "env/mv_sys_dma.h"
 #include "env/io.h"
@@ -82,7 +85,9 @@
 #define CRYPT_APP_VERBOSE_DEBUG
 #define CRYPT_APP_PKT_ECHO_SUPPORT
 #define CRYPT_APP_STATS_SUPPORT
-#define CRYPT_APP_PREFETCH_SHIFT	4
+#define CRYPT_APP_PREFETCH_SHIFT		4
+#define CRYPT_APP_MAX_NUM_FLOWS			64
+
 
 #define PP2_COOKIE_SET_ALL_INFO(_c, _rp, _tp, _bp, _d)	\
 	((_c) = (((_c) & ~0x3d) | \
@@ -115,6 +120,11 @@ static u8 rfc3602_sha1_t1_auth_key[] = {
 	0x02, 0x81, 0xBC, 0xF7, 0xDC, 0xDE, 0xA1, 0xAD,
 	0x3B, 0xBB, 0x77, 0xED, 0x1C, 0xAC, 0x20, 0x86,
 	0xFF, 0x65, 0x15, 0x3D
+};
+
+static u8 md5_auth_key[] = {
+	0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
+	0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b
 };
 
 static u32 t1_spi = 0x1234;
@@ -164,8 +174,7 @@ struct pkt_mdata {
 	u8 rx_port;
 	u8 tx_port;
 	u8 data_offs;
-	u16 flags;
-	u16 reserved;
+	struct crypto_flow *flow;
 	void *buf_vaddr;
 	struct pp2_bpool *bpool;
 };
@@ -186,24 +195,59 @@ enum crypto_dir {
 	CRYPTO_LAST
 };
 
-struct local_arg;
+enum crypto_flow_mode {
+	DEFAULT_FLOW,
+	PACKET_FLOW
+};
 
-struct glob_arg {
-	struct glb_common_args		cmn_args;  /* Keep first */
+struct crypto_params {
+	int				valid;
 	enum crypto_dir			dir;
 	enum sam_crypto_protocol	crypto_proto;
 	enum sam_cipher_alg		cipher_alg;
 	enum sam_cipher_mode		cipher_mode;
+	u8				*cipher_key;
+	int				cipher_key_len;
 	enum sam_auth_alg		auth_alg;
+	u8				*auth_key;
+	int				auth_key_len;
 	enum sam_ssltls_version         ssl_version;
 	int				tunnel;
 	int				ip6;
 	int				seq64;
 	int				capwap;
+};
+
+struct flow_params {
+	int			valid;
+	u32			thread_id;
+	struct mv_2tuple	pkt_params;
+	u8			tx_ppio_id;
+};
+
+struct crypto_flow {
+	struct flow_params	*flow_params;
+	struct crypto_params	*crypto_params;
+	u8			txp;
+	u8			txq;
+	u16			flags;
+	struct sam_sa		*enc_sa;
+	struct sam_sa		*dec_sa;
+};
+
+struct local_arg;
+
+struct glob_arg {
+	struct glb_common_args		cmn_args;  /* Keep first */
 	pthread_mutex_t			trd_lock;
 	int				num_bufs;
 	int                             num_devs;
 	u32                             *free_cios; /* per device */
+	enum crypto_flow_mode		flow_mode;
+	struct crypto_params		def_crypto_params;
+	struct crypto_params		crypto_params[CRYPT_APP_MAX_NUM_SESSIONS];
+	struct flow_params		flow_params[CRYPT_APP_MAX_NUM_SESSIONS];
+	int				last_flow_param;
 };
 
 struct local_arg {
@@ -212,15 +256,15 @@ struct local_arg {
 	struct mv_stack			*stack_hndl;
 	char				enc_name[15];
 	struct sam_cio			*enc_cio;
-	struct sam_sa			*enc_sa;
 	u32				seq_id[MVAPPS_PP2_MAX_NUM_PORTS];
 	char				dec_name[15];
 	struct sam_cio			*dec_cio;
-	struct sam_sa			*dec_sa;
-	enum crypto_dir			dir;
 #ifdef CRYPT_APP_STATS_SUPPORT
 	struct crypto_echo_stats	stats;
 #endif
+	struct crypto_flow		def_flows[MVAPPS_PP2_MAX_NUM_PORTS];
+	struct crypto_flow		flows[CRYPT_APP_MAX_NUM_SESSIONS];
+	int				last_flow;
 };
 
 static struct glob_arg garg = {};
@@ -281,6 +325,31 @@ static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
 	mv_stack_push(larg->stack_hndl, mdata);
 }
 
+static struct crypto_flow *get_packet_flow(struct local_arg *larg, u8 rx_port, void *pkt)
+{
+	struct crypto_flow *flow = NULL;
+	int i;
+
+	/* look local database first - TBD */
+	for (i = 0; i <= larg->last_flow; i++) {
+		flow = &larg->flows[i];
+		if (!flow->crypto_params)
+			continue;
+	}
+	/* Check global database for crypto_flow_params and create new flow */
+	if (!flow) {
+		struct glob_arg *garg = larg->cmn_args.garg;
+
+		for (i = 0; i <= garg->last_flow_param; i++) {
+			struct flow_params *params = &garg->flow_params[i];
+
+			if ((params->valid == 0) || (params->thread_id != larg->cmn_args.id))
+				continue;
+		}
+	}
+	return flow;
+}
+
 #ifdef CRYPT_APP_PKT_ECHO_SUPPORT
 static inline void echo_pkts(struct local_arg		*larg,
 			     struct sam_cio_op_result	*sam_res_descs,
@@ -314,8 +383,7 @@ static inline void echo_pkts(struct local_arg		*larg,
 #endif /* CRYPT_APP_PKT_ECHO_SUPPORT */
 
 static inline int proc_rx_pkts(struct local_arg *larg,
-			   u8 rx_ppio_id, u8 tx_ppio_id,
-			   struct pp2_ppio_desc	*descs, u16 num)
+			   u8 rx_ppio_id, struct pp2_ppio_desc *descs, u16 num)
 {
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct sam_cio_op_params sam_descs[CRYPT_APP_MAX_BURST_SIZE];
@@ -328,13 +396,14 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	struct sam_cio		*cio;
 	enum pkt_state		state;
 	int			err;
-	u16			i, bpool_buff_len, num_got, flags;
+	u16			i, bpool_buff_len, num_got;
 	u8			data_offs;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
+	struct crypto_flow	*flow = NULL;
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	if (larg->cmn_args.verbose)
-		pr_info("%s: %d packets received. %d -> %d\n", __func__, num, rx_ppio_id, tx_ppio_id);
+		pr_info("%s: %d packets received. %d\n", __func__, num, rx_ppio_id);
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	/* TODO: Get current buffer size */
@@ -342,24 +411,17 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 	memset(sam_descs, 0, sizeof(sam_descs));
 
-	if ((larg->dir == CRYPTO_ENC) || (larg->dir == CRYPTO_LB)) {
+	/* Only DEFAULT_FLOW mode is supported */
+	flow = &larg->def_flows[rx_ppio_id];
+	if ((flow->crypto_params->dir == CRYPTO_ENC) || (flow->crypto_params->dir == CRYPTO_LB)) {
 		cio = larg->enc_cio;
-		sa = larg->enc_sa;
+		sa = flow->enc_sa;
 		state = PKT_STATE_ENC;
 	} else {
 		cio = larg->dec_cio;
-		sa = larg->dec_sa;
+		sa = flow->dec_sa;
 		state = PKT_STATE_DEC;
 	}
-	flags = 0;
-	if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_SSLTLS) {
-		/* packets must be IPv4/IPv6 + UDP/UDPLite */
-		flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_L4_CSUM_MASK;
-	} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
-		if ((larg->dir == CRYPTO_ENC) && larg->cmn_args.garg->tunnel && !larg->cmn_args.garg->ip6)
-			flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_IP4_SEQID_MASK;
-	}
-
 	for (i = 0; i < num; i++) {
 		char *vaddr;
 		struct pp2_bpool *bpool;
@@ -372,18 +434,18 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			printf("Can't get mdata from stack for packet %d of %d\n", i, num);
 			break;
 		}
-
-		mdata->state = state;
 		mdata->rx_port = rx_ppio_id;
-		mdata->tx_port = tx_ppio_id;
 		mdata->bpool = bpool;
 		mdata->buf_vaddr = vaddr;
-		mdata->flags = flags;
 
 		/* Set vaddr and paddr to MAC address of the packet */
 		vaddr += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
-		src_buf_infs[i].vaddr = (char *)((uintptr_t)vaddr);
 
+		mdata->state = state;
+		mdata->tx_port = flow->txp;
+		mdata->flow = flow;
+
+		src_buf_infs[i].vaddr = (char *)((uintptr_t)vaddr);
 		src_buf_infs[i].paddr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]) + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
 		/* Exclude MH from packet length */
@@ -403,7 +465,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
-		if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE) {
+		if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE) {
 			enum pp2_inq_l4_type type;
 			u32 block_size, pad_size;
 
@@ -423,7 +485,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 
 			/* cipher_len must be block size aligned. Block size is always power of 2 */
-			block_size = app_sam_cipher_block_size(larg->cmn_args.garg->cipher_alg);
+			block_size = app_sam_cipher_block_size(flow->crypto_params->cipher_alg);
 			if (block_size && (sam_descs[i].cipher_len & (block_size - 1))) {
 				pad_size = block_size - (sam_descs[i].cipher_len & (block_size - 1));
 				/* clear padding data */
@@ -436,15 +498,15 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 						__func__, sam_descs[i].cipher_len, pad_size);
 #endif
 			}
-			if (larg->cmn_args.garg->auth_alg != SAM_AUTH_NONE) {
-				if (larg->dir == CRYPTO_DEC)
+			if (flow->crypto_params->auth_alg != SAM_AUTH_NONE) {
+				if (state == PKT_STATE_DEC)
 					sam_descs[i].cipher_len -= ICV_LEN;
 
 				sam_descs[i].auth_len = sam_descs[i].cipher_len;
 				sam_descs[i].auth_offset = sam_descs[i].cipher_offset;
 				sam_descs[i].auth_icv_offset = sam_descs[i].auth_offset + sam_descs[i].auth_len;
 			}
-		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
+		} else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC) {
 			enum pp2_inq_l3_type type;
 
 			/* SAM_PROTO_IPsec: data_offs - L3 offset */
@@ -460,7 +522,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 			ipsec_descs[i].l3_offset = data_offs;
 			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
-		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_SSLTLS) {
+		} else if (flow->crypto_params->crypto_proto == SAM_PROTO_SSLTLS) {
 			enum pp2_inq_l3_type type;
 
 			/* SAM_PROTO_IPsec: data_offs - L3 offset */
@@ -478,16 +540,16 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			ssltls_descs[i].pkt_size = src_buf_infs[i].len;
 			ssltls_descs[i].type = SAM_DTLS_DATA;
 		} else {
-			pr_err("Unknown crypto_proto = %d\n", larg->cmn_args.garg->crypto_proto);
+			pr_err("Unknown crypto_proto = %d\n", flow->crypto_params->crypto_proto);
 			return -EFAULT;
 		}
 	}
 	num_got = i;
 
 START_COUNT_CYCLES(pme_ev_cnt_enq);
-	if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
+	if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE)
 		err = sam_cio_enq(cio, sam_descs, &num_got);
-	else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC)
+	else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC)
 		err = sam_cio_enq_ipsec(cio, ipsec_descs, &num_got);
 	else
 		err = sam_cio_enq_ssltls(cio, ssltls_descs, &num_got);
@@ -520,9 +582,9 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 			binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
 			bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 			pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
-			if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
+			if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE)
 				mdata = sam_descs[i].cookie;
-			else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC)
+			else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC)
 				mdata = ipsec_descs[i].cookie;
 			else
 				mdata = ssltls_descs[i].cookie;
@@ -533,7 +595,6 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
 		perf_cntrs->drop_cnt += (num - num_got);
 	}
-
 	return 0;
 }
 
@@ -546,6 +607,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	struct sam_cio_ssltls_params ssltls_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
+	struct crypto_flow	*flow;
 	struct pkt_mdata	*mdata;
 	int			 err;
 	u16			 i, bpool_buff_len, num_got;
@@ -560,6 +622,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	/* For decryption crypto parameters are caclulated from cookie and out_len */
 	for (i = 0; i < num; i++) {
 		mdata = sam_res_descs[i].cookie;
+		flow = mdata->flow;
 		data_offs = mdata->data_offs;
 
 		src_buf_infs[i].vaddr = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
@@ -570,23 +633,23 @@ static inline int dec_pkts(struct local_arg		*larg,
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = bpool_buff_len;
 
-		if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE) {
+		if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE) {
 			sam_descs[i].cookie = mdata;
-			sam_descs[i].sa = larg->dec_sa;
+			sam_descs[i].sa = flow->dec_sa;
 			sam_descs[i].num_bufs = 1;
 			sam_descs[i].src = &src_buf_infs[i];
 			sam_descs[i].dst = &dst_buf_infs[i];
 			sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
 			sam_descs[i].cipher_offset = data_offs;
 			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
-			if (larg->cmn_args.garg->auth_alg != SAM_AUTH_NONE) {
+			if (flow->crypto_params->auth_alg != SAM_AUTH_NONE) {
 				sam_descs[i].cipher_len -= ICV_LEN;
 				sam_descs[i].auth_len = sam_descs[i].cipher_len;
 				sam_descs[i].auth_offset = sam_descs[i].cipher_offset;
 				sam_descs[i].auth_icv_offset = sam_descs[i].auth_offset + sam_descs[i].auth_len;
 			}
-		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC) {
-			ipsec_descs[i].sa = larg->dec_sa;
+		} else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC) {
+			ipsec_descs[i].sa = flow->dec_sa;
 			ipsec_descs[i].cookie = mdata;
 
 			ipsec_descs[i].num_bufs = 1;
@@ -594,8 +657,8 @@ static inline int dec_pkts(struct local_arg		*larg,
 			ipsec_descs[i].dst = &dst_buf_infs[i];
 			ipsec_descs[i].l3_offset = data_offs;
 			ipsec_descs[i].pkt_size = src_buf_infs[i].len;
-		} else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_SSLTLS) {
-			ssltls_descs[i].sa = larg->dec_sa;
+		} else if (flow->crypto_params->crypto_proto == SAM_PROTO_SSLTLS) {
+			ssltls_descs[i].sa = flow->dec_sa;
 			ssltls_descs[i].cookie = mdata;
 
 			ssltls_descs[i].num_bufs = 1;
@@ -619,9 +682,9 @@ static inline int dec_pkts(struct local_arg		*larg,
 	num_got = num;
 
 START_COUNT_CYCLES(pme_ev_cnt_enq);
-	if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
+	if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE)
 		err = sam_cio_enq(larg->dec_cio, sam_descs, &num_got);
-	else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC)
+	else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC)
 		err = sam_cio_enq_ipsec(larg->dec_cio, ipsec_descs, &num_got);
 	else
 		err = sam_cio_enq_ssltls(larg->dec_cio, ssltls_descs, &num_got);
@@ -637,9 +700,9 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 
 	if (num_got < num) {
 		for (i = num_got; i < num; i++) {
-			if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_NONE)
+			if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE)
 				free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
-			else if (larg->cmn_args.garg->crypto_proto == SAM_PROTO_IPSEC)
+			else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC)
 				free_buf_from_sam_cookie(larg, ipsec_descs[i].cookie);
 			else
 				free_buf_from_sam_cookie(larg, ssltls_descs[i].cookie);
@@ -656,12 +719,12 @@ static inline void prepare_tx_csum(struct pkt_mdata *mdata, struct pp2_ppio_desc
 	enum pp2_outq_l3_type l3_type = PP2_OUTQ_L3_TYPE_IPV4;
 	int gen_l3_chk = 0, gen_l4_chk = 0;
 
-	if (mdata->flags & MDATA_FLAGS_L4_CSUM_MASK) {
+	if (mdata->flow->flags & MDATA_FLAGS_L4_CSUM_MASK) {
 		/* Recalculate L4 checksum */
 		gen_l4_chk = 1;
 		l4_type = PP2_OUTQ_L4_TYPE_UDP;
 	}
-	if (mdata->flags & MDATA_FLAGS_IP4_CSUM_MASK) {
+	if (mdata->flow->flags & MDATA_FLAGS_IP4_CSUM_MASK) {
 		/* Recalculate IPv4 checksum */
 		gen_l3_chk = 1;
 	}
@@ -705,7 +768,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 		desc = &descs[tp][port_nums[tp]];
 		shadow_q = &pp2_args->lcl_ports_desc[tp].shadow_qs[tc];
 
-		if (mdata->flags & MDATA_FLAGS_IP4_SEQID_MASK) {
+		if (mdata->flow->flags & MDATA_FLAGS_IP4_SEQID_MASK) {
 			/* Set SeqID to IPv4 header of the packet */
 			struct iphdr *iph = (struct iphdr *)
 					((char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS + mdata->data_offs);
@@ -853,7 +916,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 			CRYPT_STATS(larg->stats.deq_err++);
 			continue;
 		}
-		if ((larg->dir == CRYPTO_LB) && (mdata->state == (u8)PKT_STATE_ENC)) {
+		if ((mdata->flow->crypto_params->dir == CRYPTO_LB) && (mdata->state == (u8)PKT_STATE_ENC)) {
 			mdata->state = (u8)PKT_STATE_DEC;
 			res_descs_to_dec[num_to_dec++] = res_descs[i];
 		} else {
@@ -880,7 +943,6 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
-				  u8			 tx_ppio_id,
 				  u8			 tc,
 				  u8			 qid,
 				  u16			 num)
@@ -903,7 +965,7 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 	if (num) {
 		perf_cntrs->rx_cnt += num;
 
-		err = proc_rx_pkts(larg, rx_ppio_id, tx_ppio_id, descs, num);
+		err = proc_rx_pkts(larg, rx_ppio_id, descs, num);
 		if (unlikely(err))
 			return err;
 	}
@@ -941,84 +1003,54 @@ static int find_free_cio(struct glob_arg *garg, u8 device)
 	return i;
 }
 
-static int loop_1p(struct local_arg *larg, int *running)
+/* get next tc (traffic class) and RX queue to process */
+static void get_next_tc_and_rxq(struct local_arg *larg, u8 *tc, u8 *rxq)
 {
-	int			 err;
-	u16			 num;
-	u8			 tc = 0, qid = 0;
+	u8 lrxq, ltc;
 
-	if (!larg) {
-		pr_err("no obj!\n");
-		return -EINVAL;
-	}
+	lrxq = *rxq;
+	ltc = *tc;
+	/* Find next queue to consume */
+	do {
+		lrxq++;
+		if (lrxq == mvapp_pp2_max_num_qs_per_tc) {
+			lrxq = 0;
+			ltc++;
+			if (ltc == CRYPT_APP_MAX_NUM_TCS_PER_PORT)
+				ltc = 0;
+		}
+	} while (!(larg->cmn_args.qs_map & (1 << ((ltc * mvapp_pp2_max_num_qs_per_tc) + lrxq))));
 
-	num = larg->cmn_args.burst;
-
-	while (*running) {
-		/* Find next queue to consume */
-		do {
-			qid++;
-			if (qid == mvapp_pp2_max_num_qs_per_tc) {
-				qid = 0;
-				tc++;
-				if (tc == CRYPT_APP_MAX_NUM_TCS_PER_PORT)
-					tc = 0;
-			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
-
-		err = loop_sw_recycle(larg, 0, 0, tc, qid, num);
-		if (err != 0)
-			return err;
-	}
-
-	return 0;
-}
-
-static int loop_2ps(struct local_arg *larg, int *running)
-{
-	int			 err;
-	u16			 num;
-	u8			 tc = 0, qid = 0;
-
-	if (!larg) {
-		pr_err("no obj!\n");
-		return -EINVAL;
-	}
-
-	num = larg->cmn_args.burst;
-
-	while (*running) {
-		/* Find next queue to consume */
-		do {
-			qid++;
-			if (qid == mvapp_pp2_max_num_qs_per_tc) {
-				qid = 0;
-				tc++;
-				if (tc == CRYPT_APP_MAX_NUM_TCS_PER_PORT)
-					tc = 0;
-			}
-		} while (!(larg->cmn_args.qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
-
-		err  = loop_sw_recycle(larg, 0, 1, tc, qid, num);
-		err |= loop_sw_recycle(larg, 1, 0, tc, qid, num);
-		if (err != 0)
-			return err;
-	}
-	return 0;
+	*tc = ltc;
+	*rxq = lrxq;
 }
 
 static int main_loop_cb(void *arg, int *running)
 {
-	struct local_arg	*larg = (struct local_arg *)arg;
+	struct local_arg *larg = (struct local_arg *)arg;
+	u8 tc, rxq;
+	u16 num;
+	int err;
+
+	int i;
 
 	if (!larg) {
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
+	num = larg->cmn_args.burst;
+	rxq = 0;
+	tc = 0;
+	while (*running) {
+		get_next_tc_and_rxq(larg, &tc, &rxq);
+		for (i = 0; i < larg->cmn_args.num_ports; i++) {
 
-	if (larg->cmn_args.num_ports == 1)
-		return loop_1p(larg, running);
-	return loop_2ps(larg, running);
+			err = loop_sw_recycle(larg, i, tc, rxq, num);
+			if (err != 0)
+				return err;
+		}
+	}
+	return err;
 }
 
 
@@ -1062,51 +1094,38 @@ static int init_all_modules(void)
 	return 0;
 }
 
-static int create_sam_sessions(struct local_arg	*larg)
+static int create_sam_sessions(struct crypto_params *params, struct crypto_flow *flow)
 {
-	struct glob_arg	*garg = larg->cmn_args.garg;
 	struct sam_session_params	 sa_params;
 	int				 err;
 
 	memset(&sa_params, 0, sizeof(sa_params));
-	sa_params.proto = garg->crypto_proto;
-	sa_params.cipher_alg = garg->cipher_alg;  /* cipher algorithm */
-	sa_params.cipher_mode = garg->cipher_mode; /* cipher mode */
-	sa_params.cipher_iv = NULL;     /* default IV */
-	if (sa_params.cipher_alg == SAM_CIPHER_3DES) {
-		sa_params.cipher_key = rfc3602_3des_cbc_t1_key;    /* cipher key */
-		sa_params.cipher_key_len = sizeof(rfc3602_3des_cbc_t1_key); /* cipher key size (in bytes) */
-	} else if (sa_params.cipher_alg == SAM_CIPHER_AES) {
-		sa_params.cipher_key = rfc3602_aes128_cbc_t1_key;    /* cipher key */
-		sa_params.cipher_key_len = sizeof(rfc3602_aes128_cbc_t1_key); /* cipher key size (in bytes) */
-	} else {
-		pr_err("Unknown cipher alg (%d)!\n", sa_params.cipher_alg);
-		return -EINVAL;
-	}
 
-	sa_params.auth_alg = garg->auth_alg; /* authentication algorithm */
+	sa_params.proto = params->crypto_proto;
+	sa_params.cipher_alg = params->cipher_alg;  /* cipher algorithm */
+	sa_params.cipher_mode = params->cipher_mode; /* cipher mode */
+	sa_params.cipher_iv = NULL;     /* default IV */
+	sa_params.cipher_key = params->cipher_key;    /* cipher key */
+	sa_params.cipher_key_len = params->cipher_key_len; /* cipher key size (in bytes) */
+
+	sa_params.auth_alg = params->auth_alg; /* authentication algorithm */
 	if (sa_params.auth_alg != SAM_AUTH_NONE) {
-		if (sa_params.auth_alg == SAM_AUTH_HMAC_SHA1) {
-			sa_params.auth_key = rfc3602_sha1_t1_auth_key;    /* auth key */
-			sa_params.auth_key_len = sizeof(rfc3602_sha1_t1_auth_key); /* auth key size (in bytes) */
-		} else {
-			pr_err("Unknown authetication alg (%d)!\n", sa_params.auth_alg);
-			return -EINVAL;
-		}
+		sa_params.auth_key = params->auth_key;    /* cipher key */
+		sa_params.auth_key_len = params->auth_key_len; /* cipher key size (in bytes) */
 	} else {
 		sa_params.auth_key = NULL;    /* auth key */
 		sa_params.auth_key = 0;
 	}
-	if (garg->crypto_proto == SAM_PROTO_IPSEC) {
+	if (params->crypto_proto == SAM_PROTO_IPSEC) {
 		sa_params.u.ipsec.is_esp = 1;
 		sa_params.u.ipsec.is_natt = 0;
 		sa_params.u.ipsec.spi = t1_spi;
 		sa_params.u.ipsec.seq = t1_seq;
-		sa_params.u.ipsec.is_esn = garg->seq64;
+		sa_params.u.ipsec.is_esn = params->seq64;
 
-		if (garg->tunnel) {
+		if (params->tunnel) {
 			sa_params.u.ipsec.is_tunnel = 1;
-			if (garg->ip6) {
+			if (params->ip6) {
 				sa_params.u.ipsec.is_ip6 = 1;
 				sa_params.u.ipsec.tunnel.u.ipv6.sip = tunnel_src_ip6;
 				sa_params.u.ipsec.tunnel.u.ipv6.dip = tunnel_dst_ip6;
@@ -1125,12 +1144,12 @@ static int create_sam_sessions(struct local_arg	*larg)
 			sa_params.u.ipsec.tunnel.copy_dscp = 0;
 			sa_params.u.ipsec.tunnel.copy_df = 0;
 		}
-	} else if (garg->crypto_proto == SAM_PROTO_SSLTLS) {
-		if (garg->ip6)
+	} else if (params->crypto_proto == SAM_PROTO_SSLTLS) {
+		if (params->ip6)
 			sa_params.u.ssltls.is_ip6 = 1;
-		sa_params.u.ssltls.is_capwap = garg->capwap;
+		sa_params.u.ssltls.is_capwap = params->capwap;
 		sa_params.u.ssltls.is_udp_lite = 0;
-		sa_params.u.ssltls.version = garg->ssl_version;
+		sa_params.u.ssltls.version = params->ssl_version;
 		sa_params.u.ssltls.seq = ssl_seq;
 		sa_params.u.ssltls.epoch = dtls_epoch;
 	} else {
@@ -1142,66 +1161,72 @@ static int create_sam_sessions(struct local_arg	*larg)
 	}
 
 	sa_params.dir = SAM_DIR_ENCRYPT;   /* operation direction: encode */
-	err = sam_session_create(&sa_params, &larg->enc_sa);
+	err = sam_session_create(&sa_params, &flow->enc_sa);
 	if (err) {
 		pr_err("EnC SA creation failed (%d)!\n", err);
 		return err;
 	}
-	if (!larg->enc_sa) {
+	if (!flow->enc_sa) {
 		pr_err("EnC SA creation failed!\n");
 		return -EFAULT;
 	}
 
 	sa_params.dir = SAM_DIR_DECRYPT;   /* operation direction: decode */
-	err = sam_session_create(&sa_params, &larg->dec_sa);
+	err = sam_session_create(&sa_params, &flow->dec_sa);
 	if (err) {
 		pr_err("DeC SA creation failed (%d)!\n", err);
 		return err;
 	}
-	if (!larg->dec_sa) {
+	if (!flow->dec_sa) {
 		pr_err("DeC SA creation failed!\n");
 		return -EFAULT;
 	}
+	flow->crypto_params = params;
+
 	return 0;
 }
 
-static void destroy_sam_sessions(struct sam_cio		*enc_cio,
-				struct sam_cio		*dec_cio,
-				struct sam_sa		*enc_sa,
-				struct sam_sa		*dec_sa)
+static void destroy_sam_sessions(struct local_arg *larg)
 {
-	if (enc_sa) {
-		if (sam_session_destroy(enc_sa))
-			pr_err("EnC SA destroy failed!\n");
-	}
+	int i;
 
-	if (dec_sa) {
-		if (sam_session_destroy(dec_sa))
-			pr_err("DeC SA destroy failed!\n");
-	}
+	/* Destroy flow sessions - TBD */
 
-	if (enc_cio) {
-		if (sam_cio_flush(enc_cio))
-			pr_err("EnC CIO flush failed!\n");
-	}
+	/* Destroy default sessions */
+	for (i = 0; i < larg->cmn_args.num_ports; i++) {
+		struct crypto_flow *flow = &larg->def_flows[i];
 
-	if (dec_cio && (enc_cio != dec_cio)) {
-		if (sam_cio_flush(dec_cio))
-			pr_err("DeC CIO flush failed!\n");
+		if (flow->enc_sa) {
+			if (sam_session_destroy(flow->enc_sa))
+				pr_err("EnC SA destroy failed!\n");
+		}
+
+		if (flow->dec_sa) {
+			if (sam_session_destroy(flow->dec_sa))
+				pr_err("DeC SA destroy failed!\n");
+		}
+
+		if (larg->enc_cio) {
+			if (sam_cio_flush(larg->enc_cio))
+				pr_err("EnC CIO flush failed!\n");
+		}
+
+		if (larg->dec_cio && (larg->enc_cio != larg->dec_cio)) {
+			if (sam_cio_flush(larg->dec_cio))
+				pr_err("DeC CIO flush failed!\n");
+		}
 	}
 }
 
 static int init_local_modules(struct glob_arg *garg)
 {
-	struct sam_init_params		init_params;
-	int				err, port_index;
-
+	struct sam_init_params	init_params;
+	int			err, port_index;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-
-	struct bpool_inf		std_infs[] = CRYPT_APP_BPOOLS_INF;
-	struct bpool_inf		jumbo_infs[] = CRYPT_APP_BPOOLS_JUMBO_INF;
-	struct bpool_inf		*infs;
-	int				i;
+	struct bpool_inf	std_infs[] = CRYPT_APP_BPOOLS_INF;
+	struct bpool_inf	jumbo_infs[] = CRYPT_APP_BPOOLS_JUMBO_INF;
+	struct bpool_inf	*infs;
+	int			i;
 
 	pr_info("Specific modules initializations\n");
 
@@ -1581,12 +1606,11 @@ static int init_local(void *arg, int id, void **_larg)
 		pr_err("CIO init failed!\n");
 		return err;
 	}
-	if (garg->dir == CRYPTO_ENC)
+	if (garg->def_crypto_params.dir == CRYPTO_ENC)
 		larg->enc_cio = cio;
-	else if (garg->dir == CRYPTO_DEC)
+	else if (garg->def_crypto_params.dir == CRYPTO_DEC)
 		larg->dec_cio = cio;
-	else if (garg->dir == CRYPTO_LB) {
-
+	else if (garg->def_crypto_params.dir == CRYPTO_LB) {
 		larg->enc_cio = cio;
 
 		/* If number of Cores > number of available CIOs then use the same cio or
@@ -1624,7 +1648,6 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.prefetch_shift   = garg->cmn_args.prefetch_shift;
 	larg->cmn_args.num_ports        = garg->cmn_args.num_ports;
 
-	larg->dir			= garg->dir;
 	larg->cmn_args.garg		= garg;
 
 	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
@@ -1657,13 +1680,32 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	pr_debug("%d of %d metadata structures allocated\n", i, garg->num_bufs);
 
-	err = create_sam_sessions(larg);
-	if (err)
-		return err;
+	/* Create default sessions */
+	for (i = 0; i < larg->cmn_args.num_ports; i++) {
+		u8 tx_port;
+		struct crypto_flow *flow = &larg->def_flows[i];
 
-	if (!larg->enc_sa || !larg->dec_sa) {
-		pr_err("failed to create SAM sesions!\n");
-		return -EFAULT;
+		err = create_sam_sessions(&garg->def_crypto_params, flow);
+		if (err)
+			return err;
+
+		/* Set flow flags */
+		if (flow->crypto_params->crypto_proto == SAM_PROTO_SSLTLS) {
+			/* packets must be IPv4/IPv6 + UDP/UDPLite */
+			flow->flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_L4_CSUM_MASK;
+		} else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC) {
+			if ((flow->crypto_params->dir == CRYPTO_ENC) &&
+			     flow->crypto_params->tunnel &&
+			     !flow->crypto_params->ip6) {
+				flow->flags = MDATA_FLAGS_IP4_CSUM_MASK | MDATA_FLAGS_IP4_SEQID_MASK;
+			}
+		}
+		/* Use next port as TX */
+		tx_port = i + 1;
+		if (tx_port == larg->cmn_args.num_ports)
+			tx_port = 0;
+
+		flow->txp = tx_port;
 	}
 
 	garg->cmn_args.largs[id] = larg;
@@ -1688,7 +1730,7 @@ static void deinit_local(void *arg)
 	if (!larg)
 		return;
 
-	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
+	destroy_sam_sessions(larg);
 
 	pthread_mutex_lock(&larg->cmn_args.garg->trd_lock);
 
@@ -1789,16 +1831,21 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.burst = CRYPT_APP_DFLT_BURST_SIZE;
 	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->cmn_args.echo = 1;
-	garg->dir = CRYPTO_LB;
-	garg->tunnel = 0;
-	garg->seq64 = 0;
-	garg->ip6 = 0;
-	garg->capwap = 0;
-	garg->ssl_version = SAM_DTLS_VERSION_1_0;
-	garg->crypto_proto = SAM_PROTO_NONE;
-	garg->cipher_alg = SAM_CIPHER_AES;
-	garg->cipher_mode = SAM_CIPHER_CBC;
-	garg->auth_alg = SAM_AUTH_HMAC_SHA1;
+	garg->flow_mode = DEFAULT_FLOW;
+	garg->def_crypto_params.dir = CRYPTO_LB;
+	garg->def_crypto_params.tunnel = 0;
+	garg->def_crypto_params.seq64 = 0;
+	garg->def_crypto_params.ip6 = 0;
+	garg->def_crypto_params.capwap = 0;
+	garg->def_crypto_params.ssl_version = SAM_DTLS_VERSION_1_0;
+	garg->def_crypto_params.crypto_proto = SAM_PROTO_NONE;
+	garg->def_crypto_params.cipher_alg = SAM_CIPHER_AES;
+	garg->def_crypto_params.cipher_mode = SAM_CIPHER_CBC;
+	garg->def_crypto_params.cipher_key = rfc3602_aes128_cbc_t1_key;
+	garg->def_crypto_params.cipher_key_len = sizeof(rfc3602_aes128_cbc_t1_key);
+	garg->def_crypto_params.auth_alg = SAM_AUTH_HMAC_SHA1;
+	garg->def_crypto_params.auth_key = rfc3602_sha1_t1_auth_key;
+	garg->def_crypto_params.auth_key_len = sizeof(rfc3602_sha1_t1_auth_key);
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.pkt_offset = 0;
@@ -1902,24 +1949,24 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			garg->cmn_args.echo = 0;
 			i += 1;
 		} else if (strcmp(argv[i], "--tunnel") == 0) {
-			garg->tunnel = 1;
+			garg->def_crypto_params.tunnel = 1;
 			i += 1;
 		} else if (strcmp(argv[i], "--ip6") == 0) {
-			garg->ip6 = 1;
+			garg->def_crypto_params.ip6 = 1;
 			i += 1;
 		} else if (strcmp(argv[i], "--seq64") == 0) {
-			garg->seq64 = 1;
+			garg->def_crypto_params.seq64 = 1;
 			i += 1;
 		} else if (strcmp(argv[i], "--capwap") == 0) {
-			garg->capwap = 1;
+			garg->def_crypto_params.capwap = 1;
 			i += 1;
 		} else if (strcmp(argv[i], "--dir") == 0) {
 			if (strcmp(argv[i+1], "enc") == 0)
-				garg->dir = CRYPTO_ENC;
+				garg->def_crypto_params.dir = CRYPTO_ENC;
 			else if (strcmp(argv[i+1], "dec") == 0)
-				garg->dir = CRYPTO_DEC;
+				garg->def_crypto_params.dir = CRYPTO_DEC;
 			else if (strcmp(argv[i+1], "lb") == 0)
-				garg->dir = CRYPTO_LB;
+				garg->def_crypto_params.dir = CRYPTO_LB;
 			else {
 				pr_err("Direction (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
@@ -1927,57 +1974,71 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			i += 2;
 		} else if (strcmp(argv[i], "--crypto-proto") == 0) {
 			if (strcmp(argv[i+1], "esp") == 0)
-				garg->crypto_proto = SAM_PROTO_IPSEC;
+				garg->def_crypto_params.crypto_proto = SAM_PROTO_IPSEC;
 			else if (strcmp(argv[i+1], "ssl") == 0)
-				garg->crypto_proto = SAM_PROTO_SSLTLS;
+				garg->def_crypto_params.crypto_proto = SAM_PROTO_SSLTLS;
 			else if (strcmp(argv[i+1], "none") == 0)
-				garg->crypto_proto = SAM_PROTO_NONE;
+				garg->def_crypto_params.crypto_proto = SAM_PROTO_NONE;
 			else {
 				pr_err("Crypto protocol (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
 			}
 			i += 2;
 		} else if (strcmp(argv[i], "--cipher-alg") == 0) {
-			if (strcmp(argv[i+1], "aes128") == 0)
-				garg->cipher_alg = SAM_CIPHER_AES;
-			else if (strcmp(argv[i+1], "3des") == 0)
-				garg->cipher_alg = SAM_CIPHER_3DES;
-			else if (strcmp(argv[i+1], "none") == 0)
-				garg->cipher_alg = SAM_CIPHER_NONE;
-			else {
+			if (strcmp(argv[i+1], "aes128") == 0) {
+				garg->def_crypto_params.cipher_alg = SAM_CIPHER_AES;
+				garg->def_crypto_params.cipher_key = rfc3602_aes128_cbc_t1_key;
+				garg->def_crypto_params.cipher_key_len = sizeof(rfc3602_aes128_cbc_t1_key);
+			} else if (strcmp(argv[i+1], "3des") == 0) {
+				garg->def_crypto_params.cipher_alg = SAM_CIPHER_3DES;
+				garg->def_crypto_params.cipher_key = rfc3602_3des_cbc_t1_key;
+				garg->def_crypto_params.cipher_key_len = sizeof(rfc3602_3des_cbc_t1_key);
+			} else if (strcmp(argv[i+1], "none") == 0) {
+				garg->def_crypto_params.cipher_alg = SAM_CIPHER_NONE;
+				garg->def_crypto_params.cipher_key = NULL;
+				garg->def_crypto_params.cipher_key_len = 0;
+			} else {
 				pr_err("Cipher alg (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
 			}
 			i += 2;
 		} else if (strcmp(argv[i], "--cipher-mode") == 0) {
 			if (strcmp(argv[i+1], "cbc") == 0)
-				garg->cipher_alg = SAM_CIPHER_CBC;
+				garg->def_crypto_params.cipher_alg = SAM_CIPHER_CBC;
 			else if (strcmp(argv[i+1], "ecb") == 0)
-				garg->cipher_alg = SAM_CIPHER_ECB;
+				garg->def_crypto_params.cipher_alg = SAM_CIPHER_ECB;
 			else {
 				pr_err("Cipher mode (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
 			}
 			i += 2;
 		} else if (strcmp(argv[i], "--auth-alg") == 0) {
-			if (strcmp(argv[i+1], "sha1") == 0)
-				garg->auth_alg = SAM_AUTH_HMAC_SHA1;
-			else if (strcmp(argv[i+1], "sha256") == 0)
-				garg->auth_alg = SAM_AUTH_HMAC_SHA2_256;
-			else if (strcmp(argv[i+1], "md5") == 0)
-				garg->auth_alg = SAM_AUTH_HMAC_MD5;
-			else if (strcmp(argv[i+1], "none") == 0)
-				garg->auth_alg = SAM_AUTH_NONE;
-			else {
+			if (strcmp(argv[i+1], "sha1") == 0) {
+				garg->def_crypto_params.auth_alg = SAM_AUTH_HMAC_SHA1;
+				garg->def_crypto_params.auth_key = rfc3602_sha1_t1_auth_key;
+				garg->def_crypto_params.auth_key_len = sizeof(rfc3602_sha1_t1_auth_key);
+			} else if (strcmp(argv[i+1], "sha256") == 0) {
+				garg->def_crypto_params.auth_alg = SAM_AUTH_HMAC_SHA2_256;
+				garg->def_crypto_params.auth_key = rfc3602_sha1_t1_auth_key;
+				garg->def_crypto_params.auth_key_len = sizeof(rfc3602_sha1_t1_auth_key);
+			} else if (strcmp(argv[i+1], "md5") == 0) {
+				garg->def_crypto_params.auth_alg = SAM_AUTH_HMAC_MD5;
+				garg->def_crypto_params.auth_key = md5_auth_key;
+				garg->def_crypto_params.auth_key_len = sizeof(md5_auth_key);
+			} else if (strcmp(argv[i+1], "none") == 0) {
+				garg->def_crypto_params.auth_alg = SAM_AUTH_NONE;
+				garg->def_crypto_params.auth_key = NULL;
+				garg->def_crypto_params.auth_key_len = 0;
+			} else {
 				pr_err("Auth alg (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
 			}
 			i += 2;
 		} else if (strcmp(argv[i], "--ssl-version") == 0) {
 			if (strcmp(argv[i+1], "dtls_1_0") == 0)
-				garg->ssl_version = SAM_DTLS_VERSION_1_0;
+				garg->def_crypto_params.ssl_version = SAM_DTLS_VERSION_1_0;
 			else if (strcmp(argv[i+1], "dtls_1_2") == 0)
-				garg->ssl_version = SAM_DTLS_VERSION_1_2;
+				garg->def_crypto_params.ssl_version = SAM_DTLS_VERSION_1_2;
 			else {
 				pr_err("SSL version (%s) not supported!\n", argv[i+1]);
 				return -EINVAL;
@@ -2041,20 +2102,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	pr_info("ports         : %d\n", garg->cmn_args.num_ports);
 	pr_info("burst         : %d\n", garg->cmn_args.burst);
 
-	pr_info("direction     : %d\n", garg->dir);
+	pr_info("direction     : %d\n", garg->def_crypto_params.dir);
 	pr_info("swap addr     : %s\n", garg->cmn_args.echo ? "Swap" : "Not swap");
-	pr_info("cipher-alg    : %d\n", garg->cipher_alg);
-	pr_info("cipher-mode   : %d\n", garg->cipher_mode);
-	pr_info("auth-alg      : %d\n", garg->auth_alg);
+	pr_info("cipher-alg    : %d\n", garg->def_crypto_params.cipher_alg);
+	pr_info("cipher-mode   : %d\n", garg->def_crypto_params.cipher_mode);
+	pr_info("auth-alg      : %d\n", garg->def_crypto_params.auth_alg);
 
-	if (garg->crypto_proto == SAM_PROTO_IPSEC) {
+	if (garg->def_crypto_params.crypto_proto == SAM_PROTO_IPSEC) {
 		pr_info("crypto-proto  : %s\n", "IPSec");
-		pr_info("IPSec mode    : %s\n", garg->tunnel ? "Tunnel" : "Transport");
-		pr_info("seq number    : %u bits\n", garg->seq64 ? 64 : 32);
-	} else if (garg->crypto_proto == SAM_PROTO_SSLTLS) {
+		pr_info("IPSec mode    : %s\n", garg->def_crypto_params.tunnel ? "Tunnel" : "Transport");
+		pr_info("seq number    : %u bits\n", garg->def_crypto_params.seq64 ? 64 : 32);
+	} else if (garg->def_crypto_params.crypto_proto == SAM_PROTO_SSLTLS) {
 		pr_info("crypto-proto  : %s\n", "SSL/TLS");
-		pr_info("SSL version   : %d\n", garg->ssl_version);
-		pr_info("Capwap mode   : %s\n", garg->capwap ? "Yes" : "No");
+		pr_info("SSL version   : %d\n", garg->def_crypto_params.ssl_version);
+		pr_info("Capwap mode   : %s\n", garg->def_crypto_params.capwap ? "Yes" : "No");
 	}
 	return 0;
 }
