@@ -88,6 +88,28 @@ struct mv_udphdr {
 	u16	chksum;   /**< UDP header and data checksum (0 if not used) */
 } __packed;
 
+union mv_ip_addr {
+	u32 ip4;	/* IPv4 Address */
+	u32 ip6[4];	/* IPv6 Address */
+};
+
+struct mv_2tuple {
+	u8			ip_ver;		/* IP version (4,6) */
+	u8			reserved[3];
+	union mv_ip_addr	ip_saddr;	/* Source IP address */
+	union mv_ip_addr	ip_daddr;	/* Destination IP address */
+};
+
+struct mv_5tuple {
+	u8			ip_ver;		/* IP version (4,6) */
+	u8			l4_proto;	/* L4 protocol type, udp/tcp */
+	u16			reserved;
+	u16			l4_sport;	/* Source Port */
+	u16			l4_dport;	/* Destination Port */
+	union mv_ip_addr	ip_saddr;	/* Source IP address */
+	union mv_ip_addr	ip_daddr;	/* Destination IP address */
+};
+
 static inline bool mv_check_eaddr_mc(const u8 *eaddr)
 {
 	u16 e_16 = *(const u16 *)eaddr;
