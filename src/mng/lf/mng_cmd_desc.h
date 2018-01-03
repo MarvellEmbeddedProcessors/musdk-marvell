@@ -37,7 +37,7 @@
  * Management descriptors definitions.
  */
 
-#define MGMT_DESC_DATA_LEN		(52)
+#define MGMT_DESC_DATA_LEN		(56)
 
 enum cmd_dest_type {
 	CDT_INVALID = 0,
@@ -90,6 +90,8 @@ enum ingress_hash_type {
 	ING_HASH_TYPE_5_TUPLE
 };
 
+#define SET_MGMT_CMD_FIELD(word, val, off, msk)	(word = ((word & ~msk) | ((val & msk) << off)))
+#define GET_MGMT_CMD_FIELD(word, off, msk)	((word >> off) & msk)
 
 /*
  * mgmt_cmd - Encapsulates all management control commands parameters.
@@ -138,53 +140,9 @@ struct mgmt_cmd_params {
 			u32	q_buf_size;
 		} pf_ingress_data_q_add;
 
-		struct {
-			u8 align[56];
-		} align;
 	};
 };
 #pragma pack()
-
-/* Command Descriptor
- * cmd_idx - Command Identifier, this field will be copied to the response
- *   descriptor by the SNIC, in order to correlate the response with the command.
- * app_code - Target application Id (out of enum snic_app_codes)
- * cmd_code - Command to be executed (out of enum snic_cmd_codes)
- * dest_id - Destination ID – PF / VF Id
- * dest_type - Destination type – PF / VF
- * flags - Bitmask of AOS_CMD_FLAG_XX.
- * cmd_param_size - Size (Bytes) of the command parameters (Refers to the total
- *   size of the parameters, and not only the one included as part of this
- *   descriptor).
- * desc_param_size - Size (Bytes) of the command parameters transmitted as part
- *   of this descriptor
- * cmd_params - Command parameters
- *   if (flags & FLAG_EXT_BUFF):
- *     Command parameters include physical address of the buffer containing the
- *     command’s data.
- *   else:
- *     Command parameters include Array of bytes, holding the serialized
- *     parameters list for a specific command.
- */
-/* Make sure structure is portable along different systems. */
-#pragma pack(1)
-struct cmd_desc {
-	u16 cmd_idx;
-	u16 app_code;
-	u8 cmd_code;
-	u8 dest_id;
-	u8 dest_type;
-
-#define CMD_FLAG_EXT_BUFF	BIT(3) /* Inline cmd params, or external buff */
-#define CMD_FLAG_NO_RESP	BIT(2) /* No response is required for this cmd */
-#define CMD_FLAG_FIRST	BIT(1) /* Marks the first descriptor in a series */
-#define CMD_FLAG_LAST	BIT(0) /* Marks the last descriptor in a series */
-	u8 flags;
-
-	struct mgmt_cmd_params params;
-};
-#pragma pack()
-
 
 /*
  * mgmt_cmd_resp - Encapsulates the different responses that can be
@@ -210,44 +168,75 @@ struct mgmt_cmd_resp {
 		} q_add_resp;
 
 		u32 link_status;
-
-		struct {
-			u8 align[23];
-		} align;
 	};
 };
 #pragma pack()
 
-/* Notifications Descriptor
- * cmd_idx - Command Identifier
- *   Command Reply – copied from the command descriptor by the SNIC.
- *   Notification – Set to 0xFFFF
- * app_code - Target application Id.
- * flags - Bitmask of AOS_NOTIF_FLAG_XX.
- * notif_params - Notification parameters
- *   if (flags & FLAG_EXT_BUFF):
- *     Notif parameters include physical address of the buffer containing the
- *     notification's data.
- *   else:
- *     Notif parameters include Array of bytes, holding the serialized
- *     parameters list for a specific notification.
+/* Command Descriptor
+ * cmd_idx - Command Identifier, this field will be copied to the response
+ *   descriptor by the SNIC, in order to correlate the response with the command.
+ *	value 0xFF indicate a notification message.
+ * app_code - Target application Id (out of enum snic_app_codes)
+ * cmd_code - Command to be executed (out of enum snic_cmd_codes)
+ * dest_id - Destination ID – PF / VF Id
+ * dest_type - Destination type – PF / VF
+ * flags - Bitmask of CMD_FLAGS_XX.
+ * cmd_params/resp_data
+ *     Array of bytes, holding the serialized parameters/response list for a specific command.
  */
+/* Make sure structure is portable along different systems. */
 #pragma pack(1)
-struct notif_desc {
+struct cmd_desc {
 	u16 cmd_idx;
 	u16 app_code;
 	u8 cmd_code;
 	u8 dest_id;
 	u8 dest_type;
-
-#define CMD_FLAG_EXT_BUFF	BIT(3) /* Inline cmd params, or external buff */
-#define CMD_FLAG_NO_RESP	BIT(2) /* No response is required for this cmd */
-#define CMD_FLAG_FIRST		BIT(1) /* Marks the first descriptor in a series */
-#define CMD_FLAG_LAST		BIT(0) /* Marks the last descriptor in a series */
 	u8 flags;
 
-	struct mgmt_cmd_resp resp_data;
+	union {
+		struct mgmt_cmd_params params;
+		struct mgmt_cmd_resp resp_data;
+		u8 data[MGMT_DESC_DATA_LEN];
+	};
 };
 #pragma pack()
 
+/* indicates whether the descriptor is consturcted from multiple ones */
+#define CMD_FLAGS_NUM_EXT_DESC_MASK		0x1F
+#define CMD_FLAGS_NUM_EXT_DESC_SHIFT		0
+
+#define CMD_FLAGS_NUM_EXT_DESC_SET(flags, val)	\
+	SET_MGMT_CMD_FIELD(flags, val, CMD_FLAGS_NUM_EXT_DESC_SHIFT, CMD_FLAGS_NUM_EXT_DESC_MASK)
+#define CMD_FLAGS_NUM_EXT_DESC_GET(flags)	\
+	GET_MGMT_CMD_FIELD(flags, CMD_FLAGS_NUM_EXT_DESC_SHIFT, CMD_FLAGS_NUM_EXT_DESC_MASK)
+
+/* No response is required for this cmd */
+#define CMD_FLAGS_NO_RESP_MASK			0x1
+#define CMD_FLAGS_NO_RESP_SHIFT			5
+#define CMD_FLAGS_NO_RESP_SET(flags, val)	\
+	SET_MGMT_CMD_FIELD(flags, val, CMD_FLAGS_NO_RESP_SHIFT, CMD_FLAGS_NO_RESP_MASK)
+#define CMD_FLAGS_NO_RESP_GET(flags)		\
+	GET_MGMT_CMD_FIELD(flags, CMD_FLAGS_NO_RESP_SHIFT, CMD_FLAGS_NO_RESP_MASK)
+
+/* Indicates position of the command buffer- inline first, last or external buffer. */
+#define CMD_FLAGS_BUF_POS_MASK			0x3
+#define CMD_FLAGS_BUF_POS_SHIFT			6
+#define CMD_FLAGS_BUF_POS_SET(flags, val)	\
+	SET_MGMT_CMD_FIELD(flags, val, CMD_FLAGS_BUF_POS_SHIFT, CMD_FLAGS_BUF_POS_MASK)
+#define CMD_FLAGS_BUF_POS_GET(flags)		\
+	GET_MGMT_CMD_FIELD(flags, CMD_FLAGS_BUF_POS_SHIFT, CMD_FLAGS_BUF_POS_MASK)
+
+#define CMD_FLAG_BUF_POS_SINGLE		0 /*	CMD_params is inline and this is a single buffer descriptor;
+					   *	i.e. the parameters for this command are inline.
+					   */
+#define CMD_FLAG_BUF_POS_FIRST_MID	1 /*	CMD_params is inline and this is the first or a middle buffer out of a
+					   *	sequence of buffers to come.
+					   */
+#define CMD_FLAG_BUF_POS_LAST		2 /*	CMD_params is inline and this is the last buffer out of a sequence that
+					   *	previously arrived.
+					   */
+#define CMD_FLAG_BUF_POS_EXT_BUF	3 /*	CMD_params is a pointer to an external buffer; i.e. the parameters for
+					   *	this command reside in external buffer.
+					   */
 #endif /* _GIU_MNG_DESC_H_ */

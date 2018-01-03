@@ -52,7 +52,7 @@
 #define q_empty(p, c)		(p == c)
 
 static int nmdisp_msg_recv(struct mqa_q *q, struct cmd_desc *msg);
-static int nmdisp_msg_transmit(struct mqa_q *q, struct notif_desc *msg);
+static int nmdisp_msg_transmit(struct mqa_q *q, struct cmd_desc *msg);
 
 
 /*
@@ -447,7 +447,7 @@ int nmdisp_send_msg(struct nmdisp *nmdisp, u8 qid, struct nmdisp_msg *msg)
 	client_p = &(nmdisp->clients[client_idx]);
 
 	if (msg->ext) {
-		struct notif_desc notification;
+		struct cmd_desc notification;
 		/* who should handle S/G? 'send_msg' or 'msg_transmit' */
 		notification.cmd_idx = msg->indx;
 /*		notification.app_code =*/
@@ -480,9 +480,9 @@ int nmdisp_send_msg(struct nmdisp *nmdisp, u8 qid, struct nmdisp_msg *msg)
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int nmdisp_msg_transmit(struct mqa_q *q, struct notif_desc *msg)
+int nmdisp_msg_transmit(struct mqa_q *q, struct cmd_desc *msg)
 {
-	struct notif_desc *trans_desc;
+	struct cmd_desc *trans_desc;
 	u32 cons_idx;
 	u32 prod_idx;
 
@@ -494,8 +494,8 @@ int nmdisp_msg_transmit(struct mqa_q *q, struct notif_desc *msg)
 		return 0;
 
 	/* Place message */
-	trans_desc = ((struct notif_desc *)q->virt_base_addr) + prod_idx;
-	memcpy(trans_desc, msg, sizeof(struct notif_desc));
+	trans_desc = ((struct cmd_desc *)q->virt_base_addr) + prod_idx;
+	memcpy(trans_desc, msg, sizeof(struct cmd_desc));
 
 	/* Memory barrier */
 	wmb();

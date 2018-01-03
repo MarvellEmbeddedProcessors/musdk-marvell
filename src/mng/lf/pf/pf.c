@@ -926,7 +926,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 
 	params.idx   = local_notify_queue;
 	params.len   = LOCAL_NOTIFY_QUEUE_SIZE;
-	params.size  = sizeof(struct notif_desc);
+	params.size  = sizeof(struct cmd_desc);
 	params.attr  = LOCAL_QUEUE | INGRESS_QUEUE;
 	params.prio  = 0;
 
@@ -1040,7 +1040,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 
 	params.idx             = remote_notify_queue;
 	params.len             = pcie_cfg->notif_q.len;
-	params.size            = sizeof(struct notif_desc);
+	params.size            = sizeof(struct cmd_desc);
 	params.attr            = REMOTE_QUEUE | INGRESS_QUEUE;
 	params.prio            = 0;
 	params.remote_phy_addr = (void *)pcie_cfg->notif_q.q_addr;
@@ -2142,7 +2142,7 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
  *
  *	@param[in]	nmnicpf - pointer to NIC PF object
  *	@param[in]	cmd - pointer to cmd_desc object
- *	@param[out]	resp - pointer to notif_desc object
+ *	@param[out]	resp - pointer to cmd_desc object
  *
  *	@retval	0 on success
  *	@retval	error-code otherwise

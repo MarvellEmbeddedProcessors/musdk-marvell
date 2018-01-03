@@ -44,7 +44,6 @@
 #define MAX_MSG_DATA_LEN	1024
 #define CMD_QUEUE_SIZE	\
 		(1 + ceil((MAX_MSG_DATA_LEN - MGMT_DESC_DATA_LEN), sizeof(struct cmd_desc)))
-#define NOTIFY_QUEUE_SIZE	(CMD_QUEUE_SIZE)
 
 struct nmcstm *nmcstm_for_guest;
 
@@ -101,8 +100,8 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 	memset(&params, 0, sizeof(struct mqa_queue_params));
 
 	params.idx   = notify_queue;
-	params.len   = NOTIFY_QUEUE_SIZE;
-	params.size  = sizeof(struct notif_desc);
+	params.len   = CMD_QUEUE_SIZE;
+	params.size  = sizeof(struct cmd_desc);
 	params.attr  = LOCAL_QUEUE | INGRESS_QUEUE;
 	params.prio  = 0;
 
