@@ -775,6 +775,7 @@ static int loop_2ps(struct local_arg *larg, int *running)
 
 		/* Schedule GIE execution */
 		nmp_schedule_all(garg.nmp);
+		nmp_guest_schedule(garg.nmp_guest);
 
 		/* Find next queue to consume */
 #if 0 /* TODO: enable this code to support multi tc/queue */
@@ -855,6 +856,23 @@ static int wait_for_pf_init_done(void)
 	return 0;
 }
 
+static int guest_ev_cb(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code, u16 indx, void *msg, u16 len)
+{
+	int ret;
+
+	pr_debug("guest_ev_cb was called with: client %d, id %d, code %d, indx %d len %d msg 0x%x\n",
+		 client, id, code, indx, len, *(u32 *)msg);
+#ifdef DEBUG
+	*(u32 *)msg = 0xCDCDCDCD;
+#endif /* DEBUG */
+
+	pr_debug("guest_ev_cb Sent Notification msg 0x%x\n", *(u32 *)msg);
+
+	ret = nmp_guest_send_msg(garg.nmp_guest, code, indx, msg, len);
+
+	return ret;
+}
+
 static int init_all_modules(void)
 {
 	struct pp2_init_params	 pp2_params;
@@ -911,6 +929,13 @@ static int init_all_modules(void)
 	nmp_guest_init(&nmp_guest_params, &garg.nmp_guest);
 
 	nmp_guest_get_probe_str(garg.nmp_guest, &garg.prb_str);
+
+	nmp_guest_register_event_handler(garg.nmp_guest,
+					 NMP_GUEST_LF_T_NICPF,
+					 0,
+					 (NMP_GUEST_EV_NICPF_MTU | NMP_GUEST_EV_NICPF_MAC_ADDR),
+					 &garg,
+					 guest_ev_cb);
 
 	return 0;
 }
