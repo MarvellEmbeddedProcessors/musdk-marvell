@@ -190,7 +190,8 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 {
 	struct cmd_desc *cmd;
 	u32 prod_idx, cons_idx;
-	u16 len;
+	u16 len, total_len = 0;
+	u8 num_ext_descs;
 	enum nmp_guest_lf_type lf_type = NMP_GUEST_LF_T_NONE;
 	struct nmp_guest_queue *q = &guest->notify_queue;
 
@@ -205,11 +206,34 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 		/* Place message */
 		cmd = q->base_addr_virt + cons_idx;
 
+		num_ext_descs = CMD_FLAGS_NUM_EXT_DESC_GET(cmd->flags);
 		if (guest->app_cb.guest_ev_cb) {
 			if (cmd->dest_type == CDT_PF)
 				lf_type = NMP_GUEST_LF_T_NICPF;
-			len = sizeof(struct mgmt_cmd_params);
-			memcpy(guest->msg, &cmd->params, len);
+			/* if 'num_ext_descs' >= 1 means that first descriptor includes descriptor head + data,
+			 * and rest of the descriptors are pure data.
+			 * for more details please refer to the A8K_NMP_Descriptor_Format.xls
+			 */
+			len = sizeof(cmd->data) + sizeof(struct cmd_desc) * num_ext_descs;
+
+			/* In case there is a wrap around the descriptors are be stored to the end of the ring AND
+			 * from the beginning of the desc ring.
+			 * So in order to keep the non-wrap code the same, we first copy the descs from the beginning of
+			 * the ring.
+			 */
+			if (unlikely((cons_idx + (num_ext_descs + 1)) > q->len)) {
+				u8 num_ext_desc_post_wrap = (cons_idx + num_ext_descs + 1) - q->len;
+				u16 len_post_wrap = sizeof(struct cmd_desc) * num_ext_desc_post_wrap;
+
+				/* Update len "pre wrap" */
+				len -= len_post_wrap;
+				/* copy post wrap part */
+				memcpy(&((u8 *)guest->msg)[len], q->base_addr_virt, len_post_wrap);
+				total_len += len_post_wrap;
+			}
+
+			memcpy(guest->msg, cmd->data, len);
+			total_len += len;
 		}
 
 		/* make sure all writes are done (i.e. descriptor were copied)
@@ -218,7 +242,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 		wmb();
 
 		/* Increament queue consumer */
-		q_wr_cons(q, q_inc_idx(q, cons_idx));
+		q_wr_cons(q, q_inc_idx_val(q, cons_idx, 1 + num_ext_descs));
 
 		/* The filtering should be done on 'custom' part.
 		 * As currently only one CB is supported there is no need for searching the correct CB.
@@ -230,7 +254,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 						  cmd->cmd_code,
 						  cmd->cmd_idx,
 						  guest->msg,
-						  len);
+						  total_len);
 		}
 	}
 
@@ -241,13 +265,8 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 {
 	struct cmd_desc *cmd;
 	u32 cons_idx, prod_idx;
+	u8 num_ext_descs, free_descs;
 	struct nmp_guest_queue *q = &guest->cmd_queue;
-
-	/* TODO - remove once S/G supported */
-	if (len > sizeof(struct mgmt_cmd_params)) {
-		pr_err("message length is bigger than command body. Currently S/G not supported\n");
-		return -1;
-	}
 
 	cons_idx = q_rd_cons(q);
 	prod_idx = q_rd_prod(q);
@@ -255,6 +274,21 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 	/* Check for free space */
 	if (q_full(q, prod_idx, cons_idx))
 		return -ENOSPC;
+
+	/* 'num_ext_descs' represent the number of descriptors that are used as pure data.
+	 * To calculate it we need to subtract the size of data portion of the first descriptor and to divide it by
+	 * the size of command-descriptor.
+	 * for more details please refer to the A8K_NMP_Descriptor_Format.xls
+	 */
+	num_ext_descs = ceil((len - MGMT_DESC_DATA_LEN), sizeof(struct cmd_desc));
+
+	/* Calculate number of free descriptors */
+	free_descs = q_space(q, prod_idx, cons_idx);
+	if (free_descs < (1 + num_ext_descs)) {
+		pr_err("Not enogth free descriptors (%u) to hold the message length (%u).\n"
+			, free_descs, len);
+		return -ENOSPC;
+	}
 
 	/* Place message */
 	cmd = q->base_addr_virt + prod_idx;
@@ -264,13 +298,30 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 	cmd->dest_type	= CDT_CUSTOM;
 	cmd->dest_id	= guest->id;
 	cmd->flags	= 0;
-	memcpy(&cmd->params, msg, len);
+	CMD_FLAGS_NUM_EXT_DESC_SET(cmd->flags, num_ext_descs);
+
+	/* In case there is a wrap around the descriptors are be stored to the
+	 * end of the ring AND from the beginning of the desc ring.
+	 * So in order to keep the non-wrap code the same, we first copy the descs from the beginning of
+	 * the ring.
+	 */
+	if (unlikely((prod_idx + (num_ext_descs + 1)) > q->len)) {
+		u8 num_ext_desc_post_wrap = (prod_idx + num_ext_descs + 1) - q->len;
+		u16 len_post_wrap = sizeof(struct cmd_desc) * num_ext_desc_post_wrap;
+
+		/* Update len "pre wrap" */
+		len -= len_post_wrap;
+		/* copy post wrap part */
+		memcpy(q->base_addr_virt, &((u8 *)msg)[len], len_post_wrap);
+	}
+
+	memcpy(cmd->data, msg, len);
 
 	/* Memory barrier */
 	wmb();
 
 	/* Increament queue producer */
-	q_wr_prod(q, q_inc_idx(q, prod_idx));
+	q_wr_prod(q, q_inc_idx_val(q, prod_idx, (1 + num_ext_descs)));
 
 	return 0;
 }

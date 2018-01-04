@@ -37,7 +37,8 @@
 
 extern struct nmcstm *nmcstm_for_guest;
 
-#define q_inc_idx(q, idx)	((idx + 1) & (q->len - 1))
+#define q_inc_idx(q, idx)	q_inc_idx_val(q, idx, 1)
+#define q_inc_idx_val(q, idx, val)	((idx + val) & (q->len - 1))
 #define q_rd_idx(idx)		(*((u32 *)idx))
 #define q_wr_idx(idx, val)	(*((u32 *)idx) = val)
 #define q_rd_cons(q)		q_rd_idx(q->cons_virt)
@@ -47,6 +48,8 @@ extern struct nmcstm *nmcstm_for_guest;
 
 #define q_full(q, p, c)		(((p + 1) & (q->len - 1)) == c)
 #define q_empty(p, c)		(p == c)
+#define q_occupancy(q, p, c)	((p - c + q->len) & (q->len - 1))
+#define q_space(q, p, c)	(q->len - q_occupancy(q, p, c) - 1)
 
 struct nmp_guest_queue {
 	u32		len; /**< number of descriptors in the ring */
