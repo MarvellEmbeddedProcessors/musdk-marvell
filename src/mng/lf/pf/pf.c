@@ -1294,7 +1294,6 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 
 	q_params.cmd_q    = nmnicpf->mng_data.lcl_mng_ctrl.cmd_queue;
 	q_params.notify_q = nmnicpf->mng_data.lcl_mng_ctrl.notify_queue;
-
 	ret = nmdisp_add_queue(nmnicpf->nmdisp, params.client_type, params.client_id, &q_params);
 	if (ret)
 		return ret;
@@ -2057,26 +2056,12 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
-
-/*
- *	nmnicpf_process_command
- *
- *	This function process all PF initialization commands
- *
- *	@param[in]	nmnicpf - pointer to NIC PF object
- *	@param[in]	cmd_code - command code id
- *	@param[in]	cmd - pointer to cmd_desc object
- *	@param[out]	resp - pointer to notif_desc object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
+static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
+				      struct nmdisp_msg *msg,
+				      struct mgmt_cmd_resp *resp_data)
 {
-	struct mgmt_cmd_resp resp_data;
 	struct mgmt_cmd_params *cmd_params = msg->msg;
-	struct nmnicpf *nmnicpf = (struct nmnicpf *)arg;
-	int ret;
+	int ret = 0;
 
 	switch (msg->code) {
 
@@ -2087,53 +2072,55 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 		break;
 
 	case CC_PF_INIT:
-		ret = nmnicpf_pf_init_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_pf_init_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_INIT message failed\n");
 		break;
 
 	case CC_PF_EGRESS_TC_ADD:
-		ret = nmnicpf_egress_tc_add_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_egress_tc_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_EGRESS_TC_ADD message failed\n");
 		break;
 
 	case CC_PF_EGRESS_DATA_Q_ADD:
-		ret = nmnicpf_egress_queue_add_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_egress_queue_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_EGRESS_DATA_Q_ADD message failed\n");
 		break;
 
 	case CC_PF_INGRESS_TC_ADD:
-		ret = nmnicpf_ingress_tc_add_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_ingress_tc_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_INGRESS_TC_ADD message failed\n");
 		break;
 
 	case CC_PF_INGRESS_DATA_Q_ADD:
-		ret = nmnicpf_ingress_queue_add_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_ingress_queue_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_INGRESS_DATA_Q_ADD message failed\n");
 		break;
 
 	case CC_PF_INIT_DONE:
-		nmnicpf_pf_init_done_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_pf_init_done_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_INIT_DONE message failed\n");
 		break;
 
 	case CC_PF_MGMT_ECHO:
-		ret = nmnicpf_mgmt_echo_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_mgmt_echo_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_MGMT_ECHO message failed\n");
 		break;
 
 	case CC_PF_LINK_STATUS:
-		ret = nmnicpf_link_status_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_link_status_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_LINK_STATUS message failed\n");
 		break;
 
 	case CC_PF_CLOSE:
-		ret = nmnicpf_close_command(nmnicpf, cmd_params, &resp_data);
+		ret = nmnicpf_close_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
 		break;
@@ -2145,15 +2132,70 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 		break;
 	}
 
-	if (ret)
-		resp_data.status = NOTIF_STATUS_FAIL;
-	else
-		resp_data.status = NOTIF_STATUS_OK;
+	return ret;
+}
 
-	msg->src_client = CDT_PF;
-	msg->src_id = nmnicpf->pf_id;
-	msg->msg = (void *)&resp_data;
-	msg->msg_len = sizeof(resp_data);
+/*
+ *	nmnicpf_process_command
+ *
+ *	This function process all PF initialization commands
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *	@param[in]	cmd - pointer to cmd_desc object
+ *	@param[out]	resp - pointer to notif_desc object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
+{
+	struct mgmt_cmd_resp resp_data;
+	struct nmnicpf *nmnicpf = (struct nmnicpf *)arg;
+	int ret;
+
+/*
+ *	Once NIC-PF get a external command from dispatcher, it shall first check the 'src-client/ID' (should be its own)
+ *	and then it will authenticate the message by validating the 'code' (against the available codes). In that stage,
+ *	the NIC-PF shall execute the command.
+ *	Optionally, the NIC-PF will return a response to the caller by sending a response message by calling the
+ *	'nmdisp_send_msg' API that is implemented as part of the dispatcher. It shall use its own 'src-client/ID' and
+ *	its own 'dst-client/ID' and 'ext' set.
+ *
+ *	For some commands, a guest may be registered as a 'listener' (e.g. MTU change). Therefore, after executing the
+ *	command, the NIC-PF shall iterate all registered 'listeners' for this specific command and initiate a call with
+ *	the command message by calling the 'nmdisp_send_msg' API with 'src-client/id' of the NIC-PF and 'dst-client/id'
+ *	of the Custom ('ext' should not be set).
+ *
+ *	Once NIC-PF get a internal command and the 'src-client' is of type Custom, it should initiate a call with
+ *	the command message by calling the 'nmdisp_send_msg' API and 'ext' set.
+ */
+
+	if (msg->ext) {
+		if ((msg->src_client == CDT_PF) && (msg->src_id == nmnicpf->pf_id)) {
+			ret = nmnicpf_process_pf_command(nmnicpf, msg, &resp_data);
+			if (ret)
+				resp_data.status = NOTIF_STATUS_FAIL;
+			else
+				resp_data.status = NOTIF_STATUS_OK;
+
+			msg->msg = (void *)&resp_data;
+			msg->msg_len = sizeof(resp_data);
+		} else {
+			pr_err("Src client %d not supported for external command\n", msg->src_client);
+			return -1;
+		}
+	} else {
+		if (msg->src_client == CDT_CUSTOM) {
+			msg->ext = 1;
+			pr_debug("PF-Lf got %s command code %d from client-type %d client-id %d msg: 0x%x\n",
+				(msg->ext) ? "external":"internal", msg->code, msg->src_client, msg->src_id,
+				*(u32 *)msg->msg);
+		} else {
+			pr_err("Src client %d not supported for internal command\n", msg->src_client);
+			return -1;
+		}
+	}
+
 	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, msg);
 	if (ret) {
 		pr_err("failed to send response message\n");
