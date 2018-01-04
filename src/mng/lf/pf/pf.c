@@ -37,7 +37,7 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "drivers/mv_giu_gpio.h"
-#include "pf_mng_cmd_desc.h"
+#include "mng/lf/mng_cmd_desc.h"
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
 #include "mng/pci_ep_def.h"

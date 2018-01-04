@@ -35,7 +35,7 @@
 #include "std_internal.h"
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
-#include "lf/pf/pf_mng_cmd_desc.h"
+#include "lf/mng_cmd_desc.h"
 #include "lf/pf/pf_queue_topology.h"
 #include "db.h"
 #include "dispatch.h"

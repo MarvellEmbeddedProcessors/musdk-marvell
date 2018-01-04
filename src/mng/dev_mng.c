@@ -41,7 +41,7 @@
 #include "lf/pf/pf.h"
 #include "lf/pf/pf_regfile.h"
 #include "lf/pf/pf_topology.h"
-#include "lf/pf/pf_mng_cmd_desc.h"
+#include "lf/mng_cmd_desc.h"
 #include "mng/mv_nmp_dispatch.h"
 
 #include "dev_mng.h"
