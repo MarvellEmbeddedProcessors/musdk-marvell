@@ -37,14 +37,14 @@ struct nmcstm;
 
 struct nmcstm_params {
 	u8 id;
+	u8 pf_id;
 	struct nmdisp *nmdisp;
 	struct mqa *mqa;
-
 };
 
 int nmcstm_init(struct nmcstm_params *params, struct nmcstm **nmcstm);
 int nmcstm_deinit(struct nmcstm *nmcstm);
-int nmcstm_process_command(void *nmcstm, u8 cmd_code, void *cmd);
+int nmcstm_process_command(void *arg, struct nmdisp_msg *msg);
 
 #endif /* _CUSTOM_H */
 

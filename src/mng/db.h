@@ -149,12 +149,14 @@ struct nmpp2 {
 	struct nmp_pp2_params pp2_params;	/* PP2 initialization params */
 };
 
-/* Structure containing all Custom PF related data
+/* Structure containing all Custom LF related data
  */
 struct nmcstm {
-	int cust_id;
+	int id;
+	int pf_id;
 	struct mqa *mqa;                            /* MQA */
 	struct nmdisp *nmdisp;                      /* Dispatcher */
+	struct mng_ch_params mng_ctrl;
 };
 
 /* Main PF data structure
@@ -166,6 +168,7 @@ struct nmcstm {
 struct nmp {
 	struct nmnicpf nmnicpf;
 	struct nmcstm *nmcstm;
+	u32 guest_id;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
 	struct nmpp2 nmpp2;

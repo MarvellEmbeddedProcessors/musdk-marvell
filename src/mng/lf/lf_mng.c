@@ -51,6 +51,10 @@ int lf_init(struct nmp *nmp)
 		return ret;
 
 	/* TODO: init nmp-customer only in case it is supported in the nmp_params! */
+	params.id = nmp->guest_id;
+	params.mqa = nmp->mqa;
+	params.nmdisp = nmp->nmdisp;
+	params.pf_id = nmp->nmnicpf.pf_id;
 	ret = nmcstm_init(&params, &(nmp->nmcstm));
 	if (ret) {
 		pr_err("Custom init failed\n");

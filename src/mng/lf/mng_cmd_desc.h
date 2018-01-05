@@ -42,7 +42,8 @@
 enum cmd_dest_type {
 	CDT_INVALID = 0,
 	CDT_PF,
-	CDT_VF
+	CDT_VF,
+	CDT_CUSTOM
 };
 
 /*
