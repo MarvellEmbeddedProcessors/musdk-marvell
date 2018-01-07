@@ -317,55 +317,6 @@ static struct crc64_t CRC64_ECMA_182 = {
 	}
 };
 
-#ifdef HW_CRC_SUPPORT
-#include <sys/auxv.h>
-
-#ifndef HWCAP_CRC32
-#define HWCAP_CRC32		(1 << 7)
-#endif /* HWCAP_CRC32 */
-
-static inline void check_crc(void)
-{
-	unsigned long hwcap = getauxval(AT_HWCAP);
-
-	if (hwcap & HWCAP_CRC32) {
-		printf("CRC32 instructions present\n");
-		return 1;
-	}
-}
-
-#define CRC32CX(crc, value) __asm__("crc32cx %w[c], %w[c], %x[v]":[c]"+r"(crc):[v]"r"(value))
-#define CRC32CW(crc, value) __asm__("crc32cw %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value))
-#define CRC32CH(crc, value) __asm__("crc32ch %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value))
-#define CRC32CB(crc, value) __asm__("crc32cb %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value))
-
-static u32 crc32c_arm64_le_hw(u32 crc, const u8 *p, unsigned int len)
-{
-		s64 length = len;
-
-	while ((length -= sizeof(u32)) >= 0) {
-		CRC32CW(crc, get_unaligned_le32(p));
-		p += sizeof(u32);
-	}
-
-	/* The following is more efficient than the straight loop */
-	if (length & sizeof(u32)) {
-		CRC32CW(crc, get_unaligned_le32(p));
-		p += sizeof(u32);
-	}
-
-	if (length & sizeof(u16)) {
-		CRC32CH(crc, get_unaligned_le16(p));
-		p += sizeof(u16);
-	}
-
-	if (length & sizeof(u8))
-		CRC32CB(crc, *p);
-
-	return crc;
-}
-#endif
-
 /**
  * Computes 64 bit the crc
  * param[in] data Pointer to the Data in the frame
@@ -374,9 +325,6 @@ static u32 crc32c_arm64_le_hw(u32 crc, const u8 *p, unsigned int len)
  */
 static inline uint64_t crc64_compute(void const *data, uint32_t len)
 {
-#ifdef HW_CRC_SUPPORT
-return crc32c_arm64_le_hw(CRC64_DEFAULT_INITVAL, data, len);
-#else
 	uint32_t i;
 	uint64_t crc = CRC64_DEFAULT_INITVAL;
 	uint8_t *bdata = (uint8_t *) data;
@@ -387,7 +335,6 @@ return crc32c_arm64_le_hw(CRC64_DEFAULT_INITVAL, data, len);
 			table[(crc ^ *bdata++) & CRC64_BYTE_MASK] ^ (crc >> 8);
 
 	return crc;
-#endif
 }
 
 #endif /* __CRC_H__ */
