@@ -36,6 +36,7 @@
 /* Serialization helpers */
 
 #define FILE_MAX_LINE_CHARS	80
+#define JSON_LEVEL_2_TAB_COMMA_ADDITION_LEN	5
 
 /**
  * json_print_to_buffer
@@ -48,28 +49,35 @@
  *
  * Some examples for writing to JSON format file:
  * 1) Write a new section for bpool-x:x:
- *	json_print_to_buffer(buff, size, "\t\t\"pool-%d:%d\": {\n", pool->pp2_id, pool->id);
+ *	json_print_to_buffer(buff, size, 2, "\"pool-%d:%d\": {\n", pool->pp2_id, pool->id);
  *
  * 2) Write pool_id and pp2_id parameters (inside the above section):
- *	json_print_to_buffer(buff, size, "\t\t\t\"pp2_id\": %u,\n", pool->pp2_id);
- *	json_print_to_buffer(buff, size, "\t\t\t\"id\": %u,\n", pool->id);
+ *	json_print_to_buffer(buff, size, 3, "\"pp2_id\": %u,\n", pool->pp2_id);
+ *	json_print_to_buffer(buff, size, 3, "\"id\": %u,\n", pool->id);
  *
  * @param[in]	buf	A pointer to the writing buffer.
- * @param[in]	...	__VA_ARGS__ containing the string to write and the formating options
+ * @param[in]	size	Total size of the buffer
+ * @param[in]	tabs	Number of tabs to add to the string before
+ * @param[in]		__VA_ARGS__ containing the string to write and the formating options
  */
-#define json_print_to_buffer(buff, size, ...)					\
-do {									\
-	/* Check the input string can be written in the input buffer */	\
-	char tmp_buf[FILE_MAX_LINE_CHARS];				\
-	ans = snprintf(tmp_buf, size - pos, __VA_ARGS__);		\
-	if (ans <= (size - pos))					\
-		strncpy(&buff[pos], &tmp_buf[0], (size_t)ans);		\
-	else								\
-		pr_warn("skip write (%s): buf too short (%d)!\n",	\
-			tmp_buf, size);					\
-	pos += ans;							\
+#define json_print_to_buffer(buff, size, num_tabs, ...)				\
+do {										\
+	/* Check the input string can be written in the input buffer */		\
+	char tmp_buf[FILE_MAX_LINE_CHARS];					\
+	int tab;								\
+	u32 str_len, tab_len = 0;						\
+	for (tab = 0; tab < num_tabs; tab++) {					\
+		str_len = snprintf(&tmp_buf[tab], FILE_MAX_LINE_CHARS, "\t");	\
+		tab_len += str_len;						\
+	}									\
+	str_len = snprintf(&tmp_buf[tab_len], size - pos, __VA_ARGS__);		\
+	if ((str_len + tab_len) <= (size - pos))				\
+		strncpy(&buff[pos], &tmp_buf[0], (size_t)(str_len + tab_len));	\
+	else									\
+		pr_warn("skip write (%s): buf too short (%d)!\n",		\
+			tmp_buf, size);						\
+	pos += str_len + tab_len;						\
 } while (0)
-
 
 /**
  * json_buffer_to_input
