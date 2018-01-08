@@ -170,6 +170,11 @@ int mqa_queue_create(struct mqa *mqa, struct mqa_queue_params *queue_params, str
 		return -ENOMEM;
 	}
 
+	if ((queue_params->len  & (queue_params->len - 1)) != 0) {
+		queue_params->len = roundup_pow_of_two(queue_params->len);
+		pr_warn("MQA size must be power of 2. round it up to %d\n", queue_params->len);
+	}
+
 	/* Need to allocate memory  only for local Queues */
 	if (IS_QUEUE_LOCAL(queue_params->attr)) {
 
