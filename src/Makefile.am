@@ -133,6 +133,7 @@ nobase_include_HEADERS += include/mng/mv_nmp_dispatch.h
 libmusdk_la_SOURCES += mng/lf/pf/pf.c
 libmusdk_la_SOURCES += mng/lf/pf/pf_regfile.c
 libmusdk_la_SOURCES += mng/lf/pf/pf_topology.c
+libmusdk_la_SOURCES += mng/lf/custom/custom.c
 libmusdk_la_SOURCES += mng/dev_mng.c
 libmusdk_la_SOURCES += mng/dev_mng_pp2.c
 libmusdk_la_SOURCES += mng/dispatch.c

@@ -148,6 +148,15 @@ struct nmpp2 {
 	int pp2_en;				/* Flag inidicating PP2 interface is present*/
 	struct nmp_pp2_params pp2_params;	/* PP2 initialization params */
 };
+
+/* Structure containing all Custom PF related data
+ */
+struct nmcstm {
+	int cust_id;
+	struct mqa *mqa;                            /* MQA */
+	struct nmdisp *nmdisp;                      /* Dispatcher */
+};
+
 /* Main PF data structure
  *
  *  nic-pf	all NIC-PF related data
@@ -156,6 +165,7 @@ struct nmpp2 {
  */
 struct nmp {
 	struct nmnicpf nmnicpf;
+	struct nmcstm *nmcstm;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
 	struct nmpp2 nmpp2;
