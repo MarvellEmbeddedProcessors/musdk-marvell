@@ -33,7 +33,6 @@
 #ifndef _PF_TOPOLOGY_H
 #define _PF_TOPOLOGY_H
 
-int pf_topology_init(struct nmp *nmp);
-int pf_topology_terminate(struct nmp *nmp);
+int pf_topology_init(struct nmnicpf *pf);
 
 #endif /* _PF_TOPOLOGY_H */

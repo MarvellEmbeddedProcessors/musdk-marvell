@@ -44,6 +44,7 @@
 #include "mng/dispatch.h"
 #include "pf_regfile.h"
 #include "pf.h"
+#include "pf_topology.h"
 #include "pf_pci_if_desc.h"
 #include "drivers/mv_pp2.h"
 #include "drivers/mv_pp2_bpool.h"
@@ -1267,6 +1268,8 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	int ret;
 	struct nmdisp_client_params params;
 	struct nmdisp_q_pair_params q_params;
+
+	pf_topology_init(nmnicpf);
 
 	/* Clear queue topology batabase */
 	memset(&(nmnicpf->topology_data), 0, sizeof(struct giu_gpio_init_params));

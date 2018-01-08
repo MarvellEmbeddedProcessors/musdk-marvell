@@ -37,6 +37,7 @@
 #include "hw_emul/gie.h"
 #include "drivers/mv_mqa.h"
 #include "db.h"
+#include "lf/lf_mng.h"
 #include "lf/pf/pf.h"
 #include "lf/pf/pf_regfile.h"
 #include "lf/pf/pf_topology.h"
@@ -367,7 +368,7 @@ static int dev_mng_sw_init(struct nmp *nmp)
 
 	/* Initialize topology - all PF / VF instances */
 	/* topology_init API is already defined in Linux therefore use pf_ prefix */
-	ret = pf_topology_init(nmp);
+	ret = lf_init(nmp);
 	return ret;
 }
 
@@ -490,7 +491,7 @@ static int dev_mng_sw_terminate(struct nmp *nmp)
 #endif
 
 	/* Terminate topology */
-	ret = pf_topology_terminate(nmp);
+	ret = lf_deinit(nmp);
 	if (ret)
 		return ret;
 

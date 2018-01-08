@@ -41,31 +41,13 @@
 struct nmnicpf *nmnicpf;
 
 
-int pf_topology_init(struct nmp *nmp)
+int pf_topology_init(struct nmnicpf *pf)
 {
-	int ret;
-
-	nmnicpf = &(nmp->nmnicpf);
-
-	/* Initialize the NIC-PF */
-	ret = nmnicpf_init(&nmp->nmnicpf);
-	if (ret)
-		return ret;
+	nmnicpf = pf;
 
 	return 0;
 }
 
-int pf_topology_terminate(struct nmp *nmp)
-{
-	int ret;
-
-	/* Initialize the NIC-PF */
-	ret = nmnicpf_deinit(&nmp->nmnicpf);
-	if (ret)
-		return ret;
-
-	return 0;
-}
 
 /*
  *	pf_outtc_queue_init

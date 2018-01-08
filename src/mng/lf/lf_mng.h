@@ -30,71 +30,10 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#define log_fmt(fmt) "pf: " fmt
+#ifndef _LF_MNG_H
+#define _LF_MNG_H
 
-#include "std_internal.h"
-#include "drivers/mv_mqa.h"
-#include "drivers/mv_mqa_queue.h"
-#include "mng/db.h"
-#include "mng/mv_nmp.h"
-#include "mng/lf/lf_mng.h"
-#include "mng/dispatch.h"
-#include "env/trace/trc_pf.h"
-#include "custom.h"
+int lf_init(struct nmp *nmp);
+int lf_deinit(struct nmp *nmp);
 
-
-/*
- *	nmcstm_init
- *
- *	@param[in]	params - custom module parameters
- *	@param[in]	nmcstm - pointer to custom object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmcstm_init(struct nmcstm_params *params, struct nmcstm **nmcstm)
-{
-	params = params;
-	nmcstm = nmcstm;
-
-	return 0;
-}
-
-
-/*
- *	nmcstm_deinit
- *
- *	@param[in]	nmcstm - pointer to custom object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmcstm_deinit(struct nmcstm *nmcstm)
-{
-	nmcstm = nmcstm;
-
-	return 0;
-}
-
-
-/*
- *	nmcstm_process_command
- *
- *	This function process Custom commands
- *
- *	@param[in]	nmcstm - pointer to Custom object
- *	@param[in]	cmd_code
- *	@param[in]	cmd - pointer to cmd_desc object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmcstm_process_command(void *nmcstm, u8 cmd_code, void *cmd)
-{
-	nmcstm = nmcstm;
-	cmd_code = cmd_code;
-	cmd = cmd;
-
-	return 0;
-}
-
+#endif /* _LF_MNG_H */

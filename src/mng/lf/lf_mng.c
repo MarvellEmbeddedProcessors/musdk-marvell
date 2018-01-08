@@ -30,70 +30,48 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#define log_fmt(fmt) "pf: " fmt
+#define log_fmt(fmt) "lf_mng " fmt
 
 #include "std_internal.h"
-#include "drivers/mv_mqa.h"
-#include "drivers/mv_mqa_queue.h"
-#include "mng/db.h"
-#include "mng/mv_nmp.h"
-#include "mng/lf/lf_mng.h"
-#include "mng/dispatch.h"
 #include "env/trace/trc_pf.h"
-#include "custom.h"
+#include "mng/db.h"
+#include "pf/pf.h"
+#include "custom/custom.h"
+#include "lf_mng.h"
 
 
-/*
- *	nmcstm_init
- *
- *	@param[in]	params - custom module parameters
- *	@param[in]	nmcstm - pointer to custom object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmcstm_init(struct nmcstm_params *params, struct nmcstm **nmcstm)
+int lf_init(struct nmp *nmp)
 {
-	params = params;
-	nmcstm = nmcstm;
+	int ret;
+	struct nmcstm_params params;
+
+	ret = nmnicpf_init(&nmp->nmnicpf);
+	if (ret)
+		return ret;
+
+	ret = nmcstm_init(&params, &(nmp->nmcstm));
+	if (ret) {
+		pr_err("Custom init failed\n");
+		return ret;
+	}
 
 	return 0;
 }
 
 
-/*
- *	nmcstm_deinit
- *
- *	@param[in]	nmcstm - pointer to custom object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmcstm_deinit(struct nmcstm *nmcstm)
+int lf_deinit(struct nmp *nmp)
 {
-	nmcstm = nmcstm;
+	int ret;
 
-	return 0;
-}
+	ret = nmcstm_deinit(nmp->nmcstm);
+	if (ret) {
+		pr_err("Custom init failed\n");
+		return ret;
+	}
 
-
-/*
- *	nmcstm_process_command
- *
- *	This function process Custom commands
- *
- *	@param[in]	nmcstm - pointer to Custom object
- *	@param[in]	cmd_code
- *	@param[in]	cmd - pointer to cmd_desc object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmcstm_process_command(void *nmcstm, u8 cmd_code, void *cmd)
-{
-	nmcstm = nmcstm;
-	cmd_code = cmd_code;
-	cmd = cmd;
+	ret = nmnicpf_deinit(&nmp->nmnicpf);
+	if (ret)
+		return ret;
 
 	return 0;
 }
