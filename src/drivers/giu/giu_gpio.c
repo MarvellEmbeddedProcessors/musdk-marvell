@@ -600,7 +600,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 #endif
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	if (giu_params->outqs_params.tcs[tc].dest_num_qs)
+	if (giu_params->outqs_params.tcs[tc].dest_num_qs > 1)
 		return giu_gpio_send_multi_q(gpio, tc, descs, num);
 #endif
 	/* Set number of sent packets to 0 for any case we exit due to error */
@@ -649,7 +649,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	 * Note that there should be no more than 2 iterations.
 	 **/
 	do {
-		if (giu_params->outqs_params.tcs[tc].dest_num_qs) {
+		if (giu_params->outqs_params.tcs[tc].dest_num_qs > 1) {
 			/* Calculate RSS and update descriptor */
 			for (i = 0; i < block_size; i++)
 				giu_gpio_update_rss(gpio, tc, &descs[i + index]);
