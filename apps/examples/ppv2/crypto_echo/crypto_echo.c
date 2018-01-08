@@ -401,11 +401,6 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	struct crypto_flow	*flow = NULL;
 
-#ifdef CRYPT_APP_VERBOSE_DEBUG
-	if (larg->cmn_args.verbose)
-		pr_info("%s: %d packets received. %d\n", __func__, num, rx_ppio_id);
-#endif /* CRYPT_APP_VERBOSE_DEBUG */
-
 	/* TODO: Get current buffer size */
 	bpool_buff_len = larg->cmn_args.garg->cmn_args.mtu + 64;
 
@@ -546,15 +541,14 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	}
 	num_got = i;
 
-START_COUNT_CYCLES(pme_ev_cnt_enq);
+	START_COUNT_CYCLES(pme_ev_cnt_enq);
 	if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE)
 		err = sam_cio_enq(cio, sam_descs, &num_got);
 	else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC)
 		err = sam_cio_enq_ipsec(cio, ipsec_descs, &num_got);
 	else
 		err = sam_cio_enq_ssltls(cio, ssltls_descs, &num_got);
-
-STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
+	STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 
 #ifdef CRYPT_APP_STATS_SUPPORT
 	larg->stats.rx_pkts[rx_ppio_id] += num;
@@ -681,14 +675,14 @@ static inline int dec_pkts(struct local_arg		*larg,
 	}
 	num_got = num;
 
-START_COUNT_CYCLES(pme_ev_cnt_enq);
+	START_COUNT_CYCLES(pme_ev_cnt_enq);
 	if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE)
 		err = sam_cio_enq(larg->dec_cio, sam_descs, &num_got);
 	else if (flow->crypto_params->crypto_proto == SAM_PROTO_IPSEC)
 		err = sam_cio_enq_ipsec(larg->dec_cio, ipsec_descs, &num_got);
 	else
 		err = sam_cio_enq_ssltls(larg->dec_cio, ssltls_descs, &num_got);
-STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
+	STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 
 	if (unlikely(err)) {
 		pr_err("SAM EnQ (DeC) failed (%d)!\n", err);
@@ -804,45 +798,50 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 	}
 
 	for (tp = 0; tp < larg->cmn_args.num_ports; tp++) {
+		struct pp2_ppio	*ppio = pp2_args->lcl_ports_desc[tp].ppio;
+
 		num = num_got = port_nums[tp];
 		shadow_q = &pp2_args->lcl_ports_desc[tp].shadow_qs[tc];
 
-START_COUNT_CYCLES(pme_ev_cnt_tx);
 		if (num_got) {
-			err = pp2_ppio_send(pp2_args->lcl_ports_desc[tp].ppio, pp2_args->hif, tc,
-					    descs[tp], &num_got);
+
+			START_COUNT_CYCLES(pme_ev_cnt_tx);
+			err = pp2_ppio_send(ppio, pp2_args->hif, tc, descs[tp], &num_got);
+			STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 			if (err)
 				return err;
-		}
-STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 
-		CRYPT_STATS(larg->stats.tx_pkts[tp] += num_got);
-		CRYPT_STATS(larg->stats.tx_drop[tp] += (num - num_got));
+			CRYPT_STATS(larg->stats.tx_pkts[tp] += num_got);
+			CRYPT_STATS(larg->stats.tx_drop[tp] += (num - num_got));
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->cmn_args.verbose && num_got)
-			printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
+			if (larg->cmn_args.verbose) {
+				printf("thread #%d (cpu=%d): sent %d of %d pkts on tx_port=%d, tc=%d, hw_port=%d:%d\n",
+					larg->cmn_args.id, sched_getcpu(),
+					num_got, num, tp, tc, ppio->pp2_id, ppio->port_id);
+			}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
-		if (num_got < num) {
-			for (i = 0; i < num - num_got; i++) {
-				if (shadow_q->write_ind == 0)
-					shadow_q->write_ind = shadow_q_size[tp];
-				shadow_q->write_ind--;
-				binf = &shadow_q->ents[shadow_q->write_ind].buff_ptr;
-				if (unlikely(!binf->cookie || !binf->addr)) {
-					pr_warn("TX drop: bad buff - num=%d, num_got=%d, i=%d, write=%d, read=%d\n",
-						num, num_got, i, shadow_q->write_ind, shadow_q->read_ind);
-					continue;
+
+			if (num_got < num) {
+				for (i = 0; i < num - num_got; i++) {
+					if (shadow_q->write_ind == 0)
+						shadow_q->write_ind = shadow_q_size[tp];
+					shadow_q->write_ind--;
+					binf = &shadow_q->ents[shadow_q->write_ind].buff_ptr;
+					if (unlikely(!binf->cookie || !binf->addr)) {
+						pr_warn("TX drop: bad buff - num=%d, num_got=%d, i=%d, write=%d, read=%d\n",
+							num, num_got, i, shadow_q->write_ind, shadow_q->read_ind);
+						continue;
+					}
+					bpool = shadow_q->ents[shadow_q->write_ind].bpool;
+					pp2_bpool_put_buff(pp2_args->hif, bpool, binf);
+
 				}
-				bpool = shadow_q->ents[shadow_q->write_ind].bpool;
-				pp2_bpool_put_buff(pp2_args->hif, bpool, binf);
-
+				/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
+				perf_cntrs->drop_cnt += (num - num_got);
 			}
-			/*pr_warn("%s: %d packets dropped\n", __func__, num - num_got);*/
-			perf_cntrs->drop_cnt += (num - num_got);
 		}
-
 		pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tp].ppio, pp2_args->hif, tc, &num_done);
 		for (i = 0; i < num_done; i++) {
 			binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
@@ -876,9 +875,10 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
 	num = CRYPT_APP_MAX_BURST_SIZE;
-START_COUNT_CYCLES(pme_ev_cnt_deq);
+
+	START_COUNT_CYCLES(pme_ev_cnt_deq);
 	err = sam_cio_deq(cio, res_descs, &num);
-STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
+	STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 	if (unlikely(err)) {
 		pr_err("SAM dequeue failed (%d)!\n", err);
 		return -EFAULT;
@@ -951,15 +951,19 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	int			 err;
+	struct pp2_ppio		*ppio = pp2_args->lcl_ports_desc[rx_ppio_id].ppio;
 
-/*pr_info("tid %d check on tc %d, qid %d\n", larg->cmn_args.id, tc, qid);*/
-START_COUNT_CYCLES(pme_ev_cnt_rx);
-	err = pp2_ppio_recv(pp2_args->lcl_ports_desc[rx_ppio_id].ppio, tc, qid, descs, &num);
-STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
+	/*pr_info("tid %d check on tc %d, qid %d\n", larg->cmn_args.id, tc, qid);*/
+	START_COUNT_CYCLES(pme_ev_cnt_rx);
+	err = pp2_ppio_recv(ppio, tc, qid, descs, &num);
+	STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-	if (larg->cmn_args.verbose && num)
-		printf("recv %d pkts on ppio %d, tc %d, qid %d\n", num, rx_ppio_id, tc, qid);
+	if (larg->cmn_args.verbose && num) {
+		printf("thread #%d (cpu=%d): recv %d pkts on rx_port=%d, tc=%d, qid=%d, hw_port=%d:%d\n",
+			larg->cmn_args.id, sched_getcpu(),
+			num, rx_ppio_id, tc, qid, ppio->pp2_id, ppio->port_id);
+	}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	if (num) {
@@ -1647,17 +1651,8 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.burst		= garg->cmn_args.burst;
 	larg->cmn_args.echo             = garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift   = garg->cmn_args.prefetch_shift;
-	larg->cmn_args.num_ports        = garg->cmn_args.num_ports;
-
 	larg->cmn_args.garg		= garg;
 
-	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
-					malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
-	if (!lcl_pp2_args->lcl_ports_desc) {
-		pr_err("no mem for local-port-desc obj!\n");
-		return -ENOMEM;
-	}
-	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		app_port_local_init(i, larg->cmn_args.id,
 				    &lcl_pp2_args->lcl_ports_desc[i], &glb_pp2_args->ports_desc[i]);
@@ -1875,17 +1870,14 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			/* count the number of tokens separated by ',' */
 			for (token = strtok(argv[i + 1], ","), garg->cmn_args.num_ports = 0;
 			     token;
-			     token = strtok(NULL, ","), garg->cmn_args.num_ports++)
+			     token = strtok(NULL, ","), garg->cmn_args.num_ports++) {
 				snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
 					 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name),
 					 "%s", token);
+			}
 
 			if (garg->cmn_args.num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
-				return -EINVAL;
-			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_I_OPTION_PORTS) {
-				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_I_OPTION_PORTS);
 				return -EINVAL;
 			}
 			i += 2;
