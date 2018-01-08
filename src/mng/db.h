@@ -126,7 +126,7 @@ struct pp2_data {
 
 /* Structure containing all the NIC-PF related data
  */
-struct nic_pf {
+struct nmnicpf {
 	int pf_id;
 	u32 guest_id;
 	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
@@ -155,7 +155,7 @@ struct nmpp2 {
  *  mqa_global	MQA tables parameters
  */
 struct nmp {
-	struct nic_pf nic_pf;
+	struct nmnicpf nmnicpf;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
 	struct nmpp2 nmpp2;

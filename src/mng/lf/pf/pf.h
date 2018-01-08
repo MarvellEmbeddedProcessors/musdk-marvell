@@ -33,8 +33,8 @@
 #ifndef _PF_H
 #define _PF_H
 
-int nic_pf_init(struct nic_pf *nic_pf);
-int nic_pf_terminate(struct nic_pf *nic_pf);
-int nic_pf_process_command(void *nic_pf, u8 cmd_code, void *cmd);
+int nmnicpf_init(struct nmnicpf *nmnicpf);
+int nmnicpf_deinit(struct nmnicpf *nmnicpf);
+int nmnicpf_process_command(void *nmnicpf, u8 cmd_code, void *cmd);
 
 #endif /* _PF_H */

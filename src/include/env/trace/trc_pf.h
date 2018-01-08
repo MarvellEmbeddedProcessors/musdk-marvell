@@ -32,7 +32,7 @@
 #ifdef TRACE
 
 #undef TRACEPOINT_PROVIDER
-#define TRACEPOINT_PROVIDER nic_pf
+#define TRACEPOINT_PROVIDER nmnicpf
 
 #undef TRACEPOINT_INCLUDE
 #define TRACEPOINT_INCLUDE "trc_pf.h"
@@ -43,7 +43,7 @@
 #include <lttng/tracepoint.h>
 
 TRACEPOINT_EVENT(
-	nic_pf,
+	nmnicpf,
 	setup,
 	TP_ARGS(
 	int, nic_pf_id,

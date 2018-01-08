@@ -58,7 +58,7 @@
 /** =========================== **/
 
 /* Serialize PP2 */
-int dev_mng_pp2_serialize(struct nic_pf *nic_pf)
+int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf)
 {
 	int	 err;
 	char	 file_name[SER_MAX_FILE_NAME];
@@ -73,14 +73,14 @@ int dev_mng_pp2_serialize(struct nic_pf *nic_pf)
 	/* Remove the serialize files */
 
 	/* TODO: move this function to a higher level and remove all guests */
-	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR, SER_FILE_NAME_PREFIX, nic_pf->guest_id);
+	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR, SER_FILE_NAME_PREFIX, nmnicpf->guest_id);
 	remove(file_name);
 
-	if (!nic_pf->pp2.ports_desc)
+	if (!nmnicpf->pp2.ports_desc)
 		/* no pp2, just return */
 		return 0;
 
-	pr_info("starting serialization of guest %d\n", nic_pf->guest_id);
+	pr_info("starting serialization of guest %d\n", nmnicpf->guest_id);
 
 	size = SER_MAX_FILE_SIZE;
 	memset(buff, 0, SER_MAX_FILE_SIZE);
@@ -97,9 +97,9 @@ int dev_mng_pp2_serialize(struct nic_pf *nic_pf)
 
 	/* Serialize relations info */
 	json_print_to_buffer(buff, size, 1, "\"relations-info\": {\n");
-	json_print_to_buffer(buff, size, 2, "\"num_pp2_ports\": %d,\n", nic_pf->pp2.num_ports);
-	for (port_index = 0; port_index < nic_pf->pp2.num_ports; port_index++) {
-		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nic_pf->pp2.ports_desc[port_index];
+	json_print_to_buffer(buff, size, 2, "\"num_pp2_ports\": %d,\n", nmnicpf->pp2.num_ports);
+	for (port_index = 0; port_index < nmnicpf->pp2.num_ports; port_index++) {
+		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
 		json_print_to_buffer(buff, size, 2, "\"ppio-%d\": \"ppio-%d:%d\",\n",
 				     port_index, port->pp_id, port->ppio_id);
@@ -116,8 +116,8 @@ int dev_mng_pp2_serialize(struct nic_pf *nic_pf)
 	json_print_to_buffer(buff, size, 1, "},\n");
 
 	/* Serialize bpools */
-	for (port_index = 0; port_index < nic_pf->pp2.num_ports; port_index++) {
-		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nic_pf->pp2.ports_desc[port_index];
+	for (port_index = 0; port_index < nmnicpf->pp2.num_ports; port_index++) {
+		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
 		for (j = 0; j < port->num_pools; j++) {
 			err = pp2_bpool_serialize(port->pools_desc[j].pool, buff, SER_MAX_FILE_SIZE);
@@ -127,8 +127,8 @@ int dev_mng_pp2_serialize(struct nic_pf *nic_pf)
 	}
 
 	/* serialize ppio info */
-	for (port_index = 0; port_index < nic_pf->pp2.num_ports; port_index++) {
-		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nic_pf->pp2.ports_desc[port_index];
+	for (port_index = 0; port_index < nmnicpf->pp2.num_ports; port_index++) {
+		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
 		/* Serialize ppio */
 		err = pp2_ppio_serialize(port->ppio, buff, SER_MAX_FILE_SIZE);

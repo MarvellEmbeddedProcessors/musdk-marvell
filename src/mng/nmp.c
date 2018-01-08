@@ -54,7 +54,7 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 		return -ENOMEM;
 	}
 
-	pf_profile = &(*nmp)->nic_pf.profile_data;
+	pf_profile = &(*nmp)->nmnicpf.profile_data;
 
 	/* TODO: remove this API from nmp_params. Left for backwards compatibility */
 	/* GIU params should be retrieved from params->containers_params[0].lfs_params[0] */
@@ -101,11 +101,11 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 			pf_profile->pp2_port.lcl_bpools_params[k].max_num_buffs =
 				lf_params->u.nicpf.port_params.pp2_port.lcl_bpools_params[k].max_num_buffs;
 		}
-		(*nmp)->nic_pf.guest_id = params->containers_params[0].guest_id;
-
 	} else {
 		(*nmp)->nmpp2.pp2_en = 0;
 	}
+
+	(*nmp)->nmnicpf.guest_id = params->containers_params[0].guest_id;
 
 	ret = dev_mng_init(*nmp);
 	if (ret) {
@@ -124,16 +124,16 @@ int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
 	switch (type) {
 
 	case NMP_SCHED_MNG:
-		gie_schedule(nmp->nic_pf.gie.mng_gie, 0, 1);
+		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, 1);
 		nmdisp_dispatch(nmp->nmdisp);
 		break;
 
 	case NMP_SCHED_RX:
-		gie_schedule(nmp->nic_pf.gie.rx_gie, 0, 1);
+		gie_schedule(nmp->nmnicpf.gie.rx_gie, 0, 1);
 		break;
 
 	case NMP_SCHED_TX:
-		gie_schedule(nmp->nic_pf.gie.tx_gie, 0, 1);
+		gie_schedule(nmp->nmnicpf.gie.tx_gie, 0, 1);
 		break;
 	}
 	return 0;

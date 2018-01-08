@@ -207,8 +207,8 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 	pr_info("Initializing MQA\n");
 
 	/* Initializing MQA botification tables base address */
-	pf_cfg_phys = (u64)nmp->nic_pf.map.cfg_map.phys_addr;
-	pf_cfg_virt = (u64)nmp->nic_pf.map.cfg_map.virt_addr;
+	pf_cfg_phys = (u64)nmp->nmnicpf.map.cfg_map.phys_addr;
+	pf_cfg_virt = (u64)nmp->nmnicpf.map.cfg_map.virt_addr;
 
 	params.num_qs = MQA_QUEUE_MAX;
 	params.notif_tbl.qnpt_pa = (phys_addr_t)(pf_cfg_phys + PCI_BAR0_MQA_QNPT_BASE);
@@ -223,9 +223,9 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 		return ret;
 	}
 
-	nmp->nic_pf.mqa = nmp->mqa;
+	nmp->nmnicpf.mqa = nmp->mqa;
 
-	pr_info("Initializing MQA %p %p\n", nmp->mqa, nmp->nic_pf.mqa);
+	pr_info("Initializing MQA %p %p\n", nmp->mqa, nmp->nmnicpf.mqa);
 
 	return 0;
 }
@@ -241,10 +241,10 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	/* Initialize the management GIU instance */
 	pr_info("Initializing GIU devices\n");
 
-	gie_pars.gct_base = (u64)nmp->nic_pf.mqa->qct_base;
-	gie_pars.gpt_base = (u64)nmp->nic_pf.mqa->qpt_base;
-	gie_pars.gncs_base = (u64)nmp->nic_pf.mqa->qnct_base;
-	gie_pars.gnps_base = (u64)nmp->nic_pf.mqa->qnpt_base;
+	gie_pars.gct_base = (u64)nmp->nmnicpf.mqa->qct_base;
+	gie_pars.gpt_base = (u64)nmp->nmnicpf.mqa->qpt_base;
+	gie_pars.gncs_base = (u64)nmp->nmnicpf.mqa->qnct_base;
+	gie_pars.gnps_base = (u64)nmp->nmnicpf.mqa->qnpt_base;
 
 	/* TODO - setup the MSI/MSI-X tables */
 	gie_pars.msi_base = 0;
@@ -255,7 +255,7 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	gie_pars.dmax_match = dma_name;
 	gie_pars.name_match = (char *)"mng";
 
-	ret = gie_init(&gie_pars, &(nmp->nic_pf.gie.mng_gie));
+	ret = gie_init(&gie_pars, &(nmp->nmnicpf.gie.mng_gie));
 	if (ret) {
 		pr_err("Failed to initialize management GIU\n");
 		return -ENODEV;
@@ -265,7 +265,7 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	gie_pars.dmax_match = dma_name;
 	gie_pars.name_match = (char *)"rx";
 
-	ret = gie_init(&gie_pars, &(nmp->nic_pf.gie.rx_gie));
+	ret = gie_init(&gie_pars, &(nmp->nmnicpf.gie.rx_gie));
 	if (ret) {
 		pr_err("Failed to initialize RX GIU\n");
 		goto error;
@@ -275,7 +275,7 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	gie_pars.dmax_match = dma_name;
 	gie_pars.name_match = (char *)"tx";
 
-	ret = gie_init(&gie_pars, &(nmp->nic_pf.gie.tx_gie));
+	ret = gie_init(&gie_pars, &(nmp->nmnicpf.gie.tx_gie));
 	if (ret) {
 		pr_err("Failed to initialize TX GIU\n");
 		goto error;
@@ -284,9 +284,9 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	return 0;
 
 error:
-	gie_terminate(nmp->nic_pf.gie.mng_gie);
-	if (nmp->nic_pf.gie.rx_gie)
-		gie_terminate(nmp->nic_pf.gie.rx_gie);
+	gie_terminate(nmp->nmnicpf.gie.mng_gie);
+	if (nmp->nmnicpf.gie.rx_gie)
+		gie_terminate(nmp->nmnicpf.gie.rx_gie);
 
 	return -ENODEV;
 }
@@ -302,12 +302,12 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	/* First, try to map the platform device, if failed, try the pci
 	 * device.
 	 */
-	nmp->nic_pf.map.type = ft_plat;
-	ret = dev_mng_map_plat_func(&nmp->nic_pf.map);
+	nmp->nmnicpf.map.type = ft_plat;
+	ret = dev_mng_map_plat_func(&nmp->nmnicpf.map);
 	if (ret) {
 		pr_info("Platform device not found, trying the pci device.\n");
-		nmp->nic_pf.map.type = ft_pcie_ep;
-		ret = dev_mng_map_pci_func(&nmp->nic_pf.map);
+		nmp->nmnicpf.map.type = ft_pcie_ep;
+		ret = dev_mng_map_pci_func(&nmp->nmnicpf.map);
 	}
 	if (ret)
 		return ret;
@@ -340,11 +340,11 @@ static int dev_mng_hw_init(struct nmp *nmp)
 /* Initialize the PP2 interface */
 static void dev_mng_pf_init_done(void *args)
 {
-	struct nic_pf *nic_pf = (struct nic_pf *)args;
+	struct nmnicpf *nmnicpf = (struct nmnicpf *)args;
 
 	pr_info("nmp_pf_init_done reached\n");
 
-	dev_mng_pp2_serialize(nic_pf);
+	dev_mng_pp2_serialize(nmnicpf);
 }
 
 static int dev_mng_sw_init(struct nmp *nmp)
@@ -355,7 +355,7 @@ static int dev_mng_sw_init(struct nmp *nmp)
 	pr_info("Initializing Device software\n");
 
 	/* Assign the pf_init_done callback */
-	nmp->nic_pf.f_ready_cb = dev_mng_pf_init_done;
+	nmp->nmnicpf.f_ready_cb = dev_mng_pf_init_done;
 
 	/* Initialize Dispatcher */
 	ret = nmdisp_init(&params, &(nmp->nmdisp));
@@ -363,7 +363,7 @@ static int dev_mng_sw_init(struct nmp *nmp)
 		return ret;
 
 	/* Save reference to Dispatcher in PF */
-	nmp->nic_pf.nmdisp = nmp->nmdisp;
+	nmp->nmnicpf.nmdisp = nmp->nmdisp;
 
 	/* Initialize topology - all PF / VF instances */
 	/* topology_init API is already defined in Linux therefore use pf_ prefix */
@@ -404,15 +404,15 @@ static int dev_mng_terminate_giu(struct nmp *nmp)
 {
 	int ret;
 
-	ret = gie_terminate(nmp->nic_pf.gie.mng_gie);
+	ret = gie_terminate(nmp->nmnicpf.gie.mng_gie);
 	if (ret)
 		pr_warn("Failed to close management GIU\n");
 
-	ret = gie_terminate(nmp->nic_pf.gie.rx_gie);
+	ret = gie_terminate(nmp->nmnicpf.gie.rx_gie);
 	if (ret)
 		pr_warn("Failed to close RX GIU\n");
 
-	ret = gie_terminate(nmp->nic_pf.gie.tx_gie);
+	ret = gie_terminate(nmp->nmnicpf.gie.tx_gie);
 	if (ret)
 		pr_warn("Failed to close TX GIU\n");
 
@@ -427,7 +427,7 @@ static int dev_mng_mqa_terminate(struct nmp *nmp)
 	pr_info("Terminating MQA\n");
 
 	/* Terminating MQA tables */
-	ret = mqa_deinit(nmp->nic_pf.mqa);
+	ret = mqa_deinit(nmp->nmnicpf.mqa);
 	if (ret) {
 		pr_err("Failed to terminate MQA\n");
 		return ret;
@@ -468,7 +468,7 @@ static int dev_mng_hw_terminate(struct nmp *nmp)
 		return ret;
 
 	/* Un-Map the NIC-PF */
-	ret = dev_mng_unmap_pci_func(&nmp->nic_pf.map);
+	ret = dev_mng_unmap_pci_func(&nmp->nmnicpf.map);
 	if (ret)
 		return ret;
 
