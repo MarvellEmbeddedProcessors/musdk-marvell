@@ -1318,11 +1318,7 @@ int nic_pf_terminate(struct nic_pf *nic_pf)
 static void nic_pf_gen_resp_msg(u32 status, struct cmd_desc *cmd,
 					struct notif_desc *resp)
 {
-	if (cmd)
-		resp->cmd_idx  = cmd->cmd_idx;
-	else /* for async notifications */
-		resp->cmd_idx = 0xFF;
-
+	resp->cmd_idx  = cmd->cmd_idx;
 	resp->app_code = AC_HOST_SNIC_NETDEV;
 	resp->status   = (u8)status;
 	resp->flags    = 0;
@@ -1815,8 +1811,8 @@ static int nic_pf_close_command(struct nic_pf *nic_pf,
  *	This function process all PF initialization commands
  *
  *	@param[in]	nic_pf - pointer to NIC PF object
- *	@param[in]	cmd_code - command code id
  *	@param[in]	cmd - pointer to cmd_desc object
+ *	@param[out]	resp - pointer to notif_desc object
  *
  *	@retval	0 on success
  *	@retval	error-code otherwise
@@ -1898,66 +1894,6 @@ int nic_pf_process_command(void *nic_pf, u8 cmd_code, void *cmd)
 					  ((struct nic_pf *)nic_pf)->pf_id, 0, (void *)&resp);
 	if (ret) {
 		pr_err("failed to send response message\n");
-		return ret;
-	}
-
-	return 0;
-}
-
-static int nic_pf_notif_link_change(struct nic_pf *nic_pf, void *data, struct notif_desc *resp)
-{
-	int link_status = *(int *)data;
-
-	pr_debug("Link status notification (id :%d).\n", NC_PF_LINK_CHANGE);
-
-	/* Generate response message */
-	nic_pf_gen_resp_msg(NOTIF_STATUS_NOTIF, NULL, resp);
-
-	resp->cmd_idx = NC_PF_LINK_CHANGE;
-	resp->resp_data.link_status = link_status;
-
-	return 0;
-}
-
-
-/*
- *	nic_pf_process_notification
- *
- *	This function process all PF ASync notification
- *
- *	@param[in]	nic_pf - pointer to NIC PF object
- *	@param[in]	notify_code - notification code id
- *	@param[in]	data - pointer to data object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nic_pf_send_notification(void *nic_pf, u8 notif_code, void *data)
-{
-	int ret;
-	struct notif_desc resp;
-
-	switch (notif_code) {
-
-	case NC_PF_LINK_CHANGE:
-		ret = nic_pf_notif_link_change((struct nic_pf *)nic_pf, data, &resp);
-		if (ret)
-			pr_err("PF_LINK_CHANGE notification failed\n");
-
-		break;
-
-	default:
-		/* Unknown notification code */
-		pr_err("Unknown notification code %d!! Unable to process command.\n", notif_code);
-		resp.status = NOTIF_STATUS_FAIL;
-
-		break;
-	}
-
-	ret = nmdisp_send(((struct nic_pf *)nic_pf)->nmdisp, CDT_PF,
-					  ((struct nic_pf *)nic_pf)->pf_id, 0, (void *)&resp);
-	if (ret) {
-		pr_err("failed to send notification message\n");
 		return ret;
 	}
 

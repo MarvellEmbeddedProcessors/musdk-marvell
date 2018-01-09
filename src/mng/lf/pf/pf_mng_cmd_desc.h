@@ -77,12 +77,6 @@ enum cmd_codes {
 	CMD_CODE_LAST = 0XFF,
 };
 
-enum agnic_notif_codes {
-	NC_PF_LINK_CHANGE = 0x1,
-
-	NOTIF_CODE_LAST = 0XFF,
-};
-
 /* Relevant only for pf_init command. */
 enum egress_sched {
 	ES_STRICT_SCHED = 0x1,
@@ -224,7 +218,7 @@ struct mgmt_cmd_resp {
 /* Notifications Descriptor
  * cmd_idx - Command Identifier
  *   Command Reply – copied from the command descriptor by the SNIC.
- *   Notification – Notification identifier
+ *   Notification – Set to 0xFFFF
  * app_code - Target application Id.
  * flags - Bitmask of AOS_NOTIF_FLAG_XX.
  * status - Command execution status (0 - Ok, 1 - Fail, 0xFF - Notification).
