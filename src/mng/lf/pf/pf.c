@@ -2004,18 +2004,19 @@ static void nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	if (ret)
 		pr_err("Failed to init giu gpio\n");
 
+	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
+		ret = nmnicpf_pp2_init_bpools(nmnicpf);
+		if (ret)
+			pr_err("nmnicpf_pp2_init_bpools failed\n");
 
-
-	ret = nmnicpf_pp2_init_bpools(nmnicpf);
-	if (ret)
-		pr_err("nmnicpf__pp2_init_bpools failed\n");
-
-	ret = nmnicpf_pp2_init_ppio(nmnicpf);
-	if (ret)
-		pr_err("nmnicpf_pp2_init_ppio failed\n");
+		ret = nmnicpf_pp2_init_ppio(nmnicpf);
+		if (ret)
+			pr_err("nmnicpf_pp2_init_ppio failed\n");
+	}
 
 	/* Indicate nmp init_done ready */
 	nmnicpf->f_ready_cb(nmnicpf);
+
 	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
 	if (ret)
 		pr_err("Failed to configure PF regfile\n");

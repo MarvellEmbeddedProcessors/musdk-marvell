@@ -345,7 +345,8 @@ static void dev_mng_pf_init_done(void *args)
 
 	pr_info("nmp_pf_init_done reached\n");
 
-	dev_mng_pp2_serialize(nmnicpf);
+	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT)
+		dev_mng_pp2_serialize(nmnicpf);
 }
 
 static int dev_mng_sw_init(struct nmp *nmp)
