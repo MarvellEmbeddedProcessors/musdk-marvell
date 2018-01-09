@@ -72,10 +72,15 @@ int dev_mng_pp2_serialize(struct nic_pf *nic_pf)
 
 	/* Remove the serialize files */
 
-	pr_info("starting serialization of guest %d\n", nic_pf->guest_id);
 	/* TODO: move this function to a higher level and remove all guests */
 	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR, SER_FILE_NAME_PREFIX, nic_pf->guest_id);
 	remove(file_name);
+
+	if (!nic_pf->pp2.ports_desc)
+		/* no pp2, just return */
+		return 0;
+
+	pr_info("starting serialization of guest %d\n", nic_pf->guest_id);
 
 	size = SER_MAX_FILE_SIZE;
 	memset(buff, 0, SER_MAX_FILE_SIZE);
@@ -151,6 +156,9 @@ static int dev_mng_pp2_inst_init(struct nmp *nmp)
 {
 	struct pp2_init_params	 pp2_params;
 	int			 err;
+
+	if (!nmp->nmpp2.pp2_en)
+		return 0;
 
 	memset(&pp2_params, 0, sizeof(struct pp2_init_params));
 	pp2_params.bm_pool_reserved_map = nmp->nmpp2.pp2_params.bm_pool_reserved_map;

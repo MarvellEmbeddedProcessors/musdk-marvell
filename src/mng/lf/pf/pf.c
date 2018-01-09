@@ -1236,6 +1236,9 @@ static int nic_pf_pp2_port_init(struct nic_pf *nic_pf)
 	/* TODO: currently only one container and one LF supported. */
 
 	switch (nic_pf->profile_data.port_type) {
+	case NMP_LF_NICPF_T_NONE:
+		/* no pp2 port, just return */
+		return 0;
 	case NMP_LF_NICPF_T_PP2_PORT:
 		err = nic_pf_pp2_port_pp2_init(nic_pf);
 		break;
@@ -1848,6 +1851,10 @@ static int nic_pf_pp2_init_bpools(struct nic_pf *nic_pf)
 	struct nmp_pp2_port_desc	*pdesc;
 	u32				 num_pools = 0;
 
+	if (!nic_pf->pp2.reserved_bpools)
+		/* No pp2 initialized, just return */
+		return 0;
+
 	nic_pf_pp2_set_reserved_bpools(nic_pf->pp2.reserved_bpools);
 
 	pdesc = (struct nmp_pp2_port_desc *)&nic_pf->pp2.ports_desc[pcount];
@@ -1894,6 +1901,10 @@ static int nic_pf_pp2_init_ppio(struct nic_pf *nic_pf)
 	struct nmp_pp2_port_desc	*pdesc;
 	int				 num_pools;
 	struct nmp_pp2_bpool_desc	*pools;
+
+	if (!nic_pf->pp2.ports_desc)
+		/* no pp2, just return */
+		return 0;
 
 	pdesc = (struct nmp_pp2_port_desc *)&nic_pf->pp2.ports_desc[pcount];
 	num_pools = pdesc->num_pools;
