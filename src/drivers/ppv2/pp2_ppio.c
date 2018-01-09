@@ -1136,6 +1136,7 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 		json_buffer_to_input(sec, "first_rxq", port->tc[i].tc_config.first_rxq);
 		json_buffer_to_input(sec, "num_bpools", num_bps);
 
+		memset(param_pools, 0, sizeof(param_pools));
 		for (j = 0; j < num_bps; j++) {
 			/* get the bpool parameters */
 			json_buffer_to_input(sec, "mem_id", mem_id);
