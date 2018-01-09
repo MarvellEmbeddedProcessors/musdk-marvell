@@ -1294,6 +1294,8 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 
 	q_params.cmd_q    = nmnicpf->mng_data.lcl_mng_ctrl.cmd_queue;
 	q_params.notify_q = nmnicpf->mng_data.lcl_mng_ctrl.notify_queue;
+	q_params.ext_desc_support = 0;
+	q_params.max_msg_size = sizeof(struct mgmt_cmd_params);
 	ret = nmdisp_add_queue(nmnicpf->nmdisp, params.client_type, params.client_id, &q_params);
 	if (ret)
 		return ret;

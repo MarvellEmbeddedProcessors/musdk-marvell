@@ -202,6 +202,8 @@ struct cmd_desc {
 };
 #pragma pack()
 
+#define CMD_IDX_NOTIFICATION	0xFFFF
+
 /* indicates whether the descriptor is consturcted from multiple ones */
 #define CMD_FLAGS_NUM_EXT_DESC_MASK		0x1F
 #define CMD_FLAGS_NUM_EXT_DESC_SHIFT		0

@@ -53,6 +53,8 @@ struct nmdisp_params {
  *  parameters
  */
 struct nmdisp_q_pair_params {
+	int ext_desc_support;	/**< if TRUE, dispatch can use the 'num_ext_desc' field in case of large message */
+	u32 max_msg_size;	/**< maximum message size, will be used to allocate buffer to hold it */
 	struct mqa_q *cmd_q;	/**< Command Queue */
 	struct mqa_q *notify_q;	/**< Notification Queue */
 };

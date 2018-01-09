@@ -227,7 +227,8 @@ int nmcstm_init(struct nmcstm_params *params, struct nmcstm **nmcstm_ptr)
 	/* Add management queues to dispatcher */
 	q_params.cmd_q    = nmcstm->mng_ctrl.cmd_queue;
 	q_params.notify_q = nmcstm->mng_ctrl.notify_queue;
-
+	q_params.ext_desc_support = 1;
+	q_params.max_msg_size = MAX_MSG_DATA_LEN;
 	ret = nmdisp_add_queue(nmcstm->nmdisp, client_params.client_type, client_params.client_id, &q_params);
 	if (ret)
 		goto init_exit;
