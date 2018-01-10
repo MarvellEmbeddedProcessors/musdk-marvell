@@ -105,7 +105,8 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 		(*nmp)->nmpp2.pp2_en = 0;
 	}
 
-	(*nmp)->nmnicpf.guest_id = params->containers_params[0].guest_id;
+	if (params->num_containers)
+		(*nmp)->nmnicpf.guest_id = params->containers_params[0].guest_id;
 
 	ret = dev_mng_init(*nmp);
 	if (ret) {

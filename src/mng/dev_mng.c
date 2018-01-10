@@ -323,9 +323,11 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	if (ret)
 		return ret;
 
-	ret = dev_mng_pp2_init(nmp);
-	if (ret)
-		return ret;
+	if (nmp->nmpp2.pp2_en) {
+		ret = dev_mng_pp2_init(nmp);
+		if (ret)
+			return ret;
+	}
 
 	ret = dev_mng_init_gie(nmp);
 	if (ret)

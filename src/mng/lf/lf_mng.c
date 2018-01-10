@@ -45,10 +45,12 @@ int lf_init(struct nmp *nmp)
 	int ret;
 	struct nmcstm_params params;
 
+	/* TODO: init nmp-nicpf only in case it is supported in the nmp_params! */
 	ret = nmnicpf_init(&nmp->nmnicpf);
 	if (ret)
 		return ret;
 
+	/* TODO: init nmp-customer only in case it is supported in the nmp_params! */
 	ret = nmcstm_init(&params, &(nmp->nmcstm));
 	if (ret) {
 		pr_err("Custom init failed\n");
