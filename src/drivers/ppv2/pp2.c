@@ -402,6 +402,16 @@ u8 pp2_get_num_inst(void)
 	return pp2_num_inst;
 }
 
+/* TODO: Add call to hw_registers, after support is added. */
+#define MV_PP2_NUM_HIFS_RSRV	4
+#define MV_PP2_HIFS_RSRV_MASK	((1 << MV_PP2_NUM_HIFS_RSRV) - 1)
+
+u16 pp2_get_kernel_hif_map(void)
+{
+	return MV_PP2_HIFS_RSRV_MASK;
+}
+
+
 void pp2_destroy(struct pp2_inst *inst)
 {
 	u32 i;

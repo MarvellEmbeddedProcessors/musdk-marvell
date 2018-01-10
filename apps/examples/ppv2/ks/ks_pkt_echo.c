@@ -87,8 +87,6 @@
 
 #define MUSDK_PKT_ECHO_HIF_Q_SIZE	  (8 * MVAPPS_DEF_Q_SIZE)
 #define MVAPPS_PP2_TOTAL_NUM_HIFS	  9
-#define MVAPPS_PP2_NUM_HIFS_RSRV	  4
-#define MVAPPS_PP2_HIFS_RSRV		  ((1 << MVAPPS_PP2_NUM_HIFS_RSRV) - 1)
 
 #define MVAPPS_PPIO_NAME_MAX		  20
 
@@ -186,7 +184,7 @@ struct musdk_thread_data {
 	struct tx_shadow_q	*shadow_qs[MVAPPS_PP2_MAX_NUM_PORTS][MVAPPS_MAX_NUM_TXQS_PER_PORT];
 };
 
-static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
+static u16 used_hifs;
 static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
 static struct pp2_ppio_desc desc[MVAPPS_PP2_MAX_NUM_QS_PER_TC][MAX_BURST_SIZE]; /* descriptors */
 static u32 free_buf_cnt[MVAPPS_MAX_NUM_THREADS][MVAPPS_PP2_MAX_NUM_PORTS];
@@ -474,12 +472,18 @@ static int musdk_pkt_echo_rss_tbl_reserved_map_get(u8 *rss_map)
 	return 0;
 }
 
+static void musdk_pkt_hifmap_init(int used_hif_map)
+{
+	used_hifs = used_hif_map;
+}
+
 static int musdk_pkt_echo_pp2_init(void)
 {
 	int rc;
 	struct pp2_init_params init_params;
 
-	init_params.hif_reserved_map = 0x000f;
+	init_params.hif_reserved_map = pp2_get_kernel_hif_map();
+	musdk_pkt_hifmap_init(init_params.hif_reserved_map);
 	init_params.bm_pool_reserved_map = 0x0007;
 	rc = musdk_pkt_echo_rss_tbl_reserved_map_get(&init_params.rss_tbl_reserved_map);
 	if (rc)

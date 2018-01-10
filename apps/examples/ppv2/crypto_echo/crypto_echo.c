@@ -1070,7 +1070,8 @@ static int init_all_modules(void)
 		return err;
 
 	memset(&pp2_params, 0, sizeof(pp2_params));
-	pp2_params.hif_reserved_map = MVAPPS_PP2_HIFS_RSRV;
+	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
+	app_used_hifmap_init(pp2_params.hif_reserved_map);
 	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
 	/* Check how many RSS tables are in use by kernel. This parameter is needed for configuring RSS */

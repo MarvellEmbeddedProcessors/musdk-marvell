@@ -62,10 +62,6 @@
 #define MVAPPS_PP2_MAX_NUM_BPOOLS	(PP2_BPOOL_NUM_POOLS - MVAPPS_PP2_NUM_BPOOLS_RSRV)
 /* Total number of HIFs supported */
 #define MVAPPS_PP2_TOTAL_NUM_HIFS	9 /* PP2_NUM_REGSPACES - move to API h file */
-/* Number of HIFs reserved by kernel */
-#define MVAPPS_PP2_NUM_HIFS_RSRV	4
-/* Reserved HIFs mask */
-#define MVAPPS_PP2_HIFS_RSRV		((1 << MVAPPS_PP2_NUM_HIFS_RSRV) - 1)
 
 /* Number of policers reserved by kernel */
 #define MVAPPS_PP2_NUM_POLICERS_RSRV	0
@@ -568,6 +564,9 @@ int available_hifs(void);
 int app_hif_init(struct pp2_hif **hif, u32 queue_size);
 int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_common_args *glb_pp2_args,
 		      struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size);
+
+void app_used_hifmap_init(u16 used_hif_map);
+
 
 int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize);
 
