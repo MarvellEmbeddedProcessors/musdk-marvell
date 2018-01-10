@@ -47,7 +47,7 @@
 
 static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV,
 						   MVAPPS_PP2_BPOOLS_RSRV, MVAPPS_PP2_BPOOLS_RSRV};
-static u16 used_hifs = MVAPPS_PP2_HIFS_RSRV;
+static u16 used_hifs;
 
 static u64 buf_alloc_cnt;
 static u64 buf_free_cnt;
@@ -850,6 +850,11 @@ int find_free_hif(void)
 	}
 
 	return i;
+}
+
+void app_used_hifmap_init(u16 used_hif_map)
+{
+	used_hifs = used_hif_map;
 }
 
 int available_hifs(void)

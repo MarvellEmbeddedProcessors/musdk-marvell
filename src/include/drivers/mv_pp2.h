@@ -169,6 +169,15 @@ int pp2_ppio_available(int pp_id, int ppio_id);
  */
 u8 pp2_get_num_inst(void);
 
+/**
+ * Get bitmap of hifs used by kernel.
+ *
+ *
+ * @retval	>0 on success
+ * @retval	=0 on failure
+ */
+u16 pp2_get_kernel_hif_map(void);
+
 /** @} */ /* end of grp_pp2_init */
 
 #endif /* __MV_PP2_H__ */
