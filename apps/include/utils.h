@@ -149,7 +149,7 @@ struct glb_common_args {
 	bool			shared_hifs; /* Indicates system has shared hifs. */
 	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
 	void			*plat;
-	int			op_mode;
+	u32			op_mode;
 	u32			guest_id;
 };
 

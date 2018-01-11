@@ -1402,7 +1402,7 @@ void app_disable_all_ports(struct port_desc *ports, int num_ports)
 	}
 }
 
-void app_deinit_all_ports(struct port_desc *ports, int num_ports)
+void app_deinit_all_ports(struct port_desc *ports, int num_ports, u32 op_mode)
 {
 	int i;
 
@@ -1416,8 +1416,12 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 	}
 
 	for (i = 0;  i < num_ports; i++) {
-		if (ports[i].ppio)
-			pp2_ppio_deinit(ports[i].ppio);
+		if (ports[i].ppio) {
+			if (op_mode == PP2_OP_MODE_GUEST || PP2_OP_MODE_NMP_GUEST)
+				pp2_ppio_remove(ports[i].ppio);
+			else
+				pp2_ppio_deinit(ports[i].ppio);
+		}
 	}
 
 	/* Calculate number of buffers released from PP2 */
@@ -1447,7 +1451,7 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports)
 		(hw_buf_free_cnt - hw_bm_buf_free_cnt - hw_rxq_buf_free_cnt));
 }
 
-static void flush_pool(struct pp2_bpool *bpool, struct pp2_hif *hif)
+static void flush_pool(struct pp2_bpool *bpool, struct pp2_hif *hif, u32 op_mode)
 {
 	u32 i, buf_num, cnt = 0, err = 0;
 
@@ -1476,7 +1480,10 @@ static void flush_pool(struct pp2_bpool *bpool, struct pp2_hif *hif)
 		cnt++;
 	}
 	hw_bm_buf_free_cnt += cnt;
-	pp2_bpool_deinit(bpool);
+	if (op_mode == PP2_OP_MODE_GUEST || PP2_OP_MODE_NMP_GUEST)
+		pp2_bpool_remove(bpool);
+	else
+		pp2_bpool_deinit(bpool);
 }
 
 static void free_pool_buffers(struct pp2_buff_inf *buffs, int num)
@@ -1491,7 +1498,7 @@ static void free_pool_buffers(struct pp2_buff_inf *buffs, int num)
 	}
 }
 
-void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif *hif)
+void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif *hif, u32 op_mode)
 {
 	int i, j;
 	u8  pp2_num_inst = pp2_get_num_inst();
@@ -1501,7 +1508,7 @@ void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif
 			if (pools[i]) {
 				for (j = 0; j < num_pools; j++)
 					if (pools[i][j].pool) {
-						flush_pool(pools[i][j].pool, hif);
+						flush_pool(pools[i][j].pool, hif, op_mode);
 						free_pool_buffers(pools[i][j].buffs_inf, pools[i][j].num_buffs);
 						free(pools[i][j].buffs_inf);
 					}
@@ -1569,8 +1576,8 @@ void apps_pp2_destroy_local_modules(void *arg)
 	int i = 0;
 
 	app_disable_all_ports(pp2_args->ports_desc, common_arg->num_ports);
-	app_free_all_pools(pp2_args->pools_desc, pp2_args->num_pools, pp2_args->hif);
-	app_deinit_all_ports(pp2_args->ports_desc, common_arg->num_ports);
+	app_free_all_pools(pp2_args->pools_desc, pp2_args->num_pools, pp2_args->hif, common_arg->op_mode);
+	app_deinit_all_ports(pp2_args->ports_desc, common_arg->num_ports, common_arg->op_mode);
 
 
 	while (pp2_args->app_hif[i]) {

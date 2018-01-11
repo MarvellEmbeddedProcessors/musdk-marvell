@@ -584,7 +584,7 @@ int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_i
 /*
  * Free all pools
  */
-void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif *hif);
+void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif *hif, u32 op_mode);
 
 /*
  * Parse port pp_id and ppio_id from port name
@@ -605,7 +605,7 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 /*
  * Deinit all ports
  */
-void app_deinit_all_ports(struct port_desc *ports, int num_ports);
+void app_deinit_all_ports(struct port_desc *ports, int num_ports, u32 op_mode);
 /*
  * Deinit local port object
  */
