@@ -136,7 +136,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	pr_info("Local initializations ...\n");
 
-	err = app_hif_init(&pp2_args->hif, CLS_APP_HIF_Q_SIZE);
+	err = app_build_common_hifs(&garg->cmn_args, CLS_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
@@ -295,7 +295,7 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
-	err = app_hif_init(&lcl_pp2_args->hif, CLS_APP_HIF_Q_SIZE);
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, CLS_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
