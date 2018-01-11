@@ -1386,7 +1386,7 @@ int pp2_cls_db_mng_rule_check(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *
 						    (char *)rule->fields[i].key) == 0) &&
 					    (strcmp((char *)rule_node->rule.fields[i].mask,
 						    (char *)rule->fields[i].mask) == 0) &&
-					    (rule_node->rule.fields[i].size != rule->fields[i].size)) {
+					    (rule_node->rule.fields[i].size == rule->fields[i].size)) {
 						return 1;
 					}
 				}
