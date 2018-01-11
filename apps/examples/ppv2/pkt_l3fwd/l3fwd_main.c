@@ -864,7 +864,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	pr_info("Local initializations ...\n");
 
-	err = app_hif_init(&pp2_args->hif, PKT_FWD_APP_HIF_Q_SIZE);
+	err = app_build_common_hifs(&garg->cmn_args, PKT_FWD_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
@@ -1020,12 +1020,10 @@ static int init_local(void *arg, int id, void **_larg)
 		return -ENOMEM;
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
-	pthread_mutex_lock(&garg->trd_lock);
-	err = app_hif_init(&lcl_pp2_args->hif, PKT_FWD_APP_HIF_Q_SIZE);
-	pthread_mutex_unlock(&garg->trd_lock);
+
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, PKT_FWD_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
-
 	larg->cmn_args.id                = id;
 	larg->cmn_args.burst		= garg->cmn_args.burst;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
@@ -1160,9 +1158,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			if (garg->cmn_args.num_ports == 0) {
 				pr_err("Invalid interface arguments format!\n");
 				return -EINVAL;
-			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_I_OPTION_PORTS) {
+			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
 				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_I_OPTION_PORTS);
+				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
 				return -EINVAL;
 			}
 			break;
