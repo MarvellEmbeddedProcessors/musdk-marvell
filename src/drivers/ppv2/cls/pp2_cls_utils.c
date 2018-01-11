@@ -233,7 +233,7 @@ static struct pp2_cls_enum_str_t g_enum_prs_net_proto_fields[] = {
 	{ MV_NET_VLAN_F_PRI,		"MV_NET_VLAN_F_PRI"},
 	{ MV_NET_VLAN_F_ID,		"MV_NET_VLAN_F_ID"},
 	{ MV_NET_VLAN_F_TCI,		"MV_NET_VLAN_F_TCI"},
-	{ MV_NET_IP4_F_TOS,		"MV_NET_IP4_F_TOS"},
+	{ MV_NET_IP4_F_DSCP,		"MV_NET_IP4_F_DSCP"},
 	{ MV_NET_IP4_F_SA,		"MV_NET_IP4_F_SA"},
 	{ MV_NET_IP4_F_DA,		"MV_NET_IP4_F_DA"},
 	{ MV_NET_IP4_F_PROTO,		"MV_NET_IP4_F_PROTO"},

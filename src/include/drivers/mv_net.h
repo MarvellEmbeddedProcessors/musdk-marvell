@@ -88,7 +88,7 @@ enum mv_net_vlan_fields {
 };
 
 enum mv_net_ipv4_fields {
-	MV_NET_IP4_F_TOS = 0,
+	MV_NET_IP4_F_DSCP = 0,
 	MV_NET_IP4_F_SA,
 	MV_NET_IP4_F_DA,
 	MV_NET_IP4_F_PROTO,
