@@ -143,6 +143,7 @@ int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf)
 	err = write_buf_to_file(file_name, buff, strlen(buff));
 	if (err)
 		return -EIO;
+	sync();
 
 	return 0;
 }
