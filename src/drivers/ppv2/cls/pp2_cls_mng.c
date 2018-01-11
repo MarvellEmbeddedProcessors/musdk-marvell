@@ -1604,7 +1604,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 	struct pp2_cls_tbl_rule *rule_db;
 	struct pp2_cls_tbl_action *action_db;
 
-	/* check if table exists in DB */
+	/* check table type */
 	if (tbl->type != PP2_CLS_FLOW_TBL) {
 		pr_err("%s(%d) wrong table type inserted\n", __func__, __LINE__);
 		return -EFAULT;
@@ -1620,8 +1620,8 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 	/* check rule is not duplicated */
 	rc = pp2_cls_db_mng_rule_check(tbl, rule);
 	if (rc) {
-		pr_err("rule is duplicated in table\n");
-		return -EFAULT;
+		pr_warn("duplicated rule, ignoring request\n");
+		return 0;
 	}
 
 	/* init value */
