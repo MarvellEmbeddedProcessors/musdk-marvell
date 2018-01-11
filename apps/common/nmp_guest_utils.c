@@ -372,7 +372,7 @@ int app_guest_utils_build_all_bpools(char *buff, struct pp2_info *pp2_info,
 				     struct bpool_inf infs[])
 {
 	u32				 num_pools = 0;
-	u32				 alloc_inst_pools = 0, alloc_num_pools = 0;
+	u32				 alloc_num_pools = 0;
 	u32				 idx;
 	struct pp2_bpool_params		 bpool_params;
 	int				 i, j, k, err;
@@ -380,15 +380,8 @@ int app_guest_utils_build_all_bpools(char *buff, struct pp2_info *pp2_info,
 	struct pp2_bpool_capabilities	 capa;
 	struct pp2_buff_inf		*buffs_inf = NULL;
 
-	pr_debug("pp2_info: num_ports %d\n", pp2_info->num_ports);
-	for (i = 0; i < pp2_info->num_ports; i++) {
-		pr_debug("	port: %d, name %s\n", i, pp2_info->port_info[i].ppio_name);
-		pr_debug("	port: %d, pools %d\n", i, pp2_info->port_info[i].num_bpools);
-		pr_debug("	port: %d, pool_name %s\n", i, pp2_info->port_info[i].bpool_info[0].bpool_name);
-		pr_debug("	port: %d, pool_name %s\n", i, pp2_info->port_info[i].bpool_info[1].bpool_name);
+	for (i = 0; i < pp2_info->num_ports; i++)
 		num_pools += pp2_info->port_info[i].num_bpools;
-		pr_debug("port: %d, num_pools %d %d\n", i, num_pools, pp2_info->port_info[i].num_bpools);
-	}
 
 	if (num_pools > MVAPPS_PP2_MAX_NUM_BPOOLS) {
 		pr_err("only %d pools allowed! %d\n", MVAPPS_PP2_MAX_NUM_BPOOLS, num_pools);
@@ -408,81 +401,78 @@ int app_guest_utils_build_all_bpools(char *buff, struct pp2_info *pp2_info,
 	}
 
 	*ppools = pools;
+	memset(pools, 0, pp2_args->pp2_num_inst * sizeof(struct bpool_desc *));
 
-	for (i = 0; i < pp2_args->pp2_num_inst; i++) {
-		for (j = 0; j < pp2_info->num_ports; j++) {
-			for (k = 0; k < pp2_info->port_info[j].num_bpools; k++) {
+	pools[0] = (struct bpool_desc *)malloc(num_pools * sizeof(struct bpool_desc));
+	if (!pools[0]) {
+		pr_err("no mem for bpool_desc array!\n");
+		err = -ENOMEM;
+		goto bpool_alloc_err1;
+	}
+	memset(pools[0], 0, num_pools * sizeof(struct bpool_desc));
 
-				pools[i] = (struct bpool_desc *)malloc(num_pools * sizeof(struct bpool_desc));
-				if (!pools[i]) {
-					pr_err("no mem for bpool_desc array!\n");
-					err = -ENOMEM;
-					goto bpool_alloc_err1;
-				}
-				alloc_inst_pools++;
+	for (j = 0; j < pp2_info->num_ports; j++) {
+		for (k = 0; k < pp2_info->port_info[j].num_bpools; k++) {
+			memset(&bpool_params, 0, sizeof(bpool_params));
+			bpool_params.match = pp2_info->port_info[j].bpool_info[k].bpool_name;
 
-				memset(&bpool_params, 0, sizeof(bpool_params));
-				bpool_params.match = pp2_info->port_info[j].bpool_info[k].bpool_name;
+			idx = j * pp2_info->port_info[j].num_bpools + k;
+			err = pp2_bpool_probe((char *)bpool_params.match, buff, &pools[0][idx].pool);
+			if (err) {
+				pr_err("pp2_bpool_probe failed for %s\n", bpool_params.match);
+				goto bpool_alloc_err2;
+			}
+			err = pp2_bpool_get_capabilities(pools[0][idx].pool, &capa);
+			if (err) {
+				pr_err("pp2_bpool_get_capabilities failed for %s\n", bpool_params.match);
+				goto bpool_alloc_err2;
+			}
 
-				idx = j * pp2_info->port_info[j].num_bpools + k;
-				err = pp2_bpool_probe((char *)bpool_params.match, buff, &pools[i][idx].pool);
-				if (err) {
-					pr_err("pp2_bpool_probe failed for %s\n", bpool_params.match);
-					goto bpool_alloc_err1;
-				}
-				err = pp2_bpool_get_capabilities(pools[i][idx].pool, &capa);
-				if (err) {
-					pr_err("pp2_bpool_get_capabilities failed for %s\n", bpool_params.match);
-					goto bpool_alloc_err1;
-				}
+			if (infs[k].num_buffs > capa.max_num_buffs) {
+				pr_err("Bpool requested buffers (%d) is too big. Available: %d\n",
+				       infs[k].num_buffs, capa.max_num_buffs);
+				err = -EIO;
+				goto bpool_alloc_err2;
+			}
 
-				if (infs[k].num_buffs > capa.max_num_buffs) {
-					pr_err("Bpool requested buffers (%d) is too big. Available: %d\n",
-					       infs[k].num_buffs, capa.max_num_buffs);
-					err = -EIO;
-					goto bpool_alloc_err1;
-				}
+			if (!pools[0][idx].pool) {
+				pr_err("bpool-0:%d init failed!\n", idx);
+				err = -EIO;
+				goto bpool_alloc_err2;
+			}
 
-				if (!pools[i][idx].pool) {
-					pr_err("bpool-%d:%d init failed!\n", i, idx);
-					err = -EIO;
-					goto bpool_alloc_err1;
-				}
+			pools[0][idx].buffs_inf =
+				(struct pp2_buff_inf *)malloc(infs[k].num_buffs * sizeof(struct pp2_buff_inf));
+			if (!pools[0][idx].buffs_inf) {
+				pr_err("no mem for bpools-inf array!\n");
+				err = -ENOMEM;
+				goto bpool_alloc_err3;
+			}
+			alloc_num_pools++;
+			memset(pools[0][idx].buffs_inf, 0, infs[k].num_buffs * sizeof(struct pp2_buff_inf));
+			buffs_inf = pools[0][idx].buffs_inf;
+			pools[0][idx].num_buffs = infs[k].num_buffs;
 
-				pools[i][idx].buffs_inf =
-					(struct pp2_buff_inf *)malloc(infs[k].num_buffs * sizeof(struct pp2_buff_inf));
-				if (!pools[i][idx].buffs_inf) {
-					pr_err("no mem for bpools-inf array!\n");
-					err = -ENOMEM;
-					goto bpool_alloc_err1;
-				}
-				alloc_num_pools++;
+			pr_debug("pools[0][%d].num_buffs %d, max_num_buff: %d, buf_size %d\n", idx,
+				pools[0][idx].num_buffs, capa.max_num_buffs, capa.buff_len);
 
-				buffs_inf = pools[i][idx].buffs_inf;
-				pools[i][idx].num_buffs = infs[k].num_buffs;
-
-				pr_debug("pools[%d][%d].num_buffs %d, max_num_buff: %d, buf_size %d\n", i, idx,
-					pools[i][idx].num_buffs, capa.max_num_buffs, capa.buff_len);
-
-				err = app_allocate_bpool_buffs(&infs[k], buffs_inf, pools[i][idx].pool, pp2_args->hif);
-				if (err) {
-					pr_err("allocate bpool buffs failed!\n");
-					goto bpool_alloc_err2;
-				}
+			err = app_allocate_bpool_buffs(&infs[k], buffs_inf, pools[0][idx].pool, pp2_args->hif);
+			if (err) {
+				pr_err("allocate bpool buffs failed!\n");
+				goto bpool_alloc_err3;
 			}
 		}
 	}
 	return 0;
 
+bpool_alloc_err3:
+	for (j = 0; j < alloc_num_pools; j++)
+		kfree(pools[0][j].buffs_inf);
+
 bpool_alloc_err2:
-	for (i = 0; i < alloc_inst_pools; i++) {
-		for (j = 0; j < alloc_num_pools; j++)
-			kfree(pools[i][j].buffs_inf);
-	}
+	kfree(pools[0]);
 
 bpool_alloc_err1:
-	for (i = 0; i < alloc_inst_pools; i++)
-		kfree(pools[i]);
 	kfree(pools);
 	return err;
 }
