@@ -1282,15 +1282,11 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				pr_err("Unable to parse Ipv6 protocol");
 				return rc;
 			}
-			if (ipproto == IPPROTO_UDP) {
-				pr_debug("udp selected\n");
+			mng_pkt_key->pkt_key->ipvx_add.ip_proto = ipproto;
+			if ((ipproto == IPPROTO_UDP) || (ipproto == IPPROTO_TCP))
+				/* Turn on flag indicating tcp/udp, used for detecting 5 tuple configuration */
 				proto_flag = 1;
-				mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_UDP;
-			} else if (ipproto == IPPROTO_TCP) {
-				pr_debug("tcp selected\n");
-				proto_flag = 1;
-				mng_pkt_key->pkt_key->ipvx_add.ip_proto = IPPROTO_TCP;
-			}
+			pr_debug("protocol: %d\n", ipproto);
 			break;
 		case IPV6_SA_FIELD_ID:
 			if (rule->fields[idx1].size != (GET_NUM_BYTES(IPV6_SA_FIELD_SIZE))) {
