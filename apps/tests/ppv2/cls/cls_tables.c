@@ -72,9 +72,9 @@ static int pp2_cls_convert_string_to_proto_and_field(u32 *proto, u32 *field)
 		*proto = MV_NET_PROTO_VLAN;
 		*field = MV_NET_VLAN_F_TCI;
 		key_size = 1;
-	} else if (!strcmp(optarg, "ip4_tos")) {
+	} else if (!strcmp(optarg, "ip4_dscp")) {
 		*proto = MV_NET_PROTO_IP4;
-		*field = MV_NET_IP4_F_TOS;
+		*field = MV_NET_IP4_F_DSCP;
 		key_size = 1;
 	} else if (!strcmp(optarg, "ip4_src")) {
 		*proto = MV_NET_PROTO_IP4;
@@ -637,7 +637,7 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 				  "\t\t\t\t			vlan_prio - vlan, priority\n"
 				  "\t\t\t\t			vlan_id - vlan, id\n"
 				  "\t\t\t\t			vlan_tci - vlan, tci\n"
-				  "\t\t\t\t			ip4_tos - ipv4, tos\n"
+				  "\t\t\t\t			ip4_dscp - ipv4, dscp\n"
 				  "\t\t\t\t			ip4_src - ipv4, souce address\n"
 				  "\t\t\t\t			ip4_dst - ipv4, destination address\n"
 				  "\t\t\t\t			ip4_proto - ipv4, proto\n"

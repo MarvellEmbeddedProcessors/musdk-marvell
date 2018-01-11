@@ -72,7 +72,7 @@ static struct cls_field_convert_t g_cls_field_convert[] = {
 	/* vlan, tci */
 	{MV_NET_PROTO_VLAN, MV_NET_VLAN_F_TCI, NOT_SUPPORTED_YET, 0},
 	/* ipv4, tos  [AW: check] */
-	{MV_NET_PROTO_IP4, MV_NET_IP4_F_TOS, IPV4_DSCP_FIELD_ID, MVPP2_MATCH_IP_DSCP},
+	{MV_NET_PROTO_IP4, MV_NET_IP4_F_DSCP, IPV4_DSCP_FIELD_ID, MVPP2_MATCH_IP_DSCP},
 	/* ipv4, souce address */
 	{MV_NET_PROTO_IP4, MV_NET_IP4_F_SA, IPV4_SA_FIELD_ID, MVPP2_MATCH_IP_SRC},
 	/* ipv4, destination address */
