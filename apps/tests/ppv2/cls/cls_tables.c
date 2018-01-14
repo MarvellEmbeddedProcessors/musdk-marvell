@@ -437,14 +437,10 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 			break;
 		case 'd':
 			action_type = PP2_CLS_TBL_ACT_DROP;
+			traffic_class = 0;
 			break;
 		case 'q':
 			traffic_class = strtoul(optarg, &ret_ptr, 0);
-			if ((optarg == ret_ptr) || (traffic_class < 0) ||
-			    (traffic_class >= ports_desc->num_tcs)) {
-				printf("parsing fail, wrong input for --tc\n");
-				return -EINVAL;
-			}
 			break;
 		case 's':
 			key_size[idx] = strtoul(optarg, &ret_ptr, 0);
@@ -489,10 +485,6 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (traffic_class < 0) {
-		printf("parsing fail, invalid --tc\n");
-		return -EINVAL;
-	}
 	num_fields = idx;
 	if (num_fields > PP2_CLS_TBL_MAX_NUM_FIELDS) {
 		printf("num_fields = %d is too long, max num_fields is %d\n", num_fields, PP2_CLS_TBL_MAX_NUM_FIELDS);
@@ -520,7 +512,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 
 	rule = malloc(sizeof(*rule));
 	if (!rule)
-		goto rule_add_fail;
+		return -ENOMEM;
 
 	rule->num_fields = num_fields;
 	for (idx = 0; idx < num_fields; idx++) {
@@ -532,14 +524,24 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 	if (cmd == 3) {
 		rc = pp2_cls_tbl_remove_rule(tbl, rule);
 	} else {
-		action = malloc(sizeof(*action));
-		if (!action)
+		if ((action_type == PP2_CLS_TBL_ACT_DONE) &&
+		    ((traffic_class < 0) || (traffic_class >= ports_desc->num_tcs))) {
+			printf("parsing fail, wrong input for --tc\n");
+			rc = -EINVAL;
 			goto rule_add_fail1;
+		}
+
+		action = malloc(sizeof(*action));
+		if (!action) {
+			rc = -ENOMEM;
+			goto rule_add_fail1;
+		}
 		memset(action, 0, sizeof(struct pp2_cls_tbl_action));
 		action->cos = malloc(sizeof(*action->cos));
-		if (!action->cos)
+		if (!action->cos) {
+			rc = -ENOMEM;
 			goto rule_add_fail2;
-
+		}
 		action->type = action_type;
 		action->cos->tc = traffic_class;
 		action->cos->ppio = ports_desc->ppio;
@@ -565,9 +567,7 @@ rule_add_fail2:
 	free(action);
 rule_add_fail1:
 	free(rule);
-rule_add_fail:
-	pr_err("%s no mem for new rule!\n", __func__);
-	return -ENOMEM;
+	return rc;
 }
 
 static int pp2_cls_cli_cls_table_dump(void *arg, int argc, char *argv[])
