@@ -1173,6 +1173,10 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				pr_err("Failed to parse PCP bits in VLAN header.\n");
 				return rc;
 			}
+			if (mng_pkt_key->pkt_key->out_pbit >= MV_VLAN_PRIO_NUM) {
+				pr_err("Key exceeds max val! %d\n", MV_VLAN_PRIO_NUM - 1);
+				return -EINVAL;
+			}
 			pr_debug("OUT_VLAN_PRI_FIELD_ID = %d\n", mng_pkt_key->pkt_key->out_pbit);
 			break;
 		case OUT_VLAN_ID_FIELD_ID:
@@ -1198,6 +1202,10 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			if (rc) {
 				pr_err("Failed to parse DSCP field.\n");
 				return rc;
+			}
+			if (mng_pkt_key->pkt_key->ipvx_add.dscp >= MV_DSCP_NUM) {
+				pr_err("Key exceeds max val! %d\n", MV_DSCP_NUM - 1);
+				return -EINVAL;
 			}
 			pr_debug("OUT_VLAN_ID_FIELD_ID = %d\n", mng_pkt_key->pkt_key->ipvx_add.dscp);
 			rc = kstrtou8((char *)(rule->fields[idx1].mask), 0, &mng_pkt_key->pkt_key->ipvx_add.dscp_mask);
