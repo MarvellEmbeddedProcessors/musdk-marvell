@@ -1417,7 +1417,7 @@ void app_deinit_all_ports(struct port_desc *ports, int num_ports, u32 op_mode)
 
 	for (i = 0;  i < num_ports; i++) {
 		if (ports[i].ppio) {
-			if (op_mode == PP2_OP_MODE_GUEST || PP2_OP_MODE_NMP_GUEST)
+			if ((op_mode == PP2_OP_MODE_GUEST) || (op_mode == PP2_OP_MODE_NMP_GUEST))
 				pp2_ppio_remove(ports[i].ppio);
 			else
 				pp2_ppio_deinit(ports[i].ppio);
@@ -1480,7 +1480,7 @@ static void flush_pool(struct pp2_bpool *bpool, struct pp2_hif *hif, u32 op_mode
 		cnt++;
 	}
 	hw_bm_buf_free_cnt += cnt;
-	if (op_mode == PP2_OP_MODE_GUEST || PP2_OP_MODE_NMP_GUEST)
+	if ((op_mode == PP2_OP_MODE_GUEST) || (op_mode == PP2_OP_MODE_NMP_GUEST))
 		pp2_bpool_remove(bpool);
 	else
 		pp2_bpool_deinit(bpool);
