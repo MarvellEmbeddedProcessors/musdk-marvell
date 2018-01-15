@@ -189,8 +189,8 @@ struct lcl_port_desc {
 	u32			first_txq;	/* First TXQ -relevant for logical port only */
 	u16			pkt_offset[PP2_PPIO_MAX_NUM_TCS];
 	u16			save_desc_data;	/* flag to indicate descriptors are saved for debug dump */
-	struct pp2_ppio_desc	last_rx_descr_data;
-	struct pp2_ppio_desc	last_tx_descr_data;
+	struct pp2_ppio_desc	last_rx_descr_data; /* Descriptor is LITTLE_ENDIAN */
+	struct pp2_ppio_desc	last_tx_descr_data; /* Descriptor is LITTLE_ENDIAN */
 };
 
 /*

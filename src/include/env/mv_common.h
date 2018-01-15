@@ -184,6 +184,8 @@
 
 #define be32_to_cpu(x) be32toh(x)
 #define le32_to_cpu(x) le32toh(x)
+#define cpu_to_le32(x) htole32(x)
+
 
 #define in4_pton(src, srclen, dst, delim, end) inet_pton(AF_INET, src, dst)
 #define in6_pton(src, srclen, dst, delim, end) inet_pton(AF_INET6, src, dst)
