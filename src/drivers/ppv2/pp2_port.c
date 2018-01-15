@@ -1341,14 +1341,14 @@ pp2_port_outq_get_id(struct pp2_port *port, uint32_t out_qid)
 }
 
 /* TODO: This function is redundant, it will disappear after ppio/pp2_port unification */
-static inline void pp2_port_tx_desc_swap_ncopy(struct pp2_desc *dst, struct pp2_rx_desc *src)
+static inline void pp2_port_tx_desc_swap_ncopy(struct pp2_desc *dst, struct pp2_ppio_desc *src)
 {
 	u32 *src_cmd = (uint32_t *)src;
 	u32 *dst_cmd = (uint32_t *)dst;
 	int i;
 
 	for (i = 0; i < (sizeof(*dst) / sizeof(dst->cmd0)); i++) {
-		*dst_cmd = le32_to_cpu(*src_cmd);
+		*dst_cmd = cpu_to_le32(*src_cmd);
 		dst_cmd++;
 		src_cmd++;
 	}
