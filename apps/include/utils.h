@@ -260,6 +260,8 @@ void app_print_horizontal_line(u32 char_count, const char *char_val);
 int apps_cores_mask_create(int cpus, int affinity);
 int apps_thread_to_cpu(struct glb_common_args *cmn_args, int thread);
 int apps_cpu_to_thread(struct glb_common_args *cmn_args, int cpu);
+int app_parse_mac_address(char *buf, u8 *macaddr_parts);
+int app_range_validate(int value, int min, int max);
 
 #endif /*__MVUTILS_H__*/
 

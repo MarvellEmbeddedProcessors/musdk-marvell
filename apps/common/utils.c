@@ -181,3 +181,23 @@ void app_print_horizontal_line(u32 char_count, const char *char_val)
 	printf("\n");
 }
 
+int app_range_validate(int value, int min, int max)
+{
+	if (((value) > (max)) || ((value) < (min))) {
+		pr_err("%s: value 0x%X (%d) is out of range [0x%X , 0x%X].\n",
+			__func__, (value), (value), (min), (max));
+		return -EFAULT;
+	}
+	return 0;
+}
+
+int app_parse_mac_address(char *buf, u8 *macaddr_parts)
+{
+	if (sscanf(buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+		   &macaddr_parts[0], &macaddr_parts[1],
+		   &macaddr_parts[2], &macaddr_parts[3],
+		   &macaddr_parts[4], &macaddr_parts[5]) == ETH_ALEN)
+		return 0;
+	else
+		return -EFAULT;
+}
