@@ -51,33 +51,270 @@ static u64 hw_bm_buf_free_cnt;
 static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_NETA_MAX_NUM_CORES];
 
-void app_show_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
-{
-	/* TBD: show port queue statistics */
-}
-
 void app_show_port_stat(struct port_desc *port_desc, int reset)
 {
-	/* TBD: show port statistics */
-}
+	struct neta_ppio_statistics stats;
 
-static int queue_stat_cmd_cb(void *arg, int argc, char *argv[])
-{
-	/* TBD: show port queue statistics */
-
-	return 0;
+	printf("\n--------  Port %s MIB stats --------\n", port_desc->name);
+	neta_ppio_get_statistics(port_desc->ppio, &stats);
+	printf("\t Rx statistics:\n");
+	printf("\t\tReceived bytes:          %" PRIu64 "\n", stats.rx_bytes);
+	printf("\t\tReceived packets:        %" PRIu64 "\n", stats.rx_packets);
+	printf("\t\tReceived error bytes:    %" PRIu64 "\n", stats.rx_bytes_err);
+	printf("\t\tReceived error packets:  %" PRIu64 "\n", stats.rx_packets_err);
+	printf("\t\tReceived broadcast:      %" PRIu64 "\n", stats.rx_broadcast_packets);
+	printf("\t\tReceived multicast:      %" PRIu64 "\n", stats.rx_multicast_packets);
+	printf("\t\tUndersize received:      %" PRIu64 "\n", stats.rx_undersize);
+	printf("\t\tOversize received:       %" PRIu64 "\n", stats.rx_oversize);
+	printf("\t\tFragments received:      %" PRIu64 "\n", stats.rx_fragments);
+	printf("\t\tMAC errors received:     %" PRIu64 "\n", stats.rx_errors);
+	printf("\t\tCRC errors received:     %" PRIu64 "\n", stats.rx_crc_error);
+	printf("\t\tRX discard:              %" PRIu64 "\n", stats.rx_discard);
+	printf("\t\tOverrun received:        %" PRIu64 "\n", stats.rx_overrun);
+	printf("\n");
+	printf("\t Tx statistics:\n");
+	printf("\t\tSent bytes:              %" PRIu64 "\n", stats.tx_bytes);
+	printf("\t\tSent packets:            %" PRIu64 "\n", stats.tx_packets);
+	printf("\t\tSent broadcast:          %" PRIu64 "\n", stats.tx_broadcast_packets);
+	printf("\t\tSent multicast:          %" PRIu64 "\n", stats.tx_multicast_packets);
+	printf("\t\tSent errors:             %" PRIu64 "\n", stats.tx_errors);
 }
 
 static int port_stat_cmd_cb(void *arg, int argc, char *argv[])
 {
-	/* TBD: show port statistics */
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+	struct port_desc *ports = (struct port_desc *)g_cmn_args->plat;
+	struct neta_ppio *ppio = NULL;
+	int i;
+
+	if (argc < 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n",
+		       __func__, argc);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < g_cmn_args->num_ports; i++) {
+		if (!strcmp(ports[i].name, argv[1])) {
+			ppio = ports[i].ppio;
+			break;
+		}
+	}
+	if (!ppio) {
+		pr_err("%s: unknown interface %s\n", __func__, argv[1]);
+		return -EINVAL;
+	}
+	app_show_port_stat(&ports[i], 0);
+
+	return 0;
+}
+
+static int port_link_status_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+	struct port_desc *ports = (struct port_desc *)g_cmn_args->plat;
+	struct neta_ppio *ppio = NULL;
+	int i, state;
+
+	if (argc < 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n",
+		       __func__, argc);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < g_cmn_args->num_ports; i++) {
+		if (!strcmp(ports[i].name, argv[1])) {
+			ppio = ports[i].ppio;
+			break;
+		}
+	}
+	if (!ppio) {
+		pr_err("%s: unknown interface %s\n", __func__, argv[1]);
+		return -EINVAL;
+	}
+	neta_ppio_get_link_state(ppio, &state);
+	pr_info("%s link is %s\n", argv[1], (state) ? "UP" : "DOWN");
+
+	return 0;
+}
+
+/*
+ * set mac address example
+ */
+static int neta_cli_mac_addr_set(void *arg, int argc, char *argv[])
+{
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+	struct port_desc *ports = (struct port_desc *)g_cmn_args->plat;
+	struct neta_ppio *ppio = NULL;
+	int rc;
+	u8 mac[ETH_ALEN];
+	int i;
+
+	if (argc != 3) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+	for (i = 0; i < g_cmn_args->num_ports; i++) {
+		if (!strcmp(ports[i].name, argv[1])) {
+			ppio = ports[i].ppio;
+			break;
+		}
+	}
+	if (!ppio) {
+		pr_err("%s: unknown interface %s\n", __func__, argv[1]);
+		return -EINVAL;
+	}
+
+	rc = app_parse_mac_address(argv[2], mac);
+	if (rc) {
+		pr_err("parsing fail, wrong input for mac_address set\n");
+		return -EINVAL;
+	}
+	printf("mac_addr set %02x:%02x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+	rc = neta_ppio_set_mac_addr(ppio, mac);
+	if (rc) {
+		pr_err("Unable to set mac address\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * add mac address example
+ */
+static int neta_cli_mac_addr_add(void *arg, int argc, char *argv[])
+{
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+	struct port_desc *ports = (struct port_desc *)g_cmn_args->plat;
+	struct neta_ppio *ppio = NULL;
+	int rc, i;
+	u8 mac[ETH_ALEN];
+
+	if (argc != 3) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < g_cmn_args->num_ports; i++) {
+		if (!strcmp(ports[i].name, argv[1])) {
+			ppio = ports[i].ppio;
+			break;
+		}
+	}
+	if (!ppio) {
+		pr_err("%s: unknown interface %s\n", __func__, argv[1]);
+		return -EINVAL;
+	}
+
+	rc = app_parse_mac_address(argv[2], mac);
+	if (rc) {
+		printf("parsing fail, wrong input for mac_address set\n");
+		return -EINVAL;
+	}
+
+	printf("mac_addr set %2x:%2x:%2x:%2x:%2x:%2x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+	rc = neta_ppio_add_mac_addr(ppio, mac);
+	if (rc) {
+		printf("Unable to set mac address\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * enable or disable promisc mode
+ */
+static int neta_cli_promisc_state_set(void *arg, int argc, char *argv[])
+{
+	struct glb_common_args *g_cmn_args = (struct glb_common_args *)arg;
+	struct port_desc *ports = (struct port_desc *)g_cmn_args->plat;
+	struct neta_ppio *ppio = NULL;
+	int en, rc;
+	char *ret_ptr;
+	int i;
+
+	if (argc != 3) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < g_cmn_args->num_ports; i++) {
+		if (!strcmp(ports[i].name, argv[1])) {
+			ppio = ports[i].ppio;
+			break;
+		}
+	}
+	if (!ppio) {
+		pr_err("%s: unknown interface %s\n", __func__, argv[1]);
+		return -EINVAL;
+	}
+
+	en = strtoul(argv[2], &ret_ptr, 0);
+	if (en != 0 && en != 1) {
+		printf("wrong value for enable = %d\n", en);
+		return -EINVAL;
+	}
+	rc = neta_ppio_set_promisc(ppio, en);
+	if (rc) {
+		printf("Unable to enable unicast promiscuous mode\n");
+		return -rc;
+	}
+
+	return 0;
+}
+
+int register_cli_ftr_cmds(struct glb_common_args *garg)
+{
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "mac_addr_set";
+	cmd_params.desc		= "Set ppio MAC address\n";
+	cmd_params.format	= "<if_name> <xx:xx:xx:xx:xx:xx>";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))neta_cli_mac_addr_set;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	cmd_params.name		= "mac_addr_add";
+	cmd_params.desc		= "Add ppio MAC address\n";
+	cmd_params.format	= "<if_name> <xx:xx:xx:xx:xx:xx>";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))neta_cli_mac_addr_add;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "promisc_state";
+	cmd_params.desc		= "Enable/disable promiscuous mode\n";
+	cmd_params.format	= "<if_name> 0 - for disable, 1 - for enable";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))neta_cli_promisc_state_set;
+	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
 }
 
 int app_register_cli_common_cmds(struct glb_common_args *glb_args)
 {
-	/* TBD: NETA CLI commands */
+	struct cli_cmd_params cmd_params;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "pstat";
+	cmd_params.desc		= "Show port MAC statistics\n";
+	cmd_params.format	= "<if_name>";
+	cmd_params.cmd_arg	= glb_args;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_stat_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "plink";
+	cmd_params.desc		= "Show port link status\n";
+	cmd_params.format	= "<if_name>";
+	cmd_params.cmd_arg	= glb_args;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))port_link_status_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
 }
