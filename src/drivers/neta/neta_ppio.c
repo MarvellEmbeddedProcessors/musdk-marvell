@@ -110,7 +110,11 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 		neta_bm_pool_bufsize_set(port, port->pool_short->buf_size, port->pool_short->id);
 		neta_bm_pool_bufsize_set(port, port->pool_long->buf_size, port->pool_long->id);
 	}
+	/* build interface name */
+	snprintf(port->if_name, sizeof(port->if_name), "eth%d", port_id);
+	printf("init %s interface\n", port->if_name);
 
+	neta_port_initialize_statistics(port);
 	neta_port_hw_init(port);
 	ppio_ptr->port_id = port_id;
 	ppio_ptr->internal_param = port;
@@ -581,7 +585,7 @@ int neta_ppio_get_mru(struct neta_ppio *ppio, u16 *len)
 	return 0;
 }
 
-int neta_ppio_set_uc_promisc(struct neta_ppio *ppio, int en)
+int neta_ppio_set_promisc(struct neta_ppio *ppio, int en)
 {
 	int rc;
 
@@ -589,7 +593,7 @@ int neta_ppio_set_uc_promisc(struct neta_ppio *ppio, int en)
 	return rc;
 }
 
-int neta_ppio_get_uc_promisc(struct neta_ppio *ppio, int *en)
+int neta_ppio_get_promisc(struct neta_ppio *ppio, int *en)
 {
 	int rc;
 
@@ -664,4 +668,19 @@ int neta_ppio_flush_vlan(struct neta_ppio *ppio)
 {
 	pr_err("[%s] routine not supported yet!\n", __func__);
 	return -ENOTSUP;
+}
+
+int neta_ppio_get_statistics(struct neta_ppio *ppio, struct neta_ppio_statistics *stats)
+{
+	struct neta_ppio_statistics cur_stats;
+	struct neta_port *port = GET_PPIO_PORT(ppio);
+
+	memset(&cur_stats, 0, sizeof(struct neta_ppio_statistics));
+	neta_port_get_statistics(port, &cur_stats);
+
+	if (stats)
+		memcpy(stats, &cur_stats, sizeof(struct neta_ppio_statistics));
+
+	return 0;
+
 }

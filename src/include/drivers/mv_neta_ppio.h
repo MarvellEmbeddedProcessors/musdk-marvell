@@ -167,6 +167,33 @@ enum neta_inq_desc_status {
 };
 
 /**
+ * ppio statistics
+ *
+ */
+struct neta_ppio_statistics {
+	/* Rx port statistics */
+	u64	rx_bytes;		/**< RX Bytes Counter */
+	u64	rx_packets;		/**< RX Packets Counter */
+	u64	rx_bytes_err;		/**< Bad RX Bytes Counter */
+	u64	rx_packets_err;		/**< Bad RX Packets Counter */
+	u64	rx_broadcast_packets;	/**< RX Broadcast Packets Counter */
+	u64	rx_multicast_packets;	/**< RX Multicast Packets Counter */
+	u64	rx_undersize;		/**< RX Undersize Packets Counter */
+	u64	rx_fragments;		/**< RX Fragments Packets Counter */
+	u64	rx_oversize;		/**< RX Oversize Packets Counter */
+	u64	rx_errors;		/**< RX MAC Errors Counter */
+	u64	rx_crc_error;		/**< RX CRC Errors Counter */
+	u64	rx_discard;		/**< RX Discard Counter */
+	u64	rx_overrun;		/**< RX Overrun Packets Counter */
+	/* Tx port statistics */
+	u64	tx_bytes;		/**< TX Bytes Counter */
+	u64	tx_packets;		/**< TX Packets Counter */
+	u64	tx_broadcast_packets;	/**< TX Broadcast Packets Counter */
+	u64	tx_multicast_packets;	/**< TX Multicast Packets Counter */
+	u64	tx_errors;		/**< TX MAC Errors Counter */
+};
+
+/**
  * Initialize a ppio
  *
  * @param[in]	params	A pointer to structure that contains all relevant parameters.
@@ -716,7 +743,7 @@ int neta_ppio_get_mru(struct neta_ppio *ppio, u16 *len);
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int neta_ppio_set_uc_promisc(struct neta_ppio *ppio, int en);
+int neta_ppio_set_promisc(struct neta_ppio *ppio, int en);
 
 /**
  * Get ppio promiscuous mode
@@ -727,7 +754,7 @@ int neta_ppio_set_uc_promisc(struct neta_ppio *ppio, int en);
  * @retval	0 on success
  * @retval	error-code otherwise
  */
-int neta_ppio_get_uc_promisc(struct neta_ppio *ppio, int *en);
+int neta_ppio_get_promisc(struct neta_ppio *ppio, int *en);
 
 /**
  * Set ppio to listen to all multicast mode
@@ -783,6 +810,7 @@ int neta_ppio_remove_vlan(struct neta_ppio *ppio, const u16 vid);
 int neta_ppio_flush_vlan(struct neta_ppio *ppio);
 int neta_ppio_set_link_state(struct neta_ppio *ppio, int en);
 int neta_ppio_get_link_state(struct neta_ppio *ppio, int *en);
+int neta_ppio_get_statistics(struct neta_ppio *ppio, struct neta_ppio_statistics *stats);
 
 /** @} */ /* end of grp_neta_io */
 

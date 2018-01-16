@@ -296,3 +296,128 @@ int neta_port_flush_mac_addrs(struct neta_port *port)
 
 	return 0;
 }
+
+int neta_port_initialize_statistics(struct neta_port *port)
+{
+	struct {
+		struct ethtool_sset_info hdr;
+		uint32_t buf[1];
+	} sset_info;
+	uint32_t len;
+	struct ifreq ifr;
+	int rc;
+
+	strcpy(ifr.ifr_name, port->if_name);
+
+	sset_info.hdr.cmd = ETHTOOL_GSSET_INFO;
+	sset_info.hdr.reserved = 0;
+	sset_info.hdr.sset_mask = 1ULL << ETH_SS_STATS;
+	ifr.ifr_data =  &sset_info;
+	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
+	if (rc) {
+		pr_err("PORT: unable to get stringset length\n");
+		return -1;
+	}
+	len = sset_info.hdr.sset_mask ? sset_info.hdr.data[0] : 0;
+
+	if (!len) {
+		pr_err("PORT: stringset length is zero\n");
+		return -1;
+	}
+
+	port->stats_name = calloc(1, sizeof(struct ethtool_gstrings) + len * ETH_GSTRING_LEN);
+	if (!port->stats_name) {
+		pr_err("PORT: alloc failed\n");
+		return -1;
+	}
+
+	port->stats_name->cmd = ETHTOOL_GSTRINGS;
+	port->stats_name->string_set = ETH_SS_STATS;
+	port->stats_name->len = len;
+	ifr.ifr_data = port->stats_name;
+	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
+	if (rc) {
+		free(port->stats_name);
+		port->stats_name = NULL;
+		pr_err("PORT: unable to get stringset\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int neta_port_get_statistics(struct neta_port *port, struct neta_ppio_statistics *stats)
+{
+	struct ifreq ifr;
+	struct ethtool_stats *estats;
+	u32 i;
+	int rc;
+
+	if (!port->stats_name)
+		return -1;
+
+	estats = calloc(1, port->stats_name->len * sizeof(uint64_t) +
+			sizeof(struct ethtool_stats));
+	if (!estats) {
+		pr_err("PORT: alloc failed\n");
+		return -1;
+	}
+
+	strcpy(ifr.ifr_name, port->if_name);
+
+	estats->cmd = ETHTOOL_GSTATS;
+	estats->n_stats = port->stats_name->len;
+	ifr.ifr_data = estats;
+	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
+	if (rc) {
+		pr_err("PORT: unable to get statistics\n");
+		free(estats);
+		return rc;
+	}
+
+	for (i = 0; i < port->stats_name->len; i++) {
+		char *cnt = (char *)&port->stats_name->data[i * ETH_GSTRING_LEN];
+		uint64_t val = estats->data[i];
+
+		if (!strcmp(cnt, "good_octets_received"))
+			stats->rx_bytes = val;
+		else if (!strcmp(cnt, "good_frames_received"))
+			stats->rx_packets = val;
+		else if (!strcmp(cnt, "bad_octets_received"))
+			stats->rx_bytes_err = val;
+		else if (!strcmp(cnt, "bad_frames_received"))
+			stats->rx_packets_err = val;
+		else if (!strcmp(cnt, "broadcast_frames_received"))
+			stats->rx_broadcast_packets = val;
+		else if (!strcmp(cnt, "multicast_frames_received"))
+			stats->rx_multicast_packets = val;
+		else if (!strcmp(cnt, "undersize_received"))
+			stats->rx_undersize = val;
+		else if (!strcmp(cnt, "fragments_received"))
+			stats->rx_fragments = val;
+		else if (!strcmp(cnt, "oversize_received"))
+			stats->rx_oversize = val;
+		else if (!strcmp(cnt, "mac_receive_error"))
+			stats->rx_errors = val;
+		else if (!strcmp(cnt, "bad_crc_event"))
+			stats->rx_crc_error = val;
+		else if (!strcmp(cnt, "rx_discard"))
+			stats->rx_discard = val;
+		else if (!strcmp(cnt, "rx_overrun"))
+			stats->rx_overrun = val;
+		else if (!strcmp(cnt, "tx_bytes"))
+			stats->tx_bytes = val;
+		else if (!strcmp(cnt, "tx_frames"))
+			stats->tx_packets = val;
+		else if (!strcmp(cnt, "broadcast_frames_sent"))
+			stats->tx_broadcast_packets = val;
+		else if (!strcmp(cnt, "multicast_frames_sent"))
+			stats->tx_multicast_packets = val;
+		else if (!strcmp(cnt, "internal_mac_transmit_err"))
+			stats->tx_errors = val;
+	}
+
+	free(estats);
+
+	return 0;
+}

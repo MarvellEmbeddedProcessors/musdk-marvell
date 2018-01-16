@@ -156,8 +156,9 @@ struct neta_port {
 	struct mvneta_bm_pool *pool_long;
 	struct mvneta_bm_pool *pool_short;
 
-	/*struct mvneta_pcpu_stats __percpu	*stats;*/
-
+	/* Port statistics */
+	struct ethtool_gstrings *stats_name;
+	struct neta_ppio_statistics stats;
 };
 
 #define GET_PPIO_PORT(ppio) ((struct neta_port *)(ppio)->internal_param)
@@ -230,5 +231,9 @@ int neta_port_remove_mac_addr(struct neta_port *port, const uint8_t *addr);
 
 /* Delete all multicast MAC addresses */
 int neta_port_flush_mac_addrs(struct neta_port *port);
+
+/* Get port MAC MIB counters */
+int neta_port_initialize_statistics(struct neta_port *port);
+int neta_port_get_statistics(struct neta_port *port, struct neta_ppio_statistics *stats);
 
 #endif /* __NETA_PP_IO_H_ */
