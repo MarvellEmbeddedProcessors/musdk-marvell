@@ -1160,6 +1160,10 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				pr_err("Failed to parse eth_type header.\n");
 				return rc;
 			}
+			if (mng_pkt_key->pkt_key->ether_type > ((1 << ETH_TYPE_FIELD_SIZE) - 1)) {
+				pr_err("eth_type exceeds max val!.\n");
+				return rc;
+			}
 			pr_debug("ETH_TYPE_FIELD_ID = %d\n", mng_pkt_key->pkt_key->ether_type);
 			break;
 		case OUT_VLAN_PRI_FIELD_ID:
@@ -1188,6 +1192,10 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->out_vid);
 			if (rc) {
 				pr_err("Failed to parse VID in VLAN header.\n");
+				return rc;
+			}
+			if (mng_pkt_key->pkt_key->out_vid > ((1 << OUT_VLAN_ID_FIELD_SIZE) - 1)) {
+				pr_err("vlan_id exceeds max val!.\n");
 				return rc;
 			}
 			pr_debug("OUT_VLAN_ID_FIELD_ID = %d\n", mng_pkt_key->pkt_key->out_vid);
