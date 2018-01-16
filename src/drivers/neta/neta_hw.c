@@ -133,7 +133,12 @@ static void neta_mib_counters_clear(struct neta_port *pp)
 void neta_port_up(struct neta_port *pp)
 {
 	int queue;
-	u32 q_map;
+	u32 q_map, val;
+
+	val = neta_reg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+	val &= ~MVNETA_GMAC_FORCE_LINK_DOWN;
+	val |= MVNETA_GMAC_FORCE_LINK_PASS;
+	neta_reg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
 
 	/* Enable all initialized TXs. */
 	q_map = 0;
@@ -164,6 +169,11 @@ void neta_port_down(struct neta_port *pp)
 {
 	u32 val;
 	int count;
+
+	val = neta_reg_read(pp, MVNETA_GMAC_AUTONEG_CONFIG);
+	val &= ~MVNETA_GMAC_FORCE_LINK_PASS;
+	val |= MVNETA_GMAC_FORCE_LINK_DOWN;
+	neta_reg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
 
 	/* Stop Rx port activity. Check port Rx activity. */
 	val = neta_reg_read(pp, MVNETA_RXQ_CMD) & MVNETA_RXQ_ENABLE_MASK;
