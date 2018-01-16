@@ -149,12 +149,6 @@ void app_port_local_deinit(struct lcl_port_desc *lcl_port);
  */
 void app_disable_all_ports(struct port_desc *ports, int num_ports);
 
-/* TODO: may be need to move to other file */
-/*
- * Get line
- */
-int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, char *argv[]);
-
 /*
  * Show queue statistics
  */
@@ -167,6 +161,7 @@ void app_show_port_stat(struct port_desc *port_desc, int reset);
  * Register common CLI commands (currently show queue and port statistics)
  */
 int app_register_cli_common_cmds(struct glb_common_args *glb_args);
+int register_cli_ftr_cmds(struct glb_common_args *garg);
 
 /* Saved sysdma virtual high address*/
 extern u64 neta_sys_dma_high_addr;

@@ -507,7 +507,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "prefetch";
-	cmd_params.desc		= "Prefetch ahead shift (number of buffers)";
+	cmd_params.desc		= "Prefetch ahead shift (number of buffers)\n";
 	cmd_params.format	= "<shift>";
 	cmd_params.cmd_arg	= garg;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_prefetch_cmd_cb;
@@ -515,12 +515,14 @@ static int register_cli_cmds(struct glob_arg *garg)
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "stat";
-	cmd_params.desc		= "Show app statistics";
+	cmd_params.desc		= "Show app statistics\n";
 	cmd_params.format	= "<reset>";
 	cmd_params.cmd_arg	= &garg->cmn_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))neta_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
+
 	app_register_cli_common_cmds(&garg->cmn_args);
+	register_cli_ftr_cmds(&garg->cmn_args);
 
 	return 0;
 }
@@ -603,6 +605,7 @@ static int init_local(void *arg, int id, void **_larg)
 		pr_err("no mem for local-port-desc obj!\n");
 		return -ENOMEM;
 	}
+	garg->cmn_args.plat = garg->ports_desc;
 	memset(larg->ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		app_port_local_init(i, larg->cmn_args.id, &larg->ports_desc[i], &garg->ports_desc[i]);
