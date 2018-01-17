@@ -69,7 +69,7 @@ int read_file_to_buf(char *file_name, char *buff, u32 size)
 	/* Open file */
 	fd = open(file_name, O_RDONLY);
 	if (fd == -1) {
-		pr_err("Failed to open file %s\n", file_name);
+		pr_debug("Failed to open file %s\n", file_name);
 		return -EINVAL;
 	}
 

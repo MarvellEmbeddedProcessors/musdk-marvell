@@ -741,7 +741,7 @@ static int nmp_preinit(struct nmp_params *params, struct pp2_glb_common_args *pp
 	params->lfs_params->pf.lcl_bm_q_size      = 2048;
 	params->lfs_params->pf.lcl_bm_buf_size    = 4096;
 
-	ret = nmp_read_cfg_file(params);
+	ret = nmp_read_cfg_file(garg.cmn_args.nmp_cfg_location, params);
 	if (ret) {
 		pr_err("NMP preinit failed with error %d\n", ret);
 		return -EIO;
@@ -1190,6 +1190,7 @@ static void usage(char *progname)
 	       "\t-c, --cores <number>     Number of CPUs to use\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t-s                       Maintain statistics\n"
+	       "\t- f, --file              Location and name of the nmp-config file to load\n"
 	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
 	       "\t--pkt-offset <size>      Packet offset in buffer, must be multiple of 32-byte (default is %d)\n"
@@ -1250,6 +1251,18 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			garg->cmn_args.guest_id = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-f") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+
+			strcpy(garg->cmn_args.nmp_cfg_location, argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-i") == 0) {
 			char *token;

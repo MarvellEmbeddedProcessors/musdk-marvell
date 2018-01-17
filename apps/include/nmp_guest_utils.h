@@ -56,7 +56,7 @@ struct pp2_info {
 /*
  * nmp_guest mode related functions.
  */
-int nmp_read_cfg_file(struct nmp_params *params);
+int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params);
 int guest_util_get_relations_info(char *buff, struct pp2_info *pp2_info);
 int app_guest_utils_build_all_bpools(char *buff, struct pp2_info *pp2_info,
 				     struct bpool_desc ***ppools,

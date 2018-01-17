@@ -41,7 +41,7 @@
 #define NMP_MAX_BUF_STR_LEN		256
 #define NMP_CFG_FILE_LOCAL_DIR		"./"
 #define NMP_CFG_FILE_VAR_DIR		"/var/"
-#define NMP_CFG_FILE_NAME_PREFIX	"nmp-config"
+#define NMP_CFG_FILE_NAME_PREFIX	"musdk-nmp-config.txt"
 
 #define NMP_MAX_NUM_CONTAINERS		4
 #define NMP_MAX_NUM_LFS			8
@@ -64,9 +64,9 @@ static int nmp_range_validate(int value, int min, int max)
 	return 0;
 }
 
-int nmp_read_cfg_file(struct nmp_params *params)
+int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 {
-	int				 i, j, k, rc;
+	u32				 i, j, k, rc;
 	char				 file_name[SER_MAX_FILE_NAME];
 	char				 buff[SER_MAX_FILE_SIZE];
 	char				*sec = NULL;
@@ -75,17 +75,26 @@ int nmp_read_cfg_file(struct nmp_params *params)
 	struct nmp_lf_nicpf_params_new	*pf;
 	u32				 num_lfs = 0;
 
-	snprintf(file_name, sizeof(file_name), "%s%s", NMP_CFG_FILE_LOCAL_DIR, NMP_CFG_FILE_NAME_PREFIX);
+	/* If cfg-file is provided, read the nmp-config from this location. Otherwise try to read either from
+	 * local dir or from /var dir
+	 */
+	strcpy(file_name, cfg_file);
 	rc = read_file_to_buf(file_name, buff, SER_MAX_FILE_SIZE);
 	if (rc) {
 		memset(file_name, 0, SER_MAX_FILE_NAME);
-		snprintf(file_name, sizeof(file_name), "%s%s", NMP_CFG_FILE_VAR_DIR, NMP_CFG_FILE_NAME_PREFIX);
+		snprintf(file_name, sizeof(file_name), "%s%s", NMP_CFG_FILE_LOCAL_DIR, NMP_CFG_FILE_NAME_PREFIX);
 		rc = read_file_to_buf(file_name, buff, SER_MAX_FILE_SIZE);
 		if (rc) {
-			pr_info("nmp_config_file not found\n");
-			return rc;
+			memset(file_name, 0, SER_MAX_FILE_NAME);
+			snprintf(file_name, sizeof(file_name), "%s%s", NMP_CFG_FILE_VAR_DIR, NMP_CFG_FILE_NAME_PREFIX);
+			rc = read_file_to_buf(file_name, buff, SER_MAX_FILE_SIZE);
+			if (rc) {
+				pr_info("nmp_config_file not found\n");
+				return rc;
+			}
 		}
 	}
+	pr_info("nmp_cfg_location: %s\n", file_name);
 
 	/* Check if there are nmp-params */
 	sec = strstr(buff, "nmp_params");
