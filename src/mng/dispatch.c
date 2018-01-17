@@ -506,8 +506,8 @@ static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp
 	recv_desc = ((struct cmd_desc *)q->virt_base_addr) + cons_idx;
 
 	msg->ext = 1;
-	msg->dst_client = recv_desc->dest_type;
-	msg->dst_id = recv_desc->dest_id;
+	msg->dst_client = recv_desc->client_type;
+	msg->dst_id = recv_desc->client_id;
 	msg->code = recv_desc->cmd_code;
 	msg->indx = recv_desc->cmd_idx;
 	msg->msg = nmdisp->cmd_msg;
@@ -640,7 +640,7 @@ static inline int nmdisp_msg_transmit_sg(struct mqa_q *q,
 	u16 data_pos = 0;
 	struct cmd_desc *first_desc = trans_desc;
 
-	if (nmdisp_msg->indx == CMD_IDX_NOTIFICATION) {
+	if (nmdisp_msg->indx == CMD_ID_NOTIFICATION) {
 		pr_err("S/G cannot be applied on Notification message (as the CMD_indx is used to identify start of new S/G)\n");
 		return -1;
 	}
@@ -706,8 +706,8 @@ int nmdisp_msg_transmit(struct mqa_q *q, int ext_desc_support, struct nmdisp_msg
 	trans_desc->cmd_idx = nmdisp_msg->indx;
 /*	trans_desc->app_code =*/
 	trans_desc->cmd_code = nmdisp_msg->code;
-	trans_desc->dest_type = nmdisp_msg->src_client;
-	trans_desc->dest_id = nmdisp_msg->src_id;
+	trans_desc->client_type = nmdisp_msg->src_client;
+	trans_desc->client_id = nmdisp_msg->src_id;
 	trans_desc->flags = 0;
 
 	if (nmdisp_msg->msg_len > MGMT_DESC_DATA_LEN) {

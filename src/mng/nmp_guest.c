@@ -208,7 +208,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 
 		num_ext_descs = CMD_FLAGS_NUM_EXT_DESC_GET(cmd->flags);
 		if (guest->app_cb.guest_ev_cb) {
-			if (cmd->dest_type == CDT_PF)
+			if (cmd->client_type == CDT_PF)
 				lf_type = NMP_GUEST_LF_T_NICPF;
 			/* if 'num_ext_descs' >= 1 means that first descriptor includes descriptor head + data,
 			 * and rest of the descriptors are pure data.
@@ -250,7 +250,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 		if (guest->app_cb.guest_ev_cb) {
 			guest->app_cb.guest_ev_cb(guest->app_cb.arg,
 						  lf_type,
-						  cmd->dest_id,
+						  cmd->client_id,
 						  cmd->cmd_code,
 						  cmd->cmd_idx,
 						  guest->msg,
@@ -292,12 +292,12 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 
 	/* Place message */
 	cmd = q->base_addr_virt + prod_idx;
-/*	cmd->app_code	=  */
-	cmd->cmd_code	= code;
-	cmd->cmd_idx	= indx;
-	cmd->dest_type	= CDT_CUSTOM;
-	cmd->dest_id	= guest->id;
-	cmd->flags	= 0;
+/*	cmd->app_code		=  */
+	cmd->cmd_code		= code;
+	cmd->cmd_idx		= indx;
+	cmd->client_type	= CDT_CUSTOM;
+	cmd->client_id		= guest->id;
+	cmd->flags		= 0;
 	CMD_FLAGS_NUM_EXT_DESC_SET(cmd->flags, num_ext_descs);
 
 	/* In case there is a wrap around the descriptors are be stored to the

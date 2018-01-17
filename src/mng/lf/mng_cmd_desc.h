@@ -154,7 +154,6 @@ struct mgmt_cmd_params {
 struct mgmt_cmd_resp {
 #define NOTIF_STATUS_OK	(0)
 #define NOTIF_STATUS_FAIL	(1)
-#define NOTIF_STATUS_NOTIF	(0xFF)
 	u8 status;
 	union {
 		/* Use same response structure for all Q add operations.
@@ -175,11 +174,11 @@ struct mgmt_cmd_resp {
 /* Command Descriptor
  * cmd_idx - Command Identifier, this field will be copied to the response
  *   descriptor by the SNIC, in order to correlate the response with the command.
- *	value 0xFF indicate a notification message.
+ *	value 0xFFFF indicate a notification message.
  * app_code - Target application Id (out of enum snic_app_codes)
  * cmd_code - Command to be executed (out of enum snic_cmd_codes)
- * dest_id - Destination ID – PF / VF Id
- * dest_type - Destination type – PF / VF
+ * client_id - Destination ID – PF / VF Id
+ * client_type - Destination type – PF / VF
  * flags - Bitmask of CMD_FLAGS_XX.
  * cmd_params/resp_data
  *     Array of bytes, holding the serialized parameters/response list for a specific command.
@@ -187,11 +186,13 @@ struct mgmt_cmd_resp {
 /* Make sure structure is portable along different systems. */
 #pragma pack(1)
 struct cmd_desc {
+#define CMD_ID_ILLEGAL			0
+#define CMD_ID_NOTIFICATION		0xFFFF
 	u16 cmd_idx;
 	u16 app_code;
 	u8 cmd_code;
-	u8 dest_id;
-	u8 dest_type;
+	u8 client_id;
+	u8 client_type;
 	u8 flags;
 
 	union {
@@ -201,8 +202,6 @@ struct cmd_desc {
 	};
 };
 #pragma pack()
-
-#define CMD_IDX_NOTIFICATION	0xFFFF
 
 /* indicates whether the descriptor is consturcted from multiple ones */
 #define CMD_FLAGS_NUM_EXT_DESC_MASK		0x1F
