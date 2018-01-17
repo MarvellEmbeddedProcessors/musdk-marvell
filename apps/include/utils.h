@@ -151,6 +151,7 @@ struct glb_common_args {
 	void			*plat;
 	u32			op_mode;
 	u32			guest_id;
+	char			nmp_cfg_location[SER_MAX_FILE_NAME];
 };
 
 
