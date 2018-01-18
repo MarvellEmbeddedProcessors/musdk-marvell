@@ -2058,12 +2058,30 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
+/*
+ *	nmnicpf_process_pf_command
+ *
+ *	This function process all PF's commands
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *	@param[in]	msg - pointer to nmdisp_msg object
+ *	@param[out]	resp_data - pointer to mgmt_cmd_resp object
+ *	@param[out]	send_resp - if response should be send
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+
 static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 				      struct nmdisp_msg *msg,
-				      struct mgmt_cmd_resp *resp_data)
+				      struct mgmt_cmd_resp *resp_data,
+				      int *send_resp)
 {
 	struct mgmt_cmd_params *cmd_params = msg->msg;
 	int ret = 0;
+
+	/* In general always send response */
+	*send_resp = 1;
 
 	switch (msg->code) {
 
@@ -2104,6 +2122,7 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		break;
 
 	case CC_PF_INIT_DONE:
+		*send_resp = 0; /* init-done doesn't expect for response */
 		ret = nmnicpf_pf_init_done_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_INIT_DONE message failed\n");
@@ -2140,11 +2159,10 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 /*
  *	nmnicpf_process_command
  *
- *	This function process all PF initialization commands
+ *	This function process all PF execution flows
  *
  *	@param[in]	nmnicpf - pointer to NIC PF object
- *	@param[in]	cmd - pointer to cmd_desc object
- *	@param[out]	resp - pointer to cmd_desc object
+ *	@param[in]	msg - pointer to nmdisp_msg object
  *
  *	@retval	0 on success
  *	@retval	error-code otherwise
@@ -2153,7 +2171,7 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 {
 	struct mgmt_cmd_resp resp_data;
 	struct nmnicpf *nmnicpf = (struct nmnicpf *)arg;
-	int ret;
+	int ret, send_msg = 1, send_resp = 1;
 
 /*
  *	Once NIC-PF get a external command from dispatcher, it shall first check the 'src-client/ID' (should be its own)
@@ -2174,7 +2192,8 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 
 	if (msg->ext) {
 		if ((msg->src_client == CDT_PF) && (msg->src_id == nmnicpf->pf_id)) {
-			ret = nmnicpf_process_pf_command(nmnicpf, msg, &resp_data);
+			ret = nmnicpf_process_pf_command(nmnicpf, msg, &resp_data, &send_resp);
+			send_msg = send_resp;
 			if (ret)
 				resp_data.status = NOTIF_STATUS_FAIL;
 			else
@@ -2198,10 +2217,12 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 		}
 	}
 
-	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, msg);
-	if (ret) {
-		pr_err("failed to send response message\n");
-		return ret;
+	if (send_msg) {
+		ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, msg);
+		if (ret) {
+			pr_err("failed to send response message\n");
+			return ret;
+		}
 	}
 
 	return 0;
