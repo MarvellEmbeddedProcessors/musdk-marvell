@@ -54,6 +54,9 @@
 #define q_occupancy(q, p, c)	((p - c + q->len) & (q->len - 1))
 #define q_space(q, p, c)	(q->len - q_occupancy(q, p, c) - 1)
 
+#define MSG_WAS_RECV	1
+#define MSG_Q_IS_EMPTY	0
+
 static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp_msg *msg);
 static int nmdisp_msg_transmit(struct mqa_q *q, int ext_desc_support, struct nmdisp_msg *msg);
 
@@ -364,7 +367,7 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 				msg.src_client = client_p->client_type;
 				msg.src_id = client_p->client_id;
 				ret = nmdisp_msg_recv(nmdisp_p, q->cmd_q, &msg);
-				if (ret == 0)
+				if (ret == MSG_Q_IS_EMPTY)
 					/* queue is empty */
 					continue;
 				if (ret < 0)
@@ -394,13 +397,14 @@ static inline int nmdisp_msg_recv_ext_descs(struct nmdisp *nmdisp,
 					    struct cmd_desc *recv_desc)
 {
 	u16 len;
-	int ret = 0;
+	int ret = MSG_WAS_RECV;
 
 	len = sizeof(recv_desc->data) + sizeof(struct cmd_desc) * num_ext_descs;
 
 	if (len > nmdisp->max_msg_size) {
 		pr_err("message length (%u) must be up to %u\n", len, nmdisp->max_msg_size);
 		/* Need to mark the descriptors as consumed and exit */
+		ret = -1;
 		goto exit;
 	}
 	/* In case there is a wrap around the descriptors are be stored to the
@@ -434,7 +438,7 @@ static inline int nmdisp_msg_recv_sg(struct nmdisp *nmdisp,
 				     u8 buf_pos,
 				     struct cmd_desc *recv_desc)
 {
-	int ret = 0, skip_copy = false;
+	int ret = MSG_WAS_RECV, skip_copy = false;
 
 	/* This is a S/G message. Need to loop the descs until either one of the following:
 	 * 1. buff-pos is LAST - S/G completion
@@ -454,6 +458,7 @@ static inline int nmdisp_msg_recv_sg(struct nmdisp *nmdisp,
 			 */
 			skip_copy = true;
 			msg->msg_len = 0; /* So we won't enter this code again */
+			ret = -1;
 		}
 		if (!skip_copy) {
 			memcpy(&((u8 *)msg->msg)[msg->msg_len], recv_desc->data, sizeof(recv_desc->data));
@@ -493,14 +498,14 @@ static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp
 	struct cmd_desc *recv_desc;
 	u8 num_ext_descs, buf_pos;
 	u32 cons_idx, prod_idx;
-	int ret = 1;
+	int ret = MSG_WAS_RECV;
 
 	cons_idx = q_rd_cons(q);
 	prod_idx = q_rd_prod(q);
 
 	/* Check for pending message */
 	if (q_empty(prod_idx, cons_idx))
-		return 0;
+		return MSG_Q_IS_EMPTY;
 
 	/* Place message */
 	recv_desc = ((struct cmd_desc *)q->virt_base_addr) + cons_idx;
@@ -517,17 +522,12 @@ static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp
 	buf_pos = CMD_FLAGS_BUF_POS_GET(recv_desc->flags);
 	if (num_ext_descs) {
 		ret = nmdisp_msg_recv_ext_descs(nmdisp, q, msg, &cons_idx, num_ext_descs, recv_desc);
-		if (ret)
-			goto desc_error;
 	} else if (buf_pos == CMD_FLAG_BUF_POS_FIRST_MID) {
 		ret = nmdisp_msg_recv_sg(nmdisp, q, msg, &cons_idx, buf_pos, recv_desc);
-		if (ret)
-			goto desc_error;
 	} else if (buf_pos == CMD_FLAG_BUF_POS_EXT_BUF) {
 		pr_err("No support for external buffer\n");
 		cons_idx = q_inc_idx(q, cons_idx);
 		ret = -1;
-		goto desc_error;
 	} else {
 		/* Single desc */
 		memcpy(msg->msg, recv_desc->data, sizeof(recv_desc->data));
@@ -537,7 +537,7 @@ static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp
 
 	/* Memory barrier */
 	wmb();
-desc_error:
+
 	/* Increament queue consumer */
 	q_wr_cons(q, cons_idx);
 
