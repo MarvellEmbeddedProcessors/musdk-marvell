@@ -78,6 +78,12 @@ enum cmd_codes {
 	CMD_CODE_LAST = 0XFF,
 };
 
+enum notif_codes {
+	NC_PF_LINK_CHANGE = 0x1,
+
+	NOTIF_CODE_LAST = 0XFF,
+};
+
 /* Relevant only for pf_init command. */
 enum egress_sched {
 	ES_STRICT_SCHED = 0x1,
@@ -147,7 +153,7 @@ struct mgmt_cmd_params {
 /*
  * mgmt_cmd_resp - Encapsulates the different responses that can be
  * received from the SNIC as a result of a management command.
- * status - Command execution status (0 - Ok, 1 - Fail, 0xFF - Notification).
+ * status - Command execution status (0 - Ok, 1 - Fail).
  */
 /* Make sure structure is portable along different systems. */
 #pragma pack(1)

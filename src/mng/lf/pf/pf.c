@@ -1925,6 +1925,43 @@ static int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 	return 0;
 }
 
+static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
+{
+	struct nmdisp_msg msg;
+	struct mgmt_cmd_resp resp;
+
+	int ret;
+
+	msg.ext = 1;
+	msg.code = NC_PF_LINK_CHANGE;
+	msg.indx = CMD_ID_NOTIFICATION;
+	msg.dst_client = CDT_PF;
+	msg.dst_id = 0;
+	msg.src_client = CDT_PF;
+	msg.src_id = 0;
+	msg.msg = &resp;
+	msg.msg_len = sizeof(struct mgmt_cmd_resp);
+
+	resp.link_status = link_status;
+
+	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &msg);
+	if (ret) {
+		pr_err("failed to send link-status notification message\n");
+		return ret;
+	}
+
+	pr_debug("Link status notification was sent (cmd-code :%d).\n", NC_PF_LINK_CHANGE);
+
+	return 0;
+}
+
+static void nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
+{
+	/* TODO: check PP2 link */
+
+	nmnicpf_notif_link_change(nmnicpf, 1);
+}
+
 /*
  *	nmnicpf_pf_init_done_command
  */
@@ -1980,6 +2017,8 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
 	if (ret)
 		pr_err("Failed to configure PF regfile\n");
+
+	nmnicpf_link_state_check_n_notif(nmnicpf);
 
 	return ret;
 }
