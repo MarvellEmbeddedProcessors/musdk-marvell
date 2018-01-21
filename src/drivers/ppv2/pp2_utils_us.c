@@ -40,6 +40,7 @@
 
 #include "pp2.h"
 
+
 #define PP2_NETDEV_PATH		"/sys/class/net/"
 
 #define PP2_NETDEV_PATH_TEMPLATE_US	"/proc/device-tree/cp%u/config-space/ppv22@000000/"
@@ -50,25 +51,36 @@
 static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 {
 	FILE *fp;
+	char cp110path[PP2_MAX_BUF_STR_LEN];
 	char temppath[PP2_MAX_BUF_STR_LEN];
 	char subpath[PP2_MAX_BUF_STR_LEN];
 	char fullpath[PP2_MAX_BUF_STR_LEN];
 	char buf[PP2_MAX_BUF_STR_LEN];
-	int i, j, idx = 0;
+	int i, j, idx = 0, cp110_num, err;
 	u8 num_inst;
 
 	num_inst = pp2_get_num_inst();
 
 	if (!netdev_params)
 		return -EFAULT;
-
-	for (i = 0; i < num_inst; i++) {
+	for (i = 0, cp110_num = 0; i < num_inst; i++, cp110_num++) {
+		err = -1;
+		while (cp110_num < PP2_MAX_NUM_PACKPROCS) {
+			sprintf(cp110path, PP2_NETDEV_PATH_TEMPLATE_US, cp110_num);
+			err = access(cp110path, F_OK);
+			if (!err)
+				break;
+			cp110_num++;
+		}
+		if (err) {
+			pr_err("error accessing file %s\n", cp110path);
+			return -EEXIST;
+		}
 		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
 
 			idx = i * PP2_NUM_ETH_PPIO + j;
-			sprintf(temppath, PP2_NETDEV_PATH_TEMPLATE_US, i);
-
 			/* Get port status info */
+			strcpy(temppath, cp110path);
 			sprintf(subpath, "eth%d@0%d0000", j, j + 1);
 			strcat(temppath, subpath);
 			strcpy(fullpath, temppath);

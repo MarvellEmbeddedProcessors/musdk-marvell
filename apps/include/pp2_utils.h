@@ -50,7 +50,7 @@
 #define MVAPPS_PP2_PKT_EFEC_OFFS(pkt_offset)	(pkt_offset + MV_MH_SIZE)
 
 /* Maximum number of packet processors used by application */
-#define MVAPPS_PP2_MAX_PKT_PROC		4
+#define MVAPPS_PP2_MAX_PKT_PROC		8
 /* Maximum number of ports used by application */
 #define MVAPPS_PP2_MAX_NUM_PORTS		4
 #define MVAPPS_PP2_MULTI_PORT_MAX_NUM_PORTS	4 /* Used for pp2_pkt_echo */
