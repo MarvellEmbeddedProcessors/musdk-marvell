@@ -96,7 +96,7 @@ enum ingress_hash_type {
 	ING_HASH_TYPE_5_TUPLE
 };
 
-#define SET_MGMT_CMD_FIELD(word, val, off, msk)	(word = ((word & ~msk) | ((val & msk) << off)))
+#define SET_MGMT_CMD_FIELD(word, val, off, msk)	(word = ((word & ~(msk << off)) | ((val & msk) << off)))
 #define GET_MGMT_CMD_FIELD(word, off, msk)	((word >> off) & msk)
 
 /*
