@@ -663,7 +663,7 @@ static inline int nmdisp_msg_transmit_sg(struct mqa_q *q,
 		trans_desc = ((struct cmd_desc *)q->virt_base_addr) + *prod_idx;
 		memcpy(trans_desc, first_desc, 8);
 		num_to_copy = min(MGMT_DESC_DATA_LEN, nmdisp_msg->msg_len - data_pos);
-		memcpy(trans_desc->data, &nmdisp_msg[data_pos], num_to_copy);
+		memcpy(trans_desc->data, nmdisp_msg->msg + data_pos, num_to_copy);
 		data_pos += num_to_copy;
 		*prod_idx = q_inc_idx(q, *prod_idx);
 	} while (data_pos < nmdisp_msg->msg_len);
