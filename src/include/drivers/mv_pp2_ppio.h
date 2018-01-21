@@ -1053,6 +1053,7 @@ struct pp2_ppio_outqs_info {
  *
  */
 struct pp2_ppio_capabilities {
+	u8	pp2_id;
 	u8	id;
 	struct pp2_ppio_intcs_info	intcs_inf;
 	struct pp2_ppio_outqs_info	outqs_inf;
