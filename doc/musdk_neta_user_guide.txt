@@ -10,6 +10,25 @@ applicable for A3700 platforms.
 MUSDK NETA driver provides capability of usage NETA HW unit directly from user-space
 applications with minimum overhead and high performance.
 
+Kernel Dependencies
+~~~~~~~~~~~~~~~~~~~
+The MUSDK NETA driver depends on the KS driver for following purposes:
+	- Read DTS file and extract all common HW resources information as well as all the KS specific HW resources (e.g. Ports, etc.).
+	- Initialize and maintain PHY and link state for all NICs (both KS and US), and expose API’s (ioctl/ethtool/sysfs) for NIC and Phy functionality on the MUSDK ports.
+
+  .. Note::
+	NICs that are associated with US MUSDK are initialized by the KS driver with a default MAC-address (according to DTS attributes)
+
+
+Resource Mapping
+~~~~~~~~~~~~~~~~
+PPIO
+^^^^
+	- The PPIO object is the MUSDK presentation of an interface.
+	- A PPIO object is a logical port capable of receiving and transmitting packets.
+	- As a minimum, a PPIO has a collection of RX queues (RX-Qs) and TX queues (TX-Qs), at least one of each.
+
+
 Supported Features
 ------------------
 
@@ -57,33 +76,64 @@ PPIO
 	Statistics:
 		- Not supported.
 
+General Limitations
+~~~~~~~~~~~~~~~~~~~
+The system is initialized with interfaces that are "non-kernel" in the dtb file.
+These interfaces are reserved for musdk, and only they may be used by musdk.
 
-Source Tree
-------------
+Linux interfaces in "non-kernel" state (intended for MUSDK) :
+	- Do not support being stopped by Linux.
+	- Do not support MTU change by Linux.
 
-Sources::
+When setting the tx descriptor, the length field needs to be written after the offset. Otherwise the length field is overwritten
+The example applications do not perform MTU size checking. In case traffic is sent with MTU size bigger than the configured MTU size, packets will not be discarded but rather truncated.
 
-    musdk/
-	- src/include/driver/	- public include files for NETA driver
-		- mv_neta.h
-		- mv_neta_ppio.h
-		- mv_neta_bpool.h
+Features Description
+--------------------
 
-	- src/driver/neta/	- NETA driver implementation
-		- neta.c
-		- neta_hw.h
-		- neta_hw.c
-		- neta_ppio.h
-		- neta_ppio.c
-		- neta_bm.h
-		- neta_bm.c
+Pad and CRC offloads
+~~~~~~~~~~~~~~~~~~~~
+Marvell NETA hardware support for packet CRC offload on Rx (CRC validation) and TX (CRC generation).
+Pad and CRC is always enabled by the PPIO driver.
 
-	- apps/examples/neta/pkt_echo/	- is a basic forwarding application supplied with MUSDK framework
-		- pkt_echo.c
+On receive side, padding is removed and CRC is validated automatically by the hardware.
+Therefore, MUSDK users receive frames without padding and CRC.
 
-Binaries:
-	- libmusdk.a		- MUSDK APIs implementation library
-	- musdk_neta_pkt_echo	- simple test application
+On transmit side, appropriate padding is appended to the frame, and CRC is calculated and added to the ETH frame.
+Applications do not need to transmit frames with pad or CRC.
+
+Checksum offload
+~~~~~~~~~~~~~~~~
+Use neta_ppio_outq_desc_set_proto_info().
+
+Marvell NETA hardware support for L3 and L4 checksum offloads.
+On receive side, checksum is validated automatically by the hardware. An error indication will be raised as part
+of the Rx descriptor.
+
+On transmit side, if MUSDK client SW would like to utilize this offload, appropriate fields in the Tx descriptor should be set using the appropriate API. The NETA HW will than calculate and generate L3 and/or L4 CSum.
+
+MAC address filtering
+~~~~~~~~~~~~~~~~~~~~~
+Use neta_port_set_mac_addr() and neta_port_add_mac_addr().
+
+MAC filtering is implemented by NETA hardware.
+For each MUSDK port, it is possible to configure up to 16 UC, 256 IP MC and 256 other MC filtering entries.
+
+Promiscuous and multicast mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Use neta_port_set_promisc():
+
+When promisc mode is enabled, the port is set to promisc mode and all unicast and multicast traffic will pass through.
+When promisc mode is disabled, the port is set to normal mode and only unicast and multicast traffic defined in MAC address filtering will pass through.
+
+Use neta_port_set_mc_promisc():
+
+When all-multi mode is enabled, the port is set to all multicast mode and all unicast and multicast traffic will pass through.
+When all-multi mode is disabled, the port is set to normal mode and only multicast traffic defined in MAC address filtering will pass through.
+
+Statistics
+~~~~~~~~~~
+MAC MIB counters can be obtained by neta_port_get_statistics().
 
 
 NETA Test Applications
@@ -136,5 +186,48 @@ Command parameters:
     Example for two core and two ports::
 
 	> ./musdk_neta_pkt_echo -i eth0,eth1 -c 2
+
+    Example for single core and two ports and CLI ::
+
+	> ./musdk_neta_pkt_echo -i eth0,eth1 --cli
+
+Available commands::
+
+        help
+                Usage: help
+                Help; print command description/usage
+        ?
+                Usage: ?
+                Alias for help
+        q
+                Usage: q
+                Quit; TODO
+        prefetch
+                Usage: prefetch <shift>
+                Prefetch ahead shift (number of buffers)
+
+        stat
+                Usage: stat <reset>
+                Show app statistics
+
+        pstat
+                Usage: pstat <if_name>
+                Show port MAC statistics
+
+        plink
+                Usage: plink <if_name>
+                Show port link status
+
+        mac_addr_set
+                Usage: mac_addr_set <if_name> <xx:xx:xx:xx:xx:xx>
+                Set ppio MAC address
+
+        mac_addr_add
+                Usage: mac_addr_add <if_name> <xx:xx:xx:xx:xx:xx>
+                Add ppio MAC address
+
+        promisc_state
+                Usage: promisc_state <if_name> 0 - for disable, 1 - for enable
+                Enable/disable promiscuous mode
 
 
