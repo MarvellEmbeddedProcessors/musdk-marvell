@@ -154,7 +154,7 @@ int nmp_guest_schedule(struct nmp_guest *g);
  *
  * @param[in]	g		pointer to a guest handle.
  * @param[in]	code		message code.
- * @param[in]	indx		message index.
+ * @param[in]	indx		message index. '0' is invalid, 0xFFFF is for notifications
  * @param[in]	msg		pointer to the message.
  * @param[in]	len		message length.
  *
