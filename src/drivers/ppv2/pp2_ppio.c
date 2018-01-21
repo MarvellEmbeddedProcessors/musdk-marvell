@@ -625,6 +625,8 @@ int pp2_ppio_get_capabilities(struct pp2_ppio *ppio, struct pp2_ppio_capabilitie
 	inst = pp2_ptr->pp2_inst[ppio->pp2_id];
 	port = inst->ports[ppio->port_id];
 
+	capa->pp2_id = ppio->pp2_id;
+	capa->id = ppio->port_id;
 	capa->intcs_inf.num_intcs = port->num_tcs;
 	for (i = 0; i < capa->intcs_inf.num_intcs; i++) {
 		capa->intcs_inf.intcs_infs[i].pkt_offset = port->tc[i].tc_config.pkt_offset;
