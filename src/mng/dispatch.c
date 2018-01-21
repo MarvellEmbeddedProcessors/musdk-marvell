@@ -337,8 +337,8 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
  */
 int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 {
-	int ret;
-	u32 client_idx, dst_client_idx;
+	int ret, dst_client_idx;
+	u32 client_idx;
 	u32 q_idx;
 	struct nmdisp_client *client_p, *dst_client_p;
 	struct nmdisp_q_pair_params *q;
