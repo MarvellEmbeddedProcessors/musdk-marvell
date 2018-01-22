@@ -201,11 +201,7 @@ struct cmd_desc {
 	u8 client_type;
 	u8 flags;
 
-	union {
-		struct mgmt_cmd_params params;
-		struct mgmt_cmd_resp resp_data;
-		u8 data[MGMT_DESC_DATA_LEN];
-	};
+	u8 data[MGMT_DESC_DATA_LEN];
 };
 #pragma pack()
 
