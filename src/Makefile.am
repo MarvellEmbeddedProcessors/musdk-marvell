@@ -128,6 +128,7 @@ endif
 if NMP_BUILD
 nobase_include_HEADERS += include/mng/mv_nmp.h
 nobase_include_HEADERS += include/mng/mv_nmp_guest.h
+nobase_include_HEADERS += include/mng/mv_nmp_guest_msg.h
 nobase_include_HEADERS += include/mng/mv_nmp_dispatch.h
 
 libmusdk_la_SOURCES += mng/lf/pf/pf.c
