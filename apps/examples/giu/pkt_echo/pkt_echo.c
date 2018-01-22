@@ -723,32 +723,6 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 	return 0;
 }
 
-static int nmp_preinit(struct nmp_params *params, struct pp2_glb_common_args *pp2_args)
-{
-	int	ret;
-
-	/* NMP initializations */
-	params->lfs_params = kcalloc(1, sizeof(union nmp_lf_params), GFP_KERNEL);
-	if (params->lfs_params == NULL)
-		return -ENOMEM;
-
-	/* nmp profile parameters */
-	params->lfs_params->pf.lcl_egress_q_num   = 1;
-	params->lfs_params->pf.lcl_egress_q_size  = 2048;
-	params->lfs_params->pf.lcl_ingress_q_num  = 1;
-	params->lfs_params->pf.lcl_ingress_q_size = 2048;
-	params->lfs_params->pf.lcl_bm_q_num       = 1;
-	params->lfs_params->pf.lcl_bm_q_size      = 2048;
-	params->lfs_params->pf.lcl_bm_buf_size    = 4096;
-
-	ret = nmp_read_cfg_file(garg.cmn_args.nmp_cfg_location, params);
-	if (ret) {
-		pr_err("NMP preinit failed with error %d\n", ret);
-		return -EIO;
-	}
-	return 0;
-}
-
 static void nmp_schedule_all(struct nmp *nmp)
 {
 	/* nmp gir instances schedule */
@@ -889,10 +863,13 @@ static int init_all_modules(void)
 		return err;
 
 	/* NMP initializations */
-	if (nmp_preinit(&nmp_params, pp2_args)) {
-		pr_err("NMP init failed.\n");
-		return -EFAULT;
+	memset(&nmp_params, 0, sizeof(nmp_params));
+	err = nmp_read_cfg_file(garg.cmn_args.nmp_cfg_location, &nmp_params);
+	if (err) {
+		pr_err("NMP preinit failed with error %d\n", err);
+		return -EIO;
 	}
+
 	nmp_init(&nmp_params, &(garg.nmp));
 
 	/* Wait till PF was initialized */

@@ -72,7 +72,7 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 	char				*sec = NULL;
 	char				 tmp_buf[NMP_MAX_BUF_STR_LEN];
 	char				 pp2_name[NMP_MAX_BUF_STR_LEN];
-	struct nmp_lf_nicpf_params_new	*pf;
+	struct nmp_lf_nicpf_params	*pf;
 	u32				 num_lfs = 0;
 
 	/* If cfg-file is provided, read the nmp-config from this location. Otherwise try to read either from
@@ -157,7 +157,7 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 			goto read_cfg_exit1;
 		}
 
-		params->containers_params[i].lfs_params = kcalloc(1, sizeof(struct nmp_lf_params_new) *
+		params->containers_params[i].lfs_params = kcalloc(1, sizeof(struct nmp_lf_params) *
 								params->containers_params[i].num_lfs, GFP_KERNEL);
 		if (params->containers_params[i].lfs_params == NULL) {
 			rc = -ENOMEM;
@@ -176,7 +176,7 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 
 			if (params->containers_params[i].lfs_params[j].type == NMP_LF_T_NIC_PF) {
 				/* Read nicpf*/
-				pf = (struct nmp_lf_nicpf_params_new *)
+				pf = (struct nmp_lf_nicpf_params *)
 				     &params->containers_params[i].lfs_params[j].u.nicpf;
 
 				json_buffer_to_input(sec, "pci_en", pf->pci_en);
