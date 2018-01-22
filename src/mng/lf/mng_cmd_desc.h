@@ -74,6 +74,7 @@ enum cmd_codes {
 
 	CC_PF_MGMT_ECHO,
 	CC_PF_LINK_STATUS,
+	CC_PF_GET_STATISTICS,
 	CC_PF_CLOSE,
 	CMD_CODE_LAST = 0XFF,
 };
@@ -146,6 +147,10 @@ struct mgmt_cmd_params {
 			u32	q_buf_size;
 		} pf_ingress_data_q_add;
 
+		struct {
+			int	reset;
+		} pf_get_statistics;
+
 	};
 };
 #pragma pack()
@@ -173,6 +178,22 @@ struct mgmt_cmd_resp {
 		} q_add_resp;
 
 		u32 link_status;
+
+		struct {
+			u64 rx_bytes;
+			u64 rx_packets;
+			u64 rx_unicast_packets;
+			u64 rx_errors;
+			u64 rx_fullq_dropped;
+			u64 rx_bm_dropped;
+			u64 rx_early_dropped;
+			u64 rx_fifo_dropped;
+			u64 rx_cls_dropped;
+			u64 tx_bytes;
+			u64 tx_packets;
+			u64 tx_unicast_packets;
+			u64 tx_errors;
+		} agnic_stats;
 	};
 };
 #pragma pack()

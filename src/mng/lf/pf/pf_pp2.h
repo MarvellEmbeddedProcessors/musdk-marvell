@@ -37,5 +37,8 @@ int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_port_init(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf);
+int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
+			       struct mgmt_cmd_params *params,
+			       struct mgmt_cmd_resp *resp_data);
 
 #endif /* _PF_PP2_H */

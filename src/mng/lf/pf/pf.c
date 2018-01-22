@@ -46,7 +46,6 @@
 #include "pf_pp2.h"
 #include "pf_topology.h"
 #include "pf_pci_if_desc.h"
-#
 #include "env/trace/trc_pf.h"
 
 #define REGFILE_VAR_DIR		"/var/"
@@ -1649,7 +1648,6 @@ static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 {
 	struct nmdisp_msg msg;
 	struct mgmt_cmd_resp resp;
-
 	int ret;
 
 	msg.ext = 1;
@@ -1897,6 +1895,12 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_link_status_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_LINK_STATUS message failed\n");
+		break;
+
+	case CC_PF_GET_STATISTICS:
+		ret = nmnicpf_pp2_get_statistics(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("PF_GET_STATISTICS message failed\n");
 		break;
 
 	case CC_PF_CLOSE:

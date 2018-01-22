@@ -34,6 +34,7 @@
 
 #include "std_internal.h"
 #include "mng/db.h"
+#include "mng/lf/mng_cmd_desc.h"
 #include "pf_pp2.h"
 #include "src/drivers/ppv2/pp2.h"
 
@@ -309,6 +310,41 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 	}
 
 	err = pp2_ppio_enable(pdesc->ppio);
+
+	return 0;
+}
+
+int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
+			       struct mgmt_cmd_params *params,
+			       struct mgmt_cmd_resp *resp_data)
+{
+	struct				 pp2_ppio_statistics stats;
+	u32				 pcount = 0;
+	struct nmp_pp2_port_desc	*port_desc = NULL;
+	int				 ret;
+
+	port_desc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
+
+	ret = pp2_ppio_get_statistics(port_desc->ppio, &stats, params->pf_get_statistics.reset);
+	if (ret) {
+		resp_data->status = NOTIF_STATUS_FAIL;
+		return ret;
+	}
+
+	resp_data->status = NOTIF_STATUS_OK;
+	resp_data->agnic_stats.rx_bytes = stats.rx_bytes;
+	resp_data->agnic_stats.rx_packets = stats.rx_packets;
+	resp_data->agnic_stats.rx_unicast_packets = stats.rx_unicast_packets;
+	resp_data->agnic_stats.rx_errors = stats.rx_errors;
+	resp_data->agnic_stats.rx_fullq_dropped = stats.rx_fullq_dropped;
+	resp_data->agnic_stats.rx_bm_dropped = stats.rx_bm_dropped;
+	resp_data->agnic_stats.rx_early_dropped = stats.rx_early_dropped;
+	resp_data->agnic_stats.rx_fifo_dropped = stats.rx_fifo_dropped;
+	resp_data->agnic_stats.rx_cls_dropped = stats.rx_cls_dropped;
+	resp_data->agnic_stats.tx_bytes = stats.tx_bytes;
+	resp_data->agnic_stats.tx_packets = stats.tx_packets;
+	resp_data->agnic_stats.tx_unicast_packets = stats.tx_unicast_packets;
+	resp_data->agnic_stats.tx_errors = stats.tx_errors;
 
 	return 0;
 }
