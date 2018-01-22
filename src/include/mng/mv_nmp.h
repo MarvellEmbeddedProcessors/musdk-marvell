@@ -106,7 +106,7 @@ struct nmp_lf_nicpf_pp2_port_params {
  *
  * TODO: rename to .nmp_lf_nicpf_params. Left for backwards compatibility until API is updated in all apps
  */
-struct nmp_lf_nicpf_params_new {
+struct nmp_lf_nicpf_params {
 	int pci_en;				/**< Flag inidicating PCI interface is present*/
 	u16 lcl_egress_qs_size;			/**< local egress queue size */
 	u16 lcl_ingress_qs_size;		/**< local ingress queue size */
@@ -127,11 +127,11 @@ struct nmp_lf_nicpf_params_new {
  *
  * TODO: rename to .nmp_lf_params. Left for backwards compatibility until API is updated in all apps
  */
-struct nmp_lf_params_new {
+struct nmp_lf_params {
 	enum nmp_lf_type type;		/**< Type of logical function (Virtual function, physcal function, etc)*/
 	union {
 		/** Logical function layer parameters for Physical Function type */
-		struct nmp_lf_nicpf_params_new nicpf;
+		struct nmp_lf_nicpf_params nicpf;
 	} u;
 };
 
@@ -144,7 +144,7 @@ struct nmp_container_params {
 	/** Parameters relevant to the initialization of the NMP logical function layer
 	 * including MUSDK networking drivers like MVPP2, MVSAM, MVGIU)
 	 */
-	struct nmp_lf_params_new *lfs_params;
+	struct nmp_lf_params *lfs_params;
 	u8 guest_id;		/**< entity with visibility to all the container's data and cntrl traffic */
 				/**< if no guest are using this container, use ‘0’; other wise, use >1 value */
 };
@@ -159,32 +159,6 @@ enum nmp_sched_type {
 	NMP_SCHED_MNG
 };
 
-/**
- * nmp PF parameters
- *
- * TODO: remove. Left for backwards compatibility until API is updated in all apps
- */
-struct nmp_lf_pf_params {
-	enum nmp_lf_type type;
-	int  pci_en;
-	int  lcl_egress_q_num;
-	int  lcl_egress_q_size;
-	int  lcl_ingress_q_num;
-	int  lcl_ingress_q_size;
-	int  lcl_bm_q_num;
-	int  lcl_bm_q_size;
-	int  lcl_bm_buf_size;
-};
-
-/**
- * nmp union for logical functions types
- *
- * TODO: remove. Left for backwards compatibility until API is updated in all apps
- */
-union nmp_lf_params {
-	struct nmp_lf_pf_params pf;
-};
-
 struct nmp_params {
 	int pp2_en;		/**< Flag inidicating PP2 interface is present*/
 	/** pp2_params is used for initializing pp2 interface (pp2_init)
@@ -194,9 +168,6 @@ struct nmp_params {
 	/** NMP may have several containers, each one representing a user process/VM/container */
 	u8 num_containers;
 	struct nmp_container_params *containers_params;
-	/* TODO: remove. Left for backwards compatibility until API is updated in all apps */
-	u8     num_lfs;
-	union nmp_lf_params *lfs_params;
 };
 
 /**
