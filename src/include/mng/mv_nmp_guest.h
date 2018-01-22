@@ -33,6 +33,8 @@
 #ifndef _MV_NMP_GUEST_H
 #define _MV_NMP_GUEST_H
 
+#include "mv_nmp_guest_msg.h"
+
 /** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
  *
  *  Networking Management Proxy (NMP) Guest Initialization API
