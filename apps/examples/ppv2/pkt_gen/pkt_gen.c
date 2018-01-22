@@ -526,6 +526,13 @@ static int init_local_modules(struct glob_arg *garg)
 				       port->pp_id);
 				return err;
 			}
+			/* Put the port in promisc so it will be able to get all frames received */
+			err = pp2_ppio_set_promisc(port->ppio, 1);
+			if (err) {
+				pr_err("Failed to enter promisc port %d (pp_id: %d)\n", port_index,
+				       port->pp_id);
+				return err;
+			}
 #ifdef CRYPT_APP_ONE_PORT_LOOP
 			if (port_index) {
 				err = pp2_ppio_set_promisc(port->ppio, 1);
