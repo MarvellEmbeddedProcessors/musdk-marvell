@@ -40,6 +40,7 @@
 #include "mng/lf/mng_cmd_desc.h"
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
+#include "mng/mv_nmp_guest_msg.h"
 #include "mng/pci_ep_def.h"
 #include "pf_regfile.h"
 #include "pf.h"
@@ -1816,6 +1817,41 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 }
 
 /*
+ *	nmnicpf_mac_addr_command
+ */
+static int nmnicpf_mac_addr_command(struct nmnicpf *nmnicpf,
+				    struct mgmt_cmd_params *params,
+				    struct mgmt_cmd_resp *resp_data)
+{
+	struct nmdisp_msg nmdisp_msg;
+	int ret;
+
+	pr_debug("Set mac address message\n");
+
+	ret = pp2_ppio_set_mac_addr(nmnicpf->pp2.ports_desc[0].ppio, params->mac_addr);
+	if (ret) {
+		pr_err("Unable to set mac address\n");
+		return ret;
+	}
+
+	/* Notify Guest on mac-address change */
+	nmdisp_msg.ext = 0;
+	nmdisp_msg.dst_client = CDT_CUSTOM;
+	nmdisp_msg.dst_id = nmnicpf->guest_id;
+	nmdisp_msg.src_client = CDT_PF;
+	nmdisp_msg.src_id = nmnicpf->pf_id;
+	nmdisp_msg.indx = CMD_ID_NOTIFICATION;
+	nmdisp_msg.code = MSG_T_GUEST_MAC_ADDR_UPDATED;
+	nmdisp_msg.msg = params->mac_addr;
+	nmdisp_msg.msg_len = MAC_ADDR_LEN;
+	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &nmdisp_msg);
+	if (ret)
+		pr_err("failed to send mac-addr-updated notification message\n");
+
+	return 0;
+}
+
+/*
  *	nmnicpf_process_pf_command
  *
  *	This function process all PF's commands
@@ -1905,6 +1941,13 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 
 	case CC_PF_CLOSE:
 		ret = nmnicpf_close_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("PF_IF_DOWN message failed\n");
+		break;
+
+	case CC_PF_MAC_ADDR:
+		*send_resp = 0; /* TODO: implement response once nested syscall is working  */
+		ret = nmnicpf_mac_addr_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
 		break;

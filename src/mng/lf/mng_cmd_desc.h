@@ -76,6 +76,7 @@ enum cmd_codes {
 	CC_PF_LINK_STATUS,
 	CC_PF_GET_STATISTICS,
 	CC_PF_CLOSE,
+	CC_PF_MAC_ADDR,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -100,6 +101,7 @@ enum ingress_hash_type {
 #define SET_MGMT_CMD_FIELD(word, val, off, msk)	(word = ((word & ~(msk << off)) | ((val & msk) << off)))
 #define GET_MGMT_CMD_FIELD(word, off, msk)	((word >> off) & msk)
 
+#define MAC_ADDR_LEN	6
 /*
  * mgmt_cmd - Encapsulates all management control commands parameters.
  */
@@ -151,6 +153,8 @@ struct mgmt_cmd_params {
 			int	reset;
 		} pf_get_statistics;
 
+		/* CC_PF_MAC_ADDR */
+		u8 mac_addr[MAC_ADDR_LEN];
 	};
 };
 #pragma pack()
