@@ -47,8 +47,8 @@
 
 #define GIE_MAX_QES_IN_BATCH	64
 
-#define GIE_MAX_TCS		8
-#define GIE_MAX_Q_PER_TC	128
+#define GIE_MAX_PRIOS		8
+#define GIE_MAX_Q_PER_PRIO	128
 #define GIE_MAX_BPOOLS		16
 #define GIE_MAX_BM_PER_Q	1
 #define GIE_SHADOW_FILL_SIZE	256
@@ -87,7 +87,7 @@ struct gie_regfile {
  * idx_ring_size	the DMA engine copies them to the destination
  * idx_ring_ptr		_virt/_phys = address of ring. _ptr = location in ring
  *
- * tc			the traffic class associated with the ring
+ * prio			the priority associated with the ring
  * qlen			size of queue in elements
  * qesize		size of queue element
  * qid			the global queue id
@@ -148,7 +148,7 @@ struct gie_queue {
 	u16	*idx_ring_phys;
 	u32	idx_ring_size;
 	u32	idx_ring_ptr;
-	u32	tc;
+	u32	prio;
 	u16	qlen;
 	u16	qid;
 	u16	tail;
@@ -268,21 +268,21 @@ struct dma_job {
  * regs		the GIU register file
  * qpairs	queue pair descriptors
  * bpools	BM queue descriptors
- * q_cnt	queue pair count per TC
+ * q_cnt	queue pair count per priority
  * bp_cnt	buffer pool count
  * curr_q	the current queue to schedule
- * curr_tc	the current tc to schedule
+ * curr_prio	the current priority to schedule
  */
 struct gie {
 	char			name[GIE_MAX_NAME];
 	struct dma_info		dma;
 	struct gie_regfile	*regs;
-	struct gie_q_pair	qpairs[GIE_MAX_TCS][GIE_MAX_Q_PER_TC];
+	struct gie_q_pair	qpairs[GIE_MAX_PRIOS][GIE_MAX_Q_PER_PRIO];
 	struct gie_bpool	bpools[GIE_MAX_BPOOLS];
-	u16			q_cnt[GIE_MAX_TCS];
+	u16			q_cnt[GIE_MAX_PRIOS];
 	u16			bp_cnt;
 	u16			curr_q;
-	u16			curr_tc;
+	u16			curr_prio;
 };
 
 #define map_host_addr(host_addr, q)	(q->host_remap + host_addr)
@@ -453,7 +453,7 @@ static void gie_show_queue(struct gie_queue *q)
 	pr_debug("queue details\n");
 	pr_debug("-------------\n");
 	pr_debug("qid:		%d\n", q->qid);
-	pr_debug("tc:			%d\n", q->tc);
+	pr_debug("priority:		%d\n", q->prio);
 	pr_debug("ring_phys:		%p\n", (void *)q->ring_phys);
 	pr_debug("ring_virt:		%p\n", (void *)q->ring_virt);
 	pr_debug("msg_head_phys:	%p\n", (void *)q->msg_head_phys);
@@ -461,7 +461,7 @@ static void gie_show_queue(struct gie_queue *q)
 	pr_debug("msg_head_virt:	%p\n", (void *)q->msg_head_virt);
 	pr_debug("msg_tail_virt:	%p\n", (void *)q->msg_tail_virt);
 	pr_debug("host_remap:		%p\n", (void *)q->host_remap);
-	pr_debug("qlen:		0x%x\n", q->qlen);
+	pr_debug("qlen:			0x%x\n", q->qlen);
 	pr_debug("qesize:		0x%x\n", q->qesize);
 }
 
@@ -476,7 +476,7 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 	q->host_remap = mqa->host_remap;
 	q->qlen = mqa->ring_size;
 	q->qesize = mqa->entry_size;
-	q->tc = mqa->queue_prio;
+	q->prio = mqa->queue_prio;
 	q->packets = 0;
 
 	q->idx_ring_virt = mv_sys_dma_mem_alloc(sizeof(u16) * q->qlen, sizeof(u16));
@@ -522,19 +522,19 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	struct mqa_qpt_entry *qpd;
 	struct gie_bpool *bpool;
 	int i, copy_payload, ret;
-	u32 tc;
+	u32 prio;
 
 	pr_debug("adding qid %d to %s-giu\n", qid, gie->name);
 
 	qcd = (struct mqa_qct_entry *)gie->regs->gct_base + qid;
 	qpd = (struct mqa_qpt_entry *)gie->regs->gpt_base + qcd->spec.dest_queue_id;
-	tc = qcd->common.queue_prio;
+	prio = qcd->common.queue_prio;
 	copy_payload = qcd->common.flags & MQA_QFLAGS_COPY_BUF;
 
 	/* Find an empty q_pair slot */
-	for (i = 0; i < GIE_MAX_Q_PER_TC; i++) {
-		if (!(gie->qpairs[tc][i].flags & GIE_QPAIR_VALID)) {
-			qp = &gie->qpairs[tc][i];
+	for (i = 0; i < GIE_MAX_Q_PER_PRIO; i++) {
+		if (!(gie->qpairs[prio][i].flags & GIE_QPAIR_VALID)) {
+			qp = &gie->qpairs[prio][i];
 			break;
 		}
 	}
@@ -574,7 +574,7 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	if (copy_payload)
 		qp->flags |= GIE_QPAIR_CP_PAYLOAD;
 
-	gie->q_cnt[tc]++;
+	gie->q_cnt[prio]++;
 
 	return 0;
 }
@@ -669,14 +669,14 @@ int gie_remove_queue(void *giu, u16 qid)
 	struct gie *gie = (struct gie *)giu;
 	struct gie_q_pair *qp;
 
-	qp = gie_find_q_pair(&gie->qpairs[0][0], GIE_MAX_TCS * GIE_MAX_Q_PER_TC, qid);
+	qp = gie_find_q_pair(&gie->qpairs[0][0], GIE_MAX_PRIOS * GIE_MAX_Q_PER_PRIO, qid);
 	if (qp == NULL) {
 		pr_warn("Cannot find queue %d to remove\n", qid);
 		return -ENODEV;
 	}
 
 	qp->flags = 0;
-	gie->q_cnt[qp->src_q.tc]--;
+	gie->q_cnt[qp->src_q.prio]--;
 	return 0;
 }
 
@@ -702,22 +702,22 @@ int gie_remove_bm_queue(void *giu, u16 qid)
 
 static void gie_start_schedule(struct gie *gie)
 {
-	gie->curr_tc = 0;
+	gie->curr_prio = 0;
 	gie->curr_q = 0;
 }
 
 /* Find the next queue to service according to the
  * scheduling algorithm and queue counters
  * TODO - we currently implement a dumb round robin
- * on TC 0 only.
+ * on priority 0 only.
  */
 static struct gie_q_pair *gie_get_next_q(struct gie *gie)
 {
 	struct gie_q_pair *qp;
-	int tc = 0;
+	int prio = 0;
 
-	while (gie->curr_q < gie->q_cnt[tc]) {
-		qp = &gie->qpairs[tc][gie->curr_q];
+	while (gie->curr_q < gie->q_cnt[prio]) {
+		qp = &gie->qpairs[prio][gie->curr_q];
 		gie->curr_q++;
 		if (qp->flags | GIE_QPAIR_ACTIVE)
 			return qp;
