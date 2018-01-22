@@ -1171,7 +1171,7 @@ static int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf)
 
 	nmnicpf->pp2.ports_desc = pdesc;
 	pdesc->num_pools = pf_pp2_profile->lcl_num_bpools;
-	pr_info("Number of pools %d\n", pdesc->num_pools);
+	pr_debug("Number of pools %d\n", pdesc->num_pools);
 	pools = kmalloc((sizeof(struct nmp_pp2_bpool_desc) * pdesc->num_pools), GFP_KERNEL);
 	if (!pools) {
 		pr_err("no mem for bpool_desc array!\n");
@@ -1200,7 +1200,7 @@ static int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf)
 	pdesc->first_rss_tbl = 0; /* Fixed value */
 	pdesc->hash_type = 0; /* Fixed value */
 	pdesc->pkt_offst = nmnicpf->profile_data.dflt_pkt_offset;
-	pr_info("pdesc pkt_offset: %d\n", pdesc->pkt_offst);
+	pr_debug("pdesc pkt_offset: %d\n", pdesc->pkt_offst);
 	pdesc->inq_size = nmnicpf->profile_data.lcl_ingress_q_size;
 	pdesc->max_num_tcs = nmnicpf->profile_data.max_num_tcs;
 	pdesc->num_tcs = 1; /* Value is updated after init_done command */
