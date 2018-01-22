@@ -439,12 +439,16 @@ static inline int nmdisp_msg_recv_sg(struct nmdisp *nmdisp,
 				     struct cmd_desc *recv_desc)
 {
 	int ret = MSG_WAS_RECV, skip_copy = false;
+	u32 prod_idx;
+
+	prod_idx = q_rd_prod(q);
 
 	/* This is a S/G message. Need to loop the descs until either one of the following:
 	 * 1. buff-pos is LAST - S/G completion
 	 * 2. buff-pos is single or external - S/G error
 	 * 3. cmd_indx!=fisrt_cmd_indx - S/G error
 	 * 4. num_ext_desc != 0 - S/G error
+	 * 5. ring is empty - S/G error
 	 */
 	u16 first_cmd_idx = recv_desc->cmd_idx;
 
@@ -471,7 +475,8 @@ static inline int nmdisp_msg_recv_sg(struct nmdisp *nmdisp,
 		buf_pos = CMD_FLAGS_BUF_POS_GET(recv_desc->flags);
 		if ((first_cmd_idx != recv_desc->cmd_idx) ||
 		    ((buf_pos ==  CMD_FLAG_BUF_POS_SINGLE) ||  (buf_pos == CMD_FLAG_BUF_POS_EXT_BUF)) ||
-		    (CMD_FLAGS_NUM_EXT_DESC_GET(recv_desc->flags) != 0)) {
+		    (CMD_FLAGS_NUM_EXT_DESC_GET(recv_desc->flags) != 0) ||
+		    (q_empty(prod_idx, *cons_idx))) {
 			return -1;
 		}
 	}
