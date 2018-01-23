@@ -35,6 +35,7 @@
 #include "std_internal.h"
 #include "env/trace/trc_pf.h"
 #include "mng/db.h"
+#include "mng/dispatch.h"
 #include "pf/pf.h"
 #include "custom/custom.h"
 #include "lf_mng.h"
@@ -60,6 +61,8 @@ int lf_init(struct nmp *nmp)
 		pr_err("Custom init failed\n");
 		return ret;
 	}
+
+	nmdisp_dispatch_dump(nmp->nmdisp);
 
 	return 0;
 }

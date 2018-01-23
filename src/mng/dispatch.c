@@ -228,6 +228,11 @@ int nmdisp_register_client(struct nmdisp *nmdisp_p, struct nmdisp_client_params 
 	nmdisp_p->clients[free_client_idx].client_ctrl_cb = params->f_client_ctrl_cb;
 	nmdisp_p->clients[free_client_idx].client       = params->client;
 
+	pr_debug("nmdisp_register_client idx %d, client type %d, client Id %d\n", free_client_idx,
+			nmdisp_p->clients[free_client_idx].client_type,
+			nmdisp_p->clients[free_client_idx].client_id);
+
+
 	return 0;
 }
 
@@ -321,7 +326,40 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 
 	nmdisp_p->max_msg_size = max(nmdisp_p->max_msg_size, q->max_msg_size);
 
+	pr_debug("nmdisp_add_queue client idx %d, q_idx %d, cmd_q %d, notify_q %d\n",
+			client_idx, q_idx, q->cmd_q->q_id, q->notify_q->q_id);
+
 	return 0;
+}
+
+/*
+ *	nmdisp_dispatch_dump
+ */
+void nmdisp_dispatch_dump(struct nmdisp *nmdisp_p)
+{
+	u32 client_idx;
+	u32 q_idx;
+	struct nmdisp_client *client_p;
+	struct nmdisp_q_pair_params *q;
+
+	pr_info("nmdisp_dispatch Info\n");
+
+	for (client_idx = 0; client_idx < NMDISP_MAX_CLIENTS; client_idx++) {
+		client_p = &(nmdisp_p->clients[client_idx]);
+		if (client_p->client_type != CDT_INVALID)
+			pr_info("client idx = %d  type %d  id %d\n",
+					client_idx, client_p->client_type, client_p->client_id);
+
+		for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
+			q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
+
+			if (q->cmd_q == NULL)
+				continue;
+
+			pr_info("	q_idx = %d, cmd %d, notify %d\n",
+					q_idx, q->cmd_q->q_id, q->notify_q->q_id);
+		}
+	}
 }
 
 
@@ -373,11 +411,19 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 				if (ret < 0)
 					return ret;
 
+				pr_debug("recv: client idx %d q_idx %d cmd_q %d\n",
+						client_idx, q_idx, q->cmd_q->q_id);
+				pr_debug("      src_client %d src_id %d dst_client %d dst_id %d\n",
+						msg.src_client, msg.src_id, msg.dst_client, msg.dst_id);
+
 				dst_client_idx = nmdisp_client_id_get(nmdisp_p, msg.dst_client, msg.dst_id);
 				if (dst_client_idx < 0) {
 					pr_err("can't dispatch msg, dst-client not found\n");
 					return -1;
 				}
+
+				pr_debug("recv: dst_client_idx %d\n\n", dst_client_idx);
+
 				dst_client_p = &nmdisp_p->clients[dst_client_idx];
 				ret = dst_client_p->client_ctrl_cb(dst_client_p->client, &msg);
 				if (ret < 0)

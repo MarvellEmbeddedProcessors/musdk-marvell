@@ -56,4 +56,6 @@ struct nmdisp {
 
 };
 
+void nmdisp_dispatch_dump(struct nmdisp *nmdisp_p);
+
 #endif /* _DISPATCH_H */
