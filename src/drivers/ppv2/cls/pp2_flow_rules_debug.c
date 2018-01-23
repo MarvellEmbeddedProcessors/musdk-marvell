@@ -431,7 +431,7 @@ int pp2_cli_cls_fl_rule_ena(void *arg, int argc, char *argv[])
 int pp2_cli_cls_set_rss_mode(void *arg, int argc, char *argv[])
 {
 	int rc;
-	u32 rss_mode;
+	u32 rss_mode = 0;
 	struct pp2_port *port = (struct pp2_port *)arg;
 
 	if (argc != 2) {
