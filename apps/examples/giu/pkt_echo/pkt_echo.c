@@ -927,8 +927,6 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		giu_bpool_inf = PKT_ECHO_APP_GIU_BPOOLS_INF;
 	struct pp2_glb_common_args	*pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	int				giu_id = 0; /* Should be retrieved from garg */
-	char				 file_name[SER_MAX_FILE_NAME];
-	char				*buff;
 
 	pr_info("Local initializations ...\n");
 
@@ -947,32 +945,15 @@ static int init_local_modules(struct glob_arg *garg)
 		pp2_args->num_pools = ARRAY_SIZE(std_infs);
 	}
 
-	buff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
-	if (buff == NULL)
-		return -ENOMEM;
-
-	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR,
-		 SER_FILE_NAME_PREFIX, garg->cmn_args.guest_id);
-
-	err = read_file_to_buf(file_name, buff, SER_MAX_FILE_SIZE);
-	if (err) {
-		pr_err("app_read_config_file failed for %s\n", file_name);
-		kfree(buff);
-		return err;
-	}
-
 	guest_util_get_relations_info(garg->prb_str, &garg->pp2_info);
 
-	err = app_guest_utils_build_all_bpools(buff, &garg->pp2_info, &pp2_args->pools_desc, pp2_args, infs);
-	if (err) {
-		kfree(buff);
+	err = app_guest_utils_build_all_bpools(garg->prb_str, &garg->pp2_info, &pp2_args->pools_desc, pp2_args, infs);
+	if (err)
 		return err;
-	}
-	err = app_nmp_guest_port_init(buff, &garg->pp2_info, &pp2_args->ports_desc[0]);
-	if (err) {
-		kfree(buff);
+
+	err = app_nmp_guest_port_init(garg->prb_str, &garg->pp2_info, &pp2_args->ports_desc[0]);
+	if (err)
 		return err;
-	}
 
 	/**************************/
 	/* GIU Port Init	  */
@@ -980,20 +961,17 @@ static int init_local_modules(struct glob_arg *garg)
 	err = app_giu_port_init(giu_id, &garg->giu_gpio);
 	if (err) {
 		pr_err("Failed to initialize GIU Port %d\n", giu_id);
-		kfree(buff);
 		return err;
 	}
 
 	err = app_giu_build_bpool(0, &giu_bpool_inf);
 	if (err) {
 		pr_err("Failed to build GIU Bpool\n");
-		kfree(buff);
 		return err;
 	}
 
 	garg->cmn_args.num_ports = garg->pp2_info.num_ports;
 
-	kfree(buff);
 	return 0;
 }
 
