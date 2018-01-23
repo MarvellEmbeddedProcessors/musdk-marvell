@@ -295,7 +295,7 @@ static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
 	char *ret_ptr;
 	int i, option;
 	int long_index = 0;
-	u16 vlan_id;
+	u16 vlan_id = 0;
 	int cmd = -1;
 	struct option long_options[] = {
 		{"set", required_argument, 0, 's'},
