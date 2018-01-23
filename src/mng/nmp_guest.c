@@ -93,17 +93,12 @@ static int nmp_guest_probe(struct nmp_guest *guest)
 int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 {
 	int	err;
-	char	file_name[SER_MAX_FILE_NAME];
 
 	*g = kcalloc(1, sizeof(struct nmp_guest), GFP_KERNEL);
 	if (*g == NULL) {
 		pr_err("Failed to allocate NMP handler\n");
 		return -ENOMEM;
 	}
-
-	(*g)->prb_str = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
-	if ((*g)->prb_str == NULL)
-		return -ENOMEM;
 
 	(*g)->id = params->id;
 	(*g)->timeout = params->timeout;
@@ -120,20 +115,12 @@ int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 		goto guest_init_err2;
 	}
 
-	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR, SER_FILE_NAME_PREFIX, (*g)->id);
-	err = read_file_to_buf(file_name, (*g)->prb_str, SER_MAX_FILE_SIZE);
-	if (err) {
-		pr_err("app_read_config_file failed for %s\n", file_name);
-		goto guest_init_err2;
-	}
-
 	/* TODO - take max mesg length from guest-file */
 	(*g)->msg = kcalloc(1, 1024, GFP_KERNEL);
 	if ((*g)->msg == NULL) {
+		err = -ENOMEM;
 		pr_err("Failed to allocate message buffer\n");
-		kfree((*g)->prb_str);
-		kfree(*g);
-		return -ENOMEM;
+		goto guest_init_err2;
 	}
 
 	nmp_guest_probe(*g);
