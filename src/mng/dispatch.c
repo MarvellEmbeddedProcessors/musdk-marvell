@@ -418,7 +418,8 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 
 				dst_client_idx = nmdisp_client_id_get(nmdisp_p, msg.dst_client, msg.dst_id);
 				if (dst_client_idx < 0) {
-					pr_err("can't dispatch msg, dst-client not found\n");
+					pr_err("can't dispatch msg, dst-client (%d, %d) not found\n",
+						msg.dst_client, msg.dst_id);
 					return -1;
 				}
 
