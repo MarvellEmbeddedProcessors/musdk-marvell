@@ -91,6 +91,7 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 	(*nmp)->nmpp2.pp2_en = params->pp2_en;
 
 	if (params->pp2_en) {
+		(*nmp)->nmpp2.pp2_params.bm_pool_reserved_map = params->pp2_params.bm_pool_reserved_map;
 		pf_profile->pp2_bm_pool_reserved_map = params->pp2_params.bm_pool_reserved_map;
 		pf_profile->dflt_pkt_offset = lf_params->u.nicpf.dflt_pkt_offset;
 		pf_profile->max_num_tcs = lf_params->u.nicpf.max_num_tcs;
