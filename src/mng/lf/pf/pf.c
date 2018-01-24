@@ -1852,6 +1852,28 @@ static int nmnicpf_mac_addr_command(struct nmnicpf *nmnicpf,
 }
 
 /*
+ *	nmnicpf_rx_mode_command
+ */
+static int nmnicpf_rx_mode_command(struct nmnicpf *nmnicpf,
+				   struct mgmt_cmd_params *params,
+				   struct mgmt_cmd_resp *resp_data)
+{
+	int ret;
+
+	pr_debug("Set rx-mode message\n");
+
+	ret = pp2_ppio_set_promisc(nmnicpf->pp2.ports_desc[0].ppio, (params->rx_mode_flags & RX_MODE_PROMISC));
+	if (ret)
+		pr_err("Unable to set promisc\n");
+
+	ret = pp2_ppio_set_mc_promisc(nmnicpf->pp2.ports_desc[0].ppio, (params->rx_mode_flags & RX_MODE_ALLMULTI));
+	if (ret)
+		pr_err("Unable to set mc promisc\n");
+
+	return 0;
+}
+
+/*
  *	nmnicpf_process_pf_command
  *
  *	This function process all PF's commands
@@ -1952,6 +1974,13 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
+	case CC_PF_RX_MODE:
+		*send_resp = 0; /* TODO: implement response once nested syscall is working  */
+		ret = nmnicpf_rx_mode_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_RX_MODE message failed\n");
+		break;
+
 	default:
 		/* Unknown command code */
 		pr_err("Unknown command code %d!! Unable to process command.\n", msg->code);
@@ -1995,6 +2024,9 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
  *	Once NIC-PF get a internal command and the 'src-client' is of type Custom, it should initiate a call with
  *	the command message by calling the 'nmdisp_send_msg' API and 'ext' set.
  */
+
+	pr_debug("NICPF got %s command code %d from client-type %d client-id %d\n",
+		 (msg->ext) ? "external":"internal", msg->code, msg->src_client, msg->src_id);
 
 	if (msg->ext) {
 		if ((msg->src_client == CDT_PF) && (msg->src_id == nmnicpf->pf_id)) {

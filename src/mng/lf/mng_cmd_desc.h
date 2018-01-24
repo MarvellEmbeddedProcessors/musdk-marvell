@@ -77,6 +77,7 @@ enum cmd_codes {
 	CC_PF_GET_STATISTICS,
 	CC_PF_CLOSE,
 	CC_PF_MAC_ADDR,
+	CC_PF_RX_MODE,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -155,6 +156,11 @@ struct mgmt_cmd_params {
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];
+
+		/* CC_PF_RX_MODE */
+#define RX_MODE_PROMISC		(0x1)
+#define RX_MODE_ALLMULTI	(0x2)
+		u32 rx_mode_flags;
 	};
 };
 #pragma pack()
