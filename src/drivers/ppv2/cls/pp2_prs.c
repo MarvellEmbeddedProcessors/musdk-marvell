@@ -1011,7 +1011,7 @@ static int pp2_prs_proto_lookup(u16 proto, u16 lookup[], u16 proto_num[])
  */
 static int pp2_prs_tcam_idx_list_build(struct pp2_inst *inst, u32 lookup, u16 proto, int negate, u32 ri)
 {
-	int tid, i;
+	int tid, i = 0;
 	u8 byte;
 	u16 word;
 	u8 tcam_ai;
@@ -1157,6 +1157,7 @@ static int pp2_prs_tcam_idx_list_build(struct pp2_inst *inst, u32 lookup, u16 pr
 					pp2_cls_db_prs_match_list_add(inst, tid, 1);
 				else
 					pp2_cls_db_prs_match_list_add(inst, tid, 0);
+				i++;
 			}
 		}
 	}
