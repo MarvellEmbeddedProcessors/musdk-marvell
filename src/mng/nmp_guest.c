@@ -179,7 +179,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 	u32 prod_idx, cons_idx;
 	u16 len, total_len = 0;
 	u8 num_ext_descs;
-	enum nmp_guest_lf_type lf_type = NMP_GUEST_LF_T_NONE;
+	enum nmp_guest_lf_type lf_type = NMP_GUEST_LF_T_CUSTOM;
 	struct nmp_guest_queue *q = &guest->notify_queue;
 
 	while (1) {
