@@ -187,6 +187,7 @@ struct mgmt_cmd_resp {
 			u64	bpool_q_prod_cons_phys_addr;
 		} q_add_resp;
 
+		/* CC_PF_LINK_STATUS */
 		u32 link_status;
 
 		struct {
@@ -204,6 +205,20 @@ struct mgmt_cmd_resp {
 			u64 tx_unicast_packets;
 			u64 tx_errors;
 		} agnic_stats;
+	};
+};
+#pragma pack()
+
+/*
+ * mgmt_notification - Encapsulates the different notifications that can be
+ * received from the SNIC.
+ */
+/* Make sure structure is portable along different systems. */
+#pragma pack(1)
+struct mgmt_notification {
+	union {
+		/* NC_PF_LINK_CHANGE */
+		u32 link_status;
 	};
 };
 #pragma pack()

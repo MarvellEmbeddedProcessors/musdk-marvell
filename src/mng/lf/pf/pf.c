@@ -1648,7 +1648,7 @@ egress_queue_exit:
 static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 {
 	struct nmdisp_msg msg;
-	struct mgmt_cmd_resp resp;
+	struct mgmt_notification resp;
 	int ret;
 
 	msg.ext = 1;
@@ -1659,7 +1659,7 @@ static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 	msg.src_client = CDT_PF;
 	msg.src_id = 0;
 	msg.msg = &resp;
-	msg.msg_len = sizeof(struct mgmt_cmd_resp);
+	msg.msg_len = sizeof(struct mgmt_notification);
 
 	resp.link_status = link_status;
 
