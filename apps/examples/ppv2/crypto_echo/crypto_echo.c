@@ -164,6 +164,7 @@ struct crypto_echo_stats {
 	u64 dec_drop;
 	u64 tx_pkts[MVAPPS_PP2_MAX_NUM_PORTS];
 	u64 tx_drop[MVAPPS_PP2_MAX_NUM_PORTS];
+	u64 tx_done[MVAPPS_PP2_MAX_NUM_PORTS];
 };
 #define CRYPT_STATS(c) c
 #else
@@ -264,6 +265,7 @@ struct local_arg {
 #ifdef CRYPT_APP_STATS_SUPPORT
 	struct crypto_echo_stats	stats;
 #endif
+	u32				tx_in_cntr[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct crypto_flow		def_flows[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct crypto_flow		flows[CRYPT_APP_MAX_NUM_SESSIONS];
 	int				last_flow;
@@ -311,7 +313,9 @@ static void print_local_stats(struct local_arg *larg, int cpu, int reset)
 
 	for (i = 0; i < larg->cmn_args.num_ports; i++) {
 		printf("TX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_pkts[i]);
-		printf("TX drops (port #%d)         : %" PRIu64 " packets\n", i, larg->stats.tx_drop[i]);
+		printf("TX done    (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_done[i]);
+		printf("TX drops   (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_drop[i]);
+
 	}
 	printf("\n");
 }
@@ -321,12 +325,12 @@ static void free_buf_from_sam_cookie(struct local_arg *larg, void *cookie)
 {
 	struct pkt_mdata	*mdata = (struct pkt_mdata *)cookie;
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
-
-	char			*buff = mdata->buf_vaddr;
+	char			*buff;
 	dma_addr_t		pa;
 	struct pp2_bpool	*bpool;
 	struct pp2_buff_inf	binf;
 
+	buff = mdata->buf_vaddr;
 	pa = mv_sys_dma_mem_virt2phys(buff);
 	bpool = mdata->bpool;
 	binf.addr = pa;
@@ -569,12 +573,12 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	larg->stats.rx_pkts[rx_ppio_id] += num;
 	larg->stats.rx_drop[rx_ppio_id] += num - i;
 
-	if (cio == larg->enc_cio) {
+	if (state == PKT_STATE_ENC) {
 		larg->stats.enc_enq += num_got;
 		larg->stats.enc_drop += (i - num_got);
 	} else {
-		larg->stats.enc_enq += num_got;
-		larg->stats.enc_drop += (i - num_got);
+		larg->stats.dec_enq += num_got;
+		larg->stats.dec_drop += (i - num_got);
 	}
 #endif /* CRYPT_APP_STATS_SUPPORT*/
 
@@ -709,7 +713,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	else
 		larg->dec_in_cntr += num_got;
 
-	CRYPT_STATS(larg->stats.dec_enq += num);
+	CRYPT_STATS(larg->stats.dec_enq += num_got);
 	CRYPT_STATS(larg->stats.dec_drop += num - num_got);
 
 	if (num_got < num) {
@@ -758,7 +762,7 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 	struct pp2_ppio_desc	*desc;
 	struct pp2_ppio_desc	 descs[MVAPPS_PP2_MAX_NUM_PORTS][CRYPT_APP_MAX_BURST_SIZE];
 	int			 err, shadow_q_size[MVAPPS_PP2_MAX_NUM_PORTS];
-	u16			 i, tp, num_got, num_done, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
+	u16			 i, tp, num_got, port_nums[MVAPPS_PP2_MAX_NUM_PORTS];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
@@ -831,6 +835,8 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 			if (err)
 				return err;
 
+			perf_cntrs->tx_cnt += num_got;
+			larg->tx_in_cntr[tp] += num_got;
 			CRYPT_STATS(larg->stats.tx_pkts[tp] += num_got);
 			CRYPT_STATS(larg->stats.tx_drop[tp] += (num - num_got));
 
@@ -862,24 +868,39 @@ static inline int send_pkts(struct local_arg *larg, u8 tc,
 				perf_cntrs->drop_cnt += (num - num_got);
 			}
 		}
-		pp2_ppio_get_num_outq_done(pp2_args->lcl_ports_desc[tp].ppio, pp2_args->hif, tc, &num_done);
-		for (i = 0; i < num_done; i++) {
-			binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
-			bpool = shadow_q->ents[shadow_q->read_ind].bpool;
-
-			shadow_q->read_ind++;
-			if (shadow_q->read_ind == shadow_q_size[tp])
-				shadow_q->read_ind = 0;
-
-			if (unlikely(!binf->cookie || !binf->addr)) {
-				pr_warn("TX done: bad buff - num_done=%d, i=%d, write=%d, read=%d\n",
-					num_done, i, shadow_q->write_ind, shadow_q->read_ind);
-				continue;
-			}
-			pp2_bpool_put_buff(pp2_args->hif, bpool, binf);
-		}
-		perf_cntrs->tx_cnt += num_done;
 	}
+	return 0;
+}
+
+static inline int free_sent_pkts(struct local_arg *larg, u16 tp, u8 tc)
+{
+	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
+	struct pp2_ppio	*ppio = pp2_args->lcl_ports_desc[tp].ppio;
+	struct tx_shadow_q	*shadow_q = &pp2_args->lcl_ports_desc[tp].shadow_qs[tc];
+	struct pp2_bpool	*bpool;
+	struct pp2_buff_inf	*binf;
+	u16 num_done;
+	int i;
+	int shadow_q_size = pp2_args->lcl_ports_desc[tp].shadow_q_size;
+
+	pp2_ppio_get_num_outq_done(ppio, pp2_args->hif, tc, &num_done);
+	for (i = 0; i < num_done; i++) {
+		binf = &shadow_q->ents[shadow_q->read_ind].buff_ptr;
+		bpool = shadow_q->ents[shadow_q->read_ind].bpool;
+
+		shadow_q->read_ind++;
+		if (shadow_q->read_ind == shadow_q_size)
+			shadow_q->read_ind = 0;
+
+		if (unlikely(!binf->cookie || !binf->addr)) {
+			pr_warn("TX done: bad buff - num_done=%d, i=%d, write=%d, read=%d\n",
+				num_done, i, shadow_q->write_ind, shadow_q->read_ind);
+			continue;
+		}
+		pp2_bpool_put_buff(pp2_args->hif, bpool, binf);
+	}
+	larg->tx_in_cntr[tp] -= num_done;
+	CRYPT_STATS(larg->stats.tx_done[tp] += num_done);
 	return 0;
 }
 
@@ -1089,8 +1110,14 @@ static int main_loop_cb(void *arg, int *running)
 		for (i = 0; i < larg->cmn_args.num_ports; i++) {
 
 			err = loop_sw_recycle(larg, i, tc, rxq, num);
-			if (err != 0)
+			if (err)
 				return err;
+
+			if (larg->tx_in_cntr[i]) {
+				err = free_sent_pkts(larg, i, tc);
+				if (err)
+					return err;
+			}
 		}
 	}
 	return err;
