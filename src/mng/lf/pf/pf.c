@@ -857,6 +857,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	void *qnpt_phys, *qnct_phys;
 	u32 local_cmd_queue, local_notify_queue;
 	u32 remote_cmd_queue, remote_notify_queue;
+	u8 mac_addr[] = INITIAL_MAC_ADDR;
 	int ret = 0;
 
 	struct mqa_queue_params params;
@@ -938,12 +939,12 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	pr_info("Wait till Host change the status to 'Host Management Ready'\n");
 
 	/* TODO - get the mac address from somewhere that makes sense */
-	pcie_cfg->mac_addr[0] = 0x0;
-	pcie_cfg->mac_addr[1] = 0x1;
-	pcie_cfg->mac_addr[2] = 0x2;
-	pcie_cfg->mac_addr[3] = 0x3;
-	pcie_cfg->mac_addr[4] = 0x4;
-	pcie_cfg->mac_addr[5] = 0x5;
+	pcie_cfg->mac_addr[0] = mac_addr[0];
+	pcie_cfg->mac_addr[1] = mac_addr[1];
+	pcie_cfg->mac_addr[2] = mac_addr[2];
+	pcie_cfg->mac_addr[3] = mac_addr[3];
+	pcie_cfg->mac_addr[4] = mac_addr[4];
+	pcie_cfg->mac_addr[5] = mac_addr[5];
 
 	/*
 	 * Notification Tables Info:

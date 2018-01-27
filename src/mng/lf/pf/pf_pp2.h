@@ -33,6 +33,8 @@
 #ifndef _PF_PP2_H
 #define _PF_PP2_H
 
+#define INITIAL_MAC_ADDR	{0x0, 0x1, 0x2, 0x3, 0x4, 0x5}
+
 int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_port_init(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf);

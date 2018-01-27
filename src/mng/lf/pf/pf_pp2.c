@@ -252,6 +252,7 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 	struct nmp_pp2_port_desc	*pdesc;
 	int				 num_pools;
 	struct nmp_pp2_bpool_desc	*pools;
+	eth_addr_t			addr = INITIAL_MAC_ADDR;
 
 	if (!nmnicpf->pp2.ports_desc)
 		/* no pp2, just return */
@@ -309,7 +310,17 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 		return -EIO;
 	}
 
+	err = pp2_ppio_set_mac_addr(pdesc->ppio, addr);
+	if (err) {
+		pr_err("PPIO set mac address failed\n");
+		return err;
+	}
+
 	err = pp2_ppio_enable(pdesc->ppio);
+	if (err) {
+		pr_err("PPIO enable failed\n");
+		return err;
+	}
 
 	return 0;
 }
