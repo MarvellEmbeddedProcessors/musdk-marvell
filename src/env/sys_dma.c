@@ -512,3 +512,20 @@ phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
 	return ((phys_addr_t)va - (phys_addr_t)__dma_virt_base) + __dma_phys_base;
 }
+
+int mv_sys_dma_virt_is_valid(void *va)
+{
+	if ((va >= __dma_virt_base) && (va < (void *)((uintptr_t)__dma_virt_base + __dma_size)))
+		return 1;
+
+	return 0;
+}
+
+int mv_sys_dma_phys_is_valid(phys_addr_t pa)
+{
+	if ((pa >= __dma_phys_base) && (pa < __dma_phys_base + __dma_size))
+		return 1;
+
+	return 0;
+}
+

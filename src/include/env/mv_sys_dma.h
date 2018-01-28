@@ -142,6 +142,26 @@ void *mv_sys_dma_mem_phys2virt(phys_addr_t pa);
  */
 phys_addr_t mv_sys_dma_mem_virt2phys(void *va);
 
+/**
+ * Check validity of virtual address allocated from DMA memory.
+ *
+ * @param[in]	va	Virtual address to be checked.
+ *
+ * @retval	1 - virtual address is valid
+ * @retval	0 - virtual address is invalid
+ */
+int mv_sys_dma_virt_is_valid(void *va);
+
+/**
+ * Check validity of physical address allocated from DMA memory.
+ *
+ * @param[in]	pa	Physical Address to be checked.
+ *
+ * @retval	1 - physical address is valid
+ * @retval	0 - physical address is invalid
+ */
+int mv_sys_dma_phys_is_valid(phys_addr_t pa);
+
 
 int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, struct mv_sys_dma_mem_region **mem);
 void mv_sys_dma_mem_region_destroy(struct mv_sys_dma_mem_region *mem);
