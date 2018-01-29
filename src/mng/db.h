@@ -141,7 +141,7 @@ struct nmnicpf {
 	struct giu_mng_topology mng_data;           /* GIU Management Topology */
 	struct giu_regfile regfile_data;            /* GIU Register File */
 	void (*f_ready_cb)(void *arg);
-	void *internal;
+	void *arg;
 };
 
 struct nmpp2 {

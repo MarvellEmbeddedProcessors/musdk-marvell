@@ -342,9 +342,10 @@ static int dev_mng_hw_init(struct nmp *nmp)
 /** ====================== **/
 
 /* Initialize the PP2 interface */
-static void dev_mng_pf_init_done(void *args)
+static void dev_mng_pf_init_done(void *arg)
 {
-	struct nmnicpf *nmnicpf = (struct nmnicpf *)args;
+	struct nmp *nmp = (struct nmp *)arg;
+	struct nmnicpf *nmnicpf = &nmp->nmnicpf;
 	struct mv_sys_dma_mem_info mem_info;
 	char	 file_name[SER_MAX_FILE_NAME];
 	char	 buff[SER_MAX_FILE_SIZE];
@@ -397,6 +398,7 @@ static int dev_mng_sw_init(struct nmp *nmp)
 
 	/* Assign the pf_init_done callback */
 	nmp->nmnicpf.f_ready_cb = dev_mng_pf_init_done;
+	nmp->nmnicpf.arg = nmp;
 
 	/* Initialize Dispatcher */
 	ret = nmdisp_init(&params, &(nmp->nmdisp));

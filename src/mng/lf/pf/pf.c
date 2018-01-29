@@ -1732,7 +1732,7 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	}
 
 	/* Indicate nmp init_done ready */
-	nmnicpf->f_ready_cb(nmnicpf);
+	nmnicpf->f_ready_cb(nmnicpf->arg);
 
 	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
 	if (ret)
