@@ -58,10 +58,10 @@
 /** =========================== **/
 
 /* Serialize PP2 */
-int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size, size_t *in_out_pos)
+int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 {
-	int	 err;
-	size_t	 pos = *in_out_pos;
+	int	 ret;
+	size_t	 pos = 0;
 	u32	 port_index;
 	u32	 j;
 
@@ -94,9 +94,14 @@ int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size, size_t 
 		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
 		for (j = 0; j < port->num_pools; j++) {
-			err = pp2_bpool_serialize(port->pools_desc[j].pool, buff, SER_MAX_FILE_SIZE);
-			if (err)
-				return err;
+			ret = pp2_bpool_serialize(port->pools_desc[j].pool, &buff[pos], size - pos);
+			if (ret < 0)
+				return ret;
+			pos += ret;
+			if (pos != strlen(buff)) {
+				pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+				return -EINVAL;
+			}
 		}
 	}
 
@@ -105,14 +110,17 @@ int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size, size_t 
 		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
 		/* Serialize ppio */
-		err = pp2_ppio_serialize(port->ppio, buff, SER_MAX_FILE_SIZE);
-		if (err)
-			return err;
+		ret = pp2_ppio_serialize(port->ppio, &buff[pos], size - pos);
+		if (ret < 0)
+			return ret;
+		pos += ret;
+		if (pos != strlen(buff)) {
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+			return -EINVAL;
+		}
 	}
 
-	*in_out_pos = pos;
-
-	return 0;
+	return pos;
 }
 
 /** ====================== **/

@@ -326,7 +326,7 @@ int pp2_bpool_serialize(struct pp2_bpool *pool, char buff[], u32 size)
 	json_print_to_buffer(buff, size, 2, "}\n");
 	json_print_to_buffer(buff, size, 1, "}\n");
 
-	return 0;
+	return pos;
 }
 
 int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **bpool)

@@ -1348,10 +1348,11 @@ int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en);
  * The guest application can then access the buffer ppio object, and retrieve the ppio config string
  *
  * @param[in]	ppio		A ppio handle.
- * @param[in]	buff		Buffer ppio object.
+ * @param[in]	buff		Pointer to a buffer where the resulting string is stored.
+ *				The buffer should have a size of at least 'size' characters.
  * @param[in]	size		size of buffer.
  *
- * @retval	0 on success
+ * @retval	The number of characters that would have been written if 'size' had been sufficiently large
  * @retval	<0 on failure
  */
 int pp2_ppio_serialize(struct pp2_ppio *ppio, char buff[], u32 size);

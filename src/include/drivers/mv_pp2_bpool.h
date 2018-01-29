@@ -186,10 +186,11 @@ int pp2_bpool_get_num_buffs(struct pp2_bpool *pool, u32 *num_buffs);
  * The guest application can then access the created buffer pool object, and retrieve the bpool config string
  *
  * @param[in]	pool		A bpool handle.
- * @param[in]	buff		Buffer pool object.
+ * @param[in]	buff		Pointer to a buffer where the resulting string is stored.
+ *				The buffer should have a size of at least 'size' characters.
  * @param[in]	size		size of buffer.
  *
- * @retval	0 on success
+ * @retval	The number of characters that would have been written if 'size' had been sufficiently large
  * @retval	<0 on failure
  */
 int pp2_bpool_serialize(struct pp2_bpool *pool, char buff[], u32 size);

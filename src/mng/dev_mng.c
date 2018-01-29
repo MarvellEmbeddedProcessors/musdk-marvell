@@ -351,7 +351,7 @@ static void dev_mng_pf_init_done(void *arg)
 	char	 buff[SER_MAX_FILE_SIZE];
 	u32	 size = SER_MAX_FILE_SIZE;
 	char	 dev_name[100];
-	int	 err;
+	int	 ret;
 	size_t	 pos = 0;
 
 	pr_info("nmp_pf_init_done reached\n");
@@ -376,14 +376,19 @@ static void dev_mng_pf_init_done(void *arg)
 
 	pr_info("starting serialization of guest %d\n", nmnicpf->guest_id);
 
-	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT)
-		dev_mng_pp2_serialize(nmnicpf, buff, size, &pos);
+	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
+		ret = dev_mng_pp2_serialize(nmnicpf, &buff[pos], size - pos);
+		if (ret >= 0)
+			pos += ret;
+		if (pos != strlen(buff))
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+	}
 
 	json_print_to_buffer(buff, size, 0, "}\n");
 
 	/* write buffer to file */
-	err = write_buf_to_file(file_name, buff, strlen(buff));
-	if (err)
+	ret = write_buf_to_file(file_name, buff, strlen(buff));
+	if (ret)
 		pr_err("Failed to write to guest %d file\n", nmnicpf->guest_id);
 
 	sync();
