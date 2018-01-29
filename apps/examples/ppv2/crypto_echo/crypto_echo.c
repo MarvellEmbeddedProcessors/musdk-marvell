@@ -89,13 +89,6 @@
 #define CRYPT_APP_PREFETCH_SHIFT		4
 #define CRYPT_APP_MAX_NUM_FLOWS			64
 
-
-#define PP2_COOKIE_SET_ALL_INFO(_c, _rp, _tp, _bp, _d)	\
-	((_c) = (((_c) & ~0x3d) | \
-		(((_d) << 0) | ((_rp) << 2) | ((_tp) << 3) | ((_bp) << 4))))
-
-#define PP2_COOKIE_CLEAR_ALL_INFO(_c)	((_c) = ((_c) & ~0x3d))
-
 /*#define CRYPT_APP_BPOOLS_INF	{ {384, 4096}, {2048, 1024} }*/
 #define CRYPT_APP_BPOOLS_INF	{ {2048, 4096} }
 /*#define CRYPT_APP_BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }*/
@@ -579,18 +572,18 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	else
 		larg->dec_in_cntr += num_got;
 
-#ifdef CRYPT_APP_STATS_SUPPORT
-	larg->stats.rx_pkts[rx_ppio_id] += num;
-	larg->stats.rx_drop[rx_ppio_id] += num - i;
+	CRYPT_STATS(larg->stats.rx_pkts[rx_ppio_id] += num);
+	CRYPT_STATS(larg->stats.rx_drop[rx_ppio_id] += (num - i));
 
 	if (state == PKT_STATE_ENC) {
-		larg->stats.enc_enq += num_got;
-		larg->stats.enc_drop += (i - num_got);
+		perf_cntrs->enc_cnt += num_got;
+		CRYPT_STATS(larg->stats.enc_enq += num_got);
+		CRYPT_STATS(larg->stats.enc_drop += (i - num_got));
 	} else {
-		larg->stats.dec_enq += num_got;
-		larg->stats.dec_drop += (i - num_got);
+		perf_cntrs->dec_cnt += num_got;
+		CRYPT_STATS(larg->stats.dec_enq += num_got);
+		CRYPT_STATS(larg->stats.dec_drop += (i - num_got));
 	}
-#endif /* CRYPT_APP_STATS_SUPPORT*/
 
 	if (unlikely(err)) {
 		pr_err("SAM enqueue failed (%d)!\n", err);
@@ -723,6 +716,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	else
 		larg->dec_in_cntr += num_got;
 
+	perf_cntrs->dec_cnt += num_got;
 	CRYPT_STATS(larg->stats.dec_enq += num_got);
 	CRYPT_STATS(larg->stats.dec_drop += num - num_got);
 
