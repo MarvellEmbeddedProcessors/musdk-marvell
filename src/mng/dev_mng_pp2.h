@@ -35,6 +35,6 @@
 
 int dev_mng_pp2_init(struct nmp *nmp);
 int dev_mng_pp2_terminate(struct nmp *nmp);
-int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf);
+int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size, size_t *in_out_pos);
 
 #endif /* _DEV_MNG_PP2_H */

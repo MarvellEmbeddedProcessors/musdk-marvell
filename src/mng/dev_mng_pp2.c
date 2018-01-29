@@ -58,42 +58,16 @@
 /** =========================== **/
 
 /* Serialize PP2 */
-int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf)
+int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size, size_t *in_out_pos)
 {
 	int	 err;
-	char	 file_name[SER_MAX_FILE_NAME];
-	char	 buff[SER_MAX_FILE_SIZE];
-	size_t	 pos = 0;
-	char	 dev_name[100];
-	u32	 size;
+	size_t	 pos = *in_out_pos;
 	u32	 port_index;
 	u32	 j;
-	struct mv_sys_dma_mem_info	 mem_info;
-
-	/* Remove the serialize files */
-
-	/* TODO: move this function to a higher level and remove all guests */
-	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR, SER_FILE_NAME_PREFIX, nmnicpf->guest_id);
-	remove(file_name);
 
 	if (!nmnicpf->pp2.ports_desc)
 		/* no pp2, just return */
 		return 0;
-
-	pr_info("starting serialization of guest %d\n", nmnicpf->guest_id);
-
-	size = SER_MAX_FILE_SIZE;
-	memset(buff, 0, SER_MAX_FILE_SIZE);
-
-	/* Serialize the DMA info */
-	mem_info.name = dev_name;
-	mv_sys_dma_mem_get_info(&mem_info);
-	json_print_to_buffer(buff, size, 0, "{\n");
-	json_print_to_buffer(buff, size, 1, "\"dma-info\": {\n");
-	json_print_to_buffer(buff, size, 2, "\"file_name\": \"%s\",\n", mem_info.name);
-	json_print_to_buffer(buff, size, 2, "\"region_size\": %zu,\n", mem_info.size);
-	json_print_to_buffer(buff, size, 2, "\"phys_addr\": %#zx\n", mem_info.paddr);
-	json_print_to_buffer(buff, size, 1, "},\n");
 
 	/* Serialize relations info */
 	json_print_to_buffer(buff, size, 1, "\"relations-info\": {\n");
@@ -136,14 +110,7 @@ int dev_mng_pp2_serialize(struct nmnicpf *nmnicpf)
 			return err;
 	}
 
-	pos = strlen(buff);
-	json_print_to_buffer(buff, size, 0, "}\n");
-
-	/* write buffer to file */
-	err = write_buf_to_file(file_name, buff, strlen(buff));
-	if (err)
-		return -EIO;
-	sync();
+	*in_out_pos = pos;
 
 	return 0;
 }

@@ -43,6 +43,7 @@
 #include "lf/pf/pf_topology.h"
 #include "lf/mng_cmd_desc.h"
 #include "mng/mv_nmp_dispatch.h"
+#include "lib/lib_misc.h"
 
 #include "dev_mng.h"
 #include "dev_mng_pp2.h"
@@ -344,11 +345,47 @@ static int dev_mng_hw_init(struct nmp *nmp)
 static void dev_mng_pf_init_done(void *args)
 {
 	struct nmnicpf *nmnicpf = (struct nmnicpf *)args;
+	struct mv_sys_dma_mem_info mem_info;
+	char	 file_name[SER_MAX_FILE_NAME];
+	char	 buff[SER_MAX_FILE_SIZE];
+	u32	 size = SER_MAX_FILE_SIZE;
+	char	 dev_name[100];
+	int	 err;
+	size_t	 pos = 0;
 
 	pr_info("nmp_pf_init_done reached\n");
 
+	/* TODO: go over all guests */
+	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR, SER_FILE_NAME_PREFIX, nmnicpf->guest_id);
+	/* Remove the serialize files */
+	remove(file_name);
+
+	memset(buff, 0, size);
+
+	json_print_to_buffer(buff, size, 0, "{\n");
+
+	/* Serialize the DMA info */
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+	json_print_to_buffer(buff, size, 1, "\"dma-info\": {\n");
+	json_print_to_buffer(buff, size, 2, "\"file_name\": \"%s\",\n", mem_info.name);
+	json_print_to_buffer(buff, size, 2, "\"region_size\": %zu,\n", mem_info.size);
+	json_print_to_buffer(buff, size, 2, "\"phys_addr\": %#zx\n", mem_info.paddr);
+	json_print_to_buffer(buff, size, 1, "},\n");
+
+	pr_info("starting serialization of guest %d\n", nmnicpf->guest_id);
+
 	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT)
-		dev_mng_pp2_serialize(nmnicpf);
+		dev_mng_pp2_serialize(nmnicpf, buff, size, &pos);
+
+	json_print_to_buffer(buff, size, 0, "}\n");
+
+	/* write buffer to file */
+	err = write_buf_to_file(file_name, buff, strlen(buff));
+	if (err)
+		pr_err("Failed to write to guest %d file\n", nmnicpf->guest_id);
+
+	sync();
 }
 
 static int dev_mng_sw_init(struct nmp *nmp)
