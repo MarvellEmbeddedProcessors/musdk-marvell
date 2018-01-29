@@ -816,6 +816,11 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		       garg->cmn_args.cpus, MVAPPS_NETA_MAX_NUM_CORES);
 		return -EINVAL;
 	}
+	if (garg->cmn_args.cpus > garg->cmn_args.num_ports) {
+		pr_warn("this application doesn't support number of cores (%d) > number of ports (%d)\n",
+		       garg->cmn_args.cpus, garg->cmn_args.num_ports);
+		garg->cmn_args.cpus = garg->cmn_args.num_ports;
+	}
 	if ((garg->cmn_args.affinity != -1) &&
 	    ((garg->cmn_args.cpus + garg->cmn_args.affinity) > MVAPPS_NETA_MAX_NUM_CORES)) {
 		pr_err("illegal num cores or affinity requested (%d,%d vs %d)!\n",
