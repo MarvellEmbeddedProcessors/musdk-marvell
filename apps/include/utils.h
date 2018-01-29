@@ -122,6 +122,8 @@ struct glb_common_args {
 	struct timeval		ctrl_trd_last_time;
 	u64			last_rx_cnt;
 	u64			last_tx_cnt;
+	u64                     last_enc_cnt;
+	u64                     last_dec_cnt;
 
 	struct local_arg	*largs[MVAPPS_MAX_NUM_CORES];
 	void			*plat;
@@ -131,6 +133,8 @@ struct glb_common_args {
 struct perf_cmn_cntrs {
 	u64			rx_cnt;
 	u64			tx_cnt;
+	u64			enc_cnt;
+	u64			dec_cnt;
 	u64			drop_cnt;
 };
 struct local_common_args {

@@ -43,10 +43,11 @@
 
 int apps_perf_dump(struct glb_common_args *cmn_args)
 {
-	struct timeval	 curr_time;
-	u64		 tmp_time_inter;
-	u32		 tmp_rx_cnt = 0, tmp_tx_cnt = 0, drop_cnt = 0;
-	int		 i;
+	struct timeval	curr_time;
+	u64		tmp_time_inter;
+	u64		tmp_rx_cnt = 0, tmp_tx_cnt = 0, drop_cnt = 0;
+	u64		tmp_enc_cnt = 0, tmp_dec_cnt = 0;
+	int		i;
 	struct perf_cmn_cntrs *perf_cntrs;
 
 	gettimeofday(&curr_time, NULL);
@@ -59,15 +60,30 @@ int apps_perf_dump(struct glb_common_args *cmn_args)
 			drop_cnt   += perf_cntrs->drop_cnt;
 			tmp_rx_cnt += perf_cntrs->rx_cnt;
 			tmp_tx_cnt += perf_cntrs->tx_cnt;
+			tmp_enc_cnt += perf_cntrs->enc_cnt;
+			tmp_dec_cnt += perf_cntrs->dec_cnt;
 		}
 	}
-	printf("Perf: %dKpps (Rx: %dKpps)",
-	       (int)((tmp_tx_cnt - cmn_args->last_tx_cnt) / tmp_time_inter),
-		(int)((tmp_rx_cnt - cmn_args->last_rx_cnt) / tmp_time_inter));
+	printf("Perf: RX: %d Kpps",
+	       (int)((tmp_rx_cnt - cmn_args->last_rx_cnt) / tmp_time_inter));
+
+	if (tmp_enc_cnt - cmn_args->last_enc_cnt)
+		printf(" -> Enc: %d Kpps",
+		       (int)((tmp_enc_cnt - cmn_args->last_enc_cnt) / tmp_time_inter));
+
+	if (tmp_dec_cnt - cmn_args->last_dec_cnt)
+		printf(" -> Dec: %d Kpps",
+		       (int)((tmp_dec_cnt - cmn_args->last_dec_cnt) / tmp_time_inter));
+
+	printf(" -> TX: %d Kpps",
+	       (int)((tmp_tx_cnt - cmn_args->last_tx_cnt) / tmp_time_inter));
+
 	cmn_args->last_rx_cnt = tmp_rx_cnt;
 	cmn_args->last_tx_cnt = tmp_tx_cnt;
+	cmn_args->last_enc_cnt = tmp_enc_cnt;
+	cmn_args->last_dec_cnt = tmp_dec_cnt;
 	if (drop_cnt)
-		printf(", drop: %u", drop_cnt);
+		printf(", drop: %lu", drop_cnt);
 	printf("\n");
 	gettimeofday(&cmn_args->ctrl_trd_last_time, NULL);
 
