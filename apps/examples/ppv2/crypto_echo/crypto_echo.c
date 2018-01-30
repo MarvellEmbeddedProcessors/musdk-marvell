@@ -949,13 +949,13 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 		mdata = (struct pkt_mdata *)res_descs[i].cookie;
 		if (res_descs[i].status != SAM_CIO_OK) {
 
+			pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
+				(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
+				i, num, res_descs[i].status, res_descs[i].out_len);
+
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 			if (larg->cmn_args.verbose) {
 				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
-
-				pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
-					(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
-					i, num, res_descs[i].status, res_descs[i].out_len);
 
 				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
 			}
@@ -1892,7 +1892,7 @@ static void usage(char *progname)
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 	       "\t--crypto-proto <proto>   Crypto protocol. Support: [none, esp, ssl]. (default: none).\n"
 	       "\t--tunnel                 IPSec tunnel mode. (default: transport)\n"
-	       "\t--seq64                  Use 64-bits extended sequence number. (default: 32-bits)\n"
+	       "\t--seq          <32|64>   Sequence number size 32 or 64 bits. (default: 64-bits)\n"
 	       "\t--capwap                 DTLS with capwap mode. (default: no capwap)\n"
 	       "\t--ssl_version <ver>      SSL/TLS version. (default: dtls_1_0)\n"
 	       "\t--ip6                    ESP/SSL over IPv6. (default: ESP/SSL over IPv4)\n"
@@ -1923,7 +1923,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->flow_mode = DEFAULT_FLOW;
 	garg->def_crypto_params.dir = CRYPTO_LB;
 	garg->def_crypto_params.tunnel = 0;
-	garg->def_crypto_params.seq64 = 0;
+	garg->def_crypto_params.seq64 = 1;
 	garg->def_crypto_params.ip6 = 0;
 	garg->def_crypto_params.capwap = 0;
 	garg->def_crypto_params.ssl_version = SAM_DTLS_VERSION_1_0;
@@ -2040,9 +2040,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--ip6") == 0) {
 			garg->def_crypto_params.ip6 = 1;
 			i += 1;
-		} else if (strcmp(argv[i], "--seq64") == 0) {
-			garg->def_crypto_params.seq64 = 1;
-			i += 1;
+		} else if (strcmp(argv[i], "--seq") == 0) {
+			if (strcmp(argv[i+1], "32") == 0)
+				garg->def_crypto_params.seq64 = 0;
+			else if (strcmp(argv[i+1], "64") == 0)
+				garg->def_crypto_params.seq64 = 1;
+			else {
+				pr_err("Sequence number size (%s) not supported!\n", argv[i+1]);
+				return -EINVAL;
+			}
+			i += 2;
 		} else if (strcmp(argv[i], "--capwap") == 0) {
 			garg->def_crypto_params.capwap = 1;
 			i += 1;
