@@ -1252,6 +1252,8 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 		port->txqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
 	}
 
+	pp2_port_initialize_statistics(port);
+	pp2_ppio_get_statistics(ppio, NULL, true);
 
 	/* extract the loopback info */
 	lb_port = pp2_ptr->pp2_inst[ppio->pp2_id]->ports[PP2_LOOPBACK_PORT];
