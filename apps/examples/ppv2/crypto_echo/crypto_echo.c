@@ -421,7 +421,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		char *vaddr;
 		struct pp2_bpool *bpool;
 
-		vaddr = (char *)((uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]));
+		vaddr = (char *)(app_get_high_addr() | (uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]));
 		bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 
 		mdata = (struct pkt_mdata *)mv_stack_pop(larg->stack_hndl);
@@ -573,7 +573,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 		for (i = num_got; i < num; i++) {
 			binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
-			binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[i]);
+			binf.cookie = app_get_high_addr() | pp2_ppio_inq_desc_get_cookie(&descs[i]);
 			bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 			pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
 			if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE)

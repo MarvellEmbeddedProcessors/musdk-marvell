@@ -40,6 +40,9 @@
 #include "mv_pp2_ppio.h"
 #include "mv_pp2_bpool.h"
 
+
+#define MVAPPS_INVALID_COOKIE_HIGH_BITS		(~0)
+#define MVAPPS_COOKIE_HIGH_MASK			(0xffffff0000000000) /* bits 63-41 */
 /* pkt offset, must be multiple of 32 bytes */
 #define MVAPPS_PP2_PKT_DEF_OFFS			64
 /* pkt offset including Marvell header */
@@ -98,12 +101,17 @@
 
 
 extern u8 mvapp_pp2_max_num_qs_per_tc;
+extern uintptr_t cookie_high_bits;
+
 static inline void app_set_max_num_qs_per_tc(void)
 {
 	mvapp_pp2_max_num_qs_per_tc = system_ncpus();
 }
 
-
+static inline uintptr_t app_get_high_addr(void)
+{
+	return cookie_high_bits;
+}
 /*
  * Tx shadow queue entry
  */
@@ -418,7 +426,8 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 #endif
 
 	for (i = 0; i < num; i++) {
-		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
+		char		*buff = (char *)(app_get_high_addr() |
+						(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]));
 		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], rx_lcl_port_desc->ppio);
@@ -428,7 +437,8 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 			char *tmp_buff;
 #ifdef APP_USE_PREFETCH
 			if (num - i > prefetch_shift) {
-				tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]);
+				tmp_buff = (char *)(app_get_high_addr() |
+						(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i + prefetch_shift]));
 				tmp_buff += pkt_offset;
 				prefetch(tmp_buff);
 			}

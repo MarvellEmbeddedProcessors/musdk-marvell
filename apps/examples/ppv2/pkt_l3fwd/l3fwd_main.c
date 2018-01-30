@@ -290,13 +290,14 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		return 0;
 
 	desc_ptr = &descs[0];
-	buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr);
+	buff = (char *)(app_get_high_addr() | (uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr));
 	pa = pp2_ppio_inq_desc_get_phys_addr(desc_ptr);
 	len = pp2_ppio_inq_desc_get_pkt_len(desc_ptr);
 	bpool = pp2_ppio_inq_desc_get_bpool(desc_ptr, pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
 #ifdef PKT_FWD_APP_USE_PREFETCH
 	if (num > prefetch_shift) {
-		tmp_buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr + prefetch_shift);
+		tmp_buff = (char *)(app_get_high_addr() |
+				    (uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr + prefetch_shift));
 		tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 		prefetch(tmp_buff);
 	}

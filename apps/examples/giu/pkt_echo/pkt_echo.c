@@ -537,7 +537,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 	PKT_ECHO_APP_INC_RX_COUNT(larg->cmn_args.id, 0, num);
 
 	for (i = 0; i < num; i++) {
-		char *buff    = (void *)pp2_ppio_inq_desc_get_cookie(&pp2_descs[i]);
+		char *buff    = (void *)(app_get_high_addr() | pp2_ppio_inq_desc_get_cookie(&pp2_descs[i]));
 		dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&pp2_descs[i]);
 		u16 len       = pp2_ppio_inq_desc_get_pkt_len(&pp2_descs[i]);
 
@@ -673,7 +673,7 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 	PKT_ECHO_APP_INC_RX_COUNT(larg->cmn_args.id, 1, num);
 
 	for (i = 0; i < num; i++) {
-		char *buff    = (void *)giu_gpio_inq_desc_get_cookie(&giu_descs[i]);
+		char *buff    = (void *)(app_get_high_addr() | giu_gpio_inq_desc_get_cookie(&giu_descs[i]));
 		dma_addr_t pa = giu_gpio_inq_desc_get_phys_addr(&giu_descs[i]);
 		u16 len       = giu_gpio_inq_desc_get_pkt_len(&giu_descs[i]);
 

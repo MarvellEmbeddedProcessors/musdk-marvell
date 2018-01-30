@@ -217,8 +217,8 @@ static inline int loop_rx(struct local_arg	*larg,
 	larg->trf_cntrs.rx_pkts += num;
 
 	for (i = 0; i < num; i++) {
-		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]);
-		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
+		char *buff = (char *)(app_get_high_addr() | (uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]));
+		dma_addr_t pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
 		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i],
 								      pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
@@ -253,7 +253,7 @@ static inline int loop_rx(struct local_arg	*larg,
 			for (j = i; j < num; j++) {
 				struct pp2_buff_inf binf;
 
-				binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
+				binf.cookie = app_get_high_addr() | (uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[j]);
 				binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
 				pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
 			}
