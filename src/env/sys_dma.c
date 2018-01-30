@@ -129,6 +129,8 @@ static int init_mem(struct sys_dma *sdma, size_t size)
 
 	sdma->dma_virt_base = (void *)cma_get_vaddr(cma_ptr);
 	sdma->dma_phys_base = (phys_addr_t)cma_get_paddr(cma_ptr);
+	pr_debug("init_mem dma_phys_base(0x"PRIdma")\n", sdma->dma_phys_base);
+
 	sdma->dma_size = (size_t)cma_get_size(cma_ptr);
 	sdma->cma_ptr = cma_ptr;
 	return 0;
@@ -303,15 +305,22 @@ static void free_mem_region(struct mv_sys_dma_mem_region *mem)
 #elif defined MVCONF_SYS_DMA_UIO /* MVCONF_SYS_DMA_HUGE_PAGE */
 static int init_mem_region(struct mv_sys_dma_mem_region *mem)
 {
+	int err;
 	void *cma_ptr;
 	struct sys_mem_dma_region_priv *priv;
 
+	err = cma_init_region(mem->mem_id);
+	if (err != 0) {
+		pr_err("Failed to init DMA memory region(%d)!\n", mem->mem_id);
+		return err;
+	}
 
-	cma_ptr = cma_calloc(mem->size);
+	cma_ptr = cma_calloc_region(mem->mem_id, mem->size);
 	if (!cma_ptr) {
-		pr_err("Failed to allocate DMA memory!\n");
+		pr_err("Failed to allocate DMA memory region(%d)!\n", mem->mem_id);
 		return -ENOMEM;
 	}
+
 	mem->dma_virt_base = (void *)cma_get_vaddr(cma_ptr);
 	mem->dma_phys_base = (phys_addr_t)cma_get_paddr(cma_ptr);
 
@@ -328,7 +337,7 @@ static void free_mem_region(struct mv_sys_dma_mem_region *mem)
 		return;
 
 	priv = mem->priv;
-	cma_free(priv->cma_ptr);
+	cma_free_region(mem->mem_id, priv->cma_ptr);
 }
 
 #else /* MVCONF_SYS_DMA_UIO */
@@ -359,6 +368,8 @@ int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, stru
 	int i, err;
 	struct mv_sys_dma_mem_region *region;
 	struct sys_mem_dma_region_priv *priv;
+
+	pr_debug("Start mv_sys_dma_mem_region_init: mem_ID(%d)\n", params->mem_id);
 
 	/* Get next Region */
 	for (i = 0; i < MEM_DMA_MAX_REGIONS; i++)
@@ -429,8 +440,10 @@ void *mv_sys_dma_mem_region_alloc(struct mv_sys_dma_mem_region *mem, size_t size
 	u64	ans;
 	struct sys_mem_dma_region_priv *priv;
 
-	if (!mem)
+	if (!mem) {
+		pr_warn("mv_sys_dma_mem_region_alloc() redirected to mv_sys_dma_mem_alloc()\n");
 		return mv_sys_dma_mem_alloc(size, align);
+	}
 
 	if (!mem_region_exist(mem)) {
 		pr_err("memory region not created\n");
@@ -452,6 +465,7 @@ void mv_sys_dma_mem_region_free(struct mv_sys_dma_mem_region *mem, void *ptr)
 	struct sys_mem_dma_region_priv *priv;
 
 	if (!mem) {
+		pr_warn("mv_sys_dma_mem_region_free() redirected to mv_sys_dma_mem_free()\n");
 		mv_sys_dma_mem_free(ptr);
 		return;
 	}

@@ -50,12 +50,14 @@
  *
  */
 int cma_init(void);
+int cma_init_region(int mem_id);
 
 /**
  * De-initialization routine for pp contiguous memory allocator
  *
  */
 void cma_deinit(void);
+void cma_deinit_region(int mem_id);
 
 /**
  * Allocates physical zeroed contiguous memory
@@ -67,6 +69,8 @@ void cma_deinit(void);
  *
  */
 void *cma_calloc(size_t size);
+void *cma_calloc_region(int mem_id, size_t size);
+
 
 /**
  * Free physical memory
@@ -75,6 +79,7 @@ void *cma_calloc(size_t size);
  *
  */
 void cma_free(void *handle);
+void cma_free_region(int mem_id, void *handle);
 
 /**
  * Get virtual address from pp CMA
@@ -106,6 +111,7 @@ phys_addr_t cma_get_paddr(void *handle);
  * @retval pointer to CMA object device name
  */
 int cma_get_dev_name(char *dev_name);
+int cma_get_dev_name_region(int mem_id, char *dev_name);
 
 /**
  * Get size from pp CMA
