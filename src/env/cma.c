@@ -37,9 +37,14 @@
 #include "lib/lib_misc.h"
 
 #define MUSDK_DEV_FILE "/dev/uio-cma"
+#define MUSDK_REGION_DEV_FILE "/dev/uio-cma-reg%u"
+#define MUSDK_MAX_MEM_REGIONS	2
 
+static int fd = -1;
 
-static volatile int fd = -1;
+static int region_fd[MUSDK_MAX_MEM_REGIONS] = {
+	[0 ... (MUSDK_MAX_MEM_REGIONS - 1)] = -1
+};
 
 struct cma_buf_info {
 	void *uvaddr;
@@ -53,14 +58,37 @@ int cma_init(void)
 		return 0;
 
 	fd = open(MUSDK_DEV_FILE, O_RDWR);
+
 	if (fd < 0) {
 		pr_err("CMA: open() failed\n");
 		return -1;
-	} else
-		return 0;
+	}
+	return 0;
 }
 
-void *cma_calloc(size_t size)
+int cma_init_region(int mem_id)
+{
+	char buf[32];
+
+	if (mem_id >= MUSDK_MAX_MEM_REGIONS) {
+		pr_err("CMA: Init failed, invalid mem_id(%d)\n", mem_id);
+		return -1;
+	}
+	if (region_fd[mem_id] >= 0)
+		return 0;
+
+	sprintf(buf, MUSDK_REGION_DEV_FILE, mem_id);
+
+	region_fd[mem_id] = open(buf, O_RDWR);
+	if (region_fd[mem_id] < 0) {
+		pr_err("CMA region %d: open() failed\n", mem_id);
+		return -1;
+	}
+	return 0;
+}
+
+
+static void *cma_calloc_internal(int fd, size_t size)
 {
 	struct cma_buf_info *ptr;
 	u64 param;
@@ -102,7 +130,24 @@ void *cma_calloc(size_t size)
 	return (void *)ptr;
 }
 
-void cma_free(void *handle)
+void *cma_calloc(size_t size)
+{
+
+	return cma_calloc_internal(fd, size);
+}
+
+void *cma_calloc_region(int mem_id, size_t size)
+{
+	if (mem_id >= MUSDK_MAX_MEM_REGIONS) {
+		pr_err("CMA: Alloc failed, invalid mem_id(%d)\n", mem_id);
+		return NULL;
+	}
+	return cma_calloc_internal(region_fd[mem_id], size);
+}
+
+
+
+static void cma_free_internal(int fd, void *handle)
 {
 	struct cma_buf_info *ptr = (struct cma_buf_info *)handle;
 	u64 paddr;
@@ -124,6 +169,20 @@ void cma_free(void *handle)
 	kfree(ptr);
 }
 
+void cma_free(void *handle)
+{
+	cma_free_internal(fd, handle);
+}
+
+void cma_free_region(int mem_id, void *handle)
+{
+	if (mem_id >= MUSDK_MAX_MEM_REGIONS)
+		pr_err("CMA: Free failed, invalid mem_id(%d)\n", mem_id);
+
+	cma_free_internal(region_fd[mem_id], handle);
+}
+
+
 void cma_deinit(void)
 {
 	if (fd >= 0) {
@@ -131,6 +190,15 @@ void cma_deinit(void)
 		fd = -1;
 	}
 }
+
+void cma_deinit_region(int mem_id)
+{
+	if (region_fd[mem_id] >= 0) {
+		close(region_fd[mem_id]);
+		region_fd[mem_id] = -1;
+	}
+}
+
 
 void *cma_get_vaddr(void *handle)
 {
@@ -158,9 +226,19 @@ phys_addr_t cma_get_paddr(void *handle)
 
 int cma_get_dev_name(char *dev_name)
 {
-	memcpy(dev_name, MUSDK_DEV_FILE, sizeof(MUSDK_DEV_FILE));
+	strcpy(dev_name, MUSDK_DEV_FILE);
 	return 0;
 }
+
+int cma_get_dev_name_region(int mem_id, char *dev_name)
+{
+	char buf[32];
+
+	sprintf(buf, MUSDK_REGION_DEV_FILE, mem_id);
+	strcpy(dev_name, buf);
+	return 0;
+}
+
 
 size_t cma_get_size(void *handle)
 {
