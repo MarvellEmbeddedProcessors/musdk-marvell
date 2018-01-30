@@ -500,6 +500,68 @@ int pp2_port_initialize_statistics(struct pp2_port *port)
 	return 0;
 }
 
+int pp2_port_get_sysfs_statistics(struct pp2_port *port, struct pp2_ppio_statistics *stats)
+{
+	FILE	*fp;
+	char	 r_buf[PP2_MAX_BUF_STR_LEN];
+	char	 w_buf[PP2_MAX_BUF_STR_LEN];
+	char	 name[PP2_MAX_BUF_STR_LEN];
+	char	 *pr_buf = NULL;
+	u64	 param = 0;
+	u32	 scanned;
+	char	 file[PP2_MAX_BUF_STR_LEN];
+
+	sprintf(w_buf, "echo %s > %s/%s", port->linux_name, PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_DEBUG_PORT_SET_FILE);
+	system(w_buf);
+
+	sprintf(file, "%s/%s", PP2_SYSFS_STATS_PATH, PP2_SYSFS_STATS_FILE);
+	fp = fopen(file, "r");
+	if (!fp) {
+		pr_err("error opening file %s\n", file);
+		return -EEXIST;
+	}
+
+	do {
+		pr_buf = fgets(r_buf, sizeof(r_buf), fp);
+		if (pr_buf) {
+			scanned = sscanf(r_buf, "%s %" PRIdma "\n", &name[0], &param);
+			if (scanned != 2) {
+				pr_err("Invalid number of parameters read %d, %s\n", scanned, r_buf);
+				fclose(fp);
+				return -EINVAL;
+			}
+
+			if (!strcmp(name, "rx_bytes"))
+				stats->rx_bytes = param;
+			else if (!strcmp(name, "rx_frames"))
+				stats->rx_packets = param;
+			else if (!strcmp(name, "rx_unicast"))
+				stats->rx_unicast_packets = param;
+			else if (!strcmp(name, "rx_ppv2_overrun"))
+				stats->rx_fifo_dropped = param;
+			else if (!strcmp(name, "rx_cls_drop"))
+				stats->rx_cls_dropped = param;
+			else if (!strcmp(name, "rx_total_err"))
+				stats->rx_errors = param;
+			else if (!strcmp(name, "tx_bytes"))
+				stats->tx_bytes = param;
+			else if (!strcmp(name, "tx_frames"))
+				stats->tx_packets = param;
+			else if (!strcmp(name, "tx_unicast"))
+				stats->tx_unicast_packets = param;
+			else if (!strcmp(name, "collision"))
+				stats->tx_errors += param;
+			else if (!strcmp(name, "late_collision"))
+				stats->tx_errors += param;
+			else if (!strcmp(name, "tx_crc_sent"))
+				stats->tx_errors += param;
+		}
+	} while (pr_buf != NULL);
+
+	fclose(fp);
+	return 0;
+}
+
 int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *stats)
 {
 	struct ifreq ifr;
@@ -560,9 +622,9 @@ int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *s
 	}
 
 	free(estats);
-
 	return 0;
 }
+
 int pp2_port_open_uio(struct pp2_port *port)
 {
 	char *tmp_name;
