@@ -627,7 +627,7 @@ static inline void pp2_ppio_outq_desc_set_phys_addr(struct pp2_ppio_desc *desc, 
 static inline void pp2_ppio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64 cookie)
 {
 	desc->cmds[6] = (u32)cookie;
-	desc->cmds[7] = (desc->cmds[7] & ~TXD_BUF_PHYS_HI_MASK) | (cookie >> 32 & TXD_BUF_PHYS_HI_MASK);
+	desc->cmds[7] = (desc->cmds[7] & ~TXD_BUF_VIRT_HI_MASK) | (cookie >> 32 & TXD_BUF_VIRT_HI_MASK);
 }
 
 /**
