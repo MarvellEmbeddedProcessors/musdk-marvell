@@ -458,7 +458,7 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 static inline u64 giu_gpio_outq_desc_get_phys_addr(struct giu_gpio_desc *desc)
 {
 	/* cmd[4] and cmd[5] holds the buffer physical address (Low and High parts) */
-	return ((u64)desc->cmds[5] << 32) | ((u64)(desc->cmds[4]));
+	return ((u64)(desc->cmds[5] & GIU_TXD_BUF_PHYS_HI_MASK) << 32) | (u64)desc->cmds[4];
 }
 
 static inline void *giu_gpio_outq_desc_get_addr(struct giu_gpio_desc *desc)

@@ -115,6 +115,14 @@ enum giu_outq_l4_type {
 #define GIU_RXD_BYTE_COUNT_MASK		(0xFFFF0000)
 /* cmd 2 */
 #define GIU_RXD_L4_INITIAL_CHK		(0xFFFF0000)
+/* cmd 4 */
+#define GIU_RXD_BUF_PHYS_LO_MASK	(0xFFFFFFFF)
+/* cmd 5 */
+#define GIU_RXD_BUF_PHYS_HI_MASK	(0x000000FF)
+/* cmd 6 */
+#define GIU_RXD_BUF_VIRT_LO_MASK	(0xFFFFFFFF)
+/* cmd 7 */
+#define GIU_RXD_BUF_VIRT_HI_MASK	(0x000000FF)
 
 
 #define GIU_RXD_GET_L3_OFF(desc)         (((desc)->cmds[0] & GIU_RXD_L3_OFFSET_MASK) >> 0)
@@ -143,6 +151,14 @@ enum giu_outq_l4_type {
 /* cmd 2 */
 #define GIU_TXD_L4_INITIAL_CHK		(0xFFFF0000)
 #define GIU_TXD_DEST_QID		(0x00001FFF)
+/* cmd 4 */
+#define GIU_TXD_BUF_PHYS_LO_MASK	(0xFFFFFFFF)
+/* cmd 5 */
+#define GIU_TXD_BUF_PHYS_HI_MASK	(0x000000FF)
+/* cmd 6 */
+#define GIU_TXD_BUF_VIRT_LO_MASK	(0xFFFFFFFF)
+/* cmd 7 */
+#define GIU_TXD_BUF_VIRT_HI_MASK	(0x000000FF)
 
 
 #define GIU_TXD_SET_L3_OFF(desc, data)	\
@@ -354,11 +370,11 @@ int giu_gpio_disable(struct giu_gpio *gpio);
  */
 static inline void giu_gpio_outq_desc_reset(struct giu_gpio_desc *desc)
 {
-	/* Reset control part of the descriptor (4 first dwords)
-	 * Note: no need to the pointers as they will be overridden
+	/* Note: no need to 'zeroed' cmds[4/6] as they will be overridden
 	 *	 when preparing the descriptor
 	 */
-	memset(desc->cmds, 0, sizeof(u32) * 4);
+	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] =
+	desc->cmds[5] = desc->cmds[7] = 0;
 }
 
 /**
@@ -372,7 +388,20 @@ static inline void giu_gpio_outq_desc_set_phys_addr(struct giu_gpio_desc *desc, 
 {
 	/* cmd[4] and cmd[5] holds the buffer physical address (Low and High parts) */
 	desc->cmds[4] = (u32)addr;
-	desc->cmds[5] = ((u64)addr >> 32);
+	desc->cmds[5] = (desc->cmds[5] & ~GIU_TXD_BUF_PHYS_HI_MASK) | ((u64)addr >> 32 & GIU_TXD_BUF_PHYS_HI_MASK);
+}
+
+/**
+ * Set the user specified cookie in an outq packet descriptor.
+ *
+ * @param[out]	desc	A pointer to a packet descriptor structure.
+ * @param[in]	cookie	User specified cookie.
+ *
+ */
+static inline void giu_gpio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64 cookie)
+{
+	desc->cmds[6] = (u32)cookie;
+	desc->cmds[7] = (desc->cmds[7] & ~GIU_TXD_BUF_VIRT_HI_MASK) | (cookie >> 32 & GIU_TXD_BUF_VIRT_HI_MASK);
 }
 
 static inline void giu_gpio_outq_desc_set_pkt_offset(struct giu_gpio_desc *desc, u8  offset)
@@ -424,7 +453,7 @@ static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc,
 static inline u64 giu_gpio_inq_desc_get_phys_addr(struct giu_gpio_desc *desc)
 {
 	/* cmd[4] and cmd[5] holds the buffer physical address (Low and High parts) */
-	return ((u64)desc->cmds[5] << 32) | ((u64)(desc->cmds[4]));
+	return ((u64)((desc->cmds[5] & GIU_RXD_BUF_PHYS_HI_MASK) >> 0) << 32) |	(u64)desc->cmds[4];
 }
 
 /**
@@ -437,7 +466,7 @@ static inline u64 giu_gpio_inq_desc_get_phys_addr(struct giu_gpio_desc *desc)
 static inline u64 giu_gpio_inq_desc_get_cookie(struct giu_gpio_desc *desc)
 {
 	/* cmd[6] and cmd[7] holds the cookie (Low and High parts) */
-	return ((u64)desc->cmds[7] << 32) | ((u64)(desc->cmds[6]));
+	return ((u64)((desc->cmds[7] & GIU_RXD_BUF_VIRT_HI_MASK) >> 0) << 32) | (u64)desc->cmds[6];
 }
 
 /**
