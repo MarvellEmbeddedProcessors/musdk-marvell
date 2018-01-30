@@ -295,7 +295,7 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
-	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, CLS_APP_HIF_Q_SIZE);
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, CLS_APP_HIF_Q_SIZE, NULL);
 	if (err)
 		return err;
 

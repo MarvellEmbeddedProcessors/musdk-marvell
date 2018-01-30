@@ -571,9 +571,9 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
  */
 
 int available_hifs(void);
-int app_hif_init(struct pp2_hif **hif, u32 queue_size);
+int app_hif_init(struct pp2_hif **hif, u32 queue_size, struct mv_sys_dma_mem_region *mem);
 int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_common_args *glb_pp2_args,
-		      struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size);
+		      struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size, struct mv_sys_dma_mem_region *mem);
 
 void app_used_hifmap_init(u16 used_hif_map);
 

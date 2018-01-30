@@ -61,7 +61,11 @@ static inline void prefetch(const void *ptr)
 #define MVAPPS_MAX_BURST_SIZE		256
 
 /* Maximum number of CPU cores used by application */
-#define MVAPPS_MAX_NUM_CORES		16
+#define MVAPPS_NUM_CORES_PER_AP		8
+#define MVAPPS_MAX_NUM_AP		2
+#define MVAPPS_MAX_NUM_CORES		(MVAPPS_MAX_NUM_AP*MVAPPS_NUM_CORES_PER_AP)
+
+#define MVAPPS_MAX_MEM_REGIONS		2
 
 #define MVAPPS_DEFAULT_AFFINITY		1
 #define MVAPPS_INVALID_AFFINITY		-1
@@ -127,6 +131,7 @@ enum pp2_op_mode_type {
 };
 
 struct glb_common_args {
+	u64			cores_mask;
 	u64			qs_map;
 	int			prefetch_shift;
 	int			num_ports;
@@ -154,6 +159,8 @@ struct glb_common_args {
 	u32			op_mode;
 	u32			guest_id;
 	char			nmp_cfg_location[SER_MAX_FILE_NAME];
+	struct mv_sys_dma_mem_region *mem_region[MVAPPS_MAX_NUM_AP];
+	int			num_mem_regions;
 };
 
 

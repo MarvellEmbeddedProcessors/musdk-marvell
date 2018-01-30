@@ -878,7 +878,7 @@ int available_hifs(void)
 }
 
 
-int app_hif_init(struct pp2_hif **hif, u32 queue_size)
+int app_hif_init(struct pp2_hif **hif, u32 queue_size, struct mv_sys_dma_mem_region *mem)
 {
 	int hif_id;
 	char name[15];
@@ -897,6 +897,7 @@ int app_hif_init(struct pp2_hif **hif, u32 queue_size)
 	memset(&hif_params, 0, sizeof(hif_params));
 	hif_params.match = name;
 	hif_params.out_size = queue_size;
+	hif_params.mem = mem;
 	err = pp2_hif_init(&hif_params, hif);
 	if (err)
 		return err;
@@ -925,7 +926,7 @@ static struct pp2_hif *app_shared_hif_exist(struct pp2_glb_common_args *glb_pp2_
 
 
 int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_common_args *glb_pp2_args,
-	struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size)
+	struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size, struct mv_sys_dma_mem_region *mem)
 {
 	struct pp2_hif *shared_hif;
 	int err;
@@ -941,7 +942,7 @@ int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_comm
 		pthread_mutex_unlock(thr_lock);
 		return 0;
 	}
-	err = app_hif_init(&lcl_pp2_args->hif, queue_size);
+	err = app_hif_init(&lcl_pp2_args->hif, queue_size, mem);
 	lcl_pp2_args->shared_hif = false;
 	pthread_mutex_unlock(thr_lock);
 	return err;
@@ -950,23 +951,27 @@ int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_comm
 int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize)
 {
 	int				err;
-	int				num_threads, expected_free_hifs, usable_hifs, ratio, thr_id = 0, i = 0;
+	int				num_threads, expected_free_hifs, usable_hifs, ratio, thr_id = 0;
+	int				i = 0, cpu_id = 0, mem_id, n;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) glb_args->plat;
 	u32				thread_mask;
+	u64 glb_cores_mask = glb_args->cores_mask;
 
+	/* Following is cntrl_thread hif, which may or may not be shared with threads in the data_plane.
+	 * TODO: Below code currently relies on mvapp_go behavior, ==> cntrl_thread uses same cpu as first lcl_thread.
+	 */
+	for (; !((1 << cpu_id) & glb_cores_mask); cpu_id++)
+		;
+	mem_id = cpu_id / MVAPPS_NUM_CORES_PER_AP;
 
-
-	/* Following is cntrl_thread hif, which may or may not be shared with threads in the data_plane. */
-	err = app_hif_init(&pp2_args->hif, hif_qsize);
-
+	err = app_hif_init(&pp2_args->hif, hif_qsize, glb_args->mem_region[mem_id]);
 	if (err)
 		return err;
-
 
 	num_threads = glb_args->cpus;
 	expected_free_hifs = available_hifs();
 
-	pr_debug("num_threads(%d), free_hifs(%d)\n", num_threads, expected_free_hifs);
+	pr_info("num_threads(%d), free_hifs(%d), cores_mask 0x%lx\n", num_threads, expected_free_hifs, glb_cores_mask);
 
 	/* If hifs must be shared among local_threads, create all of them up front and use the above control_hif
 	 * for a local_thread as well
@@ -987,16 +992,29 @@ int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize)
 			}
 			if (i == 0)
 				pp2_args->app_hif[i]->hif = pp2_args->hif; /* Use the pre-existing cntrl_thread hif */
-			else {
-				err = app_hif_init(&(pp2_args->app_hif[i]->hif), hif_qsize);
+
+			else {	/* Advance to next cpu in cores_mask */
+				for (cpu_id++; !((1 << cpu_id) & glb_cores_mask); cpu_id++)
+					;
+				/* Use mem_id of first thread (lowest cpu_id) sharing this hif */
+				mem_id = cpu_id / MVAPPS_NUM_CORES_PER_AP;
+				err = app_hif_init(&(pp2_args->app_hif[i]->hif), hif_qsize,
+						   glb_args->mem_region[mem_id]);
 				if (err)
 					return err;
 			}
 			thread_mask = ((1 << ratio) - 1) << thr_id;
+			pr_info("shared_hif(%d) thread_mask(0x%x) cpu_id(%d) mem_id(%d), ratio(%d)\n", i, thread_mask,
+				cpu_id, mem_id, ratio);
 			pp2_args->app_hif[i]->local_thr_id_mask = thread_mask;
 			thr_id += ratio;
 			num_threads -= ratio;
-			pr_debug("shared_hif(%d) thr_mask(0x%x)\n", i, thread_mask);
+			n = 1;
+			while (n < ratio) { /* Skip (n-1) cpus in mask, for all threads sharing this hif */
+				for (cpu_id++; !((1 << cpu_id) & glb_cores_mask); cpu_id++)
+					;
+				n++;
+			}
 			i++;
 			usable_hifs--;
 			if (num_threads <= usable_hifs*(ratio-1))
@@ -1577,7 +1595,8 @@ void apps_pp2_deinit_local(void *arg)
 			app_port_local_deinit(&pp2_args->lcl_ports_desc[i]);
 		free(pp2_args->lcl_ports_desc);
 	}
-	/* Deleye the locl hif, only if it is not shared */
+
+	/* Delete the locl hif, only if it is not shared */
 	if (pp2_args->hif && (!pp2_args->shared_hif))
 		pp2_hif_deinit(pp2_args->hif);
 	free((void *)pp2_args);
@@ -1614,7 +1633,17 @@ void apps_pp2_destroy_local_modules(void *arg)
 
 void apps_pp2_destroy_all_modules(void)
 {
+	struct mv_sys_dma_mem_region *mem_region;
+	int i;
+
 	pp2_deinit();
+
+	for (i = 0; i < MVAPPS_MAX_MEM_REGIONS; i++) {
+		mem_region = mv_sys_dma_mem_region_get(i);
+		if (mem_region)
+			mv_sys_dma_mem_region_destroy(mem_region);
+	}
+
 	mv_sys_dma_mem_destroy();
 }
 
