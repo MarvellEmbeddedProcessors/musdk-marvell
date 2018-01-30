@@ -300,21 +300,31 @@ static void print_local_stats(struct local_arg *larg, int cpu, int reset)
 
 	printf("\n-------- Crypto-echo local CPU #%d statistics ------\n", cpu);
 	for (i = 0; i < larg->cmn_args.num_ports; i++) {
-		printf("RX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.rx_pkts[i]);
-		printf("RX drops (port #%d)         : %" PRIu64 " packets\n", i, larg->stats.rx_drop[i]);
+		if (larg->stats.rx_pkts[i])
+			printf("RX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.rx_pkts[i]);
+		if (larg->stats.rx_drop[i])
+			printf("RX drops (port #%d)         : %" PRIu64 " packets\n", i, larg->stats.rx_drop[i]);
 	}
-
-	printf("Encrypt enqueue            : %" PRIu64 " packets\n", larg->stats.enc_enq);
-	printf("Encrypt drop               : %" PRIu64 " packets\n", larg->stats.enc_drop);
-	printf("Dequeue count              : %" PRIu64 " packets\n", larg->stats.deq_cnt);
-	printf("Dequeue errors             : %" PRIu64 " packets\n", larg->stats.deq_err);
-	printf("Decrypt enqueue            : %" PRIu64 " packets\n", larg->stats.dec_enq);
-	printf("Decrypt drop               : %" PRIu64 " packets\n", larg->stats.dec_drop);
+	if (larg->stats.enc_enq)
+		printf("Encrypt enqueue            : %" PRIu64 " packets\n", larg->stats.enc_enq);
+	if (larg->stats.enc_drop)
+		printf("Encrypt drop               : %" PRIu64 " packets\n", larg->stats.enc_drop);
+	if (larg->stats.dec_enq)
+		printf("Decrypt enqueue            : %" PRIu64 " packets\n", larg->stats.dec_enq);
+	if (larg->stats.dec_drop)
+		printf("Decrypt drop               : %" PRIu64 " packets\n", larg->stats.dec_drop);
+	if (larg->stats.deq_cnt)
+		printf("Dequeue count              : %" PRIu64 " packets\n", larg->stats.deq_cnt);
+	if (larg->stats.deq_err)
+		printf("Dequeue errors             : %" PRIu64 " packets\n", larg->stats.deq_err);
 
 	for (i = 0; i < larg->cmn_args.num_ports; i++) {
-		printf("TX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_pkts[i]);
-		printf("TX done    (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_done[i]);
-		printf("TX drops   (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_drop[i]);
+		if (larg->stats.tx_pkts[i])
+			printf("TX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_pkts[i]);
+		if (larg->stats.tx_done[i])
+			printf("TX done    (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_done[i]);
+		if (larg->stats.tx_drop[i])
+			printf("TX drops   (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_drop[i]);
 
 	}
 	printf("\n");
