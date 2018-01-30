@@ -642,7 +642,8 @@ static int init_local(void *arg, int id, void **_larg)
 		return -ENOMEM;
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
-	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, PKT_GEN_APP_HIF_Q_SIZE);
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args,
+				PKT_GEN_APP_HIF_Q_SIZE, NULL);
 	if (err)
 		return err;
 
@@ -1078,6 +1079,7 @@ int main(int argc, char *argv[])
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
 	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
+	garg.cmn_args.cores_mask = cores_mask;
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;

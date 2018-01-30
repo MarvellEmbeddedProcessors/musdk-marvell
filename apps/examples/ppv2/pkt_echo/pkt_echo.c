@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <sched.h>
+#include <sys/sysinfo.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -461,16 +462,31 @@ static int main_loop(void *arg, int *running)
 static int init_all_modules(void)
 {
 	struct pp2_init_params	 pp2_params;
+	struct glb_common_args *cmn_args = &garg.cmn_args;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
-	int			 err;
+	int			 err = 0, i;
 	char			 file[PP2_MAX_BUF_STR_LEN];
 	int			 num_rss_tables = 0;
+	struct mv_sys_dma_mem_region_params params;
 
 	pr_info("Global initializations ...\n");
 
 	err = mv_sys_dma_mem_init(PKT_ECHO_APP_DMA_MEM_SIZE);
 	if (err)
 		return err;
+
+	params.size = PKT_ECHO_APP_DMA_MEM_SIZE;
+	params.manage = 1;
+
+	for (i = 0; i < cmn_args->num_mem_regions; i++) {
+		params.mem_id = i;
+		err = mv_sys_dma_mem_region_init(&params, &cmn_args->mem_region[params.mem_id]);
+		if (err)  {
+			pr_err("mv_sys_dma_mem_region_init() failed %d\n", params.mem_id);
+			return err;
+		}
+		pr_info("cmn_args->mem_region[%d]= %p\n", params.mem_id, &cmn_args->mem_region[params.mem_id]);
+	}
 
 	memset(&pp2_params, 0, sizeof(pp2_params));
 	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
@@ -628,13 +644,15 @@ static int init_local_modules(struct glob_arg *garg)
 			 *       have shared_hif w/other thread, which are also sending on this port.
 			*/
 			if (garg->cmn_args.shared_hifs) {
-				int shadow_qsize = port->outq_size + port->num_tcs*port->inq_size;
 				int num_shadow_qs = port->num_outqs;
 
 				i = 0;
 				while (i < MVAPPS_PP2_TOTAL_NUM_HIFS && pp2_args->app_hif[i]) {
+					int shadow_qsize, num_threads;
 					u32 thr_mask = pp2_args->app_hif[i]->local_thr_id_mask;
 
+					num_threads = __builtin_popcount(thr_mask);
+					shadow_qsize = port->outq_size + port->num_tcs * num_threads * port->inq_size;
 					app_port_shared_shadowq_create(&(port->shared_qs[i]),
 						thr_mask, num_shadow_qs, shadow_qsize);
 					i++;
@@ -740,12 +758,14 @@ static int init_local(void *arg, int id, void **_larg)
 	struct pp2_glb_common_args *glb_pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	struct pp2_lcl_common_args *lcl_pp2_args;
 	int			 i, err;
+	int mem_id;
 
 	if (!garg) {
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
 
+	mem_id = sched_getcpu() / MVAPPS_NUM_CORES_PER_AP;
 	larg = (struct local_arg *)malloc(sizeof(struct local_arg));
 	if (!larg) {
 		pr_err("No mem for local arg obj!\n");
@@ -774,7 +794,8 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
-	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, PKT_ECHO_APP_HIF_Q_SIZE);
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, PKT_ECHO_APP_HIF_Q_SIZE,
+				garg->cmn_args.mem_region[mem_id]);
 	if (err)
 		return err;
 
@@ -801,8 +822,8 @@ static int init_local(void *arg, int id, void **_larg)
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = &lcl_pp2_args->lcl_ports_desc[i];
 
-	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
-		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
+	pr_debug("thread %d (cpu %d) (mem_id %d) mapped to Qs %llx\n",
+		 larg->cmn_args.id, sched_getcpu(), mem_id, (unsigned long long)larg->cmn_args.qs_map);
 
 	*_larg = larg;
 	return 0;
@@ -835,6 +856,7 @@ static void usage(char *progname)
 	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
 	       "\t--pkt-offset <size>      Packet offset in buffer, must be multiple of 32-byte (default is %d)\n"
+	       "\t--mem-regions <number>   Number of mv_sys_dma_mem_regions (default=0)\n"
 	       "\t--old-tx-desc-release    Use pp2_bpool_put_buff(), instead of NEW pp2_bpool_put_buffs() API\n"
 	       "\t--no-echo                Don't perform 'pkt_echo', N/A w/o define APP_PKT_ECHO_SUPPORT\n"
 	       "\t--cli                    Use CLI\n"
@@ -863,6 +885,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
 	garg->cmn_args.ctrl_thresh = PKT_ECHO_APP_CTRL_DFLT_THR;
+	garg->cmn_args.num_mem_regions = 0;
 	garg->maintain_stats = 0;
 
 	pp2_args->multi_buffer_release = 1;
@@ -1030,6 +1053,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--cli") == 0) {
 			garg->cmn_args.cli = 1;
 			i += 1;
+		} else if (strcmp(argv[i], "--mem-regions") == 0) {
+			garg->cmn_args.num_mem_regions = atoi(argv[i + 1]);
+			i += 2;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;

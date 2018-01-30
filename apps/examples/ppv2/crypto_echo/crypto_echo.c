@@ -1305,7 +1305,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	pr_info("Specific modules initializations\n");
 
-	err = app_hif_init(&pp2_args->hif, CRYPT_APP_HIF_Q_SIZE);
+	err = app_hif_init(&pp2_args->hif, CRYPT_APP_HIF_Q_SIZE, NULL);
 	if (err)
 		return err;
 
@@ -1658,7 +1658,7 @@ static int init_local(void *arg, int id, void **_larg)
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
 	pthread_mutex_lock(&garg->trd_lock);
-	err = app_hif_init(&lcl_pp2_args->hif, CRYPT_APP_HIF_Q_SIZE);
+	err = app_hif_init(&lcl_pp2_args->hif, CRYPT_APP_HIF_Q_SIZE, NULL);
 	pthread_mutex_unlock(&garg->trd_lock);
 	if (err)
 		return err;
@@ -2238,6 +2238,7 @@ int main(int argc, char *argv[])
 		return err;
 	}
 	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
+	garg.cmn_args.cores_mask = cores_mask;
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;

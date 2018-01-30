@@ -933,7 +933,7 @@ static int init_local_modules(struct glob_arg *garg)
 	/**************************/
 	/* PP2 Port Init	  */
 	/**************************/
-	err = app_hif_init(&pp2_args->hif, PKT_ECHO_APP_HIF_Q_SIZE);
+	err = app_hif_init(&pp2_args->hif, PKT_ECHO_APP_HIF_Q_SIZE, NULL);
 	if (err)
 		return err;
 
@@ -1092,7 +1092,7 @@ static int init_local(void *arg, int id, void **_larg)
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
 	pthread_mutex_lock(&garg->trd_lock);
-	err = app_hif_init(&lcl_pp2_args->hif, PKT_ECHO_APP_HIF_Q_SIZE);
+	err = app_hif_init(&lcl_pp2_args->hif, PKT_ECHO_APP_HIF_Q_SIZE, NULL);
 	pthread_mutex_unlock(&garg->trd_lock);
 	if (err)
 		return err;
