@@ -57,7 +57,14 @@ static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
 u8 mvapp_pp2_max_num_qs_per_tc;
+uintptr_t cookie_high_bits = MVAPPS_INVALID_COOKIE_HIGH_BITS;
 
+
+
+static void app_set_high_addr(uintptr_t high_addr)
+{
+	cookie_high_bits = high_addr;
+}
 
 void app_show_rx_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
 {
@@ -1014,13 +1021,20 @@ int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_i
 			pr_err("failed to allocate mem (%d)!\n", k);
 			return -1;
 		}
+		if (app_get_high_addr() == MVAPPS_INVALID_COOKIE_HIGH_BITS)
+			app_set_high_addr((uintptr_t)buff_virt_addr & MVAPPS_COOKIE_HIGH_MASK);
+
 		buffs_inf[k].addr = mv_sys_dma_mem_virt2phys(buff_virt_addr);
 		buffs_inf[k].cookie = (uintptr_t)buff_virt_addr;
 	}
 
 	for (k = 0; k < inf->num_buffs; k++) {
 		struct pp2_buff_inf	tmp_buff_inf;
-
+		if ((buffs_inf[k].cookie & MVAPPS_COOKIE_HIGH_MASK) != app_get_high_addr()) {
+			pr_err("app_allocate_bpool_buffs: buffer(%d) upper 32-bits are 0x%x, should be 0x%x\n",
+				k, upper_32_bits(buffs_inf[k].cookie), upper_32_bits(app_get_high_addr()));
+			return -1;
+		}
 		tmp_buff_inf.cookie = buffs_inf[k].cookie;
 		tmp_buff_inf.addr   = buffs_inf[k].addr;
 		err = pp2_bpool_put_buff(hif, pool, &tmp_buff_inf);
@@ -1491,7 +1505,7 @@ static void free_pool_buffers(struct pp2_buff_inf *buffs, int num)
 	int i;
 
 	for (i = 0; i < num; i++) {
-		void *buff_virt_addr = (void *)(uintptr_t)buffs[i].cookie;
+		void *buff_virt_addr = (void *)(app_get_high_addr() | (uintptr_t)buffs[i].cookie);
 
 		mv_sys_dma_mem_free(buff_virt_addr);
 		buf_free_cnt++;
