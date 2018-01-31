@@ -41,6 +41,7 @@
 #include "lf/pf/pf.h"
 #include "lf/pf/pf_regfile.h"
 #include "lf/pf/pf_topology.h"
+#include "lf/custom/custom.h"
 #include "lf/mng_cmd_desc.h"
 #include "mng/mv_nmp_dispatch.h"
 #include "lib/lib_misc.h"
@@ -378,6 +379,14 @@ static void dev_mng_pf_init_done(void *arg)
 
 	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
 		ret = dev_mng_pp2_serialize(nmnicpf, &buff[pos], size - pos);
+		if (ret >= 0)
+			pos += ret;
+		if (pos != strlen(buff))
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+	}
+
+	if (nmp->nmcstm) {
+		ret = nmcstm_serialize(nmp->nmcstm, &buff[pos], size - pos);
 		if (ret >= 0)
 			pos += ret;
 		if (pos != strlen(buff))

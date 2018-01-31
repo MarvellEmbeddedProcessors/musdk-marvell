@@ -39,13 +39,12 @@
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
 #include "mng/dispatch.h"
+#include "lib/lib_misc.h"
 #include "custom.h"
 
 #define MAX_MSG_DATA_LEN	1024
 #define CMD_QUEUE_SIZE	\
 		(1 + ceil((MAX_MSG_DATA_LEN - MGMT_DESC_DATA_LEN), sizeof(struct cmd_desc)))
-
-struct nmcstm *nmcstm_for_guest;
 
 /*
  *	nmcstm_mng_chn_init
@@ -112,6 +111,24 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 	}
 
 	nmcstm->mng_ctrl.notify_queue = notify_queue_p;
+
+	pr_debug("Custom CMD Queue Params:\n");
+	pr_debug("\tdesc_ring_base phys %p\n", nmcstm->mng_ctrl.cmd_queue->phy_base_addr);
+	pr_debug("\tdesc_ring_base virt %p\n", nmcstm->mng_ctrl.cmd_queue->virt_base_addr);
+	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.cmd_queue->cons_phys);
+	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.cmd_queue->cons_virt);
+	pr_debug("\tprod_addr phys %p\n", nmcstm->mng_ctrl.cmd_queue->prod_phys);
+	pr_debug("\tprod_addr virt %p\n", nmcstm->mng_ctrl.cmd_queue->prod_virt);
+	pr_debug("\tlen 0x%x\n", nmcstm->mng_ctrl.cmd_queue->len);
+
+	pr_debug("Custom NOTIFY Queue Params:\n");
+	pr_debug("\tdesc_ring_base phys %p\n", nmcstm->mng_ctrl.notify_queue->phy_base_addr);
+	pr_debug("\tdesc_ring_base virt %p\n", nmcstm->mng_ctrl.notify_queue->virt_base_addr);
+	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.notify_queue->cons_phys);
+	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.notify_queue->cons_virt);
+	pr_debug("\tprod_addr phys %p\n", nmcstm->mng_ctrl.notify_queue->prod_phys);
+	pr_debug("\tprod_addr virt %p\n", nmcstm->mng_ctrl.notify_queue->prod_virt);
+	pr_debug("\tlen 0x%x\n", nmcstm->mng_ctrl.notify_queue->len);
 
 	return 0;
 
@@ -235,7 +252,6 @@ int nmcstm_init(struct nmcstm_params *params, struct nmcstm **nmcstm_ptr)
 
 	*nmcstm_ptr = nmcstm;
 
-	nmcstm_for_guest = nmcstm;
 init_exit:
 	if (ret) {
 		nmcstm_deinit(nmcstm);
@@ -329,5 +345,44 @@ int nmcstm_process_command(void *arg, struct nmdisp_msg *msg)
 	}
 
 	return 0;
+}
+
+int nmcstm_serialize(struct nmcstm *nmcstm, char *buff, u32 size)
+{
+	size_t				pos = 0;
+	u32				poffset;
+	struct mv_sys_dma_mem_info	mem_info;
+	char				dev_name[100];
+
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+
+	json_print_to_buffer(buff, size, 1, "\"custom-info\": {\n");
+	json_print_to_buffer(buff, size, 2, "\"lf-master-id\": %u,\n", nmcstm->pf_id);
+	json_print_to_buffer(buff, size, 2, "\"max-msg-len\": %u,\n", MAX_MSG_DATA_LEN);
+
+	json_print_to_buffer(buff, size, 2, "\"cmd-queue\": {\n");
+	poffset = (phys_addr_t)nmcstm->mng_ctrl.cmd_queue->phy_base_addr - mem_info.paddr;
+	json_print_to_buffer(buff, size, 3, "\"base-poffset\": %#x,\n", poffset);
+	poffset = (phys_addr_t)nmcstm->mng_ctrl.cmd_queue->cons_phys - mem_info.paddr;
+	json_print_to_buffer(buff, size, 3, "\"cons-poffset\": %#x,\n", poffset);
+	poffset = (phys_addr_t)nmcstm->mng_ctrl.cmd_queue->prod_phys - mem_info.paddr;
+	json_print_to_buffer(buff, size, 3, "\"prod-poffset\": %#x,\n", poffset);
+	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", nmcstm->mng_ctrl.cmd_queue->len);
+	json_print_to_buffer(buff, size, 2, "},\n");
+
+	json_print_to_buffer(buff, size, 2, "\"notify-queue\": {\n");
+	poffset = (phys_addr_t)nmcstm->mng_ctrl.notify_queue->phy_base_addr - mem_info.paddr;
+	json_print_to_buffer(buff, size, 3, "\"base-poffset\": %#x,\n", poffset);
+	poffset = (phys_addr_t)nmcstm->mng_ctrl.notify_queue->cons_phys - mem_info.paddr;
+	json_print_to_buffer(buff, size, 3, "\"cons-poffset\": %#x,\n", poffset);
+	poffset = (phys_addr_t)nmcstm->mng_ctrl.notify_queue->prod_phys - mem_info.paddr;
+	json_print_to_buffer(buff, size, 3, "\"prod-poffset\": %#x,\n", poffset);
+	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", nmcstm->mng_ctrl.notify_queue->len);
+	json_print_to_buffer(buff, size, 2, "},\n");
+
+	json_print_to_buffer(buff, size, 1, "}\n");
+
+	return pos;
 }
 

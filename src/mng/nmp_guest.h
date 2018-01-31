@@ -35,8 +35,6 @@
 #include "mng/mv_nmp_guest.h"
 #include "lf/mng_cmd_desc.h"
 
-extern struct nmcstm *nmcstm_for_guest;
-
 #define q_inc_idx(q, idx)	q_inc_idx_val(q, idx, 1)
 #define q_inc_idx_val(q, idx, val)	((idx + val) & (q->len - 1))
 #define q_rd_idx(idx)		(*((u32 *)idx))
@@ -63,13 +61,15 @@ struct nmp_guest_queue {
 
 struct nmp_guest {
 	u8	 id;
+	u8	 lf_master_id;
 	u32	 timeout;
 	char	*prb_str;
 	struct nmp_guest_queue cmd_queue;
 	struct nmp_guest_queue notify_queue;
 
 	/* Guest App parameters */
-	u8 *msg;
+	u8	*msg;
+	u32	max_msg_len;
 	/* TODO - need to handle multiple app_cb */
 	struct {
 		enum nmp_guest_lf_type lf_type;

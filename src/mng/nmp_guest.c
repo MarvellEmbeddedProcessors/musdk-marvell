@@ -78,14 +78,129 @@ static int nmp_guest_wait_for_guest_file(struct nmp_guest *guest)
 
 static int nmp_guest_probe(struct nmp_guest *guest)
 {
-	guest->cmd_queue.base_addr_virt		= nmcstm_for_guest->mng_ctrl.cmd_queue->virt_base_addr;
-	guest->cmd_queue.cons_virt		= nmcstm_for_guest->mng_ctrl.cmd_queue->cons_virt;
-	guest->cmd_queue.prod_virt		= nmcstm_for_guest->mng_ctrl.cmd_queue->prod_virt;
-	guest->cmd_queue.len			= nmcstm_for_guest->mng_ctrl.cmd_queue->len;
-	guest->notify_queue.base_addr_virt	= nmcstm_for_guest->mng_ctrl.notify_queue->virt_base_addr;
-	guest->notify_queue.cons_virt		= nmcstm_for_guest->mng_ctrl.notify_queue->cons_virt;
-	guest->notify_queue.prod_virt		= nmcstm_for_guest->mng_ctrl.notify_queue->prod_virt;
-	guest->notify_queue.len			= nmcstm_for_guest->mng_ctrl.notify_queue->len;
+	char				*sec = NULL;
+	struct sys_iomem_params		 iomem_params;
+	struct sys_iomem		*sys_iomem;
+	char				 dev_name[FILE_MAX_LINE_CHARS];
+	uintptr_t			 va;
+	phys_addr_t			 paddr;
+	size_t				 reg_size = 0;
+	u32				 poffset = 0;
+	char				*tmp_buff;
+
+	tmp_buff = kcalloc(1, strlen(guest->prb_str), GFP_KERNEL);
+	if (tmp_buff == NULL)
+		return -ENOMEM;
+
+	memcpy(tmp_buff, guest->prb_str, strlen(guest->prb_str));
+
+	sec = strstr(tmp_buff, "dma-info");
+	if (!sec) {
+		pr_err("'dma-info' not found\n");
+		return -EINVAL;
+	}
+
+	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
+	/* get the master DMA device name */
+	json_buffer_to_input_str(sec, "file_name", dev_name);
+	if (dev_name[0] == 0) {
+		pr_err("'file_name' not found\n");
+		return -EINVAL;
+	}
+
+	/* get the master DMA region size */
+	json_buffer_to_input(sec, "region_size", reg_size);
+	if (reg_size == 0) {
+		pr_err("reg_size is 0\n");
+		return -EINVAL;
+	}
+
+	/* get the master DMA physical address */
+	json_buffer_to_input(sec, "phys_addr", paddr);
+	if (!paddr) {
+		pr_err("'phys_addr' not found\n");
+		return -EINVAL;
+	}
+
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = dev_name;
+	iomem_params.index = 1;
+	iomem_params.size = reg_size;
+
+	if (sys_iomem_init(&iomem_params, &sys_iomem)) {
+		pr_err("sys_iomem_init error\n");
+		return -EINVAL;
+	}
+
+	/* Map the iomem physical address */
+	if (sys_iomem_map(sys_iomem, NULL, (phys_addr_t *)&paddr,
+			  (void **)&va)) {
+		pr_err("sys_iomem_map error\n");
+		sys_iomem_deinit(sys_iomem);
+		return -EINVAL;
+	}
+
+	/* Search for the custom-info section */
+	sec = strstr(sec, "custom-info");
+	if (!sec) {
+		pr_err("custom-info section not found\n");
+		return -EINVAL;
+	}
+
+	json_buffer_to_input(sec, "lf-master-id", guest->lf_master_id);
+	json_buffer_to_input(sec, "max-msg-len", guest->max_msg_len);
+
+	sec = strstr(sec, "cmd-queue");
+	if (!sec) {
+		pr_err("cmd-queue section not found\n");
+		return -EINVAL;
+	}
+
+	json_buffer_to_input(sec, "base-poffset", poffset);
+	guest->cmd_queue.base_addr_phys = (void *)(paddr + poffset);
+	guest->cmd_queue.base_addr_virt = (struct cmd_desc *)(va + poffset);
+	json_buffer_to_input(sec, "cons-poffset", poffset);
+	guest->cmd_queue.cons_phys = (void *)(paddr + poffset);
+	guest->cmd_queue.cons_virt = (u32 *)(va + poffset);
+	json_buffer_to_input(sec, "prod-poffset", poffset);
+	guest->cmd_queue.prod_phys = (void *)(paddr + poffset);
+	guest->cmd_queue.prod_virt = (u32 *)(va + poffset);
+	json_buffer_to_input(sec, "len", guest->cmd_queue.len);
+
+	sec = strstr(sec, "notify-queue");
+	if (!sec) {
+		pr_err("cmd-queue section not found\n");
+		return -EINVAL;
+	}
+
+	json_buffer_to_input(sec, "base-poffset", poffset);
+	guest->notify_queue.base_addr_phys = (void *)(paddr + poffset);
+	guest->notify_queue.base_addr_virt = (struct cmd_desc *)(va + poffset);
+	json_buffer_to_input(sec, "cons-poffset", poffset);
+	guest->notify_queue.cons_phys = (void *)(paddr + poffset);
+	guest->notify_queue.cons_virt = (u32 *)(va + poffset);
+	json_buffer_to_input(sec, "prod-poffset", poffset);
+	guest->notify_queue.prod_phys = (void *)(paddr + poffset);
+	guest->notify_queue.prod_virt = (u32 *)(va + poffset);
+	json_buffer_to_input(sec, "len", guest->notify_queue.len);
+
+	pr_debug("NMP-GUEST CMD Queue Params:\n");
+	pr_debug("\tdesc_ring_base phys %p\n", guest->cmd_queue.base_addr_phys);
+	pr_debug("\tdesc_ring_base virt %p\n", guest->cmd_queue.base_addr_virt);
+	pr_debug("\tcons_addr phys %p\n", guest->cmd_queue.cons_phys);
+	pr_debug("\tcons_addr phys %p\n", guest->cmd_queue.cons_virt);
+	pr_debug("\tprod_addr phys %p\n", guest->cmd_queue.prod_phys);
+	pr_debug("\tprod_addr virt %p\n", guest->cmd_queue.prod_virt);
+	pr_debug("\tlen 0x%x\n", guest->cmd_queue.len);
+
+	pr_debug("NMP-GUEST NOTIFY Queue Params:\n");
+	pr_debug("\tdesc_ring_base phys %p\n", guest->notify_queue.base_addr_phys);
+	pr_debug("\tdesc_ring_base virt %p\n", guest->notify_queue.base_addr_virt);
+	pr_debug("\tcons_addr phys %p\n", guest->notify_queue.cons_phys);
+	pr_debug("\tcons_addr phys %p\n", guest->notify_queue.cons_virt);
+	pr_debug("\tprod_addr phys %p\n", guest->notify_queue.prod_phys);
+	pr_debug("\tprod_addr virt %p\n", guest->notify_queue.prod_virt);
+	pr_debug("\tlen 0x%x\n", guest->notify_queue.len);
 
 	return 0;
 }
@@ -115,15 +230,16 @@ int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 		goto guest_init_err2;
 	}
 
+	nmp_guest_probe(*g);
+
 	/* TODO - take max mesg length from guest-file */
-	(*g)->msg = kcalloc(1, 1024, GFP_KERNEL);
+	(*g)->msg = kcalloc(1, (*g)->max_msg_len, GFP_KERNEL);
 	if ((*g)->msg == NULL) {
 		err = -ENOMEM;
 		pr_err("Failed to allocate message buffer\n");
 		goto guest_init_err2;
 	}
 
-	nmp_guest_probe(*g);
 
 	pr_info("%s...done\n", __func__);
 
