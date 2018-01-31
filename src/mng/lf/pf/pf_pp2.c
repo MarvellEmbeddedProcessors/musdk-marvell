@@ -331,18 +331,18 @@ int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 {
 	struct				 pp2_ppio_statistics stats;
 	u32				 pcount = 0;
-	struct nmp_pp2_port_desc	*port_desc = NULL;
 	int				 ret;
+	struct pp2_ppio			*ppio;
 
-	port_desc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
-
-	ret = pp2_ppio_get_statistics(port_desc->ppio, &stats, params->pf_get_statistics.reset);
-	if (ret) {
-		resp_data->status = NOTIF_STATUS_FAIL;
+	ppio = nmnicpf->pp2.ports_desc[pcount].ppio;
+	memset(&stats, 0, sizeof(struct pp2_ppio_statistics));
+	ret = pp2_ppio_get_statistics(ppio, &stats, -1);
+	if (ret)
 		return ret;
-	}
 
-	resp_data->status = NOTIF_STATUS_OK;
+	if (!resp_data)
+		return -EFAULT;
+
 	resp_data->agnic_stats.rx_bytes = stats.rx_bytes;
 	resp_data->agnic_stats.rx_packets = stats.rx_packets;
 	resp_data->agnic_stats.rx_unicast_packets = stats.rx_unicast_packets;
