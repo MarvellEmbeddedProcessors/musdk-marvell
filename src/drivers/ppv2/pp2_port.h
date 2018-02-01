@@ -48,11 +48,6 @@
 #define PP2_LOOPBACK_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_64
 #define PP2_ETH_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_16
 
-#define PP2_SYSFS_STATS_PATH	"/sys/devices/platform/pp2/musdk"
-#define PP2_SYSFS_STATS_FILE	"port_stats"
-#define PP2_SYSFS_MUSDK_PATH		"/sys/devices/platform/pp2/musdk"
-#define PP2_SYSFS_DEBUG_PORT_SET_FILE	"sysfs_current_port"
-
 
 struct pp2_port;
 
@@ -473,7 +468,6 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan);
 
 int pp2_port_initialize_statistics(struct pp2_port *port);
 int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *stats);
-int pp2_port_get_sysfs_statistics(struct pp2_port *port, struct pp2_ppio_statistics *stats);
 
 /* Initialize MTU, port and queue rate limits and txq arbitration */
 int pp2_port_config_txsched(struct pp2_port *port);
