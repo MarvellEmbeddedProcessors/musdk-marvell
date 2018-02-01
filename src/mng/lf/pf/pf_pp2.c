@@ -336,7 +336,7 @@ int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 
 	ppio = nmnicpf->pp2.ports_desc[pcount].ppio;
 	memset(&stats, 0, sizeof(struct pp2_ppio_statistics));
-	ret = pp2_ppio_get_statistics(ppio, &stats, -1);
+	ret = pp2_ppio_get_statistics(ppio, &stats, params->pf_get_statistics.reset);
 	if (ret)
 		return ret;
 
