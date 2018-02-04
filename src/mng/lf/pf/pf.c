@@ -857,7 +857,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	void *qnpt_phys, *qnct_phys;
 	u32 local_cmd_queue, local_notify_queue;
 	u32 remote_cmd_queue, remote_notify_queue;
-	u8 mac_addr[] = INITIAL_MAC_ADDR;
+	u8 mac_addr[ETH_ALEN];
 	int ret = 0;
 
 	struct mqa_queue_params params;
@@ -920,6 +920,9 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 
 	nmnicpf->mng_data.lcl_mng_ctrl.notify_queue = (struct mqa_q *)lcl_notify_queue_p;
 
+	/* get the initial mac-addr from the pp2 port's (if exist) kernel side as this is the correct mac-addr. */
+	nmnicpf_pp2_get_mac_addr(nmnicpf, mac_addr);
+
 	/*  Host Ready Check */
 	/* ================= */
 
@@ -938,7 +941,6 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	 */
 	pr_info("Wait till Host change the status to 'Host Management Ready'\n");
 
-	/* TODO - get the mac address from somewhere that makes sense */
 	pcie_cfg->mac_addr[0] = mac_addr[0];
 	pcie_cfg->mac_addr[1] = mac_addr[1];
 	pcie_cfg->mac_addr[2] = mac_addr[2];
@@ -1147,6 +1149,9 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 
 	nmnicpf->pf_id = 0;
 
+	/* Initialize the nicpf PP2 port */
+	nmnicpf_pp2_port_init(nmnicpf);
+
 	/* Initialize management queues */
 	ret = nmnicpf_mng_chn_init(nmnicpf);
 	if (ret)
@@ -1168,9 +1173,6 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	ret = nmdisp_add_queue(nmnicpf->nmdisp, params.client_type, params.client_id, &q_params);
 	if (ret)
 		return ret;
-
-	/* Initialize the nicpf PP2 port */
-	nmnicpf_pp2_port_init(nmnicpf);
 
 	return 0;
 }

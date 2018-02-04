@@ -42,5 +42,6 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 			       struct mgmt_cmd_params *params,
 			       struct mgmt_cmd_resp *resp_data);
+void nmnicpf_pp2_get_mac_addr(struct nmnicpf *nmnicpf, u8 *mac_addr);
 
 #endif /* _PF_PP2_H */

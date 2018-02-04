@@ -252,7 +252,6 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 	struct nmp_pp2_port_desc	*pdesc;
 	int				 num_pools;
 	struct nmp_pp2_bpool_desc	*pools;
-	eth_addr_t			addr = INITIAL_MAC_ADDR;
 
 	if (!nmnicpf->pp2.ports_desc)
 		/* no pp2, just return */
@@ -310,12 +309,6 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 		return -EIO;
 	}
 
-	err = pp2_ppio_set_mac_addr(pdesc->ppio, addr);
-	if (err) {
-		pr_err("PPIO set mac address failed\n");
-		return err;
-	}
-
 	err = pp2_ppio_enable(pdesc->ppio);
 	if (err) {
 		pr_err("PPIO enable failed\n");
@@ -358,5 +351,32 @@ int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 	resp_data->agnic_stats.tx_errors = stats.tx_errors;
 
 	return 0;
+}
+
+void nmnicpf_pp2_get_mac_addr(struct nmnicpf *nmnicpf, u8 *mac_addr)
+{
+	struct ifreq s;
+	char linux_name[16];
+	int ret, i;
+	u8 default_mac_addr[] = INITIAL_MAC_ADDR;
+
+	if (nmnicpf->pp2.num_ports >= 1) {
+		ret = pp2_netdev_ifname_get(nmnicpf->pp2.ports_desc[0].pp_id,
+					nmnicpf->pp2.ports_desc[0].ppio_id,
+					linux_name);
+		if (ret)
+			goto set_default;
+
+		strcpy(s.ifr_name, linux_name);
+		ret = mv_netdev_ioctl(SIOCGIFHWADDR, &s);
+		if (ret)
+			goto set_default;
+
+		for (i = 0; i < ETH_ALEN; i++)
+			mac_addr[i] = s.ifr_hwaddr.sa_data[i];
+		return;
+	}
+set_default:
+	memcpy(mac_addr, default_mac_addr, sizeof(default_mac_addr));
 }
 
