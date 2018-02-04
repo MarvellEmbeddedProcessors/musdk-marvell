@@ -1027,15 +1027,85 @@ int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize)
 	return 0;
 }
 
+static int app_sys_dma_init_single(struct mv_sys_dma_mem_region_params *params,
+			    struct glb_common_args *glb_args)
+{
+	int err;
+	int mem_id = params->mem_id;
+
+	err = mv_sys_dma_mem_region_init(params, &glb_args->mem_region[mem_id]);
+	if (err)  {
+		pr_err("mv_sys_dma_mem_region_init() failed %d\n", mem_id);
+		return err;
+	}
+	pr_info("cmn_args->mem_region[%d]= %p\n", mem_id, &glb_args->mem_region[mem_id]);
+
+	return 0;
+}
+
+
+int app_sys_dma_init(struct mv_sys_dma_mem_region_params *params, struct glb_common_args *glb_args)
+{
+	int i, err, num_regions = 0;
+
+	if (glb_args->num_clusters <= 0 || glb_args->num_clusters > MVAPPS_MAX_NUM_AP)
+		pr_err("num_clusters must be init before %s\n", __func__);
+
+	/* Init mem_regions that were created in kernel */
+	if (glb_args->num_mem_regions == MVAPPS_INVALID_MEMREGIONS) {
+		for (i = 0; i < MVAPPS_MAX_NUM_AP; i++) {
+			if (mv_sys_dma_mem_region_exist(i) == false)
+				continue;
+			params->mem_id = i;
+			err = app_sys_dma_init_single(params, glb_args);
+			num_regions++;
+			if (err)
+				return err;
+		}
+	} else {
+		/* Init mem_regions according to user request */
+		for (i = 0; i < glb_args->num_mem_regions; i++) {
+			params->mem_id = i;
+			err = app_sys_dma_init_single(params, glb_args);
+			num_regions++;
+			if (err)
+				return err;
+		}
+	}
+
+	glb_args->num_mem_regions = num_regions;
+	pr_info("(%d) memory regions created\n", num_regions);
+	if (glb_args->num_mem_regions == glb_args->num_clusters)
+		return 0;
+
+	/* Create default sys_dma, only if not enough regions were created */
+	err = mv_sys_dma_mem_init(params->size);
+	if (err) {
+		pr_err("mv_sys_dma_mem_init() failed\n");
+		return err;
+	}
+	pr_info("default mv_sys_dma_mem_init() called\n");
+	return 0;
+}
+
+void app_get_num_cpu_clusters(struct glb_common_args *glb_args)
+{
+	/* TODO: Replace with code that checks dts in sysfs. */
+	glb_args->num_clusters = get_nprocs() / MVAPPS_NUM_CORES_PER_AP;
+}
+
+
 int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_inf,
 			     struct pp2_bpool *pool, struct pp2_hif *hif)
 {
 	int k, err;
 
+	pr_debug("app_allocate_bpool_buffs: pp2_id(%d) pool_id(%d) cpu_cluster(%d) mem_id_ptr(%p)\n",
+		pool->pp2_id, pool->id, inf->cpu_cluster_id, inf->buff_mem_id);
+
 	for (k = 0; k < inf->num_buffs; k++) {
 		void *buff_virt_addr;
-
-		buff_virt_addr = mv_sys_dma_mem_alloc(inf->buff_size, 4);
+		buff_virt_addr = mv_sys_dma_mem_region_alloc(inf->buff_mem_id, inf->buff_size, 4);
 		if (!buff_virt_addr) {
 			pr_err("failed to allocate mem (%d)!\n", k);
 			return -1;
@@ -1043,7 +1113,7 @@ int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_i
 		if (app_get_high_addr() == MVAPPS_INVALID_COOKIE_HIGH_BITS)
 			app_set_high_addr((uintptr_t)buff_virt_addr & MVAPPS_COOKIE_HIGH_MASK);
 
-		buffs_inf[k].addr = mv_sys_dma_mem_virt2phys(buff_virt_addr);
+		buffs_inf[k].addr = mv_sys_dma_mem_region_virt2phys(inf->buff_mem_id, buff_virt_addr);
 		buffs_inf[k].cookie = (uintptr_t)buff_virt_addr;
 	}
 
@@ -1062,6 +1132,49 @@ int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_i
 		buf_alloc_cnt++;
 	}
 	return 0;
+}
+
+void app_prepare_bpools(struct glb_common_args *glb_args, struct bpool_inf **infs, struct bpool_inf *std_inf,
+			int std_inf_size, struct bpool_inf *jumbo_inf, int jumbo_inf_size)
+{
+	struct bpool_inf *i_infs, *temp_infs;
+	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) glb_args->plat;
+	int i = 0, num_aps = glb_args->num_clusters;
+
+	if (glb_args->mtu > DEFAULT_MTU) {
+		temp_infs = jumbo_inf;
+		pp2_args->num_pools = jumbo_inf_size;
+	} else {
+		temp_infs = std_inf;
+		pp2_args->num_pools = std_inf_size;
+	}
+
+	/* malloc num_aps*num_pools */
+	i_infs = kzalloc(num_aps * pp2_args->num_pools * sizeof(struct bpool_inf), GFP_KERNEL);
+
+	/* Copy in first (ap0) set */
+	memcpy(i_infs, temp_infs, pp2_args->num_pools * sizeof(struct bpool_inf));
+
+	/* Copy ap1 set, and update cluster_id and buf_mem_id for all */
+	if (num_aps == 2) {
+		memcpy(&i_infs[pp2_args->num_pools], temp_infs, pp2_args->num_pools * sizeof(struct bpool_inf));
+
+		for (i = 0; i < pp2_args->num_pools; i++) {
+			i_infs[i].cpu_cluster_id = 0;
+			i_infs[i].buff_mem_id = glb_args->mem_region[0];
+
+			i_infs[pp2_args->num_pools + i].cpu_cluster_id = 1;
+			i_infs[pp2_args->num_pools + i].buff_mem_id = glb_args->mem_region[1];
+		}
+		pp2_args->num_pools *= num_aps;
+	}
+	pr_err("num_aps %d\n", num_aps);
+	for (i = 0; i < pp2_args->num_pools; i++) {
+		pr_err("inf(%d) buff_size(%d), cluster(%d) num(%d), buf_mem_ptr(%p)\n",
+			i, i_infs[i].buff_size, i_infs[i].cpu_cluster_id, i_infs[i].num_buffs,
+			i_infs[i].buff_mem_id);
+	}
+	*infs = i_infs;
 }
 
 
@@ -1128,7 +1241,12 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 
 			buffs_inf = pools[i][j].buffs_inf;
 			pools[i][j].num_buffs = infs[j].num_buffs;
+			pools[i][j].cpu_cluster_id = infs[j].cpu_cluster_id;
+			pools[i][j].buff_mem_id = infs[j].buff_mem_id;
 
+			pr_debug("pools[%d][%d] pp2(%d) pool_id(%d) cluster(%d) buf_mem_id(%p)\n",
+				i, j, pools[i][j].pool->pp2_id, pools[i][j].pool->id,
+				pools[i][j].cpu_cluster_id, pools[i][j].buff_mem_id);
 			/* If hif is NULL, no need to allocate buffers to bpool
 			 * used mainly for master/guest mode, in case master decides
 			 * not to allocate buffers.
@@ -1171,6 +1289,32 @@ int app_find_port_info(struct port_desc *port_desc)
 	return 0;
 }
 
+/* TODO: Support multiple TCs, generalize code for multiple APs */
+void app_port_inqs_mask_by_affinity(struct glb_common_args *glb_args, struct port_desc *port)
+{
+	u16 ap_num_cpus[MVAPPS_MAX_NUM_AP];
+	u16 num_inqs_left = port->num_inqs[0] /* TC=0 */, num_inqs_used = 0;
+	int i;
+
+	if (port->num_tcs > 1)
+		pr_err("(%s) multi-TC not spported yet !!\n", __func__);
+
+	for (i = 0; i < MVAPPS_MAX_NUM_AP; i++) {
+		int max_possible;
+
+		max_possible = max((i + 1) * MVAPPS_NUM_CORES_PER_AP - glb_args->affinity, 0);
+		max_possible = min(max_possible, MVAPPS_NUM_CORES_PER_AP);
+		ap_num_cpus[i] = min(num_inqs_left, ((u16)max_possible));
+
+		port->inqs_mask[i] = ((1 << ap_num_cpus[i]) - 1) << num_inqs_used;
+		num_inqs_left -= ap_num_cpus[i];
+		num_inqs_used += ap_num_cpus[i];
+
+		pr_info("ap%d_num_cpus(%d) ", i, ap_num_cpus[i]);
+	}
+	pr_info("\n");
+
+}
 int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pools, u16 mtu, u16 pkt_offset)
 {
 	struct pp2_ppio_params		*port_params = &port->port_params;
@@ -1208,13 +1352,30 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 		port_params->inqs_params.tcs_params[i].num_in_qs = port->num_inqs[i];
 		for (j = 0; j < port->num_inqs[i]; j++) {
 			inq_params[j].size = port->inq_size;
-			inq_params[j].mem = NULL;
-			inq_params[j].tc_pools_mem_id_index = 0;
+
+			pr_debug("rx_q(%d) inqs_mask[0]=0x%x inqs_mask[1]=0x%x\n", j,
+				port->inqs_mask[0], port->inqs_mask[1]);
+			if ((1 << j) & port->inqs_mask[1])
+				inq_params[j].tc_pools_mem_id_index = 1;
+			else
+				inq_params[j].tc_pools_mem_id_index = 0;
+			inq_params[j].mem = port->mem_region[inq_params[j].tc_pools_mem_id_index];
+			pr_debug("rx_q(%d) tc_pools_mem_id_index=%d, inq_params[j].mem=(%p)",
+				j, inq_params[j].tc_pools_mem_id_index, inq_params[j].mem);
 		}
 		port_params->inqs_params.tcs_params[i].inqs_params = inq_params;
-
-		for (j = 0; j < num_pools; j++)
-			port_params->inqs_params.tcs_params[i].pools[0][j] = pools[j].pool;
+		/* TODO: Make code generic, without breaking existing applications.
+		 * Need to deal with 2x2=4 pools, 1x2=2 pools, 2x1=2 pools !!
+		 */
+		if (num_pools > 2) {
+			port_params->inqs_params.tcs_params[i].pools[0][0] = pools[0].pool; /* numa(0), short */
+			port_params->inqs_params.tcs_params[i].pools[0][1] = pools[1].pool; /* numa(0), long */
+			port_params->inqs_params.tcs_params[i].pools[1][0] = pools[2].pool; /* numa(1), short */
+			port_params->inqs_params.tcs_params[i].pools[1][1] = pools[3].pool; /* numa(1), long */
+		} else {
+			for (j = 0; j < num_pools; j++)
+				port_params->inqs_params.tcs_params[i].pools[0][j] = pools[j].pool;
+		}
 	}
 	port_params->outqs_params.num_outqs = port->num_outqs;
 	for (i = 0; i < port->num_outqs; i++) {
@@ -1381,6 +1542,7 @@ static void app_shadowqs_deinit(struct tx_shadow_q *shadow_q, int num_shadow_qs,
 		free(shadow_q->ents);
 		shadow_q++;
 	}
+
 }
 
 void app_port_local_deinit(struct lcl_port_desc *lcl_port)
@@ -1519,14 +1681,16 @@ static void flush_pool(struct pp2_bpool *bpool, struct pp2_hif *hif, u32 op_mode
 		pp2_bpool_deinit(bpool);
 }
 
-static void free_pool_buffers(struct pp2_buff_inf *buffs, int num)
+static void free_pool_buffers(struct bpool_desc *pool)
 {
 	int i;
+	int num = pool->num_buffs;
+	struct pp2_buff_inf *buffs = pool->buffs_inf;
+	struct mv_sys_dma_mem_region *mem_id = pool->buff_mem_id;
 
 	for (i = 0; i < num; i++) {
 		void *buff_virt_addr = (void *)(app_get_high_addr() | (uintptr_t)buffs[i].cookie);
-
-		mv_sys_dma_mem_free(buff_virt_addr);
+		mv_sys_dma_mem_region_free(mem_id, buff_virt_addr);
 		buf_free_cnt++;
 	}
 }
@@ -1542,7 +1706,7 @@ void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif
 				for (j = 0; j < num_pools; j++)
 					if (pools[i][j].pool) {
 						flush_pool(pools[i][j].pool, hif, op_mode);
-						free_pool_buffers(pools[i][j].buffs_inf, pools[i][j].num_buffs);
+						free_pool_buffers(&(pools[i][j]));
 						free(pools[i][j].buffs_inf);
 					}
 				free(pools[i]);
@@ -1626,6 +1790,7 @@ void apps_pp2_destroy_local_modules(void *arg)
 		pp2_args->app_hif[i] = NULL;
 		i++;
 	}
+
 	/* control_hif was a separate hif */
 	if (pp2_args->hif)
 		pp2_hif_deinit(pp2_args->hif);

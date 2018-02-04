@@ -178,6 +178,8 @@ struct port_desc {
 	struct pp2_ppio_params	 port_params;	/* PPIO configuration parameters */
 	struct lcl_port_desc	*lcl_ports_desc[MVAPPS_MAX_NUM_CORES]; /* Index is the thread_id */
 	struct app_shadowqs	 *shared_qs[MVAPPS_PP2_TOTAL_NUM_HIFS];
+	u32			inqs_mask[MVAPPS_MAX_NUM_AP];
+	struct mv_sys_dma_mem_region *mem_region[MVAPPS_MAX_NUM_AP];
 };
 
 /*
@@ -207,6 +209,8 @@ struct lcl_port_desc {
 struct bpool_inf {
 	int	buff_size;	/* buffer size */
 	int	num_buffs;	/* number of buffers */
+	int	cpu_cluster_id;
+	struct mv_sys_dma_mem_region *buff_mem_id;
 };
 
 /*
@@ -215,7 +219,9 @@ struct bpool_inf {
 struct bpool_desc {
 	struct pp2_bpool	*pool;		/* pointer to the bpool object */
 	struct pp2_buff_inf	*buffs_inf;	/* array of buffer objects */
-	int			 num_buffs;	/* number of buffers */
+	int			num_buffs;	/* number of buffers */
+	int			cpu_cluster_id;
+	struct mv_sys_dma_mem_region *buff_mem_id;
 };
 
 
@@ -580,11 +586,16 @@ void app_used_hifmap_init(u16 used_hif_map);
 
 int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize);
 
+void app_prepare_bpools(struct glb_common_args *glb_args, struct bpool_inf **infs, struct bpool_inf *std_inf,
+			int std_inf_size, struct bpool_inf *jumbo_inf, int jumbo_inf_size);
+
+void app_get_num_cpu_clusters(struct glb_common_args *glb_args);
+int app_sys_dma_init(struct mv_sys_dma_mem_region_params *params, struct glb_common_args *glb_args);
 /*
  * Build all pools
  */
-int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif);
 
+int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif);
 /*
  * Allocate buffers to pools
  */
@@ -596,10 +607,14 @@ int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_i
  */
 void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif *hif, u32 op_mode);
 
+
+
 /*
  * Parse port pp_id and ppio_id from port name
  */
 int app_find_port_info(struct port_desc *port_desc);
+
+void app_port_inqs_mask_by_affinity(struct glb_common_args *glb_args, struct port_desc *port);
 /*
  * Init port
  */

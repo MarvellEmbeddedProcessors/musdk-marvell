@@ -42,6 +42,7 @@
 #include "env/io.h"
 #include "env/mv_sys_dma.h"
 
+
 #include "mvapp.h"
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"
@@ -106,8 +107,8 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 
 #define PKT_ECHO_APP_PREFETCH_SHIFT		7
 
-#define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096}, {2048, 1024} }
-#define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }
+#define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
+#define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
 
 #define PKT_ECHO_MAX_FLOW_REQUESTS		64
 
@@ -144,7 +145,6 @@ struct glob_arg {
 	pthread_mutex_t			trd_lock;
 
 	/* Following fields are related to multi-port option (hard-nailed flows) */
-	u64				cores_mask;
 	u16				num_flows;
 	/* Flows in user requested format */
 	struct flow_request		flows[PKT_ECHO_MAX_FLOW_REQUESTS];
@@ -464,29 +464,21 @@ static int init_all_modules(void)
 	struct pp2_init_params	 pp2_params;
 	struct glb_common_args *cmn_args = &garg.cmn_args;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
-	int			 err = 0, i;
+	int			 err = 0;
 	char			 file[PP2_MAX_BUF_STR_LEN];
 	int			 num_rss_tables = 0;
 	struct mv_sys_dma_mem_region_params params;
 
 	pr_info("Global initializations ...\n");
 
-	err = mv_sys_dma_mem_init(PKT_ECHO_APP_DMA_MEM_SIZE);
-	if (err)
-		return err;
+	app_get_num_cpu_clusters(cmn_args);
 
 	params.size = PKT_ECHO_APP_DMA_MEM_SIZE;
 	params.manage = 1;
 
-	for (i = 0; i < cmn_args->num_mem_regions; i++) {
-		params.mem_id = i;
-		err = mv_sys_dma_mem_region_init(&params, &cmn_args->mem_region[params.mem_id]);
-		if (err)  {
-			pr_err("mv_sys_dma_mem_region_init() failed %d\n", params.mem_id);
-			return err;
-		}
-		pr_info("cmn_args->mem_region[%d]= %p\n", params.mem_id, &cmn_args->mem_region[params.mem_id]);
-	}
+	err = app_sys_dma_init(&params, cmn_args);
+	if (err)
+		return err;
 
 	memset(&pp2_params, 0, sizeof(pp2_params));
 	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
@@ -497,7 +489,7 @@ static int init_all_modules(void)
 	/* Relevant only if cpus is bigger than 1 */
 	if (garg.cmn_args.cpus > 1) {
 		sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-	num_rss_tables = appp_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
+		num_rss_tables = appp_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
 		if (num_rss_tables < 0) {
 			pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
 			return -EFAULT;
@@ -524,7 +516,7 @@ static void set_local_flows(struct glob_arg *garg)
 
 	for (i = 0; i < garg->num_flows; i++) {
 		int thr_id = 0;
-		u32 garg_cores_mask = garg->cores_mask;
+		u32 garg_cores_mask = garg->cmn_args.cores_mask;
 		u32 flow_cores_mask = garg->flows[i].cpu_mask;
 		int rx_port = garg->flows[i].rx_port;
 		int tx_port = garg->flows[i].tx_port;
@@ -566,11 +558,12 @@ static void set_local_flows(struct glob_arg *garg)
 	}
 }
 
+
+
 static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
-	struct bpool_inf		std_infs[] = PKT_ECHO_APP_BPOOLS_INF;
-	struct bpool_inf		jumbo_infs[] = PKT_ECHO_APP_BPOOLS_JUMBO_INF;
+	struct bpool_inf		std_inf[] = PKT_ECHO_APP_BPOOLS_INF, jumbo_inf[] = PKT_ECHO_APP_BPOOLS_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	int				i = 0, j;
@@ -581,18 +574,11 @@ static int init_local_modules(struct glob_arg *garg)
 	if (err)
 		return err;
 
-	if (garg->cmn_args.mtu > DEFAULT_MTU) {
-		infs = jumbo_infs;
-		pp2_args->num_pools = ARRAY_SIZE(jumbo_infs);
-	} else {
-		infs = std_infs;
-		pp2_args->num_pools = ARRAY_SIZE(std_infs);
-	}
+	app_prepare_bpools(&garg->cmn_args, &infs, std_inf, ARRAY_SIZE(std_inf), jumbo_inf, ARRAY_SIZE(jumbo_inf));
 
 	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
 	if (err)
 		return err;
-	printf("app_build_all_bpools done\n");
 
 	/* Fill in local_thread flows */
 	if (garg->num_flows) {
@@ -617,6 +603,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 		err = app_find_port_info(port);
 		if (!err) {
+			memcpy(port->mem_region, garg->cmn_args.mem_region, sizeof(garg->cmn_args.mem_region));
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
 			if ((port->num_tcs > 1) && garg->port_num_inqs[port_index]) {
@@ -658,6 +645,11 @@ static int init_local_modules(struct glob_arg *garg)
 					i++;
 				}
 			}
+			if (0)
+				;/* TODO Handle flows */
+			else
+				app_port_inqs_mask_by_affinity(&garg->cmn_args, port);
+
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
 					    garg->cmn_args.mtu, garg->cmn_args.pkt_offset);
 			if (err) {
@@ -885,7 +877,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
 	garg->cmn_args.ctrl_thresh = PKT_ECHO_APP_CTRL_DFLT_THR;
-	garg->cmn_args.num_mem_regions = 0;
+	garg->cmn_args.num_mem_regions = MVAPPS_INVALID_MEMREGIONS;
 	garg->maintain_stats = 0;
 
 	pp2_args->multi_buffer_release = 1;
@@ -1145,7 +1137,7 @@ int main(int argc, char *argv[])
 	} else
 		cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
 
-	garg.cores_mask = cores_mask;
+	garg.cmn_args.cores_mask = cores_mask;
 
 	/* Debug_code. TODO: Replace with pr_debug. */
 	for (i = 0; i < garg.num_flows; i++) {
