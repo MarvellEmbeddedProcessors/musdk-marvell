@@ -375,16 +375,19 @@ int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, stru
 	for (i = 0; i < MEM_DMA_MAX_REGIONS; i++)
 		if (!sys_dma_regions[i])
 			break;
+
 	if (i == MEM_DMA_MAX_REGIONS) {
 		pr_err("Exceeded maximum number of regions (%d)\n", i);
 		return -ENOSPC;
 	}
-	if (params->mem_id > MV_SYS_DMA_MAX_MEM_ID)
+	if (params->mem_id > MV_SYS_DMA_MAX_MEM_ID) {
+		pr_err("Exceeded maximum mem_id (%d)\n", params->mem_id);
 		return -EINVAL;
-
+	}
 	region = kzalloc(sizeof(struct mv_sys_dma_mem_region), GFP_KERNEL);
 	if (!region)
 		return -ENOMEM;
+
 	priv = kzalloc(sizeof(struct sys_mem_dma_region_priv), GFP_KERNEL);
 	if (!priv) {
 		kfree(region);
@@ -396,8 +399,9 @@ int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, stru
 	region->mem_id = params->mem_id;
 
 	err = init_mem_region(region);
-	if (!err)
+	if (err != 0)
 		goto err;
+
 	if (region->manage)
 		err = mem_mng_init((u64)(uintptr_t)region->dma_virt_base, region->size, &priv->mm);
 	if (err != 0)
@@ -409,6 +413,7 @@ int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, stru
 	(*mem) = sys_dma_regions[i];
 
 	return 0;
+
 err:
 	pr_err("%s failed\n", __func__);
 	free_mem_region(region);
@@ -439,9 +444,13 @@ void *mv_sys_dma_mem_region_alloc(struct mv_sys_dma_mem_region *mem, size_t size
 {
 	u64	ans;
 	struct sys_mem_dma_region_priv *priv;
+	static bool warn_once;
 
 	if (!mem) {
-		pr_warn("mv_sys_dma_mem_region_alloc() redirected to mv_sys_dma_mem_alloc()\n");
+		if (!warn_once) {
+			pr_warn("(%s) redirected to mv_sys_dma_mem_alloc()\n", __func__);
+			warn_once = true;
+		}
 		return mv_sys_dma_mem_alloc(size, align);
 	}
 
@@ -465,7 +474,6 @@ void mv_sys_dma_mem_region_free(struct mv_sys_dma_mem_region *mem, void *ptr)
 	struct sys_mem_dma_region_priv *priv;
 
 	if (!mem) {
-		pr_warn("mv_sys_dma_mem_region_free() redirected to mv_sys_dma_mem_free()\n");
 		mv_sys_dma_mem_free(ptr);
 		return;
 	}
