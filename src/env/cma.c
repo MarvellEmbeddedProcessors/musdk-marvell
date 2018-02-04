@@ -66,6 +66,26 @@ int cma_init(void)
 	return 0;
 }
 
+bool cma_region_exist(int mem_id)
+{
+	char buf[32];
+
+	if (mem_id >= MUSDK_MAX_MEM_REGIONS)
+		return 0;
+
+	if (region_fd[mem_id] >= 0)
+		return true;
+
+	sprintf(buf, MUSDK_REGION_DEV_FILE, mem_id);
+
+	region_fd[mem_id] = open(buf, O_RDWR);
+	if (region_fd[mem_id] < 0)
+		return false;
+
+	cma_deinit_region(mem_id);
+	return true;
+}
+
 int cma_init_region(int mem_id)
 {
 	char buf[32];

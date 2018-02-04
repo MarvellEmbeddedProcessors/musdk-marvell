@@ -203,7 +203,7 @@ static inline phys_addr_t mv_sys_dma_mem_region_virt2phys(struct mv_sys_dma_mem_
 
 struct mv_sys_dma_mem_region *mv_sys_dma_mem_region_get(u32 mem_id);
 
-
+int mv_sys_dma_mem_region_exist(u32 mem_id);
 /** @} */ /* end of grp_sys_dma */
 
 #endif /* __MV_SYS_DMA_H__ */
