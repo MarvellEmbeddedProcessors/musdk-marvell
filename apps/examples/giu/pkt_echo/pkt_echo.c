@@ -842,7 +842,8 @@ static int guest_ev_cb(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code,
 
 	pr_debug("guest_ev_cb Sent Notification msg 0x%x\n", *(u32 *)msg);
 
-	ret = nmp_guest_send_msg(garg.nmp_guest, code, indx, msg, len);
+	if (client == NMP_GUEST_LF_T_CUSTOM)
+		ret = nmp_guest_send_msg(garg.nmp_guest, code, indx, msg, len);
 
 	return ret;
 }
