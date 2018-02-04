@@ -489,3 +489,8 @@ struct mv_sys_dma_mem_region *mv_sys_dma_mem_region_get(u32 mem_id)
 	}
 	return NULL;
 }
+
+int mv_sys_dma_mem_region_exist(u32 mem_id)
+{
+	return (int)cma_region_exist(mem_id);
+}

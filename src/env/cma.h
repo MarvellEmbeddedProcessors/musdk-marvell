@@ -51,6 +51,7 @@
  */
 int cma_init(void);
 int cma_init_region(int mem_id);
+bool cma_region_exist(int mem_id);
 
 /**
  * De-initialization routine for pp contiguous memory allocator
