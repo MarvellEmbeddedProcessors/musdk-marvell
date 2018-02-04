@@ -38,9 +38,17 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/of_reserved_mem.h>
+
 #include <linux/mm.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <linux/cma.h>
+
+#include <linux/dma-contiguous.h>
+#include <linux/of_reserved_mem.h>
+
+
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/skbuff.h>
@@ -54,6 +62,8 @@
 #define DRIVER_DESC	"UIO platform driver for Armada US SDK"
 
 #define MISC_DEV_NAME	"uio-cma"
+#define MISC_REGION_DEV_NAME "uio-cma-reg%u"
+
 
 #define MAX_UIO_DEVS	3
 
@@ -165,7 +175,6 @@ static int cma_calloc(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 		pr_err("Copy size arg %p from user failed", argp);
 		return -EFAULT;
 	}
-
 	ptr = kmalloc(sizeof(struct cma_admin), GFP_KERNEL);
 	if (!ptr)
 		return -ENOMEM;
@@ -186,8 +195,8 @@ static int cma_calloc(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 	ptr->size  = size;
 	ptr->kvaddr = ptr;
 
-	pr_debug("CMA buffer allocated: size = %zd Bytes, kvaddr = %p, paddr = 0x%llx\n",
-		(size_t)size, ptr->kvaddr, paddr);
+	pr_debug("dev (%s) CMA buffer allocated: size = %zd Bytes, kvaddr = %p, paddr = 0x%llx\n",
+		dev_name(uio_pdrv_musdk->dev), (size_t)size, ptr->kvaddr, paddr);
 
 	param = (u64)paddr;
 
@@ -255,19 +264,19 @@ static int cma_free(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
 }
 
 /*
- * cma_open() : open operation for uio cma module driver
+ * musdk_cma_open() : open operation for uio cma module driver
  *
  */
-static int cma_open(struct inode *inode, struct file *file)
+static int musdk_cma_open(struct inode *inode, struct file *file)
 {
 	return 0;
 }
 
 /*
- * cma_mmap() - mmap operation for uio cma mapping.
+ * musdk_cma_mmap() - mmap operation for uio cma mapping.
  *
  */
-static int cma_mmap(struct file *filp, struct vm_area_struct *vma)
+static int musdk_cma_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct miscdevice *misc = filp->private_data;
 	struct uio_pdrv_musdk_info *uio_pdrv_musdk =
@@ -301,10 +310,10 @@ static int cma_mmap(struct file *filp, struct vm_area_struct *vma)
 }
 
 /*
- * cma_ioctl() - ioctl operation for uio cma device.
+ * musdk_cma_ioctl() - ioctl operation for uio cma device.
  *
  */
-static long cma_ioctl(struct file *filp,
+static long musdk_cma_ioctl(struct file *filp,
 			  unsigned int cmd, unsigned long args)
 {
 	void __user *argp = (void __user *)args;
@@ -339,7 +348,7 @@ static long cma_ioctl(struct file *filp,
  * cma_release() - release operation for uio misc device.
  *
  */
-static int cma_release(struct inode *inode, struct file *filp)
+static int musdk_cma_release(struct inode *inode, struct file *filp)
 {
 	struct miscdevice *misc = filp->private_data;
 	struct uio_pdrv_musdk_info *uio_pdrv_musdk =
@@ -377,15 +386,24 @@ static int cma_release(struct inode *inode, struct file *filp)
  */
 static int musdk_uio_probe(struct platform_device *pdev)
 {
+#define UIO_DEFAULT_CMA_MEMORY	(~0)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct uio_pdrv_musdk_info *uio_pdrv_musdk;
+	u32 mem_region_index = UIO_DEFAULT_CMA_MEMORY;
 	int err = 0;
 
+	/* number of probes are according to dts.
+	 * First pdev is for "uio-cma". Following pdevs are for regions, "uio-cma-reg%u".
+	*/
 	if (!np) {
 		dev_err(dev, "Non DT case is not supported\n");
 		return -EINVAL;
 	}
+
+	of_property_read_u32(np, "uio-mem-region", &mem_region_index);
+
+	of_reserved_mem_device_init(&pdev->dev);
 
 	uio_pdrv_musdk = devm_kzalloc(dev, sizeof(struct uio_pdrv_musdk_info),
 				   GFP_KERNEL);
@@ -403,9 +421,9 @@ static int musdk_uio_probe(struct platform_device *pdev)
 		dev_warn(dev, "Not dma_coherent\n");
 
 	dev->dma_mask = kmalloc(sizeof(*dev->dma_mask), GFP_KERNEL);
-	err = dma_set_mask(dev, DMA_BIT_MASK(32));
+	err = dma_set_mask(dev, DMA_BIT_MASK(40));
 	if (err == 0)
-		dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+		dma_set_coherent_mask(dev, DMA_BIT_MASK(40));
 	if (err) {
 		dev_err(dev, "%s:%s ", DEV_MUSDK_NAME, "cannot set dma_mask\n");
 		goto fail;
@@ -413,13 +431,14 @@ static int musdk_uio_probe(struct platform_device *pdev)
 
 	struct miscdevice *misc;
 
-	/* *INDENT-OFF* */
 	misc		= &uio_pdrv_musdk->misc;
 	misc->minor	= MISC_DYNAMIC_MINOR;
-	misc->name	= MISC_DEV_NAME;
+	if (mem_region_index != UIO_DEFAULT_CMA_MEMORY)
+		misc->name = kasprintf(GFP_KERNEL, MISC_REGION_DEV_NAME, mem_region_index);
+	else
+		misc->name = MISC_DEV_NAME;
 	misc->fops	= &musdk_misc_fops;
 	misc->parent	= dev;
-	/* *INDENT-ON* */
 
 	err = misc_register(misc);
 	if (err) {
@@ -435,7 +454,6 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	pr_info("Registered cma device: %s\n", misc->name);
 
 	platform_set_drvdata(pdev, uio_pdrv_musdk);
-
 	return 0;
 
 fail:
@@ -471,11 +489,11 @@ static int musdk_uio_remove(struct platform_device *pdev)
 /* *INDENT-OFF* */
 static const struct file_operations musdk_misc_fops = {
 	.owner		= THIS_MODULE,
-	.open		= cma_open,
-	.mmap		= cma_mmap,
-	.release	= cma_release,
-	.unlocked_ioctl	= cma_ioctl,
-	.compat_ioctl	= cma_ioctl,
+	.open		= musdk_cma_open,
+	.mmap		= musdk_cma_mmap,
+	.release	= musdk_cma_release,
+	.unlocked_ioctl	= musdk_cma_ioctl,
+	.compat_ioctl	= musdk_cma_ioctl,
 };
 
 static const struct of_device_id musdk_of_match[] = {
