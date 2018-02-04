@@ -55,7 +55,7 @@
 #define CLS_APP_HIF_Q_SIZE			CLS_APP_DEF_Q_SIZE
 #define CLS_APP_RX_Q_SIZE			CLS_APP_DEF_Q_SIZE
 #define CLS_APP_TX_Q_SIZE			CLS_APP_DEF_Q_SIZE
-#define CLS_APP_BPOOLS_INF		{ {2048, 1024} }
+#define CLS_APP_BPOOLS_INF		{ {2048, 1024, 0, NULL} }
 
 struct glob_arg {
 	struct glb_common_args	cmn_args;  /* Keep first */

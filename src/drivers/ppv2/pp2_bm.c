@@ -250,7 +250,7 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 		return -EIO;
 	}
 
-	pr_debug("BM: pool=%u BPPEs phys_base 0x%lX virt_base 0x%lX\n", bm_pool->bm_pool_id,
+	pr_debug("BM: pp2_id=%u pool=%u BPPEs phys_base 0x%lX virt_base 0x%lX\n", bm_pool->pp2_id, bm_pool->bm_pool_id,
 		bm_pool->bm_pool_phys_base, bm_pool->bm_pool_virt_base);
 
 	pp2_inst = pp2->pp2_inst[param->pp2_id];

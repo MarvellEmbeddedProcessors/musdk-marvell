@@ -372,6 +372,8 @@ pp2_txq_init(struct pp2_port *port, struct pp2_tx_queue *txq)
 		return;
 	}
 
+	pr_debug("port[%d:%d] tx desc_phys_addr(0x%lx)\n", port->parent->id, port->id, txq->desc_phys_arr);
+
 	/* Set Tx descriptors queue starting address - indirect access */
 	pp2_reg_write(cpu_slot, MVPP2_TXQ_NUM_REG, txq->id);
 	pp2_reg_write(cpu_slot, MVPP2_TXQ_DESC_ADDR_LOW_REG,
@@ -538,7 +540,8 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 		mv_sys_dma_mem_region_free(rxq->mem, rxq->desc_virt_arr);
 		return;
 	}
-
+	pr_debug("port[%d:%d] rxq[%d], desc_phys_addr(0x%lx)\n", port->parent->id, port->id, rxq->id,
+		 rxq->desc_phys_arr);
 	rxq->desc_last_idx = rxq->desc_total - 1;
 
 	/* Zero occupied and non-occupied counters - direct access */
@@ -562,6 +565,8 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 
 	pp2_bm_pool_assign(port, rxq->bm_pool_id[BM_TYPE_SHORT_BUF_POOL], rxq->id, BM_TYPE_SHORT_BUF_POOL);
 	pp2_bm_pool_assign(port, rxq->bm_pool_id[BM_TYPE_LONG_BUF_POOL],  rxq->id, BM_TYPE_LONG_BUF_POOL);
+	pr_debug("port[%d:%d] rxq[%d], short_pool(%d), long_pool(%d)\n", port->parent->id, port->id, rxq->id,
+			  rxq->bm_pool_id[BM_TYPE_SHORT_BUF_POOL], rxq->bm_pool_id[BM_TYPE_LONG_BUF_POOL]);
 
 	/* Add number of descriptors ready for receiving packets */
 	val = (0 | (rxq->desc_total << MVPP2_RXQ_NUM_NEW_OFFSET));
@@ -616,6 +621,9 @@ pp2_port_rxqs_create(struct pp2_port *port)
 
 			tmp_bpool_id = tc_cfg->pools[mem_index][BM_TYPE_LONG_BUF_POOL]->bm_pool_id;
 			rxq->bm_pool_id[BM_TYPE_LONG_BUF_POOL] = tmp_bpool_id;
+
+			pr_debug("pp2_port_rxqs_create: port[%d:%d] tc%d rxq%d mem_index(%d)\n",
+				port->parent->id, port->id, tc, rxq->id, mem_index);
 
 			/* Double check of queue index */
 			if (rxq->log_id != id) {
@@ -1107,6 +1115,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	port->num_tcs = param->inqs_params.num_tcs;
 	for (i = 0; i < port->num_tcs; i++) {
 		u16 tc_pkt_offset = param->inqs_params.tcs_params[i].pkt_offset;
+		u8  tc_used_mem_id_pool_mask = 0;
 		num_in_qs = param->inqs_params.tcs_params[i].num_in_qs;
 		for (j = 0; j < num_in_qs; j++) {
 			struct pp2_rxq *rx_q = &(port->tc[i].rx_qs[j]);
@@ -1115,6 +1124,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 			rx_q->ring_size = inqs_params->size;
 			rx_q->mem = inqs_params->mem;
 			rx_q->tc_pools_mem_id_index = inqs_params->tc_pools_mem_id_index;
+			tc_used_mem_id_pool_mask |= (1 << inqs_params->tc_pools_mem_id_index);
 		}
 		if (tc_pkt_offset > PP2_MAX_PACKET_OFFSET) {
 			pr_err("port %s: tc[%d] pkt_offset[%u] too large\n", port->linux_name, i, tc_pkt_offset);
@@ -1138,6 +1148,13 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 		rc = populate_tc_pools(inst, param->inqs_params.tcs_params[i].pools, port->tc[i].tc_config.pools);
 		if (rc)
 			return -EINVAL;
+		for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
+			if ((1 << j) & tc_used_mem_id_pool_mask)
+				if (port->tc[i].tc_config.pools[j][0] == NULL) {
+					pr_err("Pool for mem_id(%d) was not configured\n", j);
+					return -EINVAL;
+				}
+		}
 		total_num_in_qs += num_in_qs;
 		first_rxq += num_in_qs;
 	}

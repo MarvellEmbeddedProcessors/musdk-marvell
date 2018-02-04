@@ -90,9 +90,9 @@
 #define CRYPT_APP_MAX_NUM_FLOWS			64
 
 /*#define CRYPT_APP_BPOOLS_INF	{ {384, 4096}, {2048, 1024} }*/
-#define CRYPT_APP_BPOOLS_INF	{ {2048, 4096} }
+#define CRYPT_APP_BPOOLS_INF	{ {2048, 4096, 0, NULL} }
 /*#define CRYPT_APP_BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }*/
-#define CRYPT_APP_BPOOLS_JUMBO_INF	{ {10240, 512} }
+#define CRYPT_APP_BPOOLS_JUMBO_INF	{ {10240, 512, 0, NULL} }
 
 static u8 rfc3602_aes128_cbc_t1_key[] = {
 	0x06, 0xa9, 0x21, 0x40, 0x36, 0xb8, 0xa1, 0x5b,

@@ -91,8 +91,8 @@ static const char tx_retry_str[] = "Tx Retry enabled";
 #define PKT_FWD_APP_USE_PREFETCH
 #define PKT_FWD_APP_PREFETCH_SHIFT		7
 
-#define PKT_FWD_APP_BPOOLS_INF		{ {384, 4096}, {2048, 1024} }
-#define PKT_FWD_APP_BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }
+#define PKT_FWD_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
+#define PKT_FWD_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
 
 #define MAX_NB_PKTIO	4
 #define MAX_NB_ROUTE	32
@@ -476,14 +476,21 @@ static int main_loop(void *arg, int *running)
 static int init_all_modules(void)
 {
 	struct pp2_init_params	 pp2_params;
+	struct glb_common_args *cmn_args = &garg.cmn_args;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
-	int			 err;
+	int			 err = 0;
 	char			 file[PP2_MAX_BUF_STR_LEN];
-	u32			 num_rss_tables = 0;
+	int			 num_rss_tables = 0;
+	struct mv_sys_dma_mem_region_params params;
 
 	pr_info("Global initializations ...\n");
 
-	err = mv_sys_dma_mem_init(PKT_FWD_APP_DMA_MEM_SIZE);
+	app_get_num_cpu_clusters(cmn_args);
+
+	params.size = PKT_FWD_APP_DMA_MEM_SIZE;
+	params.manage = 1;
+
+	err = app_sys_dma_init(&params, cmn_args);
 	if (err)
 		return err;
 
@@ -496,7 +503,7 @@ static int init_all_modules(void)
 	/* Relevant only if cpus is bigger than 1 */
 	if (garg.cmn_args.cpus > 1) {
 		sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-	num_rss_tables = appp_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
+		num_rss_tables = appp_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
 		if (num_rss_tables < 0) {
 			pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
 			return -EFAULT;
@@ -856,11 +863,10 @@ static int init_fp(struct glob_arg *garg)
 static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
-	struct bpool_inf		std_infs[] = PKT_FWD_APP_BPOOLS_INF;
-	struct bpool_inf		jumbo_infs[] = PKT_FWD_APP_BPOOLS_JUMBO_INF;
+	struct bpool_inf                std_inf[] = PKT_FWD_APP_BPOOLS_INF, jumbo_inf[] = PKT_FWD_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-	int				i;
+	int				i = 0;
 
 	pr_info("Local initializations ...\n");
 
@@ -868,13 +874,7 @@ static int init_local_modules(struct glob_arg *garg)
 	if (err)
 		return err;
 
-	if (garg->cmn_args.mtu > DEFAULT_MTU) {
-		infs = jumbo_infs;
-		pp2_args->num_pools = ARRAY_SIZE(jumbo_infs);
-	} else {
-		infs = std_infs;
-		pp2_args->num_pools = ARRAY_SIZE(std_infs);
-	}
+	app_prepare_bpools(&garg->cmn_args, &infs, std_inf, ARRAY_SIZE(std_inf), jumbo_inf, ARRAY_SIZE(jumbo_inf));
 
 	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
 	if (err)
@@ -885,6 +885,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 		err = app_find_port_info(port);
 		if (!err) {
+			memcpy(port->mem_region, garg->cmn_args.mem_region, sizeof(garg->cmn_args.mem_region));
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= PKT_FWD_APP_MAX_NUM_TCS_PER_PORT;
 			for (i = 0; i < port->num_tcs; i++)
@@ -897,6 +898,23 @@ static int init_local_modules(struct glob_arg *garg)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
 			else
 				port->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
+			if (garg->cmn_args.shared_hifs) {
+				int num_shadow_qs = port->num_outqs;
+
+				i = 0;
+				while (i < MVAPPS_PP2_TOTAL_NUM_HIFS && pp2_args->app_hif[i]) {
+					int shadow_qsize, num_threads;
+					u32 thr_mask = pp2_args->app_hif[i]->local_thr_id_mask;
+
+					num_threads = __builtin_popcount(thr_mask);
+					shadow_qsize = port->outq_size + port->num_tcs * num_threads * port->inq_size;
+					app_port_shared_shadowq_create(&(port->shared_qs[i]),
+						thr_mask, num_shadow_qs, shadow_qsize);
+					i++;
+				}
+			}
+			app_port_inqs_mask_by_affinity(&garg->cmn_args, port);
+
 			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
 					    garg->cmn_args.mtu, 0);
@@ -963,6 +981,10 @@ static int init_global(void *arg)
 		return -EIO;
 	}
 
+	if (pthread_mutex_init(&garg->cmn_args.thread_lock, NULL) != 0) {
+		pr_err("init lock failed!\n");
+		return -EIO;
+	}
 	err = init_all_modules();
 	if (err)
 		return err;
@@ -988,12 +1010,14 @@ static int init_local(void *arg, int id, void **_larg)
 	struct pp2_glb_common_args *glb_pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	struct pp2_lcl_common_args *lcl_pp2_args;
 	int			 i, err;
+	int mem_id;
 
 	if (!garg) {
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
 
+	mem_id = sched_getcpu() / MVAPPS_NUM_CORES_PER_AP;
 	larg = (struct local_arg *)malloc(sizeof(struct local_arg));
 	if (!larg) {
 		pr_err("No mem for local arg obj!\n");
@@ -1002,11 +1026,12 @@ static int init_local(void *arg, int id, void **_larg)
 	memset(larg, 0, sizeof(struct local_arg));
 
 	larg->cmn_args.plat = (struct pp2_lcl_common_args *)malloc(sizeof(struct pp2_lcl_common_args));
-	if (!larg) {
+	if (!larg->cmn_args.plat) {
 		pr_err("No mem for local plat arg obj!\n");
 		free(larg);
 		return -ENOMEM;
 	}
+	memset(larg->cmn_args.plat, 0, sizeof(struct pp2_lcl_common_args));
 	lcl_pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 
 	larg->cmn_args.id		= id;
@@ -1021,11 +1046,11 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
-	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args,
-				PKT_FWD_APP_HIF_Q_SIZE, NULL);
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, PKT_FWD_APP_HIF_Q_SIZE,
+				garg->cmn_args.mem_region[mem_id]);
 	if (err)
 		return err;
-	larg->cmn_args.id                = id;
+
 	larg->cmn_args.burst		= garg->cmn_args.burst;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
 	larg->cmn_args.num_ports         = garg->cmn_args.num_ports;
@@ -1044,8 +1069,8 @@ static int init_local(void *arg, int id, void **_larg)
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		glb_pp2_args->ports_desc[i].lcl_ports_desc[id] = &lcl_pp2_args->lcl_ports_desc[i];
 
-	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
-		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
+	pr_debug("thread %d (cpu %d) (mem_id %d) mapped to Qs %llx\n",
+		 larg->cmn_args.id, sched_getcpu(), mem_id, (unsigned long long)larg->cmn_args.qs_map);
 
 	*_larg = larg;
 	return 0;
@@ -1128,9 +1153,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->rxq_size = PKT_FWD_APP_RX_Q_SIZE;
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
-	garg->cmn_args.prefetch_shift = PKT_FWD_APP_PREFETCH_SHIFT;
 	garg->cmn_args.pkt_offset = 0;
+	garg->cmn_args.prefetch_shift = PKT_FWD_APP_PREFETCH_SHIFT;
 	garg->cmn_args.ctrl_thresh = PKT_FWD_APP_CTRL_DFLT_THR;
+	garg->cmn_args.num_mem_regions = MVAPPS_INVALID_MEMREGIONS;
 	garg->maintain_stats = 0;
 
 #ifdef LPM_FRWD
@@ -1267,7 +1293,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
-	u64			cores_mask;
+	u64			cores_mask = 0;
 	struct pp2_glb_common_args *pp2_args;
 	int			err;
 

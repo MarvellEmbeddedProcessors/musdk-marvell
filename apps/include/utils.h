@@ -70,6 +70,9 @@ static inline void prefetch(const void *ptr)
 #define MVAPPS_DEFAULT_AFFINITY		1
 #define MVAPPS_INVALID_AFFINITY		-1
 
+#define MVAPPS_INVALID_MEMREGIONS	-1
+
+
 /* JSON Serializatiion definitions */
 #define SER_FILE_VAR_DIR	"/var/"
 #define SER_FILE_NAME_PREFIX	"musdk-serial-cfg"
@@ -161,6 +164,7 @@ struct glb_common_args {
 	char			nmp_cfg_location[SER_MAX_FILE_NAME];
 	struct mv_sys_dma_mem_region *mem_region[MVAPPS_MAX_NUM_AP];
 	int			num_mem_regions;
+	int			num_clusters;
 };
 
 

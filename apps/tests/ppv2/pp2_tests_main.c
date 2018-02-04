@@ -71,7 +71,7 @@
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
 
-#define CLS_APP_BPOOLS_INF			{ {2048, 8192} }
+#define CLS_APP_BPOOLS_INF			{ {2048, 8192, 0, NULL} }
 
 /* Structure containing a map of queues per core */
 struct queue_map {
