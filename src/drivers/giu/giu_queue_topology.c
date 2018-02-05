@@ -129,12 +129,12 @@ static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_q
 			gpio_q->prod_addr_phys = giu_queue->prod_addr;
 			gpio_q->payload_offset = giu_queue->payload_offset;
 
-			pr_info("Queue Params (TC %d Q %d):\n", giu_tc->id, giu_queue->hw_id);
-			pr_info("\tdesc_ring_base %p\n", giu_queue->phy_base_addr);
-			pr_info("\tsize 0x%x\n", giu_queue->size);
-			pr_info("\tcons_addr %p\n", giu_queue->cons_addr);
-			pr_info("\tprod_addr %p\n", giu_queue->prod_addr);
-			pr_info("\tpayload_offset %d\n", giu_queue->payload_offset);
+			pr_debug("Queue Params (TC %d Q %d):\n", giu_tc->id, giu_queue->hw_id);
+			pr_debug("\tdesc_ring_base %p\n", giu_queue->phy_base_addr);
+			pr_debug("\tsize 0x%x\n", giu_queue->size);
+			pr_debug("\tcons_addr %p\n", giu_queue->cons_addr);
+			pr_debug("\tprod_addr %p\n", giu_queue->prod_addr);
+			pr_debug("\tpayload_offset %d\n", giu_queue->payload_offset);
 
 			ret = giu_gpio_map_queue(gpio_q, tables_map);
 			if (ret)
@@ -182,12 +182,12 @@ static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_q
 	bp_params->cons_addr_phys = bp_queue->cons_addr;
 	bp_params->prod_addr_phys = bp_queue->prod_addr;
 	bp_params->buff_len = bp_queue->buff_len;
-	pr_info("Queue Params (BP %d):\n", bp_queue->hw_id);
-	pr_info("\tdesc_ring_base %p\n", bp_queue->phy_base_addr);
-	pr_info("\tsize 0x%x\n", bp_queue->size);
-	pr_info("\tcons_addr %p\n", bp_queue->cons_addr);
-	pr_info("\tprod_addr %p\n", bp_queue->prod_addr);
-	pr_info("\tbuff length %d\n", bp_queue->buff_len);
+	pr_debug("Queue Params (BP %d):\n", bp_queue->hw_id);
+	pr_debug("\tdesc_ring_base %p\n", bp_queue->phy_base_addr);
+	pr_debug("\tsize 0x%x\n", bp_queue->size);
+	pr_debug("\tcons_addr %p\n", bp_queue->cons_addr);
+	pr_debug("\tprod_addr %p\n", bp_queue->prod_addr);
+	pr_debug("\tbuff length %d\n", bp_queue->buff_len);
 
 	ret = giu_gpio_map_queue(bp_params, tables_map);
 	if (ret)
@@ -269,7 +269,7 @@ int giu_gpio_init_topology(int giu_id, char *regfile_name)
 	}
 
 	if (map_addr[giu_id] != NULL) {
-		pr_info("GIU %d queue topology is already initialized\n", giu_id);
+		pr_debug("GIU %d queue topology is already initialized\n", giu_id);
 		return 0;
 	}
 

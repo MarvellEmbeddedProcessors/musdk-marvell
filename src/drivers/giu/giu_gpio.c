@@ -430,7 +430,7 @@ int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
 		return -1;
 	}
 
-	pr_info("giu_gpio_probe giu_id %d\n", giu_id);
+	pr_debug("giu_gpio_probe giu_id %d\n", giu_id);
 
 
 	*gpio = &gpio_array[giu_id];

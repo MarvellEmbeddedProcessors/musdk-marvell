@@ -296,7 +296,7 @@ int giu_bpool_probe(char *match, char *regfile_name, struct giu_bpool **bpool)
 
 	*bpool = pool;
 
-	pr_info("giu_bpool_probe pool->id %d\n", pool->id);
+	pr_debug("giu_bpool_probe pool->id %d\n", pool->id);
 
 	return 0;
 }
