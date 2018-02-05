@@ -1091,7 +1091,7 @@ int app_sys_dma_init(struct mv_sys_dma_mem_region_params *params, struct glb_com
 void app_get_num_cpu_clusters(struct glb_common_args *glb_args)
 {
 	/* TODO: Replace with code that checks dts in sysfs. */
-	glb_args->num_clusters = get_nprocs() / MVAPPS_NUM_CORES_PER_AP;
+	glb_args->num_clusters = ceil(get_nprocs(), MVAPPS_NUM_CORES_PER_AP);
 }
 
 
@@ -1168,11 +1168,11 @@ void app_prepare_bpools(struct glb_common_args *glb_args, struct bpool_inf **inf
 		}
 		pp2_args->num_pools *= num_aps;
 	}
-	pr_err("num_aps %d\n", num_aps);
+	pr_debug("num_aps %d\n", num_aps);
 	for (i = 0; i < pp2_args->num_pools; i++) {
-		pr_err("inf(%d) buff_size(%d), cluster(%d) num(%d), buf_mem_ptr(%p)\n",
-			i, i_infs[i].buff_size, i_infs[i].cpu_cluster_id, i_infs[i].num_buffs,
-			i_infs[i].buff_mem_id);
+		pr_debug("inf(%d) buff_size(%d), cluster(%d) num(%d), buf_mem_ptr(%p)\n",
+			 i, i_infs[i].buff_size, i_infs[i].cpu_cluster_id, i_infs[i].num_buffs,
+			 i_infs[i].buff_mem_id);
 	}
 	*infs = i_infs;
 }

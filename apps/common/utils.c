@@ -56,6 +56,7 @@ int apps_cores_mask_create(int cpus, int affinity)
 	if (cores_mask > max_cores_mask)
 		cores_mask = cores_mask_orig;
 
+	pr_debug("%s: cpus:%d, affinity:%d, cores_mask:0x%lx\n", __func__, cpus, affinity, cores_mask);
 	return cores_mask;
 }
 
