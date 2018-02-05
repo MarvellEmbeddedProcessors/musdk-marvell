@@ -405,9 +405,9 @@ int neta_port_get_statistics(struct neta_port *port, struct neta_ppio_statistics
 			stats->rx_discard = val;
 		else if (!strcmp(cnt, "rx_overrun"))
 			stats->rx_overrun = val;
-		else if (!strcmp(cnt, "tx_bytes"))
+		else if (!strcmp(cnt, "good_octets_sent"))
 			stats->tx_bytes = val;
-		else if (!strcmp(cnt, "tx_frames"))
+		else if (!strcmp(cnt, "good_frames_sent"))
 			stats->tx_packets = val;
 		else if (!strcmp(cnt, "broadcast_frames_sent"))
 			stats->tx_broadcast_packets = val;
