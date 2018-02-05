@@ -193,8 +193,6 @@ static int init_all_modules(void)
 		return err;
 
 	memset(pp2_params, 0, sizeof(*pp2_params));
-	pp2_params->hif_reserved_map = pp2_get_kernel_hif_map();
-	app_used_hifmap_init(pp2_params->hif_reserved_map);
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
 	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
@@ -208,6 +206,10 @@ static int init_all_modules(void)
 	err = pp2_init(pp2_params);
 	if (err)
 		return err;
+
+	/* Must be after pp2_init */
+	pp2_params->hif_reserved_map = pp2_get_kernel_hif_map();
+	app_used_hifmap_init(pp2_params->hif_reserved_map);
 
 	cli_cls_prepare_policers_db(pp2_params->policers_reserved_map);
 

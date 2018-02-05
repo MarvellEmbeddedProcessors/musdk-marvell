@@ -106,8 +106,6 @@ static int init_all_modules(void)
 		return err;
 
 	memset(pp2_params, 0, sizeof(*pp2_params));
-	pp2_params->hif_reserved_map = pp2_get_kernel_hif_map();
-	app_used_hifmap_init(pp2_params->hif_reserved_map);
 	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 	pp2_params->policers_reserved_map = MVAPPS_PP2_POLICERSS_RSRV;
 
@@ -122,6 +120,10 @@ static int init_all_modules(void)
 	err = pp2_init(pp2_params);
 	if (err)
 		return err;
+
+	/* Must be after pp2_init */
+	pp2_params->hif_reserved_map = pp2_get_kernel_hif_map();
+	app_used_hifmap_init(pp2_params->hif_reserved_map);
 
 	pr_info("done\n");
 	return 0;
