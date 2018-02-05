@@ -1,7 +1,7 @@
-From e92a35df648c80df82e1a49ae5a6214b2fcc78aa Mon Sep 17 00:00:00 2001
+From fda043e519fff001e71f0d77d80c4eda0bde5717 Mon Sep 17 00:00:00 2001
 From: Lior Amsalem <alior@marvell.com>
 Date: Thu, 6 Jul 2017 11:16:11 +0300
-Subject: [PATCH 2/3] musdk: update existing dts files
+Subject: [PATCH 2/5] musdk: update existing dts files
 
 Change-Id: I7f386b72ae4a87685d10839337c92a759c9e6e07
 Signed-off-by: Lior Amsalem <alior@marvell.com>
@@ -53,7 +53,7 @@ index 5b40c11..3f9dd5d 100644
  / {
  	model = "Marvell Armada-7040 development board default (A) setup";
 diff --git a/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts b/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts
-index d678de5..36dc7d6 100644
+index 9be7a32..72bc655 100644
 --- a/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-7040-pcac.dts
 @@ -45,6 +45,7 @@
@@ -65,7 +65,7 @@ index d678de5..36dc7d6 100644
  / {
  	model = "Marvell Armada 7040 PCAC board";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-db.dts b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
-index a84b6bb..618dde6 100644
+index b385d34..cc9ae96 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-db.dts
 @@ -47,6 +47,8 @@
@@ -78,7 +78,7 @@ index a84b6bb..618dde6 100644
  / {
  	model = "Marvell Armada-8040 development board default (A) setup";
 diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-index fc5b37c..6230fdc 100644
+index 484e7dc..6ab22fb 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
 @@ -45,6 +45,7 @@

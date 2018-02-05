@@ -1,0 +1,227 @@
+From 14ac6656fce970764f4580ea237f606a489b3b2b Mon Sep 17 00:00:00 2001
+From: Yuval Caduri <cyuval@marvell.com>
+Date: Mon, 5 Feb 2018 11:21:22 +0200
+Subject: [PATCH 4/5] musdk: Add new a8kp dts,dtsi files
+
+Change-Id: I57d1fe32d6597b833d3610803a098b123a746b58
+Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+---
+ arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi | 62 ++++++++++++++++++
+ .../boot/dts/marvell/musdk-armada-8162-db.dtsi     | 74 ++++++++++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-ap810.dtsi | 54 ++++++++++++++++
+ 3 files changed, 190 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi
+ create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi
+ create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-ap810.dtsi
+
+diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi
+new file mode 100644
+index 0000000..286d741
+--- /dev/null
++++ b/arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi
+@@ -0,0 +1,62 @@
++/*
++ * Copyright (C) 2016 Marvell Technology Group Ltd.
++ *
++ * This file is dual-licensed: you can use it either under the terms
++ * of the GPLv2 or the X11 license, at your option. Note that this dual
++ * licensing only applies to this file, and not this project as a
++ * whole.
++ *
++ *  a) This library is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of the
++ *     License, or (at your option) any later version.
++ *
++ *     This library is distributed in the hope that it will be useful,
++ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *     GNU General Public License for more details.
++ *
++ * Or, alternatively,
++ *
++ *  b) Permission is hereby granted, free of charge, to any person
++ *     obtaining a copy of this software and associated documentation
++ *     files (the "Software"), to deal in the Software without
++ *     restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or
++ *     sell copies of the Software, and to permit persons to whom the
++ *     Software is furnished to do so, subject to the following
++ *     conditions:
++ *
++ *     The above copyright notice and this permission notice shall be
++ *     included in all copies or substantial portions of the Software.
++ *
++ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *     OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++/*
++ * Device Tree file for the Armada 7040 SoC, made of an AP806 Quad and
++ * one CP110.
++ */
++
++/ {
++	model = "Marvell 8080 board";
++	compatible = "marvell,armada-8080", "marvell,armada-ap810-octa",
++				"marvell,armada-ap810";
++
++	ap0 {
++		config-space {
++			musdk_uio {
++				compatible = "marvell,musdk-uio";
++				dma-coherent;
++				status = "okay";
++			};
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi
+new file mode 100644
+index 0000000..c6cada8
+--- /dev/null
++++ b/arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi
+@@ -0,0 +1,74 @@
++/*
++ * Copyright (C) 2016 Marvell Technology Group Ltd.
++ *
++ * This file is dual-licensed: you can use it either under the terms
++ * of the GPLv2 or the X11 license, at your option. Note that this dual
++ * licensing only applies to this file, and not this project as a
++ * whole.
++ *
++ *  a) This library is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of the
++ *     License, or (at your option) any later version.
++ *
++ *     This library is distributed in the hope that it will be useful,
++ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *     GNU General Public License for more details.
++ *
++ * Or, alternatively,
++ *
++ *  b) Permission is hereby granted, free of charge, to any person
++ *     obtaining a copy of this software and associated documentation
++ *     files (the "Software"), to deal in the Software without
++ *     restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or
++ *     sell copies of the Software, and to permit persons to whom the
++ *     Software is furnished to do so, subject to the following
++ *     conditions:
++ *
++ *     The above copyright notice and this permission notice shall be
++ *     included in all copies or substantial portions of the Software.
++ *
++ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *     OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++/*
++ * Device Tree file for the Armada 7040 SoC, made of an AP806 Quad and
++ * one CP110.
++ */
++
++ap0 {
++	config-space {
++		musdk_uio {
++			compatible = "marvell,musdk-uio";
++			dma-coherent;
++			status = "okay";
++		};
++		musdk_uio_region0 {
++			compatible = "marvell,musdk-uio";
++			dma-coherent;
++			status = "okay";
++			uio-mem-region = <0>;
++		};
++	};
++};
++ap1 {
++	config-space {
++		musdk_uio_region1 {
++			compatible = "marvell,musdk-uio";
++			dma-coherent;
++			memory-region = <&ap1_mem>;
++			status = "okay";
++			uio-mem-region = <1>;
++		};
++	};
++};
++
+diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-ap810.dtsi
+new file mode 100644
+index 0000000..2908ffc
+--- /dev/null
++++ b/arch/arm64/boot/dts/marvell/musdk-armada-ap810.dtsi
+@@ -0,0 +1,54 @@
++/*
++ * Copyright (C) 2016 Marvell Technology Group Ltd.
++ *
++ * This file is dual-licensed: you can use it either under the terms
++ * of the GPLv2 or the X11 license, at your option. Note that this dual
++ * licensing only applies to this file, and not this project as a
++ * whole.
++ *
++ *  a) This library is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of the
++ *     License, or (at your option) any later version.
++ *
++ *     This library is distributed in the hope that it will be useful,
++ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *     GNU General Public License for more details.
++ *
++ * Or, alternatively,
++ *
++ *  b) Permission is hereby granted, free of charge, to any person
++ *     obtaining a copy of this software and associated documentation
++ *     files (the "Software"), to deal in the Software without
++ *     restriction, including without limitation the rights to use,
++ *     copy, modify, merge, publish, distribute, sublicense, and/or
++ *     sell copies of the Software, and to permit persons to whom the
++ *     Software is furnished to do so, subject to the following
++ *     conditions:
++ *
++ *     The above copyright notice and this permission notice shall be
++ *     included in all copies or substantial portions of the Software.
++ *
++ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
++ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
++ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
++ *     OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++/*
++ * Device Tree file for the Armada AP806 device.
++ */
++AP810_NAME {
++	config-space {
++		uio-sam {
++			compatible = "marvell,uio-sam";
++			eip_access = <&AP810_LABEL(eip197)>;
++			status = "okay";
++		};
++	};
++};
+-- 
+1.9.1
+
