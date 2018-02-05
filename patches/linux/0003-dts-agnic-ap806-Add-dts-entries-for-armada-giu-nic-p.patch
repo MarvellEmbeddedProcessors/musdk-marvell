@@ -1,7 +1,7 @@
-From 379ec7cee4b80d0352441327751c12c4ebef43e8 Mon Sep 17 00:00:00 2001
+From 70ad9aceac82202e315299bf567a5c397a50cd8c Mon Sep 17 00:00:00 2001
 From: Shadi Ammouri <shadi@marvell.com>
 Date: Mon, 28 Aug 2017 15:27:01 +0300
-Subject: [PATCH 3/3] dts: agnic: ap806: Add dts entries for armada giu nic
+Subject: [PATCH 3/5] dts: agnic: ap806: Add dts entries for armada giu nic
  platform and uio
 
 - The platform entry will be used by the agnic netdev driver.
@@ -73,10 +73,10 @@ index 0000000..f8dcd8d
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-index c0d7cff..7402a72 100644
+index a7da40e..d87e366 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-@@ -489,6 +489,20 @@
+@@ -498,6 +498,20 @@
  				reg = <0x6f8200 0x8>;
  				status = "okay";
  			};
