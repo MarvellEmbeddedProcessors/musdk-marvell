@@ -241,7 +241,7 @@ int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 	}
 
 
-	pr_info("%s...done\n", __func__);
+	pr_debug("%s...done\n", __func__);
 
 	return 0;
 
@@ -257,7 +257,7 @@ void nmp_guest_deinit(struct nmp_guest *guest)
 {
 	kfree(guest->prb_str);
 	kfree(guest);
-	pr_info("%s...done\n", __func__);
+	pr_debug("%s...done\n", __func__);
 }
 
 int nmp_guest_get_probe_str(struct nmp_guest *guest, char **prb_str)
