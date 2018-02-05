@@ -152,6 +152,7 @@ static struct sam_session_params aes_cbc_sa = {
 	.u.ipsec.is_natt = 0,
 	.u.ipsec.spi = 0xABCD,
 	.u.ipsec.seq = 0x4,
+	.u.ipsec.is_esn = 1,
 };
 
 static struct sam_session_params aes_cbc_sha1_sa = {
@@ -170,6 +171,7 @@ static struct sam_session_params aes_cbc_sha1_sa = {
 	.u.ipsec.is_natt = 0,
 	.u.ipsec.spi = 0x1234,
 	.u.ipsec.seq = 0x6,
+	.u.ipsec.is_esn = 1,
 };
 
 static void print_results(int test, char *test_name, int input_size,
