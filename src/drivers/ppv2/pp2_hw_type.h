@@ -2658,6 +2658,7 @@ struct mv_pp2x_cls_c4_entry {
 
 #define MVPP2_PME_MAX_VLAN_ETH_TYPES		4
 #define MVPP2_PME_VLAN_ETH_TYPE_REG(i)		(0x8610 + ((i) << 2))
+#define MVPP22_HIF_ALLOCATION_REG		(0x8610)
 /*--------------------------------------------------------------------------*/
 #define MVPP2_PME_DEF_VLAN_CFG_REG			(0x8620)
 /*--------------------------------------------------------------------------*/

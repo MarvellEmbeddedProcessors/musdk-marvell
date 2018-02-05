@@ -408,7 +408,16 @@ u8 pp2_get_num_inst(void)
 
 u16 pp2_get_kernel_hif_map(void)
 {
-	return MV_PP2_HIFS_RSRV_MASK;
+	uintptr_t cpu_slot;
+	u32 hif_map;
+	struct pp2_inst *pp2_first_inst = pp2_ptr->pp2_inst[0];
+
+	cpu_slot = pp2_first_inst->hw.base[PP2_DEFAULT_REGSPACE].va;
+	hif_map = pp2_reg_read(cpu_slot, MVPP22_HIF_ALLOCATION_REG);
+	hif_map = (hif_map) ? hif_map : MV_PP2_HIFS_RSRV_MASK;
+
+	pr_info("(%s) hif_map(0x%x)\n", __func__, hif_map);
+	return hif_map;
 }
 
 

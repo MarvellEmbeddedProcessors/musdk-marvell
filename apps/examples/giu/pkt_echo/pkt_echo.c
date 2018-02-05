@@ -902,6 +902,10 @@ static int init_all_modules(void)
 	if (err)
 		return err;
 
+	/* Must be after pp2_init */
+	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
+	app_used_hifmap_init(pp2_params.hif_reserved_map);
+
 	/* NMP Guest initializations */
 	nmp_guest_params.id = garg.cmn_args.guest_id;
 	nmp_guest_params.timeout = PKT_ECHO_APP_NMP_GUEST_TIMEOUT;
