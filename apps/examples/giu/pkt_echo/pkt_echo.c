@@ -832,7 +832,7 @@ static int wait_for_pf_init_done(void)
 
 static int guest_ev_cb(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code, u16 indx, void *msg, u16 len)
 {
-	int ret;
+	int ret = 0;
 
 	pr_debug("guest_ev_cb was called with: client %d, id %d, code %d, indx %d len %d msg 0x%x\n",
 		 client, id, code, indx, len, *(u32 *)msg);
