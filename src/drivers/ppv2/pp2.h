@@ -518,6 +518,8 @@ struct pp2_inst {
 	/* Port objects associated */
 	u32 num_ports;
 	struct pp2_port *ports[PP2_NUM_PORTS];
+	/* PPIO objects associated */
+	struct pp2_ppio *ppios[PP2_NUM_ETH_PPIO];
 	/* BM Pools associated */
 	struct pp2_bm_pool *bm_pools[PP2_BPOOL_NUM_POOLS];
 	/* DM objects associated */

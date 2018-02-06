@@ -39,8 +39,6 @@
 #include "lib/lib_misc.h"
 #include "cls/pp2_cls_mng.h"
 
-static struct pp2_ppio ppio_array[PP2_MAX_NUM_PACKPROCS][PP2_NUM_ETH_PPIO];
-
 static inline struct pp2_dm_if *pp2_dm_if_get(struct pp2_ppio *ppio, struct pp2_hif *hif)
 {
 	return GET_PPIO_PORT(ppio)->parent->dm_ifs[hif->regspace_slot];
@@ -78,19 +76,26 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 		return -EINVAL;
 	}
 
-	port = GET_PPIO_PORT_PTR(ppio_array[pp2_id][port_id]);
-	if (*port) {
+	if (pp2_ptr->pp2_inst[pp2_id]->ppios[port_id]) {
 		pr_err("[%s] ppio already exists.\n", __func__);
 		return -EEXIST;
 	}
 
+	*ppio = kcalloc(1, sizeof(struct pp2_ppio), GFP_KERNEL);
+	if (!*ppio) {
+		pr_err("%s out of memory ppio alloc\n", __func__);
+		return -ENOMEM;
+	}
+
+	port = GET_PPIO_PORT_PTR(**ppio);
+
 	rc = pp2_port_open(pp2_ptr, params, pp2_id, port_id, port);
-	if (!rc) {
-		*ppio = &ppio_array[pp2_id][port_id];
-	} else {
+	if (rc) {
 		pr_err("[%s] ppio init failed.\n", __func__);
+		kfree(*ppio);
 		return(-EFAULT);
 	}
+
 	pp2_port_config_inq(*port);
 	pp2_port_config_outq(*port);
 	(*ppio)->pp2_id = pp2_id;
@@ -119,6 +124,8 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 	pp2_ppio_get_statistics(*ppio, NULL, true);
 	pp2_ppio_set_loopback(*ppio, false);
 
+	pp2_ptr->pp2_inst[pp2_id]->ppios[port_id] = *ppio;
+
 	return rc;
 }
 
@@ -126,7 +133,7 @@ void pp2_ppio_deinit(struct pp2_ppio *ppio)
 {
 	struct pp2_port **port_ptr = NULL;
 
-	port_ptr = GET_PPIO_PORT_PTR(ppio_array[ppio->pp2_id][ppio->port_id]);
+	port_ptr = GET_PPIO_PORT_PTR(*ppio);
 
 	if (*port_ptr) {
 		if (pp2_cls_mng_set_default_policing(ppio, true))
@@ -134,6 +141,8 @@ void pp2_ppio_deinit(struct pp2_ppio *ppio)
 
 		pp2_port_close(*port_ptr);
 		*port_ptr = NULL;
+		pp2_ptr->pp2_inst[ppio->pp2_id]->ppios[ppio->port_id] = NULL;
+		kfree(ppio);
 	} else
 		pr_err("[%s] ppio deinit failed close port %d:%d\n", __func__, ppio->pp2_id, ppio->port_id);
 }
@@ -968,15 +977,23 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 		goto ppio_probe_exit;
 	}
 
-	ppio = &ppio_array[pp2_id][port_id];
+	if (pp2_ptr->pp2_inst[pp2_id]->ppios[port_id]) {
+		pr_err("[%s] ppio already exists.\n", __func__);
+		rc = -EEXIST;
+		goto ppio_probe_exit;
+	}
+
+	ppio = kcalloc(1, sizeof(struct pp2_ppio), GFP_KERNEL);
+	if (!ppio) {
+		pr_err("%s no memory for ppio alloc\n", __func__);
+		rc = -ENOMEM;
+		goto ppio_probe_exit;
+	}
+
 	ppio->pp2_id = pp2_id;
 	ppio->port_id = port_id;
 
-	port_hdl = GET_PPIO_PORT_PTR(ppio_array[pp2_id][port_id]);
-	if (!*port_hdl) {
-		pr_err("[%s] ppio already exists.\n", __func__);
-		return -EEXIST;
-	}
+	port_hdl = GET_PPIO_PORT_PTR(*ppio);
 
 	inst = pp2_ptr->pp2_inst[ppio->pp2_id];
 	port = inst->ports[ppio->port_id];
@@ -1328,11 +1345,13 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 	}
 
 	*ppio_hdl = ppio;
+	pp2_ptr->pp2_inst[pp2_id]->ppios[port_id] = ppio;
 
 	rc = 0;
-	;
 ppio_probe_exit:
 	kfree(lbuff);
+	if (rc)
+		kfree(ppio);
 	return rc;
 
 }
@@ -1365,7 +1384,8 @@ int pp2_ppio_remove(struct pp2_ppio *ppio)
 	kfree(port->rxqs);
 	kfree(port->txqs);
 
-	port = NULL;
+	pp2_ptr->pp2_inst[ppio->pp2_id]->ppios[ppio->port_id] = NULL;
+	kfree(ppio);
 
 	/* release tx queues for loopback port associated to this ppio*/
 	lb_port = pp2_ptr->pp2_inst[ppio->pp2_id]->ports[PP2_LOOPBACK_PORT];
