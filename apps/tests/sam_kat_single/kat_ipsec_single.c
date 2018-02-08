@@ -33,6 +33,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <sys/time.h>
@@ -135,6 +136,7 @@ static u32 verbose;
 static int loopback = 1;
 static int num_checked;
 static int num_to_check = 10;
+static bool running;
 
 static struct sam_session_params aes_cbc_sa = {
 	.dir = SAM_DIR_ENCRYPT,   /* operation direction: encode/decode */
@@ -173,6 +175,13 @@ static struct sam_session_params aes_cbc_sha1_sa = {
 	.u.ipsec.seq = 0x6,
 	.u.ipsec.is_esn = 1,
 };
+
+static void sigint_h(int sig)
+{
+	printf("\nInterrupted by signal #%d\n", sig);
+	running = false;
+	signal(SIGINT, SIG_DFL);
+}
 
 static void print_results(int test, char *test_name, int input_size,
 			int operations, int errors,
@@ -599,8 +608,12 @@ int main(int argc, char **argv)
 	not_completed = num_pkts;
 	enc_in_progress = dec_in_progress = 0;
 	i = 0;
+
+	signal(SIGINT, sigint_h);
+	running = true;
+
 	gettimeofday(&tv_start, NULL);
-	while (not_completed > 0) {
+	while (running && (not_completed > 0)) {
 		/* Enqueue encrypt */
 		num = min(to_enc, MAX_BURST_SIZE);
 		if (num && (enc_in_progress + num) < NUM_CONCURRENT_REQUESTS) {
@@ -688,6 +701,12 @@ int main(int argc, char **argv)
 	}
 	gettimeofday(&tv_end, NULL);
 
+	if (not_completed) {
+		pr_err("%d operations are not completed\n", not_completed);
+		sam_cio_show_regs(cio_enc, SAM_CIO_REGS_ALL);
+		if (cio_dec)
+			sam_cio_show_regs(cio_dec, SAM_CIO_REGS_ALL);
+	}
 	print_results(test_id, test_names[test_id], pkt_size,
 			num_pkts, total_errors, &tv_start, &tv_end);
 
