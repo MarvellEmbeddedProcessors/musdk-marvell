@@ -1,4 +1,4 @@
-From 7ee95bf09c78726e732255ddf94391f43008e085 Mon Sep 17 00:00:00 2001
+From 71a227a44b3b10ad369650c8c8748f35fd64ed6c Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Mon, 5 Feb 2018 11:22:07 +0200
 Subject: [PATCH 5/5] musdk: update existing a8kp dts,dtsi files
@@ -39,18 +39,18 @@ index d4f7b26..505467e 100644
  	model = "Marvell Armada-8084 DB board";
  	compatible = "marvell,armada-8084-db", "marvell,armada-8084",
 diff --git a/arch/arm64/boot/dts/marvell/armada-8162-db.dts b/arch/arm64/boot/dts/marvell/armada-8162-db.dts
-index e307dc2..04aacaf 100644
+index e0cd543..7b22a5f 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8162-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8162-db.dts
-@@ -67,6 +67,7 @@
- 			reg = <0x42 0x30000000 0 0x10000000>;
- 		};
+@@ -82,6 +82,7 @@
+ 		device_type = "memory";
+ 		reg = <0x0 0x0 0x0 0x80000000>;
  	};
 +	#include "musdk-armada-8162-db.dtsi"
- 	aliases {
- 		ethernet0 = &cp0_emac0;
- 		ethernet1 = &cp0_emac2;
-@@ -94,7 +95,9 @@
+ };
+ 
+ &cp0_mdio0 {
+@@ -98,7 +99,9 @@
  	phy-mode = "rgmii"; /* rgmii-0 */
  	phy = <&mdio0_phy0>;
  };
@@ -62,7 +62,7 @@ index e307dc2..04aacaf 100644
  	phy-mode = "rgmii"; /* rgmii-1 */
  	phy = <&mdio0_phy1>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
-index 59de9f3..8cf0858 100644
+index 4f5129d..4044174 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
 @@ -76,6 +76,7 @@
