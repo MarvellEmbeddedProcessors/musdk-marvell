@@ -36,6 +36,7 @@
 #include "drivers/mv_mqa_queue.h"
 #include "giu_queue_topology.h"
 #include "drivers/giu_regfile_def.h"
+#include "lib/lib_misc.h"
 #include "file_map.h"
 
 #define REGFILE_SUPPORTED_VERSION	000002
@@ -43,37 +44,7 @@
 struct giu_gpio_params giu_params[GIU_MAX_NUM_GPIO];
 void *map_addr[GIU_MAX_NUM_GPIO];
 
-/* TODO:
- * Need to create a GPIO virtual mapping of the prod / cons tables, in front of
- * the PCIe UIO driver.
- * For now, the mapping is passed from the management application to GPIO
- * using the register file.
- */
-struct notify_table_map {
-	void *prod_tbl_base_phys;
-	void *prod_tbl_base_virt;
-	void *cons_tbl_base_phys;
-	void *cons_tbl_base_virt;
-};
-
-static int giu_gpio_map_queue(struct giu_gpio_queue *queue, struct notify_table_map *tables_map)
-{
-	queue->desc_ring_base = mv_sys_dma_mem_phys2virt((phys_addr_t)queue->desc_ring_base_phys);
-
-	queue->cons_addr = tables_map->cons_tbl_base_virt +
-				((void *)queue->cons_addr_phys - tables_map->cons_tbl_base_phys);
-	queue->prod_addr = tables_map->prod_tbl_base_virt +
-				((void *)queue->prod_addr_phys - tables_map->prod_tbl_base_phys);
-
-	pr_debug("\tdesc_ring_base (virt) %p\n", queue->desc_ring_base);
-	pr_debug("\tcons_addr (virt) %p\n", queue->cons_addr);
-	pr_debug("\tprod_addr (virt) %p\n", queue->prod_addr);
-
-	return 0;
-}
-
-static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_qs_params *qs_params,
-				   struct notify_table_map *tables_map)
+static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_qs_params *qs_params, uintptr_t va_base)
 {
 	struct giu_tc *giu_tc;
 	struct giu_queue *giu_queue;
@@ -123,22 +94,18 @@ static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_q
 			read_addr += sizeof(struct giu_queue);
 
 			/* Set Queue Parameters */
-			gpio_q->desc_ring_base_phys = giu_queue->phy_base_addr;
+			gpio_q->desc_ring_base = (struct giu_gpio_desc *)(va_base + giu_queue->phy_base_offset);
 			gpio_q->desc_total = giu_queue->size;
-			gpio_q->cons_addr_phys = giu_queue->cons_addr;
-			gpio_q->prod_addr_phys = giu_queue->prod_addr;
+			gpio_q->cons_addr = (u32 *)(va_base + giu_queue->cons_offset);
+			gpio_q->prod_addr = (u32 *)(va_base + giu_queue->prod_offset);
 			gpio_q->payload_offset = giu_queue->payload_offset;
 
 			pr_debug("Queue Params (TC %d Q %d):\n", giu_tc->id, giu_queue->hw_id);
-			pr_debug("\tdesc_ring_base %p\n", giu_queue->phy_base_addr);
-			pr_debug("\tsize 0x%x\n", giu_queue->size);
-			pr_debug("\tcons_addr %p\n", giu_queue->cons_addr);
-			pr_debug("\tprod_addr %p\n", giu_queue->prod_addr);
-			pr_debug("\tpayload_offset %d\n", giu_queue->payload_offset);
-
-			ret = giu_gpio_map_queue(gpio_q, tables_map);
-			if (ret)
-				goto error;
+			pr_debug("\tdesc_ring_base %p\n", gpio_q->desc_ring_base);
+			pr_debug("\tsize 0x%x\n", gpio_q->size);
+			pr_debug("\tcons_addr %p\n", gpio_q->cons_addr);
+			pr_debug("\tprod_addr %p\n", gpio_q->prod_addr);
+			pr_debug("\tpayload_offset %d\n", gpio_q->payload_offset);
 		}
 	}
 
@@ -166,32 +133,27 @@ error:
 	return ret;
 }
 
-static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_queue *bp_params,
-				   struct notify_table_map *tables_map)
+static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_queue *bp_params, uintptr_t va_base)
 {
 	void *read_addr = *bm_config_base_addr;
 	struct giu_queue *bp_queue; /* Regfile BP data */
-	int ret = 0;
 
 	/* Read BM Configuration */
 	bp_queue = (struct giu_queue *)read_addr;
 	read_addr += sizeof(struct giu_queue);
 
-	bp_params->desc_ring_base_phys = bp_queue->phy_base_addr;
+	bp_params->desc_ring_base = (struct giu_gpio_desc *)(va_base + bp_queue->phy_base_offset);
 	bp_params->desc_total = bp_queue->size;
-	bp_params->cons_addr_phys = bp_queue->cons_addr;
-	bp_params->prod_addr_phys = bp_queue->prod_addr;
+	bp_params->cons_addr = (u32 *)(va_base + bp_queue->cons_offset);
+	bp_params->prod_addr = (u32 *)(va_base + bp_queue->prod_offset);
 	bp_params->buff_len = bp_queue->buff_len;
 	pr_debug("Queue Params (BP %d):\n", bp_queue->hw_id);
-	pr_debug("\tdesc_ring_base %p\n", bp_queue->phy_base_addr);
-	pr_debug("\tsize 0x%x\n", bp_queue->size);
-	pr_debug("\tcons_addr %p\n", bp_queue->cons_addr);
-	pr_debug("\tprod_addr %p\n", bp_queue->prod_addr);
-	pr_debug("\tbuff length %d\n", bp_queue->buff_len);
+	pr_debug("\tdesc_ring_base %p\n", bp_params->desc_ring_base);
+	pr_debug("\tsize 0x%x\n", bp_params->size);
+	pr_debug("\tcons_addr %p\n", bp_params->cons_addr);
+	pr_debug("\tprod_addr %p\n", bp_params->prod_addr);
+	pr_debug("\tbuff length %d\n", bp_params->buff_len);
 
-	ret = giu_gpio_map_queue(bp_params, tables_map);
-	if (ret)
-		return ret;
 	/* Update new config address */
 	*bm_config_base_addr = read_addr;
 
@@ -201,9 +163,25 @@ static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_q
 static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_params)
 {
 	struct giu_regfile *reg_data;
-	struct notify_table_map tables_map;
 	void *read_addr = regs_addr;
 	int ret;
+	struct sys_iomem_params		iomem_params;
+	struct sys_iomem_info		sys_iomem_info;
+	char				dev_name[FILE_MAX_LINE_CHARS];
+	uintptr_t			va;
+
+	/* TODO - get 'device name once moving to the serialization file */
+	sprintf(dev_name, "/dev/uio-cma");
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = dev_name;
+	iomem_params.index = 1;
+
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
+		return -EFAULT;
+	}
+
+	va = (uintptr_t)sys_iomem_info.u.shmem.va;
 
 	/* Read PF Configuration */
 	reg_data = (struct giu_regfile *)read_addr;
@@ -222,13 +200,7 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 		return -ENOTSUP;
 	}
 
-	/* Set notification tables virtual and physical addresses */
-	tables_map.prod_tbl_base_phys = reg_data->prod_tbl_base_phys;
-	tables_map.prod_tbl_base_virt = reg_data->prod_tbl_base_virt;
-	tables_map.cons_tbl_base_phys = reg_data->cons_tbl_base_phys;
-	tables_map.cons_tbl_base_virt = reg_data->cons_tbl_base_virt;
-
-	ret = giu_gpio_read_bp_config(&read_addr, &giu_params->bpool, &tables_map);
+	ret = giu_gpio_read_bp_config(&read_addr, &giu_params->bpool, va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;
@@ -236,7 +208,7 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 
 	/* Set Ingress TC configurations */
 	giu_params->inqs_params.num_tcs = reg_data->num_ingress_tcs;
-	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->inqs_params, &tables_map);
+	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->inqs_params, va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;
@@ -244,7 +216,7 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 
 	/* Set Egress TC configurations */
 	giu_params->outqs_params.num_tcs = reg_data->num_egress_tcs;
-	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->outqs_params, &tables_map);
+	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->outqs_params, va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;

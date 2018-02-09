@@ -196,7 +196,7 @@ static int nmnicpf_config_header_regfile(struct giu_regfile *regfile_data, void 
  *
  *	@retval	addr on success
  */
-static void *get_queue_prod_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
+static phys_addr_t get_queue_prod_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
 {
 	void *pf_cfg_base; /* pointer to HW */
 
@@ -204,7 +204,7 @@ static void *get_queue_prod_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
 	pf_cfg_base = (struct mqa_qnpt_entry *)nmnicpf->map.cfg_map.phys_addr;
 
 	/* Calc Notification table specifi entry  */
-	return (pf_cfg_base + PCI_BAR0_MQA_QNPT_BASE) +	(sizeof(struct mqa_qnct_entry) * hw_q_id);
+	return (phys_addr_t)((pf_cfg_base + PCI_BAR0_MQA_QNPT_BASE) +	(sizeof(struct mqa_qnct_entry) * hw_q_id));
 }
 
 
@@ -218,7 +218,7 @@ static void *get_queue_prod_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
  *
  *	@retval	addr on success
  */
-static void *get_queue_cons_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
+static phys_addr_t get_queue_cons_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
 {
 	void *pf_cfg_base;
 
@@ -226,7 +226,7 @@ static void *get_queue_cons_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
 	pf_cfg_base = (struct mqa_qnct_entry *)nmnicpf->map.cfg_map.phys_addr;
 
 	/* Calc Notification table specifi entry  */
-	return (pf_cfg_base + PCI_BAR0_MQA_QNCT_BASE) +	(sizeof(struct mqa_qnct_entry) * hw_q_id);
+	return (phys_addr_t)((pf_cfg_base + PCI_BAR0_MQA_QNCT_BASE) +	(sizeof(struct mqa_qnct_entry) * hw_q_id));
 }
 
 
@@ -246,7 +246,7 @@ static void *get_queue_cons_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
  */
 static int nmnicpf_regfile_register_queue(struct nmnicpf *nmnicpf,
 					union giu_gpio_q_params *giu_gpio_q_p,
-					int q_type, void **file_map)
+					int q_type, phys_addr_t phys_base, void **file_map)
 {
 	struct giu_queue reg_giu_queue;
 
@@ -259,10 +259,10 @@ static int nmnicpf_regfile_register_queue(struct nmnicpf *nmnicpf,
 	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
 	reg_giu_queue.size		= giu_gpio_q_p->lcl_q.len;
 	reg_giu_queue.type		= q_type;
-	reg_giu_queue.phy_base_addr	= giu_gpio_q_p->lcl_q.q->phy_base_addr;
-	/* Prod/Cons addr are Virtual. Needs to translate them to Phys addr */
-	reg_giu_queue.prod_addr	= get_queue_prod_phys_addr(nmnicpf, giu_gpio_q_p->lcl_q.q_id);
-	reg_giu_queue.cons_addr	= get_queue_cons_phys_addr(nmnicpf, giu_gpio_q_p->lcl_q.q_id);
+	reg_giu_queue.phy_base_offset	= (phys_addr_t)(giu_gpio_q_p->lcl_q.q->phy_base_addr - phys_base);
+	/* Prod/Cons addr are Virtual. Needs to translate them to offset */
+	reg_giu_queue.prod_offset = get_queue_prod_phys_addr(nmnicpf, giu_gpio_q_p->lcl_q.q_id) - phys_base;
+	reg_giu_queue.cons_offset = get_queue_cons_phys_addr(nmnicpf, giu_gpio_q_p->lcl_q.q_id) - phys_base;
 
 	/* Note: buff_size & payload_offset are union and they are set
 	 *	 acoording to the Q type.
@@ -297,7 +297,7 @@ static int nmnicpf_regfile_register_queue(struct nmnicpf *nmnicpf,
  */
 static int nmnicpf_regfile_register_intc(struct nmnicpf *nmnicpf,
 					struct giu_gpio_intc_params *intc_params,
-					int tc_queue_type, void **file_map)
+					int tc_queue_type, phys_addr_t phys_addr, void **file_map)
 {
 	int queue_idx, ret = 0;
 	struct giu_tc reg_giu_tc;
@@ -317,7 +317,7 @@ static int nmnicpf_regfile_register_intc(struct nmnicpf *nmnicpf,
 		for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
 			union giu_gpio_q_params *hw_q_id = &(intc_params->inqs_params[queue_idx]);
 
-			ret = nmnicpf_regfile_register_queue(nmnicpf, hw_q_id, tc_queue_type, file_map);
+			ret = nmnicpf_regfile_register_queue(nmnicpf, hw_q_id, tc_queue_type, phys_addr, file_map);
 
 			if (ret != 0)
 				break;
@@ -346,7 +346,7 @@ static int nmnicpf_regfile_register_intc(struct nmnicpf *nmnicpf,
  */
 static int nmnicpf_regfile_register_outtc(struct nmnicpf *nmnicpf,
 					struct giu_gpio_outtc_params *outtc_params,
-					int tc_queue_type, void **file_map)
+					int tc_queue_type, phys_addr_t phys_addr, void **file_map)
 {
 	int queue_idx, ret = 0;
 	struct giu_tc reg_giu_tc;
@@ -366,7 +366,7 @@ static int nmnicpf_regfile_register_outtc(struct nmnicpf *nmnicpf,
 		for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
 			union giu_gpio_q_params *hw_q_id = &(outtc_params->outqs_params[queue_idx]);
 
-			ret = nmnicpf_regfile_register_queue(nmnicpf, hw_q_id, tc_queue_type, file_map);
+			ret = nmnicpf_regfile_register_queue(nmnicpf, hw_q_id, tc_queue_type, phys_addr, file_map);
 
 			if (ret != 0)
 				break;
@@ -399,9 +399,13 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 	struct giu_regfile *regfile_data = &nmnicpf->regfile_data;
 	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
 	int tc_idx, queue_idx;
-	void *pf_cfg_base;
 	int ret = 0;
 	int bm_tc_id = 0;
+	struct mv_sys_dma_mem_info	 mem_info;
+	char				 dev_name[100];
+
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
 
 	/* Update Regfile general info */
 	regfile_data->version		= REGFILE_VERSION;
@@ -411,16 +415,6 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 	regfile_data->egress_tcs	= NULL;
 	regfile_data->num_ingress_tcs	= q_top->outtcs_params.num_outtcs;
 	regfile_data->ingress_tcs	= NULL;
-
-	pf_cfg_base = nmnicpf->map.cfg_map.virt_addr;
-	regfile_data->prod_tbl_base_phys = get_queue_prod_phys_addr(nmnicpf, 0);
-	regfile_data->prod_tbl_base_virt = (void *)(pf_cfg_base + PCI_BAR0_MQA_QNPT_BASE);
-	regfile_data->cons_tbl_base_phys = get_queue_cons_phys_addr(nmnicpf, 0);
-	regfile_data->cons_tbl_base_virt = (void *)(pf_cfg_base + PCI_BAR0_MQA_QNCT_BASE);
-
-	pr_debug("PCI tables addr: pp: %p, pv: %p, cp: %p, cv: %p.\n",
-			regfile_data->prod_tbl_base_phys, regfile_data->prod_tbl_base_virt,
-			regfile_data->cons_tbl_base_phys, regfile_data->cons_tbl_base_virt);
 
 	pr_debug("Start Topology configuration to register file [Regfile ver (%d), NIC-PF number (%d)]\n",
 			regfile_data->version, nmnicpf->pf_id);
@@ -444,7 +438,7 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 			union giu_gpio_q_params *hw_q_id =
 						&(q_top->intcs_params.intc_params[bm_tc_id].pools[queue_idx]);
 
-			ret = nmnicpf_regfile_register_queue(nmnicpf, hw_q_id, QUEUE_BP, &file_map);
+			ret = nmnicpf_regfile_register_queue(nmnicpf, hw_q_id, QUEUE_BP, mem_info.paddr, &file_map);
 
 			if (ret != 0)
 				goto config_error;
@@ -460,7 +454,11 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 
 			struct giu_gpio_intc_params *intc_params = &(q_top->intcs_params.intc_params[tc_idx]);
 
-			ret = nmnicpf_regfile_register_intc(nmnicpf, intc_params, QUEUE_EGRESS, &file_map);
+			ret = nmnicpf_regfile_register_intc(nmnicpf,
+							    intc_params,
+							    QUEUE_EGRESS,
+							    mem_info.paddr,
+							    &file_map);
 
 			if (ret != 0)
 				goto config_error;
@@ -477,7 +475,11 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 
 			struct giu_gpio_outtc_params *outtc_params = &(q_top->outtcs_params.outtc_params[tc_idx]);
 
-			ret = nmnicpf_regfile_register_outtc(nmnicpf, outtc_params, QUEUE_INGRESS, &file_map);
+			ret = nmnicpf_regfile_register_outtc(nmnicpf,
+							     outtc_params,
+							     QUEUE_INGRESS,
+							     mem_info.paddr,
+							     &file_map);
 
 			if (ret != 0)
 				goto config_error;

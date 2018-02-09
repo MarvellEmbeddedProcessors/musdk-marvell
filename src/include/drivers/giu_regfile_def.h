@@ -56,19 +56,19 @@ enum giu_ingress_hash_type {
  *  hw_id		GIU Queue ID
  *  size		Number of entries in the queue
  *  type		Egress, Ingress, BM-Pool
- *  base_phy_addr	Queue physical address
- *  prod_addr Queue	producer address physical address
- *  cons_addr Queue	consumer address physical address
+ *  base_phy_offset	Queue physical offset
+ *  prod_offset Queue	producer address physical offset
+ *  cons_offset Queue	consumer address physical offset
  *  buff_len		Buffer len (relevant for BPools only)
  *  payload_offset	Payload offset in the buffer (Relevant for Ingress data Qs only)
  */
 struct giu_queue {
 	int hw_id;
 	int size;
-	void *phy_base_addr;
+	phys_addr_t phy_base_offset;
 	enum giu_queue_type type;
-	void *prod_addr;
-	void *cons_addr;
+	phys_addr_t prod_offset;
+	phys_addr_t cons_offset;
 	union {
 		int buff_len;
 		int payload_offset;
@@ -105,10 +105,6 @@ struct giu_tc {
 struct giu_regfile {
 	int version;
 	int flags;
-	void *prod_tbl_base_phys;
-	void *prod_tbl_base_virt;
-	void *cons_tbl_base_phys;
-	void *cons_tbl_base_virt;
 	int num_ingress_tcs;
 	int num_egress_tcs;
 	struct giu_tc *ingress_tcs;

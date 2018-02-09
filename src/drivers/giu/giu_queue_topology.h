@@ -71,7 +71,6 @@ enum giu_gpio_outqs_sched_mode {
  */
 struct giu_gpio_queue {
 	u32		desc_total; /**< number of descriptors in the ring */
-	void		*desc_ring_base_phys;    /**< descriptor ring physical address */
 	struct giu_gpio_desc	*desc_ring_base; /**< descriptor ring virtual address */
 	union {
 		u32	prod_val_shadow; /**< producer index value shadow  */
@@ -79,8 +78,6 @@ struct giu_gpio_queue {
 	};
 	u32		last_cons_val; /**< last consumer index value */
 
-	void		*prod_addr_phys; /**< producer index phys address */
-	void		*cons_addr_phys; /**< consumer index phys address */
 	u32		*prod_addr; /**< producer index virtual address */
 	u32		*cons_addr; /**< consumer index virtual address */
 
