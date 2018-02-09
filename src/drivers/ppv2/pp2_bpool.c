@@ -335,10 +335,9 @@ int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **bpool)
 	u8				 id_match[2];
 	int				 pool_id = 0, pp2_id = 0, rc;
 	phys_addr_t			 paddr;
-	size_t				 reg_size = 0;
 	u32				 poffset = 0;
 	struct sys_iomem_params		 iomem_params;
-	struct sys_iomem		*sys_iomem;
+	struct sys_iomem_info		sys_iomem_info;
 	char				 dev_name[FILE_MAX_LINE_CHARS];
 	uintptr_t			 va;
 	struct pp2_bm_pool		*bm_pool;
@@ -366,40 +365,18 @@ int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **bpool)
 		goto bp_probe_exit1;
 	}
 
-	/* get the master DMA region size */
-	json_buffer_to_input(sec, "region_size", reg_size);
-	if (reg_size == 0) {
-		pr_err("reg_size is 0\n");
-		rc = -EINVAL;
-		goto bp_probe_exit1;
-	}
-
-	/* get the master DMA physical address */
-	json_buffer_to_input(sec, "phys_addr", paddr);
-	if (!paddr) {
-		pr_err("'phys_addr' not found\n");
-		rc = -EINVAL;
-		goto bp_probe_exit1;
-	}
-
 	iomem_params.type = SYS_IOMEM_T_SHMEM;
 	iomem_params.devname = dev_name;
 	iomem_params.index = 1;
-	iomem_params.size = reg_size;
 
-	if (sys_iomem_init(&iomem_params, &sys_iomem)) {
-		pr_err("sys_iomem_init error\n");
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
 		rc = -EFAULT;
 		goto bp_probe_exit1;
 	}
-	/* Map the iomem physical address */
-	if (sys_iomem_map(sys_iomem, NULL, (phys_addr_t *)&paddr,
-			  (void **)&va)) {
-		pr_err("sys_iomem_map error\n");
-		sys_iomem_deinit(sys_iomem);
-		rc = -EFAULT;
-		goto bp_probe_exit1;
-	}
+
+	va = (uintptr_t)sys_iomem_info.u.shmem.va;
+	paddr = sys_iomem_info.u.shmem.paddr;
 
 	/* Search for the pool-info section */
 	sec = strstr(sec, "pool-info");
@@ -500,9 +477,9 @@ int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **bpool)
 	bm_pool->bm_pool_phys_base = paddr + poffset;
 	bm_pool->bm_pool_virt_base = (uintptr_t)((phys_addr_t)va + poffset);
 
-	pr_debug("pp2_id %d, id %d, buff_size %d, max_num_buffs %d, paddr %llx, reg_size %zu\n",
+	pr_debug("pp2_id %d, id %d, buff_size %d, max_num_buffs %d, paddr %llx\n",
 		 pp2_id, pool_id, bm_pool->bm_pool_buf_sz, bm_pool->bm_pool_buf_num,
-		 (unsigned long long)paddr, reg_size);
+		 (unsigned long long)paddr);
 
 	pp2_ptr->pp2_inst[pp2_id]->bm_pools[pool_id] = bm_pool;
 	pp2_bpools[pp2_id][pool_id].id = pool_id;
