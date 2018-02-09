@@ -344,7 +344,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		dst_port = dif;
 		for (i = 1; i < num; i++) {
 			desc_ptr_cur = desc_ptr + i;
-			buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr_cur);
+
+			buff = (char *)(app_get_high_addr() |
+					(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr_cur));
 			pa = pp2_ppio_inq_desc_get_phys_addr(desc_ptr_cur);
 			len = pp2_ppio_inq_desc_get_pkt_len(desc_ptr_cur);
 			bpool = pp2_ppio_inq_desc_get_bpool(desc_ptr_cur,
@@ -352,8 +354,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 
 #ifdef PKT_FWD_APP_USE_PREFETCH
 			if (num - i > prefetch_shift) {
-				tmp_buff =
-					(char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr_cur + prefetch_shift);
+				tmp_buff = (char *)(app_get_high_addr() | (uintptr_t)
+						    pp2_ppio_inq_desc_get_cookie(desc_ptr_cur + prefetch_shift));
 				tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 				prefetch(tmp_buff);
 			}
