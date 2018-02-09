@@ -845,10 +845,9 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 	char				*sec = NULL;
 	phys_addr_t			 paddr, poffset = 0;
 	struct sys_iomem_params		 iomem_params;
-	struct sys_iomem		*sys_iomem;
+	struct sys_iomem_info		sys_iomem_info;
 	char				 dev_name[PP2_MAX_BUF_STR_LEN];
 	uintptr_t			 va;
-	size_t				 reg_size = 0;
 	u8				 id_match[2];
 	int				 port_id = 0, pp2_id = 0;
 	struct pp2_port			**port_hdl;
@@ -884,38 +883,18 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 		goto ppio_probe_exit;
 	}
 
-	json_buffer_to_input(sec, "region_size", reg_size);
-	if (reg_size == 0) {
-		pr_err("reg_size is 0\n");
-		rc = -EINVAL;
-		goto ppio_probe_exit;
-	}
-
-	json_buffer_to_input(sec, "phys_addr", paddr);
-	if (!paddr) {
-		pr_err("'phys_addr' not found\n");
-		rc = -EINVAL;
-		goto ppio_probe_exit;
-	}
-
 	iomem_params.type = SYS_IOMEM_T_SHMEM;
 	iomem_params.devname = dev_name;
 	iomem_params.index = 1;
-	iomem_params.size = reg_size;
 
-	if (sys_iomem_init(&iomem_params, &sys_iomem)) {
-		pr_err("sys_iomem_init error\n");
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
 		rc = -EFAULT;
 		goto ppio_probe_exit;
 	}
-	/* Map the iomem physical address */
-	if (sys_iomem_map(sys_iomem, NULL, (phys_addr_t *)&paddr,
-			  (void **)&va)) {
-		pr_err("sys_iomem_map error\n");
-		sys_iomem_deinit(sys_iomem);
-		rc = -EFAULT;
-		goto ppio_probe_exit;
-	}
+
+	va = (uintptr_t)sys_iomem_info.u.shmem.va;
+	paddr = sys_iomem_info.u.shmem.paddr;
 
 	/* Search for the ppio-info section */
 	sec = strstr(sec, "ppio-info");
