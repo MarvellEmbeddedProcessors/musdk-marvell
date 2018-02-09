@@ -404,21 +404,23 @@ static int iomem_shmem_iomap(struct mem_shm	*shm,
 	int fd;
 	void *ptr;
 
-	fd = open(shm->dev_name, O_RDWR);
-	if (fd < 0) {
-		pr_err("CMA: open() failed\n");
-		return -1;
-	}
+	if (!shm->va) {
+		fd = open(shm->dev_name, O_RDWR);
+		if (fd < 0) {
+			pr_err("CMA: open() failed\n");
+			return -1;
+		}
 
-	ptr = mmap(NULL, shm->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)*pa);
-	if (ptr == MAP_FAILED) {
-		pr_err("mmap failed\n");
-		return -1;
-	}
+		ptr = mmap(NULL, shm->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)*pa);
+		if (ptr == MAP_FAILED) {
+			pr_err("mmap failed\n");
+			return -1;
+		}
 
-	shm->pa = *pa;
-	shm->va = ptr;
-	pr_info("shm->name %s, pa 0x%lx, va %p, size %zu\n", shm->dev_name, shm->pa, shm->va, shm->size);
+		shm->pa = *pa;
+		shm->va = ptr;
+		pr_info("shm->name %s, pa 0x%lx, va %p, size %zu\n", shm->dev_name, shm->pa, shm->va, shm->size);
+	}
 
 	*va = shm->va;
 	return 0;
