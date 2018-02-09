@@ -261,3 +261,9 @@ int sys_iomem_unmap(struct sys_iomem *iomem, const char *name)
 	pr_err("%s: Resource not found: '%s'.\n", __func__, name);
 	return -EINVAL;
 }
+
+int sys_iomem_get_info(struct sys_iomem_params *params, struct sys_iomem_info *info)
+{
+	pr_err("[%s] routine not supported yet!\n", __func__);
+	return -ENOTSUP;
+}
