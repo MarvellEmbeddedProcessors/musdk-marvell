@@ -70,6 +70,16 @@ struct sys_iomem_params {
 	size_t			 size;
 };
 
+struct sys_iomem_info {
+	union {
+		struct {
+			void		*va;
+			size_t		 size;
+			phys_addr_t	 paddr;
+		} shmem;
+	} u;
+};
+
 /**
  * Check if an IO-memory device exists
  *
@@ -79,6 +89,17 @@ struct sys_iomem_params {
  * @retval 0 no found
  */
 int sys_iomem_exists(struct sys_iomem_params *params);
+
+/**
+ * Check if an IO-memory device exists and return its handle
+ *
+ * @param	params		A pointer to a io-mem parameter structure.
+ * @param[out]	iomem_info	IO-mem associated info
+ *
+ * @retval 0 Success
+ * @retval < 0 Failure
+ */
+int sys_iomem_get_info(struct sys_iomem_params *params, struct sys_iomem_info *iomem_info);
 
 /**
  * Create and Initialize IO-memory device and maps structures

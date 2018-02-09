@@ -75,7 +75,6 @@ struct sys_iomem {
 	char				*name;
 	int				 index;
 	enum sys_iomem_type		 type;
-	phys_addr_t			 pa;
 	union {
 		struct mem_uio		 uio;
 		struct mem_mmap		 mmap;
@@ -443,6 +442,33 @@ int sys_iomem_exists(struct sys_iomem_params *params)
 		return iomem_uio_io_exists(params->devname, params->index);
 	pr_err("IOtype not supported yet!\n");
 	return -ENOTSUP;
+}
+
+int sys_iomem_get_info(struct sys_iomem_params *params, struct sys_iomem_info *info)
+{
+	struct list		*pos;
+	struct sys_iomem	*liomem_node;
+
+	if (!list_is_empty(&iomem_maps_lst)) {
+		LIST_FOR_EACH(pos, &iomem_maps_lst) {
+			liomem_node = LIST_OBJECT(pos, struct sys_iomem, node);
+			if (strcmp(liomem_node->name, params->devname) == 0
+				&& liomem_node->index == params->index) {
+				if (params->type == SYS_IOMEM_T_SHMEM) {
+					info->u.shmem.va = liomem_node->u.shmem.va;
+					info->u.shmem.paddr = liomem_node->u.shmem.pa;
+					info->u.shmem.size = liomem_node->u.shmem.size;
+				} else {
+					pr_err("IOtype not supported yet!\n");
+					return -ENOTSUP;
+				}
+
+				return 0;
+			}
+		}
+	}
+
+	return -ENXIO;
 }
 
 int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
