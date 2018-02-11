@@ -684,6 +684,7 @@ int pp2_ppio_serialize(struct pp2_ppio *ppio, char buff[], u32 size)
 	paddr = mem_info.paddr;
 
 	json_print_to_buffer(buff, size, 2, "\"ppio-%d:%d\": {\n", ppio->pp2_id, ppio->port_id);
+	json_print_to_buffer(buff, size, 3, "\"dma_dev_name\": \"%s\",\n", mem_info.name);
 	json_print_to_buffer(buff, size, 3, "\"pp2_id\": %u,\n", ppio->pp2_id);
 	json_print_to_buffer(buff, size, 3, "\"port_id\": %u,\n", ppio->port_id);
 	json_print_to_buffer(buff, size, 3, "\"port-info\": {\n");
@@ -867,34 +868,7 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 		return -ENOMEM;
 
 	memcpy(lbuff, buff, strlen(buff));
-
-	sec = strstr(lbuff, "dma-info");
-	if (!sec) {
-		pr_err("'dma-info' not found\n");
-		rc = -EINVAL;
-		goto ppio_probe_exit;
-	}
-
-	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
-	json_buffer_to_input_str(sec, "file_name", dev_name);
-	if (dev_name[0] == 0) {
-		pr_err("'file_name' not found\n");
-		rc = -EINVAL;
-		goto ppio_probe_exit;
-	}
-
-	iomem_params.type = SYS_IOMEM_T_SHMEM;
-	iomem_params.devname = dev_name;
-	iomem_params.index = 1;
-
-	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
-		pr_err("sys_iomem_get_info error\n");
-		rc = -EFAULT;
-		goto ppio_probe_exit;
-	}
-
-	va = (uintptr_t)sys_iomem_info.u.shmem.va;
-	paddr = sys_iomem_info.u.shmem.paddr;
+	sec = lbuff;
 
 	/* Search for the ppio-info section */
 	sec = strstr(sec, "ppio-info");
@@ -911,6 +885,27 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 		rc = -EINVAL;
 		goto ppio_probe_exit;
 	}
+
+	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
+	json_buffer_to_input_str(sec, "dma_dev_name", dev_name);
+	if (dev_name[0] == 0) {
+		pr_err("'dma_dev_name' not found\n");
+		rc = -EINVAL;
+		goto ppio_probe_exit;
+	}
+
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = dev_name;
+	iomem_params.index = 1;
+
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
+		rc = -EFAULT;
+		goto ppio_probe_exit;
+	}
+
+	va = (uintptr_t)sys_iomem_info.u.shmem.va;
+	paddr = sys_iomem_info.u.shmem.paddr;
 
 	/* Retireve pp2_id and pool_id */
 	json_buffer_to_input(sec, "pp2_id", pp2_id);
