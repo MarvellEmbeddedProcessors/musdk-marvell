@@ -234,6 +234,16 @@ struct sam_session_params {
 };
 
 /**
+ * sam_session_get_block_size
+ *
+ * @param[in]	algo      - cipher algorithm.
+ *
+ * @retval	0         - unknown cipher algorithm
+ * @retval	Positive  - block size for the cipher algorithm in bytes
+ */
+u32 sam_session_get_block_size(enum sam_cipher_alg algo);
+
+/**
  * Create new crypto session
  *
  * @param[in]	params    - pointer to structure with crypto session parameters.

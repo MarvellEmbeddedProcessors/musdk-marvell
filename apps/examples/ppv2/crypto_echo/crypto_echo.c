@@ -497,7 +497,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 
 			/* cipher_len must be block size aligned. Block size is always power of 2 */
-			block_size = app_sam_cipher_block_size(flow->crypto_params->cipher_alg);
+			block_size = sam_session_get_block_size(flow->crypto_params->cipher_alg);
 			if (block_size && (sam_descs[i].cipher_len & (block_size - 1))) {
 				pad_size = block_size - (sam_descs[i].cipher_len & (block_size - 1));
 				/* clear padding data */
