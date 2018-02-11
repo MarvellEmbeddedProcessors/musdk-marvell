@@ -254,7 +254,7 @@ AC_CHECK_HEADERS([stdlib.h unistd.h])
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 
 CFLAGS="$CFLAGS -Wall "
-#CFLAGS+="-Werror "
+CFLAGS+="-Werror "
 CFLAGS+="-Wstrict-prototypes "
 CFLAGS+="-Wmissing-prototypes "
 CFLAGS+="-pthread "
