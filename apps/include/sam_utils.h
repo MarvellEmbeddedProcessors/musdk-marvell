@@ -36,25 +36,6 @@
 #include "mv_std.h"
 #include "mv_sam.h"
 
-/* Get block size for each cipher algorithm */
-static inline u32 app_sam_cipher_block_size(enum sam_cipher_alg alg)
-{
-	u32 block_size;
-
-	switch (alg) {
-	case SAM_CIPHER_DES:
-	case SAM_CIPHER_3DES:
-		block_size = 8;
-		break;
-	case SAM_CIPHER_AES:
-		block_size = 16;
-		break;
-	default:
-		block_size = 0;
-	}
-	return block_size;
-}
-
 /*
  * Show cio statistics
  */

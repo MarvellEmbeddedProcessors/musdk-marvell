@@ -125,12 +125,22 @@ void print_sam_sa_params(struct sam_session_params *sa_params)
 			pr_info("ipsec.dip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.dip);
 			mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.dip, 4);
 		}
+	} else if (sa_params->proto == SAM_PROTO_IPSEC) {
+		pr_info("ssltls.seq           = 0x%" PRIx64 "\n", sa_params->u.ssltls.seq);
+		pr_info("ipsec.is_ip6         = %d\n", sa_params->u.ssltls.is_ip6);
+		pr_info("ssltls.epoch         = 0x%04x\n", sa_params->u.ssltls.epoch);
+		pr_info("ssltls.is_udp_lite   = %d\n", sa_params->u.ssltls.is_udp_lite);
+		pr_info("ssltls.is_capwap     = %d\n", sa_params->u.ssltls.is_capwap);
+		pr_info("ssltls.seq_mask_size = %d\n", sa_params->u.ssltls.seq_mask_size);
+		/* u32 seq_mask[4]; */
 	}
 	pr_info("\n");
 }
 
 void print_sam_cio_op_params(struct sam_cio_op_params *request)
 {
+	struct sam_session_params *sa_params = &request->sa->params;
+
 	pr_info("\n");
 	pr_info("----------- struct sam_cio_op_params *request ---------\n");
 	pr_info("request->sa                     = %p\n", request->sa);
@@ -150,6 +160,22 @@ void print_sam_cio_op_params(struct sam_cio_op_params *request)
 	pr_info("request->auth_len               = %d\n", request->auth_len);
 	pr_info("request->auth_icv_offset        = %d\n", request->auth_icv_offset);
 	pr_info("\n");
+
+	if (request->auth_aad) {
+		pr_info("AAD buffer: %d bytes\n", sa_params->u.basic.auth_aad_len);
+		mv_mem_dump(request->auth_aad, sa_params->u.basic.auth_aad_len);
+		pr_info("\n");
+	}
+	/* IV length is cipher algorithm block size */
+	if (request->cipher_iv) {
+		u32 iv_len = sam_session_get_block_size(sa_params->cipher_alg);
+
+		pr_info("IV buffer: %d bytes\n", iv_len);
+		if (iv_len) {
+			mv_mem_dump(request->cipher_iv, iv_len);
+			pr_info("\n");
+		}
+	}
 }
 
 void print_sam_cio_ipsec_params(struct sam_cio_ipsec_params *request)
@@ -199,18 +225,22 @@ void print_sam_sa(struct sam_sa *session)
 	print_sam_sa_params(params);
 
 	if (params->cipher_key) {
-		printf("\nCipher Key: %d bytes\n", params->cipher_key_len);
+		pr_info("Cipher Key: %d bytes\n", params->cipher_key_len);
 		mv_mem_dump(params->cipher_key, params->cipher_key_len);
+		pr_info("\n");
 	}
 	if (params->auth_key) {
-		printf("\nAuthentication Key: %d bytes\n", params->auth_key_len);
+		pr_info("Authentication Key: %d bytes\n", params->auth_key_len);
 		mv_mem_dump(params->auth_key, params->auth_key_len);
+		pr_info("\n");
 
-		printf("\nAuthentication Inner: %d bytes\n", (int)sizeof(session->auth_inner));
+		pr_info("Authentication Inner: %d bytes\n", (int)sizeof(session->auth_inner));
 		mv_mem_dump(session->auth_inner, sizeof(session->auth_inner));
+		pr_info("\n");
 
-		printf("\nAuthentication Outer: %d bytes\n", (int)sizeof(session->auth_outer));
+		pr_info("Authentication Outer: %d bytes\n", (int)sizeof(session->auth_outer));
 		mv_mem_dump(session->auth_outer, sizeof(session->auth_outer));
+		pr_info("\n");
 	}
 }
 
@@ -249,7 +279,7 @@ void print_sa_builder_params(struct sam_sa *session)
 	else if (session->params.proto == SAM_PROTO_IPSEC)
 		print_ipsec_sa_params(&session->u.ipsec_params);
 
-	printf("\nSA DMA buffer: %d words, physAddr = %p\n",
+	pr_info("\nSA DMA buffer: %d words, physAddr = %p\n",
 			session->sa_words, (void *)session->sa_buf.paddr);
 	mv_mem_dump_words(session->sa_buf.vaddr, session->sa_words, 0);
 }

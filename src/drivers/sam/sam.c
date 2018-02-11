@@ -53,10 +53,10 @@ static int		sam_active_cios;
 static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
 static int		sam_num_sessions;
 static struct sam_sa	*sam_sessions;
+
 #ifdef MVCONF_SAM_STATS
 static struct sam_session_stats sam_sa_stats;
 #endif /* MVCONF_SAM_STATS */
-
 
 static int sam_cio_free_idx_get(void)
 {
@@ -122,7 +122,7 @@ static void sam_hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], 
 	else if (auth_alg == SAM_AUTH_HMAC_SHA2_512)
 		mv_sha512_hmac_iv(key, key_len, inner, outer);
 	else
-		printf("\n%s: Unexpected authentication algorithm - %d\n", __func__, auth_alg);
+		pr_err("%s: Unexpected authentication algorithm - %d\n", __func__, auth_alg);
 }
 
 static void sam_gcm_create_auth_key(u8 *key, int key_len, u8 inner[])
@@ -422,6 +422,25 @@ static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params 
 }
 
 /*********************** Public functions implementation *******************/
+
+u32 sam_session_get_block_size(enum sam_cipher_alg algo)
+{
+	u32 block_size;
+
+	switch (algo) {
+	case SAM_CIPHER_DES:
+	case SAM_CIPHER_3DES:
+		block_size = 8;
+		break;
+	case SAM_CIPHER_AES:
+		block_size = 16;
+		break;
+	default:
+		block_size = 0;
+		break;
+	};
+	return block_size;
+}
 
 int sam_get_capability(struct sam_capability *capa)
 {
