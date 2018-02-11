@@ -32,43 +32,38 @@
 
 #include "std_internal.h"
 #include "lib/mem_mng.h"
+
+#ifdef MVCONF_SYS_DMA_HUGE_PAGE
 #include "hugepage_mem.h"
+#elif defined MVCONF_SYS_DMA_UIO
 #include "cma.h"
+#endif /* MVCONF_SYS_DMA_UIO */
 
 
 #define MEM_DMA_MAX_REGIONS	16
 
 struct sys_dma {
 	struct mem_mng	*mm;
+	void		*mem;
 	void		*dma_virt_base;
 	phys_addr_t	dma_phys_base;
 	size_t		dma_size;
 	int		en;
-#ifdef MVCONF_SYS_DMA_UIO
-	void		*cma_ptr;
-#endif /* MVCONF_SYS_DMA_UIO */
-#ifdef MVCONF_SYS_DMA_HUGE_PAGE
-	void		*mem_ptr;
-#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 };
 
 struct sys_mem_dma_region_priv {
 	struct mem_mng	*mm;
-#ifdef MVCONF_SYS_DMA_UIO
-	void		*cma_ptr;
-#endif /* MVCONF_SYS_DMA_UIO */
-#ifdef MVCONF_SYS_DMA_HUGE_PAGE
-	void		*mem_ptr;
-#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
+	void		*mem;
 };
 
-struct mv_sys_dma_mem_region	*sys_dma_regions[MEM_DMA_MAX_REGIONS] = {NULL};
 
+struct mv_sys_dma_mem_region	*sys_dma_regions[MEM_DMA_MAX_REGIONS] = {NULL};
 
 phys_addr_t __dma_phys_base = 0;
 void *__dma_virt_base = NULL;
 size_t __dma_size;
 struct sys_dma	*sys_dma = NULL;
+
 
 /* UIO supports 2 memory allocations types:
  * 1. CMA
@@ -77,13 +72,18 @@ struct sys_dma	*sys_dma = NULL;
 #ifdef MVCONF_SYS_DMA_HUGE_PAGE
 static int init_mem(struct sys_dma *sdma, size_t size)
 {
+	if (!sdma) {
+		pr_err("no SDMA obj!\n");
+		return -EINVAL;
+	}
+
 	if (sdma->en) {
 		pr_err("%s: Memory allocation already initialized!\n" , __func__);
 		return -ENOMEM;
 	}
 
-	sdma->mem_ptr =	hugepage_init_mem(size, &sdma->dma_virt_base);
-	if (!sdma->mem_ptr) {
+	sdma->mem = hugepage_init_mem(size, &sdma->dma_virt_base);
+	if (!sdma->mem) {
 		pr_err("Failed to allocate DMA memory!\n");
 		return -ENOMEM;
 	}
@@ -96,11 +96,11 @@ static int init_mem(struct sys_dma *sdma, size_t size)
 static void free_mem(struct sys_dma *sdma)
 {
 	BUG_ON(!sdma);
-	if (!sdma->mem_ptr)
+	if (!sdma->mem)
 		return;
 
-	hugepage_free_mem(sdma->mem_ptr);
-	sdma->mem_ptr = NULL;
+	hugepage_free_mem(sdma->mem);
+	sdma->mem = NULL;
 
 	/* clear indication of active memory initialization */
 	sdma->en = 0;
@@ -110,29 +110,29 @@ static void free_mem(struct sys_dma *sdma)
 static int init_mem(struct sys_dma *sdma, size_t size)
 {
 	BUG_ON(!sdma);
-	void *cma_ptr;
 
 	if (!sdma->en) {
 		int err;
-		if ((err = cma_init()) != 0) {
+
+		err = cma_init();
+		if (err) {
 			pr_err("Failed to init DMA memory (%d)!\n", err);
 			return err;
 		}
 		sdma->en = 1;
 	}
 
-	cma_ptr = cma_calloc((size_t)size);
-	if (!cma_ptr) {
+	sdma->mem = cma_calloc((size_t)size);
+	if (!sdma->mem) {
 		pr_err("Failed to allocate DMA memory!\n");
 		return -ENOMEM;
 	}
 
-	sdma->dma_virt_base = (void *)cma_get_vaddr(cma_ptr);
-	sdma->dma_phys_base = (phys_addr_t)cma_get_paddr(cma_ptr);
+	sdma->dma_virt_base = (void *)cma_get_vaddr(sdma->mem);
+	sdma->dma_phys_base = (phys_addr_t)cma_get_paddr(sdma->mem);
 	pr_debug("init_mem dma_phys_base(0x"PRIdma")\n", sdma->dma_phys_base);
 
-	sdma->dma_size = (size_t)cma_get_size(cma_ptr);
-	sdma->cma_ptr = cma_ptr;
+	sdma->dma_size = (size_t)cma_get_size(sdma->mem);
 	return 0;
 }
 
@@ -141,7 +141,7 @@ static void free_mem(struct sys_dma *sdma)
 	BUG_ON(!sdma);
 	if (!sdma->dma_virt_base)
 		return;
-	cma_free(sdma->cma_ptr);
+	cma_free(sdma->mem);
 }
 
 int mv_sys_dma_mem_get_info(struct mv_sys_dma_mem_info *mem_info)
@@ -180,8 +180,7 @@ static void free_mem(struct sys_dma *sdma)
 {
 	WARN_ON(!sdma);
 	if (!sdma)
-		return -EINVAL;
-
+		return;
 	if (!sdma->dma_virt_base)
 		return;
 	kfree(sdma->dma_virt_base);
@@ -230,9 +229,7 @@ int mv_sys_dma_mem_init(size_t size)
 	pr_debug("[%s] __dma_phys_base(0x%lx) __dma_virt_base(%p) __dma_size (%zu)\n", __func__,
 		  __dma_phys_base, __dma_virt_base, __dma_size);
 #ifdef DEBUG
-	for (int i = 0; i < size; i++) {
-		*((char *)__dma_virt_base + i) = 0xA;
-	}
+	memset(__dma_virt_base, 0xA, size);
 #endif
 	return 0;
 }
@@ -279,8 +276,6 @@ void mv_sys_dma_mem_free(void *ptr)
 	mem_mng_put(sys_dma->mm, (u64)(uintptr_t)ptr);
 }
 
-
-
 static bool mem_region_exist(struct mv_sys_dma_mem_region *mem)
 {
 	int i;
@@ -306,7 +301,6 @@ static void free_mem_region(struct mv_sys_dma_mem_region *mem)
 static int init_mem_region(struct mv_sys_dma_mem_region *mem)
 {
 	int err;
-	void *cma_ptr;
 	struct sys_mem_dma_region_priv *priv;
 
 	err = cma_init_region(mem->mem_id);
@@ -315,17 +309,16 @@ static int init_mem_region(struct mv_sys_dma_mem_region *mem)
 		return err;
 	}
 
-	cma_ptr = cma_calloc_region(mem->mem_id, mem->size);
-	if (!cma_ptr) {
+	priv = mem->priv;
+	priv->mem = cma_calloc_region(mem->mem_id, mem->size);
+	if (!priv->mem) {
 		pr_err("Failed to allocate DMA memory region(%d)!\n", mem->mem_id);
 		return -ENOMEM;
 	}
 
-	mem->dma_virt_base = (void *)cma_get_vaddr(cma_ptr);
-	mem->dma_phys_base = (phys_addr_t)cma_get_paddr(cma_ptr);
+	mem->dma_virt_base = (void *)cma_get_vaddr(priv->mem);
+	mem->dma_phys_base = (phys_addr_t)cma_get_paddr(priv->mem);
 
-	priv = mem->priv;
-	priv->cma_ptr = cma_ptr;
 	return 0;
 }
 
@@ -337,7 +330,7 @@ static void free_mem_region(struct mv_sys_dma_mem_region *mem)
 		return;
 
 	priv = mem->priv;
-	cma_free_region(mem->mem_id, priv->cma_ptr);
+	cma_free_region(mem->mem_id, priv->mem);
 }
 
 #else /* MVCONF_SYS_DMA_UIO */
