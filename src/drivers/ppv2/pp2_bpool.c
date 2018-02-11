@@ -315,6 +315,7 @@ int pp2_bpool_serialize(struct pp2_bpool *pool, char buff[], u32 size)
 	poffset = pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool->id]->bm_pool_phys_base - mem_info.paddr;
 
 	json_print_to_buffer(buff, size, 2, "\"pool-%d:%d\": {\n", pool->pp2_id, pool->id);
+	json_print_to_buffer(buff, size, 3, "\"dma_dev_name\": \"%s\",\n", mem_info.name);
 	json_print_to_buffer(buff, size, 3, "\"pp2_id\": %u,\n", pool->pp2_id);
 	json_print_to_buffer(buff, size, 3, "\"id\": %u,\n", pool->id);
 	json_print_to_buffer(buff, size, 3, "\"phy_offset\": %#x,\n", poffset);
@@ -348,35 +349,7 @@ int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **bpool)
 		return -ENOMEM;
 
 	memcpy(lbuff, buff, strlen(buff));
-
-	sec = strstr(lbuff, "dma-info");
-	if (!sec) {
-		pr_err("'dma-info' not found\n");
-		rc = -EINVAL;
-		goto bp_probe_exit1;
-	}
-
-	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
-	/* get the master DMA device name */
-	json_buffer_to_input_str(sec, "file_name", dev_name);
-	if (dev_name[0] == 0) {
-		pr_err("'file_name' not found\n");
-		rc = -EINVAL;
-		goto bp_probe_exit1;
-	}
-
-	iomem_params.type = SYS_IOMEM_T_SHMEM;
-	iomem_params.devname = dev_name;
-	iomem_params.index = 1;
-
-	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
-		pr_err("sys_iomem_get_info error\n");
-		rc = -EFAULT;
-		goto bp_probe_exit1;
-	}
-
-	va = (uintptr_t)sys_iomem_info.u.shmem.va;
-	paddr = sys_iomem_info.u.shmem.paddr;
+	sec = lbuff;
 
 	/* Search for the pool-info section */
 	sec = strstr(sec, "pool-info");
@@ -393,6 +366,27 @@ int pp2_bpool_probe(char *match, char *buff, struct pp2_bpool **bpool)
 		rc = -EINVAL;
 		goto bp_probe_exit1;
 	}
+
+	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
+	json_buffer_to_input_str(sec, "dma_dev_name", dev_name);
+	if (dev_name[0] == 0) {
+		pr_err("'dma_dev_name' not found\n");
+		rc = -EINVAL;
+		goto bp_probe_exit1;
+	}
+
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = dev_name;
+	iomem_params.index = 1;
+
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
+		rc = -EFAULT;
+		goto bp_probe_exit1;
+	}
+
+	va = (uintptr_t)sys_iomem_info.u.shmem.va;
+	paddr = sys_iomem_info.u.shmem.paddr;
 
 	/* Retireve pp2_id and pool_id */
 	json_buffer_to_input(sec, "pp2_id", pp2_id);
