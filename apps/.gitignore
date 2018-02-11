@@ -2,4 +2,5 @@ examples/musdk_*
 examples/ppv2/musdk_*
 examples/neta/musdk_*
 examples/giu/musdk_*
+examples/nmp/musdk_*
 tests/musdk_*
