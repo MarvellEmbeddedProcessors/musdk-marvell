@@ -854,7 +854,7 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 	struct pp2_port			**port_hdl;
 	struct pp2_port			*port;
 	struct pp2_inst			*inst;
-	struct pp2_ppio			*ppio;
+	struct pp2_ppio			*ppio = NULL;
 	char				 tmp_buf[PP2_MAX_BUF_STR_LEN];
 	struct pp2_port			*lb_port = NULL;
 	char				*lbuff;
