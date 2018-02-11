@@ -1336,6 +1336,9 @@ int pp2_ppio_remove(struct pp2_ppio *ppio)
 	struct pp2_port *port = NULL;
 	struct pp2_port *lb_port = NULL;
 
+	if (!ppio)
+		return 0;
+
 	port = GET_PPIO_PORT(ppio);
 
 	if (!port) {
@@ -1359,7 +1362,6 @@ int pp2_ppio_remove(struct pp2_ppio *ppio)
 	kfree(port->txqs);
 
 	pp2_ptr->pp2_inst[ppio->pp2_id]->ppios[ppio->port_id] = NULL;
-	kfree(ppio);
 
 	/* release tx queues for loopback port associated to this ppio*/
 	lb_port = pp2_ptr->pp2_inst[ppio->pp2_id]->ports[PP2_LOOPBACK_PORT];
@@ -1371,6 +1373,8 @@ int pp2_ppio_remove(struct pp2_ppio *ppio)
 	}
 
 	kfree(lb_port->txqs);
+
+	kfree(ppio);
 
 	return 0;
 }
