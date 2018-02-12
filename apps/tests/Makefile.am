@@ -47,7 +47,6 @@ musdk_sam_kat_SOURCES  = sam_kat_suite/kat_tests.c
 musdk_sam_kat_SOURCES += sam_kat_suite/common.c
 musdk_sam_kat_SOURCES += sam_kat_suite/fileSets.c
 musdk_sam_kat_SOURCES += sam_kat_suite/array.c
-musdk_sam_kat_SOURCES += sam_kat_suite/generic_list.c
 musdk_sam_kat_SOURCES += sam_kat_suite/encryptedBlock.c
 musdk_sam_kat_SOURCES += ../common/sam_utils.c
 

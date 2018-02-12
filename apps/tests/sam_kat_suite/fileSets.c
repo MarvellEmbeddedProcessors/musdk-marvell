@@ -129,12 +129,13 @@ static EncryptedBlockType fileSetsGetTypeFromString(char *str);
 static FileMessage fileSetsConvertMessage(EncryptedBlockMessage message);
 ///////////////////////////////////////////////////////////////////////////////
 
-FileMessage fileSetsReadBlocksFromFile(char *fileName, generic_list encryptedBlocks)
+FileMessage fileSetsReadBlocksFromFile(char *fileName, EncryptedBlockPtr * encryptedBlocks, int maxBlocksNum)
 {
 	EncryptedBlockMessage encryptedBlockMessage;
 	EncryptedBlockPtr currentBlock;
 	FILE *fstr;
 	char line[CHUNK_SIZE] = { 0 };
+	int block_index = 0;
 
 	if (!fileName || !encryptedBlocks) {
 		return FILE_NULL_ARGS;
@@ -145,12 +146,12 @@ FileMessage fileSetsReadBlocksFromFile(char *fileName, generic_list encryptedBlo
 		return FILE_OPEN_PROBLEM;
 	}
 
-	while (fgets(line, CHUNK_SIZE, fstr) != NULL) {
+	while ((fgets(line, CHUNK_SIZE, fstr) != NULL) && (block_index < maxBlocksNum)) {
 		EncryptedBlockType type = INVALID;
 		unsigned char dataArray[CHUNK_SIZE] = { 0 };
 		int dataNumber = 0;
 		FileMessage message;
-		int current_index = 0, next_index = 0;
+		int operation_index = 0;
 
 		if (isCommentOrEmptyLine(line)) {
 			cleanStr(line);
@@ -170,10 +171,8 @@ FileMessage fileSetsReadBlocksFromFile(char *fileName, generic_list encryptedBlo
 				fclose(fstr);
 				return FILE_OUT_OF_MEMORY;
 			}
-			current_index = 0;
-			next_index = 0;
-		} else {
-			currentBlock = generic_list_get_last(encryptedBlocks);
+			encryptedBlocks[block_index++] = currentBlock;
+			operation_index = 0;
 		}
 
 		if (isEncryptedBlockTypeSession(type)) {
@@ -181,19 +180,16 @@ FileMessage fileSetsReadBlocksFromFile(char *fileName, generic_list encryptedBlo
 				encryptedBlockSessionAddElement(currentBlock, type, dataArray,
 						dataNumber));
 		} else if (isEncryptedBlockTypeOperation(type)) {
-			if (type == NEW_OPERATION_TYPE) {
-				current_index = next_index;
-				next_index++;
-			}
-			if (!encryptedBlockOperationExist(currentBlock, current_index)) {
-				encryptedBlockMessage = encryptedBlockOperationCreate(currentBlock, current_index);
+			if (!encryptedBlockOperationExist(currentBlock, operation_index)) {
+				encryptedBlockMessage = encryptedBlockOperationCreate(currentBlock,
+										      operation_index);
 				if (encryptedBlockMessage != ENCRYPTEDBLOCK_SUCCESS) {
 					fclose(fstr);
 					return FILE_OUT_OF_MEMORY;
 				}
 			}
 			message = fileSetsConvertMessage(
-				encryptedBlockOperationAddElement(currentBlock, type, current_index,
+				encryptedBlockOperationAddElement(currentBlock, type, operation_index++,
 								dataArray, dataNumber));
 		} else {
 			printf("Unexpected type = %d\n", type);
@@ -205,14 +201,6 @@ FileMessage fileSetsReadBlocksFromFile(char *fileName, generic_list encryptedBlo
 			}
 			fclose(fstr);
 			return message;
-		}
-		if (type == NEW_BLOCK_TYPE) {
-			if (generic_list_insert_last(encryptedBlocks, currentBlock) != LIST_SUCCESS) {
-				encryptedBlockDestroy(currentBlock);
-				fclose(fstr);
-				return FILE_OUT_OF_MEMORY;
-			}
-			encryptedBlockDestroy(currentBlock);
 		}
 		cleanStr(line);
 	}
@@ -404,23 +392,4 @@ static FileMessage fileSetsConvertMessage(EncryptedBlockMessage message)
 		break;
 	}
 	return FILE_NOT_VALID;
-}
-
-generic_list_element fileSetsEncryptedBlockCopyForList(generic_list_element encryptedBlock)
-{
-	if (!encryptedBlock) {
-		return NULL;
-	}
-	EncryptedBlockPtr copyBlock = NULL;
-	EncryptedBlockMessage message = encryptedBlockCopy(encryptedBlock,
-			&copyBlock);
-	if (message != ENCRYPTEDBLOCK_SUCCESS) {
-		return NULL;
-	}
-	return copyBlock;
-}
-
-void fileSetsEncryptedBlockDestroyForList(generic_list_element encryptedBlock)
-{
-	encryptedBlockDestroy(encryptedBlock);
 }

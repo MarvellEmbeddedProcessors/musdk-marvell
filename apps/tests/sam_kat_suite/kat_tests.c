@@ -86,7 +86,7 @@ static int			ev_pkts_coal = 16;
 static int			ev_usec_coal = 100;
 
 static bool			running;
-static generic_list		test_db;
+static EncryptedBlockPtr	test_db[NUM_CONCURRENT_SESSIONS];
 
 static void sigint_h(int sig)
 {
@@ -241,23 +241,17 @@ static int delete_sessions(void)
 	return 0;
 }
 
-static int create_sessions(generic_list tests_db)
+static int create_sessions(EncryptedBlockPtr *tests_db)
 {
 	EncryptedBlockPtr block;
-	int i, num_tests, auth_key_len;
+	int i, auth_key_len;
 	u8 cipher_key[MAX_CIPHER_KEY_SIZE];
 
-	num_tests = generic_list_get_size(tests_db);
-	if (num_tests > NUM_CONCURRENT_SESSIONS)
-		num_tests = NUM_CONCURRENT_SESSIONS;
+	for (i = 0; i < NUM_CONCURRENT_SESSIONS; i++) {
 
-	block = generic_list_get_first(tests_db);
-	for (i = 0; i < num_tests; i++) {
-		if (i > 0)
-			block = generic_list_get_next(tests_db);
-
+		block = test_db[i];
 		if (!block)
-			return -1;
+			break;
 
 		sa_params[i].dir = direction_str_to_val(encryptedBlockGetDirection(block));
 		sa_params[i].proto = SAM_PROTO_NONE;
@@ -313,7 +307,7 @@ static int create_sessions(generic_list tests_db)
 			return -1;
 		}
 	}
-	printf("%d of %d sessions created successfully\n", i, num_tests);
+	printf("%d sessions created successfully\n", i);
 
 	return 0;
 }
@@ -548,10 +542,10 @@ static void prepare_requests(EncryptedBlockPtr block, struct sam_session_params 
  * - number of requests per enqueue/dequeue call: [1..NUM_CONCURRENT_REQUESTS] [default = 1]
  * - src/dst are different/same buffers [default: src != dst]
  */
-static int run_tests(generic_list tests_db)
+static int run_tests(EncryptedBlockPtr *tests_db)
 {
 	EncryptedBlockPtr block;
-	int i, test, num_tests, err = 0;
+	int i, test, err = 0;
 	int total_enqs, total_deqs, in_process, to_enq, num_enq, to_deq;
 	u16 num;
 	char *test_name;
@@ -573,23 +567,14 @@ static int run_tests(generic_list tests_db)
 		ev->events = MV_SYS_EVENT_POLLIN;
 	}
 
-	num_tests = generic_list_get_size(tests_db);
-	if (num_tests > NUM_CONCURRENT_SESSIONS)
-		num_tests = NUM_CONCURRENT_SESSIONS;
-
-	block = generic_list_get_first(tests_db);
 	total_passed = total_errors = 0;
-	for (test = 0; test < num_tests; test++) {
+	for (test = 0; test < NUM_CONCURRENT_SESSIONS; test++) {
 		if (!running)
 			break;
 
-		if (test > 0)
-			block = generic_list_get_next(tests_db);
-
-		if (!block) {
-			printf("Test %d of %d - invalid block\n", test, num_tests);
-			return -1;
-		}
+		block = tests_db[test];
+		if (!block)
+			break;
 
 		test_name = encryptedBlockGetName(block);
 
@@ -872,14 +857,7 @@ int main(int argc, char **argv)
 		return rc;
 	}
 
-	test_db = generic_list_create(fileSetsEncryptedBlockCopyForList,
-				      fileSetsEncryptedBlockDestroyForList);
-	if (test_db == NULL) {
-		printf("generic_list_create failed\n");
-		return -1;
-	}
-
-	if (fileSetsReadBlocksFromFile(sam_tests_file, test_db) != FILE_SUCCESS) {
+	if (fileSetsReadBlocksFromFile(sam_tests_file, test_db, NUM_CONCURRENT_SESSIONS) != FILE_SUCCESS) {
 		printf("Can't read tests from file %s\n", sam_tests_file);
 		return -1;
 	}

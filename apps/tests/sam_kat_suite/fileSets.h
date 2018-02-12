@@ -33,7 +33,7 @@
 #ifndef FILESETS_H_
 #define FILESETS_H_
 
-#include "generic_list.h"
+#include "encryptedBlock.h"
 
 /** Type used for returning message from fileSets functions */
 typedef enum {
@@ -52,6 +52,7 @@ typedef enum {
  *
  * @param fileName - The file name to read from
  * @param encryptedBlocks - The list to add the encrypted blocks to.
+ * @param maxBlocksNum - max number of blocks
  * @return
  * 	FILE_NULL_ARGS - If at least one of the parameters is NULL
  * 	FILE_OPEN_PROBLEM - If the function can'ot open the specified file
@@ -63,10 +64,6 @@ typedef enum {
  * 	FILE_NOT_VALID - If other error occurred
  * 	FILE_SUCCESS - If the function succeeded to read the blocks from the file
  */
-FileMessage fileSetsReadBlocksFromFile(char* fileName, generic_list encryptedBlocks);
-
-/* cast functions for generic list */
-generic_list_element fileSetsEncryptedBlockCopyForList(generic_list_element block);
-void fileSetsEncryptedBlockDestroyForList(generic_list_element encryptedBlock);
+FileMessage fileSetsReadBlocksFromFile(char *fileName, EncryptedBlockPtr *encryptedBlocks, int maxBlocksNum);
 
 #endif /* FILESETS_H_ */
