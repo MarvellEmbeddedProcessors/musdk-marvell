@@ -33,6 +33,9 @@
 #ifndef ENCRYPTEDBLOCK_H_
 #define ENCRYPTEDBLOCK_H_
 
+#include <stdbool.h>
+#include "array.h"
+
 /** Type for defining the encrypted block */
 typedef struct encryptedBlock_t* EncryptedBlockPtr;
 
@@ -104,6 +107,57 @@ typedef enum {
 	ENCRYPTEDBLOCK_NEGATIVE_COUNTER,
 	ENCRYPTEDBLOCK_NOT_ENOUGH_OPERATIONS
 } EncryptedBlockMessage;
+
+/**
+ * operation: Structure for operation,
+ *            with all of its relevant information.
+ *
+ * iv           - The initial vector for the operation.
+ * aad          - The additional authentication data for the operation.
+ * icb          - The digest for the operation.
+ * textLen      - The plain/cipher text length. If 0 - use sizeof(plainText).
+ * plainText    - The plain text for the operation. If NULL use random.
+ * cipherText   - The cipher text for the operation. If NULL use random.
+ * cryptoOffset - The offset to start encryption.
+ * authOffset   - The offset to start authentication.
+ */
+struct operation {
+	ArrayPtr iv;
+	ArrayPtr aad;
+	ArrayPtr icb;
+	ArrayPtr plainText;
+	ArrayPtr cipherText;
+	int textLen;
+	int cryptoOffset;
+	int authOffset;
+};
+/**
+ * encryptedBlock_t: Structure for encrypted block,
+ *                   with all of its relevant information.
+ *
+ * algorithm        - The algorithm name.
+ * mode             - The mode name.
+ * authAlgorithm    - The authentication algorithm name.
+ * direction        - The direction name.
+ * name             - The name of the encrypted block.
+ * key              - The key of the encrypted block.
+ * authKey          - The authentication key of the encrypted block.
+ * operationCounter - The number of operations.
+ * operations       - the operations of the current encrypted block.
+ * testCounter      - The number of loop test for each operation.
+ */
+struct encryptedBlock_t {
+	char algorithm[16];
+	char mode[16];
+	char authAlgorithm[16];
+	char direction[16];
+	char name[64];
+	ArrayPtr key;
+	ArrayPtr authKey;
+	int operationCounter;
+	struct operation *operations[16];
+	int testCounter;
+};
 
 /**
  * encryptedBlockCreate: Creates a new encrypted block.
