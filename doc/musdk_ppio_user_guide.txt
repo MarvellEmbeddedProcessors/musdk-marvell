@@ -53,6 +53,8 @@ Intro
 	- The **pp2_get_num_inst() API** allows the user application to learn the number of 'PPV2 HW Instances' existing in the
 	  system.
 
+.. _hif:
+
 HIF
 ^^^
 A Host-Interface (HIF) object is required to access BM-Pools and TX-Qs for run-time operations.
@@ -67,9 +69,11 @@ HIF Behavior
 	  that for performance considerations *is not enforced in MUSDK*.
 	- Allocating a HIF for each CPU thread is recommended, in order to prevent the need to lock access to the HIF
 	  in the user application.
+	- Maximum number of HIF object is limited to 9 by hardware.
 	- HIFs are also used in the kernel, and the HIF resource must be managed by the user application.
-	- In the current kernel driver, the first 4 HIFs are used. The user application should reserve these,
-	  by adding them to the 'hif_reserved_map' parameter in the pp2_init() API.
+	- In the current kernel driver, by default the first 4 HIFs are used.
+	  This can be reduced to 1 with SINGLE_RESOURCE_MODE queue_mode (refer to kernel :ref:`queue_mode module parameter <queue_mode>` section).
+	  The user application should reserve these, by adding them to the 'hif_reserved_map' parameter in the pp2_init() API.
 
 
 BPOOL
@@ -245,6 +249,8 @@ L2 filtering TCAM by parsing the DMAC field.
 		- State4: unicast promisc & allmulti
 
 Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
+
+.. _vlan_filtering:
 
 VLAN filtering
 ~~~~~~~~~~~~~~
