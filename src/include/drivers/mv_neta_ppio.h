@@ -779,7 +779,11 @@ int neta_ppio_set_mc_promisc(struct neta_ppio *ppio, int en);
 int neta_ppio_get_mc_promisc(struct neta_ppio *ppio, int *en);
 
 /**
- * Add ppio Ethernet MAC address
+ * Add ppio ethernet multicast MAC address
+ *
+ * Can support up to:
+ *	- 256 MC address filtering of IP multicast packets and
+ *	  256 other MAC multicast addresses
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
  * @param[in]		addr	Ethernet MAC address to add .
@@ -790,10 +794,10 @@ int neta_ppio_get_mc_promisc(struct neta_ppio *ppio, int *en);
 int neta_ppio_add_mac_addr(struct neta_ppio *ppio, const eth_addr_t addr);
 
 /**
- * Remove ppio Ethernet MAC address
+ * Remove ppio Ethernet multicast MAC address
  *
- * Allows to remove the mac_address set  by neta_ppio_set_mac_addr().
-  *
+ * Allows to remove the mac address added by neta_ppio_add_mac_addr()
+ *
  * @param[in]		ppio	A pointer to a PP-IO object.
  * @param[in]		addr	Ethernet MAC address to remove .
  *
@@ -802,15 +806,31 @@ int neta_ppio_add_mac_addr(struct neta_ppio *ppio, const eth_addr_t addr);
  */
 int neta_ppio_remove_mac_addr(struct neta_ppio *ppio, const eth_addr_t addr);
 
-/* Does not flush the mac_address set by neta_ppio_set_mac_addr() */
+/**
+ * Flush ppio all ethernet MAC addresses
+ *
+ * NOTE: Does not flush the mac_address set by neta_ppio_set_mac_addr().
+.*
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		uc	1 - flush unicast list.
+ * @param[in]		mc	1 - flush multicast list .
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
 int neta_ppio_flush_mac_addrs(struct neta_ppio *ppio, int uc, int mc);
 
-int neta_ppio_add_vlan(struct neta_ppio *ppio, const u16 vid);
-int neta_ppio_remove_vlan(struct neta_ppio *ppio, const u16 vid);
-int neta_ppio_flush_vlan(struct neta_ppio *ppio);
+/**
+ * Get ppio statistics
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		stats	Port statistics.
+ *
+ */
+int neta_ppio_get_statistics(struct neta_ppio *ppio, struct neta_ppio_statistics *stats);
+
 int neta_ppio_set_link_state(struct neta_ppio *ppio, int en);
 int neta_ppio_get_link_state(struct neta_ppio *ppio, int *en);
-int neta_ppio_get_statistics(struct neta_ppio *ppio, struct neta_ppio_statistics *stats);
 
 /** @} */ /* end of grp_neta_io */
 
