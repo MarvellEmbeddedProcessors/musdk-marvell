@@ -8,10 +8,6 @@ Build Linux Kernel
 
 (1) Apply all patches in: "<musdk-dir>/patches/linux"
 
-  .. note::
-	"0004-musdk-dts-set-ports-status-non-kernel.patch" is an *example* how to configure
-	the PPV2 ports that belong to musdk.
-
 (2) Build Linux kernel image::
 	> make mrproper
 	> make mvebu_v8_lsp_defconfig
@@ -22,6 +18,7 @@ Build Linux Kernel
 
 	> make modules M=drivers/crypto/inside-secure/
 
+.. _kernel-modules:
 
 Build Required Kernel Modules
 -----------------------------
@@ -35,14 +32,11 @@ Build Required Kernel Modules
 
 		> export KDIR=~/linux-4.4.52-devel
 
-(2) Build the MUSDK UIO kernel module and install it::
+(2) Build the Marvell PP2 sysfs kernel module according to :ref:`Sysfs Build Instructions <pp2x_sysfs_build>`.
+
+(3) Build the MUSDK UIO kernel module and install it::
 
 	> cd <musdk-dir>/modules/uio
-	> make
-
-(3) Build the PP2 kernel module and install it::
-
-	> cd <musdk-dir>/modules/pp2
 	> make
 
 (4) Build the SAM UIO kernel module and install it.
@@ -84,34 +78,55 @@ Set external variables:
 
 	> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
 
-Build the MUSDK package::
+Build the MUSDK package
+~~~~~~~~~~~~~~~~~~~~~~~
+
+(1) Run bootstrap for initial configuration
 
 	> cd <musdk-dir>
 	> ./bootstrap
 
-   For A7040/8040 use:
+(2) Configure MUSDK
 
-	configure option #1 - build PP2 driver and related applications::
-		> ./configure
+	.. note::
+		For shared libraries compilation of MUSDK must be configured with ``--host=aarch64-linux-gnu``.
 
-	configure option #2 - build PP2 with SAM driver and SAM test application::
-		> ./configure --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+	- For A7040/8040 use:
+		* configure option #1 - build PP2 driver and related applications::
 
-   For A3700 use:
+			> ./configure
 
-	configure option #3 - build NETA driver and related applications::
-		> ./configure --enable-neta --enable-pp2=no
+		* configure option #2 - build PP2 with SAM driver and SAM test application::
 
-	configure option #4 - build NETA driver with SAM driver and SAM test application::
-		> ./configure --enable-neta --enable-pp2=no --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+			> ./configure --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
 
+	- For A3700 use:
+		* configure option #3 - build NETA driver and related applications::
+
+			> ./configure --enable-neta --enable-pp2=no
+
+		* configure option #4 - build NETA driver with SAM driver and SAM test application::
+
+			> ./configure --enable-neta --enable-pp2=no --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+
+	- For A808x/816x use:
+		* configure option #5 - build PP2 driver and related applications::
+
+			> ./configure --enable-pp2-lock
+
+		* configure option #6 - build PP2 with SAM driver and SAM test application::
+
+			> ./configure --enable-pp2-lock --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
+
+(3) Build MUSDK
 		> make -j8
+
+(4) Install MUSDK
 		> make install
 
-	..note::
-
-		Default install directory is: <musdk-dir>/usr/local.
-		Install directory can be changed using option --prefix=<install-dir>
+  .. note::
+	Default install directory is: <musdk-dir>/usr/local.
+	Install directory can be changed using: ``make install DESTDIR=<install-dir>``
 
 Insert Kernel Modules
 ---------------------
@@ -120,24 +135,29 @@ Insert Kernel Modules
 (2) Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
 
 (3) Insert MUSDK kernel space modules::
+
 	> insmod musdk_uio.ko     (mandatory)
 
     For A7040/8040::
-	> insmod mv_pp_uio.ko     (mandatory)
+
 	> insmod mv_dmax2_uio.ko  (optional)
 
     For A3700::
+
         > insmod mv_neta_uio.ko   (mandatory)
 
-(4) Insert Marvell PP2 sysfs kernel module (optional - needed only for "musdk_cls_demo" with unicast filtering)::
+(4) Insert Marvell PP2 sysfs kernel module (optional - needed for RSS support, for logical ports and for unicast filtering)::
+
 	> insmod mvpp2x_sysfs.ko
 
 To run MUSDK SAM test applications kernel modules below must be loaded first:
 
 (5) Load kernel module for SAM UIO support::
+
 	> insmod mv_sam_uio.ko
 
 (6) Load kernel module for global EIP197 initializations::
+
 	> insmod crypto_safexcel.ko rings=0,0
 
     .. note::
