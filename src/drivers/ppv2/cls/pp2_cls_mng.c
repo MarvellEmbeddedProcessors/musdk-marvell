@@ -1040,20 +1040,14 @@ int pp2_cls_mng_qos_tbl_init(struct pp2_cls_qos_tbl_params *qos_params,
 	return rc;
 }
 
-int pp2_cls_mng_qos_tbl_deinit(struct pp2_cls_tbl *tbl)
+static int pp2_cls_mng_qos_tbl_dflt_set(struct pp2_port *port, u16 queue)
 {
 	int rc = 0;
 	u32 i;
-	struct pp2_port *port;
 	u8 tc_array[MVPP2_QOS_TBL_LINE_NUM_DSCP];
 
-	port = GET_PPIO_PORT(tbl->qos_params.dscp_cos_map[0].ppio);
-
-	/*Disable flows */
-	pp2_cls_dscp_flows_set(port, PP2_CLS_QOS_TBL_NONE);
-
 	for (i = 0; i < MV_DSCP_NUM; i++)
-		tc_array[i] = 0;
+		tc_array[i] = queue;
 
 	rc = mv_pp2x_cls_c2_qos_tbl_fill_array(port,
 					  MVPP2_QOS_TBL_SEL_DSCP,
@@ -1069,6 +1063,25 @@ int pp2_cls_mng_qos_tbl_deinit(struct pp2_cls_tbl *tbl)
 	if (rc) {
 		pr_err("mv_pp2x_cls_c2_qos_tbl_fill_array failed\n");
 		return -EINVAL;
+	}
+	return 0;
+}
+
+int pp2_cls_mng_qos_tbl_deinit(struct pp2_cls_tbl *tbl)
+{
+	int rc = 0;
+	struct pp2_port *port;
+
+	port = GET_PPIO_PORT(tbl->qos_params.dscp_cos_map[0].ppio);
+
+	/*Disable flows */
+	pp2_cls_dscp_flows_set(port, PP2_CLS_QOS_TBL_NONE);
+
+	/*return qos tables to default queues */
+	rc = pp2_cls_mng_qos_tbl_dflt_set(port, port->first_rxq);
+	if (rc) {
+		pr_err("setting defaults for qos tables failed\n");
+		return -EFAULT;
 	}
 
 	rc = pp2_cls_db_mng_tbl_remove(tbl);
@@ -1931,8 +1944,10 @@ void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map)
  */
 void pp2_cls_mng_config_default_cos_queue(struct pp2_port *port)
 {
-	if (port->type == PP2_PPIO_T_NIC)
+	if (port->type == PP2_PPIO_T_NIC) {
 		pp2_c2_config_default_queue(port, port->first_rxq);
+		pp2_cls_mng_qos_tbl_dflt_set(port, port->first_rxq);
+	}
 }
 
 void pp2_cls_mng_init(struct pp2_inst *inst)
