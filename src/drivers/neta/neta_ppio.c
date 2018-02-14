@@ -652,24 +652,6 @@ int neta_ppio_get_link_state(struct neta_ppio *ppio, int *en)
 	return rc;
 }
 
-int neta_ppio_add_vlan(struct neta_ppio *ppio, u16 vlan)
-{
-	pr_err("[%s] routine not supported yet!\n", __func__);
-	return -ENOTSUP;
-}
-
-int neta_ppio_remove_vlan(struct neta_ppio *ppio, u16 vlan)
-{
-	pr_err("[%s] routine not supported yet!\n", __func__);
-	return -ENOTSUP;
-}
-
-int neta_ppio_flush_vlan(struct neta_ppio *ppio)
-{
-	pr_err("[%s] routine not supported yet!\n", __func__);
-	return -ENOTSUP;
-}
-
 int neta_ppio_get_statistics(struct neta_ppio *ppio, struct neta_ppio_statistics *stats)
 {
 	struct neta_ppio_statistics cur_stats;
