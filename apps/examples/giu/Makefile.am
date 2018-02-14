@@ -24,7 +24,4 @@ musdk_giu_pkt_echo_SOURCES += ../../common/nmp_guest_utils.c
 musdk_giu_pkt_echo_SOURCES += ../../common/giu_utils.c
 musdk_giu_pkt_echo_SOURCES += pkt_echo/pkt_echo.c
 musdk_giu_pkt_echo_LDADD = $(top_builddir)/src/libmusdk.la
-
-bin_SCRIPTS = pkt_echo/musdk-nmp-config.txt
-
 endif

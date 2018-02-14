@@ -1,0 +1,38 @@
+{
+	"nmp_params": {
+		"pp2_en": 1,
+		"pp2_params": {
+			"bm_pool_reserved_map": 7
+		}
+		"num_containers": 1,
+		"containers_params-0": {
+			"num_lfs": 1,
+			"lfs_params": {
+				"lf_type": 1,
+				"nicpf": {
+					"pci_en": 1,
+					"lcl_egress_qs_size": 2048,
+					"lcl_ingress_qs_size": 2048,
+					"dflt_pkt_offset": 64,
+					"max_num_tcs": 1,
+					"lcl_num_bpools": 1,
+					"lcl_bpools_params-0": {
+						"max_num_buffs": 2048,
+						"buff_size": 2048
+					}
+					"nicpf_type": 1,
+					"port-params-pp2-port": {
+						"match": "ppio-0:0",
+						"lcl_num_bpools": 1,
+						"lcl_bpools_params-0": {
+							"max_num_buffs": 2048,
+							"buff_size": 2048
+						}
+					}
+				}
+			},
+			"guest_id": 2
+		}
+	}
+}
+

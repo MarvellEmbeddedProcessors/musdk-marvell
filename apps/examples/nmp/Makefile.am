@@ -22,4 +22,7 @@ musdk_nmp_standalone_SOURCES += ../../common/utils.c
 musdk_nmp_standalone_SOURCES += nmp_standalone/nmp_standalone.c
 musdk_nmp_standalone_LDADD = $(top_builddir)/src/libmusdk.la
 
+bin_SCRIPTS = configs/musdk-nmp-config.txt
+bin_SCRIPTS += configs/odp-nmp-config.txt
+
 endif
