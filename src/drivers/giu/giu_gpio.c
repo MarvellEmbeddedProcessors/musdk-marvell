@@ -477,7 +477,7 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 	uint64_t crc64 = 0;
 	enum giu_outq_l3_type l3_info = GIU_TXD_GET_L3_PRS_INFO(desc);
 	enum giu_outq_l4_type l4_info = GIU_TXD_GET_L4_PRS_INFO(desc);
-	int ipv4;
+	int ipv4 = 0;
 	u16 queue_index;
 
 	if (unlikely(!(l3_info >= GIU_OUTQ_L3_TYPE_IPV4_NO_OPTS && l3_info <= GIU_OUTQ_L3_TYPE_IPV6_EXT))) {
