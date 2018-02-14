@@ -51,7 +51,6 @@
 #include "pci_ep_def.h"
 #include "dispatch.h"
 
-#define PCI_EP_UIO_MEM_NAME "pci_ep"
 #define PLAT_AGNIC_UIO_NAME "agnic"
 #define PLAT_AGNIC_CFG_SPACE_SIZE	(1 << 20)
 
@@ -178,7 +177,10 @@ static int dev_mng_map_pci_func(struct pci_plat_func_map *map)
 	}
 
 	/* Map the whole physical Packet Processor physical address */
-	ret = sys_iomem_map(map->sys_iomem, "bar0", (phys_addr_t *)&map->cfg_map.phys_addr, &map->cfg_map.virt_addr);
+	ret = sys_iomem_map(map->sys_iomem,
+			    PCI_EP_UIO_REGION_NAME,
+			    (phys_addr_t *)&map->cfg_map.phys_addr,
+			    &map->cfg_map.virt_addr);
 	if (ret) {
 		sys_iomem_deinit(map->sys_iomem);
 		return ret;

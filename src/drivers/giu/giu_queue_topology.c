@@ -44,7 +44,8 @@
 struct giu_gpio_params giu_params[GIU_MAX_NUM_GPIO];
 void *map_addr[GIU_MAX_NUM_GPIO];
 
-static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_qs_params *qs_params, uintptr_t va_base)
+static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_qs_params *qs_params,
+				uintptr_t qs_va_base, uintptr_t ptrs_va_base)
 {
 	struct giu_tc *giu_tc;
 	struct giu_queue *giu_queue;
@@ -94,10 +95,10 @@ static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_q
 			read_addr += sizeof(struct giu_queue);
 
 			/* Set Queue Parameters */
-			gpio_q->desc_ring_base = (struct giu_gpio_desc *)(va_base + giu_queue->phy_base_offset);
+			gpio_q->desc_ring_base = (struct giu_gpio_desc *)(qs_va_base + giu_queue->phy_base_offset);
 			gpio_q->desc_total = giu_queue->size;
-			gpio_q->cons_addr = (u32 *)(va_base + giu_queue->cons_offset);
-			gpio_q->prod_addr = (u32 *)(va_base + giu_queue->prod_offset);
+			gpio_q->cons_addr = (u32 *)(ptrs_va_base + giu_queue->cons_offset);
+			gpio_q->prod_addr = (u32 *)(ptrs_va_base + giu_queue->prod_offset);
 			gpio_q->payload_offset = giu_queue->payload_offset;
 
 			pr_debug("Queue Params (TC %d Q %d):\n", giu_tc->id, giu_queue->hw_id);
@@ -133,7 +134,8 @@ error:
 	return ret;
 }
 
-static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_queue *bp_params, uintptr_t va_base)
+static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_queue *bp_params,
+				uintptr_t qs_va_base, uintptr_t ptrs_va_base)
 {
 	void *read_addr = *bm_config_base_addr;
 	struct giu_queue *bp_queue; /* Regfile BP data */
@@ -142,10 +144,10 @@ static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_q
 	bp_queue = (struct giu_queue *)read_addr;
 	read_addr += sizeof(struct giu_queue);
 
-	bp_params->desc_ring_base = (struct giu_gpio_desc *)(va_base + bp_queue->phy_base_offset);
+	bp_params->desc_ring_base = (struct giu_gpio_desc *)(qs_va_base + bp_queue->phy_base_offset);
 	bp_params->desc_total = bp_queue->size;
-	bp_params->cons_addr = (u32 *)(va_base + bp_queue->cons_offset);
-	bp_params->prod_addr = (u32 *)(va_base + bp_queue->prod_offset);
+	bp_params->cons_addr = (u32 *)(ptrs_va_base + bp_queue->cons_offset);
+	bp_params->prod_addr = (u32 *)(ptrs_va_base + bp_queue->prod_offset);
 	bp_params->buff_len = bp_queue->buff_len;
 	pr_debug("Queue Params (BP %d):\n", bp_queue->hw_id);
 	pr_debug("\tdesc_ring_base %p\n", bp_params->desc_ring_base);
@@ -165,23 +167,10 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 	struct giu_regfile *reg_data;
 	void *read_addr = regs_addr;
 	int ret;
+	struct sys_iomem		*iomem;
 	struct sys_iomem_params		iomem_params;
 	struct sys_iomem_info		sys_iomem_info;
-	char				dev_name[FILE_MAX_LINE_CHARS];
-	uintptr_t			va;
-
-	/* TODO - get 'device name once moving to the serialization file */
-	sprintf(dev_name, "/dev/uio-cma");
-	iomem_params.type = SYS_IOMEM_T_SHMEM;
-	iomem_params.devname = dev_name;
-	iomem_params.index = 1;
-
-	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
-		pr_err("sys_iomem_get_info error\n");
-		return -EFAULT;
-	}
-
-	va = (uintptr_t)sys_iomem_info.u.shmem.va;
+	uintptr_t			qs_va, ptrs_va;
 
 	/* Read PF Configuration */
 	reg_data = (struct giu_regfile *)read_addr;
@@ -200,7 +189,44 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 		return -ENOTSUP;
 	}
 
-	ret = giu_gpio_read_bp_config(&read_addr, &giu_params->bpool, va);
+	pr_debug("dma_uio_mem_name (%s), pci_uio_mem_name (%s),  pci_uio_region_name (%s), flags 0x%x\n",
+		 reg_data->dma_uio_mem_name, reg_data->pci_uio_mem_name,
+		 reg_data->pci_uio_region_name, reg_data->flags);
+
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = reg_data->dma_uio_mem_name;
+	iomem_params.index = 1;
+
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
+		return -EFAULT;
+	}
+
+	qs_va = (uintptr_t)sys_iomem_info.u.shmem.va;
+	ptrs_va = qs_va;
+
+	if (reg_data->flags & REGFILE_PCI_MODE) {
+		phys_addr_t ptrs_pa;
+
+		iomem_params.type = SYS_IOMEM_T_UIO;
+		iomem_params.devname = reg_data->pci_uio_mem_name;
+		iomem_params.index = 0;
+
+		ret = sys_iomem_init(&iomem_params, &iomem);
+		if (ret) {
+			pr_err(" No device found\n");
+			return ret;
+		}
+
+		/* Map the whole physical Packet Processor physical address */
+		ret = sys_iomem_map(iomem, reg_data->pci_uio_region_name, &ptrs_pa, (void **)&ptrs_va);
+		if (ret) {
+			sys_iomem_deinit(iomem);
+			return ret;
+		}
+	}
+
+	ret = giu_gpio_read_bp_config(&read_addr, &giu_params->bpool, qs_va, ptrs_va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;
@@ -208,7 +234,7 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 
 	/* Set Ingress TC configurations */
 	giu_params->inqs_params.num_tcs = reg_data->num_ingress_tcs;
-	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->inqs_params, va);
+	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->inqs_params, qs_va, ptrs_va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;
@@ -216,7 +242,7 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 
 	/* Set Egress TC configurations */
 	giu_params->outqs_params.num_tcs = reg_data->num_egress_tcs;
-	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->outqs_params, va);
+	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->outqs_params, qs_va, ptrs_va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;

@@ -33,6 +33,9 @@
 #ifndef _PCI_EP_DEF_H
 #define _PCI_EP_DEF_H
 
+#define PCI_EP_UIO_MEM_NAME "pci_ep"
+#define PCI_EP_UIO_REGION_NAME "bar0"
+
 #define PCI_CONFIG_BAR_ID	0
 
 #define PCI_BAR0_MNG_CH_BASE	(0)
