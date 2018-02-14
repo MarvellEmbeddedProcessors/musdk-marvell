@@ -91,6 +91,10 @@ libmusdk_la_SOURCES += drivers/ppv2/cls/pp2_hw_cls_dbg.c
 endif
 
 if NETA_BUILD
+
+nobase_include_HEADERS += include/drivers/mv_neta.h
+nobase_include_HEADERS += include/drivers/mv_neta_ppio.h
+
 libmusdk_la_SOURCES += drivers/neta/neta.c
 libmusdk_la_SOURCES += drivers/neta/neta_ppio.c
 libmusdk_la_SOURCES += drivers/neta/neta_hw.c
