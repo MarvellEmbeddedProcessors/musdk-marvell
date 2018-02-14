@@ -1,3 +1,5 @@
+.. _musdk_cls_ug:
+
 Packet Processor Classifier (CLS) User Guide
 ============================================
 
