@@ -49,6 +49,9 @@ musdk_sam_kat_SOURCES += sam_kat_suite/fileSets.c
 musdk_sam_kat_SOURCES += sam_kat_suite/array.c
 musdk_sam_kat_SOURCES += sam_kat_suite/encryptedBlock.c
 musdk_sam_kat_SOURCES += ../common/sam_utils.c
+musdk_sam_kat_SOURCES += ../common/lib/cli.c
+musdk_sam_kat_SOURCES += ../common/mvapp.c
+musdk_sam_kat_SOURCES += ../common/utils.c
 
 musdk_sam_kat_LDADD = $(top_builddir)/src/libmusdk.la
 
