@@ -42,15 +42,6 @@
  *  @{
  */
 
-/**
- * Internal physical base-address.
- *
- * this is exported only to allow the ptov/vtop functions (below) to be
- * implemented as inlines.
- */
-extern phys_addr_t __dma_phys_base;
-extern void *__dma_virt_base;
-
 #define MV_SYS_DMA_MAX_NUM_MEM_ID		4
 #define MV_SYS_DMA_MAX_MEM_ID			(MV_SYS_DMA_MAX_NUM_MEM_ID - 1)
 
@@ -138,14 +129,8 @@ int mv_sys_dma_mem_get_info(struct mv_sys_dma_mem_info *mem_info);
  * @retval	A pointer to a virtual DMA memory on success
  * @retval	<0 on failure
  */
-#ifdef MVCONF_SYS_DMA_HUGE_PAGE
 void *mv_sys_dma_mem_phys2virt(phys_addr_t pa);
-#else /* !MVCONF_SYS_DMA_HUGE_PAGE */
-static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
-{
-	return (void *)((pa - __dma_phys_base) + (phys_addr_t)__dma_virt_base);
-}
-#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
+
 
 /**
  * Virtual to Physical address translation of an allocated DMA memory.
@@ -155,14 +140,8 @@ static inline void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
  * @retval	Physical-address on success
  * @retval	<0 on failure
  */
-#ifdef MVCONF_SYS_DMA_HUGE_PAGE
 phys_addr_t mv_sys_dma_mem_virt2phys(void *va);
-#else /* !MVCONF_SYS_DMA_HUGE_PAGE */
-static inline phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
-{
-	return ((phys_addr_t)va - (phys_addr_t)__dma_virt_base) + __dma_phys_base;
-}
-#endif /* MVCONF_SYS_DMA_HUGE_PAGE */
+
 
 int mv_sys_dma_mem_region_init(struct mv_sys_dma_mem_region_params *params, struct mv_sys_dma_mem_region **mem);
 void mv_sys_dma_mem_region_destroy(struct mv_sys_dma_mem_region *mem);
