@@ -668,10 +668,12 @@ static inline int nmdisp_msg_transmit_ext_descs(struct mqa_q *q,
 	 */
 	if (unlikely((*prod_idx + (num_ext_descs + 1)) > q->len)) {
 		u8 num_ext_desc_post_wrap = (*prod_idx + num_ext_descs + 1) - q->len;
-		u16 len_post_wrap = sizeof(struct cmd_desc) * num_ext_desc_post_wrap;
+		u16 len_pre_wrap = (num_ext_descs - num_ext_desc_post_wrap) * sizeof(struct cmd_desc) +
+				   MGMT_DESC_DATA_LEN;
+		u16 len_post_wrap = nmdisp_msg->msg_len - len_pre_wrap;
 
 		/* Update len "pre wrap" */
-		nmdisp_msg->msg_len -= len_post_wrap;
+		nmdisp_msg->msg_len = len_pre_wrap;
 		/* copy post wrap part */
 		memcpy(q->virt_base_addr, &((u8 *)nmdisp_msg->msg)[nmdisp_msg->msg_len], len_post_wrap);
 	}

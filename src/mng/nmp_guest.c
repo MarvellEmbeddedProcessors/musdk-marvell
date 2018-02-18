@@ -410,10 +410,12 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 	 */
 	if (unlikely((prod_idx + (num_ext_descs + 1)) > q->len)) {
 		u8 num_ext_desc_post_wrap = (prod_idx + num_ext_descs + 1) - q->len;
-		u16 len_post_wrap = sizeof(struct cmd_desc) * num_ext_desc_post_wrap;
+		u16 len_pre_wrap = (num_ext_descs - num_ext_desc_post_wrap) * sizeof(struct cmd_desc) +
+				   MGMT_DESC_DATA_LEN;
+		u16 len_post_wrap = len - len_pre_wrap;
 
 		/* Update len "pre wrap" */
-		len -= len_post_wrap;
+		len = len_pre_wrap;
 		/* copy post wrap part */
 		memcpy(q->base_addr_virt, &((u8 *)msg)[len], len_post_wrap);
 	}
