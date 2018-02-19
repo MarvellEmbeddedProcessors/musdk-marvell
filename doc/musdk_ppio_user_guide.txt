@@ -64,11 +64,10 @@ HIF Behavior
 	  that for performance considerations *is not enforced in MUSDK*.
 	- Allocating a HIF for each CPU thread is recommended, in order to prevent the need to lock access to the HIF
 	  in the user application.
-	- Maximum number of HIF object is limited to 9 by hardware.
+	- Hardware contains 9 HIF objects.
 	- HIFs are also used in the kernel, and the HIF resource must be managed by the user application.
-	- In the current kernel driver, by default the first 4 HIFs are used.
-	  This can be reduced to 1 with SINGLE_RESOURCE_MODE queue_mode (refer to kernel :ref:`queue_mode module parameter <queue_mode>` section).
-	  The user application should reserve these, by adding them to the 'hif_reserved_map' parameter in the pp2_init() API.
+	- The number of HIFs consumed by the Kernel depends on the PPV2 driver *'queue_mode'* parameter. The default *queue_mode* parameter value is **MULTI_MODE** . In this mode, the Kernel allocates 1 HIF per CPU for A7K/8K and up to maximum 8 HIFs for A808x/A816x. Setting *queue_mode* to **SINGLE_RESOURCE_MODE** will make the kernel use just a single HIF. For more details, refer to kernel :ref:`queue_mode module parameter <queue_mode>` section.
+	- The user application may reserve the Kernel HIFs in the ppv2 driver, by adding them to the 'hif_reserved_map' parameter in the pp2_init() API. The MUSDK ppv2 driver will not allow to request hifs in the 'hif_reserved_map'.
 
 
 BPOOL
