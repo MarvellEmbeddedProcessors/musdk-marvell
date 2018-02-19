@@ -13,15 +13,17 @@ Supported SoCs
 	- Armada-80x0
 	- Armada-70x0
 	- Armada-37x0
+	- Armada-808x
+	- Armada-816x
 
 Release Content
 ---------------
 	- Binaries:
-		- binaries-armv8le-musdk-a70x0-a80x0-<version>.zip - contains relevant binaries:
-			- rootfs\usr\local\musdk\lib:
+		- bin-armv8le-musdk-ga-<version>.zip - contains relevant binaries:
+			- rootfs/usr/local/musdk/lib:
 				- libmusdk.a
 				- libmusdk.la
-			- rootfs\usr\local\musdk\bin:
+			- rootfs/usr/local/musdk/bin:
 				- <all example applications>
 	- Sources:
 		- sources-musdk-<version>.x.zip 	- includes full sources of MUSDK package.
@@ -49,6 +51,7 @@ Supported Features
 	- Packet-echo example application
 	- MAC & VLAN filters example application
 	- Packet-gen example application
+	- L3 forward example application
 
 - Classifier features:
 	- Single classification table per port

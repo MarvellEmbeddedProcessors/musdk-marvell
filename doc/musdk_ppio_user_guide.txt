@@ -121,7 +121,6 @@ PPIO:
 	- Outqueue:
 		- Support all pp2_ppio_outq_xxx API's, *excluding* :
 			- pp2_ppio_outq_desc_set_dsa_tag
-			- pp2_ppio_get_outq_state
 		- Support all pp2_ppio_inq_xxx API's, *excluding* :
 			- pp2_ppio_inq_desc_get_pp_io
 	- Link & NIC:
