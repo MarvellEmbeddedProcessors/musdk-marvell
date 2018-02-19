@@ -75,20 +75,22 @@ struct glob_arg {
 	struct glb_common_args		cmn_args;  /* Keep first */
 	char				sam_match_str[15];
 	char				*sam_tests_file;
-
 	EncryptedBlockPtr		test_db[NUM_CONCURRENT_SESSIONS];
 	pthread_mutex_t			trd_lock;
 	int				num_bufs;
 	int                             num_devs;
+	int				first_dev;
+	int				first_cio;
 	u32                             *free_cios; /* per device */
 	bool				use_events;
+	u64				total_passed;
+	u64				total_errors;
 };
 
 struct local_arg {
 	struct local_common_args	cmn_args;  /* Keep first */
 
 	char				sam_match_str[15];
-	EncryptedBlockPtr		*test_db;
 	struct sam_buf_info		in_buf;
 	u32				in_data_size;
 	struct sam_buf_info		out_bufs[NUM_CONCURRENT_REQUESTS];
@@ -103,6 +105,8 @@ struct local_arg {
 	u8				auth_aad[MAX_AAD_SIZE];
 	u8				auth_icv[MAX_AUTH_ICV_SIZE];
 	u32				auth_icv_size;
+	u64				total_passed;
+	u64				total_errors;
 };
 
 static struct	glob_arg garg = {};
@@ -324,7 +328,7 @@ static int create_sessions(struct local_arg *larg, EncryptedBlockPtr *tests_db)
 			return -1;
 		}
 	}
-	pr_debug("thread #%d (cpu=%d): %d sessions created successfully\n",
+	pr_debug("thread #%d (cpu=%d): %d sessions created\n",
 		larg->cmn_args.id, sched_getcpu(), i);
 
 	return 0;
@@ -408,11 +412,11 @@ static void print_results(int test, char *test_name, int operations, int errors,
 	mbps = kpps * in_data_size * 8 / 1000;
 
 	if (errors == 0)
-		printf("%2d. FINISHED %-32s: passed %d times * %d Bytes        - %u.%03u secs\n",
-			test, test_name, operations, in_data_size, secs, usecs / 1000);
+		printf("cpu=%d: %2d. %-32s: passed %d times * %d Bytes        - %u.%03u secs\n",
+			sched_getcpu(), test, test_name, operations, in_data_size, secs, usecs / 1000);
 	else
-		printf("%2d. FINISHED %-32s: failed %d of %d times * %d Bytes  - %u.%03u secs\n",
-			test, test_name, errors, operations, in_data_size, secs, usecs / 1000);
+		printf("cpu=%d: %2d. %-32s: failed %d of %d times * %d Bytes  - %u.%03u secs\n",
+			sched_getcpu(), test, test_name, errors, operations, in_data_size, secs, usecs / 1000);
 
 	printf("      Rate: %u Kpps, %u Mbps\n", kpps, mbps);
 }
@@ -586,7 +590,7 @@ static int run_tests(void *arg, int *running)
 	char *test_name;
 	struct sam_cio_op_params requests[NUM_CONCURRENT_REQUESTS];
 	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
-	int rc, count, total_passed, total_errors, errors;
+	int rc, count, errors;
 	struct timeval tv_start, tv_end;
 	struct mv_sys_event *ev = NULL;
 	struct sam_cio_event_params ev_params;
@@ -603,7 +607,8 @@ static int run_tests(void *arg, int *running)
 		ev->events = MV_SYS_EVENT_POLLIN;
 	}
 
-	total_passed = total_errors = 0;
+	larg->total_passed = 0;
+	larg->total_errors = 0;
 	for (test = 0; test < NUM_CONCURRENT_SESSIONS; test++) {
 		if (!*running)
 			break;
@@ -707,21 +712,17 @@ sig_exit:
 		gettimeofday(&tv_end, NULL);
 
 		count -= total_deqs;
-		printf("thread #%d (cpu=%d):\n", larg->cmn_args.id, sched_getcpu());
+		pthread_mutex_lock(&larg->cmn_args.garg->trd_lock);
 		print_results(test, test_name, count, errors, larg->in_data_size, &tv_start, &tv_end);
+		pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
 
-		total_errors += errors;
-		total_passed += (count - errors);
+		larg->total_errors += errors;
+		larg->total_passed += (count - errors);
 	}
 	if (ev) {
 		sam_cio_set_event(larg->cio_hndl, ev, 0);
 		sam_cio_delete_event(larg->cio_hndl, ev);
 	}
-
-	printf("\nthread #%d (cpu=%d):\n", larg->cmn_args.id, sched_getcpu());
-	printf("SAM tests passed:   %d\n", total_passed);
-	printf("SAM tests failed:   %d\n", total_errors);
-	printf("\n");
 
 	/* return 1 to exit from main loop */
 	return 1;
@@ -748,7 +749,7 @@ static void usage(char *progname)
 
 static int parse_args(int argc, char *argv[])
 {
-	int	i = 3;
+	int	num, i = 3;
 
 	/* First 2 arguments are mandatory */
 	if (argc < 3) {
@@ -762,6 +763,11 @@ static int parse_args(int argc, char *argv[])
 	garg.cmn_args.affinity = MVAPPS_INVALID_AFFINITY;
 	garg.cmn_args.echo = 1;
 	strcpy(garg.sam_match_str, argv[1]);
+	num = sscanf(garg.sam_match_str, "cio-%d:%d\n", &garg.first_dev, &garg.first_cio);
+	if (num != 2) {
+		pr_err("Invalid match string %s\n", garg.sam_match_str);
+		return -1;
+	}
 	garg.sam_tests_file = argv[2];
 
 	while (i < argc) {
@@ -953,11 +959,15 @@ static void deinit_global(void *arg)
 
 	if (garg->free_cios)
 		free(garg->free_cios);
+
+	printf("SAM tests passed:   %lu\n", garg->total_passed);
+	printf("SAM tests failed:   %lu\n", garg->total_errors);
+	printf("\n");
 }
 
 static int find_free_cio(struct glob_arg *garg, u8 device)
 {
-	int	i, tmp, s;
+	int	i;
 	u32	cios_map = garg->free_cios[device];
 
 	if (cios_map == 0) {
@@ -966,16 +976,15 @@ static int find_free_cio(struct glob_arg *garg, u8 device)
 	}
 
 	/* we want to start from specified ring number */
-	s = sscanf(garg->sam_match_str, "cio-%d:%d\n", &tmp, &i);
-	if (s != 2)
-		return 0;
-
+	i = garg->first_cio;
 	while (cios_map != 0) {
 		if ((u32)(1 << i) & cios_map) {
 			cios_map &= ~(u32)(1 << i);
 			break;
 		}
 		i++;
+		if (i == sam_get_num_cios(device))
+			i = 0;
 	}
 	garg->free_cios[device] = cios_map;
 	return i;
@@ -988,7 +997,7 @@ static int init_local(void *arg, int id, void **_larg)
 	struct sam_cio_params	cio_params;
 	int			err, cio_id, sam_device;
 
-	pr_info("Local initializations for thread %d\n", id);
+	pr_debug("Local initializations for thread %d\n", id);
 
 	if (!garg) {
 		pr_err("no obj!\n");
@@ -1003,7 +1012,7 @@ static int init_local(void *arg, int id, void **_larg)
 	memset(larg, 0, sizeof(struct local_arg));
 
 	pthread_mutex_lock(&garg->trd_lock);
-	sam_device = id % garg->num_devs;
+	sam_device = (garg->first_dev + id) % garg->num_devs;
 	cio_id = find_free_cio(garg, sam_device);
 	if (cio_id < 0) {
 		pr_err("free CIO not found!\n");
@@ -1037,7 +1046,6 @@ static int init_local(void *arg, int id, void **_larg)
 		return -1;
 
 	garg->cmn_args.largs[id] = larg;
-	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
 
 	pr_info("Local thread #%d (cpu #%d): %s\n", id, sched_getcpu(), larg->sam_match_str);
 
@@ -1051,6 +1059,11 @@ static void deinit_local(void *arg)
 
 	if (!larg)
 		return;
+
+	pthread_mutex_lock(&larg->cmn_args.garg->trd_lock);
+	larg->cmn_args.garg->total_passed += larg->total_passed;
+	larg->cmn_args.garg->total_errors += larg->total_errors;
+	pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
 
 	delete_sessions(larg);
 
@@ -1095,65 +1108,3 @@ int main(int argc, char **argv)
 
 	return mvapp_go(&mvapp_params);
 }
-
-#if 0
-void run(void)
-{
-	struct sam_init_params init_params;
-	struct sam_cio_params cio_params;
-	int rc;
-
-	rc = mv_sys_dma_mem_init(SAM_DMA_MEM_SIZE);
-	if (rc) {
-		pr_err("Can't initialize %d KBytes of DMA memory area, rc = %d\n", SAM_DMA_MEM_SIZE, rc);
-		return rc;
-	}
-
-	if (fileSetsReadBlocksFromFile(sam_tests_file, test_db, NUM_CONCURRENT_SESSIONS) != FILE_SUCCESS) {
-		printf("Can't read tests from file %s\n", sam_tests_file);
-		return -1;
-	}
-	init_params.max_num_sessions = NUM_CONCURRENT_SESSIONS;
-	sam_init(&init_params);
-
-	cio_params.match = sam_match_str;
-	cio_params.size = NUM_CONCURRENT_REQUESTS;
-
-	if (sam_cio_init(&cio_params, &cio_hndl)) {
-		printf("%s: initialization failed\n", argv[0]);
-		return 1;
-	}
-	printf("%s successfully loaded\n", argv[0]);
-
-	sam_set_debug_flags(debug_flags);
-
-	if (create_sessions(test_db))
-		goto exit;
-
-	/* allocate in_buf and out_bufs */
-	if (allocate_bufs(MAX_BUFFER_SIZE))
-		goto exit;
-
-	signal(SIGINT, sigint_h);
-	running = true;
-	if (run_tests(test_db))
-		goto exit;
-
-exit:
-	delete_sessions();
-
-	free_bufs();
-
-	app_sam_show_cio_stats(cio_hndl, sam_match_str, 1);
-	app_sam_show_stats(1);
-
-	if (sam_cio_deinit(cio_hndl)) {
-		printf("%s: un-initialization failed\n", argv[0]);
-		return 1;
-	}
-	sam_deinit();
-
-	printf("%s successfully unloaded\n", argv[0]);
-	return 0;
-}
-#endif
