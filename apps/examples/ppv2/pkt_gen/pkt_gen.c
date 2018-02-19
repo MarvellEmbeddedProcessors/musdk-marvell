@@ -1058,6 +1058,11 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
+	if (!garg->rx && !garg->tx) {
+		pr_err("Trying to run with neither RX nor TX!\n");
+		return -EINVAL;
+	}
+
 	/* in case rate-limit was requested, convert here from pkts-per-second given
 	 * by the user to busy-wait time in u-secs
 	 */
