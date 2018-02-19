@@ -101,17 +101,15 @@ MUSDK shares a number of HW resources with the Kernel. MUSDK does not perform re
 Linux Resource Mapping
 ~~~~~~~~~~~~~~~~~~~~~~
 
-MUSDK introduces a new musdk-status “attribute” into the Linux DTS file that allows the KS driver to determine if a HW Port is allocated to MUSDK or not.
+By default, all Ethernet ports belong to the Kernel. The Kernel PP Driver supports allocating Ethernet Ports to userspace applications, by opening a per port uio_device file. Closing the uio_device file will return the port to the Kernel. Ports that are shared by Kernel and MUSDK (i.e. MUSDK Logical ports) must be owned by the Kernel.
 
-.. _MUSDK-INTRO-DTS:
+.. _MUSDK-INTRO-UIO-FILES:
 
-DTS attribute
-	- **musdk-status = 'private'** states that a port belongs to MUSDK, and not to the kernel.
-	- **musdk-status = 'shared'** states that a port is shared by MUSDK and the kernel. (MUSDK logical port)::
+UIO Files
+	- ppv2 ports uio files have following naming convention : **uio_pp_port_[pp2_engine_id]:[port_id]**::
 
-		e.g.
-		eth0: eth0@010000 {
-			musdk-status = "private";
-		};
-
+		e.g. for pp2_engine_id=1, port_id=0
+		# cat /sys/class/uio/uio5/name
+		uio_pp_port_1:0
+		#
 

@@ -6,7 +6,6 @@ Introduction
 ------------
 
 MUSDK PPV2 driver and applications are part of the MUSDK package.
-
 MUSDK PPV2 driver provides capability of usage of the Packet Processing HW Engine (PPv2.2)
 directly from user-space applications with minimum overhead and high performance.
 
@@ -14,11 +13,8 @@ directly from user-space applications with minimum overhead and high performance
 Kernel Dependencies
 ~~~~~~~~~~~~~~~~~~~
 The MUSDK PPV2 driver depends on the KS driver for following purposes:
-	- Read DTS file and extract all common HW resources information as well as all the KS specific HW resources (e.g. HIFs, Ports, BM-Pools, RxQs, etc.).
+	- Read DTS file and extract all common HW resources information as well as all the KS specific HW resources (e.g. HIFs, BM-Pools, RxQs, etc.).
 	- Initialize and maintain PHY and link state for all NICs (both KS and US), and expose API’s (ioctl/ethtool/sysfs) for NIC and Phy functionality on the MUSDK ports.
-
-  .. Note::
-	NICs that are associated with US MUSDK are initialized by the KS driver with a default MAC-address (according to DTS attributes)
 
 Resource Mapping
 ~~~~~~~~~~~~~~~~
@@ -26,7 +22,6 @@ Resource Mapping
 PPV2
 ^^^^
 The PPV2 HW has a number of resources that are shared between MUSDK and the Kernel: HIF, BPOOL, RSS_TABLES and POLICERS.
-
 It is up to the user application to identify which resources are used by the Kernel. These resources must not be used by MUSDK.
 
 The pp2_init() API provides a set of fields to supply ‘reserved resource maps’ (e.g. reserved by Kernel) for each of the above resources. MUSDK later on uses these ‘reserved resource maps’ to validate resource availability during the Init API functions for each resource (i.e. pp2_hif_init(), pp2_bpool_init(), etc.).
@@ -137,37 +132,8 @@ PPIO:
 
 General Limitations
 ~~~~~~~~~~~~~~~~~~~
-- In this MUSDK version, the Linux kernel is widely used to bring up Control functionality,
-  such as Classification and Link related functionality. It is assumed that interfaces are brought up
-  in Linux and not tinkered with afterwards. See '3.2 HOW-TO' for further details.
 
-- The system is initialized with interfaces that are "non-kernel" in the dtb file.
-  These interfaces are reserved for musdk, and only they may be used by musdk.
-
-	- The default configuration for the interfaces is as follows:
-
-		- Armada-8040
-			- eth0 reserved for MUSDK usage
-			- eth1 reserved for kernel usage
-			- eth2 reserved for MUSDK usage
-			- eth3 reserved for MUSDK usage
-
-		- Armada-7040
-			- eth0 reserved for MUSDK usage
-			- eth1 reserved for kernel usage
-			- eth2 reserved for MUSDK usage
-
-		- Armada-8040-mcbin
-			- eth0 reserved for MUSDK usage
-			- eth1 reserved for MUSDK usage
-			- eth2 reserved for kernel usage
-			- eth3 reserved for MUSDK usage
-
-- Linux interfaces in "non-kernel" state (intended for MUSDK) :
-	- Do not support being stopped by Linux.
-	- Do not support MTU change by Linux.
-
-- When setting the tx descriptor, the length field needs to be written after the offset. Otherwise the length field is overwritten
+- When setting the tx descriptor, the length field needs to be written after the offset. Otherwise the length field is overwritten.
 
 - The example applications do not perform MTU size checking. In case traffic is sent with MTU size bigger than the
   configured MTU size, packets will not be discarded but rather truncated.
@@ -301,19 +267,6 @@ i.e. only some traffic flows will be directed according to a specific dedicated 
 queues that will be directed towards the US driver.
 
 The MUSDK API allows configuring a logical port as following:
-
-Logical ports are defined in MUSDK statically in kernel device tree (dtb file). In order to define an interface as a logical port, it needs to be declared as such in the appropriate DTS file (status = "shared" in DTS).
-
-	- Depending on the platform used, the DTS file is one of the following:
-		- musdk-armada-8040-db.dtsi
-		- musdk-armada-7040-db.dtsi
-		- musdk-armada-8040-mcbin.dtsi
-	- The allowed values are:
-		- musdk-status = "private"	- port is reserved for MUSDK use only
-		- musdk-status = "shared"	- port is shared between kernel and MUSDK (logical port)
-		- musdk-status not specified	- port is reserved for kernel use only
-
-Once the dts file has been modified, the DTB file needs to be created
 
 	- The logical port parameters are configured when opening a PP-IO object (packet processor interface).
 		- This is performed through the MUSDK logical port API (defined in mv_pp2_ppio.h file, struct pp2_ppio_log_port_rule_params).
