@@ -83,7 +83,7 @@
 #define PKT_GEN_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
 
 #define MAX_BODYSIZE			(DEFAULT_MTU - IPV4_HDR_LEN - UDP_HDR_LEN)
-#define DEFAULT_PKT_SIZE		DEFAULT_MTU
+#define MAX_PKT_SIZE			(DEFAULT_MTU + ETH_HLEN)
 
 #define DEFAULT_REPORT_TIME 1 /* 1 second */
 #define DEFAULT_RATE_USECS  0
@@ -676,11 +676,11 @@ static int init_local(void *arg, int id, void **_larg)
 		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
 	*_larg = larg;
 
-	larg->buffer = mv_sys_dma_mem_alloc(DEFAULT_PKT_SIZE * PKT_GEN_APP_MAX_BURST_SIZE, 4);
+	larg->buffer = mv_sys_dma_mem_alloc(MAX_PKT_SIZE * PKT_GEN_APP_MAX_BURST_SIZE, 4);
 	for (i = 0; i < PKT_GEN_APP_MAX_BURST_SIZE; i++) {
 		struct pkt *header;
 
-		larg->buf_dec[i].virt_addr = (void *)((unsigned char *)larg->buffer + i *  DEFAULT_PKT_SIZE);
+		larg->buf_dec[i].virt_addr = (void *)((unsigned char *)larg->buffer + i *  MAX_PKT_SIZE);
 		larg->buf_dec[i].phy_addr = mv_sys_dma_mem_virt2phys(larg->buf_dec[i].virt_addr);
 
 		header = (struct pkt *)larg->buf_dec[i].virt_addr;
@@ -750,7 +750,7 @@ static void usage(char *progname)
 	       "\t--cli                       Use CLI\n"
 	       "\t-h, --help                  Display help and exit\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       MVAPPS_NO_PATH(progname), PKT_GEN_APP_DFLT_BURST_SIZE, DEFAULT_PKT_SIZE, DEFAULT_REPORT_TIME
+	       MVAPPS_NO_PATH(progname), PKT_GEN_APP_DFLT_BURST_SIZE, MAX_PKT_SIZE, DEFAULT_REPORT_TIME
 	       );
 }
 
@@ -867,7 +867,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->rxq_size = PKT_GEN_APP_RX_Q_SIZE;
 	garg->maintain_stats = 0;
 	garg->report_time = DEFAULT_REPORT_TIME;
-	garg->pkt_size = DEFAULT_PKT_SIZE;
+	garg->pkt_size = MAX_PKT_SIZE;
 	garg->src_ip.start = garg->src_ip.end = garg->src_ip.curr = DEFAULT_SRC_IP;
 	garg->src_ip.port0 = garg->src_ip.port1 = garg->src_ip.port_curr = DEFAULT_SRC_PORT;
 	garg->dst_ip.start = garg->dst_ip.end = garg->dst_ip.curr = DEFAULT_DST_IP;
@@ -1048,13 +1048,13 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	if ((garg->cmn_args.cpus != 1) &&
 	    (garg->cmn_args.qs_map & (garg->cmn_args.qs_map << garg->cmn_args.qs_map_shift))) {
-		pr_err("Invalid queues-mapping (ovelapping CPUs)!\n");
+		pr_err("Invalid queues-mapping (overlapping CPUs)!\n");
 		return -EINVAL;
 	}
 
-	if (garg->pkt_size > DEFAULT_PKT_SIZE) {
+	if (garg->pkt_size > MAX_PKT_SIZE) {
 		pr_err("illegal packet size (%d vs %d)!\n",
-		       garg->pkt_size, DEFAULT_PKT_SIZE);
+		       garg->pkt_size, MAX_PKT_SIZE);
 		return -EINVAL;
 	}
 
