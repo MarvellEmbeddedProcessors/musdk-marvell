@@ -73,6 +73,8 @@
 
 #define PKT_GEN_APP_LINK_UP_THR			2000 /* 2 secs */
 
+#define PKT_GEN_APP_MAX_TOTAL_FRM_CNT		UINT32_MAX
+
 #define  PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #define PKT_GEN_APP_HW_TX_L4_CHKSUM_CALC	1
@@ -134,6 +136,7 @@ struct glob_arg {
 
 	int			rx;
 	int			tx;
+	u32			total_frm_cnt;
 
 	struct ip_range		src_ip;
 	struct ip_range		dst_ip;
@@ -153,6 +156,8 @@ struct traffic_counters {
 
 struct local_arg {
 	struct local_common_args	cmn_args; /* Keep first */
+
+	u32				total_frm_cnt;
 
 	void				*buffer;
 	struct buffer_dec		buf_dec[PKT_GEN_APP_MAX_BURST_SIZE];
@@ -370,9 +375,20 @@ static int main_loop_cb(void *arg, int *running)
 		}
 
 		if (pp2_args->ports_desc[port_index].traffic_dir & PKT_GEN_APP_DIR_TX) {
-			err = loop_tx(larg, port_index, 0, num);
-			if (err != 0)
-				return err;
+			if (larg->total_frm_cnt == PKT_GEN_APP_MAX_TOTAL_FRM_CNT)
+				num = 0;
+			else if (larg->total_frm_cnt) {
+				if (larg->total_frm_cnt < num)
+					num = larg->total_frm_cnt;
+				larg->total_frm_cnt -= num;
+				if (!larg->total_frm_cnt)
+					larg->total_frm_cnt = PKT_GEN_APP_MAX_TOTAL_FRM_CNT;
+			}
+			if (num) {
+				err = loop_tx(larg, port_index, 0, num);
+				if (err != 0)
+					return err;
+			}
 		}
 		port_index++;
 		if (port_index >= larg->cmn_args.num_ports)
@@ -670,6 +686,13 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.id               = id;
 	larg->cmn_args.burst		= garg->cmn_args.burst;
 	larg->cmn_args.busy_wait	= garg->cmn_args.busy_wait;
+	if (garg->total_frm_cnt) {
+		/* split the frame count evenly among all cores */
+		larg->total_frm_cnt		= garg->total_frm_cnt/garg->cmn_args.cpus;
+		/* let the first core send the residual frames */
+		if (larg->cmn_args.id == 0)
+			larg->total_frm_cnt += garg->total_frm_cnt%garg->cmn_args.cpus;
+	}
 	larg->cmn_args.echo              = garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
 	larg->cmn_args.num_ports         = garg->cmn_args.num_ports;
@@ -757,6 +780,7 @@ static void usage(char *progname)
 	       "\t-S, --src-mac <XX:XX:XX:XX:XX:XX>    source MAC address\n"
 	       "\t-R, --rate-limit <pps>      maximum rate to generate in packets-per-second (default is none).\n"
 	       "\t                            'K'/'M' may be used for KILO/MEGA (e.g. 100K for 100000pps).\n"
+	       "\t-C, --count <num-frms>      maximum number of frame to be sent (default is infinite).\n"
 	       "Common OPTIONS:\n"
 	       "\t-T, --report-time <second>  time in seconds between reports.(default is %ds)\n"
 	       "\t-c, --cores <number>        number of CPUs to use\n"
@@ -847,7 +871,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int port_dir[MVAPPS_PP2_MAX_I_OPTION_PORTS] = {0};
 	int common_dir = 0;
 	int mult;
-	const char short_options[] = "hi:b:l:c:a:m:T:w:R:S:D:s:d:rtv";
+	const char short_options[] = "hi:b:l:c:a:m:T:w:R:C:S:D:s:d:rtv";
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
 		{"interface", required_argument, 0, 'i'},
@@ -860,6 +884,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"qmap", required_argument, 0, 'm'},
 		{"report-time", required_argument, 0, 'T'},
 		{"rate-limit", required_argument, 0, 'R'},
+		{"count", required_argument, 0, 'C'},
 		{"src-mac", required_argument, 0, 'S'},
 		{"dst-mac", required_argument, 0, 'D'},
 		{"src-ip", required_argument, 0, 's'},
@@ -873,6 +898,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 #endif /* PKT_GEN_APP_VERBOSE_DEBUG */
 	garg->rx = 0;
 	garg->tx = 0;
+	garg->total_frm_cnt = 0;
 	garg->cmn_args.cli = 0;
 	garg->cmn_args.cpus = 1;
 	garg->cmn_args.affinity = MVAPPS_INVALID_AFFINITY;
@@ -976,6 +1002,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			}
 			garg->cmn_args.busy_wait = atoi(optarg) * mult;
 			break;
+		case 'C':
+			garg->total_frm_cnt = atoi(optarg);
+			pr_debug("Set total frame Count to %d\n", garg->total_frm_cnt);
+			break;
 		case 'S':
 			rv = sscanf(optarg, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
 				    &garg->src_mac[0], &garg->src_mac[1], &garg->src_mac[2],
@@ -1074,6 +1104,12 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	if (garg->pkt_size > MAX_PKT_SIZE) {
 		pr_err("illegal packet size (%d vs %d)!\n",
 		       garg->pkt_size, MAX_PKT_SIZE);
+		return -EINVAL;
+	}
+
+	if (garg->total_frm_cnt >= PKT_GEN_APP_MAX_TOTAL_FRM_CNT) {
+		pr_err("illegal total frames count (%d vs %d)!\n",
+		       garg->total_frm_cnt, PKT_GEN_APP_MAX_TOTAL_FRM_CNT);
 		return -EINVAL;
 	}
 
