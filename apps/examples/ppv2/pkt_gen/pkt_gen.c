@@ -71,6 +71,8 @@
 #define PKT_GEN_APP_DIR_RX			0x1
 #define PKT_GEN_APP_DIR_TX			0x2
 
+#define PKT_GEN_APP_LINK_UP_THR			2000 /* 2 secs */
+
 #define  PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #define PKT_GEN_APP_HW_TX_L4_CHKSUM_CALC	1
@@ -481,7 +483,7 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		jumbo_infs[] = PKT_GEN_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg->cmn_args.plat;
-	int				i;
+	int				i, timeout;
 
 	pr_info("Local initializations ...\n");
 
@@ -533,6 +535,23 @@ static int init_local_modules(struct glob_arg *garg)
 				pr_err("Failed to enter promisc port %d (pp_id: %d)\n", port_index,
 				       port->pp_id);
 				return err;
+			}
+
+			/* Wait for couple of seconds for the link to be up; after that, abort */
+			timeout = PKT_GEN_APP_LINK_UP_THR;
+			do {
+				err = pp2_ppio_get_link_state(port->ppio, &i);
+				if (err) {
+					pr_err("Link error (port: %d, pp_id: %d)\n", port_index,
+					       port->pp_id);
+					return -EFAULT;
+				}
+				udelay(1000);
+			} while (!i && --timeout);
+			if (!i) {
+				pr_err("Link is down (port: %d, pp_id: %d)\n", port_index,
+				       port->pp_id);
+				return -EFAULT;
 			}
 		} else {
 			return err;
