@@ -48,6 +48,7 @@
 #include "pf_topology.h"
 #include "pf_pci_if_desc.h"
 #include "env/trace/trc_pf.h"
+#include "drivers/ppv2/pp2_hw_type.h"
 
 #define REGFILE_VAR_DIR		"/var/"
 #define REGFILE_NAME_PREFIX	"nic-pf-"
@@ -1896,6 +1897,56 @@ static int nmnicpf_mac_addr_command(struct nmnicpf *nmnicpf,
 }
 
 /*
+ *	nmnicpf_mtu_command
+ */
+static int nmnicpf_mtu_command(struct nmnicpf *nmnicpf,
+				    struct mgmt_cmd_params *params,
+				    struct mgmt_cmd_resp *resp_data)
+{
+	struct nmdisp_msg nmdisp_msg;
+	u16 new_mtu, orig_mtu;
+	int ret = 0;
+
+	pr_debug("Set mtu message\n");
+
+	pp2_ppio_get_mtu(nmnicpf->pp2.ports_desc[0].ppio, &orig_mtu);
+	new_mtu = params->pf_set_mtu.mtu;
+	if (orig_mtu == new_mtu)
+		return ret;
+
+	ret = pp2_ppio_set_mtu(nmnicpf->pp2.ports_desc[0].ppio, new_mtu);
+	if (ret) {
+		pr_err("Unable to set mtu\n");
+		return ret;
+	}
+
+	ret = pp2_ppio_set_mru(nmnicpf->pp2.ports_desc[0].ppio, MVPP2_MTU_TO_MRU(new_mtu));
+	if (ret) {
+		/* restore previous mtu value */
+		pp2_ppio_set_mtu(nmnicpf->pp2.ports_desc[0].ppio, orig_mtu);
+		pr_err("Unable to set mru\n");
+		return ret;
+	}
+
+	/* Notify Guest on mtu change */
+	nmdisp_msg.ext = 0;
+	nmdisp_msg.dst_client = CDT_CUSTOM;
+	nmdisp_msg.dst_id = nmnicpf->guest_id;
+	nmdisp_msg.src_client = CDT_PF;
+	nmdisp_msg.src_id = nmnicpf->pf_id;
+	nmdisp_msg.indx = CMD_ID_NOTIFICATION;
+	nmdisp_msg.code = MSG_T_GUEST_MTU_UPDATED;
+	nmdisp_msg.msg  = &params->pf_set_mtu;
+	nmdisp_msg.msg_len = sizeof(params->pf_set_mtu);
+
+	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &nmdisp_msg);
+	if (ret)
+		pr_err("failed to send mtu set message\n");
+
+	return 0;
+}
+
+/*
  *	nmnicpf_rx_mode_command
  */
 static int nmnicpf_rx_mode_command(struct nmnicpf *nmnicpf,
@@ -2023,6 +2074,13 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_rx_mode_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_RX_MODE message failed\n");
+		break;
+
+	case CC_PF_MTU:
+		*send_resp = 0; /* TODO: implement response once nested syscall is working  */
+		ret = nmnicpf_mtu_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
 	default:

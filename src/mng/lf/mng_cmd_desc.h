@@ -78,6 +78,7 @@ enum cmd_codes {
 	CC_PF_CLOSE,
 	CC_PF_MAC_ADDR,
 	CC_PF_RX_MODE,
+	CC_PF_MTU,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -153,6 +154,10 @@ struct mgmt_cmd_params {
 		struct {
 			int	reset;
 		} pf_get_statistics;
+
+		struct {
+			u32	mtu;
+		} pf_set_mtu;
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];
