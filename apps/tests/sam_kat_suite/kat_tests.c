@@ -64,9 +64,7 @@ static int			num_to_check = 10;
 static int			num_checked;
 static int			num_to_print = 1;
 static int			num_printed;
-static int			num_requests_per_enq = 32;
-static int			num_requests_before_deq = 32;
-static int			num_requests_per_deq = 32;
+static int			test_burst_size = 32;
 static u32			debug_flags;
 static int			ev_pkts_coal = 16;
 static int			ev_usec_coal = 100;
@@ -107,6 +105,7 @@ struct local_arg {
 	u32				auth_icv_size;
 	u64				total_passed;
 	u64				total_errors;
+	u32				almost_full;
 };
 
 static struct	glob_arg garg = {};
@@ -418,7 +417,7 @@ static void print_results(int test, char *test_name, int operations, int errors,
 		printf("cpu=%d: %2d. %-32s: failed %d of %d times * %d Bytes  - %u.%03u secs\n",
 			sched_getcpu(), test, test_name, errors, operations, in_data_size, secs, usecs / 1000);
 
-	printf("      Rate: %u Kpps, %u Mbps\n", kpps, mbps);
+	printf("           %32s: %u Kpps, %u Mbps\n\n", "Rate", kpps, mbps);
 }
 
 static void free_bufs(struct local_arg *larg)
@@ -585,7 +584,7 @@ static int run_tests(void *arg, int *running)
 
 	EncryptedBlockPtr block;
 	int i, test, err = 0;
-	int total_enqs, total_deqs, in_process, to_enq, num_enq, to_deq;
+	int total_enqs, total_deqs, in_process, to_enq;
 	u16 num;
 	char *test_name;
 	struct sam_cio_op_params requests[NUM_CONCURRENT_REQUESTS];
@@ -609,6 +608,8 @@ static int run_tests(void *arg, int *running)
 
 	larg->total_passed = 0;
 	larg->total_errors = 0;
+	larg->almost_full = 0;
+
 	for (test = 0; test < NUM_CONCURRENT_SESSIONS; test++) {
 		if (!*running)
 			break;
@@ -629,7 +630,7 @@ static int run_tests(void *arg, int *running)
 		num_checked = 0;
 
 		prepare_requests(larg, block, &larg->sa_params[test], larg->sa_hndl[test], requests,
-				 num_requests_per_enq);
+				 test_burst_size);
 
 		/* Check plain_len == cipher_len */
 		errors = 0;
@@ -637,13 +638,12 @@ static int run_tests(void *arg, int *running)
 		larg->next_request = 0;
 		gettimeofday(&tv_start, NULL);
 		while (total_deqs) {
-			to_enq = min(total_enqs, num_requests_before_deq);
-			while (in_process < to_enq) {
-				if (!*running)
-					goto sig_exit;
+			if (!*running)
+				goto sig_exit;
 
-				num_enq = min(num_requests_per_enq, (to_enq - in_process));
-				for (i = 0; i < num_enq; i++) {
+			to_enq = min(total_enqs, test_burst_size);
+			if (to_enq && (in_process + to_enq) < NUM_CONCURRENT_REQUESTS) {
+				for (i = 0; i < to_enq; i++) {
 					if (same_bufs) {
 						/* Input buffers are different pre request */
 						requests[i].src = &larg->out_bufs[larg->next_request];
@@ -660,21 +660,23 @@ static int run_tests(void *arg, int *running)
 					if (larg->next_request == NUM_CONCURRENT_REQUESTS)
 						larg->next_request = 0;
 				}
-				num = (u16)num_enq;
+				num = (u16)to_enq;
 				rc = sam_cio_enq(larg->cio_hndl, requests, &num);
 				if (rc) {
 					printf("thread #%d (cpu=%d): %s: sam_cio_enq failed.",
 						larg->cmn_args.id, sched_getcpu(), __func__);
-					printf(" to_enq = %d, num = %d, rc = %d\n", num_enq, num, rc);
+					printf(" to_enq = %d, num = %d, rc = %d\n", to_enq, num, rc);
 					return rc;
 				}
 				if (num) {
 					in_process += num;
 					total_enqs -= num;
 				} else
-					break;
+					pr_err("Unexpected CIO full: to_enq = %d\n", to_enq);
+			} else {
+				if (to_enq)
+					larg->almost_full++;
 			}
-
 			/* Trigger ISR */
 			if (ev) {
 				sam_cio_set_event(larg->cio_hndl, ev, 1);
@@ -688,12 +690,11 @@ static int run_tests(void *arg, int *running)
 			}
 
 			/* Get all ready results together */
-			to_deq = min(in_process, num_requests_per_deq);
-			num = (u16)to_deq;
+			num = (u16)in_process;
 			rc = sam_cio_deq(larg->cio_hndl, results, &num);
 			if (rc) {
 				printf("thread #%d (cpu=%d): %s: sam_cio_deq failed. to_deq = %d, num = %d, rc = %d\n",
-					larg->cmn_args.id, sched_getcpu(), __func__, to_deq, num, rc);
+					larg->cmn_args.id, sched_getcpu(), __func__, in_process, num, rc);
 				return rc;
 			}
 			if (num) {
@@ -712,6 +713,7 @@ sig_exit:
 		gettimeofday(&tv_end, NULL);
 
 		count -= total_deqs;
+
 		pthread_mutex_lock(&larg->cmn_args.garg->trd_lock);
 		print_results(test, test_name, count, errors, larg->in_data_size, &tv_start, &tv_end);
 		pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
@@ -735,8 +737,7 @@ static void usage(char *progname)
 	printf("OPTIONS are optional:\n");
 	printf("\t-c <number>      - Number of requests to check (default: %d)\n", num_to_check);
 	printf("\t-p <number>      - Number of requests to print (default: %d)\n", num_to_print);
-	printf("\t-e <number>      - Maximum burst for enqueue (default: %d)\n", num_requests_per_enq);
-	printf("\t-d <number>      - Maximum burst for dequeue (default: %d)\n", num_requests_per_deq);
+	printf("\t-b <number>      - Maximum burst size (default: %d)\n", test_burst_size);
 	printf("\t-f <bitmask>     - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x0)\n",
 					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG);
 	printf("\t--same_bufs      - Use the same buffer as src and dst (default: %s)\n",
@@ -799,7 +800,7 @@ static int parse_args(int argc, char *argv[])
 			}
 			num_to_print = atoi(argv[i + 1]);
 			i += 2;
-		} else if (strcmp(argv[i], "-e") == 0) {
+		} else if (strcmp(argv[i], "-b") == 0) {
 			if (argc < (i + 2)) {
 				pr_err("Invalid number of arguments!\n");
 				return -EINVAL;
@@ -808,18 +809,7 @@ static int parse_args(int argc, char *argv[])
 				pr_err("Invalid arguments format!\n");
 				return -EINVAL;
 			}
-			 num_requests_per_enq = atoi(argv[i + 1]);
-			i += 2;
-		} else if (strcmp(argv[i], "-d") == 0) {
-			if (argc < (i + 2)) {
-				pr_err("Invalid number of arguments!\n");
-				return -EINVAL;
-			}
-			if (argv[i + 1][0] == '-') {
-				pr_err("Invalid arguments format!\n");
-				return -EINVAL;
-			}
-			 num_requests_per_deq = atoi(argv[i + 1]);
+			 test_burst_size = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-f") == 0) {
 			int scanned;
@@ -884,16 +874,15 @@ static int parse_args(int argc, char *argv[])
 		}
 	}
 	/* Check validity */
-	if (ev_pkts_coal > num_requests_before_deq)
-		ev_pkts_coal = num_requests_before_deq;
+	if (ev_pkts_coal > test_burst_size)
+		ev_pkts_coal = test_burst_size;
 
 	/* Print all inputs arguments */
 	printf("CIO match_str  : %s\n", garg.sam_match_str);
 	printf("Tests file name: %s\n", garg.sam_tests_file);
 	printf("Number to check: %u\n", num_to_check);
 	printf("Number to print: %u\n", num_to_print);
-	printf("Number per enq : %u\n", num_requests_per_enq);
-	printf("Number per deq : %u\n", num_requests_per_deq);
+	printf("Burst size     : %u\n", test_burst_size);
 	printf("Debug flags    : 0x%x\n", debug_flags);
 	printf("src / dst bufs : %s\n", same_bufs ? "same" : "different");
 	printf("Wait mode      : %s\n", garg.use_events ? "events" : "polling");
@@ -1070,6 +1059,7 @@ static void deinit_local(void *arg)
 	free_bufs(larg);
 
 	app_sam_show_cio_stats(larg->cio_hndl, larg->sam_match_str, 1);
+	printf("Almost full                 : %" PRIu32 " packets\n\n", larg->almost_full);
 
 	if (sam_cio_deinit(larg->cio_hndl)) {
 		printf("thread #%d (cpu=%d): un-initialization failed\n",
