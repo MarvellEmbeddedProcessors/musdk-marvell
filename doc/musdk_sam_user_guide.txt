@@ -90,7 +90,7 @@ Function: ``int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *reque
     Source and destination buffers can be the same one.
   - Cipher IV in the buffer is not supported (field ``cipher_iv_offset`` is ignored)
   - AAD in the buffer is not supported (field ``auth_aad_offset`` is ignored)
-  - ``auth_icv_offset`` must be equal to (``auth_offset``+ ``auth_len``)
+  - ``auth_icv_offset`` must be equal to (``auth_offset`` + ``auth_len``)
 
 SAM enqueue IPsec operation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -106,18 +106,16 @@ SAM dequeue operation
 Function: ``int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num);``
 
   - Non-blocking function.
-  - Return results for up to "*num" ready requests.
+  - Return results for up to ``*num`` ready requests.
 
 SAM create event
 ~~~~~~~~~~~~~~~~
-Function: ``int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *params,
-				     struct mv_sys_event **ev);``
+Function: ``int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *params, struct mv_sys_event **ev);``
   - Event allows application to wait for number of crypto requests ready for dequeue in blocking mode without
     waste of CPU cycles and power.
   - Fields in "struct sam_cio_event_params":
-	pkt_coal  - number of requests to be ready for dequeue before waking up the waiting thread.
-      	usec_coal - time in micro seconds. Waiting thread will be woken up after this time
-                    even if number of requests ready for dequeue is less than "pkt_coal".
+	- pkt_coal  - number of requests to be ready for dequeue before waking up the waiting thread.
+	- usec_coal - time in micro seconds. Waiting thread will be woken up after this time even if number of requests ready for dequeue is less than "pkt_coal".
   - Use ``mv_sys_event_poll()`` API to wait for event in blocking mode.
 
 SAM delete event
