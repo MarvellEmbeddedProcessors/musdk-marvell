@@ -537,8 +537,16 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 	struct giu_gpio_tc *gpio_tc = &giu_params->outqs_params.tcs[tc];
 	struct giu_gpio_queue *txq;
 	struct giu_gpio_desc *tx_ring_base;
-	u16 dest_qid;
+	u16 dest_qid, min_q_size = *num;
 	int i;
+
+	for (i = 0; i < gpio_tc->dest_num_qs; i++) {
+		txq = &gpio_tc->queues[i];
+		min_q_size = min_t(u16, min_q_size,
+					QUEUE_SPACE(txq->prod_val_shadow, *txq->cons_addr, txq->desc_total));
+	}
+
+	*num = min_q_size;
 
 	/* Calculate RSS and update descriptor */
 	for (i = 0; i < *num; i++) {
@@ -546,9 +554,6 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 		dest_qid = GIU_TXD_GET_DEST_QID(&descs[i]);
 		/* Get queue params */
 		txq = &gpio_tc->queues[dest_qid];
-
-		if (QUEUE_FULL(txq->prod_val_shadow, *txq->cons_addr, txq->desc_total))
-			continue;
 
 		/* Get ring base */
 		tx_ring_base = (struct giu_gpio_desc *)txq->desc_ring_base;
