@@ -62,6 +62,8 @@
 #define PKT_GEN_APP_MAX_BURST_SIZE		((PKT_GEN_APP_RX_Q_SIZE) >> 1)
 #define PKT_GEN_APP_DFLT_BURST_SIZE		256
 
+#define PKT_GEN_APP_BUFF_POOL_SIZE		8192
+
 #define PKT_GEN_APP_DMA_MEM_SIZE		(40 * 1024 * 1024)
 
 #define PKT_GEN_APP_FIRST_INQ			0
@@ -87,7 +89,17 @@
 #define PKT_GEN_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
 
 #define MAX_BODYSIZE			(DEFAULT_MTU - IPV4_HDR_LEN - UDP_HDR_LEN)
+#define MIN_PKT_SIZE			(40)
 #define MAX_PKT_SIZE			(DEFAULT_MTU + ETH_HLEN)
+
+#define PKT_GEN_APP_PKT_SIZE_INC	(-1)
+#define PKT_GEN_APP_PKT_SIZE_RAND	(-2)
+#define PKT_GEN_APP_PKT_SIZE_IMIX	(-3)
+
+/* The following macro is need in order to extract pkt length out from
+ * the pp2 outQ descriptor; see pp2_ppio_outq_desc_set_pkt_len() in mv_pp2_ppio.h
+ */
+#define PP2_OUTQ_DESC_PKT_LEN(d)	((d)->cmds[1] >> 16)
 
 #define DEFAULT_REPORT_TIME 1 /* 1 second */
 #define DEFAULT_RATE_USECS  0
@@ -101,6 +113,8 @@
 struct buffer_dec {
 	void		*virt_addr;
 	dma_addr_t	 phy_addr;
+	u16		 size;
+	u16		 res;
 };
 
 struct ip_range {
@@ -124,7 +138,7 @@ struct pkt {
 	struct ip ip;
 	struct udphdr udp;
 	u8 body[MAX_BODYSIZE];
-} __attribute__((__packed__));
+} __packed;
 
 struct glob_arg {
 	struct glb_common_args	cmn_args; /* Keep first */
@@ -158,12 +172,14 @@ struct local_arg {
 	struct local_common_args	cmn_args; /* Keep first */
 
 	u32				total_frm_cnt;
+	u16				curr_frm;
+
+	struct buffer_dec		buf_dec[PKT_GEN_APP_BUFF_POOL_SIZE];
+
+	struct traffic_counters		trf_cntrs;
 
 	void				*buffer;
-	struct buffer_dec		buf_dec[PKT_GEN_APP_MAX_BURST_SIZE];
 	int				pkt_size;
-
-	struct traffic_counters	trf_cntrs;
 };
 
 eth_addr_t default_src_mac = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
@@ -290,6 +306,7 @@ static int loop_tx(struct local_arg	*larg,
 {
 	struct pp2_ppio_desc	 descs[PKT_GEN_APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *)larg->cmn_args.plat;
+	struct buffer_dec	*buf_dec;
 	u16			 i, tx_num;
 
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
@@ -299,6 +316,10 @@ static int loop_tx(struct local_arg	*larg,
 #endif /* PKT_GEN_APP_HW_TX_CHKSUM_CALC */
 
 	for (i = 0; i < num; i++) {
+		buf_dec = &larg->buf_dec[larg->curr_frm];
+		if (++larg->curr_frm == PKT_GEN_APP_BUFF_POOL_SIZE)
+			larg->curr_frm = 0;
+
 		pp2_ppio_outq_desc_reset(&descs[i]);
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #if (PKT_GEN_APP_HW_TX_IPV4_CHKSUM_CALC || PKT_GEN_APP_HW_TX_L4_CHKSUM_CALC)
@@ -308,18 +329,16 @@ static int loop_tx(struct local_arg	*larg,
 						  PKT_GEN_APP_HW_TX_L4_CHKSUM_CALC);
 #endif /* (PKT_GEN_APP_HW_TX_IPV4_CHKSUM_CALC ||  ... */
 #endif /* PKT_GEN_APP_HW_TX_CHKSUM_CALC */
-		pp2_ppio_outq_desc_set_phys_addr(&descs[i], larg->buf_dec[i].phy_addr);
+		pp2_ppio_outq_desc_set_phys_addr(&descs[i], buf_dec->phy_addr);
 		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], 0);
-		pp2_ppio_outq_desc_set_pkt_len(&descs[i], larg->pkt_size);
-
-		update_addresses((struct pkt *)larg->buf_dec[i].virt_addr, larg->cmn_args.garg);
+		pp2_ppio_outq_desc_set_pkt_len(&descs[i], buf_dec->size);
 
 		if (unlikely(larg->cmn_args.verbose > 1)) {
 			printf("Sending packet (va:%p, pa 0x%08x, len %d):\n",
-			       larg->buf_dec[i].virt_addr,
-			       (unsigned int)larg->buf_dec[i].phy_addr,
-			       larg->pkt_size);
-			mem_disp(larg->buf_dec[i].virt_addr, larg->pkt_size);
+			       buf_dec->virt_addr,
+			       (unsigned int)buf_dec->phy_addr,
+			       buf_dec->size);
+			mem_disp(buf_dec->virt_addr, buf_dec->size);
 		}
 	}
 
@@ -332,7 +351,8 @@ static int loop_tx(struct local_arg	*larg,
 			printf("sent %d pkts on ppio %d, tc %d\n", tx_num, tx_ppio_id, tc);
 
 		larg->trf_cntrs.tx_pkts += tx_num;
-		larg->trf_cntrs.tx_bytes += tx_num * (larg->pkt_size + ETH_FCS_LEN + ETH_IPG_LEN);
+		for (i = 0; i < tx_num; i++)
+			larg->trf_cntrs.tx_bytes += (PP2_OUTQ_DESC_PKT_LEN(&descs[i]) + ETH_FCS_LEN + ETH_IPG_LEN);
 		larg->trf_cntrs.tx_drop += (num - tx_num);
 	}
 
@@ -718,14 +738,22 @@ static int init_local(void *arg, int id, void **_larg)
 		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
 	*_larg = larg;
 
-	larg->buffer = mv_sys_dma_mem_alloc(MAX_PKT_SIZE * PKT_GEN_APP_MAX_BURST_SIZE, 4);
-	for (i = 0; i < PKT_GEN_APP_MAX_BURST_SIZE; i++) {
+	larg->buffer = mv_sys_dma_mem_alloc(MAX_PKT_SIZE * PKT_GEN_APP_BUFF_POOL_SIZE, 4);
+	for (i = 0; i < PKT_GEN_APP_BUFF_POOL_SIZE; i++) {
 		struct pkt *header;
 
-		larg->buf_dec[i].virt_addr = (void *)((unsigned char *)larg->buffer + i *  MAX_PKT_SIZE);
+		header = (struct pkt *)((unsigned char *)larg->buffer + i *  MAX_PKT_SIZE);
+		larg->buf_dec[i].virt_addr = (void *)header;
 		larg->buf_dec[i].phy_addr = mv_sys_dma_mem_virt2phys(larg->buf_dec[i].virt_addr);
 
-		header = (struct pkt *)larg->buf_dec[i].virt_addr;
+		if (larg->pkt_size == PKT_GEN_APP_PKT_SIZE_INC)
+			larg->buf_dec[i].size = (MIN_PKT_SIZE + 4 * i) % MAX_PKT_SIZE;
+		else if (larg->pkt_size == PKT_GEN_APP_PKT_SIZE_RAND)
+			larg->buf_dec[i].size = MIN_PKT_SIZE + (rand() % (MAX_PKT_SIZE - MIN_PKT_SIZE));
+		else
+			larg->buf_dec[i].size = larg->pkt_size;
+		pr_debug("got pkt size: %d\n", larg->buf_dec[i].size);
+
 		memcpy(header->eh.ether_dmac, larg->cmn_args.garg->dst_mac, MV_ETH_ALEN);
 		memcpy(header->eh.ether_smac, larg->cmn_args.garg->src_mac, MV_ETH_ALEN);
 
@@ -737,7 +765,7 @@ static int init_local(void *arg, int id, void **_larg)
 		header->ip.ip_hl = 5;
 		header->ip.ip_id = 0;
 		header->ip.ip_tos = IPTOS_LOWDELAY;
-		header->ip.ip_len = htons(larg->pkt_size - sizeof(struct ether_header));
+		header->ip.ip_len = htons(larg->buf_dec[i].size - sizeof(struct ether_header));
 		header->ip.ip_id = 0;
 		header->ip.ip_off = htons(IP_DF); /* Don't fragment */
 		header->ip.ip_ttl = IPDEFTTL;
@@ -746,8 +774,10 @@ static int init_local(void *arg, int id, void **_larg)
 
 		header->udp.uh_sport = htons(larg->cmn_args.garg->src_ip.port0);
 		header->udp.uh_dport = htons(larg->cmn_args.garg->dst_ip.port0);
-		header->udp.uh_ulen = htons(larg->pkt_size - sizeof(struct ether_header) - sizeof(struct ip));
+		header->udp.uh_ulen = htons(larg->buf_dec[i].size - sizeof(struct ether_header) - sizeof(struct ip));
 		header->udp.uh_sum = 0;
+
+		update_addresses((struct pkt *)larg->buf_dec[i].virt_addr, larg->cmn_args.garg);
 	}
 
 	return 0;
@@ -771,7 +801,10 @@ static void usage(char *progname)
 	       "\t\t%s -i eth0,eth1 --rx --tx\t[opens eth0 and eth1 ports in Rx and Tx mode]\n"
 	       "OPTIONS for Tx mode:\n"
 	       "\t-b, --burst <size>          burst size, num_pkts handled in a batch.(default is %d)\n"
-	       "\t-l, --size <pkt_size>       packet size in bytes excluding CRC.(default is %d)\n"
+	       "\t-l, --size <pkt-size|inc|rand>   packet size in bytes (excluding CRC) or the following:\n"
+	       "\t                            inc - incremental; increase every pkt by 4B.\n"
+	       "\t                            rand - random packet sizes.\n"
+	       "\t                            (default is fixed - %d)\n"
 	       "\t-d, --dst-ip <d.d.d.d[:port[-d.d.d.d:port]]>\n"
 	       "\t                            destination IP address or range\n"
 	       "\t-s, --src-ip <d.d.d.d[:port[-d.d.d.d:port]]>\n"
@@ -966,8 +999,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			pr_debug("Set burst size to %d\n", garg->cmn_args.burst);
 			break;
 		case 'l':
-			garg->pkt_size = atoi(optarg);
-			pr_debug("Set packet size to %d\n", garg->pkt_size);
+			if (strcmp(optarg, "inc") == 0) {
+				garg->pkt_size = PKT_GEN_APP_PKT_SIZE_INC;
+				pr_debug("Set packet size to incremental\n");
+			} else if (strcmp(optarg, "rand") == 0) {
+				garg->pkt_size = PKT_GEN_APP_PKT_SIZE_RAND;
+				pr_debug("Set packet size to incremental\n");
+			} else {
+				garg->pkt_size = atoi(optarg);
+				pr_debug("Set packet size to %d\n", garg->pkt_size);
+			}
 			break;
 		case 'c':
 			garg->cmn_args.cpus = atoi(optarg);
@@ -1101,9 +1142,20 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		return -EINVAL;
 	}
 
-	if (garg->pkt_size > MAX_PKT_SIZE) {
-		pr_err("illegal packet size (%d vs %d)!\n",
-		       garg->pkt_size, MAX_PKT_SIZE);
+	if (garg->pkt_size > 0) {
+		if (garg->pkt_size > MAX_PKT_SIZE) {
+			pr_err("illegal packet size (%d vs %d)!\n",
+			       garg->pkt_size, MAX_PKT_SIZE);
+			return -EINVAL;
+		}
+		if (garg->pkt_size < MIN_PKT_SIZE) {
+			pr_err("illegal packet size (%d vs %d)!\n",
+			       garg->pkt_size, MIN_PKT_SIZE);
+			return -EINVAL;
+		}
+	} else if ((garg->pkt_size != PKT_GEN_APP_PKT_SIZE_INC) &&
+		(garg->pkt_size != PKT_GEN_APP_PKT_SIZE_RAND)) {
+		pr_err("illegal packet size!\n");
 		return -EINVAL;
 	}
 
