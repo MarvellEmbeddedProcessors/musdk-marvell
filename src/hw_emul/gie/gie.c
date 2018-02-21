@@ -785,7 +785,6 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 
 	/* log the job in the dma job queue */
 	job_info = dma->dma_jobs + dma->job_tail;
-	q_idx_add(dma->job_tail, 1, dma->job_qlen);
 
 	job_info->cookie = job->cookie;
 	job_info->elements_per_desc = job->element_cnt;
@@ -822,6 +821,8 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 		pr_err("BUG: Could not cleanup DMA after copy_single failure.");
 		exit(1);
 	}
+
+	q_idx_add(dma->job_tail, 1, dma->job_qlen);
 
 	return 0;
 }
@@ -1025,6 +1026,7 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 	u64 src_remap, dst_remap;
 	u64 *qe_cookie, *qe_buff;
 	u16 *qe_byte_cnt;
+
 	int i = 0;
 	void *qe;
 	u16 cnt = 0;
@@ -1079,7 +1081,6 @@ bpool_empty:
 
 		/* log the job in the dma job queue */
 		job_info = dma->dma_jobs + dma->job_tail;
-		q_idx_add(dma->job_tail, 1, dma->job_qlen);
 
 		job_info->cookie = src_q;
 		job_info->elements_per_desc = 1;
@@ -1093,6 +1094,7 @@ bpool_empty:
 			tmp_cnt = tmp_left;
 			if (!tmp_cnt)
 				break;
+			gie_clean_dma_jobs(dma);
 			timeout--;
 			usleep(1);
 		} while (timeout);
@@ -1102,6 +1104,8 @@ bpool_empty:
 			pr_err("BUG: Could not cleanup DMA after copy_single failure.");
 			exit(1);
 		}
+
+		q_idx_add(dma->job_tail, 1, dma->job_qlen);
 
 		/* release the bpool elements only after we used them
 		 * to avoid override by producer
