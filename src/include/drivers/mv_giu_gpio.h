@@ -48,6 +48,9 @@
 
 #define GIU_GPIO_DESC_NUM_WORDS		8
 
+#define GIU_GPIO_DESC_PA_WATERMARK	0xcafe0000
+#define GIU_GPIO_DESC_COOKIE_WATERMARK	0xcafecafe
+
 
 /* GPIO Handler */
 struct giu_gpio;
@@ -370,11 +373,11 @@ int giu_gpio_disable(struct giu_gpio *gpio);
  */
 static inline void giu_gpio_outq_desc_reset(struct giu_gpio_desc *desc)
 {
-	/* Note: no need to 'zeroed' cmds[4/6] as they will be overridden
+	/* Note: no need to 'zeroed' cmds[4] as they will be overridden
 	 *	 when preparing the descriptor
 	 */
 	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] =
-	desc->cmds[5] = desc->cmds[7] = 0;
+	desc->cmds[5] = 0;
 }
 
 /**
@@ -389,19 +392,9 @@ static inline void giu_gpio_outq_desc_set_phys_addr(struct giu_gpio_desc *desc, 
 	/* cmd[4] and cmd[5] holds the buffer physical address (Low and High parts) */
 	desc->cmds[4] = (u32)addr;
 	desc->cmds[5] = (desc->cmds[5] & ~GIU_TXD_BUF_PHYS_HI_MASK) | ((u64)addr >> 32 & GIU_TXD_BUF_PHYS_HI_MASK);
-}
-
-/**
- * Set the user specified cookie in an outq packet descriptor.
- *
- * @param[out]	desc	A pointer to a packet descriptor structure.
- * @param[in]	cookie	User specified cookie.
- *
- */
-static inline void giu_gpio_outq_desc_set_cookie(struct pp2_ppio_desc *desc, u64 cookie)
-{
-	desc->cmds[6] = (u32)cookie;
-	desc->cmds[7] = (desc->cmds[7] & ~GIU_TXD_BUF_VIRT_HI_MASK) | (cookie >> 32 & GIU_TXD_BUF_VIRT_HI_MASK);
+	/* mark cmds[5/7] so we can validate it in the remote side */
+	desc->cmds[5] |= GIU_GPIO_DESC_PA_WATERMARK;
+	desc->cmds[7] = GIU_GPIO_DESC_COOKIE_WATERMARK;
 }
 
 static inline void giu_gpio_outq_desc_set_pkt_offset(struct giu_gpio_desc *desc, u8  offset)
