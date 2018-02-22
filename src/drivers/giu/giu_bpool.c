@@ -316,12 +316,12 @@ int giu_bpool_put_buff(struct giu_bpool *pool, struct giu_buff_inf *buff)
 {
 	u16 buf_num = 1;
 
-	if (giu_bpool_put_buffs(pool, buff, &buf_num))
+	if (unlikely(giu_bpool_put_buffs(pool, buff, &buf_num)))
 		goto error;
 
 	/* Check that the buffer was added */
 	if (buf_num != 1)
-		goto error;
+		return -EBUSY;
 
 	return 0;
 
@@ -339,52 +339,36 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
 	struct giu_buff_inf *buf_desc;
 	u16 num_bpds = *num, desc_remain;
 	u16 block_size, index;
-#ifdef GIU_GPIO_DEBUG
 	u32 free_count, cons_val;
-#endif
-
-	if (!num_bpds) {
-#ifdef GIU_GPIO_DEBUG
-		pr_debug("num_bpds is zero\n");
-#endif
-		return 0;
-	}
 
 	/* Get queue params */
 	bpq = pool->queue;
 
-	/* Get ring base */
-	buf_desc = (struct giu_buff_inf *)bpq->desc_ring_base;
-
-#ifdef GIU_GPIO_DEBUG
 	/* Read producer index */
 	cons_val = *bpq->cons_addr;
-
-	if (num_bpds > bpq->desc_total) {
-		pr_debug("More tx_descs(%u) than txq_len(%u) (BPool %d)\n",
-			num_bpds, bpq->desc_total, pool->id);
-	}
 
 	/* Calculate number of free descriptors */
 	free_count = QUEUE_SPACE(bpq->prod_val_shadow, cons_val, bpq->desc_total);
 
-	if (QUEUE_FULL(bpq->prod_val_shadow, cons_val, bpq->desc_total)) {
-		pr_err("GIU BPool %d: No free descriptors for transmitting the packets\n", pool->id);
-		return -1;
-	}
-
 	if (unlikely(free_count < num_bpds)) {
 		pr_debug("num_bpds(%d), free_count(%d) (BPool %d)\n", num_bpds, free_count, pool->id);
-
 		num_bpds = free_count;
 	}
-#endif
+
+	if (unlikely(!num_bpds)) {
+		pr_debug("BPool full\n");
+		*num = 0;
+		return 0;
+	}
 
 	/* In case there is a wrap-around, handle the number of desc till the end of queue */
 	block_size = min(num_bpds, (u16)(bpq->desc_total - bpq->prod_val_shadow));
 
 	desc_remain = num_bpds;
 	index = 0; /* index in source descriptor array */
+
+	/* Get ring base */
+	buf_desc = (struct giu_buff_inf *)bpq->desc_ring_base;
 
 	/* In case there is a wrap-around, the first iteration will handle the
 	 * descriptors till the end of queue. The rest will be handled at the
