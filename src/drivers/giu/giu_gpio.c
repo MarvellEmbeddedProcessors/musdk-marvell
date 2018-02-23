@@ -658,9 +658,6 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	if (giu_params->outqs_params.tcs[tc].dest_num_qs > 1)
 		return giu_gpio_send_multi_q(gpio, tc, descs, num);
 #endif
-	/* Set number of sent packets to 0 for any case we exit due to error */
-	*num = 0;
-
 	/* Get queue params */
 	txq = &giu_params->outqs_params.tcs[tc].queues[qid];
 
@@ -670,26 +667,23 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	/* Read producer index */
 	cons_val = *txq->cons_addr;
 
-	if (!num_txds) {
-		pr_debug("num_txds is zero\n");
-		return 0;
-	} else if (likely(num_txds > txq->desc_total)) {
+#ifdef GIU_GPIO_DEBUG
+	if (num_txds > txq->desc_total)
 		pr_debug("More tx_descs(%u) than txq_len(%u)\n",
 			num_txds, txq->desc_total);
-	}
+#endif
 
 	/* Calculate number of free descriptors */
 	free_count = QUEUE_SPACE(txq->prod_val_shadow, cons_val, txq->desc_total);
-
-	if (free_count == 0) {
-		pr_debug("GIU GPIO: No free descriptors for transmitting the packets\n");
-		return 0;
+	if (unlikely(free_count < num_txds)) {
+		pr_debug("num_txds(%d), free_count(%d) (GPIO %d)\n", num_txds, free_count, gpio->id);
+		num_txds = free_count;
 	}
 
-	if (unlikely(free_count < num_txds)) {
-		pr_debug("num_txds(%d), free_count(%d)\n", num_txds, free_count);
-
-		num_txds = free_count;
+	if (unlikely(!num_txds)) {
+		pr_debug("GPIO full\n");
+		*num = 0;
+		return 0;
 	}
 
 	/* In case there is a wrap-around, handle the number of desc till the end of queue */
