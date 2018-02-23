@@ -48,6 +48,19 @@
 #include "hw_emul/gie.h"
 
 
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+struct giu_gpio_shadow_desc {
+	u8	queue_idx;
+	u16	queue_desc_idx;
+};
+
+struct giu_gpio_shadow_queue {
+	u32		desc_total; /**< number of descriptors in the ring */
+	struct giu_gpio_shadow_desc	*desc_ring_base; /**< descriptor ring virtual address */
+	u32	prod_val; /**< producer index value shadow  */
+	u32	cons_val; /**< consumer index value shadow */
+};
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 /**
  * GPIO Handler
@@ -57,6 +70,10 @@ struct giu_gpio {
 	u32			giu_id;	/**< GIU's Id */
 	struct giu_gpio_params	*params; /**< q topology parameters */
 	struct giu_gpio_init_params	*init_params; /**< q topology initialization parameters */
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+	struct giu_gpio_shadow_queue shadow_queue;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
 };
 
 static struct giu_gpio gpio_array[GIU_MAX_NUM_GPIO];
@@ -432,8 +449,22 @@ int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
 
 	pr_debug("giu_gpio_probe giu_id %d\n", giu_id);
 
-
 	*gpio = &gpio_array[giu_id];
+
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+	struct giu_gpio_queue *txq = &(*gpio)->params->outqs_params.tcs[0].queues[0];
+
+	(*gpio)->shadow_queue.desc_ring_base =
+		kzalloc(sizeof(struct giu_gpio_shadow_desc) * txq->desc_total, GFP_KERNEL);
+	if ((*gpio)->shadow_queue.desc_ring_base == NULL) {
+		pr_err("Failed to allocate GIU GPIO shadow-queue for RSS\n");
+		return -1;
+	}
+
+	(*gpio)->shadow_queue.desc_total = txq->desc_total;
+	(*gpio)->shadow_queue.prod_val = 0;
+	(*gpio)->shadow_queue.cons_val = 0;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 	return 0;
 }
@@ -441,6 +472,9 @@ int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
 void giu_gpio_remove(struct giu_gpio *gpio)
 {
 	pr_err("giu_gpio_remove is not implemented\n");
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+	kfree(gpio->shadow_queue.desc_ring_base);
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 }
 
 int giu_gpio_enable(struct giu_gpio *gpio)
@@ -533,27 +567,40 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_desc *descs, u16 *num)
 {
-	struct giu_gpio_params *giu_params = gpio->params;
-	struct giu_gpio_tc *gpio_tc = &giu_params->outqs_params.tcs[tc];
+	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue;
+	struct giu_gpio_tc *gpio_tc = &gpio->params->outqs_params.tcs[tc];
 	struct giu_gpio_queue *txq;
 	struct giu_gpio_desc *tx_ring_base;
-	u16 dest_qid, min_q_size = *num;
+	u16 dest_qid, num_txds = *num;
+	u32 free_count;
 	int i;
 
-	for (i = 0; i < gpio_tc->dest_num_qs; i++) {
-		txq = &gpio_tc->queues[i];
-		min_q_size = min_t(u16, min_q_size,
-					QUEUE_SPACE(txq->prod_val_shadow, *txq->cons_addr, txq->desc_total));
+	/* Calculate number of free descriptors */
+	free_count = QUEUE_SPACE(txq_shadow->prod_val, txq_shadow->cons_val, txq_shadow->desc_total);
+
+	if (unlikely(free_count < num_txds)) {
+		pr_debug("num_txds(%d), free_count(%d) (GPIO %d)\n", num_txds, free_count, gpio->id);
+		num_txds = free_count;
 	}
 
-	*num = min_q_size;
+	if (unlikely(!num_txds)) {
+		pr_debug("GPIO full\n");
+		*num = 0;
+		return 0;
+	}
 
 	/* Calculate RSS and update descriptor */
-	for (i = 0; i < *num; i++) {
+	for (i = 0; i < num_txds; i++) {
 		giu_gpio_update_rss(gpio, tc, &descs[i]);
 		dest_qid = GIU_TXD_GET_DEST_QID(&descs[i]);
 		/* Get queue params */
 		txq = &gpio_tc->queues[dest_qid];
+
+		/* Update shadow-queue with dest-qid and index */
+		txq_shadow->desc_ring_base[txq_shadow->prod_val].queue_idx = dest_qid;
+		txq_shadow->desc_ring_base[txq_shadow->prod_val].queue_desc_idx = txq->prod_val_shadow;
+		/* Increment producer index */
+		txq_shadow->prod_val = QUEUE_INDEX_INC(txq_shadow->prod_val, 1, txq_shadow->desc_total);
 
 		/* Get ring base */
 		tx_ring_base = (struct giu_gpio_desc *)txq->desc_ring_base;
@@ -575,6 +622,9 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 		/* Update Producer index in GNPT */
 		*txq->prod_addr = txq->prod_val_shadow;
 	}
+
+	/* Update number of sent descriptors */
+	*num = num_txds;
 
 	return 0;
 }
@@ -711,15 +761,43 @@ int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 }
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+/* created a shadow-q with the same size as tx-queue which will holds
+ * for each sent frame its 'tx-queue-index' (as a result of RSS) and its
+ * entry index in this tx-queue.
+ * once application request for the number of transmitted frames, we go
+ * over on all occupied entries in the shadow-q and using the saved
+ * information check if it was transmitted or not. once we reach
+ * an un-transmitted frame we stop and return the number of transmitted
+ * frames. as the shadow-q holds the frames in the same order as the
+ * application sent them, it is guarantee that only transmitted buffers
+ * will be released to the pp2-pool.
+ */
 int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 {
-	u16 tx_num = 0;
+	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue;
+	struct giu_gpio_shadow_desc *desc;
+	struct giu_gpio_tc *gpio_tc = &gpio->params->outqs_params.tcs[tc];
+	u16 shadow_q_tx_num;
+	u32 cons_val[gpio->params->outqs_params.tcs[tc].num_qs];
 	u8 i;
-	struct giu_gpio_params *giu_params = gpio->params;
 
-	for (*num = 0, i = 0; i < giu_params->outqs_params.tcs[tc].num_qs; i++) {
-		giu_gpio_get_num_outq_done_internal(gpio, tc, i, &tx_num);
-		*num += tx_num;
+	if (gpio_tc->dest_num_qs == 1)
+		return giu_gpio_get_num_outq_done_internal(gpio, tc, 0, num);
+
+	*num = 0;
+	shadow_q_tx_num = QUEUE_OCCUPANCY(txq_shadow->prod_val, txq_shadow->cons_val, txq_shadow->desc_total);
+	if (!shadow_q_tx_num)
+		return 0;
+
+	for (i = 0; i < gpio_tc->num_qs; i++)
+		cons_val[i] = readl(gpio_tc->queues[i].cons_addr);
+
+	for (i = 0; i < shadow_q_tx_num; i++) {
+		desc = &txq_shadow->desc_ring_base[txq_shadow->cons_val];
+		if (QUEUE_OCCUPANCY(cons_val[desc->queue_idx], desc->queue_desc_idx, txq_shadow->desc_total) == 0)
+			break;
+		txq_shadow->cons_val = QUEUE_INDEX_INC(txq_shadow->cons_val, 1, txq_shadow->desc_total);
+		(*num)++;
 	}
 
 	return 0;
