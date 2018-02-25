@@ -516,20 +516,8 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 	if (num > free_count)
 		num = free_count;
 
-	if (num == 0) {
-		/* If we have zero space, then nothing to transmit.
-		 * But we need to try and free some transmit descriptors, so
-		 * that in next call to this function we have a chance to find
-		 * some Tx space.
-		 */
-		pp2_free_sent_buffers(pp2_port_desc, giu_port_desc,
-				      pp2_args->hif, tc, qid, pp2_args->multi_buffer_release);
-		return 0;
-	}
-
-	pp2_ppio_recv(pp2_port_desc->ppio, tc, qid, pp2_descs, &num);
-	if (num == 0)
-		return 0;
+	if (num)
+		pp2_ppio_recv(pp2_port_desc->ppio, tc, qid, pp2_descs, &num);
 
 	/* pthread_mutex_unlock(&larg->garg->trd_lock); */
 	/* if (num) pr_info("ingress: got %d pkts on tc %d, qid %d\n", num, tc, qid); */
@@ -595,12 +583,12 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 					shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 							(shadow_q_size - not_sent + shadow_q->write_ind) :
 							shadow_q->write_ind - not_sent;
-					pp2_free_buffers(pp2_port_desc,
-							 giu_port_desc,
-							 pp2_args->hif,
-							 shadow_q->write_ind,
-							 not_sent,
-							 tc);
+					pp2_free_multi_buffers(pp2_port_desc,
+							       giu_port_desc,
+							       pp2_args->hif,
+							       shadow_q->write_ind,
+							       not_sent,
+							       tc);
 					/* Update statistics */
 					PKT_ECHO_APP_INC_TX_COUNT(larg->cmn_args.id, 0, tx_num);
 					PKT_ECHO_APP_INC_TX_DROP_COUNT(larg->cmn_args.id, 0, not_sent);
