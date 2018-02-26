@@ -1075,7 +1075,7 @@ int app_sys_dma_init(struct mv_sys_dma_mem_region_params *params, struct glb_com
 
 	glb_args->num_mem_regions = num_regions;
 	pr_info("(%d) memory regions created\n", num_regions);
-	if (glb_args->num_mem_regions == glb_args->num_clusters)
+	if (glb_args->num_mem_regions >= glb_args->num_clusters)
 		return 0;
 
 	/* Create default sys_dma, only if not enough regions were created */
