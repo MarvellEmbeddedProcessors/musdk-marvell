@@ -33,7 +33,6 @@
 #include "std_internal.h"
 #include "drivers/mv_neta.h"
 #include "drivers/mv_neta_ppio.h"
-#include "drivers/mv_neta_bpool.h"
 #include "neta_ppio.h"
 #include "neta_hw.h"
 #include "neta_bm.h"
@@ -89,15 +88,8 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	port->rx_ring_size = params->inqs_params.tcs_params[0].size;
 	port->tx_ring_size = params->outqs_params.outqs_params[0].size;
 	port->rx_offset = params->inqs_params.tcs_params[0].pkt_offset;
-	if (params->inqs_params.hw_bm_en) {
-		port->pool_short =
-			(struct mvneta_bm_pool *)(params->inqs_params.b.pools[0]->internal_param);
-		port->pool_long =
-			(struct mvneta_bm_pool *)params->inqs_params.b.pools[1]->internal_param;
-		port->bm_priv = port->pool_short->priv;
-	}
 
-	port->mtu = params->inqs_params.b.mtu;
+	port->mtu = params->inqs_params.mtu;
 	port->mru = MVNETA_MTU_TO_MRU(port->mtu);
 	port->buf_size = port->mru + port->rx_offset;
 
@@ -105,10 +97,6 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	if (rc) {
 		pr_err("[%s] ppio init failed.\n", __func__);
 		return(-EFAULT);
-	}
-	if (params->inqs_params.hw_bm_en) {
-		neta_bm_pool_bufsize_set(port, port->pool_short->buf_size, port->pool_short->id);
-		neta_bm_pool_bufsize_set(port, port->pool_long->buf_size, port->pool_long->id);
 	}
 	/* build interface name */
 	snprintf(port->if_name, sizeof(port->if_name), "eth%d", port_id);
@@ -137,25 +125,6 @@ void neta_ppio_deinit(struct neta_ppio *ppio)
 }
 
 /**
- * Set the pool number to return the buffer to, after sending the packet.
- * Calling this API will cause PP HW to return the buffer to the PP Buffer Manager.
- *
- * desc		A pointer to a packet descriptor structure.
- * pool		A bpool handle.
- */
-void neta_ppio_outq_desc_set_pool(struct neta_ppio_desc *desc, struct neta_bpool *ppool)
-{
-	int pid = ppool->id;
-
-	(desc)->cmds[0] = ((desc)->cmds[0] & ~NETA_TXD_POOL_ID_MASK) | ((pid << 13) & NETA_TXD_POOL_ID_MASK);
-	/* Set the HW buffer release mode in an outq packet descriptor */
-	(desc)->cmds[0] = ((desc)->cmds[0] & ~NETA_TXD_BUFF_REL_MASK) | NETA_TXD_BUFF_REL_MASK;
-
-	return;
-
-}
-
-/**
  * TODO - Add a Marvell DSA Tag to the packet.
  *
  * desc		A pointer to a packet descriptor structure.
@@ -177,14 +146,6 @@ void neta_ppio_outq_desc_set_dsa_tag(struct neta_ppio_desc *desc)
 int neta_ppio_inq_desc_get_ip_isfrag(struct neta_ppio_desc *desc)
 {
 	return 0;
-}
-
-struct neta_bpool *neta_ppio_inq_desc_get_bpool(struct neta_ppio_desc *desc, struct neta_ppio *ppio)
-{
-	struct neta_bpool *ppool;
-
-	ppool = &neta_bpools[NETA_RXD_GET_POOL_ID(desc)];
-	return ppool;
 }
 
 /**
@@ -402,9 +363,6 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 
 /*
  * Send a batch of frames (single dscriptor) on an OutQ of PP-IO.
- *
- * The routine assumes that the BM-Pool is either freed by HW (by appropriate desc
- * setter) or by the MUSDK client SW.
  *
  * ppio		A pointer to a PP-IO object.
  * qid		out-Q id on which to send the frames.
