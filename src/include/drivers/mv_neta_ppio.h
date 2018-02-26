@@ -47,7 +47,6 @@
 
 #define NETA_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
 #define NETA_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
-#define NETA_PPIO_MAX_POOLS	2
 #define NETA_PPIO_RX_BUF_ALIGN	64 /**< RX buffer must be aligned to cache line size */
 
 typedef u32	neta_dma_addr_t;
@@ -85,18 +84,7 @@ struct neta_ppio_inqs_params {
 	/** Parameters for each TC */
 	struct neta_ppio_tc_params	tcs_params[NETA_PPIO_MAX_NUM_TCS];
 
-	int				hw_bm_en;
-	union {
-		/** the following bpools array is relevant only in case
-		 * when working in "HW-BM" enabled
-		 */
-		struct neta_bpool	*pools[NETA_PPIO_MAX_POOLS];
-
-		/** the following size is relevant only in case
-		 * when working in "SW-BM" enabled
-		 */
-		u16			mtu;
-	} b;
+	u16			mtu;
 };
 
 /**
@@ -232,7 +220,6 @@ struct neta_ppio_sg_desc {
 /* word 0 */
 #define NETA_TXD_L3_OFF_MASK		(0x0000007f)
 #define NETA_TXD_IP_HLEN_MASK		(0x00001F00)
-#define NETA_TXD_POOL_ID_MASK		(0x00006000)
 #define NETA_TXD_L4_TYPE_MASK		BIT(16)
 #define NETA_TXD_L3_TYPE_MASK		BIT(17)
 #define NETA_TXD_IP_CSUM_MASK		BIT(18)
@@ -274,10 +261,8 @@ struct neta_ppio_sg_desc {
 
 /******************** RxQ-desc *****************/
 #define NETA_RXD_ERR_CRC		0x0
-#define NETA_RXD_BM_POOL_OFF		13
 #define NETA_RXD_ERROR_SUM_OFF		16
 #define NETA_RXD_ERROR_CODE_OFF		17
-#define NETA_RXD_BM_POOL_MASK		(BIT(13) | BIT(14))
 #define NETA_RXD_ERR_CODE_MASK		(BIT(17) | BIT(18))
 #define NETA_RXD_VLAN_OFF		19
 #define NETA_RXD_BPDU_OFF		20
@@ -290,7 +275,6 @@ struct neta_ppio_sg_desc {
 
 #define NETA_RXD_GET_ES(desc)		(((desc)->cmds[0] >> NETA_RXD_ERROR_SUM_OFF) & 1)
 #define NETA_RXD_GET_EC(desc)		(((desc)->cmds[0] & NETA_RXD_ERR_CODE_MASK) >> NETA_RXD_ERROR_CODE_OFF)
-#define NETA_RXD_GET_POOL_ID(desc)	(((desc)->cmds[0] & NETA_RXD_BM_POOL_MASK) >> NETA_RXD_BM_POOL_OFF)
 #define NETA_RXD_GET_VLAN_INFO(desc)	(((desc)->cmds[0] >> NETA_RXD_VLAN_OFF) & 1)
 #define NETA_RXD_GET_L4_CHK_OK(desc)	(((desc)->cmds[0] >> NETA_RXD_L4_CHK_OK_OFF) & 1)
 #define NETA_RXD_GET_L3_IP_FRAG(desc)	(((desc)->cmds[0] >> NETA_RXD_IPV4_FRG_OFF) & 1)
@@ -333,16 +317,6 @@ static inline void neta_ppio_outq_desc_set_cookie(struct neta_ppio_desc *desc, u
 {
 	desc->cmds[6] = (u32)cookie;
 }
-
-/**
- * Set the pool number to return the buffer to, after sending the packet.
- * Calling this API will cause PP HW to return the buffer to the PP Buffer Manager.
- *
- * @param[out]	desc	A pointer to a packet descriptor structure.
- * @param[in]	pool	A bpool handle.
- *
- */
-void neta_ppio_outq_desc_set_pool(struct neta_ppio_desc *desc, struct neta_bpool *pool);
 
 /**
  * Set TXQ descriptors fields relevant for CSUM calculation
@@ -521,8 +495,6 @@ static inline void neta_ppio_inq_desc_get_l4_info(struct neta_ppio_desc *desc, e
  */
 int neta_ppio_inq_desc_get_ip_isfrag(struct neta_ppio_desc *desc);
 
-struct neta_bpool *neta_ppio_inq_desc_get_bpool(struct neta_ppio_desc *desc, struct neta_ppio *ppio);
-
 /**
  * Check if packet in inq packet descriptor has a L2 MAC (CRC) error condition.
  *
@@ -594,9 +566,6 @@ static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_pkt_error(struct 
 /**
  * Send a batch of frames (single dscriptor) on an OutQ of PP-IO.
  *
- * The routine assumes that the BM-Pool is either freed by HW (by appropriate desc
- * setter) or by the MUSDK client SW.
- *
  * @param[in]		ppio	A pointer to a PP-IO object.
  * @param[in]		qid	out-Q id on which to send the frames.
  * @param[in]		descs	A pointer to an array of descriptors representing the
@@ -613,9 +582,6 @@ int neta_ppio_send(struct neta_ppio	*ppio,
 
 /**
  * TODO - Send a batch of S/G frames (single or multiple dscriptors) on an OutQ of PP-IO.
- *
- * The routine assumes that the BM-Pool is either freed by HW (by appropriate desc
- * setter) or by the MUSDK client SW.
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
  * @param[in]		hif	A hif handle.
