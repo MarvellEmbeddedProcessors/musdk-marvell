@@ -950,7 +950,9 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		if (!result) /* Flush cio */
 			continue;
 
-		sam_hw_res_desc_read(res_desc, result);
+		if (sam_hw_res_desc_read(res_desc, result))
+			return -EINVAL;
+
 		if ((result->status == SAM_CIO_OK) && (operation->sa->post_proc_cb))
 			operation->sa->post_proc_cb(operation, res_desc, result);
 
