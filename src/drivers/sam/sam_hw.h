@@ -341,6 +341,8 @@ struct sam_hw_res_desc {
 #define SAM_TOKEN_APPL_ID_SET(id)	(((id) & SAM_TOKEN_APPL_ID_MASK) << SAM_TOKEN_APPL_ID_OFFS)
 #define SAM_TOKEN_APPL_ID_GET(v32)	(((v32) >> SAM_TOKEN_APPL_ID_OFFS) & SAM_TOKEN_APPL_ID_MASK)
 
+#define SAM_DEFAULT_APPL_ID		0x76
+
 /* SA pointer - CDR words #8-9, Token words #2-3 */
 
 /* HW Services - CDR word #10, Token word #4 */
@@ -657,7 +659,7 @@ static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int
 	writel_relaxed(token_header_word, &cmd_desc->words[6]);
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel_relaxed(SAM_TOKEN_APPL_ID_SET(0x76), &cmd_desc->words[7]);
+	writel_relaxed(SAM_TOKEN_APPL_ID_SET(SAM_DEFAULT_APPL_ID), &cmd_desc->words[7]);
 
 	val32 = lower_32_bits((u64)sa_buf->paddr);
 	writel_relaxed(val32, &cmd_desc->words[8]);
@@ -675,7 +677,7 @@ static inline void sam_hw_cdr_ext_token_write(struct sam_hw_cmd_desc *cmd_desc,
 	writel_relaxed(token_header_word, &cmd_desc->words[6]);
 
 	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel_relaxed(SAM_TOKEN_APPL_ID_SET(0x76), &cmd_desc->words[7]);
+	writel_relaxed(SAM_TOKEN_APPL_ID_SET(SAM_DEFAULT_APPL_ID), &cmd_desc->words[7]);
 
 	val32 = lower_32_bits(sa_buf->paddr);
 	val32 |= 0x2;
@@ -751,30 +753,49 @@ static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, in
 	writel_relaxed(FIRMWARE_CMD_INV_TR_MASK, &cmd_desc->words[10]);
 }
 
-static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result)
+static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result)
 {
 	u32 val32, errors, cle_err;
+
+	/* ControlWord - Bit[20] - Descr_Oflo and Bit[21] - Buffer_Oflo */
+	val32 = readl_relaxed(&res_desc->words[0]);
+	errors = (val32 & (SAM_DESC_DESCR_OFLO_MASK | SAM_DESC_BUF_OFLO_MASK));
+
+#ifdef MVCONF_SAM_DEBUG
+	/* Check First and Last bits are set */
+	if ((val32 & (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK)) !=
+		     (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK)) {
+		pr_err("%p Result descriptor is not ready, word[0] = 0x%8x\n",
+			res_desc, val32);
+		return -EINVAL;
+	}
+	/* Invalidate First and Last bits - set 0x00 to word #0 */
+	writel_relaxed(0, &res_desc->words[0]);
+
+	/* Check application ID - token_data[2] */
+	val32 = readl_relaxed(&res_desc->words[6]);
+	if (SAM_TOKEN_APPL_ID_GET(val32) != SAM_DEFAULT_APPL_ID) {
+		pr_err("%p Result descriptor is not ready, word[0] = 0x%8x\n",
+			res_desc, val32);
+		return -EINVAL;
+	}
+	/* Invalidate application ID - set 0x00 to token_data[2] */
+	writel_relaxed(SAM_TOKEN_APPL_ID_SET(0), &res_desc->words[6]);
+#endif
 
 	/* Result Token Data - token_data[0] */
 	val32 = readl_relaxed(&res_desc->words[4]);
 	result->out_len = val32 & SAM_TOKEN_PKT_LEN_MASK;
 
-	errors = (val32 >> SAM_RES_TOKEN_ERRORS_OFFS);
+	errors |= (val32 >> SAM_RES_TOKEN_ERRORS_OFFS);
 
-	/* token_data[1] */
+	/* E15 and CLE errors - token_data[1] */
 	val32 = readl_relaxed(&res_desc->words[5]);
 	if (val32 & SAM_RES_TOKEN_E15_MASK)
 		errors |= BIT(15);
 
-	/* ControlWord - Bit[20] - Descr_Oflo and Bit[21] - Buffer_Oflo */
-	val32 = readl_relaxed(&res_desc->words[0]);
-	errors |= (val32 & (SAM_DESC_DESCR_OFLO_MASK | SAM_DESC_BUF_OFLO_MASK));
-
-	/* Result Token Data - token_data[1] */
-	val32 = readl_relaxed(&res_desc->words[5]);
-
 	/* CLE errors bits for extended usage */
-	 cle_err = SAM_RES_TOKEN_CLE_GET(val32);
+	cle_err = SAM_RES_TOKEN_CLE_GET(val32);
 
 	if ((errors == 0) && (cle_err == 0))
 		result->status = SAM_CIO_OK;
@@ -785,6 +806,7 @@ static inline void sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct
 		pr_warn("HW error: errors = 0x%08x, cle_err = 0x%08x\n",
 			errors, cle_err);
 	}
+	return 0;
 }
 
 static inline void sam_hw_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)
