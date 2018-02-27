@@ -126,9 +126,11 @@ struct tx_shadow_q_entry {
 struct tx_shadow_q {
 	u16				read_ind;	/* read index */
 	u16				write_ind;	/* write index */
+	u16				send_ind;	/* send index */
 	bool				shared_q;
 	pthread_mutex_t			read_lock;
 	pthread_mutex_t			write_lock;
+	pthread_mutex_t			send_lock;
 	struct tx_shadow_q_entry	*ents;		/* array of entries */
 	int				size;
 };
@@ -373,16 +375,17 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 				  u16			 num)
 {
 	struct tx_shadow_q	*shadow_q;
-	int			 shadow_q_size;
-	struct pp2_ppio_desc	 descs[APP_MAX_BURST_SIZE];
+	int			shadow_q_size;
+	struct pp2_ppio_desc	descs[APP_MAX_BURST_SIZE];
 	struct pp2_lcl_common_args *pp2_args = larg_cmn->plat;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg_cmn->perf_cntrs;
 	struct lcl_port_desc	*rx_lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
 	struct lcl_port_desc	*tx_lcl_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
-	u16			 i, j, tx_num, shadowq_full_drop_num = 0, write_ind, read_ind;
-	int			 mycyc, max_write;
+	u16			i, j, tx_num, shadowq_full_drop_num = 0, write_ind, write_start_ind, read_ind;
+	int			mycyc, max_write;
 #ifdef APP_TX_RETRY
-	u16			 desc_idx = 0, cnt = 0;
+	u16			desc_idx = 0, cnt = 0;
+	int			orig_num;
 #endif
 
 #ifdef APP_PKT_ECHO_SUPPORT
@@ -420,7 +423,8 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 		num = max_write;
 	}
 	/* Work with local copy */
-	write_ind = shadow_q->write_ind;
+	write_ind = write_start_ind = shadow_q->write_ind;
+
 	if (((shadow_q_size - 1) - shadow_q->write_ind) >= num)
 		shadow_q->write_ind += num;
 	else
@@ -513,9 +517,16 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 #endif /* APP_DESCRIPTORS_DUMP */
 
 #ifdef APP_TX_RETRY
-	do {
-		tx_num = num;
-		if (num) {
+	orig_num = num;
+	if (num) {
+		if (shadow_q->shared_q) {
+			/* CPU's w/ shared_q cannot send simultaneously, because buffers must be freed in order */
+			while (shadow_q->send_ind != write_start_ind)
+				cpu_relax(); /* mem-barrier not required, cpu_relax() ensures send_ind is re-loaded */
+			pthread_mutex_lock(&shadow_q->send_lock);
+		}
+		do {
+			tx_num = num;
 			pp2_ppio_send(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif, tc,
 				      &descs[desc_idx], &tx_num);
 			if (num > tx_num) {
@@ -527,24 +538,34 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 			num -= tx_num;
 			INC_TX_COUNT(rx_lcl_port_desc, tx_num);
 			perf_cntrs->tx_cnt += tx_num;
+		} while (num);
+		if (orig_num) {
+			if (((shadow_q_size - 1) - shadow_q->send_ind) >= orig_num)
+				shadow_q->send_ind += orig_num;
+			else
+				shadow_q->send_ind = orig_num - (shadow_q_size - shadow_q->send_ind);
 		}
-		free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
-				  tx_qid, pp2_args->multi_buffer_release);
-	} while (num);
+		if (shadow_q->shared_q)
+			pthread_mutex_unlock(&shadow_q->send_lock);
+	}
+	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
+			  tx_qid, pp2_args->multi_buffer_release);
+
 	SET_MAX_RESENT(rx_lcl_port_desc, cnt);
 #else
 	if (num) {
+		if (shadow_q->shared_q)
+			pthread_mutex_lock(&shadow_q->send_lock);
 		tx_num = num;
 		pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif, tx_qid, descs, &tx_num);
+		if (shadow_q->shared_q)
+			pthread_mutex_unlock(&shadow_q->send_lock);
 		if (num > tx_num) {
 			u16 not_sent = num - tx_num;
 			/* Free not sent buffers */
 			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
 						(shadow_q_size - not_sent + shadow_q->write_ind) :
 						shadow_q->write_ind - not_sent;
-			/* TODO: Only for shadow_qs that have a lock, copy shadow_buffers that will be freed locally,
-			 *       so that below pthread_mutex_unlock() can be done here, before free_multi_buffers().
-			 */
 			if (pp2_args->multi_buffer_release)
 				free_multi_buffers(rx_lcl_port_desc, tx_lcl_port_desc,
 						   pp2_args->hif, write_ind, not_sent, tx_qid);
