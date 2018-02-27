@@ -44,7 +44,7 @@
  */
 /* Absolute number of hardware BM Pools */
 #define PP2_BPOOL_NUM_POOLS		(16)
-#define PP2_MAX_NUM_PUT_BUFFS		(4096)
+#define PP2_MAX_NUM_PUT_BUFFS		(8192)
 
 struct pp2_bpool {
 	int	pp2_id;		/* PP2 Instance */
