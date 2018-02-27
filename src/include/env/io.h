@@ -43,17 +43,23 @@
 #define __iomem
 
 #if __WORDSIZE == 64
-#define dsb(opt)       asm volatile("dsb " #opt : : : "memory")
+#define dsb(opt)	({ asm volatile("dsb " #opt : : : "memory"); })
 #define rmb()		dsb(ld)
 #define wmb()		dsb(st)
 #define __iormb()	rmb()
 #define __iowmb()	wmb()
+#define cpu_relax()	({ asm volatile("yield" : : : "memory"); })
+#define cpu_relax_lowlatency()	cpu_relax()
 #else
-#define dmb(opt)       asm volatile("dmb " #opt : : : "memory")
+#define dmb(opt)	({ asm volatile("dmb " #opt : : : "memory"); })
 #define rmb()		dmb(sy)
 #define wmb()		dmb(sy)
 #define __iormb()	rmb()
 #define __iowmb()	wmb()
+
+#define barrier()	({ asm volatile("" : : : "memory"); })
+#define cpu_relax()	barrier()
+
 #endif
 
 /*

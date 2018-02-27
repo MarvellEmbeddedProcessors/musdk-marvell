@@ -1432,6 +1432,7 @@ int app_port_shared_shadowq_create(struct app_shadowqs	**app_shadow_q, u32 thr_m
 	for (i = 0; i < num_shadow_qs; i++) {
 		app_q->shadow_qs[i].read_ind = 0;
 		app_q->shadow_qs[i].write_ind = 0;
+		app_q->shadow_qs[i].send_ind = 0;
 		app_q->shadow_qs[i].size = shadow_q_size;
 		app_q->shadow_qs[i].shared_q = true;
 		app_q->shadow_qs[i].ents =
@@ -1440,6 +1441,7 @@ int app_port_shared_shadowq_create(struct app_shadowqs	**app_shadow_q, u32 thr_m
 			return -ENOMEM;
 		pthread_mutex_init(&app_q->shadow_qs[i].read_lock, NULL);
 		pthread_mutex_init(&app_q->shadow_qs[i].write_lock, NULL);
+		pthread_mutex_init(&app_q->shadow_qs[i].send_lock, NULL);
 	}
 
 	*app_shadow_q = app_q;
@@ -1487,6 +1489,7 @@ static void app_port_shadowq_init(int lcl_id, struct lcl_port_desc *lcl_port, st
 	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
 		lcl_port->shadow_qs[i].read_ind = 0;
 		lcl_port->shadow_qs[i].write_ind = 0;
+		lcl_port->shadow_qs[i].send_ind = 0;
 		lcl_port->shadow_qs[i].shared_q = false;
 		lcl_port->shadow_qs[i].size = lcl_port->shadow_q_size;
 		lcl_port->shadow_qs[i].ents =
@@ -1530,15 +1533,16 @@ static void app_shadowqs_deinit(struct tx_shadow_q *shadow_q, int num_shadow_qs,
 	int i, cnt = 0;
 
 	for (i = 0; i < num_shadow_qs; i++) {
-		if (shadow_q->read_ind > shadow_q->write_ind) {
-			cnt = shadow_q->size - shadow_q->read_ind + shadow_q->write_ind;
+		if (shadow_q->read_ind > shadow_q->send_ind) {
+			cnt = shadow_q->size - shadow_q->read_ind + shadow_q->send_ind;
 			tx_shadow_q_buf_free_cnt[lcl_thr_id] += cnt;
 		} else {
-			cnt = shadow_q->write_ind - shadow_q->read_ind;
+			cnt = shadow_q->send_ind - shadow_q->read_ind;
 			tx_shadow_q_buf_free_cnt[lcl_thr_id] += cnt;
 		}
 		shadow_q->read_ind = 0;
 		shadow_q->write_ind = 0;
+		shadow_q->send_ind = 0;
 		free(shadow_q->ents);
 		shadow_q++;
 	}
