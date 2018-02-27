@@ -34,22 +34,35 @@
 #define __SPINLOCK_H__
 
 #ifndef __KERNEL__
-#include <pthread.h>
 #include "env/mv_debug.h"
 
 #ifndef spinlock_t
-#define spinlock_t		pthread_mutex_t
 
-#define spin_lock_init(_lock)							\
-	do {									\
-		int err = pthread_mutex_init(_lock, NULL);			\
-		if (err)							\
-			pr_warn("Failed to initialize spinlock (%d)!", err);	\
-	} while (0)
+typedef struct  spinlock {
+	char lock;
+} spinlock_t;
 
-#define spin_lock(lock)			pthread_mutex_lock(lock)
-#define spin_trylock(lock)		pthread_mutex_trylock(lock)
-#define spin_unlock(lock)		pthread_mutex_unlock(lock)
+static inline void spin_lock_init(spinlock_t *spinlock)
+{
+	__atomic_clear((&spinlock->lock), __ATOMIC_RELAXED);
+}
+
+static inline void spin_lock(spinlock_t *spinlock)
+{
+	while (__atomic_test_and_set((&spinlock->lock), __ATOMIC_ACQUIRE))
+		while (__atomic_load_n((&spinlock->lock), __ATOMIC_RELAXED))
+			;
+}
+
+static inline int spin_trylock(spinlock_t *spinlock)
+{
+	return (__atomic_test_and_set((&spinlock->lock), __ATOMIC_ACQUIRE) == 0);
+}
+
+static inline void spin_unlock(spinlock_t *spinlock)
+{
+	__atomic_clear((&spinlock->lock), __ATOMIC_RELEASE);
+}
 
 #define spin_lock_irqsave(_lock, _flags)\
 	do {				\

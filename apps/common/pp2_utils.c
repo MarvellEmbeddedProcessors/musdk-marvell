@@ -1439,9 +1439,9 @@ int app_port_shared_shadowq_create(struct app_shadowqs	**app_shadow_q, u32 thr_m
 			(struct tx_shadow_q_entry *)malloc(shadow_q_size * sizeof(struct tx_shadow_q_entry));
 		if (!app_q->shadow_qs[i].ents)
 			return -ENOMEM;
-		pthread_mutex_init(&app_q->shadow_qs[i].read_lock, NULL);
-		pthread_mutex_init(&app_q->shadow_qs[i].write_lock, NULL);
-		pthread_mutex_init(&app_q->shadow_qs[i].send_lock, NULL);
+		spin_lock_init(&(app_q->shadow_qs[i].read_lock));
+		spin_lock_init(&(app_q->shadow_qs[i].write_lock));
+		spin_lock_init(&(app_q->shadow_qs[i].send_lock));
 	}
 
 	*app_shadow_q = app_q;
