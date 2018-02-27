@@ -39,6 +39,8 @@
 #include "mv_pp2_hif.h"
 #include "mv_pp2_ppio.h"
 #include "mv_pp2_bpool.h"
+#include "env/spinlock.h"
+
 
 
 #define MVAPPS_INVALID_COOKIE_HIGH_BITS		(~0)
@@ -128,9 +130,9 @@ struct tx_shadow_q {
 	u16				write_ind;	/* write index */
 	u16				send_ind;	/* send index */
 	bool				shared_q;
-	pthread_mutex_t			read_lock;
-	pthread_mutex_t			write_lock;
-	pthread_mutex_t			send_lock;
+	spinlock_t			read_lock;
+	spinlock_t			write_lock;
+	spinlock_t			send_lock;
 	struct tx_shadow_q_entry	*ents;		/* array of entries */
 	int				size;
 };
@@ -350,7 +352,7 @@ static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
 	struct tx_shadow_q *shadow_q = &tx_port->shadow_qs[tc];
 
 	/* If shadow_q is locked, another thread is currently running free_sent_buffers for this shadow_q */
-	if (shadow_q->shared_q && pthread_mutex_trylock(&shadow_q->read_lock))
+	if (shadow_q->shared_q && !spin_trylock(&shadow_q->read_lock))
 		return;
 
 	pp2_ppio_get_num_outq_done(tx_port->ppio, hif, tc, &tx_num);
@@ -361,7 +363,7 @@ static inline void free_sent_buffers(struct lcl_port_desc	*rx_port,
 		shadow_q->read_ind = free_buffers(rx_port, tx_port, hif, shadow_q->read_ind, tx_num, tc);
 
 	if (shadow_q->shared_q)
-		pthread_mutex_unlock(&shadow_q->read_lock);
+		spin_unlock(&shadow_q->read_lock);
 }
 #endif
 
@@ -411,7 +413,7 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 
 	/* write_index will be updated */
 	if (shadow_q->shared_q)
-		pthread_mutex_lock(&shadow_q->write_lock);
+		spin_lock(&shadow_q->write_lock);
 
 	/* Calculate indexes, and possible overflow conditions */
 	if (read_ind > shadow_q->write_ind)
@@ -432,7 +434,7 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 
 #ifdef APP_TX_RETRY
 	if (shadow_q->shared_q)
-		pthread_mutex_unlock(&shadow_q->write_lock);
+		spin_unlock(&shadow_q->write_lock);
 #endif
 
 	for (i = 0; i < num; i++) {
@@ -523,7 +525,7 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 			/* CPU's w/ shared_q cannot send simultaneously, because buffers must be freed in order */
 			while (shadow_q->send_ind != write_start_ind)
 				cpu_relax(); /* mem-barrier not required, cpu_relax() ensures send_ind is re-loaded */
-			pthread_mutex_lock(&shadow_q->send_lock);
+			spin_lock(&shadow_q->send_lock);
 		}
 		do {
 			tx_num = num;
@@ -546,7 +548,7 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 				shadow_q->send_ind = orig_num - (shadow_q_size - shadow_q->send_ind);
 		}
 		if (shadow_q->shared_q)
-			pthread_mutex_unlock(&shadow_q->send_lock);
+			spin_unlock(&shadow_q->send_lock);
 	}
 	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
 			  tx_qid, pp2_args->multi_buffer_release);
@@ -555,11 +557,11 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 #else
 	if (num) {
 		if (shadow_q->shared_q)
-			pthread_mutex_lock(&shadow_q->send_lock);
+			spin_lock(&shadow_q->send_lock);
 		tx_num = num;
 		pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif, tx_qid, descs, &tx_num);
 		if (shadow_q->shared_q)
-			pthread_mutex_unlock(&shadow_q->send_lock);
+			spin_unlock(&shadow_q->send_lock);
 		if (num > tx_num) {
 			u16 not_sent = num - tx_num;
 			/* Free not sent buffers */
@@ -582,7 +584,7 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 
 	/* Unlock only after shadow_q->write_ind has been finalized, and buffers have been free */
 	if (shadow_q->shared_q)
-		pthread_mutex_unlock(&shadow_q->write_lock);
+		spin_unlock(&shadow_q->write_lock);
 
 	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
 			  tx_qid, pp2_args->multi_buffer_release);
