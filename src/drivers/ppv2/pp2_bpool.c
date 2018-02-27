@@ -174,7 +174,20 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
 	int i, pp2_id;
 	int pp_ind[PP2_NUM_PKT_PROC] = {0};
 
+
+	if (unlikely(*num >= PP2_MAX_NUM_PUT_BUFFS)) {
+		pr_err("(%s):Received too many buffers:%d > MAX:%d\n", __func__, *num, PP2_MAX_NUM_PUT_BUFFS);
+	}
 	for (i = 0; i < (*num); i++) {
+		/* TODO: Before version release, skip buffer instead of crashing */
+		if (unlikely(!(buff_entry + i))) {
+			pr_err("(%s):buf_entry %d out of %d = NULL\n", __func__, i, *num);
+			mdelay(100);
+		}
+		if (unlikely(!(buff_entry[i].bpool))) {
+			pr_err("(%s):buf_entry[%d].bpool out of %d = NULL\n", __func__, i, *num);
+			mdelay(100);
+		}
 		pp2_id = buff_entry[i].bpool->pp2_id;
 		cur_desc = hif->rel_descs + PP2_MAX_NUM_PUT_BUFFS * pp2_id + pp_ind[pp2_id];
 		pp2_ppio_outq_desc_reset(cur_desc);
