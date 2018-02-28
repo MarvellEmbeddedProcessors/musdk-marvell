@@ -132,6 +132,7 @@ struct glob_arg {
 
 struct local_arg {
 	struct local_common_args	cmn_args;  /* Keep first */
+	struct buff_release_entry	dropped_buffers[PKT_FWD_APP_DFLT_BURST_SIZE];
 };
 
 static struct glob_arg garg = {};
@@ -252,8 +253,6 @@ static inline int l3fwd_pkt_hash(char *pkt, int l3_off, int l4_off)
 }
 
 
-static struct buff_release_entry drop_buff[PKT_FWD_APP_DFLT_BURST_SIZE];
-
 static inline int loop_sw_recycle(struct local_arg	*larg,
 				  u8			 rx_ppio_id,
 				  u8			 tc,
@@ -264,8 +263,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 	struct tx_shadow_q	*shadow_q;
-	struct pp2_ppio_desc	*desc_ptr;
-	struct pp2_ppio_desc	*desc_ptr_cur;
+	struct buff_release_entry *drop_buff = &larg->dropped_buffers[0];
+	struct pp2_ppio_desc	*desc_ptr, *desc_ptr_cur, *desc_ptr_send_cur;
 	struct pp2_ppio		*tx_ppio;
 	struct pp2_hif		*hif = pp2_args->hif;
 	struct pp2_bpool	*bpool;
@@ -286,55 +285,12 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	INC_RX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num);
 	perf_cntrs->rx_cnt += num;
 
-	if (num < 1)
+	if (num == 0)
 		return 0;
 
+	dif = -1;
 	desc_ptr = &descs[0];
-	buff = (char *)(app_get_high_addr() | (uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr));
-	pa = pp2_ppio_inq_desc_get_phys_addr(desc_ptr);
-	len = pp2_ppio_inq_desc_get_pkt_len(desc_ptr);
-	bpool = pp2_ppio_inq_desc_get_bpool(desc_ptr, pp2_args->lcl_ports_desc[rx_ppio_id].ppio);
-#ifdef PKT_FWD_APP_USE_PREFETCH
-	if (num > prefetch_shift) {
-		tmp_buff = (char *)(app_get_high_addr() |
-				    (uintptr_t)pp2_ppio_inq_desc_get_cookie(desc_ptr + prefetch_shift));
-		tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
-		prefetch(tmp_buff);
-	}
-#endif /* PKT_FWD_APP_USE_PREFETCH */
-	tmp_buff = buff;
-	tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
-
-	pp2_ppio_inq_desc_get_l3_info(desc_ptr, &l3_type, &l3_offset);
-#ifndef LPM_FRWD
-	pp2_ppio_inq_desc_get_l4_info(desc_ptr, &l4_type, &l4_offset);
-#endif
-
-	dif = garg.fwd_func(tmp_buff, l3_offset, l4_offset);
-	if (dif < 0) {
-		drop_buff[num_drops].buff.cookie = (uintptr_t)buff;
-		drop_buff[num_drops].buff.addr = pa;
-		drop_buff[num_drops].bpool = bpool;
-		num_drops++;
-		tx_count = 0;
-		pr_debug("drop\n");
-	} else {
-		pp2_ppio_outq_desc_reset(desc_ptr);
-		pp2_ppio_outq_desc_set_phys_addr(desc_ptr, pa);
-		pp2_ppio_outq_desc_set_pkt_offset(desc_ptr, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
-		pp2_ppio_outq_desc_set_pkt_len(desc_ptr, len);
-
-		shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
-		shadow_q_size = pp2_args->lcl_ports_desc[dif].shadow_q_size;
-
-		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
-		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
-		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
-		shadow_q->write_ind++;
-		if (shadow_q->write_ind == shadow_q_size)
-			shadow_q->write_ind = 0;
-		tx_count = 1;
-	}
+	tx_count = 0;
 
 	do {
 		/*
@@ -342,7 +298,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		 * to the same if and send them at once
 		 */
 		dst_port = dif;
-		for (i = 1; i < num; i++) {
+		desc_ptr_send_cur = desc_ptr;
+		for (i = 0; i < num; i++) {
 			desc_ptr_cur = desc_ptr + i;
 
 			buff = (char *)(app_get_high_addr() |
@@ -369,17 +326,24 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #endif
 
 			dif = garg.fwd_func(tmp_buff, l3_offset, l4_offset);
-			if (dif < 0) {
+			if (unlikely(dif < 0)) {
 				drop_buff[num_drops].buff.cookie = (uintptr_t)buff;
 				drop_buff[num_drops].buff.addr = pa;
 				drop_buff[num_drops].bpool = bpool;
 				num_drops++;
 				continue;
 			}
-			pp2_ppio_outq_desc_reset(desc_ptr_cur);
-			pp2_ppio_outq_desc_set_phys_addr(desc_ptr_cur, pa);
-			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_cur, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
-			pp2_ppio_outq_desc_set_pkt_len(desc_ptr_cur, len);
+			if (dif != dst_port) {
+				if (unlikely(dst_port == -1)) /* destination has never been set yet */
+					dst_port = dif;
+				else
+					break; /* descriptor is handled in next occurrence of this for-loop */
+			}
+
+			pp2_ppio_outq_desc_reset(desc_ptr_send_cur);
+			pp2_ppio_outq_desc_set_phys_addr(desc_ptr_send_cur, pa);
+			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_send_cur, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
+			pp2_ppio_outq_desc_set_pkt_len(desc_ptr_send_cur, len);
 			shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
 			shadow_q_size = pp2_args->lcl_ports_desc[dif].shadow_q_size;
 			shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
@@ -388,35 +352,34 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
 			shadow_q->write_ind = (shadow_q->write_ind + 1 == shadow_q_size) ? 0 : shadow_q->write_ind + 1;
 
-			if (dif != dst_port)
-				break;
 			tx_count++;
+			desc_ptr_send_cur++;
 		}
 
 		SET_MAX_BURST(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_count);
+
+		desc_idx = 0;
 		while (tx_count) {
 			tx_ppio = pp2_args->lcl_ports_desc[dst_port].ppio;
 			tx_num = tx_count;
-			if (tx_count) {
-				pp2_ppio_send(tx_ppio, hif, tc, desc_ptr + desc_idx, &tx_num);
-				if (tx_count > tx_num) {
-					if (!cnt)
-					INC_TX_RETRY_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
-					cnt++;
-				}
-				desc_idx += tx_num;
-				tx_count -= tx_num;
+
+			pp2_ppio_send(tx_ppio, hif, tc, desc_ptr + desc_idx, &tx_num);
+			if (tx_count > tx_num) {
+				if (!cnt)
+				INC_TX_RETRY_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
+				cnt++;
+			}
+			desc_idx += tx_num;
+			tx_count -= tx_num;
 			INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
 			perf_cntrs->tx_cnt += tx_num;
-			}
+
 			free_sent_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id],
 					  &pp2_args->lcl_ports_desc[dst_port], hif, tc, 1);
 		}
+
 		desc_ptr += i;
 		num -= i;
-		if (dif >= 0)
-			tx_count = 1;
-
 	} while (num > 0);
 
 	/* free all rx buffer drops */
