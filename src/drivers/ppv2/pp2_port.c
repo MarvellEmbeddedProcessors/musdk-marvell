@@ -917,7 +917,7 @@ pp2_port_config_outq(struct pp2_port *port)
 	/* Initialize hardware internals for TXQs */
 
 	/* TODO: Temporary code to for testing, mechanism required to find this pp2's mem_id */
-	u32 mem_id = port->parent->id;
+	u32 mem_id = pp2_get_mem_id(port->parent->id);
 
 	port->tx_qs_mem = mv_sys_dma_mem_region_get(mem_id);
 	pr_debug("(%s)Got pointer %p for mem_id(%d)\n", __func__, port->tx_qs_mem, mem_id);

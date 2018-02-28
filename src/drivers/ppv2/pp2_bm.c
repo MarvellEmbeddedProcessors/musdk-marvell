@@ -226,8 +226,8 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	pr_debug("BM: pool=%u buf_num %u bppe_num %u bppe_region_size %u\n",
 		bm_pool->bm_pool_id, bm_pool->bm_pool_buf_num, bppe_num, bppe_region_size);
 
-	/* TODO: Temporary code to for testing, mechanism required to find this pp2's mem_id */
-	mem_id = param->pp2_id;
+	mem_id = pp2_get_mem_id(bm_pool->pp2_id);
+
 	bm_pool->bppe_mem = mv_sys_dma_mem_region_get(mem_id);
 	pr_debug("(%s)Got pointer %p for mem_id(%d)\n", __func__, bm_pool->bppe_mem, mem_id);
 

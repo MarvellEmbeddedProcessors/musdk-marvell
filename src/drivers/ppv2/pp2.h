@@ -605,6 +605,17 @@ static inline u16 pp2_rss_map_get(void)
 	return pp2_ptr->pp2_common.rss_tbl_map;
 }
 
+static inline u32 pp2_get_mem_id(u32 pp2_id)
+{
+	/* TODO: Temporary code to for testing, mechanism required to find this pp2's mem_id.
+	 *       Currently assume two mem_ids, and set mem_id=1, if pp2_id is in second half of pp2_instances.
+	*/
+	if ((pp2_get_num_inst() > 1) && (pp2_id >= (pp2_get_num_inst() >> 1)))
+		return 1;
+
+	return 0;
+}
+
 int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);
 int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);
 int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status);
