@@ -38,6 +38,8 @@
 #include <sched.h>
 #include <stdbool.h>
 #include <sys/sysinfo.h>
+#include <limits.h>
+
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -268,10 +270,9 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	struct pp2_ppio		*tx_ppio;
 	struct pp2_hif		*hif = pp2_args->hif;
 	struct pp2_bpool	*bpool;
-	int			shadow_q_size;
-	int			dif, dst_port;
+	int			dif, dst_port, shadow_q_size, max_write;
 	int			prefetch_shift = larg->cmn_args.prefetch_shift;
-	u16			i, tx_num, tx_count, len;
+	u16			i, tx_num, tx_count, tx_count_dup, len, read_ind, write_ind, write_start_ind;
 	u16			num_drops = 0, desc_idx = 0, cnt = 0;
 	char			*tmp_buff, *buff;
 	dma_addr_t		pa;
@@ -299,6 +300,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		 */
 		dst_port = dif;
 		desc_ptr_send_cur = desc_ptr;
+		max_write = INT_MAX;
 		for (i = 0; i < num; i++) {
 			desc_ptr_cur = desc_ptr + i;
 
@@ -326,56 +328,104 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 #endif
 
 			dif = garg.fwd_func(tmp_buff, l3_offset, l4_offset);
-			if (unlikely(dif < 0)) {
-				drop_buff[num_drops].buff.cookie = (uintptr_t)buff;
-				drop_buff[num_drops].buff.addr = pa;
-				drop_buff[num_drops].bpool = bpool;
-				num_drops++;
-				continue;
-			}
-			if (dif != dst_port) {
+			if (dif != dst_port && likely(dif >= 0)) {
 				if (unlikely(dst_port == -1)) /* destination has never been set yet */
 					dst_port = dif;
 				else
 					break; /* descriptor is handled in next occurrence of this for-loop */
+			}
+			if (unlikely((dif < 0) || (max_write == 0))) {
+				drop_buff[num_drops].buff.cookie = (uintptr_t)buff;
+				drop_buff[num_drops].buff.addr = pa;
+				drop_buff[num_drops].bpool = bpool;
+				num_drops++;
+				if (max_write == 0)
+					pr_err("%s: port:%d, txq_id:%d, shadow_q size:%d too small, emerg. drops\n",
+						__func__, dst_port, tc, shadow_q_size);
+				continue;
 			}
 
 			pp2_ppio_outq_desc_reset(desc_ptr_send_cur);
 			pp2_ppio_outq_desc_set_phys_addr(desc_ptr_send_cur, pa);
 			pp2_ppio_outq_desc_set_pkt_offset(desc_ptr_send_cur, MVAPPS_PP2_PKT_DEF_EFEC_OFFS);
 			pp2_ppio_outq_desc_set_pkt_len(desc_ptr_send_cur, len);
-			shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
-			shadow_q_size = pp2_args->lcl_ports_desc[dif].shadow_q_size;
-			shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
-			shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
-			shadow_q->ents[shadow_q->write_ind].bpool = bpool;
-			pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie);
-			shadow_q->write_ind = (shadow_q->write_ind + 1 == shadow_q_size) ? 0 : shadow_q->write_ind + 1;
 
+			if (tx_count == 0) {
+				shadow_q = &pp2_args->lcl_ports_desc[dif].shadow_qs[tc];
+				shadow_q_size = pp2_args->lcl_ports_desc[dif].shadow_q_size;
+
+				/* read_index need not be locked, just sampled */
+				read_ind = shadow_q->read_ind;
+
+				/* write_index will be updated */
+				if (shadow_q->shared_q)
+					spin_lock(&shadow_q->write_lock);
+
+				/* Work with local copy */
+				write_ind = write_start_ind = shadow_q->write_ind;
+
+				/* Calculate indexes, and possible overflow conditions */
+				if (read_ind > write_ind)
+					max_write = (read_ind - 1) - write_ind;
+				else
+					max_write = (shadow_q_size - write_ind) + (read_ind - 1);
+			}
+			shadow_q->ents[write_ind].buff_ptr.cookie = (uintptr_t)buff;
+			shadow_q->ents[write_ind].buff_ptr.addr = pa;
+			shadow_q->ents[write_ind].bpool = bpool;
+			pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[write_ind].buff_ptr.cookie);
+
+			if (++write_ind == shadow_q_size)
+				write_ind = 0;
+			max_write--;
 			tx_count++;
 			desc_ptr_send_cur++;
+		}
+		/* tx_count confirms write_ind was updated */
+		if (tx_count) {
+			shadow_q->write_ind = write_ind;
+			if (shadow_q->shared_q)
+				spin_unlock(&shadow_q->write_lock);
 		}
 
 		SET_MAX_BURST(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_count);
 
-		desc_idx = 0;
-		while (tx_count) {
-			tx_ppio = pp2_args->lcl_ports_desc[dst_port].ppio;
-			tx_num = tx_count;
+		if (tx_count) {
+			if (shadow_q->shared_q) {
+				/* CPU's w/ shared_q can't send simultaneously, since buffers must be freed in order */
+				while (shadow_q->send_ind != write_start_ind)
+					cpu_relax(); /* mem-barrier not needed, cpu_relax() ensures send_ind reloads */
 
-			pp2_ppio_send(tx_ppio, hif, tc, desc_ptr + desc_idx, &tx_num);
-			if (tx_count > tx_num) {
-				if (!cnt)
-				INC_TX_RETRY_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
-				cnt++;
+				spin_lock(&shadow_q->send_lock);
 			}
-			desc_idx += tx_num;
-			tx_count -= tx_num;
-			INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
-			perf_cntrs->tx_cnt += tx_num;
 
-			free_sent_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id],
-					  &pp2_args->lcl_ports_desc[dst_port], hif, tc, 1);
+			desc_idx = 0;
+			tx_count_dup = tx_count;
+			while (tx_count) {
+				tx_ppio = pp2_args->lcl_ports_desc[dst_port].ppio;
+				tx_num = tx_count;
+
+				pp2_ppio_send(tx_ppio, hif, tc, &desc_ptr[desc_idx], &tx_num);
+				if (tx_count > tx_num) {
+					if (!cnt)
+					INC_TX_RETRY_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], num - tx_num);
+					cnt++;
+				}
+				desc_idx += tx_num;
+				tx_count -= tx_num;
+				INC_TX_COUNT(&pp2_args->lcl_ports_desc[rx_ppio_id], tx_num);
+				perf_cntrs->tx_cnt += tx_num;
+
+				free_sent_buffers(&pp2_args->lcl_ports_desc[rx_ppio_id],
+						  &pp2_args->lcl_ports_desc[dst_port], hif, tc, 1);
+			}
+			if (((shadow_q_size - 1) - shadow_q->send_ind) >= tx_count_dup)
+				shadow_q->send_ind += tx_count_dup;
+			else
+				shadow_q->send_ind = tx_count_dup - (shadow_q_size - shadow_q->send_ind);
+
+			if (shadow_q->shared_q)
+				spin_unlock(&shadow_q->send_lock);
 		}
 
 		desc_ptr += i;
