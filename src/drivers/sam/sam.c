@@ -115,6 +115,8 @@ static void sam_hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], 
 		mv_md5_hmac_iv(key, key_len, inner, outer);
 	else if (auth_alg == SAM_AUTH_HMAC_SHA1)
 		mv_sha1_hmac_iv(key, key_len, inner, outer);
+	else if (auth_alg == SAM_AUTH_HMAC_SHA2_224)
+		mv_sha224_hmac_iv(key, key_len, inner, outer);
 	else if (auth_alg == SAM_AUTH_HMAC_SHA2_256)
 		mv_sha256_hmac_iv(key, key_len, inner, outer);
 	else if (auth_alg == SAM_AUTH_HMAC_SHA2_384)

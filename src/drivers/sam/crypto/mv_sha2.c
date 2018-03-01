@@ -189,7 +189,7 @@ do { \
 #define sigma1_512(x)	(S64(19, (x)) ^ S64(61, (x)) ^ R(6,    (x)))
 
 /*** SHA-XYZ INITIAL HASH VALUES AND CONSTANTS ************************/
-/* Hash constant words K for SHA-256: */
+/* Hash constant words K for SHA-224 and SHA-256: */
 static const uint32_t K256[64] = {
 	0x428a2f98UL, 0x71374491UL, 0xb5c0fbcfUL, 0xe9b5dba5UL,
 	0x3956c25bUL, 0x59f111f1UL, 0x923f82a4UL, 0xab1c5ed5UL,
@@ -207,6 +207,18 @@ static const uint32_t K256[64] = {
 	0x391c0cb3UL, 0x4ed8aa4aUL, 0x5b9cca4fUL, 0x682e6ff3UL,
 	0x748f82eeUL, 0x78a5636fUL, 0x84c87814UL, 0x8cc70208UL,
 	0x90befffaUL, 0xa4506cebUL, 0xbef9a3f7UL, 0xc67178f2UL
+};
+
+/* Initial hash value H for SHA-224: */
+static const uint32_t sha224_initial_hash_value[8] = {
+	0xC1059ED8,
+	0x367CD507,
+	0x3070DD17,
+	0xF70E5939,
+	0xFFC00B31,
+	0x68581511,
+	0x64F98FA7,
+	0xBEFA4FA4
 };
 
 /* Initial hash value H for SHA-256: */
@@ -288,13 +300,6 @@ static const uint64_t sha512_initial_hash_value[8] = {
 	0x1f83d9abfb41bd6bULL,
 	0x5be0cd19137e2179ULL
 };
-
-/*
- * Constant used by SHA256/384/512_End() functions for converting the
- * digest to a readable hexadecimal character string:
- */
-static const char *sha2_hex_digits = "0123456789abcdef";
-
 
 /*** SHA-256: *********************************************************/
 void mv_sha256_init(SHA256_CTX *context)
@@ -487,7 +492,6 @@ static void mv_sha256_transform(SHA256_CTX *context, const uint32_t *data)
 	/* Clean up */
 	a = b = c = d = e = f = g = h = T1 = T2 = 0;
 }
-
 #endif /* SHA2_UNROLL_TRANSFORM */
 
 void mv_sha256_update(SHA256_CTX *context, const uint8_t *data, size_t len)
@@ -536,7 +540,7 @@ void mv_sha256_update(SHA256_CTX *context, const uint8_t *data, size_t len)
 	usedspace = freespace = 0;
 }
 
-void mv_sha256_final(uint8_t digest[], SHA256_CTX *context)
+void mv_sha256_final(SHA256_CTX *context, uint8_t digest[], int digest_size)
 {
 	uint32_t	*d = (uint32_t *)digest;
 	unsigned int	usedspace;
@@ -588,13 +592,13 @@ void mv_sha256_final(uint8_t digest[], SHA256_CTX *context)
 			/* Convert TO host byte order */
 			int	j;
 
-			for (j = 0; j < 8; j++) {
+			for (j = 0; j < digest_size / 4; j++) {
 				REVERSE32(context->state[j], context->state[j]);
 				*d++ = context->state[j];
 			}
 		}
 #else
-		bcopy(context->state, d, SHA256_DIGEST_LENGTH);
+		bcopy(context->state, d, digest_size);
 #endif
 	}
 
@@ -603,7 +607,7 @@ void mv_sha256_final(uint8_t digest[], SHA256_CTX *context)
 	usedspace = 0;
 }
 
-void mv_sha256_result_copy(SHA256_CTX *context, unsigned char *digest)
+void mv_sha256_result_copy(SHA256_CTX *context, uint8_t *digest)
 {
 	uint32_t	*d = (uint32_t *)digest;
 
@@ -612,7 +616,7 @@ void mv_sha256_result_copy(SHA256_CTX *context, unsigned char *digest)
 		/* Convert TO host byte order */
 		int	j;
 
-		for (j = 0; j < 8; j++) {
+		for (j = 0; j < (SHA256_DIGEST_LENGTH / sizeof(uint32_t)); j++) {
 			REVERSE32(context->state[j], context->state[j]);
 			*d++ = context->state[j];
 		}
@@ -622,38 +626,62 @@ void mv_sha256_result_copy(SHA256_CTX *context, unsigned char *digest)
 #endif
 }
 
-char *mv_sha256_end(SHA256_CTX *context, char buffer[])
+/*** SHA-224: *********************************************************/
+void mv_sha224_init(SHA256_CTX *context)
 {
-	uint8_t	digest[SHA256_DIGEST_LENGTH], *d = digest;
-	int		i;
-
-	/* Sanity check: */
 	if (context == (SHA256_CTX *)0)
-		return (char)0;
+		return;
 
-	if (buffer != (char *)0) {
-		mv_sha256_final(digest, context);
-
-		for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-			*buffer++ = sha2_hex_digits[(*d & 0xf0) >> 4];
-			*buffer++ = sha2_hex_digits[*d & 0x0f];
-			d++;
-		}
-		*buffer = (char)0;
-	} else {
-		bzero(context, sizeof(SHA256_CTX));
-	}
-	bzero(digest, SHA256_DIGEST_LENGTH);
-	return buffer;
+	bcopy(sha224_initial_hash_value, context->state, sizeof(sha224_initial_hash_value));
+	bzero(context->buffer, SHA224_BLOCK_LENGTH);
+	context->bitcount = 0;
 }
 
-char *mv_sha256_data(const uint8_t *data, size_t len, char digest[SHA256_DIGEST_STRING_LENGTH])
+void mv_sha224(const uint8_t *data, size_t len, uint8_t digest[SHA224_DIGEST_LENGTH])
 {
 	SHA256_CTX	context;
 
-	mv_sha256_init(&context);
-	mv_sha256_update(&context, data, len);
-	return mv_sha256_end(&context, digest);
+	mv_sha224_init(&context);
+	mv_sha256_update((SHA256_CTX *)&context, data, len);
+	mv_sha256_final((SHA256_CTX *)&context, digest, SHA224_DIGEST_LENGTH);
+}
+
+void mv_sha224_hmac_iv(uint8_t key[], int key_len, uint8_t inner[], uint8_t outer[])
+{
+	unsigned char   in[SHA224_BLOCK_LENGTH];
+	unsigned char   out[SHA224_BLOCK_LENGTH];
+	unsigned char   key_buf[SHA224_BLOCK_LENGTH];
+	int             i, max_key_len;
+	SHA256_CTX	ctx;
+
+	max_key_len = SHA224_BLOCK_LENGTH;
+
+	if (key_len > max_key_len) {
+		/* Hash Key first */
+		memset(key_buf, 0, sizeof(key_buf));
+		mv_sha224(key, key_len, key_buf);
+		key = key_buf;
+		key_len = max_key_len;
+	}
+
+	for (i = 0; i < key_len; i++) {
+		in[i] = 0x36 ^ key[i];
+		out[i] = 0x5c ^ key[i];
+	}
+	for (i = key_len; i < max_key_len; i++) {
+		in[i] = 0x36;
+		out[i] = 0x5c;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_sha224_init(&ctx);
+	mv_sha256_update(&ctx, in, max_key_len);
+	mv_sha256_result_copy(&ctx, inner);
+
+	memset(&ctx, 0, sizeof(ctx));
+	mv_sha224_init(&ctx);
+	mv_sha256_update(&ctx, out, max_key_len);
+	mv_sha256_result_copy(&ctx, outer);
 }
 
 void mv_sha256(const uint8_t *data, size_t len, uint8_t digest[SHA256_DIGEST_LENGTH])
@@ -662,11 +690,11 @@ void mv_sha256(const uint8_t *data, size_t len, uint8_t digest[SHA256_DIGEST_LEN
 
 	mv_sha256_init(&context);
 	mv_sha256_update(&context, data, len);
-	mv_sha256_final(digest, &context);
+	mv_sha256_final(&context, digest, SHA256_DIGEST_LENGTH);
 }
 
-void mv_sha256_hmac_iv(unsigned char key[], int key_len,
-		     unsigned char inner[], unsigned char outer[])
+void mv_sha256_hmac_iv(uint8_t key[], int key_len,
+		     uint8_t inner[], uint8_t outer[])
 {
 	unsigned char   in[SHA256_BLOCK_LENGTH];
 	unsigned char   out[SHA256_BLOCK_LENGTH];
@@ -982,7 +1010,7 @@ static void mv_sha512_last(SHA512_CTX *context)
 	mv_sha512_transform(context, (uint64_t *)context->buffer);
 }
 
-void mv_sha512_final(uint8_t digest[], SHA512_CTX *context)
+void mv_sha512_final(SHA512_CTX *context, uint8_t digest[], int digest_size)
 {
 	uint64_t	*d = (uint64_t *)digest;
 
@@ -997,13 +1025,13 @@ void mv_sha512_final(uint8_t digest[], SHA512_CTX *context)
 			/* Convert TO host byte order */
 			int	j;
 
-			for (j = 0; j < 8; j++) {
+			for (j = 0; j < (digest_size / sizeof(uint64_t)); j++) {
 				REVERSE64(context->state[j], context->state[j]);
 				*d++ = context->state[j];
 			}
 		}
 #else
-		bcopy(context->state, d, SHA512_DIGEST_LENGTH);
+		bcopy(context->state, d, digest_size);
 #endif
 	}
 
@@ -1011,43 +1039,13 @@ void mv_sha512_final(uint8_t digest[], SHA512_CTX *context)
 	bzero(context, sizeof(context->state));
 }
 
-char *mv_sha512_end(SHA512_CTX *context, char buffer[])
-{
-	uint8_t	digest[SHA512_DIGEST_LENGTH], *d = digest;
-	int		i;
-
-	if (buffer != (char *)0) {
-		mv_sha512_final(digest, context);
-
-		for (i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-			*buffer++ = sha2_hex_digits[(*d & 0xf0) >> 4];
-			*buffer++ = sha2_hex_digits[*d & 0x0f];
-			d++;
-		}
-		*buffer = (char)0;
-	} else {
-		bzero(context, sizeof(SHA512_CTX));
-	}
-	bzero(digest, SHA512_DIGEST_LENGTH);
-	return buffer;
-}
-
-void mv_sha512(const uint8_t *data, size_t len, uint8_t digest[SHA512_DIGEST_STRING_LENGTH])
+void mv_sha512(const uint8_t *data, size_t len, uint8_t digest[SHA512_DIGEST_LENGTH])
 {
 	SHA512_CTX	context;
 
 	mv_sha512_init(&context);
 	mv_sha512_update(&context, data, len);
-	mv_sha512_final(digest, &context);
-}
-
-char *mv_sha512_data(const uint8_t *data, size_t len, char digest[SHA512_DIGEST_STRING_LENGTH])
-{
-	SHA512_CTX	context;
-
-	mv_sha512_init(&context);
-	mv_sha512_update(&context, data, len);
-	return mv_sha512_end(&context, digest);
+	mv_sha512_final(&context, digest, SHA512_DIGEST_LENGTH);
 }
 
 void mv_sha512_hmac_iv(unsigned char key[], int key_len,
@@ -1088,93 +1086,23 @@ void mv_sha512_hmac_iv(unsigned char key[], int key_len,
 }
 
 /*** SHA-384: *********************************************************/
-void mv_sha384_init(SHA384_CTX *context)
+void mv_sha384_init(SHA512_CTX *context)
 {
-	if (context == (SHA384_CTX *)0)
+	if (context == (SHA512_CTX *)0)
 		return;
 
-	bcopy(sha384_initial_hash_value, context->state, SHA384_DIGEST_LENGTH);
+	bcopy(sha384_initial_hash_value, context->state, sizeof(sha384_initial_hash_value));
 	bzero(context->buffer, SHA384_BLOCK_LENGTH);
 	context->bitcount[0] = context->bitcount[1] = 0;
 }
 
-void mv_sha384_update(SHA384_CTX *context, const uint8_t *data, size_t len)
-{
-	mv_sha512_update((SHA512_CTX *)context, data, len);
-}
-
-void mv_sha384_final(uint8_t digest[], SHA384_CTX *context)
-{
-	uint64_t	*d = (uint64_t *)digest;
-
-	/* Sanity check: */
-	if (context == (SHA384_CTX *)0)
-		return;
-
-	/* If no digest buffer is passed, we don't bother doing this: */
-	if (digest != (uint8_t *)0) {
-		mv_sha512_last((SHA512_CTX *)context);
-
-		/* Save the hash data for output: */
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-		{
-			/* Convert TO host byte order */
-			int	j;
-
-			for (j = 0; j < 6; j++) {
-				REVERSE64(context->state[j], context->state[j]);
-				*d++ = context->state[j];
-			}
-		}
-#else
-		bcopy(context->state, d, 6 * sizeof(uint64_t));
-#endif
-	}
-
-	/* Zero out state data */
-	bzero(context, sizeof(context->state));
-}
-
-char *mv_sha384_end(SHA384_CTX *context, char buffer[])
-{
-	uint8_t	digest[SHA384_DIGEST_LENGTH], *d = digest;
-	int		i;
-
-	if (context == (SHA384_CTX *)0)
-		return 0;
-
-	if (buffer != (char *)0) {
-		mv_sha384_final(digest, context);
-
-		for (i = 0; i < SHA384_DIGEST_LENGTH; i++) {
-			*buffer++ = sha2_hex_digits[(*d & 0xf0) >> 4];
-			*buffer++ = sha2_hex_digits[*d & 0x0f];
-			d++;
-		}
-		*buffer = (char)0;
-	} else {
-		bzero(context, sizeof(SHA384_CTX));
-	}
-	bzero(digest, SHA384_DIGEST_LENGTH);
-	return buffer;
-}
-
-char *mv_sha384_data(const uint8_t *data, size_t len, char digest[SHA384_DIGEST_STRING_LENGTH])
-{
-	SHA384_CTX	context;
-
-	mv_sha384_init(&context);
-	mv_sha384_update(&context, data, len);
-	return mv_sha384_end(&context, digest);
-}
-
 void mv_sha384(const uint8_t *data, size_t len, uint8_t digest[SHA384_DIGEST_LENGTH])
 {
-	SHA384_CTX	context;
+	SHA512_CTX	context;
 
 	mv_sha384_init(&context);
-	mv_sha384_update(&context, data, len);
-	mv_sha384_final(digest, &context);
+	mv_sha512_update(&context, data, len);
+	mv_sha512_final(&context, digest, SHA384_DIGEST_LENGTH);
 }
 
 void mv_sha512_result_copy(SHA512_CTX *context, uint8_t digest[])
@@ -1195,24 +1123,6 @@ void mv_sha512_result_copy(SHA512_CTX *context, uint8_t digest[])
 #endif
 }
 
-void mv_sha384_result_copy(SHA384_CTX *context, uint8_t digest[])
-{
-	uint64_t	*d = (uint64_t *)digest;
-
-	/* Save the hash data for output: */
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	/* Convert TO host byte order */
-	int	j;
-
-	for (j = 0; j < 8; j++) {
-		REVERSE64(context->state[j], context->state[j]);
-		*d++ = context->state[j];
-	}
-#else
-	bcopy(context->state, d, SHA512_DIGEST_LENGTH);
-#endif /* __BYTE_ORDER == __LITTLE_ENDIAN */
-}
-
 void mv_sha384_hmac_iv(unsigned char key[], int key_len,
 		     unsigned char inner[], unsigned char outer[])
 {
@@ -1220,7 +1130,7 @@ void mv_sha384_hmac_iv(unsigned char key[], int key_len,
 	unsigned char   out[SHA384_BLOCK_LENGTH];
 	unsigned char   key_buf[SHA384_BLOCK_LENGTH];
 	int             i, max_key_len;
-	SHA384_CTX	context;
+	SHA512_CTX	context;
 
 	max_key_len = SHA384_BLOCK_LENGTH;
 	if (key_len > max_key_len) {
@@ -1241,12 +1151,12 @@ void mv_sha384_hmac_iv(unsigned char key[], int key_len,
 	}
 	memset(&context, 0, sizeof(context));
 	mv_sha384_init(&context);
-	mv_sha384_update(&context, in, max_key_len);
-	mv_sha384_result_copy(&context, inner);
+	mv_sha512_update(&context, in, max_key_len);
+	mv_sha512_result_copy(&context, inner);
 
 	memset(&context, 0, sizeof(context));
 	mv_sha384_init(&context);
-	mv_sha384_update(&context, out, max_key_len);
-	mv_sha384_result_copy(&context, outer);
+	mv_sha512_update(&context, out, max_key_len);
+	mv_sha512_result_copy(&context, outer);
 }
 

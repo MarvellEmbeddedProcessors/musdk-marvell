@@ -73,17 +73,15 @@ extern "C" {
 #endif
 
 
-/*** SHA-256/384/512 Various Length Definitions ***********************/
+/*** SHA-224/256/384/512 Various Length Definitions ***********************/
+#define SHA224_BLOCK_LENGTH		64
+#define SHA224_DIGEST_LENGTH		28
 #define SHA256_BLOCK_LENGTH		64
 #define SHA256_DIGEST_LENGTH		32
-#define SHA256_DIGEST_STRING_LENGTH	(SHA256_DIGEST_LENGTH * 2 + 1)
 #define SHA384_BLOCK_LENGTH		128
-#define SHA384_DIGEST_LENGTH		64
-#define SHA384_DIGEST_STRING_LENGTH	(SHA384_DIGEST_LENGTH * 2 + 1)
+#define SHA384_DIGEST_LENGTH		48
 #define SHA512_BLOCK_LENGTH		128
 #define SHA512_DIGEST_LENGTH		64
-#define SHA512_DIGEST_STRING_LENGTH	(SHA512_DIGEST_LENGTH * 2 + 1)
-
 
 /*** SHA-256/384/512 Context Structures *******************************/
 typedef struct _SHA256_CTX {
@@ -98,39 +96,28 @@ typedef struct _SHA512_CTX {
 	uint8_t	buffer[SHA512_BLOCK_LENGTH];
 } SHA512_CTX;
 
-typedef SHA512_CTX SHA384_CTX;
+/*** SHA-224/256/384/512 Function Prototypes ******************************/
+void mv_sha224_init(SHA256_CTX *ctx);
+void mv_sha224(const uint8_t *data, size_t len, uint8_t digest[SHA224_DIGEST_LENGTH]);
+void mv_sha224_hmac_iv(uint8_t key[], int key_len, uint8_t inner[], uint8_t outer[]);
 
-
-/*** SHA-256/384/512 Function Prototypes ******************************/
 void mv_sha256_init(SHA256_CTX *ctx);
 void mv_sha256_update(SHA256_CTX *ctx, const uint8_t *input, size_t length);
-void mv_sha256_result_copy(SHA256_CTX *ctx, unsigned char *digest);
-void mv_sha256_final(uint8_t[SHA256_DIGEST_LENGTH], SHA256_CTX*);
-char *mv_sha256_end(SHA256_CTX *ctx, char[SHA256_DIGEST_STRING_LENGTH]);
-void mv_sha256(const uint8_t *buf, size_t, uint8_t[SHA256_DIGEST_LENGTH]);
-char *mv_sha256_data(const uint8_t *buf, size_t, char[SHA256_DIGEST_STRING_LENGTH]);
-void mv_sha256_hmac_iv(unsigned char key[], int key_len,
-		     unsigned char inner[], unsigned char outer[]);
+void mv_sha256_result_copy(SHA256_CTX *ctx, uint8_t digest[]);
+void mv_sha256_final(SHA256_CTX *context, uint8_t digest[], int digest_size);
+void mv_sha256(const uint8_t *buf, size_t len, uint8_t digest[SHA256_DIGEST_LENGTH]);
+void mv_sha256_hmac_iv(uint8_t key[], int key_len, uint8_t inner[], uint8_t outer[]);
 
-void mv_sha384_init(SHA384_CTX *ctx);
-void mv_sha384_update(SHA384_CTX *ctx, const uint8_t*, size_t);
-void mv_sha384_final(uint8_t[SHA384_DIGEST_LENGTH], SHA384_CTX*);
-char *mv_sha384_end(SHA384_CTX *ctx, char[SHA384_DIGEST_STRING_LENGTH]);
-char *mv_sha384_data(const uint8_t *buf, size_t, char[SHA384_DIGEST_STRING_LENGTH]);
-void mv_sha384(const uint8_t *buf, size_t, uint8_t[SHA384_DIGEST_LENGTH]);
-void mv_sha384_result_copy(SHA384_CTX *context, uint8_t digest[]);
-void mv_sha384_hmac_iv(unsigned char key[], int key_len,
-		     unsigned char inner[], unsigned char outer[]);
+void mv_sha384_init(SHA512_CTX *ctx);
+void mv_sha384(const uint8_t *buf, size_t len, uint8_t digest[SHA384_DIGEST_LENGTH]);
+void mv_sha384_hmac_iv(uint8_t key[], int key_len, uint8_t inner[], uint8_t outer[]);
 
 void mv_sha512_init(SHA512_CTX *ctx);
-void mv_sha512_update(SHA512_CTX *ctx, const uint8_t*, size_t);
-void mv_sha512_final(uint8_t[SHA512_DIGEST_LENGTH], SHA512_CTX *ctx);
-char *mv_sha512_end(SHA512_CTX *ctx, char[SHA512_DIGEST_STRING_LENGTH]);
-char *mv_sha512_data(const u_int8_t *buf, size_t, char[SHA512_DIGEST_STRING_LENGTH]);
+void mv_sha512_update(SHA512_CTX *ctx, const uint8_t *input, size_t length);
+void mv_sha512_final(SHA512_CTX *ctx, uint8_t digest[], int digest_size);
 void mv_sha512_result_copy(SHA512_CTX *context, uint8_t digest[]);
 void mv_sha512(const uint8_t *data, size_t len, uint8_t digest[SHA512_DIGEST_LENGTH]);
-void mv_sha512_hmac_iv(unsigned char key[], int key_len,
-		     unsigned char inner[], unsigned char outer[]);
+void mv_sha512_hmac_iv(uint8_t key[], int key_len, uint8_t inner[], uint8_t outer[]);
 
 #ifdef	__cplusplus
 }
