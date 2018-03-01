@@ -26,6 +26,14 @@ Plaintext      : "hello word"
 ICB            : 0xe0738b87e67bbfc9c5b77556665064446430e81c
 
 Algorithm      : NULL
+Authalgorithm  : SHA224
+Name           : AUTH_SHA2_224_ONLY
+Direction      : encryption
+Testcounter    : 1
+Plaintext      : "The quick brown fox jumps over the lazy dog"
+ICB            : 0x730e109bd7a8a32b1cb9d9a09aa2325d2430587ddbc0c38bad911525
+
+Algorithm      : NULL
 Authalgorithm  : SHA256
 Name           : AUTH_SHA2_256_ONLY
 Direction      : encryption
