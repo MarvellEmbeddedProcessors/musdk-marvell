@@ -35,6 +35,26 @@ Plaintext      : 0x4869205468657265
 ICB            : 0xb617318655057264e28bc0b6fb378c8ef146be00
 
 Algorithm      : NULL
+Authalgorithm  : SHA224
+Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
+Name           : HMAC_SHA224_Decryption
+Direction      : decryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
+ICB            : 0x896fb1128abbdf196832107cd49df33f \
+                   47b4b1169912ba4f53684b22
+
+Algorithm      : NULL
+Authalgorithm  : SHA224
+Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
+Name           : HMAC_SHA224_Encryption
+Direction      : encryption
+Testcounter    : 1
+Plaintext      : 0x4869205468657265
+ICB            : 0x896fb1128abbdf196832107cd49df33f \
+                   47b4b1169912ba4f53684b22
+
+Algorithm      : NULL
 Authalgorithm  : SHA256
 Authkey        : 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
 Name           : HMAC_SHA256_Decryption
