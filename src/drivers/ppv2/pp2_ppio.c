@@ -840,11 +840,320 @@ int pp2_ppio_serialize(struct pp2_ppio *ppio, char buff[], u32 size)
 	return pos;
 }
 
+static int pp2_ppio_probe_tc_params(char *buff, struct pp2_ppio *ppio)
+{
+	int			 i, j, k, rc;
+	char			 tmp_buf[PP2_MAX_BUF_STR_LEN];
+	u32			 mem_id = 0;
+	u32			 cluster_id = 0;
+	u32			 tmp_pp2_id = 0;
+	u32			 tmp_bpool_id = 0;
+	u32			 num_bps = 0;
+	struct pp2_bpool	*param_pools[MV_SYS_DMA_MAX_NUM_MEM_ID][PP2_PPIO_TC_CLUSTER_MAX_POOLS];
+	struct pp2_port		*port;
+	struct pp2_inst		*inst;
+	char			*lbuff;
+	char			*sec = NULL;
+
+	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, buff, strlen(buff));
+	sec = lbuff;
+
+	pr_info("1 %s\n", sec);
+
+	inst = pp2_ptr->pp2_inst[ppio->pp2_id];
+	/* extract the loopback info */
+	port = pp2_ptr->pp2_inst[ppio->pp2_id]->ports[ppio->port_id];
+
+	for (i = 0; i < port->num_tcs; i++) {
+
+		/* Search for the ppio-port-tc section */
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-tc-%d", i);
+		sec = strstr(sec, tmp_buf);
+		if (!sec) {
+			pr_err("'ppio-port-tc-%d' not found\n", i);
+			kfree(lbuff);
+			return -EINVAL;
+		}
+
+		/* get the TC specific parameters */
+		json_buffer_to_input(sec, "first_log_rxq", port->tc[i].first_log_rxq);
+		json_buffer_to_input(sec, "num_in_qs", port->tc[i].tc_config.num_in_qs);
+		if (!port->tc[i].tc_config.num_in_qs || port->tc[i].tc_config.num_in_qs > PP2_PPIO_MAX_NUM_INQS) {
+			pr_err("invalid num_in_qs\n");
+			kfree(lbuff);
+			return -EINVAL;
+		}
+
+		for (j = 0; j < port->tc[i].tc_config.num_in_qs; j++) {
+			json_buffer_to_input(sec, "ring_size", port->tc[i].rx_qs[j].ring_size);
+			json_buffer_to_input(sec, "tc_pools_mem_id_index", port->tc[i].rx_qs[j].tc_pools_mem_id_index);
+			if (port->tc[i].rx_qs[j].tc_pools_mem_id_index < 0 ||
+			    port->tc[i].rx_qs[j].tc_pools_mem_id_index >= MV_SYS_DMA_MAX_NUM_MEM_ID) {
+				pr_err("invalid tc_pools_mem_id_index\n");
+				kfree(lbuff);
+				return -EINVAL;
+			}
+		}
+
+		json_buffer_to_input(sec, "pkt_offset", port->tc[i].tc_config.pkt_offset);
+		json_buffer_to_input(sec, "first_rxq", port->tc[i].tc_config.first_rxq);
+		json_buffer_to_input(sec, "num_bpools", num_bps);
+
+		memset(param_pools, 0, sizeof(param_pools));
+		for (j = 0; j < num_bps; j++) {
+			/* get the bpool parameters */
+			json_buffer_to_input(sec, "mem_id", mem_id);
+			if (mem_id < 0 || mem_id >= MV_SYS_DMA_MAX_NUM_MEM_ID) {
+				pr_err("invalid mem_id\n");
+				kfree(lbuff);
+				return -EINVAL;
+			}
+
+			json_buffer_to_input(sec, "cluster_id", cluster_id);
+			if (cluster_id < 0 || cluster_id >= PP2_PPIO_TC_CLUSTER_MAX_POOLS) {
+				pr_err("invalid cluster_id\n");
+				kfree(lbuff);
+				return -EINVAL;
+			}
+
+			json_buffer_to_input(sec, "pp2_id", tmp_pp2_id);
+			json_buffer_to_input(sec, "bm_pool_id", tmp_bpool_id);
+
+			param_pools[mem_id][cluster_id] = kcalloc(1, sizeof(struct pp2_bpool), GFP_KERNEL);
+			if (unlikely(!port->txqs)) {
+				pr_err("%s out of memory txqs alloc\n", __func__);
+				num_bps = j;
+				rc = -ENOMEM;
+				goto probe_tc_error;
+			}
+			memset(param_pools[mem_id][cluster_id], 0, sizeof(struct pp2_bpool));
+			param_pools[mem_id][cluster_id]->pp2_id = tmp_pp2_id;
+			param_pools[mem_id][cluster_id]->id = tmp_bpool_id;
+		}
+
+		if (populate_tc_pools(inst, param_pools, port->tc[i].tc_config.pools) != 0) {
+			pr_err("failed to populate bpool!\n");
+			rc = -EFAULT;
+			goto probe_tc_error;
+		}
+		for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
+			for (k = 0; k < PP2_PPIO_TC_CLUSTER_MAX_POOLS; k++)
+				kfree(param_pools[j][k]);
+		}
+	}
+	kfree(lbuff);
+	return 0;
+
+probe_tc_error:
+	kfree(lbuff);
+	for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
+		for (k = 0; k < PP2_PPIO_TC_CLUSTER_MAX_POOLS; k++)
+			kfree(param_pools[j][k]);
+	}
+	return rc;
+}
+
+static int pp2_ppio_probe_rxq_params(char *buff, struct pp2_port *port, phys_addr_t paddr, uintptr_t va)
+{
+	int		 i;
+	phys_addr_t	 poffset = 0;
+	char		 tmp_buf[PP2_MAX_BUF_STR_LEN];
+	char		*lbuff;
+	char		*sec = NULL;
+
+	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, buff, strlen(buff));
+	sec = lbuff;
+
+	for (i = 0; i < port->num_rx_queues; i++) {
+		/* Search for the ppio-port-rxq section */
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-rxq-%d", i);
+		pr_info("%s\n", sec);
+		sec = strstr(sec, tmp_buf);
+		if (!sec) {
+			pr_err("'ppio-port-rxq-%d' not found\n", i);
+			kfree(lbuff);
+			return -EINVAL;
+		}
+
+		/* get the rxq parameters */
+		json_buffer_to_input(sec, "id", port->rxqs[i]->id);
+		json_buffer_to_input(sec, "log_id", port->rxqs[i]->log_id);
+		json_buffer_to_input(sec, "desc_total", port->rxqs[i]->desc_total);
+		json_buffer_to_input(sec, "rxq_lock", port->rxqs[i]->rxq_lock);
+		json_buffer_to_input(sec, "threshold_rx_pkts", port->rxqs[i]->threshold_rx_pkts);
+		json_buffer_to_input(sec, "desc_phys_offset", poffset);
+
+		port->rxqs[i]->desc_phys_arr = paddr + poffset;
+		port->rxqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
+	}
+	kfree(lbuff);
+	return 0;
+}
+
+static int pp2_ppio_probe_txq_params(char *buff, struct pp2_port *port, phys_addr_t paddr, uintptr_t va)
+{
+	int		 i;
+	phys_addr_t	 poffset = 0;
+	char		 tmp_buf[PP2_MAX_BUF_STR_LEN];
+	char		*lbuff;
+	char		*sec = NULL;
+
+	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, buff, strlen(buff));
+	sec = lbuff;
+
+	for (i = 0; i < port->num_tx_queues; i++) {
+		/* Search for the ppio-port-txq_config section */
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-txq_config-%d", i);
+		sec = strstr(sec, tmp_buf);
+		if (!sec) {
+			pr_err("'ppio-port-txq_config-%d' not found\n", i);
+			kfree(lbuff);
+			return -EINVAL;
+		}
+
+		/* get the txq_config parameters */
+		json_buffer_to_input(sec, "size", port->txq_config[i].size);
+		json_buffer_to_input(sec, "weight", port->txq_config[i].weight);
+	}
+
+	for (i = 0; i < port->num_tx_queues; i++) {
+		/* Search for the ppio-port-txq section */
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-txq-%d", i);
+		sec = strstr(sec, tmp_buf);
+		if (!sec) {
+			pr_err("'port-info' not found\n");
+			kfree(lbuff);
+			return -EINVAL;
+		}
+
+		/* get the txq parameters */
+		json_buffer_to_input(sec, "id", port->txqs[i]->id);
+		json_buffer_to_input(sec, "log_id", port->txqs[i]->log_id);
+		json_buffer_to_input(sec, "desc_total", port->txqs[i]->desc_total);
+		json_buffer_to_input(sec, "threshold_tx_pkts", port->txqs[i]->threshold_tx_pkts);
+		json_buffer_to_input(sec, "desc_phys_offset", poffset);
+
+		port->txqs[i]->desc_phys_arr = paddr + poffset;
+		port->txqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
+	}
+	kfree(lbuff);
+	return 0;
+}
+
+static int pp2_ppio_probe_loopback_port(char *buff, struct pp2_ppio *ppio, phys_addr_t paddr, uintptr_t va)
+{
+	int			i;
+	phys_addr_t		poffset = 0;
+	struct pp2_port		*lb_port = NULL;
+	struct pp2_inst		*inst;
+	char			tmp_buf[PP2_MAX_BUF_STR_LEN];
+	char			*lbuff;
+	char			*sec = NULL;
+
+	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, buff, strlen(buff));
+	sec = lbuff;
+
+	inst = pp2_ptr->pp2_inst[ppio->pp2_id];
+
+	/* extract the loopback info */
+	lb_port = pp2_ptr->pp2_inst[ppio->pp2_id]->ports[PP2_LOOPBACK_PORT];
+
+	memset(lb_port, 0, sizeof(struct pp2_port));
+	lb_port->parent = inst;
+
+	sec = strstr(sec, "port-lb-info");
+	if (!sec) {
+		pr_err("'port-loopback-info' not found\n");
+		kfree(lbuff);
+		return -EINVAL;
+	}
+
+	json_buffer_to_input(sec, "id", lb_port->id);
+	json_buffer_to_input(sec, "type", lb_port->type);
+	if (lb_port->type < PP2_PPIO_T_LOG || lb_port->type > PP2_PPIO_T_NIC) {
+		pr_err("invalid port type\n");
+		kfree(lbuff);
+		return -EINVAL;
+	}
+
+	json_buffer_to_input(sec, "num_tx_queues", lb_port->num_tx_queues);
+	if (!lb_port->num_tx_queues || lb_port->num_tx_queues > PP2_PPIO_MAX_NUM_OUTQS) {
+		pr_err("invalid num_tx_queues\n");
+		kfree(lbuff);
+		return -EINVAL;
+	}
+
+	/* Allocate TXQ slots for this port */
+	lb_port->txqs = kcalloc(1, sizeof(struct pp2_tx_queue *) * lb_port->num_tx_queues, GFP_KERNEL);
+	if (unlikely(!lb_port->txqs)) {
+		pr_err("%s out of memory txqs alloc\n", __func__);
+		kfree(lbuff);
+		return -ENOMEM;
+	}
+	memset(lb_port->txqs, 0, sizeof(struct pp2_tx_queue *) * lb_port->num_tx_queues);
+
+	/* Allocate and associated TXQs to this port */
+	pp2_port_txqs_create(lb_port);
+
+	for (i = 0; i < lb_port->num_tx_queues; i++) {
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "lb-port-txq_config-%d", i);
+		sec = strstr(sec, tmp_buf);
+		if (!sec) {
+			pr_err("'port-info' not found\n");
+			kfree(lbuff);
+			return -EINVAL;
+		}
+		json_buffer_to_input(sec, "size", lb_port->txq_config[i].size);
+		json_buffer_to_input(sec, "weight", lb_port->txq_config[i].weight);
+	}
+	for (i = 0; i < lb_port->num_tx_queues; i++) {
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "lb-port-txq-%d", i);
+		sec = strstr(sec, tmp_buf);
+		if (!sec) {
+			pr_err("'port-info' not found\n");
+			kfree(lbuff);
+			return -EINVAL;
+		}
+		json_buffer_to_input(sec, "id", lb_port->txqs[i]->id);
+		json_buffer_to_input(sec, "log_id", lb_port->txqs[i]->log_id);
+		json_buffer_to_input(sec, "desc_total", lb_port->txqs[i]->desc_total);
+		json_buffer_to_input(sec, "threshold_tx_pkts", lb_port->txqs[i]->threshold_tx_pkts);
+		json_buffer_to_input(sec, "desc_phys_offset", poffset);
+
+		lb_port->txqs[i]->desc_phys_arr = paddr + poffset;
+		lb_port->txqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
+	}
+	kfree(lbuff);
+	return 0;
+}
+
 int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 {
-	int				 i, rc;
+	int				 rc;
 	char				*sec = NULL;
-	phys_addr_t			 paddr, poffset = 0;
+	phys_addr_t			 paddr;
 	struct sys_iomem_params		 iomem_params;
 	struct sys_iomem_info		sys_iomem_info;
 	char				 dev_name[PP2_MAX_BUF_STR_LEN];
@@ -855,13 +1164,7 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 	struct pp2_port			*port;
 	struct pp2_inst			*inst;
 	struct pp2_ppio			*ppio = NULL;
-	char				 tmp_buf[PP2_MAX_BUF_STR_LEN];
-	struct pp2_port			*lb_port = NULL;
 	char				*lbuff;
-	u32				 tmp_pp2_id = 0;
-	u32				 tmp_bpool_id = 0;
-	u32				 mem_id = 0;
-	u32				 cluster_id = 0;
 
 	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
 	if (lbuff == NULL)
@@ -1097,226 +1400,30 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 	}
 	memset(port->txqs, 0, sizeof(struct pp2_tx_queue *) * port->num_tx_queues);
 
-	for (i = 0; i < port->num_tcs; i++) {
-		struct pp2_bpool	*param_pools[MV_SYS_DMA_MAX_NUM_MEM_ID][PP2_PPIO_TC_CLUSTER_MAX_POOLS];
-		int			 j, k, num_bps = 0;
+	rc = pp2_ppio_probe_tc_params(sec, ppio);
+	if (rc)
+		goto ppio_probe_exit;
 
-		/* Search for the ppio-port-tc section */
-		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-tc-%d", i);
-		sec = strstr(sec, tmp_buf);
-		if (!sec) {
-			pr_err("'port-info' not found\n");
-			rc = -EINVAL;
-			goto ppio_probe_exit;
-		}
-
-		/* get the TC specific parameters */
-		json_buffer_to_input(sec, "first_log_rxq", port->tc[i].first_log_rxq);
-		json_buffer_to_input(sec, "num_in_qs", port->tc[i].tc_config.num_in_qs);
-		if (!port->tc[i].tc_config.num_in_qs || port->tc[i].tc_config.num_in_qs > PP2_PPIO_MAX_NUM_INQS) {
-			pr_err("invalid num_in_qs\n");
-			rc = -EINVAL;
-			goto ppio_probe_exit;
-		}
-
-		for (j = 0; j < port->tc[i].tc_config.num_in_qs; j++) {
-			json_buffer_to_input(sec, "ring_size", port->tc[i].rx_qs[j].ring_size);
-			json_buffer_to_input(sec, "tc_pools_mem_id_index", port->tc[i].rx_qs[j].tc_pools_mem_id_index);
-			if (port->tc[i].rx_qs[j].tc_pools_mem_id_index < 0 ||
-			    port->tc[i].rx_qs[j].tc_pools_mem_id_index >= MV_SYS_DMA_MAX_NUM_MEM_ID) {
-				pr_err("invalid tc_pools_mem_id_index\n");
-				rc = -EINVAL;
-				goto ppio_probe_exit;
-			}
-		}
-
-		json_buffer_to_input(sec, "pkt_offset", port->tc[i].tc_config.pkt_offset);
-		json_buffer_to_input(sec, "first_rxq", port->tc[i].tc_config.first_rxq);
-		json_buffer_to_input(sec, "num_bpools", num_bps);
-
-		memset(param_pools, 0, sizeof(param_pools));
-		for (j = 0; j < num_bps; j++) {
-			/* get the bpool parameters */
-			json_buffer_to_input(sec, "mem_id", mem_id);
-			if (mem_id < 0 || mem_id >= MV_SYS_DMA_MAX_NUM_MEM_ID) {
-				pr_err("invalid mem_id\n");
-				rc = -EINVAL;
-				goto ppio_probe_exit;
-			}
-
-			json_buffer_to_input(sec, "cluster_id", cluster_id);
-			if (cluster_id < 0 || cluster_id >= PP2_PPIO_TC_CLUSTER_MAX_POOLS) {
-				pr_err("invalid cluster_id\n");
-				rc = -EINVAL;
-				goto ppio_probe_exit;
-			}
-
-			json_buffer_to_input(sec, "pp2_id", tmp_pp2_id);
-			json_buffer_to_input(sec, "bm_pool_id", tmp_bpool_id);
-
-			param_pools[mem_id][cluster_id] = kcalloc(1, sizeof(struct pp2_bpool), GFP_KERNEL);
-			if (unlikely(!port->txqs)) {
-				pr_err("%s out of memory txqs alloc\n", __func__);
-				rc = -ENOMEM;
-				goto ppio_probe_exit;
-			}
-			memset(param_pools[mem_id][cluster_id], 0, sizeof(struct pp2_bpool));
-			param_pools[mem_id][cluster_id]->pp2_id = tmp_pp2_id;
-			param_pools[mem_id][cluster_id]->id = tmp_bpool_id;
-		}
-
-		if (populate_tc_pools(inst, param_pools, port->tc[i].tc_config.pools) != 0) {
-			pr_err("failed to populate bpool!\n");
-			rc = -EFAULT;
-			goto ppio_probe_exit;
-		}
-		for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
-			for (k = 0; k < PP2_PPIO_TC_CLUSTER_MAX_POOLS; k++)
-				kfree(param_pools[j][k]);
-		}
-
-	}
-
-	/* Allocate and associated RXQs to this port */
+	/* Allocate and associate RXQs to this port */
 	pp2_port_rxqs_create(port);
-	/* Allocate and associated TXQs to this port */
+	/* Allocate and associate TXQs to this port */
 	pp2_port_txqs_create(port);
 
-	for (i = 0; i < port->num_rx_queues; i++) {
-		/* Search for the ppio-port-rxq section */
-		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-rxq-%d", i);
-		sec = strstr(sec, tmp_buf);
-		if (!sec) {
-			pr_err("'port-info' not found\n");
-			rc = -EINVAL;
-			goto ppio_probe_exit;
-		}
+	rc = pp2_ppio_probe_rxq_params(sec, port, paddr, va);
+	if (rc)
+		goto ppio_probe_exit;
 
-		/* get the rxq parameters */
-		json_buffer_to_input(sec, "id", port->rxqs[i]->id);
-		json_buffer_to_input(sec, "log_id", port->rxqs[i]->log_id);
-		json_buffer_to_input(sec, "desc_total", port->rxqs[i]->desc_total);
-		json_buffer_to_input(sec, "rxq_lock", port->rxqs[i]->rxq_lock);
-		json_buffer_to_input(sec, "threshold_rx_pkts", port->rxqs[i]->threshold_rx_pkts);
-		json_buffer_to_input(sec, "desc_phys_offset", poffset);
-
-		port->rxqs[i]->desc_phys_arr = paddr + poffset;
-		port->rxqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
-	}
-
-	for (i = 0; i < port->num_tx_queues; i++) {
-		/* Search for the ppio-port-txq_config section */
-		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-txq_config-%d", i);
-		sec = strstr(sec, tmp_buf);
-		if (!sec) {
-			pr_err("'port-info' not found\n");
-			rc = -EINVAL;
-			goto ppio_probe_exit;
-		}
-
-		/* get the txq_config parameters */
-		json_buffer_to_input(sec, "size", port->txq_config[i].size);
-		json_buffer_to_input(sec, "weight", port->txq_config[i].weight);
-	}
-
-	for (i = 0; i < port->num_tx_queues; i++) {
-		/* Search for the ppio-port-txq section */
-		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-txq-%d", i);
-		sec = strstr(sec, tmp_buf);
-		if (!sec) {
-			pr_err("'port-info' not found\n");
-			rc = -EINVAL;
-			goto ppio_probe_exit;
-		}
-
-		/* get the txq parameters */
-		json_buffer_to_input(sec, "id", port->txqs[i]->id);
-		json_buffer_to_input(sec, "log_id", port->txqs[i]->log_id);
-		json_buffer_to_input(sec, "desc_total", port->txqs[i]->desc_total);
-		json_buffer_to_input(sec, "threshold_tx_pkts", port->txqs[i]->threshold_tx_pkts);
-		json_buffer_to_input(sec, "desc_phys_offset", poffset);
-
-		port->txqs[i]->desc_phys_arr = paddr + poffset;
-		port->txqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
-	}
+	rc = pp2_ppio_probe_txq_params(sec, port, paddr, va);
+	if (rc)
+		goto ppio_probe_exit;
 
 	pp2_port_initialize_statistics(port);
 	pp2_ppio_get_statistics(ppio, NULL, true);
 
 	/* extract the loopback info */
-	lb_port = pp2_ptr->pp2_inst[ppio->pp2_id]->ports[PP2_LOOPBACK_PORT];
-
-	memset(lb_port, 0, sizeof(struct pp2_port));
-	lb_port->parent = inst;
-
-	sec = strstr(sec, "port-lb-info");
-	if (!sec) {
-		pr_err("'port-loopback-info' not found\n");
-		rc = -EINVAL;
+	rc = pp2_ppio_probe_loopback_port(sec, ppio, paddr, va);
+	if (rc)
 		goto ppio_probe_exit;
-	}
-
-	json_buffer_to_input(sec, "id", lb_port->id);
-	json_buffer_to_input(sec, "type", lb_port->type);
-	if (lb_port->type < PP2_PPIO_T_LOG || lb_port->type > PP2_PPIO_T_NIC) {
-		pr_err("invalid port type\n");
-		rc = -EINVAL;
-		goto ppio_probe_exit;
-	}
-
-	json_buffer_to_input(sec, "num_tx_queues", lb_port->num_tx_queues);
-	if (!lb_port->num_tx_queues || lb_port->num_tx_queues > PP2_PPIO_MAX_NUM_OUTQS) {
-		pr_err("invalid num_tx_queues\n");
-		rc = -EINVAL;
-		goto ppio_probe_exit;
-	}
-
-	/* Allocate TXQ slots for this port */
-	lb_port->txqs = kcalloc(1, sizeof(struct pp2_tx_queue *) * lb_port->num_tx_queues, GFP_KERNEL);
-	if (unlikely(!lb_port->txqs)) {
-		pr_err("%s out of memory txqs alloc\n", __func__);
-		rc = -ENOMEM;
-		goto ppio_probe_exit;
-	}
-	memset(lb_port->txqs, 0, sizeof(struct pp2_tx_queue *) * lb_port->num_tx_queues);
-
-	/* Allocate and associated TXQs to this port */
-	pp2_port_txqs_create(lb_port);
-
-	for (i = 0; i < lb_port->num_tx_queues; i++) {
-		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "lb-port-txq_config-%d", i);
-		sec = strstr(sec, tmp_buf);
-		if (!sec) {
-			pr_err("'port-info' not found\n");
-			rc = -EINVAL;
-			goto ppio_probe_exit;
-		}
-		json_buffer_to_input(sec, "size", lb_port->txq_config[i].size);
-		json_buffer_to_input(sec, "weight", lb_port->txq_config[i].weight);
-	}
-	for (i = 0; i < lb_port->num_tx_queues; i++) {
-		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "lb-port-txq-%d", i);
-		sec = strstr(sec, tmp_buf);
-		if (!sec) {
-			pr_err("'port-info' not found\n");
-			rc = -EINVAL;
-			goto ppio_probe_exit;
-		}
-		json_buffer_to_input(sec, "id", lb_port->txqs[i]->id);
-		json_buffer_to_input(sec, "log_id", lb_port->txqs[i]->log_id);
-		json_buffer_to_input(sec, "desc_total", lb_port->txqs[i]->desc_total);
-		json_buffer_to_input(sec, "threshold_tx_pkts", lb_port->txqs[i]->threshold_tx_pkts);
-		json_buffer_to_input(sec, "desc_phys_offset", poffset);
-
-		lb_port->txqs[i]->desc_phys_arr = paddr + poffset;
-		lb_port->txqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
-	}
 
 	*ppio_hdl = ppio;
 	pp2_ptr->pp2_inst[pp2_id]->ppios[port_id] = ppio;
