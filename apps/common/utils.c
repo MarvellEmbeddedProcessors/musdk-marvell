@@ -63,7 +63,14 @@ int apps_cores_mask_create(int cpus, int affinity)
 int apps_thread_to_cpu(struct glb_common_args *cmn_args, int thread)
 {
 	int j = 0, i = 0;
-	u64 core_mask = apps_cores_mask_create(cmn_args->cpus, cmn_args->affinity);
+	u64 core_mask;
+
+	if (cmn_args->cores_mask)
+		core_mask = cmn_args->cores_mask;
+	else
+		core_mask = apps_cores_mask_create(cmn_args->cpus, cmn_args->affinity);
+
+	core_mask = apps_cores_mask_create(cmn_args->cpus, cmn_args->affinity);
 
 	while (core_mask) {
 		for (; !((1 << j) & core_mask); j++)
@@ -81,7 +88,12 @@ int apps_thread_to_cpu(struct glb_common_args *cmn_args, int thread)
 int apps_cpu_to_thread(struct glb_common_args *cmn_args, int cpu)
 {
 	int j = 0, i = 0;
-	u64 core_mask = apps_cores_mask_create(cmn_args->cpus, cmn_args->affinity);
+	u64 core_mask;
+
+	if (cmn_args->cores_mask)
+		core_mask = cmn_args->cores_mask;
+	else
+		core_mask = apps_cores_mask_create(cmn_args->cpus, cmn_args->affinity);
 
 	while (core_mask) {
 		for (; !((1 << j) & core_mask); j++)
