@@ -560,6 +560,32 @@ static void set_local_flows(struct glob_arg *garg)
 	}
 }
 
+static void app_port_inqs_mask_by_lcl_thr_flows(struct glob_arg *garg, int port_index, struct port_desc *port)
+{
+	int i, thr_id, cpu, ap_id;
+	struct local_thr_params *lcl_param;
+
+	if (port->num_tcs > 1)
+		pr_err("(%s) multi-TC not spported yet !!\n", __func__);
+
+	for (thr_id = 0; thr_id < garg->cmn_args.cpus; thr_id++) {
+		lcl_param = &garg->lcl_params[thr_id];
+
+		if (!(lcl_param->rx_port_mask & BIT(port_index)))
+			continue;
+		cpu = apps_thread_to_cpu(&garg->cmn_args, thr_id);
+		ap_id = cpu / MVAPPS_NUM_CORES_PER_AP;
+
+		for (i = 0; i < lcl_param->num_flows; i++) {
+			if (lcl_param->flows[i].rx_ppio_id == port_index)
+				port->inqs_mask[ap_id] |= BIT(lcl_param->flows[i].tc_qid);
+		}
+	}
+	for (i = 0; i < garg->cmn_args.num_clusters; i++)
+		pr_info("ap%d_rxqs_mask:0x%x ", i, port->inqs_mask[i]);
+	pr_info("\n");
+
+}
 
 
 static int init_local_modules(struct glob_arg *garg)
@@ -647,8 +673,8 @@ static int init_local_modules(struct glob_arg *garg)
 					i++;
 				}
 			}
-			if (0)
-				;/* TODO Handle flows */
+			if (garg->num_flows)
+				app_port_inqs_mask_by_lcl_thr_flows(garg, port_index, port);
 			else
 				app_port_inqs_mask_by_affinity(&garg->cmn_args, port);
 
