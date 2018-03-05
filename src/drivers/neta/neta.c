@@ -106,7 +106,7 @@ void neta_deinit(void)
 {
 	int i;
 
-	if (neta_is_initialized())
+	if (!neta_is_initialized())
 		return;
 
 	for (i = 0; i < neta_ptr->num_ports; i++) {
@@ -129,7 +129,7 @@ int neta_netdev_get_port_info(char *ifname, u8 *port_id)
 	struct neta_port *port;
 	int i;
 
-	if (neta_is_initialized()) {
+	if (!neta_is_initialized()) {
 		pr_warn("NETA US driver not initialized\n");
 		return -EINVAL;
 	}
