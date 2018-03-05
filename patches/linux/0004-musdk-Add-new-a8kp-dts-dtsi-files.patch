@@ -1,17 +1,17 @@
-From 8a61eadc260ed67412a979d807623c837fa498dc Mon Sep 17 00:00:00 2001
+From a5c703b493177dabca6030ee739cfec1bb3ed43d Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
-Date: Mon, 5 Feb 2018 11:21:22 +0200
+Date: Mon, 5 Mar 2018 09:42:11 +0200
 Subject: [PATCH 4/5] musdk: Add new a8kp dts,dtsi files
 
-Change-Id: I57d1fe32d6597b833d3610803a098b123a746b58
+Change-Id: I2abc707bfd0a7467b7fd1c1bb65089f7585a6a42
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi | 62 ++++++++++++++++++
- .../boot/dts/marvell/musdk-armada-8162-db.dtsi     | 76 ++++++++++++++++++++++
- .../arm64/boot/dts/marvell/musdk-armada-ap810.dtsi | 54 +++++++++++++++
- 3 files changed, 192 insertions(+)
+ .../boot/dts/marvell/musdk-armada-816x-db.dtsi     | 74 ++++++++++++++++++++++
+ .../arm64/boot/dts/marvell/musdk-armada-ap810.dtsi | 54 ++++++++++++++++
+ 3 files changed, 190 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi
- create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi
+ create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-816x-db.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-armada-ap810.dtsi
 
 diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-808x.dtsi
@@ -82,12 +82,12 @@ index 0000000..286d741
 +		};
 +	};
 +};
-diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi
+diff --git a/arch/arm64/boot/dts/marvell/musdk-armada-816x-db.dtsi b/arch/arm64/boot/dts/marvell/musdk-armada-816x-db.dtsi
 new file mode 100644
-index 0000000..117c849
+index 0000000..c6cada8
 --- /dev/null
-+++ b/arch/arm64/boot/dts/marvell/musdk-armada-8162-db.dtsi
-@@ -0,0 +1,76 @@
++++ b/arch/arm64/boot/dts/marvell/musdk-armada-816x-db.dtsi
+@@ -0,0 +1,74 @@
 +/*
 + * Copyright (C) 2016 Marvell Technology Group Ltd.
 + *
@@ -155,9 +155,7 @@ index 0000000..117c849
 +		musdk_uio_region1 {
 +			compatible = "marvell,musdk-uio";
 +			dma-coherent;
-+/* Temporarily disable CMA on AP1, until DRAM on AP1 is supported
 +			memory-region = <&ap1_mem>;
-+*/
 +			status = "okay";
 +			uio-mem-region = <1>;
 +		};

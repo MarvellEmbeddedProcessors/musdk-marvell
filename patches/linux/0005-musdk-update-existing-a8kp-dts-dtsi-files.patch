@@ -1,19 +1,20 @@
-From 71a227a44b3b10ad369650c8c8748f35fd64ed6c Mon Sep 17 00:00:00 2001
+From a6694ecf531972c954cdf8474067cf3887b51477 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
-Date: Mon, 5 Feb 2018 11:22:07 +0200
+Date: Mon, 5 Mar 2018 10:47:07 +0200
 Subject: [PATCH 5/5] musdk: update existing a8kp dts,dtsi files
 
-Change-Id: Id88e06477ad1bbcbf0b8867acd8f1f21668ecf46
+Change-Id: I931b191a88855b28986ee65e90c7d1d80479306a
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/armada-8082-db.dts | 2 +-
  arch/arm64/boot/dts/marvell/armada-8084-db.dts | 2 +-
- arch/arm64/boot/dts/marvell/armada-8162-db.dts | 5 ++++-
+ arch/arm64/boot/dts/marvell/armada-8162-db.dts | 2 +-
+ arch/arm64/boot/dts/marvell/armada-8164-db.dts | 1 +
  arch/arm64/boot/dts/marvell/armada-ap810.dtsi  | 1 +
- 4 files changed, 7 insertions(+), 3 deletions(-)
+ 5 files changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-8082-db.dts b/arch/arm64/boot/dts/marvell/armada-8082-db.dts
-index c20e8a0..bd2968f 100644
+index 63ddb94..3d63a5a 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8082-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8082-db.dts
 @@ -45,7 +45,7 @@
@@ -26,7 +27,7 @@ index c20e8a0..bd2968f 100644
  	model = "Marvell Armada-8082 DB board";
  	compatible = "marvell,armada-8082-db", "marvell,armada-8082",
 diff --git a/arch/arm64/boot/dts/marvell/armada-8084-db.dts b/arch/arm64/boot/dts/marvell/armada-8084-db.dts
-index d4f7b26..505467e 100644
+index a03b07a..fee8052 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8084-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8084-db.dts
 @@ -45,7 +45,7 @@
@@ -39,30 +40,39 @@ index d4f7b26..505467e 100644
  	model = "Marvell Armada-8084 DB board";
  	compatible = "marvell,armada-8084-db", "marvell,armada-8084",
 diff --git a/arch/arm64/boot/dts/marvell/armada-8162-db.dts b/arch/arm64/boot/dts/marvell/armada-8162-db.dts
-index e0cd543..7b22a5f 100644
+index 0d0df29..f7e81ee 100644
 --- a/arch/arm64/boot/dts/marvell/armada-8162-db.dts
 +++ b/arch/arm64/boot/dts/marvell/armada-8162-db.dts
-@@ -82,6 +82,7 @@
+@@ -78,6 +78,7 @@
  		device_type = "memory";
  		reg = <0x0 0x0 0x0 0x80000000>;
  	};
-+	#include "musdk-armada-8162-db.dtsi"
++	#include "musdk-armada-816x-db.dtsi"
  };
  
- &cp0_mdio0 {
-@@ -98,7 +99,9 @@
+ &ap0_xor0 {
+@@ -102,7 +103,6 @@
  	phy-mode = "rgmii"; /* rgmii-0 */
  	phy = <&mdio0_phy0>;
  };
 -
-+&cp0_usb3h0 {
-+	status = "okay";
-+};
  &cp0_emac3 {
  	phy-mode = "rgmii"; /* rgmii-1 */
  	phy = <&mdio0_phy1>;
+diff --git a/arch/arm64/boot/dts/marvell/armada-8164-db.dts b/arch/arm64/boot/dts/marvell/armada-8164-db.dts
+index 96aa62f..80200e9 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8164-db.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8164-db.dts
+@@ -81,6 +81,7 @@
+ 		device_type = "memory";
+ 		reg = <0x0 0x0 0x0 0x80000000>;
+ 	};
++	#include "musdk-armada-816x-db.dtsi"
+ };
+ 
+ &ap0_xor0 {
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
-index 4f5129d..4044174 100644
+index 3e2f977..a7214b0 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
 @@ -76,6 +76,7 @@
