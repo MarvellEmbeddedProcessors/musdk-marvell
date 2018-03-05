@@ -344,8 +344,8 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
 	/* Get queue params */
 	bpq = pool->queue;
 
-	/* Read producer index */
-	cons_val = *bpq->cons_addr;
+	/* Read consumer index */
+	cons_val = readl(bpq->cons_addr);
 
 	/* Calculate number of free descriptors */
 	free_count = QUEUE_SPACE(bpq->prod_val_shadow, cons_val, bpq->desc_total);
@@ -386,13 +386,11 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
 		block_size = desc_remain; /* next desc index in target ring */
 	} while (desc_remain > 0);
 
+	/* Update Producer index in GNPT */
 	/* make sure all writes are done (i.e. descriptor were copied)
 	 * before incrementing the producer index
 	 */
-	wmb();
-
-	/* Update Producer index in GNPT */
-	*bpq->prod_addr = bpq->prod_val_shadow;
+	writel(bpq->prod_val_shadow, bpq->prod_addr);
 
 	/* Update number of updated descriptors */
 	*num = num_bpds;
@@ -407,7 +405,7 @@ int giu_bpool_get_num_buffs(struct giu_bpool *pool, u32 *num_buffs)
 {
 	struct giu_gpio_queue *bpq = pool->queue;
 
-	return QUEUE_OCCUPANCY(*bpq->prod_addr, *bpq->cons_addr, bpq->desc_total);
+	return QUEUE_OCCUPANCY(readl_relaxed(bpq->prod_addr), readl_relaxed(bpq->cons_addr), bpq->desc_total);
 }
 
 /**
