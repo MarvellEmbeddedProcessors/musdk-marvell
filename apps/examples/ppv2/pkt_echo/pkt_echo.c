@@ -1153,10 +1153,6 @@ int main(int argc, char *argv[])
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
 
 	if (garg.num_flows) {
-#ifndef MVCONF_PP2_LOCK
-		pr_err("For multi-port pkt_echo (using --cmask), musdk must be compiled with --enable-pp2-lock\n");
-		return -EPERM;
-#endif
 		for (i = 0; i < garg.num_flows; i++)
 			cores_mask |= garg.flows[i].cpu_mask;
 		garg.cmn_args.cpus = bit_count(cores_mask);
