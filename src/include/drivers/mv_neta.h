@@ -45,15 +45,6 @@
  *  @{
  */
 
-/**
- * neta init parameters
- *
- */
-struct neta_init_params {
-	/** Bitmap of reserved bm_pools (0-3). */
-	u16			bm_pool_reserved_map;
-};
-
 
 /**
  * Initialize the global NETA
@@ -63,7 +54,7 @@ struct neta_init_params {
  * @retval	A pointer to a DMA memory on success
  * @retval	<0 on failure
  */
-int neta_init(struct neta_init_params *params);
+int neta_init(void);
 
 /**
  * Destroy the global NETA

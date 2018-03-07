@@ -53,7 +53,6 @@ struct neta_uio {
 
 /* Main control structure for the PP */
 struct neta {
-	struct neta_init_params init;
 
 	/* Port objects associated */
 	u32 num_ports;
@@ -70,7 +69,7 @@ int neta_is_initialized(void)
 	return (neta_ptr) ? 1 : 0;
 }
 
-int neta_init(struct neta_init_params *params)
+int neta_init(void)
 {
 	int i;
 
@@ -83,7 +82,6 @@ int neta_init(struct neta_init_params *params)
 		pr_err("%s: out of memory for NETA driver allocation\n", __func__);
 		return -ENOMEM;
 	}
-	memcpy(&neta_ptr->init, params, sizeof(*params));
 
 	/* TBD: do it only US ports */
 	neta_ptr->num_ports = NETA_NUM_ETH_PPIO;
