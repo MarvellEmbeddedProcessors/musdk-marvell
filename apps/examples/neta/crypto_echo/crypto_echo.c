@@ -853,7 +853,6 @@ static int main_loop_cb(void *arg, int *running)
 
 static int init_all_modules(void)
 {
-	struct neta_init_params	params;
 	int			err;
 
 	pr_info("Global initializations ...\n");
@@ -862,9 +861,7 @@ static int init_all_modules(void)
 	if (err)
 		return err;
 
-	memset(&params, 0, sizeof(params));
-
-	err = neta_init(&params);
+	err = neta_init();
 	if (err)
 		return err;
 
