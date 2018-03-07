@@ -42,10 +42,12 @@
 #include "drivers/mv_neta_ppio.h"
 #include "neta_ppio.h"
 
+#define NETA_NETDEV_PATH	"/sys/class/net/"
+#define MAX_BUF_STR_LEN		256
 
-struct neta_uio {
-	struct uio_info_t *uio_info;
-	struct uio_mem_t *mem;
+struct netdev_if_params {
+	char	if_name[16];
+	u8	ppio_id;
 };
 
 /* Main control structure for the PP */
@@ -53,10 +55,8 @@ struct neta {
 
 	/* Port objects associated */
 	u32 num_ports;
-	struct neta_ppio *ports[NETA_NUM_ETH_PPIO];
+	struct netdev_if_params *ports[NETA_NUM_ETH_PPIO];
 
-	/* BM Pools associated */
-	/*struct pp2_bm_pool *bm_pools[PP2_BPOOL_NUM_POOLS];*/
 };
 
 static struct neta	*neta_ptr;
@@ -68,8 +68,6 @@ int neta_is_initialized(void)
 
 int neta_init(void)
 {
-	int i;
-
 	if (neta_ptr) {
 		pr_warn("NETA US driver already initialized\n");
 		return -EINVAL;
@@ -79,20 +77,89 @@ int neta_init(void)
 		pr_err("%s: out of memory for NETA driver allocation\n", __func__);
 		return -ENOMEM;
 	}
-
-	/* TBD: do it only US ports */
 	neta_ptr->num_ports = NETA_NUM_ETH_PPIO;
-	for (i = 0; i < neta_ptr->num_ports; i++) {
-		struct neta_ppio *port = kcalloc(1, sizeof(struct neta_ppio), GFP_KERNEL);
-
-		if (unlikely(!port)) {
-			pr_err("%s out of memory neta_port alloc\n", __func__);
-			break;
-		}
-		neta_ptr->ports[i] = port;
-	}
 
 	pr_debug("NETA PP run\n");
+
+	return 0;
+}
+
+/* check interface name is NETA interface and it was congured
+ * in kernel space by ifconfig command
+ */
+static int neta_netdev_if_verify(const char *if_name)
+{
+	FILE *fp;
+	char path[MAX_BUF_STR_LEN];
+	char buf[MAX_BUF_STR_LEN];
+	int found;
+
+	/* check if it is mvneta interface */
+	sprintf(path, "%s%s/device/uevent", NETA_NETDEV_PATH, if_name);
+	fp = fopen(path, "r");
+	if (!fp) {
+		pr_err("error opening %s\n", path);
+		return -EEXIST;
+	}
+	found = 0;
+	while (fgets(buf, MAX_BUF_STR_LEN, fp)) {
+		if (strncmp("DRIVER=mvneta", buf, 13) == 0) {
+			found = 1;
+			break;
+		}
+	}
+	fclose(fp);
+	if (!found) {
+		pr_err("interface %s doesn't NETA port\n", if_name);
+		return -EEXIST;
+	}
+
+	/* TBD: check this is MUSDK port */
+
+	/* interface must be up */
+	sprintf(path, "%s%s/operstate", NETA_NETDEV_PATH, if_name);
+	fp = fopen(path, "r");
+	if (!fp) {
+		pr_err("error opening %s\n", path);
+		return -EEXIST;
+	}
+	found = 0;
+	while (fgets(buf, MAX_BUF_STR_LEN, fp)) {
+		if (strncmp("up", buf, 2) == 0) {
+			found = 1;
+			break;
+		}
+	}
+	fclose(fp);
+	if (!found) {
+		pr_err("interface %s doesn't UP; run: ifconfig %s up\n", if_name, if_name);
+		return -EEXIST;
+	}
+
+	return 0;
+}
+
+int neta_port_register(const char *if_name, int port_id)
+{
+	struct netdev_if_params *port;
+	int err;
+
+	err = neta_netdev_if_verify(if_name);
+	if (err)
+		return -1;
+
+	if (neta_ptr->ports[port_id])
+		return -1;
+
+	port = kcalloc(1, sizeof(struct netdev_if_params), GFP_KERNEL);
+	if (unlikely(!port)) {
+		pr_err("%s out of memory neta_port alloc\n", __func__);
+			return -1;
+	}
+	strcpy(port->if_name, if_name);
+	port->ppio_id = port_id;
+
+	neta_ptr->ports[port_id] = port;
 
 	return 0;
 }
@@ -104,11 +171,8 @@ void neta_deinit(void)
 	if (!neta_is_initialized())
 		return;
 
-	for (i = 0; i < neta_ptr->num_ports; i++) {
-		struct neta_ppio *port = neta_ptr->ports[i];
-
-		neta_ppio_deinit(port);
-	}
+	for (i = 0; i < neta_ptr->num_ports; i++)
+		kfree(neta_ptr->ports[i]);
 
 	/* Destroy the PPDK handle */
 	kfree(neta_ptr);
@@ -121,7 +185,7 @@ void neta_deinit(void)
  */
 int neta_netdev_get_port_info(char *ifname, u8 *port_id)
 {
-	struct neta_port *port;
+	struct netdev_if_params *port;
 	int i;
 
 	if (!neta_is_initialized()) {
@@ -133,10 +197,10 @@ int neta_netdev_get_port_info(char *ifname, u8 *port_id)
 		if (!neta_ptr->ports[i])
 			continue;
 
-		port = (struct neta_port *)neta_ptr->ports[i]->internal_param;
+		port = neta_ptr->ports[i];
 
 		if (strcmp(ifname, port->if_name) == 0) {
-			*port_id = i;
+			*port_id = port->ppio_id;
 			pr_info("%s: port %d\n", ifname, *port_id);
 			return 0;
 		}
