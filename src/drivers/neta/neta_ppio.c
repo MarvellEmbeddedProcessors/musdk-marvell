@@ -53,27 +53,26 @@ static int neta_txq_done(struct neta_port *pp, struct neta_tx_queue *txq);
  */
 int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 {
-	u8  match[2];
 	int port_id, rc;
 	struct neta_ppio *ppio_ptr;
 	struct neta_port *port;
 
-	if (mv_sys_match(params->match, "neta", 1, match)) {
-		pr_err("[%s] Invalid match string!\n", __func__);
+	port_id = atoi(&params->match[3]);
+	if (port_id >= NETA_NUM_ETH_PPIO) {
+		pr_err("[%s] Invalid ppio number %d.\n", __func__, port_id);
 		return -ENXIO;
+	}
+
+	rc = neta_port_register(params->match, port_id);
+	if (rc) {
+		pr_err("PP-IO init failed: interface %s doesn't exist or down!\n", params->match);
+		return rc;
 	}
 
 	ppio_ptr = kcalloc(1, sizeof(struct neta_ppio), GFP_KERNEL);
 	if (unlikely(!ppio_ptr)) {
 		pr_err("%s: out of memory for NETA driver allocation\n", __func__);
 		return -ENOMEM;
-	}
-	/* check that application port is US port */
-	port_id = match[0];
-
-	if (port_id >= NETA_NUM_ETH_PPIO) {
-		pr_err("[%s] Invalid ppio number %d.\n", __func__, port_id);
-		return -ENXIO;
 	}
 
 	if (params->inqs_params.tcs_params[0].pkt_offset > 120) {
@@ -99,7 +98,7 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 		return(-EFAULT);
 	}
 	/* build interface name */
-	snprintf(port->if_name, sizeof(port->if_name), "eth%d", port_id);
+	strcpy(port->if_name, params->match);
 	printf("init %s interface\n", port->if_name);
 
 	neta_port_initialize_statistics(port);
@@ -119,7 +118,6 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
  */
 void neta_ppio_deinit(struct neta_ppio *ppio)
 {
-	neta_ppio_disable(ppio->internal_param);
 	neta_port_hw_deinit(ppio->internal_param);
 	free(ppio);
 }

@@ -328,13 +328,10 @@ int app_find_port_info(struct port_desc *port_desc)
 int app_port_init(struct port_desc *port, u16 mtu, u16 pkt_offset)
 {
 	struct neta_ppio_params		*port_params = &port->port_params;
-	char				name[MVAPPS_PPIO_NAME_MAX];
 	int				i, err = 0;
 
-	memset(name, 0, sizeof(name));
-	snprintf(name, sizeof(name), "neta-%d", port->ppio_id);
-	pr_debug("found port: %s\n", name);
-	port_params->match = name;
+	pr_debug("found port: %s\n", port->name);
+	port_params->match = port->name;
 	port_params->inqs_params.num_tcs = port->num_tcs;
 	port_params->inqs_params.mtu = mtu;
 
@@ -360,6 +357,7 @@ int app_port_init(struct port_desc *port, u16 mtu, u16 pkt_offset)
 		pr_err("PP-IO init failed!\n");
 		return -EIO;
 	}
+
 	return err;
 }
 
