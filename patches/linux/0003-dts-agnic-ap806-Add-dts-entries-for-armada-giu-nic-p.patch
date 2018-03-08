@@ -1,7 +1,7 @@
-From 70ad9aceac82202e315299bf567a5c397a50cd8c Mon Sep 17 00:00:00 2001
+From c634722be5be0f7c663812161737221ba03899d0 Mon Sep 17 00:00:00 2001
 From: Shadi Ammouri <shadi@marvell.com>
 Date: Mon, 28 Aug 2017 15:27:01 +0300
-Subject: [PATCH 3/5] dts: agnic: ap806: Add dts entries for armada giu nic
+Subject: [PATCH] dts: agnic: ap806: Add dts entries for armada giu nic
  platform and uio
 
 - The platform entry will be used by the agnic netdev driver.
@@ -14,15 +14,15 @@ Reviewed-on: http://vgitil04.il.marvell.com:8080/43483
 Tested-by: iSoC Platform CI <ykjenk@marvell.com>
 ---
  .../bindings/net/marvell-armada-giu-nic-uio.txt     | 21 +++++++++++++++++++++
- .../bindings/net/marvell-armada-giu-nic.txt         | 19 +++++++++++++++++++
- arch/arm64/boot/dts/marvell/armada-ap806.dtsi       | 14 ++++++++++++++
- 3 files changed, 54 insertions(+)
+ .../bindings/net/marvell-armada-giu-nic.txt         | 20 ++++++++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap806.dtsi       | 15 +++++++++++++++
+ 3 files changed, 56 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 
 diff --git a/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
 new file mode 100644
-index 0000000..c22e708
+index 000000000000..c22e7085c8f3
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
 @@ -0,0 +1,21 @@
@@ -49,10 +49,10 @@ index 0000000..c22e708
 +};
 diff --git a/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 new file mode 100644
-index 0000000..f8dcd8d
+index 000000000000..6faa6f6a58ba
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,20 @@
 +* Marvell Armada GIU NIC (agnic)
 +
 +This entry is used by the loadable agnic driver (maintained out of the Linux tree)
@@ -69,14 +69,15 @@ index 0000000..f8dcd8d
 +agnic-plat {
 +	compatible = "marvell,armada-giu-nic";
 +	reg = <0x6F00A0 0x8>;
++	msi-parent = <&gic_v2m0>;
 +	dma-coherent;
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-index a7da40e..d87e366 100644
+index a7da40effccd..39eadecacdc1 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-@@ -498,6 +498,20 @@
+@@ -498,6 +498,21 @@
  				reg = <0x6f8200 0x8>;
  				status = "okay";
  			};
@@ -84,6 +85,7 @@ index a7da40e..d87e366 100644
 +			agnic-plat {
 +				compatible = "marvell,armada-giu-nic";
 +				reg = <0x6F00A0 0x8>;
++				msi-parent = <&gic_v2m0>;
 +				dma-coherent;
 +				status = "okay";
 +			};
@@ -98,5 +100,5 @@ index a7da40e..d87e366 100644
  	};
  };
 -- 
-1.9.1
+2.13.0
 
