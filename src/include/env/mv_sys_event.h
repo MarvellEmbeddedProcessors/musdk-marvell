@@ -53,6 +53,8 @@ struct mv_sys_event {
 /* System event initialization parameters */
 struct mv_sys_event_params {
 	char name[16];	/**< Event name as defined in the file /sys/class/uio/uioX/name */
+	int (*event_validate)(void *); /* fn validates that returned event matches blocking criteria */
+	void *driver_data; /* driver specific data */
 };
 
 /**
@@ -101,5 +103,9 @@ int mv_sys_event_poll(struct mv_sys_event *ev, int num, int timeout);
  * @retval	Negative  - failure
  */
 int mv_sys_event_get_fd(struct mv_sys_event *ev, int *fd);
+
+
+int mv_sys_event_get_driver_data(struct mv_sys_event *ev, void **driver_data);
+
 
 #endif /* __MV_SYS_EVENT_H__ */
