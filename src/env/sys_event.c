@@ -43,6 +43,8 @@
 
 struct sys_event_priv {
 	int fd;
+	int (*event_validate)(void *); /* fn validates that returned event matches blocking criteria */
+	void *driver_data; /* driver specific data */
 };
 
 int mv_sys_event_create(struct mv_sys_event_params *params, struct mv_sys_event **ev)
@@ -77,6 +79,8 @@ int mv_sys_event_create(struct mv_sys_event_params *params, struct mv_sys_event 
 		pr_err("Can't open file (%s) - %s\n", ev_name, strerror(errno));
 		goto error;
 	}
+	ev_priv->event_validate = params->event_validate;
+	ev_priv->driver_data = params->driver_data;
 
 	*ev = ev_local;
 	pr_debug("%s: Event opened: fd = %d\n", __func__, ev_priv->fd);
@@ -112,13 +116,25 @@ int mv_sys_event_get_fd(struct mv_sys_event *ev, int *fd)
 	return 0;
 }
 
+int mv_sys_event_get_driver_data(struct mv_sys_event *ev, void **driver_data)
+{
+	struct sys_event_priv *ev_priv = (struct sys_event_priv *)ev->priv;
+
+	if (!ev || !driver_data)
+		return -1;
+
+	*driver_data = ev_priv->driver_data;
+	return 0;
+}
+
+
 #define USE_POLL
 #if defined(USE_POLL)
 #define MAX_POLL_EVENTS		32
 int mv_sys_event_poll(struct mv_sys_event *ev, int num, int timeout)
 {
 	int i, ret;
-	struct pollfd fds[MAX_POLL_EVENTS];
+	struct pollfd fds[MAX_POLL_EVENTS] = { {0} };
 
 	if (num > MAX_POLL_EVENTS) {
 		pr_warn("%s: Too many events %d. Max number of events is %d\n",
@@ -132,13 +148,18 @@ int mv_sys_event_poll(struct mv_sys_event *ev, int num, int timeout)
 		fds[i].events = ev->events;
 		fds[i].revents = 0;
 	}
-
 	ret = poll(fds, num, timeout);
-	for (i = 0; i < num; i++)
-		ev[i].revents = fds[i].revents;
 
-	pr_debug("%s: poll() returned. ret = %d\n",
-		__func__, ret);
+	for (i = 0; i < num; i++) {
+		struct sys_event_priv *ev_priv = (struct sys_event_priv *)ev[i].priv;
+
+		if (ev_priv->event_validate)
+			ev[i].revents = fds[i].revents & ev_priv->event_validate(ev_priv->driver_data);
+		else
+			ev[i].revents = fds[i].revents;
+	}
+
+	pr_debug("%s: poll() returned. ret = %d revents[0]:%d\n", __func__, ret, ev[0].revents);
 
 	return ret;
 }
