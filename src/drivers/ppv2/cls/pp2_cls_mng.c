@@ -1472,7 +1472,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
 	if (action->plcr) {
-		pkt_action->policer_act = MVPP2_ACTION_TYPE_UPDT;
+		pkt_action->policer_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		qos_info->policer_id = action->plcr->id;
 	}
 
@@ -1544,7 +1544,7 @@ static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
 	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
 	if (action->plcr) {
-		pkt_action->policer_act = MVPP2_ACTION_TYPE_UPDT;
+		pkt_action->policer_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		qos_info->policer_id = action->plcr->id;
 	}
 
