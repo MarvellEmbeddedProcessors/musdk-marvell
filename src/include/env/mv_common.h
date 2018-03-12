@@ -42,6 +42,10 @@
 #define BITS_PER_BYTE	(8)
 #endif
 
+#ifndef USEC_PER_SEC
+#define USEC_PER_SEC	1000000
+#endif
+
 #define PTR2INT(_p)		((uintptr_t)(_p))
 #define INT2PTR(_i)		((void *)(uintptr_t)(_i))
 
@@ -76,6 +80,12 @@
 
 #ifndef BIT
 #define BIT(nr) (1UL << (nr))
+#endif
+
+#ifndef GENMASK
+#define BITS_PER_LONG	__WORDSIZE
+#define GENMASK(h, l) \
+	(((~0UL) << (l)) & (~0UL >> (BITS_PER_LONG - 1 - (h))))
 #endif
 
 #define CREATE_MASK(pos, len)		GENMASK((pos) + (len) - 1, (pos))

@@ -34,6 +34,7 @@
 #define __MV_PP2_PPIO_H__
 
 #include "mv_std.h"
+#include "env/mv_sys_event.h"
 
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"
@@ -51,6 +52,13 @@ struct pp2_ppio {
 	u32	port_id;		/* port Id */
 	void	*internal_param;	/* parameters for internal use */
 };
+
+struct pp2_ppio_rxq_event_params {
+	u32 pkt_coal;
+	u32 usec_coal;
+	u32 rxq_mask;
+};
+
 
 struct pp2_bpool;
 
@@ -400,7 +408,7 @@ void pp2_ppio_deinit(struct pp2_ppio *ppio);
  ****************************************************************************/
 
 #define PP2_PPIO_DESC_NUM_WORDS	8
-#define PP2_PPIO_DESC_NUM_FRAGS	16 /* TODO: check if there’s HW limitation */
+#define PP2_PPIO_DESC_NUM_FRAGS	16 /* TODO: check if thereâs HW limitation */
 
 struct pp2_ppio_desc {
 	u32			 cmds[PP2_PPIO_DESC_NUM_WORDS];
@@ -1335,13 +1343,13 @@ int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en);
  *	num-in-tcs: <int>,		(used for in QoS according to #priorities)
  *	intc: {
  *		num-inqs : <int>,	(used for in RSS (according to remote side #cores))
- *		inqs : {[<int>>],�,[<int>]}, ([q-size])
+ *		inqs : {[<int>>],,[<int>]}, ([q-size])
  *		bpool : <int>
  *	},
- *	�
+ *	
  *	num-out-qs: <int>,	(used for out QoS according to #priorities)
  *	outq: {
- *		outqs : {[<int>],�,[<int>]}, ([q-size])
+ *		outqs : {[<int>],,[<int>]}, ([q-size])
  *		}
  *	}
  *
@@ -1380,6 +1388,45 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio);
  * @retval      <0 on failure
  */
 int pp2_ppio_remove(struct pp2_ppio *ppio);
+
+/**
+ * Create a ppio rx event
+ *
+ * The rx_event API is called to create a sys_event for a ppio, that
+ * can later be polled through the mv_sys_event_poll() API.
+ *
+ * @param[in]	ppio		A pointer to a PP-IO object.
+ * @param[in]	params		Parameters for the event.
+ * @param[out]	ev		A pointer to event handle of type 'struct mv_sys_event *'.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_ppio_rx_create_event(struct pp2_ppio *ppio, struct pp2_ppio_rxq_event_params *params, struct mv_sys_event **ev);
+
+/**
+ * Delete a ppio rx event
+ *
+ * @param[in]	ev		A sys_event handle.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int pp2_ppio_rx_delete_event(struct mv_sys_event *ev);
+
+/**
+ * Set a ppio rx event
+ *
+ * The rx_set_event API is called to enable the creation of events for the related ppio.
+ *
+ * @param[in]	ev		A sys_event handle.
+ * @param[in]	en		1 - enable, 0 - disable.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_ppio_rx_set_event(struct mv_sys_event *ev, int en);
+
 
 /** @} */ /* end of grp_pp2_io */
 

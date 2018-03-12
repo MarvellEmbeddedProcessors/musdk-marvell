@@ -498,4 +498,10 @@ int populate_tc_pools(struct pp2_inst *pp2_inst, struct pp2_bpool *param_pools[]
 void pp2_port_rxqs_create(struct pp2_port *port);
 void pp2_port_txqs_create(struct pp2_port *port);
 
+int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_params *params, struct mv_sys_event **ev);
+int pp2_port_rx_delete_event(struct mv_sys_event *ev);
+int pp2_port_rx_set_event(struct mv_sys_event *ev, int en);
+int ppv2_port_rx_create_event_validate(void *driver_data);
+;
+
 #endif /* __PP2_PORT_H__ */

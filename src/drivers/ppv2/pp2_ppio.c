@@ -1379,3 +1379,40 @@ int pp2_ppio_remove(struct pp2_ppio *ppio)
 	return 0;
 }
 
+int pp2_ppio_rx_create_event(struct pp2_ppio *ppio, struct pp2_ppio_rxq_event_params *params, struct mv_sys_event **ev)
+{
+	struct pp2_port *port = NULL;
+	int err;
+
+	if (!ppio || !params || !ev)
+		return -EINVAL;
+
+	port = GET_PPIO_PORT(ppio);
+	if (!port) {
+		pr_info("%s port is null\n", __func__);
+		return -EINVAL;
+	}
+
+	err = pp2_port_rx_create_event(port, params, ev);
+
+	return err;
+}
+int pp2_ppio_rx_set_event(struct mv_sys_event *ev, int en)
+{
+	int err;
+
+	err = pp2_port_rx_set_event(ev, en);
+
+	return err;
+}
+
+int pp2_ppio_rx_delete_event(struct mv_sys_event *ev)
+{
+	int err;
+
+	err = pp2_port_rx_delete_event(ev);
+
+	return err;
+}
+
+
