@@ -49,7 +49,6 @@
 #include "cls/pp2_cls_mng.h"
 #include "cls/pp2_rss.h"
 
-
 /*
  * pp2_port.c
  *
@@ -750,6 +749,32 @@ pp2_port_rxqs_deinit(struct pp2_port *port)
 	for (queue = 0; queue < port->num_rx_queues; queue++)
 		pp2_rxq_deinit(port, port->rxqs[queue]);
 }
+
+static void pp2_port_rx_pkts_coal_set(struct pp2_port *port, struct pp2_rx_queue *rxq)
+{
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	if (rxq->pkts_coal > MVPP2_MAX_OCCUPIED_THRESH)
+		rxq->pkts_coal = MVPP2_MAX_OCCUPIED_THRESH;
+
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_NUM_REG, rxq->id);
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_THRESH_REG, rxq->pkts_coal);
+}
+
+/* Set the time delay in usec before Rx interrupt */
+static void pp2_port_rx_time_coal_set(struct pp2_port *port, struct pp2_rx_queue *rxq)
+{
+	u32 val;
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	val = (port->parent->hw.tclk / USEC_PER_SEC) * rxq->usec_coal;
+	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
+		val = MVPP2_MAX_ISR_RX_THRESHOLD;
+		rxq->usec_coal = (USEC_PER_SEC / port->parent->hw.tclk) * val;
+	}
+	pp2_reg_write(cpu_slot, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
+}
+
 
 int
 pp2_port_set_outq_state(struct pp2_port *port, struct pp2_tx_queue *txq, int en)
@@ -1689,3 +1714,196 @@ int pp2_port_link_status(struct pp2_port *port)
 
 	return link_is_up;
 }
+
+int ppv2_port_rx_create_event_validate(void *driver_data)
+{
+	struct rxq_event *rx_event = driver_data;
+	int i;
+	u32 cause_rx;
+
+	/* Check that at least one of the rx_qs in the per-interrupt qs_mask is raised */
+	for (i = 0; i < ARRAY_SIZE(rx_event->rx_intrpt); i++) {
+		struct event_intrpt *ev_int = &rx_event->rx_intrpt[i];
+
+		if (!ev_int->qs_mask)
+			break;
+
+		cause_rx = pp2_reg_read(ev_int->cpu_slot, MVPP2_ISR_RX_TX_CAUSE_REG(rx_event->parent->id));
+		if (cause_rx & ev_int->qs_mask)
+			return 1;
+	}
+	return 0;
+}
+
+int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_params *params, struct mv_sys_event **ev)
+{
+	u32 port_qs_mask = GENMASK((port->first_rxq + port->num_rx_queues - 1), port->first_rxq);
+	u32 events_qs_mask = params->rxq_mask;
+	struct rxq_event *rx_event;
+	int i, cpu_slot_id, err;
+	struct mv_sys_event_params ev_params = {0};
+
+
+	if (port->num_rxq_events == ARRAY_SIZE(port->rx_event))  {
+		pr_err("(%s) Too many events\n", __func__);
+		return -EINVAL;
+	}
+	if (params->rxq_mask & (~port_qs_mask)) {
+		pr_err("(%s) rxq_mask:0x%x includes rx_qs which are not defined in the port\n",
+			__func__, params->rxq_mask);
+		return -EINVAL;
+	}
+	if (params->rxq_mask & port->rxq_event_mask) {
+		pr_err("(%s) rxq_mask:0x%x already included in an existing event\n", __func__, params->rxq_mask);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(port->rx_event); i++)
+		if (!port->rx_event[i].valid)
+			break;
+	rx_event = &port->rx_event[i];
+
+	snprintf(ev_params.name, sizeof(ev_params.name), PORT_STRING, port->parent->id, port->id);
+	ev_params.event_validate = ppv2_port_rx_create_event_validate;
+	ev_params.driver_data = rx_event;
+
+	err = mv_sys_event_create(&ev_params, ev);
+	(*ev)->events = MV_SYS_EVENT_POLLIN;
+	if (err) {
+		pr_err("(%s) Can't open PPv2 event: %s\n", __func__, ev_params.name);
+		return err;
+	}
+
+	for (i = 0; (events_qs_mask != 0); i++) {
+		struct pp2_rx_queue *rxq = port->rxqs[i];
+
+		if ((events_qs_mask & BIT(i)) == 0)
+			continue;
+		rxq->pkts_coal = params->pkt_coal;
+		rxq->usec_coal = params->usec_coal;
+		pp2_port_rx_pkts_coal_set(port, rxq);
+		pp2_port_rx_time_coal_set(port, rxq);
+		events_qs_mask &= ~(BIT(i));
+	}
+	events_qs_mask = params->rxq_mask;
+
+	/* Configure rx_event */
+	memcpy(&rx_event->ev_params, params, sizeof(*params));
+	rx_event->parent = port;
+
+	for (cpu_slot_id = 0, i = 0; cpu_slot_id < PP2_MAX_NUM_USED_INTERRUPTS; cpu_slot_id++) {
+		u32 intrpt_qs_mask = events_qs_mask >> (cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT);
+		struct event_intrpt *rx_intrpt = &rx_event->rx_intrpt[i];
+
+		if (!intrpt_qs_mask)
+			continue;
+
+		rx_intrpt->cpu_slot = port->parent->hw.base[cpu_slot_id].va;
+		rx_intrpt->qs_mask = intrpt_qs_mask;
+		i++;
+	}
+
+	port->num_rxq_events++;
+
+	return 0;
+}
+
+
+int pp2_port_rx_set_event(struct mv_sys_event *ev, int en)
+{
+	int err, i;
+	struct rxq_event *rx_event;
+	u32 cause_mask, cause_rx;
+
+	err = mv_sys_event_get_driver_data(ev, (void **)&rx_event);
+	if (err) {
+		pr_err("(%s) could not get event driver_data event_ptr(%p)\n", __func__, ev);
+		return -EINVAL;
+	}
+
+	/* Check that at least one of the rx_qs in the per-interrupt qs_mask is raised */
+	for (i = 0; i < ARRAY_SIZE(rx_event->rx_intrpt); i++) {
+		struct event_intrpt *ev_int = &rx_event->rx_intrpt[i];
+
+		/* End of participating interrupts */
+		if (!ev_int->qs_mask)
+			break;
+
+		/* There is a possible double race condition:
+		 *	a. Between this event and kernel interrupt code.
+		 *	b. Possibly between this event and other events sharing the same interrupt_register.
+		 *Instead of locking kernel_interrupts, which is problamatic in US,
+		 *this code continues writing the updated interrupt_mask, until one of following occurs:
+		 *	a. Cause Mask bits are written in the register, because they are read back.
+		 *	b. Cause Bits were raised before the reg_write, indicating an additional kernel_interrupt
+		 *	   (& sys_event) have occurred, following the reg_write.
+		 * TODO: Add sys_event_ppio_lock, to eliminate races between US processes.
+		 */
+		cause_rx = 0;
+		while (1) {
+			cause_mask = pp2_reg_read(ev_int->cpu_slot, MVPP2_ISR_RX_TX_MASK_REG(rx_event->parent->id));
+			if (en) {
+				if (((cause_mask & ev_int->qs_mask) == ev_int->qs_mask) ||
+				     (cause_rx & ev_int->qs_mask))
+					break;
+				cause_mask |= ev_int->qs_mask;
+			} else {
+				if ((cause_mask & ev_int->qs_mask) == 0)
+					break;
+				cause_mask &= (~ev_int->qs_mask);
+			}
+			cause_rx = pp2_reg_read(ev_int->cpu_slot, MVPP2_ISR_RX_TX_CAUSE_REG(rx_event->parent->id));
+			pp2_reg_write(ev_int->cpu_slot, MVPP2_ISR_RX_TX_MASK_REG(rx_event->parent->id), cause_mask);
+
+			mdelay(20);
+		}
+	}
+	return 0;
+}
+
+int pp2_port_rx_delete_event(struct mv_sys_event *ev)
+{
+	int err, i;
+	struct rxq_event *rx_event;
+	u32 events_qs_mask;
+	struct pp2_port *port;
+
+	err = mv_sys_event_get_driver_data(ev, (void **)&rx_event);
+	if (err) {
+		pr_err("(%s) could not get event driver_data event_ptr(%p)\n", __func__, ev);
+		return -EINVAL;
+	}
+
+	events_qs_mask = rx_event->ev_params.rxq_mask;
+	port = rx_event->parent;
+
+	/* Unset the event */
+	pp2_port_rx_set_event(ev, 0);
+
+	/* Reset coalescing values */
+	for (i = 0; (events_qs_mask); i++) {
+		struct pp2_rx_queue *rxq = port->rxqs[i];
+
+		if ((events_qs_mask & BIT(i)) == 0)
+			continue;
+		rxq->pkts_coal = 0;
+		rxq->usec_coal = 0;
+		pp2_port_rx_pkts_coal_set(port, rxq);
+		pp2_port_rx_time_coal_set(port, rxq);
+		events_qs_mask &= ~(BIT(i));
+	}
+
+	memset(rx_event, 0, sizeof(*rx_event));
+	port->num_rxq_events--;
+
+	/* Destroy the event */
+	err = mv_sys_event_destroy(ev);
+	if (err) {
+		pr_err("(%s) failed to delete event (%p)\n", __func__, ev);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+

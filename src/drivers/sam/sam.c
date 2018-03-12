@@ -995,7 +995,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *params, struct mv_sys_event **ev)
 {
 	int err;
-	struct mv_sys_event_params ev_params;
+	struct mv_sys_event_params ev_params = {0};
 
 	snprintf(ev_params.name, sizeof(ev_params.name), "%s_%d:%d",
 			(cio->hw_ring.type == HW_EIP197) ? "eip197" : "eip97",

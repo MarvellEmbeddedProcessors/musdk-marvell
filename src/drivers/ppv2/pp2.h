@@ -68,7 +68,13 @@
 
 /*Copied from Linux mv_pp2x driver */
 #define UIO_PP2_STRING  "uio_pp_%d"
-#define UIO_PORT_STRING "uio_pp_port_%d:%d"
+#define PORT_STRING	"pp_port_%d:%d"
+#define UIO_PORT_STRING "uio_" PORT_STRING
+
+
+#define PP22_MAX_NUM_RXQ_PER_INTRPT	8
+#define PP2_MAX_NUM_USED_INTERRUPTS	(PP2_PPIO_MAX_NUM_INQS/PP22_MAX_NUM_RXQ_PER_INTRPT) /* 32/8=4 */
+
 
 
 #ifdef MVCONF_PP2_LOCK
@@ -258,6 +264,8 @@ struct pp2_rx_queue {
 	u32 threshold_rx_pkts;
 	struct mv_sys_dma_mem_region *mem;
 	u32 bm_pool_id[PP2_PPIO_TC_CLUSTER_MAX_POOLS];
+	u32 pkts_coal;
+	u32 usec_coal;
 };
 
 #define PP2_BM_BUF_DEBUG             (0)
@@ -360,6 +368,18 @@ struct pp2_port_uio {
 	int fd;
 };
 
+struct event_intrpt {
+	uintptr_t cpu_slot;
+	u32 qs_mask;
+};
+
+struct rxq_event {
+	int		valid;
+	struct pp2_port *parent;
+	struct pp2_ppio_rxq_event_params ev_params;
+	struct event_intrpt rx_intrpt[PP2_MAX_NUM_USED_INTERRUPTS];
+};
+
 /* PP Port internal structure */
 struct pp2_port {
 	/* Port ID */
@@ -418,6 +438,9 @@ struct pp2_port {
 	struct pp2_cls_plcr *default_plcr;
 	struct mv_sys_dma_mem_region *tx_qs_mem;
 	struct pp2_port_uio uio_port;
+	u32 num_rxq_events;
+	struct rxq_event rx_event[PP2_PPIO_MAX_NUM_INQS];
+	u32 rxq_event_mask;
 };
 
 /**
