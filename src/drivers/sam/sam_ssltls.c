@@ -81,7 +81,8 @@ static inline void sam_hw_ring_ssltls_request_write(struct sam_hw_ring *hw_ring,
 	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
 
 	/* Write prepared RDR descriptor first */
-	sam_hw_rdr_prep_desc_write(res_desc, request->dst->paddr, request->dst->len);
+	sam_hw_rdr_prep_desc_write(res_desc, request->dst->paddr, request->dst->len,
+				   (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK));
 
 	/* Write CDR descriptor */
 	sam_hw_cdr_proto_cmd_desc_write(cmd_desc, request->src->paddr, request->pkt_size);
@@ -175,7 +176,7 @@ int sam_cio_enq_ssltls(struct sam_cio *cio, struct sam_cio_ssltls_params *reques
 		operation->cookie = request->cookie;
 		operation->copy_len = request->pkt_size;
 		operation->num_bufs = request->num_bufs;
-		for (j = 0;  j < request->num_bufs; j++) {
+		for (j = 0;  j < operation->num_bufs; j++) {
 			operation->out_frags[j].vaddr = request->dst[j].vaddr;
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;

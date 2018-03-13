@@ -466,16 +466,6 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	return 0;
 }
 
-int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
-				u32 next_request)
-{
-	sam_hw_ring_sa_inv_desc_write(hw_ring, next_request, sa_buf->paddr);
-
-	sam_hw_ring_submit(hw_ring, 1);
-
-	return 0;
-}
-
 void sam_hw_aic_ring_regs_show(struct sam_hw_ring *hw_ring)
 {
 	pr_info("%d:%d AIC Ring registers - paddr = 0x%" PRIdma ", vaddr = %p\n",

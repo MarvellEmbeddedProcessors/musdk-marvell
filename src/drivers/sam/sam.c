@@ -45,7 +45,9 @@
 /* Maximum number of supported CIOs for all devices */
 #define SAM_MAX_CIO_NUM		(SAM_HW_RING_NUM * SAM_HW_DEVICE_NUM)
 
+#ifdef MVCONF_SAM_DEBUG
 u32 sam_debug_flags;
+#endif
 
 static bool		sam_initialized;
 static int		sam_num_instances;
@@ -794,9 +796,13 @@ int sam_session_destroy(struct sam_sa *session)
 		operation = &cio->operations[cio->next_request];
 		operation->sa = session;
 		operation->num_bufs = 0;
+		operation->in_num_bufs = 0;
 
 		/* Invalidate session in HW */
-		sam_hw_session_invalidate(&session->cio->hw_ring, &session->sa_buf, cio->next_request);
+		sam_hw_ring_sa_inv_desc_write(&session->cio->hw_ring,
+					      session->sa_buf.paddr);
+
+		sam_hw_ring_submit(&session->cio->hw_ring, 1);
 		SAM_STATS(sam_sa_stats.sa_inv++);
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
@@ -809,20 +815,17 @@ int sam_session_destroy(struct sam_sa *session)
 
 static int sam_cio_check_op_params(struct sam_cio_op_params *request)
 {
-	if (unlikely(request->num_bufs != 1)) {
-		/* Multiple buffers not supported */
-		return -ENOTSUP;
-	}
-
-	if (unlikely(request->src == NULL)) {
+	if (unlikely(request->num_bufs == 0))
 		/* One source buffer is mandatory */
 		return -ENOTSUP;
-	}
 
-	if (unlikely(request->dst == NULL)) {
+	if (unlikely(request->src == NULL))
+		/* One source buffer is mandatory */
+		return -ENOTSUP;
+
+	if (unlikely(request->dst == NULL))
 		/* One destination buffer is mandatory */
 		return -ENOTSUP;
-	}
 
 	return 0;
 }
@@ -832,12 +835,17 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 	struct sam_cio_op *operation;
 	struct sam_cio_op_params *request;
 	int i, j, todo, err = 0;
+	int rdr_submit = 0;
+	int cdr_submit = 0;
+	int prep_data;
+	u32 first_last_mask;
 
 	todo = *num;
 	if (unlikely(todo >= cio->params.size))
 		todo = cio->params.size - 1;
 
 	for (i = 0; i < todo; i++) {
+
 		request = &requests[i];
 
 		/* Check request validity */
@@ -846,7 +854,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			break;
 
 		/* Check maximum number of pending requests */
-		if (unlikely(sam_cio_is_full(cio))) {
+		if (!sam_cio_is_free_slot(cio, request)) {
 			SAM_STATS(cio->stats.enq_full++);
 			break;
 		}
@@ -865,45 +873,91 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Save some fields from request needed for result processing */
 		operation->sa = request->sa;
 		operation->cookie = request->cookie;
-		operation->num_bufs = request->num_bufs;
+		operation->in_num_bufs = request->num_bufs;
+		/* only one destination buffer is supported */
+		operation->num_bufs = 1;
 		operation->auth_icv_offset = request->auth_icv_offset;
-		for (j = 0;  j < request->num_bufs; j++) {
+		for (j = 0;  j < operation->num_bufs; j++) {
 			operation->out_frags[j].vaddr = request->dst[j].vaddr;
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
 		}
 		if (cio->hw_ring.type == HW_EIP197) {
-			sam_hw_ring_ext_desc_write(&cio->hw_ring, cio->next_request,
-					request->src, request->dst, operation->copy_len,
-					&request->sa->sa_buf, &operation->token_buf,
-					operation->token_header_word, operation->token_words);
-		} else {
-			sam_hw_ring_basic_desc_write(&cio->hw_ring, cio->next_request,
-					request->src, request->dst, operation->copy_len,
-					&request->sa->sa_buf, &operation->token_buf,
-					operation->token_header_word, operation->token_words);
-		}
+			/* Prepared RDR descriptors */
+			first_last_mask = SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK;
+
+			sam_hw_rdr_prep_basic_desc_write(&cio->hw_ring,
+							 request->dst[0].paddr,
+							 request->dst[0].len,
+							 first_last_mask);
+			rdr_submit++;
+
+			/* Prepared CDR descriptors */
+			prep_data = 0;
+			for (j = 0;  j < request->num_bufs; j++) {
+				u32 data_size = request->src[j].len;
+
+				first_last_mask = 0;
+				if (j == 0)
+					first_last_mask |= SAM_DESC_FIRST_SEG_MASK;
+
+				if (j == (request->num_bufs - 1)) {
+					first_last_mask |= SAM_DESC_LAST_SEG_MASK;
+					data_size = operation->copy_len - prep_data;
+				} else
+					prep_data += data_size;
+
+				/* write token for first descriptor only */
+				if (j == 0)
+					sam_hw_ring_ext_first_desc_write(&cio->hw_ring,
+								   &request->src[j], data_size,
+								   &request->sa->sa_buf, &operation->token_buf,
+								   operation->token_header_word,
+								   operation->token_words,
+								   first_last_mask);
+				else
+					sam_hw_ring_ext_desc_write(&cio->hw_ring,
+								   &request->src[j], data_size,
+								   &request->sa->sa_buf,
+								   first_last_mask);
 
 #ifdef MVCONF_SAM_DEBUG
-		if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
-			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_request);
-			struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_request);
-
-			print_result_desc(res_desc, 1);
-			print_cmd_desc(cmd_desc);
-
-			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
-				operation->copy_len, (void *)request->src->paddr);
-			mv_mem_dump(request->src->vaddr, operation->copy_len);
-		}
+				if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
+					printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
+						operation->copy_len,
+						(void *)request->src[j].paddr);
+					mv_mem_dump(request->src[j].vaddr,
+						    operation->copy_len);
+				}
 #endif /* MVCONF_SAM_DEBUG */
+
+				cdr_submit++;
+			}
+		} else {
+			sam_hw_ring_basic_desc_write(&cio->hw_ring,
+						     request->src, request->dst, operation->copy_len,
+						     &request->sa->sa_buf, &operation->token_buf,
+						     operation->token_header_word, operation->token_words);
+#ifdef MVCONF_SAM_DEBUG
+			if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
+				printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
+					operation->copy_len,
+					(void *)request->src->paddr);
+				mv_mem_dump(request->src->vaddr,
+					    operation->copy_len);
+			}
+#endif /* MVCONF_SAM_DEBUG */
+			rdr_submit++;
+			cdr_submit++;
+		}
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 		SAM_STATS(cio->stats.enq_bytes += operation->copy_len);
 	}
 	/* submit requests */
 	if (likely(i)) {
-		sam_hw_ring_submit(&cio->hw_ring, i);
+		sam_hw_rdr_ring_submit(&cio->hw_ring, rdr_submit);
+		sam_hw_cdr_ring_submit(&cio->hw_ring, cdr_submit);
 		SAM_STATS(cio->stats.enq_pkts += i);
 	}
 	*num = (u16)i;
@@ -947,6 +1001,8 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
 			print_result_desc(res_desc, 0);
 #endif
+		/* return descriptors to CDR */
+		sam_hw_cmd_desc_put(&cio->hw_ring, operation->in_num_bufs);
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 		if (unlikely(!result)) /* Flush cio */
