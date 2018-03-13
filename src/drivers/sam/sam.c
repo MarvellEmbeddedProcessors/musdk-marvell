@@ -541,7 +541,7 @@ err:
 int sam_cio_flush(struct sam_cio *cio)
 {
 	int rc;
-	u32 count = 1000;
+	u32 count = 10000;
 	u16 num, total = 0;
 
 	/* Wait for completion of all operations */
