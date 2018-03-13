@@ -53,10 +53,9 @@
 #include "mvapp.h"
 #include "perf_mon_emu.h"
 
-#define CRYPT_APP_DEF_Q_SIZE		256/*1024*/
-#define CRYPT_APP_HIF_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
-#define CRYPT_APP_RX_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
-#define CRYPT_APP_TX_Q_SIZE		(2 * CRYPT_APP_DEF_Q_SIZE)
+#define CRYPT_APP_DEF_Q_SIZE		256
+#define CRYPT_APP_RX_Q_SIZE		(2 * CRYPT_APP_DEF_Q_SIZE)
+#define CRYPT_APP_TX_Q_SIZE		(2 * CRYPT_APP_RX_Q_SIZE)
 #define CRYPT_APP_CIO_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
 
 #define CRYPT_APP_MAX_BURST_SIZE	(CRYPT_APP_RX_Q_SIZE >> 2)
@@ -162,8 +161,10 @@ struct local_arg {
 	struct sam_cio			*dec_cio;
 	struct sam_sa			*dec_sa;
 	enum crypto_dir			dir;
-	int				num_ports;
 	struct lcl_port_desc		*lcl_ports_desc;
+	u32				tx_in_cntr[MVAPPS_NETA_MAX_NUM_PORTS];
+	u32				enc_in_cntr;
+	u32				dec_in_cntr;
 };
 
 static struct glob_arg garg = {};
@@ -398,8 +399,18 @@ START_COUNT_CYCLES(pme_ev_cnt_enq);
 	err = sam_cio_enq(cio, sam_descs, &num_got);
 STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 
+	if (cio == larg->enc_cio)
+		larg->enc_in_cntr += num_got;
+	else
+		larg->dec_in_cntr += num_got;
+
+	if (state == PKT_STATE_ENC)
+		perf_cntrs->enc_cnt += num_got;
+	else
+		perf_cntrs->dec_cnt += num_got;
+
 	if (unlikely(err)) {
-		pr_err("SAM EnQ (EnC) failed (%d)!\n", err);
+		pr_err("SAM enqueue failed (%d)!\n", err);
 		return -EFAULT;
 	}
 	if (num_got < num) {
@@ -478,6 +489,12 @@ STOP_COUNT_CYCLES(pme_ev_cnt_enq, num_got);
 		pr_err("SAM EnQ (DeC) failed (%d)!\n", err);
 		return -EFAULT;
 	}
+	if (larg->dec_cio == larg->enc_cio)
+		larg->enc_in_cntr += num_got;
+	else
+		larg->dec_in_cntr += num_got;
+
+	perf_cntrs->dec_cnt += num_got;
 	if (num_got < num) {
 		for (i = num_got; i < num; i++)
 			free_buf_from_sam_cookie(larg, sam_descs[i].cookie);
@@ -571,12 +588,17 @@ START_COUNT_CYCLES(pme_ev_cnt_tx);
 		}
 STOP_COUNT_CYCLES(pme_ev_cnt_tx, num_got);
 
+			perf_cntrs->tx_cnt += num_got;
+			larg->tx_in_cntr[tp] += num_got;
+
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-		if (larg->cmn_args.verbose && num_got)
-			printf("sent %d pkts on ppio %d, tc %d\n", num_got, tp, tc);
+			if (larg->cmn_args.verbose) {
+				printf("thread #%d (cpu=%d): sent %d of %d pkts on tx_port=%d, tc=%d\n",
+					larg->cmn_args.id, sched_getcpu(),
+					num_got, num, tp, tc);
+			}
 #endif /* CRYPT_APP_VERBOSE_DEBUG */
 
-		perf_cntrs->tx_cnt += num_got;
 		if (num_got < num) {
 			for (i = 0; i < num - num_got; i++) {
 				if (shadow_q->write_ind == 0)
@@ -618,6 +640,11 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 		pr_err("SAM dequeue failed (%d)!\n", err);
 		return -EFAULT;
 	}
+	if (cio == larg->enc_cio)
+		larg->enc_in_cntr -= num;
+	else
+		larg->dec_in_cntr -= num;
+
 	num_to_send = num_to_dec = 0;
 	for (i = 0; i < num; i++) {
 		struct pkt_mdata *mdata;
@@ -631,14 +658,13 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 		mdata = (struct pkt_mdata *)res_descs[i].cookie;
 		if (res_descs[i].status != SAM_CIO_OK) {
 
+			pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
+				(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
+				i, num, res_descs[i].status, res_descs[i].out_len);
+
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 			if (larg->cmn_args.verbose) {
 				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_NETA_PKT_EFEC_OFFS;
-
-				pr_warn("SAM operation (%s) %d of %d failed! status = %d, len = %d\n",
-					(mdata->state == (u8)PKT_STATE_ENC) ? "EnC" : "DeC",
-					i, num, res_descs[i].status, res_descs[i].out_len);
-
 				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
 			}
 #endif
@@ -699,13 +725,13 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 		if (unlikely(err))
 			return err;
 	}
-	if (larg->enc_cio) {
+	if (larg->enc_in_cntr) {
 		err = deq_crypto_pkts(larg, larg->enc_cio);
 		if (unlikely(err))
 			return err;
 	}
 
-	if (larg->dec_cio && (larg->dec_cio != larg->enc_cio))
+	if (larg->dec_in_cntr && (larg->dec_cio != larg->enc_cio))
 		return deq_crypto_pkts(larg, larg->dec_cio);
 
 	return 0;
@@ -1453,7 +1479,7 @@ static void deinit_local(void *arg)
 #endif /* MVCONF_SAM_STATS */
 
 	if (larg->lcl_ports_desc) {
-		for (i = 0; i < larg->num_ports; i++)
+		for (i = 0; i < larg->cmn_args.num_ports; i++)
 			app_port_local_deinit(&larg->lcl_ports_desc[i]);
 		free(larg->lcl_ports_desc);
 	}
