@@ -99,6 +99,9 @@ struct sam_cio_event_params {
  *
  * Notes:
  *	- "num_bufs" must be in range from 1 to SAM_CIO_MAX_FRAGS.
+ *		     Regardless how many input buffers user pass,
+ *		     output will be only on the first buffer
+ *		     (thus it should be big enough to store all scatters).
  *	- "src" and "dst" buffers must be valid until crypto operation is completed.
  *	- "cipher_iv" and "cipher_offset" are valid only if "cipher_iv" field
  *	in "struct sam_session_params" is NULL and "crypto_mode" requires IV.

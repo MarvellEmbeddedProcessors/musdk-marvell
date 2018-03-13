@@ -64,7 +64,7 @@
 #define CRYPT_APP_HIF_Q_SIZE		(8 * CRYPT_APP_DEF_Q_SIZE)
 #define CRYPT_APP_RX_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
 #define CRYPT_APP_TX_Q_SIZE		(2 * CRYPT_APP_DEF_Q_SIZE)
-#define CRYPT_APP_CIO_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
+#define CRYPT_APP_CIO_Q_SIZE		(2 * CRYPT_APP_DEF_Q_SIZE)
 
 #define CRYPT_APP_MAX_BURST_SIZE	(CRYPT_APP_RX_Q_SIZE >> 2)
 #define CRYPT_APP_DFLT_BURST_SIZE	64
@@ -274,7 +274,6 @@ struct local_arg {
 static struct	glob_arg garg = {};
 static int	ev_pkts_coal = 8;
 static int	ev_usec_coal = 20;
-
 
 #ifdef CHECK_CYCLES
 static int pme_ev_cnt_rx = -1, pme_ev_cnt_enq = -1, pme_ev_cnt_deq = -1, pme_ev_cnt_tx = -1;

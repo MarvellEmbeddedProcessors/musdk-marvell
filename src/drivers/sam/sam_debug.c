@@ -77,6 +77,7 @@ static void print_ssltls_sa_params(SABuilder_Params_SSLTLS_t *params)
 	pr_info("\n");
 }
 
+#ifdef MVCONF_SAM_DEBUG
 void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc)
 {
 	pr_info("\n");
@@ -316,6 +317,7 @@ void print_result_desc(struct sam_hw_res_desc *res_desc, int is_prepared)
 	       ((u64)readl_relaxed(&res_desc->words[3]) << 32));
 #endif
 }
+#endif
 
 void print_token_params(TokenBuilder_Params_t *token)
 {

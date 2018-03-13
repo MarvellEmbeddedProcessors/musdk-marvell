@@ -515,7 +515,18 @@ struct sam_hw_ring {
 	struct sam_buf_info rdr_buf;            /* DMA memory buffer allocated for result descriptors */
 	struct sam_hw_cmd_desc *cmd_desc_first;	/* Pointer to first command descriptors in DMA memory */
 	struct sam_hw_res_desc *res_desc_first;	/* Pointer to first command descriptors in DMA memory */
+	u32 next_cdr;				/* Index of first CD to write */
+	u32 next_rdr;				/* Index of first RD to write */
+	u32 free_cdr;				/* Index of first CD to free */
+	u32 free_rdr;				/* Index of first RD to free */
 };
+
+#ifdef MVCONF_SAM_DEBUG
+extern u32 sam_debug_flags;
+
+void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc);
+void print_result_desc(struct sam_hw_res_desc *res_desc, int is_prepared);
+#endif
 
 static inline void sam_hw_reg_write_relaxed(void *base, u32 offset, u32 data)
 {
@@ -572,18 +583,53 @@ static inline struct sam_hw_cmd_desc *sam_hw_cmd_desc_get(struct sam_hw_ring *hw
 	return (hw_ring->cmd_desc_first + idx);
 }
 
+static inline void sam_hw_cmd_desc_put(struct sam_hw_ring *hw_ring, u32 num)
+{
+	if ((hw_ring->free_cdr + num) >= hw_ring->ring_size)
+		hw_ring->free_cdr = num - (hw_ring->ring_size - hw_ring->free_cdr);
+	else
+		hw_ring->free_cdr += num;
+}
+
 static inline struct sam_hw_res_desc *sam_hw_res_desc_get(struct sam_hw_ring *hw_ring, u32 idx)
 {
 	return (hw_ring->res_desc_first + idx);
 }
 
+static inline u32 sam_hw_next_idx(struct sam_hw_ring *ring, u32 idx)
+{
+	idx++;
+	if (idx == ring->ring_size)
+		idx = 0;
+
+	return idx;
+}
+
+static inline bool sam_hw_cmd_is_free_slot(struct sam_hw_ring *hw_ring, int num)
+{
+	int free_desc_num;
+
+	/* calc number of free descriptors */
+	if (hw_ring->next_cdr >= hw_ring->free_cdr)
+		free_desc_num = hw_ring->ring_size -
+				(hw_ring->next_cdr - hw_ring->free_cdr);
+	else
+		free_desc_num = hw_ring->free_cdr - hw_ring->next_cdr;
+
+	/* compare */
+	if (num < free_desc_num)
+		return true;
+
+	return false;
+}
+
 static inline void sam_hw_rdr_prep_desc_write(struct sam_hw_res_desc *res_desc,
-					      dma_addr_t dst_paddr, u32 prep_size)
+					      dma_addr_t dst_paddr, u32 prep_size, u32 seg_mask)
 {
 	u32 ctrl_word;
 
 	/* bits[24-31] - ExpectedResultWordCount = 0 */
-	ctrl_word = (SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);  /* Last and First */
+	ctrl_word = seg_mask; /* First, Last, or (Last and First) */
 
 	ctrl_word |= (prep_size & SAM_DESC_SEG_BYTES_MASK);
 
@@ -595,15 +641,44 @@ static inline void sam_hw_rdr_prep_desc_write(struct sam_hw_res_desc *res_desc,
 	writel_relaxed(upper_32_bits(dst_paddr), &res_desc->words[3]);
 }
 
+static inline void sam_hw_rdr_prep_basic_desc_write(struct sam_hw_ring *hw_ring,
+					dma_addr_t dst_paddr, u32 prep_size, u32 seg_mask)
+{
+	u32 ctrl_word;
+	struct sam_hw_res_desc *res_desc;
+
+	res_desc = sam_hw_res_desc_get(hw_ring,  hw_ring->next_rdr);
+
+	/* bits[24-31] - ExpectedResultWordCount = 0 */
+	ctrl_word = seg_mask; /* First, Last, or (Last and First) */
+
+	ctrl_word |= (prep_size & SAM_DESC_SEG_BYTES_MASK);
+
+	writel_relaxed(ctrl_word, &res_desc->words[0]);
+	writel_relaxed(0, &res_desc->words[1]); /* skip this write */
+
+	/* Write Destination Packet Data address */
+	writel_relaxed(lower_32_bits(dst_paddr), &res_desc->words[2]);
+	writel_relaxed(upper_32_bits(dst_paddr), &res_desc->words[3]);
+
+#ifdef MVCONF_SAM_DEBUG
+	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
+		print_result_desc(res_desc, 1);
+#endif /* MVCONF_SAM_DEBUG */
+
+	hw_ring->next_rdr = sam_hw_next_idx(hw_ring, hw_ring->next_rdr);
+}
+
 static inline void sam_hw_cdr_cmd_desc_write(struct sam_hw_cmd_desc *cmd_desc,
 					     dma_addr_t src_paddr, u32 data_bytes,
-					     dma_addr_t token_paddr, u32 token_words)
+					     dma_addr_t token_paddr, u32 token_words,
+					     u32 seg_mask)
 {
 	u32 ctrl_word;
 
 	ctrl_word = (data_bytes & SAM_DESC_SEG_BYTES_MASK);
 	ctrl_word |= (token_words & SAM_CDR_TOKEN_BYTES_MASK) << SAM_CDR_TOKEN_BYTES_OFFS;
-	ctrl_word |= (SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);  /* Last and First */
+	ctrl_word |= seg_mask;  /* First, Last or (Last and First) */
 
 	writel_relaxed(ctrl_word, &cmd_desc->words[0]);
 	writel_relaxed(0, &cmd_desc->words[1]); /* skip this write */
@@ -637,21 +712,26 @@ static inline void sam_hw_cdr_proto_cmd_desc_write(struct sam_hw_cmd_desc *cmd_d
 	writel_relaxed(0, &cmd_desc->words[5]);
 }
 
-static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int next_request,
+static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring,
 				struct sam_buf_info *src_buf, struct sam_buf_info *dst_buf,
 				u32 copy_len, struct sam_buf_info *sa_buf,
 				struct sam_buf_info *token_buf, u32 token_header_word, u32 token_words)
 {
 	u32 val32;
-	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
-	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
+	struct sam_hw_cmd_desc *cmd_desc;
+	struct sam_hw_res_desc *res_desc;
+
+	cmd_desc = sam_hw_cmd_desc_get(hw_ring, hw_ring->next_cdr);
+	res_desc = sam_hw_res_desc_get(hw_ring, hw_ring->next_rdr);
 
 	/* Write prepared RDR descriptor first */
-	sam_hw_rdr_prep_desc_write(res_desc, dst_buf->paddr, dst_buf->len);
+	sam_hw_rdr_prep_desc_write(res_desc, dst_buf->paddr, dst_buf->len,
+				   SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);
 
 	/* Write CDR descriptor */
 	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len,
-				  token_buf->paddr, token_words);
+				  token_buf->paddr, token_words,
+				  SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);
 
 	/* Set 64-bit Context (SA) pointer and IP EIP97 */
 	token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
@@ -666,6 +746,16 @@ static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring, int
 
 	val32 = upper_32_bits((u64)sa_buf->paddr);
 	writel_relaxed(val32, &cmd_desc->words[9]);
+
+#ifdef MVCONF_SAM_DEBUG
+	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
+		print_result_desc(res_desc, 1);
+		print_cmd_desc(cmd_desc);
+	}
+#endif /* MVCONF_SAM_DEBUG */
+
+	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
+	hw_ring->next_rdr = sam_hw_next_idx(hw_ring, hw_ring->next_rdr);
 }
 
 static inline void sam_hw_cdr_ext_token_write(struct sam_hw_cmd_desc *cmd_desc,
@@ -691,20 +781,19 @@ static inline void sam_hw_cdr_ext_token_write(struct sam_hw_cmd_desc *cmd_desc,
 	writel_relaxed(proto_word, &cmd_desc->words[11]);
 }
 
-static inline void sam_hw_ring_ext_desc_write(struct sam_hw_ring *hw_ring, int next_request,
-				struct sam_buf_info *src_buf, struct sam_buf_info *dst_buf,
-				u32 copy_len, struct sam_buf_info *sa_buf,
-				struct sam_buf_info *token_buf, u32 token_header_word, u32 token_words)
+static inline void sam_hw_ring_ext_first_desc_write(struct sam_hw_ring *hw_ring,
+					      struct sam_buf_info *src_buf,
+					      u32 copy_len, struct sam_buf_info *sa_buf,
+					      struct sam_buf_info *token_buf,
+					      u32 token_header_word, u32 token_words,
+					      u32 seg_mask)
 {
-	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
-	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
+	struct sam_hw_cmd_desc *cmd_desc;
 
-	/* Write prepared RDR descriptor first */
-	sam_hw_rdr_prep_desc_write(res_desc, dst_buf->paddr, dst_buf->len);
-
+	cmd_desc = sam_hw_cmd_desc_get(hw_ring, hw_ring->next_cdr);
 	/* Write CDR descriptor */
 	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len,
-				  token_buf->paddr, token_words);
+				  token_buf->paddr, token_words, seg_mask);
 
 	/* Set 64-bit Context (SA) pointer and IP EIP97 */
 	token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
@@ -712,13 +801,43 @@ static inline void sam_hw_ring_ext_desc_write(struct sam_hw_ring *hw_ring, int n
 
 	sam_hw_cdr_ext_token_write(cmd_desc, sa_buf, token_header_word,
 				   FIRMWARE_CMD_PKT_LAC_MASK, 0);
+
+#ifdef MVCONF_SAM_DEBUG
+	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
+		print_cmd_desc(cmd_desc);
+#endif /* MVCONF_SAM_DEBUG */
+
+	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
 }
 
-static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, int next_request, dma_addr_t paddr)
+static inline void sam_hw_ring_ext_desc_write(struct sam_hw_ring *hw_ring,
+					      struct sam_buf_info *src_buf,
+					      u32 copy_len, struct sam_buf_info *sa_buf,
+					      u32 seg_mask)
+{
+	struct sam_hw_cmd_desc *cmd_desc;
+
+	cmd_desc = sam_hw_cmd_desc_get(hw_ring, hw_ring->next_cdr);
+	/* Write CDR descriptor */
+	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len, 0, 0, seg_mask);
+
+#ifdef MVCONF_SAM_DEBUG
+	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
+		print_cmd_desc(cmd_desc);
+#endif /* MVCONF_SAM_DEBUG */
+
+	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
+}
+
+static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring,
+						 dma_addr_t paddr)
 {
 	u32 token_header, val32, ctrl_word;
-	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
-	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
+	struct sam_hw_cmd_desc *cmd_desc;
+	struct sam_hw_res_desc *res_desc;
+
+	cmd_desc = sam_hw_cmd_desc_get(hw_ring, hw_ring->next_cdr);
+	res_desc = sam_hw_res_desc_get(hw_ring, hw_ring->next_rdr);
 
 	ctrl_word = (SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);  /* Last and First */
 	writel_relaxed(ctrl_word, &res_desc->words[0]);
@@ -751,6 +870,9 @@ static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring, in
 	writel_relaxed(val32, &cmd_desc->words[9]);
 
 	writel_relaxed(FIRMWARE_CMD_INV_TR_MASK, &cmd_desc->words[10]);
+
+	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
+	hw_ring->next_rdr = sam_hw_next_idx(hw_ring, hw_ring->next_rdr);
 }
 
 static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result)
@@ -822,6 +944,22 @@ static inline void sam_hw_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_COUNT_REG, val32);
 }
 
+static inline void sam_hw_rdr_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)
+{
+	u32 val32;
+
+	val32 = SAM_RING_WORD_COUNT_WRITE(todo * SAM_RDR_ENTRY_WORDS);
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_PREP_COUNT_REG, val32);
+}
+
+static inline void sam_hw_cdr_ring_submit(struct sam_hw_ring *hw_ring, u32 todo)
+{
+	u32 val32;
+
+	val32 = SAM_RING_WORD_COUNT_WRITE(todo * SAM_CDR_ENTRY_WORDS);
+	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_COUNT_REG, val32);
+}
+
 static inline u32 sam_hw_ring_ready_get(struct sam_hw_ring *hw_ring)
 {
 	u32 val32;
@@ -878,9 +1016,5 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring);
 int sam_hw_device_load(void);
 int sam_hw_device_unload(void);
-int sam_hw_session_invalidate(struct sam_hw_ring *hw_ring, struct sam_buf_info *sa_buf,
-				u32 next_request);
-void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc);
-void print_result_desc(struct sam_hw_res_desc *res_desc, int is_prepared);
 
 #endif /* _SAM_HW_H_ */

@@ -70,7 +70,8 @@
 struct sam_cio_op {
 	bool is_valid;
 	struct sam_sa *sa;
-	u32  num_bufs;        /* number of output buffers */
+	u32 in_num_bufs;     /* number of input buffers */
+	u32 num_bufs;        /* number of output buffers */
 	struct sam_buf_info out_frags[SAM_CIO_MAX_FRAGS]; /* array of output buffers */
 	u32  auth_icv_offset; /* offset of ICV in the buffer (in bytes) */
 	void *cookie;
@@ -160,6 +161,15 @@ static inline u32 sam_cio_prev_idx(struct sam_cio *cio, u32 idx)
 		idx--;
 
 	return idx;
+}
+
+static inline bool sam_cio_is_free_slot(struct sam_cio *cio, struct sam_cio_op_params *request)
+{
+	/* check free slot in operations array */
+	if (sam_cio_next_idx(cio, cio->next_request) == cio->next_result)
+		return false;
+	/* check free slot in hw CDR/RDR */
+	return sam_hw_cmd_is_free_slot(&cio->hw_ring, request->num_bufs);
 }
 
 /* next_request + 1 == next_result -> Full */
