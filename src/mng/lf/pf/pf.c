@@ -2032,7 +2032,6 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		break;
 
 	case CC_PF_INIT_DONE:
-		*send_resp = 0; /* init-done doesn't expect for response */
 		ret = nmnicpf_pf_init_done_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_INIT_DONE message failed\n");
@@ -2063,7 +2062,6 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		break;
 
 	case CC_PF_MAC_ADDR:
-		*send_resp = 0; /* TODO: implement response once nested syscall is working  */
 		ret = nmnicpf_mac_addr_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
@@ -2077,7 +2075,6 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		break;
 
 	case CC_PF_MTU:
-		*send_resp = 0; /* TODO: implement response once nested syscall is working  */
 		ret = nmnicpf_mtu_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
