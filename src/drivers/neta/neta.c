@@ -116,26 +116,6 @@ static int neta_netdev_if_verify(const char *if_name)
 
 	/* TBD: check this is MUSDK port */
 
-	/* interface must be up */
-	sprintf(path, "%s%s/operstate", NETA_NETDEV_PATH, if_name);
-	fp = fopen(path, "r");
-	if (!fp) {
-		pr_err("error opening %s\n", path);
-		return -EEXIST;
-	}
-	found = 0;
-	while (fgets(buf, MAX_BUF_STR_LEN, fp)) {
-		if (strncmp("up", buf, 2) == 0) {
-			found = 1;
-			break;
-		}
-	}
-	fclose(fp);
-	if (!found) {
-		pr_err("interface %s doesn't UP; run: ifconfig %s up\n", if_name, if_name);
-		return -EEXIST;
-	}
-
 	return 0;
 }
 
