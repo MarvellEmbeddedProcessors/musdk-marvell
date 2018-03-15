@@ -56,6 +56,14 @@
 
 #define GIE_MAX_QID		(UINT16_MAX + 1)
 
+#define GIE_AGNIC_UIO_STRING	"agnic_tc_%u"
+
+struct gie_event_data {
+	struct gie *gie;
+	int enable;
+	struct gie_event_params ev_params;
+};
+
 
 struct gie_regfile {
 	u32	ctrl;
@@ -1510,6 +1518,86 @@ int gie_get_desc_size(enum gie_desc_type type)
 	default:
 		pr_err("Invalid gie desc typr %d\n", type);
 	}
+
+	return 0;
+}
+
+static int gie_event_validate(void *driver_data)
+{
+	struct gie_event_data *event_data = driver_data;
+
+	return event_data->enable;
+}
+
+int gie_create_event(struct gie *gie, struct gie_event_params *params, struct mv_sys_event **ev)
+{
+	struct mv_sys_event_params ev_params = {0};
+	struct gie_event_data *event_data;
+	int err;
+	u8 tc_num = 0;
+
+	if (params->tc_mask != 0x01) {
+		pr_err("(%s) Currently only TC0 is supported\n", __func__);
+		return -EINVAL;
+	}
+
+	if (params->pkt_coal || params->usec_coal) {
+		pr_err("(%s) Currently coalescing is not supported\n", __func__);
+		return -EINVAL;
+	}
+
+	event_data = kcalloc(1, sizeof(struct gie_event_data), GFP_KERNEL);
+	if (!event_data)
+		return -ENOMEM;
+
+	snprintf(ev_params.name, sizeof(ev_params.name), GIE_AGNIC_UIO_STRING, tc_num);
+	ev_params.event_validate = gie_event_validate;
+	ev_params.driver_data = event_data;
+
+	err = mv_sys_event_create(&ev_params, ev);
+	if (err) {
+		pr_err("(%s) Can't open GIE event: %s\n", __func__, ev_params.name);
+		kfree(event_data);
+		return err;
+	}
+	(*ev)->events = MV_SYS_EVENT_POLLIN;
+
+	memcpy(&event_data->ev_params, params, sizeof(*params));
+	event_data->enable = 0;
+
+	return 0;
+
+}
+
+int gie_delete_event(struct mv_sys_event *ev)
+{
+	int err;
+	struct gie_event_data *event_data;
+
+	err = mv_sys_event_get_driver_data(ev, (void **)&event_data);
+	if (err) {
+		pr_err("(%s) could not get event driver_data event_ptr(%p)\n", __func__, ev);
+		return -EINVAL;
+	}
+
+	mv_sys_event_destroy(ev);
+	kfree(event_data);
+
+	return 0;
+}
+
+int gie_set_event(struct mv_sys_event *ev, int en)
+{
+	int err;
+	struct gie_event_data *event_data;
+
+	err = mv_sys_event_get_driver_data(ev, (void **)&event_data);
+	if (err) {
+		pr_err("(%s) could not get event driver_data event_ptr(%p)\n", __func__, ev);
+		return -EINVAL;
+	}
+
+	event_data->enable = en;
 
 	return 0;
 }

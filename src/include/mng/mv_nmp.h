@@ -33,6 +33,8 @@
 #ifndef _MV_NMP_INIT_H
 #define _MV_NMP_INIT_H
 
+#include "env/mv_sys_event.h"
+
 /** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
  *
  *  Networking Management Proxy (NMP) Initialization API
@@ -170,6 +172,12 @@ struct nmp_params {
 	struct nmp_container_params *containers_params;
 };
 
+struct nmp_event_params {
+	u32 pkt_coal;
+	u32 usec_coal;
+	u32 tc_mask;
+};
+
 /**
  *	Initialize the NMP.
  *
@@ -185,6 +193,45 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp);
  *	@retval	<0 on failure
  */
 int nmp_schedule(struct nmp *nmp, enum nmp_sched_type);
+
+/**
+ * Create a NMP (GIE) scheduling event
+ *
+ * The event API is called to create a sys_event for a GIE, that
+ * can later be polled through the mv_sys_event_poll() API.
+ * This is only releavnt to 'NMP_SCHED_TX'
+ *
+ * @param[in]	nmp		A pointer to a NMP object.
+ * @param[in]	params		Parameters for the event.
+ * @param[out]	ev		A pointer to event handle of type 'struct mv_sys_event *'.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int nmp_create_scheduling_event(struct nmp *nmp, struct nmp_event_params *params, struct mv_sys_event **ev);
+
+/**
+ * Delete a NMP(GIE) scheduling event
+ *
+ * @param[in]	ev		A sys_event handle.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int nmp_delete_scheduling_event(struct mv_sys_event *ev);
+
+/**
+ * Set a NMP (GIE) scheduling event
+ *
+ * The set_event API is called to enable the creation of events for the related NMP.
+ *
+ * @param[in]	ev		A sys_event handle.
+ * @param[in]	en		enable/disable
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int nmp_set_scheduling_event(struct mv_sys_event *ev, int en);
 
 /** @} */ /* end of grp_nmp_init */
 

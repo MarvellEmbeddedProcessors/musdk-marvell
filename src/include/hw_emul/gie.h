@@ -34,6 +34,7 @@
 #define _GIE_H
 
 #include "mv_std.h"
+#include "env/mv_sys_event.h"
 
 #define GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 
@@ -68,6 +69,12 @@ enum gie_copy_mode_type {
 	GIE_MODE_DMA,
 
 	GIE_MODE_MAX
+};
+
+struct gie_event_params {
+	u32 pkt_coal;
+	u32 usec_coal;
+	u32 tc_mask;
 };
 
 
@@ -189,5 +196,44 @@ int gie_get_desc_size(enum gie_desc_type type);
  *
  */
 int gie_set_remote_index_mode(enum gie_copy_mode_type mode);
+
+/**
+ * Create a GIE event
+ *
+ * The event API is called to create a sys_event for a GIE, that
+ * can later be polled through the mv_sys_event_poll() API.
+ * This is only releavnt to 'NMP_SCHED_TX'
+ *
+ * @param[in]	gie		A pointer to a GIE object.
+ * @param[in]	params		Parameters for the event.
+ * @param[out]	ev		A pointer to event handle of type 'struct mv_sys_event *'.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int gie_create_event(struct gie *gie, struct gie_event_params *params, struct mv_sys_event **ev);
+
+/**
+ * Delete a GIE event
+ *
+ * @param[in]	ev		A sys_event handle.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int gie_delete_event(struct mv_sys_event *ev);
+
+/**
+ * Set a GIE event
+ *
+ * The set_event API is called to enable the creation of events for the related GIE.
+ *
+ * @param[in]	ev		A sys_event handle.
+ * @param[in]	en		enable/disable
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int gie_set_event(struct mv_sys_event *ev, int en);
 
 #endif /* _GIE_H */

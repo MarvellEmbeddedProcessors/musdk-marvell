@@ -148,3 +148,18 @@ int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
 	}
 	return ans;
 }
+
+int nmp_create_scheduling_event(struct nmp *nmp, struct nmp_event_params *params, struct mv_sys_event **ev)
+{
+	return gie_create_event(nmp->nmnicpf.gie.tx_gie, (struct gie_event_params *)params, ev);
+}
+
+int nmp_delete_scheduling_event(struct mv_sys_event *ev)
+{
+	return gie_delete_event(ev);
+}
+
+int nmp_set_scheduling_event(struct mv_sys_event *ev, int en)
+{
+	return gie_set_event(ev, en);
+}
