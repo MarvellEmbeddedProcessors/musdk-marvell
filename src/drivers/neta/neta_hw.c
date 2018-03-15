@@ -982,15 +982,13 @@ int neta_port_set_mtu(struct neta_port *port, uint16_t mtu)
 	if (err)
 		return err;
 
-	/* Stop the port internals */
 	neta_port_down(port);
-	mvneta_stop(port);
 
 	port->buf_size = MVNETA_MTU_TO_MRU(mtu) + port->rx_offset;
 	port->mtu = mtu;
 
-	/* Start and update the port internals */
-	mvneta_open(port);
+	mvneta_txq_max_tx_size_set(port, port->mtu);
+
 	neta_port_up(port);
 
 	return err;
@@ -1032,14 +1030,13 @@ int neta_port_set_mru(struct neta_port *port, uint16_t mru)
 	if (err)
 		return err;
 
-	/* Stop the port internals */
+	/* Stop rx / tx queues */
 	neta_port_down(port);
-	mvneta_stop(port);
 
 	port->mru = mru;
+	mvneta_max_rx_size_set(port, port->mru);
 
-	/* Start and update the port internals */
-	mvneta_open(port);
+	/* Start rx / tx queues */
 	neta_port_up(port);
 
 	return err;
