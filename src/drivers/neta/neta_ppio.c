@@ -91,6 +91,7 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	port->mtu = params->inqs_params.mtu;
 	port->mru = MVNETA_MTU_TO_MRU(port->mtu);
 	port->buf_size = port->mru + port->rx_offset;
+	port->id = port_id;
 
 	rc = neta_port_open(port_id, port);
 	if (rc) {
