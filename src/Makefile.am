@@ -17,6 +17,7 @@ nobase_include_HEADERS += include/env/mv_errno.h
 nobase_include_HEADERS += include/env/mv_sys_dma.h
 nobase_include_HEADERS += include/env/mv_sys_event.h
 nobase_include_HEADERS += include/env/mv_types.h
+nobase_include_HEADERS += include/drivers/mv_net.h
 nobase_include_HEADERS += include/env/mv_autogen_build_assert.h
 nobase_include_HEADERS += include/env/mv_autogen_comp_flags.h
 
@@ -51,7 +52,6 @@ libmusdk_la_SOURCES += env/sys_iomem.c
 libmusdk_la_SOURCES += env/sys_event.c
 
 if PP2_BUILD
-nobase_include_HEADERS += include/drivers/mv_net.h
 nobase_include_HEADERS += include/drivers/mv_pp2.h
 nobase_include_HEADERS += include/drivers/mv_pp2_bpool.h
 nobase_include_HEADERS += include/drivers/mv_pp2_cls.h
