@@ -377,6 +377,7 @@ struct rxq_event {
 	int		valid;
 	struct pp2_port *parent;
 	struct pp2_ppio_rxq_event_params ev_params;
+	u32		rxq_mask;
 	struct event_intrpt rx_intrpt[PP2_MAX_NUM_USED_INTERRUPTS];
 };
 

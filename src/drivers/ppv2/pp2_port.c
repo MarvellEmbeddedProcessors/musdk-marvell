@@ -1737,27 +1737,42 @@ int ppv2_port_rx_create_event_validate(void *driver_data)
 
 int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_params *params, struct mv_sys_event **ev)
 {
-	u32 port_qs_mask = GENMASK((port->first_rxq + port->num_rx_queues - 1), port->first_rxq);
-	u32 events_qs_mask = params->rxq_mask;
+	u32 loc_ev_qmask, param_rxq_mask = 0;
 	struct rxq_event *rx_event;
 	int i, cpu_slot_id, err;
 	struct mv_sys_event_params ev_params = {0};
-
 
 	if (port->num_rxq_events == ARRAY_SIZE(port->rx_event))  {
 		pr_err("(%s) Too many events\n", __func__);
 		return -EINVAL;
 	}
-	if (params->rxq_mask & (~port_qs_mask)) {
-		pr_err("(%s) rxq_mask:0x%x includes rx_qs which are not defined in the port\n",
-			__func__, params->rxq_mask);
-		return -EINVAL;
+
+	for (i = 0; i < port->num_tcs; i++) {
+		u32 tc_rx_mask = GENMASK((port->tc[i].tc_config.first_rxq + port->tc[i].tc_config.num_in_qs - 1),
+					 port->tc[i].tc_config.first_rxq);
+		u32 tc_ev_par_rx_mask = params->tc_inqs_mask[i] << port->tc[i].tc_config.first_rxq;
+
+		if (tc_ev_par_rx_mask & (~tc_rx_mask)) {
+			pr_err("(%s) ppio-%d-%d, tc:%d, tc_inqs_mask:0x%x has non-existent rx_qs\n",
+			__func__, port->parent->id, port->id, i, params->tc_inqs_mask[i]);
+			return -EINVAL;
+		}
+		if (tc_ev_par_rx_mask & port->rxq_event_mask) {
+			pr_err("(%s) ppio-%d-%d, tc:%d, tc_inqs_mask:0x%x contains rx_qs already in an existing event\n",
+			__func__, port->parent->id, port->id, i, params->tc_inqs_mask[i]);
+			return -EINVAL;
+		}
+		param_rxq_mask |= tc_ev_par_rx_mask;
 	}
-	if (params->rxq_mask & port->rxq_event_mask) {
-		pr_err("(%s) rxq_mask:0x%x already included in an existing event\n", __func__, params->rxq_mask);
-		return -EINVAL;
+	for (; i < PP2_PPIO_MAX_NUM_TCS; i++) {
+		if (params->tc_inqs_mask[i]) {
+			pr_err("(%s) tc:%d, is not defined for this ppio-%d-%d\n", __func__, i,
+				port->parent->id, port->id);
+			return -EINVAL;
+		}
 	}
 
+	loc_ev_qmask = param_rxq_mask;
 	for (i = 0; i < ARRAY_SIZE(port->rx_event); i++)
 		if (!port->rx_event[i].valid)
 			break;
@@ -1774,25 +1789,25 @@ int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_pa
 		return err;
 	}
 
-	for (i = 0; (events_qs_mask != 0); i++) {
+	for (i = 0; (loc_ev_qmask != 0); i++) {
 		struct pp2_rx_queue *rxq = port->rxqs[i];
 
-		if ((events_qs_mask & BIT(i)) == 0)
+		if ((loc_ev_qmask & BIT(i)) == 0)
 			continue;
 		rxq->pkts_coal = params->pkt_coal;
 		rxq->usec_coal = params->usec_coal;
 		pp2_port_rx_pkts_coal_set(port, rxq);
 		pp2_port_rx_time_coal_set(port, rxq);
-		events_qs_mask &= ~(BIT(i));
+		loc_ev_qmask &= ~(BIT(i));
 	}
-	events_qs_mask = params->rxq_mask;
 
 	/* Configure rx_event */
 	memcpy(&rx_event->ev_params, params, sizeof(*params));
+	rx_event->rxq_mask = param_rxq_mask;
 	rx_event->parent = port;
 
 	for (cpu_slot_id = 0, i = 0; cpu_slot_id < PP2_MAX_NUM_USED_INTERRUPTS; cpu_slot_id++) {
-		u32 intrpt_qs_mask = events_qs_mask >> (cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT);
+		u32 intrpt_qs_mask = param_rxq_mask >> (cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT);
 		struct event_intrpt *rx_intrpt = &rx_event->rx_intrpt[i];
 
 		if (!intrpt_qs_mask)
@@ -1804,7 +1819,7 @@ int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_pa
 	}
 
 	port->num_rxq_events++;
-
+	port->rxq_event_mask |= param_rxq_mask;
 	return 0;
 }
 
@@ -1865,7 +1880,7 @@ int pp2_port_rx_delete_event(struct mv_sys_event *ev)
 {
 	int err, i;
 	struct rxq_event *rx_event;
-	u32 events_qs_mask;
+	u32 loc_ev_qmask;
 	struct pp2_port *port;
 
 	err = mv_sys_event_get_driver_data(ev, (void **)&rx_event);
@@ -1874,27 +1889,28 @@ int pp2_port_rx_delete_event(struct mv_sys_event *ev)
 		return -EINVAL;
 	}
 
-	events_qs_mask = rx_event->ev_params.rxq_mask;
+	loc_ev_qmask = rx_event->rxq_mask;
 	port = rx_event->parent;
 
 	/* Unset the event */
 	pp2_port_rx_set_event(ev, 0);
 
 	/* Reset coalescing values */
-	for (i = 0; (events_qs_mask); i++) {
+	for (i = 0; (loc_ev_qmask); i++) {
 		struct pp2_rx_queue *rxq = port->rxqs[i];
 
-		if ((events_qs_mask & BIT(i)) == 0)
+		if ((loc_ev_qmask & BIT(i)) == 0)
 			continue;
 		rxq->pkts_coal = 0;
 		rxq->usec_coal = 0;
 		pp2_port_rx_pkts_coal_set(port, rxq);
 		pp2_port_rx_time_coal_set(port, rxq);
-		events_qs_mask &= ~(BIT(i));
+		loc_ev_qmask &= ~(BIT(i));
 	}
 
-	memset(rx_event, 0, sizeof(*rx_event));
+	port->rxq_event_mask &= (~rx_event->rxq_mask);
 	port->num_rxq_events--;
+	memset(rx_event, 0, sizeof(*rx_event));
 
 	/* Destroy the event */
 	err = mv_sys_event_destroy(ev);
