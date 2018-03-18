@@ -53,13 +53,6 @@ struct pp2_ppio {
 	void	*internal_param;	/* parameters for internal use */
 };
 
-struct pp2_ppio_rxq_event_params {
-	u32 pkt_coal;
-	u32 usec_coal;
-	u32 rxq_mask;
-};
-
-
 struct pp2_bpool;
 
 #define PP2_PPIO_MAX_NUM_TCS		32 /**< Max. number of TCs per ppio. */
@@ -382,6 +375,12 @@ struct pp2_ppio_statistics {
 	u64	tx_errors;		/**< TX MAC Errors Counter;
 					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
 					*/
+};
+
+struct pp2_ppio_rxq_event_params {
+	u32 pkt_coal;
+	u32 usec_coal;
+	u32 tc_inqs_mask[PP2_PPIO_MAX_NUM_TCS];
 };
 
 /**
