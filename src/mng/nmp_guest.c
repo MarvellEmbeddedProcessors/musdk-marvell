@@ -298,10 +298,13 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 	enum nmp_guest_lf_type lf_type = NMP_GUEST_LF_T_CUSTOM;
 	struct nmp_guest_queue *q = &guest->notify_queue;
 
-	while (1) {
-		prod_idx = q_rd_prod(q);
-		cons_idx = q_rd_cons(q);
+	prod_idx = q_rd_prod(q);
+	cons_idx = q_rd_cons(q);
 
+	/* Memory barrier */
+	rmb();
+
+	while (1) {
 		/* Check for pending message */
 		if (q_empty(prod_idx, cons_idx))
 			return 0;
@@ -345,7 +348,8 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 		wmb();
 
 		/* Increament queue consumer */
-		q_wr_cons(q, q_inc_idx_val(q, cons_idx, 1 + num_ext_descs));
+		cons_idx = q_inc_idx_val(q, cons_idx, 1 + num_ext_descs);
+		q_wr_cons(q, cons_idx);
 
 		/* The filtering should be done on 'custom' part.
 		 * As currently only one CB is supported there is no need for searching the correct CB.
@@ -373,6 +377,9 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 
 	cons_idx = q_rd_cons(q);
 	prod_idx = q_rd_prod(q);
+
+	/* Memory barrier */
+	rmb();
 
 	/* Check for free space */
 	if (q_full(q, prod_idx, cons_idx))

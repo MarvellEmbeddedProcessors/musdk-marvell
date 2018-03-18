@@ -37,8 +37,8 @@
 
 #define q_inc_idx(q, idx)	q_inc_idx_val(q, idx, 1)
 #define q_inc_idx_val(q, idx, val)	((idx + val) & (q->len - 1))
-#define q_rd_idx(idx)		(*((u32 *)idx))
-#define q_wr_idx(idx, val)	(*((u32 *)idx) = val)
+#define q_rd_idx(idx)		(readl_relaxed((u32 *)idx))
+#define q_wr_idx(idx, val)	(writel_relaxed(val, (u32 *)idx))
 #define q_rd_cons(q)		q_rd_idx(q->cons_virt)
 #define q_rd_prod(q)		q_rd_idx(q->prod_virt)
 #define q_wr_cons(q, val)	q_wr_idx(q->cons_virt, val)
