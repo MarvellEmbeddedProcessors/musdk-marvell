@@ -73,6 +73,7 @@ struct mqa {
 	void *qnpt_virt;
 	void *qnct_virt;
 	u32 size;
+	u32 remote_index_location;
 };
 
 

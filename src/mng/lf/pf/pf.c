@@ -1011,6 +1011,12 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	while (!(pcie_cfg->status & PCIE_CFG_STATUS_HOST_MGMT_READY))
 		; /* Do Nothing. Wait till state it's updated */
 
+	/* Set remote index mode to MQA */
+	nmnicpf->mqa->remote_index_location = pcie_cfg->remote_index_location;
+
+	/* Set remote index mode to GIE */
+	gie_set_remote_index_mode(pcie_cfg->remote_index_location);
+
 	pr_info("Host is Ready\n");
 
 	/*  Register Remote Queues */
@@ -1048,6 +1054,8 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 
 	/* Update PCI BAR0 with producer address (Entry index in notification table) */
 	pcie_cfg->cmd_q.producer_idx_addr = (u64)(rem_cmd_queue_p->prod_phys - qnpt_phys) / sizeof(u32);
+	if (!nmnicpf->mqa->remote_index_location)
+		pcie_cfg->cmd_q.consumer_idx_addr = (u64)(rem_cmd_queue_p->cons_phys - qnct_phys) / sizeof(u32);
 
 	nmnicpf->mng_data.host_mng_ctrl.cmd_queue = (struct mqa_q *)rem_cmd_queue_p;
 
@@ -1089,6 +1097,8 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 
 	/* Update PCI BAR0 with consumer address (Entry index in notification table) */
 	pcie_cfg->notif_q.consumer_idx_addr = (u64)(rem_notify_queue_p->cons_phys - qnct_phys) / sizeof(u32);
+	if (!nmnicpf->mqa->remote_index_location)
+		pcie_cfg->notif_q.producer_idx_addr = (u64)(rem_notify_queue_p->prod_phys - qnpt_phys) / sizeof(u32);
 
 	nmnicpf->mng_data.host_mng_ctrl.notify_queue = (struct mqa_q *)rem_notify_queue_p;
 

@@ -77,6 +77,8 @@ struct pcie_config_mem {
 	u32	cons_notif_tbl_size;
 	u32	prod_notif_tbl_offset;
 	u32	prod_notif_tbl_size;
+
+	u32	remote_index_location;
 };
 #pragma pack()
 

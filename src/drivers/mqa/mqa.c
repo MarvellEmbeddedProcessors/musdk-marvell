@@ -468,30 +468,49 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 		break;
 
 	case EGRESS_QUEUE | REMOTE_QUEUE:
-		qct->common.cons_phys = queue_params->common.cons_phys;
-		qpt->common.cons_phys = queue_params->common.cons_phys;
-		qct->common.cons_virt = queue_params->common.cons_virt;
-		qpt->common.cons_virt = queue_params->common.cons_virt;
 		qct->common.prod_phys = (u64)qnpt_phys;
 		qpt->common.prod_phys = (u64)qnpt_phys;
 		qct->common.prod_virt = (u64)qnpt_virt;
 		qpt->common.prod_virt = (u64)qnpt_virt;
 		queue_params->common.prod_phys = (u64)qnpt_phys;
 		queue_params->common.prod_virt = (u64)qnpt_virt;
+
+		if (mqa->remote_index_location) {
+			qct->common.cons_phys = queue_params->common.cons_phys;
+			qpt->common.cons_phys = queue_params->common.cons_phys;
+			qct->common.cons_virt = queue_params->common.cons_virt;
+			qpt->common.cons_virt = queue_params->common.cons_virt;
+		} else {
+			qct->common.cons_phys = (u64)qnct_phys;
+			qpt->common.cons_phys = (u64)qnct_phys;
+			qct->common.cons_virt = (u64)qnct_virt;
+			qpt->common.cons_virt = (u64)qnct_virt;
+			queue_params->common.cons_phys = (u64)qnct_phys;
+			queue_params->common.cons_virt = (u64)qnct_virt;
+		}
 		break;
 
 	case INGRESS_QUEUE | REMOTE_QUEUE:
-		qct->common.prod_phys = queue_params->common.prod_phys;
-		qpt->common.prod_phys = queue_params->common.prod_phys;
-		qct->common.prod_virt = queue_params->common.prod_virt;
-		qpt->common.prod_virt = queue_params->common.prod_virt;
 		qct->common.cons_phys = (u64)qnct_phys;
 		qpt->common.cons_phys = (u64)qnct_phys;
 		qct->common.cons_virt = (u64)qnct_virt;
 		qpt->common.cons_virt = (u64)qnct_virt;
 		queue_params->common.cons_phys = (u64)qnct_phys;
 		queue_params->common.cons_virt = (u64)qnct_virt;
-		break;
+
+		if (mqa->remote_index_location) {
+			qct->common.prod_phys = queue_params->common.prod_phys;
+			qpt->common.prod_phys = queue_params->common.prod_phys;
+			qct->common.prod_virt = queue_params->common.prod_virt;
+			qpt->common.prod_virt = queue_params->common.prod_virt;
+		} else {
+			qct->common.prod_phys = (u64)qnpt_phys;
+			qpt->common.prod_phys = (u64)qnpt_phys;
+			qct->common.prod_virt = (u64)qnpt_virt;
+			qpt->common.prod_virt = (u64)qnpt_virt;
+			queue_params->common.prod_phys = (u64)qnpt_phys;
+			queue_params->common.prod_virt = (u64)qnpt_virt;
+		}
 		break;
 	}
 

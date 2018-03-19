@@ -326,8 +326,59 @@ struct gie {
 
 #define q_idx_add(idx, val, qlen) (idx = (idx + val) & (qlen - 1))
 
+enum gie_copy_mode_type index_copy_mode;
+
 /* function declarations. */
 static void gie_clean_dma_jobs(struct dma_info *dma);
+
+/* Producer / Consumer update via DMA / MEM function declarations */
+static void gie_copy_qes_dma(struct dma_job *job, struct gie_queue *src_q, struct gie_queue *dst_q);
+static void gie_copy_qes_mem(struct dma_job *job, struct gie_queue *src_q, struct gie_queue *dst_q);
+static void gie_bpool_fill_shadow_dma(struct dma_info *dma, struct	gie_queue *src_q);
+static void gie_bpool_fill_shadow_mem(struct dma_info *dma, struct	gie_queue *src_q);
+static void gie_bpool_consume_dma(struct dma_info *dma, struct	gie_queue *src_q);
+static void gie_bpool_consume_mem(struct dma_info *dma, struct	gie_queue *src_q);
+static void gie_produce_q_dma(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q);
+static void gie_produce_q_mem(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q);
+static void gie_clean_dma(struct dma_info *dma, struct dma_job_info *job,
+							struct gie_queue *src_q, struct gie_queue *dst_q);
+static void gie_clean_mem(struct dma_info *dma, struct dma_job_info *job,
+							struct gie_queue *src_q, struct gie_queue *dst_q);
+
+/* Producer / Consumer function pointers arrays */
+void (*func_copy_qes[GIE_MODE_MAX])(struct dma_job *job, struct gie_queue *q, struct gie_queue *dst_q) = {
+	gie_copy_qes_mem,
+	gie_copy_qes_dma
+};
+void (*func_fill_shadow[GIE_MODE_MAX])(struct dma_info *dma, struct gie_queue *q) = {
+	gie_bpool_fill_shadow_mem,
+	gie_bpool_fill_shadow_dma
+};
+void (*func_bpool_consume[GIE_MODE_MAX])(struct dma_info *dma, struct gie_queue *q) = {
+	gie_bpool_consume_mem,
+	gie_bpool_consume_dma
+};
+void (*func_produce_q[GIE_MODE_MAX])(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q) = {
+	gie_produce_q_mem,
+	gie_produce_q_dma
+};
+void (*func_clean_dma[GIE_MODE_MAX])(struct dma_info *dma, struct dma_job_info *job, struct gie_queue *q,
+									struct gie_queue *dst_q) = {
+	gie_clean_mem,
+	gie_clean_dma
+};
+
+int gie_set_remote_index_mode(enum gie_copy_mode_type mode)
+{
+	if (mode >= GIE_MODE_MAX) {
+		pr_err("Invalid GIE working mode\n");
+		return -1;
+	}
+
+	index_copy_mode = mode;
+
+	return 0;
+}
 
 /* Initialize the emulator. Basically the emulator only needs
  * the register base and the DMA engine from the caller.
@@ -868,8 +919,77 @@ static void gie_copy_index(struct dma_info *dma, u64 src, u64 dst)
 	gie_dma_copy_single(dma, &job);
 }
 
+static void gie_copy_qes_dma(struct dma_job *job, struct gie_queue *src_q, struct gie_queue *dst_q)
+{
+	job->cookie_head = gie_idx_backup(src_q, src_q->head);
+	job->cookie_tail = gie_idx_backup(dst_q, dst_q->tail);
+}
+
+static void gie_copy_qes_mem(struct dma_job *job, struct gie_queue *src_q, struct gie_queue *dst_q)
+{
+	job->cookie_head = src_q->head;
+	job->cookie_tail = dst_q->tail;
+}
+
+static void gie_bpool_fill_shadow_dma(struct dma_info *dma, struct	gie_queue *src_q)
+{
+	u64 head_bkp = gie_idx_backup(src_q, src_q->head);
+
+	gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
+}
+
+static void gie_bpool_fill_shadow_mem(struct dma_info *dma, struct	gie_queue *src_q)
+{
+	dma = dma;
+	writel(src_q->head, (void *)(src_q->msg_head_virt));
+}
+
+static void gie_bpool_consume_dma(struct dma_info *dma, struct	gie_queue *src_q)
+{
+	u64 head_bkp = gie_idx_backup(src_q, src_q->head);
+
+	gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
+}
+
+static void gie_bpool_consume_mem(struct dma_info *dma, struct	gie_queue *src_q)
+{
+	dma = dma;
+	writel(src_q->head, (void *)(src_q->msg_head_virt));
+}
+
+static void gie_produce_q_dma(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q)
+{
+	u64 head_bkp = gie_idx_backup(src_q, src_q->head);
+	u64 tail_bkp = gie_idx_backup(dst_q, dst_q->tail);
+
+	gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
+	gie_copy_index(dma, tail_bkp, dst_q->msg_tail_phys);
+}
+
+static void gie_produce_q_mem(struct dma_info *dma, struct	gie_queue *src_q, struct gie_queue *dst_q)
+{
+	dma = dma;
+	writel(src_q->head, (void *)(src_q->msg_head_virt));
+	writel(dst_q->tail, (void *)(dst_q->msg_tail_virt));
+}
+
+static void gie_clean_dma(struct dma_info *dma, struct dma_job_info *job, struct gie_queue *src_q,
+				struct gie_queue *dst_q)
+{
+	gie_copy_index(dma, job->cookie_head, src_q->msg_head_phys);
+	gie_copy_index(dma, job->cookie_tail, dst_q->msg_tail_phys);
+}
+
+static void gie_clean_mem(struct dma_info *dma, struct dma_job_info *job, struct gie_queue *src_q,
+				struct gie_queue *dst_q)
+{
+	dma = dma;
+	writel(job->cookie_head, (void *)(src_q->msg_head_virt));
+	writel(job->cookie_tail, (void *)(dst_q->msg_tail_virt));
+}
+
 static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q,
-			  int qes_to_copy, u16 first_qe, u32 flags)
+				int qes_to_copy, u16 first_qe, u32 flags)
 {
 	struct dma_job job;
 	int qesize = src_q->qesize;
@@ -901,8 +1021,7 @@ static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct g
 	if (flags & DMA_FLAGS_PRODUCE_IDX) {
 		q_idx_add(src_q->head, qes_to_copy, src_q->qlen);
 		q_idx_add(dst_q->tail, qes_to_copy, dst_q->qlen);
-		job.cookie_head = gie_idx_backup(src_q, src_q->head);
-		job.cookie_tail = gie_idx_backup(dst_q, dst_q->tail);
+		func_copy_qes[index_copy_mode](&job, src_q, dst_q);
 		src_q->packets += qes_to_copy;
 		dst_q->packets += qes_to_copy;
 	}
@@ -930,7 +1049,6 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 	int fill_size = GIE_SHADOW_FILL_SIZE;
 	int src_q_fill;
 	u32 qes_copied;
-	u64 head_bkp;
 
 	/* did we already submit a copy ? if yes, wait till it's done */
 	if (qes_in_copy(src_q))
@@ -941,9 +1059,7 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 		/* previous copy completed, update pointers */
 		q_idx_add(shadow_q->tail, qes_copied, shadow_q->qlen);
 		q_idx_add(src_q->head, qes_copied, src_q->qlen);
-
-		head_bkp = gie_idx_backup(src_q, src_q->head);
-		gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
+		func_fill_shadow[index_copy_mode](dma, src_q);
 		return;
 	}
 
@@ -1019,7 +1135,6 @@ static void gie_bpool_consume(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 {
 	struct gie_bpool *pool;
 	struct gie_queue *bpool_q;
-	u64 head_bkp;
 	int i;
 
 	/* Find the bpool that matches the min buffer size */
@@ -1037,8 +1152,7 @@ static void gie_bpool_consume(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 	/* remote bpools indixes are managed in refill routine */
 	if (!(pool->flags & GIE_BPOOL_REMOTE)) {
 		bpool_q = &pool->src_q;
-		head_bkp = gie_idx_backup(bpool_q, bpool_q->head);
-		gie_copy_index(dma, head_bkp, bpool_q->msg_head_phys);
+		func_bpool_consume[index_copy_mode](dma, bpool_q);
 	}
 }
 
@@ -1148,15 +1262,9 @@ bpool_empty:
 
 static void gie_produce_q(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q, int qes_completed)
 {
-	u64 head_bkp, tail_bkp;
-
 	q_idx_add(src_q->head, qes_completed, src_q->qlen);
 	q_idx_add(dst_q->tail, qes_completed, dst_q->qlen);
-
-	head_bkp = gie_idx_backup(src_q, src_q->head);
-	tail_bkp = gie_idx_backup(dst_q, dst_q->tail);
-	gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
-	gie_copy_index(dma, tail_bkp, dst_q->msg_tail_phys);
+	func_produce_q[index_copy_mode](dma, src_q, dst_q);
 	src_q->packets += qes_completed;
 	dst_q->packets += qes_completed;
 
@@ -1314,8 +1422,7 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 			/* We cannot allow this copy-indexes to fail, so we will try to
 			 * cleanup the DMA queue in case of failure.
 			 */
-			gie_copy_index(dma, jobi->cookie_head, src_q->msg_head_phys);
-			gie_copy_index(dma, jobi->cookie_tail, dst_q->msg_tail_phys);
+			func_clean_dma[index_copy_mode](dma, jobi, src_q, dst_q);
 		}
 	}
 	dma->job_head = i;

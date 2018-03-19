@@ -63,6 +63,13 @@ enum gie_desc_type {
 	BUFF_DESC
 };
 
+enum gie_copy_mode_type {
+	GIE_MODE_VIRT = 0,
+	GIE_MODE_DMA,
+
+	GIE_MODE_MAX
+};
+
 
 /**
  * Initialize the emulator.
@@ -171,5 +178,16 @@ int gie_schedule(void *gie, u64 time_limit, u64 qe_limit);
  *
  */
 int gie_get_desc_size(enum gie_desc_type type);
+
+/**
+ * Configure GIE remote index working mode.
+ *
+ * @param[in]	type		type of GIE working mode.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ *
+ */
+int gie_set_remote_index_mode(enum gie_copy_mode_type mode);
 
 #endif /* _GIE_H */
