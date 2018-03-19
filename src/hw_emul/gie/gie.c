@@ -234,9 +234,13 @@ struct gie_prio {
  */
 struct dma_job_info {
 	void	*cookie;
+	u64	cookie_dst;
+	u64	cookie_head;
+	u64	cookie_tail;
 	u32	elements_per_desc;
 	u32	desc_count;
 #define DMA_FLAGS_UPDATE_IDX		(1 << 0)
+#define DMA_FLAGS_PRODUCE_IDX		(1 << 1)
 	u32	flags;
 };
 
@@ -269,6 +273,9 @@ struct dma_info {
  */
 struct dma_job {
 	void	*cookie;
+	u64	cookie_dst;
+	u64	cookie_head;
+	u64	cookie_tail;
 	u64	src;
 	u64	dst;
 	u32	element_size;
@@ -319,7 +326,7 @@ struct gie {
 
 #define q_idx_add(idx, val, qlen) (idx = (idx + val) & (qlen - 1))
 
-/* forward function declarations. */
+/* function declarations. */
 static void gie_clean_dma_jobs(struct dma_info *dma);
 
 /* Initialize the emulator. Basically the emulator only needs
@@ -786,6 +793,9 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 	job_info = dma->dma_jobs + dma->job_tail;
 
 	job_info->cookie = job->cookie;
+	job_info->cookie_dst = job->cookie_dst;
+	job_info->cookie_head = job->cookie_head;
+	job_info->cookie_tail = job->cookie_tail;
 	job_info->elements_per_desc = job->element_cnt;
 	job_info->desc_count = 1;
 	job_info->flags = job->flags;
@@ -826,61 +836,6 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 	return 0;
 }
 
-static void gie_copy_index(struct dma_info *dma, u64 src, u64 dst)
-{
-	struct dma_job job;
-
-	job.cookie = NULL;
-	job.element_size = sizeof(u16);
-	job.flags = 0;
-
-	job.src = src;
-	job.dst = dst;
-	job.element_cnt = 1;
-	gie_dma_copy_single(dma, &job);
-}
-
-static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q,
-			  int qes_to_copy, u16 first_qe, int remote)
-{
-	struct dma_job job;
-	int qesize = src_q->qesize;
-	u32 first_batch, second_batch;
-	int dma_cnt = 0;
-
-	/* check if this copy wraps */
-	if (first_qe + qes_to_copy > src_q->qlen) {
-		first_batch = src_q->qlen - first_qe;
-		second_batch = qes_to_copy - first_batch;
-	} else {
-		first_batch = qes_to_copy;
-		second_batch = 0;
-	}
-
-	job.cookie = src_q;
-	job.element_size = qesize;
-	job.flags = 0;
-	if (remote)
-		job.flags |= DMA_FLAGS_UPDATE_IDX;
-
-	job.src = src_q->ring_phys + first_qe * qesize;
-	job.dst = dst_q->ring_phys + first_qe * qesize;
-	job.element_cnt = first_batch;
-	gie_dma_copy_single(dma, &job);
-	dma_cnt++;
-
-	if (second_batch) {
-		job.src = src_q->ring_phys;
-		job.dst = dst_q->ring_phys;
-		job.element_cnt = second_batch;
-		gie_dma_copy_single(dma, &job);
-		dma_cnt++;
-	}
-
-	tracepoint(gie, queue, "QE copy", qes_to_copy, src_q->qid, first_qe, src_q->tail,
-		   dst_q->qid, dst_q->head, dst_q->tail);
-}
-
 /* create a backup of the tail/head idx to be used for DMA copy
  * this allows us to continue changing the main tail/head during DMA operation
  */
@@ -894,6 +849,78 @@ static u64 gie_idx_backup(struct gie_queue *q, u16 idx_val)
 	q_idx_add(q->idx_ring_ptr, 1, q->idx_ring_size);
 
 	return phys_bkp;
+}
+
+static void gie_copy_index(struct dma_info *dma, u64 src, u64 dst)
+{
+	struct dma_job job;
+
+	job.cookie = NULL;
+	job.cookie_dst = 0;
+	job.cookie_head = 0;
+	job.cookie_tail = 0;
+	job.element_size = sizeof(u16);
+	job.flags = 0;
+
+	job.src = src;
+	job.dst = dst;
+	job.element_cnt = 1;
+	gie_dma_copy_single(dma, &job);
+}
+
+static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q,
+			  int qes_to_copy, u16 first_qe, u32 flags)
+{
+	struct dma_job job;
+	int qesize = src_q->qesize;
+	u32 first_batch, second_batch;
+
+	/* check if this copy wraps */
+	if (first_qe + qes_to_copy > src_q->qlen) {
+		first_batch = src_q->qlen - first_qe;
+		second_batch = qes_to_copy - first_batch;
+	} else {
+		first_batch = qes_to_copy;
+		second_batch = 0;
+	}
+
+	job.cookie = src_q;
+	job.cookie_dst = (uintptr_t)dst_q;
+	job.cookie_head = 0;
+	job.cookie_tail = 0;
+	job.element_size = qesize;
+	job.flags = flags;
+
+	if ((flags & DMA_FLAGS_PRODUCE_IDX) && second_batch)
+		job.flags &= ~DMA_FLAGS_PRODUCE_IDX;
+
+	job.src = src_q->ring_phys + first_qe * qesize;
+	job.dst = dst_q->ring_phys + first_qe * qesize;
+	job.element_cnt = first_batch;
+
+	if (flags & DMA_FLAGS_PRODUCE_IDX) {
+		q_idx_add(src_q->head, qes_to_copy, src_q->qlen);
+		q_idx_add(dst_q->tail, qes_to_copy, dst_q->qlen);
+		job.cookie_head = gie_idx_backup(src_q, src_q->head);
+		job.cookie_tail = gie_idx_backup(dst_q, dst_q->tail);
+		src_q->packets += qes_to_copy;
+		dst_q->packets += qes_to_copy;
+	}
+
+	gie_dma_copy_single(dma, &job);
+
+	if (second_batch) {
+		if (flags & DMA_FLAGS_PRODUCE_IDX)
+			job.flags |= DMA_FLAGS_PRODUCE_IDX;
+		job.src = src_q->ring_phys;
+		job.dst = dst_q->ring_phys;
+		job.element_cnt = second_batch;
+
+		gie_dma_copy_single(dma, &job);
+	}
+
+	tracepoint(gie, queue, "QE copy", qes_to_copy, src_q->qid, first_qe, src_q->tail,
+		   dst_q->qid, dst_q->head, dst_q->tail);
 }
 
 static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
@@ -934,7 +961,7 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 	fill_size = min(fill_size, src_q_fill);
 
 	/* submit a background copy of QEs */
-	gie_copy_qes(dma, src_q, shadow_q, fill_size, src_q->qe_tail, 1);
+	gie_copy_qes(dma, src_q, shadow_q, fill_size, src_q->qe_tail, DMA_FLAGS_UPDATE_IDX);
 	q_idx_add(src_q->qe_tail, fill_size, src_q->qlen);
 }
 
@@ -1089,11 +1116,12 @@ bpool_empty:
 		tmp_cnt = tmp_left = cnt;
 		do {
 			dmax2_enq(dma->dmax2, desc, &tmp_cnt);
+			if (tmp_cnt == 0)
+				gie_clean_dma_jobs(dma);
 			tmp_left -= tmp_cnt;
 			tmp_cnt = tmp_left;
 			if (!tmp_cnt)
 				break;
-			gie_clean_dma_jobs(dma);
 			timeout--;
 			usleep(1);
 		} while (timeout);
@@ -1127,7 +1155,6 @@ static void gie_produce_q(struct dma_info *dma, struct gie_queue *src_q, struct 
 
 	head_bkp = gie_idx_backup(src_q, src_q->head);
 	tail_bkp = gie_idx_backup(dst_q, dst_q->tail);
-
 	gie_copy_index(dma, head_bkp, src_q->msg_head_phys);
 	gie_copy_index(dma, tail_bkp, dst_q->msg_tail_phys);
 	src_q->packets += qes_completed;
@@ -1177,7 +1204,7 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	qes_to_copy = min(qes_to_copy, qes_copy_space);
 	if (qes_to_copy) {
 		qes_to_copy = gie_clip_batch(dst_q, qes_to_copy);
-		gie_copy_qes(dma, src_q, dst_q, qes_to_copy, src_q->qe_tail, 1);
+		gie_copy_qes(dma, src_q, dst_q, qes_to_copy, src_q->qe_tail, DMA_FLAGS_UPDATE_IDX);
 		q_idx_add(src_q->qe_tail, qes_to_copy, src_q->qlen);
 		q_idx_add(dst_q->qe_tail, qes_to_copy, dst_q->qlen);
 	}
@@ -1233,51 +1260,66 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 		return 0;
 
 	/* Copy the QEs */
-	gie_copy_qes(dma, src_q, dst_q, qes, src_q->head, 0);
+	gie_copy_qes(dma, src_q, dst_q, qes, src_q->head, DMA_FLAGS_PRODUCE_IDX);
 
-	/* Update the prod/cons index by dma */
-	gie_produce_q(dma, src_q, dst_q, qes);
+	/* We'll update the prod/cons index only once both the buffers as well as the QEs were copied */
+	/*gie_produce_q(dma, src_q, dst_q, qes);*/
 
 	return qes;
 }
 
 static void gie_clean_dma_jobs(struct dma_info *dma)
 {
-	struct dma_job_info *jobi;
-	struct gie_queue *src_q;
-	u16 completed, release, elements, q_add;
-	int i;
+	struct dmax2_trans_complete_desc	 dmax2_res_descs[GIE_MAX_QES_IN_BATCH];
+	struct dma_job_info			*jobi;
+	u16					 completed, clean, elements;
+	int					 i;
 
-	completed = dmax2_get_deq_num_available(dma->dmax2);
+	completed = GIE_MAX_QES_IN_BATCH;
+	dmax2_deq(dma->dmax2, dmax2_res_descs, &completed, 1);
 	if (!completed)
 		return;
+	/* TODO: iterate all result-descriptor and verify no errors occurred */
 
 	i = dma->job_head;
-	release = completed;
-	while (completed) {
-
+	/* barrier here to ensure following references to job-head */
+	rmb();
+	clean = completed;
+	while (clean) {
 		/* a single job can clean multiple descriptors, up-to the amounts dequed from DMA.
 		 * if the job includes more descriptors, they are left for cleanup next time
 		 */
 		jobi = dma->dma_jobs + i;
-		elements = min_t(u16, completed, jobi->desc_count);
-		completed -= elements;
+		elements = min_t(u16, clean, jobi->desc_count);
+		clean -= elements;
 		jobi->desc_count -= elements;
 
 		/* do not advance job_info queue if desc are left in the job */
 		if (jobi->desc_count == 0)
 			q_idx_add(i, 1, dma->job_qlen);
 
-		if (!(jobi->flags & DMA_FLAGS_UPDATE_IDX))
-			continue;
+		if (jobi->flags & DMA_FLAGS_UPDATE_IDX) {
+			struct gie_queue *src_q;
 
-		src_q = (struct gie_queue *)jobi->cookie;
-		q_add = elements * jobi->elements_per_desc;
-		q_idx_add(src_q->qe_head, q_add, src_q->qlen);
+			src_q = (struct gie_queue *)jobi->cookie;
+			q_idx_add(src_q->qe_head, elements * jobi->elements_per_desc, src_q->qlen);
+		}
+
+		if (jobi->flags & DMA_FLAGS_PRODUCE_IDX) {
+			struct gie_queue *src_q, *dst_q;
+
+			src_q = (struct gie_queue *)jobi->cookie;
+			dst_q = (struct gie_queue *)jobi->cookie_dst;
+			/* Update the prod/cons index by dma */
+			/* We cannot allow this copy-indexes to fail, so we will try to
+			 * cleanup the DMA queue in case of failure.
+			 */
+			gie_copy_index(dma, jobi->cookie_head, src_q->msg_head_phys);
+			gie_copy_index(dma, jobi->cookie_tail, dst_q->msg_tail_phys);
+		}
 	}
 	dma->job_head = i;
-
-	dmax2_deq(dma->dmax2, NULL, &release, 0);
+	return;
 }
 
 int gie_schedule(void *giu, u64 time_limit, u64 qe_limit)
