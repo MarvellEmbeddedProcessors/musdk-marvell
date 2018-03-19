@@ -34,35 +34,19 @@
 #define __MV_NMP_GUEST_UTILS_H__
 
 #include "mng/mv_nmp.h"
+#include "mng/mv_nmp_guest.h"
 #include "utils.h"
 #include "pp2_utils.h"
-
-struct pp2_ppio_bpool_info {
-	char	bpool_name[20];
-};
-
-struct pp2_ppio_info {
-	char				 ppio_name[20];
-	u32				 num_bpools;
-	struct pp2_ppio_bpool_info	*bpool_info;
-};
-
-
-struct pp2_info {
-	u32			 num_ports;
-	struct pp2_ppio_info	 *port_info;
-};
 
 /*
  * nmp_guest mode related functions.
  */
 int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params);
-int guest_util_get_relations_info(char *buff, struct pp2_info *pp2_info);
-int app_guest_utils_build_all_bpools(char *buff, struct pp2_info *pp2_info,
+int app_guest_utils_build_all_bpools(char *buff, struct nmp_guest_info *guest_info,
 				     struct bpool_desc ***ppools,
 				     struct pp2_glb_common_args *pp2_args,
 				     struct bpool_inf infs[]);
-int app_nmp_guest_port_init(char *buff, struct pp2_info *pp2_info, struct port_desc *port);
+int app_nmp_guest_port_init(char *buff, struct nmp_guest_info *guest_info, struct port_desc *port);
 
 
 #endif /*__MV_NMP_GUEST_UTILS_H__*/

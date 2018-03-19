@@ -125,7 +125,7 @@ struct glob_arg {
 	struct giu_gpio			*giu_gpio;
 	struct nmp			*nmp;
 	struct nmp_guest		*nmp_guest;
-	struct pp2_info			 pp2_info;
+	struct nmp_guest_info		guest_info;
 	char				*prb_str;
 };
 
@@ -938,13 +938,13 @@ static int init_local_modules(struct glob_arg *garg)
 		pp2_args->num_pools = ARRAY_SIZE(std_infs);
 	}
 
-	guest_util_get_relations_info(garg->prb_str, &garg->pp2_info);
+	nmp_guest_get_relations_info(garg->nmp_guest, &garg->guest_info);
 
-	err = app_guest_utils_build_all_bpools(garg->prb_str, &garg->pp2_info, &pp2_args->pools_desc, pp2_args, infs);
+	err = app_guest_utils_build_all_bpools(garg->prb_str, &garg->guest_info, &pp2_args->pools_desc, pp2_args, infs);
 	if (err)
 		return err;
 
-	err = app_nmp_guest_port_init(garg->prb_str, &garg->pp2_info, &pp2_args->ports_desc[0]);
+	err = app_nmp_guest_port_init(garg->prb_str, &garg->guest_info, &pp2_args->ports_desc[0]);
 	if (err)
 		return err;
 
@@ -963,7 +963,7 @@ static int init_local_modules(struct glob_arg *garg)
 		return err;
 	}
 
-	garg->cmn_args.num_ports = garg->pp2_info.num_ports;
+	garg->cmn_args.num_ports = garg->guest_info.ports_info.num_ports;
 
 	return 0;
 }

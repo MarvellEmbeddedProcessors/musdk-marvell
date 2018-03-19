@@ -311,71 +311,7 @@ read_cfg_exit1:
 	return rc;
 }
 
-int guest_util_get_relations_info(char *buff, struct pp2_info *pp2_info)
-{
-	int	 i, j;
-	char	*sec = NULL;
-	int	 rc;
-	char	*lbuff;
-	char	 tmp_buf[MV_MAX_BUF_STR_LEN];
-
-	lbuff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
-	if (lbuff == NULL)
-		return -ENOMEM;
-
-	memcpy(lbuff, buff, SER_MAX_FILE_SIZE);
-
-	sec = strstr(lbuff, "relations-info");
-	if (!sec) {
-		pr_err("'relations-info' not found\n");
-		rc = -EINVAL;
-		goto rel_info_exit1;
-	}
-
-	json_buffer_to_input(sec, "num_pp2_ports", pp2_info->num_ports);
-	pr_debug("num_ports: %d\n", pp2_info->num_ports);
-
-	pp2_info->port_info = kcalloc(1, sizeof(struct pp2_ppio_info) * pp2_info->num_ports, GFP_KERNEL);
-	if (pp2_info->port_info == NULL) {
-		rc = -ENOMEM;
-		goto rel_info_exit1;
-	}
-
-	for (i = 0; i < pp2_info->num_ports; i++) {
-		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-%d", i);
-		json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].ppio_name);
-		pr_debug("port: %d, ppio_name %s\n", i, pp2_info->port_info[i].ppio_name);
-
-		json_buffer_to_input(sec, "num_bpools", pp2_info->port_info[i].num_bpools);
-		pr_debug("port: %d, num_pools %d\n", i, pp2_info->port_info[i].num_bpools);
-
-		pp2_info->port_info[i].bpool_info = kcalloc(1, sizeof(struct pp2_ppio_bpool_info) *
-							    pp2_info->port_info[i].num_bpools, GFP_KERNEL);
-		if (pp2_info->port_info[i].bpool_info == NULL) {
-			rc = -ENOMEM;
-			goto rel_info_exit2;
-		}
-		for (j = 0; j < pp2_info->port_info[i].num_bpools; j++) {
-			memset(tmp_buf, 0, sizeof(tmp_buf));
-			snprintf(tmp_buf, sizeof(tmp_buf), "bpool-%d", j);
-			json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].bpool_info[j].bpool_name);
-			pr_debug("port: %d, pool name %s\n", i, pp2_info->port_info[i].bpool_info[j].bpool_name);
-		}
-	}
-	kfree(lbuff);
-	return 0;
-
-rel_info_exit2:
-	kfree(pp2_info->port_info);
-rel_info_exit1:
-	kfree(lbuff);
-	return rc;
-
-}
-
-
-int app_guest_utils_build_all_bpools(char *buff, struct pp2_info *pp2_info,
+int app_guest_utils_build_all_bpools(char *buff, struct nmp_guest_info *guest_info,
 				     struct bpool_desc ***ppools,
 				     struct pp2_glb_common_args *pp2_args,
 				     struct bpool_inf infs[])
@@ -388,6 +324,7 @@ int app_guest_utils_build_all_bpools(char *buff, struct pp2_info *pp2_info,
 	struct bpool_desc		**pools = NULL;
 	struct pp2_bpool_capabilities	 capa;
 	struct pp2_buff_inf		*buffs_inf = NULL;
+	struct nmp_guest_module_info	*pp2_info = &guest_info->ports_info;
 
 	for (i = 0; i < pp2_info->num_ports; i++)
 		num_pools += pp2_info->port_info[i].num_bpools;
@@ -486,19 +423,20 @@ bpool_alloc_err1:
 	return err;
 }
 
-int app_nmp_guest_port_init(char *buff, struct pp2_info *pp2_info, struct port_desc *port)
+int app_nmp_guest_port_init(char *buff, struct nmp_guest_info *guest_info, struct port_desc *port)
 {
 	int				 err;
 	struct pp2_ppio_capabilities	 capa;
 	int				 i, j;
+	struct nmp_guest_module_info	*pp2_info = &guest_info->ports_info;
 
 	pr_debug("pp2_info: num_ports %d\n", pp2_info->num_ports);
 	for (i = 0; i < pp2_info->num_ports; i++) {
-		pr_debug("	port: %d, name %s\n", i, pp2_info->port_info[i].ppio_name);
+		pr_debug("	port: %d, name %s\n", i, pp2_info->port_info[i].port_name);
 
-		err = pp2_ppio_probe(pp2_info->port_info[i].ppio_name, buff, &port[i].ppio);
+		err = pp2_ppio_probe(pp2_info->port_info[i].port_name, buff, &port[i].ppio);
 		if (err) {
-			pr_err("pp2_ppio_probe failed for %s\n", pp2_info->port_info[i].ppio_name);
+			pr_err("pp2_ppio_probe failed for %s\n", pp2_info->port_info[i].port_name);
 			return err;
 		}
 
@@ -509,7 +447,7 @@ int app_nmp_guest_port_init(char *buff, struct pp2_info *pp2_info, struct port_d
 
 		err = pp2_ppio_get_capabilities(port[i].ppio, &capa);
 		if (err) {
-			pr_err("pp2_ppio_get_capabilities failed for %s\n", pp2_info->port_info[i].ppio_name);
+			pr_err("pp2_ppio_get_capabilities failed for %s\n", pp2_info->port_info[i].port_name);
 			return err;
 		}
 
