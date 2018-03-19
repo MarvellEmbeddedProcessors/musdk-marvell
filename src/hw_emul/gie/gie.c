@@ -318,7 +318,6 @@ struct gie {
 #define bufs_to_copy(q)			qes_copied(q)
 
 #define q_idx_add(idx, val, qlen) (idx = (idx + val) & (qlen - 1))
-#define q_read_idx(idx)                (*((u16 *)idx))
 
 /* forward function declarations. */
 static void gie_clean_dma_jobs(struct dma_info *dma);
@@ -922,7 +921,7 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 	}
 
 	/* okay, let's submit a copy */
-	src_q->tail = q_read_idx(src_q->msg_tail_virt);
+	src_q->tail = readl((void *)(src_q->msg_tail_virt));
 	src_q_fill = q_occupancy(src_q);
 	if (!src_q_fill)
 		/* TODO: Add a trancepoint. */
@@ -966,7 +965,7 @@ static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 			gie_bpool_fill_shadow(dma, pool);
 	} else {
 		bpool_q = &pool->src_q;
-		bpool_q->tail = q_read_idx(bpool_q->msg_tail_virt);
+		bpool_q->tail = readl((void *)(bpool_q->msg_tail_virt));
 		bufs_avail = q_occupancy(bpool_q);
 	}
 
@@ -1165,8 +1164,8 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	(void)qe_limit;
 
 	/* Get the updated tail & head from the notification area */
-	src_q->tail = q_read_idx(src_q->msg_tail_virt);
-	dst_q->head = q_read_idx(dst_q->msg_head_virt);
+	src_q->tail = readl((void *)(src_q->msg_tail_virt));
+	dst_q->head = readl((void *)(dst_q->msg_head_virt));
 
 	/* check for any pending work (qes, buffers, etc) */
 	if (q_empty(src_q))
@@ -1211,8 +1210,8 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	(void)qe_limit;
 
 	/* Get the updated tail & head from the notification area */
-	src_q->tail = q_read_idx(src_q->msg_tail_virt);
-	dst_q->head = q_read_idx(dst_q->msg_head_virt);
+	src_q->tail = readl((void *)(src_q->msg_tail_virt));
+	dst_q->head = readl((void *)(dst_q->msg_head_virt));
 
 	/* check for any pending work (qes, buffers, etc) */
 	if (q_empty(src_q))
