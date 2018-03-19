@@ -46,6 +46,26 @@
 /* nmp_guest handler declaration */
 struct nmp_guest;
 
+struct nmp_guest_bpool_info {
+	char	bpool_name[20];
+};
+
+struct nmp_guest_port_info {
+	char		port_name[20];
+	u32		num_bpools;
+	struct nmp_guest_bpool_info	*bpool_info;
+};
+
+struct nmp_guest_module_info {
+	u32		num_ports;
+	struct nmp_guest_port_info *port_info;
+};
+
+struct nmp_guest_info {
+	struct nmp_guest_module_info ports_info;
+	struct nmp_guest_port_info giu_info;
+};
+
 /**
  * NMP Guest initialization params
  *
@@ -92,8 +112,18 @@ void nmp_guest_deinit(struct nmp_guest *g);
  *	@retval	0 on success
  *	@retval	<0 on failure
  */
-
 int nmp_guest_get_probe_str(struct nmp_guest *g, char **prb_str);
+
+/**
+ * Get the NMP guest relations information.
+ *
+ * @param[in]	g		pointer to a guest handle.
+ * @param[out]	guest_info	pointer to the guest relations information.
+ *
+ *	@retval	0 on success
+ *	@retval	<0 on failure
+ */
+int nmp_guest_get_relations_info(struct nmp_guest *g, struct nmp_guest_info *guest_info);
 
 /****************************************************************************
  *	Run-time API

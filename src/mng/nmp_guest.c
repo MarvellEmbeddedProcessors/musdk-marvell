@@ -42,6 +42,8 @@
 
 #include "nmp_guest.h"
 
+#define NMP_MAX_BUF_STR_LEN	256
+
 static int nmp_guest_wait_for_guest_file(struct nmp_guest *guest)
 {
 	char	file_name[SER_MAX_FILE_SIZE];
@@ -265,6 +267,69 @@ int nmp_guest_get_probe_str(struct nmp_guest *guest, char **prb_str)
 	*prb_str = guest->prb_str;
 	pr_debug("prb_str: %s\n", *prb_str);
 	return 0;
+}
+
+int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info *guest_info)
+{
+	u32	 i, j;
+	char	*sec = NULL;
+	int	 rc;
+	char	*lbuff;
+	char	 tmp_buf[NMP_MAX_BUF_STR_LEN];
+	struct nmp_guest_module_info *pp2_info = &guest_info->ports_info;
+
+	lbuff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, guest->prb_str, SER_MAX_FILE_SIZE);
+
+	sec = strstr(lbuff, "relations-info");
+	if (!sec) {
+		pr_err("'relations-info' not found\n");
+		rc = -EINVAL;
+		goto rel_info_exit1;
+	}
+
+	json_buffer_to_input(sec, "num_pp2_ports", pp2_info->num_ports);
+	pr_debug("num_ports: %d\n", pp2_info->num_ports);
+
+	pp2_info->port_info = kcalloc(1, sizeof(struct nmp_guest_port_info) * pp2_info->num_ports, GFP_KERNEL);
+	if (pp2_info->port_info == NULL) {
+		rc = -ENOMEM;
+		goto rel_info_exit1;
+	}
+
+	for (i = 0; i < pp2_info->num_ports; i++) {
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-%d", i);
+		json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].port_name);
+		pr_debug("port: %d, ppio_name %s\n", i, pp2_info->port_info[i].port_name);
+
+		json_buffer_to_input(sec, "num_bpools", pp2_info->port_info[i].num_bpools);
+		pr_debug("port: %d, num_pools %d\n", i, pp2_info->port_info[i].num_bpools);
+
+		pp2_info->port_info[i].bpool_info = kcalloc(1, sizeof(struct nmp_guest_bpool_info) *
+							    pp2_info->port_info[i].num_bpools, GFP_KERNEL);
+		if (pp2_info->port_info[i].bpool_info == NULL) {
+			rc = -ENOMEM;
+			goto rel_info_exit2;
+		}
+		for (j = 0; j < pp2_info->port_info[i].num_bpools; j++) {
+			memset(tmp_buf, 0, sizeof(tmp_buf));
+			snprintf(tmp_buf, sizeof(tmp_buf), "bpool-%d", j);
+			json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].bpool_info[j].bpool_name);
+			pr_debug("port: %d, pool name %s\n", i, pp2_info->port_info[i].bpool_info[j].bpool_name);
+		}
+	}
+	kfree(lbuff);
+	return 0;
+
+rel_info_exit2:
+	kfree(pp2_info->port_info);
+rel_info_exit1:
+	kfree(lbuff);
+	return rc;
 }
 
 int nmp_guest_register_event_handler(struct nmp_guest *guest,
