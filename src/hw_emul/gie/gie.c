@@ -791,7 +791,7 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 	job_info->flags = job->flags;
 
 	/* create the dma job to submit */
-	desc.flags = 0x0;
+	desc.flags = DESC_FLAGS_SYNC;
 	desc.desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
 	desc.src_addr = job->src;
 	desc.dst_addr = job->dst;
@@ -1056,7 +1056,7 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 		qe_byte_cnt = qe + len_pos;
 
 		/* create the dma job to submit */
-		desc[cnt].flags = 0x0;
+		desc[cnt].flags = DESC_FLAGS_SYNC;
 		desc[cnt].desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
 		desc[cnt].src_addr = src_remap + *qe_buff;
 		desc[cnt].dst_addr = dst_remap + bp_buf->buff_addr_phys;
