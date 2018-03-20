@@ -77,7 +77,8 @@ enum cmd_codes {
 	CC_PF_GET_STATISTICS,
 	CC_PF_CLOSE,
 	CC_PF_MAC_ADDR,
-	CC_PF_RX_MODE,
+	CC_PF_PROMISC,
+	CC_PF_MC_PROMISC,
 	CC_PF_MTU,
 	CMD_CODE_LAST = 0XFF,
 };
@@ -162,10 +163,15 @@ struct mgmt_cmd_params {
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];
 
-		/* CC_PF_RX_MODE */
-#define RX_MODE_PROMISC		(0x1)
-#define RX_MODE_ALLMULTI	(0x2)
-		u32 rx_mode_flags;
+		/* CC_PF_PROMISC */
+#define AGNIC_PROMISC_ENABLE		(1)
+#define AGNIC_PROMISC_DISABLE		(0)
+		u8 promisc;
+
+		/* CC_PF_MC_PROMISC */
+#define AGNIC_MC_PROMISC_ENABLE		(1)
+#define AGNIC_MC_PROMISC_DISABLE	(0)
+		u8 mc_promisc;
 	};
 };
 #pragma pack()

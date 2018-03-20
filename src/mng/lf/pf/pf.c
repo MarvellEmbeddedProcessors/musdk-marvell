@@ -1947,23 +1947,53 @@ static int nmnicpf_mtu_command(struct nmnicpf *nmnicpf,
 }
 
 /*
- *	nmnicpf_rx_mode_command
+ *	nmnicpf_rx_promisc_command
  */
-static int nmnicpf_rx_mode_command(struct nmnicpf *nmnicpf,
+static int nmnicpf_rx_promisc_command(struct nmnicpf *nmnicpf,
 				   struct mgmt_cmd_params *params,
 				   struct mgmt_cmd_resp *resp_data)
 {
 	int ret;
 
-	pr_debug("Set rx-mode message\n");
+	pr_debug("Set promisc message %d\n", params->promisc);
 
-	ret = pp2_ppio_set_promisc(nmnicpf->pp2.ports_desc[0].ppio, (params->rx_mode_flags & RX_MODE_PROMISC));
-	if (ret)
+	if ((params->promisc != AGNIC_PROMISC_ENABLE) &&
+	    (params->promisc != AGNIC_PROMISC_DISABLE)) {
 		pr_err("Unable to set promisc\n");
+		return -EINVAL;
+	}
 
-	ret = pp2_ppio_set_mc_promisc(nmnicpf->pp2.ports_desc[0].ppio, (params->rx_mode_flags & RX_MODE_ALLMULTI));
-	if (ret)
+	ret = pp2_ppio_set_promisc(nmnicpf->pp2.ports_desc[0].ppio, params->promisc);
+	if (ret) {
+		pr_err("Unable to set promisc\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+/*
+ *	nmnicpf_rx_mc_promisc_command
+ */
+static int nmnicpf_rx_mc_promisc_command(struct nmnicpf *nmnicpf,
+				   struct mgmt_cmd_params *params,
+				   struct mgmt_cmd_resp *resp_data)
+{
+	int ret;
+
+	pr_debug("Set mc promisc message %d\n", params->mc_promisc);
+
+	if ((params->promisc != AGNIC_MC_PROMISC_ENABLE) &&
+	    (params->promisc != AGNIC_MC_PROMISC_DISABLE)) {
 		pr_err("Unable to set mc promisc\n");
+		return -EINVAL;
+	}
+
+	ret = pp2_ppio_set_mc_promisc(nmnicpf->pp2.ports_desc[0].ppio, params->mc_promisc);
+	if (ret) {
+		pr_err("Unable to set mc promisc\n");
+		return -EFAULT;
+	}
 
 	return 0;
 }
@@ -2067,11 +2097,18 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
-	case CC_PF_RX_MODE:
-		*send_resp = 0; /* TODO: implement response once nested syscall is working  */
-		ret = nmnicpf_rx_mode_command(nmnicpf, cmd_params, resp_data);
+	case CC_PF_PROMISC:
+		*send_resp = 0; /* TODO: response not possible */
+		ret = nmnicpf_rx_promisc_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_RX_MODE message failed\n");
+			pr_err("CC_PF_PROMISC message failed\n");
+		break;
+
+	case CC_PF_MC_PROMISC:
+		*send_resp = 0; /* TODO: response not possible */
+		ret = nmnicpf_rx_mc_promisc_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_MC_PROMISC message failed\n");
 		break;
 
 	case CC_PF_MTU:
