@@ -116,7 +116,7 @@ static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 
 		json_buffer_to_input(sec, "bm_pool_reserved_map", params->pp2_params.bm_pool_reserved_map);
 		if (nmp_range_validate(params->pp2_params.bm_pool_reserved_map, 0, PP2_BPOOL_NUM_POOLS)) {
-			pr_info("bm_pool_reserved_map not in tange!\n");
+			pr_err("bm_pool_reserved_map not in range!\n");
 			rc = -EINVAL;
 			goto read_cfg_exit1;
 		}
@@ -125,7 +125,7 @@ static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 	/* Read number of containers */
 	json_buffer_to_input(sec, "num_containers", params->num_containers);
 	if (nmp_range_validate(params->num_containers, 1, NMP_MAX_NUM_CONTAINERS)) {
-		pr_info("num_containers not in tange!\n");
+		pr_err("num_containers not in range!\n");
 		rc = -EINVAL;
 		goto read_cfg_exit1;
 	}
@@ -149,6 +149,7 @@ static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 		/* Read number of lfs */
 		json_buffer_to_input(sec, "num_lfs", params->containers_params[i].num_lfs);
 		if (nmp_range_validate(params->containers_params[i].num_lfs, 1, NMP_MAX_NUM_LFS) != 0) {
+			pr_err("num_lfs not in range!\n");
 			rc = -EINVAL;
 			goto read_cfg_exit1;
 		}
@@ -166,6 +167,7 @@ static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 			json_buffer_to_input(sec, "lf_type", params->containers_params[i].lfs_params[j].type);
 			if (nmp_range_validate(params->containers_params[i].lfs_params[j].type,
 					       NMP_LF_T_NIC_NONE, NMP_LF_T_NIC_LAST - 1) != 0) {
+				pr_err("lf_type not in range!\n");
 				rc = -EINVAL;
 				goto read_cfg_exit2;
 			}
@@ -177,36 +179,42 @@ static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 
 				json_buffer_to_input(sec, "pci_en", pf->pci_en);
 				if (nmp_range_validate(pf->pci_en, 0, 1) != 0) {
+					pr_err("pci_en not in range!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
 
 				json_buffer_to_input(sec, "lcl_egress_qs_size", pf->lcl_egress_qs_size);
 				if (!pf->lcl_egress_qs_size) {
+					pr_err("missing lcl_egress_qs_size!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
 
 				json_buffer_to_input(sec, "lcl_ingress_qs_size", pf->lcl_ingress_qs_size);
 				if (!pf->lcl_ingress_qs_size) {
+					pr_err("missing lcl_ingress_qs_size!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
 
 				json_buffer_to_input(sec, "dflt_pkt_offset", pf->dflt_pkt_offset);
 				if (nmp_range_validate(pf->dflt_pkt_offset, 0, 1024) != 0) {
+					pr_err("missing dflt_pkt_offset!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
 
 				json_buffer_to_input(sec, "max_num_tcs", pf->max_num_tcs);
 				if (nmp_range_validate(pf->max_num_tcs, 0, NMP_GIE_MAX_TCS) != 0) {
+					pr_err("missing max_num_tcs!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
 
 				json_buffer_to_input(sec, "lcl_num_bpools", pf->lcl_num_bpools);
 				if (nmp_range_validate(pf->lcl_num_bpools, 0, NMP_GIE_MAX_BPOOLS) != 0) {
+					pr_err("missing lcl_num_bpools!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
@@ -224,12 +232,14 @@ static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 					json_buffer_to_input(sec, "max_num_buffs",
 							     pf->lcl_bpools_params[k].max_num_buffs);
 					if (!pf->lcl_bpools_params[k].max_num_buffs) {
+						pr_err("missing max_num_buffs!\n");
 						rc = -EINVAL;
 						goto read_cfg_exit2;
 					}
 
 					json_buffer_to_input(sec, "buff_size", pf->lcl_bpools_params[k].buff_size);
 					if (!pf->lcl_bpools_params[k].buff_size) {
+						pr_err("missing buff_size!\n");
 						rc = -EINVAL;
 						goto read_cfg_exit2;
 					}
@@ -238,14 +248,13 @@ static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 				json_buffer_to_input(sec, "nicpf_type", pf->type);
 				if (nmp_range_validate(pf->type, NMP_LF_NICPF_T_NONE,
 						       NMP_LF_NICPF_T_LAST - 1) != 0) {
+					pr_err("nicpf_type not in range!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
 
-				if (pf->type != NMP_LF_NICPF_T_PP2_PORT) {
-					rc = -EINVAL;
-					goto read_cfg_exit2;
-				}
+				if (pf->type != NMP_LF_NICPF_T_PP2_PORT)
+					continue;
 
 				sec = strstr(sec, "port-params-pp2-port");
 				if (!sec) {
