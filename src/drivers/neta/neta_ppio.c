@@ -482,6 +482,7 @@ int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
 		if (neta_ppio_inq_put_buff(pp, rxq, &bufs[i]))
 			break;
 	}
+	*num_of_buffs = i;
 
 	pr_debug("port %d: queue %d: refill %d buffers\n", pp->id, qid, i);
 	neta_port_inq_update(pp, rxq, 0, i);
@@ -490,6 +491,56 @@ int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
 	rxq->refill_bufs += i;
 #endif
 
+	return 0;
+}
+
+/**
+ * Get all free buffers found in InQ.
+ * Tis routine shal be used only to cleanup InQ.
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	in-Q id to get the buffer from.
+ * @param[out]		bufs	A pointer to an array of buffers to free.
+ * @param[in,out]	num_of_buffs	input: number of buffers in array
+ *					output: number of buffers to free
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int neta_ppio_inq_get_all_buffs(struct neta_ppio	*ppio,
+				u8			qid,
+				struct neta_buff_inf	*bufs,
+				u16			*num_of_buffs)
+{
+	struct neta_port *pp = GET_PPIO_PORT(ppio);
+	struct neta_rx_queue *rxq;
+	struct neta_ppio_desc *rx_desc;
+	int i, free_cnt;
+
+	rxq = &pp->rxqs[qid];
+	free_cnt = *num_of_buffs;
+
+	if (free_cnt > (rxq->size - rxq->to_refill_cntr))
+		free_cnt = rxq->size - rxq->to_refill_cntr;
+
+	for (i = 0; i < free_cnt; i++) {
+
+		rx_desc = rxq->descs + rxq->next_desc_to_refill;
+		rxq->to_refill_cntr++;
+
+		if (rxq->next_desc_to_refill)
+			rxq->next_desc_to_refill--;
+		else
+			rxq->next_desc_to_refill = rxq->last_desc;
+
+		bufs[i].cookie = rx_desc->cmds[4];
+		bufs[i].addr = rx_desc->cmds[2];
+	}
+	if (rxq->to_refill_cntr != rxq->size)
+		pr_warn("[%s]: %d not enough to return all buffers. %d buffers doesn't free\n",
+			__func__, *num_of_buffs, (rxq->size - rxq->to_refill_cntr));
+
+	*num_of_buffs = i;
 	return 0;
 }
 
