@@ -649,6 +649,25 @@ int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
 			    struct neta_buff_inf	*bufs,
 			    u16				*num_of_buffs);
 
+/**
+ * Get all free buffers found in InQ.
+ * Tis routine shal be used only to cleanup InQ.
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	in-Q id to get the buffer from.
+ * @param[out]		bufs	A pointer to an array of buffers to free.
+ * @param[in,out]	num_of_buffs	input: number of buffers in array
+ *					output: number of buffers to free
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int neta_ppio_inq_get_all_buffs(struct neta_ppio	*ppio,
+				u8			qid,
+				struct neta_buff_inf	*bufs,
+				u16			*num_of_buffs);
+
+
 /* Run-time Control API */
 
 /**
