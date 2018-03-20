@@ -862,8 +862,6 @@ static int pp2_ppio_probe_tc_params(char *buff, struct pp2_ppio *ppio)
 	memcpy(lbuff, buff, strlen(buff));
 	sec = lbuff;
 
-	pr_info("1 %s\n", sec);
-
 	inst = pp2_ptr->pp2_inst[ppio->pp2_id];
 	/* extract the loopback info */
 	port = pp2_ptr->pp2_inst[ppio->pp2_id]->ports[ppio->port_id];
@@ -977,7 +975,6 @@ static int pp2_ppio_probe_rxq_params(char *buff, struct pp2_port *port, phys_add
 		/* Search for the ppio-port-rxq section */
 		memset(tmp_buf, 0, sizeof(tmp_buf));
 		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-port-rxq-%d", i);
-		pr_info("%s\n", sec);
 		sec = strstr(sec, tmp_buf);
 		if (!sec) {
 			pr_err("'ppio-port-rxq-%d' not found\n", i);
