@@ -309,12 +309,6 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 		return -EIO;
 	}
 
-	err = pp2_ppio_enable(pdesc->ppio);
-	if (err) {
-		pr_err("PPIO enable failed\n");
-		return err;
-	}
-
 	return 0;
 }
 

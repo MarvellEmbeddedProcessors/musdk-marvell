@@ -1792,8 +1792,6 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	if (ret)
 		pr_err("Failed to configure PF regfile\n");
 
-	nmnicpf_link_state_check_n_notif(nmnicpf);
-
 	return ret;
 }
 
@@ -2008,6 +2006,33 @@ static int nmnicpf_rx_mc_promisc_command(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
+static int nmnicpf_enable_command(struct nmnicpf *nmnicpf)
+{
+	int err;
+
+	err = pp2_ppio_enable(nmnicpf->pp2.ports_desc[0].ppio);
+	if (err) {
+		pr_err("PPIO enable failed\n");
+		return err;
+	}
+	nmnicpf_link_state_check_n_notif(nmnicpf);
+
+	return 0;
+}
+
+static int nmnicpf_disable_command(struct nmnicpf *nmnicpf)
+{
+	int	err;
+
+	err = pp2_ppio_disable(nmnicpf->pp2.ports_desc[0].ppio);
+	if (err) {
+		pr_err("PPIO disable failed\n");
+		return err;
+	}
+
+	return 0;
+}
+
 /*
  *	nmnicpf_process_pf_command
  *
@@ -2036,9 +2061,16 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 	switch (msg->code) {
 
 	case CC_PF_ENABLE:
+		ret = nmnicpf_enable_command(nmnicpf);
+		if (ret)
+			pr_err("CC_PF_ENABLE message failed\n");
 		break;
 
 	case CC_PF_DISABLE:
+		*send_resp = 0;
+		ret = nmnicpf_disable_command(nmnicpf);
+		if (ret)
+			pr_err("CC_PF_DISABLE message failed\n");
 		break;
 
 	case CC_PF_INIT:
