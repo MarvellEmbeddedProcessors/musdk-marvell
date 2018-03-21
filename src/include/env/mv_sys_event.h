@@ -91,7 +91,7 @@ int mv_sys_event_destroy(struct mv_sys_event *ev);
  * @retval	0	  - timeout, no ready events
  * @retval	Negative  - failure
  */
-int mv_sys_event_poll(struct mv_sys_event *ev, int num, int timeout);
+int mv_sys_event_poll(struct mv_sys_event **ev, int num, int timeout);
 
 /**
  * Return event file descriptor

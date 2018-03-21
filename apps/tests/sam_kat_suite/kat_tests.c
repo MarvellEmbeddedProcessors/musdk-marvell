@@ -681,7 +681,7 @@ static int run_tests(void *arg, int *running)
 			if (ev) {
 				sam_cio_set_event(larg->cio_hndl, ev, 1);
 
-				rc = mv_sys_event_poll(ev, 1, -1);
+				rc = mv_sys_event_poll(&ev, 1, -1);
 				if ((rc != 1) || (ev->revents != MV_SYS_EVENT_POLLIN))
 					pr_warn("Error during event poll: rc = %d, revents=0x%x\n",
 						rc, ev->revents);
