@@ -163,7 +163,7 @@ static inline void pp2_bpool_put_buffs_core(int pp2_id, int num_buffs, int dm_if
 	lb_port = pp2_ptr->pp2_inst[pp2_id]->ports[PP2_LOOPBACK_PORT];
 	do {
 		sent_pkts += pp2_port_enqueue(lb_port, lb_port->parent->dm_ifs[dm_if_index], 0,
-			     (num_buffs - sent_pkts), &pp2_descs[sent_pkts]);
+			     (num_buffs - sent_pkts), &pp2_descs[sent_pkts], NULL);
 	} while (sent_pkts != num_buffs);
 }
 

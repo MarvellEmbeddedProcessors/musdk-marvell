@@ -1398,27 +1398,27 @@ static inline void pp2_port_tx_desc_swap_ncopy(struct pp2_desc *dst, struct pp2_
 
 /* Enqueue implementation */
 uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid, uint16_t num_txds,
-			  struct pp2_ppio_desc desc[])
+			  struct pp2_ppio_desc desc[], struct pp2_ppio_sg_pkts *pkts)
 {
 	uintptr_t cpu_slot;
 	struct pp2_tx_queue *txq;
 	struct pp2_txq_dm_if *txq_dm_if;
 	struct pp2_desc *tx_desc;
-	u16 block_size;
+	u16 block_size, to_send = num_txds;
 	int i;
 
 	txq = port->txqs[out_qid];
 	cpu_slot = dm_if->cpu_slot;
 
 	if (unlikely(txq->disabled))
-		return 0;
+		goto error;
 
 #ifdef DEBUG
 	if ((port->flags & PP2_PORT_FLAGS_L4_CHKSUM) == 0) {
 		for (i = 0; i < num_txds; i++) {
 		if (DM_TXD_GET_GEN_L4_CHK((desc + i)) == TXD_L4_CHK_ENABLE) {
 			pr_err("[%s] port(%d) l4_checksum flag disabled.\n", __func__, port->id);
-			return 0;
+			goto error;
 		}
 		}
 	}
@@ -1456,10 +1456,27 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 			num_txds = txq_dm_if->desc_rsrvd;
 		}
 	}
+
+	if (pkts && to_send > num_txds) {
+		u16 curr_txds = 0;
+
+		for (i = 0; i < pkts->num; i++) {
+			if (curr_txds + pkts->frags[i] > num_txds)
+				break;
+			curr_txds += pkts->frags[i];
+		}
+
+		pr_debug("[%s:%s] Sending %u descs(%u <- %u) and %u packets (%u)\n", __func__,
+			port->linux_name, curr_txds, num_txds, to_send, i, pkts->num);
+
+		num_txds = curr_txds;
+		pkts->num = i;
+	}
+
 	if (!num_txds) {
 		pr_debug("[%s] num_txds is zero\n", __func__);
 		dm_spin_unlock(&dm_if->dm_lock);
-		return 0;
+		goto error;
 	}
 
 	tx_desc = pp2_dm_if_next_desc_block_get(dm_if, num_txds, &block_size);
@@ -1510,6 +1527,11 @@ uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_
 
 	dm_spin_unlock(&dm_if->dm_lock);
 	return num_txds;
+
+error:
+	if (pkts)
+		pkts->num = 0;
+	return 0;
 }
 
 static void
