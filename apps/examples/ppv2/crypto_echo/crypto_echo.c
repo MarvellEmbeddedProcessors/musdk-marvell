@@ -1026,7 +1026,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	if (larg->enc_in_cntr) {
 		if (larg->enc_ev) {
 			sam_cio_set_event(larg->enc_cio, larg->enc_ev, 1);
-			err = mv_sys_event_poll(larg->enc_ev, 1, 100);
+			err = mv_sys_event_poll(&larg->enc_ev, 1, 100);
 			if (err <= 0)
 				pr_warn("Error during event poll: rc = %d, revents=0x%x\n",
 					err, larg->enc_ev->revents);
@@ -1038,7 +1038,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 	if (larg->dec_in_cntr) {
 		if (larg->dec_ev) {
 			sam_cio_set_event(larg->dec_cio, larg->dec_ev, 1);
-			err = mv_sys_event_poll(larg->dec_ev, 1, 100);
+			err = mv_sys_event_poll(&larg->dec_ev, 1, 100);
 			if (err <= 0)
 				pr_warn("Error during event poll: rc = %d, revents=0x%x\n",
 					err, larg->dec_ev->revents);
