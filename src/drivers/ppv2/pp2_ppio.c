@@ -285,7 +285,7 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 
 	dm_if = pp2_dm_if_get(ppio, hif);
 
-	desc_sent = pp2_port_enqueue(port, dm_if, qid, desc_req, descs);
+	desc_sent = pp2_port_enqueue(port, dm_if, qid, desc_req, descs, NULL);
 	if (unlikely(desc_sent < desc_req)) {
 		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __func__,
 			 ppio->pp2_id, ppio->port_id, qid, *num, desc_sent);
@@ -308,11 +308,68 @@ int pp2_ppio_send(struct pp2_ppio *ppio, struct pp2_hif *hif, u8 qid, struct pp2
 int pp2_ppio_send_sg(struct pp2_ppio *ppio,
 		     struct pp2_hif *hif,
 		     u8  qid,
-		     struct pp2_ppio_sg_desc *descs,
-		     u16 *num)
+		     struct pp2_ppio_desc *descs,
+		     u16 *desc_num,
+		     struct pp2_ppio_sg_pkts *pkts
+		     )
 {
-	pr_err("[%s] routine not supported yet!\n", __func__);
-	return -ENOTSUP;
+	struct pp2_dm_if *dm_if;
+	u16 desc_sent, desc_req = *desc_num;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	int i, j, k = 0;
+
+	dm_if = pp2_dm_if_get(ppio, hif);
+
+	pr_debug("[%s] %u:%u: sending %d packets %d descriptors:\n", __func__,
+		 ppio->pp2_id, ppio->port_id, pkts->num, desc_req);
+	for (i = 0; i < pkts->num; i++) {
+		/*
+		 * Handle packets with only one fragment.
+		 * TXD_FIRST_LAST flag was already set by pp2_ppio_outq_desc_reset().
+		 */
+		if (pkts->frags[i] == 1) {
+			pr_debug("pkt:%d, frg:%d: first-last %.8X\n", i, k, descs[k].cmds[0]);
+			k++;
+			continue;
+		}
+
+		/* Handle first fragment */
+		DM_TXD_SET_FIRST_LAST(&descs[k], TXD_FIRST);
+		pr_debug("pkt:%d, frg:%d: first %.8X\n", i, k, descs[k].cmds[0]);
+		k++;
+
+		/* Handle middle fragments */
+		for (j = 1; j < pkts->frags[i] - 1;  j++) {
+			DM_TXD_SET_FIRST_LAST(&descs[k], 0);
+			pr_debug("pkt:%d, frg:%d: middle %.8X\n", i, k, descs[k].cmds[0]);
+			k++;
+		}
+
+		/* Handle last fragment */
+		DM_TXD_SET_FIRST_LAST(&descs[k], TXD_LAST);
+		pr_debug("pkt:%d, frg:%d: last %.8X\n", i, k, descs[k].cmds[0]);
+		k++;
+	}
+
+	desc_sent = pp2_port_enqueue(port, dm_if, qid, desc_req, descs, pkts);
+	if (unlikely(desc_sent < desc_req)) {
+		pr_debug("[%s] pp2_id %u Port %u qid %u, send_request %u sent %u!\n", __func__,
+			 ppio->pp2_id, ppio->port_id, qid, *desc_num, desc_sent);
+		*desc_num = desc_sent;
+	}
+
+	if (port->maintain_stats) {
+		struct pp2_tx_queue *txq;
+
+		txq = port->txqs[qid];
+		txq->threshold_tx_pkts += pkts->num;
+		if (unlikely(txq->threshold_tx_pkts > PP2_STAT_UPDATE_THRESHOLD)) {
+			pp2_ppio_outq_get_statistics(ppio, qid, NULL, 0);
+			txq->threshold_tx_pkts = 0;
+		}
+	}
+	return 0;
+
 }
 
 int pp2_ppio_get_num_outq_done(struct pp2_ppio *ppio,

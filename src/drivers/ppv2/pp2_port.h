@@ -277,7 +277,7 @@ struct pp2_dm_if *pp2_port_dm_if_get(struct pp2_port *port, uint32_t dm_id);
  * @retval   number of enqueued descriptors
  */
 uint16_t pp2_port_enqueue(struct pp2_port *port, struct pp2_dm_if *dm_if, uint8_t out_qid,
-			  u16 num_txds, struct pp2_ppio_desc desc[]);
+			  u16 num_txds, struct pp2_ppio_desc desc[], struct pp2_ppio_sg_pkts *pkts);
 
 /**
  * pp2_port_outq_get_id
