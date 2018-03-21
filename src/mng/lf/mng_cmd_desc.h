@@ -153,7 +153,7 @@ struct mgmt_cmd_params {
 		} pf_ingress_data_q_add;
 
 		struct {
-			int	reset;
+			u8	reset;
 		} pf_get_statistics;
 
 		struct {
