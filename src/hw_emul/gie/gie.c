@@ -239,8 +239,10 @@ struct dma_job_info {
 	u64	cookie_tail;
 	u32	elements_per_desc;
 	u32	desc_count;
+#define DMA_FLAGS_NONE			(0)
 #define DMA_FLAGS_UPDATE_IDX		(1 << 0)
 #define DMA_FLAGS_PRODUCE_IDX		(1 << 1)
+#define DMA_FLAGS_BUFFER_IDX		(1 << 2)
 	u32	flags;
 };
 
@@ -334,6 +336,8 @@ static void gie_clean_dma_jobs(struct dma_info *dma);
 /* Producer / Consumer update via DMA / MEM function declarations */
 static void gie_copy_qes_dma(struct dma_job *job, struct gie_queue *src_q, struct gie_queue *dst_q);
 static void gie_copy_qes_mem(struct dma_job *job, struct gie_queue *src_q, struct gie_queue *dst_q);
+static void gie_copy_buf_dma(struct dma_job_info *job, struct gie_queue *src_q, struct gie_queue *dst_q);
+static void gie_copy_buf_mem(struct dma_job_info *job, struct gie_queue *src_q, struct gie_queue *dst_q);
 static void gie_bpool_fill_shadow_dma(struct dma_info *dma, struct	gie_queue *src_q);
 static void gie_bpool_fill_shadow_mem(struct dma_info *dma, struct	gie_queue *src_q);
 static void gie_bpool_consume_dma(struct dma_info *dma, struct	gie_queue *src_q);
@@ -349,6 +353,10 @@ static void gie_clean_mem(struct dma_info *dma, struct dma_job_info *job,
 void (*func_copy_qes[GIE_MODE_MAX])(struct dma_job *job, struct gie_queue *q, struct gie_queue *dst_q) = {
 	gie_copy_qes_mem,
 	gie_copy_qes_dma
+};
+void (*func_copy_buf[GIE_MODE_MAX])(struct dma_job_info *job, struct gie_queue *q, struct gie_queue *dst_q) = {
+	gie_copy_buf_mem,
+	gie_copy_buf_dma
 };
 void (*func_fill_shadow[GIE_MODE_MAX])(struct dma_info *dma, struct gie_queue *q) = {
 	gie_bpool_fill_shadow_mem,
@@ -931,6 +939,18 @@ static void gie_copy_qes_mem(struct dma_job *job, struct gie_queue *src_q, struc
 	job->cookie_tail = dst_q->tail;
 }
 
+static void gie_copy_buf_dma(struct dma_job_info *job, struct gie_queue *src_q, struct gie_queue *dst_q)
+{
+	job->cookie_head = gie_idx_backup(src_q, src_q->head);
+	job->cookie_tail = gie_idx_backup(dst_q, dst_q->tail);
+}
+
+static void gie_copy_buf_mem(struct dma_job_info *job, struct gie_queue *src_q, struct gie_queue *dst_q)
+{
+	job->cookie_head = src_q->head;
+	job->cookie_tail = dst_q->tail;
+}
+
 static void gie_bpool_fill_shadow_dma(struct dma_info *dma, struct	gie_queue *src_q)
 {
 	u64 head_bkp = gie_idx_backup(src_q, src_q->head);
@@ -1157,7 +1177,7 @@ static void gie_bpool_consume(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 }
 
 static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct gie_queue *src_q,
-			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy)
+			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy, u32 flags)
 {
 	struct dmax2_desc desc[GIE_MAX_QES_IN_BATCH];
 	struct host_bpool_desc *bp_buf;
@@ -1223,8 +1243,18 @@ bpool_empty:
 		job_info = dma->dma_jobs + dma->job_tail;
 
 		job_info->cookie = src_q;
+		if (flags & DMA_FLAGS_BUFFER_IDX) {
+			job_info->cookie_dst = (uintptr_t)dst_q;
+			q_idx_add(src_q->head, cnt, src_q->qlen);
+			q_idx_add(dst_q->tail, cnt, dst_q->qlen);
+			func_copy_buf[index_copy_mode](job_info, src_q, dst_q);
+			src_q->packets += cnt;
+			dst_q->packets += cnt;
+			job_info->flags = flags;
+		} else {
+			job_info->flags = 0;
+		}
 		job_info->elements_per_desc = 1;
-		job_info->flags = 0;
 		job_info->desc_count = cnt;
 
 		tmp_cnt = tmp_left = cnt;
@@ -1322,13 +1352,13 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	if (qes_copied) {
 		qes_copied = gie_clip_batch(dst_q, qes_copied);
 		if (copy_payload)
-			completed = gie_copy_buffers(dma, qp, src_q, dst_q, dst_q, qes_copied);
+			completed = gie_copy_buffers(dma, qp, src_q, dst_q, dst_q, qes_copied, DMA_FLAGS_BUFFER_IDX);
 		else
 			completed = qes_copied;
 	}
 
 	/* Last phase - update the remote indices to indicate production/consumption */
-	if (completed)
+	if ((completed) && (!copy_payload))
 		gie_produce_q(dma, src_q, dst_q, completed);
 
 	return completed;
@@ -1359,7 +1389,7 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	qes = gie_clip_batch(dst_q, qes);
 
 	if (copy_payload)
-		qes = gie_copy_buffers(dma, qp, src_q, dst_q, src_q, qes);
+		qes = gie_copy_buffers(dma, qp, src_q, dst_q, src_q, qes, DMA_FLAGS_NONE);
 
 	/* if bpools are empty, no buffer copy will occur.
 	 * If so, skip the QE copy as well
@@ -1403,8 +1433,16 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 		jobi->desc_count -= elements;
 
 		/* do not advance job_info queue if desc are left in the job */
-		if (jobi->desc_count == 0)
+		if (jobi->desc_count == 0) {
+			if (jobi->flags & DMA_FLAGS_BUFFER_IDX) {
+				struct gie_queue *src_q, *dst_q;
+
+				src_q = (struct gie_queue *)jobi->cookie;
+				dst_q = (struct gie_queue *)jobi->cookie_dst;
+				func_clean_dma[index_copy_mode](dma, jobi, src_q, dst_q);
+			}
 			q_idx_add(i, 1, dma->job_qlen);
+		}
 
 		if (jobi->flags & DMA_FLAGS_UPDATE_IDX) {
 			struct gie_queue *src_q;
