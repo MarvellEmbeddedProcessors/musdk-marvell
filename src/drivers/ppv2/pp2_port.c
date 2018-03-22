@@ -1783,11 +1783,11 @@ int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_pa
 	ev_params.driver_data = rx_event;
 
 	err = mv_sys_event_create(&ev_params, ev);
-	(*ev)->events = MV_SYS_EVENT_POLLIN;
 	if (err) {
 		pr_err("(%s) Can't open PPv2 event: %s\n", __func__, ev_params.name);
 		return err;
 	}
+	(*ev)->events = MV_SYS_EVENT_POLLIN;
 
 	for (i = 0; (loc_ev_qmask != 0); i++) {
 		struct pp2_rx_queue *rxq = port->rxqs[i];
