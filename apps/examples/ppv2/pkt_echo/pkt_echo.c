@@ -591,7 +591,8 @@ static void app_port_inqs_mask_by_lcl_thr_flows(struct glob_arg *garg, int port_
 static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
-	struct bpool_inf		std_inf[] = PKT_ECHO_APP_BPOOLS_INF, jumbo_inf[] = PKT_ECHO_APP_BPOOLS_INF;
+	struct bpool_inf		std_inf[] = PKT_ECHO_APP_BPOOLS_INF;
+	struct bpool_inf		jumbo_inf[] = PKT_ECHO_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	int				i = 0, j;
