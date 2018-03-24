@@ -405,7 +405,9 @@ int giu_bpool_get_num_buffs(struct giu_bpool *pool, u32 *num_buffs)
 {
 	struct giu_gpio_queue *bpq = pool->queue;
 
-	return QUEUE_OCCUPANCY(readl_relaxed(bpq->prod_addr), readl_relaxed(bpq->cons_addr), bpq->desc_total);
+	*num_buffs = QUEUE_OCCUPANCY(readl_relaxed(bpq->prod_addr), readl_relaxed(bpq->cons_addr), bpq->desc_total);
+
+	return 0;
 }
 
 /**
