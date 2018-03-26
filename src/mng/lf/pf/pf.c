@@ -2063,7 +2063,6 @@ static int nmnicpf_loopback_command(struct nmnicpf *nmnicpf,
  *	@param[in]	nmnicpf - pointer to NIC PF object
  *	@param[in]	msg - pointer to nmdisp_msg object
  *	@param[out]	resp_data - pointer to mgmt_cmd_resp object
- *	@param[out]	send_resp - if response should be send
  *
  *	@retval	0 on success
  *	@retval	error-code otherwise
@@ -2071,14 +2070,10 @@ static int nmnicpf_loopback_command(struct nmnicpf *nmnicpf,
 
 static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 				      struct nmdisp_msg *msg,
-				      struct mgmt_cmd_resp *resp_data,
-				      int *send_resp)
+				      struct mgmt_cmd_resp *resp_data)
 {
 	struct mgmt_cmd_params *cmd_params = msg->msg;
 	int ret = 0;
-
-	/* In general always send response */
-	*send_resp = 1;
 
 	switch (msg->code) {
 
@@ -2089,7 +2084,6 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		break;
 
 	case CC_PF_DISABLE:
-		*send_resp = 0;
 		ret = nmnicpf_disable_command(nmnicpf);
 		if (ret)
 			pr_err("CC_PF_DISABLE message failed\n");
@@ -2162,14 +2156,12 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		break;
 
 	case CC_PF_PROMISC:
-		*send_resp = 0; /* TODO: response not possible */
 		ret = nmnicpf_rx_promisc_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_PROMISC message failed\n");
 		break;
 
 	case CC_PF_MC_PROMISC:
-		*send_resp = 0; /* TODO: response not possible */
 		ret = nmnicpf_rx_mc_promisc_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_MC_PROMISC message failed\n");
@@ -2212,7 +2204,7 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 {
 	struct mgmt_cmd_resp resp_data;
 	struct nmnicpf *nmnicpf = (struct nmnicpf *)arg;
-	int ret, send_msg = 1, send_resp = 1;
+	int ret, send_msg = 1;
 
 /*
  *	Once NIC-PF get a external command from dispatcher, it shall first check the 'src-client/ID' (should be its own)
@@ -2231,13 +2223,14 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
  *	the command message by calling the 'nmdisp_send_msg' API and 'ext' set.
  */
 
-	pr_debug("NICPF got %s command code %d from client-type %d client-id %d\n",
-		 (msg->ext) ? "external":"internal", msg->code, msg->src_client, msg->src_id);
+	pr_debug("NICPF got %s command code %d from client-type %d client-id %d which %s response\n",
+		 (msg->ext) ? "external":"internal", msg->code, msg->src_client, msg->src_id,
+		 (msg->resp_required) ? "requires" : "doesn't requires");
 
 	if (msg->ext) {
 		if ((msg->src_client == CDT_PF) && (msg->src_id == nmnicpf->pf_id)) {
-			ret = nmnicpf_process_pf_command(nmnicpf, msg, &resp_data, &send_resp);
-			send_msg = send_resp;
+			ret = nmnicpf_process_pf_command(nmnicpf, msg, &resp_data);
+			send_msg = msg->resp_required;
 			if (ret)
 				resp_data.status = NOTIF_STATUS_FAIL;
 			else

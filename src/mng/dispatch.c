@@ -566,6 +566,7 @@ static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp
 	recv_desc = ((struct cmd_desc *)q->virt_base_addr) + cons_idx;
 
 	msg->ext = 1;
+	msg->resp_required = !CMD_FLAGS_NO_RESP_GET(recv_desc->flags);
 	msg->dst_client = recv_desc->client_type;
 	msg->dst_id = recv_desc->client_id;
 	msg->code = recv_desc->cmd_code;

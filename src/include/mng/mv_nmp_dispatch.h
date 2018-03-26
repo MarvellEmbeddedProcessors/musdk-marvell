@@ -60,14 +60,15 @@ struct nmdisp_q_pair_params {
 };
 
 struct nmdisp_msg {
-	int	 ext;
-	u8	 src_client;
-	u8	 src_id;
-	u8	 dst_client; /**< relevant only for 'send_msg' routine */
-	u8	 dst_id; /**< relevant only for 'send_msg' routine */
-	u8	 code;
-	u16	 indx;
-	u16	 msg_len;
+	int	ext;
+	int	resp_required;
+	u8	src_client;
+	u8	src_id;
+	u8	dst_client; /**< relevant only for 'send_msg' routine */
+	u8	dst_id; /**< relevant only for 'send_msg' routine */
+	u8	code;
+	u16	indx;
+	u16	msg_len;
 	void	*msg;
 };
 
