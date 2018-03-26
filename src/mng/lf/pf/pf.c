@@ -2034,6 +2034,28 @@ static int nmnicpf_disable_command(struct nmnicpf *nmnicpf)
 }
 
 /*
+ *	nmnicpf_loopback_command
+ */
+static int nmnicpf_loopback_command(struct nmnicpf *nmnicpf,
+				struct mgmt_cmd_params *params,
+				struct mgmt_cmd_resp *resp_data)
+{
+	int loopback;
+	int ret = 0;
+
+	pr_debug("Set loopback message\n");
+
+	loopback = params->pf_set_loopback.loopback;
+	ret = pp2_ppio_set_loopback(nmnicpf->pp2.ports_desc[0].ppio, loopback);
+	if (ret) {
+		pr_err("Unable to set loopback\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+/*
  *	nmnicpf_process_pf_command
  *
  *	This function process all PF's commands
@@ -2157,6 +2179,12 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_mtu_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
+		break;
+
+	case CC_PF_LOOPBACK:
+		ret = nmnicpf_loopback_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("PF_LOOPBACK message failed\n");
 		break;
 
 	default:

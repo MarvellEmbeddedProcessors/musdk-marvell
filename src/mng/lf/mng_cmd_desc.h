@@ -80,6 +80,7 @@ enum cmd_codes {
 	CC_PF_PROMISC,
 	CC_PF_MC_PROMISC,
 	CC_PF_MTU,
+	CC_PF_LOOPBACK,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -159,6 +160,10 @@ struct mgmt_cmd_params {
 		struct {
 			u32	mtu;
 		} pf_set_mtu;
+
+		struct {
+			u8 loopback;
+		} pf_set_loopback;
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];
