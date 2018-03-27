@@ -56,6 +56,9 @@ struct nmp_guest_params {
 				 * the number of times nmp_guest_schedule should be called before sending the
 				 * keep-alive msg
 				 */
+	void *nmp;	/**< the NMP structure should be passed in case the NMP and the NMP-guest
+				 * are runningin the same process.
+				 */
 };
 
 /**

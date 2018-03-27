@@ -155,7 +155,174 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 	giu_bpools[bpool->id].internal_param = NULL;
 }
 
-int giu_bpool_serialize(struct giu_bpool *bpool, void **file_map)
+int giu_bpool_serialize(struct giu_bpool *bpool, char *buff, u32 size, u8 depth)
+{
+	struct giu_bpool_int		*bp_int;
+	size_t				 pos = 0;
+	struct mv_sys_dma_mem_info	 mem_info;
+	char				 dev_name[100];
+	struct mqa_queue_info		 queue_info;
+	u32				 offs;
+
+	if (!bpool) {
+		pr_err("invalid bpool handle!\n");
+		return -EINVAL;
+	}
+	bp_int = (struct giu_bpool_int *)bpool->internal_param;
+	if (!bp_int) {
+		pr_err("invalid bpool handle!\n");
+		return -EINVAL;
+	}
+
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+
+	json_print_to_buffer(buff, size, depth, "\"giu_pool-%d:%d\": {\n",
+			     bpool->giu_id, bpool->id);
+	json_print_to_buffer(buff, size, depth + 1, "\"giu_id\": %d,\n", bpool->giu_id);
+	json_print_to_buffer(buff, size, depth + 1, "\"id\": %d,\n", bpool->id);
+	json_print_to_buffer(buff, size, depth + 1, "\"dma_dev_name\": \"%s\",\n", mem_info.name);
+	json_print_to_buffer(buff, size, depth + 1, "\"num_buffs\": %u,\n", bp_int->num_buffs);
+	json_print_to_buffer(buff, size, depth + 1, "\"buff_len\": %u,\n", bp_int->buff_len);
+	mqa_queue_get_info(bp_int->mqa_q, &queue_info);
+	offs = (phys_addr_t)(uintptr_t)queue_info.phy_base_addr - mem_info.paddr;
+	json_print_to_buffer(buff, size, depth + 1, "\"phy_base_offset\": %#x,\n", offs);
+	offs = (phys_addr_t)(uintptr_t)queue_info.prod_phys - mem_info.paddr;
+	json_print_to_buffer(buff, size, depth + 1, "\"prod_offset\": %#x,\n", offs);
+	offs = (phys_addr_t)(uintptr_t)queue_info.cons_phys - mem_info.paddr;
+	json_print_to_buffer(buff, size, depth + 1, "\"cons_offset\": %#x,\n", offs);
+	json_print_to_buffer(buff, size, depth, "},\n");
+
+	/* mark this bpool as use but not for guest */
+	/* TODO: uncomment following line once moving to new APIs! */
+	/*giu_bpools[bpool->id].internal_param = (void *)(-1);*/
+
+	return pos;
+}
+
+int giu_bpool_probe_new(char *match, char *buff, struct giu_bpool **bpool)
+{
+	struct giu_bpool		*_bpool;
+	struct giu_bpool_int		*bp_int;
+	struct sys_iomem_params		 iomem_params;
+	struct sys_iomem_info		 sys_iomem_info;
+	char				*lbuff, *sec = NULL;
+	char				 dev_name[FILE_MAX_LINE_CHARS];
+	u8				 match_params[2];
+	u32				 offs = 0;
+	u8				 giu_id = 0, bpool_id = 0;
+
+	if (!match) {
+		pr_err("no match string found!\n");
+		return -EFAULT;
+	}
+
+	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, buff, strlen(buff));
+	sec = lbuff;
+
+	/* Search for match (giu_pool-x:x) */
+	sec = strstr(sec, match);
+	if (!sec) {
+		pr_err("match not found %s\n", match);
+		kfree(lbuff);
+		return -ENXIO;
+	}
+
+	if (mv_sys_match(match, "giu_pool", 2, match_params)) {
+		kfree(lbuff);
+		return -ENXIO;
+	}
+
+	/* Retireve giu_id and pool-id */
+	json_buffer_to_input(sec, "giu_id", giu_id);
+	json_buffer_to_input(sec, "id", bpool_id);
+
+	if ((giu_id != match_params[0]) || (bpool_id != match_params[1])) {
+		pr_err("IDs missmatch!\n");
+		kfree(lbuff);
+		return -EFAULT;
+	}
+	if (bpool_id >= GIU_BPOOL_NUM_POOLS) {
+		pr_err("[%s] Cannot allocate Pool. No free BPool\n", __func__);
+		kfree(lbuff);
+		return -ENODEV;
+	}
+
+	_bpool = &giu_bpools[bpool_id];
+
+	if (_bpool->internal_param &&
+	    (_bpool->internal_param != (void *)(-1))) {
+		pr_err("[%s] BPool id %d is already in use\n", __func__, bpool_id);
+		kfree(lbuff);
+		return -EEXIST;
+	}
+
+	pr_debug("probing bpool %d for giu id: %d.\n", giu_id, bpool_id);
+
+	_bpool->giu_id = giu_id;
+	_bpool->id = bpool_id;
+
+	bp_int = kcalloc(1, sizeof(struct giu_bpool_int), GFP_KERNEL);
+	if (bp_int == NULL) {
+		kfree(lbuff);
+		return -ENOMEM;
+	}
+
+	bp_int->giu_id = _bpool->giu_id;
+	bp_int->id = _bpool->id;
+
+	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
+	json_buffer_to_input_str(sec, "dma_dev_name", dev_name);
+	if (dev_name[0] == 0) {
+		pr_err("'dma_dev_name' not found\n");
+		kfree(lbuff);
+		return -EFAULT;
+	}
+
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = dev_name;
+	iomem_params.index = 1;
+
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
+		kfree(lbuff);
+		return -EFAULT;
+	}
+
+	/* Retireve BM params */
+	json_buffer_to_input(sec, "num_buffs", bp_int->num_buffs);
+	bp_int->queue.desc_total = bp_int->num_buffs;
+	json_buffer_to_input(sec, "buff_len", bp_int->buff_len);
+	bp_int->queue.buff_len = bp_int->buff_len;
+	json_buffer_to_input(sec, "phy_base_offset", offs);
+	bp_int->queue.desc_ring_base =
+		(struct giu_gpio_desc *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+	json_buffer_to_input(sec, "prod_offset", offs);
+	bp_int->queue.prod_addr =
+		(u32 *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+	json_buffer_to_input(sec, "cons_offset", offs);
+	bp_int->queue.cons_addr =
+		(u32 *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+	bp_int->queue.last_cons_val = 0;
+
+	pr_debug("q_len %d, buff_len %d, desc_ring_base %p, prod_addr %p, cons_addr %p\n",
+		bp_int->num_buffs, bp_int->buff_len, (unsigned int *)bp_int->queue.desc_ring_base,
+		bp_int->queue.prod_addr, bp_int->queue.cons_addr);
+
+	kfree(lbuff);
+	_bpool->internal_param = bp_int;
+	*bpool = _bpool;
+
+	pr_debug("giu_bpool_probe pool->id %d\n", _bpool->id);
+
+	return 0;
+}
+
+int giu_bpool_serialize_old(struct giu_bpool *bpool, void **file_map)
 {
 	struct giu_bpool_int		*bp_int = (struct giu_bpool_int *)bpool->internal_param;
 	struct mv_sys_dma_mem_info	 mem_info;

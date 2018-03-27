@@ -98,6 +98,8 @@ struct glob_arg {
 	int				 pkt_rate_stats;
 	pthread_mutex_t			 trd_lock;
 
+	struct giu_bpools_desc		 giu_bpools_desc;
+	struct giu_port_desc		 giu_port_desc;
 	struct giu_gpio			*giu_gpio;
 	struct nmp			*nmp;
 	struct nmp_guest		*nmp_guest;
@@ -858,56 +860,10 @@ static int ctrl_cb(void *arg)
 		return -EINVAL;
 	}
 
-	nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
 	nmp_guest_schedule(garg->nmp_guest);
-	nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
 
 	if (!garg->cmn_args.cli && garg->pkt_rate_stats)
 		maintain_stats(garg);
-
-	return 0;
-}
-
-static int wait_for_pf_init_done(void)
-{
-	char	file_name[REGFILE_MAX_FILE_NAME];
-	int	timeout = 100000; /* 10s timeout */
-	int	fd, err;
-
-	/* Map GIU regfile */
-	snprintf(file_name, sizeof(file_name), "%s%s%d", REGFILE_VAR_DIR, REGFILE_NAME_PREFIX, 0);
-
-	/* remove file from previous runs */
-	err = remove(file_name);
-	/* check if there was an error and if so check that it's not "No such file or directory" */
-	if (err && errno != 2) {
-		pr_err("can't delete regfile! (%s)\n", strerror(errno));
-		return err;
-	}
-
-	/* wait for regfile to be opened by NMP */
-	do {
-		/* Schedule GIE execution */
-		nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
-
-		fd = open(file_name, O_RDWR);
-		if (fd > 0) {
-			close(fd);
-			break;
-		}
-
-		udelay(100);
-	} while (fd < 0 && --timeout);
-
-	if (!timeout) {
-		pr_err("failed to find regfile %s. timeout exceeded.\n", file_name);
-		return -EFAULT;
-	}
-
-	/* Make sure that last command response is sent to host. */
-
-	/* Schedule GIE execution */
-	nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
 
 	return 0;
 }
@@ -941,6 +897,7 @@ static int init_all_modules(void)
 	struct			nmp_guest_params nmp_guest_params;
 
 	pr_info("Global initializations ...\n");
+
 	err = mv_sys_dma_mem_init(PKT_ECHO_APP_DMA_MEM_SIZE);
 	if (err)
 		return err;
@@ -952,11 +909,16 @@ static int init_all_modules(void)
 		pr_err("NMP preinit failed with error %d\n", err);
 		return -EIO;
 	}
+	err = nmp_init(&nmp_params, &(garg.nmp));
+	if (err)
+		return err;
 
-	nmp_init(&nmp_params, &(garg.nmp));
-
-	/* Wait till PF was initialized */
-	err = wait_for_pf_init_done();
+	/* NMP Guest initializations */
+	memset(&nmp_guest_params, 0, sizeof(nmp_guest_params));
+	nmp_guest_params.id = garg.cmn_args.guest_id;
+	nmp_guest_params.timeout = PKT_ECHO_APP_NMP_GUEST_TIMEOUT;
+	nmp_guest_params.nmp =  (void *)garg.nmp;
+	err = nmp_guest_init(&nmp_guest_params, &garg.nmp_guest);
 	if (err)
 		return err;
 
@@ -987,11 +949,6 @@ static int init_all_modules(void)
 	app_used_hifmap_init(pp2_params.hif_reserved_map);
 	app_used_bm_pool_map_init(pp2_params.bm_pool_reserved_map);
 
-	/* NMP Guest initializations */
-	nmp_guest_params.id = garg.cmn_args.guest_id;
-	nmp_guest_params.timeout = PKT_ECHO_APP_NMP_GUEST_TIMEOUT;
-	nmp_guest_init(&nmp_guest_params, &garg.nmp_guest);
-
 	nmp_guest_get_probe_str(garg.nmp_guest, &garg.prb_str);
 
 	nmp_guest_register_event_handler(garg.nmp_guest,
@@ -1011,7 +968,6 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		jumbo_infs[] = PKT_ECHO_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args	*pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-	int				giu_id = 0; /* Should be retrieved from garg */
 
 	pr_info("Local initializations ...\n");
 
@@ -1032,28 +988,30 @@ static int init_local_modules(struct glob_arg *garg)
 
 	nmp_guest_get_relations_info(garg->nmp_guest, &garg->guest_info);
 
-	err = app_guest_utils_build_all_bpools(garg->prb_str, &garg->guest_info, &pp2_args->pools_desc, pp2_args, infs);
+	err = app_guest_utils_build_all_giu_bpools(garg->prb_str,
+			&garg->guest_info,
+			&garg->giu_bpools_desc,
+			PKT_ECHO_APP_GIU_BP_SIZE);
 	if (err)
 		return err;
 
-	err = app_nmp_guest_port_init(garg->prb_str, &garg->guest_info, &pp2_args->ports_desc[0]);
+	err = app_nmp_guest_giu_port_init(garg->prb_str,
+			&garg->guest_info,
+			&garg->giu_port_desc);
 	if (err)
 		return err;
 
-	/**************************/
-	/* GIU Port Init	  */
-	/**************************/
-	err = app_giu_port_init(giu_id, &garg->giu_gpio);
-	if (err) {
-		pr_err("Failed to initialize GIU Port %d\n", giu_id);
+	err = app_guest_utils_build_all_pp2_bpools(garg->prb_str,
+			&garg->guest_info,
+			&pp2_args->pools_desc,
+			pp2_args,
+			infs);
+	if (err)
 		return err;
-	}
 
-	err = app_giu_build_bpool(0, PKT_ECHO_APP_GIU_BP_SIZE);
-	if (err) {
-		pr_err("Failed to build GIU Bpool\n");
+	err = app_nmp_guest_pp2_port_init(garg->prb_str, &garg->guest_info, &pp2_args->ports_desc[0]);
+	if (err)
 		return err;
-	}
 
 	garg->cmn_args.num_ports = garg->guest_info.ports_info.num_ports;
 
@@ -1255,7 +1213,11 @@ static int init_local(void *arg, int id, void **_larg)
 		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
 
 	/* TODO: create and use GIU global port descriptor (similar to PP2 port local init) */
-	app_giu_port_local_init(giu_port_id, larg->cmn_args.id, giu_id, &larg->giu_ports_desc[giu_id], garg->giu_gpio);
+	app_giu_port_local_init(giu_port_id,
+		larg->cmn_args.id,
+		giu_id,
+		&larg->giu_ports_desc[giu_id],
+		garg->giu_port_desc.gpio);
 
 	*_larg = larg;
 	return 0;

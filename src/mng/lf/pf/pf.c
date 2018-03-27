@@ -267,13 +267,13 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 	for (bm_idx = 0;
 		bm_idx < nmnicpf->gpio_params.intcs_params[0].num_inpools;
 		bm_idx++) {
-		ret = giu_bpool_serialize(nmnicpf->giu_bpools[bm_idx], &file_map);
+		ret = giu_bpool_serialize_old(nmnicpf->giu_bpools[bm_idx], &file_map);
 		if (ret != 0)
 			goto config_error;
 	}
 
 	/* Setup GIU GPIO  */
-	ret = giu_gpio_serialize(nmnicpf->giu_gpio, &file_map);
+	ret = giu_gpio_serialize_old(nmnicpf->giu_gpio, &file_map);
 	if (ret != 0)
 		goto config_error;
 
@@ -2467,6 +2467,40 @@ static int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 	return 0;
 }
 
+static int nmnicpf_serialize_giu(struct nmnicpf *nmnicpf, char *buff, u32 size, u8 depth)
+{
+	size_t	 pos = 0;
+	u8	 bm_idx, num_pools;
+	int	 ret;
+
+	/* assuming all TCs share the same BPools */
+	num_pools = nmnicpf->gpio_params.intcs_params[0].num_inpools;
+	json_print_to_buffer(buff, size, depth, "\"giu-bpools\": {\n");
+	for (bm_idx = 0; bm_idx < num_pools; bm_idx++) {
+		ret = giu_bpool_serialize(nmnicpf->giu_bpools[bm_idx], &buff[pos], size - pos, depth + 1);
+		if (ret < 0)
+			return ret;
+		pos += ret;
+		if (pos != strlen(buff)) {
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+			return -EINVAL;
+		}
+	}
+	json_print_to_buffer(buff, size, depth, "},\n");
+	json_print_to_buffer(buff, size, depth, "\"giu-gpio\": {\n");
+	ret = giu_gpio_serialize(nmnicpf->giu_gpio, &buff[pos], size - pos, depth + 1);
+	if (ret < 0)
+		return ret;
+	pos += ret;
+	if (pos != strlen(buff)) {
+		pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+		return -EINVAL;
+	}
+	json_print_to_buffer(buff, size, depth, "},\n");
+
+	return pos;
+}
+
 static int nmnicpf_keep_alive_process(struct nmnicpf *nmnicpf)
 {
 	struct nmdisp_msg msg;
@@ -2665,6 +2699,7 @@ int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 	/* serialize the relations of the GIU objects */
 	json_print_to_buffer(buff, size, 2, "\"giu-gpio\": \"gpio-%d:%d\",\n",
 			     giu_id, nmnicpf->pf_id);
+	/* assuming all TCs share the same BPools */
 	num_pools = nmnicpf->gpio_params.intcs_params[0].num_inpools;
 	json_print_to_buffer(buff, size, 2, "\"num_bpools\": %d,\n", num_pools);
 	for (bm_idx = 0; bm_idx < num_pools; bm_idx++) {
@@ -2689,6 +2724,17 @@ int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 	}
 	json_print_to_buffer(buff, size, 1, "},\n");
 
+	/* Serialize the GIU */
+	ret = nmnicpf_serialize_giu(nmnicpf, &buff[pos], size - pos, 1);
+	if (ret < 0)
+		return ret;
+	pos += ret;
+	if (pos != strlen(buff)) {
+		pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+		return -EFAULT;
+	}
+
+	/* Serialize the physical-port */
 	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
 		ret = nmnicpf_pp2_serialize(nmnicpf, &buff[pos], size - pos);
 		if (ret < 0)

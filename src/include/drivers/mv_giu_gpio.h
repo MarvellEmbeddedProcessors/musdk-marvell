@@ -127,19 +127,57 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio);
 void giu_gpio_deinit(struct giu_gpio *gpio);
 
 /* TODO: this is temporary API. wil be replaced later with correct serialization */
-int giu_gpio_serialize(struct giu_gpio *gpio, void **file_map);
+int giu_gpio_serialize_old(struct giu_gpio *gpio, void **file_map);
+int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio);
+
+/**
+ * Serialize the GPIO parameters
+ *
+ * The serialization API is called by the 'master' user application to serialize a buffer-pool object.
+ * The output string is created in a JSON format.
+ * Below is how a bpool config-string looks like:
+ *	gpio-<giu_id>:<port-id>: {
+ *	iomap_filename: <str>,	(TBD)
+ *	giu_id: <int>,
+ *	id: <int>,
+ *	num-in-tcs: <int>,		(used for in QoS according to #priorities)
+ *	intc: {
+ *		num-inqs : <int>,	(used for in RSS (according to remote side #cores))
+ *		inqs : {[<int>>],...,[<int>]}, ([q-size])
+ *		bpool : <int>
+ *	},
+ *	...
+ *	num-out-tcs: <int>,	(used for out QoS according to #priorities)
+ *	outtc: {
+ *		num-outqs : <int>,	(used for in TSS (according to remote side #cores))
+ *		outqs : {[<int>>],...,[<int>]}, ([q-size])
+ *	},
+ *
+ * The guest application can then access the created buffer pool object, and retrieve the bpool config string
+ *
+ * @param[in]	gpio		A gpio handle.
+ * @param[in]	buf		buffer
+ * @param[in]	size		size of the buffer
+ * @param[in]	depth		size of the buffer
+ *
+ * @retval	>0 (length of data written to buffer) on success
+ * @retval	<0 on failure
+ */
+int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth);
 
 /**
  * Probe a gpio
  *
- * @param[in]	regfile_name	register file location.
- * @param[in]	regfile_name	register file location.
- * @param[out]	gpio		A pointer to opaque gpio handle of type 'struct giu_gpio *'.
+ * The probe API should be called by the user application to create the buffer-gpio object for a guest application.
  *
- * @retval	0 on success
- * @retval	<0 on failure
+ * @param[in]	match		The matching string to search for in the Buffer pool object.
+ * @param[in]	buff		Buffer gpio object.
+ * @param[out]	gpio		gpio structure containing the results of the match
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
  */
-int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio);
+int giu_ppio_probe_new(char *match, char *buff, struct giu_gpio **gpio);
 
 /**
  * Remove a gpio

@@ -994,7 +994,273 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 	kfree(gpio);
 }
 
-int giu_gpio_serialize(struct giu_gpio *gpio, void **file_map)
+int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth)
+{
+	struct giu_gpio_outtc		*outtc;
+	struct giu_gpio_intc		*intc;
+	size_t				 pos = 0;
+	struct mv_sys_dma_mem_info	 mem_info;
+	char				 dev_name[100];
+	struct mqa_queue_info		 queue_info;
+	u32				 offs;
+	int				 tc_idx, q_idx, bpool_id;
+
+	if (!gpio) {
+		pr_err("invalid gpio handle!\n");
+		return -EINVAL;
+	}
+
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+
+	json_print_to_buffer(buff, size, depth, "\"gpio-%d:%d\": {\n",
+			     gpio->giu_id, gpio->id);
+	json_print_to_buffer(buff, size, depth + 1, "\"giu_id\": %d,\n", gpio->giu_id);
+	json_print_to_buffer(buff, size, depth + 1, "\"id\": %d,\n", gpio->id);
+	json_print_to_buffer(buff, size, depth + 1, "\"dma_dev_name\": \"%s\",\n", mem_info.name);
+
+	/* Serialize IN TCs info */
+	json_print_to_buffer(buff, size, depth + 1, "\"num_intcs\": %u,\n", gpio->num_intcs);
+	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+		intc = &(gpio->intcs[tc_idx]);
+
+		json_print_to_buffer(buff, size, depth + 1, "\"intc-%u\": {\n", tc_idx);
+		json_print_to_buffer(buff, size, depth + 2, "\"pkt-offs\": %u,\n", intc->pkt_offset);
+		json_print_to_buffer(buff, size, depth + 2, "\"rss-type\": %u,\n", intc->rss_type);
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+		json_print_to_buffer(buff, size, depth + 2, "\"interim-qlen\": %u,\n", intc->interimq.desc_total);
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+		json_print_to_buffer(buff, size, depth + 2, "\"num_rem_outqs\": %u,\n", intc->num_rem_outqs);
+
+		/* Serialize IN Qs info */
+		json_print_to_buffer(buff, size, depth + 2, "\"num_inqs\": %u,\n", intc->num_inqs);
+		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+			json_print_to_buffer(buff, size, depth + 2, "\"inq-%u\": {\n", q_idx);
+			mqa_queue_get_info(intc->inqs[q_idx].mqa_q, &queue_info);
+			json_print_to_buffer(buff, size, depth + 3, "\"qid\": %u,\n", queue_info.q_id);
+			json_print_to_buffer(buff, size, depth + 3, "\"qlen\": %u,\n", queue_info.len);
+			offs = (phys_addr_t)(uintptr_t)queue_info.phy_base_addr - mem_info.paddr;
+			json_print_to_buffer(buff, size, depth + 3, "\"phy_base_offset\": %#x,\n", offs);
+			offs = (phys_addr_t)(uintptr_t)queue_info.prod_phys - mem_info.paddr;
+			json_print_to_buffer(buff, size, depth + 3, "\"prod_offset\": %#x,\n", offs);
+			offs = (phys_addr_t)(uintptr_t)queue_info.cons_phys - mem_info.paddr;
+			json_print_to_buffer(buff, size, depth + 3, "\"cons_offset\": %#x,\n", offs);
+			json_print_to_buffer(buff, size, depth + 2, "},\n");
+		}
+
+		/* Serialize IN BPool */
+		json_print_to_buffer(buff, size, depth + 2, "\"num_inpools\": %u,\n", intc->num_inpools);
+		for (bpool_id = 0; bpool_id < intc->num_inpools; bpool_id++)
+			json_print_to_buffer(buff, size, depth + 2, "\"bpid\": %u,\n", intc->pools[bpool_id]->id);
+		json_print_to_buffer(buff, size, depth + 1, "},\n");
+	}
+
+	/* Serialize OUT TCs info */
+	json_print_to_buffer(buff, size, depth + 1, "\"num_outtcs\": %u,\n", gpio->num_outtcs);
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &(gpio->outtcs[tc_idx]);
+
+		json_print_to_buffer(buff, size, depth + 1, "\"outtc-%u\": {\n", tc_idx);
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+		json_print_to_buffer(buff, size, depth + 2, "\"interim-qlen\": %u,\n", outtc->interimq.desc_total);
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+		json_print_to_buffer(buff, size, depth + 2, "\"num_rem_inqs\": %u,\n", outtc->num_rem_inqs);
+		json_print_to_buffer(buff, size, depth + 2, "\"rem_rss_type\": %u,\n", outtc->rem_rss_type);
+
+		/* Serialize OUT Qs info */
+		json_print_to_buffer(buff, size, depth + 2, "\"num_outqs\": %u,\n", outtc->num_outqs);
+		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+			json_print_to_buffer(buff, size, depth + 2, "\"outq-%u\": {\n", q_idx);
+			mqa_queue_get_info(outtc->outqs[q_idx].mqa_q, &queue_info);
+			json_print_to_buffer(buff, size, depth + 3, "\"qid\": %u,\n", queue_info.q_id);
+			json_print_to_buffer(buff, size, depth + 3, "\"qlen\": %u,\n", queue_info.len);
+			offs = (phys_addr_t)(uintptr_t)queue_info.phy_base_addr - mem_info.paddr;
+			json_print_to_buffer(buff, size, depth + 3, "\"phy_base_offset\": %#x,\n", offs);
+			offs = (phys_addr_t)(uintptr_t)queue_info.prod_phys - mem_info.paddr;
+			json_print_to_buffer(buff, size, depth + 3, "\"prod_offset\": %#x,\n", offs);
+			offs = (phys_addr_t)(uintptr_t)queue_info.cons_phys - mem_info.paddr;
+			json_print_to_buffer(buff, size, depth + 3, "\"cons_offset\": %#x,\n", offs);
+			json_print_to_buffer(buff, size, depth + 2, "},\n");
+		}
+		json_print_to_buffer(buff, size, depth + 1, "},\n");
+	}
+
+	json_print_to_buffer(buff, size, depth, "},\n");
+
+	return pos;
+}
+
+int giu_ppio_probe_new(char *match, char *buff, struct giu_gpio **gpio)
+{
+	struct giu_gpio			*_gpio;
+	struct giu_gpio_outtc		*outtc;
+	struct giu_gpio_intc		*intc;
+	struct sys_iomem_params		 iomem_params;
+	struct sys_iomem_info		 sys_iomem_info;
+	char				*lbuff, *sec = NULL;
+	char				 dev_name[FILE_MAX_LINE_CHARS];
+	u8				 match_params[2];
+	u32				 offs = 0;
+	u32				 tc_idx, q_idx, bp_idx;
+	u8				 giu_id = 0, gpio_id = 0;
+
+	if (!match) {
+		pr_err("no match string found!\n");
+		return -EFAULT;
+	}
+
+	lbuff = kcalloc(1, strlen(buff), GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, buff, strlen(buff));
+	sec = lbuff;
+
+	/* Search for match (gpio-x:x) */
+	sec = strstr(sec, match);
+	if (!sec) {
+		pr_err("match not found %s\n", match);
+		kfree(lbuff);
+		return -ENXIO;
+	}
+
+	if (mv_sys_match(match, "gpio", 2, match_params))
+		return(-ENXIO);
+
+	/* Retireve giu_id and pool-id */
+	json_buffer_to_input(sec, "giu_id", giu_id);
+	json_buffer_to_input(sec, "id", gpio_id);
+
+	if ((giu_id != match_params[0]) || (gpio_id != match_params[1])) {
+		pr_err("IDs missmatch!\n");
+		kfree(lbuff);
+		return -EFAULT;
+	}
+	if (gpio_id >= GIU_MAX_NUM_GPIO) {
+		pr_err("giu_id (%d) exceeds mac gpio number (%d)\n", giu_id, GIU_MAX_NUM_GPIO);
+		return -EINVAL;
+	}
+
+	pr_debug("probing: gpio %d for giu id: %d.\n", gpio_id, giu_id);
+
+	_gpio = kcalloc(1, sizeof(struct giu_gpio), GFP_KERNEL);
+	if (_gpio == NULL)
+		return -ENOMEM;
+
+	_gpio->giu_id = giu_id;
+	_gpio->id = gpio_id;
+
+	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
+	json_buffer_to_input_str(sec, "dma_dev_name", dev_name);
+	if (dev_name[0] == 0) {
+		pr_err("'dma_dev_name' not found\n");
+		kfree(_gpio);
+		kfree(lbuff);
+		return -EFAULT;
+	}
+
+	iomem_params.type = SYS_IOMEM_T_SHMEM;
+	iomem_params.devname = dev_name;
+	iomem_params.index = 1;
+
+	if (sys_iomem_get_info(&iomem_params, &sys_iomem_info)) {
+		pr_err("sys_iomem_get_info error\n");
+		kfree(_gpio);
+		kfree(lbuff);
+		return -EFAULT;
+	}
+
+	json_buffer_to_input(sec, "num_intcs", _gpio->num_intcs);
+	for (tc_idx = 0; tc_idx < _gpio->num_intcs; tc_idx++) {
+		intc = &(_gpio->intcs[tc_idx]);
+
+		json_buffer_to_input(sec, "pkt-offs", intc->pkt_offset);
+		json_buffer_to_input(sec, "rss-type", intc->rss_type);
+
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+		json_buffer_to_input(sec, "interim-qlen", intc->interimq.desc_total);
+
+		intc->interimq.descs = NULL;
+		intc->interimq.prod_val = 0;
+		intc->interimq.cons_val = 0;
+		intc->interimq.payload_offset = 0; /* TODO: add support for pkt-offset */
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
+		json_buffer_to_input(sec, "num_rem_outqs", intc->num_rem_outqs);
+		json_buffer_to_input(sec, "num_inqs", intc->num_inqs);
+		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+			json_buffer_to_input(sec, "qid", intc->inqs[q_idx].q_id);
+			intc->inqs[q_idx].queue.payload_offset = intc->pkt_offset;
+			json_buffer_to_input(sec, "qlen", intc->inqs[q_idx].queue.desc_total);
+			json_buffer_to_input(sec, "phy_base_offset", offs);
+			intc->inqs[q_idx].queue.desc_ring_base =
+				(struct giu_gpio_desc *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+			json_buffer_to_input(sec, "prod_offset", offs);
+			intc->inqs[q_idx].queue.prod_addr =
+				(u32 *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+			json_buffer_to_input(sec, "cons_offset", offs);
+			intc->inqs[q_idx].queue.cons_addr =
+				(u32 *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+			intc->inqs[q_idx].queue.last_cons_val = 0;
+		}
+
+		json_buffer_to_input(sec, "num_inpools", intc->num_inpools);
+		for (bp_idx = 0; bp_idx < intc->num_inpools; bp_idx++) {
+			u8 bp_id = 0;
+
+			json_buffer_to_input(sec, "bpid", bp_id);
+			intc->pools[bp_idx] = &giu_bpools[bp_id];
+		}
+	}
+
+	json_buffer_to_input(sec, "num_outtcs", _gpio->num_outtcs);
+	for (tc_idx = 0; tc_idx < _gpio->num_outtcs; tc_idx++) {
+		outtc = &(_gpio->outtcs[tc_idx]);
+
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+		json_buffer_to_input(sec, "interim-qlen", outtc->interimq.desc_total);
+
+		outtc->interimq.descs =
+			kzalloc(sizeof(struct giu_gpio_lcl_interim_q_desc) * outtc->interimq.desc_total,
+				GFP_KERNEL);
+		if (outtc->interimq.descs == NULL) {
+			pr_err("Failed to allocate GIU GPIO TC %d shadow-queue for RSS\n", tc_idx);
+			kfree(_gpio);
+			kfree(lbuff);
+			return -ENOMEM;
+		}
+
+		outtc->interimq.prod_val = 0;
+		outtc->interimq.cons_val = 0;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
+		json_buffer_to_input(sec, "num_rem_inqs", outtc->num_rem_inqs);
+		json_buffer_to_input(sec, "rem_rss_type", outtc->rem_rss_type);
+
+		json_buffer_to_input(sec, "num_outqs", outtc->num_outqs);
+		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+			json_buffer_to_input(sec, "qid", outtc->outqs[q_idx].q_id);
+			json_buffer_to_input(sec, "qlen", outtc->outqs[q_idx].queue.desc_total);
+			json_buffer_to_input(sec, "phy_base_offset", offs);
+			outtc->outqs[q_idx].queue.desc_ring_base =
+				(struct giu_gpio_desc *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+			json_buffer_to_input(sec, "prod_offset", offs);
+			outtc->outqs[q_idx].queue.prod_addr =
+				(u32 *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+			json_buffer_to_input(sec, "cons_offset", offs);
+			outtc->outqs[q_idx].queue.cons_addr =
+				(u32 *)((uintptr_t)sys_iomem_info.u.shmem.va + offs);
+			outtc->outqs[q_idx].queue.last_cons_val = 0;
+		}
+	}
+
+	kfree(lbuff);
+	*gpio = _gpio;
+
+	return 0;
+}
+
+int giu_gpio_serialize_old(struct giu_gpio *gpio, void **file_map)
 {
 	struct mv_sys_dma_mem_info	 mem_info;
 	char				 dev_name[100];

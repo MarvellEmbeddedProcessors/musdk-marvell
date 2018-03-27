@@ -60,7 +60,84 @@ int app_read_nmp_cfg_file(char *cfg_file, struct nmp_params *params)
 	return 0;
 }
 
-int app_guest_utils_build_all_bpools(char *buff, struct nmp_guest_info *guest_info,
+int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *guest_info,
+					 struct giu_bpools_desc *pools_desc,
+					 u32 num_buffs)
+{
+	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info;
+	int				 i, err;
+
+	if (giu_info->num_bpools > GIU_GPIO_TC_MAX_NUM_BPOOLS) {
+		pr_err("only %d pools allowed! %d\n",
+			GIU_GPIO_TC_MAX_NUM_BPOOLS, giu_info->num_bpools);
+		return -EINVAL;
+	}
+
+	pools_desc->num_bpools = giu_info->num_bpools;
+
+	for (i = 0; i < pools_desc->num_bpools; i++) {
+		err = giu_bpool_probe_new(giu_info->bpool_info[i].bpool_name,
+				buff, &pools_desc->bpools[i]);
+		if (err) {
+			pr_err("probe giu-bpool buffs failed!\n");
+			return err;
+		}
+
+		if (num_buffs) {
+			err = app_giu_build_bpool(i, num_buffs);
+			if (err) {
+				pr_err("allocate giu-bpool buffs failed!\n");
+				return err;
+			}
+		}
+	}
+
+	return 0;
+}
+
+int app_nmp_guest_giu_port_init(char *buff, struct nmp_guest_info *guest_info, struct giu_port_desc *port)
+{
+	struct giu_gpio_capabilities	 capa;
+	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info;
+	int				 err, i;
+
+	err = giu_ppio_probe_new(giu_info->port_name, buff, &port->gpio);
+	if (err) {
+		pr_err("pp2_ppio_probe failed for %s\n", giu_info->port_name);
+		return err;
+	}
+
+	if (!port->gpio) {
+		pr_err("PP-IO init failed!\n");
+		return -EIO;
+	}
+
+	err = giu_gpio_get_capabilities(port->gpio, &capa);
+	if (err) {
+		pr_err("giu_gpio_get_capabilities failed for %s\n", giu_info->port_name);
+		return err;
+	}
+
+	if (capa.intcs_inf.num_intcs != capa.outtcs_inf.num_outtcs) {
+		pr_err("Number of IN and OUT TCS must be equal!\n");
+		return -EINVAL;
+	}
+
+	port->num_tcs = capa.intcs_inf.num_intcs;
+	for (i = 0; i < port[i].num_tcs; i++) {
+		port->num_inqs[i] = capa.intcs_inf.intcs_inf[i].num_inqs;
+		port->num_outqs[i] = capa.outtcs_inf.outtcs_inf[i].num_outqs;
+	}
+	port->inq_size = capa.intcs_inf.intcs_inf[0].inqs_inf[0].size;
+	port->outq_size = capa.outtcs_inf.outtcs_inf[0].outqs_inf[0].size;
+
+	port->initialized = 1;
+
+	return err;
+}
+
+
+int app_guest_utils_build_all_pp2_bpools(char *buff, struct nmp_guest_info *guest_info,
 				     struct bpool_desc ***ppools,
 				     struct pp2_glb_common_args *pp2_args,
 				     struct bpool_inf infs[])
@@ -172,7 +249,7 @@ bpool_alloc_err1:
 	return err;
 }
 
-int app_nmp_guest_port_init(char *buff, struct nmp_guest_info *guest_info, struct port_desc *port)
+int app_nmp_guest_pp2_port_init(char *buff, struct nmp_guest_info *guest_info, struct port_desc *port)
 {
 	int				 err;
 	struct pp2_ppio_capabilities	 capa;

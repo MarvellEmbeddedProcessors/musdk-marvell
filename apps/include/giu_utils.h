@@ -24,6 +24,28 @@
 extern u8 mvapp_giu_max_num_qs_per_tc;
 
 
+struct giu_bpools_desc {
+	u8			 num_bpools;
+	struct giu_bpool	*bpools[GIU_GPIO_TC_MAX_NUM_BPOOLS];
+};
+
+/*
+ * Local thread port parameters
+ */
+struct giu_port_desc {
+	int			 initialized;	/* Flag indicated is port was initialized */
+	int			 id;		/* Local port ID*/
+	int			 giu_id;	/* Packet Processor ID */
+	int			 gpio_id;	/* GPIO port ID */
+	u32			 first_inq;	/* First RXQ - relative to the Port's first RXQ */
+	u16			 num_tcs;	/* Number of TCs */
+	u16			 num_inqs[GIU_GPIO_MAX_NUM_TCS];	/* Number of Rx queues per TC*/
+	u16			 num_outqs[GIU_GPIO_MAX_NUM_TCS];	/* Number of Tx queues */
+	u32			 inq_size;	/* Rx queue size */
+	u32			 outq_size;	/* Tx queue size */
+	struct giu_gpio		*gpio;		/* GPIO object returned by giu_gpio_probe() */
+};
+
 /*
  * Tx shadow queue
  */

@@ -15,7 +15,9 @@
 
 #include "nmp_guest.h"
 
+
 #define NMP_MAX_BUF_STR_LEN	256
+
 
 static int nmp_guest_wait_for_guest_file(struct nmp_guest *guest)
 {
@@ -28,19 +30,30 @@ static int nmp_guest_wait_for_guest_file(struct nmp_guest *guest)
 
 	/* wait for guest file to be opened by NMP */
 	do {
+#ifdef MVCONF_NMP_BUILT
+		if (guest->nmp)
+			nmp_schedule(guest->nmp, NMP_SCHED_MNG, NULL);
+#endif /* MVCONF_NMP_BUILT */
+
 		fd = open(file_name, O_RDWR);
 		if (fd > 0) {
 			close(fd);
 			break;
 		}
 
-		udelay(100);
+		udelay(1000);
 	} while (fd < 0 && --timeout);
 
 	if (!timeout) {
 		pr_err("failed to find regfile %s. timeout exceeded.\n", file_name);
 		return -EFAULT;
 	}
+
+#ifdef MVCONF_NMP_BUILT
+	/* Make sure that last command response is sent to host. */
+	if (guest->nmp)
+		nmp_schedule(guest->nmp, NMP_SCHED_MNG, NULL);
+#endif /* MVCONF_NMP_BUILT */
 
 	ret = read_file_to_buf(file_name, guest->prb_str, SER_MAX_FILE_SIZE);
 	if (ret) {
@@ -318,6 +331,49 @@ static int guest_send_msg(struct nmp_guest *guest,
 	return 0;
 }
 
+static int skip_str_relation_info(char *prb_str)
+{
+	char	*lbuff, *sec = NULL;
+	char	*tmp_lb, *tmp_rb;
+	int	 br_cnt = 0;
+
+	lbuff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
+	if (lbuff == NULL)
+		return -ENOMEM;
+
+	memcpy(lbuff, prb_str, SER_MAX_FILE_SIZE);
+
+	sec = strstr(lbuff, "relations-info");
+	if (!sec) {
+		pr_err("'relations-info' not found\n");
+		kfree(lbuff);
+		return -EINVAL;
+	}
+
+	tmp_lb = strstr(sec, "{");
+	tmp_rb = strstr(sec, "}");
+	if (tmp_rb <= tmp_lb) {
+		pr_err("Invalid probe-string!\n");
+		return -EFAULT;
+	}
+	sec = tmp_lb + 1; /* next search will be from the left-brace */
+	br_cnt++;
+	do {
+		tmp_lb = strstr(sec, "{");
+		tmp_rb = strstr(sec, "}");
+		if (tmp_rb < tmp_lb) {
+			sec = tmp_rb + 1; /* next search will be from the right-brace */
+			br_cnt--;
+		} else {
+			sec = tmp_lb + 1; /* next search will be from the left-brace */
+			br_cnt++;
+		}
+	} while (br_cnt > 1);
+
+	return sec - lbuff;
+}
+
+
 int guest_push_msg_to_q(struct nmp_guest_queue *q,
 			enum cmd_dest_type client_type,
 			u8 client_id,
@@ -454,6 +510,7 @@ int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 		err = -ENOMEM;
 		goto guest_init_err1;
 	}
+	(*g)->nmp = params->nmp;
 
 	err = nmp_guest_wait_for_guest_file(*g);
 	if (err) {
@@ -507,8 +564,17 @@ void nmp_guest_deinit(struct nmp_guest *guest)
 
 int nmp_guest_get_probe_str(struct nmp_guest *guest, char **prb_str)
 {
-	*prb_str = guest->prb_str;
+	int skip = skip_str_relation_info(guest->prb_str);
+
+	if (skip < 0) {
+		pr_err("error in probe-string!\n");
+		return -EFAULT;
+	}
+
+	/* We provide the user the probe-string without the relation-information */
+	*prb_str = guest->prb_str + skip;
 	pr_debug("prb_str: %s\n", *prb_str);
+
 	return 0;
 }
 

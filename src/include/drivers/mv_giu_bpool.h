@@ -65,19 +65,51 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool);
 void giu_bpool_deinit(struct giu_bpool *bpool);
 
 /* TODO: this is temporary API. wil be replaced later with correct serialization */
-int giu_bpool_serialize(struct giu_bpool *bpool, void **file_map);
+int giu_bpool_serialize_old(struct giu_bpool *bpool, void **file_map);
+int giu_bpool_probe(char *match, char *regfile_name, struct giu_bpool **bpool);
 
 /**
- * Probe the Buffer Pool (bpool)
+ * Serialize the bpool parameters
  *
- * @param[in]	match		Match string.
- * @param[in]	regfile_name	register file location.
- * @param[out]	bpool		A pointer to opaque bpool handle of type 'struct giu_bpool *'.
+ * The serialization API is called by the 'master' user application to serialize a buffer-pool object.
+ * The output string is created in a JSON format.
+ * Below is how a bpool config-string looks like:
+ *	giu-pool-<giu-id>:<id> : {
+ *	 "dma_dev_name": <str>,
+ *	 giu_id : <int>,
+ *	 id : <int>,
+ *	 buff_len : <int>,
+ *	 max_num_buffs : <int>,
+ *	phy_base_offset: <hex>,
+ *	prod_offset: <hex>,
+ *	cons_offset: <hex>
+ * }
  *
- * @retval	0 on success
+ * The guest application can then access the created buffer pool object, and retrieve the bpool config string
+ *
+ * @param[in]	bpool		bpool to serialize
+ * @param[in]	buf		buffer
+ * @param[in]	size		size of the buffer
+ * @param[in]	depth		size of the buffer
+ *
+ * @retval	>0 (length of data written to buffer) on success
  * @retval	<0 on failure
  */
-int giu_bpool_probe(char *match, char *regfile_name, struct giu_bpool **bpool);
+int giu_bpool_serialize(struct giu_bpool *bpool, char *buff, u32 size, u8 depth);
+
+/**
+ * Probe a bpool
+ *
+ * The probe API should be called by the user application to create the buffer-pool object for a guest application.
+ *
+ * @param[in]	match		The matching string to search for in the Buffer pool object.
+ * @param[in]	buff		Buffer pool object.
+ * @param[out]	bpool		bpool structure containing the results of the match
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int giu_bpool_probe_new(char *match, char *buff, struct giu_bpool **bpool);
 
 /**
  * Remove a Buffer Pool (bpool)
