@@ -923,6 +923,12 @@ static int init_global(void *arg)
 	for (dev = 0; dev < garg->num_devs; dev++)
 		sam_get_available_cios(dev, &garg->free_cios[dev]);
 
+	/* Check if first CIO is free */
+	if ((garg->free_cios[garg->first_dev] & (1 << garg->first_cio)) == 0) {
+		pr_err("cio-%d:%d is busy\n", garg->first_dev, garg->first_cio);
+		return -EIO;
+	}
+
 	err = mv_sys_dma_mem_init(SAM_DMA_MEM_SIZE);
 	if (err) {
 		pr_err("Can't initialize %d KBytes of DMA memory area, err = %d\n", SAM_DMA_MEM_SIZE, err);
