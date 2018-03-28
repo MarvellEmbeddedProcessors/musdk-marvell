@@ -714,7 +714,7 @@ static void usage(char *progname)
 					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG);
 	printf("\t--same_bufs      - Use the same buffer as src and dst (default: %s)\n",
 		same_bufs ? "same" : "different");
-	printf("\t--use_events     - Use events to wait for requests completed (default: %s)\n",
+	printf("\t--use-events     - Use events to wait for requests completed (default: %s)\n",
 		use_events ? "events" : "polling");
 	printf("\t-pkts <number>   - Packets coalescing (default: %d)\n", ev_pkts_coal);
 	printf("\t-time <number>   - Time coalescing in usecs (default: %d)\n", ev_usec_coal);
