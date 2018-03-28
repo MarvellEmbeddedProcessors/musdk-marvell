@@ -742,7 +742,7 @@ static void usage(char *progname)
 					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG);
 	printf("\t--same_bufs      - Use the same buffer as src and dst (default: %s)\n",
 		same_bufs ? "same" : "different");
-	printf("\t--use_events     - Use events to wait for requests completed (default: polling)\n");
+	printf("\t--use-events     - Use events to wait for requests completed (default: polling)\n");
 	printf("\t-pkts <number>   - Packets coalescing (default: %d)\n", ev_pkts_coal);
 	printf("\t-time <number>   - Time coalescing in usecs (default: %d)\n", ev_usec_coal);
 	printf("\t-cores <number>  - Number of CPUs to use (default %d)\n", garg.cmn_args.cpus);
