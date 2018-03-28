@@ -1199,14 +1199,6 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 	void *qe;
 	u16 cnt = 0;
 
-	src_remap = src_q->host_remap;
-	dst_remap = dst_q->host_remap;
-	addr_pos = src_q->desc_addr_pos;
-	cookie_pos = src_q->desc_cookie_pos;
-	len_pos = src_q->desc_len_pos;
-
-	i = src_q->head;
-
 	/* fetch buffers from the bpool. the returned pointer points directly to the
 	 * bpool queue elements to avoid copying them. therefore, when the queue is
 	 * about the wrap, we only get the last items in the queue, so we dont need to
@@ -1216,8 +1208,17 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 	 */
 	bufs_to_copy = gie_get_bpool_bufs(dma, qp, 1500, &bp_buf, bufs_to_copy);
 	if (!bufs_to_copy)
-		goto bpool_empty;
+		return 0;
 
+	src_remap = src_q->host_remap;
+	dst_remap = dst_q->host_remap;
+	addr_pos = src_q->desc_addr_pos;
+	cookie_pos = src_q->desc_cookie_pos;
+	len_pos = src_q->desc_len_pos;
+
+	i = src_q->head;
+	/* barrier here before we read the QEs to make sure they're in memory */
+	rmb();
 	while (bufs_to_copy--) {
 		qe = (void *)qes_q->ring_virt + i * qes_q->qesize;
 		qe_buff = qe + addr_pos;
@@ -1240,8 +1241,9 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 		q_idx_add(i, 1, src_q->qlen);
 		bp_buf++;
 	}
+	/* barrier here after we access the QEs to make sure all above are written before the next dma trans */
+	wmb();
 
-bpool_empty:
 	/* we can reach here after 1 pass or no pass at all */
 	if (cnt) {
 		u16 tmp_cnt, tmp_left;
