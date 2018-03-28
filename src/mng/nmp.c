@@ -119,25 +119,25 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 	return 0;
 }
 
-int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
+int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type, u16 *pending)
 {
 	int ans = 0;
 
 	switch (type) {
 
 	case NMP_SCHED_MNG:
-		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS);
+		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS, pending);
 		nmdisp_dispatch(nmp->nmdisp);
 		((struct nmlf *)&nmp->nmnicpf)->f_maintenance_cb((struct nmlf *)&nmp->nmnicpf);
-		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS);
+		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS, pending);
 		break;
 
 	case NMP_SCHED_RX:
-		ans = gie_schedule(nmp->nmnicpf.gie.rx_gie, 0, SCHED_MAX_DATA_ELEMENTS);
+		ans = gie_schedule(nmp->nmnicpf.gie.rx_gie, 0, SCHED_MAX_DATA_ELEMENTS, pending);
 		break;
 
 	case NMP_SCHED_TX:
-		ans = gie_schedule(nmp->nmnicpf.gie.tx_gie, 0, SCHED_MAX_DATA_ELEMENTS);
+		ans = gie_schedule(nmp->nmnicpf.gie.tx_gie, 0, SCHED_MAX_DATA_ELEMENTS, pending);
 		break;
 	}
 	return ans;

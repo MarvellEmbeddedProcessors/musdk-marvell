@@ -248,16 +248,16 @@ struct dma_job_info {
  *		updated on job submission and read when handling
  *		completed dma jobs from dma engine
  * dmax2	handle to HW DMA engine
- * job_tail	index to next element to add
- * job_head	index of next element to remove
- * job_qlen	size in elements of job queue
+ * tail		index to next element to add
+ * head		index of next element to remove
+ * qlen		size in elements of job queue
  */
 struct dma_info {
 	struct dma_job_info	dma_jobs[GIE_MAX_DMA_JOBS];
 	struct dmax2		*dmax2;
-	u16			job_tail;
-	u16			job_head;
-	u16			job_qlen;
+	u16			tail;
+	u16			head;
+	u16			qlen;
 };
 
 /* used to describe dma copy jobs to dma wrapper functions
@@ -436,8 +436,8 @@ int gie_init(struct gie_params *gie_params, struct gie **gie)
 	(*gie)->regs = gie_regs;
 
 	/* reset the dma job queue */
-	dma->job_tail = dma->job_head = 0;
-	dma->job_qlen = GIE_MAX_DMA_JOBS;
+	dma->tail = dma->head = 0;
+	dma->qlen = GIE_MAX_DMA_JOBS;
 
 	return 0;
 
@@ -875,7 +875,7 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 	u16 cnt;
 
 	/* log the job in the dma job queue */
-	job_info = dma->dma_jobs + dma->job_tail;
+	job_info = dma->dma_jobs + dma->tail;
 
 	job_info->cookie = job->cookie;
 	job_info->cookie_dst = job->cookie_dst;
@@ -916,7 +916,7 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 		exit(1);
 	}
 
-	q_idx_add(dma->job_tail, 1, dma->job_qlen);
+	q_idx_add(dma->tail, 1, dma->qlen);
 
 	return 0;
 }
@@ -1277,7 +1277,7 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 		int timeout = 1000;
 
 		/* log the job in the dma job queue */
-		job_info = dma->dma_jobs + dma->job_tail;
+		job_info = dma->dma_jobs + dma->tail;
 
 		job_info->cookie = src_q;
 		if (flags & DMA_FLAGS_BUFFER_IDX) {
@@ -1313,7 +1313,7 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 			exit(1);
 		}
 
-		q_idx_add(dma->job_tail, 1, dma->job_qlen);
+		q_idx_add(dma->tail, 1, dma->qlen);
 
 		/* release the bpool elements only after we used them
 		 * to avoid override by producer
@@ -1454,7 +1454,7 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 		return;
 	/* TODO: iterate all result-descriptor and verify no errors occurred */
 
-	i = dma->job_head;
+	i = dma->head;
 	/* barrier here to ensure following references to job-head */
 	rmb();
 	clean = completed;
@@ -1476,7 +1476,7 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 				dst_q = (struct gie_queue *)jobi->cookie_dst;
 				func_clean_dma[index_copy_mode](dma, jobi, src_q, dst_q);
 			}
-			q_idx_add(i, 1, dma->job_qlen);
+			q_idx_add(i, 1, dma->qlen);
 		}
 
 		if (jobi->flags & DMA_FLAGS_UPDATE_IDX) {
@@ -1498,11 +1498,12 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 			func_clean_dma[index_copy_mode](dma, jobi, src_q, dst_q);
 		}
 	}
-	dma->job_head = i;
+
+	dma->head = i;
 	dmax2_deq(dma->dmax2, NULL, &completed, 0);
 }
 
-int gie_schedule(void *giu, u64 time_limit, u64 qe_limit)
+int gie_schedule(void *giu, u64 time_limit, u64 qe_limit, u16 *pending)
 {
 	struct gie *gie = (struct gie *)giu;
 	struct gie_q_pair *qp;
@@ -1529,6 +1530,9 @@ int gie_schedule(void *giu, u64 time_limit, u64 qe_limit)
 		else
 			qes += gie_process_local_q(&gie->dma, qp, qe_limit);
 	}
+
+	if (pending)
+		*pending = q_occupancy((&gie->dma));
 
 	return qes;
 }

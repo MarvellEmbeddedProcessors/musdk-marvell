@@ -160,20 +160,24 @@ struct nmp_event_params {
 };
 
 /**
- *	Initialize the NMP.
+ * Initialize the NMP.
  *
- *	@retval	0 on success
- *	@retval	<0 on failure
+ * @retval	0 on success
+ * @retval	<0 on failure
  */
 int nmp_init(struct nmp_params *params, struct nmp **nmp);
 
 /**
- *	Trigger an NMP scheduling loop
+ * Trigger an NMP scheduling loop
  *
- *	@retval	0 on success
- *	@retval	<0 on failure
+ * @param[in]	nmp		A pointer to a NMP object.
+ * @param[in]	nmp_sched_type
+ * @param[out]	pending		Get how many DMA jobs are still waiting for processing
+
+ * @retval	0 on success
+ * @retval	<0 on failure
  */
-int nmp_schedule(struct nmp *nmp, enum nmp_sched_type);
+int nmp_schedule(struct nmp *nmp, enum nmp_sched_type, u16 *pending);
 
 /**
  * Create a NMP (GIE) scheduling event

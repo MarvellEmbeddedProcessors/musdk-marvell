@@ -156,12 +156,13 @@ int gie_remove_bm_queue(void *gie, u16 qid);
  * @param[in]	gie		A GIE handler.
  * @param[in]	time_limit	schedule time lime (0 == infinite).
  * @param[in]	qe_limit	queue elements limit for processing.
+ * @param[out]	pending		pending jobs
  *
  * @retval	0 on success
  * @retval	<0 on failure
  *
  */
-int gie_schedule(void *gie, u64 time_limit, u64 qe_limit);
+int gie_schedule(void *gie, u64 time_limit, u64 qe_limit, u16 *pending);
 
 /**
  * Return the GIE descriptor size.

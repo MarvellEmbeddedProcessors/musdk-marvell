@@ -814,10 +814,10 @@ static int main_loop_cb(void *arg, int *running)
 			err  = loop_sw_ingress(larg, pp2_port_id, giu_port_id, tc, qid, num);
 			/* Schedule GIE execution */
 			START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
-			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_TX);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
 			STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, tmp_num);
 			START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
-			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_RX);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
 			STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, tmp_num);
 			/* GIU is Rx port and PP2 is Tx port */
 			err |= loop_sw_egress(larg, giu_port_id, pp2_port_id, tc, qid, num);
@@ -827,10 +827,10 @@ static int main_loop_cb(void *arg, int *running)
 			 */
 			/* Schedule GIE execution */
 			START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
-			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_TX);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
 			STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, tmp_num);
 			START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
-			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_RX);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
 			STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, tmp_num);
 		} else {
 			/* In this case, we either use 2 or 3 CPUs (but not thread0) so we handle
@@ -861,9 +861,9 @@ static int ctrl_cb(void *arg)
 		return -EINVAL;
 	}
 
-	nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+	nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
 	nmp_guest_schedule(garg->nmp_guest);
-	nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+	nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
 
 	if (!garg->cmn_args.cli && garg->pkt_rate_stats)
 		maintain_stats(garg);
@@ -891,7 +891,7 @@ static int wait_for_pf_init_done(void)
 	/* wait for regfile to be opened by NMP */
 	do {
 		/* Schedule GIE execution */
-		nmp_schedule(garg.nmp, NMP_SCHED_MNG);
+		nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
 
 		fd = open(file_name, O_RDWR);
 		if (fd > 0) {
@@ -910,7 +910,7 @@ static int wait_for_pf_init_done(void)
 	/* Make sure that last command response is sent to host. */
 
 	/* Schedule GIE execution */
-	nmp_schedule(garg.nmp, NMP_SCHED_MNG);
+	nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
 
 	return 0;
 }

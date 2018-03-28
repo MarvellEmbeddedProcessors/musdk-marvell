@@ -249,7 +249,7 @@ static int wait_for_pf_init_done(void)
 	/* wait for regfile to be opened by NMP */
 	do {
 		/* Schedule GIE execution */
-		nmp_schedule(garg.nmp, NMP_SCHED_MNG);
+		nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
 
 		fd = open(file_name, O_RDWR);
 		if (fd > 0) {
@@ -268,7 +268,7 @@ static int wait_for_pf_init_done(void)
 	/* Make sure that last command response is sent to host. */
 
 	/* Schedule GIE execution */
-	nmp_schedule(garg.nmp, NMP_SCHED_MNG);
+	nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
 
 	return 0;
 }
@@ -537,8 +537,8 @@ static int main_loop_cb(void *arg, int *running)
 		 */
 		if ((larg->cmn_args.garg->cmn_args.cpus == 1) ||
 			(larg->cmn_args.id == 0)) {
-			nmp_schedule(garg.nmp, NMP_SCHED_TX);
-			nmp_schedule(garg.nmp, NMP_SCHED_RX);
+			nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
+			nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
 			if (larg->cmn_args.garg->cmn_args.cpus != 1)
 				continue;
 		}
@@ -592,10 +592,10 @@ static int ctrl_loop_cb(void *arg)
 		return -EINVAL;
 	}
 
-	nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+	nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
 	if (garg->prb_str) {
 		nmp_guest_schedule(garg->nmp_guest);
-		nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+		nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
 	}
 
 	if (!garg->cmn_args.cli)

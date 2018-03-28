@@ -34,8 +34,8 @@ static struct glob_arg garg = {};
 static int main_loop_cb(void *arg, int *running)
 {
 	while (*running) {
-		nmp_schedule(garg.nmp, NMP_SCHED_RX);
-		nmp_schedule(garg.nmp, NMP_SCHED_TX);
+		nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
+		nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
 	}
 
 	return 0;
@@ -50,7 +50,7 @@ static int ctrl_cb(void *arg)
 		return -EINVAL;
 	}
 
-	nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+	nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
 
 	return 0;
 }

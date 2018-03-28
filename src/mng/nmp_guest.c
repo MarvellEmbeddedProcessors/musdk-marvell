@@ -608,7 +608,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 
 #ifdef MVCONF_NMP_BUILT
 	if (guest->nmp)
-		nmp_schedule(guest->nmp, NMP_SCHED_MNG);
+		nmp_schedule(guest->nmp, NMP_SCHED_MNG, NULL);
 #endif /* MVCONF_NMP_BUILT */
 
 	prod_idx = q_rd_prod((&guest->notify_queue));
@@ -661,7 +661,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 
 #ifdef MVCONF_NMP_BUILT
 	if (guest->nmp)
-		nmp_schedule(guest->nmp, NMP_SCHED_MNG);
+		nmp_schedule(guest->nmp, NMP_SCHED_MNG, NULL);
 #endif /* MVCONF_NMP_BUILT */
 
 	return 0;
