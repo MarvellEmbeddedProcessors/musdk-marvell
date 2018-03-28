@@ -117,17 +117,16 @@ void sam_dtls_ip4_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc
 	val32 = readl_relaxed(&res_desc->words[7]);
 	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
 
-	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
-	ip_len = htobe16((u16)(result->out_len - l3_offset));
-
 	/* Update IP total length field */
-	iph->tot_len = ip_len;
+	iph = (struct iphdr *)(operation->out_frags[0].vaddr + l3_offset);
+	ip_len = (u16)(result->out_len - l3_offset);
+	iph->tot_len = htobe16(ip_len);
 
-	/* Set recalculated IP4 checksum */
+	/* Update UDP length field */
 	iph_len = iph->ihl * 4;
 	udph = (struct udphdr *)((char *)iph + iph_len);
-	udp_len = ip_len - htobe16(iph_len);
-	udph->len = udp_len;
+	udp_len = ip_len - iph_len;
+	udph->len = htobe16(udp_len);
 }
 
 void sam_dtls_ip6_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
