@@ -324,6 +324,9 @@ OPTIONS are optional::
 		-f <bitmask>     - Debug flags: 0x1 - SA, 0x2 - CIO. (default: 0x0)
 				   Available only if '--enable-debug' flag was used.
 		--same_bufs      - Use the same buffer as src and dst (default: "no")
+		--use-events     - Use events to wait for requests completed (default: polling)
+		-pkts <number>   - Packets coalescing (default: 16)
+		-time <number>   - Time coalescing in usecs (default: 100 usecs)
 
 To run performance tests using "musdk_sam_kat" application:
 
