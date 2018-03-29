@@ -316,17 +316,16 @@ Application usage::
 Where ``<match>`` string format is ``cio-e:r``.
 
 OPTIONS are optional::
-
 		-c <number>      - Number of requests to check (default: 10)
 		-p <number>      - Number of requests to print (default: 1)
-		-e <number>      - Maximum burst for enqueue (default: 32)
-		-d <number>      - Maximum burst for dequeue (default: 32)
+		-b <number>      - Maximum burst size (default: 32)
 		-f <bitmask>     - Debug flags: 0x1 - SA, 0x2 - CIO. (default: 0x0)
 				   Available only if '--enable-debug' flag was used.
 		--same_bufs      - Use the same buffer as src and dst (default: "no")
 		--use-events     - Use events to wait for requests completed (default: polling)
 		-pkts <number>   - Packets coalescing (default: 16)
 		-time <number>   - Time coalescing in usecs (default: 100 usecs)
+		-cores <number>  - Number of CPUs to use (default: 1)
 
 To run performance tests using "musdk_sam_kat" application:
 

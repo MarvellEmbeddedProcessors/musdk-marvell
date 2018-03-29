@@ -745,7 +745,7 @@ static void usage(char *progname)
 	printf("\t--use-events     - Use events to wait for requests completed (default: polling)\n");
 	printf("\t-pkts <number>   - Packets coalescing (default: %d)\n", ev_pkts_coal);
 	printf("\t-time <number>   - Time coalescing in usecs (default: %d)\n", ev_usec_coal);
-	printf("\t-cores <number>  - Number of CPUs to use (default %d)\n", garg.cmn_args.cpus);
+	printf("\t-cores <number>  - Number of CPUs to use (default: 1)\n");
 }
 
 static int parse_args(int argc, char *argv[])
