@@ -77,7 +77,7 @@ static const char tx_retry_str[] = "Tx Retry enabled";
 #define PKT_FWD_APP_MAX_BURST_SIZE		((PKT_FWD_APP_RX_Q_SIZE) >> 1)
 #define PKT_FWD_APP_DFLT_BURST_SIZE		256
 
-#define PKT_FWD_APP_DMA_MEM_SIZE		(40 * 1024 * 1024)
+#define PKT_FWD_APP_DMA_MEM_SIZE		(80 * 1024 * 1024)
 #define PKT_FWD_APP_CTRL_DFLT_THR		1000
 
 

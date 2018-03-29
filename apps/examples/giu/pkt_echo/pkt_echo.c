@@ -82,7 +82,7 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 /* as GIU is the bottleneck, set the burst size to GIU_Q_SIZE / 4 */
 #define PKT_ECHO_APP_DFLT_BURST_SIZE		(PKT_ECHO_APP_GIU_TX_Q_SIZE >> 2)
 
-#define PKT_ECHO_APP_DMA_MEM_SIZE		(40 * 1024 * 1024)
+#define PKT_ECHO_APP_DMA_MEM_SIZE		(80 * 1024 * 1024)
 #define PKT_ECHO_APP_CTRL_DFLT_THR		1000
 
 #define PKT_ECHO_APP_FIRST_INQ			0
