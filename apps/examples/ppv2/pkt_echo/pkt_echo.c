@@ -97,7 +97,7 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 #error "Invalid PKT_ECHO_APP_DFLT_BURST_SIZE"
 #endif
 
-#define PKT_ECHO_APP_DMA_MEM_SIZE		(40 * 1024 * 1024)
+#define PKT_ECHO_APP_DMA_MEM_SIZE		(80 * 1024 * 1024)
 #define PKT_ECHO_APP_CTRL_DFLT_THR		1000
 
 #define PKT_ECHO_APP_FIRST_INQ			0

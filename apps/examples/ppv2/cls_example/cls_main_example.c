@@ -47,7 +47,7 @@
  */
 #include "../../../tests/ppv2/cls/cls_debug.h"
 
-#define CLS_APP_DMA_MEM_SIZE			(10 * 1024 * 1024)
+#define CLS_APP_DMA_MEM_SIZE			(80 * 1024 * 1024)
 #define CLS_APP_QS_MAP_MASK			0xFFFF
 #define CLS_APP_FIRST_MUSDK_IN_QUEUE		0
 #define CLS_APP_MAX_NUM_TCS_PER_PORT		4
