@@ -138,6 +138,7 @@
 
 #define CLS_APP_PREFETCH_SHIFT			7
 
+#define CLS_APP_MAX_SG_FRAGS			16
 
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
@@ -197,6 +198,178 @@ struct list *pp2_cls_table_next_node_get(struct list *cls_tbl_head, u32 index)
 	return node;
 }
 
+/*
+ * This function combines received packets to one S/G frame according to
+ * configured min_sg_frag and max_sg_frag parameters.
+ * The function forwards S/G frames to the second port without any change (no-echo).
+ */
+static inline int loop_sg_recycle(struct local_common_args *larg_cmn,
+				  u8			 rx_ppio_id,
+				  u8			 tx_ppio_id,
+				  u8			 tc,
+				  u8			 tc_qid,
+				  u8			 tx_qid,
+				  u16			 num)
+{
+	struct tx_shadow_q	*shadow_q;
+	int			 shadow_q_size;
+	struct pp2_ppio_desc	 descs[APP_MAX_BURST_SIZE];
+	struct pp2_lcl_common_args *pp2_args = larg_cmn->plat;
+	struct perf_cmn_cntrs	*perf_cntrs = &larg_cmn->perf_cntrs;
+	struct lcl_port_desc	*rx_lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
+	struct lcl_port_desc	*tx_lcl_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
+	u16			i, j, tx_num, shadowq_full_drop_num = 0, write_ind, write_start_ind, read_ind;
+	int			max_write;
+	u16			desc_idx = 0, cnt = 0, pkt_num, pkt_sent = 0;
+	int			orig_num;
+	u16 pkt_offset = MVAPPS_PP2_PKT_EFEC_OFFS(rx_lcl_port_desc->pkt_offset[tc]);
+	struct pp2_ppio_sg_pkts pkts;
+	u8 frags[APP_MAX_BURST_SIZE];
+	int idx = 0, desc_num = larg_cmn->min_sg_frag;
+
+	pkts.frags = frags;
+
+	shadow_q = &tx_lcl_port_desc->shadow_qs[tx_qid];
+	shadow_q_size = tx_lcl_port_desc->shadow_q_size;
+
+	pp2_ppio_recv(rx_lcl_port_desc->ppio, tc, tc_qid, descs, &num);
+	perf_cntrs->rx_cnt += num;
+	INC_RX_COUNT(rx_lcl_port_desc, num);
+
+	/* read_index need not be locked, just sampled */
+	read_ind = shadow_q->read_ind;
+
+	/* write_index will be updated */
+	if (shadow_q->shared_q)
+		spin_lock(&shadow_q->write_lock);
+
+	/* Calculate indexes, and possible overflow conditions */
+	if (read_ind > shadow_q->write_ind)
+		max_write = (read_ind - 1) - shadow_q->write_ind;
+	else
+		max_write = (shadow_q_size - shadow_q->write_ind) + (read_ind - 1);
+	if (unlikely(num > max_write)) {
+		shadowq_full_drop_num = num - max_write;
+		num = max_write;
+	}
+	/* Work with local copy */
+	write_ind = write_start_ind = shadow_q->write_ind;
+
+	if (((shadow_q_size - 1) - shadow_q->write_ind) >= num)
+		shadow_q->write_ind += num;
+	else
+		shadow_q->write_ind = num - (shadow_q_size - shadow_q->write_ind);
+
+	if (shadow_q->shared_q)
+		spin_unlock(&shadow_q->write_lock);
+
+	pkts.num = 0;
+
+	for (i = 0; i < num; i++) {
+		char		*buff = (char *)(app_get_high_addr() |
+						(uintptr_t)pp2_ppio_inq_desc_get_cookie(&descs[i]));
+		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&descs[i]);
+		u16 len = pp2_ppio_inq_desc_get_pkt_len(&descs[i]);
+		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[i], rx_lcl_port_desc->ppio);
+
+
+		pp2_ppio_outq_desc_reset(&descs[i]);
+		pp2_ppio_outq_desc_set_phys_addr(&descs[i], pa);
+		pp2_ppio_outq_desc_set_pkt_offset(&descs[i], pkt_offset);
+		pp2_ppio_outq_desc_set_pkt_len(&descs[i], len);
+
+		if (++idx == desc_num) {
+			/* Update S/G packet info */
+			pkts.frags[pkts.num] = desc_num;
+			pr_debug("Packet %d: num_frag=%d\n", pkts.num, pkts.frags[pkts.num]);
+			pkts.num++;
+			idx = 0;
+			if (desc_num == larg_cmn->max_sg_frag)
+				desc_num = larg_cmn->min_sg_frag;
+			else
+				desc_num++;
+		}
+
+		shadow_q->ents[write_ind].buff_ptr.cookie = (uintptr_t)buff;
+		shadow_q->ents[write_ind].buff_ptr.addr = pa;
+		shadow_q->ents[write_ind].bpool = bpool;
+		pr_debug("buff_ptr.cookie(0x%lx)\n", shadow_q->ents[write_ind].buff_ptr.cookie);
+		write_ind++;
+		if (write_ind == shadow_q_size)
+			write_ind = 0;
+	}
+	SET_MAX_BURST(rx_lcl_port_desc, num);
+
+	if (num && idx) {
+		/* Update last S/G packet info */
+		pkts.frags[pkts.num] = idx;
+		pr_debug("Packet %d: num_frag=%d\n", pkts.num, pkts.frags[pkts.num]);
+		pkts.num++;
+	}
+
+	/* Below condition should never happen, if shadow_q size is large enough */
+	if (unlikely(shadowq_full_drop_num)) {
+		pr_err("%s: port(%d), txq_id(%d), shadow_q size=%d is too small, performing emergency drops\n",
+			__func__, tx_ppio_id, tx_qid, shadow_q_size);
+		/* Drop all following packets, and also this packet */
+		for (j = num; j < (num + shadowq_full_drop_num); j++) {
+			struct pp2_buff_inf binf;
+			struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[j], rx_lcl_port_desc->ppio);
+
+			binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
+			binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
+
+			pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
+		}
+	}
+
+	orig_num = num;
+	if (num) {
+		if (shadow_q->shared_q) {
+			/* CPU's w/ shared_q cannot send simultaneously, because buffers must be freed in order */
+			while (shadow_q->send_ind != write_start_ind)
+				cpu_relax(); /* mem-barrier not required, cpu_relax() ensures send_ind is re-loaded */
+			spin_lock(&shadow_q->send_lock);
+		}
+		do {
+			tx_num = num;
+			pkt_num = pkts.num;
+			pp2_ppio_send_sg(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif, tc,
+				      &descs[desc_idx], &tx_num, &pkts);
+			if (num > tx_num) {
+				if (!cnt)
+					INC_TX_RETRY_COUNT(rx_lcl_port_desc, num - tx_num);
+				pr_debug("%s-err(%d) cnt:%d, %u:%u: sent packets: %d of %d"
+					 __func__, larg_cmn->id,  cnt, tx_ppio_id, tx_qid, pkts.num, pkt_num);
+				pr_debug(" descriptors: %d of %d, frag: %d of %d\n",
+					 tx_num, num, pkts.frags[0], pkts.frags[pkts.num-1]);
+				cnt++;
+				pkt_sent += pkts.num;
+				pkts.frags = &frags[pkt_sent];
+				pkts.num = pkt_num - pkts.num;
+			}
+			desc_idx += tx_num;
+			num -= tx_num;
+			INC_TX_COUNT(rx_lcl_port_desc, tx_num);
+			perf_cntrs->tx_cnt += tx_num;
+		} while (num);
+		if (orig_num) {
+			if (((shadow_q_size - 1) - shadow_q->send_ind) >= orig_num)
+				shadow_q->send_ind += orig_num;
+			else
+				shadow_q->send_ind = orig_num - (shadow_q_size - shadow_q->send_ind);
+		}
+		if (shadow_q->shared_q)
+			spin_unlock(&shadow_q->send_lock);
+	}
+	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, pp2_args->hif,
+			  tx_qid, pp2_args->multi_buffer_release);
+
+	SET_MAX_RESENT(rx_lcl_port_desc, cnt);
+
+	return 0;
+}
+
 static int loop_1p(struct local_arg *larg, int *running)
 {
 	int err, i;
@@ -233,16 +406,23 @@ static int loop_1p(struct local_arg *larg, int *running)
 			tx_qid = pp2_args->lcl_ports_desc->first_txq;
 
 		if ((larg->cmn_args.garg->cmn_args.port_forwarding) && (larg->cmn_args.num_ports == 2)) {
-			err  = loop_sw_recycle(&larg->cmn_args, 0, 1, tc, inq_id, tx_qid, num);
-			err |= loop_sw_recycle(&larg->cmn_args, 1, 0, tc, inq_id, tx_qid, num);
+			if (!larg->cmn_args.min_sg_frag) {
+				err  = loop_sw_recycle(&larg->cmn_args, 0, 1, tc, inq_id, tx_qid, num);
+				err |= loop_sw_recycle(&larg->cmn_args, 1, 0, tc, inq_id, tx_qid, num);
+			} else {
+				err  = loop_sg_recycle(&larg->cmn_args, 0, 1, tc, inq_id, tx_qid, num);
+				err |= loop_sg_recycle(&larg->cmn_args, 1, 0, tc, inq_id, tx_qid, num);
+			}
 			pr_debug("thread:%d, inq_num:%d, tc:%d, inq_id:%d tx_qid:%d\n", larg->cmn_args.id, inq_num,
 				 tc, inq_id, tx_qid);
 			if (err)
 				return err;
-
 		} else {
 			for (i = 0; i < larg->cmn_args.num_ports; i++) {
-				err = loop_sw_recycle(&larg->cmn_args, i, i, tc, inq_id, tx_qid, num);
+				if (!larg->cmn_args.min_sg_frag)
+					err = loop_sw_recycle(&larg->cmn_args, i, i, tc, inq_id, tx_qid, num);
+				else
+					err = loop_sg_recycle(&larg->cmn_args, i, i, tc, inq_id, tx_qid, num);
 				pr_debug("thread:%d, inq_num:%d, tc:%d, inq_id:%d tx_qid:%d\n", larg->cmn_args.id,
 					 inq_num, tc, inq_id, tx_qid);
 				if (err)
@@ -498,6 +678,8 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.busy_wait			= garg->cmn_args.busy_wait;
 	larg->cmn_args.echo		= garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
+	larg->cmn_args.min_sg_frag      = garg->cmn_args.min_sg_frag;
+	larg->cmn_args.max_sg_frag      = garg->cmn_args.max_sg_frag;
 
 	for (i = 0; i < larg->cmn_args.num_ports; i++)
 		app_port_local_init(i, larg->cmn_args.id, &lcl_pp2_args->lcl_ports_desc[i],
@@ -542,6 +724,7 @@ static void usage(char *progname)
 		"\t--policers_range		(dec)-(dec) valid range [1-%d]\n"
 		"\t--policer_params		(no argument)configure default policer parameters\n"
 		"\t--edrops_range		(dec)-(dec) valid range [1-%d]\n"
+		"\t--sg-min                      Minimum number of S/G fragments\n"
 		"\n",
 		MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
 		CLS_APP_DFLT_BURST_SIZE, PP2_CLS_PLCR_NUM, PP2_CLS_EARLY_DROP_NUM);
@@ -589,6 +772,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"logical_port_params", no_argument, 0, 'g'},
 		{"buf_params", no_argument, 0, 'u'},
 		{"policer_params", no_argument, 0, 'p'},
+		{"sg-min", required_argument, 0, 'k'},
 		{0, 0, 0, 0}
 	};
 
@@ -601,6 +785,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.prefetch_shift = CLS_APP_PREFETCH_SHIFT;
 	garg->cmn_args.num_cpu_hash_qs = 1;
 	garg->cmn_args.burst = CLS_APP_DFLT_BURST_SIZE;
+	garg->cmn_args.min_sg_frag = 0;
+	garg->cmn_args.max_sg_frag = CLS_APP_MAX_SG_FRAGS;
 
 	pp2_args->multi_buffer_release = 1;
 
@@ -736,6 +922,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 					pp2_params->early_drop_reserved_map &= ~(1 << i);
 			}
 			break;
+		case 'k':
+			garg->cmn_args.min_sg_frag = strtoul(optarg, &ret_ptr, 0);
+			break;
 		default:
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
@@ -869,6 +1058,11 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	}
 
 	garg->cmn_args.affinity = affinity;
+
+	if (garg->cmn_args.min_sg_frag > garg->cmn_args.max_sg_frag) {
+		pr_err("S/G frags (%d vs %d)!\n", garg->cmn_args.min_sg_frag, garg->cmn_args.max_sg_frag);
+		return -EINVAL;
+	}
 
 	/* Check num_tcs validity */
 	if (num_tcs > PP2_PPIO_MAX_NUM_TCS) {

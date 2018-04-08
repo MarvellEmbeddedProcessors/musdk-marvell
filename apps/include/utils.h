@@ -244,6 +244,8 @@ struct glb_common_args {
 	int			num_mem_regions;
 	int			num_clusters;
 	int			port_forwarding;
+	int			min_sg_frag;
+	int			max_sg_frag;
 };
 
 struct buffer_desc {
@@ -282,6 +284,8 @@ struct local_common_args {
 	struct perf_cmn_cntrs	perf_cntrs;
 	struct glob_arg		*garg;
 	void			*plat;
+	int			min_sg_frag;
+	int			max_sg_frag;
 };
 
 
