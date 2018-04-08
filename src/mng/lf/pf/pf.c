@@ -1892,31 +1892,40 @@ static int nmnicpf_mac_addr_command(struct nmnicpf *nmnicpf,
 				    struct mgmt_cmd_resp *resp_data)
 {
 	struct nmdisp_msg nmdisp_msg;
-	int ret;
+	int ret = 0;
 
 	pr_debug("Set mac address message\n");
 
-	ret = pp2_ppio_set_mac_addr(nmnicpf->pp2.ports_desc[0].ppio, params->mac_addr);
-	if (ret) {
-		pr_err("Unable to set mac address\n");
-		return ret;
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_set_mac_addr(nmnicpf->pp2.ports_desc[0].ppio, params->mac_addr);
+		if (ret) {
+			pr_err("Unable to set mac address\n");
+			return ret;
+		}
 	}
 
-	/* Notify Guest on mac-address change */
-	nmdisp_msg.ext = 0;
-	nmdisp_msg.dst_client = CDT_CUSTOM;
-	nmdisp_msg.dst_id = nmnicpf->guest_id;
-	nmdisp_msg.src_client = CDT_PF;
-	nmdisp_msg.src_id = nmnicpf->pf_id;
-	nmdisp_msg.indx = CMD_ID_NOTIFICATION;
-	nmdisp_msg.code = MSG_T_GUEST_MAC_ADDR_UPDATED;
-	nmdisp_msg.msg = params->mac_addr;
-	nmdisp_msg.msg_len = MAC_ADDR_LEN;
-	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &nmdisp_msg);
-	if (ret)
-		pr_err("failed to send mac-addr-updated notification message\n");
+	if (nmnicpf->guest_id) {
+		/* Notify Guest on mac-address change */
+		nmdisp_msg.ext = 0;
+		nmdisp_msg.dst_client = CDT_CUSTOM;
+		nmdisp_msg.dst_id = nmnicpf->guest_id;
+		nmdisp_msg.src_client = CDT_PF;
+		nmdisp_msg.src_id = nmnicpf->pf_id;
+		nmdisp_msg.indx = CMD_ID_NOTIFICATION;
+		nmdisp_msg.code = MSG_T_GUEST_MAC_ADDR_UPDATED;
+		nmdisp_msg.msg = params->mac_addr;
+		nmdisp_msg.msg_len = MAC_ADDR_LEN;
+		ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &nmdisp_msg);
+		if (ret)
+			pr_err("failed to send mac-addr-updated notification message\n");
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -1932,41 +1941,50 @@ static int nmnicpf_mtu_command(struct nmnicpf *nmnicpf,
 
 	pr_debug("Set mtu message\n");
 
-	pp2_ppio_get_mtu(nmnicpf->pp2.ports_desc[0].ppio, &orig_mtu);
-	new_mtu = params->pf_set_mtu.mtu;
-	if (orig_mtu == new_mtu)
-		return ret;
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
 
-	ret = pp2_ppio_set_mtu(nmnicpf->pp2.ports_desc[0].ppio, new_mtu);
-	if (ret) {
-		pr_err("Unable to set mtu\n");
-		return ret;
+	if (nmnicpf->pp2.ports_desc) {
+		pp2_ppio_get_mtu(nmnicpf->pp2.ports_desc[0].ppio, &orig_mtu);
+		new_mtu = params->pf_set_mtu.mtu;
+		if (orig_mtu == new_mtu)
+			return ret;
+
+		ret = pp2_ppio_set_mtu(nmnicpf->pp2.ports_desc[0].ppio, new_mtu);
+		if (ret) {
+			pr_err("Unable to set mtu\n");
+			return ret;
+		}
+
+		ret = pp2_ppio_set_mru(nmnicpf->pp2.ports_desc[0].ppio, MVPP2_MTU_TO_MRU(new_mtu));
+		if (ret) {
+			/* restore previous mtu value */
+			pp2_ppio_set_mtu(nmnicpf->pp2.ports_desc[0].ppio, orig_mtu);
+			pr_err("Unable to set mru\n");
+			return ret;
+		}
 	}
 
-	ret = pp2_ppio_set_mru(nmnicpf->pp2.ports_desc[0].ppio, MVPP2_MTU_TO_MRU(new_mtu));
-	if (ret) {
-		/* restore previous mtu value */
-		pp2_ppio_set_mtu(nmnicpf->pp2.ports_desc[0].ppio, orig_mtu);
-		pr_err("Unable to set mru\n");
-		return ret;
+	if (nmnicpf->guest_id) {
+		/* Notify Guest on mtu change */
+		nmdisp_msg.ext = 0;
+		nmdisp_msg.dst_client = CDT_CUSTOM;
+		nmdisp_msg.dst_id = nmnicpf->guest_id;
+		nmdisp_msg.src_client = CDT_PF;
+		nmdisp_msg.src_id = nmnicpf->pf_id;
+		nmdisp_msg.indx = CMD_ID_NOTIFICATION;
+		nmdisp_msg.code = MSG_T_GUEST_MTU_UPDATED;
+		nmdisp_msg.msg  = &params->pf_set_mtu;
+		nmdisp_msg.msg_len = sizeof(params->pf_set_mtu);
+
+		ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &nmdisp_msg);
+		if (ret)
+			pr_err("failed to send mtu set message\n");
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
 	}
 
-	/* Notify Guest on mtu change */
-	nmdisp_msg.ext = 0;
-	nmdisp_msg.dst_client = CDT_CUSTOM;
-	nmdisp_msg.dst_id = nmnicpf->guest_id;
-	nmdisp_msg.src_client = CDT_PF;
-	nmdisp_msg.src_id = nmnicpf->pf_id;
-	nmdisp_msg.indx = CMD_ID_NOTIFICATION;
-	nmdisp_msg.code = MSG_T_GUEST_MTU_UPDATED;
-	nmdisp_msg.msg  = &params->pf_set_mtu;
-	nmdisp_msg.msg_len = sizeof(params->pf_set_mtu);
-
-	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &nmdisp_msg);
-	if (ret)
-		pr_err("failed to send mtu set message\n");
-
-	return 0;
+	return ret;
 }
 
 /*
@@ -1976,7 +1994,7 @@ static int nmnicpf_rx_promisc_command(struct nmnicpf *nmnicpf,
 				   struct mgmt_cmd_params *params,
 				   struct mgmt_cmd_resp *resp_data)
 {
-	int ret;
+	int ret = 0;
 
 	pr_debug("Set promisc message %d\n", params->promisc);
 
@@ -1986,13 +2004,24 @@ static int nmnicpf_rx_promisc_command(struct nmnicpf *nmnicpf,
 		return -EINVAL;
 	}
 
-	ret = pp2_ppio_set_promisc(nmnicpf->pp2.ports_desc[0].ppio, params->promisc);
-	if (ret) {
-		pr_err("Unable to set promisc\n");
-		return -EFAULT;
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_set_promisc(nmnicpf->pp2.ports_desc[0].ppio, params->promisc);
+		if (ret) {
+			pr_err("Unable to set promisc\n");
+			return -EFAULT;
+		}
 	}
 
-	return 0;
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on promisc change */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
 }
 
 /*
@@ -2002,7 +2031,7 @@ static int nmnicpf_rx_mc_promisc_command(struct nmnicpf *nmnicpf,
 				   struct mgmt_cmd_params *params,
 				   struct mgmt_cmd_resp *resp_data)
 {
-	int ret;
+	int ret = 0;
 
 	pr_debug("Set mc promisc message %d\n", params->mc_promisc);
 
@@ -2012,40 +2041,79 @@ static int nmnicpf_rx_mc_promisc_command(struct nmnicpf *nmnicpf,
 		return -EINVAL;
 	}
 
-	ret = pp2_ppio_set_mc_promisc(nmnicpf->pp2.ports_desc[0].ppio, params->mc_promisc);
-	if (ret) {
-		pr_err("Unable to set mc promisc\n");
-		return -EFAULT;
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_set_mc_promisc(nmnicpf->pp2.ports_desc[0].ppio, params->mc_promisc);
+		if (ret) {
+			pr_err("Unable to set mc promisc\n");
+			return -EFAULT;
+		}
 	}
 
-	return 0;
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on mc promisc change */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
 }
 
 static int nmnicpf_enable_command(struct nmnicpf *nmnicpf)
 {
-	int err;
+	int ret = 0;
 
-	err = pp2_ppio_enable(nmnicpf->pp2.ports_desc[0].ppio);
-	if (err) {
-		pr_err("PPIO enable failed\n");
-		return err;
+	pr_debug("Set enable message\n");
+
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_enable(nmnicpf->pp2.ports_desc[0].ppio);
+		if (ret) {
+			pr_err("PPIO enable failed\n");
+			return ret;
+		}
+		nmnicpf_link_state_check_n_notif(nmnicpf);
 	}
-	nmnicpf_link_state_check_n_notif(nmnicpf);
 
-	return 0;
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on enable */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+		else
+			nmnicpf_notif_link_change(nmnicpf, (ret == 0) ? 1 : 0);
+	}
+
+	return ret;
 }
 
 static int nmnicpf_disable_command(struct nmnicpf *nmnicpf)
 {
-	int	err;
+	int ret = 0;
 
-	err = pp2_ppio_disable(nmnicpf->pp2.ports_desc[0].ppio);
-	if (err) {
-		pr_err("PPIO disable failed\n");
-		return err;
+	pr_debug("Set disable message\n");
+
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_disable(nmnicpf->pp2.ports_desc[0].ppio);
+		if (ret) {
+			pr_err("PPIO disable failed\n");
+			return ret;
+		}
 	}
 
-	return 0;
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on disable */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
 }
 
 /*
@@ -2055,19 +2123,28 @@ static int nmnicpf_loopback_command(struct nmnicpf *nmnicpf,
 				struct mgmt_cmd_params *params,
 				struct mgmt_cmd_resp *resp_data)
 {
-	int loopback;
 	int ret = 0;
 
 	pr_debug("Set loopback message\n");
 
-	loopback = params->pf_set_loopback.loopback;
-	ret = pp2_ppio_set_loopback(nmnicpf->pp2.ports_desc[0].ppio, loopback);
-	if (ret) {
-		pr_err("Unable to set loopback\n");
-		return ret;
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_set_loopback(nmnicpf->pp2.ports_desc[0].ppio, params->pf_set_loopback.loopback);
+		if (ret) {
+			pr_err("Unable to set loopback\n");
+			return ret;
+		}
 	}
 
-	return 0;
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on loppback */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
 }
 
 /*
