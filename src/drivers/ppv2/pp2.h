@@ -370,6 +370,7 @@ struct pp2_port_uio {
 
 struct event_intrpt {
 	uintptr_t cpu_slot;
+	u32 cpu_slot_id;
 	u32 qs_mask;
 };
 

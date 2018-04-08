@@ -1836,6 +1836,7 @@ int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_pa
 			continue;
 
 		rx_intrpt->cpu_slot = port->parent->hw.base[cpu_slot_id].va;
+		rx_intrpt->cpu_slot_id = (u32)cpu_slot_id;
 		rx_intrpt->qs_mask = intrpt_qs_mask;
 		i++;
 	}
@@ -1850,7 +1851,7 @@ int pp2_port_rx_set_event(struct mv_sys_event *ev, int en)
 {
 	int err, i;
 	struct rxq_event *rx_event;
-	u32 cause_mask, cause_rx;
+	u32 cause_mask;
 
 	err = mv_sys_event_get_driver_data(ev, (void **)&rx_event);
 	if (err) {
@@ -1869,19 +1870,25 @@ int pp2_port_rx_set_event(struct mv_sys_event *ev, int en)
 		/* There is a possible double race condition:
 		 *	a. Between this event and kernel interrupt code.
 		 *	b. Possibly between this event and other events sharing the same interrupt_register.
-		 *Instead of locking kernel_interrupts, which is problamatic in US,
-		 *this code continues writing the updated interrupt_mask, until one of following occurs:
-		 *	a. Cause Mask bits are written in the register, because they are read back.
-		 *	b. Cause Bits were raised before the reg_write, indicating an additional kernel_interrupt
-		 *	   (& sys_event) have occurred, following the reg_write.
+		 * The code disables the entire interrupt and then continues writing the updated interrupt_mask,
+		 * until Cause Mask bits are known to be written in the register, because they are read back.
 		 * TODO: Add sys_event_ppio_lock, to eliminate races between US processes.
 		 */
-		cause_rx = 0;
+
+		/* Mask entire interrupt (effects events sharing this specific interrupt) */
+		pp2_reg_write(ev_int->cpu_slot, MVPP2_ISR_ENABLE_REG(rx_event->parent->id),
+			      MVPP2_ISR_DISABLE_INTERRUPT(BIT(ev_int->cpu_slot_id)));
+
+		/* TODO:Add mechanism to validate kernel_interrupt was not started before above masking kicked in.
+		 *	Could be one of:
+		 *	- small busy_wait (not so robust)
+		 *	- Designate Unused PPV22 register, as alternative to US/kernel mutual atomic_counter.
+		 *	  Requires fields: [isr_cntr_bits] + [isr_active_bit]
+		 */
 		while (1) {
 			cause_mask = pp2_reg_read(ev_int->cpu_slot, MVPP2_ISR_RX_TX_MASK_REG(rx_event->parent->id));
 			if (en) {
-				if (((cause_mask & ev_int->qs_mask) == ev_int->qs_mask) ||
-				     (cause_rx & ev_int->qs_mask))
+				if ((cause_mask & ev_int->qs_mask) == ev_int->qs_mask)
 					break;
 				cause_mask |= ev_int->qs_mask;
 			} else {
@@ -1889,11 +1896,12 @@ int pp2_port_rx_set_event(struct mv_sys_event *ev, int en)
 					break;
 				cause_mask &= (~ev_int->qs_mask);
 			}
-			cause_rx = pp2_reg_read(ev_int->cpu_slot, MVPP2_ISR_RX_TX_CAUSE_REG(rx_event->parent->id));
 			pp2_reg_write(ev_int->cpu_slot, MVPP2_ISR_RX_TX_MASK_REG(rx_event->parent->id), cause_mask);
-
-			mdelay(20);
 		}
+		/* Unmask interrupt */
+		pp2_reg_write(ev_int->cpu_slot, MVPP2_ISR_ENABLE_REG(rx_event->parent->id),
+			      MVPP2_ISR_ENABLE_INTERRUPT(BIT(ev_int->cpu_slot_id)));
+
 	}
 	return 0;
 }
