@@ -185,6 +185,7 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 			params.prod_phys       = (void *)outtc->rem_inqs_params[q_idx].rem_q.prod_base_pa;
 			params.prod_virt       = outtc->rem_inqs_params[q_idx].rem_q.prod_base_va;
 			params.host_remap      = outtc->rem_inqs_params[q_idx].rem_q.host_remap;
+			params.msix_id	       = outtc->rem_inqs_params[q_idx].rem_q.msix_id;
 			params.bpool_num       = 1;
 			params.bpool_qids[0]   = outtc->rem_poolqs_params[q_idx].rem_q.q_id;
 

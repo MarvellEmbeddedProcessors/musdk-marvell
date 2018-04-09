@@ -1564,6 +1564,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.prod_base_va = (void *)(params->pf_ingress_data_q_add.q_prod_phys_addr +
 										nmnicpf->map.host_map.virt_addr);
 	giu_gpio_q.rem_q.host_remap   = nmnicpf->map.host_map.phys_addr;
+	giu_gpio_q.rem_q.msix_id      = params->pf_ingress_data_q_add.msix_id;
 
 	active_q_id = tc_q_next_entry_get(outtc->rem_inqs_params, outtc->num_rem_inqs);
 	if (active_q_id < 0) {
