@@ -256,10 +256,13 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	/* Initialize the management GIU instance */
 	pr_info("Initializing GIU devices\n");
 
+	/* Mgmt GIE */
 	gie_pars.gct_base = (u64)nmp->nmnicpf.mqa->qct_base;
 	gie_pars.gpt_base = (u64)nmp->nmnicpf.mqa->qpt_base;
 	gie_pars.gncs_base = (u64)nmp->nmnicpf.mqa->qnct_base;
 	gie_pars.gnps_base = (u64)nmp->nmnicpf.mqa->qnpt_base;
+	gie_pars.msi_regs_phys = 0; /* TODO: Add map once MSI-X is supported */
+	gie_pars.msi_regs_virt = 0; /* TODO: Add map once MSI-X is supported */
 
 	sprintf(dma_name, "dmax2-%d", 0);
 	gie_pars.dmax_match = dma_name;
@@ -271,6 +274,9 @@ static int dev_mng_init_gie(struct nmp *nmp)
 		return -ENODEV;
 	}
 
+	/* RX GIE */
+	gie_pars.msi_regs_phys = (u64)nmp->nmnicpf.map.msi_regs.phys_addr;
+	gie_pars.msi_regs_virt = (u64)nmp->nmnicpf.map.msi_regs.virt_addr;
 	sprintf(dma_name, "dmax2-%d", 1);
 	gie_pars.dmax_match = dma_name;
 	gie_pars.name_match = (char *)"rx";
@@ -281,6 +287,9 @@ static int dev_mng_init_gie(struct nmp *nmp)
 		goto error;
 	}
 
+	/* TX GIE */
+	gie_pars.msi_regs_phys = 0; /* N/A */
+	gie_pars.msi_regs_virt = 0; /* N/A */
 	sprintf(dma_name, "dmax2-%d", 2);
 	gie_pars.dmax_match = dma_name;
 	gie_pars.name_match = (char *)"tx";

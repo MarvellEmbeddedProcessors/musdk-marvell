@@ -72,9 +72,20 @@ struct gie_regfile {
 	u64	gpt_base;
 	u64	gncs_base;
 	u64	gnps_base;
-	u64	msi_base;
+
 	/* MSI-X table base */
 	u64	msix_base;
+
+	/* MSI phys/virt register base */
+	u64 msi_regs_phys;
+	u64 msi_regs_virt;
+};
+
+struct msix_table_entry {
+	u32 msg_lower_addr;
+	u32 msg_upper_addr;
+	u32 msg_data;
+	u32 vector_ctrl;
 };
 
 /* This structure describes a queue from the GIE perspective
@@ -168,6 +179,9 @@ struct gie_queue {
 	u16	desc_addr_pos;
 	u16	desc_cookie_pos;
 	u8	qesize;
+	/* MSI message info */
+	u64	msi_virt_addr;
+	u32	msi_data;
 };
 
 /* Structure describing an GIE buffer pool
@@ -440,10 +454,13 @@ int gie_init(struct gie_params *gie_params, struct gie **gie)
 		goto attr_error;
 	}
 
-	gie_regs->gct_base  = gie_params->gct_base;
-	gie_regs->gpt_base  = gie_params->gpt_base;
-	gie_regs->gncs_base = gie_params->gncs_base;
-	gie_regs->gnps_base = gie_params->gnps_base;
+	gie_regs->gct_base	= gie_params->gct_base;
+	gie_regs->gpt_base	= gie_params->gpt_base;
+	gie_regs->gncs_base	= gie_params->gncs_base;
+	gie_regs->gnps_base	= gie_params->gnps_base;
+	/* Set MSI registers (for sending MSI messages) Phy/Virt addresses */
+	gie_regs->msi_regs_phys	= gie_params->msi_regs_phys;
+	gie_regs->msi_regs_virt	= gie_params->msi_regs_virt;
 
 	(*gie)->regs = gie_regs;
 
@@ -570,6 +587,8 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 	q->qesize = mqa->entry_size;
 	q->prio = mqa->queue_prio;
 	q->packets = 0;
+	q->msi_virt_addr = 0;
+	q->msi_data = 0;
 
 	q->idx_ring_virt = mv_sys_dma_mem_alloc(sizeof(u16) * q->qlen, sizeof(u16));
 	if (!q->idx_ring_virt)
@@ -613,8 +632,10 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	struct mqa_qct_entry *qcd;
 	struct mqa_qpt_entry *qpd;
 	struct gie_bpool *bpool;
+	struct msix_table_entry *msix_entry;
 	int i, copy_payload, ret;
-	u32 prio;
+	int msix_id;
+	u32 msix_addr_offset, prio;
 
 	pr_debug("adding qid %d to %s-giu\n", qid, gie->name);
 
@@ -647,6 +668,27 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		return ret;
 	qp->dst_q.qid = qcd->spec.dest_queue_id;
 	qp->qpd = qpd;
+
+	/* Set MSI-X message info for dest Q of remote side */
+	msix_id = qpd->common.queue_ext.msi_x_id;
+
+	if (msix_id) {
+		pr_debug("Register msix_id %d for Q %d\n", msix_id, qp->dst_q.qid);
+
+		/* Get MSI entry in the MSI-X table */
+		msix_entry = (struct msix_table_entry *)(gie->regs->msix_base +
+						 (msix_id * sizeof(struct msix_table_entry)));
+
+		/* Calc msi address offset */
+		msix_addr_offset = msix_entry->msg_lower_addr - gie->regs->msi_regs_phys;
+
+		/* Set message info */
+		qp->dst_q.msi_virt_addr = gie->regs->msi_regs_virt + msix_addr_offset;
+		qp->dst_q.msi_data = msix_entry->msg_data;
+
+		pr_debug("MSI data: phys 0x%x virt 0x%lx data 0x%x\n", msix_entry->msg_lower_addr,
+					qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
+	}
 
 	/* Find the bpools and keep local pointers */
 	if (copy_payload) {
