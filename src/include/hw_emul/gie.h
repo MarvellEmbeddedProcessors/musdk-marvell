@@ -51,8 +51,6 @@ struct gie_params {
 	u64 gpt_base;
 	u64 gncs_base;
 	u64 gnps_base;
-	u64 msi_base;
-	u64 msix_base;
 
 	char *name_match;
 	char *dmax_match;
@@ -100,6 +98,18 @@ int gie_init(struct gie_params *gie_pars, struct gie **gie);
  *
  */
 int gie_terminate(struct gie *gie);
+
+/**
+ * Register MSI-X table base.
+ *
+ * @param[in]	gie		A GIE handler.
+ * @param[in]	msix_table_base MSI-X table base
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ *
+ */
+void gie_register_msix_table(void *giu, u64 msix_table_base);
 
 /**
  * Return the GIE registers.

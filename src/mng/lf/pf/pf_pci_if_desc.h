@@ -79,6 +79,9 @@ struct pcie_config_mem {
 	u32	prod_notif_tbl_size;
 
 	u32	remote_index_location;
+
+	/* MSI-X table offset at BAR0 */
+	u32	msi_x_tbl_offset;
 };
 #pragma pack()
 

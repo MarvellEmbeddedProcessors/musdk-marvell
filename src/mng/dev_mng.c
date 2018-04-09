@@ -261,11 +261,6 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	gie_pars.gncs_base = (u64)nmp->nmnicpf.mqa->qnct_base;
 	gie_pars.gnps_base = (u64)nmp->nmnicpf.mqa->qnpt_base;
 
-	/* TODO - setup the MSI/MSI-X tables */
-	gie_pars.msi_base = 0;
-	gie_pars.msix_base = 0;
-
-
 	sprintf(dma_name, "dmax2-%d", 0);
 	gie_pars.dmax_match = dma_name;
 	gie_pars.name_match = (char *)"mng";

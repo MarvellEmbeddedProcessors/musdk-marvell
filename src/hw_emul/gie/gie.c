@@ -73,6 +73,7 @@ struct gie_regfile {
 	u64	gncs_base;
 	u64	gnps_base;
 	u64	msi_base;
+	/* MSI-X table base */
 	u64	msix_base;
 };
 
@@ -443,8 +444,6 @@ int gie_init(struct gie_params *gie_params, struct gie **gie)
 	gie_regs->gpt_base  = gie_params->gpt_base;
 	gie_regs->gncs_base = gie_params->gncs_base;
 	gie_regs->gnps_base = gie_params->gnps_base;
-	gie_regs->msi_base  = gie_params->msi_base;
-	gie_regs->msix_base = gie_params->msix_base;
 
 	(*gie)->regs = gie_regs;
 
@@ -494,6 +493,12 @@ int gie_terminate(struct gie *gie)
 	return ret;
 }
 
+void gie_register_msix_table(void *giu, u64 msix_table_base)
+{
+	struct gie *gie = (struct gie *)giu;
+
+	gie->regs->msix_base = msix_table_base;
+}
 
 void *gie_regs(void *giu)
 {
