@@ -63,7 +63,7 @@ struct rem_q_params {
 	phys_addr_t  prod_base_pa;
 	void        *cons_base_va;
 	phys_addr_t  cons_base_pa;
-
+	u32 msix_id;
 };
 
 union giu_gpio_q_params {
