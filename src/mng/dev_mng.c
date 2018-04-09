@@ -80,7 +80,7 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 		return ret;
 	}
 
-	/* Map the whole physical Packet Processor physical address */
+	/* Map the agnic configuration registers */
 	ret = sys_iomem_map(map->sys_iomem, "agnic_regs", (phys_addr_t *)&map->plat_regs.phys_addr,
 			&map->plat_regs.virt_addr);
 	if (ret)
@@ -88,6 +88,15 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 
 	pr_info("agnic regs mapped at virt:%p phys:%p\n", map->plat_regs.virt_addr,
 		   map->plat_regs.phys_addr);
+
+	/* Map the MSI-X registers */
+	ret = sys_iomem_map(map->sys_iomem, "msi_regs", (phys_addr_t *)&map->msi_regs.phys_addr,
+			&map->msi_regs.virt_addr);
+	if (ret)
+		goto err_msi_regs_map;
+
+	pr_info("msi-x regs mapped at virt:%p phys:%p\n", map->msi_regs.virt_addr,
+		   map->msi_regs.phys_addr);
 
 	/* Allocate configuration space memory */
 	map->cfg_map.virt_addr = mv_sys_dma_mem_alloc(PLAT_AGNIC_CFG_SPACE_SIZE, 4096);
@@ -125,6 +134,7 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 
 err_cfg_alloc:
 	sys_iomem_unmap(map->sys_iomem, "agnic_regs");
+err_msi_regs_map:
 err_regs_map:
 	sys_iomem_deinit(map->sys_iomem);
 

@@ -75,12 +75,15 @@ enum func_type {
  *		user-space POV (which is actually an identity mapping for the
  *		physical address, and NA for virtual address as it's not being
  *		accessed by user-space).
+ *  msi_regs	Mapping of the MSI-X registers.
+ *		This ,apping is used for signaling the host if Ingress packets.
  */
 struct pci_plat_func_map {
 	struct sys_iomem *sys_iomem;
 	struct uio_mem cfg_map;
 	struct uio_mem plat_regs;
 	struct uio_mem host_map;
+	struct uio_mem msi_regs;
 	enum func_type type;
 };
 
