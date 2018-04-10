@@ -220,14 +220,11 @@ int mqa_queue_create(struct mqa *mqa, struct mqa_queue_params *queue_params, str
 	/* ======================================= */
 
 	/* Association of MSI-X interrupt Id Notification */
-	if (queue_params->msix_id > 0) {/* Check exitance of Notification MSI-X interrupt Id */
-
-		ret = queue_associate_notify_intr(mqa, queue_params->idx, queue_params->msix_id);
-		if (ret != 0) {
-			/* ***Check*** We may need deconfig??? to remove the mqa_queue_config activity */
-			pr_err("Failed to associate Notification MSI-X interrupt Id (Phy Q: %d, MSI-X interrupt Id: %d)\n",
-				  queue_params->idx, queue_params->msix_id);
-		}
+	ret = queue_associate_notify_intr(mqa, queue_params->idx, queue_params->msix_id);
+	if (ret != 0) {
+		/* ***Check*** We may need deconfig??? to remove the mqa_queue_config activity */
+		pr_err("Failed to associate Notification MSI-X interrupt Id (Phy Q: %d, MSI-X interrupt Id: %d)\n",
+			  queue_params->idx, queue_params->msix_id);
 	}
 
 	if (ret != 0) {
