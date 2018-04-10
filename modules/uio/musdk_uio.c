@@ -121,6 +121,7 @@ struct uio_pdrv_musdk_info {
 	struct miscdevice misc;
 	struct uio_info uio[MAX_UIO_DEVS];
 	struct cma_ctx cma_client;
+	atomic_t refcount;
 };
 
 
@@ -269,6 +270,14 @@ static int cma_free(struct uio_pdrv_musdk_info *uio_pdrv_musdk, void *argp)
  */
 static int musdk_cma_open(struct inode *inode, struct file *file)
 {
+	struct miscdevice *misc = file->private_data;
+	struct uio_pdrv_musdk_info *uio_pdrv_musdk =
+	    container_of(misc, struct uio_pdrv_musdk_info, misc);
+
+	atomic_inc(&uio_pdrv_musdk->refcount);
+
+	pr_debug("CMA: reference counter: %d\n", atomic_read(&uio_pdrv_musdk->refcount));
+
 	return 0;
 }
 
@@ -357,6 +366,10 @@ static int musdk_cma_release(struct inode *inode, struct file *filp)
 	int garbage = 0;
 	struct cma_admin *adm;
 
+	pr_debug("CMA: reference counter: %d\n", atomic_read(&uio_pdrv_musdk->refcount));
+	if (!atomic_dec_and_test(&uio_pdrv_musdk->refcount))
+		return 0;
+
 	list_for_each_safe(node, q, &uio_pdrv_musdk->cma_client.list) {
 		adm = list_entry(node, struct cma_admin, list);
 		if (_cma_free(uio_pdrv_musdk, adm)) {
@@ -415,6 +428,7 @@ static int musdk_uio_probe(struct platform_device *pdev)
 	uio_pdrv_musdk->uio_num = -EIO;
 	uio_pdrv_musdk->map_num = -EIO;
 	uio_pdrv_musdk->dev = dev;
+	atomic_set(&uio_pdrv_musdk->refcount, 0);
 	mutex_init(&uio_pdrv_musdk->lock);
 
 	if (!dev->archdata.dma_coherent)
