@@ -1055,12 +1055,22 @@ static void gie_clean_dma(struct dma_info *dma, struct dma_job_info *job, struct
 	gie_copy_index(dma, job->cookie_tail, dst_q->msg_tail_phys);
 }
 
+static inline void gie_send_msi(struct dma_info *dma, struct gie_queue *q)
+{
+	writel(q->msi_data, (void *)q->msi_virt_addr);
+}
+
 static void gie_clean_mem(struct dma_info *dma, struct dma_job_info *job, struct gie_queue *src_q,
 				struct gie_queue *dst_q)
 {
 	dma = dma;
 	writel(job->cookie_head, (void *)(src_q->msg_head_virt));
 	writel(job->cookie_tail, (void *)(dst_q->msg_tail_virt));
+
+	/* Send MSI to remote side (if configured) */
+	if ((job->flags & DMA_FLAGS_PRODUCE_IDX) && (dst_q->msi_virt_addr)) {
+		gie_send_msi(dma, dst_q);
+	}
 }
 
 static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q,
