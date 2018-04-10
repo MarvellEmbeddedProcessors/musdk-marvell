@@ -984,9 +984,7 @@ int neta_port_set_mtu(struct neta_port *port, uint16_t mtu)
 
 	neta_port_down(port);
 
-	port->buf_size = MVNETA_MTU_TO_MRU(mtu) + port->rx_offset;
 	port->mtu = mtu;
-
 	mvneta_txq_max_tx_size_set(port, port->mtu);
 
 	neta_port_up(port);
@@ -1006,25 +1004,19 @@ void neta_port_get_mtu(struct neta_port *port, uint16_t *mtu)
 
 static int neta_port_check_mru_valid(struct neta_port *port, uint16_t mru)
 {
-	int err = 0;
-
 	if (mru < MVNETA_PORT_MIN_MRU) {
 		pr_err("PORT: cannot change MRU to less than %u bytes\n", MVNETA_PORT_MIN_MRU);
 		return -EINVAL;
 	}
-	/* Check the port's related bm_pools buffer_sizes are adequate */
-	if (mru > (port->buf_size - port->rx_offset)) {
-		pr_err("PORT: cannot change MRU to less than buffer size %u bytes\n", port->buf_size);
-		return -EINVAL;
-	}
 
-	return err;
+	return 0;
 }
 
 /* Set and update the port MRU. The function assumes mru valid is valid */
 int neta_port_set_mru(struct neta_port *port, uint16_t mru)
 {
 	int err = 0;
+	int q;
 
 	err = neta_port_check_mru_valid(port, mru);
 	if (err)
@@ -1033,8 +1025,11 @@ int neta_port_set_mru(struct neta_port *port, uint16_t mru)
 	/* Stop rx / tx queues */
 	neta_port_down(port);
 
+	port->buf_size = mru + port->rx_offset;
 	port->mru = mru;
 	mvneta_max_rx_size_set(port, port->mru);
+	for (q = 0; q < port->rxq_number; q++)
+		mvneta_rxq_buf_size_set(port, &port->rxqs[q], port->buf_size);
 
 	/* Start rx / tx queues */
 	neta_port_up(port);
