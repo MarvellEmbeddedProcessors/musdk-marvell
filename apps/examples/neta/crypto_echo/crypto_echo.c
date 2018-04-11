@@ -43,6 +43,7 @@
 #include "mv_stack.h"
 #include "env/mv_sys_dma.h"
 #include "env/io.h"
+#include "env/mv_sys_event.h"
 
 #include "mv_neta.h"
 #include "mv_neta_ppio.h"
@@ -147,6 +148,7 @@ struct glob_arg {
 	struct port_desc		ports_desc[MVAPPS_NETA_MAX_NUM_PORTS];
 	int                             num_devs;
 	u32                             *free_cios; /* per device */
+	bool				use_events;
 };
 
 struct local_arg {
@@ -162,12 +164,18 @@ struct local_arg {
 	struct sam_sa			*dec_sa;
 	enum crypto_dir			dir;
 	struct lcl_port_desc		*lcl_ports_desc;
+
 	u32				tx_in_cntr[MVAPPS_NETA_MAX_NUM_PORTS];
 	u32				enc_in_cntr;
 	u32				dec_in_cntr;
+
+	struct mv_sys_event		*enc_ev;
+	struct mv_sys_event		*dec_ev;
 };
 
 static struct glob_arg garg = {};
+static int    ev_pkts_coal = 8;
+static int    ev_usec_coal = 20;
 
 #define CHECK_CYCLES
 #ifdef CHECK_CYCLES
@@ -727,6 +735,29 @@ STOP_COUNT_CYCLES(pme_ev_cnt_rx, num);
 		if (unlikely(err))
 			return err;
 	}
+	if (larg->enc_in_cntr) {
+		if (larg->enc_ev) {
+			sam_cio_set_event(larg->enc_cio, larg->enc_ev, 1);
+			err = mv_sys_event_poll(&larg->enc_ev, 1, 100);
+			if (err <= 0)
+				pr_warn("Error during event poll: rc = %d, revents=0x%x\n",
+					err, larg->enc_ev->revents);
+		}
+		err = deq_crypto_pkts(larg, larg->enc_cio);
+		if (unlikely(err))
+			return err;
+	}
+
+	if (larg->dec_in_cntr) {
+		if (larg->dec_ev) {
+			sam_cio_set_event(larg->dec_cio, larg->dec_ev, 1);
+			err = mv_sys_event_poll(&larg->dec_ev, 1, 100);
+			if (err <= 0)
+				pr_warn("Error during event poll: rc = %d, revents=0x%x\n",
+					err, larg->dec_ev->revents);
+		}
+		return deq_crypto_pkts(larg, larg->dec_cio);
+	}
 
 	return 0;
 }
@@ -1262,6 +1293,7 @@ static int init_local(void *arg, int id, void **_larg)
 	struct sam_cio_params	cio_params;
 	struct sam_cio		*cio;
 	int			 i, err, cio_id, sam_device;
+	struct sam_cio_event_params ev_params;
 
 	pr_info("Local initializations for thread %d\n", id);
 
@@ -1397,6 +1429,27 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->cmn_args.qs_map = garg->cmn_args.qs_map;
 
+	if (garg->use_events) {
+		ev_params.pkt_coal = ev_pkts_coal;
+		ev_params.usec_coal = ev_usec_coal;
+		if (larg->enc_cio) {
+			err = sam_cio_create_event(larg->enc_cio, &ev_params, &larg->enc_ev);
+			if (err) {
+				printf("Can't create CIO event");
+				return -EINVAL;
+			}
+			larg->enc_ev->events = MV_SYS_EVENT_POLLIN;
+		}
+		if (larg->dec_cio) {
+			err = sam_cio_create_event(larg->dec_cio, &ev_params, &larg->dec_ev);
+			if (err) {
+				printf("Can't create CIO event");
+				return -EINVAL;
+			}
+			larg->dec_ev->events = MV_SYS_EVENT_POLLIN;
+		}
+	}
+
 	pr_info("Local thread #%d (cpu #%d): Encrypt - %s, Decrypt - %s, qs_map = 0x%lx\n",
 		id, sched_getcpu(), larg->enc_name,
 		larg->dec_cio ? larg->dec_name : "None", larg->cmn_args.qs_map);
@@ -1483,6 +1536,7 @@ static void usage(char *progname)
 	       "\t--auth-alg     <alg>     Authentication algorithm. Support: [none, sha1]. (default: sha1).\n"
 	       "\t--dir          <dir>     Operation direction. Support: [enc, dec, lb]. (default: lb)\n"
 	       "\t--no-echo                No Echo packets\n"
+	       "\t--use-events             Use events to wait for requests completed (default: polling)\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
@@ -1665,6 +1719,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			i += 2;
+		} else if (strcmp(argv[i], "--use-events") == 0) {
+			garg->use_events = true;
+			i += 1;
 		} else if (strcmp(argv[i], "--cli") == 0) {
 			garg->cmn_args.cli = 1;
 			i += 1;
