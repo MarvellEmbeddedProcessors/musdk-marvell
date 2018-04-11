@@ -1903,7 +1903,7 @@ static void usage(char *progname)
 	       "\t--auth-alg     <alg>     Authentication algorithm. Support: [none, sha1]. (default: sha1).\n"
 	       "\t--dir          <dir>     Operation direction. Support: [enc, dec, lb]. (default: lb)\n"
 	       "\t--no-echo                No Echo packets\n"
-	       "\t--use_events             Use events to wait for requests completed (default: polling)\n"
+	       "\t--use-events             Use events to wait for requests completed (default: polling)\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
