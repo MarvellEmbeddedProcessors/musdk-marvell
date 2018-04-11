@@ -278,7 +278,7 @@ struct neta_ppio_sg_desc {
 #define NETA_RXD_GET_VLAN_INFO(desc)	(((desc)->cmds[0] >> NETA_RXD_VLAN_OFF) & 1)
 #define NETA_RXD_GET_L4_CHK_OK(desc)	(((desc)->cmds[0] >> NETA_RXD_L4_CHK_OK_OFF) & 1)
 #define NETA_RXD_GET_L3_IP_FRAG(desc)	(((desc)->cmds[0] >> NETA_RXD_IPV4_FRG_OFF) & 1)
-#define NETA_RXD_GET_IP_HDR_ERR(desc)	(((desc)->cmds[0] >> NETA_RXD_IP_HEAD_OK_OFF) & 1)
+#define NETA_RXD_GET_IP_HDR_OK(desc)	(((desc)->cmds[0] >> NETA_RXD_IP_HEAD_OK_OFF) & 1)
 #define NETA_RXD_GET_L4_PRS_INFO(desc)	(((desc)->cmds[0] & NETA_RXD_L4_PRS_MASK) >> 21)
 #define NETA_RXD_GET_L3_PRS_INFO(desc)	(((desc)->cmds[0] & NETA_RXD_L3_PRS_MASK) >> 24)
 
@@ -519,7 +519,7 @@ static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l2_pkt_error(stru
  */
 static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l3_pkt_error(struct neta_ppio_desc *desc)
 {
-	if (NETA_RXD_GET_IP_HDR_ERR(desc))
+	if (!NETA_RXD_GET_IP_HDR_OK(desc))
 		return NETA_DESC_ERR_IPV4_HDR;
 	return NETA_DESC_ERR_OK;
 }
