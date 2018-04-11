@@ -737,6 +737,10 @@ static int init_local(void *arg, int id, void **_larg)
 	*_larg = larg;
 
 	larg->buffer = mv_sys_dma_mem_alloc(MAX_PKT_SIZE * PKT_GEN_APP_BUFF_POOL_SIZE, 4);
+	if (!larg->buffer) {
+		pr_err("no mem for local packets buffer!\n");
+		return -ENOMEM;
+	}
 	for (i = 0; i < PKT_GEN_APP_BUFF_POOL_SIZE; i++) {
 		struct pkt *header;
 
