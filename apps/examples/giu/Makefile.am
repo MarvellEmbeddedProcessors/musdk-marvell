@@ -17,6 +17,7 @@ EXTRA_DIST =
 if GIU_BUILD
 bin_PROGRAMS = musdk_giu_pkt_echo
 musdk_giu_pkt_echo_SOURCES  = ../../common/lib/cli.c
+musdk_giu_pkt_echo_SOURCES += ../../common/lib/perf_mon_emu.c
 musdk_giu_pkt_echo_SOURCES += ../../common/mvapp.c
 musdk_giu_pkt_echo_SOURCES += ../../common/utils.c
 musdk_giu_pkt_echo_SOURCES += ../../common/pp2_utils.c

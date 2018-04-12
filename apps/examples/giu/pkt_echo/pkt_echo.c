@@ -44,6 +44,7 @@
 #include "env/mv_sys_dma.h"
 
 #include "mvapp.h"
+#include "perf_mon_emu.h"
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"
 #include "mv_pp2_bpool.h"
@@ -107,6 +108,17 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 #define PKT_ECHO_APP_NMP_GUEST_ID	2
 /* NMP Guest Timeout (ms)*/
 #define PKT_ECHO_APP_NMP_GUEST_TIMEOUT	1000
+
+#define CHECK_CYCLES
+#ifdef CHECK_CYCLES
+#define START_COUNT_CYCLES(_ev_cnt)		pme_ev_cnt_start(_ev_cnt)
+#define STOP_COUNT_CYCLES(_ev_cnt, _num)	pme_ev_cnt_stop(_ev_cnt, _num)
+#else
+#define START_COUNT_CYCLES(_ev_cnt)
+#define STOP_COUNT_CYCLES(_ev_cnt, _num)
+#endif /* CHECK_CYCLES */
+
+
 /* When pkt-echo is running as part of the management application
  * the egress/ingress loop code is running as part of the management scheduling.
  * Therefore, we would like to limit it to a single pass/loop over the
@@ -136,6 +148,12 @@ struct local_arg {
 };
 
 static struct glob_arg garg = {};
+
+#ifdef CHECK_CYCLES
+static int pme_ev_cnt_pp2_rx = -1, pme_ev_cnt_pp2_tx = -1, pme_ev_cnt_pp2_txd = -1;
+static int pme_ev_cnt_giu_rx = -1, pme_ev_cnt_giu_tx = -1, pme_ev_cnt_giu_txd = -1;
+static int pme_ev_cnt_gie_ingr = -1, pme_ev_cnt_gie_egr = -1;
+#endif /* CHECK_CYCLES */
 
 #define PKT_ECHO_APP_INC_RX_COUNT(core, port, cnt)		(rx_buf_cnt[core][port] += cnt)
 #define PKT_ECHO_APP_INC_TX_COUNT(core, port, cnt)		(tx_buf_cnt[core][port] += cnt)
@@ -224,6 +242,34 @@ static int stats_cb(void *arg)
 
 	return 0;
 }
+
+#ifdef CHECK_CYCLES
+static int pme_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg) {
+		pr_err("no garg obj passed!\n");
+		return -EINVAL;
+	}
+	if (argc != 1) {
+		pr_err("Invalid number of arguments for PME cmd!\n");
+		return -EINVAL;
+	}
+
+	printf("Ingress:\n");
+	pme_ev_cnt_dump(pme_ev_cnt_pp2_rx, 1);
+	pme_ev_cnt_dump(pme_ev_cnt_giu_tx, 1);
+	pme_ev_cnt_dump(pme_ev_cnt_pp2_txd, 1);
+	pme_ev_cnt_dump(pme_ev_cnt_gie_ingr, 1);
+	printf("Egress:\n");
+	pme_ev_cnt_dump(pme_ev_cnt_gie_egr, 1);
+	pme_ev_cnt_dump(pme_ev_cnt_giu_rx, 1);
+	pme_ev_cnt_dump(pme_ev_cnt_pp2_tx, 1);
+	pme_ev_cnt_dump(pme_ev_cnt_giu_txd, 1);
+	return 0;
+}
+#endif /* CHECK_CYCLES */
 
 static inline u16 pp2_free_buffers(struct lcl_port_desc		*rx_port,
 				   struct lcl_giu_port_desc	*tx_port,
@@ -397,14 +443,17 @@ static inline void pp2_free_sent_buffers(struct lcl_port_desc		*rx_port,
 {
 	u16 tx_num;
 
+	START_COUNT_CYCLES(pme_ev_cnt_pp2_txd);
 	/* Read from giu how many packets were already transmitted
 	 * so their buffers can be put back to the pp2 bpool
 	 */
 	giu_gpio_get_num_outq_done(tx_port->gpio, tc, qid, &tx_num);
 
 	/* No buffer to release */
-	if (tx_num == 0)
+	if (tx_num == 0) {
+		STOP_COUNT_CYCLES(pme_ev_cnt_pp2_txd, 0);
 		return;
+	}
 
 	/* Return back the buffers to pp2 */
 	if (multi_buffer_release)
@@ -413,6 +462,7 @@ static inline void pp2_free_sent_buffers(struct lcl_port_desc		*rx_port,
 	else
 		rx_port->shadow_qs[tc].read_ind = pp2_free_buffers(rx_port, tx_port, hif,
 								   rx_port->shadow_qs[tc].read_ind, tx_num, tc);
+	STOP_COUNT_CYCLES(pme_ev_cnt_pp2_txd, tx_num);
 }
 
 /* This function is called by during Egress flow.
@@ -437,14 +487,17 @@ static inline void giu_free_sent_buffers(struct lcl_giu_port_desc	*rx_port,
 {
 	u16 tx_num;
 
+	START_COUNT_CYCLES(pme_ev_cnt_giu_txd);
 	/* Read from pp2 how many packets were already transmitted
 	 * so their buffers can be put back to the giu bpool
 	 */
 	pp2_ppio_get_num_outq_done(tx_port->ppio, hif, tc, &tx_num);
 
 	/* No buffer to release */
-	if (tx_num == 0)
+	if (tx_num == 0) {
+		STOP_COUNT_CYCLES(pme_ev_cnt_giu_txd, 0);
 		return;
+	}
 
 	/* Return back the buffers to giu */
 	if (multi_buffer_release)
@@ -453,6 +506,7 @@ static inline void giu_free_sent_buffers(struct lcl_giu_port_desc	*rx_port,
 	else
 		rx_port->shadow_qs[tc].read_ind = giu_free_buffers(rx_port, tx_port,
 								   rx_port->shadow_qs[tc].read_ind, tx_num, tc);
+	STOP_COUNT_CYCLES(pme_ev_cnt_giu_txd, tx_num);
 }
 
 /* In Ingress flow, the PP2 is the Rx side (as it reads the packets from the network)
@@ -516,8 +570,11 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 	if (num > free_count)
 		num = free_count;
 
-	if (num)
+	if (num) {
+		START_COUNT_CYCLES(pme_ev_cnt_pp2_rx);
 		pp2_ppio_recv(pp2_port_desc->ppio, tc, qid, pp2_descs, &num);
+		STOP_COUNT_CYCLES(pme_ev_cnt_pp2_rx, num);
+	}
 
 	/* pthread_mutex_unlock(&larg->garg->trd_lock); */
 	/* if (num) pr_info("ingress: got %d pkts on tc %d, qid %d\n", num, tc, qid); */
@@ -565,7 +622,9 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 	do {
 		tx_num = num;
 		if (num) {
+			START_COUNT_CYCLES(pme_ev_cnt_giu_tx);
 			giu_gpio_send(giu_port_desc->gpio, tc, qid, &giu_descs[desc_idx], &tx_num);
+			STOP_COUNT_CYCLES(pme_ev_cnt_giu_tx, tx_num);
 			if (num > tx_num) {
 				if (!cnt)
 					PKT_ECHO_APP_INC_TX_RETRY_COUNT(larg->cmn_args.id, 0, num - tx_num);
@@ -599,6 +658,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 			num -= tx_num;
 			PKT_ECHO_APP_INC_TX_COUNT(larg->cmn_args.id, 0, tx_num);
 		}
+
 		pp2_free_sent_buffers(pp2_port_desc, giu_port_desc,
 				      pp2_args->hif, tc, qid, pp2_args->multi_buffer_release);
 	} while (num);
@@ -654,7 +714,10 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 
 	/* pr_info("egress: tid %d check on tc %d, qid %d\n", larg->cmn_args.id, tc, qid); */
 	/* pthread_mutex_lock(&larg->garg->trd_lock); */
+	START_COUNT_CYCLES(pme_ev_cnt_giu_rx);
 	giu_gpio_recv((struct giu_gpio *)giu_port_desc->gpio, tc, qid, giu_descs, &num);
+	STOP_COUNT_CYCLES(pme_ev_cnt_giu_rx, num);
+
 	/* pthread_mutex_unlock(&larg->garg->trd_lock); */
 	/* if (num) pr_info("egress: got %d pkts on tc %d, qid %d\n", num, tc, qid); */
 
@@ -664,7 +727,6 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 		char *buff    = (void *)(app_get_high_addr() | giu_gpio_inq_desc_get_cookie(&giu_descs[i]));
 		dma_addr_t pa = giu_gpio_inq_desc_get_phys_addr(&giu_descs[i]);
 		u16 len       = giu_gpio_inq_desc_get_pkt_len(&giu_descs[i]);
-
 		/* Get giu bpool (as the received buffers should be returned to it) */
 		void *bpool = giu_gpio_inq_desc_get_bpool(&giu_descs[i], giu_port_desc->gpio);
 
@@ -692,8 +754,10 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 	do {
 		tx_num = num;
 		if (num) {
+			START_COUNT_CYCLES(pme_ev_cnt_pp2_tx);
 			pp2_ppio_send(pp2_port_desc->ppio, pp2_args->hif,
 				      tc, &pp2_descs[desc_idx], &tx_num);
+			STOP_COUNT_CYCLES(pme_ev_cnt_pp2_tx, tx_num);
 			if (num > tx_num) {
 				if (!cnt)
 					PKT_ECHO_APP_INC_TX_RETRY_COUNT(larg->cmn_args.id, 1, num - tx_num);
@@ -713,12 +777,17 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 
 static void nmp_schedule_all(struct nmp *nmp)
 {
+	u16			 num;
+
 	/* nmp gir instances schedule */
 	nmp_schedule(nmp, NMP_SCHED_MNG);
-	nmp_schedule(nmp, NMP_SCHED_RX);
-	nmp_schedule(nmp, NMP_SCHED_TX);
+	START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
+	num = nmp_schedule(nmp, NMP_SCHED_RX);
+	STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, num);
+	START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
+	num = nmp_schedule(nmp, NMP_SCHED_TX);
+	STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, num);
 }
-
 
 static int loop_2ps(struct local_arg *larg, int *running)
 {
@@ -988,6 +1057,17 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.cmd_arg	= &garg->cmn_args;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_pp2_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
+
+#ifdef CHECK_CYCLES
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "pme";
+	cmd_params.desc		= "Performance Montitor Emulator";
+	cmd_params.format	= NULL;
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pme_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+#endif /* CHECK_CYCLES */
+
 	app_register_cli_common_cmds(&garg->cmn_args);
 
 	return 0;
@@ -1029,6 +1109,49 @@ static int init_global(void *arg)
 	}
 
 	gettimeofday(&garg->cmn_args.ctrl_trd_last_time, NULL);
+
+#ifdef CHECK_CYCLES
+	pme_ev_cnt_pp2_rx = pme_ev_cnt_create("PP2-PPIO Recv", 1000000, 0);
+	if (pme_ev_cnt_pp2_rx < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_pp2_rx;
+	}
+	pme_ev_cnt_pp2_tx = pme_ev_cnt_create("PP2-PPIO Send", 1000000, 0);
+	if (pme_ev_cnt_pp2_tx < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_pp2_tx;
+	}
+	pme_ev_cnt_pp2_txd = pme_ev_cnt_create("PP2-PPIO Done", 1000000, 0);
+	if (pme_ev_cnt_pp2_txd < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_pp2_txd;
+	}
+	pme_ev_cnt_giu_rx = pme_ev_cnt_create("GIU-GPIO Recv", 1000000, 0);
+	if (pme_ev_cnt_giu_rx < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_giu_rx;
+	}
+	pme_ev_cnt_giu_tx = pme_ev_cnt_create("GIU-GPIO Send", 1000000, 0);
+	if (pme_ev_cnt_giu_tx < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_giu_tx;
+	}
+	pme_ev_cnt_giu_txd = pme_ev_cnt_create("GIU-GPIO Done", 1000000, 0);
+	if (pme_ev_cnt_giu_txd < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_giu_tx;
+	}
+	pme_ev_cnt_gie_ingr = pme_ev_cnt_create("GIE Ingress", 1000000, 0);
+	if (pme_ev_cnt_gie_ingr < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_gie_ingr;
+	}
+	pme_ev_cnt_gie_egr = pme_ev_cnt_create("GIE Egress", 1000000, 0);
+	if (pme_ev_cnt_gie_egr < 0) {
+		pr_err("PME failed!\n");
+		return pme_ev_cnt_gie_egr;
+	}
+#endif /* CHECK_CYCLES */
 
 	return 0;
 }
