@@ -31,7 +31,9 @@
 ******************************************************************************/
 
 #define _GNU_SOURCE         /* See feature_test_macros(7) */
+#include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <sched.h>
@@ -108,6 +110,26 @@ static u8 rfc3602_sha1_t1_auth_key[] = {
 #define MDATA_FLAGS_IP4_CSUM_MASK	BIT(14)  /* Recalculate IPv4 checksum on TX */
 #define MDATA_FLAGS_L4_CSUM_MASK	BIT(15)  /* Recalculate L4 checksum on TX */
 
+#define CRYPT_APP_STATS_SUPPORT
+#ifdef CRYPT_APP_STATS_SUPPORT
+struct crypto_echo_stats {
+	u64 rx_pkts[MVAPPS_NETA_MAX_NUM_PORTS];
+	u64 rx_drop[MVAPPS_NETA_MAX_NUM_PORTS];
+	u64 enc_enq;
+	u64 enc_drop;
+	u64 deq_cnt;
+	u64 deq_err;
+	u64 dec_enq;
+	u64 dec_drop;
+	u64 tx_pkts[MVAPPS_NETA_MAX_NUM_PORTS];
+	u64 tx_drop[MVAPPS_NETA_MAX_NUM_PORTS];
+	u64 tx_done[MVAPPS_NETA_MAX_NUM_PORTS];
+};
+#define CRYPT_STATS(c) c
+#else
+#define CRYPT_STATS(c)
+#endif /* CRYPT_APP_STATS_SUPPORT */
+
 struct pkt_mdata {
 	u8 state; /* as defined in enum pkt_state */
 	u8 rx_port;
@@ -161,6 +183,9 @@ struct local_arg {
 	u32				seq_id[MVAPPS_NETA_MAX_NUM_PORTS];
 	char				dec_name[15];
 	struct sam_cio			*dec_cio;
+#ifdef CRYPT_APP_STATS_SUPPORT
+	struct crypto_echo_stats	stats;
+#endif
 	struct sam_sa			*dec_sa;
 	enum crypto_dir			dir;
 	struct lcl_port_desc		*lcl_ports_desc;
@@ -188,6 +213,44 @@ static int pme_ev_cnt_rx = -1, pme_ev_cnt_enq = -1, pme_ev_cnt_deq = -1, pme_ev_
 #define START_COUNT_CYCLES(_ev_cnt)
 #define STOP_COUNT_CYCLES(_ev_cnt, _num)
 #endif /* CHECK_CYCLES */
+
+#ifdef CRYPT_APP_STATS_SUPPORT
+static void print_local_stats(struct local_arg *larg, int cpu, int reset)
+{
+	int i;
+
+	printf("\n-------- Crypto-echo local CPU #%d statistics ------\n", cpu);
+	for (i = 0; i < larg->cmn_args.num_ports; i++) {
+		if (larg->stats.rx_pkts[i])
+			printf("RX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.rx_pkts[i]);
+		if (larg->stats.rx_drop[i])
+			printf("RX drops (port #%d)         : %" PRIu64 " packets\n", i, larg->stats.rx_drop[i]);
+	}
+	if (larg->stats.enc_enq)
+		printf("Encrypt enqueue            : %" PRIu64 " packets\n", larg->stats.enc_enq);
+	if (larg->stats.enc_drop)
+		printf("Encrypt drop               : %" PRIu64 " packets\n", larg->stats.enc_drop);
+	if (larg->stats.dec_enq)
+		printf("Decrypt enqueue            : %" PRIu64 " packets\n", larg->stats.dec_enq);
+	if (larg->stats.dec_drop)
+		printf("Decrypt drop               : %" PRIu64 " packets\n", larg->stats.dec_drop);
+	if (larg->stats.deq_cnt)
+		printf("Dequeue count              : %" PRIu64 " packets\n", larg->stats.deq_cnt);
+	if (larg->stats.deq_err)
+		printf("Dequeue errors             : %" PRIu64 " packets\n", larg->stats.deq_err);
+
+	for (i = 0; i < larg->cmn_args.num_ports; i++) {
+		if (larg->stats.tx_pkts[i])
+			printf("TX packets (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_pkts[i]);
+		if (larg->stats.tx_done[i])
+			printf("TX done    (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_done[i]);
+		if (larg->stats.tx_drop[i])
+			printf("TX drops   (port #%d)       : %" PRIu64 " packets\n", i, larg->stats.tx_drop[i]);
+
+	}
+	printf("\n");
+}
+#endif /* CRYPT_APP_STATS_SUPPORT */
 
 static inline int free_buf_from_tx_shadow(struct local_arg *larg,
 					  struct lcl_port_desc *tx_port,
@@ -1137,6 +1200,58 @@ static int perf_cmd_cb(void *arg, int argc, char *argv[])
 	return apps_perf_dump(&garg->cmn_args);
 }
 
+#ifdef CRYPT_APP_STATS_SUPPORT
+static int stats_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+	int i, reset = 0;
+	int thread, cpu = -1;
+
+	if (!garg) {
+		pr_err("no garg obj passed!\n");
+		return -EINVAL;
+	}
+	i = 1;
+	while (i < argc) {
+		if (strcmp(argv[i], "--cpu") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			cpu = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "--reset") == 0) {
+			reset = 1;
+			i += 1;
+		} else {
+			pr_err("argument (%s) not supported!\n", argv[i]);
+			return -EINVAL;
+		}
+	}
+
+	if (cpu >= 0) {
+		thread = apps_cpu_to_thread(&garg->cmn_args, cpu);
+		if (thread < 0) {
+			pr_err("Invalid CPU number #%d\n", cpu);
+			return -EINVAL;
+		}
+		print_local_stats(garg->cmn_args.largs[thread], cpu, reset);
+	} else {
+		for (thread = 0; thread < garg->cmn_args.cpus; thread++) {
+			if (garg->cmn_args.largs[thread]) {
+				cpu = apps_thread_to_cpu(&garg->cmn_args, thread);
+				print_local_stats(garg->cmn_args.largs[thread], cpu, reset);
+			}
+		}
+	}
+	return 0;
+}
+#endif
+
 #ifdef CHECK_CYCLES
 static int pme_cmd_cb(void *arg, int argc, char *argv[])
 {
@@ -1185,6 +1300,18 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))perf_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 
+#ifdef CRYPT_APP_STATS_SUPPORT
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "stats";
+	cmd_params.desc		= "Show crypto statistics";
+	cmd_params.format	= "--cpu <id>  --reset\n"
+				  "\t\t--cpu <id> - CPU core number, if not specified, apply to all cores\n"
+				  "\t\t--reset    - reset statistics after show";
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))stats_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
+#endif
+
 #ifdef CHECK_CYCLES
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "pme";
@@ -1196,7 +1323,6 @@ static int register_cli_cmds(struct glob_arg *garg)
 #endif /* CHECK_CYCLES */
 
 	app_register_cli_common_cmds(&garg->cmn_args);
-
 
 	return 0;
 }
@@ -1469,8 +1595,12 @@ static void deinit_local(void *arg)
 
 	destroy_sam_sessions(larg->enc_cio, larg->dec_cio, larg->enc_sa, larg->dec_sa);
 
-#ifdef MVCONF_SAM_STATS
 	pthread_mutex_lock(&larg->cmn_args.garg->trd_lock);
+#ifdef CRYPT_APP_STATS_SUPPORT
+	print_local_stats(larg, sched_getcpu(), 0);
+#endif
+
+#ifdef MVCONF_SAM_STATS
 	if (larg->enc_cio) {
 		pr_info("cpu #%d: %s\n", sched_getcpu(), larg->enc_name);
 		app_sam_show_cio_stats(larg->enc_cio, "encrypt", 1);
@@ -1480,8 +1610,8 @@ static void deinit_local(void *arg)
 		pr_info("cpu #%d: %s\n", sched_getcpu(), larg->dec_name);
 		app_sam_show_cio_stats(larg->dec_cio, "decrypt", 1);
 	}
-	pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
 #endif /* MVCONF_SAM_STATS */
+	pthread_mutex_unlock(&larg->cmn_args.garg->trd_lock);
 
 	if (larg->lcl_ports_desc) {
 		for (i = 0; i < larg->cmn_args.num_ports; i++)
