@@ -77,6 +77,11 @@ struct neta_tx_queue {
 
 	/* DMA address of TSO headers */
 	dma_addr_t tso_hdrs_phys;
+
+	/* statistics */
+	u32	tx_pkts;
+	u32	tx_done_pkts;
+
 };
 
 struct neta_rx_queue {
@@ -110,6 +115,10 @@ struct neta_rx_queue {
 	/* Index of the next RX DMA descriptor to refill with new buffer pointer */
 	int next_desc_to_refill;
 	u32 to_refill_cntr;
+
+	/* statistics */
+	u32	rx_pkts;
+	u32	refill_bufs;
 
 };
 
