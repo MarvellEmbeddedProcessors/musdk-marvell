@@ -803,8 +803,10 @@ static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct 
 		result->status = SAM_CIO_ERR_ICV;
 	else {
 		result->status = SAM_CIO_ERR_HW;
+#ifdef MVCONF_SAM_DEBUG
 		pr_warn("HW error: errors = 0x%08x, cle_err = 0x%08x\n",
 			errors, cle_err);
+#endif
 	}
 	return 0;
 }
