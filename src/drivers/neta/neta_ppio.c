@@ -185,20 +185,25 @@ int neta_ppio_get_num_outq_done(struct neta_ppio	*ppio,
 static struct neta_ppio_desc *neta_rxq_get_desc(struct neta_rx_queue *rxq)
 {
 	u32 rx_idx;
+	struct neta_ppio_desc *rx_desc;
 
 	rx_idx = rxq->next_desc_to_proc;
+	rx_desc = rxq->descs + rx_idx;
 
-	/* validate RX descriptor */
-	if (neta_ppio_inq_desc_get_pkt_len(rxq->descs + rx_idx) == 0) {
-		pr_debug("Bad RX descriptor %d: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", rx_idx,
-			(rxq->descs + rx_idx)->cmds[0], (rxq->descs + rx_idx)->cmds[1],
-			(rxq->descs + rx_idx)->cmds[2], (rxq->descs + rx_idx)->cmds[3],
-			(rxq->descs + rx_idx)->cmds[4]);
-
-		/* do it to read real descriptor next time */
+	if (rx_desc->cmds[1] == MVNETA_DESC_WATERMARK) {
+		pr_debug("Bad RX descriptor %d: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+			 rx_idx, rx_desc->cmds[0], rx_desc->cmds[1],
+			 rx_desc->cmds[2], rx_desc->cmds[3], rx_desc->cmds[4]);
+		/* will read descriptor next time */
 		rmb();
 		return NULL;
 	}
+
+	if ((rx_desc->cmds[0] & NETA_RXD_FIRST_LAST_DESC_MASK) !=
+	     NETA_RXD_FIRST_LAST_DESC_MASK)
+		/* multi buffers on rx not supported */
+		/* mark multi descriptors with error */
+		rx_desc->cmds[0] |= (1 << NETA_RXD_ERROR_SUM_OFF);
 
 	rxq->next_desc_to_proc = (((rx_idx + 1) == rxq->size) ? 0 : (rx_idx + 1));
 
@@ -262,7 +267,8 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 			break;
 
 		memcpy(&descs[i], rx_desc, sizeof(struct neta_ppio_desc));
-		rx_desc->cmds[1] = 0;
+		/* invalidate packet descriptor */
+		rx_desc->cmds[1] = MVNETA_DESC_WATERMARK;
 	}
 	rxq->to_refill_cntr += i;
 
@@ -485,6 +491,8 @@ int neta_ppio_inq_put_buffs(struct neta_ppio		*ppio,
 			break;
 	}
 	*num_of_buffs = i;
+	/* flush updated descriptors to memory */
+	wmb();
 
 #ifdef NETA_STATS_SUPPORT
 	rxq->refill_bufs += i;

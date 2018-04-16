@@ -290,6 +290,7 @@ enum phy_interface {
 /* 64bytes cache line - arm64 spec */
 #define L1_CACHE_LINE_BYTES      BIT(6)
 
+#define MVNETA_DESC_WATERMARK  0xdeadbeaf
 
 static inline void neta_reg_write_relaxed(struct neta_port *pp, u32 offset, u32 data)
 {
