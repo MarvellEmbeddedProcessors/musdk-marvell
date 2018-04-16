@@ -461,7 +461,7 @@ static inline void neta_ppio_inq_desc_get_l3_info(struct neta_ppio_desc *desc, e
  */
 static inline void neta_ppio_inq_desc_get_l4_type(struct neta_ppio_desc *desc, enum neta_inq_l4_type *type)
 {
-	*type = NETA_RXD_GET_L4_PRS_INFO(desc);
+	*type = NETA_RXD_GET_L4_PRS_INFO(desc) + 1;
 }
 
 /**
@@ -476,7 +476,7 @@ static inline void neta_ppio_inq_desc_get_l4_info(struct neta_ppio_desc *desc, e
 	enum neta_inq_l3_type l3_type;
 	u8 l3_offset;
 
-	*type = NETA_RXD_GET_L4_PRS_INFO(desc);
+	*type = NETA_RXD_GET_L4_PRS_INFO(desc) + 1;
 
 	neta_ppio_inq_desc_get_l3_info(desc, &l3_type, &l3_offset);
 
@@ -533,7 +533,7 @@ static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l3_pkt_error(stru
  */
 static inline enum neta_inq_desc_status neta_ppio_inq_desc_get_l4_pkt_error(struct neta_ppio_desc *desc)
 {
-	enum neta_inq_l4_type l4_info = NETA_RXD_GET_L4_PRS_INFO(desc);
+	enum neta_inq_l4_type l4_info = NETA_RXD_GET_L4_PRS_INFO(desc) + 1;
 
 	if (unlikely((l4_info == NETA_INQ_L4_TYPE_TCP || l4_info == NETA_INQ_L4_TYPE_UDP) &&
 		     !NETA_RXD_GET_L3_IP_FRAG(desc) && !NETA_RXD_GET_L4_CHK_OK(desc)))
