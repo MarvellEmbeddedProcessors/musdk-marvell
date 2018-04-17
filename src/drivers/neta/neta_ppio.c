@@ -393,6 +393,9 @@ int neta_ppio_enable(struct neta_ppio *ppio)
 		return -1;
 
 	neta_port_up(port);
+
+	port->is_running = 1;
+
 	return 0;
 }
 
@@ -402,6 +405,8 @@ int neta_ppio_disable(struct neta_ppio *ppio)
 
 	if (!port)
 		return -1;
+
+	port->is_running = 0;
 
 	neta_port_down(port);
 	return 0;
