@@ -45,7 +45,6 @@ struct neta_tx_queue {
 	 * descriptor ring
 	 */
 	int count;
-	int pending;
 	int tx_stop_threshold;
 	int tx_wake_threshold;
 
