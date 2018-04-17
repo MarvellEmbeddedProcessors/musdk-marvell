@@ -989,12 +989,14 @@ int neta_port_set_mtu(struct neta_port *port, uint16_t mtu)
 	if (err)
 		return err;
 
-	neta_port_down(port);
+	if (port->is_running)
+		neta_port_down(port);
 
 	port->mtu = mtu;
 	mvneta_txq_max_tx_size_set(port, port->mtu);
 
-	neta_port_up(port);
+	if (port->is_running)
+		neta_port_up(port);
 
 	return err;
 }
@@ -1030,7 +1032,8 @@ int neta_port_set_mru(struct neta_port *port, uint16_t mru)
 		return err;
 
 	/* Stop rx / tx queues */
-	neta_port_down(port);
+	if (port->is_running)
+		neta_port_down(port);
 
 	port->buf_size = mru + port->rx_offset;
 	port->mru = mru;
@@ -1039,7 +1042,8 @@ int neta_port_set_mru(struct neta_port *port, uint16_t mru)
 		mvneta_rxq_buf_size_set(port, &port->rxqs[q], port->buf_size);
 
 	/* Start rx / tx queues */
-	neta_port_up(port);
+	if (port->is_running)
+		neta_port_up(port);
 
 	return err;
 }

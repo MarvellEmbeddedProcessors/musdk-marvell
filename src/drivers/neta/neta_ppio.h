@@ -125,6 +125,9 @@ struct neta_port {
 	u32	id; /* port Id */
 	char	if_name[16];
 
+	/* port state: up / down */
+	bool	is_running;
+
 	struct sys_iomem	*sys_iomem;
 	uintptr_t		base;  /* virtual address for engine registers */
 	phys_addr_t		paddr; /* physical address for engine registers */
