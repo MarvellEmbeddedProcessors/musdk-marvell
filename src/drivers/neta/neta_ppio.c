@@ -284,23 +284,8 @@ int neta_ppio_recv(struct neta_ppio		*ppio,
 }
 
 /* Tx descriptors helper methods */
-/* Update HW with number of TX descriptors to be sent */
-static void neta_txq_pend_desc_add(struct neta_port *pp,
-				   struct neta_tx_queue *txq,
-				   int pend_desc)
-{
-	u32 val;
-
-	/* Only 255 descriptors can be added at once ; Assume caller
-	 * process TX descriptors in quanta less than 256
-	 */
-	val = pend_desc + txq->pending;
-	neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(txq->id), val);
-	txq->pending = 0;
-}
-
 /* Get number of free TX descriptor */
-static int neta_txq_free_desc_num(struct neta_tx_queue *txq)
+static inline int neta_txq_free_desc_num(struct neta_tx_queue *txq)
 {
 	return (txq->size - txq->count);
 }
@@ -316,7 +301,7 @@ static struct neta_ppio_desc *neta_txq_next_desc_get(struct neta_tx_queue *txq)
 /* Release the last allocated TX descriptor. Useful to handle DMA
  * mapping failures in the TX path.
  */
-static void neta_txq_desc_put(struct neta_tx_queue *txq)
+static inline void neta_txq_desc_put(struct neta_tx_queue *txq)
 {
 	if (txq->next_desc_to_proc == 0)
 		txq->next_desc_to_proc = txq->last_desc - 1;
@@ -360,10 +345,11 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 #else
 		memcpy(tx_desc, &descs[i], sizeof(struct neta_ppio_desc));
 #endif
-		/* be sure TX descriptor is ready to transmit */
-		wmb();
-		neta_txq_pend_desc_add(port, txq, 1);
 	}
+	/* be sure TX descriptors are ready to transmit */
+	wmb();
+	neta_txq_pend_desc_add(port, txq, i);
+
 	txq->count += i;
 
 	return i;

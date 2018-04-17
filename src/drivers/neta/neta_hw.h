@@ -355,7 +355,6 @@ static inline int mvneta_txq_sent_desc_num_get(struct neta_port *pp, int qid)
 	return sent_desc;
 }
 
-
 /* Decrement sent descriptors counter */
 static inline void mvneta_txq_sent_desc_dec(struct neta_port *pp, int qid, int sent_desc)
 {
@@ -370,6 +369,24 @@ static inline void mvneta_txq_sent_desc_dec(struct neta_port *pp, int qid, int s
 
 	val = sent_desc << MVNETA_TXQ_DEC_SENT_SHIFT;
 	neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(qid), val);
+}
+
+/* Update HW with number of TX descriptors to be sent */
+static inline void neta_txq_pend_desc_add(struct neta_port *pp,
+				   struct neta_tx_queue *txq,
+				   int pend_desc)
+{
+	u32 val;
+
+	val = pend_desc;
+
+	/* Only 255 TX descriptors can be updated at once */
+	while (val > 0xff) {
+		neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(txq->id), 0xff);
+		val -= 0xff;
+	}
+
+	neta_reg_write(pp, MVNETA_TXQ_UPDATE_REG(txq->id), val);
 }
 
 /* Update num of rx desc called upon return from rx path */
