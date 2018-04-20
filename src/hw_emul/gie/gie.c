@@ -915,7 +915,7 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 	job_info->flags = job->flags;
 
 	/* create the dma job to submit */
-	desc.flags = DESC_FLAGS_SYNC;
+	desc.flags = 0;
 	desc.desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
 	desc.src_addr = job->src;
 	desc.dst_addr = job->dst;
@@ -1283,7 +1283,7 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 		qe_byte_cnt = qe + len_pos;
 
 		/* create the dma job to submit */
-		desc[cnt].flags = DESC_FLAGS_SYNC;
+		desc[cnt].flags = 0;
 		desc[cnt].desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
 		desc[cnt].src_addr = src_remap + *qe_buff;
 		desc[cnt].dst_addr = dst_remap + bp_buf->buff_addr_phys;
@@ -1475,13 +1475,11 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 
 static void gie_clean_dma_jobs(struct dma_info *dma)
 {
-	struct dmax2_trans_complete_desc	 dmax2_res_descs[GIE_MAX_QES_IN_BATCH];
 	struct dma_job_info			*jobi;
 	u16					 completed, clean, elements;
 	int					 i;
 
-	completed = GIE_MAX_QES_IN_BATCH;
-	dmax2_deq(dma->dmax2, dmax2_res_descs, &completed, 1);
+	completed = dmax2_get_deq_num_available(dma->dmax2);
 	if (!completed)
 		return;
 	/* TODO: iterate all result-descriptor and verify no errors occurred */
@@ -1531,7 +1529,7 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 		}
 	}
 	dma->job_head = i;
-	return;
+	dmax2_deq(dma->dmax2, NULL, &completed, 0);
 }
 
 int gie_schedule(void *giu, u64 time_limit, u64 qe_limit)
