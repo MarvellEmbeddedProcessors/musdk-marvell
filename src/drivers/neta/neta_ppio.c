@@ -93,10 +93,13 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	port->buf_size = port->mru + port->rx_offset;
 	port->id = port_id;
 
-	rc = neta_port_open(port_id, port);
-	if (rc) {
-		pr_err("[%s] ppio init failed.\n", __func__);
-		return(-EFAULT);
+	if (!port->sys_iomem) {
+		rc = neta_port_map(port_id, port);
+		if (rc) {
+			pr_err("[%s]: failed to create iomem device.\n",
+			       __func__);
+			return(-EFAULT);
+		}
 	}
 	/* build interface name */
 	strcpy(port->if_name, params->match);

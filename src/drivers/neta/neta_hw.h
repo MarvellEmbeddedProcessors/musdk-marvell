@@ -435,7 +435,7 @@ static inline int neta_rxq_busy_desc_num_get(struct neta_port *pp, int qid)
 	return val & MVNETA_RXQ_OCCUPIED_ALL_MASK;
 }
 
-int neta_port_open(int port_id, struct neta_port *pp);
+int neta_port_map(int port_id, struct neta_port *pp);
 int neta_port_hw_init(struct neta_port *pp);
 int neta_port_hw_deinit(struct neta_port *pp);
 void neta_hw_reg_print(char *reg_name, void *base, u32 offset);

@@ -488,7 +488,7 @@ static void neta_defaults_set(struct neta_port *pp)
 	neta_mib_counters_clear(pp);
 }
 
-int neta_port_open(int port_id, struct neta_port *pp)
+int neta_port_map(int port_id, struct neta_port *pp)
 {
 	int err;
 	struct sys_iomem_params params;
