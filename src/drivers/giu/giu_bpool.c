@@ -313,16 +313,18 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
 	struct giu_buff_inf *buf_desc;
 	u16 num_bpds = *num, desc_remain;
 	u16 block_size, index;
-	u32 free_count, cons_val;
+	u32 free_count, cons_val, prod_val;
 
 	/* Get queue params */
 	bpq = pool->queue;
 
 	/* Read consumer index */
 	cons_val = readl(bpq->cons_addr);
+	/* Read producer index */
+	prod_val = readl(bpq->prod_addr);
 
 	/* Calculate number of free descriptors */
-	free_count = QUEUE_SPACE(bpq->prod_val_shadow, cons_val, bpq->desc_total);
+	free_count = QUEUE_SPACE(prod_val, cons_val, bpq->desc_total);
 
 	if (unlikely(free_count < num_bpds)) {
 		pr_debug("num_bpds(%d), free_count(%d) (BPool %d)\n", num_bpds, free_count, pool->id);
@@ -336,7 +338,7 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
 	}
 
 	/* In case there is a wrap-around, handle the number of desc till the end of queue */
-	block_size = min(num_bpds, (u16)(bpq->desc_total - bpq->prod_val_shadow));
+	block_size = min(num_bpds, (u16)(bpq->desc_total - prod_val));
 
 	desc_remain = num_bpds;
 	index = 0; /* index in source descriptor array */
@@ -351,10 +353,10 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
 	 **/
 	do {
 		/* Copy bulk of descriptors to descriptor ring */
-		memcpy(&buf_desc[bpq->prod_val_shadow], &buff_entry[index], sizeof(struct giu_buff_inf) * block_size);
+		memcpy(&buf_desc[prod_val], &buff_entry[index], sizeof(struct giu_buff_inf) * block_size);
 
 		/* Increment producer index, update remaining descriptors count and block size */
-		bpq->prod_val_shadow = QUEUE_INDEX_INC(bpq->prod_val_shadow, block_size, bpq->desc_total);
+		prod_val = QUEUE_INDEX_INC(prod_val, block_size, bpq->desc_total);
 		desc_remain -= block_size;
 		index = block_size;	/* next desc index in source array */
 		block_size = desc_remain; /* next desc index in target ring */
@@ -364,7 +366,7 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
 	/* make sure all writes are done (i.e. descriptor were copied)
 	 * before incrementing the producer index
 	 */
-	writel(bpq->prod_val_shadow, bpq->prod_addr);
+	writel(prod_val, bpq->prod_addr);
 
 	/* Update number of updated descriptors */
 	*num = num_bpds;

@@ -541,6 +541,7 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 	struct giu_gpio_tc *gpio_tc = &gpio->probe_params->outqs_params.tcs[tc];
 	struct giu_gpio_queue *txq;
 	struct giu_gpio_desc *tx_ring_base;
+	u32 prod_val[gpio_tc->num_qs];
 	u16 dest_qid, num_txds = *num;
 	u32 free_count;
 	int i;
@@ -559,6 +560,9 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 		return 0;
 	}
 
+	for (i = 0; i < gpio_tc->num_qs; i++)
+		prod_val[i] = readl_relaxed(gpio_tc->queues[i].prod_addr);
+
 	/* Calculate RSS and update descriptor */
 	for (i = 0; i < num_txds; i++) {
 		giu_gpio_update_rss(gpio, tc, &descs[i]);
@@ -568,7 +572,7 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 
 		/* Update shadow-queue with dest-qid and index */
 		txq_shadow->desc_ring_base[txq_shadow->prod_val].queue_idx = dest_qid;
-		txq_shadow->desc_ring_base[txq_shadow->prod_val].queue_desc_idx = txq->prod_val_shadow;
+		txq_shadow->desc_ring_base[txq_shadow->prod_val].queue_desc_idx = prod_val[dest_qid];
 		/* Increment producer index */
 		txq_shadow->prod_val = QUEUE_INDEX_INC(txq_shadow->prod_val, 1, txq_shadow->desc_total);
 
@@ -576,10 +580,10 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 		tx_ring_base = (struct giu_gpio_desc *)txq->desc_ring_base;
 
 		/* Copy descriptor to descriptor ring */
-		memcpy(&tx_ring_base[txq->prod_val_shadow], &descs[i], sizeof(*tx_ring_base));
+		memcpy(&tx_ring_base[prod_val[dest_qid]], &descs[i], sizeof(*tx_ring_base));
 
 		/* Increment producer index, update remaining descriptors count and block size */
-		txq->prod_val_shadow = QUEUE_INDEX_INC(txq->prod_val_shadow, 1, txq->desc_total);
+		prod_val[dest_qid] = QUEUE_INDEX_INC(prod_val[dest_qid], 1, txq->desc_total);
 	}
 
 	/* make sure all writes are done (i.e. descriptor were copied)
@@ -590,7 +594,7 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 	for (i = 0; i < gpio_tc->dest_num_qs; i++) {
 		txq = &gpio_tc->queues[i];
 		/* Update Producer index in GNPT */
-		writel_relaxed(txq->prod_val_shadow, txq->prod_addr);
+		writel_relaxed(prod_val[i], txq->prod_addr);
 	}
 
 	/* Update number of sent descriptors */
@@ -607,7 +611,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
 	u16 num_txds = *num, desc_remain;
 	u16 block_size, index;
-	u32 free_count, cons_val;
+	u32 free_count, cons_val, prod_val;
 	int i;
 
 #ifdef GIU_GPIO_DEBUG
@@ -637,6 +641,8 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 
 	/* Read consumer index */
 	cons_val = readl(txq->cons_addr);
+	/* Read producer index */
+	prod_val = readl(txq->prod_addr);
 
 #ifdef GIU_GPIO_DEBUG
 	if (num_txds > txq->desc_total)
@@ -645,7 +651,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 #endif
 
 	/* Calculate number of free descriptors */
-	free_count = QUEUE_SPACE(txq->prod_val_shadow, cons_val, txq->desc_total);
+	free_count = QUEUE_SPACE(prod_val, cons_val, txq->desc_total);
 	if (unlikely(free_count < num_txds)) {
 		pr_debug("num_txds(%d), free_count(%d) (GPIO %d)\n", num_txds, free_count, gpio->id);
 		num_txds = free_count;
@@ -658,7 +664,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	}
 
 	/* In case there is a wrap-around, handle the number of desc till the end of queue */
-	block_size = min(num_txds, (u16)(txq->desc_total - txq->prod_val_shadow));
+	block_size = min(num_txds, (u16)(txq->desc_total - prod_val));
 
 	desc_remain = num_txds;
 	index = 0; /* index in source descriptor array */
@@ -676,10 +682,10 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 		}
 
 		/* Copy bulk of descriptors to descriptor ring */
-		memcpy(&tx_ring_base[txq->prod_val_shadow], &descs[index], sizeof(*tx_ring_base) * block_size);
+		memcpy(&tx_ring_base[prod_val], &descs[index], sizeof(*tx_ring_base) * block_size);
 
 		/* Increment producer index, update remaining descriptors count and block size */
-		txq->prod_val_shadow = QUEUE_INDEX_INC(txq->prod_val_shadow, block_size, txq->desc_total);
+		prod_val = QUEUE_INDEX_INC(prod_val, block_size, txq->desc_total);
 		desc_remain -= block_size;
 		index = block_size;	/* next desc index in source array */
 		block_size = desc_remain; /* next desc index in target ring */
@@ -689,7 +695,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	/* make sure all writes are done (i.e. descriptor were copied)
 	 * before incrementing the producer index
 	 */
-	writel(txq->prod_val_shadow, txq->prod_addr);
+	writel(prod_val, txq->prod_addr);
 
 	/* Update number of sent descriptors */
 	*num = num_txds;
@@ -778,7 +784,7 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
 	u16 recv_req = *num, desc_received, desc_remain = 0;
 	u16 block_size, index;
-	u32 prod_val;
+	u32 prod_val, cons_val;
 
 	*num = 0;
 #ifdef GIU_GPIO_DEBUG
@@ -804,11 +810,13 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 
 	/* Read producer index */
 	prod_val = readl(rxq->prod_addr);
+	/* Read consumer index */
+	cons_val = readl(rxq->cons_addr);
 
 	/* Calculate number of received descriptors in the ring.
 	 * Since queue size is a power of 2, we can use below formula.
 	 */
-	desc_received = QUEUE_OCCUPANCY(prod_val, rxq->cons_val_shadow, rxq->desc_total);
+	desc_received = QUEUE_OCCUPANCY(prod_val, cons_val, rxq->desc_total);
 	if (desc_received == 0) {
 		pr_debug("desc_received is zero\n");
 		return 0;
@@ -821,8 +829,8 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	 * So the size of the first block is the number of descriptor till the
 	 * end of the ring.
 	 */
-	if (unlikely((rxq->cons_val_shadow + recv_req) > rxq->desc_total)) {
-		block_size = rxq->desc_total - rxq->cons_val_shadow;
+	if (unlikely((cons_val + recv_req) > rxq->desc_total)) {
+		block_size = rxq->desc_total - cons_val;
 	} else {
 		/* No wrap around */
 		block_size = recv_req;
@@ -834,10 +842,10 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	/* Note: since we handle wrap-around, the should be no more than 2 iterations */
 	do {
 		/* Copy bulk of descriptors from the descriptor ring */
-		memcpy(&descs[index], &rx_ring_base[rxq->cons_val_shadow], block_size * sizeof(*descs));
+		memcpy(&descs[index], &rx_ring_base[cons_val], block_size * sizeof(*descs));
 
 		/* Increment consumer index, update remaining descriptors count and block size */
-		rxq->cons_val_shadow = QUEUE_INDEX_INC(rxq->cons_val_shadow, block_size, rxq->desc_total);
+		cons_val = QUEUE_INDEX_INC(cons_val, block_size, rxq->desc_total);
 		desc_remain -= block_size;
 		index = block_size; /* next desc index in destination array */
 		block_size = desc_remain; /* next desc index in source ring */
@@ -847,7 +855,7 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	/* make sure all writes are done (i.e. descriptor were copied)
 	 * before incrementing the consumer index
 	 */
-	writel(rxq->cons_val_shadow, rxq->cons_addr);
+	writel(cons_val, rxq->cons_addr);
 
 	/* Update number of received descriptors */
 	*num = recv_req;
