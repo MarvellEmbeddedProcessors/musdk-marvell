@@ -932,6 +932,9 @@ int neta_port_hw_init(struct neta_port *pp)
 
 	/* Disable port */
 	neta_port_disable(pp);
+	/* reset tx/rx DMA */
+	mvneta_tx_reset(pp);
+	mvneta_rx_reset(pp);
 
 	pp->txqs = kcalloc(pp->txq_number, sizeof(struct neta_tx_queue), GFP_KERNEL);
 	if (!pp->txqs)
