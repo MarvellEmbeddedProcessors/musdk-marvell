@@ -120,6 +120,7 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 void neta_ppio_deinit(struct neta_ppio *ppio)
 {
 	neta_port_hw_deinit(ppio->internal_param);
+	neta_port_unregister(ppio->port_id);
 	free(ppio);
 }
 
