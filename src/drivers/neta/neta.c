@@ -147,6 +147,11 @@ int neta_port_register(const char *if_name, int port_id)
 	return 0;
 }
 
+void neta_port_unregister(int port_id)
+{
+	neta_ptr->ports[port_id] = 0;
+}
+
 void neta_deinit(void)
 {
 	int i;
