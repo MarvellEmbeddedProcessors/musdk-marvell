@@ -58,23 +58,16 @@ static int mv_xor_v2_descq_init(struct dmax2 *dmax2)
 	writel(3, dmax2->dma_base + DMA_DESQ_STOP_OFF);
 	writel(0, dmax2->dma_base + DMA_DESQ_STOP_OFF);
 
-	/*
-	 * This is a temporary solution, until we activate the
-	 * SMMU. Set the attributes for reading & writing data buffers
-	 * & descriptors to:
-	 *
-	 *  - OuterShareable - Snoops will be performed on CPU caches
-	 *  - Enable cacheable - Bufferable, Modifiable, Other Allocate
-	 *    and Allocate
-	 */
-	reg = readl(dmax2->dma_base + DMA_DESQ_ARATTR_OFF);
-	reg &= ~DMA_DESQ_ATTR_CACHE_MASK;
-	reg |= DMA_DESQ_ATTR_OUTER_SHAREABLE | DMA_DESQ_ATTR_CACHEABLE;
+	/* Set both descriptors as well as data as: CACHABLE (i.e. cachable, allocate) */
+	/* TODO: un-like the data, the descriptors cannot be changed right now (no API) */
+	reg = (DMA_DESQ_ATTR_PROT |
+		(DMA_ATTR_AR_CACHABLE | (DMA_ATTR_AR_CACHABLE << DMA_DESQ_ATTR_DESC_OFF)));
 	writel(reg, dmax2->dma_base + DMA_DESQ_ARATTR_OFF);
 
-	reg = readl(dmax2->dma_base + DMA_DESQ_AWATTR_OFF);
-	reg &= ~DMA_DESQ_ATTR_CACHE_MASK;
-	reg |= DMA_DESQ_ATTR_OUTER_SHAREABLE | DMA_DESQ_ATTR_CACHEABLE;
+	/* Set both descriptors as well as data as: CACHABLE (i.e. cachable, write-through, allocate) */
+	/* TODO: un-like the data, the descriptors cannot be changed right now (no API) */
+	reg = (DMA_DESQ_ATTR_PROT |
+		(DMA_ATTR_AW_CACHABLE | (DMA_ATTR_AW_CACHABLE << DMA_DESQ_ATTR_DESC_OFF)));
 	writel(reg, dmax2->dma_base + DMA_DESQ_AWATTR_OFF);
 
 	/* BW CTRL - set values to optimize the XOR performance:
@@ -183,29 +176,26 @@ int dmax2_set_mem_attributes(struct dmax2		*dmax2,
 			     enum dmax2_trans_location	location,
 			     enum dmax2_mem_direction	mem_attr)
 {
-	u16	reg, reg_mask, src_attr, dst_attr;
+	u32	reg, reg_mask, src_attr, dst_attr;
 
 	/* Prepare mask and value for memory attributes */
 	src_attr = dst_attr = DMA_ATTR_NONE;
 	reg_mask = (DMA_DESC_ATTR_ARDOMAIN_MASK | DMA_DESC_ATTR_ARCACHE_MASK);
 	switch (mem_attr) {
 	case (DMAX2_TRANS_MEM_ATTR_CACHABLE_STASH):
+		src_attr = dst_attr = DMA_ATTR_CACHABLE_STASH;
 		break;
 	case (DMAX2_TRANS_MEM_ATTR_NOT_CACHABLE):
 	case (DMAX2_TRANS_MEM_ATTR_IO):
 		src_attr = dst_attr = DMA_ATTR_IO_N_NOT_CACHABLE;
 		break;
 	case (DMAX2_TRANS_MEM_ATTR_CACHABLE):
-		src_attr = dst_attr = DMA_ATTR_CACHABLE;
+		src_attr = DMA_ATTR_AR_CACHABLE;
+		dst_attr = DMA_ATTR_AW_CACHABLE;
 		break;
 	case (DMAX2_TRANS_MEM_ATTR_CACHABLE_WR_THROUGH_NO_ALLOC):
 		src_attr = DMA_ATTR_AR_WR_NO_ALLOC;
 		dst_attr = DMA_ATTR_AW_WR_NO_ALLOC;
-		/*
-		 * WR_THROUGH_NO_ALLOC memory attribute requires configuration of both
-		 * DESC and DATA fields, therefore these memory attribute is checked
-		 */
-		reg_mask |= (DMA_DATA_ATTR_ARDOMAIN_MASK | DMA_DATA_ATTR_ARCACHE_MASK);
 		break;
 	default:
 		pr_err("DMAX2: requested unsupported memory attribute (%d)\n", mem_attr);
