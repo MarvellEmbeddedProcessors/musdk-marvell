@@ -669,6 +669,8 @@ static int mvneta_rxq_init(struct neta_port *pp,
 			   struct neta_rx_queue *rxq)
 
 {
+	int i;
+
 	rxq->size = pp->rx_ring_size;
 
 	/* Allocate memory for RX descriptors */
@@ -676,6 +678,11 @@ static int mvneta_rxq_init(struct neta_port *pp,
 					   MVNETA_DESC_ALIGNED_SIZE);
 	if (rxq->descs == NULL)
 		return -ENOMEM;
+
+	for (i = 0; i < rxq->size; i++)
+		/* invalidate packet descriptor */
+		rxq->descs[i].cmds[1] = MVNETA_DESC_WATERMARK;
+
 	rxq->descs_phys = mv_sys_dma_mem_virt2phys(rxq->descs);
 	rxq->last_desc = rxq->size - 1;
 	rxq->to_refill_cntr = rxq->size;
