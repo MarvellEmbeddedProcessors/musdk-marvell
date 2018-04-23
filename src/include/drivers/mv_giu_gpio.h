@@ -107,11 +107,13 @@ enum giu_outq_l4_type {
 #define GIU_RXD_FL_MASK			(TXD_F_MASK | TXD_L_MASK)
 #define GIU_RXD_L3_TYPE_MASK		(0x0C000000)
 #define GIU_RXD_L4_TYPE_MASK		(0x03000000)
-#define GIU_RXD_BUFMODE_MASK		(0x00200000)
+#define GIU_RXD_PAD_DIS			(0x00800000)
+#define GIU_RXD_MD_MODE			(0x00400000)
 #define GIU_RXD_POOL_ID_MASK		(0x001F0000)
 #define GIU_RXD_GEN_IP_CHK_MASK		(0x00008000)
 #define GIU_RXD_GEN_L4_CHK_MASK		(0x00006000)
 #define GIU_RXD_IP_HEAD_LEN_MASK	(0x00001F00)
+#define GIU_RXD_BUF_MODE		(0x00000080)
 #define GIU_RXD_L3_OFFSET_MASK		(0x0000007F)
 /* cmd 1 */
 #define GIU_RXD_PKT_OFF_MASK		(0x000000FF)
@@ -133,6 +135,7 @@ enum giu_outq_l4_type {
 #define GIU_RXD_GET_POOL_ID(desc)        (((desc)->cmds[0] & GIU_RXD_POOL_ID_MASK) >> 16)
 #define GIU_RXD_GET_L4_PRS_INFO(desc)    (((desc)->cmds[0] & GIU_RXD_L4_TYPE_MASK) >> 24)
 #define GIU_RXD_GET_L3_PRS_INFO(desc)    (((desc)->cmds[0] & GIU_RXD_L3_TYPE_MASK) >> 26)
+#define GIU_RXD_GET_MD_MODE(desc)        (((desc)->cmds[0] & GIU_TXD_MD_MODE) >> 22)
 
 
 
@@ -142,7 +145,8 @@ enum giu_outq_l4_type {
 #define GIU_TXD_IPHDR_LEN_MASK		(0x00001F00)
 #define GIU_TXD_EC_MASK			(0x00006000)
 #define GIU_TXD_ES_MASK			(0x00008000)
-#define GIU_TXD_L4_CHK_OK_MASK		(0x00400000)
+#define GIU_TXD_MD_MODE			(0x00400000)
+#define GIU_TXD_L4_CHK_OK_MASK		(0x00800000)
 #define GIU_TXD_L3_IP4_HDR_ERR_MASK	(0x01000000)
 #define GIU_TXD_L4_PRS_INFO_MASK	(0x0E000000)
 #define GIU_TXD_L3_PRS_INFO_MASK	(0x70000000)
@@ -165,15 +169,17 @@ enum giu_outq_l4_type {
 
 
 #define GIU_TXD_SET_L3_OFF(desc, data)	\
-		((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_OFF_MASK) | (data << 0 & GIU_TXD_L3_OFF_MASK))
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_OFF_MASK) | (data << 0 & GIU_TXD_L3_OFF_MASK))
 #define GIU_TXD_SET_IP_HEAD_LEN(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_IPHDR_LEN_MASK) | (data << 8 & GIU_TXD_IPHDR_LEN_MASK))
 #define GIU_TXD_SET_L3_TYPE(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_PRS_INFO_MASK) | (data << 28 & GIU_TXD_L3_PRS_INFO_MASK))
 #define GIU_TXD_SET_L4_TYPE(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L4_PRS_INFO_MASK) | (data << 25 & GIU_TXD_L4_PRS_INFO_MASK))
+#define GIU_TXD_SET_MD_MODE(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_MD_MODE) | (data << 22 & GIU_TXD_MD_MODE))
 #define GIU_TXD_SET_DEST_QID(desc, data)	\
-		((desc)->cmds[2] = ((desc)->cmds[2] & ~GIU_TXD_DEST_QID) | (data << 0 & GIU_TXD_DEST_QID))
+	((desc)->cmds[2] = ((desc)->cmds[2] & ~GIU_TXD_DEST_QID) | (data << 0 & GIU_TXD_DEST_QID))
 
 #define GIU_TXD_GET_L3_OFF(desc)	(((desc)->cmds[0] & GIU_TXD_L3_OFF_MASK) >> 0)
 #define GIU_TXD_GET_IPHDR_LEN(desc)	(((desc)->cmds[0] & GIU_TXD_IPHDR_LEN_MASK) >> 8)
@@ -434,6 +440,18 @@ static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc,
 	GIU_TXD_SET_IP_HEAD_LEN(desc, (l4_offset - l3_offset)/sizeof(u32));
 }
 
+/**
+ * Set the metadata mode in an outq packet descriptor.
+ *
+ * @param[out]	desc		A pointer to a packet descriptor structure.
+ * @param[in]	md_mode		'1' for setting metadata mode
+ *
+ */
+static inline void giu_gpio_outq_desc_set_md_mode(struct giu_gpio_desc *desc, int md_mode)
+{
+	GIU_TXD_SET_MD_MODE(desc, md_mode);
+}
+
 /******** RXQ  ********/
 
 /**
@@ -487,6 +505,18 @@ static inline struct giu_bpool *giu_gpio_inq_desc_get_bpool(struct giu_gpio_desc
 							    struct giu_gpio *gpio __attribute__((__unused__)))
 {
 	return &giu_bpools[GIU_RXD_GET_POOL_ID(desc)];
+}
+
+/**
+ * get the metadata mode of an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	metadata mode
+ */
+static inline int giu_gpio_inq_desc_get_md_mode(struct giu_gpio_desc *desc)
+{
+	return GIU_RXD_GET_MD_MODE(desc);
 }
 
 /** @} */ /* end of grp_giu_io */
