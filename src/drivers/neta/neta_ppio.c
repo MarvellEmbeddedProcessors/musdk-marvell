@@ -527,13 +527,13 @@ int neta_ppio_inq_get_all_buffs(struct neta_ppio	*ppio,
 
 	for (i = 0; i < free_cnt; i++) {
 
-		rx_desc = rxq->descs + rxq->next_desc_to_refill;
-		rxq->to_refill_cntr++;
-
 		if (rxq->next_desc_to_refill)
 			rxq->next_desc_to_refill--;
 		else
 			rxq->next_desc_to_refill = rxq->last_desc;
+
+		rx_desc = rxq->descs + rxq->next_desc_to_refill;
+		rxq->to_refill_cntr++;
 
 		bufs[i].cookie = rx_desc->cmds[4];
 		bufs[i].addr = rx_desc->cmds[2];
