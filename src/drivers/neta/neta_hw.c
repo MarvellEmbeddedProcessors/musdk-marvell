@@ -708,32 +708,10 @@ static int mvneta_rxq_init(struct neta_port *pp,
 	return 0;
 }
 
-/* Drop packets received by the RXQ and free buffers */
-static void mvneta_rxq_drop_pkts(struct neta_port *pp,
-				 struct neta_rx_queue *rxq)
-{
-	int rx_done, i;
-
-	rx_done = neta_rxq_busy_desc_num_get(pp, rxq->id);
-	if (rx_done)
-		neta_port_inq_update(pp, rxq, 0, rx_done);
-
-	for (i = 0; i < rxq->size; i++) {
-		struct neta_ppio_desc *rx_desc = rxq->descs + i;
-		void *data = (u8 *)(uintptr_t)rx_desc->cmds[4];
-
-		if (!data)
-			continue;
-		/* TBD mv_sys_dma_mem_free(data); */
-	}
-}
-
 /* Cleanup Rx queue */
 static void mvneta_rxq_deinit(struct neta_port *pp,
 			      struct neta_rx_queue *rxq)
 {
-	mvneta_rxq_drop_pkts(pp, rxq);
-
 	if (rxq->descs)
 		mv_sys_dma_mem_free(rxq->descs);
 
