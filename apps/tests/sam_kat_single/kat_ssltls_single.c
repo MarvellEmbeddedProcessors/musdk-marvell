@@ -105,6 +105,8 @@ static u8 aes128_cbc_t1_pt[] = { /* "Single block msg" */
 static struct sam_buf_info aes128_t1_buf;
 static u8 expected_data[MAX_BUF_SIZE];
 static u32 expected_data_size;
+static u64 enc_seq = 0x34; /* Default initial sequence number for encrypt */
+static u64 dec_seq = 0x34; /* Default initial sequence number for decrypt */
 
 static struct sam_session_params dtls_aes_cbc_sha1_sa = {
 	.dir = SAM_DIR_ENCRYPT,				/* operation direction: encode/decode */
@@ -118,11 +120,10 @@ static struct sam_session_params dtls_aes_cbc_sha1_sa = {
 	.proto = SAM_PROTO_SSLTLS,
 	.u.ssltls.version = SAM_DTLS_VERSION_1_0,	/* DTLS 1.0 version */
 	.u.ssltls.epoch = 0x0D,				/* 13 - for DTLS only */
-	.u.ssltls.seq = 0x34,				/* 53 - Initial sequence number */
 	.u.ssltls.is_ip6 = 0,				/* DTLS transported over: 1 - UDP/IPv6, 0 - UDP/IPv4 */
 	.u.ssltls.is_udp_lite = 0,			/* 1 - use UDPLite, 0 - use UDP */
 	.u.ssltls.is_capwap = 0,			/* 1 - use CAPWAP/DTLS, 0 - use DTLS */
-	.u.ssltls.seq_mask_size = SAM_DTLS_MASK_NONE,	/* anti-replay seq mask size */
+	.u.ssltls.seq_mask_size = SAM_DTLS_MASK_64B,	/* anti-replay seq mask size */
 	.u.ssltls.seq_mask[0] = 0x0,			/* up to 128-bit mask window used with inbound DTLS */
 };
 
@@ -153,6 +154,14 @@ static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir d
 		return -EINVAL;
 	}
 	sa_params->dir = dir;
+	if (dir == SAM_DIR_ENCRYPT)
+		sa_params->u.ssltls.seq = enc_seq;
+	else if (dir == SAM_DIR_DECRYPT)
+		sa_params->u.ssltls.seq = dec_seq;
+	else {
+		printf("%s: Unexpected direction %d\n", __func__, dir);
+		return -EINVAL;
+	}
 
 	rc = sam_session_create(sa_params, hndl);
 	if (rc) {
@@ -292,11 +301,12 @@ static void usage(char *progname)
 
 	printf("Usage: %s [OPTIONS]\n", MVAPPS_NO_PATH(progname));
 	printf("OPTIONS are optional:\n");
-	printf("\t-t <number>      - Test ID (default: %d)\n", test_id);
+	printf("\t-t   <number>    - Test ID (default: %d)\n", test_id);
 	for (id = 0; id < ARRAY_SIZE(test_names); id++)
 		printf("\t                 %d - %s\n", id, test_names[id]);
-	printf("\t-n <number>      - Number of packets (default: %d)\n", num_pkts);
-	printf("\t-f <bitmask>     - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x%x)\n",
+	printf("\t-n   <number>    - Number of packets (default: %d)\n", num_pkts);
+	printf("\t-seq <enc> <dec> - Initial sequence id for encrypt and decrypt\n");
+	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x%x)\n",
 					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
 	printf("\t-v               - Increase verbose level (default is 0).\n");
 }
@@ -334,6 +344,22 @@ static int parse_args(int argc, char *argv[])
 			}
 			num_pkts = atoi(argv[i + 1]);
 			i += 2;
+		} else if (strcmp(argv[i], "-seq") == 0) {
+			if (argc < (i + 3)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 2][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			enc_seq = atoi(argv[i + 1]);
+			dec_seq = atoi(argv[i + 2]);
+			i += 3;
 		} else if (strcmp(argv[i], "-f") == 0) {
 			int scanned;
 
@@ -371,7 +397,7 @@ static int parse_args(int argc, char *argv[])
 	printf("Test ID     : %d\n", test_id);
 	printf("Test name   : %s\n", test_names[test_id]);
 	printf("Debug flags : 0x%x\n", debug_flags);
-
+	printf("SeqId       : 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
 
 	return 0;
 }

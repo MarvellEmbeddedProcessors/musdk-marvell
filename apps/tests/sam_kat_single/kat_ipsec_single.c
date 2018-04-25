@@ -128,6 +128,9 @@ static u8	expected_data[MAX_BUF_SIZE];
 static u32	expected_data_size;
 static u32	total_errors;
 
+static u64 enc_seq = 0x34; /* Default initial sequence number for encrypt */
+static u64 dec_seq = 0x34; /* Default initial sequence number for decrypt */
+
 static int test_id = 1;
 static int num_pkts = 1;
 static int payload_size = sizeof(IPSEC_ESP_AES128_CBC_T1_PT);
@@ -234,6 +237,14 @@ static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir d
 		return -EINVAL;
 	}
 	sa_params->dir = dir;
+	if (dir == SAM_DIR_ENCRYPT)
+		sa_params->u.ipsec.seq = enc_seq;
+	else if (dir == SAM_DIR_DECRYPT)
+		sa_params->u.ipsec.seq = dec_seq;
+	else {
+		printf("%s: Unexpected direction %d\n", __func__, dir);
+		return -EINVAL;
+	}
 
 	if (sa_params->u.ipsec.is_tunnel) {
 		if (sa_params->u.ipsec.is_ip6) {
@@ -390,15 +401,16 @@ static void usage(char *progname)
 
 	printf("Usage: %s [OPTIONS]\n", MVAPPS_NO_PATH(progname));
 	printf("OPTIONS are optional:\n");
-	printf("\t-t <number>      - Test ID (default: %d)\n", test_id);
+	printf("\t-t   <number>    - Test ID (default: %d)\n", test_id);
 	for (id = 0; id < ARRAY_SIZE(test_names); id++)
 		printf("\t                 %d - %s\n", id, test_names[id]);
-	printf("\t-s <number>      - Payload size (default: %u)\n",
+	printf("\t-s   <number>    - Payload size (default: %u)\n",
 		(unsigned)sizeof(IPSEC_ESP_AES128_CBC_T1_PT));
-	printf("\t-n <number>      - Number of packets (default: %d)\n", num_pkts);
-	printf("\t-c <number>      - Number of packets to check (default: %d)\n", num_to_check);
-	printf("\t-f <bitmask>     - Debug flags: 0x%x - SA, 0x%x - CIO,  (default: 0x%x)\n",
-					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
+	printf("\t-n   <number>    - Number of packets (default: %d)\n", num_pkts);
+	printf("\t-c   <number>    - Number of packets to check (default: %d)\n", num_to_check);
+	printf("\t-seq <enc> <dec> - Initial sequence id for encrypt and decrypt\n");
+	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO,  (default: 0x%x)\n",
+				     SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
 	printf("\t-v               - Increase verbose level (default is 0).\n");
 	printf("\t--enc            - Do encrypt only (default: enc+dec)\n");
 }
@@ -439,6 +451,22 @@ static int parse_args(int argc, char *argv[])
 			}
 			num_pkts = atoi(argv[i + 1]);
 			i += 2;
+		} else if (strcmp(argv[i], "-seq") == 0) {
+			if (argc < (i + 3)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 2][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			enc_seq = atoi(argv[i + 1]);
+			dec_seq = atoi(argv[i + 2]);
+			i += 3;
 		} else if (strcmp(argv[i], "-s") == 0) {
 			if (argc < (i + 2)) {
 				pr_err("Invalid number of arguments!\n");
