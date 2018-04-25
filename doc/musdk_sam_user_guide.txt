@@ -67,7 +67,7 @@ Function: ``int sam_session_create(struct sam_session_params *params, struct sam
   - Cipher algorithms: NULL, AES, 3DES
   - Cipher key length: 128, 192, 256 bits
   - Cipher modes: ECB, CBC, CTR, GCM
-  - Authentication algorithms: NULL, SHA1, MD5, SHA2 (384/256/512)
+  - Authentication algorithms: NULL, MD5, SHA1, SHA2 (224/256/384/512)
   - Authentication modes: HASH, HMAC, GMAC
   - Encryption: encryption only, authentication only, encryption and then
     authentication, authentication and then encryption
