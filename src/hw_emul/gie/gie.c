@@ -29,6 +29,8 @@
 #define GIE_SHADOW_FILL_SIZE	256
 #define GIE_SHADOW_FILL_THRESH	128
 
+/* #define GIE_VERIFY_DMA_OP */
+
 #define GIE_MAX_QID		(UINT16_MAX + 1)
 
 #define GIE_AGNIC_UIO_STRING	"agnic_tc_%u"
@@ -886,7 +888,11 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 	job_info->flags = job->flags;
 
 	/* create the dma job to submit */
+#ifdef GIE_VERIFY_DMA_OP
+	desc.flags = DESC_FLAGS_SYNC;
+#else
 	desc.flags = 0;
+#endif /* GIE_VERIFY_DMA_OP */
 	desc.desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
 	desc.src_addr = job->src;
 	desc.dst_addr = job->dst;
@@ -945,7 +951,11 @@ static void gie_copy_index(struct dma_info *dma, u64 src, u64 dst)
 	job.cookie_head = 0;
 	job.cookie_tail = 0;
 	job.element_size = sizeof(u16);
+#ifdef GIE_VERIFY_DMA_OP
+	job.flags = DESC_FLAGS_SYNC;
+#else
 	job.flags = 0;
+#endif /* GIE_VERIFY_DMA_OP */
 
 	job.src = src;
 	job.dst = dst;
@@ -1445,11 +1455,19 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 
 static void gie_clean_dma_jobs(struct dma_info *dma)
 {
+#ifdef GIE_VERIFY_DMA_OP
+	struct dmax2_trans_complete_desc	 dmax2_res_descs[GIE_MAX_QES_IN_BATCH];
+#endif /* GIE_VERIFY_DMA_OP */
 	struct dma_job_info			*jobi;
 	u16					 completed, clean, elements;
 	int					 i;
 
+#ifdef GIE_VERIFY_DMA_OP
+	completed = GIE_MAX_QES_IN_BATCH;
+	dmax2_deq(dma->dmax2, dmax2_res_descs, &completed, 1);
+#else
 	completed = dmax2_get_deq_num_available(dma->dmax2);
+#endif /* GIE_VERIFY_DMA_OP */
 	if (!completed)
 		return;
 	/* TODO: iterate all result-descriptor and verify no errors occurred */
@@ -1500,7 +1518,9 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 	}
 
 	dma->head = i;
+#ifndef GIE_VERIFY_DMA_OP
 	dmax2_deq(dma->dmax2, NULL, &completed, 0);
+#endif /* !GIE_VERIFY_DMA_OP */
 }
 
 int gie_schedule(void *giu, u64 time_limit, u64 qe_limit, u16 *pending)
