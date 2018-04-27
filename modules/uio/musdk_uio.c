@@ -483,6 +483,7 @@ fail:
 static int musdk_uio_remove(struct platform_device *pdev)
 {
 	struct uio_pdrv_musdk_info *uio_pdrv_musdk = platform_get_drvdata(pdev);
+	int idx;
 
 	if (!uio_pdrv_musdk)
 		return -EINVAL;
@@ -492,7 +493,7 @@ static int musdk_uio_remove(struct platform_device *pdev)
 	   uio_pdrv_musdk->uio[0].name, uio_pdrv_musdk->misc.name);
 
 	if (uio_pdrv_musdk->uio_num != -EIO)
-		for (int idx = 0; idx <= uio_pdrv_musdk->uio_num; ++idx)
+		for (idx = 0; idx <= uio_pdrv_musdk->uio_num; ++idx)
 			uio_unregister_device(&uio_pdrv_musdk->uio[idx]);
 
 	platform_set_drvdata(pdev, NULL);
