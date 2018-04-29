@@ -496,4 +496,20 @@ int pp2_port_close_uio(struct pp2_port *port)
 
 	return err;
 }
+int pp2_port_set_priv_flags(struct pp2_port *port, u32 val)
+{
+	struct net_device *netdev = pp2_port_get_netdev(port);
+	int err;
 
+	if (!netdev) {
+		pr_err("%s: Failed to locate network device '%s'.\n", __func__, port->linux_name);
+		return -EINVAL;
+	}
+	if (!netdev->ethtool_ops->set_priv_flags) {
+		pr_err("%s: Failed to find ethtool op.\n", __func__);
+		return -EINVAL;
+	}
+	err = netdev->ethtool_ops->set_priv_flags(netdev, val);
+
+	return err;
+}

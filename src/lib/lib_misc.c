@@ -181,3 +181,66 @@ void mv_mem_dump_words(const u32 *p, u32 words, int be)
 		printk("\n");
 	}
 }
+
+#ifdef __KERNEL__
+static int mv_kernel_ver_get(void)
+{
+	int major, minor, err;
+	char *kernel_version;
+
+	kernel_version = utsname()->release;
+
+	err = sscanf(kernel_version, "%d.%d", &major, &minor);
+	if (err)
+		return err;
+
+	pr_debug("%s: ver:%s, major:%d, minor:%d\n", __func__, kernel_version, major, minor);
+
+	return MKDEV(major, minor);
+}
+#else
+static int mv_kernel_ver_get(void)
+{
+	int major, minor, parsed;
+	char *kernel_version;
+	struct utsname buf;
+	int ret;
+
+	ret = uname(&buf);
+	if (ret < 0)
+		return ret;
+	kernel_version = buf.release;
+	parsed = sscanf(kernel_version, "%d.%d", &major, &minor);
+	if (parsed < 2) {
+		pr_err("%s: Failed to Parse linux_version\n", __func__);
+		return 0;
+	}
+
+	pr_debug("%s: ver:%s, major:%d, minor:%d\n", __func__, kernel_version, major, minor);
+
+	return MKDEV(major, minor);
+}
+#endif
+
+enum musdk_lnx_id lnx_id_get(void)
+{
+	int lk_ver;
+	static enum musdk_lnx_id lnx_id = LNX_VER_INVALID;
+
+	if (lnx_id != LNX_VER_INVALID)
+		return lnx_id;
+
+	lk_ver = mv_kernel_ver_get();
+
+	if ((MAJOR(lk_ver) == 4) && (MINOR(lk_ver) == 4))
+		lnx_id = LNX_4_4_x;
+	else
+		lnx_id = LNX_OTHER;
+
+	return lnx_id;
+}
+
+int lnx_is_mainline(enum musdk_lnx_id lnx_id)
+{
+	return (lnx_id > LNX_4_4_x);
+}

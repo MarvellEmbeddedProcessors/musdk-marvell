@@ -314,4 +314,14 @@ void mem_disp(const char *_p, int len);
 void mv_mem_dump(const unsigned char *p, unsigned int len);
 void mv_mem_dump_words(const u32 *p, u32 words, int be);
 
+enum musdk_lnx_id {
+	LNX_VER_INVALID = -1,
+	LNX_4_4_x = 0,
+	LNX_OTHER = 1 /* Currently LNX_4_14_x */
+};
+
+enum musdk_lnx_id lnx_id_get(void);
+int lnx_is_mainline(enum musdk_lnx_id lnx_id);
+
+
 #endif /* __LIB_MISC_H__ */

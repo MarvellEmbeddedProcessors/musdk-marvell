@@ -48,55 +48,57 @@
  * Get device tree data of the PPV2 ethernet ports.
  * Does not include the loopback port.
  */
+
+static const struct of_device_id mv_pp2_match_tbl[] = {
+		{
+			.compatible = "marvell,mv-pp22",
+		},
+		{
+			.compatible = "marvell,armada-7k-pp22",
+		},
+
+	{ }
+};
+
+
 int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 {
+	struct device_node *pp2_next_node, *pp2_cur_node = NULL;
 	struct device_node *port_node;
-	const char *musdk_status, *status;
-	char subpath[PP2_MAX_BUF_STR_LEN];
-	char fullpath[PP2_MAX_BUF_STR_LEN];
-	u32 if_id = 0;
-	int i, j, idx;
-	u8 num_inst;
+	struct net_device *netdev;
+	const char *status;
+	u32 pp2_inst = 0, port_id, idx;
 
-	num_inst = pp2_get_num_inst();
 
-	for (i = 0; i < num_inst; i++) {
+	while ((pp2_next_node = of_find_matching_node(pp2_cur_node, mv_pp2_match_tbl)) != NULL) {
+		pp2_cur_node = pp2_next_node;
+		for_each_child_of_node(pp2_cur_node, port_node) {
 
-		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
-
-			idx = i * PP2_NUM_ETH_PPIO + j;
-
-			/* TODO -We assume that the temppath is static.
-			 * Need to substitute this with a function that searches for the following string:
-			 * <.compatible = "marvell,mv-pp22"> in /proc/device-tree directories
-			 * and returns the temppath
-			 */
-			sprintf(fullpath, PP2_NETDEV_PATH_TEMPLATE_K, i);
-
-			netdev_params[idx].ppio_id = j;
-			netdev_params[idx].pp_id = i;
-			sprintf(subpath, "eth%d@0%d0000", j, j + 1);
-			strcat(fullpath, subpath);
-			pr_debug("%s: of_find_node_by_path(%s)\n", __func__, fullpath);
-
-			port_node = of_find_node_by_path(fullpath);
-
-			if (!port_node) {
-				pr_err("Failed to find device-tree node: %s\n", fullpath);
-				return -ENODEV;
+			if (of_property_read_u32(port_node, "port-id", &port_id)) {
+				pr_err("missing port-id value\n");
+				return -EINVAL;
 			}
+			idx = pp2_inst * PP2_NUM_ETH_PPIO + port_id;
+			netdev_params[idx].ppio_id = port_id;
+			netdev_params[idx].pp_id = pp2_inst;
+
 			status = of_get_property(port_node, "status", NULL);
 			if (!strcmp("disabled", status)) {
-				pr_debug("%s: port %d:%d is disabled\n", __func__, i, j);
+				pr_debug("%s: port %d:%d is disabled\n", __func__, pp2_inst, port_id);
 				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
 			} else {
 				netdev_params[idx].admin_status = PP2_PORT_KERNEL;
+				netdev = of_find_net_device_by_node(port_node);
+				if (netdev)
+					strcpy(netdev_params[idx].if_name, netdev->name);
 			}
-			pr_debug("%s: Port '%s' (ppio%d:%d) is %s.\n", __func__, netdev_params[idx].if_name, i, j,
+			pr_debug("%s: Port '%s' (ppio%d:%d) is %s.\n", __func__, netdev_params[idx].if_name,
+				 pp2_inst, port_id,
 				 netdev_params[idx].admin_status == PP2_PORT_DISABLED ? "disabled" :
 				 netdev_params[idx].admin_status == PP2_PORT_KERNEL ? "owned by kernel" :
 				 "in an unknown state");
-		}
+			}
+		 pp2_inst++;
 	}
 
 	return 0;

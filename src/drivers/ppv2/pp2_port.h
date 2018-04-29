@@ -48,6 +48,7 @@
 #define PP2_LOOPBACK_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_64
 #define PP2_ETH_PORT_TXQ_PREFETCH	PP2_TXQ_PREFETCH_16
 
+#define MVPP22_F_IF_MUSDK_PRIV		BIT(0)
 
 struct pp2_port;
 
@@ -485,6 +486,7 @@ pp2_rxq_received(struct pp2_port *port, const int rxq_id)
 }
 /* Open uio_device associated with a port */
 int pp2_port_open_uio(struct pp2_port *port);
+int pp2_port_set_priv_flags(struct pp2_port *port, u32 val);
 /* Close uio_device associated with a port */
 int pp2_port_close_uio(struct pp2_port *port);
 

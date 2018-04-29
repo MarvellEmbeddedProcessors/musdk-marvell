@@ -563,6 +563,25 @@ int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *s
 
 	return 0;
 }
+int pp2_port_set_priv_flags(struct pp2_port *port, u32 val)
+{
+	struct ifreq ifr;
+	struct ethtool_value param;
+	int rc;
+
+	strcpy(ifr.ifr_name, port->linux_name);
+
+	param.cmd =  ETHTOOL_SPFLAGS;
+	param.data = val;
+	ifr.ifr_data = &param;
+	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
+	if (rc) {
+		pr_err("PORT: unable to set priv_flags\n");
+		return rc;
+	}
+
+	return 0;
+}
 int pp2_port_open_uio(struct pp2_port *port)
 {
 	char *tmp_name;

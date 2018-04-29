@@ -48,10 +48,27 @@
 #include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
 
-#define PP_UIO_MEM_NAME "pp"
 
 struct pp2 *pp2_ptr;
 struct netdev_if_params *netdev_params;
+
+
+
+struct pp2_lnx_format pp2_frm[] = {
+				{
+					.ver = LNX_4_4_x,
+					.devtree_path = "/proc/device-tree/cp%u/config-space/ppv22@000000/",
+					.eth_format = "eth%d@0%d0000",
+					.uio_format = "pp"
+				},
+				{
+					.ver = LNX_OTHER,
+					.devtree_path = "/proc/device-tree/cp%u/config-space/ethernet@0/",
+					.eth_format = "eth%d",
+					.uio_format = "cp"
+				}
+};
+
 
 /* TBD: remove hc_gop_mac_data variable after port/mac is read from device tree*/
 static struct pp2_mac_data hc_gop_mac_data[12] = {
@@ -264,11 +281,11 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 	struct pp2_hw *hw = &inst->hw;
 	struct sys_iomem_params iomem_params;
 	struct sys_iomem *pp2_sys_iomem;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
 	hw->tclk = PP2_TCLK_FREQ;
-
 	iomem_params.type = SYS_IOMEM_T_UIO;
-	iomem_params.devname = PP_UIO_MEM_NAME;
+	iomem_params.devname = pp2_frm[lnx_id].uio_format;
 	iomem_params.index = inst->id;
 
 	err = sys_iomem_init(&iomem_params, &pp2_sys_iomem);
@@ -390,9 +407,10 @@ u8 pp2_get_num_inst(void)
 {
 	u8 i, pp2_num_inst = 0;
 	struct sys_iomem_params  iomem_params;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
 	iomem_params.type = SYS_IOMEM_T_UIO;
-	iomem_params.devname = PP_UIO_MEM_NAME;
+	iomem_params.devname = pp2_frm[lnx_id].uio_format;
 	for (i = 0; i < PP2_MAX_NUM_PACKPROCS; i++) {
 		iomem_params.index = i;
 		pp2_num_inst += sys_iomem_exists(&iomem_params);
