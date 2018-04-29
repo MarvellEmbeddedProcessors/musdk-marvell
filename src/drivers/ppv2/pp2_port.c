@@ -1115,6 +1115,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	struct pp2_port *port;
 	struct pp2_hw *hw;
 	int rc;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
 	inst = pp2->pp2_inst[pp2_id];
 
@@ -1262,7 +1263,10 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 
 	/* For MUSDK Ethernet ports, call uio_open to request port ownership from Linux */
 	if (NOT_LPBK_PORT(port) && port->type == PP2_PPIO_T_NIC) {
-		rc = pp2_port_open_uio(port);
+		if (lnx_is_mainline(lnx_id))
+			rc = pp2_port_set_priv_flags(port, MVPP22_F_IF_MUSDK_PRIV);
+		else
+			rc = pp2_port_open_uio(port);
 		if (rc)
 			return rc;
 	}
@@ -1322,6 +1326,7 @@ void
 pp2_port_close(struct pp2_port *port)
 {
 	struct pp2_inst *inst;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
 	if (!port)
 		return;
@@ -1331,8 +1336,12 @@ pp2_port_close(struct pp2_port *port)
 	 inst->num_ports--;
 
 	/* Close uio_device file, returns ownership to Linux */
-	if (NOT_LPBK_PORT(port) && port->type == PP2_PPIO_T_NIC)
-		pp2_port_close_uio(port);
+	if (NOT_LPBK_PORT(port) && port->type == PP2_PPIO_T_NIC) {
+		if (lnx_is_mainline(lnx_id))
+			pp2_port_set_priv_flags(port, 0);
+		else
+			pp2_port_close_uio(port);
+	}
 }
 
 

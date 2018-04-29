@@ -43,11 +43,13 @@
 
 #define PP2_NETDEV_PATH		"/sys/class/net/"
 
-#define PP2_NETDEV_PATH_TEMPLATE_US	"/proc/device-tree/cp%u/config-space/ppv22@000000/"
+
+
 
 /* Get device tree data of the PPV2 ethernet ports.
  * Does not include the loopback port.
  */
+
 static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 {
 	FILE *fp;
@@ -58,15 +60,21 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 	char buf[PP2_MAX_BUF_STR_LEN];
 	int i, j, idx = 0, cp110_num, err;
 	u8 num_inst;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
-	num_inst = pp2_get_num_inst();
 
 	if (!netdev_params)
 		return -EFAULT;
+
+	num_inst = pp2_get_num_inst();
+
 	for (i = 0, cp110_num = 0; i < num_inst; i++, cp110_num++) {
 		err = -1;
 		while (cp110_num < PP2_MAX_NUM_PACKPROCS) {
-			sprintf(cp110path, PP2_NETDEV_PATH_TEMPLATE_US, cp110_num);
+			if (lnx_id == LNX_4_4_x)
+				sprintf(cp110path, pp2_frm[lnx_id].devtree_path, cp110_num);
+			else
+				sprintf(cp110path, pp2_frm[lnx_id].devtree_path, cp110_num);
 			err = access(cp110path, F_OK);
 			if (!err)
 				break;
@@ -79,9 +87,11 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 		for (j = 0; j < PP2_NUM_ETH_PPIO; j++) {
 
 			idx = i * PP2_NUM_ETH_PPIO + j;
-			/* Get port status info */
 			strcpy(temppath, cp110path);
-			sprintf(subpath, "eth%d@0%d0000", j, j + 1);
+			if (lnx_id == LNX_4_4_x)
+				sprintf(subpath, pp2_frm[lnx_id].eth_format, j, j + 1);
+			else
+				sprintf(subpath, pp2_frm[lnx_id].eth_format, j);
 			strcat(temppath, subpath);
 			strcpy(fullpath, temppath);
 			strcat(fullpath, "/status");
@@ -102,6 +112,7 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 				netdev_params[idx].admin_status = PP2_PORT_DISABLED;
 			} else {
 				netdev_params[idx].admin_status = PP2_PORT_KERNEL;
+				pr_debug("port %d:%d is ok\n", i, j);
 			}
 		}
 	}
@@ -169,9 +180,8 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 			freeifaddrs(ifap);
 			return -EEXIST;
 		}
-		fgets(buf, sizeof(buf), fp);
 		while (fgets(buf, PP2_MAX_BUF_STR_LEN, fp)) {
-			if (strncmp("OF_NAME=ppv22", buf, 13) == 0) {
+			if (strncmp("DRIVER=mvpp2", buf, 12) == 0) {
 				while (netdev_params[idx].admin_status == PP2_PORT_DISABLED)
 					idx++;
 				strcpy(netdev_params[idx].if_name, ifa->ifa_name);

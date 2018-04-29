@@ -46,6 +46,9 @@
 #include <linux/spinlock.h>
 #include <linux/etherdevice.h>
 #include <linux/if_vlan.h>
+#include <linux/of_net.h>
+#include <linux/utsname.h>
+
 #include <asm-generic/io.h>
 
 #include "env/spinlock.h"
@@ -84,8 +87,11 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <sys/ioctl.h>
+#include <sys/utsname.h>
 #include <linux/ethtool.h>
 #include <linux/sockios.h>
+#include <linux/kdev_t.h>
+
 #include <getopt.h>
 #include <ifaddrs.h>
 
@@ -93,7 +99,6 @@
 #include "env/spinlock.h"
 #include "env/io.h"
 #include "env/netdev.h"
-#include <lib/file_utils.h>
 
 /* TODO: move to configure script */
 #define MVCONF_IOMEM_USE_UIO
@@ -101,5 +106,7 @@
 #endif /* __KERNEL__ */
 
 #include "env/sys_iomem.h"
+#include "lib/file_utils.h"
+#include "lib/lib_misc.h"
 
 #endif /* __STD_INTERNAL_H__ */

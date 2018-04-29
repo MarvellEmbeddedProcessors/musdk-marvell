@@ -40,10 +40,34 @@
 #include "lib/uio_helper.h"
 
 
+
+
+struct sys_iomem_format {
+	char *uio_hdr;
+	char *id_format;
+};
+
+
+#define PP2_NETDEV_PATH		"/sys/class/net/"
+#define MAX_UIO_FORMAT_SZ	20
+
+static struct sys_iomem_format uio_frm[] = {
+				{
+					.uio_hdr = "uio",
+					.id_format = "_%d"
+				},
+				{
+					.uio_hdr = "mvpp2",
+					.id_format = "%d"
+				},
+};
+
+
 #define MMAP_FILE_NAME	"/dev/mem"
 #define PAGE_SZ		0x400
 
 #define SHM_MAX_NAME_STRING_SIZE	64
+#define UIO_VER_INVALID			(-1)
 
 struct mem_mmap_nd {
 	char		*name;
@@ -113,53 +137,53 @@ static struct uio_mem_t *iomem_uio_rm_entry(struct uio_mem_t **headp,
 	return node;
 }
 
-static int iomem_uio_io_exists(const char *name, int index)
+static struct uio_info_t *iomem_find_uio_device(const char *name, int index)
 {
 	char	*tmp_name;
-	int	 ans;
-	int size = strlen(name)+8;
+	char	format_buf[MAX_UIO_FORMAT_SZ];
+	int	max_size = strlen(name) + MAX_UIO_FORMAT_SZ + 2*sizeof(int), i;
+	struct uio_info_t *uio_info;
 
 	if (name == NULL)
 		return 0;
 
-	tmp_name = malloc(size);
+	tmp_name = malloc(max_size);
 	if (!tmp_name) {
 		pr_err("no mem for IOMEM-name obj!\n");
-		return -ENOMEM;
+		return NULL;
 	}
-	memset(tmp_name, 0, size);
-	if (index < 0)
-		snprintf(tmp_name, size, "uio_%s", name);
-	else
-		snprintf(tmp_name, size, "uio_%s_%d", name, index);
-
-	if (uio_find_devices_byname(tmp_name))
-		ans = 1;
-	else
-		ans = 0;
+	for (i = 0; i < ARRAY_SIZE(uio_frm); i++) {
+		memset(tmp_name, 0, max_size);
+		strcpy(format_buf, uio_frm[i].uio_hdr);
+		strcat(format_buf, "_%s");
+		if (index < 0)
+			snprintf(tmp_name, max_size, format_buf, name);
+		else {
+			strcat(format_buf, uio_frm[i].id_format);
+			snprintf(tmp_name, max_size, format_buf, name, index);
+		}
+		uio_info = uio_find_devices_byname(tmp_name);
+		if (uio_info)
+			break;
+	}
+	pr_debug("%s: uio_name:%s found:%d\n", __func__, tmp_name, uio_info ? 1 : 0);
 	free(tmp_name);
+	return uio_info;
+}
+static int iomem_uio_io_exists(const char *name, int index)
+{
+	struct uio_info_t *uio_info;
 
-	return ans;
+	uio_info = iomem_find_uio_device(name, index);
+	return (uio_info != NULL);
 }
 
 static int iomem_uio_ioinit(struct mem_uio *uiom, const char *name, int index)
 {
-	char	*tmp_name = malloc(strlen(name)+8);
 
-	if (!name) {
-		pr_err("no mem for IOMEM-name obj!\n");
-		return -ENOMEM;
-	}
-	memset(tmp_name, 0, strlen(name)+8);
-	if (index < 0)
-		snprintf(tmp_name, strlen(name)+8, "uio_%s", name);
-	else
-		snprintf(tmp_name, strlen(name)+8, "uio_%s_%d", name, index);
-
-	uiom->info = uio_find_devices_byname(tmp_name);
+	uiom->info = iomem_find_uio_device(name, index);
 	if (!uiom->info) {
-		pr_err("UIO device (%s) not found!\n", tmp_name);
-		free(tmp_name);
+		pr_err("%s: UIO device not found!\n", __func__);
 		return -ENODEV;
 	}
 
@@ -170,7 +194,6 @@ static int iomem_uio_ioinit(struct mem_uio *uiom, const char *name, int index)
 		uio_get_all_info(node);
 		node = node->next;
 	}
-	free(tmp_name);
 
 	return 0;
 }

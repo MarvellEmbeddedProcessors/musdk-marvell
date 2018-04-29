@@ -179,6 +179,18 @@ struct pp2_txq_dm_if {
 	u32 desc_rsrvd;
 };
 
+
+struct pp2_lnx_format {
+	enum musdk_lnx_id ver;
+	char *devtree_path;
+	char *eth_format;
+	char *uio_format;
+};
+
+
+extern struct pp2_lnx_format pp2_frm[];
+
+
 /* Automatic statistics update threshold (in received packetes) */
 #define PP2_STAT_UPDATE_THRESHOLD	(0xEFFFFFFF)
 
