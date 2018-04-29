@@ -44,53 +44,57 @@
 
 int pp2_rss_musdk_map_get(struct pp2_port *port)
 {
-	u16 req_tbls = 0;
-	int i, idx;
-	int rss_en = false;
+	u16 req_tbls = 0, used_tbls, avail_tbls;
+	int i, idx, req_ind[MVPP22_RSS_TBL_NUM] = { 0 };
 	struct pp2_inst *inst = port->parent;
 	int hw_tbl;
+#ifdef DEBUG
 	u16 num_in_q;
+#endif
+
+	used_tbls = pp2_cls_db_rss_kernel_rsvd_tbl_get(inst) + pp2_cls_db_rss_num_musdk_tbl_get(inst);
+	avail_tbls = MVPP22_RSS_TBL_NUM - used_tbls;
 
 	/* Calculate number of TC's which require RSS */
 	for (i = 0; i < port->num_tcs; i++) {
-		if (port->tc[i].tc_config.num_in_qs > 1)
-			rss_en = true;
+		if (port->tc[i].tc_config.num_in_qs == 1)
+			continue;
 
 		hw_tbl = pp2_cls_db_rss_get_hw_tbl_from_in_q(inst, port->tc[i].tc_config.num_in_qs);
+		/* New hw_tbl required for this TC */
 		if (hw_tbl < 0) {
+			if (req_tbls >= avail_tbls) {
+				pr_err("%s:Out of RSS tables\n", __func__);
+				goto rollback;
+			}
 			/* entry in rss_tbl_map is empty. Fill dB with new values */
 			idx = pp2_cls_db_rss_tbl_map_get_next_free_idx(inst);
 			if (idx == MVPP22_RSS_TBL_NUM) {
-				pr_err("Unable to allocate new RSS table\n");
-				return -EFAULT;
+				/* This should never happen */
+				pr_err("%s: Unable to allocate new RSS table\n", __func__);
+				goto rollback;
 			}
 			pp2_cls_db_rss_tbl_map_set(inst, idx,
-				pp2_cls_db_rss_kernel_rsvd_tbl_get(inst) + idx,
-				port->tc[i].tc_config.num_in_qs);
-			pp2_cls_db_rss_tbl_map_get(inst, req_tbls, &hw_tbl, &num_in_q);
-			pr_debug("%d, tbl %d, num_in_q %d\n", idx, hw_tbl, num_in_q);
+						   pp2_cls_db_rss_kernel_rsvd_tbl_get(inst) + idx,
+						   port->tc[i].tc_config.num_in_qs);
+			req_ind[req_tbls] = idx;
 			req_tbls++;
+#ifdef DEBUG
+			pp2_cls_db_rss_tbl_map_get(inst, idx, &hw_tbl, &num_in_q);
+			pr_debug("%s: rss_db_ind:%d, rss_hw_tbl_id:%d, num_in_q:%d\n",
+				 __func__, idx, hw_tbl, num_in_q);
+#endif
 		}
 	}
 
-	/* If none of the TC's require RSS, then set musdk map to 0 and return */
-	if (!rss_en) {
-		pp2_cls_db_rss_num_musdk_tbl_set(inst, 0);
-		return 0;
-	}
-
-	pr_debug("rss_map %x, req_tbls %d\n", pp2_cls_db_rss_kernel_rsvd_tbl_get(inst), req_tbls);
-
-	/* Check number of requested RSS tables + reserved tables is less or equal maximum available HW RSS tables */
-	if (req_tbls > MVPP22_RSS_TBL_NUM -  pp2_cls_db_rss_kernel_rsvd_tbl_get(inst)) {
-		pr_err("Unable to allocate RSS tables for requested TC's. Available RSS tables %d, requested %d\n",
-		       MVPP22_RSS_TBL_NUM -  pp2_cls_db_rss_kernel_rsvd_tbl_get(inst), req_tbls);
-		return -EFAULT;
-	}
-
-	pp2_cls_db_rss_num_musdk_tbl_set(inst, req_tbls);
+	pp2_cls_db_rss_num_musdk_tbl_set(inst, (used_tbls + req_tbls));
 
 	return 0;
+rollback:
+	for (i = 0; i < req_tbls; i++)
+		pp2_cls_db_rss_tbl_map_set(inst, req_ind[i], 0, 0);
+	return -ENOSPC;
+
 }
 
 int pp2_rss_hw_tbl_set(struct pp2_port *port)

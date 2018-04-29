@@ -1802,7 +1802,6 @@ int pp2_cls_mng_rule_modify(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *ru
 void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map)
 {
 	int rc, i;
-	struct pp2_inst *inst = port->parent;
 	u32 num_queues = 0;
 
 	port->rss_en = true;
@@ -1820,19 +1819,17 @@ void pp2_cls_mng_rss_port_init(struct pp2_port *port, u16 rss_map)
 		port->rss_en = false;
 	}
 
-	/* calculate the required musdk rss table map (not including the kernel rss map)*/
-	rc = pp2_rss_musdk_map_get(port);
-	if (rc) {
-		pr_err("Error in pp2_rss_musdk_map_get\n");
-		pr_err("RSS is set to disabled\n");
-		port->rss_en = false;
-	}
-
 	if (port->hash_type == PP2_PPIO_HASH_T_NONE)
 		port->rss_en = false;
-
-	if (pp2_cls_db_rss_num_musdk_tbl_get(inst) == 0)
-		port->rss_en = false;
+	else {
+		/* calculate the required musdk rss table map (not including the kernel rss map) */
+		rc = pp2_rss_musdk_map_get(port);
+		if (rc) {
+			pr_err("Error in pp2_rss_musdk_map_get\n");
+			pr_err("RSS is set to disabled\n");
+			port->rss_en = false;
+		}
+	}
 
 	if (port->rss_en == true) {
 		/* bind rxq to rss table for this port */
