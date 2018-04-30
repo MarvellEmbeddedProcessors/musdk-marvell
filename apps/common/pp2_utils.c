@@ -147,6 +147,13 @@ void app_show_port_eth_tool_get(struct port_desc *port_desc)
 	system(buf);
 }
 
+int app_is_linux_sysfs_ena(void)
+{
+	enum musdk_lnx_id lnx_id = lnx_id_get();
+
+	return (!lnx_is_mainline(lnx_id));
+}
+
 void app_set_port_enable(struct port_desc *port_desc, int enable)
 {
 	if (enable)
@@ -1323,7 +1330,7 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	int				i, j, err = 0;
 	u16				curr_mtu;
 	char				file[PP2_MAX_BUF_STR_LEN];
-	u32				kernel_first_rxq, kernel_num_rx_queues;
+	int				kernel_first_rxq, kernel_num_rx_queues;
 
 	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "ppio-%d:%d",
@@ -1335,11 +1342,25 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 	port_params->inqs_params.hash_type = port->hash_type;
 
 	if (port->ppio_type == PP2_PPIO_T_LOG) {
-		sprintf(file, "%s/%s", PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_RX_FIRST_RXQ_FILE);
-		kernel_first_rxq = appp_pp2_sysfs_param_get(port->name, file);
 
+		sprintf(file, "%s/%s", PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_RX_FIRST_RXQ_FILE);
+		kernel_first_rxq = app_pp2_sysfs_param_get(port->name, file);
+		if (kernel_first_rxq < 0) {
+			if (app_is_linux_sysfs_ena()) {
+				pr_err("Failed to read kernel_first_rxq. Please check mvpp2x_sysfs.ko is loaded\n");
+				return -EFAULT;
+			}
+			kernel_first_rxq = MVAPPS_DEF_KERNEL_FIRST_RXQ;
+		}
 		sprintf(file, "%s/%s", PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_RX_NUM_RXQ_FILE);
-		kernel_num_rx_queues = appp_pp2_sysfs_param_get(port->name, file);
+		kernel_num_rx_queues = app_pp2_sysfs_param_get(port->name, file);
+		if (kernel_num_rx_queues < 0) {
+			if (app_is_linux_sysfs_ena()) {
+				pr_err("Failed to read kernel_num_rx_queues. Please check mvpp2x_sysfs.ko is loaded\n");
+				return -EFAULT;
+			}
+			kernel_num_rx_queues = MVAPPS_DEF_KERNEL_NUM_QS;
+		}
 
 		port_params->specific_type_params.log_port_params.first_inq = port->first_inq +
 									      kernel_first_rxq + kernel_num_rx_queues;
@@ -1516,7 +1537,14 @@ void app_port_local_init(int id, int lcl_id, struct lcl_port_desc *lcl_port, str
 
 	if (port->ppio_type == PP2_PPIO_T_LOG) {
 		sprintf(file, "%s/%s", PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_TX_NUM_TXQ_FILE);
-		kernel_num_tx_queues = appp_pp2_sysfs_param_get(port->name, file);
+		kernel_num_tx_queues = app_pp2_sysfs_param_get(port->name, file);
+		if (kernel_num_tx_queues < 0) {
+			if (app_is_linux_sysfs_ena()) {
+				pr_err("Failed to read kernel_num_tx_queues. Please check mvpp2x_sysfs.ko is loaded\n");
+				return;
+			}
+			kernel_num_tx_queues = MVAPPS_DEF_KERNEL_NUM_QS;
+		}
 		if (kernel_num_tx_queues < PP2_PPIO_MAX_NUM_OUTQS) {
 			lcl_port->first_txq = kernel_num_tx_queues;
 		} else {
@@ -1720,21 +1748,21 @@ void app_free_all_pools(struct bpool_desc **pools, int num_pools, struct pp2_hif
 	}
 }
 
-u32 appp_pp2_sysfs_param_get(char *if_name, char *file)
+int app_pp2_sysfs_param_get(char *if_name, char *file)
 {
 	FILE *fp;
 	char r_buf[PP2_MAX_BUF_STR_LEN];
 	char w_buf[PP2_MAX_BUF_STR_LEN];
 	u32 param = 0, scanned;
 
-	sprintf(w_buf, "echo %s > %s/%s", if_name, PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_DEBUG_PORT_SET_FILE);
-	system(w_buf);
-
 	fp = fopen(file, "r");
 	if (!fp) {
-		pr_err("error opening file %s\n", file);
+		pr_err("%s error opening file\n", __func__);
 		return -EEXIST;
 	}
+
+	sprintf(w_buf, "echo %s > %s/%s", if_name, PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_DEBUG_PORT_SET_FILE);
+	system(w_buf);
 
 	fgets(r_buf, sizeof(r_buf), fp);
 	scanned = sscanf(r_buf, "%d\n", &param);
