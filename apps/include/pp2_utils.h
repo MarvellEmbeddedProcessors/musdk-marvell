@@ -58,6 +58,10 @@
 #define MVAPPS_PP2_MULTI_PORT_MAX_NUM_PORTS	MVAPPS_PP2_MAX_NUM_PORTS /* Used for pp2_pkt_echo */
 #define MVAPPS_PP2_MAX_I_OPTION_PORTS		2
 
+#define MVAPPS_DEF_KERNEL_NUM_RSS_TBL		4
+#define MVAPPS_DEF_KERNEL_FIRST_RXQ		0
+#define MVAPPS_DEF_KERNEL_NUM_QS		4
+
 
 /* Number of BM pools reserved by kernel */
 #define MVAPPS_PP2_NUM_BPOOLS_RSRV	3
@@ -687,6 +691,8 @@ void app_show_port_stat(struct port_desc *port_desc, int reset);
  */
 void app_show_port_eth_tool_get(struct port_desc *port_desc);
 
+int app_is_linux_sysfs_ena(void);
+
 /*
  * Set port enable/disable
  */
@@ -705,7 +711,7 @@ int app_register_cli_desc_cmds(struct port_desc *port_desc);
 /*
  * Get sysfs parameter from kernel driver
  */
-u32 appp_pp2_sysfs_param_get(char *if_name, char *file);
+int app_pp2_sysfs_param_get(char *if_name, char *file);
 
 /*
  * Standard deinit_local, for local_threads deinitialization.
