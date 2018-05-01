@@ -746,6 +746,8 @@ static void usage(char *progname)
 	printf("\t-pkts <number>   - Packets coalescing (default: %d)\n", ev_pkts_coal);
 	printf("\t-time <number>   - Time coalescing in usecs (default: %d)\n", ev_usec_coal);
 	printf("\t-cores <number>  - Number of CPUs to use (default: 1)\n");
+	printf("\t-a <number>      - First CPU to use - affinity (default: %d)\n",
+					MVAPPS_DEFAULT_AFFINITY);
 }
 
 static int parse_args(int argc, char *argv[])
@@ -868,6 +870,17 @@ static int parse_args(int argc, char *argv[])
 			}
 			garg.cmn_args.cpus = atoi(argv[i + 1]);
 			i += 2;
+		} else if (strcmp(argv[i], "-a") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			garg.cmn_args.affinity = atoi(argv[i + 1]);
+			i += 2;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
@@ -876,6 +889,14 @@ static int parse_args(int argc, char *argv[])
 	/* Check validity */
 	if (ev_pkts_coal > test_burst_size)
 		ev_pkts_coal = test_burst_size;
+
+	if ((garg.cmn_args.affinity != MVAPPS_INVALID_AFFINITY) &&
+	    (garg.cmn_args.cpus + garg.cmn_args.affinity) > system_ncpus()) {
+		pr_err("illegal num cores or affinity requested (%d + %d > %d)!\n",
+		       garg.cmn_args.cpus, garg.cmn_args.affinity, system_ncpus());
+		return -EINVAL;
+	}
+	garg.cmn_args.cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
 
 	/* Print all inputs arguments */
 	printf("CIO match_str  : %s\n", garg.sam_match_str);
@@ -890,6 +911,9 @@ static int parse_args(int argc, char *argv[])
 		printf("Pkts coalesing : %u pkts\n", ev_pkts_coal);
 		printf("Time coalesing : %u usecs\n", ev_usec_coal);
 	}
+	printf("CPU cores      : %u [0x%x]\n",
+		garg.cmn_args.cpus, (u32)garg.cmn_args.cores_mask);
+
 	return 0;
 }
 
@@ -1079,7 +1103,6 @@ static void deinit_local(void *arg)
 int main(int argc, char **argv)
 {
 	struct mvapp_params	mvapp_params;
-	u64			cores_mask;
 	int			rc;
 
 	setbuf(stdout, NULL);
@@ -1089,12 +1112,9 @@ int main(int argc, char **argv)
 	if (rc)
 		return rc;
 
-	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
-	garg.cmn_args.cores_mask = cores_mask;
-
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.num_cores		= garg.cmn_args.cpus;
-	mvapp_params.cores_mask		= cores_mask;
+	mvapp_params.cores_mask		= garg.cmn_args.cores_mask;
 	mvapp_params.global_arg		= (void *)&garg;
 	mvapp_params.init_global_cb	= init_global;
 	mvapp_params.deinit_global_cb	= deinit_global;
