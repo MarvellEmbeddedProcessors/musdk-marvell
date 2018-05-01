@@ -379,7 +379,7 @@ static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params 
 		token_params.AdditionalValue = request->auth_len - request->cipher_len;
 
 #ifdef MVCONF_SAM_DEBUG
-	if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
+	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
 		print_token_params(&token_params);
 #endif /* MVCONF_SAM_DEBUG */
 
@@ -387,7 +387,7 @@ static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params 
 				     copylen, &token_params,
 				     operation->token_buf.vaddr,
 				     &operation->token_words, &operation->token_header_word);
-	if (rc != TKB_STATUS_OK) {
+	if (unlikely(rc != TKB_STATUS_OK)) {
 		pr_err("%s: TokenBuilder_BuildToken failed, rc = %d\n",
 			__func__, rc);
 		return -EINVAL;
@@ -397,7 +397,7 @@ static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params 
 
 	/* Enable Context Reuse auto detect if no new SA */
 	operation->token_header_word &= ~SAM_TOKEN_REUSE_CONTEXT_MASK;
-	if (session->cio != cio) {
+	if (unlikely(session->cio != cio)) {
 #ifdef MVCONF_SAM_DEBUG
 		if (session->cio != NULL)
 			pr_warn("Session is moved from cio=%d:%d to cio=%d:%d\n",
@@ -411,7 +411,7 @@ static int sam_hw_cmd_token_build(struct sam_cio *cio, struct sam_cio_op_params 
 	operation->copy_len = copylen;
 
 #ifdef MVCONF_SAM_DEBUG
-	if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
+	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
 		print_sam_cio_operation_info(operation);
 
 		printf("\nToken DMA buffer: %d words, physAddr = %p\n",
@@ -809,17 +809,17 @@ int sam_session_destroy(struct sam_sa *session)
 
 static int sam_cio_check_op_params(struct sam_cio_op_params *request)
 {
-	if (request->num_bufs != 1) {
+	if (unlikely(request->num_bufs != 1)) {
 		/* Multiple buffers not supported */
 		return -ENOTSUP;
 	}
 
-	if (request->src == NULL) {
+	if (unlikely(request->src == NULL)) {
 		/* One source buffer is mandatory */
 		return -ENOTSUP;
 	}
 
-	if (request->dst == NULL) {
+	if (unlikely(request->dst == NULL)) {
 		/* One destination buffer is mandatory */
 		return -ENOTSUP;
 	}
@@ -834,7 +834,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 	int i, j, todo, err = 0;
 
 	todo = *num;
-	if (todo >= cio->params.size)
+	if (unlikely(todo >= cio->params.size))
 		todo = cio->params.size - 1;
 
 	for (i = 0; i < todo; i++) {
@@ -842,16 +842,16 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 
 		/* Check request validity */
 		err = sam_cio_check_op_params(request);
-		if (err)
+		if (unlikely(err))
 			break;
 
 		/* Check maximum number of pending requests */
-		if (sam_cio_is_full(cio)) {
+		if (unlikely(sam_cio_is_full(cio))) {
 			SAM_STATS(cio->stats.enq_full++);
 			break;
 		}
 #ifdef MVCONF_SAM_DEBUG
-		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
+		if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
 			print_sam_cio_op_params(request);
 #endif /* MVCONF_SAM_DEBUG */
 
@@ -859,7 +859,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		operation = &cio->operations[cio->next_request];
 
 		err = sam_hw_cmd_token_build(cio, request, operation);
-		if (err)
+		if (unlikely(err))
 			break;
 
 		/* Save some fields from request needed for result processing */
@@ -885,7 +885,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		}
 
 #ifdef MVCONF_SAM_DEBUG
-		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
+		if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
 			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_request);
 			struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_request);
 
@@ -902,7 +902,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		SAM_STATS(cio->stats.enq_bytes += operation->copy_len);
 	}
 	/* submit requests */
-	if (i) {
+	if (likely(i)) {
 		sam_hw_ring_submit(&cio->hw_ring, i);
 		SAM_STATS(cio->stats.enq_pkts += i);
 	}
@@ -921,7 +921,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 	/* Try to get the processed packet from the RDR */
 	done = sam_hw_ring_ready_get(&cio->hw_ring);
-	if (!done) {
+	if (unlikely(!done)) {
 		SAM_STATS(cio->stats.deq_empty++);
 		*num = 0;
 		return 0;
@@ -936,7 +936,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 		i++;
 		operation = &cio->operations[cio->next_result];
-		if (operation->num_bufs == 0) {
+		if (unlikely(operation->num_bufs == 0)) {
 			/* Inalidate cache entry finished - free session */
 			sam_session_free(operation->sa);
 			SAM_STATS(sam_sa_stats.sa_del++);
@@ -949,10 +949,10 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 #endif
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
-		if (!result) /* Flush cio */
+		if (unlikely(!result)) /* Flush cio */
 			continue;
 
-		if (sam_hw_res_desc_read(res_desc, result))
+		if (unlikely(sam_hw_res_desc_read(res_desc, result)))
 			return -EINVAL;
 
 		if ((result->status == SAM_CIO_OK) && (operation->sa->post_proc_cb))
@@ -965,14 +965,14 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		result->cookie = operation->cookie;
 
 		/* Check output buffer size */
-		if (operation->out_frags[0].len < out_len) {
+		if (unlikely(operation->out_frags[0].len < out_len)) {
 			pr_err("%s: out_len %d bytes is larger than output buffer %d bytes\n",
 				__func__, out_len, operation->out_frags[0].len);
 			out_len = operation->out_frags[0].len;
 		}
 
 #ifdef MVCONF_SAM_DEBUG
-		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
+		if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
 			printf("\nOutput DMA buffer: %d bytes, physAddr = %p\n",
 				out_len, (void *)operation->out_frags[0].paddr);
 			mv_mem_dump(operation->out_frags[0].vaddr, out_len);

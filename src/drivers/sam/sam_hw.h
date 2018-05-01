@@ -763,8 +763,8 @@ static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct 
 
 #ifdef MVCONF_SAM_DEBUG
 	/* Check First and Last bits are set */
-	if ((val32 & (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK)) !=
-		     (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK)) {
+	if (unlikely((val32 & (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK)) !=
+		     (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK))) {
 		pr_err("%p Result descriptor is not ready, word[0] = 0x%8x\n",
 			res_desc, val32);
 		return -EINVAL;
@@ -774,7 +774,7 @@ static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct 
 
 	/* Check application ID - token_data[2] */
 	val32 = readl_relaxed(&res_desc->words[6]);
-	if (SAM_TOKEN_APPL_ID_GET(val32) != SAM_DEFAULT_APPL_ID) {
+	if (unlikely(SAM_TOKEN_APPL_ID_GET(val32) != SAM_DEFAULT_APPL_ID)) {
 		pr_err("%p Result descriptor is not ready, word[0] = 0x%8x\n",
 			res_desc, val32);
 		return -EINVAL;
@@ -791,13 +791,13 @@ static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct 
 
 	/* E15 and CLE errors - token_data[1] */
 	val32 = readl_relaxed(&res_desc->words[5]);
-	if (val32 & SAM_RES_TOKEN_E15_MASK)
+	if (unlikely(val32 & SAM_RES_TOKEN_E15_MASK))
 		errors |= BIT(15);
 
 	/* CLE errors bits for extended usage */
 	cle_err = SAM_RES_TOKEN_CLE_GET(val32);
 
-	if ((errors == 0) && (cle_err == 0))
+	if (likely((errors == 0) && (cle_err == 0)))
 		result->status = SAM_CIO_OK;
 	else if (errors & SAM_RESULT_AUTH_ERROR_MASK)
 		result->status = SAM_CIO_ERR_ICV;
