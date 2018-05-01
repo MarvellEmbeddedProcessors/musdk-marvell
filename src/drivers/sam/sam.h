@@ -146,7 +146,7 @@ static inline void sam_htole32_multi(u32 *vaddr, u32 words)
 static inline u32 sam_cio_next_idx(struct sam_cio *cio, u32 idx)
 {
 	idx++;
-	if (idx == cio->params.size)
+	if (unlikely(idx == cio->params.size))
 		idx = 0;
 
 	return idx;
@@ -154,7 +154,7 @@ static inline u32 sam_cio_next_idx(struct sam_cio *cio, u32 idx)
 
 static inline u32 sam_cio_prev_idx(struct sam_cio *cio, u32 idx)
 {
-	if (idx == 0)
+	if (unlikely(idx == 0))
 		idx = cio->params.size - 1;
 	else
 		idx--;
