@@ -1,0 +1,65 @@
+From 434daf5f3ba85dfb262275e4c156ea1babcc30f9 Mon Sep 17 00:00:00 2001
+From: Yuval Caduri <cyuval@marvell.com>
+Date: Tue, 1 May 2018 23:57:16 +0300
+Subject: [PATCH 2/6] dts: musdk: a7k/8/8kp xor
+
+Change-Id: Ib2f5aadf42d56d6cf32d3ab94a93d552e0df2c90
+Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+---
+ arch/arm64/boot/dts/marvell/armada-ap806.dtsi | 24 +++++++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi | 12 ++++++++++
+ 2 files changed, 36 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
+index 88dea580176f..5fcb043a7e64 100644
+--- a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
+@@ -456,2 +456,26 @@
+ 
++			ap0_uio_xor0 {
++				compatible = "marvell,uio-xor-v2";
++				xor_access = <&ap_xor0>;
++				status = "okay";
++			};
++
++			ap0_uio_xor1 {
++				compatible = "marvell,uio-xor-v2";
++				xor_access = <&ap_xor1>;
++				status = "okay";
++			};
++
++			ap0_uio_xor2 {
++				compatible = "marvell,uio-xor-v2";
++				xor_access = <&ap_xor2>;
++				status = "okay";
++			};
++
++			ap0_uio_xor3 {
++				compatible = "marvell,uio-xor-v2";
++				xor_access = <&ap_xor3>;
++				status = "okay";
++			};
++
+ 			thermal: thermal@6f808c {
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
+index a689339fc8f4..88fd9c4075ba 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
+@@ -357,2 +357,14 @@
+ 
++			CP110_LABEL(uio_xor0) {
++				compatible = "marvell,uio-xor-v2";
++				xor_access = <&CP110_LABEL(xor0)>;
++				status = "okay";
++			};
++
++			CP110_LABEL(uio_xor1) {
++				compatible = "marvell,uio-xor-v2";
++				xor_access = <&CP110_LABEL(xor1)>;
++				status = "okay";
++			};
++
+ 			CP110_LABEL(thermal): thermal@400078 {
+-- 
+2.17.0
+

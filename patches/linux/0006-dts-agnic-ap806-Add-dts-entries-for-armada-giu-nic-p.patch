@@ -1,7 +1,7 @@
-From b0e5a3cb2adf231c869295b6f7a85a0427ddc714 Mon Sep 17 00:00:00 2001
+From aab6b7b2acb09fd5a7143365b9ad62b06ab372d6 Mon Sep 17 00:00:00 2001
 From: Shadi Ammouri <shadi@marvell.com>
 Date: Mon, 28 Aug 2017 15:27:01 +0300
-Subject: [PATCH] dts: agnic: ap806: Add dts entries for armada giu nic
+Subject: [PATCH 6/6] dts: agnic: ap806: Add dts entries for armada giu nic
  platform and uio
 
 - The platform entry will be used by the agnic netdev driver.
@@ -15,9 +15,9 @@ Signed-off-by: Shadi Ammouri <shadi@marvell.com>
 Reviewed-on: http://vgitil04.il.marvell.com:8080/43483
 Tested-by: iSoC Platform CI <ykjenk@marvell.com>
 ---
- .../bindings/net/marvell-armada-giu-nic-uio.txt    | 26 ++++++++++++++++++++++
- .../bindings/net/marvell-armada-giu-nic.txt        | 20 +++++++++++++++++
- arch/arm64/boot/dts/marvell/armada-ap806.dtsi      | 16 +++++++++++++
+ .../net/marvell-armada-giu-nic-uio.txt        | 26 +++++++++++++++++++
+ .../bindings/net/marvell-armada-giu-nic.txt   | 20 ++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap806.dtsi | 16 ++++++++++++
  3 files changed, 62 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
@@ -81,12 +81,10 @@ index 000000000000..6faa6f6a58ba
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-index a7da40effccd..4f3e84fdf70f 100644
+index 5fcb043a7e64..ec3ebcd56cfe 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-@@ -498,6 +498,22 @@
- 				reg = <0x6f8200 0x8>;
- 				status = "okay";
+@@ -517,2 +517,18 @@
  			};
 +
 +			agnic-plat {
@@ -105,8 +103,6 @@ index a7da40effccd..4f3e84fdf70f 100644
 +				status = "okay";
 +			};
  		};
- 	};
- };
 -- 
-2.13.0
+2.17.0
 

@@ -512,6 +512,7 @@ static const struct file_operations musdk_misc_fops = {
 };
 
 static const struct of_device_id musdk_of_match[] = {
+	{ .compatible	= "marvell,musdk-cma", },
 	{ .compatible	= "marvell,musdk-uio", },
 	{ }
 };
