@@ -1,0 +1,97 @@
+From f570ad6d7e5635a081304fe474e777447dec962a Mon Sep 17 00:00:00 2001
+From: Yuval Caduri <cyuval@marvell.com>
+Date: Tue, 1 May 2018 23:58:17 +0300
+Subject: [PATCH 3/6] dts: musdk: a7k/8/8kp sam
+
+Change-Id: I33c228d0a013ac0389479f04507af56c7b5ed4d9
+Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+---
+ arch/arm64/boot/dts/marvell/armada-7020.dtsi  | 3 +++
+ arch/arm64/boot/dts/marvell/armada-7040.dtsi  | 3 +++
+ arch/arm64/boot/dts/marvell/armada-8020.dtsi  | 6 ++++++
+ arch/arm64/boot/dts/marvell/armada-8040.dtsi  | 6 ++++++
+ arch/arm64/boot/dts/marvell/armada-ap810.dtsi | 6 ++++++
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi | 6 ++++++
+ 6 files changed, 30 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/marvell/armada-7020.dtsi b/arch/arm64/boot/dts/marvell/armada-7020.dtsi
+index 908011f5e812..69e47835bbff 100644
+--- a/arch/arm64/boot/dts/marvell/armada-7020.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-7020.dtsi
+@@ -181,2 +181,5 @@
+ 			};
++			cp0_uio_sam {
++				status = "okay";
++			};
+ 		};
+diff --git a/arch/arm64/boot/dts/marvell/armada-7040.dtsi b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
+index f0c47a230936..8ed54b4d6711 100644
+--- a/arch/arm64/boot/dts/marvell/armada-7040.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-7040.dtsi
+@@ -204,2 +204,5 @@
+ 			};
++			cp0_uio_sam {
++				status = "okay";
++			};
+ 		};
+diff --git a/arch/arm64/boot/dts/marvell/armada-8020.dtsi b/arch/arm64/boot/dts/marvell/armada-8020.dtsi
+index e3467d403eec..3b3b9d3e7f4a 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8020.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-8020.dtsi
+@@ -207,2 +207,5 @@
+ 			};
++			cp0_uio_sam {
++				status = "okay";
++			};
+ 		};
+@@ -266,2 +269,5 @@
+ 			};
++			cp1_uio_sam {
++				status = "okay";
++			};
+ 		};
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040.dtsi b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
+index 14d84c70b0bd..dbac80ccdd31 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8040.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-8040.dtsi
+@@ -219,2 +219,5 @@
+ 			};
++			cp0_uio_sam {
++				status = "okay";
++			};
+ 		};
+@@ -278,2 +281,5 @@
+ 			};
++			cp1_uio_sam {
++				status = "okay";
++			};
+ 		};
+diff --git a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
+index 1faa728475c7..15cbb3733f92 100644
+--- a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
+@@ -176,2 +176,8 @@
+ 
++			AP810_LABEL(uio_sam) {
++				compatible = "marvell,uio-sam";
++				eip_access = <&AP810_LABEL(eip197)>;
++				status = "okay";
++			};
++
+ 			AP810_LABEL(sei): interrupt-controller@3f0200 {
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
+index 88fd9c4075ba..41ff8a5a27ad 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
+@@ -563,2 +563,8 @@
+ 
++			CP110_LABEL(uio_sam){
++				compatible = "marvell,uio-sam";
++				eip_access = <&CP110_LABEL(eip197)>;
++				status = "disabled";
++			};
++
+ 			CP110_LABEL(comphy): comphy {
+-- 
+2.17.0
+
