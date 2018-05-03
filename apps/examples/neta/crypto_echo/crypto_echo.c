@@ -373,7 +373,6 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 	enum pkt_state		state;
 	int			err;
 	u16			i, buff_len, num_got;
-	u8			data_offs;
 	u32			block_size, pad_size;
 	struct perf_cmn_cntrs	*perf_cntrs = &larg->cmn_args.perf_cntrs;
 
@@ -399,7 +398,6 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 
 	for (i = 0; i < num; i++) {
 		char *vaddr;
-		enum neta_inq_l4_type type;
 
 		vaddr = (char *)((uintptr_t)neta_ppio_inq_desc_get_cookie(&descs[i]) | neta_sys_dma_high_addr);
 
@@ -439,9 +437,8 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		dst_buf_infs[i].paddr = src_buf_infs[i].paddr;
 		dst_buf_infs[i].len = buff_len;
 
-		/* data_offs - L4 offset */
-		neta_ppio_inq_desc_get_l4_info(&descs[i], &type, &data_offs);
-		mdata->data_offs = data_offs;
+		/* data_offs - L2 offset */
+		mdata->data_offs = ETH_HLEN;
 
 		sam_descs[i].sa = sa;
 		sam_descs[i].cookie = mdata;
@@ -451,7 +448,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		sam_descs[i].dst = &dst_buf_infs[i];
 		sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
 
-		sam_descs[i].cipher_offset = data_offs;
+		sam_descs[i].cipher_offset = mdata->data_offs;
 		sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 		/* cipher_len must be block size aligned. Block size is always power of 2 */
 		block_size = sam_session_get_block_size(larg->cmn_args.garg->cipher_alg);
