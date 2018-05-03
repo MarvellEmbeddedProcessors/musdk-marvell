@@ -1088,8 +1088,10 @@ static void deinit_local(void *arg)
 
 	free_bufs(larg);
 
-	app_sam_show_cio_stats(larg->cio_hndl, larg->sam_match_str, 1);
-	printf("Almost full                 : %" PRIu32 " packets\n\n", larg->almost_full);
+	if (!app_sam_show_cio_stats(larg->cio_hndl, larg->sam_match_str, 1)) {
+		printf("Almost full                 : %" PRIu32 " packets\n\n", larg->almost_full);
+		larg->almost_full = 0;
+	}
 
 	if (sam_cio_deinit(larg->cio_hndl)) {
 		printf("thread #%d (cpu=%d): un-initialization failed\n",
