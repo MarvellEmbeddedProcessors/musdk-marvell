@@ -41,7 +41,7 @@
 /*
  * Show cio statistics
  */
-void app_sam_show_cio_stats(struct sam_cio *cio_hndl, const char *name, int reset)
+int app_sam_show_cio_stats(struct sam_cio *cio_hndl, const char *name, int reset)
 {
 	struct sam_cio_stats cio_stats;
 
@@ -54,13 +54,15 @@ void app_sam_show_cio_stats(struct sam_cio *cio_hndl, const char *name, int rese
 		printf("Dequeue bytes               : %" PRIu64 " bytes\n", cio_stats.deq_bytes);
 		printf("Dequeue empty               : %" PRIu64 " times\n", cio_stats.deq_empty);
 		printf("\n");
+		return 0;
 	}
+	return -ENOENT;
 }
 
 /*
  * Show global statistics
  */
-void app_sam_show_stats(int reset)
+int app_sam_show_stats(int reset)
 {
 	struct sam_session_stats sa_stats;
 
@@ -70,7 +72,9 @@ void app_sam_show_stats(int reset)
 		printf("Deleted sessions:	    : %" PRIu64 "\n", sa_stats.sa_del);
 		printf("Invalidated sessions:	    : %" PRIu64 "\n", sa_stats.sa_inv);
 		printf("\n");
+		return 0;
 	}
+	return -ENOENT;
 }
 
 

@@ -39,12 +39,12 @@
 /*
  * Show cio statistics
  */
-void app_sam_show_cio_stats(struct sam_cio *cio_hndl, const char *name, int reset);
+int app_sam_show_cio_stats(struct sam_cio *cio_hndl, const char *name, int reset);
 
 /*
  * Show global statistics
  */
-void app_sam_show_stats(int reset);
+int app_sam_show_stats(int reset);
 
 
 #endif /* __MV_SAM_UTILS_H__ */
