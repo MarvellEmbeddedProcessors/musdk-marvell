@@ -440,6 +440,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		sa = flow->dec_sa;
 		state = PKT_STATE_DEC;
 	}
+
 	for (i = 0; i < num; i++) {
 		char *vaddr;
 		struct pp2_bpool *bpool;
@@ -484,12 +485,10 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		dst_buf_infs[i].len = bpool_buff_len;
 
 		if (flow->crypto_params->crypto_proto == SAM_PROTO_NONE) {
-			enum pp2_inq_l4_type type;
 			u32 block_size, pad_size;
 
-			/* SAM_PROTO_NONE: data_offs - L4 offset */
-			pp2_ppio_inq_desc_get_l4_info(&descs[i], &type, &data_offs);
-			mdata->data_offs = data_offs;
+			/* SAM_PROTO_NONE: data_offs - L2 offset */
+			mdata->data_offs = ETH_HLEN;
 
 			sam_descs[i].sa = sa;
 			sam_descs[i].cookie = mdata;
@@ -499,7 +498,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			sam_descs[i].dst = &dst_buf_infs[i];
 			sam_descs[i].cipher_iv = rfc3602_aes128_cbc_t1_iv;
 
-			sam_descs[i].cipher_offset = data_offs;
+			sam_descs[i].cipher_offset = mdata->data_offs;
 			sam_descs[i].cipher_len = src_buf_infs[i].len - sam_descs[i].cipher_offset;
 
 			/* cipher_len must be block size aligned. Block size is always power of 2 */
