@@ -1,15 +1,13 @@
-		Building MUSDK-UIO Kernel Module
+		Building MUSDK-CMA Kernel Module
 		================================
 - Make sure KDIR is defined correctly in the environment.
-- Make sure the Linux Kernel is built with 'CONFIG_UIO' flag enabled.
 - Before building and running the module, make sure the below change in DTS
 	file is applied. please note that for every IO that is needed in User-Space
-	operation, an appropriate entry should be created in the DTS under the uio
-	entry.
+	operation, an appropriate entry should be created in the DTS .
 - Build the musdk_uio module by running the following:
 > make
 > make DST=<> install
-- insert the MUSDK-UIO module by 'insmod musdk_uio.ko'
+- insert the MUSDK-CMA module by 'insmod musdk_cma.ko'
 
 DTS file change:
 ----------------
@@ -17,8 +15,8 @@ DTS file change:
 				};
 			};
 
-+			musdk_uio {
-+				compatible = "marvell,musdk-uio";
++			musdk_cma {
++				compatible = "marvell,musdk-cma";
 +				status = "okay";
 +			};
 

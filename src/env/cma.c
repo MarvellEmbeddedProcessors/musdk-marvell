@@ -31,13 +31,13 @@
  *****************************************************************************/
 
 #include "std_internal.h"
-#include "../../modules/include/musdk_uio_ioctls.h"
+#include "../../modules/include/musdk_cma_ioctls.h"
 
 #include "env/cma.h"
 #include "lib/lib_misc.h"
 
-#define MUSDK_DEV_FILE "/dev/uio-cma"
-#define MUSDK_REGION_DEV_FILE "/dev/uio-cma-reg%u"
+#define MUSDK_DEV_FILE "/dev/musdk-cma"
+#define MUSDK_REGION_DEV_FILE "/dev/musdk-cma-reg%u"
 #define MUSDK_MAX_MEM_REGIONS	2
 
 static int fd = -1;

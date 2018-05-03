@@ -30,12 +30,13 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #****************************************************************************/
 
+
 KDIR ?=
 
-CFLAGS_musdk_uio.o := -DDEBUG
+CFLAGS_musdk_cma.o := -DDEBUG
 ccflags-y := -std=gnu99 -Wno-declaration-after-statement
 
-obj-m += musdk_uio.o
+obj-m += musdk_cma.o
 
 default all:
 	make -C $(KDIR) M=$$PWD modules
