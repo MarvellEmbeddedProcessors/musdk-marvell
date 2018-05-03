@@ -41,8 +41,6 @@
 
 /** defines the IOCTL type for all the MUSDK Linux module commands */
 #define MUSDK_IOC_TYPE_BASE		0x23
-/** Name of the MUSDK-UIO chardev */
-#define DEV_MUSDK_NAME			"musdk_uio"
 #define DEV_MUSDK_MINOR_BASE	0
 #define MUSDK_IOC_NUM(n)		(n)
 /* @} */
