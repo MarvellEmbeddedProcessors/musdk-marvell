@@ -61,7 +61,7 @@
 #include "perf_mon_emu.h"
 
 #define CRYPT_APP_DEF_Q_SIZE		256/*1024*/
-#define CRYPT_APP_HIF_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
+#define CRYPT_APP_HIF_Q_SIZE		(8 * CRYPT_APP_DEF_Q_SIZE)
 #define CRYPT_APP_RX_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
 #define CRYPT_APP_TX_Q_SIZE		(2 * CRYPT_APP_DEF_Q_SIZE)
 #define CRYPT_APP_CIO_Q_SIZE		CRYPT_APP_DEF_Q_SIZE
@@ -1311,7 +1311,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	pr_info("Specific modules initializations\n");
 
-	err = app_hif_init(&pp2_args->hif, CRYPT_APP_HIF_Q_SIZE, NULL);
+	err = app_build_common_hifs(&garg->cmn_args, CRYPT_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
@@ -1628,6 +1628,7 @@ static int init_local(void *arg, int id, void **_larg)
 	struct sam_cio		*cio;
 	int			 i, err, cio_id, sam_device;
 	struct sam_cio_event_params ev_params;
+	int mem_id;
 
 	pr_info("Local initializations for thread %d\n", id);
 
@@ -1663,9 +1664,10 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
-	pthread_mutex_lock(&garg->trd_lock);
-	err = app_hif_init(&lcl_pp2_args->hif, CRYPT_APP_HIF_Q_SIZE, NULL);
-	pthread_mutex_unlock(&garg->trd_lock);
+	mem_id = sched_getcpu() / MVAPPS_NUM_CORES_PER_AP;
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args,
+				lcl_pp2_args, CRYPT_APP_HIF_Q_SIZE,
+				garg->cmn_args.mem_region[mem_id]);
 	if (err)
 		return err;
 
@@ -1869,7 +1871,8 @@ static void deinit_local(void *arg)
 	if (larg->enc_cio)
 		sam_cio_deinit(larg->enc_cio);
 
-	if (pp2_args->hif)
+	/* Delete the locl hif, only if it is not shared */
+	if (pp2_args->hif && (!pp2_args->shared_hif))
 		pp2_hif_deinit(pp2_args->hif);
 	free(larg);
 }
