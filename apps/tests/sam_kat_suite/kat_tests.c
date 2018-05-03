@@ -50,7 +50,7 @@
 #define SAM_DMA_MEM_SIZE		(10 * 1024 * 1204) /* 10 MBytes */
 
 #define NUM_CONCURRENT_SESSIONS		1024
-#define NUM_CONCURRENT_REQUESTS		127
+#define NUM_CONCURRENT_REQUESTS		256
 #define MAX_BUFFER_SIZE			2048 /* bytes */
 #define MAX_CIPHER_KEY_SIZE		32 /* 256 Bits = 32 Bytes */
 #define MAX_CIPHER_BLOCK_SIZE		32 /* Bytes */
@@ -690,7 +690,7 @@ static int run_tests(void *arg, int *running)
 			}
 
 			/* Get all ready results together */
-			num = (u16)in_process;
+			num = (u16)test_burst_size;
 			rc = sam_cio_deq(larg->cio_hndl, results, &num);
 			if (rc) {
 				printf("thread #%d (cpu=%d): %s: sam_cio_deq failed. to_deq = %d, num = %d, rc = %d\n",
@@ -886,7 +886,12 @@ static int parse_args(int argc, char *argv[])
 			return -EINVAL;
 		}
 	}
-	/* Check validity */
+
+	/* Maximum burst size is half of ring size */
+	if (test_burst_size > NUM_CONCURRENT_REQUESTS / 2)
+		test_burst_size = NUM_CONCURRENT_REQUESTS / 2;
+
+	/* Maximum packet coalescing can't be larger than burst size */
 	if (ev_pkts_coal > test_burst_size)
 		ev_pkts_coal = test_burst_size;
 
