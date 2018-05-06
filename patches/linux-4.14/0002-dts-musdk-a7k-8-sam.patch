@@ -1,0 +1,60 @@
+From 9e782482e5e8bc472f73e9883aeb8035d1d2ba97 Mon Sep 17 00:00:00 2001
+From: Yelena Krivosheev <yelena@marvell.com>
+Date: Tue, 15 May 2018 09:52:33 +0300
+Subject: [PATCH 2/2] dts: musdk: a7k/8 sam
+
+Change-Id: I362e94c2506872a4f8fb304f800c2b4e042fbd1e
+Signed-off-by: Yelena Krivosheev <yelena@marvell.com>
+---
+ arch/arm64/boot/dts/marvell/armada-70x0.dtsi  |    4 ++++
+ arch/arm64/boot/dts/marvell/armada-80x0.dtsi  |    8 ++++++++
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi |    5 +++++
+ 3 files changed, 17 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/marvell/armada-70x0.dtsi b/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
+index f3aee5e..5df7883 100644
+--- a/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
+@@ -105,3 +105,7 @@
+ 		};
+ 	};
+ };
++
++&cp0_uio_sam {
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/marvell/armada-80x0.dtsi b/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
+index b00556aa..bfc47b5 100644
+--- a/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
+@@ -150,3 +150,11 @@
+ 	 */
+ 	status = "disabled";
+ };
++
++&cp0_uio_sam {
++	status = "okay";
++};
++
++&cp1_uio_sam {
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
+index 8c1d2a3..85a3517 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
+@@ -378,6 +378,11 @@
+ 			cell-index = <CP110_EIP197_INDEX>;
+ 			dma-coherent;
+ 		};
++		CP110_LABEL(uio_sam): uio_sam@800000 {
++			compatible = "marvell,uio-sam";
++			eip_access = <&CP110_LABEL(crypto)>;
++			status = "disabled";
++		};
+ 	};
+ 
+ 	CP110_LABEL(pcie0): pcie@600000 {
+-- 
+1.7.9.5
+
