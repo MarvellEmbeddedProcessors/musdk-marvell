@@ -75,10 +75,8 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 	iomem_params.index = 0;
 
 	ret = sys_iomem_init(&iomem_params, &map->sys_iomem);
-	if (ret) {
-		pr_err(" No device found\n");
+	if (ret)
 		return ret;
-	}
 
 	/* Map the agnic configuration registers */
 	ret = sys_iomem_map(map->sys_iomem, "agnic_regs", (phys_addr_t *)&map->plat_regs.phys_addr,
