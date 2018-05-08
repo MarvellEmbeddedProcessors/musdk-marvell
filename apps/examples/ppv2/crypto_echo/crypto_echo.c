@@ -276,7 +276,6 @@ static int	ev_pkts_coal = 8;
 static int	ev_usec_coal = 20;
 
 
-#define CHECK_CYCLES
 #ifdef CHECK_CYCLES
 static int pme_ev_cnt_rx = -1, pme_ev_cnt_enq = -1, pme_ev_cnt_deq = -1, pme_ev_cnt_tx = -1;
 
@@ -1392,6 +1391,11 @@ static int init_local_modules(struct glob_arg *garg)
 	 */
 	init_params.max_num_sessions = CRYPT_APP_MAX_NUM_SESSIONS;
 	sam_init(&init_params);
+
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+	if (garg->cmn_args.verbose > 2)
+		sam_set_debug_flags(0x3);
+#endif
 
 	return 0;
 }
