@@ -268,7 +268,7 @@ SABuilder_SetExtendedDTLSParams(SABuilder_Params_t *const SAParams_p,
     }
     else
     {
-	VerifyInstructionWord = SAB_VERIFY_NONE;
+        VerifyInstructionWord = SAB_VERIFY_PAD;
         if (ICVByteCount > 0)
         {
             VerifyInstructionWord += SAB_VERIFY_BIT_H + ICVByteCount;
