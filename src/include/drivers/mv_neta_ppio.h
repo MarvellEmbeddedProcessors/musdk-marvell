@@ -211,9 +211,11 @@ struct neta_ppio_desc {
 	u32			cmds[NETA_PPIO_DESC_NUM_WORDS];
 };
 
-struct neta_ppio_sg_desc {
-	u8			num_frags;
-	struct neta_ppio_desc	descs[NETA_PPIO_DESC_NUM_FRAGS];
+struct neta_ppio_sg_pkts {
+	u16			 num;	/**< Number of scatter-gather packets */
+	u8			*frags;	/**< Array with size of 'num' representing
+					*   the number of fragments per packet
+					*/
 };
 
 /******************** TxQ-desc *****************/
@@ -581,22 +583,25 @@ int neta_ppio_send(struct neta_ppio	*ppio,
 		  u16			*num);
 
 /**
- * TODO - Send a batch of S/G frames (single or multiple dscriptors) on an OutQ of PP-IO.
+ * Send a batch of S/G frames (single or multiple dscriptors) on an OutQ of PP-IO.
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
- * @param[in]		hif	A hif handle.
  * @param[in]		qid	out-Q id on which to send the frames.
- * @param[in]		descs	A pointer to an array of S/G-descriptors representing the
- *				frames to be sent.
- * @param[in,out]	num	input: number of frames to be sent; output: number of frames sent.
+ * @param[in]		descs	A pointer to an array of descriptors representing the
+ *				frames fragments to be sent.
+ * @param[in,out]	num	input: number of descriptors to be sent;
+ *				output: number of descriptors sent.
+ * @param[in,out]	pkts	input: number of S/G packets and their fragments to be sent
+ *				output: number of full packets sent in pkts->num.
  *
  * @retval	0 on success
  * @retval	error-code otherwise
  */
 int neta_ppio_send_sg(struct neta_ppio		*ppio,
 		      u8			 qid,
-		      struct neta_ppio_sg_desc	*descs,
-		      u16			*num);
+		     struct neta_ppio_desc	*descs,
+		     u16			*num,
+		     struct neta_ppio_sg_pkts	*pkts);
 
 /**
  * Get number of packets sent on a queue, since last call of this API.
