@@ -760,6 +760,21 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 		pr_err("%s: SABuilder_BuildSA failed, rc = %d\n", __func__, rc);
 		goto error_session;
 	}
+
+	if ((params->proto == SAM_PROTO_SSLTLS) &&
+	    (params->dir == SAM_DIR_DECRYPT)) {
+		/* WA for check padding issue */
+#define SAB_CW1_PAD_TLS             0x00014000
+#define SAB_CW1_PAD_SSL             0x00018000
+		u32 *sa_words;
+
+		/* Replace PAD type from TLS to SSL */
+		session->sa_params.CW1 &= ~SAB_CW1_PAD_TLS;
+		session->sa_params.CW1 |= SAB_CW1_PAD_SSL;
+		sa_words = (u32 *)session->sa_buf.vaddr;
+		sa_words[1] = session->sa_params.CW1;
+	}
+
 	/* Swap session data if needed */
 	sam_htole32_multi(session->sa_buf.vaddr, session->sa_words);
 
