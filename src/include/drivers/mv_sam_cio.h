@@ -142,6 +142,10 @@ struct sam_cio_op_result {
  * IPSEC operation request
  *
  * Notes:
+ *	- "num_bufs" must be in range from 1 to SAM_CIO_MAX_FRAGS.
+ *		     Regardless how many input buffers user pass,
+ *		     output will be only on the first buffer
+ *		     (thus it should be big enough to store all scatters).
  *	- "src" and "dst" structures can be local.
  *	- "src->buf[i].vaddr" and "dst->buf[i].vaddr" must be valid until crypto operation is completed.
  */
@@ -168,6 +172,10 @@ enum sam_cio_dtls_type {
  * SSL/TLS/DTLS operation request
  *
  * Notes:
+ *	- "num_bufs" must be in range from 1 to SAM_CIO_MAX_FRAGS.
+ *		     Regardless how many input buffers user pass,
+ *		     output will be only on the first buffer
+ *		     (thus it should be big enough to store all scatters).
  *	- "src" and "dst" structures can be local.
  *	- "src->buf[i].vaddr" and "dst->buf[i].vaddr" must be valid until crypto operation is completed.
  */
