@@ -50,35 +50,72 @@ static int sam_cio_check_ipsec_params(struct sam_cio_ipsec_params *request)
 	return 0;
 }
 
-static inline void sam_hw_ring_ipsec_request_set(struct sam_hw_ring *hw_ring, int next_request,
-						 struct sam_sa *session, struct sam_cio_ipsec_params *request,
-						 int reuse)
+static inline u32 sam_hw_ring_ipsec_cdr_desc_write(struct sam_hw_ring *hw_ring,
+						    struct sam_sa *session,
+						    struct sam_cio_ipsec_params *request,
+						    int reuse)
 {
-	u32 proto_word, token_header_word;
-	struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(hw_ring, next_request);
-	struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(hw_ring, next_request);
+	int prep_data;
+	u32 first_last_mask, desc_num;
+	u32 proto_word;
+	u32 thw;	/* token_header_word*/
+	int j;
 
-	/* Write prepared RDR descriptor first */
-	sam_hw_rdr_prep_desc_write(res_desc, request->dst->paddr, request->dst->len,
-				   (SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK));
+	/* Prepared CDR descriptors */
+	prep_data = 0;
+	desc_num = 0;
+	for (j = 0;  j < request->num_bufs; j++) {
+		u32 data_size = request->src[j].len;
 
-	/* Write CDR descriptor */
-	sam_hw_cdr_proto_cmd_desc_write(cmd_desc, request->src->paddr, request->pkt_size);
+		first_last_mask = 0;
+		if (j == 0) {
+			struct sam_hw_cmd_desc *cmd_desc;
 
-	/* Token is built inside the device */
-	token_header_word = (request->pkt_size & SAM_TOKEN_PKT_LEN_MASK);
-	token_header_word |= SAM_TOKEN_TYPE_AUTO_MASK;
-	if (reuse)
-		token_header_word |= SAM_TOKEN_REUSE_AUTO_MASK;
+			first_last_mask |= SAM_DESC_FIRST_SEG_MASK;
+			/* Token is built inside the device for first descriptor only */
+			cmd_desc = sam_hw_cmd_desc_get(hw_ring, hw_ring->next_cdr);
+			thw = (request->pkt_size & SAM_TOKEN_PKT_LEN_MASK);
+			thw |= SAM_TOKEN_TYPE_AUTO_MASK;
+			if (reuse)
+				thw |= SAM_TOKEN_REUSE_AUTO_MASK;
 
-	proto_word = SAM_CMD_TOKEN_OFFSET_SET(request->l3_offset);
-	if (session->params.dir == SAM_DIR_ENCRYPT)
-		proto_word |= SAM_CMD_TOKEN_NEXT_HDR_SET(IPPROTO_ESP);
-	else
-		proto_word |= SAM_CMD_TOKEN_NEXT_HDR_SET(0);
+			proto_word = SAM_CMD_TOKEN_OFFSET_SET(request->l3_offset);
+			if (session->params.dir == SAM_DIR_ENCRYPT)
+				proto_word |= SAM_CMD_TOKEN_NEXT_HDR_SET(IPPROTO_ESP);
+			else
+				proto_word |= SAM_CMD_TOKEN_NEXT_HDR_SET(0);
 
-	sam_hw_cdr_ext_token_write(cmd_desc, &request->sa->sa_buf, token_header_word,
-					FIRMWARE_CMD_PKT_LIP_MASK, proto_word);
+			sam_hw_cdr_ext_token_write(cmd_desc, &request->sa->sa_buf,
+						   thw, FIRMWARE_CMD_PKT_LIP_MASK,
+						   proto_word);
+		}
+
+		if (j == (request->num_bufs - 1)) {
+			first_last_mask |= SAM_DESC_LAST_SEG_MASK;
+			if (prep_data >= request->pkt_size) {
+				pr_err("%s: crypto data size %d > packet size %d\n",
+						__func__, prep_data, request->pkt_size);
+				sam_hw_ring_roolback(hw_ring, 1, j);
+				desc_num = 0;
+				break;
+			}
+			data_size = request->pkt_size - prep_data;
+		} else
+			prep_data += data_size;
+
+		/* Write CDR descriptor */
+		sam_hw_cdr_proto_cmd_desc_write(hw_ring, request->src[j].paddr,
+						data_size, first_last_mask);
+#ifdef MVCONF_SAM_DEBUG
+		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
+			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
+				request->pkt_size, (void *)request->src[j].paddr);
+			mv_mem_dump(request->src[j].vaddr, request->pkt_size);
+		}
+#endif /* MVCONF_SAM_DEBUG */
+		desc_num++;
+	}
+	return desc_num;
 }
 
 void sam_ipsec_prepare_tunnel_header(struct sam_session_params *params, u8 *tunnel_header)
@@ -223,6 +260,8 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 	struct sam_cio_op *operation;
 	struct sam_cio_ipsec_params *request;
 	int i, j, err, todo, reuse;
+	u32 rdr_submit = 0;
+	u32 cdr_submit = 0;
 
 	todo = *num;
 	if (todo >= cio->params.size)
@@ -236,8 +275,8 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 		if (err)
 			return err;
 
-		/* Check maximum number of pending requests */
-		if (sam_cio_is_full(cio)) {
+		/* Look if there are enough free resources */
+		if (!sam_cio_is_free_slot(cio, request->num_bufs)) {
 			SAM_STATS(cio->stats.enq_full++);
 			break;
 		}
@@ -255,8 +294,10 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 		operation->sa = request->sa;
 		operation->cookie = request->cookie;
 		operation->copy_len = request->pkt_size;
-		operation->num_bufs = request->num_bufs;
-		for (j = 0;  j < operation->num_bufs; j++) {
+		operation->num_bufs_in = request->num_bufs;
+		/* only one destination buffer is supported */
+		operation->num_bufs_out = 1;
+		for (j = 0;  j < operation->num_bufs_out; j++) {
 			operation->out_frags[j].vaddr = request->dst[j].vaddr;
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
@@ -276,32 +317,28 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 			reuse = 1;
 
 		if (cio->hw_ring.type == HW_EIP197) {
-			sam_hw_ring_ipsec_request_set(&cio->hw_ring, cio->next_request,
-						      session, request, reuse);
+			u32 seg_mask;
+
+			/* Write prepared RDR descriptor */
+			seg_mask = SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK;
+			sam_hw_rdr_desc_write(&cio->hw_ring, request->dst->paddr,
+					      request->dst->len, seg_mask);
+			rdr_submit++;
+
+			/* write CDR descriptors and token */
+			cdr_submit += sam_hw_ring_ipsec_cdr_desc_write(&cio->hw_ring, session,
+								      request, reuse);
 		} else {
 			goto error_enq;
 		}
-
-#ifdef MVCONF_SAM_DEBUG
-		if (sam_debug_flags & SAM_CIO_DEBUG_FLAG) {
-			struct sam_hw_cmd_desc *cmd_desc = sam_hw_cmd_desc_get(&cio->hw_ring, cio->next_result);
-			struct sam_hw_res_desc *res_desc = sam_hw_res_desc_get(&cio->hw_ring, cio->next_result);
-
-			print_result_desc(res_desc, 1);
-			print_cmd_desc(cmd_desc);
-
-			printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
-				operation->copy_len, (void *)request->src->paddr);
-			mv_mem_dump(request->src->vaddr, operation->copy_len);
-		}
-#endif /* MVCONF_SAM_DEBUG */
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
 		SAM_STATS(cio->stats.enq_bytes += operation->copy_len);
 	}
 	/* submit requests */
-	if (i) {
-		sam_hw_ring_submit(&cio->hw_ring, i);
+	if (likely(i)) {
+		sam_hw_rdr_ring_submit(&cio->hw_ring, rdr_submit);
+		sam_hw_cdr_ring_submit(&cio->hw_ring, cdr_submit);
 		SAM_STATS(cio->stats.enq_pkts += i);
 	}
 	*num = (u16)i;

@@ -810,14 +810,15 @@ int sam_session_destroy(struct sam_sa *session)
 		/* Get next operation structure */
 		operation = &cio->operations[cio->next_request];
 		operation->sa = session;
-		operation->num_bufs = 0;
-		operation->in_num_bufs = 0;
+		operation->num_bufs_in = 0;
+		operation->num_bufs_out = 0;
 
 		/* Invalidate session in HW */
 		sam_hw_ring_sa_inv_desc_write(&session->cio->hw_ring,
 					      session->sa_buf.paddr);
 
-		sam_hw_ring_submit(&session->cio->hw_ring, 1);
+		sam_hw_rdr_ring_submit(&session->cio->hw_ring, 1);
+		sam_hw_cdr_ring_submit(&session->cio->hw_ring, 1);
 		SAM_STATS(sam_sa_stats.sa_inv++);
 
 		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
@@ -868,8 +869,8 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		if (unlikely(err))
 			break;
 
-		/* Check maximum number of pending requests */
-		if (!sam_cio_is_free_slot(cio, request)) {
+		/* Look if there are enough free resources */
+		if (!sam_cio_is_free_slot(cio, request->num_bufs)) {
 			SAM_STATS(cio->stats.enq_full++);
 			break;
 		}
@@ -888,11 +889,11 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 		/* Save some fields from request needed for result processing */
 		operation->sa = request->sa;
 		operation->cookie = request->cookie;
-		operation->in_num_bufs = request->num_bufs;
+		operation->num_bufs_in = request->num_bufs;
 		/* only one destination buffer is supported */
-		operation->num_bufs = 1;
+		operation->num_bufs_out = 1;
 		operation->auth_icv_offset = request->auth_icv_offset;
-		for (j = 0;  j < operation->num_bufs; j++) {
+		for (j = 0;  j < operation->num_bufs_out; j++) {
 			operation->out_frags[j].vaddr = request->dst[j].vaddr;
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
@@ -901,10 +902,8 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			/* Prepared RDR descriptors */
 			first_last_mask = SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK;
 
-			sam_hw_rdr_prep_basic_desc_write(&cio->hw_ring,
-							 request->dst[0].paddr,
-							 request->dst[0].len,
-							 first_last_mask);
+			sam_hw_rdr_desc_write(&cio->hw_ring, request->dst[0].paddr,
+					      request->dst[0].len, first_last_mask);
 			rdr_submit++;
 
 			/* Prepared CDR descriptors */
@@ -1005,7 +1004,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 
 		i++;
 		operation = &cio->operations[cio->next_result];
-		if (unlikely(operation->num_bufs == 0)) {
+		if (unlikely(operation->num_bufs_out == 0)) {
 			/* Inalidate cache entry finished - free session */
 			sam_session_free(operation->sa);
 			SAM_STATS(sam_sa_stats.sa_del++);
@@ -1017,7 +1016,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 			print_result_desc(res_desc, 0);
 #endif
 		/* return descriptors to CDR */
-		sam_hw_cmd_desc_put(&cio->hw_ring, operation->in_num_bufs);
+		sam_hw_cmd_desc_put(&cio->hw_ring, operation->num_bufs_in);
 		/* Increment next result index */
 		cio->next_result = sam_cio_next_idx(cio, cio->next_result);
 		if (unlikely(!result)) /* Flush cio */
