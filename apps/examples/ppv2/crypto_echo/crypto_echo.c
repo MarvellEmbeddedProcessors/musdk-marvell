@@ -323,6 +323,9 @@ static void print_local_stats(struct local_arg *larg, int cpu, int reset)
 
 	}
 	printf("\n");
+
+	if (reset)
+		memset(&larg->stats, 0, sizeof(larg->stats));
 }
 #endif /* CRYPT_APP_STATS_SUPPORT */
 
