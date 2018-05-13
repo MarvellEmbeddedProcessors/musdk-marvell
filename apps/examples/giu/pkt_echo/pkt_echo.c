@@ -519,8 +519,12 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 	u16			 i, tx_num, free_count;
 	u16			 desc_idx = 0, cnt = 0;
 	u16			 pkt_offset = MVAPPS_PP2_PKT_EFEC_OFFS(pp2_port_desc->pkt_offset[tc]);
+	enum pp2_inq_vlan_tag	 vlan_tag;
+	enum pp2_inq_l2_cast_type l2_cast;
+	enum pp2_inq_l3_cast_type l3_cast;
 	enum pp2_inq_l3_type     l3_type;
 	enum pp2_inq_l4_type     l4_type;
+	enum pp2_inq_desc_status desc_status;
 	u8                       l3_offset, l4_offset;
 
 	/* Note: PP2 descriptors and GIU descriptors has similar
@@ -571,6 +575,21 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 		tmp_buff += pkt_offset;
 		printf("In packet: (@%p,0x%x)\n", buff, pa); mem_disp(tmp_buff, len);
 #endif
+		/* Get L2 error state */
+		desc_status = pp2_ppio_inq_desc_get_l2_pkt_error(&pp2_descs[i]);
+
+		/* If no L2 error ,check L3 error state */
+		if (!desc_status)
+			desc_status = pp2_ppio_inq_desc_get_l3_pkt_error(&pp2_descs[i]);
+
+		/* If no L3 error ,check L4 error state */
+		if (!desc_status)
+			desc_status = pp2_ppio_inq_desc_get_l4_pkt_error(&pp2_descs[i]);
+
+		pp2_ppio_inq_desc_get_vlan_tag(&pp2_descs[i], &vlan_tag);
+		pp2_ppio_inq_desc_get_l2_cast_info(&pp2_descs[i], &l2_cast);
+		pp2_ppio_inq_desc_get_l3_cast_info(&pp2_descs[i], &l3_cast);
+
 		pp2_ppio_inq_desc_get_l3_info(&pp2_descs[i], &l3_type, &l3_offset);
 		pp2_ppio_inq_desc_get_l4_info(&pp2_descs[i], &l4_type, &l4_offset);
 
@@ -581,7 +600,8 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 		giu_gpio_outq_desc_set_phys_addr(&giu_descs[i], pa + pkt_offset);
 		giu_gpio_outq_desc_set_pkt_offset(&giu_descs[i], 0);
 		giu_gpio_outq_desc_set_pkt_len(&giu_descs[i], len);
-		giu_gpio_outq_desc_set_proto_info(&giu_descs[i], l3_type, l4_type, l3_offset, l4_offset);
+		giu_gpio_outq_desc_set_proto_info(&giu_descs[i], desc_status, l2_cast, vlan_tag,
+							l3_cast, l3_type, l3_offset, l4_type, l4_offset);
 
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;
