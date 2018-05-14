@@ -898,70 +898,62 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			operation->out_frags[j].paddr = request->dst[j].paddr;
 			operation->out_frags[j].len = request->dst[j].len;
 		}
-		if (cio->hw_ring.type == HW_EIP197) {
-			/* Prepared RDR descriptors */
-			first_last_mask = SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK;
 
-			sam_hw_rdr_desc_write(&cio->hw_ring, request->dst[0].paddr,
-					      request->dst[0].len, first_last_mask);
-			rdr_submit++;
+		/* Prepared RDR descriptors */
+		first_last_mask = SAM_DESC_FIRST_SEG_MASK | SAM_DESC_LAST_SEG_MASK;
 
-			/* Prepared CDR descriptors */
-			prep_data = 0;
-			for (j = 0;  j < request->num_bufs; j++) {
-				u32 data_size = request->src[j].len;
+		sam_hw_rdr_desc_write(&cio->hw_ring, request->dst[0].paddr,
+				      request->dst[0].len, first_last_mask);
+		rdr_submit++;
 
-				first_last_mask = 0;
-				if (j == 0)
-					first_last_mask |= SAM_DESC_FIRST_SEG_MASK;
+		/* Prepared CDR descriptors */
+		prep_data = 0;
+		for (j = 0;  j < request->num_bufs; j++) {
+			u32 data_size = request->src[j].len;
 
-				if (j == (request->num_bufs - 1)) {
-					first_last_mask |= SAM_DESC_LAST_SEG_MASK;
-					data_size = operation->copy_len - prep_data;
+			first_last_mask = 0;
+			if (j == 0)
+				first_last_mask |= SAM_DESC_FIRST_SEG_MASK;
+
+			if (j == (request->num_bufs - 1)) {
+				first_last_mask |= SAM_DESC_LAST_SEG_MASK;
+				if (prep_data >= operation->copy_len) {
+					pr_err("%s: crypto data size %d > packet size %d\n",
+						__func__, prep_data, operation->copy_len);
+					sam_hw_ring_roolback(&cio->hw_ring, 1, j);
+					rdr_submit--;
+					cdr_submit -= j;
+					break;
 				} else
-					prep_data += data_size;
+					data_size = operation->copy_len - prep_data;
+			} else
+				prep_data += data_size;
 
-				/* write token for first descriptor only */
-				if (j == 0)
-					sam_hw_ring_ext_first_desc_write(&cio->hw_ring,
-								   &request->src[j], data_size,
-								   &request->sa->sa_buf, &operation->token_buf,
-								   operation->token_header_word,
-								   operation->token_words,
-								   first_last_mask);
-				else
-					sam_hw_ring_ext_desc_write(&cio->hw_ring,
-								   &request->src[j], data_size,
-								   &request->sa->sa_buf,
-								   first_last_mask);
+			if (cio->hw_ring.type == HW_EIP197)
+				sam_hw_ring_ext_desc_write(&cio->hw_ring,
+							   &request->src[j], data_size,
+							   &request->sa->sa_buf,
+							   &operation->token_buf,
+							   operation->token_header_word,
+							   operation->token_words,
+							   first_last_mask);
+			else
+				sam_hw_ring_basic_cdr_desc_write(&cio->hw_ring,
+								 &request->src[j], data_size,
+								 &request->sa->sa_buf,
+								 &operation->token_buf,
+								 operation->token_header_word,
+								 operation->token_words,
+								 first_last_mask);
 
-#ifdef MVCONF_SAM_DEBUG
-				if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
-					printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
-						operation->copy_len,
-						(void *)request->src[j].paddr);
-					mv_mem_dump(request->src[j].vaddr,
-						    operation->copy_len);
-				}
-#endif /* MVCONF_SAM_DEBUG */
-
-				cdr_submit++;
-			}
-		} else {
-			sam_hw_ring_basic_desc_write(&cio->hw_ring,
-						     request->src, request->dst, operation->copy_len,
-						     &request->sa->sa_buf, &operation->token_buf,
-						     operation->token_header_word, operation->token_words);
 #ifdef MVCONF_SAM_DEBUG
 			if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
 				printf("\nInput DMA buffer: %d bytes, physAddr = %p\n",
-					operation->copy_len,
-					(void *)request->src->paddr);
-				mv_mem_dump(request->src->vaddr,
-					    operation->copy_len);
+					operation->copy_len, (void *)request->src[j].paddr);
+				mv_mem_dump(request->src[j].vaddr, operation->copy_len);
 			}
 #endif /* MVCONF_SAM_DEBUG */
-			rdr_submit++;
+
 			cdr_submit++;
 		}
 
