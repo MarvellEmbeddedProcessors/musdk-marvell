@@ -735,50 +735,48 @@ static inline void sam_hw_cdr_proto_cmd_desc_write(struct sam_hw_ring *hw_ring,
 	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
 }
 
-static inline void sam_hw_ring_basic_desc_write(struct sam_hw_ring *hw_ring,
-				struct sam_buf_info *src_buf, struct sam_buf_info *dst_buf,
-				u32 copy_len, struct sam_buf_info *sa_buf,
-				struct sam_buf_info *token_buf, u32 token_header_word, u32 token_words)
+static inline void sam_hw_ring_basic_cdr_desc_write(struct sam_hw_ring *hw_ring,
+						    struct sam_buf_info *src_buf,
+						    u32 copy_len,
+						    struct sam_buf_info *sa_buf,
+						    struct sam_buf_info *token_buf,
+						    u32 token_header_word,
+						    u32 token_words, u32 seg_mask)
 {
 	u32 val32;
 	struct sam_hw_cmd_desc *cmd_desc;
-	struct sam_hw_res_desc *res_desc;
 
 	cmd_desc = sam_hw_cmd_desc_get(hw_ring, hw_ring->next_cdr);
-	res_desc = sam_hw_res_desc_get(hw_ring, hw_ring->next_rdr);
-
-	/* Write prepared RDR descriptor first */
-	sam_hw_rdr_prep_desc_write(res_desc, dst_buf->paddr, dst_buf->len,
-				   SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);
 
 	/* Write CDR descriptor */
 	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len,
 				  token_buf->paddr, token_words,
-				  SAM_DESC_LAST_SEG_MASK | SAM_DESC_FIRST_SEG_MASK);
+				  seg_mask);
 
-	/* Set 64-bit Context (SA) pointer and IP EIP97 */
-	token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
+	if (seg_mask & SAM_DESC_FIRST_SEG_MASK) {
+		/* write token only for first descriptor */
+		/* Set 64-bit Context (SA) pointer and IP EIP97 */
+		token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
 
-	writel_relaxed(token_header_word, &cmd_desc->words[6]);
+		writel_relaxed(token_header_word, &cmd_desc->words[6]);
 
-	/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
-	writel_relaxed(SAM_TOKEN_APPL_ID_SET(SAM_DEFAULT_APPL_ID), &cmd_desc->words[7]);
+		/* EIP202_RING_ANTI_DMA_RACE_CONDITION_CDS - EIP202_DSCR_DONE_PATTERN */
+		writel_relaxed(SAM_TOKEN_APPL_ID_SET(SAM_DEFAULT_APPL_ID), &cmd_desc->words[7]);
 
-	val32 = lower_32_bits((u64)sa_buf->paddr);
-	writel_relaxed(val32, &cmd_desc->words[8]);
+		val32 = lower_32_bits((u64)sa_buf->paddr);
+		writel_relaxed(val32, &cmd_desc->words[8]);
 
-	val32 = upper_32_bits((u64)sa_buf->paddr);
-	writel_relaxed(val32, &cmd_desc->words[9]);
+		val32 = upper_32_bits((u64)sa_buf->paddr);
+		writel_relaxed(val32, &cmd_desc->words[9]);
+	}
 
 #ifdef MVCONF_SAM_DEBUG
 	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG)) {
-		print_result_desc(res_desc, 1);
 		print_cmd_desc(cmd_desc);
 	}
 #endif /* MVCONF_SAM_DEBUG */
 
 	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
-	hw_ring->next_rdr = sam_hw_next_idx(hw_ring, hw_ring->next_rdr);
 }
 
 static inline void sam_hw_cdr_ext_token_write(struct sam_hw_cmd_desc *cmd_desc,
@@ -804,7 +802,7 @@ static inline void sam_hw_cdr_ext_token_write(struct sam_hw_cmd_desc *cmd_desc,
 	writel_relaxed(proto_word, &cmd_desc->words[11]);
 }
 
-static inline void sam_hw_ring_ext_first_desc_write(struct sam_hw_ring *hw_ring,
+static inline void sam_hw_ring_ext_desc_write(struct sam_hw_ring *hw_ring,
 						    struct sam_buf_info *src_buf,
 						    u32 copy_len,
 						    struct sam_buf_info *sa_buf,
@@ -820,31 +818,15 @@ static inline void sam_hw_ring_ext_first_desc_write(struct sam_hw_ring *hw_ring,
 	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len,
 				  token_buf->paddr, token_words, seg_mask);
 
-	/* Set 64-bit Context (SA) pointer and IP EIP97 */
-	token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
-	token_header_word |= SAM_TOKEN_TYPE_EXTENDED_MASK;
+	/* write token for first descriptor only */
+	if (seg_mask & SAM_DESC_FIRST_SEG_MASK) {
+		/* Set 64-bit Context (SA) pointer and IP EIP97 */
+		token_header_word |= (SAM_TOKEN_CP_64B_MASK | SAM_TOKEN_IP_EIP97_MASK);
+		token_header_word |= SAM_TOKEN_TYPE_EXTENDED_MASK;
 
-	sam_hw_cdr_ext_token_write(cmd_desc, sa_buf, token_header_word,
-				   FIRMWARE_CMD_PKT_LAC_MASK, 0);
-
-#ifdef MVCONF_SAM_DEBUG
-	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
-		print_cmd_desc(cmd_desc);
-#endif /* MVCONF_SAM_DEBUG */
-
-	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
-}
-
-static inline void sam_hw_ring_ext_desc_write(struct sam_hw_ring *hw_ring,
-					      struct sam_buf_info *src_buf,
-					      u32 copy_len, struct sam_buf_info *sa_buf,
-					      u32 seg_mask)
-{
-	struct sam_hw_cmd_desc *cmd_desc;
-
-	cmd_desc = sam_hw_cmd_desc_get(hw_ring, hw_ring->next_cdr);
-	/* Write CDR descriptor */
-	sam_hw_cdr_cmd_desc_write(cmd_desc, src_buf->paddr, copy_len, 0, 0, seg_mask);
+		sam_hw_cdr_ext_token_write(cmd_desc, sa_buf, token_header_word,
+					   FIRMWARE_CMD_PKT_LAC_MASK, 0);
+	}
 
 #ifdef MVCONF_SAM_DEBUG
 	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
