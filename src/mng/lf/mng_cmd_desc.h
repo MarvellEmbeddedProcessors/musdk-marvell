@@ -81,6 +81,8 @@ enum cmd_codes {
 	CC_PF_MC_PROMISC,
 	CC_PF_MTU,
 	CC_PF_LOOPBACK,
+	CC_PF_ADD_VLAN,
+	CC_PF_REMOVE_VLAN,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -164,6 +166,10 @@ struct mgmt_cmd_params {
 		struct {
 			u8 loopback;
 		} pf_set_loopback;
+
+		struct {
+			u16 vlan;
+		} pf_vlan;
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];

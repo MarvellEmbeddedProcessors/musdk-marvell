@@ -2148,6 +2148,64 @@ static int nmnicpf_loopback_command(struct nmnicpf *nmnicpf,
 }
 
 /*
+ *	nmnicpf_add_vlan_command
+ */
+static int nmnicpf_add_vlan_command(struct nmnicpf *nmnicpf,
+				struct mgmt_cmd_params *params,
+				struct mgmt_cmd_resp *resp_data)
+{
+	int ret = 0;
+
+	pr_debug("Add vlan message\n");
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_add_vlan(nmnicpf->pp2.ports_desc[0].ppio, params->pf_vlan.vlan);
+		if (ret) {
+			pr_err("Unable to add vlan\n");
+			return ret;
+		}
+	}
+
+	if (nmnicpf->guest_id) {
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0;
+	}
+
+	return ret;
+}
+
+/*
+ *	nmnicpf_remove_vlan_command
+ */
+static int nmnicpf_remove_vlan_command(struct nmnicpf *nmnicpf,
+				struct mgmt_cmd_params *params,
+				struct mgmt_cmd_resp *resp_data)
+{
+	int ret = 0;
+
+	pr_debug("Remove vlan message\n");
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_remove_vlan(nmnicpf->pp2.ports_desc[0].ppio, params->pf_vlan.vlan);
+		if (ret) {
+			pr_err("Unable to remove vlan\n");
+			return ret;
+		}
+	}
+
+	if (nmnicpf->guest_id) {
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0;
+	}
+
+	return ret;
+}
+
+/*
  *	nmnicpf_process_pf_command
  *
  *	This function process all PF's commands
@@ -2269,6 +2327,18 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_loopback_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_LOOPBACK message failed\n");
+		break;
+
+	case CC_PF_ADD_VLAN:
+		ret = nmnicpf_add_vlan_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("PF_ADD_VLAN message failed\n");
+		break;
+
+	case CC_PF_REMOVE_VLAN:
+		ret = nmnicpf_remove_vlan_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("PF_REMOVE_VLAN message failed\n");
 		break;
 
 	default:
