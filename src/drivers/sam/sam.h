@@ -113,6 +113,7 @@ struct sam_sa {
 	u8				tcr_data[SAM_TCR_DATA_SIZE];
 	u32				tcr_words;
 	u32				token_words;
+	u32				nonce;
 	u8				auth_inner[64]; /* authentication inner block */
 	u8				auth_outer[64]; /* authentication outer block */
 	u8				tunnel_header[40]; /* Maximum needed place for tunnel header */

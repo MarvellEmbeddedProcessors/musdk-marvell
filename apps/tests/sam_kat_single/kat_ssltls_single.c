@@ -85,6 +85,9 @@ static u8 example_udp_header[] = {
 	0x00, 0x00, 0x00, 0x00
 };
 
+static u8 ExampleNonce[] = {
+	0x40, 0xd6, 0xc1, 0xa7
+};
 
 static u8 example_aes_key[] = {
 	0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
@@ -127,6 +130,26 @@ static struct sam_session_params dtls_aes_cbc_sha1_sa = {
 	.u.ssltls.seq_mask[0] = 0x0,			/* up to 128-bit mask window used with inbound DTLS */
 };
 
+static struct sam_session_params dtls_aes_gcm_sa = {
+	.dir = SAM_DIR_ENCRYPT,				/* operation direction: encode/decode */
+	.cipher_alg = SAM_CIPHER_AES,			/* cipher algorithm */
+	.cipher_mode = SAM_CIPHER_GCM,			/* cipher mode */
+	.cipher_key = example_aes_key,			/* cipher key */
+	.cipher_key_len = sizeof(example_aes_key),	/* cipher key size (in bytes) */
+	.cipher_iv = ExampleNonce,			/* Nonce - first four bytes of IV */
+	.auth_alg = SAM_AUTH_AES_GCM,			/* authentication algorithm */
+	.auth_key = NULL,				/* pointer to authentication key */
+	.auth_key_len = 0,				/* authentication key size (in bytes) */
+	.proto = SAM_PROTO_SSLTLS,
+	.u.ssltls.version = SAM_DTLS_VERSION_1_2,	/* DTLS 1.2 version */
+	.u.ssltls.epoch = 0x0D,				/* 13 - for DTLS only */
+	.u.ssltls.is_ip6 = 0,				/* DTLS transported over: 1 - UDP/IPv6, 0 - UDP/IPv4 */
+	.u.ssltls.is_udp_lite = 0,			/* 1 - use UDPLite, 0 - use UDP */
+	.u.ssltls.is_capwap = 0,			/* 1 - use CAPWAP/DTLS, 0 - use DTLS */
+	.u.ssltls.seq_mask_size = SAM_DTLS_MASK_64B,	/* anti-replay seq mask size */
+	.u.ssltls.seq_mask[0] = 0x0,			/* up to 128-bit mask window used with inbound DTLS */
+};
+
 static struct sam_cio_ssltls_params aes128_cbc_t1 = {
 	.sa = NULL,
 	.cookie = (void *)0x12345678,
@@ -144,8 +167,7 @@ static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir d
 	if (!strcmp(name, "ip4_dtls_aes_cbc_sha1")) {
 		sa_params = &dtls_aes_cbc_sha1_sa;
 	} else if (!strcmp(name, "ip4_dtls_aes_gcm")) {
-		printf("%s not supported yet\n", name);
-		return -EINVAL;
+		sa_params = &dtls_aes_gcm_sa;
 	} else if (!strcmp(name, "ip4_capwap_dtls_aes_cbc_sha1")) {
 		sa_params = &dtls_aes_cbc_sha1_sa;
 		sa_params->u.ssltls.is_capwap = 1;
@@ -443,7 +465,6 @@ int main(int argc, char **argv)
 		printf("%s: initialization failed\n", argv[0]);
 		return 1;
 	}
-	sam_set_debug_flags(debug_flags);
 
 	cio_params.match = "cio-0:1";
 	cio_params.size = 32;

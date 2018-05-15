@@ -175,7 +175,21 @@ static int sam_session_crypto_init(struct sam_sa *session,
 
 	if (params->proto == SAM_PROTO_NONE)
 		sa_params->IVSrc  = SAB_IV_SRC_TOKEN;
-
+	else if (params->cipher_mode == SAM_CIPHER_GCM) {
+		/* Nonce is must for all counter modes */
+		if (params->cipher_iv)
+			sa_params->Nonce_p = params->cipher_iv;
+		else {
+			/* For IPSec encription direction nonce can be chosen randomly */
+			if (params->proto == SAM_PROTO_IPSEC) {
+				session->nonce = rand();
+				sa_params->Nonce_p = (u8 *)&session->nonce;
+			} else {
+				pr_err("SSLTLS in AES GCM mode requires valid Nonce\n");
+				return -EINVAL;
+			}
+		}
+	}
 	return 0;
 }
 
