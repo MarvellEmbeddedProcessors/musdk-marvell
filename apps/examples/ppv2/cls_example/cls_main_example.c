@@ -446,6 +446,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
+	u64			cores_mask;
 	struct pp2_glb_common_args *pp2_args;
 	int			err;
 
@@ -470,6 +471,9 @@ int main(int argc, char *argv[])
 	}
 
 	pp2_args->pp2_num_inst = pp2_get_num_inst();
+
+	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
+	garg.cmn_args.cores_mask = cores_mask;
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;
