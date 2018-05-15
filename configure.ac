@@ -29,6 +29,7 @@ AC_ARG_ENABLE([pp2],
 esac],[pp2=true])
 AM_CONDITIONAL([PP2_BUILD], [test x$pp2 = xtrue])
 if test x$pp2 = xtrue; then
+PP2_BUILT_FLAG="#define MVCONF_PP2_BUILT"
 ##########################################################################
 # Set pp2-lock - using --enable-pp2-lock
 ##########################################################################
@@ -69,7 +70,9 @@ AC_ARG_ENABLE([neta],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-neta]) ;;
 esac],[neta=false])
 AM_CONDITIONAL([NETA_BUILD], [test x$neta = xtrue])
-
+if test x$neta = xtrue; then
+NETA_BUILT_FLAG="#define MVCONF_NETA_BUILT"
+fi
 ##########################################################################
 # Set NMP_BUILD - using --enable-nmp
 ##########################################################################
@@ -80,8 +83,6 @@ AC_ARG_ENABLE([nmp],
   no)  nmp=false ;;
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-nmp]) ;;
 esac],[nmp=false])
-AM_CONDITIONAL([NMP_BUILD], [test x$nmp = xtrue])
-
 ##########################################################################
 # Set GIU_BUILD - using --enable-giu
 ##########################################################################
@@ -93,8 +94,16 @@ AC_ARG_ENABLE([giu],
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-giu]) ;;
 esac],[giu=false])
 AM_CONDITIONAL([GIU_BUILD], [test x$giu = xtrue])
+if test x$giu = xtrue; then
 #enable NMP builf if GIU build was enabled
-AM_CONDITIONAL([NMP_BUILD], [test x$giu = xtrue])
+nmp=true
+GIU_BUILT_FLAG="#define MVCONF_GIU_BUILT"
+fi
+
+AM_CONDITIONAL([NMP_BUILD], [test x$nmp = xtrue])
+if test x$nmp = xtrue; then
+NMP_BUILT_FLAG="#define MVCONF_NMP_BUILT"
+fi
 
 ##########################################################################
 # Set SAM_BUILD - using --enable-sam
@@ -109,6 +118,7 @@ esac],[sam=false])
 AM_CONDITIONAL([SAM_BUILD], [test x$sam = xtrue])
 
 if test x$sam = xtrue; then
+SAM_BUILT_FLAG="#define MVCONF_SAM_BUILT"
 ##########################################################################
 # Set MVCONF_SAM_STATS - using --enable-sam-statistics
 ##########################################################################
@@ -277,6 +287,20 @@ AC_CONFIG_FILES([src/include/env/mv_autogen_comp_flags.h])
 AC_SUBST([DMA_ADDR_SIZE])
 AM_SUBST_NOTMAKE([DMA_ADDR_SIZE])
 
+AC_SUBST([PP2_BUILT_FLAG])
+AM_SUBST_NOTMAKE([PP2_BUILT_FLAG])
+
+AC_SUBST([NETA_BUILT_FLAG])
+AM_SUBST_NOTMAKE([NETA_BUILT_FLAG])
+
+AC_SUBST([GIU_BUILT_FLAG])
+AM_SUBST_NOTMAKE([GIU_BUILT_FLAG])
+
+AC_SUBST([SAM_BUILT_FLAG])
+AM_SUBST_NOTMAKE([SAM_BUILT_FLAG])
+
+AC_SUBST([NMP_BUILT_FLAG])
+AM_SUBST_NOTMAKE([NMP_BUILT_FLAG])
 ##########################################################################
 # distribute the changed variables among the Makefiles
 
