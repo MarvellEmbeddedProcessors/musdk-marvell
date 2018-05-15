@@ -424,7 +424,7 @@ int pp2_port_config_txsched(struct pp2_port *port)
 	if (rc)
 		return rc;
 
-	rc = pp2_txsched_port_burst_set(port, port->rate_limit_params.cbs * 1000);
+	rc = pp2_txsched_port_burst_set(port, port->rate_limit_params.cbs * 1024);
 	if (rc)
 		return rc;
 
@@ -437,7 +437,7 @@ int pp2_port_config_txsched(struct pp2_port *port)
 		if (rc)
 			return rc;
 
-		rc = pp2_txsched_queue_burst_set(port, txq, port->txq_config[txq].rate_limit_params.cbs * 1000);
+		rc = pp2_txsched_queue_burst_set(port, txq, port->txq_config[txq].rate_limit_params.cbs * 1024);
 		if (rc)
 			return rc;
 
