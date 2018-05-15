@@ -104,7 +104,7 @@ void print_sam_sa_params(struct sam_session_params *sa_params)
 	pr_info("dir                  = %d\n", sa_params->dir);
 	pr_info("cipher_alg           = %d\n", sa_params->cipher_alg);
 	pr_info("cipher_mode          = %d\n", sa_params->cipher_mode);
-	/*pr_info("cipher_iv            = %p\n", sa_params->cipher_iv);*/
+	pr_info("cipher_iv            = %p\n", sa_params->cipher_iv);
 	pr_info("cipher_key           = %p\n", sa_params->cipher_key);
 	pr_info("cipher_key_len       = %d\n", sa_params->cipher_key_len);
 	pr_info("auth_alg             = %d\n", sa_params->auth_alg);
@@ -126,9 +126,9 @@ void print_sam_sa_params(struct sam_session_params *sa_params)
 			pr_info("ipsec.dip            = %p\n", sa_params->u.ipsec.tunnel.u.ipv4.dip);
 			mv_mem_dump(sa_params->u.ipsec.tunnel.u.ipv4.dip, 4);
 		}
-	} else if (sa_params->proto == SAM_PROTO_IPSEC) {
+	} else if (sa_params->proto == SAM_PROTO_SSLTLS) {
 		pr_info("ssltls.seq           = 0x%" PRIx64 "\n", sa_params->u.ssltls.seq);
-		pr_info("ipsec.is_ip6         = %d\n", sa_params->u.ssltls.is_ip6);
+		pr_info("ssltls.is_ip6        = %d\n", sa_params->u.ssltls.is_ip6);
 		pr_info("ssltls.epoch         = 0x%04x\n", sa_params->u.ssltls.epoch);
 		pr_info("ssltls.is_udp_lite   = %d\n", sa_params->u.ssltls.is_udp_lite);
 		pr_info("ssltls.is_capwap     = %d\n", sa_params->u.ssltls.is_capwap);
@@ -252,6 +252,7 @@ void print_sa_builder_params(struct sam_sa *session)
 	pr_info("\n");
 	pr_info("----------- SABuilder_Params_t sa_params ---------\n");
 	pr_info("CryptoAlgo              = %d\n", params->CryptoAlgo);
+	pr_info("Nonce_p                 = %p\n", params->Nonce_p);
 	pr_info("AuthAlgo                = %d\n", params->AuthAlgo);
 	pr_info("AuthKey1_p              = %p\n", params->AuthKey1_p);
 	pr_info("AuthKey2_p              = %p\n", params->AuthKey2_p);
@@ -275,10 +276,17 @@ void print_sa_builder_params(struct sam_sa *session)
 	pr_info("SeqNumWord32Count       = %d\n", params->SeqNumWord32Count);
 	pr_info("\n");
 
+	if (params->Nonce_p) {
+		pr_info("Nonce_p: 4 bytes\n");
+		mv_mem_dump(params->Nonce_p, 4);
+		pr_info("\n");
+	}
 	if (session->params.proto == SAM_PROTO_NONE)
 		print_basic_sa_params(&session->u.basic_params);
 	else if (session->params.proto == SAM_PROTO_IPSEC)
 		print_ipsec_sa_params(&session->u.ipsec_params);
+	else if (session->params.proto == SAM_PROTO_SSLTLS)
+		print_ssltls_sa_params(&session->u.ssltls_params);
 
 	pr_info("\nSA DMA buffer: %d words, physAddr = %p\n",
 			session->sa_words, (void *)session->sa_buf.paddr);

@@ -67,6 +67,7 @@ static char *test_names[] = {
 	/* 1 */ "ip4_transport_aes_cbc_sha1",
 	/* 2 */ "ip4_tunnel_aes_cbc",
 	/* 3 */ "ip4_tunnel_aes_cbc_sha1",
+	/* 4 */ "ip4_tunnel_aes_gcm",
 };
 
 static u8 IPSEC_ESP_L2_HEADER[] = {
@@ -179,6 +180,26 @@ static struct sam_session_params aes_cbc_sha1_sa = {
 	.u.ipsec.is_esn = 1,
 };
 
+static struct sam_session_params aes_gcm_sa = {
+	.dir = SAM_DIR_ENCRYPT,   /* operation direction: encode/decode */
+	.cipher_alg = SAM_CIPHER_AES,  /* cipher algorithm */
+	.cipher_mode = SAM_CIPHER_GCM, /* cipher mode */
+	.cipher_key = ExampleAESKey,    /* cipher key */
+	.cipher_key_len = sizeof(ExampleAESKey), /* cipher key size (in bytes) */
+	.cipher_iv = NULL,
+	.auth_alg = SAM_AUTH_AES_GCM, /* authentication algorithm */
+	.auth_key = NULL,    /* pointer to authentication key */
+	.auth_key_len = 0,    /* authentication key size (in bytes) */
+	.proto = SAM_PROTO_IPSEC,
+	.u.ipsec.is_esp = 1,
+	.u.ipsec.is_ip6 = 0,
+	.u.ipsec.is_tunnel = 0,
+	.u.ipsec.is_natt = 0,
+	.u.ipsec.spi = 0x1234,
+	.u.ipsec.seq = 0x6,
+	.u.ipsec.is_esn = 1,
+};
+
 static void sigint_h(int sig)
 {
 	printf("\nInterrupted by signal #%d\n", sig);
@@ -231,6 +252,9 @@ static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir d
 		sa_params->u.ipsec.is_tunnel = 1;
 	} else if (!strcmp(name, "ip4_tunnel_aes_cbc_sha1")) {
 		sa_params = &aes_cbc_sha1_sa;
+		sa_params->u.ipsec.is_tunnel = 1;
+	} else if (!strcmp(name, "ip4_tunnel_aes_gcm")) {
+		sa_params = &aes_gcm_sa;
 		sa_params->u.ipsec.is_tunnel = 1;
 	} else {
 		printf("%s: unknown session name - %s\n", __func__, name);
@@ -592,6 +616,8 @@ int main(int argc, char **argv)
 		printf("%s: initialization failed\n", argv[0]);
 		return 1;
 	}
+	sam_set_debug_flags(debug_flags);
+
 	if (create_session(&sa_enc, test_names[test_id], SAM_DIR_ENCRYPT))
 		goto exit;
 
@@ -610,8 +636,6 @@ int main(int argc, char **argv)
 		goto exit;
 
 	pr_info("%s decrypt session created\n", test_names[test_id]);
-
-	sam_set_debug_flags(debug_flags);
 
 	/* Prepare requests */
 	for (i = 0; i < MAX_BURST_SIZE; i++) {
