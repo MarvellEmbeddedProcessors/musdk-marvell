@@ -60,9 +60,10 @@
 #define SAM_N_RINGS_BITS		4
 #define SAM_N_RINGS_MASK		GENMASK(SAM_N_RINGS_OFFS + SAM_N_RINGS_BITS - 1, SAM_N_RINGS_OFFS)
 
+/* this enum must be compatible to 'enum safexcel_eip_version' in safexcel.h file */
 enum sam_hw_type {
-	HW_EIP197,
 	HW_EIP97,
+	HW_EIP197,
 	HW_TYPE_LAST
 };
 
@@ -94,7 +95,6 @@ struct sam_uio_pdev_info {
 	u32 busy_rings_map;
 	struct sam_uio_ring_info *rings;
 };
-
 
 static int sam_uio_remove(struct platform_device *pdev);
 
@@ -228,15 +228,16 @@ static int sam_uio_probe(struct platform_device *pdev)
 		goto fail_uio;
 	}
 
-	if (!strcmp(eip_node->name, "eip197")) {
+	pdev_info->type = (enum sam_hw_type) of_device_get_match_data(&eip_pdev->dev);
+	if (pdev_info->type == HW_EIP197) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
-		pdev_info->type = HW_EIP197;
-	} else if (!strcmp(eip_node->name, "eip97")) {
+		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_eip197_%d", cpn_count);
+	} else if (pdev_info->type == HW_EIP97) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP97_xDR_REGS_OFFS;
-		pdev_info->type = HW_EIP97;
+		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_eip97_%d", cpn_count);
 	} else {
 		err = -EINVAL;
-		dev_err(dev, "unknown HW type - %s\n", eip_node->name);
+		dev_err(dev, "unknown HW type - %s:%d\n", eip_node->name, pdev_info->type);
 		goto fail_uio;
 	}
 
@@ -249,8 +250,6 @@ static int sam_uio_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto fail_uio;
 	}
-
-	snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_%s_%d",  eip_node->name, cpn_count);
 
 	for (int idx = 0; idx < rings_num; idx++) {
 		struct sam_uio_ring_info *ring_info = &pdev_info->rings[idx];
@@ -265,7 +264,7 @@ static int sam_uio_probe(struct platform_device *pdev)
 			continue;
 		}
 
-		snprintf(ring_info->ring_name, sizeof(ring_info->ring_name), "%s:%d",  pdev_info->name, idx);
+		snprintf(ring_info->ring_name, sizeof(ring_info->ring_name), "%s:%d", pdev_info->name, idx);
 		uio->name = ring_info->ring_name;
 		uio->version = DRIVER_VERSION;
 
