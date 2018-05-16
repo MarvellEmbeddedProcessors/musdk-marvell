@@ -693,6 +693,7 @@ void app_show_port_eth_tool_get(struct port_desc *port_desc);
 
 int app_is_linux_sysfs_ena(void);
 
+int app_rss_num_tbl_get(char *if_name, char *file);
 /*
  * Set port enable/disable
  */
