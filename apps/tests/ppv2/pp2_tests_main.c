@@ -30,16 +30,24 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+#define _GNU_SOURCE         /* See feature_test_macros(7) */
+#define CLS_DEBUG
 #include <string.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <sched.h>
+
+
 #include "mv_std.h"
 #include "mvapp.h"
+#include "env/io.h"
+
 
 /* Following defines are used in pp2_utils.h */
 #define APP_PKT_ECHO_SUPPORT
 #define APP_USE_PREFETCH
 #define APP_MAX_BURST_SIZE			1024
+#define APP_TX_RETRY
 #define USE_PP2_UTILS_LPBK_SW_RECYCLE
 
 #define APP_DESCRIPTORS_DUMP
@@ -180,43 +188,43 @@ static int main_loop(void *arg, int *running)
 
 static int init_all_modules(void)
 {
-	struct pp2_init_params *pp2_params = &garg.pp2_params;
+	struct pp2_init_params	 pp2_params;
+	struct glb_common_args *cmn_args = &garg.cmn_args;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
-	int			 err;
+	int			 err = 0;
 	char			 file[PP2_MAX_BUF_STR_LEN];
 	int			 num_rss_tables = 0;
+	struct mv_sys_dma_mem_region_params params;
 
 	pr_info("Global initializations ...\n");
 
-	err = mv_sys_dma_mem_init(CLS_APP_DMA_MEM_SIZE);
+	app_get_num_cpu_clusters(cmn_args);
+	params.size = CLS_APP_DMA_MEM_SIZE;
+	params.manage = 1;
+	err = app_sys_dma_init(&params, cmn_args);
 	if (err)
 		return err;
 
-	memset(pp2_params, 0, sizeof(*pp2_params));
-	pp2_params->bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
+	memset(&pp2_params, 0, sizeof(pp2_params));
+	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
-	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-	num_rss_tables = app_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
-
-	if (num_rss_tables < 0) {
-		if (app_is_linux_sysfs_ena()) {
-			pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
+	if (garg.cmn_args.cpus > 1) {
+		num_rss_tables = app_rss_num_tbl_get(pp2_args->ports_desc[0].name, file);
+		if (num_rss_tables < 0)
 			return -EFAULT;
-		}
-		num_rss_tables = MVAPPS_DEF_KERNEL_NUM_RSS_TBL;
 	}
 
-	pp2_params->rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
+	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
 
-	err = pp2_init(pp2_params);
+	err = pp2_init(&pp2_params);
 	if (err)
 		return err;
 
 	/* Must be after pp2_init */
-	pp2_params->hif_reserved_map = pp2_get_kernel_hif_map();
-	app_used_hifmap_init(pp2_params->hif_reserved_map);
+	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
+	app_used_hifmap_init(pp2_params.hif_reserved_map);
 
-	cli_cls_prepare_policers_db(pp2_params->policers_reserved_map);
+	cli_cls_prepare_policers_db(pp2_params.policers_reserved_map);
 
 	pr_info("done\n");
 	return 0;
@@ -225,17 +233,21 @@ static int init_all_modules(void)
 static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
-	struct bpool_inf		infs[] = CLS_APP_BPOOLS_INF;
+	struct bpool_inf		std_inf[] = CLS_APP_BPOOLS_INF;
+	struct bpool_inf		*jumbo_inf = NULL;
+	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
-	int				i;
+	int				i = 0;
 
 	pr_info("Local initializations ...\n");
 
-	err = app_hif_init(&pp2_args->hif, CLS_APP_HIF_Q_SIZE, NULL);
+	err = app_build_common_hifs(&garg->cmn_args, CLS_APP_HIF_Q_SIZE);
 	if (err)
 		return err;
 
-	pp2_args->num_pools = ARRAY_SIZE(infs);
+	app_prepare_bpools(&garg->cmn_args, &infs, std_inf, ARRAY_SIZE(std_inf), jumbo_inf, ARRAY_SIZE(jumbo_inf));
+
+
 	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
 	if (err)
 		return err;
@@ -245,6 +257,8 @@ static int init_local_modules(struct glob_arg *garg)
 
 		err = app_find_port_info(port);
 		if (!err) {
+			memcpy(port->mem_region, garg->cmn_args.mem_region, sizeof(garg->cmn_args.mem_region));
+			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= garg->num_tcs;
 			for (i = 0; i < port->num_tcs; i++)
 				port->num_inqs[i] = garg->cmn_args.cpus;
@@ -252,7 +266,10 @@ static int init_local_modules(struct glob_arg *garg)
 			port->num_outqs	= PP2_PPIO_MAX_NUM_OUTQS;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
 			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
-			port->hash_type = garg->hash_type;
+			if (garg->cmn_args.cpus == 1)
+				port->hash_type = PP2_PPIO_HASH_T_NONE;
+			else
+				port->hash_type = garg->hash_type;
 
 			if (port->plcr_argc) {
 				err = cli_cls_policer_params(port);
@@ -347,12 +364,14 @@ static int init_local(void *arg, int id, void **_larg)
 	struct pp2_lcl_common_args *lcl_pp2_args;
 
 	int			 i, err;
+	int mem_id;
 
 	if (!garg) {
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
 
+	mem_id = sched_getcpu() / MVAPPS_NUM_CORES_PER_AP;
 	larg = (struct local_arg *)malloc(sizeof(struct local_arg));
 	if (!larg) {
 		pr_err("No mem for local arg obj!\n");
@@ -382,7 +401,8 @@ static int init_local(void *arg, int id, void **_larg)
 	}
 	memset(lcl_pp2_args->lcl_ports_desc, 0, larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 
-	err = app_hif_init(&lcl_pp2_args->hif, CLS_APP_HIF_Q_SIZE, NULL);
+	err = app_hif_init_wrap(id, &garg->cmn_args.thread_lock, glb_pp2_args, lcl_pp2_args, CLS_APP_HIF_Q_SIZE,
+				garg->cmn_args.mem_region[mem_id]);
 	if (err)
 		return err;
 
@@ -473,7 +493,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.busy_wait	= 0;
-	garg->cmn_args.echo = 0;
+	garg->cmn_args.echo = 1;
 	garg->hash_type = PP2_PPIO_HASH_T_2_TUPLE;
 	garg->cmn_args.num_ports = 0;
 	garg->cmn_args.cli = 1;
