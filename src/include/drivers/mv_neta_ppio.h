@@ -241,6 +241,9 @@ struct neta_ppio_sg_pkts {
 					 NETA_TXD_L_DESC_MASK | \
 					 NETA_TXD_F_DESC_MASK)
 
+#define NETA_TXD_SET_FIRST_LAST(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~(NETA_TXD_L_DESC_MASK | NETA_TXD_F_DESC_MASK)) | data)
+
 #define NETA_TXD_SET_L3_OFF(desc, data)		\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~NETA_TXD_L3_OFF_MASK) | ((data << 0) & NETA_TXD_L3_OFF_MASK))
 #define NETA_TXD_SET_IP_HLEN(desc, data)	\
