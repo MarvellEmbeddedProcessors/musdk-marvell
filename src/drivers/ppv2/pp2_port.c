@@ -960,12 +960,11 @@ pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slow
 	/* For non-loopback port, admin_up interface in Linux. Takes care of Phy/MAC. */
 	if (NOT_LPBK_PORT(port))
 		pp2_port_set_enable(port, 1);
-
+	mdelay(500);
 	pp2_port_start_dev(port);
 
 	if (NOT_LPBK_PORT(port)) {
 		/* Sleep to allow link to come up before showing status */
-		mdelay(800);
 		pp2_gop_status_show(&port->parent->hw.gop, &port->mac_data);
 	}
 }
