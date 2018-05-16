@@ -334,8 +334,18 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 	int i;
 	int free_desc = neta_txq_free_desc_num(txq);
 
-	if (free_desc < num)
-		num = (free_desc < num) ? free_desc : num;
+	if (unlikely(!free_desc))
+		return 0;
+
+	if (free_desc < num) {
+		/* if there are not enough free descriptors for all packets,
+		 * find latest packet that can be sent
+		*/
+		while (free_desc && (!(descs[free_desc - 1].cmds[0] & NETA_TXD_L_DESC_MASK)))
+			free_desc--;
+
+		num = free_desc;
+	}
 
 	for (i = 0; i < num; i++) {
 		/* Get a descriptor for the packet */
@@ -390,6 +400,84 @@ int neta_ppio_send(struct neta_ppio	*ppio,
 	}
 #endif
 
+	return 0;
+}
+
+/**
+ * Send a batch of S/G frames (single or multiple dscriptors) on an OutQ of PP-IO.
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		qid	out-Q id on which to send the frames.
+ * @param[in]		descs	A pointer to an array of descriptors representing the
+ *				frames fragments to be sent.
+ * @param[in,out]	num	input: number of descriptors to be sent;
+ *				output: number of descriptors sent.
+ * @param[in,out]	pkts	input: number of S/G packets and their fragments to be sent
+ *				output: number of full packets sent in pkts->num.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int neta_ppio_send_sg(struct neta_ppio		*ppio,
+		      u8			 qid,
+		     struct neta_ppio_desc	*descs,
+		     u16			*num,
+		     struct neta_ppio_sg_pkts	*pkts)
+{
+	u16 desc_sent, desc_req = *num;
+	struct neta_port *port = GET_PPIO_PORT(ppio);
+	int i, j, k;
+
+	pr_debug("[%s] %u: sending %d packets %d descriptors:\n", __func__,
+		 ppio->port_id, pkts->num, desc_req);
+
+	for (i = 0, k = 0; i < pkts->num; i++) {
+		/*
+		 * Handle packets with only one fragment.
+		 * TXD_FIRST_LAST flag was already set by neta_ppio_outq_desc_reset().
+		 */
+		if (pkts->frags[i] == 1) {
+			pr_debug("pkt:%d, frg:%d: first-last %.8X\n", i, k, descs[k].cmds[0]);
+			k++;
+			continue;
+		}
+
+		/* Handle first fragment */
+		NETA_TXD_SET_FIRST_LAST(&descs[k], NETA_TXD_F_DESC_MASK);
+		pr_debug("pkt:%d, frg:%d: first %.8X\n", i, k, descs[k].cmds[0]);
+		k++;
+
+		/* Handle middle fragments */
+		for (j = 1; j < pkts->frags[i] - 1;  j++) {
+			NETA_TXD_SET_FIRST_LAST(&descs[k], 0);
+			pr_debug("pkt:%d, frg:%d: middle %.8X\n", i, k, descs[k].cmds[0]);
+			k++;
+		}
+
+		/* Handle last fragment */
+		NETA_TXD_SET_FIRST_LAST(&descs[k], NETA_TXD_L_DESC_MASK);
+		pr_debug("pkt:%d, frg:%d: last %.8X\n", i, k, descs[k].cmds[0]);
+		k++;
+	}
+
+	desc_sent = neta_port_enqueue(port, qid, descs, desc_req);
+	if (unlikely(desc_sent < desc_req)) {
+		pr_debug("%s: Port %u qid %u, send_request %u sent %u!\n", __func__,
+			 ppio->port_id, qid, *num, desc_sent);
+		*num = desc_sent;
+	}
+
+#ifdef NETA_STATS_SUPPORT
+	{
+		struct neta_tx_queue *txq;
+
+		txq = &port->txqs[qid];
+		if (pkts)
+			txq->tx_pkts += pkts->num;
+		else
+			txq->tx_pkts += desc_sent;
+	}
+#endif
 	return 0;
 }
 
