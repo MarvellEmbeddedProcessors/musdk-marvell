@@ -170,6 +170,7 @@ struct pkt_mdata {
 	u8 rx_port;
 	u8 tx_port;
 	u8 data_offs;
+	u8 pad;
 	struct crypto_flow *flow;
 	void *buf_vaddr;
 	struct pp2_bpool *bpool;
@@ -509,6 +510,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 				memset(src_buf_infs[i].vaddr + sam_descs[i].cipher_offset + sam_descs[i].cipher_len,
 				       0, pad_size);
 				sam_descs[i].cipher_len += pad_size;
+				mdata->pad = pad_size;
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 				if (larg->cmn_args.verbose > 1)
 					pr_info("%s: cipher_len after padding = %d bytes, pad_size = %d bytes\n",
@@ -996,6 +998,8 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 			mdata->state = (u8)PKT_STATE_DEC;
 			res_descs_to_dec[num_to_dec++] = res_descs[i];
 		} else {
+			if (likely(res_descs[i].out_len > mdata->pad))
+				res_descs[i].out_len -= mdata->pad;
 			res_descs_to_send[num_to_send++] = res_descs[i];
 		}
 	}
