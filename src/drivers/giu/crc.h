@@ -359,11 +359,9 @@ static struct crc64_t CRC64_ECMA_182 = {
  * param[in] len Length of the Data
  * return calculated crc
  */
-static inline uint64_t crc64_compute(void const *data, uint32_t len)
+static inline uint64_t crc64_compute(uint8_t const *bdata, uint32_t len, uint64_t crc)
 {
 	uint32_t i;
-	uint64_t crc = CRC64_DEFAULT_INITVAL;
-	uint8_t *bdata = (uint8_t *) data;
 
 	for (i = 0; i < len; i++)
 		crc =

@@ -507,9 +507,9 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 {
 	struct giu_gpio_params *giu_params = gpio->params;
 	struct giu_gpio_tc *gpio_tc = &giu_params->outqs_params.tcs[tc];
-	uint8_t key_size = 0, extracted_key[MAX_EXTRACTION_SIZE];
+	uint8_t key_size = 0, *extracted_key;
 	const uint8_t *ip_frame;
-	uint64_t crc64 = 0;
+	uint64_t crc64 = CRC64_DEFAULT_INITVAL;
 	enum giu_outq_l3_type l3_info = GIU_TXD_GET_L3_PRS_INFO(desc);
 	enum giu_outq_l4_type l4_info = GIU_TXD_GET_L4_PRS_INFO(desc);
 	int ipv4 = 0;
@@ -530,34 +530,25 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 	struct mv_ipv6hdr *ipv6hdr = (struct mv_ipv6hdr *)ip_frame;
 
 	if (ipv4) {
-		memcpy(&extracted_key[key_size], ipv4hdr->src_addr, MV_IPV4ADDR_LEN);
-		key_size += MV_IPV4ADDR_LEN;
-		memcpy(&extracted_key[key_size], ipv4hdr->dst_addr, MV_IPV4ADDR_LEN);
-		key_size += MV_IPV4ADDR_LEN;
+		extracted_key = ipv4hdr->src_addr;
+		key_size = (MV_IPV4ADDR_LEN * 2);
 	} else {
-		memcpy(&extracted_key[key_size], ipv6hdr->src_addr, MV_IPV6ADDR_LEN);
-		key_size += MV_IPV6ADDR_LEN;
-		memcpy(&extracted_key[key_size], ipv6hdr->dst_addr, MV_IPV6ADDR_LEN);
-		key_size += MV_IPV6ADDR_LEN;
+		extracted_key = ipv6hdr->src_addr;
+		key_size = (MV_IPV6ADDR_LEN * 2);
 	}
+	crc64 = crc64_compute(extracted_key, key_size, crc64);
 
 	if ((gpio_tc->hash_type == GIU_GPIO_HASH_T_5_TUPLE) &&
 		(l4_info == GIU_OUTQ_L4_TYPE_TCP || l4_info == GIU_OUTQ_L4_TYPE_UDP)) {
 		if (ipv4)
-			extracted_key[key_size] = ipv4hdr->proto;
+			extracted_key = &ipv4hdr->proto;
 		else
-			extracted_key[key_size] = ipv6hdr->next_header;
-		key_size += MV_IP_PROTO_NH_LEN;
+			extracted_key = &ipv6hdr->next_header;
+		crc64 = crc64_compute(extracted_key, MV_IP_PROTO_NH_LEN, crc64);
 
 		struct mv_udphdr *l4hdr = (struct mv_udphdr *)(ip_frame + (GIU_TXD_GET_IPHDR_LEN(desc) * 4));
-
-		memcpy(&extracted_key[key_size], &l4hdr->src_port, MV_L4_PORT_LEN);
-		key_size += MV_L4_PORT_LEN;
-		memcpy(&extracted_key[key_size], &l4hdr->dst_port, MV_L4_PORT_LEN);
-		key_size += MV_L4_PORT_LEN;
+		crc64 = crc64_compute((uint8_t *)&l4hdr->src_port, (MV_L4_PORT_LEN * 2), crc64);
 	}
-
-	crc64 = crc64_compute(extracted_key, key_size);
 
 	queue_index = crc64 % gpio_tc->dest_num_qs;
 	GIU_TXD_SET_DEST_QID(desc, queue_index);
