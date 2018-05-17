@@ -761,9 +761,14 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 		goto error_session;
 	}
 
+	/* WA for check padding issue applied only for:
+	*  DTLS_1.0 or DTLS_1.2 versions and for CBC mode in DECRYPT direction
+	*/
 	if ((params->proto == SAM_PROTO_SSLTLS) &&
-	    (params->dir == SAM_DIR_DECRYPT)) {
-		/* WA for check padding issue */
+	    ((params->u.ssltls.version == SAM_DTLS_VERSION_1_0) ||
+	     (params->u.ssltls.version == SAM_DTLS_VERSION_1_2)) &&
+	    (params->cipher_mode == SAM_CIPHER_CBC) && (params->dir == SAM_DIR_DECRYPT)) {
+		/* WA replaces DTLS pad type with SSL pad type */
 #define SAB_CW1_PAD_TLS             0x00014000
 #define SAB_CW1_PAD_SSL             0x00018000
 		u32 *sa_words;
