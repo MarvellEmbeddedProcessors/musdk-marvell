@@ -126,21 +126,17 @@ struct pp2_cls_cos_desc {
 };
 
 struct pp2_cls_tbl_action {
-	enum pp2_cls_tbl_action_type		type;
-	/* TODO: struct pp2_cls_tbl			*next_tbl; */
-	/**< valid only in case of next-action is LU */
-	/* TODO: enum pp2_cls_tbl_mark_type	 mark_type; */
-	/*
-	* TODO :
-	* union {
-	*	u16			 flow_id;
-	*	u16			 qos;
-	* } u;
-	*/
+	enum pp2_cls_tbl_action_type		 type;
+	/** Valid only in case of 'MASKABLE' table.
+	 * This value will be reflected on the inQ descriptor in case of hit.
+	 * Allowed values: 0-4095. Value of '0' means 'not in use'.
+	 */
+	u16					 flow_id;
+	/* TODO: struct pp2_cls_tbl		*next_tbl; */
 	/** 'NULL' value means no-cos change; i.e. keep original cos */
-	struct pp2_cls_cos_desc		*cos;
+	struct pp2_cls_cos_desc			*cos;
 	/** 'NULL' value means no-plcr change; i.e. keep original plcr */
-	struct pp2_cls_plcr		*plcr;
+	struct pp2_cls_plcr			*plcr;
 };
 
 struct pp2_cls_tbl_key {
