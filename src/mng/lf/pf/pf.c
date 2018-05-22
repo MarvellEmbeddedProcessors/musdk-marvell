@@ -2274,7 +2274,68 @@ static int nmnicpf_gp_queue_get_statistics(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
-/*	nmnicpf_process_pf_command
+/*
+ *	nmnicpf_add_mc_addr_command
+ */
+static int nmnicpf_add_mc_addr_command(struct nmnicpf *nmnicpf,
+				   struct mgmt_cmd_params *params,
+				   struct mgmt_cmd_resp *resp_data)
+{
+	int ret = 0;
+
+	pr_debug("Add mc address message\n");
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_add_mac_addr(nmnicpf->pp2.ports_desc[0].ppio, params->mac_addr);
+		if (ret) {
+			pr_err("Unable to add mc address\n");
+			return -EFAULT;
+		}
+	}
+
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on mc addr add */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
+}
+
+/*
+ *	nmnicpf_remove_mc_addr_command
+ */
+static int nmnicpf_remove_mc_addr_command(struct nmnicpf *nmnicpf,
+				   struct mgmt_cmd_params *params,
+				   struct mgmt_cmd_resp *resp_data)
+{
+	int ret = 0;
+
+	pr_debug("Remove mc address message\n");
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		ret = pp2_ppio_remove_mac_addr(nmnicpf->pp2.ports_desc[0].ppio, params->mac_addr);
+		if (ret) {
+			pr_err("Unable to remove mc address\n");
+			return -EFAULT;
+		}
+	}
+
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on mc addr remove */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
+}
+
+/*
+ *	nmnicpf_process_pf_command
  *
  *	This function process all PF's commands
  *
@@ -2419,6 +2480,18 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_gp_queue_get_statistics(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_GET_GP_QUEUE_STATS message failed\n");
+		break;
+
+	case CC_PF_MC_ADD_ADDR:
+		ret = nmnicpf_add_mc_addr_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_MC_ADD_ADDR message failed\n");
+		break;
+
+	case CC_PF_MC_REMOVE_ADDR:
+		ret = nmnicpf_remove_mc_addr_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_MC_REMOVE_ADDR message failed\n");
 		break;
 
 	default:
