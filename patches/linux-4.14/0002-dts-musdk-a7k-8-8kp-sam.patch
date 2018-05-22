@@ -1,15 +1,16 @@
-From 9e782482e5e8bc472f73e9883aeb8035d1d2ba97 Mon Sep 17 00:00:00 2001
+From 5fc9fe05fc4f754908e47847c2b139982dd14d0d Mon Sep 17 00:00:00 2001
 From: Yelena Krivosheev <yelena@marvell.com>
 Date: Tue, 15 May 2018 09:52:33 +0300
-Subject: [PATCH 2/2] dts: musdk: a7k/8 sam
+Subject: [PATCH 2/2] dts: musdk: a7k/8/8kp sam
 
 Change-Id: I362e94c2506872a4f8fb304f800c2b4e042fbd1e
 Signed-off-by: Yelena Krivosheev <yelena@marvell.com>
 ---
  arch/arm64/boot/dts/marvell/armada-70x0.dtsi  |    4 ++++
  arch/arm64/boot/dts/marvell/armada-80x0.dtsi  |    8 ++++++++
+ arch/arm64/boot/dts/marvell/armada-ap810.dtsi |    6 ++++++
  arch/arm64/boot/dts/marvell/armada-cp110.dtsi |    5 +++++
- 3 files changed, 17 insertions(+)
+ 4 files changed, 23 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-70x0.dtsi b/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
 index f3aee5e..5df7883 100644
@@ -39,6 +40,23 @@ index b00556aa..bfc47b5 100644
 +&cp1_uio_sam {
 +	status = "okay";
 +};
+diff --git a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
+index dce37fd..a1e9d47 100644
+--- a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
+@@ -168,6 +168,12 @@
+ 				cell-index = <AP810_EIP197_INDEX>;
+ 				status = "okay";
+ 			};
++
++			AP810_LABEL(uio_sam) {
++				compatible = "marvell,uio-sam";
++				eip_access = <&AP810_LABEL(crypto)>;
++				status = "okay";
++			};
+ 		};
+ 	};
+ };
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 index 8c1d2a3..85a3517 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
