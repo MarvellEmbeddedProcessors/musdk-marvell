@@ -135,7 +135,7 @@ enum giu_outq_l4_type {
 #define GIU_RXD_GET_POOL_ID(desc)        (((desc)->cmds[0] & GIU_RXD_POOL_ID_MASK) >> 16)
 #define GIU_RXD_GET_L4_PRS_INFO(desc)    (((desc)->cmds[0] & GIU_RXD_L4_TYPE_MASK) >> 24)
 #define GIU_RXD_GET_L3_PRS_INFO(desc)    (((desc)->cmds[0] & GIU_RXD_L3_TYPE_MASK) >> 26)
-#define GIU_RXD_GET_MD_MODE(desc)        (((desc)->cmds[0] & GIU_TXD_MD_MODE) >> 22)
+#define GIU_RXD_GET_MD_MODE(desc)        (((desc)->cmds[0] & GIU_RXD_MD_MODE) >> 22)
 
 
 
