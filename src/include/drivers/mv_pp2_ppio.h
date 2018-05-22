@@ -559,6 +559,8 @@ enum pp2_inq_desc_status {
 #define RXD_VLAN_INFO_MASK	   (0x0000C000)
 #define RXD_L2_CAST_INFO_MASK	   (0x00003000)
 #define RXD_L3_CAST_INFO_MASK	   (0x00000C00)
+/* cmd 2 */
+#define RXD_FLOW_ID_MASK           (0x00000FFF)
 /* cmd 4 */
 #define RXD_BUF_PHYS_LO_MASK       (0xFFFFFFFF)
 /* cmd 5 */
@@ -828,6 +830,19 @@ static inline void pp2_ppio_inq_desc_get_l3_cast_info(struct pp2_ppio_desc *desc
 static inline int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc)
 {
 	return DM_RXD_GET_L3_IP_FRAG(desc);
+}
+
+/**
+ * Get the Flow ID information from an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	flow_id (0-4095).
+ *
+ */
+static inline u16 pp2_ppio_inq_desc_get_flow_id(struct pp2_ppio_desc *desc)
+{
+	return ((u16)(desc->cmds[2] & RXD_FLOW_ID_MASK));
 }
 
 /**
