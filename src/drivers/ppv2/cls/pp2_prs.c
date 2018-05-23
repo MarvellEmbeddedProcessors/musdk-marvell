@@ -1733,7 +1733,7 @@ int pp2_prs_eth_start_hdr_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr
  */
 static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
 {
-	int i, j, invalid;
+	static int i, j, invalid, mac_range_start = -1, mac_range_end = -1;
 	struct mv_pp2x_prs_entry pe;
 	struct mv_pp2x_prs_shadow *prs_shadow;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
@@ -1758,7 +1758,18 @@ static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
 		invalid = mv_pp2x_prs_tcam_valid_get(&pe);
 		prs_shadow[i].valid = invalid ? 0 : 1;
 		prs_shadow[i].valid_in_kernel = invalid ? 0 : 1;
+
+		/* Dynamically find the mac_range from hw_parser configuration */
+		if (!invalid && mac_range_start == -1 && prs_shadow[i].lu == MVPP2_PRS_LU_MAC
+		    && i >= MVPP2_PE_FIRST_FREE_TID)
+			mac_range_start = i;
+		if (!invalid && mac_range_start != -1 && mac_range_end == -1 && prs_shadow[i].lu != MVPP2_PRS_LU_MAC)
+			mac_range_end = i - 1;
 	}
+	prs_shadow->prs_mac_range_start = (u32) mac_range_start;
+	prs_shadow->prs_mac_range_end   = (u32) mac_range_end;
+	pr_debug("%s: mac_start:%u, mac_end:%u\n", __func__, prs_shadow->prs_mac_range_start,
+		 prs_shadow->prs_mac_range_end);
 	return 0;
 }
 
