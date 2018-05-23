@@ -2117,7 +2117,8 @@ struct mv_pp2x_prs_shadow {
 	u32 ri_mask;				/* Result info mask*/
 	union mv_pp2x_prs_tcam_entry tcam;	/* TCAM */
 	u32 valid_in_kernel;			/* Used for restoring kernel parser at deinit */
-
+	u32 prs_mac_range_start;
+	u32 prs_mac_range_end;
 };
 
 struct mv_pp2x_cls_flow_entry {
