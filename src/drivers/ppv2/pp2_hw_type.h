@@ -62,6 +62,7 @@
 /* RX DMA Top Registers */
 #define MVPP2_RX_CTRL_REG(port)			(0x140 + 4 * (port))
 #define MVPP2_RX_LOW_LATENCY_PKT_SIZE(s)	(((s) & 0xfff) << 16)
+#define MVPP2_RX_GEM_PORT_ID_SRC_SEL(s)		(((s) & 0x7) << 8)
 #define MVPP2_RX_USE_PSEUDO_FOR_CSUM_MASK	BIT(31)
 #define MVPP2_POOL_BUF_SIZE_REG(pool)		(0x180 + 4 * (pool))
 #define MVPP2_POOL_BUF_SIZE_OFFSET		5

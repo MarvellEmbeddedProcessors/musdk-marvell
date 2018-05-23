@@ -1470,6 +1470,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->rss_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
+	pkt_action->gemp_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 
 	if (action->plcr) {
 		pkt_action->policer_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
@@ -1503,8 +1504,10 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 			queue = port->tc[action->cos->tc].tc_config.first_rxq;
 			pkt_qos->q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
 			pkt_qos->q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
+			pkt_qos->gemp = action->flow_id;
 			qos_info->q_low_src = MVPP2_QOS_SRC_ACTION_TBL;
 			qos_info->q_high_src = MVPP2_QOS_SRC_ACTION_TBL;
+			qos_info->gemport_src = MVPP2_QOS_SRC_ACTION_TBL;
 			pr_debug("q_low %d, q_high %d, queue %d, tc %d\n", pkt_qos->q_low,
 				 pkt_qos->q_high, queue, action->cos->tc);
 		} else {
@@ -1538,6 +1541,7 @@ static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
 			break;
 		}
 	}
+
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
 	pkt_action->frwd_act = MVPP2_ACTION_TYPE_NO_UPDT;
@@ -1688,6 +1692,11 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		pr_debug("Rule added in C2: logic_idx: %d\n", logic_idx);
 	} else if (params->type == PP2_CLS_TBL_EXACT_MATCH) {
 		struct pp2_cls_c3_add_entry_t c3_entry;
+
+		if (action->flow_id != 0) {
+			pr_err("Exact-match engine does not support flow_id action. Ignoring request\n");
+			return -EINVAL;
+		}
 
 		MVPP2_MEMSET_ZERO(c3_entry);
 		c3_entry.mng_pkt_key = &mng_pkt_key;

@@ -320,9 +320,11 @@ pp2_port_defaults_set(struct pp2_port *port)
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_TOKEN_SIZE_REG, val);
 
 	/* Set MaximumLowLatencyPacketSize value to 256 */
+	/* Set GemPortIdSrcSel from classifier */
 	pp2_reg_write(cpu_slot, MVPP2_RX_CTRL_REG(port->id),
 		      MVPP2_RX_USE_PSEUDO_FOR_CSUM_MASK |
-				MVPP2_RX_LOW_LATENCY_PKT_SIZE(256));
+		      MVPP2_RX_LOW_LATENCY_PKT_SIZE(256) |
+		      MVPP2_RX_GEM_PORT_ID_SRC_SEL(2));
 
 	/* Disable Rx cache snoop */
 	for (lrxq = 0; lrxq < port->num_rx_queues; lrxq++) {
