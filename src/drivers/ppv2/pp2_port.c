@@ -1294,6 +1294,8 @@ pp2_port_deinit(struct pp2_port *port)
 	/* Restore rate limits and arbitration to original state */
 	pp2_port_deinit_txsched(port);
 
+	pp2_port_flush_mac_addrs(port, 1, 1);
+
 	/* Reset/disable TXQs/RXQs from hardware */
 	pp2_port_rxqs_deinit(port);
 	pp2_port_txqs_deinit(port);
