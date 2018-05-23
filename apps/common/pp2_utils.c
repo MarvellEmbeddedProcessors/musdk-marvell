@@ -664,6 +664,10 @@ static void pp2_rx_descriptor_dump(struct port_desc *ports_desc)
 			pr_info("Lookup_ID=0x%x, cpu_code=0x%x\n",
 				(desc->rsrvd_parser & MVPP2_RXD_LKP_ID_MASK) >> MVPP2_RXD_LKP_ID_OFFS,
 				(desc->rsrvd_parser & MVPP2_RXD_CPU_CODE_MASK) >> MVPP2_RXD_CPU_CODE_OFFS);
+
+			pr_info("Flow_ID %d\n",
+				pp2_ppio_inq_desc_get_flow_id(&ports_desc->lcl_ports_desc[j]->last_rx_descr_data));
+
 		} else {
 			pr_info("saving descriptor data is disabled\n");
 		}
