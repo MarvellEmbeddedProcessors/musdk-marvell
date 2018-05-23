@@ -47,6 +47,7 @@
 #include "pp2_port.h"
 #include "pp2_bm.h"
 #include "cls/pp2_hw_cls.h"
+#include "cls/pp2_prs.h"
 #include "lib/uio_helper.h"
 
 
@@ -263,10 +264,12 @@ int pp2_port_get_mc_promisc(struct pp2_port *port, uint32_t *en)
 	return 0;
 }
 
+
 /* Add MAC address */
 int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 {
 	int rc;
+	struct port_uc_addr_node *uc_addr_node;
 
 	if (mv_check_eaddr_mc(addr)) {
 		struct ifreq s;
@@ -289,27 +292,74 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		char buf[PP2_MAX_BUF_STR_LEN];
 		char da[PP2_MAX_BUF_STR_LEN];
 
+		uc_addr_node = kmalloc(sizeof(*uc_addr_node), GFP_KERNEL);
+		if (!uc_addr_node)
+			return -ENOMEM;
+		mv_cp_eaddr(uc_addr_node->addr, addr);
+
 		strcpy(buf, port->linux_name);
 		sprintf(da, " %x:%x:%x:%x:%x:%x", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 		strcat(buf, da);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_add", O_WRONLY);
 		if (fd == -1) {
-			pr_err("PORT: unable to open sysfs\n");
-			return -EFAULT;
+			pr_info("PORT: unable to open sysfs, updating prs_table internally instead\n");
+			mv_pp2x_prs_mac_da_accept(port, addr, true);
+		} else {
+			rc = write(fd, &buf, strlen(buf) + 1);
+			close(fd);
+			if (rc < 0) {
+				pr_err("PORT: unable to write to sysfs\n");
+				kfree(uc_addr_node);
+				return -EFAULT;
+			}
 		}
-		rc = write(fd, &buf, strlen(buf) + 1);
-		if (rc < 0) {
-			pr_err("PORT: unable to write to sysfs\n");
-			return -EFAULT;
-		}
+
+		/* Add uc_address to list */
+		list_add_to_tail(&uc_addr_node->list_node, &port->added_uc_addr);
+		port->num_added_uc_addr++;
+
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-		close(fd);
+		pr_debug("num_uc:%d\n", port->num_added_uc_addr);
+
 	} else {
 		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
 	return 0;
 }
+
+static int pp2_port_uc_mac_addr_check(struct pp2_port *port, const uint8_t *addr)
+{
+	struct port_uc_addr_node *uc_addr_node;
+
+	LIST_FOR_EACH_OBJECT(uc_addr_node, struct port_uc_addr_node,
+			     &port->added_uc_addr, list_node) {
+			if (mv_eaddr_identical(uc_addr_node->addr, addr))
+				return 1;
+	}
+
+	return 0;
+}
+
+
+static int pp2_port_uc_mac_addr_list_remove(struct pp2_port *port, const uint8_t *addr)
+{
+	struct port_uc_addr_node *uc_addr_node;
+
+	LIST_FOR_EACH_OBJECT(uc_addr_node, struct port_uc_addr_node,
+			     &port->added_uc_addr, list_node) {
+			if (mv_eaddr_identical(uc_addr_node->addr, addr)) {
+				list_del(&uc_addr_node->list_node);
+				kfree(uc_addr_node);
+				pr_info("removed %x:%x:%x:%x:%x:%x from port_list\n",
+					 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+				return 1;
+
+			}
+	}
+	return 0;
+}
+
 
 /* Remove MAC address */
 int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
@@ -342,17 +392,25 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		strcat(buf, da);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_del", O_WRONLY);
 		if (fd == -1) {
-			pr_err("PORT: unable to open sysfs\n");
-			return -EFAULT;
+			pr_info("PORT: unable to open sysfs, updating prs_table internally instead\n");
+			mv_pp2x_prs_mac_da_accept(port, addr, false);
+		} else {
+			rc = write(fd, &buf, strlen(buf) + 1);
+			close(fd);
+			if (rc < 0) {
+				pr_err("PORT: unable to write to sysfs\n");
+				return -EFAULT;
+			}
 		}
-		rc = write(fd, &buf, strlen(buf) + 1);
-		if (rc < 0) {
-			pr_err("PORT: unable to write to sysfs\n");
-			return -EFAULT;
-		}
+
+		pp2_port_uc_mac_addr_list_remove(port, addr);
+		port->num_added_uc_addr--;
+
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-		close(fd);
+		pr_debug("num_uc:%d\n", port->num_added_uc_addr);
+
+
 	} else {
 		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
@@ -362,12 +420,13 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 {
 	int rc;
+	u8 mac[ETH_ALEN];
+	struct port_uc_addr_node *uc_addr_node;
 
 	if (mc) {
 		char buf[PP2_MAX_BUF_STR_LEN];
 		char name[IFNAMSIZ];
 		char addr_str[PP2_MAX_BUF_STR_LEN];
-		u8 mac[ETH_ALEN];
 		FILE *fp = fopen("/proc/net/dev_mcast", "r");
 		int len = 0;
 		int st;
@@ -404,15 +463,21 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 		strcpy(buf, port->linux_name);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_flush", O_WRONLY);
 		if (fd == -1) {
-			pr_err("PORT: unable to open sysfs\n");
-			return -EFAULT;
+			pr_info("PORT: unable to open sysfs, updating prs_table internally instead\n");
+			while (!list_is_empty(&port->added_uc_addr)) {
+				uc_addr_node = LIST_FIRST_OBJECT((&port->added_uc_addr),
+								 struct port_uc_addr_node, list_node);
+				pp2_port_remove_mac_addr(port, uc_addr_node->addr);
+			}
+		} else {
+			rc = write(fd, &buf, strlen(buf) + 1);
+			close(fd);
+			if (rc < 0) {
+				pr_err("PORT: unable to write to sysfs\n");
+				return -EFAULT;
+			}
 		}
-		rc = write(fd, &buf, strlen(buf) + 1);
-		if (rc < 0) {
-			pr_err("PORT: unable to write to sysfs\n");
-			return -EFAULT;
-		}
-		close(fd);
+
 	}
 	return 0;
 }

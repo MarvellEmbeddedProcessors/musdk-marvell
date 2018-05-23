@@ -49,6 +49,8 @@
 #include "drivers/mv_pp2_hif.h"
 #include "drivers/mv_pp2_ppio.h"
 #include "lib/net.h"
+#include "lib/list.h"
+
 
 #include "pp2_hw_type.h"
 #include "pp2_gop.h"
@@ -394,6 +396,12 @@ struct rxq_event {
 	struct event_intrpt rx_intrpt[PP2_MAX_NUM_USED_INTERRUPTS];
 };
 
+struct port_uc_addr_node {
+	struct list			list_node;
+	u8				addr[ETH_ALEN];
+};
+
+
 /* PP Port internal structure */
 struct pp2_port {
 	/* Port ID */
@@ -455,6 +463,8 @@ struct pp2_port {
 	u32 num_rxq_events;
 	struct rxq_event rx_event[PP2_PPIO_MAX_NUM_INQS];
 	u32 rxq_event_mask;
+	struct list added_uc_addr;
+	u32 num_added_uc_addr;
 };
 
 /**

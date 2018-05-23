@@ -732,7 +732,7 @@ static void mv_pp2x_prs_match_etype(struct mv_pp2x_prs_entry *pe, int offset,
 
 /* Compare MAC DA with tcam entry data */
 static bool mv_pp2x_prs_mac_range_equals(struct mv_pp2x_prs_entry *pe,
-					 const u8 *da, unsigned char *mask)
+					 const u8 *da, const u8 *mask)
 {
 	unsigned char tcam_byte, tcam_mask;
 	int index;
@@ -1930,6 +1930,124 @@ int pp2_cls_prs_init(struct pp2_inst *inst)
 	 * TODO  this table will be dynamic once struct pp2_parse_params is implemented
 	 */
 	mv_pp2x_prs_flow_id_attr_init();
+
+	return 0;
+}
+
+/* Find tcam entry with matched pair <MAC DA, port> */
+static int mvpp2x_prs_mac_da_range_find(struct pp2_inst *inst, uintptr_t cpu_slot, int pmap, const u8 *da,
+					const u8 *mask, int udf_type)
+{
+	struct mv_pp2x_prs_entry pe;
+	int tid;
+	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
+
+	/* Go through all entries with MVPP2_PRS_LU_MAC */
+	for (tid = prs_shadow->prs_mac_range_start;
+	     tid <= prs_shadow->prs_mac_range_end; tid++) {
+		unsigned int entry_pmap;
+
+		if (!prs_shadow[tid].valid || prs_shadow[tid].lu != MVPP2_PRS_LU_MAC)
+			continue;
+		pe.index = tid;
+		mv_pp2x_prs_hw_read(cpu_slot, &pe);
+		entry_pmap = mv_pp2x_prs_tcam_port_map_get(&pe);
+
+		if (mv_pp2x_prs_mac_range_equals(&pe, da, mask)) {
+			pr_debug("maps: %d:%d\n", entry_pmap, pmap);
+			if (entry_pmap == pmap)
+				return tid;
+		}
+	}
+
+	return -ENOENT;
+}
+
+
+/* Update parser's mac da entry */
+int mv_pp2x_prs_mac_da_accept(struct pp2_port *port, const u8 *da, bool add)
+{
+	unsigned char mask[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	unsigned int pmap, len, ri;
+	struct mv_pp2x_prs_shadow *prs_shadow = port->parent->cls_db->prs_db.prs_shadow;
+	struct mv_pp2x_prs_entry pe;
+	int tid;
+
+	memset(&pe, 0, sizeof(pe));
+
+	/* Scan TCAM and see if entry with this <MAC DA, port> already exist */
+	tid = mvpp2x_prs_mac_da_range_find(port->parent, port->cpu_slot, BIT(port->id), da, mask, 0);
+
+	/* No such entry */
+	if (tid < 0) {
+		if (!add)
+			return 0;
+
+		/* Create new TCAM entry */
+		/* Go through the all entries from first to last */
+		tid = pp2_prs_tcam_first_free(port->parent, prs_shadow->prs_mac_range_start,
+					      prs_shadow->prs_mac_range_end);
+		if (tid < 0)
+			return tid;
+
+		pe.index = tid;
+
+		/* Mask all ports */
+		mv_pp2x_prs_tcam_port_map_set(&pe, 0);
+	} else {
+		pe.index = tid;
+		mv_pp2x_prs_hw_read(port->cpu_slot, &pe);
+	}
+
+	mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_MAC);
+
+	/* Update port mask */
+	mv_pp2x_prs_tcam_port_set(&pe, port->id, add);
+
+	/* Invalidate the entry if no ports are left enabled */
+	pmap = mv_pp2x_prs_tcam_port_map_get(&pe);
+	if (pmap == 0) {
+		if (add)
+			return -EINVAL;
+
+		mv_pp2x_prs_hw_inv(port->cpu_slot, pe.index);
+		prs_shadow[pe.index].valid = false;
+		return 0;
+	}
+
+	/* Continue - set next lookup */
+	mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_DSA);
+
+	/* Set match on DA */
+	len = ETH_ALEN;
+	while (len--)
+		mv_pp2x_prs_tcam_data_byte_set(&pe, len, da[len], 0xff);
+
+	/* Set result info bits */
+	if (mv_check_eaddr_bc(da)) {
+		ri = MVPP2_PRS_RI_L2_BCAST;
+	} else if (mv_check_eaddr_mc(da)) {
+		ri = MVPP2_PRS_RI_L2_MCAST;
+	} else {
+		ri = MVPP2_PRS_RI_L2_UCAST;
+
+		/* These mac_addresses are not the MAC-TO-ME address */
+		/* ri |= MVPP2_PRS_RI_MAC_ME_MASK; */
+	}
+
+	mv_pp2x_prs_sram_ri_update(&pe, ri, MVPP2_PRS_RI_L2_CAST_MASK |
+				   MVPP2_PRS_RI_MAC_ME_MASK);
+
+	mv_pp2x_prs_shadow_ri_set(port->parent, pe.index, ri, MVPP2_PRS_RI_L2_CAST_MASK |
+				  MVPP2_PRS_RI_MAC_ME_MASK);
+
+	/* Shift to ethertype */
+	mv_pp2x_prs_sram_shift_set(&pe, 2 * ETH_ALEN,
+				   MVPP2_PRS_SRAM_OP_SEL_SHIFT_ADD);
+
+	/* Update shadow table and hw entry */
+	mv_pp2x_prs_shadow_set(port->parent, pe.index, MVPP2_PRS_LU_MAC);
+	mv_pp2x_prs_hw_write(port->cpu_slot, &pe);
 
 	return 0;
 }
