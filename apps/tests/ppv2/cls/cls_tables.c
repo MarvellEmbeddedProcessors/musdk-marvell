@@ -41,6 +41,7 @@
 #define CLS_APP_KEY_SIZE_MAX			37
 #define CLS_APP_STR_SIZE_MAX			40
 #define CLS_APP_MAX_NUM_OF_RULES		20
+#define CLS_APP_MAX_FLOW_ID			4095
 
 static struct list cls_flow_tbl_head;
 
@@ -373,6 +374,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 	int tbl_idx = -1;
 	int plcr_idx = -1;
 	int traffic_class = -1;
+	int flow_id = 0;
 	int action_type = PP2_CLS_TBL_ACT_DONE;
 	int rc;
 	u32 num_fields;
@@ -398,6 +400,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		{"policer_index", required_argument, 0, 'p'},
 		{"drop", no_argument, 0, 'd'},
 		{"tc", required_argument, 0, 'q'},
+		{"flow_id", required_argument, 0, 'f'},
 		{0, 0, 0, 0}
 	};
 
@@ -441,6 +444,9 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 			break;
 		case 'q':
 			traffic_class = strtoul(optarg, &ret_ptr, 0);
+			break;
+		case 'f':
+			flow_id = strtoul(optarg, &ret_ptr, 0);
 			break;
 		case 's':
 			key_size[idx] = strtoul(optarg, &ret_ptr, 0);
@@ -531,6 +537,12 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 			goto rule_add_fail1;
 		}
 
+		if ((flow_id < 0) || (flow_id > CLS_APP_MAX_FLOW_ID)) {
+			printf("parsing fail, wrong input for --flow_id\n");
+			rc = -EINVAL;
+			goto rule_add_fail1;
+		}
+
 		action = malloc(sizeof(*action));
 		if (!action) {
 			rc = -ENOMEM;
@@ -543,6 +555,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 			goto rule_add_fail2;
 		}
 		action->type = action_type;
+		action->flow_id = flow_id;
 		action->cos->tc = traffic_class;
 		action->cos->ppio = ports_desc->ppio;
 		action->plcr = plcr;
@@ -665,6 +678,7 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 		"\t\t\t\t\t--remove --table_index --tc --drop(optional) --size --key --mask...\n"
 		"\t\t\t\t--table_index	(dec) index to existing table\n"
 		"\t\t\t\t--tc			(dec) 1..8\n"
+		"\t\t\t\t--flow_id		(dec) 1..4095\n"
 		"\t\t\t\t--drop		(optional)(no argument)\n"
 		"\t\t\t\t--policer_index	(optional)(dec) index to existing policer\n"
 		"\t\t\t\t--size		(dec) size in bytes of the key\n"
