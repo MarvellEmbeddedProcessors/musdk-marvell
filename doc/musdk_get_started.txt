@@ -136,7 +136,7 @@ Insert Kernel Modules
 
 (3) Insert MUSDK kernel space modules::
 
-	> insmod musdk_uio.ko     (mandatory)
+	> insmod musdk_cma.ko     (mandatory)
 
     For A7040/8040::
 
@@ -152,13 +152,17 @@ Insert Kernel Modules
 
 To run MUSDK SAM test applications kernel modules below must be loaded first:
 
-(5) Load kernel module for SAM UIO support::
-
-	> insmod mv_sam_uio.ko
-
-(6) Load kernel module for global EIP197 initializations::
+(5) Load kernel module for global EIP197 initializations::
 
 	> insmod crypto_safexcel.ko rings=0,0
+
+    .. note::
+
+	It is mandatory to load this module before mv_sam_uio.ko module.
+
+(6) Load kernel module for SAM UIO support::
+
+	> insmod mv_sam_uio.ko
 
     .. note::
 
