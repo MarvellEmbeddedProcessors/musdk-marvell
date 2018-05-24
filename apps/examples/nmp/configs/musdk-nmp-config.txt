@@ -10,6 +10,7 @@
 			"lfs_params": {
 				"lf_type": 1,
 				"nicpf": {
+					"match": "gpio-0:0",
 					"pci_en": 1,
 					"lcl_egress_qs_size": 2048,
 					"lcl_ingress_qs_size": 2048,

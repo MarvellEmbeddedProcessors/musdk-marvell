@@ -71,7 +71,7 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 	char				 buff[SER_MAX_FILE_SIZE];
 	char				*sec = NULL;
 	char				 tmp_buf[NMP_MAX_BUF_STR_LEN];
-	char				 pp2_name[NMP_MAX_BUF_STR_LEN];
+	char				 pp2_name[NMP_MAX_BUF_STR_LEN], giu_name[NMP_MAX_BUF_STR_LEN];
 	struct nmp_lf_nicpf_params	*pf;
 	u32				 num_lfs = 0;
 
@@ -178,6 +178,9 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 				/* Read nicpf*/
 				pf = (struct nmp_lf_nicpf_params *)
 				     &params->containers_params[i].lfs_params[j].u.nicpf;
+
+				pf->match = giu_name;
+				json_buffer_to_input_str(sec, "match", pf->match);
 
 				json_buffer_to_input(sec, "pci_en", pf->pci_en);
 				if (nmp_range_validate(pf->pci_en, 0, 1) != 0) {
