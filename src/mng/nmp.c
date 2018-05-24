@@ -13,7 +13,6 @@
 #include "mng/lf/pf/pf.h"
 #include "config.h"
 
-#define NMP_MAX_BUF_STR_LEN		256
 #define SCHED_MAX_MNG_ELEMENTS		10
 #define SCHED_MAX_DATA_ELEMENTS		1000
 
@@ -51,6 +50,7 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 	}
 	lf_params = &params->containers_params[0].lfs_params[0];
 
+	strcpy(pf_profile->match, lf_params->u.nicpf.match);
 	pf_profile->pci_en = lf_params->u.nicpf.pci_en;
 	pf_profile->lcl_egress_q_num   = 1;
 	pf_profile->lcl_egress_q_size  = lf_params->u.nicpf.lcl_egress_qs_size;

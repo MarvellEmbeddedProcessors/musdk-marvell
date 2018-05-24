@@ -84,6 +84,7 @@ struct nmp_lf_nicpf_pp2_port_params {
  * TODO: rename to .nmp_lf_nicpf_params. Left for backwards compatibility until API is updated in all apps
  */
 struct nmp_lf_nicpf_params {
+	char *match;				/**< matching gpio name */
 	int pci_en;				/**< Flag inidicating PCI interface is present*/
 	u16 lcl_egress_qs_size;			/**< local egress queue size */
 	u16 lcl_ingress_qs_size;		/**< local ingress queue size */

@@ -10,6 +10,7 @@
 
 #define PROFILE_NAME_LEN (32)
 #define PROFILE_DESC_LEN (128)
+#define NMP_MAX_BUF_STR_LEN		256
 
 #include "mng/mv_nmp.h"
 
@@ -18,6 +19,7 @@
  *
  * name               - profile name
  * desc               - profile name
+ * match              - matching gpio name
  * pci_en             -	flag inidicating PCI interface is present
  * lcl_egress_q_num   - number of local egress data queues
  * lcl_egress_q_size  - size of local egress data queue
@@ -30,6 +32,7 @@ struct pf_profile {
 	char name[PROFILE_NAME_LEN];
 	char desc[PROFILE_DESC_LEN];
 
+	char match[NMP_MAX_BUF_STR_LEN];
 	int pci_en;
 	u32 lcl_egress_q_num;
 	u32 lcl_egress_q_size;
