@@ -289,18 +289,25 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	pr_info("Initializing Device hardware\n");
 
 	/* Map the NIC-PF */
-	/* First, try to map the platform device, if failed, try the pci
-	 * device.
+	/* First, try to map the platform device, if failed, and PCI is supported
+	 * try the pci device.
 	 */
 	nmp->nmnicpf.map.type = ft_plat;
 	ret = dev_mng_map_plat_func(&nmp->nmnicpf.map);
 	if (ret) {
-		pr_info("Platform device not found, trying the pci device.\n");
-		nmp->nmnicpf.map.type = ft_pcie_ep;
-		ret = dev_mng_map_pci_func(&nmp->nmnicpf.map);
+		if (nmp->nmnicpf.profile_data.pci_en) {
+			pr_info("Platform device not found, trying the pci device.\n");
+			nmp->nmnicpf.map.type = ft_pcie_ep;
+			ret = dev_mng_map_pci_func(&nmp->nmnicpf.map);
+			if (ret) {
+				pr_err("niether platform nor PCI devices were found\n");
+				return ret;
+			}
+		} else {
+			pr_err("platform device not found\n");
+			return ret;
+		}
 	}
-	if (ret)
-		return ret;
 
 	/* Initialize Register File utility */
 	ret = regfile_init();

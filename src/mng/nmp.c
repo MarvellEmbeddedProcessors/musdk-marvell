@@ -50,6 +50,7 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 	}
 	lf_params = &params->containers_params[0].lfs_params[0];
 
+	pf_profile->pci_en = lf_params->u.nicpf.pci_en;
 	pf_profile->lcl_egress_q_num   = 1;
 	pf_profile->lcl_egress_q_size  = lf_params->u.nicpf.lcl_egress_qs_size;
 	pf_profile->lcl_ingress_q_num  = 1;
