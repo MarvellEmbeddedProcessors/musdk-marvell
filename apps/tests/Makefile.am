@@ -80,3 +80,15 @@ musdk_sam_ssltls_SOURCES  = sam_kat_single/kat_ssltls_single.c
 musdk_sam_ssltls_SOURCES += ../common/sam_utils.c
 musdk_sam_ssltls_LDADD = $(top_builddir)/src/libmusdk.la
 endif
+
+if GIU_BUILD
+bin_PROGRAMS += musdk_giu_pkt_gen
+musdk_giu_pkt_gen_SOURCES  = ../common/lib/cli.c
+musdk_giu_pkt_gen_SOURCES += ../common/mvapp.c
+musdk_giu_pkt_gen_SOURCES += ../common/utils.c
+musdk_giu_pkt_gen_SOURCES += ../common/pp2_utils.c
+musdk_giu_pkt_gen_SOURCES += ../common/giu_utils.c
+musdk_giu_pkt_gen_SOURCES += ../common/nmp_guest_utils.c
+musdk_giu_pkt_gen_SOURCES += giu/pkt_gen/pkt_gen.c
+musdk_giu_pkt_gen_LDADD = $(top_builddir)/src/libmusdk.la
+endif
