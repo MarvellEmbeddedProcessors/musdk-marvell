@@ -1,0 +1,31 @@
+From 4052160d6e480a1a699c8eaa26e41b5b270251b3 Mon Sep 17 00:00:00 2001
+From: Yuval Caduri <cyuval@marvell.com>
+Date: Wed, 2 May 2018 10:44:38 +0300
+Subject: [PATCH 3/3] dts: musdk: 37xx sam
+
+Change-Id: I4dc038b05b0f97aac105fde73e8b511323d177bb
+Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+---
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
+index 1009db8..5983f736 100644
+--- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
+@@ -159,6 +159,12 @@
+ 				status = "disabled";
+ 			};
+ 
++			uio-sam {
++				compatible = "marvell,uio-sam";
++				eip_access = <&crypto>;
++				status = "okay";
++			};
++
+ 			nb_periph_clk: nb-periph-clk@13000 {
+ 				compatible = "marvell,armada-3700-periph-clock-nb";
+ 				reg = <0x13000 0x100>;
+-- 
+1.7.9.5
+
