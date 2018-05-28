@@ -104,6 +104,38 @@ Supported Features
 
 Change Log
 ----------
+18:06:
+~~~~~~
+- Added NETA features:
+	- TX Scatter/Gather support
+- Fixed in NETA driver:
+	- bad rx descriptor processing
+	- map port's registers only once
+	- reset rx/tx dma before init
+	- call to down / up only if interface is running
+	- unregister neta ppio on deinit
+	- fix: rx packet l4 type get
+	- remove drop packets from rx queue on deinit
+	- hw configuration on mru change
+	- get l3 rx packet error
+	- init flag logic
+- Remove HW BM support in NETA driver
+- Added support for SAM driver features:
+	- GCM mode in protocol offload
+	- SHA224 authentication
+	- Multi buffer support for EIP97 and EIP197 engines
+	- WA for DTLS check padding issue
+	- 8 cores support in ``musdk_ppv2_crypto_echo`` application
+	- Affinity support in ``musdk_affinity`` application
+	- Crypto events in ``musdk_neta_crypto_echo``
+	- Enable anti-replay protection for ``musdk_sam_ssltls``
+	- Initial sequence id for encrypt and decrypt ``musdk_sam_ssltls`` and ``musdk_sam_ipsec``
+
+- API updates:
+	- NETA:
+		- Added ``neta_ppio_send_sg`` function
+		- Added ``neta_ppio_inq_get_all_buffs`` to get all free buffers from InQ
+
 
 18:02:
 ~~~~~~
