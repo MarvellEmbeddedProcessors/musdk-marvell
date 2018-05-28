@@ -294,10 +294,9 @@ read_cfg_exit1:
 	return rc;
 }
 
-static int main_loop(void *arg, int *running)
+static int main_loop_cb(void *arg, int *running)
 {
 	while (*running) {
-		nmp_schedule(garg.nmp, NMP_SCHED_MNG);
 		nmp_schedule(garg.nmp, NMP_SCHED_RX);
 		nmp_schedule(garg.nmp, NMP_SCHED_TX);
 	}
@@ -305,6 +304,19 @@ static int main_loop(void *arg, int *running)
 	return 0;
 }
 
+static int ctrl_cb(void *arg)
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+
+	return 0;
+}
 
 static int init_all_modules(void)
 {
@@ -429,7 +441,8 @@ static void init_app_params(struct mvapp_params *mvapp_params, u64 cores_mask)
 	mvapp_params->deinit_global_cb	= deinit_global;
 	mvapp_params->init_local_cb	= NULL;
 	mvapp_params->deinit_local_cb	= NULL;
-	mvapp_params->main_loop_cb	= main_loop;
+	mvapp_params->main_loop_cb	= main_loop_cb;
+	mvapp_params->ctrl_cb		= ctrl_cb;
 }
 
 int main(int argc, char *argv[])
