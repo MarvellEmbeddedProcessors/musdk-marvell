@@ -14,7 +14,6 @@ Supported SoCs
 	- Armada-70x0
 	- Armada-37x0
 	- Armada-808x
-	- Armada-816x
 
 Release Content
 ---------------
