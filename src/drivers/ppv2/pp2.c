@@ -434,7 +434,7 @@ u16 pp2_get_kernel_hif_map(void)
 	hif_map = pp2_reg_read(cpu_slot, MVPP22_HIF_ALLOCATION_REG);
 	hif_map = (hif_map) ? hif_map : MV_PP2_HIFS_RSRV_MASK;
 
-	pr_info("(%s) hif_map(0x%x)\n", __func__, hif_map);
+	pr_info("%s: hif_map(0x%x)\n", __func__, hif_map);
 	return hif_map;
 }
 
@@ -643,6 +643,10 @@ int pp2_init(struct pp2_init_params *params)
 			pp2_port_start(port, PP2_TRAFFIC_EGRESS);
 		}
 		kfree(lb_port_params);
+	}
+	if (pp2_ptr->init.res_maps_auto_detect_map & PP2_RSRVD_MAP_HIF_AUTO) {
+		pp2_ptr->init.hif_reserved_map = pp2_get_kernel_hif_map();
+		params->hif_reserved_map = pp2_ptr->init.hif_reserved_map;
 	}
 	return 0;
 
