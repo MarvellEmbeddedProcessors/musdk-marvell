@@ -43,7 +43,6 @@ How To Run
 		> ifconfig eth3 13.13.13.1 netmask 255.255.255.0 up
 		> sleep 1
 		> insmod musdk_cma.ko
-		> insmod mv_pp_uio.ko
 		> insmod mvpp2x_sysfs.ko
 
     Command parameters:
@@ -254,9 +253,6 @@ How To Run
 		> cd /
 		> insmod musdk_cma.ko
 		Registered cma device: uio-cma
-		> insmod mv_pp_uio.ko
-		Registered 2 uio devices, having 6 register maps attached
-		Registered 2 uio devices, having 6 register maps attached
 
     In case MAC filtering is used for configuring unicast address, or RSS is used, the following is also needed::
 
