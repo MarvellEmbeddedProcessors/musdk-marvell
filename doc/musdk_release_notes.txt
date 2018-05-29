@@ -153,8 +153,8 @@ Change Log
 
 18:02:
 ~~~~~~
-- Added GIU, MQA and NMP support
-- Added support for PPv2 guest mode
+- DELETED
+- DELETED
 - Added support for memory region selection in pp2_hif and pp2_ppio
 - Added support for NETA features:
  	- Checksum offload
