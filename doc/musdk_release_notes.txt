@@ -33,6 +33,7 @@ Supported Features
 ------------------
 - PP2 features:
 	- Tx/Rx interface
+	- RX Events support
 	- Buffer pool interface
 	- Multiple buffer pools support
 	- Checksum offload
@@ -130,12 +131,26 @@ Change Log
 	- Crypto events in ``musdk_neta_crypto_echo``
 	- Enable anti-replay protection for ``musdk_sam_ssltls``
 	- Initial sequence id for encrypt and decrypt ``musdk_sam_ssltls`` and ``musdk_sam_ipsec``
+- Added PPV2 features:
+	- TX Scatter/Gather support
+	- RX Events support
+- Added compilation feature:
+	- ``mv_autogen_comp_flags.h`` contains "XXX_BUILT" flags, exporting components built during musdk_lib compilation.
 
 - API updates:
 	- NETA:
 		- Added ``neta_ppio_send_sg`` function
 		- Added ``neta_ppio_inq_get_all_buffs`` to get all free buffers from InQ
-
+	- PPV2:
+		- Added ``pp2_ppio_send_sg`` function
+		- Added ``pp2_ppio_rx_create_event/set_event/delete_event`` functions
+		- Increase PP2_MAX_NUM_PUT_BUFFS to 8K
+	- SYS_DMA:
+		- Added ``mv_sys_dma_virt_is_valid, mv_sys_dma_phys_is_valid`` functions
+		- Removed ``__dma_phys_base, __dma_virt_base`` globals.
+	- SYS_EVENT:
+		- Updated ``mv_sys_event_poll`` function
+		- Added ``mv_sys_event_get_driver_data`` function
 
 18:02:
 ~~~~~~
