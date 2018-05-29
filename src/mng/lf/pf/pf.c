@@ -1719,11 +1719,56 @@ static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 	return 0;
 }
 
-static void nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
+static int nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
 {
-	/* TODO: check PP2 link */
+	struct nmp_pp2_port_desc *pdesc;
+	u32 pcount = 0;
+	int link_state, err;
 
-	nmnicpf_notif_link_change(nmnicpf, 1);
+	if (!nmnicpf->pp2.ports_desc)
+		/* no pp2, just return */
+		/* TODO: handle guest mode (i.e. notify guest to
+		 *	 to handle the request)
+		 */
+		return 0;
+
+	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
+	if (!pdesc->ppio)
+		/* PPIO is not initialized (yet), just return */
+		return 0;
+
+	/* check PP2 link */
+	err = pp2_ppio_get_link_state(pdesc->ppio, &link_state);
+	if (err) {
+		pr_err("Link check error (pp_id: %d)\n", pdesc->pp_id);
+		return -EFAULT;
+	}
+
+	if (pdesc->link_state != link_state) {
+		/* If link state was changed since last check, notify the host */
+		pr_debug("Link state was change to %d\n", link_state);
+
+		nmnicpf_notif_link_change(nmnicpf, link_state);
+		pdesc->link_state = link_state;
+	}
+
+	return 0;
+}
+
+/*
+ *	nmnicpf_check_link_change
+ *
+ *	This function checks the link state and if it was changed
+ *	since the last time it was checked it notifies the host
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int nmnicpf_check_link_change(struct nmnicpf *nmnicpf)
+{
+	return nmnicpf_link_state_check_n_notif(nmnicpf);
 }
 
 /*
@@ -2051,14 +2096,13 @@ static int nmnicpf_enable_command(struct nmnicpf *nmnicpf)
 			pr_err("PPIO enable failed\n");
 			return ret;
 		}
-		nmnicpf_link_state_check_n_notif(nmnicpf);
 	}
 
 	if (nmnicpf->guest_id) {
-		/* TODO - Notify Guest on enable */
 		if (nmnicpf->pp2.ports_desc)
 			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
 		else
+			/* TODO - Notify Guest on enable */
 			nmnicpf_notif_link_change(nmnicpf, (ret == 0) ? 1 : 0);
 	}
 

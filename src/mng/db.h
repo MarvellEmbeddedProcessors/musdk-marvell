@@ -88,6 +88,7 @@ struct nmp_pp2_port_desc {
 	u32			 hash_type;	/* Hash type */
 	u32			 first_rss_tbl;	/* First RSS table */
 	u32			 pkt_offst;	/* Packet Processor ID */
+	u32			 link_state;	/* Port link state */
 	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
 	u32			 num_pools;
 	struct nmp_pp2_bpool_desc *pools_desc;

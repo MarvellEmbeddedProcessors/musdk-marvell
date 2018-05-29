@@ -13,5 +13,6 @@
 int nmnicpf_init(struct nmnicpf *nmnicpf);
 int nmnicpf_deinit(struct nmnicpf *nmnicpf);
 int nmnicpf_process_command(void *nmnicpf, struct nmdisp_msg *msg);
+int nmnicpf_check_link_change(struct nmnicpf *nmnicpf);
 
 #endif /* _PF_H */
