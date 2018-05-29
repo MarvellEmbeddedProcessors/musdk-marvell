@@ -41,6 +41,7 @@
 #define PP2_MAX_PROTO_SUPPORTED		8 /**< Maximum number of net protocols supported in pp2 parser */
 #define PP2_MAX_FIELDS_SUPPORTED	2 /**< Maximum number of net protocol special fields supported in pp2 parser*/
 
+
 /** @addtogroup grp_pp2_init Packet Processor: Initialization
  *
  *  Packet Processor Initialization API documentation
@@ -104,6 +105,13 @@ struct pp2_parse_params {
  * pp2 init parameters
  *
  */
+
+/* reserved_maps autodetect bitflags */
+#define	PP2_RSRVD_MAP_HIF_AUTO		0x1
+#define	PP2_RSRVD_MAP_BM_POOL_AUTO	0x2
+#define	PP2_RSRVD_MAP_RSS_AUTO		0x4
+#define	PP2_RSRVD_MAP_POLICER_AUTO	0x8
+
 struct pp2_init_params {
 	/** Bitmap of reserved HIF objects (0-8), that may not be used by MUSDK. bit0=hif0, etc. */
 	u16			hif_reserved_map;
@@ -115,6 +123,8 @@ struct pp2_init_params {
 	u32			policers_reserved_map;
 	/** flag indicating to skip hw initializations (useful for guest mode) */
 	int			skip_hw_init;
+	/** Bitmap of the reserved_maps that should be autodetected. */
+	u32			res_maps_auto_detect_map;
 	/* TODO FUTURE struct pp2_parse_params	prs_params; */
 };
 

@@ -946,8 +946,6 @@ static int init_all_modules(void)
 
 	/* PP2 initializations */
 	memset(&pp2_params, 0, sizeof(pp2_params));
-	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
-	app_used_hifmap_init(pp2_params.hif_reserved_map);
 	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
 	/* Check how many RSS tables are in use by kernel. This parameter is needed for configuring RSS */
@@ -962,6 +960,8 @@ static int init_all_modules(void)
 	}
 
 	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
+	pp2_params.res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO;
+
 	pp2_params.skip_hw_init = 1;
 
 	err = pp2_init(&pp2_params);
@@ -969,7 +969,6 @@ static int init_all_modules(void)
 		return err;
 
 	/* Must be after pp2_init */
-	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
 	app_used_hifmap_init(pp2_params.hif_reserved_map);
 
 	/* NMP Guest initializations */

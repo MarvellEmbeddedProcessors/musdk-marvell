@@ -1187,13 +1187,13 @@ static int init_all_modules(void)
 	}
 
 	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
+	pp2_params.res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO;
 
 	err = pp2_init(&pp2_params);
 	if (err)
 		return err;
 
 	/* Must be after pp2_init */
-	pp2_params.hif_reserved_map = pp2_get_kernel_hif_map();
 	app_used_hifmap_init(pp2_params.hif_reserved_map);
 
 	pr_info("done\n");
