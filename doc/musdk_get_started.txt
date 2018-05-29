@@ -36,7 +36,7 @@ Build Required Kernel Modules
 
 (3) Build the MUSDK UIO kernel module and install it::
 
-	> cd <musdk-dir>/modules/uio
+	> cd <musdk-dir>/modules/cma
 	> make
 
 (4) Build the SAM UIO kernel module and install it.
