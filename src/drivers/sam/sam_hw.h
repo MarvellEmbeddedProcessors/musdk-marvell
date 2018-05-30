@@ -413,6 +413,18 @@ struct sam_hw_res_desc {
 /* E9 - Authentication error */
 #define SAM_RESULT_AUTH_ERROR_MASK		BIT(9)
 
+/* E10 - Sequence number error */
+#define SAM_RESULT_SEQ_ERROR_MASK		BIT(10)
+
+/* E11 - SPI error */
+#define SAM_RESULT_SPI_ERROR_MASK		BIT(11)
+
+/* E12 - Checksum error */
+#define SAM_RESULT_CHECKSUM_ERROR_MASK		BIT(12)
+
+/* E13 - PAD verification error */
+#define SAM_RESULT_PAD_ERROR_MASK		BIT(13)
+
 /* E14 - Timeout error occurs */
 #define SAM_RESULT_TIMEOUT_ERROR_MASK		BIT(14)
 
@@ -441,6 +453,12 @@ struct sam_hw_res_desc {
 #define SAM_RES_TOKEN_CLE_BITS			5
 #define SAM_RES_TOKEN_CLE_MASK			BIT_MASK(SAM_RES_TOKEN_CLE_BITS)
 #define SAM_RES_TOKEN_CLE_GET(v)		(((v) >> SAM_RES_TOKEN_CLE_OFFS) & SAM_RES_TOKEN_CLE_MASK)
+
+/* CLE Errors values */
+#define	SAM_RES_TOKEN_CLE_NOT_FOUND_ERR		1
+#define	SAM_RES_TOKEN_CLE_NOT_SUPPORTED_ERR	2
+#define	SAM_RES_TOKEN_CLE_PROTO_ERR		3
+
 
 /* Bit[21] - HASH Bytes appended */
 #define SAM_RES_TOKEN_HASH_ADDED_MASK		BIT(21)
@@ -930,6 +948,12 @@ static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct 
 		result->status = SAM_CIO_OK;
 	else if (errors & SAM_RESULT_AUTH_ERROR_MASK)
 		result->status = SAM_CIO_ERR_ICV;
+	else if (errors & SAM_RESULT_SEQ_ERROR_MASK)
+		result->status = SAM_CIO_ERR_ANTIREPLAY;
+	else if (cle_err == SAM_RES_TOKEN_CLE_NOT_FOUND_ERR)
+		result->status = SAM_CIO_ERR_SA_LOOKUP;
+	else if (cle_err == SAM_RES_TOKEN_CLE_PROTO_ERR)
+		result->status = SAM_CIO_ERR_PROTO;
 	else {
 		result->status = SAM_CIO_ERR_HW;
 #ifdef MVCONF_SAM_DEBUG
