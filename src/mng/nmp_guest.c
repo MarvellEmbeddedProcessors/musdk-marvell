@@ -6,14 +6,12 @@
 *******************************************************************************/
 
 #include "std_internal.h"
+#include "env/mv_autogen_comp_flags.h"
+#ifdef MVCONF_NMP_BUILT
 #include "mng/mv_nmp.h"
-#include "mng/mv_nmp_guest.h"
-#include "db.h"
+#endif /* MVCONF_NMP_BUILT */
 #include "dev_mng.h"
-#include "hw_emul/gie.h"
-#include "mng/dispatch.h"
-#include "config.h"
-#include "lib/lib_misc.h"
+#include "lf/mng_cmd_desc.h"
 
 #include "nmp_guest.h"
 
@@ -338,6 +336,11 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 	enum nmp_guest_lf_type lf_type = NMP_GUEST_LF_T_CUSTOM;
 	struct nmp_guest_queue *q = &guest->notify_queue;
 
+#ifdef MVCONF_NMP_BUILT
+	if (guest->nmp)
+		nmp_schedule(guest->nmp, NMP_SCHED_MNG);
+#endif /* MVCONF_NMP_BUILT */
+
 	prod_idx = q_rd_prod(q);
 	cons_idx = q_rd_cons(q);
 
@@ -404,6 +407,11 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 						  total_len);
 		}
 	}
+
+#ifdef MVCONF_NMP_BUILT
+	if (guest->nmp)
+		nmp_schedule(guest->nmp, NMP_SCHED_MNG);
+#endif /* MVCONF_NMP_BUILT */
 
 	return 0;
 }
@@ -478,4 +486,10 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 	return 0;
 }
 
+#ifdef MVCONF_NMP_BUILT
+void nmp_guest_set_nmp(struct nmp_guest *guest, void *nmp)
+{
+	guest->nmp = nmp;
+}
+#endif /* MVCONF_NMP_BUILT */
 

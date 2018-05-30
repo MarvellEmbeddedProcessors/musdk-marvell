@@ -8,6 +8,7 @@
 #ifndef _MV_NMP_GUEST_H
 #define _MV_NMP_GUEST_H
 
+#include "env/mv_autogen_comp_flags.h"
 #include "mv_nmp_guest_msg.h"
 
 /** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
@@ -169,6 +170,17 @@ int nmp_guest_schedule(struct nmp_guest *g);
  *	@retval	<0 on failure
  */
 int nmp_guest_send_msg(struct nmp_guest *g, u8 code, u16 indx, void *msg, u16 len);
+
+#ifdef MVCONF_NMP_BUILT
+/**
+ * Set NMP handle. Should be used if both NMP and NMP-Guest are running on the same process
+ *
+ * @param[in]	g		pointer to a guest handle.
+ * @param[in]	nmp		pointer to a nmp handle.
+ *
+ */
+void nmp_guest_set_nmp(struct nmp_guest *g, void *nmp);
+#endif /* MVCONF_NMP_BUILT */
 
 #endif /* _MV_NMP_GUEST_H */
 
