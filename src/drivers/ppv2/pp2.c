@@ -424,7 +424,7 @@ u8 pp2_get_num_inst(void)
 #define MV_PP2_NUM_HIFS_RSRV	4
 #define MV_PP2_HIFS_RSRV_MASK	((1 << MV_PP2_NUM_HIFS_RSRV) - 1)
 
-u16 pp2_get_kernel_hif_map(void)
+u16 pp2_get_used_hif_map(void)
 {
 	uintptr_t cpu_slot;
 	u32 hif_map;
@@ -436,6 +436,24 @@ u16 pp2_get_kernel_hif_map(void)
 
 	pr_info("%s: hif_map(0x%x)\n", __func__, hif_map);
 	return hif_map;
+}
+
+
+/* Number of BM pools reserved by kernel */
+#define PP2_NUM_BPOOLS_RSRV	3
+/* Reserved BM pools mask */
+#define PP2_BPOOLS_RSRV_MASK		((1 << PP2_NUM_BPOOLS_RSRV) - 1)
+u16 pp2_get_used_bm_pool_map(void)
+{
+	u32 bm_pool_map;
+
+	/* TODO : Replace with pp2_reg_read that will read actual bm_map,
+	 *        after supported in kernel is added
+	 */
+	bm_pool_map = PP2_BPOOLS_RSRV_MASK;
+
+	pr_info("%s: bm_pool_map(0x%x)\n", __func__, bm_pool_map);
+	return bm_pool_map;
 }
 
 
@@ -605,6 +623,21 @@ int pp2_init(struct pp2_init_params *params)
 
 		/* Initialize this packet processor */
 		inst->skip_hw_init = params->skip_hw_init;
+
+		/* Retrieve reserved_maps for auto_detect requests, only required to perform once.
+		 * bm_pool_map must be valid before call to pp2_inst_init().
+		 */
+		if (pp2_id == 0) {
+			if (pp2_ptr->init.res_maps_auto_detect_map & PP2_RSRVD_MAP_HIF_AUTO) {
+				pp2_ptr->init.hif_reserved_map = pp2_get_used_hif_map();
+				params->hif_reserved_map = pp2_ptr->init.hif_reserved_map;
+			}
+			if (pp2_ptr->init.res_maps_auto_detect_map & PP2_RSRVD_MAP_BM_POOL_AUTO) {
+				pp2_ptr->init.bm_pool_reserved_map = pp2_get_used_bm_pool_map();
+				params->bm_pool_reserved_map = pp2_ptr->init.bm_pool_reserved_map;
+			}
+		}
+
 		pp2_inst_init(inst);
 		pp2_ptr->num_pp2_inst++;
 	}
@@ -643,10 +676,6 @@ int pp2_init(struct pp2_init_params *params)
 			pp2_port_start(port, PP2_TRAFFIC_EGRESS);
 		}
 		kfree(lb_port_params);
-	}
-	if (pp2_ptr->init.res_maps_auto_detect_map & PP2_RSRVD_MAP_HIF_AUTO) {
-		pp2_ptr->init.hif_reserved_map = pp2_get_kernel_hif_map();
-		params->hif_reserved_map = pp2_ptr->init.hif_reserved_map;
 	}
 	return 0;
 

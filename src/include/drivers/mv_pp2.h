@@ -186,7 +186,16 @@ u8 pp2_get_num_inst(void);
  * @retval	>0 on success
  * @retval	=0 on failure
  */
-u16 pp2_get_kernel_hif_map(void);
+u16 pp2_get_used_hif_map(void);
+
+/**
+ * Get bitmap of used bm_pools.
+ *
+ *
+ * @retval	>0 on success
+ * @retval	=0 on failure
+ */
+u16 pp2_get_used_bm_pool_map(void);
 
 /** @} */ /* end of grp_pp2_init */
 

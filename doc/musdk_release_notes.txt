@@ -168,7 +168,7 @@ Change Log
 	- General:
 		- Renamed ``MV_NET_IP4_F_TOS`` to ``MV_NET_IP4_F_DSCP``
 	- PP2:
-		- Added ``pp2_get_kernel_hif_map`` function
+		- Added ``pp2_get_used_hif_map`` function
 		- Added ``skip_hw_init`` parameter to ``pp2_init_params`` (for guest mode)
 		- Added ``pp2_bpool_probe`` and its counterpart ``pp2_bpool_remove``
 		- Added ``pp2_bpool_serialize``

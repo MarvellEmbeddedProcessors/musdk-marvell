@@ -50,6 +50,14 @@
 #define NMP_GIE_MAX_BPOOLS		16
 #define NMP_GIE_MAX_BM_PER_Q		1
 
+/* Number of BM pools reserved by kernel */
+#define MVAPPS_PP2_NUM_BPOOLS_RSRV	3
+/* Reserved BM pools mask */
+#define MVAPPS_PP2_BPOOLS_RSRV		((1 << MVAPPS_PP2_NUM_BPOOLS_RSRV) - 1)
+/* Maximum number of pools per packet processor */
+#define MVAPPS_PP2_MAX_NUM_BPOOLS	(PP2_BPOOL_NUM_POOLS - MVAPPS_PP2_NUM_BPOOLS_RSRV)
+
+
 /*---------------------------*/
 /*  Guest mode related functions  */
 /*--------------------------*/

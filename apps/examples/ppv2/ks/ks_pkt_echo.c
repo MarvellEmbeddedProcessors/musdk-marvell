@@ -482,7 +482,7 @@ static int musdk_pkt_echo_pp2_init(void)
 	int rc;
 	struct pp2_init_params init_params;
 
-	init_params.hif_reserved_map = pp2_get_kernel_hif_map();
+	init_params.hif_reserved_map = pp2_get_used_hif_map();
 	musdk_pkt_hifmap_init(init_params.hif_reserved_map);
 	init_params.bm_pool_reserved_map = 0x0007;
 	rc = musdk_pkt_echo_rss_tbl_reserved_map_get(&init_params.rss_tbl_reserved_map);
