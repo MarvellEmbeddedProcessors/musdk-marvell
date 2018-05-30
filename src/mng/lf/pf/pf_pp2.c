@@ -52,7 +52,7 @@ int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf)
 	nmnicpf->pp2.reserved_bpools = nmnicpf->profile_data.pp2_bm_pool_reserved_map;
 
 	/* Allocate memory for the pp2 descriptors */
-	pdesc = kmalloc(sizeof(struct nmp_pp2_port_desc), GFP_KERNEL);
+	pdesc = kzalloc(sizeof(struct nmp_pp2_port_desc), GFP_KERNEL);
 	if (!pdesc)
 		return -ENOMEM;
 
