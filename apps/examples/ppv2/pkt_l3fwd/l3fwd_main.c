@@ -510,7 +510,6 @@ static int init_all_modules(void)
 		return err;
 
 	memset(&pp2_params, 0, sizeof(pp2_params));
-	pp2_params.bm_pool_reserved_map = MVAPPS_PP2_BPOOLS_RSRV;
 
 	/* Check how many RSS tables are in use by kernel. This parameter is needed for configuring RSS */
 	/* Relevant only if cpus is bigger than 1 */
@@ -521,7 +520,7 @@ static int init_all_modules(void)
 	}
 
 	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
-	pp2_params.res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO;
+	pp2_params.res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO | PP2_RSRVD_MAP_BM_POOL_AUTO;
 
 	err = pp2_init(&pp2_params);
 	if (err)
@@ -529,6 +528,7 @@ static int init_all_modules(void)
 
 	/* Must be after pp2_init */
 	app_used_hifmap_init(pp2_params.hif_reserved_map);
+	app_used_bm_pool_map_init(pp2_params.bm_pool_reserved_map);
 
 	pr_info("done\n");
 	return 0;

@@ -61,13 +61,6 @@
 #define MVAPPS_DEF_KERNEL_FIRST_RXQ		0
 #define MVAPPS_DEF_KERNEL_NUM_QS		4
 
-
-/* Number of BM pools reserved by kernel */
-#define MVAPPS_PP2_NUM_BPOOLS_RSRV	3
-/* Reserved BM pools mask */
-#define MVAPPS_PP2_BPOOLS_RSRV		((1 << MVAPPS_PP2_NUM_BPOOLS_RSRV) - 1)
-/* Maximum number of pools per packet processor */
-#define MVAPPS_PP2_MAX_NUM_BPOOLS	(PP2_BPOOL_NUM_POOLS - MVAPPS_PP2_NUM_BPOOLS_RSRV)
 /* Total number of HIFs supported */
 #define MVAPPS_PP2_TOTAL_NUM_HIFS	9 /* PP2_NUM_REGSPACES - move to API h file */
 
@@ -603,6 +596,7 @@ int app_hif_init_wrap(int thr_id, pthread_mutex_t *thr_lock, struct pp2_glb_comm
 		      struct pp2_lcl_common_args *lcl_pp2_args, u32 queue_size, struct mv_sys_dma_mem_region *mem);
 
 void app_used_hifmap_init(u16 used_hif_map);
+void app_used_bm_pool_map_init(u16 used_bm_pool_map);
 
 
 int app_build_common_hifs(struct glb_common_args *glb_args, u32 hif_qsize);

@@ -45,9 +45,7 @@
 #include "pp2_utils.h"
 #include "src/drivers/ppv2/pp2.h"
 
-static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC] = {
-	[0 ... MVAPPS_PP2_MAX_PKT_PROC - 1] = MVAPPS_PP2_BPOOLS_RSRV
-};
+static u16 used_bpools[MVAPPS_PP2_MAX_PKT_PROC];
 static u16 used_hifs;
 
 static u64 buf_alloc_cnt;
@@ -880,6 +878,14 @@ void app_used_hifmap_init(u16 used_hif_map)
 	used_hifs = used_hif_map;
 }
 
+void app_used_bm_pool_map_init(u16 used_bm_pool_map)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(used_bpools); i++)
+		used_bpools[i] = used_bm_pool_map;
+}
+
 int available_hifs(void)
 {
 	int i, free_hifs = 0;
@@ -1192,6 +1198,10 @@ void app_prepare_bpools(struct glb_common_args *glb_args, struct bpool_inf **inf
 	*infs = i_infs;
 }
 
+static int app_get_max_num_pools(void)
+{
+	return(PP2_BPOOL_NUM_POOLS - bit_count(pp2_get_used_bm_pool_map()));
+}
 
 int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif)
 {
@@ -1204,8 +1214,9 @@ int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpoo
 
 	buf_alloc_cnt = 0;
 
-	if (num_pools > MVAPPS_PP2_MAX_NUM_BPOOLS) {
-		pr_err("only %d pools allowed!\n", MVAPPS_PP2_MAX_NUM_BPOOLS);
+	pr_info("only %d pools allowed!\n", app_get_max_num_pools());
+	if (num_pools > app_get_max_num_pools()) {
+		pr_err("only %d pools allowed!\n", app_get_max_num_pools());
 		return -EINVAL;
 	}
 /* TODO: release memory on error */
