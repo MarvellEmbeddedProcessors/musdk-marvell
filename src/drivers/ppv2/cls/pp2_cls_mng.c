@@ -1453,7 +1453,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
-	else {
+	else if (action->cos) {
 		switch (port->tc[action->cos->tc].tc_config.default_color) {
 		case PP2_PPIO_COLOR_GREEN:
 			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
@@ -1465,6 +1465,8 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED;
 			break;
 		}
+	} else {
+		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT;
 	}
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
 	pkt_action->flowid_act = MVPP2_ACTION_FLOWID_DISABLE;
@@ -1498,7 +1500,7 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 		mv_pp2x_cls_c2_qos_tbl_fill_array(port, tbl_sel, tc_array);
 	} else {
 	/* for classifier and default rules */
-		if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
+		if (action->cos) {
 			pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 			pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 			queue = port->tc[action->cos->tc].tc_config.first_rxq;
@@ -1528,7 +1530,7 @@ static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
 
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
-	else {
+	else if (action->cos) {
 		switch (port->tc[action->cos->tc].tc_config.default_color) {
 		case PP2_PPIO_COLOR_GREEN:
 			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
@@ -1540,6 +1542,8 @@ static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
 			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED;
 			break;
 		}
+	} else {
+		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_NO_UPDT;
 	}
 
 	pkt_action->policer_act = MVPP2_ACTION_TYPE_NO_UPDT;
@@ -1552,7 +1556,7 @@ static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
 		qos_info->policer_id = action->plcr->id;
 	}
 
-	if (action->cos->tc >= 0 && action->cos->tc < PP2_PPIO_MAX_NUM_TCS) {
+	if (action->cos) {
 		pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 		queue = port->tc[action->cos->tc].tc_config.first_rxq;
@@ -1594,12 +1598,15 @@ static int pp2_cls_mng_rule_update_db(struct pp2_cls_tbl_rule *rule, struct pp2_
 		rule_db->fields[i].mask = mask;
 	}
 	action_db->plcr = action->plcr;
-	action_db->cos = kmalloc(sizeof(*action_db->cos), GFP_KERNEL);
-	if (!action_db->cos)
-		return -ENOMEM;
+	action_db->cos = NULL;
+	if (action->cos) {
+		action_db->cos = kmalloc(sizeof(*action_db->cos), GFP_KERNEL);
+		if (!action_db->cos)
+			return -ENOMEM;
+		action_db->cos->tc = action->cos->tc;
+	}
 
 	action_db->type = action->type;
-	action_db->cos->tc = action->cos->tc;
 	return 0;
 }
 
@@ -1649,7 +1656,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 		return -EINVAL;
 	}
 
-	if (mv_pp2x_range_validate(action->cos->tc, 0, port->num_tcs)) {
+	if (action->cos && mv_pp2x_range_validate(action->cos->tc, 0, port->num_tcs)) {
 		pr_err("%s(%d) fail, tc = %d is out of range\n", __func__, __LINE__, action->cos->tc);
 		return -EINVAL;
 	}
