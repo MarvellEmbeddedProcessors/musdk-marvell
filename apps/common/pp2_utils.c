@@ -58,14 +58,7 @@ static u64 hw_buf_free_cnt;
 static u64 tx_shadow_q_buf_free_cnt[MVAPPS_MAX_NUM_CORES];
 
 u8 mvapp_pp2_max_num_qs_per_tc;
-uintptr_t cookie_high_bits = MVAPPS_INVALID_COOKIE_HIGH_BITS;
 
-
-
-static void app_set_high_addr(uintptr_t high_addr)
-{
-	cookie_high_bits = high_addr;
-}
 
 void app_show_rx_queue_stat(struct port_desc *port_desc, u8 tc, u8 q_start, int num_qs, int reset)
 {

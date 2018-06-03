@@ -41,6 +41,8 @@
 #include "utils.h"
 
 
+uintptr_t cookie_high_bits = MVAPPS_INVALID_COOKIE_HIGH_BITS;
+
 
 int apps_cores_mask_create(int cpus, int affinity)
 {

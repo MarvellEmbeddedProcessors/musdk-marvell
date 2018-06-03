@@ -43,7 +43,6 @@
 
 
 
-#define MVAPPS_INVALID_COOKIE_HIGH_BITS		(~0)
 #define MVAPPS_COOKIE_HIGH_MASK			(0xffffff0000000000) /* bits 63-41 */
 /* pkt offset, must be multiple of 32 bytes */
 #define MVAPPS_PP2_PKT_DEF_OFFS			64
@@ -107,17 +106,12 @@
 
 
 extern u8 mvapp_pp2_max_num_qs_per_tc;
-extern uintptr_t cookie_high_bits;
 
 static inline void app_set_max_num_qs_per_tc(void)
 {
 	mvapp_pp2_max_num_qs_per_tc = system_ncpus();
 }
 
-static inline uintptr_t app_get_high_addr(void)
-{
-	return cookie_high_bits;
-}
 /*
  * Tx shadow queue entry
  */

@@ -51,6 +51,8 @@ static inline void prefetch(const void *ptr)
 }
 #endif
 
+#define MVAPPS_INVALID_COOKIE_HIGH_BITS		(~0)
+
 /** Get rid of path in filename - only for unix-type paths using '/' */
 #define MVAPPS_NO_PATH(file_name)	(strrchr((file_name), '/') ? \
 					 strrchr((file_name), '/') + 1 : (file_name))
@@ -121,9 +123,12 @@ static inline void prefetch(const void *ptr)
 	((mru) - MV_MH_SIZE - VLAN_HLEN - \
 	ETH_HLEN - ETH_FCS_LEN)
 
-
 /* GNU flavor of num_cpus */
 #define system_ncpus()		get_nprocs()
+
+
+extern uintptr_t cookie_high_bits;
+
 
 enum pp2_op_mode_type {
 	PP2_OP_MODE_SINGLE_PROCESS = 0,		/* App operational mode is single process, only one process allowed*/
@@ -268,6 +273,17 @@ static inline int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, ch
 
 	return 0;
 }
+
+static inline uintptr_t app_get_high_addr(void)
+{
+	return cookie_high_bits;
+}
+
+static inline void app_set_high_addr(uintptr_t high_addr)
+{
+	cookie_high_bits = high_addr;
+}
+
 
 int apps_perf_dump(struct glb_common_args *cmn_args);
 int app_ctrl_cb(void *arg);
