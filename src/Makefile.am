@@ -146,6 +146,7 @@ libmusdk_la_SOURCES += mng/dev_mng_pp2.c
 libmusdk_la_SOURCES += mng/dispatch.c
 libmusdk_la_SOURCES += mng/nmp.c
 libmusdk_la_SOURCES += mng/nmp_guest.c
+libmusdk_la_SOURCES += mng/nmp_guest_pp2_cls.c
 
 endif
 
