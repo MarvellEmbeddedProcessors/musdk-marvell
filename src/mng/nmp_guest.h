@@ -32,6 +32,10 @@ struct nmp_guest_queue {
 	void		*cons_phys; /**< consumer index phys address */
 	u32		*prod_virt; /**< producer index virtual address */
 	u32		*cons_virt; /**< consumer index virtual address */
+
+	/* Only will be used in the shadow Q which it is used internally */
+	u32		prod_val; /**< producer index value */
+	u32		cons_val; /**< consumer index value */
 };
 
 struct nmp_guest {
@@ -55,6 +59,42 @@ struct nmp_guest {
 		int (*guest_ev_cb)(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code,
 			   u16 indx, void *msg, u16 len);
 	} app_cb;
+
+	int internal_schedule;
+	struct nmp_guest_queue notify_shadow_queue;
+	struct {
+		void *arg;
+		int (*cb)(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code,
+			   u16 indx, void *msg, u16 len);
+	} internal_cb;
+
+	struct {
+		u8 code;
+		u16 indx;
+		void *resp;
+		u16 resp_len;
+		int got_resp; /* got resp > 0, error < 0 */
+	} wait_for_resp;
 };
+
+int send_internal_msg(struct nmp_guest *guest,
+		      u8 code,
+		      u16 indx,
+		      void *msg,
+		      u16 len,
+		      void *resp,
+		      u16 resp_len);
+
+int guest_push_msg_to_q(struct nmp_guest_queue *q,
+			enum cmd_dest_type client_type,
+			u8 client_id,
+			u8 code,
+			u16 indx,
+			void *msg,
+			u16 len,
+			int resp_required,
+			u32 cons_idx,
+			u32 *prod_idx);
+
 #endif /* _NMP_GUEST_H */
 
