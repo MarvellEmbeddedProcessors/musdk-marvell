@@ -37,6 +37,9 @@
 #include "mv_giu_bpool.h"
 
 
+u8 mvapp_giu_max_num_qs_per_tc;
+
+
 int app_giu_port_init(int giu_id, struct giu_gpio **giu_gpio)
 {
 	struct giu_bpool *giu_bpool;
@@ -119,6 +122,13 @@ int app_giu_build_bpool(int bpool_id, struct bpool_inf *infs)
 	if (!buff_virt_addr) {
 		pr_err("failed to allocate giu bpool mem!\n");
 		return -ENOMEM;
+	}
+	if (app_get_high_addr() == MVAPPS_INVALID_COOKIE_HIGH_BITS)
+		app_set_high_addr((uintptr_t)buff_virt_addr & MVAPPS_COOKIE_HIGH_MASK);
+	else if (((uintptr_t)buff_virt_addr & MVAPPS_COOKIE_HIGH_MASK) != app_get_high_addr()) {
+		pr_err("app_allocate_bpool_buffs: upper 32-bits are 0x%x, should be 0x%x\n",
+			upper_32_bits((uintptr_t)buff_virt_addr), upper_32_bits(app_get_high_addr()));
+		return -EFAULT;
 	}
 
 	buff_phys_addr = (void *)mv_sys_dma_mem_virt2phys(buff_virt_addr);

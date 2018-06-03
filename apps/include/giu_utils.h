@@ -46,6 +46,9 @@
 #define REGFILE_MAX_FILE_NAME   64
 
 
+extern u8 mvapp_giu_max_num_qs_per_tc;
+
+
 /*
  * Tx shadow queue
  */
@@ -107,6 +110,12 @@ void app_giu_port_local_init(int id, int lcl_id, int giu_id, struct lcl_giu_port
  * @retval	<0 on failure
  */
 int app_giu_build_bpool(int bpool_id, struct bpool_inf *infs);
+
+
+static inline void app_giu_set_gen_max_num_qs_per_tc(void)
+{
+	mvapp_giu_max_num_qs_per_tc = system_ncpus();
+}
 
 #endif /*__MV_GIU_UTILS_H__*/
 
