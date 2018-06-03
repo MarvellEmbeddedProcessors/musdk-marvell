@@ -240,7 +240,7 @@ static void sam_session_basic_init(struct sam_sa *session, SABuilder_Params_Basi
 	}
 }
 
-static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPsec_t *ipsec_params)
+static int sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPsec_t *ipsec_params)
 {
 	static u32 context_ref = 1;
 	struct sam_session_params *params = &session->params;
@@ -251,6 +251,22 @@ static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPse
 	ipsec_params->IPsecFlags |= SAB_IPSEC_PROCESS_IP_HEADERS;
 	if (params->u.ipsec.is_esn)
 		ipsec_params->IPsecFlags |= SAB_IPSEC_LONG_SEQ;
+
+	if (params->u.ipsec.seq_mask_size == SAM_ANTI_REPLY_MASK_NONE)
+		ipsec_params->IPsecFlags |= SAB_IPSEC_NO_ANTI_REPLAY;
+	else if (params->u.ipsec.seq_mask_size == SAM_ANTI_REPLY_MASK_32B)
+		ipsec_params->IPsecFlags |= SAB_IPSEC_MASK_32;
+	else if (params->u.ipsec.seq_mask_size == SAM_ANTI_REPLY_MASK_128B)
+		ipsec_params->IPsecFlags |= SAB_IPSEC_MASK_128;
+	else if (params->u.ipsec.seq_mask_size == SAM_ANTI_REPLY_MASK_256B)
+		ipsec_params->IPsecFlags |= SAB_IPSEC_MASK_256;
+	else if (params->u.ipsec.seq_mask_size == SAM_ANTI_REPLY_MASK_384B)
+		ipsec_params->IPsecFlags |= SAB_IPSEC_MASK_384;
+	else if ((params->u.ipsec.seq_mask_size >= SAM_ANTI_REPLY_MASK_LAST) ||
+		(params->u.ipsec.seq_mask_size < SAM_ANTI_REPLY_MASK_NONE)) {
+		pr_err("Unsupported anti-reply mask size %d\n", params->u.ipsec.seq_mask_size);
+		return -EINVAL;
+	}
 
 	ipsec_params->SeqNum = lower_32_bits(params->u.ipsec.seq);
 	ipsec_params->SeqNumHi = upper_32_bits(params->u.ipsec.seq);
@@ -280,9 +296,10 @@ static void sam_session_ipsec_init(struct sam_sa *session, SABuilder_Params_IPse
 				session->post_proc_cb = sam_ipsec_ip4_tunnel_in_post_proc;
 		}
 	}
+	return 0;
 }
 
-static void sam_session_ssltls_init(struct sam_sa *session, SABuilder_Params_SSLTLS_t *ssltls_params)
+static int sam_session_ssltls_init(struct sam_sa *session, SABuilder_Params_SSLTLS_t *ssltls_params)
 {
 	static u32 context_ref = 1;
 	struct sam_session_params *params = &session->params;
@@ -290,36 +307,41 @@ static void sam_session_ssltls_init(struct sam_sa *session, SABuilder_Params_SSL
 	/* Create a reference to the header processor context. */
 	ssltls_params->ContextRef = context_ref++;
 
-	session->u.ssltls_params.epoch = params->u.ssltls.epoch;
-	session->u.ssltls_params.SeqNum      = lower_32_bits(params->u.ssltls.seq);
-	session->u.ssltls_params.SeqNumHi    = upper_32_bits(params->u.ssltls.seq);
-	session->u.ssltls_params.PadAlignment = 0; /* use algorithm defaults */
+	ssltls_params->epoch = params->u.ssltls.epoch;
+	ssltls_params->SeqNum      = lower_32_bits(params->u.ssltls.seq);
+	ssltls_params->SeqNumHi    = upper_32_bits(params->u.ssltls.seq);
+	ssltls_params->PadAlignment = 0; /* use algorithm defaults */
 
-	if ((params->u.ssltls.seq_mask_size > SAM_DTLS_MASK_NONE) &&
-	    (params->u.ssltls.seq_mask_size < SAM_DTLS_MASK_LAST)) {
-		memcpy(session->u.ssltls_params.SeqMask,
-			params->u.ssltls.seq_mask, sizeof(session->u.ssltls_params.SeqMask));
-		if (params->u.ssltls.seq_mask_size == SAM_DTLS_MASK_32B)
-			session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_MASK_32;
-		else if (params->u.ssltls.seq_mask_size == SAM_DTLS_MASK_128B)
-			session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_MASK_128;
+	if (params->u.ssltls.seq_mask_size == SAM_ANTI_REPLY_MASK_NONE)
+		ssltls_params->SSLTLSFlags |= SAB_DTLS_NO_ANTI_REPLAY;
+	else if (params->u.ssltls.seq_mask_size == SAM_ANTI_REPLY_MASK_32B)
+		ssltls_params->SSLTLSFlags |= SAB_DTLS_MASK_32;
+	else if (params->u.ssltls.seq_mask_size == SAM_ANTI_REPLY_MASK_128B)
+		ssltls_params->SSLTLSFlags |= SAB_DTLS_MASK_128;
+	else if ((params->u.ssltls.seq_mask_size > SAM_ANTI_REPLY_MASK_128B) ||
+		 (params->u.ssltls.seq_mask_size < SAM_ANTI_REPLY_MASK_NONE)) {
+		pr_err("Unsupported anti-reply mask size %d\n", params->u.ssltls.seq_mask_size);
+		return -EINVAL;
+	}
 
-	} else
-		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_NO_ANTI_REPLAY;
+	memcpy(ssltls_params->SeqMask, params->u.ssltls.seq_mask,
+		sizeof(ssltls_params->SeqMask));
 
 	if (params->u.ssltls.is_ip6)
-		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_IPV6;
+		ssltls_params->SSLTLSFlags |= SAB_DTLS_IPV6;
 	else
-		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_IPV4;
+		ssltls_params->SSLTLSFlags |= SAB_DTLS_IPV4;
 
 	if (params->u.ssltls.is_capwap)
-		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_CAPWAP;
+		ssltls_params->SSLTLSFlags |= SAB_DTLS_CAPWAP;
 
 	if (params->u.ssltls.is_udp_lite)
-		session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_UDPLITE;
+		ssltls_params->SSLTLSFlags |= SAB_DTLS_UDPLITE;
 
-	session->u.ssltls_params.SSLTLSFlags |= SAB_DTLS_PROCESS_IP_HEADERS;
+	ssltls_params->SSLTLSFlags |= SAB_DTLS_PROCESS_IP_HEADERS;
 	session->post_proc_cb = sam_dtls_ip4_post_proc;
+
+	return 0;
 }
 
 static int sam_token_context_build(struct sam_sa *session)
@@ -723,7 +745,8 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 			goto error_session;
 
 		/* Update ipsec params with session information */
-		sam_session_ipsec_init(session, &session->u.ipsec_params);
+		if (sam_session_ipsec_init(session, &session->u.ipsec_params))
+			goto error_session;
 	} else if (params->proto == SAM_PROTO_SSLTLS) {
 		u16 version = sam_ssltls_version_convert(params->u.ssltls.version);
 
@@ -732,7 +755,8 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 			goto error_session;
 
 		/* Update ssltls params with session information */
-		sam_session_ssltls_init(session, &session->u.ssltls_params);
+		if (sam_session_ssltls_init(session, &session->u.ssltls_params))
+			goto error_session;
 	} else {
 		pr_err("Unexpected protocol %d\n", params->proto);
 		goto error_session;
@@ -762,8 +786,10 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 		goto error_session;
 	}
 
-	if (params->proto == SAM_PROTO_NONE)
-		sam_token_context_build(session);
+	if (params->proto == SAM_PROTO_NONE) {
+		if (sam_token_context_build(session))
+			goto error_session;
+	}
 
 	/* Clear SA DMA buffer first */
 	memset(session->sa_buf.vaddr, 0, session->sa_words * 4);

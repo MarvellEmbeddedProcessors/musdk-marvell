@@ -126,7 +126,7 @@ static struct sam_session_params dtls_aes_cbc_sha1_sa = {
 	.u.ssltls.is_ip6 = 0,				/* DTLS transported over: 1 - UDP/IPv6, 0 - UDP/IPv4 */
 	.u.ssltls.is_udp_lite = 0,			/* 1 - use UDPLite, 0 - use UDP */
 	.u.ssltls.is_capwap = 0,			/* 1 - use CAPWAP/DTLS, 0 - use DTLS */
-	.u.ssltls.seq_mask_size = SAM_DTLS_MASK_64B,	/* anti-replay seq mask size */
+	.u.ssltls.seq_mask_size = SAM_ANTI_REPLY_MASK_64B,	/* anti-replay seq mask size */
 	.u.ssltls.seq_mask[0] = 0x0,			/* up to 128-bit mask window used with inbound DTLS */
 };
 
@@ -142,11 +142,11 @@ static struct sam_session_params dtls_aes_gcm_sa = {
 	.auth_key_len = 0,				/* authentication key size (in bytes) */
 	.proto = SAM_PROTO_SSLTLS,
 	.u.ssltls.version = SAM_DTLS_VERSION_1_2,	/* DTLS 1.2 version */
-	.u.ssltls.epoch = 0x0D,				/* 13 - for DTLS only */
+	.u.ssltls.epoch = 0x000D,			/* 13 - for DTLS only */
 	.u.ssltls.is_ip6 = 0,				/* DTLS transported over: 1 - UDP/IPv6, 0 - UDP/IPv4 */
 	.u.ssltls.is_udp_lite = 0,			/* 1 - use UDPLite, 0 - use UDP */
 	.u.ssltls.is_capwap = 0,			/* 1 - use CAPWAP/DTLS, 0 - use DTLS */
-	.u.ssltls.seq_mask_size = SAM_DTLS_MASK_64B,	/* anti-replay seq mask size */
+	.u.ssltls.seq_mask_size = SAM_ANTI_REPLY_MASK_64B,	/* anti-replay seq mask size */
 	.u.ssltls.seq_mask[0] = 0x0,			/* up to 128-bit mask window used with inbound DTLS */
 };
 

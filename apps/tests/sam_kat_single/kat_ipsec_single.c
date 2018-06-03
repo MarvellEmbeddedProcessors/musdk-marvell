@@ -131,6 +131,7 @@ static u32	total_errors;
 
 static u64 enc_seq = 0x34; /* Default initial sequence number for encrypt */
 static u64 dec_seq = 0x34; /* Default initial sequence number for decrypt */
+static int is_esn = 1;
 
 static int test_id = 1;
 static int num_pkts = 1;
@@ -159,6 +160,7 @@ static struct sam_session_params aes_cbc_sa = {
 	.u.ipsec.spi = 0xABCD,
 	.u.ipsec.seq = 0x4,
 	.u.ipsec.is_esn = 1,
+	.u.ipsec.seq_mask_size = SAM_ANTI_REPLY_MASK_64B,
 };
 
 static struct sam_session_params aes_cbc_sha1_sa = {
@@ -178,6 +180,7 @@ static struct sam_session_params aes_cbc_sha1_sa = {
 	.u.ipsec.spi = 0x1234,
 	.u.ipsec.seq = 0x6,
 	.u.ipsec.is_esn = 1,
+	.u.ipsec.seq_mask_size = SAM_ANTI_REPLY_MASK_64B,
 };
 
 static struct sam_session_params aes_gcm_sa = {
@@ -261,6 +264,7 @@ static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir d
 		return -EINVAL;
 	}
 	sa_params->dir = dir;
+	sa_params->u.ipsec.is_esn = is_esn;
 	if (dir == SAM_DIR_ENCRYPT)
 		sa_params->u.ipsec.seq = enc_seq;
 	else if (dir == SAM_DIR_DECRYPT)
@@ -432,6 +436,8 @@ static void usage(char *progname)
 		(unsigned)sizeof(IPSEC_ESP_AES128_CBC_T1_PT));
 	printf("\t-n   <number>    - Number of packets (default: %d)\n", num_pkts);
 	printf("\t-c   <number>    - Number of packets to check (default: %d)\n", num_to_check);
+	printf("\t-esn <0 | 1>     - Sequence number size: 0 - 32 bits, 1 - 64 bits (default: %d)\n",
+		is_esn);
 	printf("\t-seq <enc> <dec> - Initial sequence id for encrypt and decrypt\n");
 	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO,  (default: 0x%x)\n",
 				     SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
@@ -491,6 +497,17 @@ static int parse_args(int argc, char *argv[])
 			enc_seq = atoi(argv[i + 1]);
 			dec_seq = atoi(argv[i + 2]);
 			i += 3;
+		} else if (strcmp(argv[i], "-esn") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			is_esn = atoi(argv[i + 1]);
+			i += 2;
 		} else if (strcmp(argv[i], "-s") == 0) {
 			if (argc < (i + 2)) {
 				pr_err("Invalid number of arguments!\n");
@@ -553,6 +570,8 @@ static int parse_args(int argc, char *argv[])
 	printf("Number of packets       : %d\n", num_pkts);
 	printf("Number to check         : %u\n", num_to_check);
 	printf("Debug flags             : 0x%x\n", debug_flags);
+	printf("Sequence number size	: %d bits\n", is_esn ? 64 : 32);
+	printf("Initial sequence numbers: 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
 
 	return 0;
 }
@@ -701,14 +720,12 @@ int main(int argc, char **argv)
 				goto exit;
 			}
 			enc_in_progress -= num;
-			if (num_checked < num_to_check)
-				total_errors = check_results_after_encrypt(results, num);
+			total_errors += check_results_after_encrypt(results, num);
 		} else
 			num = 0;
 
 		if (!loopback) {
 			not_completed -= num;
-			num_checked += num;
 			continue;
 		}
 		/* For loopback - do decryption too */
@@ -754,13 +771,15 @@ int main(int argc, char **argv)
 	gettimeofday(&tv_end, NULL);
 
 	if (not_completed) {
-		pr_err("%d operations are not completed\n", not_completed);
+		pr_warn("%u operations are not completed\n", not_completed);
+		/*
 		sam_cio_show_regs(cio_enc, SAM_CIO_REGS_ALL);
 		if (cio_dec)
 			sam_cio_show_regs(cio_dec, SAM_CIO_REGS_ALL);
+		*/
 	}
 	print_results(test_id, test_names[test_id], pkt_size,
-			num_pkts, total_errors, &tv_start, &tv_end);
+			num_pkts - not_completed, total_errors, &tv_start, &tv_end);
 
 	if (!total_errors)
 		printf("\n%s: success\n\n", argv[0]);
