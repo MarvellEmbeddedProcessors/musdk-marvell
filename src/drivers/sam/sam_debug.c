@@ -39,7 +39,7 @@
 static void print_basic_sa_params(SABuilder_Params_Basic_t *params)
 {
 	pr_info("\n");
-	pr_info("----------- SABuilder_Params_Basic_t basic_params ---------\n");
+	pr_info("----------- SABuilder_Params_Basic_t params ---------\n");
 	pr_info("BasicFlags              = %d\n", params->BasicFlags);
 	pr_info("DigestBlockCount        = %d\n", params->DigestBlockCount);
 	pr_info("ICVByteCount            = %d\n", params->ICVByteCount);
@@ -52,7 +52,7 @@ static void print_basic_sa_params(SABuilder_Params_Basic_t *params)
 static void print_ipsec_sa_params(SABuilder_Params_IPsec_t *params)
 {
 	pr_info("\n");
-	pr_info("----------- SABuilder_Params_IPsec_t ipsec_params ---------\n");
+	pr_info("----------- SABuilder_Params_IPsec_t params ---------\n");
 	pr_info("spi                     = 0x%x\n", params->spi);
 	pr_info("IPsecFlags              = 0x%x\n", params->IPsecFlags);
 	pr_info("SeqNum                  = 0x%x\n", params->SeqNum);
@@ -67,7 +67,7 @@ static void print_ipsec_sa_params(SABuilder_Params_IPsec_t *params)
 static void print_ssltls_sa_params(SABuilder_Params_SSLTLS_t *params)
 {
 	pr_info("\n");
-	pr_info("----------- SABuilder_Params_IPsec_t ipsec_params ---------\n");
+	pr_info("----------- SABuilder_Params_SSLTLS_t params ---------\n");
 	pr_info("SSLTLSFlags             = 0x%x\n", params->SSLTLSFlags);
 	pr_info("version                 = 0x%04x\n", params->version);
 	pr_info("SeqNum                  = 0x%x\n", params->SeqNum);

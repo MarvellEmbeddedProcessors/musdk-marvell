@@ -118,12 +118,14 @@ enum sam_ssltls_version {
 	SAM_SSLTLS_VERSION_LAST,
 };
 
-enum sam_dtls_mask_size {
-	SAM_DTLS_MASK_NONE, /**< 0 - Disable anti-replay protection */
-	SAM_DTLS_MASK_32B,  /**< 1 - Use 32-bit anti-replay mask */
-	SAM_DTLS_MASK_64B,  /**< 2 - Use 64-bit anti-replay mask (default) */
-	SAM_DTLS_MASK_128B, /**< 3 - Use 128-bit anti-replay mask */
-	SAM_DTLS_MASK_LAST
+enum sam_anti_replay_size {
+	SAM_ANTI_REPLY_MASK_NONE, /**< 0 - Disable anti-replay protection */
+	SAM_ANTI_REPLY_MASK_32B,  /**< 1 - Use 32-bit anti-replay mask */
+	SAM_ANTI_REPLY_MASK_64B,  /**< 2 - Use 64-bit anti-replay mask (default) */
+	SAM_ANTI_REPLY_MASK_128B, /**< 3 - Use 128-bit anti-replay mask */
+	SAM_ANTI_REPLY_MASK_256B, /**< 3 - Use 256-bit anti-replay mask (IPsec only) */
+	SAM_ANTI_REPLY_MASK_384B, /**< 3 - Use 384-bit anti-replay mask (IPsec only) */
+	SAM_ANTI_REPLY_MASK_LAST
 };
 
 struct sam_session_basic_params {
@@ -181,6 +183,7 @@ struct sam_session_ipsec_params {
 	int is_ip6;				/**< 1 - IPv6, 0 - IPv4 */
 	int is_tunnel;				/**< 1 - tunnel mode, 0 - transport mode */
 	int is_esn;				/**< 1 - extended (64 bits) sequence number, 0 - 32 bits */
+	enum sam_anti_replay_size seq_mask_size;/**< anti-replay seq mask size */
 	struct sam_sa_ipsec_tunnel tunnel;	/**< Parameters for tunnel mode */
 	int is_natt;				/**< true - NAT-Traversal is required and "natt" field is valid */
 	struct sam_sa_ipsec_natt natt;		/**< NAT-Traversal parameters */
@@ -196,7 +199,7 @@ struct sam_session_ssltls_params {
 	int is_ip6;				/**< DTLS transported over: 1 - UDP/IPv6, 0 - UDP/IPv4 */
 	int is_udp_lite;			/**< 1 - use UDPLite, 0 - use UDP */
 	int is_capwap;				/**< 1 - use CAPWAP/DTLS, 0 - use DTLS */
-	enum sam_dtls_mask_size seq_mask_size;	/**< anti-replay seq mask size */
+	enum sam_anti_replay_size seq_mask_size;/**< anti-replay seq mask size */
 	u32 seq_mask[4];			/**< up to 128-bit mask window used with inbound DTLS */
 };
 
