@@ -81,7 +81,6 @@ struct sam_cio_op {
 	u32 copy_len;
 };
 
-
 struct sam_cio {
 	u8  idx;			/* index in the sam_rings array */
 	struct sam_cio_params params;
@@ -89,8 +88,10 @@ struct sam_cio {
 	struct sam_cio_stats stats;	/* cio statistics */
 #endif
 	struct sam_cio_op *operations;	/* array of operations */
-	struct sam_sa *sessions;	/* array of sessions */
+	struct sam_sa **sa_destroy;	/* array of pointers to sessions to destroy */
 	struct sam_hw_ring hw_ring;
+	u32 next_to_dstr_sa;
+	u32 next_to_enq_sa;
 	u32 next_request;
 	u32 next_result;
 	u32 pkt_coal;
