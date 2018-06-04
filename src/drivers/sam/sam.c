@@ -1075,6 +1075,7 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		if (unlikely(operation->out_frags[0].len < out_len)) {
 			pr_err("%s: out_len %d bytes is larger than output buffer %d bytes\n",
 				__func__, out_len, operation->out_frags[0].len);
+			result->status = SAM_CIO_ERR_BUF_SIZE;
 			out_len = operation->out_frags[0].len;
 		}
 

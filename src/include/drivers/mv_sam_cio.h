@@ -78,6 +78,8 @@ enum sam_cio_op_status {
 	SAM_CIO_ERR_PROTO,      /**< Protocol error. Not a valid ESP or AH packet */
 	SAM_CIO_ERR_SA_LOOKUP,  /**< SA lookup failed */
 	SAM_CIO_ERR_ANTIREPLAY, /**< Anti-replay check failed */
+	SAM_CIO_ERR_SEQ_OVER,   /**< Sequence number overflow */
+	SAM_CIO_ERR_BUF_SIZE,	/**< Output buffer size is too small */
 	SAM_CIO_ERR_LAST
 };
 
