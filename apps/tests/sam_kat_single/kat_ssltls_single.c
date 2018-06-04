@@ -110,6 +110,7 @@ static u8 expected_data[MAX_BUF_SIZE];
 static u32 expected_data_size;
 static u64 enc_seq = 0x34; /* Default initial sequence number for encrypt */
 static u64 dec_seq = 0x34; /* Default initial sequence number for decrypt */
+static int num_to_print_mod = 1;
 
 static struct sam_session_params dtls_aes_cbc_sha1_sa = {
 	.dir = SAM_DIR_ENCRYPT,				/* operation direction: encode/decode */
@@ -276,11 +277,6 @@ static int check_udp_pkt_after_encrypt(struct sam_buf_info *buf_info, struct sam
 			__func__, result->out_len, buf_info->len);
 		return -EINVAL;
 	}
-	if (verbose) {
-		printf("\nAfter encryption: %d bytes\n", result->out_len);
-		mv_mem_dump(buf_info->vaddr, result->out_len);
-	}
-
 	return 0;
 }
 
@@ -298,13 +294,6 @@ static int check_udp_pkt_after_decrypt(struct sam_buf_info *buf_info, struct sam
 			__func__, result->out_len, buf_info->len);
 		return -EINVAL;
 	}
-	if (verbose) {
-		printf("\nAfter decryption: %d bytes\n", result->out_len);
-		mv_mem_dump(buf_info->vaddr, result->out_len);
-
-		printf("\nExpected data: %d bytes\n", expected_data_size);
-		mv_mem_dump(expected_data, expected_data_size);
-	}
 	/* Compare output and expected data */
 	if (result->out_len != expected_data_size) {
 		printf("Error: out_len = %u != expected_data_size = %u\n",
@@ -312,6 +301,10 @@ static int check_udp_pkt_after_decrypt(struct sam_buf_info *buf_info, struct sam
 		err = -EINVAL;
 	} else if (memcmp(buf_info->vaddr, expected_data, result->out_len)) {
 		printf("Error: out_data != expected_data\n");
+
+		printf("\nExpected data: %d bytes\n", expected_data_size);
+		mv_mem_dump(expected_data, expected_data_size);
+
 		err = -EFAULT;
 	}
 	return err;
@@ -327,10 +320,10 @@ static void usage(char *progname)
 	for (id = 0; id < ARRAY_SIZE(test_names); id++)
 		printf("\t                 %d - %s\n", id, test_names[id]);
 	printf("\t-n   <number>    - Number of packets (default: %d)\n", num_pkts);
-	printf("\t-seq <enc> <dec> - Initial sequence id for encrypt and decrypt\n");
+	printf("\t-seq <enc> <dec> - Initial sequence id (default: 0x%lx 0x%lx)\n", enc_seq, dec_seq);
 	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x%x)\n",
 					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
-	printf("\t-v               - Increase verbose level (default is 0).\n");
+	printf("\t-v [num]         - Enable print of plain and cipher data each <num> packets\n");
 }
 
 static int parse_args(int argc, char *argv[])
@@ -403,6 +396,11 @@ static int parse_args(int argc, char *argv[])
 		} else if (strcmp(argv[i], "-v") == 0) {
 			verbose++;
 			i += 1;
+
+			if ((argc > i) && (argv[i][0] != '-')) {
+				num_to_print_mod = atoi(argv[i]);
+				i += 1;
+			}
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
@@ -416,10 +414,12 @@ static int parse_args(int argc, char *argv[])
 	}
 
 	/* Print all inputs arguments */
-	printf("Test ID     : %d\n", test_id);
-	printf("Test name   : %s\n", test_names[test_id]);
-	printf("Debug flags : 0x%x\n", debug_flags);
-	printf("SeqId       : 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
+	printf("Test ID         : %d\n", test_id);
+	printf("Test name       : %s\n", test_names[test_id]);
+	printf("Debug flags     : 0x%x\n", debug_flags);
+	printf("SeqId           : 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
+	if (verbose)
+		printf("Print data each : %u packets\n", num_to_print_mod);
 
 	return 0;
 }
@@ -517,6 +517,11 @@ int main(int argc, char **argv)
 		if (check_udp_pkt_after_encrypt(&aes128_t1_buf, &result))
 			goto exit;
 
+		if (verbose && ((i % num_to_print_mod) == 0)) {
+			printf("\nAfter encryption #%u: %d bytes\n", i, result.out_len);
+			mv_mem_dump(aes128_t1_buf.vaddr, result.out_len);
+		}
+
 		/* Do decrypt */
 		num = 1;
 		aes128_cbc_t1.sa = sa_hndl_1;
@@ -536,6 +541,11 @@ int main(int argc, char **argv)
 		}
 		if (check_udp_pkt_after_decrypt(&aes128_t1_buf, &result))
 			goto exit;
+
+		if (verbose && ((i % num_to_print_mod) == 0)) {
+			printf("\nAfter decryption #%u: %d bytes\n", i, result.out_len);
+			mv_mem_dump(aes128_t1_buf.vaddr, result.out_len);
+		}
 	}
 	printf("\n%s: success\n\n", argv[0]);
 

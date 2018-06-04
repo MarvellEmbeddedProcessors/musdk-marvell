@@ -142,6 +142,8 @@ static int loopback = 1;
 static int num_checked;
 static int num_to_check = 10;
 static bool running;
+static int num_to_print_mod = 1;
+
 
 static struct sam_session_params aes_cbc_sa = {
 	.dir = SAM_DIR_ENCRYPT,   /* operation direction: encode/decode */
@@ -281,7 +283,6 @@ static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir d
 			sa_params->u.ipsec.tunnel.u.ipv6.dscp = 0;
 			sa_params->u.ipsec.tunnel.u.ipv6.hlimit = 64;
 			sa_params->u.ipsec.tunnel.u.ipv6.flabel = 0;
-
 		} else {
 			sa_params->u.ipsec.tunnel.u.ipv4.sip = SrcIP4;
 			sa_params->u.ipsec.tunnel.u.ipv4.dip = DstIP4;
@@ -353,7 +354,7 @@ static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info, int payload_
 	return offset;
 }
 
-static int check_results_after_encrypt(struct sam_cio_op_result *results, int num)
+static int check_results_after_encrypt(struct sam_cio_op_result *results, int idx, int num)
 {
 	int i, err = 0;
 	struct sam_buf_info *buf_info;
@@ -372,20 +373,21 @@ static int check_results_after_encrypt(struct sam_cio_op_result *results, int nu
 			err++;
 			continue;
 		}
-		if (verbose) {
-			printf("\nAfter encryption: %d bytes\n", results[i].out_len);
+		if (verbose && (((idx + i) % num_to_print_mod) == 0)) {
+			printf("\nAfter encryption #%u: %d bytes\n", idx + i, results[i].out_len);
 			mv_mem_dump(buf_info->vaddr, results[i].out_len);
 		}
 	}
 	return err;
 }
 
-static int check_results_after_decrypt(struct sam_cio_op_result *results, int num)
+static int check_results_after_decrypt(struct sam_cio_op_result *results, int idx, int num)
 {
-	int i, new_err, err = 0;
+	int i, to_print, new_err = 0, err = 0;
 	struct sam_buf_info *buf_info;
 
 	for (i = 0; i < num; i++) {
+		to_print = (verbose && (((idx + i) % num_to_print_mod) == 0));
 		if (results[i].status != SAM_CIO_OK) {
 			printf("%s: Error! result->status = %d\n",
 				__func__, results[i].status);
@@ -405,17 +407,22 @@ static int check_results_after_decrypt(struct sam_cio_op_result *results, int nu
 			printf("Error: out_len = %u != expected_data_size = %u\n",
 				results[i].out_len, expected_data_size);
 			new_err = 1;
-		} else if (memcmp(buf_info->vaddr, expected_data, results[i].out_len)) {
-			/* Compare output and expected data */
-			printf("Error: out_data != expected_data\n");
-			new_err = 1;
 		}
-		if (verbose || new_err) {
-			err += new_err;
-			new_err = 0;
-			printf("\nAfter decryption: %d bytes\n", results[i].out_len);
+		if (num_checked < num_to_check) {
+			if (memcmp(buf_info->vaddr, expected_data, results[i].out_len)) {
+				/* Compare output and expected data */
+				printf("Error: out_data != expected_data\n");
+				new_err = 1;
+			}
+			num_checked++;
+		}
+		if (to_print || new_err) {
+			printf("\nAfter decryption #%u: %d bytes\n", idx + i, results[i].out_len);
 			mv_mem_dump(buf_info->vaddr, results[i].out_len);
-
+		}
+		if (new_err) {
+			new_err = 0;
+			err++;
 			printf("\nExpected data: %d bytes\n", expected_data_size);
 			mv_mem_dump(expected_data, expected_data_size);
 		}
@@ -438,10 +445,10 @@ static void usage(char *progname)
 	printf("\t-c   <number>    - Number of packets to check (default: %d)\n", num_to_check);
 	printf("\t-esn <0 | 1>     - Sequence number size: 0 - 32 bits, 1 - 64 bits (default: %d)\n",
 		is_esn);
-	printf("\t-seq <enc> <dec> - Initial sequence id for encrypt and decrypt\n");
+	printf("\t-seq <enc> <dec> - Initial sequence id (0x%lx 0x%lx)\n", enc_seq, dec_seq);
 	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO,  (default: 0x%x)\n",
 				     SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
-	printf("\t-v               - Increase verbose level (default is 0).\n");
+	printf("\t-v <num>         - Enable print of plain and cipher data each <num> packets\n");
 	printf("\t--enc            - Do encrypt only (default: enc+dec)\n");
 }
 
@@ -551,6 +558,11 @@ static int parse_args(int argc, char *argv[])
 		} else if (strcmp(argv[i], "-v") == 0) {
 			verbose++;
 			i += 1;
+
+			if ((argc > i) && (argv[i][0] != '-')) {
+				num_to_print_mod = atoi(argv[i]);
+				i += 1;
+			}
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
@@ -570,8 +582,10 @@ static int parse_args(int argc, char *argv[])
 	printf("Number of packets       : %d\n", num_pkts);
 	printf("Number to check         : %u\n", num_to_check);
 	printf("Debug flags             : 0x%x\n", debug_flags);
-	printf("Sequence number size	: %d bits\n", is_esn ? 64 : 32);
+	printf("Sequence number size    : %d bits\n", is_esn ? 64 : 32);
 	printf("Initial sequence numbers: 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
+	if (verbose)
+		printf("Print data each         : %u packets\n", num_to_print_mod);
 
 	return 0;
 }
@@ -582,7 +596,7 @@ int main(int argc, char **argv)
 	struct sam_cio_params cio_params;
 	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
 	u16 num, num_done;
-	int num_bufs, pkt_size, to_enc, to_dec, rc = 0;
+	int num_bufs, pkt_size, to_enc, rc = 0;
 	int i, enc_in_progress, dec_in_progress, not_completed;
 	struct timeval tv_start, tv_end;
 
@@ -617,13 +631,6 @@ int main(int argc, char **argv)
 		}
 		memset(output_bufs[i].vaddr, 0, MAX_BUF_SIZE);
 	}
-	/* Build input packet for encryption */
-	pkt_size = build_udp_pkt_for_encrypt(&input_buf, payload_size);
-
-	if (verbose) {
-		printf("\nInput packet    : %d bytes\n", pkt_size);
-		mv_mem_dump(input_buf.vaddr, pkt_size);
-	}
 
 	init_params.max_num_sessions = 64;
 	sam_init(&init_params);
@@ -656,6 +663,14 @@ int main(int argc, char **argv)
 
 	pr_info("%s decrypt session created\n", test_names[test_id]);
 
+	/* Build input packet for encryption */
+	pkt_size = build_udp_pkt_for_encrypt(&input_buf, payload_size);
+
+	if (verbose) {
+		printf("\nInput packet    : %d bytes\n", pkt_size);
+		mv_mem_dump(input_buf.vaddr, pkt_size);
+	}
+
 	/* Prepare requests */
 	for (i = 0; i < MAX_BURST_SIZE; i++) {
 		enc_requests[i].sa = sa_enc;
@@ -675,7 +690,7 @@ int main(int argc, char **argv)
 		dec_requests[i].cookie = NULL;
 	}
 
-	to_enc = to_dec = num_pkts;
+	to_enc = num_pkts;
 	not_completed = num_pkts;
 	enc_in_progress = dec_in_progress = 0;
 	i = 0;
@@ -719,8 +734,9 @@ int main(int argc, char **argv)
 					dec_in_progress, num, rc);
 				goto exit;
 			}
+			total_errors += check_results_after_encrypt(results,
+					num_pkts - to_enc - enc_in_progress, num);
 			enc_in_progress -= num;
-			total_errors += check_results_after_encrypt(results, num);
 		} else
 			num = 0;
 
@@ -759,12 +775,11 @@ int main(int argc, char **argv)
 					dec_in_progress, num, rc);
 				goto exit;
 			}
-			dec_in_progress -= num;
 
-			if (num_checked < num_to_check) {
-				total_errors += check_results_after_decrypt(results, num);
-				num_checked += num;
-			}
+			total_errors += check_results_after_decrypt(results,
+					num_pkts - not_completed, num);
+
+			dec_in_progress -= num;
 			not_completed -= num;
 		}
 	}
