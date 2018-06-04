@@ -630,6 +630,11 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	if (!local_cio->operations)
 		goto err;
 
+	/* Allocate array of sam_cio_op structures in size of CIO ring to SA destroy command*/
+	local_cio->sa_destroy = kcalloc(params->size, sizeof(struct sam_sa *), GFP_KERNEL);
+	if (!local_cio->sa_destroy)
+		goto err;
+
 	/* Allocate DMA buffers for Tokens (one per operation) */
 	for (i = 0; i < params->size; i++) {
 		if (sam_dma_buf_alloc(SAM_TOKEN_DMABUF_SIZE, &local_cio->operations[i].token_buf)) {
@@ -699,6 +704,9 @@ int sam_cio_deinit(struct sam_cio *cio)
 		sam_cios[cio->idx] = NULL;
 		sam_active_cios--;
 	}
+
+	kfree(cio->sa_destroy);
+	cio->sa_destroy = NULL;
 
 	if (cio->operations) {
 		for (i = 0; i < cio->params.size; i++)
@@ -849,7 +857,14 @@ int sam_session_destroy(struct sam_sa *session)
 		/* Check maximum number of pending requests */
 		if (sam_cio_is_full(cio)) {
 			SAM_STATS(session->cio->stats.enq_full++);
-			return -EINVAL;
+			if (cio->sa_destroy[cio->next_to_dstr_sa]) {
+				pr_warn("%s: cannot remove SA on cio=%d:%d\n", __func__,
+					cio->hw_ring.device, cio->hw_ring.ring);
+				return -EINVAL;
+			}
+			cio->sa_destroy[cio->next_to_dstr_sa] = session;
+			cio->next_to_dstr_sa = sam_cio_next_idx(cio, cio->next_to_dstr_sa);
+			return 0;
 		}
 
 		/* Get next operation structure */
@@ -900,6 +915,19 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 	int cdr_submit = 0;
 	int prep_data;
 	u32 first_last_mask;
+
+	/* if there are pending destroy requests run it first */
+	while (cio->sa_destroy[cio->next_to_enq_sa]) {
+		/* Look if there are enough free resources */
+		if (sam_cio_is_free_slot(cio, 1)) {
+			sam_session_destroy(cio->sa_destroy[cio->next_to_enq_sa]);
+			cio->sa_destroy[cio->next_to_enq_sa] = NULL;
+			cio->next_to_enq_sa = sam_cio_next_idx(cio, cio->next_to_enq_sa);
+		} else {
+			SAM_STATS(cio->stats.enq_full++);
+			break;
+		}
+	}
 
 	todo = *num;
 	if (unlikely(todo >= cio->params.size))
