@@ -92,3 +92,10 @@ musdk_giu_pkt_gen_SOURCES += ../common/nmp_guest_utils.c
 musdk_giu_pkt_gen_SOURCES += giu/pkt_gen/pkt_gen.c
 musdk_giu_pkt_gen_LDADD = $(top_builddir)/src/libmusdk.la
 endif
+
+bin_PROGRAMS += musdk_dmax2_pkt_gen
+musdk_dmax2_pkt_gen_SOURCES  = ../common/lib/cli.c
+musdk_dmax2_pkt_gen_SOURCES += ../common/mvapp.c
+musdk_dmax2_pkt_gen_SOURCES += ../common/utils.c
+musdk_dmax2_pkt_gen_SOURCES += dmax2/pkt_gen/pkt_gen.c
+musdk_dmax2_pkt_gen_LDADD = $(top_builddir)/src/libmusdk.la
