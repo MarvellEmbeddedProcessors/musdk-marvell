@@ -696,6 +696,10 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 	struct giu_gpio_desc	*giu_descs;
 	u16			 i, tx_num;
 	u16			 desc_idx = 0, cnt = 0;
+	/* L3/L4 info parameters */
+	u32			 l3_type, l4_type;
+	u8			 l3_offset, l4_offset;
+	int			 gen_l3_chk, gen_l4_chk;
 
 	/* Note: PP2 descriptors and GIU descriptors has similar
 	 *	 structure so it's ok to use the same descriptors
@@ -722,8 +726,15 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 		char *buff    = (void *)(app_get_high_addr() | giu_gpio_inq_desc_get_cookie(&giu_descs[i]));
 		dma_addr_t pa = giu_gpio_inq_desc_get_phys_addr(&giu_descs[i]);
 		u16 len       = giu_gpio_inq_desc_get_pkt_len(&giu_descs[i]);
+
 		/* Get giu bpool (as the received buffers should be returned to it) */
 		void *bpool = giu_gpio_inq_desc_get_bpool(&giu_descs[i], giu_port_desc->gpio);
+
+		/* Read L3 info */
+		giu_gpio_inq_desc_get_l3_info(&giu_descs[i], &l3_type, &l3_offset, &gen_l3_chk);
+
+		/* Read L4 info */
+		giu_gpio_inq_desc_get_l4_info(&giu_descs[i], &l4_type, &l4_offset, &gen_l4_chk);
 
 		/* printf("packet:\n"); mem_disp(tmp_buff, len); */
 
@@ -734,6 +745,9 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 		pp2_ppio_outq_desc_set_phys_addr(&pp2_descs[i], pa);
 		pp2_ppio_outq_desc_set_pkt_offset(&pp2_descs[i], 0);
 		pp2_ppio_outq_desc_set_pkt_len(&pp2_descs[i], len);
+		pp2_ppio_outq_desc_set_proto_info(&pp2_descs[i], l3_type, l4_type, l3_offset,
+							l4_offset, gen_l3_chk, gen_l4_chk);
+
 		shadow_q->buffs_inf[shadow_q->write_ind].cookie = (uintptr_t)buff;
 		shadow_q->buffs_inf[shadow_q->write_ind].addr = pa;
 		shadow_q->bpool = bpool;
