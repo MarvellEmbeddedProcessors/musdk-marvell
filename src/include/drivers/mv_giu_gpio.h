@@ -45,7 +45,7 @@ enum giu_vlan_tag {
 	GIU_VLAN_TAG_NONE = 0,	/* No VLANs */
 	GIU_VLAN_TAG_SINGLE,	/* Single VLAN */
 	GIU_VLAN_TAG_DOUBLE,	/* Double VLANs */
-	GIU_VLAN_TAG_TRIPLE,	/* Triple VLANs */
+	GIU_VLAN_TAG_RESERVED,	/* Reserved */
 };
 
 enum giu_inq_l3_type {
@@ -584,8 +584,8 @@ static inline int giu_gpio_inq_desc_get_md_mode(struct giu_gpio_desc *desc)
 /**
  * Get L2 info from an inq packet descriptor.
  *
- * @param[out]	desc		A pointer to a packet descriptor structure.
- * @param[in]	vlan		The vlan info.
+ * @param[in]	desc		A pointer to a packet descriptor structure.
+ * @param[out]	vlan		The vlan info.
  *
  */
 static inline void giu_gpio_inq_desc_get_l2_info(struct giu_gpio_desc *desc,
@@ -597,33 +597,34 @@ static inline void giu_gpio_inq_desc_get_l2_info(struct giu_gpio_desc *desc,
 /**
  * Get L3 info from an inq packet descriptor.
  *
- * @param[out]	desc		A pointer to a packet descriptor structure.
- * @param[in]	l3_type		The l3 type of the packet.
- * @param[in]	l3_offset	The l3 offset of the packet.
- * @param[in]	gen_l3_chk	Set to '1' to generate IPV4 checksum.
+ * @param[in]	desc		A pointer to a packet descriptor structure.
+ * @param[out]	l3_type		The l3 type of the packet.
+ * @param[out]	l3_offset	The l3 offset of the packet.
+ * @param[out]	gen_l3_chk	Whether to generate IPV4 checksum.
  *
  */
 static inline void giu_gpio_inq_desc_get_l3_info(struct giu_gpio_desc *desc,
-						 enum giu_outq_l3_type *l3_type,
+						 enum giu_inq_l3_type *l3_type,
 						 u8 *l3_offset,
 						 int *gen_l3_chk)
 {
 	*l3_type = GIU_RXD_GET_L3_PRS_INFO(desc);
 	*l3_offset = GIU_RXD_GET_L3_OFF(desc);
-	*gen_l3_chk = GIU_RXD_GET_GEN_IP_CHK(desc);
+	/* when this bit's value is 0 it means that L3 csum should be generated */
+	*gen_l3_chk = !GIU_RXD_GET_GEN_IP_CHK(desc);
 }
 
 /**
  * Get L4 info from an inq packet descriptor.
  *
- * @param[out]	desc		A pointer to a packet descriptor structure.
- * @param[in]	l4_type		The l4 type of the packet.
- * @param[in]	l4_offset	The l4 offset of the packet.
- * @param[in]	gen_l4_chk	Set to '1' to generate TCP/UDP checksum.
+ * @param[in]	desc		A pointer to a packet descriptor structure.
+ * @param[out]	l4_type		The l4 type of the packet.
+ * @param[out]	l4_offset	The l4 offset of the packet.
+ * @param[out]	gen_l4_chk	Whether to generate TCP/UDP checksum.
  *
  */
 static inline void giu_gpio_inq_desc_get_l4_info(struct giu_gpio_desc *desc,
-						 enum giu_outq_l4_type *l4_type,
+						 enum giu_inq_l4_type *l4_type,
 						 u8 *l4_offset,
 						 int *gen_l4_chk)
 {
@@ -631,7 +632,8 @@ static inline void giu_gpio_inq_desc_get_l4_info(struct giu_gpio_desc *desc,
 
 	*l4_type = GIU_RXD_GET_L4_PRS_INFO(desc);
 	*l4_offset = l3_offset + sizeof(u32)*GIU_RXD_GET_IPHDR_LEN(desc);
-	*gen_l4_chk = GIU_RXD_GET_GEN_L4_CHK(desc);
+	/* when this bit's value is 0 it means that L4 csum should be generated */
+	*gen_l4_chk = !GIU_RXD_GET_GEN_L4_CHK(desc);
 }
 
 /** @} */ /* end of grp_giu_io */
