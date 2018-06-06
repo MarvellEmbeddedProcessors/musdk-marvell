@@ -601,6 +601,16 @@ int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en)
 	return rc;
 
 }
+int pp2_ppio_set_tx_pause(struct pp2_ppio *ppio, struct pp2_ppio_tx_pause_params *params)
+{
+	/* Check ptr */
+	int rc;
+
+	rc = pp2_port_set_tx_pause(GET_PPIO_PORT(ppio), params);
+
+	return rc;
+}
+
 
 int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan)
 {

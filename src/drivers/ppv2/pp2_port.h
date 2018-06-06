@@ -504,6 +504,7 @@ int pp2_port_rx_create_event(struct pp2_port *port, struct pp2_ppio_rxq_event_pa
 int pp2_port_rx_delete_event(struct mv_sys_event *ev);
 int pp2_port_rx_set_event(struct mv_sys_event *ev, int en);
 int ppv2_port_rx_create_event_validate(void *driver_data);
-;
+
+int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params *params);
 
 #endif /* __PP2_PORT_H__ */

@@ -240,5 +240,9 @@ uintptr_t pp2_bm_va2pa(struct pp2_bm_pool *bm_pool, uintptr_t va);
 uint32_t pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 			       u32 bppe_num, uintptr_t pool_phys_addr);
 
+void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs);
+void pp2_bm_port_remove(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs);
+void pp2_bm_update_fc_thresh(struct pp2_inst *pp2_inst, u32 pool_id, int pool_stop_bufs, int pool_start_bufs);
+
 
 #endif /* _PP2_BM_H_ */
