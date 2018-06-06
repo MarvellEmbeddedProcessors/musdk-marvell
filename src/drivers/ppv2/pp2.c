@@ -308,9 +308,21 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 		hw->base[reg_id].va = mem_base + (reg_id * PP2_REGSPACE_SIZE);
 
 
+	/* Map the Cm3 physical address */
+	err = sys_iomem_map(pp2_sys_iomem, "cm3", &hw->cm3_base.pa, (void **)(&mem_base));
+	if (err) {
+		pr_err("cm3_base\n");
+		sys_iomem_unmap(pp2_sys_iomem, "pp");
+		sys_iomem_deinit(pp2_sys_iomem);
+		return err;
+	}
+	hw->cm3_base.va = mem_base;
+	pr_info("hw->cm3_base.pa:0x%lx\n", hw->cm3_base.pa);
+
 	err = sys_iomem_map(pp2_sys_iomem, "mspg", &hw->gop.mspg.pa, (void **)(&mem_base));
 	if (err) {
 		sys_iomem_unmap(pp2_sys_iomem, "pp");
+		sys_iomem_unmap(pp2_sys_iomem, "cm3");
 		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}

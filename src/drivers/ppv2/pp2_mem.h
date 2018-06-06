@@ -200,4 +200,20 @@ static inline uint32_t pp2_relaxed_reg_read(uintptr_t cpu_slot, uint32_t offset)
 
 #define pp2_relaxed_read pp2_reg_read
 
+static inline void cm3_write(uintptr_t base, u32 offset, u32 data)
+{
+	uintptr_t addr = base + offset;
+
+	writel(data, (void *)addr);
+}
+
+static inline u32 cm3_read(uintptr_t base, u32 offset)
+{
+
+	uintptr_t addr = base + offset;
+
+	return readl((void *)addr);
+}
+
+
 #endif /* _PP2_MEM_H_ */

@@ -88,6 +88,17 @@ static inline void pp2_bm_pool_bufsize_set(uintptr_t cpu_slot,
 	pp2_reg_write(cpu_slot, MVPP2_POOL_BUF_SIZE_REG(pool_id), val);
 }
 
+/* Routine enable PPv23 8 pool mode */
+static int pp2_bm_get_8pool_mode(uintptr_t cpu_slot)
+{
+	int val;
+
+	val = pp2_reg_read(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG);
+	pr_info("8pool_mode is:%s\n", (val & MVPP23_BM_8POOL_MODE) ? "enabled" : "disabled");
+	return(val & MVPP23_BM_8POOL_MODE);
+}
+
+
 /* BM HW disable pool */
 void pp2_bm_hw_pool_destroy(uintptr_t cpu_slot, uint32_t pool_id)
 {
@@ -159,6 +170,14 @@ pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 
 	val = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_CTRL_REG(pool_id));
 	val |= MVPP2_BM_START_MASK;
+
+	if (pp2_bm_get_8pool_mode(cpu_slot)) {
+		val |= MVPP2_BM_LOW_THRESH_VALUE(MVPP23_BM_BPPI_8POOL_LOW_THRESH);
+		val |= MVPP2_BM_HIGH_THRESH_VALUE(MVPP23_BM_BPPI_8POOL_HIGH_THRESH);
+	} else {
+		val |= MVPP2_BM_LOW_THRESH_VALUE(MVPP2_BM_BPPI_LOW_THRESH);
+		val |= MVPP2_BM_HIGH_THRESH_VALUE(MVPP2_BM_BPPI_HIGH_THRESH);
+	}
 
 	pp2_reg_write(cpu_slot, MVPP2_BM_POOL_CTRL_REG(pool_id), val);
 
@@ -370,5 +389,87 @@ uint32_t pp2_bm_pool_get_id(struct pp2_bm_pool *pool)
 struct pp2_bm_pool *pp2_bm_pool_get_pool_by_id(struct pp2_inst *pp2_inst, uint32_t pool_id)
 {
 	return pp2_inst->bm_pools[pool_id];
+}
+
+
+/* Routine disable/enable flow control for BM pool conditon */
+static void pp2_bm_pool_update_fc(uintptr_t base, struct pp2_bm_pool *pool, bool en)
+{
+	int val, cm3_state;
+
+	/* Remove Flow control enable bit to prevent race between FW and Kernel
+	 * If Flow control were enabled, it would be re-enabled.
+	 */
+	val = cm3_read(base, MSS_CP_FC_COM_REG);
+	cm3_state = (val & FLOW_CONTROL_ENABLE_BIT);
+	val &= ~FLOW_CONTROL_ENABLE_BIT;
+	cm3_write(base, MSS_CP_FC_COM_REG, val);
+
+	pr_info("%s: base:0x%lx, pool:%d, fc_en:%d, port_mask:%x, start:%d, stop:%d\n", __func__, base,
+		pool->bm_pool_id, en, pool->fc_port_mask, pool->fc_start_threshold, pool->fc_stop_threshold);
+
+	/* Check if BM pool should be enabled/disable */
+	if (en) {
+		/* Set BM pool start and stop thresholds per port */
+		val = cm3_read(base, MSS_CP_CM3_BUF_POOL_BASE + pool->bm_pool_id * MSS_CP_CM3_BUF_POOL_OFFS);
+		val &= ~MSS_CP_CM3_BUF_POOL_PORTS_MASK;
+		val |= (pool->fc_port_mask << MSS_CP_CM3_BUF_POOL_PORTS_OFFS);
+
+		val &= ~MSS_CP_CM3_BUF_POOL_START_MASK;
+		val |= (pool->fc_start_threshold << MSS_CP_CM3_BUF_POOL_START_OFFS);
+
+		val &= ~MSS_CP_CM3_BUF_POOL_STOP_MASK;
+		val |= pool->fc_stop_threshold;
+		cm3_write(base, MSS_CP_CM3_BUF_POOL_BASE + pool->bm_pool_id * MSS_CP_CM3_BUF_POOL_OFFS, val);
+	} else {
+		/* Remove BM pool from fc */
+		val = 0;
+		cm3_write(base, MSS_CP_CM3_BUF_POOL_BASE + pool->bm_pool_id * MSS_CP_CM3_BUF_POOL_OFFS, val);
+	}
+	/* Notify Firmware that Flow control config space ready for update */
+	val = cm3_read(base, MSS_CP_FC_COM_REG);
+	val |= FLOW_CONTROL_UPD_COM_BIT;
+	val |= cm3_state;
+	cm3_write(base, MSS_CP_FC_COM_REG, val);
+}
+
+
+void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs)
+{
+	struct pp2_bm_pool *pool = pp2_inst->bm_pools[pool_id];
+
+	pool->fc_port_mask |= BIT(port_id);
+	pool->fc_stop_threshold += pool_stop_bufs;
+	pool->fc_start_threshold += pool_start_bufs;
+	pool->fc_enabled = true;
+
+	pp2_bm_pool_update_fc(pp2_inst->hw.cm3_base.va, pool, pool->fc_enabled);
+}
+
+void pp2_bm_port_remove(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs)
+{
+	struct pp2_bm_pool *pool = pp2_inst->bm_pools[pool_id];
+
+	pool->fc_port_mask &= ~(BIT(port_id));
+	pool->fc_stop_threshold -= pool_stop_bufs;
+	pool->fc_start_threshold -= pool_start_bufs;
+	pool->fc_enabled = pool->fc_port_mask ? true : false;
+
+	pp2_bm_pool_update_fc(pp2_inst->hw.cm3_base.va, pool, pool->fc_enabled);
+}
+
+void pp2_bm_update_fc_thresh(struct pp2_inst *pp2_inst, u32 pool_id, int pool_stop_bufs, int pool_start_bufs)
+{
+	struct pp2_bm_pool *pool  =  pp2_inst->bm_pools[pool_id];
+
+	pool->fc_stop_threshold += pool_stop_bufs;
+	pool->fc_start_threshold += pool_start_bufs;
+
+	if (pool->fc_stop_threshold < 0 || pool->fc_start_threshold < 0)
+		pr_err("%s: pool:%d, port_mask:%x, enabled:%d, stop:%d, start:%d\n", __func__,
+		       pool_id, pool->fc_port_mask, (int)pool->fc_enabled, pool->fc_stop_threshold,
+		       pool->fc_start_threshold);
+
+	pp2_bm_pool_update_fc(pp2_inst->hw.cm3_base.va, pool, pool->fc_enabled);
 }
 

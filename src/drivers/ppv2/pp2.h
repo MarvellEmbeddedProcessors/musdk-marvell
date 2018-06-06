@@ -189,8 +189,15 @@ struct pp2_lnx_format {
 	char *uio_format;
 };
 
-
+struct pp2_fc_values {
+	u16 port_mtu;
+	u16 pool_start_threshold;
+	u16 pool_stop_threshold;
+	u16 rxq_start_thresh; /* Start port traffic */
+	u16 rxq_stop_thresh;  /* Stop port traffic */
+};
 extern struct pp2_lnx_format pp2_frm[];
+
 
 
 /* Automatic statistics update threshold (in received packetes) */
@@ -280,6 +287,8 @@ struct pp2_rx_queue {
 	u32 bm_pool_id[PP2_PPIO_TC_CLUSTER_MAX_POOLS];
 	u32 pkts_coal;
 	u32 usec_coal;
+	u32 fc_start_thresh;
+	u32 fc_stop_thresh;
 };
 
 #define PP2_BM_BUF_DEBUG             (0)
@@ -321,6 +330,11 @@ struct pp2_bm_pool {
 	struct mv_sys_dma_mem_region *likely_buffer_mem;
 	/* Memory used by BM for Buffer Pointers in DRAM (BPPE) */
 	struct mv_sys_dma_mem_region *bppe_mem;
+
+	bool fc_enabled;
+	u32 fc_port_mask;
+	int fc_stop_threshold;
+	int fc_start_threshold;
 };
 
 /* Port minimum MTU in bytes */
@@ -445,6 +459,7 @@ struct pp2_port {
 	char linux_name[16];
 	/* tx_fifo_size in KB */
 	u32 tx_fifo_size;
+	u32 rx_fifo_size;
 	/* Flag to indicate the automatic statistics update */
 	int maintain_stats;
 	/* Port statistics */
@@ -465,6 +480,7 @@ struct pp2_port {
 	u32 rxq_event_mask;
 	struct list added_uc_addr;
 	u32 num_added_uc_addr;
+	u32 rxq_flow_cntrl_mask;
 };
 
 /**
@@ -482,6 +498,7 @@ struct pp2_hw {
 	struct base_addr base[PP2_NUM_REGSPACES];
 	/* Register space for GOPs */
 	struct gop_hw gop;
+	struct base_addr cm3_base;
 	u32 tclk;
 	/* PRS shadow table */
 	struct mv_pp2x_prs_shadow *prs_shadow;

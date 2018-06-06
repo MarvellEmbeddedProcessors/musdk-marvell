@@ -1345,6 +1345,17 @@ int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid, int *en);
  */
 int pp2_ppio_set_rx_pause(struct pp2_ppio *ppio, int en);
 
+
+struct pp2_ppio_tx_pause_params {
+	int en; /* Enable/Disable tx_pause */
+	int use_tc_pause_inqs; /* val=0:all inqs participate in xon/xoff decision. val=1:'tc_pause_inqs[]' is used */
+	u32 tc_inqs_mask[PP2_PPIO_MAX_NUM_TCS]; /* Each tc contains mask of inqs which participate in xon/xoff */
+};
+
+int pp2_ppio_set_tx_pause(struct pp2_ppio *ppio, struct pp2_ppio_tx_pause_params *params);
+int pp2_ppio_get_tx_pause(struct pp2_ppio *ppio, int *en);
+
+
 /**
  * Get rx flow control status
  *
