@@ -225,4 +225,20 @@ int gie_delete_event(struct mv_sys_event *ev);
  */
 int gie_set_event(struct mv_sys_event *ev, int en);
 
+/**
+ * Get statistics
+ *
+ * The gie_get_stats API is called to get the statistics packets
+ * count of a specific gie queue
+ *
+ * @param[in]	gie		A pointer to a GIE object.
+ * @param[in]	qid		queue ID.
+ * @param[out]	pkt_cnt	stats result.
+ * @param[in]	reset	stats reset flag.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int gie_get_queue_stats(void *gie, u16 qid, u64 *pkt_cnt, int reset);
+
 #endif /* _GIE_H */

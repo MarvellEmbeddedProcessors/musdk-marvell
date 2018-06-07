@@ -1634,3 +1634,19 @@ int gie_set_event(struct mv_sys_event *ev, int en)
 	return 0;
 }
 
+int gie_get_queue_stats(void *giu, u16 qid, u64 *pkt_cnt, int reset)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_q_pair *qp;
+
+	qp = gie_find_q_pair(&gie->prios[0].qpairs[0], GIE_MAX_PRIOS * GIE_MAX_Q_PER_PRIO, qid);
+	if (qp == NULL) {
+		pr_warn("Cannot find queue %d for stats\n", qid);
+		return -ENODEV;
+	}
+	*pkt_cnt = qp->src_q.packets;
+	if (reset)
+		qp->src_q.packets = 0;
+
+	return 0;
+}
