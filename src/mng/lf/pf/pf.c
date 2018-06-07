@@ -2226,7 +2226,32 @@ static int nmnicpf_remove_vlan_command(struct nmnicpf *nmnicpf,
 }
 
 /*
- *	nmnicpf_process_pf_command
+ *
+ *	nmnicpf_gp_queue_get_statistics
+ */
+static int nmnicpf_gp_queue_get_statistics(struct nmnicpf *nmnicpf,
+					struct mgmt_cmd_params *params,
+					struct mgmt_cmd_resp *resp_data)
+{
+	int ret;
+	struct giu_gpio_q_statistics stats;
+
+	ret = giu_gpio_get_q_statistics(nmnicpf->giu_gpio,
+					params->pf_q_get_statistics.out,
+					1,
+					params->pf_q_get_statistics.tc,
+					params->pf_q_get_statistics.qid, &stats,
+					params->pf_q_get_statistics.reset);
+
+	if (ret)
+		return ret;
+
+	resp_data->gp_queue_stats.packets = stats.packets;
+
+	return 0;
+}
+
+/*	nmnicpf_process_pf_command
  *
  *	This function process all PF's commands
  *
@@ -2359,6 +2384,12 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_remove_vlan_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_REMOVE_VLAN message failed\n");
+		break;
+
+	case CC_PF_GET_GP_QUEUE_STATS:
+		ret = nmnicpf_gp_queue_get_statistics(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_GET_GP_QUEUE_STATS message failed\n");
 		break;
 
 	default:
