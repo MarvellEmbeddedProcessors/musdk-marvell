@@ -636,6 +636,44 @@ static inline void giu_gpio_inq_desc_get_l4_info(struct giu_gpio_desc *desc,
 	*gen_l4_chk = !GIU_RXD_GET_GEN_L4_CHK(desc);
 }
 
+struct giu_gpio_statistics {
+	u64 in_packets;
+	u64 out_packets;
+};
+
+struct giu_gpio_q_statistics {
+	u64 packets;
+};
+
+/**
+ * Get total statistics of all tc and queues
+ *
+ * @param[in]	gpio	A pointer to a GP-IO object.
+ * @param[out]	stats   A pointer to statistics structure.
+ * @param[in]	reset   '1' for reset staticistics
+
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int giu_gpio_get_statistics(struct giu_gpio *gpio, struct giu_gpio_statistics *stats, int reset);
+
+/**
+ * Get the statistics of a specific queue
+ *
+ * @param[in]	gpio	A pointer to a GP-IO object.
+ * @param[in]	out    '1' for out direction
+ * @param[in]	rem    '1' for remote direcition
+ * @param[in]	tc id
+ * @param[in]	qid     queue id
+ * @param[out]	stats   A pointer to statistics structure.
+ * @param[in]	reset  '1' for reset staticistics
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8 qid,
+							  struct giu_gpio_q_statistics *stats, int reset);
+
 /** @} */ /* end of grp_giu_io */
 
 #endif /* __MV_GIU_GPIO_H__ */

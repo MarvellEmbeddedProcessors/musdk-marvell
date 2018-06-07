@@ -957,3 +957,137 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 
 	return 0;
 }
+
+int giu_gpio_get_statistics(struct giu_gpio *gpio, struct giu_gpio_statistics *stats, int reset)
+{
+	u32 tc_idx, q_idx;
+	int rc;
+	struct giu_gpio_init_params *init_params;
+	struct giu_gpio_intc_params *intc;
+	struct giu_gpio_outtc_params *outtc;
+	struct giu_gpio_q_statistics q_stats;
+
+	init_params = (struct giu_gpio_init_params *)(gpio->init_params);
+
+	pr_debug("get statistics\n");
+	memset(stats, 0, sizeof(struct giu_gpio_statistics));
+
+	for (tc_idx = 0; tc_idx < init_params->intcs_params.num_intcs; tc_idx++) {
+		intc = &(init_params->intcs_params.intc_params[tc_idx]);
+
+		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+			rc = giu_gpio_get_q_statistics(gpio, 0, 0, tc_idx, q_idx, &q_stats, reset);
+			if (rc) {
+				pr_err("failed to get statistics on tc:%d queue:%d\n", tc_idx, q_idx);
+				return rc;
+			}
+			stats->in_packets += q_stats.packets;
+		}
+	}
+
+	for (tc_idx = 0; tc_idx < init_params->outtcs_params.num_outtcs; tc_idx++) {
+		outtc = &(init_params->outtcs_params.outtc_params[tc_idx]);
+		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+			rc = giu_gpio_get_q_statistics(gpio, 1, 0, tc_idx, q_idx, &q_stats, reset);
+			if (rc) {
+				pr_err("failed to get statistics on tc:%d queue:%d\n", tc_idx, q_idx);
+				return rc;
+			}
+			stats->out_packets += q_stats.packets;
+		}
+	}
+
+	return 0;
+}
+
+int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8  qid,
+							  struct giu_gpio_q_statistics *stats, int reset)
+{
+	union giu_gpio_q_params *giu_gpio_q_p_in, *giu_gpio_q_p_out;
+	struct giu_gpio_init_params *init_params = (struct giu_gpio_init_params *)(gpio->init_params);
+	struct giu_gpio_intc_params *intc;
+	struct giu_gpio_outtc_params *outtc;
+	int ret;
+
+	if (rem) {
+		if (out) {
+			if (tc > init_params->intcs_params.num_intcs) {
+				pr_err("out of range intc. no such intc: %d\n", tc);
+				return -1;
+			}
+			intc  = &(init_params->intcs_params.intc_params[tc]);
+			if (qid > intc->num_rem_outqs) {
+				pr_err("out of range intc remote out queue. no such qid: %d\n", qid);
+				return -1;
+			}
+			giu_gpio_q_p_in  = &(intc->rem_outqs_params[qid]);
+			ret = gie_get_queue_stats(init_params->gie->tx_gie, giu_gpio_q_p_in->rem_q.q_id,
+								 &stats->packets, reset);
+			if (ret) {
+				pr_err("failed to get stats: remote out tc:%d q:%d\n", tc, qid);
+				return ret;
+			}
+			pr_debug("gpio queue stats: remote out tc:%d q:%d pkt_cnt:%lu\n", tc, qid, stats->packets);
+
+		} else {
+			if (tc > init_params->outtcs_params.num_outtcs) {
+				pr_err("out of range outtc. no such intc: %d\n", tc);
+				return -1;
+			}
+			outtc = &(init_params->outtcs_params.outtc_params[tc]);
+			if (qid > outtc->num_rem_inqs) {
+				pr_err("out of range outtc remote in queue. no such qid: %d\n", qid);
+				return -1;
+			}
+			giu_gpio_q_p_out = &(outtc->outqs_params[qid]);
+			ret = gie_get_queue_stats(init_params->gie->rx_gie, giu_gpio_q_p_out->rem_q.q_id,
+								 &stats->packets, reset);
+			if (ret) {
+				pr_err("failed to get stats: remote in tc:%d q:%d\n", tc, qid);
+				return ret;
+			}
+			pr_debug("gpio queue stats: remote in tc:%d q:%d pkt_cnt:%lu\n", tc, qid, stats->packets);
+		}
+	} else {
+		if (out) {
+			if (tc > init_params->outtcs_params.num_outtcs) {
+				pr_err("out of range outtc. no such outtc: %d\n", tc);
+				return -1;
+			}
+			outtc = &(init_params->outtcs_params.outtc_params[tc]);
+			if (qid > outtc->num_outqs) {
+				pr_err("out of range outtc local out queue. no such qid: %d\n", qid);
+				return -1;
+			}
+			giu_gpio_q_p_out = &(outtc->outqs_params[qid]);
+			ret = gie_get_queue_stats(init_params->gie->rx_gie, giu_gpio_q_p_out->lcl_q.q_id,
+								 &stats->packets, reset);
+			if (ret) {
+				pr_err("failed to get stats: local out tc:%d q:%d\n", tc, qid);
+				return ret;
+			}
+			pr_debug("gpio queue stats: local out tc:%d q:%d pkt_cnt:%lu\n", tc, qid, stats->packets);
+
+		} else {
+			if (tc > init_params->intcs_params.num_intcs) {
+				pr_err("out of range intc. no such intc: %d\n", tc);
+				return -1;
+			}
+			intc  = &(init_params->intcs_params.intc_params[tc]);
+			if (qid > intc->num_inqs) {
+				pr_err("out of range intc local in queue. no such qid: %d\n", qid);
+				return -1;
+			}
+			giu_gpio_q_p_in  = &(intc->rem_outqs_params[qid]);
+			ret = gie_get_queue_stats(init_params->gie->tx_gie, giu_gpio_q_p_in->lcl_q.q_id,
+								 &stats->packets, reset);
+			if (ret) {
+				pr_err("failed to get stats: local in tc:%d q:%d\n", tc, qid);
+				return ret;
+			}
+			pr_debug("gpio queue stats: local in tc:%d q:%d pkt_cnt:%lu\n", tc, qid, stats->packets);
+		}
+	}
+
+	return 0;
+}
