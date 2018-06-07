@@ -58,6 +58,7 @@ enum cmd_codes {
 	CC_PF_LOOPBACK,
 	CC_PF_ADD_VLAN,
 	CC_PF_REMOVE_VLAN,
+	CC_PF_GET_GP_STATS,
 	CC_PF_GET_GP_QUEUE_STATS,
 	CMD_CODE_LAST = 0XFF,
 };
@@ -210,6 +211,12 @@ struct mgmt_cmd_resp {
 			u64 tx_unicast_packets;
 			u64 tx_errors;
 		} agnic_stats;
+
+		struct {
+			u64 gp_rx_packets;
+			u64 gp_tx_packets;
+		} gp_stats;
+
 		struct {
 			u64 packets;
 		} gp_queue_stats;
