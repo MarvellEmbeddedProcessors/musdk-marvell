@@ -284,7 +284,7 @@ int dmax2_enq(struct dmax2 *dmax2, struct dmax2_desc *descs, u16 *num)
 int dmax2_deq(struct dmax2 *dmax2, struct dmax2_trans_complete_desc *descs, u16 *num, int verify)
 {
 	struct dmax2_desc	*desc;
-	u16	i, next_indx;
+	u16	i;
 	u32	reg = mv_readl_relaxed(dmax2->dma_base + DMA_DESQ_DONE_OFF);
 	u16	hw_pending_num = ((reg >> DMA_DESQ_DONE_PENDING_SHIFT) & DMA_DESQ_DONE_PENDING_MASK);
 
@@ -297,14 +297,15 @@ int dmax2_deq(struct dmax2 *dmax2, struct dmax2_trans_complete_desc *descs, u16 
 		dmax2->desc_pop_idx =  (dmax2->desc_pop_idx + *num) & (dmax2->desc_q_size  - 1);
 	else {
 		/* Else, return every descriptor's cookie & status, so it could be verified if needed */
+		/* barrier here before accessing to read the descriptors */
+		rmb();
 		for (i = 0; i < *num; i++) {
-			next_indx = (dmax2->desc_pop_idx + 1) & (dmax2->desc_q_size  - 1);
 			desc = &dmax2->hw_desq_virt[dmax2->desc_pop_idx];
 			if (mv_readw_relaxed(&desc->flags) & DESC_FLAGS_SYNC)
 				break;
 			descs[i].desc_id = desc->desc_id;
 			descs[i].status = (desc->flags & DMA_DESQ_STATUS_MASK);
-			dmax2->desc_pop_idx = next_indx;
+			dmax2->desc_pop_idx = (dmax2->desc_pop_idx + 1) & (dmax2->desc_q_size  - 1);
 		}
 		*num = i;
 	}
