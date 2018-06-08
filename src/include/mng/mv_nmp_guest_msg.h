@@ -29,13 +29,5 @@ enum msg_to_guest_codes {
 	MSG_T_GUEST_LAST,
 };
 
-/*
- * msg_from_guest_codes - Define the list of messages codes that can be send by guest.
- */
-enum msg_from_guest_codes {
-	MSG_F_GUEST_NONE = 0,
-	MSG_F_GUEST_LAST,
-};
-
 #endif /* _MV_NMP_GUEST_MSG_H */
 
