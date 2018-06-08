@@ -18,12 +18,16 @@
 #include "hw_emul/gie.h"
 #include "mng/mv_nmp.h"
 #include "drivers/mv_pp2_ppio.h"
+#include "drivers/mv_pp2_cls.h"
 
 #define MAX_PCI_FUNC_NAME	256
 #define MAX_PCI_FUNC_BARS	3
 
 #define LCL	(1)
 #define REM	(2)
+
+#define MAX_PP2_CLS_TBL		10
+#define PP2_CLS_KEY_MASK_STRING_FORMAT
 
 struct uio_mem {
 	void *phys_addr;
@@ -101,6 +105,10 @@ struct pp2_data {
 	u32				 num_ports;
 	u32				 reserved_bpools;
 	struct nmp_pp2_port_desc	*ports_desc;
+	struct pp2_cls_tbl		*tbl[MAX_PP2_CLS_TBL];
+#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
+	struct pp2_cls_tbl_params	tbl_params[MAX_PP2_CLS_TBL];
+#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
 };
 
 /* Structure containing all the NIC-PF related data

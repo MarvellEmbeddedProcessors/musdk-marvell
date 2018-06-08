@@ -19,4 +19,13 @@ int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 			       struct mgmt_cmd_resp *resp_data);
 void nmnicpf_pp2_get_mac_addr(struct nmnicpf *nmnicpf, u8 *mac_addr);
 
+int nmnicpf_pp2_cls_table_init(struct nmnicpf *nmnicpf,
+			       void *msg,
+			       u16 msg_len,
+			       struct guest_pp2_cls_cmd_resp *resp);
+int nmnicpf_pp2_cls_table_deinit(struct nmnicpf *nmnicpf, void *msg, u16 msg_len);
+int nmnicpf_pp2_cls_rule_add(struct nmnicpf *nmnicpf, void *msg, u16 msg_len);
+int nmnicpf_pp2_cls_rule_modify(struct nmnicpf *nmnicpf, void *msg, u16 msg_len);
+int nmnicpf_pp2_cls_rule_remove(struct nmnicpf *nmnicpf, void *msg, u16 msg_len);
+
 #endif /* _PF_PP2_H */

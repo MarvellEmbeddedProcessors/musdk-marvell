@@ -17,6 +17,7 @@
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_guest_msg.h"
 #include "mng/pci_ep_def.h"
+#include "mng/include/guest_mng_cmd_desc.h"
 #include "pf_regfile.h"
 #include "pf.h"
 #include "pf_pp2.h"
@@ -2371,6 +2372,75 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 }
 
 /*
+ *	nmnicpf_process_guest_command
+ *
+ *	This function process guest commnads
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *	@param[in]	msg - pointer to nmdisp_msg object
+ *
+ */
+static void nmnicpf_process_guest_command(struct nmnicpf *nmnicpf,
+					 struct nmdisp_msg *msg)
+{
+	struct guest_cmd_resp resp;
+	int ret = 0;
+
+	switch (msg->code) {
+
+	case MSG_F_GUEST_TABLE_INIT:
+		ret = nmnicpf_pp2_cls_table_init(nmnicpf, msg->msg, msg->msg_len, &resp.pp2_cls_resp);
+		if (ret)
+			pr_err("MSG_F_GUEST_TABLE_INIT message failed\n");
+		break;
+
+	case MSG_F_GUEST_TABLE_DEINIT:
+		ret = nmnicpf_pp2_cls_table_deinit(nmnicpf, msg->msg, msg->msg_len);
+		if (ret)
+			pr_err("MSG_F_GUEST_TABLE_DEINIT message failed\n");
+		break;
+
+	case MSG_F_GUEST_ADD_RULE:
+		ret = nmnicpf_pp2_cls_rule_add(nmnicpf, msg->msg, msg->msg_len);
+		if (ret)
+			pr_err("MSG_F_GUEST_ADD_RULE message failed\n");
+		break;
+
+	case MSG_F_GUEST_MODIFY_RULE:
+		ret = nmnicpf_pp2_cls_rule_modify(nmnicpf, msg->msg, msg->msg_len);
+		if (ret)
+			pr_err("MSG_F_GUEST_MODIFY_RULE message failed\n");
+		break;
+
+	case MSG_F_GUEST_REMOVE_RULE:
+		ret = nmnicpf_pp2_cls_rule_remove(nmnicpf, msg->msg, msg->msg_len);
+		if (ret)
+			pr_err("MSG_F_GUEST_REMOVE_RULE message failed\n");
+		break;
+
+	default:
+		/* Unknown command code */
+		pr_err("Unknown command code %d!! Unable to process command.\n", msg->code);
+		ret = -1;
+		break;
+	}
+
+	if (msg->resp_required) {
+		resp.status = (ret) ? RESP_STATUS_FAIL : RESP_STATUS_OK;
+		msg->ext = 0;
+		msg->dst_client = CDT_CUSTOM;
+		msg->dst_id = nmnicpf->guest_id;
+		msg->src_client = CDT_PF;
+		msg->src_id = nmnicpf->pf_id;
+		msg->msg = &resp;
+		msg->msg_len = sizeof(resp);
+		ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, msg);
+		if (ret)
+			pr_err("failed to send response message\n");
+	}
+}
+
+/*
  *	nmnicpf_process_command
  *
  *	This function process all PF execution flows
@@ -2419,6 +2489,9 @@ int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 
 			msg->msg = (void *)&resp_data;
 			msg->msg_len = sizeof(resp_data);
+		} else if ((msg->src_client == CDT_CUSTOM) && (msg->src_id == nmnicpf->guest_id)) {
+			nmnicpf_process_guest_command(nmnicpf, msg);
+			return 0;
 		} else {
 			pr_err("Src client %d not supported for external command\n", msg->src_client);
 			return -1;

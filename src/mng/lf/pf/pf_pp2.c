@@ -10,6 +10,7 @@
 #include "std_internal.h"
 #include "mng/db.h"
 #include "mng/lf/mng_cmd_desc.h"
+#include "mng/include/guest_mng_cmd_desc.h"
 #include "pf_pp2.h"
 #include "src/drivers/ppv2/pp2.h"
 
@@ -350,5 +351,293 @@ void nmnicpf_pp2_get_mac_addr(struct nmnicpf *nmnicpf, u8 *mac_addr)
 	}
 set_default:
 	memcpy(mac_addr, default_mac_addr, sizeof(default_mac_addr));
+}
+
+static int nmnicpf_pp2_find_free_cls_table(struct nmnicpf *nmnicpf)
+{
+	int i;
+
+	for (i = 0; i < MAX_PP2_CLS_TBL; i++) {
+		if (!nmnicpf->pp2.tbl[i])
+			break;
+	}
+	if (i == MAX_PP2_CLS_TBL) {
+		pr_err("no free cls table found!\n");
+		return -ENOSPC;
+	}
+	return i;
+}
+
+#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
+static int build_rule(struct pp2_cls_tbl_rule *dst_rule,
+		      struct guest_pp2_cls_tbl_rule *src_rule,
+		      struct pp2_cls_tbl_params *tbl_params)
+{
+	struct pp2_proto_field *proto_field;
+	u8 buf[GUEST_PP2_CLS_KEY_SIZE_MAX];
+	int i;
+
+	dst_rule->num_fields = src_rule->num_fields;
+	for (i = 0; i < dst_rule->num_fields; i++) {
+		dst_rule->fields[i].size = src_rule->fields[i].size;
+		if (src_rule->fields[i].key_valid)
+			dst_rule->fields[i].key = src_rule->fields[i].key;
+		if (src_rule->fields[i].mask_valid)
+			dst_rule->fields[i].mask = src_rule->fields[i].mask;
+		proto_field = &tbl_params->key.proto_field[i];
+		if ((proto_field->proto == MV_NET_PROTO_ETH) &&
+		    ((proto_field->field.eth == MV_NET_ETH_F_SA) || (proto_field->field.eth == MV_NET_ETH_F_DA))) {
+			memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
+			snprintf((char *)src_rule->fields[i].key,
+				 GUEST_PP2_CLS_KEY_SIZE_MAX,
+				 "%02x:%02x:%02x:%02x:%02x:%02x",
+				 buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+			memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
+			snprintf((char *)src_rule->fields[i].mask,
+				 GUEST_PP2_CLS_KEY_SIZE_MAX,
+				 "%02x:%02x:%02x:%02x:%02x:%02x",
+				 buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+		} else if (proto_field->proto == MV_NET_PROTO_VLAN) {
+			if (proto_field->field.vlan == MV_NET_VLAN_F_PRI) {
+				memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].key,
+					 GUEST_PP2_CLS_KEY_SIZE_MAX,
+					 "%02x", buf[0]);
+				memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].mask,
+					GUEST_PP2_CLS_KEY_SIZE_MAX,
+					"%02x", buf[0]);
+			} else if (proto_field->field.vlan == MV_NET_VLAN_F_ID) {
+				memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].key,
+					 GUEST_PP2_CLS_KEY_SIZE_MAX,
+					 "%02x%02x", buf[0], buf[1]);
+				memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].mask,
+					GUEST_PP2_CLS_KEY_SIZE_MAX,
+					"%02x%02x", buf[0], buf[1]);
+			} else {
+				pr_err("field[%d] is not supported\n", i);
+				return -ENOTSUP;
+			}
+		} else {
+			pr_err("field[%d] is not supported\n", i);
+			return -ENOTSUP;
+		}
+	}
+
+	return 0;
+}
+#else
+static void build_rule(struct pp2_cls_tbl_rule *dst_rule,
+		       struct guest_pp2_cls_tbl_rule *src_rule)
+{
+	int i;
+
+	dst_rule->num_fields = src_rule->num_fields;
+	for (i = 0; i < dst_rule->num_fields; i++) {
+		dst_rule->fields[i].size = src_rule->fields[i].size;
+		if (src_rule->fields[i].key_valid)
+			dst_rule->fields[i].key = src_rule->fields[i].key;
+		if (src_rule->fields[i].mask_valid)
+			dst_rule->fields[i].mask = src_rule->fields[i].mask;
+		printf("src-key %s, dst-key %s\n", src_rule->fields[i].key, dst_rule->fields[i].key);
+	}
+}
+#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
+
+
+int nmnicpf_pp2_cls_table_init(struct nmnicpf *nmnicpf,
+			       void *msg,
+			       u16 msg_len,
+			       struct guest_pp2_cls_cmd_resp *resp)
+{
+	struct guest_pp2_cls_tbl_params *tbl_params;
+	struct pp2_cls_cos_desc	cos;
+	int tbl_idx, ret;
+
+	if (!nmnicpf->pp2.ports_desc || !nmnicpf->pp2.ports_desc[0].ppio)
+		return -ENOTSUP;
+
+	if (msg_len < sizeof(struct guest_pp2_cls_tbl_params)) {
+		pr_err("invalid msg length. expected %lu, got %u\n",
+			sizeof(struct guest_pp2_cls_tbl_params), msg_len);
+		return -EINVAL;
+	}
+
+	tbl_params = (struct guest_pp2_cls_tbl_params *)msg;
+	if (tbl_params->params.default_act.cos) {
+		pr_err("Setting CoS is not supported\n");
+		return -EINVAL;
+	}
+
+	tbl_idx = nmnicpf_pp2_find_free_cls_table(nmnicpf);
+	if (tbl_idx < 0)
+		return tbl_idx;
+
+	cos.ppio = nmnicpf->pp2.ports_desc[0].ppio;
+	cos.tc = 0;
+	tbl_params->params.default_act.cos = &cos;
+	ret = pp2_cls_tbl_init(&tbl_params->params, &nmnicpf->pp2.tbl[tbl_idx]);
+	if (ret)
+		return ret;
+
+	resp->tbl_init.tbl_id = tbl_idx;
+#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
+	memcpy(&nmnicpf->pp2.tbl_params[tbl_idx], &tbl_params->params, sizeof(tbl_params->params));
+#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
+
+	return 0;
+}
+
+int nmnicpf_pp2_cls_table_deinit(struct nmnicpf *nmnicpf,
+				 void *msg,
+				 u16 msg_len)
+{
+	u32 *tbl_idx;
+
+	if (!nmnicpf->pp2.ports_desc || !nmnicpf->pp2.ports_desc[0].ppio)
+		return -ENOTSUP;
+
+	if (msg_len < sizeof(u32)) {
+		pr_err("invalid msg length. expected %lu, got %u\n",
+			sizeof(u32), msg_len);
+		return -EINVAL;
+	}
+
+	tbl_idx = msg;
+
+	if (*tbl_idx >= MAX_PP2_CLS_TBL)
+		pr_err("invalid table index.\n");
+	else
+		pp2_cls_tbl_deinit(nmnicpf->pp2.tbl[*tbl_idx]);
+
+	return 0;
+}
+
+int nmnicpf_pp2_cls_rule_add(struct nmnicpf *nmnicpf,
+			     void *msg,
+			     u16 msg_len)
+{
+	struct guest_pp2_cls_rule_add *rule_add;
+	struct pp2_cls_tbl_rule rule;
+	int ret;
+
+	if (!nmnicpf->pp2.ports_desc || !nmnicpf->pp2.ports_desc[0].ppio)
+		return -ENOTSUP;
+
+	if (msg_len < sizeof(struct guest_pp2_cls_rule_add)) {
+		pr_err("invalid msg length. expected %lu, got %u\n",
+			sizeof(struct guest_pp2_cls_rule_add), msg_len);
+		return -EINVAL;
+	}
+
+	rule_add = (struct guest_pp2_cls_rule_add *)msg;
+
+	if (rule_add->tbl_id >= MAX_PP2_CLS_TBL) {
+		pr_err("invalid table index.\n");
+		return -EINVAL;
+	}
+
+	if (rule_add->action.action.cos) {
+		pr_err("Setting CoS is not supported\n");
+		return -EINVAL;
+	}
+
+#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
+	ret = build_rule(&rule,
+			 &rule_add->rule,
+			 &nmnicpf->pp2.tbl_params[rule_add->tbl_id]);
+	if (ret)
+		return ret;
+#else
+	build_rule(&rule, &rule_add->rule);
+#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
+	ret = pp2_cls_tbl_add_rule(nmnicpf->pp2.tbl[rule_add->tbl_id],
+				   &rule,
+				   &rule_add->action.action);
+	return ret;
+}
+
+int nmnicpf_pp2_cls_rule_modify(struct nmnicpf *nmnicpf,
+				void *msg,
+				u16 msg_len)
+{
+	struct guest_pp2_cls_rule_add *rule_add;
+	struct pp2_cls_tbl_rule rule;
+	int ret;
+
+	if (!nmnicpf->pp2.ports_desc || !nmnicpf->pp2.ports_desc[0].ppio)
+		return -ENOTSUP;
+
+	if (msg_len < sizeof(struct guest_pp2_cls_rule_add)) {
+		pr_err("invalid msg length. expected %lu, got %u\n",
+			sizeof(struct guest_pp2_cls_rule_add), msg_len);
+		return -EINVAL;
+	}
+
+	rule_add = (struct guest_pp2_cls_rule_add *)msg;
+
+	if (rule_add->tbl_id >= MAX_PP2_CLS_TBL) {
+		pr_err("invalid table index.\n");
+		return -EINVAL;
+	}
+
+	if (rule_add->action.action.cos) {
+		pr_err("Setting CoS is not supported\n");
+		return -EINVAL;
+	}
+
+#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
+	ret = build_rule(&rule,
+			 &rule_add->rule,
+			 &nmnicpf->pp2.tbl_params[rule_add->tbl_id]);
+	if (ret)
+		return ret;
+#else
+	build_rule(&rule, &rule_add->rule);
+#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
+	ret = pp2_cls_tbl_modify_rule(nmnicpf->pp2.tbl[rule_add->tbl_id],
+				      &rule,
+				      &rule_add->action.action);
+	return ret;
+}
+
+int nmnicpf_pp2_cls_rule_remove(struct nmnicpf *nmnicpf,
+				void *msg,
+				u16 msg_len)
+{
+	struct guest_pp2_cls_rule_remove *rule_rem;
+	struct pp2_cls_tbl_rule rule;
+	int ret;
+
+	if (!nmnicpf->pp2.ports_desc || !nmnicpf->pp2.ports_desc[0].ppio)
+		return -ENOTSUP;
+
+	if (msg_len < sizeof(struct guest_pp2_cls_rule_remove)) {
+		pr_err("invalid msg length. expected %lu, got %u\n",
+			sizeof(struct guest_pp2_cls_rule_remove), msg_len);
+		return -EINVAL;
+	}
+
+	rule_rem = (struct guest_pp2_cls_rule_remove *)msg;
+
+	if (rule_rem->tbl_id >= MAX_PP2_CLS_TBL) {
+		pr_err("invalid table index.\n");
+		return -EINVAL;
+	}
+
+#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
+	ret = build_rule(&rule,
+			 &rule_rem->rule,
+			 &nmnicpf->pp2.tbl_params[rule_rem->tbl_id]);
+	if (ret)
+		return ret;
+#else
+	build_rule(&rule, &rule_rem->rule);
+#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
+	ret = pp2_cls_tbl_remove_rule(nmnicpf->pp2.tbl[rule_rem->tbl_id],
+				      &rule);
+	return ret;
 }
 
