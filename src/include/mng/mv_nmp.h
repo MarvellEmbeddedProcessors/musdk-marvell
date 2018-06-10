@@ -214,6 +214,19 @@ int nmp_delete_scheduling_event(struct mv_sys_event *ev);
  */
 int nmp_set_scheduling_event(struct mv_sys_event *ev, int en);
 
+/**
+ * Read nmp-params from a config file
+ *
+ * This helper API can be used to build nmp-params from an input cfg file (which MUST be given).
+ *
+ * @param[in]	cfg_file	file location.
+ * @param[out]	params		builded nmp-parameters
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params);
+
 /** @} */ /* end of grp_nmp_init */
 
 #endif /* _MV_NMP_INIT_H */
