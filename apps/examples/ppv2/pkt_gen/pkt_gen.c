@@ -39,6 +39,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <getopt.h>
+#include <sys/time.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
@@ -65,6 +66,8 @@
 #define PKT_GEN_APP_BUFF_POOL_SIZE		8192
 
 #define PKT_GEN_APP_DMA_MEM_SIZE		(80 * 1024 * 1024)
+/* 1 sec. threshold that is used for the perf statistics prints */
+#define PKT_GEN_APP_STATS_DFLT_THR		1000
 
 #define PKT_GEN_APP_FIRST_INQ			0
 #define PKT_GEN_APP_MAX_NUM_TCS_PER_PORT	1
@@ -109,6 +112,11 @@
 #define DEFAULT_DST_PORT 1024
 
 #define ETHERTYPE_IP	0x800
+
+#define PKT_GEN_NUM_CNTS	2
+#define PKT_GEN_CNT_PKTS	0
+#define PKT_GEN_CNT_BYTES	1
+
 
 struct buffer_dec {
 	void		*virt_addr;
@@ -182,10 +190,16 @@ struct local_arg {
 	int				pkt_size;
 };
 
+
 eth_addr_t default_src_mac = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
 eth_addr_t default_dst_mac = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
 
+/* globals for ingress/egress packet rate statistics */
+u64			 lst_rx_cnts[PKT_GEN_NUM_CNTS][MVAPPS_PP2_MAX_NUM_PORTS];
+u64			 lst_tx_cnts[PKT_GEN_NUM_CNTS][MVAPPS_PP2_MAX_NUM_PORTS];
+
 static struct glob_arg garg = {};
+
 
 /*
  * increment the addressed in the packet,
@@ -216,6 +230,94 @@ static void update_addresses(struct pkt *pkt, struct glob_arg *garg)
 			garg->dst_ip.curr = garg->dst_ip.start;
 	} while (0);
 	/* update checksum */
+}
+
+static int dump_perf(struct glob_arg *garg)
+{
+	struct timeval	 curr_time;
+	u64		 tmp_time_inter;
+	u64 pkts, bytes, drops, pps, bps;
+	u8 i, j;
+
+	gettimeofday(&curr_time, NULL);
+	tmp_time_inter = (curr_time.tv_sec - garg->cmn_args.ctrl_trd_last_time.tv_sec) * 1000;
+	tmp_time_inter += (curr_time.tv_usec - garg->cmn_args.ctrl_trd_last_time.tv_usec) / 1000;
+
+	printf("\r");
+	if (garg->rx) {
+		pps = bps = 0;
+		for (j = 0; j < MVAPPS_PP2_MAX_NUM_PORTS; j++) {
+			/* TODO: temporary, we don't realy support multiple-ports statistics
+			 * since we have only one set of counters
+			 */
+			if (j)
+				break;
+			pkts = bytes = 0;
+			for (i = 0; i < garg->cmn_args.cpus; i++) {
+				pkts  += (garg->cmn_args.largs[i])->trf_cntrs.rx_pkts;
+				bytes += (garg->cmn_args.largs[i])->trf_cntrs.rx_bytes;
+			}
+			pps += pkts - lst_rx_cnts[PKT_GEN_CNT_PKTS][j];
+			bps += bytes - lst_rx_cnts[PKT_GEN_CNT_BYTES][j];
+			lst_rx_cnts[PKT_GEN_CNT_PKTS][j] = pkts;
+			lst_rx_cnts[PKT_GEN_CNT_BYTES][j] = bytes;
+		}
+		pps /= tmp_time_inter;
+		bps = bps * 8 / tmp_time_inter;
+
+		printf("RX: %" PRIu64 " Kpps, %" PRIu64 " Kbps\t", pps, bps);
+	}
+
+	if (garg->tx) {
+		drops = pps = bps = 0;
+
+		for (j = 0; j < MVAPPS_PP2_MAX_NUM_PORTS; j++) {
+			/* TODO: temporary, we don't realy support multiple-ports statistics
+			 * since we have only one set of counters
+			 */
+			if (j)
+				break;
+			pkts = bytes = 0;
+			for (i = 0; i < garg->cmn_args.cpus; i++) {
+				pkts  += (garg->cmn_args.largs[i])->trf_cntrs.tx_pkts;
+				bytes += (garg->cmn_args.largs[i])->trf_cntrs.tx_bytes;
+				drops += (garg->cmn_args.largs[i])->trf_cntrs.tx_drop;
+			}
+			pps += pkts - lst_tx_cnts[PKT_GEN_CNT_PKTS][j];
+			bps += bytes - lst_tx_cnts[PKT_GEN_CNT_BYTES][j];
+			lst_tx_cnts[PKT_GEN_CNT_PKTS][j] = pkts;
+			lst_tx_cnts[PKT_GEN_CNT_BYTES][j] = bytes;
+		}
+		pps /= tmp_time_inter;
+		bps = bps * 8 / tmp_time_inter;
+
+		printf("TX: %" PRIu64 " Kpps, %" PRIu64 " Kbps, %" PRIu64 " Kdrops\t",
+			pps, bps, drops / 1000);
+	}
+
+	gettimeofday(&garg->cmn_args.ctrl_trd_last_time, NULL);
+
+	return 0;
+}
+
+static int maintain_stats(void *arg)
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+	struct timeval	 curr_time;
+	u64		 tmp_time_inter;
+
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	gettimeofday(&curr_time, NULL);
+	tmp_time_inter = (curr_time.tv_sec - garg->cmn_args.ctrl_trd_last_time.tv_sec) * 1000;
+	tmp_time_inter += (curr_time.tv_usec - garg->cmn_args.ctrl_trd_last_time.tv_usec) / 1000;
+	if (tmp_time_inter >= garg->cmn_args.ctrl_thresh)
+		return dump_perf(garg);
+
+	return 0;
 }
 
 static inline int loop_rx(struct local_arg	*larg,
@@ -421,53 +523,14 @@ static int main_loop_cb(void *arg, int *running)
 static int stat_loop_cb(void *arg)
 {
 	struct glob_arg *garg = (struct glob_arg *)arg;
-	u64 pkts, bytes, drops, pps, bps;
-	u64 tx_pkts_prev = 0, tx_bytes_prev = 0, rx_pkts_prev = 0, rx_bytes_prev = 0;
-	u8 i;
-	u8 timeout = garg->report_time;
 
-	do {
-		sleep(timeout);
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
 
-		if (garg->rx) {
-			pkts = 0;
-			bytes = 0;
-
-			for (i = 0; i < garg->cmn_args.cpus; i++) {
-				pkts += (garg->cmn_args.largs[i])->trf_cntrs.rx_pkts;
-				bytes += (garg->cmn_args.largs[i])->trf_cntrs.rx_bytes;
-			}
-			pps = (pkts - rx_pkts_prev) / timeout;
-			bps = (bytes - rx_bytes_prev) / timeout * 8;
-
-			printf("RX: %" PRIu64 " kpps, %" PRIu64 " kbps\t", pps / 1000, bps / 1000);
-
-			rx_pkts_prev = pkts;
-			rx_bytes_prev = bytes;
-		}
-
-		if (garg->tx) {
-			pkts = 0;
-			bytes = 0;
-			drops = 0;
-
-			for (i = 0; i < garg->cmn_args.cpus; i++) {
-				pkts += (garg->cmn_args.largs[i])->trf_cntrs.tx_pkts;
-				bytes += (garg->cmn_args.largs[i])->trf_cntrs.tx_bytes;
-				drops += (garg->cmn_args.largs[i])->trf_cntrs.tx_drop;
-			}
-			pps = (pkts - tx_pkts_prev) / timeout;
-			bps = (bytes - tx_bytes_prev) / timeout * 8;
-
-			printf("TX: %" PRIu64 " kpps, %" PRIu64 " kbps, %" PRIu64 " kdrops\t",
-				pps / 1000, bps / 1000, drops / 1000);
-
-			tx_pkts_prev = pkts;
-			tx_bytes_prev = bytes;
-		}
-
-		printf("\n");
-	} while (1);
+	if (!garg->cmn_args.cli)
+		maintain_stats(garg);
 
 	return 0;
 }
@@ -596,6 +659,22 @@ static int init_local_modules(struct glob_arg *garg)
 	return 0;
 }
 
+static int perf_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg) {
+		pr_err("no garg obj passed!\n");
+		return -EINVAL;
+	}
+	if (argc != 1) {
+		pr_err("Invalid number of arguments for perf cmd!\n");
+		return -EINVAL;
+	}
+
+	return dump_perf(arg);
+}
+
 static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
@@ -616,6 +695,15 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_pp2_stat_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 	app_register_cli_common_cmds(&garg->cmn_args);
+
+	/* statistics command */
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "perf";
+	cmd_params.desc		= "Dump performance statistics";
+	cmd_params.format	= NULL;
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))perf_cmd_cb;
+	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
 }
@@ -942,6 +1030,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.prefetch_shift = PKT_GEN_APP_PREFETCH_SHIFT;
+	garg->cmn_args.ctrl_thresh = PKT_GEN_APP_STATS_DFLT_THR;
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.busy_wait	= DEFAULT_RATE_USECS;
 	garg->rxq_size = PKT_GEN_APP_RX_Q_SIZE;
@@ -1227,7 +1316,8 @@ int main(int argc, char *argv[])
 	mvapp_params.init_local_cb	= init_local;
 	mvapp_params.deinit_local_cb	= apps_pp2_deinit_local;
 	mvapp_params.main_loop_cb	= main_loop_cb;
-	mvapp_params.ctrl_cb		= stat_loop_cb;
+	if (!mvapp_params.use_cli)
+		mvapp_params.ctrl_cb		= stat_loop_cb;
 
 	return mvapp_go(&mvapp_params);
 }
