@@ -18,9 +18,10 @@
  *  @{
  */
 
+#define NMP_MAX_NUM_CONTAINERS		4
+#define NMP_MAX_NUM_LFS			8
 #define NMP_LF_MAX_NUM_LCL_BPOOLS	3
-#define NMP_LF_MAX_NUM_CONTAINERS	4
-#define NMP_LF_MAX_NUM_LFS		8
+#define NMP_LF_MAX_NUM_TCS		8
 #define NMP_MAX_CMD_MSG_SIZE		128
 
 /* nmp handler declaration */
@@ -124,7 +125,7 @@ struct nmp_container_params {
 	 */
 	struct nmp_lf_params *lfs_params;
 	u8 guest_id;		/**< entity with visibility to all the container's data and cntrl traffic */
-				/**< if no guest are using this container, use ‘0’; other wise, use >1 value */
+				/**< if no guest are using this container, use Â‘0Â’; other wise, use >1 value */
 };
 
 /**
