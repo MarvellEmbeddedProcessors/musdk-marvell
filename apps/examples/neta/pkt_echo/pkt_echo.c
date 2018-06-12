@@ -176,7 +176,7 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 			pr_err("Receive empty descriptor on port %d\n", rx_ppio_id);
 			continue;
 		}
-		INC_RX_BYTES_COUNT(&larg->ports_desc[rx_ppio_id], len - MV_MH_SIZE);
+		INC_RX_BYTES_COUNT(&larg->ports_desc[rx_ppio_id], len);
 
 		if (likely(larg->cmn_args.echo)) {
 			char *tmp_buff;
@@ -197,8 +197,8 @@ static inline int loop_sw_recycle(struct local_arg	*larg,
 		neta_ppio_outq_desc_reset(&descs[i]);
 		neta_ppio_outq_desc_set_phys_addr(&descs[i], pa);
 		neta_ppio_outq_desc_set_pkt_offset(&descs[i], MVAPPS_NETA_PKT_EFEC_OFFS);
-		neta_ppio_outq_desc_set_pkt_len(&descs[i], len - (ETH_FCS_LEN + MV_MH_SIZE));
-		INC_TX_BYTES_COUNT(&larg->ports_desc[tx_ppio_id], len - MV_MH_SIZE);
+		neta_ppio_outq_desc_set_pkt_len(&descs[i], len);
+		INC_TX_BYTES_COUNT(&larg->ports_desc[tx_ppio_id], len);
 
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.addr = pa;

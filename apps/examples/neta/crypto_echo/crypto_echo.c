@@ -421,7 +421,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		src_buf_infs[i].paddr = neta_ppio_inq_desc_get_phys_addr(&descs[i]) + MVAPPS_NETA_PKT_EFEC_OFFS;
 
 		/* Exclude MH from packet length */
-		src_buf_infs[i].len = neta_ppio_inq_desc_get_pkt_len(&descs[i]) - (MV_MH_SIZE + ETH_FCS_LEN);
+		src_buf_infs[i].len = neta_ppio_inq_desc_get_pkt_len(&descs[i]);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 		if (larg->cmn_args.verbose > 1) {

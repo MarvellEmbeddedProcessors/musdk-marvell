@@ -48,6 +48,7 @@
 #define NETA_PPIO_MAX_NUM_TCS	8 /**< Max. number of TCs per ppio. */
 #define NETA_PPIO_MAX_NUM_OUTQS	8 /**< Max. number of outqs per ppio. */
 #define NETA_PPIO_RX_BUF_ALIGN	64 /**< RX buffer must be aligned to cache line size */
+#define NETA_ETH_FCS_LEN	4 /**< NETA Ethernet FCS length */
 
 typedef u32	neta_dma_addr_t;
 typedef u32	neta_cookie_t;
@@ -422,11 +423,14 @@ static inline u64 neta_ppio_inq_desc_get_cookie(struct neta_ppio_desc *desc)
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
- * @retval	packet length
+ * @retval	packet length without CRC and Marvell Header
  */
 static inline u16 neta_ppio_inq_desc_get_pkt_len(struct neta_ppio_desc *desc)
 {
-	return ((desc->cmds[1] & 0xffff0000) >> 16);
+	u16 len = ((desc->cmds[1] & 0xffff0000) >> 16);
+
+	len -= (MV_MH_SIZE + NETA_ETH_FCS_LEN);
+	return len;
 }
 
 /**
