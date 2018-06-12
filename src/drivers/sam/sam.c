@@ -1090,8 +1090,28 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 		if (unlikely(sam_hw_res_desc_read(res_desc, result)))
 			return -EINVAL;
 
-		if ((result->status == SAM_CIO_OK) && (operation->sa->post_proc_cb))
-			operation->sa->post_proc_cb(operation, res_desc, result);
+		if (likely(result->status == SAM_CIO_OK)) {
+			if (operation->sa->post_proc_cb)
+				operation->sa->post_proc_cb(operation, res_desc, result);
+		} else if ((result->status == SAM_CIO_ERR_SEQ_OVER) &&
+			   (operation->sa->params.dir == SAM_DIR_DECRYPT)) {
+			u32 seq_lo, seq_hi;
+			int seq_num_bits;
+
+			/* For inbound direction check anti-replay error */
+			seq_num_bits = SABuilderLib_GetSeqNum(operation->sa->sa_buf.vaddr, &seq_lo, &seq_hi);
+			if ((seq_lo != 0xFFFFFFFF) ||
+			    ((seq_num_bits == 48) && (seq_hi != 0xFFFF)) ||
+			    ((seq_num_bits == 64) && (seq_hi != 0xFFFFFFFF)))
+				result->status = SAM_CIO_ERR_ANTIREPLAY;
+
+			pr_err("%s error for DECRYPT:\n",
+				(result->status == SAM_CIO_ERR_SEQ_OVER) ? "OVERFLOW" : "ANTI-REPLY");
+			pr_err("seq_num_size = %d bits - seq_lo = 0x%08x, seq_hi = 0x%08x\n",
+				seq_num_bits, seq_lo, seq_hi);
+
+			mv_mem_dump_words(operation->sa->sa_buf.vaddr, operation->sa->sa_words, 0);
+		}
 
 		out_len = result->out_len;
 

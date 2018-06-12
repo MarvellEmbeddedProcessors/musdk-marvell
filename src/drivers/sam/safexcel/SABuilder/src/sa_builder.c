@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "sa_builder_extended_internal.h"
 #endif
 
+#include "std_internal.h"
 
 /*----------------------------------------------------------------------------
  * Local variables
@@ -56,6 +57,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if defined(SAB_ENABLE_IPSEC_EXTENDED) || defined(SAB_ENABLE_BASIC_EXTENDED)
 int sab_record_word_count;
+int sab_ctx_inst_word_offset;
 int FIRMWARE_EIP207_CS_FLOW_TR_LARGE_THRESHOLD_OFFSET;
 int FIRMWARE_EIP207_CS_FLOW_TR_EXTENSION_WORD_OFFSET;
 int FIRMWARE_EIP207_CS_FLOW_TR_CCM_SALT_WORD_OFFSET;
@@ -148,6 +150,7 @@ int SABuilderLib_SetFwVersion(SABuilder_FW_Ver_t fw_ver)
 		FIRMWARE_EIP207_CS_FLOW_TR_CHECKSUM_WORD_OFFSET      = FIRMWARE_EIP207b_CS_FLOW_TR_CHECKSUM_WORD_OFFSET;
 		FIRMWARE_EIP207_CS_FLOW_TR_PATH_MTU_WORD_OFFSET      = FIRMWARE_EIP207b_CS_FLOW_TR_PATH_MTU_WORD_OFFSET;
 	}
+	sab_ctx_inst_word_offset = FIRMWARE_EIP207_CS_FLOW_TR_TK_CTX_INST_WORD_OFFSET;
 #ifdef SAB_ENABLE_TWO_FIXED_RECORD_SIZES
 	if (fw_ver == SAB_FW_VER_2_7) {
 		sab_record_word_count_large           = FIRMWARE_EIP207d_CS_FLOW_TRC_RECORD_WORD_COUNT_LARGE;
@@ -194,6 +197,7 @@ int SABuilderLib_SetFwVersion(SABuilder_FW_Ver_t fw_ver)
 		FIRMWARE_EIP207_CS_FLOW_TR_TUNNEL_DST_WORD_OFFSET_LARGE    = FIRMWARE_EIP207b_CS_FLOW_TR_TUNNEL_DST_WORD_OFFSET_LARGE;
 		FIRMWARE_EIP207_CS_FLOW_TR_PATH_MTU_WORD_OFFSET_LARGE      = FIRMWARE_EIP207b_CS_FLOW_TR_PATH_MTU_WORD_OFFSET_LARGE;
 	}
+	sab_ctx_inst_word_offset = FIRMWARE_EIP207_CS_FLOW_TR_TK_CTX_INST_WORD_OFFSET_LARGE;
 #endif // SAB_ENABLE_TWO_FIXED_RECORD_SIZES
 	return 0;
 }
@@ -204,6 +208,48 @@ int SABuilderLib_SetFwVersion(SABuilder_FW_Ver_t fw_ver)
 	return 0;
 }
 #endif /* SAB_ENABLE_IPSEC_EXTENDED || SAB_ENABLE_BASIC_EXTENDED */
+
+int SABuilderLib_GetSeqNum(uint32_t * const SABuffer_p, uint32_t *seq_low, uint32_t *seq_high)
+{
+	uint32_t val32, CW0, seq_hi = 0, seq_lo = 0;
+	int seq_num_offset, seq_num_size;
+
+	CW0 = le32toh(SABuffer_p[0]);
+	if ((CW0 & SAB_CW0_SEQNUM_64) == SAB_CW0_SEQNUM_64)
+		seq_num_size = 64;
+	else if ((CW0 & SAB_CW0_SEQNUM_64) == SAB_CW0_SEQNUM_48)
+		seq_num_size = 48;
+	else if ((CW0 & SAB_CW0_SEQNUM_32) == SAB_CW0_SEQNUM_32)
+		seq_num_size = 32;
+	else
+		seq_num_size = 0;
+
+	if (seq_num_size > 0) {
+
+		val32 = le32toh(SABuffer_p[sab_ctx_inst_word_offset]);
+		seq_num_offset = (int)(val32 & MASK_8_BITS);
+
+		seq_lo = le32toh(SABuffer_p[seq_num_offset]);
+		if (seq_num_size > 32) {
+			seq_hi = le32toh(SABuffer_p[seq_num_offset + 1]);
+
+			if (seq_num_size == 48)
+				seq_hi = seq_hi & 0xFFFF;
+		}
+		printf("%s: ctx_inst_word=0x%08x (%d), seq_lo=0x%08x (%d)",
+			__func__, SABuffer_p[sab_ctx_inst_word_offset], sab_ctx_inst_word_offset,
+			seq_lo, seq_num_offset);
+
+		if (seq_num_size > 32)
+			printf(", seq_hi=0x%08x (%d)\n", seq_hi, seq_num_offset + 1);
+	}
+	if (seq_low)
+		*seq_low = seq_lo;
+	if (seq_high)
+		*seq_high = seq_hi;
+
+	return seq_num_size;
+}
 
 /*----------------------------------------------------------------------------
  * SABuilderLib_CopyKeyMat
