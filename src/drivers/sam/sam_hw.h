@@ -949,7 +949,7 @@ static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct 
 	else if (errors & SAM_RESULT_AUTH_ERROR_MASK)
 		result->status = SAM_CIO_ERR_ICV;
 	else if (errors & SAM_RESULT_SEQ_ERROR_MASK)
-		result->status = SAM_CIO_ERR_ANTIREPLAY;
+		result->status = SAM_CIO_ERR_SEQ_OVER;
 	else if (cle_err == SAM_RES_TOKEN_CLE_NOT_FOUND_ERR)
 		result->status = SAM_CIO_ERR_SA_LOOKUP;
 	else if (cle_err == SAM_RES_TOKEN_CLE_PROTO_ERR)

@@ -64,6 +64,8 @@ typedef enum
 } SABuilder_FW_Ver_t;
 
 int SABuilderLib_SetFwVersion(SABuilder_FW_Ver_t fw_ver);
+int SABuilderLib_GetSeqNum(uint32_t * const SABuffer_p, uint32_t *seq_low, uint32_t *seq_high);
+
 
 /*----------------------------------------------------------------------------
  * SABuilder_GetSizes();
