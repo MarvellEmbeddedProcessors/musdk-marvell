@@ -1500,16 +1500,16 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 		mv_pp2x_cls_c2_qos_tbl_fill_array(port, tbl_sel, tc_array);
 	} else {
 	/* for classifier and default rules */
+		pkt_qos->gemp = action->flow_id;
+		qos_info->gemport_src = MVPP2_QOS_SRC_ACTION_TBL;
 		if (action->cos) {
 			pkt_action->q_low_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 			pkt_action->q_high_act = MVPP2_ACTION_TYPE_UPDT_LOCK;
 			queue = port->tc[action->cos->tc].tc_config.first_rxq;
 			pkt_qos->q_high = ((u16)queue) >> MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS;
 			pkt_qos->q_low = ((u16)queue) & ((1 << MVPP2_CLS2_ACT_QOS_ATTR_QL_BITS) - 1);
-			pkt_qos->gemp = action->flow_id;
 			qos_info->q_low_src = MVPP2_QOS_SRC_ACTION_TBL;
 			qos_info->q_high_src = MVPP2_QOS_SRC_ACTION_TBL;
-			qos_info->gemport_src = MVPP2_QOS_SRC_ACTION_TBL;
 			pr_debug("q_low %d, q_high %d, queue %d, tc %d\n", pkt_qos->q_low,
 				 pkt_qos->q_high, queue, action->cos->tc);
 		} else {
