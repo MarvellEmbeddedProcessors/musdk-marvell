@@ -332,20 +332,6 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 	struct neta_tx_queue *txq = &port->txqs[txq_id];
 	struct neta_ppio_desc *tx_desc;
 	int i;
-	int free_desc = neta_txq_free_desc_num(txq);
-
-	if (unlikely(!free_desc))
-		return 0;
-
-	if (free_desc < num) {
-		/* if there are not enough free descriptors for all packets,
-		 * find latest packet that can be sent
-		*/
-		while (free_desc && (!(descs[free_desc - 1].cmds[0] & NETA_TXD_L_DESC_MASK)))
-			free_desc--;
-
-		num = free_desc;
-	}
 
 	for (i = 0; i < num; i++) {
 		/* Get a descriptor for the packet */
@@ -383,22 +369,28 @@ int neta_ppio_send(struct neta_ppio	*ppio,
 {
 	u16 desc_sent, desc_req = *num;
 	struct neta_port *port = GET_PPIO_PORT(ppio);
+	struct neta_tx_queue *txq = &port->txqs[qid];
+	int free_desc;
+
+	free_desc = neta_txq_free_desc_num(txq);
+	if (unlikely(!free_desc)) {
+		*num = 0;
+		return 0;
+	}
+
+	if (free_desc < desc_req)
+		desc_req = free_desc;
 
 	desc_sent = neta_port_enqueue(port, qid, descs, desc_req);
 	if (unlikely(desc_sent < desc_req)) {
-		pr_debug("%s: Port %u qid %u, send_request %u sent %u!\n", __func__,
-			 ppio->port_id, qid, *num, desc_sent);
-		*num = desc_sent;
+		pr_warn("%s: Port %u qid %u, send_request %u sent %u!\n", __func__,
+			ppio->port_id, qid, *num, desc_sent);
 	}
+	*num = desc_sent;
 
 #ifdef NETA_STATS_SUPPORT
-	{
-		struct neta_tx_queue *txq;
-
-		txq = &port->txqs[qid];
-		txq->tx_pkts += desc_sent;
-	}
-#endif
+	txq->tx_pkts += desc_sent;
+#endif /* NETA_STATS_SUPPORT */
 
 	return 0;
 }
@@ -426,12 +418,32 @@ int neta_ppio_send_sg(struct neta_ppio		*ppio,
 {
 	u16 desc_sent, desc_req = *num;
 	struct neta_port *port = GET_PPIO_PORT(ppio);
+	struct neta_tx_queue *txq = &port->txqs[qid];
+	u16 free_desc, curr_txds;
 	int i, j, k;
+
+	free_desc = neta_txq_free_desc_num(txq);
+	if (unlikely(!free_desc)) {
+		*num = 0;
+		pkts->num = 0;
+		return 0;
+	}
+
+	if (free_desc < desc_req)
+		desc_req = free_desc;
 
 	pr_debug("[%s] %u: sending %d packets %d descriptors:\n", __func__,
 		 ppio->port_id, pkts->num, desc_req);
 
+	curr_txds = 0;
 	for (i = 0, k = 0; i < pkts->num; i++) {
+		/*
+		 * Check there are enough free descriptors for all packet fragments.
+		 */
+		if (curr_txds + pkts->frags[i] > desc_req)
+			break;
+		curr_txds += pkts->frags[i];
+
 		/*
 		 * Handle packets with only one fragment.
 		 * TXD_FIRST_LAST flag was already set by neta_ppio_outq_desc_reset().
@@ -459,24 +471,22 @@ int neta_ppio_send_sg(struct neta_ppio		*ppio,
 		pr_debug("pkt:%d, frg:%d: last %.8X\n", i, k, descs[k].cmds[0]);
 		k++;
 	}
+	pkts->num = i;
+	*num = curr_txds;
 
-	desc_sent = neta_port_enqueue(port, qid, descs, desc_req);
-	if (unlikely(desc_sent < desc_req)) {
-		pr_debug("%s: Port %u qid %u, send_request %u sent %u!\n", __func__,
-			 ppio->port_id, qid, *num, desc_sent);
-		*num = desc_sent;
+	desc_sent = neta_port_enqueue(port, qid, descs, curr_txds);
+	if (unlikely(desc_sent < curr_txds)) {
+		pr_warn("%s: Port %u qid %u, send_request %u sent %u!\n", __func__,
+			ppio->port_id, qid, curr_txds, desc_sent);
 	}
+	pr_debug("[%s] Sending %u descs(%u <- %u) and %u packets (%u)\n", __func__,
+		 port->port_id, curr_txds, free_desc, num, i, pkts->num);
 
 #ifdef NETA_STATS_SUPPORT
-	{
-		struct neta_tx_queue *txq;
-
-		txq = &port->txqs[qid];
-		if (pkts)
-			txq->tx_pkts += pkts->num;
-		else
-			txq->tx_pkts += desc_sent;
-	}
+	if (pkts)
+		txq->tx_pkts += pkts->num;
+	else
+		txq->tx_pkts += desc_sent;
 #endif
 	return 0;
 }
