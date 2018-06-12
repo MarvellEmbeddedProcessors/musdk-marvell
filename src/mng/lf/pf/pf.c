@@ -987,9 +987,9 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	 *       netdev side should reset it if it doesn't support msi
 	 *	 hence, it should move after "Host is Ready" (below)
 	 */
-	gie_register_msix_table(nmnicpf->gie.mng_gie, (u64)NULL); /* TODO: update this once mng int are supported */
+	gie_register_msix_table(nmnicpf->gie.mng_gie, pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
 	gie_register_msix_table(nmnicpf->gie.rx_gie, pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
-	gie_register_msix_table(nmnicpf->gie.tx_gie, (u64)NULL);
+	gie_register_msix_table(nmnicpf->gie.tx_gie, pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
 
 	/* Make sure that above configuration are out before setting the
 	 * dev-ready status for the host side.
