@@ -236,12 +236,6 @@ int SABuilderLib_GetSeqNum(uint32_t * const SABuffer_p, uint32_t *seq_low, uint3
 			if (seq_num_size == 48)
 				seq_hi = seq_hi & 0xFFFF;
 		}
-		printf("%s: ctx_inst_word=0x%08x (%d), seq_lo=0x%08x (%d)",
-			__func__, SABuffer_p[sab_ctx_inst_word_offset], sab_ctx_inst_word_offset,
-			seq_lo, seq_num_offset);
-
-		if (seq_num_size > 32)
-			printf(", seq_hi=0x%08x (%d)\n", seq_hi, seq_num_offset + 1);
 	}
 	if (seq_low)
 		*seq_low = seq_lo;
