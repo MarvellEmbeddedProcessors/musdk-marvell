@@ -112,6 +112,7 @@ struct mgmt_cmd_params {
 			u64	q_cons_phys_addr;
 			u32	q_wrr_weight;
 			u32	tc_prio; /* irrelevant for BM. */
+			u32	msix_id;
 		} pf_egress_q_add;
 
 		struct {

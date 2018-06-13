@@ -123,6 +123,10 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 					break;
 			}
 			params.bpool_num = bm_pool_num;
+			/* For Egress, the destination Q is the local Q (NIC)
+			 * and the MSI-X id should be registered in MQA dest Q.
+			 */
+			params.msix_id = intc->rem_outqs_params[q_idx].rem_q.msix_id;
 
 			giu_gpio_q_p = &(intc->inqs_params[q_idx]);
 			if (giu_gpio_q_p) {
@@ -243,6 +247,7 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 				params.cons_phys       = (void *)intc->rem_outqs_params[q_idx].rem_q.cons_base_pa;
 				params.cons_virt       = intc->rem_outqs_params[q_idx].rem_q.cons_base_va;
 				params.host_remap      = intc->rem_outqs_params[q_idx].rem_q.host_remap;
+				params.msix_id	       = intc->rem_outqs_params[q_idx].rem_q.msix_id;
 				params.copy_payload    = 1;
 
 				intc_pair = &(init_params->intcs_params.intc_params[params.prio]);

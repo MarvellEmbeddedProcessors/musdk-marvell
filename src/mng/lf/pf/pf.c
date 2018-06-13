@@ -1659,6 +1659,7 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.cons_base_va = (void *)(params->pf_egress_q_add.q_cons_phys_addr +
 										nmnicpf->map.host_map.virt_addr);
 	giu_gpio_q.rem_q.host_remap   = nmnicpf->map.host_map.phys_addr;
+	giu_gpio_q.rem_q.msix_id      = params->pf_egress_q_add.msix_id;
 
 	active_q_id = tc_q_next_entry_get(intc->rem_outqs_params, intc->num_rem_outqs);
 	if (active_q_id < 0) {
