@@ -16,6 +16,7 @@
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_guest_msg.h"
+#include "mng/mv_nmp_dispatch.h"
 #include "mng/pci_ep_def.h"
 #include "mng/include/guest_mng_cmd_desc.h"
 #include "pf_regfile.h"
@@ -37,6 +38,8 @@
 #define LOCAL_NOTIFY_QUEUE_SIZE	256
 
 #define REGFILE_VERSION		000002	/* Version Format: XX.XX.XX*/
+
+static int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg);
 
 /**
  * NIC PF Register File Section
@@ -2508,7 +2511,7 @@ static void nmnicpf_process_guest_command(struct nmnicpf *nmnicpf,
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
+static int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 {
 	struct mgmt_cmd_resp resp_data;
 	struct nmnicpf *nmnicpf = (struct nmnicpf *)arg;
