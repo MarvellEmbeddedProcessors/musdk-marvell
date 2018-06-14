@@ -111,9 +111,19 @@ struct pp2_data {
 #endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
 };
 
+/*
+ * Structure containing all the LF related data
+ */
+struct nmlf {
+	int id;
+	int (*f_maintenance_cb)(struct nmlf *nmlf);
+	int (*f_serialize_cb)(struct nmlf *nmlf, char *buff, u32 size);
+};
+
 /* Structure containing all the NIC-PF related data
  */
 struct nmnicpf {
+	struct nmlf nmlf;			/* will be used for inheritance */
 	int pf_id;
 	u32 guest_id;
 	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
@@ -139,6 +149,7 @@ struct nmpp2 {
 /* Structure containing all Custom LF related data
  */
 struct nmcstm {
+	struct nmlf nmlf;			/* will be used for inheritance */
 	int id;
 	int pf_id;
 	struct mqa *mqa;                            /* MQA */
