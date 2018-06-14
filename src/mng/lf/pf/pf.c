@@ -40,6 +40,7 @@
 #define REGFILE_VERSION		000002	/* Version Format: XX.XX.XX*/
 
 static int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg);
+static int nmnicpf_maintenance(struct nmlf *nmlf);
 
 /**
  * NIC PF Register File Section
@@ -1193,7 +1194,11 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	nmnicpf->topology_data.gie = &(nmnicpf->gie);
 
 	nmnicpf->pf_id = 0;
-
+	nmnicpf->nmlf.id = 0;
+	nmnicpf->nmlf.f_maintenance_cb = nmnicpf_maintenance;
+	/* TODO - set this callback once defined correctly.
+	 * nmnicpf->nmlf.f_serialize_cb = nmnicpf_serialize;
+	 */
 	/* Initialize the nicpf PP2 port */
 	nmnicpf_pp2_port_init(nmnicpf);
 
@@ -1724,6 +1729,17 @@ static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 	return 0;
 }
 
+/*
+ *	nmnicpf_link_state_check_n_notif
+ *
+ *	This function checks the link state and if it was changed
+ *	since the last time it was checked it notifies the host
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
 static int nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
 {
 	struct nmp_pp2_port_desc *pdesc;
@@ -1758,22 +1774,6 @@ static int nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
 	}
 
 	return 0;
-}
-
-/*
- *	nmnicpf_check_link_change
- *
- *	This function checks the link state and if it was changed
- *	since the last time it was checked it notifies the host
- *
- *	@param[in]	nmnicpf - pointer to NIC PF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmnicpf_check_link_change(struct nmnicpf *nmnicpf)
-{
-	return nmnicpf_link_state_check_n_notif(nmnicpf);
 }
 
 /*
@@ -2575,6 +2575,18 @@ static int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 			return ret;
 		}
 	}
+
+	return 0;
+}
+
+static int nmnicpf_maintenance(struct nmlf *nmlf)
+{
+	struct nmnicpf *nmnicpf = (struct nmnicpf *)nmlf;
+	int err;
+
+	err = nmnicpf_link_state_check_n_notif(nmnicpf);
+	if (err)
+		return err;
 
 	return 0;
 }

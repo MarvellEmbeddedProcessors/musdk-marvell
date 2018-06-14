@@ -116,8 +116,7 @@ int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type)
 	case NMP_SCHED_MNG:
 		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS);
 		nmdisp_dispatch(nmp->nmdisp);
-		/* check for link change */
-		nmnicpf_check_link_change(&nmp->nmnicpf);
+		((struct nmlf *)&nmp->nmnicpf)->f_maintenance_cb((struct nmlf *)&nmp->nmnicpf);
 		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS);
 		break;
 
