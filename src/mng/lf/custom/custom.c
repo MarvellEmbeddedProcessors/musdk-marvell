@@ -13,7 +13,7 @@
 #include "mng/lf/mng_cmd_desc.h"
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
-#include "mng/dispatch.h"
+#include "mng/mv_nmp_dispatch.h"
 #include "lib/lib_misc.h"
 #include "custom.h"
 
@@ -178,6 +178,65 @@ static int nmcstm_mng_chn_terminate(struct nmcstm *nmcstm)
 }
 
 /*
+ *	nmcstm_process_command
+ *
+ *	This function process Custom commands
+ *
+ *	@param[in]	nmcstm - pointer to Custom object
+ *	@param[in]	cmd_code
+ *	@param[in]	cmd - pointer to cmd_desc object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+static int nmcstm_process_command(void *arg, struct nmdisp_msg *msg)
+{
+	struct nmcstm *nmcstm = (struct nmcstm *)arg;
+	int ret = 0;
+
+/*
+ *	In case the command received from netdev inband-management (src-client/ID' is LF such as NIC-PF and 'ext'
+ *	is set), it shall then validate the 'code' (against the registered custom codes) and then forward the message
+ *	to its guest by calling 'nmdisp_send_msg' API with its 'src-client/ID', its 'dst-client/ID' and 'ext' is set.
+ *
+ *	In case the 'src-client/id' is LF (either NIC-PF or the NIC-PF netdev) and 'ext' is not set,
+ *	the Custom shell validate the 'code' (against the registered LF codes) and then forward the message to its guest
+ *	by calling 'nmdisp_send_msg' API with the LF 'src-client/ID', and 'ext' set.
+ *
+ *	In case the 'src-client' is external source of Custom (i.e. the Custom's guest), the Custom may either terminate
+ *	the command or forward the message by calling 'nmdisp_send_msg' API with its own 'src-client/ID',
+ *	'dst-client/id' of its registered LF (i.e. NIC-PF) and 'ext' is not set.
+ */
+
+	pr_debug("Custom-Lf got %s command code %d from client-type %d client-id %d msg: 0x%x\n",
+		(msg->ext) ? "external":"internal", msg->code, msg->src_client, msg->src_id, *(u32 *)msg->msg);
+
+	if (msg->ext) {
+		if (msg->src_client == CDT_CUSTOM) {
+			msg->dst_client = CDT_PF;
+			msg->dst_id = nmcstm->pf_id;
+			msg->ext = 0;
+		} else {
+			/* inband-management */
+			msg->src_client = CDT_CUSTOM;
+			msg->src_id = nmcstm->id;
+		}
+	} else {
+		/* internal msg */
+		/* TODO - add messeges filtering */
+		msg->ext = 1;
+	}
+
+	ret = nmdisp_send_msg(nmcstm->nmdisp, 0, msg);
+	if (ret) {
+		pr_err("failed to send message\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+/*
  *	nmcstm_init
  *
  *	@param[in]	params - custom module parameters
@@ -258,66 +317,6 @@ int nmcstm_deinit(struct nmcstm *nmcstm)
 		return ret;
 
 	pr_info("Terminating NIC PF\n");
-
-	return 0;
-}
-
-
-/*
- *	nmcstm_process_command
- *
- *	This function process Custom commands
- *
- *	@param[in]	nmcstm - pointer to Custom object
- *	@param[in]	cmd_code
- *	@param[in]	cmd - pointer to cmd_desc object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmcstm_process_command(void *arg, struct nmdisp_msg *msg)
-{
-	struct nmcstm *nmcstm = (struct nmcstm *)arg;
-	int ret = 0;
-
-/*
- *	In case the command received from netdev inband-management (src-client/ID' is LF such as NIC-PF and 'ext'
- *	is set), it shall then validate the 'code' (against the registered custom codes) and then forward the message
- *	to its guest by calling 'nmdisp_send_msg' API with its 'src-client/ID', its 'dst-client/ID' and 'ext' is set.
- *
- *	In case the 'src-client/id' is LF (either NIC-PF or the NIC-PF netdev) and 'ext' is not set,
- *	the Custom shell validate the 'code' (against the registered LF codes) and then forward the message to its guest
- *	by calling 'nmdisp_send_msg' API with the LF 'src-client/ID', and 'ext' set.
- *
- *	In case the 'src-client' is external source of Custom (i.e. the Custom's guest), the Custom may either terminate
- *	the command or forward the message by calling 'nmdisp_send_msg' API with its own 'src-client/ID',
- *	'dst-client/id' of its registered LF (i.e. NIC-PF) and 'ext' is not set.
- */
-
-	pr_debug("Custom-Lf got %s command code %d from client-type %d client-id %d msg: 0x%x\n",
-		(msg->ext) ? "external":"internal", msg->code, msg->src_client, msg->src_id, *(u32 *)msg->msg);
-
-	if (msg->ext) {
-		if (msg->src_client == CDT_CUSTOM) {
-			msg->dst_client = CDT_PF;
-			msg->dst_id = nmcstm->pf_id;
-			msg->ext = 0;
-		} else {
-			/* inband-management */
-			msg->src_client = CDT_CUSTOM;
-			msg->src_id = nmcstm->id;
-		}
-	} else {
-		/* internal msg */
-		/* TODO - add messeges filtering */
-		msg->ext = 1;
-	}
-
-	ret = nmdisp_send_msg(nmcstm->nmdisp, 0, msg);
-	if (ret) {
-		pr_err("failed to send message\n");
-		return ret;
-	}
 
 	return 0;
 }

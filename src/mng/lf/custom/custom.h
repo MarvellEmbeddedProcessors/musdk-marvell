@@ -19,7 +19,6 @@ struct nmcstm_params {
 
 int nmcstm_init(struct nmcstm_params *params, struct nmcstm **nmcstm);
 int nmcstm_deinit(struct nmcstm *nmcstm);
-int nmcstm_process_command(void *arg, struct nmdisp_msg *msg);
 
 /**
  * Serialize the nmcstm parameters
