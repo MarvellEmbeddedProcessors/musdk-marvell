@@ -65,6 +65,7 @@ enum cmd_codes {
 
 enum notif_codes {
 	NC_PF_LINK_CHANGE = 0x1,
+	NC_PF_KEEP_ALIVE = 0x2,
 
 	NOTIF_CODE_LAST = 0XFF,
 };
@@ -235,6 +236,11 @@ struct mgmt_notification {
 	union {
 		/* NC_PF_LINK_CHANGE */
 		u32 link_status;
+
+		/* NC_PF_KEEP_ALIVE */
+#define MGMT_NOTIF_KEEP_ALIVE_FW	(0x1)
+#define MGMT_NOTIF_KEEP_ALIVE_APP	(0x2)
+		u32 keep_alive;
 	};
 };
 #pragma pack()
