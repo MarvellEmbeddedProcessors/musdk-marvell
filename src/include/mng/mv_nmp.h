@@ -86,6 +86,10 @@ struct nmp_lf_nicpf_pp2_port_params {
  */
 struct nmp_lf_nicpf_params {
 	char *match;				/**< matching gpio name */
+	u32 keep_alive_thresh;			/**< for disabling this feature use '0'; otherwise, this value reflect
+						 * the number of times nmp_schedule should be called before sending the
+						 * keep-alive msg
+						 */
 	int pci_en;				/**< Flag inidicating PCI interface is present*/
 	u16 lcl_egress_qs_size;			/**< local egress queue size */
 	u16 lcl_ingress_qs_size;		/**< local ingress queue size */

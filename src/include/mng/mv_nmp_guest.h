@@ -52,6 +52,11 @@ struct nmp_guest_params {
 	*/
 	u8 id;
 	u32 timeout;		/**< timeout in mili-secs */
+	u32 keep_alive_thresh;	/**< if '0' nmp_guest will not send keep-alive msg by itself, but nmp_guest_send_ka_msg
+				 * can be called explicitly for generating such a msg; otherwise, this value reflects
+				 * the number of times nmp_guest_schedule should be called before sending the
+				 * keep-alive msg
+				 */
 };
 
 /**
@@ -170,6 +175,16 @@ int nmp_guest_schedule(struct nmp_guest *g);
  *	@retval	<0 on failure
  */
 int nmp_guest_send_msg(struct nmp_guest *g, u8 code, u16 indx, void *msg, u16 len);
+
+/**
+ * NMP Guest keep-alive message send.
+ *
+ * @param[in]	g		pointer to a guest handle.
+ *
+ *	@retval	0 on success
+ *	@retval	<0 on failure
+ */
+int nmp_guest_send_ka_msg(struct nmp_guest *g);
 
 #ifdef MVCONF_NMP_BUILT
 /**
