@@ -70,6 +70,8 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 	pf_profile->lcl_bm_q_size      = lf_params->u.nicpf.lcl_bpools_params[0].max_num_buffs;
 	pf_profile->lcl_bm_buf_size    = lf_params->u.nicpf.lcl_bpools_params[0].buff_size;
 
+	pf_profile->keep_alive_thresh = lf_params->u.nicpf.keep_alive_thresh;
+
 	/* pp2 init params */
 	(*nmp)->nmpp2.pp2_en = params->pp2_en;
 

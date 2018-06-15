@@ -2579,12 +2579,51 @@ static int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg)
 	return 0;
 }
 
+static int nmnicpf_keep_alive_process(struct nmnicpf *nmnicpf)
+{
+	struct nmdisp_msg msg;
+	struct mgmt_notification resp;
+	int ret;
+
+	if (!nmnicpf->profile_data.keep_alive_thresh ||
+	    (nmnicpf->profile_data.keep_alive_counter++ != nmnicpf->profile_data.keep_alive_thresh))
+		return 0;
+	nmnicpf->profile_data.keep_alive_counter = 0;
+
+	/* Send Keep Alive notification message */
+	msg.ext = 1;
+	msg.code = NC_PF_KEEP_ALIVE;
+	msg.indx = CMD_ID_NOTIFICATION;
+	msg.dst_client = CDT_PF;
+	msg.dst_id = 0;
+	msg.src_client = CDT_PF;
+	msg.src_id = 0;
+	msg.msg = &resp;
+	msg.msg_len = sizeof(struct mgmt_notification);
+
+	resp.keep_alive = MGMT_NOTIF_KEEP_ALIVE_FW;
+
+	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &msg);
+	if (ret) {
+		pr_err("failed to send keep-alive notification message\n");
+		return ret;
+	}
+
+	pr_debug("Keep-alive notification was sent (cmd-code :%d).\n", NC_PF_KEEP_ALIVE);
+
+	return 0;
+}
+
 static int nmnicpf_maintenance(struct nmlf *nmlf)
 {
 	struct nmnicpf *nmnicpf = (struct nmnicpf *)nmlf;
 	int err;
 
 	err = nmnicpf_link_state_check_n_notif(nmnicpf);
+	if (err)
+		return err;
+
+	err = nmnicpf_keep_alive_process(nmnicpf);
 	if (err)
 		return err;
 

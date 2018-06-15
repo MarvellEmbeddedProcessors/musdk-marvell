@@ -34,6 +34,8 @@ struct pf_profile {
 
 	char match[NMP_MAX_BUF_STR_LEN];
 	int pci_en;
+	u32 keep_alive_thresh;
+	u32 keep_alive_counter;
 	u32 lcl_egress_q_num;
 	u32 lcl_egress_q_size;
 	u32 lcl_ingress_q_num;
