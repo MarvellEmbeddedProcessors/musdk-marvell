@@ -165,6 +165,14 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 				pf->match = giu_name;
 				json_buffer_to_input_str(sec, "match", pf->match);
 
+				pf->keep_alive_thresh = (u32)-1;
+				json_buffer_to_input(sec, "keep_alive_thresh", pf->keep_alive_thresh);
+				if (pf->keep_alive_thresh == (u32)-1) {
+					pr_err("missing keep_alive_thresh!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
 				json_buffer_to_input(sec, "pci_en", pf->pci_en);
 				if (nmp_range_validate(pf->pci_en, 0, 1) != 0) {
 					rc = -EINVAL;
