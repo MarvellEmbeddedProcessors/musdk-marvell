@@ -22,6 +22,7 @@ enum msg_from_guest_codes {
 	MSG_F_GUEST_ADD_RULE,
 	MSG_F_GUEST_MODIFY_RULE,
 	MSG_F_GUEST_REMOVE_RULE,
+	MSG_F_GUEST_KA,
 	MSG_F_GUEST_LAST,
 };
 

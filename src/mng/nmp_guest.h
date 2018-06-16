@@ -9,6 +9,7 @@
 #define _NMP_GUEST_H
 
 #include "mng/mv_nmp_guest.h"
+#include "include/guest_mng_cmd_desc.h"
 
 #define q_inc_idx(q, idx)	q_inc_idx_val(q, idx, 1)
 #define q_inc_idx_val(q, idx, val)	((idx + val) & (q->len - 1))
@@ -46,6 +47,8 @@ struct nmp_guest {
 	struct nmp_guest_queue cmd_queue;
 	struct nmp_guest_queue notify_queue;
 	void	*nmp;
+	u32	keep_alive_thresh;
+	u32	keep_alive_counter;
 
 	/* Guest App parameters */
 	u8	*msg;

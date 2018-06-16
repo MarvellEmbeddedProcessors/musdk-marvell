@@ -180,6 +180,16 @@ static int nmp_guest_probe(struct nmp_guest *guest)
 	return 0;
 }
 
+static void check_ka_state(struct nmp_guest *guest)
+{
+	if (!guest->keep_alive_thresh || (guest->keep_alive_counter++ != guest->keep_alive_thresh))
+		return;
+	guest->keep_alive_counter = 0;
+
+	/* Send Keep Alive notification message */
+	nmp_guest_send_ka_msg(guest);
+}
+
 static int internal_ev_cb(void *arg, enum nmp_guest_lf_type client, u8 id, u8 code, u16 indx, void *msg, u16 len)
 {
 	struct nmp_guest *guest = (struct nmp_guest *)arg;
@@ -594,6 +604,8 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 	u32 prod_idx, cons_idx;
 	enum nmp_guest_lf_type lf_type = NMP_GUEST_LF_T_CUSTOM;
 
+	check_ka_state(guest);
+
 #ifdef MVCONF_NMP_BUILT
 	if (guest->nmp)
 		nmp_schedule(guest->nmp, NMP_SCHED_MNG);
@@ -658,6 +670,11 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u16 len)
 {
 	return guest_send_msg(guest, CDT_CUSTOM, guest->id, code, indx, msg, len, 0);
+}
+
+int nmp_guest_send_ka_msg(struct nmp_guest *guest)
+{
+	return send_internal_msg(guest, MSG_F_GUEST_KA, 0, NULL, 0, NULL, 0);
 }
 
 #ifdef MVCONF_NMP_BUILT

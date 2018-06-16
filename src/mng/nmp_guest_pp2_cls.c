@@ -9,7 +9,6 @@
 #include "mng/mv_nmp_guest_pp2_cls.h"
 
 #include "lf/mng_cmd_desc.h"
-#include "include/guest_mng_cmd_desc.h"
 
 #include "nmp_guest.h"
 
