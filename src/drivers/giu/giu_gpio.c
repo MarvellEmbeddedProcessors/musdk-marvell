@@ -43,7 +43,7 @@ struct giu_gpio_shadow_queue {
 struct giu_gpio {
 	u32			id; /**< GPIO Id */
 	u32			giu_id;	/**< GIU's Id */
-	struct giu_gpio_params	*params; /**< q topology parameters */
+	struct giu_gpio_probe_params	*probe_params; /**< q topology parameters */
 	struct giu_gpio_init_params	*init_params; /**< q topology initialization parameters */
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 	struct giu_gpio_shadow_queue shadow_queue;
@@ -327,7 +327,7 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 	struct giu_gpio_outtc_params *outtc;
 	struct giu_gpio_intc_params *intc;
 	union giu_gpio_q_params *giu_gpio_q_p;
-	struct giu_gpio_init_params *init_params = (struct giu_gpio_init_params *)(gpio->params);
+	struct giu_gpio_init_params *init_params = (struct giu_gpio_init_params *)(gpio->probe_params);
 
 	pr_debug("De-initializing Host Egress TC queues\n");
 
@@ -422,8 +422,8 @@ int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
 
 	gpio_array[giu_id].id = gpio_id;
 	gpio_array[giu_id].giu_id = giu_id;
-	gpio_array[giu_id].params = giu_gpio_get_topology(giu_id);
-	if (gpio_array[giu_id].params == NULL) {
+	gpio_array[giu_id].probe_params = giu_gpio_get_topology(giu_id);
+	if (gpio_array[giu_id].probe_params == NULL) {
 		pr_err("queue topology was not initialized for GIU %d\n", giu_id);
 		return -1;
 	}
@@ -433,7 +433,7 @@ int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
 	*gpio = &gpio_array[giu_id];
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	struct giu_gpio_queue *txq = &(*gpio)->params->outqs_params.tcs[0].queues[0];
+	struct giu_gpio_queue *txq = &(*gpio)->probe_params->outqs_params.tcs[0].queues[0];
 
 	(*gpio)->shadow_queue.desc_ring_base =
 		kzalloc(sizeof(struct giu_gpio_shadow_desc) * txq->desc_total, GFP_KERNEL);
@@ -485,8 +485,8 @@ static inline void *giu_gpio_outq_desc_get_addr(struct giu_gpio_desc *desc)
 
 static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_desc *desc)
 {
-	struct giu_gpio_params *giu_params = gpio->params;
-	struct giu_gpio_tc *gpio_tc = &giu_params->outqs_params.tcs[tc];
+	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
+	struct giu_gpio_tc *gpio_tc = &gpio_probe_params->outqs_params.tcs[tc];
 	uint8_t key_size = 0, *extracted_key;
 	const uint8_t *ip_frame;
 	uint64_t crc64 = CRC64_DEFAULT_INITVAL;
@@ -540,7 +540,7 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_desc *descs, u16 *num)
 {
 	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue;
-	struct giu_gpio_tc *gpio_tc = &gpio->params->outqs_params.tcs[tc];
+	struct giu_gpio_tc *gpio_tc = &gpio->probe_params->outqs_params.tcs[tc];
 	struct giu_gpio_queue *txq;
 	struct giu_gpio_desc *tx_ring_base;
 	u16 dest_qid, num_txds = *num;
@@ -606,7 +606,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 {
 	struct giu_gpio_queue *txq;
 	struct giu_gpio_desc *tx_ring_base;
-	struct giu_gpio_params *giu_params = gpio->params;
+	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
 	u16 num_txds = *num, desc_remain;
 	u16 block_size, index;
 	u32 free_count, cons_val;
@@ -614,24 +614,25 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 
 #ifdef GIU_GPIO_DEBUG
 	/* Check that the requested TC is supported */
-	if (tc >= giu_params.outqs_params.num_tcs) {
-		pr_err("GIU GPIO: TC %d is not supported (Max TC is %d)\n", tc, giu_params.outqs_params.num_tcs);
+	if (tc >= gpio_probe_params.outqs_params.num_tcs) {
+		pr_err("GIU GPIO: TC %d is not supported (Max TC is %d)\n", tc, gpio_probe_params.outqs_params.num_tcs);
 		return -1;
 	}
 
 	/* Check that the requested Q ID exists */
-	if (qid >= giu_params->outqs_params.tcs[tc].num_qs) {
-		pr_err("GIU GPIO: Q %d is not supported (Max Q is %d)\n", qid, giu_params->outqs_params.tcs[tc].num_qs);
+	if (qid >= gpio_probe_params->outqs_params.tcs[tc].num_qs) {
+		pr_err("GIU GPIO: Q %d is not supported (Max Q is %d)\n", qid,
+			gpio_probe_params->outqs_params.tcs[tc].num_qs);
 		return -1;
 	}
 #endif
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	if (giu_params->outqs_params.tcs[tc].dest_num_qs > 1)
+	if (gpio_probe_params->outqs_params.tcs[tc].dest_num_qs > 1)
 		return giu_gpio_send_multi_q(gpio, tc, descs, num);
 #endif
 	/* Get queue params */
-	txq = &giu_params->outqs_params.tcs[tc].queues[qid];
+	txq = &gpio_probe_params->outqs_params.tcs[tc].queues[qid];
 
 	/* Get ring base */
 	tx_ring_base = (struct giu_gpio_desc *)txq->desc_ring_base;
@@ -670,7 +671,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	 * Note that there should be no more than 2 iterations.
 	 **/
 	do {
-		if (giu_params->outqs_params.tcs[tc].dest_num_qs > 1) {
+		if (gpio_probe_params->outqs_params.tcs[tc].dest_num_qs > 1) {
 			/* Calculate RSS and update descriptor */
 			for (i = 0; i < block_size; i++)
 				giu_gpio_update_rss(gpio, tc, &descs[i + index]);
@@ -707,8 +708,8 @@ int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 {
 	u32 tx_num = 0;
 	u32 cons_val;
-	struct giu_gpio_params *giu_params = gpio->params;
-	struct giu_gpio_queue *txq = &giu_params->outqs_params.tcs[tc].queues[qid];
+	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
+	struct giu_gpio_queue *txq = &gpio_probe_params->outqs_params.tcs[tc].queues[qid];
 
 	/* Read consumer index */
 	cons_val = readl_relaxed(txq->cons_addr);
@@ -740,9 +741,9 @@ int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 {
 	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue;
 	struct giu_gpio_shadow_desc *desc;
-	struct giu_gpio_tc *gpio_tc = &gpio->params->outqs_params.tcs[tc];
+	struct giu_gpio_tc *gpio_tc = &gpio->probe_params->outqs_params.tcs[tc];
 	u16 shadow_q_tx_num;
-	u32 cons_val[gpio->params->outqs_params.tcs[tc].num_qs];
+	u32 cons_val[gpio->probe_params->outqs_params.tcs[tc].num_qs];
 	u8 i;
 
 	if (gpio_tc->dest_num_qs == 1)
@@ -776,7 +777,7 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 {
 	struct giu_gpio_queue *rxq;
 	struct giu_gpio_desc *rx_ring_base;
-	struct giu_gpio_params *giu_params = gpio->params;
+	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
 	u16 recv_req = *num, desc_received, desc_remain = 0;
 	u16 block_size, index;
 	u32 prod_val;
@@ -784,19 +785,21 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	*num = 0;
 #ifdef GIU_GPIO_DEBUG
 	/* Check that the requested TC is supported */
-	if (tc >= giu_params->inqs_params.num_tcs) {
-		pr_err("GIU GPIO: TC %d is not supported (Max TC is %d)\n", tc, giu_params->outqs_params.num_tcs);
+	if (tc >= gpio_probe_params->inqs_params.num_tcs) {
+		pr_err("GIU GPIO: TC %d is not supported (Max TC is %d)\n", tc,
+			gpio_probe_params->outqs_params.num_tcs);
 		return -1;
 	}
 
 	/* Check that the requested Q ID exists */
-	if (qid >= giu_params->inqs_params.tcs[tc].num_qs) {
-		pr_err("GIU GPIO: Q %d is not supported (Max Q is %d)\n", qid, giu_params->nqs_params.tcs[tc].num_qs);
+	if (qid >= gpio_probe_params->inqs_params.tcs[tc].num_qs) {
+		pr_err("GIU GPIO: Q %d is not supported (Max Q is %d)\n", qid,
+			gpio_probe_params->nqs_params.tcs[tc].num_qs);
 		return -1;
 	}
 #endif
 
-	rxq = &giu_params->inqs_params.tcs[tc].queues[qid];
+	rxq = &gpio_probe_params->inqs_params.tcs[tc].queues[qid];
 
 	/* Get ring base */
 	rx_ring_base = (struct giu_gpio_desc *)rxq->desc_ring_base;
@@ -860,14 +863,14 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	static u8 curr_qid;
 	u8 i;
 	u16 recv_req = *num, total_got = 0;
-	struct giu_gpio_params *giu_params = gpio->params;
+	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
 
-	for (i = 0; (i < giu_params->inqs_params.tcs[tc].num_qs) && (total_got != recv_req); i++) {
+	for (i = 0; (i < gpio_probe_params->inqs_params.tcs[tc].num_qs) && (total_got != recv_req); i++) {
 		*num = recv_req - total_got;
 		giu_gpio_recv_internal(gpio, tc, curr_qid, &descs[total_got], num);
 		total_got += *num;
 		curr_qid++;
-		if (curr_qid == giu_params->inqs_params.tcs[tc].num_qs)
+		if (curr_qid == gpio_probe_params->inqs_params.tcs[tc].num_qs)
 			curr_qid = 0;
 	}
 
@@ -879,7 +882,7 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 
 int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilities *capa)
 {
-	struct giu_gpio_params *gpio_params = gpio->params;
+	struct giu_gpio_probe_params *gpio_params = gpio->probe_params;
 	int tc_idx, q_idx, bpool_id;
 
 	/* Set ID */

@@ -224,7 +224,7 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 int giu_bpool_probe(char *match, char *regfile_name, struct giu_bpool **bpool)
 {
 	u8 match_params[2];
-	struct giu_gpio_params *giu_gpio_params;
+	struct giu_gpio_probe_params *gpio_probe_params;
 	struct giu_gpio_queue *bpq;
 	struct giu_bpool *pool;
 	int giu_id, bpool_id;
@@ -255,13 +255,13 @@ int giu_bpool_probe(char *match, char *regfile_name, struct giu_bpool **bpool)
 		return -1;
 	}
 
-	giu_gpio_params = giu_gpio_get_topology(giu_id);
-	if (giu_gpio_params == NULL) {
+	gpio_probe_params = giu_gpio_get_topology(giu_id);
+	if (gpio_probe_params == NULL) {
 		pr_err("[%s] queue topology was not initialized for GIU %d\n", __func__, giu_id);
 		return -1;
 	}
 
-	bpq = &giu_gpio_params->bpool;
+	bpq = &gpio_probe_params->bpool;
 
 	pool = &giu_bpools[bpool_id];
 	pool->id = bpool_id;

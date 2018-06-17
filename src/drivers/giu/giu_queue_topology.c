@@ -16,7 +16,7 @@
 
 #define REGFILE_SUPPORTED_VERSION	000002
 
-struct giu_gpio_params giu_params[GIU_MAX_NUM_GPIO];
+struct giu_gpio_probe_params gpio_probe_params[GIU_MAX_NUM_GPIO];
 void *map_addr[GIU_MAX_NUM_GPIO];
 
 static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_qs_params *qs_params,
@@ -137,7 +137,7 @@ static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_q
 	return 0;
 }
 
-static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_params)
+static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_probe_params *gpio_probe_params)
 {
 	struct giu_regfile *reg_data;
 	void *read_addr = regs_addr;
@@ -201,23 +201,23 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_params *giu_pa
 		}
 	}
 
-	ret = giu_gpio_read_bp_config(&read_addr, &giu_params->bpool, qs_va, ptrs_va);
+	ret = giu_gpio_read_bp_config(&read_addr, &gpio_probe_params->bpool, qs_va, ptrs_va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;
 	}
 
 	/* Set Ingress TC configurations */
-	giu_params->inqs_params.num_tcs = reg_data->num_ingress_tcs;
-	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->inqs_params, qs_va, ptrs_va);
+	gpio_probe_params->inqs_params.num_tcs = reg_data->num_ingress_tcs;
+	ret = giu_gpio_read_tc_config(&read_addr, &gpio_probe_params->inqs_params, qs_va, ptrs_va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;
 	}
 
 	/* Set Egress TC configurations */
-	giu_params->outqs_params.num_tcs = reg_data->num_egress_tcs;
-	ret = giu_gpio_read_tc_config(&read_addr, &giu_params->outqs_params, qs_va, ptrs_va);
+	gpio_probe_params->outqs_params.num_tcs = reg_data->num_egress_tcs;
+	ret = giu_gpio_read_tc_config(&read_addr, &gpio_probe_params->outqs_params, qs_va, ptrs_va);
 	if (ret) {
 		pr_err("Failed to read Ingress TC configuration (%d)\n", ret);
 		return ret;
@@ -255,7 +255,7 @@ int giu_gpio_init_topology(int giu_id, char *regfile_name)
 	/* Read Q topology from register file and update
 	 * GPIO internal structure
 	 */
-	ret = giu_gpio_read_regfile(map_info.map_addr, &giu_params[giu_id]);
+	ret = giu_gpio_read_regfile(map_info.map_addr, &gpio_probe_params[giu_id]);
 	if (ret) {
 		pr_err("Failed to read Register file configuration (%d)\n", ret);
 		return ret;

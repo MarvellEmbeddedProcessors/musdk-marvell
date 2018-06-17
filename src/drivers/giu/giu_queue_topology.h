@@ -94,13 +94,13 @@ struct giu_gpio_qs_params {
  * gpio parameters
  *
  */
-struct giu_gpio_params {
+struct giu_gpio_probe_params {
 	struct giu_gpio_qs_params	inqs_params; /**<  gpio inq parameters */
 	struct giu_gpio_qs_params	outqs_params; /**<  gpio outq parameters */
 	struct giu_gpio_queue		bpool;	/**<  gpio bpool queue parameters */
 };
 
-extern struct giu_gpio_params giu_params[GIU_MAX_NUM_GPIO];
+extern struct giu_gpio_probe_params gpio_probe_params[GIU_MAX_NUM_GPIO];
 
 /**
  * Init the queue topology
@@ -128,11 +128,11 @@ int giu_gpio_deinit_topology(int giu_id);
  *
  * @param[in]	giu_id		GIU ID.
  *
- * @retval	pointer to giu_gpio_params
+ * @retval	pointer to giu_gpio_probe_params
  */
-static inline struct giu_gpio_params *giu_gpio_get_topology(int giu_id)
+static inline struct giu_gpio_probe_params *giu_gpio_get_topology(int giu_id)
 {
-	return &giu_params[giu_id];
+	return &gpio_probe_params[giu_id];
 }
 
 /**
