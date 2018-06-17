@@ -33,17 +33,6 @@
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_guest.h"
 
-#define APP_TX_RETRY
-
-static const char buf_release_str[] = "SW buffer release";
-
-static const char app_mode_str[] = "Bridge mode";
-
-#ifdef APP_TX_RETRY
-static const char tx_retry_str[] = "Tx Retry enabled";
-#else
-static const char tx_retry_str[] = "Tx Retry disabled";
-#endif
 
 #define PKT_ECHO_APP_TX_RETRY_MAX		3
 #define PKT_ECHO_APP_DEF_Q_SIZE			1024
@@ -1545,7 +1534,7 @@ int main(int argc, char *argv[])
 	setbuf(stdout, NULL);
 	app_set_max_num_qs_per_tc();
 
-	pr_info("pkt-echo is started in %s - %s - %s\n", app_mode_str, buf_release_str, tx_retry_str);
+	pr_info("GIU pkt-echo is started\n");
 	pr_debug("pr_debug is enabled\n");
 
 	garg.cmn_args.plat = (struct pp2_glb_common_args *)malloc(sizeof(struct pp2_glb_common_args));
