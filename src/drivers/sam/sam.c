@@ -630,11 +630,6 @@ int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)
 	if (!local_cio->operations)
 		goto err;
 
-	/* Allocate array of sam_cio_op structures in size of CIO ring to SA destroy command*/
-	local_cio->sa_destroy = kcalloc(params->size, sizeof(struct sam_sa *), GFP_KERNEL);
-	if (!local_cio->sa_destroy)
-		goto err;
-
 	/* Allocate DMA buffers for Tokens (one per operation) */
 	for (i = 0; i < params->size; i++) {
 		if (sam_dma_buf_alloc(SAM_TOKEN_DMABUF_SIZE, &local_cio->operations[i].token_buf)) {
@@ -657,6 +652,32 @@ err:
 	sam_cio_deinit(local_cio);
 
 	return -ENOMEM;
+}
+
+static inline int sam_cio_sa_invalidate(struct sam_cio *cio, struct sam_sa *sa)
+{
+	struct sam_cio_op *operation;
+
+	/* Look if there are enough free resources */
+	if (!sam_cio_is_full(cio)) {
+		/* Get next operation structure needed for result match */
+		operation = &cio->operations[cio->next_request];
+		operation->sa = sa;
+		operation->num_bufs_in = 0;
+		operation->num_bufs_out = 0;
+
+		/* Invalidate session in HW */
+		sam_hw_ring_sa_inv_desc_write(&cio->hw_ring, sa->sa_buf.paddr);
+
+		sam_hw_rdr_ring_submit(&cio->hw_ring, 1);
+		sam_hw_cdr_ring_submit(&cio->hw_ring, 1);
+		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
+		SAM_STATS(sam_sa_stats.sa_inv++);
+	} else {
+		SAM_STATS(cio->stats.enq_full++);
+		return -1;
+	}
+	return 0;
 }
 
 int sam_cio_flush(struct sam_cio *cio)
@@ -684,6 +705,7 @@ int sam_cio_flush(struct sam_cio *cio)
 			return -EINVAL;
 		}
 	}
+
 	if (total)
 		printf("%s: %d results were flushed\n", cio->params.match, total);
 
@@ -704,9 +726,6 @@ int sam_cio_deinit(struct sam_cio *cio)
 		sam_cios[cio->idx] = NULL;
 		sam_active_cios--;
 	}
-
-	kfree(cio->sa_destroy);
-	cio->sa_destroy = NULL;
 
 	if (cio->operations) {
 		for (i = 0; i < cio->params.size; i++)
@@ -838,6 +857,7 @@ int sam_session_create(struct sam_session_params *params, struct sam_sa **sa)
 
 	SAM_STATS(sam_sa_stats.sa_add++);
 
+	session->ctr_cio = params->ctr_cio;
 	session->cio = NULL;
 	*sa = session;
 
@@ -850,38 +870,19 @@ error_session:
 
 int sam_session_destroy(struct sam_sa *session)
 {
-	struct sam_cio *cio = session->cio;
-	struct sam_cio_op *operation;
+	struct sam_cio *cio = cio = session->cio;
 
 	if (cio && (cio->hw_ring.type == HW_EIP197)) {
-		/* Check maximum number of pending requests */
-		if (sam_cio_is_full(cio)) {
-			SAM_STATS(session->cio->stats.enq_full++);
-			if (cio->sa_destroy[cio->next_to_dstr_sa]) {
-				pr_warn("%s: cannot remove SA on cio=%d:%d\n", __func__,
-					cio->hw_ring.device, cio->hw_ring.ring);
-				return -EINVAL;
-			}
-			cio->sa_destroy[cio->next_to_dstr_sa] = session;
-			cio->next_to_dstr_sa = sam_cio_next_idx(cio, cio->next_to_dstr_sa);
-			return 0;
-		}
 
-		/* Get next operation structure */
-		operation = &cio->operations[cio->next_request];
-		operation->sa = session;
-		operation->num_bufs_in = 0;
-		operation->num_bufs_out = 0;
+		if (session->ctr_cio)
+			/* use dedicated ring to invalidate session */
+			cio = session->ctr_cio;
 
-		/* Invalidate session in HW */
-		sam_hw_ring_sa_inv_desc_write(&session->cio->hw_ring,
-					      session->sa_buf.paddr);
-
-		sam_hw_rdr_ring_submit(&session->cio->hw_ring, 1);
-		sam_hw_cdr_ring_submit(&session->cio->hw_ring, 1);
-		SAM_STATS(sam_sa_stats.sa_inv++);
-
-		cio->next_request = sam_cio_next_idx(cio, cio->next_request);
+		/* submit special descriptor to session invalidate */
+		if (sam_cio_sa_invalidate(cio, session))
+			return -1;
+		/* wait to result */
+		sam_cio_flush(cio);
 	} else {
 		sam_session_free(session);
 		SAM_STATS(sam_sa_stats.sa_del++);
@@ -915,19 +916,6 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 	int cdr_submit = 0;
 	int prep_data;
 	u32 first_last_mask;
-
-	/* if there are pending destroy requests run it first */
-	while (cio->sa_destroy[cio->next_to_enq_sa]) {
-		/* Look if there are enough free resources */
-		if (sam_cio_is_free_slot(cio, 1)) {
-			sam_session_destroy(cio->sa_destroy[cio->next_to_enq_sa]);
-			cio->sa_destroy[cio->next_to_enq_sa] = NULL;
-			cio->next_to_enq_sa = sam_cio_next_idx(cio, cio->next_to_enq_sa);
-		} else {
-			SAM_STATS(cio->stats.enq_full++);
-			break;
-		}
-	}
 
 	todo = *num;
 	if (unlikely(todo >= cio->params.size))
