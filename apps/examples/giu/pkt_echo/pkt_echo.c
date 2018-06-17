@@ -34,6 +34,8 @@
 #include "mng/mv_nmp_guest.h"
 
 
+#define PKT_ECHO_APP_MAX_NUM_CORES		3
+
 #define PKT_ECHO_APP_TX_RETRY_MAX		3
 #define PKT_ECHO_APP_DEF_Q_SIZE			1024
 #define PKT_ECHO_APP_HIF_Q_SIZE			(8 * PKT_ECHO_APP_DEF_Q_SIZE)
@@ -804,30 +806,45 @@ static int main_loop_cb(void *arg, int *running)
 
 	num = larg->cmn_args.burst;
 	while (*running) {
-		/* Schedule GIE execution */
-		START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
-		nmp_schedule(larg->cmn_args.garg->nmp, NMP_SCHED_TX);
-		STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, tmp_num);
-		START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
-		nmp_schedule(larg->cmn_args.garg->nmp, NMP_SCHED_RX);
-		STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, tmp_num);
+		/* TODO: Find next TC to consume */
 
-		/* Find next queue to consume */
-#if 0 /* TODO: enable this code to support multi tc/queue */
-		do {
-			qid++;
-			if (qid == mvapp_pp2_max_num_qs_per_tc) {
-				qid = 0;
-				tc++;
-				if (tc == PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT)
-					tc = 0;
-			}
-		} while (!(larg->qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
-#endif
-		/* PP2 is Rx port and GIU is Tx port */
-		err  = loop_sw_ingress(larg, pp2_port_id, giu_port_id, tc, qid, num);
-		/* GIU is Rx port and PP2 is Tx port */
-		err |= loop_sw_egress(larg, giu_port_id, pp2_port_id, tc, qid, num);
+		if (larg->cmn_args.garg->cmn_args.cpus == 1) {
+			/* when using single CPU, run all routines on it */
+			/* PP2 is Rx port and GIU is Tx port */
+			err  = loop_sw_ingress(larg, pp2_port_id, giu_port_id, tc, qid, num);
+			/* Schedule GIE execution */
+			START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_TX);
+			STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, tmp_num);
+			START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_RX);
+			STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, tmp_num);
+			/* GIU is Rx port and PP2 is Tx port */
+			err |= loop_sw_egress(larg, giu_port_id, pp2_port_id, tc, qid, num);
+		} else if (larg->cmn_args.id == 0) {
+			/* In this case, we either use 2 or 3 CPUs and it is thread0,
+			 * run GIE on thread0 and the other routines on the other CPUs.
+			 */
+			/* Schedule GIE execution */
+			START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_TX);
+			STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, tmp_num);
+			START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
+			tmp_num = nmp_schedule(garg.nmp, NMP_SCHED_RX);
+			STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, tmp_num);
+		} else {
+			/* In this case, we either use 2 or 3 CPUs (but not thread0) so we handle
+			 * the second/third thread.
+			 */
+			if ((larg->cmn_args.garg->cmn_args.cpus == 2) ||
+			    (larg->cmn_args.id == 1))
+				/* PP2 is Rx port and GIU is Tx port */
+				err  = loop_sw_ingress(larg, pp2_port_id, giu_port_id, tc, qid, num);
+			if ((larg->cmn_args.garg->cmn_args.cpus == 2) ||
+			    (larg->cmn_args.id == 2))
+				/* GIU is Rx port and PP2 is Tx port */
+				err |= loop_sw_egress(larg, giu_port_id, pp2_port_id, tc, qid, num);
+		}
 		if (err != 0)
 			return err;
 	}
@@ -1469,9 +1486,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		       garg->cmn_args.burst, PKT_ECHO_APP_MAX_BURST_SIZE);
 		return -EINVAL;
 	}
-	if (garg->cmn_args.cpus > MVAPPS_MAX_NUM_CORES) {
+	if (garg->cmn_args.cpus > PKT_ECHO_APP_MAX_NUM_CORES) {
 		pr_err("illegal num cores requested (%d vs %d)!\n",
-		       garg->cmn_args.cpus, MVAPPS_MAX_NUM_CORES);
+		       garg->cmn_args.cpus, PKT_ECHO_APP_MAX_NUM_CORES);
 		return -EINVAL;
 	}
 	if ((garg->cmn_args.affinity != -1) &&
