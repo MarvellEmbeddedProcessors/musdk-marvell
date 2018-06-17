@@ -48,7 +48,8 @@
 #define PKT_ECHO_APP_DFLT_BURST_SIZE		(PKT_ECHO_APP_GIU_TX_Q_SIZE >> 2)
 
 #define PKT_ECHO_APP_DMA_MEM_SIZE		(80 * 1024 * 1024)
-#define PKT_ECHO_APP_CTRL_DFLT_THR		1000
+#define PKT_ECHO_APP_STATS_DFLT_THRESH		1000
+#define PKT_ECHO_APP_CTRL_TRD_THRESH		200
 
 #define PKT_ECHO_APP_FIRST_INQ			0
 #define PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT	1
@@ -139,7 +140,6 @@ u32 tx_max_resend[MVAPPS_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
 u32 tx_max_burst[MVAPPS_MAX_NUM_CORES][MVAPPS_PP2_MAX_NUM_PORTS];
 
 /* globals for ingress/egress packet rate statistics */
-int			 ctrl_thresh = 1000;
 struct timeval		 ctrl_trd_last_time;
 u64			 lst_rx_cnt[MVAPPS_PP2_MAX_NUM_PORTS];
 u64			 lst_tx_cnt[MVAPPS_PP2_MAX_NUM_PORTS];
@@ -187,7 +187,7 @@ static int dump_perf(struct glob_arg *garg)
 	return 0;
 }
 
-static int stats_cb(void *arg)
+static int maintain_stats(void *arg)
 {
 	struct glob_arg *garg = (struct glob_arg *)arg;
 	struct timeval	 curr_time;
@@ -201,7 +201,7 @@ static int stats_cb(void *arg)
 	gettimeofday(&curr_time, NULL);
 	tmp_time_inter = (curr_time.tv_sec - ctrl_trd_last_time.tv_sec) * 1000;
 	tmp_time_inter += (curr_time.tv_usec - ctrl_trd_last_time.tv_usec) / 1000;
-	if (tmp_time_inter >= ctrl_thresh)
+	if (tmp_time_inter >= garg->cmn_args.ctrl_thresh)
 		return dump_perf(garg);
 
 	return 0;
@@ -773,24 +773,11 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 	return 0;
 }
 
-static void nmp_schedule_all(struct nmp *nmp)
+static int main_loop_cb(void *arg, int *running)
 {
-	u16			 num;
-
-	/* nmp gir instances schedule */
-	nmp_schedule(nmp, NMP_SCHED_MNG);
-	START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
-	num = nmp_schedule(nmp, NMP_SCHED_RX);
-	STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, num);
-	START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
-	num = nmp_schedule(nmp, NMP_SCHED_TX);
-	STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, num);
-}
-
-static int loop_2ps(struct local_arg *larg, int *running)
-{
+	struct local_arg	*larg = (struct local_arg *)arg;
 	int			 err = 0;
-	u16			 num;
+	u16			 num, tmp_num;
 	u8			 tc = 0, qid = 0;
 	u8			 pp2_port_id = 0, giu_port_id = 0;
 
@@ -801,10 +788,13 @@ static int loop_2ps(struct local_arg *larg, int *running)
 
 	num = larg->cmn_args.burst;
 	while (*running) {
-
 		/* Schedule GIE execution */
-		nmp_schedule_all(garg.nmp);
-		nmp_guest_schedule(garg.nmp_guest);
+		START_COUNT_CYCLES(pme_ev_cnt_gie_egr);
+		nmp_schedule(larg->cmn_args.garg->nmp, NMP_SCHED_TX);
+		STOP_COUNT_CYCLES(pme_ev_cnt_gie_egr, tmp_num);
+		START_COUNT_CYCLES(pme_ev_cnt_gie_ingr);
+		nmp_schedule(larg->cmn_args.garg->nmp, NMP_SCHED_RX);
+		STOP_COUNT_CYCLES(pme_ev_cnt_gie_ingr, tmp_num);
 
 		/* Find next queue to consume */
 #if 0 /* TODO: enable this code to support multi tc/queue */
@@ -829,16 +819,23 @@ static int loop_2ps(struct local_arg *larg, int *running)
 	return 0;
 }
 
-static int main_loop(void *arg, int *running)
+static int ctrl_cb(void *arg)
 {
-	struct local_arg	*larg = (struct local_arg *)arg;
+	struct glob_arg *garg = (struct glob_arg *)arg;
 
-	if (!larg) {
+	if (!garg) {
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
 
-	return loop_2ps(larg, running);
+	nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+	nmp_guest_schedule(garg->nmp_guest);
+	nmp_schedule(garg->nmp, NMP_SCHED_MNG);
+
+	if (!garg->cmn_args.cli && garg->pkt_rate_stats)
+		maintain_stats(garg);
+
+	return 0;
 }
 
 static int wait_for_pf_init_done(void)
@@ -861,7 +858,7 @@ static int wait_for_pf_init_done(void)
 	/* wait for regfile to be opened by NMP */
 	do {
 		/* Schedule GIE execution */
-		nmp_schedule_all(garg.nmp);
+		nmp_schedule(garg.nmp, NMP_SCHED_MNG);
 
 		fd = open(file_name, O_RDWR);
 		if (fd > 0) {
@@ -880,7 +877,7 @@ static int wait_for_pf_init_done(void)
 	/* Make sure that last command response is sent to host. */
 
 	/* Schedule GIE execution */
-	nmp_schedule_all(garg.nmp);
+	nmp_schedule(garg.nmp, NMP_SCHED_MNG);
 
 	return 0;
 }
@@ -1289,7 +1286,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.qs_map_shift = 0;
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.prefetch_shift = PKT_ECHO_APP_PREFETCH_SHIFT;
-	garg->cmn_args.ctrl_thresh = PKT_ECHO_APP_CTRL_DFLT_THR;
+	garg->cmn_args.ctrl_thresh = PKT_ECHO_APP_STATS_DFLT_THRESH;
 	garg->maintain_stats = 0;
 	garg->pkt_rate_stats = 1;
 	garg->cmn_args.guest_id = PKT_ECHO_APP_NMP_GUEST_ID;
@@ -1499,9 +1496,9 @@ static void init_app_params(struct mvapp_params *mvapp_params, u64 cores_mask)
 	mvapp_params->deinit_global_cb	= deinit_global;
 	mvapp_params->init_local_cb	= init_local;
 	mvapp_params->deinit_local_cb	= deinit_local;
-	mvapp_params->main_loop_cb	= main_loop;
-	if (!mvapp_params->use_cli && garg.pkt_rate_stats)
-		mvapp_params->ctrl_cb	= stats_cb;
+	mvapp_params->main_loop_cb	= main_loop_cb;
+	mvapp_params->ctrl_cb		= ctrl_cb;
+	mvapp_params->ctrl_cb_threshold	= PKT_ECHO_APP_CTRL_TRD_THRESH;
 }
 
 static void reset_statistics(void)
