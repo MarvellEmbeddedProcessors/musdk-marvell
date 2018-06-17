@@ -88,10 +88,7 @@ struct sam_cio {
 	struct sam_cio_stats stats;	/* cio statistics */
 #endif
 	struct sam_cio_op *operations;	/* array of operations */
-	struct sam_sa **sa_destroy;	/* array of pointers to sessions to destroy */
 	struct sam_hw_ring hw_ring;
-	u32 next_to_dstr_sa;
-	u32 next_to_enq_sa;
 	u32 next_request;
 	u32 next_result;
 	u32 pkt_coal;
@@ -101,7 +98,8 @@ struct sam_cio {
 struct sam_sa {
 	bool is_valid;
 	struct sam_session_params	params;
-	struct sam_cio			*cio;
+	struct sam_cio			*ctr_cio; /* control path cio */
+	struct sam_cio			*cio;     /* data path cio */
 	/* Fields needed for EIP197 HW */
 	SABuilder_Params_t		sa_params;
 	union {

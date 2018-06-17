@@ -217,6 +217,8 @@ struct sam_session_ssltls_params {
  *	- "auth_inner" and "auth_outer" are valid only if authentication algorithm
  *	requires key. Size of "auth_inner" and "auth_outer" buffers is derived from
  *	authentication algorithm.
+  *	- "ctr_cio" is a ring handler that (if defined) will be used for session delete
+ *	operation. Other ways, session operation ring will be used.
  */
 struct sam_session_params {
 	enum sam_dir dir;                /**< operation direction: encode/decode */
@@ -229,6 +231,7 @@ struct sam_session_params {
 	u8  *auth_key;                   /**< authentication key */
 	u32 auth_key_len;                /**< authentication key size (in bytes) */
 	enum sam_crypto_protocol proto;  /**< prococol: None/IPSec(ESP)/Others */
+	struct sam_cio *ctr_cio;         /**< control plan cio */
 	union {
 		struct sam_session_basic_params  basic; /**< Parameters for basic crypto */
 		struct sam_session_ipsec_params  ipsec; /**< Parameters for IPSec offload */
