@@ -34,15 +34,166 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <sys/time.h>
+#include <arpa/inet.h>	/* ntohs */
+#include <netinet/ip.h>
+#include <netinet/udp.h>
 
 #include "mv_std.h"
 #include "lib/lib_misc.h"
 #include "env/mv_sys_dma.h"
+#include <stdbool.h>
+#include "lib/net.h"
+
 #include "utils.h"
+
+
+#define ETHERTYPE_IP	0x800
+
+
+struct pkt {
+	struct ether_header	 eh;
+	struct ip		 ip;
+	struct udphdr		 udp;
+	/* using 'empty array' as placeholder; the real size will be determine by the specific application
+	 */
+	u8			 body[];
+} __packed;
 
 
 uintptr_t cookie_high_bits = MVAPPS_INVALID_COOKIE_HIGH_BITS;
 
+
+static void rand_permute(int *arr, int n)
+{
+	int i;
+
+	for (i = 0; i < n; i++) {
+		int rand_idx = rand() % n;
+		int t;
+
+		/* swap arr[i] with arr[rand_idx] */
+		t = arr[i];
+		arr[i] = arr[rand_idx];
+		arr[rand_idx] = t;
+	}
+}
+
+/*
+ * increment the addressed in the packet,
+ * starting from the least significant field.
+ *	DST_IP DST_PORT SRC_IP SRC_PORT
+ */
+static void update_addresses(struct pkt *pkt, struct ip_range *src_ipr, struct ip_range *dst_ipr)
+{
+	struct ip *ip = &pkt->ip;
+	struct udphdr *udp = &pkt->udp;
+
+	do {
+		/* XXX for now it doesn't handle non-random src, random dst */
+		udp->uh_sport = htons(src_ipr->port_curr++);
+		if (src_ipr->port_curr >= src_ipr->port1)
+			src_ipr->port_curr = src_ipr->port0;
+
+		ip->ip_src.s_addr = htonl(src_ipr->curr++);
+		if (src_ipr->curr >= src_ipr->end)
+			src_ipr->curr = src_ipr->start;
+
+		udp->uh_dport = htons(dst_ipr->port_curr++);
+		if (dst_ipr->port_curr >= dst_ipr->port1)
+			dst_ipr->port_curr = dst_ipr->port0;
+
+		ip->ip_dst.s_addr = htonl(dst_ipr->curr++);
+		if (dst_ipr->curr >= dst_ipr->end)
+			dst_ipr->curr = dst_ipr->start;
+	} while (0);
+	/* update checksum */
+}
+
+
+int app_build_pkt_pool(void			**mem,
+		       struct buffer_desc	*buffs,
+		       u16			 num_buffs,
+		       u16			 min_pkt_size,
+		       u16			 max_pkt_size,
+		       int			 pkt_size,
+		       struct ip_range		*src_ipr,
+		       struct ip_range		*dst_ipr,
+		       eth_addr_t		 src_mac,
+		       eth_addr_t		 dst_mac
+		       )
+{
+	u8	*buffer;
+	int	i;
+	int	imix_sizes_arr[] = {60, 60, 60, 60, 60, 60, 60, 566, 566, 566, 566, 1514};
+	int	num_imix_vars = sizeof(imix_sizes_arr)/sizeof(int);
+
+	if (min_pkt_size < MVAPPS_PLD_MIN_SIZE) {
+		pr_err("illegal minimum pkt len (%d vs %d)!\n", min_pkt_size, MVAPPS_PLD_MIN_SIZE);
+		return -EINVAL;
+	}
+
+	buffer = mv_sys_dma_mem_alloc(max_pkt_size * num_buffs, 4);
+	if (!buffer) {
+		pr_err("no mem for local packets buffer!\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < num_buffs; i++) {
+		struct pkt	*pkt;
+		u32		*dat;
+
+		pkt = (struct pkt *)(buffer + i *  max_pkt_size);
+		buffs[i].virt_addr = (void *)pkt;
+		buffs[i].phy_addr = mv_sys_dma_mem_virt2phys(buffs[i].virt_addr);
+
+		if (pkt_size == MVAPPS_PKT_SIZE_INC)
+			buffs[i].size = (min_pkt_size + 4 * i) % max_pkt_size;
+		else if (pkt_size == MVAPPS_PKT_SIZE_RAND)
+			buffs[i].size = min_pkt_size + (rand() % (max_pkt_size - min_pkt_size));
+		else if (pkt_size == MVAPPS_PKT_SIZE_IMIX) {
+			if ((i % num_imix_vars) == 0)
+				rand_permute(imix_sizes_arr, num_imix_vars);
+			buffs[i].size = imix_sizes_arr[i % num_imix_vars];
+		} else
+			buffs[i].size = pkt_size;
+		pr_debug("got pkt size: %d\n", buffs[i].size);
+
+		memcpy(pkt->eh.ether_dmac, dst_mac, MV_ETH_ALEN);
+		memcpy(pkt->eh.ether_smac, src_mac, MV_ETH_ALEN);
+
+		pkt->eh.ether_type = htons(ETHERTYPE_IP);
+
+		pkt->ip.ip_src.s_addr = htonl(src_ipr->start);
+		pkt->ip.ip_dst.s_addr = htonl(dst_ipr->start);
+		pkt->ip.ip_v = IPVERSION;
+		pkt->ip.ip_hl = 5;
+		pkt->ip.ip_id = 0;
+		pkt->ip.ip_tos = IPTOS_LOWDELAY;
+		pkt->ip.ip_len = htons(buffs[i].size - sizeof(struct ether_header));
+		pkt->ip.ip_id = 0;
+		pkt->ip.ip_off = htons(IP_DF); /* Don't fragment */
+		pkt->ip.ip_ttl = IPDEFTTL;
+		pkt->ip.ip_p = IPPROTO_UDP;
+
+		pkt->udp.uh_sport = htons(src_ipr->port0);
+		pkt->udp.uh_dport = htons(dst_ipr->port0);
+		pkt->udp.uh_ulen = htons(buffs[i].size - sizeof(struct ether_header) - sizeof(struct ip));
+		pkt->udp.uh_sum = 0;
+
+		update_addresses((struct pkt *)buffs[i].virt_addr, src_ipr, dst_ipr);
+
+		/* Set IP checksum */
+		pkt->ip.ip_sum = 0;
+		pkt->ip.ip_sum = mv_ip4_csum((u16 *)&pkt->ip, pkt->ip.ip_hl);
+
+		dat = (u32 *)pkt->body;
+		dat[0] = MVAPPS_PLD_WATERMARK;
+		dat[1] = i;
+	}
+
+	*mem = buffer;
+	return 0;
+}
 
 int apps_cores_mask_create(int cpus, int affinity)
 {

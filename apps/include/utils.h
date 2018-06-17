@@ -33,10 +33,12 @@
 #ifndef __MVUTILS_H__
 #define __MVUTILS_H__
 
-#include "mv_std.h"
-#include "mv_net.h"
 #include <stdbool.h>
 #include <sys/sysinfo.h>
+
+#include "mv_std.h"
+#include "mv_net.h"
+
 
 /* CA-72 prefetch command */
 #if __WORDSIZE == 64
@@ -74,6 +76,12 @@ static inline void prefetch(const void *ptr)
 
 #define MVAPPS_INVALID_MEMREGIONS	-1
 
+#define MVAPPS_PKT_SIZE_INC	(-1)
+#define MVAPPS_PKT_SIZE_RAND	(-2)
+#define MVAPPS_PKT_SIZE_IMIX	(-3)
+
+#define MVAPPS_PLD_MIN_SIZE	8
+#define MVAPPS_PLD_WATERMARK	0xcafecafe
 
 /* JSON Serializatiion definitions */
 #define SER_FILE_VAR_DIR	"/var/"
@@ -173,6 +181,28 @@ struct glb_common_args {
 	int			num_clusters;
 };
 
+struct buffer_desc {
+	void		*virt_addr;
+	dma_addr_t	 phy_addr;
+	u16		 size;
+	u16		 res;
+};
+
+struct ip_range {
+	u32 start, end, curr; /* same as struct in_addr */
+	u16 port0, port1, port_curr;
+};
+
+struct mac_range {
+	eth_addr_t start;
+	eth_addr_t end;
+};
+
+struct ether_header {
+	eth_addr_t	ether_dmac;
+	eth_addr_t	ether_smac;
+	u16		ether_type;
+} __packed;
 
 struct perf_cmn_cntrs {
 	u64			rx_cnt;
@@ -297,6 +327,18 @@ int apps_thread_to_cpu(struct glb_common_args *cmn_args, int thread);
 int apps_cpu_to_thread(struct glb_common_args *cmn_args, int cpu);
 int app_parse_mac_address(char *buf, u8 *macaddr_parts);
 int app_range_validate(int value, int min, int max);
+
+int app_build_pkt_pool(void			**mem,
+		       struct buffer_desc	*buffs,
+		       u16			 num_buffs,
+		       u16			 min_pkt_size,
+		       u16			 max_pkt_size,
+		       int			 pkt_size,
+		       struct ip_range		*src_ipr,
+		       struct ip_range		*dst_ipr,
+		       eth_addr_t		 src_mac,
+		       eth_addr_t		 dst_mac
+		       );
 
 #endif /*__MVUTILS_H__*/
 
