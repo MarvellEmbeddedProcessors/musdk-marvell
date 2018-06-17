@@ -2478,6 +2478,10 @@ static void nmnicpf_process_guest_command(struct nmnicpf *nmnicpf,
 			pr_err("MSG_F_GUEST_REMOVE_RULE message failed\n");
 		break;
 
+	case MSG_F_GUEST_KA:
+		nmnicpf->profile_data.guest_ka_recv = 1;
+		break;
+
 	default:
 		/* Unknown command code */
 		pr_err("Unknown command code %d!! Unable to process command.\n", msg->code);
@@ -2588,7 +2592,6 @@ static int nmnicpf_keep_alive_process(struct nmnicpf *nmnicpf)
 	if (!nmnicpf->profile_data.keep_alive_thresh ||
 	    (nmnicpf->profile_data.keep_alive_counter++ != nmnicpf->profile_data.keep_alive_thresh))
 		return 0;
-	nmnicpf->profile_data.keep_alive_counter = 0;
 
 	/* Send Keep Alive notification message */
 	msg.ext = 1;
@@ -2602,6 +2605,11 @@ static int nmnicpf_keep_alive_process(struct nmnicpf *nmnicpf)
 	msg.msg_len = sizeof(struct mgmt_notification);
 
 	resp.keep_alive = MGMT_NOTIF_KEEP_ALIVE_FW;
+	if (nmnicpf->profile_data.guest_ka_recv)
+		resp.keep_alive |= MGMT_NOTIF_KEEP_ALIVE_APP;
+
+	nmnicpf->profile_data.keep_alive_counter = 0;
+	nmnicpf->profile_data.guest_ka_recv = 0;
 
 	ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &msg);
 	if (ret) {

@@ -36,6 +36,7 @@ struct pf_profile {
 	int pci_en;
 	u32 keep_alive_thresh;
 	u32 keep_alive_counter;
+	int guest_ka_recv;
 	u32 lcl_egress_q_num;
 	u32 lcl_egress_q_size;
 	u32 lcl_ingress_q_num;
