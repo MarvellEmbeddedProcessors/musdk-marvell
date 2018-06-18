@@ -207,6 +207,22 @@ static int maintain_stats(void *arg)
 	return 0;
 }
 
+static int perf_cmd_cb(void *arg, int argc, char *argv[])
+{
+	struct glob_arg *garg = (struct glob_arg *)arg;
+
+	if (!garg) {
+		pr_err("no garg obj passed!\n");
+		return -EINVAL;
+	}
+	if (argc != 1) {
+		pr_err("Invalid number of arguments for perf cmd!\n");
+		return -EINVAL;
+	}
+
+	return dump_perf(arg);
+}
+
 #ifdef CHECK_CYCLES
 static int pme_cmd_cb(void *arg, int argc, char *argv[])
 {
@@ -1035,6 +1051,8 @@ static int register_cli_cmds(struct glob_arg *garg)
 {
 	struct cli_cmd_params	 cmd_params;
 
+	app_register_cli_common_cmds(&garg->cmn_args);
+
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "prefetch";
 	cmd_params.desc		= "Prefetch ahead shift (number of buffers)";
@@ -1045,11 +1063,11 @@ static int register_cli_cmds(struct glob_arg *garg)
 
 	/* statistics command */
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name		= "stat";
-	cmd_params.desc		= "Show app statistics";
-	cmd_params.format	= "<reset>";
-	cmd_params.cmd_arg	= &garg->cmn_args;
-	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))apps_pp2_stat_cmd_cb;
+	cmd_params.name		= "perf";
+	cmd_params.desc		= "Dump performance statistics";
+	cmd_params.format	= NULL;
+	cmd_params.cmd_arg	= garg;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))perf_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 
 #ifdef CHECK_CYCLES
@@ -1061,8 +1079,6 @@ static int register_cli_cmds(struct glob_arg *garg)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pme_cmd_cb;
 	mvapp_register_cli_cmd(&cmd_params);
 #endif /* CHECK_CYCLES */
-
-	app_register_cli_common_cmds(&garg->cmn_args);
 
 	return 0;
 }
