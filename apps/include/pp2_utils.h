@@ -520,8 +520,7 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 		}
 		do {
 			tx_num = num;
-			pp2_ppio_send(pp2_args->lcl_ports_desc[tx_ppio_id].ppio, pp2_args->hif, tc,
-				      &descs[desc_idx], &tx_num);
+			pp2_ppio_send(tx_lcl_port_desc->ppio, pp2_args->hif, tx_qid, &descs[desc_idx], &tx_num);
 			if (num > tx_num) {
 				if (!cnt)
 					INC_TX_RETRY_COUNT(rx_lcl_port_desc, num - tx_num);
