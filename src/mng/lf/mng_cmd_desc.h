@@ -62,6 +62,7 @@ enum cmd_codes {
 	CC_PF_GET_GP_QUEUE_STATS,
 	CC_PF_MC_ADD_ADDR,
 	CC_PF_MC_REMOVE_ADDR,
+	CC_PF_MAC_FLUSH,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -151,6 +152,11 @@ struct mgmt_cmd_params {
 		struct {
 			u16 vlan;
 		} pf_vlan;
+
+		struct {
+			u8 uc;
+			u8 mc;
+		} pf_flush_addr;
 
 		struct {
 			u8 out;
