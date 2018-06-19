@@ -37,7 +37,6 @@
 #include <getopt.h>
 #include <sched.h>
 
-
 #include "mv_std.h"
 #include "mvapp.h"
 #include "env/io.h"
@@ -145,7 +144,8 @@ static int loop_1p(struct local_arg *larg, int *running)
 		return -EINVAL;
 	}
 
-	num = CLS_APP_DFLT_BURST_SIZE;
+	num = larg->cmn_args.burst;
+
 	if (pp2_args->lcl_ports_desc->first_txq >= PP2_PPIO_MAX_NUM_OUTQS) {
 		pr_err("All TX queues in use by kernel. Exiting application\n");
 		return -EINVAL;
@@ -419,6 +419,7 @@ static int init_local(void *arg, int id, void **_larg)
 	if (err)
 		return err;
 
+	larg->cmn_args.burst		= garg->cmn_args.burst;
 	larg->cmn_args.busy_wait			= garg->cmn_args.busy_wait;
 	larg->cmn_args.echo		= garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
@@ -451,6 +452,7 @@ static void usage(char *progname)
 		"\t-i, --interface <eth-interface>\n"
 		"\n"
 		"Optional OPTIONS:\n"
+		"\t-s <size>			Burst size, num_pkts handled in a batch.(default is %d)\n"
 		"\t-e, --echo			(no argument) activate echo packets\n"
 		"\t-c, --cores <number>		Number of CPUs to use\n"
 		"\t-a, --affinity <number>	Use set affinity (default is no affinity)\n"
@@ -462,8 +464,8 @@ static void usage(char *progname)
 		"\t-q, --egress_scheduler_params	(no argument)configure egress scheduler parameters\n"
 		"\t--policers_range		(dec)-(dec) valid range [1-%d]\n"
 		"\t--policer_params		(no argument)configure default policer parameters\n"
-		"\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname), PP2_CLS_PLCR_NUM
-		);
+		"\n",
+		MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname), CLS_APP_DFLT_BURST_SIZE, PP2_CLS_PLCR_NUM);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
@@ -496,6 +498,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"echo", no_argument, 0, 'e'},
 		{"cpu", required_argument, 0, 'c'},
 		{"affinity", required_argument, 0, 'a'},
+		{"size", required_argument, 0, 's'},
 		{"num_tcs", required_argument, 0, 't'},
 		{"cpu_q_factor", required_argument, 0, 'f'},
 		{"hash_type", required_argument, 0, 'b'},
@@ -515,6 +518,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.cli = 1;
 	garg->cmn_args.prefetch_shift = CLS_APP_PREFETCH_SHIFT;
 	garg->cmn_args.num_cpu_hash_qs = 1;
+	garg->cmn_args.burst = CLS_APP_DFLT_BURST_SIZE;
 
 	pp2_args->multi_buffer_release = 1;
 
@@ -562,6 +566,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'e':
 			garg->cmn_args.echo = 1;
+			break;
+		case 's':
+			garg->cmn_args.burst = atoi(optarg);
 			break;
 		case 'c':
 			num_cpus = strtoul(optarg, &ret_ptr, 0);
