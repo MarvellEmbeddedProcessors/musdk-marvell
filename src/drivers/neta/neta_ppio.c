@@ -57,16 +57,14 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	struct neta_ppio *ppio_ptr;
 	struct neta_port *port;
 
-	port_id = atoi(&params->match[3]);
-	if (port_id >= NETA_NUM_ETH_PPIO) {
-		pr_err("[%s] Invalid ppio number %d.\n", __func__, port_id);
-		return -ENXIO;
-	}
-
-	rc = neta_port_register(params->match, port_id);
+	rc = neta_port_register(params->match, &port_id);
 	if (rc) {
 		pr_err("PP-IO init failed: interface %s doesn't exist or down!\n", params->match);
 		return rc;
+	}
+	if (port_id >= NETA_NUM_ETH_PPIO) {
+		pr_err("[%s] Invalid ppio number %d.\n", __func__, port_id);
+		return -ENXIO;
 	}
 
 	ppio_ptr = kcalloc(1, sizeof(struct neta_ppio), GFP_KERNEL);
