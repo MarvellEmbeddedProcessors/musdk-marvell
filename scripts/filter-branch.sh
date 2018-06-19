@@ -6,6 +6,7 @@ git rm -rf --cached --ignore-unmatch src/hw_emul \
 git rm -rf --cached --ignore-unmatch src/mng \
 git rm -rf --cached --ignore-unmatch src/drivers/giu \
 git rm -rf --cached --ignore-unmatch src/drivers/mqa \
+git rm -rf --cached --ignore-unmatch src/drivers/agnic \
 git rm -rf --cached --ignore-unmatch src/include/hw_emul \
 git rm -rf --cached --ignore-unmatch src/include/mng \
 git rm -rf --cached --ignore-unmatch src/include/drivers/giu_regfile_def.h \
@@ -14,6 +15,7 @@ git rm -rf --cached --ignore-unmatch src/include/drivers/mv_giu_gpio.h \
 git rm -rf --cached --ignore-unmatch src/include/drivers/mqa_def.h \
 git rm -rf --cached --ignore-unmatch src/include/drivers/mv_mqa.h \
 git rm -rf --cached --ignore-unmatch src/include/drivers/mv_mqa_queue.h \
+git rm -rf --cached --ignore-unmatch src/include/drivers/mv_agnic_pfio.h \
 git rm -rf --cached --ignore-unmatch apps/common/giu_utils.c \
 git rm -rf --cached --ignore-unmatch apps/common/nmp_guest_utils.c \
 git rm -rf --cached --ignore-unmatch apps/include/giu_utils.h \

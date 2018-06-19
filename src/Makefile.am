@@ -117,6 +117,8 @@ nobase_include_HEADERS += include/drivers/mv_giu_bpool.h
 nobase_include_HEADERS += include/drivers/mv_mqa.h
 nobase_include_HEADERS += include/drivers/mv_mqa_queue.h
 
+nobase_include_HEADERS += include/drivers/mv_agnic_pfio.h
+
 libmusdk_la_SOURCES += hw_emul/gie/gie.c
 
 libmusdk_la_SOURCES += drivers/giu/giu.c
@@ -128,6 +130,8 @@ libmusdk_la_SOURCES += drivers/giu/file_map.c
 libmusdk_la_SOURCES += drivers/mqa/mqa.c
 libmusdk_la_SOURCES += drivers/mqa/mqa_queue.c
 
+libmusdk_la_SOURCES += drivers/agnic/agnic_pfio_mng.c
+libmusdk_la_SOURCES += drivers/agnic/agnic_pfio.c
 endif
 
 if NMP_BUILD
