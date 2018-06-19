@@ -247,7 +247,7 @@ int neta_port_flush_mac_addrs(struct neta_port *port);
 int neta_port_initialize_statistics(struct neta_port *port);
 int neta_port_get_statistics(struct neta_port *port, struct neta_ppio_statistics *stats);
 
-int neta_port_register(const char *if_name, int id);
+int neta_port_register(const char *if_name, int *id);
 void neta_port_unregister(int id);
 
 #endif /* __NETA_PP_IO_H_ */

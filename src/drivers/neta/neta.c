@@ -87,10 +87,30 @@ int neta_init(void)
 	return 0;
 }
 
+static int get_last_num_from_string(char *buf, int *id)
+{
+	int len = strlen(buf);
+	int i, found = 0;
+
+	for (i = len - 1; (i >= 0); i--) {
+		if (isdigit(buf[i]))
+			found++;
+		else if (found)
+			break;
+	}
+
+	if (found) {
+		*id = atoi(&buf[i+1]);
+		return 0;
+	}
+
+	return -1;
+}
+
 /* check interface name is NETA interface and it was congured
  * in kernel space by ifconfig command
  */
-static int neta_netdev_if_verify(const char *if_name)
+static int neta_netdev_if_verify(const char *if_name, int *port_id)
 {
 	FILE *fp;
 	char path[MAX_BUF_STR_LEN];
@@ -105,33 +125,46 @@ static int neta_netdev_if_verify(const char *if_name)
 		return -EEXIST;
 	}
 	found = 0;
+	*port_id = 0xff;
 	while (fgets(buf, MAX_BUF_STR_LEN, fp)) {
-		if (strncmp("DRIVER=mvneta", buf, 13) == 0) {
+		if (strncmp("DRIVER=mvneta", buf, strlen("DRIVER=mvneta")) == 0) {
 			found = 1;
+			do {
+				/* get HW port number */
+				if (strncmp("OF_ALIAS_0=eth", buf,
+					    strlen("OF_ALIAS_0=eth")) == 0) {
+					get_last_num_from_string(buf, port_id);
+					found++;
+					break;
+				}
+			} while (fgets(buf, MAX_BUF_STR_LEN, fp));
 			break;
 		}
 	}
 	fclose(fp);
-	if (!found) {
-		pr_err("interface %s doesn't NETA port\n", if_name);
+	if (found < 2) {
+		pr_err("interface %s is not NETA port %d\n", if_name, *port_id);
 		return -EEXIST;
 	}
-
-	/* TBD: check this is MUSDK port */
 
 	return 0;
 }
 
-int neta_port_register(const char *if_name, int port_id)
+int neta_port_register(const char *if_name, int *port_id)
 {
 	struct netdev_if_params *port;
 	int err;
 
-	err = neta_netdev_if_verify(if_name);
+	err = neta_netdev_if_verify(if_name, port_id);
 	if (err)
 		return -1;
 
-	if (neta_ptr->ports[port_id])
+	if (*port_id >= NETA_NUM_ETH_PPIO) {
+		pr_err("[%s] Invalid ppio number %d.\n", __func__, *port_id);
+		return -ENXIO;
+	}
+
+	if (neta_ptr->ports[*port_id])
 		return -1;
 
 	port = kcalloc(1, sizeof(struct netdev_if_params), GFP_KERNEL);
@@ -140,9 +173,9 @@ int neta_port_register(const char *if_name, int port_id)
 			return -1;
 	}
 	strcpy(port->if_name, if_name);
-	port->ppio_id = port_id;
+	port->ppio_id = *port_id;
 
-	neta_ptr->ports[port_id] = port;
+	neta_ptr->ports[*port_id] = port;
 
 	return 0;
 }
