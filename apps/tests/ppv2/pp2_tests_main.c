@@ -99,6 +99,7 @@ struct local_arg {
 	struct local_common_args	cmn_args;  /* Keep first */
 	struct queue_map		*core_queue;
 	int				num_tcs;
+	int				num_tc_inqs;
 };
 
 static struct glob_arg garg = {};
@@ -134,9 +135,9 @@ struct list *pp2_cls_table_next_node_get(struct list *cls_tbl_head, u32 index)
 
 static int loop_1p(struct local_arg *larg, int *running)
 {
-	int err;
+	int err, i;
 	u16 num;
-	u8 tc = 0, tc_qid = 0, tx_qid = 0;
+	u8 inq_num = 0, inq_id = 0, tx_qid = 0, tc = 0;
 	struct pp2_lcl_common_args *pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 
 	if (!larg) {
@@ -151,18 +152,28 @@ static int loop_1p(struct local_arg *larg, int *running)
 	}
 	tx_qid = pp2_args->lcl_ports_desc->first_txq;
 
+	/* Note: Code (correctly) assumes that all ports have same tc/cpu_factor configuration */
 	while (*running) {
 		/* Find next queue to consume */
-		tc++;
-		if (tc == larg->num_tcs)
-			tc = 0;
-		tc_qid = larg->core_queue->tc_inq[tc];
+		inq_num++;
+		if ((inq_num % larg->num_tc_inqs) == 0) {
+			tc++;
+			if (tc == larg->num_tcs) {
+				tc = 0;
+				inq_num = 0;
+			}
+		}
+		inq_id = larg->core_queue->tc_inq[inq_num];
 		if (++tx_qid >= PP2_PPIO_MAX_NUM_OUTQS)
 			tx_qid = pp2_args->lcl_ports_desc->first_txq;
-		pr_debug("thread %d, tc %d, tc_qid %d tx_qid %d\n", larg->cmn_args.id, tc, tc_qid, tx_qid);
-		err = loop_sw_recycle(&larg->cmn_args, 0, 0, tc, tc_qid, tx_qid, num);
-		if (err)
-			return err;
+
+		for (i = 0; i < larg->cmn_args.num_ports; i++) {
+			err = loop_sw_recycle(&larg->cmn_args, i, i, inq_num, inq_id, tx_qid, num);
+			pr_debug("thread:%d, inq_num:%d, tc:%d, inq_id:%d tx_qid:%d\n", larg->cmn_args.id, inq_num,
+				 tc, inq_id, tx_qid);
+			if (err)
+				return err;
+		}
 	}
 
 	return 0;
@@ -261,7 +272,7 @@ static int init_local_modules(struct glob_arg *garg)
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= garg->num_tcs;
 			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] = garg->cmn_args.cpus;
+				port->num_inqs[i] = garg->cmn_args.cpus * garg->cmn_args.num_cpu_hash_qs;
 			port->inq_size	= CLS_APP_RX_Q_SIZE;
 			port->num_outqs	= PP2_PPIO_MAX_NUM_OUTQS;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
@@ -390,7 +401,9 @@ static int init_local(void *arg, int id, void **_larg)
 
 	larg->cmn_args.id		= id;
 	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
+
 	larg->num_tcs			= garg->num_tcs;
+	larg->num_tc_inqs		= garg->cmn_args.num_cpu_hash_qs;
 	lcl_pp2_args->lcl_ports_desc = (struct lcl_port_desc *)
 					   malloc(larg->cmn_args.num_ports * sizeof(struct lcl_port_desc));
 	if (!lcl_pp2_args->lcl_ports_desc) {
@@ -442,6 +455,7 @@ static void usage(char *progname)
 		"\t-c, --cores <number>		Number of CPUs to use\n"
 		"\t-a, --affinity <number>	Use set affinity (default is no affinity)\n"
 		"\t-t, --num_tcs <number>	Number of Traffic classes (TCs) to use\n"
+		"\t-f, --cpu_q_factor <number>  Number of hash_qs (<per_cpu>,<per_tc>). (def=1)\n"
 		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
 		"\t--eth_start_hdr		(no argument)configure ethernet start header\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
@@ -454,7 +468,7 @@ static void usage(char *progname)
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 {
-	int i = 1, j;
+	int i = 1, j, k;
 	int option;
 	int long_index = 0;
 	int ppio_tag_mode = 0;
@@ -468,6 +482,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int num_tcs = 8;
 	int num_cpus = 1;
 	int affinity = MVAPPS_INVALID_AFFINITY;
+	int num_cpu_hash_qs;
 
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	struct pp2_ppio_params	*port_params = &pp2_args->ports_desc[0].port_params;
@@ -482,8 +497,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"cpu", required_argument, 0, 'c'},
 		{"affinity", required_argument, 0, 'a'},
 		{"num_tcs", required_argument, 0, 't'},
+		{"cpu_q_factor", required_argument, 0, 'f'},
 		{"hash_type", required_argument, 0, 'b'},
-		{"eth_start_hdr", no_argument, 0, 's'},
+		{"eth_start_hdr", no_argument, 0, 'z'},
 		{"egress_scheduler_params", no_argument, 0, 'q'},
 		{"policers_range", required_argument, 0, 'r'},
 		{"logical_port_params", no_argument, 0, 'g'},
@@ -498,6 +514,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.num_ports = 0;
 	garg->cmn_args.cli = 1;
 	garg->cmn_args.prefetch_shift = CLS_APP_PREFETCH_SHIFT;
+	garg->cmn_args.num_cpu_hash_qs = 1;
 
 	pp2_args->multi_buffer_release = 1;
 
@@ -509,21 +526,38 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:b:c:t:r:a:epsgq", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:f:z:b:c:t:r:a:epsgq", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
 			exit(0);
 			break;
 		case 'i':
-			snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
-				 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name), "%s", optarg);
-			garg->cmn_args.num_ports++;
-			/* currently supporting only 1 port */
-			if (garg->cmn_args.num_ports > 1) {
-				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->cmn_args.num_ports, 1);
-				return -EINVAL;
+			{
+				char *token;
+
+				if (argc < (i + 2)) {
+					pr_err("Invalid number of arguments!\n");
+					return -EINVAL;
+				}
+				if (argv[i + 1][0] == '-') {
+					pr_err("Invalid interface arguments format!\n");
+					return -EINVAL;
+				}
+
+				/* count the number of tokens separated by ',' */
+				for (token = strtok(argv[i + 1], ","), garg->cmn_args.num_ports = 0;
+				     token;
+				     token = strtok(NULL, ","), garg->cmn_args.num_ports++) {
+					snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
+						 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name),
+						 "%s", token);
+				}
+				if (garg->cmn_args.num_ports == 0) {
+					pr_err("Invalid interface arguments format!\n");
+					return -EINVAL;
+				}
+				i += 2;
 			}
 			break;
 		case 'e':
@@ -547,7 +581,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			break;
-		case 's':
+		case 'z':
 			ppio_tag_mode = true;
 			break;
 		case 'g':
@@ -559,6 +593,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 't':
 			num_tcs = strtoul(optarg, &ret_ptr, 0);
+			break;
+		case 'f':
+			garg->cmn_args.num_cpu_hash_qs = strtoul(optarg, &ret_ptr, 0);
 			break;
 		case 'p':
 			policer_params = true;
@@ -588,6 +625,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			return -EINVAL;
 		}
 	}
+	num_cpu_hash_qs = garg->cmn_args.num_cpu_hash_qs;
 
 	if (ppio_tag_mode) {
 		rc = app_get_line("please enter ethernet start header tag mode\n"
@@ -700,27 +738,35 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		pr_err("Number of TC'exceeds maximum of %d\n", PP2_PPIO_MAX_NUM_TCS);
 		return -EINVAL;
 	}
-
+	if (num_tcs > 1 && num_cpu_hash_qs > 1) {
+		pr_err("Num Tcs:%d cpu_q_factor:%d. Both larger than 1 is not supported.\n", num_tcs, num_cpu_hash_qs);
+		return -EINVAL;
+	}
 	/* Check if number of TC's and number of cores are acceptable */
-	if ((num_tcs * garg->cmn_args.cpus) > (PP2_PPIO_MAX_NUM_TCS)) {
-		pr_err("not enough hw queues to allocate %d TCs and %d CPUs. Needed %d queues, available %d\n",
-			num_tcs, garg->cmn_args.cpus, (num_tcs * garg->cmn_args.cpus), PP2_PPIO_MAX_NUM_TCS);
-		pr_info("Allowed values: |   TCs  |  CPUs  |\n");
-		pr_info("                |-----------------|\n");
-		pr_info("                | (1..8) | (1..4) |\n");
-		pr_info("                | (8.16) | (1..2) |\n");
-		pr_info("                |(16..32)|   1    |\n");
+	if ((num_tcs * garg->cmn_args.cpus * num_cpu_hash_qs) > (PP2_PPIO_MAX_NUM_TCS)) {
+		pr_err("not enough hw queues for tcs:%d cpu_q_factor:%d, cpus:%d. qs_needed:%d, qs_available:%d\n",
+			num_tcs, num_cpu_hash_qs, garg->cmn_args.cpus,
+			(num_tcs * garg->cmn_args.cpus * num_cpu_hash_qs), PP2_PPIO_MAX_NUM_TCS);
+		pr_info("Allowed values: |TC/Q_FACT  |  CPUs  |\n");
+		pr_info("                |--------------------|\n");
+		pr_info("                | (1..8)    | (1..4) |\n");
+		pr_info("                | (8.16)    | (1..2) |\n");
+		pr_info("                |(16..32)   |   1    |\n");
 		return -EINVAL;
 	}
 
 	garg->num_tcs = num_tcs;
 	pr_debug("number of TC's: %d\n", garg->num_tcs);
+	pr_debug("cpu_q_factor:%d\n", num_cpu_hash_qs);
 
 	/* Fill the core queue map with default values */
 	for (i = 0; i < garg->cmn_args.cpus; i++) {
 		for (j = 0; j < garg->num_tcs; j++) {
-			garg->core_queues[i].tc_inq[j] = i;
-			pr_debug("core %d, tc %d, in_queue %d\n", i, j, garg->core_queues[i].tc_inq[j]);
+			for (k = 0; k < num_cpu_hash_qs; k++) {
+				garg->core_queues[i].tc_inq[j * num_cpu_hash_qs + k] = i * num_cpu_hash_qs + k;
+				pr_debug("core:%d, tc:%d, in_queue_%d:%d\n", i, j, k,
+					 garg->core_queues[i].tc_inq[j * num_cpu_hash_qs + k]);
+			}
 		}
 	}
 

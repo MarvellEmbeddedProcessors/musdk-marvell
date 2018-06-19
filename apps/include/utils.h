@@ -147,6 +147,7 @@ struct glb_common_args {
 	u16			burst;
 	int			cpus;
 	int			affinity;
+	int			num_cpu_hash_qs;
 	int			verbose;
 	int			cli;
 	int			(*cli_unregister_cb)(void *);
