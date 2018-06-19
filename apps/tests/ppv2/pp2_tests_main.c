@@ -79,6 +79,7 @@
 
 
 #define CLS_APP_BPOOLS_INF			{ {2048, 8192, 0, NULL} }
+#define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
 
 /* Structure containing a map of queues per core */
 struct queue_map {
@@ -461,6 +462,7 @@ static void usage(char *progname)
 		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
 		"\t--eth_start_hdr		(no argument)configure ethernet start header\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
+		"\t--buf_params			(no argument)configure buffer parameters\n"
 		"\t-q, --egress_scheduler_params	(no argument)configure egress scheduler parameters\n"
 		"\t--policers_range		(dec)-(dec) valid range [1-%d]\n"
 		"\t--policer_params		(no argument)configure default policer parameters\n"
@@ -476,7 +478,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int ppio_tag_mode = 0;
 	int logical_port_params = 0;
 	int egress_scheduler_params = 0;
-	int policer_params = 0;
+	int policer_params = 0, buf_params = 0;
 	char buff[CLS_APP_COMMAND_LINE_SIZE];
 	int argc_cli;
 	int rc;
@@ -506,6 +508,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"egress_scheduler_params", no_argument, 0, 'q'},
 		{"policers_range", required_argument, 0, 'r'},
 		{"logical_port_params", no_argument, 0, 'g'},
+		{"buf_params", no_argument, 0, 'u'},
 		{"policer_params", no_argument, 0, 'p'},
 		{0, 0, 0, 0}
 	};
@@ -530,7 +533,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:f:z:b:c:t:r:a:epsgq", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:u:f:z:b:c:t:r:a:epsgq", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -606,6 +609,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'p':
 			policer_params = true;
+			break;
+		case 'u':
+			buf_params = true;
 			break;
 		case 'r':
 			{
@@ -714,6 +720,27 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		for (i = 0; i < argc_cli; i++)
 			pp2_args->ports_desc[0].plcr_argv[i] = strdup(argv[i]);
 	}
+
+	if (buf_params) {
+		rc = app_get_line("please enter buffer_pools params:\n"
+				  "\t\t\t--target_mtu      'jumbo' or 'normal'\n"
+				  "\t\t\t--small_buf_sz    (dec)\n"
+				  "\t\t\t--small_buf_num   (dec)\n"
+				  "\t\t\t--large_buf_sz    (dec)\n"
+				  "\t\t\t--large_buf_num   (dec)\n",
+				  buff, sizeof(buff), &argc_cli, argv);
+		if (rc) {
+			pr_err("app_get_line failed!\n");
+			return -EINVAL;
+		}
+
+		rc = pp2_bm_pools_params(pp2_args, argc_cli, argv);
+		if (rc) {
+			pr_err("pp2_bm_pools_params failed!\n");
+			return -EINVAL;
+		}
+	}
+
 
 	/* Now, check validity of all inputs */
 	if (!garg->cmn_args.num_ports) {

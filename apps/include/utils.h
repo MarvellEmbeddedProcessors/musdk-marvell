@@ -264,6 +264,8 @@ static inline int app_get_line(char *prmpt, char *buff, size_t sz, int *argc, ch
 
 	/* otherwise remove newline and give string back to caller */
 	buff[strlen(buff) - 1] = '\0';
+	pr_info("input: %s\n", buff);
+	sleep(1);
 
 	p2 = strtok(buff, " ");
 	while (p2 && *argc < sz - 1) {

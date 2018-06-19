@@ -732,6 +732,88 @@ static void pp2_rx_descriptor_dump(struct port_desc *ports_desc)
 	}
 }
 
+int pp2_bm_pools_params(struct pp2_glb_common_args *pp2_args, int argc, char *argv[])
+{
+	char *ret_ptr;
+	int i, option, long_index;
+	enum pp2_app_bpool_set buf_inf_type = -1;
+	int small_buf_sz = 0, small_buf_num = 0, large_buf_sz = 0, large_buf_num = 0;
+	struct bpool_inf_set *bpool_inf_set;
+
+
+	struct option long_options[] = {
+		{"target_mtu", required_argument, 0, 'p'},
+		{"small_buf_sz", required_argument, 0, 's'},
+		{"small_buf_num", required_argument, 0, 't'},
+		{"large_buf_sz", required_argument, 0, 'l'},
+		{"large_buf_num", required_argument, 0, 'm'},
+		{0, 0, 0, 0}
+	};
+
+	if  (argc < 7 || argc > 11) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	/* every time starting getopt we should reset optind */
+	optind = 0;
+	for (i = 0; ((option = getopt_long_only(argc, argv, "", long_options, &long_index)) != -1); i++) {
+		/* Get parameters */
+		switch (option) {
+		case 'p':
+			if (!strcmp(optarg, "normal")) {
+				buf_inf_type = PP2_APP_STD_MTU_BPOOL_SET;
+			} else if (!strcmp(optarg, "jumbo")) {
+				buf_inf_type = PP2_APP_JUMBO_MTU_BPOOL_SET;
+			} else {
+				printf("parsing fail, wrong input for target_mtu\n");
+				return -EINVAL;
+			}
+			break;
+		case 's':
+			small_buf_sz  = strtoul(optarg, &ret_ptr, 0);
+			break;
+		case 't':
+			small_buf_num = strtoul(optarg, &ret_ptr, 0);
+			break;
+		case 'l':
+			large_buf_sz  = strtoul(optarg, &ret_ptr, 0);
+			break;
+		case 'm':
+			large_buf_num = strtoul(optarg, &ret_ptr, 0);
+			break;
+		default:
+			printf("(%d) parsing fail, wrong input\n", __LINE__);
+			return -EINVAL;
+		}
+	}
+	printf("buf_inf_type:%d, small_buf_sz:%d, small_buf_num:%d\nlarge_buf_sz:%d, large_buf_num:%d\n",
+		buf_inf_type, small_buf_sz, small_buf_num, large_buf_sz, large_buf_num);
+	sleep(3);
+
+	if (buf_inf_type == -1) {
+		printf("target_mtu must be defined\n");
+		return -EINVAL;
+	}
+	if (!small_buf_sz || !small_buf_num) {
+		printf("small_buf params must be definedmust be defined\n");
+		return -EINVAL;
+	}
+	bpool_inf_set = kzalloc(sizeof(struct bpool_inf_set), GFP_KERNEL);
+	bpool_inf_set->num_pools = (large_buf_num ? 2 : 1);
+
+	bpool_inf_set->inf = kzalloc((sizeof(struct bpool_inf) * bpool_inf_set->num_pools), GFP_KERNEL);
+	bpool_inf_set->inf[0].buff_size = small_buf_sz;
+	bpool_inf_set->inf[0].num_buffs = small_buf_num;
+	if (bpool_inf_set->num_pools == 2) {
+		bpool_inf_set->inf[1].buff_size = large_buf_sz;
+		bpool_inf_set->inf[1].num_buffs = large_buf_num;
+	}
+
+	pp2_args->bpool_set[buf_inf_type] = bpool_inf_set;
+	return 0;
+}
+
 static void pp2_tx_descriptor_dump(struct port_desc *ports_desc)
 {
 	int i, j;
@@ -1231,19 +1313,32 @@ int app_allocate_bpool_buffs(struct bpool_inf *inf, struct pp2_buff_inf *buffs_i
 	return 0;
 }
 
-void app_prepare_bpools(struct glb_common_args *glb_args, struct bpool_inf **infs, struct bpool_inf *std_inf,
-			int std_inf_size, struct bpool_inf *jumbo_inf, int jumbo_inf_size)
+void app_prepare_bpools(struct glb_common_args *glb_args, struct bpool_inf **infs, struct bpool_inf *def_std_inf,
+			int std_inf_size, struct bpool_inf *def_jumbo_inf, int jumbo_inf_size)
 {
 	struct bpool_inf *i_infs, *temp_infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) glb_args->plat;
 	int i = 0, num_aps = glb_args->num_clusters;
+	struct bpool_inf_set	*bpool_set;
 
 	if (glb_args->mtu > DEFAULT_MTU) {
-		temp_infs = jumbo_inf;
-		pp2_args->num_pools = jumbo_inf_size;
+		bpool_set = pp2_args->bpool_set[PP2_APP_JUMBO_MTU_BPOOL_SET];
+		if (bpool_set) {
+			temp_infs = bpool_set->inf;
+			pp2_args->num_pools = bpool_set->num_pools;
+		} else {
+			temp_infs = def_jumbo_inf;
+			pp2_args->num_pools = jumbo_inf_size;
+		}
 	} else {
-		temp_infs = std_inf;
-		pp2_args->num_pools = std_inf_size;
+		bpool_set = pp2_args->bpool_set[PP2_APP_STD_MTU_BPOOL_SET];
+		if (bpool_set) {
+			temp_infs = bpool_set->inf;
+			pp2_args->num_pools = bpool_set->num_pools;
+		} else {
+			temp_infs = def_std_inf;
+			pp2_args->num_pools = std_inf_size;
+		}
 	}
 
 	/* malloc num_aps*num_pools */
@@ -1267,7 +1362,7 @@ void app_prepare_bpools(struct glb_common_args *glb_args, struct bpool_inf **inf
 	}
 	pr_debug("num_aps %d\n", num_aps);
 	for (i = 0; i < pp2_args->num_pools; i++) {
-		pr_debug("inf(%d) buff_size(%d), cluster(%d) num(%d), buf_mem_ptr(%p)\n",
+		pr_info("inf(%d) buff_size(%d), cluster(%d) num(%d), buf_mem_ptr(%p)\n",
 			 i, i_infs[i].buff_size, i_infs[i].cpu_cluster_id, i_infs[i].num_buffs,
 			 i_infs[i].buff_mem_id);
 	}

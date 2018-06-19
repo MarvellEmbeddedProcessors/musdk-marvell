@@ -208,6 +208,12 @@ struct bpool_inf {
 	struct mv_sys_dma_mem_region *buff_mem_id;
 };
 
+struct bpool_inf_set {
+	struct bpool_inf *inf;
+	int num_pools;
+};
+
+
 /*
  * BM pool parameters
  */
@@ -233,6 +239,14 @@ struct pp2_app_hif {
 	struct pp2_hif		*hif;
 };
 
+/* Bpool_set, is a set of 1-or-2 bpools (mandatory:short_pkt_pool, optional:long_pkt_pool),
+ * used for a an mtu range.
+ */
+enum pp2_app_bpool_set {
+	PP2_APP_STD_MTU_BPOOL_SET = 0,
+	PP2_APP_JUMBO_MTU_BPOOL_SET = 1,
+	PP2_APP_NUM_BPOOL_SETS
+};
 struct pp2_glb_common_args {
 	struct port_desc	ports_desc[MVAPPS_PP2_MAX_NUM_PORTS]; /* TODO: dynamic_size, as lcl_ports_desc */
 	int			num_pools;
@@ -241,6 +255,7 @@ struct pp2_glb_common_args {
 	struct bpool_desc	**pools_desc;
 	int			multi_buffer_release;
 	struct pp2_app_hif	*app_hif[MVAPPS_PP2_TOTAL_NUM_HIFS]; /* hifs for all local_threads */
+	struct bpool_inf_set	*bpool_set[PP2_APP_NUM_BPOOL_SETS];
 };
 
 
@@ -690,6 +705,7 @@ void app_set_port_enable(struct port_desc *port_desc, int enable);
  * Register common CLI commands (currently show queue and port statistics)
  */
 int app_register_cli_common_cmds(struct glb_common_args *glb_args);
+int pp2_bm_pools_params(struct pp2_glb_common_args *pp2_args, int argc, char *argv[]);
 
 /*
  * Register descriptor CLI commands
