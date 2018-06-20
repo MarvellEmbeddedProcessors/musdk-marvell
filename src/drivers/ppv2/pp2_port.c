@@ -827,8 +827,7 @@ static void pp2_port_rx_non_occupied_set(struct pp2_port *port, struct pp2_rx_qu
 	val |= (rxq->fc_stop_thresh << MVPP2_NONOCCUPIED_THRESH_OFFSET);
 	pp2_reg_write(cpu_slot, MVPP2_RXQ_THRESH_REG, val);
 
-	pr_info("rxq:%d, non_occupied_thresh:%d\n", rxq->id, rxq->fc_stop_thresh);
-
+	pr_info("port:%d, rxq:%d, non_occupied_thresh:%d\n", port->id, rxq->id, rxq->fc_stop_thresh);
 }
 
 /* Set the time delay in usec before Rx interrupt */
@@ -2093,10 +2092,9 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	struct pp2_fc_values  *fc_values = NULL;
 	uintptr_t cpu_slot = port->parent->hw.base[0].va;
 
-
 	if (!ena) {
 		/*TODO*/
-		pr_err("pp2_port_set_tx_pause: disable not yet implemented\n");
+		pr_err("%s: disable not yet implemented\n", __func__);
 		return 0;
 	}
 
@@ -2108,7 +2106,7 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 			u32 tc_pause_rx_mask = params->tc_inqs_mask[i] << port->tc[i].tc_config.first_rxq;
 
 			if (tc_pause_rx_mask & (~tc_rx_mask)) {
-				pr_err("(%s) ppio-%d-%d, tc:%d, tc_inqs_mask:0x%x has non-existent rx_qs\n",
+				pr_err("%s: ppio-%d-%d, tc:%d, tc_inqs_mask:0x%x has non-existent rx_qs\n",
 				__func__, port->parent->id, port->id, i, params->tc_inqs_mask[i]);
 				return -EINVAL;
 			}
@@ -2116,7 +2114,7 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 		}
 		for (; i < PP2_PPIO_MAX_NUM_TCS; i++) {
 			if (params->tc_inqs_mask[i]) {
-				pr_err("(%s) tc:%d, is not defined for this ppio-%d-%d\n", __func__, i,
+				pr_err("%s: tc:%d, is not defined for this ppio-%d-%d\n", __func__, i,
 					port->parent->id, port->id);
 				return -EINVAL;
 			}
@@ -2137,7 +2135,11 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	fc_values = &pp2_fc[i];
 
 	port->rxq_flow_cntrl_mask = param_rxq_mask;
-	pr_info("port:%d, flow_control_mask:0x%x\n", port->id, port->rxq_flow_cntrl_mask);
+	pr_info("%s: port:%d, flow_control_inqs_mask:0x%x\n", __func__, port->id, port->rxq_flow_cntrl_mask);
+	pr_info("%s: port:%d, port_mtu:%d, fc_mtu:%d, rxq_stop:%d, rxq_start:%d, pool_stop:%d, pool_start:%d\n",
+		__func__, port->id, port->port_mtu, fc_values->port_mtu,
+		fc_values->rxq_stop_thresh, fc_values->rxq_start_thresh,
+		fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
 
 	/* Configure rxq threshold */
 	loc_ev_qmask = param_rxq_mask;
@@ -2160,7 +2162,8 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 		if (!qs_mask)
 			continue;
 
-		pr_info("port:%d, cpu_slot:%d, qs_mask:0x%x\n", port->id, cpu_slot_id, qs_mask);
+		pr_info("%s:port:%d, rx_group(=cpu_slot):%d, rx_qs_mask(0x0-0xff):0x%x\n", __func__,
+			port->id, cpu_slot_id, qs_mask);
 
 		/* Configure Group/Subgroup */
 		pp2_port_isr_rx_group_write(port, cpu_slot_id, cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT,
@@ -2175,8 +2178,7 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 
 	/* Enable/Disable RX_FIFO */
 	if (pp2_reg_read(cpu_slot, MVPP2_VER_ID_REG) == MVPP2_VER_PP23) {
-		pr_info("MVPP2_VER_PP23\n");
-		pr_info("musdk: not overriding kernel rx_fifo_size, only enabling\n");
+		pr_info("%s: MVPP2_VER_PP23 : not overriding kernel rx_fifo_size, only enabling\n", __func__);
 		pp2_port_rx_fifo_fc_en(port, ena);
 	}
 
@@ -2190,10 +2192,9 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 
 		bm_pools_mask |= BIT(rxq->bm_pool_id[0]);
 		bm_pools_mask |= BIT(rxq->bm_pool_id[1]);
-		pr_info("rxq:%d bpool0:%d, bpool1:%d\n", rxq->id, rxq->bm_pool_id[0], rxq->bm_pool_id[1]);
 		loc_ev_qmask &= ~(BIT(i));
 	}
-	pr_info("bm_pools_mask:%x\n", bm_pools_mask);
+	pr_info("%s:bm_pools_mask:0x%x\n", __func__, bm_pools_mask);
 	for (i = 0; (bm_pools_mask != 0); i++) {
 
 		if ((bm_pools_mask & BIT(i)) == 0)
