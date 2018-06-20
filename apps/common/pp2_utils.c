@@ -787,9 +787,8 @@ int pp2_bm_pools_params(struct pp2_glb_common_args *pp2_args, int argc, char *ar
 			return -EINVAL;
 		}
 	}
-	printf("buf_inf_type:%d, small_buf_sz:%d, small_buf_num:%d\nlarge_buf_sz:%d, large_buf_num:%d\n",
+	pr_info("buf_inf_type:%d, small_buf_sz:%d, small_buf_num:%d large_buf_sz:%d, large_buf_num:%d\n",
 		buf_inf_type, small_buf_sz, small_buf_num, large_buf_sz, large_buf_num);
-	sleep(3);
 
 	if (buf_inf_type == -1) {
 		printf("target_mtu must be defined\n");
