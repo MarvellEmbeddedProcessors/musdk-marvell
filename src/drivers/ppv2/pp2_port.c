@@ -2152,7 +2152,8 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 		loc_ev_qmask &= ~(BIT(i));
 	}
 	for (cpu_slot_id = 0; cpu_slot_id < PP2_MAX_NUM_USED_INTERRUPTS; cpu_slot_id++) {
-		u32 qs_mask = param_rxq_mask >> (cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT);
+		u32 qs_mask = (param_rxq_mask >> (cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT)) &
+			       MVPP2_ISR_RX_ERR_CAUSE_NONOCC_MASK;
 
 		cpu_slot = port->parent->hw.base[cpu_slot_id].va;
 
