@@ -78,8 +78,8 @@
 #define CLS_APP_KEY_MEM_SIZE_MAX		(PP2_CLS_TBL_MAX_NUM_FIELDS * CLS_APP_STR_SIZE_MAX)
 
 
-#define CLS_APP_BPOOLS_INF			{ {2048, 8192, 0, NULL} }
-#define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
+#define CLS_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
+#define CLS_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
 
 /* Structure containing a map of queues per core */
 struct queue_map {
@@ -246,7 +246,7 @@ static int init_local_modules(struct glob_arg *garg)
 {
 	int				err, port_index;
 	struct bpool_inf		std_inf[] = CLS_APP_BPOOLS_INF;
-	struct bpool_inf		*jumbo_inf = NULL;
+	struct bpool_inf		jumbo_inf[] = CLS_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	int				i = 0;
