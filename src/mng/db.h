@@ -126,6 +126,7 @@ struct nmnicpf {
 	struct nmlf nmlf;			/* will be used for inheritance */
 	int pf_id;
 	u32 guest_id;
+	int initialized;
 	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
 	struct gie_data gie;                        /* GIE */
 	struct pp2_data pp2;                        /* PP2 */

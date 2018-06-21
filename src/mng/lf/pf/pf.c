@@ -1832,6 +1832,8 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	if (ret)
 		pr_err("Failed to configure PF regfile\n");
 
+	nmnicpf->initialized = 1;
+
 	return ret;
 }
 
@@ -2700,7 +2702,8 @@ static int nmnicpf_keep_alive_process(struct nmnicpf *nmnicpf)
 	struct mgmt_notification resp;
 	int ret;
 
-	if (!nmnicpf->profile_data.keep_alive_thresh ||
+	if (!nmnicpf->initialized ||
+	    !nmnicpf->profile_data.keep_alive_thresh ||
 	    (nmnicpf->profile_data.keep_alive_counter++ != nmnicpf->profile_data.keep_alive_thresh))
 		return 0;
 
