@@ -91,6 +91,12 @@ musdk_giu_pkt_echo_SOURCES += ../common/pp2_utils.c
 musdk_giu_pkt_echo_SOURCES += ../common/nmp_guest_utils.c
 musdk_giu_pkt_echo_SOURCES += ../common/giu_utils.c
 musdk_giu_pkt_echo_SOURCES += giu/pkt_echo/pkt_echo.c
+
+bin_PROGRAMS += musdk_agnic_pkt_echo
+musdk_agnic_pkt_echo_SOURCES  = ../common/lib/cli.c
+musdk_agnic_pkt_echo_SOURCES += ../common/mvapp.c
+musdk_agnic_pkt_echo_SOURCES += ../common/utils.c
+musdk_agnic_pkt_echo_SOURCES += giu/agnic_pkt_echo/pkt_echo.c
 endif
 
 if NMP_BUILD
