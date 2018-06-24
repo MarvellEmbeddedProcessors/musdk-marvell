@@ -881,8 +881,10 @@ int sam_session_destroy(struct sam_sa *session)
 		/* submit special descriptor to session invalidate */
 		if (sam_cio_sa_invalidate(cio, session))
 			return -1;
-		/* wait to result */
-		sam_cio_flush(cio);
+
+		if (session->ctr_cio)
+			/* wait to result */
+			sam_cio_flush(cio);
 	} else {
 		sam_session_free(session);
 		SAM_STATS(sam_sa_stats.sa_del++);
