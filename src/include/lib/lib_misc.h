@@ -107,6 +107,12 @@ do {										\
 	u64	res1 = 0;							\
 	int	found = 0;							\
 	char	*tok, *tmp_tok;							\
+										\
+	/* First, check if the string exists in the buffer */			\
+	if (!strstr(buff, _str)) {						\
+		pr_warn("string %s not found in input buff\n", _str);		\
+		break;								\
+	}									\
 	/*Go over the input buffer untile the match str is found. */		\
 	do {									\
 		tok = strsep(&buff, "\n");					\
