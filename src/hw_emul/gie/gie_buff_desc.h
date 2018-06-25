@@ -14,7 +14,6 @@
 #ifndef _GIU_BUFF_DESC_H_
 #define _GIU_BUFF_DESC_H_
 
-#pragma pack(1)
 struct host_tx_desc {
 	/* 0x0 - 0x3
 	 * fields order: msb ... lsb
@@ -42,10 +41,8 @@ struct host_tx_desc {
 
 	/* 0x18 - 0x1F */
 	u64 cookie;
-};
-#pragma pack()
+}  __packed;
 
-#pragma pack(1)
 struct host_rx_desc {
 	/* 0x0 - 0x3
 	 * fields order: msb ... lsb
@@ -74,15 +71,12 @@ struct host_rx_desc {
 
 	/* 0x18 - 0x1F */
 	u64 cookie;
-};
-#pragma pack()
+} __packed;
 
 /* Buffers Pool Descriptor */
-#pragma pack(1)
 struct host_bpool_desc {
 	u64 buff_addr_phys;
 	u64 buff_cookie;
-};
-#pragma pack()
+} __packed;
 
 #endif /* _GIU_BUFF_DESC_H_ */

@@ -22,14 +22,13 @@
 ** - producer_idx_addr: Physical address of the queue producer index.
 ** - len: Number of elements in the queue.
 */
-#pragma pack(1)
 struct q_hw_info {
 	u64	q_addr;
 	u64	consumer_idx_addr;
 	u64	producer_idx_addr;
 	u32	len;
 	u32	res;
-};
+} __packed;
 
 struct pcie_config_mem {
 #define PCIE_CFG_STATUS_DEV_READY	(1 << 0)
@@ -57,7 +56,6 @@ struct pcie_config_mem {
 
 	/* MSI-X table offset at BAR0 */
 	u32	msi_x_tbl_offset;
-};
-#pragma pack()
+} __packed;
 
 #endif /* _HOST_PCI_IF_H_ */

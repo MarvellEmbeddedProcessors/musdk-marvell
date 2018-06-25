@@ -93,7 +93,6 @@ enum ingress_hash_type {
  * mgmt_cmd - Encapsulates all management control commands parameters.
  */
 /* Make sure structure is portable along different systems. */
-#pragma pack(1)
 struct mgmt_cmd_params {
 	union {
 		struct {
@@ -178,8 +177,7 @@ struct mgmt_cmd_params {
 #define AGNIC_MC_PROMISC_DISABLE	(0)
 		u8 mc_promisc;
 	};
-};
-#pragma pack()
+} __packed;
 
 /*
  * mgmt_cmd_resp - Encapsulates the different responses that can be
@@ -187,7 +185,6 @@ struct mgmt_cmd_params {
  * status - Command execution status (0 - Ok, 1 - Fail).
  */
 /* Make sure structure is portable along different systems. */
-#pragma pack(1)
 struct mgmt_cmd_resp {
 #define NOTIF_STATUS_OK	(0)
 #define NOTIF_STATUS_FAIL	(1)
@@ -231,15 +228,13 @@ struct mgmt_cmd_resp {
 			u64 packets;
 		} gp_queue_stats;
 	};
-};
-#pragma pack()
+} __packed;
 
 /*
  * mgmt_notification - Encapsulates the different notifications that can be
  * received from the SNIC.
  */
 /* Make sure structure is portable along different systems. */
-#pragma pack(1)
 struct mgmt_notification {
 	union {
 		/* NC_PF_LINK_CHANGE */
@@ -250,8 +245,7 @@ struct mgmt_notification {
 #define MGMT_NOTIF_KEEP_ALIVE_APP	(0x2)
 		u32 keep_alive;
 	};
-};
-#pragma pack()
+} __packed;
 
 /* Command Descriptor
  * cmd_idx - Command Identifier, this field will be copied to the response
@@ -266,7 +260,6 @@ struct mgmt_notification {
  *     Array of bytes, holding the serialized parameters/response list for a specific command.
  */
 /* Make sure structure is portable along different systems. */
-#pragma pack(1)
 struct cmd_desc {
 #define CMD_ID_ILLEGAL			0
 #define CMD_ID_NOTIFICATION		0xFFFF
@@ -278,8 +271,7 @@ struct cmd_desc {
 	u8 flags;
 
 	u8 data[MGMT_DESC_DATA_LEN];
-};
-#pragma pack()
+} __packed;
 
 /* indicates whether the descriptor is consturcted from multiple ones */
 #define CMD_FLAGS_NUM_EXT_DESC_MASK		0x1F
