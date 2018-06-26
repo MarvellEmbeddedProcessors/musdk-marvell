@@ -1777,6 +1777,23 @@ static int nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
 }
 
 /*
+ *	nmnicpf_accumulate_statistics
+ *
+ *	This function reads the PP2 statistics
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+static int nmnicpf_accumulate_statistics(struct nmnicpf *nmnicpf)
+{
+	struct pp2_ppio_statistics stats;
+
+	return nmnicpf_pp2_accumulate_statistics(nmnicpf, &stats, 0/*no reset*/);
+}
+
+/*
  *	nmnicpf_pf_init_done_command
  */
 static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
@@ -2741,10 +2758,17 @@ static int nmnicpf_maintenance(struct nmlf *nmlf)
 	struct nmnicpf *nmnicpf = (struct nmnicpf *)nmlf;
 	int err;
 
+	/* Check link state (and notify in case of a change) */
 	err = nmnicpf_link_state_check_n_notif(nmnicpf);
 	if (err)
 		return err;
 
+	/* Read statistics */
+	err = nmnicpf_accumulate_statistics(nmnicpf);
+	if (err)
+		return err;
+
+	/* Send keep-alive notification */
 	err = nmnicpf_keep_alive_process(nmnicpf);
 	if (err)
 		return err;

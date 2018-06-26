@@ -288,21 +288,46 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 	return 0;
 }
 
+int nmnicpf_pp2_accumulate_statistics(struct nmnicpf *nmnicpf,
+				      struct pp2_ppio_statistics *stats,
+				      int    reset)
+{
+	struct nmp_pp2_port_desc *pdesc;
+	u32 pcount = 0;
+	int err;
+
+	if (!nmnicpf->pp2.ports_desc)
+		/* no pp2, just return */
+		/* TODO: handle guest mode (i.e. notify guest to
+		 *	 to handle the request)
+		 */
+		return 0;
+
+	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
+	if (!pdesc->ppio)
+		/* PPIO is not initialized (yet), just return */
+		return 0;
+
+	memset(stats, 0, sizeof(struct pp2_ppio_statistics));
+
+	/* Read PP2 statistics */
+	err = pp2_ppio_get_statistics(pdesc->ppio, stats, reset);
+	if (err) {
+		pr_err("Failed to read pp2 statistics (%d)\n", err);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 			       struct mgmt_cmd_params *params,
 			       struct mgmt_cmd_resp *resp_data)
 {
-	struct				 pp2_ppio_statistics stats;
-	u32				 pcount = 0;
-	int				 ret;
-	struct pp2_ppio			*ppio;
+	struct	pp2_ppio_statistics stats;
+	int	ret;
 
-	if (!nmnicpf->pp2.ports_desc)
-		return -ENOTSUP;
-
-	ppio = nmnicpf->pp2.ports_desc[pcount].ppio;
-	memset(&stats, 0, sizeof(struct pp2_ppio_statistics));
-	ret = pp2_ppio_get_statistics(ppio, &stats, params->pf_get_statistics.reset);
+	ret = nmnicpf_pp2_accumulate_statistics(nmnicpf, &stats, params->pf_get_statistics.reset);
 	if (ret)
 		return ret;
 

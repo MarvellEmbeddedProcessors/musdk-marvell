@@ -17,6 +17,9 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 			       struct mgmt_cmd_params *params,
 			       struct mgmt_cmd_resp *resp_data);
+int nmnicpf_pp2_accumulate_statistics(struct nmnicpf *nmnicpf,
+				      struct pp2_ppio_statistics *stats,
+				      int    reset);
 void nmnicpf_pp2_get_mac_addr(struct nmnicpf *nmnicpf, u8 *mac_addr);
 
 int nmnicpf_pp2_cls_table_init(struct nmnicpf *nmnicpf,
