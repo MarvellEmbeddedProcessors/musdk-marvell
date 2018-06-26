@@ -101,12 +101,12 @@ struct mgmt_cmd_params {
 			u16	mtu_override;
 			u16	mru_override;
 			u8	egress_sched; /* enum aos_egress_sched */
-		} pf_init;
+		} __packed pf_init;
 
 		struct {
 			u32	tc_prio;
 			u32	num_queues_per_tc;
-		} pf_egress_tc_add;
+		} __packed pf_egress_tc_add;
 
 		/* Used for BM & Tx queues. */
 		struct {
@@ -116,14 +116,14 @@ struct mgmt_cmd_params {
 			u32	q_wrr_weight;
 			u32	tc_prio; /* irrelevant for BM. */
 			u32	msix_id;
-		} pf_egress_q_add;
+		} __packed pf_egress_q_add;
 
 		struct {
 			u32	tc_prio;
 			u32	num_queues_per_tc;
 			u32	pkt_offset;
 			u8	hash_type; /* enum aos_ingress_hash_type */
-		} pf_ingress_tc_add;
+		} __packed pf_ingress_tc_add;
 
 		struct {
 			u64	q_phys_addr;
@@ -134,35 +134,35 @@ struct mgmt_cmd_params {
 			u32	msix_id;
 			u32	tc_prio;
 			u32	q_buf_size;
-		} pf_ingress_data_q_add;
+		} __packed pf_ingress_data_q_add;
 
 		struct {
 			u8	reset;
-		} pf_get_statistics;
+		} __packed pf_get_statistics;
 
 		struct {
 			u32	mtu;
-		} pf_set_mtu;
+		} __packed pf_set_mtu;
 
 		struct {
 			u8 loopback;
-		} pf_set_loopback;
+		} __packed pf_set_loopback;
 
 		struct {
 			u16 vlan;
-		} pf_vlan;
+		} __packed pf_vlan;
 
 		struct {
 			u8 uc;
 			u8 mc;
-		} pf_flush_addr;
+		} __packed pf_flush_addr;
 
 		struct {
 			u8 out;
 			u8 tc;
 			u8 qid;
 			u8 reset;
-		} pf_q_get_statistics;
+		} __packed pf_q_get_statistics;
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];
@@ -198,7 +198,7 @@ struct mgmt_cmd_resp {
 		struct {
 			u64	q_prod_cons_phys_addr;
 			u64	bpool_q_prod_cons_phys_addr;
-		} q_add_resp;
+		} __packed q_add_resp;
 
 		/* CC_PF_LINK_STATUS */
 		u32 link_status;
@@ -217,16 +217,16 @@ struct mgmt_cmd_resp {
 			u64 tx_packets;
 			u64 tx_unicast_packets;
 			u64 tx_errors;
-		} agnic_stats;
+		} __packed agnic_stats;
 
 		struct {
 			u64 gp_rx_packets;
 			u64 gp_tx_packets;
-		} gp_stats;
+		} __packed gp_stats;
 
 		struct {
 			u64 packets;
-		} gp_queue_stats;
+		} __packed gp_queue_stats;
 	};
 } __packed;
 
