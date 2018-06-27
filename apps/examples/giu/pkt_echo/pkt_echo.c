@@ -950,7 +950,7 @@ static int init_all_modules(void)
 
 	/* NMP initializations */
 	memset(&nmp_params, 0, sizeof(nmp_params));
-	err = nmp_read_cfg_file(garg.cmn_args.nmp_cfg_location, &nmp_params);
+	err = app_read_nmp_cfg_file(garg.cmn_args.nmp_cfg_location, &nmp_params);
 	if (err) {
 		pr_err("NMP preinit failed with error %d\n", err);
 		return -EIO;

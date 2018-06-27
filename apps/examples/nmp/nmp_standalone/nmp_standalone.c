@@ -50,7 +50,7 @@ static int nmp_range_validate(int value, int min, int max)
 	return 0;
 }
 
-static int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
+static int app_read_nmp_cfg_file(char *cfg_file, struct nmp_params *params)
 {
 	u32				 i, j, k, rc;
 	char				 buff[SER_MAX_FILE_SIZE];
@@ -338,7 +338,7 @@ static int init_all_modules(void)
 
 	/* NMP initializations */
 	memset(&nmp_params, 0, sizeof(nmp_params));
-	err = nmp_read_cfg_file(garg.cmn_args.nmp_cfg_location, &nmp_params);
+	err = app_read_nmp_cfg_file(garg.cmn_args.nmp_cfg_location, &nmp_params);
 	if (err) {
 		pr_err("NMP preinit failed with error %d\n", err);
 		return -EIO;

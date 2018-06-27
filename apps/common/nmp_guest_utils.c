@@ -47,7 +47,7 @@ static int nmp_range_validate(int value, int min, int max)
 	return 0;
 }
 
-int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
+int app_read_nmp_cfg_file(char *cfg_file, struct nmp_params *params)
 {
 	u32				 i, j, k, rc;
 	char				 file_name[SER_MAX_FILE_NAME];

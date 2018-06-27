@@ -16,7 +16,7 @@
 /*
  * nmp_guest mode related functions.
  */
-int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params);
+int app_read_nmp_cfg_file(char *cfg_file, struct nmp_params *params);
 int app_guest_utils_build_all_bpools(char *buff, struct nmp_guest_info *guest_info,
 				     struct bpool_desc ***ppools,
 				     struct pp2_glb_common_args *pp2_args,
