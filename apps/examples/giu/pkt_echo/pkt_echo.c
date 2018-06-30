@@ -45,9 +45,9 @@
 #define PKT_ECHO_APP_GIU_TX_Q_SIZE		2048
 #define PKT_ECHO_APP_GIU_BUF_SIZE		2048
 
-#define PKT_ECHO_APP_MAX_BURST_SIZE		((PKT_ECHO_APP_RX_Q_SIZE) >> 1)
+#define PKT_ECHO_APP_MAX_BURST_SIZE		((PKT_ECHO_APP_RX_Q_SIZE) >> 2)
 /* as GIU is the bottleneck, set the burst size to GIU_Q_SIZE / 4 */
-#define PKT_ECHO_APP_DFLT_BURST_SIZE		(PKT_ECHO_APP_GIU_TX_Q_SIZE >> 2)
+#define PKT_ECHO_APP_DFLT_BURST_SIZE		(PKT_ECHO_APP_MAX_BURST_SIZE >> 1)
 
 #define PKT_ECHO_APP_DMA_MEM_SIZE		(80 * 1024 * 1024)
 #define PKT_ECHO_APP_STATS_DFLT_THRESH		1000
@@ -518,7 +518,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 {
 	struct tx_shadow_q	 *shadow_q;
 	int			 shadow_q_size;
-	struct pp2_ppio_desc	 pp2_descs[PKT_ECHO_APP_DFLT_BURST_SIZE]; /* TODO - remove from stack to malloc */
+	struct pp2_ppio_desc	 pp2_descs[PKT_ECHO_APP_MAX_BURST_SIZE]; /* TODO - remove from stack to malloc */
 	struct pp2_lcl_common_args	*pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct lcl_port_desc		*pp2_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
 	struct lcl_giu_port_desc	*giu_port_desc = &(larg->giu_ports_desc[tx_ppio_id]);
@@ -696,7 +696,7 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 {
 	struct giu_tx_shadow_q	 *shadow_q;
 	int			 shadow_q_size;
-	struct pp2_ppio_desc	 pp2_descs[PKT_ECHO_APP_DFLT_BURST_SIZE]; /* TODO - remove from stack to malloc */
+	struct pp2_ppio_desc	 pp2_descs[PKT_ECHO_APP_MAX_BURST_SIZE]; /* TODO - remove from stack to malloc */
 	struct pp2_lcl_common_args	*pp2_args = (struct pp2_lcl_common_args *) larg->cmn_args.plat;
 	struct lcl_port_desc		*pp2_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
 	struct lcl_giu_port_desc	*giu_port_desc = &(larg->giu_ports_desc[rx_ppio_id]);
