@@ -46,6 +46,9 @@
 #define HIA_RDR_REGS_OFFSET		0x800
 #define HIA_RDR_STAT_REG		(HIA_RDR_REGS_OFFSET + 0x3C)
 
+#define SAM_EIP197_FLUE_REGS_OFFS      0xF6000
+#define FLUE_IFC_LUT_0_REG             (SAM_EIP197_FLUE_REGS_OFFS + 0x820)
+
 /* HIA_RDR_y_STAT register */
 #define SAM_RDR_STAT_IRQ_OFFS		0
 #define SAM_RDR_STAT_IRQ_BITS		8
@@ -114,6 +117,43 @@ static inline int sam_uio_get_rings_num(struct sam_uio_pdev_info *pdev_info)
 	pdev_info->hw_rings_num = val32 & SAM_N_RINGS_MASK;
 
 	return pdev_info->hw_rings_num;
+}
+
+/* Input Interface to Look-up Table Mapping Register */
+static inline void sam_uio_lut_cfg(struct sam_uio_pdev_info *pdev, int rings_num)
+{
+	u32 *addr, lut0, lut1, indx, mask;
+	int i;
+
+	addr = (u32 *)(pdev->regs_vbase + FLUE_IFC_LUT_0_REG);
+
+	lut0 = readl((void *) addr);
+	lut1 = readl((void *) addr + 4);
+
+	indx = 0xff;
+	for (i = 0; i < rings_num; i++) {
+		if (pdev->rings_map & (1 << i)) {
+			if (indx == 0xff) {
+				if (i < 4) {
+					mask = 0xff << (i * 8);
+					indx = (lut0 & mask) >> (i * 8);
+				} else {
+					mask = 0xff << ((i - 4) * 8);
+					indx = (lut1 & mask) >> ((i - 4) * 8);
+				}
+			} else if (i < 4) {
+				lut0 &= ~(0xff << (i * 8));
+				lut0 |= (indx << (i * 8));
+			} else {
+				lut1 &= ~(0xff << ((i - 4) * 8));
+				lut1 |= (indx << ((i - 4) * 8));
+			}
+		}
+	}
+
+	/*dev_info(pdev->dev, "%s: writel: %p = 0x%08x\n", __func__, addr, lut0);*/
+	writel(lut0, addr);
+	writel(lut1, addr + 4);
 }
 
 static inline int sam_uio_ring_is_busy(struct sam_uio_ring_info *ring_priv)
@@ -298,6 +338,11 @@ static int sam_uio_probe(struct platform_device *pdev)
 		pdev_info->rings_map |= BIT(idx);
 		pdev_info->uio_num++;
 	}
+
+	/* set same Lookup Table index for all available rings */
+	if (pdev_info->type == HW_EIP197)
+		sam_uio_lut_cfg(pdev_info, rings_num);
+
 	dev_info(dev, "Registered %d uio devices, Rings: free = 0x%x, busy = 0x%x\n",
 		pdev_info->uio_num, pdev_info->rings_map, pdev_info->busy_rings_map);
 
