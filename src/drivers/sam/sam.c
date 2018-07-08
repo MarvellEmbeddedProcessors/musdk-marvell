@@ -180,14 +180,8 @@ static int sam_session_crypto_init(struct sam_sa *session,
 		if (params->cipher_iv)
 			sa_params->Nonce_p = params->cipher_iv;
 		else {
-			/* For IPSec encription direction nonce can be chosen randomly */
-			if (params->proto == SAM_PROTO_IPSEC) {
-				session->nonce = rand();
-				sa_params->Nonce_p = (u8 *)&session->nonce;
-			} else {
-				pr_err("SSLTLS in AES GCM mode requires valid Nonce\n");
-				return -EINVAL;
-			}
+			pr_err("SSLTLS and IPSec in AES GCM mode requires valid Nonce\n");
+			return -EINVAL;
 		}
 	}
 	return 0;
