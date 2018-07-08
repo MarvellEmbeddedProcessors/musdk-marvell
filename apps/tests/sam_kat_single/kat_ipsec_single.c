@@ -106,6 +106,11 @@ static u8 IPSEC_ESP_AES128_CBC_T1_PT[] = { /* "Single block msg" */
 	0x6C, 0x6F, 0x63, 0x6B, 0x20, 0x6D, 0x73, 0x67
 };
 
+static u8 ExampleNonce[] = {
+	0x40, 0xd6, 0xc1, 0xa7
+};
+
+
 static u8 SrcIP4[] = {192, 168, 2, 3};
 static u8 DstIP4[] = {192, 168, 2, 5};
 
@@ -191,7 +196,7 @@ static struct sam_session_params aes_gcm_sa = {
 	.cipher_mode = SAM_CIPHER_GCM, /* cipher mode */
 	.cipher_key = ExampleAESKey,    /* cipher key */
 	.cipher_key_len = sizeof(ExampleAESKey), /* cipher key size (in bytes) */
-	.cipher_iv = NULL,
+	.cipher_iv = ExampleNonce,	/* Nonce - first four bytes of IV */
 	.auth_alg = SAM_AUTH_AES_GCM, /* authentication algorithm */
 	.auth_key = NULL,    /* pointer to authentication key */
 	.auth_key_len = 0,    /* authentication key size (in bytes) */
