@@ -33,8 +33,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <linux/ip.h>
-#include <linux/udp.h>
+#include <signal.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <sys/time.h>
 
 #include "mv_std.h"
 #include "env/mv_sys_dma.h"
@@ -47,13 +49,18 @@
 
 #define SAM_DMA_MEM_SIZE	(1 * 1024 * 1204) /* 1 MBytes */
 
-#define MAX_BUF_SIZE		2048
+#define MAX_BUF_SIZE			2048
+#define NUM_CONCURRENT_REQUESTS		128
+#define NUM_BUFS			(NUM_CONCURRENT_REQUESTS * 2)
+#define MAX_BURST_SIZE			(NUM_CONCURRENT_REQUESTS / 4)
 
-static struct sam_cio *cio_hndl;
-static struct sam_cio *cio_hndl_1;
+static char cio_enc_match[16] = "cio-0:0";
+static char cio_dec_match[16] = "cio-0:1";
+static struct sam_cio *cio_enc;
+static struct sam_cio *cio_dec;
 
-static struct sam_sa  *sa_hndl;
-static struct sam_sa  *sa_hndl_1;
+static struct sam_sa  *sa_enc;
+static struct sam_sa  *sa_dec;
 
 static char *test_names[] = {
 	/* 0 */ "ip4_dtls_aes_cbc_sha1",
@@ -61,10 +68,6 @@ static char *test_names[] = {
 	/* 2 */ "ip4_capwap_dtls_aes_cbc_sha1",
 };
 
-static int test_id;
-static int num_pkts = 1;
-static u32 debug_flags;
-static u32 verbose;
 
 static u8 example_l2_header[] = {
 	0x00, 0x01, 0x01, 0x01, 0x55, 0x66,
@@ -85,10 +88,6 @@ static u8 example_udp_header[] = {
 	0x00, 0x00, 0x00, 0x00
 };
 
-static u8 ExampleNonce[] = {
-	0x40, 0xd6, 0xc1, 0xa7
-};
-
 static u8 example_aes_key[] = {
 	0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
 	0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50
@@ -105,11 +104,32 @@ static u8 aes128_cbc_t1_pt[] = { /* "Single block msg" */
 	0x6C, 0x6F, 0x63, 0x6B, 0x20, 0x6D, 0x73, 0x67
 };
 
-static struct sam_buf_info aes128_t1_buf;
-static u8 expected_data[MAX_BUF_SIZE];
-static u32 expected_data_size;
+static u8 ExampleNonce[] = {
+	0x40, 0xd6, 0xc1, 0xa7
+};
+
+static struct sam_buf_info	input_buf;
+static struct sam_buf_info	output_bufs[NUM_BUFS];
+int				next_out_buf;
+
+static struct sam_cio_ssltls_params  enc_requests[MAX_BURST_SIZE];
+static struct sam_cio_ssltls_params  dec_requests[MAX_BURST_SIZE];
+
+static u8	expected_data[MAX_BUF_SIZE];
+static u32	expected_data_size;
+static u32	total_errors;
+
 static u64 enc_seq = 0x34; /* Default initial sequence number for encrypt */
 static u64 dec_seq = 0x34; /* Default initial sequence number for decrypt */
+static int test_id = 1;
+static int num_pkts = 1;
+static int payload_size = sizeof(aes128_cbc_t1_pt);
+static u32 debug_flags;
+static u32 verbose;
+static int loopback = 1;
+static int num_checked;
+static int num_to_check = 10;
+static bool running;
 static int num_to_print_mod = 1;
 
 static struct sam_session_params dtls_aes_cbc_sha1_sa = {
@@ -151,14 +171,41 @@ static struct sam_session_params dtls_aes_gcm_sa = {
 	.u.ssltls.seq_mask[0] = 0x0,			/* up to 128-bit mask window used with inbound DTLS */
 };
 
-static struct sam_cio_ssltls_params aes128_cbc_t1 = {
-	.sa = NULL,
-	.cookie = (void *)0x12345678,
-	.num_bufs = 1,
-	.src = &aes128_t1_buf,
-	.dst = &aes128_t1_buf,
-	/* all auth fields are zero */
-};
+static void sigint_h(int sig)
+{
+	printf("\nInterrupted by signal #%d\n", sig);
+	running = false;
+	signal(SIGINT, SIG_DFL);
+}
+
+static void print_results(int test, char *test_name, int input_size,
+			int operations, int errors,
+			struct timeval *tv_start, struct timeval *tv_end)
+{
+	u32 usecs, secs, msecs, kpps, mbps;
+
+	secs = tv_end->tv_sec - tv_start->tv_sec;
+	if (tv_end->tv_usec < tv_start->tv_usec) {
+		secs -= 1;
+		usecs = (tv_end->tv_usec + 1000000) - tv_start->tv_usec;
+	} else
+		usecs = tv_end->tv_usec - tv_start->tv_usec;
+
+	msecs = secs * 1000 + usecs / 1000;
+
+	kpps = operations / msecs;
+	mbps = kpps * input_size * 8 / 1000;
+
+	printf("\n");
+	if (errors == 0)
+		printf("%2d. %-32s: passed %d times * %d Bytes        - %u.%03u secs\n",
+			test, test_name, operations, input_size, secs, usecs / 1000);
+	else
+		printf("%2d. %-32s: failed %d of %d times * %d Bytes  - %u.%03u secs\n",
+			test, test_name, errors, operations, input_size, secs, usecs / 1000);
+
+	printf("    %32s: %u Kpps, %u Mbps\n", "Rate ", kpps, mbps);
+}
 
 static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir dir)
 {
@@ -219,7 +266,7 @@ static int poll_results(struct sam_cio *cio, struct sam_cio_op_result *result,
 }
 
 /* Build UDP packet and return total packet length */
-static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info)
+static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info, int payload_size)
 {
 	int offset, l3_offset, l4_offset;
 	u8 *src_buf = buf_info->vaddr;
@@ -238,9 +285,14 @@ static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info)
 	memcpy(src_buf + offset, example_udp_header, sizeof(example_udp_header));
 	offset += sizeof(example_udp_header);
 
-	memcpy(src_buf + offset, aes128_cbc_t1_pt, sizeof(aes128_cbc_t1_pt));
-	offset += sizeof(aes128_cbc_t1_pt);
+	/* Copy payload */
+	while (payload_size) {
+		int copy_size = min_t(int, payload_size, sizeof(aes128_cbc_t1_pt));
 
+		memcpy(src_buf + offset, aes128_cbc_t1_pt, copy_size);
+		offset += copy_size;
+		payload_size -= copy_size;
+	}
 	iph = (struct iphdr *)(src_buf + l3_offset);
 
 	/* Set IP length */
@@ -265,47 +317,78 @@ static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info)
 	return offset;
 }
 
-static int check_udp_pkt_after_encrypt(struct sam_buf_info *buf_info, struct sam_cio_op_result *result)
+static int check_results_after_encrypt(struct sam_cio_op_result *results, int idx, int num)
 {
-	if (result->status != SAM_CIO_OK) {
-		printf("%s: Error! result->status = %d\n",
-			__func__, result->status);
-		return -EFAULT;
+	int i, err = 0;
+	struct sam_buf_info *buf_info;
+
+	for (i = 0; i < num; i++) {
+		if (results[i].status != SAM_CIO_OK) {
+			printf("%s: Error! result->status = %d\n",
+				__func__, results[i].status);
+			err++;
+			continue;
+		}
+		buf_info = (struct sam_buf_info *)results[i].cookie;
+		if (results[i].out_len > buf_info->len) {
+			printf("%s: result->out_len  = %u > buf_info->len = %u\n",
+				__func__, results[i].out_len, buf_info->len);
+			err++;
+			continue;
+		}
+		if (verbose && (((idx + i) % num_to_print_mod) == 0)) {
+			printf("\nAfter encryption #%u: %d bytes\n", idx + i, results[i].out_len);
+			mv_mem_dump(buf_info->vaddr, results[i].out_len);
+		}
 	}
-	if (result->out_len > buf_info->len) {
-		printf("%s: result->out_len  = %u > buf_info->len = %u\n",
-			__func__, result->out_len, buf_info->len);
-		return -EINVAL;
-	}
-	return 0;
+	return err;
 }
 
-static int check_udp_pkt_after_decrypt(struct sam_buf_info *buf_info, struct sam_cio_op_result *result)
+static int check_results_after_decrypt(struct sam_cio_op_result *results, int idx, int num)
 {
-	int err = 0;
+	int i, to_print, new_err = 0, err = 0;
+	struct sam_buf_info *buf_info;
 
-	if (result->status != SAM_CIO_OK) {
-		printf("%s: Error! result->status = %d\n",
-			__func__, result->status);
-		return -EFAULT;
-	}
-	if (result->out_len > buf_info->len) {
-		printf("%s: result->out_len  = %u > buf_info->len = %u\n",
-			__func__, result->out_len, buf_info->len);
-		return -EINVAL;
-	}
-	/* Compare output and expected data */
-	if (result->out_len != expected_data_size) {
-		printf("Error: out_len = %u != expected_data_size = %u\n",
-			result->out_len, expected_data_size);
-		err = -EINVAL;
-	} else if (memcmp(buf_info->vaddr, expected_data, result->out_len)) {
-		printf("Error: out_data != expected_data\n");
+	for (i = 0; i < num; i++) {
+		to_print = (verbose && (((idx + i) % num_to_print_mod) == 0));
+		if (results[i].status != SAM_CIO_OK) {
+			printf("%s: Error! result->status = %d\n",
+				__func__, results[i].status);
+			err++;
+			continue;
+		}
+		buf_info = (struct sam_buf_info *)results[i].cookie;
 
-		printf("\nExpected data: %d bytes\n", expected_data_size);
-		mv_mem_dump(expected_data, expected_data_size);
-
-		err = -EFAULT;
+		if (results[i].out_len > buf_info->len) {
+			printf("%s: result->out_len  = %u > buf_info->len = %u\n",
+				__func__, results[i].out_len, buf_info->len);
+			results[i].out_len = buf_info->len;
+			err++;
+			continue;
+		}
+		if (results[i].out_len != expected_data_size) {
+			printf("Error: out_len = %u != expected_data_size = %u\n",
+				results[i].out_len, expected_data_size);
+			new_err = 1;
+		}
+		if (num_checked < num_to_check) {
+			if (memcmp(buf_info->vaddr, expected_data, results[i].out_len)) {
+				/* Compare output and expected data */
+				printf("Error: out_data != expected_data\n");
+				new_err = 1;
+			}
+			num_checked++;
+		}
+		if (to_print || new_err) {
+			printf("\nAfter decryption #%u: %d bytes\n", idx + i, results[i].out_len);
+			mv_mem_dump(buf_info->vaddr, results[i].out_len);
+		}
+		if (new_err) {
+			new_err = 0;
+			err++;
+			printf("\nExpected data: %d bytes\n", expected_data_size);
+			mv_mem_dump(expected_data, expected_data_size);
+		}
 	}
 	return err;
 }
@@ -319,11 +402,15 @@ static void usage(char *progname)
 	printf("\t-t   <number>    - Test ID (default: %d)\n", test_id);
 	for (id = 0; id < ARRAY_SIZE(test_names); id++)
 		printf("\t                 %d - %s\n", id, test_names[id]);
+	printf("\t-s   <number>    - Payload size (default: %u)\n",
+		(unsigned)sizeof(aes128_cbc_t1_pt));
 	printf("\t-n   <number>    - Number of packets (default: %d)\n", num_pkts);
+	printf("\t-c   <number>    - Number of packets to check (default: %d)\n", num_to_check);
 	printf("\t-seq <enc> <dec> - Initial sequence id (default: 0x%lx 0x%lx)\n", enc_seq, dec_seq);
 	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x%x)\n",
-					SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
+				     SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
 	printf("\t-v [num]         - Enable print of plain and cipher data each <num> packets\n");
+	printf("\t--enc            - Do encrypt only (default: enc+dec)\n");
 }
 
 static int parse_args(int argc, char *argv[])
@@ -348,6 +435,9 @@ static int parse_args(int argc, char *argv[])
 			}
 			test_id = atoi(argv[i + 1]);
 			i += 2;
+		} else if (strcmp(argv[i], "--enc") == 0) {
+			loopback = 0;
+			i += 1;
 		} else if (strcmp(argv[i], "-n") == 0) {
 			if (argc < (i + 2)) {
 				pr_err("Invalid number of arguments!\n");
@@ -375,6 +465,28 @@ static int parse_args(int argc, char *argv[])
 			enc_seq = atoi(argv[i + 1]);
 			dec_seq = atoi(argv[i + 2]);
 			i += 3;
+		} else if (strcmp(argv[i], "-s") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			payload_size = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-c") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			num_to_check = atoi(argv[i + 1]);
+			i += 2;
 		} else if (strcmp(argv[i], "-f") == 0) {
 			int scanned;
 
@@ -414,12 +526,15 @@ static int parse_args(int argc, char *argv[])
 	}
 
 	/* Print all inputs arguments */
-	printf("Test ID         : %d\n", test_id);
-	printf("Test name       : %s\n", test_names[test_id]);
-	printf("Debug flags     : 0x%x\n", debug_flags);
-	printf("SeqId           : 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
+	printf("Test ID                 : %d\n", test_id);
+	printf("Test name               : %s\n", test_names[test_id]);
+	printf("Payload size            : %d\n", payload_size);
+	printf("Number of packets       : %d\n", num_pkts);
+	printf("Number to check         : %u\n", num_to_check);
+	printf("Debug flags             : 0x%x\n", debug_flags);
+	printf("Initial sequence numbers: 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
 	if (verbose)
-		printf("Print data each : %u packets\n", num_to_print_mod);
+		printf("Print data each         : %u packets\n", num_to_print_mod);
 
 	return 0;
 }
@@ -428,10 +543,11 @@ int main(int argc, char **argv)
 {
 	struct sam_init_params init_params;
 	struct sam_cio_params cio_params;
-	struct sam_cio_op_result result;
-	u16 num;
-	int rc = 0;
-	int input_size, i;
+	struct sam_cio_op_result results[NUM_CONCURRENT_REQUESTS];
+	u16 num, num_done;
+	int num_bufs, pkt_size, to_enc, rc = 0;
+	int i, enc_in_progress, dec_in_progress, not_completed;
+	struct timeval tv_start, tv_end;
 
 	rc = parse_args(argc, argv);
 	if (rc)
@@ -443,148 +559,240 @@ int main(int argc, char **argv)
 		return rc;
 	}
 
-	aes128_t1_buf.len = MAX_BUF_SIZE;
-	aes128_t1_buf.vaddr = mv_sys_dma_mem_alloc(aes128_t1_buf.len, 16);
-	aes128_t1_buf.paddr = mv_sys_dma_mem_virt2phys(aes128_t1_buf.vaddr);
-
-	if (!aes128_t1_buf.vaddr || !aes128_t1_buf.paddr) {
-		pr_err("Can't allocate DMA buffer of %d bytes\n", aes128_t1_buf.len);
+	input_buf.len = MAX_BUF_SIZE;
+	input_buf.vaddr = mv_sys_dma_mem_alloc(input_buf.len, 16);
+	input_buf.paddr = mv_sys_dma_mem_virt2phys(input_buf.vaddr);
+	if (!input_buf.vaddr || !input_buf.paddr) {
+		pr_err("Can't allocate DMA buffer of %d bytes\n", input_buf.len);
 		goto exit;
 	}
 
 	pr_info("DMA Buffer %d bytes allocated: vaddr = %p, paddr = %p\n",
-		aes128_t1_buf.len, aes128_t1_buf.vaddr, (void *)aes128_t1_buf.paddr);
+		input_buf.len, input_buf.vaddr, (void *)input_buf.paddr);
+
+	num_bufs = min(num_pkts, NUM_BUFS);
+	for (i = 0; i < num_bufs; i++) {
+		output_bufs[i].len = MAX_BUF_SIZE;
+		output_bufs[i].vaddr = mv_sys_dma_mem_alloc(output_bufs[i].len, 16);
+		output_bufs[i].paddr = mv_sys_dma_mem_virt2phys(output_bufs[i].vaddr);
+		if (!output_bufs[i].vaddr || !output_bufs[i].paddr) {
+			pr_err("Can't allocate DMA buffer of %d bytes\n", output_bufs[i].len);
+			goto exit;
+		}
+		memset(output_bufs[i].vaddr, 0, MAX_BUF_SIZE);
+	}
 
 	init_params.max_num_sessions = 64;
 	sam_init(&init_params);
 
-	cio_params.match = "cio-0:0";
-	cio_params.size = 32;
+	cio_params.match = cio_enc_match;
+	cio_params.size = NUM_CONCURRENT_REQUESTS;
 
-	if (sam_cio_init(&cio_params, &cio_hndl)) {
-		printf("%s: initialization failed\n", argv[0]);
-		return 1;
-	}
-
-	cio_params.match = "cio-0:1";
-	cio_params.size = 32;
-
-	if (sam_cio_init(&cio_params, &cio_hndl_1)) {
+	if (sam_cio_init(&cio_params, &cio_enc)) {
 		printf("%s: initialization failed\n", argv[0]);
 		return 1;
 	}
 	sam_set_debug_flags(debug_flags);
 
-	if (create_session(&sa_hndl, test_names[test_id], SAM_DIR_ENCRYPT))
+	if (create_session(&sa_enc, test_names[test_id], SAM_DIR_ENCRYPT))
 		goto exit;
 
-	pr_info("%s encrypt session created on %s\n", test_names[test_id], "cio-0:0");
+	pr_info("%s encrypt session created\n", test_names[test_id]);
 
-	if (create_session(&sa_hndl_1, test_names[test_id], SAM_DIR_DECRYPT))
+	if (loopback) {
+		cio_params.match = cio_dec_match;
+		cio_params.size = NUM_CONCURRENT_REQUESTS;
+
+		if (sam_cio_init(&cio_params, &cio_dec)) {
+			printf("%s: initialization failed\n", argv[0]);
+			return 1;
+		}
+	}
+	if (create_session(&sa_dec, test_names[test_id], SAM_DIR_DECRYPT))
 		goto exit;
 
-	pr_info("%s decrypt session created on %s\n", test_names[test_id], "cio-0:1");
-
-	memset(aes128_t1_buf.vaddr, 0, aes128_t1_buf.len);
+	pr_info("%s decrypt session created\n", test_names[test_id]);
 
 	/* Build input packet for encryption */
-	input_size = build_udp_pkt_for_encrypt(&aes128_t1_buf);
+	pkt_size = build_udp_pkt_for_encrypt(&input_buf, payload_size);
 
 	if (verbose) {
-		printf("\nInput buffer    : %d bytes\n", input_size);
-		mv_mem_dump(aes128_t1_buf.vaddr, input_size);
+		printf("\nInput packet    : %d bytes\n", pkt_size);
+		mv_mem_dump(input_buf.vaddr, pkt_size);
 	}
-	for (i = 0; i < num_pkts; i++) {
-		/* Do encrypt */
-		num = 1;
-		aes128_cbc_t1.sa = sa_hndl;
-		aes128_cbc_t1.l3_offset = sizeof(example_l2_header);
-		aes128_cbc_t1.pkt_size = input_size;
-		aes128_cbc_t1.type = SAM_DTLS_DATA;
 
-		rc = sam_cio_enq_ssltls(cio_hndl, &aes128_cbc_t1, &num);
-		if ((rc != 0) || (num != 1)) {
-			printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
-				__func__, num, rc);
-			goto exit;
-		}
-		/* polling for result */
-		rc = poll_results(cio_hndl, &result, &num);
-		if ((rc != 0) || (num != 1)) {
-			pr_err("No result: rc = %d, num = %d\n", rc, num);
-			goto exit;
-		}
-		if (check_udp_pkt_after_encrypt(&aes128_t1_buf, &result))
-			goto exit;
+	/* Prepare requests */
+	for (i = 0; i < MAX_BURST_SIZE; i++) {
+		enc_requests[i].sa = sa_enc;
+		enc_requests[i].l3_offset = sizeof(example_l2_header);
+		enc_requests[i].pkt_size = pkt_size;
+		enc_requests[i].num_bufs = 1;
+		enc_requests[i].src = &input_buf;
+		enc_requests[i].dst = NULL;
+		enc_requests[i].cookie = NULL;
 
-		if (verbose && ((i % num_to_print_mod) == 0)) {
-			printf("\nAfter encryption #%u: %d bytes\n", i, result.out_len);
-			mv_mem_dump(aes128_t1_buf.vaddr, result.out_len);
+		dec_requests[i].sa = sa_dec;
+		dec_requests[i].l3_offset = sizeof(example_l2_header);
+		dec_requests[i].pkt_size = 0;
+		dec_requests[i].num_bufs = 1;
+		dec_requests[i].src = NULL;
+		dec_requests[i].dst = NULL;
+		dec_requests[i].cookie = NULL;
+	}
+
+	to_enc = num_pkts;
+	not_completed = num_pkts;
+	enc_in_progress = dec_in_progress = 0;
+	i = 0;
+
+	signal(SIGINT, sigint_h);
+	running = true;
+
+	gettimeofday(&tv_start, NULL);
+	while (running && (not_completed > 0)) {
+		/* Enqueue encrypt */
+		num = min(to_enc, MAX_BURST_SIZE);
+		if (num && (enc_in_progress + num) < NUM_CONCURRENT_REQUESTS) {
+			for (i = 0; i < num; i++) {
+				enc_requests[i].cookie = &output_bufs[next_out_buf];
+				enc_requests[i].dst = &output_bufs[next_out_buf];
+				next_out_buf++;
+				if (next_out_buf == NUM_BUFS)
+					next_out_buf = 0;
+			}
+			num_done = num;
+			rc = sam_cio_enq_ssltls(cio_enc, enc_requests, &num_done);
+			if (rc != 0) {
+				printf("Encrypt enqueue failed. num = %d, num_done = %d, rc = %d\n",
+					num, num_done, rc);
+				goto exit;
+			}
+			to_enc -= num_done;
+			enc_in_progress += num_done;
+			if (num > num_done) {
+				pr_warn("Unexpected case for Enc enq: num %u > num_done %u\n",
+					num, num_done);
+			}
 		}
 
-		/* Do decrypt */
-		num = 1;
-		aes128_cbc_t1.sa = sa_hndl_1;
-		aes128_cbc_t1.pkt_size = result.out_len;
+		/* dequeue encrypt */
+		num = min(enc_in_progress, MAX_BURST_SIZE);
+		if (num && (dec_in_progress + num) < NUM_CONCURRENT_REQUESTS) {
+			rc = sam_cio_deq(cio_enc, results, &num);
+			if (rc) {
+				printf("Encryption dequeue failed: enc_in_progress = %d, num = %d, rc = %d\n",
+					dec_in_progress, num, rc);
+				goto exit;
+			}
+			total_errors += check_results_after_encrypt(results,
+					num_pkts - to_enc - enc_in_progress, num);
+			enc_in_progress -= num;
+		} else
+			num = 0;
 
-		rc = sam_cio_enq_ssltls(cio_hndl_1, &aes128_cbc_t1, &num);
-		if ((rc != 0) || (num != 1)) {
-			printf("%s: sam_cio_enq failed. num = %d, rc = %d\n",
-				__func__, num, rc);
-			goto exit;
+		if (!loopback) {
+			not_completed -= num;
+			continue;
 		}
-		/* polling for result */
-		rc = poll_results(cio_hndl_1, &result, &num);
-		if ((rc != 0) || (num != 1)) {
-			pr_err("No result: rc = %d, num = %d\n", rc, num);
-			goto exit;
+		/* For loopback - do decryption too */
+		/* Enqueue decrypt */
+		if (num) {
+			for (i = 0; i < num; i++) {
+				dec_requests[i].cookie = results[i].cookie;
+				dec_requests[i].src = results[i].cookie;
+				dec_requests[i].dst = results[i].cookie;
+				dec_requests[i].pkt_size = results[i].out_len;
+			}
+			num_done = num;
+			rc = sam_cio_enq_ssltls(cio_dec, dec_requests, &num_done);
+			if (rc) {
+				printf("Decrypt enqueue failed. num = %d, num_done = %d, rc = %d\n",
+					num, num_done, rc);
+				goto exit;
+			}
+			dec_in_progress += num_done;
+			if (num > num_done) {
+				pr_warn("Unexpected case for Dec enq: num %u > num_done %u\n",
+					num, num_done);
+			}
 		}
-		if (check_udp_pkt_after_decrypt(&aes128_t1_buf, &result))
-			goto exit;
+		/* dequeue decrypt */
+		num = min(dec_in_progress, MAX_BURST_SIZE);
+		if (num) {
+			rc = sam_cio_deq(cio_dec, results, &num);
+			if (rc) {
+				printf("Decryption dequeue failed: dec_in_progress = %d, num = %d, rc = %d\n",
+					dec_in_progress, num, rc);
+				goto exit;
+			}
 
-		if (verbose && ((i % num_to_print_mod) == 0)) {
-			printf("\nAfter decryption #%u: %d bytes\n", i, result.out_len);
-			mv_mem_dump(aes128_t1_buf.vaddr, result.out_len);
+			total_errors += check_results_after_decrypt(results,
+					num_pkts - not_completed, num);
+
+			dec_in_progress -= num;
+			not_completed -= num;
 		}
 	}
-	printf("\n%s: success\n\n", argv[0]);
+	gettimeofday(&tv_end, NULL);
+
+	if (not_completed) {
+		pr_warn("%u operations are not completed\n", not_completed);
+		/*
+		 * sam_cio_show_regs(cio_enc, SAM_CIO_REGS_ALL);
+		 * if (cio_dec)
+		 *	sam_cio_show_regs(cio_dec, SAM_CIO_REGS_ALL);
+		 */
+	}
+	print_results(test_id, test_names[test_id], pkt_size,
+			num_pkts - not_completed, total_errors, &tv_start, &tv_end);
+
+	if (!total_errors)
+		printf("\n%s: success\n\n", argv[0]);
 
 exit:
-	if (sa_hndl) {
-		if (sam_session_destroy(sa_hndl))
+	if (sa_enc) {
+		if (sam_session_destroy(sa_enc))
 			printf("Can't destroy sa_hndl session");
 	}
-	if (sam_cio_flush(cio_hndl))
-		printf("%s: sam_cio_flush failed for cio_hndl\n", argv[0]);
+	if (sam_cio_flush(cio_enc))
+		printf("%s: sam_cio_flush failed for cio_enc\n", argv[0]);
 
-	if (sa_hndl_1) {
-		if (sam_session_destroy(sa_hndl_1))
+	if (sa_dec) {
+		if (sam_session_destroy(sa_dec))
 			printf("Can't destroy sa_hndl_1 session");
 	}
-	if (sam_cio_flush(cio_hndl_1))
-		printf("%s: sam_cio_flush failed for cio_hndl_1\n", argv[0]);
+	if (cio_dec) {
+		if (sam_cio_flush(cio_dec))
+			printf("%s: sam_cio_flush failed for cio_dec\n", argv[0]);
+	}
+	if (input_buf.vaddr)
+		mv_sys_dma_mem_free(input_buf.vaddr);
 
-	if (aes128_t1_buf.vaddr)
-		mv_sys_dma_mem_free(aes128_t1_buf.vaddr);
+	for (i = 0; i < NUM_BUFS; i++) {
+		if (output_bufs[i].vaddr)
+			mv_sys_dma_mem_free(output_bufs[i].vaddr);
+	}
 
-	app_sam_show_cio_stats(cio_hndl, "encrypt", 1);
-	app_sam_show_cio_stats(cio_hndl_1, "decrypt", 1);
+	app_sam_show_cio_stats(cio_enc, cio_enc_match, 1);
+	if (cio_dec && (cio_dec != cio_enc))
+		app_sam_show_cio_stats(cio_dec, cio_dec_match, 1);
 	app_sam_show_stats(1);
 
-	if (cio_hndl) {
-		if (sam_cio_deinit(cio_hndl)) {
+	if (cio_dec) {
+		if (sam_cio_deinit(cio_dec)) {
 			printf("%s: un-initialization failed\n", argv[0]);
 			return 1;
 		}
 	}
-
-	if (cio_hndl_1) {
-		if (sam_cio_deinit(cio_hndl_1)) {
+	if (cio_enc) {
+		if (sam_cio_deinit(cio_enc)) {
 			printf("%s: un-initialization failed\n", argv[0]);
 			return 1;
 		}
 	}
 	sam_deinit();
+
+	mv_sys_dma_mem_destroy();
 
 	return 0;
 }
