@@ -12,6 +12,7 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "drivers/mv_giu_gpio.h"
+#include "drivers/mqa_def.h"
 #include "mng/lf/mng_cmd_desc.h"
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
@@ -233,20 +234,23 @@ static int nmnicpf_regfile_register_queue(struct nmnicpf *nmnicpf,
 					  void **file_map)
 {
 	struct giu_queue reg_giu_queue;
+	struct mqa_queue_info queue_info;
 
 	if (giu_gpio_q_p == NULL) {
 		pr_err("Failed to get queue params from DB (Queue: %d)\n", (int)giu_gpio_q_p->lcl_q.q_id);
 		return -ENODEV;
 	}
 
-	reg_giu_queue.hw_id		= giu_gpio_q_p->lcl_q.q_id;
+	mqa_queue_get_info(giu_gpio_q_p->lcl_q.q, &queue_info);
+
+	reg_giu_queue.hw_id		= queue_info.q_id;
 	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
-	reg_giu_queue.size		= giu_gpio_q_p->lcl_q.len;
+	reg_giu_queue.size		= queue_info.len;
 	reg_giu_queue.type		= q_type;
-	reg_giu_queue.phy_base_offset	= (phys_addr_t)(giu_gpio_q_p->lcl_q.q->phy_base_addr - qs_phys_base);
+	reg_giu_queue.phy_base_offset	= (phys_addr_t)(queue_info.phy_base_addr - qs_phys_base);
 	/* Prod/Cons addr are Virtual. Needs to translate them to offset */
-	reg_giu_queue.prod_offset = get_queue_prod_phys_addr(nmnicpf, giu_gpio_q_p->lcl_q.q_id) - ptrs_phys_base;
-	reg_giu_queue.cons_offset = get_queue_cons_phys_addr(nmnicpf, giu_gpio_q_p->lcl_q.q_id) - ptrs_phys_base;
+	reg_giu_queue.prod_offset = (phys_addr_t)(queue_info.prod_phys - ptrs_phys_base);
+	reg_giu_queue.cons_offset = (phys_addr_t)(queue_info.cons_phys - ptrs_phys_base);
 
 	/* Note: buff_size & payload_offset are union and they are set
 	 *	 acoording to the Q type.
@@ -883,6 +887,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	int ret = 0;
 
 	struct mqa_queue_params params;
+	struct mqa_queue_info queue_info;
 	struct mqa_q *lcl_cmd_queue_p    = NULL;
 	struct mqa_q *lcl_notify_queue_p = NULL;
 	struct mqa_q *rem_cmd_queue_p    = NULL;
@@ -906,7 +911,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	params.idx  = local_cmd_queue;
 	params.len  = LOCAL_CMD_QUEUE_SIZE;
 	params.size = sizeof(struct cmd_desc);
-	params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
+	params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
 	params.prio = 0;
 
 	ret = mqa_queue_create(nmnicpf->mqa, &(params), &(lcl_cmd_queue_p));
@@ -931,7 +936,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	params.idx   = local_notify_queue;
 	params.len   = LOCAL_NOTIFY_QUEUE_SIZE;
 	params.size  = sizeof(struct cmd_desc);
-	params.attr  = LOCAL_QUEUE | INGRESS_QUEUE;
+	params.attr  = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
 	params.prio  = 0;
 
 	ret = mqa_queue_create(nmnicpf->mqa, &(params), &(lcl_notify_queue_p));
@@ -1006,7 +1011,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 		; /* Do Nothing. Wait till state it's updated */
 
 	/* Set remote index mode to MQA */
-	nmnicpf->mqa->remote_index_location = pcie_cfg->remote_index_location;
+	mqa_set_remote_index_mode(nmnicpf->mqa, pcie_cfg->remote_index_location);
 
 	/* Set remote index mode to GIE */
 	gie_set_remote_index_mode(pcie_cfg->remote_index_location);
@@ -1031,7 +1036,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	params.idx             = remote_cmd_queue;
 	params.len             = pcie_cfg->cmd_q.len;
 	params.size            = sizeof(struct cmd_desc);
-	params.attr            = REMOTE_QUEUE | EGRESS_QUEUE;
+	params.attr            = MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS;
 	params.prio            = 0;
 	params.remote_phy_addr = (void *)pcie_cfg->cmd_q.q_addr;
 	params.cons_phys       = (void *)(pcie_cfg->cmd_q.consumer_idx_addr + nmnicpf->map.host_map.phys_addr);
@@ -1047,9 +1052,10 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	}
 
 	/* Update PCI BAR0 with producer address (Entry index in notification table) */
-	pcie_cfg->cmd_q.producer_idx_addr = (u64)(rem_cmd_queue_p->prod_phys - qnpt_phys) / sizeof(u32);
-	if (!nmnicpf->mqa->remote_index_location)
-		pcie_cfg->cmd_q.consumer_idx_addr = (u64)(rem_cmd_queue_p->cons_phys - qnct_phys) / sizeof(u32);
+	mqa_queue_get_info(rem_cmd_queue_p, &queue_info);
+	pcie_cfg->cmd_q.producer_idx_addr = (u64)(queue_info.prod_phys - qnpt_phys) / sizeof(u32);
+	if (!pcie_cfg->remote_index_location)
+		pcie_cfg->cmd_q.consumer_idx_addr = (u64)(queue_info.cons_phys - qnct_phys) / sizeof(u32);
 
 	nmnicpf->mng_data.host_mng_ctrl.cmd_queue = (struct mqa_q *)rem_cmd_queue_p;
 
@@ -1069,7 +1075,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	params.idx             = remote_notify_queue;
 	params.len             = pcie_cfg->notif_q.len;
 	params.size            = sizeof(struct cmd_desc);
-	params.attr            = REMOTE_QUEUE | INGRESS_QUEUE;
+	params.attr            = MQA_QUEUE_REMOTE | MQA_QUEUE_INGRESS;
 	params.prio            = 0;
 	params.remote_phy_addr = (void *)pcie_cfg->notif_q.q_addr;
 	params.prod_phys       = (void *)(pcie_cfg->notif_q.producer_idx_addr + nmnicpf->map.host_map.phys_addr);
@@ -1090,9 +1096,10 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	}
 
 	/* Update PCI BAR0 with consumer address (Entry index in notification table) */
-	pcie_cfg->notif_q.consumer_idx_addr = (u64)(rem_notify_queue_p->cons_phys - qnct_phys) / sizeof(u32);
-	if (!nmnicpf->mqa->remote_index_location)
-		pcie_cfg->notif_q.producer_idx_addr = (u64)(rem_notify_queue_p->prod_phys - qnpt_phys) / sizeof(u32);
+	mqa_queue_get_info(rem_notify_queue_p, &queue_info);
+	pcie_cfg->notif_q.consumer_idx_addr = (u64)(queue_info.cons_phys - qnct_phys) / sizeof(u32);
+	if (!pcie_cfg->remote_index_location)
+		pcie_cfg->notif_q.producer_idx_addr = (u64)(queue_info.prod_phys - qnpt_phys) / sizeof(u32);
 
 	nmnicpf->mng_data.host_mng_ctrl.notify_queue = (struct mqa_q *)rem_notify_queue_p;
 
@@ -1265,8 +1272,8 @@ static int nmnicpf_local_queue_terminate(struct nmnicpf *nmnicpf)
  */
 static int nmnicpf_mng_chn_terminate(struct nmnicpf *nmnicpf)
 {
-	int local_cmd_queue, local_notify_queue;
-	int remote_cmd_queue, remote_notify_queue;
+	u32 local_cmd_queue, local_notify_queue;
+	u32 remote_cmd_queue, remote_notify_queue;
 	int ret = 0;
 
 	struct mqa_q *lcl_cmd_queue_p    = nmnicpf->mng_data.lcl_mng_ctrl.cmd_queue;
@@ -1275,7 +1282,7 @@ static int nmnicpf_mng_chn_terminate(struct nmnicpf *nmnicpf)
 	struct mqa_q *rem_notify_queue_p = nmnicpf->mng_data.host_mng_ctrl.notify_queue;
 
 	if (lcl_cmd_queue_p) {
-		local_cmd_queue = lcl_cmd_queue_p->q_id;
+		mqa_queue_get_id(lcl_cmd_queue_p, &local_cmd_queue);
 		ret = mqa_queue_destroy(nmnicpf->mqa, lcl_cmd_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free Local Cmd Q %d in DB\n", local_cmd_queue);
@@ -1287,7 +1294,7 @@ static int nmnicpf_mng_chn_terminate(struct nmnicpf *nmnicpf)
 	}
 
 	if (lcl_notify_queue_p) {
-		local_notify_queue = lcl_notify_queue_p->q_id;
+		mqa_queue_get_id(lcl_notify_queue_p, &local_notify_queue);
 		ret = mqa_queue_destroy(nmnicpf->mqa, lcl_notify_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free Local Notify Q %d in DB\n", local_notify_queue);
@@ -1299,7 +1306,7 @@ static int nmnicpf_mng_chn_terminate(struct nmnicpf *nmnicpf)
 	}
 
 	if (rem_cmd_queue_p) {
-		remote_cmd_queue = rem_cmd_queue_p->q_id;
+		mqa_queue_get_id(rem_cmd_queue_p, &remote_cmd_queue);
 		ret = mqa_queue_destroy(nmnicpf->mqa, rem_cmd_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free remote Cmd Q %d in DB\n", remote_cmd_queue);
@@ -1311,7 +1318,7 @@ static int nmnicpf_mng_chn_terminate(struct nmnicpf *nmnicpf)
 	}
 
 	if (rem_notify_queue_p) {
-		remote_notify_queue = rem_notify_queue_p->q_id;
+		mqa_queue_get_id(rem_notify_queue_p, &remote_notify_queue);
 		ret = mqa_queue_destroy(nmnicpf->mqa, rem_notify_queue_p);
 		if (ret < 0)
 			pr_err("Failed to free Remote Notify Q %d in DB\n", remote_notify_queue);

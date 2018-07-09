@@ -24,8 +24,6 @@ struct gie_data {
 struct gie_params {
 	u64 gct_base;
 	u64 gpt_base;
-	u64 gncs_base;
-	u64 gnps_base;
 
 	/* MSI phys/virt register base */
 	u64 msi_regs_phys;

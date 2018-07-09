@@ -9,25 +9,20 @@
 #define _MQA_INTERNAL_H
 
 #include "drivers/mv_mqa.h"
+#include "drivers/mqa_def.h"
 
 #define MQA_REGION_MAX			(16)	/** Max number of regions in MQA tables */
 #define MQA_REGION_FREE			(-1)
 
 #define MQA_REGION_INIT_COUNT	(0)
 
-/* MQA Queue attributes */
-#define EGRESS_QUEUE    (0 << 0)
-#define INGRESS_QUEUE   (1 << 0)
-#define LOCAL_QUEUE     (0 << 1)
-#define REMOTE_QUEUE    (1 << 1)
-
 /* MQA Queue attributes definitions */
-#define EGRESS_INGRESS_QUEUE_BIT_FIELD_ATTR	(EGRESS_QUEUE | INGRESS_QUEUE)
-#define LOCAL_REMOTE_QUEUE_BIT_FIELD_ATTR	(LOCAL_QUEUE | REMOTE_QUEUE)
+#define EGRESS_MQA_QUEUE_INGRESS_BIT_FIELD_ATTR	(MQA_QUEUE_EGRESS | MQA_QUEUE_INGRESS)
+#define LOCAL_MQA_QUEUE_REMOTE_BIT_FIELD_ATTR	(MQA_QUEUE_LOCAL | MQA_QUEUE_REMOTE)
 
 /* MQA Queue attributes checking status */
-#define IS_QUEUE_INGRESS(x)	(((x) & EGRESS_INGRESS_QUEUE_BIT_FIELD_ATTR) == INGRESS_QUEUE)
-#define IS_QUEUE_LOCAL(x)	(((x) & LOCAL_REMOTE_QUEUE_BIT_FIELD_ATTR) == LOCAL_QUEUE)
+#define IS_QUEUE_INGRESS(x)	(((x) & EGRESS_MQA_QUEUE_INGRESS_BIT_FIELD_ATTR) == MQA_QUEUE_INGRESS)
+#define IS_QUEUE_LOCAL(x)	(((x) & LOCAL_MQA_QUEUE_REMOTE_BIT_FIELD_ATTR) == MQA_QUEUE_LOCAL)
 
 /**
  * MQA Tables Global Definition
@@ -51,77 +46,6 @@ struct mqa {
 	u32 remote_index_location;
 };
 
-
-/**
- * MQA Queue Definition
- */
-
-/** MQA extended queue parameters */
-struct mqa_queue_ext {
-	u32 msi_x_id;		/** MSI-X interrupt Id */
-	u32 bm_queue[MQA_BM_QUEUE_ARRAY];
-
-};
-
-/** MQA common queue parameters  */
-struct mqa_queue {
-
-	u64 ring_phy_addr;	/** Ring physical base address */
-	u64 ring_virt_addr;	/** Ring virtual base address - relevant for local queues */
-	u64 prod_phys;		/** Queue producer physical address */
-	u64 prod_virt;		/** Queue producer virtual address */
-	u64 cons_phys;		/** Queue consumer physical address */
-	u64 cons_virt;		/** Queue consumer virtual address */
-	u64 host_remap;		/** Remap address in case the queue is on host side */
-	u32 ring_size;		/** Ring size */
-	u32 entry_size;		/** Ring element size */
-	u32 queue_prio;		/** queue priority */
-#define MQA_QFLAGS_COPY_BUF	(1 << 0) /** copy the queue payload */
-	u32 flags;		/** queue flags */
-
-	struct mqa_queue_ext queue_ext;
-};
-
-
-/**
- * MQA Tables Definition
- */
-
-
-/** MQA QPT entry parameters */
-struct mqa_queue_qpt_spec {
-	u64 reserved;
-};
-
-struct mqa_qpt_entry {
-	struct mqa_queue common;	/** Queue common parameters */
-	struct mqa_queue_qpt_spec spec;	/** QPT Queue specific parameters */
-
-};
-
-/** MQA QCT entry parameters */
-struct mqa_queue_qct_spec {
-	u32 dest_queue_id;		/** Queue desstination */
-};
-
-struct mqa_qct_entry {
-	struct mqa_queue common;	/** Queue common parameters */
-	struct mqa_queue_qct_spec spec;	/** QPT Queue specific parameters */
-
-};
-
-/** MQA GNPT entry parameters */
-struct mqa_qnpt_entry {
-	u32 producer_index;		/** Queue producer index */
-
-};
-
-/** MQA GNCT entry parameters */
-struct mqa_qnct_entry {
-	u32 consumer_index;		/** Queue consumer index */
-
-};
-
 /** MQA Table entry parameters */
 struct mqa_table_entry {
 
@@ -132,12 +56,6 @@ struct mqa_table_entry {
 	struct mqa_queue_qct_spec	qct;
 
 };
-
-#define MQA_QPT_ENTRY_SIZE	(sizeof(struct mqa_qpt_entry))
-#define MQA_QCT_ENTRY_SIZE	(sizeof(struct mqa_qct_entry))
-#define MQA_QNPT_ENTRY_SIZE	(sizeof(struct mqa_qnpt_entry))
-#define MQA_QNCT_ENTRY_SIZE	(sizeof(struct mqa_qnct_entry))
-
 
 /**
  * MQA Region definition

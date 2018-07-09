@@ -10,7 +10,7 @@
 #include "std_internal.h"
 #include "hw_emul/gie.h"
 #include "env/trace/trc_pf.h"
-#include "drivers/mqa/mqa_internal.h"
+#include "drivers/mqa_def.h"
 #include "gie_buff_desc.h"
 
 /* MUSDK includes */
@@ -45,8 +45,6 @@ struct gie_regfile {
 	u32	status;
 	u64	gct_base;
 	u64	gpt_base;
-	u64	gncs_base;
-	u64	gnps_base;
 
 	/* MSI-X table base */
 	u64	msix_base;
@@ -431,8 +429,6 @@ int gie_init(struct gie_params *gie_params, struct gie **gie)
 
 	gie_regs->gct_base	= gie_params->gct_base;
 	gie_regs->gpt_base	= gie_params->gpt_base;
-	gie_regs->gncs_base	= gie_params->gncs_base;
-	gie_regs->gnps_base	= gie_params->gnps_base;
 	/* Set MSI registers (for sending MSI messages) Phy/Virt addresses */
 	gie_regs->msi_regs_phys	= gie_params->msi_regs_phys;
 	gie_regs->msi_regs_virt	= gie_params->msi_regs_virt;

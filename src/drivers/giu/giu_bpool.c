@@ -10,7 +10,6 @@
 #include "drivers/mv_mqa_queue.h"
 #include "drivers/mv_giu_gpio_init.h"
 #include "drivers/mv_giu_bpool.h"
-#include "drivers/mqa/mqa_internal.h"
 #include "hw_emul/gie.h"
 #include "giu_queue_topology.h"
 #include "giu_internal.h"
@@ -51,7 +50,7 @@ int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **
 			params.idx  = giu_gpio_q_p->lcl_q.q_id;
 			params.len  = giu_gpio_q_p->lcl_q.len;
 			params.size = gie_get_desc_size(BUFF_DESC);
-			params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
+			params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
 
 			ret = mqa_queue_create(init_params->mqa, &params, &(giu_gpio_q_p->lcl_q.q));
 			if (ret < 0) {
@@ -87,7 +86,7 @@ int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **
 			params.idx             = giu_gpio_q_p->rem_q.q_id;
 			params.len             = giu_gpio_q_p->rem_q.len;
 			params.size            = giu_gpio_q_p->rem_q.size;
-			params.attr            = (u32)(REMOTE_QUEUE | EGRESS_QUEUE);
+			params.attr            = (u32)(MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS);
 			params.remote_phy_addr = (void *)giu_gpio_q_p->rem_q.q_base_pa;
 			params.cons_phys       = (void *)giu_gpio_q_p->rem_q.cons_base_pa;
 			params.cons_virt       = giu_gpio_q_p->rem_q.cons_base_va;

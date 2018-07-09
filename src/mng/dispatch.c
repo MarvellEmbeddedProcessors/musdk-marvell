@@ -15,19 +15,16 @@
 #include "db.h"
 #include "dispatch.h"
 
-#define q_inc_idx(q, idx)	q_inc_idx_val(q, idx, 1)
-#define q_inc_idx_val(q, idx, val)	((idx + val) & (q->len - 1))
-#define q_rd_idx(idx)		(readl_relaxed((u32 *)idx))
-#define q_wr_idx(idx, val)	(writel_relaxed(val, (u32 *)idx))
-#define q_rd_cons(q)		q_rd_idx(q->cons_virt)
-#define q_rd_prod(q)		q_rd_idx(q->prod_virt)
-#define q_wr_cons(q, val)	q_wr_idx(q->cons_virt, val)
-#define q_wr_prod(q, val)	q_wr_idx(q->prod_virt, val)
+#define q_inc_idx_val(info, idx, val) mqa_queue_inc_idx_val(info, idx, val)
+#define q_inc_idx(info, idx)	q_inc_idx_val(info, idx, 1)
+#define q_rd_cons(info)		mqa_queue_rd_cons(info)
+#define q_rd_prod(info)		mqa_queue_rd_prod(info)
+#define q_wr_cons(info, val)	mqa_queue_wr_cons(info, val)
+#define q_wr_prod(info, val)	mqa_queue_wr_prod(info, val)
 
-#define q_full(q, p, c)		(((p + 1) & (q->len - 1)) == c)
-#define q_empty(p, c)		(p == c)
-#define q_occupancy(q, p, c)	((p - c + q->len) & (q->len - 1))
-#define q_space(q, p, c)	(q->len - q_occupancy(q, p, c) - 1)
+#define q_full(info, p, c)	mqa_queue_is_full(info, p, c)
+#define q_empty(info, p, c)	mqa_queue_is_empty(info, p, c)
+#define q_space(info, p, c)	mqa_queue_space(info, p, c)
 
 #define MSG_WAS_RECV	1
 #define MSG_Q_IS_EMPTY	0
@@ -254,8 +251,8 @@ int nmdisp_deregister_client(struct nmdisp *nmdisp_p, u8 client, u8 id)
 
 	for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
 		q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
-		q->cmd_q->q_id    = 0;
-		q->notify_q->q_id = 0;
+		q->cmd_q = NULL;
+		q->notify_q = NULL;
 	}
 
 	return 0;
@@ -313,7 +310,7 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 void nmdisp_dispatch_dump(struct nmdisp *nmdisp_p)
 {
 	u32 client_idx;
-	u32 q_idx;
+	u32 q_idx, cmd_q_id, notify_q_id;
 	struct nmdisp_client *client_p;
 	struct nmdisp_q_pair_params *q;
 
@@ -330,9 +327,9 @@ void nmdisp_dispatch_dump(struct nmdisp *nmdisp_p)
 
 			if (q->cmd_q == NULL)
 				continue;
-
-			pr_info("	q_idx = %d, cmd %d, notify %d\n",
-					q_idx, q->cmd_q->q_id, q->notify_q->q_id);
+			mqa_queue_get_id(q->cmd_q, &cmd_q_id);
+			mqa_queue_get_id(q->notify_q, &notify_q_id);
+			pr_info("	q_idx = %d, cmd %d, notify %d\n", q_idx, cmd_q_id, notify_q_id);
 		}
 	}
 }
@@ -386,8 +383,7 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 				if (ret < 0)
 					return ret;
 
-				pr_debug("recv: client idx %d q_idx %d cmd_q %d\n",
-						client_idx, q_idx, q->cmd_q->q_id);
+				pr_debug("recv: client idx %d q_idx %d\n", client_idx, q_idx);
 				pr_debug("      src_client %d src_id %d dst_client %d dst_id %d\n",
 						msg.src_client, msg.src_id, msg.dst_client, msg.dst_id);
 
@@ -412,7 +408,7 @@ int nmdisp_dispatch(struct nmdisp *nmdisp_p)
 }
 
 static inline int nmdisp_msg_recv_ext_descs(struct nmdisp *nmdisp,
-					    struct mqa_q *q,
+					    struct mqa_queue_info *queue_info,
 					    struct nmdisp_msg *msg,
 					    u32 *cons_idx,
 					    u8 num_ext_descs,
@@ -434,27 +430,27 @@ static inline int nmdisp_msg_recv_ext_descs(struct nmdisp *nmdisp,
 	 * So in order to keep the non-wrap code the same, we first copy the descs from the beginning of
 	 * the ring.
 	 */
-	if (unlikely((*cons_idx + (num_ext_descs + 1)) > q->len)) {
-		u8 num_ext_desc_post_wrap = (*cons_idx + num_ext_descs + 1) - q->len;
+	if (unlikely((*cons_idx + (num_ext_descs + 1)) > queue_info->len)) {
+		u8 num_ext_desc_post_wrap = (*cons_idx + num_ext_descs + 1) - queue_info->len;
 		u16 len_post_wrap = sizeof(struct cmd_desc) * num_ext_desc_post_wrap;
 
 		/* Update len "pre wrap" */
 		len -= len_post_wrap;
 		/* copy post wrap part */
-		memcpy(&((u8 *)msg->msg)[len], q->virt_base_addr, len_post_wrap);
+		memcpy(&((u8 *)msg->msg)[len], queue_info->virt_base_addr, len_post_wrap);
 		msg->msg_len += len_post_wrap;
 	}
 
 	memcpy(msg->msg, recv_desc->data, len);
 	msg->msg_len += len;
 exit:
-	*cons_idx = q_inc_idx_val(q, *cons_idx, 1 + num_ext_descs);
+	*cons_idx = q_inc_idx_val(queue_info, *cons_idx, 1 + num_ext_descs);
 
 	return ret;
 }
 
 static inline int nmdisp_msg_recv_sg(struct nmdisp *nmdisp,
-				     struct mqa_q *q,
+				     struct mqa_queue_info *queue_info,
 				     struct nmdisp_msg *msg,
 				     u32 *cons_idx,
 				     u8 buf_pos,
@@ -463,7 +459,7 @@ static inline int nmdisp_msg_recv_sg(struct nmdisp *nmdisp,
 	int ret = MSG_WAS_RECV, skip_copy = false;
 	u32 prod_idx;
 
-	prod_idx = q_rd_prod(q);
+	prod_idx = q_rd_prod(queue_info);
 
 	/* This is a S/G message. Need to loop the descs until either one of the following:
 	 * 1. buff-pos is LAST - S/G completion
@@ -490,15 +486,15 @@ static inline int nmdisp_msg_recv_sg(struct nmdisp *nmdisp,
 			memcpy(&((u8 *)msg->msg)[msg->msg_len], recv_desc->data, sizeof(recv_desc->data));
 			msg->msg_len += sizeof(recv_desc->data);
 		}
-		*cons_idx = q_inc_idx(q, *cons_idx);
+		*cons_idx = q_inc_idx(queue_info, *cons_idx);
 		if (buf_pos == CMD_FLAG_BUF_POS_LAST)
 			break;
-		recv_desc = ((struct cmd_desc *)q->virt_base_addr) + *cons_idx;
+		recv_desc = ((struct cmd_desc *)queue_info->virt_base_addr) + *cons_idx;
 		buf_pos = CMD_FLAGS_BUF_POS_GET(recv_desc->flags);
 		if ((first_cmd_idx != recv_desc->cmd_idx) ||
 		    ((buf_pos ==  CMD_FLAG_BUF_POS_SINGLE) ||  (buf_pos == CMD_FLAG_BUF_POS_EXT_BUF)) ||
 		    (CMD_FLAGS_NUM_EXT_DESC_GET(recv_desc->flags) != 0) ||
-		    (q_empty(prod_idx, *cons_idx))) {
+		    (q_empty(queue_info, prod_idx, *cons_idx))) {
 			return -1;
 		}
 	}
@@ -526,19 +522,22 @@ static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp
 	u8 num_ext_descs, buf_pos;
 	u32 cons_idx, prod_idx;
 	int ret = MSG_WAS_RECV;
+	struct mqa_queue_info queue_info;
 
-	cons_idx = q_rd_cons(q);
-	prod_idx = q_rd_prod(q);
+	mqa_queue_get_info(q, &queue_info);
+
+	cons_idx = q_rd_cons(&queue_info);
+	prod_idx = q_rd_prod(&queue_info);
 
 	/* Memory barrier */
 	rmb();
 
 	/* Check for pending message */
-	if (q_empty(prod_idx, cons_idx))
+	if (q_empty(&queue_info, prod_idx, cons_idx))
 		return MSG_Q_IS_EMPTY;
 
 	/* Place message */
-	recv_desc = ((struct cmd_desc *)q->virt_base_addr) + cons_idx;
+	recv_desc = ((struct cmd_desc *)queue_info.virt_base_addr) + cons_idx;
 
 	msg->ext = 1;
 	msg->resp_required = !CMD_FLAGS_NO_RESP_GET(recv_desc->flags);
@@ -552,25 +551,25 @@ static int nmdisp_msg_recv(struct nmdisp *nmdisp, struct mqa_q *q, struct nmdisp
 	num_ext_descs = CMD_FLAGS_NUM_EXT_DESC_GET(recv_desc->flags);
 	buf_pos = CMD_FLAGS_BUF_POS_GET(recv_desc->flags);
 	if (num_ext_descs) {
-		ret = nmdisp_msg_recv_ext_descs(nmdisp, q, msg, &cons_idx, num_ext_descs, recv_desc);
+		ret = nmdisp_msg_recv_ext_descs(nmdisp, &queue_info, msg, &cons_idx, num_ext_descs, recv_desc);
 	} else if (buf_pos == CMD_FLAG_BUF_POS_FIRST_MID) {
-		ret = nmdisp_msg_recv_sg(nmdisp, q, msg, &cons_idx, buf_pos, recv_desc);
+		ret = nmdisp_msg_recv_sg(nmdisp, &queue_info, msg, &cons_idx, buf_pos, recv_desc);
 	} else if (buf_pos == CMD_FLAG_BUF_POS_EXT_BUF) {
 		pr_err("No support for external buffer\n");
-		cons_idx = q_inc_idx(q, cons_idx);
+		cons_idx = q_inc_idx(&queue_info, cons_idx);
 		ret = -1;
 	} else {
 		/* Single desc */
 		memcpy(msg->msg, recv_desc->data, sizeof(recv_desc->data));
 		msg->msg_len += sizeof(recv_desc->data);
-		cons_idx = q_inc_idx(q, cons_idx);
+		cons_idx = q_inc_idx(&queue_info, cons_idx);
 	}
 
 	/* Memory barrier */
 	wmb();
 
 	/* Increament queue consumer */
-	q_wr_cons(q, cons_idx);
+	q_wr_cons(&queue_info, cons_idx);
 
 	return ret;
 }
@@ -617,7 +616,7 @@ int nmdisp_send_msg(struct nmdisp *nmdisp, u8 qid, struct nmdisp_msg *msg)
 	return 0;
 }
 
-static inline int nmdisp_msg_transmit_ext_descs(struct mqa_q *q,
+static inline int nmdisp_msg_transmit_ext_descs(struct mqa_queue_info *queue_info,
 						struct nmdisp_msg *nmdisp_msg,
 						u32 *prod_idx,
 						u8 free_descs,
@@ -645,8 +644,8 @@ static inline int nmdisp_msg_transmit_ext_descs(struct mqa_q *q,
 	 * So in order to keep the non-wrap code the same, we first copy the descs from the beginning of
 	 * the ring.
 	 */
-	if (unlikely((*prod_idx + (num_ext_descs + 1)) > q->len)) {
-		u8 num_ext_desc_post_wrap = (*prod_idx + num_ext_descs + 1) - q->len;
+	if (unlikely((*prod_idx + (num_ext_descs + 1)) > queue_info->len)) {
+		u8 num_ext_desc_post_wrap = (*prod_idx + num_ext_descs + 1) - queue_info->len;
 		u16 len_pre_wrap = (num_ext_descs - num_ext_desc_post_wrap) * sizeof(struct cmd_desc) +
 				   MGMT_DESC_DATA_LEN;
 		u16 len_post_wrap = nmdisp_msg->msg_len - len_pre_wrap;
@@ -654,16 +653,16 @@ static inline int nmdisp_msg_transmit_ext_descs(struct mqa_q *q,
 		/* Update len "pre wrap" */
 		nmdisp_msg->msg_len = len_pre_wrap;
 		/* copy post wrap part */
-		memcpy(q->virt_base_addr, &((u8 *)nmdisp_msg->msg)[nmdisp_msg->msg_len], len_post_wrap);
+		memcpy(queue_info->virt_base_addr, &((u8 *)nmdisp_msg->msg)[nmdisp_msg->msg_len], len_post_wrap);
 	}
 
 	memcpy(trans_desc->data, nmdisp_msg->msg, nmdisp_msg->msg_len);
-	*prod_idx = q_inc_idx_val(q, *prod_idx, (1 + num_ext_descs));
+	*prod_idx = q_inc_idx_val(queue_info, *prod_idx, (1 + num_ext_descs));
 
 	return 0;
 }
 
-static inline int nmdisp_msg_transmit_sg(struct mqa_q *q,
+static inline int nmdisp_msg_transmit_sg(struct mqa_queue_info *queue_info,
 					 struct nmdisp_msg *nmdisp_msg,
 					 u32 *prod_idx,
 					 u8 free_descs,
@@ -693,12 +692,12 @@ static inline int nmdisp_msg_transmit_sg(struct mqa_q *q,
 	CMD_FLAGS_BUF_POS_SET(first_desc->flags, CMD_FLAG_BUF_POS_FIRST_MID);
 
 	do {
-		trans_desc = ((struct cmd_desc *)q->virt_base_addr) + *prod_idx;
+		trans_desc = ((struct cmd_desc *)queue_info->virt_base_addr) + *prod_idx;
 		memcpy(trans_desc, first_desc, 8);
 		num_to_copy = min(MGMT_DESC_DATA_LEN, nmdisp_msg->msg_len - data_pos);
 		memcpy(trans_desc->data, nmdisp_msg->msg + data_pos, num_to_copy);
 		data_pos += num_to_copy;
-		*prod_idx = q_inc_idx(q, *prod_idx);
+		*prod_idx = q_inc_idx(queue_info, *prod_idx);
 	} while (data_pos < nmdisp_msg->msg_len);
 
 	CMD_FLAGS_BUF_POS_SET(trans_desc->flags, CMD_FLAG_BUF_POS_LAST);
@@ -726,19 +725,22 @@ int nmdisp_msg_transmit(struct mqa_q *q, int ext_desc_support, struct nmdisp_msg
 	u32 prod_idx;
 	u8 free_descs;
 	int ret;
+	struct mqa_queue_info queue_info;
 
-	cons_idx = q_rd_cons(q);
-	prod_idx = q_rd_prod(q);
+	mqa_queue_get_info(q, &queue_info);
+
+	cons_idx = q_rd_cons(&queue_info);
+	prod_idx = q_rd_prod(&queue_info);
 
 	/* Memory barrier */
 	rmb();
 
 	/* Check for free space */
-	if (q_full(q, prod_idx, cons_idx))
+	if (q_full(&queue_info, prod_idx, cons_idx))
 		return 0;
 
 	/* Place message */
-	trans_desc = ((struct cmd_desc *)q->virt_base_addr) + prod_idx;
+	trans_desc = ((struct cmd_desc *)queue_info.virt_base_addr) + prod_idx;
 	trans_desc->cmd_idx = nmdisp_msg->indx;
 /*	trans_desc->app_code =*/
 	trans_desc->cmd_code = nmdisp_msg->code;
@@ -749,28 +751,28 @@ int nmdisp_msg_transmit(struct mqa_q *q, int ext_desc_support, struct nmdisp_msg
 	if (nmdisp_msg->msg_len > MGMT_DESC_DATA_LEN) {
 		/* S/G */
 		/* Calculate number of free descriptors */
-		free_descs = q_space(q, prod_idx, cons_idx);
+		free_descs = q_space(&queue_info, prod_idx, cons_idx);
 
 		if (ext_desc_support) {
-			ret = nmdisp_msg_transmit_ext_descs(q, nmdisp_msg, &prod_idx, free_descs, trans_desc);
+			ret = nmdisp_msg_transmit_ext_descs(&queue_info, nmdisp_msg, &prod_idx, free_descs, trans_desc);
 			if (ret)
 				return ret;
 		} else {
-			ret = nmdisp_msg_transmit_sg(q, nmdisp_msg, &prod_idx, free_descs, trans_desc);
+			ret = nmdisp_msg_transmit_sg(&queue_info, nmdisp_msg, &prod_idx, free_descs, trans_desc);
 			if (ret)
 				return ret;
 		}
 	} else {
 		/* Single desc */
 		memcpy(trans_desc->data, nmdisp_msg->msg, nmdisp_msg->msg_len);
-		prod_idx = q_inc_idx(q, prod_idx);
+		prod_idx = q_inc_idx(&queue_info, prod_idx);
 	}
 
 	/* Memory barrier */
 	wmb();
 
 	/* Increament queue producer */
-	q_wr_prod(q, prod_idx);
+	q_wr_prod(&queue_info, prod_idx);
 
 	return 0;
 }

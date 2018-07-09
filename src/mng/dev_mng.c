@@ -221,6 +221,7 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 static int dev_mng_init_gie(struct nmp *nmp)
 {
 	struct gie_params gie_pars;
+	struct mqa_info mqa_info;
 	char dma_name[16];
 	int ret;
 
@@ -228,10 +229,9 @@ static int dev_mng_init_gie(struct nmp *nmp)
 	pr_info("Initializing GIU devices\n");
 
 	/* Mgmt GIE */
-	gie_pars.gct_base = (u64)nmp->nmnicpf.mqa->qct_base;
-	gie_pars.gpt_base = (u64)nmp->nmnicpf.mqa->qpt_base;
-	gie_pars.gncs_base = (u64)nmp->nmnicpf.mqa->qnct_base;
-	gie_pars.gnps_base = (u64)nmp->nmnicpf.mqa->qnpt_base;
+	mqa_get_info(nmp->nmnicpf.mqa, &mqa_info);
+	gie_pars.gct_base = (u64)mqa_info.qct_va;
+	gie_pars.gpt_base = (u64)mqa_info.qpt_va;
 	gie_pars.msi_regs_phys = (u64)nmp->nmnicpf.map.msi_regs.phys_addr;
 	gie_pars.msi_regs_virt = (u64)nmp->nmnicpf.map.msi_regs.virt_addr;
 

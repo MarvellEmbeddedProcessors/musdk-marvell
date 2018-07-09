@@ -10,7 +10,6 @@
 #include "std_internal.h"
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
-#include "drivers/mqa/mqa_internal.h"
 #include "drivers/mv_giu_gpio_init.h"
 #include "hw_emul/gie.h"
 #include "giu_queue_topology.h"
@@ -52,18 +51,20 @@ int giu_queue_remove(struct mqa *mqa, struct mqa_q *q,
 					 enum queue_type queue_type, void *giu_handle)
 {
 	int ret = 0;
+	u32 qid;
 
 	pr_debug("Remove queue %d (type %d)\n", q->q_id, queue_type);
 
+	mqa_queue_get_id(q, &qid);
 	if (giu_handle) {
 		/* Un-register Q from GIU */
 		if (queue_type == LOCAL_BM_QUEUE ||
 		    queue_type == HOST_BM_QUEUE)
-			ret = gie_remove_bm_queue(giu_handle, q->q_id);
+			ret = gie_remove_bm_queue(giu_handle, qid);
 		else
-			ret = gie_remove_queue(giu_handle, q->q_id);
+			ret = gie_remove_queue(giu_handle, qid);
 		if (ret)
-			pr_err("Failed to remove queue Idx %x from GIU\n", q->q_id);
+			pr_err("Failed to remove queue Idx %x from GIU\n", qid);
 	}
 
 	/* For local queue: destroy the queue (as it was allocated by the NIC */
@@ -72,13 +73,13 @@ int giu_queue_remove(struct mqa *mqa, struct mqa_q *q,
 	    queue_type == LOCAL_BM_QUEUE) {
 		ret = mqa_queue_destroy(mqa, q);
 		if (ret)
-			pr_err("Failed to free queue Idx %x in DB\n", q->q_id);
+			pr_err("Failed to free queue Idx %x in DB\n", qid);
 	}
 
 	/* Free the MQA resource */
-	ret = mqa_queue_free(mqa, q->q_id);
+	ret = mqa_queue_free(mqa, qid);
 	if (ret)
-		pr_err("Failed to free queue Idx %x in MQA\n", q->q_id);
+		pr_err("Failed to free queue Idx %x in MQA\n", qid);
 
 	return ret;
 }

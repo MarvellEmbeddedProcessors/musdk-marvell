@@ -51,7 +51,7 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 	params.idx  = cmd_queue;
 	params.len  = CMD_QUEUE_SIZE;
 	params.size = sizeof(struct cmd_desc);
-	params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
+	params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
 	params.prio = 0;
 
 	ret = mqa_queue_create(nmcstm->mqa, &params, &cmd_queue_p);
@@ -76,7 +76,7 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 	params.idx   = notify_queue;
 	params.len   = CMD_QUEUE_SIZE;
 	params.size  = sizeof(struct cmd_desc);
-	params.attr  = LOCAL_QUEUE | INGRESS_QUEUE;
+	params.attr  = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
 	params.prio  = 0;
 
 	ret = mqa_queue_create(nmcstm->mqa, &params, &notify_queue_p);
@@ -144,32 +144,32 @@ exit_error:
  */
 static int nmcstm_mng_chn_terminate(struct nmcstm *nmcstm)
 {
-	int cmd_queue, notify_queue;
+	u32 qid;
 	int ret = 0;
 
 	struct mqa_q *cmd_queue_p    = nmcstm->mng_ctrl.cmd_queue;
 	struct mqa_q *notify_queue_p = nmcstm->mng_ctrl.notify_queue;
 
 	if (cmd_queue_p) {
-		cmd_queue = cmd_queue_p->q_id;
+		mqa_queue_get_id(cmd_queue_p, &qid);
 		ret = mqa_queue_destroy(nmcstm->mqa, cmd_queue_p);
 		if (ret < 0)
-			pr_err("Failed to free Cmd Q %d in DB\n", cmd_queue);
-		ret = mqa_queue_free(nmcstm->mqa, cmd_queue);
+			pr_err("Failed to free Cmd Q %d in DB\n", qid);
+		ret = mqa_queue_free(nmcstm->mqa, qid);
 		if (ret < 0)
-			pr_err("Failed to free Cmd Q %d in MQA\n", cmd_queue);
+			pr_err("Failed to free Cmd Q %d in MQA\n", qid);
 
 		kfree(cmd_queue_p);
 	}
 
 	if (notify_queue_p) {
-		notify_queue = notify_queue_p->q_id;
+		mqa_queue_get_id(notify_queue_p, &qid);
 		ret = mqa_queue_destroy(nmcstm->mqa, notify_queue_p);
 		if (ret < 0)
-			pr_err("Failed to free Notify Q %d in DB\n", notify_queue);
-		ret = mqa_queue_free(nmcstm->mqa, notify_queue);
+			pr_err("Failed to free Notify Q %d in DB\n", qid);
+		ret = mqa_queue_free(nmcstm->mqa, qid);
 		if (ret < 0)
-			pr_err("Failed to free Notify Q %d in MQA\n", notify_queue);
+			pr_err("Failed to free Notify Q %d in MQA\n", qid);
 
 		kfree(notify_queue_p);
 	}
@@ -327,6 +327,7 @@ int nmcstm_serialize(struct nmcstm *nmcstm, char *buff, u32 size)
 	u32				poffset;
 	struct mv_sys_dma_mem_info	mem_info;
 	char				dev_name[100];
+	struct mqa_queue_info		queue_info;
 
 	mem_info.name = dev_name;
 	mv_sys_dma_mem_get_info(&mem_info);
@@ -335,24 +336,26 @@ int nmcstm_serialize(struct nmcstm *nmcstm, char *buff, u32 size)
 	json_print_to_buffer(buff, size, 2, "\"lf-master-id\": %u,\n", nmcstm->pf_id);
 	json_print_to_buffer(buff, size, 2, "\"max-msg-len\": %u,\n", MAX_MSG_DATA_LEN);
 
+	mqa_queue_get_info(nmcstm->mng_ctrl.cmd_queue, &queue_info);
 	json_print_to_buffer(buff, size, 2, "\"cmd-queue\": {\n");
-	poffset = (phys_addr_t)nmcstm->mng_ctrl.cmd_queue->phy_base_addr - mem_info.paddr;
+	poffset = (phys_addr_t)queue_info.phy_base_addr - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"base-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)nmcstm->mng_ctrl.cmd_queue->cons_phys - mem_info.paddr;
+	poffset = (phys_addr_t)queue_info.cons_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"cons-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)nmcstm->mng_ctrl.cmd_queue->prod_phys - mem_info.paddr;
+	poffset = (phys_addr_t)queue_info.prod_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"prod-poffset\": %#x,\n", poffset);
-	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", nmcstm->mng_ctrl.cmd_queue->len);
+	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", queue_info.len);
 	json_print_to_buffer(buff, size, 2, "},\n");
 
+	mqa_queue_get_info(nmcstm->mng_ctrl.notify_queue, &queue_info);
 	json_print_to_buffer(buff, size, 2, "\"notify-queue\": {\n");
-	poffset = (phys_addr_t)nmcstm->mng_ctrl.notify_queue->phy_base_addr - mem_info.paddr;
+	poffset = (phys_addr_t)queue_info.phy_base_addr - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"base-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)nmcstm->mng_ctrl.notify_queue->cons_phys - mem_info.paddr;
+	poffset = (phys_addr_t)queue_info.cons_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"cons-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)nmcstm->mng_ctrl.notify_queue->prod_phys - mem_info.paddr;
+	poffset = (phys_addr_t)queue_info.prod_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"prod-poffset\": %#x,\n", poffset);
-	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", nmcstm->mng_ctrl.notify_queue->len);
+	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", queue_info.len);
 	json_print_to_buffer(buff, size, 2, "},\n");
 
 	json_print_to_buffer(buff, size, 1, "}\n");

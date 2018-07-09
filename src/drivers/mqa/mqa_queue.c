@@ -275,3 +275,31 @@ int mqa_queue_destroy(struct mqa *mqa, struct mqa_q *q)
 
 	return 0;
 }
+
+int mqa_queue_get_id(struct mqa_q *q, u32 *queue_id)
+{
+	if (q == NULL)
+		return -EINVAL;
+
+	*queue_id = q->q_id;
+
+	return 0;
+}
+
+int mqa_queue_get_info(struct mqa_q *q, struct mqa_queue_info *info)
+{
+	if (q == NULL)
+		return -EINVAL;
+
+	info->q_id		= q->q_id;
+	info->len		= q->len;
+	info->phy_base_addr	= q->phy_base_addr;
+	info->virt_base_addr	= q->virt_base_addr;
+	info->prod_phys		= q->prod_phys;
+	info->prod_virt		= q->prod_virt;
+	info->cons_phys		= q->cons_phys;
+	info->cons_virt		= q->cons_virt;
+
+	return 0;
+}
+

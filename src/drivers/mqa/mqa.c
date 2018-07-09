@@ -225,6 +225,18 @@ int mqa_deinit(struct mqa *mqa)
 	return 0;
 }
 
+int mqa_get_info(struct mqa *mqa, struct mqa_info *info)
+{
+	info->qpt_va = mqa->qpt_base;
+	info->qct_va = mqa->qct_base;
+}
+
+int mqa_set_remote_index_mode(struct mqa *mqa, int remote_index_mode)
+{
+	mqa->remote_index_location = remote_index_mode;
+
+	return 0;
+}
 
 /*
  *	queue_alloc
@@ -425,8 +437,8 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 
 	switch (queue_params->mqa_queue_attr) {
 
-	case EGRESS_QUEUE | LOCAL_QUEUE:
-	case INGRESS_QUEUE | LOCAL_QUEUE:
+	case MQA_QUEUE_EGRESS | MQA_QUEUE_LOCAL:
+	case MQA_QUEUE_INGRESS | MQA_QUEUE_LOCAL:
 		qct->common.cons_phys = (u64)qnct_phys;
 		qpt->common.cons_phys = (u64)qnct_phys;
 		qct->common.prod_phys = (u64)qnpt_phys;
@@ -441,7 +453,7 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 		queue_params->common.cons_virt = (u64)qnct_virt;
 		break;
 
-	case EGRESS_QUEUE | REMOTE_QUEUE:
+	case MQA_QUEUE_EGRESS | MQA_QUEUE_REMOTE:
 		qct->common.prod_phys = (u64)qnpt_phys;
 		qpt->common.prod_phys = (u64)qnpt_phys;
 		qct->common.prod_virt = (u64)qnpt_virt;
@@ -464,7 +476,7 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 		}
 		break;
 
-	case INGRESS_QUEUE | REMOTE_QUEUE:
+	case MQA_QUEUE_INGRESS | MQA_QUEUE_REMOTE:
 		qct->common.cons_phys = (u64)qnct_phys;
 		qpt->common.cons_phys = (u64)qnct_phys;
 		qct->common.cons_virt = (u64)qnct_virt;

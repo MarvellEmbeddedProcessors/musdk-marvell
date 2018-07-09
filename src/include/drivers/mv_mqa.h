@@ -59,6 +59,16 @@ struct mqa_params {
 };
 
 /**
+ * struct mqa_info - MQA info
+ */
+struct mqa_info {
+	/** Virtual Addr of Global Queue Producer context Table.*/
+	void	*qpt_va;
+	/** Virtual Addr of Global Queue Consumer context Table.*/
+	void	*qct_va;
+};
+
+/**
  *	Initialize MQA infrastructure.
  *	MQA tables - GPT, GCT, GNPT, and GNCT are allocated and initialized.
  *	MQA region map is statically initialized and divide MQA tables into dedicated regions.
@@ -81,6 +91,19 @@ int mqa_init(struct mqa_params *params, struct mqa **mqa);
  *	@retval	error-code otherwise
  */
 int mqa_deinit(struct mqa *mqa);
+
+/**
+ *	Retrieve MQA's info from MQA object.
+ *
+ *	@param[in]	mqa	A pointer to MQA object
+ *	@param[out]	info	MQA's info
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int mqa_get_info(struct mqa *mqa, struct mqa_info *info);
+
+int mqa_set_remote_index_mode(struct mqa *mqa, int remote_index_mode);
 
 /** @} */ /* end of grp_mqa_init */
 

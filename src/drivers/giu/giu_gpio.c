@@ -9,7 +9,6 @@
 
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
-#include "drivers/mqa/mqa_internal.h"
 #include "drivers/mv_giu_gpio_init.h"
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/giu_regfile_def.h"
@@ -89,7 +88,7 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 			params.idx  = intc->inqs_params[q_idx].lcl_q.q_id;
 			params.len  = intc->inqs_params[q_idx].lcl_q.len;
 			params.size = gie_get_desc_size(TX_DESC);
-			params.attr = LOCAL_QUEUE | EGRESS_QUEUE;
+			params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
 
 			for (bm_pool_num = 0; bm_pool_num < intc->num_inpools; bm_pool_num++) {
 				if (intc->pools[bm_pool_num].lcl_q.q_id != 0xFFFF)
@@ -129,7 +128,7 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 			params.idx  = outtc->outqs_params[q_idx].lcl_q.q_id;
 			params.len  = outtc->outqs_params[q_idx].lcl_q.len;
 			params.size = gie_get_desc_size(RX_DESC);
-			params.attr = LOCAL_QUEUE | INGRESS_QUEUE;
+			params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
 			params.copy_payload = 1;
 
 			giu_gpio_q_p = &(outtc->outqs_params[q_idx]);
@@ -158,7 +157,7 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 			params.idx  = outtc->rem_inqs_params[q_idx].rem_q.q_id;
 			params.len  = outtc->rem_inqs_params[q_idx].rem_q.len;
 			params.size = outtc->rem_inqs_params[q_idx].rem_q.size;
-			params.attr = REMOTE_QUEUE | INGRESS_QUEUE;
+			params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_INGRESS;
 			params.prio = tc_idx;
 			params.remote_phy_addr = (void *)outtc->rem_inqs_params[q_idx].rem_q.q_base_pa;
 			params.prod_phys       = (void *)outtc->rem_inqs_params[q_idx].rem_q.prod_base_pa;
@@ -216,7 +215,7 @@ int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gp
 				params.idx  = intc->rem_outqs_params[q_idx].rem_q.q_id;
 				params.len  = intc->rem_outqs_params[q_idx].rem_q.len;
 				params.size = intc->rem_outqs_params[q_idx].rem_q.size;
-				params.attr = REMOTE_QUEUE | EGRESS_QUEUE;
+				params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS;
 				params.prio = tc_idx;
 				params.remote_phy_addr = (void *)intc->rem_outqs_params[q_idx].rem_q.q_base_pa;
 				params.cons_phys       = (void *)intc->rem_outqs_params[q_idx].rem_q.cons_base_pa;
