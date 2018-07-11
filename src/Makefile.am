@@ -1,7 +1,7 @@
 # whatever flags you want to pass to the C compiler & linker
 CL_CFLAGS = -O2
 
-AM_CFLAGS = $(CL_CFLAGS)
+AM_CFLAGS = $(CL_CFLAGS) $(EXTRA_CFLAGS)
 AM_CFLAGS += -Wall -std=gnu99
 AM_CFLAGS += -I$(top_srcdir)/src/include
 
