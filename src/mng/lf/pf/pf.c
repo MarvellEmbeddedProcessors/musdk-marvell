@@ -1730,6 +1730,45 @@ static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 }
 
 /*
+ *	nmnicpf_link_state_get
+ *
+ *	This function checks the link state
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *	@param[out]	link_state - the link status
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+static int nmnicpf_link_state_get(struct nmnicpf *nmnicpf, int *link_state)
+{
+	struct nmp_pp2_port_desc *pdesc;
+	u32 pcount = 0;
+	int err;
+
+	if (!nmnicpf->pp2.ports_desc)
+		/* no pp2, just return */
+		/* TODO: handle guest mode (i.e. notify guest to
+		 *	 to handle the request)
+		 */
+		return -ENODEV;
+
+	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
+	if (!pdesc->ppio)
+		/* PPIO is not initialized (yet), just return */
+		return -ENODEV;
+
+	/* check PP2 link */
+	err = pp2_ppio_get_link_state(pdesc->ppio, link_state);
+	if (err) {
+		pr_err("Link check error (pp_id: %d)\n", pdesc->pp_id);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+/*
  *	nmnicpf_link_state_check_n_notif
  *
  *	This function checks the link state and if it was changed
@@ -1746,25 +1785,14 @@ static int nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
 	u32 pcount = 0;
 	int link_state, err;
 
-	if (!nmnicpf->pp2.ports_desc)
+	err = nmnicpf_link_state_get(nmnicpf, &link_state);
+	if (err == -ENODEV)
 		/* no pp2, just return */
-		/* TODO: handle guest mode (i.e. notify guest to
-		 *	 to handle the request)
-		 */
 		return 0;
+	else if (err)
+		return err;
 
 	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
-	if (!pdesc->ppio)
-		/* PPIO is not initialized (yet), just return */
-		return 0;
-
-	/* check PP2 link */
-	err = pp2_ppio_get_link_state(pdesc->ppio, &link_state);
-	if (err) {
-		pr_err("Link check error (pp_id: %d)\n", pdesc->pp_id);
-		return -EFAULT;
-	}
-
 	if (pdesc->link_state != link_state) {
 		/* If link state was changed since last check, notify the host */
 		pr_debug("Link state was change to %d\n", link_state);
@@ -1876,13 +1904,17 @@ static int nmnicpf_link_status_command(struct nmnicpf *nmnicpf,
 				      struct mgmt_cmd_params *params,
 				      struct mgmt_cmd_resp *resp_data)
 {
+	int link_state, err;
+
 	pr_debug("Link status message\n");
 
-	nmnicpf = nmnicpf;
+	err = nmnicpf_link_state_get(nmnicpf, &link_state);
+	if (err) {
+		pr_err("Link check error (%d)\n", err);
+		return err;
+	}
 
-	/* TODO: check PP2 link and report it back to the host */
-	pr_warn("GIU Link status is set to 'up'\n");
-	resp_data->link_status = 1;
+	resp_data->link_status = link_state;
 
 	return 0;
 }
