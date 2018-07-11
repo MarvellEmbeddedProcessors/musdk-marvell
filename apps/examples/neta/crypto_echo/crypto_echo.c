@@ -136,8 +136,8 @@ struct pkt_mdata {
 	u8 rx_queue;
 	u8 tx_port;
 	u8 data_offs;
+	u8 pad;
 	u16 flags;
-	u16 reserved;
 	void *buf_vaddr;
 };
 
@@ -413,6 +413,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->tx_port = tx_ppio_id;
 		mdata->buf_vaddr = vaddr;
 		mdata->flags = 0;
+		mdata->pad = 0;
 
 		/* Set vaddr and paddr to MAC address of the packet */
 		vaddr += MVAPPS_NETA_PKT_EFEC_OFFS;
@@ -458,6 +459,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 			memset(src_buf_infs[i].vaddr + sam_descs[i].cipher_offset + sam_descs[i].cipher_len,
 			       0, pad_size);
 			sam_descs[i].cipher_len += pad_size;
+			mdata->pad = pad_size;
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 			if (larg->cmn_args.verbose > 1)
 				pr_info("%s: cipher_len after padding = %d bytes, pad_size = %d bytes\n",
@@ -750,6 +752,10 @@ STOP_COUNT_CYCLES(pme_ev_cnt_deq, num);
 			mdata->state = (u8)PKT_STATE_DEC;
 			res_descs_to_dec[num_to_dec++] = res_descs[i];
 		} else {
+			if ((mdata->state == (u8)PKT_STATE_DEC) && mdata->pad) {
+				if (likely(res_descs[i].out_len > mdata->pad))
+					res_descs[i].out_len -= mdata->pad;
+			}
 			res_descs_to_send[num_to_send++] = res_descs[i];
 		}
 	}

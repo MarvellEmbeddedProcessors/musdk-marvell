@@ -457,6 +457,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->rx_port = rx_ppio_id;
 		mdata->bpool = bpool;
 		mdata->buf_vaddr = vaddr;
+		mdata->pad = 0;
 
 		/* Set vaddr and paddr to MAC address of the packet */
 		vaddr += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
@@ -464,6 +465,7 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 		mdata->state = state;
 		mdata->tx_port = flow->txp;
 		mdata->flow = flow;
+
 
 		src_buf_infs[i].vaddr = (char *)((uintptr_t)vaddr);
 		src_buf_infs[i].paddr = pp2_ppio_inq_desc_get_phys_addr(&descs[i]) + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
@@ -998,8 +1000,10 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 			mdata->state = (u8)PKT_STATE_DEC;
 			res_descs_to_dec[num_to_dec++] = res_descs[i];
 		} else {
-			if (likely(res_descs[i].out_len > mdata->pad))
-				res_descs[i].out_len -= mdata->pad;
+			if ((mdata->state == (u8)PKT_STATE_DEC) && mdata->pad) {
+				if (likely(res_descs[i].out_len > mdata->pad))
+					res_descs[i].out_len -= mdata->pad;
+			}
 			res_descs_to_send[num_to_send++] = res_descs[i];
 		}
 	}
