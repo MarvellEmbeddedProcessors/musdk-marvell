@@ -898,6 +898,11 @@ static inline void sam_hw_ring_sa_inv_desc_write(struct sam_hw_ring *hw_ring,
 
 	hw_ring->next_cdr = sam_hw_next_idx(hw_ring, hw_ring->next_cdr);
 	hw_ring->next_rdr = sam_hw_next_idx(hw_ring, hw_ring->next_rdr);
+
+#ifdef MVCONF_SAM_DEBUG
+	if (unlikely(sam_debug_flags & SAM_CIO_DEBUG_FLAG))
+		print_cmd_desc(cmd_desc);
+#endif /* MVCONF_SAM_DEBUG */
 }
 
 static inline int sam_hw_res_desc_read(struct sam_hw_res_desc *res_desc, struct sam_cio_op_result *result)

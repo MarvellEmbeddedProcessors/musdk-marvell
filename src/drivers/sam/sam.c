@@ -1058,6 +1058,10 @@ int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *results, u16 *num
 			sam_session_free(operation->sa);
 			SAM_STATS(sam_sa_stats.sa_del++);
 			cio->next_result = sam_cio_next_idx(cio, cio->next_result);
+#ifdef MVCONF_SAM_DEBUG
+			if (sam_debug_flags & SAM_CIO_DEBUG_FLAG)
+				print_result_desc(res_desc, 0);
+#endif
 			continue;
 		}
 #ifdef MVCONF_SAM_DEBUG
