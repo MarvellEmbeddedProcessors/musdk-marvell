@@ -450,7 +450,8 @@ static void usage(char *progname)
 	printf("\t-c   <number>    - Number of packets to check (default: %d)\n", num_to_check);
 	printf("\t-esn <0 | 1>     - Sequence number size: 0 - 32 bits, 1 - 64 bits (default: %d)\n",
 		is_esn);
-	printf("\t-seq <enc> <dec> - Initial sequence id (0x%lx 0x%lx)\n", enc_seq, dec_seq);
+	printf("\t-seq <enc> <dec> - Initial sequence id (0x%" PRIx64 " 0x%" PRIx64 ")\n",
+		enc_seq, dec_seq);
 	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO,  (default: 0x%x)\n",
 				     SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
 	printf("\t-v <num>         - Enable print of plain and cipher data each <num> packets\n");
@@ -588,7 +589,8 @@ static int parse_args(int argc, char *argv[])
 	printf("Number to check         : %u\n", num_to_check);
 	printf("Debug flags             : 0x%x\n", debug_flags);
 	printf("Sequence number size    : %d bits\n", is_esn ? 64 : 32);
-	printf("Initial sequence numbers: 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
+	printf("Initial sequence numbers: 0x%" PRIx64 " -> 0x%" PRIx64 "\n",
+		enc_seq, dec_seq);
 	if (verbose)
 		printf("Print data each         : %u packets\n", num_to_print_mod);
 

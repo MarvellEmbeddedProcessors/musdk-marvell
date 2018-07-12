@@ -984,8 +984,8 @@ static void deinit_global(void *arg)
 	if (garg->free_cios)
 		free(garg->free_cios);
 
-	printf("SAM tests passed:   %lu\n", garg->total_passed);
-	printf("SAM tests failed:   %lu\n", garg->total_errors);
+	printf("SAM tests passed:   %" PRIu64 "\n", garg->total_passed);
+	printf("SAM tests failed:   %" PRIu64 "\n", garg->total_errors);
 	printf("\n");
 }
 

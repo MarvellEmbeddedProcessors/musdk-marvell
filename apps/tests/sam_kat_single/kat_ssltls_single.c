@@ -406,7 +406,8 @@ static void usage(char *progname)
 		(unsigned)sizeof(aes128_cbc_t1_pt));
 	printf("\t-n   <number>    - Number of packets (default: %d)\n", num_pkts);
 	printf("\t-c   <number>    - Number of packets to check (default: %d)\n", num_to_check);
-	printf("\t-seq <enc> <dec> - Initial sequence id (default: 0x%lx 0x%lx)\n", enc_seq, dec_seq);
+	printf("\t-seq <enc> <dec> - Initial sequence id (default: 0x%" PRIx64 " 0x%" PRIx64 ")\n",
+		enc_seq, dec_seq);
 	printf("\t-f   <bitmask>   - Debug flags: 0x%x - SA, 0x%x - CIO. (default: 0x%x)\n",
 				     SAM_SA_DEBUG_FLAG, SAM_CIO_DEBUG_FLAG, debug_flags);
 	printf("\t-v [num]         - Enable print of plain and cipher data each <num> packets\n");
@@ -532,7 +533,8 @@ static int parse_args(int argc, char *argv[])
 	printf("Number of packets       : %d\n", num_pkts);
 	printf("Number to check         : %u\n", num_to_check);
 	printf("Debug flags             : 0x%x\n", debug_flags);
-	printf("Initial sequence numbers: 0x%lx -> 0x%lx\n", enc_seq, dec_seq);
+	printf("Initial sequence numbers: 0x%" PRIx64 " -> 0x%" PRIx64 "\n",
+		enc_seq, dec_seq);
 	if (verbose)
 		printf("Print data each         : %u packets\n", num_to_print_mod);
 

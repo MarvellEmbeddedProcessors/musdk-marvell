@@ -563,11 +563,11 @@ void sam_deinit(void)
 	int i;
 
 	if (sam_sessions) {
-		for (i = 0; i < sam_num_sessions; i++)
+		for (i = 0; i < sam_num_sessions; i++) {
 			if (sam_sessions[i].is_valid)
 				pr_warn("All sessions must be deleted before %s called\n", __func__);
 			sam_dma_buf_free(&sam_sessions[i].sa_buf);
-
+		}
 		kfree(sam_sessions);
 	}
 	sam_initialized = true;
