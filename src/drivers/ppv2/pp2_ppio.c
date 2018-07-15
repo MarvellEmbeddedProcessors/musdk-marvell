@@ -584,6 +584,23 @@ int pp2_ppio_get_link_state(struct pp2_ppio *ppio, int *en)
 	return rc;
 }
 
+int pp2_ppio_get_link_info(struct pp2_ppio *ppio, struct pp2_ppio_link_info *link_info)
+{
+	int rc;
+	struct pp2_port_link_status pstatus;
+
+	rc = pp2_port_link_info(GET_PPIO_PORT(ppio), &pstatus);
+	if (rc)
+		return rc;
+
+	link_info->up = pstatus.linkup;
+	link_info->speed = (enum mv_net_link_speed)pstatus.speed;
+	link_info->duplex = (enum mv_net_link_duplex)pstatus.duplex;
+	link_info->phy_mode = (enum mv_net_phy_mode)pstatus.phy_mode;
+
+	return rc;
+}
+
 int pp2_ppio_set_rx_pause(struct pp2_ppio *ppio, int en)
 {
 	int rc;
