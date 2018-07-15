@@ -1049,6 +1049,56 @@ int pp2_ppio_inq_get_statistics(struct pp2_ppio *ppio, u8 tc, u8 qid,
  *	Run-time Control API
  ****************************************************************************/
 
+enum mv_net_link_speed {
+	MV_NET_LINK_SPEED_AN = 0,
+	MV_NET_LINK_SPEED_10,
+	MV_NET_LINK_SPEED_100,
+	MV_NET_LINK_SPEED_1000,
+	MV_NET_LINK_SPEED_2500,
+	MV_NET_LINK_SPEED_10000,
+};
+
+enum mv_net_link_duplex {
+	MV_NET_LINK_DUPLEX_AN = 0,
+	MV_NET_LINK_DUPLEX_HALF,
+	MV_NET_LINK_DUPLEX_FULL
+};
+
+enum mv_net_phy_mode {
+	MV_NET_PHY_MODE_NONE = 0,
+	MV_NET_PHY_MODE_MII,
+	MV_NET_PHY_MODE_GMII,
+	MV_NET_PHY_MODE_SGMII,
+	MV_NET_PHY_MODE_TBI,
+	MV_NET_PHY_MODE_REVMII,
+	MV_NET_PHY_MODE_RMII,
+	MV_NET_PHY_MODE_RGMII,
+	MV_NET_PHY_MODE_RGMII_ID,
+	MV_NET_PHY_MODE_RGMII_RXID,
+	MV_NET_PHY_MODE_RGMII_TXID,
+	MV_NET_PHY_MODE_RTBI,
+	MV_NET_PHY_MODE_SMII,
+	MV_NET_PHY_MODE_XGMII,
+	MV_NET_PHY_MODE_MOCA,
+	MV_NET_PHY_MODE_QSGMII,
+	MV_NET_PHY_MODE_XAUI,
+	MV_NET_PHY_MODE_RXAUI,
+	MV_NET_PHY_MODE_KR,
+	MV_NET_PHY_MODE_OUT_OF_RANGE,
+};
+
+
+/**
+ * pp2 ppio link info
+ *
+ */
+struct pp2_ppio_link_info {
+	int			up;
+	enum mv_net_link_speed	speed;
+	enum mv_net_link_duplex duplex;
+	enum mv_net_phy_mode	phy_mode;
+};
+
 /**
  * pp2 ppio in tc queue capabilities info
  *
@@ -1306,6 +1356,17 @@ int pp2_ppio_get_link_state(struct pp2_ppio *ppio, int *en);
  * @retval	error-code otherwise
  */
 /* int pp2_ppio_set_link_state(struct pp2_ppio *ppio, int en); */
+
+/**
+ * Get link info
+ *
+ * @param[in]		ppio	   pointer to a PP-IO object.
+ * @param[out]		link_info  pointer to link info object.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_get_link_info(struct pp2_ppio *ppio, struct pp2_ppio_link_info *link_info);
 
 /**
  * Set outq state
