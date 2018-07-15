@@ -157,6 +157,7 @@ int pp2_port_set_rx_pause(struct pp2_port *port, int en)
 	struct ethtool_pauseparam param;
 	int rc;
 
+	memset(&param, 0, sizeof(param));
 	strcpy(ifr.ifr_name, port->linux_name);
 
 	param.cmd = ETHTOOL_SPAUSEPARAM;
