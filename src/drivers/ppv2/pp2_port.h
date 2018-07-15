@@ -401,6 +401,9 @@ struct pp2_desc *pp2_rxq_get_desc(struct pp2_rx_queue *rxq, uint32_t *num_recv,
 /* Get link status */
 int pp2_port_link_status(struct pp2_port *port);
 
+/* Get link info */
+int pp2_port_link_info(struct pp2_port *port, struct pp2_port_link_status *pstatus);
+
 /* Set MAC address */
 int pp2_port_set_mac_addr(struct pp2_port *port, const uint8_t *addr);
 
