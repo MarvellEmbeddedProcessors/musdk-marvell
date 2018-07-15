@@ -843,6 +843,10 @@ int pp2_gop_port_link_status(struct gop_hw *gop, struct pp2_mac_data *mac,
 		pr_err("%s: Wrong port mode (%d)", __func__, mac->phy_mode);
 		return -1;
 	}
+
+	/* update phy interface */
+	pstatus->phy_mode = mac->phy_mode;
+
 	return 0;
 }
 

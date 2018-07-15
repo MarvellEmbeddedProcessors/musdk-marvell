@@ -157,6 +157,7 @@ struct pp2_port_link_status {
 	int linkup;		/*flag */
 	enum pp2_port_speed speed;
 	enum pp2_port_duplex duplex;
+	enum pp2_phy_interface phy_mode;
 	enum pp2_port_fc rx_fc;
 	enum pp2_port_fc tx_fc;
 };
