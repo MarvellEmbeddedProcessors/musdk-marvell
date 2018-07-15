@@ -125,8 +125,10 @@ void pp2_bm_hw_pool_destroy(uintptr_t cpu_slot, uint32_t pool_id)
 
 	/* Clear BPPE base */
 	pp2_reg_write(cpu_slot, MVPP2_BM_POOL_BASE_ADDR_REG(pool_id), 0);
-	pp2_reg_write(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG,
-		      0 & MVPP22_BM_POOL_BASE_ADDR_HIGH_MASK);
+
+	val = pp2_reg_read(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG);
+	val &= ~MVPP22_BM_POOL_BASE_ADDR_HIGH_MASK;
+	pp2_reg_write(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG, val);
 
 	pp2_bm_pool_bufsize_set(cpu_slot, pool_id, 0);
 #if PP2_BM_BUF_DEBUG
@@ -155,8 +157,11 @@ pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 	}
 
 	pp2_reg_write(cpu_slot, MVPP2_BM_POOL_BASE_ADDR_REG(pool_id), phys_lo);
-	pp2_reg_write(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG,
-		      phys_hi & MVPP22_BM_POOL_BASE_ADDR_HIGH_MASK);
+
+	val = pp2_reg_read(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG);
+	val &= ~MVPP22_BM_POOL_BASE_ADDR_HIGH_MASK;
+	val |= phys_hi & MVPP22_BM_POOL_BASE_ADDR_HIGH_MASK;
+	pp2_reg_write(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG, val);
 
 	pool_bufs = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_SIZE_REG(pool_id));
 
