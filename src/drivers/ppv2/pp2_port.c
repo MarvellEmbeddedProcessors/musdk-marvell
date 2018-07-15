@@ -1867,6 +1867,14 @@ int pp2_port_link_status(struct pp2_port *port)
 	return link_is_up;
 }
 
+/* Get link info */
+int pp2_port_link_info(struct pp2_port *port, struct pp2_port_link_status *pstatus)
+{
+	struct gop_hw *gop = &port->parent->hw.gop;
+
+	return pp2_gop_port_link_status(gop, &port->mac_data, pstatus);
+}
+
 int ppv2_port_rx_create_event_validate(void *driver_data)
 {
 	struct rxq_event *rx_event = driver_data;
