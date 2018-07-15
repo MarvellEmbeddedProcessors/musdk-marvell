@@ -371,6 +371,7 @@ static int loop_rx(struct local_arg	*larg,
 	struct lcl_giu_port_desc	*giu_port_desc = &(larg->giu_ports_desc[rx_ppio_id]);
 	struct giu_gpio_desc		 descs[PKT_GEN_APP_MAX_BURST_SIZE];
 #ifdef PKT_GEN_APP_VERBOSE_DEBUG
+	struct pkt			*pkt;
 	u32				*dat;
 #endif /* PKT_GEN_APP_VERBOSE_DEBUG */
 	u16				 i;
@@ -394,19 +395,19 @@ static int loop_rx(struct local_arg	*larg,
 		void *bpool = giu_gpio_inq_desc_get_bpool(&descs[i], giu_port_desc->gpio);
 
 #ifdef PKT_GEN_APP_VERBOSE_DEBUG
-		dat = (u32 *)((struct pkt *)buff)->body;
-		if ((dat[0] == MVAPPS_PLD_WATERMARK)/* TODO: || (dat[0] != read_ind)*/)
-			pr_err("Analayzer: Illegal PLD: %x\n", dat[0]);
-		dat[0] = MVAPPS_PLD_WATERMARK;
+		pkt = (struct pkt *)buff;
+		dat = (u32 *)pkt->body;
+		if (unlikely((dat[0] == MVAPPS_PLD_WATERMARK)/* TODO: || (dat[0] != read_ind)*/))
+			pr_info("\r[ERROR] Analayzer: Illegal PLD: %x\n", dat[0]);
+		else if (unlikely((pkt->eh.ether_type == htons(0x800)) && (pkt->ip.ip_v == IPVERSION))) {
+			u16 tot_len = swab16(pkt->ip.ip_len) + sizeof(pkt->eh); /* assuming eth header */
 
-		if (((buff[14] & 0xf0) == 0x40) && swab16(*(u16 *)(&buff[12])) == 0x0800) {
-			struct iphdr *ipv4hdr = (struct iphdr *)(buff + 14);
-			u16 tot_len = swab16(ipv4hdr->tot_len) + 14; /* assuming eth header */
-
-			if (tot_len != len)
-				pr_err("length mismatch (frame %u vs rx-desc %u @%d)!\n",
+			if (unlikely(tot_len != len))
+				pr_info("\r[ERROR] Analayzer: length mismatch (frame %u vs rx-desc %u @%d)!\n",
 					tot_len, len, shadow_q->write_ind);
 		}
+
+		dat[0] = MVAPPS_PLD_WATERMARK;
 
 		if (unlikely(larg->cmn_args.verbose > 1)) {
 			char *tmp_buff;
