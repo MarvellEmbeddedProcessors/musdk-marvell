@@ -1921,6 +1921,48 @@ static int nmnicpf_link_status_command(struct nmnicpf *nmnicpf,
 
 
 /*
+ *	nmnicpf_link_info_get
+ */
+static int nmnicpf_link_info_get(struct nmnicpf *nmnicpf,
+				 struct mgmt_cmd_params *params,
+				 struct mgmt_cmd_resp *resp_data)
+{
+	struct pp2_ppio_link_info link_info;
+	struct nmp_pp2_port_desc *pdesc;
+	u32 pcount = 0;
+	int err;
+
+	pr_debug("Link info message\n");
+
+	if (!nmnicpf->pp2.ports_desc)
+		/* no pp2, just return */
+		/* TODO: handle guest mode (i.e. notify guest to
+		 *	 to handle the request)
+		 */
+		return -ENODEV;
+
+	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
+	if (!pdesc->ppio)
+		/* PPIO is not initialized (yet), just return */
+		return -ENODEV;
+
+
+	err = pp2_ppio_get_link_info(pdesc->ppio, &link_info);
+	if (err) {
+		pr_err("Link info get error (%d)\n", err);
+		return err;
+	}
+
+	resp_data->link_info.link_up  = link_info.up;
+	resp_data->link_info.speed    = link_info.speed;
+	resp_data->link_info.duplex   = link_info.duplex;
+	resp_data->link_info.phy_mode = link_info.phy_mode;
+
+	return 0;
+}
+
+
+/*
  *	nmnicpf_close_command
  */
 static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
@@ -2581,6 +2623,12 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_flush_mac_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_MAC_FLUSH message failed\n");
+		break;
+
+	case CC_PF_LINK_INFO:
+		ret = nmnicpf_link_info_get(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_LINK_INFO message failed\n");
 		break;
 
 	default:

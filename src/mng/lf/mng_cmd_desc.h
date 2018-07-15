@@ -63,6 +63,7 @@ enum cmd_codes {
 	CC_PF_MC_ADD_ADDR,
 	CC_PF_MC_REMOVE_ADDR,
 	CC_PF_MAC_FLUSH,
+	CC_PF_LINK_INFO,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -227,6 +228,14 @@ struct mgmt_cmd_resp {
 		struct {
 			u64 packets;
 		} __packed gp_queue_stats;
+
+		/* CC_PF_LINK_INFO */
+		struct {
+			u8  link_up;
+			u32 speed;
+			u32 duplex;
+			u32 phy_mode;
+		} __packed link_info;
 	};
 } __packed;
 
