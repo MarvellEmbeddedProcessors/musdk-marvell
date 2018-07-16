@@ -1612,4 +1612,22 @@ int pp2_ppio_rx_delete_event(struct mv_sys_event *ev)
 	return err;
 }
 
+int pp2_ppio_set_inq_state(struct pp2_ppio *ppio, u8 tc, u8 qid, int en)
+{
+	int err;
+
+	err = pp2_port_set_inq_state(GET_PPIO_PORT(ppio), tc, qid, en);
+
+	return err;
+}
+
+int pp2_ppio_get_inq_state(struct pp2_ppio *ppio, u8 tc, u8 qid, int *en)
+{
+	int err;
+
+	err = pp2_port_get_inq_state(GET_PPIO_PORT(ppio), tc, qid, en);
+
+	return err;
+}
+
 
