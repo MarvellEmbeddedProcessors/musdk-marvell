@@ -1465,6 +1465,33 @@ int pp2_ppio_rx_delete_event(struct mv_sys_event *ev);
  */
 int pp2_ppio_rx_set_event(struct mv_sys_event *ev, int en);
 
+/**
+ * Set a ppio inqueue state
+ *
+ * @param[in]	ppio		A pointer to a PP-IO object.
+ * @param[in]	tc		traffic class on which to receive frames
+ * @param[in]	qid		in-Q id.
+ * @param[in]	en		1 - enable, 0 - disable.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_ppio_set_inq_state(struct pp2_ppio *ppio, u8 tc, u8 qid, int en);
+
+/**
+ * Get a ppio inqueue state
+ *
+ * @param[in]	ppio		A pointer to a PP-IO object.
+ * @param[in]	tc		traffic class on which to receive frames
+ * @param[in]	qid		in-Q id.
+ *
+ * @param[out]	en		1 - enable, 0 - disable.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int pp2_ppio_get_inq_state(struct pp2_ppio *ppio, u8 tc, u8 qid, int *en);
+
 
 /** @} */ /* end of grp_pp2_io */
 
