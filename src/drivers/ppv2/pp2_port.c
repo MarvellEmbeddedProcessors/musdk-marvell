@@ -2224,3 +2224,43 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 
 	return 0;
 }
+
+int pp2_port_set_inq_state(struct pp2_port *port, u8 tc, u8 qid, int en)
+{
+	u32 val;
+	u32 log_rxq;
+	struct pp2_rx_queue *rxq;
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	log_rxq = port->tc[tc].first_log_rxq + qid;
+	rxq = port->rxqs[log_rxq];
+	val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(rxq->id));
+	if (en)
+		val &= ~MVPP2_RXQ_DISABLE_MASK;
+	else
+		val |= MVPP2_RXQ_DISABLE_MASK;
+
+	pp2_reg_write(cpu_slot, MVPP2_RXQ_CONFIG_REG(rxq->id), val);
+
+	return 0;
+}
+
+int pp2_port_get_inq_state(struct pp2_port *port, u8 tc, u8 qid, int *en)
+{
+	u32 val;
+	u32 log_rxq;
+	struct pp2_rx_queue *rxq;
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	log_rxq = port->tc[tc].first_log_rxq + qid;
+	rxq = port->rxqs[log_rxq];
+	val = pp2_reg_read(cpu_slot, MVPP2_RXQ_CONFIG_REG(rxq->id));
+
+	if (val & MVPP2_RXQ_DISABLE_MASK)
+		*en = 0;
+	else
+		*en = 1;
+
+	return 0;
+}
+

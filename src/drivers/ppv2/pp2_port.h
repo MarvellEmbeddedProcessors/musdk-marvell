@@ -511,4 +511,7 @@ int ppv2_port_rx_create_event_validate(void *driver_data);
 int pp2_port_get_tx_pause(struct pp2_port *port, int *en);
 int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params *params);
 
+int pp2_port_set_inq_state(struct pp2_port *port, u8 tc, u8 qid, int en);
+int pp2_port_get_inq_state(struct pp2_port *port, u8 tc, u8 qid, int *en);
+
 #endif /* __PP2_PORT_H__ */
