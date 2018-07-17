@@ -64,6 +64,8 @@ enum cmd_codes {
 	CC_PF_MC_REMOVE_ADDR,
 	CC_PF_MAC_FLUSH,
 	CC_PF_LINK_INFO,
+	CC_PF_PAUSE_SET,
+	CC_PF_PAUSE_GET,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -177,6 +179,12 @@ struct mgmt_cmd_params {
 #define AGNIC_MC_PROMISC_ENABLE		(1)
 #define AGNIC_MC_PROMISC_DISABLE	(0)
 		u8 mc_promisc;
+
+		/* CC_PF_PAUSE_SET */
+		struct {
+			u8 rx;
+			u8 tx;
+		} __packed pause_params;
 	};
 } __packed;
 
@@ -236,6 +244,12 @@ struct mgmt_cmd_resp {
 			u32 duplex;
 			u32 phy_mode;
 		} __packed link_info;
+
+		/* CC_PF_PAUSE_GET */
+		struct {
+			u8 rx;
+			u8 tx;
+		} __packed pause_params;
 	};
 } __packed;
 

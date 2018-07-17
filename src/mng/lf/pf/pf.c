@@ -2467,6 +2467,92 @@ static int nmnicpf_flush_mac_command(struct nmnicpf *nmnicpf,
 }
 
 /*
+ *	nmnicpf_pause_set
+ */
+static int nmnicpf_pause_set_command(struct nmnicpf *nmnicpf,
+				     struct mgmt_cmd_params *params,
+				     struct mgmt_cmd_resp *resp_data)
+{
+	int ret = 0;
+
+	pr_debug("Pause set message\n");
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		struct pp2_ppio_tx_pause_params tx_params;
+
+		tx_params.en = params->pause_params.tx;
+		tx_params.use_tc_pause_inqs = 0;
+
+		/* Set Tx Pause */
+		ret = pp2_ppio_set_tx_pause(nmnicpf->pp2.ports_desc[0].ppio, &tx_params);
+		if (ret) {
+			pr_err("Failed to set tx pause status\n");
+			return -EFAULT;
+		}
+
+		/* Set Rx Pause */
+		ret = pp2_ppio_set_rx_pause(nmnicpf->pp2.ports_desc[0].ppio, params->pause_params.rx);
+		if (ret) {
+			pr_err("Failed to set rx pause status\n");
+			return -EFAULT;
+		}
+	}
+
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on mac addr flush */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
+
+}
+/*
+ *	nmnicpf_pause_get
+ */
+static int nmnicpf_pause_get_command(struct nmnicpf *nmnicpf,
+				     struct mgmt_cmd_params *params,
+				     struct mgmt_cmd_resp *resp_data)
+{
+	int ret = 0;
+	int enable;
+
+	pr_debug("Pause get message\n");
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->pp2.ports_desc) {
+		/* Get Tx Pause status */
+		ret = pp2_ppio_get_tx_pause(nmnicpf->pp2.ports_desc[0].ppio, &enable);
+		if (ret) {
+			pr_err("Failed to get tx pause status\n");
+			return -EFAULT;
+		}
+		resp_data->pause_params.tx = enable;
+
+		/* Get Rx Pause status */
+		ret = pp2_ppio_get_rx_pause(nmnicpf->pp2.ports_desc[0].ppio, &enable);
+		if (ret) {
+			pr_err("Failed to get rx pause status\n");
+			return -EFAULT;
+		}
+		resp_data->pause_params.rx = enable;
+	}
+
+	if (nmnicpf->guest_id) {
+		/* TODO - Notify Guest on mac addr flush */
+		if (nmnicpf->pp2.ports_desc)
+			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
+	}
+
+	return ret;
+
+}
+
+
+/*
  *	nmnicpf_process_pf_command
  *
  *	This function process all PF's commands
@@ -2636,6 +2722,18 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_link_info_get(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_LINK_INFO message failed\n");
+		break;
+
+	case CC_PF_PAUSE_SET:
+		ret = nmnicpf_pause_set_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_PAUSE_SET message failed\n");
+		break;
+
+	case CC_PF_PAUSE_GET:
+		ret = nmnicpf_pause_get_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_PAUSE_GET message failed\n");
 		break;
 
 	default:
