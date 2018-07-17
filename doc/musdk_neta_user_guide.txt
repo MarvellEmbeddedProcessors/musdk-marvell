@@ -36,11 +36,9 @@ NETA initialization
 ~~~~~~~~~~~~~~~~~~~
 ::
 
-	int neta_init(struct neta_init_params *params);
+	int neta_init(void);
 
 - Initialize the global NETA resources.
-- Fields in "struct neta_init_params" are:
-	- bm_pool_reserved_map - buffer manager pools reserved by kernel space.
 
 NETA shutdown
 ~~~~~~~~~~~~~
@@ -61,6 +59,7 @@ PPIO
 
 	Send/Receive:
 		- neta_ppio_send
+                - neta_ppio_send_sg
 		- neta_ppio_recv
 		- neta_ppio_get_num_outq_done
 
@@ -74,7 +73,8 @@ PPIO
 		- Support all neta_ppio_inq_xxx API's
 
 	Statistics:
-		- Not supported.
+		- neta_ppio_get_statistics
+		  Read and return all MAC MIB counters
 
 General Limitations
 ~~~~~~~~~~~~~~~~~~~
