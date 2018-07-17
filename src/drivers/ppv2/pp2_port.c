@@ -1401,6 +1401,9 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	if (NOT_LPBK_PORT(port) && (param->type == PP2_PPIO_T_NIC))
 		pp2_port_initialize_statistics(port);
 
+	/* Set default tx pause state as disabled */
+	port->tx_pause_en = 0;
+
 	return 0;
 }
 
@@ -2090,8 +2093,12 @@ int pp2_port_rx_delete_event(struct mv_sys_event *ev)
 	return 0;
 }
 
+int pp2_port_get_tx_pause(struct pp2_port *port, int *en)
+{
+	*en = port->tx_pause_en;
 
-
+	return 0;
+}
 
 int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params *params)
 {
@@ -2211,6 +2218,9 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 				fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
 		bm_pools_mask &= ~(BIT(i));
 	}
+
+	/* Save tx puase state */
+	port->tx_pause_en = ena;
 
 	return 0;
 }
