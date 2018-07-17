@@ -481,6 +481,8 @@ struct pp2_port {
 	struct list added_uc_addr;
 	u32 num_added_uc_addr;
 	u32 rxq_flow_cntrl_mask;
+	/* Tx pause enable */
+	int tx_pause_en;
 };
 
 /**
