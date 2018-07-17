@@ -27,7 +27,6 @@
 #include "dispatch.h"
 
 #define PLAT_AGNIC_UIO_NAME "agnic"
-#define PLAT_AGNIC_CFG_SPACE_SIZE	(1 << 20)
 
 /** =========================== **/
 /** == Device Initialization == **/
@@ -72,7 +71,8 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 		   map->msi_regs.phys_addr);
 
 	/* Allocate configuration space memory */
-	map->cfg_map.virt_addr = mv_sys_dma_mem_alloc(PLAT_AGNIC_CFG_SPACE_SIZE, 4096);
+	BUILD_BUG_ON(PCI_BAR0_CALC_SIZE > PCI_BAR0_ALLOC_SIZE); /* check that allocated size is enough */
+	map->cfg_map.virt_addr = mv_sys_dma_mem_alloc(PCI_BAR0_ALLOC_SIZE, PCI_BAR0_ALLOC_ALIGN);
 	if (map->cfg_map.virt_addr == NULL) {
 		pr_err("Failed to allocate platform configuration space.\n");
 		ret = -ENOMEM;
@@ -83,7 +83,7 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 	map->cfg_map.phys_addr = (void *)mv_sys_dma_mem_virt2phys(map->cfg_map.virt_addr);
 
 	/* Clear the config space, to prevent false device indications. */
-	memset(map->cfg_map.virt_addr, 0x0, PLAT_AGNIC_CFG_SPACE_SIZE);
+	memset(map->cfg_map.virt_addr, 0x0, PCI_BAR0_ALLOC_SIZE);
 
 	pr_info("Platform config space @ %p.\n", map->cfg_map.phys_addr);
 	/* Setup the "host_map", which is actually an identity mapping for the
