@@ -348,8 +348,8 @@ struct pp2_ppio_statistics {
 	u64	rx_bytes;		/**< RX Bytes Counter;
 					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
 					*/
-	u64	rx_packets;		/**< RX Packets Counter */
-	u64	rx_unicast_packets;	/**< RX Unicast Packets Counter;
+	u64	rx_packets;		/**< Total enqueued RX Packets */
+	u64	rx_unicast_packets;	/**< Total Unicast Packets received in MAC (GOP);
 					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
 					*/
 	u64	rx_errors;		/**< RX MAC Errors Counter;
@@ -369,7 +369,7 @@ struct pp2_ppio_statistics {
 					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
 					*/
 	u64	tx_packets;		/**< TX Packets Counter */
-	u64	tx_unicast_packets;	/**< TX Unicast Packets Counter;
+	u64	tx_unicast_packets;	/**< Total Unicast Packets transmitted from MAC (GOP);
 					* relevant only if PPIO type is 'PP2_PPIO_T_NIC'
 					*/
 	u64	tx_errors;		/**< TX MAC Errors Counter;
