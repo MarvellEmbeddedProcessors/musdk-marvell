@@ -213,6 +213,12 @@ static int sam_uio_probe(struct platform_device *pdev)
 			goto fail_uio;
 		}
 	}
+	if (!platform_get_drvdata(eip_pdev)) {
+		dev_err(&eip_pdev->dev, "device is not ready yet\n");
+		err = -EINVAL;
+		goto fail_uio;
+	}
+	pdev_info->type = (enum sam_hw_type) of_device_get_match_data(&eip_pdev->dev);
 
 	res = platform_get_resource(eip_pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -228,7 +234,6 @@ static int sam_uio_probe(struct platform_device *pdev)
 		goto fail_uio;
 	}
 
-	pdev_info->type = (enum sam_hw_type) of_device_get_match_data(&eip_pdev->dev);
 	if (pdev_info->type == HW_EIP197) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
 		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_eip197_%d", cpn_count);
