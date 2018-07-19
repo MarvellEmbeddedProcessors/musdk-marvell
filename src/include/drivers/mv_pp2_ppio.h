@@ -1406,17 +1406,6 @@ int pp2_ppio_get_outq_state(struct pp2_ppio *ppio, u8 qid, int *en);
  */
 int pp2_ppio_set_rx_pause(struct pp2_ppio *ppio, int en);
 
-
-struct pp2_ppio_tx_pause_params {
-	int en; /* Enable/Disable tx_pause */
-	int use_tc_pause_inqs; /* val=0:all inqs participate in xon/xoff decision. val=1:'tc_pause_inqs[]' is used */
-	u32 tc_inqs_mask[PP2_PPIO_MAX_NUM_TCS]; /* Each tc contains mask of inqs which participate in xon/xoff */
-};
-
-int pp2_ppio_set_tx_pause(struct pp2_ppio *ppio, struct pp2_ppio_tx_pause_params *params);
-int pp2_ppio_get_tx_pause(struct pp2_ppio *ppio, int *en);
-
-
 /**
  * Get rx flow control status
  *
@@ -1428,6 +1417,38 @@ int pp2_ppio_get_tx_pause(struct pp2_ppio *ppio, int *en);
  * @retval	error-code otherwise
  */
 int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en);
+
+/**
+ * ppio TX-pause parameters
+ */
+struct pp2_ppio_tx_pause_params {
+	int en; /**< Enable/Disable tx_pause */
+	int use_tc_pause_inqs; /**< val=0:all inqs participate in xon/xoff decision. val=1:'tc_pause_inqs[]' is used */
+	u32 tc_inqs_mask[PP2_PPIO_MAX_NUM_TCS]; /**< Each tc contains mask of inqs which participate in xon/xoff */
+};
+
+/**
+ * Enable/disable tx flow control with the relevant parameters
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		params	A pointer to a structure with the parameters for the FC.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_set_tx_pause(struct pp2_ppio *ppio, struct pp2_ppio_tx_pause_params *params);
+
+/**
+ * Get tx flow control status
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[out]		en	A flag indicates if tx pause is
+ *				enabled or disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_get_tx_pause(struct pp2_ppio *ppio, int *en);
 
 /**
  * Serialize the ppio parameters
@@ -1442,13 +1463,13 @@ int pp2_ppio_get_rx_pause(struct pp2_ppio *ppio, int *en);
  *	num-in-tcs: <int>,		(used for in QoS according to #priorities)
  *	intc: {
  *		num-inqs : <int>,	(used for in RSS (according to remote side #cores))
- *		inqs : {[<int>>],,[<int>]}, ([q-size])
+ *		inqs : {[<int>>],...,[<int>]}, ([q-size])
  *		bpool : <int>
  *	},
- *	
+ *	...
  *	num-out-qs: <int>,	(used for out QoS according to #priorities)
  *	outq: {
- *		outqs : {[<int>],,[<int>]}, ([q-size])
+ *		outqs : {[<int>],...,[<int>]}, ([q-size])
  *		}
  *	}
  *
