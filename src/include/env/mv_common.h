@@ -66,6 +66,10 @@
 	(PTR2INT(&((_type *)0)->_member))
 #endif /* !MEMBER_OFFSET */
 
+#ifndef BUILD_BUG_ON
+#define BUILD_BUG_ON(x) ((void)sizeof(char[1 - 2*!!(x)]))
+#endif /* !BUILD_BUG_ON */
+
 #ifndef ARRAY_SIZE
 /**
  * TODO
