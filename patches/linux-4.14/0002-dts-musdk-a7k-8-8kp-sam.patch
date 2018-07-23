@@ -1,22 +1,22 @@
-From 5fc9fe05fc4f754908e47847c2b139982dd14d0d Mon Sep 17 00:00:00 2001
+From 9a1711f5136758ae152103dbc2872d0579cec090 Mon Sep 17 00:00:00 2001
 From: Yelena Krivosheev <yelena@marvell.com>
 Date: Tue, 15 May 2018 09:52:33 +0300
-Subject: [PATCH 2/2] dts: musdk: a7k/8/8kp sam
+Subject: [PATCH 2/4] dts: musdk: a7k/8/8kp sam
 
 Change-Id: I362e94c2506872a4f8fb304f800c2b4e042fbd1e
 Signed-off-by: Yelena Krivosheev <yelena@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-70x0.dtsi  |    4 ++++
- arch/arm64/boot/dts/marvell/armada-80x0.dtsi  |    8 ++++++++
- arch/arm64/boot/dts/marvell/armada-ap810.dtsi |    6 ++++++
- arch/arm64/boot/dts/marvell/armada-cp110.dtsi |    5 +++++
+ arch/arm64/boot/dts/marvell/armada-70x0.dtsi  | 4 ++++
+ arch/arm64/boot/dts/marvell/armada-80x0.dtsi  | 8 ++++++++
+ arch/arm64/boot/dts/marvell/armada-ap810.dtsi | 6 ++++++
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi | 5 +++++
  4 files changed, 23 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-70x0.dtsi b/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
-index f3aee5e..5df7883 100644
+index 2d81edb43088..38139ab7b1dc 100644
 --- a/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
-@@ -105,3 +105,7 @@
+@@ -111,3 +111,7 @@
  		};
  	};
  };
@@ -25,10 +25,10 @@ index f3aee5e..5df7883 100644
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-80x0.dtsi b/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
-index b00556aa..bfc47b5 100644
+index e39cb78c3b3f..b47b7c2ba831 100644
 --- a/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
-@@ -150,3 +150,11 @@
+@@ -156,3 +156,11 @@
  	 */
  	status = "disabled";
  };
@@ -41,10 +41,10 @@ index b00556aa..bfc47b5 100644
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
-index dce37fd..a1e9d47 100644
+index 94d19e7e0f8f..b0a0fdf2aab1 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
-@@ -168,6 +168,12 @@
+@@ -287,6 +287,12 @@
  				cell-index = <AP810_EIP197_INDEX>;
  				status = "okay";
  			};
@@ -58,10 +58,10 @@ index dce37fd..a1e9d47 100644
  	};
  };
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index 8c1d2a3..85a3517 100644
+index 6e0f43729698..a363f91baa6c 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -378,6 +378,11 @@
+@@ -452,6 +452,11 @@
  			cell-index = <CP110_EIP197_INDEX>;
  			dma-coherent;
  		};
@@ -74,5 +74,5 @@ index 8c1d2a3..85a3517 100644
  
  	CP110_LABEL(pcie0): pcie@600000 {
 -- 
-1.7.9.5
+2.17.0
 
