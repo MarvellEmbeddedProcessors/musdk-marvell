@@ -324,29 +324,28 @@ int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 			       struct mgmt_cmd_params *params,
 			       struct mgmt_cmd_resp *resp_data)
 {
-	struct	pp2_ppio_statistics stats;
-	int	ret;
+	int ret;
 
-	ret = nmnicpf_pp2_accumulate_statistics(nmnicpf, &stats, params->pf_get_statistics.reset);
+	ret = nmnicpf_pp2_accumulate_statistics(nmnicpf, &nmnicpf->stats, params->pf_get_statistics.reset);
 	if (ret)
 		return ret;
 
 	if (!resp_data)
 		return -EFAULT;
 
-	resp_data->agnic_stats.rx_bytes = stats.rx_bytes;
-	resp_data->agnic_stats.rx_packets = stats.rx_packets;
-	resp_data->agnic_stats.rx_unicast_packets = stats.rx_unicast_packets;
-	resp_data->agnic_stats.rx_errors = stats.rx_errors;
-	resp_data->agnic_stats.rx_fullq_dropped = stats.rx_fullq_dropped;
-	resp_data->agnic_stats.rx_bm_dropped = stats.rx_bm_dropped;
-	resp_data->agnic_stats.rx_early_dropped = stats.rx_early_dropped;
-	resp_data->agnic_stats.rx_fifo_dropped = stats.rx_fifo_dropped;
-	resp_data->agnic_stats.rx_cls_dropped = stats.rx_cls_dropped;
-	resp_data->agnic_stats.tx_bytes = stats.tx_bytes;
-	resp_data->agnic_stats.tx_packets = stats.tx_packets;
-	resp_data->agnic_stats.tx_unicast_packets = stats.tx_unicast_packets;
-	resp_data->agnic_stats.tx_errors = stats.tx_errors;
+	resp_data->agnic_stats.rx_bytes = nmnicpf->stats.rx_bytes;
+	resp_data->agnic_stats.rx_packets = nmnicpf->stats.rx_packets;
+	resp_data->agnic_stats.rx_unicast_packets = nmnicpf->stats.rx_unicast_packets;
+	resp_data->agnic_stats.rx_errors = nmnicpf->stats.rx_errors;
+	resp_data->agnic_stats.rx_fullq_dropped = nmnicpf->stats.rx_fullq_dropped;
+	resp_data->agnic_stats.rx_bm_dropped = nmnicpf->stats.rx_bm_dropped;
+	resp_data->agnic_stats.rx_early_dropped = nmnicpf->stats.rx_early_dropped;
+	resp_data->agnic_stats.rx_fifo_dropped = nmnicpf->stats.rx_fifo_dropped;
+	resp_data->agnic_stats.rx_cls_dropped = nmnicpf->stats.rx_cls_dropped;
+	resp_data->agnic_stats.tx_bytes = nmnicpf->stats.tx_bytes;
+	resp_data->agnic_stats.tx_packets = nmnicpf->stats.tx_packets;
+	resp_data->agnic_stats.tx_unicast_packets = nmnicpf->stats.tx_unicast_packets;
+	resp_data->agnic_stats.tx_errors = nmnicpf->stats.tx_errors;
 
 	return 0;
 }

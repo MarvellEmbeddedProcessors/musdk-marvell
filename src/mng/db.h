@@ -129,6 +129,7 @@ struct nmnicpf {
 	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
 	struct gie_data gie;                        /* GIE */
 	struct pp2_data pp2;                        /* PP2 */
+	struct pp2_ppio_statistics stats;	    /* PP2 Statistics */
 	struct mqa *mqa;                            /* MQA */
 	struct nmdisp *nmdisp;                      /* Dispatcher */
 	struct pf_profile profile_data;             /* Profile */

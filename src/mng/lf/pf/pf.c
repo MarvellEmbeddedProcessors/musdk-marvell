@@ -2336,8 +2336,8 @@ static int nmnicpf_gp_get_statistics(struct nmnicpf *nmnicpf,
 					struct mgmt_cmd_params *params,
 					struct mgmt_cmd_resp *resp_data)
 {
-	int ret;
 	struct giu_gpio_statistics stats;
+	int ret;
 
 	ret = giu_gpio_get_statistics(nmnicpf->giu_gpio, &stats, 0);
 	if (ret)
@@ -2345,6 +2345,13 @@ static int nmnicpf_gp_get_statistics(struct nmnicpf *nmnicpf,
 
 	resp_data->gp_stats.gp_rx_packets = stats.out_packets;
 	resp_data->gp_stats.gp_tx_packets = stats.in_packets;
+
+	/* Calc gp rx full dropped packets using pp2 counter */
+	if (nmnicpf->stats.rx_packets)
+		resp_data->gp_stats.gp_rx_fullq_dropped = nmnicpf->stats.rx_packets -
+								 stats.out_packets;
+	else
+		resp_data->gp_stats.gp_rx_fullq_dropped = 0;
 
 	return 0;
 }

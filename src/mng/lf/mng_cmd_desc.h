@@ -230,6 +230,7 @@ struct mgmt_cmd_resp {
 
 		struct {
 			u64 gp_rx_packets;
+			u64 gp_rx_fullq_dropped;
 			u64 gp_tx_packets;
 		} __packed gp_stats;
 
