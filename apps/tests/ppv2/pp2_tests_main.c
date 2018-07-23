@@ -169,7 +169,7 @@ static int loop_1p(struct local_arg *larg, int *running)
 			tx_qid = pp2_args->lcl_ports_desc->first_txq;
 
 		for (i = 0; i < larg->cmn_args.num_ports; i++) {
-			err = loop_sw_recycle(&larg->cmn_args, i, i, inq_num, inq_id, tx_qid, num);
+			err = loop_sw_recycle(&larg->cmn_args, i, i, tc, inq_id, tx_qid, num);
 			pr_debug("thread:%d, inq_num:%d, tc:%d, inq_id:%d tx_qid:%d\n", larg->cmn_args.id, inq_num,
 				 tc, inq_id, tx_qid);
 			if (err)
