@@ -133,7 +133,8 @@ int mv_sys_event_get_driver_data(struct mv_sys_event *ev, void **driver_data)
 #define MAX_POLL_EVENTS		32
 int mv_sys_event_poll(struct mv_sys_event **ev, int num, int timeout)
 {
-	int i, ret;
+	int i, ret, done = 0;
+	struct sys_event_priv *ev_priv;
 	struct pollfd fds[MAX_POLL_EVENTS] = { {0} };
 
 	if (num > MAX_POLL_EVENTS) {
@@ -147,21 +148,33 @@ int mv_sys_event_poll(struct mv_sys_event **ev, int num, int timeout)
 		fds[i].fd = ev_priv->fd;
 		fds[i].events = ev[i]->events;
 		fds[i].revents = 0;
+		ev[i]->revents = 0;
 	}
 	ret = poll(fds, num, timeout);
+	if (unlikely(ret <= 0))
+		return ret;
 
 	for (i = 0; i < num; i++) {
-		struct sys_event_priv *ev_priv = (struct sys_event_priv *)ev[i]->priv;
+		if (fds[i].revents) {
+			u32 info, nbytes;
 
-		if (ev_priv->event_validate)
-			ev[i]->revents = fds[i].revents & ev_priv->event_validate(ev_priv->driver_data);
-		else
-			ev[i]->revents = fds[i].revents;
+			ev_priv = (struct sys_event_priv *)ev[i]->priv;
+			if (ev_priv->event_validate) {
+				fds[i].revents &= ev_priv->event_validate(ev_priv->driver_data);
+				if (!fds[i].revents)
+					continue;
+			}
+			/* Consume event */
+			nbytes = read(fds[i].fd, &info, sizeof(info));
+			if (nbytes == (ssize_t)sizeof(info)) {
+				ev[i]->revents = fds[i].revents;
+				done++;
+				if (done == ret)
+					break;
+			}
+		}
 	}
-
-	pr_debug("%s: poll() returned. ret = %d revents[0]:%d\n", __func__, ret, ev[0]->revents);
-
-	return ret;
+	return done;
 }
 #elif defined(USE_READ)
 int mv_sys_event_poll(struct mv_sys_event **ev, int num, int timeout)
