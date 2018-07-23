@@ -278,7 +278,7 @@ static int init_local_modules(struct glob_arg *garg)
 			port->num_outqs	= PP2_PPIO_MAX_NUM_OUTQS;
 			port->outq_size	= CLS_APP_TX_Q_SIZE;
 			port->first_inq = CLS_APP_FIRST_MUSDK_IN_QUEUE;
-			if (garg->cmn_args.cpus == 1)
+			if ((garg->cmn_args.cpus * garg->cmn_args.num_cpu_hash_qs) == 1)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
 			else
 				port->hash_type = garg->hash_type;
