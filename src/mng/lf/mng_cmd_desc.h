@@ -66,6 +66,8 @@ enum cmd_codes {
 	CC_PF_LINK_INFO,
 	CC_PF_PAUSE_SET,
 	CC_PF_PAUSE_GET,
+	CC_PF_PORT_RATE_LIMIT,
+	CC_PF_QUEUE_RATE_LIMIT,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -92,6 +94,12 @@ enum ingress_hash_type {
 #define GET_MGMT_CMD_FIELD(word, off, msk)	((word >> off) & msk)
 
 #define MAC_ADDR_LEN	6
+
+struct rate_limit_params {
+	u32 cbs;	/* committed_burst_size, in kilobytes. Min: 64kB */
+	u32 cir;	/* committed_information_rate, in kilobits per second. Min: 100kbps */
+};
+
 /*
  * mgmt_cmd - Encapsulates all management control commands parameters.
  */
@@ -166,6 +174,18 @@ struct mgmt_cmd_params {
 			u8 qid;
 			u8 reset;
 		} __packed pf_q_get_statistics;
+
+		struct {
+			u8 enable;
+			u8 tc;
+			u8 qid;
+			struct rate_limit_params rate_limit;
+		} __packed pf_queue_rate_limit;
+
+		struct {
+			u8 enable;
+			struct rate_limit_params rate_limit;
+		} __packed pf_port_rate_limit;
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];

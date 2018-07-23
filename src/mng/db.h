@@ -74,6 +74,11 @@ struct nmp_pp2_bpool_desc {
 	u32			 buff_size;	/* buffer size */
 };
 
+struct nmp_pp2_outq_desc {
+	int	rate_limit_enable;
+	struct pp2_ppio_rate_limit_params rate_limit;
+};
+
 /*
  * PPv2x port descriptor parameters
  */
@@ -95,6 +100,9 @@ struct nmp_pp2_port_desc {
 	struct pp2_ppio		 *ppio;		/* PPIO object returned by pp2_ppio_init() */
 	u32			 num_pools;
 	struct nmp_pp2_bpool_desc *pools_desc;
+	u8     rate_limit_enable;
+	struct pp2_ppio_rate_limit_params rate_limit_params;
+	struct nmp_pp2_outq_desc   q_desc[PP2_PPIO_MAX_NUM_OUTQS];
 };
 
 /*

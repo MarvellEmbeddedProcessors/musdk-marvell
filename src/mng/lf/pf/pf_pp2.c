@@ -228,6 +228,7 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 	struct nmp_pp2_port_desc	*pdesc;
 	int				 num_pools;
 	struct nmp_pp2_bpool_desc	*pools;
+	struct pp2_ppio_outq_params	*outq_params;
 
 	if (!nmnicpf->pp2.ports_desc)
 		/* no pp2, just return */
@@ -271,8 +272,15 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 
 	}
 	port_params.outqs_params.num_outqs = pdesc->num_outqs;
-	for (i = 0; i < pdesc->num_outqs; i++)
+	for (i = 0; i < pdesc->num_outqs; i++) {
 		port_params.outqs_params.outqs_params[i].size = pdesc->outq_size;
+		if (pdesc->q_desc[i].rate_limit_enable) {
+			outq_params = &port_params.outqs_params.outqs_params[i];
+			outq_params->rate_limit_enable = 1;
+			outq_params->rate_limit_params.cbs = pdesc->q_desc[i].rate_limit.cbs;
+			outq_params->rate_limit_params.cir = pdesc->q_desc[i].rate_limit.cir;
+		}
+	}
 
 	err = pp2_ppio_init(&port_params, &pdesc->ppio);
 	if (err) {

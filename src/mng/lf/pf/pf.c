@@ -2561,6 +2561,78 @@ static int nmnicpf_pause_get_command(struct nmnicpf *nmnicpf,
 
 }
 
+/*
+ *	nmnicpf_port_rate_limit_command
+ */
+static int nmnicpf_port_rate_limit_command(struct nmnicpf *nmnicpf,
+				   struct mgmt_cmd_params *params,
+				   struct mgmt_cmd_resp *resp_data)
+{
+	int i;
+	struct nmp_pp2_port_desc *port_desc;
+
+	pr_debug("port rate limit message\n");
+
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+
+	if (nmnicpf->initialized) {
+		pr_err("Can't set port rate limit while network hw is alreay initialized\n");
+		return -EFAULT;
+	}
+	if (nmnicpf->pp2.ports_desc) {
+		/* Update pp2 rate limit attributes */
+		for (i = 0; i < nmnicpf->pp2.num_ports; i++) {
+			port_desc = &nmnicpf->pp2.ports_desc[i];
+
+			if (params->pf_port_rate_limit.enable) {
+				port_desc->rate_limit_enable = true;
+				port_desc->rate_limit_params.cbs = params->pf_port_rate_limit.rate_limit.cbs;
+				port_desc->rate_limit_params.cir = params->pf_port_rate_limit.rate_limit.cir;
+			} else
+				port_desc->rate_limit_enable = false;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ *	nmnicpf_queue_rate_limit_command
+ */
+static int nmnicpf_queue_rate_limit_command(struct nmnicpf *nmnicpf,
+				   struct mgmt_cmd_params *params,
+				   struct mgmt_cmd_resp *resp_data)
+{
+	int i, qid;
+	struct nmp_pp2_outq_desc *q_desc;
+
+	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT &&
+		params->pf_queue_rate_limit.qid) {
+		pr_err("queue id %d doesn't supported\n", params->pf_queue_rate_limit.qid);
+		return -EFAULT;
+	}
+
+	pr_debug("queue rate limit message\n");
+	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
+		return -ENOTSUP;
+	if (nmnicpf->initialized) {
+		pr_err("Can't set queue rate limit while network hw is alreay initialized\n");
+		return -EFAULT;
+	}
+	if (nmnicpf->pp2.ports_desc) {
+		/* Update pp2 rate limit attributes */
+		for (i = 0; i < nmnicpf->pp2.num_ports; i++) {
+			qid = params->pf_queue_rate_limit.tc;
+			q_desc = &nmnicpf->pp2.ports_desc[i].q_desc[qid];
+			q_desc->rate_limit_enable = params->pf_queue_rate_limit.enable;
+			if (q_desc->rate_limit_enable)
+				q_desc->rate_limit.cir = params->pf_queue_rate_limit.rate_limit.cir;
+		}
+	}
+
+	return 0;
+}
 
 /*
  *	nmnicpf_process_pf_command
@@ -2744,6 +2816,18 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_pause_get_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_PF_PAUSE_GET message failed\n");
+		break;
+
+	case CC_PF_PORT_RATE_LIMIT:
+		ret = nmnicpf_port_rate_limit_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_PORT_RATE_LIMIT message failed\n");
+		break;
+
+	case CC_PF_QUEUE_RATE_LIMIT:
+		ret = nmnicpf_queue_rate_limit_command(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_PF_QUEUE_RATE_LIMIT message failed\n");
 		break;
 
 	default:
