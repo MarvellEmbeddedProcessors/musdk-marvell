@@ -229,6 +229,8 @@ int mqa_get_info(struct mqa *mqa, struct mqa_info *info)
 {
 	info->qpt_va = mqa->qpt_base;
 	info->qct_va = mqa->qct_base;
+
+	return 0;
 }
 
 int mqa_set_remote_index_mode(struct mqa *mqa, int remote_index_mode)
