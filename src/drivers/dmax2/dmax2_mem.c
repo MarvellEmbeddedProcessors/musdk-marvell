@@ -34,15 +34,25 @@
 
 #include "dmax2.h"
 
-#define DMAX2_COMPATIBLE_STR		"dma_xor"
+
+struct dmax2_lnx_format {
+	enum musdk_lnx_id ver;
+	char *uio_format;
+};
+
+struct dmax2_lnx_format dmax2_frm[] = {
+		{LNX_4_4_x, "dma_xor"},
+		{LNX_OTHER, "xor"},
+};
 
 int init_dmax2_mem(struct dmax2 *dmax2)
 {
 	struct sys_iomem_params	 iomem_params;
 	dma_addr_t		 addr;
 	int			 err;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
-	iomem_params.devname = DMAX2_COMPATIBLE_STR;
+	iomem_params.devname = dmax2_frm[lnx_id].uio_format;
 	iomem_params.index = dmax2->id;
 	iomem_params.type = SYS_IOMEM_T_UIO;
 
