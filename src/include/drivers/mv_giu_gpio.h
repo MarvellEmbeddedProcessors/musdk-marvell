@@ -10,7 +10,6 @@
 
 #include "mv_std.h"
 #include "mv_mqa.h"
-#include "mv_giu_gpio_init.h"
 #include "mv_giu_bpool.h"
 #include "mv_pp2_ppio.h" /* for descriptor inspection functionality */
 
@@ -26,10 +25,149 @@
 #define GIU_GPIO_DESC_PA_WATERMARK	0xcafe0000
 #define GIU_GPIO_DESC_COOKIE_WATERMARK	0xcafecafe
 
-
 /* GPIO Handler */
 struct giu_gpio;
 
+/* RSS Hash Type
+ *
+ *	HASH_2_TUPLE - IP-src, IP-dst
+ *	HASH_5_TUPLE - IP-src, IP-dst, IP-Prot, L4-src, L4-dst
+ */
+enum rss_hash_type {
+	RSS_HASH_NONE = 0,
+	RSS_HASH_2_TUPLE,
+	RSS_HASH_5_TUPLE
+
+};
+
+struct lcl_q_params {
+	struct mqa_q *q;
+	u32 q_id;
+	u32 len;
+
+};
+
+struct rem_q_params {
+	struct mqa_q *q;
+	u32 q_id;
+	u32 len;
+	u32 size;
+	void        *host_remap;
+	phys_addr_t  q_base_pa;
+	void        *prod_base_va;
+	phys_addr_t  prod_base_pa;
+	void        *cons_base_va;
+	phys_addr_t  cons_base_pa;
+	u32 msix_id;
+};
+
+union giu_gpio_q_params {
+	struct lcl_q_params lcl_q;
+	struct rem_q_params rem_q;
+
+};
+
+/* In TC - Queue topology */
+struct giu_gpio_intc_params {
+	u32 tc_id;
+
+	/* lcl_eg_tcs */
+	u32 num_inqs;
+	union giu_gpio_q_params *inqs_params;
+
+	/* lcl_bm_qs_num */
+	u32 num_inpools;
+	u32 pool_buf_size;
+	/* lcl_bm_qs_params */
+	union giu_gpio_q_params *pools;
+
+	/* host_eg_tcs */
+	u32 num_rem_outqs;
+	union giu_gpio_q_params *rem_outqs_params;
+
+};
+
+struct giu_gpio_intcs_params {
+	u32 num_intcs;
+	struct giu_gpio_intc_params *intc_params;
+
+};
+
+/* Out TC - Queue topology */
+struct giu_gpio_outtc_params {
+	u32 tc_id;
+
+	/* lcl_ing_tcs */
+	u32 num_outqs;
+	union giu_gpio_q_params *outqs_params;
+
+	/* host_ing_tcs */
+	u8 rss_type;
+	u32 num_rem_inqs;
+	union giu_gpio_q_params *rem_inqs_params;
+	union giu_gpio_q_params *rem_poolqs_params;
+};
+
+struct giu_gpio_outtcs_params {
+	u32 num_outtcs;
+	struct giu_gpio_outtc_params *outtc_params;
+
+};
+
+/* Queue topology */
+struct giu_gpio_init_params {
+	u8 id;
+
+	struct mqa *mqa;
+	struct gie_data *gie;
+
+	struct giu_gpio_intcs_params  intcs_params;
+	struct giu_gpio_outtcs_params outtcs_params;
+
+};
+
+/**
+ * Initialize a gpio
+ *
+ * @param[in]	init_params	gpio initialization parameters
+ * @param[out]	gpio		A pointer to opaque gpio handle of type 'struct giu_gpio *'.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gpio);
+
+/**
+ * De-initialize a gpio
+ *
+ * @param[in]	gpio	A gpio handle.
+ *
+ */
+void giu_gpio_deinit(struct giu_gpio *gpio);
+
+/**
+ * Probe a gpio
+ *
+ * @param[in]	regfile_name	register file location.
+ * @param[in]	regfile_name	register file location.
+ * @param[out]	gpio		A pointer to opaque gpio handle of type 'struct giu_gpio *'.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio);
+
+/**
+ * Remove a gpio
+ *
+ * @param[in]	gpio	A gpio handle.
+ *
+ */
+void giu_gpio_remove(struct giu_gpio *gpio);
+
+/****************************************************************************
+ *	Run-time API
+ ****************************************************************************/
 
 /**
  * Rx/Tx packet's descriptor
@@ -218,49 +356,6 @@ enum giu_outq_desc_ipv4_l4_status {
 #define GIU_TXD_GET_L4_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L4_PRS_INFO_MASK) >> 25)
 #define GIU_TXD_GET_L3_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L3_PRS_INFO_MASK) >> 28)
 #define GIU_TXD_GET_DEST_QID(desc)	(((desc)->cmds[2] & GIU_TXD_DEST_QID) >> 0)
-
-/**
- * Initialize a gpio
- *
- * @param[in]	init_params	gpio initialization parameters
- * @param[out]	gpio		A pointer to opaque gpio handle of type 'struct giu_gpio *'.
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gpio);
-
-/**
- * De-initialize a gpio
- *
- * @param[in]	gpio	A gpio handle.
- *
- */
-void giu_gpio_deinit(struct giu_gpio *gpio);
-
-/**
- * Probe a gpio
- *
- * @param[in]	regfile_name	register file location.
- * @param[in]	regfile_name	register file location.
- * @param[out]	gpio		A pointer to opaque gpio handle of type 'struct giu_gpio *'.
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio);
-
-/**
- * Remove a gpio
- *
- * @param[in]	gpio	A gpio handle.
- *
- */
-void giu_gpio_remove(struct giu_gpio *gpio);
-
-/****************************************************************************
- *	Run-time API
- ****************************************************************************/
 
 /**
  * Send a batch of frames (single descriptor) on an OutQ of PP-IO.

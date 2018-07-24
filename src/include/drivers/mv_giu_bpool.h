@@ -10,7 +10,6 @@
 
 #include "mv_std.h"
 #include "mv_mqa.h"
-#include "mv_giu_gpio_init.h"
 
 /** @addtogroup grp_giu_bp GIU Port I/O (GP-IO): Buffer Pool
  *
@@ -21,6 +20,7 @@
 
 #define GIU_BPOOL_NUM_POOLS		(16)
 
+struct giu_gpio_init_params;
 
 struct giu_bpool {
 	u32	giu_id;	/**< GIU Instance */

@@ -13,7 +13,7 @@
 #include "drivers/mv_mqa_queue.h"
 #include "lf/pf/pf_queue_topology.h"
 #include "lf/pf/pf_profile.h"
-#include "drivers/mv_giu_gpio_init.h"
+#include "drivers/mv_giu_gpio.h"
 #include "hw_emul/gie.h"
 #include "mng/mv_nmp.h"
 #include "drivers/mv_pp2_ppio.h"

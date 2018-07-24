@@ -9,7 +9,6 @@
 
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
-#include "drivers/mv_giu_gpio_init.h"
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/giu_regfile_def.h"
 #include "hw_emul/gie.h"
