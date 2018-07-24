@@ -81,7 +81,7 @@ static inline void prefetch(const void *ptr)
 #define MVAPPS_PKT_SIZE_IMIX	(-3)
 
 #define MVAPPS_PLD_MIN_SIZE	8
-#define MVAPPS_PLD_WATERMARK	0xcafecafe
+#define MVAPPS_PLD_WATERMARK	0xfefafefa
 
 /* JSON Serializatiion definitions */
 #define SER_FILE_VAR_DIR	"/var/"
