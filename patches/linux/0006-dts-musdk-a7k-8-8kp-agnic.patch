@@ -1,8 +1,7 @@
-From aab6b7b2acb09fd5a7143365b9ad62b06ab372d6 Mon Sep 17 00:00:00 2001
+From 4ab4b239115d3e8f16a362ee19744fd45f040196 Mon Sep 17 00:00:00 2001
 From: Shadi Ammouri <shadi@marvell.com>
 Date: Mon, 28 Aug 2017 15:27:01 +0300
-Subject: [PATCH 6/6] dts: agnic: ap806: Add dts entries for armada giu nic
- platform and uio
+Subject: [PATCH 6/6] dts: musdk: a7k/8/8kp agnic
 
 - The platform entry will be used by the agnic netdev driver.
 - The uio entry will be used by the generic platform uio driver
@@ -15,16 +14,17 @@ Signed-off-by: Shadi Ammouri <shadi@marvell.com>
 Reviewed-on: http://vgitil04.il.marvell.com:8080/43483
 Tested-by: iSoC Platform CI <ykjenk@marvell.com>
 ---
- .../net/marvell-armada-giu-nic-uio.txt        | 26 +++++++++++++++++++
- .../bindings/net/marvell-armada-giu-nic.txt   | 20 ++++++++++++++
- arch/arm64/boot/dts/marvell/armada-ap806.dtsi | 16 ++++++++++++
- 3 files changed, 62 insertions(+)
+ .../bindings/net/marvell-armada-giu-nic-uio.txt    | 26 ++++++++++++++++++++++
+ .../bindings/net/marvell-armada-giu-nic.txt        | 20 +++++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap806.dtsi      | 16 +++++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap810.dtsi      | 15 +++++++++++++
+ 4 files changed, 77 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 
 diff --git a/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
 new file mode 100644
-index 000000000000..a9def97ed1ed
+index 0000000..a9def97
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
 @@ -0,0 +1,26 @@
@@ -56,7 +56,7 @@ index 000000000000..a9def97ed1ed
 +};
 diff --git a/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 new file mode 100644
-index 000000000000..6faa6f6a58ba
+index 0000000..6faa6f6
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 @@ -0,0 +1,20 @@
@@ -81,10 +81,12 @@ index 000000000000..6faa6f6a58ba
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-index 5fcb043a7e64..ec3ebcd56cfe 100644
+index 2b9fd37..1424dbe 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-@@ -517,2 +517,18 @@
+@@ -519,6 +519,22 @@
+ 				compatible = "marvell,ap806-rev-info";
+ 				reg = <0x610fcc 0x4>;
  			};
 +
 +			agnic-plat {
@@ -103,6 +105,34 @@ index 5fcb043a7e64..ec3ebcd56cfe 100644
 +				status = "okay";
 +			};
  		};
+ 	};
+ 
+diff --git a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
+index c88ecb5..e0b10ad 100644
+--- a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
+@@ -201,6 +201,21 @@
+ 				status = "okay";
+ 				#thermal-sensor-cells = <0>;
+ 			};
++
++			AP810_LABEL(agnic): agnic-plat {
++				compatible = "marvell,armada-giu-nic";
++				reg = <0x6F00A0 0x8>;
++				/*msi-parent = <&AP810_LABEL(gic_its) 0x80>; no support for MSI for now */
++				dma-coherent;
++				status = "okay";
++			};
++			AP810_LABEL(uio_agnic): uio_agnic_0 {
++				compatible = "marvell,armada-giu-nic-uio";
++				reg = <0x6F0000 0x1000
++				       0x280000 0x1000>;
++				reg-names = "agnic_regs", "msi_regs";
++				status = "okay";
++			};
+ 		};
+ 	};
+ };
 -- 
-2.17.0
+2.7.4
 
