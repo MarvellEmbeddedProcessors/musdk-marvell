@@ -11,7 +11,6 @@
 #include "mv_std.h"
 #include "mv_mqa.h"
 #include "mv_giu_bpool.h"
-#include "mv_pp2_ppio.h" /* for descriptor inspection functionality */
 
 /** @addtogroup grp_giu_io GIU Port: I/O (GP-IO)
  *
@@ -531,7 +530,7 @@ static inline void giu_gpio_outq_desc_set_phys_addr(struct giu_gpio_desc *desc, 
 
 static inline void giu_gpio_outq_desc_set_pkt_offset(struct giu_gpio_desc *desc, u8  offset)
 {
-	return pp2_ppio_outq_desc_set_pkt_offset((struct pp2_ppio_desc *)desc, offset);
+	desc->cmds[1] = (u32)offset;
 }
 
 /**
@@ -543,7 +542,7 @@ static inline void giu_gpio_outq_desc_set_pkt_offset(struct giu_gpio_desc *desc,
  */
 static inline void giu_gpio_outq_desc_set_pkt_len(struct giu_gpio_desc *desc, u16 len)
 {
-	return pp2_ppio_outq_desc_set_pkt_len((struct pp2_ppio_desc *)desc, len);
+	desc->cmds[1] = (desc->cmds[1] & ~GIU_TXD_BYTE_COUNT_MASK) | (len << 16 & GIU_TXD_BYTE_COUNT_MASK);
 }
 
 /**
@@ -646,7 +645,7 @@ static inline u64 giu_gpio_inq_desc_get_cookie(struct giu_gpio_desc *desc)
  */
 static inline u16 giu_gpio_inq_desc_get_pkt_len(struct giu_gpio_desc *desc)
 {
-	u16 len = (desc->cmds[1] & RXD_BYTE_COUNT_MASK) >> 16;
+	u16 len = (desc->cmds[1] & GIU_RXD_BYTE_COUNT_MASK) >> 16;
 	return len;
 }
 
