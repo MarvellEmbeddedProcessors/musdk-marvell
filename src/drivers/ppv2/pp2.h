@@ -78,6 +78,7 @@
 #define PP2_MAX_NUM_USED_INTERRUPTS	(PP2_PPIO_MAX_NUM_INQS/PP22_MAX_NUM_RXQ_PER_INTRPT) /* 32/8=4 */
 
 
+#define PP2_TX_PAUSE_SUPPORT(port)	(port->parent->hw.cm3_base.va != (uintptr_t)NULL)
 
 #ifdef MVCONF_PP2_LOCK
 	#ifdef MVCONF_PP2_LOCK_STAT

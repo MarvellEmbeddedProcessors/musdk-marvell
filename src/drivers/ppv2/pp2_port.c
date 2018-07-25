@@ -2111,7 +2111,11 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	if (!ena) {
 		/*TODO*/
 		pr_err("%s: disable not yet implemented\n", __func__);
-		return 0;
+		return -EPERM;
+	}
+	if (!PP2_TX_PAUSE_SUPPORT(port)) {
+		pr_err("%s: tx_pause not supported in system\n", __func__);
+		return -EPERM;
 	}
 
 	if (params->use_tc_pause_inqs) {
