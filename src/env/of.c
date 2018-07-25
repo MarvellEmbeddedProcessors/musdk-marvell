@@ -163,7 +163,7 @@ void *of_get_property(struct device_node *dev_node, const char *name, size_t *le
 {
 	int	 _err, __err;
 	size_t	 len;
-	char	 command[PATH_MAX];
+	char	 command[PATH_MAX * 2];
 	FILE	*of_sh;
 
 	assert(name != NULL);
@@ -332,7 +332,7 @@ struct device_node *of_find_compatible_node_by_indx(
 	const char			*compatible)
 {
 	int			 _err, __err;
-	char			 command[PATH_MAX], *full_name;
+	char			 command[PATH_MAX * 2], *full_name;
 	FILE			*of_sh;
 	struct device_node	*dev_node;
 
