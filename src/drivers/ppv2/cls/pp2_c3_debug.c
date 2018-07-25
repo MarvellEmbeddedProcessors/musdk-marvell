@@ -227,7 +227,7 @@ void pp2_cls_c3_entry_line_dump(u32 dump_idx, u32 hash_idx, u32 logic_idx,
 		sprintf(qos_info_str, "Q_HIGH=%d", c3_entry->qos_value.q_high);
 		break;
 	case MVPP2_C3_QOS_DUMP_POLICER_ID:
-		sprintf(qos_info_str, "POLICER_ID=%d", c3_entry->policer_id);
+		sprintf(qos_info_str, "POLICER_ID=%hd", c3_entry->policer_id);
 		break;
 	default:
 		break;
@@ -446,7 +446,7 @@ int pp2_cls_cli_c3_type_entry_dump(void *arg, int argc, char *argv[])
 static int pp2_cls_c3_index_dump(struct pp2_inst *inst, u32 type)
 {
 	int idx;
-	int num = 0;
+	u32 num = 0;
 	char index_str[8] = "";
 	char hash_idx_str[8] = "";
 	char logic_idx_str[8] = "";
@@ -628,7 +628,7 @@ int pp2_cls_cli_c3_scan_param_set(void *arg, int argc, char *argv[])
  ******************************************************************************/
 static int pp2_cls_c3_scan_result_dump(struct pp2_inst *inst, u32 max_num)
 {
-	int idx;
+	u32 idx;
 	u32 entry_num;
 	struct pp2_cls_c3_scan_entry_t *result_entry;
 	char index_str[8] = "";

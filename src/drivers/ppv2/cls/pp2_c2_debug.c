@@ -415,7 +415,7 @@ static void pp2_cls_valid_c2_entry_line_dump(uintptr_t cpu_slot,
 		sprintf(index_str, "HW:%03d", c2_index_node->c2_hw_idx);
 		break;
 	case MVPP2_INDEX_DUMP_LOGICAL:
-		sprintf(index_str, "LOG:%04d", c2_index_node->c2_logic_idx);
+		sprintf(index_str, "LOG:%03d", c2_index_node->c2_logic_idx);
 		break;
 	case MVPP2_INDEX_DUMP_DB:
 		sprintf(index_str, "DB:%04d", c2_index_node->c2_data_db_idx);
