@@ -37,6 +37,7 @@
 #include <sched.h>
 #include <fcntl.h>
 #include <arpa/inet.h>	/* ntohs */
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <getopt.h>

@@ -35,6 +35,7 @@
 #include <getopt.h>
 #include <sys/time.h>
 #include <arpa/inet.h>	/* ntohs */
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 
@@ -45,9 +46,6 @@
 #include "lib/net.h"
 
 #include "utils.h"
-
-
-#define ETHERTYPE_IP	0x800
 
 
 struct pkt {
@@ -158,8 +156,8 @@ int app_build_pkt_pool(void			**mem,
 			buffs[i].size = pkt_size;
 		pr_debug("got pkt size: %d\n", buffs[i].size);
 
-		memcpy(pkt->eh.ether_dmac, dst_mac, MV_ETH_ALEN);
-		memcpy(pkt->eh.ether_smac, src_mac, MV_ETH_ALEN);
+		memcpy(pkt->eh.ether_dhost, dst_mac, MV_ETH_ALEN);
+		memcpy(pkt->eh.ether_shost, src_mac, MV_ETH_ALEN);
 
 		pkt->eh.ether_type = htons(ETHERTYPE_IP);
 

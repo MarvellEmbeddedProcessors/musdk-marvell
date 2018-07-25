@@ -36,6 +36,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <arpa/inet.h>	/* ntohs */
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <getopt.h>
@@ -106,8 +107,6 @@
 #define DEFAULT_DST_IP 0x0a000002
 #define DEFAULT_SRC_PORT 1024
 #define DEFAULT_DST_PORT 1024
-
-#define ETHERTYPE_IP	0x800
 
 #define PKT_GEN_NUM_CNTS	2
 #define PKT_GEN_CNT_PKTS	0
