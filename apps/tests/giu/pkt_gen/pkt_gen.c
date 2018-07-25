@@ -37,6 +37,7 @@
 #include <sched.h>
 #include <fcntl.h>
 #include <arpa/inet.h>	/* ntohs */
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <getopt.h>
@@ -119,8 +120,6 @@
 #define DEFAULT_DST_IP 0x0a000002
 #define DEFAULT_SRC_PORT 1024
 #define DEFAULT_DST_PORT 1024
-
-#define ETHERTYPE_IP	0x800
 
 #define PLD_WATERMARK	0xcafecafe
 
@@ -399,7 +398,7 @@ static int loop_rx(struct local_arg	*larg,
 		dat = (u32 *)pkt->body;
 		if (unlikely((dat[0] == MVAPPS_PLD_WATERMARK)/* TODO: || (dat[0] != read_ind)*/))
 			pr_info("\r[ERROR] Analayzer: Illegal PLD: %x\n", dat[0]);
-		else if (unlikely((pkt->eh.ether_type == htons(0x800)) && (pkt->ip.ip_v == IPVERSION))) {
+		else if (unlikely((pkt->eh.ether_type == htons(ETHERTYPE_IP)) && (pkt->ip.ip_v == IPVERSION))) {
 			u16 tot_len = swab16(pkt->ip.ip_len) + sizeof(pkt->eh); /* assuming eth header */
 
 			if (unlikely(tot_len != len))

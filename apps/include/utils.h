@@ -198,12 +198,6 @@ struct mac_range {
 	eth_addr_t end;
 };
 
-struct ether_header {
-	eth_addr_t	ether_dmac;
-	eth_addr_t	ether_smac;
-	u16		ether_type;
-} __packed;
-
 struct perf_cmn_cntrs {
 	u64			rx_cnt;
 	u64			tx_cnt;
