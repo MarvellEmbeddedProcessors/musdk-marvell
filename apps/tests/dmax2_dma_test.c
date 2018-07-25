@@ -658,7 +658,7 @@ int main(int argc, char *argv[])
 {
 	struct dmax2_params	 dmax2_params;
 	int	err = 0;
-	char engine_name[7];
+	char engine_name[20];
 
 	printf("Marvell Armada US DMA test (Build: %s %s)\n\n", __DATE__, __TIME__);
 
@@ -675,7 +675,7 @@ int main(int argc, char *argv[])
 		return err;
 
 	/* Initialize DMA engine */
-	sprintf(engine_name, "dmax2-%d", garg.engine);
+	sprintf(engine_name, "dmax2-%hd", garg.engine);
 	dmax2_params.match = engine_name;
 	dmax2_params.queue_size = DMAX2_BURST_SIZE;
 	err = dmax2_init(&dmax2_params, &dmax2);

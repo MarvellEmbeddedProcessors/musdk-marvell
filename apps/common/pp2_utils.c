@@ -1489,7 +1489,8 @@ static int app_get_max_num_pools(void)
 int app_build_all_bpools(struct bpool_desc ***ppools, int num_pools, struct bpool_inf infs[], struct pp2_hif *hif)
 {
 	struct pp2_bpool_params		bpool_params;
-	int				i, j, err, pool_id;
+	u32				i, j, pool_id;
+	int				err;
 	char				name[15];
 	struct bpool_desc		**pools = NULL;
 	struct pp2_buff_inf		*buffs_inf = NULL;

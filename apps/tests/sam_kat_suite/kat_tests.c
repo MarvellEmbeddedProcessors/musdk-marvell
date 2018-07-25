@@ -1019,7 +1019,8 @@ static int init_local(void *arg, int id, void **_larg)
 	struct glob_arg		*garg = (struct glob_arg *)arg;
 	struct local_arg	*larg;
 	struct sam_cio_params	cio_params;
-	int			err, cio_id, sam_device;
+	int			err;
+	u32			cio_id, sam_device;
 
 	pr_debug("Local initializations for thread %d\n", id);
 
