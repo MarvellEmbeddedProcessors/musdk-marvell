@@ -625,7 +625,6 @@ int pp2_init(struct pp2_init_params *params)
 		if (!inst) {
 			pr_err("cannot create PP%u\n", pp2_id);
 			rc = -ENOMEM;
-			pp2_id--;
 			goto pp2_init_err;
 		}
 		/* Store the PPDK handle as parent and store
