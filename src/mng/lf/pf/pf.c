@@ -64,7 +64,7 @@ static int nmnicpf_regfile_size(struct nmnicpf *nmnicpf)
 	u32 tc_id;
 	struct giu_gpio_intc_params *intc;
 	struct giu_gpio_outtc_params *outtc;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	/* Main topology structure size */
 	size = sizeof(struct giu_regfile);
@@ -401,7 +401,7 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 {
 	void *file_map;
 	struct giu_regfile *regfile_data = &nmnicpf->regfile_data;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	int tc_idx, queue_idx;
 	int ret = 0;
 	int bm_tc_id = 0;
@@ -544,7 +544,7 @@ static int nmnicpf_topology_local_queue_init(struct nmnicpf *nmnicpf)
 {
 	int ret;
 	struct pf_profile *prof = &(nmnicpf->profile_data);
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	pr_debug("Initializing Local Queues in management Database\n");
 
@@ -588,7 +588,7 @@ queue_error:
  */
 static void nmnicpf_topology_local_tc_free(struct nmnicpf *nmnicpf)
 {
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	pr_debug("Free Local queues DB\n");
 	pf_intc_queue_free(LCL, q_top->intcs_params.num_intcs);
@@ -612,7 +612,7 @@ static void nmnicpf_topology_local_tc_free(struct nmnicpf *nmnicpf)
 static int nmnicpf_topology_remote_queue_init(struct nmnicpf *nmnicpf)
 {
 	int ret;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	pr_debug("Initializing Remote Queues in management Database\n");
 
@@ -652,7 +652,7 @@ queue_error:
  */
 static int nmnicpf_topology_remote_tc_free(struct nmnicpf *nmnicpf)
 {
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	pr_debug("Free Remote queues DB\n");
 	pf_intc_queue_free(REM, q_top->intcs_params.num_intcs);
@@ -703,7 +703,7 @@ static int nmnicpf_topology_local_queue_cfg(struct nmnicpf *nmnicpf)
 	union  giu_gpio_q_params giu_gpio_q;
 	union  giu_gpio_q_params *giu_gpio_q_p;
 	struct pf_profile *prof = &(nmnicpf->profile_data);
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	/* Create Local BM queues */
 	pr_debug("Configure Local BM queues (Num of queues %d)\n", q_top->intcs_params.num_inpools);
@@ -1195,7 +1195,7 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	pf_topology_init(nmnicpf);
 
 	/* Clear queue topology batabase */
-	memset(&(nmnicpf->topology_data), 0, sizeof(struct giu_gpio_init_params));
+	memset(&(nmnicpf->topology_data), 0, sizeof(struct giu_gpio_params));
 
 	nmnicpf->topology_data.mqa = nmnicpf->mqa;
 	nmnicpf->topology_data.gie = &(nmnicpf->gie);
@@ -1371,7 +1371,7 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 				  struct mgmt_cmd_resp *resp_data)
 {
 	int ret, i;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	pr_debug("PF INIT\n");
 	pr_debug("Num of - Ing TC %d, Eg TC %d\n",
@@ -1425,7 +1425,7 @@ static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
 	int ret = 0;
 	union giu_gpio_q_params *tc_queues;
 
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_intc_params *intc = &(q_top->intcs_params.intc_params[params->pf_egress_tc_add.tc_prio]);
 
 	pr_debug("Configure Host Egress TC[%d] Queues\n", params->pf_egress_tc_add.tc_prio);
@@ -1462,7 +1462,7 @@ static int nmnicpf_ingress_tc_add_command(struct nmnicpf *nmnicpf,
 {
 	int ret = 0;
 
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_outtc_params *outtc = &(q_top->outtcs_params.outtc_params[params->pf_ingress_tc_add.tc_prio]);
 
 	pr_debug("Configure Host Ingress TC[%d] Queues\n", params->pf_ingress_tc_add.tc_prio);
@@ -1536,7 +1536,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	u32 q_id, bpool_q_id;
 
 	union giu_gpio_q_params giu_gpio_q;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_outtc_params *outtc;
 
 	msg_tc = params->pf_ingress_data_q_add.tc_prio;
@@ -1647,7 +1647,7 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	u32 q_id;
 
 	union giu_gpio_q_params giu_gpio_q;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_intc_params *intc;
 
 	msg_tc = params->pf_egress_q_add.tc_prio;
@@ -1838,7 +1838,7 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	int ret;
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	/* Override Local Ingress number of queues */
 	nmnicpf->profile_data.lcl_ingress_q_num =

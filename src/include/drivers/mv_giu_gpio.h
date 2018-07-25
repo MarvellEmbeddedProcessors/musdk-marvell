@@ -114,7 +114,7 @@ struct giu_gpio_outtcs_params {
 };
 
 /* Queue topology */
-struct giu_gpio_init_params {
+struct giu_gpio_params {
 	u8 id;
 
 	struct mqa *mqa;
@@ -128,13 +128,13 @@ struct giu_gpio_init_params {
 /**
  * Initialize a gpio
  *
- * @param[in]	init_params	gpio initialization parameters
+ * @param[in]	params		gpio initialization parameters
  * @param[out]	gpio		A pointer to opaque gpio handle of type 'struct giu_gpio *'.
  *
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int giu_gpio_init(struct giu_gpio_init_params *init_params, struct giu_gpio **gpio);
+int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio);
 
 /**
  * De-initialize a gpio

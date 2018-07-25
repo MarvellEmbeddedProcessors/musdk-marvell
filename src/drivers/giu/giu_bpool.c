@@ -17,11 +17,11 @@
 
 struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS] = {0};
 
-int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **bpool)
+int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool)
 {
 	int ret;
 	u32 bm_idx, tc_idx;
-	struct mqa_queue_params params;
+	struct mqa_queue_params mqa_params;
 	struct giu_gpio_outtc_params *outtc;
 	struct giu_gpio_intc_params *intc;
 	union giu_gpio_q_params *giu_gpio_q_p;
@@ -32,40 +32,40 @@ int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **
 		goto error;
 	}
 
-	(*bpool)->params = init_params;
+	(*bpool)->params = params;
 
 	pr_debug("Initializing Local BM queues\n");
 
 	/* Create Local BM queues */
-	for (tc_idx = 0; tc_idx < init_params->intcs_params.num_intcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < params->intcs_params.num_intcs; tc_idx++) {
 
-		intc = &(init_params->intcs_params.intc_params[tc_idx]);
+		intc = &(params->intcs_params.intc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
 
 			giu_gpio_q_p = &(intc->pools[bm_idx]);
 
-			memset(&params, 0, sizeof(struct mqa_queue_params));
+			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 
-			params.idx  = giu_gpio_q_p->lcl_q.q_id;
-			params.len  = giu_gpio_q_p->lcl_q.len;
-			params.size = gie_get_desc_size(BUFF_DESC);
-			params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
+			mqa_params.idx  = giu_gpio_q_p->lcl_q.q_id;
+			mqa_params.len  = giu_gpio_q_p->lcl_q.len;
+			mqa_params.size = gie_get_desc_size(BUFF_DESC);
+			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
 
-			ret = mqa_queue_create(init_params->mqa, &params, &(giu_gpio_q_p->lcl_q.q));
+			ret = mqa_queue_create(params->mqa, &mqa_params, &(giu_gpio_q_p->lcl_q.q));
 			if (ret < 0) {
-				pr_err("Failed to allocate Local BM queue %d\n", params.idx);
+				pr_err("Failed to allocate Local BM queue %d\n", mqa_params.idx);
 				goto lcl_queue_error;
 			}
 
 			/* Register Local BM Queue to GIU */
-			ret = gie_add_bm_queue(init_params->gie->tx_gie, params.idx,
+			ret = gie_add_bm_queue(params->gie->tx_gie, mqa_params.idx,
 									intc->pool_buf_size, GIU_LCL_Q_IND);
 			if (ret) {
-				pr_err("Failed to register BM Queue %d to GIU\n", params.idx);
+				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto lcl_queue_error;
 			}
-			pr_debug("Local BM[%d], queue Id %d, Registered to GIU TX\n\n", bm_idx, params.idx);
+			pr_debug("Local BM[%d], queue Id %d, Registered to GIU TX\n\n", bm_idx, mqa_params.idx);
 		}
 	}
 
@@ -73,39 +73,39 @@ int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **
 	pr_debug("Initializing Remote BM queues\n");
 
 	/* Create Remote BM queues */
-	for (tc_idx = 0; tc_idx < init_params->outtcs_params.num_outtcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < params->outtcs_params.num_outtcs; tc_idx++) {
 
-		outtc = &(init_params->outtcs_params.outtc_params[tc_idx]);
+		outtc = &(params->outtcs_params.outtc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
 
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 
-			memset(&params, 0, sizeof(struct mqa_queue_params));
+			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 
-			params.idx             = giu_gpio_q_p->rem_q.q_id;
-			params.len             = giu_gpio_q_p->rem_q.len;
-			params.size            = giu_gpio_q_p->rem_q.size;
-			params.attr            = (u32)(MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS);
-			params.remote_phy_addr = (void *)giu_gpio_q_p->rem_q.q_base_pa;
-			params.cons_phys       = (void *)giu_gpio_q_p->rem_q.cons_base_pa;
-			params.cons_virt       = giu_gpio_q_p->rem_q.cons_base_va;
-			params.host_remap      = giu_gpio_q_p->rem_q.host_remap;
+			mqa_params.idx             = giu_gpio_q_p->rem_q.q_id;
+			mqa_params.len             = giu_gpio_q_p->rem_q.len;
+			mqa_params.size            = giu_gpio_q_p->rem_q.size;
+			mqa_params.attr            = (u32)(MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS);
+			mqa_params.remote_phy_addr = (void *)giu_gpio_q_p->rem_q.q_base_pa;
+			mqa_params.cons_phys       = (void *)giu_gpio_q_p->rem_q.cons_base_pa;
+			mqa_params.cons_virt       = giu_gpio_q_p->rem_q.cons_base_va;
+			mqa_params.host_remap      = giu_gpio_q_p->rem_q.host_remap;
 
-			ret = mqa_queue_create(init_params->mqa, &params,  &(giu_gpio_q_p->rem_q.q));
+			ret = mqa_queue_create(params->mqa, &mqa_params,  &(giu_gpio_q_p->rem_q.q));
 			if (ret < 0) {
-				pr_err("Failed to allocate Host BM queue %d\n", params.idx);
+				pr_err("Failed to allocate Host BM queue %d\n", mqa_params.idx);
 				goto host_queue_error;
 			}
 
 			/* Register Host BM Queue to GIU */
-			ret = gie_add_bm_queue(init_params->gie->rx_gie, params.idx, params.size, GIU_REM_Q_IND);
+			ret = gie_add_bm_queue(params->gie->rx_gie, mqa_params.idx, mqa_params.size, GIU_REM_Q_IND);
 			if (ret) {
-				pr_err("Failed to register BM Queue %d to GIU\n", params.idx);
+				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto host_queue_error;
 			}
 			pr_debug("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
-				 tc_idx, bm_idx, params.idx);
+				 tc_idx, bm_idx, mqa_params.idx);
 		}
 	}
 
@@ -113,24 +113,24 @@ int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **
 
 host_queue_error:
 
-	for (tc_idx = 0; tc_idx < init_params->outtcs_params.num_outtcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < params->outtcs_params.num_outtcs; tc_idx++) {
 
-		outtc = &(init_params->outtcs_params.outtc_params[tc_idx]);
+		outtc = &(params->outtcs_params.outtc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
 
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 
 			if (giu_gpio_q_p->rem_q.q_id) {
-				ret = gie_remove_bm_queue(init_params->gie->rx_gie, giu_gpio_q_p->rem_q.q_id);
+				ret = gie_remove_bm_queue(params->gie->rx_gie, giu_gpio_q_p->rem_q.q_id);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x from GIU TX\n", giu_gpio_q_p->rem_q.q_id);
 
-				ret = mqa_queue_destroy(init_params->mqa, giu_gpio_q_p->rem_q.q);
+				ret = mqa_queue_destroy(params->mqa, giu_gpio_q_p->rem_q.q);
 				if (ret)
 					pr_err("Failed to free queue Idx %x in DB\n", giu_gpio_q_p->rem_q.q_id);
 
-				ret = mqa_queue_free(init_params->mqa, (u32)giu_gpio_q_p->rem_q.q_id);
+				ret = mqa_queue_free(params->mqa, (u32)giu_gpio_q_p->rem_q.q_id);
 				if (ret)
 					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->rem_q.q_id);
 			}
@@ -139,24 +139,24 @@ host_queue_error:
 
 lcl_queue_error:
 
-	for (tc_idx = 0; tc_idx < init_params->outtcs_params.num_outtcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < params->outtcs_params.num_outtcs; tc_idx++) {
 
-		intc = &(init_params->intcs_params.intc_params[tc_idx]);
+		intc = &(params->intcs_params.intc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
 
 			giu_gpio_q_p = &(intc->pools[bm_idx]);
 
 			if (giu_gpio_q_p->lcl_q.q_id) {
-				ret = gie_remove_bm_queue(init_params->gie->tx_gie, giu_gpio_q_p->lcl_q.q_id);
+				ret = gie_remove_bm_queue(params->gie->tx_gie, giu_gpio_q_p->lcl_q.q_id);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x from GIU TX\n", giu_gpio_q_p->lcl_q.q_id);
 
-				ret = mqa_queue_destroy(init_params->mqa, giu_gpio_q_p->lcl_q.q);
+				ret = mqa_queue_destroy(params->mqa, giu_gpio_q_p->lcl_q.q);
 				if (ret)
 					pr_err("Failed to free queue Idx %x in DB\n", giu_gpio_q_p->lcl_q.q_id);
 
-				ret = mqa_queue_free(init_params->mqa, (u32)giu_gpio_q_p->lcl_q.q_id);
+				ret = mqa_queue_free(params->mqa, (u32)giu_gpio_q_p->lcl_q.q_id);
 				if (ret)
 					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
 			}
@@ -175,20 +175,20 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 	union giu_gpio_q_params *giu_gpio_q_p;
 	struct giu_gpio_outtc_params *outtc;
 	struct giu_gpio_intc_params *intc;
-	struct giu_gpio_init_params *init_params = (struct giu_gpio_init_params *)(bpool->params);
+	struct giu_gpio_params *params = (struct giu_gpio_params *)(bpool->params);
 
 	pr_debug("De-initializing Remote BM queues\n");
 
-	for (tc_idx = 0; tc_idx < init_params->outtcs_params.num_outtcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < params->outtcs_params.num_outtcs; tc_idx++) {
 
-		outtc = &(init_params->outtcs_params.outtc_params[tc_idx]);
+		outtc = &(params->outtcs_params.outtc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
 
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 			if (giu_gpio_q_p->rem_q.q_id) {
-				ret = giu_queue_remove(init_params->mqa, giu_gpio_q_p->rem_q.q,
-								HOST_BM_QUEUE, init_params->gie->rx_gie);
+				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->rem_q.q,
+								HOST_BM_QUEUE, params->gie->rx_gie);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->rem_q.q_id);
 			}
@@ -197,16 +197,16 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 
 	pr_debug("De-initializing Local BM queues\n");
 
-	for (tc_idx = 0; tc_idx < init_params->intcs_params.num_intcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < params->intcs_params.num_intcs; tc_idx++) {
 
-		intc = &(init_params->intcs_params.intc_params[tc_idx]);
+		intc = &(params->intcs_params.intc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
 
 			giu_gpio_q_p = &(intc->pools[bm_idx]);
 			if (giu_gpio_q_p) {
-				ret = giu_queue_remove(init_params->mqa, giu_gpio_q_p->lcl_q.q,
-								LOCAL_BM_QUEUE, init_params->gie->tx_gie);
+				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->lcl_q.q,
+								LOCAL_BM_QUEUE, params->gie->tx_gie);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->lcl_q.q_id);
 			}

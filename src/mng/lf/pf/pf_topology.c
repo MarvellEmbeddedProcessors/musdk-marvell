@@ -40,7 +40,7 @@ int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num)
 {
 	u32 tc_idx;
 	struct giu_gpio_outtc_params *outtc_p;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	if (q_top->outtcs_params.outtc_params == NULL) {
 		q_top->outtcs_params.outtc_params = kcalloc(tc_num, sizeof(struct giu_gpio_outtc_params), GFP_KERNEL);
@@ -121,7 +121,7 @@ int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num)
 {
 	u32 tc_idx;
 	struct giu_gpio_intc_params *intc_p;
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	if (q_top->intcs_params.intc_params == NULL) {
 		q_top->intcs_params.intc_params =
@@ -205,7 +205,7 @@ int pf_outtc_queue_free(u32 type, u32 tc_num)
 	u32 tc_idx;
 	static u32 clear_outtc;
 
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_outtc_params *outtc_p = q_top->outtcs_params.outtc_params;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
@@ -250,7 +250,7 @@ int pf_intc_queue_free(u32 type, u32 tc_num)
 	u32 tc_idx;
 	static u32 clear_intc;
 
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
@@ -291,7 +291,7 @@ int pf_intc_bm_queue_init(u32 bm_num)
 {
 	u32 tc_idx;
 
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
 
 	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
@@ -330,7 +330,7 @@ int pf_intc_bm_queue_free(void)
 {
 	u32 tc_idx;
 
-	struct giu_gpio_init_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
 
 	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {

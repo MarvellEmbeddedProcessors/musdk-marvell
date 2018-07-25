@@ -20,7 +20,7 @@
 
 #define GIU_BPOOL_NUM_POOLS		(16)
 
-struct giu_gpio_init_params;
+struct giu_gpio_params;
 
 struct giu_bpool {
 	u32	giu_id;	/**< GIU Instance */
@@ -44,7 +44,7 @@ extern struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS];
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int giu_bpool_init(struct giu_gpio_init_params *init_params, struct giu_bpool **bpool);
+int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool);
 
 /**
  * De-initialize a Buffer Pool (bpool)
