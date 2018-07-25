@@ -815,7 +815,7 @@ lcl_ing_queue_error:
 				if (ret)
 					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
 
-				memset(&(giu_gpio_q_p), 0, sizeof(union giu_gpio_q_params));
+				memset(giu_gpio_q_p, 0, sizeof(union giu_gpio_q_params));
 			}
 		}
 	}
@@ -833,7 +833,7 @@ lcl_eg_queue_error:
 				if (ret)
 					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
 
-				memset(&(giu_gpio_q_p), 0, sizeof(union giu_gpio_q_params));
+				memset(giu_gpio_q_p, 0, sizeof(union giu_gpio_q_params));
 			}
 		}
 	}
@@ -848,7 +848,7 @@ lcl_bm_queue_error:
 			if (ret)
 				pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
 
-			memset(&(giu_gpio_q_p), 0, sizeof(union giu_gpio_q_params));
+			memset(giu_gpio_q_p, 0, sizeof(union giu_gpio_q_params));
 		}
 	}
 
