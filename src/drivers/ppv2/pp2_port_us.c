@@ -303,7 +303,7 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		strcat(buf, da);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_add", O_WRONLY);
 		if (fd == -1) {
-			pr_info("PORT: unable to open sysfs, updating prs_table internally instead\n");
+			pr_debug("PORT: unable to open sysfs, updating prs_table internally instead\n");
 			mv_pp2x_prs_mac_da_accept(port, addr, true);
 		} else {
 			rc = write(fd, &buf, strlen(buf) + 1);
@@ -393,7 +393,7 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		strcat(buf, da);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_del", O_WRONLY);
 		if (fd == -1) {
-			pr_info("PORT: unable to open sysfs, updating prs_table internally instead\n");
+			pr_debug("PORT: unable to open sysfs, updating prs_table internally instead\n");
 			mv_pp2x_prs_mac_da_accept(port, addr, false);
 		} else {
 			rc = write(fd, &buf, strlen(buf) + 1);
@@ -464,7 +464,7 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 		strcpy(buf, port->linux_name);
 		fd = open("/sys/devices/platform/pp2/debug/uc_filter_flush", O_WRONLY);
 		if (fd == -1) {
-			pr_info("PORT: unable to open sysfs, updating prs_table internally instead\n");
+			pr_debug("PORT: unable to open sysfs, updating prs_table internally instead\n");
 			while (!list_is_empty(&port->added_uc_addr)) {
 				uc_addr_node = LIST_FIRST_OBJECT((&port->added_uc_addr),
 								 struct port_uc_addr_node, list_node);
