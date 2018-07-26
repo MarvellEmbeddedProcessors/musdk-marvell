@@ -1084,7 +1084,7 @@ static int pp2_ppio_probe_rxq_params(char *buff, struct pp2_port *port, phys_add
 		json_buffer_to_input(sec, "desc_phys_offset", poffset);
 
 		port->rxqs[i]->desc_phys_arr = paddr + poffset;
-		port->rxqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
+		port->rxqs[i]->desc_virt_arr = (struct pp2_desc *)(uintptr_t)((phys_addr_t)va + poffset);
 	}
 	kfree(lbuff);
 	return 0;
@@ -1140,7 +1140,7 @@ static int pp2_ppio_probe_txq_params(char *buff, struct pp2_port *port, phys_add
 		json_buffer_to_input(sec, "desc_phys_offset", poffset);
 
 		port->txqs[i]->desc_phys_arr = paddr + poffset;
-		port->txqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
+		port->txqs[i]->desc_virt_arr = (struct pp2_desc *)(uintptr_t)((phys_addr_t)va + poffset);
 	}
 	kfree(lbuff);
 	return 0;
@@ -1233,7 +1233,7 @@ static int pp2_ppio_probe_loopback_port(char *buff, struct pp2_ppio *ppio, phys_
 		json_buffer_to_input(sec, "desc_phys_offset", poffset);
 
 		lb_port->txqs[i]->desc_phys_arr = paddr + poffset;
-		lb_port->txqs[i]->desc_virt_arr = (struct pp2_desc *)((phys_addr_t)va + poffset);
+		lb_port->txqs[i]->desc_virt_arr = (struct pp2_desc *)(uintptr_t)((phys_addr_t)va + poffset);
 	}
 	kfree(lbuff);
 	return 0;
