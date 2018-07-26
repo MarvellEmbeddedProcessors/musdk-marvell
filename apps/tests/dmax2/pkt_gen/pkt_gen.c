@@ -208,7 +208,7 @@ static int build_dmax2_shadow(struct dmax2_shadow_q *shadow_q, u16 num_buffs, u1
 		return -ENOMEM;
 	}
 
-	buff_phys_addr = (void *)mv_sys_dma_mem_virt2phys(shadow_q->buffer);
+	buff_phys_addr = (void *)(uintptr_t)mv_sys_dma_mem_virt2phys(shadow_q->buffer);
 
 	for (i = 0; i < num_buffs; i++) {
 		shadow_q->ents[i].dst.phy_addr = (u64)buff_phys_addr + (i * buff_len);

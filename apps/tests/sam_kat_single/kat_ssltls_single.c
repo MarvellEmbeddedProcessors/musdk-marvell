@@ -570,7 +570,7 @@ int main(int argc, char **argv)
 	}
 
 	pr_info("DMA Buffer %d bytes allocated: vaddr = %p, paddr = %p\n",
-		input_buf.len, input_buf.vaddr, (void *)input_buf.paddr);
+		input_buf.len, input_buf.vaddr, (void *)(uintptr_t)input_buf.paddr);
 
 	num_bufs = min(num_pkts, NUM_BUFS);
 	for (i = 0; i < num_bufs; i++) {
