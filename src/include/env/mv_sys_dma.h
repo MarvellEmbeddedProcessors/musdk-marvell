@@ -185,7 +185,7 @@ static inline void *mv_sys_dma_mem_region_phys2virt(struct mv_sys_dma_mem_region
 {
 	if (!mem)
 		return mv_sys_dma_mem_phys2virt(pa);
-	return (void *)((pa - mem->dma_phys_base) + (phys_addr_t)mem->dma_virt_base);
+	return (void *)(uintptr_t)((pa - mem->dma_phys_base) + (phys_addr_t)(uintptr_t)mem->dma_virt_base);
 }
 #endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 
@@ -196,7 +196,7 @@ static inline phys_addr_t mv_sys_dma_mem_region_virt2phys(struct mv_sys_dma_mem_
 {
 	if (!mem)
 		return mv_sys_dma_mem_virt2phys(va);
-	return ((phys_addr_t)va - (phys_addr_t)mem->dma_virt_base) + mem->dma_phys_base;
+	return ((phys_addr_t)(uintptr_t)va - (phys_addr_t)(uintptr_t)mem->dma_virt_base) + mem->dma_phys_base;
 }
 #endif /* MVCONF_SYS_DMA_HUGE_PAGE */
 

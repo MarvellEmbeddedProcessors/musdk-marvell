@@ -442,7 +442,7 @@ static int iomem_shmem_iomap(struct mem_shm	*shm,
 
 		shm->pa = *pa;
 		shm->va = ptr;
-		pr_info("shm->name %s, pa 0x%lx, va %p, size %zu\n", shm->dev_name, shm->pa, shm->va, shm->size);
+		pr_info("shm->name %s, pa 0x%lx, va %p, size %zu\n", shm->dev_name, (u64)shm->pa, shm->va, shm->size);
 	}
 
 	*va = shm->va;
