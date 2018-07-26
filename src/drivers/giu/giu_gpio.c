@@ -158,8 +158,10 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			mqa_params.size = outtc->rem_inqs_params[q_idx].rem_q.size;
 			mqa_params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_INGRESS;
 			mqa_params.prio = tc_idx;
-			mqa_params.remote_phy_addr = (void *)outtc->rem_inqs_params[q_idx].rem_q.q_base_pa;
-			mqa_params.prod_phys       = (void *)outtc->rem_inqs_params[q_idx].rem_q.prod_base_pa;
+			mqa_params.remote_phy_addr =
+				(void *)(uintptr_t)outtc->rem_inqs_params[q_idx].rem_q.q_base_pa;
+			mqa_params.prod_phys       =
+				(void *)(uintptr_t)outtc->rem_inqs_params[q_idx].rem_q.prod_base_pa;
 			mqa_params.prod_virt       = outtc->rem_inqs_params[q_idx].rem_q.prod_base_va;
 			mqa_params.host_remap      = outtc->rem_inqs_params[q_idx].rem_q.host_remap;
 			mqa_params.msix_id	       = outtc->rem_inqs_params[q_idx].rem_q.msix_id;
@@ -216,8 +218,10 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 				mqa_params.size = intc->rem_outqs_params[q_idx].rem_q.size;
 				mqa_params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS;
 				mqa_params.prio = tc_idx;
-				mqa_params.remote_phy_addr = (void *)intc->rem_outqs_params[q_idx].rem_q.q_base_pa;
-				mqa_params.cons_phys       = (void *)intc->rem_outqs_params[q_idx].rem_q.cons_base_pa;
+				mqa_params.remote_phy_addr =
+					(void *)(uintptr_t)intc->rem_outqs_params[q_idx].rem_q.q_base_pa;
+				mqa_params.cons_phys       =
+					(void *)(uintptr_t)intc->rem_outqs_params[q_idx].rem_q.cons_base_pa;
 				mqa_params.cons_virt       = intc->rem_outqs_params[q_idx].rem_q.cons_base_va;
 				mqa_params.host_remap      = intc->rem_outqs_params[q_idx].rem_q.host_remap;
 				mqa_params.msix_id	       = intc->rem_outqs_params[q_idx].rem_q.msix_id;

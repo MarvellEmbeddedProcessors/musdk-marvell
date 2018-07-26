@@ -232,7 +232,10 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	uintptr_t cpu_slot;
 	dma_addr_t paddr;
 	u64 vaddr;
-	u32 virt_lo, virt_hi, phys_hi, phys_lo, high_addr_reg = 0;
+	u32 virt_lo, virt_hi, phys_lo, high_addr_reg = 0;
+#if (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64)
+	u32 phys_hi;
+#endif
 
 	vaddr = buff->cookie;
 	virt_lo = (u32)vaddr;
@@ -241,7 +244,9 @@ int pp2_bpool_put_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	cpu_slot = GET_HW_BASE(pool)[hif->regspace_slot].va;
 	paddr = buff->addr;
 	phys_lo = (u32)paddr;
+#if (MVCONF_DMA_PHYS_ADDR_T_SIZE == 64)
 	phys_hi = paddr >> 32;
+#endif
 
 #if PP2_BM_BUF_DEBUG
 	/* The buffers should be 32 bytes aligned */
