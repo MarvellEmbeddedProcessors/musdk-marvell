@@ -186,7 +186,8 @@ static phys_addr_t get_queue_prod_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id
 	pf_cfg_base = (struct mqa_qnpt_entry *)nmnicpf->map.cfg_map.phys_addr;
 
 	/* Calc Notification table specifi entry  */
-	return (phys_addr_t)((pf_cfg_base + PCI_BAR0_MQA_QNPT_BASE) +	(sizeof(struct mqa_qnct_entry) * hw_q_id));
+	return (phys_addr_t)(uintptr_t)
+		((pf_cfg_base + PCI_BAR0_MQA_QNPT_BASE) + (sizeof(struct mqa_qnct_entry) * hw_q_id));
 }
 
 
@@ -208,7 +209,8 @@ static phys_addr_t get_queue_cons_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id
 	pf_cfg_base = (struct mqa_qnct_entry *)nmnicpf->map.cfg_map.phys_addr;
 
 	/* Calc Notification table specifi entry  */
-	return (phys_addr_t)((pf_cfg_base + PCI_BAR0_MQA_QNCT_BASE) +	(sizeof(struct mqa_qnct_entry) * hw_q_id));
+	return (phys_addr_t)(uintptr_t)
+		((pf_cfg_base + PCI_BAR0_MQA_QNCT_BASE) + (sizeof(struct mqa_qnct_entry) * hw_q_id));
 }
 
 
@@ -247,10 +249,10 @@ static int nmnicpf_regfile_register_queue(struct nmnicpf *nmnicpf,
 	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
 	reg_giu_queue.size		= queue_info.len;
 	reg_giu_queue.type		= q_type;
-	reg_giu_queue.phy_base_offset	= (phys_addr_t)(queue_info.phy_base_addr - qs_phys_base);
+	reg_giu_queue.phy_base_offset	= (phys_addr_t)(uintptr_t)(queue_info.phy_base_addr - qs_phys_base);
 	/* Prod/Cons addr are Virtual. Needs to translate them to offset */
-	reg_giu_queue.prod_offset = (phys_addr_t)(queue_info.prod_phys - ptrs_phys_base);
-	reg_giu_queue.cons_offset = (phys_addr_t)(queue_info.cons_phys - ptrs_phys_base);
+	reg_giu_queue.prod_offset = (phys_addr_t)(uintptr_t)(queue_info.prod_phys - ptrs_phys_base);
+	reg_giu_queue.cons_offset = (phys_addr_t)(uintptr_t)(queue_info.cons_phys - ptrs_phys_base);
 
 	/* Note: buff_size & payload_offset are union and they are set
 	 *	 acoording to the Q type.
@@ -430,7 +432,7 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 		regfile_data->flags |= REGFILE_PCI_MODE;
 		strcpy(regfile_data->pci_uio_mem_name, PCI_EP_UIO_MEM_NAME);
 		strcpy(regfile_data->pci_uio_region_name, PCI_EP_UIO_REGION_NAME);
-		ptrs_phys_base = (phys_addr_t)nmnicpf->map.cfg_map.phys_addr;
+		ptrs_phys_base = (phys_addr_t)(uintptr_t)nmnicpf->map.cfg_map.phys_addr;
 	}
 
 	pr_debug("Start Topology configuration to register file [Regfile ver (%d), NIC-PF number (%d)]\n",
@@ -1564,7 +1566,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.len          = params->pf_ingress_data_q_add.q_len;
 	giu_gpio_q.rem_q.size         = gie_get_desc_size(RX_DESC);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.q_phys_addr;
-	giu_gpio_q.rem_q.prod_base_pa = (phys_addr_t)(params->pf_ingress_data_q_add.q_prod_phys_addr +
+	giu_gpio_q.rem_q.prod_base_pa = (phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.q_prod_phys_addr +
 										nmnicpf->map.host_map.phys_addr);
 	giu_gpio_q.rem_q.prod_base_va = (void *)(params->pf_ingress_data_q_add.q_prod_phys_addr +
 										nmnicpf->map.host_map.virt_addr);
@@ -1603,7 +1605,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.len	      = params->pf_ingress_data_q_add.q_len;
 	giu_gpio_q.rem_q.size	      = params->pf_ingress_data_q_add.q_buf_size;
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.bpool_q_phys_addr;
-	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(params->pf_ingress_data_q_add.bpool_q_cons_phys_addr +
+	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.bpool_q_cons_phys_addr +
 									nmnicpf->map.host_map.phys_addr);
 	giu_gpio_q.rem_q.cons_base_va = (void *)(params->pf_ingress_data_q_add.bpool_q_cons_phys_addr +
 									nmnicpf->map.host_map.virt_addr);
@@ -1669,7 +1671,7 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.len          = params->pf_egress_q_add.q_len;
 	giu_gpio_q.rem_q.size         = gie_get_desc_size(TX_DESC);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_egress_q_add.q_phys_addr;
-	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(params->pf_egress_q_add.q_cons_phys_addr +
+	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(uintptr_t)(params->pf_egress_q_add.q_cons_phys_addr +
 										nmnicpf->map.host_map.phys_addr);
 	giu_gpio_q.rem_q.cons_base_va = (void *)(params->pf_egress_q_add.q_cons_phys_addr +
 										nmnicpf->map.host_map.virt_addr);

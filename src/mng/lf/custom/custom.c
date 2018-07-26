@@ -338,22 +338,22 @@ int nmcstm_serialize(struct nmcstm *nmcstm, char *buff, u32 size)
 
 	mqa_queue_get_info(nmcstm->mng_ctrl.cmd_queue, &queue_info);
 	json_print_to_buffer(buff, size, 2, "\"cmd-queue\": {\n");
-	poffset = (phys_addr_t)queue_info.phy_base_addr - mem_info.paddr;
+	poffset = (phys_addr_t)(uintptr_t)queue_info.phy_base_addr - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"base-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)queue_info.cons_phys - mem_info.paddr;
+	poffset = (phys_addr_t)(uintptr_t)queue_info.cons_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"cons-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)queue_info.prod_phys - mem_info.paddr;
+	poffset = (phys_addr_t)(uintptr_t)queue_info.prod_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"prod-poffset\": %#x,\n", poffset);
 	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", queue_info.len);
 	json_print_to_buffer(buff, size, 2, "},\n");
 
 	mqa_queue_get_info(nmcstm->mng_ctrl.notify_queue, &queue_info);
 	json_print_to_buffer(buff, size, 2, "\"notify-queue\": {\n");
-	poffset = (phys_addr_t)queue_info.phy_base_addr - mem_info.paddr;
+	poffset = (phys_addr_t)(uintptr_t)queue_info.phy_base_addr - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"base-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)queue_info.cons_phys - mem_info.paddr;
+	poffset = (phys_addr_t)(uintptr_t)queue_info.cons_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"cons-poffset\": %#x,\n", poffset);
-	poffset = (phys_addr_t)queue_info.prod_phys - mem_info.paddr;
+	poffset = (phys_addr_t)(uintptr_t)queue_info.prod_phys - mem_info.paddr;
 	json_print_to_buffer(buff, size, 3, "\"prod-poffset\": %#x,\n", poffset);
 	json_print_to_buffer(buff, size, 3, "\"len\": %u,\n", queue_info.len);
 	json_print_to_buffer(buff, size, 2, "},\n");

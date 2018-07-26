@@ -80,8 +80,8 @@ static int queue_table_init(struct mqa_params *params, struct mqa **mqa)
 
 	(*mqa)->size = params->num_qs;
 
-	(*mqa)->qnpt_base = (void *)params->notif_tbl.qnpt_pa;
-	(*mqa)->qnct_base = (void *)params->notif_tbl.qnct_pa;
+	(*mqa)->qnpt_base = (void *)(uintptr_t)params->notif_tbl.qnpt_pa;
+	(*mqa)->qnct_base = (void *)(uintptr_t)params->notif_tbl.qnct_pa;
 	(*mqa)->qnpt_virt = (void *)params->notif_tbl.qnpt_va;
 	(*mqa)->qnct_virt = (void *)params->notif_tbl.qnct_va;
 

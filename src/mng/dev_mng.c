@@ -80,7 +80,7 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 	}
 
 	/* Get the relevant physical address. */
-	map->cfg_map.phys_addr = (void *)mv_sys_dma_mem_virt2phys(map->cfg_map.virt_addr);
+	map->cfg_map.phys_addr = (void *)(uintptr_t)mv_sys_dma_mem_virt2phys(map->cfg_map.virt_addr);
 
 	/* Clear the config space, to prevent false device indications. */
 	memset(map->cfg_map.virt_addr, 0x0, PCI_BAR0_ALLOC_SIZE);
@@ -129,7 +129,7 @@ static int dev_mng_unmap_plat_func(struct pci_plat_func_map *map)
 static int dev_mng_config_plat_func(struct pci_plat_func_map *map)
 {
 	u32 cfg_mem_addr[2]; /* High and low */
-	dma_addr_t phys_addr = (dma_addr_t)map->cfg_map.phys_addr;
+	dma_addr_t phys_addr = (dma_addr_t)(uintptr_t)map->cfg_map.phys_addr;
 
 	pr_info("Setting platform device registers.\n");
 	cfg_mem_addr[0] = lower_32_bits(phys_addr) | 0x1;
@@ -366,7 +366,7 @@ static void dev_mng_pf_init_done(void *arg)
 	json_print_to_buffer(buff, size, 1, "\"dma-info\": {\n");
 	json_print_to_buffer(buff, size, 2, "\"file_name\": \"%s\",\n", mem_info.name);
 	json_print_to_buffer(buff, size, 2, "\"region_size\": %zu,\n", mem_info.size);
-	json_print_to_buffer(buff, size, 2, "\"phys_addr\": %#zx\n", mem_info.paddr);
+	json_print_to_buffer(buff, size, 2, "\"phys_addr\": %lx\n", (u64)mem_info.paddr);
 	json_print_to_buffer(buff, size, 1, "},\n");
 
 	pr_info("starting serialization of guest %d\n", nmnicpf->guest_id);

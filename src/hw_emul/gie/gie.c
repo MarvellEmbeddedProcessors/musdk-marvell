@@ -565,7 +565,7 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 	if (!q->idx_ring_virt)
 		return -ENOMEM;
 
-	q->idx_ring_phys = (u16 *)mv_sys_dma_mem_virt2phys(q->idx_ring_virt);
+	q->idx_ring_phys = (u16 *)(uintptr_t)mv_sys_dma_mem_virt2phys(q->idx_ring_virt);
 	q->idx_ring_size = q->qlen;
 	q->idx_ring_ptr = 0;
 

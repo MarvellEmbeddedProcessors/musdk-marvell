@@ -132,13 +132,13 @@ static int nmp_guest_probe(struct nmp_guest *guest)
 	}
 
 	json_buffer_to_input(sec, "base-poffset", poffset);
-	guest->cmd_queue.base_addr_phys = (void *)(paddr + poffset);
+	guest->cmd_queue.base_addr_phys = (void *)(uintptr_t)(paddr + poffset);
 	guest->cmd_queue.base_addr_virt = (struct cmd_desc *)(va + poffset);
 	json_buffer_to_input(sec, "cons-poffset", poffset);
-	guest->cmd_queue.cons_phys = (void *)(paddr + poffset);
+	guest->cmd_queue.cons_phys = (void *)(uintptr_t)(paddr + poffset);
 	guest->cmd_queue.cons_virt = (u32 *)(va + poffset);
 	json_buffer_to_input(sec, "prod-poffset", poffset);
-	guest->cmd_queue.prod_phys = (void *)(paddr + poffset);
+	guest->cmd_queue.prod_phys = (void *)(uintptr_t)(paddr + poffset);
 	guest->cmd_queue.prod_virt = (u32 *)(va + poffset);
 	json_buffer_to_input(sec, "len", guest->cmd_queue.len);
 
@@ -149,13 +149,13 @@ static int nmp_guest_probe(struct nmp_guest *guest)
 	}
 
 	json_buffer_to_input(sec, "base-poffset", poffset);
-	guest->notify_queue.base_addr_phys = (void *)(paddr + poffset);
+	guest->notify_queue.base_addr_phys = (void *)(uintptr_t)(paddr + poffset);
 	guest->notify_queue.base_addr_virt = (struct cmd_desc *)(va + poffset);
 	json_buffer_to_input(sec, "cons-poffset", poffset);
-	guest->notify_queue.cons_phys = (void *)(paddr + poffset);
+	guest->notify_queue.cons_phys = (void *)(uintptr_t)(paddr + poffset);
 	guest->notify_queue.cons_virt = (u32 *)(va + poffset);
 	json_buffer_to_input(sec, "prod-poffset", poffset);
-	guest->notify_queue.prod_phys = (void *)(paddr + poffset);
+	guest->notify_queue.prod_phys = (void *)(uintptr_t)(paddr + poffset);
 	guest->notify_queue.prod_virt = (u32 *)(va + poffset);
 	json_buffer_to_input(sec, "len", guest->notify_queue.len);
 
