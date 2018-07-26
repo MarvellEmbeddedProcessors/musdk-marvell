@@ -243,7 +243,7 @@ int main(int argc, char **argv)
 	}
 
 	pr_info("DMA Buffer %d bytes allocated: vaddr = %p, paddr = %p\n",
-		aes128_t1_buf.len, aes128_t1_buf.vaddr, (void *)aes128_t1_buf.paddr);
+		aes128_t1_buf.len, aes128_t1_buf.vaddr, (void *)(uintptr_t)aes128_t1_buf.paddr);
 
 	init_params.max_num_sessions = 64;
 	sam_init(&init_params);

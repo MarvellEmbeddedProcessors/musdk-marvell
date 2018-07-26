@@ -106,7 +106,7 @@ int app_giu_build_bpool(int bpool_id, struct bpool_inf *infs)
 		return -EFAULT;
 	}
 
-	buff_phys_addr = (void *)mv_sys_dma_mem_virt2phys(buff_virt_addr);
+	buff_phys_addr = (void *)(uintptr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
 
 	for (i = 0; i < num_of_buffs; i++) {
 		buffs_inf[i].addr = (u64)buff_phys_addr + (i * bpool->buff_len);
