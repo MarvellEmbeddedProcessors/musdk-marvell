@@ -498,12 +498,12 @@ int mv_sys_dma_mem_region_exist(u32 mem_id)
 
 void *mv_sys_dma_mem_phys2virt(phys_addr_t pa)
 {
-	return (void *)((pa - __dma_phys_base) + (phys_addr_t)__dma_virt_base);
+	return (void *)(uintptr_t)((pa - __dma_phys_base) + (phys_addr_t)(uintptr_t)__dma_virt_base);
 }
 
 phys_addr_t mv_sys_dma_mem_virt2phys(void *va)
 {
-	return ((phys_addr_t)va - (phys_addr_t)__dma_virt_base) + __dma_phys_base;
+	return ((phys_addr_t)(uintptr_t)va - (phys_addr_t)(uintptr_t)__dma_virt_base) + __dma_phys_base;
 }
 
 int mv_sys_dma_virt_is_valid(void *va)
