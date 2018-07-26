@@ -1,24 +1,24 @@
-From e397706e20a16aa779121a224077fb6f59b2a847 Mon Sep 17 00:00:00 2001
+From 70c72eb07f3728a73bbe3661dc4e0d189193b66a Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 17:13:13 +0300
-Subject: [PATCH 1/5] dts: musdk: cma memory
+Subject: [PATCH 1/6] dts: musdk: cma memory
 
 Change-Id: I19cc0377d787b997dbb44d90d1474670eeaa5c98
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi  |  2 +
- arch/arm64/boot/dts/marvell/armada-ap806.dtsi |  2 +
- .../boot/dts/marvell/armada-ap810-ap0.dtsi    |  2 +
- .../boot/dts/marvell/musdk-cma-mem-37xx.dtsi  | 57 ++++++++++++++++++
- .../boot/dts/marvell/musdk-cma-mem-ap806.dtsi | 59 +++++++++++++++++++
- .../boot/dts/marvell/musdk-cma-mem-ap810.dtsi | 53 +++++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi       |    2 +
+ arch/arm64/boot/dts/marvell/armada-ap806.dtsi      |    2 +
+ arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi  |    2 +
+ .../arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi |   57 +++++++++++++++++++
+ .../boot/dts/marvell/musdk-cma-mem-ap806.dtsi      |   59 ++++++++++++++++++++
+ .../boot/dts/marvell/musdk-cma-mem-ap810.dtsi      |   53 ++++++++++++++++++
  6 files changed, 175 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-ap806.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index f61fc64c40db..cc584f2ef50b 100644
+index 434706f..ce6815a 100644
 --- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 @@ -46,6 +46,8 @@
@@ -31,7 +31,7 @@ index f61fc64c40db..cc584f2ef50b 100644
  	model = "Marvell Armada 37xx SoC";
  	compatible = "marvell,armada3700";
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-index 296ed45dc25a..4203b8b42413 100644
+index 296ed45..4203b8b 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
 @@ -51,6 +51,8 @@
@@ -44,7 +44,7 @@ index 296ed45dc25a..4203b8b42413 100644
  	model = "Marvell Armada AP806";
  	compatible = "marvell,armada-ap806";
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi
-index 1355b6304bfb..cf18e00a34a8 100644
+index 1355b63..cf18e00 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi
 @@ -48,6 +48,8 @@
@@ -58,7 +58,7 @@ index 1355b6304bfb..cf18e00a34a8 100644
  	compatible = "marvell,armada-ap810";
 diff --git a/arch/arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi b/arch/arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi
 new file mode 100644
-index 000000000000..eafe5cc29ac8
+index 0000000..eafe5cc
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi
 @@ -0,0 +1,57 @@
@@ -121,7 +121,7 @@ index 000000000000..eafe5cc29ac8
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap806.dtsi b/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap806.dtsi
 new file mode 100644
-index 000000000000..ee41554209ef
+index 0000000..ee41554
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap806.dtsi
 @@ -0,0 +1,59 @@
@@ -186,7 +186,7 @@ index 000000000000..ee41554209ef
 +};
 diff --git a/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi b/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi
 new file mode 100644
-index 000000000000..c9e05017ef21
+index 0000000..c9e0501
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi
 @@ -0,0 +1,53 @@
@@ -244,5 +244,5 @@ index 000000000000..c9e05017ef21
 +	};
 +};
 -- 
-2.17.0
+1.7.9.5
 
