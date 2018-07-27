@@ -6,7 +6,7 @@ Getting Started with MUSDK
 Build Linux Kernel
 ------------------
 
-(1) Apply all patches in: "<musdk-dir>/patches/linux"
+(1) Apply (use 'git am -3') all patches in: "<musdk-dir>/patches/linux"
 
 (2) Build Linux kernel image::
 	> make mrproper
