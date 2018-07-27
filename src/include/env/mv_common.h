@@ -46,6 +46,7 @@
 #define USEC_PER_SEC	1000000
 #endif
 
+#define INT_32_MAX_DEC_STR_SZ	10 /* max num of decimal digits in 32-bit integer */
 #define PTR2INT(_p)		((uintptr_t)(_p))
 #define INT2PTR(_i)		((void *)(uintptr_t)(_i))
 

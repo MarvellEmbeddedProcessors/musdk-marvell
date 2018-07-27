@@ -49,18 +49,11 @@ struct sys_iomem_format {
 
 
 #define PP2_NETDEV_PATH		"/sys/class/net/"
-#define MAX_UIO_FORMAT_SZ	20
 
-static struct sys_iomem_format uio_frm[] = {
-				{
-					.uio_hdr = "uio",
-					.id_format = "_%d"
-				},
-				{
-					.uio_hdr = "mvpp2",
-					.id_format = "%d"
-				},
-};
+#define UIO_HDR_STR		"uio_%s"
+#define UIO_ID_FORMAT_STR	"_%d"
+#define UIO_MAX_FORMAT_SZ	(sizeof(UIO_HDR_STR) + sizeof(UIO_ID_FORMAT_STR))
+
 
 
 #define MMAP_FILE_NAME	"/dev/mem"
@@ -140,32 +133,31 @@ static struct uio_mem_t *iomem_uio_rm_entry(struct uio_mem_t **headp,
 static struct uio_info_t *iomem_find_uio_device(const char *name, int index)
 {
 	char	*tmp_name;
-	char	format_buf[MAX_UIO_FORMAT_SZ];
-	int	max_size = strlen(name) + MAX_UIO_FORMAT_SZ + 2*sizeof(int), i;
+	char	format_buf[UIO_MAX_FORMAT_SZ];
+	int	max_str_size = 0;
 	struct uio_info_t *uio_info;
 
 	if (name == NULL)
 		return 0;
 
-	tmp_name = malloc(max_size);
+	max_str_size  = strlen(UIO_HDR_STR) + strlen(name);
+	max_str_size += strlen(UIO_ID_FORMAT_STR) + INT_32_MAX_DEC_STR_SZ + 1;
+	tmp_name = malloc(max_str_size);
 	if (!tmp_name) {
 		pr_err("no mem for IOMEM-name obj!\n");
 		return NULL;
 	}
-	for (i = 0; i < ARRAY_SIZE(uio_frm); i++) {
-		memset(tmp_name, 0, max_size);
-		strcpy(format_buf, uio_frm[i].uio_hdr);
-		strcat(format_buf, "_%s");
-		if (index < 0)
-			snprintf(tmp_name, max_size, format_buf, name);
-		else {
-			strcat(format_buf, uio_frm[i].id_format);
-			snprintf(tmp_name, max_size, format_buf, name, index);
-		}
-		uio_info = uio_find_devices_byname(tmp_name);
-		if (uio_info)
-			break;
+	memset(tmp_name, 0, max_str_size);
+
+	strcpy(format_buf, UIO_HDR_STR);
+	if (index < 0)
+		snprintf(tmp_name, max_str_size, format_buf, name);
+	else {
+		strcat(format_buf, UIO_ID_FORMAT_STR);
+		snprintf(tmp_name, max_str_size, format_buf, name, index);
 	}
+	uio_info = uio_find_devices_byname(tmp_name);
+
 	pr_debug("%s: uio_name:%s found:%d\n", __func__, tmp_name, uio_info ? 1 : 0);
 	free(tmp_name);
 	return uio_info;
