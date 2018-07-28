@@ -105,7 +105,9 @@ static const u32 *of_get_address_prop(
 	const char		*rprop)
 {
 	const u32	*uint32_prop;
+#if __BYTE_ORDER != __BIG_ENDIAN
 	u32		*uint32_prop_tmp;
+#endif /* __BYTE_ORDER != __BIG_ENDIAN */
 	size_t		 lenp;
 	u32		 na, ns;
 
