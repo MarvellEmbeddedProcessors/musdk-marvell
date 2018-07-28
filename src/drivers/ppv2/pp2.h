@@ -69,7 +69,7 @@
 
 
 /*Copied from Linux mv_pp2x driver */
-#define UIO_PP2_STRING  "uio_pp_%d"
+#define UIO_PP2_STRING  "pp"
 #define PORT_STRING	"pp_port_%d:%d"
 #define UIO_PORT_STRING "uio_" PORT_STRING
 
@@ -187,7 +187,6 @@ struct pp2_lnx_format {
 	enum musdk_lnx_id ver;
 	char *devtree_path;
 	char *eth_format;
-	char *uio_format;
 };
 
 struct pp2_fc_values {
