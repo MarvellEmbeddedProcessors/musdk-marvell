@@ -478,7 +478,7 @@ int neta_ppio_send_sg(struct neta_ppio		*ppio,
 			ppio->port_id, qid, curr_txds, desc_sent);
 	}
 	pr_debug("[%s] Sending %u descs(%u <- %u) and %u packets (%u)\n", __func__,
-		 port->port_id, curr_txds, free_desc, num, i, pkts->num);
+		 ppio->port_id, curr_txds, free_desc, num, i, pkts->num);
 
 #ifdef NETA_STATS_SUPPORT
 	if (pkts)
