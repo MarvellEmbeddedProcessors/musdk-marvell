@@ -305,7 +305,7 @@ int apps_perf_dump(struct glb_common_args *cmn_args)
 	cmn_args->last_enc_cnt = tmp_enc_cnt;
 	cmn_args->last_dec_cnt = tmp_dec_cnt;
 	if (drop_cnt)
-		printf(", drop: %lu", drop_cnt);
+		printf(", drop: %"PRIu64"", drop_cnt);
 	printf("\n");
 	gettimeofday(&cmn_args->ctrl_trd_last_time, NULL);
 
