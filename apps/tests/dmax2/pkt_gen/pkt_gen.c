@@ -211,7 +211,7 @@ static int build_dmax2_shadow(struct dmax2_shadow_q *shadow_q, u16 num_buffs, u1
 	buff_phys_addr = (void *)(uintptr_t)mv_sys_dma_mem_virt2phys(shadow_q->buffer);
 
 	for (i = 0; i < num_buffs; i++) {
-		shadow_q->ents[i].dst.phy_addr = (u64)buff_phys_addr + (i * buff_len);
+		shadow_q->ents[i].dst.phy_addr = (u64)(uintptr_t)buff_phys_addr + (i * buff_len);
 		shadow_q->ents[i].dst.virt_addr = shadow_q->buffer + (i * buff_len);
 	}
 
@@ -333,11 +333,11 @@ static inline int loop_echo(struct local_arg *larg)
 	for (i = 0; i < num; i++) {
 		if (unlikely(!shadow_q_gen->ents[inter_ind].src ||
 			!shadow_q_gen->ents[inter_ind].src->virt_addr)) {
-			pr_warn("Shadow memory @%d: cookie(%p), pa(%lx)!\n",
+			pr_warn("Shadow memory @%d: cookie(%p), pa(0x%"PRIx64")!\n",
 				inter_ind,
 				shadow_q_gen->ents[inter_ind].src,
 				shadow_q_gen->ents[inter_ind].src ?
-					(u64)shadow_q_gen->ents[inter_ind].src->virt_addr : 0);
+					(u64)(uintptr_t)shadow_q_gen->ents[inter_ind].src->virt_addr : 0);
 			continue;
 		}
 
@@ -482,11 +482,11 @@ static inline int loop_rx(struct local_arg *larg)
 	for (i = 0; i < num; i++) {
 		if (unlikely(!shadow_q_anl->ents[read_ind].src ||
 			!shadow_q_anl->ents[read_ind].src->virt_addr)) {
-			pr_warn("Shadow memory @%d: cookie(%p), pa(%lx)!\n",
+			pr_warn("Shadow memory @%d: cookie(%p), pa(0x%"PRIx64")!\n",
 				read_ind,
 				shadow_q_anl->ents[read_ind].src,
 				shadow_q_anl->ents[read_ind].src ?
-					(u64)shadow_q_anl->ents[read_ind].src->virt_addr : 0);
+					(u64)(uintptr_t)shadow_q_anl->ents[read_ind].src->virt_addr : 0);
 			continue;
 		}
 
