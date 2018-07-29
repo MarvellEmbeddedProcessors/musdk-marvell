@@ -366,7 +366,7 @@ static void dev_mng_pf_init_done(void *arg)
 	json_print_to_buffer(buff, size, 1, "\"dma-info\": {\n");
 	json_print_to_buffer(buff, size, 2, "\"file_name\": \"%s\",\n", mem_info.name);
 	json_print_to_buffer(buff, size, 2, "\"region_size\": %zu,\n", mem_info.size);
-	json_print_to_buffer(buff, size, 2, "\"phys_addr\": %lx\n", (u64)mem_info.paddr);
+	json_print_to_buffer(buff, size, 2, "\"phys_addr\": 0x%lx\n", (u64)mem_info.paddr);
 	json_print_to_buffer(buff, size, 1, "},\n");
 
 	pr_info("starting serialization of guest %d\n", nmnicpf->guest_id);
