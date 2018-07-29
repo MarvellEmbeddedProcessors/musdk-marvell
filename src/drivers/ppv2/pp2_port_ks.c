@@ -435,7 +435,7 @@ int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *s
 int pp2_port_set_enable(struct pp2_port *port, uint32_t en)
 {
 	struct net_device *netdev = pp2_port_get_netdev(port);
-	int err;
+	int err = 0;
 
 	if (!netdev) {
 		pr_err("%s: Failed to locate network device '%s'.\n", __func__, port->linux_name);
@@ -444,7 +444,7 @@ int pp2_port_set_enable(struct pp2_port *port, uint32_t en)
 	if (en)
 		err = dev_open(netdev);
 	else
-		err = dev_close(netdev);
+		dev_close(netdev);
 
 	if (err < 0)  {
 		pr_err("%s: Failed to set network device '%s' to %s.\n", __func__, port->linux_name,
