@@ -54,6 +54,7 @@ struct pp2_ppio {
 };
 
 struct pp2_bpool;
+struct pp2_cls_early_drop;
 
 #define PP2_PPIO_MAX_NUM_TCS		32 /**< Max. number of TCs per ppio. */
 #define PP2_PPIO_MAX_NUM_INQS		32 /**< Max. number of inqs per ppio. */
@@ -1589,6 +1590,21 @@ int pp2_ppio_set_inq_state(struct pp2_ppio *ppio, u8 tc, u8 qid, int en);
  * @retval      <0 on failure
  */
 int pp2_ppio_get_inq_state(struct pp2_ppio *ppio, u8 tc, u8 qid, int *en);
+
+/**
+* Set ppio inqueue early-drop threshold
+*
+* @param[in]	ppio		A pointer to a PP-IO object.
+* @param[in]	tc		traffic class on which to receive frames
+* @param[in]	qid		in-Q id.
+* @param[in]	en		A flag indicates if early-drop threshold should be
+*				applied for this queue.
+* @param[in]	ed		A pointer to a early-drop object; relevant only in case en = 1
+*
+* @retval	0 on success
+* @retval	error-code otherwise
+*/
+int pp2_ppio_set_inq_early_drop(struct pp2_ppio *ppio, u8 tc, u8 qid, int en, struct pp2_cls_early_drop *ed);
 
 
 /** @} */ /* end of grp_pp2_io */

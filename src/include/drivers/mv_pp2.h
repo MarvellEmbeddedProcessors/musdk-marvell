@@ -121,6 +121,8 @@ struct pp2_init_params {
 	u8			rss_tbl_reserved_map;
 	/** Bitmap of reserved policers (0-30). The policers are reserved in all packet_processors. */
 	u32			policers_reserved_map;
+	/** Bitmap of reserved early-drops (0-14). The reservation is applied to all packet_processors. */
+	u32			early_drop_reserved_map;
 	/** flag indicating to skip hw initializations (useful for guest mode) */
 	int			skip_hw_init;
 	/** Bitmap of the reserved_maps that should be autodetected. */

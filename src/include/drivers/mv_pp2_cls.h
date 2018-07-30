@@ -45,9 +45,11 @@
 
 struct pp2_cls_tbl;
 struct pp2_cls_plcr;
+struct pp2_cls_early_drop;
 
 #define PP2_CLS_TBL_MAX_NUM_FIELDS	5
 #define PP2_CLS_PLCR_NUM		31
+#define PP2_CLS_EARLY_DROP_NUM		15
 
 enum pp2_cls_tbl_type {
 	PP2_CLS_TBL_EXACT_MATCH = 0,
@@ -118,6 +120,15 @@ struct pp2_cls_plcr_params {
 	u32	ebs;		/** excess burst size in unit of KB or number of packets
 				 *  minimum value - 64KB or 1Kpps. value of '0' means maximum value.
 				 */
+};
+
+struct pp2_cls_early_drop_params {
+	/** Used for DTS access to find appropriate early-drop obj;
+	 * E.g. "ed-0:0" means PPv2[0],early-drop[0]
+	 */
+	const char	*match;
+
+	u16		threshold; /** TODO */
 };
 
 struct pp2_cls_cos_desc {
@@ -271,10 +282,26 @@ int pp2_cls_plcr_init(struct pp2_cls_plcr_params *params, struct pp2_cls_plcr **
  * Deinit a classifier policer object
  *
  * @param[in]	plcr	A pointer to a classifier policer object
- *
- * @retval		0 on success
  */
 void pp2_cls_plcr_deinit(struct pp2_cls_plcr *plcr);
+
+/**
+ * Create a classifier early-drop object
+ *
+ * @param[in]	params	A pointer to the classifier early-drop parameters
+ * @param[out]	ed	A pointer to an allocated classifier early-drop
+ *
+ * @retval		0 on success
+ * @retval		error-code otherwise
+ */
+int pp2_cls_early_drop_init(struct pp2_cls_early_drop_params *params, struct pp2_cls_early_drop **ed);
+
+/**
+ * Deinit a classifier early_drop object
+ *
+ * @param[in]	ed	A pointer to a classifier early-drop object
+ */
+void pp2_cls_early_drop_deinit(struct pp2_cls_early_drop *ed);
 
 /** @} */ /* end of grp_pp2_cls */
 
