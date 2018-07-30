@@ -140,6 +140,7 @@ struct glob_arg {
 	struct glb_common_args	cmn_args; /* Keep first */
 
 	u16				rxq_size;
+	u16				txq_size;
 	int				loopback;
 	int				maintain_stats;
 	pthread_mutex_t			trd_lock;
@@ -646,7 +647,7 @@ static int init_local_modules(struct glob_arg *garg)
 			}
 			port->inq_size	= garg->rxq_size;
 			port->num_outqs	= PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT;
-			port->outq_size	= PKT_ECHO_APP_TX_Q_SIZE;
+			port->outq_size	= garg->txq_size;
 			port->first_inq	= PKT_ECHO_APP_FIRST_INQ;
 			if (garg->cmn_args.cpus == 1)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
@@ -873,6 +874,7 @@ static void usage(char *progname)
 	       "\t-s                       Maintain statistics\n"
 	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
+	       "\t--txq <size>             Size of tx_queue (default is %d)\n"
 	       "\t--pkt-offset <size>      Packet offset in buffer, must be multiple of 32-byte (default is %d)\n"
 	       "\t--mem-regions <number>   Number of mv_sys_dma_mem_regions (default=0)\n"
 	       "\t--old-tx-desc-release    Use pp2_bpool_put_buff(), instead of NEW pp2_bpool_put_buffs() API\n"
@@ -880,8 +882,8 @@ static void usage(char *progname)
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       MVAPPS_PP2_MAX_I_OPTION_PORTS, APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
-	       MVAPPS_PP2_PKT_DEF_OFFS);
+	       MVAPPS_PP2_MAX_I_OPTION_PORTS, PKT_ECHO_APP_DFLT_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
+	       PKT_ECHO_APP_TX_Q_SIZE, MVAPPS_PP2_PKT_DEF_OFFS);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
@@ -897,6 +899,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->cmn_args.busy_wait	= 0;
 	garg->rxq_size = PKT_ECHO_APP_RX_Q_SIZE;
+	garg->txq_size = PKT_ECHO_APP_TX_Q_SIZE;
 	garg->cmn_args.echo = 1;
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
@@ -1040,6 +1043,12 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			i += 2;
 		} else if (strcmp(argv[i], "--rxq") == 0) {
 			garg->rxq_size = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "--txq") == 0) {
+			garg->txq_size = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-b") == 0) {
+			garg->cmn_args.burst = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "--pkt-offset") == 0) {
 			garg->cmn_args.pkt_offset = atoi(argv[i + 1]);
