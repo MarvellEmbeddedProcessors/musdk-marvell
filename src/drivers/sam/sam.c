@@ -321,11 +321,13 @@ static int sam_session_ssltls_init(struct sam_sa *session, SABuilder_Params_SSLT
 	memcpy(ssltls_params->SeqMask, params->u.ssltls.seq_mask,
 		sizeof(ssltls_params->SeqMask));
 
-	if (params->u.ssltls.is_ip6)
+	if (params->u.ssltls.is_ip6) {
 		ssltls_params->SSLTLSFlags |= SAB_DTLS_IPV6;
-	else
+		session->post_proc_cb = sam_dtls_ip6_post_proc;
+	} else {
 		ssltls_params->SSLTLSFlags |= SAB_DTLS_IPV4;
-
+		session->post_proc_cb = sam_dtls_ip4_post_proc;
+	}
 	if (params->u.ssltls.is_capwap)
 		ssltls_params->SSLTLSFlags |= SAB_DTLS_CAPWAP;
 
@@ -333,7 +335,6 @@ static int sam_session_ssltls_init(struct sam_sa *session, SABuilder_Params_SSLT
 		ssltls_params->SSLTLSFlags |= SAB_DTLS_UDPLITE;
 
 	ssltls_params->SSLTLSFlags |= SAB_DTLS_PROCESS_IP_HEADERS;
-	session->post_proc_cb = sam_dtls_ip4_post_proc;
 
 	return 0;
 }

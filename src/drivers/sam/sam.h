@@ -213,7 +213,7 @@ void sam_ipsec_ip6_tunnel_out_post_proc(struct sam_cio_op *operation,
 u16 sam_ssltls_version_convert(enum sam_ssltls_version version);
 void sam_dtls_ip4_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 			       struct sam_cio_op_result *result);
-void sam_dtls_ip6_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+void sam_dtls_ip6_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 			       struct sam_cio_op_result *result);
 
 /* Debug functions */

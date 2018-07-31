@@ -169,12 +169,32 @@ void sam_dtls_ip4_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc
 	udph = (struct udphdr *)((char *)iph + iph_len);
 	udp_len = ip_len - iph_len;
 	udph->len = htobe16(udp_len);
+
 }
 
-void sam_dtls_ip6_in_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
+void sam_dtls_ip6_post_proc(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,
 			       struct sam_cio_op_result *result)
 {
-	pr_info("%s: Not supported yet\n", __func__);
+	u32 val32;
+	u8 ip6h_len, l3_offset;
+	struct ip6_hdr *ip6h;
+	struct udphdr *udph;
+	u16 ip_len, udp_len;
+
+	val32 = readl_relaxed(&res_desc->words[7]);
+	l3_offset = SAM_RES_TOKEN_OFFSET_GET(val32);
+
+	/* Update IPv6 payload length field */
+	ip6h = (struct ip6_hdr *)(operation->out_frags[0].vaddr + l3_offset);
+	ip6h_len = sizeof(struct ip6_hdr);
+	ip_len = (u16)(result->out_len - l3_offset - ip6h_len);
+	ip6h->ip6_plen = htobe16(ip_len);
+
+	/* Update UDP length field - no extension headers support */
+	udph = (struct udphdr *)((char *)ip6h + ip6h_len);
+	udp_len = ip_len;
+	udph->len = htobe16(udp_len);
+
 }
 
 
