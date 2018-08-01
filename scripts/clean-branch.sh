@@ -87,7 +87,7 @@ if [ $? -ne 0 ] ; then
     exit 1
 fi
 
-# Run filter-branch to remove lport and vport files
+# Run filter-branch to remove proprietary files
 time git filter-branch --force --index-filter '\
 git rm -rf --cached --ignore-unmatch src/hw_emul \
 git rm -rf --cached --ignore-unmatch src/mng \
@@ -111,6 +111,7 @@ git rm -rf --cached --ignore-unmatch apps/tests/giu \
 git rm -rf --cached --ignore-unmatch doc/musdk_giu_user_guide.txt \
 git rm -rf --cached --ignore-unmatch doc/musdk_mqa_user_guide.txt \
 git rm -rf --cached --ignore-unmatch doc/musdk_nmp_user_guide.txt \
+git rm -rf --cached --ignore-unmatch scripts/clean-branch.sh \
 ' --prune-empty @
 if [ $? -ne 0 ] ; then
     echo "git filter-branch failed"
