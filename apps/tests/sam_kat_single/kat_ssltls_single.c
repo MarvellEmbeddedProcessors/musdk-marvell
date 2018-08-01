@@ -34,7 +34,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/udp.h>
 #include <sys/time.h>
 
@@ -62,10 +64,15 @@ static struct sam_cio *cio_dec;
 static struct sam_sa  *sa_enc;
 static struct sam_sa  *sa_dec;
 
+static bool sa_is_ip6;
+
 static char *test_names[] = {
 	/* 0 */ "ip4_dtls_aes_cbc_sha1",
 	/* 1 */ "ip4_dtls_aes_gcm",
 	/* 2 */ "ip4_capwap_dtls_aes_cbc_sha1",
+	/* 3 */ "ip6_dtls_aes_cbc_sha1",
+	/* 4 */ "ip6_dtls_aes_gcm",
+	/* 5 */ "ip6_capwap_dtls_aes_cbc_sha1",
 };
 
 
@@ -81,6 +88,14 @@ static u8 example_ip4_header[] = {
 	0x40, 0x11, 0x00, 0x00,
 	0x50, 0x00, 0x00, 0x0A,
 	0x3C, 0x00, 0x00, 0x0A
+};
+
+static u8 example_ip6_header[] = {
+	0x60, 0x30, 0x00, 0x00, 0x05, 0xA2, 0x11, 0x40,
+	0xFE, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x02, 0x00, 0x01, 0xFF, 0xFE, 0x00, 0x01, 0x00,
+	0x35, 0x55, 0x55, 0x55, 0x66, 0x66, 0x66, 0x66,
+	0x77, 0x77, 0x77, 0x77, 0x88, 0x88, 0x88, 0x88
 };
 
 static u8 example_udp_header[] = {
@@ -219,6 +234,19 @@ static int create_session(struct sam_sa **hndl, const char *name, enum sam_dir d
 	} else if (!strcmp(name, "ip4_capwap_dtls_aes_cbc_sha1")) {
 		sa_params = &dtls_aes_cbc_sha1_sa;
 		sa_params->u.ssltls.is_capwap = 1;
+	} else if (!strcmp(name, "ip6_dtls_aes_cbc_sha1")) {
+		sa_params = &dtls_aes_cbc_sha1_sa;
+		sa_params->u.ssltls.is_ip6 = 1;
+		sa_is_ip6 = true;
+	} else if (!strcmp(name, "ip6_dtls_aes_gcm")) {
+		sa_params = &dtls_aes_gcm_sa;
+		sa_params->u.ssltls.is_ip6 = 1;
+		sa_is_ip6 = true;
+	} else if (!strcmp(name, "ip6_capwap_dtls_aes_cbc_sha1")) {
+		sa_params = &dtls_aes_cbc_sha1_sa;
+		sa_params->u.ssltls.is_capwap = 1;
+		sa_params->u.ssltls.is_ip6 = 1;
+		sa_is_ip6 = true;
 	} else {
 		printf("%s - unknown session name\n", name);
 		return -EINVAL;
@@ -266,20 +294,29 @@ static int poll_results(struct sam_cio *cio, struct sam_cio_op_result *result,
 }
 
 /* Build UDP packet and return total packet length */
-static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info, int payload_size)
+static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info, int payload_size, bool is_ip6)
 {
 	int offset, l3_offset, l4_offset;
 	u8 *src_buf = buf_info->vaddr;
+	struct ether_header *ethh;
 	struct iphdr *iph;
 	struct udphdr *udph;
 
 	offset = 0;
-	memcpy(src_buf + offset, example_l2_header, sizeof(example_l2_header));
+	memcpy(src_buf, example_l2_header, sizeof(example_l2_header));
+	ethh = (struct ether_header *)src_buf;
 	offset = sizeof(example_l2_header);
 	l3_offset = offset;
 
-	memcpy(src_buf + offset, example_ip4_header, sizeof(example_ip4_header));
-	offset += sizeof(example_ip4_header);
+	if (is_ip6) {
+		ethh->ether_type = htobe16(ETHERTYPE_IPV6);
+		memcpy(src_buf + offset, example_ip6_header, sizeof(example_ip6_header));
+		offset += sizeof(example_ip6_header);
+	} else {
+		ethh->ether_type = htobe16(ETHERTYPE_IP);
+		memcpy(src_buf + offset, example_ip4_header, sizeof(example_ip4_header));
+		offset += sizeof(example_ip4_header);
+	}
 	l4_offset = offset;
 
 	memcpy(src_buf + offset, example_udp_header, sizeof(example_udp_header));
@@ -293,15 +330,25 @@ static int build_udp_pkt_for_encrypt(struct sam_buf_info *buf_info, int payload_
 		offset += copy_size;
 		payload_size -= copy_size;
 	}
-	iph = (struct iphdr *)(src_buf + l3_offset);
 
-	/* Set IP length */
-	iph->tot_len = htobe16(offset - l3_offset);
+	if (is_ip6) {
 
-	/* Set IP checksum */
-	iph->check = 0;
-	iph->check = mv_ip4_csum((u16 *)iph, iph->ihl);
+		struct ip6_hdr *ip6h = (struct ip6_hdr *)(src_buf + l3_offset);
 
+		/* Set IP length */
+		ip6h->ip6_plen = htobe16(offset - l4_offset);
+		ip6h->ip6_nxt = IPPROTO_UDP;
+	} else {
+		iph = (struct iphdr *)(src_buf + l3_offset);
+
+		/* Set IP length */
+		iph->tot_len = htobe16(offset - l3_offset);
+		iph->protocol = IPPROTO_UDP;
+
+		/* Set IP checksum */
+		iph->check = 0;
+		iph->check = mv_ip4_csum((u16 *)iph, iph->ihl);
+	}
 	udph = (struct udphdr *)(src_buf + l4_offset);
 
 	/* Set UDP payload length */
@@ -521,7 +568,7 @@ static int parse_args(int argc, char *argv[])
 	}
 	if (test_id >= ARRAY_SIZE(test_names)) {
 		pr_err("test_id (%d) is out of range [0 .. %d]\n",
-			test_id, (unsigned)ARRAY_SIZE(test_names));
+			test_id, (unsigned)ARRAY_SIZE(test_names) - 1);
 
 		return -EINVAL;
 	}
@@ -616,7 +663,7 @@ int main(int argc, char **argv)
 	pr_info("%s decrypt session created\n", test_names[test_id]);
 
 	/* Build input packet for encryption */
-	pkt_size = build_udp_pkt_for_encrypt(&input_buf, payload_size);
+	pkt_size = build_udp_pkt_for_encrypt(&input_buf, payload_size, sa_is_ip6);
 
 	if (verbose) {
 		printf("\nInput packet    : %d bytes\n", pkt_size);
