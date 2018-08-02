@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Run filter-branch to remove proprietary files
-time git filter-branch --force --index-filter '\
+git filter-branch --force --index-filter '\
 git rm -rf --cached --ignore-unmatch src/hw_emul \
 git rm -rf --cached --ignore-unmatch src/mng \
 git rm -rf --cached --ignore-unmatch src/drivers/giu \
@@ -25,4 +25,5 @@ git rm -rf --cached --ignore-unmatch doc/musdk_giu_user_guide.txt \
 git rm -rf --cached --ignore-unmatch doc/musdk_mqa_user_guide.txt \
 git rm -rf --cached --ignore-unmatch doc/musdk_nmp_user_guide.txt \
 git rm -rf --cached --ignore-unmatch scripts/filter-branch.sh \
+git rm -rf --cached --ignore-unmatch scripts/clean-branch.sh \
 ' --prune-empty @
