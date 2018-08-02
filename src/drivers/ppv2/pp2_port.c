@@ -628,6 +628,9 @@ pp2_rxq_init(struct pp2_port *port, struct pp2_rx_queue *rxq)
 
 	memset(&rxq->stats, 0, sizeof(rxq->stats));
 	rxq->threshold_rx_pkts = 0;
+
+	pp2_cls_edrop_bypass_assign_qid(port->parent, rxq->id);
+	rxq->edrop = NULL;
 }
 
 /* Initializes and sets RXQ related registers for all RXQs
@@ -783,6 +786,11 @@ pp2_rxq_deinit(struct pp2_port *port,
 	uintptr_t cpu_slot = port->cpu_slot;
 
 	pp2_rxq_resid_pkts(port, rxq);
+
+	if (rxq->edrop) {
+		pp2_cls_edrop_assign_qid(port->parent, rxq->edrop->id, rxq->id, false);
+		rxq->edrop = NULL;
+	}
 
 	/* Clear Rx descriptors queue starting address and size;
 	* free descriptor number
@@ -2268,4 +2276,60 @@ int pp2_port_get_inq_state(struct pp2_port *port, u8 tc, u8 qid, int *en)
 
 	return 0;
 }
+
+int pp2_port_set_inq_early_drop(struct pp2_port *port, u8 tc, u8 qid, int en, struct pp2_cls_early_drop *edrop)
+{
+	u32 log_rxq;
+	struct pp2_rx_queue *rxq;
+	int err;
+
+	if (mv_pp2x_ptr_validate(port))
+		return -EINVAL;
+
+	log_rxq = port->tc[tc].first_log_rxq + qid;
+	rxq = port->rxqs[log_rxq];
+	if (en) {
+		if (mv_pp2x_ptr_validate(edrop))
+			return -EINVAL;
+
+		if (rxq->edrop == edrop)
+			/* Already assigned to this edrop */
+			return 0;
+
+		if (rxq->edrop) {
+			/* unassign from current edrop */
+			err = pp2_cls_edrop_assign_qid(port->parent, rxq->edrop->id, rxq->id, 0);
+			if (err) {
+				pr_err("(%s) failed to unset early drop (%d) from tc[%d],qid[%d]\n",
+					__func__, rxq->edrop->id, tc, qid);
+				return err;
+			}
+		}
+
+		err = pp2_cls_edrop_assign_qid(port->parent, edrop->id, rxq->id, en);
+		if (err) {
+			pr_err("(%s) failed to set eraly drop (%d) to tc[%d],qid[%d]\n",
+				__func__, edrop->id, tc, qid);
+			return err;
+		}
+
+		rxq->edrop = edrop;
+	} else {
+		if (!rxq->edrop)
+			/* wasn't assigned to any edrop; just return */
+			return 0;
+
+		err = pp2_cls_edrop_assign_qid(port->parent, rxq->edrop->id, rxq->id, en);
+		if (err) {
+			pr_err("(%s) failed to unset eraly drop (%d) from tc[%d],qid[%d]\n",
+				__func__, rxq->edrop->id, tc, qid);
+			return err;
+		}
+
+		rxq->edrop = NULL;
+	}
+
+	return 0;
+}
+
 

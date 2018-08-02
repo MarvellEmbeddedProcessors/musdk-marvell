@@ -289,6 +289,8 @@ struct pp2_rx_queue {
 	u32 usec_coal;
 	u32 fc_start_thresh;
 	u32 fc_stop_thresh;
+	/* Early-drop */
+	struct pp2_cls_early_drop *edrop; /* 'NULL' for not assign */
 };
 
 #define PP2_BM_BUF_DEBUG             (0)

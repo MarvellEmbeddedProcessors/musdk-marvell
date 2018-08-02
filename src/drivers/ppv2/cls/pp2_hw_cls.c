@@ -3977,6 +3977,16 @@ int mv_pp2x_plcr_hw_early_drop_set(uintptr_t cpu_slot, int enable)
 	return MV_OK;
 }
 
+int mv_pp2x_plcr_hw_early_drop_get(uintptr_t cpu_slot, int *enable)
+{
+	u32 regVal;
+
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PLCR_EDROP_EN_REG);
+	*enable = regVal & MVPP2_PLCR_EDROP_EN_MASK;
+
+	return MV_OK;
+}
+
 int mv_pp2x_plcr_hw_token_config(uintptr_t cpu_slot, int plcr, int unit, int type)
 {
 	u32 regVal;
@@ -4045,6 +4055,12 @@ int mv_pp2x_plcr_hw_cpu_thresh_set(uintptr_t cpu_slot, int idx, int threshold)
 	return MV_OK;
 }
 
+int mv_pp2x_plcr_hw_cpu_thresh_get(uintptr_t cpu_slot, int idx, int *threshold)
+{
+	*threshold = pp2_reg_read(cpu_slot, MVPP2_PLCR_EDROP_CPU_TR_REG(idx));
+
+	return MV_OK;
+}
 
 int mv_pp2x_plcr_hw_hwf_thresh_set(uintptr_t cpu_slot, int idx, int threshold)
 {
@@ -4057,6 +4073,14 @@ int mv_pp2x_plcr_hw_rxq_thresh_set(uintptr_t cpu_slot, int rxq, int idx)
 {
 	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_RXQ_REG, rxq);
 	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_RXQ_TR_REG, idx);
+
+	return MV_OK;
+}
+
+int mv_pp2x_plcr_hw_rxq_thresh_get(uintptr_t cpu_slot, int rxq, int *idx)
+{
+	pp2_reg_write(cpu_slot, MVPP2_PLCR_EDROP_RXQ_REG, rxq);
+	*idx = pp2_reg_read(cpu_slot, MVPP2_PLCR_EDROP_RXQ_TR_REG);
 
 	return MV_OK;
 }

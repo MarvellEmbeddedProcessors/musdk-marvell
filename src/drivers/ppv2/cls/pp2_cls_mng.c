@@ -1962,12 +1962,13 @@ void pp2_cls_mng_init(struct pp2_inst *inst)
 	pp2_cls_c3_start(inst);
 	pp2_cls_rss_init(inst);
 	pp2_cls_plcr_start(inst);
+	pp2_cls_edrop_start(inst);
 }
 
 void pp2_cls_mng_deinit(struct pp2_inst *inst)
 {
 	pp2_cls_prs_deinit(inst);
 	pp2_cls_plcr_finish(inst);
+	pp2_cls_edrop_finish(inst);
 }
-
 

@@ -243,3 +243,71 @@ void pp2_cls_plcr_deinit(struct pp2_cls_plcr *plcr)
 		pr_err("[%s] cls policer deinit error\n", __func__);
 }
 
+int pp2_cls_early_drop_init(struct pp2_cls_early_drop_params *params, struct pp2_cls_early_drop **edrop)
+{
+	u8 match[2];
+	int ed_id, pp2_id, rc;
+	enum pp2_cls_edrop_entry_state_t state;
+
+	/* Para check */
+	if (mv_pp2x_ptr_validate(params))
+		return -EINVAL;
+
+	if (mv_sys_match(params->match, "ed", 2, match)) {
+		pr_err("[%s] Invalid match string!\n", __func__);
+		return(-ENXIO);
+	}
+
+	if (pp2_is_init() == false)
+		return(-EPERM);
+
+	pp2_id = match[0];
+	ed_id = match[1];
+
+	if (ed_id < 0 || ed_id >= PP2_CLS_EARLY_DROP_NUM) {
+		pr_err("[%s] Invalid early-drop id!\n", __func__);
+		return(-ENXIO);
+	}
+
+	if (pp2_id < 0 || pp2_id >= pp2_ptr->num_pp2_inst) {
+		pr_err("[%s] Invalid pp2-id string!\n", __func__);
+		return(-ENXIO);
+	}
+
+	if (pp2_ptr->init.early_drop_reserved_map & (1 << ed_id)) {
+		pr_err("[%s] early-drop id is reserved.\n", __func__);
+		return(-EFAULT);
+	}
+
+	rc = pp2_cls_edrop_entry_state_get(pp2_ptr->pp2_inst[pp2_id], ed_id + 1, &state);
+	if (rc || state == MVPP2_EDROP_ENTRY_VALID_STATE) {
+		pr_err("[%s] early-drop already exists.\n", __func__);
+		return(-EEXIST);
+	}
+
+	*edrop = kmalloc(sizeof(struct pp2_cls_early_drop), GFP_KERNEL);
+	if (!*edrop)
+		return -ENOMEM;
+	(*edrop)->pp2_id = pp2_id;
+	(*edrop)->id = ed_id + 1;
+	rc = pp2_cls_edrop_entry_add(pp2_ptr->pp2_inst[pp2_id], params, (*edrop)->id);
+	if (rc) {
+		kfree(*edrop);
+		*edrop = NULL;
+	}
+
+	return rc;
+}
+
+void pp2_cls_early_drop_deinit(struct pp2_cls_early_drop *edrop)
+{
+	int rc;
+
+	if (mv_pp2x_ptr_validate(edrop))
+		pr_err("%s(%d) fail, edrop = NULL\n", __func__, __LINE__);
+
+	rc = pp2_cls_edrop_entry_del(pp2_ptr->pp2_inst[edrop->pp2_id], edrop->id);
+	if (rc)
+		pr_err("[%s] cls early-drop deinit error\n", __func__);
+}
+

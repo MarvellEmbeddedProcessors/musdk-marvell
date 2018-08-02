@@ -255,13 +255,16 @@ int mv_pp2x_plcr_hw_enable(uintptr_t cpu_slot, int plcr, int enable);
 int mv_pp2x_plcr_hw_mode(uintptr_t cpu_slot, int mode);
 int mv_pp2x_plcr_hw_min_pkt_len(uintptr_t cpu_slot, int bytes);
 int mv_pp2x_plcr_hw_early_drop_set(uintptr_t cpu_slot, int enable);
+int mv_pp2x_plcr_hw_early_drop_get(uintptr_t cpu_slot, int *enable);
 int mv_pp2x_plcr_hw_token_config(uintptr_t cpu_slot, int plcr, int unit, int type);
 int mv_pp2x_plcr_hw_token_value(uintptr_t cpu_slot, int plcr, int value);
 int mv_pp2x_plcr_hw_color_mode_set(uintptr_t cpu_slot, int plcr, int enable);
 int mv_pp2x_plcr_hw_bucket_size_set(uintptr_t cpu_slot, int plcr, int commit, int excess);
 int mv_pp2x_plcr_hw_cpu_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
+int mv_pp2x_plcr_hw_cpu_thresh_get(uintptr_t cpu_slot, int idx, int *threshold);
 int mv_pp2x_plcr_hw_hwf_thresh_set(uintptr_t cpu_slot, int idx, int threshold);
 int mv_pp2x_plcr_hw_rxq_thresh_set(uintptr_t cpu_slot, int rxq, int idx);
+int mv_pp2x_plcr_hw_rxq_thresh_get(uintptr_t cpu_slot, int rxq, int *idx);
 int mv_pp2x_plcr_hw_txq_thresh_set(uintptr_t cpu_slot, int txq, int idx);
 
 #endif /* _PP2_HW_CLS_H_ */

@@ -2099,28 +2099,9 @@ int pp2_cls_db_plcr_gen_cfg_get(struct pp2_inst *inst, struct pp2_cls_plcr_gen_c
 	return 0;
 }
 
-int pp2_cls_db_plcr_early_drop_set(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop)
-{
-	if (mv_pp2x_ptr_validate(early_drop))
-		return -EINVAL;
-
-	memcpy(&inst->cls_db->plcr_db.early_drop, early_drop, sizeof(struct pp2_cls_plcr_early_drop_t));
-	return 0;
-}
-
-int pp2_cls_db_plcr_early_drop_get(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop)
-{
-	if (mv_pp2x_ptr_validate(early_drop))
-		return -EINVAL;
-
-	memcpy(early_drop, &inst->cls_db->plcr_db.early_drop, sizeof(struct pp2_cls_plcr_early_drop_t));
-	return 0;
-}
-
 int pp2_cls_db_plcr_init(struct pp2_inst *inst)
 {
 	u32 idx = 0;
-	u32 gmac = 0;
 
 	/* clear policer DB */
 	memset(&inst->cls_db->plcr_db, 0, sizeof(struct pp2_cls_db_plcr_t));
@@ -2128,16 +2109,6 @@ int pp2_cls_db_plcr_init(struct pp2_inst *inst)
 	/* set policer entry to invalid state */
 	for (idx = 0; idx < MVPP2_PLCR_MAX; idx++)
 		inst->cls_db->plcr_db.plcr_arr[idx].valid = MVPP2_PLCR_ENTRY_INVALID_STATE;
-
-	/* disable early drop and queue threshold index */
-	inst->cls_db->plcr_db.early_drop.state = MVPP2_PLCR_EARLY_DROP_DISABLE;
-	for (idx = 0; idx < MVPP2_RXQ_TOTAL_NUM; idx++)
-		inst->cls_db->plcr_db.early_drop.rxq_idx[idx] = MVPP2_PLCR_INVALID_Q_THESH_IDX;
-
-	for (gmac = 0; gmac < MVPP2_MAX_PORTS; gmac++) {
-		for (idx = 0; idx < MVPP2_MAX_TXQ; idx++)
-			inst->cls_db->plcr_db.early_drop.txq_idx[gmac][idx] = MVPP2_PLCR_INVALID_Q_THESH_IDX;
-	}
 
 	return 0;
 }
@@ -2167,6 +2138,102 @@ int pp2_cls_db_plcr_dump(void *arg)
 			plcr_arr->plcr_entry.ebs,
 			plcr_arr->rules_ref_cnt);
 	}
+
+	return 0;
+}
+
+/* early-drop section */
+int pp2_cls_db_edrop_entry_set(struct pp2_inst *inst, u8 edrop_id, struct pp2_cls_db_edrop_entry_t *edrop_entry)
+{
+	if (mv_pp2x_range_validate(edrop_id, 0, MVPP2_EDROP_MAX - 1)) {
+		pr_err("invalid early-drop ID %d, out of range[%d, %d]\n", edrop_id, 0, MVPP2_EDROP_MAX - 1);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_ptr_validate(edrop_entry))
+		return -EINVAL;
+
+	/* Clear this entry in invalid case */
+	if (edrop_entry->valid == MVPP2_PLCR_ENTRY_INVALID_STATE)
+		MVPP2_MEMSET_ZERO(inst->cls_db->edrop_db.edrop_arr[edrop_id]);
+	else
+		memcpy(&inst->cls_db->edrop_db.edrop_arr[edrop_id],
+			edrop_entry,
+			sizeof(struct pp2_cls_db_edrop_entry_t));
+
+	return 0;
+}
+
+int pp2_cls_db_edrop_entry_get(struct pp2_inst *inst, u8 edrop_id, struct pp2_cls_db_edrop_entry_t *edrop_entry)
+{
+	if (mv_pp2x_range_validate(edrop_id, 0, MVPP2_EDROP_MAX - 1)) {
+		pr_err("invalid early-drop ID %d, out of range[%d, %d]\n", edrop_id, 0, MVPP2_EDROP_MAX - 1);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_ptr_validate(edrop_entry))
+		return -EINVAL;
+
+	memcpy(edrop_entry, &inst->cls_db->edrop_db.edrop_arr[edrop_id], sizeof(struct pp2_cls_db_edrop_entry_t));
+
+	return 0;
+}
+
+int pp2_cls_db_edrop_ref_cnt_update(struct pp2_inst *inst,
+				    u8 edrop_id,
+				    enum pp2_cls_edrop_ref_cnt_action_t cnt_action)
+{
+	struct pp2_cls_db_edrop_entry_t *edrop_entry = NULL;
+
+	if (mv_pp2x_range_validate(edrop_id, 0, MVPP2_EDROP_MAX - 1)) {
+		pr_err("invalid early-drop ID %d, out of range[%d, %d]\n", edrop_id, 0, MVPP2_EDROP_MAX - 1);
+		return -EINVAL;
+	}
+
+	if (mv_pp2x_range_validate(cnt_action, 0, MVPP2_EDROP_REF_CNT_CLEAR)) {
+		pr_err("invalid reference counter action %d, out of range[%d, %d]\n", cnt_action,
+			0, MVPP2_EDROP_REF_CNT_CLEAR);
+		return -EINVAL;
+	}
+
+	/* check the early-drop state */
+	edrop_entry = &inst->cls_db->edrop_db.edrop_arr[edrop_id];
+	if (((cnt_action == MVPP2_EDROP_REF_CNT_INC) ||
+	     (cnt_action == MVPP2_EDROP_REF_CNT_DEC) ||
+	     (cnt_action == MVPP2_EDROP_REF_CNT_CLEAR))
+	    && (edrop_entry->valid == MVPP2_EDROP_ENTRY_INVALID_STATE)) {
+		pr_err("early-drop ID(%d) is invalid\n", edrop_id);
+		return -EINVAL;
+	}
+
+	/* action to reference counter */
+	switch (cnt_action) {
+	case MVPP2_PLCR_REF_CNT_INC:
+		edrop_entry->ref_cnt++;
+		break;
+	case MVPP2_PLCR_REF_CNT_DEC:
+		edrop_entry->ref_cnt--;
+		break;
+	case MVPP2_PLCR_REF_CNT_CLEAR:
+		edrop_entry->ref_cnt = 0;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+int pp2_cls_db_edrop_init(struct pp2_inst *inst)
+{
+	u32 idx = 0;
+
+	/* clear early-drop DB */
+	memset(&inst->cls_db->edrop_db, 0, sizeof(struct pp2_cls_db_edrop_t));
+
+	/* set early-drop entry to invalid state */
+	for (idx = 0; idx < MVPP2_EDROP_MAX; idx++)
+		inst->cls_db->edrop_db.edrop_arr[idx].valid = MVPP2_EDROP_ENTRY_INVALID_STATE;
 
 	return 0;
 }

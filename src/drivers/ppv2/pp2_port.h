@@ -514,4 +514,6 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 int pp2_port_set_inq_state(struct pp2_port *port, u8 tc, u8 qid, int en);
 int pp2_port_get_inq_state(struct pp2_port *port, u8 tc, u8 qid, int *en);
 
+int pp2_port_set_inq_early_drop(struct pp2_port *port, u8 tc, u8 qid, int en, struct pp2_cls_early_drop *edrop);
+
 #endif /* __PP2_PORT_H__ */

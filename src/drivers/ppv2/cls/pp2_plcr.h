@@ -44,12 +44,12 @@ struct pp2_cls_plcr {
 	int	id;		/* policer id */
 };
 
+
 /******************************************************************************/
 /*                                 MACROS                                     */
 /******************************************************************************/
 #define MVPP2_PLCR_MAX			48
 
-#define MVPP2_PLCR_INVALID_Q_THESH_IDX	(0xff)	/* invalid queue theshold index	*/
 /* minimium policer ID, start with 1, since 0 is used for all C2/3 enties without Policer configuration */
 #define MVPP2_PLCR_MIN_ENTRY_ID		(1)
 #define ACT_DUP_POLICER_MAX		(31)
@@ -108,11 +108,6 @@ enum pp2_cls_plcr_token_update_type_t {
 	MVPP2_PLCR_TOKEN_RATE_TYPE_10MBPS_4KB,	/* rate/burst bucket resolution:10MBPS/4KB	*/
 };
 
-enum pp2_cls_plcr_early_drop_state_t {
-	MVPP2_PLCR_EARLY_DROP_DISABLE = 0,	/* disable early drop	*/
-	MVPP2_PLCR_EARLY_DROP_ENABLE		/* enable early drop	*/
-};
-
 /******************************************************************************/
 /*                               STRUCTURES                                   */
 /******************************************************************************/
@@ -121,14 +116,6 @@ struct pp2_cls_plcr_gen_cfg_t {
 	enum pp2_cls_plcr_mode_t mode;			/* operation mode				*/
 	u16	base_period;				/* token update period in units of core clock	*/
 	u8	min_pkt_len;				/* minium packet length allowed by policer	*/
-};
-
-struct pp2_cls_plcr_early_drop_t {
-	enum pp2_cls_plcr_early_drop_state_t state;		/* en/disable base rate generation    */
-	u16	cpu_q_thesh[MVPP2_PLCR_EDROP_THRESH_NUM];	/* CPU queue threshold for early drop */
-	u16	hwf_q_thesh[MVPP2_PLCR_EDROP_THRESH_NUM];	/* HWF queue threshold for early drop */
-	u8	rxq_idx[MVPP2_RXQ_TOTAL_NUM];			/* CPU RX queue	threshold index	      */
-	u8	txq_idx[MVPP2_MAX_PORTS][MVPP2_MAX_TXQ];	/* HWF TX queue	threshold index	      */
 };
 
 struct pp2_cls_plcr_token_type_t {
@@ -156,10 +143,8 @@ int pp2_cls_plcr_entry_state_get(struct pp2_inst *inst, u8 policer_id, enum pp2_
 int pp2_cls_plcr_ref_cnt_get(struct pp2_inst *inst, u8 policer_id, u32 *rules_ref, u32 *ppios_ref);
 int pp2_cls_plcr_entry_clear(struct pp2_inst *inst);
 int pp2_cls_plcr_gen_cfg_set(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_t *gen_cfg);
-int pp2_cls_plcr_early_drop_set(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop);
 int pp2_cls_plcr_reset(struct pp2_inst *inst);
 int pp2_cls_plcr_start(struct pp2_inst *inst);
 void pp2_cls_plcr_finish(struct pp2_inst *inst);
-
 
 #endif /* _PP2_PLCR_H_ */

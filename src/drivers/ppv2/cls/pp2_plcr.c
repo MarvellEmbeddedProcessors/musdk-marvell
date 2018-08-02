@@ -813,101 +813,6 @@ int pp2_cls_plcr_gen_cfg_set(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_
 }
 
 /*******************************************************************************
-* pp2_cls_plcr_early_drop_set()
-*
-* DESCRIPTION: This API sets policer early drop parameters.
-*
-* INPUTS:
-*	early_drop - early drop parameters.
-*
-* OUTPUTS:
-*	None.
-*
-* RETURNS:
-*	On success, the function returns 0. On error different types are returned
-*	according to the case - see pp2_error_code_t.
-*******************************************************************************/
-int pp2_cls_plcr_early_drop_set(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop)
-{
-	unsigned int gmac;
-	unsigned int idx;
-	int txq;
-	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
-	int rc = 0;
-
-	if (mv_pp2x_ptr_validate(early_drop))
-		return -EFAULT;
-
-	if ((early_drop->state != MVPP2_PLCR_EARLY_DROP_ENABLE) &&
-	    (early_drop->state != MVPP2_PLCR_EARLY_DROP_DISABLE)) {
-		pr_err("invalid early drop state (%d)\n", early_drop->state);
-		return -EINVAL;
-	}
-
-	if (early_drop->state == MVPP2_PLCR_EARLY_DROP_ENABLE) {
-		/* set CPU thresholds */
-		for (idx = 0; idx < MVPP2_PLCR_EDROP_THRESH_NUM; idx++) {
-			rc = mv_pp2x_plcr_hw_cpu_thresh_set(cpu_slot, idx, early_drop->cpu_q_thesh[idx]);
-			if (rc) {
-				pr_err("failed to set CPU queue threshold to HW\n");
-				return rc;
-			}
-		}
-
-		/* set HWF thresholds */
-		for (idx = 0; idx < MVPP2_PLCR_EDROP_THRESH_NUM; idx++) {
-			rc = mv_pp2x_plcr_hw_hwf_thresh_set(cpu_slot, idx, early_drop->hwf_q_thesh[idx]);
-			if (rc) {
-				pr_err("failed to set HWF queue threshold to HW\n");
-				return rc;
-			}
-		}
-
-		/* set CPU RX queue index */
-		for (idx = 0; idx < MVPP2_RXQ_TOTAL_NUM; idx++) {
-			if (early_drop->rxq_idx[idx] != MVPP2_PLCR_INVALID_Q_THESH_IDX) {
-				rc = mv_pp2x_plcr_hw_rxq_thresh_set(cpu_slot, idx, early_drop->rxq_idx[idx]);
-				if (rc) {
-					pr_err("failed to set RX queue threshold index to HW\n");
-					return rc;
-				}
-			}
-		}
-
-		/* set HWF TX queue index */
-		for (gmac = 0; gmac < MVPP2_MAX_PORTS; gmac++) {
-			for (idx = 0; idx < MVPP2_MAX_TXQ; idx++) {
-				if (early_drop->txq_idx[gmac][idx] != MVPP2_PLCR_INVALID_Q_THESH_IDX) {
-					txq = (gmac * MVPP2_MAX_TXQ) | idx;
-					rc = mv_pp2x_plcr_hw_txq_thresh_set(cpu_slot, txq,
-									    early_drop->txq_idx[gmac][idx]);
-					if (rc) {
-						pr_err("fail to set TX queue threshold index to HW\n");
-						return rc;
-					}
-				}
-			}
-		}
-	}
-
-	/* set early drop state */
-	rc = mv_pp2x_plcr_hw_early_drop_set(cpu_slot, early_drop->state);
-	if (rc) {
-		pr_err("failed to set early drop to HW\n");
-		return rc;
-	}
-
-	/* save the early drop configuration to DB */
-	rc = pp2_cls_db_plcr_early_drop_set(inst, early_drop);
-	if (rc) {
-		pr_err("failed to set policer early drop configuration to DB\n");
-		return rc;
-	}
-
-	return rc;
-}
-
-/*******************************************************************************
 * pp2_cls_plcr_reset
 *
 * DESCRIPTION: The routine reset and re-start policer sub-module
@@ -927,7 +832,6 @@ int pp2_cls_plcr_early_drop_set(struct pp2_inst *inst, struct pp2_cls_plcr_early
 int pp2_cls_plcr_reset(struct pp2_inst *inst)
 {
 	struct pp2_cls_plcr_gen_cfg_t gen_cfg;
-	struct pp2_cls_plcr_early_drop_t early_drop;
 	int rc = 0;
 
 	/* init policer DB */
@@ -946,15 +850,6 @@ int pp2_cls_plcr_reset(struct pp2_inst *inst)
 	rc = pp2_cls_plcr_gen_cfg_set(inst, &gen_cfg);
 	if (rc) {
 		pr_err("fail to set policer default general configuration\n");
-		return rc;
-	}
-
-	/* set policer default early drop configuration */
-	MVPP2_MEMSET_ZERO(early_drop);
-	early_drop.state = MVPP2_PLCR_EARLY_DROP_DISABLE;
-	rc = pp2_cls_plcr_early_drop_set(inst, &early_drop);
-	if (rc) {
-		pr_err("fail to set policer default early drop configuration\n");
 		return rc;
 	}
 
@@ -1002,5 +897,4 @@ void pp2_cls_plcr_finish(struct pp2_inst *inst)
 		pr_debug("MVPP2 policer finish failed\n");
 
 }
-
 

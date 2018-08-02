@@ -45,6 +45,7 @@
 
 #include "drivers/mv_pp2_cls.h"
 #include "pp2_plcr.h"
+#include "pp2_edrop.h"
 
 #define MVPP2_MNG_FLOW_ID_MAX 50
 /********************************************************************************/
@@ -167,11 +168,21 @@ struct pp2_cls_db_plcr_entry_t {
 	u32				ppios_ref_cnt;	/* reference counter of PPIOs		*/
 };
 
+struct pp2_cls_db_edrop_entry_t {
+	int				valid;		/* whether this entry is valid	*/
+	struct pp2_cls_early_drop_params edrop_entry;	/* early-drop entry			*/
+	u32				ref_cnt;	/* reference counter of queues	*/
+};
+
 /* policer module DB structure */
 struct pp2_cls_db_plcr_t {
 	struct pp2_cls_plcr_gen_cfg_t	gen_cfg;			/* general configuration	*/
 	struct pp2_cls_db_plcr_entry_t	plcr_arr[MVPP2_PLCR_MAX];	/* policer entry array		*/
-	struct pp2_cls_plcr_early_drop_t	early_drop;			/* early drop configuration	*/
+};
+
+/* early-drop module DB structure */
+struct pp2_cls_db_edrop_t {
+	struct pp2_cls_db_edrop_entry_t	edrop_arr[MVPP2_EDROP_MAX];	/* early-drop entry array		*/
 };
 
 struct pp2_cls_db_t {
@@ -181,6 +192,7 @@ struct pp2_cls_db_t {
 	struct pp2_cls_db_prs_t	prs_db;			/* PP2_CLS module PARSER db	*/
 	struct pp2_cls_db_rss_t	rss_db;			/* PP2_CLS module RSS db		*/
 	struct pp2_cls_db_plcr_t plcr_db;		/* PP2 CLS module PLCR db		*/
+	struct pp2_cls_db_edrop_t edrop_db;		/* PP2 CLS module EDROP db		*/
 };
 
 /* table db is not instance dependent, so it is defined separately in db */
@@ -289,10 +301,17 @@ int pp2_cls_db_plcr_ref_cnt_update(struct pp2_inst *inst,
 				   int update_ppio);
 int pp2_cls_db_plcr_gen_cfg_set(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_t *gen_cfg);
 int pp2_cls_db_plcr_gen_cfg_get(struct pp2_inst *inst, struct pp2_cls_plcr_gen_cfg_t *gen_cfg);
-int pp2_cls_db_plcr_early_drop_set(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop);
-int pp2_cls_db_plcr_early_drop_get(struct pp2_inst *inst, struct pp2_cls_plcr_early_drop_t *early_drop);
 int pp2_cls_db_plcr_init(struct pp2_inst *inst);
 int pp2_cls_db_plcr_dump(void *arg);
+
+/* early-drop section */
+int pp2_cls_db_edrop_entry_set(struct pp2_inst *inst, u8 edrop_id, struct pp2_cls_db_edrop_entry_t *edrop_entry);
+int pp2_cls_db_edrop_entry_get(struct pp2_inst *inst, u8 edrop_id, struct pp2_cls_db_edrop_entry_t *edrop_entry);
+int pp2_cls_db_edrop_ref_cnt_update(struct pp2_inst *inst,
+				    u8 edrop_id,
+				    enum pp2_cls_edrop_ref_cnt_action_t cnt_action);
+int pp2_cls_db_edrop_init(struct pp2_inst *inst);
+int pp2_cls_db_edrop_dump(struct pp2_inst *inst);
 
 /* DB general section */
 int pp2_cls_db_init(struct pp2_inst *inst);
