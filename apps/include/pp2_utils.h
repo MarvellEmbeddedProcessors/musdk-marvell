@@ -69,6 +69,11 @@
 /* Reserved policers mask */
 #define MVAPPS_PP2_POLICERSS_RSRV	((1 << MVAPPS_PP2_NUM_POLICERS_RSRV) - 1)
 
+/* Number of early-drops reserved by kernel */
+#define MVAPPS_PP2_NUM_EDROPS_RSRV	0
+/* Reserved early-drops mask */
+#define MVAPPS_PP2_EDROPS_RSRV	((1 << MVAPPS_PP2_NUM_EDROPS_RSRV) - 1)
+
 /* sysfs path for reading relevant parameters from kernel driver */
 #define PP2_SYSFS_MUSDK_PATH		"/sys/devices/platform/pp2/musdk"
 #define PP2_SYSFS_DEBUG_PORT_SET_FILE	"sysfs_current_port"

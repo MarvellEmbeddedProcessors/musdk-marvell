@@ -34,6 +34,7 @@ musdk_pp2_tests_SOURCES += ppv2/cls/cls_filter.c
 musdk_pp2_tests_SOURCES += ppv2/cls/cls_qos.c
 musdk_pp2_tests_SOURCES += ppv2/cls/cls_tables.c
 musdk_pp2_tests_SOURCES += ppv2/cls/cls_plcr.c
+musdk_pp2_tests_SOURCES += ppv2/cls/cls_edrop.c
 musdk_pp2_tests_SOURCES += ppv2/cls/cls_logical_port.c
 musdk_pp2_tests_SOURCES += ppv2/cls/cls_debug.c
 musdk_pp2_tests_SOURCES += ppv2/egress_scheduler.c

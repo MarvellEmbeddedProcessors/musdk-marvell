@@ -235,6 +235,7 @@ static int init_all_modules(void)
 	app_used_bm_pool_map_init(pp2_params->bm_pool_reserved_map);
 
 	cli_cls_prepare_policers_db(pp2_params->policers_reserved_map);
+	cli_cls_prepare_edrops_db(pp2_params->early_drop_reserved_map);
 
 	pr_info("done\n");
 	return 0;
@@ -329,6 +330,7 @@ static int register_cli_cmds(struct glob_arg *garg)
 	register_cli_mng_cmds(ppio);
 	register_cli_cls_api_qos_cmds(pp2_args->ports_desc);
 	register_cli_cls_api_plcr_cmds(pp2_args->ports_desc);
+	register_cli_cls_api_edrop_cmds(pp2_args->ports_desc);
 	register_cli_filter_cmds(ppio);
 	register_cli_cls_cmds(ppio);
 	register_cli_c3_cmds(ppio);
@@ -464,8 +466,10 @@ static void usage(char *progname)
 		"\t-q, --egress_scheduler_params	(no argument)configure egress scheduler parameters\n"
 		"\t--policers_range		(dec)-(dec) valid range [1-%d]\n"
 		"\t--policer_params		(no argument)configure default policer parameters\n"
+		"\t--edrops_range		(dec)-(dec) valid range [1-%d]\n"
 		"\n",
-		MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname), CLS_APP_DFLT_BURST_SIZE, PP2_CLS_PLCR_NUM);
+		MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
+		CLS_APP_DFLT_BURST_SIZE, PP2_CLS_PLCR_NUM, PP2_CLS_EARLY_DROP_NUM);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
@@ -504,6 +508,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"hash_type", required_argument, 0, 'b'},
 		{"eth_start_hdr", no_argument, 0, 'z'},
 		{"egress_scheduler_params", no_argument, 0, 'q'},
+		{"edrops_range", required_argument, 0, 'd'},
 		{"policers_range", required_argument, 0, 'r'},
 		{"logical_port_params", no_argument, 0, 'g'},
 		{"buf_params", no_argument, 0, 'u'},
@@ -527,11 +532,12 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	memset(pp2_params, 0, sizeof(*pp2_params));
 
 	pp2_params->policers_reserved_map = MVAPPS_PP2_POLICERSS_RSRV;
+	pp2_params->early_drop_reserved_map = MVAPPS_PP2_EDROPS_RSRV;
 	port->ppio_type = PP2_PPIO_T_NIC;
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:u:f:z:b:c:t:r:a:epsgq", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:u:f:z:b:c:t:d:r:a:epsgq", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -629,6 +635,26 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				pp2_params->policers_reserved_map = (u32)~0;
 				for (i = ranges[0]-1; i <= ranges[1]-1; i++)
 					pp2_params->policers_reserved_map &= ~(1 << i);
+			}
+			break;
+		case 'd':
+			{
+				int ranges[2];
+				char *ret_ptr, *token;
+
+				token = strtok(optarg, "-");
+				ranges[0] = strtoul(token, &ret_ptr, 0);
+				token = strtok(NULL, "-");
+				ranges[1] = strtoul(token, &ret_ptr, 0);
+				if ((ranges[0] < 1 || ranges[0] > PP2_CLS_EARLY_DROP_NUM) ||
+				    (ranges[1] < 1 || ranges[1] > PP2_CLS_EARLY_DROP_NUM) ||
+				    (ranges[0] > ranges[1])) {
+					printf("parsing fail, wrong input for edrops ranges\n");
+					return -EINVAL;
+				}
+				pp2_params->early_drop_reserved_map = (u32)~0;
+				for (i = ranges[0]-1; i <= ranges[1]-1; i++)
+					pp2_params->early_drop_reserved_map &= ~(1 << i);
 			}
 			break;
 		default:
