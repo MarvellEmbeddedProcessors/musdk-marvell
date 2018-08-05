@@ -115,9 +115,9 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 		}
 	}
 
-	rc = pp2_cls_mng_set_default_policing(*ppio, false);
+	rc = pp2_cls_mng_modify_default_flows(*ppio, false);
 	if (rc) {
-		pr_err("[%s] ppio init failed while initialize policing\n", __func__);
+		pr_err("[%s] ppio init failed while modify default flows\n", __func__);
 		return -EFAULT;
 	}
 
@@ -136,8 +136,8 @@ void pp2_ppio_deinit(struct pp2_ppio *ppio)
 	port_ptr = GET_PPIO_PORT_PTR(*ppio);
 
 	if (*port_ptr) {
-		if (pp2_cls_mng_set_default_policing(ppio, true))
-			pr_err("[%s] ppio deinit failed while deinitialize policing\n", __func__);
+		if (pp2_cls_mng_modify_default_flows(ppio, true))
+			pr_err("[%s] ppio deinit failed while default flows\n", __func__);
 
 		pp2_port_close(*port_ptr);
 		*port_ptr = NULL;

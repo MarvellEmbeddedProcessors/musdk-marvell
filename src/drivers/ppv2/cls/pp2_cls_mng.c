@@ -622,9 +622,9 @@ int pp2_cls_mng_eth_start_header_params_set(struct pp2_ppio *ppio,
 
 /*
  * pp2_cls_mng_set_policing()
- * configure policer and color for defaults flows
+ * configure policer for defaults flows
  */
-int pp2_cls_mng_set_default_policing(struct pp2_ppio *ppio, int clear)
+static int pp2_cls_mng_set_policing(struct pp2_ppio *ppio, int clear)
 {
 	struct pp2_port *port = GET_PPIO_PORT(ppio);
 	u32 ref_cnt;
@@ -654,6 +654,47 @@ int pp2_cls_mng_set_default_policing(struct pp2_ppio *ppio, int clear)
 	if (rc) {
 		pr_err("%s(%d) pp2_cls_plcr_ref_cnt_update fail\n", __func__, __LINE__);
 		return -EFAULT;
+	}
+
+	return 0;
+}
+
+/*
+ * pp2_cls_mng_set_coloring()
+ * configure color for defaults flows
+ */
+static int pp2_cls_mng_set_coloring(struct pp2_ppio *ppio, int clear)
+{
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	int rc;
+
+	rc = pp2_c2_set_default_coloring(port, clear);
+	if (rc) {
+		pr_err("%s(%d) pp2_c2_set_default_coloring fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * pp2_cls_mng_modify_default_flows()
+ * modify default flows
+ */
+int pp2_cls_mng_modify_default_flows(struct pp2_ppio *ppio, int clear)
+{
+	int rc;
+
+	rc = pp2_cls_mng_set_coloring(ppio, clear);
+	if (rc) {
+		pr_err("%s(%d) pp2_cls_mng_set_coloring fail\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	rc = pp2_cls_mng_set_policing(ppio, clear);
+	if (rc) {
+		pr_err("%s(%d) pp2_cls_mng_set_policing fail\n", __func__, __LINE__);
+		return -EINVAL;
 	}
 
 	return 0;

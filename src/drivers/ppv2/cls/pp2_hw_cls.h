@@ -122,6 +122,7 @@ int pp2_rss_tbl_entry_get(struct pp2_hw *hw,
 			  struct mv_pp22_rss_entry *rss);
 int pp2_rss_c2_enable(struct pp2_port *port, int en);
 int pp2_c2_set_default_policing(struct pp2_port *port, int clear);
+int pp2_c2_set_default_coloring(struct pp2_port *port, int clear);
 
 
 /*-------------------------------------------------------------------------------*/

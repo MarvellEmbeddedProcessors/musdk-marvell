@@ -2473,8 +2473,48 @@ int pp2_rss_c2_enable(struct pp2_port *port, int en)
 	return 0;
 }
 
-/* Go over C2 table and set/clear policer/color in default flows */
+/* Go over C2 table and set/clear policer in default flows */
 int pp2_c2_set_default_policing(struct pp2_port *port, int clear)
+{
+	int index, c2_status, rc, plcr_id;
+	u8 port_id;
+	struct mv_pp2x_cls_c2_entry c2;
+	struct pp2_hw *hw = &port->parent->hw;
+
+	c2_status = pp2_reg_read(hw->base[0].va, MVPP2_CLS2_TCAM_CTRL_REG);
+	if (!c2_status) {
+		pr_err("c2 is off\n");
+		return -EINVAL;
+	}
+
+	if (clear)
+		plcr_id = MVPP2_PLCR_BANK0_DEFAULT_ENTRY_ID;
+	else
+		plcr_id = port->default_plcr->id & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MAX;
+
+	mv_pp2x_c2_sw_clear(&c2);
+
+	for (index = 0; index < MVPP2_CLS_C2_TCAM_SIZE; index++) {
+		mv_pp2x_cls_c2_hw_read(hw->base[0].va, index, &c2);
+		port_id = pp2_cls_c2_tcam_port_get(&c2);
+
+		if (c2.inv == 0 && port_id == (1 << port->id)) {
+			rc = mv_pp2x_cls_c2_policer_set(&c2,
+							MVPP2_ACTION_TYPE_UPDT,
+							plcr_id,
+							MVPP2_POLICER_2_BANK(plcr_id));
+			if (rc)
+				return rc;
+
+			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
+		}
+	}
+
+	return 0;
+}
+
+/* Go over C2 table and set/clear color in default flows */
+int pp2_c2_set_default_coloring(struct pp2_port *port, int clear)
 {
 	int index;
 	int c2_status;
@@ -2513,21 +2553,6 @@ int pp2_c2_set_default_policing(struct pp2_port *port, int clear)
 		port_id = pp2_cls_c2_tcam_port_get(&c2);
 
 		if (c2.inv == 0 && port_id == (1 << port->id)) {
-			if (port->default_plcr) {
-				int plcr_id;
-
-				if (clear)
-					plcr_id = MVPP2_PLCR_BANK0_DEFAULT_ENTRY_ID;
-				else
-					plcr_id = port->default_plcr->id & MVPP2_CLS2_ACT_DUP_ATTR_PLCRID_MAX;
-
-				rc = mv_pp2x_cls_c2_policer_set(&c2,
-								MVPP2_ACTION_TYPE_UPDT,
-								plcr_id,
-								MVPP2_POLICER_2_BANK(plcr_id));
-				if (rc)
-					return rc;
-			}
 			rc = mv_pp2x_cls_c2_color_set(&c2,
 						      color_action,
 						      MVPP2_QOS_SRC_ACTION_TBL);
@@ -2535,9 +2560,9 @@ int pp2_c2_set_default_policing(struct pp2_port *port, int clear)
 				return rc;
 
 			mv_pp2x_cls_c2_hw_write(hw->base[0].va, index, &c2);
-
 		}
 	}
+
 	return 0;
 }
 
