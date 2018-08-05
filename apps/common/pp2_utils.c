@@ -827,6 +827,9 @@ static void pp2_rx_descriptor_dump(struct port_desc *ports_desc)
 			pr_info("Flow_ID %d\n",
 				pp2_ppio_inq_desc_get_flow_id(&ports_desc->lcl_ports_desc[j]->last_rx_descr_data));
 
+			pr_info("Packet Color %u\n",
+				pp2_ppio_inq_desc_get_color(&ports_desc->lcl_ports_desc[j]->last_rx_descr_data));
+
 		} else {
 			pr_info("saving descriptor data is disabled\n");
 		}
