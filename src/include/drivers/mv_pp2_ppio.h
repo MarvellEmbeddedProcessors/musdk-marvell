@@ -561,6 +561,7 @@ enum pp2_inq_desc_status {
 #define RXD_L3_CAST_INFO_MASK	   (0x00000C00)
 /* cmd 2 */
 #define RXD_FLOW_ID_MASK           (0x00000FFF)
+#define RXD_DP_MASK		   (0x00003000)
 /* cmd 4 */
 #define RXD_BUF_PHYS_LO_MASK       (0xFFFFFFFF)
 /* cmd 5 */
@@ -587,6 +588,8 @@ enum pp2_inq_desc_status {
 #define DM_RXD_GET_VLAN_INFO(desc)	(((desc)->cmds[1] & RXD_VLAN_INFO_MASK) >> 14)
 #define DM_RXD_GET_L2_CAST_INFO(desc)	(((desc)->cmds[1] & RXD_L2_CAST_INFO_MASK) >> 12)
 #define DM_RXD_GET_L3_CAST_INFO(desc)	(((desc)->cmds[1] & RXD_L3_CAST_INFO_MASK) >> 10)
+
+#define DM_RXD_GET_DP(desc)		(((desc)->cmds[2] & RXD_DP_MASK) >> 12)
 
 #define DM_TXD_SET_GEN_L4_CHK(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~TXD_GEN_L4_CHK_MASK) | (data << 13 & TXD_GEN_L4_CHK_MASK))
@@ -843,6 +846,19 @@ static inline int pp2_ppio_inq_desc_get_ip_isfrag(struct pp2_ppio_desc *desc)
 static inline u16 pp2_ppio_inq_desc_get_flow_id(struct pp2_ppio_desc *desc)
 {
 	return ((u16)(desc->cmds[2] & RXD_FLOW_ID_MASK));
+}
+
+/**
+ * Get the packet color information from an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	color.
+ *
+ */
+static inline enum pp2_ppio_color pp2_ppio_inq_desc_get_color(struct pp2_ppio_desc *desc)
+{
+	return DM_RXD_GET_DP(desc);
 }
 
 /**
