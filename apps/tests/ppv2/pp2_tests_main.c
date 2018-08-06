@@ -200,7 +200,7 @@ static int main_loop(void *arg, int *running)
 
 static int init_all_modules(void)
 {
-	struct pp2_init_params	 pp2_params;
+	struct pp2_init_params *pp2_params = &garg.pp2_params;
 	struct glb_common_args *cmn_args = &garg.cmn_args;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg.cmn_args.plat;
 	int			 err = 0;
@@ -217,26 +217,24 @@ static int init_all_modules(void)
 	if (err)
 		return err;
 
-	memset(&pp2_params, 0, sizeof(pp2_params));
-
 	if (garg.cmn_args.cpus > 1) {
 		num_rss_tables = app_rss_num_tbl_get(pp2_args->ports_desc[0].name, file);
 		if (num_rss_tables < 0)
 			return -EFAULT;
 	}
 
-	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
-	pp2_params.res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO | PP2_RSRVD_MAP_BM_POOL_AUTO;
+	pp2_params->rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
+	pp2_params->res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO | PP2_RSRVD_MAP_BM_POOL_AUTO;
 
-	err = pp2_init(&pp2_params);
+	err = pp2_init(pp2_params);
 	if (err)
 		return err;
 
 	/* Must be after pp2_init */
-	app_used_hifmap_init(pp2_params.hif_reserved_map);
-	app_used_bm_pool_map_init(pp2_params.bm_pool_reserved_map);
+	app_used_hifmap_init(pp2_params->hif_reserved_map);
+	app_used_bm_pool_map_init(pp2_params->bm_pool_reserved_map);
 
-	cli_cls_prepare_policers_db(pp2_params.policers_reserved_map);
+	cli_cls_prepare_policers_db(pp2_params->policers_reserved_map);
 
 	pr_info("done\n");
 	return 0;
