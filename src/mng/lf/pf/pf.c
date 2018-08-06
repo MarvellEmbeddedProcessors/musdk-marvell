@@ -708,11 +708,12 @@ static int nmnicpf_topology_local_queue_cfg(struct nmnicpf *nmnicpf)
 	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
 	/* Create Local BM queues */
-	pr_debug("Configure Local BM queues (Num of queues %d)\n", q_top->intcs_params.num_inpools);
-
 	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
 
 		intc = &(q_top->intcs_params.intc_params[tc_idx]);
+
+		pr_debug("Configure Local BM queues (Num of queues %d) of TC %d\n",
+				tc_idx, intc->num_inpools);
 
 		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
 

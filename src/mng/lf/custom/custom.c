@@ -35,6 +35,9 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 	struct mqa_queue_params params;
 	struct mqa_q *cmd_queue_p    = NULL;
 	struct mqa_q *notify_queue_p = NULL;
+#ifdef DEBUG
+	struct mqa_queue_info queue_info;
+#endif
 
 	/* Allocate and Register Command queue in MQA */
 	pr_info("Register Command Q\n");
@@ -87,23 +90,27 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 
 	nmcstm->mng_ctrl.notify_queue = notify_queue_p;
 
+#ifdef DEBUG
+	mqa_queue_get_info(nmcstm->mng_ctrl.cmd_queue, &queue_info);
 	pr_debug("Custom CMD Queue Params:\n");
-	pr_debug("\tdesc_ring_base phys %p\n", nmcstm->mng_ctrl.cmd_queue->phy_base_addr);
-	pr_debug("\tdesc_ring_base virt %p\n", nmcstm->mng_ctrl.cmd_queue->virt_base_addr);
-	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.cmd_queue->cons_phys);
-	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.cmd_queue->cons_virt);
-	pr_debug("\tprod_addr phys %p\n", nmcstm->mng_ctrl.cmd_queue->prod_phys);
-	pr_debug("\tprod_addr virt %p\n", nmcstm->mng_ctrl.cmd_queue->prod_virt);
-	pr_debug("\tlen 0x%x\n", nmcstm->mng_ctrl.cmd_queue->len);
+	pr_debug("\tdesc_ring_base phys %p\n", queue_info.phy_base_addr);
+	pr_debug("\tdesc_ring_base virt %p\n", queue_info.virt_base_addr);
+	pr_debug("\tcons_addr phys %p\n", queue_info.cons_phys);
+	pr_debug("\tcons_addr phys %p\n", queue_info.cons_virt);
+	pr_debug("\tprod_addr phys %p\n", queue_info.prod_phys);
+	pr_debug("\tprod_addr virt %p\n", queue_info.prod_virt);
+	pr_debug("\tlen 0x%x\n", queue_info.len);
 
+	mqa_queue_get_info(nmcstm->mng_ctrl.notify_queue, &queue_info);
 	pr_debug("Custom NOTIFY Queue Params:\n");
-	pr_debug("\tdesc_ring_base phys %p\n", nmcstm->mng_ctrl.notify_queue->phy_base_addr);
-	pr_debug("\tdesc_ring_base virt %p\n", nmcstm->mng_ctrl.notify_queue->virt_base_addr);
-	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.notify_queue->cons_phys);
-	pr_debug("\tcons_addr phys %p\n", nmcstm->mng_ctrl.notify_queue->cons_virt);
-	pr_debug("\tprod_addr phys %p\n", nmcstm->mng_ctrl.notify_queue->prod_phys);
-	pr_debug("\tprod_addr virt %p\n", nmcstm->mng_ctrl.notify_queue->prod_virt);
-	pr_debug("\tlen 0x%x\n", nmcstm->mng_ctrl.notify_queue->len);
+	pr_debug("\tdesc_ring_base phys %p\n", queue_info.phy_base_addr);
+	pr_debug("\tdesc_ring_base virt %p\n", queue_info.virt_base_addr);
+	pr_debug("\tcons_addr phys %p\n", queue_info.cons_phys);
+	pr_debug("\tcons_addr phys %p\n", queue_info.cons_virt);
+	pr_debug("\tprod_addr phys %p\n", queue_info.prod_phys);
+	pr_debug("\tprod_addr virt %p\n", queue_info.prod_virt);
+	pr_debug("\tlen 0x%x\n", queue_info.len);
+#endif
 
 	return 0;
 

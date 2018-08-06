@@ -275,6 +275,9 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 {
 	u32 client_idx;
 	u32 q_idx;
+#ifdef DEBUG
+	u32 cmd_q_id, notify_q_id;
+#endif
 	struct nmdisp_q_pair_params *q;
 
 	client_idx = nmdisp_client_id_get(nmdisp_p, client, id);
@@ -298,8 +301,12 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 
 	nmdisp_p->max_msg_size = max(nmdisp_p->max_msg_size, q->max_msg_size);
 
+#ifdef DEBUG
+	mqa_queue_get_id(q->cmd_q, &cmd_q_id);
+	mqa_queue_get_id(q->notify_q, &notify_q_id);
 	pr_debug("nmdisp_add_queue client idx %d, q_idx %d, cmd_q %d, notify_q %d\n",
-			client_idx, q_idx, q->cmd_q->q_id, q->notify_q->q_id);
+			client_idx, q_idx, cmd_q_id, notify_q_id);
+#endif
 
 	return 0;
 }

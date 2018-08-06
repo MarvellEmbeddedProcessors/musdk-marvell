@@ -167,8 +167,8 @@ static int dev_mng_map_pci_func(struct pci_plat_func_map *map)
 		return ret;
 	}
 
-	pr_debug("BAR-0 of %s mapped at virt:%p phys:%p\n", func_name, map->cfg_map.virt_addr,
-		   map->cfg_map.phys_addr);
+	pr_debug("BAR-0 of %s mapped at virt:%p phys:%p\n", PCI_EP_UIO_MEM_NAME,
+		map->cfg_map.virt_addr, map->cfg_map.phys_addr);
 
 	/* Map the whole physical Packet Processor physical address */
 	ret = sys_iomem_map(map->sys_iomem, "host-map", (phys_addr_t *)&map->host_map.phys_addr,
@@ -178,8 +178,8 @@ static int dev_mng_map_pci_func(struct pci_plat_func_map *map)
 		return ret;
 	}
 
-	pr_debug("host RAM of %s remapped to phys %p virt %p with size 0x%lx\n", func_name,
-		   map->host_map.phys_addr, map->host_map.virt_addr, map->host_map.size);
+	pr_debug("host RAM of %s remapped to phys %p virt %p\n", "host-map",
+		   map->host_map.phys_addr, map->host_map.virt_addr);
 
 	return 0;
 }
