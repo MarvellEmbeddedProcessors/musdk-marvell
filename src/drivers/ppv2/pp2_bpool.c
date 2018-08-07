@@ -211,7 +211,7 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
 		if (likely_mem)
 			if ((buf_addr < likely_mem->dma_phys_base) ||
 			    (buf_addr > (likely_mem->dma_phys_base + likely_mem->size)))
-				pr_debug("(%s): buf_addr" PRIdma ", not in likely_mem range mem_id(%d)\n",
+				pr_debug("(%s): buf_addr 0x%" PRIdma ", not in likely_mem range mem_id(%d)\n",
 					 __func__, buf_addr, likely_mem->mem_id);
 	} while (0);
 #endif

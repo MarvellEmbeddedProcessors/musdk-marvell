@@ -78,7 +78,7 @@ static int giu_gpio_read_tc_config(void **tc_config_base_addr, struct giu_gpio_q
 
 			pr_debug("Queue Params (TC %d Q %d):\n", giu_tc->id, giu_queue->hw_id);
 			pr_debug("\tdesc_ring_base %p\n", gpio_q->desc_ring_base);
-			pr_debug("\tsize 0x%x\n", gpio_q->size);
+			pr_debug("\tring size 0x%x\n", gpio_q->desc_total);
 			pr_debug("\tcons_addr %p\n", gpio_q->cons_addr);
 			pr_debug("\tprod_addr %p\n", gpio_q->prod_addr);
 			pr_debug("\tpayload_offset %d\n", gpio_q->payload_offset);
@@ -126,7 +126,7 @@ static int giu_gpio_read_bp_config(void **bm_config_base_addr, struct giu_gpio_q
 	bp_params->buff_len = bp_queue->buff_len;
 	pr_debug("Queue Params (BP %d):\n", bp_queue->hw_id);
 	pr_debug("\tdesc_ring_base %p\n", bp_params->desc_ring_base);
-	pr_debug("\tsize 0x%x\n", bp_params->size);
+	pr_debug("\tring size 0x%x\n", bp_params->desc_total);
 	pr_debug("\tcons_addr %p\n", bp_params->cons_addr);
 	pr_debug("\tprod_addr %p\n", bp_params->prod_addr);
 	pr_debug("\tbuff length %d\n", bp_params->buff_len);

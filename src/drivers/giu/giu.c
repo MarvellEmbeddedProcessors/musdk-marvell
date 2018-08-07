@@ -53,9 +53,10 @@ int giu_queue_remove(struct mqa *mqa, struct mqa_q *q,
 	int ret = 0;
 	u32 qid;
 
-	pr_debug("Remove queue %d (type %d)\n", q->q_id, queue_type);
-
 	mqa_queue_get_id(q, &qid);
+
+	pr_debug("Remove queue %d (type %d)\n", qid, queue_type);
+
 	if (giu_handle) {
 		/* Un-register Q from GIU */
 		if (queue_type == LOCAL_BM_QUEUE ||
