@@ -394,7 +394,7 @@ The crypto-echo application does the following operations:
 	- IPSec ESP encapsulation (tunnel or transport modes) only for A8040/A7040 (optional)
 	- decrypts the packet (optional)
 	- IPSec ESP decapsulation (tunnel or transport modes) only for A8040/A7040 (optional)
-	- switches source and destination mac and ip addresses (optional).
+	- switches source and destination mac addresses (optional).
 	- sends the packet to the network interface
 
 Application usage (A8040, A7040)::
@@ -408,7 +408,7 @@ Application usage (A3700)::
 Mandatory OPTIONS::
 
         -i, --interface <Eth-interfaces> (comma-separated, no spaces)
-                  Interface count min 1, max 2
+                  Interface count min: 1, max: 4 (A8040), 2 (A7040, A3700)
                   e.g. -i eth1,eth3
 
 The interfaces must be brought up using "ifconfig <ifname> up" before running the application
@@ -422,21 +422,29 @@ Optional OPTIONS::
         -v                       Increase verbose debug (default is 0)
                                  With every '-v', the debug is increased by one.
                                  0 - none, 1 - pkts sent/recv indication, 2 - full pkt dump
-        --crypto-proto <proto>   Crypto protocol. Supports: [none, esp]. (default: none)
+        --crypto-proto <proto>   Crypto protocol. Supports: [none, esp, ssl]. (default: none)
                                  Not supported for A3700.
         --tunnel                 IPSec tunnel mode. (default: transport)
                                  Valid only with "--crypto-proto esp"
-        --ip6                    ESP over IPv6. (default: ESP over IPv4)
-                                 Valid only with "--crypto-proto esp"
+        --ip6                    ESP/SSL over IPv6. (default: ESP/SSL over IPv4)
+                                 Valid only with "--crypto-proto esp | ssl"
+        --seq          <32|64>   Sequence number size 32 or 64 bits. (default: 64-bits)
+                                 Valid only with "--crypto-proto esp | ssl"
+        --capwap                 DTLS with capwap mode. (default: no capwap)
+                                 Valid only with "--crypto-proto ssl"
+        --ssl_version <ver>      SSL/TLS version. Support: [dtls_1_0, dtls_1_2]. (default: dtls_1_0)
+                                 Valid only with "--crypto-proto ssl"
         --cipher-alg   <alg>     Cipher algorithm. Supports: [none, aes128, 3des]. (default: aes128)
         --cipher-mode  <alg>     Cipher mode. Support: [cbc, ecb]. (default: cbc)
         --auth-alg     <alg>     Authentication algorithm. Supports: [none, sha1]. (default: sha1)
         --dir          <dir>     Operation direction. Supports: [enc, dec, lb]. (default: lb)
-        --no-echo                No swap of MAC and L3 addresses
+        --no-echo                No swap of MAC addresses
+        --use-events             Use events to wait for requests completed (default: no)"
         --cli                    Use CLI
         ?, -h, --help            Display help and exit.
 
-Two CIO are created, one for encryption and other for decryption; if possible CIOs are taken from different engines.
+Two CIOs are created for each CPU core, one for encryption and other for decryption.
+If possible CIOs are taken from different engines.
 
 For example:
    - in case of A8040 - encryption is done on cio-0:0, and decryption on cio-1:0
@@ -449,5 +457,13 @@ For example:
 
 - IPv6 mode is not supported, so --ip6 argument should not be set
 
-In order to test crypto performance using musdk_crypo_echo, user should inject packets (udp or tcp),
+In order to test crypto performance using musdk_pp2/neta_crypo_echo application, user should inject packets (udp or tcp),
 into the MUSDK interface selected for the application.
+Packets recived via one interface will be sent out via next interface in the list defined by "-i" argument.
+Packets received via last interface in the list will be sent out via first interface in the list.
+For example: "-i eth0,eth1,eth2" three flows will be created:
+eth0 -> eth1
+eth1 -> eth2
+eth2 -> eth0
+
+

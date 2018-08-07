@@ -5,8 +5,11 @@ Getting Started with MUSDK
 
 Build Linux Kernel
 ------------------
+Two different Linux kernels are supported: 4.4.120 and 4.14.22
 
-(1) Apply (use 'git am -3') all patches in: "<musdk-dir>/patches/linux"
+(1) Apply (use 'git am -3') all patches
+	in: "<musdk-dir>/patches/linux" for Linux kernel 4.4.120
+	in: "<musdk-dir>/patches/linux-4.14" for Linux kernel 4.14.22
 
 (2) Build Linux kernel image::
 	> make mrproper
@@ -26,11 +29,13 @@ Build Required Kernel Modules
 
 	- Cross compiler for compilation of modules, must be same as compiler that was used for Kernel. for example::
 
-		> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
+		> export CROSS_COMPILE=~/SDK/gcc-linaro-7.2.1-2017.11-x86_64_aarch64-linux-gnu/bin/aarch64-marvell-linux-gnu-
 
 	- Kernel directory. for example::
 
-		> export KDIR=~/linux-4.4.52-devel
+		> export KDIR=~/linux-4.4.120-devel
+		or
+		> export KDIR=~/linux-4.14.22-devel
 
 (2) Build the Marvell PP2 sysfs kernel module according to :ref:`Sysfs Build Instructions <pp2x_sysfs_build>`.
 
@@ -64,8 +69,8 @@ This step is optional and required only when using SAM driver on EIP197 crypto d
 
 Get EIP197 Firmware from release binaries and copy them to target file system
 under directories:
-"/lib/firmware/eip197/197b/" - EIP197b (A7K/A8K)
-"/lib/firmware/eip197/197d/" - EIP197d (A8K+)
+"/lib/firmware/inside-secure/eip197b/" - EIP197b (A7K/A8K)
+"/lib/firmware/inside-secure/eip197d/" - EIP197d (A8K+)
 
 Binary files: ipue.bin, ifpp.bin
 
@@ -76,7 +81,7 @@ Set external variables:
 
    - Cross compiler for compilation of user space libraries and applications. For example::
 
-	> export CROSS_COMPILE=~/SDK/aarch64v8-marvell-linux-gnu-5.2.1_i686_20151110/bin/aarch64-marvell-linux-gnu-
+	> export CROSS_COMPILE=~/SDK/gcc-linaro-7.2.1-2017.11-x86_64_aarch64-linux-gnu/bin/aarch64-marvell-linux-gnu-
 
 Build the MUSDK package
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -130,7 +135,7 @@ Build the MUSDK package
 
 Insert Kernel Modules
 ---------------------
-(1) Copy the kernel modules (musdk_uio.ko, etc.) to the target board file-system.
+(1) Copy the kernel modules (musdk_cma.ko, etc.) to the target board file-system.
 
 (2) Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
 

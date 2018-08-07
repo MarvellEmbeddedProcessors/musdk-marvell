@@ -36,13 +36,13 @@ Function: ``int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio
   - Create Crypto I/O instance and allocate all required resources
   - Fields in "struct sam_cio_params":
 
-	- match	- DTS string format is "cio-e:r", where:
+	- match	- DTS string format is "cio-d:r", where:
 
-		- ``e`` is the engine ID;
-		  Engine IDs for Armada-80x0 are 0..1;
-		  Engine ID for Armada-70x0 and Armada-37x0 is 0 (single engine).
+		- ``d`` is the crypto device ID;
+		  Device IDs for Armada-80x0 are 0..1;
+		  Device ID for Armada-70x0 and Armada-37x0 is 0 (single device).
 
-		- ``r`` is ring ID; ring ID must be less than SAM_HW_RING_NUM.
+		- ``r`` is ring ID; ring ID must be less than macimum number of rings for the crypto device.
 
 	- size	- ring size (number of descriptors)
 
@@ -73,8 +73,10 @@ Function: ``int sam_session_create(struct sam_session_params *params, struct sam
     authentication, authentication and then encryption
   - Decryption: decryption only, authentication only,authentication and then
     decryption, decryption and then authentication
-  - IPSec ESP over IPv4 offload is supported
-  - Transport and Tunnel modes are supported
+  - IPSec ESP over IPv4 offload is supported in transport or tunnel mode
+  - SSL/TLS over IPv4|IPv6/UDP with or without CAPWAP support
+  - ``cipher_iv`` must be pointer to nonce for all counter modes for
+    IPSec ESP or SSL/TLS protocol offload.
 
 SAM delete session
 ~~~~~~~~~~~~~~~~~~
@@ -85,9 +87,10 @@ SAM enqueue operation
 Function: ``int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *num);``
 
   - Only asynchronous mode is supported.
-  - Multiple buffers mode is not supported. (requests->num_bufs must be 1)
-  - Valid source and valid destination buffers must be provided by caller.
-    Source and destination buffers can be the same one.
+  - Multiple buffers mode is supported only in many to one mode.
+  ``num_bufs`` defines number of input buffers. Number of output buffers is always 1.
+  - Valid source buffers and valid destination buffer must be provided by caller.
+    Source and destination buffer can be the same one.
   - Cipher IV in the buffer is not supported (field ``cipher_iv_offset`` is ignored)
   - AAD in the buffer is not supported (field ``auth_aad_offset`` is ignored)
   - ``auth_icv_offset`` must be equal to (``auth_offset`` + ``auth_len``)
@@ -97,8 +100,19 @@ SAM enqueue IPsec operation
 Function: ``int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests, u16 *num);``
 
   - Only asynchronous mode is supported.
-  - Multiple buffers mode is not supported. (requests->num_bufs must be 1)
-  - Valid source and valid destination buffers must be provided by caller.
+  - Multiple buffers mode is supported only in many to one mode.
+  ``num_bufs`` defines number of input buffers. Number of output buffers is always 1.
+  - Valid source buffers and valid destination buffer must be provided by caller.
+    Source and Destination buffer can be the same one.
+
+SAM enqueue SSL/TLS operation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Function: ``int sam_cio_enq_ssltls(struct sam_cio *cio, struct sam_cio_ssltls_params *requests, u16 *num);``
+
+  - Only asynchronous mode is supported.
+  - Multiple buffers mode is supported only in many to one mode.
+  ``num_bufs`` defines number of input buffers. Number of output buffers is always 1.
+  - Valid source buffers and valid destination buffer must be provided by caller.
     Source and Destination buffer can be the same one.
 
 SAM dequeue operation
@@ -107,6 +121,14 @@ Function: ``int sam_cio_deq(struct sam_cio *cio, struct sam_cio_op_result *resul
 
   - Non-blocking function.
   - Return results for up to ``*num`` ready requests.
+  - There is list of possible crypto operation errors as returned in ``status`` field in each ``struct sam_cio_op_result``.
+	- SAM_CIO_ERR_HW         (1) - Unexpected HW error.
+	- SAM_CIO_ERR_ICV        (2) - ICV (digest) verification is failed. Relevant for decrypt only.
+	- SAM_CIO_ERR_PROTO      (3) - Protocol error. Invalid L3/L4 headers. Relevant only for ESP or SSL protocol offload.
+	- SAM_CIO_ERR_SA_LOOKUP  (4) - SA lookup failed. Relevant only for ESP or SSL protocol offload.
+	- SAM_CIO_ERR_ANTIREPLAY (5) - Anti-replay check failed. Relevant only for ESP or SSL protocol offload.
+	- SAM_CIO_ERR_SEQ_OVER   (6) - Sequence number overflow. Relevant only for ESP or SSL protocol offload.
+	- SAM_CIO_ERR_BUF_SIZE   (7) - Output buffer size is too small.
 
 SAM create event
 ~~~~~~~~~~~~~~~~
@@ -115,7 +137,8 @@ Function: ``int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_p
     waste of CPU cycles and power.
   - Fields in "struct sam_cio_event_params":
 	- pkt_coal  - number of requests to be ready for dequeue before waking up the waiting thread.
-	- usec_coal - time in micro seconds. Waiting thread will be woken up after this time even if number of requests ready for dequeue is less than "pkt_coal".
+	- usec_coal - time in micro seconds. Waiting thread will be woken up after this time even if
+	number of requests ready for dequeue is less than "pkt_coal".
   - Use ``mv_sys_event_poll()`` API to wait for event in blocking mode.
 
 SAM delete event
@@ -160,9 +183,17 @@ Function: ``int sam_set_debug_flags(u32 debug_flags);``
   - To enable debug information of the SAM driver, use ``--enable-sam-debug``
     flag during ``./configure``.
 
-SAM get number of available HW crypto engines
+SAM get number of available HW crypto devices
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Function: ``u8 sam_get_num_inst(void);``
+
+SAM get maximum number of CIOs in the HW crypto device
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Function: ``u32 sam_get_num_cios(u32 dev);``
+
+SAM get number and map of CIOs available for user space application usage in the HW crypto device
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+u32 sam_get_available_cios(u32 inst, u32 *map)
 
 SAM get HW offload capabilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -192,6 +223,7 @@ Sources::
 		- sam_hw.c
 		- sam_debug.c
 		- sam_ipsec.c
+		- sam_ssltls.c
 		- crypto/		- SW implementation of crypto algorithms,
 					  for HMAC and GCM key generation
 			- mv_md5.[c,h]
@@ -203,6 +235,7 @@ Sources::
 	  - apps/tests/sam_kat_single/
 		- kat_tests_single.c	- Simple AES128-CBC test for predefined values
 		- kat_ipsec_single.c	- Simple IPsec ESP loopback example with predefined values
+		- kat_ssltls_single.c	- Simple SSL/TLS loopback example with predefined values
 
 		- apps/tests/sam_kat_suite/	- SAM KAT test suite using input
 						  text files to run multiple tests
@@ -213,14 +246,15 @@ Sources::
 Binaries:
 	- libmusdk.a		- MUSDK APIs implementation library
 	- musdk_sam_single	- simple basic crypto test application
-	- musdk_sam_ipsec	- simple IPSec ESP test application
+	- musdk_sam_ipsec	- simple IPSec ESP test application. Not supported for A3700.
+	- musdk_sam_ssltls	- simple SSL/TLS ESP test application. Not supported for A3700.
 	- musdk_sam_kat		- test suite using input text files for session and operation data
 
 
 SAM Test Applications
 ---------------------
 
-Before running MUSDK SAM test applications, crypto_safexcel.ko kernel modules
+Before running MUSDK SAM test applications, crypto_safexcel.ko and mv_neta_uio.ko kernel modules
 must be loaded. For more details please refer to "MUSDK Getting Started" section.
 
 
@@ -251,16 +285,18 @@ Test application: "musdk_sam_ipsec"
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This application runs configurable number of IPSec ESP encryption and decryption
 operations on predefined inputs and checks validity of the output.
+Not supported for A3700.
 
   - For encryption, CIO instance cio-0:0 is used.
-  - For decryption, CIO instance cio-1:0 is used if possible (A8K).
+  - For decryption, CIO instance cio-0:1 is used.
 
-There are four predefined test cases can be chosen by ``-t <number>`` argument:
+There are number of predefined test cases can be chosen by ``-t <number>`` argument:
 
-	1. ESP IP4 Transport mode - AES128-CBC
-	2. ESP IP4 Transport mode - AES128-CBC + HMAC-SHA1
-	3. ESP IP4 Tunnel mode    - AES128-CBC
-	4. ESP IP4 Tunnel mode    - AES128-CBC + HMAC-SHA1
+	-t 0 - "ip4_transport_aes_cbc"
+	-t 1 - "ip4_transport_aes_cbc_sha1"
+	-t 2 - "ip4_tunnel_aes_cbc"
+	-t 3 - "ip4_tunnel_aes_cbc_sha1"
+	-t 4 - "ip4_tunnel_aes_gcm"
 
 Predefined test inputs are shown below::
 
@@ -284,8 +320,48 @@ Application usage::
 OPTIONS are optional:::
 
 	-t <number>      - Test ID (default: 0)
-	-n <number>      - Number of packets (default: 1)
-	-f <bitmask>     - Debug flags: 0x1 - SA, 0x2 - CIO. (default: 0x3)
+	-s <number>      - Payload size (default: 16 bytes)
+	-n <number>      - Number of packets to process (default: 1)
+	-c <number>      - Number of packets to check output data (default: 10)
+	-esn             - Sequence number size: 0 - 32 bits, 1 - 64 bits (default: 1)
+	-seq <enc> <dec> - Initial sequence id for encryption and decryption (default: 0x34)
+	-v <num>         - Enable print of plain and cipher data each <num> packets. (default: 1)
+	-f <bitmask>     - Debug flags: 0x1 - SA, 0x2 - CIO. (default: 0x0)
+	--enc            - Do encrypt only (default: enc+dec)
+
+
+Test application: "musdk_sam_ssltls"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This application runs configurable number of SSL/TLS encryption and decryption
+operations on predefined inputs and checks validity of the output.
+Not supported for A3700.
+
+  - For encryption, CIO instance cio-0:0 is used.
+  - For decryption, CIO instance cio-0:1 is used.
+
+There are number of predefined test cases can be chosen by ``-t <number>`` argument:
+
+	-t 0 - "ip4_dtls_aes_cbc_sha1"
+	-t 1 - "ip4_dtls_aes_gcm"
+	-t 2 - "ip4_capwap_dtls_aes_cbc_sha1"
+	-t 3 - "ip6_dtls_aes_cbc_sha1"
+	-t 4 - "ip6_dtls_aes_gcm"
+	-t 5 - "ip6_capwap_dtls_aes_cbc_sha1"
+
+Application usage::
+
+	> ./musdk_sam_ssltls [OPTIONS]
+
+OPTIONS are optional:::
+
+	-t <number>      - Test ID (default: 0)
+	-s <number>      - Payload size (default: 16 bytes)
+	-n <number>      - Number of packets to process (default: 1)
+	-c <number>      - Number of packets to check output data (default: 10)
+	-seq <enc> <dec> - Initial sequence id for encryption and decryption (default: 0x34)
+        -v <num>         - Enable print of plain and cipher data each <num> packets. (default: 1)
+        -f <bitmask>     - Debug flags: 0x1 - SA, 0x2 - CIO. (default: 0x0)
+        --enc            - Do encrypt only (default: enc+dec)
 
 
 Test application: "musdk_sam_kat"
@@ -313,7 +389,7 @@ Application usage::
 
 	> ./musdk_sam_kat <match> <test_file> [OPTIONS]
 
-Where ``<match>`` string format is ``cio-e:r``.
+Where ``<match>`` string format is ``cio-d:r``.
 
 OPTIONS are optional::
 		-c <number>      - Number of requests to check (default: 10)
@@ -326,6 +402,7 @@ OPTIONS are optional::
 		-pkts <number>   - Packets coalescing (default: 16)
 		-time <number>   - Time coalescing in usecs (default: 100 usecs)
 		-cores <number>  - Number of CPUs to use (default: 1)
+		-a <number>      - First CPU to use - affinity (default: 1)
 
 To run performance tests using "musdk_sam_kat" application:
 
