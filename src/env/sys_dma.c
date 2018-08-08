@@ -130,7 +130,7 @@ static int init_mem(struct sys_dma *sdma, size_t size)
 
 	sdma->dma_virt_base = (void *)cma_get_vaddr(sdma->mem);
 	sdma->dma_phys_base = (phys_addr_t)cma_get_paddr(sdma->mem);
-	pr_debug("init_mem dma_phys_base(0x"PRIdma")\n", sdma->dma_phys_base);
+	pr_debug("init_mem dma_phys_base(0x%" PRIdma ")\n", sdma->dma_phys_base);
 
 	sdma->dma_size = (size_t)cma_get_size(sdma->mem);
 	return 0;
