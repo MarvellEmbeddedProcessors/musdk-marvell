@@ -31,8 +31,7 @@ musdk-y += ../../src/drivers/ppv2/cls/pp2_plcr.o
 
 musdk-y += ../../src/env/sys_iomem_ks.o
 musdk-y += ../../src/env/sys_dma_ks.o
-#musdk-y += ../../src/env/cma_ks.o
-#musdk-y += ../../src/env/sys_dma.o
+musdk-y += ../../src/env/sys_event_ks.o
 musdk-y += ../../src/env/spinlock.o
 
 musdk-y += ../../src/lib/lib_misc.o

@@ -39,11 +39,11 @@
 /* MAX_RESOURCES is set to the actual number in current dts.
  * Should probably switch to searching in strings instead of globbing them
  */
-#define MAX_RESOURCES		6
+#define MAX_RESOURCES		14
 #define MAX_RESOURCE_NAME	32
 #define MAX_COMPAT_LEN		32
 
-#define COMPAT_TEMPLATE		"marvell,mv-%s-uio"
+#define COMPAT_TEMPLATE		"marvell,mv-%s"
 
 struct sys_iomem_resource {
 	char		name[MAX_RESOURCE_NAME];
@@ -176,6 +176,7 @@ int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
 		(*iomem)->res[i].length = uints[i*2+1];
 
 	}
+	/* TODO: add check if we exceeded MAX_RESOURCES!! */
 
 	(*iomem)->no_of_resources = i;
 
