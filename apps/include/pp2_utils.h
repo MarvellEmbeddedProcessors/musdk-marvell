@@ -389,7 +389,7 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 	struct perf_cmn_cntrs	*perf_cntrs = &larg_cmn->perf_cntrs;
 	struct lcl_port_desc	*rx_lcl_port_desc = &(pp2_args->lcl_ports_desc[rx_ppio_id]);
 	struct lcl_port_desc	*tx_lcl_port_desc = &(pp2_args->lcl_ports_desc[tx_ppio_id]);
-	u16			i, j, tx_num, shadowq_full_drop_num = 0, write_ind, write_start_ind, read_ind;
+	u16			i, tx_num, write_ind, write_start_ind, read_ind;
 	int			mycyc, max_write;
 #ifdef APP_TX_RETRY
 	u16			desc_idx = 0, cnt = 0;
@@ -410,26 +410,29 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 	shadow_q = &tx_lcl_port_desc->shadow_qs[tx_qid];
 	shadow_q_size = tx_lcl_port_desc->shadow_q_size;
 
-	pp2_ppio_recv(rx_lcl_port_desc->ppio, tc, tc_qid, descs, &num);
-	perf_cntrs->rx_cnt += num;
-	INC_RX_COUNT(rx_lcl_port_desc, num);
-
-	/* read_index need not be locked, just sampled */
+	/* read_index need not to be locked, just sampled */
 	read_ind = shadow_q->read_ind;
 
 	/* write_index will be updated */
 	if (shadow_q->shared_q)
 		spin_lock(&shadow_q->write_lock);
 
-	/* Calculate indexes, and possible overflow conditions */
+	/* Calculate indexes, and possible shdow queue overflow conditions */
 	if (read_ind > shadow_q->write_ind)
 		max_write = (read_ind - 1) - shadow_q->write_ind;
 	else
 		max_write = (shadow_q_size - shadow_q->write_ind) + (read_ind - 1);
+
 	if (unlikely(num > max_write)) {
-		shadowq_full_drop_num = num - max_write;
 		num = max_write;
+		pr_debug("%s: port(%d), txq_id(%d), shadow_q size=%d is too small\n",
+			__func__, tx_ppio_id, tx_qid, shadow_q_size);
 	}
+
+	pp2_ppio_recv(rx_lcl_port_desc->ppio, tc, tc_qid, descs, &num);
+	perf_cntrs->rx_cnt += num;
+	INC_RX_COUNT(rx_lcl_port_desc, num);
+
 	/* Work with local copy */
 	write_ind = write_start_ind = shadow_q->write_ind;
 
@@ -499,22 +502,6 @@ static inline int loop_sw_recycle(struct local_common_args *larg_cmn,
 			write_ind = 0;
 	}
 	SET_MAX_BURST(rx_lcl_port_desc, num);
-
-	/* Below condition should never happen, if shadow_q size is large enough */
-	if (unlikely(shadowq_full_drop_num)) {
-		pr_err("%s: port(%d), txq_id(%d), shadow_q size=%d is too small, performing emergency drops\n",
-			__func__, tx_ppio_id, tx_qid, shadow_q_size);
-		/* Drop all following packets, and also this packet */
-		for (j = num; j < (num + shadowq_full_drop_num); j++) {
-			struct pp2_buff_inf binf;
-			struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&descs[j], rx_lcl_port_desc->ppio);
-
-			binf.cookie = pp2_ppio_inq_desc_get_cookie(&descs[j]);
-			binf.addr = pp2_ppio_inq_desc_get_phys_addr(&descs[j]);
-
-			pp2_bpool_put_buff(pp2_args->hif, bpool, &binf);
-		}
-	}
 
 	for (mycyc = 0; mycyc < larg_cmn->busy_wait; mycyc++)
 		asm volatile("");
