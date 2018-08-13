@@ -59,11 +59,11 @@ struct sys_iomem_format {
 #define MMAP_FILE_NAME	"/dev/mem"
 #define PAGE_SZ		0x400
 
-#define SHM_MAX_NAME_STRING_SIZE	64
+#define MAX_NAME_STRING_SIZE	64
 #define UIO_VER_INVALID			(-1)
 
 struct mem_mmap_nd {
-	char		*name;
+	int		 index;
 	void		*va;
 	phys_addr_t	 pa;
 	uint64_t	 size;
@@ -82,7 +82,7 @@ struct mem_uio {
 };
 
 struct mem_shm {
-	char		dev_name[SHM_MAX_NAME_STRING_SIZE];
+	char		dev_name[MAX_NAME_STRING_SIZE];
 	void		*va;
 	phys_addr_t	 pa;
 	size_t		 size;
@@ -248,7 +248,7 @@ static int iomem_uio_iounmap(struct mem_uio *uiom, const char *name)
 	return 0;
 }
 
-static struct mem_mmap_nd *mmap_find_iomap_by_name(struct mem_mmap *mmapm, const char *name)
+static struct mem_mmap_nd *mmap_find_iomap_by_index(struct mem_mmap *mmapm, int index)
 {
 	struct mem_mmap_nd	*mmap_nd;
 	struct list		*pos;
@@ -258,7 +258,7 @@ static struct mem_mmap_nd *mmap_find_iomap_by_name(struct mem_mmap *mmapm, const
 
 	LIST_FOR_EACH(pos, &mmapm->maps_lst) {
 		mmap_nd = MMAP_ND_OBJ(pos);
-		if (strcmp(mmap_nd->name, name) == 0)
+		if (mmap_nd->index == index)
 			return mmap_nd;
 	}
 
@@ -290,7 +290,7 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 {
 	struct mem_mmap_nd	*mmap_nd;
 	const uint32_t		*uint32_prop;
-	int			 dev_mem_fd, index;
+	int			 dev_mem_fd, index = -1;
 	uint64_t		 tmp_pa, tmp_size;
 
 	if (name) {
@@ -328,6 +328,7 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 	memset(mmap_nd, 0, sizeof(struct mem_mmap_nd));
 	INIT_LIST(&mmap_nd->node);
 
+	mmap_nd->index = index;
 	mmap_nd->pa = tmp_pa;
 	mmap_nd->size = tmp_size;
 
@@ -366,9 +367,27 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 static int iomem_mmap_iounmap(struct mem_mmap *mmapm, const char *name)
 {
 	struct mem_mmap_nd	*mmap_nd;
-	int			 err, dev_mem_fd;
+	int			 err, dev_mem_fd, index = -1;
 
-	mmap_nd = mmap_find_iomap_by_name(mmapm, name);
+	if (name) {
+		/* Assuming the name is actually the memory index */
+		if (strlen(name) > 2) {
+			pr_err("Illegal name length (%d, max is 2)!\n", (int)strlen(name));
+			return -EINVAL;
+		}
+		if (!((name[0] >= '0') && (name[0] <= '9'))) {
+			pr_err("Illegal name (%s); must be number!\n", name);
+			return -EINVAL;
+		}
+		if ((strlen(name) == 2) && !((name[1] >= '0') && (name[1] <= '9'))) {
+			pr_err("Illegal name (%s); must be number!\n", name);
+			return -EINVAL;
+		}
+
+		index = atoi(name);
+	}
+
+	mmap_nd = mmap_find_iomap_by_index(mmapm, index);
 	if (!mmap_nd) {
 		pr_err("mmap mem region (%s) not found!\n", name);
 		return -EINVAL;
