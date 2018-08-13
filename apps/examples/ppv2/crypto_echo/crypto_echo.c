@@ -634,7 +634,7 @@ static inline int dec_pkts(struct local_arg		*larg,
 	struct sam_cio_ssltls_params ssltls_descs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 src_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
 	struct sam_buf_info	 dst_buf_infs[CRYPT_APP_MAX_BURST_SIZE];
-	struct crypto_flow	*flow;
+	struct crypto_flow	*flow = NULL;
 	struct pkt_mdata	*mdata;
 	int			 err;
 	u16			 i, bpool_buff_len, num_got;
