@@ -116,8 +116,7 @@ PPIO:
 		- Support all API's *excluding* :
 			- pp2_ppio_flush_vlan
 	- Send/Receive:
-		- Support all API's *excluding* :
-			- pp2_ppio_send_sg
+		- Support all API's
 	- Outqueue:
 		- Support all pp2_ppio_outq_xxx API's, *excluding* :
 			- pp2_ppio_outq_desc_set_dsa_tag
