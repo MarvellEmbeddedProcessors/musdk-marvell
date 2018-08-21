@@ -24,6 +24,7 @@ git rm -rf --cached --ignore-unmatch apps/tests/giu \
 git rm -rf --cached --ignore-unmatch doc/musdk_giu_user_guide.txt \
 git rm -rf --cached --ignore-unmatch doc/musdk_mqa_user_guide.txt \
 git rm -rf --cached --ignore-unmatch doc/musdk_nmp_user_guide.txt \
+git rm -rf --cached --ignore-unmatch doc/musdk_nmp_guest_user_guide.txt \
 git rm -rf --cached --ignore-unmatch scripts/filter-branch.sh \
 git rm -rf --cached --ignore-unmatch scripts/clean-branch.sh \
 ' --prune-empty @
