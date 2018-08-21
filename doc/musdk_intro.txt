@@ -28,6 +28,13 @@ The kernel-space UIO component exposes the device via a set of Linux standard me
 The user-space component searches for these entries, reads the device address ranges and maps them to user space memory.
 The user-space component can then perform any device-management tasks directly, including I/O from the device.
 
+I/O events
+~~~~~~~~~~
+MUSDK allows the use interrupts instead of constant polling for data. With this mechanism, user may set an IRQ for a specific I/O device
+(by using the specific IO device API) and then he can ‘poll’ for coming interrupts (by using the MUSDK general infrastructure API).
+The interrupts will be handled by the kernel-space driver using standard mechanism like UIO for US and it will only raise a signal
+to the user space application.
+
 Packet Processor V2 Interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The MUSDK PPV2 driver provides low-level network interface API for User-Space network drivers/applications.
