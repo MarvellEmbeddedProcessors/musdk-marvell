@@ -33,8 +33,14 @@ Here are some examples of operation that the NMP, only partial are supported:
 
 The NMP is built from the following modules:
 
+		.. figure:: /images/musdk_nmp.*
+		   :align: center
+
+		   NMP SW modules
+
 	- NMP Master:
-		Master module is responsible for creation of the networking management sub-system according to input 'topology'.
+		Responsible for creation of the networking management sub-system according to input “topology”/configuration input
+		(may be a JSON or XML file).
 
 		It is also responsible for initialization of all the NMP SW modules; i.e. the NMP-dispatch, GIU, NMP-PF, NMP-custom, etc.
 
@@ -53,25 +59,93 @@ The NMP is built from the following modules:
 		It should initialize and control the drivers through the MUSDK API (and not through the ODP/DPDK API).
 
 	- NMP Custom:
-		This module is currently not supported.
-
-	  | This module is actually just a pipe for the management commands that are dedicated to the user forwarding application.
-	  | It will communicate with the customer-app through a Q.
-	  | It will expose an API for the customer application to register a command callback.
+		This module is actually just a pipe for the management commands that are dedicated to the user forwarding application.
+		It will communicate with the customer-app through a Q.
+		It will expose an API for the customer application to register a command callback.
 
 
-Features Set
-------------
+NMP Modules
+-----------
+
+Dispatcher
+^^^^^^^^^^
+
+	The NMP contain a module named Dispatcher who is responsible for moving command messages between all NMP LFs and NMP LF’s Qs.
+	The figure below introduces the concept of the dispatcher and its relation with internal and external clients.
+
+		.. figure:: /images/musdk_nmp_dispatch.*
+		   :align: center
+
+		**NMP Dispatcher Model**
+
+		Inside the NMP, there may be several LFs that serves the LF-SW outside the NMP. For every LF within the NMP,
+		there should be equivalent (at least) one pair of Qs in order to communicate with the LF equivalent LF-SW clients
+		outside; one per direction – one for messages to NMP and one for messages from NMP.
+		Here are all the messaging forwarding options and their rules:
+
+		•	If a message is sent from LF (e.g. LF1) to one of its clients in the LF-SW (e.g. client1@LF-SW1)
+			(it means that the destination client is external and it is registered on its Qs as the part the equivalent LF-SW),
+			the message should pass from the LF (LF1), through the dispatcher, through the relevant Q (of the same LF)
+			toward the client (client1@LF-SW1).
+		•	At the other direction, if a message is sent from one the clients in an LF-SW (e.g. client1@LF-SW1),
+			it should pass through the equivalent Q, to the dispatcher and then directly toward the desired LF (e.g. to LF1 or LF2)
+			(maybe skipping the equivalent LF).
+		•	In case an LF (e.g. LF1) wishes to send message to another LF (e.g. LF2), the dispatcher will forward it directly within
+			the NMP without going through any Q.
+		•	In case an LF (e.g. LF1) wises to send message to another LF-SW (e.g. client1@LF-SW2), the dispatcher will first
+			forward it to the equivalent LF (LF2) locally, the equivalent LF (LF2) will forward the message (or filter it)
+			toward its equivalent LF-SW (client1@LF-SW1), through the dispatcher, to the equivalent Q and eventually toward
+			the desired LF-SW (client1@LF-SW1).
+		•	In case LF-SW (e.g. client1@LF-SW1) wishes to send message to another LF-SW LF-SW (e.g. client1@LF-SW2),
+			it should pass through the equivalent Q, to the dispatcher and then directly toward the desired LF (LF2),
+			then the desired LF (LF2) will forward the message (or filter it) toward its equivalent LF-SW (client1@LF-SW2),
+			through the dispatcher, to the equivalent Q and eventually toward the desired LF-SW (client1@LF-SW2).
+
+Descriptors
+^^^^^^^^^^^
+
+	NMP shall support requests descriptors that will be used by the host driver to pass management commands through the
+	MNG request Qs. In addition, it will support response descriptors that will be used by the NMP to send responses to
+	the host through the MNG response Qs.
+
+NIC PF
+^^^^^^
+
+		**NIC control operations**
+
+		The NMP NIC PF shall support standard NIC operations. Most of the operation will be initialized by the host netdev
+		driver (e.g. set mtu, set mac-address, etc.). There are some operations that will be initiated by the local application
+		of local drivers (e.g. PHY events – link up/down). The NIC PF operations are depend on the specific PF port type that
+		is configured. Below are all the supported operations and the expected behaviour of the NMP PF from type of PP2 port:
+
+		- Set enable/disable:	from host
+			NMP PF should call the PPv2 to enable/disable the PPIO.
+
+			NOTE: enable/disable will be called by the host netdev driver upon ifup/ifdown operations.
+		- Set/get mtu:			from host
+			NMP PF should call the PPv2 to set/get MTU/MRU.
+		- Set/get mac-address:	from host
+			NMP PF should call the PPv2 to set/get mac-address.
+		- Set/get promisc:		from host
+			NMP PF should call the PPv2 to set/get promisc.
+		- Set/get loopback:		from host
+			NMP PF should call the PPv2 to set/get LB.
+		- Add/remove mac-address:	from host
+			NMP PF should call the PPv2 to add/remove mac-address.
+		- Add/remove vlan:		from host
+			NMP PF should call the PPv2 to add/remove vlan.
+
+		NOTE: guest application may be registered as a listener for every of the above supported operation.
+		In that case, once the NMP applied the operation, it should also trigger a notification to the guest application.
 
 
 Supported APIs
-~~~~~~~~~~~~~~
+-----------
 
 	- NMP
 		- NMP initialization
 		- NMP de-initialization
-		- NMP schedule dispatch
-		- NMP schedule gir
+		- NMP schedule
 
 	- Dispatcher
 		- Dispatcher initialization
@@ -82,23 +156,8 @@ Supported APIs
 		- Dispatcher send msg
 		- Dispatch
 
-	- PF (Physical function)
-		- PF initialization
-		- PF de-initialization
-
-
-Not-Supported APIs
-~~~~~~~~~~~~~~~~~~
-
-	- CUSTOM
-		- Custom initialization
-		- Custom de-initialization
-
-
 Source tree
 -----------
-
-**Sources:**
 
 	musdk/
 	  - src/include/mng/ - public include files for NMP Package.
@@ -106,24 +165,4 @@ Source tree
 		- mv_nmp.h
 
 	  - src/mng/	- NMP Package implementation
-		- db.c
-		- db.h
-		- dev_mng.c
-		- dev_mng.h
-		- dispatch.c
-		- dispatch.h
-		- nmp.c
-		- pci_ep_def.h
-		- lf/pf
-			- pf.c
-			- pf.h
-			- pf_mng_cmd_desc.h
-			- pf_pci_if_desc.h
-			- pf_profile.c
-			- pf_profile.h
-			- pf_queue_topology.h
-			- pf_regfile.c
-			- pf_regfile.h
-			- pf_topology.c
-			- pf_topology.h
 

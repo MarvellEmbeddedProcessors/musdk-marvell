@@ -41,6 +41,7 @@ MQA init/shutdown
 
 	- mqa_init
 	- mqa_deinit
+	- mqa_get_info
 
 MQA Queue services
 ~~~~~~~~~~~~~~~~~~
@@ -50,6 +51,8 @@ MQA Queue services
 	- mqa_queue_create
 	- mqa_queue_destroy
 	- mqa_queue_associate_pair
+	- mqa_queue_get_id
+	- mqa_queue_get_info
 
 
 Source tree

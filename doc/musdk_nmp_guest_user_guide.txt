@@ -1,0 +1,51 @@
+Networking Management Proxy (NMP) Guest User Guide
+============================================
+
+Introduction
+------------
+
+When NMP is enabled, user application is running as a guest. It means that the user application is not managing the network element
+but only retrieve an access to the networking objects and uses them mostly for the standard and basic run-time operation like sending
+and receiving frames and/or enqueuer and dequeue frames to/from encryption/decryption.
+
+When a user application is starting, it should register itself to the NMP as a guest with a unique guest-ID.
+The guest than, will get a file with the specific description of the specific guest networking elements that are available for it.
+The description is passed from the NMP as a text file (specifically as in JSON format).
+
+
+Features Set
+------------
+
+
+Supported APIs
+~~~~~~~~~~~~~~
+
+Init/shutdown
+~~~~~~~~~~~~~~~~~~
+
+	- nmp_guest_init
+	- nmp_guest_deinit
+
+Control
+~~~~~~~~~~~~~~~~~~
+
+	- nmp_guest_get_probe_str
+	- nmp_guest_get_relations_info
+	- nmp_guest_register_event_handler
+	- nmp_guest_schedule
+	- nmp_guest_send_msg
+	- nmp_guest_send_ka_msg
+
+Source tree
+-----------
+
+**Sources:**
+
+	musdk/
+	  - src/include/mng/ - public include files for NMP-Guest.
+		- mv_nmp_guest.h
+		- mv_nmp_guest_msg.h
+		- mv_nmp_guest_pp2_cls.h
+
+	  - src/mng/	- NMP-Guest Package implementation
+
