@@ -11,10 +11,9 @@
 #include "env/mv_autogen_comp_flags.h"
 #include "mv_nmp_guest_msg.h"
 
-/** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
+/** @addtogroup grp_nmp_guest_init NMP Guest
  *
- *  Networking Management Proxy (NMP) Guest Initialization API
- *  documentation
+ *  Networking Management Proxy (NMP) Guest API documentation
  *
  *  @{
  */
@@ -119,9 +118,13 @@ int nmp_guest_get_relations_info(struct nmp_guest *g, struct nmp_guest_info *gue
  *
  */
 enum nmp_guest_lf_type {
+	/** TODO */
 	NMP_GUEST_LF_T_NONE = 0,
+	/** TODO */
 	NMP_GUEST_LF_T_NICPF,
+	/** TODO */
 	NMP_GUEST_LF_T_CUSTOM,
+	/** TODO */
 	NMP_GUEST_LF_T_LAST
 };
 
@@ -196,6 +199,8 @@ int nmp_guest_send_ka_msg(struct nmp_guest *g);
  */
 void nmp_guest_set_nmp(struct nmp_guest *g, void *nmp);
 #endif /* MVCONF_NMP_BUILT */
+
+/** @} */ /* end of grp_nmp_guest_init */
 
 #endif /* _MV_NMP_GUEST_H */
 

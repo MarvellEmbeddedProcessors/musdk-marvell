@@ -10,10 +10,9 @@
 
 #include "drivers/mv_pp2_cls.h"
 
-/** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
+/** @addtogroup grp_nmp_guest_pp2_cls NMP Guest: PP2-CLS
  *
- *  Networking Management Proxy (NMP) Guest Initialization API
- *  documentation
+ *  Networking Management Proxy (NMP) Guest PP2-CLS API documentation
  *
  *  @{
  */
@@ -93,6 +92,8 @@ int nmp_guest_pp2_cls_tbl_modify_rule(struct nmp_guest *g,
 int nmp_guest_pp2_cls_tbl_remove_rule(struct nmp_guest *g,
 				      struct pp2_cls_tbl *tbl,
 				      struct pp2_cls_tbl_rule *rule);
+
+/** @} */ /* end of grp_nmp_guest_pp2_cls */
 
 #endif /* _MV_NMP_GUEST_PP2_CLS_H */
 
