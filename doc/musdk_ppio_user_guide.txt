@@ -302,7 +302,7 @@ The MUSDK API allows configuring a logical port as following:
 Please refer to MUSDK classifier section "How To Run The Example Application" for an explanation of how to use and configure this API.
 
 Policing
-~~~~~~~~~~~~~~
+~~~~~~~~~
 Policing is implemented by PPv2.2 hardware.
 
 The Policer applies bandwidth control, according to RFC 2697, over the flows that are metered. A flow that does not confirm to the subscribed policy (bandwidth and burst size)
@@ -341,6 +341,17 @@ These rates have to be at least 100kbps, and can only be exceeded for short burs
 of the burst is 64kB.
 
 Scheduler and Rate limiter parameters are set during port initialization using the pp2_ppio_params struct and cannot be modified in runtime.
+
+Flow control
+~~~~~~~~~~~~
+Marvell PPv2.2 supports flow control mechanism.
+
+	- Tx Flow control: when a PPv2.2 interface gets over loaded, the TX flow control allows to send PAUSE requests to the devices sending it data,
+	  in order to allow the over loaded condition to clear. If TX flow control is not enabled and an over loaded condition occurs,
+	  the device will drop packets. Dropping packets is much more performance impacting than flow control.
+
+	- RX flow control: when a PPv2.2 interface receives a PAUSE request from another device, it stops transmissions of packets for the interval
+	  time mentioned in the pause frame.
 
 Loopback
 ~~~~~~~~

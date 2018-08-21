@@ -43,8 +43,8 @@ Supported Features
 	- Link state support
 	- Parser information
 	- RSS support (distribution to Rx queues)
-	- Rx PAUSE support
-	- Selective Tx queue enable/disable
+	- TX/Rx PAUSE support
+	- Selective Tx/Rx queue enable/disable
 	- Port and queue statistics
 	- Port loopback support
 	- QoS support
@@ -104,6 +104,17 @@ Supported Features
 
 Change Log
 ----------
+18:09:
+~~~~~~
+- Added PPV2 features:
+	- TX PAUSE support
+	- Selective Rx queue enable/disable
+
+- API updates:
+	- PPV2:
+		- Added ``pp2_ppio_set/get_inq_state`` function
+		- Added ``pp2_ppio_set/get_tx_pause`` functions
+
 18:06:
 ~~~~~~
 - Added NETA features:
