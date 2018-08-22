@@ -5,7 +5,8 @@ Embedded Networking SoC's. The MUSDK library provides a simple and direct access
 SoC blocks for networking applications and networking infrastructure.
 
 .. Note::
-	The MUSDK package is still in development and only partially tested.
+	The MUSDK package is a Beta-level version
+	The package was tested in Little-Endian mode only.
 
 
 Supported SoCs
