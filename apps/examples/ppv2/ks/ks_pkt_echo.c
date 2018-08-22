@@ -90,6 +90,9 @@
 
 #define MVAPPS_PPIO_NAME_MAX		  20
 
+#define MVAPPS_INVALID_COOKIE_HIGH_BITS	  (~0)
+#define MVAPPS_COOKIE_HIGH_MASK		  (0xffffff0000000000) /* bits 63-41 */
+
 #define MVAPPS_PP2_PKT_DEF_OFFS		64
 #define VLAN_HLEN			4
 #define ETH_HLEN			14
@@ -192,6 +195,18 @@ static u32 rx_buf_cnt[MVAPPS_MAX_NUM_THREADS][MVAPPS_PP2_MAX_NUM_PORTS];
 static u32 tx_max_burst[MVAPPS_MAX_NUM_THREADS][MVAPPS_PP2_MAX_NUM_PORTS];
 static u32 tx_buf_cnt[MVAPPS_MAX_NUM_THREADS][MVAPPS_PP2_MAX_NUM_PORTS];
 static u32 tx_buf_retry[MVAPPS_MAX_NUM_THREADS][MVAPPS_PP2_MAX_NUM_PORTS];
+static uintptr_t cookie_high_bits = MVAPPS_INVALID_COOKIE_HIGH_BITS;
+
+
+static inline uintptr_t app_get_high_addr(void)
+{
+	return cookie_high_bits;
+}
+
+static inline void app_set_high_addr(uintptr_t high_addr)
+{
+	cookie_high_bits = high_addr;
+}
 
 static inline void swap_l2(char *buf)
 {
@@ -482,14 +497,19 @@ static int musdk_pkt_echo_pp2_init(void)
 	int rc;
 	struct pp2_init_params init_params;
 
-	init_params.hif_reserved_map = pp2_get_used_hif_map();
-	musdk_pkt_hifmap_init(init_params.hif_reserved_map);
-	init_params.bm_pool_reserved_map = 0x0007;
+	memset(&init_params, 0, sizeof(init_params));
+	init_params.res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO | PP2_RSRVD_MAP_BM_POOL_AUTO;
 	rc = musdk_pkt_echo_rss_tbl_reserved_map_get(&init_params.rss_tbl_reserved_map);
 	if (rc)
 		return rc;
 
-	return pp2_init(&init_params);
+	rc = pp2_init(&init_params);
+	if (rc)
+		return rc;
+
+	musdk_pkt_hifmap_init(init_params.hif_reserved_map);
+
+	return 0;
 }
 
 static int musdk_pkt_echo_find_free_hif(void)
@@ -631,7 +651,15 @@ int musdk_pkt_echo_build_all_bpools(struct bpool_desc ***ppools, int num_pools,
 				buff_virt_addr = mv_sys_dma_mem_alloc(infs[j].buff_size, 4);
 				if (!buff_virt_addr) {
 					pr_err("failed to allocate mem (%d)!\n", k);
-					return -1;
+					return -ENOMEM;
+				}
+				if (app_get_high_addr() == MVAPPS_INVALID_COOKIE_HIGH_BITS)
+					app_set_high_addr((uintptr_t)buff_virt_addr & MVAPPS_COOKIE_HIGH_MASK);
+				else if (((uintptr_t)buff_virt_addr & MVAPPS_COOKIE_HIGH_MASK) != app_get_high_addr()) {
+					pr_err("app_allocate_bpool_buffs: upper 32-bits are 0x%x, should be 0x%x\n",
+						upper_32_bits((uintptr_t)buff_virt_addr),
+						upper_32_bits(app_get_high_addr()));
+					return -EFAULT;
 				}
 				buffs_inf[k].addr = mv_sys_dma_mem_virt2phys(buff_virt_addr);
 				buffs_inf[k].cookie = (uintptr_t)buff_virt_addr;
@@ -732,9 +760,9 @@ static inline int loop_sw_recycle(u8			   rx_ppio_id,
 	u16			 desc_idx = 0, cnt = 0;
 #endif
 
-#ifdef APP_PKT_ECHO_SUPPORT
+#ifdef PKT_ECHO_APP_PKT_ECHO_SUPPORT
 	int			 prefetch_shift = PREFETCH_SHIFT;
-#endif /* APP_PKT_ECHO_SUPPORT */
+#endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
 #ifdef APP_HW_TX_CHKSUM_CALC
 	enum pp2_inq_l3_type     l3_type;
 	enum pp2_inq_l4_type     l4_type;
@@ -750,27 +778,27 @@ static inline int loop_sw_recycle(u8			   rx_ppio_id,
 	INC_RX_COUNT(thread->id, rx_ppio_id, num);
 
 	for (i = 0; i < num; i++) {
-		char		*buff = (char *)(uintptr_t)pp2_ppio_inq_desc_get_cookie(&desc[qid][i]);
-		dma_addr_t	 pa = pp2_ppio_inq_desc_get_phys_addr(&desc[qid][i]);
+		char		*buff = (void *)(app_get_high_addr() | pp2_ppio_inq_desc_get_cookie(&desc[qid][i]));
+		dma_addr_t	pa = pp2_ppio_inq_desc_get_phys_addr(&desc[qid][i]);
 		u16 len = pp2_ppio_inq_desc_get_pkt_len(&desc[qid][i]);
 		struct pp2_bpool *bpool = pp2_ppio_inq_desc_get_bpool(&desc[qid][i],
 								      app_data.ports_desc[rx_ppio_id].ppio);
-#ifdef APP_PKT_ECHO_SUPPORT
+#ifdef PKT_ECHO_APP_PKT_ECHO_SUPPORT
 		char *tmp_buff;
-#ifdef APP_USE_PREFETCH
+#ifdef PKT_ECHO_APP_USE_PREFETCH
 		if (num - i > prefetch_shift) {
-			tmp_buff = (char *)(uintptr_t)
-				   pp2_ppio_inq_desc_get_cookie(&desc[qid][i + prefetch_shift]);
+			tmp_buff = (void *)(app_get_high_addr() |
+					pp2_ppio_inq_desc_get_cookie(&desc[qid][i + prefetch_shift]));
 			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 			prefetch(tmp_buff);
 		}
-#endif /* APP_USE_PREFETCH */
+#endif /* PKT_ECHO_APP_USE_PREFETCH */
 		tmp_buff = buff;
 		pr_debug("buff(%p)\n", tmp_buff);
-		tmp_buff += MVAPPS_PKT_DEF_EFEC_OFFS;
+		tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 		swap_l2(tmp_buff);
 		swap_l3(tmp_buff);
-#endif /* APP_PKT_ECHO_SUPPORT */
+#endif /* PKT_ECHO_APP_PKT_ECHO_SUPPORT */
 
 #ifdef APP_HW_TX_CHKSUM_CALC
 		pp2_ppio_inq_desc_get_l3_info(&desc[qid][i], &l3_type, &l3_offset);
@@ -956,59 +984,35 @@ static void launch_pp_threads(void)
 	}
 }
 
-static int musdk_pkt_echo_probe(struct platform_device *pdev)
+int init_module(void)
 {
-	struct device *dev = &pdev->dev;
 	int err;
-	static int instances_probed;
-
-	if (!dev->of_node) {
-		dev_err(dev, "Device Tree does not contain a \"marvell,musdk-uio\" node.\n");
-		return -EINVAL;
-	}
 
 	pr_debug("Number of CPUS: %u.\n", num_cpus);
 
-	instances_probed++;
-
-	pr_debug("%s: Probing instance no. %d/%d\n", __func__, instances_probed, pp2_get_num_inst());
-
-	if (instances_probed == pp2_get_num_inst()) {
-
-		err = musdk_pkt_echo_init_musdk();
-
-		if (err)
-			return err;
-
-		launch_pp_threads();
+	if (!pp2_get_num_inst()) {
+		pr_err("No PP2 instances!\n");
+		return -EIO;
 	}
 
+	err = musdk_pkt_echo_init_musdk();
+
+	if (err) {
+		pr_err("KS-MUSDK PP2 pkt-echo init failed!\n");
+		return err;
+	}
+
+	launch_pp_threads();
+
+	pr_info("KS-MUSDK PP2 pkt-echo running ...\n");
+
 	return 0;
 }
 
-static int musdk_pkt_echo_remove(struct platform_device *pdev)
+void cleanup_module(void)
 {
 	pp2_deinit();
-
-	return 0;
 }
-
-static const struct of_device_id musdk_pkt_echo_of_match[] = {
-	{ .compatible   = "marvell,mv-pp-uio", },
-	{ }
-};
-
-static struct platform_driver musdk_pkt_echo_driver = {
-	.driver = {
-		.owner		= THIS_MODULE,
-		.name		= DRIVER_NAME,
-		.of_match_table = musdk_pkt_echo_of_match,
-	},
-	.probe  = musdk_pkt_echo_probe,
-	.remove = musdk_pkt_echo_remove,
-};
-
-module_platform_driver(musdk_pkt_echo_driver);
 
 MODULE_VERSION(DRIVER_VERSION);
 MODULE_LICENSE("GPL v2");
