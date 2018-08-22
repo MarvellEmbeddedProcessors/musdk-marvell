@@ -191,7 +191,7 @@ static int mv_kernel_ver_get(void)
 	kernel_version = utsname()->release;
 
 	err = sscanf(kernel_version, "%d.%d", &major, &minor);
-	if (err)
+	if (err <= 0)
 		return err;
 
 	pr_debug("%s: ver:%s, major:%d, minor:%d\n", __func__, kernel_version, major, minor);
