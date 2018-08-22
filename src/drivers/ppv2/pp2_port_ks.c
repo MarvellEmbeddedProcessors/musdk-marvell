@@ -441,10 +441,12 @@ int pp2_port_set_enable(struct pp2_port *port, uint32_t en)
 		pr_err("%s: Failed to locate network device '%s'.\n", __func__, port->linux_name);
 		return -EINVAL;
 	}
+	rtnl_lock();
 	if (en)
 		err = dev_open(netdev);
 	else
 		dev_close(netdev);
+	rtnl_unlock();
 
 	if (err < 0)  {
 		pr_err("%s: Failed to set network device '%s' to %s.\n", __func__, port->linux_name,
