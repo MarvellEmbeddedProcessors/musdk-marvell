@@ -69,7 +69,11 @@
 
 
 /*Copied from Linux mv_pp2x driver */
+#ifdef __KERNEL__
+#define UIO_PP2_STRING  "pp22"
+#else
 #define UIO_PP2_STRING  "pp"
+#endif /* __KERNEL__ */
 #define PORT_STRING	"pp_port_%d:%d"
 #define UIO_PORT_STRING "uio_" PORT_STRING
 
