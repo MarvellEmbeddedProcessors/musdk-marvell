@@ -49,17 +49,15 @@ static int musdk_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int err;
 
-	if (!dev->of_node) {
-		dev_err(dev, "Device Tree does not contain a \"marvell,musdk-uio\" node.\n");
-		return -EINVAL;
-	}
-
+	printk("KS-MUSDK init ...");
 	err = mv_sys_dma_mem_init(dev, MUSDK_MODULE_DMA_MEM_SIZE);
 	if (err)
 		return err;
 
 
 	/* TODO: complete here …. */
+
+	printk("done!!!\n");
 
 	return 0;
 }
@@ -72,7 +70,7 @@ static int musdk_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id musdk_of_match[] = {
-	{ .compatible   = "marvell,musdk-uio", },
+	{ .compatible   = "marvell,musdk-cma", },
 	{ }
 };
 
