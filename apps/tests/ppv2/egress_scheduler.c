@@ -55,7 +55,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 		{0, 0, 0, 0}
 	};
 
-	if  (argc < 2 || argc > (6 + 4 * PP2_PPIO_MAX_NUM_OUTQS)) {
+	if  (argc < 2 || argc > (6 + 8 * PP2_PPIO_MAX_NUM_OUTQS)) {
 		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
 		return -EINVAL;
 	}
