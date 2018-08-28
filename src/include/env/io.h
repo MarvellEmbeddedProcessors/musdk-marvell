@@ -65,6 +65,8 @@
 
 #endif
 
+#define dccivac(_p)	({ __asm__ __volatile__("dc civac, %0\n\t" : : "r" (_p) : "memory"); })
+
 /*
  * Generic IO read/write.  These perform native-endian accesses.
 */
@@ -211,5 +213,7 @@ static inline void __raw_mv_writel(u32 val, volatile void __iomem *addr)
 #define writew(v, c)		({ __iowmb(); mv_writew_relaxed((v), (c)); })
 #define writel(v, c)		({ __iowmb(); mv_writel_relaxed((v), (c)); })
 #define writeq(v, c)		({ __iowmb(); mv_writeq_relaxed((v), (c)); })
+
+#define flush_cache_line(_p)	dccivac((unsigned long long)_p)
 
 #endif /* __IO_H__ */
