@@ -106,6 +106,8 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 
 
 #define PKT_ECHO_APP_PREFETCH_SHIFT		7
+#define PKT_ECHO_APP_MAX_BM_NUM			16384
+
 
 #define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
 #define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
@@ -141,6 +143,7 @@ struct glob_arg {
 
 	u16				rxq_size;
 	u16				txq_size;
+	u16				bm_num;
 	int				loopback;
 	int				maintain_stats;
 	pthread_mutex_t			trd_lock;
@@ -601,6 +604,9 @@ static int init_local_modules(struct glob_arg *garg)
 	if (err)
 		return err;
 
+	if (garg->bm_num)
+		std_inf[0].num_buffs = garg->bm_num;
+
 	app_prepare_bpools(&garg->cmn_args, &infs, std_inf, ARRAY_SIZE(std_inf), jumbo_inf, ARRAY_SIZE(jumbo_inf));
 
 	err = app_build_all_bpools(&pp2_args->pools_desc, pp2_args->num_pools, infs, pp2_args->hif);
@@ -879,6 +885,7 @@ static void usage(char *progname)
 	       "\t--mem-regions <number>   Number of mv_sys_dma_mem_regions (default=0)\n"
 	       "\t--old-tx-desc-release    Use pp2_bpool_put_buff(), instead of NEW pp2_bpool_put_buffs() API\n"
 	       "\t--no-echo                Don't perform 'pkt_echo', N/A w/o define APP_PKT_ECHO_SUPPORT\n"
+	       "\t--bm <number>            Number of Buffers in BM pool (for short packets only) (default=4096)\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
@@ -900,6 +907,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.busy_wait	= 0;
 	garg->rxq_size = PKT_ECHO_APP_RX_Q_SIZE;
 	garg->txq_size = PKT_ECHO_APP_TX_Q_SIZE;
+	garg->bm_num = 4096;
 	garg->cmn_args.echo = 1;
 	garg->cmn_args.qs_map = 0;
 	garg->cmn_args.qs_map_shift = 0;
@@ -1077,6 +1085,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--no-echo") == 0) {
 			garg->cmn_args.echo = 0;
 			i += 1;
+		} else if (strcmp(argv[i], "--bm") == 0) {
+			garg->bm_num = atoi(argv[i + 1]);
+			i += 2;
 		} else if (strcmp(argv[i], "--cli") == 0) {
 			garg->cmn_args.cli = 1;
 			i += 1;
@@ -1126,6 +1137,11 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	if ((garg->cmn_args.cpus != 1) &&
 	    (garg->cmn_args.qs_map & (garg->cmn_args.qs_map << garg->cmn_args.qs_map_shift))) {
 		pr_err("Invalid queues-mapping (ovelapping CPUs)!\n");
+		return -EINVAL;
+	}
+
+	if (garg->bm_num > PKT_ECHO_APP_MAX_BM_NUM) {
+		pr_err("Invalid number of buffers!\n");
 		return -EINVAL;
 	}
 
