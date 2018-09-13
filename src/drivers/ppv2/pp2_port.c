@@ -853,10 +853,9 @@ static void pp2_port_rx_time_coal_set(struct pp2_port *port, struct pp2_rx_queue
 }
 
 /* Routine enable flow control for RXQs conditon */
-static void pp2_rxq_enable_fc(struct pp2_port *port)
+static void pp2_rxq_fc_state_set(struct pp2_port *port, int en)
 {
-	int val, cm3_state, host_id, queue;
-
+	int val, cm3_state, host_id, port_id, queue;
 	uintptr_t base = port->parent->hw.cm3_base.va;
 
 	/* Remove Flow control enable bit to prevent race between FW and Kernel
@@ -866,6 +865,8 @@ static void pp2_rxq_enable_fc(struct pp2_port *port)
 	cm3_state = (val & FLOW_CONTROL_ENABLE_BIT);
 	val &= ~FLOW_CONTROL_ENABLE_BIT;
 	cm3_write(base, MSS_CP_FC_COM_REG, val);
+
+	(en) ? (port_id = port->id) : (port_id = 0);
 
 	/* Set RXQs Flow control */
 	for (queue = 0; queue < PP2_PPIO_MAX_NUM_INQS; queue++) {
@@ -880,11 +881,15 @@ static void pp2_rxq_enable_fc(struct pp2_port *port)
 		cm3_write(base, MSS_CP_CM3_RXQ_TR_BASE + rxq->id * MSS_CP_CM3_RXQ_TR_OFFS, val);
 
 		/* Set RXQ port ID & Host ID */
-		host_id = (rxq->id % PP2_PPIO_MAX_NUM_INQS) / PP22_MAX_NUM_RXQ_PER_INTRPT;
+		if (en)
+			host_id = (rxq->id % PP2_PPIO_MAX_NUM_INQS) / PP22_MAX_NUM_RXQ_PER_INTRPT;
+		else
+			host_id = 0;
+
 		val = cm3_read(base, MSS_CP_CM3_RXQ_ASS_REG(rxq->id));
 		val &= ~(MSS_CP_CM3_RXQ_ASS_PORTID_MASK << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG)
 			* MSS_CP_CM3_RXQ_ASS_PER_OFFS));
-		val |= (port->id << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG) * MSS_CP_CM3_RXQ_ASS_PER_OFFS));
+		val |= (port_id << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG) * MSS_CP_CM3_RXQ_ASS_PER_OFFS));
 		val &= ~(MSS_CP_CM3_RXQ_ASS_HOSTID_MASK << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG)
 			* MSS_CP_CM3_RXQ_ASS_PER_OFFS + MSS_CP_CM3_RXQ_ASS_HOSTID_OFFS));
 
@@ -2109,80 +2114,48 @@ int pp2_port_get_tx_pause(struct pp2_port *port, int *en)
 	return 0;
 }
 
-int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params *params)
+static void pp2_port_set_fc_bm(struct pp2_port *port, struct pp2_fc_values *fc_values, u32 fc_rxqmask, int ena)
 {
-	u32 loc_ev_qmask, param_rxq_mask = 0, bm_pools_mask = 0;
-	int i, cpu_slot_id, ena = params->en;
-	struct pp2_fc_values  *fc_values = NULL;
-	uintptr_t cpu_slot = port->parent->hw.base[0].va;
 
-	if (!ena) {
-		/*TODO*/
-		pr_err("%s: disable not yet implemented\n", __func__);
-		return -EPERM;
-	}
-	if (!PP2_TX_PAUSE_SUPPORT(port)) {
-		pr_err("%s: tx_pause not supported in system\n", __func__);
-		return -EPERM;
-	}
+	u32 bm_pools_mask = 0;
+	int i;
 
-	if (params->use_tc_pause_inqs) {
-		for (i = 0; i < port->num_tcs; i++) {
-			u32 tc_rx_mask = GENMASK((port->tc[i].tc_config.first_rxq +
-						  port->tc[i].tc_config.num_in_qs - 1),
-						 port->tc[i].tc_config.first_rxq);
-			u32 tc_pause_rx_mask = params->tc_inqs_mask[i] << port->tc[i].tc_config.first_rxq;
-
-			if (tc_pause_rx_mask & (~tc_rx_mask)) {
-				pr_err("%s: ppio-%d-%d, tc:%d, tc_inqs_mask:0x%x has non-existent rx_qs\n",
-				__func__, port->parent->id, port->id, i, params->tc_inqs_mask[i]);
-				return -EINVAL;
-			}
-			param_rxq_mask |= tc_pause_rx_mask;
-		}
-		for (; i < PP2_PPIO_MAX_NUM_TCS; i++) {
-			if (params->tc_inqs_mask[i]) {
-				pr_err("%s: tc:%d, is not defined for this ppio-%d-%d\n", __func__, i,
-					port->parent->id, port->id);
-				return -EINVAL;
-			}
-		}
-	} else {
-		for (i = 0; i < port->num_tcs; i++) {
-			u32 tc_rx_mask = GENMASK((port->tc[i].tc_config.first_rxq +
-						  port->tc[i].tc_config.num_in_qs - 1),
-						 port->tc[i].tc_config.first_rxq);
-			param_rxq_mask |= tc_rx_mask;
-		}
-
-	}
-	/* Find required values */
-	i = 0;
-	while ((port->port_mtu > pp2_fc[i].port_mtu) && (i < (ARRAY_SIZE(pp2_fc))))
-		i++;
-	fc_values = &pp2_fc[i];
-
-	port->rxq_flow_cntrl_mask = param_rxq_mask;
-	pr_info("%s: port:%d, flow_control_inqs_mask:0x%x\n", __func__, port->id, port->rxq_flow_cntrl_mask);
-	pr_info("%s: port:%d, port_mtu:%d, fc_mtu:%d, rxq_stop:%d, rxq_start:%d, pool_stop:%d, pool_start:%d\n",
-		__func__, port->id, port->port_mtu, fc_values->port_mtu,
-		fc_values->rxq_stop_thresh, fc_values->rxq_start_thresh,
-		fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
-
-	/* Configure rxq threshold */
-	loc_ev_qmask = param_rxq_mask;
-	for (i = 0; (loc_ev_qmask != 0); i++) {
+	for (i = 0; (fc_rxqmask != 0); i++) {
 		struct pp2_rx_queue *rxq = port->rxqs[i];
 
-		if ((loc_ev_qmask & BIT(i)) == 0)
+		if ((fc_rxqmask & BIT(i)) == 0)
 			continue;
-		rxq->fc_start_thresh = fc_values->rxq_start_thresh;
-		rxq->fc_stop_thresh = fc_values->rxq_stop_thresh;
-		pp2_port_rx_non_occupied_set(port, rxq);
-		loc_ev_qmask &= ~(BIT(i));
+
+		bm_pools_mask |= BIT(rxq->bm_pool_id[0]);
+		bm_pools_mask |= BIT(rxq->bm_pool_id[1]);
+		fc_rxqmask &= ~(BIT(i));
 	}
+	pr_debug("%s:bm_pools_mask:0x%x\n", __func__, bm_pools_mask);
+
+	for (i = 0; (bm_pools_mask != 0); i++) {
+
+		if ((bm_pools_mask & BIT(i)) == 0)
+			continue;
+		if (ena)
+			pp2_bm_port_add(port->parent, i, port->id,
+					fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
+		else
+			pp2_bm_port_remove(port->parent, i, port->id,
+					   fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
+
+		bm_pools_mask &= ~(BIT(i));
+	}
+
+}
+
+static void pp2_port_set_fc_isr(struct pp2_port *port, u32 fc_rxqmask, int ena)
+{
+
+	int cpu_slot_id;
+	uintptr_t cpu_slot;
+
 	for (cpu_slot_id = 0; cpu_slot_id < PP2_MAX_NUM_USED_INTERRUPTS; cpu_slot_id++) {
-		u32 qs_mask = (param_rxq_mask >> (cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT)) &
+		u32 qs_mask = (fc_rxqmask >> (cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT)) &
 			       MVPP2_ISR_RX_ERR_CAUSE_NONOCC_MASK;
 
 		cpu_slot = port->parent->hw.base[cpu_slot_id].va;
@@ -2190,49 +2163,129 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 		if (!qs_mask)
 			continue;
 
-		pr_info("%s:port:%d, rx_group(=cpu_slot):%d, rx_qs_mask(0x0-0xff):0x%x\n", __func__,
-			port->id, cpu_slot_id, qs_mask);
+		pr_debug("%s:port:%d, rx_group(=cpu_slot):%d, rx_qs_mask(0x0-0xff):0x%x\n", __func__,
+			 port->id, cpu_slot_id, qs_mask);
 
 		/* Configure Group/Subgroup */
 		pp2_port_isr_rx_group_write(port, cpu_slot_id, cpu_slot_id * PP22_MAX_NUM_RXQ_PER_INTRPT,
 					    PP22_MAX_NUM_RXQ_PER_INTRPT);
 
 		/* Configure RX Exceptions Interrupt Mask */
-		pp2_reg_write(cpu_slot, MVPP2_RX_EX_INT_CAUSE_MASK_REG(port->id), qs_mask);
+		pp2_reg_write(cpu_slot, MVPP2_RX_EX_INT_CAUSE_MASK_REG(port->id), ((ena) ? qs_mask : 0));
 	}
-	/* Configure in FW */
-	pp2_rxq_enable_fc(port);
+}
+
+static void pp2_port_set_rxq_threshold(struct pp2_port *port, struct pp2_fc_values *fc_values, u32 fc_rxqmask, int ena)
+{
+	int i;
+
+	for (i = 0; (fc_rxqmask != 0); i++) {
+		struct pp2_rx_queue *rxq = port->rxqs[i];
+
+		if ((fc_rxqmask & BIT(i)) == 0)
+			continue;
+		if (ena) {
+			rxq->fc_start_thresh = fc_values->rxq_start_thresh;
+			rxq->fc_stop_thresh  = fc_values->rxq_stop_thresh;
+		} else {
+			rxq->fc_start_thresh = 0;
+			rxq->fc_stop_thresh  = 0;
+		}
+		pp2_port_rx_non_occupied_set(port, rxq);
+		fc_rxqmask &= ~(BIT(i));
+	}
+}
+
+int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params *params)
+{
+	u32 loc_fc_rxq_mask = 0;
+	int i, ena = params->en;
+	struct pp2_fc_values  *fc_values = NULL;
+	uintptr_t cpu_slot = port->parent->hw.base[0].va;
+
+	if (!PP2_TX_PAUSE_SUPPORT(port)) {
+		pr_err("%s: tx_pause not supported in system\n", __func__);
+		return -EPERM;
+	}
+
+	/* Find mtu_based flow_control values */
+	i = 0;
+	while ((port->port_mtu > pp2_fc[i].port_mtu) && (i < (ARRAY_SIZE(pp2_fc))))
+		i++;
+	fc_values = &pp2_fc[i];
+
+	/* Calculate rxq_flow_control_mask */
+	if (ena) {
+		if (params->use_tc_pause_inqs) {
+			for (i = 0; i < port->num_tcs; i++) {
+				u32 tc_rx_mask = GENMASK((port->tc[i].tc_config.first_rxq +
+							  port->tc[i].tc_config.num_in_qs - 1),
+							 port->tc[i].tc_config.first_rxq);
+				u32 tc_pause_rx_mask = params->tc_inqs_mask[i] << port->tc[i].tc_config.first_rxq;
+
+				if (tc_pause_rx_mask & (~tc_rx_mask)) {
+					pr_err("%s: ppio-%d-%d, tc:%d, tc_inqs_mask:0x%x has non-existent rx_qs\n",
+					__func__, port->parent->id, port->id, i, params->tc_inqs_mask[i]);
+					return -EINVAL;
+				}
+				loc_fc_rxq_mask |= tc_pause_rx_mask;
+			}
+			for (; i < PP2_PPIO_MAX_NUM_TCS; i++) {
+				if (params->tc_inqs_mask[i]) {
+					pr_err("%s: tc:%d, is not defined for this ppio-%d-%d\n", __func__, i,
+						port->parent->id, port->id);
+					return -EINVAL;
+				}
+			}
+		} else {
+			for (i = 0; i < port->num_tcs; i++) {
+				u32 tc_rx_mask = GENMASK((port->tc[i].tc_config.first_rxq +
+							  port->tc[i].tc_config.num_in_qs - 1),
+							 port->tc[i].tc_config.first_rxq);
+				loc_fc_rxq_mask |= tc_rx_mask;
+			}
+
+		}
+		port->rxq_flow_cntrl_mask = loc_fc_rxq_mask;
+		pr_debug("%s: enable port:%d, flow_control_inqs_mask:0x%x\n", __func__, port->id, loc_fc_rxq_mask);
+		pr_debug("%s: enable port:%d, port_mtu:%d, fc_mtu:%d, rxq_stop:%d, rxq_start:%d, pool_stop:%d, pool_start:%d\n",
+			 __func__, port->id, port->port_mtu, fc_values->port_mtu,
+			 fc_values->rxq_stop_thresh, fc_values->rxq_start_thresh,
+			 fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
+	} else {
+		loc_fc_rxq_mask = port->rxq_flow_cntrl_mask;
+		pr_debug("%s: disable port:%d, flow_control_inqs_mask:0x%x\n", __func__, port->id, loc_fc_rxq_mask);
+		pr_debug("%s: disable port:%d, port_mtu:%d, fc_mtu:%d, pool_stop:%d, pool_start:%d\n",
+			 __func__, port->id, port->port_mtu, fc_values->port_mtu,
+			 fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
+	}
+	/* Disable rxq flow_control in Firmware, before updating thresholds */
+	if (!ena) {
+		pp2_rxq_fc_state_set(port, ena);
+		port->rxq_flow_cntrl_mask = 0;
+	}
+
+	/* Configure rxq threshold */
+	pp2_port_set_rxq_threshold(port, fc_values, loc_fc_rxq_mask, ena);
+
+	/* Configure flowcontrol_rxq interrupt bits */
+	pp2_port_set_fc_isr(port, loc_fc_rxq_mask, ena);
+
+	/* Enable: After rxq setup, update Firmware */
+	if (ena)
+		pp2_rxq_fc_state_set(port, ena);
 
 
-	/* Enable/Disable RX_FIFO */
+	/* Configure RX_FIFO */
 	if (pp2_reg_read(cpu_slot, MVPP2_VER_ID_REG) == MVPP2_VER_PP23) {
 		pr_info("%s: MVPP2_VER_PP23 : not overriding kernel rx_fifo_size, only enabling\n", __func__);
 		pp2_port_rx_fifo_fc_en(port, ena);
 	}
 
 	/* Configure BM_POOLS thresholds */
-	loc_ev_qmask = param_rxq_mask;
-	for (i = 0; (loc_ev_qmask != 0); i++) {
-		struct pp2_rx_queue *rxq = port->rxqs[i];
+	pp2_port_set_fc_bm(port, fc_values, loc_fc_rxq_mask, ena);
 
-		if ((loc_ev_qmask & BIT(i)) == 0)
-			continue;
-
-		bm_pools_mask |= BIT(rxq->bm_pool_id[0]);
-		bm_pools_mask |= BIT(rxq->bm_pool_id[1]);
-		loc_ev_qmask &= ~(BIT(i));
-	}
-	pr_info("%s:bm_pools_mask:0x%x\n", __func__, bm_pools_mask);
-	for (i = 0; (bm_pools_mask != 0); i++) {
-
-		if ((bm_pools_mask & BIT(i)) == 0)
-			continue;
-		pp2_bm_port_add(port->parent, i, port->id,
-				fc_values->pool_stop_threshold, fc_values->pool_start_threshold);
-		bm_pools_mask &= ~(BIT(i));
-	}
-
-	/* Save tx puase state */
+	/* Save tx pause state */
 	port->tx_pause_en = ena;
 
 	return 0;
