@@ -18,6 +18,7 @@ nobase_include_HEADERS += include/env/mv_sys_dma.h
 nobase_include_HEADERS += include/env/mv_sys_event.h
 nobase_include_HEADERS += include/env/mv_types.h
 nobase_include_HEADERS += include/drivers/mv_net.h
+nobase_include_HEADERS += include/lib/mv_pme.h
 nobase_include_HEADERS += include/env/mv_autogen_build_assert.h
 nobase_include_HEADERS += include/env/mv_autogen_comp_flags.h
 
@@ -42,6 +43,7 @@ libmusdk_la_SOURCES += lib/uio/uio_line_from_file.c
 libmusdk_la_SOURCES += lib/uio/uio_num_from_filename.c
 libmusdk_la_SOURCES += lib/uio/uio_single_mmap.c
 libmusdk_la_SOURCES += lib/uio/uio_find_mem_byname.c
+libmusdk_la_SOURCES += lib/perf_mon_emu.c
 
 libmusdk_la_SOURCES += env/spinlock.c
 libmusdk_la_SOURCES += env/cma.c
