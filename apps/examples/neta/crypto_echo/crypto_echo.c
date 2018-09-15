@@ -54,7 +54,7 @@
 #include "../neta_utils.h"
 #include "sam_utils.h"
 #include "mvapp.h"
-#include "perf_mon_emu.h"
+#include "lib/mv_pme.h"
 
 #define CRYPT_APP_DEF_Q_SIZE		256
 #define CRYPT_APP_RX_Q_SIZE		(2 * CRYPT_APP_DEF_Q_SIZE)

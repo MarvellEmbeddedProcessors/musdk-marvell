@@ -58,7 +58,7 @@
 #include "pp2_utils.h"
 #include "sam_utils.h"
 #include "mvapp.h"
-#include "perf_mon_emu.h"
+#include "lib/mv_pme.h"
 
 #define CRYPT_APP_DEF_Q_SIZE		256/*1024*/
 #define CRYPT_APP_HIF_Q_SIZE		(8 * CRYPT_APP_DEF_Q_SIZE)

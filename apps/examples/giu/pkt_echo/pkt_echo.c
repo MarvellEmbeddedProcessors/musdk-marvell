@@ -19,7 +19,7 @@
 #include "env/mv_sys_dma.h"
 
 #include "mvapp.h"
-#include "perf_mon_emu.h"
+#include "lib/mv_pme.h"
 #include "mv_pp2.h"
 #include "mv_pp2_hif.h"
 #include "mv_pp2_bpool.h"

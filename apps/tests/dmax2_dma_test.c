@@ -37,7 +37,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "drivers/mv_dmax2.h"
-#include "perf_mon_emu.h"
+#include "lib/mv_pme.h"
 #include "std_internal.h"
 
 /* DMA test variables */

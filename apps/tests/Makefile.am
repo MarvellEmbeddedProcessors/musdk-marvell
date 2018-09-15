@@ -19,7 +19,6 @@ musdk_dma_mem_LDADD = $(top_builddir)/src/libmusdk.la
 
 bin_PROGRAMS += musdk_dmax2_dma
 musdk_dmax2_dma_SOURCES  = dmax2_dma_test.c
-musdk_dmax2_dma_SOURCES  += ../common/lib/perf_mon_emu.c
 musdk_dmax2_dma_LDADD = $(top_builddir)/src/libmusdk.la
 
 if PP2_BUILD

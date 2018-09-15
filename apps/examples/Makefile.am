@@ -64,7 +64,6 @@ musdk_pkt_gen_SOURCES += ppv2/pkt_gen/pkt_gen.c
 if SAM_BUILD
 bin_PROGRAMS += musdk_pp2_crypto_echo
 musdk_pp2_crypto_echo_SOURCES  = ../common/lib/cli.c
-musdk_pp2_crypto_echo_SOURCES += ../common/lib/perf_mon_emu.c
 musdk_pp2_crypto_echo_SOURCES += ../common/lib/mv_stack.c
 musdk_pp2_crypto_echo_SOURCES += ../common/mvapp.c
 musdk_pp2_crypto_echo_SOURCES += ../common/utils.c
@@ -78,7 +77,6 @@ endif
 if GIU_BUILD
 bin_PROGRAMS += musdk_giu_pkt_echo
 musdk_giu_pkt_echo_SOURCES  = ../common/lib/cli.c
-musdk_giu_pkt_echo_SOURCES += ../common/lib/perf_mon_emu.c
 musdk_giu_pkt_echo_SOURCES += ../common/mvapp.c
 musdk_giu_pkt_echo_SOURCES += ../common/utils.c
 musdk_giu_pkt_echo_SOURCES += ../common/pp2_utils.c
@@ -109,7 +107,6 @@ musdk_neta_pkt_echo_SOURCES += neta/pkt_echo/pkt_echo.c
 if SAM_BUILD
 bin_PROGRAMS += musdk_neta_crypto_echo
 musdk_neta_crypto_echo_SOURCES  = ../common/lib/cli.c
-musdk_neta_crypto_echo_SOURCES += ../common/lib/perf_mon_emu.c
 musdk_neta_crypto_echo_SOURCES += ../common/lib/mv_stack.c
 musdk_neta_crypto_echo_SOURCES += ../common/mvapp.c
 musdk_neta_crypto_echo_SOURCES += ../common/utils.c
