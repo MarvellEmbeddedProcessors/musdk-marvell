@@ -702,21 +702,38 @@ int sam_cio_flush(struct sam_cio *cio)
 	}
 
 	if (total)
-		printf("%s: %d results were flushed\n", cio->params.match, total);
+		pr_info("%s: %d results were flushed\n", cio->params.match, total);
 
 	return 0;
 }
 
 int sam_cio_deinit(struct sam_cio *cio)
 {
-	int i;
+#define SAM_SESSION_DESTROY_RETRIES 100
+	int i = 0;
+	int cnt = 0;
 
 	if (!cio)
 		return 0;
 
 	if (sam_cios[cio->idx]) {
-		sam_cio_flush(cio);
 
+		while (i < sam_num_sessions) {
+			if (sam_sessions[i].cio == cio) {
+				if (sam_session_destroy(&sam_sessions[i])) {
+					sam_cio_flush(cio);
+					cnt++;
+					if (cnt < SAM_SESSION_DESTROY_RETRIES)
+						continue;
+					pr_err("%s: Failed to destroy session %d\n",
+						cio->params.match, i);
+				}
+			}
+			cnt = 0;
+			i++;
+		}
+
+		sam_cio_flush(cio);
 		sam_hw_ring_deinit(&cio->hw_ring);
 		sam_cios[cio->idx] = NULL;
 		sam_active_cios--;
