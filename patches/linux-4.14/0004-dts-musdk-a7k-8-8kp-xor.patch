@@ -1,4 +1,4 @@
-From 24d8bd3ae201e9c22a8b3ce93683176bf50f8601 Mon Sep 17 00:00:00 2001
+From f09ded5b09ad9c016c1960407aa8a765e0a52ec0 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 23:57:16 +0300
 Subject: [PATCH 4/6] dts: musdk: a7k/8/8kp xor
@@ -6,15 +6,15 @@ Subject: [PATCH 4/6] dts: musdk: a7k/8/8kp xor
 Change-Id: Ib2f5aadf42d56d6cf32d3ab94a93d552e0df2c90
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-ap806.dtsi |   32 +++++++++++++++++++++----
- arch/arm64/boot/dts/marvell/armada-cp110.dtsi |   12 ++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap806.dtsi | 32 +++++++++++++++++++++++----
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi | 12 ++++++++++
  2 files changed, 40 insertions(+), 4 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-index 4203b8b..df5cbe3 100644
+index f805f21..6218a41 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap806.dtsi
-@@ -265,7 +265,7 @@
+@@ -226,7 +226,7 @@
  				interrupts = <GIC_PPI 15 IRQ_TYPE_LEVEL_HIGH>;
  			};
  
@@ -23,7 +23,7 @@ index 4203b8b..df5cbe3 100644
  				compatible = "marvell,armada-7k-xor", "marvell,xor-v2";
  				reg = <0x400000 0x1000>,
  				      <0x410000 0x1000>;
-@@ -274,7 +274,7 @@
+@@ -235,7 +235,7 @@
  				dma-coherent;
  			};
  
@@ -32,7 +32,7 @@ index 4203b8b..df5cbe3 100644
  				compatible = "marvell,armada-7k-xor", "marvell,xor-v2";
  				reg = <0x420000 0x1000>,
  				      <0x430000 0x1000>;
-@@ -283,7 +283,7 @@
+@@ -244,7 +244,7 @@
  				dma-coherent;
  			};
  
@@ -41,7 +41,7 @@ index 4203b8b..df5cbe3 100644
  				compatible = "marvell,armada-7k-xor", "marvell,xor-v2";
  				reg = <0x440000 0x1000>,
  				      <0x450000 0x1000>;
-@@ -292,7 +292,7 @@
+@@ -253,7 +253,7 @@
  				dma-coherent;
  			};
  
@@ -50,8 +50,8 @@ index 4203b8b..df5cbe3 100644
  				compatible = "marvell,armada-7k-xor", "marvell,xor-v2";
  				reg = <0x460000 0x1000>,
  				      <0x470000 0x1000>;
-@@ -387,6 +387,30 @@
- 				};
+@@ -262,6 +262,30 @@
+ 				dma-coherent;
  			};
  
 +			uio_xor0 {
@@ -78,15 +78,15 @@ index 4203b8b..df5cbe3 100644
 +				status = "okay";
 +			};
 +
- 			ap_thermal: thermal@6f808c {
- 				compatible = "marvell,armada-ap806-thermal";
- 				reg = <0x6f808c 0x4>,
+ 			spi0: spi@510600 {
+ 				compatible = "marvell,armada-380-spi";
+ 				reg = <0x510600 0x50>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index a363f91..164730f 100644
+index a8786a7..047eb14 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -361,6 +361,18 @@
- 			clocks = <&CP110_LABEL(clk) 1 7>;
+@@ -346,6 +346,18 @@
+ 				 <&CP110_LABEL(clk) 1 14>;
  		};
  
 +		CP110_LABEL(uio_xor0) {
@@ -105,5 +105,5 @@ index a363f91..164730f 100644
  			compatible = "marvell,armada-380-spi";
  			reg = <0x700600 0x50>;
 -- 
-1.7.9.5
+2.7.4
 
