@@ -8,9 +8,9 @@
 #define log_fmt(fmt) "pf: " fmt
 
 #include "std_internal.h"
-#include "hw_emul/gie.h"
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
+#include "drivers/mv_giu.h"
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/mqa_def.h"
 #include "mng/lf/mng_cmd_desc.h"
@@ -882,73 +882,13 @@ lcl_bm_queue_error:
 static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 {
 	volatile struct pcie_config_mem *pcie_cfg;
+	struct giu_mng_ch_params mng_ch_params;
+	struct giu_mng_ch_qs mng_ch_qs;
+	struct mqa_queue_info q_inf;
 	u64 pf_cfg_phys, pf_cfg_virt; /* pointer to HW so it should be volatile */
-	void *qnpt_phys, *qnct_phys;
-	u32 local_cmd_queue, local_notify_queue;
-	u32 remote_cmd_queue, remote_notify_queue;
+	u64 qnpt_phys, qnct_phys;
 	u8 mac_addr[ETH_ALEN];
 	int ret = 0;
-
-	struct mqa_queue_params params;
-	struct mqa_queue_info queue_info;
-	struct mqa_q *lcl_cmd_queue_p    = NULL;
-	struct mqa_q *lcl_notify_queue_p = NULL;
-	struct mqa_q *rem_cmd_queue_p    = NULL;
-	struct mqa_q *rem_notify_queue_p = NULL;
-
-	/*  Create Local Queues */
-	/* ==================== */
-
-	/* Allocate and Register Local Command queue in MQA */
-	pr_info("Register Local Command Q\n");
-
-	/* Allocate queue from MQA */
-	ret = mqa_queue_alloc(nmnicpf->mqa, &local_cmd_queue);
-	if (ret < 0) {
-		pr_err("Failed to allocate queue from MQA\n");
-		goto exit_error;
-	}
-
-	memset(&params, 0, sizeof(struct mqa_queue_params));
-
-	params.idx  = local_cmd_queue;
-	params.len  = LOCAL_CMD_QUEUE_SIZE;
-	params.size = sizeof(struct cmd_desc);
-	params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
-	params.prio = 0;
-
-	ret = mqa_queue_create(nmnicpf->mqa, &(params), &(lcl_cmd_queue_p));
-	if (ret < 0) {
-		pr_info("Failed to register Host Management Q\n");
-		goto exit_error;
-	}
-
-	nmnicpf->mng_data.lcl_mng_ctrl.cmd_queue = (struct mqa_q *)lcl_cmd_queue_p;
-
-	/* Allocate and Register Local Notification queue in MQA */
-	pr_info("Register Local Notification Q\n");
-
-	/* Allocate queue from MQA */
-	ret = mqa_queue_alloc(nmnicpf->mqa, &local_notify_queue);
-	if (ret < 0) {
-		pr_err("Failed to allocate queue from MQA\n");
-		goto exit_error;
-	}
-	memset(&params, 0, sizeof(struct mqa_queue_params));
-
-	params.idx   = local_notify_queue;
-	params.len   = LOCAL_NOTIFY_QUEUE_SIZE;
-	params.size  = sizeof(struct cmd_desc);
-	params.attr  = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
-	params.prio  = 0;
-
-	ret = mqa_queue_create(nmnicpf->mqa, &(params), &(lcl_notify_queue_p));
-	if (ret < 0) {
-		pr_info("Failed to register Host Management Q\n");
-		goto exit_error;
-	}
-
-	nmnicpf->mng_data.lcl_mng_ctrl.notify_queue = (struct mqa_q *)lcl_notify_queue_p;
 
 	/* get the initial mac-addr from the pp2 port's (if exist) kernel side as this is the correct mac-addr. */
 	nmnicpf_pp2_get_mac_addr(nmnicpf, mac_addr);
@@ -962,8 +902,8 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	pcie_cfg    = (void *)(pf_cfg_virt + PCI_BAR0_MNG_CH_BASE);
 
 	/* Calc Notification tables base */
-	qnct_phys = (void *)(pf_cfg_phys + PCI_BAR0_MQA_QNCT_BASE);
-	qnpt_phys = (void *)(pf_cfg_phys + PCI_BAR0_MQA_QNPT_BASE);
+	qnct_phys = pf_cfg_phys + PCI_BAR0_MQA_QNCT_BASE;
+	qnpt_phys = pf_cfg_phys + PCI_BAR0_MQA_QNPT_BASE;
 
 	/* Wait for Host to update the state to 'Host Management Ready'
 	 * This means that BAR 0 configuration can be accessed as the
@@ -994,14 +934,12 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	 */
 	pcie_cfg->msi_x_tbl_offset = PCI_BAR0_MSI_X_TBL_BASE;
 
-	/* Register MSI-X table base in GIE */
+	/* Register MSI-X table base in GIU */
 	/* TODO: register msix table only if pcie_cfg->msi_x_tbl_offset !=0
 	 *       netdev side should reset it if it doesn't support msi
 	 *	 hence, it should move after "Host is Ready" (below)
 	 */
-	gie_register_msix_table(nmnicpf->gie.mng_gie, pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
-	gie_register_msix_table(nmnicpf->gie.rx_gie, pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
-	gie_register_msix_table(nmnicpf->gie.tx_gie, pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
+	giu_register_msix_table(nmnicpf->giu, pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
 
 	/* Make sure that above configuration are out before setting the
 	 * dev-ready status for the host side.
@@ -1016,105 +954,46 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	/* Set remote index mode to MQA */
 	mqa_set_remote_index_mode(nmnicpf->mqa, pcie_cfg->remote_index_location);
 
-	/* Set remote index mode to GIE */
-	gie_set_remote_index_mode(pcie_cfg->remote_index_location);
+	/* Set remote index mode to GIU */
+	giu_set_remote_index_mode(nmnicpf->giu,
+		(enum giu_indices_copy_mode)pcie_cfg->remote_index_location);
 
 	pr_info("Host is Ready\n");
 
-	/*  Register Remote Queues */
-	/* ======================= */
+	memset(&mng_ch_params, 0, sizeof(mng_ch_params));
 
-	/* Register Host Command management queue */
-	pr_info("Register host command queue\n");
+	mng_ch_params.rem_base_pa = (dma_addr_t)nmnicpf->map.host_map.phys_addr;
+	mng_ch_params.rem_base_va = nmnicpf->map.host_map.virt_addr;
+	mng_ch_params.desc_size = sizeof(struct cmd_desc);
 
-	/* Allocate queue from MQA */
-	ret = mqa_queue_alloc(nmnicpf->mqa, &remote_cmd_queue);
-	if (ret < 0) {
-		pr_err("Failed to allocate queue from MQA\n");
-		goto exit_error;
+	mng_ch_params.lcl_cmd_q.len = LOCAL_CMD_QUEUE_SIZE;
+	mng_ch_params.lcl_resp_q.len = LOCAL_NOTIFY_QUEUE_SIZE;
+	mng_ch_params.rem_cmd_q.len = pcie_cfg->cmd_q.len;
+	mng_ch_params.rem_cmd_q.pa = pcie_cfg->cmd_q.q_addr;
+	mng_ch_params.rem_cmd_q.cons_offs = (u32)pcie_cfg->cmd_q.consumer_idx_addr;
+	mng_ch_params.rem_resp_q.len = pcie_cfg->notif_q.len;
+	mng_ch_params.rem_resp_q.pa = pcie_cfg->notif_q.q_addr;
+	mng_ch_params.rem_resp_q.prod_offs = (u32)pcie_cfg->notif_q.producer_idx_addr;
+
+	ret = giu_mng_ch_init(nmnicpf->giu, &mng_ch_params, &nmnicpf->giu_mng_ch);
+	if (ret) {
+		pr_err("faied to initialize GIU Management channel!\n");
+		return ret;
 	}
 
-	memset(&params, 0, sizeof(struct mqa_queue_params));
+	giu_mng_ch_get_qs(nmnicpf->giu_mng_ch, &mng_ch_qs);
 
-	params.idx             = remote_cmd_queue;
-	params.len             = pcie_cfg->cmd_q.len;
-	params.size            = sizeof(struct cmd_desc);
-	params.attr            = MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS;
-	params.prio            = 0;
-	params.remote_phy_addr = (void *)pcie_cfg->cmd_q.q_addr;
-	params.cons_phys       = (void *)(pcie_cfg->cmd_q.consumer_idx_addr + nmnicpf->map.host_map.phys_addr);
-	params.cons_virt       = (void *)(pcie_cfg->cmd_q.consumer_idx_addr + nmnicpf->map.host_map.virt_addr);
-	params.host_remap      = nmnicpf->map.host_map.phys_addr;
-	params.peer_id         = local_cmd_queue;
-
-	/* Allocate queue from MQA */
-	ret = mqa_queue_create(nmnicpf->mqa, &(params), &(rem_cmd_queue_p));
-	if (ret < 0) {
-		pr_err("Failed to register Host Management Q\n");
-		goto exit_error;
-	}
-
+	mqa_queue_get_info(mng_ch_qs.rem_cmd_q, &q_inf);
 	/* Update PCI BAR0 with producer address (Entry index in notification table) */
-	mqa_queue_get_info(rem_cmd_queue_p, &queue_info);
-	pcie_cfg->cmd_q.producer_idx_addr = (u64)(queue_info.prod_phys - qnpt_phys) / sizeof(u32);
+	pcie_cfg->cmd_q.producer_idx_addr = (u64)(q_inf.prod_phys - qnpt_phys) / sizeof(u32);
 	if (!pcie_cfg->remote_index_location)
-		pcie_cfg->cmd_q.consumer_idx_addr = (u64)(queue_info.cons_phys - qnct_phys) / sizeof(u32);
+		pcie_cfg->cmd_q.consumer_idx_addr = (u64)(q_inf.cons_phys - qnct_phys) / sizeof(u32);
 
-	nmnicpf->mng_data.host_mng_ctrl.cmd_queue = (struct mqa_q *)rem_cmd_queue_p;
-
-
-	/* Register Host Notification queue */
-	pr_info("Register host notification queue\n");
-
-	/* Allocate queue from MQA */
-	ret = mqa_queue_alloc(nmnicpf->mqa, &remote_notify_queue);
-	if (ret < 0) {
-		pr_err("Failed to allocate queue from MQA\n");
-		goto exit_error;
-	}
-
-	memset(&params, 0, sizeof(struct mqa_queue_params));
-
-	params.idx             = remote_notify_queue;
-	params.len             = pcie_cfg->notif_q.len;
-	params.size            = sizeof(struct cmd_desc);
-	params.attr            = MQA_QUEUE_REMOTE | MQA_QUEUE_INGRESS;
-	params.prio            = 0;
-	params.remote_phy_addr = (void *)pcie_cfg->notif_q.q_addr;
-	params.prod_phys       = (void *)(pcie_cfg->notif_q.producer_idx_addr + nmnicpf->map.host_map.phys_addr);
-	params.prod_virt       = (void *)(pcie_cfg->notif_q.producer_idx_addr + nmnicpf->map.host_map.virt_addr);
-	params.host_remap      = nmnicpf->map.host_map.phys_addr;
-
-	ret = mqa_queue_create(nmnicpf->mqa, &(params), &(rem_notify_queue_p));
-	if (ret < 0) {
-		pr_err("Failed to register Host Management Q\n");
-		goto exit_error;
-	}
-
-	ret = mqa_queue_associate_pair(nmnicpf->mqa, local_notify_queue, remote_notify_queue);
-	if (ret < 0) {
-		pr_err("Failed to associate Notification queues (Src %d Dest %d)\n",
-				local_notify_queue, remote_notify_queue);
-		goto exit_error;
-	}
-
+	mqa_queue_get_info(mng_ch_qs.rem_resp_q, &q_inf);
 	/* Update PCI BAR0 with consumer address (Entry index in notification table) */
-	mqa_queue_get_info(rem_notify_queue_p, &queue_info);
-	pcie_cfg->notif_q.consumer_idx_addr = (u64)(queue_info.cons_phys - qnct_phys) / sizeof(u32);
+	pcie_cfg->notif_q.consumer_idx_addr = (u64)(q_inf.cons_phys - qnct_phys) / sizeof(u32);
 	if (!pcie_cfg->remote_index_location)
-		pcie_cfg->notif_q.producer_idx_addr = (u64)(queue_info.prod_phys - qnpt_phys) / sizeof(u32);
-
-	nmnicpf->mng_data.host_mng_ctrl.notify_queue = (struct mqa_q *)rem_notify_queue_p;
-
-	/* Register Qs in GIU */
-	/* ================== */
-
-	/* Register Command channel */
-	gie_add_queue(nmnicpf->gie.mng_gie, remote_cmd_queue, 1);
-
-	/* Register Notification channel */
-	gie_add_queue(nmnicpf->gie.mng_gie, local_notify_queue, 0);
-
+		pcie_cfg->notif_q.producer_idx_addr = (u64)(q_inf.prod_phys - qnpt_phys) / sizeof(u32);
 
 	/* Device Ready */
 	/* ============ */
@@ -1127,58 +1006,6 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	pcie_cfg->status |= PCIE_CFG_STATUS_DEV_MGMT_READY;
 
 	return 0;
-
-exit_error:
-
-	if (local_cmd_queue >= 0) {
-		if (lcl_cmd_queue_p) {
-			ret = mqa_queue_destroy(nmnicpf->mqa, lcl_cmd_queue_p);
-			if (ret < 0)
-				pr_err("Failed to free Local Cmd Q %d in DB\n", local_cmd_queue);
-			kfree(lcl_cmd_queue_p);
-		}
-		ret = mqa_queue_free(nmnicpf->mqa, local_cmd_queue);
-		if (ret < 0)
-			pr_err("Failed to free Local Cmd Q %d in MQA\n", local_cmd_queue);
-	}
-
-	if (local_notify_queue >= 0) {
-		if (lcl_notify_queue_p) {
-			ret = mqa_queue_destroy(nmnicpf->mqa, lcl_notify_queue_p);
-			if (ret < 0)
-				pr_err("Failed to free Local Notify Q %d in DB\n", local_notify_queue);
-			kfree(lcl_notify_queue_p);
-		}
-		ret = mqa_queue_free(nmnicpf->mqa, local_notify_queue);
-		if (ret < 0)
-			pr_err("Failed to free Local Notify Q %d in MQA\n", local_notify_queue);
-	}
-
-	if (remote_cmd_queue >= 0) {
-		if (rem_cmd_queue_p) {
-			ret = mqa_queue_destroy(nmnicpf->mqa, rem_cmd_queue_p);
-			if (ret < 0)
-				pr_err("Failed to free remote Cmd Q %d in DB\n", remote_cmd_queue);
-			kfree(rem_cmd_queue_p);
-		}
-		ret = mqa_queue_free(nmnicpf->mqa, remote_cmd_queue);
-		if (ret < 0)
-			pr_err("Failed to free remote Cmd Q %d in MQA\n", remote_cmd_queue);
-	}
-
-	if (remote_notify_queue >= 0) {
-		if (rem_notify_queue_p) {
-			ret = mqa_queue_destroy(nmnicpf->mqa, rem_notify_queue_p);
-			if (ret < 0)
-				pr_err("Failed to free Remote Notify Q %d in DB\n", remote_notify_queue);
-			kfree(rem_notify_queue_p);
-		}
-		ret = mqa_queue_free(nmnicpf->mqa, remote_notify_queue);
-		if (ret < 0)
-			pr_err("Failed to free Remote Notify Q %d in MQA\n", remote_notify_queue);
-	}
-
-	return ret;
 }
 
 /*
@@ -1194,6 +1021,7 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	int ret;
 	struct nmdisp_client_params params;
 	struct nmdisp_q_pair_params q_params;
+	struct giu_mng_ch_qs mng_ch_qs;
 
 	pf_topology_init(nmnicpf);
 
@@ -1201,7 +1029,7 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	memset(&(nmnicpf->topology_data), 0, sizeof(struct giu_gpio_params));
 
 	nmnicpf->topology_data.mqa = nmnicpf->mqa;
-	nmnicpf->topology_data.gie = &(nmnicpf->gie);
+	nmnicpf->topology_data.giu = nmnicpf->giu;
 
 	nmnicpf->pf_id = 0;
 	nmnicpf->nmlf.id = 0;
@@ -1226,8 +1054,10 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	if (ret)
 		return ret;
 
-	q_params.cmd_q    = nmnicpf->mng_data.lcl_mng_ctrl.cmd_queue;
-	q_params.notify_q = nmnicpf->mng_data.lcl_mng_ctrl.notify_queue;
+	giu_mng_ch_get_qs(nmnicpf->giu_mng_ch, &mng_ch_qs);
+
+	q_params.cmd_q    = mng_ch_qs.lcl_cmd_q;
+	q_params.notify_q = mng_ch_qs.lcl_resp_q;
 	q_params.ext_desc_support = 0;
 	q_params.max_msg_size = sizeof(struct mgmt_cmd_params);
 	ret = nmdisp_add_queue(nmnicpf->nmdisp, params.client_type, params.client_id, &q_params);
@@ -1275,63 +1105,7 @@ static int nmnicpf_local_queue_terminate(struct nmnicpf *nmnicpf)
  */
 static int nmnicpf_mng_chn_terminate(struct nmnicpf *nmnicpf)
 {
-	u32 local_cmd_queue, local_notify_queue;
-	u32 remote_cmd_queue, remote_notify_queue;
-	int ret = 0;
-
-	struct mqa_q *lcl_cmd_queue_p    = nmnicpf->mng_data.lcl_mng_ctrl.cmd_queue;
-	struct mqa_q *lcl_notify_queue_p = nmnicpf->mng_data.lcl_mng_ctrl.notify_queue;
-	struct mqa_q *rem_cmd_queue_p    = nmnicpf->mng_data.host_mng_ctrl.cmd_queue;
-	struct mqa_q *rem_notify_queue_p = nmnicpf->mng_data.host_mng_ctrl.notify_queue;
-
-	if (lcl_cmd_queue_p) {
-		mqa_queue_get_id(lcl_cmd_queue_p, &local_cmd_queue);
-		ret = mqa_queue_destroy(nmnicpf->mqa, lcl_cmd_queue_p);
-		if (ret < 0)
-			pr_err("Failed to free Local Cmd Q %d in DB\n", local_cmd_queue);
-		ret = mqa_queue_free(nmnicpf->mqa, local_cmd_queue);
-		if (ret < 0)
-			pr_err("Failed to free Local Cmd Q %d in MQA\n", local_cmd_queue);
-
-		kfree(lcl_cmd_queue_p);
-	}
-
-	if (lcl_notify_queue_p) {
-		mqa_queue_get_id(lcl_notify_queue_p, &local_notify_queue);
-		ret = mqa_queue_destroy(nmnicpf->mqa, lcl_notify_queue_p);
-		if (ret < 0)
-			pr_err("Failed to free Local Notify Q %d in DB\n", local_notify_queue);
-		ret = mqa_queue_free(nmnicpf->mqa, local_notify_queue);
-		if (ret < 0)
-			pr_err("Failed to free Local Notify Q %d in MQA\n", local_notify_queue);
-
-		kfree(lcl_notify_queue_p);
-	}
-
-	if (rem_cmd_queue_p) {
-		mqa_queue_get_id(rem_cmd_queue_p, &remote_cmd_queue);
-		ret = mqa_queue_destroy(nmnicpf->mqa, rem_cmd_queue_p);
-		if (ret < 0)
-			pr_err("Failed to free remote Cmd Q %d in DB\n", remote_cmd_queue);
-		ret = mqa_queue_free(nmnicpf->mqa, remote_cmd_queue);
-		if (ret < 0)
-			pr_err("Failed to free remote Cmd Q %d in MQA\n", remote_cmd_queue);
-
-		kfree(rem_cmd_queue_p);
-	}
-
-	if (rem_notify_queue_p) {
-		mqa_queue_get_id(rem_notify_queue_p, &remote_notify_queue);
-		ret = mqa_queue_destroy(nmnicpf->mqa, rem_notify_queue_p);
-		if (ret < 0)
-			pr_err("Failed to free Remote Notify Q %d in DB\n", remote_notify_queue);
-		ret = mqa_queue_free(nmnicpf->mqa, remote_notify_queue);
-		if (ret < 0)
-			pr_err("Failed to free Remote Notify Q %d in MQA\n", remote_notify_queue);
-
-		kfree(rem_notify_queue_p);
-	}
-
+	giu_mng_ch_deinit(nmnicpf->giu_mng_ch);
 	return 0;
 }
 
@@ -1387,8 +1161,10 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 
 	/* Initialize remote queues database */
 	ret = nmnicpf_topology_remote_queue_init(nmnicpf);
-	if (ret)
+	if (ret) {
 		pr_err("Failed to update remote DB queue info\n");
+		return ret;
+	}
 
 	/**
 	 * NIC PF - PP2 updates
@@ -1397,24 +1173,24 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 	for (i = 0; i < nmnicpf->pp2.num_ports; i++)
 		nmnicpf->pp2.ports_desc[i].num_tcs = params->pf_init.num_host_ingress_tc;
 
-#ifndef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	/* Initialize local queues database */
-	ret = nmnicpf_topology_local_queue_init(nmnicpf);
-	if (ret) {
-		pr_err("Failed to update local DB queue info\n");
-		goto pf_init_exit;
+	if (giu_get_multi_qs_mode(nmnicpf->giu) == GIU_MULTI_QS_MODE_REAL) {
+		/* Initialize local queues database */
+		ret = nmnicpf_topology_local_queue_init(nmnicpf);
+		if (ret) {
+			pr_err("Failed to update local DB queue info\n");
+			return ret;
+		}
+		/* Allocate and configure local queues in the database */
+		ret = nmnicpf_topology_local_queue_cfg(nmnicpf);
+		if (ret) {
+			pr_err("Failed to configure PF regfile\n");
+			return ret;
+		}
 	}
-
-	/* Allocate and configure local queues in the database */
-	ret = nmnicpf_topology_local_queue_cfg(nmnicpf);
-	if (ret)
-		pr_err("Failed to configure PF regfile\n");
-pf_init_exit:
-#endif
 
 	pr_debug("PF INIT, Done\n\n");
 
-	return ret;
+	return 0;
 }
 
 
@@ -1565,7 +1341,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	/* Init queue parameters */
 	giu_gpio_q.rem_q.q_id         = q_id;
 	giu_gpio_q.rem_q.len          = params->pf_ingress_data_q_add.q_len;
-	giu_gpio_q.rem_q.size         = gie_get_desc_size(RX_DESC);
+	giu_gpio_q.rem_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_OUT);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.q_phys_addr;
 	giu_gpio_q.rem_q.prod_base_pa = (phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.q_prod_phys_addr +
 										nmnicpf->map.host_map.phys_addr);
@@ -1670,7 +1446,7 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 
 	giu_gpio_q.rem_q.q_id         = q_id;
 	giu_gpio_q.rem_q.len          = params->pf_egress_q_add.q_len;
-	giu_gpio_q.rem_q.size         = gie_get_desc_size(TX_DESC);
+	giu_gpio_q.rem_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_IN);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_egress_q_add.q_phys_addr;
 	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(uintptr_t)(params->pf_egress_q_add.q_cons_phys_addr +
 										nmnicpf->map.host_map.phys_addr);
@@ -1840,27 +1616,27 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 {
 	int ret;
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
+	if (giu_get_multi_qs_mode(nmnicpf->giu) == GIU_MULTI_QS_MODE_VIRT) {
+		struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
 
-	/* Override Local Ingress number of queues */
-	nmnicpf->profile_data.lcl_ingress_q_num =
-		q_top->outtcs_params.outtc_params[0].num_rem_inqs;
+		/* Override Local Ingress number of queues */
+		nmnicpf->profile_data.lcl_ingress_q_num =
+			q_top->outtcs_params.outtc_params[0].num_rem_inqs;
 
-	/* Override Local Egress number of queues */
-	nmnicpf->profile_data.lcl_egress_q_num =
-		q_top->intcs_params.intc_params[0].num_rem_outqs;
+		/* Override Local Egress number of queues */
+		nmnicpf->profile_data.lcl_egress_q_num =
+			q_top->intcs_params.intc_params[0].num_rem_outqs;
 
-	/* Initialize local queues database */
-	ret = nmnicpf_topology_local_queue_init(nmnicpf);
-	if (ret)
-		pr_err("Failed to update local DB queue info\n");
+		/* Initialize local queues database */
+		ret = nmnicpf_topology_local_queue_init(nmnicpf);
+		if (ret)
+			pr_err("Failed to update local DB queue info\n");
 
-	/* Allocate and configure local queues in the database */
-	ret = nmnicpf_topology_local_queue_cfg(nmnicpf);
-	if (ret)
-		pr_err("Failed to configure PF regfile\n");
-#endif
+		/* Allocate and configure local queues in the database */
+		ret = nmnicpf_topology_local_queue_cfg(nmnicpf);
+		if (ret)
+			pr_err("Failed to configure PF regfile\n");
+	}
 
 	ret = giu_bpool_init(&(nmnicpf->topology_data), &(nmnicpf->giu_bpool));
 	if (ret)
@@ -1995,11 +1771,11 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 	 * TODO: implement other stages
 	 */
 
-	/* Free Data Qs and Un-register in MQA/GIE */
+	/* Free Data Qs and Un-register in MQA/GIU */
 	pr_debug("Free Data Qs\n");
 	giu_gpio_deinit(nmnicpf->giu_gpio);
 
-	/* Free BPools and Un-register in MQA/GIE */
+	/* Free BPools and Un-register in MQA/GIU */
 	pr_debug("Free BM Qs\n");
 	giu_bpool_deinit(nmnicpf->giu_bpool);
 

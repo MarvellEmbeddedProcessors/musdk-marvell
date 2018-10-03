@@ -12,13 +12,13 @@
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/giu_regfile_def.h"
 #include "hw_emul/gie.h"
-#include "giu_queue_topology.h"
-#include "giu_internal.h"
-#include "crc.h"
 
 #include "lib/lib_misc.h"
 #include "lib/net.h"
-#include "hw_emul/gie.h"
+
+#include "giu_queue_topology.h"
+#include "giu_internal.h"
+#include "crc.h"
 
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
@@ -46,10 +46,37 @@ struct giu_gpio {
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 	struct giu_gpio_shadow_queue shadow_queue[GIU_MAX_NUM_TC];
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
 };
 
+
 static struct giu_gpio gpio_array[GIU_MAX_NUM_GPIO];
+
+
+static int free_tc_queues(struct mqa *mqa, struct gie *gie,
+	union giu_gpio_q_params *giu_gpio_q_p, u32 queue_num, u32 queue_type)
+{
+	u32 q_idx;
+	u32 q_num;
+	int ret;
+
+	for (q_idx = 0; q_idx < queue_num; q_idx++) {
+
+		(queue_type == GIU_LCL_Q_IND) ?
+			(q_num = giu_gpio_q_p->lcl_q.q_id) :
+			(q_num = giu_gpio_q_p->rem_q.q_id);
+
+		mqa_queue_free(mqa, q_num);
+
+		/* If needed, unregister the queue from GIU polling */
+		if (gie) {
+			ret = gie_remove_queue(gie, q_num);
+			if (ret)
+				pr_err("Failed to remove queue Idx %x from GIU TX\n", q_num);
+		}
+	}
+
+	return 0;
+}
 
 
 int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
@@ -189,7 +216,8 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 					goto host_ing_queue_error;
 				}
 
-				ret = gie_add_queue(params->gie->rx_gie, pair_qid, GIU_LCL_Q_IND);
+				ret = gie_add_queue(giu_get_gie_handle(params->giu, GIU_ENG_OUT),
+						pair_qid, GIU_LCL_Q_IND);
 				if (ret) {
 					pr_err("Failed to register Host Egress Queue %d to GIU\n",
 						   giu_gpio_q_p->rem_q.q_id);
@@ -247,7 +275,8 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 				}
 
 				/* Register Host Egress Queue to GIU */
-				ret = gie_add_queue(params->gie->tx_gie, giu_gpio_q_p->rem_q.q_id, GIU_REM_Q_IND);
+				ret = gie_add_queue(giu_get_gie_handle(params->giu, GIU_ENG_IN),
+						giu_gpio_q_p->rem_q.q_id, GIU_REM_Q_IND);
 				if (ret) {
 					pr_err("Failed to register Host Egress Queue %d to GIU\n",
 						   giu_gpio_q_p->rem_q.q_id);
@@ -267,8 +296,8 @@ host_eg_queue_error:
 		/* Free queue resources and registrations.
 		 * for Egress, also un-register from Tx GIU.
 		 */
-		ret = giu_free_tc_queues(params->mqa, intc->rem_outqs_params,
-							intc->num_rem_outqs, GIU_REM_Q_IND, params->gie->tx_gie);
+		ret = free_tc_queues(params->mqa, giu_get_gie_handle(params->giu, GIU_ENG_IN),
+				intc->rem_outqs_params, intc->num_rem_outqs, GIU_REM_Q_IND);
 		if (ret)
 			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
@@ -281,8 +310,8 @@ host_ing_queue_error:
 		/* Free queue resources and registrations.
 		 * No need to unregister the Q from GIU as it's done on local side.
 		 */
-		ret = giu_free_tc_queues(params->mqa, outtc->rem_inqs_params,
-							outtc->num_rem_inqs, GIU_REM_Q_IND, 0);
+		ret = free_tc_queues(params->mqa, NULL,
+				outtc->rem_inqs_params, outtc->num_rem_inqs, GIU_REM_Q_IND);
 		if (ret)
 			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
@@ -295,8 +324,8 @@ lcl_ing_queue_error:
 		/* Free queue resources and registrations.
 		 * for Ingress, also un-register from Rx GIU.
 		 */
-		ret = giu_free_tc_queues(params->mqa, outtc->outqs_params,
-							outtc->num_outqs, GIU_LCL_Q_IND, params->gie->rx_gie);
+		ret = free_tc_queues(params->mqa, giu_get_gie_handle(params->giu, GIU_ENG_OUT),
+				outtc->outqs_params, outtc->num_outqs, GIU_LCL_Q_IND);
 		if (ret)
 			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
@@ -309,8 +338,8 @@ lcl_eg_queue_error:
 		/* Free queue resources and registrations.
 		 * No need to unregister the Q from GIU as it was done on remote side.
 		 */
-		ret = giu_free_tc_queues(params->mqa, intc->inqs_params,
-							intc->num_inqs, GIU_LCL_Q_IND, 0);
+		ret = free_tc_queues(params->mqa, NULL,
+				intc->inqs_params, intc->num_inqs, GIU_LCL_Q_IND);
 		if (ret)
 			pr_err("Failed to free TC %d queues\n", tc_idx);
 	}
@@ -339,8 +368,8 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
 			giu_gpio_q_p = &(intc->rem_outqs_params[q_idx]);
 			if (giu_gpio_q_p) {
-				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->rem_q.q,
-							HOST_EGRESS_DATA_QUEUE, params->gie->tx_gie);
+				ret = giu_destroy_q(params->giu, GIU_ENG_IN, params->mqa,
+						giu_gpio_q_p->rem_q.q, HOST_EGRESS_DATA_QUEUE);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->rem_q.q_id);
 			}
@@ -355,8 +384,8 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
 			giu_gpio_q_p = &(outtc->rem_inqs_params[q_idx]);
 			if (giu_gpio_q_p) {
-				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->rem_q.q,
-							HOST_INGRESS_DATA_QUEUE, 0);
+				ret = giu_destroy_q(params->giu, GIU_ENG_OUT_OF_RANGE, params->mqa,
+						giu_gpio_q_p->rem_q.q, HOST_INGRESS_DATA_QUEUE);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->rem_q.q_id);
 			}
@@ -371,8 +400,8 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
 			giu_gpio_q_p = &(outtc->outqs_params[q_idx]);
 			if (giu_gpio_q_p) {
-				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->lcl_q.q,
-							LOCAL_INGRESS_DATA_QUEUE, params->gie->rx_gie);
+				ret = giu_destroy_q(params->giu, GIU_ENG_OUT, params->mqa,
+						giu_gpio_q_p->lcl_q.q, LOCAL_INGRESS_DATA_QUEUE);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->lcl_q.q_id);
 			}
@@ -387,8 +416,8 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
 			giu_gpio_q_p = &(intc->inqs_params[q_idx]);
 			if (giu_gpio_q_p) {
-				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->lcl_q.q,
-							LOCAL_EGRESS_DATA_QUEUE, 0);
+				ret = giu_destroy_q(params->giu, GIU_ENG_OUT_OF_RANGE, params->mqa,
+						giu_gpio_q_p->lcl_q.q, LOCAL_EGRESS_DATA_QUEUE);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->lcl_q.q_id);
 			}
@@ -1026,8 +1055,8 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				return -1;
 			}
 			giu_gpio_q_p_in  = &(intc->rem_outqs_params[qid]);
-			ret = gie_get_queue_stats(params->gie->tx_gie, giu_gpio_q_p_in->rem_q.q_id,
-								 &stats->packets, reset);
+			ret = gie_get_queue_stats(giu_get_gie_handle(params->giu, GIU_ENG_IN),
+					giu_gpio_q_p_in->rem_q.q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: remote out tc:%d q:%d\n", tc, qid);
 				return ret;
@@ -1045,8 +1074,8 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				return -1;
 			}
 			giu_gpio_q_p_out = &(outtc->outqs_params[qid]);
-			ret = gie_get_queue_stats(params->gie->rx_gie, giu_gpio_q_p_out->rem_q.q_id,
-								 &stats->packets, reset);
+			ret = gie_get_queue_stats(giu_get_gie_handle(params->giu, GIU_ENG_OUT),
+					giu_gpio_q_p_out->rem_q.q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: remote in tc:%d q:%d\n", tc, qid);
 				return ret;
@@ -1065,8 +1094,8 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				return -1;
 			}
 			giu_gpio_q_p_out = &(outtc->outqs_params[qid]);
-			ret = gie_get_queue_stats(params->gie->rx_gie, giu_gpio_q_p_out->lcl_q.q_id,
-								 &stats->packets, reset);
+			ret = gie_get_queue_stats(giu_get_gie_handle(params->giu, GIU_ENG_OUT),
+					giu_gpio_q_p_out->lcl_q.q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: local out tc:%d q:%d\n", tc, qid);
 				return ret;
@@ -1084,8 +1113,8 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				return -1;
 			}
 			giu_gpio_q_p_in  = &(intc->rem_outqs_params[qid]);
-			ret = gie_get_queue_stats(params->gie->tx_gie, giu_gpio_q_p_in->lcl_q.q_id,
-								 &stats->packets, reset);
+			ret = gie_get_queue_stats(giu_get_gie_handle(params->giu, GIU_ENG_IN),
+					giu_gpio_q_p_in->lcl_q.q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: local in tc:%d q:%d\n", tc, qid);
 				return ret;

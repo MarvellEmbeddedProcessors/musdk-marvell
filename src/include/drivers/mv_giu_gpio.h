@@ -118,7 +118,7 @@ struct giu_gpio_params {
 	u8 id;
 
 	struct mqa *mqa;
-	struct gie_data *gie;
+	struct giu *giu;
 
 	struct giu_gpio_intcs_params  intcs_params;
 	struct giu_gpio_outtcs_params outtcs_params;

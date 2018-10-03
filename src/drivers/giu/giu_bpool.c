@@ -11,9 +11,10 @@
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/mv_giu_bpool.h"
 #include "hw_emul/gie.h"
+#include "lib/lib_misc.h"
+
 #include "giu_queue_topology.h"
 #include "giu_internal.h"
-#include "lib/lib_misc.h"
 
 struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS] = {0};
 
@@ -59,8 +60,8 @@ int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool)
 			}
 
 			/* Register Local BM Queue to GIU */
-			ret = gie_add_bm_queue(params->gie->tx_gie, mqa_params.idx,
-									intc->pool_buf_size, GIU_LCL_Q_IND);
+			ret = gie_add_bm_queue(giu_get_gie_handle(params->giu, GIU_ENG_IN),
+					mqa_params.idx, intc->pool_buf_size, GIU_LCL_Q_IND);
 			if (ret) {
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto lcl_queue_error;
@@ -99,7 +100,8 @@ int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool)
 			}
 
 			/* Register Host BM Queue to GIU */
-			ret = gie_add_bm_queue(params->gie->rx_gie, mqa_params.idx, mqa_params.size, GIU_REM_Q_IND);
+			ret = gie_add_bm_queue(giu_get_gie_handle(params->giu, GIU_ENG_OUT),
+					mqa_params.idx, mqa_params.size, GIU_REM_Q_IND);
 			if (ret) {
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto host_queue_error;
@@ -122,7 +124,8 @@ host_queue_error:
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 
 			if (giu_gpio_q_p->rem_q.q_id) {
-				ret = gie_remove_bm_queue(params->gie->rx_gie, giu_gpio_q_p->rem_q.q_id);
+				ret = gie_remove_bm_queue(giu_get_gie_handle(params->giu, GIU_ENG_OUT),
+					giu_gpio_q_p->rem_q.q_id);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x from GIU TX\n", giu_gpio_q_p->rem_q.q_id);
 
@@ -148,7 +151,8 @@ lcl_queue_error:
 			giu_gpio_q_p = &(intc->pools[bm_idx]);
 
 			if (giu_gpio_q_p->lcl_q.q_id) {
-				ret = gie_remove_bm_queue(params->gie->tx_gie, giu_gpio_q_p->lcl_q.q_id);
+				ret = gie_remove_bm_queue(giu_get_gie_handle(params->giu, GIU_ENG_IN),
+					giu_gpio_q_p->lcl_q.q_id);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x from GIU TX\n", giu_gpio_q_p->lcl_q.q_id);
 
@@ -187,8 +191,8 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
 			if (giu_gpio_q_p->rem_q.q_id) {
-				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->rem_q.q,
-								HOST_BM_QUEUE, params->gie->rx_gie);
+				ret = giu_destroy_q(params->giu, GIU_ENG_OUT, params->mqa,
+						giu_gpio_q_p->rem_q.q, HOST_BM_QUEUE);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->rem_q.q_id);
 			}
@@ -205,8 +209,8 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 
 			giu_gpio_q_p = &(intc->pools[bm_idx]);
 			if (giu_gpio_q_p) {
-				ret = giu_queue_remove(params->mqa, giu_gpio_q_p->lcl_q.q,
-								LOCAL_BM_QUEUE, params->gie->tx_gie);
+				ret = giu_destroy_q(params->giu, GIU_ENG_IN, params->mqa,
+						giu_gpio_q_p->lcl_q.q, LOCAL_BM_QUEUE);
 				if (ret)
 					pr_err("Failed to remove queue Idx %x\n", giu_gpio_q_p->lcl_q.q_id);
 			}

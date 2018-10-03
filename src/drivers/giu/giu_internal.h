@@ -8,6 +8,14 @@
 #ifndef __GIU_INTERNAL_H__
 #define __GIU_INTERNAL_H__
 
+#include "std_internal.h"
+#include "drivers/mv_mqa.h"
+#include "drivers/mv_giu.h"
+#include "drivers/mv_giu_gpio.h"
+#include "hw_emul/gie.h"
+
+#define GIU_LCL_Q_IND (0)
+#define GIU_REM_Q_IND (1)
 
 /**
  * queue type
@@ -25,23 +33,29 @@ enum queue_type {
 
 };
 
-#define GIU_LCL_Q_IND (0)
-#define GIU_REM_Q_IND (1)
+struct giu {
+	enum giu_indices_copy_mode	 indices_mode;
 
-/**
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int giu_free_tc_queues(struct mqa *mqa, union giu_gpio_q_params *giu_gpio_q,
-						u32 queue_num, u32 queue_type, void *gie);
+	struct mqa			*mqa;
+	struct gie			*gies[GIU_ENG_OUT_OF_RANGE];
+};
 
-/**
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int giu_queue_remove(struct mqa *mqa, struct mqa_q *q,
-					 enum queue_type queue_type, void *giu_handle);
+struct giu_mng_ch {
+	struct giu	*giu;
+
+	u32		 lcl_cmd_q_idx;
+	struct mqa_q	*lcl_cmd_q;
+	u32		 lcl_resp_q_idx;
+	struct mqa_q	*lcl_resp_q;
+	u32		 rem_cmd_q_idx;
+	struct mqa_q	*rem_cmd_q;
+	u32		 rem_resp_q_idx;
+	struct mqa_q	*rem_resp_q;
+};
+
+int giu_destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
+	struct mqa_q *q, enum queue_type queue_type);
+
+struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng);
 
 #endif /* __GIU_INTERNAL_H__ */

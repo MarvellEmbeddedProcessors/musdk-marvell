@@ -6,6 +6,7 @@
 *******************************************************************************/
 
 #include "std_internal.h"
+#include "drivers/mv_giu.h"
 #include "mng/mv_nmp.h"
 #include "db.h"
 #include "dev_mng.h"
@@ -126,18 +127,18 @@ int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type, u16 *pending)
 	switch (type) {
 
 	case NMP_SCHED_MNG:
-		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS, pending);
+		giu_schedule(nmp->nmnicpf.giu, GIU_ENG_MNG, 0, SCHED_MAX_MNG_ELEMENTS, pending);
 		nmdisp_dispatch(nmp->nmdisp);
 		((struct nmlf *)&nmp->nmnicpf)->f_maintenance_cb((struct nmlf *)&nmp->nmnicpf);
-		gie_schedule(nmp->nmnicpf.gie.mng_gie, 0, SCHED_MAX_MNG_ELEMENTS, pending);
+		giu_schedule(nmp->nmnicpf.giu, GIU_ENG_MNG, 0, SCHED_MAX_MNG_ELEMENTS, pending);
 		break;
 
 	case NMP_SCHED_RX:
-		ans = gie_schedule(nmp->nmnicpf.gie.rx_gie, 0, SCHED_MAX_DATA_ELEMENTS, pending);
+		ans = giu_schedule(nmp->nmnicpf.giu, GIU_ENG_OUT, 0, SCHED_MAX_DATA_ELEMENTS, pending);
 		break;
 
 	case NMP_SCHED_TX:
-		ans = gie_schedule(nmp->nmnicpf.gie.tx_gie, 0, SCHED_MAX_DATA_ELEMENTS, pending);
+		ans = giu_schedule(nmp->nmnicpf.giu, GIU_ENG_IN, 0, SCHED_MAX_DATA_ELEMENTS, pending);
 		break;
 	}
 	return ans;
@@ -145,17 +146,17 @@ int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type, u16 *pending)
 
 int nmp_create_scheduling_event(struct nmp *nmp, struct nmp_event_params *params, struct mv_sys_event **ev)
 {
-	return gie_create_event(nmp->nmnicpf.gie.tx_gie, (struct gie_event_params *)params, ev);
+	return giu_create_event(nmp->nmnicpf.giu, (struct giu_event_params *)params, ev);
 }
 
 int nmp_delete_scheduling_event(struct mv_sys_event *ev)
 {
-	return gie_delete_event(ev);
+	return giu_delete_event(ev);
 }
 
 int nmp_set_scheduling_event(struct mv_sys_event *ev, int en)
 {
-	return gie_set_event(ev, en);
+	return giu_set_event(ev, en);
 }
 
 int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)

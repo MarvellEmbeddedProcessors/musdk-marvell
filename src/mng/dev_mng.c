@@ -9,8 +9,8 @@
 
 #include "std_internal.h"
 #include "env/trace/trc_pf.h"
-#include "hw_emul/gie.h"
 #include "drivers/mv_mqa.h"
+#include "drivers/mv_giu.h"
 #include "db.h"
 #include "lf/lf_mng.h"
 #include "lf/pf/pf.h"
@@ -27,6 +27,7 @@
 #include "dispatch.h"
 
 #define PLAT_AGNIC_UIO_NAME "agnic"
+
 
 /** =========================== **/
 /** == Device Initialization == **/
@@ -217,68 +218,37 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 }
 
 
-/* Initialize the management, TX, and RX gie instances */
-static int dev_mng_init_gie(struct nmp *nmp)
+/* Initialize the GIU instance */
+static int dev_mng_init_giu(struct nmp *nmp)
 {
-	struct gie_params gie_pars;
-	struct mqa_info mqa_info;
-	char dma_name[16];
+	struct giu_params giu_params;
+	char dma_mng_name[16],  dma_rx_name[16],  dma_tx_name[16];
 	int ret;
 
 	/* Initialize the management GIU instance */
 	pr_info("Initializing GIU devices\n");
 
-	/* Mgmt GIE */
-	mqa_get_info(nmp->nmnicpf.mqa, &mqa_info);
-	gie_pars.gct_base = (u64)mqa_info.qct_va;
-	gie_pars.gpt_base = (u64)mqa_info.qpt_va;
-	gie_pars.msi_regs_phys = (u64)nmp->nmnicpf.map.msi_regs.phys_addr;
-	gie_pars.msi_regs_virt = (u64)nmp->nmnicpf.map.msi_regs.virt_addr;
+	memset(&giu_params, 0, sizeof(giu_params));
+	giu_params.mqa = nmp->nmnicpf.mqa;
+	giu_params.msi_regs_pa = (u64)nmp->nmnicpf.map.msi_regs.phys_addr;
+	giu_params.msi_regs_va = (u64)nmp->nmnicpf.map.msi_regs.virt_addr;
 
-	sprintf(dma_name, "dmax2-%d", 0);
-	gie_pars.dmax_match = dma_name;
-	gie_pars.name_match = (char *)"mng";
+	sprintf(dma_mng_name, "dmax2-%d", 0);
+	giu_params.mng_gie_params.dma_eng_match = dma_mng_name;
 
-	ret = gie_init(&gie_pars, &(nmp->nmnicpf.gie.mng_gie));
+	sprintf(dma_rx_name, "dmax2-%d", 1);
+	giu_params.out_gie_params.dma_eng_match = dma_rx_name;
+
+	sprintf(dma_tx_name, "dmax2-%d", 2);
+	giu_params.in_gie_params.dma_eng_match = dma_tx_name;
+
+	ret = giu_init(&giu_params, &nmp->nmnicpf.giu);
 	if (ret) {
-		pr_err("Failed to initialize management GIU\n");
+		pr_err("Failed to initialize GIU!\n");
 		return -ENODEV;
 	}
 
-	/* RX GIE */
-	gie_pars.msi_regs_phys = (u64)nmp->nmnicpf.map.msi_regs.phys_addr;
-	gie_pars.msi_regs_virt = (u64)nmp->nmnicpf.map.msi_regs.virt_addr;
-	sprintf(dma_name, "dmax2-%d", 1);
-	gie_pars.dmax_match = dma_name;
-	gie_pars.name_match = (char *)"rx";
-
-	ret = gie_init(&gie_pars, &(nmp->nmnicpf.gie.rx_gie));
-	if (ret) {
-		pr_err("Failed to initialize RX GIU\n");
-		goto error;
-	}
-
-	/* TX GIE */
-	gie_pars.msi_regs_phys = (u64)nmp->nmnicpf.map.msi_regs.phys_addr;
-	gie_pars.msi_regs_virt = (u64)nmp->nmnicpf.map.msi_regs.virt_addr;
-	sprintf(dma_name, "dmax2-%d", 2);
-	gie_pars.dmax_match = dma_name;
-	gie_pars.name_match = (char *)"tx";
-
-	ret = gie_init(&gie_pars, &(nmp->nmnicpf.gie.tx_gie));
-	if (ret) {
-		pr_err("Failed to initialize TX GIU\n");
-		goto error;
-	}
-
 	return 0;
-
-error:
-	gie_terminate(nmp->nmnicpf.gie.mng_gie);
-	if (nmp->nmnicpf.gie.rx_gie)
-		gie_terminate(nmp->nmnicpf.gie.rx_gie);
-
-	return -ENODEV;
 }
 
 
@@ -325,7 +295,7 @@ static int dev_mng_hw_init(struct nmp *nmp)
 			return ret;
 	}
 
-	ret = dev_mng_init_gie(nmp);
+	ret = dev_mng_init_giu(nmp);
 	if (ret)
 		return ret;
 
@@ -453,21 +423,10 @@ int dev_mng_init(struct nmp *nmp)
 
 static int dev_mng_terminate_giu(struct nmp *nmp)
 {
-	int ret;
+	if (nmp->nmnicpf.giu)
+		giu_deinit(nmp->nmnicpf.giu);
 
-	ret = gie_terminate(nmp->nmnicpf.gie.mng_gie);
-	if (ret)
-		pr_warn("Failed to close management GIU\n");
-
-	ret = gie_terminate(nmp->nmnicpf.gie.rx_gie);
-	if (ret)
-		pr_warn("Failed to close RX GIU\n");
-
-	ret = gie_terminate(nmp->nmnicpf.gie.tx_gie);
-	if (ret)
-		pr_warn("Failed to close TX GIU\n");
-
-	return ret;
+	return 0;
 }
 
 

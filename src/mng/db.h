@@ -12,9 +12,9 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "lf/pf/pf_queue_topology.h"
+#include "drivers/mv_giu.h"
 #include "lf/pf/pf_profile.h"
 #include "drivers/mv_giu_gpio.h"
-#include "hw_emul/gie.h"
 #include "mng/mv_nmp.h"
 #include "drivers/mv_pp2_ppio.h"
 #include "drivers/mv_pp2_cls.h"
@@ -135,7 +135,7 @@ struct nmnicpf {
 	u32 guest_id;
 	int initialized;
 	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
-	struct gie_data gie;                        /* GIE */
+	struct giu *giu;
 	struct pp2_data pp2;                        /* PP2 */
 	struct pp2_ppio_statistics stats;	    /* PP2 Statistics */
 	struct mqa *mqa;                            /* MQA */
@@ -144,7 +144,7 @@ struct nmnicpf {
 	struct giu_gpio *giu_gpio;                  /* GIU Gpio */
 	struct giu_bpool *giu_bpool;                /* GIU Bpool */
 	struct giu_gpio_params topology_data;  /* GIU Queue Topology */
-	struct giu_mng_topology mng_data;           /* GIU Management Topology */
+	struct giu_mng_ch *giu_mng_ch;
 	struct giu_regfile regfile_data;            /* GIU Register File */
 	void (*f_ready_cb)(void *arg);
 	void *arg;

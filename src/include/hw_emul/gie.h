@@ -15,12 +15,6 @@
 
 struct gie;
 
-struct gie_data {
-	struct gie *mng_gie;
-	struct gie *rx_gie;
-	struct gie *tx_gie;
-};
-
 struct gie_params {
 	u64 gct_base;
 	u64 gpt_base;
