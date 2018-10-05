@@ -1066,45 +1066,6 @@ int pp2_ppio_inq_get_statistics(struct pp2_ppio *ppio, u8 tc, u8 qid,
  *	Run-time Control API
  ****************************************************************************/
 
-enum mv_net_link_speed {
-	MV_NET_LINK_SPEED_AN = 0,
-	MV_NET_LINK_SPEED_10,
-	MV_NET_LINK_SPEED_100,
-	MV_NET_LINK_SPEED_1000,
-	MV_NET_LINK_SPEED_2500,
-	MV_NET_LINK_SPEED_10000,
-};
-
-enum mv_net_link_duplex {
-	MV_NET_LINK_DUPLEX_AN = 0,
-	MV_NET_LINK_DUPLEX_HALF,
-	MV_NET_LINK_DUPLEX_FULL
-};
-
-enum mv_net_phy_mode {
-	MV_NET_PHY_MODE_NONE = 0,
-	MV_NET_PHY_MODE_MII,
-	MV_NET_PHY_MODE_GMII,
-	MV_NET_PHY_MODE_SGMII,
-	MV_NET_PHY_MODE_TBI,
-	MV_NET_PHY_MODE_REVMII,
-	MV_NET_PHY_MODE_RMII,
-	MV_NET_PHY_MODE_RGMII,
-	MV_NET_PHY_MODE_RGMII_ID,
-	MV_NET_PHY_MODE_RGMII_RXID,
-	MV_NET_PHY_MODE_RGMII_TXID,
-	MV_NET_PHY_MODE_RTBI,
-	MV_NET_PHY_MODE_SMII,
-	MV_NET_PHY_MODE_XGMII,
-	MV_NET_PHY_MODE_MOCA,
-	MV_NET_PHY_MODE_QSGMII,
-	MV_NET_PHY_MODE_XAUI,
-	MV_NET_PHY_MODE_RXAUI,
-	MV_NET_PHY_MODE_KR,
-	MV_NET_PHY_MODE_OUT_OF_RANGE,
-};
-
-
 /**
  * pp2 ppio link info
  *
