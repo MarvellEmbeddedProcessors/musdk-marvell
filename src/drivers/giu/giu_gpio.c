@@ -870,18 +870,18 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
 {
-	static u8 curr_qid;
+	static u8 curr_qid[GIU_MAX_NUM_TC];
 	u8 i;
 	u16 recv_req = *num, total_got = 0;
 	struct giu_gpio_probe_params *gpio_probe_params = gpio->probe_params;
 
 	for (i = 0; (i < gpio_probe_params->inqs_params.tcs[tc].num_qs) && (total_got != recv_req); i++) {
 		*num = recv_req - total_got;
-		giu_gpio_recv_internal(gpio, tc, curr_qid, &descs[total_got], num);
+		giu_gpio_recv_internal(gpio, tc, curr_qid[tc], &descs[total_got], num);
 		total_got += *num;
-		curr_qid++;
-		if (curr_qid == gpio_probe_params->inqs_params.tcs[tc].num_qs)
-			curr_qid = 0;
+		curr_qid[tc]++;
+		if (curr_qid[tc] == gpio_probe_params->inqs_params.tcs[tc].num_qs)
+			curr_qid[tc] = 0;
 	}
 
 	*num = total_got;
