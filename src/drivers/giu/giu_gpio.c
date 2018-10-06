@@ -44,7 +44,7 @@ struct giu_gpio {
 	struct giu_gpio_probe_params	*probe_params; /**< q topology parameters */
 	struct giu_gpio_params	*params; /**< q topology initialization parameters */
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	struct giu_gpio_shadow_queue shadow_queue;
+	struct giu_gpio_shadow_queue shadow_queue[GIU_MAX_NUM_TC];
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 };
@@ -402,7 +402,7 @@ int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
 {
 	u8 match_params[2];
 	int giu_id, gpio_id;
-	int ret;
+	int tc, ret;
 
 	if (mv_sys_match(match, "gpio", 2, match_params))
 		return(-ENXIO);
@@ -435,28 +435,40 @@ int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
 	*gpio = &gpio_array[giu_id];
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	struct giu_gpio_queue *txq = &(*gpio)->probe_params->outqs_params.tcs[0].queues[0];
+	for (tc = 0; tc < (*gpio)->probe_params->outqs_params.num_tcs; tc++) {
+		/* we assume that all Qs (in a secific TC) has the same size */
+		struct giu_gpio_queue *txq = &(*gpio)->probe_params->outqs_params.tcs[tc].queues[0];
 
-	(*gpio)->shadow_queue.desc_ring_base =
-		kzalloc(sizeof(struct giu_gpio_shadow_desc) * txq->desc_total, GFP_KERNEL);
-	if ((*gpio)->shadow_queue.desc_ring_base == NULL) {
-		pr_err("Failed to allocate GIU GPIO shadow-queue for RSS\n");
-		return -1;
+		(*gpio)->shadow_queue[tc].desc_ring_base =
+			kzalloc(sizeof(struct giu_gpio_shadow_desc) * txq->desc_total, GFP_KERNEL);
+		if ((*gpio)->shadow_queue[tc].desc_ring_base == NULL) {
+			pr_err("Failed to allocate GIU GPIO TC %d shadow-queue for RSS\n", tc);
+			goto probe_error;
+		}
+
+		(*gpio)->shadow_queue[tc].desc_total = txq->desc_total;
+		(*gpio)->shadow_queue[tc].prod_val = 0;
+		(*gpio)->shadow_queue[tc].cons_val = 0;
 	}
-
-	(*gpio)->shadow_queue.desc_total = txq->desc_total;
-	(*gpio)->shadow_queue.prod_val = 0;
-	(*gpio)->shadow_queue.cons_val = 0;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 	return 0;
+
+probe_error:
+	while (tc--)
+		kfree((*gpio)->shadow_queue[tc].desc_ring_base);
+
+	return -1;
 }
 
 void giu_gpio_remove(struct giu_gpio *gpio)
 {
+	int tc;
+
 	pr_err("giu_gpio_remove is not implemented\n");
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	kfree(gpio->shadow_queue.desc_ring_base);
+	for (tc = 0; tc < gpio->probe_params->outqs_params.num_tcs; tc++)
+		kfree(gpio->shadow_queue[tc].desc_ring_base);
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 }
 
@@ -541,7 +553,7 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_desc *descs, u16 *num)
 {
-	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue;
+	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue[tc];
 	struct giu_gpio_tc *gpio_tc = &gpio->probe_params->outqs_params.tcs[tc];
 	struct giu_gpio_queue *txq;
 	struct giu_gpio_desc *tx_ring_base;
@@ -747,7 +759,7 @@ int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
  */
 int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 {
-	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue;
+	struct giu_gpio_shadow_queue *txq_shadow = &gpio->shadow_queue[tc];
 	struct giu_gpio_shadow_desc *desc;
 	struct giu_gpio_tc *gpio_tc = &gpio->probe_params->outqs_params.tcs[tc];
 	u16 shadow_q_tx_num;
