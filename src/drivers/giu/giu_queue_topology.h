@@ -10,7 +10,7 @@
 
 
 #define GIU_MAX_NUM_GPIO		3 /**< Maximum number of gpio instances */
-#define GIU_MAX_NUM_TC			3
+#define GIU_MAX_NUM_TC			8
 
 /** @addtogroup grp_giu_queue_toppology Queue Topology
  *
