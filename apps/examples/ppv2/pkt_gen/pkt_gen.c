@@ -81,13 +81,17 @@
 
 #define PKT_GEN_APP_MAX_TOTAL_FRM_CNT		UINT32_MAX
 
+#define PKT_GEN_APP_LTNC_FRM_CNT		10000000
+#define PKT_GEN_APP_LTNC_BURST			16
+#define PKT_GEN_APP_LTNC_MINE			15
+
 #define  PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #define PKT_GEN_APP_HW_TX_L4_CHKSUM_CALC	1
 #define PKT_GEN_APP_HW_TX_IPV4_CHKSUM_CALC	1
 #endif /* PKT_GEN_APP_HW_TX_CHKSUM_CALC */
 
-#define PKT_GEN_APP_PREFETCH_SHIFT	4
+#define PKT_GEN_APP_PREFETCH_SHIFT		4
 
 #define PKT_GEN_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 4096, 0, NULL} }
 #define PKT_GEN_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
@@ -133,6 +137,7 @@ struct glob_arg {
 	int			running;
 	int			rx;
 	int			tx;
+	int			latency;
 	u32			total_frm_cnt;
 
 	struct ip_range		src_ip;
@@ -160,6 +165,10 @@ struct local_arg {
 	struct buffer_desc		buf_dec[PKT_GEN_APP_BUFF_POOL_SIZE];
 
 	struct traffic_counters		trf_cntrs;
+
+	int				latency;
+	u64				latency_agg_time;
+	u64				latency_num_pkts;
 
 	void				*buffer;
 	int				pkt_size;
@@ -205,6 +214,43 @@ static void update_addresses(struct pkt *pkt, struct glob_arg *garg)
 			garg->dst_ip.curr = garg->dst_ip.start;
 	} while (0);
 	/* update checksum */
+}
+
+static int dump_latency(struct local_arg *larg)
+{
+	struct glob_arg *garg;
+	u64 pkts, tmp_time_inter;
+	u8 i, j;
+
+	if (unlikely(!larg)) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	/* make sure we calc the latency only once on thread #0 */
+	if (larg->cmn_args.id != 0)
+		return 0;
+	garg = larg->cmn_args.garg;
+
+	for (j = 0; j < MVAPPS_PP2_MAX_NUM_PORTS; j++) {
+		/* TODO: temporary, we don't realy support multiple-ports statistics
+		 * since we have only one set of counters
+		 */
+		if (j)
+			break;
+		pkts = tmp_time_inter = 0;
+		for (i = 0; i < garg->cmn_args.cpus; i++) {
+			pkts		+= (garg->cmn_args.largs[i])->latency_num_pkts;
+			tmp_time_inter	+= (garg->cmn_args.largs[i])->latency_agg_time;
+		}
+	}
+	tmp_time_inter = tmp_time_inter / pkts;
+	tmp_time_inter -= larg->cmn_args.busy_wait;
+	tmp_time_inter -= PKT_GEN_APP_LTNC_MINE;
+
+	printf("Latency: %d u-secs\n", (int)tmp_time_inter);
+
+	return 0;
 }
 
 static int dump_perf(struct glob_arg *garg)
@@ -400,6 +446,32 @@ static inline int loop_rx(struct local_arg	*larg,
 			       len);
 			mem_disp(tmp_buff, len);
 		}
+
+		if (unlikely(larg->latency)) {
+			char		*tmp_buff;
+			u64		*dat;
+
+			tmp_buff = buff;
+			tmp_buff += MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
+			dat = (u64 *)((struct pkt *)tmp_buff)->body;
+			if (unlikely(dat[0])) {
+				struct timeval	 curr_time;
+				u64		 tmp_time_inter;
+
+				gettimeofday(&curr_time, NULL);
+				/* Allow maximum of 10 secs latency */
+				if (likely(((u64)curr_time.tv_sec - dat[0]) <= 10)) {
+					tmp_time_inter = ((u64)curr_time.tv_sec - dat[0]) * 1000000;
+					if (unlikely(tmp_time_inter && (curr_time.tv_usec < dat[1])))
+						tmp_time_inter -= dat[1] - (u64)curr_time.tv_usec;
+					else
+						tmp_time_inter += (u64)curr_time.tv_usec - (suseconds_t)dat[1];
+					larg->latency_agg_time += tmp_time_inter;
+					larg->latency_num_pkts++;
+				}
+			}
+		}
+
 		larg->trf_cntrs.rx_bytes += (len + ETH_FCS_LEN + ETH_IPG_LEN);
 
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;
@@ -462,6 +534,21 @@ static int loop_tx(struct local_arg	*larg,
 		if (++larg->curr_frm == PKT_GEN_APP_BUFF_POOL_SIZE)
 			larg->curr_frm = 0;
 
+		if (unlikely(larg->latency)) {
+			u64		*dat;
+
+			dat = (u64 *)((struct pkt *)buf_dec->virt_addr)->body;
+
+			if (i == (num >> 1)) {
+				struct timeval	 curr_time;
+
+				gettimeofday(&curr_time, NULL);
+				dat[0] = (u64)curr_time.tv_sec;
+				dat[1] = (u64)curr_time.tv_usec;
+			} else
+				dat[0] = 0;
+		}
+
 		pp2_ppio_outq_desc_reset(&descs[i]);
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #if (PKT_GEN_APP_HW_TX_IPV4_CHKSUM_CALC || PKT_GEN_APP_HW_TX_L4_CHKSUM_CALC)
@@ -520,6 +607,8 @@ static int main_loop_cb(void *arg, int *running)
 	port_index = 0;
 	while (*running) {
 		if (!larg->cmn_args.garg->running) {
+			if (larg->latency)
+				dump_latency(larg);
 			*running = 0;
 			return 0;
 		}
@@ -859,6 +948,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.garg             = garg;
 	larg->pkt_size			= garg->pkt_size;
 	larg->cmn_args.verbose		= garg->cmn_args.verbose;
+	larg->latency			= garg->latency;
 
 	larg->cmn_args.qs_map = garg->cmn_args.qs_map << (garg->cmn_args.qs_map_shift * id);
 	lcl_pp2_args->multi_buffer_release = glb_pp2_args->multi_buffer_release;
@@ -923,6 +1013,7 @@ static void usage(char *progname)
 	       "\t-T, --report-time <second>  time in seconds between reports.(default is %ds)\n"
 	       "\t-c, --cores <number>        number of CPUs to use\n"
 	       "\t-a, --affinity <number>     first CPU ID for setaffinity (default is no affinity)\n"
+	       "\t-L, --latency               Run latency measurments\n"
 #ifdef PKT_GEN_APP_VERBOSE_DEBUG
 	       "\t-v, --verbose               Increase verbose debug (default is 0).\n"
 	       "\t                            With every '-v', the debug is increased by one.\n"
@@ -1009,12 +1100,13 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	int port_dir[MVAPPS_PP2_MAX_I_OPTION_PORTS] = {0};
 	int common_dir = 0;
 	int mult;
-	const char short_options[] = "hi:b:l:c:a:m:T:w:R:C:S:D:s:d:rtv";
+	const char short_options[] = "hrtvLi:b:l:c:a:m:T:w:R:C:S:D:s:d:";
 	struct option long_options[] = {
 		{"help", no_argument, 0, 'h'},
 		{"interface", required_argument, 0, 'i'},
 		{"rx", no_argument, 0, 'r'},
 		{"tx", no_argument, 0, 't'},
+		{"latency", no_argument, 0, 'L'},
 		{"burst", required_argument, 0, 'b'},
 		{"size", required_argument, 0, 'l'},
 		{"cores", required_argument, 0, 'c'},
@@ -1099,6 +1191,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			port_dir[curr_port_index] |= PKT_GEN_APP_DIR_TX;
 			common_dir |= PKT_GEN_APP_DIR_TX;
 			garg->tx = 1;
+			break;
+		case 'L':
+			pr_debug("Set Latency check\n");
+			garg->latency = 1;
 			break;
 		case 'b':
 			garg->cmn_args.burst = atoi(optarg);
@@ -1278,6 +1374,15 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	if (!garg->rx && !garg->tx) {
 		pr_err("Trying to run with neither RX nor TX!\n");
 		return -EINVAL;
+	}
+
+	if (garg->latency) {
+		if (!(garg->rx && garg->tx)) {
+			pr_err("Trying to run latency test neither RX or TX!\n");
+			return -EINVAL;
+		}
+		garg->total_frm_cnt = PKT_GEN_APP_LTNC_FRM_CNT;
+		garg->cmn_args.burst = PKT_GEN_APP_LTNC_BURST;
 	}
 
 	/* in case rate-limit was requested, convert here from pkts-per-second given
