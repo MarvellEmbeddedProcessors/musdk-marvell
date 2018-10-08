@@ -130,6 +130,7 @@ struct glob_arg {
 	int			maintain_stats;
 	pthread_mutex_t		trd_lock;
 
+	int			running;
 	int			rx;
 	int			tx;
 	u32			total_frm_cnt;
@@ -265,7 +266,7 @@ static int dump_perf(struct glob_arg *garg)
 		pps /= tmp_time_inter;
 		bps = bps * 8 / tmp_time_inter;
 
-		printf("TX: %" PRIu64 " Kpps, %" PRIu64 " Kbps, %" PRIu64 " Kdrops\t",
+		printf("TX: %" PRIu64 " Kpps, %" PRIu64 " Kbps (%" PRIu64 " Kdrops)\t",
 			pps, bps, drops / 1000);
 	}
 
@@ -290,6 +291,71 @@ static int maintain_stats(void *arg)
 	tmp_time_inter += (curr_time.tv_usec - garg->cmn_args.ctrl_trd_last_time.tv_usec) / 1000;
 	if (tmp_time_inter >= garg->cmn_args.ctrl_thresh)
 		return dump_perf(garg);
+
+	return 0;
+}
+
+static int maintain_cnts(struct glob_arg *garg)
+{
+	int completed = 0;
+	u64 r_pkts = 0, t_pkts = 0, r_bytes = 0, t_bytes = 0;
+	u8 i, j;
+
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	if (likely(!garg->total_frm_cnt))
+		return 0;
+
+	if (!garg->running)
+		return 1;
+
+	if (garg->rx) {
+		for (j = 0; j < MVAPPS_PP2_MAX_NUM_PORTS; j++) {
+			/* TODO: temporary, we don't realy support multiple-ports statistics
+			 * since we have only one set of counters
+			 */
+			if (j)
+				break;
+			for (i = 0; i < garg->cmn_args.cpus; i++) {
+				r_pkts  += (garg->cmn_args.largs[i])->trf_cntrs.rx_pkts;
+				r_bytes += (garg->cmn_args.largs[i])->trf_cntrs.rx_bytes;
+			}
+		}
+		if (r_pkts >= garg->total_frm_cnt)
+			completed = 1;
+	}
+
+	if (garg->tx) {
+		for (j = 0; j < MVAPPS_PP2_MAX_NUM_PORTS; j++) {
+			/* TODO: temporary, we don't realy support multiple-ports statistics
+			 * since we have only one set of counters
+			 */
+			if (j)
+				break;
+			for (i = 0; i < garg->cmn_args.cpus; i++) {
+				t_pkts  += (garg->cmn_args.largs[i])->trf_cntrs.tx_pkts;
+				t_bytes += (garg->cmn_args.largs[i])->trf_cntrs.tx_bytes;
+			}
+		}
+		if (t_pkts >= garg->total_frm_cnt) {
+			garg->running++;
+			/* stop running if either no RX or we wait enough time to receive traffic */
+			if (!garg->rx || (garg->running >= 20))
+				completed = 1;
+			if (completed)
+				printf("\nRX: %" PRIu64 " pkts, %" PRIu64 " bytes\t"
+					"TX: %" PRIu64 " pkts, %" PRIu64 " bytes\n",
+					 r_pkts, r_bytes, t_pkts, t_bytes);
+		}
+	}
+
+	if (completed) {
+		garg->running = 0;
+		return 1;
+	}
 
 	return 0;
 }
@@ -451,9 +517,14 @@ static int main_loop_cb(void *arg, int *running)
 		return -EINVAL;
 	}
 
-	num = larg->cmn_args.burst;
 	port_index = 0;
 	while (*running) {
+		if (!larg->cmn_args.garg->running) {
+			*running = 0;
+			return 0;
+		}
+
+		num = larg->cmn_args.burst;
 		if (pp2_args->ports_desc[port_index].traffic_dir & PKT_GEN_APP_DIR_RX) {
 			/* Find next queue to consume */
 			do {
@@ -466,23 +537,20 @@ static int main_loop_cb(void *arg, int *running)
 				}
 			} while (!(larg->cmn_args.qs_map & (1 << ((tc * mvapp_pp2_max_num_qs_per_tc) + qid))));
 			err = loop_rx(larg, port_index, tc, qid, num);
-			if (err != 0)
+			if (unlikely(err))
 				return err;
 		}
 
 		if (pp2_args->ports_desc[port_index].traffic_dir & PKT_GEN_APP_DIR_TX) {
-			if (larg->total_frm_cnt == PKT_GEN_APP_MAX_TOTAL_FRM_CNT)
-				num = 0;
-			else if (larg->total_frm_cnt) {
-				if (larg->total_frm_cnt < num)
-					num = larg->total_frm_cnt;
-				larg->total_frm_cnt -= num;
-				if (!larg->total_frm_cnt)
-					larg->total_frm_cnt = PKT_GEN_APP_MAX_TOTAL_FRM_CNT;
+			if (unlikely(larg->total_frm_cnt)) {
+				if (unlikely(larg->trf_cntrs.tx_pkts >= larg->total_frm_cnt))
+					num = 0;
+				else if (unlikely((larg->total_frm_cnt - larg->trf_cntrs.tx_pkts) < num))
+					num = larg->total_frm_cnt - larg->trf_cntrs.tx_pkts;
 			}
-			if (num) {
+			if (likely(num)) {
 				err = loop_tx(larg, port_index, 0, num);
-				if (err != 0)
+				if (unlikely(err))
 					return err;
 			}
 		}
@@ -494,14 +562,17 @@ static int main_loop_cb(void *arg, int *running)
 	return 0;
 }
 
-static int stat_loop_cb(void *arg)
+static int ctrl_loop_cb(void *arg)
 {
-	struct glob_arg *garg = (struct glob_arg *)arg;
+	struct glob_arg	*garg = (struct glob_arg *)arg;
 
 	if (!garg) {
 		pr_err("no obj!\n");
 		return -EINVAL;
 	}
+
+	if (maintain_cnts(garg) > 0)
+		return 0;
 
 	if (!garg->cmn_args.cli)
 		maintain_stats(garg);
@@ -716,6 +787,8 @@ static int init_global(void *arg)
 		if (err)
 			return err;
 	}
+
+	garg->running = 1;
 
 	return 0;
 }
@@ -1262,8 +1335,7 @@ int main(int argc, char *argv[])
 	mvapp_params.init_local_cb	= init_local;
 	mvapp_params.deinit_local_cb	= apps_pp2_deinit_local;
 	mvapp_params.main_loop_cb	= main_loop_cb;
-	if (!mvapp_params.use_cli)
-		mvapp_params.ctrl_cb		= stat_loop_cb;
+	mvapp_params.ctrl_cb		= ctrl_loop_cb;
 
 	return mvapp_go(&mvapp_params);
 }
