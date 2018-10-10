@@ -19,10 +19,12 @@ static void agnic_set_num_queues(struct agnic_pfio *pfio)
 	pfio->num_rx_pools = pfio->num_rx_queues;
 }
 
-static int init_pfio_pci_mem(struct agnic_pfio *pfio)
+static int init_pfio_pci_mem(struct agnic_pfio *pfio, struct agnic_pfio_init_params *params)
 {
-	pr_err("no support for PCI!\n");
-	return -ENOTSUP;
+	pfio->nic_cfg_phys_base = params->pci_bar_inf.pa;
+	pfio->nic_cfg = params->pci_bar_inf.va;
+
+	return 0;
 }
 
 static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
@@ -480,7 +482,7 @@ int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **p
 	agnic_set_num_queues(_pfio);
 
 	if (params->pci_mode)
-		err = init_pfio_pci_mem(_pfio);
+		err = init_pfio_pci_mem(_pfio, params);
 	else
 		err = init_pfio_plat_uio_mem(_pfio);
 	if (err) {
@@ -503,7 +505,9 @@ int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **p
 	}
 
 	/* Get the MAC address out of the NIC configuration space. */
-	memcpy(_pfio->mac, _pfio->nic_cfg->mac_addr, MV_ETH_ALEN);
+	/* copy the eth-addr with 4B alignment in order to prevent issues with some PCIe busses */
+	*(u32 *)(_pfio->mac) = *(u32 *)(_pfio->nic_cfg->mac_addr);
+	*(u32 *)(&_pfio->mac[4]) = *(u32 *)(&_pfio->nic_cfg->mac_addr[4]);
 
 	/* Initialize _pfio fields */
 	_pfio->tx_ring_size = params->qs_size;

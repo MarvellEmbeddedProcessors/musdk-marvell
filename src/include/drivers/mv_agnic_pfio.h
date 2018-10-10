@@ -66,12 +66,19 @@ struct agnic_pfio_inband_mng_msg_params {
 	u16	 resp_msg_len;
 };
 
+struct agnic_pfio_pci_bar_inf {
+	void		*va;
+	dma_addr_t	 pa;
+	size_t		 size;
+};
+
 /**
  * agnic init parameters
  *
  */
 struct agnic_pfio_init_params {
 	int				 pci_mode;
+	struct agnic_pfio_pci_bar_inf	 pci_bar_inf;
 
 	u8				 num_in_tcs;
 	u8				 num_out_tcs;
