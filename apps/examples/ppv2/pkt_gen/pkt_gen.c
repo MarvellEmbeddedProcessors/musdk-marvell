@@ -85,6 +85,9 @@
 #define PKT_GEN_APP_LTNC_BURST			16
 #define PKT_GEN_APP_LTNC_MINE			15
 
+#define PKT_GEN_APP_USE_HW_RATE_LMT
+#define PKT_GEN_APP_RATE_LMT_CBS		1000000
+
 #define  PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #ifdef PKT_GEN_APP_HW_TX_CHKSUM_CALC
 #define PKT_GEN_APP_HW_TX_L4_CHKSUM_CALC	1
@@ -752,6 +755,15 @@ static int init_local_modules(struct glob_arg *garg)
 			else
 				port->hash_type = PP2_PPIO_HASH_T_5_TUPLE;
 
+#ifdef PKT_GEN_APP_USE_HW_RATE_LMT
+			if (garg->cmn_args.busy_wait) {
+				port->port_params.rate_limit_enable = 1;
+				port->port_params.rate_limit_params.cbs = PKT_GEN_APP_RATE_LMT_CBS;
+				port->port_params.rate_limit_params.cir = garg->cmn_args.busy_wait;
+				garg->cmn_args.busy_wait = 0;
+			}
+#endif /* PKT_GEN_APP_USE_HW_RATE_LMT */
+
 			/* pkt_offset=0 not to be changed, before recoding rx_data_path to use pkt_offset as well */
 			err = app_port_init(port, pp2_args->num_pools, pp2_args->pools_desc[port->pp_id],
 					    garg->cmn_args.mtu, 0);
@@ -1397,6 +1409,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		garg->cmn_args.burst = PKT_GEN_APP_LTNC_BURST;
 	}
 
+#ifndef PKT_GEN_APP_USE_HW_RATE_LMT
 	/* in case rate-limit was requested, convert here from pkts-per-second given
 	 * by the user to busy-wait time in u-secs
 	 */
@@ -1408,6 +1421,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 		garg->cmn_args.busy_wait = tmp / garg->cmn_args.busy_wait;
 	}
+#endif /* !PKT_GEN_APP_USE_HW_RATE_LMT */
 
 	return 0;
 }
