@@ -12,6 +12,8 @@
 #include <sched.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <unistd.h>
+#include <sys/mman.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
@@ -53,6 +55,10 @@
 #define AGNIC_COOKIE_DEVICE_WATERMARK	0xcafecafe
 #define AGNIC_COOKIE_DRIVER_WATERMARK	0xdeaddead
 
+#define AGNIC_PCI_VENDOR		"Marvell Technology"
+#define AGNIC_PCI_PRODUCT		"Device 7080"
+#define AGNIC_PCI_MMAP_FILE_NAME	"/dev/mem"
+
 #define next_q_idx(_idx, _size) (((_idx+1) == _size) ? 0 : (_idx+1))
 #define q_occupancy(prod, cons, q_size)	\
 	(((prod) - (cons) + (q_size)) & ((q_size) - 1))
@@ -91,6 +97,8 @@ struct glob_arg {
 	struct agnic_pfio		*pfio;
 
 	eth_addr_t			 eth_addr;
+
+	void				*pci_bar;
 };
 
 struct local_arg {
@@ -454,6 +462,106 @@ static int app_build_bpool(struct agnic_pfio *pfio, int tc, int qid, int num_of_
 	return 0;
 }
 
+static int extract_pci_bar_inf(dma_addr_t *pa, size_t *size)
+{
+	FILE *fp;
+	char ret_str[1024];
+	int ret = -ENOENT;
+
+	/* Open the command for reading. */
+	fp = popen("lspci -v", "r");
+	if (fp == NULL) {
+		pr_err("Failed to run command\n");
+		return -EFAULT;
+	}
+
+	/* Read the output a line at a time - output it. */
+	while (fgets(ret_str, sizeof(ret_str)-1, fp) != NULL) {
+		if (!((strstr(ret_str, "Ethernet controller") > 0) && /* this is a NIC */
+			(strstr(ret_str, AGNIC_PCI_VENDOR) > 0) && /* This is MV product */
+			(strstr(ret_str, AGNIC_PCI_PRODUCT) > 0))) /* this is MV AG-NIC */
+			continue;
+		while (fgets(ret_str, sizeof(ret_str)-1, fp) != NULL) {
+			if (strstr(ret_str, "Memory at") > 0) {
+				char *token, *mem_str, *size_str = NULL;
+
+				if (strstr(ret_str, "size=") > 0)
+					size_str = strstr(ret_str, "size=");
+				mem_str = strstr(ret_str, "Memory at");
+				token = strtok(mem_str, " ");
+				token = strtok(NULL, " ");
+				token = strtok(NULL, " ");
+				*pa = strtol(token, NULL, 16);
+				if (size_str) {
+					int mult = 1;
+
+					token = strtok(size_str, "=");
+					token = strtok(NULL, "]");
+					if (token[strlen(token)-1] == 'K') {
+						token[strlen(token)-1] = '\0';
+						mult = 1024;
+					} else if (token[strlen(token)-1] == 'M') {
+						token[strlen(token)-1] = '\0';
+						mult = 1024*1024;
+					}
+					*size = atoi(token) * mult;
+				} else
+					/* in case we didn't find the BAR size, let's give it a
+					 * default size of 4KB
+					 */
+					*size = 4096;
+				pr_debug("Found PCI based AGNIC BAR0 @ 0x%"PRIx64", size 0x%"PRIx64"\n",
+					*pa, *size);
+				ret = 0;
+				break;
+			}
+		}
+	}
+
+	/* close */
+	pclose(fp);
+
+	return ret;
+}
+
+static int init_pfio_pci_mem(struct glob_arg *garg, struct agnic_pfio_init_params *params)
+{
+	int	 fd, err;
+
+	err = extract_pci_bar_inf(&params->pci_bar_inf.pa, &params->pci_bar_inf.size);
+	if (err) {
+		pr_err("Failed to find any PCI based AGNIC device!\n");
+		return err;
+	}
+
+	fd = open(AGNIC_PCI_MMAP_FILE_NAME, O_RDWR);
+	if (fd < 0) {
+		pr_err("UIO file open (%s) = %d (%s)\n",
+			AGNIC_PCI_MMAP_FILE_NAME, -errno, strerror(errno));
+		return -EFAULT;
+	}
+
+	params->pci_bar_inf.va = mmap(NULL,
+		params->pci_bar_inf.size,
+		PROT_READ | PROT_WRITE,
+		MAP_SHARED,
+		fd,
+		(off_t)params->pci_bar_inf.pa);
+	close(fd);
+	if (unlikely(params->pci_bar_inf.va == MAP_FAILED)) {
+		pr_err("mmap() of 0x%016llx = %d (%s)\n",
+			(unsigned long long int)params->pci_bar_inf.pa, -errno, strerror(errno));
+		return -EFAULT;
+	}
+	params->pci_mode = 1;
+	garg->pci_bar = params->pci_bar_inf.va;
+
+	pr_debug("AGNIC %d BAR0 address: pa 0x%"PRIx64", va %p\n",
+		0, params->pci_bar_inf.pa, params->pci_bar_inf.va);
+
+	return 0;
+}
+
 static int init_global(void *arg)
 {
 	struct glob_arg			*garg = (struct glob_arg *)arg;
@@ -472,7 +580,11 @@ static int init_global(void *arg)
 		return err;
 
 	memset(&pfio_params, 0, sizeof(pfio_params));
-	pfio_params.pci_mode = 0;
+	if (garg->pci_bar) {
+		err = init_pfio_pci_mem(garg, &pfio_params);
+		if (err)
+			return err;
+	}
 	pfio_params.num_in_tcs = AGNIC_DEFAULT_NUM_TCS;
 	pfio_params.num_out_tcs = AGNIC_DEFAULT_NUM_TCS;
 	pfio_params.num_qs_per_tc = garg->cmn_args.cpus;
@@ -628,6 +740,7 @@ static void usage(char *progname)
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t--mtu <mtu>              Set MTU (default is %d)\n"
 	       "\t--addr <eth-addr>        Set Ethernet Address\n"
+	       "\t--pci                    AGNIC is in PCI mode\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
@@ -723,6 +836,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			i += 2;
+		} else if (strcmp(argv[i], "--pci") == 0) {
+			garg->pci_bar = (void *)MAP_FIXED;
+			i += 1;
 		} else if (strcmp(argv[i], "--no-echo") == 0) {
 			garg->cmn_args.echo = 0;
 			i += 1;
