@@ -736,6 +736,7 @@ static void usage(char *progname)
 	       "\tTODO\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
+	       "\t-b             <size>    Burst size (default is %d)\n"
 	       "\t-c, --cores <number>     Number of CPUs to use\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t--mtu <mtu>              Set MTU (default is %d)\n"
@@ -744,7 +745,7 @@ static void usage(char *progname)
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       DEFAULT_MTU
+	       PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU
 	       );
 }
 
@@ -803,6 +804,17 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				garg->eth_addr[0], garg->eth_addr[1], garg->eth_addr[2],
 				garg->eth_addr[3], garg->eth_addr[4], garg->eth_addr[5]);
 			break;
+			i += 2;
+		} else if (strcmp(argv[i], "-b") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			garg->cmn_args.burst = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-c") == 0) {
 			if (argc < (i + 2)) {
