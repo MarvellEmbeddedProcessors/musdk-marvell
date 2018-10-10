@@ -714,7 +714,7 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		jumbo_infs[] = PKT_GEN_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg->cmn_args.plat;
-	int				i, timeout;
+	int				i;
 
 	pr_info("Local initializations ...\n");
 
@@ -768,21 +768,31 @@ static int init_local_modules(struct glob_arg *garg)
 				return err;
 			}
 
-			/* Wait for couple of seconds for the link to be up; after that, abort */
-			timeout = PKT_GEN_APP_LINK_UP_THR;
-			do {
-				err = pp2_ppio_get_link_state(port->ppio, &i);
+			if (garg->loopback) {
+				err = pp2_ppio_set_loopback(port->ppio, 1);
 				if (err) {
-					pr_err("Link error (port: %d, pp_id: %d)\n", port_index,
+					pr_err("Failed to enter promisc port %d (pp_id: %d)\n", port_index,
+					       port->pp_id);
+					return err;
+				}
+			} else {
+				/* Wait for couple of seconds for the link to be up; after that, abort */
+				int timeout = PKT_GEN_APP_LINK_UP_THR;
+
+				do {
+					err = pp2_ppio_get_link_state(port->ppio, &i);
+					if (err) {
+						pr_err("Link error (port: %d, pp_id: %d)\n", port_index,
+						       port->pp_id);
+						return -EFAULT;
+					}
+					udelay(1000);
+				} while (!i && --timeout);
+				if (!i) {
+					pr_err("Link is down (port: %d, pp_id: %d)\n", port_index,
 					       port->pp_id);
 					return -EFAULT;
 				}
-				udelay(1000);
-			} while (!i && --timeout);
-			if (!i) {
-				pr_err("Link is down (port: %d, pp_id: %d)\n", port_index,
-				       port->pp_id);
-				return -EFAULT;
 			}
 		} else {
 			return err;
@@ -989,7 +999,7 @@ static void usage(char *progname)
 	       "Mandatory OPTIONS:\n"
 	       "\t-i, --interface <Eth-interface>\n"
 	       "Optional OPTIONS:\n"
-	       "\t-r, --rx                    enables port Rx mode (default: enabled)\n"
+	       "\t-r, --rx                    enables port Rx mode (default: disabled)\n"
 	       "\t-t, --tx                    enables port Tx (traffic generator) mode (default: disabled)\n"
 	       "\tUsage: --rx/--tx options can be used per specific interface or for all interfaces:\n"
 	       "\t\t%s -i eth0 --rx -i eth1 --tx\t[opens port eth0 in Rx mode and eth1 in Tx mode]\n"
@@ -1014,6 +1024,7 @@ static void usage(char *progname)
 	       "\t-c, --cores <number>        number of CPUs to use\n"
 	       "\t-a, --affinity <number>     first CPU ID for setaffinity (default is no affinity)\n"
 	       "\t-L, --latency               Run latency measurments\n"
+	       "\t--loopback                  set port loopback; may be useful for testing.\n"
 #ifdef PKT_GEN_APP_VERBOSE_DEBUG
 	       "\t-v, --verbose               Increase verbose debug (default is 0).\n"
 	       "\t                            With every '-v', the debug is increased by one.\n"
@@ -1121,6 +1132,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"dst-ip", required_argument, 0, 'd'},
 		{"verbose", no_argument, 0, 'v'},
 		{"cli", no_argument, &garg->cmn_args.cli, 1},
+		{"loopback", no_argument, &garg->loopback, 1},
 		{0, 0, 0, 0}
 	};
 #ifdef PKT_GEN_APP_VERBOSE_DEBUG
