@@ -1037,3 +1037,61 @@ void neta_port_get_mru(struct neta_port *port, uint16_t *len)
 	 */
 	*len = port->mru;
 }
+
+/* Set unicast address */
+void neta_add_ucast_addr(struct neta_port *pp, u8 last_nibble, int queue)
+{
+	unsigned int unicast_reg;
+	unsigned int tbl_offset;
+	unsigned int reg_offset;
+
+	/* Locate the Unicast table entry */
+	last_nibble = (0xf & last_nibble);
+
+	/* offset from unicast tbl base */
+	tbl_offset = (last_nibble / 4) * 4;
+
+	/* offset within the above reg  */
+	reg_offset = last_nibble % 4;
+
+	unicast_reg = neta_reg_read(pp, (MVNETA_DA_FILT_UCAST_BASE + tbl_offset));
+
+	unicast_reg &= ~(0xff << (8 * reg_offset));
+	unicast_reg |= ((0x01 | (queue << 1)) << (8 * reg_offset));
+
+	neta_reg_write(pp, MVNETA_DA_FILT_UCAST_BASE + tbl_offset, unicast_reg);
+}
+
+/* Remove unicast address */
+void neta_del_ucast_addr(struct neta_port *pp, u8 last_nibble)
+{
+	unsigned int unicast_reg;
+	unsigned int tbl_offset;
+	unsigned int reg_offset;
+
+	/* Locate the Unicast table entry */
+	last_nibble = (0xf & last_nibble);
+
+	/* offset from unicast tbl base */
+	tbl_offset = (last_nibble / 4) * 4;
+
+	/* offset within the above reg  */
+	reg_offset = last_nibble % 4;
+
+	unicast_reg = neta_reg_read(pp, (MVNETA_DA_FILT_UCAST_BASE + tbl_offset));
+
+	/* Clear accepts frame bit at specified unicast DA tbl entry */
+	unicast_reg &= ~(0xff << (8 * reg_offset));
+
+	neta_reg_write(pp, MVNETA_DA_FILT_UCAST_BASE + tbl_offset, unicast_reg);
+}
+
+/* Remove all unicast addresses */
+void neta_flush_ucast_table(struct neta_port *pp)
+{
+	int offset;
+	u32 val = 0;
+
+	for (offset = 0; offset <= 0xc; offset += 4)
+		neta_reg_write(pp, MVNETA_DA_FILT_UCAST_BASE + offset, val);
+}
