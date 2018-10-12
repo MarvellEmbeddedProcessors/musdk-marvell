@@ -6,7 +6,7 @@
 *******************************************************************************/
 
 #include "std_internal.h"
-#include "drivers/mv_giu.h"
+#include "drivers/mv_giu_gpio.h"
 #include "mng/mv_nmp.h"
 #include "db.h"
 #include "dev_mng.h"
@@ -144,19 +144,22 @@ int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type, u16 *pending)
 	return ans;
 }
 
+/* TODO: move this routine to NMP-guest (i.e. should be caled through Qs) */
 int nmp_create_scheduling_event(struct nmp *nmp, struct nmp_event_params *params, struct mv_sys_event **ev)
 {
-	return giu_create_event(nmp->nmnicpf.giu, (struct giu_event_params *)params, ev);
+	return giu_gpio_create_event(nmp->nmnicpf.giu_gpio, (struct giu_gpio_event_params *)params, ev);
 }
 
+/* TODO: move this routine to NMP-guest (i.e. should be caled through Qs) */
 int nmp_delete_scheduling_event(struct mv_sys_event *ev)
 {
-	return giu_delete_event(ev);
+	return giu_gpio_delete_event(ev);
 }
 
+/* TODO: move this routine to NMP-guest (i.e. should be caled through Qs) */
 int nmp_set_scheduling_event(struct mv_sys_event *ev, int en)
 {
-	return giu_set_event(ev, en);
+	return giu_gpio_set_event(ev, en);
 }
 
 int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)

@@ -445,23 +445,3 @@ enum giu_multi_qs_mode giu_get_multi_qs_mode(struct giu *giu)
 	return GIU_MULTI_QS_MODE_REAL;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 }
-
-int giu_create_event(struct giu *giu, struct giu_event_params *params, struct mv_sys_event **ev)
-{
-	if (unlikely(!giu)) {
-		pr_err("Invalid GIU handle!\n");
-		return -EINVAL;
-	}
-
-	return gie_create_event(giu->gies[GIU_ENG_IN], (struct gie_event_params *)params, ev);
-}
-
-int giu_delete_event(struct mv_sys_event *ev)
-{
-	return gie_delete_event(ev);
-}
-
-int giu_set_event(struct mv_sys_event *ev, int en)
-{
-	return gie_set_event(ev, en);
-}

@@ -11,6 +11,7 @@
 #include "mv_std.h"
 #include "mv_mqa.h"
 #include "mv_giu_bpool.h"
+#include "env/mv_sys_event.h"
 
 /** @addtogroup grp_giu_io GIU Port: I/O (GP-IO)
  *
@@ -459,6 +460,24 @@ struct giu_gpio_capabilities {
 };
 
 /**
+ * GIU event parameters
+ */
+struct giu_gpio_event_params {
+	u32 pkt_coal;
+	u32 usec_coal;
+	u32 tc_mask;
+};
+
+struct giu_gpio_statistics {
+	u64 in_packets;
+	u64 out_packets;
+};
+
+struct giu_gpio_q_statistics {
+	u64 packets;
+};
+
+/**
  * Get GPIO capabilities.
  *
  * @param[in]		gpio	A pointer to a GPIO object.
@@ -488,6 +507,74 @@ int giu_gpio_enable(struct giu_gpio *gpio);
  * @retval	error-code otherwise
  */
 int giu_gpio_disable(struct giu_gpio *gpio);
+
+/**
+ * Create a GPIO event
+ *
+ * The event API is called to create a sys_event for a GIU-GPIO, that
+ * can later be polled through the mv_sys_event_poll() API.
+ * This is only releavnt to 'NMP_SCHED_TX'
+ *
+ * @param[in]	gpio		A pointer to a GP-IO object.
+ * @param[in]	params		Parameters for the event.
+ * @param[out]	ev		A pointer to event handle of type 'struct mv_sys_event *'.
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int giu_gpio_create_event(struct giu_gpio *gpio, struct giu_gpio_event_params *params, struct mv_sys_event **ev);
+
+/**
+ * Delete a GPIO event
+ *
+ * @param[in]	ev		A sys_event handle.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int giu_gpio_delete_event(struct mv_sys_event *ev);
+
+/**
+ * Set a GPIO event
+ *
+ * The set_event API is called to enable the creation of events for the related GIU.
+ *
+ * @param[in]	ev		A sys_event handle.
+ * @param[in]	en		enable/disable
+ *
+ * @retval      0 on success
+ * @retval      <0 on failure
+ */
+int giu_gpio_set_event(struct mv_sys_event *ev, int en);
+
+/**
+ * Get total statistics of all tc and queues
+ *
+ * @param[in]	gpio	A pointer to a GP-IO object.
+ * @param[out]	stats   A pointer to statistics structure.
+ * @param[in]	reset   '1' for reset staticistics
+
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int giu_gpio_get_statistics(struct giu_gpio *gpio, struct giu_gpio_statistics *stats, int reset);
+
+/**
+ * Get the statistics of a specific queue
+ *
+ * @param[in]	gpio	A pointer to a GP-IO object.
+ * @param[in]	out    '1' for out direction
+ * @param[in]	rem    '1' for remote direcition
+ * @param[in]	tc id
+ * @param[in]	qid     queue id
+ * @param[out]	stats   A pointer to statistics structure.
+ * @param[in]	reset  '1' for reset staticistics
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8 qid,
+							  struct giu_gpio_q_statistics *stats, int reset);
 
 
 /****************************************************************************
@@ -729,44 +816,6 @@ static inline void giu_gpio_inq_desc_get_l4_info(struct giu_gpio_desc *desc,
 	/* when this bit's value is 0 it means that L4 csum should be generated */
 	*gen_l4_chk = !GIU_RXD_GET_GEN_L4_CHK(desc);
 }
-
-struct giu_gpio_statistics {
-	u64 in_packets;
-	u64 out_packets;
-};
-
-struct giu_gpio_q_statistics {
-	u64 packets;
-};
-
-/**
- * Get total statistics of all tc and queues
- *
- * @param[in]	gpio	A pointer to a GP-IO object.
- * @param[out]	stats   A pointer to statistics structure.
- * @param[in]	reset   '1' for reset staticistics
-
- * @retval	0 on success
- * @retval	error-code otherwise
- */
-int giu_gpio_get_statistics(struct giu_gpio *gpio, struct giu_gpio_statistics *stats, int reset);
-
-/**
- * Get the statistics of a specific queue
- *
- * @param[in]	gpio	A pointer to a GP-IO object.
- * @param[in]	out    '1' for out direction
- * @param[in]	rem    '1' for remote direcition
- * @param[in]	tc id
- * @param[in]	qid     queue id
- * @param[out]	stats   A pointer to statistics structure.
- * @param[in]	reset  '1' for reset staticistics
- *
- * @retval	0 on success
- * @retval	error-code otherwise
- */
-int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8 qid,
-							  struct giu_gpio_q_statistics *stats, int reset);
 
 /** @} */ /* end of grp_giu_io */
 

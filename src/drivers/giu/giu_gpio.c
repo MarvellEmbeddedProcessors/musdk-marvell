@@ -992,6 +992,27 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 	return 0;
 }
 
+int giu_gpio_create_event(struct giu_gpio *gpio, struct giu_gpio_event_params *params, struct mv_sys_event **ev)
+{
+	if (unlikely(!gpio)) {
+		pr_err("Invalid GPIO handle!\n");
+		return -EINVAL;
+	}
+
+	return gie_create_event(giu_get_gie_handle(gpio->params->giu, GIU_ENG_IN),
+		(struct gie_event_params *)params, ev);
+}
+
+int giu_gpio_delete_event(struct mv_sys_event *ev)
+{
+	return gie_delete_event(ev);
+}
+
+int giu_gpio_set_event(struct mv_sys_event *ev, int en)
+{
+	return gie_set_event(ev, en);
+}
+
 int giu_gpio_get_statistics(struct giu_gpio *gpio, struct giu_gpio_statistics *stats, int reset)
 {
 	u32 tc_idx, q_idx;

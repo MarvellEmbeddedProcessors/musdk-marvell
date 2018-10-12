@@ -9,7 +9,6 @@
 #define __MV_GIU_H__
 
 #include "mv_std.h"
-#include "env/mv_sys_event.h"
 
 /** @addtogroup grp_giu_init GIU: Initialization
  *
@@ -78,15 +77,6 @@ struct giu_params {
 	struct giu_emul_params	 mng_gie_params;
 	struct giu_emul_params	 in_gie_params;
 	struct giu_emul_params	 out_gie_params;
-};
-
-/**
- * GIU event parameters
- */
-struct giu_event_params {
-	u32 pkt_coal;
-	u32 usec_coal;
-	u32 tc_mask;
 };
 
 /**
@@ -233,48 +223,6 @@ int giu_set_remote_index_mode(struct giu *giu, enum giu_indices_copy_mode mode);
  * @retval	the multi-queues mode
  */
 enum giu_multi_qs_mode giu_get_multi_qs_mode(struct giu *giu);
-
-/**
- * Create a GIU emulation event
- * TODO: this routine should be part of GIU-GPIO.
- *
- * The event API is called to create a sys_event for a GIU, that
- * can later be polled through the mv_sys_event_poll() API.
- * This is only releavnt to 'NMP_SCHED_TX'
- *
- * @param[in]	giu		A pointer to GIU handler.
- * @param[in]	params		Parameters for the event.
- * @param[out]	ev		A pointer to event handle of type 'struct mv_sys_event *'.
- *
- * @retval      0 on success
- * @retval      <0 on failure
- */
-int giu_create_event(struct giu *giu, struct giu_event_params *params, struct mv_sys_event **ev);
-
-/**
- * Delete a GIU event
- * TODO: this routine should be part of GIU-GPIO.
- *
- * @param[in]	ev		A sys_event handle.
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int giu_delete_event(struct mv_sys_event *ev);
-
-/**
- * Set a GIU event
- * TODO: this routine should be part of GIU-GPIO.
- *
- * The set_event API is called to enable the creation of events for the related GIU.
- *
- * @param[in]	ev		A sys_event handle.
- * @param[in]	en		enable/disable
- *
- * @retval      0 on success
- * @retval      <0 on failure
- */
-int giu_set_event(struct mv_sys_event *ev, int en);
 
 /** @} */ /* end of grp_giu_init */
 
