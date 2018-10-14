@@ -191,16 +191,14 @@ static int agnic_mgmt_set_mgmt_queues(struct agnic_pfio *pfio)
 	/* Make sure that upper writes are executed before notifying the
 	 * end-point.
 	 */
-	wmb();
-
 	/* Notify the AGNIC */
-	pfio->nic_cfg->status |= AGNIC_CFG_STATUS_HOST_MGMT_READY;
+	writel(readl(&pfio->nic_cfg->status) | AGNIC_CFG_STATUS_HOST_MGMT_READY, &pfio->nic_cfg->status);
 
 	/* Wait for device to setup mgmt queues. */
 	do {
-		if (pfio->nic_cfg->status & AGNIC_CFG_STATUS_DEV_MGMT_READY)
+		if (readl(&pfio->nic_cfg->status) & AGNIC_CFG_STATUS_DEV_MGMT_READY)
 			break;
-		usleep_range(1000, 2000);
+		udelay(1000);
 		timeout--;
 	} while (timeout);
 
@@ -464,7 +462,7 @@ static int agnic_arrange_tcs(struct agnic_pfio *pfio, struct agnic_pfio_init_par
 int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **pfio)
 {
 	struct agnic_pfio	*_pfio;
-	int			 err, timeout = 1000;
+	int			 err, timeout = 2000;
 
 	_pfio = kzalloc(sizeof(struct agnic_pfio), GFP_KERNEL);
 	if (!_pfio)
@@ -492,9 +490,9 @@ int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **p
 
 	/* Wait until the device firmware sets up the BARs */
 	do {
-		if (_pfio->nic_cfg->status & AGNIC_CFG_STATUS_DEV_READY)
+		if (readl(&_pfio->nic_cfg->status) & AGNIC_CFG_STATUS_DEV_READY)
 			break;
-		usleep_range(1000, 2000);
+		udelay(1000);
 		timeout--;
 	} while (timeout);
 
