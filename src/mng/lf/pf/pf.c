@@ -944,11 +944,9 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	/* Make sure that above configuration are out before setting the
 	 * dev-ready status for the host side.
 	 */
-	wmb();
+	writel(PCIE_CFG_STATUS_DEV_READY, &pcie_cfg->status);
 
-	pcie_cfg->status = PCIE_CFG_STATUS_DEV_READY;
-
-	while (!(pcie_cfg->status & PCIE_CFG_STATUS_HOST_MGMT_READY))
+	while (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
 		; /* Do Nothing. Wait till state it's updated */
 
 	/* Set remote index mode to MQA */
@@ -999,11 +997,10 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	/* ============ */
 
 	/* make sure all writes are done before updating the status */
-	wmb();
+	writel(readl(&pcie_cfg->status) | PCIE_CFG_STATUS_DEV_MGMT_READY, &pcie_cfg->status);
 
 	/* Set state to 'Device Management Ready' */
 	pr_info("Set status to 'Device Management Ready'\n");
-	pcie_cfg->status |= PCIE_CFG_STATUS_DEV_MGMT_READY;
 
 	return 0;
 }
