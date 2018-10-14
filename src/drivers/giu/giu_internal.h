@@ -38,6 +38,9 @@ struct giu {
 
 	struct mqa			*mqa;
 	struct gie			*gies[GIU_ENG_OUT_OF_RANGE];
+
+	u64				 msi_regs_pa;	/**< MSI phys-address registers base */
+	u64				 msi_regs_va;	/**< MSI virt-address registers base */
 };
 
 struct giu_mng_ch {
@@ -57,5 +60,7 @@ int giu_destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 	struct mqa_q *q, enum queue_type queue_type);
 
 struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng);
+
+int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa);
 
 #endif /* __GIU_INTERNAL_H__ */

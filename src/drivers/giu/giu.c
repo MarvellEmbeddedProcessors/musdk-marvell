@@ -80,6 +80,17 @@ struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng)
 	return giu->gies[eng];
 }
 
+int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa)
+{
+	if (unlikely(!giu)) {
+		pr_err("Invalid GIU handle!\n");
+		return -EINVAL;
+	}
+	*va = giu->msi_regs_va;
+	*pa = giu->msi_regs_pa;
+	return 0;
+}
+
 int giu_init(struct giu_params *params, struct giu **giu)
 {
 	struct giu		*_giu;
@@ -101,8 +112,10 @@ int giu_init(struct giu_params *params, struct giu **giu)
 	/* Mgmt GIE */
 	gie_params.gct_base = (u64)mqa_info.qct_va;
 	gie_params.gpt_base = (u64)mqa_info.qpt_va;
-	gie_params.msi_regs_phys = params->msi_regs_pa;
-	gie_params.msi_regs_virt = params->msi_regs_va;
+	_giu->msi_regs_pa = params->msi_regs_pa;
+	_giu->msi_regs_va = params->msi_regs_va;
+	gie_params.msi_regs_phys = _giu->msi_regs_pa;
+	gie_params.msi_regs_virt = _giu->msi_regs_va;
 
 	gie_params.dmax_match = params->mng_gie_params.dma_eng_match;
 	gie_params.name_match = (char *)"MNG";
@@ -154,20 +167,6 @@ void giu_deinit(struct giu *giu)
 		gie_terminate(giu->gies[GIU_ENG_MNG]);
 
 	kfree(giu);
-}
-
-int giu_register_msix_table(struct giu *giu, u64 msix_table_base)
-{
-	if (unlikely(!giu)) {
-		pr_err("Invalid GIU handle!\n");
-		return -EINVAL;
-	}
-
-	gie_register_msix_table(giu->gies[GIU_ENG_MNG], msix_table_base);
-	gie_register_msix_table(giu->gies[GIU_ENG_IN], msix_table_base);
-	gie_register_msix_table(giu->gies[GIU_ENG_OUT], msix_table_base);
-
-	return 0;
 }
 
 int giu_mng_ch_init(struct giu *giu, struct giu_mng_ch_params *params, struct giu_mng_ch **mng_ch)

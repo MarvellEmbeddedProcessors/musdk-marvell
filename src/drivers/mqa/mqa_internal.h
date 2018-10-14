@@ -10,6 +10,7 @@
 
 #include "drivers/mv_mqa.h"
 #include "drivers/mqa_def.h"
+#include "drivers/mv_mqa_queue.h"
 
 #define MQA_REGION_MAX			(16)	/** Max number of regions in MQA tables */
 #define MQA_REGION_FREE			(-1)
@@ -89,7 +90,7 @@ int queue_alloc(struct mqa *mqa, u32 *q);
 int queue_free(u32 phy_queue_id);
 int queue_config(struct mqa *mqa, u32 phy_queue_id, struct mqa_table_entry *q_params);
 int queue_associate_pair(struct mqa *mqa, u32 phy_queue_id, u32 dest_queue_id);
-int queue_associate_notify_intr(struct mqa *mqa, u32 phy_queue_id, u32 msi_x_id);
+int queue_associate_notify_intr(struct mqa *mqa, u32 phy_queue_id, struct mqa_queue_msix_params *params);
 int queue_associate_bpool(struct mqa *mqa, u32 phy_queue_id, u32 bpool_num, u32 *bpool);
 
 #endif /* _MQA_INTERNAL_H */

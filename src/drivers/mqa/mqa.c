@@ -565,12 +565,12 @@ int queue_associate_pair(struct mqa *mqa, u32 queue_id, u32 dest_queue_id)
  *
  *	@param[in]	mqa - pointer to MQA object
  *	@param[in]	queue_id - queue Id
- *	@param[in]	msi_x_id - MSI-X Interrupt
+ *	@param[in]	params - MSI-X Interrupt parameters
  *
  *	@retval	0 on success
  *	@retval	error-code otherwise
  */
-int queue_associate_notify_intr(struct mqa *mqa, u32 queue_id, u32 msi_x_id)
+int queue_associate_notify_intr(struct mqa *mqa, u32 queue_id, struct mqa_queue_msix_params *params)
 {
 	struct mqa_qpt_entry *qpt;
 
@@ -586,12 +586,15 @@ int queue_associate_notify_intr(struct mqa *mqa, u32 queue_id, u32 msi_x_id)
 		return -EINVAL;
 	}
 
-	pr_debug("Associate Queue - %d, Notify Interrupt - %d\n", queue_id, msi_x_id);
+	pr_debug("Associate Queue - %d, Notify Interrupt - %d\n", queue_id, params->id);
 
 	/* Calculate queue entries in MQA tables */
 	qpt = ((struct mqa_qpt_entry *)mqa->qpt_base) + queue_id;
 
-	qpt->common.queue_ext.msi_x_id = msi_x_id;
+	qpt->common.msix_inf.id = params->id;
+	qpt->common.msix_inf.data = params->data;
+	qpt->common.msix_inf.pa = params->pa;
+	qpt->common.msix_inf.va = params->va;
 
 	return 0;
 }

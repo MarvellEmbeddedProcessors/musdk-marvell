@@ -120,6 +120,7 @@ struct giu_gpio_params {
 
 	struct mqa *mqa;
 	struct giu *giu;
+	void *msix_table_base;
 
 	struct giu_gpio_intcs_params  intcs_params;
 	struct giu_gpio_outtcs_params outtcs_params;

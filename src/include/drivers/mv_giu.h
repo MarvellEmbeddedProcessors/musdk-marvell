@@ -139,18 +139,6 @@ int giu_init(struct giu_params *params, struct giu **giu);
 void giu_deinit(struct giu *giu);
 
 /**
- * Register MSI-X table base.
- *
- * @param[in]	giu		A pointer to GIU handler.
- * @param[in]	eng		GIU emulator engine.
- * @param[in]	msix_table_base MSI-X table base
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int giu_register_msix_table(struct giu *giu, u64 msix_table_base);
-
-/**
  * Create and initialize GIU Management channel
  *
  * @param[in]	giu		A pointer to GIU handler.

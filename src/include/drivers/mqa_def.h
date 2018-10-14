@@ -39,9 +39,15 @@
  * MQA Queue Definition
  */
 
+struct mqa_queue_msix_inf {
+	u32		 id;	/**< MSI interrupt Id   (0 = unused) */
+	u32		 data;
+	phys_addr_t	 pa;
+	void		*va;
+};
+
 /** MQA extended queue parameters */
 struct mqa_queue_ext {
-	u32 msi_x_id;		/** MSI-X interrupt Id */
 	u32 bm_queue[MQA_BM_QUEUE_ARRAY];
 
 };
@@ -62,8 +68,8 @@ struct mqa_queue {
 	u32 flags;		/** queue flags */
 
 	struct mqa_queue_ext queue_ext;
+	struct mqa_queue_msix_inf msix_inf;
 };
-
 
 /**
  * MQA Tables Definition

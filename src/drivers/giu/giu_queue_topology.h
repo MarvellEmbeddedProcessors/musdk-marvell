@@ -40,6 +40,12 @@ enum giu_gpio_outqs_sched_mode {
  *	gpio queue structures
  ****************************************************************************/
 
+struct msix_table_entry {
+	u64 msg_addr;
+	u32 msg_data;
+	u32 vector_ctrl;
+};
+
 /**
  * gpio queue parameters
  *

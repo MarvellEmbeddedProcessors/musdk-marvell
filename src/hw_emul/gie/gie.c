@@ -48,17 +48,13 @@ struct gie_regfile {
 	u64	gct_base;
 	u64	gpt_base;
 
-	/* MSI-X table base */
-	u64	msix_base;
-
 	/* MSI phys/virt register base */
 	u64 msi_regs_phys;
 	u64 msi_regs_virt;
 };
 
 struct msix_table_entry {
-	u32 msg_lower_addr;
-	u32 msg_upper_addr;
+	u64 msg_addr;
 	u32 msg_data;
 	u32 vector_ctrl;
 };
@@ -483,13 +479,6 @@ int gie_terminate(struct gie *gie)
 	return ret;
 }
 
-void gie_register_msix_table(void *giu, u64 msix_table_base)
-{
-	struct gie *gie = (struct gie *)giu;
-
-	gie->regs->msix_base = msix_table_base;
-}
-
 void *gie_regs(void *giu)
 {
 	return (void *)(((struct gie *)giu)->regs);
@@ -605,10 +594,8 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	struct mqa_qct_entry *qcd;
 	struct mqa_qpt_entry *qpd;
 	struct gie_bpool *bpool;
-	struct msix_table_entry *msix_entry;
 	int i, copy_payload, ret;
-	int msix_id;
-	u32 msix_addr_offset, prio;
+	u32 prio;
 
 	pr_debug("adding qid %d to %s-giu\n", qid, gie->name);
 
@@ -643,24 +630,15 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	qp->qpd = qpd;
 
 	/* Set MSI-X message info for dest Q of remote side */
-	msix_id = qpd->common.queue_ext.msi_x_id;
-
-	if (msix_id) {
-		pr_debug("Register msix_id %d for Q %d\n", msix_id, qp->dst_q.qid);
-
-		/* Get MSI entry in the MSI-X table */
-		msix_entry = (struct msix_table_entry *)(gie->regs->msix_base +
-						 (msix_id * sizeof(struct msix_table_entry)));
-
-		/* Calc msi address offset */
-		msix_addr_offset = msix_entry->msg_lower_addr - gie->regs->msi_regs_phys;
+	if (qpd->common.msix_inf.id) {
+		pr_debug("Register MSI-X %d for Q %d\n", qpd->common.msix_inf.id, qp->dst_q.qid);
 
 		/* Set message info */
-		qp->dst_q.msi_virt_addr = gie->regs->msi_regs_virt + msix_addr_offset;
-		qp->dst_q.msi_data = msix_entry->msg_data;
+		qp->dst_q.msi_virt_addr = (u64)qpd->common.msix_inf.va;
+		qp->dst_q.msi_data = qpd->common.msix_inf.data;
 
-		pr_debug("MSI data: phys 0x%x virt 0x%lx data 0x%x\n", msix_entry->msg_lower_addr,
-					qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
+		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
+			msix_entry->msg_addr, qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
 	}
 
 	/* Find the bpools and keep local pointers */

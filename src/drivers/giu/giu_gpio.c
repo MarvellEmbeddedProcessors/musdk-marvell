@@ -86,10 +86,13 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	u32 q_idx;
 	s32 pair_qid;
 	u32 bm_pool_num;
+	u32 msix_addr_offset;
+	u64 msi_regs_va, msi_regs_pa;
 	struct mqa_queue_params mqa_params;
 	struct giu_gpio_outtc_params *outtc, *outtc_pair;
 	struct giu_gpio_intc_params *intc, *intc_pair;
 	union giu_gpio_q_params *giu_gpio_q_p;
+	struct msix_table_entry *msix_entry;
 
 	*gpio = kcalloc(1, sizeof(struct giu_gpio), GFP_KERNEL);
 	if (*gpio == NULL) {
@@ -102,6 +105,8 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	/* Create Local Egress TC queues */
 	pr_debug("Initializing Local Egress TC queues (TC Num %d)\n",
 			params->intcs_params.num_intcs);
+
+	giu_get_msi_regs(params->giu, &msi_regs_va, &msi_regs_pa);
 
 	for (tc_idx = 0; tc_idx < params->intcs_params.num_intcs; tc_idx++) {
 
@@ -123,10 +128,22 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 					break;
 			}
 			mqa_params.bpool_num = bm_pool_num;
+
 			/* For Egress, the destination Q is the local Q (NIC)
 			 * and the MSI-X id should be registered in MQA dest Q.
 			 */
-			mqa_params.msix_id = intc->rem_outqs_params[q_idx].rem_q.msix_id;
+			mqa_params.msix_inf.id = intc->rem_outqs_params[q_idx].rem_q.msix_id;
+
+			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
+				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
+
+			/* Calc msi address offset */
+			msix_addr_offset = msix_entry->msg_addr - msi_regs_pa;
+
+			/* Set message info */
+			mqa_params.msix_inf.va = (void *)(msi_regs_va + msix_addr_offset);
+			mqa_params.msix_inf.pa = msi_regs_pa + msix_addr_offset;
+			mqa_params.msix_inf.data = msix_entry->msg_data;
 
 			giu_gpio_q_p = &(intc->inqs_params[q_idx]);
 			if (giu_gpio_q_p) {
@@ -191,9 +208,21 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 				(void *)(uintptr_t)outtc->rem_inqs_params[q_idx].rem_q.prod_base_pa;
 			mqa_params.prod_virt       = outtc->rem_inqs_params[q_idx].rem_q.prod_base_va;
 			mqa_params.host_remap      = outtc->rem_inqs_params[q_idx].rem_q.host_remap;
-			mqa_params.msix_id	       = outtc->rem_inqs_params[q_idx].rem_q.msix_id;
 			mqa_params.bpool_num       = 1;
 			mqa_params.bpool_qids[0]   = outtc->rem_poolqs_params[q_idx].rem_q.q_id;
+
+			mqa_params.msix_inf.id = outtc->rem_inqs_params[q_idx].rem_q.msix_id;
+
+			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
+				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
+
+			/* Calc msi address offset */
+			msix_addr_offset = msix_entry->msg_addr - msi_regs_pa;
+
+			/* Set message info */
+			mqa_params.msix_inf.va = (void *)(msi_regs_va + msix_addr_offset);
+			mqa_params.msix_inf.pa = msi_regs_pa + msix_addr_offset;
+			mqa_params.msix_inf.data = msix_entry->msg_data;
 
 			giu_gpio_q_p = &(outtc->rem_inqs_params[q_idx]);
 			if (giu_gpio_q_p) {
@@ -252,8 +281,20 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 					(void *)(uintptr_t)intc->rem_outqs_params[q_idx].rem_q.cons_base_pa;
 				mqa_params.cons_virt       = intc->rem_outqs_params[q_idx].rem_q.cons_base_va;
 				mqa_params.host_remap      = intc->rem_outqs_params[q_idx].rem_q.host_remap;
-				mqa_params.msix_id	       = intc->rem_outqs_params[q_idx].rem_q.msix_id;
 				mqa_params.copy_payload    = 1;
+
+				mqa_params.msix_inf.id = intc->rem_outqs_params[q_idx].rem_q.msix_id;
+
+				msix_entry = (struct msix_table_entry *)(params->msix_table_base +
+					(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
+
+				/* Calc msi address offset */
+				msix_addr_offset = msix_entry->msg_addr - msi_regs_pa;
+
+				/* Set message info */
+				mqa_params.msix_inf.va = (void *)(msi_regs_va + msix_addr_offset);
+				mqa_params.msix_inf.pa = msi_regs_pa + msix_addr_offset;
+				mqa_params.msix_inf.data = msix_entry->msg_data;
 
 				intc_pair = &(params->intcs_params.intc_params[mqa_params.prio]);
 				pair_qid = intc_pair->inqs_params[0].lcl_q.q_id;

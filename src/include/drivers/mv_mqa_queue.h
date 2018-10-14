@@ -24,6 +24,16 @@
 #define MQA_QUEUE_REMOTE	(1 << 1)
 
 /**
+ * struct mqa_queue_msix_params - MQA Queue MSI-X Params
+ */
+struct mqa_queue_msix_params {
+	u32		 id;	/**< MSI interrupt Id   (0 = unused) */
+	u32		 data;
+	phys_addr_t	 pa;
+	void		*va;
+};
+
+/**
  * struct mqa_queue_params - MQA Queue Params
  */
 struct mqa_queue_params {
@@ -50,8 +60,7 @@ struct mqa_queue_params {
 	void *remote_phy_addr;	/**< Remote Physical address (== NULL if local queue) */
 	void *host_remap;
 
-	u32 msix_id;	/**< MSI-X interrupt Id (0 = unused) */
-	u32 msi_id;	/**< MSI interrupt Id   (0 = unused) */
+	struct mqa_queue_msix_params msix_inf;	/**< MSI-X interrupt information */
 	u32 peer_id;	/**< Peer Id            (0 = unused) */
 	u32 bpool_num;	/**< Number of BPools   (0 = unused) */
 

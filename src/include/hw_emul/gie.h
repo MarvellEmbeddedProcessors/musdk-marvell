@@ -71,18 +71,6 @@ int gie_init(struct gie_params *gie_pars, struct gie **gie);
 int gie_terminate(struct gie *gie);
 
 /**
- * Register MSI-X table base.
- *
- * @param[in]	gie		A GIE handler.
- * @param[in]	msix_table_base MSI-X table base
- *
- * @retval	0 on success
- * @retval	<0 on failure
- *
- */
-void gie_register_msix_table(void *giu, u64 msix_table_base);
-
-/**
  * Return the GIE registers.
  *
  * @param[in]	gie		A GIE handler.
