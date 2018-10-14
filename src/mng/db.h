@@ -40,28 +40,19 @@ enum func_type {
 
 /* Contains the PCI / Platform function mapping information
  *
- *  sys_iomem	musdk iomem handle.
  *  cfg_map	Mapping of the device's configuration space.
  *		For PCIe case, this points to BAR-0, for local platform case
  *		then it points to the shared memory location in local dram.
- *  plat_regs	Relevant only for platform devices.
- *		Holds the mapping of the platform device configuration
- *		registers, associated with the platform device uio file.
  *  host_map	In PCIe case, holds the mapping of host memory from device's
  *		POV.
  *		In platform case, holds the mapping of local memory from
  *		user-space POV (which is actually an identity mapping for the
  *		physical address, and NA for virtual address as it's not being
  *		accessed by user-space).
- *  msi_regs	Mapping of the MSI-X registers.
- *		This ,apping is used for signaling the host if Ingress packets.
  */
 struct pci_plat_func_map {
-	struct sys_iomem *sys_iomem;
 	struct uio_mem cfg_map;
-	struct uio_mem plat_regs;
 	struct uio_mem host_map;
-	struct uio_mem msi_regs;
 	enum func_type type;
 };
 
@@ -169,6 +160,13 @@ struct nmcstm {
 /* Main PF data structure
  *
  *  nic-pf	all NIC-PF related data
+ *
+ *  sys_iomem	musdk iomem handle.
+ *  plat_regs	Relevant only for platform devices.
+ *		Holds the mapping of the platform device configuration
+ *		registers, associated with the platform device uio file.
+ *  msi_regs	Mapping of the MSI-X registers.
+ *		This ,apping is used for signaling the host if Ingress packets.
  *  giu		stores GIU related data
  *  mqa_global	MQA tables parameters
  */
@@ -176,6 +174,10 @@ struct nmp {
 	struct nmnicpf nmnicpf;
 	struct nmcstm *nmcstm;
 	u32 guest_id;
+
+	struct sys_iomem *sys_iomem;
+	struct uio_mem plat_regs;
+	struct uio_mem msi_regs;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
 	struct nmpp2 nmpp2;

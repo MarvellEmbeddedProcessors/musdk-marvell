@@ -26,6 +26,7 @@
 #include "pci_ep_def.h"
 #include "dispatch.h"
 
+
 #define PLAT_AGNIC_UIO_NAME "agnic"
 
 
@@ -33,60 +34,46 @@
 /** == Device Initialization == **/
 /** =========================== **/
 
-
 /** Hardware Functionality **/
 /** ====================== **/
-static int dev_mng_config_plat_func(struct pci_plat_func_map *map);
 
-static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
+/*
+ * dev_mng_config_plat_func - Setup the platofm device registers to trigger
+ * operation of the kernel based driver.
+ */
+static int dev_mng_config_plat_func(struct nmp *nmp)
 {
-	struct sys_iomem_params iomem_params;
-	int ret;
+	u32 cfg_mem_addr[2]; /* High and low */
+	dma_addr_t phys_addr = (dma_addr_t)(uintptr_t)nmp->nmnicpf.map.cfg_map.phys_addr;
 
-	pr_info("Mapping function %s\n", PLAT_AGNIC_UIO_NAME);
+	pr_debug("Setting platform device registers.\n");
+	cfg_mem_addr[0] = lower_32_bits(phys_addr) | 0x1;
+	cfg_mem_addr[1] = upper_32_bits(phys_addr) | (0xCAFE << 16);
 
-	iomem_params.type = SYS_IOMEM_T_UIO;
-	iomem_params.devname = PLAT_AGNIC_UIO_NAME;
-	iomem_params.index = 0;
+	writel(cfg_mem_addr[0], nmp->plat_regs.virt_addr + 0xA0);
+	writel(cfg_mem_addr[1], nmp->plat_regs.virt_addr + 0xA4);
 
-	ret = sys_iomem_init(&iomem_params, &map->sys_iomem);
-	if (ret)
-		return ret;
+	return 0;
+}
 
-	/* Map the agnic configuration registers */
-	ret = sys_iomem_map(map->sys_iomem, "agnic_regs", (phys_addr_t *)&map->plat_regs.phys_addr,
-			&map->plat_regs.virt_addr);
-	if (ret)
-		goto err_regs_map;
-
-	pr_info("agnic regs mapped at virt:%p phys:%p\n", map->plat_regs.virt_addr,
-		   map->plat_regs.phys_addr);
-
-	/* Map the MSI-X registers */
-	ret = sys_iomem_map(map->sys_iomem, "msi_regs", (phys_addr_t *)&map->msi_regs.phys_addr,
-			&map->msi_regs.virt_addr);
-	if (ret)
-		goto err_msi_regs_map;
-
-	pr_info("msi-x regs mapped at virt:%p phys:%p\n", map->msi_regs.virt_addr,
-		   map->msi_regs.phys_addr);
-
+static int dev_mng_map_emul_pci_bar(struct nmp *nmp)
+{
 	/* Allocate configuration space memory */
 	BUILD_BUG_ON(PCI_BAR0_CALC_SIZE > PCI_BAR0_ALLOC_SIZE); /* check that allocated size is enough */
-	map->cfg_map.virt_addr = mv_sys_dma_mem_alloc(PCI_BAR0_ALLOC_SIZE, PCI_BAR0_ALLOC_ALIGN);
-	if (map->cfg_map.virt_addr == NULL) {
+	nmp->nmnicpf.map.cfg_map.virt_addr = mv_sys_dma_mem_alloc(PCI_BAR0_ALLOC_SIZE, PCI_BAR0_ALLOC_ALIGN);
+	if (nmp->nmnicpf.map.cfg_map.virt_addr == NULL) {
 		pr_err("Failed to allocate platform configuration space.\n");
-		ret = -ENOMEM;
-		goto err_cfg_alloc;
+		return -ENOMEM;
 	}
 
 	/* Get the relevant physical address. */
-	map->cfg_map.phys_addr = (void *)(uintptr_t)mv_sys_dma_mem_virt2phys(map->cfg_map.virt_addr);
+	nmp->nmnicpf.map.cfg_map.phys_addr =
+		(void *)(uintptr_t)mv_sys_dma_mem_virt2phys(nmp->nmnicpf.map.cfg_map.virt_addr);
 
 	/* Clear the config space, to prevent false device indications. */
-	memset(map->cfg_map.virt_addr, 0x0, PCI_BAR0_ALLOC_SIZE);
+	memset(nmp->nmnicpf.map.cfg_map.virt_addr, 0x0, PCI_BAR0_ALLOC_SIZE);
 
-	pr_info("Platform config space @ %p.\n", map->cfg_map.phys_addr);
+	pr_debug("Platform config space @ %p.\n", nmp->nmnicpf.map.cfg_map.phys_addr);
 	/* Setup the "host_map", which is actually an identity mapping for the
 	 * physical address.
 	 * The virtual map, is not needed, as not entity in the mgmt side is
@@ -95,92 +82,132 @@ static int dev_mng_map_plat_func(struct pci_plat_func_map *map)
 	 * Thus, we set the virtual address to some "bad address" so that we
 	 * can identify faulty accesses to host's virtual space.
 	 */
-	map->host_map.phys_addr = 0x0;
-	map->host_map.virt_addr = (void *)0xBAD00ADD0BAD0ADDll;
+	nmp->nmnicpf.map.host_map.phys_addr = 0x0;
+	nmp->nmnicpf.map.host_map.virt_addr = (void *)0xBAD00ADD0BAD0ADDll;
 
 	/* Configure device registers. */
-	dev_mng_config_plat_func(map);
-
-	/* Unmap the device registers, they are no longer needed. */
-	sys_iomem_unmap(map->sys_iomem, "agnic_regs");
-
-	return 0;
-
-err_cfg_alloc:
-	sys_iomem_unmap(map->sys_iomem, "agnic_regs");
-err_msi_regs_map:
-err_regs_map:
-	sys_iomem_deinit(map->sys_iomem);
-
-	return ret;
+	return dev_mng_config_plat_func(nmp);
 }
 
-static int dev_mng_unmap_plat_func(struct pci_plat_func_map *map)
-{
-	mv_sys_dma_mem_free(map->cfg_map.virt_addr);
-	sys_iomem_deinit(map->sys_iomem);
-
-	return 0;
-}
-
-/*
- * dev_mng_config_plat_func - Setup the platofm device registers to trigger
- * operation of the kernel based driver.
- */
-static int dev_mng_config_plat_func(struct pci_plat_func_map *map)
-{
-	u32 cfg_mem_addr[2]; /* High and low */
-	dma_addr_t phys_addr = (dma_addr_t)(uintptr_t)map->cfg_map.phys_addr;
-
-	pr_info("Setting platform device registers.\n");
-	cfg_mem_addr[0] = lower_32_bits(phys_addr) | 0x1;
-	cfg_mem_addr[1] = upper_32_bits(phys_addr) | (0xCAFE << 16);
-
-	writel(cfg_mem_addr[0], map->plat_regs.virt_addr + 0xA0);
-	writel(cfg_mem_addr[1], map->plat_regs.virt_addr + 0xA4);
-
-	return 0;
-}
-
-
-static int dev_mng_map_pci_func(struct pci_plat_func_map *map)
+static int dev_mng_map_plat_func(struct nmp *nmp)
 {
 	struct sys_iomem_params iomem_params;
 	int ret;
 
-	pr_info("Mapping function %s\n", PCI_EP_UIO_MEM_NAME);
+	pr_debug("Mapping function %s\n", PLAT_AGNIC_UIO_NAME);
+
+	iomem_params.type = SYS_IOMEM_T_UIO;
+	iomem_params.devname = PLAT_AGNIC_UIO_NAME;
+	iomem_params.index = 0;
+
+	ret = sys_iomem_init(&iomem_params, &nmp->sys_iomem);
+	if (ret)
+		return ret;
+
+	/* Map the agnic configuration registers */
+	ret = sys_iomem_map(nmp->sys_iomem, "agnic_regs", (phys_addr_t *)&nmp->plat_regs.phys_addr,
+			&nmp->plat_regs.virt_addr);
+	if (ret)
+		goto err_regs_map;
+
+	pr_debug("agnic regs mapped at virt:%p phys:%p\n", nmp->plat_regs.virt_addr,
+		   nmp->plat_regs.phys_addr);
+
+	/* Map the MSI-X registers */
+	ret = sys_iomem_map(nmp->sys_iomem, "msi_regs", (phys_addr_t *)&nmp->msi_regs.phys_addr,
+			&nmp->msi_regs.virt_addr);
+	if (ret)
+		goto err_msi_regs_map;
+
+	pr_debug("msi-x regs mapped at virt:%p phys:%p\n", nmp->msi_regs.virt_addr,
+		   nmp->msi_regs.phys_addr);
+
+	return 0;
+
+err_msi_regs_map:
+	sys_iomem_unmap(nmp->sys_iomem, "agnic_regs");
+err_regs_map:
+	sys_iomem_deinit(nmp->sys_iomem);
+
+	return ret;
+}
+
+static int dev_mng_map_pci_bar(struct nmp *nmp)
+{
+	struct sys_iomem_params iomem_params;
+	int ret;
+
+	pr_debug("Mapping function %s\n", PCI_EP_UIO_MEM_NAME);
 
 	iomem_params.type = SYS_IOMEM_T_UIO;
 	iomem_params.devname = PCI_EP_UIO_MEM_NAME;
 	iomem_params.index = 0;
 
-	ret = sys_iomem_init(&iomem_params, &map->sys_iomem);
+	ret = sys_iomem_init(&iomem_params, &nmp->sys_iomem);
 	if (ret)
 		return ret;
 
 	/* Map the whole physical Packet Processor physical address */
-	ret = sys_iomem_map(map->sys_iomem,
+	ret = sys_iomem_map(nmp->sys_iomem,
 			    PCI_EP_UIO_REGION_NAME,
-			    (phys_addr_t *)&map->cfg_map.phys_addr,
-			    &map->cfg_map.virt_addr);
+			    (phys_addr_t *)&nmp->nmnicpf.map.cfg_map.phys_addr,
+			    &nmp->nmnicpf.map.cfg_map.virt_addr);
 	if (ret) {
-		sys_iomem_deinit(map->sys_iomem);
+		sys_iomem_deinit(nmp->sys_iomem);
 		return ret;
 	}
 
 	pr_debug("BAR-0 of %s mapped at virt:%p phys:%p\n", PCI_EP_UIO_MEM_NAME,
-		map->cfg_map.virt_addr, map->cfg_map.phys_addr);
+		nmp->nmnicpf.map.cfg_map.virt_addr, nmp->nmnicpf.map.cfg_map.phys_addr);
 
 	/* Map the whole physical Packet Processor physical address */
-	ret = sys_iomem_map(map->sys_iomem, "host-map", (phys_addr_t *)&map->host_map.phys_addr,
-			&map->host_map.virt_addr);
+	ret = sys_iomem_map(nmp->sys_iomem, "host-map", (phys_addr_t *)&nmp->nmnicpf.map.host_map.phys_addr,
+			&nmp->nmnicpf.map.host_map.virt_addr);
 	if (ret) {
-		sys_iomem_deinit(map->sys_iomem);
+		sys_iomem_deinit(nmp->sys_iomem);
 		return ret;
 	}
 
 	pr_debug("host RAM of %s remapped to phys %p virt %p\n", "host-map",
-		   map->host_map.phys_addr, map->host_map.virt_addr);
+		   nmp->nmnicpf.map.host_map.phys_addr, nmp->nmnicpf.map.host_map.virt_addr);
+
+	return 0;
+}
+
+static int dev_mng_map_bar(struct nmp *nmp)
+{
+	if (nmp->nmnicpf.map.type == ft_plat)
+		return dev_mng_map_emul_pci_bar(nmp);
+	else
+		return dev_mng_map_pci_bar(nmp);
+}
+
+static int dev_mng_map_init(struct nmp *nmp)
+{
+	int ret;
+
+	/* Map NMP registers if any */
+	/* First, try to map the platform device, if failed, and PCI is supported
+	 * try the pci device.
+	 */
+	nmp->nmnicpf.map.type = ft_plat;
+	ret = dev_mng_map_plat_func(nmp);
+	if (ret) {
+		if (nmp->nmnicpf.profile_data.pci_en) {
+			pr_debug("Platform device not found, trying the pci device.\n");
+			nmp->nmnicpf.map.type = ft_pcie_ep;
+		} else {
+			pr_err("platform device not found\n");
+			return ret;
+		}
+	}
+
+	/* TODO: this should move into NICPF */
+	ret = dev_mng_map_bar(nmp);
+	if (ret) {
+		pr_err("niether platform nor PCI devices were found\n");
+		return ret;
+	}
 
 	return 0;
 }
@@ -191,7 +218,7 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 	u64 pf_cfg_phys, pf_cfg_virt;
 	struct mqa_params params;
 
-	pr_info("Initializing MQA\n");
+	pr_debug("Initializing MQA\n");
 
 	/* Initializing MQA botification tables base address */
 	pf_cfg_phys = (u64)nmp->nmnicpf.map.cfg_map.phys_addr;
@@ -212,11 +239,10 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 
 	nmp->nmnicpf.mqa = nmp->mqa;
 
-	pr_info("Initializing MQA %p %p\n", nmp->mqa, nmp->nmnicpf.mqa);
+	pr_debug("Initializing MQA %p %p\n", nmp->mqa, nmp->nmnicpf.mqa);
 
 	return 0;
 }
-
 
 /* Initialize the GIU instance */
 static int dev_mng_init_giu(struct nmp *nmp)
@@ -226,12 +252,12 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	int ret;
 
 	/* Initialize the management GIU instance */
-	pr_info("Initializing GIU devices\n");
+	pr_debug("Initializing GIU devices\n");
 
 	memset(&giu_params, 0, sizeof(giu_params));
 	giu_params.mqa = nmp->nmnicpf.mqa;
-	giu_params.msi_regs_pa = (u64)nmp->nmnicpf.map.msi_regs.phys_addr;
-	giu_params.msi_regs_va = (u64)nmp->nmnicpf.map.msi_regs.virt_addr;
+	giu_params.msi_regs_pa = (u64)nmp->msi_regs.phys_addr;
+	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr;
 
 	sprintf(dma_mng_name, "dmax2-%d", 0);
 	giu_params.mng_gie_params.dma_eng_match = dma_mng_name;
@@ -251,33 +277,20 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	return 0;
 }
 
-
 static int dev_mng_hw_init(struct nmp *nmp)
 {
 	int ret;
 
-	pr_info("Initializing Device hardware\n");
+	pr_debug("Initializing Device hardware\n");
 
-	/* Map the NIC-PF */
-	/* First, try to map the platform device, if failed, and PCI is supported
-	 * try the pci device.
+	/* Initialize NIC-PF map - (for QNPT/QNCT/etc.) */
+	/* TODO: this is needed for MQa/GIU. however, this should be
+	 * initialized on local memory and not on BAR; after fixing that,
+	 * BAR should be initialized part of NICPF
 	 */
-	nmp->nmnicpf.map.type = ft_plat;
-	ret = dev_mng_map_plat_func(&nmp->nmnicpf.map);
-	if (ret) {
-		if (nmp->nmnicpf.profile_data.pci_en) {
-			pr_info("Platform device not found, trying the pci device.\n");
-			nmp->nmnicpf.map.type = ft_pcie_ep;
-			ret = dev_mng_map_pci_func(&nmp->nmnicpf.map);
-			if (ret) {
-				pr_err("niether platform nor PCI devices were found\n");
-				return ret;
-			}
-		} else {
-			pr_err("platform device not found\n");
-			return ret;
-		}
-	}
+	ret = dev_mng_map_init(nmp);
+	if (ret)
+		return ret;
 
 	/* Initialize Register File utility */
 	ret = regfile_init();
@@ -302,7 +315,6 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	return 0;
 }
 
-
 /** Software Functionality **/
 /** ====================== **/
 
@@ -319,7 +331,7 @@ static void dev_mng_pf_init_done(void *arg)
 	int	 ret;
 	size_t	 pos = 0;
 
-	pr_info("nmp_pf_init_done reached\n");
+	pr_debug("nmp_pf_init_done reached\n");
 
 	/* TODO: go over all guests */
 	snprintf(file_name, sizeof(file_name), "%s%s%d", SER_FILE_VAR_DIR, SER_FILE_NAME_PREFIX, nmnicpf->guest_id);
@@ -372,7 +384,7 @@ static int dev_mng_sw_init(struct nmp *nmp)
 	int ret;
 	struct nmdisp_params params;
 
-	pr_info("Initializing Device software\n");
+	pr_debug("Initializing Device software\n");
 
 	/* Assign the pf_init_done callback */
 	nmp->nmnicpf.f_ready_cb = dev_mng_pf_init_done;
@@ -392,31 +404,9 @@ static int dev_mng_sw_init(struct nmp *nmp)
 	return ret;
 }
 
-
-/** Device Initialization **/
-int dev_mng_init(struct nmp *nmp)
-{
-	int ret;
-
-	pr_info("Starting Device Manager Init\n");
-
-	ret = dev_mng_hw_init(nmp);
-	if (ret)
-		return ret;
-
-	ret = dev_mng_sw_init(nmp);
-	if (ret)
-		return ret;
-
-	pr_info("Completed Device Manager init\n");
-	return 0;
-}
-
-
 /** ======================== **/
 /** == Device Termination == **/
 /** ======================== **/
-
 
 /** Hardware Functionality **/
 /** ====================== **/
@@ -429,12 +419,11 @@ static int dev_mng_terminate_giu(struct nmp *nmp)
 	return 0;
 }
 
-
 static int dev_mng_mqa_terminate(struct nmp *nmp)
 {
 	int ret;
 
-	pr_info("Terminating MQA\n");
+	pr_debug("Terminating MQA\n");
 
 	/* Terminating MQA tables */
 	ret = mqa_deinit(nmp->nmnicpf.mqa);
@@ -446,21 +435,48 @@ static int dev_mng_mqa_terminate(struct nmp *nmp)
 	return 0;
 }
 
-
-static int dev_mng_unmap_pci_func(struct pci_plat_func_map *map)
+static void dev_mng_unmap_plat_func(struct nmp *nmp)
 {
-	(void)map;
-
-	/* TODO: need to implement uio_unmap_mem */
-	return 0;
+	mv_sys_dma_mem_free(nmp->nmnicpf.map.cfg_map.virt_addr);
 }
 
+static void dev_mng_unmap_emul_pci_bar(struct nmp *nmp)
+{
+	sys_iomem_unmap(nmp->sys_iomem, "msi_regs");
+	sys_iomem_unmap(nmp->sys_iomem, "agnic_regs");
+	sys_iomem_deinit(nmp->sys_iomem);
+}
+
+static void dev_mng_unmap_pci_bar(struct nmp *nmp)
+{
+	NOTUSED(nmp);
+	/* TODO: complete! */
+}
+
+static void dev_mng_unmap_bar(struct nmp *nmp)
+{
+	if (nmp->nmnicpf.map.type == ft_plat)
+		dev_mng_unmap_emul_pci_bar(nmp);
+	else
+		dev_mng_unmap_pci_bar(nmp);
+}
+
+static int dev_mng_map_terminate(struct nmp *nmp)
+{
+	if (nmp->nmnicpf.map.type == ft_plat)
+		dev_mng_unmap_plat_func(nmp);
+
+	/* TODO: this should move into NICPF */
+	dev_mng_unmap_bar(nmp);
+
+	return 0;
+}
 
 static int dev_mng_hw_terminate(struct nmp *nmp)
 {
 	int ret;
 
-	pr_info("Terminating Device Manager Init\n");
+	pr_debug("Terminating Device Manager Init\n");
 
 	/* terminate PP2 */
 	ret = dev_mng_pp2_terminate(nmp);
@@ -477,8 +493,14 @@ static int dev_mng_hw_terminate(struct nmp *nmp)
 	if (ret)
 		return ret;
 
+	regfile_destroy();
+
 	/* Un-Map the NIC-PF */
-	ret = dev_mng_unmap_pci_func(&nmp->nmnicpf.map);
+	/* TODO: this is needed for MQa/GIU. however, this should be
+	 * initialized on local memory and not on BAR; after fixing that,
+	 * BAR should be initialized part of NICPF
+	 */
+	ret = dev_mng_map_terminate(nmp);
 	if (ret)
 		return ret;
 
@@ -508,6 +530,25 @@ static int dev_mng_sw_terminate(struct nmp *nmp)
 }
 
 
+/** Device Initialization **/
+int dev_mng_init(struct nmp *nmp)
+{
+	int ret;
+
+	pr_info("Starting Device Manager Init\n");
+
+	ret = dev_mng_hw_init(nmp);
+	if (ret)
+		return ret;
+
+	ret = dev_mng_sw_init(nmp);
+	if (ret)
+		return ret;
+
+	pr_info("Completed Device Manager init\n");
+	return 0;
+}
+
 /** Device termination **/
 int dev_mng_terminate(struct nmp *nmp)
 {
@@ -525,5 +566,3 @@ int dev_mng_terminate(struct nmp *nmp)
 
 	return 0;
 }
-
-
