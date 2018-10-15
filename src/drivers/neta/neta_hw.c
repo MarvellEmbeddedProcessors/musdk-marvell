@@ -1095,3 +1095,17 @@ void neta_flush_ucast_table(struct neta_port *pp)
 	for (offset = 0; offset <= 0xc; offset += 4)
 		neta_reg_write(pp, MVNETA_DA_FILT_UCAST_BASE + offset, val);
 }
+
+/* Debug dump unicast address table */
+void neta_ucast_table_dump(struct neta_port *pp)
+{
+	int offset;
+	u32 val;
+
+	pr_info("\nNETA unicast address table dump:\n");
+	for (offset = 0; offset <= 0xc; offset += 4) {
+		val = neta_reg_read(pp, MVNETA_DA_FILT_UCAST_BASE + offset);
+		pr_info("0x%x ", val);
+	}
+	pr_info("\n");
+}

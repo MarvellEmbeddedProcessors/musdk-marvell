@@ -445,5 +445,6 @@ void neta_port_down(struct neta_port *pp);
 void neta_add_ucast_addr(struct neta_port *pp, u8 last_nibble, int queue);
 void neta_del_ucast_addr(struct neta_port *pp, u8 last_nibble);
 void neta_flush_ucast_table(struct neta_port *pp);
+void neta_ucast_table_dump(struct neta_port *pp);
 
 #endif /* _MVNETA_HW_H_ */
