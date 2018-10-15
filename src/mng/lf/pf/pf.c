@@ -950,7 +950,9 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 		; /* Do Nothing. Wait till state it's updated */
 
 	/* Set remote index mode to MQA */
-	mqa_set_remote_index_mode(nmnicpf->mqa, pcie_cfg->remote_index_location);
+	/* TODO: temporary, we use the same flag for MQA-mode */
+	/* TODO: temporary, we treat MQA-mode opposite */
+	mqa_set_remote_index_mode(nmnicpf->mqa, !pcie_cfg->remote_index_location);
 
 	/* Set remote index mode to GIU */
 	giu_set_remote_index_mode(nmnicpf->giu,
