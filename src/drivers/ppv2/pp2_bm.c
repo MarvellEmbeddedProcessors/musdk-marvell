@@ -94,7 +94,7 @@ static int pp2_bm_get_8pool_mode(uintptr_t cpu_slot)
 	int val;
 
 	val = pp2_reg_read(cpu_slot, MVPP22_BM_POOL_BASE_ADDR_HIGH_REG);
-	pr_info("8pool_mode is:%s\n", (val & MVPP23_BM_8POOL_MODE) ? "enabled" : "disabled");
+	pr_debug("8pool_mode is:%s\n", (val & MVPP23_BM_8POOL_MODE) ? "enabled" : "disabled");
 	return(val & MVPP23_BM_8POOL_MODE);
 }
 
