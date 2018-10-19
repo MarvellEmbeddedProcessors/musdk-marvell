@@ -22,7 +22,7 @@
 #define CFG_MEM_BASE_MAGIC_MASK		(0xFFFFLL << 48)
 #define CFG_MEM_BASE_MAGIC_VAL		(0xCAFELL << 48)
 
-#define BAR0_SIZE			(1<<20)
+#define AGNIC_CONFIG_BAR_SIZE		(0x10000)
 
 #define AGNIC_MAX_QUEUES		(AGNIC_PFIO_MAX_NUM_QS_PER_TC*AGNIC_PFIO_MAX_NUM_TCS)
 #define AGNIC_MAX_RXQ_COUNT		(AGNIC_MAX_QUEUES)
@@ -62,8 +62,10 @@
 	((ring_sz) - AGNIC_RING_NUM_OCCUPIED(prod, cons, ring_sz) - 1)
 
 /* Calc physical address of a local producer / consumer pointer. */
-#define AGNIC_RING_INDX_LOCAL_PHYS(ring)		\
-	((ring)->pfio->ring_indices_arr_phys + (ring->q_ctrl_idx * sizeof(u32)))
+#define AGNIC_RING_PROD_INDX_LOCAL_PHYS(ring)		\
+	((ring)->pfio->ring_indices_arr_phys + ((ring)->prod_idx * sizeof(u32)))
+#define AGNIC_RING_CONS_INDX_LOCAL_PHYS(ring)		\
+	((ring)->pfio->ring_indices_arr_phys + ((ring)->cons_idx * sizeof(u32)))
 
 enum agnic_ring_type {
 	agnic_rx_ring	 = 0x01,
@@ -144,7 +146,8 @@ struct agnic_pfio;
  *  - dev: Device for DMA mappings.
  *  - type: Type of ring (see agnic_ring_type).
  *  - desc_size: Size of a single descriptor.
- *  - q_ctrl_idx: Offset of the Q control pointers in the q_indeces_arr array
+ *  - prod_idx: Offset of the Q control producer pointer in the q_indeces_arr array
+ *  - cons_idx: Offset of the Q control consumer pointer in the q_indeces_arr array
  *  - tc: the TC this ring is assigned to.
  *  - desc: Pointer to ring memory (Array).
  *  - dma: Physical address of desc.
@@ -206,7 +209,8 @@ struct agnic_ring {
 	enum agnic_ring_type type;
 	int desc_size;
 
-	u8 q_ctrl_idx;
+	u8 prod_idx;
+	u8 cons_idx;
 	u8 tc;
 	u8 q_idx;
 
@@ -251,11 +255,6 @@ struct agnic_pfio {
 	dma_addr_t		 nic_cfg_phys_base;
 	struct agnic_config_mem *nic_cfg;
 
-	u32			*nic_prod_notif_tbl_base;
-	u32			 nic_prod_notif_tbl_num_entries;
-	u32			*nic_cons_notif_tbl_base;
-	u32			 nic_cons_notif_tbl_num_entries;
-
 	/* Management command & notification Rings. */
 	struct agnic_ring	 cmd_ring;
 	struct agnic_ring	 notif_ring;
@@ -277,6 +276,14 @@ struct agnic_pfio {
 #define AGNIC_FLAG_MGMT_POLL			BIT(3)
 #define AGNIC_FLAG_RX_POLL			BIT(4)
 #define AGNIC_FLAG_IRQPOLL			(AGNIC_FLAG_RX_POLL | AGNIC_FLAG_MGMT_POLL)
+
+	/* A page to hold the consumer / producer indexes per queue.
+	 * the consumer_p or producer_p pointers will actually point
+	 * an entry in this array (depending on the direction of the queue).
+	 */
+	u32			*ring_indices_arr;
+	dma_addr_t		 ring_indices_arr_phys;
+	u32			 ring_indices_arr_len;
 
 	/* Tx - one ring per active queue */
 	u16			 num_tx_queues;

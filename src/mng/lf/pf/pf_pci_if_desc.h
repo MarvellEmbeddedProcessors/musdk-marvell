@@ -18,14 +18,14 @@
 ** The below is still preliminary, till we finalize the interface between
 ** the host and the NIC.
 ** - q_addr: Physical address of the queue in host's memory.
-** - consumer_idx_addr: Physical address of the queue consumer index.
-** - producer_idx_addr: Physical address of the queue producer index.
+** - q_prod_offs: Producer offset from BAR.
+** - q_cons_offs: Consumer offset from BAR.
 ** - len: Number of elements in the queue.
 */
 struct q_hw_info {
 	u64	q_addr;
-	u64	consumer_idx_addr;
-	u64	producer_idx_addr;
+	u32	q_prod_offs;
+	u32	q_cons_offs;
 	u32	len;
 	u32	res;
 } __packed;
@@ -39,23 +39,13 @@ struct pcie_config_mem {
 	u8	res[6];
 	struct q_hw_info cmd_q;
 	struct q_hw_info notif_q;
-	/* Meanwhile, assume SNIC's notification table is part of BAR-0.
-	 * This is actually the offset of the prod / cons notification tables
-	 * inside BAR0.
-	 * Value N, means that the respective notification table starts at
-	 * offset N-Bytes from the beginning of BAR-0.
-	 * Consecutively, the _size parameter holds the size in bytes of the
-	 * notification tables.
-	 */
-	u32	cons_notif_tbl_offset;
-	u32	cons_notif_tbl_size;
-	u32	prod_notif_tbl_offset;
-	u32	prod_notif_tbl_size;
+	u8	res2[24];
 
-	u32	remote_index_location;
-
+	u32	dev_use_size;
 	/* MSI-X table offset at BAR0 */
 	u32	msi_x_tbl_offset;
+
+	u8	res3[920]; /* complete to 1KB */
 } __packed;
 
 #endif /* _HOST_PCI_IF_H_ */

@@ -11,6 +11,67 @@
 #define AGNIC_COOKIE_DRIVER_WATERMARK	0xdeaddead
 
 
+/*
+ * agnic_init_q_indices - Initialize Q pointers page.
+ */
+static int agnic_init_q_indeces(struct agnic_pfio *pfio)
+{
+	int size;
+
+	pfio->ring_indices_arr_len = AGNIC_MAX_QUEUES;
+	size = pfio->ring_indices_arr_len * sizeof(u32);
+	if ((pfio->nic_cfg->dev_use_size + size) > AGNIC_CONFIG_BAR_SIZE) {
+		pr_err("not enough memory on BAR for rings indicex pointers!\n");
+		return -ENOMEM;
+	}
+	pfio->ring_indices_arr = (void *)((u64)pfio->nic_cfg + pfio->nic_cfg->dev_use_size);
+	/* in case the indices are allocated on the BAR, we would like to send only the offset
+	 * from the bar base address
+	 */
+	pfio->ring_indices_arr_phys = pfio->nic_cfg->dev_use_size;
+	/* Set all entries to "free" state. */
+	memset(pfio->ring_indices_arr, 0xFF, size);
+
+	return 0;
+}
+
+/*
+ * agnic_terminate_q_indeces - Destroy Q pointers page.
+ */
+static void agnic_terminate_q_indeces(struct agnic_pfio *pfio)
+{
+	mv_sys_dma_mem_free(pfio->ring_indices_arr);
+	pfio->ring_indices_arr = NULL;
+}
+
+/*
+** agnic_get_q_idx - allocate a free entry for queue control pointers.
+*/
+static int agnic_get_q_idx(struct agnic_pfio *pfio)
+{
+	int i;
+
+	for (i = 0; i < pfio->ring_indices_arr_len; i++)
+		if (pfio->ring_indices_arr[i] == 0xFFFFFFFF) {
+			pfio->ring_indices_arr[i] = 0;
+			return i;
+		}
+
+	/* All entries are occupied, not likely to happen. */
+	pr_err("All Ring indeces are occupied (%d entries).\n",
+		pfio->ring_indices_arr_len);
+
+	return -ENODEV;
+}
+
+/*
+** agnic_put_q_idx - Free a previous allocated entry for queue control pointers.
+*/
+static void agnic_put_q_idx(struct agnic_pfio *pfio, u32 index)
+{
+	pfio->ring_indices_arr[index] = 0xFFFFFFFF;
+}
+
 static void agnic_set_num_queues(struct agnic_pfio *pfio)
 {
 	/* Start with base case */
@@ -90,7 +151,7 @@ static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 	iomem_params.type = SYS_IOMEM_T_SHMEM;
 	iomem_params.devname = CMA_DEV_STR;
 	iomem_params.index = 1;
-	iomem_params.size = BAR0_SIZE;
+	iomem_params.size = AGNIC_CONFIG_BAR_SIZE;
 
 	if (sys_iomem_init(&iomem_params, &pfio->bar_iomem)) {
 		pr_err("failed to created IOMEM for AGNIC bar!\n");
@@ -122,47 +183,6 @@ static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 	return 0;
 }
 
-static int agnic_map_notif_tables(struct agnic_pfio *pfio)
-{
-	int bar, offset, length;
-
-	/* Temporary solution, till we decide on the location of the
-	 * AGNIC's notification table.
-	 * TODO: Adapt according to notif table location.
-	 */
-	/* Map the producer notification table. */
-	bar = AGNIC_CONFIG_BAR_ID;
-	offset = pfio->nic_cfg->prod_notif_tbl_offset;
-	length = pfio->nic_cfg->prod_notif_tbl_size;
-	pr_debug("Mapping producer notification table (0x%x, 0x%x).\n", offset, length);
-	pfio->nic_prod_notif_tbl_base = (void *)((uintptr_t)pfio->nic_cfg + offset);
-	if (!pfio->nic_prod_notif_tbl_base) {
-		pr_err("Unable to map NIC producer notification table %#x@%#x on bar %i\n",
-				length, offset, bar);
-		return -EIO;
-	}
-	pfio->nic_prod_notif_tbl_num_entries = length / sizeof(u32);
-	pr_debug("AGNIC %d notif prod address: pa 0x%"PRIx64", va %p\n",
-		pfio->id, offset + pfio->nic_cfg_phys_base, pfio->nic_prod_notif_tbl_base);
-
-	/* Map the consumer notification table. */
-	offset = pfio->nic_cfg->cons_notif_tbl_offset;
-	length = pfio->nic_cfg->cons_notif_tbl_size;
-	pr_debug("Mapping consumer notification table (0x%x, 0x%x).\n", offset, length);
-	pfio->nic_cons_notif_tbl_base = (void *)((uintptr_t)pfio->nic_cfg + offset);
-	if (!pfio->nic_cons_notif_tbl_base) {
-		pr_err("Unable to map NIC consumer notification table %#x@%#x on bar %i\n",
-				length, offset, bar);
-
-		return -EIO;
-	}
-	pfio->nic_cons_notif_tbl_num_entries = length / sizeof(u32);
-	pr_debug("AGNIC %d notif cons address: pa 0x%"PRIx64", va %p\n",
-		pfio->id, offset + pfio->nic_cfg_phys_base, pfio->nic_cons_notif_tbl_base);
-
-	return 0;
-}
-
 /*
  * Communicate management queues information with device side.
  * In case command / notification queue index is located on device memory
@@ -178,15 +198,15 @@ static int agnic_mgmt_set_mgmt_queues(struct agnic_pfio *pfio)
 	cmd_q_info = &pfio->nic_cfg->cmd_q;
 	cmd_q_info->q_addr = pfio->cmd_ring.dma;
 	cmd_q_info->len  = pfio->cmd_ring.count;
-	cmd_q_info->producer_idx_addr = 0x0;
-	cmd_q_info->consumer_idx_addr = 0x0;
+	cmd_q_info->q_prod_offs = AGNIC_RING_PROD_INDX_LOCAL_PHYS(&pfio->cmd_ring);
+	cmd_q_info->q_cons_offs = AGNIC_RING_CONS_INDX_LOCAL_PHYS(&pfio->cmd_ring);
 
 	/* Set Notification queue base address & length. */
 	notif_q_info = &pfio->nic_cfg->notif_q;
 	notif_q_info->q_addr = pfio->notif_ring.dma;
 	notif_q_info->len  = pfio->notif_ring.count;
-	notif_q_info->consumer_idx_addr = 0x0;
-	notif_q_info->producer_idx_addr = 0x0;
+	notif_q_info->q_prod_offs = AGNIC_RING_PROD_INDX_LOCAL_PHYS(&pfio->notif_ring);
+	notif_q_info->q_cons_offs = AGNIC_RING_CONS_INDX_LOCAL_PHYS(&pfio->notif_ring);
 
 	/* Make sure that upper writes are executed before notifying the
 	 * end-point.
@@ -205,23 +225,6 @@ static int agnic_mgmt_set_mgmt_queues(struct agnic_pfio *pfio)
 	if (timeout == 0)
 		pr_err("Timeout while waiting for device response.\n");
 
-	/* Map the returned consumer / producer address locally. */
-	if (cmd_q_info->producer_idx_addr >= pfio->nic_prod_notif_tbl_num_entries) {
-		pr_err("Bad Control queue producer address (0x%"PRIx64").\n",
-				cmd_q_info->producer_idx_addr);
-		return -ENXIO;
-	}
-	pfio->cmd_ring.producer_p = pfio->nic_prod_notif_tbl_base + cmd_q_info->producer_idx_addr;
-	pfio->cmd_ring.consumer_p = pfio->nic_cons_notif_tbl_base + cmd_q_info->consumer_idx_addr;
-
-	if (notif_q_info->consumer_idx_addr >= pfio->nic_cons_notif_tbl_num_entries) {
-		pr_err("Bad notif queue consumer address (0x%"PRIx64").\n",
-				notif_q_info->consumer_idx_addr);
-		return -ENXIO;
-	}
-	pfio->notif_ring.consumer_p = pfio->nic_cons_notif_tbl_base + notif_q_info->consumer_idx_addr;
-	pfio->notif_ring.producer_p = pfio->nic_prod_notif_tbl_base + notif_q_info->producer_idx_addr;
-
 	return 0;
 }
 
@@ -236,6 +239,9 @@ static int agnic_free_ring_resources(struct agnic_ring *ring)
 	mv_sys_dma_mem_free(ring->desc);
 	ring->desc = NULL;
 
+	agnic_put_q_idx(ring->pfio, ring->prod_idx);
+	agnic_put_q_idx(ring->pfio, ring->cons_idx);
+
 	return 0;
 }
 
@@ -244,7 +250,6 @@ static int agnic_free_ring_resources(struct agnic_ring *ring)
 */
 static int agnic_alloc_ring_resources(struct agnic_ring *ring, int desc_size, int ring_len, int alloc_b_info)
 {
-	int idx = -1;
 	int err = -ENOMEM, size;
 
 	ring->count = ring_len;
@@ -274,12 +279,32 @@ static int agnic_alloc_ring_resources(struct agnic_ring *ring, int desc_size, in
 	ring->dma = mv_sys_dma_mem_virt2phys(ring->desc);
 	memset(ring->desc, 0, size);
 
-	ring->q_ctrl_idx = idx;
+	/* Get an entry in the queue indeces memory, to be pointed to by the
+	 * consumer / producer pointer.
+	 */
+	err = agnic_get_q_idx(ring->pfio);
+	if (err < 0) {
+		pr_err("Unable to allocate entry for ring control pointers.\n");
+		goto err;
+	}
+	ring->prod_idx = (u16)err;
+	ring->producer_p = ring->pfio->ring_indices_arr + ring->prod_idx;
+	err = agnic_get_q_idx(ring->pfio);
+	if (err < 0) {
+		pr_err("Unable to allocate entry for ring control pointers.\n");
+		goto err;
+	}
+	ring->cons_idx = (u16)err;
+	ring->consumer_p = ring->pfio->ring_indices_arr + ring->cons_idx;
 
 	return 0;
 err:
 	ring->producer_p = NULL;
 	ring->consumer_p = NULL;
+	if (ring->cons_idx)
+		agnic_put_q_idx(ring->pfio, ring->cons_idx);
+	if (ring->prod_idx)
+		agnic_put_q_idx(ring->pfio, ring->prod_idx);
 	if (ring->desc)
 		mv_sys_dma_mem_free(ring->desc);
 	kfree(ring->cookie_list);
@@ -299,7 +324,6 @@ static int agnic_setup_mgmt_rings(struct agnic_pfio *pfio)
 	ring = &pfio->cmd_ring;
 	ring->pfio = pfio;
 	ring->type = agnic_cmd_ring;
-	ring->q_ctrl_idx = 0;
 	ret = agnic_alloc_ring_resources(ring, sizeof(struct agnic_cmd_desc),
 			AGNIC_CMD_Q_LEN, true);
 	if (ret) {
@@ -311,7 +335,6 @@ static int agnic_setup_mgmt_rings(struct agnic_pfio *pfio)
 	ring = &pfio->notif_ring;
 	ring->pfio = pfio;
 	ring->type = agnic_notif_ring;
-	ring->q_ctrl_idx = 1;
 	ret = agnic_alloc_ring_resources(ring, sizeof(struct agnic_cmd_desc),
 			AGNIC_NOTIF_Q_LEN, false);
 	if (ret) {
@@ -378,7 +401,6 @@ static int agnic_alloc_data_rings(struct agnic_pfio *pfio, enum agnic_ring_type 
 		memset(ring_ptrs[i], 0, sizeof(struct agnic_ring));
 		ring_ptrs[i]->pfio = pfio;
 		ring_ptrs[i]->type = type;
-		ring_ptrs[i]->q_ctrl_idx = i;
 		err = agnic_alloc_ring_resources(ring_ptrs[i], desc_size, ring_len, alloc_cookies);
 		if (!err)
 			continue;
@@ -405,7 +427,6 @@ static int agnic_alloc_bp_rings(struct agnic_pfio *pfio)
 	for (i = 0; i < pfio->num_rx_queues; i++) {
 		pfio->bp_ring[i].pfio = pfio;
 		pfio->bp_ring[i].type = agnic_bpool_ring;
-		pfio->bp_ring[i].q_ctrl_idx = i;
 		err = agnic_alloc_ring_resources(&(pfio->bp_ring[i]), sizeof(struct agnic_bpool_desc),
 					pfio->rx_ring_size, true);
 		if (err) {
@@ -511,17 +532,7 @@ int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **p
 	_pfio->tx_ring_size = params->qs_size;
 	_pfio->rx_ring_size = params->qs_size;
 
-	/* Initialize pfio producer / consumer location
-	 *  remote index_location field = 0, all producer / consumer are allocated
-	 *  from MQA GNCT / GNPT tables
-	 *  remote index_location field = 1, remote producer / consumer are allocated
-	 *  at host memory space and physical address is passed to device side.
-	 * NOTE: the second is not supported!
-	 */
-	/* Write the queue indexes location to the configuration space */
-	_pfio->nic_cfg->remote_index_location = 0;
-
-	err = agnic_map_notif_tables(_pfio);
+	err = agnic_init_q_indeces(_pfio);
 	if (err) {
 		agnic_pfio_deinit(_pfio);
 		return err;
@@ -578,6 +589,9 @@ void agnic_pfio_deinit(struct agnic_pfio *pfio)
 	if (!pfio)
 		return;
 
+	if (pfio->ring_indices_arr)
+		agnic_terminate_q_indeces(pfio);
+
 	kfree(pfio);
 }
 
@@ -612,9 +626,9 @@ int agnic_mgmt_notif_process(struct agnic_pfio *pfio, u16 cmd_code, void *msg, u
 	case NC_PF_KEEP_ALIVE:
 		pr_debug("got KA\n");
 #if 0
-		ret = agnic_keep_alive(adapter);
+		ret = agnic_keep_alive(pfio);
 		if (ret) {
-			agnic_dev_err("Failed to execute keep alive (0x%x)\n", ret);
+			pr_err("Failed to execute keep alive (0x%x)\n", ret);
 
 			return ret;
 		}

@@ -169,52 +169,6 @@ static int nmnicpf_config_header_regfile(struct giu_regfile *regfile_data, void 
 
 
 /*
- *	get_queue_prod_phys_addr
- *
- *	This function gets the Physical addr (producer) of specific queue from the QNPT table
- *
- *      @param[in]	nmnicpf     - Pointer to the NIC-PF struct which defines the topology
- *			hw_q_id    - The real unique Queue index
- *
- *	@retval	addr on success
- */
-static phys_addr_t get_queue_prod_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
-{
-	void *pf_cfg_base; /* pointer to HW */
-
-	/* Get BAR0 Configuration space base address */
-	pf_cfg_base = (struct mqa_qnpt_entry *)nmnicpf->map.cfg_map.phys_addr;
-
-	/* Calc Notification table specifi entry  */
-	return (phys_addr_t)(uintptr_t)
-		((pf_cfg_base + PCI_BAR0_MQA_QNPT_BASE) + (sizeof(struct mqa_qnct_entry) * hw_q_id));
-}
-
-
-/*
- *	get_queue_cons_phys_addr
- *
- *	This function gets the Physical addr (consumer) of specific queue from the QNCT table
- *
- *      @param[in]	nmnicpf     - Pointer to the NIC-PF struct which defines the topology
- *			hw_q_id    - The real unique Queue index
- *
- *	@retval	addr on success
- */
-static phys_addr_t get_queue_cons_phys_addr(struct nmnicpf *nmnicpf, int hw_q_id)
-{
-	void *pf_cfg_base;
-
-	/* Get BAR0 Configuration space base address */
-	pf_cfg_base = (struct mqa_qnct_entry *)nmnicpf->map.cfg_map.phys_addr;
-
-	/* Calc Notification table specifi entry  */
-	return (phys_addr_t)(uintptr_t)
-		((pf_cfg_base + PCI_BAR0_MQA_QNCT_BASE) + (sizeof(struct mqa_qnct_entry) * hw_q_id));
-}
-
-
-/*
  *	nmnicpf_regfile_register_queue
  *
  *	This function register Queue params in Regfile Queue structure
@@ -883,10 +837,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 {
 	volatile struct pcie_config_mem *pcie_cfg;
 	struct giu_mng_ch_params mng_ch_params;
-	struct giu_mng_ch_qs mng_ch_qs;
-	struct mqa_queue_info q_inf;
-	u64 pf_cfg_phys, pf_cfg_virt; /* pointer to HW so it should be volatile */
-	u64 qnpt_phys, qnct_phys;
+	u64 pf_cfg_virt; /* pointer to HW so it should be volatile */
 	u8 mac_addr[ETH_ALEN];
 	int ret = 0;
 
@@ -897,13 +848,8 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	/* ================= */
 
 	/* Get BAR0 Configuration space base address */
-	pf_cfg_phys = (u64)nmnicpf->map.cfg_map.phys_addr;
 	pf_cfg_virt = (u64)nmnicpf->map.cfg_map.virt_addr;
-	pcie_cfg    = (void *)(pf_cfg_virt + PCI_BAR0_MNG_CH_BASE);
-
-	/* Calc Notification tables base */
-	qnct_phys = pf_cfg_phys + PCI_BAR0_MQA_QNCT_BASE;
-	qnpt_phys = pf_cfg_phys + PCI_BAR0_MQA_QNPT_BASE;
+	pcie_cfg    = (struct pcie_config_mem *)pf_cfg_virt;
 
 	/* Wait for Host to update the state to 'Host Management Ready'
 	 * This means that BAR 0 configuration can be accessed as the
@@ -919,20 +865,11 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	pcie_cfg->mac_addr[5] = mac_addr[5];
 
 	/*
-	 * Notification Tables Info:
-	 * TODO: Move the Mac address and notification tables configuration to
-	 * a separate function, as they are not really related to nic-pf
-	 * mng-channel creation.
-	 */
-	pcie_cfg->prod_notif_tbl_offset = PCI_BAR0_MQA_QNPT_BASE;
-	pcie_cfg->prod_notif_tbl_size   = PCI_BAR0_MQA_QNPT_SIZE;
-	pcie_cfg->cons_notif_tbl_offset = PCI_BAR0_MQA_QNCT_BASE;
-	pcie_cfg->cons_notif_tbl_size   = PCI_BAR0_MQA_QNCT_SIZE;
-
-	/*
 	 * MSI-X table base/offset.
 	 */
 	pcie_cfg->msi_x_tbl_offset = PCI_BAR0_MSI_X_TBL_BASE;
+	/* update the total memory needed for the device side */
+	pcie_cfg->dev_use_size = PCI_BAR0_CALC_SIZE;
 
 	/* Register MSI-X table base in GIU */
 	/* TODO: register msix table only if pcie_cfg->msi_x_tbl_offset !=0
@@ -949,15 +886,6 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	while (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
 		; /* Do Nothing. Wait till state it's updated */
 
-	/* Set remote index mode to MQA */
-	/* TODO: temporary, we use the same flag for MQA-mode */
-	/* TODO: temporary, we treat MQA-mode opposite */
-	mqa_set_remote_index_mode(nmnicpf->mqa, !pcie_cfg->remote_index_location);
-
-	/* Set remote index mode to GIU */
-	giu_set_remote_index_mode(nmnicpf->giu,
-		(enum giu_indices_copy_mode)pcie_cfg->remote_index_location);
-
 	pr_info("Host is Ready\n");
 
 	memset(&mng_ch_params, 0, sizeof(mng_ch_params));
@@ -970,30 +898,31 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	mng_ch_params.lcl_resp_q.len = LOCAL_NOTIFY_QUEUE_SIZE;
 	mng_ch_params.rem_cmd_q.len = pcie_cfg->cmd_q.len;
 	mng_ch_params.rem_cmd_q.pa = pcie_cfg->cmd_q.q_addr;
-	mng_ch_params.rem_cmd_q.cons_offs = (u32)pcie_cfg->cmd_q.consumer_idx_addr;
+	mng_ch_params.rem_cmd_q.prod_pa =
+		(dma_addr_t)(pcie_cfg->cmd_q.q_prod_offs + nmnicpf->map.cfg_map.phys_addr);
+	mng_ch_params.rem_cmd_q.cons_pa =
+		(dma_addr_t)(pcie_cfg->cmd_q.q_cons_offs + nmnicpf->map.cfg_map.phys_addr);
+	mng_ch_params.rem_cmd_q.prod_va =
+		(void *)(pcie_cfg->cmd_q.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+	mng_ch_params.rem_cmd_q.cons_va =
+		(void *)(pcie_cfg->cmd_q.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
+
 	mng_ch_params.rem_resp_q.len = pcie_cfg->notif_q.len;
 	mng_ch_params.rem_resp_q.pa = pcie_cfg->notif_q.q_addr;
-	mng_ch_params.rem_resp_q.prod_offs = (u32)pcie_cfg->notif_q.producer_idx_addr;
+	mng_ch_params.rem_resp_q.prod_pa =
+		(dma_addr_t)(pcie_cfg->notif_q.q_prod_offs + nmnicpf->map.cfg_map.phys_addr);
+	mng_ch_params.rem_resp_q.cons_pa =
+		(dma_addr_t)(pcie_cfg->notif_q.q_cons_offs + nmnicpf->map.cfg_map.phys_addr);
+	mng_ch_params.rem_resp_q.prod_va =
+		(void *)(pcie_cfg->notif_q.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+	mng_ch_params.rem_resp_q.cons_va =
+		(void *)(pcie_cfg->notif_q.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 
 	ret = giu_mng_ch_init(nmnicpf->giu, &mng_ch_params, &nmnicpf->giu_mng_ch);
 	if (ret) {
 		pr_err("faied to initialize GIU Management channel!\n");
 		return ret;
 	}
-
-	giu_mng_ch_get_qs(nmnicpf->giu_mng_ch, &mng_ch_qs);
-
-	mqa_queue_get_info(mng_ch_qs.rem_cmd_q, &q_inf);
-	/* Update PCI BAR0 with producer address (Entry index in notification table) */
-	pcie_cfg->cmd_q.producer_idx_addr = (u64)(q_inf.prod_phys - qnpt_phys) / sizeof(u32);
-	if (!pcie_cfg->remote_index_location)
-		pcie_cfg->cmd_q.consumer_idx_addr = (u64)(q_inf.cons_phys - qnct_phys) / sizeof(u32);
-
-	mqa_queue_get_info(mng_ch_qs.rem_resp_q, &q_inf);
-	/* Update PCI BAR0 with consumer address (Entry index in notification table) */
-	pcie_cfg->notif_q.consumer_idx_addr = (u64)(q_inf.cons_phys - qnct_phys) / sizeof(u32);
-	if (!pcie_cfg->remote_index_location)
-		pcie_cfg->notif_q.producer_idx_addr = (u64)(q_inf.prod_phys - qnpt_phys) / sizeof(u32);
 
 	/* Device Ready */
 	/* ============ */
@@ -1342,10 +1271,16 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.len          = params->pf_ingress_data_q_add.q_len;
 	giu_gpio_q.rem_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_OUT);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.q_phys_addr;
-	giu_gpio_q.rem_q.prod_base_pa = (phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.q_prod_phys_addr +
-										nmnicpf->map.host_map.phys_addr);
-	giu_gpio_q.rem_q.prod_base_va = (void *)(params->pf_ingress_data_q_add.q_prod_phys_addr +
-										nmnicpf->map.host_map.virt_addr);
+	giu_gpio_q.rem_q.prod_base_pa =
+		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.q_prod_offs +
+					nmnicpf->map.cfg_map.phys_addr);
+	giu_gpio_q.rem_q.prod_base_va =
+		(void *)(params->pf_ingress_data_q_add.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+	giu_gpio_q.rem_q.cons_base_pa =
+		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.q_cons_offs +
+					nmnicpf->map.cfg_map.phys_addr);
+	giu_gpio_q.rem_q.cons_base_va =
+		(void *)(params->pf_ingress_data_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.rem_q.host_remap   = nmnicpf->map.host_map.phys_addr;
 	giu_gpio_q.rem_q.msix_id      = params->pf_ingress_data_q_add.msix_id;
 
@@ -1381,10 +1316,16 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.len	      = params->pf_ingress_data_q_add.q_len;
 	giu_gpio_q.rem_q.size	      = params->pf_ingress_data_q_add.q_buf_size;
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.bpool_q_phys_addr;
-	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.bpool_q_cons_phys_addr +
-									nmnicpf->map.host_map.phys_addr);
-	giu_gpio_q.rem_q.cons_base_va = (void *)(params->pf_ingress_data_q_add.bpool_q_cons_phys_addr +
-									nmnicpf->map.host_map.virt_addr);
+	giu_gpio_q.rem_q.prod_base_pa =
+		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.bpool_q_prod_offs +
+					nmnicpf->map.cfg_map.phys_addr);
+	giu_gpio_q.rem_q.prod_base_va =
+		(void *)(params->pf_ingress_data_q_add.bpool_q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+	giu_gpio_q.rem_q.cons_base_pa =
+		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.bpool_q_cons_offs +
+					nmnicpf->map.cfg_map.phys_addr);
+	giu_gpio_q.rem_q.cons_base_va =
+		(void *)(params->pf_ingress_data_q_add.bpool_q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.rem_q.host_remap   = nmnicpf->map.host_map.phys_addr;
 
 	memcpy(&(outtc->rem_poolqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
@@ -1443,14 +1384,21 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 		return ret;
 	}
 
+	/* Init queue parameters */
 	giu_gpio_q.rem_q.q_id         = q_id;
 	giu_gpio_q.rem_q.len          = params->pf_egress_q_add.q_len;
 	giu_gpio_q.rem_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_IN);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_egress_q_add.q_phys_addr;
-	giu_gpio_q.rem_q.cons_base_pa = (phys_addr_t)(uintptr_t)(params->pf_egress_q_add.q_cons_phys_addr +
-										nmnicpf->map.host_map.phys_addr);
-	giu_gpio_q.rem_q.cons_base_va = (void *)(params->pf_egress_q_add.q_cons_phys_addr +
-										nmnicpf->map.host_map.virt_addr);
+	giu_gpio_q.rem_q.prod_base_pa =
+		(phys_addr_t)(uintptr_t)(params->pf_egress_q_add.q_prod_offs +
+					nmnicpf->map.cfg_map.phys_addr);
+	giu_gpio_q.rem_q.prod_base_va =
+		(void *)(params->pf_egress_q_add.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+	giu_gpio_q.rem_q.cons_base_pa =
+		(phys_addr_t)(uintptr_t)(params->pf_egress_q_add.q_cons_offs +
+					nmnicpf->map.cfg_map.phys_addr);
+	giu_gpio_q.rem_q.cons_base_va =
+		(void *)(params->pf_egress_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.rem_q.host_remap   = nmnicpf->map.host_map.phys_addr;
 	giu_gpio_q.rem_q.msix_id      = params->pf_egress_q_add.msix_id;
 

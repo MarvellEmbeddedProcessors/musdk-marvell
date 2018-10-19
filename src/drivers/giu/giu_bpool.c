@@ -89,6 +89,8 @@ int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool)
 			mqa_params.size            = giu_gpio_q_p->rem_q.size;
 			mqa_params.attr            = (u32)(MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS);
 			mqa_params.remote_phy_addr = (void *)(uintptr_t)giu_gpio_q_p->rem_q.q_base_pa;
+			mqa_params.prod_phys       = (void *)(uintptr_t)giu_gpio_q_p->rem_q.prod_base_pa;
+			mqa_params.prod_virt       = giu_gpio_q_p->rem_q.prod_base_va;
 			mqa_params.cons_phys       = (void *)(uintptr_t)giu_gpio_q_p->rem_q.cons_base_pa;
 			mqa_params.cons_virt       = giu_gpio_q_p->rem_q.cons_base_va;
 			mqa_params.host_remap      = giu_gpio_q_p->rem_q.host_remap;

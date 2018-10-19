@@ -122,8 +122,9 @@ struct mgmt_cmd_params {
 		/* Used for BM & Tx queues. */
 		struct {
 			u64	q_phys_addr;
+			u32	q_prod_offs;
+			u32	q_cons_offs;
 			u32	q_len;
-			u64	q_cons_phys_addr;
 			u32	q_wrr_weight;
 			u32	tc_prio; /* irrelevant for BM. */
 			u32	msix_id;
@@ -138,9 +139,11 @@ struct mgmt_cmd_params {
 
 		struct {
 			u64	q_phys_addr;
-			u64	q_prod_phys_addr;
+			u32	q_prod_offs;
+			u32	q_cons_offs;
 			u64	bpool_q_phys_addr;
-			u64	bpool_q_cons_phys_addr;
+			u32	bpool_q_prod_offs;
+			u32	bpool_q_cons_offs;
 			u32	q_len;
 			u32	msix_id;
 			u32	tc_prio;

@@ -259,8 +259,10 @@ int giu_mng_ch_init(struct giu *giu, struct giu_mng_ch_params *params, struct gi
 	q_params.attr            = MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS;
 	q_params.prio            = 0;
 	q_params.remote_phy_addr = (void *)params->rem_cmd_q.pa;
-	q_params.cons_phys       = (void *)(params->rem_base_pa + params->rem_cmd_q.cons_offs);
-	q_params.cons_virt       = params->rem_base_va + params->rem_cmd_q.cons_offs;
+	q_params.prod_phys       = (void *)params->rem_cmd_q.prod_pa;
+	q_params.prod_virt       = params->rem_cmd_q.prod_va;
+	q_params.cons_phys       = (void *)params->rem_cmd_q.cons_pa;
+	q_params.cons_virt       = params->rem_cmd_q.cons_va;
 	q_params.host_remap      = (void *)params->rem_base_pa;
 	q_params.peer_id         = _mng_ch->lcl_cmd_q_idx;
 
@@ -291,8 +293,10 @@ int giu_mng_ch_init(struct giu *giu, struct giu_mng_ch_params *params, struct gi
 	q_params.attr            = MQA_QUEUE_REMOTE | MQA_QUEUE_INGRESS;
 	q_params.prio            = 0;
 	q_params.remote_phy_addr = (void *)params->rem_resp_q.pa;
-	q_params.prod_phys       = (void *)(params->rem_base_pa + params->rem_resp_q.prod_offs);
-	q_params.prod_virt       = params->rem_base_va + params->rem_resp_q.prod_offs;
+	q_params.prod_phys       = (void *)params->rem_resp_q.prod_pa;
+	q_params.prod_virt       = params->rem_resp_q.prod_va;
+	q_params.cons_phys       = (void *)params->rem_resp_q.cons_pa;
+	q_params.cons_virt       = params->rem_resp_q.cons_va;
 	q_params.host_remap      = (void *)params->rem_base_pa;
 
 	ret = mqa_queue_create(giu->mqa, &q_params, &_mng_ch->rem_resp_q);

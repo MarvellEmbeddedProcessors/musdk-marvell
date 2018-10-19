@@ -91,8 +91,10 @@ struct giu_mng_ch_lcl_q_params {
  */
 struct giu_mng_ch_rem_q_params {
 	dma_addr_t	 pa; /**< Remote queue phys base address */
-	u32		 cons_offs; /**< queue consumer offset */
-	u32		 prod_offs; /**< queue producer offset */
+	dma_addr_t	 prod_pa; /**< queue producer physical-address */
+	void		*prod_va; /**< queue producer virtual-address */
+	dma_addr_t	 cons_pa; /**< queue consumer physical-address */
+	void		*cons_va; /**< queue consumer virtual-address */
 	u32		 len; /**< queue length */
 };
 

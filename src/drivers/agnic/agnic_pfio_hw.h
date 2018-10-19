@@ -8,9 +8,6 @@
 #ifndef __AGNIC_PFIO_HW_H__
 #define __AGNIC_PFIO_HW_H__
 
-#define AGNIC_CONFIG_BAR_SIZE	(sizeof(struct agnic_config_bar))
-#define AGNIC_CONFIG_BAR_ID	0
-
 /*
 ** AGNIC Configuration space definition
 */
@@ -21,14 +18,14 @@
 ** The below is still preliminary, till we finalize the interface between
 ** the host and the NIC.
 ** - q_addr: Physical address of the queue in host's memory.
-** - consumer_idx_addr: Physical address of the queue consumer index.
-** - producer_idx_addr: Physical address of the queue producer index.
+** - q_prod_offs: Producer offset from BAR.
+** - q_cons_offs: Consumer offset from BAR.
 ** - len: Number of elements in the queue.
 */
 struct agnic_q_hw_info {
 	u64	q_addr;
-	u64	consumer_idx_addr;
-	u64	producer_idx_addr;
+	u32	q_prod_offs;
+	u32	q_cons_offs;
 	u32	len;
 	u32	res;
 } __packed;
@@ -39,29 +36,16 @@ struct agnic_config_mem {
 #define AGNIC_CFG_STATUS_DEV_MGMT_READY		(0x4)
 	u32	status;
 	u8	mac_addr[6];
-	u8	res[6];
+	u8	res1[6];
 	struct agnic_q_hw_info cmd_q;
 	struct agnic_q_hw_info notif_q;
-	/* Meanwhile, assume agnic's notification table is part of BAR-0.
-	 * This is actually the offset of the prod / cons notification tables
-	 * inside BAR0.
-	 * Value N, meanes that the respective notification table starts at
-	 * offset N-Bytes from the beginning of BAR-0.
-	 * Consecutively, the _size parameter holds the size in bytes of the
-	 * notification tables.
-	 */
-	u32	cons_notif_tbl_offset;
-	u32	cons_notif_tbl_size;
-	u32	prod_notif_tbl_offset;
-	u32	prod_notif_tbl_size;
-	/* This parameter defines where ring index are placed
-	 * It can be set as remote = device memory, or
-	 * It can be set as local = notification tables area
-	 */
-	u32	remote_index_location;
+	u8	res2[24];
 
+	u32	dev_use_size;
 	/* MSI-X table offset at BAR0 */
 	u32     msi_x_tbl_offset;
+
+	u8	res3[920]; /* complete to 1KB */
 } __packed;
 
 /*
@@ -155,63 +139,66 @@ struct agnic_mgmt_cmd_params {
 			u16	mtu_override;
 			u16	mru_override;
 			u8	egress_sched; /* enum agnic_egress_sched */
-		} pf_init;
+		} __packed pf_init;
 
 		struct {
 			u32	tc;
 			u32	num_queues;
-		} pf_egress_tc_add;
+		} __packed pf_egress_tc_add;
 
 		/* Used for BP & Tx queues. */
 		struct {
 			u64	q_phys_addr;
+			u32	q_prod_offs;
+			u32	q_cons_offs;
 			u32	q_len;
-			u64	q_cons_phys_addr;
 			u32	q_wrr_weight;
 			u32	tc; /* irrelevant for BP. */
 			u32	msix_id;
-		} pf_egress_q_add;
+		} __packed pf_egress_q_add;
 
 		struct {
 			u32	tc;
 			u32	num_queues;
 			u32	pkt_offset;
 			u8	hash_type; /* enum agnic_ingress_hash_type */
-		} pf_ingress_tc_add;
+		} __packed pf_ingress_tc_add;
 
 		struct {
 			u64	q_phys_addr;
-			u64	q_prod_phys_addr;
+			u32	q_prod_offs;
+			u32	q_cons_offs;
 			u64	bpool_q_phys_addr;
-			u64	bpool_q_cons_phys_addr;
+			u32	bpool_q_prod_offs;
+			u32	bpool_q_cons_offs;
 			u32	q_len;
 			u32	msix_id;
 			u32	tc;
 			u32	q_buf_size;
-		} pf_ingress_data_q_add;
+		} __packed pf_ingress_data_q_add;
 
 		struct {
 			u8	reset;
-		} pf_get_statistics;
+		} __packed pf_get_statistics;
 
 		struct {
 			u8 out;
 			u8 tc;
 			u8 qid;
 			u8	reset;
-		} pf_q_get_statistics;
+		} __packed pf_q_get_statistics;
 
 		struct {
 			u32	mtu;
-		} pf_set_mtu;
+		} __packed pf_set_mtu;
 
 		struct {
 			u8 loopback;
-		} pf_set_loopback;
+		} __packed pf_set_loopback;
 
 		struct {
 			u16 vlan;
-		} pf_vlan;
+		} __packed pf_vlan;
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[AGNIC_MAC_ADDR_LEN];

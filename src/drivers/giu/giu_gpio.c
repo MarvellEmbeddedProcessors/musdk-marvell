@@ -207,6 +207,9 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			mqa_params.prod_phys       =
 				(void *)(uintptr_t)outtc->rem_inqs_params[q_idx].rem_q.prod_base_pa;
 			mqa_params.prod_virt       = outtc->rem_inqs_params[q_idx].rem_q.prod_base_va;
+			mqa_params.cons_phys       =
+				(void *)(uintptr_t)outtc->rem_inqs_params[q_idx].rem_q.cons_base_pa;
+			mqa_params.cons_virt       = outtc->rem_inqs_params[q_idx].rem_q.cons_base_va;
 			mqa_params.host_remap      = outtc->rem_inqs_params[q_idx].rem_q.host_remap;
 			mqa_params.bpool_num       = 1;
 			mqa_params.bpool_qids[0]   = outtc->rem_poolqs_params[q_idx].rem_q.q_id;
@@ -277,6 +280,9 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 				mqa_params.prio = tc_idx;
 				mqa_params.remote_phy_addr =
 					(void *)(uintptr_t)intc->rem_outqs_params[q_idx].rem_q.q_base_pa;
+				mqa_params.prod_phys       =
+					(void *)(uintptr_t)intc->rem_outqs_params[q_idx].rem_q.prod_base_pa;
+				mqa_params.prod_virt       = intc->rem_outqs_params[q_idx].rem_q.prod_base_va;
 				mqa_params.cons_phys       =
 					(void *)(uintptr_t)intc->rem_outqs_params[q_idx].rem_q.cons_base_pa;
 				mqa_params.cons_virt       = intc->rem_outqs_params[q_idx].rem_q.cons_base_va;

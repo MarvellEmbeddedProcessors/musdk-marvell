@@ -233,13 +233,6 @@ int mqa_get_info(struct mqa *mqa, struct mqa_info *info)
 	return 0;
 }
 
-int mqa_set_remote_index_mode(struct mqa *mqa, int remote_index_mode)
-{
-	mqa->remote_index_mode = remote_index_mode;
-
-	return 0;
-}
-
 /*
  *	queue_alloc
  *
@@ -392,8 +385,6 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 	struct mqa_region_params *reg_params;
 	struct mqa_qpt_entry *qpt;
 	struct mqa_qct_entry *qct;
-	struct mqa_qnpt_entry *qnpt_phys, *qnpt_virt;
-	struct mqa_qnct_entry *qnct_phys, *qnct_virt;
 
 	/* Validate queue */
 	if (INVALID_QUEUE(queue_id)) {
@@ -422,10 +413,6 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 	/* Calculate queue entries in MQA tables */
 	qpt  = ((struct mqa_qpt_entry *)mqa->qpt_base) + queue_id;
 	qct  = ((struct mqa_qct_entry *)mqa->qct_base) + queue_id;
-	qnpt_phys = ((struct mqa_qnpt_entry *)mqa->qnpt_base) + queue_id;
-	qnct_phys = ((struct mqa_qnct_entry *)mqa->qnct_base) + queue_id;
-	qnpt_virt = ((struct mqa_qnpt_entry *)mqa->qnpt_virt) + queue_id;
-	qnct_virt = ((struct mqa_qnct_entry *)mqa->qnct_virt) + queue_id;
 
 	/* Initialize QPT, QCT queue entries in MQA tables
 	*  Both tables include same information regarding queue structure
@@ -434,13 +421,26 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 	queue_entry_config(&(qpt->common), queue_params);
 	queue_entry_config(&(qct->common), queue_params);
 
-	*(u32 *)qnpt_virt = 0;
-	*(u32 *)qnct_virt = 0;
+	if (queue_params->mqa_queue_attr & MQA_QUEUE_REMOTE) {
+		qct->common.prod_phys = queue_params->common.prod_phys;
+		qpt->common.prod_phys = queue_params->common.prod_phys;
+		qct->common.prod_virt = queue_params->common.prod_virt;
+		qpt->common.prod_virt = queue_params->common.prod_virt;
+		qct->common.cons_phys = queue_params->common.cons_phys;
+		qpt->common.cons_phys = queue_params->common.cons_phys;
+		qct->common.cons_virt = queue_params->common.cons_virt;
+		qpt->common.cons_virt = queue_params->common.cons_virt;
+	} else {
+		struct mqa_qnpt_entry *qnpt_phys, *qnpt_virt;
+		struct mqa_qnct_entry *qnct_phys, *qnct_virt;
 
-	switch (queue_params->mqa_queue_attr) {
+		qnpt_phys = ((struct mqa_qnpt_entry *)mqa->qnpt_base) + queue_id;
+		qnct_phys = ((struct mqa_qnct_entry *)mqa->qnct_base) + queue_id;
+		qnpt_virt = ((struct mqa_qnpt_entry *)mqa->qnpt_virt) + queue_id;
+		qnct_virt = ((struct mqa_qnct_entry *)mqa->qnct_virt) + queue_id;
+		*(u32 *)qnpt_virt = 0;
+		*(u32 *)qnct_virt = 0;
 
-	case MQA_QUEUE_EGRESS | MQA_QUEUE_LOCAL:
-	case MQA_QUEUE_INGRESS | MQA_QUEUE_LOCAL:
 		qct->common.cons_phys = (u64)qnct_phys;
 		qpt->common.cons_phys = (u64)qnct_phys;
 		qct->common.prod_phys = (u64)qnpt_phys;
@@ -453,53 +453,6 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 		queue_params->common.cons_phys = (u64)qnct_phys;
 		queue_params->common.prod_virt = (u64)qnpt_virt;
 		queue_params->common.cons_virt = (u64)qnct_virt;
-		break;
-
-	case MQA_QUEUE_EGRESS | MQA_QUEUE_REMOTE:
-		qct->common.prod_phys = (u64)qnpt_phys;
-		qpt->common.prod_phys = (u64)qnpt_phys;
-		qct->common.prod_virt = (u64)qnpt_virt;
-		qpt->common.prod_virt = (u64)qnpt_virt;
-		queue_params->common.prod_phys = (u64)qnpt_phys;
-		queue_params->common.prod_virt = (u64)qnpt_virt;
-
-		if (mqa->remote_index_mode) {
-			qct->common.cons_phys = (u64)qnct_phys;
-			qpt->common.cons_phys = (u64)qnct_phys;
-			qct->common.cons_virt = (u64)qnct_virt;
-			qpt->common.cons_virt = (u64)qnct_virt;
-			queue_params->common.cons_phys = (u64)qnct_phys;
-			queue_params->common.cons_virt = (u64)qnct_virt;
-		} else {
-			qct->common.cons_phys = queue_params->common.cons_phys;
-			qpt->common.cons_phys = queue_params->common.cons_phys;
-			qct->common.cons_virt = queue_params->common.cons_virt;
-			qpt->common.cons_virt = queue_params->common.cons_virt;
-		}
-		break;
-
-	case MQA_QUEUE_INGRESS | MQA_QUEUE_REMOTE:
-		qct->common.cons_phys = (u64)qnct_phys;
-		qpt->common.cons_phys = (u64)qnct_phys;
-		qct->common.cons_virt = (u64)qnct_virt;
-		qpt->common.cons_virt = (u64)qnct_virt;
-		queue_params->common.cons_phys = (u64)qnct_phys;
-		queue_params->common.cons_virt = (u64)qnct_virt;
-
-		if (mqa->remote_index_mode) {
-			qct->common.prod_phys = (u64)qnpt_phys;
-			qpt->common.prod_phys = (u64)qnpt_phys;
-			qct->common.prod_virt = (u64)qnpt_virt;
-			qpt->common.prod_virt = (u64)qnpt_virt;
-			queue_params->common.prod_phys = (u64)qnpt_phys;
-			queue_params->common.prod_virt = (u64)qnpt_virt;
-		} else {
-			qct->common.prod_phys = queue_params->common.prod_phys;
-			qpt->common.prod_phys = queue_params->common.prod_phys;
-			qct->common.prod_virt = queue_params->common.prod_virt;
-			qpt->common.prod_virt = queue_params->common.prod_virt;
-		}
-		break;
 	}
 
 	queue_dbg_table_entry_dump(mqa, queue_id);

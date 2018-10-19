@@ -421,33 +421,21 @@ int agnic_init_pfio(struct agnic_pfio *pfio)
 
 		cmd_params.pf_ingress_data_q_add.q_phys_addr = ring->dma;
 		cmd_params.pf_ingress_data_q_add.q_len = ring->count;
-		cmd_params.pf_ingress_data_q_add.q_prod_phys_addr = 0;
+		cmd_params.pf_ingress_data_q_add.q_prod_offs = AGNIC_RING_PROD_INDX_LOCAL_PHYS(ring);
+		cmd_params.pf_ingress_data_q_add.q_cons_offs = AGNIC_RING_CONS_INDX_LOCAL_PHYS(ring);
 
 		/* MSI-X are not enabled */
 		cmd_params.pf_ingress_data_q_add.msix_id = 0;
 
 		bp_ring = &pfio->bp_ring[cmd_params.pf_ingress_data_q_add.tc * pfio->num_qs_per_tc + i];
 		cmd_params.pf_ingress_data_q_add.bpool_q_phys_addr = bp_ring->dma;
-		cmd_params.pf_ingress_data_q_add.bpool_q_cons_phys_addr = 0;
+		cmd_params.pf_ingress_data_q_add.bpool_q_prod_offs = AGNIC_RING_PROD_INDX_LOCAL_PHYS(bp_ring);
+		cmd_params.pf_ingress_data_q_add.bpool_q_cons_offs = AGNIC_RING_CONS_INDX_LOCAL_PHYS(bp_ring);
 		cmd_params.pf_ingress_data_q_add.q_buf_size = bp_ring->bp_frag_sz;
 
 		ret = agnic_mgmt_command_send(pfio, &msg_params);
 		if (ret)
 			goto error;
-
-		/* Map consumer pointer index locally. */
-		ring->consumer_p = pfio->nic_cons_notif_tbl_base +
-			cmd_resp.q_add_resp.q_prod_cons_phys_addr;
-		bp_ring->producer_p = pfio->nic_prod_notif_tbl_base +
-			cmd_resp.q_add_resp.bpool_q_prod_cons_phys_addr;
-
-		/* In case Ring index is located on notification area
-		 * set ring producer / consumer to notification tables
-		 */
-		ring->producer_p = pfio->nic_prod_notif_tbl_base +
-			cmd_resp.q_add_resp.q_prod_cons_phys_addr;
-		bp_ring->consumer_p = pfio->nic_cons_notif_tbl_base +
-			cmd_resp.q_add_resp.bpool_q_prod_cons_phys_addr;
 	}
 
 	/* PF_EGRESS_TC_ADD */
@@ -489,7 +477,8 @@ int agnic_init_pfio(struct agnic_pfio *pfio)
 
 		cmd_params.pf_egress_q_add.q_phys_addr = ring->dma;
 		cmd_params.pf_egress_q_add.q_len = ring->count;
-		cmd_params.pf_egress_q_add.q_cons_phys_addr = 0;
+		cmd_params.pf_egress_q_add.q_prod_offs = AGNIC_RING_PROD_INDX_LOCAL_PHYS(ring);
+		cmd_params.pf_egress_q_add.q_cons_offs = AGNIC_RING_CONS_INDX_LOCAL_PHYS(ring);
 
 		/* MSI-X are not enabled */
 		cmd_params.pf_egress_q_add.msix_id = 0;
@@ -499,13 +488,8 @@ int agnic_init_pfio(struct agnic_pfio *pfio)
 		cmd_params.pf_egress_q_add.tc = tc;
 
 		ret = agnic_mgmt_command_send(pfio, &msg_params);
-
 		if (ret)
 			goto error;
-
-		/* Map producer pointer locally. */
-		ring->producer_p = pfio->nic_prod_notif_tbl_base + cmd_resp.q_add_resp.q_prod_cons_phys_addr;
-		ring->consumer_p = pfio->nic_cons_notif_tbl_base + cmd_resp.q_add_resp.q_prod_cons_phys_addr;
 	}
 
 	/* PF_INIT_DONE */
