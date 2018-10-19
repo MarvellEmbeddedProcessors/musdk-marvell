@@ -631,6 +631,11 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 
 	/* Set MSI-X message info for dest Q of remote side */
 	if (qpd->common.msix_inf.id) {
+		if (index_copy_mode) {
+			pr_err("MSI-X mechanism is not supported with indices located remotely!\n");
+			return -EINVAL;
+		}
+
 		pr_debug("Register MSI-X %d for Q %d\n", qpd->common.msix_inf.id, qp->dst_q.qid);
 
 		/* Set message info */
