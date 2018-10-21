@@ -829,6 +829,8 @@ int neta_ppio_get_statistics(struct neta_ppio *ppio, struct neta_ppio_statistics
 int neta_ppio_set_link_state(struct neta_ppio *ppio, int en);
 int neta_ppio_get_link_state(struct neta_ppio *ppio, int *en);
 
+int neta_ppio_set_loopback(struct neta_ppio *ppio, int en);
+
 /** @} */ /* end of grp_neta_io */
 
 #endif /* __MV_NETA_PPIO_H__ */

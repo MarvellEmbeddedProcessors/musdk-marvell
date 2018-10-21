@@ -1109,3 +1109,17 @@ void neta_ucast_table_dump(struct neta_port *pp)
 	}
 	pr_info("\n");
 }
+
+void neta_port_set_loopback(struct neta_port *pp, int en)
+{
+	u32 val;
+
+	/* Enable port */
+	val = neta_reg_read(pp, MVNETA_GMAC_CTRL_1);
+	if (en)
+		val |= MVNETA_GMAC1_PORT_LOOPBACK_EN;
+	else
+		val &= !MVNETA_GMAC1_PORT_LOOPBACK_EN;
+	neta_reg_write(pp, MVNETA_GMAC_CTRL_1, val);
+}
+

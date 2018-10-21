@@ -109,6 +109,8 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	ppio_ptr->internal_param = port;
 	*ppio = ppio_ptr;
 
+	neta_ppio_set_loopback(*ppio, false);
+
 	return rc;
 }
 
@@ -768,3 +770,11 @@ int neta_ppio_get_statistics(struct neta_ppio *ppio, struct neta_ppio_statistics
 	return 0;
 
 }
+
+int neta_ppio_set_loopback(struct neta_ppio *ppio, int en)
+{
+	neta_port_set_loopback(GET_PPIO_PORT(ppio), en);
+
+	return 0;
+}
+

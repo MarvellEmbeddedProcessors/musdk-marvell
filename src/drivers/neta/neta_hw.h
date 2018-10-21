@@ -187,6 +187,8 @@
 #define      MVNETA_GMAC_MAX_RX_SIZE_MASK        0x7ffc
 #define      MVNETA_GMAC0_PORT_1000BASE_X        BIT(1)
 #define      MVNETA_GMAC0_PORT_ENABLE            BIT(0)
+#define MVNETA_GMAC_CTRL_1                       0x2c04
+#define      MVNETA_GMAC1_PORT_LOOPBACK_EN       BIT(5)
 #define MVNETA_GMAC_CTRL_2                       0x2c08
 #define      MVNETA_GMAC2_SGMII_INBAND_AN_MODE   BIT(0)
 #define      MVNETA_GMAC2_PCS_ENABLE             BIT(3)
@@ -446,5 +448,7 @@ void neta_add_ucast_addr(struct neta_port *pp, u8 last_nibble, int queue);
 void neta_del_ucast_addr(struct neta_port *pp, u8 last_nibble);
 void neta_flush_ucast_table(struct neta_port *pp);
 void neta_ucast_table_dump(struct neta_port *pp);
+void neta_port_set_loopback(struct neta_port *pp, int en);
+
 
 #endif /* _MVNETA_HW_H_ */
