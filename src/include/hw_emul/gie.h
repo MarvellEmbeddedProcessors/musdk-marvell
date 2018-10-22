@@ -157,17 +157,6 @@ int gie_schedule(void *gie, u64 time_limit, u64 qe_limit, u16 *pending);
 int gie_get_desc_size(enum gie_desc_type type);
 
 /**
- * Configure GIE remote index working mode.
- *
- * @param[in]	type		type of GIE working mode.
- *
- * @retval	0 on success
- * @retval	<0 on failure
- *
- */
-int gie_set_remote_index_mode(enum gie_copy_mode_type mode);
-
-/**
  * Create a GIE event
  *
  * The event API is called to create a sys_event for a GIE, that

@@ -423,18 +423,6 @@ int giu_get_desc_size(struct giu *giu, enum giu_desc_type type)
 	return gie_get_desc_size((enum gie_desc_type)type);
 }
 
-int giu_set_remote_index_mode(struct giu *giu, enum giu_indices_copy_mode mode)
-{
-	if (unlikely(!giu)) {
-		pr_err("Invalid GIU handle!\n");
-		return -EINVAL;
-	}
-
-	giu->indices_mode = mode;
-
-	return gie_set_remote_index_mode((enum gie_copy_mode_type)mode);
-}
-
 enum giu_multi_qs_mode giu_get_multi_qs_mode(struct giu *giu)
 {
 	if (unlikely(!giu)) {

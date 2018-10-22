@@ -195,17 +195,6 @@ int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit
 int giu_get_desc_size(struct giu *giu, enum giu_desc_type type);
 
 /**
- * Configure GIU enualtion remote index working mode.
- *
- * @param[in]	giu		A pointer to GIU handler.
- * @param[in]	mode		indices copy mode.
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int giu_set_remote_index_mode(struct giu *giu, enum giu_indices_copy_mode mode);
-
-/**
  * returs the GIU emualtion multi-queues mode of operation.
  *
  * @param[in]	type		type of GIE working mode.

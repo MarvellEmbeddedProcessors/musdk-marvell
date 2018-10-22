@@ -103,8 +103,6 @@ int mqa_deinit(struct mqa *mqa);
  */
 int mqa_get_info(struct mqa *mqa, struct mqa_info *info);
 
-int mqa_set_remote_index_mode(struct mqa *mqa, int remote_index_mode);
-
 /** @} */ /* end of grp_mqa_init */
 
 #endif /* _MV_MQA_H */
