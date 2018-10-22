@@ -178,6 +178,8 @@ struct nmp {
 	struct sys_iomem *sys_iomem;
 	struct uio_mem plat_regs;
 	struct uio_mem msi_regs;
+	int *emul_bars_avail_tbl;
+	void *emul_bars_mem;
 	struct mqa *mqa;
 	struct nmdisp *nmdisp;
 	struct nmpp2 nmpp2;

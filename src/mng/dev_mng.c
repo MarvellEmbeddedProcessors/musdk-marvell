@@ -41,11 +41,12 @@
  * dev_mng_config_plat_func - Setup the platofm device registers to trigger
  * operation of the kernel based driver.
  */
-static int dev_mng_config_plat_func(struct nmp *nmp)
+static int dev_mng_config_plat_func(struct nmp *nmp, int bar_idx)
 {
-	u32 cfg_mem_addr[2]; /* High and low */
-	void *cfg_mem_va;
-	dma_addr_t phys_addr = (dma_addr_t)(uintptr_t)nmp->nmnicpf.map.cfg_map.phys_addr;
+	u32				 cfg_mem_addr[2]; /* High and low */
+	void				*cfg_mem_va;
+	dma_addr_t			 phys_addr =
+		(dma_addr_t)(uintptr_t)nmp->nmnicpf.map.cfg_map.phys_addr;
 
 	pr_debug("Setting platform device registers.\n");
 
@@ -61,8 +62,12 @@ static int dev_mng_config_plat_func(struct nmp *nmp)
 			return -EFAULT;
 		}
 		/* it seems like we can use 64bits */
-		cfg_mem_addr[0] = lower_32_bits(phys_addr) | CFG_MEM_VALID;
+		cfg_mem_addr[0]  = lower_32_bits(phys_addr) | CFG_MEM_VALID;
+		cfg_mem_addr[0] |=
+			((bar_idx & CFG_MEM_BIDX_MASK) << CFG_MEM_BIDX_SHIFT);
 		cfg_mem_addr[1] |= upper_32_bits(phys_addr);
+		pr_debug("passing 64bits reg: pa: %"PRIx64", bar-idx: %d (reg: %"PRIx32"%"PRIx32")\n",
+			phys_addr, bar_idx, cfg_mem_addr[1], cfg_mem_addr[0]);
 
 		writel(cfg_mem_addr[0], cfg_mem_va);
 		writel(cfg_mem_addr[1], cfg_mem_va + 0x4);
@@ -78,7 +83,11 @@ static int dev_mng_config_plat_func(struct nmp *nmp)
 		new_phys_addr = (u32)(phys_addr >> CFG_MEM_32B_ADDR_SHIFT);
 		/* it seems like we cannot use 64bits; use 43bits */
 		pr_info("cfg mem sync reg is not 64bits; trying 32bits\n");
-		cfg_mem_addr[0] = new_phys_addr | CFG_MEM_VALID;
+		cfg_mem_addr[0]  = new_phys_addr | CFG_MEM_VALID;
+		cfg_mem_addr[0] |=
+			((bar_idx & CFG_MEM_BIDX_MASK) << CFG_MEM_BIDX_SHIFT);
+		pr_debug("passing 32bits reg: pa: %"PRIx64", bar-idx: %d (reg: %"PRIx32")\n",
+			phys_addr, bar_idx, cfg_mem_addr[0]);
 
 		writel(cfg_mem_addr[0], cfg_mem_va);
 	}
@@ -88,14 +97,14 @@ static int dev_mng_config_plat_func(struct nmp *nmp)
 
 static int dev_mng_map_emul_pci_bar(struct nmp *nmp)
 {
-	/* Allocate configuration space memory */
-	BUILD_BUG_ON(PCI_BAR0_CALC_SIZE > PCI_BAR0_ALLOC_SIZE); /* check that allocated size is enough */
-	nmp->nmnicpf.map.cfg_map.virt_addr = mv_sys_dma_mem_alloc(PCI_BAR0_ALLOC_SIZE, PCI_BAR0_ALLOC_ALIGN);
-	if (nmp->nmnicpf.map.cfg_map.virt_addr == NULL) {
-		pr_err("Failed to allocate platform configuration space.\n");
-		return -ENOMEM;
+	int bar_idx = dev_mng_get_free_bar_idx(nmp);
+
+	if (bar_idx < 0) {
+		pr_err("no emulated-BARs left!\n");
+		return -ENAVAIL;
 	}
 
+	nmp->nmnicpf.map.cfg_map.virt_addr = nmp->emul_bars_mem + bar_idx * PCI_BAR0_ALLOC_SIZE;
 	/* Get the relevant physical address. */
 	nmp->nmnicpf.map.cfg_map.phys_addr =
 		(void *)(uintptr_t)mv_sys_dma_mem_virt2phys(nmp->nmnicpf.map.cfg_map.virt_addr);
@@ -116,7 +125,40 @@ static int dev_mng_map_emul_pci_bar(struct nmp *nmp)
 	nmp->nmnicpf.map.host_map.virt_addr = (void *)0xBAD00ADD0BAD0ADDll;
 
 	/* Configure device registers. */
-	return dev_mng_config_plat_func(nmp);
+	return dev_mng_config_plat_func(nmp, bar_idx);
+}
+
+static int dev_mng_alloc_emul_pci_bars(struct nmp *nmp)
+{
+	struct mv_sys_dma_mem_info	 mem_info;
+	char				 mem_name[100];
+
+	/* Allocate configuration space memory */
+	BUILD_BUG_ON(PCI_BAR0_CALC_SIZE > PCI_BAR0_ALLOC_SIZE); /* check that allocated size is enough */
+
+	/* Allocate configuration space memory */
+	BUILD_BUG_ON(PCI_BAR0_CALC_SIZE > PCI_BAR0_ALLOC_SIZE); /* check that allocated size is enough */
+
+	nmp->emul_bars_avail_tbl = kcalloc(NMP_PCI_MAX_NUM_BARS, sizeof(int), GFP_KERNEL);
+	if (nmp->emul_bars_avail_tbl == NULL)
+		return -ENOMEM;
+	memset(nmp->emul_bars_avail_tbl, 0, NMP_PCI_MAX_NUM_BARS * sizeof(int));
+
+	nmp->emul_bars_mem = mv_sys_dma_mem_alloc(NMP_PCI_MAX_NUM_BARS * PCI_BAR0_ALLOC_SIZE, PCI_BAR0_ALLOC_ALIGN);
+	if (nmp->emul_bars_mem == NULL) {
+		pr_err("Failed to allocate platform configuration space.\n");
+		return -ENOMEM;
+	}
+	mem_info.name = mem_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+	/* the emulated-BAR offsets table MUST be the first thing allocated on the dma-able memory */
+	if (mv_sys_dma_mem_virt2phys(nmp->emul_bars_mem) != mem_info.paddr) {
+		pr_err("failed to allocate the NMP emulated-BAR offsets table");
+		pr_err(" (the table MUST be the first thing allocated on the dma-able memory)!\n");
+		return -ENOMEM;
+	}
+
+	return 0;
 }
 
 static int dev_mng_map_plat_func(struct nmp *nmp)
@@ -304,6 +346,11 @@ static int dev_mng_hw_init(struct nmp *nmp)
 
 	pr_debug("Initializing Device hardware\n");
 
+	/* first thing, allocate memory for all emulated BARs */
+	ret = dev_mng_alloc_emul_pci_bars(nmp);
+	if (ret)
+		return ret;
+
 	/* Initialize NIC-PF map - (for QNPT/QNCT/etc.) */
 	/* TODO: this is needed for MQa/GIU. however, this should be
 	 * initialized on local memory and not on BAR; after fixing that,
@@ -459,6 +506,7 @@ static int dev_mng_mqa_terminate(struct nmp *nmp)
 static void dev_mng_unmap_plat_func(struct nmp *nmp)
 {
 	mv_sys_dma_mem_free(nmp->nmnicpf.map.cfg_map.virt_addr);
+	mv_sys_dma_mem_free(nmp->emul_bars_mem);
 }
 
 static void dev_mng_unmap_emul_pci_bar(struct nmp *nmp)
@@ -586,4 +634,26 @@ int dev_mng_terminate(struct nmp *nmp)
 		return ret;
 
 	return 0;
+}
+
+int dev_mng_get_free_bar_idx(struct nmp *nmp)
+{
+	int i;
+
+	for (i = 0; i < NMP_PCI_MAX_NUM_BARS; i++)
+		if (nmp->emul_bars_avail_tbl[i] == 0) {
+			nmp->emul_bars_avail_tbl[i] = 1;
+			return i;
+		}
+
+	/* All entries are occupied, not likely to happen. */
+	pr_err("All bar-offsets table are occupied (%d entries).\n",
+		NMP_PCI_MAX_NUM_BARS);
+
+	return -ENODEV;
+}
+
+void dev_mng_put_bar_idx(struct nmp *nmp, int index)
+{
+	nmp->emul_bars_avail_tbl[index] = 0;
 }

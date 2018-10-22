@@ -90,10 +90,10 @@ static int init_pfio_pci_mem(struct agnic_pfio *pfio, struct agnic_pfio_init_par
 
 static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 {
-	struct sys_iomem_params	 iomem_params;
-	void			*va;
-	dma_addr_t		 addr;
-	int			 err, timeout = 3000;
+	struct sys_iomem_params		 iomem_params;
+	dma_addr_t			 addr;
+	size_t				 dev_map_size;
+	int				 err, bar_idx, timeout = 3000;
 
 	iomem_params.devname = AGNIC_COMPATIBLE_STR;
 	iomem_params.index = pfio->id;
@@ -133,7 +133,10 @@ static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 		usleep(1000);
 		timeout--;
 	} while (timeout);
+	pr_debug("got cfg reg: %"PRIx64"\n", addr);
 
+	bar_idx = (addr >> CFG_MEM_BIDX_SHIFT) & CFG_MEM_BIDX_MASK;
+	dev_map_size = (bar_idx + 1) * AGNIC_BAR_ALLOC_SIZE;
 	if (timeout)
 		/* we can use 64bits (since we got the majic word) */
 		/* Clear the valid and magic bits out of the base address. */
@@ -161,24 +164,31 @@ static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 	pfio->nic_cfg_phys_base = addr;
 
 	iomem_params.type = SYS_IOMEM_T_SHMEM;
-	iomem_params.devname = CMA_DEV_STR;
-	iomem_params.index = 1;
-	iomem_params.size = AGNIC_CONFIG_BAR_SIZE;
+	iomem_params.devname = MUSDK_CMA_DEV_STR;
+	iomem_params.index = 0;
+	iomem_params.size = dev_map_size;
 
 	if (sys_iomem_init(&iomem_params, &pfio->bar_iomem)) {
 		pr_err("failed to created IOMEM for AGNIC bar!\n");
 		return -EINVAL;
 	}
 
+	/* addr will hold the device emulated-BARs table base-address */
+	addr = pfio->nic_cfg_phys_base - bar_idx * AGNIC_BAR_ALLOC_SIZE;
+
 	/* Map the iomem physical address */
 	if (sys_iomem_map(pfio->bar_iomem, NULL, (phys_addr_t *)&addr,
-			  (void **)&va)) {
+			  (void **)&pfio->nic_cfg)) {
 		pr_err("failed to map AGNIC bar!\n");
+		/* Something went wrong with the shared-register;
+		 * reset it to allow re-loading of the module.
+		 */
+		writel(0, pfio->sh_mem_base_reg + 4);
 		sys_iomem_deinit(pfio->bar_iomem);
 		return -EINVAL;
 	}
-
-	pfio->nic_cfg = (void *)((pfio->nic_cfg_phys_base - addr) + (phys_addr_t)va);
+	/* need t oadd now the BAR offset */
+	pfio->nic_cfg = (void *)((u64)pfio->nic_cfg + bar_idx * AGNIC_BAR_ALLOC_SIZE);
 
 	pr_debug("AGNIC %d BAR0 address: pa 0x%"PRIx64", va %p\n",
 		pfio->id, pfio->nic_cfg_phys_base, pfio->nic_cfg);

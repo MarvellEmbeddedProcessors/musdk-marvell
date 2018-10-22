@@ -16,11 +16,16 @@
 
 
 #define AGNIC_COMPATIBLE_STR		"marvell,armada-giu-nic"
-#define CMA_DEV_STR			"/dev/musdk-cma"
+/* right now, we assume the BAR is allocated on the 'main' MUSDK CMA memory
+ * (i.e. it must not be mapped on cma-region)
+ */
+#define MUSDK_CMA_DEV_STR		"/dev/musdk-cma"
 
 #define CFG_MEM_AP8xx_OFFS		(0xA0)
 
 #define CFG_MEM_VALID			(1 << 0)
+#define CFG_MEM_BIDX_MASK		(0x1F)
+#define CFG_MEM_BIDX_SHIFT		(1)
 #define CFG_MEM_BAR_MIN_ALIGN_BITS	(12)
 #define CFG_MEM_BAR_MIN_ALIGN		(1 << CFG_MEM_BAR_MIN_ALIGN_BITS)
 #define CFG_MEM_64B_MAGIC_MASK		(0xFFFFLL << 48)
@@ -33,7 +38,9 @@
 	(0x0000000FFFFFFFFFLL & ~(CFG_MEM_BAR_MIN_ALIGN - 1))
 #define CFG_MEM_32B_ADDR_SHIFT		(4)
 
-#define AGNIC_CONFIG_BAR_SIZE		(0x10000)
+#define AGNIC_BAR_ALLOC_SIZE		(0x4000)
+
+#define AGNIC_CONFIG_BAR_SIZE		(AGNIC_BAR_ALLOC_SIZE)
 
 #define AGNIC_MAX_QUEUES		(AGNIC_PFIO_MAX_NUM_QS_PER_TC*AGNIC_PFIO_MAX_NUM_TCS)
 #define AGNIC_MAX_RXQ_COUNT		(AGNIC_MAX_QUEUES)
