@@ -176,6 +176,7 @@ struct nmp {
 	u32 guest_id;
 
 	struct sys_iomem *sys_iomem;
+	struct sys_iomem *msi_iomem;
 	struct uio_mem plat_regs;
 	struct uio_mem msi_regs;
 	int *emul_bars_avail_tbl;

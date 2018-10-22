@@ -27,7 +27,12 @@
 #include "dispatch.h"
 
 
-#define PLAT_AGNIC_UIO_NAME "agnic"
+#define NMP_AP806_MSI_MAP_NAME	"arm,gic-v2m-frame"
+#define NMP_AP810_MSI_MAP_NAME	"arm,gic-v3-its"
+#define NMP_MSI_MAP_INDX	0
+#define NMP_MSI_MAP_REGS_INDX	"0"
+
+#define PLAT_AGNIC_UIO_NAME	"agnic"
 
 
 /** =========================== **/
@@ -179,29 +184,15 @@ static int dev_mng_map_plat_func(struct nmp *nmp)
 	/* Map the agnic configuration registers */
 	ret = sys_iomem_map(nmp->sys_iomem, "agnic_regs", (phys_addr_t *)&nmp->plat_regs.phys_addr,
 			&nmp->plat_regs.virt_addr);
-	if (ret)
-		goto err_regs_map;
+	if (ret) {
+		sys_iomem_deinit(nmp->sys_iomem);
+		return ret;
+	}
 
-	pr_debug("agnic regs mapped at virt:%p phys:%p\n", nmp->plat_regs.virt_addr,
-		   nmp->plat_regs.phys_addr);
-
-	/* Map the MSI-X registers */
-	ret = sys_iomem_map(nmp->sys_iomem, "msi_regs", (phys_addr_t *)&nmp->msi_regs.phys_addr,
-			&nmp->msi_regs.virt_addr);
-	if (ret)
-		goto err_msi_regs_map;
-
-	pr_debug("msi-x regs mapped at virt:%p phys:%p\n", nmp->msi_regs.virt_addr,
-		   nmp->msi_regs.phys_addr);
+	pr_debug("agnic regs mapped at virt:%p phys:%p\n",
+		nmp->plat_regs.virt_addr, nmp->plat_regs.phys_addr);
 
 	return 0;
-
-err_msi_regs_map:
-	sys_iomem_unmap(nmp->sys_iomem, "agnic_regs");
-err_regs_map:
-	sys_iomem_deinit(nmp->sys_iomem);
-
-	return ret;
 }
 
 static int dev_mng_map_pci_bar(struct nmp *nmp)
@@ -310,12 +301,39 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 /* Initialize the GIU instance */
 static int dev_mng_init_giu(struct nmp *nmp)
 {
+	struct sys_iomem_params iomem_params;
 	struct giu_params giu_params;
 	char dma_mng_name[16],  dma_rx_name[16],  dma_tx_name[16];
 	int ret;
 
 	/* Initialize the management GIU instance */
 	pr_debug("Initializing GIU devices\n");
+
+	iomem_params.type = SYS_IOMEM_T_MMAP;
+	iomem_params.devname = NMP_AP806_MSI_MAP_NAME;
+	iomem_params.index = NMP_MSI_MAP_INDX;
+
+	ret = sys_iomem_init(&iomem_params, &nmp->msi_iomem);
+	if (ret) {
+		/* try AP810 */
+		iomem_params.devname = NMP_AP810_MSI_MAP_NAME;
+
+		ret = sys_iomem_init(&iomem_params, &nmp->msi_iomem);
+		if (ret)
+			return ret;
+	}
+
+	/* Map the MSI-X registers */
+	ret = sys_iomem_map(nmp->msi_iomem, NMP_MSI_MAP_REGS_INDX, (phys_addr_t *)&nmp->msi_regs.phys_addr,
+			&nmp->msi_regs.virt_addr);
+	if (ret) {
+		pr_err("Failed to map msi!\n");
+		sys_iomem_deinit(nmp->msi_iomem);
+		return ret;
+	}
+
+	pr_debug("MSI-X regs mapped at virt:%p phys:%p\n",
+		nmp->msi_regs.virt_addr, nmp->msi_regs.phys_addr);
 
 	memset(&giu_params, 0, sizeof(giu_params));
 	giu_params.mqa = nmp->nmnicpf.mqa;
@@ -334,6 +352,8 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	ret = giu_init(&giu_params, &nmp->nmnicpf.giu);
 	if (ret) {
 		pr_err("Failed to initialize GIU!\n");
+		sys_iomem_unmap(nmp->msi_iomem, NMP_MSI_MAP_REGS_INDX);
+		sys_iomem_deinit(nmp->msi_iomem);
 		return -ENODEV;
 	}
 
@@ -348,15 +368,6 @@ static int dev_mng_hw_init(struct nmp *nmp)
 
 	/* first thing, allocate memory for all emulated BARs */
 	ret = dev_mng_alloc_emul_pci_bars(nmp);
-	if (ret)
-		return ret;
-
-	/* Initialize NIC-PF map - (for QNPT/QNCT/etc.) */
-	/* TODO: this is needed for MQa/GIU. however, this should be
-	 * initialized on local memory and not on BAR; after fixing that,
-	 * BAR should be initialized part of NICPF
-	 */
-	ret = dev_mng_map_init(nmp);
 	if (ret)
 		return ret;
 
@@ -377,6 +388,15 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	}
 
 	ret = dev_mng_init_giu(nmp);
+	if (ret)
+		return ret;
+
+	/* Initialize NIC-PF map - (for QNPT/QNCT/etc.) */
+	/* TODO: this is needed for MQa/GIU. however, this should be
+	 * initialized on local memory and not on BAR; after fixing that,
+	 * BAR should be initialized part of NICPF
+	 */
+	ret = dev_mng_map_init(nmp);
 	if (ret)
 		return ret;
 
@@ -484,6 +504,9 @@ static int dev_mng_terminate_giu(struct nmp *nmp)
 	if (nmp->nmnicpf.giu)
 		giu_deinit(nmp->nmnicpf.giu);
 
+	sys_iomem_unmap(nmp->msi_iomem, NMP_MSI_MAP_REGS_INDX);
+	sys_iomem_deinit(nmp->msi_iomem);
+
 	return 0;
 }
 
@@ -511,15 +534,14 @@ static void dev_mng_unmap_plat_func(struct nmp *nmp)
 
 static void dev_mng_unmap_emul_pci_bar(struct nmp *nmp)
 {
-	sys_iomem_unmap(nmp->sys_iomem, "msi_regs");
 	sys_iomem_unmap(nmp->sys_iomem, "agnic_regs");
 	sys_iomem_deinit(nmp->sys_iomem);
 }
 
 static void dev_mng_unmap_pci_bar(struct nmp *nmp)
 {
-	NOTUSED(nmp);
-	/* TODO: complete! */
+	sys_iomem_unmap(nmp->sys_iomem, "host-map");
+	sys_iomem_deinit(nmp->sys_iomem);
 }
 
 static void dev_mng_unmap_bar(struct nmp *nmp)
