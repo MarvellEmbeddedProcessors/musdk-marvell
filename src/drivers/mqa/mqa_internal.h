@@ -15,7 +15,9 @@
 #define MQA_REGION_MAX			(16)	/** Max number of regions in MQA tables */
 #define MQA_REGION_FREE			(-1)
 
-#define MQA_REGION_INIT_COUNT	(0)
+#define MQA_REGION_INIT_COUNT		(0)
+
+#define MQA_QNxT_ALIGN			(64)
 
 /* MQA Queue attributes definitions */
 #define EGRESS_MQA_QUEUE_INGRESS_BIT_FIELD_ATTR	(MQA_QUEUE_EGRESS | MQA_QUEUE_INGRESS)
@@ -39,10 +41,10 @@
 struct mqa {
 	void *qpt_base;
 	void *qct_base;
-	void *qnpt_base;
-	void *qnct_base;
-	void *qnpt_virt;
-	void *qnct_virt;
+	dma_addr_t qnpt_phys;
+	dma_addr_t qnct_phys;
+	struct mqa_qnpt_entry *qnpt_virt;
+	struct mqa_qnct_entry *qnct_virt;
 	u32 size;
 };
 
@@ -82,6 +84,16 @@ struct mqa_q {
 	void *cons_phys;
 	void *prod_virt;
 	void *cons_virt;
+};
+
+/** MQA GNPT entry parameters */
+struct mqa_qnpt_entry {
+	u64 producer_address;		/** Queue producer index */
+};
+
+/** MQA GNCT entry parameters */
+struct mqa_qnct_entry {
+	u64 consumer_address;		/** Queue consumer index */
 };
 
 

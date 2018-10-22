@@ -215,20 +215,11 @@ static int dev_mng_map_init(struct nmp *nmp)
 static int dev_mng_mqa_init(struct nmp *nmp)
 {
 	int ret;
-	u64 pf_cfg_phys, pf_cfg_virt;
 	struct mqa_params params;
 
 	pr_debug("Initializing MQA\n");
 
-	/* Initializing MQA botification tables base address */
-	pf_cfg_phys = (u64)nmp->nmnicpf.map.cfg_map.phys_addr;
-	pf_cfg_virt = (u64)nmp->nmnicpf.map.cfg_map.virt_addr;
-
 	params.num_qs = MQA_QUEUE_MAX;
-	params.notif_tbl.qnpt_pa = (phys_addr_t)(pf_cfg_phys + PCI_BAR0_MQA_QNPT_BASE);
-	params.notif_tbl.qnct_pa = (phys_addr_t)(pf_cfg_phys + PCI_BAR0_MQA_QNCT_BASE);
-	params.notif_tbl.qnpt_va = (void *)(pf_cfg_virt + PCI_BAR0_MQA_QNPT_BASE);
-	params.notif_tbl.qnct_va = (void *)(pf_cfg_virt + PCI_BAR0_MQA_QNCT_BASE);
 
 	/* Initializing MQA tables */
 	ret = mqa_init(&params, &(nmp->mqa));

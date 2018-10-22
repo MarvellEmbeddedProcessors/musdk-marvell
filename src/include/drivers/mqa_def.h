@@ -98,22 +98,8 @@ struct mqa_qct_entry {
 
 };
 
-/** MQA GNPT entry parameters */
-struct mqa_qnpt_entry {
-	u32 producer_index;		/** Queue producer index */
-
-};
-
-/** MQA GNCT entry parameters */
-struct mqa_qnct_entry {
-	u32 consumer_index;		/** Queue consumer index */
-
-};
-
 #define MQA_QPT_ENTRY_SIZE	(sizeof(struct mqa_qpt_entry))
 #define MQA_QCT_ENTRY_SIZE	(sizeof(struct mqa_qct_entry))
-#define MQA_QNPT_ENTRY_SIZE	(sizeof(struct mqa_qnpt_entry))
-#define MQA_QNCT_ENTRY_SIZE	(sizeof(struct mqa_qnct_entry))
 
 #endif /* _MQA_DEF_H */
 

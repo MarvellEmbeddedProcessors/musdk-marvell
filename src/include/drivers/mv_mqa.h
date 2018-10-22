@@ -17,30 +17,10 @@
  *  @{
  */
 
-
 #define MQA_QUEUE_MAX		(1024)	/**< Max number of queues in MQA */
 #define MQA_BM_QUEUE_ARRAY	(3)	/**< Number of BM pools associated with data queue */
 
 struct mqa;
-
-/**
- * struct notif_tbl_params - Notification Table Params
- */
-
-struct notif_tbl_params {
-	/** Virtual Addr of Global Queue Producer Idx Notif Table.*/
-	void		*qnpt_va;
-
-	/** Physical Addr of Global Queue Producer Idx Notif Table.*/
-	phys_addr_t	 qnpt_pa;
-
-	/** Virtual Addr of Global Queue Consumer Idx Notif Table.*/
-	void		*qnct_va;
-
-	/** Physical Addr of Global Queue Consumer Idx Notif Table.*/
-	phys_addr_t	 qnct_pa;
-
-};
 
 /**
  * struct mqa_params - MQA Params
@@ -52,10 +32,6 @@ struct mqa_params {
 
 	/** Number of Queues */
 	u16  num_qs;
-
-	/** Notification Table struct  */
-	struct notif_tbl_params notif_tbl;
-
 };
 
 /**

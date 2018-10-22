@@ -80,10 +80,23 @@ static int queue_table_init(struct mqa_params *params, struct mqa **mqa)
 
 	(*mqa)->size = params->num_qs;
 
-	(*mqa)->qnpt_base = (void *)(uintptr_t)params->notif_tbl.qnpt_pa;
-	(*mqa)->qnct_base = (void *)(uintptr_t)params->notif_tbl.qnct_pa;
-	(*mqa)->qnpt_virt = (void *)params->notif_tbl.qnpt_va;
-	(*mqa)->qnct_virt = (void *)params->notif_tbl.qnct_va;
+	(*mqa)->qnpt_virt =
+		mv_sys_dma_mem_alloc((*mqa)->size * sizeof(struct mqa_qnpt_entry), MQA_QNxT_ALIGN);
+	if ((*mqa)->qnpt_virt == NULL) {
+		pr_err("no mem for MQA QNPT!\n");
+		return -ENOMEM;
+	}
+	/* Get the relevant physical address. */
+	(*mqa)->qnpt_phys = mv_sys_dma_mem_virt2phys((*mqa)->qnpt_virt);
+
+	(*mqa)->qnct_virt =
+		mv_sys_dma_mem_alloc((*mqa)->size * sizeof(struct mqa_qnct_entry), MQA_QNxT_ALIGN);
+	if ((*mqa)->qnct_virt == NULL) {
+		pr_err("no mem for MQA QNCT!\n");
+		return -ENOMEM;
+	}
+	/* Get the relevant physical address. */
+	(*mqa)->qnct_phys = mv_sys_dma_mem_virt2phys((*mqa)->qnct_virt);
 
 	mqa_queue_state = kmalloc((sizeof(s8) * params->num_qs), GFP_KERNEL);
 	if (mqa_queue_state == NULL)
@@ -385,6 +398,8 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 	struct mqa_region_params *reg_params;
 	struct mqa_qpt_entry *qpt;
 	struct mqa_qct_entry *qct;
+	struct mqa_qnpt_entry *qnpt_virt;
+	struct mqa_qnct_entry *qnct_virt;
 
 	/* Validate queue */
 	if (INVALID_QUEUE(queue_id)) {
@@ -421,6 +436,9 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 	queue_entry_config(&(qpt->common), queue_params);
 	queue_entry_config(&(qct->common), queue_params);
 
+	qnpt_virt = mqa->qnpt_virt + queue_id;
+	qnct_virt = mqa->qnct_virt + queue_id;
+
 	if (queue_params->mqa_queue_attr & MQA_QUEUE_REMOTE) {
 		qct->common.prod_phys = queue_params->common.prod_phys;
 		qpt->common.prod_phys = queue_params->common.prod_phys;
@@ -430,29 +448,38 @@ int queue_config(struct mqa *mqa, u32 queue_id, struct mqa_table_entry *queue_pa
 		qpt->common.cons_phys = queue_params->common.cons_phys;
 		qct->common.cons_virt = queue_params->common.cons_virt;
 		qpt->common.cons_virt = queue_params->common.cons_virt;
+
+		/* In case the Q is remote, the QNPT/QNCT holds the
+		 * physical-address of the producer/consumer indices
+		 */
+		qnct_virt->consumer_address = qct->common.cons_phys;
+		qnpt_virt->producer_address = qpt->common.prod_phys;
 	} else {
-		struct mqa_qnpt_entry *qnpt_phys, *qnpt_virt;
-		struct mqa_qnct_entry *qnct_phys, *qnct_virt;
+		u64 qnct_phys = mqa->qnct_phys + (queue_id * sizeof(struct mqa_qnct_entry));
+		u64 qnpt_phys = mqa->qnpt_phys + (queue_id * sizeof(struct mqa_qnpt_entry));
 
-		qnpt_phys = ((struct mqa_qnpt_entry *)mqa->qnpt_base) + queue_id;
-		qnct_phys = ((struct mqa_qnct_entry *)mqa->qnct_base) + queue_id;
-		qnpt_virt = ((struct mqa_qnpt_entry *)mqa->qnpt_virt) + queue_id;
-		qnct_virt = ((struct mqa_qnct_entry *)mqa->qnct_virt) + queue_id;
-		*(u32 *)qnpt_virt = 0;
-		*(u32 *)qnct_virt = 0;
-
-		qct->common.cons_phys = (u64)qnct_phys;
-		qpt->common.cons_phys = (u64)qnct_phys;
-		qct->common.prod_phys = (u64)qnpt_phys;
-		qpt->common.prod_phys = (u64)qnpt_phys;
-		qct->common.cons_virt = (u64)qnct_virt;
-		qpt->common.cons_virt = (u64)qnct_virt;
+		qct->common.prod_phys = qnpt_phys;
+		qpt->common.prod_phys = qnpt_phys;
 		qct->common.prod_virt = (u64)qnpt_virt;
 		qpt->common.prod_virt = (u64)qnpt_virt;
-		queue_params->common.prod_phys = (u64)qnpt_phys;
-		queue_params->common.cons_phys = (u64)qnct_phys;
+		qct->common.cons_phys = qnct_phys;
+		qpt->common.cons_phys = qnct_phys;
+		qct->common.cons_virt = (u64)qnct_virt;
+		qpt->common.cons_virt = (u64)qnct_virt;
+
+		/* In case the Q is local, the QNPT/QNCT holds the producer/consumer indices;
+		 * so, we need to provide the upper layer the entry addresses.
+		 */
+		queue_params->common.prod_phys = qnpt_phys;
+		queue_params->common.cons_phys = qnct_phys;
 		queue_params->common.prod_virt = (u64)qnpt_virt;
 		queue_params->common.cons_virt = (u64)qnct_virt;
+
+		/* In case the Q is local, the QNPT/QNCT holds the
+		 * producer/consumer indices; let's clear the entry.
+		 */
+		qnct_virt->consumer_address = 0;
+		qnpt_virt->producer_address = 0;
 	}
 
 	queue_dbg_table_entry_dump(mqa, queue_id);
@@ -613,8 +640,8 @@ static void queue_dbg_globals_dump(struct mqa *mqa)
 
 	pr_debug("QPT Base   0x%lx\n", (u64)mqa->qpt_base);
 	pr_debug("QCT Base   0x%lx\n", (u64)mqa->qct_base);
-	pr_debug("QNPT Base  0x%lx\n", (u64)mqa->qnpt_base);
-	pr_debug("QNCT Base  0x%lx\n", (u64)mqa->qnct_base);
+	pr_debug("QNPT Base  0x%lx\n", (u64)mqa->qnpt_phys);
+	pr_debug("QNCT Base  0x%lx\n", (u64)mqa->qnct_phys);
 	pr_debug("Table Size 0x%x\n\n", mqa->size);
 }
 
