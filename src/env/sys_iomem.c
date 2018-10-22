@@ -447,8 +447,9 @@ static int iomem_shmem_iomap(struct mem_shm	*shm,
 
 		ptr = mmap(NULL, shm->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (off_t)*pa);
 		if (ptr == MAP_FAILED) {
-			pr_err("mmap failed\n");
-			return -1;
+			pr_err("mmap() of 0x%016llx = %d (%s)\n",
+				(unsigned long long int)*pa, -errno, strerror(errno));
+			return -EFAULT;
 		}
 
 		shm->pa = *pa;

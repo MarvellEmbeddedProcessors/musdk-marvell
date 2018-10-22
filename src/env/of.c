@@ -293,35 +293,47 @@ u64 of_translate_address(
 	const u32		*addr)
 {
 	u32		 na;
-	u64		 phys_addr, tmp_addr;
+	u64		 phys_addr, prev_addr_offs, curr_addr_offs;
 	const u32	*regs_addr;
 
 	assert(dev_node != NULL);
 
 	phys_addr = *addr;
+	prev_addr_offs = phys_addr;
 	do {
 		dev_node = of_get_parent(dev_node);
 		if (unlikely(dev_node == NULL)) {
+			/* we got to the root; let's break and return */
 			phys_addr = 0;
 			break;
 		}
 
+		/* look for field in the name 'ranges' */
 		regs_addr = of_get_address_prop(dev_node, 0, NULL, NULL, "ranges");
-		if (regs_addr == NULL)
-			continue;
+		if (regs_addr == NULL) {
+			/* if 'ranges' not found, look for field 'regs' */
+			regs_addr = of_get_address_prop(dev_node, 0, NULL, NULL, "regs");
+			if (regs_addr == NULL)
+				/* in that case, there's probably no registers information in this node */
+				continue;
+		}
 
 		na = of_n_addr_cells(dev_node);
-		for (tmp_addr = 0; na > 0; na--, regs_addr += 2)
+		for (curr_addr_offs = 0; na > 0; na--, regs_addr += 2)
 #if __BYTE_ORDER == __BIG_ENDIAN
-			tmp_addr = (tmp_addr << 32) + *regs_addr;
+			curr_addr_offs = (curr_addr_offs << 32) + *regs_addr;
 #else
-			tmp_addr = (tmp_addr << 32) + swab64(*regs_addr);
+			curr_addr_offs = (curr_addr_offs << 32) + swab64(*regs_addr);
 #endif /* __BYTE_ORDER == __BIG_ENDIAN */
-		phys_addr += tmp_addr;
-		/* TODO: for some reason, the range is initialized in two levels;
-		 * therefore, we break after read the first
+		/* TODO: for some reason, we may get the same offset twice;
+		 * Do not allow it (skip this cycle)!
+		 * We assume that the same offset may not be apeared twice
+		 * but as we go upper in the tree, the offsets must get bigger already.
 		 */
-		break;
+		if (curr_addr_offs <= prev_addr_offs)
+			continue;
+		phys_addr += curr_addr_offs;
+		prev_addr_offs = curr_addr_offs;
 	} while (dev_node != &root);
 
 	return phys_addr;
