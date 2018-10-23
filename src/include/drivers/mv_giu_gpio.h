@@ -52,6 +52,7 @@ struct rem_q_params {
 	u32 q_id;
 	u32 len;
 	u32 size;
+	u32 buff_len;
 	void        *host_remap;
 	phys_addr_t  q_base_pa;
 	void        *prod_base_va;

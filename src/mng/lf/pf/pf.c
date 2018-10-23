@@ -1307,7 +1307,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	/* Init queue parameters */
 	giu_gpio_q.rem_q.q_id	      = bpool_q_id;
 	giu_gpio_q.rem_q.len	      = params->pf_ingress_data_q_add.q_len;
-	giu_gpio_q.rem_q.size	      = params->pf_ingress_data_q_add.q_buf_size;
+	giu_gpio_q.rem_q.size	      = giu_get_desc_size(nmnicpf->giu, GIU_DESC_BUFF);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.bpool_q_phys_addr;
 	giu_gpio_q.rem_q.prod_base_pa =
 		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.bpool_q_prod_offs +
@@ -1320,6 +1320,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.rem_q.cons_base_va =
 		(void *)(params->pf_ingress_data_q_add.bpool_q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.rem_q.host_remap   = nmnicpf->map.host_map.phys_addr;
+	giu_gpio_q.rem_q.buff_len = params->pf_ingress_data_q_add.q_buf_size;
 
 	memcpy(&(outtc->rem_poolqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 

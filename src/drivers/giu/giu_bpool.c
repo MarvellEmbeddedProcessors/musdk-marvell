@@ -103,7 +103,7 @@ int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool)
 
 			/* Register Host BM Queue to GIU */
 			ret = gie_add_bm_queue(giu_get_gie_handle(params->giu, GIU_ENG_OUT),
-					mqa_params.idx, mqa_params.size, GIU_REM_Q_IND);
+					mqa_params.idx, giu_gpio_q_p->rem_q.buff_len, GIU_REM_Q_IND);
 			if (ret) {
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto host_queue_error;
