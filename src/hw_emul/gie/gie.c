@@ -1040,7 +1040,7 @@ static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 			break;
 	}
 
-	if (i == GIE_MAX_BPOOLS) {
+	if (unlikely(i == GIE_MAX_BPOOLS)) {
 		pr_err("Failed to find bpool for buffer size %d\n", min_buf_size);
 		return 0;
 	}
@@ -1057,14 +1057,17 @@ static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 		bufs_avail = q_occupancy(bpool_q);
 	}
 
-	if (buf_cnt > bufs_avail)
+	if (unlikely(!bufs_avail))
+		return 0;
+
+	if (unlikely(buf_cnt > bufs_avail))
 		/* TODO: Add a trancepoint. */
 		buf_cnt = bufs_avail;
 
 	/* since we return a pointer to the queue, we can only return the amount
 	 * of buffers until wrap around, so the caller doesn't need to wrap
 	 */
-	if (q_wraps(bpool_q))
+	if (unlikely(q_wraps(bpool_q)))
 		buf_cnt = min(buf_cnt, bpool_q->qlen - bpool_q->head);
 
 	/* increment an internal index to indicate these buffers are already used we still
