@@ -1,28 +1,18 @@
-From f9c7836585c41613831d70f3cef9bde155a5f42a Mon Sep 17 00:00:00 2001
-From: Yelena Krivosheev <yelena@marvell.com>
-Date: Wed, 25 Jul 2018 15:38:03 +0300
+From fc21943817595893333a5a76ca3d632882dbee65 Mon Sep 17 00:00:00 2001
+From: Liron Himi <lironh@marvell.com>
+Date: Tue, 23 Oct 2018 23:09:26 +0300
 Subject: [PATCH 6/6] dts: musdk 37xx neta
 
-Change-Id: If0ac919b1da64ce4f13365087b67551d9d495e21
-Signed-off-by: Yelena Krivosheev <yelena@marvell.com>
+Signed-off-by: Liron Himi <lironh@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index 4ac74c5..09d798f 100644
+index 1218989..a82ef2b 100644
 --- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-@@ -56,6 +56,8 @@
- 	#size-cells = <2>;
- 
- 	aliases {
-+		ethernet0 = &eth0;
-+		ethernet1 = &eth1;
- 		serial0 = &uart0;
- 		serial1 = &uart1;
- 	};
-@@ -290,6 +292,7 @@
+@@ -308,6 +308,7 @@
  				   interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
  				   clocks = <&sb_periph_clk 8>;
  				   status = "disabled";
@@ -30,7 +20,7 @@ index 4ac74c5..09d798f 100644
  			};
  
  			mdio: mdio@32004 {
-@@ -305,6 +308,21 @@
+@@ -323,6 +324,21 @@
  				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
  				clocks = <&sb_periph_clk 7>;
  				status = "disabled";
@@ -53,5 +43,5 @@ index 4ac74c5..09d798f 100644
  
  			usb3: usb@58000 {
 -- 
-1.7.9.5
+2.7.4
 
