@@ -10,11 +10,6 @@
 
 #define UIO_MAX_NAME_STRING_SIZE 100
 
-/* Regfile flags */
-#define REGFILE_NOT_READY	0x0
-#define REGFILE_READY		0x1
-#define REGFILE_PCI_MODE	0x2
-
 enum giu_queue_type {
 	QUEUE_EGRESS,
 	QUEUE_INGRESS,
@@ -89,8 +84,6 @@ struct giu_regfile {
 	int num_bm_qs;
 	struct giu_queue *bm_qs;
 	char dma_uio_mem_name[UIO_MAX_NAME_STRING_SIZE];
-	char pci_uio_mem_name[UIO_MAX_NAME_STRING_SIZE];
-	char pci_uio_region_name[UIO_MAX_NAME_STRING_SIZE];
 };
 
 #endif /* _GIU_REGFILE_DEF_H */

@@ -376,18 +376,11 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 	regfile_data->egress_tcs	= NULL;
 	regfile_data->num_ingress_tcs	= q_top->outtcs_params.num_outtcs;
 	regfile_data->ingress_tcs	= NULL;
+	regfile_data->flags = 0;
 
 	qs_phys_base = mem_info.paddr;
 	strcpy(regfile_data->dma_uio_mem_name, mem_info.name);
 	ptrs_phys_base = qs_phys_base;
-
-	regfile_data->flags &= ~REGFILE_PCI_MODE;
-	if (nmnicpf->map.type == ft_pcie_ep) {
-		regfile_data->flags |= REGFILE_PCI_MODE;
-		strcpy(regfile_data->pci_uio_mem_name, PCI_EP_UIO_MEM_NAME);
-		strcpy(regfile_data->pci_uio_region_name, PCI_EP_UIO_REGION_NAME);
-		ptrs_phys_base = (phys_addr_t)(uintptr_t)nmnicpf->map.cfg_map.phys_addr;
-	}
 
 	pr_debug("Start Topology configuration to register file [Regfile ver (%d), NIC-PF number (%d)]\n",
 			regfile_data->version, nmnicpf->pf_id);

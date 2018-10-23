@@ -142,7 +142,6 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_probe_params *
 	struct giu_regfile *reg_data;
 	void *read_addr = regs_addr;
 	int ret;
-	struct sys_iomem		*iomem;
 	struct sys_iomem_params		iomem_params;
 	struct sys_iomem_info		sys_iomem_info;
 	uintptr_t			qs_va, ptrs_va;
@@ -164,9 +163,8 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_probe_params *
 		return -ENOTSUP;
 	}
 
-	pr_debug("dma_uio_mem_name (%s), pci_uio_mem_name (%s),  pci_uio_region_name (%s), flags 0x%x\n",
-		 reg_data->dma_uio_mem_name, reg_data->pci_uio_mem_name,
-		 reg_data->pci_uio_region_name, reg_data->flags);
+	pr_debug("dma_uio_mem_name (%s), flags 0x%x\n",
+		 reg_data->dma_uio_mem_name, reg_data->flags);
 
 	iomem_params.type = SYS_IOMEM_T_SHMEM;
 	iomem_params.devname = reg_data->dma_uio_mem_name;
@@ -179,27 +177,6 @@ static int giu_gpio_read_regfile(void *regs_addr, struct giu_gpio_probe_params *
 
 	qs_va = (uintptr_t)sys_iomem_info.u.shmem.va;
 	ptrs_va = qs_va;
-
-	if (reg_data->flags & REGFILE_PCI_MODE) {
-		phys_addr_t ptrs_pa;
-
-		iomem_params.type = SYS_IOMEM_T_UIO;
-		iomem_params.devname = reg_data->pci_uio_mem_name;
-		iomem_params.index = 0;
-
-		ret = sys_iomem_init(&iomem_params, &iomem);
-		if (ret) {
-			pr_err(" No device found\n");
-			return ret;
-		}
-
-		/* Map the whole physical Packet Processor physical address */
-		ret = sys_iomem_map(iomem, reg_data->pci_uio_region_name, &ptrs_pa, (void **)&ptrs_va);
-		if (ret) {
-			sys_iomem_deinit(iomem);
-			return ret;
-		}
-	}
 
 	ret = giu_gpio_read_bp_config(&read_addr, &gpio_probe_params->bpool, qs_va, ptrs_va);
 	if (ret) {
@@ -282,9 +259,6 @@ int giu_gpio_topology_set_init_done(int giu_id)
 		pr_err("GIU %d register file is not mapped\n", giu_id);
 		return -1;
 	}
-
-	/* Set 'Ready' indication */
-	reg_data->flags |= REGFILE_READY;
 
 	return 0;
 }
