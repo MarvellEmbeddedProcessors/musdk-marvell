@@ -496,13 +496,16 @@ static inline void neta_ppio_inq_desc_get_l4_info(struct neta_ppio_desc *desc, e
 }
 
 /**
- * TODO - Check if there is IPV4 fragmentation in an inq packet descriptor.
+ * Check if there is IPV4 fragmentation in an inq packet descriptor.
  *
  * @param[in]	desc	A pointer to a packet descriptor structure.
  *
  * @retval	0 - not fragmented, 1 - fragmented.
  */
-int neta_ppio_inq_desc_get_ip_isfrag(struct neta_ppio_desc *desc);
+static inline int neta_ppio_inq_desc_get_ip_isfrag(struct neta_ppio_desc *desc)
+{
+	return NETA_RXD_GET_L3_IP_FRAG(desc);
+}
 
 /**
  * Check if packet in inq packet descriptor has a L2 MAC (CRC) error condition.

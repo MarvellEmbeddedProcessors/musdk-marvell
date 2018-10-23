@@ -140,18 +140,6 @@ void neta_ppio_outq_desc_set_dsa_tag(struct neta_ppio_desc *desc)
 /******** RXQ  ********/
 
 /**
- * TODO - Check if there is IPV4 fragmentation in an inq packet descriptor.
- *
- * desc		A pointer to a packet descriptor structure.
- *
- * retval	0 - not fragmented, 1 - fragmented.
- */
-int neta_ppio_inq_desc_get_ip_isfrag(struct neta_ppio_desc *desc)
-{
-	return 0;
-}
-
-/**
  * Get number of packets sent on a queue, since last call of this API.
  *
  * ppio		A pointer to a PP-IO object.
