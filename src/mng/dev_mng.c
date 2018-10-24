@@ -44,14 +44,44 @@
 static int dev_mng_config_plat_func(struct nmp *nmp)
 {
 	u32 cfg_mem_addr[2]; /* High and low */
+	void *cfg_mem_va;
 	dma_addr_t phys_addr = (dma_addr_t)(uintptr_t)nmp->nmnicpf.map.cfg_map.phys_addr;
 
 	pr_debug("Setting platform device registers.\n");
-	cfg_mem_addr[0] = lower_32_bits(phys_addr) | 0x1;
-	cfg_mem_addr[1] = upper_32_bits(phys_addr) | (0xCAFE << 16);
 
-	writel(cfg_mem_addr[0], nmp->plat_regs.virt_addr + 0xA0);
-	writel(cfg_mem_addr[1], nmp->plat_regs.virt_addr + 0xA4);
+	/* TODO: need to read the correct address directly from DTS */
+	cfg_mem_va = nmp->plat_regs.virt_addr + CFG_MEM_AP8xx_OFFS;
+
+	/* first, let's try to access the higher bits to make sure we can use 64bits */
+	cfg_mem_addr[1] = CFG_MEM_64B_HI_MAGIC_VAL;
+	writel(cfg_mem_addr[1], cfg_mem_va + 0x4);
+	if (readl(cfg_mem_va + 0x4)) {
+		if (phys_addr & ~CFG_MEM_64B_ADDR_MASK) {
+			pr_err("Invalid BAR psysical address (0x%"PRIx64")!\n", phys_addr);
+			return -EFAULT;
+		}
+		/* it seems like we can use 64bits */
+		cfg_mem_addr[0] = lower_32_bits(phys_addr) | CFG_MEM_VALID;
+		cfg_mem_addr[1] |= upper_32_bits(phys_addr);
+
+		writel(cfg_mem_addr[0], cfg_mem_va);
+		writel(cfg_mem_addr[1], cfg_mem_va + 0x4);
+	} else {
+		u32 new_phys_addr;
+
+		if (phys_addr & ~CFG_MEM_32B_ADDR_MASK) {
+			pr_err("Invalid BAR psysical address (0x%"PRIx64")!\n", phys_addr);
+			return -EFAULT;
+		}
+
+		/* make the address 32bits */
+		new_phys_addr = (u32)(phys_addr >> CFG_MEM_32B_ADDR_SHIFT);
+		/* it seems like we cannot use 64bits; use 43bits */
+		pr_info("cfg mem sync reg is not 64bits; trying 32bits\n");
+		cfg_mem_addr[0] = new_phys_addr | CFG_MEM_VALID;
+
+		writel(cfg_mem_addr[0], cfg_mem_va);
+	}
 
 	return 0;
 }

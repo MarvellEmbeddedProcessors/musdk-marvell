@@ -114,8 +114,8 @@ static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 
 	pr_debug("AGNIC %d regs address: pa 0x%"PRIx64", va %p\n", pfio->id, addr, pfio->sh_mem_base_reg);
 
-	/* TODO: why do we need this? why can't we get the real reg? */
-	pfio->sh_mem_base_reg += 0xA0;
+	/* TODO: need to read the correct address directly from DTS */
+	pfio->sh_mem_base_reg += CFG_MEM_AP8xx_OFFS;
 
 	/* Check that the base address includes the required magic value and
 	 * valid bit, in order to make sure that the mgmt firmware has written
@@ -126,24 +126,36 @@ static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 		addr = readl(pfio->sh_mem_base_reg) |
 			((u64)readl(pfio->sh_mem_base_reg + 4) << 32);
 
-		if ((addr & CFG_MEM_BASE_VALID) &&
-			((addr & CFG_MEM_BASE_MAGIC_MASK) == CFG_MEM_BASE_MAGIC_VAL))
+		if ((addr & CFG_MEM_VALID) &&
+			((addr & CFG_MEM_64B_MAGIC_MASK) == CFG_MEM_64B_MAGIC_VAL))
 			break;
 
 		usleep(1000);
 		timeout--;
 	} while (timeout);
 
-	if (timeout == 0) {
-		pr_err("Valid bit and/or Magic value not part of the config-mem\n"
-			"\tbase addr register (0x%"PRIx64" @ %p)!\n",
-			addr, pfio->sh_mem_base_reg);
-		return -EFAULT;
+	if (timeout)
+		/* we can use 64bits (since we got the majic word) */
+		/* Clear the valid and magic bits out of the base address. */
+		addr &= CFG_MEM_64B_ADDR_MASK;
+	else {
+		/* we can't use 64bits; let's try 32bits */
+		if (!(addr && (addr & CFG_MEM_VALID))) {
+			pr_err("Valid bit and/or Magic value not part of the config-mem\n"
+				"\tbase addr register (0x%"PRIx64" @ %p)!\n",
+				addr, pfio->sh_mem_base_reg);
+			return -EFAULT;
+		}
+		/* we can use 32bits (since we got the valid) */
+		addr <<= CFG_MEM_32B_ADDR_SHIFT;
+		/* Clear the valid and magic bits out of the base address. */
+		addr &= CFG_MEM_32B_ADDR_MASK;
 	}
 
-	/* Clear the valid and magic bits out of the base address. */
-	addr &= ~CFG_MEM_BASE_VALID;
-	addr &= ~CFG_MEM_BASE_MAGIC_MASK;
+	if (!addr) {
+		pr_err("Illegal BAR physical address (0x%"PRIx64")!\n", addr);
+		return -EFAULT;
+	}
 
 	/* Set physical address of config memory. */
 	pfio->nic_cfg_phys_base = addr;
