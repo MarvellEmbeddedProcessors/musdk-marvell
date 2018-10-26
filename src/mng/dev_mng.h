@@ -16,7 +16,7 @@
 int dev_mng_init(struct nmp *nmp);
 int dev_mng_terminate(struct nmp *nmp);
 
-int dev_mng_get_free_bar_idx(struct nmp *nmp);
-void dev_mng_put_bar_idx(struct nmp *nmp, int index);
+int dev_mng_get_free_bar(struct nmp *nmp, void **va, dma_addr_t *pa);
+void dev_mng_put_bar(struct nmp *nmp, int index);
 
 #endif /* _DEV_MNG_H */

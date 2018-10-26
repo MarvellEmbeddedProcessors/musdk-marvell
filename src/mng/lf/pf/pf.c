@@ -19,6 +19,7 @@
 #include "mng/mv_nmp_guest_msg.h"
 #include "mng/mv_nmp_dispatch.h"
 #include "mng/pci_ep_def.h"
+#include "mng/dev_mng.h"
 #include "mng/include/guest_mng_cmd_desc.h"
 #include "pf_regfile.h"
 #include "pf.h"
@@ -27,6 +28,9 @@
 #include "pf_pci_if_desc.h"
 #include "env/trace/trc_pf.h"
 #include "drivers/ppv2/pp2_hw_type.h"
+
+
+#define PLAT_AGNIC_UIO_NAME	"agnic"
 
 #define REGFILE_VAR_DIR		"/var/"
 #define REGFILE_NAME_PREFIX	"nic-pf-"
@@ -930,6 +934,202 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 }
 
 /*
+ * nmnicpf_config_plat_func - Setup the platofm device registers to trigger
+ * operation of the kernel based driver.
+ */
+static int nmnicpf_config_plat_func(struct nmnicpf *nmnicpf)
+{
+	u32				 cfg_mem_addr[2]; /* High and low */
+	void				*cfg_mem_va;
+	dma_addr_t			 phys_addr =
+		(dma_addr_t)(uintptr_t)nmnicpf->map.cfg_map.phys_addr;
+
+	pr_debug("Setting platform device registers.\n");
+
+	/* TODO: need to read the correct address directly from DTS */
+	cfg_mem_va = nmnicpf->plat_regs.virt_addr + CFG_MEM_AP8xx_OFFS;
+
+	/* first, let's try to access the higher bits to make sure we can use 64bits */
+	cfg_mem_addr[1] = CFG_MEM_64B_HI_MAGIC_VAL;
+	writel(cfg_mem_addr[1], cfg_mem_va + 0x4);
+	if (readl(cfg_mem_va + 0x4)) {
+		if (phys_addr & ~CFG_MEM_64B_ADDR_MASK) {
+			pr_err("Invalid BAR psysical address (0x%"PRIx64")!\n", phys_addr);
+			return -EFAULT;
+		}
+		/* it seems like we can use 64bits */
+		cfg_mem_addr[0]  = lower_32_bits(phys_addr) | CFG_MEM_VALID;
+		cfg_mem_addr[0] |=
+			((nmnicpf->plat_bar_indx & CFG_MEM_BIDX_MASK) << CFG_MEM_BIDX_SHIFT);
+		cfg_mem_addr[1] |= upper_32_bits(phys_addr);
+		pr_debug("passing 64bits reg: pa: %"PRIx64", bar-idx: %d (reg: %"PRIx32"%"PRIx32")\n",
+			phys_addr, nmnicpf->plat_bar_indx, cfg_mem_addr[1], cfg_mem_addr[0]);
+
+		writel(cfg_mem_addr[0], cfg_mem_va);
+		writel(cfg_mem_addr[1], cfg_mem_va + 0x4);
+	} else {
+		u32 new_phys_addr;
+
+		if (phys_addr & ~CFG_MEM_32B_ADDR_MASK) {
+			pr_err("Invalid BAR psysical address (0x%"PRIx64")!\n", phys_addr);
+			return -EFAULT;
+		}
+
+		/* make the address 32bits */
+		new_phys_addr = (u32)(phys_addr >> CFG_MEM_32B_ADDR_SHIFT);
+		/* it seems like we cannot use 64bits; use 43bits */
+		pr_info("cfg mem sync reg is not 64bits; trying 32bits\n");
+		cfg_mem_addr[0]  = new_phys_addr | CFG_MEM_VALID;
+		cfg_mem_addr[0] |=
+			((nmnicpf->plat_bar_indx & CFG_MEM_BIDX_MASK) << CFG_MEM_BIDX_SHIFT);
+		pr_debug("passing 32bits reg: pa: %"PRIx64", bar-idx: %d (reg: %"PRIx32")\n",
+			phys_addr, nmnicpf->plat_bar_indx, cfg_mem_addr[0]);
+
+		writel(cfg_mem_addr[0], cfg_mem_va);
+	}
+
+	return 0;
+}
+
+static int nmnicpf_map_emul_pci_bar(struct nmnicpf *nmnicpf)
+{
+	nmnicpf->plat_bar_indx = dev_mng_get_free_bar(nmnicpf->nmp,
+			&nmnicpf->map.cfg_map.virt_addr,
+			(dma_addr_t *)&nmnicpf->map.cfg_map.phys_addr);
+
+	if (nmnicpf->plat_bar_indx < 0) {
+		pr_err("no emulated-BARs left!\n");
+		return -ENAVAIL;
+	}
+
+	/* Clear the config space, to prevent false device indications. */
+	memset(nmnicpf->map.cfg_map.virt_addr, 0x0, PCI_BAR0_ALLOC_SIZE);
+
+	pr_debug("Platform config space @ %p.\n", nmnicpf->map.cfg_map.phys_addr);
+	/* Setup the "host_map", which is actually an identity mapping for the
+	 * physical address.
+	 * The virtual map, is not needed, as not entity in the mgmt side is
+	 * accessing the virtual addresses in the "host" side, all accesses are
+	 * done using a DMA.
+	 * Thus, we set the virtual address to some "bad address" so that we
+	 * can identify faulty accesses to host's virtual space.
+	 */
+	nmnicpf->map.host_map.phys_addr = 0x0;
+	nmnicpf->map.host_map.virt_addr = (void *)0xBAD00ADD0BAD0ADDll;
+
+	/* Configure device registers. */
+	return nmnicpf_config_plat_func(nmnicpf);
+}
+
+static int nmnicpf_map_plat_func(struct nmnicpf *nmnicpf)
+{
+	struct sys_iomem_params iomem_params;
+	int ret;
+
+	pr_debug("Mapping function %s\n", PLAT_AGNIC_UIO_NAME);
+
+	iomem_params.type = SYS_IOMEM_T_UIO;
+	iomem_params.devname = PLAT_AGNIC_UIO_NAME;
+	iomem_params.index = 0;
+
+	ret = sys_iomem_init(&iomem_params, &nmnicpf->sys_iomem);
+	if (ret)
+		return ret;
+
+	/* Map the agnic configuration registers */
+	ret = sys_iomem_map(nmnicpf->sys_iomem, "agnic_regs", (phys_addr_t *)&nmnicpf->plat_regs.phys_addr,
+			&nmnicpf->plat_regs.virt_addr);
+	if (ret) {
+		sys_iomem_deinit(nmnicpf->sys_iomem);
+		return ret;
+	}
+
+	pr_debug("agnic regs mapped at virt:%p phys:%p\n",
+		nmnicpf->plat_regs.virt_addr, nmnicpf->plat_regs.phys_addr);
+
+	return 0;
+}
+
+static int nmnicpf_map_pci_bar(struct nmnicpf *nmnicpf)
+{
+	struct sys_iomem_params iomem_params;
+	int ret;
+
+	pr_debug("Mapping function %s\n", PCI_EP_UIO_MEM_NAME);
+
+	iomem_params.type = SYS_IOMEM_T_UIO;
+	iomem_params.devname = PCI_EP_UIO_MEM_NAME;
+	iomem_params.index = 0;
+
+	ret = sys_iomem_init(&iomem_params, &nmnicpf->sys_iomem);
+	if (ret)
+		return ret;
+
+	/* Map the whole physical Packet Processor physical address */
+	ret = sys_iomem_map(nmnicpf->sys_iomem,
+			    PCI_EP_UIO_REGION_NAME,
+			    (phys_addr_t *)&nmnicpf->map.cfg_map.phys_addr,
+			    &nmnicpf->map.cfg_map.virt_addr);
+	if (ret) {
+		sys_iomem_deinit(nmnicpf->sys_iomem);
+		return ret;
+	}
+
+	pr_debug("BAR-0 of %s mapped at virt:%p phys:%p\n", PCI_EP_UIO_MEM_NAME,
+		nmnicpf->map.cfg_map.virt_addr, nmnicpf->map.cfg_map.phys_addr);
+
+	/* Map the whole physical Packet Processor physical address */
+	ret = sys_iomem_map(nmnicpf->sys_iomem, "host-map", (phys_addr_t *)&nmnicpf->map.host_map.phys_addr,
+			&nmnicpf->map.host_map.virt_addr);
+	if (ret) {
+		sys_iomem_deinit(nmnicpf->sys_iomem);
+		return ret;
+	}
+
+	pr_debug("host RAM of %s remapped to phys %p virt %p\n", "host-map",
+		   nmnicpf->map.host_map.phys_addr, nmnicpf->map.host_map.virt_addr);
+
+	return 0;
+}
+
+static int nmnicpf_map_bar(struct nmnicpf *nmnicpf)
+{
+	if (nmnicpf->map.type == ft_plat)
+		return nmnicpf_map_emul_pci_bar(nmnicpf);
+	else
+		return nmnicpf_map_pci_bar(nmnicpf);
+}
+
+static int nmnicpf_map_init(struct nmnicpf *nmnicpf)
+{
+	int ret;
+
+	/* Map NMP registers if any */
+	/* First, try to map the platform device, if failed, and PCI is supported
+	 * try the pci device.
+	 */
+	nmnicpf->map.type = ft_plat;
+	ret = nmnicpf_map_plat_func(nmnicpf);
+	if (ret) {
+		if (nmnicpf->profile_data.pci_en) {
+			pr_debug("Platform device not found, trying the pci device.\n");
+			nmnicpf->map.type = ft_pcie_ep;
+		} else {
+			pr_err("platform device not found\n");
+			return ret;
+		}
+	}
+
+	ret = nmnicpf_map_bar(nmnicpf);
+	if (ret) {
+		pr_err("niether platform nor PCI devices were found\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+/*
  *	nmnicpf_init
  *
  *	@param[in]	nmnicpf - pointer to NIC PF object
@@ -945,6 +1145,11 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	struct giu_mng_ch_qs mng_ch_qs;
 
 	pf_topology_init(nmnicpf);
+
+	/* Initialize NIC-PF map */
+	ret = nmnicpf_map_init(nmnicpf);
+	if (ret)
+		return ret;
 
 	/* Clear queue topology batabase */
 	memset(&(nmnicpf->topology_data), 0, sizeof(struct giu_gpio_params));
@@ -1030,6 +1235,43 @@ static int nmnicpf_mng_chn_terminate(struct nmnicpf *nmnicpf)
 	return 0;
 }
 
+static void nmnicpf_unmap_plat_func(struct nmnicpf *nmnicpf)
+{
+	mv_sys_dma_mem_free(nmnicpf->map.cfg_map.virt_addr);
+}
+
+static void nmnicpf_unmap_emul_pci_bar(struct nmnicpf *nmnicpf)
+{
+	sys_iomem_unmap(nmnicpf->sys_iomem, "agnic_regs");
+	sys_iomem_deinit(nmnicpf->sys_iomem);
+
+	dev_mng_put_bar(nmnicpf->nmp, nmnicpf->plat_bar_indx);
+}
+
+static void nmnicpf_unmap_pci_bar(struct nmnicpf *nmnicpf)
+{
+	sys_iomem_unmap(nmnicpf->sys_iomem, "host-map");
+	sys_iomem_deinit(nmnicpf->sys_iomem);
+}
+
+static void nmnicpf_unmap_bar(struct nmnicpf *nmnicpf)
+{
+	if (nmnicpf->map.type == ft_plat)
+		nmnicpf_unmap_emul_pci_bar(nmnicpf);
+	else
+		nmnicpf_unmap_pci_bar(nmnicpf);
+}
+
+static int nmnicpf_map_terminate(struct nmnicpf *nmnicpf)
+{
+	if (nmnicpf->map.type == ft_plat)
+		nmnicpf_unmap_plat_func(nmnicpf);
+
+	nmnicpf_unmap_bar(nmnicpf);
+
+	return 0;
+}
+
 
 /*
  *	nmnicpf_deinit
@@ -1048,6 +1290,11 @@ int nmnicpf_deinit(struct nmnicpf *nmnicpf)
 		return ret;
 
 	ret = nmnicpf_mng_chn_terminate(nmnicpf);
+	if (ret)
+		return ret;
+
+	/* Un-Map the NIC-PF */
+	ret = nmnicpf_map_terminate(nmnicpf);
 	if (ret)
 		return ret;
 

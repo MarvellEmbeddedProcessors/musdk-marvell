@@ -125,7 +125,11 @@ struct nmnicpf {
 	int pf_id;
 	u32 guest_id;
 	int initialized;
+	u8 plat_bar_indx;
+	struct sys_iomem *sys_iomem;                /* musdk iomem handle. */
+	struct uio_mem plat_regs;                   /* Relevant only for platform devices */
 	struct pci_plat_func_map map;               /* Memory mapping - PCI / Plat */
+	struct nmp *nmp;
 	struct giu *giu;
 	struct pp2_data pp2;                        /* PP2 */
 	struct pp2_ppio_statistics stats;	    /* PP2 Statistics */
@@ -161,8 +165,6 @@ struct nmcstm {
  *
  *  nic-pf	all NIC-PF related data
  *
- *  sys_iomem	musdk iomem handle.
- *  plat_regs	Relevant only for platform devices.
  *		Holds the mapping of the platform device configuration
  *		registers, associated with the platform device uio file.
  *  msi_regs	Mapping of the MSI-X registers.
@@ -175,9 +177,7 @@ struct nmp {
 	struct nmcstm *nmcstm;
 	u32 guest_id;
 
-	struct sys_iomem *sys_iomem;
 	struct sys_iomem *msi_iomem;
-	struct uio_mem plat_regs;
 	struct uio_mem msi_regs;
 	int *emul_bars_avail_tbl;
 	void *emul_bars_mem;

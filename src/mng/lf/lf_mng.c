@@ -21,6 +21,8 @@ int lf_init(struct nmp *nmp)
 	int ret;
 	struct nmcstm_params params;
 
+	nmp->nmnicpf.nmp = nmp;
+
 	/* TODO: init nmp-nicpf only in case it is supported in the nmp_params! */
 	ret = nmnicpf_init(&nmp->nmnicpf);
 	if (ret)

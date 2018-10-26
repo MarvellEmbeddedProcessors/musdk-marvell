@@ -32,8 +32,6 @@
 #define NMP_MSI_MAP_INDX	0
 #define NMP_MSI_MAP_REGS_INDX	"0"
 
-#define PLAT_AGNIC_UIO_NAME	"agnic"
-
 
 /** =========================== **/
 /** == Device Initialization == **/
@@ -41,97 +39,6 @@
 
 /** Hardware Functionality **/
 /** ====================== **/
-
-/*
- * dev_mng_config_plat_func - Setup the platofm device registers to trigger
- * operation of the kernel based driver.
- */
-static int dev_mng_config_plat_func(struct nmp *nmp, int bar_idx)
-{
-	u32				 cfg_mem_addr[2]; /* High and low */
-	void				*cfg_mem_va;
-	dma_addr_t			 phys_addr =
-		(dma_addr_t)(uintptr_t)nmp->nmnicpf.map.cfg_map.phys_addr;
-
-	pr_debug("Setting platform device registers.\n");
-
-	/* TODO: need to read the correct address directly from DTS */
-	cfg_mem_va = nmp->plat_regs.virt_addr + CFG_MEM_AP8xx_OFFS;
-
-	/* first, let's try to access the higher bits to make sure we can use 64bits */
-	cfg_mem_addr[1] = CFG_MEM_64B_HI_MAGIC_VAL;
-	writel(cfg_mem_addr[1], cfg_mem_va + 0x4);
-	if (readl(cfg_mem_va + 0x4)) {
-		if (phys_addr & ~CFG_MEM_64B_ADDR_MASK) {
-			pr_err("Invalid BAR psysical address (0x%"PRIx64")!\n", phys_addr);
-			return -EFAULT;
-		}
-		/* it seems like we can use 64bits */
-		cfg_mem_addr[0]  = lower_32_bits(phys_addr) | CFG_MEM_VALID;
-		cfg_mem_addr[0] |=
-			((bar_idx & CFG_MEM_BIDX_MASK) << CFG_MEM_BIDX_SHIFT);
-		cfg_mem_addr[1] |= upper_32_bits(phys_addr);
-		pr_debug("passing 64bits reg: pa: %"PRIx64", bar-idx: %d (reg: %"PRIx32"%"PRIx32")\n",
-			phys_addr, bar_idx, cfg_mem_addr[1], cfg_mem_addr[0]);
-
-		writel(cfg_mem_addr[0], cfg_mem_va);
-		writel(cfg_mem_addr[1], cfg_mem_va + 0x4);
-	} else {
-		u32 new_phys_addr;
-
-		if (phys_addr & ~CFG_MEM_32B_ADDR_MASK) {
-			pr_err("Invalid BAR psysical address (0x%"PRIx64")!\n", phys_addr);
-			return -EFAULT;
-		}
-
-		/* make the address 32bits */
-		new_phys_addr = (u32)(phys_addr >> CFG_MEM_32B_ADDR_SHIFT);
-		/* it seems like we cannot use 64bits; use 43bits */
-		pr_info("cfg mem sync reg is not 64bits; trying 32bits\n");
-		cfg_mem_addr[0]  = new_phys_addr | CFG_MEM_VALID;
-		cfg_mem_addr[0] |=
-			((bar_idx & CFG_MEM_BIDX_MASK) << CFG_MEM_BIDX_SHIFT);
-		pr_debug("passing 32bits reg: pa: %"PRIx64", bar-idx: %d (reg: %"PRIx32")\n",
-			phys_addr, bar_idx, cfg_mem_addr[0]);
-
-		writel(cfg_mem_addr[0], cfg_mem_va);
-	}
-
-	return 0;
-}
-
-static int dev_mng_map_emul_pci_bar(struct nmp *nmp)
-{
-	int bar_idx = dev_mng_get_free_bar_idx(nmp);
-
-	if (bar_idx < 0) {
-		pr_err("no emulated-BARs left!\n");
-		return -ENAVAIL;
-	}
-
-	nmp->nmnicpf.map.cfg_map.virt_addr = nmp->emul_bars_mem + bar_idx * PCI_BAR0_ALLOC_SIZE;
-	/* Get the relevant physical address. */
-	nmp->nmnicpf.map.cfg_map.phys_addr =
-		(void *)(uintptr_t)mv_sys_dma_mem_virt2phys(nmp->nmnicpf.map.cfg_map.virt_addr);
-
-	/* Clear the config space, to prevent false device indications. */
-	memset(nmp->nmnicpf.map.cfg_map.virt_addr, 0x0, PCI_BAR0_ALLOC_SIZE);
-
-	pr_debug("Platform config space @ %p.\n", nmp->nmnicpf.map.cfg_map.phys_addr);
-	/* Setup the "host_map", which is actually an identity mapping for the
-	 * physical address.
-	 * The virtual map, is not needed, as not entity in the mgmt side is
-	 * accessing the virtual addresses in the "host" side, all accesses are
-	 * done using a DMA.
-	 * Thus, we set the virtual address to some "bad address" so that we
-	 * can identify faulty accesses to host's virtual space.
-	 */
-	nmp->nmnicpf.map.host_map.phys_addr = 0x0;
-	nmp->nmnicpf.map.host_map.virt_addr = (void *)0xBAD00ADD0BAD0ADDll;
-
-	/* Configure device registers. */
-	return dev_mng_config_plat_func(nmp, bar_idx);
-}
 
 static int dev_mng_alloc_emul_pci_bars(struct nmp *nmp)
 {
@@ -161,115 +68,6 @@ static int dev_mng_alloc_emul_pci_bars(struct nmp *nmp)
 		pr_err("failed to allocate the NMP emulated-BAR offsets table");
 		pr_err(" (the table MUST be the first thing allocated on the dma-able memory)!\n");
 		return -ENOMEM;
-	}
-
-	return 0;
-}
-
-static int dev_mng_map_plat_func(struct nmp *nmp)
-{
-	struct sys_iomem_params iomem_params;
-	int ret;
-
-	pr_debug("Mapping function %s\n", PLAT_AGNIC_UIO_NAME);
-
-	iomem_params.type = SYS_IOMEM_T_UIO;
-	iomem_params.devname = PLAT_AGNIC_UIO_NAME;
-	iomem_params.index = 0;
-
-	ret = sys_iomem_init(&iomem_params, &nmp->sys_iomem);
-	if (ret)
-		return ret;
-
-	/* Map the agnic configuration registers */
-	ret = sys_iomem_map(nmp->sys_iomem, "agnic_regs", (phys_addr_t *)&nmp->plat_regs.phys_addr,
-			&nmp->plat_regs.virt_addr);
-	if (ret) {
-		sys_iomem_deinit(nmp->sys_iomem);
-		return ret;
-	}
-
-	pr_debug("agnic regs mapped at virt:%p phys:%p\n",
-		nmp->plat_regs.virt_addr, nmp->plat_regs.phys_addr);
-
-	return 0;
-}
-
-static int dev_mng_map_pci_bar(struct nmp *nmp)
-{
-	struct sys_iomem_params iomem_params;
-	int ret;
-
-	pr_debug("Mapping function %s\n", PCI_EP_UIO_MEM_NAME);
-
-	iomem_params.type = SYS_IOMEM_T_UIO;
-	iomem_params.devname = PCI_EP_UIO_MEM_NAME;
-	iomem_params.index = 0;
-
-	ret = sys_iomem_init(&iomem_params, &nmp->sys_iomem);
-	if (ret)
-		return ret;
-
-	/* Map the whole physical Packet Processor physical address */
-	ret = sys_iomem_map(nmp->sys_iomem,
-			    PCI_EP_UIO_REGION_NAME,
-			    (phys_addr_t *)&nmp->nmnicpf.map.cfg_map.phys_addr,
-			    &nmp->nmnicpf.map.cfg_map.virt_addr);
-	if (ret) {
-		sys_iomem_deinit(nmp->sys_iomem);
-		return ret;
-	}
-
-	pr_debug("BAR-0 of %s mapped at virt:%p phys:%p\n", PCI_EP_UIO_MEM_NAME,
-		nmp->nmnicpf.map.cfg_map.virt_addr, nmp->nmnicpf.map.cfg_map.phys_addr);
-
-	/* Map the whole physical Packet Processor physical address */
-	ret = sys_iomem_map(nmp->sys_iomem, "host-map", (phys_addr_t *)&nmp->nmnicpf.map.host_map.phys_addr,
-			&nmp->nmnicpf.map.host_map.virt_addr);
-	if (ret) {
-		sys_iomem_deinit(nmp->sys_iomem);
-		return ret;
-	}
-
-	pr_debug("host RAM of %s remapped to phys %p virt %p\n", "host-map",
-		   nmp->nmnicpf.map.host_map.phys_addr, nmp->nmnicpf.map.host_map.virt_addr);
-
-	return 0;
-}
-
-static int dev_mng_map_bar(struct nmp *nmp)
-{
-	if (nmp->nmnicpf.map.type == ft_plat)
-		return dev_mng_map_emul_pci_bar(nmp);
-	else
-		return dev_mng_map_pci_bar(nmp);
-}
-
-static int dev_mng_map_init(struct nmp *nmp)
-{
-	int ret;
-
-	/* Map NMP registers if any */
-	/* First, try to map the platform device, if failed, and PCI is supported
-	 * try the pci device.
-	 */
-	nmp->nmnicpf.map.type = ft_plat;
-	ret = dev_mng_map_plat_func(nmp);
-	if (ret) {
-		if (nmp->nmnicpf.profile_data.pci_en) {
-			pr_debug("Platform device not found, trying the pci device.\n");
-			nmp->nmnicpf.map.type = ft_pcie_ep;
-		} else {
-			pr_err("platform device not found\n");
-			return ret;
-		}
-	}
-
-	/* TODO: this should move into NICPF */
-	ret = dev_mng_map_bar(nmp);
-	if (ret) {
-		pr_err("niether platform nor PCI devices were found\n");
-		return ret;
 	}
 
 	return 0;
@@ -388,15 +186,6 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	}
 
 	ret = dev_mng_init_giu(nmp);
-	if (ret)
-		return ret;
-
-	/* Initialize NIC-PF map - (for QNPT/QNCT/etc.) */
-	/* TODO: this is needed for MQa/GIU. however, this should be
-	 * initialized on local memory and not on BAR; after fixing that,
-	 * BAR should be initialized part of NICPF
-	 */
-	ret = dev_mng_map_init(nmp);
 	if (ret)
 		return ret;
 
@@ -526,43 +315,6 @@ static int dev_mng_mqa_terminate(struct nmp *nmp)
 	return 0;
 }
 
-static void dev_mng_unmap_plat_func(struct nmp *nmp)
-{
-	mv_sys_dma_mem_free(nmp->nmnicpf.map.cfg_map.virt_addr);
-	mv_sys_dma_mem_free(nmp->emul_bars_mem);
-}
-
-static void dev_mng_unmap_emul_pci_bar(struct nmp *nmp)
-{
-	sys_iomem_unmap(nmp->sys_iomem, "agnic_regs");
-	sys_iomem_deinit(nmp->sys_iomem);
-}
-
-static void dev_mng_unmap_pci_bar(struct nmp *nmp)
-{
-	sys_iomem_unmap(nmp->sys_iomem, "host-map");
-	sys_iomem_deinit(nmp->sys_iomem);
-}
-
-static void dev_mng_unmap_bar(struct nmp *nmp)
-{
-	if (nmp->nmnicpf.map.type == ft_plat)
-		dev_mng_unmap_emul_pci_bar(nmp);
-	else
-		dev_mng_unmap_pci_bar(nmp);
-}
-
-static int dev_mng_map_terminate(struct nmp *nmp)
-{
-	if (nmp->nmnicpf.map.type == ft_plat)
-		dev_mng_unmap_plat_func(nmp);
-
-	/* TODO: this should move into NICPF */
-	dev_mng_unmap_bar(nmp);
-
-	return 0;
-}
-
 static int dev_mng_hw_terminate(struct nmp *nmp)
 {
 	int ret;
@@ -586,14 +338,7 @@ static int dev_mng_hw_terminate(struct nmp *nmp)
 
 	regfile_destroy();
 
-	/* Un-Map the NIC-PF */
-	/* TODO: this is needed for MQa/GIU. however, this should be
-	 * initialized on local memory and not on BAR; after fixing that,
-	 * BAR should be initialized part of NICPF
-	 */
-	ret = dev_mng_map_terminate(nmp);
-	if (ret)
-		return ret;
+	mv_sys_dma_mem_free(nmp->emul_bars_mem);
 
 	return 0;
 }
@@ -658,24 +403,47 @@ int dev_mng_terminate(struct nmp *nmp)
 	return 0;
 }
 
-int dev_mng_get_free_bar_idx(struct nmp *nmp)
+int dev_mng_get_free_bar(struct nmp *nmp, void **va, dma_addr_t *pa)
 {
 	int i;
+
+	if (!nmp) {
+		pr_err("np NMP obj!\n");
+		return -EINVAL;
+	}
 
 	for (i = 0; i < NMP_PCI_MAX_NUM_BARS; i++)
 		if (nmp->emul_bars_avail_tbl[i] == 0) {
 			nmp->emul_bars_avail_tbl[i] = 1;
-			return i;
+			break;
 		}
 
-	/* All entries are occupied, not likely to happen. */
-	pr_err("All bar-offsets table are occupied (%d entries).\n",
-		NMP_PCI_MAX_NUM_BARS);
+	if (i == NMP_PCI_MAX_NUM_BARS) {
+		/* All entries are occupied, not likely to happen. */
+		pr_err("All bar-offsets table are occupied (%d entries).\n",
+			NMP_PCI_MAX_NUM_BARS);
 
-	return -ENODEV;
+		return -ENODEV;
+	}
+
+	*va = nmp->emul_bars_mem + i * PCI_BAR0_ALLOC_SIZE;
+	/* Get the relevant physical address. */
+	*pa = mv_sys_dma_mem_virt2phys(*va);
+
+	return i;
 }
 
-void dev_mng_put_bar_idx(struct nmp *nmp, int index)
+void dev_mng_put_bar(struct nmp *nmp, int index)
 {
+	if (!nmp) {
+		pr_err("np NMP obj!\n");
+		return;
+	}
+
+	if (index == NMP_PCI_MAX_NUM_BARS) {
+		pr_err("index out of range!\n");
+		return;
+	}
+
 	nmp->emul_bars_avail_tbl[index] = 0;
 }
