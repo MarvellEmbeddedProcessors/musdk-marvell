@@ -101,8 +101,8 @@ static int dev_mng_init_giu(struct nmp *nmp)
 {
 	struct sys_iomem_params iomem_params;
 	struct giu_params giu_params;
-	char dma_mng_name[16],  dma_rx_name[16],  dma_tx_name[16];
-	int ret;
+	char dma_name[GIU_ENG_OUT_OF_RANGE][16];
+	int ret, i;
 
 	/* Initialize the management GIU instance */
 	pr_debug("Initializing GIU devices\n");
@@ -138,14 +138,13 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	giu_params.msi_regs_pa = (u64)nmp->msi_regs.phys_addr;
 	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr;
 
-	sprintf(dma_mng_name, "dmax2-%d", 0);
-	giu_params.mng_gie_params.dma_eng_match = dma_mng_name;
+	/* TODO: get all DMA-engines information from config file */
+	giu_params.num_gies = 3;
 
-	sprintf(dma_rx_name, "dmax2-%d", 1);
-	giu_params.out_gie_params.dma_eng_match = dma_rx_name;
-
-	sprintf(dma_tx_name, "dmax2-%d", 2);
-	giu_params.in_gie_params.dma_eng_match = dma_tx_name;
+	for (i = 0; i < giu_params.num_gies; i++) {
+		sprintf(dma_name[i], "dmax2-%d", i);
+		giu_params.gies_params[i].dma_eng_match = dma_name[i];
+	}
 
 	ret = giu_init(&giu_params, &nmp->nmnicpf.giu);
 	if (ret) {

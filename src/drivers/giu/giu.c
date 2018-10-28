@@ -18,6 +18,68 @@
 #include "giu_internal.h"
 
 
+static int init_gies(struct giu *giu, u8 num_gies, struct giu_emul_params *gies_params)
+{
+	struct gie_params	 gie_params;
+	struct mqa_info		 mqa_info;
+	int			 ret;
+
+	mqa_get_info(giu->mqa, &mqa_info);
+
+	memset(&gie_params, 0, sizeof(gie_params));
+
+	/* Mgmt GIE */
+	gie_params.gct_base = (u64)mqa_info.qct_va;
+	gie_params.gpt_base = (u64)mqa_info.qpt_va;
+	gie_params.msi_regs_phys = giu->msi_regs_pa;
+	gie_params.msi_regs_virt = giu->msi_regs_va;
+
+	gie_params.dmax_match = gies_params[0].dma_eng_match;
+	gie_params.name_match = (char *)"MNG";
+
+	ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_MNG]));
+	if (ret) {
+		pr_err("Failed to initialize management GIU emulator!\n");
+		return -ENODEV;
+	}
+
+	if (num_gies == 1) {
+		giu->gies[GIU_ENG_OUT] = giu->gies[GIU_ENG_MNG];
+		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_MNG];
+		return 0;
+	}
+
+	/* OUT GIE */
+	gie_params.dmax_match = gies_params[1].dma_eng_match;
+	gie_params.name_match = (char *)"OUT";
+
+	ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_OUT]));
+	if (ret) {
+		pr_err("Failed to initialize OUT GIU emulator!\n");
+		gie_terminate(giu->gies[GIU_ENG_MNG]);
+		return -EIO;
+	}
+
+	if (num_gies == 2) {
+		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_OUT];
+		return 0;
+	}
+
+	/* IN GIE */
+	gie_params.dmax_match = gies_params[2].dma_eng_match;
+	gie_params.name_match = (char *)"IN";
+
+	ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_IN]));
+	if (ret) {
+		pr_err("Failed to initialize IN GIU emulator!\n");
+		gie_terminate(giu->gies[GIU_ENG_OUT]);
+		gie_terminate(giu->gies[GIU_ENG_MNG]);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 int giu_destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 	struct mqa_q *q, enum queue_type queue_type)
 {
@@ -94,8 +156,6 @@ int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa)
 int giu_init(struct giu_params *params, struct giu **giu)
 {
 	struct giu		*_giu;
-	struct gie_params	 gie_params;
-	struct mqa_info		 mqa_info;
 	int			 ret;
 
 	_giu = kmalloc(sizeof(struct giu), GFP_KERNEL);
@@ -104,49 +164,13 @@ int giu_init(struct giu_params *params, struct giu **giu)
 	memset(_giu, 0, sizeof(struct giu));
 
 	_giu->mqa = params->mqa;
-
-	mqa_get_info(_giu->mqa, &mqa_info);
-
-	memset(&gie_params, 0, sizeof(gie_params));
-
-	/* Mgmt GIE */
-	gie_params.gct_base = (u64)mqa_info.qct_va;
-	gie_params.gpt_base = (u64)mqa_info.qpt_va;
 	_giu->msi_regs_pa = params->msi_regs_pa;
 	_giu->msi_regs_va = params->msi_regs_va;
-	gie_params.msi_regs_phys = _giu->msi_regs_pa;
-	gie_params.msi_regs_virt = _giu->msi_regs_va;
 
-	gie_params.dmax_match = params->mng_gie_params.dma_eng_match;
-	gie_params.name_match = (char *)"MNG";
-
-	ret = gie_init(&gie_params, &(_giu->gies[GIU_ENG_MNG]));
-	if (ret) {
-		pr_err("Failed to initialize management GIU emulator!\n");
-		return -ENODEV;
-	}
-
-	/* OUT GIE */
-	gie_params.dmax_match = params->out_gie_params.dma_eng_match;
-	gie_params.name_match = (char *)"OUT";
-
-	ret = gie_init(&gie_params, &(_giu->gies[GIU_ENG_OUT]));
+	ret = init_gies(_giu, params->num_gies, params->gies_params);
 	if (ret) {
 		pr_err("Failed to initialize OUT GIU emulator!\n");
-		gie_terminate(_giu->gies[GIU_ENG_MNG]);
-		return -EIO;
-	}
-
-	/* IN GIE */
-	gie_params.dmax_match = params->in_gie_params.dma_eng_match;
-	gie_params.name_match = (char *)"IN";
-
-	ret = gie_init(&gie_params, &(_giu->gies[GIU_ENG_IN]));
-	if (ret) {
-		pr_err("Failed to initialize IN GIU emulator!\n");
-		gie_terminate(_giu->gies[GIU_ENG_OUT]);
-		gie_terminate(_giu->gies[GIU_ENG_MNG]);
-		return -EIO;
+		return ret;
 	}
 
 	*giu = _giu;
@@ -159,9 +183,9 @@ void giu_deinit(struct giu *giu)
 	if (!giu)
 		return;
 
-	if (giu->gies[GIU_ENG_IN])
+	if (giu->gies[GIU_ENG_IN] && (giu->gies[GIU_ENG_IN] != giu->gies[GIU_ENG_OUT]))
 		gie_terminate(giu->gies[GIU_ENG_IN]);
-	if (giu->gies[GIU_ENG_OUT])
+	if (giu->gies[GIU_ENG_OUT] && (giu->gies[GIU_ENG_OUT] != giu->gies[GIU_ENG_MNG]))
 		gie_terminate(giu->gies[GIU_ENG_OUT]);
 	if (giu->gies[GIU_ENG_MNG])
 		gie_terminate(giu->gies[GIU_ENG_MNG]);

@@ -74,9 +74,8 @@ struct giu_params {
 	u64			 msi_regs_pa;	/**< MSI phys-address registers base */
 	u64			 msi_regs_va;	/**< MSI virt-address registers base */
 
-	struct giu_emul_params	 mng_gie_params;
-	struct giu_emul_params	 in_gie_params;
-	struct giu_emul_params	 out_gie_params;
+	u8			 num_gies;
+	struct giu_emul_params	 gies_params[GIU_ENG_OUT_OF_RANGE];
 };
 
 /**
