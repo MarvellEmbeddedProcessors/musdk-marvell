@@ -174,6 +174,9 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	*ppio = ppio_ptr;
 	neta_ppio_set_loopback(*ppio, false);
 
+	INIT_LIST(&port->added_uc_addr);
+	port->num_added_uc_addr = 0;
+
 	return rc;
 }
 

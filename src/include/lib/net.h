@@ -209,6 +209,15 @@ static inline bool mv_eaddr_identical(const u8 *eaddr1, const u8 *eaddr2)
 	return ((e1_16[0] ^ e2_16[0]) | (e1_16[1] ^ e2_16[1]) | (e1_16[2] ^ e2_16[2])) == 0;
 }
 
+static inline bool mv_eaddr_identical_except_4LSB(const u8 *eaddr1,
+						  const u8 *eaddr2)
+{
+	return (((eaddr1[5] & 0xF0) == (eaddr2[5] & 0xF0)) &
+		(eaddr1[4] == eaddr2[4]) & (eaddr1[3] == eaddr2[3]) &
+		(eaddr1[2] == eaddr2[2]) & (eaddr1[1] == eaddr2[1]) &
+		(eaddr1[0] == eaddr2[0]));
+}
+
 static inline int mv_check_eaddr_valid(const u8 *addr)
 {
 	return !mv_check_eaddr_mc(addr) && !mv_check_eaddr_zero(addr);

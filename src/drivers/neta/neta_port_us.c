@@ -96,8 +96,11 @@
 
 #include "std_internal.h"
 #include "lib/net.h"
+#include "lib/list.h"
 #include "drivers/mv_neta_ppio.h"
+#include "drivers/mv_neta.h"
 #include "neta_ppio.h"
+#include "neta_hw.h"
 
 #define MAX_BUF_STR_LEN		256
 
@@ -118,6 +121,65 @@ static int parse_hex(char *str, u8 *addr, size_t size)
 		str += 2;
 	}
 	return len;
+}
+
+static void neta_port_uc_mac_addr_list_reconfig(struct neta_port *port)
+{
+	struct neta_port_uc_addr_node *uc_addr_node;
+
+	LIST_FOR_EACH_OBJECT(uc_addr_node, struct neta_port_uc_addr_node,
+			     &port->added_uc_addr, list_node) {
+		neta_add_ucast_addr(port, uc_addr_node->addr[5], MVNETA_DEFAULT_RXQ);
+		pr_debug("add Eth addr %x:%x:%x:%x:%x:%x added to uc mac table\n",
+			 uc_addr_node->addr[0], uc_addr_node->addr[1],
+			 uc_addr_node->addr[2], uc_addr_node->addr[3],
+			 uc_addr_node->addr[4], uc_addr_node->addr[5]);
+	}
+}
+
+static void neta_port_uc_mac_addr_list_flush(struct neta_port *port)
+{
+	struct neta_port_uc_addr_node *uc_addr_node, *tmp;
+
+	LIST_FOR_EACH_OBJECT_SAFE(uc_addr_node, tmp, &port->added_uc_addr,
+				  struct neta_port_uc_addr_node, list_node) {
+		pr_debug("removed %x:%x:%x:%x:%x:%x from port_list\n",
+			uc_addr_node->addr[0], uc_addr_node->addr[1],
+			uc_addr_node->addr[2], uc_addr_node->addr[3],
+			uc_addr_node->addr[4], uc_addr_node->addr[5]);
+
+		list_del(&uc_addr_node->list_node);
+		kfree(uc_addr_node);
+	}
+}
+
+static int neta_port_uc_mac_addr_list_remove(struct neta_port *port, const uint8_t *addr)
+{
+	struct neta_port_uc_addr_node *uc_addr_node;
+
+	LIST_FOR_EACH_OBJECT(uc_addr_node, struct neta_port_uc_addr_node,
+			     &port->added_uc_addr, list_node) {
+		if (mv_eaddr_identical(uc_addr_node->addr, addr)) {
+			list_del(&uc_addr_node->list_node);
+			kfree(uc_addr_node);
+			pr_debug("removed %x:%x:%x:%x:%x:%x from port_list\n",
+				 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int neta_port_uc_mac_addr_list_exist(struct neta_port *port, const uint8_t *addr)
+{
+	struct neta_port_uc_addr_node *uc_addr_node;
+
+	LIST_FOR_EACH_OBJECT(uc_addr_node, struct neta_port_uc_addr_node,
+			     &port->added_uc_addr, list_node) {
+		if (mv_eaddr_identical(uc_addr_node->addr, addr))
+			return 1;
+	}
+	return 0;
 }
 
 /* Set MAC address */
@@ -143,6 +205,15 @@ int neta_port_set_mac_addr(struct neta_port *port, const uint8_t *addr)
 		return rc;
 
 	mv_cp_eaddr(port->mac, (const uint8_t *)addr);
+
+	/* flush uc mac table */
+	neta_flush_ucast_table(port);
+	neta_port_uc_mac_addr_list_flush(port);
+	port->num_added_uc_addr = 0;
+
+	/* add primary address to uc mac table */
+	neta_port_add_mac_addr(port, addr);
+
 	return 0;
 }
 
@@ -160,6 +231,7 @@ int neta_port_get_mac_addr(struct neta_port *port, uint8_t *addr)
 
 	for (i = 0; i < ETH_ALEN; i++)
 		addr[i] = s.ifr_hwaddr.sa_data[i];
+
 	return 0;
 }
 
@@ -201,6 +273,11 @@ int neta_port_set_promisc(struct neta_port *port, uint32_t en)
 		pr_err("PORT: unable to set promisc mode to HW\n");
 		return rc;
 	}
+
+	if (en == 0)
+		/* go through UC mac list and reconfigure all entries again */
+		neta_port_uc_mac_addr_list_reconfig(port);
+
 	return 0;
 }
 
@@ -273,6 +350,7 @@ int neta_port_get_mc_promisc(struct neta_port *port, uint32_t *en)
 int neta_port_add_mac_addr(struct neta_port *port, const uint8_t *addr)
 {
 	int rc;
+	struct neta_port_uc_addr_node *uc_addr_node;
 
 	if (mv_check_eaddr_mc(addr)) {
 		struct ifreq s;
@@ -291,7 +369,33 @@ int neta_port_add_mac_addr(struct neta_port *port, const uint8_t *addr)
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else {
-		pr_err("PORT: Ethernet address is not multicast. Request ignored\n");
+		/* Verify that MAC address is the same as the primary MAC */
+		/* except 4 LSB bits */
+		if (mv_eaddr_identical_except_4LSB(port->mac, addr) == 0) {
+			pr_err("PORT: uc mac address should be equal to the primary mac address except 4 LSB bits\n");
+			return -1;
+		}
+		if (neta_port_uc_mac_addr_list_exist(port, addr)) {
+			pr_debug("PORT: uc mac address already exists\n");
+			return 0;
+		}
+
+		/* Add MAC to uc mac list */
+		uc_addr_node = kmalloc(sizeof(*uc_addr_node), GFP_KERNEL);
+		if (!uc_addr_node)
+			return -ENOMEM;
+
+		mv_cp_eaddr(uc_addr_node->addr, addr);
+		list_add_to_tail(&uc_addr_node->list_node,
+				 &port->added_uc_addr);
+		port->num_added_uc_addr++;
+
+		/* Add address to Unicast Table */
+		neta_add_ucast_addr(port, addr[5], MVNETA_DEFAULT_RXQ);
+
+		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		pr_debug("PORT: num_added_uc_addr:%d\n", port->num_added_uc_addr);
 	}
 	return 0;
 }
@@ -318,7 +422,21 @@ int neta_port_remove_mac_addr(struct neta_port *port, const uint8_t *addr)
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	} else {
-		pr_err("PORT: Ethernet address is not multicast. Request ignored\n");
+		/* Check if MAC address to remove exists in uc list */
+		if (!neta_port_uc_mac_addr_list_remove(port, addr)) {
+			pr_err("PORT: Ethernet address %x:%x:%x:%x:%x:%x doesn't exist\n",
+			       addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+			return -1;
+		}
+
+		port->num_added_uc_addr--;
+
+		/* Remove address from Unicast Table */
+		neta_del_ucast_addr(port, addr[5]);
+
+		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
+			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		pr_debug("PORT: num_added_uc_addr:%d\n", port->num_added_uc_addr);
 	}
 	return 0;
 }
@@ -357,6 +475,11 @@ int neta_port_flush_mac_addrs(struct neta_port *port)
 			return rc;
 	}
 	fclose(fp);
+
+	/* flush uc mac table */
+	neta_flush_ucast_table(port);
+	neta_port_uc_mac_addr_list_flush(port);
+	port->num_added_uc_addr = 0;
 
 	return 0;
 }

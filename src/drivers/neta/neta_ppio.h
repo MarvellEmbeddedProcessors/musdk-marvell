@@ -97,6 +97,8 @@
 #ifndef __NETA_PP_IO_H_
 #define __NETA_PP_IO_H_
 
+#include "lib/list.h"
+
 /* internal structures */
 struct neta_tx_queue {
 	/* Number of this TX queue, in the range 0-7 */
@@ -234,6 +236,14 @@ struct neta_port {
 	/* Port statistics */
 	struct ethtool_gstrings *stats_name;
 	struct neta_ppio_statistics stats;
+
+	struct list added_uc_addr;
+	u32 num_added_uc_addr;
+};
+
+struct neta_port_uc_addr_node {
+	struct list	list_node;
+	u8		addr[ETH_ALEN];
 };
 
 #define GET_PPIO_PORT(ppio) ((struct neta_port *)(ppio)->internal_param)
@@ -248,6 +258,9 @@ struct neta_port {
 /* Port minimum MTU in bytes */
 #define MVNETA_PORT_MIN_MTU		(68) /* Required to support IPV4, per RFC791 */
 #define MVNETA_PORT_MIN_MRU		(MV_MTU_TO_MRU(MVNETA_PORT_MIN_MTU))
+
+/* TODO: to be reviewed when configuring QoS */
+#define MVNETA_DEFAULT_RXQ		0
 
 int neta_is_initialized(void);
 
