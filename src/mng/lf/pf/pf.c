@@ -1847,10 +1847,6 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	/* Indicate nmp init_done ready */
 	nmnicpf->f_ready_cb(nmnicpf->arg);
 
-	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
-	if (ret)
-		pr_err("Failed to configure PF regfile\n");
-
 	nmnicpf->initialized = 1;
 
 	return ret;
@@ -3019,3 +3015,23 @@ static int nmnicpf_maintenance(struct nmlf *nmlf)
 	return 0;
 }
 
+
+int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
+{
+	size_t	 pos = 0;
+	int	 ret;
+
+	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
+		ret = nmnicpf_pp2_serialize(nmnicpf, &buff[pos], size - pos);
+		if (ret >= 0)
+			pos += ret;
+		if (pos != strlen(buff))
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+	}
+
+	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
+	if (ret)
+		pr_err("Failed to configure PF regfile\n");
+
+	return pos;
+}

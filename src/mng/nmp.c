@@ -17,6 +17,7 @@
 #define SCHED_MAX_MNG_ELEMENTS		10
 #define SCHED_MAX_DATA_ELEMENTS		1000
 
+
 static int nmp_range_validate(int value, int min, int max)
 {
 	if (((value) > (max)) || ((value) < (min))) {

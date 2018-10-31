@@ -11,4 +11,6 @@
 int lf_init(struct nmp *nmp);
 int lf_deinit(struct nmp *nmp);
 
+void lf_init_done(struct nmp *nmp);
+
 #endif /* _LF_MNG_H */
