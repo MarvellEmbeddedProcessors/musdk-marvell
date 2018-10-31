@@ -138,7 +138,7 @@ struct nmnicpf {
 	struct pf_profile profile_data;             /* Profile */
 	struct giu_gpio *giu_gpio;                  /* GIU Gpio */
 	struct giu_bpool *giu_bpool;                /* GIU Bpool */
-	struct giu_gpio_params topology_data;  /* GIU Queue Topology */
+	struct giu_gpio_params gpio_params;  /* GIU Queue Topology */
 	struct giu_mng_ch *giu_mng_ch;
 	struct giu_regfile regfile_data;            /* GIU Register File */
 	void (*f_ready_cb)(void *arg);

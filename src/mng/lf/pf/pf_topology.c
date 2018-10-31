@@ -40,15 +40,16 @@ int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num)
 {
 	u32 tc_idx;
 	struct giu_gpio_outtc_params *outtc_p;
-	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
 
-	if (q_top->outtcs_params.outtc_params == NULL) {
-		q_top->outtcs_params.outtc_params = kcalloc(tc_num, sizeof(struct giu_gpio_outtc_params), GFP_KERNEL);
-		if (q_top->outtcs_params.outtc_params == NULL)
+	if (gpio_p->outtcs_params.outtc_params == NULL) {
+		gpio_p->outtcs_params.outtc_params =
+			kcalloc(tc_num, sizeof(struct giu_gpio_outtc_params), GFP_KERNEL);
+		if (gpio_p->outtcs_params.outtc_params == NULL)
 			return -ENOMEM;
 	}
 
-	outtc_p = &(q_top->outtcs_params.outtc_params[0]);
+	outtc_p = &(gpio_p->outtcs_params.outtc_params[0]);
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
 
@@ -121,16 +122,16 @@ int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num)
 {
 	u32 tc_idx;
 	struct giu_gpio_intc_params *intc_p;
-	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
+	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
 
-	if (q_top->intcs_params.intc_params == NULL) {
-		q_top->intcs_params.intc_params =
+	if (gpio_p->intcs_params.intc_params == NULL) {
+		gpio_p->intcs_params.intc_params =
 				kcalloc(tc_num, sizeof(struct giu_gpio_intc_params), GFP_KERNEL);
-		if (q_top->intcs_params.intc_params == NULL)
+		if (gpio_p->intcs_params.intc_params == NULL)
 			return -ENOMEM;
 	}
 
-	intc_p = &(q_top->intcs_params.intc_params[0]);
+	intc_p = &(gpio_p->intcs_params.intc_params[0]);
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
 
@@ -205,8 +206,8 @@ int pf_outtc_queue_free(u32 type, u32 tc_num)
 	u32 tc_idx;
 	static u32 clear_outtc;
 
-	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
-	struct giu_gpio_outtc_params *outtc_p = q_top->outtcs_params.outtc_params;
+	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
+	struct giu_gpio_outtc_params *outtc_p = gpio_p->outtcs_params.outtc_params;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
 		if (type == LCL) {
@@ -250,8 +251,8 @@ int pf_intc_queue_free(u32 type, u32 tc_num)
 	u32 tc_idx;
 	static u32 clear_intc;
 
-	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
-	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
+	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
+	struct giu_gpio_intc_params *intc_p = gpio_p->intcs_params.intc_params;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
 		if (type == LCL) {
@@ -291,10 +292,10 @@ int pf_intc_bm_queue_init(u32 bm_num)
 {
 	u32 tc_idx;
 
-	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
-	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
+	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
+	struct giu_gpio_intc_params *intc_p = gpio_p->intcs_params.intc_params;
 
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < gpio_p->intcs_params.num_intcs; tc_idx++) {
 
 		intc_p[tc_idx].num_inpools = bm_num;
 		if (bm_num != 0) {
@@ -309,7 +310,7 @@ int pf_intc_bm_queue_init(u32 bm_num)
 
 bm_error:
 
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < gpio_p->intcs_params.num_intcs; tc_idx++) {
 		if (intc_p[tc_idx].pools != NULL)
 			kfree(intc_p[tc_idx].pools);
 	}
@@ -330,10 +331,10 @@ int pf_intc_bm_queue_free(void)
 {
 	u32 tc_idx;
 
-	struct giu_gpio_params *q_top = &(nmnicpf->topology_data);
-	struct giu_gpio_intc_params *intc_p = q_top->intcs_params.intc_params;
+	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
+	struct giu_gpio_intc_params *intc_p = gpio_p->intcs_params.intc_params;
 
-	for (tc_idx = 0; tc_idx < q_top->intcs_params.num_intcs; tc_idx++) {
+	for (tc_idx = 0; tc_idx < gpio_p->intcs_params.num_intcs; tc_idx++) {
 		if (intc_p[tc_idx].pools != NULL)
 			kfree(intc_p[tc_idx].pools);
 	}
