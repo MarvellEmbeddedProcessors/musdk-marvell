@@ -218,18 +218,16 @@ struct mgmt_cmd_params {
  */
 /* Make sure structure is portable along different systems. */
 struct mgmt_cmd_resp {
-#define NOTIF_STATUS_OK	(0)
+#define NOTIF_STATUS_OK		(0)
 #define NOTIF_STATUS_FAIL	(1)
 	u8 status;
 	union {
-		/* Use same response structure for all Q add operations.
-		 * The prod_cons_phys_addr wil hold either the consumer or the
-		 * producers address depending on the type of queue being
-		 * created (ingress or egress).
-		 */
+		/* Use same response structure for all Q add operations. */
 		struct {
-			u64	q_prod_cons_phys_addr;
-			u64	bpool_q_prod_cons_phys_addr;
+#define Q_INF_STATUS_OK		(0)
+#define Q_INF_STATUS_ERR	(1)
+			u64	q_inf;
+			u64	bpool_q_inf;
 		} __packed q_add_resp;
 
 		/* CC_PF_LINK_STATUS */

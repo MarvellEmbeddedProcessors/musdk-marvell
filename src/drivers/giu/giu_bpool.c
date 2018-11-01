@@ -38,12 +38,17 @@ int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool)
 
 	/* Create Local BM queues */
 	for (tc_idx = 0; tc_idx < params->intcs_params.num_intcs; tc_idx++) {
-
 		intc = &(params->intcs_params.intc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
-
 			giu_gpio_q_p = &(intc->pools[bm_idx]);
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(params->mqa, &giu_gpio_q_p->lcl_q.q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto lcl_queue_error;
+			}
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 

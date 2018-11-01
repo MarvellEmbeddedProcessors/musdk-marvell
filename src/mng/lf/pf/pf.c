@@ -411,168 +411,75 @@ static int nmnicpf_topology_tc_free(struct nmnicpf *nmnicpf)
  */
 static int nmnicpf_topology_local_queue_cfg(struct nmnicpf *nmnicpf)
 {
-	int ret;
-	u32 tc_idx;
-	u32 bm_idx;
-	u32 q_idx;
-	u32 q_id;
-
 	struct giu_gpio_outtc_params *outtc;
 	struct giu_gpio_intc_params *intc;
 	union  giu_gpio_q_params giu_gpio_q;
-	union  giu_gpio_q_params *giu_gpio_q_p;
 	struct pf_profile *prof = &(nmnicpf->profile_data);
 	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
+	u32 tc_idx, bm_idx, q_idx;
 
 	/* Create Local BM queues */
 	for (tc_idx = 0; tc_idx < gpio_p->intcs_params.num_intcs; tc_idx++) {
-
 		intc = &(gpio_p->intcs_params.intc_params[tc_idx]);
 
 		pr_debug("Configure Local BM queues (Num of queues %d) of TC %d\n",
 				tc_idx, intc->num_inpools);
 
 		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
-
 			/* Clear queue structure */
 			memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc(nmnicpf->mqa, &q_id);
-			if (ret < 0) {
-				pr_err("Failed to allocate queue from MQA\n");
-				goto lcl_bm_queue_error;
-			}
-
 			/* Init queue parameters */
-			giu_gpio_q.lcl_q.q_id = q_id;
 			giu_gpio_q.lcl_q.len = prof->lcl_bm_q_size;
 
 			/* Save queue info */
 			memcpy(&(intc->pools[bm_idx]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
-			pr_debug("Configure BM[%d] TC[%d], Id %d\n\n",
-					tc_idx, bm_idx, intc->pools[bm_idx].lcl_q.q_id);
+			pr_debug("Configure BM[%d] TC[%d]\n", tc_idx, bm_idx);
 		}
 
 		intc->pool_buf_size = prof->lcl_bm_buf_size;
 	}
 
-
 	/* Create Local Egress TC queues */
 	pr_debug("Configure Local Egress TC queues (Num of queues %d)\n", gpio_p->intcs_params.num_intcs);
 
 	for (tc_idx = 0; tc_idx < gpio_p->intcs_params.num_intcs; tc_idx++) {
-
 		intc = &(gpio_p->intcs_params.intc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-
 			/* Clear queue structure */
 			memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc(nmnicpf->mqa, &q_id);
-			if (ret < 0) {
-				pr_err("Failed to allocate queue from MQA\n");
-				goto lcl_eg_queue_error;
-			}
-
-			giu_gpio_q.lcl_q.q_id = q_id;
 			giu_gpio_q.lcl_q.len  = prof->lcl_egress_q_size;
 
 			/* Save queue info */
 			memcpy(&(intc->inqs_params[q_idx]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
-			pr_debug("Configure Egress TC[%d], queue[%d] = Id %d\n\n",
-					tc_idx, q_idx, intc->inqs_params[q_idx].lcl_q.q_id);
+			pr_debug("Configure Egress TC[%d], queue[%d]\n", tc_idx, q_idx);
 		}
 	}
-
 
 	/* Create Local Ingress TC queues */
 	pr_debug("Configure Local Ingress TC queues (Num of queues %d)\n", gpio_p->outtcs_params.num_outtcs);
 
 	for (tc_idx = 0; tc_idx < gpio_p->outtcs_params.num_outtcs; tc_idx++) {
-
 		outtc = &(gpio_p->outtcs_params.outtc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-
 			/* Clear queue structure */
 			memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc(nmnicpf->mqa, &q_id);
-			if (ret < 0) {
-				pr_err("Failed to allocate queue from MQA\n");
-				goto lcl_ing_queue_error;
-			}
-
-			giu_gpio_q.lcl_q.q_id = q_id;
 			giu_gpio_q.lcl_q.len  = prof->lcl_ingress_q_size;
 
 			/* Save queue info */
 			memcpy(&(outtc->outqs_params[q_idx]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
-			pr_debug("Configure Ingress TC[%d], queue[%d] = Id %d\n\n",
-					tc_idx, q_idx, outtc->outqs_params[q_idx].lcl_q.q_id);
+			pr_debug("Configure Ingress TC[%d], queue[%d]\n", tc_idx, q_idx);
 		}
 	}
 
 	return 0;
-
-lcl_ing_queue_error:
-
-	for (tc_idx = 0; tc_idx < gpio_p->outtcs_params.num_outtcs; tc_idx++) {
-		outtc = &(gpio_p->outtcs_params.outtc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			giu_gpio_q_p = &(outtc->outqs_params[q_idx]);
-			if (giu_gpio_q_p != NULL) {
-
-				ret = mqa_queue_free(nmnicpf->mqa, giu_gpio_q_p->lcl_q.q_id);
-				if (ret)
-					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
-
-				memset(giu_gpio_q_p, 0, sizeof(union giu_gpio_q_params));
-			}
-		}
-	}
-
-lcl_eg_queue_error:
-
-	for (tc_idx = 0; tc_idx < gpio_p->intcs_params.num_intcs; tc_idx++) {
-		intc = &(gpio_p->intcs_params.intc_params[tc_idx]);
-
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-			giu_gpio_q_p = &(intc->inqs_params[q_idx]);
-			if (giu_gpio_q_p != NULL) {
-
-				ret = mqa_queue_free(nmnicpf->mqa, (u32)giu_gpio_q_p->lcl_q.q_id);
-				if (ret)
-					pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
-
-				memset(giu_gpio_q_p, 0, sizeof(union giu_gpio_q_params));
-			}
-		}
-	}
-
-lcl_bm_queue_error:
-
-	for (bm_idx = 0; bm_idx < gpio_p->intcs_params.intc_params->num_inpools; bm_idx++) {
-		giu_gpio_q_p = &(gpio_p->intcs_params.intc_params->pools[bm_idx]);
-		if (giu_gpio_q_p != NULL) {
-
-			ret = mqa_queue_free(nmnicpf->mqa, (u32)giu_gpio_q_p->lcl_q.q_id);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in MQA\n", giu_gpio_q_p->lcl_q.q_id);
-
-			memset(giu_gpio_q_p, 0, sizeof(union giu_gpio_q_params));
-		}
-	}
-
-	return -1;
 }
 
 
@@ -1227,10 +1134,9 @@ static int tc_q_next_entry_get(union giu_gpio_q_params *q_id_list, u32 q_num)
 {
 	u32 q_idx;
 
-	for (q_idx = 0; q_idx < q_num; q_idx++) {
-		if (q_id_list[q_idx].rem_q.q_id == 0)
+	for (q_idx = 0; q_idx < q_num; q_idx++)
+		if (q_id_list[q_idx].rem_q.len == 0)
 			return q_idx;
-	}
 
 	return -1;
 }
@@ -1243,10 +1149,8 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 					    struct mgmt_cmd_params *params,
 					    struct mgmt_cmd_resp *resp_data)
 {
-	int ret = 0;
 	s32 active_q_id;
 	u32 msg_tc;
-	u32 q_id, bpool_q_id;
 
 	union giu_gpio_q_params giu_gpio_q;
 	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
@@ -1265,15 +1169,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	/* Clear queue structure */
 	memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
-	/* Allocate queue from MQA */
-	ret = mqa_queue_alloc(nmnicpf->mqa, &q_id);
-	if (ret < 0) {
-		pr_err("Failed to allocate queue from MQA\n");
-		return ret;
-	}
-
 	/* Init queue parameters */
-	giu_gpio_q.rem_q.q_id         = q_id;
 	giu_gpio_q.rem_q.len          = params->pf_ingress_data_q_add.q_len;
 	giu_gpio_q.rem_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_OUT);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.q_phys_addr;
@@ -1293,11 +1189,10 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	active_q_id = tc_q_next_entry_get(outtc->rem_inqs_params, outtc->num_rem_inqs);
 	if (active_q_id < 0) {
 		pr_err("Failed to configure queue in Host Ingress TC[%d] queue list\n", msg_tc);
-		ret = active_q_id;
-		goto ingress_queue_exit;
+		return active_q_id;
 	}
 
-	pr_debug("Host Ingress TC[%d], queue %d added at index %d\n", msg_tc, q_id, active_q_id);
+	pr_debug("Host Ingress TC[%d], queue added at index %d\n", msg_tc, active_q_id);
 
 	memcpy(&(outtc->rem_inqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
@@ -1305,20 +1200,12 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	 * we use the qid as the prod/cons idx in the notification space
 	 * since that is the how CP-125 HW works
 	 */
-	resp_data->q_add_resp.q_prod_cons_phys_addr = q_id;
+	resp_data->q_add_resp.q_inf = Q_INF_STATUS_OK;
 
 	/* Clear queue structure */
 	memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
-	/* Allocate queue from MQA */
-	ret = mqa_queue_alloc(nmnicpf->mqa, &bpool_q_id);
-	if (ret < 0) {
-		pr_err("Failed to allocate queue from MQA\n");
-		goto ingress_queue_exit;
-	}
-
 	/* Init queue parameters */
-	giu_gpio_q.rem_q.q_id	      = bpool_q_id;
 	giu_gpio_q.rem_q.len	      = params->pf_ingress_data_q_add.q_len;
 	giu_gpio_q.rem_q.size	      = giu_get_desc_size(nmnicpf->giu, GIU_DESC_BUFF);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.bpool_q_phys_addr;
@@ -1338,25 +1225,9 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	memcpy(&(outtc->rem_poolqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
 	/* Set queue Id in response message in case of success */
-	resp_data->q_add_resp.bpool_q_prod_cons_phys_addr = bpool_q_id;
+	resp_data->q_add_resp.bpool_q_inf = Q_INF_STATUS_OK;
 
-ingress_queue_exit:
-
-	if (ret < 0) {
-		if (q_id > 0) {
-			ret = mqa_queue_free(nmnicpf->mqa, q_id);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in MQA\n", q_id);
-		}
-		if (bpool_q_id > 0) {
-			ret = mqa_queue_free(nmnicpf->mqa, bpool_q_id);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in MQA\n", bpool_q_id);
-		}
-		pr_err("Host ingress TC[%d] Add queue failed\n", msg_tc);
-	}
-
-	return ret;
+	return 0;
 }
 
 
@@ -1367,10 +1238,8 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 					   struct mgmt_cmd_params *params,
 					   struct mgmt_cmd_resp *resp_data)
 {
-	int ret = 0;
 	s32 active_q_id;
 	u32 msg_tc;
-	u32 q_id;
 
 	union giu_gpio_q_params giu_gpio_q;
 	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
@@ -1384,15 +1253,7 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	/* Clear queue structure */
 	memset(&giu_gpio_q, 0, sizeof(union giu_gpio_q_params));
 
-	/* Allocate queue from MQA */
-	ret = mqa_queue_alloc(nmnicpf->mqa, &q_id);
-	if (ret < 0) {
-		pr_err("Failed to allocate queue from MQA\n");
-		return ret;
-	}
-
 	/* Init queue parameters */
-	giu_gpio_q.rem_q.q_id         = q_id;
 	giu_gpio_q.rem_q.len          = params->pf_egress_q_add.q_len;
 	giu_gpio_q.rem_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_IN);
 	giu_gpio_q.rem_q.q_base_pa    = (phys_addr_t)params->pf_egress_q_add.q_phys_addr;
@@ -1412,11 +1273,10 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	active_q_id = tc_q_next_entry_get(intc->rem_outqs_params, intc->num_rem_outqs);
 	if (active_q_id < 0) {
 		pr_err("Failed to configure queue in Host Egress TC[%d] queue list\n", msg_tc);
-		ret = active_q_id;
-		goto egress_queue_exit;
+		return active_q_id;
 	}
 
-	pr_debug("Host Egress TC[%d], queue %d added and index %d\n", msg_tc, q_id, active_q_id);
+	pr_debug("Host Egress TC[%d], queue added and index %d\n", msg_tc, active_q_id);
 
 	memcpy(&(intc->rem_outqs_params[active_q_id]), &(giu_gpio_q), sizeof(union giu_gpio_q_params));
 
@@ -1424,20 +1284,9 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	 * we use the qid as the prod/cons idx in the notification space
 	 * since that is the how CP-125 HW works
 	 */
-	resp_data->q_add_resp.q_prod_cons_phys_addr = q_id;
+	resp_data->q_add_resp.q_inf = Q_INF_STATUS_OK;
 
-egress_queue_exit:
-
-	if (ret < 0) {
-		if (q_id > 0) {
-			mqa_queue_free(nmnicpf->mqa, q_id);
-			if (ret)
-				pr_err("Failed to free queue Idx %x in MQA\n", q_id);
-		}
-		pr_err("Host Egress TC[%d] Add queue failed\n", msg_tc);
-	}
-
-	return ret;
+	return 0;
 }
 
 static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)

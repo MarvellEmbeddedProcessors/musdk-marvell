@@ -174,12 +174,17 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 
 	/* Create Remote BM queues */
 	for (tc_idx = 0; tc_idx < params->outtcs_params.num_outtcs; tc_idx++) {
-
 		outtc = &(params->outtcs_params.outtc_params[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
-
 			giu_gpio_q_p = &(outtc->rem_poolqs_params[bm_idx]);
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(params->mqa, &giu_gpio_q_p->rem_q.q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto host_queue_error;
+			}
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 
@@ -219,12 +224,17 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	giu_get_msi_regs(params->giu, &msi_regs_va, &msi_regs_pa);
 
 	for (tc_idx = 0; tc_idx < params->intcs_params.num_intcs; tc_idx++) {
-
 		intc = &(params->intcs_params.intc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(params->mqa, &intc->inqs_params[q_idx].lcl_q.q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto lcl_eg_queue_error;
+			}
 
 			mqa_params.idx  = intc->inqs_params[q_idx].lcl_q.q_id;
 			mqa_params.len  = intc->inqs_params[q_idx].lcl_q.len;
@@ -271,12 +281,17 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			params->outtcs_params.num_outtcs);
 
 	for (tc_idx = 0; tc_idx < params->outtcs_params.num_outtcs; tc_idx++) {
-
 		outtc = &(params->outtcs_params.outtc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(params->mqa, &outtc->outqs_params[q_idx].lcl_q.q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto lcl_ing_queue_error;
+			}
 
 			mqa_params.idx  = outtc->outqs_params[q_idx].lcl_q.q_id;
 			mqa_params.len  = outtc->outqs_params[q_idx].lcl_q.len;
@@ -300,12 +315,17 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			params->outtcs_params.num_outtcs);
 
 	for (tc_idx = 0; tc_idx < params->outtcs_params.num_outtcs; tc_idx++) {
-
 		outtc = &(params->outtcs_params.outtc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(params->mqa, &outtc->rem_inqs_params[q_idx].rem_q.q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto host_ing_queue_error;
+			}
 
 			mqa_params.idx  = outtc->rem_inqs_params[q_idx].rem_q.q_id;
 			mqa_params.len  = outtc->rem_inqs_params[q_idx].rem_q.len;
@@ -374,13 +394,18 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			params->intcs_params.num_intcs);
 
 	for (tc_idx = 0; tc_idx < params->intcs_params.num_intcs; tc_idx++) {
-
 		intc = &(params->intcs_params.intc_params[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-
 			giu_gpio_q_p = &(intc->rem_outqs_params[q_idx]);
 			if (giu_gpio_q_p) {
+				/* Allocate queue from MQA */
+				ret = mqa_queue_alloc(params->mqa, &intc->rem_outqs_params[q_idx].rem_q.q_id);
+				if (ret < 0) {
+					pr_err("Failed to allocate queue from MQA\n");
+					goto host_eg_queue_error;
+				}
+
 				memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 
 				mqa_params.idx  = intc->rem_outqs_params[q_idx].rem_q.q_id;
