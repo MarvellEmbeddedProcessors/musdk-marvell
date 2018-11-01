@@ -54,6 +54,9 @@ int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool);
  */
 void giu_bpool_deinit(struct giu_bpool *bpool);
 
+/* TODO: this is temporary API. wil be replaced later with correct serialization */
+int giu_bpool_serialize(struct giu_bpool *bpool, void **file_map);
+
 /**
  * Probe the Buffer Pool (bpool)
  *

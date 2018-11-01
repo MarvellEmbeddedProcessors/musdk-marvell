@@ -9,9 +9,9 @@
 
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
-#include "giu_queue_topology.h"
-#include "drivers/giu_regfile_def.h"
 #include "lib/lib_misc.h"
+
+#include "giu_queue_topology.h"
 #include "file_map.h"
 
 #define REGFILE_SUPPORTED_VERSION	000002
@@ -259,6 +259,62 @@ int giu_gpio_topology_set_init_done(int giu_id)
 		pr_err("GIU %d register file is not mapped\n", giu_id);
 		return -1;
 	}
+
+	return 0;
+}
+
+/*
+ *	giu_regfile_register_queue
+ *
+ *	This function register Queue params in Regfile Queue structure
+ *	It gets the info from the SNIC-DB and finally update directly the regfile
+ *
+ *	hw_q_id    - The real unique Queue index
+ *	q_type     - The type of the Queue (Egress / Ingress / BM/...)
+ *	file_map   - Pointer to Pointer to Regfile mempry map
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise (< 0)
+ */
+int giu_regfile_register_queue(union giu_gpio_q_params *giu_gpio_q_p,
+			       enum giu_queue_type q_type,
+			       u32 q_add_data,
+			       phys_addr_t qs_phys_base,
+			       phys_addr_t ptrs_phys_base,
+			       void **file_map)
+{
+	struct giu_queue reg_giu_queue;
+	struct mqa_queue_info queue_info;
+
+	if (giu_gpio_q_p == NULL) {
+		pr_err("Failed to get queue params from DB (Queue: %d)\n", (int)giu_gpio_q_p->lcl_q.q_id);
+		return -ENODEV;
+	}
+
+	mqa_queue_get_info(giu_gpio_q_p->lcl_q.q, &queue_info);
+
+	reg_giu_queue.hw_id		= queue_info.q_id;
+	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
+	reg_giu_queue.size		= queue_info.len;
+	reg_giu_queue.type		= q_type;
+	reg_giu_queue.phy_base_offset	= (phys_addr_t)(uintptr_t)(queue_info.phy_base_addr - qs_phys_base);
+	/* Prod/Cons addr are Virtual. Needs to translate them to offset */
+	reg_giu_queue.prod_offset = (phys_addr_t)(uintptr_t)(queue_info.prod_phys - ptrs_phys_base);
+	reg_giu_queue.cons_offset = (phys_addr_t)(uintptr_t)(queue_info.cons_phys - ptrs_phys_base);
+
+	/* Note: buff_size & payload_offset are union and they are set
+	 *	 acoording to the Q type.
+	 */
+	if (q_type == QUEUE_BP)
+		/** TODO - change params naming - change buff_size to buff_len */
+		reg_giu_queue.buff_len = q_add_data;
+	else
+		reg_giu_queue.payload_offset = q_add_data;
+
+	/* Copy Queues parameters */
+	pr_debug("\t\tCopy Queue %d Information to Regfile\n", reg_giu_queue.hw_id);
+	memcpy(*file_map, &reg_giu_queue, sizeof(struct giu_queue));
+	*file_map += sizeof(struct giu_queue);
 
 	return 0;
 }

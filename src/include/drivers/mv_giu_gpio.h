@@ -147,6 +147,9 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio);
  */
 void giu_gpio_deinit(struct giu_gpio *gpio);
 
+/* TODO: this is temporary API. wil be replaced later with correct serialization */
+int giu_gpio_serialize(struct giu_gpio *gpio, void **file_map);
+
 /**
  * Probe a gpio
  *

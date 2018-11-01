@@ -13,6 +13,7 @@
 #include "drivers/mv_giu.h"
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/mqa_def.h"
+#include "drivers/giu_regfile_def.h"
 #include "mng/lf/mng_cmd_desc.h"
 #include "mng/db.h"
 #include "mng/mv_nmp.h"
@@ -131,7 +132,7 @@ static int nmnicpf_regfile_open(struct nmnicpf *nmnicpf, void **file_map)
 		return -ENOENT;
 	}
 
-	pr_info("Regfile Parameters (Regfile Name: %s, Ver %06d)\n", file_name, REGFILE_VERSION);
+	pr_debug("Regfile Parameters (Regfile Name: %s, Ver %06d)\n", file_name, REGFILE_VERSION);
 
 	return 0;
 }
@@ -173,178 +174,6 @@ static int nmnicpf_config_header_regfile(struct giu_regfile *regfile_data, void 
 
 
 /*
- *	nmnicpf_regfile_register_queue
- *
- *	This function register Queue params in Regfile Queue structure
- *	It gets the info from the SNIC-DB and finally update directly the regfile
- *
- *      @param[in]	nmnicpf     - Pointer to the NIC-PF struct which defines the topology
- *			hw_q_id    - The real unique Queue index
- *			q_type     - The type of the Queue (Egress / Ingress / BM/...)
- *			file_map   - Pointer to Pointer to Regfile mempry map
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int nmnicpf_regfile_register_queue(struct nmnicpf *nmnicpf,
-					  union giu_gpio_q_params *giu_gpio_q_p,
-					  int q_type,
-					  phys_addr_t qs_phys_base,
-					  phys_addr_t ptrs_phys_base,
-					  void **file_map)
-{
-	struct giu_queue reg_giu_queue;
-	struct mqa_queue_info queue_info;
-
-	if (giu_gpio_q_p == NULL) {
-		pr_err("Failed to get queue params from DB (Queue: %d)\n", (int)giu_gpio_q_p->lcl_q.q_id);
-		return -ENODEV;
-	}
-
-	mqa_queue_get_info(giu_gpio_q_p->lcl_q.q, &queue_info);
-
-	reg_giu_queue.hw_id		= queue_info.q_id;
-	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
-	reg_giu_queue.size		= queue_info.len;
-	reg_giu_queue.type		= q_type;
-	reg_giu_queue.phy_base_offset	= (phys_addr_t)(uintptr_t)(queue_info.phy_base_addr - qs_phys_base);
-	/* Prod/Cons addr are Virtual. Needs to translate them to offset */
-	reg_giu_queue.prod_offset = (phys_addr_t)(uintptr_t)(queue_info.prod_phys - ptrs_phys_base);
-	reg_giu_queue.cons_offset = (phys_addr_t)(uintptr_t)(queue_info.cons_phys - ptrs_phys_base);
-
-	/* Note: buff_size & payload_offset are union and they are set
-	 *	 acoording to the Q type.
-	 */
-	if (q_type == QUEUE_BP)
-		/** TODO - change params naming - change buff_size to buff_len */
-		reg_giu_queue.buff_len = nmnicpf->profile_data.lcl_bm_buf_size;
-	else
-		reg_giu_queue.payload_offset = 0; /* TODO: this should not be hardcoded */
-
-	/* Copy Queues parameters */
-	pr_debug("\t\tCopy Queue %d Information to Regfile\n", reg_giu_queue.hw_id);
-	memcpy(*file_map, &reg_giu_queue, sizeof(struct giu_queue));
-	*file_map += sizeof(struct giu_queue);
-
-	return 0;
-}
-
-
-/*
- *	nmnicpf_regfile_register_intc
- *
- *	This function configures In TC params in register file TC structure
- *
- *      @param[in]	nmnicpf - Pointer to the NIC-PF struct which defines the topology
- *			intc_params    - Pointer to In TC format of the giu gpio queue topology
- *			tc_queue_type  - Type of the Queues in this specific TC
- *			file_map       - Pointer to Pointer to Regfile mempry map
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int nmnicpf_regfile_register_intc(struct nmnicpf *nmnicpf,
-					 struct giu_gpio_intc_params *intc_params,
-					 int tc_queue_type,
-					 phys_addr_t qs_phys_base,
-					 phys_addr_t ptrs_phys_base,
-					 void **file_map)
-{
-	int queue_idx, ret = 0;
-	struct giu_tc reg_giu_tc;
-
-	reg_giu_tc.id			= intc_params->tc_id;
-	reg_giu_tc.ingress_rss_type	= 0/*intc_params->rss_type*/;
-	reg_giu_tc.num_queues		= intc_params->num_inqs;
-	reg_giu_tc.queues		= NULL;
-	reg_giu_tc.dest_num_queues	= 0;
-
-	/* Copy TC parameters */
-	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
-	memcpy(*file_map, &reg_giu_tc, sizeof(struct giu_tc));
-	*file_map += sizeof(struct giu_tc);
-
-	if (intc_params->inqs_params != NULL) {
-		for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
-			union giu_gpio_q_params *hw_q_id = &(intc_params->inqs_params[queue_idx]);
-
-			ret = nmnicpf_regfile_register_queue(nmnicpf,
-							     hw_q_id,
-							     tc_queue_type,
-							     qs_phys_base,
-							     ptrs_phys_base,
-							     file_map);
-
-			if (ret != 0)
-				break;
-		}
-	} else {
-		pr_info("Topology Queue list in TC is empty (NULL)\n");
-	}
-
-	return ret;
-
-}
-
-
-/*
- *	nmnicpf_regfile_register_outtc
- *
- *	This function configures Out TC params in register file TC structure
- *
- *      @param[in]	nmnicpf - Pointer to the NIC-PF struct which defines the topology
- *			outtc_params   - Pointer to Out TC format of the giu gpio queue topology
- *			tc_queue_type  - Type of the Queues in this specific TC
- *			file_map       - Pointer to Pointer to Regfile mempry map
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int nmnicpf_regfile_register_outtc(struct nmnicpf *nmnicpf,
-					  struct giu_gpio_outtc_params *outtc_params,
-					  int tc_queue_type,
-					  phys_addr_t qs_phys_base,
-					  phys_addr_t ptrs_phys_base,
-					  void **file_map)
-{
-	int queue_idx, ret = 0;
-	struct giu_tc reg_giu_tc;
-
-	reg_giu_tc.id			= outtc_params->tc_id;
-	reg_giu_tc.ingress_rss_type	= outtc_params->rss_type;
-	reg_giu_tc.num_queues		= outtc_params->num_outqs;
-	reg_giu_tc.queues		= NULL;
-	reg_giu_tc.dest_num_queues	= outtc_params->num_rem_inqs;
-
-	/* Copy TC parameters */
-	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
-	memcpy(*file_map, &reg_giu_tc, sizeof(struct giu_tc));
-	*file_map += sizeof(struct giu_tc);
-
-	if (outtc_params->outqs_params != NULL) {
-		for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
-			union giu_gpio_q_params *hw_q_id = &(outtc_params->outqs_params[queue_idx]);
-
-			ret = nmnicpf_regfile_register_queue(nmnicpf,
-							     hw_q_id,
-							     tc_queue_type,
-							     qs_phys_base,
-							     ptrs_phys_base,
-							     file_map);
-
-			if (ret != 0)
-				break;
-		}
-	} else {
-		pr_info("Topology Queue list in TC is empty (NULL)\n");
-	}
-
-	return ret;
-
-}
-
-
-/*
  *	nmnicpf_config_topology_and_update_regfile
  *
  *	This function configures the entite NIC-PF struct params to the register file
@@ -356,115 +185,52 @@ static int nmnicpf_regfile_register_outtc(struct nmnicpf *nmnicpf,
  *	@retval	0 on success
  *	@retval	error-code otherwise (< 0)
  */
-
 static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 {
 	void *file_map;
-	struct giu_regfile *regfile_data = &nmnicpf->regfile_data;
+	struct giu_regfile regfile_data;
 	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
-	int tc_idx, queue_idx;
-	int ret = 0;
-	int bm_tc_id = 0;
-	phys_addr_t qs_phys_base, ptrs_phys_base;
 	struct mv_sys_dma_mem_info	 mem_info;
 	char				 dev_name[100];
+	int ret = 0;
 
 	mem_info.name = dev_name;
 	mv_sys_dma_mem_get_info(&mem_info);
 
 	/* Update Regfile general info */
-	regfile_data->version		= REGFILE_VERSION;
-	regfile_data->num_bm_qs		= gpio_p->intcs_params.intc_params->num_inpools;
-	regfile_data->bm_qs		= NULL;
-	regfile_data->num_egress_tcs	= gpio_p->intcs_params.num_intcs;
-	regfile_data->egress_tcs	= NULL;
-	regfile_data->num_ingress_tcs	= gpio_p->outtcs_params.num_outtcs;
-	regfile_data->ingress_tcs	= NULL;
-	regfile_data->flags = 0;
+	strcpy(regfile_data.dma_uio_mem_name, mem_info.name);
 
-	qs_phys_base = mem_info.paddr;
-	strcpy(regfile_data->dma_uio_mem_name, mem_info.name);
-	ptrs_phys_base = qs_phys_base;
+	regfile_data.version		= REGFILE_VERSION;
+	regfile_data.num_bm_qs		= gpio_p->intcs_params.intc_params->num_inpools;
+	regfile_data.bm_qs		= NULL;
+	regfile_data.num_egress_tcs	= gpio_p->intcs_params.num_intcs;
+	regfile_data.egress_tcs	= NULL;
+	regfile_data.num_ingress_tcs	= gpio_p->outtcs_params.num_outtcs;
+	regfile_data.ingress_tcs	= NULL;
+	regfile_data.flags = 0;
 
 	pr_debug("Start Topology configuration to register file [Regfile ver (%d), NIC-PF number (%d)]\n",
-			regfile_data->version, nmnicpf->pf_id);
+			regfile_data.version, nmnicpf->pf_id);
 
 	ret = nmnicpf_regfile_open(nmnicpf, &file_map);
-
 	if (ret != 0)
 		return ret;
 
 	/* Copy Header File parameters */
 	pr_debug("Copy Regfile Header\n");
-	ret = nmnicpf_config_header_regfile(regfile_data, &file_map);
-
+	ret = nmnicpf_config_header_regfile(&regfile_data, &file_map);
 	if (ret != 0)
 		goto config_error;
 
-	/* Setup BM Queues  */
-	if (gpio_p->intcs_params.intc_params[bm_tc_id].pools != NULL) {
-		for (queue_idx = 0; queue_idx < regfile_data->num_bm_qs; queue_idx++) {
+	/* Setup GIU B-Pools  */
+	ret = giu_bpool_serialize(nmnicpf->giu_bpool, &file_map);
+	if (ret != 0)
+		goto config_error;
 
-			union giu_gpio_q_params *hw_q_id =
-						&(gpio_p->intcs_params.intc_params[bm_tc_id].pools[queue_idx]);
-
-			ret = nmnicpf_regfile_register_queue(nmnicpf,
-							     hw_q_id,
-							     QUEUE_BP,
-							     qs_phys_base,
-							     ptrs_phys_base,
-							     &file_map);
-
-			if (ret != 0)
-				goto config_error;
-
-		}
-	} else {
-		pr_info("Topology BM Queue list is empty (NULL)\n");
-	}
-
-	/* Setup Egress TCs  */
-	if (gpio_p->intcs_params.intc_params != NULL) {
-		for (tc_idx = 0; tc_idx < regfile_data->num_egress_tcs; tc_idx++) {
-
-			struct giu_gpio_intc_params *intc_params = &(gpio_p->intcs_params.intc_params[tc_idx]);
-
-			ret = nmnicpf_regfile_register_intc(nmnicpf,
-							    intc_params,
-							    QUEUE_EGRESS,
-							    qs_phys_base,
-							    ptrs_phys_base,
-							    &file_map);
-
-			if (ret != 0)
-				goto config_error;
-
-		}
-	} else {
-		pr_info("Egress TCs Topology is empty (NULL)\n");
-	}
-
-
-	/* Setup Ingress TCs  */
-	if (gpio_p->outtcs_params.outtc_params != NULL) {
-		for (tc_idx = 0; tc_idx < regfile_data->num_ingress_tcs; tc_idx++) {
-
-			struct giu_gpio_outtc_params *outtc_params = &(gpio_p->outtcs_params.outtc_params[tc_idx]);
-
-			ret = nmnicpf_regfile_register_outtc(nmnicpf,
-							     outtc_params,
-							     QUEUE_INGRESS,
-							     qs_phys_base,
-							     ptrs_phys_base,
-							     &file_map);
-
-			if (ret != 0)
-				goto config_error;
-
-		}
-	} else {
-		pr_info("Ingress TCs Topology is empty (NULL)\n");
-	}
+	/* Setup GIU GPIO  */
+	ret = giu_gpio_serialize(nmnicpf->giu_gpio, &file_map);
+	if (ret != 0)
+		goto config_error;
 
 	return ret;
 

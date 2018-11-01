@@ -8,7 +8,8 @@
 #ifndef _DB_H
 #define _DB_H
 
-#include "drivers/giu_regfile_def.h"
+#include "std_internal.h"
+
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "lf/pf/pf_queue_topology.h"
@@ -140,7 +141,6 @@ struct nmnicpf {
 	struct giu_bpool *giu_bpool;                /* GIU Bpool */
 	struct giu_gpio_params gpio_params;  /* GIU Queue Topology */
 	struct giu_mng_ch *giu_mng_ch;
-	struct giu_regfile regfile_data;            /* GIU Register File */
 	void (*f_ready_cb)(void *arg);
 	void *arg;
 };

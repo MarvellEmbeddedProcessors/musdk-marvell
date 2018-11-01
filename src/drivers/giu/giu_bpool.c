@@ -132,6 +132,41 @@ void giu_bpool_deinit(struct giu_bpool *bpool)
 	kfree(bpool);
 }
 
+int giu_bpool_serialize(struct giu_bpool *bpool, void **file_map)
+{
+	struct giu_gpio_params		*params = (struct giu_gpio_params *)(bpool->params);
+	struct giu_gpio_intc_params	*intc;
+	struct mv_sys_dma_mem_info	 mem_info;
+	char				 dev_name[100];
+	u32				 bm_idx, tc_idx;
+	int				 ret;
+
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+
+	for (tc_idx = 0; tc_idx < params->intcs_params.num_intcs; tc_idx++) {
+		intc = &(params->intcs_params.intc_params[tc_idx]);
+
+		if (!intc->pools)
+			continue;
+
+		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
+			union giu_gpio_q_params *hw_q_id =
+						&(intc->pools[bm_idx]);
+
+			ret = giu_regfile_register_queue(hw_q_id,
+					QUEUE_BP,
+					intc->pool_buf_size,
+					mem_info.paddr,
+					mem_info.paddr,
+					file_map);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
 
 /**
  * Probe the Buffer Pool (bpool)

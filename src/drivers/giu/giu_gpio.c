@@ -52,6 +52,74 @@ struct giu_gpio {
 static struct giu_gpio gpio_array[GIU_MAX_NUM_GPIO];
 
 
+static int regfile_register_intc(struct giu_gpio_intc_params *intc_params,
+				 phys_addr_t qs_phys_base,
+				 phys_addr_t ptrs_phys_base,
+				 void **file_map)
+{
+	int queue_idx, ret = 0;
+	struct giu_tc reg_giu_tc;
+
+	reg_giu_tc.id			= intc_params->tc_id;
+	reg_giu_tc.ingress_rss_type	= HASH_NONE;
+	reg_giu_tc.num_queues		= intc_params->num_inqs;
+	reg_giu_tc.queues		= NULL;
+	reg_giu_tc.dest_num_queues	= 0;
+
+	/* Copy TC parameters */
+	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
+	memcpy(*file_map, &reg_giu_tc, sizeof(struct giu_tc));
+	*file_map += sizeof(struct giu_tc);
+
+	for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
+		ret = giu_regfile_register_queue(&(intc_params->inqs_params[queue_idx]),
+				QUEUE_EGRESS,
+				0,
+				qs_phys_base,
+				ptrs_phys_base,
+				file_map);
+		if (ret)
+			break;
+	}
+
+	return ret;
+
+}
+
+static int regfile_register_outtc(struct giu_gpio_outtc_params *outtc_params,
+				  phys_addr_t qs_phys_base,
+				  phys_addr_t ptrs_phys_base,
+				  void **file_map)
+{
+	int queue_idx, ret = 0;
+	struct giu_tc reg_giu_tc;
+
+	reg_giu_tc.id			= outtc_params->tc_id;
+	reg_giu_tc.ingress_rss_type	= outtc_params->rss_type;
+	reg_giu_tc.num_queues		= outtc_params->num_outqs;
+	reg_giu_tc.queues		= NULL;
+	reg_giu_tc.dest_num_queues	= outtc_params->num_rem_inqs;
+
+	/* Copy TC parameters */
+	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
+	memcpy(*file_map, &reg_giu_tc, sizeof(struct giu_tc));
+	*file_map += sizeof(struct giu_tc);
+
+	for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
+		ret = giu_regfile_register_queue(&(outtc_params->outqs_params[queue_idx]),
+				QUEUE_INGRESS,
+				0,
+				qs_phys_base,
+				ptrs_phys_base,
+				file_map);
+		if (ret)
+			break;
+	}
+
+	return ret;
+
+}
+
 static int free_tc_queues(struct mqa *mqa, struct gie *gie,
 	union giu_gpio_q_params *giu_gpio_q_p, u32 queue_num, u32 queue_type)
 {
@@ -559,6 +627,34 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 	}
 
 	kfree(gpio);
+}
+
+int giu_gpio_serialize(struct giu_gpio *gpio, void **file_map)
+{
+	struct mv_sys_dma_mem_info	 mem_info;
+	char				 dev_name[100];
+	int				 ret, tc_idx;
+
+	mem_info.name = dev_name;
+	mv_sys_dma_mem_get_info(&mem_info);
+
+	/* Setup Egress TCs  */
+	for (tc_idx = 0; tc_idx < gpio->params->intcs_params.num_intcs; tc_idx++) {
+		ret = regfile_register_intc(&(gpio->params->intcs_params.intc_params[tc_idx]),
+				mem_info.paddr, mem_info.paddr, file_map);
+		if (ret)
+			return ret;
+	}
+
+	/* Setup Ingress TCs  */
+	for (tc_idx = 0; tc_idx < gpio->params->outtcs_params.num_outtcs; tc_idx++) {
+		ret = regfile_register_outtc(&(gpio->params->outtcs_params.outtc_params[tc_idx]),
+				mem_info.paddr, mem_info.paddr, file_map);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
