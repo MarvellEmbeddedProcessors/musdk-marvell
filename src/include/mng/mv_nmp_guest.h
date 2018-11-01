@@ -8,7 +8,7 @@
 #ifndef _MV_NMP_GUEST_H
 #define _MV_NMP_GUEST_H
 
-#include "env/mv_autogen_comp_flags.h"
+#include "mv_std.h"
 #include "mv_nmp_guest_msg.h"
 
 /** @addtogroup grp_nmp_guest_init NMP Guest
