@@ -10,6 +10,7 @@
 
 #include "mv_std.h"
 #include "mv_mqa.h"
+#include "mv_giu.h"
 
 /** @addtogroup grp_giu_bp GIU Port I/O (GP-IO): Buffer Pool
  *
@@ -18,22 +19,31 @@
  *  @{
  */
 
-#define GIU_BPOOL_NUM_POOLS		(16)
-
-struct giu_gpio_params;
+#define GIU_BPOOL_NUM_POOLS		(64)
 
 struct giu_bpool {
-	u32	giu_id;	/**< GIU Instance */
-	int	id; /**< BM Pool number */
-	u32	buff_len; /**< buffer length */
+	u8	 giu_id;	/**< GIU Instance */
+	u8	 id;		/**< BM Pool number */
+	u16	 buff_len;	/**< buffer length */
 
-	/* Buffer Pool Q parameters */
-	void	*queue;
-	void	*params;
-
+	void	*internal_param;/** parameters for internal use */
 };
 
+/* Support only a single GIU */
 extern struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS];
+
+struct giu_bpool_params {
+	/** Used for DTS acc to find appropriate "physical" BM-Pool obj;
+	 * E.g. "giu_pool-0:0" means GIU[0],pool[0]
+	 */
+	const char	*match;
+
+	struct mqa	*mqa;
+	struct giu	*giu;
+
+	u16		 num_buffs; /**< number of buffers */
+	u16		 buff_len; /**< buffer length */
+};
 
 /**
  * Initialize a Buffer Pool (bpool)
@@ -44,7 +54,7 @@ extern struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS];
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int giu_bpool_init(struct giu_gpio_params *params, struct giu_bpool **bpool);
+int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool);
 
 /**
  * De-initialize a Buffer Pool (bpool)
@@ -138,6 +148,16 @@ struct giu_bpool_capabilities {
  * @retval	error-code otherwise
  */
 int giu_bpool_get_capabilities(struct giu_bpool *bpool, struct giu_bpool_capabilities *capa);
+
+/**
+ * Allocate GIU BPool.
+ *
+ * @retval	BPool-ID on success
+ * @retval	error-code otherwise
+ */
+int giu_bpool_alloc(void);
+
+int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool);
 
 /** @} */ /* end of grp_giu_bp */
 

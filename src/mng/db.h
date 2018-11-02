@@ -15,6 +15,7 @@
 #include "lf/pf/pf_queue_topology.h"
 #include "drivers/mv_giu.h"
 #include "lf/pf/pf_profile.h"
+#include "drivers/mv_giu_bpool.h"
 #include "drivers/mv_giu_gpio.h"
 #include "mng/mv_nmp.h"
 #include "drivers/mv_pp2_ppio.h"
@@ -138,7 +139,7 @@ struct nmnicpf {
 	struct nmdisp *nmdisp;                      /* Dispatcher */
 	struct pf_profile profile_data;             /* Profile */
 	struct giu_gpio *giu_gpio;                  /* GIU Gpio */
-	struct giu_bpool *giu_bpool;                /* GIU Bpool */
+	struct giu_bpool *giu_bpools[GIU_GPIO_TC_MAX_NUM_BPOOLS];  /* GIU Bpools */
 	struct giu_gpio_params gpio_params;  /* GIU Queue Topology */
 	struct giu_mng_ch *giu_mng_ch;
 	void (*f_ready_cb)(void *arg);

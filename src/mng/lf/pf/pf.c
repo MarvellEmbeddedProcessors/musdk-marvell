@@ -192,6 +192,7 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
 	struct mv_sys_dma_mem_info	 mem_info;
 	char				 dev_name[100];
+	u8 bm_idx;
 	int ret = 0;
 
 	mem_info.name = dev_name;
@@ -223,9 +224,14 @@ static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
 		goto config_error;
 
 	/* Setup GIU B-Pools  */
-	ret = giu_bpool_serialize(nmnicpf->giu_bpool, &file_map);
-	if (ret != 0)
-		goto config_error;
+	/* we assume all in-TCs share the same BPools */
+	for (bm_idx = 0;
+		bm_idx < nmnicpf->gpio_params.intcs_params.intc_params[0].num_inpools;
+		bm_idx++) {
+		ret = giu_bpool_serialize(nmnicpf->giu_bpools[bm_idx], &file_map);
+		if (ret != 0)
+			goto config_error;
+	}
 
 	/* Setup GIU GPIO  */
 	ret = giu_gpio_serialize(nmnicpf->giu_gpio, &file_map);
@@ -1417,7 +1423,10 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 					struct mgmt_cmd_params *params,
 					struct mgmt_cmd_resp *resp_data)
 {
-	int ret;
+	struct giu_gpio_intc_params	*intc;
+	struct giu_bpool_params		 bp_params;
+	u8				 tc_id, bm_idx;
+	int				 ret;
 
 	if (giu_get_multi_qs_mode(nmnicpf->giu) == GIU_MULTI_QS_MODE_VIRT) {
 		struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
@@ -1432,31 +1441,73 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 
 		/* Initialize local queues database */
 		ret = nmnicpf_topology_local_queue_init(nmnicpf);
-		if (ret)
+		if (ret) {
 			pr_err("Failed to update local DB queue info\n");
+			return ret;
+		}
 
 		/* Allocate and configure local queues in the database */
 		ret = nmnicpf_topology_local_queue_cfg(nmnicpf);
-		if (ret)
+		if (ret) {
 			pr_err("Failed to configure PF regfile\n");
+			return ret;
+		}
 	}
 
-	ret = giu_bpool_init(&(nmnicpf->gpio_params), &(nmnicpf->giu_bpool));
-	if (ret)
-		pr_err("Failed to init giu bpool\n");
+	bp_params.giu = nmnicpf->giu;
+	bp_params.mqa = nmnicpf->mqa;
+
+	/* we assume all in-TCs share the same BPools */
+	intc = &(nmnicpf->gpio_params.intcs_params.intc_params[0]);
+
+	for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
+		char		 name[20];
+		int		 giu_id = 0; /* Support only a single GIU */
+		int		 bpool_id = giu_bpool_alloc();
+
+		if (bpool_id < 0) {
+			pr_err("Failed to alloc giu bpool\n");
+			return ret;
+		}
+		/* Create bpool match string */
+		memset(name, 0, sizeof(name));
+		snprintf(name, sizeof(name), "giu_pool-%d:%d", giu_id, bpool_id);
+		bp_params.match = name;
+		bp_params.num_buffs = intc->pools[bm_idx].lcl_q.len;
+		bp_params.buff_len = intc->pool_buf_size;
+		ret = giu_bpool_init(&bp_params, &(nmnicpf->giu_bpools[bm_idx]));
+		if (ret) {
+			pr_err("Failed to init giu bpool\n");
+			return ret;
+		}
+	}
+
+	/* update the information needed for gpio giu-qs */
+	for (tc_id = 0; tc_id < (nmnicpf->gpio_params.intcs_params.num_intcs); tc_id++) {
+		intc = &(nmnicpf->gpio_params.intcs_params.intc_params[tc_id]);
+
+		for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++)
+			intc->pools[bm_idx].lcl_q.q_id = giu_bpool_get_mqa_q_id(nmnicpf->giu_bpools[bm_idx]);
+	}
 
 	ret = giu_gpio_init(&(nmnicpf->gpio_params), &(nmnicpf->giu_gpio));
-	if (ret)
+	if (ret) {
 		pr_err("Failed to init giu gpio\n");
+		return ret;
+	}
 
 	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
 		ret = nmnicpf_pp2_init_bpools(nmnicpf);
-		if (ret)
+		if (ret) {
 			pr_err("nmnicpf_pp2_init_bpools failed\n");
+			return ret;
+		}
 
 		ret = nmnicpf_pp2_init_ppio(nmnicpf);
-		if (ret)
+		if (ret) {
 			pr_err("nmnicpf_pp2_init_ppio failed\n");
+			return ret;
+		}
 	}
 
 	/* Indicate nmp init_done ready */
@@ -1554,6 +1605,7 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 				struct mgmt_cmd_params *params,
 				struct mgmt_cmd_resp *resp_data)
 {
+	u8 bm_idx;
 	int ret;
 
 	pr_debug("Close message.\n");
@@ -1576,7 +1628,11 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 
 	/* Free BPools and Un-register in MQA/GIU */
 	pr_debug("Free BM Qs\n");
-	giu_bpool_deinit(nmnicpf->giu_bpool);
+	/* we assume all in-TCs share the same BPools */
+	for (bm_idx = 0;
+		bm_idx < nmnicpf->gpio_params.intcs_params.intc_params[0].num_inpools;
+		bm_idx++)
+		giu_bpool_deinit(nmnicpf->giu_bpools[bm_idx]);
 
 	/*Free DB TCs */
 	pr_debug("Free DB structures\n");
