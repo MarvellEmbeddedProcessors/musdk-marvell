@@ -112,6 +112,7 @@ libmusdk_la_SOURCES += drivers/neta/neta_port_us.c
 endif
 
 if GIU_BUILD
+nobase_include_HEADERS += include/drivers/mv_giu.h
 nobase_include_HEADERS += include/drivers/mv_giu_gpio.h
 nobase_include_HEADERS += include/drivers/mv_giu_bpool.h
 nobase_include_HEADERS += include/drivers/mv_mqa.h
