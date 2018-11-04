@@ -223,6 +223,8 @@ static int _cma_free(struct musdk_cma *cma_mem,
 	dma_free_coherent(cma_mem->dev, ptr->size, (void *)ptr->kvaddr,
 			ptr->paddr);
 
+	kfree(ptr);
+
 	return 0;
 }
 
