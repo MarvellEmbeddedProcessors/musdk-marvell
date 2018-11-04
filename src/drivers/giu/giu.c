@@ -80,53 +80,6 @@ static int init_gies(struct giu *giu, u8 num_gies, struct giu_emul_params *gies_
 	return 0;
 }
 
-int giu_destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
-	struct mqa_q *q, enum queue_type queue_type)
-{
-	struct gie *gie = NULL;
-	int ret = 0;
-	u32 qid;
-
-	if (unlikely(!giu)) {
-		pr_err("Invalid GIU handle!\n");
-		return -EINVAL;
-	}
-
-	if (eng < GIU_ENG_OUT_OF_RANGE)
-		gie = giu->gies[eng];
-
-	mqa_queue_get_id(q, &qid);
-
-	pr_debug("Remove queue %d (type %d)\n", qid, queue_type);
-
-	if (gie) {
-		/* Un-register Q from GIU */
-		if (queue_type == LOCAL_BM_QUEUE ||
-		    queue_type == HOST_BM_QUEUE)
-			ret = gie_remove_bm_queue(gie, qid);
-		else
-			ret = gie_remove_queue(gie, qid);
-		if (ret)
-			pr_err("Failed to remove queue Idx %x from GIU\n", qid);
-	}
-
-	/* For local queue: destroy the queue (as it was allocated by the NIC */
-	if (queue_type == LOCAL_INGRESS_DATA_QUEUE ||
-	    queue_type == LOCAL_EGRESS_DATA_QUEUE ||
-	    queue_type == LOCAL_BM_QUEUE) {
-		ret = mqa_queue_destroy(mqa, q);
-		if (ret)
-			pr_err("Failed to free queue Idx %x in DB\n", qid);
-	}
-
-	/* Free the MQA resource */
-	ret = mqa_queue_free(mqa, qid);
-	if (ret)
-		pr_err("Failed to free queue Idx %x in MQA\n", qid);
-
-	return ret;
-}
-
 struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng)
 {
 	if (unlikely(!giu)) {
@@ -445,18 +398,4 @@ int giu_get_desc_size(struct giu *giu, enum giu_desc_type type)
 	}
 
 	return gie_get_desc_size((enum gie_desc_type)type);
-}
-
-enum giu_multi_qs_mode giu_get_multi_qs_mode(struct giu *giu)
-{
-	if (unlikely(!giu)) {
-		pr_err("Invalid GIU handle!\n");
-		return -EINVAL;
-	}
-
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	return GIU_MULTI_QS_MODE_VIRT;
-#else
-	return GIU_MULTI_QS_MODE_REAL;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 }

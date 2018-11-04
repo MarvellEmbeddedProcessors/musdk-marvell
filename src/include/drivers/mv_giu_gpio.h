@@ -10,6 +10,7 @@
 
 #include "mv_std.h"
 #include "mv_mqa.h"
+#include "mv_giu.h"
 #include "mv_giu_bpool.h"
 #include "env/mv_sys_event.h"
 
@@ -20,6 +21,10 @@
  *  @{
  */
 
+#define GIU_GPIO_MAX_NUM_TCS		8
+#define GIU_GPIO_TC_MAX_NUM_QS		4
+#define GIU_GPIO_TC_MAX_NUM_BPOOLS	3
+
 #define GIU_GPIO_DESC_NUM_WORDS		8
 
 #define GIU_GPIO_DESC_PA_WATERMARK	0xcafe0000
@@ -28,104 +33,78 @@
 /* GPIO Handler */
 struct giu_gpio;
 
-/* RSS Hash Type
- *
- *	HASH_2_TUPLE - IP-src, IP-dst
- *	HASH_5_TUPLE - IP-src, IP-dst, IP-Prot, L4-src, L4-dst
+/** RSS Hash Type enumaration
  */
 enum rss_hash_type {
 	RSS_HASH_NONE = 0,
-	RSS_HASH_2_TUPLE,
-	RSS_HASH_5_TUPLE
-
+	RSS_HASH_2_TUPLE,	/**< 2-tuple: IP-src, IP-dst */
+	RSS_HASH_5_TUPLE,	/**< 2-tuple: IP-src, IP-dst, IP-Prot, L4-src, L4-dst */
+	RSS_HASH_OUT_OF_RANGE
 };
 
-struct lcl_q_params {
-	struct mqa_q *q;
-	u32 q_id;
-	u32 len;
-
+struct giu_gpio_lcl_q_params {
+	u32		 len;
 };
 
-struct rem_q_params {
-	struct mqa_q *q;
-	u32 q_id;
-	u32 len;
-	u32 size;
-	u32 buff_len;
-	void        *host_remap;
-	phys_addr_t  q_base_pa;
-	void        *prod_base_va;
-	phys_addr_t  prod_base_pa;
-	void        *cons_base_va;
-	phys_addr_t  cons_base_pa;
-	u32 msix_id;
+struct giu_gpio_rem_q_params {
+	u32		 len;
+	u32		 size;
+	u32		 buff_len;
+	void		*host_remap;
+	phys_addr_t	 q_base_pa;
+	void		*prod_base_va;
+	phys_addr_t	 prod_base_pa;
+	void		*cons_base_va;
+	phys_addr_t	 cons_base_pa;
+	u32		 msix_id;
 };
 
-union giu_gpio_q_params {
-	struct lcl_q_params lcl_q;
-	struct rem_q_params rem_q;
-
-};
-
-/* In TC - Queue topology */
+/** In TC - Queue topology
+ */
 struct giu_gpio_intc_params {
-	u32 tc_id;
+	u32				 pkt_offset;
+	enum rss_hash_type		 rss_type;
+	u32				 num_inqs;
+	struct giu_gpio_lcl_q_params	 inqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 
-	/* lcl_eg_tcs */
-	u32 num_inqs;
-	union giu_gpio_q_params *inqs_params;
+	u32				 num_inpools;
+	struct giu_bpool		*pools[GIU_GPIO_TC_MAX_NUM_BPOOLS];
 
-	/* lcl_bm_qs_num */
-	u32 num_inpools;
-	u32 pool_buf_size;
-	/* lcl_bm_qs_params */
-	union giu_gpio_q_params *pools;
-
-	/* host_eg_tcs */
-	u32 num_rem_outqs;
-	union giu_gpio_q_params *rem_outqs_params;
-
+	u32				 num_rem_outqs;
+	struct giu_gpio_rem_q_params	 rem_outqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 };
 
-struct giu_gpio_intcs_params {
-	u32 num_intcs;
-	struct giu_gpio_intc_params *intc_params;
-
+struct giu_gpio_rem_inq_params {
+	struct giu_gpio_rem_q_params	 q_params;
+	struct giu_gpio_rem_q_params	 poolq_params;
 };
 
-/* Out TC - Queue topology */
+/** Out TC - Queue topology
+ */
 struct giu_gpio_outtc_params {
-	u32 tc_id;
+	u32				 num_outqs;
+	struct giu_gpio_lcl_q_params	 outqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 
-	/* lcl_ing_tcs */
-	u32 num_outqs;
-	union giu_gpio_q_params *outqs_params;
-
-	/* host_ing_tcs */
-	u8 rss_type;
-	u32 num_rem_inqs;
-	union giu_gpio_q_params *rem_inqs_params;
-	union giu_gpio_q_params *rem_poolqs_params;
+	u32				 rem_pkt_offset;
+	enum rss_hash_type		 rem_rss_type;
+	u32				 num_rem_inqs;
+	struct giu_gpio_rem_inq_params	 rem_inqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 };
 
-struct giu_gpio_outtcs_params {
-	u32 num_outtcs;
-	struct giu_gpio_outtc_params *outtc_params;
-
-};
-
-/* Queue topology */
 struct giu_gpio_params {
-	u8 id;
+	/** Used for DTS acc to find appropriate "physical" GP-IO obj;
+	 * E.g. "gpio-0:0" means GIU[0],port[0]
+	 */
+	const char			*match;
 
-	struct mqa *mqa;
-	struct giu *giu;
-	void *msix_table_base;
+	struct mqa			*mqa;
+	struct giu			*giu;
+	void				*msix_table_base;
 
-	struct giu_gpio_intcs_params  intcs_params;
-	struct giu_gpio_outtcs_params outtcs_params;
-
+	u32				 num_intcs;
+	struct giu_gpio_intc_params	 intcs_params[GIU_GPIO_MAX_NUM_TCS];
+	u32				 num_outtcs;
+	struct giu_gpio_outtc_params	 outtcs_params[GIU_GPIO_MAX_NUM_TCS];
 };
 
 /**
@@ -424,11 +403,6 @@ int giu_gpio_recv(struct giu_gpio	*gpio,
 /****************************************************************************
  *	Run-time Control API
  ****************************************************************************/
-
-#define GIU_GPIO_MAX_NUM_TCS		8
-#define GIU_GPIO_TC_MAX_NUM_QS		4
-#define GIU_GPIO_TC_MAX_NUM_BPOOLS	3
-
 
 /* Capabilities structures*/
 struct giu_gpio_q_info {

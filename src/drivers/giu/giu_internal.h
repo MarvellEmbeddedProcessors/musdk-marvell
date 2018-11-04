@@ -14,8 +14,8 @@
 #include "drivers/mv_giu_gpio.h"
 #include "hw_emul/gie.h"
 
-#define GIU_LCL_Q_IND (0)
-#define GIU_REM_Q_IND (1)
+#define GIU_LCL_Q (0)
+#define GIU_REM_Q (1)
 
 /**
  * queue type
@@ -56,11 +56,10 @@ struct giu_mng_ch {
 	struct mqa_q	*rem_resp_q;
 };
 
-int giu_destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
-	struct mqa_q *q, enum queue_type queue_type);
-
 struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng);
 
 int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa);
+
+int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool);
 
 #endif /* __GIU_INTERNAL_H__ */

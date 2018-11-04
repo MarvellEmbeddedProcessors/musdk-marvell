@@ -14,7 +14,6 @@
 #include "drivers/giu_regfile_def.h"
 
 #define GIU_MAX_NUM_GPIO		3 /**< Maximum number of gpio instances */
-#define GIU_MAX_NUM_TC			8
 
 /** @addtogroup grp_giu_queue_toppology Queue Topology
  *
@@ -150,22 +149,6 @@ static inline struct giu_gpio_probe_params *giu_gpio_get_topology(int giu_id)
  * @retval	<0 on failure
  */
 int giu_gpio_topology_set_init_done(int giu_id);
-
-/**
- *	giu_regfile_register_queue
- *
- *	This function register Queue params in Regfile Queue structure
- *	It gets the info from the SNIC-DB and finally update directly the regfile
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-int giu_regfile_register_queue(union giu_gpio_q_params *giu_gpio_q_p,
-			       enum giu_queue_type q_type,
-			       u32 q_add_data,
-			       phys_addr_t qs_phys_base,
-			       phys_addr_t ptrs_phys_base,
-			       void **file_map);
 
 /** @} */ /* end of grp_giu_queue_toppology */
 

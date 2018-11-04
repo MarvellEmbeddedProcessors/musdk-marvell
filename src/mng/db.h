@@ -187,12 +187,4 @@ struct nmp {
 	struct nmpp2 nmpp2;
 };
 
-int pf_outtc_queue_init(u32 type, u32 tc_num, u32 q_num);
-int pf_outtc_queue_free(u32 type, u32 tc_num);
-
-int pf_intc_queue_init(u32 type, u32 tc_num, u32 q_num);
-int pf_intc_queue_free(u32 type, u32 tc_num);
-int pf_intc_bm_queue_init(u32 bm_num);
-int pf_intc_bm_queue_free(void);
-
 #endif /* _DB_H */

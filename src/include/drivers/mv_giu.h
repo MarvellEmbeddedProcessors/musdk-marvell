@@ -193,15 +193,6 @@ int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit
  */
 int giu_get_desc_size(struct giu *giu, enum giu_desc_type type);
 
-/**
- * returs the GIU emualtion multi-queues mode of operation.
- *
- * @param[in]	type		type of GIE working mode.
- *
- * @retval	the multi-queues mode
- */
-enum giu_multi_qs_mode giu_get_multi_qs_mode(struct giu *giu);
-
 /** @} */ /* end of grp_giu_init */
 
 #endif /* __MV_GIU_H__ */

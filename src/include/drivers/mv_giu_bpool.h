@@ -157,8 +157,6 @@ int giu_bpool_get_capabilities(struct giu_bpool *bpool, struct giu_bpool_capabil
  */
 int giu_bpool_alloc(void);
 
-int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool);
-
 /** @} */ /* end of grp_giu_bp */
 
 #endif /* __MV_GIU_BPOOL_H__ */

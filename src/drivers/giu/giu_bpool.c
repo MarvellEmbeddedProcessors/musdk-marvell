@@ -117,7 +117,7 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 
 	/* Register Local BM Queue to GIU */
 	err = gie_add_bm_queue(giu_get_gie_handle(bp_int->giu, GIU_ENG_IN),
-			mqa_params.idx, bp_int->buff_len, GIU_LCL_Q_IND);
+			mqa_params.idx, bp_int->buff_len, GIU_LCL_Q);
 	if (err) {
 		pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 		mqa_queue_destroy(bp_int->mqa, bp_int->mqa_q);
