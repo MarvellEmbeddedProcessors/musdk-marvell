@@ -553,6 +553,7 @@ int queue_associate_pair(struct mqa *mqa, u32 queue_id, u32 dest_queue_id)
 int queue_associate_notify_intr(struct mqa *mqa, u32 queue_id, struct mqa_queue_msix_params *params)
 {
 	struct mqa_qpt_entry *qpt;
+	struct mqa_qct_entry *qct;
 
 	/* Validate queue */
 	if (INVALID_QUEUE(queue_id)) {
@@ -575,6 +576,13 @@ int queue_associate_notify_intr(struct mqa *mqa, u32 queue_id, struct mqa_queue_
 	qpt->common.msix_inf.data = params->data;
 	qpt->common.msix_inf.pa = params->pa;
 	qpt->common.msix_inf.va = params->va;
+
+	qct = ((struct mqa_qct_entry *)mqa->qct_base) + queue_id;
+
+	qct->common.msix_inf.id = params->id;
+	qct->common.msix_inf.data = params->data;
+	qct->common.msix_inf.pa = params->pa;
+	qct->common.msix_inf.va = params->va;
 
 	return 0;
 }

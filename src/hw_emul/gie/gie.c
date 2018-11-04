@@ -575,7 +575,7 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 
 	/* Set MSI-X message info for dest Q of remote side */
 	if (qpd->common.msix_inf.id) {
-		pr_debug("Register MSI-X %d for Q %d\n", qpd->common.msix_inf.id, qp->dst_q.qid);
+		pr_debug("Register MSI-X %d for dst-Q %d\n", qpd->common.msix_inf.id, qp->dst_q.qid);
 
 		/* Set message info */
 		qp->dst_q.msi_virt_addr = (u64)qpd->common.msix_inf.va;
@@ -583,6 +583,17 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 
 		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
 			msix_entry->msg_addr, qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
+	}
+	/* Set MSI-X message info for source Q of remote side */
+	if (qcd->common.msix_inf.id) {
+		pr_debug("Register MSI-X %d for src-Q %d\n", qcd->common.msix_inf.id, qp->src_q.qid);
+
+		/* Set message info */
+		qp->src_q.msi_virt_addr = (u64)qcd->common.msix_inf.va;
+		qp->src_q.msi_data = qcd->common.msix_inf.data;
+
+		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
+			msix_entry->msg_addr, qp->src_q.msi_virt_addr, qp->src_q.msi_data);
 	}
 
 	/* Find the bpools and keep local pointers */
@@ -916,11 +927,6 @@ static void gie_produce_q_mem(struct dma_info *dma, struct	gie_queue *src_q, str
 	writel(dst_q->tail, (void *)(dst_q->msg_tail_virt));
 }
 
-static inline void gie_send_msi(struct dma_info *dma, struct gie_queue *q)
-{
-	writel(q->msi_data, (void *)q->msi_virt_addr);
-}
-
 static void gie_clean_mem(struct dma_info *dma, struct dma_job_info *job, struct gie_queue *src_q,
 				struct gie_queue *dst_q)
 {
@@ -929,8 +935,16 @@ static void gie_clean_mem(struct dma_info *dma, struct dma_job_info *job, struct
 	writel(job->cookie_tail, (void *)(dst_q->msg_tail_virt));
 
 	/* Send MSI to remote side (if configured) */
-	if (((job->flags & DMA_FLAGS_PRODUCE_IDX) || (job->flags & DMA_FLAGS_BUFFER_IDX)) && (dst_q->msi_virt_addr))
-		gie_send_msi(dma, dst_q);
+	/* if the transaction was indices, this is local-2-remote;
+	 * need to send MSI to dest-Q.
+	 */
+	if ((job->flags & DMA_FLAGS_PRODUCE_IDX) && (dst_q->msi_virt_addr))
+		writel(dst_q->msi_data, (void *)dst_q->msi_virt_addr);
+	/* if the transaction was buffers, this is remote-2-local-2;
+	 * need to send MSI to source-Q.
+	 */
+	else if ((job->flags & DMA_FLAGS_BUFFER_IDX) && (src_q->msi_virt_addr))
+		writel(src_q->msi_data, (void *)src_q->msi_virt_addr);
 }
 
 static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q,
