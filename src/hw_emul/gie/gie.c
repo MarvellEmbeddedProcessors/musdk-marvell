@@ -428,14 +428,19 @@ void *gie_regs(void *giu)
 	return (void *)(((struct gie *)giu)->regs);
 }
 
-static struct gie_q_pair *gie_find_q_pair(struct gie_q_pair *vec, int max, u16 qid)
+static struct gie_q_pair *gie_find_q_pair(struct gie *gie, u16 qid)
 {
-	int i;
+	int p, q;
 
-	for (i = 0; i < max; i++) {
-		if ((vec[i].flags & GIE_QPAIR_VALID) && (vec[i].src_q.qid == qid))
-			return &vec[i];
+	for (p = 0; p < GIE_MAX_PRIOS; p++) {
+		for (q = 0; q < GIE_MAX_Q_PER_PRIO; q++) {
+			if ((gie->prios[p].qpairs[q].flags & GIE_QPAIR_VALID) &&
+				((gie->prios[p].qpairs[q].src_q.qid == qid) ||
+				(gie->prios[p].qpairs[q].dst_q.qid == qid)))
+				return &gie->prios[p].qpairs[q];
+		}
 	}
+
 	return NULL;
 }
 
@@ -616,6 +621,8 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	gie->prios[prio].flags = GIE_PRIO_VALID | GIE_PRIO_ACTIVE;
 
 	gie->prios[prio].q_cnt++;
+	pr_debug("Added %s Q %d on GIE-%s\n", (is_remote?"rem":"lcl"), qp->src_q.qid, gie->name);
+	pr_debug("Added %s Q %d on GIE-%s\n", (!is_remote?"rem":"lcl"), qp->dst_q.qid, gie->name);
 
 	return 0;
 }
@@ -702,6 +709,8 @@ int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
 	}
 
 	gie->bp_cnt++;
+	pr_debug("Added BM-Q %d on GIE-%s\n", qid, gie->name);
+
 	return 0;
 }
 
@@ -710,9 +719,14 @@ int gie_remove_queue(void *giu, u16 qid)
 	struct gie *gie = (struct gie *)giu;
 	struct gie_q_pair *qp;
 
-	qp = gie_find_q_pair(&gie->prios[0].qpairs[0], GIE_MAX_PRIOS * GIE_MAX_Q_PER_PRIO, qid);
+	qp = gie_find_q_pair(gie, qid);
 	if (qp == NULL) {
 		pr_warn("Cannot find queue %d to remove\n", qid);
+		return -ENODEV;
+	}
+	/* we don't allow removing Q if it is not the SRC-Q! */
+	if (qp->src_q.qid != qid) {
+		pr_warn("Cannot find queue %d to remove (as src-q)!\n", qid);
 		return -ENODEV;
 	}
 
@@ -1555,14 +1569,21 @@ int gie_get_queue_stats(void *giu, u16 qid, u64 *pkt_cnt, int reset)
 	struct gie *gie = (struct gie *)giu;
 	struct gie_q_pair *qp;
 
-	qp = gie_find_q_pair(&gie->prios[0].qpairs[0], GIE_MAX_PRIOS * GIE_MAX_Q_PER_PRIO, qid);
+	qp = gie_find_q_pair(gie, qid);
 	if (qp == NULL) {
-		pr_warn("Cannot find queue %d for stats\n", qid);
+		pr_err("Cannot find queue %d for stats\n", qid);
 		return -ENODEV;
 	}
-	*pkt_cnt = qp->src_q.packets;
-	if (reset)
-		qp->src_q.packets = 0;
+
+	if (qp->src_q.qid == qid) {
+		*pkt_cnt = qp->src_q.packets;
+		if (reset)
+			qp->src_q.packets = 0;
+	} else {
+		*pkt_cnt = qp->dst_q.packets;
+		if (reset)
+			qp->dst_q.packets = 0;
+	}
 
 	return 0;
 }
