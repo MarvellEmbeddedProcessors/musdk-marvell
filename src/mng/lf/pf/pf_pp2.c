@@ -8,26 +8,19 @@
 #define log_fmt(fmt) "pf-pp2: " fmt
 
 #include "std_internal.h"
+
 #include "mng/db.h"
 #include "mng/lf/mng_cmd_desc.h"
 #include "mng/include/guest_mng_cmd_desc.h"
+
 #include "pf_pp2.h"
-#include "src/drivers/ppv2/pp2.h"
+
 
 /* Maximum size of port name */
 #define NMP_PPIO_NAME_MAX			20
 
-/* Maximum number of packet processors used by NMP */
-#define NMP_PP2_MAX_PKT_PROC			2
 
-/* sysfs path for reading relevant parameters from kernel driver */
-#define NMP_PP2_SYSFS_MUSDK_PATH		"/sys/devices/platform/pp2/musdk"
-#define NMP_PP2_SYSFS_DEBUG_PORT_SET_FILE	"sysfs_current_port"
-#define NMP_PP2_SYSFS_RX_FIRST_RXQ_FILE		"first_rxq"
-#define NMP_PP2_SYSFS_RX_NUM_RXQ_FILE		"num_rx_queues"
-#define NMP_PP2_SYSFS_TX_NUM_TXQ_FILE		"num_tx_queues"
-
-static u16 used_bpools[NMP_PP2_MAX_PKT_PROC];
+static u16 used_bpools[PP2_NUM_PKT_PROC];
 
 /*
  *	nmnicpf_pp2_port_pp2_init
@@ -217,7 +210,7 @@ static void nmnicpf_pp2_set_reserved_bpools(u32 reserved_bpool_map)
 {
 	int i;
 
-	for (i = 0; i < NMP_PP2_MAX_PKT_PROC; i++)
+	for (i = 0; i < PP2_NUM_PKT_PROC; i++)
 		used_bpools[i] = reserved_bpool_map;
 }
 
@@ -291,7 +284,7 @@ init_bpools_err:
 int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 {
 	struct pp2_ppio_params		 port_params;
-	struct pp2_ppio_inq_params	 inq_params[PP2_HW_PORT_NUM_RXQS];
+	struct pp2_ppio_inq_params	 inq_params[PP2_PPIO_MAX_NUM_INQS];
 	char				 name[NMP_PPIO_NAME_MAX];
 	int				 i, j, err = 0;
 	u32				 pcount = 0;
