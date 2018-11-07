@@ -6,7 +6,7 @@
 *******************************************************************************/
 
 #include "std_internal.h"
-#include "drivers/mv_giu_gpio.h"
+#include "drivers/mv_pp2_bpool.h"
 #include "mng/mv_nmp.h"
 #include "db.h"
 #include "dev_mng.h"
@@ -18,6 +18,8 @@
 
 #define SCHED_MAX_MNG_ELEMENTS		10
 #define SCHED_MAX_DATA_ELEMENTS		1000
+
+#define NMP_MAX_BUF_STR_LEN		256
 
 
 static int nmp_range_validate(int value, int min, int max)

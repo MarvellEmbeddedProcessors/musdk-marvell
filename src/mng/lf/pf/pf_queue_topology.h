@@ -8,6 +8,9 @@
 #ifndef _PF_QUEUE_TOPOLOGY_H
 #define _PF_QUEUE_TOPOLOGY_H
 
+#include "std_internal.h"
+#include "drivers/mv_mqa_queue.h"
+
 #define QUEUE_FREE_STATUS (-1)
 
 /*	Management Channels information

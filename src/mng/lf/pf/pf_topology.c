@@ -9,7 +9,6 @@
 
 #include "std_internal.h"
 #include "env/trace/trc_pf.h"
-#include "mng/lf/lf_mng.h"
 
 #include "pf_topology.h"
 

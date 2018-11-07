@@ -8,6 +8,8 @@
 #ifndef _HOST_PCI_IF_H_
 #define _HOST_PCI_IF_H_
 
+#include "std_internal.h"
+
 /*
 ** Configuration space definition
 */

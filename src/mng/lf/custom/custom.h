@@ -8,6 +8,10 @@
 #ifndef _CUSTOM_H
 #define _CUSTOM_H
 
+#include "mv_std.h"
+#include "drivers/mv_mqa.h"
+#include "mng/mv_nmp_dispatch.h"
+
 struct nmcstm;
 
 struct nmcstm_params {

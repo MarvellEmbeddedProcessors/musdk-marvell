@@ -10,7 +10,6 @@
 #include "std_internal.h"
 
 #include "mng/lf/lf_mng.h"
-#include "mng/dev_mng_pp2.h"
 #include "mng/lf/mng_cmd_desc.h"
 #include "mng/include/guest_mng_cmd_desc.h"
 
@@ -144,7 +143,7 @@ int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf)
 
 	nmnicpf->pp2.ports_desc = pdesc;
 	pdesc->num_pools = pf_pp2_profile->lcl_num_bpools;
-	pr_info("Number of pools %d\n", pdesc->num_pools);
+	pr_debug("Number of pools %d\n", pdesc->num_pools);
 	pools = kmalloc((sizeof(struct nmp_pp2_bpool_desc) * pdesc->num_pools), GFP_KERNEL);
 	if (!pools) {
 		pr_err("no mem for bpool_desc array!\n");
@@ -173,7 +172,7 @@ int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf)
 	pdesc->first_rss_tbl = 0; /* Fixed value */
 	pdesc->hash_type = 0; /* Fixed value */
 	pdesc->pkt_offst = nmnicpf->profile_data.dflt_pkt_offset;
-	pr_info("pdesc pkt_offset: %d\n", pdesc->pkt_offst);
+	pr_debug("pdesc pkt_offset: %d\n", pdesc->pkt_offst);
 	pdesc->inq_size = nmnicpf->profile_data.lcl_ingress_q_size;
 	pdesc->max_num_tcs = nmnicpf->profile_data.max_num_tcs;
 	pdesc->num_tcs = 1; /* Value is updated after init_done command */
@@ -310,7 +309,7 @@ int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf)
 	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
 
 	for (i = 0; i < pdesc->num_pools; i++) {
-		pool_id = dev_mng_pp2_find_free_bpool(nmnicpf->nmp, pdesc->pp_id);
+		pool_id = nmnicpf->f_pp_find_free_bpool_cb(nmnicpf->arg, pdesc->pp_id);
 		if (pool_id < 0) {
 			pr_err("free bpool not found!\n");
 			return pool_id;
@@ -320,7 +319,7 @@ int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf)
 		memset(&bpool_params, 0, sizeof(bpool_params));
 		bpool_params.match = name;
 		bpool_params.buff_len = pdesc->pools_desc[i].buff_size;
-		pr_info("%s: buff_size %d, num_buffs %d\n", name,
+		pr_debug("%s: buff_size %d, num_buffs %d\n", name,
 			bpool_params.buff_len, pdesc->pools_desc[i].num_buffs);
 		err = pp2_bpool_init(&bpool_params, &pdesc->pools_desc[i].pool);
 		if (err)

@@ -8,6 +8,7 @@
 #ifndef _REGFILE_H
 #define _REGFILE_H
 
+#include "std_internal.h"
 
 /* Initialize register file utility
  *

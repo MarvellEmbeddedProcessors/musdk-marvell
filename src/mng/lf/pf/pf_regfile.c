@@ -27,7 +27,7 @@ static int init_done;
 
 int regfile_init(void)
 {
-	pr_notice("Register file utility init\n");
+	pr_debug("Register file utility init\n");
 
 	if (init_done)
 		return 0;
@@ -51,7 +51,7 @@ void regfile_destroy(void)
 {
 	int i;
 
-	pr_notice("Register file utility destroy\n");
+	pr_debug("Register file utility destroy\n");
 
 	/* Release all mapping */
 	for (i = 0; i < REGFILE_MAX_FILES_OPEN; i++) {
@@ -128,7 +128,7 @@ void *regfile_open(char *file_name, int file_size)
 	regfile_arr[idx].map_addr = map_addr;
 	regfile_arr[idx].size = file_size;
 
-	pr_notice("Register file %s was mapped to address %p\n", file_name, map_addr);
+	pr_debug("Register file %s was mapped to address %p\n", file_name, map_addr);
 
 	return map_addr;
 
@@ -165,7 +165,7 @@ int regfile_close(void *addr)
 		return errno;
 	}
 
-	pr_notice("Register file mapped to address %p was closed\n", addr);
+	pr_debug("Register file mapped to address %p was closed\n", addr);
 
 	return 0;
 }

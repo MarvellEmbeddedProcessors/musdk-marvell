@@ -14,14 +14,14 @@
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/mqa_def.h"
 #include "drivers/giu_regfile_def.h"
-#include "mng/lf/mng_cmd_desc.h"
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_guest_msg.h"
 #include "mng/mv_nmp_dispatch.h"
-#include "mng/pci_ep_def.h"
-#include "mng/dev_mng.h"
-#include "mng/lf/lf_mng.h"
+
 #include "mng/include/guest_mng_cmd_desc.h"
+#include "mng/pci_ep_def.h"
+#include "mng/lf/mng_cmd_desc.h"
+
 #include "pf_regfile.h"
 #include "pf.h"
 #include "pf_pp2.h"
@@ -44,8 +44,53 @@
 
 #define REGFILE_VERSION		000002	/* Version Format: XX.XX.XX*/
 
-static int nmnicpf_process_command(void *arg, struct nmdisp_msg *msg);
-static int nmnicpf_maintenance(struct nmlf *nmlf);
+#define NMP_MAX_BUF_STR_LEN		256
+
+
+static int init_nicpf_params(struct nmnicpf *nmnicpf, struct nmp_lf_nicpf_params *params)
+{
+	struct pf_profile		*pf_profile;
+	int				 k;
+
+	pf_profile = &(nmnicpf->profile_data);
+
+	/* TODO - return error once all sync with this change */
+	if (!params->match)
+		pr_warn("GPIO match should be given\n");
+	else
+		strcpy(pf_profile->match, params->match);
+	pf_profile->pci_en = params->pci_en;
+	pf_profile->max_num_tcs        = params->max_num_tcs;
+	pf_profile->lcl_egress_q_num   = 1;
+	pf_profile->lcl_egress_q_size  = params->lcl_egress_qs_size;
+	pf_profile->lcl_ingress_q_num  = 1;
+	pf_profile->lcl_ingress_q_size = params->lcl_ingress_qs_size;
+	pf_profile->lcl_bm_q_num       = params->lcl_num_bpools;
+	if (pf_profile->lcl_bm_q_num > 1) {
+		pr_err("NMP supports only one lcl_bpool for GIU in current release\n");
+		return -EINVAL;
+	}
+	pf_profile->lcl_bm_q_size      = params->lcl_bpools_params[0].max_num_buffs;
+	pf_profile->lcl_bm_buf_size    = params->lcl_bpools_params[0].buff_size;
+	pf_profile->dflt_pkt_offset = params->dflt_pkt_offset;
+
+	pf_profile->keep_alive_thresh = params->keep_alive_thresh;
+
+	pf_profile->port_type = params->type;
+	if (pf_profile->port_type == NMP_LF_NICPF_T_PP2_PORT) {
+		strcpy(pf_profile->port_match, params->port_params.pp2_port.match);
+		pf_profile->pp2_port.match = pf_profile->port_match;
+		pf_profile->pp2_port.lcl_num_bpools = params->port_params.pp2_port.lcl_num_bpools;
+		for (k = 0; k < pf_profile->pp2_port.lcl_num_bpools; k++) {
+			pf_profile->pp2_port.lcl_bpools_params[k].buff_size =
+				params->port_params.pp2_port.lcl_bpools_params[k].buff_size;
+			pf_profile->pp2_port.lcl_bpools_params[k].max_num_buffs =
+				params->port_params.pp2_port.lcl_bpools_params[k].max_num_buffs;
+		}
+	}
+
+	return 0;
+}
 
 /**
  * NIC PF Register File Section
@@ -96,7 +141,6 @@ static int nmnicpf_regfile_size(struct nmnicpf *nmnicpf)
 	return size;
 }
 
-
 /*
  *	nmnicpf_regfile_open
  *
@@ -135,7 +179,6 @@ static int nmnicpf_regfile_open(struct nmnicpf *nmnicpf, void **file_map)
 	return 0;
 }
 
-
 /*
  *	nmnicpf_regfile_close
  *
@@ -148,7 +191,6 @@ static void nmnicpf_regfile_close(void *file_map)
 {
 	regfile_close(file_map);
 }
-
 
 /*
  *	nmnicpf_config_header_regfile
@@ -169,7 +211,6 @@ static int nmnicpf_config_header_regfile(struct giu_regfile *regfile_data, void 
 
 	return 0;
 }
-
 
 /*
  *	nmnicpf_config_topology_and_update_regfile
@@ -245,7 +286,6 @@ config_error:
 	return ret;
 }
 
-
 /**
  * NIC PF Initialization Section
  * =============================
@@ -302,7 +342,6 @@ queue_error:
 	return -ENOMEM;
 }
 
-
 /*
  *	nmnicpf_topology_local_tc_free
  *
@@ -317,7 +356,6 @@ static void nmnicpf_topology_local_tc_free(struct nmnicpf *nmnicpf)
 	pf_outtc_queue_free(nmnicpf, LCL, gpio_p->num_outtcs);
 	pf_intc_bm_queue_free(nmnicpf);
 }
-
 
 /*
  *	nmnicpf_topology_remote_queue_init
@@ -366,7 +404,6 @@ queue_error:
 	return -ENOMEM;
 }
 
-
 /*
  *	nmnicpf_topology_remote_tc_free
  *
@@ -383,7 +420,6 @@ static int nmnicpf_topology_remote_tc_free(struct nmnicpf *nmnicpf)
 	return 0;
 }
 
-
 /*
  *	nmnicpf_topology_tc_free
  *
@@ -399,7 +435,6 @@ static int nmnicpf_topology_tc_free(struct nmnicpf *nmnicpf)
 
 	return 0;
 }
-
 
 /*
  *	nmnicpf_topology_local_queue_cfg
@@ -451,7 +486,6 @@ static int nmnicpf_topology_local_queue_cfg(struct nmnicpf *nmnicpf)
 
 	return 0;
 }
-
 
 /*
  *	nmnicpf_mng_chn_init
@@ -526,7 +560,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	while (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
 		; /* Do Nothing. Wait till state it's updated */
 
-	pr_info("Host is Ready\n");
+	pr_debug("Host is Ready\n");
 
 	memset(&mng_ch_params, 0, sizeof(mng_ch_params));
 
@@ -571,7 +605,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	writel(readl(&pcie_cfg->status) | PCIE_CFG_STATUS_DEV_MGMT_READY, &pcie_cfg->status);
 
 	/* Set state to 'Device Management Ready' */
-	pr_info("Set status to 'Device Management Ready'\n");
+	pr_debug("Set status to 'Device Management Ready'\n");
 
 	return 0;
 }
@@ -621,7 +655,7 @@ static int nmnicpf_config_plat_func(struct nmnicpf *nmnicpf)
 		/* make the address 32bits */
 		new_phys_addr = (u32)(phys_addr >> CFG_MEM_32B_ADDR_SHIFT);
 		/* it seems like we cannot use 64bits; use 43bits */
-		pr_info("cfg mem sync reg is not 64bits; trying 32bits\n");
+		pr_debug("cfg mem sync reg is not 64bits; trying 32bits\n");
 		cfg_mem_addr[0]  = new_phys_addr | CFG_MEM_VALID;
 		cfg_mem_addr[0] |=
 			((nmnicpf->plat_bar_indx & CFG_MEM_BIDX_MASK) << CFG_MEM_BIDX_SHIFT);
@@ -636,7 +670,7 @@ static int nmnicpf_config_plat_func(struct nmnicpf *nmnicpf)
 
 static int nmnicpf_map_emul_pci_bar(struct nmnicpf *nmnicpf)
 {
-	nmnicpf->plat_bar_indx = dev_mng_get_free_bar(nmnicpf->nmp,
+	nmnicpf->plat_bar_indx = nmnicpf->f_get_free_bar_cb(nmnicpf->arg,
 			&nmnicpf->map.cfg_map.virt_addr,
 			(dma_addr_t *)&nmnicpf->map.cfg_map.phys_addr);
 
@@ -772,71 +806,6 @@ static int nmnicpf_map_init(struct nmnicpf *nmnicpf)
 	return 0;
 }
 
-/*
- *	nmnicpf_init
- *
- *	@param[in]	nmnicpf - pointer to NIC PF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmnicpf_init(struct nmnicpf *nmnicpf)
-{
-	int ret;
-	struct nmdisp_client_params params;
-	struct nmdisp_q_pair_params q_params;
-	struct giu_mng_ch_qs mng_ch_qs;
-
-	memset(&nmnicpf->gpio_params, 0, sizeof(nmnicpf->gpio_params));
-
-	/* Initialize NIC-PF map */
-	ret = nmnicpf_map_init(nmnicpf);
-	if (ret)
-		return ret;
-
-	/* Clear queue topology batabase */
-	memset(&(nmnicpf->gpio_params), 0, sizeof(struct giu_gpio_params));
-
-	nmnicpf->gpio_params.mqa = nmnicpf->mqa;
-	nmnicpf->gpio_params.giu = nmnicpf->giu;
-
-	nmnicpf->nmlf.f_maintenance_cb = nmnicpf_maintenance;
-	/* TODO - set this callback once defined correctly.
-	 * nmnicpf->nmlf.f_serialize_cb = nmnicpf_serialize;
-	 */
-	/* Initialize the nicpf PP2 port */
-	ret = nmnicpf_pp2_port_init(nmnicpf);
-	if (ret)
-		return ret;
-
-	/* Initialize management queues */
-	ret = nmnicpf_mng_chn_init(nmnicpf);
-	if (ret)
-		return ret;
-
-	/* Register NIC PF to dispatcher */
-	params.client_type	= CDT_PF;
-	params.client_id	= nmnicpf->pf_id;
-	params.f_client_ctrl_cb = nmnicpf_process_command;
-	params.client		= nmnicpf;
-	ret = nmdisp_register_client(nmnicpf->nmdisp, &params);
-	if (ret)
-		return ret;
-
-	giu_mng_ch_get_qs(nmnicpf->giu_mng_ch, &mng_ch_qs);
-
-	q_params.cmd_q    = mng_ch_qs.lcl_cmd_q;
-	q_params.notify_q = mng_ch_qs.lcl_resp_q;
-	q_params.ext_desc_support = 0;
-	q_params.max_msg_size = sizeof(struct mgmt_cmd_params);
-	ret = nmdisp_add_queue(nmnicpf->nmdisp, params.client_type, params.client_id, &q_params);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-
 /**
  * NIC PF Termination Section
  * ==========================
@@ -859,7 +828,6 @@ static int nmnicpf_local_queue_terminate(struct nmnicpf *nmnicpf)
 
 	return 0;
 }
-
 
 /*
  *	nmnicpf_mng_chn_terminate
@@ -888,7 +856,7 @@ static void nmnicpf_unmap_emul_pci_bar(struct nmnicpf *nmnicpf)
 	sys_iomem_unmap(nmnicpf->sys_iomem, "agnic_regs");
 	sys_iomem_deinit(nmnicpf->sys_iomem);
 
-	dev_mng_put_bar(nmnicpf->nmp, nmnicpf->plat_bar_indx);
+	nmnicpf->f_put_bar_cb(nmnicpf->arg, nmnicpf->plat_bar_indx);
 }
 
 static void nmnicpf_unmap_pci_bar(struct nmnicpf *nmnicpf)
@@ -914,37 +882,6 @@ static int nmnicpf_map_terminate(struct nmnicpf *nmnicpf)
 
 	return 0;
 }
-
-
-/*
- *	nmnicpf_deinit
- *
- *	@param[in]	nmnicpf - pointer to NIC PF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
-int nmnicpf_deinit(struct nmnicpf *nmnicpf)
-{
-	int ret;
-
-	ret = nmnicpf_local_queue_terminate(nmnicpf);
-	if (ret)
-		return ret;
-
-	ret = nmnicpf_mng_chn_terminate(nmnicpf);
-	if (ret)
-		return ret;
-
-	/* Un-Map the NIC-PF */
-	ret = nmnicpf_map_terminate(nmnicpf);
-	if (ret)
-		return ret;
-
-	pr_info("Terminating NIC PF\n");
-	return 0;
-}
-
 
 /**
  * NIC PF Command Processing Section
@@ -1002,7 +939,6 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
-
 /*
  *	nmnicpf_egress_tc_add_command
  */
@@ -1021,7 +957,6 @@ static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
 
 	return 0;
 }
-
 
 /*
  *	nmnicpf_ingress_tc_add_command
@@ -1043,7 +978,6 @@ static int nmnicpf_ingress_tc_add_command(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
-
 /*
  *	tc_q_next_entry_get
  *
@@ -1060,7 +994,6 @@ static int intc_q_next_entry_get(struct giu_gpio_rem_q_params *q_id_list, u32 q_
 
 	return -1;
 }
-
 
 /*
  *	tc_q_next_entry_get
@@ -1446,7 +1379,6 @@ static int nmnicpf_mgmt_echo_command(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
-
 /*
  *	nmnicpf_link_status_command
  */
@@ -1468,7 +1400,6 @@ static int nmnicpf_link_status_command(struct nmnicpf *nmnicpf,
 
 	return 0;
 }
-
 
 /*
  *	nmnicpf_link_info_get
@@ -1511,7 +1442,6 @@ static int nmnicpf_link_info_get(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
-
 /*
  *	nmnicpf_close_command
  */
@@ -1523,7 +1453,7 @@ static int nmnicpf_close_command(struct nmnicpf *nmnicpf,
 	int ret;
 
 	pr_debug("Close message.\n");
-	pr_info("Closing PF data path resources\n");
+	pr_debug("Closing PF data path resources\n");
 
 	/* Close stages:
 	 * 1) NMP should disable the PP2 and GIU disable
@@ -2601,6 +2531,128 @@ static int nmnicpf_maintenance(struct nmlf *nmlf)
 }
 
 
+/*
+ *	nmnicpf_init
+ *
+ *	@param[in]	params - pointer to NIC PF parameters
+ *	@param[out]	nmnicpf - pointer to the created NIC PF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int nmnicpf_init(struct nmnicpf_params *params, struct nmnicpf **nmnicpf)
+{
+	struct nmnicpf			*_nmnicpf;
+	struct nmdisp_client_params	 client_params;
+	struct nmdisp_q_pair_params	 q_params;
+	struct giu_mng_ch_qs		 mng_ch_qs;
+	int				 err;
+
+	_nmnicpf = kmalloc(sizeof(*_nmnicpf), GFP_KERNEL);
+	if (!_nmnicpf)
+		return -ENOMEM;
+	memset(_nmnicpf, 0, sizeof(struct nmnicpf));
+
+	_nmnicpf->nmlf.id = params->lf_id;
+	_nmnicpf->pf_id = params->id;
+	_nmnicpf->guest_id = params->guest_id;
+
+	_nmnicpf->nmdisp = params->nmdisp;
+	_nmnicpf->mqa = params->mqa;
+	_nmnicpf->giu = params->giu;
+
+	/* Assign the pf_init_done callback */
+	_nmnicpf->f_ready_cb = params->f_ready_cb;
+	_nmnicpf->f_get_free_bar_cb = params->f_get_free_bar_cb;
+	_nmnicpf->f_put_bar_cb = params->f_put_bar_cb;
+	_nmnicpf->f_pp_find_free_bpool_cb = params->f_pp_find_free_bpool_cb;
+	_nmnicpf->arg = params->arg;
+
+	err = init_nicpf_params(_nmnicpf, params->nmp_nicpf_params);
+	if (err)
+		return err;
+
+	/* Initialize NIC-PF map */
+	err = nmnicpf_map_init(_nmnicpf);
+	if (err)
+		return err;
+
+	/* Clear queue topology batabase */
+	memset(&(_nmnicpf->gpio_params), 0, sizeof(struct giu_gpio_params));
+
+	_nmnicpf->gpio_params.mqa = _nmnicpf->mqa;
+	_nmnicpf->gpio_params.giu = _nmnicpf->giu;
+
+	_nmnicpf->nmlf.f_maintenance_cb = nmnicpf_maintenance;
+	/* TODO - set this callback once defined correctly.
+	 * _nmnicpf->nmlf.f_serialize_cb = nmnicpf_serialize;
+	 */
+	/* Initialize the nicpf PP2 port */
+	err = nmnicpf_pp2_port_init(_nmnicpf);
+	if (err)
+		return err;
+
+	/* Initialize management queues */
+	err = nmnicpf_mng_chn_init(_nmnicpf);
+	if (err)
+		return err;
+
+	/* Register NIC PF to dispatcher */
+	memset(&client_params, 0, sizeof(client_params));
+	client_params.client_type	= CDT_PF;
+	client_params.client_id		= _nmnicpf->pf_id;
+	client_params.f_client_ctrl_cb	= nmnicpf_process_command;
+	client_params.client		= _nmnicpf;
+	err = nmdisp_register_client(_nmnicpf->nmdisp, &client_params);
+	if (err)
+		return err;
+
+	giu_mng_ch_get_qs(_nmnicpf->giu_mng_ch, &mng_ch_qs);
+
+	memset(&q_params, 0, sizeof(q_params));
+	q_params.cmd_q    = mng_ch_qs.lcl_cmd_q;
+	q_params.notify_q = mng_ch_qs.lcl_resp_q;
+	q_params.ext_desc_support = 0;
+	q_params.max_msg_size = sizeof(struct mgmt_cmd_params);
+	err = nmdisp_add_queue(_nmnicpf->nmdisp, client_params.client_type, client_params.client_id, &q_params);
+	if (err)
+		return err;
+
+	*nmnicpf = _nmnicpf;
+	return 0;
+}
+
+/*
+ *	nmnicpf_deinit
+ *
+ *	@param[in]	nmnicpf - pointer to NIC PF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int nmnicpf_deinit(struct nmnicpf *nmnicpf)
+{
+	int ret;
+
+	ret = nmnicpf_local_queue_terminate(nmnicpf);
+	if (ret)
+		return ret;
+
+	ret = nmnicpf_mng_chn_terminate(nmnicpf);
+	if (ret)
+		return ret;
+
+	/* Un-Map the NIC-PF */
+	ret = nmnicpf_map_terminate(nmnicpf);
+	if (ret)
+		return ret;
+
+	kfree(nmnicpf);
+
+	pr_debug("Terminating NIC PF\n");
+	return 0;
+}
+
 int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 {
 	size_t	 pos = 0;
@@ -2619,4 +2671,26 @@ int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 		pr_err("Failed to configure PF regfile\n");
 
 	return pos;
+}
+
+/* TODO: move this routine to NMP-guest (i.e. should be caled through Qs) */
+int nmnicpf_create_scheduling_event(struct nmnicpf *nmnicpf,
+	struct nmp_event_params *params,
+	struct mv_sys_event **ev)
+{
+	return giu_gpio_create_event(nmnicpf->giu_gpio,
+		(struct giu_gpio_event_params *)params,
+		ev);
+}
+
+/* TODO: move this routine to NMP-guest (i.e. should be caled through Qs) */
+int nmnicpf_delete_scheduling_event(struct mv_sys_event *ev)
+{
+	return giu_gpio_delete_event(ev);
+}
+
+/* TODO: move this routine to NMP-guest (i.e. should be caled through Qs) */
+int nmnicpf_set_scheduling_event(struct mv_sys_event *ev, int en)
+{
+	return giu_gpio_set_event(ev, en);
 }

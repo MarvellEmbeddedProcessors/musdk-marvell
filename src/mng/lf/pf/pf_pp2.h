@@ -8,6 +8,9 @@
 #ifndef _PF_PP2_H
 #define _PF_PP2_H
 
+#include "std_internal.h"
+#include "pf_topology.h"
+
 #define INITIAL_MAC_ADDR	{0x0, 0x1, 0x2, 0x3, 0x4, 0x5}
 
 extern int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);

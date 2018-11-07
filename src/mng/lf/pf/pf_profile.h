@@ -8,11 +8,12 @@
 #ifndef _PF_PROFILE_H
 #define _PF_PROFILE_H
 
+#include "std_internal.h"
+#include "mng/mv_nmp.h"
+
 #define PROFILE_NAME_LEN (32)
 #define PROFILE_DESC_LEN (128)
 #define NMP_MAX_BUF_STR_LEN		256
-
-#include "mng/mv_nmp.h"
 
 
 /* SNIC PF / VF Instance profile
