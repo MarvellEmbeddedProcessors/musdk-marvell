@@ -47,18 +47,6 @@ struct nmlf {
 	int (*f_serialize_cb)(struct nmlf *nmlf, char *buff, u32 size);
 };
 
-/* TODO: all the below code and declerations are temporary until it will be moved into LF-custom! */
-/* Structure containing all Custom LF related data
- */
-struct nmcstm {
-	struct nmlf nmlf;			/* will be used for inheritance */
-	int id;
-	int pf_id;
-	struct mqa *mqa;                            /* MQA */
-	struct nmdisp *nmdisp;                      /* Dispatcher */
-	struct mng_ch_params mng_ctrl;
-};
-
 /* TODO: all the below code and declerations are temporary until it will be moved into LF-NICPF! */
 enum func_type {
 	ft_pcie_ep = 1,

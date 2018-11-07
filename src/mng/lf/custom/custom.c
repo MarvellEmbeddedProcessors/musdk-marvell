@@ -10,16 +10,42 @@
 #include "std_internal.h"
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
-#include "mng/lf/mng_cmd_desc.h"
-#include "mng/lf/lf_mng.h"
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_dispatch.h"
 #include "lib/lib_misc.h"
+
+#include "mng/lf/lf_mng.h"
+#include "mng/lf/mng_cmd_desc.h"
 #include "custom.h"
+
 
 #define MAX_MSG_DATA_LEN	1024
 #define CMD_QUEUE_SIZE	\
 		(1 + ceil((MAX_MSG_DATA_LEN - MGMT_DESC_DATA_LEN), sizeof(struct cmd_desc)))
+
+
+/*	Management Channels information
+ *
+ *	cmd_queue_id	 - command queue Id
+ *	notify_queue_id - notification queue Id
+ */
+struct mng_ch_qs {
+	struct mqa_q *cmd_queue;
+	struct mqa_q *notify_queue;
+
+};
+
+/* Structure containing all Custom LF related data
+ */
+struct nmcstm {
+	struct nmlf nmlf;			/* will be used for inheritance */
+	int id;
+	int pf_id;
+	struct mqa *mqa;                            /* MQA */
+	struct nmdisp *nmdisp;                      /* Dispatcher */
+	struct mng_ch_qs mng_ctrl;
+};
+
 
 /*
  *	nmcstm_mng_chn_init
@@ -40,7 +66,7 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 #endif
 
 	/* Allocate and Register Command queue in MQA */
-	pr_info("Register Command Q\n");
+	pr_debug("Register Command Q\n");
 
 	/* Allocate queue from MQA */
 	ret = mqa_queue_alloc(nmcstm->mqa, &cmd_queue);
@@ -59,14 +85,14 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 
 	ret = mqa_queue_create(nmcstm->mqa, &params, &cmd_queue_p);
 	if (ret < 0) {
-		pr_info("Failed to create Custom Management CMD Q\n");
+		pr_err("Failed to create Custom Management CMD Q\n");
 		goto exit_error;
 	}
 
 	nmcstm->mng_ctrl.cmd_queue = cmd_queue_p;
 
 	/* Allocate and Register Local Notification queue in MQA */
-	pr_info("Register Notification Q\n");
+	pr_debug("Register Notification Q\n");
 
 	/* Allocate queue from MQA */
 	ret = mqa_queue_alloc(nmcstm->mqa, &notify_queue);
@@ -84,7 +110,7 @@ static int nmcstm_mng_chn_init(struct nmcstm *nmcstm)
 
 	ret = mqa_queue_create(nmcstm->mqa, &params, &notify_queue_p);
 	if (ret < 0) {
-		pr_info("Failed to create Custom Management Notify Q\n");
+		pr_err("Failed to create Custom Management Notify Q\n");
 		goto exit_error;
 	}
 
@@ -243,6 +269,7 @@ static int nmcstm_process_command(void *arg, struct nmdisp_msg *msg)
 	return 0;
 }
 
+
 /*
  *	nmcstm_init
  *
@@ -302,7 +329,6 @@ init_exit:
 	return ret;
 }
 
-
 /*
  *	nmcstm_deinit
  *
@@ -323,7 +349,7 @@ int nmcstm_deinit(struct nmcstm *nmcstm)
 	if (ret)
 		return ret;
 
-	pr_info("Terminating NIC PF\n");
+	pr_debug("Terminating NIC PF\n");
 
 	return 0;
 }
