@@ -15,12 +15,12 @@
 #include "drivers/mqa_def.h"
 #include "drivers/giu_regfile_def.h"
 #include "mng/lf/mng_cmd_desc.h"
-#include "mng/db.h"
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_guest_msg.h"
 #include "mng/mv_nmp_dispatch.h"
 #include "mng/pci_ep_def.h"
 #include "mng/dev_mng.h"
+#include "mng/lf/lf_mng.h"
 #include "mng/include/guest_mng_cmd_desc.h"
 #include "pf_regfile.h"
 #include "pf.h"
@@ -801,14 +801,14 @@ int nmnicpf_init(struct nmnicpf *nmnicpf)
 	nmnicpf->gpio_params.mqa = nmnicpf->mqa;
 	nmnicpf->gpio_params.giu = nmnicpf->giu;
 
-	nmnicpf->pf_id = 0;
-	nmnicpf->nmlf.id = 0;
 	nmnicpf->nmlf.f_maintenance_cb = nmnicpf_maintenance;
 	/* TODO - set this callback once defined correctly.
 	 * nmnicpf->nmlf.f_serialize_cb = nmnicpf_serialize;
 	 */
 	/* Initialize the nicpf PP2 port */
-	nmnicpf_pp2_port_init(nmnicpf);
+	ret = nmnicpf_pp2_port_init(nmnicpf);
+	if (ret)
+		return ret;
 
 	/* Initialize management queues */
 	ret = nmnicpf_mng_chn_init(nmnicpf);
@@ -1426,7 +1426,7 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	}
 
 	/* Indicate nmp init_done ready */
-	nmnicpf->f_ready_cb(nmnicpf->arg);
+	nmnicpf->f_ready_cb(nmnicpf->arg, nmnicpf->nmlf.id);
 
 	nmnicpf->initialized = 1;
 

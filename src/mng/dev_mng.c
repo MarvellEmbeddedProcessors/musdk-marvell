@@ -89,9 +89,7 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 		return ret;
 	}
 
-	nmp->nmnicpf.mqa = nmp->mqa;
-
-	pr_debug("Initializing MQA %p %p\n", nmp->mqa, nmp->nmnicpf.mqa);
+	pr_debug("Initializing MQA %p %p\n", nmp->mqa, nmp->mqa);
 
 	return 0;
 }
@@ -134,7 +132,7 @@ static int dev_mng_init_giu(struct nmp *nmp)
 		nmp->msi_regs.virt_addr, nmp->msi_regs.phys_addr);
 
 	memset(&giu_params, 0, sizeof(giu_params));
-	giu_params.mqa = nmp->nmnicpf.mqa;
+	giu_params.mqa = nmp->mqa;
 	giu_params.msi_regs_pa = (u64)nmp->msi_regs.phys_addr;
 	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr;
 
@@ -146,7 +144,7 @@ static int dev_mng_init_giu(struct nmp *nmp)
 		giu_params.gies_params[i].dma_eng_match = dma_name[i];
 	}
 
-	ret = giu_init(&giu_params, &nmp->nmnicpf.giu);
+	ret = giu_init(&giu_params, &nmp->giu);
 	if (ret) {
 		pr_err("Failed to initialize GIU!\n");
 		sys_iomem_unmap(nmp->msi_iomem, NMP_MSI_MAP_REGS_INDX);
@@ -194,42 +192,33 @@ static int dev_mng_hw_init(struct nmp *nmp)
 /** Software Functionality **/
 /** ====================== **/
 
-/* Initialize the PP2 interface */
-static void dev_mng_pf_init_done(void *arg)
-{
-	struct nmp *nmp = (struct nmp *)arg;
-
-	if (!nmp) {
-		pr_err("no NMP handle!\n");
-		return;
-	}
-
-	lf_init_done(nmp);
-}
-
-static int dev_mng_sw_init(struct nmp *nmp)
+static int dev_mng_sw_init(struct nmp *nmp, struct nmp_params *params)
 {
 	int ret;
-	struct nmdisp_params params;
+	struct nmdisp_params nmdisp_params;
+	struct lf_mng_params lf_mng_params;
 
 	pr_debug("Initializing Device software\n");
 
-	/* Assign the pf_init_done callback */
-	nmp->nmnicpf.f_ready_cb = dev_mng_pf_init_done;
-	nmp->nmnicpf.arg = nmp;
-
 	/* Initialize Dispatcher */
-	ret = nmdisp_init(&params, &(nmp->nmdisp));
+	memset(&nmdisp_params, 0, sizeof(nmdisp_params));
+	/* nothing to initialize in nmdisp_params */
+	ret = nmdisp_init(&nmdisp_params, &(nmp->nmdisp));
 	if (ret)
 		return ret;
 
-	/* Save reference to Dispatcher in PF */
-	nmp->nmnicpf.nmdisp = nmp->nmdisp;
+	memset(&lf_mng_params, 0, sizeof(lf_mng_params));
+	lf_mng_params.nmp = nmp;
+	lf_mng_params.nmdisp = nmp->nmdisp;
+	lf_mng_params.mqa = nmp->mqa;
+	lf_mng_params.giu = nmp->giu;
+	lf_mng_params.num_containers = params->num_containers;
+	lf_mng_params.containers_params = params->containers_params;
+	ret = lf_mng_init(&lf_mng_params, &nmp->lf_mng);
+	if (ret)
+		return ret;
 
-	/* Initialize topology - all PF / VF instances */
-	/* topology_init API is already defined in Linux therefore use pf_ prefix */
-	ret = lf_init(nmp);
-	return ret;
+	return 0;
 }
 
 /** ======================== **/
@@ -241,8 +230,8 @@ static int dev_mng_sw_init(struct nmp *nmp)
 
 static int dev_mng_terminate_giu(struct nmp *nmp)
 {
-	if (nmp->nmnicpf.giu)
-		giu_deinit(nmp->nmnicpf.giu);
+	if (nmp->giu)
+		giu_deinit(nmp->giu);
 
 	sys_iomem_unmap(nmp->msi_iomem, NMP_MSI_MAP_REGS_INDX);
 	sys_iomem_deinit(nmp->msi_iomem);
@@ -257,7 +246,7 @@ static int dev_mng_mqa_terminate(struct nmp *nmp)
 	pr_debug("Terminating MQA\n");
 
 	/* Terminating MQA tables */
-	ret = mqa_deinit(nmp->nmnicpf.mqa);
+	ret = mqa_deinit(nmp->mqa);
 	if (ret) {
 		pr_err("Failed to terminate MQA\n");
 		return ret;
@@ -299,40 +288,34 @@ static int dev_mng_hw_terminate(struct nmp *nmp)
 
 static int dev_mng_sw_terminate(struct nmp *nmp)
 {
-	int ret;
+	if (!nmp)
+		return -EFAULT;
 
-	/* Terminate scheduling */
-#if 0
-	ret = nmp_schedule_terminate();
-	if (ret)
-		return ret;
-#endif
+	nmdisp_deinit(nmp->nmdisp);
 
 	/* Terminate topology */
-	ret = lf_deinit(nmp);
-	if (ret)
-		return ret;
+	lf_mng_deinit(nmp->lf_mng);
 
 	return 0;
 }
 
 
 /** Device Initialization **/
-int dev_mng_init(struct nmp *nmp)
+int dev_mng_init(struct nmp *nmp, struct nmp_params *params)
 {
 	int ret;
 
-	pr_info("Starting Device Manager Init\n");
+	pr_debug("Starting Device Manager Init\n");
 
 	ret = dev_mng_hw_init(nmp);
 	if (ret)
 		return ret;
 
-	ret = dev_mng_sw_init(nmp);
+	ret = dev_mng_sw_init(nmp, params);
 	if (ret)
 		return ret;
 
-	pr_info("Completed Device Manager init\n");
+	pr_debug("Completed Device Manager init\n");
 	return 0;
 }
 
@@ -341,7 +324,7 @@ int dev_mng_terminate(struct nmp *nmp)
 {
 	int ret;
 
-	pr_info("Terminating Device Manager Init\n");
+	pr_debug("Terminating Device Manager Init\n");
 
 	ret = dev_mng_sw_terminate(nmp);
 	if (ret)

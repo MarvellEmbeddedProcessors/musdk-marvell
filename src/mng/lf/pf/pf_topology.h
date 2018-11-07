@@ -9,8 +9,11 @@
 #define _PF_TOPOLOGY_H
 
 #include "std_internal.h"
-#include "mng/db.h"
+#include "mng/lf/lf_mng.h"
 #include "pf.h"
+
+#define LCL	(1)
+#define REM	(2)
 
 int pf_outtc_queue_init(struct nmnicpf *nmnicpf, u32 type, u32 tc_num, u32 q_num);
 

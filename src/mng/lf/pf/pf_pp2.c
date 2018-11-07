@@ -9,7 +9,8 @@
 
 #include "std_internal.h"
 
-#include "mng/db.h"
+#include "mng/lf/lf_mng.h"
+#include "mng/dev_mng_pp2.h"
 #include "mng/lf/mng_cmd_desc.h"
 #include "mng/include/guest_mng_cmd_desc.h"
 
@@ -20,7 +21,99 @@
 #define NMP_PPIO_NAME_MAX			20
 
 
-static u16 used_bpools[PP2_NUM_PKT_PROC];
+static int nmnicpf_pp2_find_free_cls_table(struct nmnicpf *nmnicpf)
+{
+	int i;
+
+	for (i = 0; i < MAX_PP2_CLS_TBL; i++) {
+		if (!nmnicpf->pp2.tbl[i])
+			break;
+	}
+	if (i == MAX_PP2_CLS_TBL) {
+		pr_err("no free cls table found!\n");
+		return -ENOSPC;
+	}
+	return i;
+}
+
+#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
+static int build_rule(struct pp2_cls_tbl_rule *dst_rule,
+		      struct guest_pp2_cls_tbl_rule *src_rule,
+		      struct pp2_cls_tbl_params *tbl_params)
+{
+	struct pp2_proto_field *proto_field;
+	u8 buf[GUEST_PP2_CLS_KEY_SIZE_MAX];
+	int i;
+
+	dst_rule->num_fields = src_rule->num_fields;
+	for (i = 0; i < dst_rule->num_fields; i++) {
+		dst_rule->fields[i].size = src_rule->fields[i].size;
+		if (src_rule->fields[i].key_valid)
+			dst_rule->fields[i].key = src_rule->fields[i].key;
+		if (src_rule->fields[i].mask_valid)
+			dst_rule->fields[i].mask = src_rule->fields[i].mask;
+		proto_field = &tbl_params->key.proto_field[i];
+		if ((proto_field->proto == MV_NET_PROTO_ETH) &&
+		    ((proto_field->field.eth == MV_NET_ETH_F_SA) || (proto_field->field.eth == MV_NET_ETH_F_DA))) {
+			memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
+			snprintf((char *)src_rule->fields[i].key,
+				 GUEST_PP2_CLS_KEY_SIZE_MAX,
+				 "%02x:%02x:%02x:%02x:%02x:%02x",
+				 buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+			memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
+			snprintf((char *)src_rule->fields[i].mask,
+				 GUEST_PP2_CLS_KEY_SIZE_MAX,
+				 "%02x:%02x:%02x:%02x:%02x:%02x",
+				 buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+		} else if (proto_field->proto == MV_NET_PROTO_VLAN) {
+			if (proto_field->field.vlan == MV_NET_VLAN_F_PRI) {
+				memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].key,
+					 GUEST_PP2_CLS_KEY_SIZE_MAX,
+					 "%02x", buf[0]);
+				memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].mask,
+					GUEST_PP2_CLS_KEY_SIZE_MAX,
+					"%02x", buf[0]);
+			} else if (proto_field->field.vlan == MV_NET_VLAN_F_ID) {
+				memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].key,
+					 GUEST_PP2_CLS_KEY_SIZE_MAX,
+					 "%02x%02x", buf[0], buf[1]);
+				memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
+				snprintf((char *)src_rule->fields[i].mask,
+					GUEST_PP2_CLS_KEY_SIZE_MAX,
+					"%02x%02x", buf[0], buf[1]);
+			} else {
+				pr_err("field[%d] is not supported\n", i);
+				return -ENOTSUP;
+			}
+		} else {
+			pr_err("field[%d] is not supported\n", i);
+			return -ENOTSUP;
+		}
+	}
+
+	return 0;
+}
+#else
+static void build_rule(struct pp2_cls_tbl_rule *dst_rule,
+		       struct guest_pp2_cls_tbl_rule *src_rule)
+{
+	int i;
+
+	dst_rule->num_fields = src_rule->num_fields;
+	for (i = 0; i < dst_rule->num_fields; i++) {
+		dst_rule->fields[i].size = src_rule->fields[i].size;
+		if (src_rule->fields[i].key_valid)
+			dst_rule->fields[i].key = src_rule->fields[i].key;
+		if (src_rule->fields[i].mask_valid)
+			dst_rule->fields[i].mask = src_rule->fields[i].mask;
+		printf("src-key %s, dst-key %s\n", src_rule->fields[i].key, dst_rule->fields[i].key);
+	}
+}
+#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
+
 
 /*
  *	nmnicpf_pp2_port_pp2_init
@@ -43,7 +136,6 @@ int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf)
 
 	pf_pp2_profile = &nmnicpf->profile_data.pp2_port;
 	nmnicpf->pp2.num_ports = 1;
-	nmnicpf->pp2.reserved_bpools = nmnicpf->profile_data.pp2_bm_pool_reserved_map;
 
 	/* Allocate memory for the pp2 descriptors */
 	pdesc = kzalloc(sizeof(struct nmp_pp2_port_desc), GFP_KERNEL);
@@ -205,32 +297,6 @@ int nmnicpf_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 	return pos;
 }
 
-
-static void nmnicpf_pp2_set_reserved_bpools(u32 reserved_bpool_map)
-{
-	int i;
-
-	for (i = 0; i < PP2_NUM_PKT_PROC; i++)
-		used_bpools[i] = reserved_bpool_map;
-}
-
-static int nmnicpf_pp2_find_free_bpool(u32 pp_id)
-{
-	int i;
-
-	for (i = 0; i < PP2_BPOOL_NUM_POOLS; i++) {
-		if (!((1 << i) & used_bpools[pp_id])) {
-			used_bpools[pp_id] |= (1 << i);
-			break;
-		}
-	}
-	if (i == PP2_BPOOL_NUM_POOLS) {
-		pr_err("no free BPool found!\n");
-		return -ENOSPC;
-	}
-	return i;
-}
-
 int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf)
 {
 	int				 i;
@@ -241,16 +307,10 @@ int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf)
 	struct nmp_pp2_port_desc	*pdesc;
 	u32				 num_pools = 0;
 
-	if (!nmnicpf->pp2.reserved_bpools)
-		/* No pp2 initialized, just return */
-		return 0;
-
-	nmnicpf_pp2_set_reserved_bpools(nmnicpf->pp2.reserved_bpools);
-
 	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
 
 	for (i = 0; i < pdesc->num_pools; i++) {
-		pool_id = nmnicpf_pp2_find_free_bpool(pdesc->pp_id);
+		pool_id = dev_mng_pp2_find_free_bpool(nmnicpf->nmp, pdesc->pp_id);
 		if (pool_id < 0) {
 			pr_err("free bpool not found!\n");
 			return pool_id;
@@ -448,100 +508,6 @@ set_default:
 	memcpy(mac_addr, default_mac_addr, sizeof(default_mac_addr));
 }
 
-static int nmnicpf_pp2_find_free_cls_table(struct nmnicpf *nmnicpf)
-{
-	int i;
-
-	for (i = 0; i < MAX_PP2_CLS_TBL; i++) {
-		if (!nmnicpf->pp2.tbl[i])
-			break;
-	}
-	if (i == MAX_PP2_CLS_TBL) {
-		pr_err("no free cls table found!\n");
-		return -ENOSPC;
-	}
-	return i;
-}
-
-#ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
-static int build_rule(struct pp2_cls_tbl_rule *dst_rule,
-		      struct guest_pp2_cls_tbl_rule *src_rule,
-		      struct pp2_cls_tbl_params *tbl_params)
-{
-	struct pp2_proto_field *proto_field;
-	u8 buf[GUEST_PP2_CLS_KEY_SIZE_MAX];
-	int i;
-
-	dst_rule->num_fields = src_rule->num_fields;
-	for (i = 0; i < dst_rule->num_fields; i++) {
-		dst_rule->fields[i].size = src_rule->fields[i].size;
-		if (src_rule->fields[i].key_valid)
-			dst_rule->fields[i].key = src_rule->fields[i].key;
-		if (src_rule->fields[i].mask_valid)
-			dst_rule->fields[i].mask = src_rule->fields[i].mask;
-		proto_field = &tbl_params->key.proto_field[i];
-		if ((proto_field->proto == MV_NET_PROTO_ETH) &&
-		    ((proto_field->field.eth == MV_NET_ETH_F_SA) || (proto_field->field.eth == MV_NET_ETH_F_DA))) {
-			memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
-			snprintf((char *)src_rule->fields[i].key,
-				 GUEST_PP2_CLS_KEY_SIZE_MAX,
-				 "%02x:%02x:%02x:%02x:%02x:%02x",
-				 buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
-			memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
-			snprintf((char *)src_rule->fields[i].mask,
-				 GUEST_PP2_CLS_KEY_SIZE_MAX,
-				 "%02x:%02x:%02x:%02x:%02x:%02x",
-				 buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
-		} else if (proto_field->proto == MV_NET_PROTO_VLAN) {
-			if (proto_field->field.vlan == MV_NET_VLAN_F_PRI) {
-				memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
-				snprintf((char *)src_rule->fields[i].key,
-					 GUEST_PP2_CLS_KEY_SIZE_MAX,
-					 "%02x", buf[0]);
-				memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
-				snprintf((char *)src_rule->fields[i].mask,
-					GUEST_PP2_CLS_KEY_SIZE_MAX,
-					"%02x", buf[0]);
-			} else if (proto_field->field.vlan == MV_NET_VLAN_F_ID) {
-				memcpy(buf, src_rule->fields[i].key, GUEST_PP2_CLS_KEY_SIZE_MAX);
-				snprintf((char *)src_rule->fields[i].key,
-					 GUEST_PP2_CLS_KEY_SIZE_MAX,
-					 "%02x%02x", buf[0], buf[1]);
-				memcpy(buf, src_rule->fields[i].mask, GUEST_PP2_CLS_KEY_SIZE_MAX);
-				snprintf((char *)src_rule->fields[i].mask,
-					GUEST_PP2_CLS_KEY_SIZE_MAX,
-					"%02x%02x", buf[0], buf[1]);
-			} else {
-				pr_err("field[%d] is not supported\n", i);
-				return -ENOTSUP;
-			}
-		} else {
-			pr_err("field[%d] is not supported\n", i);
-			return -ENOTSUP;
-		}
-	}
-
-	return 0;
-}
-#else
-static void build_rule(struct pp2_cls_tbl_rule *dst_rule,
-		       struct guest_pp2_cls_tbl_rule *src_rule)
-{
-	int i;
-
-	dst_rule->num_fields = src_rule->num_fields;
-	for (i = 0; i < dst_rule->num_fields; i++) {
-		dst_rule->fields[i].size = src_rule->fields[i].size;
-		if (src_rule->fields[i].key_valid)
-			dst_rule->fields[i].key = src_rule->fields[i].key;
-		if (src_rule->fields[i].mask_valid)
-			dst_rule->fields[i].mask = src_rule->fields[i].mask;
-		printf("src-key %s, dst-key %s\n", src_rule->fields[i].key, dst_rule->fields[i].key);
-	}
-}
-#endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
-
-
 int nmnicpf_pp2_cls_table_init(struct nmnicpf *nmnicpf,
 			       void *msg,
 			       u16 msg_len,
@@ -735,4 +701,3 @@ int nmnicpf_pp2_cls_rule_remove(struct nmnicpf *nmnicpf,
 				      &rule);
 	return ret;
 }
-

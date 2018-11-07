@@ -11,7 +11,7 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "mng/lf/mng_cmd_desc.h"
-#include "mng/db.h"
+#include "mng/lf/lf_mng.h"
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_dispatch.h"
 #include "lib/lib_misc.h"

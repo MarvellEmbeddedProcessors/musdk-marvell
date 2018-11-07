@@ -49,6 +49,7 @@ struct pf_profile {
 	u8 max_num_tcs;
 	u16 pp2_bm_pool_reserved_map;
 	enum nmp_lf_nicpf_type port_type;
+	char port_match[NMP_MAX_BUF_STR_LEN];
 	struct nmp_lf_nicpf_pp2_port_params pp2_port;
 };
 

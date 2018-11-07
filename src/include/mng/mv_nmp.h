@@ -129,7 +129,7 @@ struct nmp_container_params {
 	 */
 	struct nmp_lf_params *lfs_params;
 	u8 guest_id;		/**< entity with visibility to all the container's data and cntrl traffic */
-				/**< if no guest are using this container, use 0; other wise, use >1 value */
+				/**< if no guest are using this container, use "0"; other wise, use >1 value */
 };
 
 /**
