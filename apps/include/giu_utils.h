@@ -72,19 +72,22 @@ int app_giu_port_init(int giu_id, struct giu_gpio **giu_gpio);
  * @param[in]	outq_size	Out queue size.
  *
  */
-void app_giu_port_local_init(int id, int lcl_id, int giu_id, struct lcl_giu_port_desc *lcl_port, struct giu_gpio *gpio,
-			     u16 num_outqs, u32 outq_size);
+void app_giu_port_local_init(int id,
+			int lcl_id,
+			int giu_id,
+			struct lcl_giu_port_desc *lcl_port,
+			struct giu_gpio *gpio);
 
 /*
  * Build GIU BPool
  *
  * @param[in]	bpool_id	BPool ID.
- * @param[in]	bpool_inf	A pointer to a structure which contains the pool and buffer information.
+ * @param[in]	num_of_buffs	number of buffers to allocate for this BPool.
  *
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int app_giu_build_bpool(int bpool_id, struct bpool_inf *infs);
+int app_giu_build_bpool(int bpool_id, u32 num_of_buffs);
 
 
 static inline void app_giu_set_gen_max_num_qs_per_tc(void)

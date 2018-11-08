@@ -42,8 +42,7 @@
 #define PKT_ECHO_APP_RX_Q_SIZE			(2 * PKT_ECHO_APP_DEF_Q_SIZE)
 #define PKT_ECHO_APP_TX_Q_SIZE			(2 * PKT_ECHO_APP_DEF_Q_SIZE)
 
-#define PKT_ECHO_APP_GIU_TX_Q_SIZE		2048
-#define PKT_ECHO_APP_GIU_BUF_SIZE		2048
+#define PKT_ECHO_APP_GIU_BP_SIZE		4096
 
 #define PKT_ECHO_APP_MAX_BURST_SIZE		((PKT_ECHO_APP_RX_Q_SIZE) >> 2)
 /* as GIU is the bottleneck, set the burst size to GIU_Q_SIZE / 4 */
@@ -62,8 +61,6 @@
 
 #define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 4096, 0, NULL} }
 #define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {2048, 4096}, {10240, 512} }
-
-#define PKT_ECHO_APP_GIU_BPOOLS_INF	{PKT_ECHO_APP_GIU_BUF_SIZE, PKT_ECHO_APP_GIU_TX_Q_SIZE}
 
 #define QUEUE_OCCUPANCY(prod, cons, q_size)	\
 	(((prod) - (cons) + (q_size)) & ((q_size) - 1))
@@ -1013,7 +1010,6 @@ static int init_local_modules(struct glob_arg *garg)
 	struct bpool_inf		std_infs[] = PKT_ECHO_APP_BPOOLS_INF;
 	struct bpool_inf		jumbo_infs[] = PKT_ECHO_APP_BPOOLS_JUMBO_INF;
 	struct bpool_inf		*infs;
-	struct bpool_inf		giu_bpool_inf = PKT_ECHO_APP_GIU_BPOOLS_INF;
 	struct pp2_glb_common_args	*pp2_args = (struct pp2_glb_common_args *) garg->cmn_args.plat;
 	int				giu_id = 0; /* Should be retrieved from garg */
 
@@ -1053,7 +1049,7 @@ static int init_local_modules(struct glob_arg *garg)
 		return err;
 	}
 
-	err = app_giu_build_bpool(0, &giu_bpool_inf);
+	err = app_giu_build_bpool(0, PKT_ECHO_APP_GIU_BP_SIZE);
 	if (err) {
 		pr_err("Failed to build GIU Bpool\n");
 		return err;
@@ -1259,8 +1255,7 @@ static int init_local(void *arg, int id, void **_larg)
 		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
 
 	/* TODO: create and use GIU global port descriptor (similar to PP2 port local init) */
-	app_giu_port_local_init(giu_port_id, larg->cmn_args.id, giu_id, &larg->giu_ports_desc[giu_id], garg->giu_gpio,
-				PKT_ECHO_APP_MAX_NUM_TCS_PER_PORT, PKT_ECHO_APP_GIU_TX_Q_SIZE);
+	app_giu_port_local_init(giu_port_id, larg->cmn_args.id, giu_id, &larg->giu_ports_desc[giu_id], garg->giu_gpio);
 
 	*_larg = larg;
 	return 0;

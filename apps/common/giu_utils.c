@@ -52,9 +52,16 @@ int app_giu_port_init(int giu_id, struct giu_gpio **giu_gpio)
 	return 0;
 }
 
-void app_giu_port_local_init(int id, int lcl_id, int giu_id, struct lcl_giu_port_desc *lcl_port, struct giu_gpio *gpio,
-			     u16 num_outqs, u32 outq_size)
+void app_giu_port_local_init(int id,
+			int lcl_id,
+			int giu_id,
+			struct lcl_giu_port_desc *lcl_port,
+			struct giu_gpio *gpio)
 {
+	struct giu_gpio_capabilities capa;
+	u32 outq_size;
+	u16 num_outqs;
+	u8 tc, q;
 	int i;
 
 	lcl_port->id		= id;
@@ -62,6 +69,18 @@ void app_giu_port_local_init(int id, int lcl_id, int giu_id, struct lcl_giu_port
 	lcl_port->giu_id	= giu_id;
 	lcl_port->gpio_id	= -1; /* TODO: see if it's needed */
 	lcl_port->gpio		= gpio;
+
+	giu_gpio_get_capabilities(lcl_port->gpio, &capa);
+	num_outqs = capa.outtcs_inf.outtcs_inf[0].num_outqs;
+	outq_size = capa.outtcs_inf.outtcs_inf[0].outqs_inf[0].size;
+
+	for (tc = 0; tc < capa.outtcs_inf.num_outtcs; tc++) {
+		if (capa.outtcs_inf.outtcs_inf[tc].num_outqs != num_outqs)
+			pr_err("number of outQs must be equal in all TCs!!\n");
+		for (q = 0; q < capa.outtcs_inf.outtcs_inf[tc].num_outqs; q++)
+			if (capa.outtcs_inf.outtcs_inf[tc].outqs_inf[q].size != outq_size)
+				pr_err("Size of ALL outQs must be equal!!\n");
+	}
 
 	lcl_port->num_shadow_qs = num_outqs;
 	lcl_port->shadow_q_size	= outq_size;
@@ -76,14 +95,23 @@ void app_giu_port_local_init(int id, int lcl_id, int giu_id, struct lcl_giu_port
 	}
 }
 
-int app_giu_build_bpool(int bpool_id, struct bpool_inf *infs)
+int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 {
 	struct giu_bpool *bpool = &giu_bpools[bpool_id];
 	struct giu_buff_inf *buffs_inf;
-	int num_of_buffs = infs->num_buffs - 1;
+	struct giu_bpool_capabilities capa;
 	void *buff_virt_addr;
 	void *buff_phys_addr;
 	int i, err;
+
+	giu_bpool_get_capabilities(bpool, &capa);
+	if (capa.buff_len != bpool->buff_len) {
+		pr_err("missmatch in BPool buff-len (%d vs %d)!\n",
+		capa.buff_len, bpool->buff_len);
+		return -EFAULT;
+	}
+	if (capa.max_num_buffs < num_of_buffs)
+		num_of_buffs = capa.max_num_buffs;
 
 	pr_debug("Adding (%d Bytes) buffers into BPOOL.\n", bpool->buff_len);
 

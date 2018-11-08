@@ -132,13 +132,12 @@
 #define PKT_GEN_APP_RX_Q_SIZE			(2 * PKT_GEN_APP_DEF_Q_SIZE)
 #define PKT_GEN_APP_TX_Q_SIZE			(2 * PKT_GEN_APP_DEF_Q_SIZE)
 
-#define PKT_GEN_APP_GIU_TX_Q_SIZE		2048
-#define PKT_GEN_APP_GIU_BUF_SIZE		2048
+#define PKT_GEN_APP_GIU_BP_SIZE			2048
 
 #define PKT_GEN_APP_MAX_BURST_SIZE		((PKT_GEN_APP_RX_Q_SIZE) >> 1)
 
 /* as GIU is the bottleneck, set the burst size to GIU_Q_SIZE / 4 */
-#define PKT_GEN_APP_DFLT_BURST_SIZE		(PKT_GEN_APP_GIU_TX_Q_SIZE >> 2)
+#define PKT_GEN_APP_DFLT_BURST_SIZE		(128)
 
 #define PKT_GEN_APP_BUFF_POOL_SIZE		8192
 
@@ -155,8 +154,6 @@
 #define PKT_GEN_APP_MAX_TOTAL_FRM_CNT		UINT32_MAX
 
 #define PKT_GEN_APP_PREFETCH_SHIFT	4
-
-#define PKT_GEN_APP_GIU_BPOOLS_INF	{PKT_GEN_APP_GIU_BUF_SIZE, PKT_GEN_APP_GIU_TX_Q_SIZE}
 
 #define PKT_GEN_NUM_CNTS	2
 #define PKT_GEN_CNT_PKTS	0
@@ -709,7 +706,6 @@ static int init_all_modules(void)
 static int init_local_modules(struct glob_arg *garg)
 {
 	int			err;
-	struct bpool_inf	giu_bpool_inf = PKT_GEN_APP_GIU_BPOOLS_INF;
 	int			giu_id = 0; /* Should be retrieved from garg */
 
 	pr_info("Local initializations ...\n");
@@ -727,7 +723,7 @@ static int init_local_modules(struct glob_arg *garg)
 		return err;
 	}
 
-	err = app_giu_build_bpool(0, &giu_bpool_inf);
+	err = app_giu_build_bpool(0, PKT_GEN_APP_GIU_BP_SIZE);
 	if (err) {
 		pr_err("Failed to build GIU Bpool\n");
 		return err;
@@ -817,8 +813,7 @@ static int init_local(void *arg, int id, void **_larg)
 	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
 		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
 	/* TODO: create and use GIU global port descriptor (similar to PP2 port local init) */
-	app_giu_port_local_init(giu_port_id, larg->cmn_args.id, giu_id, &larg->giu_ports_desc[giu_id], garg->giu_gpio,
-				PKT_GEN_APP_MAX_NUM_TCS_PER_PORT, PKT_GEN_APP_GIU_TX_Q_SIZE);
+	app_giu_port_local_init(giu_port_id, larg->cmn_args.id, giu_id, &larg->giu_ports_desc[giu_id], garg->giu_gpio);
 	*_larg = larg;
 
 	err = app_build_pkt_pool(&larg->buffer,
