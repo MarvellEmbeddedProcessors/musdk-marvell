@@ -36,6 +36,7 @@ struct giu_gpio_lcl_interim_q {
 	u32	desc_total; /**< number of descriptors in the ring */
 	u32	prod_val; /**< producer index value shadow  */
 	u32	cons_val; /**< consumer index value shadow */
+	u32	payload_offset;
 };
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
@@ -55,6 +56,10 @@ struct giu_gpio_rem_q {
 /** In TC - Queue topology
  */
 struct giu_gpio_intc {
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+	struct giu_gpio_lcl_interim_q	interimq;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
 	u32			 pkt_offset;
 	enum rss_hash_type	 rss_type;
 	u32			 num_inqs;
@@ -418,7 +423,7 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 
 	return 0;
 }
-#endif
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 
 int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
@@ -426,7 +431,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	struct mqa_queue_params		 mqa_params;
 	struct giu_gpio_outtc_params	*outtc_par;
 	struct giu_gpio_intc_params	*intc_par;
-	struct giu_gpio_lcl_q_params	*lcl_q_par;
 	struct giu_gpio_rem_q_params	*rem_q_par;
 	struct giu_gpio_intc		*intc;
 	struct giu_gpio_outtc		*outtc;
@@ -492,6 +496,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		outtc->interimq.desc_total = qlen;
 		outtc->interimq.prod_val = 0;
 		outtc->interimq.cons_val = 0;
+		outtc->interimq.payload_offset = 0; /* TODO: add support for pkt-offset */
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 		/* Create Remote BM queues */
@@ -548,7 +553,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		pr_debug("Initializing Local Out queues\n");
 		outtc->num_outqs = outtc_par->num_outqs;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		/* in this mode, only single local-Q is allowedfor application use
+		/* in this mode, only single local-Q is allowed for application use
 		 * since we need all the local-Qs for creating the remote-Q-pairs
 		 */
 		if (outtc_par->num_outqs != 1) {
@@ -559,10 +564,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		outtc->num_outqs = outtc_par->num_rem_inqs;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			lcl_q_par = &(outtc_par->outqs_params[q_idx]);
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-			lcl_q_par = &(outtc_par->outqs_params[0]);
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			lcl_q = &(outtc->outqs[q_idx]);
 
 			/* Allocate queue from MQA */
@@ -574,7 +575,10 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 			mqa_params.idx  = lcl_q->q_id;
-			mqa_params.len  = lcl_q_par->len;
+			mqa_params.len  = outtc_par->outqs_params[q_idx].len;
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+			mqa_params.len  = outtc_par->rem_inqs_params[q_idx].q_params.len;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			mqa_params.size = gie_get_desc_size(RX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
 			mqa_params.copy_payload = 1;
@@ -592,7 +596,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			lcl_q->queue.last_cons_val = 0;
 			lcl_q->queue.prod_addr = queue_info.prod_virt;
 			lcl_q->queue.cons_addr = queue_info.cons_virt;
-			lcl_q->queue.payload_offset = 0; /* TODO: add supor tfor pkt-offset */
+			lcl_q->queue.payload_offset = 0; /* TODO: add support for pkt-offset */
 		}
 
 		/* Create Remote In queues */
@@ -671,6 +675,16 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		intc_par = &(params->intcs_params[tc_idx]);
 		intc = &((*gpio)->intcs[tc_idx]);
 
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+		/* we assume that all Qs (in a specific TC) has the same size */
+		/* this is totaly virtual Q so no need to allocate descriptors for it */
+		intc->interimq.descs = NULL;
+		intc->interimq.desc_total = params->intcs_params[tc_idx].inqs_params[0].len;
+		intc->interimq.prod_val = 0;
+		intc->interimq.cons_val = 0;
+		intc->interimq.payload_offset = 0; /* TODO: add support for pkt-offset */
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
 		/* Create Local In queues */
 		pr_debug("Initializing Local In queues\n");
 		intc->pkt_offset = intc_par->pkt_offset;
@@ -687,7 +701,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		}
 		intc->num_inqs = intc_par->num_inqs;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		/* in this mode, only single local-Q is allowedfor application use
+		/* in this mode, only single local-Q is allowed for application use
 		 * since we need all the local-Qs for creating the remote-Q-pairs
 		 */
 		if (intc_par->num_inqs != 1) {
@@ -698,10 +712,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		intc->num_inqs = intc_par->num_rem_outqs;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-			lcl_q_par = &(intc_par->inqs_params[q_idx]);
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-			lcl_q_par = &(intc_par->inqs_params[0]);
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			lcl_q = &(intc->inqs[q_idx]);
 
 			/* Allocate queue from MQA */
@@ -713,7 +723,10 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 			mqa_params.idx  = lcl_q->q_id;
-			mqa_params.len  = lcl_q_par->len;
+			mqa_params.len  = intc_par->inqs_params[q_idx].len;
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+			mqa_params.len  = intc_par->rem_outqs_params[q_idx].len;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			mqa_params.size = gie_get_desc_size(TX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
 
@@ -737,7 +750,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			lcl_q->queue.last_cons_val = 0;
 			lcl_q->queue.prod_addr = queue_info.prod_virt;
 			lcl_q->queue.cons_addr = queue_info.cons_virt;
-			lcl_q->queue.payload_offset = 0; /* TODO: add supor tfor pkt-offset */
+			lcl_q->queue.payload_offset = 0; /* TODO: add support for pkt-offset */
 		}
 
 		/* Create Remote Out queues */
@@ -1171,8 +1184,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 #endif
 
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	if (outtc->num_rem_inqs > 1)
-		return giu_gpio_send_multi_q(gpio, tc, descs, num);
+	return giu_gpio_send_multi_q(gpio, tc, descs, num);
 #endif
 	/* Get queue params */
 	txq = &outtc->outqs[qid].queue;
@@ -1289,9 +1301,6 @@ int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 	u16 shadow_q_tx_num;
 	u32 cons_val[outtc->num_outqs];
 	u8 i;
-
-	if (outtc->num_rem_inqs == 1)
-		return giu_gpio_get_num_outq_done_internal(gpio, tc, 0, num);
 
 	*num = 0;
 	shadow_q_tx_num = QUEUE_OCCUPANCY(interimq->prod_val, interimq->cons_val, interimq->desc_total);
@@ -1454,6 +1463,10 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 
 			q_info->offset = queue->payload_offset;
 			q_info->size = queue->desc_total - 1;
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+			q_info->offset = gpio->intcs[tc_idx].interimq.payload_offset;
+			q_info->size = gpio->intcs[tc_idx].interimq.desc_total - 1;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		}
 
 		/* Set BPool handlers */
@@ -1487,6 +1500,10 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 			/* TODO: done now we assume out q and done q has the same attributes */
 			q_info->offset = done_q_info->offset = queue->payload_offset;
 			q_info->size = done_q_info->size = queue->desc_total - 1;
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+			q_info->offset = done_q_info->offset = gpio->outtcs[tc_idx].interimq.payload_offset;
+			q_info->size = done_q_info->size = gpio->outtcs[tc_idx].interimq.desc_total - 1;
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		}
 	}
 
