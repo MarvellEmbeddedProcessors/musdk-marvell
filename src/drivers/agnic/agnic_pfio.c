@@ -551,8 +551,8 @@ int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **p
 	*(u32 *)(&_pfio->mac[4]) = *(u32 *)(&_pfio->nic_cfg->mac_addr[4]);
 
 	/* Initialize _pfio fields */
-	_pfio->tx_ring_size = params->qs_size;
-	_pfio->rx_ring_size = params->qs_size;
+	_pfio->tx_ring_size = params->out_qs_size;
+	_pfio->rx_ring_size = params->in_qs_size;
 
 	err = agnic_init_q_indeces(_pfio);
 	if (err) {

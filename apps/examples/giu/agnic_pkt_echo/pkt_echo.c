@@ -36,7 +36,8 @@
 #define AGNIC_DEFAULT_NUM_TCS			1
 #define AGNIC_DEFAULT_PKT_OFFS			0
 #define AGNIC_BPOOLS_BUFF_SIZE			2048
-#define AGNIC_DEFAULT_Q_SIZE			2048
+#define AGNIC_DEFAULT_IN_Q_SIZE			2048
+#define AGNIC_DEFAULT_OUT_Q_SIZE		2048
 
 #define PKT_ECHO_APP_MAX_NUM_CORES		4
 #define PKT_ECHO_APP_MAX_NUM_PORTS		1
@@ -588,7 +589,8 @@ static int init_global(void *arg)
 	pfio_params.num_in_tcs = AGNIC_DEFAULT_NUM_TCS;
 	pfio_params.num_out_tcs = AGNIC_DEFAULT_NUM_TCS;
 	pfio_params.num_qs_per_tc = garg->cmn_args.cpus;
-	pfio_params.qs_size = AGNIC_DEFAULT_Q_SIZE;
+	pfio_params.in_qs_size = AGNIC_DEFAULT_IN_Q_SIZE;
+	pfio_params.out_qs_size = AGNIC_DEFAULT_OUT_Q_SIZE;
 	pfio_params.buff_size = AGNIC_BPOOLS_BUFF_SIZE;
 	pfio_params.pkt_offset = garg->cmn_args.pkt_offset;
 	if (garg->cmn_args.cpus > 1)
@@ -608,7 +610,7 @@ static int init_global(void *arg)
 
 	for (i = 0; i < pfio_params.num_in_tcs; i++)
 		for (j = 0; j < pfio_params.num_qs_per_tc; j++) {
-			err = app_build_bpool(garg->pfio, i, j, pfio_params.qs_size, pfio_params.buff_size);
+			err = app_build_bpool(garg->pfio, i, j, pfio_params.in_qs_size, pfio_params.buff_size);
 			if (err) {
 				pr_err("Failed to fill AGNIC BPool (%d,%d)!\n", i, j);
 				return err;
@@ -691,7 +693,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->ports_desc[i].pfio_id	= 0;
 	larg->ports_desc[i].pfio	= garg->pfio;
 	larg->ports_desc[i].num_shadow_qs = AGNIC_DEFAULT_NUM_TCS * larg->cmn_args.garg->cmn_args.cpus;
-	larg->ports_desc[i].shadow_q_size = AGNIC_DEFAULT_Q_SIZE;
+	larg->ports_desc[i].shadow_q_size = AGNIC_DEFAULT_OUT_Q_SIZE;
 
 	larg->ports_desc[i].shadow_qs =
 		(struct shadow_q *)malloc(larg->ports_desc[i].num_shadow_qs*sizeof(struct shadow_q));

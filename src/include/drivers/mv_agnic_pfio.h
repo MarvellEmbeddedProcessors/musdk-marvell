@@ -84,7 +84,8 @@ struct agnic_pfio_init_params {
 	u8				 num_out_tcs;
 	u8				 num_qs_per_tc;
 	enum agnic_pfio_hash_type	 hash_type;
-	u16				 qs_size;
+	u16				 in_qs_size;
+	u16				 out_qs_size;
 	u16				 buff_size;
 	u16				 pkt_offset;
 };
