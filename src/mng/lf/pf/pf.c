@@ -2656,19 +2656,55 @@ int nmnicpf_deinit(struct nmnicpf *nmnicpf)
 int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 {
 	size_t	 pos = 0;
+	u8	 bm_idx, num_pools;
 	int	 ret;
+	int	 giu_id = 0; /* Support only a single GIU */
+
+	/* build relation-information first */
+	json_print_to_buffer(buff, size, 1, "\"relations-info\": {\n");
+	/* serialize the relations of the GIU objects */
+	json_print_to_buffer(buff, size, 2, "\"giu-gpio\": \"gpio-%d:%d\",\n",
+			     giu_id, nmnicpf->pf_id);
+	num_pools = nmnicpf->gpio_params.intcs_params[0].num_inpools;
+	json_print_to_buffer(buff, size, 2, "\"num_bpools\": %d,\n", num_pools);
+	for (bm_idx = 0; bm_idx < num_pools; bm_idx++) {
+		if ((bm_idx == num_pools - 1) &&
+			(nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_NONE))
+			json_print_to_buffer(buff, size, 2, "\"giu-bpool-%d\": \"giu_pool-%d:%d\"\n", bm_idx,
+					nmnicpf->giu_bpools[bm_idx]->giu_id, nmnicpf->giu_bpools[bm_idx]->id);
+		else
+			json_print_to_buffer(buff, size, 2, "\"giu-bpool-%d\": \"giu_pool-%d:%d\",\n", bm_idx,
+					nmnicpf->giu_bpools[bm_idx]->giu_id, nmnicpf->giu_bpools[bm_idx]->id);
+	}
+	/* serialize the relations of the PP objects */
+	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
+		ret = nmnicpf_pp2_serialize_relation_inf(nmnicpf, &buff[pos], size - pos);
+		if (ret < 0)
+			return ret;
+		pos += ret;
+		if (pos != strlen(buff)) {
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+			return -EFAULT;
+		}
+	}
+	json_print_to_buffer(buff, size, 1, "},\n");
 
 	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT) {
 		ret = nmnicpf_pp2_serialize(nmnicpf, &buff[pos], size - pos);
-		if (ret >= 0)
-			pos += ret;
-		if (pos != strlen(buff))
+		if (ret < 0)
+			return ret;
+		pos += ret;
+		if (pos != strlen(buff)) {
 			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+			return -EFAULT;
+		}
 	}
 
 	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
-	if (ret)
+	if (ret) {
 		pr_err("Failed to configure PF regfile\n");
+		return ret;
+	}
 
 	return pos;
 }

@@ -519,6 +519,7 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 	int	 rc;
 	char	*lbuff;
 	char	 tmp_buf[NMP_MAX_BUF_STR_LEN];
+	struct nmp_guest_port_info *giu_info = &guest_info->giu_info;
 	struct nmp_guest_module_info *pp2_info = &guest_info->ports_info;
 
 	lbuff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
@@ -534,13 +535,39 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 		goto rel_info_exit1;
 	}
 
+	memset(tmp_buf, 0, sizeof(tmp_buf));
+	snprintf(tmp_buf, sizeof(tmp_buf), "giu-gpio");
+	json_buffer_to_input_str(sec, tmp_buf, giu_info->port_name);
+	pr_debug("giu-port: gpio_name %s\n", giu_info->port_name);
+
+	json_buffer_to_input(sec, "num_bpools", giu_info->num_bpools);
+	pr_debug("giu-port: num_pools %d\n", giu_info->num_bpools);
+
+	giu_info->bpool_info = kcalloc(1, sizeof(struct nmp_guest_bpool_info) *
+						    giu_info->num_bpools, GFP_KERNEL);
+	if (giu_info->bpool_info == NULL) {
+		rc = -ENOMEM;
+		goto rel_info_exit1;
+	}
+	for (j = 0; j < giu_info->num_bpools; j++) {
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		snprintf(tmp_buf, sizeof(tmp_buf), "giu-bpool-%d", j);
+		json_buffer_to_input_str(sec, tmp_buf, giu_info->bpool_info[j].bpool_name);
+		pr_debug("giu-port: pool name %s\n", giu_info->bpool_info[j].bpool_name);
+	}
+
 	json_buffer_to_input(sec, "num_pp2_ports", pp2_info->num_ports);
 	pr_debug("num_ports: %d\n", pp2_info->num_ports);
+
+	if (pp2_info->num_ports == 0) {
+		kfree(lbuff);
+		return 0;
+	}
 
 	pp2_info->port_info = kcalloc(1, sizeof(struct nmp_guest_port_info) * pp2_info->num_ports, GFP_KERNEL);
 	if (pp2_info->port_info == NULL) {
 		rc = -ENOMEM;
-		goto rel_info_exit1;
+		goto rel_info_exit2;
 	}
 
 	for (i = 0; i < pp2_info->num_ports; i++) {
@@ -549,14 +576,14 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 		json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].port_name);
 		pr_debug("port: %d, ppio_name %s\n", i, pp2_info->port_info[i].port_name);
 
-		json_buffer_to_input(sec, "num_bpools", pp2_info->port_info[i].num_bpools);
+		json_buffer_to_input(sec, "num_pp2_bpools", pp2_info->port_info[i].num_bpools);
 		pr_debug("port: %d, num_pools %d\n", i, pp2_info->port_info[i].num_bpools);
 
 		pp2_info->port_info[i].bpool_info = kcalloc(1, sizeof(struct nmp_guest_bpool_info) *
 							    pp2_info->port_info[i].num_bpools, GFP_KERNEL);
 		if (pp2_info->port_info[i].bpool_info == NULL) {
 			rc = -ENOMEM;
-			goto rel_info_exit2;
+			goto rel_info_exit3;
 		}
 		for (j = 0; j < pp2_info->port_info[i].num_bpools; j++) {
 			memset(tmp_buf, 0, sizeof(tmp_buf));
@@ -568,8 +595,10 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 	kfree(lbuff);
 	return 0;
 
-rel_info_exit2:
+rel_info_exit3:
 	kfree(pp2_info->port_info);
+rel_info_exit2:
+	kfree(giu_info->bpool_info);
 rel_info_exit1:
 	kfree(lbuff);
 	return rc;

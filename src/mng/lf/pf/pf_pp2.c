@@ -230,44 +230,56 @@ int nmnicpf_pp2_port_init(struct nmnicpf *nmnicpf)
 /** == Serialization helpers == **/
 /** =========================== **/
 
-/* Serialize PP2 */
-int nmnicpf_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
+/* Serialize PP2 relation information */
+int nmnicpf_pp2_serialize_relation_inf(struct nmnicpf *nmnicpf, char *buff, u32 size)
 {
-	int	 ret;
 	size_t	 pos = 0;
-	u32	 port_index;
-	u32	 j;
+	u32	 port_index, bp_index;
 
 	if (!nmnicpf->pp2.ports_desc)
 		/* no pp2, just return */
 		return 0;
 
 	/* Serialize relations info */
-	json_print_to_buffer(buff, size, 1, "\"relations-info\": {\n");
 	json_print_to_buffer(buff, size, 2, "\"num_pp2_ports\": %d,\n", nmnicpf->pp2.num_ports);
 	for (port_index = 0; port_index < nmnicpf->pp2.num_ports; port_index++) {
 		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
 		json_print_to_buffer(buff, size, 2, "\"ppio-%d\": \"ppio-%d:%d\",\n",
 				     port_index, port->pp_id, port->ppio_id);
-		json_print_to_buffer(buff, size, 2, "\"num_bpools\": %d,\n", port->num_pools);
-		for (j = 0; j < port->num_pools; j++) {
-			if (j == port->num_pools - 1)
-				json_print_to_buffer(buff, size, 2, "\"bpool-%d\": \"pool-%d:%d\"\n", j,
-						port->pools_desc[j].pool->pp2_id, port->pools_desc[j].pool->id);
+		json_print_to_buffer(buff, size, 2, "\"num_pp2_bpools\": %d,\n", port->num_pools);
+		for (bp_index = 0; bp_index < port->num_pools; bp_index++) {
+			if (bp_index == port->num_pools - 1)
+				json_print_to_buffer(buff, size, 2, "\"bpool-%d\": \"pool-%d:%d\"\n", bp_index,
+						port->pools_desc[bp_index].pool->pp2_id,
+						port->pools_desc[bp_index].pool->id);
 			else
-				json_print_to_buffer(buff, size, 2, "\"bpool-%d\": \"pool-%d:%d\",\n", j,
-						port->pools_desc[j].pool->pp2_id, port->pools_desc[j].pool->id);
+				json_print_to_buffer(buff, size, 2, "\"bpool-%d\": \"pool-%d:%d\",\n", bp_index,
+						port->pools_desc[bp_index].pool->pp2_id,
+						port->pools_desc[bp_index].pool->id);
 		}
 	}
-	json_print_to_buffer(buff, size, 1, "},\n");
+
+	return pos;
+}
+
+/* Serialize PP2 */
+int nmnicpf_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
+{
+	int	 ret;
+	size_t	 pos = 0;
+	u32	 port_index, bp_index;
+
+	if (!nmnicpf->pp2.ports_desc)
+		/* no pp2, just return */
+		return 0;
 
 	/* Serialize bpools */
 	for (port_index = 0; port_index < nmnicpf->pp2.num_ports; port_index++) {
 		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
-		for (j = 0; j < port->num_pools; j++) {
-			ret = pp2_bpool_serialize(port->pools_desc[j].pool, &buff[pos], size - pos);
+		for (bp_index = 0; bp_index < port->num_pools; bp_index++) {
+			ret = pp2_bpool_serialize(port->pools_desc[bp_index].pool, &buff[pos], size - pos);
 			if (ret < 0)
 				return ret;
 			pos += ret;
