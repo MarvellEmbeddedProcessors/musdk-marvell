@@ -108,7 +108,6 @@ int neta_ppio_init(struct neta_ppio_params *params, struct neta_ppio **ppio)
 	ppio_ptr->port_id = port_id;
 	ppio_ptr->internal_param = port;
 	*ppio = ppio_ptr;
-
 	neta_ppio_set_loopback(*ppio, false);
 
 	return rc;
@@ -739,6 +738,10 @@ int neta_ppio_flush_mac_addrs(struct neta_ppio *ppio, int uc, int mc)
 int neta_ppio_get_link_state(struct neta_ppio *ppio, int *en)
 {
 	int rc;
+
+	rc = neta_port_get_loopback(GET_PPIO_PORT(ppio), en);
+	if (!rc && *en)
+		return rc;
 
 	rc = neta_port_get_link_state(GET_PPIO_PORT(ppio), en);
 	return rc;
