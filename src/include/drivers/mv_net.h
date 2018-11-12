@@ -108,8 +108,11 @@
 
 /* Number of octets (8-bit bytes) in an ethernet address */
 #define MV_ETH_ALEN		6
+#define MV_ETH_HLEN		14
+#define MV_ETH_FCS_LEN		4
 
 /* Similar to if_vlan.h */
+#define MV_VLAN_TAG_LEN		4
 #define MV_VLAN_PRIO_MASK	0xe000 /* Priority Code Point */
 #define MV_VLAN_PRIO_SHIFT	13
 #define MV_VLAN_CFI_MASK	0x1000 /* Canonical Format Indicator */
@@ -127,6 +130,26 @@
 
 /* Local addition */
 #define MV_DSCP_NUM		(1 + MV_XT_DSCP_MAX)
+
+#define MV_DEFAULT_MTU		(1500)
+
+/* Max-Transmit-unit (L3) to Max-Receive-Unit */
+#define MV_MTU_TO_MRU(mtu) \
+	((mtu) + MV_MH_SIZE + MV_VLAN_TAG_LEN + \
+	MV_ETH_HLEN + MV_ETH_FCS_LEN)
+
+/* Max-Receive-Unit to Max-Transmit-unit (L3) */
+#define MV_MRU_TO_MTU(mru) \
+	((mru) - MV_MH_SIZE - MV_VLAN_TAG_LEN - \
+	MV_ETH_HLEN - MV_ETH_FCS_LEN)
+
+/* Max-Transmit-unit (L3) to Max-Frame-Length (L2 inc) */
+#define MV_MTU_TO_MFL(mtu) \
+	((mtu) + MV_VLAN_TAG_LEN + MV_ETH_HLEN)
+
+/* Max-Frame-Length (L2 inc) to Max-Transmit-unit (L3) */
+#define MV_MFL_TO_MTU(mfl) \
+	((mfl) - MV_VLAN_TAG_LEN - MV_ETH_HLEN)
 
 enum mv_net_eth_dsa_tag_mode_values {
 	MV_NET_TO_CPU_DSA_TAG_MODE =		0,

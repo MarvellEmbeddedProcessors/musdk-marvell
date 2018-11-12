@@ -409,10 +409,8 @@ struct pp2_bm_pool {
 
 /* Port minimum MTU in bytes */
 #define PP2_PORT_MIN_MTU         (68) /* Required to support IPV4, per RFC791 */
-#define PP2_PORT_MIN_MRU         (MVPP2_MTU_TO_MRU(PP2_PORT_MIN_MTU))
+#define PP2_PORT_MIN_MRU         (MV_MTU_TO_MRU(PP2_PORT_MIN_MTU))
 
-/* Port default MTU in bytes */
-#define PP2_PORT_DEFAULT_MTU     (1500)
 /* Port TX FIFO constants */
 
 /* Minimum threshold 256 bytes */

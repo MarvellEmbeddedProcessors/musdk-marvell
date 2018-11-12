@@ -247,19 +247,7 @@ struct neta_port {
 
 /* Port minimum MTU in bytes */
 #define MVNETA_PORT_MIN_MTU		(68) /* Required to support IPV4, per RFC791 */
-#define MVNETA_PORT_MIN_MRU		(MVNETA_MTU_TO_MRU(MVNETA_PORT_MIN_MTU))
-
-/* Port default MTU in bytes */
-#define MVNETA_PORT_DEFAULT_MTU		(1500)
-
-#define MVNETA_MTU_TO_MRU(mtu) \
-	((mtu) + MV_MH_SIZE + NETA_VLAN_TAG_LEN + \
-	ETH_HLEN + ETH_FCS_LEN)
-
-#define MVNETA_MRU_TO_MTU(mru) \
-	((mru) - MV_MH_SIZE - NETA_VLAN_TAG_LEN - \
-	ETH_HLEN - ETH_FCS_LEN)
-
+#define MVNETA_PORT_MIN_MRU		(MV_MTU_TO_MRU(MVNETA_PORT_MIN_MTU))
 
 int neta_is_initialized(void);
 

@@ -28,7 +28,6 @@
 #include "pf_topology.h"
 #include "pf_pci_if_desc.h"
 #include "env/trace/trc_pf.h"
-#include "drivers/ppv2/pp2_hw_type.h"
 
 
 #define PLAT_AGNIC_UIO_NAME	"agnic"
@@ -1630,7 +1629,7 @@ static int nmnicpf_mtu_command(struct nmnicpf *nmnicpf,
 			return ret;
 		}
 
-		ret = pp2_ppio_set_mru(nmnicpf->pp2.ports_desc[0].ppio, MVPP2_MTU_TO_MRU(new_mtu));
+		ret = pp2_ppio_set_mru(nmnicpf->pp2.ports_desc[0].ppio, MV_MTU_TO_MRU(new_mtu));
 		if (ret) {
 			/* restore previous mtu value */
 			pp2_ppio_set_mtu(nmnicpf->pp2.ports_desc[0].ppio, orig_mtu);

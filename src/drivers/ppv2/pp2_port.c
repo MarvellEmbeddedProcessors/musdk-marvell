@@ -1201,11 +1201,11 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 
 	/* Provide an initial MTU */
 	port->flags = PP2_PORT_FLAGS_L4_CHKSUM;
-	port->port_mtu = PP2_PORT_DEFAULT_MTU;
+	port->port_mtu = MV_DEFAULT_MTU;
 	pp2_port_check_mtu_valid(port, port->port_mtu);
 
 	/* Provide an initial MRU */
-	port->port_mru = MVPP2_MTU_TO_MRU(PP2_PORT_DEFAULT_MTU);
+	port->port_mru = MV_MTU_TO_MRU(port->port_mtu);
 
 	/* TODO: Below fn_call is incorrect.
 	 * Should mask Interrupts:

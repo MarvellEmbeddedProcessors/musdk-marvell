@@ -1423,10 +1423,6 @@
 
 #define MVPP2_CAUSE_TXQ_SENT_DESC_ALL_MASK	0xff
 
-#define MVPP2_ETH_TYPE_LEN		2
-#define MVPP2_PPPOE_HDR_SIZE		8
-#define MVPP2_VLAN_TAG_LEN		4
-
 /* Lbtd 802.3 type */
 #define MVPP2_IP_LBDT_TYPE		0xfffa
 
@@ -1492,20 +1488,10 @@
 
 /* RX buffer constants */
 #define MVPP2_SKB_SHINFO_SIZE (0)
-#define ETH_HLEN    14
-#define ETH_FCS_LEN  4
 
 #define MVPP2_MTU_PKT_SIZE(mtu) \
-	(ALIGN((mtu) + MV_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
-	      ETH_HLEN + ETH_FCS_LEN, L1_CACHE_LINE_BYTES))
-
-#define MVPP2_MTU_TO_MRU(mtu) \
-	((mtu) + MV_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
-	ETH_HLEN + ETH_FCS_LEN)
-
-#define MVPP2_MRU_TO_MTU(mru) \
-	((mru) - MV_MH_SIZE - MVPP2_VLAN_TAG_LEN - \
-	ETH_HLEN - ETH_FCS_LEN)
+	(ALIGN((mtu) + MV_MH_SIZE + MV_VLAN_TAG_LEN + \
+	      MV_ETH_HLEN + MV_ETH_FCS_LEN, L1_CACHE_LINE_BYTES))
 
 #define MVPP2_MRU_BUF_SIZE(mru, offset)		(ALIGN((offset + mru), L1_CACHE_LINE_BYTES))
 #define MVPP2_MTU_BUF_SIZE(mtu, offset)		(ALIGN(offset + MVPP2_MTU_PKT_SIZE(mtu)), L1_CACHE_LINE_BYTES)
