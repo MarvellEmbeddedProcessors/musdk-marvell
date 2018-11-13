@@ -8,425 +8,12 @@
 #define log_fmt(fmt) "gie: " fmt
 
 #include "std_internal.h"
-#include "hw_emul/gie.h"
 #include "env/trace/trc_pf.h"
 #include "drivers/mqa_def.h"
-#include "gie_buff_desc.h"
-
-/* MUSDK includes */
 #include "drivers/mv_dmax2.h"
 
-#define GIE_MAX_NAME		256
-#define GIE_MAX_DMA_JOBS	4096
-#define GIE_DMAX2_Q_SIZE	4096
+#include "gie_int.h"
 
-#define GIE_MAX_QES_IN_BATCH	64
-
-#define GIE_MAX_PRIOS		8
-#define GIE_MAX_Q_PER_PRIO	128
-#define GIE_MAX_BPOOLS		16
-#define GIE_MAX_BM_PER_Q	1
-#define GIE_SHADOW_FILL_SIZE	256
-#define GIE_SHADOW_FILL_THRESH	128
-
-/* #define GIE_VERIFY_DMA_OP */
-
-#define GIE_MAX_QID		(UINT16_MAX + 1)
-
-#define GIE_AGNIC_UIO_STRING	"agnic_tc_%u"
-
-struct gie_event_data {
-	struct gie *gie;
-	int enable;
-	struct gie_event_params ev_params;
-};
-
-
-struct gie_regfile {
-	u32	ctrl;
-	u32	status;
-	u64	gct_base;
-	u64	gpt_base;
-
-	/* MSI phys/virt register base */
-	u64 msi_regs_phys;
-	u64 msi_regs_virt;
-};
-
-struct msix_table_entry {
-	u64 msg_addr;
-	u32 msg_data;
-	u32 vector_ctrl;
-};
-
-/* This structure describes a queue from the GIE perspective
- * it may be used for buffer pool queues and data queues alike
- * some of the members are copied from the QCE .This is done to
- * avoid accessing the QCEs in runtime which might cause thrashing.
- *
- * ring_phys		physical address of ring base
- * ring_virt		virtual address of ring base
- * msg_head_phys	physical address to read/write head updates to/from
- * msg_tail_phys	physical address to read/write tail updates to/from
- * msg_head_virt	virtual address to read/write head updates to/from
- * msg_tail_virt	virtual address to read/write tail updates to/from
- * host_remap		base address of the host memory in local memory space
- * packets		number of packets processed by this queue
- *
- * idx_ring_virt	the following four parameters describe the index ring.
- * idx_ring_phys	A ring that temporarily holds head/tail values until
- * idx_ring_size	the DMA engine copies them to the destination
- * idx_ring_ptr		_virt/_phys = address of ring. _ptr = location in ring
- *
- * prio			the priority associated with the ring
- * qlen			size of queue in elements
- * qesize		size of queue element
- * qid			the global queue id
- * tail			local tail value
- * head			local head value
- * qe_tail		next descriptor to copy
- * qe_head		next descriptor to process (already copied)
- * desc_len_pos		position of len field in descriptor
- * desc_addr_pos	position of buffer address field in descriptor
- * desc_cookie_pos	position of cookie field in descriptor
- *
- *
- * in general an GIU queue has the following indices.
- * The internal indices (qe_*, buf_*) are currently only maintained for src queues.
- *
- * tail:	is updated by the producing entity (never GIU for source queues)
- * qe_tail:	updated every time a QE copy is submitted to dma
- * qe_head:	updated every time a QE copy completea
- * head:	updated when processing completes on the element.
- *		(buffer copy in egress path, QE copy in ingress path)
- *
- * The diagram below shows a possible queue state for egress and ingress path
- * in egress path, the QE are copied first and then the buffers.
- * In ingress the opposite flow occurs.
- *
- *		 Egress Q state		Ingress Q state
- *		-----------------	-----------------
- *		|		|	|		|
- *		|    empty	|	|     empty	|
- *		|		|	|		|
- *		|		|	|		|
- *	tail -> +---------------+	+---------------+ <- tail
- *		|   QEs		|	|		|
- *		|   to copy	|	|		|
- *   qe_tail ->	+---------------+       |		|
- *		|   QEs	        |       |		|
- *		|   under copy  |	|  QEs to copy	|
- *   qe_head ->	+---------------+       |		|
- *		|  bufs to copy	|       |		|
- *		|		|       |		|
- *		|		|       |		|
- *      head ->	+---------------+	+---------------+ <- head
- *		|		|	|		|
- *		|    empty	|	|     empty	|
- *		|		|	|		|
- *		-----------------	-----------------
- */
-struct gie_queue {
-	u64	ring_phys;
-	u64	ring_virt;
-	u64	msg_head_phys;
-	u64	msg_tail_phys;
-	u64	msg_head_virt;
-	u64	msg_tail_virt;
-	u64	host_remap;
-	u64	packets;
-	u16	*idx_ring_virt;
-	u16	*idx_ring_phys;
-	u32	idx_ring_size;
-	u32	idx_ring_ptr;
-	u32	prio;
-	u16	qlen;
-	u16	qid;
-	u16	tail;
-	u16	head;
-	u16	qe_tail;
-	u16	qe_head;
-	u16	desc_len_pos;
-	u16	desc_addr_pos;
-	u16	desc_cookie_pos;
-	u8	qesize;
-	/* MSI message info */
-	u64	msi_virt_addr;
-	u32	msi_data;
-};
-
-/* Structure describing an GIE buffer pool
- *
- * src_q	the bpool queue to consume
- * shadow	Local BM shadow queue used to copy buffer entries from host
- *		Only relevant for host bpools
- * buf_size	the size of the buffers in the buffer pool
- * flags	misc flags
- *		GIE_BPOOL_REMOTE	the ring resides on host memory
- */
-struct gie_bpool {
-	struct	gie_queue src_q;
-	struct	gie_queue shadow;
-	u32	buf_size;
-#define GIE_BPOOL_REMOTE	(1 << 0)
-	u32	flags;
-};
-
-/* variables specific to data queues (i.e. RX/TX)
- *
- * qpd		queue producer descriptor from QPT
- * qcd		queue consumer descriptor from QCT
- * src_q	the source queue to read from
- * dst_q	the destination queue to write to
- * flags	misc flags
- *		GIE_QPAIR_VALID	queue pair is valid
- *		GIE_QPAIR_ACTIVE	queue pair should be processed
- *		GIE_QPAIR_CP_PAYLOAD	queue pair has payload
- *		GIE_QPAIR_REMOTE	source ring is on host memory
- * dst_bpools	The bpools of the destination queues
- */
-struct gie_q_pair {
-	struct mqa_qct_entry	*qcd;
-	struct mqa_qpt_entry	*qpd;
-	struct gie_queue	src_q;
-	struct gie_queue	dst_q;
-#define		GIE_QPAIR_VALID		(1 << 0)
-#define		GIE_QPAIR_ACTIVE	(1 << 1)
-#define		GIE_QPAIR_CP_PAYLOAD	(1 << 4)
-#define		GIE_QPAIR_REMOTE	(1 << 5)
-	u32	flags;
-	struct	gie_bpool *dst_bpools[GIE_MAX_BM_PER_Q];
-};
-
-/* variables specific to priorities
- *
- * flags	misc flags
- *		GIE_PRIO_VALID	priority is valid
- *		GIE_PRIO_ACTIVE	priority should be processed
- * q_cnt	indicate how many queues available within this priority
- * curr_q	the current queue to schedule
- * qpairs	queue pair descriptors
- */
-struct gie_prio {
-#define		GIE_PRIO_VALID	(1 << 0)
-#define		GIE_PRIO_ACTIVE	(1 << 1)
-	u32			flags;
-	u16			q_cnt;
-	u16			curr_q;
-	struct gie_q_pair	qpairs[GIE_MAX_Q_PER_PRIO];
-};
-
-/* Describes transactions submitted to dma
- * To reduce overehead, a single dma_job_info struct
- * can desribe multiple dma descriptors submitted for processing
- *
- * cookie		use to resture the queue or queue pair
- * elements_per_desc	total elements a single dma descriptor copies
- * desc_count		total descriptors in entire job
- * flags
- *	DMA_FLAG_IS_QE	this job describes qe copy and not buffer copy
- */
-struct dma_job_info {
-	void	*cookie;
-	u64	cookie_dst;
-	u64	cookie_head;
-	u64	cookie_tail;
-	u32	elements_per_desc;
-	u32	desc_count;
-#define DMA_FLAGS_NONE			(0)
-#define DMA_FLAGS_UPDATE_IDX		(1 << 0)
-#define DMA_FLAGS_PRODUCE_IDX		(1 << 1)
-#define DMA_FLAGS_BUFFER_IDX		(1 << 2)
-	u32	flags;
-};
-
-/* holds persistent dma information associated with and GIU emulator
- *
- * dma_jobs	an array containing dma_job_info elements
- *		updated on job submission and read when handling
- *		completed dma jobs from dma engine
- * dmax2	handle to HW DMA engine
- * tail		index to next element to add
- * head		index of next element to remove
- * qlen		size in elements of job queue
- */
-struct dma_info {
-	struct dma_job_info	dma_jobs[GIE_MAX_DMA_JOBS];
-	struct dmax2		*dmax2;
-	u16			tail;
-	u16			head;
-	u16			qlen;
-};
-
-/* used to describe dma copy jobs to dma wrapper functions
- *
- * cookie	used to recover queue information
- * src		source physical pointer
- * dst		destination physical pointer
- * element_size size of each element to copy
- * flags	job flags, same as in job_info
- * element_cnt	number of elements to copy
- */
-struct dma_job {
-	void	*cookie;
-	u64	cookie_dst;
-	u64	cookie_head;
-	u64	cookie_tail;
-	u64	src;
-	u64	dst;
-	u32	element_size;
-	u32	flags;
-	u16	element_cnt;
-};
-
-/*
- * The main gie data structure. We have one per emulator.
- * This structure is internal and used only by the emulator
- * to track it's information
- *
- * name		name of the GIU instance
- * dmax2	a handle to the MUSDK dma engine
- * regs		the GIU register file
- * bpools	BM queue descriptors
- * q_cnt	queue pair count per priority
- * bp_cnt	buffer pool count
- * curr_prio	the current priority to schedule
- */
-struct gie {
-	char			name[GIE_MAX_NAME];
-	struct dma_info		dma;
-	struct gie_regfile	*regs;
-	struct gie_prio		prios[GIE_MAX_PRIOS];
-	struct gie_bpool	bpools[GIE_MAX_BPOOLS];
-	u16			bp_cnt;
-	u16			curr_prio;
-};
-
-#define map_host_addr(host_addr, q)	(q->host_remap + host_addr)
-
-/* queue handling macros. assumes q size is always power of 2 */
-#define q_occupancy(q)		((q->tail - q->head + q->qlen) & (q->qlen - 1))
-#define q_space(q)		(q->qlen - q_occupancy(q) - 1)
-#define q_empty(q)		(q->tail == q->head)
-#define q_wraps(q)		(q->tail < q->head)
-
-#define qes_to_copy(q)			((q->tail - q->qe_tail + q->qlen) & (q->qlen - 1))
-/* How many "empty" QEs we have in queue.
- * i.e. How many QE DMA operations we can perform on the "dest" queue before we
- * reach the constumer pointer of that queue.
- */
-#define qes_copy_space(q)		((q->head - q->qe_tail + q->qlen - 1) & (q->qlen - 1))
-#define qes_in_copy(q)			((q->qe_tail - q->qe_head + q->qlen) & (q->qlen - 1))
-#define qes_copied(q)			((q->qe_head - q->head + q->qlen) & (q->qlen - 1))
-#define bufs_to_copy(q)			qes_copied(q)
-
-#define q_idx_add(idx, val, qlen) (idx = (idx + val) & (qlen - 1))
-
-/* function declarations. */
-static void gie_clean_dma_jobs(struct dma_info *dma);
-
-
-/* Initialize the emulator. Basically the emulator only needs
- * the register base and the DMA engine from the caller.
- * The rest is initializations of local data structures
- */
-int gie_init(struct gie_params *gie_params, struct gie **gie)
-{
-	struct dmax2_params dmax2_params;
-	struct dma_info *dma;
-	struct gie_regfile *gie_regs;
-	int err = 0;
-
-	pr_info("Initializing %s-giu instance\n", gie_params->name_match);
-
-	/* allocate GIU emulator handler */
-	*gie = kcalloc(1, sizeof(struct gie), GFP_KERNEL);
-	if (*gie == NULL)
-		return -ENOMEM;
-
-	/* allocate pseudo regfile for the GIU emulator */
-	gie_regs = kcalloc(1, sizeof(struct gie_regfile), GFP_KERNEL);
-	if (gie_regs == NULL) {
-		kfree(*gie);
-		return -ENOMEM;
-	}
-
-	strncpy((*gie)->name, gie_params->name_match, GIE_MAX_NAME);
-	dma = &((*gie)->dma);
-
-	/* Open a MUSDK DMAx2 channel */
-	dmax2_params.match = gie_params->dmax_match;
-	dmax2_params.queue_size = GIE_DMAX2_Q_SIZE;
-	err = dmax2_init(&dmax2_params, &(dma->dmax2));
-	if (err) {
-		pr_err("Failed to initialize MUSDK dmax2\n");
-		goto init_error;
-	}
-
-	err = dmax2_set_mem_attributes(dma->dmax2, DMAX2_TRANS_LOCATION_SRC_AND_DST, DMAX2_TRANS_MEM_ATTR_CACHABLE);
-	if (err) {
-		pr_err("Failed to set dmax2 attributes\n");
-		goto attr_error;
-	}
-
-	gie_regs->gct_base	= gie_params->gct_base;
-	gie_regs->gpt_base	= gie_params->gpt_base;
-	/* Set MSI registers (for sending MSI messages) Phy/Virt addresses */
-	gie_regs->msi_regs_phys	= gie_params->msi_regs_phys;
-	gie_regs->msi_regs_virt	= gie_params->msi_regs_virt;
-
-	(*gie)->regs = gie_regs;
-
-	/* reset the dma job queue */
-	dma->tail = dma->head = 0;
-	dma->qlen = GIE_MAX_DMA_JOBS;
-
-	return 0;
-
-attr_error:
-	dmax2_deinit(dma->dmax2);
-
-init_error:
-	kfree(*gie);
-	kfree(gie_regs);
-
-	return err;
-}
-
-/* Close the GIU emulator device.
- * At this point we assume that there is no active traffic.
- * We basically Close the MUSDK DMAx2 channel and free memory
- */
-int gie_terminate(struct gie *gie)
-{
-	int ret;
-
-	pr_info("Terminating %s-giu instance\n", gie->name);
-
-	/* TODO
-	 * - check that all DMA transactions are closed
-	 *   - remove all queues and free shadow bpools
-	 */
-
-	if (gie->dma.dmax2 == NULL) {
-		pr_err("Invalid DMA handle in %s-giu\n", gie->name);
-		return -ENODEV;
-	}
-
-	ret = dmax2_deinit(gie->dma.dmax2);
-	if (ret)
-		pr_warn("Failed to close MUSDK DMA channel\n");
-
-	kfree(gie->regs);
-
-	kfree(gie);
-	return ret;
-}
-
-void *gie_regs(void *giu)
-{
-	return (void *)(((struct gie *)giu)->regs);
-}
 
 static struct gie_q_pair *gie_find_q_pair(struct gie *gie, u16 qid)
 {
@@ -536,97 +123,6 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 	return 0;
 }
 
-int gie_add_queue(void *giu, u16 qid, int is_remote)
-{
-	struct gie *gie = (struct gie *)giu;
-	struct gie_q_pair *qp = NULL;
-	struct mqa_qct_entry *qcd;
-	struct mqa_qpt_entry *qpd;
-	struct gie_bpool *bpool;
-	int i, copy_payload, ret;
-	u32 prio;
-
-	pr_debug("adding qid %d to %s-giu\n", qid, gie->name);
-
-	qcd = (struct mqa_qct_entry *)gie->regs->gct_base + qid;
-	qpd = (struct mqa_qpt_entry *)gie->regs->gpt_base + qcd->spec.dest_queue_id;
-	prio = qcd->common.queue_prio;
-	copy_payload = qcd->common.flags & MQA_QFLAGS_COPY_BUF;
-
-	/* Find an empty q_pair slot */
-	for (i = 0; i < GIE_MAX_Q_PER_PRIO; i++) {
-		if (!(gie->prios[prio].qpairs[i].flags & GIE_QPAIR_VALID)) {
-			qp = &gie->prios[prio].qpairs[i];
-			break;
-		}
-	}
-
-	if (qp == NULL) {
-		pr_err("No space to add queue %d\n", qid);
-		return -ENOSPC;
-	}
-
-	ret = gie_init_queue(gie, &qp->src_q, &qcd->common, is_remote, qid);
-	if (ret)
-		return ret;
-	qp->src_q.qid = qid;
-	qp->qcd = qcd;
-
-	ret = gie_init_queue(gie, &qp->dst_q, &qpd->common, is_remote, qcd->spec.dest_queue_id);
-	if (ret)
-		return ret;
-	qp->dst_q.qid = qcd->spec.dest_queue_id;
-	qp->qpd = qpd;
-
-	/* Set MSI-X message info for dest Q of remote side */
-	if (qpd->common.msix_inf.id) {
-		pr_debug("Register MSI-X %d for dst-Q %d\n", qpd->common.msix_inf.id, qp->dst_q.qid);
-
-		/* Set message info */
-		qp->dst_q.msi_virt_addr = (u64)qpd->common.msix_inf.va;
-		qp->dst_q.msi_data = qpd->common.msix_inf.data;
-
-		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
-			msix_entry->msg_addr, qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
-	}
-	/* Set MSI-X message info for source Q of remote side */
-	if (qcd->common.msix_inf.id) {
-		pr_debug("Register MSI-X %d for src-Q %d\n", qcd->common.msix_inf.id, qp->src_q.qid);
-
-		/* Set message info */
-		qp->src_q.msi_virt_addr = (u64)qcd->common.msix_inf.va;
-		qp->src_q.msi_data = qcd->common.msix_inf.data;
-
-		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
-			msix_entry->msg_addr, qp->src_q.msi_virt_addr, qp->src_q.msi_data);
-	}
-
-	/* Find the bpools and keep local pointers */
-	if (copy_payload) {
-		for (i = 0; i < GIE_MAX_BM_PER_Q; i++) {
-			bpool = gie_find_bpool(gie->bpools, gie->bp_cnt, qpd->common.queue_ext.bm_queue[i]);
-			if (bpool == NULL) {
-				pr_err("Failed to find bpool for destination queue %d\n", qid);
-				return -ENODEV;
-			}
-			qp->dst_bpools[i] = bpool;
-		}
-	}
-
-	qp->flags = GIE_QPAIR_VALID | GIE_QPAIR_ACTIVE;
-	if (is_remote)
-		qp->flags |= GIE_QPAIR_REMOTE;
-	if (copy_payload)
-		qp->flags |= GIE_QPAIR_CP_PAYLOAD;
-	gie->prios[prio].flags = GIE_PRIO_VALID | GIE_PRIO_ACTIVE;
-
-	gie->prios[prio].q_cnt++;
-	pr_debug("Added %s Q %d on GIE-%s\n", (is_remote?"rem":"lcl"), qp->src_q.qid, gie->name);
-	pr_debug("Added %s Q %d on GIE-%s\n", (!is_remote?"rem":"lcl"), qp->dst_q.qid, gie->name);
-
-	return 0;
-}
-
 static int gie_alloc_bpool_shadow(struct gie *gie,  struct gie_bpool *pool)
 {
 	struct gie_queue *shadow = &pool->shadow;
@@ -656,106 +152,6 @@ static void gie_dealloc_bpool_shadow(struct gie_bpool *pool)
 
 	if (shadow->ring_virt)
 		mv_sys_dma_mem_free((void *)shadow->ring_virt);
-}
-
-/* Add a buffer pool queue to the GIE local structures.
- * The bpool will be associated with a produced queue and used
- * by the GIE to get destination buffers for payload copy
- */
-int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
-{
-	struct gie *gie = (struct gie *)giu;
-	struct gie_bpool *pool = NULL;
-	struct gie_queue *src_q;
-	struct mqa_qct_entry *qcd;
-	int ret, i;
-
-	pr_debug("adding bpool qid %d of size %d to %s-giu\n", qid, buf_size, gie->name);
-
-	/* Find an empty bpool slot */
-	for (i = 0; i < GIE_MAX_BPOOLS; i++) {
-		if (gie->bpools[i].buf_size == 0) {
-			pool = &gie->bpools[i];
-			break;
-		}
-	}
-	if (pool == NULL) {
-		pr_warn("No space to add bpool queue %d\n", qid);
-		return -ENOSPC;
-	}
-
-	src_q = &pool->src_q;
-	qcd = (struct mqa_qct_entry *)gie->regs->gct_base + qid;
-
-	ret = gie_init_queue(gie, src_q, &qcd->common, is_remote, qid);
-	if (ret)
-		return ret;
-
-	src_q->qid = qid;
-	src_q->qesize = sizeof(struct host_bpool_desc);
-	pool->buf_size = buf_size;
-	pool->flags = 0;
-
-	/* Host queues cannot be accessed directly by the CPU, so
-	 * we must copy them to our local memory first, using a shadow queue
-	 */
-	if (is_remote) {
-		pool->flags |= GIE_BPOOL_REMOTE;
-		ret = gie_alloc_bpool_shadow(gie, pool);
-		if (ret) {
-			pr_warn("Failed to allocate BM shadow queue\n");
-			return ret;
-		}
-	}
-
-	gie->bp_cnt++;
-	pr_debug("Added BM-Q %d on GIE-%s\n", qid, gie->name);
-
-	return 0;
-}
-
-int gie_remove_queue(void *giu, u16 qid)
-{
-	struct gie *gie = (struct gie *)giu;
-	struct gie_q_pair *qp;
-
-	qp = gie_find_q_pair(gie, qid);
-	if (qp == NULL) {
-		pr_warn("Cannot find queue %d to remove\n", qid);
-		return -ENODEV;
-	}
-	/* we don't allow removing Q if it is not the SRC-Q! */
-	if (qp->src_q.qid != qid) {
-		pr_warn("Cannot find queue %d to remove (as src-q)!\n", qid);
-		return -ENODEV;
-	}
-
-	gie->prios[qp->src_q.prio].q_cnt--;
-	if (!gie->prios[qp->src_q.prio].q_cnt)
-		gie->prios[qp->src_q.prio].flags = 0;
-	qp->flags = 0;
-
-	return 0;
-}
-
-int gie_remove_bm_queue(void *giu, u16 qid)
-{
-	struct gie *gie = (struct gie *)giu;
-	struct gie_bpool *pool;
-
-	pool = gie_find_bpool(gie->bpools, gie->bp_cnt, qid);
-	if (pool == NULL) {
-		pr_warn("Cannot find BM queue %d to remove\n", qid);
-		return -ENODEV;
-	}
-
-	if (pool->flags & GIE_BPOOL_REMOTE)
-		gie_dealloc_bpool_shadow(pool);
-
-	pool->flags = 0;
-	pool->buf_size = 0;
-	gie->bp_cnt--;
-	return 0;
 }
 
 /* Find the next queue to service according to the
@@ -813,6 +209,95 @@ static struct gie_q_pair *gie_get_next_q(struct gie *gie, u16 *scanned_prios, u1
 
 	/* no more active queues */
 	return NULL;
+}
+
+static inline void gie_clean_mem(struct dma_job_info *job, struct gie_queue *src_q,
+			struct gie_queue *dst_q)
+{
+	writel(job->cookie_head, (void *)(src_q->msg_head_virt));
+	writel(job->cookie_tail, (void *)(dst_q->msg_tail_virt));
+
+	/* Send MSI to remote side (if configured) */
+	/* if the transaction was indices, this is local-2-remote;
+	 * need to send MSI to dest-Q.
+	 */
+	if ((job->flags & DMA_FLAGS_PRODUCE_IDX) && (dst_q->msi_virt_addr))
+		writel(dst_q->msi_data, (void *)dst_q->msi_virt_addr);
+	/* if the transaction was buffers, this is remote-2-local-2;
+	 * need to send MSI to source-Q.
+	 */
+	else if ((job->flags & DMA_FLAGS_BUFFER_IDX) && (src_q->msi_virt_addr))
+		writel(src_q->msi_data, (void *)src_q->msi_virt_addr);
+}
+
+static void gie_clean_dma_jobs(struct dma_info *dma)
+{
+#ifdef GIE_VERIFY_DMA_OP
+	struct dmax2_trans_complete_desc	 dmax2_res_descs[GIE_MAX_QES_IN_BATCH];
+#endif /* GIE_VERIFY_DMA_OP */
+	struct dma_job_info			*jobi;
+	u16					 completed, clean, elements;
+	int					 i;
+
+#ifdef GIE_VERIFY_DMA_OP
+	completed = GIE_MAX_QES_IN_BATCH;
+	dmax2_deq(dma->dmax2, dmax2_res_descs, &completed, 1);
+#else
+	completed = dmax2_get_deq_num_available(dma->dmax2);
+#endif /* GIE_VERIFY_DMA_OP */
+	if (!completed)
+		return;
+	/* TODO: iterate all result-descriptor and verify no errors occurred */
+
+	i = dma->head;
+	/* barrier here to ensure following references to job-head */
+	rmb();
+	clean = completed;
+	while (clean) {
+		/* a single job can clean multiple descriptors, up-to the amounts dequed from DMA.
+		 * if the job includes more descriptors, they are left for cleanup next time
+		 */
+		jobi = dma->dma_jobs + i;
+		elements = min_t(u16, clean, jobi->desc_count);
+		clean -= elements;
+		jobi->desc_count -= elements;
+
+		/* do not advance job_info queue if desc are left in the job */
+		if (jobi->desc_count == 0) {
+			if (jobi->flags & DMA_FLAGS_BUFFER_IDX) {
+				struct gie_queue *src_q, *dst_q;
+
+				src_q = (struct gie_queue *)jobi->cookie;
+				dst_q = (struct gie_queue *)jobi->cookie_dst;
+				gie_clean_mem(jobi, src_q, dst_q);
+			}
+			q_idx_add(i, 1, dma->qlen);
+		}
+
+		if (jobi->flags & DMA_FLAGS_UPDATE_IDX) {
+			struct gie_queue *src_q;
+
+			src_q = (struct gie_queue *)jobi->cookie;
+			q_idx_add(src_q->qe_head, elements * jobi->elements_per_desc, src_q->qlen);
+		}
+
+		if (jobi->flags & DMA_FLAGS_PRODUCE_IDX) {
+			struct gie_queue *src_q, *dst_q;
+
+			src_q = (struct gie_queue *)jobi->cookie;
+			dst_q = (struct gie_queue *)jobi->cookie_dst;
+			/* Update the prod/cons index by dma */
+			/* We cannot allow this copy-indexes to fail, so we will try to
+			 * cleanup the DMA queue in case of failure.
+			 */
+			gie_clean_mem(jobi, src_q, dst_q);
+		}
+	}
+
+	dma->head = i;
+#ifndef GIE_VERIFY_DMA_OP
+	dmax2_deq(dma->dmax2, NULL, &completed, 0);
+#endif /* !GIE_VERIFY_DMA_OP */
 }
 
 /* create a dma copy job using a single dma transaction */
@@ -908,25 +393,6 @@ static void gie_copy_index(struct dma_info *dma, u64 src, u64 dst)
 	job.dst = dst;
 	job.element_cnt = 1;
 	gie_dma_copy_single(dma, &job);
-}
-
-static inline void gie_clean_mem(struct dma_job_info *job, struct gie_queue *src_q,
-			struct gie_queue *dst_q)
-{
-	writel(job->cookie_head, (void *)(src_q->msg_head_virt));
-	writel(job->cookie_tail, (void *)(dst_q->msg_tail_virt));
-
-	/* Send MSI to remote side (if configured) */
-	/* if the transaction was indices, this is local-2-remote;
-	 * need to send MSI to dest-Q.
-	 */
-	if ((job->flags & DMA_FLAGS_PRODUCE_IDX) && (dst_q->msi_virt_addr))
-		writel(dst_q->msi_data, (void *)dst_q->msi_virt_addr);
-	/* if the transaction was buffers, this is remote-2-local-2;
-	 * need to send MSI to source-Q.
-	 */
-	else if ((job->flags & DMA_FLAGS_BUFFER_IDX) && (src_q->msi_virt_addr))
-		writel(src_q->msi_data, (void *)src_q->msi_virt_addr);
 }
 
 static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct gie_queue *dst_q,
@@ -1423,74 +889,305 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	return qes;
 }
 
-static void gie_clean_dma_jobs(struct dma_info *dma)
+static int gie_event_validate(void *driver_data)
 {
-#ifdef GIE_VERIFY_DMA_OP
-	struct dmax2_trans_complete_desc	 dmax2_res_descs[GIE_MAX_QES_IN_BATCH];
-#endif /* GIE_VERIFY_DMA_OP */
-	struct dma_job_info			*jobi;
-	u16					 completed, clean, elements;
-	int					 i;
+	struct gie_event_data *event_data = driver_data;
 
-#ifdef GIE_VERIFY_DMA_OP
-	completed = GIE_MAX_QES_IN_BATCH;
-	dmax2_deq(dma->dmax2, dmax2_res_descs, &completed, 1);
-#else
-	completed = dmax2_get_deq_num_available(dma->dmax2);
-#endif /* GIE_VERIFY_DMA_OP */
-	if (!completed)
-		return;
-	/* TODO: iterate all result-descriptor and verify no errors occurred */
+	return event_data->enable;
+}
 
-	i = dma->head;
-	/* barrier here to ensure following references to job-head */
-	rmb();
-	clean = completed;
-	while (clean) {
-		/* a single job can clean multiple descriptors, up-to the amounts dequed from DMA.
-		 * if the job includes more descriptors, they are left for cleanup next time
-		 */
-		jobi = dma->dma_jobs + i;
-		elements = min_t(u16, clean, jobi->desc_count);
-		clean -= elements;
-		jobi->desc_count -= elements;
 
-		/* do not advance job_info queue if desc are left in the job */
-		if (jobi->desc_count == 0) {
-			if (jobi->flags & DMA_FLAGS_BUFFER_IDX) {
-				struct gie_queue *src_q, *dst_q;
+/* Initialize the emulator. Basically the emulator only needs
+ * the register base and the DMA engine from the caller.
+ * The rest is initializations of local data structures
+ */
+int gie_init(struct gie_params *gie_params, struct gie **gie)
+{
+	struct dmax2_params dmax2_params;
+	struct dma_info *dma;
+	struct gie_regfile *gie_regs;
+	int err = 0;
 
-				src_q = (struct gie_queue *)jobi->cookie;
-				dst_q = (struct gie_queue *)jobi->cookie_dst;
-				gie_clean_mem(jobi, src_q, dst_q);
-			}
-			q_idx_add(i, 1, dma->qlen);
-		}
+	pr_debug("Initializing %s-giu instance\n", gie_params->name_match);
 
-		if (jobi->flags & DMA_FLAGS_UPDATE_IDX) {
-			struct gie_queue *src_q;
+	/* allocate GIU emulator handler */
+	*gie = kcalloc(1, sizeof(struct gie), GFP_KERNEL);
+	if (*gie == NULL)
+		return -ENOMEM;
 
-			src_q = (struct gie_queue *)jobi->cookie;
-			q_idx_add(src_q->qe_head, elements * jobi->elements_per_desc, src_q->qlen);
-		}
+	/* allocate pseudo regfile for the GIU emulator */
+	gie_regs = kcalloc(1, sizeof(struct gie_regfile), GFP_KERNEL);
+	if (gie_regs == NULL) {
+		kfree(*gie);
+		return -ENOMEM;
+	}
 
-		if (jobi->flags & DMA_FLAGS_PRODUCE_IDX) {
-			struct gie_queue *src_q, *dst_q;
+	strncpy((*gie)->name, gie_params->name_match, GIE_MAX_NAME);
+	dma = &((*gie)->dma);
 
-			src_q = (struct gie_queue *)jobi->cookie;
-			dst_q = (struct gie_queue *)jobi->cookie_dst;
-			/* Update the prod/cons index by dma */
-			/* We cannot allow this copy-indexes to fail, so we will try to
-			 * cleanup the DMA queue in case of failure.
-			 */
-			gie_clean_mem(jobi, src_q, dst_q);
+	/* Open a MUSDK DMAx2 channel */
+	dmax2_params.match = gie_params->dmax_match;
+	dmax2_params.queue_size = GIE_DMAX2_Q_SIZE;
+	err = dmax2_init(&dmax2_params, &(dma->dmax2));
+	if (err) {
+		pr_err("Failed to initialize MUSDK dmax2\n");
+		goto init_error;
+	}
+
+	err = dmax2_set_mem_attributes(dma->dmax2, DMAX2_TRANS_LOCATION_SRC_AND_DST, DMAX2_TRANS_MEM_ATTR_CACHABLE);
+	if (err) {
+		pr_err("Failed to set dmax2 attributes\n");
+		goto attr_error;
+	}
+
+	gie_regs->gct_base	= gie_params->gct_base;
+	gie_regs->gpt_base	= gie_params->gpt_base;
+	/* Set MSI registers (for sending MSI messages) Phy/Virt addresses */
+	gie_regs->msi_regs_phys	= gie_params->msi_regs_phys;
+	gie_regs->msi_regs_virt	= gie_params->msi_regs_virt;
+
+	(*gie)->regs = gie_regs;
+
+	/* reset the dma job queue */
+	dma->tail = dma->head = 0;
+	dma->qlen = GIE_MAX_DMA_JOBS;
+
+	return 0;
+
+attr_error:
+	dmax2_deinit(dma->dmax2);
+
+init_error:
+	kfree(*gie);
+	kfree(gie_regs);
+
+	return err;
+}
+
+/* Close the GIU emulator device.
+ * At this point we assume that there is no active traffic.
+ * We basically Close the MUSDK DMAx2 channel and free memory
+ */
+int gie_terminate(struct gie *gie)
+{
+	int ret;
+
+	pr_debug("Terminating %s-giu instance\n", gie->name);
+
+	/* TODO
+	 * - check that all DMA transactions are closed
+	 *   - remove all queues and free shadow bpools
+	 */
+
+	if (gie->dma.dmax2 == NULL) {
+		pr_err("Invalid DMA handle in %s-giu\n", gie->name);
+		return -ENODEV;
+	}
+
+	ret = dmax2_deinit(gie->dma.dmax2);
+	if (ret)
+		pr_warn("Failed to close MUSDK DMA channel\n");
+
+	kfree(gie->regs);
+
+	kfree(gie);
+	return ret;
+}
+
+void *gie_regs(void *giu)
+{
+	return (void *)(((struct gie *)giu)->regs);
+}
+
+int gie_add_queue(void *giu, u16 qid, int is_remote)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_q_pair *qp = NULL;
+	struct mqa_qct_entry *qcd;
+	struct mqa_qpt_entry *qpd;
+	struct gie_bpool *bpool;
+	int i, copy_payload, ret;
+	u32 prio;
+
+	pr_debug("adding qid %d to %s-giu\n", qid, gie->name);
+
+	qcd = (struct mqa_qct_entry *)gie->regs->gct_base + qid;
+	qpd = (struct mqa_qpt_entry *)gie->regs->gpt_base + qcd->spec.dest_queue_id;
+	prio = qcd->common.queue_prio;
+	copy_payload = qcd->common.flags & MQA_QFLAGS_COPY_BUF;
+
+	/* Find an empty q_pair slot */
+	for (i = 0; i < GIE_MAX_Q_PER_PRIO; i++) {
+		if (!(gie->prios[prio].qpairs[i].flags & GIE_QPAIR_VALID)) {
+			qp = &gie->prios[prio].qpairs[i];
+			break;
 		}
 	}
 
-	dma->head = i;
-#ifndef GIE_VERIFY_DMA_OP
-	dmax2_deq(dma->dmax2, NULL, &completed, 0);
-#endif /* !GIE_VERIFY_DMA_OP */
+	if (qp == NULL) {
+		pr_err("No space to add queue %d\n", qid);
+		return -ENOSPC;
+	}
+
+	ret = gie_init_queue(gie, &qp->src_q, &qcd->common, is_remote, qid);
+	if (ret)
+		return ret;
+	qp->src_q.qid = qid;
+	qp->qcd = qcd;
+
+	ret = gie_init_queue(gie, &qp->dst_q, &qpd->common, is_remote, qcd->spec.dest_queue_id);
+	if (ret)
+		return ret;
+	qp->dst_q.qid = qcd->spec.dest_queue_id;
+	qp->qpd = qpd;
+
+	/* Set MSI-X message info for dest Q of remote side */
+	if (qpd->common.msix_inf.id) {
+		pr_debug("Register MSI-X %d for dst-Q %d\n", qpd->common.msix_inf.id, qp->dst_q.qid);
+
+		/* Set message info */
+		qp->dst_q.msi_virt_addr = (u64)qpd->common.msix_inf.va;
+		qp->dst_q.msi_data = qpd->common.msix_inf.data;
+
+		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
+			msix_entry->msg_addr, qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
+	}
+	/* Set MSI-X message info for source Q of remote side */
+	if (qcd->common.msix_inf.id) {
+		pr_debug("Register MSI-X %d for src-Q %d\n", qcd->common.msix_inf.id, qp->src_q.qid);
+
+		/* Set message info */
+		qp->src_q.msi_virt_addr = (u64)qcd->common.msix_inf.va;
+		qp->src_q.msi_data = qcd->common.msix_inf.data;
+
+		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
+			msix_entry->msg_addr, qp->src_q.msi_virt_addr, qp->src_q.msi_data);
+	}
+
+	/* Find the bpools and keep local pointers */
+	if (copy_payload) {
+		for (i = 0; i < GIE_MAX_BM_PER_Q; i++) {
+			bpool = gie_find_bpool(gie->bpools, gie->bp_cnt, qpd->common.queue_ext.bm_queue[i]);
+			if (bpool == NULL) {
+				pr_err("Failed to find bpool for destination queue %d\n", qid);
+				return -ENODEV;
+			}
+			qp->dst_bpools[i] = bpool;
+		}
+	}
+
+	qp->flags = GIE_QPAIR_VALID | GIE_QPAIR_ACTIVE;
+	if (is_remote)
+		qp->flags |= GIE_QPAIR_REMOTE;
+	if (copy_payload)
+		qp->flags |= GIE_QPAIR_CP_PAYLOAD;
+	gie->prios[prio].flags = GIE_PRIO_VALID | GIE_PRIO_ACTIVE;
+
+	gie->prios[prio].q_cnt++;
+	pr_debug("Added %s Q %d on GIE-%s\n", (is_remote?"rem":"lcl"), qp->src_q.qid, gie->name);
+	pr_debug("Added %s Q %d on GIE-%s\n", (!is_remote?"rem":"lcl"), qp->dst_q.qid, gie->name);
+
+	return 0;
+}
+
+/* Add a buffer pool queue to the GIE local structures.
+ * The bpool will be associated with a produced queue and used
+ * by the GIE to get destination buffers for payload copy
+ */
+int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_bpool *pool = NULL;
+	struct gie_queue *src_q;
+	struct mqa_qct_entry *qcd;
+	int ret, i;
+
+	pr_debug("adding bpool qid %d of size %d to %s-giu\n", qid, buf_size, gie->name);
+
+	/* Find an empty bpool slot */
+	for (i = 0; i < GIE_MAX_BPOOLS; i++) {
+		if (gie->bpools[i].buf_size == 0) {
+			pool = &gie->bpools[i];
+			break;
+		}
+	}
+	if (pool == NULL) {
+		pr_warn("No space to add bpool queue %d\n", qid);
+		return -ENOSPC;
+	}
+
+	src_q = &pool->src_q;
+	qcd = (struct mqa_qct_entry *)gie->regs->gct_base + qid;
+
+	ret = gie_init_queue(gie, src_q, &qcd->common, is_remote, qid);
+	if (ret)
+		return ret;
+
+	src_q->qid = qid;
+	src_q->qesize = sizeof(struct host_bpool_desc);
+	pool->buf_size = buf_size;
+	pool->flags = 0;
+
+	/* Host queues cannot be accessed directly by the CPU, so
+	 * we must copy them to our local memory first, using a shadow queue
+	 */
+	if (is_remote) {
+		pool->flags |= GIE_BPOOL_REMOTE;
+		ret = gie_alloc_bpool_shadow(gie, pool);
+		if (ret) {
+			pr_warn("Failed to allocate BM shadow queue\n");
+			return ret;
+		}
+	}
+
+	gie->bp_cnt++;
+	pr_debug("Added BM-Q %d on GIE-%s\n", qid, gie->name);
+
+	return 0;
+}
+
+int gie_remove_queue(void *giu, u16 qid)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_q_pair *qp;
+
+	qp = gie_find_q_pair(gie, qid);
+	if (qp == NULL) {
+		pr_warn("Cannot find queue %d to remove\n", qid);
+		return -ENODEV;
+	}
+	/* we don't allow removing Q if it is not the SRC-Q! */
+	if (qp->src_q.qid != qid) {
+		pr_warn("Cannot find queue %d to remove (as src-q)!\n", qid);
+		return -ENODEV;
+	}
+
+	gie->prios[qp->src_q.prio].q_cnt--;
+	if (!gie->prios[qp->src_q.prio].q_cnt)
+		gie->prios[qp->src_q.prio].flags = 0;
+	qp->flags = 0;
+
+	return 0;
+}
+
+int gie_remove_bm_queue(void *giu, u16 qid)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_bpool *pool;
+
+	pool = gie_find_bpool(gie->bpools, gie->bp_cnt, qid);
+	if (pool == NULL) {
+		pr_warn("Cannot find BM queue %d to remove\n", qid);
+		return -ENODEV;
+	}
+
+	if (pool->flags & GIE_BPOOL_REMOTE)
+		gie_dealloc_bpool_shadow(pool);
+
+	pool->flags = 0;
+	pool->buf_size = 0;
+	gie->bp_cnt--;
+	return 0;
 }
 
 int gie_schedule(void *giu, u64 time_limit, u64 qe_limit, u16 *pending)
@@ -1541,13 +1238,6 @@ int gie_get_desc_size(enum gie_desc_type type)
 	}
 
 	return 0;
-}
-
-static int gie_event_validate(void *driver_data)
-{
-	struct gie_event_data *event_data = driver_data;
-
-	return event_data->enable;
 }
 
 int gie_create_event(struct gie *gie, struct gie_event_params *params, struct mv_sys_event **ev)

@@ -5,14 +5,16 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
+#ifndef _GIU_BUFF_DESC_H_
+#define _GIU_BUFF_DESC_H_
+
+#include "std_internal.h"
+
 /* This file includes the definitions of all data structures that should be
  * shared with the various drivers and modules on the SNIC side.
  * The file should be copied AS-IS, in order to make sure that data-structures
  * on both sides are 100% aligned.
  */
-
-#ifndef _GIU_BUFF_DESC_H_
-#define _GIU_BUFF_DESC_H_
 
 struct host_tx_desc {
 	/* 0x0 - 0x3

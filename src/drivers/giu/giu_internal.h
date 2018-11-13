@@ -12,7 +12,7 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_giu.h"
 #include "drivers/mv_giu_gpio.h"
-#include "hw_emul/gie.h"
+#include "include/gie.h"
 
 #define GIU_LCL_Q (0)
 #define GIU_REM_Q (1)

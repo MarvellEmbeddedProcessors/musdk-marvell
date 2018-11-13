@@ -120,8 +120,7 @@ nobase_include_HEADERS += include/drivers/mv_mqa_queue.h
 
 nobase_include_HEADERS += include/drivers/mv_agnic_pfio.h
 
-libmusdk_la_SOURCES += hw_emul/gie/gie.c
-
+libmusdk_la_SOURCES += drivers/giu/gie/gie.c
 libmusdk_la_SOURCES += drivers/giu/giu.c
 libmusdk_la_SOURCES += drivers/giu/giu_gpio.c
 libmusdk_la_SOURCES += drivers/giu/giu_bpool.c
