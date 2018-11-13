@@ -910,41 +910,9 @@ static void gie_copy_index(struct dma_info *dma, u64 src, u64 dst)
 	gie_dma_copy_single(dma, &job);
 }
 
-static void gie_copy_qes_mem(struct dma_job *job, struct gie_queue *src_q, struct gie_queue *dst_q)
+static inline void gie_clean_mem(struct dma_job_info *job, struct gie_queue *src_q,
+			struct gie_queue *dst_q)
 {
-	job->cookie_head = src_q->head;
-	job->cookie_tail = dst_q->tail;
-}
-
-static void gie_copy_buf_mem(struct dma_job_info *job, struct gie_queue *src_q, struct gie_queue *dst_q)
-{
-	job->cookie_head = src_q->head;
-	job->cookie_tail = dst_q->tail;
-}
-
-static void gie_bpool_fill_shadow_mem(struct dma_info *dma, struct	gie_queue *src_q)
-{
-	dma = dma;
-	writel(src_q->head, (void *)(src_q->msg_head_virt));
-}
-
-static void gie_bpool_consume_mem(struct dma_info *dma, struct	gie_queue *src_q)
-{
-	dma = dma;
-	writel(src_q->head, (void *)(src_q->msg_head_virt));
-}
-
-static void gie_produce_q_mem(struct dma_info *dma, struct	gie_queue *src_q, struct gie_queue *dst_q)
-{
-	dma = dma;
-	writel(src_q->head, (void *)(src_q->msg_head_virt));
-	writel(dst_q->tail, (void *)(dst_q->msg_tail_virt));
-}
-
-static void gie_clean_mem(struct dma_info *dma, struct dma_job_info *job, struct gie_queue *src_q,
-				struct gie_queue *dst_q)
-{
-	dma = dma;
 	writel(job->cookie_head, (void *)(src_q->msg_head_virt));
 	writel(job->cookie_tail, (void *)(dst_q->msg_tail_virt));
 
@@ -994,7 +962,8 @@ static void gie_copy_qes(struct dma_info *dma, struct gie_queue *src_q, struct g
 	if (flags & DMA_FLAGS_PRODUCE_IDX) {
 		q_idx_add(src_q->head, qes_to_copy, src_q->qlen);
 		q_idx_add(dst_q->tail, qes_to_copy, dst_q->qlen);
-		gie_copy_qes_mem(&job, src_q, dst_q);
+		job.cookie_head = src_q->head;
+		job.cookie_tail = dst_q->tail;
 		src_q->packets += qes_to_copy;
 		dst_q->packets += qes_to_copy;
 	}
@@ -1032,7 +1001,7 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 		/* previous copy completed, update pointers */
 		q_idx_add(shadow_q->tail, qes_copied, shadow_q->qlen);
 		q_idx_add(src_q->head, qes_copied, src_q->qlen);
-		gie_bpool_fill_shadow_mem(dma, src_q);
+		writel(src_q->head, (void *)(src_q->msg_head_virt));
 		return;
 	}
 
@@ -1054,36 +1023,20 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 	q_idx_add(src_q->qe_tail, fill_size, src_q->qlen);
 }
 
-static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 min_buf_size,
+static int gie_get_rem_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp,
 			       struct host_bpool_desc **bp_bufs, int buf_cnt)
 {
-	struct gie_bpool *pool;
 	struct gie_queue *bpool_q;
-	int i, bufs_avail;
+	int bufs_avail;
 
-	/* Find the bpool that matches the min buffer size */
-	for (i = 0; i < GIE_MAX_BPOOLS; i++) {
-		pool = qp->dst_bpools[i];
-		if (min_buf_size <= pool->buf_size)
-			break;
-	}
+	bpool_q = &qp->dst_bpools[0]->shadow;
 
-	if (unlikely(i == GIE_MAX_BPOOLS)) {
-		pr_err("Failed to find bpool for buffer size %d\n", min_buf_size);
-		return 0;
-	}
-
-	/* For remote queues, fill the shadow. For locals, update the tail pointer */
-	if (pool->flags & GIE_BPOOL_REMOTE) {
-		bpool_q = &pool->shadow;
-		bufs_avail = q_occupancy(bpool_q);
-		if ((bufs_avail < GIE_SHADOW_FILL_THRESH) || (bufs_avail < buf_cnt))
-			gie_bpool_fill_shadow(dma, pool);
-	} else {
-		bpool_q = &pool->src_q;
-		bpool_q->tail = readl((void *)(bpool_q->msg_tail_virt));
-		bufs_avail = q_occupancy(bpool_q);
-	}
+	bufs_avail = q_occupancy(bpool_q);
+	/* in case we don't have enough buffers in the local shadow BP, we need
+	 * to fill it from the remote BP
+	 */
+	if ((bufs_avail < GIE_SHADOW_FILL_THRESH) || (bufs_avail < buf_cnt))
+		gie_bpool_fill_shadow(dma, qp->dst_bpools[0]);
 
 	if (unlikely(!bufs_avail))
 		return 0;
@@ -1091,7 +1044,6 @@ static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 	if (unlikely(buf_cnt > bufs_avail))
 		/* TODO: Add a trancepoint. */
 		buf_cnt = bufs_avail;
-
 	/* since we return a pointer to the queue, we can only return the amount
 	 * of buffers until wrap around, so the caller doesn't need to wrap
 	 */
@@ -1107,45 +1059,65 @@ static int gie_get_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, u32 m
 	return buf_cnt;
 }
 
-static void gie_bpool_consume(struct dma_info *dma, struct gie_q_pair *qp, u32 min_buf_size)
+static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
+					struct gie_queue	*dst_q,
+					struct gie_queue	*qes_q,
+					struct host_bpool_desc	*bp_bufs,
+					int			 qes_to_copy,
+					struct dmax2_desc	*descs)
 {
-	struct gie_bpool *pool;
-	struct gie_queue *bpool_q;
-	int i;
+	void	*qe;
+	u64	*qe_cookie, *qe_buff;
+	u64	 src_remap, dst_remap;
+	u16	*qe_byte_cnt;
+	u16	 addr_pos, cookie_pos, len_pos;
+	u16	 cnt = 0;
+	int	 i = 0;
 
-	/* Find the bpool that matches the min buffer size */
-	for (i = 0; i < GIE_MAX_BPOOLS; i++) {
-		pool = qp->dst_bpools[i];
-		if (min_buf_size <= pool->buf_size)
-			break;
-	}
+	src_remap = src_q->host_remap;
+	dst_remap = dst_q->host_remap;
+	addr_pos = src_q->desc_addr_pos;
+	cookie_pos = src_q->desc_cookie_pos;
+	len_pos = src_q->desc_len_pos;
 
-	if (i == GIE_MAX_BPOOLS) {
-		pr_err("Failed to find bpool for buffer size %d\n", min_buf_size);
-		return;
-	}
+	i = src_q->head;
+	/* barrier here before we read the QEs to make sure they're in memory */
+	rmb();
+	while (qes_to_copy--) {
+		qe = (void *)qes_q->ring_virt + i * qes_q->qesize;
+		qe_buff = qe + addr_pos;
+		qe_cookie = qe + cookie_pos;
+		qe_byte_cnt = qe + len_pos;
 
-	/* remote bpools indixes are managed in refill routine */
-	if (!(pool->flags & GIE_BPOOL_REMOTE)) {
-		bpool_q = &pool->src_q;
-		gie_bpool_consume_mem(dma, bpool_q);
+		/* create the dma job to submit */
+		descs[cnt].flags = 0;
+		descs[cnt].desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
+		descs[cnt].src_addr = src_remap + *qe_buff;
+		descs[cnt].dst_addr = dst_remap + bp_bufs->buff_addr_phys;
+		descs[cnt].buff_size = *qe_byte_cnt;
+
+		tracepoint(gie, dma, (void *)descs[cnt].src_addr, (void *)descs[cnt].dst_addr, descs[cnt].buff_size);
+		cnt++;
+
+		/* update qe buffer with host buffer*/
+		*qe_buff = bp_bufs->buff_addr_phys;
+		*qe_cookie = bp_bufs->buff_cookie;
+		q_idx_add(i, 1, src_q->qlen);
+		bp_bufs++;
 	}
+	/* barrier here after we access the QEs to make sure all above are written before the next dma trans */
+	wmb();
+
+	return cnt;
 }
 
-static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct gie_queue *src_q,
-			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy, u32 flags)
+static int gie_copy_buffers_l2r(struct dma_info *dma, struct gie_q_pair *qp, struct gie_queue *src_q,
+			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy)
 {
-	struct dmax2_desc desc[GIE_MAX_QES_IN_BATCH];
-	struct host_bpool_desc *bp_buf;
-	struct dma_job_info *job_info;
-	u16 addr_pos, cookie_pos, len_pos;
-	u64 src_remap, dst_remap;
-	u64 *qe_cookie, *qe_buff;
-	u16 *qe_byte_cnt;
-
-	int i = 0;
-	void *qe;
-	u16 cnt = 0;
+	struct host_bpool_desc	*bp_buf;
+	struct dma_job_info	*job_info;
+	struct dmax2_desc	 descs[GIE_MAX_QES_IN_BATCH];
+	u16			 cnt = 0;
 
 	/* fetch buffers from the bpool. the returned pointer points directly to the
 	 * bpool queue elements to avoid copying them. therefore, when the queue is
@@ -1154,9 +1126,97 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 	 * multiple times, first to get the last n elements in the queue, and then
 	 * to get bufs_to_copy-n elements.
 	 */
-	bufs_to_copy = gie_get_bpool_bufs(dma, qp, 1500, &bp_buf, bufs_to_copy);
-	if (!bufs_to_copy)
+	bufs_to_copy = gie_get_rem_bpool_bufs(dma, qp, &bp_buf, bufs_to_copy);
+	if (unlikely(!bufs_to_copy))
 		return 0;
+
+	cnt = gie_copy_interim_qes(src_q, dst_q, qes_q, bp_buf, bufs_to_copy, descs);
+
+	/* we can reach here after 1 pass or no pass at all */
+	if (cnt) {
+		u16 tmp_cnt, tmp_left;
+		int timeout = 1000;
+
+		/* log the job in the dma job queue */
+		job_info = dma->dma_jobs + dma->tail;
+
+		job_info->cookie = src_q;
+		job_info->flags = 0;
+		job_info->elements_per_desc = 1;
+		job_info->desc_count = cnt;
+
+		tmp_cnt = tmp_left = cnt;
+		do {
+			dmax2_enq(dma->dmax2, descs, &tmp_cnt);
+			if (tmp_cnt == 0)
+				gie_clean_dma_jobs(dma);
+			tmp_left -= tmp_cnt;
+			tmp_cnt = tmp_left;
+			if (!tmp_cnt)
+				break;
+			timeout--;
+			usleep(1);
+		} while (timeout);
+
+		if (!timeout) {
+			/* Not much to do in case of failure, something went wrong. */
+			pr_err("BUG: Could not cleanup DMA after copy_single failure.");
+			exit(1);
+		}
+
+		q_idx_add(dma->tail, 1, dma->qlen);
+
+		tracepoint(gie, queue, "buffer copy", cnt, src_q->qid, src_q->head, src_q->tail,
+			   dst_q->qid, dst_q->head, dst_q->tail);
+	}
+
+	return cnt;
+}
+
+static inline int gie_get_lcl_bpool_buf(struct gie_q_pair *qp, u32 min_buf_size,
+			       struct host_bpool_desc **bp_buf)
+{
+	struct gie_queue	*bpool_q;
+	int			 i;
+
+	/* Find the bpool that matches the min buffer size */
+	for (i = 0; i < GIE_MAX_BPOOLS; i++)
+		if (min_buf_size <= qp->dst_bpools[i]->buf_size)
+			break;
+
+	if (unlikely(i == GIE_MAX_BPOOLS)) {
+		pr_err("Failed to find bpool for buffer size %d\n", min_buf_size);
+		return 0;
+	}
+
+	/* For remote queues, fill the shadow. For locals, update the tail pointer */
+	bpool_q = &qp->dst_bpools[i]->src_q;
+	bpool_q->tail = readl((void *)(bpool_q->msg_tail_virt));
+
+	if (unlikely(!q_occupancy(bpool_q)))
+		return 0;
+
+	/* increment an internal index to indicate these buffers are already used we still
+	 * don't update the remote head until the user is done with the buffers to avoid override
+	 */
+	*bp_buf = (struct host_bpool_desc *)bpool_q->ring_virt + bpool_q->head;
+	q_idx_add(bpool_q->head, 1, bpool_q->qlen);
+	writel(bpool_q->head, (void *)(bpool_q->msg_head_virt));
+
+	return 1;
+}
+
+static int gie_copy_buffers_r2l(struct dma_info *dma, struct gie_q_pair *qp, struct gie_queue *src_q,
+			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy)
+{
+	struct dmax2_desc	 desc[GIE_MAX_QES_IN_BATCH];
+	struct host_bpool_desc	*bp_buf;
+	void			*qe;
+	u64			*qe_cookie, *qe_buff;
+	u16			*qe_byte_cnt;
+	u64			 src_remap, dst_remap;
+	u16			 addr_pos, cookie_pos, len_pos, cnt = 0;
+	int			 i = 0;
 
 	src_remap = src_q->host_remap;
 	dst_remap = dst_q->host_remap;
@@ -1173,10 +1233,16 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 		qe_cookie = qe + cookie_pos;
 		qe_byte_cnt = qe + len_pos;
 
+		/* TODO: take dst-Q pkt-offset into acount here! */
+		if (!gie_get_lcl_bpool_buf(qp, *qe_byte_cnt, &bp_buf))
+			break;
+
 		/* create the dma job to submit */
 		desc[cnt].flags = 0;
 		desc[cnt].desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
+		/* TODO: take src-Q pkt-offset into acount here! */
 		desc[cnt].src_addr = src_remap + *qe_buff;
+		/* TODO: take dst-Q pkt-offset into acount here! */
 		desc[cnt].dst_addr = dst_remap + bp_buf->buff_addr_phys;
 		desc[cnt].buff_size = *qe_byte_cnt;
 
@@ -1187,31 +1253,28 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 		*qe_buff = bp_buf->buff_addr_phys;
 		*qe_cookie = bp_buf->buff_cookie;
 		q_idx_add(i, 1, src_q->qlen);
-		bp_buf++;
 	}
 	/* barrier here after we access the QEs to make sure all above are written before the next dma trans */
 	wmb();
 
 	/* we can reach here after 1 pass or no pass at all */
 	if (cnt) {
-		u16 tmp_cnt, tmp_left;
-		int timeout = 1000;
+		struct dma_job_info	*job_info;
+		u16			 tmp_cnt, tmp_left;
+		int			 timeout = 1000;
 
 		/* log the job in the dma job queue */
 		job_info = dma->dma_jobs + dma->tail;
 
 		job_info->cookie = src_q;
-		if (flags & DMA_FLAGS_BUFFER_IDX) {
-			job_info->cookie_dst = (uintptr_t)dst_q;
-			q_idx_add(src_q->head, cnt, src_q->qlen);
-			q_idx_add(dst_q->tail, cnt, dst_q->qlen);
-			gie_copy_buf_mem(job_info, src_q, dst_q);
-			src_q->packets += cnt;
-			dst_q->packets += cnt;
-			job_info->flags = flags;
-		} else {
-			job_info->flags = 0;
-		}
+		job_info->cookie_dst = (uintptr_t)dst_q;
+		q_idx_add(src_q->head, cnt, src_q->qlen);
+		q_idx_add(dst_q->tail, cnt, dst_q->qlen);
+		job_info->cookie_head = src_q->head;
+		job_info->cookie_tail = dst_q->tail;
+		src_q->packets += cnt;
+		dst_q->packets += cnt;
+		job_info->flags = DMA_FLAGS_BUFFER_IDX;
 		job_info->elements_per_desc = 1;
 		job_info->desc_count = cnt;
 
@@ -1236,11 +1299,6 @@ static int gie_copy_buffers(struct dma_info *dma, struct gie_q_pair *qp, struct 
 
 		q_idx_add(dma->tail, 1, dma->qlen);
 
-		/* release the bpool elements only after we used them
-		 * to avoid override by producer
-		 */
-		gie_bpool_consume(dma, qp, 1500);
-
 		tracepoint(gie, queue, "buffer copy", cnt, src_q->qid, src_q->head, src_q->tail,
 			   dst_q->qid, dst_q->head, dst_q->tail);
 	}
@@ -1252,7 +1310,8 @@ static void gie_produce_q(struct dma_info *dma, struct gie_queue *src_q, struct 
 {
 	q_idx_add(src_q->head, qes_completed, src_q->qlen);
 	q_idx_add(dst_q->tail, qes_completed, dst_q->qlen);
-	gie_produce_q_mem(dma, src_q, dst_q);
+	writel(src_q->head, (void *)(src_q->msg_head_virt));
+	writel(dst_q->tail, (void *)(dst_q->msg_tail_virt));
 	src_q->packets += qes_completed;
 	dst_q->packets += qes_completed;
 
@@ -1310,7 +1369,7 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	if (qes_copied) {
 		qes_copied = gie_clip_batch(dst_q, qes_copied);
 		if (copy_payload)
-			completed = gie_copy_buffers(dma, qp, src_q, dst_q, dst_q, qes_copied, DMA_FLAGS_BUFFER_IDX);
+			completed = gie_copy_buffers_r2l(dma, qp, src_q, dst_q, dst_q, qes_copied);
 		else
 			completed = qes_copied;
 	}
@@ -1347,7 +1406,7 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	qes = gie_clip_batch(dst_q, qes);
 
 	if (copy_payload)
-		qes = gie_copy_buffers(dma, qp, src_q, dst_q, src_q, qes, DMA_FLAGS_NONE);
+		qes = gie_copy_buffers_l2r(dma, qp, src_q, dst_q, src_q, qes);
 
 	/* if bpools are empty, no buffer copy will occur.
 	 * If so, skip the QE copy as well
@@ -1403,7 +1462,7 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 
 				src_q = (struct gie_queue *)jobi->cookie;
 				dst_q = (struct gie_queue *)jobi->cookie_dst;
-				gie_clean_mem(dma, jobi, src_q, dst_q);
+				gie_clean_mem(jobi, src_q, dst_q);
 			}
 			q_idx_add(i, 1, dma->qlen);
 		}
@@ -1424,7 +1483,7 @@ static void gie_clean_dma_jobs(struct dma_info *dma)
 			/* We cannot allow this copy-indexes to fail, so we will try to
 			 * cleanup the DMA queue in case of failure.
 			 */
-			gie_clean_mem(dma, jobi, src_q, dst_q);
+			gie_clean_mem(jobi, src_q, dst_q);
 		}
 	}
 
