@@ -65,13 +65,11 @@ static int init_nicpf_params(struct nmnicpf *nmnicpf, struct nmp_lf_nicpf_params
 	pf_profile->lcl_egress_q_size  = params->lcl_egress_qs_size;
 	pf_profile->lcl_ingress_q_num  = 1;
 	pf_profile->lcl_ingress_q_size = params->lcl_ingress_qs_size;
-	pf_profile->lcl_bm_q_num       = params->lcl_num_bpools;
-	if (pf_profile->lcl_bm_q_num > 1) {
-		pr_err("NMP supports only one lcl_bpool for GIU in current release\n");
-		return -EINVAL;
+	pf_profile->lcl_bp_num       = params->lcl_num_bpools;
+	for (k = 0; k < pf_profile->lcl_bp_num; k++) {
+		pf_profile->lcl_bp_params[k].lcl_bp_size      = params->lcl_bpools_params[k].max_num_buffs;
+		pf_profile->lcl_bp_params[k].lcl_bp_buf_size  = params->lcl_bpools_params[k].buff_size;
 	}
-	pf_profile->lcl_bm_q_size      = params->lcl_bpools_params[0].max_num_buffs;
-	pf_profile->lcl_bm_buf_size    = params->lcl_bpools_params[0].buff_size;
 	pf_profile->dflt_pkt_offset = params->dflt_pkt_offset;
 
 	pf_profile->keep_alive_thresh = params->keep_alive_thresh;
@@ -326,7 +324,7 @@ static int nmnicpf_topology_local_queue_init(struct nmnicpf *nmnicpf)
 	}
 
 	/* Local BM */
-	ret = pf_intc_bm_queue_init(nmnicpf, prof->lcl_bm_q_num);
+	ret = pf_intc_bm_queue_init(nmnicpf, prof->lcl_bp_num);
 	if (ret) {
 		pr_err("Failed to allocate Local BM table\n");
 		goto queue_error;
@@ -1025,15 +1023,21 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	struct giu_gpio_outtc_params *outtc;
 	s32 active_q_id;
 	u32 msg_tc;
+	u8 bm_idx;
 
 	msg_tc = params->pf_ingress_data_q_add.tc_prio;
 	outtc = &(gpio_p->outtcs_params[msg_tc]);
 
 	pr_debug("Host Ingress TC[%d], queue Add (num of queues %d)\n", msg_tc, outtc->num_rem_inqs);
 
-	if (nmnicpf->profile_data.lcl_bm_buf_size < params->pf_ingress_data_q_add.q_buf_size) {
-		pr_err("Host BM buffer size should be at most %d\n", nmnicpf->profile_data.lcl_bm_buf_size);
-		return -1;
+	for (bm_idx = 0; bm_idx < nmnicpf->profile_data.lcl_bp_num; bm_idx++)
+		if (nmnicpf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size >=
+			params->pf_ingress_data_q_add.q_buf_size)
+			break;
+	if (bm_idx == nmnicpf->profile_data.lcl_bp_num) {
+		pr_err("Host BM buffer size should be at least %d\n",
+			params->pf_ingress_data_q_add.q_buf_size);
+		return -EFAULT;
 	}
 
 	/* Clear queue structure */
@@ -1316,8 +1320,8 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 		memset(name, 0, sizeof(name));
 		snprintf(name, sizeof(name), "giu_pool-%d:%d", giu_id, bpool_id);
 		bp_params.match = name;
-		bp_params.num_buffs = nmnicpf->profile_data.lcl_bm_q_size;
-		bp_params.buff_len = nmnicpf->profile_data.lcl_bm_q_size;
+		bp_params.num_buffs = nmnicpf->profile_data.lcl_bp_params[bm_idx].lcl_bp_size;
+		bp_params.buff_len = nmnicpf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size;
 		ret = giu_bpool_init(&bp_params, &(nmnicpf->giu_bpools[bm_idx]));
 		if (ret) {
 			pr_err("Failed to init giu bpool\n");

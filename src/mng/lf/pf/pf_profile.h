@@ -26,7 +26,7 @@
  * lcl_egress_q_size  - size of local egress data queue
  * lcl_ingress_q_num  - number of local ingress data queues
  * lcl_ingress_q_size - size of local ingress data queues
- * lcl_bm_q_num       - number of local bm queues
+ * lcl_bp_num       - number of local bm queues
  * lcl_bm_q_size      - size of bm queue
  */
 struct pf_profile {
@@ -42,9 +42,11 @@ struct pf_profile {
 	u32 lcl_egress_q_size;
 	u32 lcl_ingress_q_num;
 	u32 lcl_ingress_q_size;
-	u32 lcl_bm_q_num;
-	u32 lcl_bm_q_size;
-	u32 lcl_bm_buf_size;
+	u32 lcl_bp_num;
+	struct {
+		u32 lcl_bp_size;
+		u32 lcl_bp_buf_size;
+	} lcl_bp_params[GIU_GPIO_TC_MAX_NUM_BPOOLS];
 	/* additions (including pp2)*/
 	u16 dflt_pkt_offset;
 	u8 max_num_tcs;
