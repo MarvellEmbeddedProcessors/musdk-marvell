@@ -125,10 +125,10 @@ static int pp2_inst_init(struct nmp *nmp)
 	memset(&pp2_params, 0, sizeof(struct pp2_init_params));
 	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
 	pp2_params.res_maps_auto_detect_map = PP2_RSRVD_MAP_HIF_AUTO;
-	if (nmp->nmpp2.bm_pool_reserved_map) {
+	if (nmp->nmpp2.bm_pool_reserved_map)
 		pp2_params.bm_pool_reserved_map = nmp->nmpp2.bm_pool_reserved_map;
+	else
 		pp2_params.res_maps_auto_detect_map |= PP2_RSRVD_MAP_BM_POOL_AUTO;
-	}
 
 	err = pp2_init(&pp2_params);
 	if (err)

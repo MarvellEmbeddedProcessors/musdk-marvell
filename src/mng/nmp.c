@@ -133,6 +133,8 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 		return -EINVAL;
 	}
 
+	memset(params, 0, sizeof(struct nmp_params));
+
 	/* Check if pp2 is enabled */
 	json_buffer_to_input(sec, "pp2_en", params->pp2_en);
 	if (nmp_range_validate(params->pp2_en, 0, 1) != 0) {
@@ -142,17 +144,17 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 
 	/* if pp2 enabled, set the pp2_params*/
 	if (params->pp2_en) {
-		sec = strstr(sec, "pp2_params");
-		if (!sec) {
-			pr_err("'pp2_params' not found\n");
-			return -EINVAL;
-		}
-
-		json_buffer_to_input(sec, "bm_pool_reserved_map", params->pp2_params.bm_pool_reserved_map);
-		if (nmp_range_validate(params->pp2_params.bm_pool_reserved_map, 0, PP2_BPOOL_NUM_POOLS)) {
-			pr_err("bm_pool_reserved_map not in range!\n");
-			rc = -EINVAL;
-			goto read_cfg_exit1;
+		if (strstr(sec, "pp2_params")) {
+			sec = strstr(sec, "pp2_params");
+			json_buffer_to_input(sec, "bm_pool_reserved_map",
+				params->pp2_params.bm_pool_reserved_map);
+			if (nmp_range_validate(params->pp2_params.bm_pool_reserved_map,
+				0,
+				((1 << PP2_BPOOL_NUM_POOLS) - 1))) {
+				pr_err("bm_pool_reserved_map not in range!\n");
+				rc = -EINVAL;
+				goto read_cfg_exit1;
+			}
 		}
 	}
 
