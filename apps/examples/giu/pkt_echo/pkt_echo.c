@@ -252,55 +252,21 @@ static int pme_cmd_cb(void *arg, int argc, char *argv[])
 }
 #endif /* CHECK_CYCLES */
 
-static inline u16 pp2_free_buffers(struct lcl_port_desc		*rx_port,
-				   struct lcl_giu_port_desc	*tx_port,
-				   struct pp2_hif		*hif,
-				   u16				start_idx,
-				   u16				num,
-				   u8				tc)
-{
-	u16			i, free_cnt = 0, idx = start_idx;
-	struct pp2_buff_inf	*binf;
-	struct tx_shadow_q	*shadow_q;
-
-	shadow_q = &rx_port->shadow_qs[tc];
-
-	for (i = 0; i < num; i++) {
-		struct pp2_bpool *bpool = shadow_q->ents[idx].bpool;
-
-		binf = &shadow_q->ents[idx].buff_ptr;
-		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
-			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
-				i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
-			continue;
-		}
-		pp2_bpool_put_buff(hif, bpool, binf);
-		free_cnt++;
-
-		if (++idx == rx_port->shadow_q_size)
-			idx = 0;
-	}
-
-	PKT_ECHO_APP_INC_FREE_COUNT(rx_port->lcl_id, rx_port->id, free_cnt);
-	return idx;
-}
-
 static inline u16 giu_free_buffers(struct lcl_giu_port_desc	*rx_port,
-				   struct lcl_port_desc		*tx_port,
 				   u16				start_idx,
 				   u16				num,
 				   u8				tc)
 {
 	u16			i, free_cnt = 0, idx = start_idx;
+	struct giu_bpool	*bpool;
 	struct giu_buff_inf	*binf;
 	struct giu_tx_shadow_q	*shadow_q;
 
 	shadow_q = &rx_port->shadow_qs[tc];
 
 	for (i = 0; i < num; i++) {
-		struct giu_bpool *bpool = (struct giu_bpool *)shadow_q->bpool;
-
-		binf = (struct giu_buff_inf *)&shadow_q->buffs_inf[idx];
+		bpool = shadow_q->ents[idx].bpool;
+		binf = (struct giu_buff_inf *)&shadow_q->ents[idx].buff_inf;
 		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
 			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
 				i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
@@ -358,49 +324,6 @@ static inline u16 pp2_free_multi_buffers(struct lcl_port_desc		*rx_port,
 	return idx;
 }
 
-/* During egress flow, the GIU (Rx side) saves the buffers in its shadow Q.
- * These buffers are taken from GIU during receive and used by PP2 during transmit.
- * In addition, the shadow Q also contains the GIU BPool.
- *
- * In this function the transmitted buffers are being placed back to the GIU BPool.
- */
-static inline u16 giu_free_multi_buffers(struct lcl_giu_port_desc	*rx_port,
-					 struct lcl_port_desc		*tx_port,
-					 u16				start_idx,
-					 u16				num,
-					 u8				tc)
-{
-	u16			idx = start_idx;
-	u16			cont_in_shadow, req_num;
-	struct giu_tx_shadow_q	*shadow_q;
-	struct giu_bpool	*bpool;
-
-	shadow_q = &rx_port->shadow_qs[tc];
-
-	cont_in_shadow = rx_port->shadow_q_size - start_idx;
-
-	bpool = (struct giu_bpool *)shadow_q->bpool;
-
-	if (num <= cont_in_shadow) {
-		req_num = num;
-		giu_bpool_put_buffs(bpool, (struct giu_buff_inf *)&shadow_q->buffs_inf[idx], &req_num);
-		idx = idx + num;
-		if (idx == rx_port->shadow_q_size)
-			idx = 0;
-	} else {
-		req_num = cont_in_shadow;
-		giu_bpool_put_buffs(bpool, (struct giu_buff_inf *)&shadow_q->buffs_inf[idx], &req_num);
-
-		req_num = num - cont_in_shadow;
-		giu_bpool_put_buffs(bpool, (struct giu_buff_inf *)&shadow_q->buffs_inf[0], &req_num);
-		idx = num - cont_in_shadow;
-	}
-
-	PKT_ECHO_APP_INC_FREE_COUNT(rx_port->lcl_id, rx_port->id, num);
-
-	return idx;
-}
-
 /* This function is called by during Ingress flow.
  * In this flow the PP2 is the Rx side (as it reads the packets from the network)
  * and the GIU is the Tx side (Transmits the packet to the host over PCI).
@@ -419,8 +342,7 @@ static inline void pp2_free_sent_buffers(struct lcl_port_desc		*rx_port,
 					 struct lcl_giu_port_desc	*tx_port,
 					 struct pp2_hif			*hif,
 					 u8				tc,
-					 u8				qid,
-					 int				multi_buffer_release)
+					 u8				qid)
 {
 	u16 tx_num;
 
@@ -437,12 +359,9 @@ static inline void pp2_free_sent_buffers(struct lcl_port_desc		*rx_port,
 	}
 
 	/* Return back the buffers to pp2 */
-	if (multi_buffer_release)
-		rx_port->shadow_qs[tc].read_ind = pp2_free_multi_buffers(rx_port, tx_port, hif,
-									 rx_port->shadow_qs[tc].read_ind, tx_num, tc);
-	else
-		rx_port->shadow_qs[tc].read_ind = pp2_free_buffers(rx_port, tx_port, hif,
-								   rx_port->shadow_qs[tc].read_ind, tx_num, tc);
+	rx_port->shadow_qs[tc].read_ind =
+		pp2_free_multi_buffers(rx_port, tx_port, hif, rx_port->shadow_qs[tc].read_ind, tx_num, tc);
+
 	STOP_COUNT_CYCLES(pme_ev_cnt_pp2_txd, tx_num);
 }
 
@@ -463,8 +382,7 @@ static inline void pp2_free_sent_buffers(struct lcl_port_desc		*rx_port,
 static inline void giu_free_sent_buffers(struct lcl_giu_port_desc	*rx_port,
 					 struct lcl_port_desc		*tx_port,
 					 struct pp2_hif			*hif,
-					 u8				tc,
-					 int				multi_buffer_release)
+					 u8				tc)
 {
 	u16 tx_num;
 
@@ -481,12 +399,9 @@ static inline void giu_free_sent_buffers(struct lcl_giu_port_desc	*rx_port,
 	}
 
 	/* Return back the buffers to giu */
-	if (multi_buffer_release)
-		rx_port->shadow_qs[tc].read_ind = giu_free_multi_buffers(rx_port, tx_port,
-									 rx_port->shadow_qs[tc].read_ind, tx_num, tc);
-	else
-		rx_port->shadow_qs[tc].read_ind = giu_free_buffers(rx_port, tx_port,
-								   rx_port->shadow_qs[tc].read_ind, tx_num, tc);
+	rx_port->shadow_qs[tc].read_ind =
+		giu_free_buffers(rx_port, rx_port->shadow_qs[tc].read_ind, tx_num, tc);
+
 	STOP_COUNT_CYCLES(pme_ev_cnt_giu_txd, tx_num);
 }
 
@@ -660,8 +575,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 			PKT_ECHO_APP_INC_TX_COUNT(larg->cmn_args.id, 0, tx_num);
 		}
 
-		pp2_free_sent_buffers(pp2_port_desc, giu_port_desc,
-				      pp2_args->hif, tc, qid, pp2_args->multi_buffer_release);
+		pp2_free_sent_buffers(pp2_port_desc, giu_port_desc, pp2_args->hif, tc, qid);
 	} while (num);
 	PKT_ECHO_APP_SET_MAX_RESENT(larg->cmn_args.id, 0, cnt);
 
@@ -754,10 +668,10 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 		pp2_ppio_outq_desc_set_proto_info(&pp2_descs[i], l3_type, l4_type, l3_offset,
 							l4_offset, gen_l3_chk, gen_l4_chk);
 
-		shadow_q->buffs_inf[shadow_q->write_ind].cookie = (uintptr_t)buff;
-		shadow_q->buffs_inf[shadow_q->write_ind].addr = pa;
-		shadow_q->bpool = bpool;
-		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->buffs_inf[shadow_q->write_ind].cookie);
+		shadow_q->ents[shadow_q->write_ind].buff_inf.cookie = (uintptr_t)buff;
+		shadow_q->ents[shadow_q->write_ind].buff_inf.addr = pa;
+		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
+		pr_debug("buff_ptr.cookie(0x%lx)\n", (u64)shadow_q->ents[shadow_q->write_ind].buff_inf.cookie);
 
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == shadow_q_size)
@@ -782,8 +696,7 @@ static inline int loop_sw_egress(struct local_arg	*larg,
 			num -= tx_num;
 			PKT_ECHO_APP_INC_TX_COUNT(larg->cmn_args.id, 1, tx_num);
 		}
-		giu_free_sent_buffers(giu_port_desc, pp2_port_desc,
-				      pp2_args->hif, tc, pp2_args->multi_buffer_release);
+		giu_free_sent_buffers(giu_port_desc, pp2_port_desc, pp2_args->hif, tc);
 	} while (num);
 	PKT_ECHO_APP_SET_MAX_RESENT(larg->cmn_args.id, 1, cnt);
 
@@ -1249,7 +1162,6 @@ static void usage(char *progname)
 	       "\t-w <cycles>              Cycles to busy_wait between recv&send, simulating app behavior (default=0)\n"
 	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
 	       "\t--pkt-offset <size>      Packet offset in buffer, must be multiple of 32-byte (default is %d)\n"
-	       "\t--old-tx-desc-release    Use pp2_bpool_put_buff(), instead of NEW pp2_bpool_put_buffs() API\n"
 	       "\t--no-echo                Don't perform 'pkt_echo', N/A w/o define PKT_ECHO_APP_PKT_ECHO_SUPPORT\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t--no-stat                Disable the packet's runtime statistics display\n"
@@ -1282,7 +1194,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.guest_id = PKT_ECHO_APP_NMP_GUEST_ID;
 
 	pp2_args->multi_buffer_release = 1;
-
 
 	/* TODO: init hardcoded ports?!?!?! */
 	garg->cmn_args.num_ports = 1;
@@ -1396,9 +1307,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--pkt-offset") == 0) {
 			garg->cmn_args.pkt_offset = atoi(argv[i + 1]);
 			i += 2;
-		} else if (strcmp(argv[i], "--old-tx-desc-release") == 0) {
-			pp2_args->multi_buffer_release = 0;
-			i += 1;
 		} else if (strcmp(argv[i], "-m") == 0) {
 			int rv;
 

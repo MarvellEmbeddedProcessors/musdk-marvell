@@ -46,6 +46,11 @@ struct giu_port_desc {
 	struct giu_gpio		*gpio;		/* GPIO object returned by giu_gpio_probe() */
 };
 
+struct giu_buff_ent {
+	struct giu_buff_inf	 buff_inf;	/* pointer to the buffer object */
+	struct giu_bpool	*bpool;		/* pointer to the bpool object */
+};
+
 /*
  * Tx shadow queue
  */
@@ -53,8 +58,7 @@ struct giu_tx_shadow_q {
 	u16			read_ind;	/* read index */
 	u16			write_ind;	/* write index */
 
-	struct giu_buff_inf	*buffs_inf;	/* pointer to the buffer object */
-	struct giu_bpool	*bpool;		/* pointer to the bpool object */
+	struct giu_buff_ent	*ents;
 };
 
 /*

@@ -90,15 +90,14 @@ void app_giu_port_local_init(int id,
 		lcl_port->shadow_qs[i].read_ind = 0;
 		lcl_port->shadow_qs[i].write_ind = 0;
 
-		lcl_port->shadow_qs[i].buffs_inf =
-			(struct giu_buff_inf *)malloc(outq_size * sizeof(struct giu_buff_inf));
+		lcl_port->shadow_qs[i].ents =
+			(struct giu_buff_ent *)malloc(outq_size * sizeof(struct giu_buff_ent));
 	}
 }
 
 int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 {
 	struct giu_bpool *bpool = &giu_bpools[bpool_id];
-	struct giu_buff_inf *buffs_inf;
 	struct giu_bpool_capabilities capa;
 	void *buff_virt_addr;
 	void *buff_phys_addr;
@@ -114,12 +113,6 @@ int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 		num_of_buffs = capa.max_num_buffs;
 
 	pr_debug("Adding (%d Bytes) buffers into BPOOL.\n", bpool->buff_len);
-
-	buffs_inf = (struct giu_buff_inf *)malloc(num_of_buffs * sizeof(struct giu_buff_inf));
-	if (buffs_inf == NULL) {
-		pr_err("Failed to allocate buffs_inf\n");
-		return -ENOMEM;
-	}
 
 	buff_virt_addr = mv_sys_dma_mem_alloc(bpool->buff_len * num_of_buffs, 4);
 	if (!buff_virt_addr) {
@@ -137,10 +130,12 @@ int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 	buff_phys_addr = (void *)(uintptr_t)mv_sys_dma_mem_virt2phys(buff_virt_addr);
 
 	for (i = 0; i < num_of_buffs; i++) {
-		buffs_inf[i].addr = (u64)buff_phys_addr + (i * bpool->buff_len);
-		buffs_inf[i].cookie = (u64)buff_virt_addr + (i * bpool->buff_len);
+		struct giu_buff_inf buff_inf;
 
-		err = giu_bpool_put_buff(bpool, &buffs_inf[i]);
+		buff_inf.addr = (u64)buff_phys_addr + (i * bpool->buff_len);
+		buff_inf.cookie = (u64)buff_virt_addr + (i * bpool->buff_len);
+
+		err = giu_bpool_put_buff(bpool, &buff_inf);
 		if (err)
 			return err;
 	}

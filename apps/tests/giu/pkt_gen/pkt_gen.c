@@ -255,35 +255,31 @@ u64			 lst_tx_cnts[PKT_GEN_NUM_CNTS][MVAPPS_PP2_MAX_NUM_PORTS];
 static struct glob_arg garg = {};
 
 
-static inline u16 giu_free_multi_buffers(struct lcl_giu_port_desc	*rx_port,
-					 u16				start_idx,
-					 u16				num,
-					 u8				tc)
+static inline u16 giu_free_buffers(struct lcl_giu_port_desc	*rx_port,
+				   u16				start_idx,
+				   u16				num,
+				   u8				tc)
 {
-	u16			idx = start_idx;
-	u16			cont_in_shadow, req_num;
-	struct giu_tx_shadow_q	*shadow_q;
+	u16			i, free_cnt = 0, idx = start_idx;
 	struct giu_bpool	*bpool;
+	struct giu_buff_inf	*binf;
+	struct giu_tx_shadow_q	*shadow_q;
 
 	shadow_q = &rx_port->shadow_qs[tc];
 
-	cont_in_shadow = rx_port->shadow_q_size - start_idx;
+	for (i = 0; i < num; i++) {
+		bpool = shadow_q->ents[idx].bpool;
+		binf = (struct giu_buff_inf *)&shadow_q->ents[idx].buff_inf;
+		if (unlikely(!binf->cookie || !binf->addr || !bpool)) {
+			pr_warn("Shadow memory @%d: cookie(%lx), pa(%lx), pool(%lx)!\n",
+				i, (u64)binf->cookie, (u64)binf->addr, (u64)bpool);
+			continue;
+		}
+		giu_bpool_put_buff(bpool, binf);
+		free_cnt++;
 
-	bpool = (struct giu_bpool *)shadow_q->bpool;
-
-	if (num <= cont_in_shadow) {
-		req_num = num;
-		giu_bpool_put_buffs(bpool, (struct giu_buff_inf *)&shadow_q->buffs_inf[idx], &req_num);
-		idx = idx + num;
-		if (idx == rx_port->shadow_q_size)
+		if (++idx == rx_port->shadow_q_size)
 			idx = 0;
-	} else {
-		req_num = cont_in_shadow;
-		giu_bpool_put_buffs(bpool, (struct giu_buff_inf *)&shadow_q->buffs_inf[idx], &req_num);
-
-		req_num = num - cont_in_shadow;
-		giu_bpool_put_buffs(bpool, (struct giu_buff_inf *)&shadow_q->buffs_inf[0], &req_num);
-		idx = num - cont_in_shadow;
 	}
 
 	return idx;
@@ -488,9 +484,9 @@ static int loop_rx(struct local_arg	*larg,
 
 		larg->trf_cntrs.rx_bytes += len;
 
-		shadow_q->buffs_inf[shadow_q->write_ind].cookie = (uintptr_t)buff;
-		shadow_q->buffs_inf[shadow_q->write_ind].addr = pa;
-		shadow_q->bpool = bpool;
+		shadow_q->ents[shadow_q->write_ind].buff_inf.cookie = (uintptr_t)buff;
+		shadow_q->ents[shadow_q->write_ind].buff_inf.addr = pa;
+		shadow_q->ents[shadow_q->write_ind].bpool = bpool;
 
 		shadow_q->write_ind++;
 		if (shadow_q->write_ind == shadow_q_size)
@@ -498,7 +494,7 @@ static int loop_rx(struct local_arg	*larg,
 	}
 
 	if (num)
-		shadow_q->read_ind = giu_free_multi_buffers(giu_port_desc, shadow_q->read_ind, num, tc);
+		shadow_q->read_ind = giu_free_buffers(giu_port_desc, shadow_q->read_ind, num, tc);
 
 	return 0;
 }
