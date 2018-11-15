@@ -270,25 +270,15 @@ void neta_deinit(void)
  */
 int neta_netdev_get_port_info(char *ifname, u8 *port_id)
 {
-	struct netdev_if_params *port;
-	int i;
+	int ret, id;
 
 	if (!neta_is_initialized()) {
 		pr_warn("NETA US driver not initialized\n");
 		return -EINVAL;
 	}
 
-	for (i = 0; i < NETA_NUM_ETH_PPIO; i++) {
-		if (!neta_ptr->ports[i])
-			continue;
-
-		port = neta_ptr->ports[i];
-
-		if (strcmp(ifname, port->if_name) == 0) {
-			*port_id = port->ppio_id;
-			pr_info("%s: port %d\n", ifname, *port_id);
-			return 0;
-		}
-	}
-	return -EEXIST;
+	ret = neta_netdev_if_verify(ifname, &id);
+	if (!ret)
+		*port_id = (u8)id;
+	return ret;
 }
