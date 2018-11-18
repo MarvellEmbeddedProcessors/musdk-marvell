@@ -385,7 +385,8 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 
 	/* Calculate RSS and update descriptor */
 	for (i = 0; i < num_txds; i++) {
-		giu_gpio_update_rss(gpio, tc, &descs[i]);
+		if (outtc->num_rem_inqs > 1)
+			giu_gpio_update_rss(gpio, tc, &descs[i]);
 		dest_qid = GIU_TXD_GET_DEST_QID(&descs[i]);
 		/* Get queue params */
 		txq = &outtc->outqs[dest_qid].queue;
