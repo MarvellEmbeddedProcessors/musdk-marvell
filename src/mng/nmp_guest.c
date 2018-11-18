@@ -46,7 +46,7 @@ static int nmp_guest_wait_for_guest_file(struct nmp_guest *guest)
 
 	if (!timeout) {
 		pr_err("failed to find regfile %s. timeout exceeded.\n", file_name);
-		return -EFAULT;
+		return -ETIMEDOUT;
 	}
 
 #ifdef MVCONF_NMP_BUILT
@@ -514,7 +514,6 @@ int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 
 	err = nmp_guest_wait_for_guest_file(*g);
 	if (err) {
-		err = -EINVAL;
 		pr_err("Guest file not available\n");
 		goto guest_init_err2;
 	}
