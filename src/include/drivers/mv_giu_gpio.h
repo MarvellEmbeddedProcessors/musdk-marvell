@@ -298,9 +298,9 @@ enum giu_outq_desc_ipv4_l4_status {
 /* cmd 5 */
 #define GIU_RXD_BUF_PHYS_HI_MASK	(0x000000FF)
 /* cmd 6 */
-#define GIU_RXD_BUF_VIRT_LO_MASK	(0xFFFFFFFF)
+#define GIU_RXD_BUF_COOKIE_LO_MASK	(0xFFFFFFFF)
 /* cmd 7 */
-#define GIU_RXD_BUF_VIRT_HI_MASK	(0x000000FF)
+#define GIU_RXD_BUF_COOKIE_HI_MASK	(0x000000FF)
 
 
 #define GIU_RXD_GET_L3_OFF(desc)         (((desc)->cmds[0] & GIU_RXD_L3_OFFSET_MASK) >> 0)
@@ -342,8 +342,7 @@ enum giu_outq_desc_ipv4_l4_status {
 /* cmd 6 */
 #define GIU_TXD_BUF_VIRT_LO_MASK	(0xFFFFFFFF)
 /* cmd 7 */
-#define GIU_TXD_BUF_VIRT_HI_MASK	(0x000000FF)
-
+#define GIU_TXD_BUF_VIRT_HI_MASK	(0xFFFFFFFF)
 
 #define GIU_TXD_SET_L3_OFF(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_OFF_MASK) | (data << 0 & GIU_TXD_L3_OFF_MASK))
@@ -603,8 +602,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 /**
  * Reset an outq packet descriptor to default value.
  *
- * @param[out]	desc	A pointer to a packet descriptor structure.
- *
+ * @param[in]	desc	A pointer to a packet descriptor structure to be set.
  */
 static inline void giu_gpio_outq_desc_reset(struct giu_gpio_desc *desc)
 {
@@ -612,15 +610,14 @@ static inline void giu_gpio_outq_desc_reset(struct giu_gpio_desc *desc)
 	 *	 when preparing the descriptor
 	 */
 	desc->cmds[0] = desc->cmds[1] = desc->cmds[2] = desc->cmds[3] =
-	desc->cmds[5] = 0;
+	desc->cmds[5] = desc->cmds[6] = 0;
 }
 
 /**
  * Set the physical address in an outq packet descriptor.
  *
- * @param[out]	desc	A pointer to a packet descriptor structure.
+ * @param[in]	desc	A pointer to a packet descriptor structure to be set.
  * @param[in]	addr	Physical DMA address containing the packet to be sent.
- *
  */
 static inline void giu_gpio_outq_desc_set_phys_addr(struct giu_gpio_desc *desc, dma_addr_t addr)
 {
@@ -632,6 +629,30 @@ static inline void giu_gpio_outq_desc_set_phys_addr(struct giu_gpio_desc *desc, 
 	desc->cmds[7] = GIU_GPIO_DESC_COOKIE_WATERMARK;
 }
 
+/**
+ * Set the virtual address in an outq packet descriptor.
+ *
+ * This routine should be used by upper layer in cases where the buffer
+ * is being allocated outside of MUSDK-dmamem allocator. The virtual-address
+ * is used localy by the GIU-GPIO driver in order to calculate RSS.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure to be set.
+ * @param[in]	addr	Virtual address containing the packet to be sent.
+ */
+static inline void giu_gpio_outq_desc_set_virt_addr(struct giu_gpio_desc *desc, void *addr)
+{
+	/* cmd[6] and cmd[7] holds the buffer virtual address (Low and High parts) */
+	desc->cmds[6] = (u32)(uintptr_t)addr;
+	desc->cmds[7] = (desc->cmds[7] & ~GIU_TXD_BUF_VIRT_HI_MASK) |
+			((u64)(uintptr_t)addr >> 32 & GIU_TXD_BUF_VIRT_HI_MASK);
+}
+
+/**
+ * Set the packet offset in an outq packet descriptor..
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure to be set.
+ * @param[in]	offset	The packet offset.
+ */
 static inline void giu_gpio_outq_desc_set_pkt_offset(struct giu_gpio_desc *desc, u8  offset)
 {
 	desc->cmds[1] = (u32)offset;
@@ -640,9 +661,8 @@ static inline void giu_gpio_outq_desc_set_pkt_offset(struct giu_gpio_desc *desc,
 /**
  * Set the packet length in an outq packet descriptor..
  *
- * @param[out]	desc	A pointer to a packet descriptor structure.
+ * @param[in]	desc	A pointer to a packet descriptor structure to be set.
  * @param[in]	len	The packet length, not including CRC.
- *
  */
 static inline void giu_gpio_outq_desc_set_pkt_len(struct giu_gpio_desc *desc, u16 len)
 {
@@ -653,7 +673,7 @@ static inline void giu_gpio_outq_desc_set_pkt_len(struct giu_gpio_desc *desc, u1
  * Set the protocol info in an outq packet descriptor.
  * This API must always be called.
  *
- * @param[out]	desc		A pointer to a packet descriptor structure.
+ * @param[in]	desc		A pointer to a packet descriptor structure to be set.
  * @param[in]	status		error status of the lowest layer (L2/L3/L4).
  * @param[in]	l2_cast		The l2 cast info.
  * @param[in]	vlan_type	The vlan tag.
@@ -662,7 +682,6 @@ static inline void giu_gpio_outq_desc_set_pkt_len(struct giu_gpio_desc *desc, u1
  * @param[in]	l3_offset	The l3 offset of the packet.
  * @param[in]	l4_type		The l4 type of the packet.
  * @param[in]	l4_offset	The l4 offset of the packet.
- *
  */
 static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc,
 						     enum giu_outq_desc_status status,
@@ -703,9 +722,8 @@ static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc,
 /**
  * Set the metadata mode in an outq packet descriptor.
  *
- * @param[out]	desc		A pointer to a packet descriptor structure.
+ * @param[in]	desc		A pointer to a packet descriptor structure to be set.
  * @param[in]	md_mode		'1' for setting metadata mode
- *
  */
 static inline void giu_gpio_outq_desc_set_md_mode(struct giu_gpio_desc *desc, int md_mode)
 {
@@ -737,7 +755,7 @@ static inline u64 giu_gpio_inq_desc_get_phys_addr(struct giu_gpio_desc *desc)
 static inline u64 giu_gpio_inq_desc_get_cookie(struct giu_gpio_desc *desc)
 {
 	/* cmd[6] and cmd[7] holds the cookie (Low and High parts) */
-	return ((u64)((desc->cmds[7] & GIU_RXD_BUF_VIRT_HI_MASK) >> 0) << 32) | (u64)desc->cmds[6];
+	return ((u64)((desc->cmds[7] & GIU_RXD_BUF_COOKIE_HI_MASK) >> 0) << 32) | (u64)desc->cmds[6];
 }
 
 /**

@@ -298,6 +298,12 @@ static inline u64 giu_gpio_outq_desc_get_phys_addr(struct giu_gpio_desc *desc)
 
 static inline void *giu_gpio_outq_desc_get_addr(struct giu_gpio_desc *desc)
 {
+	/* check first if user set its own virtual-address; in that case, we should use it */
+	if (desc->cmds[6])
+		return (void *)(uintptr_t)(((u64)((desc->cmds[7] &
+			GIU_TXD_BUF_VIRT_HI_MASK) >> 0) << 32) |
+				(u64)desc->cmds[6]);
+	/* if user didn't set its own VA, we assume the buffer was allocated by MUSDK dma-pool */
 	return mv_sys_dma_mem_phys2virt(giu_gpio_outq_desc_get_phys_addr(desc));
 }
 
