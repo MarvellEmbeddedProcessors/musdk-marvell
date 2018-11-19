@@ -653,11 +653,13 @@ static void mvneta_rxq_buf_size_set(struct neta_port *pp,
 {
 	u32 val;
 
+	if (!IS_ALIGNED(buf_size, 8))
+		buf_size = ALIGN(buf_size, 8);
+
 	val = neta_reg_read(pp, MVNETA_RXQ_SIZE_REG(rxq->id));
 
 	val &= ~MVNETA_RXQ_BUF_SIZE_MASK;
 	val |= ((buf_size >> 3) << MVNETA_RXQ_BUF_SIZE_SHIFT);
-
 	neta_reg_write(pp, MVNETA_RXQ_SIZE_REG(rxq->id), val);
 }
 
@@ -725,6 +727,7 @@ void neta_bm_pool_bufsize_set(struct neta_port *pp,
 	val = neta_reg_read(pp, MVNETA_PORT_POOL_BUFFER_SZ_REG(pool_id));
 	val &= ~MVNETA_PORT_POOL_BUFFER_SZ_MASK;
 	val |= buf_size & MVNETA_PORT_POOL_BUFFER_SZ_MASK;
+
 	neta_reg_write(pp, MVNETA_PORT_POOL_BUFFER_SZ_REG(pool_id), val);
 }
 
