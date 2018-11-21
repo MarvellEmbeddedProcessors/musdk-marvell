@@ -104,7 +104,7 @@
 /*                                 MACROS                                     */
 /******************************************************************************/
 #define MVPP2_CLS_LOG_FLOW_LUID_MAX	(20)				/* max lookup ID per flow	*/
-#define MVPP2_CLS_FLOW_RULE_MAX		(96)				/* max flow rules		*/
+#define MVPP2_CLS_FLOW_RULE_MAX		(256)				/* max flow rules		*/
 #define MVPP2_CLS_FREE_LOG2OFF		(0)				/* 1st entry is the free index	*/
 #define MVPP2_CLS_LOG2OFF_START		(1)				/* 1st entry is the free index	*/
 #define MVPP2_CLS_LOG2OFF_TBL_SIZE	(MVPP2_CLS_FLOWS_TBL_SIZE + MVPP2_CLS_FREE_LOG2OFF)
@@ -277,6 +277,7 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t 
 int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
 			    u32 port_id);
+int pp2_cls_fl_hash_rule_set(struct pp2_inst *inst, struct pp2_port *port, int lkpid);
 int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode);
 int pp2_cls_rule_disable(struct pp2_port *port, struct pp2_cls_fl_rule_entry_t *fl);
 int pp2_cls_init(struct pp2_inst *inst);

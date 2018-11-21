@@ -377,8 +377,8 @@ static int pp2_cls_lkp_dcod_hw_set(struct pp2_inst *inst, struct pp2_cls_fl_t *f
 /*******************************************************************************
  * pp2_cls_lkp_dcod_set_and_disable
  *
- * DESCRIPTION: The API set decoder entry if not configure till now,
- *		and disabled it was enable
+ * DESCRIPTION: The API sets the decoder entry if not configured till now,
+ *		and disables it if it was enabled
  *
  * INPUTS:
  *	inst - packet processor instance
@@ -2801,6 +2801,176 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst,
 }
 
 /*******************************************************************************
+ * pp2_cls_fl_hash_rule_set
+ *
+ * DESCRIPTION: The API enables hash rules according to flow rule array
+ *
+ * INPUTS:
+ *	inst - packet processor instance
+ *	fl_rls - a list of rules to enable
+ *
+ * OUTPUTS:
+ *	fl_rls->fl[].rl_log_id - rule logical ID according to matching rule in DB
+ *
+ * RETURNS:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_fl_hash_rule_set(struct pp2_inst *inst, struct pp2_port *port, int lkpid)
+{
+	int rl_off;
+	int engine, is_last, field_cnt, fid, lkpid_attr;
+	int field[MVPP2_CLS_FLOWS_TBL_FIELDS_MAX];
+	struct mv_pp2x_cls_flow_entry fe;
+	int rc;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	struct pp2_db_cls_lkp_dcod_t lkp_dcod_db;
+	struct pp2_db_cls_fl_rule_list_t *fl_rl_db;	/*use heap to reduce stack size*/
+	struct pp2_db_cls_fl_rule_t *rl_db = NULL;
+
+	fl_rl_db = kmalloc(sizeof(*fl_rl_db), GFP_KERNEL);
+	if (!fl_rl_db)
+		return -ENOMEM;
+
+	/* get the lookup DB for this logical flow ID */
+	rc = pp2_db_cls_lkp_dcod_get(inst, lkpid, &lkp_dcod_db);
+	if (rc) {
+		pr_err("failed to get lookup decode DB data for fl_log_id %d\n", lkpid);
+		return rc;
+	}
+
+	/* get all rules for this logical flow ID */
+	memset(fl_rl_db, 0, sizeof(struct pp2_db_cls_fl_rule_list_t));
+	rc = pp2_db_cls_fl_rule_list_get(inst, lkp_dcod_db.flow_off, lkp_dcod_db.flow_len, &fl_rl_db->flow[0]);
+	if (rc) {
+		pr_err("failed to get flow rule list, flow_off=%d flow_len=%d\n",
+		       lkp_dcod_db.flow_off, lkp_dcod_db.flow_len);
+		kfree(fl_rl_db);
+		return rc;
+	}
+
+	/* set the flow length in the DB entry */
+	fl_rl_db->flow_len = lkp_dcod_db.flow_len;
+
+	/* search for enabled rule (valid port_type and port_bm) to enable */
+	for (rl_off = 0; rl_off < fl_rl_db->flow_len; rl_off++) {
+		rl_db = &fl_rl_db->flow[rl_off];
+
+		if (((rl_db->engine == MVPP2_CLS_ENGINE_C3HA) ||
+		    (rl_db->engine == MVPP2_CLS_ENGINE_C3HB)) &&
+		    rl_db->port_bm & BIT(port->id))
+			break;
+	}
+
+	if (rl_off == fl_rl_db->flow_len) {
+		pr_err("failed to find flow rule\n");
+		kfree(fl_rl_db);
+		return -EFAULT;
+	}
+
+	/* read the rule from HW*/
+	rc = mv_pp2x_cls_hw_flow_read(cpu_slot, rl_off + 1, &fe);
+	if (rc) {
+		pr_err("%s(%d): recvd ret_code(%d)\n", __func__, __LINE__, rc);
+		return rc;
+	}
+
+	/* Get engine and is last*/
+	rc = mv_pp2x_cls_sw_flow_engine_get(&fe, &engine, &is_last);
+	if (rc) {
+		pr_err("mv_pp2x_cls_sw_flow_engine_get fail rc = %d\n", rc);
+		return rc;
+	}
+
+	if (engine == MVPP2_CLS_ENGINE_C3HA)
+		field_cnt = 2;
+	else
+		field_cnt = 4;
+
+	lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
+
+	if (lkpid_attr & MVPP2_PRS_FL_ATTR_IP4_BIT) {
+		field[0] = MVPP2_CLS_FIELD_IP4SA;
+		field[1] = MVPP2_CLS_FIELD_IP4DA;
+	} else if (lkpid_attr & MVPP2_PRS_FL_ATTR_IP6_BIT) {
+		field[0] = MVPP2_CLS_FIELD_IP6SA;
+		field[1] = MVPP2_CLS_FIELD_IP6DA;
+	}
+	field[2] = MVPP2_CLS_FIELD_L4SIP;
+	field[3] = MVPP2_CLS_FIELD_L4DIP;
+
+	/* update hek */
+	for (fid = 0; fid < field_cnt; fid++) {
+		rc = mv_pp2x_cls_sw_flow_hek_set(&fe, fid, field[fid]);
+		if (rc) {
+			pr_err("mv_pp2x_cls_sw_flow_hek_set ret_code(%d)\n", rc);
+			return rc;
+		}
+	}
+
+	/* update hek number field */
+	rc = mv_pp2x_cls_sw_flow_hek_num_set(&fe, field_cnt);
+	if (rc) {
+		pr_err("mv_pp2x_cls_sw_flow_hek_num_set fail rc = %d\n", rc);
+		return rc;
+	}
+
+	fe.index = rl_off + 1;
+	rc = mv_pp2x_cls_hw_flow_write(cpu_slot, &fe);
+	if (rc) {
+		pr_err("mv_pp2x_cls_hw_flow_write ret_code(%d)\n", rc);
+		return rc;
+	}
+
+	pr_debug("%s, after updating HEK\n", __func__);
+	pr_debug("  ptype | bm | prio | lutype | eng | udf7 | cnt | 1 | 2 | 3 | 4\n");
+	pr_debug("  %6d|%4x|%6d|%8d|%5d|%6d|%5d|%3x|%3x|%3x|%3x\n",
+		rl_db->port_type,
+		rl_db->port_bm,
+		rl_db->prio,
+		rl_db->lu_type,
+		rl_db->engine,
+		rl_db->udf7,
+		rl_db->field_id_cnt,
+		rl_db->field_id[0],
+		rl_db->field_id[1],
+		rl_db->field_id[2],
+		rl_db->field_id[3]);
+
+	/* update DB */
+	rl_db->field_id_cnt = field_cnt;
+	for (fid = 0; fid < field_cnt; fid++)
+		rl_db->field_id[fid] = field[fid];
+
+	rc = pp2_db_cls_fl_rule_set(inst, lkp_dcod_db.flow_off + rl_off, rl_db);
+	if (rc) {
+		pr_err("pp2_db_cls_fl_rule_set recvd ret_code(%d)\n", rc);
+		return rc;
+	}
+
+	/* read the rule from HW*/
+	rc = mv_pp2x_cls_hw_flow_read(cpu_slot, rl_off + 1, &fe);
+	if (rc) {
+		pr_err("%s(%d): recvd ret_code(%d)\n", __func__, __LINE__, rc);
+		return rc;
+	}
+
+	rc = mv_pp2x_cls_sw_flow_hek_get(&fe, &field_cnt, field);
+	if (rc) {
+		pr_err("mv_pp2x_cls_sw_flow_hek_get fail rc = %d\n", rc);
+		return rc;
+	}
+
+	/* update the DB */
+	rc = pp2_db_cls_fl_rule_set(inst, lkp_dcod_db.flow_off + rl_off, rl_db);
+	if (rc) {
+		pr_err("recvd ret_code(%d)\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
  * pp2_cls_fl_rule_disable
  *
  * DESCRIPTION: The API disables all rules according to logical rule ID array
@@ -3082,6 +3252,7 @@ int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode)
 	int rc;
 	struct pp2_inst *inst = port->parent;
 	struct pp2_cls_fl_rule_list_t *fl_rls_hash;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
 	if (rss_mode == PP2_PPIO_HASH_T_NONE)
 		return 0;
@@ -3090,34 +3261,54 @@ int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode)
 	if (!fl_rls_hash)
 		return -ENOMEM;
 
+	int lkp_type = (port->type == PP2_PPIO_T_LOG) ? MVPP2_CLS_LKP_MUSDK_LOG_HASH : MVPP2_CLS_LKP_HASH;
+
 	for (lkpid = MVPP2_PRS_FL_START; lkpid < MVPP2_PRS_FL_LAST; lkpid++) {
 		/* Get lookup id attribute */
 		lkpid_attr = mv_pp2x_prs_flow_id_attr_get(lkpid);
 		if ((lkpid_attr & (MVPP2_PRS_FL_ATTR_TCP_BIT | MVPP2_PRS_FL_ATTR_UDP_BIT)) &&
 		    !(lkpid_attr & MVPP2_PRS_FL_ATTR_FRAG_BIT)) {
 			if (rss_mode == PP2_PPIO_HASH_T_2_TUPLE) {
-				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA,
-							lkpid, lkpid_attr, true);
-				rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
-				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HB, lkpid,
-							lkpid_attr, false);
-				rc |= pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+				/* For backwards compatibility to LK 4.4 */
+				if (lnx_is_mainline(lnx_id) &&
+				    (lkp_type == MVPP2_CLS_LKP_HASH)) {
+					pp2_cls_fl_hash_rule_set(inst, port, lkpid);
+				} else {
+					pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA,
+								lkpid, lkpid_attr, true);
+					rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+					pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HB, lkpid,
+								lkpid_attr, false);
+					rc |= pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+				}
 			} else if (rss_mode == PP2_PPIO_HASH_T_5_TUPLE) {
-				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA, lkpid,
-							lkpid_attr, false);
-				rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
-				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HB, lkpid,
-							lkpid_attr, true);
-				rc |= pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+				/* For backwards compatibility to LK 4.4 */
+				if (lnx_is_mainline(lnx_id) &&
+				    (lkp_type == MVPP2_CLS_LKP_HASH)) {
+					pp2_cls_fl_hash_rule_set(inst, port, lkpid);
+				} else {
+					pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA, lkpid,
+								lkpid_attr, false);
+					rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+					pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HB, lkpid,
+								lkpid_attr, true);
+					rc |= pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+				}
 			} else {
 				pr_err("%s(%d), unknown rss mode\n", __func__, __LINE__);
 				kfree(fl_rls_hash);
 				return -EINVAL;
 			}
 		} else if (lkpid_attr & (MVPP2_PRS_FL_ATTR_IP4_BIT | MVPP2_PRS_FL_ATTR_IP6_BIT)) {
-			pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA,
-						lkpid, lkpid_attr, true);
-			rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+			/* For backwards compatibility to LK 4.4 */
+			if (lnx_is_mainline(lnx_id) &&
+			    (lkp_type == MVPP2_CLS_LKP_HASH)) {
+				pp2_cls_fl_hash_rule_set(inst, port, lkpid);
+			} else {
+				pp2_cls_set_hash_params(fl_rls_hash, port, MVPP2_CLS_ENGINE_C3HA,
+							lkpid, lkpid_attr, true);
+				rc = pp2_cls_fl_rule_enable(inst, fl_rls_hash);
+			}
 		}
 	}
 
@@ -3176,7 +3367,7 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		}
 
 		/* add only kernel flows to db & hw */
-		if (lkp_type > MVPP2_CLS_LKP_DEFAULT) {
+		if (lkp_type > MVPP2_CLS_LKP_DSCP_PRI) {
 			if (is_last) {
 				pr_debug("found %d flows\n", fl_rls->fl_len);
 				break;

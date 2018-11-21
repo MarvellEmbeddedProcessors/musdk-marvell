@@ -101,9 +101,374 @@
 #include "../pp2_hw_type.h"
 #include "pp2_prs.h"
 
-/* Flow ID definetion array */
+/* Flow ID definition array */
 static struct mv_pp2x_prs_flow_id
 	mv_pp2x_prs_flow_id_array[MVPP2_PRS_FL_TCAM_NUM] = {
+	/***********#Flow ID#**************#Result Info#************/
+	/* TCP over IPv4 flows, Not fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP4_TCP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP4 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP4_OPT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP4_OTHER |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* TCP over IPv4 flows, Not fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP4_TCP_NF_TAG,	{MVPP2_PRS_RI_L3_IP4 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_NF_TAG,	{MVPP2_PRS_RI_L3_IP4_OPT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_NF_TAG,	{MVPP2_PRS_RI_L3_IP4_OTHER |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* TCP over IPv4 flows, fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP4_TCP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP4 |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_TCP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP4_OPT |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_TCP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP4_OTHER |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_TCP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* TCP over IPv4 flows, fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP4_TCP_FRAG_TAG, {MVPP2_PRS_RI_L3_IP4 |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_FRAG_TAG, {MVPP2_PRS_RI_L3_IP4_OPT |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TCP_FRAG_TAG, {MVPP2_PRS_RI_L3_IP4_OTHER |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv4 flows, Not fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP4_UDP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP4 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP4_OPT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP4_OTHER |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv4 flows, Not fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP4_UDP_NF_TAG,	{MVPP2_PRS_RI_L3_IP4 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_NF_TAG,	{MVPP2_PRS_RI_L3_IP4_OPT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_NF_TAG,	{MVPP2_PRS_RI_L3_IP4_OTHER |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv4 flows, fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP4_UDP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP4 |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_UDP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP4_OPT |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_UDP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP4_OTHER |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_UDP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv4 flows, fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP4_UDP_FRAG_TAG, {MVPP2_PRS_RI_L3_IP4 |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_FRAG_TAG,	{MVPP2_PRS_RI_L3_IP4_OPT |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UDP_FRAG_TAG,	{MVPP2_PRS_RI_L3_IP4_OTHER |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* TCP over IPv6 flows, not fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP6_TCP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP6 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_TCP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP6_EXT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* TCP over IPv6 flows, not fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP6_TCP_NF_TAG,	{MVPP2_PRS_RI_L3_IP6 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_TCP_NF_TAG,	{MVPP2_PRS_RI_L3_IP6_EXT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* TCP over IPv6 flows, fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP6_TCP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP6 |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_TCP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_TCP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP6_EXT |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_TCP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* TCP over IPv6 flows, fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP6_TCP_FRAG_TAG,	{MVPP2_PRS_RI_L3_IP6 |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_TCP_FRAG_TAG,	{MVPP2_PRS_RI_L3_IP6_EXT |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_TCP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv6 flows, not fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP6_UDP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP6 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_UDP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					 MVPP2_PRS_RI_L3_IP6_EXT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_VLAN_MASK |
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv6 flows, not fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP6_UDP_NF_TAG,	{MVPP2_PRS_RI_L3_IP6 |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_UDP_NF_TAG,	{MVPP2_PRS_RI_L3_IP6_EXT |
+					 MVPP2_PRS_RI_IP_FRAG_FALSE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv6 flows, fragmented, no vlan tag */
+	{MVPP2_PRS_FL_IP6_UDP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP6 |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_UDP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_UDP_FRAG_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+					   MVPP2_PRS_RI_L3_IP6_EXT |
+					   MVPP2_PRS_RI_IP_FRAG_TRUE |
+					   MVPP2_PRS_RI_L4_UDP,
+					   MVPP2_PRS_RI_VLAN_MASK |
+					   MVPP2_PRS_RI_L3_PROTO_MASK |
+					   MVPP2_PRS_RI_IP_FRAG_MASK |
+					   MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* UDP over IPv6 flows, fragmented, with vlan tag */
+	{MVPP2_PRS_FL_IP6_UDP_FRAG_TAG,	{MVPP2_PRS_RI_L3_IP6 |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_UDP_FRAG_TAG, {MVPP2_PRS_RI_L3_IP6_EXT |
+					 MVPP2_PRS_RI_IP_FRAG_TRUE |
+					 MVPP2_PRS_RI_L4_UDP,
+					 MVPP2_PRS_RI_L3_PROTO_MASK |
+					 MVPP2_PRS_RI_IP_FRAG_MASK |
+					 MVPP2_PRS_RI_L4_PROTO_MASK} },
+
+	/* IPv4 flows, no vlan tag */
+	{MVPP2_PRS_FL_IP4_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+				  MVPP2_PRS_RI_L3_IP4,
+				  MVPP2_PRS_RI_VLAN_MASK |
+				  MVPP2_PRS_RI_L3_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+				  MVPP2_PRS_RI_L3_IP4_OPT,
+				  MVPP2_PRS_RI_VLAN_MASK |
+				  MVPP2_PRS_RI_L3_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+				  MVPP2_PRS_RI_L3_IP4_OTHER,
+				  MVPP2_PRS_RI_VLAN_MASK |
+				  MVPP2_PRS_RI_L3_PROTO_MASK} },
+
+	/* IPv4 flows, with vlan tag */
+	{MVPP2_PRS_FL_IP4_TAG, {MVPP2_PRS_RI_L3_IP4,
+				MVPP2_PRS_RI_L3_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TAG, {MVPP2_PRS_RI_L3_IP4_OPT,
+				MVPP2_PRS_RI_L3_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP4_TAG, {MVPP2_PRS_RI_L3_IP4_OTHER,
+				MVPP2_PRS_RI_L3_PROTO_MASK} },
+
+	/* IPv6 flows, no vlan tag */
+	{MVPP2_PRS_FL_IP6_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+				  MVPP2_PRS_RI_L3_IP6,
+				  MVPP2_PRS_RI_VLAN_MASK |
+				  MVPP2_PRS_RI_L3_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
+				  MVPP2_PRS_RI_L3_IP6_EXT,
+				  MVPP2_PRS_RI_VLAN_MASK |
+				  MVPP2_PRS_RI_L3_PROTO_MASK} },
+
+	/* IPv6 flows, with vlan tag */
+	{MVPP2_PRS_FL_IP6_TAG, {MVPP2_PRS_RI_L3_IP6,
+				MVPP2_PRS_RI_L3_PROTO_MASK} },
+	{MVPP2_PRS_FL_IP6_TAG, {MVPP2_PRS_RI_L3_IP6_EXT,
+				MVPP2_PRS_RI_L3_PROTO_MASK} },
+
+	/* Non IP flow, no vlan tag */
+	{MVPP2_PRS_FL_NON_IP_UNTAG, {MVPP2_PRS_RI_VLAN_NONE,
+				     MVPP2_PRS_RI_VLAN_MASK} },
+
+	/* Non IP flow, with vlan tag */
+	{MVPP2_PRS_FL_NON_IP_TAG, {0, 0} },
+};
+
+/* For backwards compatibility to LK 4.4, the following array is added.
+ * This array may be removed once no more backwards compatibility is
+ * needed.
+ */
+static struct mv_pp2x_prs_flow_id
+	mv_pp2x_prs_flow_id_array_4_4[MVPP2_PRS_FL_TCAM_NUM] = {
 	/***********#Flow ID#**************#Result Info#************/
 	{MVPP2_PRS_FL_IP4_TCP_NF_UNTAG, {MVPP2_PRS_RI_VLAN_NONE |
 					 MVPP2_PRS_RI_L3_IP4 |
@@ -441,6 +806,8 @@ static struct mv_pp2x_prs_flow_id
 	{MVPP2_PRS_FL_NON_IP_TAG, {0, 0} },
 };
 
+
+
 /* Array of bitmask to indicate flow id attribute */
 static int mv_pp2x_prs_flow_id_attr_tbl[MVPP2_PRS_FL_LAST];
 
@@ -482,11 +849,19 @@ static void mv_pp2x_prs_flow_id_attr_init(void)
 {
 	int index;
 	u32 ri, ri_mask, flow_id;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
+	struct mv_pp2x_prs_flow_id *prs_flow_id_array;
+
+	/* For backwards compatibility to LK 4.4 */
+	if (lnx_is_mainline(lnx_id))
+		prs_flow_id_array = mv_pp2x_prs_flow_id_array;
+	else
+		prs_flow_id_array = mv_pp2x_prs_flow_id_array_4_4;
 
 	for (index = 0; index < MVPP2_PRS_FL_TCAM_NUM; index++) {
-		ri = mv_pp2x_prs_flow_id_array[index].prs_result.ri;
-		ri_mask = mv_pp2x_prs_flow_id_array[index].prs_result.ri_mask;
-		flow_id = mv_pp2x_prs_flow_id_array[index].flow_id;
+		ri = prs_flow_id_array[index].prs_result.ri;
+		ri_mask = prs_flow_id_array[index].prs_result.ri_mask;
+		flow_id = prs_flow_id_array[index].flow_id;
 
 		mv_pp2x_prs_flow_id_attr_set(flow_id, ri, ri_mask);
 	}
