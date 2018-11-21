@@ -633,31 +633,13 @@ int agnic_mgmt_notif_process(struct agnic_pfio *pfio, u16 cmd_code, void *msg, u
 
 	switch (cmd_code) {
 	case NC_PF_LINK_CHANGE:
-		pr_info("got link %s\n", resp->link_status ? "up" : "down");
-#if 0
-		int ret;
-
-		if (resp->link_status)
-			ret = agnic_link_up(pfio);
-		else
-			ret = agnic_link_down(pfio);
-		if (ret) {
-			pr_err("Failed to execute link change (0x%x)\n", ret);
-
-			return ret;
-		}
-#endif /* 0 */
+		pfio->link = resp->link_status;
+		/* TODO: what do we need to do upon 'link-down/up' ? */
+		pr_info("got link %s\n", pfio->link ? "up" : "down");
 		break;
 	case NC_PF_KEEP_ALIVE:
+		/* TODO: what do we need to do upon 'KA' ? */
 		pr_debug("got KA\n");
-#if 0
-		ret = agnic_keep_alive(pfio);
-		if (ret) {
-			pr_err("Failed to execute keep alive (0x%x)\n", ret);
-
-			return ret;
-		}
-#endif /* 0 */
 		break;
 	default:
 		/* Unknown command code */

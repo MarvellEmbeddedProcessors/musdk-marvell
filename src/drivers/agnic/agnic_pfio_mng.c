@@ -896,6 +896,17 @@ int agnic_pfio_set_mtu(struct agnic_pfio *pfio, u16 mtu)
 	return 0;
 }
 
+int agnic_pfio_get_link_state(struct agnic_pfio *pfio, int *en)
+{
+	if (!pfio) {
+		pr_err("no pfio obj!");
+		return -EINVAL;
+	}
+
+	*en = pfio->link;
+	return 0;
+}
+
 /* TODO: implement ...
  *int agnic_pfio_get_mac_addr(struct agnic_pfio *pfio, eth_addr_t addr);
  *int agnic_pfio_get_mtu(struct agnic_pfio *pfio, u16 *mtu);
@@ -910,5 +921,4 @@ int agnic_pfio_set_mtu(struct agnic_pfio *pfio, u16 mtu)
  *int agnic_pfio_flush_mac_addrs(struct agnic_pfio *pfio, int uc, int mc);
  *int agnic_pfio_get_statistics(struct agnic_pfio *pfio, struct agnic_pfio_statistics *stats);
  *int agnic_pfio_set_link_state(struct agnic_pfio *pfio, int en);
- *int agnic_pfio_get_link_state(struct agnic_pfio *pfio, int *en);
 */

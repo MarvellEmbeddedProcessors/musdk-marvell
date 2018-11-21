@@ -279,7 +279,7 @@ struct agnic_pfio {
 	spinlock_t		 mgmt_lock;
 
 	/* custom information */
-	struct agnic_custom custom_info;
+	struct agnic_custom	 custom_info;
 
 	u8			 mac[ETH_ALEN];
 
@@ -288,12 +288,13 @@ struct agnic_pfio {
 	u16			 mtu;
 	u16			 mru;
 
-	u32			 flags;
 #define AGNIC_FLAG_MSI_ENABLED			BIT(1)
 #define AGNIC_FLAG_MSIX_ENABLED			BIT(2)
 #define AGNIC_FLAG_MGMT_POLL			BIT(3)
 #define AGNIC_FLAG_RX_POLL			BIT(4)
 #define AGNIC_FLAG_IRQPOLL			(AGNIC_FLAG_RX_POLL | AGNIC_FLAG_MGMT_POLL)
+	u32			 flags;
+	int			 link;
 
 	/* A page to hold the consumer / producer indexes per queue.
 	 * the consumer_p or producer_p pointers will actually point

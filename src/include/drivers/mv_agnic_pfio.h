@@ -574,13 +574,23 @@ int agnic_pfio_flush_mac_addrs(struct agnic_pfio *pfio, int uc, int mc);
  */
 int agnic_pfio_get_statistics(struct agnic_pfio *pfio, struct agnic_pfio_statistics *stats);
 
+/**
+ * Get link state
+ *
+ * @param[in]		pfio	A pointer to a PP-IO object.
+ * @param[out]		en	link enabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int agnic_pfio_get_link_state(struct agnic_pfio *pfio, int *en);
+
 int agnic_pfio_set_mtu(struct agnic_pfio *pfio, u16 mtu);
 int agnic_pfio_get_mtu(struct agnic_pfio *pfio, u16 *mtu);
 int agnic_pfio_set_mru(struct agnic_pfio *pfio, u16 len);
 int agnic_pfio_get_mru(struct agnic_pfio *pfio, u16 *len);
 
 int agnic_pfio_set_link_state(struct agnic_pfio *pfio, int en);
-int agnic_pfio_get_link_state(struct agnic_pfio *pfio, int *en);
 
 int agnic_pfio_set_loopback(struct agnic_pfio *pfio, int en);
 int agnic_pfio_get_loopback(struct agnic_pfio *pfio, int *en);
