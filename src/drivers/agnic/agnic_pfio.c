@@ -36,15 +36,6 @@ static int agnic_init_q_indeces(struct agnic_pfio *pfio)
 }
 
 /*
- * agnic_terminate_q_indeces - Destroy Q pointers page.
- */
-static void agnic_terminate_q_indeces(struct agnic_pfio *pfio)
-{
-	mv_sys_dma_mem_free(pfio->ring_indices_arr);
-	pfio->ring_indices_arr = NULL;
-}
-
-/*
 ** agnic_get_q_idx - allocate a free entry for queue control pointers.
 */
 static int agnic_get_q_idx(struct agnic_pfio *pfio)
@@ -608,11 +599,23 @@ int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **p
 
 void agnic_pfio_deinit(struct agnic_pfio *pfio)
 {
+	u8	i, j;
+
 	if (!pfio)
 		return;
 
-	if (pfio->ring_indices_arr)
-		agnic_terminate_q_indeces(pfio);
+	for (i = 0; i < pfio->num_in_tcs; i++)
+		for (j = 0; j < pfio->in_tcs[i].num_qs; j++)
+			if (pfio->in_tcs[i].rings[j])
+				agnic_free_ring_resources(pfio->in_tcs[i].rings[j]);
+
+	for (i = 0; i < pfio->num_out_tcs; i++)
+		for (j = 0; j < pfio->out_tcs[i].num_qs; j++)
+			if (pfio->out_tcs[i].rings[j])
+				agnic_free_ring_resources(pfio->out_tcs[i].rings[j]);
+
+	agnic_free_ring_resources(&pfio->notif_ring);
+	agnic_free_ring_resources(&pfio->cmd_ring);
 
 	kfree(pfio);
 }
