@@ -1,7 +1,7 @@
-From bc893835c4d732cf209833dbeca2c8ff36267987 Mon Sep 17 00:00:00 2001
+From a7912cbdda9cd1cd7fd66be738a83a8e0ea7e299 Mon Sep 17 00:00:00 2001
 From: Yelena Krivosheev <yelena@marvell.com>
 Date: Tue, 15 May 2018 09:52:33 +0300
-Subject: [PATCH 2/6] dts: musdk: a7k/8/8kp sam
+Subject: [PATCH 2/7] dts: musdk: a7k/8/8kp sam
 
 Change-Id: I362e94c2506872a4f8fb304f800c2b4e042fbd1e
 Signed-off-by: Yelena Krivosheev <yelena@marvell.com>
@@ -13,10 +13,10 @@ Signed-off-by: Yelena Krivosheev <yelena@marvell.com>
  4 files changed, 23 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-70x0.dtsi b/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
-index 2d81edb..38139ab 100644
+index 59f9f8d..3e69d6c 100644
 --- a/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-70x0.dtsi
-@@ -111,3 +111,7 @@
+@@ -72,3 +72,7 @@
  		};
  	};
  };
@@ -25,10 +25,10 @@ index 2d81edb..38139ab 100644
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-80x0.dtsi b/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
-index e39cb78..b47b7c2 100644
+index 4af5322..18d9999c 100644
 --- a/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-80x0.dtsi
-@@ -156,3 +156,11 @@
+@@ -117,3 +117,11 @@
  	 */
  	status = "disabled";
  };
@@ -58,10 +58,10 @@ index 94d19e7..b0a0fdf 100644
  	};
  };
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index 6e0f437..a363f91 100644
+index c600d52..a8786a7 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -452,6 +452,11 @@
+@@ -499,6 +499,11 @@
  			cell-index = <CP110_EIP197_INDEX>;
  			dma-coherent;
  		};

@@ -1,0 +1,27 @@
+From 10dcf5a4a056eb25cfdd7f23c4bc08a82c188262 Mon Sep 17 00:00:00 2001
+From: Alan Winkowski <walan@marvell.com>
+Date: Sun, 25 Nov 2018 13:09:29 +0200
+Subject: [PATCH 7/7] mvpp2: add MUSDK compatibility for RSS
+
+Change-Id: I6e630ead8c756edbacd7c5bb75f24f280688054d
+Signed-off-by: Alan Winkowski <walan@marvell.com>
+---
+ drivers/net/ethernet/marvell/mvpp2/mvpp2_cls.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvpp2/mvpp2_cls.h b/drivers/net/ethernet/marvell/mvpp2/mvpp2_cls.h
+index 0f04fab..087a139 100644
+--- a/drivers/net/ethernet/marvell/mvpp2/mvpp2_cls.h
++++ b/drivers/net/ethernet/marvell/mvpp2/mvpp2_cls.h
+@@ -73,7 +73,7 @@ enum mvpp2_cls_field_id {
+ 
+ enum mvpp2_cls_lkp_type {
+ 	MVPP2_CLS_LKP_HASH = 0,
+-	MVPP2_CLS_LKP_DEFAULT,
++	MVPP2_CLS_LKP_DEFAULT = 3,
+ 	MVPP2_CLS_LKP_MAX,
+ };
+ enum mvpp2_cls_flow_seq {
+-- 
+1.7.9.5
+
