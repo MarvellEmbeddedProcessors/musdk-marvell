@@ -1,98 +1,9 @@
-/*******************************************************************************
- * Copyright (C) Marvell International Ltd. and its affiliates
- *
- * This software file (the "File") is owned and distributed by Marvell
- * International Ltd. and/or its affiliates ("Marvell") under the following
- * alternative licensing terms.  Once you have made an election to distribute the
- * File under one of the following license alternatives, please (i) delete this
- * introductory statement regarding license alternatives, (ii) delete the three
- * license alternatives that you have not elected to use and (iii) preserve the
- * Marvell copyright notice above.
- *
- ********************************************************************************
- * Marvell Commercial License Option
- *
- * If you received this File from Marvell and you have entered into a commercial
- * license agreement (a "Commercial License") with Marvell, the File is licensed
- * to you under the terms of the applicable Commercial License.
- *
- ********************************************************************************
- * Marvell GPL License Option
- *
- * If you received this File from Marvell, you may opt to use, redistribute and/or
- * modify this File in accordance with the terms and conditions of the General
- * Public License Version 2, June 1991 (the "GPL License"), a copy of which is
- * available along with the File in the license.txt file or by writing to the Free
- * Software Foundation, Inc., or on the worldwide web at http://www.gnu.org/licenses/gpl.txt.
- *
- * THE FILE IS DISTRIBUTED AS-IS, WITHOUT WARRANTY OF ANY KIND, AND THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE ARE EXPRESSLY
- * DISCLAIMED.  The GPL License provides additional details about this warranty
- * disclaimer.
- *
- ********************************************************************************
- * Marvell GNU General Public License FreeRTOS Exception
- *
- * If you received this File from Marvell, you may opt to use, redistribute and/or
- * modify this File in accordance with the terms and conditions of the Lesser
- * General Public License Version 2.1 plus the following FreeRTOS exception.
- * An independent module is a module which is not derived from or based on
- * FreeRTOS.
- * Clause 1:
- * Linking FreeRTOS statically or dynamically with other modules is making a
- * combined work based on FreeRTOS. Thus, the terms and conditions of the GNU
- * General Public License cover the whole combination.
- * As a special exception, the copyright holder of FreeRTOS gives you permission
- * to link FreeRTOS with independent modules that communicate with FreeRTOS solely
- * through the FreeRTOS API interface, regardless of the license terms of these
- * independent modules, and to copy and distribute the resulting combined work
- * under terms of your choice, provided that:
- * 1. Every copy of the combined work is accompanied by a written statement that
- * details to the recipient the version of FreeRTOS used and an offer by yourself
- * to provide the FreeRTOS source code (including any modifications you may have
- * made) should the recipient request it.
- * 2. The combined work is not itself an RTOS, scheduler, kernel or related
- * product.
- * 3. The independent modules add significant and primary functionality to
- * FreeRTOS and do not merely extend the existing functionality already present in
- * FreeRTOS.
- * Clause 2:
- * FreeRTOS may not be used for any competitive or comparative purpose, including
- * the publication of any form of run time or compile time metric, without the
- * express permission of Real Time Engineers Ltd. (this is the norm within the
- * industry and is intended to ensure information accuracy).
- *
- ********************************************************************************
- * Marvell BSD License Option
- *
- * If you received this File from Marvell, you may opt to use, redistribute and/or
- * modify this File under the following licensing terms.
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *
- *	* Redistributions of source code must retain the above copyright notice,
- *	  this list of conditions and the following disclaimer.
- *
- *	* Redistributions in binary form must reproduce the above copyright
- *	  notice, this list of conditions and the following disclaimer in the
- *	  documentation and/or other materials provided with the distribution.
- *
- *	* Neither the name of Marvell nor the names of its contributors may be
- *	  used to endorse or promote products derived from this software without
- *	  specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *******************************************************************************/
+/******************************************************************************
+*  Copyright (C) 2018 Marvell International Ltd.
+*
+*  This program is provided "as is" without any warranty of any kind, and is
+*  distributed under the applicable Marvell limited use license agreement.
+*******************************************************************************/
 
 #define _GNU_SOURCE         /* See feature_test_macros(7) */
 #include <string.h>
@@ -126,34 +37,25 @@
 
 #define PKT_GEN_APP_VERBOSE_DEBUG
 
-#define PKT_GEN_APP_TX_RETRY_WAIT		1
-#define PKT_GEN_APP_DEF_Q_SIZE			1024
-#define PKT_GEN_APP_HIF_Q_SIZE			(8 * PKT_GEN_APP_DEF_Q_SIZE)
-#define PKT_GEN_APP_RX_Q_SIZE			(2 * PKT_GEN_APP_DEF_Q_SIZE)
-#define PKT_GEN_APP_TX_Q_SIZE			(2 * PKT_GEN_APP_DEF_Q_SIZE)
-
 #define PKT_GEN_APP_GIU_BP_SIZE			2048
 
-#define PKT_GEN_APP_MAX_BURST_SIZE		((PKT_GEN_APP_RX_Q_SIZE) >> 1)
-
 /* as GIU is the bottleneck, set the burst size to GIU_Q_SIZE / 4 */
-#define PKT_GEN_APP_DFLT_BURST_SIZE		(128)
+#define PKT_GEN_APP_DFLT_BURST_SIZE		128
+#define PKT_GEN_APP_MAX_BURST_SIZE		256
 
 #define PKT_GEN_APP_BUFF_POOL_SIZE		8192
 
 #define PKT_GEN_APP_DMA_MEM_SIZE		(80 * 1024 * 1024)
 #define PKT_GEN_APP_STATS_DFLT_THR		1000
 
-#define PKT_GEN_APP_FIRST_INQ			0
 #define PKT_GEN_APP_MAX_NUM_TCS_PER_PORT	1
-#define PKT_GEN_APP_MAX_NUM_QS_PER_CORE		PKT_GEN_APP_MAX_NUM_TCS_PER_PORT
 
 #define PKT_GEN_APP_DIR_RX			0x1
 #define PKT_GEN_APP_DIR_TX			0x2
 
 #define PKT_GEN_APP_MAX_TOTAL_FRM_CNT		UINT32_MAX
 
-#define PKT_GEN_APP_PREFETCH_SHIFT	4
+#define PKT_GEN_APP_PREFETCH_SHIFT		4
 
 #define PKT_GEN_NUM_CNTS	2
 #define PKT_GEN_CNT_PKTS	0
@@ -163,8 +65,6 @@
 #define PKT_ECHO_APP_NMP_GUEST_ID	2
 /* NMP Guest Timeout (ms)*/
 #define PKT_ECHO_APP_NMP_GUEST_TIMEOUT	1000
-
-#define L1_CACHE_LINE_BYTES		BIT(6)
 
 /* The following macro is need in order to extract pkt length out from
  * the giu outQ descriptor; see giu_gpio_outq_desc_set_pkt_len() in mv_giu_gpio.h
@@ -197,7 +97,6 @@ struct pkt {
 struct glob_arg {
 	struct glb_common_args	cmn_args; /* Keep first */
 
-	u16			rxq_size;
 	int			loopback;
 	int			maintain_stats;
 	pthread_mutex_t		trd_lock;
@@ -213,7 +112,8 @@ struct glob_arg {
 	int			pkt_size;
 	u32			report_time;
 
-	struct giu_gpio		*giu_gpio;
+	struct giu_bpools_desc	 giu_bpools_desc;
+	struct giu_port_desc	 giu_port_desc;
 	struct nmp		*nmp;
 	struct nmp_guest	*nmp_guest;
 	struct nmp_guest_info	guest_info;
@@ -283,50 +183,6 @@ static inline u16 giu_free_buffers(struct lcl_giu_port_desc	*rx_port,
 	}
 
 	return idx;
-}
-
-static int wait_for_pf_init_done(void)
-{
-	char	file_name[REGFILE_MAX_FILE_NAME];
-	int	timeout = 100000; /* 10s timeout */
-	int	fd, err;
-
-	/* Map GIU regfile */
-	snprintf(file_name, sizeof(file_name), "%s%s%d", REGFILE_VAR_DIR, REGFILE_NAME_PREFIX, 0);
-
-	/* remove file from previous runs */
-	err = remove(file_name);
-	/* check if there was an error and if so check that it's not "No such file or directory" */
-	if (err && errno != 2) {
-		pr_err("can't delete regfile! (%s)\n", strerror(errno));
-		return err;
-	}
-
-	/* wait for regfile to be opened by NMP */
-	do {
-		/* Schedule GIE execution */
-		nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
-
-		fd = open(file_name, O_RDWR);
-		if (fd > 0) {
-			close(fd);
-			break;
-		}
-
-		udelay(100);
-	} while (fd < 0 && --timeout);
-
-	if (!timeout) {
-		pr_err("failed to find regfile %s. timeout exceeded.\n", file_name);
-		return -EFAULT;
-	}
-
-	/* Make sure that last command response is sent to host. */
-
-	/* Schedule GIE execution */
-	nmp_schedule(garg.nmp, NMP_SCHED_MNG, NULL);
-
-	return 0;
 }
 
 static int dump_perf(struct glob_arg *garg)
@@ -648,11 +504,8 @@ static int ctrl_loop_cb(void *arg)
 		return -EINVAL;
 	}
 
-	nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
-	if (garg->prb_str) {
+	if (garg->prb_str)
 		nmp_guest_schedule(garg->nmp_guest);
-		nmp_schedule(garg->nmp, NMP_SCHED_MNG, NULL);
-	}
 
 	if (!garg->cmn_args.cli)
 		maintain_stats(garg);
@@ -679,11 +532,7 @@ static int init_all_modules(void)
 		pr_err("NMP preinit failed with error %d\n", err);
 		return -EIO;
 	}
-
-	nmp_init(&nmp_params, &(garg.nmp));
-
-	/* Wait till PF was initialized */
-	err = wait_for_pf_init_done();
+	err = nmp_init(&nmp_params, &(garg.nmp));
 	if (err)
 		return err;
 
@@ -691,7 +540,10 @@ static int init_all_modules(void)
 	memset(&nmp_guest_params, 0, sizeof(nmp_guest_params));
 	nmp_guest_params.id = garg.cmn_args.guest_id;
 	nmp_guest_params.timeout = PKT_ECHO_APP_NMP_GUEST_TIMEOUT;
-	nmp_guest_init(&nmp_guest_params, &garg.nmp_guest);
+	nmp_guest_params.nmp =  (void *)garg.nmp;
+	err = nmp_guest_init(&nmp_guest_params, &garg.nmp_guest);
+	if (err)
+		return err;
 
 	nmp_guest_get_probe_str(garg.nmp_guest, &garg.prb_str);
 
@@ -702,28 +554,23 @@ static int init_all_modules(void)
 static int init_local_modules(struct glob_arg *garg)
 {
 	int			err;
-	int			giu_id = 0; /* Should be retrieved from garg */
 
 	pr_info("Local initializations ...\n");
 
-	/*TODO: return this code once it will be more generic*/
-	/*nmp_guest_get_relations_info(garg->nmp_guest, &garg->guest_info);*/
-	garg->guest_info.ports_info.num_ports = 1;
+	nmp_guest_get_relations_info(garg->nmp_guest, &garg->guest_info);
 
-	/**************************/
-	/* GIU Port Init	  */
-	/**************************/
-	err = app_giu_port_init(giu_id, &garg->giu_gpio);
-	if (err) {
-		pr_err("Failed to initialize GIU Port %d\n", giu_id);
+	err = app_guest_utils_build_all_giu_bpools(garg->prb_str,
+			&garg->guest_info,
+			&garg->giu_bpools_desc,
+			PKT_GEN_APP_GIU_BP_SIZE);
+	if (err)
 		return err;
-	}
 
-	err = app_giu_build_bpool(0, PKT_GEN_APP_GIU_BP_SIZE);
-	if (err) {
-		pr_err("Failed to build GIU Bpool\n");
+	err = app_nmp_guest_giu_port_init(garg->prb_str,
+			&garg->guest_info,
+			&garg->giu_port_desc);
+	if (err)
 		return err;
-	}
 
 	garg->cmn_args.num_ports = garg->guest_info.ports_info.num_ports;
 
@@ -808,8 +655,13 @@ static int init_local(void *arg, int id, void **_larg)
 
 	pr_debug("thread %d (cpu %d) mapped to Qs %llx\n",
 		 larg->cmn_args.id, sched_getcpu(), (unsigned long long)larg->cmn_args.qs_map);
-	/* TODO: create and use GIU global port descriptor (similar to PP2 port local init) */
-	app_giu_port_local_init(giu_port_id, larg->cmn_args.id, giu_id, &larg->giu_ports_desc[giu_id], garg->giu_gpio);
+
+	app_giu_port_local_init(giu_port_id,
+		larg->cmn_args.id,
+		giu_id,
+		&larg->giu_ports_desc[giu_id],
+		garg->giu_port_desc.gpio);
+
 	*_larg = larg;
 
 	err = app_build_pkt_pool(&larg->buffer,
@@ -985,7 +837,6 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.ctrl_thresh = PKT_GEN_APP_STATS_DFLT_THR;
 	garg->cmn_args.pkt_offset = 0;
 	garg->cmn_args.busy_wait	= DEFAULT_RATE_USECS;
-	garg->rxq_size = PKT_GEN_APP_RX_Q_SIZE;
 	garg->maintain_stats = 0;
 	garg->cmn_args.guest_id = PKT_ECHO_APP_NMP_GUEST_ID;
 	garg->report_time = DEFAULT_REPORT_TIME;

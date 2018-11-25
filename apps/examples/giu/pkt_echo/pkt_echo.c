@@ -100,7 +100,6 @@ struct glob_arg {
 
 	struct giu_bpools_desc		 giu_bpools_desc;
 	struct giu_port_desc		 giu_port_desc;
-	struct giu_gpio			*giu_gpio;
 	struct nmp			*nmp;
 	struct nmp_guest		*nmp_guest;
 	struct nmp_guest_info		guest_info;

@@ -8,21 +8,16 @@
 #ifndef __MV_GIU_UTILS_H__
 #define __MV_GIU_UTILS_H__
 
-#include "mv_giu_gpio.h"
-#include "mv_giu_bpool.h"
-#include "pp2_utils.h"
+#include "mv_std.h"
+#include "drivers/mv_giu_gpio.h"
+#include "drivers/mv_giu_bpool.h"
 
+#include "pp2_utils.h"
 
 /* Maximum number of ports used by application */
 #define MVAPPS_GIU_MAX_NUM_PORTS		2
 
-#define REGFILE_VAR_DIR         "/var/"
-#define REGFILE_NAME_PREFIX     "nic-pf-"
-#define REGFILE_MAX_FILE_NAME   64
-
-
 extern u8 mvapp_giu_max_num_qs_per_tc;
-
 
 struct giu_bpools_desc {
 	u8			 num_bpools;
@@ -75,18 +70,6 @@ struct lcl_giu_port_desc {
 	struct giu_tx_shadow_q	*shadow_qs;	/* Tx shadow queue */
 };
 
-
-/*
- * Init GIU port
- *
- * @param[in]	giu_id		GIU ID.
- * @param[out]	giu_gpio	GPIO handler.
- *
- * @retval	0 on success
- * @retval	<0 on failure
- */
-int app_giu_port_init(int giu_id, struct giu_gpio **giu_gpio);
-
 /*
  * Init local GIU port object per thread according to port parameters
  *
@@ -115,11 +98,9 @@ void app_giu_port_local_init(int id,
  */
 int app_giu_build_bpool(int bpool_id, u32 num_of_buffs);
 
-
 static inline void app_giu_set_gen_max_num_qs_per_tc(void)
 {
 	mvapp_giu_max_num_qs_per_tc = system_ncpus();
 }
 
 #endif /*__MV_GIU_UTILS_H__*/
-

@@ -15,43 +15,6 @@
 u8 mvapp_giu_max_num_qs_per_tc;
 
 
-int app_giu_port_init(int giu_id, struct giu_gpio **giu_gpio)
-{
-	struct giu_bpool *giu_bpool;
-	char		 file_name[REGFILE_MAX_FILE_NAME];
-	char		 name[20];
-	int		 bpool_id = 0; /* TODO: get this value from higher levels */
-	int		 gpio_id = 0; /* TODO: get this value from higher levels */
-	int		 err;
-
-	/* Map GIU regfile */
-	snprintf(file_name, sizeof(file_name), "%s%s%d", REGFILE_VAR_DIR, REGFILE_NAME_PREFIX, 0);
-
-	/* Create bpool match string */
-	memset(name, 0, sizeof(name));
-	snprintf(name, sizeof(name), "giu_pool-%d:%d", giu_id, bpool_id);
-
-	/* Probe the bpool */
-	err = giu_bpool_probe(name, file_name, &giu_bpool);
-	if (err) {
-		pr_err("GIU BPool Init failed (%d)\n", err);
-		return -1;
-	}
-
-	/* Create gpio match string */
-	memset(name, 0, sizeof(name));
-	snprintf(name, sizeof(name), "gpio-%d:%d", giu_id, gpio_id);
-
-	/* Probe the GIU GPIO */
-	err = giu_gpio_probe(name, file_name, giu_gpio);
-	if (err) {
-		pr_err("GIU GPIO Init failed (%d)\n", err);
-		return -1;
-	}
-
-	return 0;
-}
-
 void app_giu_port_local_init(int id,
 			int lcl_id,
 			int giu_id,
@@ -83,7 +46,7 @@ void app_giu_port_local_init(int id,
 	}
 
 	lcl_port->num_shadow_qs = num_outqs;
-	lcl_port->shadow_q_size	= outq_size;
+	lcl_port->shadow_q_size	= outq_size + 1;
 	lcl_port->shadow_qs = (struct giu_tx_shadow_q *)malloc(num_outqs * sizeof(struct giu_tx_shadow_q));
 
 	for (i = 0; i < lcl_port->num_shadow_qs; i++) {
@@ -112,7 +75,8 @@ int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 	if (capa.max_num_buffs < num_of_buffs)
 		num_of_buffs = capa.max_num_buffs;
 
-	pr_debug("Adding (%d Bytes) buffers into BPOOL.\n", bpool->buff_len);
+	pr_debug("Adding %d buffers (of %d Bytes) into BPOOL.\n",
+		num_of_buffs, bpool->buff_len);
 
 	buff_virt_addr = mv_sys_dma_mem_alloc(bpool->buff_len * num_of_buffs, 4);
 	if (!buff_virt_addr) {
