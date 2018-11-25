@@ -3367,7 +3367,7 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		}
 
 		/* add only kernel flows to db & hw */
-		if (lkp_type > MVPP2_CLS_LKP_DSCP_PRI) {
+		if (lkp_type > MVPP2_CLS_LKP_DEFAULT) {
 			if (is_last) {
 				pr_debug("found %d flows\n", fl_rls->fl_len);
 				break;
