@@ -35,8 +35,9 @@
 #define AGNIC_DEFAULT_NUM_TCS			1
 #define AGNIC_DEFAULT_PKT_OFFS			0
 #define AGNIC_BPOOLS_BUFF_SIZE			2048
-#define AGNIC_DEFAULT_OUT_Q_SIZE		512
-#define AGNIC_DEFAULT_IN_Q_SIZE			(AGNIC_DEFAULT_OUT_Q_SIZE)
+
+#define PKT_ECHO_APP_TX_Q_SIZE			512
+#define PKT_ECHO_APP_RX_Q_SIZE			(PKT_ECHO_APP_TX_Q_SIZE)
 
 #define PKT_ECHO_APP_MAX_NUM_CORES		4
 #define PKT_ECHO_APP_MAX_NUM_PORTS		1
@@ -93,6 +94,9 @@ struct lcl_port_desc {
 
 struct glob_arg {
 	struct glb_common_args		 cmn_args; /* Keep first */
+
+	u16				rxq_size;
+	u16				txq_size;
 
 	struct agnic_pfio		*pfio;
 
@@ -580,8 +584,8 @@ static int init_global(void *arg)
 	pfio_params.num_in_tcs = AGNIC_DEFAULT_NUM_TCS;
 	pfio_params.num_out_tcs = AGNIC_DEFAULT_NUM_TCS;
 	pfio_params.num_qs_per_tc = garg->cmn_args.cpus;
-	pfio_params.in_qs_size = AGNIC_DEFAULT_IN_Q_SIZE;
-	pfio_params.out_qs_size = AGNIC_DEFAULT_OUT_Q_SIZE;
+	pfio_params.in_qs_size = garg->rxq_size;
+	pfio_params.out_qs_size = garg->txq_size;
 	pfio_params.buff_size = AGNIC_BPOOLS_BUFF_SIZE;
 	pfio_params.pkt_offset = garg->cmn_args.pkt_offset;
 	if (garg->cmn_args.cpus > 1)
@@ -692,7 +696,7 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->ports_desc[i].pfio_id	= 0;
 	larg->ports_desc[i].pfio	= garg->pfio;
 	larg->ports_desc[i].num_shadow_qs = AGNIC_DEFAULT_NUM_TCS * larg->cmn_args.garg->cmn_args.cpus;
-	larg->ports_desc[i].shadow_q_size = AGNIC_DEFAULT_OUT_Q_SIZE;
+	larg->ports_desc[i].shadow_q_size = garg->txq_size;
 
 	larg->ports_desc[i].shadow_qs =
 		(struct shadow_q *)malloc(larg->ports_desc[i].num_shadow_qs*sizeof(struct shadow_q));
@@ -737,16 +741,21 @@ static void usage(char *progname)
 	       "\tTODO\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
-	       "\t-b             <size>    Burst size (default is %d)\n"
+	       "\t-b <size>                Burst size, num_pkts handled in a batch.(default is %d)\n"
 	       "\t-c, --cores <number>     Number of CPUs to use\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
+	       "\t--rxq <size>             Size of rx_queue (default is %d)\n"
+	       "\t--txq <size>             Size of tx_queue (default is %d)\n"
 	       "\t--mtu <mtu>              Set MTU (default is %d)\n"
 	       "\t--addr <eth-addr>        Set Ethernet Address\n"
 	       "\t--pci                    AGNIC is in PCI mode\n"
 	       "\t--cli                    Use CLI\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU
+	       PKT_ECHO_APP_MAX_BURST_SIZE,
+	       PKT_ECHO_APP_RX_Q_SIZE,
+	       PKT_ECHO_APP_TX_Q_SIZE,
+	       DEFAULT_MTU
 	       );
 }
 
@@ -759,6 +768,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.affinity = MVAPPS_INVALID_AFFINITY;
 	garg->cmn_args.mtu = DEFAULT_MTU;
 	garg->cmn_args.burst = PKT_ECHO_APP_MAX_BURST_SIZE;
+	garg->rxq_size = PKT_ECHO_APP_RX_Q_SIZE;
+	garg->txq_size = PKT_ECHO_APP_TX_Q_SIZE;
 	garg->cmn_args.busy_wait = 0;
 	garg->cmn_args.echo = 1;
 	garg->cmn_args.qs_map = 0;
@@ -805,6 +816,12 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				garg->eth_addr[0], garg->eth_addr[1], garg->eth_addr[2],
 				garg->eth_addr[3], garg->eth_addr[4], garg->eth_addr[5]);
 			break;
+			i += 2;
+		} else if (strcmp(argv[i], "--rxq") == 0) {
+			garg->rxq_size = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "--txq") == 0) {
+			garg->txq_size = atoi(argv[i + 1]);
 			i += 2;
 		} else if (strcmp(argv[i], "-b") == 0) {
 			if (argc < (i + 2)) {
