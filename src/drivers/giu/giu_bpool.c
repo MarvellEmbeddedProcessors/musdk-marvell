@@ -12,7 +12,6 @@
 #include "drivers/mv_giu_bpool.h"
 #include "lib/lib_misc.h"
 
-#include "giu_queue_topology.h"
 #include "giu_internal.h"
 
 
@@ -193,13 +192,12 @@ int giu_bpool_serialize(struct giu_bpool *bpool, char *buff, u32 size, u8 depth)
 	json_print_to_buffer(buff, size, depth, "},\n");
 
 	/* mark this bpool as use but not for guest */
-	/* TODO: uncomment following line once moving to new APIs! */
-	/*giu_bpools[bpool->id].internal_param = (void *)(-1);*/
+	giu_bpools[bpool->id].internal_param = (void *)(-1);
 
 	return pos;
 }
 
-int giu_bpool_probe_new(char *match, char *buff, struct giu_bpool **bpool)
+int giu_bpool_probe(char *match, char *buff, struct giu_bpool **bpool)
 {
 	struct giu_bpool		*_bpool;
 	struct giu_bpool_int		*bp_int;
@@ -317,111 +315,6 @@ int giu_bpool_probe_new(char *match, char *buff, struct giu_bpool **bpool)
 	*bpool = _bpool;
 
 	pr_debug("giu_bpool_probe pool->id %d\n", _bpool->id);
-
-	return 0;
-}
-
-int giu_bpool_serialize_old(struct giu_bpool *bpool, void **file_map)
-{
-	struct giu_bpool_int		*bp_int = (struct giu_bpool_int *)bpool->internal_param;
-	struct mv_sys_dma_mem_info	 mem_info;
-	struct mqa_queue_info		 queue_info;
-	struct giu_queue		 reg_giu_queue;
-	char				 dev_name[100];
-
-	mem_info.name = dev_name;
-	mv_sys_dma_mem_get_info(&mem_info);
-
-	mqa_queue_get_info(bp_int->mqa_q, &queue_info);
-
-	reg_giu_queue.hw_id		= queue_info.q_id;
-	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
-	reg_giu_queue.size		= queue_info.len;
-	reg_giu_queue.type		= QUEUE_BP;
-	reg_giu_queue.buff_len		= bp_int->buff_len;
-
-	reg_giu_queue.phy_base_offset	= (phys_addr_t)(uintptr_t)(queue_info.phy_base_addr - mem_info.paddr);
-	/* Prod/Cons addr are Virtual. Needs to translate them to offset */
-	reg_giu_queue.prod_offset = (phys_addr_t)(uintptr_t)(queue_info.prod_phys - mem_info.paddr);
-	reg_giu_queue.cons_offset = (phys_addr_t)(uintptr_t)(queue_info.cons_phys - mem_info.paddr);
-
-	memcpy(*file_map, &reg_giu_queue, sizeof(struct giu_queue));
-	*file_map += sizeof(struct giu_queue);
-
-	/* mark this bpool as use but not for guest */
-	giu_bpools[bpool->id].internal_param = (void *)(-1);
-
-	return 0;
-}
-
-/**
- * Probe the Buffer Pool (bpool)
- */
-int giu_bpool_probe(char *match, char *regfile_name, struct giu_bpool **bpool)
-{
-	struct giu_gpio_probe_params	*gpio_probe_params;
-	struct giu_bpool_int		*bp_int;
-	struct giu_gpio_queue		*bpq;
-	struct giu_bpool		*pool;
-	u8				 match_params[2];
-	int				 err, giu_id, bpool_id;
-
-	if (mv_sys_match(match, "giu_pool", 2, match_params))
-		return(-ENXIO);
-
-	giu_id = match_params[0];
-	bpool_id = match_params[1];
-
-	if (bpool_id >= GIU_BPOOL_NUM_POOLS) {
-		pr_err("[%s] Cannot allocate Pool. No free BPool\n", __func__);
-		return(-ENODEV);
-	}
-
-	pool = &giu_bpools[bpool_id];
-
-	if (pool->internal_param &&
-	    (pool->internal_param != (void *)(-1))) {
-		pr_err("[%s] BPool id %d is already in use\n", __func__, bpool_id);
-		return (-EEXIST);
-	}
-
-	pr_debug("[%s] giu_id(%d) pool_id(%d)\n", __func__, giu_id, bpool_id);
-
-	pool->giu_id = giu_id;
-	pool->id = bpool_id;
-
-	bp_int = kcalloc(1, sizeof(struct giu_bpool_int), GFP_KERNEL);
-	if (bp_int == NULL)
-		return -ENOMEM;
-
-	bp_int->giu_id = pool->giu_id;
-	bp_int->id = pool->id;
-
-	/* Init queue topology */
-	err = giu_gpio_init_topology(bp_int->giu_id, regfile_name);
-	if (err) {
-		pr_err("[%s] GIU topology init failed (%d)\n", __func__, err);
-		return -1;
-	}
-
-	gpio_probe_params = giu_gpio_get_topology(bp_int->giu_id);
-	if (gpio_probe_params == NULL) {
-		pr_err("[%s] queue topology was not initialized for GIU %d\n", __func__, bp_int->giu_id);
-		return -1;
-	}
-
-	bpq = &gpio_probe_params->bpool;
-
-	memcpy(&bp_int->queue, bpq, sizeof(struct giu_queue));
-
-	bp_int->buff_len = bp_int->queue.buff_len;
-	bp_int->num_buffs = bp_int->queue.desc_total;
-
-	pool->internal_param = bp_int;
-
-	*bpool = pool;
-
-	pr_debug("giu_bpool_probe pool->id %d\n", pool->id);
 
 	return 0;
 }

@@ -64,10 +64,6 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool);
  */
 void giu_bpool_deinit(struct giu_bpool *bpool);
 
-/* TODO: this is temporary API. wil be replaced later with correct serialization */
-int giu_bpool_serialize_old(struct giu_bpool *bpool, void **file_map);
-int giu_bpool_probe(char *match, char *regfile_name, struct giu_bpool **bpool);
-
 /**
  * Serialize the bpool parameters
  *
@@ -109,7 +105,7 @@ int giu_bpool_serialize(struct giu_bpool *bpool, char *buff, u32 size, u8 depth)
  * @retval      0 on success
  * @retval      <0 on failure
  */
-int giu_bpool_probe_new(char *match, char *buff, struct giu_bpool **bpool);
+int giu_bpool_probe(char *match, char *buff, struct giu_bpool **bpool);
 
 /**
  * Remove a Buffer Pool (bpool)

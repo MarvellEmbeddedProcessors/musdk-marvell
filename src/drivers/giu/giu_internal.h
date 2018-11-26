@@ -17,6 +17,24 @@
 #define GIU_LCL_Q (0)
 #define GIU_REM_Q (1)
 
+#define GIU_MAX_NUM_GPIO		3 /**< Maximum number of gpio instances */
+
+/* Queue handling macros. assumes q size is a power of 2 */
+#define QUEUE_INDEX_INC(index_val, inc_val, q_size)	\
+	(((index_val) + (inc_val)) & ((q_size) - 1))
+
+#define QUEUE_OCCUPANCY(prod, cons, q_size)	\
+	(((prod) - (cons) + (q_size)) & ((q_size) - 1))
+
+#define QUEUE_SPACE(prod, cons, q_size)	\
+	((q_size) - QUEUE_OCCUPANCY((prod), (cons), (q_size)) - 1)
+
+#define QUEUE_FULL(prod, cons, q_size)	\
+	((((prod) + 1) & ((q_size) - 1)) == (cons))
+
+/****************************************************************************
+ *	gpio queue structures
+ ****************************************************************************/
 /**
  * queue type
  *
@@ -31,6 +49,30 @@ enum queue_type {
 	HOST_EGRESS_DATA_QUEUE,
 	HOST_BM_QUEUE
 
+};
+
+struct msix_table_entry {
+	u64 msg_addr;
+	u32 msg_data;
+	u32 vector_ctrl;
+};
+
+/**
+ * gpio queue parameters
+ *
+ */
+struct giu_gpio_queue {
+	u32			 desc_total; /**< number of descriptors in the ring */
+	struct giu_gpio_desc	*desc_ring_base; /**< descriptor ring virtual address */
+	u32			 last_cons_val; /**< last consumer index value */
+
+	u32			*prod_addr; /**< producer index virtual address */
+	u32			*cons_addr; /**< consumer index virtual address */
+
+	union {
+		u32		 buff_len; /**< Buffer length (relevant for BPool only) */
+		u32		 payload_offset; /**< Offset of the PL in the buffer (relevant for Data Qs only) */
+	};
 };
 
 struct giu {

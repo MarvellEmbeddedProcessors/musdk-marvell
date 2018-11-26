@@ -14,7 +14,6 @@
 #include "db.h"
 #include "lf/lf_mng.h"
 #include "lf/pf/pf.h"
-#include "lf/pf/pf_regfile.h"
 #include "lf/pf/pf_topology.h"
 #include "lf/custom/custom.h"
 #include "lf/mng_cmd_desc.h"
@@ -166,11 +165,6 @@ static int dev_mng_hw_init(struct nmp *nmp)
 	if (ret)
 		return ret;
 
-	/* Initialize Register File utility */
-	ret = regfile_init();
-	if (ret)
-		return ret;
-
 	/* Initialize MQA - device queue management */
 	ret = dev_mng_mqa_init(nmp);
 	if (ret)
@@ -275,8 +269,6 @@ static int dev_mng_hw_terminate(struct nmp *nmp)
 	ret = dev_mng_mqa_terminate(nmp);
 	if (ret)
 		return ret;
-
-	regfile_destroy();
 
 	mv_sys_dma_mem_free(nmp->emul_bars_mem);
 

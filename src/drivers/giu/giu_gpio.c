@@ -10,12 +10,10 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "drivers/mv_giu_gpio.h"
-#include "drivers/giu_regfile_def.h"
 
 #include "lib/lib_misc.h"
 #include "lib/net.h"
 
-#include "giu_queue_topology.h"
 #include "giu_internal.h"
 #include "crc.h"
 
@@ -109,125 +107,6 @@ struct giu_gpio {
 	struct giu_gpio_outtc	 outtcs[GIU_GPIO_MAX_NUM_TCS];
 };
 
-
-/*
- *	regfile_register_queue
- *
- *	This function register Queue params in Regfile Queue structure
- *	It gets the info from the SNIC-DB and finally update directly the regfile
- *
- *	hw_q_id    - The real unique Queue index
- *	q_type     - The type of the Queue (Egress / Ingress / BM/...)
- *	file_map   - Pointer to Pointer to Regfile mempry map
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int regfile_register_queue(struct giu_gpio_lcl_q *gpio_q,
-			       enum giu_queue_type q_type,
-			       u32 payload_offset,
-			       phys_addr_t qs_phys_base,
-			       phys_addr_t ptrs_phys_base,
-			       void **file_map)
-{
-	struct giu_queue reg_giu_queue;
-	struct mqa_queue_info queue_info;
-
-	if (gpio_q == NULL) {
-		pr_err("Failed to get queue params from DB (Queue: %d)\n", (int)gpio_q->q_id);
-		return -ENODEV;
-	}
-
-	mqa_queue_get_info(gpio_q->mqa_q, &queue_info);
-
-	reg_giu_queue.hw_id		= queue_info.q_id;
-	/** TODO - change params naming - change reg_giu_queue.size to reg_giu_queue.len*/
-	reg_giu_queue.size		= queue_info.len;
-	reg_giu_queue.type		= q_type;
-	reg_giu_queue.phy_base_offset	= (phys_addr_t)(uintptr_t)(queue_info.phy_base_addr - qs_phys_base);
-	/* Prod/Cons addr are Virtual. Needs to translate them to offset */
-	reg_giu_queue.prod_offset = (phys_addr_t)(uintptr_t)(queue_info.prod_phys - ptrs_phys_base);
-	reg_giu_queue.cons_offset = (phys_addr_t)(uintptr_t)(queue_info.cons_phys - ptrs_phys_base);
-
-	reg_giu_queue.payload_offset = payload_offset;
-
-	/* Copy Queues parameters */
-	pr_debug("\t\tCopy Queue %d Information to Regfile\n", reg_giu_queue.hw_id);
-	memcpy(*file_map, &reg_giu_queue, sizeof(struct giu_queue));
-	*file_map += sizeof(struct giu_queue);
-
-	return 0;
-}
-
-static int regfile_register_intc(struct giu_gpio_intc *intc,
-				 u8 tc_id,
-				 phys_addr_t qs_phys_base,
-				 phys_addr_t ptrs_phys_base,
-				 void **file_map)
-{
-	int queue_idx, ret = 0;
-	struct giu_tc reg_giu_tc;
-
-	reg_giu_tc.id			= tc_id;
-	reg_giu_tc.ingress_rss_type	= (enum giu_gpio_hash_type)intc->rss_type;
-	reg_giu_tc.num_queues		= intc->num_inqs;
-	reg_giu_tc.queues		= NULL;
-	reg_giu_tc.dest_num_queues	= 0;
-
-	/* Copy TC parameters */
-	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
-	memcpy(*file_map, &reg_giu_tc, sizeof(struct giu_tc));
-	*file_map += sizeof(struct giu_tc);
-
-	for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
-		ret = regfile_register_queue(&(intc->inqs[queue_idx]),
-				QUEUE_EGRESS,
-				intc->pkt_offset,
-				qs_phys_base,
-				ptrs_phys_base,
-				file_map);
-		if (ret)
-			break;
-	}
-
-	return ret;
-
-}
-
-static int regfile_register_outtc(struct giu_gpio_outtc *outtc,
-				  u8 tc_id,
-				  phys_addr_t qs_phys_base,
-				  phys_addr_t ptrs_phys_base,
-				  void **file_map)
-{
-	int queue_idx, ret = 0;
-	struct giu_tc reg_giu_tc;
-
-	reg_giu_tc.id			= tc_id;
-	reg_giu_tc.ingress_rss_type	= (enum giu_gpio_hash_type)outtc->rem_rss_type;
-	reg_giu_tc.num_queues		= outtc->num_outqs;
-	reg_giu_tc.queues		= NULL;
-	reg_giu_tc.dest_num_queues	= outtc->num_rem_inqs;
-
-	/* Copy TC parameters */
-	pr_debug("\tCopy TC %d Information to Regfile\n", reg_giu_tc.id);
-	memcpy(*file_map, &reg_giu_tc, sizeof(struct giu_tc));
-	*file_map += sizeof(struct giu_tc);
-
-	for (queue_idx = 0; queue_idx < reg_giu_tc.num_queues; queue_idx++) {
-		ret = regfile_register_queue(&(outtc->outqs[queue_idx]),
-				QUEUE_INGRESS,
-				outtc->rem_pkt_offset,
-				qs_phys_base,
-				ptrs_phys_base,
-				file_map);
-		if (ret)
-			break;
-	}
-
-	return ret;
-
-}
 
 static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 	struct mqa_q *q, u32 q_id, enum queue_type queue_type)
@@ -1096,7 +975,7 @@ int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth)
 	return pos;
 }
 
-int giu_ppio_probe_new(char *match, char *buff, struct giu_gpio **gpio)
+int giu_ppio_probe(char *match, char *buff, struct giu_gpio **gpio)
 {
 	struct giu_gpio			*_gpio;
 	struct giu_gpio_outtc		*outtc;
@@ -1264,145 +1143,6 @@ int giu_ppio_probe_new(char *match, char *buff, struct giu_gpio **gpio)
 	*gpio = _gpio;
 
 	return 0;
-}
-
-int giu_gpio_serialize_old(struct giu_gpio *gpio, void **file_map)
-{
-	struct mv_sys_dma_mem_info	 mem_info;
-	char				 dev_name[100];
-	int				 ret, tc_idx;
-
-	mem_info.name = dev_name;
-	mv_sys_dma_mem_get_info(&mem_info);
-
-	/* Setup Egress TCs  */
-	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
-		ret = regfile_register_intc(&(gpio->intcs[tc_idx]),
-				tc_idx, mem_info.paddr, mem_info.paddr, file_map);
-		if (ret)
-			return ret;
-	}
-
-	/* Setup Ingress TCs  */
-	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
-		ret = regfile_register_outtc(&(gpio->outtcs[tc_idx]),
-				tc_idx, mem_info.paddr, mem_info.paddr, file_map);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio)
-{
-	struct giu_gpio_probe_params	*gpio_probe_params;
-	struct giu_gpio_outtc		*outtc;
-	struct giu_gpio_intc		*intc;
-	u8				 match_params[2];
-	u32				 tc_idx, q_idx;
-	int				 ret, giu_id, gpio_id;
-
-	if (!match) {
-		pr_err("no match string found!\n");
-		return -EFAULT;
-	}
-
-	if (mv_sys_match(match, "gpio", 2, match_params))
-		return(-ENXIO);
-
-	giu_id = match_params[0];
-	gpio_id = match_params[1];
-
-	pr_debug("Init gpio %d for giu id: %d.\n", gpio_id, giu_id);
-
-	if (gpio_id >= GIU_MAX_NUM_GPIO) {
-		pr_err("giu_id (%d) exceeds mac gpio number (%d)\n", giu_id, GIU_MAX_NUM_GPIO);
-		return -EINVAL;
-	}
-
-	/* Signal upper level that initialization is completed */
-	ret = giu_gpio_topology_set_init_done(giu_id);
-	if (ret)
-		return ret;
-
-	*gpio = kcalloc(1, sizeof(struct giu_gpio), GFP_KERNEL);
-	if (*gpio == NULL) {
-		pr_err("Failed to allocate GIU GPIO handler\n");
-		return -ENOMEM;
-	}
-
-	(*gpio)->giu_id = giu_id;
-	(*gpio)->id = gpio_id;
-
-	gpio_probe_params = giu_gpio_get_topology(giu_id);
-	if (gpio_probe_params == NULL) {
-		pr_err("queue topology was not initialized for GIU %d\n", giu_id);
-		goto probe_error;
-	}
-
-	pr_debug("giu_gpio_probe id %d\n", gpio_id);
-
-	(*gpio)->num_intcs = gpio_probe_params->inqs_params.num_tcs;
-	for (tc_idx = 0; tc_idx < (*gpio)->num_intcs; tc_idx++) {
-		intc = &((*gpio)->intcs[tc_idx]);
-
-		intc->num_inqs = gpio_probe_params->inqs_params.tcs[tc_idx].num_qs;
-		intc->num_rem_outqs = gpio_probe_params->inqs_params.tcs[tc_idx].dest_num_qs;
-		intc->rss_type =
-			(enum rss_hash_type)gpio_probe_params->inqs_params.tcs[tc_idx].hash_type;
-		/* TODO: add support here for pkt-offset! */
-		/*intc->pkt_offset = gpio_probe_params->inqs_params.tcs[tc_idx].pkt_offset;*/
-		intc->pkt_offset = 0;
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++)
-			memcpy(&intc->inqs[q_idx].queue,
-				&(gpio_probe_params->inqs_params.tcs[tc_idx].queues[q_idx]),
-				sizeof(struct giu_queue));
-	}
-
-	(*gpio)->num_outtcs = gpio_probe_params->outqs_params.num_tcs;
-	for (tc_idx = 0; tc_idx < (*gpio)->num_outtcs; tc_idx++) {
-		outtc = &((*gpio)->outtcs[tc_idx]);
-
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		/* we assume that all Qs (in a specific TC) has the same size */
-		struct giu_gpio_queue *txq = &gpio_probe_params->outqs_params.tcs[tc_idx].queues[0];
-
-		outtc->interimq.descs =
-			kzalloc(sizeof(struct giu_gpio_lcl_interim_q_desc) * txq->desc_total, GFP_KERNEL);
-		if (outtc->interimq.descs == NULL) {
-			pr_err("Failed to allocate GIU GPIO TC %d shadow-queue for RSS\n", tc_idx);
-			goto probe_tc_error;
-		}
-
-		outtc->interimq.desc_total = txq->desc_total;
-		outtc->interimq.prod_val = 0;
-		outtc->interimq.cons_val = 0;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
-		outtc->num_outqs = gpio_probe_params->outqs_params.tcs[tc_idx].num_qs;
-		outtc->num_rem_inqs = gpio_probe_params->outqs_params.tcs[tc_idx].dest_num_qs;
-		outtc->rem_rss_type =
-			(enum rss_hash_type)gpio_probe_params->outqs_params.tcs[tc_idx].hash_type;
-		/* TODO: add support here for pkt-offset! */
-		/*outtc->rem_pkt_offset = gpio_probe_params->outqs_params.tcs[tc_idx].dest_pkt_offset;*/
-		outtc->rem_pkt_offset = 0;
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++)
-			memcpy(&outtc->outqs[q_idx].queue,
-				&(gpio_probe_params->outqs_params.tcs[tc_idx].queues[q_idx]),
-				sizeof(struct giu_queue));
-	}
-
-	return 0;
-
-probe_tc_error:
-	while (tc_idx--)
-		kfree((*gpio)->outtcs[tc_idx].interimq.descs);
-
-probe_error:
-	kfree((*gpio));
-
-	return -1;
 }
 
 void giu_gpio_remove(struct giu_gpio *gpio)
@@ -1742,7 +1482,6 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 		}
 
 		/* Set BPool handlers */
-		/* TODO: BP ID should be taken from the regfile */
 		/* TODO: for now we have a single BP per GPIO */
 		tc_info->pools[0] = &giu_bpools[0];
 		for (bpool_id = 1; bpool_id < qs_num; bpool_id++)

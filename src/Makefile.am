@@ -124,8 +124,6 @@ libmusdk_la_SOURCES += drivers/giu/gie/gie.c
 libmusdk_la_SOURCES += drivers/giu/giu.c
 libmusdk_la_SOURCES += drivers/giu/giu_gpio.c
 libmusdk_la_SOURCES += drivers/giu/giu_bpool.c
-libmusdk_la_SOURCES += drivers/giu/giu_queue_topology.c
-libmusdk_la_SOURCES += drivers/giu/file_map.c
 
 libmusdk_la_SOURCES += drivers/mqa/mqa.c
 libmusdk_la_SOURCES += drivers/mqa/mqa_queue.c
@@ -143,7 +141,6 @@ nobase_include_HEADERS += include/mng/mv_nmp_guest_pp2_cls.h
 
 libmusdk_la_SOURCES += mng/lf/pf/pf.c
 libmusdk_la_SOURCES += mng/lf/pf/pf_pp2.c
-libmusdk_la_SOURCES += mng/lf/pf/pf_regfile.c
 libmusdk_la_SOURCES += mng/lf/pf/pf_topology.c
 libmusdk_la_SOURCES += mng/lf/custom/custom.c
 libmusdk_la_SOURCES += mng/lf/lf_mng.c

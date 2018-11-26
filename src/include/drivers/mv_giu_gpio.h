@@ -126,10 +126,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio);
  */
 void giu_gpio_deinit(struct giu_gpio *gpio);
 
-/* TODO: this is temporary API. wil be replaced later with correct serialization */
-int giu_gpio_serialize_old(struct giu_gpio *gpio, void **file_map);
-int giu_gpio_probe(char *match, char *regfile_name, struct giu_gpio **gpio);
-
 /**
  * Serialize the GPIO parameters
  *
@@ -177,7 +173,7 @@ int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth);
  * @retval      0 on success
  * @retval      <0 on failure
  */
-int giu_ppio_probe_new(char *match, char *buff, struct giu_gpio **gpio);
+int giu_ppio_probe(char *match, char *buff, struct giu_gpio **gpio);
 
 /**
  * Remove a gpio

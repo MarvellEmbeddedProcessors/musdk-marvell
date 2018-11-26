@@ -76,7 +76,7 @@ int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *gues
 	pools_desc->num_bpools = giu_info->num_bpools;
 
 	for (i = 0; i < pools_desc->num_bpools; i++) {
-		err = giu_bpool_probe_new(giu_info->bpool_info[i].bpool_name,
+		err = giu_bpool_probe(giu_info->bpool_info[i].bpool_name,
 				buff, &pools_desc->bpools[i]);
 		if (err) {
 			pr_err("probe giu-bpool buffs failed!\n");
@@ -101,7 +101,7 @@ int app_nmp_guest_giu_port_init(char *buff, struct nmp_guest_info *guest_info, s
 	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info;
 	int				 err, i;
 
-	err = giu_ppio_probe_new(giu_info->port_name, buff, &port->gpio);
+	err = giu_ppio_probe(giu_info->port_name, buff, &port->gpio);
 	if (err) {
 		pr_err("pp2_ppio_probe failed for %s\n", giu_info->port_name);
 		return err;

@@ -13,7 +13,6 @@
 #include "drivers/mv_giu.h"
 #include "drivers/mv_giu_gpio.h"
 #include "drivers/mqa_def.h"
-#include "drivers/giu_regfile_def.h"
 #include "mng/mv_nmp.h"
 #include "mng/mv_nmp_guest_msg.h"
 #include "mng/mv_nmp_dispatch.h"
@@ -22,7 +21,6 @@
 #include "mng/pci_ep_def.h"
 #include "mng/lf/mng_cmd_desc.h"
 
-#include "pf_regfile.h"
 #include "pf.h"
 #include "pf_pp2.h"
 #include "pf_topology.h"
@@ -88,200 +86,6 @@ static int init_nicpf_params(struct nmnicpf *nmnicpf, struct nmp_lf_nicpf_params
 	}
 
 	return 0;
-}
-
-/**
- * NIC PF Register File Section
- * ============================
- */
-
-/*
- *	nmnicpf_regfile_size
- *
- *	This function calculates the regfile data byte size
- *
- *	@param[in]      nmnicpf       - Pointer to the NIC-PF struct which defines the topology
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int nmnicpf_regfile_size(struct nmnicpf *nmnicpf)
-{
-	int size;
-	u32 tc_id;
-	struct giu_gpio_intc_params *intc;
-	struct giu_gpio_outtc_params *outtc;
-	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
-
-	/* Main topology structure size */
-	size = sizeof(struct giu_regfile);
-
-	/* Add Egress TCs size */
-	size += (sizeof(struct giu_tc) * (gpio_p->num_intcs));
-
-	/* Go trough Egress TCs and calc size of queues */
-	for (tc_id = 0; tc_id < (gpio_p->num_intcs); tc_id++) {
-		intc = &(gpio_p->intcs_params[tc_id]);
-		/* Add BM Pool size */
-		size += (sizeof(struct giu_queue) * intc->num_inpools);
-		size += (sizeof(struct giu_queue) * (intc->num_inqs));
-	}
-
-	/* Add Ingress TCs size */
-	size += (sizeof(struct giu_tc) * (gpio_p->num_outtcs));
-
-	/* Go trough Egress TCs and calc size of queues */
-	for (tc_id = 0; tc_id < (gpio_p->num_outtcs); tc_id++) {
-		outtc = &(gpio_p->outtcs_params[tc_id]);
-		size += (sizeof(struct giu_queue) * (outtc->num_outqs));
-	}
-
-	return size;
-}
-
-/*
- *	nmnicpf_regfile_open
- *
- *	This function opens the regfile
- *
- *	@param[in]      nmnicpf       - Pointer to the NIC-PF struct which defines the topology
- *			file_map   - Pointer to Pointer to Regfile mempry map
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int nmnicpf_regfile_open(struct nmnicpf *nmnicpf, void **file_map)
-{
-	int size;
-	char file_name[REGFILE_MAX_FILE_NAME];
-
-	/* Concatenate file path */
-	snprintf(file_name, sizeof(file_name), "%s%s%d", REGFILE_VAR_DIR, REGFILE_NAME_PREFIX, nmnicpf->pf_id);
-
-	/* Configure queue topology in register file */
-	size = nmnicpf_regfile_size(nmnicpf);
-
-	if (size < 0) {
-		pr_err("Error: failed to map file %s (size %d)\n", file_name, size);
-		return -ENOENT;
-	}
-
-	*file_map = regfile_open(file_name, size);
-	if (file_map == NULL) {
-		pr_err("Error: failed to map file %s\n", file_name);
-		return -ENOENT;
-	}
-
-	pr_debug("Regfile Parameters (Regfile Name: %s, Ver %06d)\n", file_name, REGFILE_VERSION);
-
-	return 0;
-}
-
-/*
- *	nmnicpf_regfile_close
- *
- *	This function opens the regfile
- *
- *	@param[in]      file_map   - Pointer to Regfile mempry map for closing the file
- *
- */
-static void nmnicpf_regfile_close(void *file_map)
-{
-	regfile_close(file_map);
-}
-
-/*
- *	nmnicpf_config_header_regfile
- *
- *	This function writes the header pf to the regfile
- *
- *	@param[in]	regfile_data - Struct of the regfile data
- *			file_map   - Pointer to Pointer to Regfile mempry map
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int nmnicpf_config_header_regfile(struct giu_regfile *regfile_data, void **file_map)
-{
-	/* Set Regfile header configuration */
-	memcpy(*file_map, regfile_data, sizeof(struct giu_regfile));
-	*file_map += sizeof(struct giu_regfile);
-
-	return 0;
-}
-
-/*
- *	nmnicpf_config_topology_and_update_regfile
- *
- *	This function configures the entite NIC-PF struct params to the register file
- *      It runs over all TCs types (Egress / Ingress / ...) and BM Queues structure and convert the
- *      Topology to the register file
- *
- *	@param[in]	nmnicpf      - Pointer to the NIC-PF struct which defines the topology
- *+
- *	@retval	0 on success
- *	@retval	error-code otherwise (< 0)
- */
-static int nmnicpf_config_topology_and_update_regfile(struct nmnicpf *nmnicpf)
-{
-	void *file_map;
-	struct giu_regfile regfile_data;
-	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
-	struct mv_sys_dma_mem_info	 mem_info;
-	char				 dev_name[100];
-	u8 bm_idx;
-	int ret = 0;
-
-	mem_info.name = dev_name;
-	mv_sys_dma_mem_get_info(&mem_info);
-
-	/* Update Regfile general info */
-	strcpy(regfile_data.dma_uio_mem_name, mem_info.name);
-
-	regfile_data.version		= REGFILE_VERSION;
-	regfile_data.num_bm_qs		= gpio_p->intcs_params[0].num_inpools;
-	regfile_data.bm_qs		= NULL;
-	regfile_data.num_egress_tcs	= gpio_p->num_intcs;
-	regfile_data.egress_tcs	= NULL;
-	regfile_data.num_ingress_tcs	= gpio_p->num_outtcs;
-	regfile_data.ingress_tcs	= NULL;
-	regfile_data.flags = 0;
-
-	pr_debug("Start Topology configuration to register file [Regfile ver (%d), NIC-PF number (%d)]\n",
-			regfile_data.version, nmnicpf->pf_id);
-
-	ret = nmnicpf_regfile_open(nmnicpf, &file_map);
-	if (ret != 0)
-		return ret;
-
-	/* Copy Header File parameters */
-	pr_debug("Copy Regfile Header\n");
-	ret = nmnicpf_config_header_regfile(&regfile_data, &file_map);
-	if (ret != 0)
-		goto config_error;
-
-	/* Setup GIU B-Pools  */
-	/* we assume all in-TCs share the same BPools */
-	for (bm_idx = 0;
-		bm_idx < nmnicpf->gpio_params.intcs_params[0].num_inpools;
-		bm_idx++) {
-		ret = giu_bpool_serialize_old(nmnicpf->giu_bpools[bm_idx], &file_map);
-		if (ret != 0)
-			goto config_error;
-	}
-
-	/* Setup GIU GPIO  */
-	ret = giu_gpio_serialize_old(nmnicpf->giu_gpio, &file_map);
-	if (ret != 0)
-		goto config_error;
-
-	return ret;
-
-config_error:
-
-	nmnicpf_regfile_close(file_map);
-
-	return ret;
 }
 
 /**
@@ -928,7 +732,7 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 	/* Allocate and configure local queues in the database */
 	ret = nmnicpf_topology_local_queue_cfg(nmnicpf);
 	if (ret) {
-		pr_err("Failed to configure PF regfile\n");
+		pr_err("Failed to configure PF topology\n");
 		return ret;
 	}
 
@@ -2748,12 +2552,6 @@ int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
 			return -EFAULT;
 		}
-	}
-
-	ret = nmnicpf_config_topology_and_update_regfile(nmnicpf);
-	if (ret) {
-		pr_err("Failed to configure PF regfile\n");
-		return ret;
 	}
 
 	return pos;
