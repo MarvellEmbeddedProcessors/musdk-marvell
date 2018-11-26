@@ -1,4 +1,4 @@
-From 8f214d63fae321990c8c0aa270cbeb048da2508d Mon Sep 17 00:00:00 2001
+From 196efe6f0f5acfcd50d0f5bdb0254e056290f4d4 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 23:57:16 +0300
 Subject: [PATCH 4/7] dts: musdk: a7k/8/8kp xor
@@ -6,8 +6,8 @@ Subject: [PATCH 4/7] dts: musdk: a7k/8/8kp xor
 Change-Id: Ib2f5aadf42d56d6cf32d3ab94a93d552e0df2c90
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-ap80x.dtsi |   32 +++++++++++++++++++++----
- arch/arm64/boot/dts/marvell/armada-cp110.dtsi |   12 ++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap80x.dtsi | 32 +++++++++++++++++++++++----
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi | 12 ++++++++++
  2 files changed, 40 insertions(+), 4 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap80x.dtsi b/arch/arm64/boot/dts/marvell/armada-ap80x.dtsi
@@ -82,7 +82,7 @@ index f4cb7a9..5b24962 100644
  				compatible = "marvell,armada-380-spi";
  				reg = <0x510600 0x50>;
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index a8786a7..047eb14 100644
+index 627e27e..181b80c 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 @@ -346,6 +346,18 @@
@@ -105,5 +105,5 @@ index a8786a7..047eb14 100644
  			compatible = "marvell,armada-380-spi";
  			reg = <0x700600 0x50>;
 -- 
-1.7.9.5
+2.7.4
 
