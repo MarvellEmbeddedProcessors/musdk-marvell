@@ -567,9 +567,9 @@ struct sam_hw_res_desc {
 #define SAM_RES_TOKEN_OFFSET_GET(v)	(((v) >> SAM_RES_TOKEN_OFFSET_OFFS) & SAM_RES_TOKEN_OFFSET_MASK)
 
 enum sam_hw_type {
-	HW_EIP197,
-	HW_EIP97,
-	HW_TYPE_LAST
+	HW_EIP97IES = BIT(0),
+	HW_EIP197B  = BIT(1),
+	HW_EIP197D  = BIT(2),
 };
 
 struct sam_hw_device_info {

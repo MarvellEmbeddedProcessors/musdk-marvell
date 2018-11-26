@@ -103,8 +103,8 @@
 
 static struct sam_hw_device_info sam_hw_device_info[SAM_HW_DEVICE_NUM];
 
-static const char *const sam_supported_name[] = {"eip197", "eip97"};
-static enum sam_hw_type sam_supported_type[] = {HW_EIP197, HW_EIP97};
+static const char *const sam_supported_name[] = {"eip97", "eip197b", "eip197d"};
+static enum sam_hw_type sam_supported_type[] = {HW_EIP97IES, HW_EIP197B, HW_EIP197D};
 
 static struct sys_iomem *sam_iomem_init(int device, enum sam_hw_type *type)
 {
@@ -290,7 +290,7 @@ int sam_hw_cdr_regs_init(struct sam_hw_ring *hw_ring)
 	val32 = SAM_RING_SIZE_VAL(hw_ring->ring_size * SAM_CDR_ENTRY_WORDS);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_CDR_RING_SIZE_REG, val32);
 
-	if (hw_ring->type == HW_EIP197)
+	if ((hw_ring->type == HW_EIP197B) || (hw_ring->type == HW_EIP197D))
 		desc_size = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_EXT_WORD_COUNT); /* Extended command descriptor */
 	else
 		desc_size = SAM_RING_DESC_SIZE_VAL(SAM_CDR_DSCR_WORD_COUNT); /* Basic Command descriptor */
@@ -370,7 +370,7 @@ int sam_hw_rdr_regs_init(struct sam_hw_ring *hw_ring)
 	val32 = SAM_RING_SIZE_VAL(hw_ring->ring_size * SAM_RDR_ENTRY_WORDS);
 	sam_hw_reg_write(hw_ring->regs_vbase, HIA_RDR_RING_SIZE_REG, val32);
 
-	if (hw_ring->type == HW_EIP197)
+	if ((hw_ring->type == HW_EIP197B) || (hw_ring->type == HW_EIP197D))
 		val32 = SAM_RING_DESC_SIZE_VAL(SAM_RDR_DSCR_EXT_WORD_COUNT); /* Extended Command descriptor */
 	else
 		val32 = SAM_RING_DESC_SIZE_VAL(SAM_RDR_DSCR_WORD_COUNT); /* Basic Command descriptor */
@@ -444,12 +444,12 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 	hw_ring->ring = ring;
 	hw_ring->ring_size = params->size; /* number of descriptors in the ring */
 
-	if (device_info->type == HW_EIP197) {
+	if ((device_info->type == HW_EIP197B) || (device_info->type == HW_EIP197D)) {
 		hw_ring->aic_regs_vbase = (((char *)device_info->vaddr) + SAM_EIP197_AIC_RING_REGS_OFFS(ring));
 		hw_ring->aic_regs_paddr = device_info->paddr + SAM_EIP197_AIC_RING_REGS_OFFS(ring);
 		hw_ring->regs_vbase = (((char *)device_info->vaddr) + SAM_EIP197_RING_REGS_OFFS(ring));
 		hw_ring->paddr = device_info->paddr + SAM_EIP197_RING_REGS_OFFS(ring);
-	} else if (device_info->type == HW_EIP97) {
+	} else if (device_info->type == HW_EIP97IES) {
 		hw_ring->aic_regs_vbase = (((char *)device_info->vaddr) + SAM_EIP97_AIC_RING_REGS_OFFS(ring));
 		hw_ring->aic_regs_paddr = device_info->paddr + SAM_EIP97_AIC_RING_REGS_OFFS(ring);
 		hw_ring->regs_vbase = (((char *)device_info->vaddr) + SAM_EIP97_RING_REGS_OFFS(ring));
@@ -467,7 +467,7 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 	}
 */
 	pr_debug("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
-		(device_info->type == HW_EIP197) ? "eip197" : "eip97",
+		(device_info->type == HW_EIP97IES) ? "eip97" : "eip197",
 		device, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
 	sam_hw_cdr_regs_reset(hw_ring);

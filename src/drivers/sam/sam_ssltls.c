@@ -322,7 +322,7 @@ int sam_cio_enq_ssltls(struct sam_cio *cio, struct sam_cio_ssltls_params *reques
 			session->cio = cio;
 		}
 
-		if (cio->hw_ring.type == HW_EIP197) {
+		if (cio->hw_ring.type != HW_EIP97IES) {
 			u32 seg_mask;
 
 			/* Write prepared RDR descriptor */

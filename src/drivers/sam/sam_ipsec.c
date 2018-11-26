@@ -380,7 +380,7 @@ int sam_cio_enq_ipsec(struct sam_cio *cio, struct sam_cio_ipsec_params *requests
 		} else
 			reuse = 1;
 
-		if (cio->hw_ring.type == HW_EIP197) {
+		if (cio->hw_ring.type != HW_EIP97IES) {
 			u32 seg_mask;
 
 			/* Write prepared RDR descriptor */

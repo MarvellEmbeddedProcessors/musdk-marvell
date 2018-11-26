@@ -948,7 +948,8 @@ int sam_session_destroy(struct sam_sa *session)
 {
 	struct sam_cio *cio = cio = session->cio;
 
-	if (cio && (cio->hw_ring.type == HW_EIP197)) {
+	if (cio && ((cio->hw_ring.type == HW_EIP197B) ||
+			(cio->hw_ring.type == HW_EIP197D))) {
 
 		if (session->ctr_cio)
 			/* use dedicated ring to invalidate session */
@@ -1068,7 +1069,7 @@ int sam_cio_enq(struct sam_cio *cio, struct sam_cio_op_params *requests, u16 *nu
 			} else
 				prep_data += data_size;
 
-			if (cio->hw_ring.type == HW_EIP197)
+			if (cio->hw_ring.type != HW_EIP97IES)
 				sam_hw_ring_ext_desc_write(&cio->hw_ring,
 							   &request->src[j], data_size,
 							   &request->sa->sa_buf,
@@ -1208,7 +1209,7 @@ int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *param
 	struct mv_sys_event_params ev_params = {0};
 
 	snprintf(ev_params.name, sizeof(ev_params.name), "%s_%d:%d",
-			(cio->hw_ring.type == HW_EIP197) ? "eip197" : "eip97",
+			(cio->hw_ring.type == HW_EIP97IES) ? "eip97" : "eip197",
 			cio->hw_ring.device, cio->hw_ring.ring);
 
 	err = mv_sys_event_create(&ev_params, ev);
