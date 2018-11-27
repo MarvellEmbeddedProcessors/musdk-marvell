@@ -99,6 +99,7 @@ struct glob_arg {
 	eth_addr_t			 eth_addr;
 
 	void				*pci_bar;
+	void				*buffs_addr;
 };
 
 struct local_arg {
@@ -408,11 +409,15 @@ static void recv_custom_msg_cb(void *arg, u8 code, u64 cookie, void *msg, u16 le
 		pr_info("AGNIC: got a message: code:%d\n", code);
 }
 
-static int app_build_bpool(struct agnic_pfio *pfio, int tc, int qid, int num_of_buffs, int buff_len)
+static int app_build_bpool(struct glob_arg *garg,
+			struct agnic_pfio *pfio,
+			int tc,
+			int qid,
+			int num_of_buffs,
+			int buff_len)
 {
 	struct agnic_buff_inf *buffs_inf;
-	void *buff_virt_addr;
-	void *buff_phys_addr;
+	u64 buff_phys_addr;
 	int i, err;
 
 	num_of_buffs -= 1;
@@ -425,19 +430,19 @@ static int app_build_bpool(struct agnic_pfio *pfio, int tc, int qid, int num_of_
 		return -ENOMEM;
 	}
 
-	buff_virt_addr = mv_sys_dma_mem_alloc(buff_len * num_of_buffs, 4);
-	if (!buff_virt_addr) {
+	garg->buffs_addr = mv_sys_dma_mem_alloc(buff_len * num_of_buffs, 4);
+	if (!garg->buffs_addr) {
 		pr_err("failed to allocate AGNIC bpool mem!\n");
 		return -ENOMEM;
 	}
 
-	buff_phys_addr = (void *)mv_sys_dma_mem_virt2phys(buff_virt_addr);
+	buff_phys_addr = mv_sys_dma_mem_virt2phys(garg->buffs_addr);
 
 	for (i = 0; i < num_of_buffs; i++) {
 		u16 num = 1;
 
-		buffs_inf[i].addr = (u64)buff_phys_addr + (i * buff_len);
-		buffs_inf[i].cookie = (u64)buff_virt_addr + (i * buff_len);
+		buffs_inf[i].addr = buff_phys_addr + (i * buff_len);
+		buffs_inf[i].cookie = (u64)garg->buffs_addr + (i * buff_len);
 
 		err = agnic_pfio_inq_put_buffs(pfio, tc, qid, &buffs_inf[i], &num);
 		if (err || !num) {
@@ -596,7 +601,7 @@ static int init_global(void *arg)
 
 	for (i = 0; i < pfio_params.num_in_tcs; i++)
 		for (j = 0; j < pfio_params.num_qs_per_tc; j++) {
-			err = app_build_bpool(garg->pfio, i, j, pfio_params.in_qs_size, pfio_params.buff_size);
+			err = app_build_bpool(garg, garg->pfio, i, j, pfio_params.in_qs_size, pfio_params.buff_size);
 			if (err) {
 				pr_err("Failed to fill AGNIC BPool (%d,%d)!\n", i, j);
 				return err;
@@ -634,7 +639,15 @@ static void deinit_global(void *arg)
 	if (!garg)
 		return;
 
+	/* we need first to disable the port */
+	agnic_pfio_disable(garg->pfio);
+	/* wait and let all traffic sattle-down */
+	mdelay(100);
+
 	agnic_pfio_deinit(garg->pfio);
+
+	/* free the pkt buffer memory */
+	mv_sys_dma_mem_free(garg->buffs_addr);
 
 	/* This part of Musdk deinit, should be done in the end of all deinit */
 	mv_sys_dma_mem_destroy();
