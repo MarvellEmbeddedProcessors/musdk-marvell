@@ -28,7 +28,6 @@
 #include "mv_agnic_pfio.h"
 
 
-#define APP_TX_RETRY
 /*#define VERBOSE_CHECKS_FOR_SF_BUG*/
 
 #define PKT_ECHO_APP_MAX_BURST_SIZE		64
@@ -325,7 +324,6 @@ static int do_echo(struct local_arg	*larg,
 	num = tmp_num;
 
 	if (num) {
-#ifdef APP_TX_RETRY
 		u16 desc_idx = 0, cnt = 0, orig_num = num;
 
 		do {
@@ -336,21 +334,9 @@ static int do_echo(struct local_arg	*larg,
 			desc_idx += tx_num;
 			num -= tx_num;
 		} while (num);
+
 		tx_num = orig_num;
-#else
-		tx_num = num;
-		agnic_pfio_send(tx_lcl_port_desc->pfio, tc, tc_qid, descs, &tx_num);
-		if (num > tx_num) {
-			u16 not_sent = num - tx_num;
-			/* Free not sent buffers */
-			shadow_q->write_ind = (shadow_q->write_ind < not_sent) ?
-						(shadow_q_size - not_sent + shadow_q->write_ind) :
-						shadow_q->write_ind - not_sent;
-			free_multi_buffers(rx_lcl_port_desc, tx_lcl_port_desc, write_ind, not_sent, tc, tc_qid, sh_qid);
-			perf_cntrs->drop_cnt += not_sent;
-		}
-#endif /* APP_TX_RETRY */
-	perf_cntrs->tx_cnt += tx_num;
+		perf_cntrs->tx_cnt += tx_num;
 	}
 	free_sent_buffers(rx_lcl_port_desc, tx_lcl_port_desc, tc, tc_qid, sh_qid);
 /*printf("sent %d pkts from echo\n", tx_num);*/
