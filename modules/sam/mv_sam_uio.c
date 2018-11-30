@@ -30,6 +30,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
+#include <linux/utsname.h>
 
 #define DRIVER_NAME	"mv_sam_uio_drv"
 #define DRIVER_VERSION	"0.1"
@@ -65,9 +66,12 @@
 
 /* this enum must be compatible to 'enum safexcel_eip_version' in safexcel.h file */
 enum sam_hw_type {
-	HW_EIP97,
-	HW_EIP197,
-	HW_TYPE_LAST
+	O_HW_EIP97 = 0,
+	O_HW_EIP197 = 1,
+	HW_EIP97IES = BIT(0),
+	HW_EIP197B  = BIT(1),
+	HW_EIP197D  = BIT(2),
+	HW_TYPE_LAST = BIT(3)
 };
 
 struct sam_uio_ring_info {
@@ -101,13 +105,38 @@ struct sam_uio_pdev_info {
 
 static int sam_uio_remove(struct platform_device *pdev);
 
+static int get_lk_version(void)
+{
+	int major, minor, err;
+	char *kernel_version;
+
+	kernel_version = utsname()->release;
+
+	err = sscanf(kernel_version, "%d.%d", &major, &minor);
+	if (err <= 0)
+		return err;
+
+	pr_debug("%s: ver:%s, major:%d, minor:%d\n", __func__, kernel_version, major, minor);
+
+	return MKDEV(major, minor);
+}
+
 static inline int sam_uio_get_rings_num(struct sam_uio_pdev_info *pdev_info)
 {
 	u32 *addr, val32;
+	int lk_ver;
 
-	if (pdev_info->type == HW_EIP197)
+	lk_ver = get_lk_version();
+
+	if ((((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
+		(pdev_info->type == O_HW_EIP197)) ||
+		(((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
+		((pdev_info->type == HW_EIP197B) || (pdev_info->type == HW_EIP197D))))
 		addr = (u32 *)(pdev_info->regs_vbase + SAM_EIP197_HIA_OPTIONS_REG);
-	else if (pdev_info->type == HW_EIP97)
+	else if ((((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
+		(pdev_info->type == O_HW_EIP97)) ||
+		(((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
+		(pdev_info->type == HW_EIP97IES)))
 		addr = (u32 *)(pdev_info->regs_vbase + SAM_EIP97_HIA_OPTIONS_REG);
 	else {
 		dev_err(pdev_info->dev, "unknown HW type %d\n", pdev_info->type);
@@ -217,6 +246,7 @@ static int sam_uio_probe(struct platform_device *pdev)
 	char irq_name[6] = {0};
 	char *xdr_regs_vbase;
 	static u8 cpn_count;
+	int lk_ver;
 
 	if (!np) {
 		dev_err(dev, "Non DT case is not supported\n");
@@ -274,10 +304,24 @@ static int sam_uio_probe(struct platform_device *pdev)
 		goto fail_uio;
 	}
 
-	if (pdev_info->type == HW_EIP197) {
+	lk_ver = get_lk_version();
+
+	if (((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
+		(pdev_info->type == O_HW_EIP197)) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
-		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_eip197_%d", cpn_count);
-	} else if (pdev_info->type == HW_EIP97) {
+		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_eip197b_%d", cpn_count);
+	} else if (((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
+		((pdev_info->type == HW_EIP197B) || (pdev_info->type == HW_EIP197D))) {
+		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
+		snprintf(pdev_info->name, sizeof(pdev_info->name),
+			(pdev_info->type == HW_EIP197B) ?
+			"uio_eip197b_%d" :
+			"uio_eip197d_%d",
+			cpn_count);
+	} else if ((((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
+		(pdev_info->type == O_HW_EIP97)) ||
+		(((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
+		(pdev_info->type == HW_EIP97IES))) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP97_xDR_REGS_OFFS;
 		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_eip97_%d", cpn_count);
 	} else {
@@ -340,7 +384,10 @@ static int sam_uio_probe(struct platform_device *pdev)
 	}
 
 	/* set same Lookup Table index for all available rings */
-	if (pdev_info->type == HW_EIP197)
+	if ((((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
+		(pdev_info->type == O_HW_EIP197)) ||
+		(((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
+		((pdev_info->type == HW_EIP197B) || (pdev_info->type == HW_EIP197D))))
 		sam_uio_lut_cfg(pdev_info, rings_num);
 
 	dev_info(dev, "Registered %d uio devices, Rings: free = 0x%x, busy = 0x%x\n",
