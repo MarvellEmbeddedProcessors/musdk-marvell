@@ -30,6 +30,8 @@
 #define PP2_SYSFS_RSS_NUM_TABLES_FILE	"num_rss_tables"
 #define PP2_SYSFS_DEBUG_PORT_SET_FILE	"sysfs_current_port"
 
+#define PP2_DEF_KERNEL_NUM_RSS_TBL	4
+
 #define PP2_MAX_BUF_STR_LEN		256
 
 
@@ -99,11 +101,22 @@ static void pp2_set_reserved_bpools(struct nmp *nmp)
 		nmp->nmpp2.used_bpools[i] = nmp->nmpp2.bm_pool_reserved_map;
 }
 
+static int pp2_get_rss_num_tbl(char *if_name)
+{
+	if (!lnx_is_mainline(lnx_id_get())) {
+		char file[PP2_MAX_BUF_STR_LEN];
+
+		sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
+		return pp2_sysfs_param_get(if_name, file);
+	}
+
+	return PP2_DEF_KERNEL_NUM_RSS_TBL;
+}
+
 /* Initialize the PP2 */
 static int pp2_inst_init(struct nmp *nmp)
 {
 	struct pp2_init_params	 pp2_params;
-	char			 file[PP2_MAX_BUF_STR_LEN];
 	char			 if_name[16];
 	int			 num_rss_tables;
 	int			 err;
@@ -115,8 +128,7 @@ static int pp2_inst_init(struct nmp *nmp)
 	if (err)
 		return err;
 
-	sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-	num_rss_tables = pp2_sysfs_param_get(if_name, file);
+	num_rss_tables = pp2_get_rss_num_tbl(if_name);
 	if (num_rss_tables < 0) {
 		pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
 		return -EFAULT;
