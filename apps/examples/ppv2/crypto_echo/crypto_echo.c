@@ -578,10 +578,10 @@ static inline int proc_rx_pkts(struct local_arg *larg,
 				sam_descs[i].cipher_len += pad_size;
 				mdata->pad = pad_size;
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-				if (larg->cmn_args.verbose > 1)
+				if (larg->cmn_args.verbose > 2)
 					pr_info("%s: cipher_len after padding = %d bytes, pad_size = %d bytes\n",
 						__func__, sam_descs[i].cipher_len, pad_size);
-#endif
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
 			}
 			if (flow->crypto_params->auth_alg != SAM_AUTH_NONE) {
 				if (state == PKT_STATE_DEC)
@@ -1022,6 +1022,13 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 		pr_err("SAM dequeue failed (%d)!\n", err);
 		return -EFAULT;
 	}
+#ifdef CRYPT_APP_VERBOSE_DEBUG
+	if (larg->cmn_args.verbose && num) {
+		printf("thread #%d (cpu=%d): deq %d pkts on cio=??\n",
+			larg->cmn_args.id, sched_getcpu(), num);
+	}
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
+
 	if (cio == larg->enc_cio)
 		larg->enc_in_cntr -= num;
 	else
@@ -1048,12 +1055,14 @@ static inline int deq_crypto_pkts(struct local_arg	*larg,
 				i, num, res_descs[i].status, res_descs[i].out_len);
 
 #ifdef CRYPT_APP_VERBOSE_DEBUG
-			if (larg->cmn_args.verbose) {
+			if (larg->cmn_args.verbose > 1) {
 				char *tmp_buff = (char *)mdata->buf_vaddr + MVAPPS_PP2_PKT_DEF_EFEC_OFFS;
 
+				printf("pkt dequeued from SAM (len %d):\n",
+				       res_descs[i].out_len);
 				mv_mem_dump((u8 *)tmp_buff, res_descs[i].out_len);
 			}
-#endif
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
 			/* Free buffer */
 			free_buf_from_sam_cookie(larg, res_descs[i].cookie);
 			perf_cntrs->drop_cnt++;
@@ -1463,7 +1472,7 @@ static int init_local_modules(struct glob_arg *garg)
 #ifdef CRYPT_APP_VERBOSE_DEBUG
 	if (garg->cmn_args.verbose > 2)
 		sam_set_debug_flags(0x3);
-#endif
+#endif /* CRYPT_APP_VERBOSE_DEBUG */
 
 	return 0;
 }
