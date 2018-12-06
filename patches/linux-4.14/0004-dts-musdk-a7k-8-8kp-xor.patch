@@ -1,4 +1,4 @@
-From 196efe6f0f5acfcd50d0f5bdb0254e056290f4d4 Mon Sep 17 00:00:00 2001
+From f06c3b292c84d02bdaea4ccd273183fde089d61f Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 23:57:16 +0300
 Subject: [PATCH 4/7] dts: musdk: a7k/8/8kp xor

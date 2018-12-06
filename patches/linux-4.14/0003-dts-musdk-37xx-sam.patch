@@ -1,4 +1,4 @@
-From 950bb181fb6888dd1cceae03fe8143a4d31b126d Mon Sep 17 00:00:00 2001
+From 28e917fa0072629cec7d1a8fa0ee67c7972ec827 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Wed, 2 May 2018 10:44:38 +0300
 Subject: [PATCH 3/7] dts: musdk: 37xx sam
@@ -10,7 +10,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  1 file changed, 6 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index 4153a45..9768acf 100644
+index 82693e1..3d3e1e5 100644
 --- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 @@ -158,6 +158,12 @@

@@ -1,4 +1,4 @@
-From 183b4235c1b4aaf002c9027a8ab3d160530893f6 Mon Sep 17 00:00:00 2001
+From 8d90bbb7b9239d3ab90d5adca5e67e73f340c832 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 17:13:13 +0300
 Subject: [PATCH 1/7] dts: musdk: cma memory
@@ -18,7 +18,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index a03efc7..4153a45 100644
+index e1b4d50..82693e1 100644
 --- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 @@ -10,6 +10,7 @@
