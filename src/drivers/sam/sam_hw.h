@@ -567,9 +567,9 @@ struct sam_hw_res_desc {
 #define SAM_RES_TOKEN_OFFSET_GET(v)	(((v) >> SAM_RES_TOKEN_OFFSET_OFFS) & SAM_RES_TOKEN_OFFSET_MASK)
 
 enum sam_hw_type {
-	HW_EIP97IES = BIT(0),
-	HW_EIP197B  = BIT(1),
-	HW_EIP197D  = BIT(2),
+	HW_EIP97IES = 0,
+	HW_EIP197B,
+	HW_EIP197D
 };
 
 struct sam_hw_device_info {
@@ -609,6 +609,8 @@ extern u32 sam_debug_flags;
 void print_cmd_desc(struct sam_hw_cmd_desc *cmd_desc);
 void print_result_desc(struct sam_hw_res_desc *res_desc, int is_prepared);
 #endif
+
+extern const char *const sam_supported_name[];
 
 static inline void sam_hw_reg_write_relaxed(void *base, u32 offset, u32 data)
 {

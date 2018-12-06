@@ -1209,7 +1209,7 @@ int sam_cio_create_event(struct sam_cio *cio, struct sam_cio_event_params *param
 	struct mv_sys_event_params ev_params = {0};
 
 	snprintf(ev_params.name, sizeof(ev_params.name), "%s_%d:%d",
-			(cio->hw_ring.type == HW_EIP97IES) ? "eip97" : "eip197",
+			sam_supported_name[cio->hw_ring.type],
 			cio->hw_ring.device, cio->hw_ring.ring);
 
 	err = mv_sys_event_create(&ev_params, ev);

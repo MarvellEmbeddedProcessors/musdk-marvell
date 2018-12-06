@@ -103,8 +103,7 @@
 
 static struct sam_hw_device_info sam_hw_device_info[SAM_HW_DEVICE_NUM];
 
-static const char *const sam_supported_name[] = {"eip97", "eip197b", "eip197d"};
-static enum sam_hw_type sam_supported_type[] = {HW_EIP97IES, HW_EIP197B, HW_EIP197D};
+const char *const sam_supported_name[] = {"eip97", "eip197b", "eip197d"};
 
 static struct sys_iomem *sam_iomem_init(int device, enum sam_hw_type *type)
 {
@@ -120,7 +119,7 @@ static struct sys_iomem *sam_iomem_init(int device, enum sam_hw_type *type)
 		if (sys_iomem_exists(&params)) {
 			err = sys_iomem_init(&params, &iomem_info);
 			if (!err) {
-				*type = sam_supported_type[i];
+				*type = (enum sam_hw_type)i;
 				return iomem_info;
 			}
 		}
@@ -462,12 +461,13 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 /*
 	if (sam_hw_ring_is_busy(hw_ring)) {
 		pr_err("%s: %d:%d is busy\n",
-			(device_info->type == HW_EIP197) ? "eip197" : "eip97", device, ring);
+			sam_supported_name[device_info.type],
+			device, ring);
 		goto err;
 	}
 */
 	pr_debug("%s: %d:%d registers: paddr: 0x%x, vaddr: 0x%p\n",
-		(device_info->type == HW_EIP97IES) ? "eip97" : "eip197",
+		sam_supported_name[device_info.type],
 		device, ring, (unsigned)hw_ring->paddr, hw_ring->regs_vbase);
 
 	sam_hw_cdr_regs_reset(hw_ring);
