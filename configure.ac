@@ -68,7 +68,7 @@ AC_ARG_ENABLE([neta],
   yes) neta=true ;;
   no)  neta=false ;;
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-neta]) ;;
-esac],[neta=false])
+esac],[neta=true])
 AM_CONDITIONAL([NETA_BUILD], [test x$neta = xtrue])
 if test x$neta = xtrue; then
 NETA_BUILT_FLAG="#define MVCONF_NETA_BUILT"
@@ -114,7 +114,7 @@ AC_ARG_ENABLE([sam],
   yes) sam=true ;;
   no)  sam=false ;;
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-sam]) ;;
-esac],[sam=false])
+esac],[sam=true])
 AM_CONDITIONAL([SAM_BUILD], [test x$sam = xtrue])
 
 if test x$sam = xtrue; then
