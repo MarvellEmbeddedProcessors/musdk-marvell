@@ -1185,7 +1185,7 @@ void neta_port_set_loopback(struct neta_port *pp, int en)
 	if (en)
 		val |= MVNETA_GMAC1_PORT_LOOPBACK_EN;
 	else
-		val &= !MVNETA_GMAC1_PORT_LOOPBACK_EN;
+		val &= ~MVNETA_GMAC1_PORT_LOOPBACK_EN;
 	neta_reg_write(pp, MVNETA_GMAC_CTRL_1, val);
 }
 
