@@ -544,7 +544,8 @@ u32 sam_session_get_block_size(enum sam_cipher_alg algo)
 int sam_get_capability(struct sam_capability *capa)
 {
 	capa->cipher_algos = BIT(SAM_CIPHER_3DES) | BIT(SAM_CIPHER_AES);
-	capa->cipher_modes = BIT(SAM_CIPHER_ECB) | BIT(SAM_CIPHER_CBC) | BIT(SAM_CIPHER_GCM);
+	capa->cipher_modes = BIT(SAM_CIPHER_ECB) | BIT(SAM_CIPHER_CBC) |
+			     BIT(SAM_CIPHER_GCM) | BIT(SAM_CIPHER_CTR);
 
 	/* HASH only */
 	capa->auth_algos = BIT(SAM_AUTH_HASH_MD5) | BIT(SAM_AUTH_HASH_SHA1) |
@@ -555,7 +556,7 @@ int sam_get_capability(struct sam_capability *capa)
 			    BIT(SAM_AUTH_HMAC_SHA2_224) | BIT(SAM_AUTH_HMAC_SHA2_256) |
 			    BIT(SAM_AUTH_HMAC_SHA2_384) | BIT(SAM_AUTH_HMAC_SHA2_512);
 	/* AES-GCM */
-	capa->auth_algos |= BIT(SAM_AUTH_AES_GCM);
+	capa->auth_algos |= BIT(SAM_AUTH_AES_GCM) | BIT(SAM_AUTH_AES_GMAC);
 
 	return 0;
 }
