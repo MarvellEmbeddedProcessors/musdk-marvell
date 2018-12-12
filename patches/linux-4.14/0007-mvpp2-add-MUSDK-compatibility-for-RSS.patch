@@ -1,7 +1,7 @@
-From f8d4f47b20e7235eab60fa8396d90b7ebd129ecb Mon Sep 17 00:00:00 2001
+From 6ab0cd68e25d611d3bd391b7090bc9de39efafd1 Mon Sep 17 00:00:00 2001
 From: Alan Winkowski <walan@marvell.com>
 Date: Sun, 25 Nov 2018 13:09:29 +0200
-Subject: [PATCH 7/7] mvpp2: add MUSDK compatibility for RSS
+Subject: [PATCH 7/8] mvpp2: add MUSDK compatibility for RSS
 
 Change-Id: I6e630ead8c756edbacd7c5bb75f24f280688054d
 Signed-off-by: Alan Winkowski <walan@marvell.com>

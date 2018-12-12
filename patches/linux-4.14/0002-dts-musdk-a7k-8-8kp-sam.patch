@@ -1,7 +1,7 @@
-From 7cb9b4929d3712d45accf7ef243af22386784551 Mon Sep 17 00:00:00 2001
+From 4ba7e729cd672ab50522e5d7d28c12440a659c18 Mon Sep 17 00:00:00 2001
 From: Yelena Krivosheev <yelena@marvell.com>
 Date: Tue, 15 May 2018 09:52:33 +0300
-Subject: [PATCH 2/7] dts: musdk: a7k/8/8kp sam
+Subject: [PATCH 2/8] dts: musdk: a7k/8/8kp sam
 
 Change-Id: I362e94c2506872a4f8fb304f800c2b4e042fbd1e
 Signed-off-by: Yelena Krivosheev <yelena@marvell.com>

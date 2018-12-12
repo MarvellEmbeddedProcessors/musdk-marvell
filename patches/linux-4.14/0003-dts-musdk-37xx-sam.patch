@@ -1,7 +1,7 @@
-From 28e917fa0072629cec7d1a8fa0ee67c7972ec827 Mon Sep 17 00:00:00 2001
+From 58a95dfc5aa4af1ee17b8577dfa6a6e16a9d4030 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Wed, 2 May 2018 10:44:38 +0300
-Subject: [PATCH 3/7] dts: musdk: 37xx sam
+Subject: [PATCH 3/8] dts: musdk: 37xx sam
 
 Change-Id: I4dc038b05b0f97aac105fde73e8b511323d177bb
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>

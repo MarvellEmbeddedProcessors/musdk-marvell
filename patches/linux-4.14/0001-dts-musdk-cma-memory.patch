@@ -1,7 +1,7 @@
-From 8d90bbb7b9239d3ab90d5adca5e67e73f340c832 Mon Sep 17 00:00:00 2001
+From 19e793b01b77e681763dd092dd548852eceaa76d Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 17:13:13 +0300
-Subject: [PATCH 1/7] dts: musdk: cma memory
+Subject: [PATCH 1/8] dts: musdk: cma memory
 
 Change-Id: I19cc0377d787b997dbb44d90d1474670eeaa5c98
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
