@@ -7,6 +7,7 @@
 *.orig
 *.patch
 !patches/linux/*.patch
+!patches/linux-4.14/*.patch
 *.rej
 *.swp
 *~
