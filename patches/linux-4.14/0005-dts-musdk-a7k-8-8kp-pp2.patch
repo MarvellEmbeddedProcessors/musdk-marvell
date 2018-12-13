@@ -1,4 +1,4 @@
-From 409a82d3789a18baae78d69519ffc0584d3d5620 Mon Sep 17 00:00:00 2001
+From a6e496f6c7b2bd80ac2492a9acf1092144d4308a Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Fri, 27 Jul 2018 22:09:17 +0300
 Subject: [PATCH 5/8] dts: musdk: a7k/8/8kp pp2
@@ -10,7 +10,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  1 file changed, 6 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index 181b80c..359dacb 100644
+index 181b80c..77f7ad9 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 @@ -109,6 +109,12 @@
@@ -19,7 +19,7 @@ index 181b80c..359dacb 100644
  
 +		CP110_LABEL(uio_ethernet): EVALUATOR(uio_pp_, CP110_NUM)@0 {
 +			compatible = "generic-uio";
-+			reg = <0x0 0x100000>, <0x129000 0xb000>;
++			reg = <0x0 0x90000>, <0x130000 0x6000>;
 +			reg-names = "pp", "mspg";
 +			status = "ok";
 +		};
