@@ -237,6 +237,7 @@ struct neta_port {
 	struct ethtool_gstrings *stats_name;
 	struct neta_ppio_statistics stats;
 
+	int is_promisc;
 	struct list added_uc_addr;
 	u32 num_added_uc_addr;
 };

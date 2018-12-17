@@ -206,8 +206,12 @@ int neta_port_set_mac_addr(struct neta_port *port, const uint8_t *addr)
 
 	mv_cp_eaddr(port->mac, (const uint8_t *)addr);
 
-	/* flush uc mac table */
-	neta_flush_ucast_table(port);
+	/* flush uc mac table:
+	 * internal DB is flushed. HW regs will be flushed only if
+	 * the port is not in promisc mode
+	 */
+	if (!port->is_promisc)
+		neta_flush_ucast_table(port);
 	neta_port_uc_mac_addr_list_flush(port);
 	port->num_added_uc_addr = 0;
 
@@ -273,6 +277,8 @@ int neta_port_set_promisc(struct neta_port *port, uint32_t en)
 		pr_err("PORT: unable to set promisc mode to HW\n");
 		return rc;
 	}
+
+	port->is_promisc = en ? 1 : 0;
 
 	if (en == 0)
 		/* go through UC mac list and reconfigure all entries again */
