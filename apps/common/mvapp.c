@@ -100,6 +100,8 @@
 #include <sched.h>
 #include <signal.h>
 #include <termios.h>
+#include <fcntl.h>
+#include <stdarg.h>
 
 #include "mvapp_std.h"
 #include "utils.h"
@@ -108,6 +110,11 @@
 
 #define MAX_NUM_CORES		32
 #define CTRL_TRD_DEFAULT_THRESH	100
+
+#define CLI_FILE_VAR_DIR	"/var/"
+#define CLI_FILE_NAME_PREFIX	"musdk-cli"
+#define CLI_FILE_MAX_FILE_NAME	32
+#define CLI_BUFSIZE		0x1000
 
 #define cpuset_t	cpu_set_t
 
@@ -126,6 +133,10 @@ struct mvapp {
 	int			 running;
 
 	struct cli		*cli;
+	int			 (*print_cb)(const char *fmt, ...);
+	char			 cli_in_filename[CLI_FILE_MAX_FILE_NAME];
+	char			 cli_out_filename[CLI_FILE_MAX_FILE_NAME];
+	int			 fd;
 	pthread_t		 cli_trd;
 
 	void			*global_arg;
@@ -164,10 +175,35 @@ static int setaffinity(pthread_t me, int i)
 	return 0;
 }
 
+static char getchar_by_file_cb(void)
+{
+	struct mvapp	*mvapp = _mvapp;
+	int              b_read;
+	char             ch;
+
+	if (mvapp->fd <= 0) {
+		mvapp->fd = open(mvapp->cli_in_filename, O_RDONLY);
+		/* in case no input, sleep for while before the next attempt */
+		if (mvapp->fd <= 0) {
+			usleep(mvapp->ctrl_thresh);
+			return 0;
+		}
+	}
+	b_read = read(mvapp->fd, &ch, 1);
+	if (!b_read || (ch == '\n')) {
+		close(mvapp->fd);
+		remove(mvapp->cli_in_filename);
+		mvapp->fd = 0;
+	}
+
+	return ch;
+}
+
 static char getchar_cb(void)
 {
-	struct termios oldattr, newattr;
-	int ch;
+	struct mvapp	*mvapp = _mvapp;
+	struct termios	 oldattr, newattr;
+	int		 ch;
 
 	tcgetattr(STDIN_FILENO, &oldattr);
 	newattr = oldattr;
@@ -175,7 +211,55 @@ static char getchar_cb(void)
 	tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
 	ch = getchar();
 	tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+
+	/* in case no input, sleep for while before the next attempt */
+	if (ch == '\0')
+		usleep(mvapp->ctrl_thresh);
+
 	return ch;
+}
+
+static int print_to_file_cb(const char *fmt, ...)
+{
+	struct mvapp	*mvapp = _mvapp;
+	va_list ap;
+	char buf[CLI_BUFSIZE];
+	int  n, fd, size = CLI_BUFSIZE;
+
+	if (!mvapp) {
+		pr_err("No mvapp or mvapp-cli obj!\n");
+		return -EINVAL;
+	}
+
+	va_start(ap, fmt);
+	n = vsnprintf(buf, size, fmt, ap);
+	if (!((n > 0) && (n < size)))
+		printf("%s: buffer overflow (%d chars)\n", __func__, n);
+	va_end(ap);
+
+	fd = open(mvapp->cli_out_filename, O_CREAT | O_WRONLY | O_APPEND);
+	if (fd <= 0) {
+		pr_err("can't open CLI file (%s)\n", mvapp->cli_out_filename);
+		return -EIO;
+	}
+	write(fd, buf, n);
+	close(fd);
+	return 0;
+}
+
+static int print_cb(const char *fmt, ...)
+{
+	va_list ap;
+	char buf[CLI_BUFSIZE];
+	int  n, size = CLI_BUFSIZE;
+
+	va_start(ap, fmt);
+	n = vsnprintf(buf, size, fmt, ap);
+	if (!((n > 0) && (n < size)))
+		printf("%s: buffer overflow (%d chars)\n", __func__, n);
+	va_end(ap);
+
+	return printf("%s", buf);
 }
 
 static void sigint_h(int sig)
@@ -193,8 +277,10 @@ static int run_local(struct mvapp *mvapp, int id)
 
 	if (mvapp->init_local_cb) {
 		err = mvapp->init_local_cb(mvapp->global_arg, id, &local_arg);
-		if (err)
+		if (err) {
+			mvapp->running = 0;
 			return err;
+		}
 	}
 	/* wait until all threads will complete initialization stage */
 	mvapp_barrier();
@@ -202,6 +288,9 @@ static int run_local(struct mvapp *mvapp, int id)
 	if (mvapp->main_loop_cb)
 		while (mvapp->running && !err)
 			err = mvapp->main_loop_cb(local_arg, &mvapp->running);
+
+	/* mark all other threads to exit in case there was an error */
+	mvapp->running = 0;
 
 	/* wait until all threads will stop running */
 	mvapp_barrier();
@@ -358,12 +447,55 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 		return -EIO;
 	}
 
+	if (mvapp_params->ctrl_cb_threshold)
+		mvapp->ctrl_thresh = mvapp_params->ctrl_cb_threshold;
+	else
+		mvapp->ctrl_thresh = CTRL_TRD_DEFAULT_THRESH;
+
 	if (mvapp_params->use_cli) {
 		struct cli_params	cli_params;
 
 		memset(&cli_params, 0, sizeof(cli_params));
-		cli_params.print_cb = printf;
-		cli_params.get_char_cb = getchar_cb;
+
+		if (mvapp_params->use_cli == MVAPP_CLI_MODE_ENABLED_BY_FILE) {
+			mvapp->print_cb = print_to_file_cb;
+			cli_params.get_char_cb = getchar_by_file_cb;
+
+			snprintf(mvapp->cli_in_filename,
+				sizeof(mvapp->cli_in_filename),
+				"%s%s-in-%d",
+				CLI_FILE_VAR_DIR,
+				CLI_FILE_NAME_PREFIX,
+				0);
+			/* remove file from previous runs */
+			err = remove(mvapp->cli_in_filename);
+			/* check if there was an error and if so check that it's not "No such file or directory" */
+			if (err && errno != 2) {
+				pr_err("can't delete regfile! (%s)\n", strerror(errno));
+				cli_free(mvapp->cli);
+				free(mvapp);
+				return err;
+			}
+			snprintf(mvapp->cli_out_filename,
+				sizeof(mvapp->cli_out_filename),
+				"%s%s-out-%d",
+				CLI_FILE_VAR_DIR,
+				CLI_FILE_NAME_PREFIX,
+				0);
+			/* remove file from previous runs */
+			err = remove(mvapp->cli_out_filename);
+			/* check if there was an error and if so check that it's not "No such file or directory" */
+			if (err && errno != 2) {
+				pr_err("can't delete regfile! (%s)\n", strerror(errno));
+				cli_free(mvapp->cli);
+				free(mvapp);
+				return err;
+			}
+		} else {
+			mvapp->print_cb = print_cb;
+			cli_params.get_char_cb = getchar_cb;
+		}
+		cli_params.print_cb = mvapp->print_cb;
 		cli_params.echo = 1;
 		mvapp->cli = cli_init(&cli_params);
 		if (!mvapp->cli) {
@@ -372,6 +504,9 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 			return -EIO;
 		}
 	}
+
+	/* convert the threshold from m-secs to u-secs */
+	mvapp->ctrl_thresh *= 1000;
 
 	_mvapp = mvapp;
 
@@ -403,12 +538,6 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 	mvapp->init_local_cb	= mvapp_params->init_local_cb;
 	mvapp->main_loop_cb	= mvapp_params->main_loop_cb;
 	mvapp->ctrl_cb		= mvapp_params->ctrl_cb;
-	if (mvapp_params->ctrl_cb_threshold)
-		mvapp->ctrl_thresh = mvapp_params->ctrl_cb_threshold;
-	else
-		mvapp->ctrl_thresh = CTRL_TRD_DEFAULT_THRESH;
-	/* convernt the threshold from m-secs to u-secs */
-	mvapp->ctrl_thresh *= 1000;
 	mvapp->deinit_local_cb	= mvapp_params->deinit_local_cb;
 
 	j = 0;
@@ -513,4 +642,27 @@ int mvapp_unregister_cli_cmd(char *name)
 	}
 
 	return cli_unregister_cmd(mvapp->cli, name);
+}
+
+int mvapp_print(const char *fmt, ...)
+{
+	struct mvapp	*mvapp = _mvapp;
+	va_list ap;
+	char buf[CLI_BUFSIZE];
+	int  n, size = CLI_BUFSIZE;
+	int	 (*print_cb)(const char *fmt, ...);
+
+	if (!mvapp || !mvapp->print_cb) {
+		pr_warn("No mvapp or mvapp-cli obj!\n");
+		print_cb = printf;
+	} else
+		print_cb = mvapp->print_cb;
+
+	va_start(ap, fmt);
+	n = vsnprintf(buf, size, fmt, ap);
+	if (!((n > 0) && (n < size)))
+		printf("%s: buffer overflow (%d chars)\n", __func__, n);
+	va_end(ap);
+
+	return print_cb("%s", buf);
 }
