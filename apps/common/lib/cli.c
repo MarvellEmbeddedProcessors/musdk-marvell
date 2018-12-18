@@ -351,12 +351,12 @@ static int quit_cmd_cb(struct cli *cli, int argc, char *argv[])
 static void print_logo(cli_t *cli_p)
 {
 	cli_p->print_cb("              ......        ......	Marvell Inc. Copyright (c) 2016\n");
-	cli_p->print_cb("            ##......      ##......	All Rights Reserved\n");
-	cli_p->print_cb("          ####......    ####\n");
-	cli_p->print_cb("        ######......  ######\n");
-	cli_p->print_cb("      ######  ......######\n");
+	cli_p->print_cb("            ##.    .      ##.    .	All Rights Reserved\n");
+	cli_p->print_cb("          ####.    .    ####.    .\n");
+	cli_p->print_cb("        ######.    .  ######.    .\n");
+	cli_p->print_cb("      ######  ......######  ......\n");
 	cli_p->print_cb("    ######    ....######    ######	MUSDK Device Drivers\n");
-	cli_p->print_cb("  ######      ..######      ......	Version 0.1\n");
+	cli_p->print_cb("  ######      ..######      ......	Version 1.0\n");
 	cli_p->print_cb("######        ######        ######	built on %s\n\n\n", __DATE__);
 }
 
@@ -548,7 +548,7 @@ static void init_builtin_cmds(cli_t *cli_p)
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "q";
-	cmd_params.desc		= "Quit; TODO";
+	cmd_params.desc		= "Quit; quit the CLI and the running application";
 	cmd_params.format	= NULL;
 	cmd_params.cmd_arg	= cli_p;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))quit_cmd_cb;
