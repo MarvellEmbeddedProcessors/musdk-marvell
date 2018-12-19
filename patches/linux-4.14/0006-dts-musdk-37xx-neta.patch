@@ -1,7 +1,7 @@
-From d57925b0e454e76fa4da69bb6f2165a45dc827af Mon Sep 17 00:00:00 2001
+From 589923e11f7cdfb956209d0f29342b550871901e Mon Sep 17 00:00:00 2001
 From: Liron Himi <lironh@marvell.com>
 Date: Tue, 23 Oct 2018 23:09:26 +0300
-Subject: [PATCH 6/8] dts: musdk 37xx neta
+Subject: [PATCH 6/7] dts: musdk 37xx neta
 
 Signed-off-by: Liron Himi <lironh@marvell.com>
 ---

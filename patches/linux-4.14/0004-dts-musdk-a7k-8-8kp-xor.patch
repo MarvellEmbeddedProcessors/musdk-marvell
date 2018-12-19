@@ -1,7 +1,7 @@
-From f8cc561df4fd614d7e48114beabd138b4d2cb62e Mon Sep 17 00:00:00 2001
+From 964610dd4c3098fcc10377c77ec46bf0e25ebc13 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 23:57:16 +0300
-Subject: [PATCH 4/8] dts: musdk: a7k/8/8kp xor
+Subject: [PATCH 4/7] dts: musdk: a7k/8/8kp xor
 
 Change-Id: Ib2f5aadf42d56d6cf32d3ab94a93d552e0df2c90
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>

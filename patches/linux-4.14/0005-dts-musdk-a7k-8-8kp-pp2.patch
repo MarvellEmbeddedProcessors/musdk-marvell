@@ -1,7 +1,7 @@
-From a6e496f6c7b2bd80ac2492a9acf1092144d4308a Mon Sep 17 00:00:00 2001
+From 2f2798b113a63065d6002381ac674f88d81dee1b Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Fri, 27 Jul 2018 22:09:17 +0300
-Subject: [PATCH 5/8] dts: musdk: a7k/8/8kp pp2
+Subject: [PATCH 5/7] dts: musdk: a7k/8/8kp pp2
 
 Change-Id: I05684c3fc1747f4cb36b40799caddc5e5fd47e41
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
