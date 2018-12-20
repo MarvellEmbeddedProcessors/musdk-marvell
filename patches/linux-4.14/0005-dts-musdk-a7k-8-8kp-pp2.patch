@@ -1,7 +1,7 @@
-From 2f2798b113a63065d6002381ac674f88d81dee1b Mon Sep 17 00:00:00 2001
+From efdee3bc19ad1a2b9a396217365d72a77e904bd7 Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Fri, 27 Jul 2018 22:09:17 +0300
-Subject: [PATCH 5/7] dts: musdk: a7k/8/8kp pp2
+Subject: [PATCH 5/9] dts: musdk: a7k/8/8kp pp2
 
 Change-Id: I05684c3fc1747f4cb36b40799caddc5e5fd47e41
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
@@ -10,7 +10,7 @@ Signed-off-by: Yuval Caduri <cyuval@marvell.com>
  1 file changed, 6 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index 181b80c..77f7ad9 100644
+index 181b80c4ed3b..77f7ad90713b 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 @@ -109,6 +109,12 @@
@@ -27,5 +27,5 @@ index 181b80c..77f7ad9 100644
  			compatible = "marvell,comphy-cp110";
  			reg = <0x120000 0x6000>;
 -- 
-2.7.4
+2.17.1
 

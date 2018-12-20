@@ -1,20 +1,20 @@
-From 589923e11f7cdfb956209d0f29342b550871901e Mon Sep 17 00:00:00 2001
+From 5943c0ff5b3c4c17ad98b4f475fdde0839efabd1 Mon Sep 17 00:00:00 2001
 From: Liron Himi <lironh@marvell.com>
 Date: Tue, 23 Oct 2018 23:09:26 +0300
-Subject: [PATCH 6/7] dts: musdk 37xx neta
+Subject: [PATCH 6/9] dts: musdk 37xx neta
 
 Signed-off-by: Liron Himi <lironh@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/Makefile                    |  2 ++
- arch/arm64/boot/dts/marvell/armada-3720-db-B-single.dts | 13 +++++++++++++
- arch/arm64/boot/dts/marvell/armada-3720-db-C-single.dts | 13 +++++++++++++
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi            | 16 ++++++++++++++++
+ arch/arm64/boot/dts/marvell/Makefile             |  2 ++
+ .../boot/dts/marvell/armada-3720-db-B-single.dts | 13 +++++++++++++
+ .../boot/dts/marvell/armada-3720-db-C-single.dts | 13 +++++++++++++
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi     | 16 ++++++++++++++++
  4 files changed, 44 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/armada-3720-db-B-single.dts
  create mode 100644 arch/arm64/boot/dts/marvell/armada-3720-db-C-single.dts
 
 diff --git a/arch/arm64/boot/dts/marvell/Makefile b/arch/arm64/boot/dts/marvell/Makefile
-index e529a26..029e486 100644
+index e529a261da2b..029e486d8c0d 100644
 --- a/arch/arm64/boot/dts/marvell/Makefile
 +++ b/arch/arm64/boot/dts/marvell/Makefile
 @@ -7,6 +7,8 @@ dtb-$(CONFIG_ARCH_BERLIN) += berlin4ct-stb.dtb
@@ -28,7 +28,7 @@ index e529a26..029e486 100644
  dtb-$(CONFIG_ARCH_MVEBU) += armada-7040-db.dtb
 diff --git a/arch/arm64/boot/dts/marvell/armada-3720-db-B-single.dts b/arch/arm64/boot/dts/marvell/armada-3720-db-B-single.dts
 new file mode 100644
-index 0000000..7aa73f7
+index 000000000000..7aa73f7d5141
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/armada-3720-db-B-single.dts
 @@ -0,0 +1,13 @@
@@ -48,7 +48,7 @@ index 0000000..7aa73f7
 \ No newline at end of file
 diff --git a/arch/arm64/boot/dts/marvell/armada-3720-db-C-single.dts b/arch/arm64/boot/dts/marvell/armada-3720-db-C-single.dts
 new file mode 100644
-index 0000000..5064821
+index 000000000000..50648217640a
 --- /dev/null
 +++ b/arch/arm64/boot/dts/marvell/armada-3720-db-C-single.dts
 @@ -0,0 +1,13 @@
@@ -67,7 +67,7 @@ index 0000000..5064821
 +};
 \ No newline at end of file
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index 3d3e1e5..c83e888 100644
+index 3d3e1e570206..c83e8889919f 100644
 --- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 @@ -318,6 +318,7 @@
@@ -101,5 +101,5 @@ index 3d3e1e5..c83e888 100644
  
  			usb3: usb@58000 {
 -- 
-2.7.4
+2.17.1
 
