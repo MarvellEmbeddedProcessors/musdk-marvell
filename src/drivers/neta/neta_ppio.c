@@ -391,7 +391,7 @@ static int neta_port_enqueue(struct neta_port *port, u8 txq_id, struct neta_ppio
 		/* Get a descriptor for the packet */
 		tx_desc = neta_txq_next_desc_get(txq);
 #if __BYTE_ORDER == __BIG_ENDIAN
-		neta_ppio_desc_swap_ncopy(&tx_desc, &descs[i]);
+		neta_ppio_desc_swap_ncopy(tx_desc, &descs[i]);
 #else
 		memcpy(tx_desc, &descs[i], sizeof(struct neta_ppio_desc));
 #endif
