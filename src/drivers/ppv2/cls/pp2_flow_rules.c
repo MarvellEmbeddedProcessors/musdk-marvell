@@ -2898,6 +2898,13 @@ int pp2_cls_fl_hash_rule_set(struct pp2_inst *inst, struct pp2_port *port, int l
 	field[2] = MVPP2_CLS_FIELD_L4SIP;
 	field[3] = MVPP2_CLS_FIELD_L4DIP;
 
+	/* update hek number field */
+	rc = mv_pp2x_cls_sw_flow_hek_num_set(&fe, field_cnt);
+	if (rc) {
+		pr_err("mv_pp2x_cls_sw_flow_hek_num_set fail rc = %d\n", rc);
+		return rc;
+	}
+
 	/* update hek */
 	for (fid = 0; fid < field_cnt; fid++) {
 		rc = mv_pp2x_cls_sw_flow_hek_set(&fe, fid, field[fid]);
@@ -2907,34 +2914,12 @@ int pp2_cls_fl_hash_rule_set(struct pp2_inst *inst, struct pp2_port *port, int l
 		}
 	}
 
-	/* update hek number field */
-	rc = mv_pp2x_cls_sw_flow_hek_num_set(&fe, field_cnt);
-	if (rc) {
-		pr_err("mv_pp2x_cls_sw_flow_hek_num_set fail rc = %d\n", rc);
-		return rc;
-	}
-
 	fe.index = rl_off + 1;
 	rc = mv_pp2x_cls_hw_flow_write(cpu_slot, &fe);
 	if (rc) {
 		pr_err("mv_pp2x_cls_hw_flow_write ret_code(%d)\n", rc);
 		return rc;
 	}
-
-	pr_debug("%s, after updating HEK\n", __func__);
-	pr_debug("  ptype | bm | prio | lutype | eng | udf7 | cnt | 1 | 2 | 3 | 4\n");
-	pr_debug("  %6d|%4x|%6d|%8d|%5d|%6d|%5d|%3x|%3x|%3x|%3x\n",
-		rl_db->port_type,
-		rl_db->port_bm,
-		rl_db->prio,
-		rl_db->lu_type,
-		rl_db->engine,
-		rl_db->udf7,
-		rl_db->field_id_cnt,
-		rl_db->field_id[0],
-		rl_db->field_id[1],
-		rl_db->field_id[2],
-		rl_db->field_id[3]);
 
 	/* update DB */
 	rl_db->field_id_cnt = field_cnt;
@@ -2966,6 +2951,21 @@ int pp2_cls_fl_hash_rule_set(struct pp2_inst *inst, struct pp2_port *port, int l
 		pr_err("recvd ret_code(%d)\n", rc);
 		return rc;
 	}
+
+	pr_debug("%s, after updating HEK\n", __func__);
+	pr_debug("  ptype | bm | prio | lutype | eng | udf7 | cnt | 1 | 2 | 3 | 4\n");
+	pr_debug("  %6d|%4x|%6d|%8d|%5d|%6d|%5d|%3x|%3x|%3x|%3x\n",
+		rl_db->port_type,
+		rl_db->port_bm,
+		rl_db->prio,
+		rl_db->lu_type,
+		rl_db->engine,
+		rl_db->udf7,
+		rl_db->field_id_cnt,
+		rl_db->field_id[0],
+		rl_db->field_id[1],
+		rl_db->field_id[2],
+		rl_db->field_id[3]);
 
 	return 0;
 }
