@@ -520,6 +520,17 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 	/* Init RDR registers */
 	sam_hw_rdr_regs_init(hw_ring);
 
+	/* Temporary solution. Must be resolved in kernel */
+	if ((device_info->type == HW_EIP197B) || (device_info->type == HW_EIP197D)) {
+		void *va = device_info->vaddr + SAM_EIP197_HIA_RA_PE_CTRL_REG;
+
+		/* In case first time access to the register: reset bit must be cleared */
+		if (readl(va) & SAM_EIP197_HIA_RA_PE_CTRL_RST)
+			writel(SAM_EIP197_HIA_RA_PE_CTRL_ENB, va);
+
+		writel(readl(va) | (1 << hw_ring->ring), va);
+	}
+
 	return 0;
 err:
 	sam_hw_ring_deinit(hw_ring);
@@ -537,6 +548,15 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 
 	sam_dma_buf_free(&hw_ring->cdr_buf);
 	sam_dma_buf_free(&hw_ring->rdr_buf);
+
+	/* Temporary solution. Must be resolved in kernel */
+	if ((device_info->type == HW_EIP197B) || (device_info->type == HW_EIP197D)) {
+		void *va = device_info->vaddr + SAM_EIP197_HIA_RA_PE_CTRL_REG;
+		u32   val = readl(va);
+
+		val &= ~(0x1 << hw_ring->ring);
+		writel(val, va);
+	}
 
 	device_info->active_rings &= ~BIT(hw_ring->ring);
 
