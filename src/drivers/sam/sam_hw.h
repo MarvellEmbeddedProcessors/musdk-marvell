@@ -106,6 +106,11 @@
 /* Clcok frequency in MHz */
 #define SAM_HIA_CLOCK_FREQ		500
 
+/* EIP96 HW Capabilities Register */
+#define SAM_EIP197_FUNCTION_EN_REG	0xA1004
+#define SAM_EIP97_FUNCTION_EN_REG	0x11004
+#define SAM_EIP96_FUNCTION_EN_ALL	0xFFFFFFFF
+
 /* HIA Options Register */
 #define SAM_EIP197_HIA_OPTIONS_REG	0x9FFF8
 #define SAM_EIP97_HIA_OPTIONS_REG	0x0FFF8
@@ -586,6 +591,7 @@ struct sam_hw_device_info {
 	int rings_num;
 	u32 available_rings;
 	u32 active_rings;
+	u32 capabilities;	/* initial value for driver de-init */
 };
 
 struct sam_hw_ring {

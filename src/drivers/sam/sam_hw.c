@@ -137,6 +137,35 @@ static int sam_hw_get_pes_num(struct sam_hw_device_info *device_info)
 	return num_pes;
 }
 
+static void sam_hw_capabilities_set(u32 device)
+{
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
+	void *va;
+
+	if ((device_info->type == HW_EIP197B) || (device_info->type == HW_EIP197D))
+		va = device_info->vaddr + SAM_EIP197_FUNCTION_EN_REG;
+	else
+		va = device_info->vaddr + SAM_EIP97_FUNCTION_EN_REG;
+
+	device_info->capabilities = readl(va);
+
+	writel(SAM_EIP96_FUNCTION_EN_ALL, va);
+}
+
+static void sam_hw_capabilities_restore(u32 device)
+{
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
+	void *va;
+
+	if ((device_info->type == HW_EIP197B) || (device_info->type == HW_EIP197D))
+		va = device_info->vaddr + SAM_EIP197_FUNCTION_EN_REG;
+	else
+		va = device_info->vaddr + SAM_EIP97_FUNCTION_EN_REG;
+
+	writel(device_info->capabilities, va);
+}
+
+
 int sam_hw_device_init(int device)
 {
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
@@ -163,6 +192,9 @@ int sam_hw_device_init(int device)
 	else
 		SABuilderLib_SetFwVersion(SAB_FW_VER_2_7);
 
+	/* Set HW capabilities */
+	sam_hw_capabilities_set(device);
+
 	return 0;
 }
 
@@ -171,6 +203,9 @@ void sam_hw_device_deinit(int device)
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
 
 	if (device_info->iomem_info) {
+		/* Restore HW capabilities */
+		sam_hw_capabilities_restore(device);
+
 		sys_iomem_unmap(device_info->iomem_info, device_info->name);
 		sys_iomem_deinit(device_info->iomem_info);
 		device_info->iomem_info = NULL;
