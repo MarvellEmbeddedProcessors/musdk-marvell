@@ -354,12 +354,14 @@ static void *ctrl_thr_cb(void *arg)
 		return NULL;
 	}
 
-	/* Set thread affinity */
-	if (setaffinity(desc->trd, desc->cpu)) {
-		pr_err("Failed to set affinity for CTRL thread!\n");
-		err = -EFAULT;
-		pthread_exit(&err);
-		return NULL;
+	if (desc->cpu > 0) {
+		/* Set thread affinity */
+		if (setaffinity(desc->trd, desc->cpu)) {
+			pr_err("Failed to set affinity for CTRL thread!\n");
+			err = -EFAULT;
+			pthread_exit(&err);
+			return NULL;
+		}
 	}
 	pr_debug("CTRL thread is running on CPU %d\n", sched_getcpu());
 
@@ -557,11 +559,8 @@ int mvapp_go(struct mvapp_params *mvapp_params)
 	}
 
 	if (mvapp->ctrl_cb) {
-		/* Calculate affinity for this thread */
-		for (j = 0; !((1 << j) & mvapp->cores_mask); j++)
-			;
 		mvapp->ctrl.id = 0;
-		mvapp->ctrl.cpu = j;
+		mvapp->ctrl.cpu = -1; /* let the CTRL thread run on any CPU */
 		mvapp->ctrl.mvapp = mvapp;
 
 		err = pthread_create(&mvapp->ctrl.trd, NULL, ctrl_thr_cb, &mvapp->ctrl);
