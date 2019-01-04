@@ -96,6 +96,7 @@
 
 #include "std_internal.h"
 #include "env/sys_iomem.h"
+#include "env/spinlock.h"
 
 #include "drivers/mv_sam.h"
 #include "sam.h"
@@ -171,6 +172,12 @@ int sam_hw_device_init(int device)
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
 	int rc;
 
+	device_info->cmn_spinlock = spin_lock_create();
+	if (!device_info->cmn_spinlock) {
+		pr_err("failed to create spinlock!\n");
+		return -ENOMEM;
+	}
+
 	device_info->name = "regs";
 	device_info->iomem_info = sam_iomem_init(device, &device_info->type);
 	if (!device_info->iomem_info) {
@@ -201,6 +208,9 @@ int sam_hw_device_init(int device)
 void sam_hw_device_deinit(int device)
 {
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
+
+	if (device_info->cmn_spinlock)
+		spin_lock_destroy(device_info->cmn_spinlock);
 
 	if (device_info->iomem_info) {
 		/* Restore HW capabilities */
@@ -485,7 +495,9 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 			device, ring, device_info->active_rings);
 		return -EBUSY;
 	}
+	spin_lock(device_info->cmn_spinlock);
 	device_info->active_rings |= BIT(ring);
+	spin_unlock(device_info->cmn_spinlock);
 
 	/* Add 1 to ring size for lockless ring management */
 	params->size += 1;
@@ -559,11 +571,12 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 	if ((device_info->type == HW_EIP197B) || (device_info->type == HW_EIP197D)) {
 		void *va = device_info->vaddr + SAM_EIP197_HIA_RA_PE_CTRL_REG;
 
+		spin_lock(device_info->cmn_spinlock);
 		/* In case first time access to the register: reset bit must be cleared */
 		if (readl(va) & SAM_EIP197_HIA_RA_PE_CTRL_RST)
 			writel(SAM_EIP197_HIA_RA_PE_CTRL_ENB, va);
-
 		writel(readl(va) | (1 << hw_ring->ring), va);
+		spin_unlock(device_info->cmn_spinlock);
 	}
 
 	return 0;
@@ -584,6 +597,8 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	sam_dma_buf_free(&hw_ring->cdr_buf);
 	sam_dma_buf_free(&hw_ring->rdr_buf);
 
+	spin_lock(device_info->cmn_spinlock);
+
 	/* Temporary solution. Must be resolved in kernel */
 	if ((device_info->type == HW_EIP197B) || (device_info->type == HW_EIP197D)) {
 		void *va = device_info->vaddr + SAM_EIP197_HIA_RA_PE_CTRL_REG;
@@ -594,6 +609,8 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	}
 
 	device_info->active_rings &= ~BIT(hw_ring->ring);
+
+	spin_unlock(device_info->cmn_spinlock);
 
 	return 0;
 }

@@ -592,6 +592,7 @@ struct sam_hw_device_info {
 	u32 available_rings;
 	u32 active_rings;
 	u32 capabilities;	/* initial value for driver de-init */
+	spinlock_t *cmn_spinlock; /* protects access to common registers */
 };
 
 struct sam_hw_ring {
