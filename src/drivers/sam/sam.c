@@ -113,7 +113,6 @@
 u32 sam_debug_flags;
 #endif
 
-static bool		sam_initialized;
 static int		sam_num_instances;
 static int		sam_active_cios;
 static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
@@ -590,17 +589,15 @@ u8 sam_get_num_inst(void)
 
 int sam_init(struct sam_init_params *params)
 {
-	int i;
+	int i, ret;
 	u32 num_sessions = params->max_num_sessions;
 
-	if (sam_initialized) {
-		pr_warn("SAM driver already initialized\n");
-		return -EINVAL;
-	}
 	/* Allocate configured number of sam_sa structures */
 	sam_sessions = kcalloc(num_sessions, sizeof(struct sam_sa), GFP_KERNEL);
-	if (!sam_sessions)
+	if (!sam_sessions) {
+		ret = -ENOMEM;
 		goto err;
+	}
 
 	/* Allocate DMA buffer for each session */
 	for (i = 0; i < num_sessions; i++) {
@@ -615,13 +612,19 @@ int sam_init(struct sam_init_params *params)
 		num_sessions, SAM_SA_DMABUF_SIZE);
 
 	sam_num_sessions = num_sessions;
-	sam_initialized = true;
+
+	for (i = 0; i < sam_get_num_inst(); i++) {
+		ret = sam_hw_device_init(i);
+		if (ret)
+			goto err;
+	}
+
 	return 0;
 err:
 	/* Release all allocated resources */
 	sam_deinit();
 
-	return -ENOMEM;
+	return ret;
 }
 
 void sam_deinit(void)
@@ -636,7 +639,9 @@ void sam_deinit(void)
 		}
 		kfree(sam_sessions);
 	}
-	sam_initialized = true;
+
+	for (i = 0; i < sam_get_num_inst(); i++)
+		sam_hw_device_deinit(i);
 }
 
 int sam_cio_init(struct sam_cio_params *params, struct sam_cio **cio)

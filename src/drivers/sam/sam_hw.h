@@ -1107,5 +1107,7 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring);
 int sam_hw_device_load(void);
 int sam_hw_device_unload(void);
+int sam_hw_device_init(int device);
+void sam_hw_device_deinit(int device);
 
 #endif /* _SAM_HW_H_ */

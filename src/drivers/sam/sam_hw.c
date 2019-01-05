@@ -102,7 +102,6 @@
 #include "sam_hw.h"
 
 static struct sam_hw_device_info sam_hw_device_info[SAM_HW_DEVICE_NUM];
-
 const char *const sam_supported_name[] = {"eip97", "eip197b", "eip197d"};
 
 static struct sys_iomem *sam_iomem_init(int device, enum sam_hw_type *type)
@@ -125,6 +124,57 @@ static struct sys_iomem *sam_iomem_init(int device, enum sam_hw_type *type)
 		}
 	}
 	return NULL;
+}
+
+static int sam_hw_get_pes_num(struct sam_hw_device_info *device_info)
+{
+	int num_pes;
+	u32 val32;
+
+	val32 = sam_hw_reg_read(device_info->vaddr, SAM_EIP197_HIA_OPTIONS_REG);
+	num_pes = SAM_N_PES_GET(val32);
+
+	return num_pes;
+}
+
+int sam_hw_device_init(int device)
+{
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
+	int rc;
+
+	device_info->name = "regs";
+	device_info->iomem_info = sam_iomem_init(device, &device_info->type);
+	if (!device_info->iomem_info) {
+		pr_err("Can't init IOMEM area for device #%d\n", device);
+		return -EINVAL;
+	}
+	rc = sys_iomem_map(device_info->iomem_info, device_info->name,
+			   &device_info->paddr, &device_info->vaddr);
+	if (rc) {
+		pr_err("Can't map %s IOMEM area for device #%d, rc = %d\n",
+			device_info->name, device, rc);
+		sys_iomem_deinit(device_info->iomem_info);
+		device_info->iomem_info = NULL;
+		return rc;
+	}
+
+	if (sam_hw_get_pes_num(device_info) == 1)
+		SABuilderLib_SetFwVersion(SAB_FW_VER_2_4);
+	else
+		SABuilderLib_SetFwVersion(SAB_FW_VER_2_7);
+
+	return 0;
+}
+
+void sam_hw_device_deinit(int device)
+{
+	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
+
+	if (device_info->iomem_info) {
+		sys_iomem_unmap(device_info->iomem_info, device_info->name);
+		sys_iomem_deinit(device_info->iomem_info);
+		device_info->iomem_info = NULL;
+	}
 }
 
 int sam_hw_ring_enable_irq(struct sam_hw_ring *hw_ring)
@@ -183,17 +233,6 @@ static bool sam_hw_ring_is_busy(struct sam_hw_ring *hw_ring)
 		return true;
 
 	return false;
-}
-
-static int sam_hw_get_pes_num(struct sam_hw_device_info *device_info)
-{
-	int num_pes;
-	u32 val32;
-
-	val32 = sam_hw_reg_read(device_info->vaddr, SAM_EIP197_HIA_OPTIONS_REG);
-	num_pes = SAM_N_PES_GET(val32);
-
-	return num_pes;
 }
 
 int sam_hw_get_rings_num(u32 device, u32 *map)
@@ -403,31 +442,9 @@ int sam_hw_ring_init(u32 device, u32 ring, struct sam_cio_params *params,
 		     struct sam_hw_ring *hw_ring)
 {
 	u32 ring_size;
-	int rc, nr_pes = 1;
+	int rc;
 	struct sam_hw_device_info *device_info = &sam_hw_device_info[device];
 
-	if (!device_info->iomem_info) {
-		device_info->name = "regs";
-		device_info->iomem_info = sam_iomem_init(device, &device_info->type);
-		if (!device_info->iomem_info) {
-			pr_err("Can't init IOMEM area for device #%d\n", device);
-			return -EINVAL;
-		}
-		rc = sys_iomem_map(device_info->iomem_info, device_info->name,
-				   &device_info->paddr, &device_info->vaddr);
-		if (rc) {
-			pr_err("Can't map %s IOMEM area for device #%d, rc = %d\n",
-				device_info->name, device, rc);
-			sys_iomem_deinit(device_info->iomem_info);
-			device_info->iomem_info = NULL;
-			return -ENOMEM;
-		}
-		nr_pes = sam_hw_get_pes_num(device_info);
-		if (nr_pes == 1)
-			SABuilderLib_SetFwVersion(SAB_FW_VER_2_4);
-		else
-			SABuilderLib_SetFwVersion(SAB_FW_VER_2_7);
-	}
 	if (device_info->active_rings & BIT(ring)) {
 		pr_err("device #%d: Ring #%d is busy. Active rings map is 0x%x\n",
 			device, ring, device_info->active_rings);
@@ -522,11 +539,7 @@ int sam_hw_ring_deinit(struct sam_hw_ring *hw_ring)
 	sam_dma_buf_free(&hw_ring->rdr_buf);
 
 	device_info->active_rings &= ~BIT(hw_ring->ring);
-	if (device_info->active_rings == 0) {
-		sys_iomem_unmap(device_info->iomem_info, device_info->name);
-		sys_iomem_deinit(device_info->iomem_info);
-		device_info->iomem_info = NULL;
-	}
+
 	return 0;
 }
 
