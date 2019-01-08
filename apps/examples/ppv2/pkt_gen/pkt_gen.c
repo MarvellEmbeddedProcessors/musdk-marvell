@@ -206,6 +206,8 @@ struct glob_arg {
 	int			tx;
 	int			latency;
 	u32			total_frm_cnt;
+	u8			max_rx_cpu;
+	u8			min_tx_cpu;
 
 	struct ip_range		src_ip;
 	struct ip_range		dst_ip;
@@ -672,6 +674,7 @@ static int main_loop_cb(void *arg, int *running)
 	}
 
 	port_index = 0;
+
 	while (*running) {
 		if (!larg->cmn_args.garg->running) {
 			if (larg->latency)
@@ -681,7 +684,8 @@ static int main_loop_cb(void *arg, int *running)
 		}
 
 		num = larg->cmn_args.burst;
-		if (pp2_args->ports_desc[port_index].traffic_dir & PKT_GEN_APP_DIR_RX) {
+		if ((larg->cmn_args.id < larg->cmn_args.garg->max_rx_cpu) &&
+			(pp2_args->ports_desc[port_index].traffic_dir & PKT_GEN_APP_DIR_RX)) {
 			/* Find next queue to consume */
 			do {
 				qid++;
@@ -697,7 +701,8 @@ static int main_loop_cb(void *arg, int *running)
 				return err;
 		}
 
-		if (pp2_args->ports_desc[port_index].traffic_dir & PKT_GEN_APP_DIR_TX) {
+		if ((larg->cmn_args.id >= larg->cmn_args.garg->min_tx_cpu) &&
+			(pp2_args->ports_desc[port_index].traffic_dir & PKT_GEN_APP_DIR_TX)) {
 			if (unlikely(larg->total_frm_cnt)) {
 				if (unlikely(larg->trf_cntrs.tx_pkts >= larg->total_frm_cnt))
 					num = 0;
@@ -809,12 +814,12 @@ static int init_local_modules(struct glob_arg *garg)
 			port->ppio_type	= PP2_PPIO_T_NIC;
 			port->num_tcs	= PKT_GEN_APP_MAX_NUM_TCS_PER_PORT;
 			for (i = 0; i < port->num_tcs; i++)
-				port->num_inqs[i] =  garg->cmn_args.cpus;
+				port->num_inqs[i] =  garg->max_rx_cpu;
 			port->inq_size	= garg->rxq_size;
 			port->num_outqs	= PKT_GEN_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= PKT_GEN_APP_TX_Q_SIZE;
 			port->first_inq	= PKT_GEN_APP_FIRST_INQ;
-			if (garg->cmn_args.cpus == 1)
+			if (port->num_inqs[i] == 1)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
 			else
 				port->hash_type = PP2_PPIO_HASH_T_5_TUPLE;
@@ -1016,10 +1021,12 @@ static int init_local(void *arg, int id, void **_larg)
 	larg->cmn_args.busy_wait	= garg->cmn_args.busy_wait;
 	if (garg->total_frm_cnt) {
 		/* split the frame count evenly among all cores */
-		larg->total_frm_cnt		= garg->total_frm_cnt/garg->cmn_args.cpus;
+		larg->total_frm_cnt	=
+			garg->total_frm_cnt / (garg->cmn_args.cpus - garg->min_tx_cpu);
 		/* let the first core send the residual frames */
 		if (larg->cmn_args.id == 0)
-			larg->total_frm_cnt += garg->total_frm_cnt%garg->cmn_args.cpus;
+			larg->total_frm_cnt +=
+				garg->total_frm_cnt % (garg->cmn_args.cpus - garg->min_tx_cpu);
 	}
 	larg->cmn_args.echo              = garg->cmn_args.echo;
 	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
@@ -1433,6 +1440,16 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	    (garg->cmn_args.qs_map & (garg->cmn_args.qs_map << garg->cmn_args.qs_map_shift))) {
 		pr_err("Invalid queues-mapping (overlapping CPUs)!\n");
 		return -EINVAL;
+	}
+
+	garg->max_rx_cpu = garg->cmn_args.cpus / 2;
+	if (garg->cmn_args.cpus % 2)
+		garg->max_rx_cpu++;
+	garg->min_tx_cpu = 0;
+	if (garg->cmn_args.cpus > 1) {
+		garg->min_tx_cpu = garg->cmn_args.cpus - garg->max_rx_cpu;
+		if (garg->cmn_args.cpus % 2)
+			garg->min_tx_cpu++;
 	}
 
 	if (garg->pkt_size > 0) {
