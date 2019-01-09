@@ -104,9 +104,11 @@
 
 #define OF_SH_FILENAME	"./of.sh"
 
+#define OF_MAX_NODES	64
+
 
 static u8			current;
-static struct device_node	current_node[16];
+static struct device_node	current_node[OF_MAX_NODES];
 static struct device_node	root = {.full_name	= "/",
 					.name		= root.full_name
 					};
@@ -200,6 +202,84 @@ static const u32 *of_get_address_prop(
 #endif /* __BYTE_ORDER == __BIG_ENDIAN */
 
 	return uint32_prop;
+}
+
+static struct device_node *find_compatible_node_by_indx(
+	const struct device_node	*from,
+	const int			 indx,
+	const char			*type,
+	const char			*compatible)
+{
+	int			 _err, __err;
+	char			 command[PATH_MAX * 2], *full_name;
+	FILE			*of_sh;
+	struct device_node	*dev_node;
+
+	assert(compatible != NULL);
+
+	if (from == NULL)
+		from = &root;
+
+	_err = create_of_sh();
+	if (_err)
+		return NULL;
+
+	snprintf(command,
+		 sizeof(command),
+		 "%s of_find_compatible_node \"%s\" \"%s\" %hhu",
+		 OF_SH_FILENAME, from->full_name, compatible, indx+1);
+
+	of_sh = popen(command, "r");
+	if (unlikely(!of_sh))
+		return NULL;
+
+	dev_node = &current_node[current];
+	full_name = fgets(dev_node->full_name, sizeof(dev_node->full_name), of_sh);
+	if (full_name == NULL) {
+		_err = ferror(of_sh);
+		if (_err == 0) {
+			_err = feof(of_sh);
+			if (_err == 0)
+				assert(0);
+		}
+	} else
+		_err = 0;
+	__err = pclose(of_sh);
+
+	if (unlikely(_err != 0 || __err != 0))
+		return NULL;
+
+	dev_node->name = of_basename(dev_node->full_name);
+	if (dev_node->name == NULL)
+		return NULL;
+
+	current = (current + 1) % ARRAY_SIZE(current_node);
+
+	return dev_node;
+}
+
+static int sort_nodes_by_addrs(struct device_node **dev_nodes, u64 *devs_pa, u8 num_nodes)
+{
+	u8 i, j;
+
+	if (num_nodes < 2)
+		return 0;
+
+	for (i = 0; i < num_nodes - 1; i++)
+		for (j = 0; j < num_nodes - i - 1; j++)
+			if (devs_pa[j] > devs_pa[j + 1]) {
+				struct device_node	*tmp_node;
+				u64			 tmp_pa;
+
+				tmp_pa = devs_pa[j];
+				tmp_node = dev_nodes[j];
+				devs_pa[j] = devs_pa[j + 1];
+				dev_nodes[j] = dev_nodes[j + 1];
+				devs_pa[j + 1] = tmp_pa;
+				dev_nodes[j + 1] = tmp_node;
+			}
+
+	return 0;
 }
 
 struct device_node *of_get_parent(const struct device_node *dev_node)
@@ -409,52 +489,78 @@ struct device_node *of_find_compatible_node_by_indx(
 	const char			*type,
 	const char			*compatible)
 {
-	int			 _err, __err;
-	char			 command[PATH_MAX * 2], *full_name;
-	FILE			*of_sh;
-	struct device_node	*dev_node;
+	struct device_node	*dev_nodes[OF_MAX_NODES];
+	u64			 devs_pa[OF_MAX_NODES];
+	u8			 i, j, num_nodes, num_nodes_skipped;
 
-	assert(compatible != NULL);
+	/* First, let's collect all nodes available from this compatible */
+	num_nodes = 0;
+	do {
+		dev_nodes[num_nodes] = find_compatible_node_by_indx(from, num_nodes, type, compatible);
+		if (!dev_nodes[num_nodes])
+			break;
+	} while (num_nodes++ < OF_MAX_NODES);
 
-	if (from == NULL)
-		from = &root;
-
-	_err = create_of_sh();
-	if (_err)
+	if (!num_nodes)
 		return NULL;
 
-	snprintf(command,
-		 sizeof(command),
-		 "%s of_find_compatible_node \"%s\" \"%s\" %hhu",
-		 OF_SH_FILENAME, from->full_name, compatible, indx+1);
-
-	of_sh = popen(command, "r");
-	if (unlikely(!of_sh))
-		return NULL;
-
-	dev_node = &current_node[current];
-	full_name = fgets(dev_node->full_name, sizeof(dev_node->full_name), of_sh);
-	if (full_name == NULL) {
-		_err = ferror(of_sh);
-		if (_err == 0) {
-			_err = feof(of_sh);
-			if (_err == 0)
-				assert(0);
+	/* There's a chance that we got some nodes that are not fully match; let's remove them from list */
+	num_nodes_skipped = 0;
+	for (i = 0; i < num_nodes; i++)
+		if (!of_device_is_compatible(dev_nodes[i], compatible)) {
+			for (j = i; j < num_nodes - 1; j++)
+				dev_nodes[j] = dev_nodes[j + 1];
+			num_nodes_skipped++;
 		}
-	} else
-		_err = 0;
-	__err = pclose(of_sh);
+	num_nodes -= num_nodes_skipped;
 
-	if (unlikely(_err != 0 || __err != 0))
+	if (indx >= num_nodes)
 		return NULL;
 
-	dev_node->name = of_basename(dev_node->full_name);
-	if (dev_node->name == NULL)
+	/* in case we have only 1 device found, no need to sort it */
+	if (num_nodes == 1)
+		return dev_nodes[0];
+
+	/* Iterate all nodes we found and retrieve their base-address */
+	for (i = 0; i < num_nodes; i++) {
+		const uint32_t	*uint32_prop;
+		u64		 tmp_size;
+
+		uint32_prop = of_get_address(dev_nodes[i], 0, &tmp_size, NULL);
+		if (!uint32_prop) {
+			/* In case we don't find registers-region already in first entry,
+			 * we assume all entires has no regs. in that case, return whatever we found.
+			 */
+			if (i == 0)
+				return dev_nodes[indx];
+			/* if this is not the first entry, something is wrong here (since we assume all
+			 * entries should look the same)
+			 */
+			pr_err("registers region (%s @ %d) not found!\n", compatible, i);
+			return NULL;
+		}
+		devs_pa[i] = of_translate_address(dev_nodes[i], uint32_prop);
+	}
+
+	/* There's a chance that we got some nodes that are not fully match; let's remove them from list */
+	num_nodes_skipped = 0;
+	for (i = 0; i < num_nodes; i++)
+		if (!devs_pa[i]) {
+			for (j = i; j < num_nodes - 1; j++) {
+				dev_nodes[j] = dev_nodes[j + 1];
+				devs_pa[j] = devs_pa[j + 1];
+			}
+			num_nodes_skipped++;
+		}
+	num_nodes -= num_nodes_skipped;
+
+	if (indx >= num_nodes)
 		return NULL;
 
-	current = (current + 1) % ARRAY_SIZE(current_node);
+	/* now, we sort the nodes by their addresses (since it is possible that we got the nodes not-sorted) */
+	sort_nodes_by_addrs(dev_nodes, devs_pa, num_nodes);
 
-	return dev_node;
+	return dev_nodes[indx];
 }
 
 struct device_node *of_find_compatible_node(
