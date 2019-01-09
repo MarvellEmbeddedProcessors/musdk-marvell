@@ -105,9 +105,6 @@ static int init_pfio_plat_uio_mem(struct agnic_pfio *pfio)
 
 	pr_debug("AGNIC %d regs address: pa 0x%"PRIx64", va %p\n", pfio->id, addr, pfio->sh_mem_base_reg);
 
-	/* TODO: need to read the correct address directly from DTS */
-	pfio->sh_mem_base_reg += CFG_MEM_AP8xx_OFFS;
-
 	/* Check that the base address includes the required magic value and
 	 * valid bit, in order to make sure that the mgmt firmware has written
 	 * the value, and that we are not using some "garbage" base address.
@@ -496,7 +493,7 @@ static int agnic_arrange_tcs(struct agnic_pfio *pfio, struct agnic_pfio_init_par
 int agnic_pfio_init(struct agnic_pfio_init_params *params, struct agnic_pfio **pfio)
 {
 	struct agnic_pfio	*_pfio;
-	int			 err, timeout = 2000;
+	int			 err, timeout = 5000;
 
 	_pfio = kzalloc(sizeof(struct agnic_pfio), GFP_KERNEL);
 	if (!_pfio)

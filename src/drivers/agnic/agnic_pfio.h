@@ -21,8 +21,6 @@
  */
 #define MUSDK_CMA_DEV_STR		"/dev/musdk-cma"
 
-#define CFG_MEM_AP8xx_OFFS		(0xA0)
-
 #define CFG_MEM_VALID			(1 << 0)
 #define CFG_MEM_BIDX_MASK		(0x1F)
 #define CFG_MEM_BIDX_SHIFT		(1)
