@@ -130,6 +130,7 @@ struct mem_mmap_nd {
 	int		 index;
 	void		*va;
 	phys_addr_t	 pa;
+	uint32_t	 offs;
 	uint64_t	 size;
 	struct list	 node;
 };
@@ -393,7 +394,11 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 	INIT_LIST(&mmap_nd->node);
 
 	mmap_nd->index = index;
-	mmap_nd->pa = tmp_pa;
+	/* mmap works only on page-aligned addresses;
+	 * let's align the address and add the offset later on.
+	 */
+	mmap_nd->pa = tmp_pa & ~(PAGE_SZ - 1);
+	mmap_nd->offs = tmp_pa & (PAGE_SZ - 1);
 	mmap_nd->size = tmp_size;
 
 	dev_mem_fd = open(MMAP_FILE_NAME, O_RDWR);
@@ -417,8 +422,8 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 	}
 	list_add_to_tail(&mmap_nd->node, &mmapm->maps_lst);
 
-	*va = mmap_nd->va;
-	*pa = mmap_nd->pa;
+	*va = mmap_nd->va + mmap_nd->offs;
+	*pa = mmap_nd->pa + mmap_nd->offs;
 
 	pr_debug("IO-remap: va=%p,pa=0x%016llx,sz=0x%llx\n",
 		 mmap_nd->va,
