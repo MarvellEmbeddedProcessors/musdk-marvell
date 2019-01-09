@@ -26,10 +26,12 @@
 #include "dispatch.h"
 
 
-#define NMP_AP806_MSI_MAP_NAME	"arm,gic-v2m-frame"
-#define NMP_AP810_MSI_MAP_NAME	"arm,gic-v3-its"
-#define NMP_MSI_MAP_INDX	0
 #define NMP_MSI_MAP_REGS_INDX	"0"
+
+			     /*   Armada 7/8K        Armada 8K+  */
+static char *nmp_msi_map_names[] = {"arm,gic-v2m-frame", "arm,gic-v3-its"};
+static u8 nmp_msi_map_indxs[] = {0, 0};
+static u16 nmp_msi_map_regs_offs[] = {0x40, 0x40};
 
 
 /** =========================== **/
@@ -105,21 +107,23 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	pr_debug("Initializing GIU devices\n");
 
 	iomem_params.type = SYS_IOMEM_T_MMAP;
-	iomem_params.devname = NMP_AP806_MSI_MAP_NAME;
-	iomem_params.index = NMP_MSI_MAP_INDX;
 
-	ret = sys_iomem_init(&iomem_params, &nmp->msi_iomem);
-	if (ret) {
-		/* try AP810 */
-		iomem_params.devname = NMP_AP810_MSI_MAP_NAME;
+	for (i = 0; i < ARRAY_SIZE(nmp_msi_map_names); i++) {
+		iomem_params.devname = nmp_msi_map_names[i];
+		iomem_params.index = nmp_msi_map_indxs[i];
 
 		ret = sys_iomem_init(&iomem_params, &nmp->msi_iomem);
-		if (ret)
-			return ret;
+		if (!ret)
+			break;
+	}
+	if (i == ARRAY_SIZE(nmp_msi_map_names)) {
+		pr_err("no MSI iomap found!\n");
+		return -EFAULT;
 	}
 
 	/* Map the MSI-X registers */
-	ret = sys_iomem_map(nmp->msi_iomem, NMP_MSI_MAP_REGS_INDX, (phys_addr_t *)&nmp->msi_regs.phys_addr,
+	ret = sys_iomem_map(nmp->msi_iomem, NMP_MSI_MAP_REGS_INDX,
+			(phys_addr_t *)&nmp->msi_regs.phys_addr,
 			&nmp->msi_regs.virt_addr);
 	if (ret) {
 		pr_err("Failed to map msi!\n");
@@ -132,8 +136,8 @@ static int dev_mng_init_giu(struct nmp *nmp)
 
 	memset(&giu_params, 0, sizeof(giu_params));
 	giu_params.mqa = nmp->mqa;
-	giu_params.msi_regs_pa = (u64)nmp->msi_regs.phys_addr;
-	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr;
+	giu_params.msi_regs_pa = (u64)nmp->msi_regs.phys_addr + nmp_msi_map_regs_offs[i];
+	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr + nmp_msi_map_regs_offs[i];
 
 	/* TODO: get all DMA-engines information from config file */
 	giu_params.num_gies = 3;

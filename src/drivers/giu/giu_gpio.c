@@ -326,7 +326,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	u8				 match_params[2];
 	u64				 msi_regs_va, msi_regs_pa;
 	s32				 pair_qid;
-	u32				 bm_pool_num, msix_addr_offset;
+	u32				 bm_pool_num;
 	u32				 tc_idx, bm_idx, q_idx;
 	int				 giu_id, gpio_id;
 	int				 ret;
@@ -520,12 +520,9 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
 				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
 
-			/* Calc msi address offset */
-			msix_addr_offset = msix_entry->msg_addr - msi_regs_pa;
-
 			/* Set message info */
-			mqa_params.msix_inf.va = (void *)(msi_regs_va + msix_addr_offset);
-			mqa_params.msix_inf.pa = msi_regs_pa + msix_addr_offset;
+			mqa_params.msix_inf.va = (void *)msi_regs_va;
+			mqa_params.msix_inf.pa = msi_regs_pa;
 			mqa_params.msix_inf.data = msix_entry->msg_data;
 
 			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(rem_q->mqa_q));
@@ -674,12 +671,9 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
 				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
 
-			/* Calc msi address offset */
-			msix_addr_offset = msix_entry->msg_addr - msi_regs_pa;
-
 			/* Set message info */
-			mqa_params.msix_inf.va = (void *)(msi_regs_va + msix_addr_offset);
-			mqa_params.msix_inf.pa = msi_regs_pa + msix_addr_offset;
+			mqa_params.msix_inf.va = (void *)msi_regs_va;
+			mqa_params.msix_inf.pa = msi_regs_pa;
 			mqa_params.msix_inf.data = msix_entry->msg_data;
 
 			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(rem_q->mqa_q));
