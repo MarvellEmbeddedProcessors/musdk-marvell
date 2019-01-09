@@ -1050,7 +1050,7 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		qp->dst_q.msi_data = qpd->common.msix_inf.data;
 
 		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
-			msix_entry->msg_addr, qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
+			qpd->common.msix_inf.pa, qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
 	}
 	/* Set MSI-X message info for source Q of remote side */
 	if (qcd->common.msix_inf.id) {
@@ -1061,7 +1061,7 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		qp->src_q.msi_data = qcd->common.msix_inf.data;
 
 		pr_debug("MSI data: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
-			msix_entry->msg_addr, qp->src_q.msi_virt_addr, qp->src_q.msi_data);
+			qcd->common.msix_inf.pa, qp->src_q.msi_virt_addr, qp->src_q.msi_data);
 	}
 
 	/* Find the bpools and keep local pointers */
