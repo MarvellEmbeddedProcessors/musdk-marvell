@@ -59,7 +59,7 @@ PPIO
 
 	Send/Receive:
 		- neta_ppio_send
-                - neta_ppio_send_sg
+		- neta_ppio_send_sg
 		- neta_ppio_recv
 		- neta_ppio_get_num_outq_done
 
@@ -140,8 +140,7 @@ MAC MIB counters can be obtained by neta_port_get_statistics().
 
 NETA Test Applications
 ----------------------
-To run MUSDK NETA test applications, mv_neta_uio.ko kernel modules must be loaded before.
-For more details please refer to musdk_get_started.txt chapter "5. Insert kernel modules".
+For more details please refer to musdk_get_started.txt chapter "Insert kernel modules".
 
 musdk_neta_pkt_echo
 ~~~~~~~~~~~~~~~~~~~

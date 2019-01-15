@@ -11,8 +11,9 @@ Linux kernel supported is 4.14.76
 	in: "<musdk-dir>/patches/linux-4.14" for Linux kernel 4.14.76
 
 (2) Build Linux kernel image::
+
 	> make mrproper
-	> make mvebu_v8_lsp_defconfig
+	> make marvell_v8_sdk_defconfig
 	> make
 
 (3) Build Safexcel crypto driver and copy "crypto_safexcel.ko" to file system.
@@ -28,7 +29,7 @@ Build Required Kernel Modules
 
 	- Cross compiler for compilation of modules, must be same as compiler that was used for Kernel. for example::
 
-		> export CROSS_COMPILE=~/SDK/gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu/bin/aarch64-marvell-linux-gnu-
+		> export CROSS_COMPILE=~/SDK/marvell-tools-202/bin/aarch64-marvell-linux-gnu-
 
 	- Kernel directory. for example::
 
@@ -68,7 +69,7 @@ Set external variables:
 
    - Cross compiler for compilation of user space libraries and applications. For example::
 
-	> export CROSS_COMPILE=~/SDK/gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu/bin/aarch64-marvell-linux-gnu-
+	> export CROSS_COMPILE=~/SDK/marvell-tools-202/bin/aarch64-marvell-linux-gnu-
 
 Build the MUSDK package
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -83,24 +84,13 @@ Build the MUSDK package
 	.. note::
 		For shared libraries compilation of MUSDK must be configured with ``--host=aarch64-linux-gnu``.
 
-	- For A7040/8040 use:
-		* configure option #1 - build PP2 driver and related applications::
+	* configure option #1 - build all available drivers and related applications::
 
-			> ./configure
+		> ./configure
 
-		* configure option #2 - build PP2 with SAM driver and SAM test application::
+	* configure option #2 - disable some drivers; e.g. remove SAM driver and SAM test application::
 
-			> ./configure --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
-
-	- For A3700 use:
-		* configure option #3 - build NETA driver and related applications::
-
-			> ./configure --enable-neta --enable-pp2=no
-
-		* configure option #4 - build NETA driver with SAM driver and SAM test application::
-
-			> ./configure --enable-neta --enable-pp2=no --enable-sam [--enable-sam-statistics] [--enable-sam-debug]
-
+		> ./configure --enable-sam=no
 
 (3) Build MUSDK
 		> make -j8

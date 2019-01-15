@@ -254,7 +254,7 @@ Binaries:
 SAM Test Applications
 ---------------------
 
-Before running MUSDK SAM test applications, crypto_safexcel.ko and mv_neta_uio.ko kernel modules
+Before running MUSDK SAM test applications, crypto_safexcel.ko kernel module
 must be loaded. For more details please refer to "MUSDK Getting Started" section.
 
 
