@@ -550,6 +550,8 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 /* Add vlan */
 int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 {
+	int rc;
+
 	char buf[PP2_MAX_BUF_STR_LEN];
 
 	if ((vlan < 1) || (vlan >= 4095)) {
@@ -560,13 +562,19 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 	/* build manually the system command */
 	/* [TODO] check other alternatives for setting vlan id */
 	sprintf(buf, "ip link add link %s name %s.%d type vlan id %d", port->linux_name, port->linux_name, vlan, vlan);
-	system(buf);
+	rc = system(buf);
+	if (rc != 0) {
+		pr_err("add vlan operation failed\n");
+		return rc;
+	}
+
 	return 0;
 }
 
 /* Remove vlan */
 int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 {
+	int rc;
 	char buf[PP2_MAX_BUF_STR_LEN];
 
 	if ((vlan < 1) || (vlan >= 4095)) {
@@ -577,7 +585,12 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 	/* build manually the system command */
 	/* [TODO] check other alternatives for setting vlan id */
 	sprintf(buf, "ip link delete %s.%d", port->linux_name, vlan);
-	system(buf);
+	rc = system(buf);
+	if (rc != 0) {
+		pr_err("remove vlan operation failed\n");
+		return rc;
+	}
+
 	return 0;
 }
 
