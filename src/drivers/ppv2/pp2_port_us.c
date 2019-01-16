@@ -547,6 +547,29 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 	return 0;
 }
 
+static int pp2_port_set_vlan_filtering(struct pp2_port *port, int enable)
+{
+	int rc;
+	char buf[PP2_MAX_BUF_STR_LEN];
+
+	if (enable)
+		sprintf(buf, "ethtool -K %s rx-vlan-filter on", port->linux_name);
+	else
+		sprintf(buf, "ethtool -K %s rx-vlan-filter off", port->linux_name);
+
+	rc = system(buf);
+	if (rc != 0) {
+		if (enable)
+			pr_err("failed to enable vlan filtering\n");
+		else
+			pr_err("failed to disable vlan filtering\n");
+
+		return rc;
+	}
+
+	return 0;
+}
+
 /* Add vlan */
 int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 {
@@ -559,15 +582,25 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 		return -EINVAL;
 	}
 
+	if (port->num_vlans == 0) {
+		rc = pp2_port_set_vlan_filtering(port, 1);
+		if (rc != 0)
+			return rc;
+	}
+
 	/* build manually the system command */
 	/* [TODO] check other alternatives for setting vlan id */
 	sprintf(buf, "ip link add link %s name %s.%d type vlan id %d", port->linux_name, port->linux_name, vlan, vlan);
 	rc = system(buf);
 	if (rc != 0) {
 		pr_err("add vlan operation failed\n");
+		if (port->num_vlans == 0)
+			pp2_port_set_vlan_filtering(port, 0);
+
 		return rc;
 	}
 
+	port->num_vlans++;
 	return 0;
 }
 
@@ -582,6 +615,11 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 		return -EINVAL;
 	}
 
+	if (port->num_vlans == 0) {
+		pr_err("no vlans configured\n");
+		return -EINVAL;
+	}
+
 	/* build manually the system command */
 	/* [TODO] check other alternatives for setting vlan id */
 	sprintf(buf, "ip link delete %s.%d", port->linux_name, vlan);
@@ -589,6 +627,12 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 	if (rc != 0) {
 		pr_err("remove vlan operation failed\n");
 		return rc;
+	}
+
+	if (--port->num_vlans == 0) {
+		rc = pp2_port_set_vlan_filtering(port, 0);
+		if (rc != 0)
+			return rc;
 	}
 
 	return 0;
@@ -809,5 +853,3 @@ int pp2_port_get_enable(struct pp2_port *port, uint32_t *en)
 		*en = 1;
 	return 0;
 }
-
-
