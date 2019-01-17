@@ -263,6 +263,13 @@ u16 pp2_get_used_hif_map(void);
  */
 u16 pp2_get_used_bm_pool_map(void);
 
+/**
+ * return if pp2 sysfs is available
+ *
+ * @retval	'1' - available
+ * @retval	'0' - not available
+ */
+int pp2_is_sysfs_avail(void);
 /** @} */ /* end of grp_pp2_init */
 
 #endif /* __MV_PP2_H__ */

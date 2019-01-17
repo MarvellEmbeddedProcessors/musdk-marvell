@@ -756,3 +756,10 @@ pp2_init_err:
 	return rc;
 }
 
+int pp2_is_sysfs_avail(void)
+{
+	enum musdk_lnx_id lnx_id = lnx_id_get();
+
+	return (!lnx_is_mainline(lnx_id));
+}
+
