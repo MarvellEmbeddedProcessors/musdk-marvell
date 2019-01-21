@@ -1187,7 +1187,8 @@ static int extract_ip_range(struct ip_range *r, char *argv)
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 {
 	struct pp2_glb_common_args *pp2_args = (struct pp2_glb_common_args *)garg->cmn_args.plat;
-	int	i = 1;
+	char *token;
+	int i = 1;
 	int option;
 	int long_index = 0;
 	int rv, curr_port_index = 0;
@@ -1260,20 +1261,13 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			exit(0);
 			break;
 		case 'i':
-			snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
-				 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name), "%s", optarg);
-			curr_port_index = garg->cmn_args.num_ports;
-			pr_debug("Set port %d: %s\n", curr_port_index, pp2_args->ports_desc[curr_port_index].name);
-			garg->cmn_args.num_ports++;
-			/* currently supporting only 1 port */
-			if (garg->cmn_args.num_ports == 0) {
-				pr_err("Invalid interface arguments format!\n");
-				return -EINVAL;
-			} else if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_I_OPTION_PORTS) {
-				pr_err("too many ports specified (%d vs %d)\n",
-				       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_I_OPTION_PORTS);
-				return -EINVAL;
-			}
+			/* count the number of tokens separated by ',' */
+			for (token = strtok(optarg, ","), garg->cmn_args.num_ports = 0;
+			     token;
+			     token = strtok(NULL, ","), garg->cmn_args.num_ports++)
+				snprintf(pp2_args->ports_desc[garg->cmn_args.num_ports].name,
+					 sizeof(pp2_args->ports_desc[garg->cmn_args.num_ports].name),
+					 "%s", token);
 			break;
 		case 'r':
 			pr_debug("Set RX mode for port %s\n", pp2_args->ports_desc[curr_port_index].name);
@@ -1394,6 +1388,11 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	if (!garg->cmn_args.num_ports ||
 	    !pp2_args->ports_desc[0].name) {
 		pr_err("No port defined!\n");
+		return -EINVAL;
+	}
+	if (garg->cmn_args.num_ports > MVAPPS_PP2_MAX_NUM_PORTS) {
+		pr_err("too many ports specified (%d vs %d)\n",
+		       garg->cmn_args.num_ports, MVAPPS_PP2_MAX_NUM_PORTS);
 		return -EINVAL;
 	}
 	/* Update traffic direction for all ports */
