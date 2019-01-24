@@ -1786,8 +1786,16 @@ int app_port_init(struct port_desc *port, int num_pools, struct bpool_desc *pool
 		/* Change port MTU if needed */
 		pp2_ppio_get_mtu(port->ppio, &curr_mtu);
 		if (curr_mtu != mtu) {
-			pp2_ppio_set_mtu(port->ppio, mtu);
-			pp2_ppio_set_mru(port->ppio, MVAPPS_MTU_TO_MRU(mtu));
+			err = pp2_ppio_set_mtu(port->ppio, mtu);
+			if (err) {
+				pr_err("Set MTU failed (error: %d)!\n", err);
+				return err;
+			}
+			err = pp2_ppio_set_mru(port->ppio, MVAPPS_MTU_TO_MRU(mtu));
+			if (err) {
+				pr_err("Set MRU failed (error: %d)!\n", err);
+				return err;
+			}
 			pr_info("Set port ppio-%d:%d MTU to %d\n",
 				port->pp_id, port->ppio_id, mtu);
 		}
