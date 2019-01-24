@@ -115,6 +115,7 @@
 /********************************************************************************/
 /*			MACROS							*/
 /********************************************************************************/
+
 /* HW_BYTE_OFFS
  * return HW byte offset in 4 bytes register
  * _offs_: native offset (LE)
@@ -203,5 +204,8 @@ int pp2_prs_eth_start_hdr_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr
 int pp2_prs_set_log_port(struct pp2_port *port, struct pp2_ppio_log_port_params *params);
 int pp2_prs_eth_start_header_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr mode);
 int mv_pp2x_prs_mac_da_accept(struct pp2_port *port, const u8 *da, bool add);
+int mv_pp2x_prs_hw_dump(struct pp2_port *port);
+int mv_pp2x_prs_hw_hits_dump(struct pp2_port *port);
+
 #endif /*_PP2_CLS_PRS_H_*/
 
