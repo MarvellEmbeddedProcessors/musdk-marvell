@@ -107,6 +107,7 @@
 #include "src/drivers/ppv2/cls/pp2_c2.h"
 #include "src/drivers/ppv2/cls/pp2_flow_rules.h"
 #include "src/drivers/ppv2/cls/pp2_cls_db.h"
+#include "src/drivers/ppv2/cls/pp2_prs.h"
 #include "cls_debug.h"
 
 int register_cli_cls_cmds(struct pp2_ppio *ppio)
@@ -426,11 +427,27 @@ int register_cli_mng_cmds(struct pp2_ppio *ppio)
 	return 0;
 }
 
+static int pp2_cli_cls_prs_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_port *port = (struct pp2_port *)arg;
+
+	mv_pp2x_prs_hw_dump(port);
+	return 0;
+}
+
+static int pp2_cli_cls_prs_hits_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_port *port = (struct pp2_port *)arg;
+
+	mv_pp2x_prs_hw_hits_dump(port);
+	return 0;
+}
+
 int register_cli_prs_cmds(struct pp2_ppio *ppio)
 {
-#ifdef CLS_DEBUG
 	struct cli_cmd_params cmd_params;
 	struct pp2_port *port = GET_PPIO_PORT(ppio);
+#ifdef CLS_DEBUG
 	struct pp2_inst *inst = port->parent;
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
@@ -442,13 +459,31 @@ int register_cli_prs_cmds(struct pp2_ppio *ppio)
 	mvapp_register_cli_cmd(&cmd_params);
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
-	cmd_params.name	= "prs_log_port_match_list_dump";
-	cmd_params.desc	= "dumps existing parser entries which were matched when starting logical port";
+	cmd_params.name		= "prs_log_port_match_list_dump";
+	cmd_params.desc		= "dumps existing parser entries which were matched when starting logical port";
 	cmd_params.format	= "(no arguments)\n";
 	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_db_prs_match_list_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 #endif
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "prs_dump";
+	cmd_params.desc		= "dumps existing parser entries";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_prs_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "prs_hits_dump";
+	cmd_params.desc		= "dumps hits in parser entries";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_prs_hits_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
 	return 0;
 }
+
 
