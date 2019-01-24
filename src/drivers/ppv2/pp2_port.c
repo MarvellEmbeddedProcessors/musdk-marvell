@@ -1171,6 +1171,8 @@ pp2_port_start(struct pp2_port *port, pp2_traffic_mode t_mode) /* Open from slow
 static void
 pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 {
+	int err;
+
 	/* Disable port transmission */
 	pp2_port_egress_disable(port);
 
@@ -1202,7 +1204,15 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 	/* Provide an initial MTU */
 	port->flags = PP2_PORT_FLAGS_L4_CHKSUM;
 	port->port_mtu = MV_DEFAULT_MTU;
-	pp2_port_check_mtu_valid(port, port->port_mtu);
+
+	/* Get tx_fifo_size from hw_register, value was configured by Linux */
+	port->tx_fifo_size = pp2_port_get_tx_fifo(port);
+
+	err = pp2_port_check_mtu_valid(port, port->port_mtu);
+	if (unlikely(err)) {
+		pr_err("%s MTU error\n", __func__);
+		return;
+	}
 
 	/* Provide an initial MRU */
 	port->port_mru = MV_MTU_TO_MRU(port->port_mtu);
@@ -1215,8 +1225,6 @@ pp2_port_init(struct pp2_port *port) /* port init from probe slowpath */
 #if 0
 	pp2_port_interrupts_mask(port);
 #endif
-	/* Get tx_fifo_size from hw_register, value was configured by Linux */
-	port->tx_fifo_size = pp2_port_get_tx_fifo(port);
 
 	port->maintain_stats = 0;
 	memset(&port->stats, 0, sizeof(port->stats));
@@ -1887,6 +1895,7 @@ int pp2_port_set_mru(struct pp2_port *port, uint16_t mru)
 	err = pp2_port_check_mru_valid(port, mru);
 	if (err)
 		return err;
+
 	port->port_mru = mru;
 
 	if ((port->t_mode & PP2_TRAFFIC_INGRESS) == PP2_TRAFFIC_INGRESS)
