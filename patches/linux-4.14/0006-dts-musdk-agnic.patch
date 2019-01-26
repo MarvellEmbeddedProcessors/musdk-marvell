@@ -1,7 +1,7 @@
-From 8c1c9914f9052b2a7bf6ba9439ab10199b24a91c Mon Sep 17 00:00:00 2001
+From aea402dc1643f1802b9c3cb251901711290e51c7 Mon Sep 17 00:00:00 2001
 From: Shadi Ammouri <shadi@marvell.com>
 Date: Mon, 28 Aug 2017 15:27:01 +0300
-Subject: [PATCH 7/9] dts: musdk: a7k/8/8kp agnic
+Subject: [PATCH 6/8] dts: musdk: agnic
 
 - The platform entry will be used by the agnic netdev driver.
 - The uio entry will be used by the generic platform uio driver
@@ -14,17 +14,17 @@ Signed-off-by: Shadi Ammouri <shadi@marvell.com>
 Reviewed-on: http://vgitil04.il.marvell.com:8080/43483
 Tested-by: iSoC Platform CI <ykjenk@marvell.com>
 ---
- .../net/marvell-armada-giu-nic-uio.txt        | 26 +++++++++++++++++++
- .../bindings/net/marvell-armada-giu-nic.txt   | 20 ++++++++++++++
- arch/arm64/boot/dts/marvell/armada-ap80x.dtsi | 15 +++++++++++
- arch/arm64/boot/dts/marvell/armada-ap810.dtsi | 15 +++++++++++
+ .../bindings/net/marvell-armada-giu-nic-uio.txt    | 26 ++++++++++++++++++++++
+ .../bindings/net/marvell-armada-giu-nic.txt        | 20 +++++++++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap80x.dtsi      | 15 +++++++++++++
+ arch/arm64/boot/dts/marvell/armada-ap810.dtsi      | 15 +++++++++++++
  4 files changed, 76 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
  create mode 100644 Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 
 diff --git a/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
 new file mode 100644
-index 000000000000..a9def97ed1ed
+index 0000000..a9def97
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic-uio.txt
 @@ -0,0 +1,26 @@
@@ -56,7 +56,7 @@ index 000000000000..a9def97ed1ed
 +};
 diff --git a/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 new file mode 100644
-index 000000000000..6faa6f6a58ba
+index 0000000..6faa6f6
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/net/marvell-armada-giu-nic.txt
 @@ -0,0 +1,20 @@
@@ -81,7 +81,7 @@ index 000000000000..6faa6f6a58ba
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap80x.dtsi b/arch/arm64/boot/dts/marvell/armada-ap80x.dtsi
-index 5b24962572e0..d05c5df871ee 100644
+index 5b24962..d05c5df 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap80x.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap80x.dtsi
 @@ -438,6 +438,21 @@
@@ -107,7 +107,7 @@ index 5b24962572e0..d05c5df871ee 100644
  	};
  
 diff --git a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
-index b0a0fdf2aab1..30e8ee4a7eb2 100644
+index b0a0fdf..30e8ee4 100644
 --- a/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-ap810.dtsi
 @@ -293,6 +293,21 @@
@@ -133,5 +133,5 @@ index b0a0fdf2aab1..30e8ee4a7eb2 100644
  	};
  };
 -- 
-2.17.1
+2.7.4
 
