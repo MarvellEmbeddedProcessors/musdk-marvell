@@ -243,6 +243,7 @@ struct glb_common_args {
 	struct mv_sys_dma_mem_region *mem_region[MVAPPS_MAX_NUM_AP];
 	int			num_mem_regions;
 	int			num_clusters;
+	int			port_forwarding;
 };
 
 struct buffer_desc {

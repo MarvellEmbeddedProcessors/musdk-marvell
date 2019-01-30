@@ -232,12 +232,22 @@ static int loop_1p(struct local_arg *larg, int *running)
 		if (++tx_qid >= PP2_PPIO_MAX_NUM_OUTQS)
 			tx_qid = pp2_args->lcl_ports_desc->first_txq;
 
-		for (i = 0; i < larg->cmn_args.num_ports; i++) {
-			err = loop_sw_recycle(&larg->cmn_args, i, i, tc, inq_id, tx_qid, num);
+		if ((larg->cmn_args.garg->cmn_args.port_forwarding) && (larg->cmn_args.num_ports == 2)) {
+			err  = loop_sw_recycle(&larg->cmn_args, 0, 1, tc, inq_id, tx_qid, num);
+			err |= loop_sw_recycle(&larg->cmn_args, 1, 0, tc, inq_id, tx_qid, num);
 			pr_debug("thread:%d, inq_num:%d, tc:%d, inq_id:%d tx_qid:%d\n", larg->cmn_args.id, inq_num,
 				 tc, inq_id, tx_qid);
 			if (err)
 				return err;
+
+		} else {
+			for (i = 0; i < larg->cmn_args.num_ports; i++) {
+				err = loop_sw_recycle(&larg->cmn_args, i, i, tc, inq_id, tx_qid, num);
+				pr_debug("thread:%d, inq_num:%d, tc:%d, inq_id:%d tx_qid:%d\n", larg->cmn_args.id,
+					 inq_num, tc, inq_id, tx_qid);
+				if (err)
+					return err;
+			}
 		}
 	}
 
@@ -524,6 +534,7 @@ static void usage(char *progname)
 		"\t-t, --num_tcs <number>	Number of Traffic classes (TCs) to use\n"
 		"\t-f, --cpu_q_factor <number>  Number of hash_qs (<per_cpu>,<per_tc>). (def=1)\n"
 		"\t-b, --hash_type <none, 2-tuple, 5-tuple>\n"
+		"\t-w, --forward		(no argument)forward traffic from port to port\n"
 		"\t--eth_start_hdr		(no argument)configure ethernet start header\n"
 		"\t--logical_port_params	(no argument)configure logical port parameters\n"
 		"\t--buf_params			(no argument)configure buffer parameters\n"
@@ -570,6 +581,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		{"num_tcs", required_argument, 0, 't'},
 		{"cpu_q_factor", required_argument, 0, 'f'},
 		{"hash_type", required_argument, 0, 'b'},
+		{"forward", no_argument, 0, 'w'},
 		{"eth_start_hdr", no_argument, 0, 'z'},
 		{"egress_scheduler_params", no_argument, 0, 'q'},
 		{"edrops_range", required_argument, 0, 'd'},
@@ -601,7 +613,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	/* every time starting getopt we should reset optind */
 	optind = 0;
-	while ((option = getopt_long(argc, argv, "hi:u:f:z:b:c:t:d:r:a:epsgq", long_options, &long_index)) != -1) {
+	while ((option = getopt_long(argc, argv, "hi:u:f:z:b:c:t:d:r:a:epsgqw", long_options, &long_index)) != -1) {
 		switch (option) {
 		case 'h':
 			usage(argv[0]);
@@ -661,6 +673,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			break;
 		case 'z':
 			ppio_tag_mode = true;
+			break;
+		case 'w':
+			garg->cmn_args.port_forwarding = 1;
 			break;
 		case 'g':
 			logical_port_params = true;
