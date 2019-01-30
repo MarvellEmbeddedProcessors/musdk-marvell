@@ -16,11 +16,6 @@ Linux kernel supported is 4.14.76
 	> make marvell_v8_sdk_defconfig
 	> make
 
-(3) Build Safexcel crypto driver and copy "crypto_safexcel.ko" to file system.
-    This step is optional and required only when using SAM driver::
-
-	> make modules M=drivers/crypto/inside-secure/
-
 .. _kernel-modules:
 
 Build Required Kernel Modules
@@ -104,7 +99,12 @@ Build the MUSDK package
 
 Insert Kernel Modules
 ---------------------
-(1) Copy the kernel modules (musdk_cma.ko, etc.) to the target board file-system.
+(1) Copy the kernel modules to the target board file-system:
+	- <musdk-dir>/modules/cma/musdk_cma.ko      (mandatory)
+	- <musdk-dir>/modules/sam/mv_sam_uio.ko     (optional)
+	- <musdk-dir>/modules/dmax/mv_dmax2_uio.ko  (optional)
+	- ${KDIR}/drivers/uio/uio_pdrv_genirq.ko    (mandatory)
+	- ${KDIR}/drivers/crypto/inside-secure/crypto_safexcel.ko    (optional)
 
 (2) Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
 
