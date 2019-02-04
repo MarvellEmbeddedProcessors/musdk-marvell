@@ -1833,7 +1833,7 @@ static int pp2_port_check_buf_size(struct pp2_port *port, uint16_t mru)
 				pool_buf_size = long_pool->bm_pool_buf_sz;
 				if (pool_buf_size < req_buf_size) {
 					pr_err("PORT: Oversize required buf_size=[%u]. tc[%u]:pool_id[%u]:buf_size=[%u]\n",
-						req_buf_size, long_pool->bm_pool_id, i, pool_buf_size);
+						req_buf_size, i, long_pool->bm_pool_id, pool_buf_size);
 					return -EINVAL;
 				}
 			}
