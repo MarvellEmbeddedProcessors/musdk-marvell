@@ -1825,7 +1825,7 @@ static int pp2_port_check_buf_size(struct pp2_port *port, uint16_t mru)
 
 	for (i = 0; i < port->num_tcs; i++) {
 		pkt_offset = port->tc[i].tc_config.pkt_offset;
-		req_buf_size = MVPP2_MRU_BUF_SIZE(mru, pkt_offset);
+		req_buf_size = (mru - MV_ETH_FCS_LEN + pkt_offset);
 		for (j = 0; j < MV_SYS_DMA_MAX_NUM_MEM_ID; j++) {
 			struct pp2_bm_pool *long_pool = port->tc[i].tc_config.pools[j][BM_TYPE_LONG_BUF_POOL];
 
