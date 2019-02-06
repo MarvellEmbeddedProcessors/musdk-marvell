@@ -102,31 +102,23 @@ struct event_counters counters[PME_MAX_EVENT_CNTS] = {0};
 
 static int clk_mhz;
 
-static int read_clock_mhz(void)
+static uint32_t read_clock_mhz(void)
 {
-	char	buffer[20];
-	int	ans;
-	FILE	*fp;
+	char buffer[256], *endptr = NULL;
+	FILE *file;
+	uint32_t ret = 0;
 
-	memset(buffer, 0, sizeof(buffer));
-	snprintf(buffer, sizeof(buffer), "mhz");
-	/* Open the command for reading. */
-	fp = popen(buffer, "r");
-	if (!fp) {
-		pr_err("Failed to run command\n");
-		return 0;
-	}
-	/* Read the output a line at a time - output it. */
-	if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-		pr_err("Failed to run command\n");
-		pclose(fp);
-		return 0;
-	}
-	buffer[strlen(buffer) - 1] = '\0';
-	/* close */
-	pclose(fp);
-	ans = strtol(buffer, NULL, 0);
-	return ans;
+	file = fopen("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "r");
+	if (file == NULL)
+		return ret;
+
+	if (fgets(buffer, sizeof(buffer), file) != NULL)
+		ret = strtoull(buffer, &endptr, 0) / 1000;
+
+	fclose(file);
+
+	pr_info("CPU MHZ: %u\n", ret);
+	return ret;
 }
 
 int pme_ev_cnt_create(char *name, u32 max_cnt, int ext_print)
