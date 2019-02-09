@@ -197,9 +197,10 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 	u32 i, idx = 0;
 	int if_dup = false;
 	struct ifaddrs *ifap, *ifa;
-	u8 num_inst;
+static int first_time = true;
 
-	num_inst = pp2_get_num_inst();
+	if (!first_time)
+		return 0;
 
 	if (!netdev_params)
 		return -EFAULT;
@@ -222,7 +223,7 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 		/* Filter already parsed interfaces, since getifaddrs linked list contains entries
 		 * for the same interface and different family types
 		 */
-		for (i = 0; i < num_inst * PP2_NUM_ETH_PPIO; i++) {
+		for (i = 0; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO; i++) {
 			if (strcmp(netdev_params[i].if_name, ifa->ifa_name) == 0) {
 				if_dup = true;
 				break;
@@ -255,5 +256,8 @@ int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params)
 		fclose(fp);
 	}
 	freeifaddrs(ifap);
+
+	first_time = false;
+
 	return 0;
 }

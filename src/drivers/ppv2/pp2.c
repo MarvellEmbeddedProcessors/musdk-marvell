@@ -114,7 +114,7 @@
 
 
 struct pp2 *pp2_ptr;
-struct netdev_if_params *netdev_params;
+struct netdev_if_params netdev_params[PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO];
 
 
 
@@ -582,17 +582,14 @@ void pp2_deinit(void)
 
 	/* Destroy the PPDK handle */
 	kfree(pp2_ptr);
-
-	/* Destroy the netdev handle */
-	kfree(netdev_params);
 }
 
 int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname)
 {
 	int i;
 
-	if (!netdev_params)
-		return -EFAULT;
+	/* Retrieve netdev if information, only for first time */
+	pp2_netdev_if_info_get(netdev_params);
 
 	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO; i++) {
 		if (netdev_params[i].pp_id == pp_id &&
@@ -608,8 +605,8 @@ int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status)
 {
 	int i;
 
-	if (!netdev_params)
-		return -EFAULT;
+	/* Retrieve netdev if information, only for first time */
+	pp2_netdev_if_info_get(netdev_params);
 
 	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO; i++) {
 		if (netdev_params[i].pp_id == pp_id &&
@@ -632,8 +629,8 @@ int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id)
 {
 	int i;
 
-	if (!netdev_params)
-		return -EFAULT;
+	/* Retrieve netdev if information, only for first time */
+	pp2_netdev_if_info_get(netdev_params);
 
 	for (i = 0 ; i < PP2_MAX_NUM_PACKPROCS * PP2_NUM_ETH_PPIO; i++) {
 		if (strcmp(netdev_params[i].if_name, ifname) == 0) {
@@ -661,16 +658,7 @@ int pp2_init(struct pp2_init_params *params)
 	pp2_ptr->pp2_common.rss_tbl_map = params->rss_tbl_reserved_map;
 	/* TODO: Check first_inq params are valid */
 
-	/* Retrieve netdev if information */
 	pp2_num_inst = pp2_get_num_inst();
-	netdev_params = kmalloc(sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO, GFP_KERNEL);
-	if (!netdev_params) {
-		kfree(pp2_ptr);
-		return -ENOMEM;
-	}
-
-	memset(netdev_params, 0, sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO);
-	pp2_netdev_if_info_get(netdev_params);
 
 	/* Initialize in an opaque manner from client,
 	* depending on HW, one or two packet processors.
@@ -751,7 +739,6 @@ pp2_init_err:
 	/* Rollback creation of pp2 instances */
 	for (i = 0; i < pp2_id; i++)
 		pp2_destroy(pp2_ptr->pp2_inst[i]);
-	kfree(netdev_params);
 	kfree(pp2_ptr);
 	return rc;
 }
