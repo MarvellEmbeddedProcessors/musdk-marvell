@@ -272,11 +272,6 @@ int neta_netdev_get_port_info(char *ifname, u8 *port_id)
 {
 	int ret, id;
 
-	if (!neta_is_initialized()) {
-		pr_warn("NETA US driver not initialized\n");
-		return -EINVAL;
-	}
-
 	ret = neta_netdev_if_verify(ifname, &id);
 	if (!ret)
 		*port_id = (u8)id;
