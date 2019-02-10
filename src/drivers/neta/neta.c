@@ -261,6 +261,8 @@ void neta_deinit(void)
 
 	/* Destroy the PPDK handle */
 	kfree(neta_ptr);
+
+	neta_ptr = NULL;
 }
 
 /* Find port_id parameters from ifname.

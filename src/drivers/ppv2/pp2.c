@@ -582,6 +582,8 @@ void pp2_deinit(void)
 
 	/* Destroy the PPDK handle */
 	kfree(pp2_ptr);
+
+	pp2_ptr = NULL;
 }
 
 int pp2_netdev_get_ifname(u8 pp_id, u8 ppio_id, char *ifname)
