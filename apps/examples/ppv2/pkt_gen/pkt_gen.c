@@ -819,7 +819,7 @@ static int init_local_modules(struct glob_arg *garg)
 			port->num_outqs	= PKT_GEN_APP_MAX_NUM_TCS_PER_PORT;
 			port->outq_size	= PKT_GEN_APP_TX_Q_SIZE;
 			port->first_inq	= PKT_GEN_APP_FIRST_INQ;
-			if (port->num_inqs[i] == 1)
+			if (port->num_inqs[0] == 1)
 				port->hash_type = PP2_PPIO_HASH_T_NONE;
 			else
 				port->hash_type = PP2_PPIO_HASH_T_5_TUPLE;
