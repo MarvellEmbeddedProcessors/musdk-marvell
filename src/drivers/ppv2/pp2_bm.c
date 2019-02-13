@@ -491,8 +491,18 @@ static void pp2_bm_pool_update_fc(uintptr_t base, struct pp2_bm_pool *pool, bool
 		val |= pool->fc_stop_threshold;
 		cm3_write(base, MSS_CP_CM3_BUF_POOL_BASE + pool->bm_pool_id * MSS_CP_CM3_BUF_POOL_OFFS, val);
 	} else {
-		/* Remove BM pool from fc */
-		val = 0;
+		/* Remove BM pool from the port */
+		val = cm3_read(base, MSS_CP_CM3_BUF_POOL_BASE + pool->bm_pool_id * MSS_CP_CM3_BUF_POOL_OFFS);
+		val &= ~MSS_CP_CM3_BUF_POOL_PORTS_MASK;
+		val |= (pool->fc_port_mask << MSS_CP_CM3_BUF_POOL_PORTS_OFFS);
+
+		/* Zero BM pool start and stop thresholds to disable pool flow control, */
+		/* if pool empty (not used by any port) */
+		if (!pool->bm_pool_buf_num) {
+			val &= ~MSS_CP_CM3_BUF_POOL_START_MASK;
+			val &= ~MSS_CP_CM3_BUF_POOL_STOP_MASK;
+		}
+
 		cm3_write(base, MSS_CP_CM3_BUF_POOL_BASE + pool->bm_pool_id * MSS_CP_CM3_BUF_POOL_OFFS, val);
 	}
 	/* Notify Firmware that Flow control config space ready for update */
