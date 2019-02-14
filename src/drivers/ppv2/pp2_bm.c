@@ -240,6 +240,9 @@ pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 	val = pp2_reg_read(cpu_slot, MVPP2_BM_POOL_CTRL_REG(pool_id));
 	val |= MVPP2_BM_START_MASK;
 
+	val &= ~MVPP2_BM_LOW_THRESH_MASK;
+	val &= ~MVPP2_BM_HIGH_THRESH_MASK;
+
 	if (pp2_bm_get_8pool_mode(cpu_slot)) {
 		val |= MVPP2_BM_LOW_THRESH_VALUE(MVPP23_BM_BPPI_8POOL_LOW_THRESH);
 		val |= MVPP2_BM_HIGH_THRESH_VALUE(MVPP23_BM_BPPI_8POOL_HIGH_THRESH);
