@@ -1,0 +1,37 @@
+ccflags-y := -I$(src) -I$(KBUILD_EXTMOD)/include -I$(src)/sysfs
+ccflags-$(MV_NSS_ENABLE) += -DCONFIG_MV_NSS_ENABLE -I$(src)/nss_dpapi
+ccflags-$(MV_STUB_MODE) += -DCONFIG_STUB_MODE
+ccflags-$(MV_LK4_4_COMPAT) += -DCONFIG_LK4_4_COMPAT
+
+# Declare modules
+obj-m += mgnic_pci.o
+obj-m += mgnic_plat.o
+
+# mgnic_pci sources
+mgnic_pci-objs := giu_nic_pci.o \
+		giu_nic.o \
+		giu_nic_ethtool.o \
+		giu_nic_mgmt.o \
+		giu_custom_mgmt.o
+
+# mgnic_plat sources
+mgnic_plat-objs := giu_nic_plat.o \
+		 giu_nic.plat.o \
+		 giu_nic_ethtool.plat.o \
+		 giu_nic_mgmt.o \
+		 giu_custom_mgmt.o \
+		 giu_nic_uio.o
+
+mgnic_plat-$(MV_NSS_ENABLE) += giu_nic_md.o
+
+# sysfs files (currently, only for mgnic-plat)
+include $(src)/sysfs/Kbuild
+mgnic_plat-objs += $(mgnic_sysfs-y)
+
+# stub files
+mgnic_pci-$(MV_STUB_MODE) += giu_nic_stub.o
+mgnic_plat-$(MV_STUB_MODE) += giu_nic_stub.o
+
+# Add DPAPIs Sources (relevant only for mgnic_plat)
+include ${src}/nss_dpapi/Kbuild
+mgnic_plat-$(MV_NSS_ENABLE) += ${dpapi-y}

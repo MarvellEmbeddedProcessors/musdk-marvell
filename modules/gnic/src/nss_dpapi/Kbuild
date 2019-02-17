@@ -1,0 +1,15 @@
+DPAPI_DIR := nss_dpapi
+
+ccflags-$(MV_NSS_ENABLE) += -I${KBUILD_EXTMOD}/include -DMV_DP_USE_DRAM_PTR -DDEBUG -DMV_DP_DEBUG
+
+dpapi-$(MV_NSS_ENABLE) := ${DPAPI_DIR}/mv_dp_ext_hdr.o\
+		${DPAPI_DIR}/mv_dp_sysfs_port.o\
+		${DPAPI_DIR}/mv_dp_sysfs_dtls.o\
+		${DPAPI_DIR}/mv_dp_sysfs_qos.o\
+		${DPAPI_DIR}/mv_dp_sysfs_client.o\
+		${DPAPI_DIR}/mv_dp_sysfs.o\
+		${DPAPI_DIR}/mv_dp_int_if.o\
+		${DPAPI_DIR}/mv_dp_main.o\
+		${DPAPI_DIR}/mv_dp_sysfs_dbg.o\
+		${DPAPI_DIR}/mv_dp_msg.o\
+		${DPAPI_DIR}/mv_nss_dp.o

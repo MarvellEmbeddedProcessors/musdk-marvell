@@ -1,0 +1,48 @@
+Armada GIU NIC (AGNIC) Release Notes
+====================================
+
+The below describes the contents of the Armada GIU NIC (AGNIC) release.
+
+.. Note::
+	- This is an Alpha-level engineering drop of AGNIC package.
+	- The package is only partially tested, user should expect all kinds of issues.
+
+Supported SoCs
+---------------
+	- Armada-80x0
+	- Armada-70x0
+
+
+Known Issues
+------------
+
+	- rmmod/insmod is not supported and might cause a SW exception
+	- ifconfig down to kernel i/f (e.g. eth4) is not supported and might cause a SW exception
+
+
+Release Content
+---------------
+	- The AGNIC driver is relased only in source format (no binaries). 
+	- It should always get built against the Kernel on which it will be running. See AGNIC user-guide for more details.
+	- The source release is provided in two formats:
+		#. Full source tree format, which includes all sources and directory strucutre of the AGNIC package.
+
+		#. A set of patches from which the git source tree can be reproduced.
+
+		| Its recommended to use the second format.
+
+	- The git source tree can be re-constructed using the following:
+		- ``mkdir <temp/dir>``
+		- ``cd <temp/dir>``
+		- ``Unzip the git-netdev-xx.zip file``
+		- ``mkdir <agnic/source/dir>``
+		- ``cd <agnic/source/dir>``
+		- ``git init``
+		- ``git am <temp/dir>/*.patch``
+
+
+Supported Features
+------------------
+	The current revision of the driver supports only the necessary networking driver callbacks for
+	implementing basic transmit / receive operations.
+

@@ -1,0 +1,71 @@
+AGNIC Netdev User Guide
+=======================
+
+Introduction
+------------
+
+Armada GIU-NIC (AGNIC) is a Kernel network driver for the GIU hardware emulation.
+The underlying "hardware" this driver operates on top is implemented using the GIU-EMulator
+that is part of the MUSDK (See MUSDK documentation for further info about GIUE).
+The driver can be used into two operational modes, as a PCIe host network driver, or as
+a platform network driver.
+
+PCIe host network driver:
+~~~~~~~~~~~~~~~~~~~~~~~~~
+In this mode, the driver is controlling an Armada SoC (A7K / A8K in this case) that
+is running as a PCI End-Point, the PCIe-EP device is acting as the network device (aka Smart-NIC).
+
+.. figure :: /images/agnic-pcie.*
+   :align: center
+
+   AGNIC PCIe Mode
+
+Platform network driver:
+~~~~~~~~~~~~~~~~~~~~~~~~
+The main purpose of this mode, is to provide an effecient / low latency machnism to pass packets originated
+from the Kernel network stack, to user-space networking frameworks (e.g. MUSDK, ODP, DPDK...), and vice-versa.
+
+In this mode, the driver interfaces with the Kernel's network stack, while packets going out of this interface
+are copied (using the GIUE) to user-space networing driver (pktio). The GIUE also copies packets originating
+from the user-space network driver, down to kernel space, and these are handled as Rx packets in the platform
+AGNIC driver.
+
+.. figure :: /images/agnic-plat.*
+   :align: center
+
+   AGNIC Platform Mode
+
+Build Instructions
+------------------
+The AGNIC driver is built like any other Kernel module, the main difference, is the Kernel and CPU architecture
+on which the driver will be running.
+
+Building the PCIe driver:
+~~~~~~~~~~~~~~~~~~~~~~~~~
+When running in PCIe mode, the AGNIC driver can be running on either an X86 machine or on an A7/8K board (mainly
+for development and testing purposes).
+
+To build for x86 machine, simply run "make".
+In case the Kernel headers where not installed on the PC, install them using your distribution package management
+utilities (e.g. apt, yum...).
+Make sure to unset the following env variables: ARCH, KDIR & CROSS_COMPILE.
+
+To build for arm64 machine, run:
+- export ARCH=arm64
+- export CROSS_COMPILE=<path/to/cross/compiler>
+- export KDIR=<path/to/kernel/sources>
+- make
+
+The desired Kernel object is created in src/agnic_pci.ko
+
+Building the Platform driver:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When running in platform mode, we are certainly running on an A7/8K board.
+
+Execute the following to build the kernel object:
+- export ARCH=arm64
+- export CROSS_COMPILE=<path/to/cross/compiler>
+- export KDIR=<path/to/kernel/sources>
+- make
+
+The Kernel object will be located in src/agnic_plat.ko

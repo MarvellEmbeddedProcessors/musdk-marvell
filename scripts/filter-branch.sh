@@ -17,6 +17,7 @@ git rm -rf --cached --ignore-unmatch src/include/drivers/mv_mqa.h \
 git rm -rf --cached --ignore-unmatch src/include/drivers/mv_mqa_queue.h \
 git rm -rf --cached --ignore-unmatch src/include/drivers/mv_agnic_pfio.h \
 git rm -rf --cached --ignore-unmatch src/include/drivers/mv_giu.h \
+git rm -rf --cached --ignore-unmatch modules/gnic \
 git rm -rf --cached --ignore-unmatch apps/common/giu_utils.c \
 git rm -rf --cached --ignore-unmatch apps/common/nmp_guest_utils.c \
 git rm -rf --cached --ignore-unmatch apps/include/giu_utils.h \

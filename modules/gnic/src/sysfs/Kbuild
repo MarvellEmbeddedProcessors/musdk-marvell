@@ -1,0 +1,7 @@
+# sysfs files
+mgnic_sysfs-y	:= sysfs/giu_nic_sysfs_main.o \
+		 sysfs/giu_nic_sysfs_eth_rx.o \
+		 sysfs/giu_nic_sysfs_rss.o \
+
+mgnic_plat-$(MV_NSS_ENABLE) += sysfs/giu_nic_sysfs_md.o
+mgnic_plat-$(MV_NSS_ENABLE) += sysfs/giu_nic_sysfs_md_cls.o
