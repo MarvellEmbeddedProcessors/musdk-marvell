@@ -114,7 +114,7 @@ Insert Kernel Modules
 
 	> insmod uio_pdrv_genirq.ko of_id="generic-uio"     (mandatory)
 
-    For A7040/8040::
+    For A7040/8040/CN913x::
 
 	> insmod mv_dmax2_uio.ko  (optional)
 

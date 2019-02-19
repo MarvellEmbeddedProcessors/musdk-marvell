@@ -39,6 +39,7 @@ Intro
 ^^^^^
 	- Any Marvell SoC containing PPV2 HW may have a number of **'PPV2 HW Instances'**.
 	- i.e. The A7040 has 1 'PPV2 HW Instance', and A8040 has 2 'PPV2 HW Instances'.
+	- CN9130 has 1 'PPV2 HW Instance', CN9131 has 2 'PPV2 HW Instances', CN9132 has 3 'PPV2 HW Instances'
 
 	- A **'PPV2 HW Instance'** is *not* a MUSDK object, it is however an important concept since some of the MUSDK objects are
 	  local to a specific 'PPV2 HW Instance'.
