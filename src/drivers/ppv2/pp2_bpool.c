@@ -154,6 +154,8 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 		pp2_bpools[pp2_id][pool_id].pp2_id = pp2_id;
 		SET_HW_BASE(&pp2_bpools[pp2_id][pool_id], &pp2_ptr->pp2_inst[pp2_id]->hw.base[0]);
 		*bpool = &pp2_bpools[pp2_id][pool_id];
+		pp2_bm_pool_reset_fc(pp2_ptr->pp2_inst[pp2_id]->hw.cm3_base.va,
+				     pp2_ptr->pp2_inst[pp2_id]->bm_pools[pool_id]);
 	}
 	return rc;
 }
@@ -177,6 +179,11 @@ void pp2_bpool_deinit(struct pp2_bpool *pool)
 	}
 
 	bm_pool = pp2_bm_pool_get_pool_by_id(pp2_ptr->pp2_inst[pool->pp2_id], pool_id);
+
+
+	/* reset cm3 bm pool flow control */
+	if (bm_pool)
+		pp2_bm_pool_reset_fc(pp2_ptr->pp2_inst[pool->pp2_id]->hw.cm3_base.va, bm_pool);
 
 	if (bm_pool && !pp2_bm_pool_destroy(cpu_slot, bm_pool))
 		pp2_ptr->pp2_inst[pool->pp2_id]->bm_pools[pool_id] = NULL;

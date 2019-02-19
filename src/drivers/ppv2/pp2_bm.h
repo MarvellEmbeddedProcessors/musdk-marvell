@@ -307,6 +307,7 @@ uint32_t pp2_bm_hw_pool_create(uintptr_t cpu_slot, uint32_t pool_id,
 void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs);
 void pp2_bm_port_remove(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs);
 void pp2_bm_update_fc_thresh(struct pp2_inst *pp2_inst, u32 pool_id, int pool_stop_bufs, int pool_start_bufs);
+void pp2_bm_pool_reset_fc(uintptr_t base, struct pp2_bm_pool *pool);
 
 
 #endif /* _PP2_BM_H_ */

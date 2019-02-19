@@ -463,6 +463,28 @@ struct pp2_bm_pool *pp2_bm_pool_get_pool_by_id(struct pp2_inst *pp2_inst, uint32
 	return pp2_inst->bm_pools[pool_id];
 }
 
+/* Routine reset TX flow control for BM pool condition */
+void pp2_bm_pool_reset_fc(uintptr_t base, struct pp2_bm_pool *pool)
+{
+	int cm3_state;
+	u32 val;
+
+	/* Remove Flow control enable bit to prevent race between FW and Kernel
+	 * If Flow control were enabled, it would be re-enabled.
+	 */
+	val = cm3_read(base, MSS_CP_FC_COM_REG);
+	cm3_state = (val & FLOW_CONTROL_ENABLE_BIT);
+	val &= ~FLOW_CONTROL_ENABLE_BIT;
+	cm3_write(base, MSS_CP_FC_COM_REG, val);
+
+	cm3_write(base, MSS_CP_CM3_BUF_POOL_BASE + pool->bm_pool_id * MSS_CP_CM3_BUF_POOL_OFFS, 0);
+
+	/* Notify Firmware that Flow control config space ready for update */
+	val = cm3_read(base, MSS_CP_FC_COM_REG);
+	val |= FLOW_CONTROL_UPD_COM_BIT;
+	val |= cm3_state;
+	cm3_write(base, MSS_CP_FC_COM_REG, val);
+}
 
 /* Routine disable/enable flow control for BM pool conditon */
 static void pp2_bm_pool_update_fc(uintptr_t base, struct pp2_bm_pool *pool, bool en)

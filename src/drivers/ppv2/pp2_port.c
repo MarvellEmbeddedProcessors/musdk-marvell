@@ -633,6 +633,40 @@ pp2_port_inq_update(struct pp2_port *port, uint32_t in_qid,
 	pp2_reg_write(cpu_slot, MVPP2_RXQ_STATUS_UPDATE_REG(id), val);
 }
 
+/* Routine reset flow control for RXQs conditon */
+static void pp2_port_rxqs_fc_state_reset(struct pp2_port *port)
+{
+	int cm3_state, queue;
+	u32 val;
+	uintptr_t base = port->parent->hw.cm3_base.va;
+
+	/* Remove Flow control enable bit to prevent race between FW and Kernel
+	 * If Flow control were enabled, it would be re-enabled.
+	 */
+	val = cm3_read(base, MSS_CP_FC_COM_REG);
+	cm3_state = (val & FLOW_CONTROL_ENABLE_BIT);
+	val &= ~FLOW_CONTROL_ENABLE_BIT;
+	cm3_write(base, MSS_CP_FC_COM_REG, val);
+
+	/* Set RXQs Flow control */
+	for (queue = 0; queue < PP2_PPIO_MAX_NUM_INQS; queue++) {
+		struct pp2_rx_queue *rxq = port->rxqs[queue];
+
+		if (!(BIT(queue) & port->rxq_flow_cntrl_mask))
+			continue;
+
+		/* Clear stop and start Flow control RXQ thresholds */
+		cm3_write(base, MSS_CP_CM3_RXQ_TR_BASE + rxq->id * MSS_CP_CM3_RXQ_TR_OFFS, 0);
+		cm3_write(base, MSS_CP_CM3_RXQ_ASS_REG(queue), 0);
+	}
+
+	/* Notify Firmware that Flow control config space ready for update */
+	val = cm3_read(base, MSS_CP_FC_COM_REG);
+	val |= FLOW_CONTROL_UPD_COM_BIT;
+	val |= cm3_state;
+	cm3_write(base, MSS_CP_FC_COM_REG, val);
+}
+
 /* Per-RXQ hardware related initialization
  * Hardware access
  */
@@ -710,6 +744,8 @@ pp2_port_rxqs_init(struct pp2_port *port)
 
 		pp2_rxq_init(port, rxq);
 	}
+
+	pp2_port_rxqs_fc_state_reset(port);
 }
 
 /* Allocates and sets control data for TXQs
@@ -873,6 +909,8 @@ pp2_port_rxqs_deinit(struct pp2_port *port)
 {
 	int queue;
 
+	pp2_port_rxqs_fc_state_reset(port);
+
 	for (queue = 0; queue < port->num_rx_queues; queue++)
 		pp2_rxq_deinit(port, port->rxqs[queue]);
 }
@@ -917,7 +955,7 @@ static void pp2_port_rx_time_coal_set(struct pp2_port *port, struct pp2_rx_queue
 }
 
 /* Routine enable flow control for RXQs conditon */
-static void pp2_rxq_fc_state_set(struct pp2_port *port, int en)
+static void pp2_port_rxqs_fc_state_set(struct pp2_port *port, int en)
 {
 	int val, cm3_state, host_id, port_id, queue;
 	uintptr_t base = port->parent->hw.cm3_base.va;
@@ -969,7 +1007,6 @@ static void pp2_rxq_fc_state_set(struct pp2_port *port, int en)
 	val |= cm3_state;
 	cm3_write(base, MSS_CP_FC_COM_REG, val);
 }
-
 
 int
 pp2_port_set_outq_state(struct pp2_port *port, struct pp2_tx_queue *txq, int en)
@@ -2340,7 +2377,7 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	}
 	/* Disable rxq flow_control in Firmware, before updating thresholds */
 	if (!ena) {
-		pp2_rxq_fc_state_set(port, ena);
+		pp2_port_rxqs_fc_state_set(port, ena);
 		port->rxq_flow_cntrl_mask = 0;
 	}
 
@@ -2352,7 +2389,7 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 
 	/* Enable: After rxq setup, update Firmware */
 	if (ena)
-		pp2_rxq_fc_state_set(port, ena);
+		pp2_port_rxqs_fc_state_set(port, ena);
 
 
 	/* Configure RX_FIFO */
