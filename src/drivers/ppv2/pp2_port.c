@@ -1329,7 +1329,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	INIT_LIST(&port->added_uc_addr);
 
 	/* Assign linux name to port */
-	pp2_netdev_ifname_get(pp2_id, port_id, port->linux_name);
+	pp2_netdev_get_ifname(pp2_id, port_id, port->linux_name);
 	pr_debug("pp2_port_open: pp2_id(%d), port_id(%d), port->linux_name(%s)\n", pp2_id, port_id, port->linux_name);
 
 	/* Setup port based on client params

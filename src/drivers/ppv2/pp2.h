@@ -753,7 +753,6 @@ static inline u32 pp2_get_mem_id(u32 pp2_id)
 }
 
 int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);
-int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);
 int pp2_netdev_if_admin_status_get(u32 pp_id, u32 ppio_id, u32 *admin_status);
 
 int pp2_status_check(struct netdev_if_params *netdev_params, struct pp2_init_params *params);

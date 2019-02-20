@@ -584,7 +584,7 @@ void pp2_deinit(void)
 	kfree(pp2_ptr);
 }
 
-int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname)
+int pp2_netdev_get_ifname(u8 pp_id, u8 ppio_id, char *ifname)
 {
 	int i;
 

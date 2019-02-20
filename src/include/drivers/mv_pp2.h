@@ -224,6 +224,18 @@ void pp2_deinit(void);
 int pp2_netdev_get_ppio_info(char *ifname, u8 *pp_id, u8 *ppio_id);
 
 /**
+ * Get the interface name corresponding to the provided pp_id and port_id parameters
+ *
+ * @param[in]	pp_id	packet prosessor id.
+ * @param[in]	ppio_id	port id.
+ * @param[out]	ifname	A pointer to the interface name.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ */
+int pp2_netdev_get_ifname(u8 pp_id, u8 ppio_id, char *ifname);
+
+/**
  * Get port availability for musdk
  *
  * @param[in]	pp_id	A pointer to the corresponding packet prosessor id.
