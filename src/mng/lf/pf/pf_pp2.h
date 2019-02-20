@@ -13,8 +13,6 @@
 
 #define INITIAL_MAC_ADDR	{0x0, 0x1, 0x2, 0x3, 0x4, 0x5}
 
-extern int pp2_netdev_ifname_get(u32 pp_id, u32 ppio_id, char *ifname);
-
 int nmnicpf_pp2_port_pp2_init(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_port_init(struct nmnicpf *nmnicpf);
 int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf);

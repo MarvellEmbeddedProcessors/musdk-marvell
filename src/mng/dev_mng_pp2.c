@@ -43,28 +43,6 @@
 /** Hardware Functionality **/
 /** ====================== **/
 
-static int pp2_find_if_name(char *name)
-{
-	struct netdev_if_params	*netdev_params;
-	u32			 pp2_num_inst;
-	int			 err;
-
-	/* Retrieve netdev if information */
-	pp2_num_inst = pp2_get_num_inst();
-	netdev_params = kmalloc(sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO, GFP_KERNEL);
-	if (!netdev_params)
-		return -ENOMEM;
-
-	memset(netdev_params, 0, sizeof(*netdev_params) * pp2_num_inst * PP2_NUM_ETH_PPIO);
-	err = pp2_netdev_if_info_get(netdev_params);
-	if (err)
-		return err;
-
-	memcpy(name, netdev_params[0].if_name, strlen(netdev_params[0].if_name));
-
-	return 0;
-}
-
 static int pp2_sysfs_param_get(char *if_name, char *file)
 {
 	FILE *fp;
@@ -101,15 +79,8 @@ static void pp2_set_reserved_bpools(struct nmp *nmp)
 		nmp->nmpp2.used_bpools[i] = nmp->nmpp2.bm_pool_reserved_map;
 }
 
-static int pp2_get_rss_num_tbl(char *if_name)
+static int pp2_get_rss_num_tbl(char *if_name __attribute__((__unused__)))
 {
-	if (!lnx_is_mainline(lnx_id_get())) {
-		char file[PP2_MAX_BUF_STR_LEN];
-
-		sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-		return pp2_sysfs_param_get(if_name, file);
-	}
-
 	return PP2_DEF_KERNEL_NUM_RSS_TBL;
 }
 
@@ -123,10 +94,6 @@ static int pp2_inst_init(struct nmp *nmp)
 
 	if (!nmp->nmpp2.pp2_en)
 		return 0;
-
-	err = pp2_find_if_name(if_name);
-	if (err)
-		return err;
 
 	num_rss_tables = pp2_get_rss_num_tbl(if_name);
 	if (num_rss_tables < 0) {

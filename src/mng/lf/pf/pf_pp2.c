@@ -500,7 +500,7 @@ void nmnicpf_pp2_get_mac_addr(struct nmnicpf *nmnicpf, u8 *mac_addr)
 	u8 default_mac_addr[] = INITIAL_MAC_ADDR;
 
 	if (nmnicpf->pp2.num_ports >= 1) {
-		ret = pp2_netdev_ifname_get(nmnicpf->pp2.ports_desc[0].pp_id,
+		ret = pp2_netdev_get_ifname(nmnicpf->pp2.ports_desc[0].pp_id,
 					nmnicpf->pp2.ports_desc[0].ppio_id,
 					linux_name);
 		if (ret)

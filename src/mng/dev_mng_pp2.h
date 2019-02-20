@@ -12,15 +12,6 @@
 
 #include "mng/mv_nmp.h"
 
-struct netdev_if_params {
-	char if_name[16];
-	u32 admin_status;
-	u8 ppio_id;
-	u8 pp_id;
-};
-
-extern int pp2_netdev_if_info_get(struct netdev_if_params *netdev_params);
-
 int dev_mng_pp2_init(struct nmp *nmp);
 int dev_mng_pp2_terminate(struct nmp *nmp);
 
