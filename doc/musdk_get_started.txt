@@ -1,7 +1,7 @@
 .. _MUSDK-Installation:
 
-Getting Started with MUSDK
-===========================
+MUSDK Getting Started
+=====================
 
 Build Linux Kernel
 ------------------
