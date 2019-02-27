@@ -1,19 +1,19 @@
-From d5c42773c130234997b19eea8bed3ccef76e048a Mon Sep 17 00:00:00 2001
+From b1a7675618a01ebd8b54ca2072a2dede7b96f4ac Mon Sep 17 00:00:00 2001
 From: yuric <yuric@marvell.com>
 Date: Wed, 30 Jan 2019 14:40:03 +0200
-Subject: [PATCH 4/8] dts: musdk: pp2
+Subject: [PATCH 4/7] dts: musdk: pp2
 
 Change-Id: I04ef26a43926056167be6dbdb8cec8f2ab723a05
 Signed-off-by: yuric <yuric@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-cp110.dtsi | 7 +++++++
+ arch/arm64/boot/dts/marvell/armada-cp110.dtsi |    7 +++++++
  1 file changed, 7 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-index d2e4387ea494..2716661cc64d 100644
+index d5138b2..d9a81d1 100644
 --- a/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-cp110.dtsi
-@@ -109,6 +109,13 @@
+@@ -111,6 +111,13 @@
  			};
  		};
  
@@ -28,5 +28,5 @@ index d2e4387ea494..2716661cc64d 100644
  			compatible = "marvell,comphy-cp110";
  			reg = <0x120000 0x6000>;
 -- 
-2.19.1
+1.7.9.5
 

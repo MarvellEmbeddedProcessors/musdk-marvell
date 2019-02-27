@@ -1,7 +1,7 @@
-From 0012253dc2cd46d31fedff14b24db5c81c7a1e87 Mon Sep 17 00:00:00 2001
+From 2729b40293ae1585a2b85c815cf0f277bc6a9528 Mon Sep 17 00:00:00 2001
 From: Yelena Krivosheev <yelena@marvell.com>
 Date: Tue, 15 May 2018 09:52:33 +0300
-Subject: [PATCH 2/8] dts: musdk: sam
+Subject: [PATCH 2/7] dts: musdk: sam
 
 Change-Id: I98d639e3df9119290a701447be6134f9a427ee31
 ---
@@ -94,10 +94,10 @@ index fecb50e..e0bf04d 100644
  
  	CP110_LABEL(pcie0): pcie@600000 {
 diff --git a/arch/arm64/boot/dts/marvell/cn9130.dtsi b/arch/arm64/boot/dts/marvell/cn9130.dtsi
-index cff668a..546d59b 100644
+index 3a5f1ec..b78b4f4 100644
 --- a/arch/arm64/boot/dts/marvell/cn9130.dtsi
 +++ b/arch/arm64/boot/dts/marvell/cn9130.dtsi
-@@ -103,3 +103,7 @@
+@@ -107,3 +107,7 @@
  		};
  	};
  };
@@ -119,10 +119,10 @@ index 7c3c48d..a9b226d 100644
 +};
 +
 diff --git a/arch/arm64/boot/dts/marvell/cn9132-db.dtsi b/arch/arm64/boot/dts/marvell/cn9132-db.dtsi
-index 4836d5b..6a23582 100644
+index 5ac35b6..e6c43dd 100644
 --- a/arch/arm64/boot/dts/marvell/cn9132-db.dtsi
 +++ b/arch/arm64/boot/dts/marvell/cn9132-db.dtsi
-@@ -149,3 +149,8 @@
+@@ -150,3 +150,8 @@
  	usb-phy = <&cp2_usb3_0_phy1>;
  	phy-names = "usb";
  };

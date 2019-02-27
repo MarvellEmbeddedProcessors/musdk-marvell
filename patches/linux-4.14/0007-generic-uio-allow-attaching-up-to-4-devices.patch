@@ -1,19 +1,19 @@
-From 0bed467d8772def1db0bf2c4861566418073eab7 Mon Sep 17 00:00:00 2001
+From 5b830221a8c1859bef54040c971402515e8400cd Mon Sep 17 00:00:00 2001
 From: Shlomi Gridish <sgridish@marvell.com>
 Date: Sun, 2 Dec 2018 08:09:47 +0200
-Subject: [PATCH 8/8] generic-uio: allow attaching up to 4 devices
+Subject: [PATCH 7/7] generic-uio: allow attaching up to 4 devices
 
 Change-Id: Iff17fb8b867f83cf051083b6419300a7c04fe52d
 Signed-off-by: Shlomi Gridish <sgridish@marvell.com>
 ---
- drivers/uio/uio_pdrv_genirq.c | 6 ++++++
+ drivers/uio/uio_pdrv_genirq.c |    6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/uio/uio_pdrv_genirq.c b/drivers/uio/uio_pdrv_genirq.c
 index f598ecd..7c1e311 100644
 --- a/drivers/uio/uio_pdrv_genirq.c
 +++ b/drivers/uio/uio_pdrv_genirq.c
-@@ -254,10 +254,16 @@ static const struct dev_pm_ops uio_pdrv_genirq_dev_pm_ops = {
+@@ -254,10 +254,16 @@ static int uio_pdrv_genirq_runtime_nop(struct device *dev)
  #ifdef CONFIG_OF
  static struct of_device_id uio_of_genirq_match[] = {
  	{ /* This is filled with module_parm */ },
@@ -31,5 +31,5 @@ index f598ecd..7c1e311 100644
  #endif
  
 -- 
-2.7.4
+1.7.9.5
 
