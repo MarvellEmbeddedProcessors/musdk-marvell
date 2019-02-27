@@ -1,6 +1,30 @@
 Running MUSDK Examples
 ======================
 
+Preparations
+------------
+Please consult :ref:`MUSDK Getting Started <MUSDK-Installation>` for the detailed build instructions.
+Prior to running any MUSDK application on board, perform the following steps
+
+.. code-block:: console
+
+   > insmod musdk_cma.ko
+   > insmod uio_pdrv_genirq.ko of_id="generic-uio"
+
+To run MUSDK SAM test applications kernel modules below must be loaded first:
+
+.. code-block:: console
+
+	> insmod crypto_safexcel.ko rings=0,0
+	> insmod mv_sam_uio.ko
+
+.. note::
+
+	rings=x,y means how many EIP197/EIP97 rings allocated for kernel usage:
+		- x - for cp0 device
+		- y - for cp1 device (if exist)
+
+
 PKT-ECHO
 --------
 
@@ -35,15 +59,6 @@ The application provides several compile-time options, as described below::
 
 How To Run
 ~~~~~~~~~~
-    Base Configuration for A8040-DB::
-
-		> ifconfig eth0 10.10.10.1 netmask 255.255.255.0 up
-		> ifconfig eth1 11.11.11.1 netmask 255.255.255.0 up
-		> ifconfig eth2 12.12.12.1 netmask 255.255.255.0 up
-		> ifconfig eth3 13.13.13.1 netmask 255.255.255.0 up
-		> sleep 1
-		> insmod musdk_cma.ko
-		> insmod uio_pdrv_genirq.ko of_id="generic-uio"
 
     Command parameters:
 
@@ -240,24 +255,9 @@ use case is predefined and the system is configured according to this use case.
 
 How To Run
 ~~~~~~~~~~
-(1) Preferably use a A8040-A1-DB or A7040-A0-DB board.
+Run the application::
 
-(2) Compile code as written in the "Getting Started" section:
-	- Skip SAM compilation phase.
-	- Make sure ALL patches are applied.
-
-(3) In Linux, bring up the required interfaces
-
-(4) Bring up the modules. Below output is for a A8040-DB::
-
-		> cd /
-		> insmod musdk_cma.ko
-		Registered cma device: uio-cma
-		> insmod uio_pdrv_genirq.ko of_id="generic-uio"
-
-(5) Run the musdk_cls_demo application::
-
-		> ./musdk_cls_example OPTIONS
+	> ./musdk_cls_example OPTIONS
 
 Mandatory OPTIONS::
 
