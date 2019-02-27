@@ -9,7 +9,12 @@ Prior to running any MUSDK application on board, perform the following steps
 .. code-block:: console
 
    > insmod musdk_cma.ko
-   > insmod uio_pdrv_genirq.ko of_id="generic-uio"
+   > insmod uio_pdrv_genirq.ko of_id="generic-uio"  (see note below)
+
+.. Note::
+	- When using buildroot, the following steps are required
+		- rmmod uio_pdrv_genirq.ko
+		- insmod uio_pdrv_genirq.ko of_id="generic-uio"
 
 To run MUSDK SAM test applications kernel modules below must be loaded first:
 

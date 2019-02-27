@@ -111,8 +111,12 @@ Insert Kernel Modules
 (3) Insert MUSDK kernel space modules::
 
 	> insmod musdk_cma.ko     (mandatory)
+	> insmod uio_pdrv_genirq.ko of_id="generic-uio"     (mandatory)  (see note below)
 
-	> insmod uio_pdrv_genirq.ko of_id="generic-uio"     (mandatory)
+    .. note::
+	- When using buildroot, the following steps are required
+		- rmmod io_pdrv_genirq.ko
+		- insmod uio_pdrv_genirq.ko of_id="generic-uio"
 
     For A7040/8040/CN913x::
 
