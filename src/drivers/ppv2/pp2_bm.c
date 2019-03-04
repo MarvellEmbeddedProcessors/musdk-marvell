@@ -542,6 +542,9 @@ void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int po
 {
 	struct pp2_bm_pool *pool = pp2_inst->bm_pools[pool_id];
 
+	if (pool->fc_port_mask & BIT(port_id))
+		return;
+
 	pool->fc_port_mask |= BIT(port_id);
 	pool->fc_stop_threshold += pool_stop_bufs;
 	pool->fc_start_threshold += pool_start_bufs;
@@ -553,6 +556,9 @@ void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int po
 void pp2_bm_port_remove(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs)
 {
 	struct pp2_bm_pool *pool = pp2_inst->bm_pools[pool_id];
+
+	if (!(pool->fc_port_mask & BIT(port_id)))
+		return;
 
 	pool->fc_port_mask &= ~(BIT(port_id));
 	pool->fc_stop_threshold -= pool_stop_bufs;
