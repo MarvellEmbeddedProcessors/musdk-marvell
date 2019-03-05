@@ -2282,6 +2282,11 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 		return -EPERM;
 	}
 
+	/* If the feature is already enabled, params->tc_inqs_mask */
+	/* still can be changed, hence have to continue and check mask update */
+	if ((port->tx_pause_en == 0) && (ena == 0))
+		return 0;
+
 	/* Find mtu_based flow_control values */
 	i = 0;
 	while ((port->port_mtu > pp2_fc[i].port_mtu) && (i < (ARRAY_SIZE(pp2_fc))))
