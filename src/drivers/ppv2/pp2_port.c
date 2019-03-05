@@ -1527,6 +1527,14 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/* Set default tx pause state as disabled */
 	port->tx_pause_en = 0;
 
+	/* set_rx_pause requires a change of state */
+	port->rx_pause_en = 1;
+
+#ifndef DISABLE_RXPAUSE_JIRA5943
+	/* disable RX pause on init */
+	pp2_port_set_rx_pause(port, 0);
+#endif
+
 	return 0;
 }
 

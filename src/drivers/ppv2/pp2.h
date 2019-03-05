@@ -551,6 +551,8 @@ struct pp2_port {
 	u32 rxq_flow_cntrl_mask;
 	/* Tx pause enable */
 	int tx_pause_en;
+	/* Rx pause enable */
+	int rx_pause_en;
 	/* number of vlan filters */
 	u32 num_vlans;
 };

@@ -114,7 +114,6 @@
 #include "cls/pp2_prs.h"
 #include "lib/uio_helper.h"
 
-
 /* Port Control routines */
 static int parse_hex(char *str, u8 *addr, size_t size)
 {
@@ -195,21 +194,7 @@ int pp2_port_get_link_state(struct pp2_port *port, int  *en)
 /* Get Rx Pause FC status */
 int pp2_port_get_rx_pause(struct pp2_port *port, int *en)
 {
-	struct ifreq ifr;
-	struct ethtool_pauseparam param;
-	int rc;
-
-	strcpy(ifr.ifr_name, port->linux_name);
-
-	param.cmd = ETHTOOL_GPAUSEPARAM;
-	ifr.ifr_data = &param;
-	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
-	if (rc) {
-		pr_err("PORT: unable to get rx pause status\n");
-		return rc;
-	}
-	*en = param.rx_pause;
-
+	*en = port->rx_pause_en;
 	pr_debug("PORT: rx pause is %s\n", (*en) ? "enabled" : "disabled");
 	return 0;
 }
@@ -220,6 +205,14 @@ int pp2_port_set_rx_pause(struct pp2_port *port, int en)
 	struct ifreq ifr;
 	struct ethtool_pauseparam param;
 	int rc;
+
+#ifdef DISABLE_RXPAUSE_JIRA5943
+	pr_err("PORT: rx pause set is temporary not supported\n");
+	return -ENOTSUP;
+#endif
+
+	if (port->rx_pause_en == en)
+		return 0;
 
 	memset(&param, 0, sizeof(param));
 	strcpy(ifr.ifr_name, port->linux_name);
@@ -234,6 +227,7 @@ int pp2_port_set_rx_pause(struct pp2_port *port, int en)
 		return rc;
 	}
 
+	port->rx_pause_en = en;
 	pr_debug("PORT: rx pause is %s\n", (en) ? "enabled" : "disabled");
 	return 0;
 }
