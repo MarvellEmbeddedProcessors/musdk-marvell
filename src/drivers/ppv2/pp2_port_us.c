@@ -687,6 +687,7 @@ int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *s
 	struct ethtool_stats *estats;
 	u32 i;
 	int rc;
+	enum musdk_lnx_id lnx_id = lnx_id_get();
 
 	if (!port->stats_name)
 		return -1;
@@ -714,30 +715,75 @@ int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *s
 		char *cnt = (char *)&port->stats_name->data[i * ETH_GSTRING_LEN];
 		uint64_t val = estats->data[i];
 
-		if (!strcmp(cnt, "rx_bytes"))
-			stats->rx_bytes = val;
-		else if (!strcmp(cnt, "rx_frames"))
-			stats->rx_packets = val;
-		else if (!strcmp(cnt, "rx_unicast"))
-			stats->rx_unicast_packets = val;
-		else if (!strcmp(cnt, "rx_ppv2_overrun"))
-			stats->rx_fifo_dropped = val;
-		else if (!strcmp(cnt, "rx_cls_drop"))
-			stats->rx_cls_dropped = val;
-		else if (!strcmp(cnt, "rx_total_err"))
-			stats->rx_errors = val;
-		else if (!strcmp(cnt, "tx_bytes"))
-			stats->tx_bytes = val;
-		else if (!strcmp(cnt, "tx_frames"))
-			stats->tx_packets = val;
-		else if (!strcmp(cnt, "tx_unicast"))
-			stats->tx_unicast_packets = val;
-		else if (!strcmp(cnt, "collision"))
-			stats->tx_errors += val;
-		else if (!strcmp(cnt, "late_collision"))
-			stats->tx_errors += val;
-		else if (!strcmp(cnt, "tx_crc_sent"))
-			stats->tx_errors += val;
+		if (lnx_is_mainline(lnx_id)) {
+			if (!strcmp(cnt, "good_octets_received"))
+				stats->rx_bytes = val;
+			else if (!strcmp(cnt, "unicast_frames_received")) {
+				stats->rx_unicast_packets = val;
+				stats->rx_packets += val;
+			} else if (!strcmp(cnt, "broadcast_frames_received"))
+				stats->rx_packets += val;
+			else if (!strcmp(cnt, "multicast_frames_received"))
+				stats->rx_packets += val;
+			else if (!strcmp(cnt, "rx_fifo_overrun"))
+				stats->rx_errors += val;
+			else if (!strcmp(cnt, "undersize_received"))
+				stats->rx_errors += val;
+			else if (!strcmp(cnt, "fragments_err_received"))
+				stats->rx_errors += val;
+			else if (!strcmp(cnt, "oversize_received"))
+				stats->rx_errors += val;
+			else if (!strcmp(cnt, "jabber_received"))
+				stats->rx_errors += val;
+			else if (!strcmp(cnt, "mac_receive_error"))
+				stats->rx_errors += val;
+			else if (!strcmp(cnt, "bad_crc_event"))
+				stats->rx_errors += val;
+			else if (!strcmp(cnt, "rx_ppv2_overrun"))
+				stats->rx_fifo_dropped = val;
+			else if (!strcmp(cnt, "rx_cls_drop"))
+				stats->rx_cls_dropped = val;
+			else if (!strcmp(cnt, "good_octets_sent"))
+				stats->tx_bytes = val;
+			else if (!strcmp(cnt, "unicast_frames_sent")) {
+				stats->tx_unicast_packets = val;
+				stats->tx_packets += val;
+			} else if (!strcmp(cnt, "multicast_frames_sent"))
+				stats->tx_packets += val;
+			else if (!strcmp(cnt, "broadcast_frames_sent"))
+				stats->tx_packets += val;
+			else if (!strcmp(cnt, "collision"))
+				stats->tx_errors += val;
+			else if (!strcmp(cnt, "late_collision"))
+				stats->tx_errors += val;
+			else if (!strcmp(cnt, "crc_errors_sent"))
+				stats->tx_errors += val;
+		} else {
+			if (!strcmp(cnt, "rx_bytes"))
+				stats->rx_bytes = val;
+			else if (!strcmp(cnt, "rx_frames"))
+				stats->rx_packets = val;
+			else if (!strcmp(cnt, "rx_unicast"))
+				stats->rx_unicast_packets = val;
+			else if (!strcmp(cnt, "rx_ppv2_overrun"))
+				stats->rx_fifo_dropped = val;
+			else if (!strcmp(cnt, "rx_cls_drop"))
+				stats->rx_cls_dropped = val;
+			else if (!strcmp(cnt, "rx_total_err"))
+				stats->rx_errors = val;
+			else if (!strcmp(cnt, "tx_bytes"))
+				stats->tx_bytes = val;
+			else if (!strcmp(cnt, "tx_frames"))
+				stats->tx_packets = val;
+			else if (!strcmp(cnt, "tx_unicast"))
+				stats->tx_unicast_packets = val;
+			else if (!strcmp(cnt, "collision"))
+				stats->tx_errors += val;
+			else if (!strcmp(cnt, "late_collision"))
+				stats->tx_errors += val;
+			else if (!strcmp(cnt, "tx_crc_sent"))
+				stats->tx_errors += val;
+		}
 	}
 
 	free(estats);
