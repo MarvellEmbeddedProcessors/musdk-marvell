@@ -112,6 +112,7 @@
 #include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
 #include "cls/pp2_rss.h"
+#include "cls/pp2_prs.h"
 
 
 struct pp2_fc_values pp2_fc[3] = {
@@ -1119,6 +1120,18 @@ pp2_port_txqs_deinit(struct pp2_port *port)
 	pp2_reg_write(cpu_slot, MVPP2_TX_PORT_FLUSH_REG, val);
 }
 
+/* Clear PRS vlan filtering entries configured by the kernel */
+static void
+pp2_port_clear_prs_vlans(struct pp2_port *port)
+{
+	uint32_t vlans[MVPP2_PRS_VLAN_FILT_MAX] = {0};
+	int i;
+
+	mv_pp2x_prs_clear_active_vlans(port, vlans);
+	for (i = 0; (i < MVPP2_PRS_VLAN_FILT_MAX) && (vlans[i] != 0); i++)
+		pp2_port_clear_vlan(port, vlans[i]);
+}
+
 static void
 pp2_port_start_dev(struct pp2_port *port)
 {
@@ -1521,8 +1534,10 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/* At this point, the port is default allocated and configured */
 	*port_hdl = port;
 
-	if (NOT_LPBK_PORT(port) && (param->type == PP2_PPIO_T_NIC))
+	if (NOT_LPBK_PORT(port) && (param->type == PP2_PPIO_T_NIC)) {
 		pp2_port_initialize_statistics(port);
+		pp2_port_clear_prs_vlans(port);
+	}
 
 	/* Set default tx pause state as disabled */
 	port->tx_pause_en = 0;

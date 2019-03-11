@@ -537,6 +537,9 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan);
 /* Remove vlan */
 int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan);
 
+/* Clear vlan */
+int pp2_port_clear_vlan(struct pp2_port *port, u16 vlan);
+
 int pp2_port_initialize_statistics(struct pp2_port *port);
 int pp2_port_get_statistics(struct pp2_port *port, struct pp2_ppio_statistics *stats);
 

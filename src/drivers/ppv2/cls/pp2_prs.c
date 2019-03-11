@@ -2403,6 +2403,34 @@ static int mvpp2x_prs_mac_da_range_find(struct pp2_inst *inst, uintptr_t cpu_slo
 }
 
 
+/* mv_pp2x_prs_clear_active_vlans
+ *
+ * DESCRIPTION:	Read active vlans into vlans array and clear them from shadow
+ *
+ * INPUTS:	port
+ *
+ * OUTPUTS:	vlans - vlan filtering entries configured in PRS for input port
+ *
+ * RETURNS:	none
+ */
+void mv_pp2x_prs_clear_active_vlans(struct pp2_port *port, uint32_t *vlans)
+{
+	struct pp2_inst *inst = port->parent;
+	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
+	int index = 0;
+	int tid;
+
+	for (tid = MVPP2_PRS_VID_PORT_FIRST(port->id);
+	     tid <= MVPP2_PRS_VID_PORT_LAST(port->id); tid++) {
+		if (prs_shadow[tid].valid && prs_shadow[tid].lu == MVPP2_PRS_LU_VID) {
+			vlans[index++] = ((prs_shadow[tid].tcam.byte[TCAM_DATA_BYTE(2)] & 0xF) << 8) +
+					 prs_shadow[tid].tcam.byte[TCAM_DATA_BYTE(3)];
+			prs_shadow[tid].valid = false;
+		}
+	}
+}
+
+
 /* Update parser's mac da entry */
 int mv_pp2x_prs_mac_da_accept(struct pp2_port *port, const u8 *da, bool add)
 {

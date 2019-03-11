@@ -632,6 +632,24 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 	return 0;
 }
 
+/* Clear vlan */
+int pp2_port_clear_vlan(struct pp2_port *port, u16 vlan)
+{
+	int rc;
+	char buf[PP2_MAX_BUF_STR_LEN];
+
+	/* build manually the system command */
+	/* [TODO] check other alternatives for setting vlan id */
+	sprintf(buf, "ip link delete %s.%d", port->linux_name, vlan);
+	rc = system(buf);
+	if (rc != 0) {
+		pr_err("clear vlan operation failed\n");
+		return rc;
+	}
+
+	return 0;
+}
+
 int pp2_port_initialize_statistics(struct pp2_port *port)
 {
 	struct {

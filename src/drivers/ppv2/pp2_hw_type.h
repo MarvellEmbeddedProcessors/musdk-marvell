@@ -1554,6 +1554,8 @@ enum mv_pp2x_tag_type {
 #define MVPP2_PRS_VLAN_FILT_MAX		11
 #define MVPP2_PRS_VLAN_FILT_RANGE_SIZE	33
 
+#define MVPP2_PRS_VLAN_FILT_MAX_ENTRY   (MVPP2_PRS_VLAN_FILT_MAX - 2)
+
 /* Tcam structure:
  * - lookup ID - 4 bits
  * - port ID - 1 byte
@@ -1607,6 +1609,10 @@ enum mv_pp2x_tag_type {
 #define MVPP2_PE_MAC_MC_PROMISCUOUS	(MVPP2_PRS_TCAM_SRAM_SIZE - 2)
 #define MVPP2_PE_MAC_UC_PROMISCUOUS	(MVPP2_PRS_TCAM_SRAM_SIZE - 1)
 #define MVPP2_PE_TID_SIZE		(MVPP2_PE_LAST_FREE_TID - MVPP2_PE_FIRST_FREE_TID)
+
+#define MVPP2_PRS_VID_PORT_FIRST(port)	(MVPP2_PE_VID_FILT_RANGE_START + \
+					 ((port) * MVPP2_PRS_VLAN_FILT_MAX))
+#define MVPP2_PRS_VID_PORT_LAST(port)	(MVPP2_PRS_VID_PORT_FIRST(port) + MVPP2_PRS_VLAN_FILT_MAX_ENTRY)
 
 /* Sram structure
  * The fields are represented by MVPP2_PRS_TCAM_DATA_REG(3)->(0).
