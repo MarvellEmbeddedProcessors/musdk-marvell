@@ -1,12 +1,13 @@
-From 5b830221a8c1859bef54040c971402515e8400cd Mon Sep 17 00:00:00 2001
+From f242990ee83adf6b018b1cd71c5d599c1725b7ab Mon Sep 17 00:00:00 2001
 From: Shlomi Gridish <sgridish@marvell.com>
 Date: Sun, 2 Dec 2018 08:09:47 +0200
 Subject: [PATCH 7/7] generic-uio: allow attaching up to 4 devices
 
 Change-Id: Iff17fb8b867f83cf051083b6419300a7c04fe52d
 Signed-off-by: Shlomi Gridish <sgridish@marvell.com>
+Signed-off-by: Stefan Chulski <stefanc@marvell.com>
 ---
- drivers/uio/uio_pdrv_genirq.c |    6 ++++++
+ drivers/uio/uio_pdrv_genirq.c | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/drivers/uio/uio_pdrv_genirq.c b/drivers/uio/uio_pdrv_genirq.c
@@ -31,5 +32,5 @@ index f598ecd..7c1e311 100644
  #endif
  
 -- 
-1.7.9.5
+1.9.1
 

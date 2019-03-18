@@ -1,24 +1,22 @@
-From c7ad5b285b5d3830f6d276b656992a35d685c4fe Mon Sep 17 00:00:00 2001
+From 369225d00b2206f64b0e2de00efcbc4186fc25ae Mon Sep 17 00:00:00 2001
 From: Yuval Caduri <cyuval@marvell.com>
 Date: Tue, 1 May 2018 17:13:13 +0300
 Subject: [PATCH 1/7] dts: musdk: cma memory
 
 Change-Id: I19cc0377d787b997dbb44d90d1474670eeaa5c98
 Signed-off-by: Yuval Caduri <cyuval@marvell.com>
+Signed-off-by: Stefan Chulski <stefanc@marvell.com>
 ---
- arch/arm64/boot/dts/marvell/armada-37xx.dtsi       |    1 +
- arch/arm64/boot/dts/marvell/armada-ap806.dtsi      |    1 +
- arch/arm64/boot/dts/marvell/armada-ap807.dtsi      |    1 +
- arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi  |    1 +
- .../arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi |   57 +++++++++++++++++++
- .../boot/dts/marvell/musdk-cma-mem-ap806.dtsi      |   58 ++++++++++++++++++++
- .../boot/dts/marvell/musdk-cma-mem-ap807.dtsi      |   58 ++++++++++++++++++++
- .../boot/dts/marvell/musdk-cma-mem-ap810.dtsi      |   53 ++++++++++++++++++
- 8 files changed, 230 insertions(+)
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi       |  1 +
+ arch/arm64/boot/dts/marvell/armada-ap806.dtsi      |  1 +
+ arch/arm64/boot/dts/marvell/armada-ap807.dtsi      |  1 +
+ .../arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi | 57 +++++++++++++++++++++
+ .../boot/dts/marvell/musdk-cma-mem-ap806.dtsi      | 58 ++++++++++++++++++++++
+ .../boot/dts/marvell/musdk-cma-mem-ap807.dtsi      | 58 ++++++++++++++++++++++
+ 6 files changed, 176 insertions(+)
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-ap806.dtsi
  create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-ap807.dtsi
- create mode 100644 arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi
 
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 index a7279b7..faefbb9 100644
@@ -56,18 +54,6 @@ index e2a0e92..beb69e5 100644
  
  / {
  	model = "Marvell Armada AP807";
-diff --git a/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi b/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi
-index ca9e4c8..4ef972f 100644
---- a/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-ap810-ap0.dtsi
-@@ -8,6 +8,7 @@
- #include <dt-bindings/interrupt-controller/arm-gic.h>
- 
- /dts-v1/;
-+#include "musdk-cma-mem-ap810.dtsi"
- 
- / {
- 	model = "Marvell Armada AP810";
 diff --git a/arch/arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi b/arch/arm64/boot/dts/marvell/musdk-cma-mem-37xx.dtsi
 new file mode 100644
 index 0000000..eafe5cc
@@ -259,65 +245,6 @@ index 0000000..b1e59b5
 +		};
 +	};
 +};
-diff --git a/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi b/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi
-new file mode 100644
-index 0000000..c9e0501
---- /dev/null
-+++ b/arch/arm64/boot/dts/marvell/musdk-cma-mem-ap810.dtsi
-@@ -0,0 +1,53 @@
-+/*
-+ * Copyright (C) 2016 Marvell Technology Group Ltd.
-+ *
-+ * This file is dual-licensed: you can use it either under the terms
-+ * of the GPLv2 or the X11 license, at your option. Note that this dual
-+ * licensing only applies to this file, and not this project as a
-+ * whole.
-+ *
-+ *  a) This library is free software; you can redistribute it and/or
-+ *     modify it under the terms of the GNU General Public License as
-+ *     published by the Free Software Foundation; either version 2 of the
-+ *     License, or (at your option) any later version.
-+ *
-+ *     This library is distributed in the hope that it will be useful,
-+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *     GNU General Public License for more details.
-+ *
-+ * Or, alternatively,
-+ *
-+ *  b) Permission is hereby granted, free of charge, to any person
-+ *     obtaining a copy of this software and associated documentation
-+ *     files (the "Software"), to deal in the Software without
-+ *     restriction, including without limitation the rights to use,
-+ *     copy, modify, merge, publish, distribute, sublicense, and/or
-+ *     sell copies of the Software, and to permit persons to whom the
-+ *     Software is furnished to do so, subject to the following
-+ *     conditions:
-+ *
-+ *     The above copyright notice and this permission notice shall be
-+ *     included in all copies or substantial portions of the Software.
-+ *
-+ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-+ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-+ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-+ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-+ *     OTHER DEALINGS IN THE SOFTWARE.
-+ */
-+/ {
-+	model = "Marvell Armada AP810";
-+	compatible = "marvell,armada-ap810";
-+	config-space {
-+		compatible = "simple-bus";
-+		musdk_cma {
-+			compatible = "marvell,musdk-cma";
-+			dma-coherent;
-+			status = "okay";
-+		};
-+	};
-+};
 -- 
-1.7.9.5
+1.9.1
 
