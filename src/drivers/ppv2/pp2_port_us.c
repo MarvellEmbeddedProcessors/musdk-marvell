@@ -206,11 +206,6 @@ int pp2_port_set_rx_pause(struct pp2_port *port, int en)
 	struct ethtool_pauseparam param;
 	int rc;
 
-#ifdef DISABLE_RXPAUSE_JIRA5943
-	pr_err("PORT: rx pause set is temporary not supported\n");
-	return -ENOTSUP;
-#endif
-
 	if (port->rx_pause_en == en)
 		return 0;
 

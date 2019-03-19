@@ -114,9 +114,6 @@
 
 #define MVPP22_F_IF_MUSDK_PRIV		BIT(0)
 
-/* Disable RX Pause */
-#define DISABLE_RXPAUSE_JIRA5943
-
 struct pp2_port;
 
 /**
