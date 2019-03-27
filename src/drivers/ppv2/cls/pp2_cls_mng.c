@@ -1186,6 +1186,11 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 	rule_port->port_value = (1 << port->id);
 	rule_port->port_mask = 0xff;
 
+	if (rule->num_fields == 0) {
+		pr_err("[%s] Error: num of fields in rule is 0. Nothing to be done\n", __func__);
+		return -EINVAL;
+	}
+
 	/* parse the protocol and protocol fields */
 	for (idx1 = 0; idx1 < params->key.num_fields; idx1++) {
 		rc = lookup_field_id(params->key.proto_field[idx1].proto, params->key.proto_field[idx1].field.eth,
@@ -1199,6 +1204,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			pr_err("%s(%d) protocol_field not supported yet - skipping!\n", __func__, __LINE__);
 			continue;
 		}
+
 		if (params->key.proto_field[idx1].proto == MV_NET_PROTO_IP4) {
 			ipv4_flag = 1;
 			field_bm |= MVPP2_MATCH_IPV4_PKT;
