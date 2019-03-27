@@ -171,7 +171,7 @@ enum mv_net_eth_dsa_fields {
 enum mv_net_vlan_fields {
 	MV_NET_VLAN_F_PRI = 0,
 	MV_NET_VLAN_F_ID,
-	MV_NET_VLAN_F_TCI
+	MV_NET_VLAN_F_TCI	/* not supported */
 };
 
 enum mv_net_ipv4_fields {
@@ -182,7 +182,7 @@ enum mv_net_ipv4_fields {
 };
 
 enum mv_net_ipv6_fields {
-	MV_NET_IP6_F_TC = 0,
+	MV_NET_IP6_F_TC = 0,	/* not supported */
 	MV_NET_IP6_F_SA,
 	MV_NET_IP6_F_DA,
 	MV_NET_IP6_F_FLOW,
