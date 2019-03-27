@@ -448,7 +448,11 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 	struct pp2_cls_tbl_action *action;
 	u32 key_size[PP2_CLS_TBL_MAX_NUM_FIELDS];
 	u8 key[PP2_CLS_TBL_MAX_NUM_FIELDS][CLS_APP_STR_SIZE_MAX] = {0};
-	u8 mask[PP2_CLS_TBL_MAX_NUM_FIELDS][CLS_APP_STR_SIZE_MAX] = {0};
+	u8 mask[PP2_CLS_TBL_MAX_NUM_FIELDS][CLS_APP_STR_SIZE_MAX] = {
+		"0xFFFFFFFFFFFFFFFF",
+		"0xFFFFFFFFFFFFFFFF",
+		"0xFFFFFFFFFFFFFFFF",
+		"0xFFFFFFFFFFFFFFFF"};
 	char *ret_ptr;
 	int option = 0;
 	int long_index = 0;
@@ -533,9 +537,6 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 						printf("parsing fail, wrong input for --mask\n");
 						return -EINVAL;
 					}
-				} else {
-					printf("parsing fail, wrong input, line = %d\n", __LINE__);
-					return -EINVAL;
 				}
 			} else {
 				printf("parsing fail, wrong input, line = %d\n", __LINE__);
