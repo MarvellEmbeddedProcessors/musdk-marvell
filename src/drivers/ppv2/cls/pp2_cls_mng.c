@@ -835,6 +835,15 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 			pr_err("%s(%d) lookup id error!\n", __func__, __LINE__);
 			goto end;
 		}
+
+		if (field == NOT_SUPPORTED_YET) {
+			pr_err("key not supported (proto:field %d:%d) - table not created.\n",
+				params->key.proto_field[idx].proto,
+				params->key.proto_field[idx].field.eth);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		if (params->key.proto_field[idx].proto == MV_NET_PROTO_IP4) {
 			ipv4_flag = 1;
 			if ((params->key.proto_field[idx].field.ipv4 == MV_NET_IP4_F_PROTO) &&
