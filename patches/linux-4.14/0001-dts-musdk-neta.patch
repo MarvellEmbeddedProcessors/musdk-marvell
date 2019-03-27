@@ -1,7 +1,7 @@
-From 56d06b2971bbd2161403080d4c078ff5e52179b6 Mon Sep 17 00:00:00 2001
+From 7aecc0e0e251c15c9f2b5f360abf9fc4c96229ac Mon Sep 17 00:00:00 2001
 From: Liron Himi <lironh@marvell.com>
 Date: Tue, 23 Oct 2018 23:09:26 +0300
-Subject: [PATCH 5/7] dts: musdk: neta
+Subject: [PATCH 1/2] dts: musdk: neta
 
 Change-Id: I89ecda91ac0ef8a65a7fa7ce68193e291ab5191c
 Signed-off-by: Liron Himi <lironh@marvell.com>
@@ -69,10 +69,10 @@ index 0000000..5064821
 +};
 \ No newline at end of file
 diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-index 3360ed9..174873c 100644
+index 5189e05..f53e82c 100644
 --- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
 +++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
-@@ -318,6 +318,7 @@
+@@ -316,6 +316,7 @@
  				   interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
  				   clocks = <&sb_periph_clk 8>;
  				   status = "disabled";
@@ -80,7 +80,7 @@ index 3360ed9..174873c 100644
  			};
  
  			mdio: mdio@32004 {
-@@ -333,6 +334,21 @@
+@@ -331,6 +332,21 @@
  				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
  				clocks = <&sb_periph_clk 7>;
  				status = "disabled";
@@ -103,5 +103,5 @@ index 3360ed9..174873c 100644
  
  			usb3: usb@58000 {
 -- 
-1.9.1
+2.7.4
 
