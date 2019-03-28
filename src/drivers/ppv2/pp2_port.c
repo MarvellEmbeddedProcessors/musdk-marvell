@@ -2333,6 +2333,7 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	int i, ena = params->en;
 	struct pp2_fc_values  *fc_values = NULL;
 	uintptr_t cpu_slot = port->parent->hw.base[0].va;
+	u32 first_log_rxq;
 
 	if (!PP2_TX_PAUSE_SUPPORT(port)) {
 		pr_err("%s: tx_pause not supported in system\n", __func__);
@@ -2354,10 +2355,11 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	if (ena) {
 		if (params->use_tc_pause_inqs) {
 			for (i = 0; i < port->num_tcs; i++) {
-				u32 tc_rx_mask = GENMASK((port->tc[i].tc_config.first_rxq +
+				first_log_rxq = port->tc[i].tc_config.first_rxq % PP2_PPIO_MAX_NUM_INQS;
+				u32 tc_rx_mask = GENMASK((first_log_rxq +
 							  port->tc[i].tc_config.num_in_qs - 1),
-							 port->tc[i].tc_config.first_rxq);
-				u32 tc_pause_rx_mask = params->tc_inqs_mask[i] << port->tc[i].tc_config.first_rxq;
+							  first_log_rxq);
+				u32 tc_pause_rx_mask = params->tc_inqs_mask[i] << first_log_rxq;
 
 				if (tc_pause_rx_mask & (~tc_rx_mask)) {
 					pr_err("%s: ppio-%d-%d, tc:%d, tc_inqs_mask:0x%x has non-existent rx_qs\n",
@@ -2375,9 +2377,10 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 			}
 		} else {
 			for (i = 0; i < port->num_tcs; i++) {
-				u32 tc_rx_mask = GENMASK((port->tc[i].tc_config.first_rxq +
+				first_log_rxq = port->tc[i].tc_config.first_rxq % PP2_PPIO_MAX_NUM_INQS;
+				u32 tc_rx_mask = GENMASK((first_log_rxq +
 							  port->tc[i].tc_config.num_in_qs - 1),
-							 port->tc[i].tc_config.first_rxq);
+							  first_log_rxq);
 				loc_fc_rxq_mask |= tc_rx_mask;
 			}
 
