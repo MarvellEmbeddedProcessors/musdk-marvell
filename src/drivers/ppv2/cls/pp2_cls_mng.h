@@ -105,7 +105,9 @@
 /******************************************************************************/
 /*                                 MACROS                                     */
 /******************************************************************************/
-#define CLS_MNG_KEY_SIZE_MAX			40	/* Max possible size of HEK key */
+#define CLS_MNG_KEY_SIZE_MAX			37	/* Max possible size of HEK key */
+#define CLS_MNG_RULES_SIZE_MAX			20	/* Max possible rules in CLS table */
+
 
 /******************************************************************************/
 /*                              ENUMERATIONS                                  */

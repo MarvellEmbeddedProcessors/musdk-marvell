@@ -800,6 +800,11 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 		return -EINVAL;
 	}
 
+	if (mv_pp2x_range_validate(params->max_num_rules, 0, CLS_MNG_RULES_SIZE_MAX)) {
+		pr_err("%s(%d) fail, max_num_rules = %d is out of range\n", __func__, __LINE__, params->max_num_rules);
+		return -EINVAL;
+	}
+
 	if (mv_pp2x_range_validate(params->default_act.cos->tc, 0, port->num_tcs)) {
 		pr_err("%s(%d) fail, tc = %d is out of range\n", __func__, __LINE__, params->default_act.cos->tc);
 		return -EINVAL;
@@ -813,6 +818,16 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	if (mv_pp2x_range_validate(params->key.num_fields, 0, PP2_CLS_TBL_MAX_NUM_FIELDS)) {
 		pr_err("%s(%d) fail, num_fields = %d is out of range\n", __func__, __LINE__, params->key.num_fields);
 		return -EINVAL;
+	}
+
+	for (i = 0; i < params->key.num_fields; i++) {
+		if (mv_pp2x_range_validate(params->key.proto_field[i].proto,
+					   MV_NET_PROTO_NONE + 1,
+					   MV_NET_PROTO_LAST - 1)) {
+			pr_err("%s(%d) fail, protocol = %d is out of range\n", __func__, __LINE__,
+				params->key.proto_field[i].proto);
+			return -EINVAL;
+		}
 	}
 
 	if ((params->default_act.type != PP2_CLS_TBL_ACT_DROP) && (params->default_act.type != PP2_CLS_TBL_ACT_DONE)) {
