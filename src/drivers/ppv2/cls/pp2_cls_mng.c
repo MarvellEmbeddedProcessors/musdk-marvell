@@ -810,12 +810,12 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 		return -EINVAL;
 	}
 
-	if (mv_pp2x_range_validate(params->key.key_size, 0, CLS_MNG_KEY_SIZE_MAX)) {
+	if (mv_pp2x_range_validate(params->key.key_size, 1, CLS_MNG_KEY_SIZE_MAX)) {
 		pr_err("%s(%d) fail, key_size = %d is out of range\n", __func__, __LINE__, params->key.key_size);
 		return -EINVAL;
 	}
 
-	if (mv_pp2x_range_validate(params->key.num_fields, 0, PP2_CLS_TBL_MAX_NUM_FIELDS)) {
+	if (mv_pp2x_range_validate(params->key.num_fields, 1, PP2_CLS_TBL_MAX_NUM_FIELDS)) {
 		pr_err("%s(%d) fail, num_fields = %d is out of range\n", __func__, __LINE__, params->key.num_fields);
 		return -EINVAL;
 	}
