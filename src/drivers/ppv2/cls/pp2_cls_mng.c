@@ -1196,6 +1196,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 	u16 ipproto;
 	u32 idx1, idx2;
 	u32 field_bm = 0, bm = 0;
+	u32 src, dst;
 
 	rule_port->port_type = MVPP2_SRC_PORT_TYPE_PHY;
 	rule_port->port_value = (1 << port->id);
@@ -1540,11 +1541,19 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->l4_src);
+			rc = kstrtou32((char *)(rule->fields[idx1].key), 0, &src);
 			if (rc) {
-				pr_err("%s(%d)) Falied to parse L4 source port.", __func__, __LINE__);
+				pr_err("%s(%d)) Falied to parse L4 source port.\n", __func__, __LINE__);
 				return rc;
 			}
+
+			if (src > ((1 << L4_SRC_FIELD_SIZE) - 1)) {
+				pr_err("%s(%d)) L4 src port value too big. Max value %x\n", __func__, __LINE__,
+					((1 << L4_SRC_FIELD_SIZE) - 1));
+				return -EFAULT;
+			}
+
+			mng_pkt_key->pkt_key->l4_src = src;
 
 			pr_debug("L4_SRC_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_src);
 			break;
@@ -1554,11 +1563,19 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 				       rule->fields[idx1].size);
 				return -EINVAL;
 			}
-			rc = kstrtou16((char *)(rule->fields[idx1].key), 0, &mng_pkt_key->pkt_key->l4_dst);
+			rc = kstrtou32((char *)(rule->fields[idx1].key), 0, &dst);
 			if (rc) {
-				pr_err("%s(%d)) Falied to parse L4 destination port.", __func__, __LINE__);
+				pr_err("%s(%d)) Falied to parse L4 destination port.\n", __func__, __LINE__);
 				return rc;
 			}
+
+			if (dst > ((1 << L4_DST_FIELD_SIZE) - 1)) {
+				pr_err("%s(%d)) L4 dst port value too big. Max value %x\n", __func__, __LINE__,
+					((1 << L4_DST_FIELD_SIZE) - 1));
+				return -EFAULT;
+			}
+
+			mng_pkt_key->pkt_key->l4_dst = dst;
 
 			pr_debug("L4_DST_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_dst);
 			break;
