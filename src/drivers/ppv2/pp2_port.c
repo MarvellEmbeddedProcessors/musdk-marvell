@@ -1534,10 +1534,11 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 	/* At this point, the port is default allocated and configured */
 	*port_hdl = port;
 
-	if (NOT_LPBK_PORT(port) && (param->type == PP2_PPIO_T_NIC)) {
-		pp2_port_initialize_statistics(port);
-		pp2_port_clear_prs_vlans(port);
-	}
+	if (!(NOT_LPBK_PORT(port) && (param->type == PP2_PPIO_T_NIC)))
+		return 0;
+
+	pp2_port_initialize_statistics(port);
+	pp2_port_clear_prs_vlans(port);
 
 	/* Set default tx pause state as disabled */
 	port->tx_pause_en = 0;
