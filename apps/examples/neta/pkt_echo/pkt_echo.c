@@ -913,7 +913,7 @@ int main(int argc, char *argv[])
 {
 	struct mvapp_params	mvapp_params;
 	u64			cores_mask;
-	int			i, err;
+	int			err;
 
 	setbuf(stdout, NULL);
 	pr_info("NETA pkt-echo is started in %s - %s\n", buf_release_str, tx_retry_str);
@@ -924,10 +924,7 @@ int main(int argc, char *argv[])
 	if (err)
 		return err;
 
-	cores_mask = 0;
-	for (i = 0; i < garg.cmn_args.cpus; i++, cores_mask <<= 1, cores_mask |= 1)
-		;
-	cores_mask <<= (garg.cmn_args.affinity != -1) ? garg.cmn_args.affinity : 0;
+	cores_mask = apps_cores_mask_create(garg.cmn_args.cpus, garg.cmn_args.affinity);
 
 	memset(&mvapp_params, 0, sizeof(mvapp_params));
 	mvapp_params.use_cli		= garg.cmn_args.cli;
