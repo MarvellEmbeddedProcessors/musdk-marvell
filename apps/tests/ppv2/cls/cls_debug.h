@@ -106,5 +106,7 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio);
 int register_cli_qos_cmds(struct pp2_ppio *ppio);
 int register_cli_mng_cmds(struct pp2_ppio *ppio);
 int register_cli_prs_cmds(struct pp2_ppio *ppio);
+int register_cli_cntrs_cmds(struct pp2_ppio *ppio);
+
 
 #endif /*__CLS_DBG_H__*/

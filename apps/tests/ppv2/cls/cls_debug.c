@@ -108,6 +108,7 @@
 #include "src/drivers/ppv2/cls/pp2_flow_rules.h"
 #include "src/drivers/ppv2/cls/pp2_cls_db.h"
 #include "src/drivers/ppv2/cls/pp2_prs.h"
+#include "src/drivers/ppv2/pp2_port.h"
 #include "cls_debug.h"
 
 int register_cli_cls_cmds(struct pp2_ppio *ppio)
@@ -385,7 +386,6 @@ int register_cli_c2_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_c2_hw_hit_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 #endif
-
 	return 0;
 }
 
@@ -482,6 +482,91 @@ int register_cli_prs_cmds(struct pp2_ppio *ppio)
 	cmd_params.cmd_arg	= (void *)port;
 	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_prs_hits_dump;
 	mvapp_register_cli_cmd(&cmd_params);
+
+	return 0;
+}
+
+static int pp2_cli_cls_rxq_counters_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_port *port = (struct pp2_port *)arg;
+	int ret, i;
+	u32 queue = 0;
+
+	if (argc != 1 && argc != 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	if (argc == 2) {
+		ret = kstrtou32(argv[1], 10, &queue);
+		if (ret || (queue >= PP2_PPIO_MAX_NUM_INQS)) {
+			pr_err("parsing fail, wrong input for arg[1]\n");
+			return -EINVAL;
+		}
+		pp2_port_rxq_cntrs_dump(port, queue);
+	}
+
+	if (argc == 1) {
+		for (i = 0; i < PP2_PPIO_MAX_NUM_INQS; i++)
+			pp2_port_rxq_cntrs_dump(port, i);
+	}
+
+	return 0;
+}
+
+static int pp2_cli_cls_txq_counters_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_port *port = (struct pp2_port *)arg;
+	int ret, i;
+	u32 queue = 0;
+
+	if (argc != 1 && argc != 2) {
+		pr_err("Invalid number of arguments for %s command! number of arguments = %d\n", __func__, argc);
+		return -EINVAL;
+	}
+
+	if (argc == 2) {
+		ret = kstrtou32(argv[1], 10, &queue);
+		if (ret || (queue >= PP2_PPIO_MAX_NUM_OUTQS)) {
+			pr_err("parsing fail, wrong input for arg[1]\n");
+			return -EINVAL;
+		}
+		pp2_port_txq_cntrs_dump(port, queue);
+	}
+
+	if (argc == 1) {
+		for (i = 0; i < PP2_PPIO_MAX_NUM_OUTQS; i++)
+			pp2_port_txq_cntrs_dump(port, i);
+	}
+
+	return 0;
+}
+
+int register_cli_cntrs_cmds(struct pp2_ppio *ppio)
+{
+	struct cli_cmd_params cmd_params;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "hw_rx_counters";
+	cmd_params.desc		= "dumps hw rx counters registers";
+	cmd_params.format       = "[queue] or no arguments\n"
+				  "\t\t\t\tqueue (dec) queue number 0 - 31\n"
+				  "\t\t\t\tno arguments -> dumping all queues\n";
+	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_rxq_counters_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "hw_tx_counters";
+	cmd_params.desc		= "dumps hw tx counters registers";
+	cmd_params.format       = "[queue] or no arguments\n"
+				  "\t\t\t\tqueue (dec) queue number 0 - 7\n"
+				  "\t\t\t\tno arguments -> dumping all queues\n";
+	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_txq_counters_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
 
 	return 0;
 }
