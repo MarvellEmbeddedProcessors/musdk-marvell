@@ -109,5 +109,7 @@ int pp22_cls_rss_rxq_set(struct pp2_port *port);
 int pp2_rss_musdk_map_get(struct pp2_port *port);
 int pp2_cls_rss_init(struct pp2_inst *inst);
 void pp2_port_set_rss(struct pp2_port *port, uint32_t en);
+int pp2_cls_rss_hw_dump(struct pp2_inst *inst);
+int pp2_cls_rss_hw_rxq_tbl_dump(struct pp2_inst *inst);
 
 #endif /* _PP2_RSS_H_ */

@@ -277,3 +277,57 @@ int pp2_cls_rss_init(struct pp2_inst *inst)
 	return 0;
 }
 
+int pp2_cls_rss_hw_dump(struct pp2_inst *inst)
+{
+	int tbl_id, tbl_line;
+
+	struct mv_pp22_rss_entry rss_entry;
+
+	memset(&rss_entry, 0, sizeof(struct mv_pp22_rss_entry));
+
+	rss_entry.sel = MVPP22_RSS_ACCESS_TBL;
+
+	for (tbl_id = 0; tbl_id < MVPP22_RSS_TBL_NUM; tbl_id++) {
+		pr_info("\n-------- RSS TABLE %d-----------\n", tbl_id);
+		pr_info("HASH	QUEUE	WIDTH\n");
+
+		for (tbl_line = 0; tbl_line < MVPP22_RSS_TBL_LINE_NUM;
+			tbl_line++) {
+			rss_entry.u.entry.tbl_id = tbl_id;
+			rss_entry.u.entry.tbl_line = tbl_line;
+			pp2_rss_tbl_entry_get(&inst->hw, &rss_entry);
+			pr_info("0x%2.2x\t", rss_entry.u.entry.tbl_line);
+			pr_info("0x%2.2x\t", rss_entry.u.entry.rxq);
+			pr_info("0x%2.2x", rss_entry.u.entry.width);
+			pr_info("\n");
+		}
+	}
+	return 0;
+}
+
+int pp2_cls_rss_hw_rxq_tbl_dump(struct pp2_inst *inst)
+{
+	int rxq, port;
+	struct mv_pp22_rss_entry rss_entry;
+
+	memset(&rss_entry, 0, sizeof(struct mv_pp22_rss_entry));
+
+	rss_entry.sel = MVPP22_RSS_ACCESS_POINTER;
+
+	for (port = 0; port < MVPP2_MAX_PORTS; port++) {
+		pr_info("\n-------- RXQ TABLE PORT %d-----------\n", port);
+		pr_info("QUEUE	RSS TBL\n");
+
+		for (rxq = 0; rxq < MVPP22_RSS_TBL_LINE_NUM; rxq++) {
+			rss_entry.u.pointer.rxq_idx = port * MVPP22_RSS_TBL_LINE_NUM + rxq;
+			pp2_rss_tbl_entry_get(&inst->hw, &rss_entry);
+			pr_info("0x%2.2x\t", rss_entry.u.pointer.rxq_idx);
+			pr_info("0x%2.2x\t", rss_entry.u.pointer.rss_tbl_ptr);
+			pr_info("\n");
+
+		}
+	}
+	return 0;
+}
+
+
