@@ -583,4 +583,8 @@ int pp2_port_get_inq_state(struct pp2_port *port, u8 tc, u8 qid, int *en);
 
 int pp2_port_set_inq_early_drop(struct pp2_port *port, u8 tc, u8 qid, int en, struct pp2_cls_early_drop *edrop);
 
+void pp2_port_rxq_cntrs_dump(struct pp2_port *port, int rxq);
+void pp2_port_txq_cntrs_dump(struct pp2_port *port, int txq);
+
+
 #endif /* __PP2_PORT_H__ */
