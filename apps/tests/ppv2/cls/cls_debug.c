@@ -108,6 +108,7 @@
 #include "src/drivers/ppv2/cls/pp2_flow_rules.h"
 #include "src/drivers/ppv2/cls/pp2_cls_db.h"
 #include "src/drivers/ppv2/cls/pp2_prs.h"
+#include "src/drivers/ppv2/cls/pp2_rss.h"
 #include "src/drivers/ppv2/pp2_port.h"
 #include "cls_debug.h"
 
@@ -567,6 +568,47 @@ int register_cli_cntrs_cmds(struct pp2_ppio *ppio)
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_txq_counters_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
+
+	return 0;
+}
+
+static int pp2_cli_cls_rss_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+
+	pp2_cls_rss_hw_dump(inst);
+	return 0;
+}
+
+static int pp2_cli_cls_rss_rxq_dump(void *arg, int argc, char *argv[])
+{
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
+
+	pp2_cls_rss_hw_rxq_tbl_dump(inst);
+	return 0;
+}
+
+int register_cli_rss_cmds(struct pp2_ppio *ppio)
+{
+	struct cli_cmd_params cmd_params;
+	struct pp2_port *port = GET_PPIO_PORT(ppio);
+	struct pp2_inst *inst = port->parent;
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "rss_table_dump";
+	cmd_params.desc		= "dumps hw rx counters registers";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_rss_dump;
+	mvapp_register_cli_cmd(&cmd_params);
+
+	memset(&cmd_params, 0, sizeof(cmd_params));
+	cmd_params.name		= "rss_rxq_table_dump";
+	cmd_params.desc		= "dumps hw rss rxq table";
+	cmd_params.format	= "(no arguments)\n";
+	cmd_params.cmd_arg	= (void *)inst;
+	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cli_cls_rss_rxq_dump;
+	mvapp_register_cli_cmd(&cmd_params);
 
 	return 0;
 }
