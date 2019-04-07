@@ -1954,6 +1954,9 @@ int pp2_cls_c2_tcam_hek_get(u32 field_bm,
 		case L4_SRC_FIELD_ID:
 		case L4_DST_FIELD_ID:
 		case TCP_FLAGS_FIELD_ID:
+		case CLS_UDF3_FIELD_ID:
+		case CLS_UDF5_FIELD_ID:
+		case CLS_UDF6_FIELD_ID:
 		case IN_VLAN_PRI_FIELD_ID:
 		case PPPOE_PROTO_ID:
 		case OUT_TPID_FIELD_ID:

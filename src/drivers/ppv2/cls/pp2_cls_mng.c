@@ -167,13 +167,41 @@ static struct cls_field_convert_t g_cls_field_convert[] = {
 	{MV_NET_PROTO_UDP, MV_NET_UDP_F_DP, L4_DST_FIELD_ID, MVPP2_MATCH_L4_DST},
 };
 
-static u32 lookup_field_id(u32 proto, u32 field, u32 *field_id, u32 *match_bm)
+static u32 lookup_field_id(struct pp2_proto_field proto_field, u32 *field_id, u32 *match_bm)
 {
 	u32 idx;
+	int udf_id;
+
+	if (proto_field.proto == MV_NET_UDF) {
+		udf_id = pp2_prs_uid_to_prs_udf(proto_field.field.udf.id);
+		if (udf_id <= 0) {
+			pr_err("%s(%d) invalid udf number\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		switch (udf_id) {
+		case MVPP2_PRS_SRAM_UDF_TYPE_3:
+			*field_id = CLS_UDF3_FIELD_ID;
+			*match_bm = MVPP2_MATCH_UDF3;
+			break;
+		case MVPP2_PRS_SRAM_UDF_TYPE_5:
+			*field_id = CLS_UDF5_FIELD_ID;
+			*match_bm = MVPP2_MATCH_UDF5;
+			break;
+		case MVPP2_PRS_SRAM_UDF_TYPE_6:
+			*field_id = CLS_UDF6_FIELD_ID;
+			*match_bm = MVPP2_MATCH_UDF6;
+			break;
+		default:
+			pr_err("%s(%d) reserved udf number\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+		return 0;
+	}
 
 	for (idx = 0; idx < MVPP2_MEMBER_NUM(g_cls_field_convert); idx++) {
-		if ((proto == g_cls_field_convert[idx].proto) &&
-		    (field == g_cls_field_convert[idx].field)) {
+		if ((proto_field.proto == g_cls_field_convert[idx].proto) &&
+		    (proto_field.field.eth == g_cls_field_convert[idx].field)) {
 			*field_id = g_cls_field_convert[idx].field_to_config;
 			*match_bm = g_cls_field_convert[idx].match_bm;
 			return 0;
@@ -777,6 +805,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 	u32 field, match_bm;
 	u32 rc = 0;
 	u32 i, num_lkpid = 0, field_index;
+	int udf_id;
 	u32 five_tuple = 0;
 	u32 ipv4_flag = 0;
 	u32 ipv6_flag = 0;
@@ -844,8 +873,7 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 
 	/* parse the protocol and protocol fields */
 	for (idx = 0; idx < params->key.num_fields; idx++) {
-		rc = lookup_field_id(params->key.proto_field[idx].proto,
-				     params->key.proto_field[idx].field.eth, &field, &match_bm);
+		rc = lookup_field_id(params->key.proto_field[idx], &field, &match_bm);
 		if (rc) {
 			pr_err("%s(%d) lookup id error!\n", __func__, __LINE__);
 			goto end;
@@ -876,6 +904,15 @@ int pp2_cls_mng_tbl_init(struct pp2_cls_tbl_params *params, struct pp2_cls_tbl *
 			udp_flag = 1;
 		else if (params->key.proto_field[idx].proto == MV_NET_PROTO_L4)
 			l4_flag = 1;
+		else if (params->key.proto_field[idx].proto == MV_NET_UDF) {
+			udf_id = pp2_prs_uid_to_prs_udf(params->key.proto_field[idx].field.udf.id);
+			if (udf_id <= 0) {
+				pr_err("%s(%d) invalid udf number\n", __func__, __LINE__);
+				return -EINVAL;
+			}
+			/* Add UDF field */
+			pp2_cls_udf_field_add(inst, udf_id, 0, params->key.proto_field[idx].field.udf.size);
+		}
 
 		fl_rls->fl[0].field_id[field_index++] = field;
 	}
@@ -985,10 +1022,12 @@ int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl)
 {
 	int i;
 	struct pp2_port *port;
+	struct pp2_inst *inst;
 	struct pp2_cls_tbl_rule *rule = NULL;
 	u32 rc;
 	struct pp2_cls_fl_rule_entry_t fl;
 	int idx;
+	int udf_id;
 	u32 field, match_bm;
 	u32 field_index;
 
@@ -1012,12 +1051,23 @@ int pp2_cls_mng_table_deinit(struct pp2_cls_tbl *tbl)
 	fl.port_bm = (1 << port->id);
 
 	for (idx = 0; idx < tbl->params.key.num_fields; idx++) {
-		rc = lookup_field_id(tbl->params.key.proto_field[idx].proto,
-				     tbl->params.key.proto_field[idx].field.eth, &field, &match_bm);
+		rc = lookup_field_id(tbl->params.key.proto_field[idx], &field, &match_bm);
 		if (rc) {
 			pr_err("%s(%d) lookup id error!\n", __func__, __LINE__);
 			return -EFAULT;
 		}
+
+		/* Remove UDF fields */
+		if (tbl->params.key.proto_field[idx].proto == MV_NET_UDF) {
+			udf_id = pp2_prs_uid_to_prs_udf(tbl->params.key.proto_field[idx].field.udf.id);
+			if (udf_id <= 0) {
+				pr_err("%s(%d) invalid udf number\n", __func__, __LINE__);
+				return -EINVAL;
+			}
+			inst = port->parent;
+			pp2_cls_udf_field_remove(inst, udf_id);
+		}
+
 		fl.field_id[field_index++] = field;
 	}
 
@@ -1209,8 +1259,7 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 
 	/* parse the protocol and protocol fields */
 	for (idx1 = 0; idx1 < params->key.num_fields; idx1++) {
-		rc = lookup_field_id(params->key.proto_field[idx1].proto, params->key.proto_field[idx1].field.eth,
-				     &field, &bm);
+		rc = lookup_field_id(params->key.proto_field[idx1], &field, &bm);
 		if (rc) {
 			pr_err("%s(%d) lookup id error!\n", __func__, __LINE__);
 			return -EINVAL;
@@ -1578,6 +1627,69 @@ static int pp2_cls_set_rule_info(struct pp2_cls_mng_pkt_key_t *mng_pkt_key,
 			mng_pkt_key->pkt_key->l4_dst = dst;
 
 			pr_debug("L4_DST_FIELD_ID = %d\n", mng_pkt_key->pkt_key->l4_dst);
+			break;
+		case CLS_UDF3_FIELD_ID:
+			if ((rule->fields[idx1].size > CLS_UDF_FIELD_SIZE) || (rule->fields[idx1].size == 0)) {
+				pr_err("%s(%d) invalid field size value! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+
+			memset(&mng_pkt_key->pkt_key->udf3.udf, 0, CLS_UDF_FIELD_SIZE);
+			memcpy(&mng_pkt_key->pkt_key->udf3.udf, rule->fields[idx1].key, rule->fields[idx1].size);
+			/* the value is shifted to the high bits of u32, since driver uses constant field size */
+			/* Example: user passes 2 bytes: 0xABCD, driver will receive: 0xABCD0000 */
+			mng_pkt_key->pkt_key->udf3.udf <<= (CLS_UDF_FIELD_SIZE - rule->fields[idx1].size) * BYTE_BITS;
+			pr_debug("UDF3 = 0x%x\n", mng_pkt_key->pkt_key->udf3.udf);
+
+			memset(&mng_pkt_key->pkt_key->udf3.udf_mask, 0, CLS_UDF_FIELD_SIZE);
+			memcpy(&mng_pkt_key->pkt_key->udf3.udf_mask, rule->fields[idx1].mask,
+			       rule->fields[idx1].size);
+			mng_pkt_key->pkt_key->udf3.udf_mask <<= (CLS_UDF_FIELD_SIZE - rule->fields[idx1].size) *
+								BYTE_BITS;
+			pr_debug("UDF3 mask = 0x%x\n", mng_pkt_key->pkt_key->udf3.udf_mask);
+			break;
+		case CLS_UDF5_FIELD_ID:
+			if ((rule->fields[idx1].size > CLS_UDF_FIELD_SIZE) || (rule->fields[idx1].size == 0)) {
+				pr_err("%s(%d) invalid field size value! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+
+			memset(&mng_pkt_key->pkt_key->udf5.udf, 0, CLS_UDF_FIELD_SIZE);
+			memcpy(&mng_pkt_key->pkt_key->udf5.udf, rule->fields[idx1].key, rule->fields[idx1].size);
+			/* the value is shifted to the high bits of u32, since driver uses constant field size */
+			/* Example: user passes 2 bytes: 0xABCD, driver will receive: 0xABCD0000 */
+			mng_pkt_key->pkt_key->udf5.udf <<= (CLS_UDF_FIELD_SIZE - rule->fields[idx1].size) * BYTE_BITS;
+			pr_debug("UDF5 = 0x%x\n", mng_pkt_key->pkt_key->udf5.udf);
+
+			memset(&mng_pkt_key->pkt_key->udf5.udf_mask, 0, CLS_UDF_FIELD_SIZE);
+			memcpy(&mng_pkt_key->pkt_key->udf5.udf_mask, rule->fields[idx1].mask,
+			       rule->fields[idx1].size);
+			mng_pkt_key->pkt_key->udf5.udf_mask <<= (CLS_UDF_FIELD_SIZE - rule->fields[idx1].size) *
+								BYTE_BITS;
+			pr_debug("UDF5 mask = 0x%x\n", mng_pkt_key->pkt_key->udf5.udf_mask);
+			break;
+		case CLS_UDF6_FIELD_ID:
+			if ((rule->fields[idx1].size > CLS_UDF_FIELD_SIZE) || (rule->fields[idx1].size == 0)) {
+				pr_err("%s(%d) invalid field size value! %d\n", __func__, __LINE__,
+				       rule->fields[idx1].size);
+				return -EINVAL;
+			}
+
+			memset(&mng_pkt_key->pkt_key->udf6.udf, 0, CLS_UDF_FIELD_SIZE);
+			memcpy(&mng_pkt_key->pkt_key->udf6.udf, rule->fields[idx1].key, rule->fields[idx1].size);
+			/* the value is shifted to the high bits of u32, since driver uses constant field size */
+			/* Example: user passes 2 bytes: 0xABCD, driver will receive: 0xABCD0000 */
+			mng_pkt_key->pkt_key->udf6.udf <<= (CLS_UDF_FIELD_SIZE - rule->fields[idx1].size) * BYTE_BITS;
+			pr_debug("UDF6 = 0x%x\n", mng_pkt_key->pkt_key->udf6.udf);
+
+			memset(&mng_pkt_key->pkt_key->udf6.udf_mask, 0, CLS_UDF_FIELD_SIZE);
+			memcpy(&mng_pkt_key->pkt_key->udf6.udf_mask, rule->fields[idx1].mask,
+			       rule->fields[idx1].size);
+			mng_pkt_key->pkt_key->udf6.udf_mask <<= (CLS_UDF_FIELD_SIZE - rule->fields[idx1].size) *
+								BYTE_BITS;
+			pr_debug("UDF6 mask = 0x%x\n", mng_pkt_key->pkt_key->udf6.udf_mask);
 			break;
 		default:
 			pr_err("%s(%d) protocol_field not supported yet!\n", __func__, __LINE__);

@@ -3503,6 +3503,85 @@ end:
 }
 
 /*******************************************************************************
+ * pp2_cls_udf_field_add
+ *
+ * DESCRIPTION: Add UDF to CLS (configures CLS_UDF register)
+ *
+ * INPUTS:
+ *	inst	- packet processor instance
+ *	udf	- udf number
+ *	offset	- offset from the udf base offset passed by Parser in bytes
+ *	size	- field size in bytes
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_udf_field_add(struct pp2_inst *inst, u8 udf_num, u8 offset, u8 size)
+{
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	u32 reg, val;
+	u32 size_bits, offset_bits;
+
+	/* relative offset and field size resolution is in bits */
+	size_bits = size * 8;
+	offset_bits = offset * 8;
+
+	/* Parameters check */
+	if (mv_pp2x_range_validate(offset_bits, 0, MVPP2_CLS_UDF_REL_OFFSET_MAX))
+		return -EINVAL;
+
+	if (mv_pp2x_range_validate(size_bits, 1, MVPP2_CLS_UDF_SIZE_MAX))
+		return -EINVAL;
+
+	/* Check for available UDF numbers */
+	if (!(udf_num == MVPP2_CLS_UDF_OFFSET_3 || udf_num == MVPP2_CLS_UDF_OFFSET_5 ||
+	      udf_num == MVPP2_CLS_UDF_OFFSET_6))
+		return -EINVAL;
+
+	reg = MVPP2_CLS_UDF_REG(udf_num);
+	val = ((udf_num << MVPP2_CLS_UDF_OFFSET_ID_OFFS) & MVPP2_CLS_UDF_OFFSET_ID_MASK) |
+	      ((offset_bits << MVPP2_CLS_UDF_REL_OFFSET_OFFS) & MVPP2_CLS_UDF_REL_OFFSET_MASK) |
+	      ((size_bits << MVPP2_CLS_UDF_SIZE_OFFS) & MVPP2_CLS_UDF_SIZE_MASK);
+
+	pp2_reg_write(cpu_slot, reg, val);
+
+	return 0;
+}
+
+/*******************************************************************************
+ * pp2_cls_udf_field_remove
+ *
+ * DESCRIPTION: Remove UDF from CLS
+ *
+ * INPUTS:
+ *	inst	- packet processor instance
+ *	udf	- udf number
+ *
+ * RETURN:
+ *	0 on success, error-code otherwise
+ ******************************************************************************/
+int pp2_cls_udf_field_remove(struct pp2_inst *inst, u8 udf_num)
+{
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	u32 reg, val;
+
+	/* Check for available UDF numbers */
+	if (!(udf_num == MVPP2_CLS_UDF_OFFSET_3 || udf_num == MVPP2_CLS_UDF_OFFSET_5 ||
+	      udf_num == MVPP2_CLS_UDF_OFFSET_6))
+		return -EINVAL;
+
+	/* CLS_UDF registers numbering starts from 0. Keep 1:1 PRS UDF to CLS_UDF match */
+	reg = MVPP2_CLS_UDF_REG(udf_num);
+	val = ((MVPP2_CLS_UDF_OFFSET_DISABLE << MVPP2_CLS_UDF_OFFSET_ID_OFFS) & MVPP2_CLS_UDF_OFFSET_ID_MASK) |
+	      ((0 << MVPP2_CLS_UDF_REL_OFFSET_OFFS) & MVPP2_CLS_UDF_REL_OFFSET_MASK) |
+	      ((MVPP2_CLS_UDF_SIZE_MIN << MVPP2_CLS_UDF_SIZE_OFFS) & MVPP2_CLS_UDF_SIZE_MASK);
+
+	pp2_reg_write(cpu_slot, reg, val);
+
+	return 0;
+}
+
+/*******************************************************************************
  * pp2_cls_init
  *
  * DESCRIPTION: The API will clean all the HW entries in CLS flow and lookup decode tables

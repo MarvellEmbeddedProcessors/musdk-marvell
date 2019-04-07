@@ -110,6 +110,7 @@
 #define MV_ETH_ALEN		6
 #define MV_ETH_HLEN		14
 #define MV_ETH_FCS_LEN		4
+#define MV_ETH_ETYPE_LEN	2
 
 /* Similar to if_vlan.h */
 #define MV_VLAN_TAG_LEN		4

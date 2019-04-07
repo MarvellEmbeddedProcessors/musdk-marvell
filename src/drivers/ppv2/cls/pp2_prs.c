@@ -806,7 +806,43 @@ static struct mv_pp2x_prs_flow_id
 	{MVPP2_PRS_FL_NON_IP_TAG, {0, 0} },
 };
 
+/* Array of available UDF mappings */
+struct pp2_prs_udf_map prs_udf_map[PP2_MAX_UDFS_SUPPORTED] = {
+	{-1, MVPP2_PRS_SRAM_UDF_TYPE_3, -1, -1},
+	{-1, MVPP2_PRS_SRAM_UDF_TYPE_5, -1, -1},
+	{-1, MVPP2_PRS_SRAM_UDF_TYPE_6, -1, -1},
+};
 
+/* CLS TODO - add logic for UDF allocation */
+/* returns prs_udf_map index */
+static int pp2_prs_udf_map_allocate(unsigned int uid)
+{
+	int i;
+
+	for (i = 0; i < PP2_MAX_UDFS_SUPPORTED; i++) {
+		if (prs_udf_map[i].user_udf_idx == uid)
+			return i;
+
+		if (prs_udf_map[i].user_udf_idx == -1) {
+			prs_udf_map[i].user_udf_idx = uid;
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+/* returns HW UDF id accordng to User ID */
+int pp2_prs_uid_to_prs_udf(unsigned int uid)
+{
+	int i;
+
+	for (i = 0; i < PP2_MAX_UDFS_SUPPORTED; i++)
+		if (prs_udf_map[i].user_udf_idx == uid)
+			return prs_udf_map[i].prs_udf_id;
+
+	return -1;
+}
 
 /* Array of bitmask to indicate flow id attribute */
 static int mv_pp2x_prs_flow_id_attr_tbl[MVPP2_PRS_FL_LAST];
@@ -935,6 +971,12 @@ static void mv_pp2x_prs_hw_inv(uintptr_t cpu_slot, int index)
 static void mv_pp2x_prs_sram_bits_set(struct mv_pp2x_prs_entry *pe, int bit_num, int val)
 {
 	pe->sram.byte[SRAM_BIT_TO_BYTE(bit_num)] |= (val << (bit_num % 8));
+}
+
+/* Clear bits in sram sw entry */
+static void mv_pp2x_prs_sram_clear(struct mv_pp2x_prs_entry *pe)
+{
+	memset(&pe->sram, 0, sizeof(pe->sram));
 }
 
 /* Clear bits in sram sw entry */
@@ -2598,6 +2640,16 @@ static int mv_pp2x_prs_sram_bit_get(struct mv_pp2x_prs_entry *pe, int bit_num,
 	return 0;
 }
 
+static int mv_pp2x_prs_sram_bit_set(struct mv_pp2x_prs_entry *pe, int bit_num, unsigned int val)
+{
+	if (mv_pp2x_ptr_validate(pe))
+		return -1;
+
+	pe->sram.word[SRAM_BIT_TO_WORD(bit_num)] |= (val << (SRAM_BIT_IN_WORD(bit_num)));
+
+	return 0;
+}
+
 static int mv_pp2x_prs_sw_sram_ri_get(struct mv_pp2x_prs_entry *pe,
 				      unsigned int *bits, unsigned int *enable)
 {
@@ -2675,6 +2727,185 @@ static int mv_pp2x_prs_sw_sram_flowid_gen_get(struct mv_pp2x_prs_entry *pe,
 				       unsigned int *bit)
 {
 	return mv_pp2x_prs_sram_bit_get(pe, MVPP2_PRS_SRAM_LU_GEN_BIT, bit);
+}
+
+static int pp2_prs_check_udf_params(struct pp2_parse_udfs *parse_udfs)
+{
+	int i;
+	int proto;
+
+	if (parse_udfs->num_udfs > PP2_MAX_UDFS_SUPPORTED) {
+		pr_err("%s: invalid num of UDFs %d\n", __func__, parse_udfs->num_udfs);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < parse_udfs->num_udfs; i++) {
+		proto = parse_udfs->udfs[i].match_proto;
+		if (!((proto == MV_NET_PROTO_ETH) || (proto == MV_NET_PROTO_ETH_DSA) ||
+		    (proto == MV_NET_PROTO_VLAN) || (proto == MV_NET_PROTO_IP4) ||
+		    (proto == MV_NET_PROTO_IP6) || (proto == MV_NET_PROTO_UDP) ||
+		    (proto == MV_NET_PROTO_TCP))) {
+			pr_err("%s: not supported protocol %d\n", __func__, proto);
+			return -ENOTSUP;
+		}
+
+		if (!parse_udfs->udfs[i].match_key) {
+			pr_err("%s: UDF[%d] key is NULL\n", __func__, i);
+			return -EINVAL;
+		}
+
+		if (!parse_udfs->udfs[i].match_mask) {
+			pr_err("%s: UDF[%d] mask is NULL\n", __func__, i);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+/* pp2_prs_create_udf_entry
+ *
+ * DESCRIPTION:	Create a new UDF entry in PRS
+ *
+ * INPUTS:	port		- port to be configured
+ *		udf_params	- udf parameters
+ *		udf_id		- logical udf id
+ *
+ * OUTPUTS:
+ *
+ * RETURNS:	-1 on error
+ */
+static int pp2_prs_create_udf_entry(struct pp2_inst *inst, struct pp2_parse_udf_params *udf_params, int user_uid)
+{
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
+	struct mv_pp2x_prs_entry pe;
+	int tid, tid2;
+	int idx;
+	int len;
+
+	memset(&pe, 0, sizeof(struct mv_pp2x_prs_entry));
+
+	/* Find first empty slot in TCAM */
+	tid = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID, MVPP2_PE_LAST_FREE_TID);
+	if (tid < 0) {
+		pr_err("%s(%d): failed to find empty Parser entry\n", __func__, __LINE__);
+		return tid;
+	}
+
+	pe.index = tid;
+
+	switch (udf_params->match_proto) {
+	case MV_NET_PROTO_ETH:
+		if (udf_params->match_field.eth == MV_NET_ETH_F_TYPE) {
+			mv_pp2x_prs_tcam_lu_set(&pe, MVPP2_PRS_LU_L2);
+			/* Mask all ports */
+			mv_pp2x_prs_tcam_port_map_set(&pe, 0xFF);
+
+			len = MV_ETH_ETYPE_LEN;
+			while (len--)
+				mv_pp2x_prs_tcam_data_byte_set(&pe, len,
+							       udf_params->match_key[len],
+							       udf_params->match_mask[len]);
+
+			/* turn on the mask for UDF_AI bit */
+			mv_pp2x_prs_tcam_ai_update(&pe, 0, MVPP2_PRS_L2_UDF_AI_BIT);
+
+			/* allocate available UDF id */
+			idx = pp2_prs_udf_map_allocate(user_uid);
+			if (idx < 0) {
+				pr_err("%s: failed to allocate UDF number\n", __func__);
+				return -EINVAL;
+			}
+			/* store the entry index */
+			prs_udf_map[idx].tid = tid;
+
+			/* set UDF for CLS and UDF offset */
+			mv_pp2x_prs_sram_offset_set(&pe,
+						    prs_udf_map[idx].prs_udf_id,
+						    udf_params->offset,
+						    MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
+
+			/* HW doesn't support udf offset generation in the same iteration when SRAM_LU_GEN_BIT set */
+			/* create two L2_FLOW entries: 1st one - UDF offset generation, 2nd - continue to LU_FLOWS */
+			mv_pp2x_prs_sram_ai_update(&pe, MVPP2_PRS_L2_UDF_AI_BIT, MVPP2_PRS_SRAM_AI_MASK);
+
+			/* set UDF Result Info, required by CLS in order to identify UDF offset*/
+			if (prs_udf_map[idx].prs_udf_id == MVPP2_PRS_SRAM_UDF_TYPE_3)
+				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF3_MASK, MVPP2_PRS_RI_UDF3_MASK);
+			else if (prs_udf_map[idx].prs_udf_id == MVPP2_PRS_SRAM_UDF_TYPE_5)
+				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF5_MASK, MVPP2_PRS_RI_UDF5_MASK);
+			else if (prs_udf_map[idx].prs_udf_id == MVPP2_PRS_SRAM_UDF_TYPE_6)
+				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF6_MASK, MVPP2_PRS_RI_UDF6_MASK);
+
+			/* the second entry has the same type LU_L2 */
+			mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_L2);
+
+			/* Update shadow table and hw entry for new entry*/
+			mv_pp2x_prs_shadow_set(inst, pe.index, mv_pp2x_prs_tcam_lu_get(&pe));
+			mv_pp2x_prs_hw_write(cpu_slot, &pe);
+
+
+			/* start building the second entry */
+			/* Find empty slot in TCAM */
+			tid2 = pp2_prs_tcam_first_free(inst, MVPP2_PE_FIRST_FREE_TID, MVPP2_PE_LAST_FREE_TID);
+			if (tid2 < 0) {
+				mv_pp2x_prs_hw_inv(cpu_slot, tid);
+				pr_err("%s(%d): failed to find empty Parser entry\n", __func__, __LINE__);
+				return tid;
+			}
+
+			pe.index = tid2;
+			/* use the same TCAM key, only update AI */
+			mv_pp2x_prs_tcam_ai_update(&pe, MVPP2_PRS_L2_UDF_AI_BIT, MVPP2_PRS_L2_UDF_AI_BIT);
+			/* store the second entry index */
+			prs_udf_map[idx].tid2 = tid2;
+
+			mv_pp2x_prs_sram_clear(&pe);
+			mv_pp2x_prs_sram_next_lu_set(&pe, MVPP2_PRS_LU_FLOWS);
+			mv_pp2x_prs_sram_bit_set(&pe, MVPP2_PRS_SRAM_LU_GEN_BIT, 1);
+
+			/* Update shadow table and hw entry for new entry*/
+			mv_pp2x_prs_shadow_set(inst, pe.index, mv_pp2x_prs_tcam_lu_get(&pe));
+			mv_pp2x_prs_hw_write(cpu_slot, &pe);
+		} else {
+			pr_err("%s: PROTO_ETH - not supported field\n", __func__);
+			return -ENOTSUP;
+		}
+		break;
+	default:
+		pr_err("%s: not supported protocol\n", __func__);
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+/* pp2_prs_udf_init
+ *
+ * DESCRIPTION:	Initialize parser UDF parameters.
+ *
+ * INPUTS:	inst	- packet processor instance
+ *		params	- pp2 init parameters
+ *
+ * OUTPUTS:	None
+ *
+ * RETURNS:	0 on success, error-code otherwise
+ */
+int pp2_prs_udf_init(struct pp2_inst *inst, struct pp2_parse_udfs *prs_udfs)
+{
+	int rc;
+
+	rc = pp2_prs_check_udf_params(prs_udfs);
+	if (rc)
+		return rc;
+
+	for (int i = 0; i < prs_udfs->num_udfs; i++) {
+		rc = pp2_prs_create_udf_entry(inst, &prs_udfs->udfs[i], i);
+		if (rc)
+			return rc;
+	}
+
+	return 0;
 }
 
 static int mv_pp2x_prs_sw_sram_ri_dump(struct mv_pp2x_prs_entry *pe)

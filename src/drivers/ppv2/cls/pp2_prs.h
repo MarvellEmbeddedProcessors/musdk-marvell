@@ -130,6 +130,8 @@
 #endif
 
 #define SRAM_BIT_TO_BYTE(_bit_) HW_BYTE_OFFS((_bit_) / 8)
+#define SRAM_BIT_TO_WORD(_bit_) HW_BYTE_OFFS((_bit_) / 32)
+#define SRAM_BIT_IN_WORD(_bit_) HW_BYTE_OFFS((_bit_) % 32)
 
 #define TCAM_DATA_BYTE_OFFS_LE(_offs_)		(((_offs_) - \
 	((_offs_) % 2)) * 2 + ((_offs_) % 2))
@@ -194,10 +196,19 @@ struct pp2_prs_dynamic {
 	u32	num_entries;
 };
 
+/* User udf id mapping to Parser udf */
+struct pp2_prs_udf_map {
+	int	user_udf_idx;	/* pp2_parse_udf_params array index */
+	u8	prs_udf_id;	/* hw udf number */
+	int	tid;		/* parser tcam index for 1st entry */
+	int	tid2;		/* parser tcam index for 2nd entry */
+};
+
 /********************************************************************************/
 /*			PROTOTYPE						*/
 /********************************************************************************/
 int pp2_cls_prs_init(struct pp2_inst *inst);
+int pp2_prs_udf_init(struct pp2_inst *inst, struct pp2_parse_udfs *prs_udfs);
 void pp2_cls_prs_deinit(struct pp2_inst *inst);
 int mv_pp2x_prs_flow_id_attr_get(int flow_id);
 int pp2_prs_eth_start_hdr_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr eth_start_hdr);
@@ -207,6 +218,7 @@ void mv_pp2x_prs_clear_active_vlans(struct pp2_port *port, uint32_t *vlans);
 int mv_pp2x_prs_mac_da_accept(struct pp2_port *port, const u8 *da, bool add);
 int mv_pp2x_prs_hw_dump(struct pp2_port *port);
 int mv_pp2x_prs_hw_hits_dump(struct pp2_port *port);
+int pp2_prs_uid_to_prs_udf(unsigned int uid);
 
 #endif /*_PP2_CLS_PRS_H_*/
 

@@ -109,6 +109,7 @@
 #include "pp2_dm.h"
 #include "pp2_port.h"
 #include "pp2_bm.h"
+#include "cls/pp2_prs.h"
 #include "cls/pp2_hw_cls.h"
 #include "cls/pp2_cls_mng.h"
 
@@ -697,6 +698,16 @@ int pp2_init(struct pp2_init_params *params)
 		}
 
 		pp2_inst_init(inst);
+
+		if (params->prs_udfs.num_udfs > 0) {
+			rc = pp2_prs_udf_init(inst, &params->prs_udfs);
+			if (rc) {
+				pr_err("[%s] failed to init parser udfs.\n", __func__);
+				rc = -EFAULT;
+				goto pp2_init_err;
+			}
+		}
+
 		pp2_ptr->num_pp2_inst++;
 	}
 
@@ -735,6 +746,7 @@ int pp2_init(struct pp2_init_params *params)
 		}
 		kfree(lb_port_params);
 	}
+
 	return 0;
 
 pp2_init_err:

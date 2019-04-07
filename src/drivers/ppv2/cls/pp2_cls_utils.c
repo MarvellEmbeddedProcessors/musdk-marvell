@@ -152,7 +152,9 @@ static struct pp2_cls_enum_str_t g_enum_field_match[] = {
 	{ MVPP2_MATCH_TPID_OUTER,	"TPID_OUTER"	},
 	{ MVPP2_MATCH_CFI_OUTER,	"CFI_OUTER"	},
 	{ MVPP2_MATCH_TPID_INNER,	"TPID_INNER"	},
-	{ MVPP2_MATCH_CFI_INNER,	"CFI_INNER"	},
+	{ MVPP2_MATCH_UDF3,		"UDF3"		},
+	{ MVPP2_MATCH_UDF5,		"UDF5"		},
+	{ MVPP2_MATCH_UDF6,		"UDF6"		},
 };
 
 static struct pp2_cls_enum_str_t g_enum_field_id[] = {
@@ -192,6 +194,9 @@ static struct pp2_cls_enum_str_t g_enum_field_id[] = {
 	{ OUT_VLAN_CFI_FIELD_ID,	"OUT_VLAN_CFI"	},
 	{ IN_TPID_FIELD_ID,		"IN_TPID"	},
 	{ IN_VLAN_CFI_FIELD_ID,		"IN_VLAN_CFI"	},
+	{ CLS_UDF3_FIELD_ID,		"UDF3"		},
+	{ CLS_UDF5_FIELD_ID,		"UDF5"		},
+	{ CLS_UDF6_FIELD_ID,		"UDF6"		},
 	{ ARP_IPV4_DA_FIELD_ID,		"ARP_IPV4_DA"	}
 };
 
@@ -285,6 +290,7 @@ static struct pp2_cls_enum_str_t g_enum_prs_net_proto[] = {
 	{ MV_NET_PROTO_UDP,	"MV_NET_PROTO_UDP"},
 	{ MV_NET_PROTO_ICMP,	"MV_NET_PROTO_ICMP"},
 	{ MV_NET_PROTO_ARP,	"MV_NET_PROTO_ARP"},
+	{ MV_NET_UDF,		"MV_NET_UDF"},
 };
 
 /* API protocol fields (from mv_net.h)*/

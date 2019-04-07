@@ -126,6 +126,9 @@
 
 #define MVPP2_NUM_MAX_NTUPLE_FIELD_NUM	(9)
 #define MVPP2_INFI_SEQ_FIELD_SIZE	(0xFFFF)
+/* Classifier UDF field size in bytes */
+/* CLS TODO - can be extended to 7 bytes */
+#define CLS_UDF_FIELD_SIZE		(4)
 
 /********************************************************************************/
 /*			ENUMERATIONS						*/
@@ -162,11 +165,17 @@ enum pp2_cls_field_match_t {
 	MVPP2_MATCH_IPV6_SUFF         = 0x100000,	/* Match IPV6 address profix */
 	MVPP2_MATCH_ARP_TRGT_IP_ADDR  = 0x200000,	/* Match ARP TARGET IP ADDR */
 
+	/* UDF */
+	MVPP2_MATCH_UDF3	      = 0x00400000,	/* Match UDF3 */
+	MVPP2_MATCH_UDF5	      = 0x00800000,	/* Match UDF5 */
+	MVPP2_MATCH_UDF6	      = 0x01000000,	/* Match UDF6 */
+
 	/*TPID and CFI*/
-	MVPP2_MATCH_TPID_OUTER        = 0x0400000, /* Match Outer TPID */
-	MVPP2_MATCH_CFI_OUTER         = 0x0800000, /* Match Outer CFI */
-	MVPP2_MATCH_TPID_INNER        = 0x1000000, /* Match Inner TPID */
-	MVPP2_MATCH_CFI_INNER         = 0x2000000, /* Match Inner CFI */
+	MVPP2_MATCH_TPID_OUTER        = 0x04000000,	/* Match Outer TPID */
+	MVPP2_MATCH_CFI_OUTER         = 0x08000000,	/* Match Outer CFI */
+	MVPP2_MATCH_TPID_INNER        = 0x10000000,	/* Match Inner TPID */
+	MVPP2_MATCH_CFI_INNER         = 0x20000000,	/* Match Inner CFI */
+
 };
 
 #define MVPP2_MATCH_FIELD_ALL	(MVPP2_MATCH_ETH_DST | MVPP2_MATCH_ETH_SRC | MVPP2_MATCH_VID_OUTER \
@@ -179,7 +188,9 @@ enum pp2_cls_field_match_t {
 				| MVPP2_MATCH_L4_SRC | MVPP2_MATCH_L4_DST | MVPP2_MATCH_IPV6_PREF\
 				| MVPP2_MATCH_IPV6_SUFF | MVPP2_MATCH_ARP_TRGT_IP_ADDR\
 				| MVPP2_MATCH_TPID_OUTER | MVPP2_MATCH_CFI_OUTER\
-				| MVPP2_MATCH_TPID_INNER | MVPP2_MATCH_CFI_INNER) /* All MVPP2 fields*/
+				| MVPP2_MATCH_TPID_INNER | MVPP2_MATCH_CFI_INNER\
+				| MVPP2_MATCH_UDF3 | MVPP2_MATCH_UDF5 | MVPP2_MATCH_UDF6\
+				) /* All MVPP2 fields*/
 
 #define MVPP2_MATCH_FIELD_IP	(MVPP2_MATCH_IPV4_PKT | MVPP2_MATCH_IPV6_PKT | MVPP2_MATCH_IP_SRC \
 				| MVPP2_MATCH_IP_DST | MVPP2_MATCH_IP_DSCP \
@@ -389,6 +400,11 @@ struct pp2_cls_ipvx_add_key_t {
 	union pp2_cls_ipvx_add	ip_add_mask;	/* IPV4/IPV6 Address Mask*/
 };
 
+struct pp2_cls_udf_key_t {
+	u32	udf;		/* UDF */
+	u32	udf_mask;	/* UDF Mask*/
+};
+
 struct pp2_cls_ipvx_key_t {
 	u16				ip_ver;		/* IP version (4,6) */
 	struct pp2_cls_ipvx_add_key_t	ip_src;		/* Maskable IPV4/IPV6 source address */
@@ -424,6 +440,9 @@ struct pp2_cls_pkt_key_t {
 	struct pp2_cls_ipvx_add_key_t	arp_ip_dst;	/* ARP IPV4 dest address */
 	u16				l4_src;		/*UDP/TCP source port */
 	u16				l4_dst;		/*UDP/TCP dest port */
+	struct pp2_cls_udf_key_t	udf3;		/*UDF3 */
+	struct pp2_cls_udf_key_t	udf5;		/*UDF5 */
+	struct pp2_cls_udf_key_t	udf6;		/*UDF6 */
 };
 
 #endif /* _PP2_CLS_TYPES_H_ */

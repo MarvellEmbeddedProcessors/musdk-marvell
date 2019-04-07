@@ -146,6 +146,14 @@ static u32 pp2_cls_field_size_array[CLS_FIELD_MAX] = {
 	L4_SRC_FIELD_SIZE,
 	L4_DST_FIELD_SIZE,
 	TCP_FLAGS_FIELD_SIZE,
+	CLS_UDF0_FIELD_SIZE,
+	CLS_UDF1_FIELD_SIZE,
+	CLS_UDF2_FIELD_SIZE,
+	CLS_UDF3_FIELD_SIZE,
+	CLS_UDF4_FIELD_SIZE,
+	CLS_UDF5_FIELD_SIZE,
+	CLS_UDF6_FIELD_SIZE,
+	CLS_UDF7_FIELD_SIZE,
 	OUT_TPID_FIELD_SIZE,
 	OUT_VLAN_CFI_FIELD_SIZE,
 	IN_TPID_FIELD_SIZE,
@@ -524,7 +532,43 @@ int pp2_cls_field_bm_to_field_info(u32 field_bm, struct pp2_cls_mng_pkt_key_t *p
 		i++;
 	}
 
-	/*add udf set fields - tpid and cfi*/
+	if (field_bm & MVPP2_MATCH_UDF3 && i < field_max) {
+		field_info[i].valid = MVPP2_FIELD_VALID;
+		field_info[i].field_id = CLS_UDF3_FIELD_ID;
+		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->udf3.udf;
+		field_info[i].filed_value.int_data.parsed_int_val_mask = pp2_cls_pkt_key->pkt_key->udf3.udf_mask;
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
+		i++;
+	}
+
+	if (field_bm & MVPP2_MATCH_UDF5 && i < field_max) {
+		field_info[i].valid = MVPP2_FIELD_VALID;
+		field_info[i].field_id = CLS_UDF5_FIELD_ID;
+		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->udf5.udf;
+		field_info[i].filed_value.int_data.parsed_int_val_mask = pp2_cls_pkt_key->pkt_key->udf5.udf_mask;
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
+		i++;
+	}
+
+	if (field_bm & MVPP2_MATCH_UDF6 && i < field_max) {
+		field_info[i].valid = MVPP2_FIELD_VALID;
+		field_info[i].field_id = CLS_UDF6_FIELD_ID;
+		field_info[i].filed_value.int_data.parsed_int_val = pp2_cls_pkt_key->pkt_key->udf6.udf;
+		field_info[i].filed_value.int_data.parsed_int_val_mask = pp2_cls_pkt_key->pkt_key->udf6.udf_mask;
+		pr_debug("field_info[%d] %s val 0x%x mask 0x%x\n", i,
+			 pp2_cls_utils_field_id_str_get(field_info[i].field_id),
+			 field_info[i].filed_value.int_data.parsed_int_val,
+			 field_info[i].filed_value.int_data.parsed_int_val_mask);
+		i++;
+	}
+
+	/*add other udf set fields - tpid and cfi*/
 	if (field_bm & MVPP2_MATCH_TPID_OUTER && i < field_max) {
 		field_info[i].valid = MVPP2_FIELD_VALID;
 		field_info[i].field_id = OUT_TPID_FIELD_ID;
