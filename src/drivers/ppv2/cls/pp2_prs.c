@@ -1305,9 +1305,9 @@ static void mv_pp2x_prs_tcam_data_dword_get(struct mv_pp2x_prs_entry *pe,
 }
 
 
-/* pp2_prs_create_entry
+/* pp2_prs_create_log_port_entry
  *
- * DESCRIPTION:	Create a new entry in PRS
+ * DESCRIPTION:	Create a new entry in PRS for logical port
  *
  * INPUTS:	port	- logical port to be configured
  *		index	- index to read from
@@ -1317,7 +1317,7 @@ static void mv_pp2x_prs_tcam_data_dword_get(struct mv_pp2x_prs_entry *pe,
  *
  * RETURNS:	-1 on error
  */
-static int pp2_prs_create_entry(struct pp2_port *port, u32 index, enum pp2_ppio_cls_target target)
+static int pp2_prs_create_log_port_entry(struct pp2_port *port, u32 index, enum pp2_ppio_cls_target target)
 {
 	struct pp2_inst *inst = port->parent;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
@@ -1885,7 +1885,7 @@ static int pp2_prs_log_port_proto_update(struct pp2_port *port, enum pp2_ppio_cl
 		pp2_cls_db_prs_match_list_idx_get(inst, i, &tcam_match_node);
 
 		if (tcam_match_node.log_port == 0)
-			pp2_prs_create_entry(port, tcam_match_node.idx, target);
+			pp2_prs_create_log_port_entry(port, tcam_match_node.idx, target);
 	}
 
 	return 0;
@@ -2080,7 +2080,7 @@ int pp2_prs_set_log_port(struct pp2_port *port, struct pp2_ppio_log_port_params 
 	 * if target is PP2_CLS_TARGET_OTHER
 	 */
 	if (params->proto_based_target.target == PP2_CLS_TARGET_OTHER)
-		pp2_prs_create_entry(port, MVPP2_PE_MH_DEFAULT, PP2_CLS_TARGET_LOCAL_PPIO);
+		pp2_prs_create_log_port_entry(port, MVPP2_PE_MH_DEFAULT, PP2_CLS_TARGET_LOCAL_PPIO);
 
 	/* Go over all requested protocols and protocol fields*/
 	for (i = 0; i < params->proto_based_target.num_proto_rule_sets; i++) {
