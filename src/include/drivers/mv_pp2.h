@@ -104,7 +104,7 @@
 #define PP2_NUM_ETH_PPIO		3 /**< Maximum number of ppio instances in each packet processor */
 #define PP2_MAX_PROTO_SUPPORTED		8 /**< Maximum number of net protocols supported in pp2 parser */
 #define PP2_MAX_FIELDS_SUPPORTED	2 /**< Maximum number of net protocol special fields supported in pp2 parser*/
-
+#define PP2_MAX_UDFS_SUPPORTED		3 /**< Maximum number of udf (user-define-field) options */
 
 /** @addtogroup grp_pp2_init Packet Processor: Initialization
  *
@@ -166,6 +166,31 @@ struct pp2_parse_params {
 };
 
 /**
+ * pp2 parser udf parameters
+ * contains parser udf data
+ */
+struct pp2_parse_udf_params {
+	enum mv_net_proto		match_proto;
+	union mv_net_proto_fields	match_field;
+	u8				*match_key;
+	u8				*match_mask;
+	 /**
+	  * the offset of the udf field relative to the location of
+	  * the 'match_field' (incl.)
+	  */
+	u8				offset;
+};
+
+/**
+ * pp2 parser udfs structure
+ * this API is used in order to add udf parsing to the pp2 parser
+ */
+struct pp2_parse_udfs {
+	u8				num_udfs;
+	struct pp2_parse_udf_params	udfs[PP2_MAX_UDFS_SUPPORTED];
+};
+
+/**
  * pp2 init parameters
  *
  */
@@ -191,6 +216,8 @@ struct pp2_init_params {
 	int			skip_hw_init;
 	/** Bitmap of the reserved_maps that should be autodetected. */
 	u32			res_maps_auto_detect_map;
+	/** user defined parser fields */
+	struct pp2_parse_udfs	prs_udfs;
 	/* TODO FUTURE struct pp2_parse_params	prs_params; */
 };
 

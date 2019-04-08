@@ -204,6 +204,11 @@ enum mv_net_tcp_fields {
 	MV_NET_TCP_F_DP,
 };
 
+struct mv_net_udf {
+	u8	id;	/**< udf-id [0 - PP2_MAX_UDFS_SUPPORTED] from pp2_parse_udf_params udf struct */
+	u8	size;	/**< udf field size 1-4 byte */
+};
+
 enum mv_net_proto {
 	MV_NET_PROTO_NONE	= 0,
 	MV_NET_PROTO_ETH,
@@ -218,6 +223,7 @@ enum mv_net_proto {
 	MV_NET_PROTO_UDP,
 	MV_NET_PROTO_ICMP,
 	MV_NET_PROTO_ARP,
+	MV_NET_UDF,
 	MV_NET_PROTO_LAST
 };
 
@@ -230,6 +236,7 @@ union mv_net_proto_fields {
 	enum mv_net_l4_fields		l4;
 	enum mv_net_udp_fields		udp;
 	enum mv_net_tcp_fields		tcp;
+	struct mv_net_udf		udf;
 };
 
 typedef u8 eth_addr_t[MV_ETH_ALEN];
