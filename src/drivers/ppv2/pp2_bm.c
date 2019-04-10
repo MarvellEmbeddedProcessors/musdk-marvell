@@ -546,8 +546,8 @@ void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int po
 		return;
 
 	pool->fc_port_mask |= BIT(port_id);
-	pool->fc_stop_threshold += pool_stop_bufs;
-	pool->fc_start_threshold += pool_start_bufs;
+	pool->fc_stop_threshold = pool_stop_bufs;
+	pool->fc_start_threshold = pool_start_bufs;
 	pool->fc_enabled = true;
 
 	pp2_bm_pool_update_fc(pp2_inst->hw.cm3_base.va, pool, pool->fc_enabled);
@@ -561,9 +561,11 @@ void pp2_bm_port_remove(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int
 		return;
 
 	pool->fc_port_mask &= ~(BIT(port_id));
-	pool->fc_stop_threshold -= pool_stop_bufs;
-	pool->fc_start_threshold -= pool_start_bufs;
 	pool->fc_enabled = pool->fc_port_mask ? true : false;
+	if (pool->fc_enabled == false) {
+		pool->fc_stop_threshold = 0;
+		pool->fc_start_threshold = 0;
+	}
 
 	pp2_bm_pool_update_fc(pp2_inst->hw.cm3_base.va, pool, pool->fc_enabled);
 }
@@ -572,8 +574,8 @@ void pp2_bm_update_fc_thresh(struct pp2_inst *pp2_inst, u32 pool_id, int pool_st
 {
 	struct pp2_bm_pool *pool  =  pp2_inst->bm_pools[pool_id];
 
-	pool->fc_stop_threshold += pool_stop_bufs;
-	pool->fc_start_threshold += pool_start_bufs;
+	pool->fc_stop_threshold = pool_stop_bufs;
+	pool->fc_start_threshold = pool_start_bufs;
 
 	if (pool->fc_stop_threshold < 0 || pool->fc_start_threshold < 0)
 		pr_err("%s: pool:%d, port_mask:%x, enabled:%d, stop:%d, start:%d\n", __func__,
