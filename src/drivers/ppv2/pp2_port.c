@@ -657,8 +657,8 @@ static void pp2_port_rxqs_fc_state_reset(struct pp2_port *port)
 			continue;
 
 		/* Clear stop and start Flow control RXQ thresholds */
-		cm3_write(base, MSS_CP_CM3_RXQ_TR_BASE + rxq->id * MSS_CP_CM3_RXQ_TR_OFFS, 0);
-		cm3_write(base, MSS_CP_CM3_RXQ_ASS_REG(queue), 0);
+		cm3_write(base, MSS_CP_CM3_RXQ_TRESH_REG(rxq->id), 0);
+		cm3_write(base, MSS_CP_CM3_RXQ_ASS_REG(rxq->id), 0);
 	}
 
 	/* Notify Firmware that Flow control config space ready for update */
@@ -979,27 +979,28 @@ static void pp2_port_rxqs_fc_state_set(struct pp2_port *port, int en)
 			continue;
 
 		/* Set stop and start Flow control RXQ thresholds */
-		val = rxq->fc_start_thresh << MSS_CP_CM3_RXQ_TR_START_OFFS;
-		val |= (rxq->fc_stop_thresh << MSS_CP_CM3_RXQ_TR_STOP_OFFS);
-		cm3_write(base, MSS_CP_CM3_RXQ_TR_BASE + rxq->id * MSS_CP_CM3_RXQ_TR_OFFS, val);
+		/* Set host ID */
+		if (en) {
+			val = rxq->fc_start_thresh << MSS_CP_CM3_RXQ_TR_START_OFFS;
+			val |= (rxq->fc_stop_thresh << MSS_CP_CM3_RXQ_TR_STOP_OFFS);
 
-		/* Set RXQ port ID & Host ID */
-		if (en)
 			host_id = (rxq->id % PP2_PPIO_MAX_NUM_INQS) / PP22_MAX_NUM_RXQ_PER_INTRPT;
-		else
+		} else {
+			val = 0;
 			host_id = 0;
+		}
+		cm3_write(base, MSS_CP_CM3_RXQ_TRESH_REG(rxq->id), val);
 
 		val = cm3_read(base, MSS_CP_CM3_RXQ_ASS_REG(rxq->id));
-		val &= ~(MSS_CP_CM3_RXQ_ASS_PORTID_MASK << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG)
-			* MSS_CP_CM3_RXQ_ASS_PER_OFFS));
-		val |= (port_id << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG) * MSS_CP_CM3_RXQ_ASS_PER_OFFS));
-		val &= ~(MSS_CP_CM3_RXQ_ASS_HOSTID_MASK << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG)
-			* MSS_CP_CM3_RXQ_ASS_PER_OFFS + MSS_CP_CM3_RXQ_ASS_HOSTID_OFFS));
+		val &= ~(MSS_CP_CM3_RXQ_ASS_PORTID_MASK << MSS_CP_CM3_RXQ_ASS_Q_BASE(rxq->id));
+		val |= (port->id << MSS_CP_CM3_RXQ_ASS_Q_BASE(rxq->id));
+		val &= ~(MSS_CP_CM3_RXQ_ASS_HOSTID_MASK << (MSS_CP_CM3_RXQ_ASS_Q_BASE(rxq->id)
+			+ MSS_CP_CM3_RXQ_ASS_HOSTID_OFFS));
 
-		val |= (host_id << ((rxq->id % MSS_CP_CM3_RXQ_ASS_PER_REG)
-			* MSS_CP_CM3_RXQ_ASS_PER_OFFS + MSS_CP_CM3_RXQ_ASS_HOSTID_OFFS));
+		val |= (host_id << (MSS_CP_CM3_RXQ_ASS_Q_BASE(rxq->id)
+			+ MSS_CP_CM3_RXQ_ASS_HOSTID_OFFS));
 
-		cm3_write(base, MSS_CP_CM3_RXQ_ASS_REG(queue), val);
+		cm3_write(base, MSS_CP_CM3_RXQ_ASS_REG(rxq->id), val);
 	}
 
 	/* Notify Firmware that Flow control config space ready for update */
