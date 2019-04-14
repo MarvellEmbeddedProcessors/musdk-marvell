@@ -2347,10 +2347,12 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	if ((port->tx_pause_en == 0) && (ena == 0))
 		return 0;
 
-	/* Find mtu_based flow_control values */
 	i = 0;
-	while ((port->port_mtu > pp2_fc[i].port_mtu) && (i < (ARRAY_SIZE(pp2_fc))))
-		i++;
+	/* Find mtu_based flow_control values */
+	/* while ((port->port_mtu > pp2_fc[i].port_mtu) && (i < (ARRAY_SIZE(pp2_fc))))
+	 *	i++;
+	 */
+	/* Use standard threshold values for all port MTU values */
 	fc_values = &pp2_fc[i];
 
 	/* Calculate rxq_flow_control_mask */
