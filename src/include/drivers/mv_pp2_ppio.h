@@ -126,6 +126,8 @@ struct pp2_cls_early_drop;
 #define PP2_PPIO_TC_CLUSTER_MAX_POOLS	2 /**< Max. number of bpools per TC per mem_id. */
 #define PP2_PPIO_TC_MAX_POOLS		\
 	(PP2_PPIO_TC_CLUSTER_MAX_POOLS * MV_SYS_DMA_MAX_NUM_MEM_ID) /**< Max. number of bpools per TC. */
+#define PP2_PPIO_MAX_UC_ADDR		4
+#define PP2_PPIO_MAX_MC_ADDR		21
 
 enum pp2_ppio_type {
 	PP2_PPIO_T_LOG = 0,	/*  Logical-port is only a set of Out-Qs and In-TCs (i.e. no link, l2-filters) */

@@ -329,6 +329,11 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		struct ifreq s;
 		int i;
 
+		if (port->num_added_mc_addr == PP2_PPIO_MAX_MC_ADDR) {
+			pr_err("PORT: reached multicast address limit (%d)\n", PP2_PPIO_MAX_MC_ADDR);
+			return -ENOSPC;
+		}
+
 		strcpy(s.ifr_name, port->linux_name);
 		s.ifr_hwaddr.sa_family = AF_UNSPEC;
 		for (i = 0; i < ETH_ALEN; i++)
@@ -339,13 +344,20 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to add mac sddress\n");
 			return rc;
 		}
+		port->num_added_mc_addr++;
+
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		pr_debug("num_mc:%d\n", port->num_added_mc_addr);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
 		char buf[PP2_MAX_BUF_STR_LEN];
 		char da[PP2_MAX_BUF_STR_LEN];
 
+		if (port->num_added_uc_addr == PP2_PPIO_MAX_UC_ADDR) {
+			pr_err("PORT: reached unicast address limit (%d)\n", PP2_PPIO_MAX_UC_ADDR);
+			return -ENOSPC;
+		}
 		uc_addr_node = kmalloc(sizeof(*uc_addr_node), GFP_KERNEL);
 		if (!uc_addr_node)
 			return -ENOMEM;
@@ -375,7 +387,6 @@ int pp2_port_add_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x added to uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 		pr_debug("num_uc:%d\n", port->num_added_uc_addr);
-
 	} else {
 		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
@@ -405,7 +416,7 @@ static int pp2_port_uc_mac_addr_list_remove(struct pp2_port *port, const uint8_t
 			if (mv_eaddr_identical(uc_addr_node->addr, addr)) {
 				list_del(&uc_addr_node->list_node);
 				kfree(uc_addr_node);
-				pr_info("removed %x:%x:%x:%x:%x:%x from port_list\n",
+				pr_debug("removed %x:%x:%x:%x:%x:%x from port_list\n",
 					 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 				return 1;
 
@@ -434,8 +445,10 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 			pr_err("PORT: unable to remove mac sddress\n");
 			return rc;
 		}
+		port->num_added_mc_addr--;
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from mc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+		pr_debug("num_mc:%d\n", port->num_added_mc_addr);
 	} else if (mv_check_eaddr_uc(addr)) {
 		int fd;
 		char buf[PP2_MAX_BUF_STR_LEN];
@@ -463,8 +476,6 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 		pr_debug("PORT: Ethernet address %x:%x:%x:%x:%x:%x removed from uc list\n",
 			 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 		pr_debug("num_uc:%d\n", port->num_added_uc_addr);
-
-
 	} else {
 		pr_err("PORT: Ethernet address is not unicast/multicast. Request ignored\n");
 	}
