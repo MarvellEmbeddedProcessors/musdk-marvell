@@ -24,11 +24,11 @@ Build Required Kernel Modules
 
 	- Cross compiler for compilation of modules, must be same as compiler that was used for Kernel. for example::
 
-		> export CROSS_COMPILE=~/SDK/marvell-tools-202/bin/aarch64-marvell-linux-gnu-
+		> export CROSS_COMPILE=<path-to-toolchain-directory>/bin/aarch64-marvell-linux-gnu-
 
 	- Kernel directory. for example::
 
-		> export KDIR=~/linux-4.14.76-devel
+		> export KDIR=<path-to-kernel-directory>
 
 (3) Build the MUSDK UIO kernel module and install it::
 
@@ -53,7 +53,7 @@ This step is optional and required only when using SAM driver on EIP197 crypto d
 
 Get EIP197 Firmware from release binaries and copy them to target file system
 under directories:
-"/lib/firmware/inside-secure/eip197b/" - EIP197b (A7K/A8K)
+"/lib/firmware/inside-secure/eip197b/" - EIP197b (A7K/A8K/CN913x)
 
 Binary files: ipue.bin, ifpp.bin
 
@@ -64,7 +64,7 @@ Set external variables:
 
    - Cross compiler for compilation of user space libraries and applications. For example::
 
-	> export CROSS_COMPILE=~/SDK/marvell-tools-202/bin/aarch64-marvell-linux-gnu-
+	> export CROSS_COMPILE=<path-to-toolchain-directory>/bin/aarch64-marvell-linux-gnu-
 
 Build the MUSDK package
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,12 +76,10 @@ Build the MUSDK package
 
 (2) Configure MUSDK
 
-	.. note::
-		For shared libraries compilation of MUSDK must be configured with ``--host=aarch64-linux-gnu``.
 
 	* configure option #1 - build all available drivers and related applications::
 
-		> ./configure
+		> ./configure --host=aarch64-linux-gnu CC=${CROSS_COMPILE}gcc --enable-static --disable-shared
 
 	* configure option #2 - disable some drivers; e.g. remove SAM driver and SAM test application::
 
@@ -95,7 +93,7 @@ Build the MUSDK package
 
   .. note::
 	Default install directory is: <musdk-dir>/usr/local.
-	Install directory can be changed using: ``make install DESTDIR=<install-dir>``
+	Install directory can be changed using option --prefix=<install-dir>
 
 Insert Kernel Modules
 ---------------------
