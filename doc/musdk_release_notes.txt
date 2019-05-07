@@ -1,4 +1,4 @@
-MUSDK Release Notes
+MUSDK-1.1.0 Release Notes
 ===================
 Marvell User-Space SDK (MUSDK) is a light-weight user-space I/O driver for Marvell's
 Embedded Networking SoC's. The MUSDK library provides a simple and direct access to Marvell's
@@ -106,6 +106,18 @@ Supported Features
 
 Change Log
 ----------
+1.1.0:
+~~~~~~
+- Changed 'configure' command
+- Fixed TX/RX flow-control
+- Fixed vlan filtering
+- Fixed ppio statistics
+
+Known issues:
+-------------
+- PP2:
+	- IPv6+extension is parsed as IPv6
+
 19:02:
 ~~~~~~
 - Added support for NETA features:
