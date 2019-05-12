@@ -216,10 +216,6 @@ static int first_time = true;
 	}
 
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-
-		if (strncmp("eth", ifa->ifa_name, 3) != 0)
-			continue;
-
 		/* Filter already parsed interfaces, since getifaddrs linked list contains entries
 		 * for the same interface and different family types
 		 */
@@ -241,9 +237,8 @@ static int first_time = true;
 		strcat(path, subpath);
 		fp = fopen(path, "r");
 		if (!fp) {
-			pr_err("error opening %s\n", path);
-			freeifaddrs(ifap);
-			return -EEXIST;
+			pr_debug("%s is probably not a pp2 interface. skipping\n", ifa->ifa_name);
+			continue;
 		}
 		while (fgets(buf, PP2_MAX_BUF_STR_LEN, fp)) {
 			if (strncmp("DRIVER=mvpp2", buf, 12) == 0) {
