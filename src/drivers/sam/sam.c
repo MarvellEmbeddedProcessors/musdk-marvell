@@ -968,6 +968,8 @@ int sam_session_destroy(struct sam_sa *session)
 		if (session->ctr_cio)
 			/* wait to result */
 			sam_cio_flush(cio);
+		else
+			sam_hw_cmd_desc_put(&cio->hw_ring, 1);
 	} else {
 		sam_session_free(session);
 		SAM_STATS(sam_sa_stats.sa_del++);
