@@ -144,7 +144,7 @@
 
 
 #define CLS_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
-#define CLS_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
+#define CLS_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 1024, 0, NULL} }
 
 /* Structure containing a map of queues per core */
 struct queue_map {

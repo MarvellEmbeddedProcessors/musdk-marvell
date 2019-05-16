@@ -174,7 +174,7 @@ static const char tx_retry_str[] = "Tx Retry disabled";
 
 
 #define PKT_ECHO_APP_BPOOLS_INF		{ {384, 4096, 0, NULL}, {2048, 1024, 0, NULL} }
-#define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 512, 0, NULL} }
+#define PKT_ECHO_APP_BPOOLS_JUMBO_INF	{ {2048, 4096, 0, NULL}, {10240, 1024, 0, NULL} }
 
 #define PKT_ECHO_MAX_FLOW_REQUESTS		64
 
