@@ -2347,6 +2347,8 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 	if ((port->tx_pause_en == 0) && (ena == 0))
 		return 0;
 
+	pp2_port_set_phy_tx_pause(port, ena);
+
 	i = 0;
 	/* Find mtu_based flow_control values */
 	/* while ((port->port_mtu > pp2_fc[i].port_mtu) && (i < (ARRAY_SIZE(pp2_fc))))
@@ -2421,7 +2423,7 @@ int pp2_port_set_tx_pause(struct pp2_port *port, struct pp2_ppio_tx_pause_params
 
 	/* Configure RX_FIFO */
 	if (pp2_reg_read(cpu_slot, MVPP2_VER_ID_REG) == MVPP2_VER_PP23) {
-		pr_info("%s: MVPP2_VER_PP23 : not overriding kernel rx_fifo_size, only enabling\n", __func__);
+		pr_debug("%s: MVPP2_VER_PP23 : not overriding kernel rx_fifo_size, only enabling\n", __func__);
 		pp2_port_rx_fifo_fc_en(port, ena);
 	}
 

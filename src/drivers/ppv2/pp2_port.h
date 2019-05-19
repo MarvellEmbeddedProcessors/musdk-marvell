@@ -483,6 +483,9 @@ int pp2_port_get_rx_pause(struct pp2_port *port, int *en);
 /* Set Rx Pause FC */
 int pp2_port_set_rx_pause(struct pp2_port *port, int en);
 
+/* Enable Tx Pause FC in Phy */
+int pp2_port_set_phy_tx_pause(struct pp2_port *port, int en);
+
 /* Set MTU */
 int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu);
 

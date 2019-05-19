@@ -227,6 +227,29 @@ int pp2_port_set_rx_pause(struct pp2_port *port, int en)
 	return 0;
 }
 
+/* Enable Tx Pause FC in Phy */
+int pp2_port_set_phy_tx_pause(struct pp2_port *port, int en)
+{
+	struct ifreq ifr;
+	struct ethtool_pauseparam param;
+	int rc;
+
+	memset(&param, 0, sizeof(param));
+	strcpy(ifr.ifr_name, port->linux_name);
+
+	param.cmd = ETHTOOL_SPAUSEPARAM;
+	param.tx_pause = en;
+	ifr.ifr_data = &param;
+	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
+	if (rc) {
+		pr_err("PORT: unable to %s tx pause\n",
+			(en) ? "enable" : "disable");
+		return rc;
+	}
+
+	return 0;
+}
+
 /* Set promiscuous */
 int pp2_port_set_promisc(struct pp2_port *port, uint32_t en)
 {
