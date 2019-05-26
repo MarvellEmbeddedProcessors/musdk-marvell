@@ -388,13 +388,15 @@ CRYPTO-ECHO
 The crypto-echo application does the following operations:
 	- receives packets from the network interface
 	- encrypts the received packet (optional)
-	- IPSec ESP encapsulation (tunnel or transport modes) only for A8040/A7040 (optional)
+	- IPSec ESP encapsulation (tunnel or transport modes) only for
+	  A8040/A7040/CN913X (optional)
 	- decrypts the packet (optional)
-	- IPSec ESP decapsulation (tunnel or transport modes) only for A8040/A7040 (optional)
+	- IPSec ESP decapsulation (tunnel or transport modes) only for
+	  A8040/A7040/CN913X (optional)
 	- switches source and destination mac addresses (optional).
 	- sends the packet to the network interface
 
-Application usage (A8040, A7040)::
+Application usage (A8040, A7040, CN913X)::
 
 	> musdk_pp2_crypto_echo OPTIONS
 
@@ -405,7 +407,6 @@ Application usage (A3700)::
 Mandatory OPTIONS::
 
         -i, --interface <Eth-interfaces> (comma-separated, no spaces)
-                  Interface count min: 1, max: 4 (A8040), 2 (A7040, A3700)
                   e.g. -i eth1,eth3
 
 The interfaces must be brought up using "ifconfig <ifname> up" before running the application
@@ -444,8 +445,8 @@ Two CIOs are created for each CPU core, one for encryption and other for decrypt
 If possible CIOs are taken from different engines.
 
 For example:
-   - in case of A8040 - encryption is done on cio-0:0, and decryption on cio-1:0
-   - in case of A7040 or A3700 - encryption is done on cio-0:0, and decryption on cio-0:1
+   - in case of A8040 or CN9131 - encryption is done on cio-0:0, and decryption on cio-1:0
+   - in case of A7040 or A3700 or CN9130 - encryption is done on cio-0:0, and decryption on cio-0:1
 
 - If "--dir enc" - ingress packet will be only encrypted and will be sent out encrypted
 - If "--dir dec" - ingress packet will be only decrypted and will be sent out decrypted
