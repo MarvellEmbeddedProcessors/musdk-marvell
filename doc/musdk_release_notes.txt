@@ -1,4 +1,4 @@
-MUSDK-1.1.0 Release Notes
+MUSDK-1.2.0 Release Notes
 ===================
 Marvell User-Space SDK (MUSDK) is a light-weight user-space I/O driver for Marvell's
 Embedded Networking SoC's. The MUSDK library provides a simple and direct access to Marvell's
@@ -16,19 +16,6 @@ Supported SoCs
 	- Armada-37x0
 	- Armada-3900
 	- CN913x
-
-Release Content
----------------
-	- Binaries:
-		- bin-armv8le-musdk-ga-<version>.zip - contains relevant binaries:
-			- rootfs/usr/local/musdk/lib:
-				- libmusdk.a
-				- libmusdk.la
-			- rootfs/usr/local/musdk/bin:
-				- <all example applications>
-	- Sources:
-		- sources-musdk-<version>.x.zip 	- includes full sources of MUSDK package.
-
 
 Supported Features
 ------------------
@@ -103,20 +90,27 @@ Supported Features
 	- Pure-DMA data transfer (source-buffer to destination-buffer)
 	- supported memory targets: Cacheable, Non-Cacheable/IO
 
-
-Change Log
-----------
-1.1.0:
-~~~~~~
-- Changed 'configure' command
-- Fixed TX/RX flow-control
-- Fixed vlan filtering
-- Fixed ppio statistics
-
 Known issues:
 -------------
 - PP2:
 	- IPv6+extension is parsed as IPv6
+
+Change Log
+----------
+1.2.0:
+~~~~~~
+- Fixed in PP2 driver:
+	- RGMII TX flow-control
+	- accept any interface name
+
+1.1.0:
+~~~~~~
+- Changed 'configure' command
+
+- Fixed in PP2 driver:
+	- TX/RX flow-control
+	- vlan filtering
+	- ppio statistics
 
 19:02:
 ~~~~~~
