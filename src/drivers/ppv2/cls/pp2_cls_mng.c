@@ -1917,7 +1917,7 @@ int pp2_cls_mng_rule_add(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *rule,
 	rc = pp2_cls_db_mng_rule_check(tbl, rule);
 	if (rc) {
 		pr_warn("duplicated rule, ignoring request\n");
-		return 0;
+		return -EEXIST;
 	}
 
 	/* init value */

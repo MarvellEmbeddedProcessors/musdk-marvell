@@ -1432,28 +1432,33 @@ int pp2_cls_db_mng_rule_check(struct pp2_cls_tbl *tbl, struct pp2_cls_tbl_rule *
 	struct pp2_cls_tbl_node *tbl_node;
 	struct pp2_cls_rule_node *rule_node;
 	u32 i;
+	int duplicated;
 
 	LIST_FOR_EACH_OBJECT(tbl_node, struct pp2_cls_tbl_node, &mng_db->pp2_cls_tbl_head, list_node) {
 		if (&tbl_node->tbl == tbl) {
 			LIST_FOR_EACH_OBJECT(rule_node, struct pp2_cls_rule_node, &tbl_node->pp2_cls_tbl_rule_head,
 					     list_node) {
-				 pr_debug("num_fields %d %d\n", rule_node->rule.num_fields, rule->num_fields);
+				pr_debug("num_fields %d %d\n", rule_node->rule.num_fields, rule->num_fields);
 				if (rule_node->rule.num_fields != rule->num_fields)
 					continue;
 
+				duplicated = 1;
 				for (i = 0; i < rule_node->rule.num_fields; i++) {
 					pr_debug("size %d key %s, mask %s\n", rule_node->rule.fields[i].size,
 						 rule_node->rule.fields[i].key, rule_node->rule.fields[i].mask);
 					pr_debug("size %d key %s, mask %s\n", rule->fields[i].size,
 						 rule->fields[i].key, rule->fields[i].mask);
-					if ((strcmp((char *)rule_node->rule.fields[i].key,
-						    (char *)rule->fields[i].key) == 0) &&
+					if ((rule_node->rule.fields[i].size != rule->fields[i].size) ||
+					    (strcmp((char *)rule_node->rule.fields[i].key,
+						    (char *)rule->fields[i].key) != 0) ||
 					    (strcmp((char *)rule_node->rule.fields[i].mask,
-						    (char *)rule->fields[i].mask) == 0) &&
-					    (rule_node->rule.fields[i].size == rule->fields[i].size)) {
-						return 1;
+						    (char *)rule->fields[i].mask) != 0)) {
+						duplicated = 0;
+						break;
 					}
 				}
+				if (duplicated == 1)
+					return 1;
 			}
 		}
 	}
