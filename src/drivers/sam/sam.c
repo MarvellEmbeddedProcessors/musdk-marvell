@@ -991,6 +991,10 @@ static int sam_cio_check_op_params(struct sam_cio_op_params *request)
 		/* One destination buffer is mandatory */
 		return -ENOTSUP;
 
+	if (unlikely(request->sa == NULL))
+		/* SA is mandatory */
+		return -ENOTSUP;
+
 	return 0;
 }
 
