@@ -94,6 +94,10 @@ Known issues:
 -------------
 - PP2:
 	- IPv6+extension is parsed as IPv6
+	- QoS is not supported
+	- Mac filtering is not supported
+	- Vlan #0 is treated as tagged - must be added explicit so it won't be dropped if vlan filtering is enabled
+	- Packets drop may occur during Add/Remove VLAN entries operations - those operations should not be operated during traffic
 
 Change Log
 ----------
