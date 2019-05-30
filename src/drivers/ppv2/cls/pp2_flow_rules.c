@@ -2546,6 +2546,27 @@ int pp2_cls_fl_rule_add(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t *fl
 					fl_rl->rl_log_id = cur_fl->fl[j].rl_log_id;
 
 					cur_fl->fl[j].state = MVPP2_MRG_NEW_EXISTS;
+
+					if (cur_fl->fl[j].enabled == 1)
+						break;
+
+					/* enable the found rule if it's disabled */
+					fl_rl->enabled = 1;
+					cur_fl->fl[j].enabled = 1;
+					cur_fl->fl[j].port_type = fl_rl->port_type;
+					cur_fl->fl[j].port_bm = fl_rl->port_bm;
+
+					rc = pp2_cls_fl_rl_hw_ena(inst, fl_rl);
+					if (rc) {
+						pr_err("pp2_cls_fl_rl_hw_ena ret_code(%d)\n", rc);
+						goto err3;
+					}
+
+					rc = pp2_cls_fl_rl_db_set(inst, &cur_fl->fl[j], cur_fl->fl_log_id);
+					if (rc) {
+						pr_err("pp2_cls_fl_rl_db_set ret_code(%d)\n", rc);
+						goto err3;
+					}
 					break;
 				}
 			}
