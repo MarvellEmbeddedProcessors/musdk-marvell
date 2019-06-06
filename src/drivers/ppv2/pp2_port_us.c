@@ -214,6 +214,8 @@ int pp2_port_set_rx_pause(struct pp2_port *port, int en)
 
 	param.cmd = ETHTOOL_SPAUSEPARAM;
 	param.rx_pause = en;
+	param.tx_pause = port->tx_pause_en;
+	param.autoneg = 1;
 	ifr.ifr_data = &param;
 	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
 	if (rc) {
@@ -239,6 +241,8 @@ int pp2_port_set_phy_tx_pause(struct pp2_port *port, int en)
 
 	param.cmd = ETHTOOL_SPAUSEPARAM;
 	param.tx_pause = en;
+	param.rx_pause = port->rx_pause_en;
+	param.autoneg = 1;
 	ifr.ifr_data = &param;
 	rc = mv_netdev_ioctl(SIOCETHTOOL, &ifr);
 	if (rc) {
