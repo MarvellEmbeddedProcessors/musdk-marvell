@@ -919,15 +919,15 @@ static int mv_pp2x_prs_hw_write(uintptr_t cpu_slot, struct mv_pp2x_prs_entry *pe
 	/* Clear entry invalidation bit */
 	pe->tcam.word[MVPP2_PRS_TCAM_INV_WORD] &= ~MVPP2_PRS_TCAM_INV_MASK;
 
-	/* Write tcam index - indirect access */
-	pp2_reg_write(cpu_slot, MVPP2_PRS_TCAM_IDX_REG, pe->index);
-	for (i = 0; i < MVPP2_PRS_TCAM_WORDS; i++)
-		pp2_reg_write(cpu_slot, MVPP2_PRS_TCAM_DATA_REG(i), pe->tcam.word[i]);
-
 	/* Write sram index - indirect access */
 	pp2_reg_write(cpu_slot, MVPP2_PRS_SRAM_IDX_REG, pe->index);
 	for (i = 0; i < MVPP2_PRS_SRAM_WORDS; i++)
 		pp2_reg_write(cpu_slot, MVPP2_PRS_SRAM_DATA_REG(i), pe->sram.word[i]);
+
+	/* Write tcam index - indirect access */
+	pp2_reg_write(cpu_slot, MVPP2_PRS_TCAM_IDX_REG, pe->index);
+	for (i = 0; i < MVPP2_PRS_TCAM_WORDS; i++)
+		pp2_reg_write(cpu_slot, MVPP2_PRS_TCAM_DATA_REG(i), pe->tcam.word[i]);
 
 	return 0;
 }
