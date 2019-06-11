@@ -327,6 +327,12 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 		return -EINVAL;
 	}
 
+	/* checksum offlaod is not relevant for loopback port,
+	 * so skipping the check
+	 */
+	if (LPBK_PORT(port))
+		return 0;
+
 	/* Check MTU can be l4_checksummed */
 	tx_fifo_threshold = PP2_PORT_TX_FIFO_KB_TO_THRESH(port->tx_fifo_size);
 	if (MVPP2_MTU_PKT_SIZE(mtu) > tx_fifo_threshold) {
