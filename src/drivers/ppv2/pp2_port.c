@@ -1897,7 +1897,9 @@ static int pp2_port_check_buf_size(struct pp2_port *port, uint16_t mru)
 			if (long_pool) {
 				pool_buf_size = long_pool->bm_pool_buf_sz;
 				if (pool_buf_size < req_buf_size) {
-					pr_err("PORT: Oversize required buf_size=[%u]. tc[%u]:pool_id[%u]:buf_size=[%u]\n",
+					pr_err("PORT: Oversize, cannot set MRU size greater than %d\n",
+					       pool_buf_size + MV_ETH_FCS_LEN - pkt_offset);
+					pr_err("PORT: required buf_size=[%u]. tc[%u]:pool_id[%u]:buf_size=[%u]\n",
 						req_buf_size, i, long_pool->bm_pool_id, pool_buf_size);
 					return -EINVAL;
 				}
