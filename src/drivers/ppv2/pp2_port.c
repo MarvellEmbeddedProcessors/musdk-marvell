@@ -313,6 +313,7 @@ static inline void pp2_port_isr_rx_group_write(struct pp2_port *port, int sub_gr
 
 	val = (port->id << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET) | sub_group;
 	pp2_reg_write(cpu_slot,  MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
+
 	val = (num_rx_queues << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET) | start_queue;
 	pp2_reg_write(cpu_slot, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
 }
@@ -674,6 +675,22 @@ static void pp2_port_rxqs_fc_state_reset(struct pp2_port *port)
 	cm3_write(base, MSS_CP_FC_COM_REG, val);
 }
 
+static void pp2_port_clear_fc_isr(struct pp2_port *port)
+{
+	int cpu_slot_id;
+	uintptr_t cpu_slot;
+
+	for (cpu_slot_id = 0; cpu_slot_id < PP2_MAX_NUM_USED_INTERRUPTS; cpu_slot_id++) {
+		/* Configure Group/Subgroup */
+		pp2_port_isr_rx_group_write(port, cpu_slot_id, 0, 0);
+
+		cpu_slot = port->parent->hw.base[cpu_slot_id].va;
+
+		/* Configure RX Exceptions Interrupt Mask */
+		pp2_reg_write(cpu_slot, MVPP2_RX_EX_INT_CAUSE_MASK_REG(port->id), 0);
+	}
+}
+
 /* Per-RXQ hardware related initialization
  * Hardware access
  */
@@ -753,6 +770,7 @@ pp2_port_rxqs_init(struct pp2_port *port)
 	}
 
 	pp2_port_rxqs_fc_state_reset(port);
+	pp2_port_clear_fc_isr(port);
 }
 
 /* Allocates and sets control data for TXQs
