@@ -157,6 +157,7 @@ struct bm_pool_param {
 	u32 pp2_id;
 	u32 buf_num;
 	u32 buf_size;
+	int dummy_pool;
 	struct mv_sys_dma_mem_region *likely_buffer_mem;
 };
 

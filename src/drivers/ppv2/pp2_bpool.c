@@ -143,8 +143,9 @@ int pp2_bpool_init(struct pp2_bpool_params *params, struct pp2_bpool **bpool)
 		return(-EEXIST);
 	}
 	pr_debug("[%s] pp2_id(%d) pool_id(%d)\n", __func__, pp2_id, pool_id);
+	param.dummy_pool = params->dummy_short_pool;
 	param.buf_num = MVPP2_BM_POOL_SIZE_MAX;
-	param.buf_size = params->buff_len;
+	param.buf_size = param.dummy_pool ? PP2_DUMMY_POOL_BUF_SIZE : params->buff_len;
 	param.id = pool_id;
 	param.pp2_id = pp2_id;
 	param.likely_buffer_mem = params->likely_buffer_mem;

@@ -129,6 +129,11 @@ struct pp2_bpool_params {
 	 */
 	const char			*match;
 	u32				buff_len; /**< buffer length */
+	int				dummy_short_pool; /**< If application only needs one pool with jumbo
+							* (or larger than 4KB) buffer size, then additional
+							* pool must be created with this flag set to '1';
+							* in this case setting the 'buff_len' can be skipped
+							*/
 	struct mv_sys_dma_mem_region	*likely_buffer_mem; /**< Memory likely to be used for putting buffers */
 /* TODO: will not be supported at first stage. Need to look how to handle HW IRQ
  *	int				 (*empty_cb) (void *arg, u32 status);

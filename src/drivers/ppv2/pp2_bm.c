@@ -304,6 +304,9 @@ int pp2_bm_pool_create(struct pp2 *pp2, struct bm_pool_param *param)
 	/* Number of buffers */
 	bm_pool->bm_pool_buf_num = param->buf_num;
 
+	/* FC shouldn't be configured for dummy pool */
+	bm_pool->fc_not_supported = param->dummy_pool ? 1 : 0;
+
 	/* FS_A8K Table 1558: A BPPE holds 8 x BPs (buffers), and for each
 	 * buffer, 2 x pointer sizes must be allocated. The BPPE region size
 	 * is computed by adding up all BPPEs.
@@ -542,6 +545,9 @@ void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int po
 {
 	struct pp2_bm_pool *pool = pp2_inst->bm_pools[pool_id];
 
+	if (pool->fc_not_supported)
+		return;
+
 	if (pool->fc_port_mask & BIT(port_id))
 		return;
 
@@ -556,6 +562,9 @@ void pp2_bm_port_add(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int po
 void pp2_bm_port_remove(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int pool_stop_bufs, int pool_start_bufs)
 {
 	struct pp2_bm_pool *pool = pp2_inst->bm_pools[pool_id];
+
+	if (pool->fc_not_supported)
+		return;
 
 	if (!(pool->fc_port_mask & BIT(port_id)))
 		return;
@@ -573,6 +582,9 @@ void pp2_bm_port_remove(struct pp2_inst *pp2_inst, u32 pool_id, u32 port_id, int
 void pp2_bm_update_fc_thresh(struct pp2_inst *pp2_inst, u32 pool_id, int pool_stop_bufs, int pool_start_bufs)
 {
 	struct pp2_bm_pool *pool  =  pp2_inst->bm_pools[pool_id];
+
+	if (pool->fc_not_supported)
+		return;
 
 	pool->fc_stop_threshold = pool_stop_bufs;
 	pool->fc_start_threshold = pool_start_bufs;

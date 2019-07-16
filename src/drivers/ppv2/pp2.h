@@ -372,6 +372,9 @@ struct pp2_rx_queue {
  * TODO: Need to check 8B alignment (according to spec): (16 * 1024 - 8)
  */
 #define MVPP2_BM_POOL_SIZE_MAX      (16 * 1024 - (MVPP2_BM_POOL_PTR_ALIGN / 4))
+
+#define PP2_DUMMY_POOL_BUF_SIZE	(64)
+
 /**
  * Buffer Manager Pool (BM Pool) internal layout
  *
@@ -401,6 +404,7 @@ struct pp2_bm_pool {
 	/* Memory used by BM for Buffer Pointers in DRAM (BPPE) */
 	struct mv_sys_dma_mem_region *bppe_mem;
 
+	int fc_not_supported;
 	bool fc_enabled;
 	u32 fc_port_mask;
 	int fc_stop_threshold;
