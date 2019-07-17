@@ -29,6 +29,7 @@ Compiles musdk similar to the given CI build
 
 Prerequisites:
   CROSS_COMPILE       path to cross compiler
+  MUSDK_INSTALL_PATH  path to which musdk will be installed
   KDIR                path to kernel source
   CDAL_PATH           (optional) path to cdal source
 """
@@ -72,6 +73,8 @@ flags=""
 if [[ ! $build_name =~ linux414 ]]; then
 	echo "Error: Build $build_name not supported"; exit -1;
 fi
+[ "${MUSDK_INSTALL_PATH}" ] \
+	|| ( echo "Error: \$MUSDK_INSTALL_PATH must be defined"; exit -1 )
 
 if [[ $build_name =~ _nosam ]]; then
 	sam_flag='--enable-sam=no'
@@ -119,7 +122,7 @@ fi
 
 cmd=$cmd"""
 ./bootstrap
-./configure --prefix=/usr/local/musdk ${sam_flag} ${flags} --host=aarch64-linux-gnu \
+./configure --prefix=${MUSDK_INSTALL_PATH} ${sam_flag} ${flags} --host=aarch64-linux-gnu \
     CC=\${CROSS_COMPILE}gcc --enable-static --disable-shared
 """
 
