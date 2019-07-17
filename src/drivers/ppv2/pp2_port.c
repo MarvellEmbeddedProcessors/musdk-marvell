@@ -118,22 +118,22 @@
 struct pp2_fc_values pp2_fc[3] = {
 				{
 					.port_mtu = 1500,
-					.pool_stop_threshold = 256,
-					.pool_start_threshold = 512,
-					.rxq_stop_thresh = 256,
-					.rxq_start_thresh = 512
+					.pool_stop_threshold = 1536,
+					.pool_start_threshold = 1792,
+					.rxq_stop_thresh = 768,
+					.rxq_start_thresh = 1024
 				},
 				{
 					.port_mtu = 4000,
-					.pool_stop_threshold = 512,
-					.pool_start_threshold = 768,
-					.rxq_stop_thresh = 512,
-					.rxq_start_thresh = 768
+					.pool_stop_threshold = 1536,
+					.pool_start_threshold = 1792,
+					.rxq_stop_thresh = 768,
+					.rxq_start_thresh = 1024
 				},
 				{
 					.port_mtu = 9000,
-					.pool_stop_threshold = 768,
-					.pool_start_threshold = 1024,
+					.pool_stop_threshold = 1536,
+					.pool_start_threshold = 1792,
 					.rxq_stop_thresh = 768,
 					.rxq_start_thresh = 1024
 				}
