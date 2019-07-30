@@ -1,4 +1,4 @@
-MUSDK-1.2.0 Release Notes
+MUSDK-2.0.0 Release Notes
 ===================
 Marvell User-Space SDK (MUSDK) is a light-weight user-space I/O driver for Marvell's
 Embedded Networking SoC's. The MUSDK library provides a simple and direct access to Marvell's
@@ -101,6 +101,12 @@ Known issues:
 
 Change Log
 ----------
+2.0.0:
+~~~~~~
+- Fixed in PP2 driver:
+	- RX/TX flow-control
+	- remove debug messages (e.g. MAC info)
+
 1.2.0:
 ~~~~~~
 - Fixed in PP2 driver:
