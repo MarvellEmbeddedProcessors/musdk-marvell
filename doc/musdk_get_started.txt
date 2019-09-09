@@ -1,7 +1,14 @@
 .. _MUSDK-Installation:
 
+#####################
 MUSDK Getting Started
+#####################
+
+Building Instructions
 =====================
+
+The Below sections are for non buildroot users, skip to :ref:`MUSDK Insert Kernel Modules Section <insert_kernel-modules>`
+
 
 Build Linux Kernel
 ------------------
@@ -30,18 +37,18 @@ Build Required Kernel Modules
 
 		> export KDIR=<path-to-kernel-directory>
 
-(3) Build the MUSDK UIO kernel module and install it::
+(2) Build the MUSDK UIO kernel module and install it::
 
 	> cd <musdk-dir>/modules/cma
 	> make
 
-(4) Build the SAM UIO kernel module and install it.
+(3) Build the SAM UIO kernel module and install it.
     This step is optional and required only when SAM driver is used::
 
 	> cd <musdk-dir>/modules/sam
 	> make
 
-(5) Build the DMA UIO kernel module and install it.
+(4) Build the DMA UIO kernel module and install it.
     This step is optional and required only when DMA driver is used::
 
 	> cd <musdk-dir>/modules/dmax2
@@ -95,21 +102,27 @@ Build the MUSDK package
 	Default install directory is: <musdk-dir>/usr/local.
 	Install directory can be changed using option --prefix=<install-dir>
 
-Insert Kernel Modules
+(5) Copy the MUSDK local install folder to the target board file-system.
+
+Copy Kernel Modules
 ---------------------
-(1) Copy the kernel modules to the target board file-system:
+
+Copy the kernel modules to the target board file-system:
 	- <musdk-dir>/modules/cma/musdk_cma.ko      (mandatory)
 	- <musdk-dir>/modules/sam/mv_sam_uio.ko     (optional)
 	- <musdk-dir>/modules/dmax/mv_dmax2_uio.ko  (optional)
 	- ${KDIR}/drivers/uio/uio_pdrv_genirq.ko    (mandatory)
 	- ${KDIR}/drivers/crypto/inside-secure/crypto_safexcel.ko    (optional)
 
-(2) Copy the MUSDK local install folder (as defined by AC_PREFIX_DEFAULT) to the target board file-system.
+.. _insert_kernel-modules:
 
-(3) Insert MUSDK kernel space modules::
+Insert Kernel Modules
+=====================
 
+(1) Insert MUSDK kernel space modules::
+
+	> insmod uio_pdrv_genirq.ko of_id="generic-uio"     (mandatory - already inserted by buildroot builds)
 	> insmod musdk_cma.ko     (mandatory)
-	> insmod uio_pdrv_genirq.ko of_id="generic-uio"     (mandatory)
 
     For A7040/8040/CN913x::
 
@@ -117,27 +130,24 @@ Insert Kernel Modules
 
 To run MUSDK SAM test applications kernel modules below must be loaded first:
 
-(4) Load kernel module for global EIP197 initializations::
+(2) Load kernel module for global EIP197 initializations::
 
 	> insmod crypto_safexcel.ko rings=0,0
 
     .. note::
 
 	It is mandatory to load this module before mv_sam_uio.ko module.
-
-(5) Load kernel module for SAM UIO support::
-
-	> insmod mv_sam_uio.ko
-
-    .. note::
-
 	rings=x,y means how many EIP197/EIP97 rings allocated for kernel usage:
 		- x - for cp0 device
 		- y - for cp1 device (if exist)
 
+(3) Load kernel module for SAM UIO support::
+
+	> insmod mv_sam_uio.ko
+
 
 Run MUSDK Application Examples
-------------------------------
-Please see instructions in "Running MUSDK Examples" section.
+=====================
+Please see instructions in :ref:`Running MUSDK Examples <MUSDK-Examples>` section.
 
 In addition, some module-specific test applications are described in the corresponding user guide section.

@@ -1,28 +1,13 @@
+.. _MUSDK-Examples:
+
 Running MUSDK Examples
 ======================
 
 Preparations
 ------------
+
 Please consult :ref:`MUSDK Getting Started <MUSDK-Installation>` for the detailed build instructions.
-Prior to running any MUSDK application on board, perform the following steps
-
-.. code-block:: console
-
-   > insmod musdk_cma.ko
-   > insmod uio_pdrv_genirq.ko of_id="generic-uio"
-
-To run MUSDK SAM test applications kernel modules below must be loaded first:
-
-.. code-block:: console
-
-	> insmod crypto_safexcel.ko rings=0,0
-	> insmod mv_sam_uio.ko
-
-.. note::
-
-	rings=x,y means how many EIP197/EIP97 rings allocated for kernel usage:
-		- x - for cp0 device
-		- y - for cp1 device (if exist)
+Prior to running any MUSDK application on board, check :ref:`MUSDK Insert Kernel Modules Section <insert_kernel-modules>`
 
 
 PKT-ECHO
