@@ -67,18 +67,14 @@ int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 	int i, err;
 
 	giu_bpool_get_capabilities(bpool, &capa);
-	if (capa.buff_len != bpool->buff_len) {
-		pr_err("mismatch in BPool buff-len (%d vs %d)!\n",
-		capa.buff_len, bpool->buff_len);
-		return -EFAULT;
-	}
+
 	if (capa.max_num_buffs < num_of_buffs)
 		num_of_buffs = capa.max_num_buffs;
 
 	pr_debug("Adding %d buffers (of %d Bytes) into BPOOL.\n",
-		num_of_buffs, bpool->buff_len);
+		num_of_buffs, capa.buff_len);
 
-	buff_virt_addr = mv_sys_dma_mem_alloc(bpool->buff_len * num_of_buffs, 4);
+	buff_virt_addr = mv_sys_dma_mem_alloc(capa.buff_len * num_of_buffs, 4);
 	if (!buff_virt_addr) {
 		pr_err("failed to allocate giu bpool mem!\n");
 		return -ENOMEM;
@@ -96,8 +92,8 @@ int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 	for (i = 0; i < num_of_buffs; i++) {
 		struct giu_buff_inf buff_inf;
 
-		buff_inf.addr = (u64)buff_phys_addr + (i * bpool->buff_len);
-		buff_inf.cookie = (u64)buff_virt_addr + (i * bpool->buff_len);
+		buff_inf.addr = (u64)buff_phys_addr + (i * capa.buff_len);
+		buff_inf.cookie = (u64)buff_virt_addr + (i * capa.buff_len);
 
 		err = giu_bpool_put_buff(bpool, &buff_inf);
 		if (err)

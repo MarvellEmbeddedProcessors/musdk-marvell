@@ -74,7 +74,6 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 
 	(*bpool)->giu_id = giu_id;
 	(*bpool)->id = bpool_id;
-	(*bpool)->buff_len = params->buff_len;
 
 	bp_int = kcalloc(1, sizeof(struct giu_bpool_int), GFP_KERNEL);
 	if (bp_int == NULL)
@@ -82,7 +81,7 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 
 	bp_int->giu_id = (*bpool)->giu_id;
 	bp_int->id = (*bpool)->id;
-	bp_int->buff_len = (*bpool)->buff_len;
+	bp_int->buff_len = params->buff_len;
 
 	bp_int->mqa = params->mqa;
 	bp_int->giu = params->giu;

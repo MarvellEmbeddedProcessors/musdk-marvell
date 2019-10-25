@@ -24,7 +24,6 @@
 struct giu_bpool {
 	u8	 giu_id;	/**< GIU Instance */
 	u8	 id;		/**< BM Pool number */
-	u16	 buff_len;	/**< buffer length */
 
 	void	*internal_param;/** parameters for internal use */
 };
