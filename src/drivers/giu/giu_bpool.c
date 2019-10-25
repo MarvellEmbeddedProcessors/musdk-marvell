@@ -239,7 +239,7 @@ int giu_bpool_probe(char *match, char *buff, struct giu_bpool **bpool)
 	json_buffer_to_input(sec, "id", bpool_id);
 
 	if ((giu_id != match_params[0]) || (bpool_id != match_params[1])) {
-		pr_err("IDs missmatch!\n");
+		pr_err("IDs mismatch!\n");
 		kfree(lbuff);
 		return -EFAULT;
 	}

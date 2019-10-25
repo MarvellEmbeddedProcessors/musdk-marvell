@@ -127,7 +127,7 @@ static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 
 		mqa_queue_get_id(q, &tmp_q_id);
 		if (tmp_q_id != q_id) {
-			pr_err("missmatch between q object and its q-ID (%d vs %d)!\n",
+			pr_err("mismatch between q object and its q-ID (%d vs %d)!\n",
 				tmp_q_id, q_id);
 			return -EINVAL;
 		}
@@ -1011,7 +1011,7 @@ int giu_ppio_probe(char *match, char *buff, struct giu_gpio **gpio)
 	json_buffer_to_input(sec, "id", gpio_id);
 
 	if ((giu_id != match_params[0]) || (gpio_id != match_params[1])) {
-		pr_err("IDs missmatch!\n");
+		pr_err("IDs mismatch!\n");
 		kfree(lbuff);
 		return -EFAULT;
 	}

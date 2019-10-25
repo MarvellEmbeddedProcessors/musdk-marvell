@@ -68,7 +68,7 @@ int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
 
 	giu_bpool_get_capabilities(bpool, &capa);
 	if (capa.buff_len != bpool->buff_len) {
-		pr_err("missmatch in BPool buff-len (%d vs %d)!\n",
+		pr_err("mismatch in BPool buff-len (%d vs %d)!\n",
 		capa.buff_len, bpool->buff_len);
 		return -EFAULT;
 	}
