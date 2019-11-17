@@ -71,7 +71,7 @@
 /* NMP Guest ID */
 #define PKT_ECHO_APP_NMP_GUEST_ID	2
 /* NMP Guest Timeout (ms)*/
-#define PKT_ECHO_APP_NMP_GUEST_TIMEOUT	1000
+#define PKT_ECHO_APP_NMP_GUEST_TIMEOUT	10000
 
 #define CHECK_CYCLES
 #ifdef CHECK_CYCLES
