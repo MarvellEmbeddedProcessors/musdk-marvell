@@ -141,6 +141,7 @@ struct glob_arg {
 	u64		overall_size;
 	phys_addr_t	io_base_pa;
 	u16		repeat;
+	bool		reverse_dir;
 };
 
 static struct glob_arg garg = {};
@@ -260,7 +261,6 @@ static int prepare_mem_buffers(int desc_num, int desc_size, int align,
 			goto allocation_error;
 
 		src_mems[i].pa = mv_sys_dma_mem_virt2phys(src_mems[i].va);
-		pr_debug("SRC: va=0x%p, pa=0x%llx, ", src_mems[i].va, (unsigned long long int)src_mems[i].pa);
 
 		/* Destination buffer */
 		if (mem_attr == DMAX2_TRANS_MEM_ATTR_IO) {
@@ -276,7 +276,29 @@ static int prepare_mem_buffers(int desc_num, int desc_size, int align,
 			dst_mems[i].pa = mv_sys_dma_mem_virt2phys(dst_mems[i].va);
 		}
 
-		pr_debug("DST: va=0x%p, pa=0x%" PRIdma "\n", dst_mems[i].va, dst_mems[i].pa);
+		if (garg.reverse_dir) {
+			struct mem tmp;
+
+			tmp.pa = dst_mems[i].pa;
+			tmp.va = dst_mems[i].va;
+
+			dst_mems[i].pa = src_mems[i].pa;
+			dst_mems[i].va = src_mems[i].va;
+
+			src_mems[i].pa = tmp.pa;
+			src_mems[i].va = tmp.va;
+
+			pr_debug("SRC: va=0x%p, pa=0x%" PRIdma ", ",
+				 src_mems[i].va, src_mems[i].pa);
+			pr_debug("DST: va=0x%p, pa=0x%llx\n", dst_mems[i].va,
+				 (unsigned long long)dst_mems[i].pa);
+
+		} else {
+			pr_debug("SRC: va=0x%p, pa=0x%llx, ", src_mems[i].va,
+				 (unsigned long long)src_mems[i].pa);
+			pr_debug("DST: va=0x%p, pa=0x%" PRIdma "\n",
+				 dst_mems[i].va, dst_mems[i].pa);
+		}
 	}
 	return 0;
 
@@ -462,8 +484,21 @@ static int single_test(int desc_num, int desc_size, int align,
 
 	/* Configure memory access attributes, according to test destination target type */
 	if (mem_attr == DMAX2_TRANS_MEM_ATTR_IO) {
-		/* DMA IO test uses DMA memory as source and IO memory as destination */
-		dmax2_set_mem_attributes(dmax2, DMAX2_TRANS_LOCATION_DST, mem_attr);
+		if (garg.reverse_dir) {
+			/* DMA IO test uses DMA memory as destination
+			 * and IO memory as source
+			 */
+			dmax2_set_mem_attributes(dmax2,
+						 DMAX2_TRANS_LOCATION_SRC,
+						 mem_attr);
+		} else {
+			/* DMA IO test uses DMA memory as source and
+			 * IO memory as destination
+			 */
+			dmax2_set_mem_attributes(dmax2,
+						 DMAX2_TRANS_LOCATION_DST,
+						 mem_attr);
+		}
 
 		/* map IO destination and verify it's accessible */
 		err = verify_io_mem(io_base_pa, desc_size, mem_attr);
@@ -482,8 +517,13 @@ static int single_test(int desc_num, int desc_size, int align,
 
 	/* Release DMA memory & local struct */
 	for (i = 0; i < desc_num; i++) {
-		if (src_mems[i].va)
-			mv_sys_dma_mem_free(src_mems[i].va);
+		if (garg.reverse_dir) {
+			if (dst_mems[i].va)
+				mv_sys_dma_mem_free(dst_mems[i].va);
+		} else {
+			if (src_mems[i].va)
+				mv_sys_dma_mem_free(src_mems[i].va);
+		}
 		if (mem_attr != DMAX2_TRANS_MEM_ATTR_IO && dst_mems[i].va)
 			mv_sys_dma_mem_free(dst_mems[i].va);
 	}
@@ -549,6 +589,7 @@ static void usage(char *progname)
 		"\t--verify          Data integrity verification - slow down DMA process\n\t\t\t\t(disabled by default)\n"
 		"\nUser defined test TEST_PARAMS:\n"
 		"\t-d, <destination>  Destination: mem / io (default MEM)\n"
+		"\t--reverse         reverse direction.\n"
 		"\t-a, <IO address>  IO address register (default IO addr = 0x%x)\n"
 		"\t-c, <desc_count>  Descriptor count (default %d, max %d).\n"
 		"\t-s, <desc_size>   Descriptor size - bytes (default %db, max %" PRId64 "b).\n"
@@ -584,6 +625,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->overall_size = 100 * MB_SIZE;
 	garg->io_base_pa = 0;
 	garg->repeat = 1;
+	garg->reverse_dir = false;
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -659,7 +701,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--verify") == 0) {
 			garg->data_integrity_verification = 1;
 			i += 1;
-
+		} else if (strcmp(argv[i], "--reverse") == 0) {
+			garg->reverse_dir = true;
+			i += 1;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
@@ -685,6 +729,12 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 
 	if (!garg->repeat) {
 		pr_err("Invalid repeat count\n");
+		return -EINVAL;
+	}
+
+	if (garg->mem_attr != DMAX2_TRANS_MEM_ATTR_IO &&
+	    garg->reverse_dir == true) {
+		pr_err("reverse option supports IO destination (-d io) only\n");
 		return -EINVAL;
 	}
 
