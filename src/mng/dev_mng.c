@@ -142,10 +142,20 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	/* TODO: get all DMA-engines information from config file */
 	giu_params.num_gies = 3;
 
-	for (i = 0; i < giu_params.num_gies; i++) {
-		sprintf(dma_name[i], "dmax2-%d", i);
-		giu_params.gies_params[i].dma_eng_match = dma_name[i];
-	}
+	/* MNG DMA engine on AP */
+	i = 0;
+	sprintf(dma_name[i], "dmax2-%d", 0);
+	giu_params.gies_params[i].dma_eng_match = dma_name[i];
+
+	/* OUT DMA engine on CP0 */
+	i = 1;
+	sprintf(dma_name[i], "dmax2-%d", 4);
+	giu_params.gies_params[i].dma_eng_match = dma_name[i];
+
+	/* IN DMA engine on CP0 */
+	i = 2;
+	sprintf(dma_name[i], "dmax2-%d", 5);
+	giu_params.gies_params[i].dma_eng_match = dma_name[i];
 
 	ret = giu_init(&giu_params, &nmp->giu);
 	if (ret) {
