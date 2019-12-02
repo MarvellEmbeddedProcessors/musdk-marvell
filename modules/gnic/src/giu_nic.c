@@ -1672,9 +1672,11 @@ int agnic_mgmt_notif_process(struct agnic_adapter *adapter, u16 cmd_code, void *
 	return 0;
 }
 
-static void agnic_irqpoll_timer_handler(unsigned long data)
+static void agnic_irqpoll_timer_handler(struct timer_list *t)
 {
-	struct agnic_q_vector *q_vector = (struct agnic_q_vector *)data;
+	struct agnic_pcpu_timer_irqpoll *pcpu_timer =
+		from_timer(pcpu_timer, t, list);
+	struct agnic_q_vector *q_vector = pcpu_timer->data;
 	struct agnic_adapter *adapter = q_vector->adapter;
 	int notif_limit = NOTIFICATION_HANDLE_LIMIT;
 	int ret;
@@ -1708,11 +1710,9 @@ static void agnic_irqpoll_timer_handler(unsigned long data)
 	 * reset the timer (of current CPU)
 	 */
 	if (adapter->flags & AGNIC_FLAG_IRQPOLL) {
-		struct timer_list *timer_pcpu;
-
-		timer_pcpu = this_cpu_ptr(adapter->irqpoll_timer_pcpu);
 		/* Re-trigger timer timer */
-		mod_timer(timer_pcpu, jiffies + adapter->poll_timer_rate);
+		mod_timer(&pcpu_timer->list,
+			  jiffies + adapter->poll_timer_rate);
 	}
 }
 
@@ -1729,7 +1729,8 @@ static void agnic_del_irqpoll_timer(struct agnic_adapter *adapter)
 
 	/* Delete the timers (per CPU) */
 	for_each_present_cpu(cpu) {
-		timer_pcpu = per_cpu_ptr(adapter->irqpoll_timer_pcpu, cpu);
+		timer_pcpu = &per_cpu_ptr(adapter->irqpoll_timer_pcpu,
+					  cpu)->list;
 		del_timer_sync(timer_pcpu);
 	}
 
@@ -1747,7 +1748,7 @@ static int agnic_irqpoll_start(struct agnic_adapter *adapter)
 	int vector;
 	int cpu;
 
-	struct timer_list *timer_pcpu;
+	struct agnic_pcpu_timer_irqpoll *pcpu_timer;
 
 	if (!(adapter->flags & AGNIC_FLAG_IRQPOLL))
 		return 0; /* IRQ polling is not enabled so exit */
@@ -1759,7 +1760,8 @@ static int agnic_irqpoll_start(struct agnic_adapter *adapter)
 		/* Setup polling mechanism for notification queues handling. */
 		if (!adapter->irqpoll_timer_pcpu) {
 			/* Alloc timer list */
-			adapter->irqpoll_timer_pcpu = alloc_percpu(struct timer_list);
+			adapter->irqpoll_timer_pcpu =
+				alloc_percpu(struct agnic_pcpu_timer_irqpoll);
 
 			if (!adapter->irqpoll_timer_pcpu) {
 				pr_err("failed to allocate percpu Timer resources\n");
@@ -1778,9 +1780,11 @@ static int agnic_irqpoll_start(struct agnic_adapter *adapter)
 			cpu = cpumask_first(&q_vector->affinity_mask);
 
 			/* Configure timer */
-			timer_pcpu = per_cpu_ptr(adapter->irqpoll_timer_pcpu, cpu);
-			setup_timer(timer_pcpu, &agnic_irqpoll_timer_handler,
-				(unsigned long) q_vector);
+			pcpu_timer = per_cpu_ptr(adapter->irqpoll_timer_pcpu,
+						 cpu);
+			pcpu_timer->data = q_vector;
+			timer_setup(&pcpu_timer->list,
+				    &agnic_irqpoll_timer_handler, 0);
 
 			/* Trigger the timer immediately on masked cpu
 			 * Note: add_timer_on is called to make sure the timer
@@ -1790,8 +1794,8 @@ static int agnic_irqpoll_start(struct agnic_adapter *adapter)
 			 * to avoid the resource sharing (this is why we have q_vector
 			 * (and its rings) per CPU)
 			 */
-			timer_pcpu->expires = jiffies;
-			add_timer_on(timer_pcpu, cpu);
+			pcpu_timer->list.expires = jiffies;
+			add_timer_on(&pcpu_timer->list, cpu);
 
 			if (adapter->mng_cpu == -1) {
 				pr_info("cpu %d will poll the Mng Qs\n", cpu);
@@ -1857,9 +1861,10 @@ void agnic_wd_work_handler(struct work_struct *work)
  *			message was sent from the app/fw).
  *
  */
-static void agnic_keep_alive_wd_timeout_handler(unsigned long data)
+static void agnic_keep_alive_wd_timeout_handler(struct timer_list *t)
 {
-	struct agnic_adapter *adapter = (struct agnic_adapter *)data;
+	struct agnic_adapter *adapter = from_timer(adapter, t, keep_alive_wd);
+
 
 	pr_err("Keep alive watchdog timeout!!\n");
 
@@ -1887,8 +1892,8 @@ static int agnic_keep_alive_wd_start(struct agnic_adapter *adapter)
 		return 0;
 
 	/* Configure timer */
-	setup_timer(&adapter->keep_alive_wd, &agnic_keep_alive_wd_timeout_handler,
-		(unsigned long) adapter);
+	timer_setup(&adapter->keep_alive_wd,
+		    &agnic_keep_alive_wd_timeout_handler, 0);
 
 	/* Set refresh rate to 10 seconds */
 	adapter->keep_alive_timeout = msecs_to_jiffies(AGNIC_KEEP_ALIVE_TIMEOUT * 1000);

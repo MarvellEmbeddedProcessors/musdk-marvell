@@ -381,6 +381,10 @@ struct agnic_mc_addr_list {
 	struct list_head list;
 	int    mc_count;
 };
+struct agnic_pcpu_timer_irqpoll {
+	struct timer_list list;
+	struct agnic_q_vector *data;
+};
 
 struct agnic_adapter {
 	struct net_device *netdev;
@@ -448,7 +452,7 @@ struct agnic_adapter {
 	spinlock_t mgmt_lock;
 
 	/* Interrupt polling timer. Used for mgmt-notif & Rx handling*/
-	struct timer_list __percpu *irqpoll_timer_pcpu;
+	struct agnic_pcpu_timer_irqpoll __percpu *irqpoll_timer_pcpu;
 	bool irqpoll_initialized;
 	int poll_timer_rate;
 
