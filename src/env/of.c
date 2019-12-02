@@ -158,9 +158,9 @@ static void of_bus_default_count_cells(const struct device_node	*dev_node,
 		dev_node = &root;
 
 	if (addr != NULL)
-		*addr = of_n_addr_cells(dev_node);
+		*addr = mv_of_n_addr_cells(dev_node);
 	if (size != NULL)
-		*size = of_n_size_cells(dev_node);
+		*size = mv_of_n_size_cells(dev_node);
 }
 
 static const u32 *of_get_address_prop(
@@ -181,7 +181,7 @@ static const u32 *of_get_address_prop(
 
 	of_bus_default_count_cells(dev_node, &na, &ns);
 
-	uint32_prop = of_get_property(dev_node, rprop, &lenp);
+	uint32_prop = mv_of_get_property(dev_node, rprop, &lenp);
 	if (unlikely(uint32_prop == NULL))
 		return NULL;
 
@@ -282,7 +282,7 @@ static int sort_nodes_by_addrs(struct device_node **dev_nodes, u64 *devs_pa, u8 
 	return 0;
 }
 
-struct device_node *of_get_parent(const struct device_node *dev_node)
+struct device_node *mv_of_get_parent(const struct device_node *dev_node)
 {
 	struct device_node	*_current_node;
 
@@ -305,7 +305,7 @@ struct device_node *of_get_parent(const struct device_node *dev_node)
 	return _current_node;
 }
 
-void *of_get_property(struct device_node *dev_node, const char *name, size_t *lenp)
+void *mv_of_get_property(struct device_node *dev_node, const char *name, size_t *lenp)
 {
 	int	 _err, __err;
 	size_t	 len;
@@ -344,7 +344,7 @@ void *of_get_property(struct device_node *dev_node, const char *name, size_t *le
 	return dev_node->_property;
 }
 
-u32 of_n_addr_cells(const struct device_node *dev_node)
+u32 mv_of_n_addr_cells(const struct device_node *dev_node)
 {
 	struct device_node	*parent_node;
 	size_t			 lenp;
@@ -354,9 +354,9 @@ u32 of_n_addr_cells(const struct device_node *dev_node)
 		dev_node = &root;
 
 	do {
-		parent_node = of_get_parent(dev_node);
+		parent_node = mv_of_get_parent(dev_node);
 
-		na = of_get_property(parent_node, "#address-cells", &lenp);
+		na = mv_of_get_property(parent_node, "#address-cells", &lenp);
 		if (na != NULL) {
 			u32	ans;
 
@@ -374,7 +374,7 @@ u32 of_n_addr_cells(const struct device_node *dev_node)
 	return OF_DEFAULT_NA;
 }
 
-u32 of_n_size_cells(const struct device_node *dev_node)
+u32 mv_of_n_size_cells(const struct device_node *dev_node)
 {
 	struct device_node	*parent_node;
 	size_t			 lenp;
@@ -384,9 +384,9 @@ u32 of_n_size_cells(const struct device_node *dev_node)
 		dev_node = &root;
 
 	do {
-		parent_node = of_get_parent(dev_node);
+		parent_node = mv_of_get_parent(dev_node);
 
-		ns = of_get_property(parent_node, "#size-cells", &lenp);
+		ns = mv_of_get_property(parent_node, "#size-cells", &lenp);
 		if (ns != NULL) {
 			u32	ans;
 
@@ -404,26 +404,26 @@ u32 of_n_size_cells(const struct device_node *dev_node)
 	return OF_DEFAULT_NS;
 }
 
-const void *of_get_mac_address(struct device_node *dev_node)
+const void *mv_of_get_mac_address(struct device_node *dev_node)
 {
 	void   *addr;
 
-	addr = of_get_property(dev_node, "mac-address", NULL);
+	addr = mv_of_get_property(dev_node, "mac-address", NULL);
 	if (addr)
 		return addr;
 
-	addr = of_get_property(dev_node, "local-mac-address", NULL);
+	addr = mv_of_get_property(dev_node, "local-mac-address", NULL);
 	if (addr)
 		return addr;
 
-	addr = of_get_property(dev_node, "address", NULL);
+	addr = mv_of_get_property(dev_node, "address", NULL);
 	if (addr)
 		return addr;
 
 	return NULL;
 }
 
-const u32 *of_get_address(
+const u32 *mv_of_get_address(
 	struct device_node	*dev_node,
 	int			 index,
 	u64			*size,
@@ -432,7 +432,7 @@ const u32 *of_get_address(
 	return of_get_address_prop(dev_node, index, size, flags, "reg");
 }
 
-u64 of_translate_address(
+u64 mv_of_translate_address(
 	struct device_node	*dev_node,
 	const u32		*addr)
 {
@@ -445,7 +445,7 @@ u64 of_translate_address(
 	phys_addr = *addr;
 	prev_addr_offs = phys_addr;
 	do {
-		dev_node = of_get_parent(dev_node);
+		dev_node = mv_of_get_parent(dev_node);
 		if (unlikely(dev_node == NULL)) {
 			/* we got to the root; let's break and return */
 			phys_addr = 0;
@@ -462,7 +462,7 @@ u64 of_translate_address(
 				continue;
 		}
 
-		na = of_n_addr_cells(dev_node);
+		na = mv_of_n_addr_cells(dev_node);
 		for (curr_addr_offs = 0; na > 0; na--, regs_addr += 2)
 #if __BYTE_ORDER == __BIG_ENDIAN
 			curr_addr_offs = (curr_addr_offs << 32) + *regs_addr;
@@ -483,7 +483,7 @@ u64 of_translate_address(
 	return phys_addr;
 }
 
-struct device_node *of_find_compatible_node_by_indx(
+struct device_node *mv_of_find_compatible_node_by_indx(
 	const struct device_node	*from,
 	const int			 indx,
 	const char			*type,
@@ -507,7 +507,7 @@ struct device_node *of_find_compatible_node_by_indx(
 	/* There's a chance that we got some nodes that are not fully match; let's remove them from list */
 	num_nodes_skipped = 0;
 	for (i = 0; i < num_nodes; i++)
-		if (!of_device_is_compatible(dev_nodes[i], compatible)) {
+		if (!mv_of_device_is_compatible(dev_nodes[i], compatible)) {
 			for (j = i; j < num_nodes - 1; j++)
 				dev_nodes[j] = dev_nodes[j + 1];
 			num_nodes_skipped++;
@@ -526,7 +526,7 @@ struct device_node *of_find_compatible_node_by_indx(
 		const uint32_t	*uint32_prop;
 		u64		 tmp_size;
 
-		uint32_prop = of_get_address(dev_nodes[i], 0, &tmp_size, NULL);
+		uint32_prop = mv_of_get_address(dev_nodes[i], 0, &tmp_size, NULL);
 		if (!uint32_prop) {
 			/* In case we don't find registers-region already in first entry,
 			 * we assume all entires has no regs. in that case, return whatever we found.
@@ -539,7 +539,7 @@ struct device_node *of_find_compatible_node_by_indx(
 			pr_err("registers region (%s @ %d) not found!\n", compatible, i);
 			return NULL;
 		}
-		devs_pa[i] = of_translate_address(dev_nodes[i], uint32_prop);
+		devs_pa[i] = mv_of_translate_address(dev_nodes[i], uint32_prop);
 	}
 
 	/* There's a chance that we got some nodes that are not fully match; let's remove them from list */
@@ -563,15 +563,15 @@ struct device_node *of_find_compatible_node_by_indx(
 	return dev_nodes[indx];
 }
 
-struct device_node *of_find_compatible_node(
+struct device_node *mv_of_find_compatible_node(
 	const struct device_node	*from,
 	const char			*type,
 	const char			*compatible)
 {
-	return of_find_compatible_node_by_indx(from, 0, type, compatible);
+	return mv_of_find_compatible_node_by_indx(from, 0, type, compatible);
 }
 
-struct device_node *of_find_node_by_phandle(phandle ph)
+struct device_node *mv_of_find_node_by_phandle(phandle ph)
 {
 	int			 _err, __err;
 	char			 command[PATH_MAX], *full_name;
@@ -611,12 +611,12 @@ struct device_node *of_find_node_by_phandle(phandle ph)
 	return dev_node;
 }
 
-int of_device_is_available(struct device_node *dev_node)
+int mv_of_device_is_available(struct device_node *dev_node)
 {
 	size_t		 lenp;
 	const char	*status;
 
-	status = of_get_property(dev_node, "status", &lenp);
+	status = mv_of_get_property(dev_node, "status", &lenp);
 	if (status == NULL)
 		return 1;
 
@@ -624,14 +624,14 @@ int of_device_is_available(struct device_node *dev_node)
 		(strcmp(status, "okay") == 0 || strcmp(status, "ok") == 0);
 }
 
-int of_device_is_compatible(
+int mv_of_device_is_compatible(
 	struct device_node	*dev_node,
 	const char		*compatible)
 {
 	size_t		 lenp, len;
 	const char	*_compatible;
 
-	_compatible = of_get_property(dev_node, "compatible", &lenp);
+	_compatible = mv_of_get_property(dev_node, "compatible", &lenp);
 	if (unlikely(_compatible == NULL))
 		return 0;
 

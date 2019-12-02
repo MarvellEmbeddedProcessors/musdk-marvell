@@ -159,7 +159,7 @@
 #include <getopt.h>
 #include <ifaddrs.h>
 
-#include "env/of.h"
+#include "env/mv_of.h"
 #include "env/spinlock.h"
 #include "env/io.h"
 #include "env/netdev.h"

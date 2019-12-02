@@ -334,7 +334,7 @@ static int iomem_mmap_ioinit(struct mem_mmap *mmapm, char *name, int index)
 {
 	INIT_LIST(&mmapm->maps_lst);
 
-	mmapm->dev_node = of_find_compatible_node_by_indx(NULL, index, NULL, name);
+	mmapm->dev_node = mv_of_find_compatible_node_by_indx(NULL, index, NULL, name);
 	if (!mmapm->dev_node) {
 		pr_err("IO device (%s) not found!\n", name);
 		return -EINVAL;
@@ -374,12 +374,12 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 		}
 
 		index = atoi(name);
-		uint32_prop = of_get_address(mmapm->dev_node, index, &tmp_size, NULL);
+		uint32_prop = mv_of_get_address(mmapm->dev_node, index, &tmp_size, NULL);
 		if (!uint32_prop) {
 			pr_err("mmap region (%s) not found!\n", name);
 			return -EINVAL;
 		}
-		tmp_pa = of_translate_address(mmapm->dev_node, uint32_prop);
+		tmp_pa = mv_of_translate_address(mmapm->dev_node, uint32_prop);
 	} else {
 		tmp_pa = *pa;
 		tmp_size = PAGE_SZ;
