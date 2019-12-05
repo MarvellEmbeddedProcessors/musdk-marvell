@@ -322,7 +322,7 @@ void *mv_of_get_property(struct device_node *dev_node, const char *name, size_t 
 		return NULL;
 
 	snprintf(command, sizeof(command), "%s %s \"%s\" \"%s\"",
-		 OF_SH_FILENAME, __func__, dev_node->full_name, name);
+		 OF_SH_FILENAME, "of_get_property", dev_node->full_name, name);
 
 	of_sh = popen(command, "r");
 	if (unlikely(!of_sh))
@@ -585,7 +585,7 @@ struct device_node *mv_of_find_node_by_phandle(phandle ph)
 	snprintf(command,
 		 sizeof(command), "%s %s %c",
 		 OF_SH_FILENAME,
-		 __func__,
+		 "of_find_node_by_phandle",
 		 *((char *)&ph + sizeof(ph) - sizeof(char)));
 
 	of_sh = popen(command, "r");
