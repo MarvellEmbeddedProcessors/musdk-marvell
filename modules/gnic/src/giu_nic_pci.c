@@ -31,6 +31,7 @@ struct agnic_pci_data {
 
 /* TODO: Adapt according to future assignment for AGNIC devices. */
 #define PCI_DEVICE_ID_MARVELL_88F8040_NIC	0x7080
+#define PCI_MAX_NUM_VF				7
 
 /*
  * agnic_pci_irq_enable - Enable interrupts reception for all q-vectors.
@@ -264,6 +265,11 @@ static int agnic_pci_probe(struct pci_dev *pci_dev, const struct pci_device_id *
 
 	/* Save PCI config space for PM purposes */
 	err = pci_save_state(pci_dev);
+	if (err)
+		goto err_pci_reg;
+
+	/* Enable SRIOV */
+	err = pci_enable_sriov(pci_dev, PCI_MAX_NUM_VF);
 	if (err)
 		goto err_pci_reg;
 
