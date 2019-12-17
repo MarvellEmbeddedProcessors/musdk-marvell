@@ -1,9 +1,6 @@
 {
 	"nmp_params": {
-		"pp2_en": 1,
-		"pp2_params": {
-			"bm_pool_reserved_map": 7
-		}
+		"pp2_en": 0,
 		"num_containers": 1,
 		"containers_params-0": {
 			"num_lfs": 1,
@@ -22,15 +19,7 @@
 						"max_num_buffs": 2048,
 						"buff_size": 2048
 					}
-					"nicpf_type": 1,
-					"port-params-pp2-port": {
-						"match": "ppio-0:0",
-						"lcl_num_bpools": 1,
-						"lcl_bpools_params-0": {
-							"max_num_buffs": 2048,
-							"buff_size": 2048
-						}
-					}
+					"nicpf_type": 0,
 				}
 			},
 			"guest_id": 2

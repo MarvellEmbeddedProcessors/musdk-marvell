@@ -1,0 +1,29 @@
+{
+	"nmp_params": {
+		"pp2_en": 0,
+		"num_containers": 1,
+		"containers_params-0": {
+			"num_lfs": 1,
+			"lfs_params": {
+				"lf_type": 1,
+				"nicpf": {
+					"match": "gpio-0:0",
+					"keep_alive_thresh": 25,
+					"pci_en": 1,
+					"lcl_egress_qs_size": 1024,
+					"lcl_ingress_qs_size": 256,
+					"dflt_pkt_offset": 64,
+					"max_num_tcs": 1,
+					"lcl_num_bpools": 1,
+					"lcl_bpools_params-0": {
+						"max_num_buffs": 8192,
+						"buff_size": 2048
+					},
+					"nicpf_type": 0,
+				}
+			},
+			"guest_id": 2
+		}
+	}
+}
+
