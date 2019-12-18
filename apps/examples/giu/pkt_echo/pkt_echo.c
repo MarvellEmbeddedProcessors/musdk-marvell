@@ -840,12 +840,9 @@ static int init_all_modules(void)
 	/* Check how many RSS tables are in use by kernel. This parameter is needed for configuring RSS */
 	/* Relevant only if cpus is bigger than 1 */
 	if (garg.cmn_args.cpus > 1) {
-		sprintf(file, "%s/%s", PP2_SYSFS_RSS_PATH, PP2_SYSFS_RSS_NUM_TABLES_FILE);
-	num_rss_tables = app_pp2_sysfs_param_get(pp2_args->ports_desc[0].name, file);
-		if (num_rss_tables < 0) {
-			pr_err("Failed to read kernel RSS tables. Please check mvpp2x_sysfs.ko is loaded\n");
+		num_rss_tables = app_rss_num_tbl_get(pp2_args->ports_desc[0].name, file);
+		if (num_rss_tables < 0)
 			return -EFAULT;
-		}
 	}
 
 	pp2_params.rss_tbl_reserved_map = (1 << num_rss_tables) - 1;
