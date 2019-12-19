@@ -28,7 +28,6 @@
 #include "giu_nic_hw.h"
 #include "giu_nic_mgmt.h"
 #include "giu_nic_ethtool.h"
-
 #ifdef CONFIG_MV_NSS_ENABLE
 #include "giu_nic_md.h"
 #endif
@@ -43,6 +42,7 @@
 
 #define AGNIC_DEFAULT_SKB_PAD		NET_SKB_PAD
 #define RATE_LIMIT_BURST_SIZE		64
+#define AGNIC_START_Q_FREE_MIN		16
 
 /* Each interrupt type has # of intterupts as # if q_vectors */
 #define AGNIC_VECTOR_TO_Q_VECTOR(vec, num_q_vec)	(vec % num_q_vec)
@@ -132,6 +132,8 @@ static void agnic_txdone_timer_set(struct agnic_q_vector *vector)
  */
 static int agnic_tx_done_handle_ring(struct agnic_ring *ring, int limit)
 {
+	struct netdev_queue *nq = netdev_get_tx_queue(ring->netdev,
+						      ring->q_idx);
 	struct agnic_cookie *cookies_list;
 	struct agnic_tx_cookie *tx_cookie;
 	int rem = 0;
@@ -170,6 +172,10 @@ static int agnic_tx_done_handle_ring(struct agnic_ring *ring, int limit)
 	 */
 	cons_idx = readl(ring->consumer_p);
 	rem = AGNIC_RING_NUM_OCCUPIED(cons_idx, ring->tx_next_to_reclaim, ring->count);
+
+	if (netif_tx_queue_stopped(nq) &&
+	   (rem < (ring->count - AGNIC_START_Q_FREE_MIN)))
+		netif_tx_wake_queue(nq);
 
 	agnic_debug(ring->adapter, "txdone handler done, %d remaining.\n", rem);
 	return rem;
@@ -366,9 +372,11 @@ static u32 agnic_skb_tx_parsing_info(struct sk_buff *skb, struct agnic_tx_desc *
 static int agnic_net_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct agnic_adapter *adapter = netdev_priv(dev);
+	u16 txq_id = skb_get_queue_mapping(skb);
 	struct agnic_ring *ring = NULL;
-	struct agnic_tx_desc *desc;
 	struct agnic_tx_cookie *tx_buf;
+	struct agnic_tx_desc *desc;
+	struct netdev_queue *nq;
 	dma_addr_t dma_addr;
 	unsigned int size;
 	unsigned int orig_len;
@@ -391,7 +399,7 @@ static int agnic_net_xmit(struct sk_buff *skb, struct net_device *dev)
 
 #endif /* AGNIC_DEBUG */
 
-	ring = adapter->tx_ring[skb->queue_mapping];
+	ring = adapter->tx_ring[txq_id];
 
 #ifdef AGNIC_DEBUG
 	if (ring->tx_prod_shadow >= ring->count) {
@@ -408,6 +416,8 @@ static int agnic_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (unlikely(AGNIC_RING_IS_FULL(ring->tx_prod_shadow, ring->tx_next_to_reclaim, ring->count))) {
 		agnic_debug(adapter, "TxQ is full (P:%d, C:%d, N2R:%d).\n",
 				ring->tx_prod_shadow, readl(ring->consumer_p), ring->tx_next_to_reclaim);
+		nq = netdev_get_tx_queue(dev, txq_id);
+		netif_tx_stop_queue(nq);
 		adapter->stats.tx_dropped++;
 		goto error;
 	}
