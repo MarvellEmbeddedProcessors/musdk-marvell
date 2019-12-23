@@ -44,6 +44,8 @@
 
 #define PKT_ECHO_APP_GIU_BP_SIZE		4096
 
+#define PKT_ECHO_APP_NET_INTERFACE		"eth0"
+
 #define PKT_ECHO_APP_MAX_BURST_SIZE		((PKT_ECHO_APP_RX_Q_SIZE) >> 2)
 /* as GIU is the bottleneck, set the burst size to GIU_Q_SIZE / 4 */
 #define PKT_ECHO_APP_DFLT_BURST_SIZE		(PKT_ECHO_APP_MAX_BURST_SIZE >> 1)
@@ -1143,13 +1145,14 @@ static void usage(char *progname)
 	       "MUSDK packet-echo application.\n"
 	       "\n"
 	       "Usage: %s OPTIONS\n"
-	       "  E.g. %s -i eth0,eth1 -c 1\n"
+	       "  E.g. %s -i eth1 -c 1\n"
 	       "\n"
 	       "Mandatory OPTIONS:\n"
 	       "\t-g, --guestid <id>      Guest ID for retrieving parameters from cfg file.\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
 	       "\t-b <size>                Burst size, num_pkts handled in a batch.(default is %d)\n"
+	       "\t-i <interface name>      Network Interface to use.(default is %s)\n"
 	       "\t--mtu <mtu>              Set MTU (default is %d)\n"
 	       "\t-c, --cores <number>     Number of CPUs to use\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
@@ -1163,8 +1166,8 @@ static void usage(char *progname)
 	       "\t--no-stat                Disable the packet's runtime statistics display\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname),
-	       PKT_ECHO_APP_MAX_BURST_SIZE, DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE,
-	       MVAPPS_PP2_PKT_DEF_OFFS);
+	       PKT_ECHO_APP_MAX_BURST_SIZE, PKT_ECHO_APP_NET_INTERFACE,
+	       DEFAULT_MTU, PKT_ECHO_APP_RX_Q_SIZE, MVAPPS_PP2_PKT_DEF_OFFS);
 }
 
 static int parse_args(struct glob_arg *garg, int argc, char *argv[])
@@ -1195,7 +1198,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.num_ports = 1;
 	snprintf(pp2_args->ports_desc[0].name,
 		sizeof(pp2_args->ports_desc[0].name),
-		"%s", "eth0");
+		"%s", PKT_ECHO_APP_NET_INTERFACE);
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
