@@ -47,7 +47,7 @@ struct pcie_config_mem {
 	/* MSI-X table offset at BAR0 */
 	u32	msi_x_tbl_offset;
 
-	u8	res3[920]; /* complete to 1KB */
+	u8	res3[928]; /* complete to 1KB */
 } __packed;
 
 #endif /* _HOST_PCI_IF_H_ */
