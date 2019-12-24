@@ -37,48 +37,48 @@ enum app_codes {
  * the SNIC.
  */
 enum cmd_codes {
-	CC_PF_INIT = 0x1,
-	CC_PF_INIT_DONE,
-	CC_PF_EGRESS_TC_ADD,
-	CC_PF_EGRESS_DATA_Q_ADD,
-	CC_PF_INGRESS_TC_ADD,
-	CC_PF_INGRESS_DATA_Q_ADD,
+	CC_INIT = 0x1,
+	CC_INIT_DONE,
+	CC_EGRESS_TC_ADD,
+	CC_EGRESS_DATA_Q_ADD,
+	CC_INGRESS_TC_ADD,
+	CC_INGRESS_DATA_Q_ADD,
 
-	CC_PF_ENABLE,
-	CC_PF_DISABLE,
+	CC_ENABLE,
+	CC_DISABLE,
 
-	CC_PF_MGMT_ECHO,
-	CC_PF_LINK_STATUS,
-	CC_PF_GET_STATISTICS,
-	CC_PF_CLOSE,
-	CC_PF_MAC_ADDR,
-	CC_PF_PROMISC,
-	CC_PF_MC_PROMISC,
-	CC_PF_MTU,
-	CC_PF_LOOPBACK,
-	CC_PF_ADD_VLAN,
-	CC_PF_REMOVE_VLAN,
-	CC_PF_GET_GP_STATS,
-	CC_PF_GET_GP_QUEUE_STATS,
-	CC_PF_MC_ADD_ADDR,
-	CC_PF_MC_REMOVE_ADDR,
-	CC_PF_MAC_FLUSH,
-	CC_PF_LINK_INFO,
-	CC_PF_PAUSE_SET,
-	CC_PF_PAUSE_GET,
-	CC_PF_PORT_RATE_LIMIT,
-	CC_PF_QUEUE_RATE_LIMIT,
+	CC_MGMT_ECHO,
+	CC_LINK_STATUS,
+	CC_GET_STATISTICS,
+	CC_CLOSE,
+	CC_MAC_ADDR,
+	CC_PROMISC,
+	CC_MC_PROMISC,
+	CC_MTU,
+	CC_LOOPBACK,
+	CC_ADD_VLAN,
+	CC_REMOVE_VLAN,
+	CC_GET_GP_STATS,
+	CC_GET_GP_QUEUE_STATS,
+	CC_MC_ADD_ADDR,
+	CC_MC_REMOVE_ADDR,
+	CC_MAC_FLUSH,
+	CC_LINK_INFO,
+	CC_PAUSE_SET,
+	CC_PAUSE_GET,
+	CC_PORT_RATE_LIMIT,
+	CC_QUEUE_RATE_LIMIT,
 	CMD_CODE_LAST = 0XFF,
 };
 
 enum notif_codes {
-	NC_PF_LINK_CHANGE = 0x1,
-	NC_PF_KEEP_ALIVE = 0x2,
+	NC_LINK_CHANGE = 0x1,
+	NC_KEEP_ALIVE = 0x2,
 
 	NOTIF_CODE_LAST = 0XFF,
 };
 
-/* Relevant only for pf_init command. */
+/* Relevant only for init command. */
 enum egress_sched {
 	ES_STRICT_SCHED = 0x1,
 	ES_WRR_SCHED
@@ -112,12 +112,12 @@ struct mgmt_cmd_params {
 			u16	mtu_override;
 			u16	mru_override;
 			u8	egress_sched; /* enum aos_egress_sched */
-		} __packed pf_init;
+		} __packed init;
 
 		struct {
 			u32	tc_prio;
 			u32	num_queues_per_tc;
-		} __packed pf_egress_tc_add;
+		} __packed egress_tc_add;
 
 		/* Used for BM & Tx queues. */
 		struct {
@@ -128,14 +128,14 @@ struct mgmt_cmd_params {
 			u32	q_wrr_weight;
 			u32	tc_prio; /* irrelevant for BM. */
 			u32	msix_id;
-		} __packed pf_egress_q_add;
+		} __packed egress_q_add;
 
 		struct {
 			u32	tc_prio;
 			u32	num_queues_per_tc;
 			u32	pkt_offset;
 			u8	hash_type; /* enum aos_ingress_hash_type */
-		} __packed pf_ingress_tc_add;
+		} __packed ingress_tc_add;
 
 		struct {
 			u64	q_phys_addr;
@@ -148,47 +148,47 @@ struct mgmt_cmd_params {
 			u32	msix_id;
 			u32	tc_prio;
 			u32	q_buf_size;
-		} __packed pf_ingress_data_q_add;
+		} __packed ingress_data_q_add;
 
 		struct {
 			u8	reset;
-		} __packed pf_get_statistics;
+		} __packed get_statistics;
 
 		struct {
 			u32	mtu;
-		} __packed pf_set_mtu;
+		} __packed set_mtu;
 
 		struct {
 			u8 loopback;
-		} __packed pf_set_loopback;
+		} __packed set_loopback;
 
 		struct {
 			u16 vlan;
-		} __packed pf_vlan;
+		} __packed vlan;
 
 		struct {
 			u8 uc;
 			u8 mc;
-		} __packed pf_flush_addr;
+		} __packed flush_addr;
 
 		struct {
 			u8 out;
 			u8 tc;
 			u8 qid;
 			u8 reset;
-		} __packed pf_q_get_statistics;
+		} __packed q_get_statistics;
 
 		struct {
 			u8 enable;
 			u8 tc;
 			u8 qid;
 			struct rate_limit_params rate_limit;
-		} __packed pf_queue_rate_limit;
+		} __packed queue_rate_limit;
 
 		struct {
 			u8 enable;
 			struct rate_limit_params rate_limit;
-		} __packed pf_port_rate_limit;
+		} __packed port_rate_limit;
 
 		/* CC_PF_MAC_ADDR */
 		u8 mac_addr[MAC_ADDR_LEN];

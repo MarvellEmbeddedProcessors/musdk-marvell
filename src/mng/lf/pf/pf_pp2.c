@@ -468,7 +468,7 @@ int nmnicpf_pp2_get_statistics(struct nmnicpf *nmnicpf,
 {
 	int ret;
 
-	ret = nmnicpf_pp2_accumulate_statistics(nmnicpf, &nmnicpf->stats, params->pf_get_statistics.reset);
+	ret = nmnicpf_pp2_accumulate_statistics(nmnicpf, &nmnicpf->stats, params->get_statistics.reset);
 	if (ret)
 		return ret;
 

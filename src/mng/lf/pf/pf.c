@@ -701,16 +701,16 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 
 	pr_debug("PF INIT\n");
 	pr_debug("Num of - Ing TC %d, Eg TC %d\n",
-				params->pf_init.num_host_ingress_tc,
-				params->pf_init.num_host_egress_tc);
+				params->init.num_host_ingress_tc,
+				params->init.num_host_egress_tc);
 
 	/* Extract message params and update database */
 	nmnicpf->gpio_rem_params.num_outtcs =
 		nmnicpf->gpio_params.num_outtcs =
-			params->pf_init.num_host_ingress_tc;
+			params->init.num_host_ingress_tc;
 	nmnicpf->gpio_rem_params.num_intcs =
 		nmnicpf->gpio_params.num_intcs =
-			params->pf_init.num_host_egress_tc;
+			params->init.num_host_egress_tc;
 
 	/* Initialize remote queues database */
 	ret = nmnicpf_topology_remote_queue_init(nmnicpf);
@@ -724,7 +724,7 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 	 */
 	/* Update pp2 number of TC's */
 	for (i = 0; i < nmnicpf->pp2.num_ports; i++)
-		nmnicpf->pp2.ports_desc[i].num_tcs = params->pf_init.num_host_ingress_tc;
+		nmnicpf->pp2.ports_desc[i].num_tcs = params->init.num_host_ingress_tc;
 
 	/* Initialize local queues database */
 	ret = nmnicpf_topology_local_queue_init(nmnicpf);
@@ -751,18 +751,18 @@ static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
 					struct mgmt_cmd_params *params,
 					struct mgmt_cmd_resp *resp_data)
 {
-	pr_debug("Configure Host Egress TC[%d] Queues\n", params->pf_egress_tc_add.tc_prio);
+	pr_debug("Configure Host Egress TC[%d] Queues\n", params->egress_tc_add.tc_prio);
 
 	/* Update queue topology database */
-	nmnicpf->gpio_rem_params.intcs_params[params->pf_egress_tc_add.tc_prio].num_rem_outqs =
-		params->pf_egress_tc_add.num_queues_per_tc;
+	nmnicpf->gpio_rem_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs =
+		params->egress_tc_add.num_queues_per_tc;
 	/* TODO: Add support for egress pkt-offset and RSS-type */
-	nmnicpf->gpio_params.intcs_params[params->pf_egress_tc_add.tc_prio].pkt_offset = 0;
-	nmnicpf->gpio_params.intcs_params[params->pf_egress_tc_add.tc_prio].rss_type = RSS_HASH_NONE;
+	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].pkt_offset = 0;
+	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].rss_type = RSS_HASH_NONE;
 
 	/* TODO - Remove once complete speration is working */
-	nmnicpf->gpio_params.intcs_params[params->pf_egress_tc_add.tc_prio].num_rem_outqs =
-		params->pf_egress_tc_add.num_queues_per_tc;
+	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs =
+		params->egress_tc_add.num_queues_per_tc;
 
 	return 0;
 }
@@ -774,21 +774,21 @@ static int nmnicpf_ingress_tc_add_command(struct nmnicpf *nmnicpf,
 					 struct mgmt_cmd_params *params,
 					 struct mgmt_cmd_resp *resp_data)
 {
-	pr_debug("Configure Host Ingress TC[%d] Queues\n", params->pf_ingress_tc_add.tc_prio);
+	pr_debug("Configure Host Ingress TC[%d] Queues\n", params->ingress_tc_add.tc_prio);
 
 	/* Update queue topology database */
-	nmnicpf->gpio_rem_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].num_rem_inqs =
-		params->pf_ingress_tc_add.num_queues_per_tc;
-	nmnicpf->gpio_rem_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].rem_rss_type =
-		params->pf_ingress_tc_add.hash_type;
-	nmnicpf->gpio_rem_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].rem_pkt_offset =
-		params->pf_ingress_tc_add.pkt_offset;
+	nmnicpf->gpio_rem_params.outtcs_params[params->ingress_tc_add.tc_prio].num_rem_inqs =
+		params->ingress_tc_add.num_queues_per_tc;
+	nmnicpf->gpio_rem_params.outtcs_params[params->ingress_tc_add.tc_prio].rem_rss_type =
+		params->ingress_tc_add.hash_type;
+	nmnicpf->gpio_rem_params.outtcs_params[params->ingress_tc_add.tc_prio].rem_pkt_offset =
+		params->ingress_tc_add.pkt_offset;
 
 	/* TODO - Remove once complete speration is working */
-	nmnicpf->gpio_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].num_rem_inqs =
-		params->pf_ingress_tc_add.num_queues_per_tc;
-	nmnicpf->gpio_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].rem_rss_type =
-		params->pf_ingress_tc_add.hash_type;
+	nmnicpf->gpio_params.outtcs_params[params->ingress_tc_add.tc_prio].num_rem_inqs =
+		params->ingress_tc_add.num_queues_per_tc;
+	nmnicpf->gpio_params.outtcs_params[params->ingress_tc_add.tc_prio].rem_rss_type =
+		params->ingress_tc_add.hash_type;
 
 	return 0;
 }
@@ -843,18 +843,18 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	u32 msg_tc;
 	u8 bm_idx;
 
-	msg_tc = params->pf_ingress_data_q_add.tc_prio;
+	msg_tc = params->ingress_data_q_add.tc_prio;
 	outtc = &(gpio_rem_p->outtcs_params[msg_tc]);
 
 	pr_debug("Host Ingress TC[%d], queue Add (num of queues %d)\n", msg_tc, outtc->num_rem_inqs);
 
 	for (bm_idx = 0; bm_idx < nmnicpf->profile_data.lcl_bp_num; bm_idx++)
 		if (nmnicpf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size >=
-			params->pf_ingress_data_q_add.q_buf_size)
+			params->ingress_data_q_add.q_buf_size)
 			break;
 	if (bm_idx == nmnicpf->profile_data.lcl_bp_num) {
 		pr_err("Host BM buffer size should be at least %d\n",
-			params->pf_ingress_data_q_add.q_buf_size);
+			params->ingress_data_q_add.q_buf_size);
 		return -EFAULT;
 	}
 
@@ -862,21 +862,21 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_rem_q_params));
 
 	/* Init queue parameters */
-	giu_gpio_q.len          = params->pf_ingress_data_q_add.q_len;
+	giu_gpio_q.len          = params->ingress_data_q_add.q_len;
 	giu_gpio_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_OUT);
-	giu_gpio_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.q_phys_addr;
+	giu_gpio_q.q_base_pa    = (phys_addr_t)params->ingress_data_q_add.q_phys_addr;
 	giu_gpio_q.prod_base_pa =
-		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.q_prod_offs +
+		(phys_addr_t)(uintptr_t)(params->ingress_data_q_add.q_prod_offs +
 					nmnicpf->map.cfg_map.phys_addr);
 	giu_gpio_q.prod_base_va =
-		(void *)(params->pf_ingress_data_q_add.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+		(void *)(params->ingress_data_q_add.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.cons_base_pa =
-		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.q_cons_offs +
+		(phys_addr_t)(uintptr_t)(params->ingress_data_q_add.q_cons_offs +
 					nmnicpf->map.cfg_map.phys_addr);
 	giu_gpio_q.cons_base_va =
-		(void *)(params->pf_ingress_data_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
+		(void *)(params->ingress_data_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicpf->map.host_map.phys_addr;
-	giu_gpio_q.msix_id      = params->pf_ingress_data_q_add.msix_id;
+	giu_gpio_q.msix_id      = params->ingress_data_q_add.msix_id;
 
 	active_q_id = outtc_q_next_entry_get(outtc->rem_inqs_params, outtc->num_rem_inqs);
 	if (active_q_id < 0) {
@@ -884,9 +884,9 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 		return active_q_id;
 	}
 
-	if (params->pf_ingress_data_q_add.q_len != gpio_p->outtcs_params[msg_tc].outqs_params[active_q_id].len) {
+	if (params->ingress_data_q_add.q_len != gpio_p->outtcs_params[msg_tc].outqs_params[active_q_id].len) {
 		pr_err("Host Queue size (%d) MUST be the same as Local (%d)\n",
-			params->pf_ingress_data_q_add.q_len,
+			params->ingress_data_q_add.q_len,
 			gpio_p->outtcs_params[msg_tc].outqs_params[active_q_id].len);
 		return -EFAULT;
 	}
@@ -907,21 +907,21 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_rem_q_params));
 
 	/* Init queue parameters */
-	giu_gpio_q.len	      = params->pf_ingress_data_q_add.q_len;
+	giu_gpio_q.len	      = params->ingress_data_q_add.q_len;
 	giu_gpio_q.size	      = giu_get_desc_size(nmnicpf->giu, GIU_DESC_BUFF);
-	giu_gpio_q.q_base_pa    = (phys_addr_t)params->pf_ingress_data_q_add.bpool_q_phys_addr;
+	giu_gpio_q.q_base_pa    = (phys_addr_t)params->ingress_data_q_add.bpool_q_phys_addr;
 	giu_gpio_q.prod_base_pa =
-		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.bpool_q_prod_offs +
+		(phys_addr_t)(uintptr_t)(params->ingress_data_q_add.bpool_q_prod_offs +
 					nmnicpf->map.cfg_map.phys_addr);
 	giu_gpio_q.prod_base_va =
-		(void *)(params->pf_ingress_data_q_add.bpool_q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+		(void *)(params->ingress_data_q_add.bpool_q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.cons_base_pa =
-		(phys_addr_t)(uintptr_t)(params->pf_ingress_data_q_add.bpool_q_cons_offs +
+		(phys_addr_t)(uintptr_t)(params->ingress_data_q_add.bpool_q_cons_offs +
 					nmnicpf->map.cfg_map.phys_addr);
 	giu_gpio_q.cons_base_va =
-		(void *)(params->pf_ingress_data_q_add.bpool_q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
+		(void *)(params->ingress_data_q_add.bpool_q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicpf->map.host_map.phys_addr;
-	giu_gpio_q.buff_len = params->pf_ingress_data_q_add.q_buf_size;
+	giu_gpio_q.buff_len = params->ingress_data_q_add.q_buf_size;
 
 	memcpy(&(outtc->rem_inqs_params[active_q_id].poolq_params),
 		&(giu_gpio_q),
@@ -948,7 +948,7 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	s32 active_q_id;
 	u32 msg_tc;
 
-	msg_tc = params->pf_egress_q_add.tc_prio;
+	msg_tc = params->egress_q_add.tc_prio;
 	intc = &(gpio_rem_p->intcs_params[msg_tc]);
 
 	pr_debug("Host Egress TC[%d], queue Add (num of queues %d)\n", msg_tc, intc->num_rem_outqs);
@@ -957,21 +957,21 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_rem_q_params));
 
 	/* Init queue parameters */
-	giu_gpio_q.len          = params->pf_egress_q_add.q_len;
+	giu_gpio_q.len          = params->egress_q_add.q_len;
 	giu_gpio_q.size         = giu_get_desc_size(nmnicpf->giu, GIU_DESC_IN);
-	giu_gpio_q.q_base_pa    = (phys_addr_t)params->pf_egress_q_add.q_phys_addr;
+	giu_gpio_q.q_base_pa    = (phys_addr_t)params->egress_q_add.q_phys_addr;
 	giu_gpio_q.prod_base_pa =
-		(phys_addr_t)(uintptr_t)(params->pf_egress_q_add.q_prod_offs +
+		(phys_addr_t)(uintptr_t)(params->egress_q_add.q_prod_offs +
 					nmnicpf->map.cfg_map.phys_addr);
 	giu_gpio_q.prod_base_va =
-		(void *)(params->pf_egress_q_add.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
+		(void *)(params->egress_q_add.q_prod_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.cons_base_pa =
-		(phys_addr_t)(uintptr_t)(params->pf_egress_q_add.q_cons_offs +
+		(phys_addr_t)(uintptr_t)(params->egress_q_add.q_cons_offs +
 					nmnicpf->map.cfg_map.phys_addr);
 	giu_gpio_q.cons_base_va =
-		(void *)(params->pf_egress_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
+		(void *)(params->egress_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicpf->map.host_map.phys_addr;
-	giu_gpio_q.msix_id      = params->pf_egress_q_add.msix_id;
+	giu_gpio_q.msix_id      = params->egress_q_add.msix_id;
 
 	active_q_id = intc_q_next_entry_get(intc->rem_outqs_params, intc->num_rem_outqs);
 	if (active_q_id < 0) {
@@ -979,9 +979,9 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 		return active_q_id;
 	}
 
-	if (params->pf_ingress_data_q_add.q_len != gpio_p->intcs_params[msg_tc].inqs_params[active_q_id].len) {
+	if (params->ingress_data_q_add.q_len != gpio_p->intcs_params[msg_tc].inqs_params[active_q_id].len) {
 		pr_err("Host Queue size (%d) MUST be the same as Local (%d)\n",
-			params->pf_ingress_data_q_add.q_len,
+			params->ingress_data_q_add.q_len,
 			gpio_p->intcs_params[msg_tc].inqs_params[active_q_id].len);
 		return -EFAULT;
 	}
@@ -1009,7 +1009,7 @@ static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 	int ret;
 
 	msg.ext = 1;
-	msg.code = NC_PF_LINK_CHANGE;
+	msg.code = NC_LINK_CHANGE;
 	msg.indx = CMD_ID_NOTIFICATION;
 	msg.dst_client = CDT_PF;
 	msg.dst_id = 0;
@@ -1026,7 +1026,7 @@ static int nmnicpf_notif_link_change(struct nmnicpf *nmnicpf, int link_status)
 		return ret;
 	}
 
-	pr_debug("Link status notification was sent (cmd-code :%d).\n", NC_PF_LINK_CHANGE);
+	pr_debug("Link status notification was sent (cmd-code :%d).\n", NC_LINK_CHANGE);
 
 	return 0;
 }
@@ -1393,7 +1393,7 @@ static int nmnicpf_mtu_command(struct nmnicpf *nmnicpf,
 
 	if (nmnicpf->pp2.ports_desc) {
 		pp2_ppio_get_mtu(nmnicpf->pp2.ports_desc[0].ppio, &orig_mtu);
-		new_mtu = params->pf_set_mtu.mtu;
+		new_mtu = params->set_mtu.mtu;
 		if (orig_mtu == new_mtu)
 			return ret;
 
@@ -1421,8 +1421,8 @@ static int nmnicpf_mtu_command(struct nmnicpf *nmnicpf,
 		nmdisp_msg.src_id = nmnicpf->pf_id;
 		nmdisp_msg.indx = CMD_ID_NOTIFICATION;
 		nmdisp_msg.code = MSG_T_GUEST_MTU_UPDATED;
-		nmdisp_msg.msg  = &params->pf_set_mtu;
-		nmdisp_msg.msg_len = sizeof(params->pf_set_mtu);
+		nmdisp_msg.msg  = &params->set_mtu;
+		nmdisp_msg.msg_len = sizeof(params->set_mtu);
 
 		ret = nmdisp_send_msg(nmnicpf->nmdisp, 0, &nmdisp_msg);
 		if (ret)
@@ -1577,7 +1577,7 @@ static int nmnicpf_loopback_command(struct nmnicpf *nmnicpf,
 		return -ENOTSUP;
 
 	if (nmnicpf->pp2.ports_desc) {
-		ret = pp2_ppio_set_loopback(nmnicpf->pp2.ports_desc[0].ppio, params->pf_set_loopback.loopback);
+		ret = pp2_ppio_set_loopback(nmnicpf->pp2.ports_desc[0].ppio, params->set_loopback.loopback);
 		if (ret) {
 			pr_err("Unable to set loopback\n");
 			return ret;
@@ -1607,7 +1607,7 @@ static int nmnicpf_add_vlan_command(struct nmnicpf *nmnicpf,
 		return -ENOTSUP;
 
 	if (nmnicpf->pp2.ports_desc) {
-		ret = pp2_ppio_add_vlan(nmnicpf->pp2.ports_desc[0].ppio, params->pf_vlan.vlan);
+		ret = pp2_ppio_add_vlan(nmnicpf->pp2.ports_desc[0].ppio, params->vlan.vlan);
 		if (ret) {
 			pr_err("Unable to add vlan\n");
 			return ret;
@@ -1636,7 +1636,7 @@ static int nmnicpf_remove_vlan_command(struct nmnicpf *nmnicpf,
 		return -ENOTSUP;
 
 	if (nmnicpf->pp2.ports_desc) {
-		ret = pp2_ppio_remove_vlan(nmnicpf->pp2.ports_desc[0].ppio, params->pf_vlan.vlan);
+		ret = pp2_ppio_remove_vlan(nmnicpf->pp2.ports_desc[0].ppio, params->vlan.vlan);
 		if (ret) {
 			pr_err("Unable to remove vlan\n");
 			return ret;
@@ -1689,11 +1689,11 @@ static int nmnicpf_gp_queue_get_statistics(struct nmnicpf *nmnicpf,
 	struct giu_gpio_q_statistics stats;
 
 	ret = giu_gpio_get_q_statistics(nmnicpf->giu_gpio,
-					params->pf_q_get_statistics.out,
+					params->q_get_statistics.out,
 					1,
-					params->pf_q_get_statistics.tc,
-					params->pf_q_get_statistics.qid, &stats,
-					params->pf_q_get_statistics.reset);
+					params->q_get_statistics.tc,
+					params->q_get_statistics.qid, &stats,
+					params->q_get_statistics.reset);
 
 	if (ret)
 		return ret;
@@ -1778,8 +1778,8 @@ static int nmnicpf_flush_mac_command(struct nmnicpf *nmnicpf,
 
 	if (nmnicpf->pp2.ports_desc) {
 		ret = pp2_ppio_flush_mac_addrs(nmnicpf->pp2.ports_desc[0].ppio,
-					       params->pf_flush_addr.uc,
-					       params->pf_flush_addr.mc);
+					       params->flush_addr.uc,
+					       params->flush_addr.mc);
 		if (ret) {
 			pr_err("Unable to flush mac address list\n");
 			return -EFAULT;
@@ -1904,10 +1904,10 @@ static int nmnicpf_port_rate_limit_command(struct nmnicpf *nmnicpf,
 		for (i = 0; i < nmnicpf->pp2.num_ports; i++) {
 			port_desc = &nmnicpf->pp2.ports_desc[i];
 
-			if (params->pf_port_rate_limit.enable) {
+			if (params->port_rate_limit.enable) {
 				port_desc->rate_limit_enable = true;
-				port_desc->rate_limit_params.cbs = params->pf_port_rate_limit.rate_limit.cbs;
-				port_desc->rate_limit_params.cir = params->pf_port_rate_limit.rate_limit.cir;
+				port_desc->rate_limit_params.cbs = params->port_rate_limit.rate_limit.cbs;
+				port_desc->rate_limit_params.cir = params->port_rate_limit.rate_limit.cir;
 			} else
 				port_desc->rate_limit_enable = false;
 		}
@@ -1927,8 +1927,8 @@ static int nmnicpf_queue_rate_limit_command(struct nmnicpf *nmnicpf,
 	struct nmp_pp2_outq_desc *q_desc;
 
 	if (nmnicpf->profile_data.port_type == NMP_LF_NICPF_T_PP2_PORT &&
-		params->pf_queue_rate_limit.qid) {
-		pr_err("queue id %d doesn't supported\n", params->pf_queue_rate_limit.qid);
+		params->queue_rate_limit.qid) {
+		pr_err("queue id %d doesn't supported\n", params->queue_rate_limit.qid);
 		return -EFAULT;
 	}
 
@@ -1942,11 +1942,11 @@ static int nmnicpf_queue_rate_limit_command(struct nmnicpf *nmnicpf,
 	if (nmnicpf->pp2.ports_desc) {
 		/* Update pp2 rate limit attributes */
 		for (i = 0; i < nmnicpf->pp2.num_ports; i++) {
-			qid = params->pf_queue_rate_limit.tc;
+			qid = params->queue_rate_limit.tc;
 			q_desc = &nmnicpf->pp2.ports_desc[i].q_desc[qid];
-			q_desc->rate_limit_enable = params->pf_queue_rate_limit.enable;
+			q_desc->rate_limit_enable = params->queue_rate_limit.enable;
 			if (q_desc->rate_limit_enable)
-				q_desc->rate_limit.cir = params->pf_queue_rate_limit.rate_limit.cir;
+				q_desc->rate_limit.cir = params->queue_rate_limit.rate_limit.cir;
 		}
 	}
 
@@ -1975,178 +1975,178 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 
 	switch (msg->code) {
 
-	case CC_PF_ENABLE:
+	case CC_ENABLE:
 		ret = nmnicpf_enable_command(nmnicpf);
 		if (ret)
-			pr_err("CC_PF_ENABLE message failed\n");
+			pr_err("CC_ENABLE message failed\n");
 		break;
 
-	case CC_PF_DISABLE:
+	case CC_DISABLE:
 		ret = nmnicpf_disable_command(nmnicpf);
 		if (ret)
-			pr_err("CC_PF_DISABLE message failed\n");
+			pr_err("CC_DISABLE message failed\n");
 		break;
 
-	case CC_PF_INIT:
+	case CC_INIT:
 		ret = nmnicpf_pf_init_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_INIT message failed\n");
 		break;
 
-	case CC_PF_EGRESS_TC_ADD:
+	case CC_EGRESS_TC_ADD:
 		ret = nmnicpf_egress_tc_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_EGRESS_TC_ADD message failed\n");
 		break;
 
-	case CC_PF_EGRESS_DATA_Q_ADD:
+	case CC_EGRESS_DATA_Q_ADD:
 		ret = nmnicpf_egress_queue_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_EGRESS_DATA_Q_ADD message failed\n");
 		break;
 
-	case CC_PF_INGRESS_TC_ADD:
+	case CC_INGRESS_TC_ADD:
 		ret = nmnicpf_ingress_tc_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_INGRESS_TC_ADD message failed\n");
 		break;
 
-	case CC_PF_INGRESS_DATA_Q_ADD:
+	case CC_INGRESS_DATA_Q_ADD:
 		ret = nmnicpf_ingress_queue_add_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_INGRESS_DATA_Q_ADD message failed\n");
 		break;
 
-	case CC_PF_INIT_DONE:
+	case CC_INIT_DONE:
 		ret = nmnicpf_pf_init_done_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_INIT_DONE message failed\n");
+			pr_err("CC_INIT_DONE message failed\n");
 		break;
 
-	case CC_PF_MGMT_ECHO:
+	case CC_MGMT_ECHO:
 		ret = nmnicpf_mgmt_echo_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_MGMT_ECHO message failed\n");
 		break;
 
-	case CC_PF_LINK_STATUS:
+	case CC_LINK_STATUS:
 		ret = nmnicpf_link_status_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_LINK_STATUS message failed\n");
 		break;
 
-	case CC_PF_GET_STATISTICS:
+	case CC_GET_STATISTICS:
 		ret = nmnicpf_pp2_get_statistics(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_GET_STATISTICS message failed\n");
 		break;
 
-	case CC_PF_CLOSE:
+	case CC_CLOSE:
 		ret = nmnicpf_close_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
-	case CC_PF_MAC_ADDR:
+	case CC_MAC_ADDR:
 		ret = nmnicpf_mac_addr_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
-	case CC_PF_PROMISC:
+	case CC_PROMISC:
 		ret = nmnicpf_rx_promisc_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_PROMISC message failed\n");
+			pr_err("CC_PROMISC message failed\n");
 		break;
 
-	case CC_PF_MC_PROMISC:
+	case CC_MC_PROMISC:
 		ret = nmnicpf_rx_mc_promisc_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_MC_PROMISC message failed\n");
+			pr_err("CC_MC_PROMISC message failed\n");
 		break;
 
-	case CC_PF_MTU:
+	case CC_MTU:
 		ret = nmnicpf_mtu_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_IF_DOWN message failed\n");
 		break;
 
-	case CC_PF_LOOPBACK:
+	case CC_LOOPBACK:
 		ret = nmnicpf_loopback_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_LOOPBACK message failed\n");
 		break;
 
-	case CC_PF_ADD_VLAN:
+	case CC_ADD_VLAN:
 		ret = nmnicpf_add_vlan_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_ADD_VLAN message failed\n");
 		break;
 
-	case CC_PF_REMOVE_VLAN:
+	case CC_REMOVE_VLAN:
 		ret = nmnicpf_remove_vlan_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("PF_REMOVE_VLAN message failed\n");
 		break;
 
-	case CC_PF_GET_GP_STATS:
+	case CC_GET_GP_STATS:
 		ret = nmnicpf_gp_get_statistics(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_GET_GP_STATS message failed\n");
+			pr_err("CC_GET_GP_STATS message failed\n");
 		break;
 
-	case CC_PF_GET_GP_QUEUE_STATS:
+	case CC_GET_GP_QUEUE_STATS:
 		ret = nmnicpf_gp_queue_get_statistics(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_GET_GP_QUEUE_STATS message failed\n");
+			pr_err("CC_GET_GP_QUEUE_STATS message failed\n");
 		break;
 
-	case CC_PF_MC_ADD_ADDR:
+	case CC_MC_ADD_ADDR:
 		ret = nmnicpf_add_mc_addr_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_MC_ADD_ADDR message failed\n");
+			pr_err("CC_MC_ADD_ADDR message failed\n");
 		break;
 
-	case CC_PF_MC_REMOVE_ADDR:
+	case CC_MC_REMOVE_ADDR:
 		ret = nmnicpf_remove_mc_addr_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_MC_REMOVE_ADDR message failed\n");
+			pr_err("CC_MC_REMOVE_ADDR message failed\n");
 		break;
 
-	case CC_PF_MAC_FLUSH:
+	case CC_MAC_FLUSH:
 		ret = nmnicpf_flush_mac_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_MAC_FLUSH message failed\n");
+			pr_err("CC_MAC_FLUSH message failed\n");
 		break;
 
-	case CC_PF_LINK_INFO:
+	case CC_LINK_INFO:
 		ret = nmnicpf_link_info_get(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_LINK_INFO message failed\n");
+			pr_err("CC_LINK_INFO message failed\n");
 		break;
 
-	case CC_PF_PAUSE_SET:
+	case CC_PAUSE_SET:
 		ret = nmnicpf_pause_set_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_PAUSE_SET message failed\n");
+			pr_err("CC_PAUSE_SET message failed\n");
 		break;
 
-	case CC_PF_PAUSE_GET:
+	case CC_PAUSE_GET:
 		ret = nmnicpf_pause_get_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_PAUSE_GET message failed\n");
+			pr_err("CC_PAUSE_GET message failed\n");
 		break;
 
-	case CC_PF_PORT_RATE_LIMIT:
+	case CC_PORT_RATE_LIMIT:
 		ret = nmnicpf_port_rate_limit_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_PORT_RATE_LIMIT message failed\n");
+			pr_err("CC_PORT_RATE_LIMIT message failed\n");
 		break;
 
-	case CC_PF_QUEUE_RATE_LIMIT:
+	case CC_QUEUE_RATE_LIMIT:
 		ret = nmnicpf_queue_rate_limit_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
-			pr_err("CC_PF_QUEUE_RATE_LIMIT message failed\n");
+			pr_err("CC_QUEUE_RATE_LIMIT message failed\n");
 		break;
 
 	default:
@@ -2358,7 +2358,7 @@ static int nmnicpf_keep_alive_process(struct nmnicpf *nmnicpf)
 
 	/* Send Keep Alive notification message */
 	msg.ext = 1;
-	msg.code = NC_PF_KEEP_ALIVE;
+	msg.code = NC_KEEP_ALIVE;
 	msg.indx = CMD_ID_NOTIFICATION;
 	msg.dst_client = CDT_PF;
 	msg.dst_id = 0;
@@ -2380,7 +2380,7 @@ static int nmnicpf_keep_alive_process(struct nmnicpf *nmnicpf)
 		return ret;
 	}
 
-	pr_debug("Keep-alive notification was sent (cmd-code :%d).\n", NC_PF_KEEP_ALIVE);
+	pr_debug("Keep-alive notification was sent (cmd-code :%d).\n", NC_KEEP_ALIVE);
 
 	return 0;
 }
