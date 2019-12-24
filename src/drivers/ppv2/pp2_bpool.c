@@ -247,7 +247,7 @@ int pp2_bpool_put_buffs(struct pp2_hif *hif, struct buff_release_entry buff_entr
 	int pp_ind[PP2_NUM_PKT_PROC] = {0};
 
 
-	if (unlikely(*num >= PP2_MAX_NUM_PUT_BUFFS)) {
+	if (unlikely(*num > PP2_MAX_NUM_PUT_BUFFS)) {
 		pr_err("(%s):Received too many buffers:%d > MAX:%d\n", __func__, *num, PP2_MAX_NUM_PUT_BUFFS);
 	}
 	for (i = 0; i < (*num); i++) {
