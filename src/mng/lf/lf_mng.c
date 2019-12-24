@@ -13,6 +13,7 @@
 #include "mng/dev_mng.h"
 #include "mng/dev_mng_pp2.h"
 #include "pf/pf.h"
+#include "vf/vf.h"
 #include "custom/custom.h"
 #include "lf_mng.h"
 
@@ -31,6 +32,7 @@ struct lf_mng_lf {
 	enum nmp_lf_type	 type;
 	union {
 		struct nmnicpf	*nmnicpf;
+		struct nmnicvf	*nmnicvf;
 	} u;
 };
 
@@ -40,6 +42,9 @@ struct lf_mng_container {
 	u8			 master_id;
 
 	u8			 num_lfs;
+	u8			 num_lfs_done; /* only when all LFs finished their initialization,
+						* serialize can happaned.
+						*/
 
 	struct lf_mng_lf	 lfs[LF_MNG_MAX_NUM_CONTAINER_LFS];
 
@@ -57,6 +62,7 @@ struct lf_mng {
 
 	u8			 total_num_lfs;
 	u8			 total_num_nicpfs;
+	u8			 total_num_nicvfs;
 };
 
 
@@ -134,11 +140,9 @@ static int lf_init_done(void *arg, u8 lf_id)
 		return -EIO;
 	}
 
-	if ((lf->type != NMP_LF_T_NIC_PF) ||
-		(lf->id != 0)) {
-		pr_err("temporary only single NICPF is supported!\n");
-		return -EIO;
-	}
+	lf_mng_cont->num_lfs_done++;
+	if (lf_mng_cont->num_lfs_done < lf_mng_cont->num_lfs)
+		return 0;
 
 	/* TODO: go over all guests */
 	snprintf(file_name,
@@ -167,21 +171,41 @@ static int lf_init_done(void *arg, u8 lf_id)
 
 	json_print_to_buffer(buff, size, 1, "\"relations-info\": {\n");
 	json_print_to_buffer(buff, size, 2, "\"num-relations-info\": %u,\n", lf_mng_cont->num_lfs);
-	ret = nmnicpf_serialize(lf->u.nmnicpf, &buff[pos], size - pos, 1);
-	if (ret >= 0)
-		pos += ret;
-	if (pos != strlen(buff)) {
-		pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
-		return -EFAULT;
+
+	for (lf_id = 0; lf_id < lf_mng_cont->num_lfs; lf_id++) {
+		if (lf_mng_cont->lfs[lf_id].type == NMP_LF_T_NIC_PF)
+			ret = nmnicpf_serialize(lf_mng_cont->lfs[lf_id].u.nmnicpf, &buff[pos], size - pos, 1);
+		else if (lf_mng_cont->lfs[lf_id].type == NMP_LF_T_NIC_VF)
+			ret = nmnicvf_serialize(lf_mng_cont->lfs[lf_id].u.nmnicvf, &buff[pos], size - pos, 1);
+		else {
+			pr_warn("LF type %d not supported!\n", lf_mng_cont->lfs[lf_id].type);
+			continue;
+		}
+		if (ret >= 0)
+			pos += ret;
+		if (pos != strlen(buff)) {
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+			return -EFAULT;
+		}
 	}
 	json_print_to_buffer(buff, size, 1, "},\n");
 
-	ret = nmnicpf_serialize(lf->u.nmnicpf, &buff[pos], size - pos, 0);
-	if (ret >= 0)
-		pos += ret;
-	if (pos != strlen(buff)) {
-		pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
-		return -EFAULT;
+	/* Now serialize only the objects of each LF */
+	for (lf_id = 0; lf_id < lf_mng_cont->num_lfs; lf_id++) {
+		if (lf_mng_cont->lfs[lf_id].type == NMP_LF_T_NIC_PF)
+			ret = nmnicpf_serialize(lf_mng_cont->lfs[lf_id].u.nmnicpf, &buff[pos], size - pos, 0);
+		else if (lf_mng_cont->lfs[lf_id].type == NMP_LF_T_NIC_VF)
+			ret = nmnicvf_serialize(lf_mng_cont->lfs[lf_id].u.nmnicvf, &buff[pos], size - pos, 0);
+		else {
+			pr_warn("LF type %d not supported!\n", lf_mng_cont->lfs[lf_id].type);
+			continue;
+		}
+		if (ret >= 0)
+			pos += ret;
+		if (pos != strlen(buff)) {
+			pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+			return -EFAULT;
+		}
 	}
 
 	if (lf_mng_cont->nmcstm) {
@@ -218,11 +242,6 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 		pr_err("NMP supports only one container in current release\n");
 		return -EINVAL;
 	}
-	/*TODO: currently only one LF is supported*/
-	if (params->containers_params[0].num_lfs > 1) {
-		pr_err("NMP supports only one container in current release\n");
-		return -EINVAL;
-	}
 
 	_lf_mng = kmalloc(sizeof(*_lf_mng), GFP_KERNEL);
 	if (!_lf_mng)
@@ -241,6 +260,20 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 		/* We assume the first LF in the container is the "master" */
 		_lf_mng->containers[cntr].master_id = _lf_mng->total_num_nicpfs;
 		_lf_mng->containers[cntr].num_lfs = params->containers_params[cntr].num_lfs;
+
+		/* TODO: init nmp-customer only in case it is supported in the nmp_params! */
+		/* We assume the 'custom' LF is always the last LF in the container */
+		memset(&nmcstm_params, 0, sizeof(nmcstm_params));
+		nmcstm_params.id = _lf_mng->containers[cntr].guest_id;
+		nmcstm_params.pf_id = _lf_mng->containers[cntr].master_id;
+		nmcstm_params.mqa = _lf_mng->mqa;
+		nmcstm_params.nmdisp = _lf_mng->nmdisp;
+		err = nmcstm_init(&nmcstm_params, &(_lf_mng->containers[cntr].nmcstm));
+		if (err) {
+			pr_err("Custom init failed\n");
+			return err;
+		}
+
 		for (lf = 0; lf < _lf_mng->containers[cntr].num_lfs; lf++) {
 			_lf_mng->containers[cntr].lfs[lf].type =
 				params->containers_params[cntr].lfs_params[lf].type;
@@ -248,7 +281,8 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 				struct nmnicpf_params nmnicpf_params;
 
 				memset(&nmnicpf_params, 0, sizeof(nmnicpf_params));
-				nmnicpf_params.lf_id = _lf_mng->total_num_lfs++;
+				_lf_mng->containers[cntr].lfs[lf].id = _lf_mng->total_num_lfs++;
+				nmnicpf_params.lf_id = _lf_mng->containers[cntr].lfs[lf].id;
 				nmnicpf_params.id = _lf_mng->total_num_nicpfs++;
 				nmnicpf_params.guest_id = _lf_mng->containers[cntr].guest_id;
 
@@ -271,24 +305,38 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 					&_lf_mng->containers[cntr].lfs[lf].u.nmnicpf);
 				if (err)
 					return err;
+			} else if (_lf_mng->containers[cntr].lfs[lf].type == NMP_LF_T_NIC_VF) {
+				struct nmnicvf_params nmnicvf_params;
+
+				memset(&nmnicvf_params, 0, sizeof(nmnicvf_params));
+				_lf_mng->containers[cntr].lfs[lf].id = _lf_mng->total_num_lfs++;
+				nmnicvf_params.lf_id = _lf_mng->containers[cntr].lfs[lf].id;
+				nmnicvf_params.id = _lf_mng->total_num_nicvfs++;
+				nmnicvf_params.guest_id = _lf_mng->containers[cntr].guest_id;
+
+				/* Save reference to Dispatcher in PF */
+				nmnicvf_params.nmdisp = _lf_mng->nmdisp;
+				nmnicvf_params.mqa = _lf_mng->mqa;
+				nmnicvf_params.giu = _lf_mng->giu;
+
+				nmnicvf_params.nmp_nicvf_params =
+					&params->containers_params[cntr].lfs_params[lf].u.nicvf;
+
+				/* Assign the pf_init_done callback */
+				nmnicvf_params.f_ready_cb = lf_init_done;
+				nmnicvf_params.f_get_free_bar_cb = lf_get_free_bar;
+				nmnicvf_params.f_put_bar_cb = lf_put_bar;
+				nmnicvf_params.arg = &_lf_mng->containers[cntr];
+
+				err = nmnicvf_init(&nmnicvf_params,
+					&_lf_mng->containers[cntr].lfs[lf].u.nmnicvf);
+				if (err)
+					return err;
 			} else {
 				pr_err("LF type %d not supported!\n",
 					_lf_mng->containers[cntr].lfs[lf].type);
 				return -EINVAL;
 			}
-		}
-
-		/* TODO: init nmp-customer only in case it is supported in the nmp_params! */
-		/* We assume the 'custom' LF is always the last LF in the container */
-		memset(&nmcstm_params, 0, sizeof(nmcstm_params));
-		nmcstm_params.id = _lf_mng->containers[cntr].guest_id;
-		nmcstm_params.pf_id = _lf_mng->containers[cntr].master_id;
-		nmcstm_params.mqa = _lf_mng->mqa;
-		nmcstm_params.nmdisp = _lf_mng->nmdisp;
-		err = nmcstm_init(&nmcstm_params, &(_lf_mng->containers[cntr].nmcstm));
-		if (err) {
-			pr_err("Custom init failed\n");
-			return err;
 		}
 	}
 
@@ -307,6 +355,8 @@ void lf_mng_deinit(struct lf_mng *lf_mng)
 		for (lf = 0; lf < lf_mng->containers[cntr].num_lfs; lf++) {
 			if (lf_mng->containers[cntr].lfs[lf].type == NMP_LF_T_NIC_PF)
 				nmnicpf_deinit(lf_mng->containers[cntr].lfs[lf].u.nmnicpf);
+			else if (lf_mng->containers[cntr].lfs[lf].type == NMP_LF_T_NIC_VF)
+				nmnicvf_deinit(lf_mng->containers[cntr].lfs[lf].u.nmnicvf);
 			else
 				pr_warn("LF type %d not supported!\n", lf_mng->containers[cntr].lfs[lf].type);
 		}
@@ -329,9 +379,11 @@ int lf_mng_run_maintenance(struct lf_mng *lf_mng)
 		for (lf = 0; lf < lf_mng->containers[cntr].num_lfs; lf++) {
 			/* As the lf is represented in a union so we can cast one of them and it works on all */
 			nmlf = (struct nmlf *)lf_mng->containers[cntr].lfs[lf].u.nmnicpf;
-			ret = nmlf->f_maintenance_cb(nmlf);
-			if (ret)
-				return ret;
+			if (nmlf->f_maintenance_cb) {
+				ret = nmlf->f_maintenance_cb(nmlf);
+				if (ret)
+					return ret;
+			}
 		}
 
 	return 0;

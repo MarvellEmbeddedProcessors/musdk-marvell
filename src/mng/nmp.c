@@ -115,9 +115,9 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 	char				 buff[SER_MAX_FILE_SIZE];
 	char				*sec = NULL;
 	char				 tmp_buf[NMP_MAX_BUF_STR_LEN];
-	char				 pp2_name[NMP_MAX_BUF_STR_LEN], giu_name[NMP_MAX_BUF_STR_LEN];
+	char				 pp2_name[NMP_MAX_BUF_STR_LEN], giu_name[NMP_MAX_NUM_LFS][NMP_MAX_BUF_STR_LEN];
 	struct nmp_lf_nicpf_params	*pf;
-	u32				 num_lfs = 0;
+	struct nmp_lf_nicvf_params	*vf;
 
 	/* cfg-file must be provided, read the nmp-config from this location. */
 	rc = read_file_to_buf(cfg_file, buff, SER_MAX_FILE_SIZE);
@@ -196,9 +196,17 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 			rc = -ENOMEM;
 			goto read_cfg_exit2;
 		}
-		num_lfs++;
 
 		for (j = 0; j < params->containers_params[i].num_lfs; j++) {
+			memset(tmp_buf, 0, sizeof(tmp_buf));
+			snprintf(tmp_buf, sizeof(tmp_buf), "lf_params-%d", j);
+			sec = strstr(sec, tmp_buf);
+			if (!sec) {
+				pr_err("'lf_params-%d' not found\n", j);
+				rc = -EINVAL;
+				goto read_cfg_exit2;
+			}
+
 			/* Read lf type*/
 			json_buffer_to_input(sec, "lf_type", params->containers_params[i].lfs_params[j].type);
 			if (nmp_range_validate(params->containers_params[i].lfs_params[j].type,
@@ -213,7 +221,7 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 				pf = (struct nmp_lf_nicpf_params *)
 				     &params->containers_params[i].lfs_params[j].u.nicpf;
 
-				pf->match = giu_name;
+				pf->match = &giu_name[j][0];
 				json_buffer_to_input_str(sec, "match", pf->match);
 
 				json_buffer_to_input(sec, "keep_alive_thresh", pf->keep_alive_thresh);
@@ -338,6 +346,83 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 					if (nmp_range_validate(lcl_bpools_params->buff_size, 0, 4096) != 0)
 						return -EINVAL;
 				}
+			} else if (params->containers_params[i].lfs_params[j].type == NMP_LF_T_NIC_VF) {
+				/* Read nicvf*/
+				vf = (struct nmp_lf_nicvf_params *)
+				     &params->containers_params[i].lfs_params[j].u.nicvf;
+
+				vf->match = &giu_name[j][0];
+				json_buffer_to_input_str(sec, "match", vf->match);
+
+				json_buffer_to_input(sec, "keep_alive_thresh", vf->keep_alive_thresh);
+
+				json_buffer_to_input(sec, "pci_en", vf->pci_en);
+				if (nmp_range_validate(vf->pci_en, 0, 1) != 0) {
+					pr_err("pci_en not in range!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "lcl_egress_qs_size", vf->lcl_egress_qs_size);
+				if (!vf->lcl_egress_qs_size) {
+					pr_err("missing lcl_egress_qs_size!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "lcl_ingress_qs_size", vf->lcl_ingress_qs_size);
+				if (!vf->lcl_ingress_qs_size) {
+					pr_err("missing lcl_ingress_qs_size!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "dflt_pkt_offset", vf->dflt_pkt_offset);
+				if (nmp_range_validate(vf->dflt_pkt_offset, 0, 1024) != 0) {
+					pr_err("missing dflt_pkt_offset!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "max_num_tcs", vf->max_num_tcs);
+				if (nmp_range_validate(vf->max_num_tcs, 0, NMP_LF_MAX_NUM_TCS) != 0) {
+					pr_err("missing max_num_tcs!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "lcl_num_bpools", vf->lcl_num_bpools);
+				if (nmp_range_validate(vf->lcl_num_bpools, 0, NMP_LF_MAX_NUM_LCL_BPOOLS) != 0) {
+					pr_err("missing lcl_num_bpools!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				for (k = 0; k < vf->lcl_num_bpools; k++) {
+					memset(tmp_buf, 0, sizeof(tmp_buf));
+					snprintf(tmp_buf, sizeof(tmp_buf), "lcl_bpools_params-%d", k);
+					sec = strstr(sec, tmp_buf);
+					if (!sec) {
+						pr_err("'lcl_bpools_params' not found\n");
+						rc = -EINVAL;
+						goto read_cfg_exit2;
+					}
+
+					json_buffer_to_input(sec, "max_num_buffs",
+							     vf->lcl_bpools_params[k].max_num_buffs);
+					if (!vf->lcl_bpools_params[k].max_num_buffs) {
+						pr_err("missing max_num_buffs!\n");
+						rc = -EINVAL;
+						goto read_cfg_exit2;
+					}
+
+					json_buffer_to_input(sec, "buff_size", vf->lcl_bpools_params[k].buff_size);
+					if (!vf->lcl_bpools_params[k].buff_size) {
+						pr_err("missing buff_size!\n");
+						rc = -EINVAL;
+						goto read_cfg_exit2;
+					}
+				}
 			}
 		}
 
@@ -350,7 +435,7 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 
 	return 0;
 read_cfg_exit2:
-	for (i = 0; i < num_lfs; i++)
+	for (i = 0; i < params->num_containers; i++)
 		kfree(params->containers_params[i].lfs_params);
 read_cfg_exit1:
 	kfree(params->containers_params);

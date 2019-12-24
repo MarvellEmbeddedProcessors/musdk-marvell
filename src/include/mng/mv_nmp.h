@@ -80,9 +80,8 @@ struct nmp_lf_nicpf_pp2_port_params {
 };
 
 /**
- * NMP logical function structure
+ * NMP Physical function structure
  *
- * TODO: rename to .nmp_lf_nicpf_params. Left for backwards compatibility until API is updated in all apps
  */
 struct nmp_lf_nicpf_params {
 	char *match;				/**< matching gpio name */
@@ -106,15 +105,35 @@ struct nmp_lf_nicpf_params {
 };
 
 /**
+ * NMP Virtual function structure
+ *
+ */
+struct nmp_lf_nicvf_params {
+	char *match;				/**< matching gpio name */
+	u32 keep_alive_thresh;			/**< for disabling this feature use '0'; otherwise, this value reflect
+						 * the number of times nmp_schedule should be called before sending the
+						 * keep-alive msg
+						 */
+	int pci_en;				/**< Flag inidicating PCI interface is present*/
+	u16 lcl_egress_qs_size;			/**< local egress queue size */
+	u16 lcl_ingress_qs_size;		/**< local ingress queue size */
+	u16 dflt_pkt_offset;			/**< default packet offset */
+	u8 max_num_tcs;				/**< maximum number of TC's */
+	u8 lcl_num_bpools;			/**< local number of pools for GIU*/
+	/** local bpools parameters for each bpool in GIU */
+	struct nmp_lf_bpool_params lcl_bpools_params[NMP_LF_MAX_NUM_LCL_BPOOLS];
+};
+
+/**
  * NMP logical function structure
  *
- * TODO: rename to .nmp_lf_params. Left for backwards compatibility until API is updated in all apps
  */
 struct nmp_lf_params {
 	enum nmp_lf_type type;		/**< Type of logical function (Virtual function, physcal function, etc)*/
 	union {
 		/** Logical function layer parameters for Physical Function type */
 		struct nmp_lf_nicpf_params nicpf;
+		struct nmp_lf_nicvf_params nicvf;
 	} u;
 };
 
