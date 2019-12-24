@@ -99,7 +99,6 @@ struct giu_gpio {
 
 	struct mqa		*mqa;
 	struct giu		*giu;
-	void			*msix_table_base;
 
 	u32			 num_intcs;
 	struct giu_gpio_intc	 intcs[GIU_GPIO_MAX_NUM_TCS];
@@ -316,18 +315,14 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	struct mqa_queue_params		 mqa_params;
 	struct giu_gpio_outtc_params	*outtc_par;
 	struct giu_gpio_intc_params	*intc_par;
-	struct giu_gpio_rem_q_params	*rem_q_par;
-	struct giu_gpio_intc		*intc;
-	struct giu_gpio_outtc		*outtc;
+	struct giu_gpio_intc		*intc = NULL;
+	struct giu_gpio_outtc		*outtc = NULL;
 	struct giu_gpio_lcl_q		*lcl_q;
-	struct giu_gpio_rem_q		*rem_q;
-	struct msix_table_entry		*msix_entry;
 	struct mqa_queue_info		 queue_info;
 	u8				 match_params[2];
 	u64				 msi_regs_va, msi_regs_pa;
-	s32				 pair_qid;
 	u32				 bm_pool_num;
-	u32				 tc_idx, bm_idx, q_idx;
+	u32				 tc_idx, q_idx;
 	int				 giu_id, gpio_id;
 	int				 ret;
 
@@ -384,56 +379,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		outtc->interimq.payload_offset = 0; /* TODO: add support for pkt-offset */
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
-		/* Create Remote BM queues */
-		pr_debug("Initializing Remote BM queues\n");
-		outtc->rem_pkt_offset = outtc_par->rem_pkt_offset;
-		if (outtc->rem_pkt_offset) {
-			pr_err("remote side pkt-offset is not supported yet!\n");
-			ret = -EINVAL;
-			goto error;
-		}
-		outtc->rem_rss_type = (enum rss_hash_type)outtc_par->rem_rss_type;
-		outtc->num_rem_inqs = outtc_par->num_rem_inqs;
-		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
-			rem_q_par = &(outtc_par->rem_inqs_params[bm_idx].poolq_params);
-			rem_q = &(outtc->rem_inqs[bm_idx].poolq);
-
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc((*gpio)->mqa, &rem_q->q_id);
-			if (ret < 0) {
-				pr_err("Failed to allocate queue from MQA\n");
-				goto error;
-			}
-
-			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
-			mqa_params.idx             = rem_q->q_id;
-			mqa_params.len             = rem_q_par->len;
-			mqa_params.size            = rem_q_par->size;
-			mqa_params.attr            = (u32)(MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS);
-			mqa_params.remote_phy_addr = (void *)(uintptr_t)rem_q_par->q_base_pa;
-			mqa_params.prod_phys       = (void *)(uintptr_t)rem_q_par->prod_base_pa;
-			mqa_params.prod_virt       = rem_q_par->prod_base_va;
-			mqa_params.cons_phys       = (void *)(uintptr_t)rem_q_par->cons_base_pa;
-			mqa_params.cons_virt       = rem_q_par->cons_base_va;
-			mqa_params.host_remap      = rem_q_par->host_remap;
-
-			ret = mqa_queue_create((*gpio)->mqa, &mqa_params,  &(rem_q->mqa_q));
-			if (ret < 0) {
-				pr_err("Failed to allocate Host BM queue %d\n", mqa_params.idx);
-				goto host_queue_error;
-			}
-
-			/* Register Host BM Queue to GIU */
-			ret = gie_add_bm_queue(giu_get_gie_handle((*gpio)->giu, GIU_ENG_OUT),
-					mqa_params.idx, rem_q_par->buff_len, GIU_REM_Q);
-			if (ret) {
-				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
-				goto host_queue_error;
-			}
-			pr_debug("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
-				 tc_idx, bm_idx, mqa_params.idx);
-		}
-
 		/* Create Local Out queues */
 		pr_debug("Initializing Local Out queues\n");
 		outtc->num_outqs = outtc_par->num_outqs;
@@ -444,7 +389,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		if (outtc_par->num_outqs != 1) {
 			pr_err("only single local Q isallowed!\n");
 			ret = -EINVAL;
-			goto host_queue_error;
+			goto error;
 		}
 		outtc->num_outqs = outtc_par->num_rem_inqs;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
@@ -455,14 +400,16 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			ret = mqa_queue_alloc((*gpio)->mqa, &lcl_q->q_id);
 			if (ret < 0) {
 				pr_err("Failed to allocate queue from MQA\n");
-				goto host_queue_error;
+				goto lcl_ing_queue_error;
 			}
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 			mqa_params.idx  = lcl_q->q_id;
 			mqa_params.len  = outtc_par->outqs_params[q_idx].len;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+/*
 			mqa_params.len  = outtc_par->rem_inqs_params[q_idx].q_params.len;
+*/
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			mqa_params.size = gie_get_desc_size(RX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
@@ -482,71 +429,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			lcl_q->queue.prod_addr = queue_info.prod_virt;
 			lcl_q->queue.cons_addr = queue_info.cons_virt;
 			lcl_q->queue.payload_offset = 0; /* TODO: add support for pkt-offset */
-		}
-
-		/* Create Remote In queues */
-		pr_debug("Initializing Remote In queues\n");
-		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			rem_q_par = &(outtc_par->rem_inqs_params[q_idx].q_params);
-			rem_q = &(outtc->rem_inqs[q_idx].q);
-
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc((*gpio)->mqa, &rem_q->q_id);
-			if (ret < 0) {
-				pr_err("Failed to allocate queue from MQA\n");
-				goto lcl_ing_queue_error;
-			}
-
-			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
-			mqa_params.idx  = rem_q->q_id;
-			mqa_params.len  = rem_q_par->len;
-			mqa_params.size = rem_q_par->size;
-			mqa_params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_INGRESS;
-			mqa_params.prio = tc_idx;
-			mqa_params.remote_phy_addr =
-				(void *)(uintptr_t)rem_q_par->q_base_pa;
-			mqa_params.prod_phys       =
-				(void *)(uintptr_t)rem_q_par->prod_base_pa;
-			mqa_params.prod_virt       = rem_q_par->prod_base_va;
-			mqa_params.cons_phys       =
-				(void *)(uintptr_t)rem_q_par->cons_base_pa;
-			mqa_params.cons_virt       = rem_q_par->cons_base_va;
-			mqa_params.host_remap      = rem_q_par->host_remap;
-			mqa_params.bpool_num       = 1;
-			mqa_params.bpool_qids[0]   = outtc->rem_inqs[q_idx].poolq.q_id;
-
-			mqa_params.msix_inf.id = rem_q_par->msix_id;
-
-			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
-				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
-
-			/* Set message info */
-			mqa_params.msix_inf.va = (void *)msi_regs_va;
-			mqa_params.msix_inf.pa = msi_regs_pa;
-			mqa_params.msix_inf.data = msix_entry->msg_data;
-
-			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(rem_q->mqa_q));
-			if (ret < 0) {
-				pr_err("Failed to allocate queue for Host BM\n");
-				goto host_ing_queue_error;
-			}
-
-			pair_qid = outtc->outqs[q_idx].q_id;
-
-			ret = mqa_queue_associate_pair((*gpio)->mqa, pair_qid, rem_q->q_id);
-			if (ret) {
-				pr_err("Failed to associate remote egress Queue %d\n",
-					   rem_q->q_id);
-				goto host_ing_queue_error;
-			}
-
-			ret = gie_add_queue(giu_get_gie_handle((*gpio)->giu, GIU_ENG_OUT),
-					pair_qid, GIU_LCL_Q);
-			if (ret) {
-				pr_err("Failed to register Host Egress Queue %d to GIU\n",
-					   rem_q->q_id);
-				goto host_ing_queue_error;
-			}
 		}
 	}
 
@@ -573,13 +455,13 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		if (intc->pkt_offset) {
 			pr_err("Local side pkt-offset is not supported yet!\n");
 			ret = -EINVAL;
-			goto host_ing_queue_error;
+			goto lcl_eg_queue_error;
 		}
 		intc->rss_type = intc_par->rss_type;
 		if (intc->rss_type != RSS_HASH_NONE) {
 			pr_err("Local side RSS is not supported yet!\n");
 			ret = -EINVAL;
-			goto host_ing_queue_error;
+			goto lcl_eg_queue_error;
 		}
 		intc->num_inqs = intc_par->num_inqs;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
@@ -589,7 +471,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		if (intc_par->num_inqs != 1) {
 			pr_err("only single local Q isallowed!\n");
 			ret = -EINVAL;
-			goto host_ing_queue_error;
+			goto lcl_eg_queue_error;
 		}
 		intc->num_inqs = intc_par->num_rem_outqs;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
@@ -600,14 +482,16 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			ret = mqa_queue_alloc((*gpio)->mqa, &lcl_q->q_id);
 			if (ret < 0) {
 				pr_err("Failed to allocate queue from MQA\n");
-				goto host_ing_queue_error;
+				goto lcl_eg_queue_error;
 			}
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 			mqa_params.idx  = lcl_q->q_id;
 			mqa_params.len  = intc_par->inqs_params[q_idx].len;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+/*
 			mqa_params.len  = intc_par->rem_outqs_params[q_idx].len;
+*/
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			mqa_params.size = gie_get_desc_size(TX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
@@ -634,91 +518,9 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			lcl_q->queue.cons_addr = queue_info.cons_virt;
 			lcl_q->queue.payload_offset = 0; /* TODO: add support for pkt-offset */
 		}
-
-		/* Create Remote Out queues */
-		pr_debug("Initializing Remote Out queues\n");
-		intc->num_rem_outqs = intc_par->num_rem_outqs;
-		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-			rem_q_par = &(intc_par->rem_outqs_params[q_idx]);
-			rem_q = &(intc->rem_outqs[q_idx]);
-
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc((*gpio)->mqa, &rem_q->q_id);
-			if (ret < 0) {
-				pr_err("Failed to allocate queue from MQA\n");
-				goto lcl_eg_queue_error;
-			}
-
-			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
-			mqa_params.idx  = rem_q->q_id;
-			mqa_params.len  = rem_q_par->len;
-			mqa_params.size = rem_q_par->size;
-			mqa_params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS;
-			mqa_params.prio = tc_idx;
-			mqa_params.remote_phy_addr =
-				(void *)(uintptr_t)rem_q_par->q_base_pa;
-			mqa_params.prod_phys       =
-				(void *)(uintptr_t)rem_q_par->prod_base_pa;
-			mqa_params.prod_virt       = rem_q_par->prod_base_va;
-			mqa_params.cons_phys       =
-				(void *)(uintptr_t)rem_q_par->cons_base_pa;
-			mqa_params.cons_virt       = rem_q_par->cons_base_va;
-			mqa_params.host_remap      = rem_q_par->host_remap;
-			mqa_params.copy_payload    = 1;
-
-			mqa_params.msix_inf.id = rem_q_par->msix_id;
-
-			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
-				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
-
-			/* Set message info */
-			mqa_params.msix_inf.va = (void *)msi_regs_va;
-			mqa_params.msix_inf.pa = msi_regs_pa;
-			mqa_params.msix_inf.data = msix_entry->msg_data;
-
-			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(rem_q->mqa_q));
-			if (ret < 0) {
-				pr_err("Failed to allocate queue for Host BM\n");
-				goto host_eg_queue_error;
-			}
-
-			pair_qid = intc->inqs[q_idx].q_id;
-
-			ret = mqa_queue_associate_pair((*gpio)->mqa, rem_q->q_id, pair_qid);
-			if (ret) {
-				pr_err("Failed to associate remote egress Queue %d\n",
-					   rem_q->q_id);
-				goto host_eg_queue_error;
-			}
-
-			/* Register Host Egress Queue to GIU */
-			ret = gie_add_queue(giu_get_gie_handle((*gpio)->giu, GIU_ENG_IN),
-					rem_q->q_id, GIU_REM_Q);
-			if (ret) {
-				pr_err("Failed to register Host Egress Queue %d to GIU\n",
-					   rem_q->q_id);
-				goto host_eg_queue_error;
-			}
-		}
 	}
 
 	return 0;
-
-host_eg_queue_error:
-	pr_debug("De-initializing Remote Out queues\n");
-	for (tc_idx = 0; tc_idx < (*gpio)->num_intcs; tc_idx++) {
-		intc = &((*gpio)->intcs[tc_idx]);
-
-		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-			ret = destroy_q((*gpio)->giu, GIU_ENG_IN, (*gpio)->mqa,
-					intc->rem_outqs[q_idx].mqa_q,
-					intc->rem_outqs[q_idx].q_id,
-					HOST_EGRESS_DATA_QUEUE);
-			if (ret)
-				pr_warn("Failed to remove queue Idx %x\n",
-					intc->rem_outqs[q_idx].q_id);
-		}
-	}
 
 lcl_eg_queue_error:
 	pr_debug("De-initializing Local In queues\n");
@@ -733,22 +535,6 @@ lcl_eg_queue_error:
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
 					intc->inqs[q_idx].q_id);
-		}
-	}
-
-host_ing_queue_error:
-	pr_debug("De-initializing Remote In queues\n");
-	for (tc_idx = 0; tc_idx < (*gpio)->num_outtcs; tc_idx++) {
-		outtc = &((*gpio)->outtcs[tc_idx]);
-
-		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
-					outtc->rem_inqs[q_idx].q.mqa_q,
-					outtc->rem_inqs[q_idx].q.q_id,
-					HOST_INGRESS_DATA_QUEUE);
-			if (ret)
-				pr_warn("Failed to remove queue Idx %x\n",
-					outtc->rem_inqs[q_idx].q.q_id);
 		}
 	}
 
@@ -768,13 +554,268 @@ lcl_ing_queue_error:
 		}
 	}
 
+error:
+#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+	if (outtc)
+		kfree(outtc->interimq.descs);
+#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+	return -1;
+}
+
+int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *params)
+{
+	struct mqa_queue_params		 mqa_params;
+	struct giu_gpio_outtc_rem_params *outtc_par;
+	struct giu_gpio_intc_rem_params	*intc_par;
+	struct giu_gpio_rem_q_params	*rem_q_par;
+	struct giu_gpio_intc		*intc;
+	struct giu_gpio_outtc		*outtc;
+	struct giu_gpio_rem_q		*rem_q;
+	struct msix_table_entry		*msix_entry;
+	u64				 msi_regs_va, msi_regs_pa;
+	s32				 pair_qid;
+	u32				 tc_idx, bm_idx, q_idx;
+	int				 ret;
+
+	giu_get_msi_regs(gpio->giu, &msi_regs_va, &msi_regs_pa);
+
+	pr_debug("Initializing Out-TC queues (#%d)\n", params->num_outtcs);
+	gpio->num_outtcs = params->num_outtcs;
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc_par = &(params->outtcs_params[tc_idx]);
+		outtc = &(gpio->outtcs[tc_idx]);
+
+		/* Create Remote BM queues */
+		pr_debug("Initializing Remote BM queues\n");
+		outtc->rem_pkt_offset = outtc_par->rem_pkt_offset;
+		if (outtc->rem_pkt_offset) {
+			pr_err("remote side pkt-offset is not supported yet!\n");
+			ret = -EINVAL;
+			goto error;
+		}
+		outtc->rem_rss_type = (enum rss_hash_type)outtc_par->rem_rss_type;
+		outtc->num_rem_inqs = outtc_par->num_rem_inqs;
+		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
+			rem_q_par = &(outtc_par->rem_inqs_params[bm_idx].poolq_params);
+			rem_q = &(outtc->rem_inqs[bm_idx].poolq);
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(gpio->mqa, &rem_q->q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto host_queue_error;
+			}
+
+			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+			mqa_params.idx		   = rem_q->q_id;
+			mqa_params.len		   = rem_q_par->len;
+			mqa_params.size		   = rem_q_par->size;
+			mqa_params.attr		   = (u32)(MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS);
+			mqa_params.remote_phy_addr = (void *)(uintptr_t)rem_q_par->q_base_pa;
+			mqa_params.prod_phys	   = (void *)(uintptr_t)rem_q_par->prod_base_pa;
+			mqa_params.prod_virt	   = rem_q_par->prod_base_va;
+			mqa_params.cons_phys	   = (void *)(uintptr_t)rem_q_par->cons_base_pa;
+			mqa_params.cons_virt	   = rem_q_par->cons_base_va;
+			mqa_params.host_remap	   = rem_q_par->host_remap;
+
+			ret = mqa_queue_create(gpio->mqa, &mqa_params,  &(rem_q->mqa_q));
+			if (ret < 0) {
+				pr_err("Failed to allocate Host BM queue %d\n", mqa_params.idx);
+				goto host_queue_error;
+			}
+
+			/* Register Host BM Queue to GIU */
+			ret = gie_add_bm_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT),
+					mqa_params.idx, rem_q_par->buff_len, GIU_REM_Q);
+			if (ret) {
+				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
+				goto host_queue_error;
+			}
+			pr_debug("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
+				 tc_idx, bm_idx, mqa_params.idx);
+		}
+
+		/* Create Remote In queues */
+		pr_debug("Initializing Remote In queues\n");
+		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
+			rem_q_par = &(outtc_par->rem_inqs_params[q_idx].q_params);
+			rem_q = &(outtc->rem_inqs[q_idx].q);
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(gpio->mqa, &rem_q->q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto host_ing_queue_error;
+			}
+
+			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+			mqa_params.idx	= rem_q->q_id;
+			mqa_params.len	= rem_q_par->len;
+			mqa_params.size = rem_q_par->size;
+			mqa_params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_INGRESS;
+			mqa_params.prio = tc_idx;
+			mqa_params.remote_phy_addr =
+				(void *)(uintptr_t)rem_q_par->q_base_pa;
+			mqa_params.prod_phys	   =
+				(void *)(uintptr_t)rem_q_par->prod_base_pa;
+			mqa_params.prod_virt	   = rem_q_par->prod_base_va;
+			mqa_params.cons_phys	   =
+				(void *)(uintptr_t)rem_q_par->cons_base_pa;
+			mqa_params.cons_virt	   = rem_q_par->cons_base_va;
+			mqa_params.host_remap	   = rem_q_par->host_remap;
+			mqa_params.bpool_num	   = 1;
+			mqa_params.bpool_qids[0]   = outtc->rem_inqs[q_idx].poolq.q_id;
+
+			mqa_params.msix_inf.id = rem_q_par->msix_id;
+
+			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
+				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
+
+			/* Set message info */
+			mqa_params.msix_inf.va = (void *)msi_regs_va;
+			mqa_params.msix_inf.pa = msi_regs_pa;
+			mqa_params.msix_inf.data = msix_entry->msg_data;
+
+			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(rem_q->mqa_q));
+			if (ret < 0) {
+				pr_err("Failed to allocate queue for Host BM\n");
+				goto host_ing_queue_error;
+			}
+
+			pair_qid = outtc->outqs[q_idx].q_id;
+
+			ret = mqa_queue_associate_pair(gpio->mqa, pair_qid, rem_q->q_id);
+			if (ret) {
+				pr_err("Failed to associate remote egress Queue %d\n",
+					   rem_q->q_id);
+				goto host_ing_queue_error;
+			}
+
+			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT),
+					pair_qid, GIU_LCL_Q);
+			if (ret) {
+				pr_err("Failed to register Host Egress Queue %d to GIU\n",
+					   rem_q->q_id);
+				goto host_ing_queue_error;
+			}
+		}
+	}
+
+	pr_debug("Initializing In TC queues (#%d)\n", params->num_intcs);
+
+	gpio->num_intcs = params->num_intcs;
+	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+		intc_par = &(params->intcs_params[tc_idx]);
+		intc = &(gpio->intcs[tc_idx]);
+
+		/* Create Remote Out queues */
+		pr_debug("Initializing Remote Out queues\n");
+		intc->num_rem_outqs = intc_par->num_rem_outqs;
+		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
+			rem_q_par = &(intc_par->rem_outqs_params[q_idx]);
+			rem_q = &(intc->rem_outqs[q_idx]);
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(gpio->mqa, &rem_q->q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto host_eg_queue_error;
+			}
+
+			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+			mqa_params.idx	= rem_q->q_id;
+			mqa_params.len	= rem_q_par->len;
+			mqa_params.size = rem_q_par->size;
+			mqa_params.attr = MQA_QUEUE_REMOTE | MQA_QUEUE_EGRESS;
+			mqa_params.prio = tc_idx;
+			mqa_params.remote_phy_addr =
+				(void *)(uintptr_t)rem_q_par->q_base_pa;
+			mqa_params.prod_phys	   =
+				(void *)(uintptr_t)rem_q_par->prod_base_pa;
+			mqa_params.prod_virt	   = rem_q_par->prod_base_va;
+			mqa_params.cons_phys	   =
+				(void *)(uintptr_t)rem_q_par->cons_base_pa;
+			mqa_params.cons_virt	   = rem_q_par->cons_base_va;
+			mqa_params.host_remap	   = rem_q_par->host_remap;
+			mqa_params.copy_payload    = 1;
+
+			mqa_params.msix_inf.id = rem_q_par->msix_id;
+
+			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
+				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
+
+			/* Set message info */
+			mqa_params.msix_inf.va = (void *)msi_regs_va;
+			mqa_params.msix_inf.pa = msi_regs_pa;
+			mqa_params.msix_inf.data = msix_entry->msg_data;
+
+			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(rem_q->mqa_q));
+			if (ret < 0) {
+				pr_err("Failed to allocate queue for Host BM\n");
+				goto host_eg_queue_error;
+			}
+
+			pair_qid = intc->inqs[q_idx].q_id;
+
+			ret = mqa_queue_associate_pair(gpio->mqa, rem_q->q_id, pair_qid);
+			if (ret) {
+				pr_err("Failed to associate remote egress Queue %d\n",
+					   rem_q->q_id);
+				goto host_eg_queue_error;
+			}
+
+			/* Register Host Egress Queue to GIU */
+			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_IN),
+					rem_q->q_id, GIU_REM_Q);
+			if (ret) {
+				pr_err("Failed to register Host Egress Queue %d to GIU\n",
+					   rem_q->q_id);
+				goto host_eg_queue_error;
+			}
+		}
+	}
+
+	return 0;
+
+host_eg_queue_error:
+	pr_debug("De-initializing Remote Out queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+		intc = &(gpio->intcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_IN, gpio->mqa,
+					intc->rem_outqs[q_idx].mqa_q,
+					intc->rem_outqs[q_idx].q_id,
+					HOST_EGRESS_DATA_QUEUE);
+			if (ret)
+				pr_warn("Failed to remove queue Idx %x\n",
+					intc->rem_outqs[q_idx].q_id);
+		}
+	}
+
+host_ing_queue_error:
+	pr_debug("De-initializing Remote In queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &(gpio->outtcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+					outtc->rem_inqs[q_idx].q.mqa_q,
+					outtc->rem_inqs[q_idx].q.q_id,
+					HOST_INGRESS_DATA_QUEUE);
+			if (ret)
+				pr_warn("Failed to remove queue Idx %x\n",
+					outtc->rem_inqs[q_idx].q.q_id);
+		}
+	}
+
 host_queue_error:
 	pr_debug("De-initializing Remote in BM queues\n");
-	for (tc_idx = 0; tc_idx < (*gpio)->num_outtcs; tc_idx++) {
-		outtc = &((*gpio)->outtcs[tc_idx]);
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
-			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT, (*gpio)->mqa,
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->rem_inqs[bm_idx].poolq.mqa_q,
 					outtc->rem_inqs[bm_idx].poolq.q_id,
 					HOST_BM_QUEUE);
@@ -786,6 +827,7 @@ host_queue_error:
 
 error:
 	return -1;
+
 }
 
 void giu_gpio_deinit(struct giu_gpio *gpio)

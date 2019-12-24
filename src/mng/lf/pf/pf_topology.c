@@ -27,16 +27,13 @@
  */
 int pf_outtc_queue_init(struct nmnicpf *nmnicpf, u32 type, u32 tc_num, u32 q_num)
 {
-	struct giu_gpio_outtc_params	*outtc_par;
 	u32				 tc_idx;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
-		outtc_par = &(nmnicpf->gpio_params.outtcs_params[tc_idx]);
-
 		if (type == LCL)
-			outtc_par->num_outqs = q_num;
+			nmnicpf->gpio_params.outtcs_params[tc_idx].num_outqs = q_num;
 		else if (type == REM)
-			outtc_par->num_rem_inqs = q_num;
+			nmnicpf->gpio_rem_params.outtcs_params[tc_idx].num_rem_inqs = q_num;
 	}
 
 	return 0;
@@ -56,16 +53,13 @@ int pf_outtc_queue_init(struct nmnicpf *nmnicpf, u32 type, u32 tc_num, u32 q_num
  */
 int pf_intc_queue_init(struct nmnicpf *nmnicpf, u32 type, u32 tc_num, u32 q_num)
 {
-	struct giu_gpio_intc_params	*intc_par;
 	u32				 tc_idx;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
-		intc_par = &(nmnicpf->gpio_params.intcs_params[tc_idx]);
-
 		if (type == LCL)
-			intc_par->num_inqs = q_num;
+			nmnicpf->gpio_params.intcs_params[tc_idx].num_inqs = q_num;
 		else if (type == REM)
-			intc_par->num_rem_outqs = q_num;
+			nmnicpf->gpio_rem_params.intcs_params[tc_idx].num_rem_outqs = q_num;
 	}
 
 	return 0;
@@ -84,16 +78,13 @@ int pf_intc_queue_init(struct nmnicpf *nmnicpf, u32 type, u32 tc_num, u32 q_num)
  */
 int pf_outtc_queue_free(struct nmnicpf *nmnicpf, u32 type, u32 tc_num)
 {
-	struct giu_gpio_outtc_params	*outtc_par;
 	u32				 tc_idx;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
-		outtc_par = &(nmnicpf->gpio_params.outtcs_params[tc_idx]);
-
 		if (type == LCL)
-			outtc_par->num_outqs = 0;
+			nmnicpf->gpio_params.outtcs_params[tc_idx].num_outqs = 0;
 		else if (type == REM)
-			outtc_par->num_rem_inqs = 0;
+			nmnicpf->gpio_rem_params.outtcs_params[tc_idx].num_rem_inqs = 0;
 	}
 
 	return 0;
@@ -112,16 +103,13 @@ int pf_outtc_queue_free(struct nmnicpf *nmnicpf, u32 type, u32 tc_num)
  */
 int pf_intc_queue_free(struct nmnicpf *nmnicpf, u32 type, u32 tc_num)
 {
-	struct giu_gpio_intc_params	*intc_par;
 	u32				 tc_idx;
 
 	for (tc_idx = 0; tc_idx < tc_num; tc_idx++) {
-		intc_par = &(nmnicpf->gpio_params.intcs_params[tc_idx]);
-
 		if (type == LCL)
-			intc_par->num_inqs = 0;
+			nmnicpf->gpio_params.intcs_params[tc_idx].num_inqs = 0;
 		else if (type == REM)
-			intc_par->num_rem_outqs = 0;
+			nmnicpf->gpio_rem_params.intcs_params[tc_idx].num_rem_outqs = 0;
 	}
 
 	return 0;

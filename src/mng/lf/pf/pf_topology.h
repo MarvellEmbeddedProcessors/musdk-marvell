@@ -127,7 +127,8 @@ struct nmnicpf {
 	struct pf_profile		 profile_data;	/* Profile */
 	struct giu_gpio			*giu_gpio;	/* GIU Gpio */
 	struct giu_bpool		*giu_bpools[GIU_GPIO_TC_MAX_NUM_BPOOLS];	/* GIU Bpools */
-	struct giu_gpio_params		 gpio_params;	/* GIU Queue Topology */
+	struct giu_gpio_params		 gpio_params;		/* GIU Queue local */
+	struct giu_gpio_rem_params	 gpio_rem_params;	/* GIU Queue Remy */
 	struct giu_mng_ch		*giu_mng_ch;
 	int				(*f_ready_cb)(void *arg, u8 lf_id);
 	int				(*f_get_free_bar_cb)(void *arg, void **va, dma_addr_t *pa);

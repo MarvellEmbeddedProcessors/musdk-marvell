@@ -68,8 +68,11 @@ struct giu_gpio_intc_params {
 	struct giu_gpio_lcl_q_params	 inqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 
 	u32				 num_inpools;
-	struct giu_bpool		*pools[GIU_GPIO_TC_MAX_NUM_BPOOLS];
+	struct giu_bpool                *pools[GIU_GPIO_TC_MAX_NUM_BPOOLS];
+	u32				 num_rem_outqs; /* TEMP */
+};
 
+struct giu_gpio_intc_rem_params {
 	u32				 num_rem_outqs;
 	struct giu_gpio_rem_q_params	 rem_outqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 };
@@ -82,13 +85,26 @@ struct giu_gpio_rem_inq_params {
 /** Out TC - Queue topology
  */
 struct giu_gpio_outtc_params {
+	enum rss_hash_type		 rem_rss_type; /* TEMP */
+	u32				 num_rem_inqs; /* TEMP */
 	u32				 num_outqs;
 	struct giu_gpio_lcl_q_params	 outqs_params[GIU_GPIO_TC_MAX_NUM_QS];
+};
 
+struct giu_gpio_outtc_rem_params {
 	u32				 rem_pkt_offset;
 	enum rss_hash_type		 rem_rss_type;
 	u32				 num_rem_inqs;
 	struct giu_gpio_rem_inq_params	 rem_inqs_params[GIU_GPIO_TC_MAX_NUM_QS];
+};
+
+struct giu_gpio_rem_params {
+	void				*msix_table_base;
+
+	u32				 num_intcs;
+	struct giu_gpio_intc_rem_params	 intcs_params[GIU_GPIO_MAX_NUM_TCS];
+	u32				 num_outtcs;
+	struct giu_gpio_outtc_rem_params outtcs_params[GIU_GPIO_MAX_NUM_TCS];
 };
 
 struct giu_gpio_params {
@@ -99,7 +115,6 @@ struct giu_gpio_params {
 
 	struct mqa			*mqa;
 	struct giu			*giu;
-	void				*msix_table_base;
 
 	u32				 num_intcs;
 	struct giu_gpio_intc_params	 intcs_params[GIU_GPIO_MAX_NUM_TCS];
@@ -125,6 +140,8 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio);
  *
  */
 void giu_gpio_deinit(struct giu_gpio *gpio);
+
+int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *params);
 
 /**
  * Serialize the GPIO parameters

@@ -174,7 +174,7 @@ static void nmnicpf_topology_local_tc_free(struct nmnicpf *nmnicpf)
 static int nmnicpf_topology_remote_queue_init(struct nmnicpf *nmnicpf)
 {
 	int ret;
-	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
+	struct giu_gpio_rem_params *gpio_p = &(nmnicpf->gpio_rem_params);
 
 	pr_debug("Initializing Remote Queues in management Database\n");
 
@@ -213,7 +213,7 @@ queue_error:
  */
 static int nmnicpf_topology_remote_tc_free(struct nmnicpf *nmnicpf)
 {
-	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
+	struct giu_gpio_rem_params *gpio_p = &(nmnicpf->gpio_rem_params);
 
 	pr_debug("Free Remote queues DB\n");
 	pf_intc_queue_free(nmnicpf, REM, gpio_p->num_intcs);
@@ -352,7 +352,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	 *       netdev side should reset it if it doesn't support msi
 	 *	 hence, it should move after "Host is Ready" (below)
 	 */
-	nmnicpf->gpio_params.msix_table_base = (void *)(pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
+	nmnicpf->gpio_rem_params.msix_table_base = (void *)(pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
 
 	/* Make sure that above configuration are out before setting the
 	 * dev-ready status for the host side.
@@ -698,7 +698,6 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 				  struct mgmt_cmd_resp *resp_data)
 {
 	int ret, i;
-	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
 
 	pr_debug("PF INIT\n");
 	pr_debug("Num of - Ing TC %d, Eg TC %d\n",
@@ -706,8 +705,12 @@ static int nmnicpf_pf_init_command(struct nmnicpf *nmnicpf,
 				params->pf_init.num_host_egress_tc);
 
 	/* Extract message params and update database */
-	gpio_p->num_outtcs = params->pf_init.num_host_ingress_tc;
-	gpio_p->num_intcs = params->pf_init.num_host_egress_tc;
+	nmnicpf->gpio_rem_params.num_outtcs =
+		nmnicpf->gpio_params.num_outtcs =
+			params->pf_init.num_host_ingress_tc;
+	nmnicpf->gpio_rem_params.num_intcs =
+		nmnicpf->gpio_params.num_intcs =
+			params->pf_init.num_host_egress_tc;
 
 	/* Initialize remote queues database */
 	ret = nmnicpf_topology_remote_queue_init(nmnicpf);
@@ -751,11 +754,15 @@ static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
 	pr_debug("Configure Host Egress TC[%d] Queues\n", params->pf_egress_tc_add.tc_prio);
 
 	/* Update queue topology database */
-	nmnicpf->gpio_params.intcs_params[params->pf_egress_tc_add.tc_prio].num_rem_outqs =
+	nmnicpf->gpio_rem_params.intcs_params[params->pf_egress_tc_add.tc_prio].num_rem_outqs =
 		params->pf_egress_tc_add.num_queues_per_tc;
 	/* TODO: Add support for egress pkt-offset and RSS-type */
 	nmnicpf->gpio_params.intcs_params[params->pf_egress_tc_add.tc_prio].pkt_offset = 0;
 	nmnicpf->gpio_params.intcs_params[params->pf_egress_tc_add.tc_prio].rss_type = RSS_HASH_NONE;
+
+	/* TODO - Remove once complete speration is working */
+	nmnicpf->gpio_params.intcs_params[params->pf_egress_tc_add.tc_prio].num_rem_outqs =
+		params->pf_egress_tc_add.num_queues_per_tc;
 
 	return 0;
 }
@@ -770,12 +777,18 @@ static int nmnicpf_ingress_tc_add_command(struct nmnicpf *nmnicpf,
 	pr_debug("Configure Host Ingress TC[%d] Queues\n", params->pf_ingress_tc_add.tc_prio);
 
 	/* Update queue topology database */
+	nmnicpf->gpio_rem_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].num_rem_inqs =
+		params->pf_ingress_tc_add.num_queues_per_tc;
+	nmnicpf->gpio_rem_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].rem_rss_type =
+		params->pf_ingress_tc_add.hash_type;
+	nmnicpf->gpio_rem_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].rem_pkt_offset =
+		params->pf_ingress_tc_add.pkt_offset;
+
+	/* TODO - Remove once complete speration is working */
 	nmnicpf->gpio_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].num_rem_inqs =
 		params->pf_ingress_tc_add.num_queues_per_tc;
 	nmnicpf->gpio_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].rem_rss_type =
 		params->pf_ingress_tc_add.hash_type;
-	nmnicpf->gpio_params.outtcs_params[params->pf_ingress_tc_add.tc_prio].rem_pkt_offset =
-		params->pf_ingress_tc_add.pkt_offset;
 
 	return 0;
 }
@@ -824,13 +837,14 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 {
 	struct giu_gpio_rem_q_params giu_gpio_q;
 	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
-	struct giu_gpio_outtc_params *outtc;
+	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicpf->gpio_rem_params);
+	struct giu_gpio_outtc_rem_params *outtc;
 	s32 active_q_id;
 	u32 msg_tc;
 	u8 bm_idx;
 
 	msg_tc = params->pf_ingress_data_q_add.tc_prio;
-	outtc = &(gpio_p->outtcs_params[msg_tc]);
+	outtc = &(gpio_rem_p->outtcs_params[msg_tc]);
 
 	pr_debug("Host Ingress TC[%d], queue Add (num of queues %d)\n", msg_tc, outtc->num_rem_inqs);
 
@@ -868,6 +882,13 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	if (active_q_id < 0) {
 		pr_err("Failed to configure queue in Host Ingress TC[%d] queue list\n", msg_tc);
 		return active_q_id;
+	}
+
+	if (params->pf_ingress_data_q_add.q_len != gpio_p->outtcs_params[msg_tc].outqs_params[active_q_id].len) {
+		pr_err("Host Queue size (%d) MUST be the same as Local (%d)\n",
+			params->pf_ingress_data_q_add.q_len,
+			gpio_p->outtcs_params[msg_tc].outqs_params[active_q_id].len);
+		return -EFAULT;
 	}
 
 	pr_debug("Host Ingress TC[%d], queue added at index %d\n", msg_tc, active_q_id);
@@ -922,12 +943,13 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 {
 	struct giu_gpio_rem_q_params giu_gpio_q;
 	struct giu_gpio_params *gpio_p = &(nmnicpf->gpio_params);
-	struct giu_gpio_intc_params *intc;
+	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicpf->gpio_rem_params);
+	struct giu_gpio_intc_rem_params *intc;
 	s32 active_q_id;
 	u32 msg_tc;
 
 	msg_tc = params->pf_egress_q_add.tc_prio;
-	intc = &(gpio_p->intcs_params[msg_tc]);
+	intc = &(gpio_rem_p->intcs_params[msg_tc]);
 
 	pr_debug("Host Egress TC[%d], queue Add (num of queues %d)\n", msg_tc, intc->num_rem_outqs);
 
@@ -956,6 +978,14 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 		pr_err("Failed to configure queue in Host Egress TC[%d] queue list\n", msg_tc);
 		return active_q_id;
 	}
+
+	if (params->pf_ingress_data_q_add.q_len != gpio_p->intcs_params[msg_tc].inqs_params[active_q_id].len) {
+		pr_err("Host Queue size (%d) MUST be the same as Local (%d)\n",
+			params->pf_ingress_data_q_add.q_len,
+			gpio_p->intcs_params[msg_tc].inqs_params[active_q_id].len);
+		return -EFAULT;
+	}
+
 
 	pr_debug("Host Egress TC[%d], queue added and index %d\n", msg_tc, active_q_id);
 
@@ -1114,7 +1144,7 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	intc = &(nmnicpf->gpio_params.intcs_params[0]);
 
 	for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++) {
-		int		 bpool_id = giu_bpool_alloc();
+		int bpool_id = giu_bpool_alloc();
 
 		if (bpool_id < 0) {
 			pr_err("Failed to alloc giu bpool\n");
@@ -1148,6 +1178,12 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 	ret = giu_gpio_init(&(nmnicpf->gpio_params), &(nmnicpf->giu_gpio));
 	if (ret) {
 		pr_err("Failed to init giu gpio\n");
+		return ret;
+	}
+
+	ret = giu_gpio_set_remote(nmnicpf->giu_gpio, &(nmnicpf->gpio_rem_params));
+	if (ret) {
+		pr_err("Failed to set giu gpio remote params\n");
 		return ret;
 	}
 
