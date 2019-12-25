@@ -207,10 +207,8 @@ int pp2_bpool_get_buff(struct pp2_hif *hif, struct pp2_bpool *pool, struct pp2_b
 	pool_id = pool->id;
 
 	paddr =  pp2_reg_read(cpu_slot, MVPP2_BM_PHY_ALLOC_REG(pool_id));
-	if (unlikely(!paddr)) {
-		pr_err("BM: BufGet failed! (Pool ID=%d)\n", pool_id);
+	if (unlikely(!paddr))
 		return -ENOBUFS;
-	}
 
 	vaddr = pp2_reg_read(cpu_slot, MVPP2_BM_VIRT_ALLOC_REG);
 
