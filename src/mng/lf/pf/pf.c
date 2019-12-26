@@ -1171,10 +1171,7 @@ static int nmnicpf_pf_init_done_command(struct nmnicpf *nmnicpf,
 			intc->pools[bm_idx] = nmnicpf->giu_bpools[bm_idx];
 	}
 
-	/* Create GPIO match string */
-	memset(name, 0, sizeof(name));
-	snprintf(name, sizeof(name), "gpio-%d:%d", giu_id, nmnicpf->pf_id);
-	nmnicpf->gpio_params.match = name;
+	nmnicpf->gpio_params.match = nmnicpf->profile_data.match;
 	ret = giu_gpio_init(&(nmnicpf->gpio_params), &(nmnicpf->giu_gpio));
 	if (ret) {
 		pr_err("Failed to init giu gpio\n");
@@ -2536,13 +2533,11 @@ int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size)
 	size_t	 pos = 0;
 	u8	 bm_idx, num_pools;
 	int	 ret;
-	int	 giu_id = 0; /* Support only a single GIU */
 
 	/* build relation-information first */
 	json_print_to_buffer(buff, size, 1, "\"relations-info\": {\n");
 	/* serialize the relations of the GIU objects */
-	json_print_to_buffer(buff, size, 2, "\"giu-gpio\": \"gpio-%d:%d\",\n",
-			     giu_id, nmnicpf->pf_id);
+	json_print_to_buffer(buff, size, 2, "\"giu-gpio\": \"%s\",\n", nmnicpf->profile_data.match);
 	/* assuming all TCs share the same BPools */
 	num_pools = nmnicpf->gpio_params.intcs_params[0].num_inpools;
 	json_print_to_buffer(buff, size, 2, "\"num_bpools\": %d,\n", num_pools);
