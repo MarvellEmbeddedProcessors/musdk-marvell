@@ -464,6 +464,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			goto lcl_eg_queue_error;
 		}
 		intc->num_inqs = intc_par->num_inqs;
+		intc->num_inpools = intc_par->num_inpools;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 		/* in this mode, only single local-Q is allowed for application use
 		 * since we need all the local-Qs for creating the remote-Q-pairs
@@ -496,7 +497,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			mqa_params.size = gie_get_desc_size(TX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
 
-			intc->num_inpools = intc_par->num_inpools;
 			mqa_params.bpool_num = intc->num_inpools;
 			for (bm_pool_num = 0; bm_pool_num < intc->num_inpools; bm_pool_num++) {
 				intc->pools[bm_pool_num] = intc_par->pools[bm_pool_num];
