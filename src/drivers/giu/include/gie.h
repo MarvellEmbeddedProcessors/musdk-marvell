@@ -11,8 +11,6 @@
 #include "mv_std.h"
 #include "env/mv_sys_event.h"
 
-#define GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-
 struct gie;
 
 struct gie_params {

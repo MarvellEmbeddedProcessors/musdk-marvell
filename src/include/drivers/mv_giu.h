@@ -20,6 +20,8 @@
 struct giu;
 struct giu_mng_ch;
 
+#define GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
+
 /**
  * GIU engine type enumaration
  */
