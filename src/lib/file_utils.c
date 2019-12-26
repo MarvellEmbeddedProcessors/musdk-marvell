@@ -96,6 +96,7 @@
 
 #include "std_internal.h"
 #include "lib/file_utils.h"
+#include <sys/stat.h>
 
 /**********************
  * File reading/writing utilities
@@ -116,12 +117,17 @@ int write_buf_to_file(char *file_name, char *buff, u32 size)
 
 	s = write(fd, buff, size);
 	if (s == -1) {
-		pr_info("error %d\n", errno);
+		pr_err("error %d\n", errno);
 		close(fd);
 		return -EIO;
 	}
 
 	close(fd);
+
+	sync();
+
+	chmod(file_name, S_IWUSR | S_IROTH);
+
 	return 0;
 }
 

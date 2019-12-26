@@ -192,7 +192,6 @@ static int lf_init_done(void *arg, u8 lf_id)
 		return ret;
 	}
 
-	sync();
 	return 0;
 }
 
