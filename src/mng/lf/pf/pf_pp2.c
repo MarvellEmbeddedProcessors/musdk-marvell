@@ -231,7 +231,7 @@ int nmnicpf_pp2_port_init(struct nmnicpf *nmnicpf)
 /** =========================== **/
 
 /* Serialize PP2 relation information */
-int nmnicpf_pp2_serialize_relation_inf(struct nmnicpf *nmnicpf, char *buff, u32 size)
+int nmnicpf_pp2_serialize_relation_inf(struct nmnicpf *nmnicpf, char *buff, u32 size, u8 depth)
 {
 	size_t	 pos = 0;
 	u32	 port_index, bp_index;
@@ -241,20 +241,20 @@ int nmnicpf_pp2_serialize_relation_inf(struct nmnicpf *nmnicpf, char *buff, u32 
 		return 0;
 
 	/* Serialize relations info */
-	json_print_to_buffer(buff, size, 2, "\"num_pp2_ports\": %d,\n", nmnicpf->pp2.num_ports);
+	json_print_to_buffer(buff, size, depth, "\"num_pp2_ports\": %d,\n", nmnicpf->pp2.num_ports);
 	for (port_index = 0; port_index < nmnicpf->pp2.num_ports; port_index++) {
 		struct nmp_pp2_port_desc *port = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[port_index];
 
-		json_print_to_buffer(buff, size, 2, "\"ppio-%d\": \"ppio-%d:%d\",\n",
+		json_print_to_buffer(buff, size, depth, "\"ppio-%d\": \"ppio-%d:%d\",\n",
 				     port_index, port->pp_id, port->ppio_id);
-		json_print_to_buffer(buff, size, 2, "\"num_pp2_bpools\": %d,\n", port->num_pools);
+		json_print_to_buffer(buff, size, depth, "\"num_pp2_bpools\": %d,\n", port->num_pools);
 		for (bp_index = 0; bp_index < port->num_pools; bp_index++) {
 			if (bp_index == port->num_pools - 1)
-				json_print_to_buffer(buff, size, 2, "\"bpool-%d\": \"pool-%d:%d\"\n", bp_index,
+				json_print_to_buffer(buff, size, depth, "\"bpool-%d\": \"pool-%d:%d\"\n", bp_index,
 						port->pools_desc[bp_index].pool->pp2_id,
 						port->pools_desc[bp_index].pool->id);
 			else
-				json_print_to_buffer(buff, size, 2, "\"bpool-%d\": \"pool-%d:%d\",\n", bp_index,
+				json_print_to_buffer(buff, size, depth, "\"bpool-%d\": \"pool-%d:%d\",\n", bp_index,
 						port->pools_desc[bp_index].pool->pp2_id,
 						port->pools_desc[bp_index].pool->id);
 		}

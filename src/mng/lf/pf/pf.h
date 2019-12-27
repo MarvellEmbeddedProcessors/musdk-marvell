@@ -43,11 +43,12 @@ int nmnicpf_deinit(struct nmnicpf *nmnicpf);
  * @param[in]	buff		Pointer to a buffer where the resulting string is stored.
  *				The buffer should have a size of at least 'size' characters.
  * @param[in]	size		size of buffer.
+ * @param[in]	is_relations_info serialize relations info
  *
  * @retval	The number of characters that would have been written if 'size' had been sufficiently large
  * @retval	<0 on failure
  */
-int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size);
+int nmnicpf_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size, int is_relations_info);
 
 /* TODO: temporary routine until this will be done through guest message passing! */
 int nmnicpf_create_scheduling_event(struct nmnicpf *nmnicpf,

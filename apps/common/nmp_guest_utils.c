@@ -64,7 +64,7 @@ int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *gues
 					 struct giu_bpools_desc *pools_desc,
 					 u32 num_buffs)
 {
-	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info;
+	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info[0];
 	int				 i, err;
 
 	if (giu_info->num_bpools > GIU_GPIO_TC_MAX_NUM_BPOOLS) {
@@ -98,7 +98,7 @@ int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *gues
 int app_nmp_guest_giu_port_init(char *buff, struct nmp_guest_info *guest_info, struct giu_port_desc *port)
 {
 	struct giu_gpio_capabilities	 capa;
-	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info;
+	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info[0];
 	int				 err, i;
 
 	err = giu_ppio_probe(giu_info->port_name, buff, &port->gpio);

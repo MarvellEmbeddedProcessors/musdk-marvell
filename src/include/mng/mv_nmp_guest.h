@@ -38,7 +38,8 @@ struct nmp_guest_module_info {
 
 struct nmp_guest_info {
 	struct nmp_guest_module_info ports_info;
-	struct nmp_guest_port_info giu_info;
+	u8	num_giu_ports;
+	struct nmp_guest_port_info *giu_info;
 };
 
 /**

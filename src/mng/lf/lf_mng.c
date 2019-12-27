@@ -165,7 +165,18 @@ static int lf_init_done(void *arg, u8 lf_id)
 
 	pr_debug("starting serialization of guest %d\n", lf_mng_cont->guest_id);
 
-	ret = nmnicpf_serialize(lf->u.nmnicpf, &buff[pos], size - pos);
+	json_print_to_buffer(buff, size, 1, "\"relations-info\": {\n");
+	json_print_to_buffer(buff, size, 2, "\"num-relations-info\": %u,\n", lf_mng_cont->num_lfs);
+	ret = nmnicpf_serialize(lf->u.nmnicpf, &buff[pos], size - pos, 1);
+	if (ret >= 0)
+		pos += ret;
+	if (pos != strlen(buff)) {
+		pr_err("found mismatch between pos (%zu) and buff len (%zu)\n", pos, strlen(buff));
+		return -EFAULT;
+	}
+	json_print_to_buffer(buff, size, 1, "},\n");
+
+	ret = nmnicpf_serialize(lf->u.nmnicpf, &buff[pos], size - pos, 0);
 	if (ret >= 0)
 		pos += ret;
 	if (pos != strlen(buff)) {

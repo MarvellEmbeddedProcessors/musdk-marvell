@@ -370,6 +370,8 @@ static int skip_str_relation_info(char *prb_str)
 		}
 	} while (br_cnt > 1);
 
+	kfree(lbuff);
+
 	return sec - lbuff;
 }
 
@@ -579,12 +581,12 @@ int nmp_guest_get_probe_str(struct nmp_guest *guest, char **prb_str)
 
 int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info *guest_info)
 {
-	u32	 i, j;
+	u32	 i, j, k;
 	char	*sec = NULL;
 	int	 rc;
 	char	*lbuff;
 	char	 tmp_buf[NMP_MAX_BUF_STR_LEN];
-	struct nmp_guest_port_info *giu_info = &guest_info->giu_info;
+	struct nmp_guest_port_info *giu_info = NULL;
 	struct nmp_guest_module_info *pp2_info = &guest_info->ports_info;
 
 	lbuff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
@@ -596,74 +598,98 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 	sec = strstr(lbuff, "relations-info");
 	if (!sec) {
 		pr_err("'relations-info' not found\n");
-		rc = -EINVAL;
-		goto rel_info_exit1;
+		return -EINVAL;
 	}
 
-	memset(tmp_buf, 0, sizeof(tmp_buf));
-	snprintf(tmp_buf, sizeof(tmp_buf), "giu-gpio");
-	json_buffer_to_input_str(sec, tmp_buf, giu_info->port_name);
-	pr_debug("giu-port: gpio_name %s\n", giu_info->port_name);
+	json_buffer_to_input(sec, "num-relations-info", guest_info->num_giu_ports);
 
-	json_buffer_to_input(sec, "num_bpools", giu_info->num_bpools);
-	pr_debug("giu-port: num_pools %d\n", giu_info->num_bpools);
-
-	giu_info->bpool_info = kcalloc(1, sizeof(struct nmp_guest_bpool_info) *
-						    giu_info->num_bpools, GFP_KERNEL);
-	if (giu_info->bpool_info == NULL) {
+	guest_info->giu_info = kcalloc(1, sizeof(struct nmp_guest_port_info) * guest_info->num_giu_ports, GFP_KERNEL);
+	if (guest_info->giu_info == NULL) {
 		rc = -ENOMEM;
 		goto rel_info_exit1;
 	}
-	for (j = 0; j < giu_info->num_bpools; j++) {
+
+	for (k = 0; k < guest_info->num_giu_ports; k++) {
 		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "giu-bpool-%d", j);
-		json_buffer_to_input_str(sec, tmp_buf, giu_info->bpool_info[j].bpool_name);
-		pr_debug("giu-port: pool name %s\n", giu_info->bpool_info[j].bpool_name);
-	}
+		snprintf(tmp_buf, sizeof(tmp_buf), "relations-info-%d", k);
+		sec = strstr(sec, tmp_buf);
+		if (!sec) {
+			pr_err("%s not found\n", tmp_buf);
+			rc = -EINVAL;
+			goto rel_info_exit2;
+		}
 
-	json_buffer_to_input(sec, "num_pp2_ports", pp2_info->num_ports);
-	pr_debug("num_ports: %d\n", pp2_info->num_ports);
+		giu_info = &guest_info->giu_info[k];
 
-	if (pp2_info->num_ports == 0) {
-		kfree(lbuff);
-		return 0;
-	}
-
-	pp2_info->port_info = kcalloc(1, sizeof(struct nmp_guest_port_info) * pp2_info->num_ports, GFP_KERNEL);
-	if (pp2_info->port_info == NULL) {
-		rc = -ENOMEM;
-		goto rel_info_exit2;
-	}
-
-	for (i = 0; i < pp2_info->num_ports; i++) {
 		memset(tmp_buf, 0, sizeof(tmp_buf));
-		snprintf(tmp_buf, sizeof(tmp_buf), "ppio-%d", i);
-		json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].port_name);
-		pr_debug("port: %d, ppio_name %s\n", i, pp2_info->port_info[i].port_name);
+		snprintf(tmp_buf, sizeof(tmp_buf), "giu-gpio");
+		json_buffer_to_input_str(sec, tmp_buf, giu_info->port_name);
+		pr_debug("giu-port: gpio_name %s\n", giu_info->port_name);
 
-		json_buffer_to_input(sec, "num_pp2_bpools", pp2_info->port_info[i].num_bpools);
-		pr_debug("port: %d, num_pools %d\n", i, pp2_info->port_info[i].num_bpools);
+		json_buffer_to_input(sec, "num_bpools", giu_info->num_bpools);
+		pr_debug("giu-port: num_pools %d\n", giu_info->num_bpools);
 
-		pp2_info->port_info[i].bpool_info = kcalloc(1, sizeof(struct nmp_guest_bpool_info) *
-							    pp2_info->port_info[i].num_bpools, GFP_KERNEL);
-		if (pp2_info->port_info[i].bpool_info == NULL) {
+		giu_info->bpool_info = kcalloc(1, sizeof(struct nmp_guest_bpool_info) *
+							    giu_info->num_bpools, GFP_KERNEL);
+		if (giu_info->bpool_info == NULL) {
 			rc = -ENOMEM;
-			goto rel_info_exit3;
+			goto rel_info_exit2;
 		}
-		for (j = 0; j < pp2_info->port_info[i].num_bpools; j++) {
+		for (j = 0; j < giu_info->num_bpools; j++) {
 			memset(tmp_buf, 0, sizeof(tmp_buf));
-			snprintf(tmp_buf, sizeof(tmp_buf), "bpool-%d", j);
-			json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].bpool_info[j].bpool_name);
-			pr_debug("port: %d, pool name %s\n", i, pp2_info->port_info[i].bpool_info[j].bpool_name);
+			snprintf(tmp_buf, sizeof(tmp_buf), "giu-bpool-%d", j);
+			json_buffer_to_input_str(sec, tmp_buf, giu_info->bpool_info[j].bpool_name);
+			pr_debug("giu-port: pool name %s\n", giu_info->bpool_info[j].bpool_name);
+		}
+
+		json_buffer_to_input(sec, "num_pp2_ports", pp2_info->num_ports);
+		pr_debug("num_ports: %d\n", pp2_info->num_ports);
+
+		if (pp2_info->num_ports == 0)
+			continue;
+
+		pp2_info->port_info = kcalloc(1, sizeof(struct nmp_guest_port_info) * pp2_info->num_ports, GFP_KERNEL);
+		if (pp2_info->port_info == NULL) {
+			rc = -ENOMEM;
+			goto rel_info_exit2;
+		}
+
+		for (i = 0; i < pp2_info->num_ports; i++) {
+			memset(tmp_buf, 0, sizeof(tmp_buf));
+			snprintf(tmp_buf, sizeof(tmp_buf), "ppio-%d", i);
+			json_buffer_to_input_str(sec, tmp_buf, pp2_info->port_info[i].port_name);
+			pr_debug("port: %d, ppio_name %s\n", i, pp2_info->port_info[i].port_name);
+
+			json_buffer_to_input(sec, "num_pp2_bpools", pp2_info->port_info[i].num_bpools);
+			pr_debug("port: %d, num_pools %d\n", i, pp2_info->port_info[i].num_bpools);
+
+			pp2_info->port_info[i].bpool_info = kcalloc(1, sizeof(struct nmp_guest_bpool_info) *
+								    pp2_info->port_info[i].num_bpools, GFP_KERNEL);
+			if (pp2_info->port_info[i].bpool_info == NULL) {
+				rc = -ENOMEM;
+				goto rel_info_exit3;
+			}
+			for (j = 0; j < pp2_info->port_info[i].num_bpools; j++) {
+				memset(tmp_buf, 0, sizeof(tmp_buf));
+				snprintf(tmp_buf, sizeof(tmp_buf), "bpool-%d", j);
+				json_buffer_to_input_str(sec, tmp_buf,
+							 pp2_info->port_info[i].bpool_info[j].bpool_name);
+				pr_debug("port: %d, pool name %s\n", i,
+					 pp2_info->port_info[i].bpool_info[j].bpool_name);
+			}
 		}
 	}
+
 	kfree(lbuff);
+
 	return 0;
 
 rel_info_exit3:
 	kfree(pp2_info->port_info);
 rel_info_exit2:
-	kfree(giu_info->bpool_info);
+	for (k = 0; k < guest_info->num_giu_ports; k++)
+		kfree(giu_info[k].bpool_info);
+	kfree(guest_info->giu_info);
 rel_info_exit1:
 	kfree(lbuff);
 	return rc;

@@ -45,7 +45,7 @@ int nmnicpf_pp2_cls_rule_remove(struct nmnicpf *nmnicpf, void *msg, u16 msg_len)
  * @retval	The number of characters that would have been written if 'size' had been sufficiently large
  * @retval	<0 on failure
  */
-int nmnicpf_pp2_serialize_relation_inf(struct nmnicpf *nmnicpf, char *buff, u32 size);
+int nmnicpf_pp2_serialize_relation_inf(struct nmnicpf *nmnicpf, char *buff, u32 size, u8 depth);
 int nmnicpf_pp2_serialize(struct nmnicpf *nmnicpf, char *buff, u32 size);
 
 #endif /* _PF_PP2_H */
