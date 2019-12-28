@@ -334,8 +334,7 @@ static int guest_send_msg(struct nmp_guest *guest,
 static int skip_str_relation_info(char *prb_str)
 {
 	char	*lbuff, *sec = NULL;
-	char	*tmp_lb, *tmp_rb;
-	int	 br_cnt = 0;
+	int	 skip_size = 0;
 
 	lbuff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
 	if (lbuff == NULL)
@@ -343,36 +342,17 @@ static int skip_str_relation_info(char *prb_str)
 
 	memcpy(lbuff, prb_str, SER_MAX_FILE_SIZE);
 
-	sec = strstr(lbuff, "relations-info");
+	sec = strstr(lbuff, "sizeof-relations-info");
 	if (!sec) {
 		pr_err("'relations-info' not found\n");
 		kfree(lbuff);
 		return -EINVAL;
 	}
 
-	tmp_lb = strstr(sec, "{");
-	tmp_rb = strstr(sec, "}");
-	if (tmp_rb <= tmp_lb) {
-		pr_err("Invalid probe-string!\n");
-		return -EFAULT;
-	}
-	sec = tmp_lb + 1; /* next search will be from the left-brace */
-	br_cnt++;
-	do {
-		tmp_lb = strstr(sec, "{");
-		tmp_rb = strstr(sec, "}");
-		if (tmp_rb < tmp_lb) {
-			sec = tmp_rb + 1; /* next search will be from the right-brace */
-			br_cnt--;
-		} else {
-			sec = tmp_lb + 1; /* next search will be from the left-brace */
-			br_cnt++;
-		}
-	} while (br_cnt > 1);
+	json_buffer_to_input(sec, "sizeof-relations-info", skip_size);
 
 	kfree(lbuff);
-
-	return sec - lbuff;
+	return skip_size;
 }
 
 

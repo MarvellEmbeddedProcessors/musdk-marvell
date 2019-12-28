@@ -122,8 +122,8 @@ static int lf_init_done(void *arg, u8 lf_id)
 	char	 file_name[SER_MAX_FILE_NAME];
 	char	 buff[SER_MAX_FILE_SIZE];
 	u32	 size = SER_MAX_FILE_SIZE;
-	char	 dev_name[100];
-	size_t	 pos = 0;
+	char	 dev_name[100], strl[10];
+	size_t	 len, len1, pos = 0;
 	struct lf_mng_lf *lf;
 	int	 ret;
 
@@ -188,6 +188,11 @@ static int lf_init_done(void *arg, u8 lf_id)
 			return -EFAULT;
 		}
 	}
+
+	len = strlen("\"sizeof-relations-info\": ,");
+	sprintf(strl, "%zu", len + pos);
+	len1 = strlen(strl);
+	json_print_to_buffer(buff, size, 2, "\"sizeof-relations-info\": %zu,\n", pos + len + len1);
 	json_print_to_buffer(buff, size, 1, "},\n");
 
 	/* Now serialize only the objects of each LF */
