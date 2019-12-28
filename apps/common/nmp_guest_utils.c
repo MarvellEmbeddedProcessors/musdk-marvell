@@ -101,7 +101,7 @@ int app_nmp_guest_giu_port_init(char *buff, struct nmp_guest_info *guest_info, s
 	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info[0];
 	int				 err, i;
 
-	err = giu_ppio_probe(giu_info->port_name, buff, &port->gpio);
+	err = giu_gpio_probe(giu_info->port_name, buff, &port->gpio);
 	if (err) {
 		pr_err("pp2_ppio_probe failed for %s\n", giu_info->port_name);
 		return err;

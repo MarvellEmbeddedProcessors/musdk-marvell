@@ -1011,7 +1011,7 @@ int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth)
 	return pos;
 }
 
-int giu_ppio_probe(char *match, char *buff, struct giu_gpio **gpio)
+int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 {
 	struct giu_gpio			*_gpio;
 	struct giu_gpio_outtc		*outtc;

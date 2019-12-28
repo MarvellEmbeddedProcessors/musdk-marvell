@@ -190,7 +190,7 @@ int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth);
  * @retval      0 on success
  * @retval      <0 on failure
  */
-int giu_ppio_probe(char *match, char *buff, struct giu_gpio **gpio);
+int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio);
 
 /**
  * Remove a gpio
