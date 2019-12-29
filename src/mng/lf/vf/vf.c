@@ -525,6 +525,9 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 {
 	struct sys_iomem_params iomem_params;
 	int ret;
+#define PCI_EP_VF_BAR_OFFSET_BASE 0x80000
+#define PCI_EP_VF_BAR_SIZE 0x1000
+#define PCI_EP_VF_BAR_OFFSET(id) (PCI_EP_VF_BAR_OFFSET_BASE + id * PCI_EP_VF_BAR_SIZE)
 
 	pr_debug("Mapping function %s\n", PCI_EP_UIO_MEM_NAME);
 
@@ -546,7 +549,13 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 		return ret;
 	}
 
-	pr_debug("BAR-0 of %s mapped at virt:%p phys:%p\n", PCI_EP_UIO_MEM_NAME,
+	pr_info("PF: BAR-0 mapped at virt:%p phys:%p\n",
+		nmnicvf->map.cfg_map.virt_addr, nmnicvf->map.cfg_map.phys_addr);
+
+	nmnicvf->map.cfg_map.phys_addr += PCI_EP_VF_BAR_OFFSET(nmnicvf->vf_id);
+	nmnicvf->map.cfg_map.virt_addr += PCI_EP_VF_BAR_OFFSET(nmnicvf->vf_id);
+
+	pr_info("VF#%d: BAR-0 mapped at virt:%p phys:%p\n", nmnicvf->vf_id,
 		nmnicvf->map.cfg_map.virt_addr, nmnicvf->map.cfg_map.phys_addr);
 
 	/* Map the whole physical Packet Processor physical address */
