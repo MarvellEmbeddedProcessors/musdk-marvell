@@ -184,6 +184,35 @@ static void agnic_xmit_notify(struct agnic_adapter *adapter, int tc)
 {
 }
 
+static int agnic_enable_sriov(struct pci_dev *pdev, int num_vfs)
+{
+	struct device *dev = &pdev->dev;
+	int pos, ret = 0;
+	u16 max_vfs;
+
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
+	if (pos)
+		pci_read_config_word(pdev, pos + PCI_SRIOV_TOTAL_VF,
+				     &max_vfs);
+	else
+		return -EINVAL;
+
+	if (num_vfs > max_vfs)
+		num_vfs = max_vfs;
+
+	if (num_vfs > 0) {
+		ret = pci_enable_sriov(pdev, num_vfs);
+		if (!ret)
+			ret = num_vfs;
+	} else {
+		pci_disable_sriov(pdev);
+	}
+
+	dev_info(dev, "Number of active VFs: %d\n", pci_num_vf(pdev));
+
+	return ret;
+}
+
 static int agnic_pci_probe(struct pci_dev *pci_dev, const struct pci_device_id *ent)
 {
 	struct device *dev = &pci_dev->dev;
@@ -342,8 +371,8 @@ static void agnic_pci_remove(struct pci_dev *pdev)
 
 	iounmap((void *)adapter->nic_cfg_base);
 
+	pci_disable_sriov(pdev);
 	pci_release_selected_regions(pdev, adapter->bars_mask);
-
 	pci_disable_device(pdev);
 }
 
@@ -360,6 +389,7 @@ static struct pci_driver agnic_pci_driver = {
 	.id_table	= agnic_id_table,
 	.probe		= agnic_pci_probe,
 	.remove		= agnic_pci_remove,
+	.sriov_configure = agnic_enable_sriov
 };
 module_pci_driver(agnic_pci_driver);
 
