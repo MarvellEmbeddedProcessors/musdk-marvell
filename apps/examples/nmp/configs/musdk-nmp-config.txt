@@ -7,7 +7,7 @@
 		"num_containers": 1,
 		"containers_params-0": {
 			"num_lfs": 1,
-			"lfs_params": {
+			"lf_params-0": {
 				"lf_type": 1,
 				"nicpf": {
 					"match": "gpio-0:0",
