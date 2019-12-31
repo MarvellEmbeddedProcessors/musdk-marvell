@@ -31,6 +31,7 @@ struct agnic_pci_data {
 
 /* TODO: Adapt according to future assignment for AGNIC devices. */
 #define PCI_DEVICE_ID_MARVELL_88F8040_NIC	0x7080
+#define PCI_VDEVICE_ID_MARVELL_88F8040_NIC	0x7081
 
 /*
  * agnic_pci_irq_enable - Enable interrupts reception for all q-vectors.
@@ -187,7 +188,8 @@ static void agnic_xmit_notify(struct agnic_adapter *adapter, int tc)
 static int agnic_enable_sriov(struct pci_dev *pdev, int num_vfs)
 {
 	struct device *dev = &pdev->dev;
-	int pos, ret = 0;
+	struct pci_dev *vfdev = pdev;
+	int pos, i, ret = 0;
 	u16 max_vfs;
 
 	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
@@ -206,6 +208,17 @@ static int agnic_enable_sriov(struct pci_dev *pdev, int num_vfs)
 			ret = num_vfs;
 	} else {
 		pci_disable_sriov(pdev);
+	}
+
+	for (i = 0; i < num_vfs; i++) {
+		vfdev = pci_get_device(pdev->vendor, PCI_VDEVICE_ID_MARVELL_88F8040_NIC, vfdev);
+		if (!vfdev) {
+			dev_warn(dev, "Fail to set no FLR reset flag, no VF with Vdevice %x\n",
+				 PCI_VDEVICE_ID_MARVELL_88F8040_NIC);
+			break;
+		}
+
+		vfdev->dev_flags |= PCI_DEV_FLAGS_NO_FLR_RESET;
 	}
 
 	dev_info(dev, "Number of active VFs: %d\n", pci_num_vf(pdev));
@@ -332,6 +345,8 @@ static int agnic_pci_probe(struct pci_dev *pci_dev, const struct pci_device_id *
 		dev_err(dev, "agnic_net_probe failed (%d).\n", ret);
 		goto err_pci_reg;
 	}
+
+	pci_dev->dev_flags |= PCI_DEV_FLAGS_NO_FLR_RESET;
 
 	return 0;
 
