@@ -96,7 +96,7 @@ static int dev_mng_mqa_init(struct nmp *nmp)
 }
 
 /* Initialize the GIU instance */
-static int dev_mng_init_giu(struct nmp *nmp)
+static int dev_mng_init_giu(struct nmp *nmp, struct nmp_params *params)
 {
 	struct sys_iomem_params iomem_params;
 	struct giu_params giu_params;
@@ -139,23 +139,31 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	giu_params.msi_regs_pa = (u64)nmp->msi_regs.phys_addr + nmp_msi_map_regs_offs[i];
 	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr + nmp_msi_map_regs_offs[i];
 
-	/* TODO: get all DMA-engines information from config file */
-	giu_params.num_gies = 3;
-
 	/* MNG DMA engine on AP */
+	/* set dma engines params from config file, if configuration exists */
 	i = 0;
-	sprintf(dma_name[i], "dmax2-%d", 0);
-	giu_params.gies_params[i].dma_eng_match = dma_name[i];
+	if (params->dma_eng_params.num_engines > 0) {
+		giu_params.num_gies = params->dma_eng_params.num_engines;
+		while (i < params->dma_eng_params.num_engines) {
+			giu_params.gies_params[i].dma_eng_match =
+				params->dma_eng_params.engine_name[i];
+			i++;
+		}
+	} else {
+		giu_params.num_gies = 3;
+		sprintf(dma_name[i], "dmax2-%d", 0);
+		giu_params.gies_params[i].dma_eng_match = dma_name[i];
 
-	/* OUT DMA engine on CP0 */
-	i = 1;
-	sprintf(dma_name[i], "dmax2-%d", 4);
-	giu_params.gies_params[i].dma_eng_match = dma_name[i];
+		/* OUT DMA engine on CP0 */
+		i = 1;
+		sprintf(dma_name[i], "dmax2-%d", 4);
+		giu_params.gies_params[i].dma_eng_match = dma_name[i];
 
-	/* IN DMA engine on CP0 */
-	i = 2;
-	sprintf(dma_name[i], "dmax2-%d", 5);
-	giu_params.gies_params[i].dma_eng_match = dma_name[i];
+		/* IN DMA engine on CP0 */
+		i = 2;
+		sprintf(dma_name[i], "dmax2-%d", 5);
+		giu_params.gies_params[i].dma_eng_match = dma_name[i];
+	}
 
 	ret = giu_init(&giu_params, &nmp->giu);
 	if (ret) {
@@ -168,7 +176,7 @@ static int dev_mng_init_giu(struct nmp *nmp)
 	return 0;
 }
 
-static int dev_mng_hw_init(struct nmp *nmp)
+static int dev_mng_hw_init(struct nmp *nmp, struct nmp_params *params)
 {
 	int ret;
 
@@ -190,7 +198,7 @@ static int dev_mng_hw_init(struct nmp *nmp)
 			return ret;
 	}
 
-	ret = dev_mng_init_giu(nmp);
+	ret = dev_mng_init_giu(nmp, params);
 	if (ret)
 		return ret;
 
@@ -313,7 +321,7 @@ int dev_mng_init(struct nmp *nmp, struct nmp_params *params)
 
 	pr_debug("Starting Device Manager Init\n");
 
-	ret = dev_mng_hw_init(nmp);
+	ret = dev_mng_hw_init(nmp, params);
 	if (ret)
 		return ret;
 

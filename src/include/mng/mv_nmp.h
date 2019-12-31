@@ -9,6 +9,7 @@
 #define _MV_NMP_INIT_H
 
 #include "env/mv_sys_event.h"
+#include "drivers/mv_giu.h"
 
 /** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
  *
@@ -152,6 +153,15 @@ struct nmp_container_params {
 };
 
 /**
+ * NMP DMA-engines information
+ *
+ */
+struct nmp_dma_engines_params {
+	u8 num_engines;		/**< Number of DMA engines*/
+	char engine_name[GIU_ENG_OUT_OF_RANGE][16];
+};
+
+/**
  * nmp scheduling types
  *
  */
@@ -170,6 +180,7 @@ struct nmp_params {
 	/** NMP may have several containers, each one representing a user process/VM/container */
 	u8 num_containers;
 	struct nmp_container_params *containers_params;
+	struct nmp_dma_engines_params dma_eng_params;
 };
 
 struct nmp_event_params {

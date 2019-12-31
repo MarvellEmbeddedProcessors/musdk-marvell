@@ -116,6 +116,7 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 	char				*sec = NULL;
 	char				 tmp_buf[NMP_MAX_BUF_STR_LEN];
 	char				 pp2_name[NMP_MAX_BUF_STR_LEN], giu_name[NMP_MAX_NUM_LFS][NMP_MAX_BUF_STR_LEN];
+	char				*tmp_str;
 	struct nmp_lf_nicpf_params	*pf;
 	struct nmp_lf_nicvf_params	*vf;
 
@@ -431,6 +432,58 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 			rc = -EINVAL;
 			goto read_cfg_exit2;
 		}
+	}
+
+	/* Check if the optional section 'dma_engine' exists */
+	sec = strstr(sec, "dma_engines");
+	if (sec) {
+		tmp_str = tmp_buf;
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+
+		json_buffer_to_input_str(sec, "mng", tmp_str);
+		if (tmp_buf[0] == 0) {
+			pr_err("'dma_engines' section: 'mng' engine not found\n");
+			rc = -EINVAL;
+			goto read_cfg_exit2;
+		}
+		if (!strstr(tmp_str, "dmax2-")) {
+			pr_err("dma engine name should start with 'dmax2-'\n");
+			rc = -EINVAL;
+			goto read_cfg_exit2;
+		}
+		strcpy(params->dma_eng_params.engine_name[GIU_ENG_MNG], tmp_str);
+
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		json_buffer_to_input_str(sec, "in", tmp_str);
+		if (tmp_buf[0] == 0) {
+			pr_err("'dma_engines' section: 'in' engine not found\n");
+			rc = -EINVAL;
+			goto read_cfg_exit2;
+		}
+
+		if (!strstr(tmp_str, "dmax2-")) {
+			pr_err("dma engine name should start with 'dmax2-'\n");
+			rc = -EINVAL;
+			goto read_cfg_exit2;
+		}
+		strcpy(params->dma_eng_params.engine_name[GIU_ENG_IN], tmp_str);
+
+		memset(tmp_buf, 0, sizeof(tmp_buf));
+		json_buffer_to_input_str(sec, "out", tmp_str);
+		if (tmp_buf[0] == 0) {
+			pr_err("'dma_engines' section: 'out' engine not found\n");
+			rc = -EINVAL;
+			goto read_cfg_exit2;
+		}
+
+		if (!strstr(tmp_str, "dmax2-")) {
+			pr_err("dma engine name should start with 'dmax2-'\n");
+			rc = -EINVAL;
+			goto read_cfg_exit2;
+		}
+		strcpy(params->dma_eng_params.engine_name[GIU_ENG_OUT], tmp_str);
+
+		params->dma_eng_params.num_engines = 3;
 	}
 
 	return 0;
