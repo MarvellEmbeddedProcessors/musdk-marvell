@@ -96,7 +96,7 @@ void app_giu_port_local_init(int id,
  * @retval	0 on success
  * @retval	<0 on failure
  */
-int app_giu_build_bpool(int bpool_id, u32 num_of_buffs);
+int app_giu_build_bpool(struct giu_bpool *bpool, u32 num_of_buffs);
 
 static inline void app_giu_set_gen_max_num_qs_per_tc(void)
 {

@@ -84,7 +84,7 @@ int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *gues
 		}
 
 		if (num_buffs) {
-			err = app_giu_build_bpool(i, num_buffs);
+			err = app_giu_build_bpool(pools_desc->bpools[i], num_buffs);
 			if (err) {
 				pr_err("allocate giu-bpool buffs failed!\n");
 				return err;

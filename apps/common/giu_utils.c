@@ -58,9 +58,8 @@ void app_giu_port_local_init(int id,
 	}
 }
 
-int app_giu_build_bpool(int bpool_id, u32 num_of_buffs)
+int app_giu_build_bpool(struct giu_bpool *bpool, u32 num_of_buffs)
 {
-	struct giu_bpool *bpool = &giu_bpools[bpool_id];
 	struct giu_bpool_capabilities capa;
 	void *buff_virt_addr;
 	void *buff_phys_addr;
