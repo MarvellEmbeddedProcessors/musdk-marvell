@@ -57,6 +57,7 @@ static int init_nicvf_params(struct nmnicvf *nmnicvf, struct nmp_lf_nicvf_params
 		pr_warn("GPIO match should be given\n");
 	else
 		strcpy(vf_profile->match, params->match);
+	vf_profile->pci_en	       = params->pci_en;
 	vf_profile->max_num_tcs        = params->max_num_tcs;
 	vf_profile->lcl_egress_q_num   = 1;
 	vf_profile->lcl_egress_q_size  = params->lcl_egress_qs_size;
