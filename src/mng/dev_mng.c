@@ -100,7 +100,6 @@ static int dev_mng_init_giu(struct nmp *nmp, struct nmp_params *params)
 {
 	struct sys_iomem_params iomem_params;
 	struct giu_params giu_params;
-	char dma_name[GIU_ENG_OUT_OF_RANGE][16];
 	int ret, i;
 
 	/* Initialize the management GIU instance */
@@ -139,30 +138,13 @@ static int dev_mng_init_giu(struct nmp *nmp, struct nmp_params *params)
 	giu_params.msi_regs_pa = (u64)nmp->msi_regs.phys_addr + nmp_msi_map_regs_offs[i];
 	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr + nmp_msi_map_regs_offs[i];
 
-	/* MNG DMA engine on AP */
-	/* set dma engines params from config file, if configuration exists */
+	/* pass dma engines params from nmp */
 	i = 0;
-	if (params->dma_eng_params.num_engines > 0) {
-		giu_params.num_gies = params->dma_eng_params.num_engines;
-		while (i < params->dma_eng_params.num_engines) {
-			giu_params.gies_params[i].dma_eng_match =
-				params->dma_eng_params.engine_name[i];
-			i++;
-		}
-	} else {
-		giu_params.num_gies = 3;
-		sprintf(dma_name[i], "dmax2-%d", 0);
-		giu_params.gies_params[i].dma_eng_match = dma_name[i];
-
-		/* OUT DMA engine on CP0 */
-		i = 1;
-		sprintf(dma_name[i], "dmax2-%d", 4);
-		giu_params.gies_params[i].dma_eng_match = dma_name[i];
-
-		/* IN DMA engine on CP0 */
-		i = 2;
-		sprintf(dma_name[i], "dmax2-%d", 5);
-		giu_params.gies_params[i].dma_eng_match = dma_name[i];
+	giu_params.num_gies = params->dma_eng_params.num_engines;
+	while (i < params->dma_eng_params.num_engines) {
+		giu_params.gies_params[i].dma_eng_match =
+			params->dma_eng_params.engine_name[i];
+		i++;
 	}
 
 	ret = giu_init(&giu_params, &nmp->giu);

@@ -49,14 +49,18 @@ static int init_gies(struct giu *giu, u8 num_gies, struct giu_emul_params *gies_
 	}
 
 	/* OUT GIE */
-	gie_params.dmax_match = gies_params[1].dma_eng_match;
-	gie_params.name_match = (char *)"OUT";
+	if (strcmp(gies_params[1].dma_eng_match, gies_params[0].dma_eng_match) == 0)
+		giu->gies[GIU_ENG_OUT] = giu->gies[GIU_ENG_MNG];
+	else {
+		gie_params.dmax_match = gies_params[1].dma_eng_match;
+		gie_params.name_match = (char *)"OUT";
 
-	ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_OUT]));
-	if (ret) {
-		pr_err("Failed to initialize OUT GIU emulator!\n");
-		gie_terminate(giu->gies[GIU_ENG_MNG]);
-		return -EIO;
+		ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_OUT]));
+		if (ret) {
+			pr_err("Failed to initialize OUT GIU emulator!\n");
+			gie_terminate(giu->gies[GIU_ENG_MNG]);
+			return -EIO;
+		}
 	}
 
 	if (num_gies == 2) {
@@ -65,15 +69,21 @@ static int init_gies(struct giu *giu, u8 num_gies, struct giu_emul_params *gies_
 	}
 
 	/* IN GIE */
-	gie_params.dmax_match = gies_params[2].dma_eng_match;
-	gie_params.name_match = (char *)"IN";
+	if (strcmp(gies_params[2].dma_eng_match, gies_params[0].dma_eng_match) == 0)
+		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_MNG];
+	else if (strcmp(gies_params[2].dma_eng_match, gies_params[1].dma_eng_match) == 0)
+		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_OUT];
+	else {
+		gie_params.dmax_match = gies_params[2].dma_eng_match;
+		gie_params.name_match = (char *)"IN";
 
-	ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_IN]));
-	if (ret) {
-		pr_err("Failed to initialize IN GIU emulator!\n");
-		gie_terminate(giu->gies[GIU_ENG_OUT]);
-		gie_terminate(giu->gies[GIU_ENG_MNG]);
-		return -EIO;
+		ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_IN]));
+		if (ret) {
+			pr_err("Failed to initialize IN GIU emulator!\n");
+			gie_terminate(giu->gies[GIU_ENG_OUT]);
+			gie_terminate(giu->gies[GIU_ENG_MNG]);
+			return -EIO;
+		}
 	}
 
 	return 0;
