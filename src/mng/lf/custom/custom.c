@@ -21,7 +21,7 @@
 
 #define MAX_MSG_DATA_LEN	1024
 #define CMD_QUEUE_SIZE	\
-		(1 + ceil((MAX_MSG_DATA_LEN - MGMT_DESC_DATA_LEN), sizeof(struct cmd_desc)))
+		roundup_pow_of_two((1 + ceil((MAX_MSG_DATA_LEN - MGMT_DESC_DATA_LEN), sizeof(struct cmd_desc))))
 
 
 /*	Management Channels information
