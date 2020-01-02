@@ -288,7 +288,7 @@ static int nmnicvf_mng_chn_host_ready(struct nmnicvf *nmnicvf)
 	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
 		return -EAGAIN;
 
-	pr_debug("Host is Ready\n");
+	pr_info("VF#%d: Host-Mgmt is Ready\n", nmnicvf->vf_id);
 
 	memset(&mng_ch_params, 0, sizeof(mng_ch_params));
 
@@ -333,7 +333,7 @@ static int nmnicvf_mng_chn_host_ready(struct nmnicvf *nmnicvf)
 	writel(readl(&pcie_cfg->status) | PCIE_CFG_STATUS_DEV_MGMT_READY, &pcie_cfg->status);
 
 	/* Set state to 'Device Management Ready' */
-	pr_debug("Set status to 'Device Management Ready'\n");
+	pr_info("VF#%d: Set status to 'Device Management Ready'\n", nmnicvf->vf_id);
 
 	return 0;
 }
@@ -1767,6 +1767,8 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 	struct nmdisp_q_pair_params	 q_params;
 	struct giu_mng_ch_qs		 mng_ch_qs;
 	int				 err;
+
+	pr_debug("VF#%d: check if host is ready\n", nmnicvf->vf_id);
 
 	/* Initialize management queues */
 	err = nmnicvf_mng_chn_host_ready(nmnicvf);
