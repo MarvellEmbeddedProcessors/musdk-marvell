@@ -569,6 +569,8 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 	struct nmp_guest_port_info *giu_info = NULL;
 	struct nmp_guest_module_info *pp2_info = &guest_info->ports_info;
 
+	memset(guest_info, 0, sizeof(struct nmp_guest_info));
+
 	lbuff = kcalloc(1, SER_MAX_FILE_SIZE, GFP_KERNEL);
 	if (lbuff == NULL)
 		return -ENOMEM;
@@ -621,6 +623,10 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 			json_buffer_to_input_str(sec, tmp_buf, giu_info->bpool_info[j].bpool_name);
 			pr_debug("giu-port: pool name %s\n", giu_info->bpool_info[j].bpool_name);
 		}
+
+		/* The section below only relevant for PF */
+		if (k != 0)
+			continue;
 
 		json_buffer_to_input(sec, "num_pp2_ports", pp2_info->num_ports);
 		pr_debug("num_ports: %d\n", pp2_info->num_ports);
