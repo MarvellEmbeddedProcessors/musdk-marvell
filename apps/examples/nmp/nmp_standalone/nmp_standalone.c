@@ -33,6 +33,7 @@ static struct glob_arg garg = {};
 
 static int main_loop_cb(void *arg, int *running)
 {
+	pr_info("NMP main loop is running...\n");
 	while (*running) {
 		nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
 		nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
