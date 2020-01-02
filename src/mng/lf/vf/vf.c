@@ -1770,11 +1770,8 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 
 	/* Initialize management queues */
 	err = nmnicvf_mng_chn_host_ready(nmnicvf);
-	if (err) {
-		if (err == -EAGAIN)
-			err = 0;
+	if (err)
 		return err;
-	}
 
 	nmnicvf->nmlf.f_maintenance_cb = nmnicvf_maintenance;
 	/* TODO - set this callback once defined correctly.
