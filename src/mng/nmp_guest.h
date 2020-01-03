@@ -44,6 +44,8 @@ struct nmp_guest {
 	u8	 lf_master_id;
 	u32	 timeout;
 	char	*prb_str;
+	spinlock_t	sched_lock;
+	spinlock_t	send_lock;
 	struct nmp_guest_queue cmd_queue;
 	struct nmp_guest_queue notify_queue;
 	void	*nmp;

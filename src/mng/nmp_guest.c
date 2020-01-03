@@ -301,7 +301,9 @@ static int guest_send_msg(struct nmp_guest *guest,
 {
 	u32 cons_idx, prod_idx;
 	struct nmp_guest_queue *q = &guest->cmd_queue;
-	int ret;
+	int ret = 0;
+
+	spin_lock(&guest->send_lock);
 
 	cons_idx = q_rd_cons(q);
 	prod_idx = q_rd_prod(q);
@@ -320,7 +322,7 @@ static int guest_send_msg(struct nmp_guest *guest,
 				  cons_idx,
 				  &prod_idx);
 	if (ret)
-		return ret;
+		goto fail;
 
 	/* Memory barrier */
 	wmb();
@@ -328,7 +330,10 @@ static int guest_send_msg(struct nmp_guest *guest,
 	/* Increment queue producer */
 	q_wr_prod(q, prod_idx);
 
-	return 0;
+fail:
+	spin_unlock(&guest->send_lock);
+
+	return ret;
 }
 
 static int skip_str_relation_info(char *prb_str)
@@ -492,6 +497,10 @@ int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 		err = -ENOMEM;
 		goto guest_init_err1;
 	}
+
+	spin_lock_init(&(*g)->sched_lock);
+	spin_lock_init(&(*g)->send_lock);
+
 	(*g)->nmp = params->nmp;
 
 	err = nmp_guest_wait_for_guest_file(*g);
@@ -727,16 +736,19 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 		if ((!guest->internal_schedule) &&
 		    (!q_empty(guest->notify_shadow_queue.prod_val, guest->notify_shadow_queue.cons_val))) {
 			/* First check shadow notify queue */
+			spin_lock(&guest->sched_lock);
 			total_len = guest_get_msg_from_q(guest,
 							 &guest->notify_shadow_queue,
 							 &guest->notify_shadow_queue.cons_val,
 							 &cmd);
+			spin_unlock(&guest->sched_lock);
 		} else {
 
 			/* Check for pending message */
 			if (q_empty(prod_idx, cons_idx))
 				return 0;
 
+			spin_lock(&guest->sched_lock);
 			total_len = guest_get_msg_from_q(guest, &guest->notify_queue, &cons_idx, &cmd);
 
 			/* make sure all writes are done (i.e. descriptor were copied)
@@ -746,6 +758,7 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 			wmb();
 
 			q_wr_cons((&guest->notify_queue), cons_idx);
+			spin_unlock(&guest->sched_lock);
 		}
 
 		if (cmd->client_type == CDT_PF)
