@@ -94,12 +94,15 @@ struct nmp_guest {
 };
 
 int send_internal_msg(struct nmp_guest *guest,
+		      enum cmd_dest_type client_type,
+		      u8 client_id,
 		      u8 code,
 		      u16 indx,
 		      void *msg,
 		      u16 len,
 		      void *resp,
 		      u16 resp_len);
+
 
 int guest_push_msg_to_q(struct nmp_guest_queue *q,
 			enum cmd_dest_type client_type,
@@ -111,6 +114,8 @@ int guest_push_msg_to_q(struct nmp_guest_queue *q,
 			int resp_required,
 			u32 cons_idx,
 			u32 *prod_idx);
+
+struct nmp_guest *nmp_guest_get_handle(void);
 
 #endif /* _NMP_GUEST_H */
 

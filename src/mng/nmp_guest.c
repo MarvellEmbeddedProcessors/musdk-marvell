@@ -12,7 +12,7 @@
 
 #include "nmp_guest.h"
 
-
+static struct nmp_guest *h_nmp_guest;
 
 static int nmp_guest_wait_for_guest_file(struct nmp_guest *guest)
 {
@@ -425,6 +425,8 @@ int guest_push_msg_to_q(struct nmp_guest_queue *q,
 }
 
 int send_internal_msg(struct nmp_guest *guest,
+		      enum cmd_dest_type client_type,
+		      u8 client_id,
 		      u8 code,
 		      u16 indx,
 		      void *msg,
@@ -434,7 +436,7 @@ int send_internal_msg(struct nmp_guest *guest,
 {
 	int ret, resp_req = resp ? 1 : 0;
 
-	ret = guest_send_msg(guest, CDT_PF, guest->lf_master_id, code, indx, msg, len, resp_req);
+	ret = guest_send_msg(guest, client_type, client_id, code, indx, msg, len, resp_req);
 	if (ret) {
 		/* TODO - specific handling??? */
 		return ret;
@@ -524,6 +526,8 @@ int nmp_guest_init(struct nmp_guest_params *params, struct nmp_guest **g)
 	(*g)->notify_shadow_queue.prod_val = 0;
 	(*g)->notify_shadow_queue.cons_val = 0;
 
+	h_nmp_guest = *g;
+
 	pr_debug("%s...done\n", __func__);
 
 	return 0;
@@ -544,6 +548,9 @@ void nmp_guest_deinit(struct nmp_guest *guest)
 	kfree(guest->msg);
 	kfree(guest->prb_str);
 	kfree(guest);
+
+	h_nmp_guest = NULL;
+
 	pr_debug("%s...done\n", __func__);
 }
 
@@ -803,7 +810,7 @@ int nmp_guest_send_msg(struct nmp_guest *guest, u8 code, u16 indx, void *msg, u1
 
 int nmp_guest_send_ka_msg(struct nmp_guest *guest)
 {
-	return send_internal_msg(guest, MSG_F_GUEST_KA, 0, NULL, 0, NULL, 0);
+	return send_internal_msg(guest, CDT_PF, guest->lf_master_id, MSG_F_GUEST_KA, 0, NULL, 0, NULL, 0);
 }
 
 #ifdef MVCONF_NMP_BUILT
@@ -812,4 +819,9 @@ void nmp_guest_set_nmp(struct nmp_guest *guest, void *nmp)
 	guest->nmp = nmp;
 }
 #endif /* MVCONF_NMP_BUILT */
+
+struct nmp_guest *nmp_guest_get_handle(void)
+{
+	return h_nmp_guest;
+}
 
