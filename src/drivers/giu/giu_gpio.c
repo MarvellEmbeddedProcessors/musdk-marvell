@@ -10,7 +10,9 @@
 #include "drivers/mv_mqa.h"
 #include "drivers/mv_mqa_queue.h"
 #include "drivers/mv_giu_gpio.h"
-
+#ifdef MVCONF_NMP_BUILT
+#include "mng/mv_nmp_guest_giu.h"
+#endif
 #include "lib/lib_misc.h"
 #include "lib/net.h"
 
@@ -96,6 +98,8 @@ struct giu_gpio_outtc {
 struct giu_gpio {
 	u32			giu_id;	/**< GIU's Id */
 	u32			id; /**< GPIO Id */
+	char			match[20];
+	int			is_guest;
 
 	struct mqa		*mqa;
 	struct giu		*giu;
@@ -350,6 +354,8 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 
 	(*gpio)->giu_id = giu_id;
 	(*gpio)->id = gpio_id;
+	(*gpio)->is_guest = 0;
+	strcpy((*gpio)->match, params->match);
 
 	(*gpio)->mqa = params->mqa;
 	(*gpio)->giu = params->giu;
@@ -1070,6 +1076,8 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 
 	_gpio->giu_id = giu_id;
 	_gpio->id = gpio_id;
+	_gpio->is_guest = 1;
+	strcpy(_gpio->match, match);
 
 	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
 	json_buffer_to_input_str(sec, "dma_dev_name", dev_name);
@@ -1196,12 +1204,24 @@ void giu_gpio_remove(struct giu_gpio *gpio)
 
 int giu_gpio_enable(struct giu_gpio *gpio)
 {
+#ifdef MVCONF_NMP_BUILT
+	if (gpio->is_guest)
+		return nmp_guest_giu_gpio_enable(gpio->match);
+	else
+#endif
 	pr_err("giu_gpio_enable is not implemented\n");
+
+
 	return 0;
 }
 
 int giu_gpio_disable(struct giu_gpio *gpio)
 {
+#ifdef MVCONF_NMP_BUILT
+	if (gpio->is_guest)
+		return nmp_guest_giu_gpio_disable(gpio->match);
+	else
+#endif
 	pr_err("giu_gpio_disable is not implemented\n");
 	return 0;
 }
