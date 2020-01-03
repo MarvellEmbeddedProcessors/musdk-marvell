@@ -54,7 +54,7 @@ int nmp_guest_pp2_cls_tbl_init(struct nmp_guest *guest,
 
 	memcpy(&tbl_params.params, params, sizeof(struct pp2_cls_tbl_params));
 	prepare_action(&tbl_params.def_action, &params->default_act, (uintptr_t)&tbl_params);
-	ret = send_internal_msg(guest, MSG_F_GUEST_TABLE_INIT, 0,
+	ret = send_internal_msg(guest, CDT_PF, guest->lf_master_id, MSG_F_GUEST_TABLE_INIT, 0,
 		&tbl_params, sizeof(tbl_params), &resp, sizeof(resp));
 	if (ret)
 		return ret;
@@ -71,7 +71,7 @@ void nmp_guest_pp2_cls_tbl_deinit(struct nmp_guest *guest, struct pp2_cls_tbl *t
 	u32 tbl_id = ((u32)(uintptr_t)tbl) - 1;
 	int ret;
 
-	ret = send_internal_msg(guest, MSG_F_GUEST_TABLE_DEINIT, 0,
+	ret = send_internal_msg(guest, CDT_PF, guest->lf_master_id, MSG_F_GUEST_TABLE_DEINIT, 0,
 		&tbl_id, sizeof(tbl_id), &resp, sizeof(resp));
 	if (ret || (resp.status == RESP_STATUS_FAIL))
 		pr_err("command MSG_F_GUEST_TABLE_INIT failed\n");
@@ -89,7 +89,7 @@ int nmp_guest_pp2_cls_tbl_add_rule(struct nmp_guest *guest,
 	rule_add.tbl_id = ((u32)(uintptr_t)tbl) - 1;
 	prepare_action(&rule_add.action, action, (uintptr_t)&rule_add);
 	prepare_rule(&rule_add.rule, rule);
-	ret = send_internal_msg(guest, MSG_F_GUEST_ADD_RULE, 0,
+	ret = send_internal_msg(guest, CDT_PF, guest->lf_master_id, MSG_F_GUEST_ADD_RULE, 0,
 		&rule_add, sizeof(rule_add), &resp, sizeof(resp));
 	if (ret)
 		return ret;
@@ -110,7 +110,7 @@ int nmp_guest_pp2_cls_tbl_modify_rule(struct nmp_guest *guest,
 	rule_add.tbl_id = ((u32)(uintptr_t)tbl) - 1;
 	prepare_action(&rule_add.action, action, (uintptr_t)&rule_add);
 	prepare_rule(&rule_add.rule, rule);
-	ret = send_internal_msg(guest, MSG_F_GUEST_MODIFY_RULE, 0,
+	ret = send_internal_msg(guest, CDT_PF, guest->lf_master_id, MSG_F_GUEST_MODIFY_RULE, 0,
 		&rule_add, sizeof(rule_add), &resp, sizeof(resp));
 	if (ret)
 		return ret;
@@ -129,7 +129,7 @@ int nmp_guest_pp2_cls_tbl_remove_rule(struct nmp_guest *guest,
 
 	rule_rem.tbl_id = ((u32)(uintptr_t)tbl) - 1;
 	prepare_rule(&rule_rem.rule, rule);
-	ret = send_internal_msg(guest, MSG_F_GUEST_REMOVE_RULE, 0,
+	ret = send_internal_msg(guest, CDT_PF, guest->lf_master_id, MSG_F_GUEST_REMOVE_RULE, 0,
 		&rule_rem, sizeof(rule_rem), &resp, sizeof(resp));
 	if (ret)
 		return ret;
