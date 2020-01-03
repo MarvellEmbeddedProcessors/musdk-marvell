@@ -990,35 +990,6 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 	return 0;
 }
 
-static int nmnicvf_notif_link_change(struct nmnicvf *nmnicvf, int link_status)
-{
-	struct nmdisp_msg msg;
-	struct mgmt_notification resp;
-	int ret;
-
-	msg.ext = 1;
-	msg.code = NC_LINK_CHANGE;
-	msg.indx = CMD_ID_NOTIFICATION;
-	msg.dst_client = CDT_VF;
-	msg.dst_id = 0;
-	msg.src_client = CDT_VF;
-	msg.src_id = 0;
-	msg.msg = &resp;
-	msg.msg_len = sizeof(struct mgmt_notification);
-
-	resp.link_status = link_status;
-
-	ret = nmdisp_send_msg(nmnicvf->nmdisp, 0, &msg);
-	if (ret) {
-		pr_err("failed to send link-status notification message\n");
-		return ret;
-	}
-
-	pr_debug("Link status notification was sent (cmd-code :%d).\n", NC_LINK_CHANGE);
-
-	return 0;
-}
-
 /*
  *	nmnicvf_vf_init_done_command
  */
@@ -1213,11 +1184,7 @@ static int nmnicvf_enable_command(struct nmnicvf *nmnicvf)
 
 	pr_debug("Set enable message\n");
 
-	if (!nmnicvf->guest_id)
-		return -ENOTSUP;
-
-	/* TODO - Notify Guest on enable */
-	nmnicvf_notif_link_change(nmnicvf, (ret == 0) ? 1 : 0);
+	nmnicvf->link_up_mask |= LINK_UP_MASK_REMOTE;
 
 	return ret;
 }
@@ -1228,10 +1195,7 @@ static int nmnicvf_disable_command(struct nmnicvf *nmnicvf)
 
 	pr_debug("Set disable message\n");
 
-	if (!nmnicvf->guest_id)
-		return -ENOTSUP;
-
-	/* TODO - Notify Guest on disable */
+	nmnicvf->link_up_mask &= ~LINK_UP_MASK_REMOTE;
 
 	return ret;
 }
@@ -1445,15 +1409,19 @@ static int nmnicvf_process_vf_command(struct nmnicvf *nmnicvf,
  *
  */
 static void nmnicvf_process_guest_command(struct nmnicvf *nmnicvf,
-					 struct nmdisp_msg *msg)
+					  struct nmdisp_msg *msg)
 {
 	struct guest_cmd_resp resp;
 	int ret = 0;
 
 	switch (msg->code) {
 
-	case MSG_F_GUEST_KA:
-		nmnicvf->profile_data.guest_ka_recv = 1;
+	case MSG_F_GUEST_GPIO_ENABLE:
+		nmnicvf->link_up_mask |= LINK_UP_MASK_LOCAL;
+		break;
+
+	case MSG_F_GUEST_GPIO_DISABLE:
+		nmnicvf->link_up_mask &= ~LINK_UP_MASK_LOCAL;
 		break;
 
 	default:
@@ -1658,10 +1626,77 @@ static int nmnicvf_keep_alive_process(struct nmnicvf *nmnicvf)
 	return 0;
 }
 
+static int nmnicvf_notif_link_change(struct nmnicvf *nmnicvf, int link_status)
+{
+	struct nmdisp_msg msg;
+	struct mgmt_notification resp;
+	int ret;
+
+	msg.ext = 1;
+	msg.code = NC_LINK_CHANGE;
+	msg.indx = CMD_ID_NOTIFICATION;
+	msg.dst_client = CDT_VF;
+	msg.dst_id = nmnicvf->vf_id;
+	msg.src_client = CDT_PF;
+	msg.src_id = nmnicvf->vf_id;
+	msg.msg = &resp;
+	msg.msg_len = sizeof(struct mgmt_notification);
+
+	resp.link_status = link_status;
+
+	ret = nmdisp_send_msg(nmnicvf->nmdisp, 0, &msg);
+	if (ret) {
+		pr_err("failed to send link-status notification message\n");
+		return ret;
+	}
+
+	pr_debug("Link status notification was sent (cmd-code :%d).\n", NC_LINK_CHANGE);
+
+	return 0;
+}
+
+/*
+ *	nmnicpf_link_state_check_n_notif
+ *
+ *	This function checks the link state and if it was changed
+ *	since the last time it was checked it notifies the host
+ *
+ *	@param[in]	nmnicvf - pointer to NIC VF object
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+static int nmnicvf_link_state_check_n_notif(struct nmnicvf *nmnicvf)
+{
+static int last_link_state;
+
+	int link_state;
+
+	link_state = ((nmnicvf->link_up_mask & LINK_UP_MASK) == LINK_UP_MASK);
+	if (last_link_state != link_state) {
+		/* If link state was changed since last check, notify the host */
+		pr_info("Link state was change to %d\n", link_state);
+
+		if (link_state)
+			giu_gpio_enable(nmnicvf->giu_gpio);
+		else
+			giu_gpio_disable(nmnicvf->giu_gpio);
+		nmnicvf_notif_link_change(nmnicvf, link_state);
+		last_link_state = link_state;
+	}
+
+	return 0;
+}
+
 static int nmnicvf_maintenance(struct nmlf *nmlf)
 {
 	struct nmnicvf *nmnicvf = (struct nmnicvf *)nmlf;
 	int err;
+
+	/* Check link state (and notify in case of a change) */
+	err = nmnicvf_link_state_check_n_notif(nmnicvf);
+	if (err)
+		return err;
 
 	/* Send keep-alive notification */
 	err = nmnicvf_keep_alive_process(nmnicvf);
