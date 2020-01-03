@@ -2350,6 +2350,8 @@ static int nmnicpf_serialize_relations_info(struct nmnicpf *nmnicpf, char *buff,
 
 	/* build relation-information first */
 	json_print_to_buffer(buff, size, depth, "\"relations-info-%d\": {\n", nmnicpf->nmlf.id);
+	json_print_to_buffer(buff, size, depth + 1, "\"lf_type\": %d,\n", CDT_PF);
+	json_print_to_buffer(buff, size, depth + 1, "\"lf_id\": %d,\n", nmnicpf->pf_id);
 	/* serialize the relations of the GIU objects */
 	json_print_to_buffer(buff, size, depth + 1, "\"giu-gpio\": \"%s\",\n", nmnicpf->profile_data.match);
 	/* assuming all TCs share the same BPools */

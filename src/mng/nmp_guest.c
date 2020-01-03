@@ -7,16 +7,11 @@
 
 #include "std_internal.h"
 #include "env/mv_autogen_comp_flags.h"
-#ifdef MVCONF_NMP_BUILT
-#include "mng/mv_nmp.h"
-#endif /* MVCONF_NMP_BUILT */
 #include "dev_mng.h"
 #include "lf/mng_cmd_desc.h"
 
 #include "nmp_guest.h"
 
-
-#define NMP_MAX_BUF_STR_LEN	256
 
 
 static int nmp_guest_wait_for_guest_file(struct nmp_guest *guest)
@@ -570,7 +565,7 @@ int nmp_guest_get_probe_str(struct nmp_guest *guest, char **prb_str)
 
 int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info *guest_info)
 {
-	u32	 i, j, k;
+	u32	 i, j, k, lf_type = -1, lf_id = -1;
 	char	*sec = NULL;
 	int	 rc;
 	char	*lbuff;
@@ -610,12 +605,23 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 			goto rel_info_exit2;
 		}
 
-		giu_info = &guest_info->giu_info[k];
+		json_buffer_to_input(sec, "lf_type", lf_type);
+		json_buffer_to_input(sec, "lf_id", lf_id);
+		if ((lf_type == -1) || (lf_id == -1)) {
+			pr_err("both 'lf_type' and 'lf_id' must exist\n");
+			rc = -EINVAL;
+			goto rel_info_exit2;
+		}
 
+		giu_info = &guest_info->giu_info[k];
 		memset(tmp_buf, 0, sizeof(tmp_buf));
 		snprintf(tmp_buf, sizeof(tmp_buf), "giu-gpio");
 		json_buffer_to_input_str(sec, tmp_buf, giu_info->port_name);
 		pr_debug("giu-port: gpio_name %s\n", giu_info->port_name);
+
+		strcpy(guest->giu_object[guest->total_giu_object_count].match, giu_info->port_name);
+		guest->giu_object[guest->total_giu_object_count].lf_type = lf_type;
+		guest->giu_object[guest->total_giu_object_count++].lf_id = lf_id;
 
 		json_buffer_to_input(sec, "num_bpools", giu_info->num_bpools);
 		pr_debug("giu-port: num_pools %d\n", giu_info->num_bpools);
@@ -631,6 +637,10 @@ int nmp_guest_get_relations_info(struct nmp_guest *guest, struct nmp_guest_info 
 			snprintf(tmp_buf, sizeof(tmp_buf), "giu-bpool-%d", j);
 			json_buffer_to_input_str(sec, tmp_buf, giu_info->bpool_info[j].bpool_name);
 			pr_debug("giu-port: pool name %s\n", giu_info->bpool_info[j].bpool_name);
+			strcpy(guest->giu_object[guest->total_giu_object_count].match,
+						 giu_info->bpool_info[j].bpool_name);
+			guest->giu_object[guest->total_giu_object_count].lf_type = lf_type;
+			guest->giu_object[guest->total_giu_object_count++].lf_id = lf_id;
 		}
 
 		/* The section below only relevant for PF */

@@ -9,7 +9,10 @@
 #define _NMP_GUEST_H
 
 #include "mng/mv_nmp_guest.h"
+#include "mng/mv_nmp.h"
 #include "include/guest_mng_cmd_desc.h"
+
+#define NMP_MAX_BUF_STR_LEN	256
 
 #define q_inc_idx(q, idx)	q_inc_idx_val(q, idx, 1)
 #define q_inc_idx_val(q, idx, val)	((idx + val) & (q->len - 1))
@@ -39,6 +42,12 @@ struct nmp_guest_queue {
 	u32		cons_val; /**< consumer index value */
 };
 
+struct nmp_guest_giu_object {
+	char	match[NMP_MAX_BUF_STR_LEN];
+	u8	lf_type;
+	u8	lf_id;
+};
+
 struct nmp_guest {
 	u8	 id;
 	u8	 lf_master_id;
@@ -48,6 +57,8 @@ struct nmp_guest {
 	spinlock_t	send_lock;
 	struct nmp_guest_queue cmd_queue;
 	struct nmp_guest_queue notify_queue;
+	u32	total_giu_object_count;
+	struct nmp_guest_giu_object giu_object[NMP_MAX_NUM_LFS * (1 + NMP_LF_MAX_NUM_LCL_BPOOLS)];
 	void	*nmp;
 	u32	keep_alive_thresh;
 	u32	keep_alive_counter;
