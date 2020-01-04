@@ -70,3 +70,27 @@ int nmp_guest_giu_gpio_disable(char *gpio_match)
 	return 0;
 }
 
+int nmp_guest_giu_gpio_get_link_state(char *gpio_match, int *en)
+{
+	struct nmp_guest *guest = nmp_guest_get_handle();
+	struct guest_cmd_resp resp;
+	u8 lf_type = 0, lf_id = 0;
+	int ret;
+
+	ret = nmp_guest_find_lf_from_match(guest, gpio_match, &lf_type, &lf_id);
+	if (ret)
+		return ret;
+pr_line;
+	ret = send_internal_msg(guest, lf_type, lf_id, MSG_F_GUEST_GPIO_GET_LINK_STATE, 0, NULL, 0,
+				&resp, sizeof(resp));
+	if (ret)
+		return ret;
+	if (resp.status == RESP_STATUS_FAIL)
+		return -1;
+
+	*en = (int)resp.giu_resp.link_state;
+
+	return 0;
+}
+
+
