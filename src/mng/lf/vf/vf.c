@@ -1800,7 +1800,6 @@ static int nmnicvf_init_gpio_local(struct nmnicvf *nmnicvf)
 static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 {
 	struct nmnicvf			*nmnicvf = (struct nmnicvf *)nmlf;
-	struct nmdisp_client_params	 client_params;
 	struct nmdisp_q_pair_params	 q_params;
 	struct giu_mng_ch_qs		 mng_ch_qs;
 	int				 err;
@@ -1817,16 +1816,6 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 	 * _nmnicvf->nmlf.f_serialize_cb = nmnicvf_serialize;
 	 */
 
-	/* Register NIC VF to dispatcher */
-	memset(&client_params, 0, sizeof(client_params));
-	client_params.client_type	= CDT_VF;
-	client_params.client_id		= nmnicvf->vf_id;
-	client_params.f_client_ctrl_cb	= nmnicvf_process_command;
-	client_params.client		= nmnicvf;
-	err = nmdisp_register_client(nmnicvf->nmdisp, &client_params);
-	if (err)
-		return err;
-
 	giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
 
 	memset(&q_params, 0, sizeof(q_params));
@@ -1834,7 +1823,7 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 	q_params.notify_q = mng_ch_qs.lcl_resp_q;
 	q_params.ext_desc_support = 0;
 	q_params.max_msg_size = sizeof(struct mgmt_cmd_params);
-	err = nmdisp_add_queue(nmnicvf->nmdisp, client_params.client_type, client_params.client_id, &q_params);
+	err = nmdisp_add_queue(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id, &q_params);
 	if (err)
 		return err;
 
@@ -1853,6 +1842,7 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 int nmnicvf_init(struct nmnicvf_params *params, struct nmnicvf **nmnicvf)
 {
 	struct nmnicvf			*_nmnicvf;
+	struct nmdisp_client_params	 client_params;
 	int				 err;
 
 	_nmnicvf = kmalloc(sizeof(*_nmnicvf), GFP_KERNEL);
@@ -1897,6 +1887,16 @@ int nmnicvf_init(struct nmnicvf_params *params, struct nmnicvf **nmnicvf)
 		_nmnicvf->nmlf.f_maintenance_cb = nmnicvf_init_host_ready;
 		err = 0;
 	}
+
+	/* Register NIC VF to dispatcher */
+	memset(&client_params, 0, sizeof(client_params));
+	client_params.client_type	= CDT_VF;
+	client_params.client_id		= _nmnicvf->vf_id;
+	client_params.f_client_ctrl_cb	= nmnicvf_process_command;
+	client_params.client		= _nmnicvf;
+	err = nmdisp_register_client(_nmnicvf->nmdisp, &client_params);
+	if (err)
+		return err;
 
 	err = nmnicvf_init_gpio_local(_nmnicvf);
 	if (err)
