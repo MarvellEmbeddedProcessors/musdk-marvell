@@ -538,6 +538,17 @@ int giu_gpio_enable(struct giu_gpio *gpio);
 int giu_gpio_disable(struct giu_gpio *gpio);
 
 /**
+ * Get link state
+ *
+ * @param[in]		gpio	A pointer to a PP-IO object.
+ * @param[out]		en	link enabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int giu_gpio_get_link_state(struct giu_gpio *gpio, int *en);
+
+/**
  * Create a GPIO event
  *
  * The event API is called to create a sys_event for a GIU-GPIO, that

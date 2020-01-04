@@ -1209,8 +1209,7 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 		return nmp_guest_giu_gpio_enable(gpio->match);
 	else
 #endif
-	pr_err("giu_gpio_enable is not implemented\n");
-
+	pr_err("%s is not implemented\n", __func__);
 
 	return 0;
 }
@@ -1222,7 +1221,20 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 		return nmp_guest_giu_gpio_disable(gpio->match);
 	else
 #endif
-	pr_err("giu_gpio_disable is not implemented\n");
+	pr_err("%s is not implemented\n", __func__);
+
+	return 0;
+}
+
+int giu_gpio_get_link_state(struct giu_gpio *gpio, int *en)
+{
+#ifdef MVCONF_NMP_BUILT
+	if (gpio->is_guest)
+		return nmp_guest_giu_gpio_get_link_state(gpio->match, en);
+	else
+#endif
+	pr_err("%s is not implemented\n", __func__);
+
 	return 0;
 }
 
