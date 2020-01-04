@@ -206,7 +206,7 @@ static int internal_ev_cb(void *arg, enum nmp_guest_lf_type client, u8 id, u8 co
 	int ret = 0;
 
 	/* check if msg is the required response */
-	if ((client != NMP_GUEST_LF_T_NICPF) || (indx == CMD_IDX_NOTIFICATION))
+	if ((client == NMP_GUEST_LF_T_CUSTOM) || (indx == CMD_IDX_NOTIFICATION))
 		goto push_to_shadow_queue;
 
 	/* msg is a response from NICPF */
@@ -780,6 +780,8 @@ int nmp_guest_schedule(struct nmp_guest *guest)
 
 		if (cmd->client_type == CDT_PF)
 			lf_type = NMP_GUEST_LF_T_NICPF;
+		else if (cmd->client_type == CDT_VF)
+			lf_type = NMP_GUEST_LF_T_NICVF;
 
 		/* The filtering should be done on 'custom' part.
 		 * As currently only one CB is supported there is no need for searching the correct CB.

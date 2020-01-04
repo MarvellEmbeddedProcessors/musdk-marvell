@@ -127,6 +127,8 @@ enum nmp_guest_lf_type {
 	/** TODO */
 	NMP_GUEST_LF_T_NICPF,
 	/** TODO */
+	NMP_GUEST_LF_T_NICVF,
+	/** TODO */
 	NMP_GUEST_LF_T_CUSTOM,
 	/** TODO */
 	NMP_GUEST_LF_T_LAST
