@@ -1424,6 +1424,10 @@ static void nmnicvf_process_guest_command(struct nmnicvf *nmnicvf,
 		nmnicvf->link_up_mask &= ~LINK_UP_MASK_LOCAL;
 		break;
 
+	case MSG_F_GUEST_GPIO_GET_LINK_STATE:
+		resp.giu_resp.link_state = ((nmnicvf->link_up_mask & LINK_UP_MASK) == LINK_UP_MASK);
+		break;
+
 	default:
 		/* Unknown command code */
 		pr_err("Unknown command code %d!! Unable to process command.\n", msg->code);

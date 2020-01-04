@@ -25,6 +25,7 @@ enum msg_from_guest_codes {
 	MSG_F_GUEST_KA,
 	MSG_F_GUEST_GPIO_ENABLE,
 	MSG_F_GUEST_GPIO_DISABLE,
+	MSG_F_GUEST_GPIO_GET_LINK_STATE,
 	MSG_F_GUEST_LAST,
 };
 
@@ -70,12 +71,19 @@ struct guest_pp2_cls_cmd_resp {
 	};
 };
 
+struct guest_giu_cmd_resp {
+	union {
+		u8 link_state;
+	};
+};
+
 struct guest_cmd_resp {
 #define RESP_STATUS_OK		(0)
 #define RESP_STATUS_FAIL	(1)
 	u8 status;
 	union {
 		struct guest_pp2_cls_cmd_resp pp2_cls_resp;
+		struct guest_giu_cmd_resp giu_resp;
 	};
 };
 
