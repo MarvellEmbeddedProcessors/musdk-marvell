@@ -312,6 +312,40 @@ int nmdisp_add_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct nmdisp_q_
 }
 
 /*
+ *	nmdisp_remove_queue
+ *
+ *	This function remove dispatcher queue pair from dispatcher client
+ *
+ *	@param[in]	nmdisp - pointer to dispatcher object
+ *	@param[in]	client - client type
+ *	@param[in]	id - client id
+ *	@param[in]	q_params - client queue pair
+ *
+ *	@retval	0 on success
+ *	@retval	error-code otherwise
+ */
+int nmdisp_remove_queue(struct nmdisp *nmdisp_p, u8 client, u8 id, struct mqa_q *cmd_q)
+{
+	u32 client_idx;
+	u32 q_idx;
+	struct nmdisp_q_pair_params *q;
+
+	client_idx = nmdisp_client_id_get(nmdisp_p, client, id);
+	if (client_idx < 0) {
+		pr_err("Failed to ad queue to dispatcher - client not found\n");
+		return -1;
+	}
+
+	for (q_idx = 0; q_idx < MV_NMP_Q_PAIR_MAX; q_idx++) {
+		q = &(nmdisp_p->clients[client_idx].client_q[q_idx]);
+		if (q->cmd_q == cmd_q)
+			memset(q, 0, sizeof(struct nmdisp_q_pair_params));
+	}
+
+	return 0;
+}
+
+/*
  *	nmdisp_dispatch_dump
  */
 void nmdisp_dispatch_dump(struct nmdisp *nmdisp_p)

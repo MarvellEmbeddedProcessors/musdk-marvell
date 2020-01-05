@@ -84,6 +84,11 @@ int nmdisp_deregister_client(struct nmdisp *nmdisp, u8 client, u8 id);
 int nmdisp_add_queue(struct nmdisp *nmdisp, u8 client, u8 id, struct nmdisp_q_pair_params *q_params);
 
 /**
+ *  Dispatcher configuration API - Remove Client's Queue
+ */
+int nmdisp_remove_queue(struct nmdisp *nmdisp, u8 client, u8 id, struct mqa_q *cmd_q);
+
+/**
  *  Dispatcher execution API - Run Dispatcher
  */
 int nmdisp_dispatch(struct nmdisp *nmdisp);
