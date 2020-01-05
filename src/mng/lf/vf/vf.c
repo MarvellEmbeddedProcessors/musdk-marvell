@@ -1029,7 +1029,7 @@ static int nmnicvf_link_status_command(struct nmnicvf *nmnicvf,
 {
 	pr_debug("Link status message\n");
 
-	resp_data->link_status = 1;
+	resp_data->link_status = nmnicvf->last_link_state;
 
 	return 0;
 }
@@ -1672,12 +1672,10 @@ static int nmnicvf_notif_link_change(struct nmnicvf *nmnicvf, int link_status)
  */
 static int nmnicvf_link_state_check_n_notif(struct nmnicvf *nmnicvf)
 {
-static int last_link_state;
-
 	int link_state;
 
 	link_state = ((nmnicvf->link_up_mask & LINK_UP_MASK) == LINK_UP_MASK);
-	if (last_link_state != link_state) {
+	if (nmnicvf->last_link_state != link_state) {
 		/* If link state was changed since last check, notify the host */
 		pr_info("Link state was change to %d\n", link_state);
 
@@ -1686,7 +1684,7 @@ static int last_link_state;
 		else
 			giu_gpio_disable(nmnicvf->giu_gpio);
 		nmnicvf_notif_link_change(nmnicvf, link_state);
-		last_link_state = link_state;
+		nmnicvf->last_link_state = link_state;
 	}
 
 	return 0;

@@ -65,6 +65,7 @@ struct nmnicvf {
 #define LINK_UP_MASK_LOCAL	0x2
 #define LINK_UP_MASK	(LINK_UP_MASK_REMOTE | LINK_UP_MASK_LOCAL)
 	u8				 link_up_mask; /* 0x1 for remote flag, 0x2 for local; i.e. 0x3 link is up */
+	int				 last_link_state;
 	struct sys_iomem		*sys_iomem;	/* musdk iomem handle. */
 	struct iomem_inf		 plat_regs;	/* Relevant only for platform devices */
 	struct pci_plat_func_map	 map;		/* Memory mapping - PCI / Plat */
