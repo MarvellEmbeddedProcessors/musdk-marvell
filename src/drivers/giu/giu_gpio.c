@@ -836,7 +836,7 @@ error:
 
 }
 
-void giu_gpio_deinit(struct giu_gpio *gpio)
+void giu_gpio_clear_remote(struct giu_gpio *gpio)
 {
 	struct giu_gpio_outtc	*outtc;
 	struct giu_gpio_intc	*intc;
@@ -853,10 +853,50 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 					intc->rem_outqs[q_idx].q_id,
 					HOST_EGRESS_DATA_QUEUE);
 			if (ret)
-				pr_warn("Failed to remove queue Idx %x\n",
+				pr_warn("Failed to destroy queue Idx %x\n",
 					intc->rem_outqs[q_idx].q_id);
 		}
 	}
+
+	pr_debug("De-initializing Remote In queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &(gpio->outtcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+					outtc->rem_inqs[q_idx].q.mqa_q,
+					outtc->rem_inqs[q_idx].q.q_id,
+					HOST_INGRESS_DATA_QUEUE);
+			if (ret)
+				pr_warn("Failed to destroy queue Idx %x\n",
+					outtc->rem_inqs[q_idx].q.q_id);
+		}
+	}
+
+	pr_debug("De-initializing Remote in BM queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &(gpio->outtcs[tc_idx]);
+
+		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
+					outtc->rem_inqs[bm_idx].poolq.mqa_q,
+					outtc->rem_inqs[bm_idx].poolq.q_id,
+					HOST_BM_QUEUE);
+			if (ret)
+				pr_warn("Failed to destroy queue Idx %x\n",
+					outtc->rem_inqs[bm_idx].poolq.q_id);
+		}
+	}
+}
+
+void giu_gpio_deinit(struct giu_gpio *gpio)
+{
+	struct giu_gpio_outtc	*outtc;
+	struct giu_gpio_intc	*intc;
+	u32			 tc_idx, q_idx;
+	int			 ret;
+
+	giu_gpio_clear_remote(gpio);
 
 	pr_debug("De-initializing Local In queues\n");
 	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
@@ -873,21 +913,6 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 		}
 	}
 
-	pr_debug("De-initializing Remote In queues\n");
-	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
-		outtc = &(gpio->outtcs[tc_idx]);
-
-		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
-					outtc->rem_inqs[q_idx].q.mqa_q,
-					outtc->rem_inqs[q_idx].q.q_id,
-					HOST_INGRESS_DATA_QUEUE);
-			if (ret)
-				pr_warn("Failed to remove queue Idx %x\n",
-					outtc->rem_inqs[q_idx].q.q_id);
-		}
-	}
-
 	pr_debug("De-initializing Local Out queues\n");
 	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
 		outtc = &(gpio->outtcs[tc_idx]);
@@ -900,21 +925,6 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
 					outtc->outqs[q_idx].q_id);
-		}
-	}
-
-	pr_debug("De-initializing Remote in BM queues\n");
-	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
-		outtc = &(gpio->outtcs[tc_idx]);
-
-		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
-					outtc->rem_inqs[bm_idx].poolq.mqa_q,
-					outtc->rem_inqs[bm_idx].poolq.q_id,
-					HOST_BM_QUEUE);
-			if (ret)
-				pr_warn("Failed to remove queue Idx %x\n",
-					outtc->rem_inqs[bm_idx].poolq.q_id);
 		}
 	}
 
