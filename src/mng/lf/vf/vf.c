@@ -1885,9 +1885,20 @@ int nmnicvf_init(struct nmnicvf_params *params, struct nmnicvf **nmnicvf)
  */
 int nmnicvf_deinit(struct nmnicvf *nmnicvf)
 {
+	struct giu_mng_ch_qs	mng_ch_qs;
 	int ret;
 
 	ret = nmnicvf_local_queue_terminate(nmnicvf);
+	if (ret)
+		return ret;
+
+	giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
+
+	ret = nmdisp_remove_queue(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id, mng_ch_qs.lcl_cmd_q);
+	if (ret)
+		return ret;
+
+	ret = nmdisp_deregister_client(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id);
 	if (ret)
 		return ret;
 
