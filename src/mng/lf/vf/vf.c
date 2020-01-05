@@ -1041,42 +1041,10 @@ static int nmnicvf_close_command(struct nmnicvf *nmnicvf,
 				struct mgmt_cmd_params *params,
 				struct mgmt_cmd_resp *resp_data)
 {
-	u8 bm_idx;
-	int ret;
-
 	pr_debug("Close message.\n");
 	pr_debug("Closing VF data path resources\n");
 
-	/* Close stages:
-	 * 1) NMP should disable the PP2 and GIU disable
-	 * 2) Inform the guest app about if down (it should remove GIU and PP2)
-	 * 3) Wait till guest app completes the operation (serialized file is deleted)
-	 * 4) De-init PP2 and GIU
-	 * 5) Free resources
-	 *
-	 * Note: only stage 5 implemented below.
-	 * TODO: implement other stages
-	 */
-
-	/* Free Data Qs and Un-register in MQA/GIU */
-	pr_debug("Free Data Qs\n");
-	giu_gpio_deinit(nmnicvf->giu_gpio);
-
-	/* Free BPools and Un-register in MQA/GIU */
-	pr_debug("Free BM Qs\n");
-	/* we assume all in-TCs share the same BPools */
-	for (bm_idx = 0;
-		bm_idx < nmnicvf->gpio_params.intcs_params[0].num_inpools;
-		bm_idx++)
-		giu_bpool_deinit(nmnicvf->giu_bpools[bm_idx]);
-
-	/*Free DB TCs */
-	pr_debug("Free DB structures\n");
-	ret = nmnicvf_topology_tc_free(nmnicvf);
-	if (ret)
-		pr_err("Failed to free DB resources\n");
-
-	return 0;
+	return -ENOTSUP;
 }
 
 /*
