@@ -332,6 +332,7 @@ void giu_mng_ch_deinit(struct giu_mng_ch *mng_ch)
 	}
 
 	if (mng_ch->lcl_resp_q_idx >= 0) {
+		gie_remove_queue(mng_ch->giu->gies[GIU_ENG_MNG], mng_ch->lcl_resp_q_idx);
 		if (mng_ch->lcl_resp_q) {
 			ret = mqa_queue_destroy(mng_ch->giu->mqa, mng_ch->lcl_resp_q);
 			if (ret < 0)
@@ -343,6 +344,7 @@ void giu_mng_ch_deinit(struct giu_mng_ch *mng_ch)
 	}
 
 	if (mng_ch->rem_cmd_q_idx >= 0) {
+		gie_remove_queue(mng_ch->giu->gies[GIU_ENG_MNG], mng_ch->rem_cmd_q_idx);
 		if (mng_ch->rem_cmd_q) {
 			ret = mqa_queue_destroy(mng_ch->giu->mqa, mng_ch->rem_cmd_q);
 			if (ret < 0)
