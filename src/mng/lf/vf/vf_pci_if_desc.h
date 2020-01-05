@@ -36,6 +36,7 @@ struct pcie_config_mem {
 #define PCIE_CFG_STATUS_DEV_READY	(1 << 0)
 #define PCIE_CFG_STATUS_HOST_MGMT_READY	(1 << 1)
 #define PCIE_CFG_STATUS_DEV_MGMT_READY	(1 << 2)
+#define PCIE_CFG_STATUS_HOST_RESET	(1 << 31)
 	u32	status;
 	u8	mac_addr[6];
 	u8	res[6];

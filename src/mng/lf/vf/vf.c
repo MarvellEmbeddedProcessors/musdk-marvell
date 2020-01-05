@@ -1658,10 +1658,42 @@ static int nmnicvf_link_state_check_n_notif(struct nmnicvf *nmnicvf)
 	return 0;
 }
 
+static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
+{
+	struct giu_mng_ch_qs		mng_ch_qs;
+	volatile struct pcie_config_mem *pcie_cfg;
+
+	pcie_cfg = (struct pcie_config_mem *)nmnicvf->map.cfg_map.virt_addr;
+
+	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_RESET))
+		/* reset bit wan't not set */
+		return 0;
+
+	/* reset bit was set, need to reconfigure VF flow */
+	/* 1. unregister mng queues from dispatcher */
+	giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
+	nmdisp_remove_queue(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id, mng_ch_qs.lcl_cmd_q);
+	/* 2. destroy mng queues */
+	giu_mng_ch_deinit(nmnicvf->giu_mng_ch);
+	/* 3. destroy 'remote' queues */
+	giu_gpio_clear_remote(nmnicvf->giu_gpio);
+	/* 4. start 'init' flow immediately */
+	writel(PCIE_CFG_STATUS_DEV_READY, &pcie_cfg->status);
+	nmnicvf->nmlf.f_maintenance_cb = nmnicvf_init_host_ready;
+
+	/* return "error" to exit stop other maintenance opertions */
+	return -EAGAIN;
+}
+
 static int nmnicvf_maintenance(struct nmlf *nmlf)
 {
 	struct nmnicvf *nmnicvf = (struct nmnicvf *)nmlf;
 	int err;
+
+	/* Check for reset signal */
+	err = nmnicvf_reset_check(nmnicvf);
+	if (err)
+		return err;
 
 	/* Check link state (and notify in case of a change) */
 	err = nmnicvf_link_state_check_n_notif(nmnicvf);
