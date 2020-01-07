@@ -80,7 +80,7 @@ int nmp_guest_giu_gpio_get_link_state(char *gpio_match, int *en)
 	ret = nmp_guest_find_lf_from_match(guest, gpio_match, &lf_type, &lf_id);
 	if (ret)
 		return ret;
-pr_line;
+
 	ret = send_internal_msg(guest, lf_type, lf_id, MSG_F_GUEST_GPIO_GET_LINK_STATE, 0, NULL, 0,
 				&resp, sizeof(resp));
 	if (ret)
