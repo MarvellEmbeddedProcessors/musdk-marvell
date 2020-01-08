@@ -1558,46 +1558,6 @@ static int nmnicvf_serialize_relations_info(struct nmnicvf *nmnicvf, char *buff,
 	return pos;
 }
 
-static int nmnicvf_keep_alive_process(struct nmnicvf *nmnicvf)
-{
-	struct nmdisp_msg msg;
-	struct mgmt_notification resp;
-	int ret;
-
-	if (!nmnicvf->initialized ||
-	    !nmnicvf->profile_data.keep_alive_thresh ||
-	    (nmnicvf->profile_data.keep_alive_counter++ != nmnicvf->profile_data.keep_alive_thresh))
-		return 0;
-
-	/* Send Keep Alive notification message */
-	msg.ext = 1;
-	msg.code = NC_KEEP_ALIVE;
-	msg.indx = CMD_ID_NOTIFICATION;
-	msg.dst_client = CDT_VF;
-	msg.dst_id = 0;
-	msg.src_client = CDT_VF;
-	msg.src_id = 0;
-	msg.msg = &resp;
-	msg.msg_len = sizeof(struct mgmt_notification);
-
-	resp.keep_alive = MGMT_NOTIF_KEEP_ALIVE_FW;
-	if (nmnicvf->profile_data.guest_ka_recv)
-		resp.keep_alive |= MGMT_NOTIF_KEEP_ALIVE_APP;
-
-	nmnicvf->profile_data.keep_alive_counter = 0;
-	nmnicvf->profile_data.guest_ka_recv = 0;
-
-	ret = nmdisp_send_msg(nmnicvf->nmdisp, 0, &msg);
-	if (ret) {
-		pr_err("failed to send keep-alive notification message\n");
-		return ret;
-	}
-
-	pr_debug("Keep-alive notification was sent (cmd-code :%d).\n", NC_VF_KEEP_ALIVE);
-
-	return 0;
-}
-
 static int nmnicvf_notif_link_change(struct nmnicvf *nmnicvf, int link_status)
 {
 	struct nmdisp_msg msg;
@@ -1697,11 +1657,6 @@ static int nmnicvf_maintenance(struct nmlf *nmlf)
 
 	/* Check link state (and notify in case of a change) */
 	err = nmnicvf_link_state_check_n_notif(nmnicvf);
-	if (err)
-		return err;
-
-	/* Send keep-alive notification */
-	err = nmnicvf_keep_alive_process(nmnicvf);
 	if (err)
 		return err;
 
