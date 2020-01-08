@@ -285,8 +285,8 @@ static int nmnicvf_mng_chn_host_ready(struct nmnicvf *nmnicvf)
 	vf_cfg_virt = (u64)nmnicvf->map.cfg_map.virt_addr;
 	pcie_cfg    = (struct pcie_config_mem *)vf_cfg_virt;
 
-	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
-		return -EAGAIN;
+	while (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
+		; /* Do Nothing. Wait till state it's updated */
 
 	pr_info("VF#%d: Host-Mgmt is Ready\n", nmnicvf->vf_id);
 
@@ -338,32 +338,11 @@ static int nmnicvf_mng_chn_host_ready(struct nmnicvf *nmnicvf)
 	return 0;
 }
 
-/*
- *	nmnicvf_mng_chn_init
- *
- *	This function create NIC VF management channel
- *	Execution requires handshake with Host side
- *
- *  The creation flow is:
- *  - Create Local Qs
- *  - Wait for the Host to indicate 'Host Management Ready'
- *  - Register Host Command Q (and set Producer index in BAR 0)
- *  - Register Host Notification Q (and set Consumer index in BAR 0)
- *  - Associate Local Command Q with Host Q: Host (src) --> Local (Dest)
- *  - Associate Local Notification Q with Host Q: Local (src) --> Host (Dest)
- *  - Set 'Device Management Ready' indication
- *
- *	@param[in]	nmnicvf - pointer to NIC VF object
- *
- *	@retval	0 on success
- *	@retval	error-code otherwise
- */
 static int nmnicvf_mng_chn_init(struct nmnicvf *nmnicvf)
 {
 	volatile struct pcie_config_mem *pcie_cfg;
 	u64 vf_cfg_virt; /* pointer to HW so it should be volatile */
 	u8 mac_addr[ETH_ALEN] = {0};
-	int ret = 0;
 
 	/*  Host Ready Check */
 	/* ================= */
@@ -392,15 +371,6 @@ static int nmnicvf_mng_chn_init(struct nmnicvf *nmnicvf)
 	 *	 hence, it should move after "Host is Ready" (below)
 	 */
 	nmnicvf->gpio_rem_params.msix_table_base = (void *)(vf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
-
-	/* Make sure that above configuration are out before setting the
-	 * dev-ready status for the host side.
-	 */
-	writel(PCIE_CFG_STATUS_DEV_READY, &pcie_cfg->status);
-
-	ret = nmnicvf_init_host_ready((struct nmlf *)nmnicvf);
-	if (ret)
-		return ret;
 
 	return 0;
 }
@@ -1628,15 +1598,20 @@ static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
 	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_RESET))
 		/* reset bit wan't not set */
 		return 0;
+	pr_debug("VF#%d: got 'reset' request\n", nmnicvf->vf_id);
 
 	/* reset bit was set, need to reconfigure VF flow */
 	/* 1. unregister mng queues from dispatcher */
-	giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
-	nmdisp_remove_queue(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id, mng_ch_qs.lcl_cmd_q);
-	/* 2. destroy mng queues */
-	giu_mng_ch_deinit(nmnicvf->giu_mng_ch);
+	if (nmnicvf->giu_mng_ch) {
+		giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
+		nmdisp_remove_queue(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id, mng_ch_qs.lcl_cmd_q);
+		/* 2. destroy mng queues */
+		giu_mng_ch_deinit(nmnicvf->giu_mng_ch);
+	}
 	/* 3. destroy 'remote' queues */
-	giu_gpio_clear_remote(nmnicvf->giu_gpio);
+	if (nmnicvf->giu_gpio)
+		giu_gpio_clear_remote(nmnicvf->giu_gpio);
+
 	/* 4. start 'init' flow immediately */
 	writel(PCIE_CFG_STATUS_DEV_READY, &pcie_cfg->status);
 	nmnicvf->nmlf.f_maintenance_cb = nmnicvf_init_host_ready;
@@ -1769,9 +1744,6 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 		return err;
 
 	nmnicvf->nmlf.f_maintenance_cb = nmnicvf_maintenance;
-	/* TODO - set this callback once defined correctly.
-	 * _nmnicvf->nmlf.f_serialize_cb = nmnicvf_serialize;
-	 */
 
 	giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
 
@@ -1840,10 +1812,10 @@ int nmnicvf_init(struct nmnicvf_params *params, struct nmnicvf **nmnicvf)
 
 	/* Initialize management queues */
 	err = nmnicvf_mng_chn_init(_nmnicvf);
-	if (err == -EAGAIN) {
-		_nmnicvf->nmlf.f_maintenance_cb = nmnicvf_init_host_ready;
-		err = 0;
-	}
+	if (err)
+		return err;
+
+	_nmnicvf->nmlf.f_maintenance_cb = nmnicvf_maintenance;
 
 	/* Register NIC VF to dispatcher */
 	memset(&client_params, 0, sizeof(client_params));
