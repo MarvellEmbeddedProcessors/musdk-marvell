@@ -384,7 +384,7 @@ static int nmnicvf_mng_chn_init(struct nmnicvf *nmnicvf)
 	 */
 	pcie_cfg->msi_x_tbl_offset = PCI_BAR0_MSI_X_TBL_BASE;
 	/* update the total memory needed for the device side */
-	pcie_cfg->dev_use_size = PCI_BAR0_CALC_SIZE;
+	pcie_cfg->dev_use_size = PCI_BAR0_DEV_RES_BASE;
 
 	/* Register MSI-X table base in GIU */
 	/* TODO: register msix table only if pcie_cfg->msi_x_tbl_offset !=0
