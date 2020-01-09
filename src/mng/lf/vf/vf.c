@@ -537,6 +537,14 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 		return ret;
 	}
 
+#ifdef PCI_EP_PLATFORM_MODE
+	/* In this mode, the remote side is still running on the same platform
+	 * but above the VF BAR setting.
+	 * So the host_map_phys_base MUST be '0' to retrieve the correct "remote" address
+	 */
+	nmnicvf->map.host_map.phys_addr = 0x0;
+	nmnicvf->map.host_map.virt_addr = (void *)0xBAD00ADD0BAD0ADDll;
+#endif /* PCI_EP_PLATFORM_MODE */
 	pr_debug("host RAM of %s remapped to phys %p virt %p\n", "host-map",
 		   nmnicvf->map.host_map.phys_addr, nmnicvf->map.host_map.virt_addr);
 
