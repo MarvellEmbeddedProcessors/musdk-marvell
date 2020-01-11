@@ -123,6 +123,12 @@ int app_nmp_guest_giu_port_init(char *buff, struct nmp_guest_info *guest_info, s
 		return -EINVAL;
 	}
 
+	err = giu_gpio_enable(port->gpio);
+	if (err) {
+		pr_err("giu_gpio_enable failed for %s\n", giu_info->port_name);
+		return err;
+	}
+
 	port->num_tcs = capa.intcs_inf.num_intcs;
 	for (i = 0; i < port[i].num_tcs; i++) {
 		port->num_inqs[i] = capa.intcs_inf.intcs_inf[i].num_inqs;
