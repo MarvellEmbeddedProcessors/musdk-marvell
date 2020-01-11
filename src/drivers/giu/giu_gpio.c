@@ -1219,9 +1219,9 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 		return nmp_guest_giu_gpio_enable(gpio->match);
 	else
 #endif
-	pr_err("%s is not implemented\n", __func__);
+	pr_debug("%s is not implemented\n", __func__);
 
-	return 0;
+	return -ENOTSUP;
 }
 
 int giu_gpio_disable(struct giu_gpio *gpio)
@@ -1231,9 +1231,9 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 		return nmp_guest_giu_gpio_disable(gpio->match);
 	else
 #endif
-	pr_err("%s is not implemented\n", __func__);
+	pr_debug("%s is not implemented\n", __func__);
 
-	return 0;
+	return -ENOTSUP;
 }
 
 int giu_gpio_get_link_state(struct giu_gpio *gpio, int *en)
@@ -1243,9 +1243,9 @@ int giu_gpio_get_link_state(struct giu_gpio *gpio, int *en)
 		return nmp_guest_giu_gpio_get_link_state(gpio->match, en);
 	else
 #endif
-	pr_err("%s is not implemented\n", __func__);
+	pr_debug("%s is not implemented\n", __func__);
 
-	return 0;
+	return -ENOTSUP;
 }
 
 int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
