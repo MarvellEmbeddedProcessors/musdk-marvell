@@ -115,6 +115,13 @@ struct nmnicpf {
 	int				 pf_id;
 	u32				 guest_id;
 	int				 initialized;
+#define LINK_UP_MASK_REMOTE	0x1
+#define LINK_UP_MASK_LOCAL	0x2
+#define LINK_UP_MASK_LOCAL_PP2	0x4
+#define LINK_UP_MASK		(LINK_UP_MASK_REMOTE | LINK_UP_MASK_LOCAL)
+#define LINK_UP_MASK_W_PP2	(LINK_UP_MASK | LINK_UP_MASK_LOCAL_PP2)
+	u8				 link_up_mask;
+	int				 last_link_state;
 	u8				 plat_bar_indx;
 	struct sys_iomem		*sys_iomem;	/* musdk iomem handle. */
 	struct iomem_inf		 plat_regs;	/* Relevant only for platform devices */

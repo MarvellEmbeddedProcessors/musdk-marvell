@@ -1046,14 +1046,15 @@ static int nmnicpf_link_state_get(struct nmnicpf *nmnicpf, int *link_state)
 {
 	struct nmp_pp2_port_desc *pdesc;
 	u32 pcount = 0;
-	int err;
+	int err, ppio_link;
 
-	if (!nmnicpf->pp2.ports_desc)
-		/* no pp2, just return */
-		/* TODO: handle guest mode (i.e. notify guest to
-		 *	 to handle the request)
-		 */
-		return -ENODEV;
+	if (!nmnicpf->pp2.ports_desc) {
+		*link_state = ((nmnicpf->link_up_mask & LINK_UP_MASK) == LINK_UP_MASK);
+		return 0;
+	}
+
+	/* With PP2 port */
+	*link_state = 0;
 
 	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
 	if (!pdesc->ppio)
@@ -1061,11 +1062,15 @@ static int nmnicpf_link_state_get(struct nmnicpf *nmnicpf, int *link_state)
 		return -ENODEV;
 
 	/* check PP2 link */
-	err = pp2_ppio_get_link_state(pdesc->ppio, link_state);
+	err = pp2_ppio_get_link_state(pdesc->ppio, &ppio_link);
 	if (err) {
 		pr_err("Link check error (pp_id: %d)\n", pdesc->pp_id);
 		return -EFAULT;
 	}
+
+	nmnicpf->link_up_mask |= (ppio_link) ? LINK_UP_MASK_LOCAL_PP2 : 0;
+
+	*link_state = ((nmnicpf->link_up_mask & LINK_UP_MASK_W_PP2) == LINK_UP_MASK_W_PP2);
 
 	return 0;
 }
@@ -1083,8 +1088,6 @@ static int nmnicpf_link_state_get(struct nmnicpf *nmnicpf, int *link_state)
  */
 static int nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
 {
-	struct nmp_pp2_port_desc *pdesc;
-	u32 pcount = 0;
 	int link_state, err;
 
 	err = nmnicpf_link_state_get(nmnicpf, &link_state);
@@ -1094,13 +1097,16 @@ static int nmnicpf_link_state_check_n_notif(struct nmnicpf *nmnicpf)
 	else if (err)
 		return err;
 
-	pdesc = (struct nmp_pp2_port_desc *)&nmnicpf->pp2.ports_desc[pcount];
-	if (pdesc->link_state != link_state) {
+	if (nmnicpf->last_link_state != link_state) {
 		/* If link state was changed since last check, notify the host */
-		pr_debug("Link state was change to %d\n", link_state);
+		pr_info("Link state was change to %d\n", link_state);
 
+		if (link_state)
+			giu_gpio_enable(nmnicpf->giu_gpio);
+		else
+			giu_gpio_disable(nmnicpf->giu_gpio);
 		nmnicpf_notif_link_change(nmnicpf, link_state);
-		pdesc->link_state = link_state;
+		nmnicpf->last_link_state = link_state;
 	}
 
 	return 0;
@@ -1514,20 +1520,14 @@ static int nmnicpf_enable_command(struct nmnicpf *nmnicpf)
 	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
 		return -ENOTSUP;
 
+	nmnicpf->link_up_mask |= LINK_UP_MASK_REMOTE;
+
 	if (nmnicpf->pp2.ports_desc) {
 		ret = pp2_ppio_enable(nmnicpf->pp2.ports_desc[0].ppio);
 		if (ret) {
 			pr_err("PPIO enable failed\n");
 			return ret;
 		}
-	}
-
-	if (nmnicpf->guest_id) {
-		if (nmnicpf->pp2.ports_desc)
-			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
-		else
-			/* TODO - Notify Guest on enable */
-			nmnicpf_notif_link_change(nmnicpf, (ret == 0) ? 1 : 0);
 	}
 
 	return ret;
@@ -1542,18 +1542,14 @@ static int nmnicpf_disable_command(struct nmnicpf *nmnicpf)
 	if (!nmnicpf->pp2.ports_desc && !nmnicpf->guest_id)
 		return -ENOTSUP;
 
+	nmnicpf->link_up_mask &= ~LINK_UP_MASK_REMOTE;
+
 	if (nmnicpf->pp2.ports_desc) {
 		ret = pp2_ppio_disable(nmnicpf->pp2.ports_desc[0].ppio);
 		if (ret) {
 			pr_err("PPIO disable failed\n");
 			return ret;
 		}
-	}
-
-	if (nmnicpf->guest_id) {
-		/* TODO - Notify Guest on disable */
-		if (nmnicpf->pp2.ports_desc)
-			ret = 0; /* currently if ppio exist the 'ret' is ignored. */
 	}
 
 	return ret;
@@ -2169,9 +2165,24 @@ static void nmnicpf_process_guest_command(struct nmnicpf *nmnicpf,
 					 struct nmdisp_msg *msg)
 {
 	struct guest_cmd_resp resp;
-	int ret = 0;
+	int link_state, ret = 0;
 
 	switch (msg->code) {
+
+	case MSG_F_GUEST_GPIO_ENABLE:
+		nmnicpf->link_up_mask |= LINK_UP_MASK_LOCAL;
+		break;
+
+	case MSG_F_GUEST_GPIO_DISABLE:
+		nmnicpf->link_up_mask &= ~LINK_UP_MASK_LOCAL;
+		break;
+
+	case MSG_F_GUEST_GPIO_GET_LINK_STATE:
+		ret = nmnicpf_link_state_get(nmnicpf, &link_state);
+		if (!ret)
+			resp.giu_resp.link_state = link_state;
+
+		break;
 
 	case MSG_F_GUEST_TABLE_INIT:
 		ret = nmnicpf_pp2_cls_table_init(nmnicpf, msg->msg, msg->msg_len, &resp.pp2_cls_resp);
