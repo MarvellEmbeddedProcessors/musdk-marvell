@@ -526,7 +526,7 @@ static int nmnicpf_map_plat_func(struct nmnicpf *nmnicpf)
 	pr_debug("agnic regs mapped at virt:%p phys:%p\n",
 		nmnicpf->plat_regs.virt_addr, nmnicpf->plat_regs.phys_addr);
 
-	return 0;
+	return nmnicpf_map_emul_pci_bar(nmnicpf);
 }
 
 static int nmnicpf_map_pci_bar(struct nmnicpf *nmnicpf)
@@ -571,38 +571,24 @@ static int nmnicpf_map_pci_bar(struct nmnicpf *nmnicpf)
 	return 0;
 }
 
-static int nmnicpf_map_bar(struct nmnicpf *nmnicpf)
-{
-	if (nmnicpf->map.type == ft_plat)
-		return nmnicpf_map_emul_pci_bar(nmnicpf);
-	else
-		return nmnicpf_map_pci_bar(nmnicpf);
-}
-
 static int nmnicpf_map_init(struct nmnicpf *nmnicpf)
 {
 	int ret;
 
-	/* Map NMP registers if any */
-	/* First, try to map the platform device, if failed, and PCI is supported
-	 * try the pci device.
-	 */
-	nmnicpf->map.type = ft_plat;
-	ret = nmnicpf_map_plat_func(nmnicpf);
-	if (ret) {
-		if (nmnicpf->profile_data.pci_en) {
-			pr_debug("Platform device not found, trying the pci device.\n");
-			nmnicpf->map.type = ft_pcie_ep;
-		} else {
-			pr_err("platform device not found\n");
+	if (nmnicpf->profile_data.pci_en) {
+		ret = nmnicpf_map_pci_bar(nmnicpf);
+		if (ret) {
+			pr_err("PCI device not found.\n");
 			return ret;
 		}
-	}
-
-	ret = nmnicpf_map_bar(nmnicpf);
-	if (ret) {
-		pr_err("niether platform nor PCI devices were found\n");
-		return ret;
+		nmnicpf->map.type = ft_pcie_ep;
+	} else {
+		ret = nmnicpf_map_plat_func(nmnicpf);
+		if (ret) {
+			pr_err("Platform device not found.\n");
+			return ret;
+		}
+		nmnicpf->map.type = ft_plat;
 	}
 
 	return 0;
