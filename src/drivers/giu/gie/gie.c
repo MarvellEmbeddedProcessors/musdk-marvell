@@ -1104,6 +1104,11 @@ int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
 
 	pr_debug("adding bpool qid %d of size %d to %s-giu\n", qid, buf_size, gie->name);
 
+	if (buf_size == 0) {
+		pr_err("invalid buf_size %d for bpool qid %d\n", buf_size, qid);
+		return -EINVAL;
+	}
+
 	/* Find an empty bpool slot */
 	for (i = 0; i < GIE_MAX_BPOOLS; i++) {
 		if (gie->bpools[i].buf_size == 0) {
