@@ -138,6 +138,8 @@ static inline void prefetch(const void *ptr)
 #define MVAPPS_DEFAULT_AFFINITY		1
 #define MVAPPS_INVALID_AFFINITY		-1
 
+#define MVAPPS_DEFAULT_CORE_LOAD	100
+
 #define MVAPPS_INVALID_MEMREGIONS	-1
 
 #define MVAPPS_PKT_SIZE_INC	(-1)
@@ -246,6 +248,7 @@ struct glb_common_args {
 	int			port_forwarding;
 	int			min_sg_frag;
 	int			max_sg_frag;
+	int			core_load;
 };
 
 struct buffer_desc {

@@ -100,6 +100,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/time.h>
 
 #include "mv_std.h"
@@ -116,7 +117,7 @@
 #define APP_DMA_MEM_SIZE		(8 * 1024 * 1024)
 
 struct local_arg {
-	struct local_common_args	 cmn_args; /* Keep first */
+	struct local_common_args	cmn_args; /* Keep first */
 };
 
 struct glob_arg {
@@ -126,15 +127,39 @@ struct glob_arg {
 
 static struct glob_arg garg = {};
 
+
+volatile sig_atomic_t flag;
+static void setflag(int sig)
+{
+	flag = 1;
+}
+
+#define INTERVAL    500000
 static int main_loop_cb(void *arg, int *running)
 {
 	struct local_arg *larg = (struct local_arg *)arg;
 
 	pr_info("[T %d, C %d] NMP main loop is running...\n", larg->cmn_args.id, sched_getcpu());
+
 	if (garg.cmn_args.cpus == 1) {
+		struct sigaction sigact;
+		struct itimerval interval = { { 0, INTERVAL }, { 0, INTERVAL } };
+		struct timespec pausetime = { 0, 0 };
+		int load = garg.cmn_args.core_load;
+
+		memset(&sigact, 0, sizeof(sigact));
+		sigact.sa_handler = setflag;
+		sigaction(SIGALRM, &sigact, 0);
+		setitimer(ITIMER_REAL, &interval, 0);
+		pausetime.tv_nsec = INTERVAL*(100 - load)*10;
+
 		while (*running) {
-			nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
-			nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
+			flag = 0;
+			nanosleep(&pausetime, 0);
+			while (!flag) {
+				nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
+				nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
+			}
 		}
 	} else if (larg->cmn_args.id == 0) {
 		while (*running)
@@ -250,6 +275,7 @@ static void usage(char *progname)
 	       "Optional OPTIONS:\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
 	       "\t-c, --cores <number>     Number of CPUs to use\n"
+	       "\t-l, --load <number>      core load\n"
 	       "\t-f, --file		   Location and name of the nmp-config file to load\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname));
@@ -263,6 +289,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->cmn_args.cli = 0;
 	garg->cmn_args.cpus = 1;
 	garg->cmn_args.affinity = MVAPPS_INVALID_AFFINITY;
+	garg->cmn_args.core_load = MVAPPS_DEFAULT_CORE_LOAD;
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -296,6 +323,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 				return -EINVAL;
 			}
 			garg->cmn_args.cpus = atoi(argv[i + 1]);
+			i += 2;
+		} else if (strcmp(argv[i], "-l") == 0) {
+			garg->cmn_args.core_load = atoi(argv[i + 1]);
 			i += 2;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
