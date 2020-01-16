@@ -398,6 +398,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			goto error;
 		}
 		outtc->num_outqs = outtc_par->num_rem_inqs;
+		outtc->num_rem_inqs = outtc_par->num_rem_inqs;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
 			lcl_q = &(outtc->outqs[q_idx]);
@@ -481,6 +482,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			goto lcl_eg_queue_error;
 		}
 		intc->num_inqs = intc_par->num_rem_outqs;
+		intc->num_rem_outqs = intc_par->num_rem_outqs;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
 			lcl_q = &(intc->inqs[q_idx]);
