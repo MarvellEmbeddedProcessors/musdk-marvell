@@ -637,7 +637,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto host_queue_error;
 			}
-			pr_debug("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
+			pr_info("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
 				 tc_idx, bm_idx, mqa_params.idx);
 		}
 
@@ -671,6 +671,9 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			mqa_params.host_remap	   = rem_q_par->host_remap;
 			mqa_params.bpool_num	   = 1;
 			mqa_params.bpool_qids[0]   = outtc->rem_inqs[q_idx].poolq.q_id;
+
+			pr_info("Host TC[%d] RX[%d], queue Id %d, bpool ID %d trying to Registered to GIU RX\n\n",
+				 tc_idx, q_idx, mqa_params.idx, mqa_params.bpool_qids[0]);
 
 			mqa_params.msix_inf.id = rem_q_par->msix_id;
 

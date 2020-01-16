@@ -385,7 +385,8 @@ static int loop_tx(struct local_arg	*larg,
 
 		giu_gpio_outq_desc_reset(&descs[i]);
 		giu_gpio_outq_desc_set_proto_info(&descs[i],
-						GIU_DESC_ERR_OK,
+						GIU_OUTQ_IP_OK,
+						GIU_OUTQ_L4_OK,
 						GIU_OUTQ_L2_UNICAST,
 						GIU_VLAN_TAG_NONE,
 						GIU_OUTQ_L3_UNICAST,

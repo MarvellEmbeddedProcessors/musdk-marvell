@@ -447,6 +447,8 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 	enum pp2_inq_l3_type     l3_type;
 	enum pp2_inq_l4_type     l4_type;
 	enum pp2_inq_desc_status desc_status;
+	enum giu_outq_ip_status ip_status = GIU_OUTQ_IPV4_CHECKSUM_UNKNOWN;
+	enum giu_outq_l4_status l4_status = GIU_OUTQ_L4_CHECKSUM_UNKNOWN;
 	u8                       l3_offset, l4_offset;
 
 	/* Note: PP2 descriptors and GIU descriptors has similar
@@ -500,13 +502,20 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 		/* Get L2 error state */
 		desc_status = pp2_ppio_inq_desc_get_l2_pkt_error(&pp2_descs[i]);
 
+		ip_status = GIU_OUTQ_IP_OK;
+
 		/* If no L2 error ,check L3 error state */
 		if (!desc_status)
 			desc_status = pp2_ppio_inq_desc_get_l3_pkt_error(&pp2_descs[i]);
+		if (desc_status)
+			ip_status = GIU_OUTQ_IPV4_CHECKSUM_ERR;
 
+		l4_status = GIU_OUTQ_IP_OK;
 		/* If no L3 error ,check L4 error state */
 		if (!desc_status)
 			desc_status = pp2_ppio_inq_desc_get_l4_pkt_error(&pp2_descs[i]);
+		if (desc_status)
+			l4_status = GIU_OUTQ_L4_CHECKSUM_ERR;
 
 		pp2_ppio_inq_desc_get_vlan_tag(&pp2_descs[i], &vlan_tag);
 		pp2_ppio_inq_desc_get_l2_cast_info(&pp2_descs[i], &l2_cast);
@@ -522,7 +531,7 @@ static inline int loop_sw_ingress(struct local_arg	*larg,
 		giu_gpio_outq_desc_set_phys_addr(&giu_descs[i], pa + pkt_offset);
 		giu_gpio_outq_desc_set_pkt_offset(&giu_descs[i], 0);
 		giu_gpio_outq_desc_set_pkt_len(&giu_descs[i], len);
-		giu_gpio_outq_desc_set_proto_info(&giu_descs[i], desc_status, l2_cast, vlan_tag,
+		giu_gpio_outq_desc_set_proto_info(&giu_descs[i], ip_status, l4_status, l2_cast, vlan_tag,
 							l3_cast, l3_type, l3_offset, l4_type, l4_offset);
 
 		shadow_q->ents[shadow_q->write_ind].buff_ptr.cookie = (uintptr_t)buff;

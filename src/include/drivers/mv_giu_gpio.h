@@ -266,22 +266,16 @@ enum giu_outq_l3_cast_type {
 	GIU_OUTQ_L3_BROADCAST,		/* L3 Broadcast */
 };
 
-enum giu_outq_desc_status {
-	GIU_DESC_ERR_OK = 0,
-	GIU_DESC_ERR_MAC_CRC,		/* L2 MAC error (for example CRC Error) */
-	GIU_DESC_ERR_MAC_OVERRUN,	/* L2 Overrun Error*/
-	GIU_DESC_ERR_MAC_RESERVED,	/* L2 Reserved */
-	GIU_DESC_ERR_MAC_RESOURCE,	/* L2 Resource Error (No buffers for multi-buffer frame) */
-	GIU_DESC_ERR_IPV4_HDR,		/* L3 IPv4 Header error */
-	GIU_DESC_ERR_L4_CHECKSUM,	/* L4 checksum error */
-	GIU_DESC_ERR_IPV4_CHECKSUM	/* IPv4 checksum error */
+enum giu_outq_ip_status {
+	GIU_OUTQ_IP_OK = 0,
+	GIU_OUTQ_IPV4_CHECKSUM_ERR,
+	GIU_OUTQ_IPV4_CHECKSUM_UNKNOWN
 };
 
-enum giu_outq_desc_ipv4_l4_status {
-	GIU_DESC_IPV4_L4_ERR_OK = 0,
-	GIU_DESC_IPV4_L4_ERR_IPV4_HDR,	    /* L3 IPv4 Header error */
-	GIU_DESC_IPV4_L4_ERR_L4_CHECKSUM,   /* L4 checksum error */
-	GIU_DESC_IPV4_L4_ERR_IPV4_CHECKSUM, /* IPv4 checksum error */
+enum giu_outq_l4_status {
+	GIU_OUTQ_L4_OK = 0,
+	GIU_OUTQ_L4_CHECKSUM_ERR,
+	GIU_OUTQ_L4_CHECKSUM_UNKNOWN
 };
 
 /******** RXQ-Desc ********/
@@ -334,22 +328,23 @@ enum giu_outq_desc_ipv4_l4_status {
 #define GIU_TXD_L3_OFF_MASK		(0x0000007F)
 #define GIU_TXD_DP_MASK			(0x00000080)
 #define GIU_TXD_IPHDR_LEN_MASK		(0x00001F00)
-#define GIU_TXD_EC_MASK			(0x00006000)
-#define GIU_TXD_ES_MASK			(0x00008000)
-#define GIU_TXD_MD_MODE			(0x00400000)
-#define GIU_TXD_IPv4_L4_ERR_MASK	(0x01800000)
+#define GIU_TXD_L4_STATUS_MASK		(0x00006000)
+#define GIU_TXD_HK_MODE_MASK		(0x00200000)
+#define GIU_TXD_MD_MODE_MASK		(0x00400000)
+#define GIU_TXD_IP_STATUS_MASK		(0x01800000)
 #define GIU_TXD_L4_PRS_INFO_MASK	(0x0E000000)
 #define GIU_TXD_L3_PRS_INFO_MASK	(0x70000000)
 /* cmd 1 */
 #define GIU_TXD_PKT_OFF_MASK		(0x000000FF)
-#define GIU_TXD_BYTE_COUNT_MASK		(0xFFFF0000)
 #define GIU_TXD_L3_CAST_INFO_MASK	(0x00000C00)
 #define GIU_TXD_L2_CAST_INFO_MASK	(0x00003000)
 #define GIU_TXD_VLAN_INFO_MASK		(0x0000C000)
+#define GIU_TXD_BYTE_COUNT_MASK		(0xFFFF0000)
 /* cmd 2 */
-#define GIU_TXD_L4_INITIAL_CHK		(0xFFFF0000)
+#define GIU_TXD_DEST_QID_MASK		(0x00001FFF)
 #define GIU_TXD_PORT_NUM_MASK		(0x0000E000)
-#define GIU_TXD_DEST_QID		(0x00001FFF)
+/* cmd 3 */
+#define GIU_TXD_HASH_KEY_MASK		(0xFFFFFFFF)
 /* cmd 4 */
 #define GIU_TXD_BUF_PHYS_LO_MASK	(0xFFFFFFFF)
 /* cmd 5 */
@@ -359,23 +354,25 @@ enum giu_outq_desc_ipv4_l4_status {
 /* cmd 7 */
 #define GIU_TXD_BUF_VIRT_HI_MASK	(0xFFFFFFFF)
 
+/* cmd 0 */
 #define GIU_TXD_SET_L3_OFF(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_OFF_MASK) | (data << 0 & GIU_TXD_L3_OFF_MASK))
 #define GIU_TXD_SET_IP_HEAD_LEN(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_IPHDR_LEN_MASK) | (data << 8 & GIU_TXD_IPHDR_LEN_MASK))
-#define GIU_TXD_SET_EC(desc, data)	\
-	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_EC_MASK) | ((data) << 13 & GIU_TXD_EC_MASK))
-#define GIU_TXD_SET_ES(desc, data)	\
-	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_EC_MASK) | (data << 15 & ~GIU_TXD_EC_MASK))
+#define GIU_TXD_SET_L4_STATUS(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L4_STATUS_MASK) | ((data) << 13 & GIU_TXD_L4_STATUS_MASK))
+#define GIU_TXD_SET_HK_MODE(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_HK_MODE_MASK) | (data << 21 & ~GIU_TXD_HK_MODE_MASK))
 #define GIU_TXD_SET_MD_MODE(desc, data)	\
-	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_MD_MODE) | (data << 22 & GIU_TXD_MD_MODE))
-#define GIU_TXD_SET_IPV4_L4_ERR(desc, data) \
-	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_IPv4_L4_ERR_MASK) | (data << 23 & GIU_TXD_IPv4_L4_ERR_MASK))
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_MD_MODE_MASK) | (data << 22 & GIU_TXD_MD_MODE_MASK))
+#define GIU_TXD_SET_IP_STATUS(desc, data) \
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_IP_STATUS_MASK) | (data << 23 & GIU_TXD_IP_STATUS_MASK))
 #define GIU_TXD_SET_L4_TYPE(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L4_PRS_INFO_MASK) | (data << 25 & GIU_TXD_L4_PRS_INFO_MASK))
 #define GIU_TXD_SET_L3_TYPE(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L3_PRS_INFO_MASK) | (data << 28 & GIU_TXD_L3_PRS_INFO_MASK))
 
+/* cmd 1 */
 #define GIU_TXD_SET_L3_CAST_INFO(desc, data)	\
 	((desc)->cmds[1] = ((desc)->cmds[1] & ~GIU_TXD_L3_CAST_INFO_MASK) | (data << 10 & GIU_TXD_L3_CAST_INFO_MASK))
 #define GIU_TXD_SET_L2_CAST_INFO(desc, data)	\
@@ -383,15 +380,29 @@ enum giu_outq_desc_ipv4_l4_status {
 #define GIU_TXD_SET_VLAN_INFO(desc, data)	\
 	((desc)->cmds[1] = ((desc)->cmds[1] & ~GIU_TXD_VLAN_INFO_MASK) | (data << 14 & GIU_TXD_VLAN_INFO_MASK))
 
+/* cmd 2 */
 #define GIU_TXD_SET_DEST_QID(desc, data)	\
-	((desc)->cmds[2] = ((desc)->cmds[2] & ~GIU_TXD_DEST_QID) | (data << 0 & GIU_TXD_DEST_QID))
+	((desc)->cmds[2] = ((desc)->cmds[2] & ~GIU_TXD_DEST_QID_MASK) | (data << 0 & GIU_TXD_DEST_QID_MASK))
 
+/* cmd 3 */
+#define GIU_TXD_SET_HASH_KEY(desc, data)	\
+	((desc)->cmds[3] = ((desc)->cmds[3] & ~GIU_TXD_HASH_KEY_MASK) | (data << 0 & GIU_TXD_HASH_KEY_MASK))
+
+/* cmd 0 */
 #define GIU_TXD_GET_L3_OFF(desc)	(((desc)->cmds[0] & GIU_TXD_L3_OFF_MASK) >> 0)
 #define GIU_TXD_GET_IPHDR_LEN(desc)	(((desc)->cmds[0] & GIU_TXD_IPHDR_LEN_MASK) >> 8)
-#define GIU_TXD_GET_PKT_OFF(desc)	(((desc)->cmds[1] & GIU_TXD_PKT_OFF_MASK) >> 0)
+#define GIU_TXD_GET_HK_MODE(desc)	(((desc)->cmds[0] & GIU_TXD_HK_MODE_MASK) >> 0)
 #define GIU_TXD_GET_L4_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L4_PRS_INFO_MASK) >> 25)
 #define GIU_TXD_GET_L3_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L3_PRS_INFO_MASK) >> 28)
-#define GIU_TXD_GET_DEST_QID(desc)	(((desc)->cmds[2] & GIU_TXD_DEST_QID) >> 0)
+
+/* cmd 1 */
+#define GIU_TXD_GET_PKT_OFF(desc)	(((desc)->cmds[1] & GIU_TXD_PKT_OFF_MASK) >> 0)
+
+/* cmd 2 */
+#define GIU_TXD_GET_DEST_QID(desc)	(((desc)->cmds[2] & GIU_TXD_DEST_QID_MASK) >> 0)
+
+/* cmd 3 */
+#define GIU_TXD_GET_HASH_KEY(desc)	(((desc)->cmds[3] & GIU_TXD_HASH_KEY_MASK) >> 0)
 
 /**
  * Send a batch of frames (single descriptor) on an OutQ of PP-IO.
@@ -700,7 +711,8 @@ static inline void giu_gpio_outq_desc_set_pkt_len(struct giu_gpio_desc *desc, u1
  * This API must always be called.
  *
  * @param[in]	desc		A pointer to a packet descriptor structure to be set.
- * @param[in]	status		error status of the lowest layer (L2/L3/L4).
+ * @param[in]	ip_status	status of the ip header.
+ * @param[in]	l4_status	status of the l4 header.
  * @param[in]	l2_cast		The l2 cast info.
  * @param[in]	vlan_type	The vlan tag.
  * @param[in]	l3_cast		The l3 cast info.
@@ -710,7 +722,8 @@ static inline void giu_gpio_outq_desc_set_pkt_len(struct giu_gpio_desc *desc, u1
  * @param[in]	l4_offset	The l4 offset of the packet.
  */
 static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc,
-						     enum giu_outq_desc_status status,
+						     enum giu_outq_ip_status ip_status,
+						     enum giu_outq_l4_status l4_status,
 						     enum giu_outq_l2_cast_type l2_cast,
 						     enum giu_vlan_tag vlan_type,
 						     enum giu_outq_l3_cast_type l3_cast,
@@ -720,27 +733,18 @@ static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc,
 						     u8 l4_offset
 )
 {
-	if (status == GIU_DESC_ERR_IPV4_HDR)
-		GIU_TXD_SET_IPV4_L4_ERR(desc, GIU_DESC_IPV4_L4_ERR_IPV4_HDR);
-	else if (status == GIU_DESC_ERR_IPV4_CHECKSUM)
-		GIU_TXD_SET_IPV4_L4_ERR(desc, GIU_DESC_IPV4_L4_ERR_IPV4_CHECKSUM);
-	else if (status == GIU_DESC_ERR_L4_CHECKSUM)
-		GIU_TXD_SET_IPV4_L4_ERR(desc, GIU_DESC_IPV4_L4_ERR_L4_CHECKSUM);
-	else if (status) {
-		GIU_TXD_SET_ES(desc, 1);
-		GIU_TXD_SET_EC(desc, status - 1);
-	}
-
 	/* L2 info */
 	GIU_TXD_SET_L2_CAST_INFO(desc, l2_cast);
 	GIU_TXD_SET_VLAN_INFO(desc, vlan_type);
 
 	/* L3 info */
+	GIU_TXD_SET_IP_STATUS(desc, ip_status);
 	GIU_TXD_SET_L3_CAST_INFO(desc, l3_cast);
 	GIU_TXD_SET_L3_TYPE(desc, l3_type);
 	GIU_TXD_SET_L3_OFF(desc, l3_offset);
 
 	/* L4 info */
+	GIU_TXD_SET_L4_STATUS(desc, l4_status);
 	GIU_TXD_SET_L4_TYPE(desc, l4_type);
 	GIU_TXD_SET_IP_HEAD_LEN(desc, (l4_offset - l3_offset)/sizeof(u32));
 }
@@ -754,6 +758,18 @@ static inline void giu_gpio_outq_desc_set_proto_info(struct giu_gpio_desc *desc,
 static inline void giu_gpio_outq_desc_set_md_mode(struct giu_gpio_desc *desc, int md_mode)
 {
 	GIU_TXD_SET_MD_MODE(desc, md_mode);
+}
+
+/**
+ * Set the hash-key in an outq packet descriptor.
+ *
+ * @param[in]	desc		A pointer to a packet descriptor structure to be set.
+ * @param[in]	hash_key	hash key value
+ */
+static inline void giu_gpio_outq_desc_set_hk_mode(struct giu_gpio_desc *desc, uint32_t hash_key)
+{
+	GIU_TXD_SET_HK_MODE(desc, 1);
+	GIU_TXD_SET_HASH_KEY(desc, hash_key);
 }
 
 /******** RXQ  ********/
