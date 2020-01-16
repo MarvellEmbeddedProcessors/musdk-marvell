@@ -300,7 +300,7 @@ static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_d
 	 */
 	wmb();
 
-	for (i = 0; i < gpio->outtcs[tc].num_rem_inqs; i++) {
+	for (i = 0; i < outtc->num_outqs; i++) {
 		txq = &outtc->outqs[i].queue;
 		/* Update Producer index in GNPT */
 		writel_relaxed(prod_val[i], txq->prod_addr);
