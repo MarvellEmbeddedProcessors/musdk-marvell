@@ -435,6 +435,7 @@ int send_internal_msg(struct nmp_guest *guest,
 		      u16 resp_len)
 {
 	int ret, resp_req = resp ? 1 : 0;
+	int timeout = 2000; /* 2 sec */
 
 	ret = guest_send_msg(guest, client_type, client_id, code, indx, msg, len, resp_req);
 	if (ret) {
@@ -466,9 +467,15 @@ int send_internal_msg(struct nmp_guest *guest,
 	guest->wait_for_resp.got_resp = 0;
 	do {
 		nmp_guest_schedule(guest);
-	} while (guest->wait_for_resp.got_resp == 0); /* TODO - add timeout?? */
+		udelay(1000);
+	} while ((guest->wait_for_resp.got_resp == 0) && --timeout);
 
-	ret = (guest->wait_for_resp.got_resp > 0) ? 0 : guest->wait_for_resp.got_resp;
+	if (!timeout) {
+		pr_err("failed to get response for cmd %u. timeout exceeded.\n", code);
+		ret = -ETIMEDOUT;
+	} else {
+		ret = (guest->wait_for_resp.got_resp > 0) ? 0 : guest->wait_for_resp.got_resp;
+	}
 
 	guest->app_cb.arg = guest->internal_cb.arg;
 	guest->app_cb.guest_ev_cb = guest->internal_cb.cb;
