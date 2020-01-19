@@ -393,7 +393,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		 * since we need all the local-Qs for creating the remote-Q-pairs
 		 */
 		if (outtc_par->num_outqs != 1) {
-			pr_err("only single local Q isallowed!\n");
+			pr_err("only single local Q is allowed!\n");
 			ret = -EINVAL;
 			goto error;
 		}
@@ -480,7 +480,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		 * since we need all the local-Qs for creating the remote-Q-pairs
 		 */
 		if (intc_par->num_inqs != 1) {
-			pr_err("only single local Q isallowed!\n");
+			pr_err("only single local Q is allowed!\n");
 			ret = -EINVAL;
 			goto lcl_eg_queue_error;
 		}
@@ -645,7 +645,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto host_queue_error;
 			}
-			pr_info("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
+			pr_debug("Host TC[%d] BM-pool[%d], queue Id %d, Registered to GIU RX\n\n",
 				 tc_idx, bm_idx, mqa_params.idx);
 		}
 
@@ -680,8 +680,8 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			mqa_params.bpool_num	   = 1;
 			mqa_params.bpool_qids[0]   = outtc->rem_inqs[q_idx].poolq.q_id;
 
-			pr_info("Host TC[%d] RX[%d], queue Id %d, bpool ID %d trying to Registered to GIU RX\n\n",
-				 tc_idx, q_idx, mqa_params.idx, mqa_params.bpool_qids[0]);
+			pr_debug("Host TC[%d] RX[%d], queue Id %d, len %d, bpool ID %d trying to Registered to GIU RX\n\n",
+				 tc_idx, q_idx, mqa_params.idx, mqa_params.len, mqa_params.bpool_qids[0]);
 
 			mqa_params.msix_inf.id = rem_q_par->msix_id;
 
