@@ -412,11 +412,14 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 			mqa_params.idx  = lcl_q->q_id;
-			mqa_params.len  = outtc_par->outqs_params[q_idx].len;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-/*
-			mqa_params.len  = outtc_par->rem_inqs_params[q_idx].q_params.len;
-*/
+			/* with this WA altought user only configured 1 local queue
+			 * the number of local queues is according to the remote queues.
+			 * So only the 1st params structure is valid.
+			 */
+			mqa_params.len	= outtc_par->outqs_params[0].len;
+#else
+			mqa_params.len	= outtc_par->outqs_params[q_idx].len;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			mqa_params.size = gie_get_desc_size(RX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
@@ -496,11 +499,14 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
 			mqa_params.idx  = lcl_q->q_id;
-			mqa_params.len  = intc_par->inqs_params[q_idx].len;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-/*
-			mqa_params.len  = intc_par->rem_outqs_params[q_idx].len;
-*/
+			/* with this WA altought user only configured 1 local queue
+			 * the number of local queues is according to the remote queues.
+			 * So only the 1st params structure is valid.
+			 */
+			mqa_params.len	= intc_par->inqs_params[0].len;
+#else
+			mqa_params.len	= intc_par->inqs_params[q_idx].len;
 #endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 			mqa_params.size = gie_get_desc_size(TX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
