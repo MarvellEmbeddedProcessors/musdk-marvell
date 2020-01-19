@@ -802,7 +802,6 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 					    struct mgmt_cmd_resp *resp_data)
 {
 	struct giu_gpio_rem_q_params giu_gpio_q;
-	struct giu_gpio_params *gpio_p = &(nmnicvf->gpio_params);
 	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicvf->gpio_rem_params);
 	struct giu_gpio_outtc_rem_params *outtc;
 	s32 active_q_id;
@@ -848,13 +847,6 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 	if (active_q_id < 0) {
 		pr_err("Failed to configure queue in Host Ingress TC[%d] queue list\n", msg_tc);
 		return active_q_id;
-	}
-
-	if (params->ingress_data_q_add.q_len != gpio_p->outtcs_params[msg_tc].outqs_params[active_q_id].len) {
-		pr_err("Host Queue size (%d) MUST be the same as Local (%d)\n",
-			params->ingress_data_q_add.q_len,
-			gpio_p->outtcs_params[msg_tc].outqs_params[active_q_id].len);
-		return -EFAULT;
 	}
 
 	pr_debug("Host Ingress TC[%d], queue added at index %d\n", msg_tc, active_q_id);
@@ -908,7 +900,6 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 					   struct mgmt_cmd_resp *resp_data)
 {
 	struct giu_gpio_rem_q_params giu_gpio_q;
-	struct giu_gpio_params *gpio_p = &(nmnicvf->gpio_params);
 	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicvf->gpio_rem_params);
 	struct giu_gpio_intc_rem_params *intc;
 	s32 active_q_id;
@@ -944,14 +935,6 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 		pr_err("Failed to configure queue in Host Egress TC[%d] queue list\n", msg_tc);
 		return active_q_id;
 	}
-
-	if (params->ingress_data_q_add.q_len != gpio_p->intcs_params[msg_tc].inqs_params[active_q_id].len) {
-		pr_err("Host Queue size (%d) MUST be the same as Local (%d)\n",
-			params->ingress_data_q_add.q_len,
-			gpio_p->intcs_params[msg_tc].inqs_params[active_q_id].len);
-		return -EFAULT;
-	}
-
 
 	pr_debug("Host Egress TC[%d], queue added and index %d\n", msg_tc, active_q_id);
 
