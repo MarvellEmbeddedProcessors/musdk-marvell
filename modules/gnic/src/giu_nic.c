@@ -400,6 +400,7 @@ static int agnic_net_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif /* AGNIC_DEBUG */
 
 	ring = adapter->tx_ring[txq_id];
+	nq = netdev_get_tx_queue(dev, txq_id);
 
 #ifdef AGNIC_DEBUG
 	if (ring->tx_prod_shadow >= ring->count) {
@@ -416,7 +417,6 @@ static int agnic_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (unlikely(AGNIC_RING_IS_FULL(ring->tx_prod_shadow, ring->tx_next_to_reclaim, ring->count))) {
 		agnic_debug(adapter, "TxQ is full (P:%d, C:%d, N2R:%d).\n",
 				ring->tx_prod_shadow, readl(ring->consumer_p), ring->tx_next_to_reclaim);
-		nq = netdev_get_tx_queue(dev, txq_id);
 		netif_tx_stop_queue(nq);
 		adapter->stats.tx_dropped++;
 		goto error;
@@ -429,7 +429,7 @@ static int agnic_net_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto error;
 	}
 
-	if (unlikely(netif_queue_stopped(dev))) {
+	if (unlikely(netif_tx_queue_stopped(nq))) {
 		adapter->stats.tx_errors++;
 		adapter->stats.tx_carrier_errors++;
 		agnic_dev_err("Transmitting while stopped.\n");
