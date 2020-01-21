@@ -492,16 +492,52 @@ static int nmnicvf_map_plat_func(struct nmnicvf *nmnicvf)
 	return 0;
 }
 
+#define PCI_EP_VF_USE_BAR2
+
+#ifdef PCI_EP_VF_USE_BAR2
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#define MAP_MASK (4096UL - 1)
+
+static void *remap(uint64_t phys_addr, size_t length)
+{
+	int fd;
+	void *virt;
+
+	fd = open("/dev/mem", O_RDWR);
+	if (fd == -1) {
+		printf("can't open /dev/mem\n");
+		goto remap_err;
+	}
+
+	/* Map one page */
+
+	virt = mmap(0, length, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
+		phys_addr & ~MAP_MASK);
+	if (virt == (void *)-1) {
+		printf("mmap failed for physical address\n");
+		goto remap_err;
+	}
+	close(fd);
+	return virt;
+
+remap_err:
+	if (fd != -1)
+		close(fd);
+	return NULL;
+}
+#endif
+
 static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 {
 	struct sys_iomem_params iomem_params;
 	int ret;
-#define PCI_EP_VF_BAR_OFFSET_BASE 0x80000
-#define PCI_EP_VF_BAR_SIZE 0x1000
-#define PCI_EP_VF_BAR_OFFSET(id) (PCI_EP_VF_BAR_OFFSET_BASE + id * PCI_EP_VF_BAR_SIZE)
 
 	pr_debug("Mapping function %s\n", PCI_EP_UIO_MEM_NAME);
-
 	iomem_params.type = SYS_IOMEM_T_UIO;
 	iomem_params.devname = PCI_EP_UIO_MEM_NAME;
 	iomem_params.index = 0;
@@ -509,6 +545,11 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 	ret = sys_iomem_init(&iomem_params, &nmnicvf->sys_iomem);
 	if (ret)
 		return ret;
+
+#ifndef PCI_EP_VF_USE_BAR2
+#define PCI_EP_VF_BAR_OFFSET_BASE 0x60000
+#define PCI_EP_VF_BAR_SIZE 0x1000
+#define PCI_EP_VF_BAR_OFFSET(id) (PCI_EP_VF_BAR_OFFSET_BASE + id * PCI_EP_VF_BAR_SIZE)
 
 	/* Map the whole physical Packet Processor physical address */
 	ret = sys_iomem_map(nmnicvf->sys_iomem,
@@ -525,7 +566,16 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 
 	nmnicvf->map.cfg_map.phys_addr += PCI_EP_VF_BAR_OFFSET(nmnicvf->vf_id);
 	nmnicvf->map.cfg_map.virt_addr += PCI_EP_VF_BAR_OFFSET(nmnicvf->vf_id);
+#else
+#define PCI_EP_VF_BAR2_BASE_ADDR 0x3f000000
+#define PCI_EP_VF_BAR2_OFFSET_BASE 0x100000
+#define PCI_EP_VF_BAR2_SIZE 0x10000
+#define PCI_EP_VF_BAR2_OFFSET(id) (PCI_EP_VF_BAR2_OFFSET_BASE + id * PCI_EP_VF_BAR2_SIZE)
+uint64_t phys_addr = (PCI_EP_VF_BAR2_BASE_ADDR + PCI_EP_VF_BAR2_OFFSET(nmnicvf->vf_id));
+	nmnicvf->map.cfg_map.phys_addr = (void *)(uintptr_t)phys_addr;
+	nmnicvf->map.cfg_map.virt_addr = remap(phys_addr, PCI_EP_VF_BAR2_SIZE);
 
+#endif
 	pr_info("VF#%d: BAR-0 mapped at virt:%p phys:%p\n", nmnicvf->vf_id,
 		nmnicvf->map.cfg_map.virt_addr, nmnicvf->map.cfg_map.phys_addr);
 
