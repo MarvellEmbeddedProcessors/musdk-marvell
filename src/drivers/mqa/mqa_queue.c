@@ -99,9 +99,7 @@ static int mqa_queue_setup(struct mqa *mqa, void *local_queue_virt_addr, struct 
 int mqa_queue_free(struct mqa *mqa, u32 queue_id)
 {
 	/* Free the Queue in MQA */
-	queue_free(queue_id);
-
-	return 0;
+	return queue_free(queue_id);
 }
 
 /*
