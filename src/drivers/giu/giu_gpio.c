@@ -199,6 +199,13 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 	int ipv4 = 0;
 	u16 queue_index;
 
+	if (GIU_TXD_GET_HK_MODE(desc)) {
+		/* Hash Key exist in descriptor, lets use it */
+		queue_index = GIU_TXD_GET_HASH_KEY(desc) % gpio->outtcs[tc].num_rem_inqs;
+		GIU_TXD_SET_DEST_QID(desc, queue_index);
+		return 0;
+	}
+
 	if (unlikely(!(l3_info >= GIU_OUTQ_L3_TYPE_IPV4_NO_OPTS && l3_info <= GIU_OUTQ_L3_TYPE_IPV6_EXT))) {
 		/* Not a IP packet. No need to perform RSS. Set Dest-Qid as index '0' */
 		GIU_TXD_SET_DEST_QID(desc, 0);
