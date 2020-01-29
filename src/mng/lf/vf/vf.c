@@ -570,8 +570,15 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 #define PCI_EP_VF_BAR2_BASE_ADDR 0x3f000000
 #define PCI_EP_VF_BAR2_OFFSET_BASE 0x100000
 #define PCI_EP_VF_BAR2_SIZE 0x10000
-#define PCI_EP_VF_BAR2_OFFSET(id) (PCI_EP_VF_BAR2_OFFSET_BASE + id * PCI_EP_VF_BAR2_SIZE)
-uint64_t phys_addr = (PCI_EP_VF_BAR2_BASE_ADDR + PCI_EP_VF_BAR2_OFFSET(nmnicvf->vf_id));
+#define PCI_EP_VF_BAR2_OFFSET(id) (vf_bar2_offset_base + id * PCI_EP_VF_BAR2_SIZE)
+
+	uint32_t vf_bar2_offset_base = PCI_EP_VF_BAR2_OFFSET_BASE;
+	char *vf_offset = getenv("VF_OFFSET_BASE");
+
+	if (vf_offset)
+		vf_bar2_offset_base = strtol(vf_offset, NULL, 16);
+
+	uint64_t phys_addr = (PCI_EP_VF_BAR2_BASE_ADDR + PCI_EP_VF_BAR2_OFFSET(nmnicvf->vf_id));
 	nmnicvf->map.cfg_map.phys_addr = (void *)(uintptr_t)phys_addr;
 	nmnicvf->map.cfg_map.virt_addr = remap(phys_addr, PCI_EP_VF_BAR2_SIZE);
 
