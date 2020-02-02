@@ -16,6 +16,14 @@
  * on both sides are 100% aligned.
  */
 
+#define HOST_FORMAT_DIRECT_SG	2
+#define HOST_NUM_SG_ENT_MASK	0x1F
+
+
+#define HOST_TXD_FORMAT_MASK	(0x30000000)
+#define HOST_TXD_FORMAT_SHIFT	28
+
+
 struct host_tx_desc {
 	/* 0x0 - 0x3
 	 * fields order: msb ... lsb
@@ -33,7 +41,8 @@ struct host_tx_desc {
 
 	/* 0x8 - 0xB */
 	u16 res5;
-	u16 l4_csum;
+	u8 num_sg_ent;
+	u8 res;
 
 	/* 0xC - 0xF */
 	u32 res6;
@@ -44,6 +53,9 @@ struct host_tx_desc {
 	/* 0x18 - 0x1F */
 	u64 cookie;
 }  __packed;
+
+#define HOST_RXD_FORMAT_MASK	(0x00180000)
+#define HOST_RXD_FORMAT_SHIFT	19
 
 struct host_rx_desc {
 	/* 0x0 - 0x3
@@ -63,7 +75,8 @@ struct host_rx_desc {
 
 	/* 0x8 - 0xB */
 	u16 res4;
-	u16 l4_csum;
+	u8 num_sg_ent; /* currently 5bits, 0x1f */
+	u8 res;
 
 	/* 0xC - 0xF */
 	u32 timestamp_hashkey;

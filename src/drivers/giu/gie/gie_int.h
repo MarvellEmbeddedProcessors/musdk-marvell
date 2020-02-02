@@ -155,6 +155,7 @@ struct gie_queue {
 	u32	idx_ring_size;
 	u32	idx_ring_ptr;
 	u32	prio;
+	u32	desc_format_mask;
 	u16	qlen;
 	u16	qid;
 	u16	tail;
@@ -164,6 +165,8 @@ struct gie_queue {
 	u16	desc_len_pos;
 	u16	desc_addr_pos;
 	u16	desc_cookie_pos;
+	u8	desc_num_sg_ent_pos;
+	u8	desc_format_offset;
 	u8	qesize;
 	/* MSI message info */
 	u64	msi_virt_addr;

@@ -113,10 +113,16 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 		q->desc_len_pos = offsetof(struct host_tx_desc, byte_cnt);
 		q->desc_addr_pos = offsetof(struct host_tx_desc, buffer_addr);
 		q->desc_cookie_pos = offsetof(struct host_tx_desc, cookie);
+		q->desc_num_sg_ent_pos = offsetof(struct host_tx_desc, num_sg_ent);
+		q->desc_format_mask = HOST_TXD_FORMAT_MASK;
+		q->desc_format_offset = HOST_TXD_FORMAT_SHIFT;
 	} else {
 		q->desc_len_pos = offsetof(struct host_rx_desc, byte_cnt);
 		q->desc_addr_pos = offsetof(struct host_rx_desc, buffer_addr);
 		q->desc_cookie_pos = offsetof(struct host_rx_desc, cookie);
+		q->desc_num_sg_ent_pos = offsetof(struct host_rx_desc, num_sg_ent);
+		q->desc_format_mask = HOST_RXD_FORMAT_MASK;
+		q->desc_format_offset = HOST_RXD_FORMAT_SHIFT;
 	}
 
 	gie_show_queue(q);
@@ -531,7 +537,8 @@ static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 					struct gie_queue	*qes_q,
 					struct host_bpool_desc	*bp_bufs,
 					int			 qes_to_copy,
-					struct dmax2_desc	*descs)
+					struct dmax2_desc	*descs,
+					int			 sg_en)
 {
 	void	*qe;
 	u64	*qe_cookie, *qe_buff;
@@ -556,6 +563,18 @@ static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 		qe_cookie = qe + cookie_pos;
 		qe_byte_cnt = qe + len_pos;
 
+		if (sg_en) {
+			u8 format = (*(u32 *)qe & src_q->desc_format_mask) >> src_q->desc_format_offset;
+
+			if (format == HOST_FORMAT_DIRECT_SG) {
+				u8 num_sg_ent = (*(u8 *)(qe + src_q->desc_num_sg_ent_pos) & HOST_NUM_SG_ENT_MASK) + 2;
+
+				if (qes_to_copy + 1 < num_sg_ent)
+					/* Not enoght buffers for all s/g entries. will be handled next time */
+					break;
+			}
+		}
+
 		/* create the dma job to submit */
 		descs[cnt].flags = 0;
 		descs[cnt].desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
@@ -579,7 +598,7 @@ static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 }
 
 static int gie_copy_buffers_l2r(struct dma_info *dma, struct gie_q_pair *qp, struct gie_queue *src_q,
-			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy)
+			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy, int sg_en)
 {
 	struct host_bpool_desc	*bp_buf;
 	struct dma_job_info	*job_info;
@@ -597,7 +616,7 @@ static int gie_copy_buffers_l2r(struct dma_info *dma, struct gie_q_pair *qp, str
 	if (unlikely(!bufs_to_copy))
 		return 0;
 
-	cnt = gie_copy_interim_qes(src_q, dst_q, qes_q, bp_buf, bufs_to_copy, descs);
+	cnt = gie_copy_interim_qes(src_q, dst_q, qes_q, bp_buf, bufs_to_copy, descs, sg_en);
 
 	/* we can reach here after 1 pass or no pass at all */
 	if (cnt) {
@@ -673,8 +692,18 @@ static inline int gie_get_lcl_bpool_buf(struct gie_q_pair *qp, u32 min_buf_size,
 	return 1;
 }
 
+static inline u32 gie_get_lcl_bpool_occupancy(struct gie_q_pair *qp, u8 pool_id)
+{
+	struct gie_queue *bpool_q;
+
+	bpool_q = &qp->dst_bpools[pool_id]->src_q;
+	bpool_q->tail = readl((void *)(bpool_q->msg_tail_virt));
+
+	return q_occupancy(bpool_q);
+}
+
 static int gie_copy_buffers_r2l(struct dma_info *dma, struct gie_q_pair *qp, struct gie_queue *src_q,
-			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy)
+			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy, int sg_en)
 {
 	struct dmax2_desc	 desc[GIE_MAX_QES_IN_BATCH];
 	struct host_bpool_desc	*bp_buf;
@@ -699,6 +728,18 @@ static int gie_copy_buffers_r2l(struct dma_info *dma, struct gie_q_pair *qp, str
 		qe_buff = qe + addr_pos;
 		qe_cookie = qe + cookie_pos;
 		qe_byte_cnt = qe + len_pos;
+
+		if (sg_en) {
+			u8 format = (*(u32 *)qe & src_q->desc_format_mask) >> src_q->desc_format_offset;
+
+			if (format == HOST_FORMAT_DIRECT_SG) {
+				u8 num_sg_ent = (*(u8 *)(qe + src_q->desc_num_sg_ent_pos) & HOST_NUM_SG_ENT_MASK) + 2;
+
+				if (gie_get_lcl_bpool_occupancy(qp, 0) < num_sg_ent)
+					/* Not enoght buffers for all s/g entries. will be handled next time */
+					break;
+			}
+		}
 
 		/* TODO: take dst-Q pkt-offset into acount here! */
 		if (!gie_get_lcl_bpool_buf(qp, *qe_byte_cnt, &bp_buf))
@@ -806,6 +847,7 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	struct gie_queue *src_q = &qp->src_q;
 	struct gie_queue *dst_q = &qp->dst_q;
 	int copy_payload = qp->flags & GIE_QPAIR_CP_PAYLOAD;
+	int sg_en = qp->flags & GIE_QPAIR_SG;
 	int qes_copied, qes_to_copy, qes_copy_space;
 	int completed = 0;
 
@@ -836,7 +878,7 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	if (qes_copied) {
 		qes_copied = gie_clip_batch(dst_q, qes_copied);
 		if (copy_payload)
-			completed = gie_copy_buffers_r2l(dma, qp, src_q, dst_q, dst_q, qes_copied);
+			completed = gie_copy_buffers_r2l(dma, qp, src_q, dst_q, dst_q, qes_copied, sg_en);
 		else
 			completed = qes_copied;
 	}
@@ -853,6 +895,7 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	struct gie_queue *src_q = &qp->src_q;
 	struct gie_queue *dst_q = &qp->dst_q;
 	int copy_payload = qp->flags & GIE_QPAIR_CP_PAYLOAD;
+	int sg_en = qp->flags & GIE_QPAIR_SG;
 	int qes;
 
 	/* TODO - consider this limitation in the future */
@@ -873,7 +916,7 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	qes = gie_clip_batch(dst_q, qes);
 
 	if (copy_payload)
-		qes = gie_copy_buffers_l2r(dma, qp, src_q, dst_q, src_q, qes);
+		qes = gie_copy_buffers_l2r(dma, qp, src_q, dst_q, src_q, qes, sg_en);
 
 	/* if bpools are empty, no buffer copy will occur.
 	 * If so, skip the QE copy as well
