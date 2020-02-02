@@ -87,6 +87,7 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 	q->packets = 0;
 	q->msi_virt_addr = 0;
 	q->msi_data = 0;
+	q->qid = qid;
 
 	q->idx_ring_virt = mv_sys_dma_mem_alloc(sizeof(u16) * q->qlen, sizeof(u16));
 	if (!q->idx_ring_virt)
