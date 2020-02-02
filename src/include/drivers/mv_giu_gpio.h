@@ -216,6 +216,13 @@ struct giu_gpio_desc {
 	u32                      cmds[GIU_GPIO_DESC_NUM_WORDS];
 };
 
+enum giu_format {
+	GIU_FORMAT_NONE = 0,
+	GIU_FORMAT_INDIRECT_SG,	/* a indirect S/G packet, all descriptors located in a S/G table pointed by this desc */
+	GIU_FORMAT_DIRECT_SG,	/* a direct S/G packet, all descriptors located in the queue */
+	GIU_FORMAT_SINGLE,	/* Packet with single desc */
+};
+
 enum giu_vlan_tag {
 	GIU_VLAN_TAG_NONE = 0,	/* No VLANs */
 	GIU_VLAN_TAG_SINGLE,	/* Single VLAN */
@@ -280,12 +287,7 @@ enum giu_outq_l4_status {
 
 /******** RXQ-Desc ********/
 /* cmd 0 */
-#define GIU_RXD_FIRST			(0x2)
-#define GIU_RXD_LAST			(0x1)
-#define GIU_RXD_FIRST_LAST		(0x3)
-#define GIU_RXD_L_MASK			(0x10000000)
-#define GIU_RXD_F_MASK			(0x20000000)
-#define GIU_RXD_FL_MASK			(TXD_F_MASK | TXD_L_MASK)
+#define GIU_RXD_FORMAT_MASK		(0x30000000)
 #define GIU_RXD_L3_TYPE_MASK		(0x0C000000)
 #define GIU_RXD_L4_TYPE_MASK		(0x03000000)
 #define GIU_RXD_PAD_DIS			(0x00800000)
@@ -301,7 +303,7 @@ enum giu_outq_l4_status {
 #define GIU_RXD_VLAN_INFO_MASK		(0x0000C000)
 #define GIU_RXD_BYTE_COUNT_MASK		(0xFFFF0000)
 /* cmd 2 */
-#define GIU_RXD_L4_INITIAL_CHK		(0xFFFF0000)
+#define GIU_RXD_NUM_SG_ENT_MASK		(0x001F0000)
 /* cmd 4 */
 #define GIU_RXD_BUF_PHYS_LO_MASK	(0xFFFFFFFF)
 /* cmd 5 */
@@ -311,7 +313,7 @@ enum giu_outq_l4_status {
 /* cmd 7 */
 #define GIU_RXD_BUF_COOKIE_HI_MASK	(0x000000FF)
 
-
+#define GIU_RXD_GET_FORMAT(desc)         (((desc)->cmds[0] & GIU_RXD_FORMAT_MASK) >> 28)
 #define GIU_RXD_GET_L3_OFF(desc)         (((desc)->cmds[0] & GIU_RXD_L3_OFFSET_MASK) >> 0)
 #define GIU_RXD_GET_IPHDR_LEN(desc)      (((desc)->cmds[0] & GIU_RXD_IP_HEAD_LEN_MASK) >> 8)
 #define GIU_RXD_GET_GEN_L4_CHK(desc)     (((desc)->cmds[0] & GIU_RXD_GEN_L4_CHK_MASK) >> 13)
@@ -323,12 +325,15 @@ enum giu_outq_l4_status {
 
 #define GIU_RXD_GET_VLAN_INFO(desc)	 (((desc)->cmds[1] & GIU_RXD_VLAN_INFO_MASK) >> 14)
 
+#define GIU_RXD_GET_NUM_SG_ENT(desc)	 (((desc)->cmds[2] & GIU_RXD_NUM_SG_ENT_MASK) >> 16)
+
 /******** TXQ-Desc ********/
 /* cmd 0 */
 #define GIU_TXD_L3_OFF_MASK		(0x0000007F)
 #define GIU_TXD_DP_MASK			(0x00000080)
 #define GIU_TXD_IPHDR_LEN_MASK		(0x00001F00)
 #define GIU_TXD_L4_STATUS_MASK		(0x00006000)
+#define GIU_TXD_FORMAT_MASK		(0x00180000)
 #define GIU_TXD_HK_MODE_MASK		(0x00200000)
 #define GIU_TXD_MD_MODE_MASK		(0x00400000)
 #define GIU_TXD_IP_STATUS_MASK		(0x01800000)
@@ -343,6 +348,7 @@ enum giu_outq_l4_status {
 /* cmd 2 */
 #define GIU_TXD_DEST_QID_MASK		(0x00001FFF)
 #define GIU_TXD_PORT_NUM_MASK		(0x0000E000)
+#define GIU_TXD_NUM_SG_ENT_MASK		(0x001F0000)
 /* cmd 3 */
 #define GIU_TXD_HASH_KEY_MASK		(0xFFFFFFFF)
 /* cmd 4 */
@@ -361,6 +367,8 @@ enum giu_outq_l4_status {
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_IPHDR_LEN_MASK) | (data << 8 & GIU_TXD_IPHDR_LEN_MASK))
 #define GIU_TXD_SET_L4_STATUS(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L4_STATUS_MASK) | ((data) << 13 & GIU_TXD_L4_STATUS_MASK))
+#define GIU_TXD_SET_FORMAT(desc, data)	\
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_FORMAT_MASK) | (data << 19 & ~GIU_TXD_FORMAT_MASK))
 #define GIU_TXD_SET_HK_MODE(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_HK_MODE_MASK) | (data << 21 & ~GIU_TXD_HK_MODE_MASK))
 #define GIU_TXD_SET_MD_MODE(desc, data)	\
@@ -383,6 +391,8 @@ enum giu_outq_l4_status {
 /* cmd 2 */
 #define GIU_TXD_SET_DEST_QID(desc, data)	\
 	((desc)->cmds[2] = ((desc)->cmds[2] & ~GIU_TXD_DEST_QID_MASK) | (data << 0 & GIU_TXD_DEST_QID_MASK))
+#define GIU_TXD_SET_NUM_SG_ENT(desc, data)	\
+	((desc)->cmds[2] = ((desc)->cmds[2] & ~GIU_TXD_NUM_SG_ENT_MASK) | (data << 16 & GIU_TXD_NUM_SG_ENT_MASK))
 
 /* cmd 3 */
 #define GIU_TXD_SET_HASH_KEY(desc, data)	\
@@ -772,6 +782,17 @@ static inline void giu_gpio_outq_desc_set_hk_mode(struct giu_gpio_desc *desc, ui
 	GIU_TXD_SET_HASH_KEY(desc, hash_key);
 }
 
+/**
+ * Set the packet format and num-sg-ent if needed.
+ *
+ * @param[in]	desc		A pointer to a packet descriptor structure to be set.
+ * @param[in]	format		packet format; s/g or not
+ * @param[in]	num_sg_ent	number of s/g entries
+ *
+ * @retval	<0 on error
+ */
+int giu_gpio_outq_desc_set_format(struct giu_gpio_desc *desc, enum giu_format format, uint8_t num_sg_ent);
+
 /******** RXQ  ********/
 
 /**
@@ -837,6 +858,30 @@ static inline struct giu_bpool *giu_gpio_inq_desc_get_bpool(struct giu_gpio_desc
 static inline int giu_gpio_inq_desc_get_md_mode(struct giu_gpio_desc *desc)
 {
 	return GIU_RXD_GET_MD_MODE(desc);
+}
+
+/**
+ * get the packet format of an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	packet format
+ */
+static inline enum giu_format giu_gpio_inq_desc_get_format(struct giu_gpio_desc *desc)
+{
+	return GIU_RXD_GET_FORMAT(desc);
+}
+
+/**
+ * get the num of s/g entries of an inq packet descriptor.
+ *
+ * @param[in]	desc	A pointer to a packet descriptor structure.
+ *
+ * @retval	num of s/g entries
+ */
+static inline uint8_t giu_gpio_inq_desc_get_num_sg_ent(struct giu_gpio_desc *desc)
+{
+	return GIU_RXD_GET_NUM_SG_ENT(desc) + 2;
 }
 
 /**

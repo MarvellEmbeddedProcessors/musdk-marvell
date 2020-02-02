@@ -1751,3 +1751,21 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 
 	return 0;
 }
+
+inline int giu_gpio_outq_desc_set_format(struct giu_gpio_desc *desc, enum giu_format format, uint8_t num_sg_ent)
+{
+	GIU_TXD_SET_FORMAT(desc, format);
+	if (format == GIU_FORMAT_DIRECT_SG) {
+		if ((num_sg_ent < 2) || (num_sg_ent > 33)) {
+			pr_err("'num_sg_ent' must be between 2-33\n");
+			return -EINVAL;
+		}
+		GIU_TXD_SET_NUM_SG_ENT(desc, (num_sg_ent - 2));
+	}
+	if (format == GIU_FORMAT_INDIRECT_SG) {
+		pr_err("indirect s/g packet is not supported\n");
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
