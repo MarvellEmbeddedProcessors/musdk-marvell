@@ -104,6 +104,7 @@ struct giu_gpio {
 	struct mqa		*mqa;
 	struct giu		*giu;
 
+	int			 sg_en;
 	u32			 num_intcs;
 	struct giu_gpio_intc	 intcs[GIU_GPIO_MAX_NUM_TCS];
 	u32			 num_outtcs;
@@ -366,6 +367,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 
 	(*gpio)->mqa = params->mqa;
 	(*gpio)->giu = params->giu;
+	(*gpio)->sg_en = params->sg_en;
 
 	giu_get_msi_regs((*gpio)->giu, &msi_regs_va, &msi_regs_pa);
 
@@ -430,6 +432,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			mqa_params.size = gie_get_desc_size(RX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
 			mqa_params.copy_payload = 1;
+			mqa_params.sg_en = (*gpio)->sg_en;
 
 			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(lcl_q->mqa_q));
 			if (ret < 0) {
@@ -760,6 +763,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			mqa_params.cons_virt	   = rem_q_par->cons_base_va;
 			mqa_params.host_remap	   = rem_q_par->host_remap;
 			mqa_params.copy_payload    = 1;
+			mqa_params.sg_en	   = gpio->sg_en;
 
 			mqa_params.msix_inf.id = rem_q_par->msix_id;
 

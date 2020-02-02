@@ -116,6 +116,7 @@ struct giu_gpio_params {
 	struct mqa			*mqa;
 	struct giu			*giu;
 
+	int				 sg_en;
 	u32				 num_intcs;
 	struct giu_gpio_intc_params	 intcs_params[GIU_GPIO_MAX_NUM_TCS];
 	u32				 num_outtcs;
@@ -507,6 +508,7 @@ struct giu_gpio_outtcs_info {
 
 struct giu_gpio_capabilities {
 	u8				id;
+	int				sg_en;
 	struct giu_gpio_intcs_info	intcs_inf;
 	struct giu_gpio_outtcs_info	outtcs_inf;
 };
