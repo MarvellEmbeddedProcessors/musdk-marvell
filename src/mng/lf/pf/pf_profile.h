@@ -22,6 +22,7 @@
  * desc               - profile name
  * match              - matching gpio name
  * pci_en             -	flag inidicating PCI interface is present
+ * sg_en	      - flag inidicating S/G support is required
  * lcl_egress_q_num   - number of local egress data queues
  * lcl_egress_q_size  - size of local egress data queue
  * lcl_ingress_q_num  - number of local ingress data queues
@@ -35,6 +36,7 @@ struct pf_profile {
 
 	char match[NMP_MAX_BUF_STR_LEN];
 	int pci_en;
+	int sg_en;
 	u32 keep_alive_thresh;
 	u32 keep_alive_counter;
 	int guest_ka_recv;

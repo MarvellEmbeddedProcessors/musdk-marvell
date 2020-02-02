@@ -91,6 +91,7 @@ struct nmp_lf_nicpf_params {
 						 * keep-alive msg
 						 */
 	int pci_en;				/**< Flag inidicating PCI interface is present*/
+	int sg_en;				/**< Flag inidicating S/G support is required */
 	u16 lcl_egress_qs_size;			/**< local egress queue size */
 	u16 lcl_ingress_qs_size;		/**< local ingress queue size */
 	u16 dflt_pkt_offset;			/**< default packet offset */
@@ -116,6 +117,7 @@ struct nmp_lf_nicvf_params {
 						 * keep-alive msg
 						 */
 	int pci_en;				/**< Flag inidicating PCI interface is present*/
+	int sg_en;				/**< Flag inidicating S/G support is required */
 	u16 lcl_egress_qs_size;			/**< local egress queue size */
 	u16 lcl_ingress_qs_size;		/**< local ingress queue size */
 	u16 dflt_pkt_offset;			/**< default packet offset */

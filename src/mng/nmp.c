@@ -234,6 +234,8 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 					goto read_cfg_exit2;
 				}
 
+				json_buffer_to_input(sec, "sg_en", pf->sg_en);
+
 				json_buffer_to_input(sec, "lcl_egress_qs_size", pf->lcl_egress_qs_size);
 				if (!pf->lcl_egress_qs_size) {
 					pr_err("missing lcl_egress_qs_size!\n");
@@ -363,6 +365,8 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}
+
+				json_buffer_to_input(sec, "sg_en", vf->sg_en);
 
 				json_buffer_to_input(sec, "lcl_egress_qs_size", vf->lcl_egress_qs_size);
 				if (!vf->lcl_egress_qs_size) {

@@ -58,12 +58,17 @@ static int init_nicvf_params(struct nmnicvf *nmnicvf, struct nmp_lf_nicvf_params
 	else
 		strcpy(vf_profile->match, params->match);
 	vf_profile->pci_en	       = params->pci_en;
+	vf_profile->sg_en	       = params->sg_en;
 	vf_profile->max_num_tcs        = params->max_num_tcs;
 	vf_profile->lcl_egress_q_num   = 1;
 	vf_profile->lcl_egress_q_size  = params->lcl_egress_qs_size;
 	vf_profile->lcl_ingress_q_num  = 1;
 	vf_profile->lcl_ingress_q_size = params->lcl_ingress_qs_size;
 	vf_profile->lcl_bp_num       = params->lcl_num_bpools;
+	if (vf_profile->sg_en && vf_profile->lcl_bp_num > 1) {
+		pr_err("Currently if s/g support is enabled, only one pool is allowed\n");
+		return -EINVAL;
+	}
 	for (k = 0; k < vf_profile->lcl_bp_num; k++) {
 		vf_profile->lcl_bp_params[k].lcl_bp_size      = params->lcl_bpools_params[k].max_num_buffs;
 		vf_profile->lcl_bp_params[k].lcl_bp_buf_size  = params->lcl_bpools_params[k].buff_size;
@@ -574,7 +579,6 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 
 	uint32_t vf_bar2_offset_base = PCI_EP_VF_BAR2_OFFSET_BASE;
 	char *vf_offset = getenv("VF_OFFSET_BASE");
-
 	if (vf_offset)
 		vf_bar2_offset_base = strtol(vf_offset, NULL, 16);
 
@@ -870,16 +874,24 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 
 	pr_debug("Host Ingress TC[%d], queue Add (num of queues %d)\n", msg_tc, outtc->num_rem_inqs);
 
-	for (bm_idx = 0; bm_idx < nmnicvf->profile_data.lcl_bp_num; bm_idx++)
-		if (nmnicvf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size >=
-			params->ingress_data_q_add.q_buf_size)
-			break;
-	if (bm_idx == nmnicvf->profile_data.lcl_bp_num) {
-		pr_err("Host BM buffer size should be at least %d\n",
-			params->ingress_data_q_add.q_buf_size);
-		return -EFAULT;
+	if (nmnicvf->profile_data.sg_en) {
+		if (nmnicvf->profile_data.lcl_bp_params[0].lcl_bp_buf_size != params->ingress_data_q_add.q_buf_size) {
+			pr_err("For supporting S/G, Host buffer size (%u) MUST equal Local buffer size (%u)\n",
+				params->ingress_data_q_add.q_buf_size,
+				nmnicvf->profile_data.lcl_bp_params[0].lcl_bp_buf_size);
+			return -EFAULT;
+		}
+	} else {
+		for (bm_idx = 0; bm_idx < nmnicvf->profile_data.lcl_bp_num; bm_idx++)
+			if (nmnicvf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size >=
+				params->ingress_data_q_add.q_buf_size)
+				break;
+		if (bm_idx == nmnicvf->profile_data.lcl_bp_num) {
+			pr_err("Host BM buffer size should be at least %d\n",
+				params->ingress_data_q_add.q_buf_size);
+			return -EFAULT;
+		}
 	}
-
 	/* Clear queue structure */
 	memset(&giu_gpio_q, 0, sizeof(struct giu_gpio_rem_q_params));
 
@@ -1758,6 +1770,7 @@ static int nmnicvf_init_gpio_local(struct nmnicvf *nmnicvf)
 
 	/* Create GPIO match string */
 	nmnicvf->gpio_params.match = nmnicvf->profile_data.match;
+	nmnicvf->gpio_params.sg_en = nmnicvf->profile_data.sg_en;
 #ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
 	/* Temp WA - RSS should not be supported so set num-remote-queues to 1 */
 	nmnicvf->gpio_params.outtcs_params[0].num_rem_inqs = 1;

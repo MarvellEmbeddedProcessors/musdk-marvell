@@ -58,6 +58,7 @@ static int init_nicpf_params(struct nmnicpf *nmnicpf, struct nmp_lf_nicpf_params
 	else
 		strcpy(pf_profile->match, params->match);
 	pf_profile->pci_en = params->pci_en;
+	pf_profile->sg_en = params->sg_en;
 	pf_profile->max_num_tcs        = params->max_num_tcs;
 	pf_profile->lcl_egress_q_num   = 1;
 	pf_profile->lcl_egress_q_size  = params->lcl_egress_qs_size;
