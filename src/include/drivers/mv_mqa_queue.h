@@ -69,6 +69,9 @@ struct mqa_queue_params {
 
 	/** Whether to copy the payload or not */
 	int copy_payload;
+
+	/** S/G support */
+	int sg_en;
 };
 
 /**

@@ -44,6 +44,8 @@ static int mqa_queue_setup(struct mqa *mqa, void *local_queue_virt_addr, struct 
 	mqa_table_entry_int.common.flags	= 0;
 	if (queue_params->copy_payload)
 		mqa_table_entry_int.common.flags |= MQA_QFLAGS_COPY_BUF;
+	if (queue_params->sg_en)
+		mqa_table_entry_int.common.flags |= MQA_QFLAGS_SG;
 
 	/* Update Queue according it's type */
 	if (IS_QUEUE_LOCAL(queue_params->attr)) {
