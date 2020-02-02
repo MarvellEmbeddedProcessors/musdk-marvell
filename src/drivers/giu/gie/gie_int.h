@@ -209,6 +209,7 @@ struct gie_q_pair {
 #define		GIE_QPAIR_ACTIVE	(1 << 1)
 #define		GIE_QPAIR_CP_PAYLOAD	(1 << 4)
 #define		GIE_QPAIR_REMOTE	(1 << 5)
+#define		GIE_QPAIR_SG		(1 << 6)
 	u32	flags;
 	struct	gie_bpool *dst_bpools[GIE_MAX_BM_PER_Q];
 };

@@ -1082,6 +1082,8 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		qp->flags |= GIE_QPAIR_REMOTE;
 	if (copy_payload)
 		qp->flags |= GIE_QPAIR_CP_PAYLOAD;
+	if (qcd->common.flags & MQA_QFLAGS_SG)
+		qp->flags |= GIE_QPAIR_SG;
 	gie->prios[prio].flags = GIE_PRIO_VALID | GIE_PRIO_ACTIVE;
 
 	gie->prios[prio].q_cnt++;

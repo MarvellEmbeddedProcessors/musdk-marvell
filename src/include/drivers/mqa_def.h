@@ -40,6 +40,7 @@ struct mqa_queue {
 	u32 entry_size;		/** Ring element size */
 	u32 queue_prio;		/** queue priority */
 #define MQA_QFLAGS_COPY_BUF	(1 << 0) /** copy the queue payload */
+#define MQA_QFLAGS_SG		(1 << 1) /** scatter-gather */
 	u32 flags;		/** queue flags */
 
 	struct mqa_queue_ext queue_ext;
