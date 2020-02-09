@@ -1554,6 +1554,7 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 
 	/* Set ID */
 	capa->id = gpio->giu_id;
+	capa->sg_en = gpio->sg_en;
 
 	/* Set number if Egress TCs */
 	capa->intcs_inf.num_intcs = gpio->num_intcs;
