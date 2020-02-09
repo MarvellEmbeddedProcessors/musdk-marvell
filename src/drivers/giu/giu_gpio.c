@@ -974,6 +974,7 @@ int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth)
 			     gpio->giu_id, gpio->id);
 	json_print_to_buffer(buff, size, depth + 1, "\"giu_id\": %d,\n", gpio->giu_id);
 	json_print_to_buffer(buff, size, depth + 1, "\"id\": %d,\n", gpio->id);
+	json_print_to_buffer(buff, size, depth + 1, "\"sg_en\": %d,\n", gpio->sg_en);
 	json_print_to_buffer(buff, size, depth + 1, "\"dma_dev_name\": \"%s\",\n", mem_info.name);
 
 	/* Serialize IN TCs info */
@@ -1108,6 +1109,7 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 	_gpio->id = gpio_id;
 	_gpio->is_guest = 1;
 	strcpy(_gpio->match, match);
+	json_buffer_to_input(sec, "sg_en", _gpio->sg_en);
 
 	memset(dev_name, 0, FILE_MAX_LINE_CHARS);
 	json_buffer_to_input_str(sec, "dma_dev_name", dev_name);
