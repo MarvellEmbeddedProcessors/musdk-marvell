@@ -149,6 +149,21 @@ static int lf_pp_find_free_bpool(void *arg, u32 pp_id)
 	return dev_mng_pp2_find_free_bpool(lf_mng->nmp, pp_id);
 }
 
+static int lf_set_vf_bar_offset_base(void *arg, u64 vf_bar_offset_base)
+{
+	struct lf_mng_container	*lf_cont = (struct lf_mng_container *)arg;
+
+	if (!lf_cont) {
+		pr_err("no LF-CONTAINER obj!\n");
+		return -EFAULT;
+	}
+
+	lf_cont->vf_bar_offset_base = vf_bar_offset_base;
+
+	pr_info("PF set VF BAR offset base to 0x%" PRIx64 "\n", vf_bar_offset_base);
+	return 0;
+}
+
 static int lf_get_vf_bar(void *arg, u8 vf_id, void **va, void **pa)
 {
 	struct lf_mng_container	*lf_cont = (struct lf_mng_container *)arg;
@@ -371,6 +386,7 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 				nmnicpf_params.f_get_free_bar_cb = lf_get_free_bar;
 				nmnicpf_params.f_put_bar_cb = lf_put_bar;
 				nmnicpf_params.f_pp_find_free_bpool_cb = lf_pp_find_free_bpool;
+				nmnicpf_params.f_set_vf_bar_offset_base_cb = lf_set_vf_bar_offset_base;
 				nmnicpf_params.arg = &_lf_mng->containers[cntr];
 
 				err = nmnicpf_init(&nmnicpf_params,

@@ -41,7 +41,8 @@ struct pcie_config_mem {
 	u8	res[6];
 	struct q_hw_info cmd_q;
 	struct q_hw_info notif_q;
-	u8	res2[24];
+	u64	bar2_vf_start_off;
+	u8	res2[16];
 
 	u32	dev_use_size;
 	/* MSI-X table offset at BAR0 */

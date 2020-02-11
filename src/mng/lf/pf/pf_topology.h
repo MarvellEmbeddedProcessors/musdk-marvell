@@ -141,6 +141,7 @@ struct nmnicpf {
 	int				(*f_get_free_bar_cb)(void *arg, void **va, dma_addr_t *pa);
 	void				(*f_put_bar_cb)(void *arg, int index);
 	int				(*f_pp_find_free_bpool_cb)(void *arg, u32 pp_id);
+	int				(*f_set_vf_bar_offset_base_cb)(void *arg, u64 vf_bar_offset_base);
 	void				*arg;
 };
 

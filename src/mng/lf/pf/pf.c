@@ -365,6 +365,8 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 
 	pr_debug("Host is Ready\n");
 
+	nmnicpf->f_set_vf_bar_offset_base_cb(nmnicpf->arg, pcie_cfg->bar2_vf_start_off);
+
 	memset(&mng_ch_params, 0, sizeof(mng_ch_params));
 
 	mng_ch_params.rem_base_pa = (dma_addr_t)nmnicpf->map.host_map.phys_addr;
@@ -2462,6 +2464,7 @@ int nmnicpf_init(struct nmnicpf_params *params, struct nmnicpf **nmnicpf)
 	_nmnicpf->f_get_free_bar_cb = params->f_get_free_bar_cb;
 	_nmnicpf->f_put_bar_cb = params->f_put_bar_cb;
 	_nmnicpf->f_pp_find_free_bpool_cb = params->f_pp_find_free_bpool_cb;
+	_nmnicpf->f_set_vf_bar_offset_base_cb = params->f_set_vf_bar_offset_base_cb;
 	_nmnicpf->arg = params->arg;
 
 	err = init_nicpf_params(_nmnicpf, params->nmp_nicpf_params);
