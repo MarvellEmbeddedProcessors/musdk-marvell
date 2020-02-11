@@ -81,6 +81,7 @@ struct nmnicvf {
 	int				(*f_ready_cb)(void *arg, u8 lf_id);
 	int				(*f_get_free_bar_cb)(void *arg, void **va, dma_addr_t *pa);
 	void				(*f_put_bar_cb)(void *arg, int index);
+	int				(*f_get_vf_bar_cb)(void *arg, u8 vf_id, void **va, void **pa);
 	void				*arg;
 };
 

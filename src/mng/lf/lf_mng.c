@@ -17,6 +17,11 @@
 #include "custom/custom.h"
 #include "lf_mng.h"
 
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define LF_MNG_MAX_NUM_CONTAINERS	NMP_MAX_NUM_CONTAINERS
 #define LF_MNG_MAX_NUM_CONTAINER_LFS	NMP_MAX_NUM_LFS
@@ -25,7 +30,6 @@
 #define SER_FILE_NAME_PREFIX		"musdk-serial-cfg"
 #define SER_MAX_FILE_NAME		64
 #define SER_MAX_FILE_SIZE		(30 * 1024)
-
 
 struct lf_mng_lf {
 	u8			 id;
@@ -48,6 +52,7 @@ struct lf_mng_container {
 
 	struct lf_mng_lf	 lfs[LF_MNG_MAX_NUM_CONTAINER_LFS];
 
+	u64			 vf_bar_offset_base;
 	struct nmcstm		*nmcstm;
 };
 
@@ -65,6 +70,35 @@ struct lf_mng {
 	u8			 total_num_nicvfs;
 };
 
+/* TODO - need to check if can use IOMEM-MMAP */
+static void *remap(uint64_t phys_addr, size_t length)
+{
+#define MAP_MASK (4096UL - 1)
+	int fd;
+	void *virt;
+
+	fd = open("/dev/mem", O_RDWR);
+	if (fd == -1) {
+		printf("can't open /dev/mem\n");
+		goto remap_err;
+	}
+
+	/* Map one page */
+
+	virt = mmap(0, length, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
+		phys_addr & ~MAP_MASK);
+	if (virt == (void *)-1) {
+		printf("mmap failed for physical address\n");
+		goto remap_err;
+	}
+	close(fd);
+	return virt;
+
+remap_err:
+	if (fd != -1)
+		close(fd);
+	return NULL;
+}
 
 static int lookup_lf(struct lf_mng_container *lf_mng_cont, u8 lf_id, struct lf_mng_lf **lf)
 {
@@ -113,6 +147,39 @@ static int lf_pp_find_free_bpool(void *arg, u32 pp_id)
 	}
 
 	return dev_mng_pp2_find_free_bpool(lf_mng->nmp, pp_id);
+}
+
+static int lf_get_vf_bar(void *arg, u8 vf_id, void **va, void **pa)
+{
+	struct lf_mng_container	*lf_cont = (struct lf_mng_container *)arg;
+	uint32_t vf_bar2_offset_base;
+
+	if (!lf_cont) {
+		pr_err("no LF-CONTAINER obj!\n");
+		return -EFAULT;
+	}
+
+#define PCI_EP_VF_BAR2_BASE_ADDR 0x3f000000
+#define PCI_EP_VF_BAR2_OFFSET_BASE 0x900000
+#define PCI_EP_VF_BAR2_SIZE 0x10000
+#define PCI_EP_VF_BAR2_OFFSET(id) (vf_bar2_offset_base + id * PCI_EP_VF_BAR2_SIZE)
+
+	if (lf_cont->vf_bar_offset_base)
+		vf_bar2_offset_base = lf_cont->vf_bar_offset_base;
+	else {
+		vf_bar2_offset_base = PCI_EP_VF_BAR2_OFFSET_BASE;
+
+		char *vf_offset = getenv("VF_OFFSET_BASE");
+
+		if (vf_offset)
+			vf_bar2_offset_base = strtol(vf_offset, NULL, 16);
+	}
+
+	uint64_t phys_addr = (PCI_EP_VF_BAR2_BASE_ADDR + PCI_EP_VF_BAR2_OFFSET(vf_id));
+	*pa = (void *)(uintptr_t)phys_addr;
+	*va = remap(phys_addr, PCI_EP_VF_BAR2_SIZE);
+
+	return 0;
 }
 
 static int lf_init_done(void *arg, u8 lf_id)
@@ -331,6 +398,7 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 				nmnicvf_params.f_ready_cb = lf_init_done;
 				nmnicvf_params.f_get_free_bar_cb = lf_get_free_bar;
 				nmnicvf_params.f_put_bar_cb = lf_put_bar;
+				nmnicvf_params.f_get_vf_bar_cb = lf_get_vf_bar;
 				nmnicvf_params.arg = &_lf_mng->containers[cntr];
 
 				err = nmnicvf_init(&nmnicvf_params,
