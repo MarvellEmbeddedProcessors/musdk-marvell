@@ -1763,8 +1763,8 @@ inline int giu_gpio_outq_desc_set_format(struct giu_gpio_desc *desc, enum giu_fo
 {
 	GIU_TXD_SET_FORMAT(desc, format);
 	if (format == GIU_FORMAT_DIRECT_SG) {
-		if ((num_sg_ent < 2) || (num_sg_ent > 33)) {
-			pr_err("'num_sg_ent' must be between 2-33\n");
+		if ((num_sg_ent < 2) || (num_sg_ent > GIU_GPIO_MAX_SG_SEGMENTS)) {
+			pr_err("'num_sg_ent' must be between 2-%d\n", GIU_GPIO_MAX_SG_SEGMENTS);
 			return -EINVAL;
 		}
 		GIU_TXD_SET_NUM_SG_ENT(desc, (num_sg_ent - 2));
