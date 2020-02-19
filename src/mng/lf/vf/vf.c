@@ -725,10 +725,6 @@ static int nmnicvf_egress_tc_add_command(struct nmnicvf *nmnicvf,
 	nmnicvf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].pkt_offset = 0;
 	nmnicvf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].rss_type = RSS_HASH_NONE;
 
-	/* TODO - Remove once complete speration is working */
-	nmnicvf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs =
-		params->egress_tc_add.num_queues_per_tc;
-
 	return 0;
 }
 
@@ -748,12 +744,6 @@ static int nmnicvf_ingress_tc_add_command(struct nmnicvf *nmnicvf,
 		params->ingress_tc_add.hash_type;
 	nmnicvf->gpio_rem_params.outtcs_params[params->ingress_tc_add.tc_prio].rem_pkt_offset =
 		params->ingress_tc_add.pkt_offset;
-
-	/* TODO - Remove once complete speration is working */
-	nmnicvf->gpio_params.outtcs_params[params->ingress_tc_add.tc_prio].num_rem_inqs =
-		params->ingress_tc_add.num_queues_per_tc;
-	nmnicvf->gpio_params.outtcs_params[params->ingress_tc_add.tc_prio].rem_rss_type =
-		params->ingress_tc_add.hash_type;
 
 	return 0;
 }
@@ -1672,11 +1662,6 @@ static int nmnicvf_init_gpio_local(struct nmnicvf *nmnicvf)
 	/* Create GPIO match string */
 	nmnicvf->gpio_params.match = nmnicvf->profile_data.match;
 	nmnicvf->gpio_params.sg_en = nmnicvf->profile_data.sg_en;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	/* Temp WA - RSS should not be supported so set num-remote-queues to 1 */
-	nmnicvf->gpio_params.outtcs_params[0].num_rem_inqs = 1;
-	nmnicvf->gpio_params.intcs_params[0].num_rem_outqs = 1;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 	ret = giu_gpio_init(&(nmnicvf->gpio_params), &(nmnicvf->giu_gpio));
 	if (ret) {
 		pr_err("Failed to init giu gpio\n");

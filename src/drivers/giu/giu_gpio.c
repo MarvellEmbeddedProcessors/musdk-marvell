@@ -19,32 +19,12 @@
 #include "giu_internal.h"
 #include "crc.h"
 
-
 #define MAX_EXTRACTION_SIZE	(MV_IPV6ADDR_LEN * 2 + MV_IP_PROTO_NH_LEN + MV_L4_PORT_LEN * 2)
 
-
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-struct giu_gpio_lcl_interim_q_desc {
-	u8	queue_idx;
-	u8	res;
-	u16	queue_desc_idx;
-};
-
-struct giu_gpio_lcl_interim_q {
-	struct giu_gpio_lcl_interim_q_desc	*descs; /**< descriptor ring virtual address */
-	u32	desc_total; /**< number of descriptors in the ring */
-	u32	prod_val; /**< producer index value shadow  */
-	u32	cons_val; /**< consumer index value shadow */
-	u32	payload_offset;
-};
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
 struct giu_gpio_lcl_q {
-	u32		 q_id;
-	struct mqa_q	*mqa_q;
-
-	/* Buffer Pool Q parameters */
-	struct giu_gpio_queue	 queue;
+	u32			 q_id;
+	struct mqa_q		*mqa_q;
+	struct giu_gpio_queue	 queue; /* queue params for immediate use */
 };
 
 struct giu_gpio_rem_q {
@@ -52,13 +32,27 @@ struct giu_gpio_rem_q {
 	struct mqa_q	*mqa_q;
 };
 
+
+struct giu_gpio_interim_q_desc {
+	u8	queue_idx;
+	u8	res;
+	u16	queue_desc_idx;
+};
+
+struct giu_gpio_interim_q {
+	u32			 q_id;
+	struct mqa_q		*mqa_q;
+	struct giu_gpio_queue	 queue; /* queue params for immediate use */
+
+	/* shadow */
+	struct giu_gpio_interim_q_desc	*descs; /* save dst qid and prod_val*/
+	u32	shadow_prod; /**< producer index value shadow  */
+	u32	shadow_cons; /**< consumer index value shadow */
+};
+
 /** In TC - Queue topology
  */
 struct giu_gpio_intc {
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	struct giu_gpio_lcl_interim_q	interimq;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
 	u32			 pkt_offset;
 	enum rss_hash_type	 rss_type;
 	u32			 num_inqs;
@@ -69,6 +63,10 @@ struct giu_gpio_intc {
 
 	u32			 num_rem_outqs;
 	struct giu_gpio_rem_q	 rem_outqs[GIU_GPIO_TC_MAX_NUM_QS];
+
+	u32			 num_interim_qs;
+	int			 last_qid;
+	struct giu_gpio_interim_q	interim_qs[GIU_GPIO_TC_MAX_NUM_QS];
 };
 
 struct giu_gpio_rem_inq {
@@ -79,17 +77,18 @@ struct giu_gpio_rem_inq {
 /** Out TC - Queue topology
  */
 struct giu_gpio_outtc {
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	struct giu_gpio_lcl_interim_q	interimq;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
 	u32			 num_outqs;
 	struct giu_gpio_lcl_q	 outqs[GIU_GPIO_TC_MAX_NUM_QS];
 
 	u32			 rem_pkt_offset;
 	enum rss_hash_type	 rem_rss_type;
+
 	u32			 num_rem_inqs;
 	struct giu_gpio_rem_inq	 rem_inqs[GIU_GPIO_TC_MAX_NUM_QS];
+
+	u32			 num_interim_qs;
+	int			 last_interim_qid;
+	struct giu_gpio_interim_q	interim_qs[GIU_GPIO_TC_MAX_NUM_QS];
 };
 
 /**
@@ -256,87 +255,229 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 	return 0;
 }
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-static int giu_gpio_send_multi_q(struct giu_gpio *gpio, u8 tc, struct giu_gpio_desc *descs, u16 *num)
+/* copies from M interim to N local queues */
+int giu_gpio_pre_gie(struct giu_gpio *gpio)
 {
-	struct giu_gpio_lcl_interim_q *interimq = &gpio->outtcs[tc].interimq;
-	struct giu_gpio_outtc *outtc = &(gpio->outtcs[tc]);
-	struct giu_gpio_queue *txq;
-	struct giu_gpio_desc *tx_ring_base;
-	u32 prod_val[outtc->num_outqs];
-	u16 dest_qid, num_txds = *num;
-	u32 free_count;
-	int i;
+	struct giu_gpio_outtc			*outtc;
+	struct giu_gpio_queue			*txq, *rxq;
+	struct giu_gpio_desc			*tx_ring_base, *rx_ring_base;
+	struct giu_gpio_desc			*dst_desc, *desc;
+	struct giu_gpio_interim_q		*interimq;
+	struct giu_gpio_interim_q_desc		*shadow_desc;
+	u32 cons, prod;
+	int desc_received, shadow_desc_recv;
+	int dest_qid;
+	int i, tc;
+	int break_interimq_loop = 0;
 
-	/* Calculate number of free descriptors */
-	free_count = QUEUE_SPACE(interimq->prod_val, interimq->cons_val, interimq->desc_total);
-
-	if (unlikely(free_count < num_txds)) {
-		pr_debug("num_txds(%d), free_count(%d) (GPIO %d)\n", num_txds, free_count, gpio->id);
-		num_txds = free_count;
-	}
-
-	if (unlikely(!num_txds)) {
-		pr_debug("GPIO full\n");
-		*num = 0;
+	if (!gpio->is_enable)
 		return 0;
-	}
 
-	for (i = 0; i < outtc->num_outqs; i++)
-		prod_val[i] = readl_relaxed(outtc->outqs[i].queue.prod_addr);
+	/* in current GPIO pass all TC */
+	for (tc = 0; tc < gpio->num_outtcs; tc++) {
 
-	/* Calculate RSS and update descriptor */
-	for (i = 0; i < num_txds; i++) {
-		if (outtc->num_rem_inqs > 1)
-			giu_gpio_update_rss(gpio, tc, &descs[i]);
-		dest_qid = GIU_TXD_GET_DEST_QID(&descs[i]);
-		/* Get queue params */
-		txq = &outtc->outqs[dest_qid].queue;
+		outtc = &(gpio->outtcs[tc]);
 
-		/* Update shadow-queue with dest-qid and index */
-		interimq->descs[interimq->prod_val].queue_idx = dest_qid;
-		interimq->descs[interimq->prod_val].queue_desc_idx = prod_val[dest_qid];
-		/* Increment producer index */
-		interimq->prod_val = QUEUE_INDEX_INC(interimq->prod_val, 1, interimq->desc_total);
+		u32 prod_val[outtc->num_outqs];
+		u32 cons_val[outtc->num_outqs];
+		u32 free_count[outtc->num_outqs];
 
-		/* Get ring base */
-		tx_ring_base = (struct giu_gpio_desc *)txq->desc_ring_base;
+		/* get DST queues information */
+		rmb();
+		for (i = 0; i < outtc->num_outqs; i++) {
+			prod_val[i] = readl_relaxed(outtc->outqs[i].queue.prod_addr);
+			cons_val[i] = readl_relaxed(outtc->outqs[i].queue.cons_addr);
+			free_count[i] = QUEUE_SPACE(prod_val[i], cons_val[i], outtc->outqs[i].queue.desc_total);
+		}
 
-		/* Copy descriptor to descriptor ring */
-		memcpy(&tx_ring_base[prod_val[dest_qid]], &descs[i], sizeof(*tx_ring_base));
+		break_interimq_loop = 0; /* break if dest queue is full */
 
-		/* Increment producer index, update remaining descriptors count and block size */
-		prod_val[dest_qid] = QUEUE_INDEX_INC(prod_val[dest_qid], 1, txq->desc_total);
-	}
+		for (int q = 0; q < outtc->num_interim_qs && break_interimq_loop == 0; q++) {
+			/* for example: qid = 2 0 1... */
+			outtc->last_interim_qid = (outtc->last_interim_qid + q) % outtc->num_interim_qs;
+			interimq = &outtc->interim_qs[outtc->last_interim_qid];
 
-	/* make sure all writes are done (i.e. descriptor were copied)
-	 * before incrementing the producer index
-	 */
-	wmb();
+			/* get src queue info */
+			rxq = &outtc->interim_qs[outtc->last_interim_qid].queue;
+			rx_ring_base = rxq->desc_ring_base;
+			prod = readl(rxq->prod_addr);
+			cons = readl_relaxed(rxq->cons_addr);
 
-	for (i = 0; i < outtc->num_outqs; i++) {
-		txq = &outtc->outqs[i].queue;
-		/* Update Producer index in GNPT */
-		writel_relaxed(prod_val[i], txq->prod_addr);
-	}
+			/* num of desc from last time */
+			shadow_desc_recv = QUEUE_OCCUPANCY(
+					interimq->shadow_prod, interimq->shadow_cons, interimq->queue.desc_total);
 
-	/* Update number of sent descriptors */
-	*num = num_txds;
+			for (i = 0; i < shadow_desc_recv; i++) {
+				shadow_desc = &interimq->descs[interimq->shadow_cons];
+				/* if empty - GIE still didn't take previous packets to dest (local) queue */
+
+				if (QUEUE_OCCUPANCY(cons_val[shadow_desc->queue_idx],
+					shadow_desc->queue_desc_idx, interimq->queue.desc_total) == 0)
+					break;
+
+				interimq->shadow_cons =
+						QUEUE_INDEX_INC(interimq->shadow_cons, 1, interimq->queue.desc_total);
+			}
+			writel(interimq->shadow_cons, interimq->queue.cons_addr);
+
+			desc_received = QUEUE_OCCUPANCY(prod, cons, rxq->desc_total);
+			/* num of descs this time */
+			desc_received = desc_received - shadow_desc_recv;
+
+			/* real cons (take to the account already processed packets) */
+			cons = QUEUE_INDEX_INC(cons, shadow_desc_recv, interimq->queue.desc_total);
+
+			/* get desc from SRC-Q, calculate dest_qid(RSS), copy to correspondent DST-Q */
+			for (i = 0; i < desc_received; i++) {
+
+				/* copy 1 desc from SRC-Q */
+				desc = &rx_ring_base[cons];
+
+				/* complete RSS  calculation */
+				dest_qid = GIU_TXD_GET_HASH_KEY(desc) % outtc->num_rem_inqs;
+
+				if (free_count[dest_qid] == 0) {
+					/* break desc_received loop */
+					break_interimq_loop = 1;
+					break;
+				}
+				free_count[dest_qid]--;
+
+				/* only now update cons */
+				cons = QUEUE_INDEX_INC(cons, 1, rxq->desc_total);
+
+				/* copy 1 by 1 desc to local queue */
+				txq = &outtc->outqs[dest_qid].queue;
+				tx_ring_base = (struct giu_gpio_desc *)txq->desc_ring_base;
+				dst_desc = &tx_ring_base[prod_val[dest_qid]];
+
+				memcpy(dst_desc, desc, sizeof(struct giu_gpio_desc));
+
+				/* update shadow-queue with dest-qid and index */
+				interimq->descs[interimq->shadow_prod].queue_idx = dest_qid;
+				interimq->descs[interimq->shadow_prod].queue_desc_idx = prod_val[dest_qid];
+				/* prepare for  next descr */
+				interimq->shadow_prod =
+						QUEUE_INDEX_INC(interimq->shadow_prod, 1, interimq->queue.desc_total);
+
+				/* increment producer index */
+				prod_val[dest_qid] = QUEUE_INDEX_INC(prod_val[dest_qid], 1, txq->desc_total);
+			} /* desc_received-loop */
+
+			/* update consumer index in GNCT - postponed */
+
+		} /* interims-loop */
+
+		/* update producer index in GNPT */
+		wmb();
+		for (i = 0; i < outtc->num_outqs; i++) {
+			txq = &outtc->outqs[i].queue;
+			writel_relaxed(prod_val[i], txq->prod_addr);
+		}
+
+	} /* tc-loop */
 
 	return 0;
 }
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
+/* copies from N local to M interim queues */
+int giu_gpio_post_gie(struct giu_gpio *gpio)
+{
+	struct giu_gpio_queue	*dst_q, *src_q;
+	struct giu_gpio_desc	*dst_q_ring_base, *src_q_ring_base;
+	struct giu_gpio_intc	*intc;
+	struct giu_gpio_desc	*dst_desc, *src_desc;
+	u32 prod_val, cons_val;
+	int desc_received;
+	int dst_qid;
+	int break_qid_loop = 0;
+	int i, tc;
+
+	if (!gpio->is_enable)
+		return 0;
+
+	/* pass all TC */
+	for (tc = 0; tc < gpio->num_intcs; tc++) {
+
+		intc = &(gpio->intcs[tc]);
+
+		u32 cons[gpio->num_intcs];
+		u32 prod[gpio->num_intcs];
+		u32 free_count[gpio->num_intcs];
+
+		/* get dest (interim) queues info */
+		rmb();
+		for (dst_qid = 0; dst_qid < intc->num_interim_qs; dst_qid++) {
+			dst_q = &intc->interim_qs[dst_qid].queue;
+			prod[dst_qid] = readl_relaxed(dst_q->prod_addr);
+			cons[dst_qid] = readl_relaxed(dst_q->cons_addr);
+			free_count[dst_qid] = QUEUE_SPACE(prod[dst_qid], cons[dst_qid], dst_q->desc_total);
+		}
+
+		break_qid_loop = 0;
+
+		for (int q = 0; q < intc->num_inqs && break_qid_loop == 0; q++) {
+
+			/* for example: qid = 2 0 1... */
+			intc->last_qid = (intc->last_qid + q) % intc->num_inqs;
+
+			/* get SRC queues info */
+			src_q = &intc->inqs[intc->last_qid].queue;
+			src_q_ring_base = (struct giu_gpio_desc *)src_q->desc_ring_base;
+			prod_val = readl_relaxed(src_q->prod_addr);
+			cons_val = readl_relaxed(src_q->cons_addr);
+
+			desc_received = QUEUE_OCCUPANCY(prod_val, cons_val, src_q->desc_total);
+
+			for (i = 0; i < desc_received; i++) {
+				src_desc = &src_q_ring_base[cons_val];
+
+				/* RSS */
+				/* TODO :change to RXD */
+				dst_qid = GIU_TXD_GET_HASH_KEY(src_desc) % intc->num_interim_qs;
+
+				if (free_count[dst_qid] == 0) {
+					/* break if dest queue is full */
+					break_qid_loop = 1;
+					break;
+				}
+				free_count[dst_qid]--;
+
+				dst_q = &intc->interim_qs[dst_qid].queue;
+				dst_q_ring_base = (struct giu_gpio_desc *)dst_q->desc_ring_base;
+				dst_desc = &dst_q_ring_base[prod[dst_qid]];
+
+				memcpy(dst_desc, src_desc, sizeof(struct giu_gpio_desc));
+
+				/* increment consumer/producer index */
+				cons_val = QUEUE_INDEX_INC(cons_val, 1, src_q->desc_total);
+				prod[dst_qid] = QUEUE_INDEX_INC(prod[dst_qid], 1, dst_q->desc_total);
+
+			} /* desc_received -loop */
+
+			writel(cons_val, src_q->cons_addr);
+
+		} /* qid-loop */
+
+		/* update producer index in GNPT */
+		wmb();
+		for (dst_qid = 0; dst_qid < intc->num_interim_qs; dst_qid++) {
+			dst_q = &intc->interim_qs[dst_qid].queue;
+			writel_relaxed(prod[dst_qid], dst_q->prod_addr);
+		}
+
+	} /* tc-loop */
+
+	return 0;
+}
 
 int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 {
-	struct mqa_queue_params		 mqa_params;
-	struct giu_gpio_outtc_params	*outtc_par;
 	struct giu_gpio_intc_params	*intc_par;
 	struct giu_gpio_intc		*intc = NULL;
 	struct giu_gpio_outtc		*outtc = NULL;
-	struct giu_gpio_lcl_q		*lcl_q;
-	struct mqa_queue_info		 queue_info;
+	struct mqa_queue_params		 mqa_params;
+	struct mqa_queue_info		 info;
 	u8				 match_params[2];
 	u32				 bm_pool_num;
 	u32				 tc_idx, q_idx;
@@ -362,7 +503,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	*gpio = kcalloc(1, sizeof(struct giu_gpio), GFP_KERNEL);
 	if (*gpio == NULL) {
 		pr_err("Failed to allocate GIU GPIO handler\n");
-		goto error;
+		goto kcalloc_error;
 	}
 
 	(*gpio)->giu_id = giu_id;
@@ -375,85 +516,59 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	(*gpio)->giu = params->giu;
 	(*gpio)->sg_en = params->sg_en;
 
+	giu_gpio_register(params->giu, *gpio, gpio_id);
+
 	pr_debug("Initializing Out-TC queues (#%d)\n", params->num_outtcs);
 	(*gpio)->num_outtcs = params->num_outtcs;
 	for (tc_idx = 0; tc_idx < (*gpio)->num_outtcs; tc_idx++) {
-		outtc_par = &(params->outtcs_params[tc_idx]);
+
 		outtc = &((*gpio)->outtcs[tc_idx]);
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		/* we assume that all Qs (in a specific TC) has the same size */
-		u32 qlen = params->outtcs_params[tc_idx].outqs_params[0].len;
+		/* create mqa out-interim-q */
+		/* num of "guest point of view" local queues */
+		outtc->num_interim_qs = params->outtcs_params[tc_idx].num_outqs;
 
-		outtc->interimq.descs =
-			kzalloc(sizeof(struct giu_gpio_lcl_interim_q_desc) * qlen, GFP_KERNEL);
-		if (outtc->interimq.descs == NULL) {
-			pr_err("Failed to allocate GIU GPIO TC %d shadow-queue for RSS\n", tc_idx);
-			goto error;
-		}
-
-		outtc->interimq.desc_total = qlen;
-		outtc->interimq.prod_val = 0;
-		outtc->interimq.cons_val = 0;
-		outtc->interimq.payload_offset = 0; /* TODO: add support for pkt-offset */
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
-		/* Create Local Out queues */
-		pr_debug("Initializing Local Out queues\n");
-		outtc->num_outqs = outtc_par->num_outqs;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		/* in this mode, only single local-Q is allowed for application use
-		 * since we need all the local-Qs for creating the remote-Q-pairs
-		 */
-		if (outtc_par->num_outqs != 1) {
-			pr_err("only single local Q is allowed!\n");
-			ret = -EINVAL;
-			goto error;
-		}
-		outtc->num_outqs = outtc_par->num_rem_inqs;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			lcl_q = &(outtc->outqs[q_idx]);
-
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc((*gpio)->mqa, &lcl_q->q_id);
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
+			ret = mqa_queue_alloc((*gpio)->mqa, &outtc->interim_qs[q_idx].q_id);
 			if (ret < 0) {
 				pr_err("Failed to allocate queue from MQA\n");
-				goto lcl_ing_queue_error;
+				goto interim_ing_queue_error;
 			}
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
-			mqa_params.idx  = lcl_q->q_id;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-			/* with this WA altought user only configured 1 local queue
-			 * the number of local queues is according to the remote queues.
-			 * So only the 1st params structure is valid.
-			 */
-			mqa_params.len	= outtc_par->outqs_params[0].len;
-#else
-			mqa_params.len	= outtc_par->outqs_params[q_idx].len;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+			mqa_params.idx  = outtc->interim_qs[q_idx].q_id;
+			mqa_params.len	= params->outtcs_params[tc_idx].outqs_params[q_idx].len;
 			mqa_params.size = gie_get_desc_size(RX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
 			mqa_params.copy_payload = 1;
 			mqa_params.sg_en = (*gpio)->sg_en;
 
-			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(lcl_q->mqa_q));
+			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(outtc->interim_qs[q_idx].mqa_q));
 			if (ret < 0) {
 				pr_err("Failed to allocate local ingress queue %d\n", mqa_params.idx);
-				goto lcl_ing_queue_error;
+				goto interim_ing_queue_error;
 			}
 
-			mqa_queue_get_info(lcl_q->mqa_q, &queue_info);
+			mqa_queue_get_info(outtc->interim_qs[q_idx].mqa_q, &info);
+			outtc->interim_qs[q_idx].queue.desc_total = info.len;
+			outtc->interim_qs[q_idx].queue.desc_ring_base = info.virt_base_addr;
+			outtc->interim_qs[q_idx].queue.last_cons_val = 0;
+			outtc->interim_qs[q_idx].queue.prod_addr = info.prod_virt;
+			outtc->interim_qs[q_idx].queue.cons_addr = info.cons_virt;
+			outtc->interim_qs[q_idx].queue.payload_offset = 0;
+			memset(info.virt_base_addr, 0, sizeof(struct giu_gpio_desc));
 
-			lcl_q->queue.desc_total = queue_info.len;
-			lcl_q->queue.desc_ring_base = queue_info.virt_base_addr;
-			lcl_q->queue.last_cons_val = 0;
-			lcl_q->queue.prod_addr = queue_info.prod_virt;
-			lcl_q->queue.cons_addr = queue_info.cons_virt;
-			lcl_q->queue.payload_offset = 0; /* TODO: add support for pkt-offset */
-		}
-	}
+			/* allocate memory for interim shadow */
+			outtc->interim_qs[q_idx].descs =
+					kzalloc(sizeof(struct giu_gpio_interim_q_desc) * info.len, GFP_KERNEL);
+			if (outtc->interim_qs[q_idx].descs == NULL) {
+				pr_err("Failed to allocate GIU GPIO TC %d shadow-queue %d for RSS\n", tc_idx, q_idx);
+				goto interim_ing_queue_kzalloc_error;
+			}
+			outtc->interim_qs[q_idx].shadow_prod = 0;
+			outtc->interim_qs[q_idx].shadow_cons = 0;
+		} /* for interimq q_idx  */
+	} /* for tc_idx */
 
 	pr_debug("Initializing In TC queues (#%d)\n", params->num_intcs);
 
@@ -462,131 +577,89 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 		intc_par = &(params->intcs_params[tc_idx]);
 		intc = &((*gpio)->intcs[tc_idx]);
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		/* we assume that all Qs (in a specific TC) has the same size */
-		/* this is totaly virtual Q so no need to allocate descriptors for it */
-		intc->interimq.descs = NULL;
-		intc->interimq.desc_total = params->intcs_params[tc_idx].inqs_params[0].len;
-		intc->interimq.prod_val = 0;
-		intc->interimq.cons_val = 0;
-		intc->interimq.payload_offset = 0; /* TODO: add support for pkt-offset */
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
-		/* Create Local In queues */
-		pr_debug("Initializing Local In queues\n");
-		intc->pkt_offset = intc_par->pkt_offset;
-		if (intc->pkt_offset) {
-			pr_err("Local side pkt-offset is not supported yet!\n");
-			ret = -EINVAL;
-			goto lcl_eg_queue_error;
-		}
-		intc->rss_type = intc_par->rss_type;
-		if (intc->rss_type != RSS_HASH_NONE) {
-			pr_err("Local side RSS is not supported yet!\n");
-			ret = -EINVAL;
-			goto lcl_eg_queue_error;
-		}
-		intc->num_inqs = intc_par->num_inqs;
+		/* pools */
 		intc->num_inpools = intc_par->num_inpools;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		/* in this mode, only single local-Q is allowed for application use
-		 * since we need all the local-Qs for creating the remote-Q-pairs
-		 */
-		if (intc_par->num_inqs != 1) {
-			pr_err("only single local Q is allowed!\n");
-			ret = -EINVAL;
-			goto lcl_eg_queue_error;
-		}
-		intc->num_inqs = intc_par->num_rem_outqs;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-			lcl_q = &(intc->inqs[q_idx]);
+		for (bm_pool_num = 0; bm_pool_num < intc_par->num_inpools; bm_pool_num++)
+			intc->pools[bm_pool_num] = intc_par->pools[bm_pool_num];
 
-			/* Allocate queue from MQA */
-			ret = mqa_queue_alloc((*gpio)->mqa, &lcl_q->q_id);
+		/* create mqa in interim-q */
+		/* num of "guest point of view" local queues */
+		intc->num_interim_qs = params->intcs_params[tc_idx].num_inqs;
+
+		for (q_idx = 0; q_idx < intc->num_interim_qs ; q_idx++) {
+			ret = mqa_queue_alloc((*gpio)->mqa, &intc->interim_qs[q_idx].q_id);
 			if (ret < 0) {
 				pr_err("Failed to allocate queue from MQA\n");
-				goto lcl_eg_queue_error;
+				goto interim_eg_queue_error;
 			}
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
-			mqa_params.idx  = lcl_q->q_id;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-			/* with this WA altought user only configured 1 local queue
-			 * the number of local queues is according to the remote queues.
-			 * So only the 1st params structure is valid.
-			 */
-			mqa_params.len	= intc_par->inqs_params[0].len;
-#else
-			mqa_params.len	= intc_par->inqs_params[q_idx].len;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+			mqa_params.idx  = intc->interim_qs[q_idx].q_id;
+			mqa_params.len	= params->intcs_params[tc_idx].inqs_params[q_idx].len;
 			mqa_params.size = gie_get_desc_size(TX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
+			mqa_params.copy_payload = 1;
 
-			mqa_params.bpool_num = intc->num_inpools;
-			for (bm_pool_num = 0; bm_pool_num < intc->num_inpools; bm_pool_num++) {
-				intc->pools[bm_pool_num] = intc_par->pools[bm_pool_num];
-				mqa_params.bpool_qids[bm_pool_num] = giu_bpool_get_mqa_q_id(intc->pools[bm_pool_num]);
-			}
-
-			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(lcl_q->mqa_q));
+			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(intc->interim_qs[q_idx].mqa_q));
 			if (ret < 0) {
-				pr_err("Failed to allocate local egress queue %d\n", mqa_params.idx);
-				goto lcl_eg_queue_error;
+				pr_err("Failed to allocate local ingress queue %d\n", mqa_params.idx);
+				goto interim_eg_queue_error;
 			}
 
-			mqa_queue_get_info(lcl_q->mqa_q, &queue_info);
-
-			lcl_q->queue.desc_total = queue_info.len;
-			lcl_q->queue.desc_ring_base = queue_info.virt_base_addr;
-			lcl_q->queue.last_cons_val = 0;
-			lcl_q->queue.prod_addr = queue_info.prod_virt;
-			lcl_q->queue.cons_addr = queue_info.cons_virt;
-			lcl_q->queue.payload_offset = 0; /* TODO: add support for pkt-offset */
+			mqa_queue_get_info(intc->interim_qs[q_idx].mqa_q, &info);
+			intc->interim_qs[q_idx].queue.desc_total = info.len;
+			intc->interim_qs[q_idx].queue.desc_ring_base = info.virt_base_addr;
+			intc->interim_qs[q_idx].queue.last_cons_val = 0;
+			intc->interim_qs[q_idx].queue.prod_addr = info.prod_virt;
+			intc->interim_qs[q_idx].queue.cons_addr = info.cons_virt;
+			intc->interim_qs[q_idx].queue.payload_offset = 0;
+			memset(info.virt_base_addr, 0, sizeof(struct giu_gpio_desc));
 		}
 	}
 
 	return 0;
 
-lcl_eg_queue_error:
-	pr_debug("De-initializing Local In queues\n");
+interim_eg_queue_error:
+	pr_debug("De-initializing Local Egress queues\n");
 	for (tc_idx = 0; tc_idx < (*gpio)->num_intcs; tc_idx++) {
 		intc = &((*gpio)->intcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+		for (q_idx = 0; q_idx < intc->num_interim_qs; q_idx++) {
 			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
-					intc->inqs[q_idx].mqa_q,
-					intc->inqs[q_idx].q_id,
+					intc->interim_qs[q_idx].mqa_q,
+					intc->interim_qs[q_idx].q_id,
 					NULL,
 					LOCAL_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
-					intc->inqs[q_idx].q_id);
+					intc->interim_qs[q_idx].q_id);
 		}
 	}
 
-lcl_ing_queue_error:
+interim_ing_queue_kzalloc_error:
+	if (outtc) {
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++)
+			kfree(outtc->interim_qs[q_idx].descs);
+	}
+
+interim_ing_queue_error:
 	pr_debug("De-initializing Local Out queues\n");
 	for (tc_idx = 0; tc_idx < (*gpio)->num_outtcs; tc_idx++) {
 		outtc = &((*gpio)->outtcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
 			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
-					outtc->outqs[q_idx].mqa_q,
-					outtc->outqs[q_idx].q_id,
+					outtc->interim_qs[q_idx].mqa_q,
+					outtc->interim_qs[q_idx].q_id,
 					NULL,
 					LOCAL_INGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
-					outtc->outqs[q_idx].q_id);
+					outtc->interim_qs[q_idx].q_id);
 		}
 	}
 
-error:
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	if (outtc)
-		kfree(outtc->interimq.descs);
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+kcalloc_error:
 	return -1;
 }
 
@@ -606,8 +679,51 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 	pr_debug("Initializing Out-TC queues (#%d)\n", params->num_outtcs);
 	gpio->num_outtcs = params->num_outtcs;
 	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		struct giu_gpio_lcl_q		*lcl_q;
+		struct mqa_queue_info		 queue_info;
+
 		outtc_par = &(params->outtcs_params[tc_idx]);
 		outtc = &(gpio->outtcs[tc_idx]);
+
+		/* Create Local Out queues */
+		pr_debug("Initializing Local Out queues\n");
+		outtc->num_outqs = outtc_par->num_rem_inqs;
+
+		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+			lcl_q = &(outtc->outqs[q_idx]);
+			rem_q_par = &(outtc_par->rem_inqs_params[q_idx].poolq_params);
+			rem_q = &(outtc->rem_inqs[q_idx].poolq);
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(gpio->mqa, &lcl_q->q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto lcl_ing_queue_error;
+			}
+
+			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+					mqa_params.idx  = lcl_q->q_id;
+					mqa_params.len	= rem_q_par->len;
+					mqa_params.size = gie_get_desc_size(RX_DESC);
+					mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
+					mqa_params.copy_payload = 1;
+
+			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(lcl_q->mqa_q));
+			if (ret < 0) {
+				pr_err("Failed to allocate local ingress queue %d\n", mqa_params.idx);
+				goto lcl_ing_queue_error;
+			}
+
+			mqa_queue_get_info(lcl_q->mqa_q, &queue_info);
+
+			lcl_q->queue.desc_total = queue_info.len;
+			lcl_q->queue.desc_ring_base = queue_info.virt_base_addr;
+			lcl_q->queue.last_cons_val = 0;
+			lcl_q->queue.prod_addr = queue_info.prod_virt;
+			lcl_q->queue.cons_addr = queue_info.cons_virt;
+			lcl_q->queue.payload_offset = 0;
+			memset(queue_info.virt_base_addr, 0, sizeof(struct giu_gpio_desc));
+		}
 
 		/* Create Remote BM queues */
 		pr_debug("Initializing Remote BM queues\n");
@@ -615,7 +731,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 		if (outtc->rem_pkt_offset) {
 			pr_err("remote side pkt-offset is not supported yet!\n");
 			ret = -EINVAL;
-			goto error;
+			goto lcl_ing_queue_error;
 		}
 		outtc->rem_rss_type = (enum rss_hash_type)outtc_par->rem_rss_type;
 		outtc->num_rem_inqs = outtc_par->num_rem_inqs;
@@ -727,8 +843,54 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 
 	gpio->num_intcs = params->num_intcs;
 	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+		struct giu_gpio_lcl_q		*lcl_q;
+		struct mqa_queue_info		 queue_info;
+		u32				 bm_pool_num;
+
 		intc_par = &(params->intcs_params[tc_idx]);
 		intc = &(gpio->intcs[tc_idx]);
+
+		/* Create Local In queues */
+		pr_debug("Initializing Local In queues\n");
+
+		intc->num_inqs = intc_par->num_rem_outqs;
+
+		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+			lcl_q = &(intc->inqs[q_idx]);
+			rem_q_par = &(intc_par->rem_outqs_params[q_idx]);
+			rem_q = &(intc->rem_outqs[q_idx]);
+
+			/* Allocate queue from MQA */
+			ret = mqa_queue_alloc(gpio->mqa, &lcl_q->q_id);
+			if (ret < 0) {
+				pr_err("Failed to allocate queue from MQA\n");
+				goto lcl_eg_queue_error;
+			}
+
+			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
+			mqa_params.idx  = lcl_q->q_id;
+			mqa_params.len	= rem_q_par->len;
+			mqa_params.size = gie_get_desc_size(TX_DESC);
+			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_EGRESS;
+			mqa_params.bpool_num = intc->num_inpools;
+			for (bm_pool_num = 0; bm_pool_num < intc->num_inpools; bm_pool_num++)
+				mqa_params.bpool_qids[bm_pool_num] =
+						giu_bpool_get_mqa_q_id(intc->pools[bm_pool_num]);
+
+			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(lcl_q->mqa_q));
+			if (ret < 0) {
+				pr_err("Failed to allocate local egress queue %d\n", mqa_params.idx);
+				goto lcl_eg_queue_error;
+			}
+
+			mqa_queue_get_info(lcl_q->mqa_q, &queue_info);
+			lcl_q->queue.desc_total = queue_info.len;
+			lcl_q->queue.desc_ring_base = queue_info.virt_base_addr;
+			lcl_q->queue.last_cons_val = 0;
+			lcl_q->queue.prod_addr = queue_info.prod_virt;
+			lcl_q->queue.cons_addr = queue_info.cons_virt;
+			lcl_q->queue.payload_offset = 0;
+		}
 
 		/* Create Remote Out queues */
 		pr_debug("Initializing Remote Out queues\n");
@@ -804,12 +966,30 @@ host_eg_queue_error:
 			ret = destroy_q(gpio->giu, GIU_ENG_IN, gpio->mqa,
 					intc->rem_outqs[q_idx].mqa_q,
 					intc->rem_outqs[q_idx].q_id,
-					NULL,
+					intc->inqs[q_idx].mqa_q,
 					HOST_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
 					intc->rem_outqs[q_idx].q_id);
 		}
+	}
+
+lcl_eg_queue_error:
+	pr_debug("De-initializing Local In queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+		intc = &(gpio->intcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+					intc->inqs[q_idx].mqa_q,
+					intc->inqs[q_idx].q_id,
+					NULL,
+					LOCAL_EGRESS_DATA_QUEUE);
+			if (ret)
+				pr_warn("Failed to remove queue Idx %x\n",
+					intc->inqs[q_idx].q_id);
+		}
+		intc->num_inqs = intc->num_rem_outqs = 0;
 	}
 
 host_ing_queue_error:
@@ -846,9 +1026,25 @@ host_queue_error:
 		}
 	}
 
-error:
-	return -1;
+lcl_ing_queue_error:
+	pr_debug("De-initializing Local Out queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &(gpio->outtcs[tc_idx]);
 
+		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+					outtc->outqs[q_idx].mqa_q,
+					outtc->outqs[q_idx].q_id,
+					NULL,
+					LOCAL_INGRESS_DATA_QUEUE);
+			if (ret)
+				pr_warn("Failed to remove queue Idx %x\n",
+					outtc->outqs[q_idx].q_id);
+		}
+		outtc->num_rem_inqs = outtc->num_outqs = 0;
+	}
+
+	return -1;
 }
 
 void giu_gpio_clear_remote(struct giu_gpio *gpio)
@@ -866,13 +1062,29 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 			ret = destroy_q(gpio->giu, GIU_ENG_IN, gpio->mqa,
 					intc->rem_outqs[q_idx].mqa_q,
 					intc->rem_outqs[q_idx].q_id,
-					NULL,
+					intc->inqs[q_idx].mqa_q,
 					HOST_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to destroy queue Idx %x\n",
 					intc->rem_outqs[q_idx].q_id);
 		}
-		intc->num_rem_outqs = 0;
+	}
+
+	pr_debug("De-initializing Local Egress queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+		intc = &(gpio->intcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+					intc->inqs[q_idx].mqa_q,
+					intc->inqs[q_idx].q_id,
+					NULL,
+					LOCAL_EGRESS_DATA_QUEUE);
+			if (ret)
+				pr_warn("Failed to remove queue Idx %x\n",
+					intc->inqs[q_idx].q_id);
+		}
+		intc->num_inqs = intc->num_rem_outqs = 0;
 	}
 
 	pr_debug("De-initializing Remote In queues\n");
@@ -891,6 +1103,22 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 		}
 	}
 
+	pr_debug("De-initializing Local Ingress queues\n");
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &(gpio->outtcs[tc_idx]);
+
+		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+					outtc->outqs[q_idx].mqa_q,
+					outtc->outqs[q_idx].q_id,
+					NULL,
+					LOCAL_INGRESS_DATA_QUEUE);
+			if (ret)
+				pr_warn("Failed to remove queue Idx %x\n",
+					outtc->outqs[q_idx].q_id);
+		}
+	}
+
 	pr_debug("De-initializing Remote in BM queues\n");
 	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
 		outtc = &(gpio->outtcs[tc_idx]);
@@ -905,7 +1133,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 				pr_warn("Failed to destroy queue Idx %x\n",
 					outtc->rem_inqs[bm_idx].poolq.q_id);
 		}
-		outtc->num_rem_inqs = 0;
+		outtc->num_rem_inqs = outtc->num_outqs = 0;
 	}
 }
 
@@ -918,37 +1146,42 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 
 	giu_gpio_clear_remote(gpio);
 
-	pr_debug("De-initializing Local In queues\n");
+	pr_debug("De-initializing Interim In queues\n");
 	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
 		intc = &(gpio->intcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+		for (q_idx = 0; q_idx < intc->num_interim_qs; q_idx++) {
 			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
-					intc->inqs[q_idx].mqa_q,
-					intc->inqs[q_idx].q_id,
+					intc->interim_qs[q_idx].mqa_q,
+					intc->interim_qs[q_idx].q_id,
 					NULL,
 					LOCAL_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
-					intc->inqs[q_idx].q_id);
+					intc->interim_qs[q_idx].q_id);
 		}
 	}
 
-	pr_debug("De-initializing Local Out queues\n");
+	pr_debug("De-initializing Interim Out queues\n");
 	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
 		outtc = &(gpio->outtcs[tc_idx]);
 
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
-					outtc->outqs[q_idx].mqa_q,
-					outtc->outqs[q_idx].q_id,
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
+
+			kfree(outtc->interim_qs[q_idx].descs);
+
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+					outtc->interim_qs[q_idx].mqa_q,
+					outtc->interim_qs[q_idx].q_id,
 					NULL,
 					LOCAL_INGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
-					outtc->outqs[q_idx].q_id);
+					outtc->interim_qs[q_idx].q_id);
 		}
 	}
+
+	giu_gpio_unregister(gpio->giu, gpio, gpio->id);
 
 	kfree(gpio);
 }
@@ -983,20 +1216,15 @@ int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth)
 	json_print_to_buffer(buff, size, depth + 1, "\"num_intcs\": %u,\n", gpio->num_intcs);
 	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
 		intc = &(gpio->intcs[tc_idx]);
-
 		json_print_to_buffer(buff, size, depth + 1, "\"intc-%u\": {\n", tc_idx);
 		json_print_to_buffer(buff, size, depth + 2, "\"pkt-offs\": %u,\n", intc->pkt_offset);
 		json_print_to_buffer(buff, size, depth + 2, "\"rss-type\": %u,\n", intc->rss_type);
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		json_print_to_buffer(buff, size, depth + 2, "\"interim-qlen\": %u,\n", intc->interimq.desc_total);
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-		json_print_to_buffer(buff, size, depth + 2, "\"num_rem_outqs\": %u,\n", intc->num_rem_outqs);
 
 		/* Serialize IN Qs info */
-		json_print_to_buffer(buff, size, depth + 2, "\"num_inqs\": %u,\n", intc->num_inqs);
-		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-			json_print_to_buffer(buff, size, depth + 2, "\"inq-%u\": {\n", q_idx);
-			mqa_queue_get_info(intc->inqs[q_idx].mqa_q, &queue_info);
+		json_print_to_buffer(buff, size, depth + 2, "\"num_inqs\": %u,\n", intc->num_interim_qs);
+		for (q_idx = 0; q_idx < intc->num_interim_qs; q_idx++) {
+			mqa_queue_get_info(intc->interim_qs[q_idx].mqa_q, &queue_info);	/* interim */
+
 			json_print_to_buffer(buff, size, depth + 3, "\"qid\": %u,\n", queue_info.q_id);
 			json_print_to_buffer(buff, size, depth + 3, "\"qlen\": %u,\n", queue_info.len);
 			offs = (phys_addr_t)(uintptr_t)queue_info.phy_base_addr - mem_info.paddr;
@@ -1019,19 +1247,13 @@ int giu_gpio_serialize(struct giu_gpio *gpio, char *buff, u32 size, u8 depth)
 	json_print_to_buffer(buff, size, depth + 1, "\"num_outtcs\": %u,\n", gpio->num_outtcs);
 	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
 		outtc = &(gpio->outtcs[tc_idx]);
-
 		json_print_to_buffer(buff, size, depth + 1, "\"outtc-%u\": {\n", tc_idx);
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		json_print_to_buffer(buff, size, depth + 2, "\"interim-qlen\": %u,\n", outtc->interimq.desc_total);
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-		json_print_to_buffer(buff, size, depth + 2, "\"num_rem_inqs\": %u,\n", outtc->num_rem_inqs);
-		json_print_to_buffer(buff, size, depth + 2, "\"rem_rss_type\": %u,\n", outtc->rem_rss_type);
 
 		/* Serialize OUT Qs info */
-		json_print_to_buffer(buff, size, depth + 2, "\"num_outqs\": %u,\n", outtc->num_outqs);
-		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+		json_print_to_buffer(buff, size, depth + 2, "\"num_outqs\": %u,\n", outtc->num_interim_qs);
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
 			json_print_to_buffer(buff, size, depth + 2, "\"outq-%u\": {\n", q_idx);
-			mqa_queue_get_info(outtc->outqs[q_idx].mqa_q, &queue_info);
+			mqa_queue_get_info(outtc->interim_qs[q_idx].mqa_q, &queue_info); /* interim */
 			json_print_to_buffer(buff, size, depth + 3, "\"qid\": %u,\n", queue_info.q_id);
 			json_print_to_buffer(buff, size, depth + 3, "\"qlen\": %u,\n", queue_info.len);
 			offs = (phys_addr_t)(uintptr_t)queue_info.phy_base_addr - mem_info.paddr;
@@ -1140,17 +1362,6 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 
 		json_buffer_to_input(sec, "pkt-offs", intc->pkt_offset);
 		json_buffer_to_input(sec, "rss-type", intc->rss_type);
-
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		json_buffer_to_input(sec, "interim-qlen", intc->interimq.desc_total);
-
-		intc->interimq.descs = NULL;
-		intc->interimq.prod_val = 0;
-		intc->interimq.cons_val = 0;
-		intc->interimq.payload_offset = 0; /* TODO: add support for pkt-offset */
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
-		json_buffer_to_input(sec, "num_rem_outqs", intc->num_rem_outqs);
 		json_buffer_to_input(sec, "num_inqs", intc->num_inqs);
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
 			json_buffer_to_input(sec, "qid", intc->inqs[q_idx].q_id);
@@ -1181,26 +1392,6 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 	for (tc_idx = 0; tc_idx < _gpio->num_outtcs; tc_idx++) {
 		outtc = &(_gpio->outtcs[tc_idx]);
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		json_buffer_to_input(sec, "interim-qlen", outtc->interimq.desc_total);
-
-		outtc->interimq.descs =
-			kzalloc(sizeof(struct giu_gpio_lcl_interim_q_desc) * outtc->interimq.desc_total,
-				GFP_KERNEL);
-		if (outtc->interimq.descs == NULL) {
-			pr_err("Failed to allocate GIU GPIO TC %d shadow-queue for RSS\n", tc_idx);
-			kfree(_gpio);
-			kfree(lbuff);
-			return -ENOMEM;
-		}
-
-		outtc->interimq.prod_val = 0;
-		outtc->interimq.cons_val = 0;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
-		json_buffer_to_input(sec, "num_rem_inqs", outtc->num_rem_inqs);
-		json_buffer_to_input(sec, "rem_rss_type", outtc->rem_rss_type);
-
 		json_buffer_to_input(sec, "num_outqs", outtc->num_outqs);
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
 			json_buffer_to_input(sec, "qid", outtc->outqs[q_idx].q_id);
@@ -1226,14 +1417,6 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 
 void giu_gpio_remove(struct giu_gpio *gpio)
 {
-	int tc_idx;
-
-	pr_err("giu_gpio_remove is not implemented\n");
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++)
-		kfree(gpio->outtcs[tc_idx].interimq.descs);
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
 	kfree(gpio);
 }
 
@@ -1304,9 +1487,6 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	}
 #endif
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-	return giu_gpio_send_multi_q(gpio, tc, descs, num);
-#endif
 	/* Get queue params */
 	txq = &outtc->outqs[qid].queue;
 
@@ -1378,11 +1558,7 @@ int giu_gpio_send(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 }
 
 /* Calculate the number of transmitted packets by consumer value */
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-static inline int giu_gpio_get_num_outq_done_internal(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
-#else
 int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS*/
 {
 	u32 tx_num = 0;
 	u32 cons_val;
@@ -1402,52 +1578,7 @@ int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
 	return 0;
 }
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-/* created a shadow-q with the same size as tx-queue which will holds
- * for each sent frame its 'tx-queue-index' (as a result of RSS) and its
- * entry index in this tx-queue.
- * once application request for the number of transmitted frames, we go
- * over on all occupied entries in the shadow-q and using the saved
- * information check if it was transmitted or not. once we reach
- * an un-transmitted frame we stop and return the number of transmitted
- * frames. as the shadow-q holds the frames in the same order as the
- * application sent them, it is guarantee that only transmitted buffers
- * will be released to the pp2-pool.
- */
-int giu_gpio_get_num_outq_done(struct giu_gpio *gpio, u8 tc, u8 qid, u16 *num)
-{
-	struct giu_gpio_lcl_interim_q *interimq = &gpio->outtcs[tc].interimq;
-	struct giu_gpio_lcl_interim_q_desc *desc;
-	struct giu_gpio_outtc *outtc = &(gpio->outtcs[tc]);
-	u16 shadow_q_tx_num;
-	u32 cons_val[outtc->num_outqs];
-	u8 i;
-
-	*num = 0;
-	shadow_q_tx_num = QUEUE_OCCUPANCY(interimq->prod_val, interimq->cons_val, interimq->desc_total);
-	if (!shadow_q_tx_num)
-		return 0;
-
-	for (i = 0; i < outtc->num_outqs; i++)
-		cons_val[i] = readl_relaxed(outtc->outqs[i].queue.cons_addr);
-
-	for (i = 0; i < shadow_q_tx_num; i++) {
-		desc = &interimq->descs[interimq->cons_val];
-		if (QUEUE_OCCUPANCY(cons_val[desc->queue_idx], desc->queue_desc_idx, interimq->desc_total) == 0)
-			break;
-		interimq->cons_val = QUEUE_INDEX_INC(interimq->cons_val, 1, interimq->desc_total);
-		(*num)++;
-	}
-
-	return 0;
-}
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
-
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-static inline int giu_gpio_recv_internal(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
-#else
 int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 {
 	struct giu_gpio_queue *rxq;
 	struct giu_gpio_desc *rx_ring_base;
@@ -1534,28 +1665,7 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	return 0;
 }
 
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *descs, u16 *num)
-{
-	static u8 curr_qid[GIU_GPIO_MAX_NUM_TCS];
-	u8 i;
-	u16 recv_req = *num, total_got = 0;
-	struct giu_gpio_intc *intc = &(gpio->intcs[tc]);
 
-	for (i = 0; (i < intc->num_inqs) && (total_got != recv_req); i++) {
-		*num = recv_req - total_got;
-		giu_gpio_recv_internal(gpio, tc, curr_qid[tc], &descs[total_got], num);
-		total_got += *num;
-		curr_qid[tc]++;
-		if (curr_qid[tc] == intc->num_inqs)
-			curr_qid[tc] = 0;
-	}
-
-	*num = total_got;
-
-	return 0;
-}
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 
 int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilities *capa)
 {
@@ -1572,9 +1682,7 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 	for (tc_idx = 0; tc_idx < capa->intcs_inf.num_intcs; tc_idx++) {
 		struct giu_gpio_intc_info *tc_info = &capa->intcs_inf.intcs_inf[tc_idx];
 		int qs_num = gpio->intcs[tc_idx].num_inqs;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		qs_num = 1;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
 		/* Set number if Egress Qs in this TC */
 		tc_info->num_inqs = qs_num;
 
@@ -1585,10 +1693,6 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 
 			q_info->offset = queue->payload_offset;
 			q_info->size = queue->desc_total - 1;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-			q_info->offset = gpio->intcs[tc_idx].interimq.payload_offset;
-			q_info->size = gpio->intcs[tc_idx].interimq.desc_total - 1;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		}
 
 		/* Set BPool handlers */
@@ -1605,9 +1709,7 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 	for (tc_idx = 0; tc_idx < capa->outtcs_inf.num_outtcs; tc_idx++) {
 		struct giu_gpio_outtc_info *tc_info = &capa->outtcs_inf.outtcs_inf[tc_idx];
 		int qs_num = gpio->outtcs[tc_idx].num_outqs;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-		qs_num = 1;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
+
 		/* Set number if Ingress Qs in this TC */
 		tc_info->num_outqs = qs_num;
 
@@ -1621,10 +1723,6 @@ int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilitie
 			/* TODO: done now we assume out q and done q has the same attributes */
 			q_info->offset = done_q_info->offset = queue->payload_offset;
 			q_info->size = done_q_info->size = queue->desc_total - 1;
-#ifdef GIE_NO_MULTI_Q_SUPPORT_FOR_RSS
-			q_info->offset = done_q_info->offset = gpio->outtcs[tc_idx].interimq.payload_offset;
-			q_info->size = done_q_info->size = gpio->outtcs[tc_idx].interimq.desc_total - 1;
-#endif /* GIE_NO_MULTI_Q_SUPPORT_FOR_RSS */
 		}
 	}
 

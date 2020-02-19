@@ -72,7 +72,7 @@ struct giu {
 
 	struct mqa			*mqa;
 	struct gie			*gies[GIU_ENG_OUT_OF_RANGE];
-
+	struct giu_gpio			*gpio_list[GIU_MAX_NUM_GPIO];
 	u64				 msi_regs_pa;	/**< MSI phys-address registers base */
 	u64				 msi_regs_va;	/**< MSI virt-address registers base */
 };
@@ -93,5 +93,13 @@ struct giu_mng_ch {
 struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng);
 
 int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool);
+
+int giu_gpio_pre_gie(struct giu_gpio *gpio);
+
+int giu_gpio_post_gie(struct giu_gpio *gpio);
+
+int giu_gpio_register(struct giu *giu, struct giu_gpio *gpio, int gpio_idx);
+
+int giu_gpio_unregister(struct giu *giu, struct giu_gpio *gpio, int gpio_idx);
 
 #endif /* __GIU_INTERNAL_H__ */

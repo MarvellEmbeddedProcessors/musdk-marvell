@@ -769,10 +769,6 @@ static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
 	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].pkt_offset = 0;
 	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].rss_type = RSS_HASH_NONE;
 
-	/* TODO - Remove once complete speration is working */
-	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs =
-		params->egress_tc_add.num_queues_per_tc;
-
 	return 0;
 }
 
@@ -793,11 +789,6 @@ static int nmnicpf_ingress_tc_add_command(struct nmnicpf *nmnicpf,
 	nmnicpf->gpio_rem_params.outtcs_params[params->ingress_tc_add.tc_prio].rem_pkt_offset =
 		params->ingress_tc_add.pkt_offset;
 
-	/* TODO - Remove once complete speration is working */
-	nmnicpf->gpio_params.outtcs_params[params->ingress_tc_add.tc_prio].num_rem_inqs =
-		params->ingress_tc_add.num_queues_per_tc;
-	nmnicpf->gpio_params.outtcs_params[params->ingress_tc_add.tc_prio].rem_rss_type =
-		params->ingress_tc_add.hash_type;
 
 	return 0;
 }

@@ -386,6 +386,8 @@ int giu_mng_ch_get_qs(struct giu_mng_ch *mng_ch, struct giu_mng_ch_qs *qs)
 
 int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit, u16 *pending)
 {
+	int gpio_idx;
+
 #ifdef DEBUG
 	if (unlikely(!giu)) {
 		pr_err("Invalid GIU handle!\n");
@@ -398,7 +400,79 @@ int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit
 	}
 #endif /* DEBUG */
 
+	/* TX */
+	if (eng == GIU_ENG_OUT) {
+		for (gpio_idx = 0; gpio_idx < GIU_MAX_NUM_GPIO; gpio_idx++) {
+			if (giu->gpio_list[gpio_idx] != 0)
+				giu_gpio_pre_gie(giu->gpio_list[gpio_idx]);
+		}
+	}
+
+	/* RX */
+	/* more exactly post processing for previous iteration of gie_schedule() */
+	if (eng == GIU_ENG_IN) {
+		for (gpio_idx = 0; gpio_idx < GIU_MAX_NUM_GPIO; gpio_idx++) {
+			if (giu->gpio_list[gpio_idx] != 0)
+				giu_gpio_post_gie(giu->gpio_list[gpio_idx]);
+		}
+	}
+
 	return gie_schedule(giu->gies[eng], time_limit, qe_limit, pending);
+}
+
+
+int giu_gpio_register(struct giu *giu, struct giu_gpio *gpio, int gpio_idx)
+{
+	if (!giu) {
+		pr_err("Invalid GIU handle!\n");
+		return -EINVAL;
+	}
+
+	if (!gpio) {
+		pr_err("Invalid GPIO handle!\n");
+		return -EINVAL;
+	}
+
+	if (gpio_idx >= GIU_MAX_NUM_GPIO) {
+		pr_err("Invalid GPIO index %d !\n", gpio_idx);
+		return -EINVAL;
+	}
+
+	if (giu->gpio_list[gpio_idx] != 0) {
+		pr_err("GPIO index %d already registered!\n", gpio_idx);
+		return -EINVAL;
+	}
+
+	giu->gpio_list[gpio_idx] = gpio;
+
+	return 0;
+}
+
+int giu_gpio_unregister(struct giu *giu, struct giu_gpio *gpio, int gpio_idx)
+{
+	if (!giu) {
+		pr_err("Invalid GIU handle!\n");
+		return -EINVAL;
+	}
+
+	if (!gpio) {
+		pr_err("Invalid GPIO handle!\n");
+		return -EINVAL;
+	}
+
+	if (gpio_idx >= GIU_MAX_NUM_GPIO) {
+		pr_err("Invalid GPIO index %d !\n", gpio_idx);
+		return -EINVAL;
+	}
+
+	if (giu->gpio_list[gpio_idx] == 0) {
+		pr_err("GPIO %d is not registered!\n", gpio_idx);
+		return -EINVAL;
+	}
+
+	giu->gpio_list[gpio_idx] = 0;
+
+	return 0;
 }
 
 int giu_get_desc_size(struct giu *giu, enum giu_desc_type type)

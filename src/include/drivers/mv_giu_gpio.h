@@ -76,7 +76,6 @@ struct giu_gpio_intc_params {
 
 	u32				 num_inpools;
 	struct giu_bpool                *pools[GIU_GPIO_TC_MAX_NUM_BPOOLS];
-	u32				 num_rem_outqs; /* TEMP */
 };
 
 struct giu_gpio_intc_rem_params {
@@ -92,8 +91,6 @@ struct giu_gpio_rem_inq_params {
 /** Out TC - Queue topology
  */
 struct giu_gpio_outtc_params {
-	enum rss_hash_type		 rem_rss_type; /* TEMP */
-	u32				 num_rem_inqs; /* TEMP */
 	u32				 num_outqs;
 	struct giu_gpio_lcl_q_params	 outqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 };
