@@ -17,6 +17,8 @@
  *  @{
  */
 
+#define GIU_MAX_NUM_GPIO	8 /**< Maximum number of gpio instances */
+
 struct giu;
 struct giu_mng_ch;
 

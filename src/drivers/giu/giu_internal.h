@@ -17,8 +17,6 @@
 #define GIU_LCL_Q (0)
 #define GIU_REM_Q (1)
 
-#define GIU_MAX_NUM_GPIO		3 /**< Maximum number of gpio instances */
-
 /* Queue handling macros. assumes q size is a power of 2 */
 #define QUEUE_INDEX_INC(index_val, inc_val, q_size)	\
 	(((index_val) + (inc_val)) & ((q_size) - 1))

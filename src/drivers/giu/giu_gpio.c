@@ -350,7 +350,7 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	gpio_id = match_params[1];
 
 	if (gpio_id >= GIU_MAX_NUM_GPIO) {
-		pr_err("giu_id (%d) exceeds mac gpio number (%d)\n", giu_id, GIU_MAX_NUM_GPIO);
+		pr_err("giu_id (%d) exceeds max gpio number (%d)\n", giu_id, GIU_MAX_NUM_GPIO);
 		return -1;
 	}
 
@@ -1095,7 +1095,7 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 		return -EFAULT;
 	}
 	if (gpio_id >= GIU_MAX_NUM_GPIO) {
-		pr_err("giu_id (%d) exceeds mac gpio number (%d)\n", giu_id, GIU_MAX_NUM_GPIO);
+		pr_err("giu_id (%d) exceeds max gpio number (%d)\n", giu_id, GIU_MAX_NUM_GPIO);
 		return -EINVAL;
 	}
 
