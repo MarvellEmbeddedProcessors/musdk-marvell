@@ -244,6 +244,8 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 		crc64 = crc64_compute((uint8_t *)&l4hdr->src_port, (MV_L4_PORT_LEN * 2), crc64);
 	}
 
+	giu_gpio_outq_desc_set_hk_mode(desc, crc64);
+
 	queue_index = crc64 % gpio->outtcs[tc].num_rem_inqs;
 	GIU_TXD_SET_DEST_QID(desc, queue_index);
 
