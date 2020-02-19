@@ -10,6 +10,7 @@
 					"match": "gpio-0:0",
 					"keep_alive_thresh": 25,
 					"pci_en": 1,
+					"sg_en": 0,
 					"lcl_egress_qs_size": 2048,
 					"lcl_ingress_qs_size": 2048,
 					"dflt_pkt_offset": 64,
