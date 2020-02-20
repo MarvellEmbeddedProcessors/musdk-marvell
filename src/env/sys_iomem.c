@@ -155,6 +155,7 @@ struct mem_shm {
 
 struct sys_iomem {
 	char				*name;
+	uint32_t			 owners;
 	int				 index;
 	enum sys_iomem_type		 type;
 	union {
@@ -591,7 +592,10 @@ int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
 			liomem_node = LIST_OBJECT(pos, struct sys_iomem, node);
 			if (strcmp(liomem_node->name, params->devname) == 0
 				&& liomem_node->index == params->index) {
-				pr_warn("requested iomem device already initialized\n");
+				pr_debug("requested iomem device already initialized\n");
+				liomem_node->owners++;
+				*iomem = liomem_node;
+				return 0;
 			}
 		}
 	}
@@ -604,6 +608,7 @@ int sys_iomem_init(struct sys_iomem_params *params, struct sys_iomem **iomem)
 	memset(liomem, 0, sizeof(struct sys_iomem));
 
 	liomem->type = params->type;
+	liomem->owners = 1;
 
 	liomem->name = malloc(strlen(params->devname)+1);
 	if (!liomem->name) {
@@ -668,6 +673,11 @@ void sys_iomem_deinit(struct sys_iomem *iomem)
 		pr_err("requested iomem device to deinit wasn't initialized\n");
 		return;
 	}
+
+	iomem->owners--;
+
+	if (iomem->owners)
+		return;
 
 	/* Remove from list of iomem devices */
 	list_del(&iomem->node);
