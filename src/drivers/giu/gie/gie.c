@@ -569,7 +569,7 @@ static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 			if (format == HOST_FORMAT_DIRECT_SG) {
 				u8 num_sg_ent = (*(u8 *)(qe + src_q->desc_num_sg_ent_pos) & HOST_NUM_SG_ENT_MASK) + 2;
 
-				if (qes_to_copy + 1 < num_sg_ent)
+				if ((num_sg_ent - 1) > qes_to_copy)
 					/* Not enoght buffers for all s/g entries. will be handled next time */
 					break;
 			}
@@ -734,6 +734,10 @@ static int gie_copy_buffers_r2l(struct dma_info *dma, struct gie_q_pair *qp, str
 
 			if (format == HOST_FORMAT_DIRECT_SG) {
 				u8 num_sg_ent = (*(u8 *)(qe + src_q->desc_num_sg_ent_pos) & HOST_NUM_SG_ENT_MASK) + 2;
+
+				if ((num_sg_ent - 1) > bufs_to_copy)
+					/* Not all S/G entries were copied. will be handled next time */
+					break;
 
 				if (gie_get_lcl_bpool_occupancy(qp, 0) < num_sg_ent)
 					/* Not enoght buffers for all s/g entries. will be handled next time */
