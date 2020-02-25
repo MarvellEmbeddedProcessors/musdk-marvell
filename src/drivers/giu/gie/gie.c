@@ -564,7 +564,7 @@ static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 		qe_byte_cnt = qe + len_pos;
 
 		if (sg_en) {
-			u8 format = (*(u32 *)qe & src_q->desc_format_mask) >> src_q->desc_format_offset;
+			u8 format = (*(u32 *)qe) & src_q->desc_format_mask >> src_q->desc_format_offset;
 
 			if (format == HOST_FORMAT_DIRECT_SG) {
 				u8 num_sg_ent = (*(u8 *)(qe + src_q->desc_num_sg_ent_pos) & HOST_NUM_SG_ENT_MASK) + 2;
@@ -730,7 +730,7 @@ static int gie_copy_buffers_r2l(struct dma_info *dma, struct gie_q_pair *qp, str
 		qe_byte_cnt = qe + len_pos;
 
 		if (sg_en) {
-			u8 format = (*(u32 *)qe & src_q->desc_format_mask) >> src_q->desc_format_offset;
+			u8 format = (*(u32 *)qe) & src_q->desc_format_mask >> src_q->desc_format_offset;
 
 			if (format == HOST_FORMAT_DIRECT_SG) {
 				u8 num_sg_ent = (*(u8 *)(qe + src_q->desc_num_sg_ent_pos) & HOST_NUM_SG_ENT_MASK) + 2;
