@@ -370,9 +370,9 @@ enum giu_outq_l4_status {
 #define GIU_TXD_SET_L4_STATUS(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_L4_STATUS_MASK) | ((data) << 13 & GIU_TXD_L4_STATUS_MASK))
 #define GIU_TXD_SET_FORMAT(desc, data)	\
-	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_FORMAT_MASK) | (data << 19 & ~GIU_TXD_FORMAT_MASK))
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_FORMAT_MASK) | (data << 19 & GIU_TXD_FORMAT_MASK))
 #define GIU_TXD_SET_HK_MODE(desc, data)	\
-	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_HK_MODE_MASK) | (data << 21 & ~GIU_TXD_HK_MODE_MASK))
+	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_HK_MODE_MASK) | (data << 21 & GIU_TXD_HK_MODE_MASK))
 #define GIU_TXD_SET_MD_MODE(desc, data)	\
 	((desc)->cmds[0] = ((desc)->cmds[0] & ~GIU_TXD_MD_MODE_MASK) | (data << 22 & GIU_TXD_MD_MODE_MASK))
 #define GIU_TXD_SET_IP_STATUS(desc, data) \
