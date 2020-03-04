@@ -197,6 +197,8 @@ int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit
  */
 int giu_get_desc_size(struct giu *giu, enum giu_desc_type type);
 
+int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa);
+
 /** @} */ /* end of grp_giu_init */
 
 #endif /* __MV_GIU_H__ */

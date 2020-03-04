@@ -334,7 +334,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	struct giu_gpio_lcl_q		*lcl_q;
 	struct mqa_queue_info		 queue_info;
 	u8				 match_params[2];
-	u64				 msi_regs_va, msi_regs_pa;
 	u32				 bm_pool_num;
 	u32				 tc_idx, q_idx;
 	int				 giu_id, gpio_id;
@@ -370,8 +369,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 	(*gpio)->mqa = params->mqa;
 	(*gpio)->giu = params->giu;
 	(*gpio)->sg_en = params->sg_en;
-
-	giu_get_msi_regs((*gpio)->giu, &msi_regs_va, &msi_regs_pa);
 
 	pr_debug("Initializing Out-TC queues (#%d)\n", params->num_outtcs);
 	(*gpio)->num_outtcs = params->num_outtcs;
@@ -595,13 +592,9 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 	struct giu_gpio_intc		*intc;
 	struct giu_gpio_outtc		*outtc;
 	struct giu_gpio_rem_q		*rem_q;
-	struct msix_table_entry		*msix_entry;
-	u64				 msi_regs_va, msi_regs_pa;
 	s32				 pair_qid;
 	u32				 tc_idx, bm_idx, q_idx;
 	int				 ret;
-
-	giu_get_msi_regs(gpio->giu, &msi_regs_va, &msi_regs_pa);
 
 	pr_debug("Initializing Out-TC queues (#%d)\n", params->num_outtcs);
 	gpio->num_outtcs = params->num_outtcs;
@@ -693,15 +686,11 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			pr_debug("Host TC[%d] RX[%d], queue Id %d, len %d, bpool ID %d trying to Registered to GIU RX\n\n",
 				 tc_idx, q_idx, mqa_params.idx, mqa_params.len, mqa_params.bpool_qids[0]);
 
-			mqa_params.msix_inf.id = rem_q_par->msix_id;
-
-			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
-				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
-
 			/* Set message info */
-			mqa_params.msix_inf.va = (void *)msi_regs_va;
-			mqa_params.msix_inf.pa = msi_regs_pa;
-			mqa_params.msix_inf.data = msix_entry->msg_data;
+			mqa_params.msix_inf.id = rem_q_par->msix_inf.id;
+			mqa_params.msix_inf.va = rem_q_par->msix_inf.va;
+			mqa_params.msix_inf.pa = rem_q_par->msix_inf.pa;
+			mqa_params.msix_inf.data = rem_q_par->msix_inf.data;
 
 			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(rem_q->mqa_q));
 			if (ret < 0) {
@@ -767,15 +756,11 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			mqa_params.copy_payload    = 1;
 			mqa_params.sg_en	   = gpio->sg_en;
 
-			mqa_params.msix_inf.id = rem_q_par->msix_id;
-
-			msix_entry = (struct msix_table_entry *)(params->msix_table_base +
-				(mqa_params.msix_inf.id * sizeof(struct msix_table_entry)));
-
 			/* Set message info */
-			mqa_params.msix_inf.va = (void *)msi_regs_va;
-			mqa_params.msix_inf.pa = msi_regs_pa;
-			mqa_params.msix_inf.data = msix_entry->msg_data;
+			mqa_params.msix_inf.id = rem_q_par->msix_inf.id;
+			mqa_params.msix_inf.va = rem_q_par->msix_inf.va;
+			mqa_params.msix_inf.pa = rem_q_par->msix_inf.pa;
+			mqa_params.msix_inf.data = rem_q_par->msix_inf.data;
 
 			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(rem_q->mqa_q));
 			if (ret < 0) {

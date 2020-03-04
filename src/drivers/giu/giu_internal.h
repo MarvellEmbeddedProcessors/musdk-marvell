@@ -49,12 +49,6 @@ enum queue_type {
 
 };
 
-struct msix_table_entry {
-	u64 msg_addr;
-	u32 msg_data;
-	u32 vector_ctrl;
-};
-
 /**
  * gpio queue parameters
  *
@@ -97,8 +91,6 @@ struct giu_mng_ch {
 };
 
 struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng);
-
-int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa);
 
 int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool);
 

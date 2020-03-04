@@ -348,12 +348,7 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 	/* update the total memory needed for the device side */
 	pcie_cfg->dev_use_size = PCI_BAR0_CALC_SIZE;
 
-	/* Register MSI-X table base in GIU */
-	/* TODO: register msix table only if pcie_cfg->msi_x_tbl_offset !=0
-	 *       netdev side should reset it if it doesn't support msi
-	 *	 hence, it should move after "Host is Ready" (below)
-	 */
-	nmnicpf->gpio_rem_params.msix_table_base = (void *)(pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
+	nmnicpf->msix_table_base = (struct msix_table_entry *)(pf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
 
 	/* Make sure that above configuration are out before setting the
 	 * dev-ready status for the host side.
@@ -544,6 +539,13 @@ static int nmnicpf_map_pci_bar(struct nmnicpf *nmnicpf)
 	iomem_params.index = 0;
 
 	ret = sys_iomem_init(&iomem_params, &nmnicpf->sys_iomem);
+	if (ret)
+		return ret;
+
+	iomem_params.devname = "MSIX";
+	iomem_params.index = 0;
+	iomem_params.type = SYS_IOMEM_T_MMAP;
+	ret = sys_iomem_init(&iomem_params, &nmnicpf->msix_iomem);
 	if (ret)
 		return ret;
 
@@ -827,9 +829,11 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	struct giu_gpio_rem_q_params giu_gpio_q;
 	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicpf->gpio_rem_params);
 	struct giu_gpio_outtc_rem_params *outtc;
+	struct msix_table_entry *msix_entry;
 	s32 active_q_id;
 	u32 msg_tc;
 	u8 bm_idx;
+	int err;
 
 	msg_tc = params->ingress_data_q_add.tc_prio;
 	outtc = &(gpio_rem_p->outtcs_params[msg_tc]);
@@ -864,7 +868,29 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.cons_base_va =
 		(void *)(params->ingress_data_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicpf->map.host_map.phys_addr;
-	giu_gpio_q.msix_id      = params->ingress_data_q_add.msix_id;
+
+	if (params->ingress_data_q_add.msix_id) {
+		giu_gpio_q.msix_inf.id = params->ingress_data_q_add.msix_id;
+		msix_entry = &nmnicpf->msix_table_base[giu_gpio_q.msix_inf.id];
+		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
+		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
+		if (nmnicpf->map.type == ft_plat) {
+			giu_get_msi_regs(nmnicpf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
+		} else {
+			/* PCI mode - Need to remap the msix's PA */
+			uint64_t phys_addr = (giu_gpio_q.msix_inf.pa + (uint64_t)nmnicpf->map.host_map.phys_addr);
+
+			err = sys_iomem_map(nmnicpf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
+			if (err) {
+				pr_err("failed to map PF%d-MSIX%d!\n", nmnicpf->pf_id, giu_gpio_q.msix_inf.id);
+				return err;
+			}
+			pr_info("Host Ingress TC[%d], MSIX%d: host_pa 0x%"PRIx64", host_data 0x%x, host_remap_pa %"PRIx64", host_remap_va %p\n",
+				msg_tc, giu_gpio_q.msix_inf.id, msix_entry->msg_addr, msix_entry->msg_data, phys_addr,
+				giu_gpio_q.msix_inf.va);
+		}
+	}
+
 
 	active_q_id = outtc_q_next_entry_get(outtc->rem_inqs_params, outtc->num_rem_inqs);
 	if (active_q_id < 0) {
@@ -925,8 +951,10 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	struct giu_gpio_rem_q_params giu_gpio_q;
 	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicpf->gpio_rem_params);
 	struct giu_gpio_intc_rem_params *intc;
+	struct msix_table_entry *msix_entry;
 	s32 active_q_id;
 	u32 msg_tc;
+	int err;
 
 	msg_tc = params->egress_q_add.tc_prio;
 	intc = &(gpio_rem_p->intcs_params[msg_tc]);
@@ -951,7 +979,28 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	giu_gpio_q.cons_base_va =
 		(void *)(params->egress_q_add.q_cons_offs + nmnicpf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicpf->map.host_map.phys_addr;
-	giu_gpio_q.msix_id      = params->egress_q_add.msix_id;
+
+	if (params->ingress_data_q_add.msix_id) {
+		giu_gpio_q.msix_inf.id = params->ingress_data_q_add.msix_id;
+		msix_entry = &nmnicpf->msix_table_base[giu_gpio_q.msix_inf.id];
+		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
+		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
+		if (nmnicpf->map.type == ft_plat) {
+			giu_get_msi_regs(nmnicpf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
+		} else {
+			/* PCI mode - Need to remap the msix's PA */
+			uint64_t phys_addr = (giu_gpio_q.msix_inf.pa + (uint64_t)nmnicpf->map.host_map.phys_addr);
+
+			err = sys_iomem_map(nmnicpf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
+			if (err) {
+				pr_err("failed to map PF%d-MSIX%d!\n", nmnicpf->pf_id, giu_gpio_q.msix_inf.id);
+				return err;
+			}
+			pr_info("Host Ingress TC[%d], MSIX%d: host_pa 0x%"PRIx64", host_data 0x%x, host_remap_pa %"PRIx64", host_remap_va %p\n",
+				msg_tc, giu_gpio_q.msix_inf.id, msix_entry->msg_addr, msix_entry->msg_data, phys_addr,
+				giu_gpio_q.msix_inf.va);
+		}
+	}
 
 	active_q_id = intc_q_next_entry_get(intc->rem_outqs_params, intc->num_rem_outqs);
 	if (active_q_id < 0) {

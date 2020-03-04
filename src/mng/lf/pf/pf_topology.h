@@ -38,6 +38,12 @@ struct iomem_inf {
 	void *virt_addr;
 };
 
+struct msix_table_entry {
+	u64 msg_addr;
+	u32 msg_data;
+	u32 vector_ctrl;
+};
+
 /* Contains the PCI / Platform function mapping information
  *
  *  cfg_map	Mapping of the device's configuration space.
@@ -123,7 +129,9 @@ struct nmnicpf {
 	u8				 link_up_mask;
 	int				 last_link_state;
 	u8				 plat_bar_indx;
+	struct msix_table_entry		*msix_table_base;
 	struct sys_iomem		*sys_iomem;	/* musdk iomem handle. */
+	struct sys_iomem		*msix_iomem;	/* musdk msix iomem handle. */
 	struct iomem_inf		 plat_regs;	/* Relevant only for platform devices */
 	struct pci_plat_func_map	 map;		/* Memory mapping - PCI / Plat */
 	struct giu			*giu;

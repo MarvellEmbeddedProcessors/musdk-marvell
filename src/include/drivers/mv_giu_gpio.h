@@ -47,6 +47,13 @@ struct giu_gpio_lcl_q_params {
 	u32		 len;
 };
 
+struct giu_gpio_rem_q_msix_inf {
+	u32		 id;	/**< MSI interrupt Id   (0 = unused) */
+	u32		 data;
+	phys_addr_t	 pa;
+	void		*va;
+};
+
 struct giu_gpio_rem_q_params {
 	u32		 len;
 	u32		 size;
@@ -57,7 +64,7 @@ struct giu_gpio_rem_q_params {
 	phys_addr_t	 prod_base_pa;
 	void		*cons_base_va;
 	phys_addr_t	 cons_base_pa;
-	u32		 msix_id;
+	struct giu_gpio_rem_q_msix_inf	msix_inf;
 };
 
 /** In TC - Queue topology
@@ -100,8 +107,6 @@ struct giu_gpio_outtc_rem_params {
 };
 
 struct giu_gpio_rem_params {
-	void				*msix_table_base;
-
 	u32				 num_intcs;
 	struct giu_gpio_intc_rem_params	 intcs_params[GIU_GPIO_MAX_NUM_TCS];
 	u32				 num_outtcs;
