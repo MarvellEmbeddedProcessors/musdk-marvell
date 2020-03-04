@@ -336,10 +336,6 @@ static int iomem_mmap_ioinit(struct mem_mmap *mmapm, char *name, int index)
 	INIT_LIST(&mmapm->maps_lst);
 
 	mmapm->dev_node = mv_of_find_compatible_node_by_indx(NULL, index, NULL, name);
-	if (!mmapm->dev_node) {
-		pr_err("IO device (%s) not found!\n", name);
-		return -EINVAL;
-	}
 
 	return 0;
 }
@@ -360,6 +356,10 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 	uint64_t		 tmp_pa, tmp_size;
 
 	if (name) {
+		if (!mmapm->dev_node) {
+			pr_err("IO device not found!\n");
+			return -EINVAL;
+		}
 		/* Assuming the name is actually the memory index */
 		if (strlen(name) > 2) {
 			pr_err("Illegal name length (%d, max is 2)!\n", (int)strlen(name));
