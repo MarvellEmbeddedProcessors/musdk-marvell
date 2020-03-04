@@ -61,6 +61,7 @@ struct lf_mng {
 	struct nmdisp		*nmdisp;
 	struct mqa		*mqa;
 	struct giu		*giu;
+	struct sys_iomem	*iomem;
 
 	u8			 num_containers;
 	struct lf_mng_container	 containers[LF_MNG_MAX_NUM_CONTAINERS];
@@ -69,36 +70,6 @@ struct lf_mng {
 	u8			 total_num_nicpfs;
 	u8			 total_num_nicvfs;
 };
-
-/* TODO - need to check if can use IOMEM-MMAP */
-static void *remap(uint64_t phys_addr, size_t length)
-{
-#define MAP_MASK (4096UL - 1)
-	int fd;
-	void *virt;
-
-	fd = open("/dev/mem", O_RDWR);
-	if (fd == -1) {
-		printf("can't open /dev/mem\n");
-		goto remap_err;
-	}
-
-	/* Map one page */
-
-	virt = mmap(0, length, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
-		phys_addr & ~MAP_MASK);
-	if (virt == (void *)-1) {
-		printf("mmap failed for physical address\n");
-		goto remap_err;
-	}
-	close(fd);
-	return virt;
-
-remap_err:
-	if (fd != -1)
-		close(fd);
-	return NULL;
-}
 
 static int lookup_lf(struct lf_mng_container *lf_mng_cont, u8 lf_id, struct lf_mng_lf **lf)
 {
@@ -168,6 +139,7 @@ static int lf_get_vf_bar(void *arg, u8 vf_id, void **va, void **pa)
 {
 	struct lf_mng_container	*lf_cont = (struct lf_mng_container *)arg;
 	uint32_t vf_bar2_offset_base;
+	int err;
 
 	if (!lf_cont) {
 		pr_err("no LF-CONTAINER obj!\n");
@@ -192,7 +164,11 @@ static int lf_get_vf_bar(void *arg, u8 vf_id, void **va, void **pa)
 
 	uint64_t phys_addr = (PCI_EP_VF_BAR2_BASE_ADDR + PCI_EP_VF_BAR2_OFFSET(vf_id));
 	*pa = (void *)(uintptr_t)phys_addr;
-	*va = remap(phys_addr, PCI_EP_VF_BAR2_SIZE);
+	err = sys_iomem_map(lf_cont->lf_mng->iomem, NULL, &phys_addr, va);
+	if (err) {
+		pr_err("failed to map VF%d!\n", vf_id);
+		return err;
+	}
 
 	return 0;
 }
@@ -322,6 +298,7 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 {
 	struct lf_mng		*_lf_mng;
 	struct nmcstm_params	 nmcstm_params;
+	struct sys_iomem_params  iomem_params;
 	int			 err, cntr, lf;
 
 	/*TODO: currently only one container is supported*/
@@ -339,6 +316,15 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 	_lf_mng->nmdisp = params->nmdisp;
 	_lf_mng->mqa = params->mqa;
 	_lf_mng->giu = params->giu;
+
+	iomem_params.devname = "VF MAP";
+	iomem_params.index = 0;
+	iomem_params.type = SYS_IOMEM_T_MMAP;
+	err = sys_iomem_init(&iomem_params, &_lf_mng->iomem);
+	if (err) {
+		pr_err("failed to created IOMEM for LF MNG!\n");
+		return err;
+	}
 
 	_lf_mng->num_containers = params->num_containers;
 	for (cntr = 0; cntr < _lf_mng->num_containers; cntr++) {
@@ -451,6 +437,8 @@ void lf_mng_deinit(struct lf_mng *lf_mng)
 		}
 		nmcstm_deinit(lf_mng->containers[cntr].nmcstm);
 	}
+
+	sys_iomem_deinit(lf_mng->iomem);
 
 	kfree(lf_mng);
 }
