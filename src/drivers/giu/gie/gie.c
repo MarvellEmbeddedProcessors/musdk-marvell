@@ -496,8 +496,7 @@ static void gie_bpool_fill_shadow(struct dma_info *dma, struct gie_bpool *pool)
 	q_idx_add(src_q->qe_tail, fill_size, src_q->qlen);
 }
 
-static int gie_get_rem_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp,
-			       struct host_bpool_desc **bp_bufs, int buf_cnt)
+static int gie_get_rem_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp, int buf_cnt)
 {
 	struct gie_queue *bpool_q;
 	int bufs_avail;
@@ -517,29 +516,42 @@ static int gie_get_rem_bpool_bufs(struct dma_info *dma, struct gie_q_pair *qp,
 	if (unlikely(buf_cnt > bufs_avail))
 		/* TODO: Add a trancepoint. */
 		buf_cnt = bufs_avail;
-	/* since we return a pointer to the queue, we can only return the amount
-	 * of buffers until wrap around, so the caller doesn't need to wrap
-	 */
-	if (unlikely(q_wraps(bpool_q)))
-		buf_cnt = min(buf_cnt, bpool_q->qlen - bpool_q->head);
-
-	/* increment an internal index to indicate these buffers are already used we still
-	 * don't update the remote head until the user is done with the buffers to avoid override
-	 */
-	*bp_bufs = (struct host_bpool_desc *)bpool_q->ring_virt + bpool_q->head;
-	q_idx_add(bpool_q->head, buf_cnt, bpool_q->qlen);
 
 	return buf_cnt;
 }
 
+static inline struct host_bpool_desc *gie_get_shadow_bpool_buf(struct gie_q_pair *qp)
+{
+	struct gie_queue	*bpool_q;
+	struct host_bpool_desc	*bp_buf;
+
+	bpool_q = &qp->dst_bpools[0]->shadow;
+
+	if (unlikely(!q_occupancy(bpool_q)))
+		return NULL;
+
+	bp_buf = (struct host_bpool_desc *)bpool_q->ring_virt + bpool_q->head;
+	q_idx_add(bpool_q->head, 1, bpool_q->qlen);
+
+	return bp_buf;
+}
+
+static inline u32 gie_get_shadow_bpool_occupancy(struct gie_q_pair *qp)
+{
+	struct gie_queue *bpool_q = &qp->dst_bpools[0]->shadow;
+
+	return q_occupancy(bpool_q);
+}
+
 static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 					struct gie_queue	*dst_q,
+					struct gie_q_pair	*qp,
 					struct gie_queue	*qes_q,
-					struct host_bpool_desc	*bp_bufs,
 					int			 qes_to_copy,
 					struct dmax2_desc	*descs,
 					int			 sg_en)
 {
+	struct host_bpool_desc	*bp_buf = NULL;
 	void	*qe;
 	u64	*qe_cookie, *qe_buff;
 	u64	 src_remap, dst_remap;
@@ -572,24 +584,31 @@ static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 				if ((num_sg_ent - 1) > qes_to_copy)
 					/* Not enoght buffers for all s/g entries. will be handled next time */
 					break;
+
+				if (gie_get_shadow_bpool_occupancy(qp) < num_sg_ent)
+					/* Not enoght buffers for all s/g entries. will be handled next time */
+					break;
 			}
 		}
+
+		bp_buf = gie_get_shadow_bpool_buf(qp);
+		if (bp_buf == NULL)
+			break;
 
 		/* create the dma job to submit */
 		descs[cnt].flags = 0;
 		descs[cnt].desc_ctrl = DESC_OP_MODE_MEMCPY << DESC_OP_MODE_SHIFT;
 		descs[cnt].src_addr = src_remap + *qe_buff;
-		descs[cnt].dst_addr = dst_remap + bp_bufs->buff_addr_phys;
+		descs[cnt].dst_addr = dst_remap + bp_buf->buff_addr_phys;
 		descs[cnt].buff_size = *qe_byte_cnt;
 
 		tracepoint(gie, dma, (void *)descs[cnt].src_addr, (void *)descs[cnt].dst_addr, descs[cnt].buff_size);
 		cnt++;
 
 		/* update qe buffer with host buffer*/
-		*qe_buff = bp_bufs->buff_addr_phys;
-		*qe_cookie = bp_bufs->buff_cookie;
+		*qe_buff = bp_buf->buff_addr_phys;
+		*qe_cookie = bp_buf->buff_cookie;
 		q_idx_add(i, 1, src_q->qlen);
-		bp_bufs++;
 	}
 	/* barrier here after we access the QEs to make sure all above are written before the next dma trans */
 	wmb();
@@ -600,7 +619,6 @@ static inline int gie_copy_interim_qes(struct gie_queue		*src_q,
 static int gie_copy_buffers_l2r(struct dma_info *dma, struct gie_q_pair *qp, struct gie_queue *src_q,
 			     struct gie_queue *dst_q, struct gie_queue *qes_q, int bufs_to_copy, int sg_en)
 {
-	struct host_bpool_desc	*bp_buf;
 	struct dma_job_info	*job_info;
 	struct dmax2_desc	 descs[GIE_MAX_QES_IN_BATCH];
 	u16			 cnt = 0;
@@ -612,11 +630,11 @@ static int gie_copy_buffers_l2r(struct dma_info *dma, struct gie_q_pair *qp, str
 	 * multiple times, first to get the last n elements in the queue, and then
 	 * to get bufs_to_copy-n elements.
 	 */
-	bufs_to_copy = gie_get_rem_bpool_bufs(dma, qp, &bp_buf, bufs_to_copy);
+	bufs_to_copy = gie_get_rem_bpool_bufs(dma, qp, bufs_to_copy);
 	if (unlikely(!bufs_to_copy))
 		return 0;
 
-	cnt = gie_copy_interim_qes(src_q, dst_q, qes_q, bp_buf, bufs_to_copy, descs, sg_en);
+	cnt = gie_copy_interim_qes(src_q, dst_q, qp, qes_q, bufs_to_copy, descs, sg_en);
 
 	/* we can reach here after 1 pass or no pass at all */
 	if (cnt) {
