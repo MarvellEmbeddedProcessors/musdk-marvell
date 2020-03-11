@@ -1640,7 +1640,10 @@ static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
 	if (nmnicvf->giu_gpio)
 		giu_gpio_clear_remote(nmnicvf->giu_gpio);
 
-	/* 4. start 'init' flow immediately */
+	/* 4.  clear 'gpio_rem_params' */
+	memset(&nmnicvf->gpio_rem_params, 0, sizeof(struct giu_gpio_rem_params));
+
+	/* 5. start 'init' flow immediately */
 	writel(PCIE_CFG_STATUS_DEV_READY, &pcie_cfg->status);
 	nmnicvf->nmlf.f_maintenance_cb = nmnicvf_init_host_ready;
 
