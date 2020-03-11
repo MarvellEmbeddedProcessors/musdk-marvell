@@ -40,6 +40,11 @@ struct lf_mng_lf {
 	} u;
 };
 
+struct iomem_inf {
+	u64	phys_addr;
+	u64	virt_addr;
+};
+
 struct lf_mng_container {
 	struct lf_mng		*lf_mng;
 	u8			 guest_id;
@@ -52,7 +57,8 @@ struct lf_mng_container {
 
 	struct lf_mng_lf	 lfs[LF_MNG_MAX_NUM_CONTAINER_LFS];
 
-	u64			 vf_bar_offset_base;
+	struct iomem_inf	 vf_bar0_map;
+	struct iomem_inf	 vf_bar2_map;
 	struct nmcstm		*nmcstm;
 };
 
@@ -61,7 +67,6 @@ struct lf_mng {
 	struct nmdisp		*nmdisp;
 	struct mqa		*mqa;
 	struct giu		*giu;
-	struct sys_iomem	*iomem;
 
 	u8			 num_containers;
 	struct lf_mng_container	 containers[LF_MNG_MAX_NUM_CONTAINERS];
@@ -120,7 +125,7 @@ static int lf_pp_find_free_bpool(void *arg, u32 pp_id)
 	return dev_mng_pp2_find_free_bpool(lf_mng->nmp, pp_id);
 }
 
-static int lf_set_vf_bar_offset_base(void *arg, u64 vf_bar_offset_base)
+static int lf_set_vf_bar_offset_base(void *arg, u8 bar, u64 phys_addr, u64 virt_addr)
 {
 	struct lf_mng_container	*lf_cont = (struct lf_mng_container *)arg;
 
@@ -129,45 +134,47 @@ static int lf_set_vf_bar_offset_base(void *arg, u64 vf_bar_offset_base)
 		return -EFAULT;
 	}
 
-	lf_cont->vf_bar_offset_base = vf_bar_offset_base;
+	if (bar == 0) {
+		lf_cont->vf_bar0_map.phys_addr = phys_addr;
+		lf_cont->vf_bar0_map.virt_addr = virt_addr;
+	} else if (bar == 2) {
+		lf_cont->vf_bar2_map.phys_addr = phys_addr;
+		lf_cont->vf_bar2_map.virt_addr = virt_addr;
+	} else {
+		pr_err("bar %d in invalid!\n", bar);
+		return -EINVAL;
+	}
 
-	pr_info("PF set VF BAR offset base to 0x%" PRIx64 "\n", vf_bar_offset_base);
+	pr_info("PF set BAR#%d:\n"
+		"\tVF phys offset base to 0x%" PRIx64 "\n"
+		"\tVF virt offset base to 0x%" PRIx64 "\n",
+		bar, phys_addr, virt_addr);
 	return 0;
 }
 
-static int lf_get_vf_bar(void *arg, u8 vf_id, void **va, void **pa)
+static int lf_get_vf_bar(void *arg, u8 vf_id, u8 bar, void **va, void **pa)
 {
 	struct lf_mng_container	*lf_cont = (struct lf_mng_container *)arg;
-	uint32_t vf_bar2_offset_base;
-	int err;
 
 	if (!lf_cont) {
 		pr_err("no LF-CONTAINER obj!\n");
 		return -EFAULT;
 	}
 
-#define PCI_EP_VF_BAR2_BASE_ADDR 0x3f000000
-#define PCI_EP_VF_BAR2_OFFSET_BASE 0x900000
+#define PCI_EP_VF_BAR0_SIZE 0x1000
 #define PCI_EP_VF_BAR2_SIZE 0x10000
-#define PCI_EP_VF_BAR2_OFFSET(id) (vf_bar2_offset_base + id * PCI_EP_VF_BAR2_SIZE)
+#define PCI_EP_VF_BAR0_OFFSET(id)	(id * PCI_EP_VF_BAR0_SIZE)
+#define PCI_EP_VF_BAR2_OFFSET(id)	(id * PCI_EP_VF_BAR2_SIZE)
 
-	if (lf_cont->vf_bar_offset_base)
-		vf_bar2_offset_base = lf_cont->vf_bar_offset_base;
-	else {
-		vf_bar2_offset_base = PCI_EP_VF_BAR2_OFFSET_BASE;
-
-		char *vf_offset = getenv("VF_OFFSET_BASE");
-
-		if (vf_offset)
-			vf_bar2_offset_base = strtol(vf_offset, NULL, 16);
-	}
-
-	uint64_t phys_addr = (PCI_EP_VF_BAR2_BASE_ADDR + PCI_EP_VF_BAR2_OFFSET(vf_id));
-	*pa = (void *)(uintptr_t)phys_addr;
-	err = sys_iomem_map(lf_cont->lf_mng->iomem, NULL, &phys_addr, va);
-	if (err) {
-		pr_err("failed to map VF%d!\n", vf_id);
-		return err;
+	if (bar == 0) {
+		*pa = (void *)(lf_cont->vf_bar0_map.phys_addr + PCI_EP_VF_BAR0_OFFSET(vf_id));
+		*va = (void *)(lf_cont->vf_bar0_map.virt_addr + PCI_EP_VF_BAR0_OFFSET(vf_id));
+	} else if (bar == 2) {
+		*pa = (void *)(lf_cont->vf_bar2_map.phys_addr + PCI_EP_VF_BAR2_OFFSET(vf_id));
+		*va = (void *)(lf_cont->vf_bar2_map.virt_addr + PCI_EP_VF_BAR2_OFFSET(vf_id));
+	} else {
+		pr_err("bar %d in invalid!\n", bar);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -298,7 +305,6 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 {
 	struct lf_mng		*_lf_mng;
 	struct nmcstm_params	 nmcstm_params;
-	struct sys_iomem_params  iomem_params;
 	int			 err, cntr, lf;
 
 	/*TODO: currently only one container is supported*/
@@ -316,15 +322,6 @@ int lf_mng_init(struct lf_mng_params *params, struct lf_mng **lf_mng)
 	_lf_mng->nmdisp = params->nmdisp;
 	_lf_mng->mqa = params->mqa;
 	_lf_mng->giu = params->giu;
-
-	iomem_params.devname = "VF MAP";
-	iomem_params.index = 0;
-	iomem_params.type = SYS_IOMEM_T_MMAP;
-	err = sys_iomem_init(&iomem_params, &_lf_mng->iomem);
-	if (err) {
-		pr_err("failed to created IOMEM for LF MNG!\n");
-		return err;
-	}
 
 	_lf_mng->num_containers = params->num_containers;
 	for (cntr = 0; cntr < _lf_mng->num_containers; cntr++) {
@@ -437,8 +434,6 @@ void lf_mng_deinit(struct lf_mng *lf_mng)
 		}
 		nmcstm_deinit(lf_mng->containers[cntr].nmcstm);
 	}
-
-	sys_iomem_deinit(lf_mng->iomem);
 
 	kfree(lf_mng);
 }

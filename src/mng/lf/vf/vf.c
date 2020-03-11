@@ -363,14 +363,8 @@ static int nmnicvf_mng_chn_init(struct nmnicvf *nmnicvf)
 	pcie_cfg->mac_addr[4] = mac_addr[4];
 	pcie_cfg->mac_addr[5] = mac_addr[5];
 
-	/*
-	 * MSI-X table base/offset.
-	 */
-	pcie_cfg->msi_x_tbl_offset = PCI_BAR0_MSI_X_TBL_BASE;
 	/* update the total memory needed for the device side */
 	pcie_cfg->dev_use_size = PCI_BAR0_DEV_RES_BASE;
-
-	nmnicvf->msix_table_base = (struct msix_table_entry *)(vf_cfg_virt + pcie_cfg->msi_x_tbl_offset);
 
 	return 0;
 }
@@ -495,6 +489,7 @@ static int nmnicvf_map_plat_func(struct nmnicvf *nmnicvf)
 static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 {
 	struct sys_iomem_params iomem_params;
+	u8 barid;
 	int ret;
 
 	pr_debug("Mapping function %s\n", PCI_EP_UIO_MEM_NAME);
@@ -506,25 +501,39 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 	if (ret)
 		return ret;
 
-	iomem_params.devname = "MSIX";
-	iomem_params.index = 0;
-	iomem_params.type = SYS_IOMEM_T_MMAP;
-	ret = sys_iomem_init(&iomem_params, &nmnicvf->msix_iomem);
-	if (ret)
-		return ret;
-
+	/* PCI configuration space */
+	barid = 2;
 	ret = nmnicvf->f_get_vf_bar_cb(nmnicvf->arg,
 				       nmnicvf->vf_id,
+				       barid,
 				       &nmnicvf->map.cfg_map.virt_addr,
 				       &nmnicvf->map.cfg_map.phys_addr);
 	if (ret) {
-		pr_err("VF#%d: failed to get BAR address\n", nmnicvf->vf_id);
+		pr_err("VF#%d: failed to get BAR#%d address\n", nmnicvf->vf_id, barid);
 		sys_iomem_deinit(nmnicvf->sys_iomem);
 		return ret;
 	}
 
-	pr_info("VF#%d: BAR mapped at virt:%p phys:%p\n", nmnicvf->vf_id,
+	pr_info("VF#%d: BAR#%d mapped at virt:%p phys:%p\n", nmnicvf->vf_id, barid,
 		nmnicvf->map.cfg_map.virt_addr, nmnicvf->map.cfg_map.phys_addr);
+
+	/* MSI-X space */
+	barid = 0;
+	ret = nmnicvf->f_get_vf_bar_cb(nmnicvf->arg,
+				       nmnicvf->vf_id,
+				       barid,
+				       &nmnicvf->map.host_msix_map.virt_addr,
+				       &nmnicvf->map.host_msix_map.phys_addr);
+	if (ret) {
+		pr_err("VF#%d: failed to get BAR#%d address\n", nmnicvf->vf_id, barid);
+		sys_iomem_deinit(nmnicvf->sys_iomem);
+		return ret;
+	}
+
+	pr_info("VF#%d: BAR#%d mapped at virt:%p phys:%p\n", nmnicvf->vf_id, barid,
+		nmnicvf->map.host_msix_map.virt_addr, nmnicvf->map.host_msix_map.phys_addr);
+
+	nmnicvf->msix_table_base = (struct msix_table_entry *)nmnicvf->map.host_msix_map.virt_addr;
 
 	/* Map the whole physical Packet Processor physical address */
 	ret = sys_iomem_map(nmnicvf->sys_iomem, "host-map", (phys_addr_t *)&nmnicvf->map.host_map.phys_addr,
@@ -533,6 +542,13 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 		sys_iomem_deinit(nmnicvf->sys_iomem);
 		return ret;
 	}
+
+	iomem_params.devname = "MSIX";
+	iomem_params.index = 0;
+	iomem_params.type = SYS_IOMEM_T_MMAP;
+	ret = sys_iomem_init(&iomem_params, &nmnicvf->msix_iomem);
+	if (ret)
+		return ret;
 
 #ifdef PCI_EP_PLATFORM_MODE
 	/* In this mode, the remote side is still running on the same platform
@@ -843,7 +859,7 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 			giu_get_msi_regs(nmnicvf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
 		} else {
 			/* PCI mode - Need to remap the msix's PA */
-			uint64_t phys_addr = (giu_gpio_q.msix_inf.pa + (uint64_t)nmnicvf->map.host_map.phys_addr);
+			uint64_t phys_addr = (PCI_EP_VF_HOST_MSIX_BASE_ADDR(nmnicvf->vf_id) + giu_gpio_q.msix_inf.pa);
 
 			err = sys_iomem_map(nmnicvf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
 			if (err) {
@@ -953,7 +969,7 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 			giu_get_msi_regs(nmnicvf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
 		} else {
 			/* PCI mode - Need to remap the msix's PA */
-			uint64_t phys_addr = (giu_gpio_q.msix_inf.pa + (uint64_t)nmnicvf->map.host_map.phys_addr);
+			uint64_t phys_addr = (PCI_EP_VF_HOST_MSIX_BASE_ADDR(nmnicvf->vf_id) + giu_gpio_q.msix_inf.pa);
 
 			err = sys_iomem_map(nmnicvf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
 			if (err) {

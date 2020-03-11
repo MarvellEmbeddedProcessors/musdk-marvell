@@ -53,4 +53,8 @@ struct pcie_config_mem {
 	u8	res3[928]; /* complete to 1KB */
 } __packed;
 
+#define PCI_EP_HOST_MSIX_BASE_ADDR	0x8400000000LL
+#define PCI_EP_VF_HOST_MSIX_SIZE	0x100000000LL
+#define PCI_EP_VF_HOST_MSIX_BASE_ADDR(vf_id) (PCI_EP_HOST_MSIX_BASE_ADDR + vf_id * PCI_EP_VF_HOST_MSIX_SIZE)
+
 #endif /* _HOST_PCI_IF_H_ */

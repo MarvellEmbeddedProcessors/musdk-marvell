@@ -11,7 +11,8 @@
 #define NMP_PCI_MAX_NUM_BARS	(32) /* this is the maximum BARs we allow for now */
 
 #define PCI_EP_UIO_MEM_NAME	"pci_ep"
-#define PCI_EP_UIO_REGION_NAME	"bar0"
+#define PCI_EP_UIO_REGION_BAR0_NAME	"bar0"
+#define PCI_EP_UIO_REGION_BAR2_NAME	"bar2"
 
 #define PCI_CONFIG_BAR_ID	0
 

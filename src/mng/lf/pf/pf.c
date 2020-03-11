@@ -360,7 +360,13 @@ static int nmnicpf_mng_chn_init(struct nmnicpf *nmnicpf)
 
 	pr_debug("Host is Ready\n");
 
-	nmnicpf->f_set_vf_bar_offset_base_cb(nmnicpf->arg, pcie_cfg->bar2_vf_start_off);
+	nmnicpf->f_set_vf_bar_offset_base_cb(nmnicpf->arg, 0,
+					     (u64)nmnicpf->map.cfg_map.phys_addr + pcie_cfg->bar0_vf_start_off,
+					     (u64)nmnicpf->map.cfg_map.virt_addr + pcie_cfg->bar0_vf_start_off);
+
+	nmnicpf->f_set_vf_bar_offset_base_cb(nmnicpf->arg, 2,
+					     (u64)nmnicpf->map.bar2_map.phys_addr + pcie_cfg->bar2_vf_start_off,
+					     (u64)nmnicpf->map.bar2_map.virt_addr + pcie_cfg->bar2_vf_start_off);
 
 	memset(&mng_ch_params, 0, sizeof(mng_ch_params));
 
@@ -551,7 +557,7 @@ static int nmnicpf_map_pci_bar(struct nmnicpf *nmnicpf)
 
 	/* Map the whole physical Packet Processor physical address */
 	ret = sys_iomem_map(nmnicpf->sys_iomem,
-			    PCI_EP_UIO_REGION_NAME,
+			    PCI_EP_UIO_REGION_BAR0_NAME,
 			    (phys_addr_t *)&nmnicpf->map.cfg_map.phys_addr,
 			    &nmnicpf->map.cfg_map.virt_addr);
 	if (ret) {
@@ -559,8 +565,20 @@ static int nmnicpf_map_pci_bar(struct nmnicpf *nmnicpf)
 		return ret;
 	}
 
-	pr_debug("BAR-0 of %s mapped at virt:%p phys:%p\n", PCI_EP_UIO_MEM_NAME,
+	pr_debug("BAR-0 mapped at virt:%p phys:%p\n",
 		nmnicpf->map.cfg_map.virt_addr, nmnicpf->map.cfg_map.phys_addr);
+
+	ret = sys_iomem_map(nmnicpf->sys_iomem,
+			    PCI_EP_UIO_REGION_BAR2_NAME,
+			    (phys_addr_t *)&nmnicpf->map.bar2_map.phys_addr,
+			    &nmnicpf->map.bar2_map.virt_addr);
+	if (ret) {
+		sys_iomem_deinit(nmnicpf->sys_iomem);
+		return ret;
+	}
+
+	pr_debug("BAR-2 mapped at virt:%p phys:%p\n",
+		nmnicpf->map.bar2_map.virt_addr, nmnicpf->map.bar2_map.phys_addr);
 
 	/* Map the whole physical Packet Processor physical address */
 	ret = sys_iomem_map(nmnicpf->sys_iomem, "host-map", (phys_addr_t *)&nmnicpf->map.host_map.phys_addr,
@@ -570,7 +588,7 @@ static int nmnicpf_map_pci_bar(struct nmnicpf *nmnicpf)
 		return ret;
 	}
 
-	pr_debug("host RAM of %s remapped to phys %p virt %p\n", "host-map",
+	pr_debug("host RAM mapped to phys %p virt %p\n",
 		   nmnicpf->map.host_map.phys_addr, nmnicpf->map.host_map.virt_addr);
 
 	return 0;

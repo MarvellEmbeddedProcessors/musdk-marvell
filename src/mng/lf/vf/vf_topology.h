@@ -55,6 +55,7 @@ struct msix_table_entry {
 struct pci_plat_func_map {
 	struct iomem_inf	 cfg_map;
 	struct iomem_inf	 host_map;
+	struct iomem_inf	 host_msix_map;
 	enum func_type		 type;
 };
 
@@ -89,7 +90,7 @@ struct nmnicvf {
 	int				(*f_ready_cb)(void *arg, u8 lf_id);
 	int				(*f_get_free_bar_cb)(void *arg, void **va, dma_addr_t *pa);
 	void				(*f_put_bar_cb)(void *arg, int index);
-	int				(*f_get_vf_bar_cb)(void *arg, u8 vf_id, void **va, void **pa);
+	int				(*f_get_vf_bar_cb)(void *arg, u8 vf_id, u8 bar, void **va, void **pa);
 	void				*arg;
 };
 
