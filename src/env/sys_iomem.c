@@ -284,6 +284,9 @@ static int iomem_uio_iomap(struct mem_uio	*uiom,
 
 	if (mem->fd >= 0) {
 		*va = uio_single_mmap(mem->info, mem->map_num, mem->fd);
+		if (!*va)
+			return -EINVAL;
+
 		if (pa)
 			*pa = (phys_addr_t)mem->info->maps[mem->map_num].addr;
 		iomem_uio_add_entry(&uiom->mem, mem);
