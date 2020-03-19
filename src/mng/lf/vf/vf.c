@@ -1040,9 +1040,11 @@ static int nmnicvf_close_command(struct nmnicvf *nmnicvf,
 				struct mgmt_cmd_resp *resp_data)
 {
 	pr_debug("Close message.\n");
-	pr_debug("Closing VF data path resources\n");
 
-	return -ENOTSUP;
+	if (nmnicvf->giu_gpio)
+		giu_gpio_clear_remote(nmnicvf->giu_gpio);
+
+	return 0;
 }
 
 /*
@@ -1245,7 +1247,7 @@ static int nmnicvf_process_vf_command(struct nmnicvf *nmnicvf,
 	case CC_CLOSE:
 		ret = nmnicvf_close_command(nmnicvf, cmd_params, resp_data);
 		if (ret)
-			pr_err("VF_IF_DOWN message failed\n");
+			pr_err("VF_CLOSE message failed\n");
 		break;
 
 	case CC_LOOPBACK:
