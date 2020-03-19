@@ -812,7 +812,7 @@ host_ing_queue_error:
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->rem_inqs[q_idx].q.mqa_q,
 					outtc->rem_inqs[q_idx].q.q_id,
 					HOST_INGRESS_DATA_QUEUE);
@@ -870,7 +870,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->rem_inqs[q_idx].q.mqa_q,
 					outtc->rem_inqs[q_idx].q.q_id,
 					HOST_INGRESS_DATA_QUEUE);
