@@ -565,7 +565,7 @@ lcl_ing_queue_error:
 		outtc = &((*gpio)->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT, (*gpio)->mqa,
+			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
 					outtc->outqs[q_idx].mqa_q,
 					outtc->outqs[q_idx].q_id,
 					LOCAL_INGRESS_DATA_QUEUE);
