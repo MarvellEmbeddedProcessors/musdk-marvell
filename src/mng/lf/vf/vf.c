@@ -1046,71 +1046,6 @@ static int nmnicvf_close_command(struct nmnicvf *nmnicvf,
 }
 
 /*
- *	nmnicvf_mac_addr_command
- */
-static int nmnicvf_mac_addr_command(struct nmnicvf *nmnicvf,
-				    struct mgmt_cmd_params *params,
-				    struct mgmt_cmd_resp *resp_data)
-{
-	struct nmdisp_msg nmdisp_msg;
-	int ret = 0;
-
-	pr_debug("Set mac address message\n");
-
-	if (!nmnicvf->guest_id)
-		return -ENOTSUP;
-
-	/* Notify Guest on mac-address change */
-	nmdisp_msg.ext = 0;
-	nmdisp_msg.dst_client = CDT_CUSTOM;
-	nmdisp_msg.dst_id = nmnicvf->guest_id;
-	nmdisp_msg.src_client = CDT_VF;
-	nmdisp_msg.src_id = nmnicvf->vf_id;
-	nmdisp_msg.indx = CMD_ID_NOTIFICATION;
-	nmdisp_msg.code = MSG_T_GUEST_MAC_ADDR_UPDATED;
-	nmdisp_msg.msg = params->mac_addr;
-	nmdisp_msg.msg_len = MAC_ADDR_LEN;
-	ret = nmdisp_send_msg(nmnicvf->nmdisp, 0, &nmdisp_msg);
-	if (ret)
-		pr_err("failed to send mac-addr-updated notification message\n");
-
-	return ret;
-}
-
-/*
- *	nmnicvf_mtu_command
- */
-static int nmnicvf_mtu_command(struct nmnicvf *nmnicvf,
-				    struct mgmt_cmd_params *params,
-				    struct mgmt_cmd_resp *resp_data)
-{
-	struct nmdisp_msg nmdisp_msg;
-	int ret = 0;
-
-	pr_debug("Set mtu message\n");
-
-	if (!nmnicvf->guest_id)
-		return -ENOTSUP;
-
-	/* Notify Guest on mtu change */
-	nmdisp_msg.ext = 0;
-	nmdisp_msg.dst_client = CDT_CUSTOM;
-	nmdisp_msg.dst_id = nmnicvf->guest_id;
-	nmdisp_msg.src_client = CDT_VF;
-	nmdisp_msg.src_id = nmnicvf->vf_id;
-	nmdisp_msg.indx = CMD_ID_NOTIFICATION;
-	nmdisp_msg.code = MSG_T_GUEST_MTU_UPDATED;
-	nmdisp_msg.msg  = &params->set_mtu;
-	nmdisp_msg.msg_len = sizeof(params->set_mtu);
-
-	ret = nmdisp_send_msg(nmnicvf->nmdisp, 0, &nmdisp_msg);
-	if (ret)
-		pr_err("failed to send mtu set message\n");
-
-	return ret;
-}
-
-/*
  *	nmnicvf_rx_promisc_command
  */
 static int nmnicvf_rx_promisc_command(struct nmnicvf *nmnicvf,
@@ -1309,30 +1244,6 @@ static int nmnicvf_process_vf_command(struct nmnicvf *nmnicvf,
 
 	case CC_CLOSE:
 		ret = nmnicvf_close_command(nmnicvf, cmd_params, resp_data);
-		if (ret)
-			pr_err("VF_IF_DOWN message failed\n");
-		break;
-
-	case CC_MAC_ADDR:
-		ret = nmnicvf_mac_addr_command(nmnicvf, cmd_params, resp_data);
-		if (ret)
-			pr_err("VF_IF_DOWN message failed\n");
-		break;
-
-	case CC_PROMISC:
-		ret = nmnicvf_rx_promisc_command(nmnicvf, cmd_params, resp_data);
-		if (ret)
-			pr_err("CC_PROMISC message failed\n");
-		break;
-
-	case CC_MC_PROMISC:
-		ret = nmnicvf_rx_mc_promisc_command(nmnicvf, cmd_params, resp_data);
-		if (ret)
-			pr_err("CC_MC_PROMISC message failed\n");
-		break;
-
-	case CC_MTU:
-		ret = nmnicvf_mtu_command(nmnicvf, cmd_params, resp_data);
 		if (ret)
 			pr_err("VF_IF_DOWN message failed\n");
 		break;
@@ -1556,35 +1467,6 @@ static int nmnicvf_serialize_relations_info(struct nmnicvf *nmnicvf, char *buff,
 	return pos;
 }
 
-static int nmnicvf_notif_link_change(struct nmnicvf *nmnicvf, int link_status)
-{
-	struct nmdisp_msg msg;
-	struct mgmt_notification resp;
-	int ret;
-
-	msg.ext = 1;
-	msg.code = NC_LINK_CHANGE;
-	msg.indx = CMD_ID_NOTIFICATION;
-	msg.dst_client = CDT_VF;
-	msg.dst_id = nmnicvf->vf_id;
-	msg.src_client = CDT_PF;
-	msg.src_id = nmnicvf->vf_id;
-	msg.msg = &resp;
-	msg.msg_len = sizeof(struct mgmt_notification);
-
-	resp.link_status = link_status;
-
-	ret = nmdisp_send_msg(nmnicvf->nmdisp, 0, &msg);
-	if (ret) {
-		pr_err("failed to send link-status notification message\n");
-		return ret;
-	}
-
-	pr_debug("Link status notification was sent (cmd-code :%d).\n", NC_LINK_CHANGE);
-
-	return 0;
-}
-
 /*
  *	nmnicpf_link_state_check_n_notif
  *
@@ -1609,7 +1491,6 @@ static int nmnicvf_link_state_check_n_notif(struct nmnicvf *nmnicvf)
 			giu_gpio_enable(nmnicvf->giu_gpio);
 		else
 			giu_gpio_disable(nmnicvf->giu_gpio);
-		nmnicvf_notif_link_change(nmnicvf, link_state);
 		nmnicvf->last_link_state = link_state;
 	}
 
