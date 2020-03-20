@@ -111,9 +111,8 @@ struct giu_gpio {
 	struct giu_gpio_outtc	 outtcs[GIU_GPIO_MAX_NUM_TCS];
 };
 
-
 static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
-	struct mqa_q *q, u32 q_id, enum queue_type queue_type)
+	struct mqa_q *q, u32 q_id, struct mqa_q *src_q, enum queue_type queue_type)
 {
 	struct gie *gie = NULL;
 	int ret = 0;
@@ -143,7 +142,16 @@ static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 			if (queue_type == LOCAL_BM_QUEUE ||
 			    queue_type == HOST_BM_QUEUE)
 				ret = gie_remove_bm_queue(gie, q_id);
-			else
+			else if (queue_type == HOST_INGRESS_DATA_QUEUE) {
+				u32 src_qid;
+
+				if (!src_q) {
+					pr_err("src-q for queue Idx %d is NULL\n", q_id);
+					return ret;
+				}
+				mqa_queue_get_id(src_q, &src_qid);
+				ret = gie_remove_queue(gie, src_qid);
+			} else
 				ret = gie_remove_queue(gie, q_id);
 			if (ret) {
 				pr_err("Failed to remove queue Idx %d from GIU\n", q_id);
@@ -151,15 +159,10 @@ static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 			}
 		}
 
-		/* For local queue: destroy the queue (as it was allocated by the NIC */
-		if (queue_type == LOCAL_INGRESS_DATA_QUEUE ||
-		    queue_type == LOCAL_EGRESS_DATA_QUEUE ||
-		    queue_type == LOCAL_BM_QUEUE) {
-			ret = mqa_queue_destroy(mqa, q);
-			if (ret) {
-				pr_err("Failed to free queue Idx %x in DB\n", q_id);
-				return ret;
-			}
+		ret = mqa_queue_destroy(mqa, q);
+		if (ret) {
+			pr_err("Failed to free queue Idx %x in DB\n", q_id);
+			return ret;
 		}
 	}
 
@@ -552,6 +555,7 @@ lcl_eg_queue_error:
 			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
 					intc->inqs[q_idx].mqa_q,
 					intc->inqs[q_idx].q_id,
+					NULL,
 					LOCAL_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
@@ -568,6 +572,7 @@ lcl_ing_queue_error:
 			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
 					outtc->outqs[q_idx].mqa_q,
 					outtc->outqs[q_idx].q_id,
+					NULL,
 					LOCAL_INGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
@@ -799,6 +804,7 @@ host_eg_queue_error:
 			ret = destroy_q(gpio->giu, GIU_ENG_IN, gpio->mqa,
 					intc->rem_outqs[q_idx].mqa_q,
 					intc->rem_outqs[q_idx].q_id,
+					NULL,
 					HOST_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
@@ -815,6 +821,7 @@ host_ing_queue_error:
 			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->rem_inqs[q_idx].q.mqa_q,
 					outtc->rem_inqs[q_idx].q.q_id,
+					outtc->outqs[q_idx].mqa_q,
 					HOST_INGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
@@ -831,6 +838,7 @@ host_queue_error:
 			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->rem_inqs[bm_idx].poolq.mqa_q,
 					outtc->rem_inqs[bm_idx].poolq.q_id,
+					NULL,
 					HOST_BM_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
@@ -858,11 +866,13 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 			ret = destroy_q(gpio->giu, GIU_ENG_IN, gpio->mqa,
 					intc->rem_outqs[q_idx].mqa_q,
 					intc->rem_outqs[q_idx].q_id,
+					NULL,
 					HOST_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to destroy queue Idx %x\n",
 					intc->rem_outqs[q_idx].q_id);
 		}
+		intc->num_rem_outqs = 0;
 	}
 
 	pr_debug("De-initializing Remote In queues\n");
@@ -873,6 +883,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->rem_inqs[q_idx].q.mqa_q,
 					outtc->rem_inqs[q_idx].q.q_id,
+					outtc->outqs[q_idx].mqa_q,
 					HOST_INGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to destroy queue Idx %x\n",
@@ -888,11 +899,13 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->rem_inqs[bm_idx].poolq.mqa_q,
 					outtc->rem_inqs[bm_idx].poolq.q_id,
+					NULL,
 					HOST_BM_QUEUE);
 			if (ret)
 				pr_warn("Failed to destroy queue Idx %x\n",
 					outtc->rem_inqs[bm_idx].poolq.q_id);
 		}
+		outtc->num_rem_inqs = 0;
 	}
 }
 
@@ -913,6 +926,7 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
 					intc->inqs[q_idx].mqa_q,
 					intc->inqs[q_idx].q_id,
+					NULL,
 					LOCAL_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
@@ -928,6 +942,7 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
 					outtc->outqs[q_idx].mqa_q,
 					outtc->outqs[q_idx].q_id,
+					NULL,
 					LOCAL_INGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
