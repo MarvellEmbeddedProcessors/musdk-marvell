@@ -1499,6 +1499,33 @@ static int nmnicvf_link_state_check_n_notif(struct nmnicvf *nmnicvf)
 	return 0;
 }
 
+static int nmnicvf_mgmt_close_check(struct nmnicvf *nmnicvf)
+{
+	volatile struct pcie_config_mem *pcie_cfg;
+	struct giu_mng_ch_qs		mng_ch_qs;
+
+	pcie_cfg = (struct pcie_config_mem *)nmnicvf->map.cfg_map.virt_addr;
+
+	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_CLOSE_REQ))
+		/* reset bit wan't not set */
+		return 0;
+	pr_debug("VF#%d: got 'mgmt-close' request\n", nmnicvf->vf_id);
+
+	/* unregister mng queues from dispatcher */
+	if (nmnicvf->giu_mng_ch) {
+		giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
+		nmdisp_remove_queue(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id, mng_ch_qs.lcl_cmd_q);
+		/* destroy mng queues */
+		giu_mng_ch_deinit(nmnicvf->giu_mng_ch);
+		nmnicvf->giu_mng_ch = NULL;
+	}
+
+	/* Request Complete */
+	writel(PCIE_CFG_STATUS_HOST_MGMT_CLOSE_DONE, &pcie_cfg->status);
+
+	return 0;
+}
+
 static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
 {
 	struct giu_mng_ch_qs		mng_ch_qs;
@@ -1541,6 +1568,11 @@ static int nmnicvf_maintenance(struct nmlf *nmlf)
 
 	/* Check for reset signal */
 	err = nmnicvf_reset_check(nmnicvf);
+	if (err)
+		return err;
+
+	/* Check for mgmt-close signal */
+	err = nmnicvf_mgmt_close_check(nmnicvf);
 	if (err)
 		return err;
 
