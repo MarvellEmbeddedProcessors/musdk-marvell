@@ -182,7 +182,7 @@ static struct gie_q_pair *gie_get_next_q(struct gie *gie, u16 *scanned_prios, u1
 				break;
 			qp = &prio->qpairs[prio->curr_q];
 			prio->curr_q++;
-			if (prio->curr_q == prio->q_cnt)
+			if (prio->curr_q >= prio->q_cnt)
 				prio->curr_q = 0;
 			j++;
 			/* If we found an active queue within the priority, return it */
