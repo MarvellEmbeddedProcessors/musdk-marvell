@@ -100,7 +100,7 @@
 		"dma_engines": {
 			"mng": "dmax2-0",
 			"in": "dmax2-2",
-			"out": "dmax2-3",
+			"out": "dmax2-1",
 		}
 	}
 }
