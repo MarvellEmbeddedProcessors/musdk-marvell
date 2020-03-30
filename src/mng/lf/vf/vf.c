@@ -851,7 +851,7 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 		(void *)(params->ingress_data_q_add.q_cons_offs + nmnicvf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicvf->map.host_map.phys_addr;
 
-	if (params->ingress_data_q_add.msix_id) {
+	if (params->ingress_data_q_add.msix_id != AGNIC_MGMT_MSIX_ID_INVALID) {
 		msix_entry = &nmnicvf->msix_table_base[params->ingress_data_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
@@ -961,7 +961,7 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 		(void *)(params->egress_q_add.q_cons_offs + nmnicvf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicvf->map.host_map.phys_addr;
 
-	if (params->egress_q_add.msix_id) {
+	if (params->egress_q_add.msix_id != AGNIC_MGMT_MSIX_ID_INVALID) {
 		msix_entry = &nmnicvf->msix_table_base[params->egress_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;

@@ -94,6 +94,7 @@ enum ingress_hash_type {
 #define GET_MGMT_CMD_FIELD(word, off, msk)	((word >> off) & msk)
 
 #define MAC_ADDR_LEN	6
+#define AGNIC_MGMT_MSIX_ID_INVALID	(-1)
 
 struct rate_limit_params {
 	u32 cbs;	/* committed_burst_size, in kilobytes. Min: 64kB */
