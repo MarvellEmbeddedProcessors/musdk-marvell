@@ -572,14 +572,12 @@ int queue_associate_notify_intr(struct mqa *mqa, u32 queue_id, struct mqa_queue_
 	/* Calculate queue entries in MQA tables */
 	qpt = ((struct mqa_qpt_entry *)mqa->qpt_base) + queue_id;
 
-	qpt->common.msix_inf.id = params->id;
 	qpt->common.msix_inf.data = params->data;
 	qpt->common.msix_inf.pa = params->pa;
 	qpt->common.msix_inf.va = params->va;
 
 	qct = ((struct mqa_qct_entry *)mqa->qct_base) + queue_id;
 
-	qct->common.msix_inf.id = params->id;
 	qct->common.msix_inf.data = params->data;
 	qct->common.msix_inf.pa = params->pa;
 	qct->common.msix_inf.va = params->va;

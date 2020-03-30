@@ -692,7 +692,6 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 				 tc_idx, q_idx, mqa_params.idx, mqa_params.len, mqa_params.bpool_qids[0]);
 
 			/* Set message info */
-			mqa_params.msix_inf.id = rem_q_par->msix_inf.id;
 			mqa_params.msix_inf.va = rem_q_par->msix_inf.va;
 			mqa_params.msix_inf.pa = rem_q_par->msix_inf.pa;
 			mqa_params.msix_inf.data = rem_q_par->msix_inf.data;
@@ -762,7 +761,6 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			mqa_params.sg_en	   = gpio->sg_en;
 
 			/* Set message info */
-			mqa_params.msix_inf.id = rem_q_par->msix_inf.id;
 			mqa_params.msix_inf.va = rem_q_par->msix_inf.va;
 			mqa_params.msix_inf.pa = rem_q_par->msix_inf.pa;
 			mqa_params.msix_inf.data = rem_q_par->msix_inf.data;

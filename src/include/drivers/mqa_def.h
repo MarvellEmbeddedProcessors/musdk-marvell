@@ -15,10 +15,9 @@
  */
 
 struct mqa_queue_msix_inf {
-	u32		 id;	/**< MSI interrupt Id   (0 = unused) */
 	u32		 data;
 	phys_addr_t	 pa;
-	void		*va;
+	void		*va; /**< If NULL disabled */
 };
 
 /** MQA extended queue parameters */

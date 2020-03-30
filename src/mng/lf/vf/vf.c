@@ -836,8 +836,7 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 	giu_gpio_q.host_remap   = nmnicvf->map.host_map.phys_addr;
 
 	if (params->ingress_data_q_add.msix_id) {
-		giu_gpio_q.msix_inf.id = params->ingress_data_q_add.msix_id;
-		msix_entry = &nmnicvf->msix_table_base[giu_gpio_q.msix_inf.id];
+		msix_entry = &nmnicvf->msix_table_base[params->ingress_data_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
 		if (nmnicvf->map.type == ft_plat) {
@@ -848,12 +847,13 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 
 			err = sys_iomem_map(nmnicvf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
 			if (err) {
-				pr_err("failed to map VF%d-MSIX%d!\n", nmnicvf->vf_id, giu_gpio_q.msix_inf.id);
+				pr_err("failed to map VF%d-MSIX%d!\n", nmnicvf->vf_id,
+				       params->ingress_data_q_add.msix_id);
 				return err;
 			}
 			pr_info("Host Ingress TC[%d], MSIX%d: host_pa 0x%"PRIx64", host_data 0x%x, host_remap_pa %"PRIx64", host_remap_va %p\n",
-				msg_tc, giu_gpio_q.msix_inf.id, msix_entry->msg_addr, msix_entry->msg_data, phys_addr,
-				giu_gpio_q.msix_inf.va);
+				msg_tc, params->ingress_data_q_add.msix_id, msix_entry->msg_addr, msix_entry->msg_data,
+				phys_addr, giu_gpio_q.msix_inf.va);
 		}
 	}
 
@@ -945,9 +945,8 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 		(void *)(params->egress_q_add.q_cons_offs + nmnicvf->map.cfg_map.virt_addr);
 	giu_gpio_q.host_remap   = nmnicvf->map.host_map.phys_addr;
 
-	if (params->ingress_data_q_add.msix_id) {
-		giu_gpio_q.msix_inf.id = params->ingress_data_q_add.msix_id;
-		msix_entry = &nmnicvf->msix_table_base[giu_gpio_q.msix_inf.id];
+	if (params->egress_q_add.msix_id) {
+		msix_entry = &nmnicvf->msix_table_base[params->egress_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
 		if (nmnicvf->map.type == ft_plat) {
@@ -958,12 +957,12 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 
 			err = sys_iomem_map(nmnicvf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
 			if (err) {
-				pr_err("failed to map VF%d-MSIX%d!\n", nmnicvf->vf_id, giu_gpio_q.msix_inf.id);
+				pr_err("failed to map VF%d-MSIX%d!\n", nmnicvf->vf_id, params->egress_q_add.msix_id);
 				return err;
 			}
-			pr_info("Host Ingress TC[%d], MSIX%d: host_pa 0x%"PRIx64", host_data 0x%x, host_remap_pa %"PRIx64", host_remap_va %p\n",
-				msg_tc, giu_gpio_q.msix_inf.id, msix_entry->msg_addr, msix_entry->msg_data, phys_addr,
-				giu_gpio_q.msix_inf.va);
+			pr_info("Host Egress TC[%d], MSIX%d: host_pa 0x%"PRIx64", host_data 0x%x, host_remap_pa %"PRIx64", host_remap_va %p\n",
+				msg_tc, params->egress_q_add.msix_id, msix_entry->msg_addr, msix_entry->msg_data,
+				phys_addr, giu_gpio_q.msix_inf.va);
 		}
 	}
 

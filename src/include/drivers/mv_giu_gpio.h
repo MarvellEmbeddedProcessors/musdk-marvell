@@ -48,10 +48,9 @@ struct giu_gpio_lcl_q_params {
 };
 
 struct giu_gpio_rem_q_msix_inf {
-	u32		 id;	/**< MSI interrupt Id   (0 = unused) */
 	u32		 data;
 	phys_addr_t	 pa;
-	void		*va;
+	void		*va; /**< If NULL disabled */
 };
 
 struct giu_gpio_rem_q_params {
