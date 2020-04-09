@@ -190,9 +190,6 @@ int giu_bpool_serialize(struct giu_bpool *bpool, char *buff, u32 size, u8 depth)
 	json_print_to_buffer(buff, size, depth + 1, "\"cons_offset\": %#x,\n", offs);
 	json_print_to_buffer(buff, size, depth, "},\n");
 
-	/* mark this bpool as use but not for guest */
-	giu_bpools[bpool->id].internal_param = (void *)(-1);
-
 	return pos;
 }
 
@@ -250,8 +247,7 @@ int giu_bpool_probe(char *match, char *buff, struct giu_bpool **bpool)
 
 	_bpool = &giu_bpools[bpool_id];
 
-	if (_bpool->internal_param &&
-	    (_bpool->internal_param != (void *)(-1))) {
+	if (_bpool->internal_param) {
 		pr_err("[%s] BPool id %d is already in use\n", __func__, bpool_id);
 		kfree(lbuff);
 		return -EEXIST;
@@ -325,8 +321,6 @@ void giu_bpool_remove(struct giu_bpool *bpool)
 {
 	struct giu_bpool_int	*bp_int = (struct giu_bpool_int *)bpool->internal_param;
 
-	/* mark this bpool as use but not for guest */
-	giu_bpools[bpool->id].internal_param = (void *)(-1);
 	kfree(bp_int);
 }
 
@@ -448,7 +442,7 @@ int giu_bpool_get_capabilities(struct giu_bpool *bpool, struct giu_bpool_capabil
 
 int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool)
 {
-	struct giu_bpool_int		*bp_int = (struct giu_bpool_int *)bpool->internal_param;
+	struct giu_bpool_int	*bp_int = (struct giu_bpool_int *)bpool->internal_param;
 
 	return bp_int->q_id;
 }
