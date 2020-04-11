@@ -1412,6 +1412,9 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 	kfree(lbuff);
 	*gpio = _gpio;
 
+	giu_gpio_disable(_gpio);
+	giu_gpio_reset(_gpio);
+
 	return 0;
 }
 
@@ -1721,7 +1724,45 @@ int giu_gpio_recv(struct giu_gpio *gpio, u8 tc, u8 qid, struct giu_gpio_desc *de
 	return 0;
 }
 
+void giu_gpio_reset(struct giu_gpio *gpio)
+{
+	struct giu_gpio_outtc	*outtc;
+	struct giu_gpio_intc	*intc;
+	struct giu_gpio_queue	*q;
+	int tc_idx, q_idx;
 
+	if (gpio->is_guest) {
+		nmp_guest_giu_gpio_reset(gpio->match);
+		return;
+	}
+
+	for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+		intc = &gpio->intcs[tc_idx];
+
+		/* Clear intc interim qs */
+		for (q_idx = 0; q_idx < intc->num_interim_qs; q_idx++) {
+			q = &intc->interim_qs[q_idx].queue;
+			writel(0, q->cons_addr);
+			writel(0, q->prod_addr);
+		}
+
+		/* Drain intc local-q from old buffers */
+		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
+			q = &intc->inqs[q_idx].queue;
+			writel(readl_relaxed(q->prod_addr), q->cons_addr);
+		}
+	}
+
+	/* Clear outtc interim qs */
+	for (tc_idx = 0; tc_idx < gpio->num_outtcs; tc_idx++) {
+		outtc = &gpio->outtcs[tc_idx];
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
+			q = &outtc->interim_qs[q_idx].queue;
+			writel(0, q->cons_addr);
+			writel(0, q->prod_addr);
+		}
+	}
+}
 
 int giu_gpio_get_capabilities(struct giu_gpio *gpio, struct giu_gpio_capabilities *capa)
 {

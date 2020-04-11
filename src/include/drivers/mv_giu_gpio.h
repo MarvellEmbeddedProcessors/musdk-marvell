@@ -148,6 +148,8 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 
 void giu_gpio_clear_remote(struct giu_gpio *gpio);
 
+void giu_gpio_reset(struct giu_gpio *gpio);
+
 /**
  * Serialize the GPIO parameters
  *
