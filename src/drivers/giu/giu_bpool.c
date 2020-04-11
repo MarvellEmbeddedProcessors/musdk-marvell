@@ -446,3 +446,12 @@ int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool)
 
 	return bp_int->q_id;
 }
+
+void giu_bpool_reset(struct giu_bpool *bpool)
+{
+	struct giu_bpool_int	*bp_int = (struct giu_bpool_int *)bpool->internal_param;
+	struct giu_gpio_queue	*bpq = &bp_int->queue;
+
+	writel(0, bpq->cons_addr);
+	writel(0, bpq->prod_addr);
+}

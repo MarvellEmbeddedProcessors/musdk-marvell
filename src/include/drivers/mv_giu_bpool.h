@@ -159,6 +159,13 @@ int giu_bpool_put_buffs(struct giu_bpool *pool, struct giu_buff_inf buff_entry[]
  */
 int giu_bpool_get_num_buffs(struct giu_bpool *pool, u32 *num_buffs);
 
+/**
+ * Reset the pool to empty state
+ *
+ * @param[in]	pool		A bpool handle.
+ *
+ */
+void giu_bpool_reset(struct giu_bpool *bpool);
 
 struct giu_bpool_capabilities {
 	u32 buff_len; /**< buffer length */
