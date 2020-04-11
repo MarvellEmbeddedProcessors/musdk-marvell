@@ -1422,12 +1422,40 @@ void giu_gpio_remove(struct giu_gpio *gpio)
 
 int giu_gpio_enable(struct giu_gpio *gpio)
 {
-	int err;
+	struct giu_gpio_outtc	*outtc;
+	struct giu_gpio_intc	*intc;
+	u32			 tc_idx, q_idx;
+	int			 err;
 
 	if (gpio->is_guest) {
 		err = nmp_guest_giu_gpio_enable(gpio->match);
 		if (err)
 			return err;
+	} else {
+		/* Resume all SRC-Qs to GIE scheduling */
+		pr_debug("Suspend Remote Out queues\n");
+		for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+			intc = &(gpio->intcs[tc_idx]);
+			outtc = &(gpio->outtcs[tc_idx]);
+
+			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
+				err = gie_resume_queue(gpio->giu->gies[GIU_ENG_IN], intc->rem_outqs[q_idx].q_id);
+				if (err) {
+					pr_err("Failed to resume queue Idx %d\n",
+						intc->rem_outqs[q_idx].q_id);
+					return err;
+				}
+			}
+
+			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+				err = gie_resume_queue(gpio->giu->gies[GIU_ENG_OUT], outtc->outqs[q_idx].q_id);
+				if (err) {
+					pr_err("Failed to resume queue Idx %d\n",
+						outtc->outqs[q_idx].q_id);
+					return err;
+				}
+			}
+		}
 	}
 
 	gpio->is_enable = 1;
@@ -1437,12 +1465,40 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 
 int giu_gpio_disable(struct giu_gpio *gpio)
 {
-	int err;
+	struct giu_gpio_outtc	*outtc;
+	struct giu_gpio_intc	*intc;
+	u32			 tc_idx, q_idx;
+	int			 err;
 
 	if (gpio->is_guest) {
 		err = nmp_guest_giu_gpio_disable(gpio->match);
 		if (err)
 			return err;
+	} else {
+		/* Suspend all SRC-Qs from GIE scheduling */
+		pr_debug("Suspend Remote Out queues\n");
+		for (tc_idx = 0; tc_idx < gpio->num_intcs; tc_idx++) {
+			intc = &(gpio->intcs[tc_idx]);
+			outtc = &(gpio->outtcs[tc_idx]);
+
+			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
+				err = gie_suspend_queue(gpio->giu->gies[GIU_ENG_IN], intc->rem_outqs[q_idx].q_id);
+				if (err) {
+					pr_err("Failed to suspend queue Idx %d\n",
+						intc->rem_outqs[q_idx].q_id);
+					return err;
+				}
+			}
+
+			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+				err = gie_suspend_queue(gpio->giu->gies[GIU_ENG_OUT], outtc->outqs[q_idx].q_id);
+				if (err) {
+					pr_err("Failed to suspend queue Idx %d\n",
+						outtc->outqs[q_idx].q_id);
+					return err;
+				}
+			}
+		}
 	}
 
 	gpio->is_enable = 0;
