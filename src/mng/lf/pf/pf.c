@@ -1976,6 +1976,19 @@ static int nmnicpf_queue_rate_limit_command(struct nmnicpf *nmnicpf,
 	return 0;
 }
 
+static void nmnicpf_guest_reset(struct nmnicpf *nmnicpf)
+{
+	struct giu_gpio_intc_params	*intc;
+	u8				 bm_idx;
+
+	giu_gpio_reset(nmnicpf->giu_gpio);
+
+	/* we assume all in-TCs share the same BPools */
+	intc = &(nmnicpf->gpio_params.intcs_params[0]);
+	for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++)
+		giu_bpool_reset(nmnicpf->giu_bpools[bm_idx]);
+}
+
 /*
  *	nmnicpf_process_pf_command
  *
@@ -2211,7 +2224,10 @@ static void nmnicpf_process_guest_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_link_state_get(nmnicpf, &link_state);
 		if (!ret)
 			resp.giu_resp.link_state = link_state;
+		break;
 
+	case MSG_F_GUEST_GPIO_RESET:
+		nmnicpf_guest_reset(nmnicpf);
 		break;
 
 	case MSG_F_GUEST_TABLE_INIT:

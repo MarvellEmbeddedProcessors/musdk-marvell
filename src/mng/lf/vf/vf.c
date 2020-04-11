@@ -1167,6 +1167,19 @@ static int nmnicvf_gp_queue_get_statistics(struct nmnicvf *nmnicvf,
 	return 0;
 }
 
+static void nmnicvf_guest_reset(struct nmnicvf *nmnicvf)
+{
+	struct giu_gpio_intc_params	*intc;
+	u8				 bm_idx;
+
+	giu_gpio_reset(nmnicvf->giu_gpio);
+
+	/* we assume all in-TCs share the same BPools */
+	intc = &(nmnicvf->gpio_params.intcs_params[0]);
+	for (bm_idx = 0; bm_idx < intc->num_inpools; bm_idx++)
+		giu_bpool_reset(nmnicvf->giu_bpools[bm_idx]);
+}
+
 /*
  *	nmnicvf_process_vf_command
  *
@@ -1310,6 +1323,10 @@ static void nmnicvf_process_guest_command(struct nmnicvf *nmnicvf,
 
 	case MSG_F_GUEST_GPIO_GET_LINK_STATE:
 		resp.giu_resp.link_state = ((nmnicvf->link_up_mask & LINK_UP_MASK) == LINK_UP_MASK);
+		break;
+
+	case MSG_F_GUEST_GPIO_RESET:
+		nmnicvf_guest_reset(nmnicvf);
 		break;
 
 	default:
