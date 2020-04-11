@@ -131,6 +131,30 @@ int gie_remove_queue(void *gie, u16 qid);
 int gie_remove_bm_queue(void *gie, u16 qid);
 
 /**
+ * Suspend Queue from GIE scheduling.
+ *
+ * @param[in]	gie		A GIE handler.
+ * @param[in]	qid		queue ID.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ *
+ */
+int gie_suspend_queue(void *gie, u16 qid);
+
+/**
+ * Resume Queue to GIE scheduling.
+ *
+ * @param[in]	gie		A GIE handler.
+ * @param[in]	qid		queue ID.
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ *
+ */
+int gie_resume_queue(void *gie, u16 qid);
+
+/**
  * Start GIE scheduling.
  *
  * @param[in]	gie		A GIE handler.

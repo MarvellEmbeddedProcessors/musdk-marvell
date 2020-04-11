@@ -1259,6 +1259,48 @@ int gie_remove_bm_queue(void *giu, u16 qid)
 	return 0;
 }
 
+int gie_suspend_queue(void *giu, u16 qid)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_q_pair *qp;
+
+	qp = gie_find_q_pair(gie, qid);
+	if (qp == NULL) {
+		pr_warn("Cannot find queue %d to suspend\n", qid);
+		return -ENODEV;
+	}
+	/* we don't allow suspend Q if it is not the SRC-Q! */
+	if (qp->src_q.qid != qid) {
+		pr_warn("Cannot find queue %d to suspend (as src-q)!\n", qid);
+		return -ENODEV;
+	}
+
+	qp->flags &= ~GIE_QPAIR_ACTIVE;
+
+	return 0;
+}
+
+int gie_resume_queue(void *giu, u16 qid)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_q_pair *qp;
+
+	qp = gie_find_q_pair(gie, qid);
+	if (qp == NULL) {
+		pr_warn("Cannot find queue %d to resume\n", qid);
+		return -ENODEV;
+	}
+	/* we don't allow resume Q if it is not the SRC-Q! */
+	if (qp->src_q.qid != qid) {
+		pr_warn("Cannot find queue %d to resume (as src-q)!\n", qid);
+		return -ENODEV;
+	}
+
+	qp->flags |= GIE_QPAIR_ACTIVE;
+
+	return 0;
+}
+
 int gie_schedule(void *giu, u64 time_limit, u64 qe_limit, u16 *pending)
 {
 	struct gie *gie = (struct gie *)giu;
