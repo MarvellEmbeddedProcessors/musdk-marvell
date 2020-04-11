@@ -93,4 +93,24 @@ int nmp_guest_giu_gpio_get_link_state(char *gpio_match, int *en)
 	return 0;
 }
 
+int nmp_guest_giu_gpio_reset(char *gpio_match)
+{
+	struct nmp_guest *guest = nmp_guest_get_handle();
+	struct guest_cmd_resp resp;
+	u8 lf_type = 0, lf_id = 0;
+	int ret;
+
+	ret = nmp_guest_find_lf_from_match(guest, gpio_match, &lf_type, &lf_id);
+	if (ret)
+		return ret;
+
+	ret = send_internal_msg(guest, lf_type, lf_id, MSG_F_GUEST_GPIO_RESET, 0, NULL, 0, &resp, sizeof(resp));
+	if (ret)
+		return ret;
+	if (resp.status == RESP_STATUS_FAIL)
+		return -1;
+
+	return 0;
+}
+
 
