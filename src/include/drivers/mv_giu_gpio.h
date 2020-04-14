@@ -406,7 +406,7 @@ enum giu_outq_l4_status {
 /* cmd 0 */
 #define GIU_TXD_GET_L3_OFF(desc)	(((desc)->cmds[0] & GIU_TXD_L3_OFF_MASK) >> 0)
 #define GIU_TXD_GET_IPHDR_LEN(desc)	(((desc)->cmds[0] & GIU_TXD_IPHDR_LEN_MASK) >> 8)
-#define GIU_TXD_GET_HK_MODE(desc)	(((desc)->cmds[0] & GIU_TXD_HK_MODE_MASK) >> 0)
+#define GIU_TXD_GET_HK_MODE(desc)	(((desc)->cmds[0] & GIU_TXD_HK_MODE_MASK) >> 21)
 #define GIU_TXD_GET_L4_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L4_PRS_INFO_MASK) >> 25)
 #define GIU_TXD_GET_L3_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L3_PRS_INFO_MASK) >> 28)
 
