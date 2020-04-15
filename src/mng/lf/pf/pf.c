@@ -1989,6 +1989,25 @@ static void nmnicpf_guest_reset(struct nmnicpf *nmnicpf)
 		giu_bpool_reset(nmnicpf->giu_bpools[bm_idx]);
 }
 
+static int nmnicpf_get_capabilities(struct nmnicpf *nmnicpf,
+				    struct mgmt_cmd_params *params,
+				    struct mgmt_cmd_resp *resp_data)
+{
+	int bm_idx;
+
+	resp_data->capabilities.max_buf_size = 0;
+	for (bm_idx = 0; bm_idx < nmnicpf->profile_data.lcl_bp_num; bm_idx++)
+		if (nmnicpf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size > resp_data->capabilities.max_buf_size)
+			resp_data->capabilities.max_buf_size =
+				nmnicpf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size;
+
+	resp_data->capabilities.flags = 0;
+	if (nmnicpf->profile_data.sg_en)
+		resp_data->capabilities.flags |= CAPABILITIES_SG;
+
+	return 0;
+}
+
 /*
  *	nmnicpf_process_pf_command
  *
@@ -2183,6 +2202,12 @@ static int nmnicpf_process_pf_command(struct nmnicpf *nmnicpf,
 		ret = nmnicpf_queue_rate_limit_command(nmnicpf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_QUEUE_RATE_LIMIT message failed\n");
+		break;
+
+	case CC_GET_CAPABILITIES:
+		ret = nmnicpf_get_capabilities(nmnicpf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_GET_CAPABILITIES message failed\n");
 		break;
 
 	default:
