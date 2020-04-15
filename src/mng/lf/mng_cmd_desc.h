@@ -68,6 +68,7 @@ enum cmd_codes {
 	CC_PAUSE_GET,
 	CC_PORT_RATE_LIMIT,
 	CC_QUEUE_RATE_LIMIT,
+	CC_GET_CAPABILITIES,
 	CMD_CODE_LAST = 0XFF,
 };
 
@@ -273,6 +274,13 @@ struct mgmt_cmd_resp {
 			u8 rx;
 			u8 tx;
 		} __packed pause_params;
+
+		/* CC_GET_CAPABILITIES */
+		struct {
+#define CAPABILITIES_SG		(1 << 0)
+			u32 flags;
+			u32 max_buf_size;
+		} __packed capabilities;
 	};
 } __packed;
 
