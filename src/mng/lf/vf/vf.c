@@ -1167,6 +1167,25 @@ static int nmnicvf_gp_queue_get_statistics(struct nmnicvf *nmnicvf,
 	return 0;
 }
 
+static int nmnicvf_get_capabilities(struct nmnicvf *nmnicvf,
+				    struct mgmt_cmd_params *params,
+				    struct mgmt_cmd_resp *resp_data)
+{
+	int bm_idx;
+
+	resp_data->capabilities.max_buf_size = 0;
+	for (bm_idx = 0; bm_idx < nmnicvf->profile_data.lcl_bp_num; bm_idx++)
+		if (nmnicvf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size > resp_data->capabilities.max_buf_size)
+			resp_data->capabilities.max_buf_size =
+				nmnicvf->profile_data.lcl_bp_params[bm_idx].lcl_bp_buf_size;
+
+	resp_data->capabilities.flags = 0;
+	if (nmnicvf->profile_data.sg_en)
+		resp_data->capabilities.flags |= CAPABILITIES_SG;
+
+	return 0;
+}
+
 static void nmnicvf_guest_reset(struct nmnicvf *nmnicvf)
 {
 	struct giu_gpio_intc_params	*intc;
@@ -1284,6 +1303,12 @@ static int nmnicvf_process_vf_command(struct nmnicvf *nmnicvf,
 		ret = nmnicvf_gp_queue_get_statistics(nmnicvf, cmd_params, resp_data);
 		if (ret)
 			pr_err("CC_GET_GP_QUEUE_STATS message failed\n");
+		break;
+
+	case CC_GET_CAPABILITIES:
+		ret = nmnicvf_get_capabilities(nmnicvf, cmd_params, resp_data);
+		if (ret)
+			pr_err("CC_GET_CAPABILITIES message failed\n");
 		break;
 
 	default:
