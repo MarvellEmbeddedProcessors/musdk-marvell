@@ -5,7 +5,7 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
-#define log_fmt(fmt) "lf_mng " fmt
+#define log_fmt(fmt, ...) "lf_mng: " fmt, ##__VA_ARGS__
 
 #include "std_internal.h"
 #include "env/trace/trc_pf.h"

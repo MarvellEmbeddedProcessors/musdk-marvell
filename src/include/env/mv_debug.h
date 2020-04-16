@@ -104,7 +104,7 @@
 #endif
 
 #ifndef log_fmt
-#define log_fmt(fmt) fmt
+#define log_fmt(fmt, ...) fmt, ##__VA_ARGS__
 #endif
 
 #define printk printf
@@ -122,12 +122,12 @@
 #define mv_print(_level, fmt, ...)			\
 do {							\
 	if ((_level) <= (MVCONF_DBG_LEVEL))		\
-		printf(log_fmt(fmt), ##__VA_ARGS__);	\
+		printf(log_fmt(fmt, ##__VA_ARGS__));	\
 } while (0)
 #else /* MVCONF_SYSLOG */
 
 #define mv_print(_level, fmt, ...)		\
-	syslog(_level, log_fmt(fmt), ##__VA_ARGS__)
+	syslog(_level, log_fmt(fmt, ##__VA_ARGS__))
 
 void log_init(int log_to_stderr);
 void log_close(void);
@@ -135,37 +135,37 @@ void log_close(void);
 #endif /* MVCONF_SYSLOG */
 
 #ifndef pr_emerg
-#define pr_emerg(...) \
-	mv_print(MV_DBG_L_EMERG, __VA_ARGS__)
+#define pr_emerg(fmt, ...) \
+	mv_print(MV_DBG_L_EMERG, fmt, ##__VA_ARGS__)
 #endif /* !pr_emerg */
 #ifndef pr_alert
-#define pr_alert(...) \
-	mv_print(MV_DBG_L_ALERT, __VA_ARGS__)
+#define pr_alert(fmt, ...) \
+	mv_print(MV_DBG_L_ALERT, fmt, ##__VA_ARGS__)
 #endif /* !pr_alert */
 #ifndef pr_crit
-#define pr_crit(...) \
-	mv_print(MV_DBG_L_CRIT, "[CRITICAL] " __VA_ARGS__)
+#define pr_crit(fmt, ...) \
+	mv_print(MV_DBG_L_CRIT, "[CRITICAL] " fmt, ##__VA_ARGS__)
 #endif /* !pr_crit */
 #ifndef pr_err
-#define pr_err(...) \
-	mv_print(MV_DBG_L_ERR, "[ERROR] " __VA_ARGS__)
+#define pr_err(fmt, ...) \
+	mv_print(MV_DBG_L_ERR, "[ERROR] " fmt, ##__VA_ARGS__)
 #endif /* !pr_err */
 #ifndef pr_warn
-#define pr_warn(...) \
-	mv_print(MV_DBG_L_WARN, "[WARN] " __VA_ARGS__)
+#define pr_warn(fmt, ...) \
+	mv_print(MV_DBG_L_WARN, "[WARN] " fmt, ##__VA_ARGS__)
 #endif /* !pr_warn */
 #ifndef pr_notice
-#define pr_notice(...) \
-	mv_print(MV_DBG_L_NOTICE, __VA_ARGS__)
+#define pr_notice(fmt, ...) \
+	mv_print(MV_DBG_L_NOTICE, fmt, ##__VA_ARGS__)
 #endif /* !pr_notice */
 #ifndef pr_info
-#define pr_info(...) \
-	mv_print(MV_DBG_L_INFO, __VA_ARGS__)
+#define pr_info(fmt, ...) \
+	mv_print(MV_DBG_L_INFO, fmt, ##__VA_ARGS__)
 #endif /* !pr_info */
 #ifndef pr_debug
 #ifdef DEBUG
-#define pr_debug(...) \
-	mv_print(MV_DBG_L_DBG, "[DBG] " __VA_ARGS__)
+#define pr_debug(fmt, ...) \
+	mv_print(MV_DBG_L_DBG, "[DBG] " fmt, ##__VA_ARGS__)
 #else
 #define pr_debug(...)
 #endif /* DEBUG */

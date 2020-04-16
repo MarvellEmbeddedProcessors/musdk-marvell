@@ -5,7 +5,7 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
-#define log_fmt(fmt) "giu: " fmt
+#define log_fmt(fmt, ...) "giu: " fmt, ##__VA_ARGS__
 
 #include "std_internal.h"
 

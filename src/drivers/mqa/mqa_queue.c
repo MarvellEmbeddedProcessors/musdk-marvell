@@ -5,7 +5,7 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
-#define log_fmt(fmt) "queue: " fmt
+#define log_fmt(fmt, ...) "mqa_queue: " fmt, ##__VA_ARGS__
 
 #include "std_internal.h"
 #include "mqa_internal.h"

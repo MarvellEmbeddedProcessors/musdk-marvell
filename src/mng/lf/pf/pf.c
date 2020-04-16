@@ -5,7 +5,7 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
-#define log_fmt(fmt) "pf: " fmt
+#define log_fmt(fmt, ...) "pf: " fmt, ##__VA_ARGS__
 
 #include "std_internal.h"
 #include "drivers/mv_mqa.h"
