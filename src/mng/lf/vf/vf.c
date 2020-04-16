@@ -5,7 +5,7 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
-#define log_fmt(fmt, ...) "vf: " fmt, ##__VA_ARGS__
+#define log_fmt(fmt, ...) "vf#%d: " fmt, nmnicvf->vf_id, ##__VA_ARGS__
 
 #include "std_internal.h"
 #include "drivers/mv_mqa.h"
@@ -293,7 +293,7 @@ static int nmnicvf_mng_chn_host_ready(struct nmnicvf *nmnicvf)
 	while (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
 		; /* Do Nothing. Wait till state it's updated */
 
-	pr_info("VF#%d: Host-Mgmt is Ready\n", nmnicvf->vf_id);
+	pr_info("Host-Mgmt is Ready\n");
 
 	memset(&mng_ch_params, 0, sizeof(mng_ch_params));
 
@@ -338,7 +338,7 @@ static int nmnicvf_mng_chn_host_ready(struct nmnicvf *nmnicvf)
 	writel(readl(&pcie_cfg->status) | PCIE_CFG_STATUS_DEV_MGMT_READY, &pcie_cfg->status);
 
 	/* Set state to 'Device Management Ready' */
-	pr_info("VF#%d: Set status to 'Device Management Ready'\n", nmnicvf->vf_id);
+	pr_info("Set status to 'Device Management Ready'\n");
 
 	return 0;
 }
@@ -509,12 +509,12 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 				       &nmnicvf->map.cfg_map.virt_addr,
 				       &nmnicvf->map.cfg_map.phys_addr);
 	if (ret) {
-		pr_err("VF#%d: failed to get BAR#%d address\n", nmnicvf->vf_id, barid);
+		pr_err("failed to get BAR#%d address\n", barid);
 		sys_iomem_deinit(nmnicvf->sys_iomem);
 		return ret;
 	}
 
-	pr_info("VF#%d: BAR#%d mapped at virt:%p phys:%p\n", nmnicvf->vf_id, barid,
+	pr_info("BAR#%d mapped at virt:%p phys:%p\n", barid,
 		nmnicvf->map.cfg_map.virt_addr, nmnicvf->map.cfg_map.phys_addr);
 
 	/* MSI-X space */
@@ -525,12 +525,12 @@ static int nmnicvf_map_pci_bar(struct nmnicvf *nmnicvf)
 				       &nmnicvf->map.host_msix_map.virt_addr,
 				       &nmnicvf->map.host_msix_map.phys_addr);
 	if (ret) {
-		pr_err("VF#%d: failed to get BAR#%d address\n", nmnicvf->vf_id, barid);
+		pr_err("failed to get BAR#%d address\n", barid);
 		sys_iomem_deinit(nmnicvf->sys_iomem);
 		return ret;
 	}
 
-	pr_info("VF#%d: BAR#%d mapped at virt:%p phys:%p\n", nmnicvf->vf_id, barid,
+	pr_info("BAR#%d mapped at virt:%p phys:%p\n", barid,
 		nmnicvf->map.host_msix_map.virt_addr, nmnicvf->map.host_msix_map.phys_addr);
 
 	nmnicvf->msix_table_base = (struct msix_table_entry *)nmnicvf->map.host_msix_map.virt_addr;
@@ -853,8 +853,7 @@ static int nmnicvf_ingress_queue_add_command(struct nmnicvf *nmnicvf,
 
 			err = sys_iomem_map(nmnicvf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
 			if (err) {
-				pr_err("failed to map VF%d-MSIX%d!\n", nmnicvf->vf_id,
-				       params->ingress_data_q_add.msix_id);
+				pr_err("failed to map MSIX%d!\n", params->ingress_data_q_add.msix_id);
 				return err;
 			}
 			pr_info("Host Ingress TC[%d], MSIX%d: host_pa 0x%"PRIx64", host_data 0x%x, host_remap_pa %"PRIx64", host_remap_va %p\n",
@@ -963,7 +962,7 @@ static int nmnicvf_egress_queue_add_command(struct nmnicvf *nmnicvf,
 
 			err = sys_iomem_map(nmnicvf->msix_iomem, NULL, &phys_addr, &giu_gpio_q.msix_inf.va);
 			if (err) {
-				pr_err("failed to map VF%d-MSIX%d!\n", nmnicvf->vf_id, params->egress_q_add.msix_id);
+				pr_err("failed to map MSIX%d!\n", params->egress_q_add.msix_id);
 				return err;
 			}
 			pr_info("Host Egress TC[%d], MSIX%d: host_pa 0x%"PRIx64", host_data 0x%x, host_remap_pa %"PRIx64", host_remap_va %p\n",
@@ -1556,7 +1555,7 @@ static int nmnicvf_mgmt_close_check(struct nmnicvf *nmnicvf)
 	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_CLOSE_REQ))
 		/* reset bit wan't not set */
 		return 0;
-	pr_debug("VF#%d: got 'mgmt-close' request\n", nmnicvf->vf_id);
+	pr_debug("got 'mgmt-close' request\n");
 
 	/* unregister mng queues from dispatcher */
 	if (nmnicvf->giu_mng_ch) {
@@ -1583,7 +1582,7 @@ static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
 	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_RESET))
 		/* reset bit wan't not set */
 		return 0;
-	pr_debug("VF#%d: got 'reset' request\n", nmnicvf->vf_id);
+	pr_debug("got 'reset' request\n");
 
 	/* reset bit was set, need to reconfigure VF flow */
 	/* 1. unregister mng queues from dispatcher */
@@ -1725,7 +1724,7 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 	struct giu_mng_ch_qs		 mng_ch_qs;
 	int				 err;
 
-	pr_debug("VF#%d: check if host is ready\n", nmnicvf->vf_id);
+	pr_debug("check if host is ready\n");
 
 	/* Initialize management queues */
 	err = nmnicvf_mng_chn_host_ready(nmnicvf);
