@@ -5,7 +5,7 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
-#define log_fmt(fmt, ...) "pf_topology: " fmt, ##__VA_ARGS__
+#define log_fmt(fmt, ...) "pf_topology#%d: " fmt, nmnicpf->pf_id, ##__VA_ARGS__
 
 #include "std_internal.h"
 #include "env/trace/trc_pf.h"

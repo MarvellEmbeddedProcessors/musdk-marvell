@@ -5,7 +5,7 @@
 *  distributed under the applicable Marvell limited use license agreement.
 *******************************************************************************/
 
-#define log_fmt(fmt, ...) "pf-pp2: " fmt, ##__VA_ARGS__
+#define log_fmt(fmt, ...) "pf_pp2#%d: " fmt, nmnicpf->pf_id, ##__VA_ARGS__
 
 #include "std_internal.h"
 
@@ -36,7 +36,8 @@ static int nmnicpf_pp2_find_free_cls_table(struct nmnicpf *nmnicpf)
 }
 
 #ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
-static int build_rule(struct pp2_cls_tbl_rule *dst_rule,
+static int build_rule(struct nmnicpf *nmnicpf,
+		      struct pp2_cls_tbl_rule *dst_rule,
 		      struct guest_pp2_cls_tbl_rule *src_rule,
 		      struct pp2_cls_tbl_params *tbl_params)
 {
@@ -96,7 +97,7 @@ static int build_rule(struct pp2_cls_tbl_rule *dst_rule,
 	return 0;
 }
 #else
-static void build_rule(struct pp2_cls_tbl_rule *dst_rule,
+static void build_rule(struct nmnicpf *nmnicpf, struct pp2_cls_tbl_rule *dst_rule,
 		       struct guest_pp2_cls_tbl_rule *src_rule)
 {
 	int i;
@@ -108,7 +109,7 @@ static void build_rule(struct pp2_cls_tbl_rule *dst_rule,
 			dst_rule->fields[i].key = src_rule->fields[i].key;
 		if (src_rule->fields[i].mask_valid)
 			dst_rule->fields[i].mask = src_rule->fields[i].mask;
-		printf("src-key %s, dst-key %s\n", src_rule->fields[i].key, dst_rule->fields[i].key);
+		pr_debug("src-key %s, dst-key %s\n", src_rule->fields[i].key, dst_rule->fields[i].key);
 	}
 }
 #endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
@@ -617,13 +618,13 @@ int nmnicpf_pp2_cls_rule_add(struct nmnicpf *nmnicpf,
 	}
 
 #ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
-	ret = build_rule(&rule,
+	ret = build_rule(nmnicpf, &rule,
 			 &rule_add->rule,
 			 &nmnicpf->pp2.tbl_params[rule_add->tbl_id]);
 	if (ret)
 		return ret;
 #else
-	build_rule(&rule, &rule_add->rule);
+	build_rule(nmnicpf, &rule, &rule_add->rule);
 #endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
 	ret = pp2_cls_tbl_add_rule(nmnicpf->pp2.tbl[rule_add->tbl_id],
 				   &rule,
@@ -661,13 +662,13 @@ int nmnicpf_pp2_cls_rule_modify(struct nmnicpf *nmnicpf,
 	}
 
 #ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
-	ret = build_rule(&rule,
+	ret = build_rule(nmnicpf, &rule,
 			 &rule_add->rule,
 			 &nmnicpf->pp2.tbl_params[rule_add->tbl_id]);
 	if (ret)
 		return ret;
 #else
-	build_rule(&rule, &rule_add->rule);
+	build_rule(nmnicpf, &rule, &rule_add->rule);
 #endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
 	ret = pp2_cls_tbl_modify_rule(nmnicpf->pp2.tbl[rule_add->tbl_id],
 				      &rule,
@@ -700,13 +701,13 @@ int nmnicpf_pp2_cls_rule_remove(struct nmnicpf *nmnicpf,
 	}
 
 #ifdef PP2_CLS_KEY_MASK_STRING_FORMAT
-	ret = build_rule(&rule,
+	ret = build_rule(nmnicpf, &rule,
 			 &rule_rem->rule,
 			 &nmnicpf->pp2.tbl_params[rule_rem->tbl_id]);
 	if (ret)
 		return ret;
 #else
-	build_rule(&rule, &rule_rem->rule);
+	build_rule(nmnicpf, &rule, &rule_rem->rule);
 #endif /* PP2_CLS_KEY_MASK_STRING_FORMAT */
 	ret = pp2_cls_tbl_remove_rule(nmnicpf->pp2.tbl[rule_rem->tbl_id],
 				      &rule);
