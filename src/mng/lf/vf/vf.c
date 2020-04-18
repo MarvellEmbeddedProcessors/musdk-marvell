@@ -1593,8 +1593,12 @@ static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
 		giu_mng_ch_deinit(nmnicvf->giu_mng_ch);
 	}
 	/* 3. destroy 'remote' queues */
-	if (nmnicvf->giu_gpio)
+	if (nmnicvf->giu_gpio) {
+		/* Emulate link down */
+		nmnicvf->link_up_mask &= ~LINK_UP_MASK_REMOTE;
+		nmnicvf_link_state_check_n_notif(nmnicvf);
 		giu_gpio_clear_remote(nmnicvf->giu_gpio);
+	}
 
 	/* 4.  clear 'gpio_rem_params' */
 	memset(&nmnicvf->gpio_rem_params, 0, sizeof(struct giu_gpio_rem_params));
