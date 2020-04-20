@@ -18,7 +18,7 @@
 					"lcl_num_bpools": 1,
 					"lcl_bpools_params-0": {
 						"max_num_buffs": 2048,
-						"buff_size": 2048
+						"buff_size": 9304
 					}
 					"nicpf_type": 0,
 				}
@@ -37,7 +37,7 @@
 					"lcl_num_bpools": 1,
 					"lcl_bpools_params-0": {
 						"max_num_buffs": 2048,
-						"buff_size": 2048
+						"buff_size": 9304
 					}
 				}
 			},
@@ -55,7 +55,7 @@
 					"lcl_num_bpools": 1,
 					"lcl_bpools_params-0": {
 						"max_num_buffs": 2048,
-						"buff_size": 2048
+						"buff_size": 9304
 					}
 				}
 			},
@@ -73,7 +73,7 @@
 					"lcl_num_bpools": 1,
 					"lcl_bpools_params-0": {
 						"max_num_buffs": 2048,
-						"buff_size": 2048
+						"buff_size": 9304
 					}
 				}
 			},
@@ -91,7 +91,7 @@
 					"lcl_num_bpools": 1,
 					"lcl_bpools_params-0": {
 						"max_num_buffs": 2048,
-						"buff_size": 2048
+						"buff_size": 9304
 					}
 				}
 			},
