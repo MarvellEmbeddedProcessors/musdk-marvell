@@ -1760,6 +1760,8 @@ void giu_gpio_reset(struct giu_gpio *gpio)
 			q = &outtc->interim_qs[q_idx].queue;
 			writel(0, q->cons_addr);
 			writel(0, q->prod_addr);
+			outtc->interim_qs[q_idx].shadow_cons = 0;
+			outtc->interim_qs[q_idx].shadow_prod = 0;
 		}
 	}
 }
