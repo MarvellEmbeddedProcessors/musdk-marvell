@@ -1051,6 +1051,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 {
 	struct giu_gpio_outtc	*outtc;
 	struct giu_gpio_intc	*intc;
+	struct giu_gpio_interim_q	*interimq;
 	u32			 tc_idx, bm_idx, q_idx;
 	int			 ret;
 
@@ -1116,6 +1117,17 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
 					outtc->outqs[q_idx].q_id);
+		}
+
+		pr_debug("Clear Shadow queues\n");
+		/* As some descriptors were marked as "sent" but the
+		 * destination local queue was just reset, those descriptors should be marked as free.
+		 */
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
+			interimq = &outtc->interim_qs[q_idx];
+
+			interimq->shadow_cons = interimq->shadow_prod;
+			writel(interimq->shadow_cons, interimq->queue.cons_addr);
 		}
 	}
 
