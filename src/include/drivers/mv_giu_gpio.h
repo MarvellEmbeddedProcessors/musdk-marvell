@@ -409,12 +409,14 @@ enum giu_outq_l4_status {
 #define GIU_TXD_GET_HK_MODE(desc)	(((desc)->cmds[0] & GIU_TXD_HK_MODE_MASK) >> 21)
 #define GIU_TXD_GET_L4_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L4_PRS_INFO_MASK) >> 25)
 #define GIU_TXD_GET_L3_PRS_INFO(desc)	(((desc)->cmds[0] & GIU_TXD_L3_PRS_INFO_MASK) >> 28)
+#define GIU_TXD_GET_FORMAT(desc)	(((desc)->cmds[0] & GIU_TXD_FORMAT_MASK) >> 19)
 
 /* cmd 1 */
 #define GIU_TXD_GET_PKT_OFF(desc)	(((desc)->cmds[1] & GIU_TXD_PKT_OFF_MASK) >> 0)
 
 /* cmd 2 */
 #define GIU_TXD_GET_DEST_QID(desc)	(((desc)->cmds[2] & GIU_TXD_DEST_QID_MASK) >> 0)
+#define GIU_TXD_GET_NUM_SG_ENT(desc)	(((desc)->cmds[2] & GIU_TXD_NUM_SG_ENT_MASK) >> 16)
 
 /* cmd 3 */
 #define GIU_TXD_GET_HASH_KEY(desc)	(((desc)->cmds[3] & GIU_TXD_HASH_KEY_MASK) >> 0)

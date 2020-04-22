@@ -341,6 +341,19 @@ int giu_gpio_pre_gie(struct giu_gpio *gpio)
 					break_interimq_loop = 1;
 					break;
 				}
+
+				if (gpio->sg_en) {
+					if (GIU_TXD_GET_FORMAT(desc) == GIU_FORMAT_DIRECT_SG) {
+						u8 num_sg_ent = GIU_TXD_GET_NUM_SG_ENT(desc) + 2;
+
+						if (free_count[dest_qid] < num_sg_ent) {
+							/* break desc_received loop */
+							break_interimq_loop = 1;
+							break;
+						}
+					}
+				}
+
 				free_count[dest_qid]--;
 
 				/* only now update cons */
@@ -441,6 +454,19 @@ int giu_gpio_post_gie(struct giu_gpio *gpio)
 					break_qid_loop = 1;
 					break;
 				}
+
+				if (gpio->sg_en) {
+					if (GIU_RXD_GET_FORMAT(src_desc) == GIU_FORMAT_DIRECT_SG) {
+						u8 num_sg_ent = GIU_RXD_GET_NUM_SG_ENT(src_desc) + 2;
+
+						if (free_count[dst_qid] < num_sg_ent) {
+							/* break desc_received loop */
+							break_qid_loop = 1;
+							break;
+						}
+					}
+				}
+
 				free_count[dst_qid]--;
 
 				dst_q = &intc->interim_qs[dst_qid].queue;
@@ -541,7 +567,6 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			mqa_params.size = gie_get_desc_size(RX_DESC);
 			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
 			mqa_params.copy_payload = 1;
-			mqa_params.sg_en = (*gpio)->sg_en;
 
 			ret = mqa_queue_create((*gpio)->mqa, &mqa_params, &(outtc->interim_qs[q_idx].mqa_q));
 			if (ret < 0) {
@@ -702,11 +727,12 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			}
 
 			memset(&mqa_params, 0, sizeof(struct mqa_queue_params));
-					mqa_params.idx  = lcl_q->q_id;
-					mqa_params.len	= rem_q_par->len;
-					mqa_params.size = gie_get_desc_size(RX_DESC);
-					mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
-					mqa_params.copy_payload = 1;
+			mqa_params.idx  = lcl_q->q_id;
+			mqa_params.len	= rem_q_par->len;
+			mqa_params.size = gie_get_desc_size(RX_DESC);
+			mqa_params.attr = MQA_QUEUE_LOCAL | MQA_QUEUE_INGRESS;
+			mqa_params.copy_payload = 1;
+			mqa_params.sg_en = gpio->sg_en;
 
 			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(lcl_q->mqa_q));
 			if (ret < 0) {
