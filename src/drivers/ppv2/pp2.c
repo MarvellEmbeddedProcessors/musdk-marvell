@@ -562,6 +562,17 @@ int pp2_ppio_available(int pp_id, int ppio_id)
 	return false;
 }
 
+int pp2_ppio_get_l4_cksum_max_frame_size(int pp_id, int ppio_id, uint16_t *max_frame_size)
+{
+	uintptr_t cpu_slot;
+	struct pp2_inst *pp2_inst = pp2_ptr->pp2_inst[pp_id];
+
+	cpu_slot = pp2_inst->hw.base[PP2_DEFAULT_REGSPACE].va;
+	*max_frame_size = (MVPP22_TX_FIFO_THRESH_MASK & pp2_reg_read(cpu_slot, MVPP22_TX_FIFO_THRESH_REG(ppio_id)));
+
+	return 0;
+}
+
 void pp2_deinit(void)
 {
 	u32 pp2_id;

@@ -274,6 +274,18 @@ int pp2_netdev_get_ifname(u8 pp_id, u8 ppio_id, char *ifname);
  */
 int pp2_ppio_available(int pp_id, int ppio_id);
 
+/**
+ * Get port max frame size for L4 checksum support
+ *
+ * @param[in]	pp_id	A pointer to the corresponding packet prosessor id.
+ * @param[in]	ppio_id	A pointer to the corresponding port id.
+ * @param[out]	max_frame_size
+ *
+ * @retval	0 on success
+ * @retval	<0 on failure
+ *
+ */
+int pp2_ppio_get_l4_cksum_max_frame_size(int pp_id, int ppio_id, uint16_t *max_frame_size);
 
 /**
  * Get number of active packet_processors.
