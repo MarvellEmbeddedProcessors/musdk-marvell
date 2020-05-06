@@ -502,8 +502,8 @@ static void pp2_bm_pool_update_fc(uintptr_t base, struct pp2_bm_pool *pool, bool
 	val &= ~FLOW_CONTROL_ENABLE_BIT;
 	cm3_write(base, MSS_CP_FC_COM_REG, val);
 
-	pr_info("%s: base:0x%lx, pool:%d, fc_en:%d, port_mask:0x%x, start:%d, stop:%d\n", __func__, base,
-		pool->bm_pool_id, en, pool->fc_port_mask, pool->fc_start_threshold, pool->fc_stop_threshold);
+	pr_debug("%s: base:0x%lx, pool:%d, fc_en:%d, port_mask:0x%x, start:%d, stop:%d\n", __func__, base,
+		 pool->bm_pool_id, en, pool->fc_port_mask, pool->fc_start_threshold, pool->fc_stop_threshold);
 
 	/* Check if BM pool should be enabled/disable */
 	if (en) {

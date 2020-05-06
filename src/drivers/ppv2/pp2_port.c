@@ -962,7 +962,7 @@ static void pp2_port_rx_non_occupied_set(struct pp2_port *port, struct pp2_rx_qu
 	val |= (rxq->fc_stop_thresh << MVPP2_NONOCCUPIED_THRESH_OFFSET);
 	pp2_reg_write(cpu_slot, MVPP2_RXQ_THRESH_REG, val);
 
-	pr_info("port:%d, rxq:%d, non_occupied_thresh:%d\n", port->id, rxq->id, rxq->fc_stop_thresh);
+	pr_debug("port:%d, rxq:%d, non_occupied_thresh:%d\n", port->id, rxq->id, rxq->fc_stop_thresh);
 }
 
 /* Set the time delay in usec before Rx interrupt */
