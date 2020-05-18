@@ -338,7 +338,7 @@ static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
 	tx_fifo_threshold = PP2_PORT_TX_FIFO_KB_TO_THRESH(port->tx_fifo_size);
 	if (MVPP2_MTU_PKT_SIZE(mtu) > tx_fifo_threshold) {
 		port->flags &= ~PP2_PORT_FLAGS_L4_CHKSUM;
-		pr_warn("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
+		pr_debug("PORT: mtu=%u, mtu_pkt_size=%u, tx_fifo_thresh=%u, port discontinues hw_l4_checksum support\n",
 			 mtu, MVPP2_MTU_PKT_SIZE(mtu), tx_fifo_threshold);
 	} else {
 		port->flags |= PP2_PORT_FLAGS_L4_CHKSUM;
