@@ -22,7 +22,13 @@
 #include "lib/lib_misc.h"
 #include "mv_pp2_bpool.h"
 
+#define APP_MAX_NUM_CORES		2
+
 #define APP_DMA_MEM_SIZE		(8 * 1024 * 1024)
+
+struct local_arg {
+	struct local_common_args	 cmn_args; /* Keep first */
+};
 
 struct glob_arg {
 	struct glb_common_args		 cmn_args; /* Keep first */
@@ -33,10 +39,20 @@ static struct glob_arg garg = {};
 
 static int main_loop_cb(void *arg, int *running)
 {
-	pr_info("NMP main loop is running...\n");
-	while (*running) {
-		nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
-		nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
+	struct local_arg *larg = (struct local_arg *)arg;
+
+	pr_info("[T %d, C %d] NMP main loop is running...\n", larg->cmn_args.id, sched_getcpu());
+	if (garg.cmn_args.cpus == 1) {
+		while (*running) {
+			nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
+			nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
+		}
+	} else if (larg->cmn_args.id == 0) {
+		while (*running)
+			nmp_schedule(garg.nmp, NMP_SCHED_RX, NULL);
+	} else {
+		while (*running)
+			nmp_schedule(garg.nmp, NMP_SCHED_TX, NULL);
 	}
 
 	return 0;
@@ -101,17 +117,51 @@ static void deinit_global(void *arg)
 	mv_sys_dma_mem_destroy();
 }
 
+static int init_local(void *arg, int id, void **_larg)
+{
+	struct glob_arg		*garg = (struct glob_arg *)arg;
+	struct local_arg	*larg;
+
+	if (!garg) {
+		pr_err("no obj!\n");
+		return -EINVAL;
+	}
+
+	larg = (struct local_arg *)malloc(sizeof(struct local_arg));
+	if (!larg) {
+		pr_err("No mem for local arg obj!\n");
+		return -ENOMEM;
+	}
+	memset(larg, 0, sizeof(struct local_arg));
+
+	larg->cmn_args.id		= id;
+	larg->cmn_args.num_ports	= garg->cmn_args.num_ports;
+	larg->cmn_args.burst		= garg->cmn_args.burst;
+	larg->cmn_args.busy_wait	= garg->cmn_args.busy_wait;
+	larg->cmn_args.echo		= garg->cmn_args.echo;
+	larg->cmn_args.prefetch_shift	= garg->cmn_args.prefetch_shift;
+
+	*_larg = larg;
+	return 0;
+}
+
+static void deinit_local(void *arg)
+{
+	free(arg);
+}
+
 static void usage(char *progname)
 {
 	printf("\n"
 	       "MUSDK NMP standalone application.\n"
 	       "\n"
 	       "Usage: %s OPTIONS\n"
-	       "  E.g. %s -a 1\n"
+	       "  E.g. %s -a 1 -c 1\n"
 	       "\n"
 	       "Optional OPTIONS:\n"
 	       "\t-a, --affinity <number>  Use setaffinity (default is no affinity)\n"
-	       "\t- f, --file              Location and name of the nmp-config file to load\n"
+	       "\t-c, --cores <number>     Number of CPUs to use\n"
+	       "\t-f, --file		   Location and name of the nmp-config file to load\n"
 	       "\t?, -h, --help            Display help and exit.\n\n"
 	       "\n", MVAPPS_NO_PATH(progname), MVAPPS_NO_PATH(progname));
 }
@@ -147,10 +197,27 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "-a") == 0) {
 			garg->cmn_args.affinity = atoi(argv[i + 1]);
 			i += 2;
+		} else if (strcmp(argv[i], "-c") == 0) {
+			if (argc < (i + 2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			if (argv[i + 1][0] == '-') {
+				pr_err("Invalid arguments format!\n");
+				return -EINVAL;
+			}
+			garg->cmn_args.cpus = atoi(argv[i + 1]);
+			i += 2;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
 		}
+	}
+
+	if (garg->cmn_args.cpus > APP_MAX_NUM_CORES) {
+		pr_err("illegal num cores requested (%d vs %d)!\n",
+		       garg->cmn_args.cpus, APP_MAX_NUM_CORES);
+		return -EINVAL;
 	}
 
 	if ((garg->cmn_args.affinity != -1) &&
@@ -177,8 +244,8 @@ static void init_app_params(struct mvapp_params *mvapp_params, u64 cores_mask)
 	mvapp_params->global_arg	= (void *)&garg;
 	mvapp_params->init_global_cb	= init_global;
 	mvapp_params->deinit_global_cb	= deinit_global;
-	mvapp_params->init_local_cb	= NULL;
-	mvapp_params->deinit_local_cb	= NULL;
+	mvapp_params->init_local_cb	= init_local;
+	mvapp_params->deinit_local_cb	= deinit_local;
 	mvapp_params->main_loop_cb	= main_loop_cb;
 	mvapp_params->ctrl_cb		= ctrl_cb;
 }
