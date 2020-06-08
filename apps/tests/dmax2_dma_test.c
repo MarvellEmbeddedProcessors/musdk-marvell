@@ -96,6 +96,7 @@
 
 #include <string.h>
 #include <time.h>
+#include <signal.h>
 #include "mv_std.h"
 #include "lib/lib_misc.h"
 #include <fcntl.h>
@@ -142,6 +143,11 @@ struct glob_arg {
 	phys_addr_t	io_base_pa;
 	u16		repeat;
 	bool		reverse_dir;
+	bool		timer_run;
+	bool		timer_expired;
+	timer_t		timer_id;
+	int		timer_exp_ms;
+	int		timer_exp_sec;
 };
 
 static struct glob_arg garg = {};
@@ -189,6 +195,69 @@ static inline void stop_cycle_count(int pme_ev_cnt_id, u16 unit_count)
 	if (unlikely(garg.cycle_measure))
 		pme_ev_cnt_stop(pme_ev_cnt_id, unit_count);
 }
+
+static void tmr_handle(int sig, siginfo_t *si, void *uc)
+{
+	garg.timer_expired = true;
+}
+
+static int tmr_create(void)
+{
+	struct sigevent		te;
+	struct itimerspec	its;
+	struct sigaction	sa;
+	int			sig_no = SIGRTMIN;
+
+	/* Set up signal handler. */
+	sa.sa_flags = SA_SIGINFO;
+	sa.sa_sigaction = tmr_handle;
+	if (sigemptyset(&sa.sa_mask) == -1) {
+		pr_err("Failed to initialize timer signal, %s\n",
+			strerror(errno));
+		return -EFAULT;
+	}
+
+	if (sigaction(sig_no, &sa, NULL) == -1) {
+		pr_err("Failed to examine/change timer signal action, %s\n",
+			strerror(errno));
+		return -EFAULT;
+	}
+
+	garg.timer_expired = false;
+
+	/* Set and enable alarm */
+	te.sigev_notify = SIGEV_SIGNAL;
+	te.sigev_signo = sig_no;
+	te.sigev_value.sival_ptr = &garg.timer_id;
+	if (timer_create(CLOCK_REALTIME, &te, &garg.timer_id) == -1) {
+		pr_err("Failed to create timer, %s\n", strerror(errno));
+		return -EFAULT;
+	}
+
+	its.it_interval.tv_sec = 0;
+	its.it_interval.tv_nsec = 0;
+	its.it_value.tv_sec = garg.timer_exp_sec;
+	its.it_value.tv_nsec = garg.timer_exp_ms * 1000000;
+	if (timer_settime(garg.timer_id, 0, &its, NULL) == -1) {
+		pr_err("Failed to arm timer, %s\n", strerror(errno));
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int tmr_delete(void)
+{
+	if (timer_delete(garg.timer_id) == -1)  {
+		pr_err("Failed to delete timer, %s\n", strerror(errno));
+		return -EFAULT;
+	}
+
+	garg.timer_expired = false;
+
+	return 0;
+}
+
 
 /* Virtual mapping for physical IO memory */
 static int verify_io_mem(phys_addr_t io_base_pa, int desc_size, enum dmax2_mem_direction mem_attr)
@@ -413,6 +482,15 @@ static int dma_test(struct mem *src_mems, struct mem *dst_mems, int desc_num,
 	memset(&descs, 0, sizeof(descs));
 	prepare_descriptors(src_mems, dst_mems, desc_num, desc_size, mem_attr, descs);
 
+	if (garg.timer_run) {
+		err = tmr_create();
+		if (unlikely(err)) {
+			pr_err("timer create failed sec=%d msec=%d\n",
+				garg.timer_exp_sec, garg.timer_exp_ms);
+			return err;
+		}
+	}
+
 	start_overall_perf();
 	/* start ENQ -> DEQ -> verify until finished overall requested size */
 	do {
@@ -449,11 +527,25 @@ static int dma_test(struct mem *src_mems, struct mem *dst_mems, int desc_num,
 		if (unlikely(verify_data_integrity(res_descs, desc_num, desc_size, mem_attr) != 0))
 			return -EFAULT;
 
+		if (garg.timer_run) {
+			if (unlikely(garg.timer_expired == true))
+				break;
+		}
+
 		pr_debug("<-- #%d: Completed = %ld , overall_size = %ldb\n"
 			, loop_count++, completed_size, garg.overall_size);
-	} while (completed_size < garg.overall_size);
+	} while ((garg.timer_run) || (completed_size < garg.overall_size));
 
 	stop_overall_perf();
+
+	if (garg.timer_run) {
+		err = tmr_delete();
+		if (unlikely(err)) {
+			pr_err("timer delete failed\n");
+			return err;
+		}
+	}
+
 	actuall_overall_size = completed_size;
 
 	return 0;
@@ -542,7 +634,7 @@ static int single_test(int desc_num, int desc_size, int align,
 	if (!garg.perf_measure)
 		return err;
 
-	printf("\n<<< Test %d Summary >>>\n", test_num);
+	printf("\n<<< PID %d Test %d Summary >>>\n", getpid(), test_num);
 
 	printf("Target: %3s, desc num =%4d, desc_size(bytes) =%-7d",
 		(mem_attr == DMAX2_TRANS_MEM_ATTR_IO) ? "IO" : "MEM", desc_num, desc_size);
@@ -584,6 +676,8 @@ static void usage(char *progname)
 		"\t-i <DMA-engine-#> Interface number: min 0, max %d (default 0)\n"
 		"\t-t, <total_size>  Total copy size - in MB (default 100MB).\n"
 					"\t\t\t  (set 0 for a single burst)\n"
+		"\t-S <timer_exp_sec> Test duration in seconds\n"
+		"\t-M <timer_exp_ms>  Test duration in milli seconds\n"
 		"\t-r, <repeat_count> How many times to repeat test.\n"
 		"\t--cycle           Show Cycle measurements (disabled by default)\n"
 		"\t--verify          Data integrity verification - slow down DMA process\n\t\t\t\t(disabled by default)\n"
@@ -626,6 +720,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->io_base_pa = 0;
 	garg->repeat = 1;
 	garg->reverse_dir = false;
+	garg->timer_run = false;
+	garg->timer_exp_ms = 0;
+	garg->timer_exp_sec = 0;
 
 	while (i < argc) {
 		if ((strcmp(argv[i], "?") == 0) ||
@@ -674,6 +771,24 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			garg->desc_size = atoi(argv[i+1]);
 			i += 2;
 			garg->manual_test = 1;
+		} else if (strcmp(argv[i], "-S") == 0) { /* Seconds to run */
+			if (argc < (i+2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			garg->timer_exp_sec = atoi(argv[i+1]);
+			i += 2;
+			garg->manual_test = 1;
+			garg->timer_run = true;
+		} else if (strcmp(argv[i], "-M") == 0) { /* Milliseconds to run */
+			if (argc < (i+2)) {
+				pr_err("Invalid number of arguments!\n");
+				return -EINVAL;
+			}
+			garg->timer_exp_ms = atoi(argv[i+1]);
+			i += 2;
+			garg->manual_test = 1;
+			garg->timer_run = true;
 		} else if (strcmp(argv[i], "-t") == 0) { /* Total copy size */
 			if (argc < (i+2)) {
 				pr_err("Invalid number of arguments!\n");
@@ -743,7 +858,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		pr_err("Descriptor's size aligned to %d (32bit aligned for IO destination)\n\n", garg->desc_size);
 	}
 
-	printf("Verify Data Integrity\t= %s\nCycle Measurement\t= %s\nManual user test\t= %s\n"
+	printf("Test PID\t\t= %d\nVerify Data Integrity\t= %s\nCycle Measurement\t= %s\nManual user test\t= %s\n"
+		, getpid()
 		, garg->data_integrity_verification ? "Yes" : "No"
 		, garg->cycle_measure ? "Yes" : "No", garg->manual_test ? "Yes" : "No");
 
@@ -758,6 +874,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			printf("\nDestination MEM (MEM_ATTR_CACHABLE)\n");
 		else if (garg->mem_attr == DMAX2_TRANS_MEM_ATTR_IO)
 			printf("\nDestination IO (MEM_ATTR_IO) = 0x%" PRIdma "\n", garg->io_base_pa);
+		if (garg->timer_run)
+			printf("Timed run \t\t= %d sec %d ms\n",
+				garg->timer_exp_sec, garg->timer_exp_ms);
 	} else
 		printf("\nRunning series of DMA test...\n");
 
