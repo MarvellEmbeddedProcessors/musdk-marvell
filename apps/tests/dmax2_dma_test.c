@@ -773,6 +773,7 @@ int main(int argc, char *argv[])
 	struct dmax2_params	 dmax2_params;
 	int	err = 0;
 	char engine_name[20];
+	size_t	dma_mem_size;
 
 	printf("Marvell Armada US DMA test (Build: %s %s)\n\n", __DATE__, __TIME__);
 
@@ -784,7 +785,15 @@ int main(int argc, char *argv[])
 	}
 
 	/* Initialize required DMA memory for DMA test and local vars */
-	err = mv_sys_dma_mem_init(DMA_MEM_SIZE);
+	/* align desc_size to given alignment */
+	dma_mem_size = (garg.desc_size + (garg.align - 1)) & ~(garg.align - 1);
+
+	/* multiply by number of desc */
+	dma_mem_size *= garg.desc_num;
+
+	/* multiply by 2 for DMA for src and dst, worst case scenario */
+	dma_mem_size *= 2;
+	err = mv_sys_dma_mem_init(dma_mem_size);
 	if (err)
 		return err;
 
