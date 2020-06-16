@@ -143,6 +143,7 @@ struct glob_arg {
 	phys_addr_t	io_base_pa;
 	u16		repeat;
 	bool		reverse_dir;
+	bool		endless_run;
 	bool		timer_run;
 	bool		timer_expired;
 	timer_t		timer_id;
@@ -534,7 +535,9 @@ static int dma_test(struct mem *src_mems, struct mem *dst_mems, int desc_num,
 
 		pr_debug("<-- #%d: Completed = %ld , overall_size = %ldb\n"
 			, loop_count++, completed_size, garg.overall_size);
-	} while ((garg.timer_run) || (completed_size < garg.overall_size));
+	} while ((garg.timer_run)   ||
+		 (garg.endless_run) ||
+		 (completed_size < garg.overall_size));
 
 	stop_overall_perf();
 
@@ -676,6 +679,7 @@ static void usage(char *progname)
 		"\t-i <DMA-engine-#> Interface number: min 0, max %d (default 0)\n"
 		"\t-t, <total_size>  Total copy size - in MB (default 100MB).\n"
 					"\t\t\t  (set 0 for a single burst)\n"
+		"\t--endless          endless run, no duration\n"
 		"\t-S <timer_exp_sec> Test duration in seconds\n"
 		"\t-M <timer_exp_ms>  Test duration in milli seconds\n"
 		"\t-r, <repeat_count> How many times to repeat test.\n"
@@ -720,6 +724,7 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 	garg->io_base_pa = 0;
 	garg->repeat = 1;
 	garg->reverse_dir = false;
+	garg->endless_run = false;
 	garg->timer_run = false;
 	garg->timer_exp_ms = 0;
 	garg->timer_exp_sec = 0;
@@ -819,6 +824,9 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		} else if (strcmp(argv[i], "--reverse") == 0) {
 			garg->reverse_dir = true;
 			i += 1;
+		} else if (strcmp(argv[i], "--endless") == 0) {
+			garg->endless_run = true;
+			i += 1;
 		} else {
 			pr_err("argument (%s) not supported!\n", argv[i]);
 			return -EINVAL;
@@ -877,6 +885,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		if (garg->timer_run)
 			printf("Timed run \t\t= %d sec %d ms\n",
 				garg->timer_exp_sec, garg->timer_exp_ms);
+		if (garg->endless_run)
+			printf("Endless run mode\n");
 	} else
 		printf("\nRunning series of DMA test...\n");
 
