@@ -135,10 +135,14 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 	for (i = 0, cp110_num = 0; i < num_inst; i++, cp110_num++) {
 		err = -1;
 		while (cp110_num < PP2_MAX_NUM_PACKPROCS) {
-			if (lnx_id == LNX_4_4_x)
-				sprintf(cp110path, pp2_frm[lnx_id].devtree_path, cp110_num);
-			else
-				sprintf(cp110path, pp2_frm[lnx_id].devtree_path, cp110_num);
+			/* HACK: compatibility with mainline kernel DT layout.
+			 * Only compatible with Armada 8k/7k.
+			 */
+			char *cp_base = cp110_num ? "f4000000" : "f2000000";
+
+			sprintf(cp110path,
+				"/proc/device-tree/cp%d/config-space@%s/ethernet@0/",
+				cp110_num, cp_base);
 			err = access(cp110path, F_OK);
 			if (!err)
 				break;
