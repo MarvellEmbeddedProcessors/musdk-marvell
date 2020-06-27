@@ -123,7 +123,7 @@ static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 	}
 
 	if (eng < GIU_ENG_OUT_OF_RANGE)
-		gie = giu->gies[eng];
+		gie = giu_get_gie_handle(giu, eng);
 
 	if (q) {
 		u32 tmp_q_id;
@@ -1471,6 +1471,7 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 	struct giu_gpio_intc	*intc;
 	u32			 tc_idx, q_idx;
 	int			 err;
+	struct gie		*gie = NULL;
 
 	if (gpio->is_guest) {
 		err = nmp_guest_giu_gpio_enable(gpio->match);
@@ -1483,8 +1484,9 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 			intc = &(gpio->intcs[tc_idx]);
 			outtc = &(gpio->outtcs[tc_idx]);
 
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN);
 			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-				err = gie_resume_queue(gpio->giu->gies[GIU_ENG_IN], intc->rem_outqs[q_idx].q_id);
+				err = gie_resume_queue(gie, intc->rem_outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to resume queue Idx %d\n",
 						intc->rem_outqs[q_idx].q_id);
@@ -1492,8 +1494,9 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 				}
 			}
 
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT);
 			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-				err = gie_resume_queue(gpio->giu->gies[GIU_ENG_OUT], outtc->outqs[q_idx].q_id);
+				err = gie_resume_queue(gie, outtc->outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to resume queue Idx %d\n",
 						outtc->outqs[q_idx].q_id);
@@ -1514,6 +1517,7 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 	struct giu_gpio_intc	*intc;
 	u32			 tc_idx, q_idx;
 	int			 err;
+	struct gie		*gie = NULL;
 
 	if (gpio->is_guest) {
 		err = nmp_guest_giu_gpio_disable(gpio->match);
@@ -1526,8 +1530,9 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 			intc = &(gpio->intcs[tc_idx]);
 			outtc = &(gpio->outtcs[tc_idx]);
 
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN);
 			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-				err = gie_suspend_queue(gpio->giu->gies[GIU_ENG_IN], intc->rem_outqs[q_idx].q_id);
+				err = gie_suspend_queue(gie, intc->rem_outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to suspend queue Idx %d\n",
 						intc->rem_outqs[q_idx].q_id);
@@ -1535,8 +1540,9 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 				}
 			}
 
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT);
 			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-				err = gie_suspend_queue(gpio->giu->gies[GIU_ENG_OUT], outtc->outqs[q_idx].q_id);
+				err = gie_suspend_queue(gie, outtc->outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to suspend queue Idx %d\n",
 						outtc->outqs[q_idx].q_id);
