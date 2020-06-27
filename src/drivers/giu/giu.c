@@ -21,7 +21,7 @@ static int init_gies(struct giu *giu, u8 num_gies, struct giu_emul_params *gies_
 {
 	struct gie_params	 gie_params;
 	struct mqa_info		 mqa_info;
-	int			 ret;
+	int			 ret, i, j;
 
 	mqa_get_info(giu->mqa, &mqa_info);
 
@@ -33,56 +33,104 @@ static int init_gies(struct giu *giu, u8 num_gies, struct giu_emul_params *gies_
 	gie_params.msi_regs_phys = giu->msi_regs_pa;
 	gie_params.msi_regs_virt = giu->msi_regs_va;
 
-	gie_params.dmax_match = gies_params[0].dma_eng_match;
 	gie_params.name_match = (char *)"MNG";
+	giu->gie_types[GIU_ENG_MNG].num_dma_engines = gies_params[GIU_ENG_MNG].num_dma_engines;
+	for (i = 0; i < gies_params[GIU_ENG_MNG].num_dma_engines; i++) {
+		gie_params.dmax_match = gies_params[GIU_ENG_MNG].engine_name[i];
 
-	ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_MNG]));
-	if (ret) {
-		pr_err("Failed to initialize management GIU emulator!\n");
-		return -ENODEV;
+		ret = gie_init(&gie_params, &(giu->gie_types[GIU_ENG_MNG].gies[i]));
+		if (ret) {
+			pr_err("Failed to initialize management GIU emulator %d!\n", i);
+			return -ENODEV;
+		}
 	}
 
 	if (num_gies == 1) {
-		giu->gies[GIU_ENG_OUT] = giu->gies[GIU_ENG_MNG];
-		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_MNG];
+		giu->gie_types[GIU_ENG_OUT].num_dma_engines = gies_params[GIU_ENG_MNG].num_dma_engines;
+		giu->gie_types[GIU_ENG_IN].num_dma_engines = gies_params[GIU_ENG_MNG].num_dma_engines;
+		for (i = 0; i < gies_params[GIU_ENG_MNG].num_dma_engines; i++) {
+			giu->gie_types[GIU_ENG_OUT].gies[i] = giu->gie_types[GIU_ENG_MNG].gies[i];
+			giu->gie_types[GIU_ENG_OUT].duplicate[i] = 1;
+			giu->gie_types[GIU_ENG_IN].gies[i] = giu->gie_types[GIU_ENG_MNG].gies[i];
+			giu->gie_types[GIU_ENG_IN].duplicate[i] = 1;
+		}
 		return 0;
 	}
 
 	/* OUT GIE */
-	if (strcmp(gies_params[1].dma_eng_match, gies_params[0].dma_eng_match) == 0)
-		giu->gies[GIU_ENG_OUT] = giu->gies[GIU_ENG_MNG];
-	else {
-		gie_params.dmax_match = gies_params[1].dma_eng_match;
-		gie_params.name_match = (char *)"OUT";
+	gie_params.name_match = (char *)"OUT";
+	giu->gie_types[GIU_ENG_OUT].num_dma_engines = gies_params[GIU_ENG_OUT].num_dma_engines;
+	for (i = 0; i < gies_params[GIU_ENG_OUT].num_dma_engines; i++) {
+		int match = 0;
 
-		ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_OUT]));
+		/* Search for a dma-match in MNG */
+		for (j = 0; j < gies_params[GIU_ENG_MNG].num_dma_engines; j++) {
+			if (strcmp(gies_params[GIU_ENG_OUT].engine_name[i],
+				   gies_params[GIU_ENG_MNG].engine_name[j]) == 0) {
+				giu->gie_types[GIU_ENG_OUT].gies[i] =
+					giu->gie_types[GIU_ENG_MNG].gies[j];
+				giu->gie_types[GIU_ENG_OUT].duplicate[i] = 1;
+				match = 1;
+				break;
+			}
+		}
+		if (match)
+			continue;
+
+		gie_params.dmax_match = gies_params[GIU_ENG_OUT].engine_name[i];
+		ret = gie_init(&gie_params, &(giu->gie_types[GIU_ENG_OUT].gies[i]));
 		if (ret) {
-			pr_err("Failed to initialize OUT GIU emulator!\n");
-			gie_terminate(giu->gies[GIU_ENG_MNG]);
-			return -EIO;
+			pr_err("Failed to initialize OUT GIU emulator %d!\n", i);
+			return -ENODEV;
 		}
 	}
 
 	if (num_gies == 2) {
-		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_OUT];
+		giu->gie_types[GIU_ENG_IN].num_dma_engines = gies_params[GIU_ENG_OUT].num_dma_engines;
+		for (i = 0; i < gies_params[GIU_ENG_OUT].num_dma_engines; i++) {
+			giu->gie_types[GIU_ENG_IN].gies[i] = giu->gie_types[GIU_ENG_OUT].gies[i];
+			giu->gie_types[GIU_ENG_IN].duplicate[i] = 1;
+		}
 		return 0;
 	}
 
-	/* IN GIE */
-	if (strcmp(gies_params[2].dma_eng_match, gies_params[0].dma_eng_match) == 0)
-		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_MNG];
-	else if (strcmp(gies_params[2].dma_eng_match, gies_params[1].dma_eng_match) == 0)
-		giu->gies[GIU_ENG_IN] = giu->gies[GIU_ENG_OUT];
-	else {
-		gie_params.dmax_match = gies_params[2].dma_eng_match;
-		gie_params.name_match = (char *)"IN";
+	gie_params.name_match = (char *)"IN";
+	giu->gie_types[GIU_ENG_IN].num_dma_engines = gies_params[GIU_ENG_IN].num_dma_engines;
+	for (i = 0; i < gies_params[GIU_ENG_IN].num_dma_engines; i++) {
+		int match = 0;
 
-		ret = gie_init(&gie_params, &(giu->gies[GIU_ENG_IN]));
+		/* Search for a dma-match in MNG */
+		for (j = 0; j < gies_params[GIU_ENG_MNG].num_dma_engines; j++) {
+			if (strcmp(gies_params[GIU_ENG_IN].engine_name[i],
+				   gies_params[GIU_ENG_MNG].engine_name[j]) == 0) {
+				giu->gie_types[GIU_ENG_IN].gies[i] =
+					giu->gie_types[GIU_ENG_MNG].gies[j];
+				giu->gie_types[GIU_ENG_IN].duplicate[i] = 1;
+				match = 1;
+				break;
+			}
+		}
+		if (match)
+			continue;
+		/* Search for a dma-match in OUT */
+		for (j = 0; j < gies_params[GIU_ENG_OUT].num_dma_engines; j++) {
+			if (strcmp(gies_params[GIU_ENG_IN].engine_name[i],
+				   gies_params[GIU_ENG_OUT].engine_name[j]) == 0) {
+				giu->gie_types[GIU_ENG_IN].gies[i] =
+					giu->gie_types[GIU_ENG_OUT].gies[j];
+				giu->gie_types[GIU_ENG_IN].duplicate[i] = 1;
+				match = 1;
+				break;
+			}
+		}
+		if (match)
+			continue;
+
+		gie_params.dmax_match = gies_params[GIU_ENG_IN].engine_name[i];
+		ret = gie_init(&gie_params, &(giu->gie_types[GIU_ENG_IN].gies[i]));
 		if (ret) {
-			pr_err("Failed to initialize IN GIU emulator!\n");
-			gie_terminate(giu->gies[GIU_ENG_OUT]);
-			gie_terminate(giu->gies[GIU_ENG_MNG]);
-			return -EIO;
+			pr_err("Failed to initialize IN GIU emulator %d!\n", i);
+			return -ENODEV;
 		}
 	}
 
@@ -101,7 +149,7 @@ struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng)
 		return NULL;
 	}
 
-	return giu->gies[eng];
+	return giu->gie_types[eng].gies[0];
 }
 
 int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa)
@@ -129,9 +177,10 @@ int giu_init(struct giu_params *params, struct giu **giu)
 	_giu->msi_regs_pa = params->msi_regs_pa;
 	_giu->msi_regs_va = params->msi_regs_va;
 
-	ret = init_gies(_giu, params->num_gies, params->gies_params);
+	ret = init_gies(_giu, params->num_gie_types, params->gie_type_params);
 	if (ret) {
 		pr_err("Failed to initialize OUT GIU emulator!\n");
+		giu_deinit(_giu);
 		return ret;
 	}
 
@@ -142,15 +191,22 @@ int giu_init(struct giu_params *params, struct giu **giu)
 
 void giu_deinit(struct giu *giu)
 {
+	int i;
+
 	if (!giu)
 		return;
 
-	if (giu->gies[GIU_ENG_IN] && (giu->gies[GIU_ENG_IN] != giu->gies[GIU_ENG_OUT]))
-		gie_terminate(giu->gies[GIU_ENG_IN]);
-	if (giu->gies[GIU_ENG_OUT] && (giu->gies[GIU_ENG_OUT] != giu->gies[GIU_ENG_MNG]))
-		gie_terminate(giu->gies[GIU_ENG_OUT]);
-	if (giu->gies[GIU_ENG_MNG])
-		gie_terminate(giu->gies[GIU_ENG_MNG]);
+	for (i = 0; i < giu->gie_types[GIU_ENG_MNG].num_dma_engines; i++)
+		if (!giu->gie_types[GIU_ENG_MNG].duplicate[i])
+			gie_terminate(giu->gie_types[GIU_ENG_MNG].gies[i]);
+
+	for (i = 0; i < giu->gie_types[GIU_ENG_IN].num_dma_engines; i++)
+		if (!giu->gie_types[GIU_ENG_IN].duplicate[i])
+			gie_terminate(giu->gie_types[GIU_ENG_IN].gies[i]);
+
+	for (i = 0; i < giu->gie_types[GIU_ENG_OUT].num_dma_engines; i++)
+		if (!giu->gie_types[GIU_ENG_OUT].duplicate[i])
+			gie_terminate(giu->gie_types[GIU_ENG_OUT].gies[i]);
 
 	kfree(giu);
 }
@@ -304,10 +360,10 @@ int giu_mng_ch_init(struct giu *giu, struct giu_mng_ch_params *params, struct gi
 	/* ================== */
 
 	/* Register Command channel */
-	gie_add_queue(giu->gies[GIU_ENG_MNG], _mng_ch->rem_cmd_q_idx, 1);
+	gie_add_queue(giu->gie_types[GIU_ENG_MNG].gies[0], _mng_ch->rem_cmd_q_idx, 1);
 
 	/* Register Notification channel */
-	gie_add_queue(giu->gies[GIU_ENG_MNG], _mng_ch->lcl_resp_q_idx, 0);
+	gie_add_queue(giu->gie_types[GIU_ENG_MNG].gies[0], _mng_ch->lcl_resp_q_idx, 0);
 
 	*mng_ch = _mng_ch;
 	return 0;
@@ -332,7 +388,7 @@ void giu_mng_ch_deinit(struct giu_mng_ch *mng_ch)
 	}
 
 	if (mng_ch->lcl_resp_q_idx >= 0) {
-		gie_remove_queue(mng_ch->giu->gies[GIU_ENG_MNG], mng_ch->lcl_resp_q_idx);
+		gie_remove_queue(mng_ch->giu->gie_types[GIU_ENG_MNG].gies[0], mng_ch->lcl_resp_q_idx);
 		if (mng_ch->lcl_resp_q) {
 			ret = mqa_queue_destroy(mng_ch->giu->mqa, mng_ch->lcl_resp_q);
 			if (ret < 0)
@@ -344,7 +400,7 @@ void giu_mng_ch_deinit(struct giu_mng_ch *mng_ch)
 	}
 
 	if (mng_ch->rem_cmd_q_idx >= 0) {
-		gie_remove_queue(mng_ch->giu->gies[GIU_ENG_MNG], mng_ch->rem_cmd_q_idx);
+		gie_remove_queue(mng_ch->giu->gie_types[GIU_ENG_MNG].gies[0], mng_ch->rem_cmd_q_idx);
 		if (mng_ch->rem_cmd_q) {
 			ret = mqa_queue_destroy(mng_ch->giu->mqa, mng_ch->rem_cmd_q);
 			if (ret < 0)
@@ -384,9 +440,11 @@ int giu_mng_ch_get_qs(struct giu_mng_ch *mng_ch, struct giu_mng_ch_qs *qs)
 	return 0;
 }
 
-int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit, u16 *pending)
+int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit, u16 *total_pending)
 {
 	int gpio_idx;
+	u16 pending = 0;
+	int i, err;
 
 #ifdef DEBUG
 	if (unlikely(!giu)) {
@@ -417,7 +475,15 @@ int giu_schedule(struct giu *giu, enum giu_eng eng, u64 time_limit, u64 qe_limit
 		}
 	}
 
-	return gie_schedule(giu->gies[eng], time_limit, qe_limit, pending);
+	for (i = 0; i < giu->gie_types[eng].num_dma_engines; i++) {
+		err = gie_schedule(giu->gie_types[eng].gies[i], time_limit, qe_limit, &pending);
+		if (err)
+			return err;
+		if (total_pending)
+			*total_pending += pending;
+	}
+
+	return 0;
 }
 
 

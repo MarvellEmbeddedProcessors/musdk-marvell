@@ -100,7 +100,7 @@ static int dev_mng_init_giu(struct nmp *nmp, struct nmp_params *params)
 {
 	struct sys_iomem_params iomem_params;
 	struct giu_params giu_params;
-	int ret, i;
+	int ret, i, j;
 
 	/* Initialize the management GIU instance */
 	pr_debug("Initializing GIU devices\n");
@@ -139,12 +139,14 @@ static int dev_mng_init_giu(struct nmp *nmp, struct nmp_params *params)
 	giu_params.msi_regs_va = (u64)nmp->msi_regs.virt_addr + nmp_msi_map_regs_offs[i];
 
 	/* pass dma engines params from nmp */
-	i = 0;
-	giu_params.num_gies = params->dma_eng_params.num_engines;
-	while (i < params->dma_eng_params.num_engines) {
-		giu_params.gies_params[i].dma_eng_match =
-			params->dma_eng_params.engine_name[i];
-		i++;
+	giu_params.num_gie_types = params->giu_eng_params.num_giu_engines;
+	for (i = 0; i < params->giu_eng_params.num_giu_engines; i++) {
+		struct nmp_giu_eng_type_params *eng_type_params =
+			&params->giu_eng_params.eng_type_params[i];
+
+		giu_params.gie_type_params[i].num_dma_engines = eng_type_params->num_dma_engines;
+		for (j = 0; j < eng_type_params->num_dma_engines; j++)
+			giu_params.gie_type_params[i].engine_name[j] = eng_type_params->engine_name[j];
 	}
 
 	ret = giu_init(&giu_params, &nmp->giu);

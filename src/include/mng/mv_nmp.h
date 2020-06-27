@@ -163,12 +163,21 @@ struct nmp_container_params {
 };
 
 /**
- * NMP DMA-engines information
+ * NMP DMA-engines per GIU engine information
  *
  */
-struct nmp_dma_engines_params {
-	u8 num_engines;		/**< Number of DMA engines*/
-	char engine_name[GIU_ENG_OUT_OF_RANGE][16];
+struct nmp_giu_eng_type_params {
+	u8 num_dma_engines;	/**< Number of DMA engines for this type*/
+	char engine_name[GIU_MAX_ENG_PER_TYPE][16];
+};
+
+/**
+ * NMP GIU engines information
+ *
+ */
+struct nmp_giu_engines_params {
+	u8 num_giu_engines;		/**< Number of GIU engines*/
+	struct nmp_giu_eng_type_params eng_type_params[GIU_ENG_OUT_OF_RANGE];
 };
 
 /**
@@ -190,7 +199,7 @@ struct nmp_params {
 	/** NMP may have several containers, each one representing a user process/VM/container */
 	u8 num_containers;
 	struct nmp_container_params *containers_params;
-	struct nmp_dma_engines_params dma_eng_params;
+	struct nmp_giu_engines_params giu_eng_params;
 };
 
 struct nmp_event_params {

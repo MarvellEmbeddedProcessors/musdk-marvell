@@ -487,7 +487,8 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 		rc = -EINVAL;
 		goto read_cfg_exit2;
 	}
-	strcpy(params->dma_eng_params.engine_name[GIU_ENG_MNG], tmp_str);
+	params->giu_eng_params.eng_type_params[GIU_ENG_MNG].num_dma_engines = 1;
+	strcpy(params->giu_eng_params.eng_type_params[GIU_ENG_MNG].engine_name[0], tmp_str);
 
 	memset(tmp_buf, 0, sizeof(tmp_buf));
 	json_buffer_to_input_str(sec, "in", tmp_str);
@@ -501,7 +502,8 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 		rc = -EINVAL;
 		goto read_cfg_exit2;
 	}
-	strcpy(params->dma_eng_params.engine_name[GIU_ENG_IN], tmp_str);
+	params->giu_eng_params.eng_type_params[GIU_ENG_IN].num_dma_engines = 1;
+	strcpy(params->giu_eng_params.eng_type_params[GIU_ENG_IN].engine_name[0], tmp_str);
 
 	memset(tmp_buf, 0, sizeof(tmp_buf));
 	json_buffer_to_input_str(sec, "out", tmp_str);
@@ -515,8 +517,10 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 		rc = -EINVAL;
 		goto read_cfg_exit2;
 	}
-	strcpy(params->dma_eng_params.engine_name[GIU_ENG_OUT], tmp_str);
-	params->dma_eng_params.num_engines = 3;
+	params->giu_eng_params.eng_type_params[GIU_ENG_OUT].num_dma_engines = 1;
+	strcpy(params->giu_eng_params.eng_type_params[GIU_ENG_OUT].engine_name[0], tmp_str);
+
+	params->giu_eng_params.num_giu_engines = 3;
 
 	return 0;
 read_cfg_exit2:

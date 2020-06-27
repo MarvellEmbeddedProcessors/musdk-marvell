@@ -18,6 +18,7 @@
  */
 
 #define GIU_MAX_NUM_GPIO	8 /**< Maximum number of gpio instances */
+#define GIU_MAX_ENG_PER_TYPE	4 /**< Maximum number of dma-engines per giu eng */
 
 struct giu;
 struct giu_mng_ch;
@@ -65,7 +66,8 @@ enum giu_multi_qs_mode {
  * GIU emulation parameters
  */
 struct giu_emul_params {
-	char	*dma_eng_match; /**< DMA engine match string */
+	u8 num_dma_engines;	/**< Number of DMA engines for this type*/
+	char *engine_name[GIU_MAX_ENG_PER_TYPE];
 };
 
 /**
@@ -77,8 +79,8 @@ struct giu_params {
 	u64			 msi_regs_pa;	/**< MSI phys-address registers base */
 	u64			 msi_regs_va;	/**< MSI virt-address registers base */
 
-	u8			 num_gies;
-	struct giu_emul_params	 gies_params[GIU_ENG_OUT_OF_RANGE];
+	u8			 num_gie_types;
+	struct giu_emul_params	 gie_type_params[GIU_ENG_OUT_OF_RANGE];
 };
 
 /**

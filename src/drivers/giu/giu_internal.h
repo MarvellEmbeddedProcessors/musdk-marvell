@@ -67,11 +67,18 @@ struct giu_gpio_queue {
 	};
 };
 
+struct gie_type {
+	u8 num_dma_engines;
+	struct gie *gies[GIU_MAX_ENG_PER_TYPE];
+	int duplicate[GIU_MAX_ENG_PER_TYPE];
+};
+
 struct giu {
 	enum giu_indices_copy_mode	 indices_mode;
 
 	struct mqa			*mqa;
-	struct gie			*gies[GIU_ENG_OUT_OF_RANGE];
+
+	struct gie_type			 gie_types[GIU_ENG_OUT_OF_RANGE];
 	struct giu_gpio			*gpio_list[GIU_MAX_NUM_GPIO];
 	u64				 msi_regs_pa;	/**< MSI phys-address registers base */
 	u64				 msi_regs_va;	/**< MSI virt-address registers base */
