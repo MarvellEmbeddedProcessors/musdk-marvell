@@ -119,6 +119,7 @@ struct mgmt_cmd_params {
 		struct {
 			u32	tc_prio;
 			u32	num_queues_per_tc;
+			u32	num_queues_per_dma;
 		} __packed egress_tc_add;
 
 		/* Used for BM & Tx queues. */

@@ -765,6 +765,8 @@ static int nmnicpf_egress_tc_add_command(struct nmnicpf *nmnicpf,
 	/* Update queue topology database */
 	nmnicpf->gpio_rem_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs =
 		params->egress_tc_add.num_queues_per_tc;
+	nmnicpf->gpio_rem_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs_per_dma =
+		params->egress_tc_add.num_queues_per_dma;
 	/* TODO: Add support for egress pkt-offset and RSS-type */
 	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].pkt_offset = 0;
 	nmnicpf->gpio_params.intcs_params[params->egress_tc_add.tc_prio].rss_type = RSS_HASH_NONE;

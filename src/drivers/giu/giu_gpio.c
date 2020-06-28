@@ -973,7 +973,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			}
 
 			/* Register Host Egress Queue to GIU */
-			rem_q->gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0);
+			rem_q->gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN, q_idx / intc_par->num_rem_outqs_per_dma);
 			ret = gie_add_queue(rem_q->gie, rem_q->q_id, GIU_REM_Q);
 			if (ret) {
 				pr_err("Failed to register Host Egress Queue %d to GIU\n",

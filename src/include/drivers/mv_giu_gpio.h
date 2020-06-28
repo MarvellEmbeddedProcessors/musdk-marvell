@@ -81,6 +81,7 @@ struct giu_gpio_intc_params {
 };
 
 struct giu_gpio_intc_rem_params {
+	u32				 num_rem_outqs_per_dma;
 	u32				 num_rem_outqs;
 	struct giu_gpio_rem_q_params	 rem_outqs_params[GIU_GPIO_TC_MAX_NUM_QS];
 };
