@@ -123,7 +123,7 @@ static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
 	}
 
 	if (eng < GIU_ENG_OUT_OF_RANGE)
-		gie = giu_get_gie_handle(giu, eng);
+		gie = giu_get_gie_handle(giu, eng, 0);
 
 	if (q) {
 		u32 tmp_q_id;
@@ -791,7 +791,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			}
 
 			/* Register Host BM Queue to GIU */
-			ret = gie_add_bm_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT),
+			ret = gie_add_bm_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
 					mqa_params.idx, rem_q_par->buff_len, GIU_REM_Q);
 			if (ret) {
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
@@ -857,7 +857,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 				goto host_ing_queue_error;
 			}
 
-			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT),
+			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
 					pair_qid, GIU_LCL_Q);
 			if (ret) {
 				pr_err("Failed to register Host Egress Queue %d to GIU\n",
@@ -975,7 +975,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			}
 
 			/* Register Host Egress Queue to GIU */
-			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_IN),
+			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0),
 					rem_q->q_id, GIU_REM_Q);
 			if (ret) {
 				pr_err("Failed to register Host Egress Queue %d to GIU\n",
@@ -1484,7 +1484,7 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 			intc = &(gpio->intcs[tc_idx]);
 			outtc = &(gpio->outtcs[tc_idx]);
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN);
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0);
 			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
 				err = gie_resume_queue(gie, intc->rem_outqs[q_idx].q_id);
 				if (err) {
@@ -1494,7 +1494,7 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 				}
 			}
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT);
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0);
 			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
 				err = gie_resume_queue(gie, outtc->outqs[q_idx].q_id);
 				if (err) {
@@ -1530,7 +1530,7 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 			intc = &(gpio->intcs[tc_idx]);
 			outtc = &(gpio->outtcs[tc_idx]);
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN);
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0);
 			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
 				err = gie_suspend_queue(gie, intc->rem_outqs[q_idx].q_id);
 				if (err) {
@@ -1540,7 +1540,7 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 				}
 			}
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT);
+			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0);
 			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
 				err = gie_suspend_queue(gie, outtc->outqs[q_idx].q_id);
 				if (err) {
@@ -1883,7 +1883,7 @@ int giu_gpio_create_event(struct giu_gpio *gpio, struct giu_gpio_event_params *p
 		return -EINVAL;
 	}
 
-	return gie_create_event(giu_get_gie_handle(gpio->giu, GIU_ENG_IN),
+	return gie_create_event(giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0),
 		(struct gie_event_params *)params, ev);
 }
 
@@ -1944,7 +1944,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range intc remote out queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_IN),
+			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0),
 					gpio->intcs[tc].rem_outqs[qid].q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: remote out tc:%d q:%d (qid:%d)\n",
@@ -1962,7 +1962,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range outtc remote in queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT),
+			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
 					gpio->outtcs[tc].rem_inqs[qid].q.q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: remote in tc:%d q:%d (qid:%d)\n",
@@ -1981,7 +1981,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range outtc local out queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT),
+			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
 					gpio->outtcs[tc].outqs[qid].q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: local out tc:%d q:%d (qid:%d)\n",
@@ -1999,7 +1999,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range intc local in queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_IN),
+			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0),
 					gpio->intcs[tc].inqs[qid].q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: local in tc:%d q:%d (qid:%d)\n",

@@ -137,7 +137,7 @@ static int init_gies(struct giu *giu, u8 num_gies, struct giu_emul_params *gies_
 	return 0;
 }
 
-struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng)
+struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng, u8 gie_index)
 {
 	if (unlikely(!giu)) {
 		pr_err("Invalid GIU handle!\n");
@@ -149,7 +149,12 @@ struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng)
 		return NULL;
 	}
 
-	return giu->gie_types[eng].gies[0];
+	if (unlikely(gie_index >= giu->gie_types[eng].num_dma_engines)) {
+		pr_err("Invalid GIU engine index!\n");
+		return NULL;
+	}
+
+	return giu->gie_types[eng].gies[gie_index];
 }
 
 int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa)

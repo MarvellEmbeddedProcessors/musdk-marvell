@@ -97,7 +97,7 @@ struct giu_mng_ch {
 	struct mqa_q	*rem_resp_q;
 };
 
-struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng);
+struct gie *giu_get_gie_handle(struct giu *giu, enum giu_eng eng, u8 gie_index);
 
 int giu_bpool_get_mqa_q_id(struct giu_bpool *bpool);
 
