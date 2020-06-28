@@ -280,6 +280,7 @@ struct mgmt_cmd_resp {
 #define CAPABILITIES_SG		(1 << 0)
 			u32 flags;
 			u32 max_buf_size;
+			u8  egress_num_dma_engines;
 		} __packed capabilities;
 	};
 } __packed;

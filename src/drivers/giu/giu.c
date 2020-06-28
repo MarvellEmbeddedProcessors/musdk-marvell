@@ -168,6 +168,23 @@ int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa)
 	return 0;
 }
 
+int giu_get_num_dma_engines(struct giu *giu, enum giu_eng eng, u8 *num_dma_engines)
+{
+	if (unlikely(!giu)) {
+		pr_err("Invalid GIU handle!\n");
+		return -EINVAL;
+	}
+
+	if (unlikely(eng >= GIU_ENG_OUT_OF_RANGE)) {
+		pr_err("Invalid GIU engine!\n");
+		return -EINVAL;
+	}
+
+	*num_dma_engines = giu->gie_types[eng].num_dma_engines;
+
+	return 0;
+}
+
 int giu_init(struct giu_params *params, struct giu **giu)
 {
 	struct giu		*_giu;

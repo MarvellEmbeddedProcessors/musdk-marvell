@@ -2011,7 +2011,7 @@ static int nmnicpf_get_capabilities(struct nmnicpf *nmnicpf,
 				    struct mgmt_cmd_params *params,
 				    struct mgmt_cmd_resp *resp_data)
 {
-	int bm_idx;
+	int ret, bm_idx;
 
 	resp_data->capabilities.max_buf_size = 0;
 	for (bm_idx = 0; bm_idx < nmnicpf->profile_data.lcl_bp_num; bm_idx++)
@@ -2022,6 +2022,10 @@ static int nmnicpf_get_capabilities(struct nmnicpf *nmnicpf,
 	resp_data->capabilities.flags = 0;
 	if (nmnicpf->profile_data.sg_en)
 		resp_data->capabilities.flags |= CAPABILITIES_SG;
+
+	ret = giu_get_num_dma_engines(nmnicpf->giu, GIU_ENG_IN, &resp_data->capabilities.egress_num_dma_engines);
+	if (ret)
+		return ret;
 
 	return 0;
 }
