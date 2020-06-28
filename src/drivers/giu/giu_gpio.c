@@ -25,11 +25,13 @@ struct giu_gpio_lcl_q {
 	u32			 q_id;
 	struct mqa_q		*mqa_q;
 	struct giu_gpio_queue	 queue; /* queue params for immediate use */
+	struct gie		*gie;
 };
 
 struct giu_gpio_rem_q {
 	u32		 q_id;
 	struct mqa_q	*mqa_q;
+	struct gie	*gie;
 };
 
 
@@ -111,19 +113,15 @@ struct giu_gpio {
 	struct giu_gpio_outtc	 outtcs[GIU_GPIO_MAX_NUM_TCS];
 };
 
-static int destroy_q(struct giu *giu, enum giu_eng eng, struct mqa *mqa,
+static int destroy_q(struct giu *giu, struct gie *gie, struct mqa *mqa,
 	struct mqa_q *q, u32 q_id, struct mqa_q *src_q, enum queue_type queue_type)
 {
-	struct gie *gie = NULL;
 	int ret = 0;
 
 	if (unlikely(!giu)) {
 		pr_err("Invalid GIU handle!\n");
 		return -EINVAL;
 	}
-
-	if (eng < GIU_ENG_OUT_OF_RANGE)
-		gie = giu_get_gie_handle(giu, eng, 0);
 
 	if (q) {
 		u32 tmp_q_id;
@@ -650,7 +648,7 @@ interim_eg_queue_error:
 		intc = &((*gpio)->intcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_interim_qs; q_idx++) {
-			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
+			ret = destroy_q((*gpio)->giu, NULL, (*gpio)->mqa,
 					intc->interim_qs[q_idx].mqa_q,
 					intc->interim_qs[q_idx].q_id,
 					NULL,
@@ -673,7 +671,7 @@ interim_ing_queue_error:
 		outtc = &((*gpio)->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
-			ret = destroy_q((*gpio)->giu, GIU_ENG_OUT_OF_RANGE, (*gpio)->mqa,
+			ret = destroy_q((*gpio)->giu, NULL, (*gpio)->mqa,
 					outtc->interim_qs[q_idx].mqa_q,
 					outtc->interim_qs[q_idx].q_id,
 					NULL,
@@ -791,8 +789,8 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			}
 
 			/* Register Host BM Queue to GIU */
-			ret = gie_add_bm_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
-					mqa_params.idx, rem_q_par->buff_len, GIU_REM_Q);
+			rem_q->gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0);
+			ret = gie_add_bm_queue(rem_q->gie, mqa_params.idx, rem_q_par->buff_len, GIU_REM_Q);
 			if (ret) {
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto host_queue_error;
@@ -857,8 +855,8 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 				goto host_ing_queue_error;
 			}
 
-			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
-					pair_qid, GIU_LCL_Q);
+			outtc->outqs[q_idx].gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0);
+			ret = gie_add_queue(outtc->outqs[q_idx].gie, pair_qid, GIU_LCL_Q);
 			if (ret) {
 				pr_err("Failed to register Host Egress Queue %d to GIU\n",
 					   rem_q->q_id);
@@ -975,8 +973,8 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			}
 
 			/* Register Host Egress Queue to GIU */
-			ret = gie_add_queue(giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0),
-					rem_q->q_id, GIU_REM_Q);
+			rem_q->gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0);
+			ret = gie_add_queue(rem_q->gie, rem_q->q_id, GIU_REM_Q);
 			if (ret) {
 				pr_err("Failed to register Host Egress Queue %d to GIU\n",
 					   rem_q->q_id);
@@ -993,10 +991,10 @@ host_eg_queue_error:
 		intc = &(gpio->intcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_IN, gpio->mqa,
+			ret = destroy_q(gpio->giu, intc->rem_outqs[q_idx].gie, gpio->mqa,
 					intc->rem_outqs[q_idx].mqa_q,
 					intc->rem_outqs[q_idx].q_id,
-					intc->inqs[q_idx].mqa_q,
+					NULL,
 					HOST_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to remove queue Idx %x\n",
@@ -1010,7 +1008,7 @@ lcl_eg_queue_error:
 		intc = &(gpio->intcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, NULL, gpio->mqa,
 					intc->inqs[q_idx].mqa_q,
 					intc->inqs[q_idx].q_id,
 					NULL,
@@ -1028,7 +1026,7 @@ host_ing_queue_error:
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
+			ret = destroy_q(gpio->giu, outtc->outqs[q_idx].gie, gpio->mqa,
 					outtc->rem_inqs[q_idx].q.mqa_q,
 					outtc->rem_inqs[q_idx].q.q_id,
 					outtc->outqs[q_idx].mqa_q,
@@ -1045,7 +1043,7 @@ host_queue_error:
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
+			ret = destroy_q(gpio->giu, outtc->rem_inqs[bm_idx].poolq.gie, gpio->mqa,
 					outtc->rem_inqs[bm_idx].poolq.mqa_q,
 					outtc->rem_inqs[bm_idx].poolq.q_id,
 					NULL,
@@ -1062,7 +1060,7 @@ lcl_ing_queue_error:
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, NULL, gpio->mqa,
 					outtc->outqs[q_idx].mqa_q,
 					outtc->outqs[q_idx].q_id,
 					NULL,
@@ -1090,10 +1088,10 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 		intc = &(gpio->intcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_IN, gpio->mqa,
+			ret = destroy_q(gpio->giu, intc->rem_outqs[q_idx].gie, gpio->mqa,
 					intc->rem_outqs[q_idx].mqa_q,
 					intc->rem_outqs[q_idx].q_id,
-					intc->inqs[q_idx].mqa_q,
+					NULL,
 					HOST_EGRESS_DATA_QUEUE);
 			if (ret)
 				pr_warn("Failed to destroy queue Idx %x\n",
@@ -1106,7 +1104,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 		intc = &(gpio->intcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_inqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, NULL, gpio->mqa,
 					intc->inqs[q_idx].mqa_q,
 					intc->inqs[q_idx].q_id,
 					NULL,
@@ -1123,7 +1121,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_rem_inqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
+			ret = destroy_q(gpio->giu, outtc->outqs[q_idx].gie, gpio->mqa,
 					outtc->rem_inqs[q_idx].q.mqa_q,
 					outtc->rem_inqs[q_idx].q.q_id,
 					outtc->outqs[q_idx].mqa_q,
@@ -1139,7 +1137,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, NULL, gpio->mqa,
 					outtc->outqs[q_idx].mqa_q,
 					outtc->outqs[q_idx].q_id,
 					NULL,
@@ -1166,7 +1164,7 @@ void giu_gpio_clear_remote(struct giu_gpio *gpio)
 		outtc = &(gpio->outtcs[tc_idx]);
 
 		for (bm_idx = 0; bm_idx < outtc->num_rem_inqs; bm_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT, gpio->mqa,
+			ret = destroy_q(gpio->giu, outtc->rem_inqs[bm_idx].poolq.gie, gpio->mqa,
 					outtc->rem_inqs[bm_idx].poolq.mqa_q,
 					outtc->rem_inqs[bm_idx].poolq.q_id,
 					NULL,
@@ -1193,7 +1191,7 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 		intc = &(gpio->intcs[tc_idx]);
 
 		for (q_idx = 0; q_idx < intc->num_interim_qs; q_idx++) {
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, NULL, gpio->mqa,
 					intc->interim_qs[q_idx].mqa_q,
 					intc->interim_qs[q_idx].q_id,
 					NULL,
@@ -1212,7 +1210,7 @@ void giu_gpio_deinit(struct giu_gpio *gpio)
 
 			kfree(outtc->interim_qs[q_idx].descs);
 
-			ret = destroy_q(gpio->giu, GIU_ENG_OUT_OF_RANGE, gpio->mqa,
+			ret = destroy_q(gpio->giu, NULL, gpio->mqa,
 					outtc->interim_qs[q_idx].mqa_q,
 					outtc->interim_qs[q_idx].q_id,
 					NULL,
@@ -1471,7 +1469,6 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 	struct giu_gpio_intc	*intc;
 	u32			 tc_idx, q_idx;
 	int			 err;
-	struct gie		*gie = NULL;
 
 	if (gpio->is_guest) {
 		err = nmp_guest_giu_gpio_enable(gpio->match);
@@ -1484,9 +1481,8 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 			intc = &(gpio->intcs[tc_idx]);
 			outtc = &(gpio->outtcs[tc_idx]);
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0);
 			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-				err = gie_resume_queue(gie, intc->rem_outqs[q_idx].q_id);
+				err = gie_resume_queue(intc->rem_outqs[q_idx].gie, intc->rem_outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to resume queue Idx %d\n",
 						intc->rem_outqs[q_idx].q_id);
@@ -1494,9 +1490,8 @@ int giu_gpio_enable(struct giu_gpio *gpio)
 				}
 			}
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0);
 			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-				err = gie_resume_queue(gie, outtc->outqs[q_idx].q_id);
+				err = gie_resume_queue(outtc->outqs[q_idx].gie, outtc->outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to resume queue Idx %d\n",
 						outtc->outqs[q_idx].q_id);
@@ -1517,7 +1512,6 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 	struct giu_gpio_intc	*intc;
 	u32			 tc_idx, q_idx;
 	int			 err;
-	struct gie		*gie = NULL;
 
 	if (gpio->is_guest) {
 		err = nmp_guest_giu_gpio_disable(gpio->match);
@@ -1530,9 +1524,8 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 			intc = &(gpio->intcs[tc_idx]);
 			outtc = &(gpio->outtcs[tc_idx]);
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0);
 			for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
-				err = gie_suspend_queue(gie, intc->rem_outqs[q_idx].q_id);
+				err = gie_suspend_queue(intc->rem_outqs[q_idx].gie, intc->rem_outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to suspend queue Idx %d\n",
 						intc->rem_outqs[q_idx].q_id);
@@ -1540,9 +1533,8 @@ int giu_gpio_disable(struct giu_gpio *gpio)
 				}
 			}
 
-			gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0);
 			for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
-				err = gie_suspend_queue(gie, outtc->outqs[q_idx].q_id);
+				err = gie_suspend_queue(outtc->outqs[q_idx].gie, outtc->outqs[q_idx].q_id);
 				if (err) {
 					pr_err("Failed to suspend queue Idx %d\n",
 						outtc->outqs[q_idx].q_id);
@@ -1944,7 +1936,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range intc remote out queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0),
+			ret = gie_get_queue_stats(gpio->intcs[tc].rem_outqs[qid].gie,
 					gpio->intcs[tc].rem_outqs[qid].q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: remote out tc:%d q:%d (qid:%d)\n",
@@ -1962,7 +1954,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range outtc remote in queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
+			ret = gie_get_queue_stats(gpio->outtcs[tc].rem_inqs[qid].q.gie,
 					gpio->outtcs[tc].rem_inqs[qid].q.q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: remote in tc:%d q:%d (qid:%d)\n",
@@ -1981,7 +1973,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range outtc local out queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0),
+			ret = gie_get_queue_stats(gpio->outtcs[tc].outqs[qid].gie,
 					gpio->outtcs[tc].outqs[qid].q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: local out tc:%d q:%d (qid:%d)\n",
@@ -1999,7 +1991,7 @@ int giu_gpio_get_q_statistics(struct giu_gpio *gpio, int out, int rem, u8 tc, u8
 				pr_err("out of range intc local in queue. no such qid: %d\n", qid);
 				return -1;
 			}
-			ret = gie_get_queue_stats(giu_get_gie_handle(gpio->giu, GIU_ENG_IN, 0),
+			ret = gie_get_queue_stats(gpio->intcs[tc].inqs[qid].gie,
 					gpio->intcs[tc].inqs[qid].q_id, &stats->packets, reset);
 			if (ret) {
 				pr_err("failed to get stats: local in tc:%d q:%d (qid:%d)\n",
