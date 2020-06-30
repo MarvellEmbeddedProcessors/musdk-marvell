@@ -104,7 +104,7 @@ int gie_add_queue(void *gie, u16 qid, int is_remote);
  * @retval	<0 on failure
  *
  */
-int gie_add_bm_queue(void *gie, u16 qid, int buf_size, int is_remote);
+int gie_add_bm_queue(void *gie, u16 qid, int buf_size, int is_remote, void **bm_queue_ref);
 
 /**
  * Remove Queue from GIE scheduling.
@@ -232,5 +232,8 @@ int gie_set_event(struct mv_sys_event *ev, int en);
  * @retval      <0 on failure
  */
 int gie_get_queue_stats(void *gie, u16 qid, u64 *pkt_cnt, int reset);
+
+int gie_add_bm_queue_reference(void *giu, void *bm_queue_ref);
+int gie_remove_bm_queue_refernce(void *giu, void *bm_queue_ref);
 
 #endif /* _GIE_H */

@@ -31,13 +31,13 @@ static struct gie_q_pair *gie_find_q_pair(struct gie *gie, u16 qid)
 	return NULL;
 }
 
-static struct gie_bpool *gie_find_bpool(struct gie_bpool *pools, int max, u16 qid)
+static struct gie_bpool *gie_find_bpool(struct gie_bpool **pools, int max, u16 qid)
 {
 	int i;
 
 	for (i = 0; i < max; i++) {
-		if ((pools[i].buf_size != 0) && (pools[i].src_q.qid == qid))
-			return &pools[i];
+		if ((pools[i]->buf_size != 0) && (pools[i]->src_q.qid == qid))
+			return pools[i];
 	}
 	return NULL;
 }
@@ -1156,7 +1156,7 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 	/* Find the bpools and keep local pointers */
 	if (copy_payload) {
 		for (i = 0; i < GIE_MAX_BM_PER_Q; i++) {
-			bpool = gie_find_bpool(gie->bpools, gie->bp_cnt, qpd->common.queue_ext.bm_queue[i]);
+			bpool = gie_find_bpool(gie->p_bpools, gie->bp_cnt, qpd->common.queue_ext.bm_queue[i]);
 			if (bpool == NULL) {
 				pr_err("Failed to find bpool for destination queue %d\n", qid);
 				return -ENODEV;
@@ -1185,7 +1185,7 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
  * The bpool will be associated with a produced queue and used
  * by the GIE to get destination buffers for payload copy
  */
-int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
+int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote, void **bm_queue_ref)
 {
 	struct gie *gie = (struct gie *)giu;
 	struct gie_bpool *pool = NULL;
@@ -1211,6 +1211,8 @@ int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
 		pr_warn("No space to add bpool queue %d\n", qid);
 		return -ENOSPC;
 	}
+
+	gie->p_bpools[gie->bp_cnt] = pool;
 
 	src_q = &pool->src_q;
 	qcd = (struct mqa_qct_entry *)gie->regs->gct_base + qid;
@@ -1238,6 +1240,10 @@ int gie_add_bm_queue(void *giu, u16 qid, int buf_size, int is_remote)
 
 	gie->bp_cnt++;
 	pr_debug("Added BM-Q %d on GIE-%s\n", qid, gie->name);
+
+
+	if (bm_queue_ref)
+		*bm_queue_ref = pool;
 
 	return 0;
 }
@@ -1271,7 +1277,7 @@ int gie_remove_bm_queue(void *giu, u16 qid)
 	struct gie *gie = (struct gie *)giu;
 	struct gie_bpool *pool;
 
-	pool = gie_find_bpool(gie->bpools, gie->bp_cnt, qid);
+	pool = gie_find_bpool(gie->p_bpools, gie->bp_cnt, qid);
 	if (pool == NULL) {
 		pr_warn("Cannot find BM queue %d to remove\n", qid);
 		return -ENODEV;
@@ -1283,6 +1289,41 @@ int gie_remove_bm_queue(void *giu, u16 qid)
 	pool->flags = 0;
 	pool->buf_size = 0;
 	gie->bp_cnt--;
+	return 0;
+}
+
+int gie_add_bm_queue_reference(void *giu, void *bm_queue_ref)
+{
+	struct gie *gie = (struct gie *)giu;
+
+	if (!gie || !bm_queue_ref) {
+		pr_warn("either gie or bm_queue_ref is NULL\n");
+		return -EINVAL;
+	}
+
+	gie->p_bpools[gie->bp_cnt++] = bm_queue_ref;
+
+	return 0;
+}
+
+int gie_remove_bm_queue_refernce(void *giu, void *bm_queue_ref)
+{
+	struct gie *gie = (struct gie *)giu;
+	int i;
+
+	if (!gie || !bm_queue_ref) {
+		pr_warn("either gie or bm_queue_ref is NULL\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < gie->bp_cnt; i++)
+		if (gie->p_bpools[i] == bm_queue_ref) {
+			gie->p_bpools[i] = NULL;
+			break;
+		}
+
+	gie->bp_cnt--;
+
 	return 0;
 }
 

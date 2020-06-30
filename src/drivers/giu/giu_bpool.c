@@ -27,6 +27,7 @@ struct giu_bpool_int {
 
 	u32		 q_id;
 	struct mqa_q	*mqa_q;
+	void		*bm_queue_ref;
 
 	/* Buffer Pool Q parameters */
 	struct giu_gpio_queue	 queue;
@@ -52,8 +53,8 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 	struct giu_bpool_int		*bp_int;
 	struct mqa_queue_params		 mqa_params;
 	struct mqa_queue_info		 queue_info;
-	u8				 match_params[2];
-	int				 err, giu_id, bpool_id;
+	u8				 match_params[2], egress_num_dma_engines;
+	int				 err, giu_id, bpool_id, i;
 
 	if (mv_sys_match(params->match, "giu_pool", 2, match_params))
 		return(-ENXIO);
@@ -89,6 +90,12 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 
 	pr_debug("Initializing Local BM queues\n");
 
+	err = giu_get_num_dma_engines(bp_int->giu, GIU_ENG_IN, &egress_num_dma_engines);
+	if (err) {
+		pr_err("Failed to retrieve number of dma-engines\n");
+		return err;
+	}
+
 	/* Allocate queue from MQA */
 	err = mqa_queue_alloc(bp_int->mqa, &bp_int->q_id);
 	if (err) {
@@ -114,7 +121,7 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 
 	/* Register Local BM Queue to GIU */
 	err = gie_add_bm_queue(giu_get_gie_handle(bp_int->giu, GIU_ENG_IN, 0),
-			mqa_params.idx, bp_int->buff_len, GIU_LCL_Q);
+			mqa_params.idx, bp_int->buff_len, GIU_LCL_Q, &bp_int->bm_queue_ref);
 	if (err) {
 		pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 		mqa_queue_destroy(bp_int->mqa, bp_int->mqa_q);
@@ -122,6 +129,9 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 		kfree(bp_int);
 		return err;
 	}
+
+	for (i = 1; i < egress_num_dma_engines; i++)
+		gie_add_bm_queue_reference(giu_get_gie_handle(bp_int->giu, GIU_ENG_IN, i), bp_int->bm_queue_ref);
 
 	mqa_queue_get_info(bp_int->mqa_q, &queue_info);
 
@@ -142,8 +152,15 @@ int giu_bpool_init(struct giu_bpool_params *params, struct giu_bpool **bpool)
 void giu_bpool_deinit(struct giu_bpool *bpool)
 {
 	struct giu_bpool_int	*bp_int = (struct giu_bpool_int *)bpool->internal_param;
+	u8			 egress_num_dma_engines;
+	int			 i;
 
 	pr_debug("De-initializing Local BM queues\n");
+
+	giu_get_num_dma_engines(bp_int->giu, GIU_ENG_IN, &egress_num_dma_engines);
+
+	for (i = 1; i < egress_num_dma_engines; i++)
+		gie_remove_bm_queue_refernce(giu_get_gie_handle(bp_int->giu, GIU_ENG_IN, i), bp_int->bm_queue_ref);
 
 	gie_remove_bm_queue(giu_get_gie_handle(bp_int->giu, GIU_ENG_IN, 0), bp_int->q_id);
 	mqa_queue_destroy(bp_int->mqa, bp_int->mqa_q);

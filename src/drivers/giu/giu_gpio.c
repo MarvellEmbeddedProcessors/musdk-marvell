@@ -790,7 +790,7 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 
 			/* Register Host BM Queue to GIU */
 			rem_q->gie = giu_get_gie_handle(gpio->giu, GIU_ENG_OUT, 0);
-			ret = gie_add_bm_queue(rem_q->gie, mqa_params.idx, rem_q_par->buff_len, GIU_REM_Q);
+			ret = gie_add_bm_queue(rem_q->gie, mqa_params.idx, rem_q_par->buff_len, GIU_REM_Q, NULL);
 			if (ret) {
 				pr_err("Failed to register BM Queue %d to GIU\n", mqa_params.idx);
 				goto host_queue_error;
