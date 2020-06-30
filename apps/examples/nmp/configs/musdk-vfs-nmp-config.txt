@@ -108,9 +108,12 @@
 			"guest_id": 2
 		}
 		"dma_engines": {
+			"num-mng": 1,
 			"mng": "dmax2-0",
-			"in": "dmax2-2",
-			"out": "dmax2-1",
+			"num-in": 1,
+			"in-0": "dmax2-1",
+			"num-out": 1,
+			"out": "dmax2-2",
 		}
 	}
 }
