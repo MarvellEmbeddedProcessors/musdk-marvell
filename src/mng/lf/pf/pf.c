@@ -60,9 +60,9 @@ static int init_nicpf_params(struct nmnicpf *nmnicpf, struct nmp_lf_nicpf_params
 	pf_profile->pci_en = params->pci_en;
 	pf_profile->sg_en = params->sg_en;
 	pf_profile->max_num_tcs        = params->max_num_tcs;
-	pf_profile->lcl_egress_q_num   = 1;
+	pf_profile->lcl_egress_q_num   = params->lcl_egress_num_qs;
 	pf_profile->lcl_egress_q_size  = params->lcl_egress_qs_size;
-	pf_profile->lcl_ingress_q_num  = 1;
+	pf_profile->lcl_ingress_q_num  = params->lcl_ingress_num_qs;
 	pf_profile->lcl_ingress_q_size = params->lcl_ingress_qs_size;
 	pf_profile->lcl_bp_num       = params->lcl_num_bpools;
 	for (k = 0; k < pf_profile->lcl_bp_num; k++) {

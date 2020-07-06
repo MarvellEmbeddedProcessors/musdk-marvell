@@ -60,9 +60,9 @@ static int init_nicvf_params(struct nmnicvf *nmnicvf, struct nmp_lf_nicvf_params
 	vf_profile->pci_en	       = params->pci_en;
 	vf_profile->sg_en	       = params->sg_en;
 	vf_profile->max_num_tcs        = params->max_num_tcs;
-	vf_profile->lcl_egress_q_num   = 1;
+	vf_profile->lcl_egress_q_num   = params->lcl_egress_num_qs;
 	vf_profile->lcl_egress_q_size  = params->lcl_egress_qs_size;
-	vf_profile->lcl_ingress_q_num  = 1;
+	vf_profile->lcl_ingress_q_num  = params->lcl_ingress_num_qs;
 	vf_profile->lcl_ingress_q_size = params->lcl_ingress_qs_size;
 	vf_profile->lcl_bp_num       = params->lcl_num_bpools;
 	if (vf_profile->sg_en && vf_profile->lcl_bp_num > 1) {

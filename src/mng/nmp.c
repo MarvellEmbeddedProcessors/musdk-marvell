@@ -250,6 +250,20 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 					goto read_cfg_exit2;
 				}
 
+				json_buffer_to_input(sec, "lcl_egress_num_qs", pf->lcl_egress_num_qs);
+				if (nmp_range_validate(pf->lcl_egress_num_qs, 1, NMP_LF_TC_MAX_NUM_QS) != 0) {
+					pr_err("lcl_egress_num_qs out of range!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "lcl_ingress_num_qs", pf->lcl_ingress_num_qs);
+				if (nmp_range_validate(pf->lcl_ingress_num_qs, 1, NMP_LF_TC_MAX_NUM_QS) != 0) {
+					pr_err("lcl_ingress_num_qs out of range!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
 				json_buffer_to_input(sec, "dflt_pkt_offset", pf->dflt_pkt_offset);
 				if (nmp_range_validate(pf->dflt_pkt_offset, 0, 1024) != 0) {
 					pr_err("missing dflt_pkt_offset!\n");
@@ -378,6 +392,20 @@ int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params)
 				json_buffer_to_input(sec, "lcl_ingress_qs_size", vf->lcl_ingress_qs_size);
 				if (!vf->lcl_ingress_qs_size) {
 					pr_err("missing lcl_ingress_qs_size!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "lcl_egress_num_qs", vf->lcl_egress_num_qs);
+				if (nmp_range_validate(vf->lcl_egress_num_qs, 1, NMP_LF_TC_MAX_NUM_QS) != 0) {
+					pr_err("lcl_egress_num_qs out of range!\n");
+					rc = -EINVAL;
+					goto read_cfg_exit2;
+				}
+
+				json_buffer_to_input(sec, "lcl_ingress_num_qs", vf->lcl_ingress_num_qs);
+				if (nmp_range_validate(vf->lcl_ingress_num_qs, 1, NMP_LF_TC_MAX_NUM_QS) != 0) {
+					pr_err("lcl_ingress_num_qs out of range!\n");
 					rc = -EINVAL;
 					goto read_cfg_exit2;
 				}

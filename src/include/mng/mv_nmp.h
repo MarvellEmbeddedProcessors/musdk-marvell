@@ -10,6 +10,8 @@
 
 #include "env/mv_sys_event.h"
 #include "drivers/mv_giu.h"
+#include "drivers/mv_giu_gpio.h"
+
 
 /** @addtogroup grp_nmp_init Networking Mgmt Proxy Init
  *
@@ -24,6 +26,8 @@
 #define NMP_LF_MAX_NUM_LCL_BPOOLS	3
 #define NMP_LF_MAX_NUM_TCS		8
 #define NMP_MAX_CMD_MSG_SIZE		128
+#define NMP_LF_TC_MAX_NUM_QS		GIU_GPIO_TC_MAX_NUM_QS
+
 
 /* nmp handler declaration */
 struct nmp;
@@ -94,6 +98,8 @@ struct nmp_lf_nicpf_params {
 	int sg_en;				/**< Flag inidicating S/G support is required */
 	u16 lcl_egress_qs_size;			/**< local egress queue size */
 	u16 lcl_ingress_qs_size;		/**< local ingress queue size */
+	u16 lcl_egress_num_qs;			/**< Local num egress queues */
+	u16 lcl_ingress_num_qs;			/**< Local num ingress queues */
 	u16 dflt_pkt_offset;			/**< default packet offset */
 	u8 max_num_tcs;				/**< maximum number of TC's */
 	u8 lcl_num_bpools;			/**< local number of pools for GIU*/
@@ -120,6 +126,8 @@ struct nmp_lf_nicvf_params {
 	int sg_en;				/**< Flag inidicating S/G support is required */
 	u16 lcl_egress_qs_size;			/**< local egress queue size */
 	u16 lcl_ingress_qs_size;		/**< local ingress queue size */
+	u16 lcl_egress_num_qs;			/**< Local num egress queues */
+	u16 lcl_ingress_num_qs;			/**< Local num ingress queues */
 	u16 dflt_pkt_offset;			/**< default packet offset */
 	u8 max_num_tcs;				/**< maximum number of TC's */
 	u8 lcl_num_bpools;			/**< local number of pools for GIU*/
