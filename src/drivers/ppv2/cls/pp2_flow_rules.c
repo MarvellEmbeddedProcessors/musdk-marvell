@@ -3377,8 +3377,10 @@ static int pp2_cls_find_flows_per_lkp(uintptr_t cpu_slot,
 		}
 
 		if (!engine) {
-			pr_err("didn't find any flows\n");
-			break;
+			if (is_last)
+				break;
+			else
+				continue;
 		}
 
 		rc = mv_pp2x_cls_sw_flow_extra_get(&fe, &lkp_type, &tmp);
