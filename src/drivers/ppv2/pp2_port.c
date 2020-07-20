@@ -353,49 +353,35 @@ static void
 pp2_port_mac_max_rx_size_set(struct pp2_port *port)
 {
 	struct gop_hw *gop = &port->parent->hw.gop;
-	struct pp2_mac_data *mac = &port->mac_data;
 	int mac_num = port->mac_data.gop_index;
+	uint32_t pp2_version;
 
-	switch (mac->phy_mode) {
-	case PP2_PHY_INTERFACE_MODE_RGMII:
-	case PP2_PHY_INTERFACE_MODE_SGMII:
-	case PP2_PHY_INTERFACE_MODE_QSGMII:
-		pp2_gop_gmac_max_rx_size_set(gop, mac_num,
-					     port->port_mru);
-		 break;
-	case PP2_PHY_INTERFACE_MODE_XAUI:
-	case PP2_PHY_INTERFACE_MODE_RXAUI:
-	case PP2_PHY_INTERFACE_MODE_KR:
-		pp2_gop_xlg_mac_max_rx_size_set(gop,
-						mac_num, port->port_mru);
-		break;
-	default:
-		break;
-	}
+	/* GOP#0 and GOP#2 (In PP23/CP115) can support both XLG and GMAC;
+	 * MUSDK cannot know that on the fly so always configure both of them;
+	 * All the rest support only GMAC
+	 */
+	pp2_version = pp2_reg_read(port->cpu_slot, MVPP2_VER_ID_REG);
+	pp2_gop_gmac_max_rx_size_set(gop, mac_num, port->port_mru);
+	if ((mac_num == 0) || ((mac_num == 2) && (pp2_version == MVPP2_VER_PP23)))
+		pp2_gop_xlg_mac_max_rx_size_set(gop, mac_num, port->port_mru);
 }
 
 static void
 pp2_port_mac_set_loopback(struct pp2_port *port, int en)
 {
 	struct gop_hw *gop = &port->parent->hw.gop;
-	struct pp2_mac_data *mac = &port->mac_data;
 	int mac_num = port->mac_data.gop_index;
 	enum pp2_lb_type lb = (en) ? PP2_TX_2_RX_LB : PP2_DISABLE_LB;
+	uint32_t pp2_version;
 
-	switch (mac->phy_mode) {
-	case PP2_PHY_INTERFACE_MODE_RGMII:
-	case PP2_PHY_INTERFACE_MODE_SGMII:
-	case PP2_PHY_INTERFACE_MODE_QSGMII:
-		pp2_gop_gmac_loopback_cfg(gop, mac_num, lb);
-		break;
-	case PP2_PHY_INTERFACE_MODE_XAUI:
-	case PP2_PHY_INTERFACE_MODE_RXAUI:
-	case PP2_PHY_INTERFACE_MODE_KR:
+	/* GOP#0 and GOP#2 (In PP23/CP115) can support both XLG and GMAC;
+	 * MUSDK cannot know that on the fly so always configure both of them;
+	 * All the rest support only GMAC
+	 */
+	pp2_version = pp2_reg_read(port->cpu_slot, MVPP2_VER_ID_REG);
+	pp2_gop_gmac_loopback_cfg(gop, mac_num, lb);
+	if ((mac_num == 0) || ((mac_num == 2) && (pp2_version == MVPP2_VER_PP23)))
 		pp2_gop_xlg_mac_loopback_cfg(gop, mac_num, lb);
-		break;
-	default:
-		break;
-	}
 }
 
 /* Get number of Tx descriptors waiting to be transmitted by HW */
