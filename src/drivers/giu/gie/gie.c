@@ -218,6 +218,16 @@ static struct gie_q_pair *gie_get_next_q(struct gie *gie, u16 *scanned_prios, u1
 	return NULL;
 }
 
+static inline void gie_msi_pending_state_check(struct gie_queue *q)
+{
+	if (q->msi_pending == 0)
+		return;
+	if (readl(q->msi_mask_address) & q->msi_mask_value) {
+		q->msi_pending = 0;
+		writel(q->msi_data, (void *)q->msi_virt_addr);
+	}
+}
+
 static inline void gie_clean_mem(struct dma_job_info *job, struct gie_queue *src_q,
 			struct gie_queue *dst_q)
 {
@@ -225,16 +235,25 @@ static inline void gie_clean_mem(struct dma_job_info *job, struct gie_queue *src
 	writel(job->cookie_tail, (void *)(dst_q->msg_tail_virt));
 
 	/* Send MSI to remote side (if configured) */
-	/* if the transaction was indices, this is local-2-remote;
-	 * need to send MSI to dest-Q.
-	 */
-	if ((job->flags & DMA_FLAGS_PRODUCE_IDX) && (dst_q->msi_virt_addr))
-		writel(dst_q->msi_data, (void *)dst_q->msi_virt_addr);
 	/* if the transaction was buffers, this is remote-2-local-2;
 	 * need to send MSI to source-Q.
 	 */
-	else if ((job->flags & DMA_FLAGS_BUFFER_IDX) && (src_q->msi_virt_addr))
-		writel(src_q->msi_data, (void *)src_q->msi_virt_addr);
+	if ((job->flags & DMA_FLAGS_BUFFER_IDX) && (src_q->msi_virt_addr)) {
+		if (readl(src_q->msi_mask_address) & src_q->msi_mask_value)
+			writel(src_q->msi_data, (void *)src_q->msi_virt_addr);
+		else
+			src_q->msi_pending = 1;
+	}
+
+	/* if the transaction was indices, this is local-2-remote;
+	 * need to send MSI to dest-Q.
+	 */
+	if ((job->flags & DMA_FLAGS_PRODUCE_IDX) && (dst_q->msi_virt_addr)) {
+		if (readl(dst_q->msi_mask_address) & dst_q->msi_mask_value)
+			writel(dst_q->msi_data, (void *)dst_q->msi_virt_addr);
+		else
+			dst_q->msi_pending = 1;
+	}
 }
 
 static void gie_clean_dma_jobs(struct dma_info *dma)
@@ -873,6 +892,8 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	int qes_copied, qes_to_copy, qes_copy_space;
 	int completed = 0;
 
+	gie_msi_pending_state_check(src_q);
+
 	/* TODO - consider this limitation in the future */
 	(void)qe_limit;
 
@@ -919,6 +940,8 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	int copy_payload = qp->flags & GIE_QPAIR_CP_PAYLOAD;
 	int sg_en = qp->flags & GIE_QPAIR_SG;
 	int qes;
+
+	gie_msi_pending_state_check(dst_q);
 
 	/* TODO - consider this limitation in the future */
 	(void)qe_limit;
@@ -1112,6 +1135,8 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		/* Set message info */
 		qp->dst_q.msi_virt_addr = (u64)qpd->common.msix_inf.va;
 		qp->dst_q.msi_data = qpd->common.msix_inf.data;
+		qp->dst_q.msi_mask_address = qpd->common.msix_inf.mask_address;
+		qp->dst_q.msi_mask_value = qpd->common.msix_inf.mask_value;
 
 		pr_debug("MSI-X for dst-Q %d: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
 			 qp->dst_q.qid, qpd->common.msix_inf.pa, qp->dst_q.msi_virt_addr, qp->dst_q.msi_data);
@@ -1121,6 +1146,8 @@ int gie_add_queue(void *giu, u16 qid, int is_remote)
 		/* Set message info */
 		qp->src_q.msi_virt_addr = (u64)qcd->common.msix_inf.va;
 		qp->src_q.msi_data = qcd->common.msix_inf.data;
+		qp->src_q.msi_mask_address = qcd->common.msix_inf.mask_address;
+		qp->src_q.msi_mask_value = qcd->common.msix_inf.mask_value;
 
 		pr_debug("MSI-X for src-Q %d: phys 0x%"PRIx64" virt 0x%lx data 0x%x\n",
 			 qp->src_q.qid, qcd->common.msix_inf.pa, qp->src_q.msi_virt_addr, qp->src_q.msi_data);

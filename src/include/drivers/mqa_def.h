@@ -16,8 +16,10 @@
 
 struct mqa_queue_msix_inf {
 	u32		 data;
+	u32		 mask_value;
 	phys_addr_t	 pa;
 	void		*va; /**< If NULL disabled */
+	void		*mask_address;
 };
 
 /** MQA extended queue parameters */

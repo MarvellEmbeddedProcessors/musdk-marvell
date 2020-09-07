@@ -882,6 +882,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 		msix_entry = &nmnicpf->msix_table_base[params->ingress_data_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
+		*(u32 *)giu_gpio_q.msix_inf.mask_address = msix_entry->vector_ctrl;
 		if (nmnicpf->map.type == ft_plat) {
 			giu_get_msi_regs(nmnicpf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
 		} else {
@@ -993,6 +994,7 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 		msix_entry = &nmnicpf->msix_table_base[params->egress_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
+		*(u32 *)giu_gpio_q.msix_inf.mask_address = msix_entry->vector_ctrl;
 		if (nmnicpf->map.type == ft_plat) {
 			giu_get_msi_regs(nmnicpf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
 		} else {

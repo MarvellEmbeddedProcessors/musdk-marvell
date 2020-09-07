@@ -575,12 +575,16 @@ int queue_associate_notify_intr(struct mqa *mqa, u32 queue_id, struct mqa_queue_
 	qpt->common.msix_inf.data = params->data;
 	qpt->common.msix_inf.pa = params->pa;
 	qpt->common.msix_inf.va = params->va;
+	qpt->common.msix_inf.mask_address = params->mask_address;
+	qpt->common.msix_inf.mask_value = params->mask_value;
 
 	qct = ((struct mqa_qct_entry *)mqa->qct_base) + queue_id;
 
 	qct->common.msix_inf.data = params->data;
 	qct->common.msix_inf.pa = params->pa;
 	qct->common.msix_inf.va = params->va;
+	qpt->common.msix_inf.mask_address = params->mask_address;
+	qpt->common.msix_inf.mask_value = params->mask_value;
 
 	return 0;
 }

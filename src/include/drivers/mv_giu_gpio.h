@@ -49,8 +49,10 @@ struct giu_gpio_lcl_q_params {
 
 struct giu_gpio_rem_q_msix_inf {
 	u32		 data;
+	u32		 mask_value;
 	phys_addr_t	 pa;
 	void		*va; /**< If NULL disabled */
+	void		*mask_address;
 };
 
 struct giu_gpio_rem_q_params {

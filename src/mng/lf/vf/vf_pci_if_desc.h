@@ -32,6 +32,16 @@ struct q_hw_info {
 	u32	res;
 } __packed;
 
+#define PCI_EP_HOST_MSIX_BASE_ADDR	0x8400000000LL
+#define PCI_EP_VF_HOST_MSIX_SIZE	0x100000000LL
+#define PCI_EP_VF_HOST_MSIX_BASE_ADDR(vf_id) (PCI_EP_HOST_MSIX_BASE_ADDR + vf_id * PCI_EP_VF_HOST_MSIX_SIZE)
+#define PCI_EP_VF_HOST_MSIX_NUM		128
+#define PCI_EP_VF_HOST_MSIX_MASK_SIZE	32
+#define PCI_EP_VF_HOST_MSIX_GET_MASK_ARR_INDEX(msix_id) \
+	(msix_id / PCI_EP_VF_HOST_MSIX_MASK_SIZE)
+#define PCI_EP_VF_HOST_MSIX_GET_MASK(msix_id) \
+	(BIT(msix_id % PCI_EP_VF_HOST_MSIX_MASK_SIZE))
+
 struct pcie_config_mem {
 #define PCIE_CFG_STATUS_DEV_READY	(1 << 0)
 #define PCIE_CFG_STATUS_HOST_MGMT_READY	(1 << 1)
@@ -49,12 +59,9 @@ struct pcie_config_mem {
 	u32	dev_use_size;
 	/* MSI-X table offset at BAR0 */
 	u32	msi_x_tbl_offset;
+	u32	msi_x_mask[ceil(PCI_EP_VF_HOST_MSIX_NUM, PCI_EP_VF_HOST_MSIX_MASK_SIZE)];
 
-	u8	res3[928]; /* complete to 1KB */
+	u8	res3[896]; /* complete to 1KB */
 } __packed;
-
-#define PCI_EP_HOST_MSIX_BASE_ADDR	0x8400000000LL
-#define PCI_EP_VF_HOST_MSIX_SIZE	0x100000000LL
-#define PCI_EP_VF_HOST_MSIX_BASE_ADDR(vf_id) (PCI_EP_HOST_MSIX_BASE_ADDR + vf_id * PCI_EP_VF_HOST_MSIX_SIZE)
 
 #endif /* _HOST_PCI_IF_H_ */

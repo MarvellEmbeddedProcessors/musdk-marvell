@@ -171,6 +171,9 @@ struct gie_queue {
 	/* MSI message info */
 	u64	msi_virt_addr;
 	u32	msi_data;
+	u32	msi_mask_value;
+	u16	msi_pending;
+	void	*msi_mask_address;
 };
 
 /* Structure describing an GIE buffer pool

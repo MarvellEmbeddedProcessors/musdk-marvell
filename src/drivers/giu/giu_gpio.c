@@ -839,6 +839,8 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			mqa_params.msix_inf.va = rem_q_par->msix_inf.va;
 			mqa_params.msix_inf.pa = rem_q_par->msix_inf.pa;
 			mqa_params.msix_inf.data = rem_q_par->msix_inf.data;
+			mqa_params.msix_inf.mask_address = rem_q_par->msix_inf.mask_address;
+			mqa_params.msix_inf.mask_value = rem_q_par->msix_inf.mask_value;
 
 			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(rem_q->mqa_q));
 			if (ret < 0) {
@@ -954,6 +956,8 @@ int giu_gpio_set_remote(struct giu_gpio *gpio, struct giu_gpio_rem_params *param
 			mqa_params.msix_inf.va = rem_q_par->msix_inf.va;
 			mqa_params.msix_inf.pa = rem_q_par->msix_inf.pa;
 			mqa_params.msix_inf.data = rem_q_par->msix_inf.data;
+			mqa_params.msix_inf.mask_address = rem_q_par->msix_inf.mask_address;
+			mqa_params.msix_inf.mask_value = rem_q_par->msix_inf.mask_value;
 
 			ret = mqa_queue_create(gpio->mqa, &mqa_params, &(rem_q->mqa_q));
 			if (ret < 0) {

@@ -31,6 +31,8 @@ struct mqa_queue_msix_params {
 	u32		 data;
 	phys_addr_t	 pa;
 	void		*va;
+	void		*mask_address;
+	u32		 mask_value;
 };
 
 /**
