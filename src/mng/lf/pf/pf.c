@@ -884,6 +884,10 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 		msix_entry = &nmnicpf->msix_table_base[params->ingress_data_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
+		/* msix enable hook */
+		pcie_cfg->msi_x_mask[PCI_EP_PF_HOST_MSIX_GET_MASK_ARR_INDEX(params->ingress_data_q_add.msix_id)] |=
+			PCI_EP_PF_HOST_MSIX_GET_MASK(params->ingress_data_q_add.msix_id);
+		/* msix enable hook end */
 		giu_gpio_q.msix_inf.mask_address =
 		    &pcie_cfg->msi_x_mask[PCI_EP_PF_HOST_MSIX_GET_MASK_ARR_INDEX(params->ingress_data_q_add.msix_id)];
 		giu_gpio_q.msix_inf.mask_value = PCI_EP_PF_HOST_MSIX_GET_MASK(params->ingress_data_q_add.msix_id);
@@ -1000,6 +1004,10 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 		msix_entry = &nmnicpf->msix_table_base[params->egress_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
+		/* msix enable hook */
+		pcie_cfg->msi_x_mask[PCI_EP_PF_HOST_MSIX_GET_MASK_ARR_INDEX(params->egress_q_add.msix_id)] |=
+			PCI_EP_PF_HOST_MSIX_GET_MASK(params->egress_q_add.msix_id);
+		/* msix enable hook end */
 		giu_gpio_q.msix_inf.mask_address =
 			&pcie_cfg->msi_x_mask[PCI_EP_PF_HOST_MSIX_GET_MASK_ARR_INDEX(params->egress_q_add.msix_id)];
 		giu_gpio_q.msix_inf.mask_value = PCI_EP_PF_HOST_MSIX_GET_MASK(params->egress_q_add.msix_id);
