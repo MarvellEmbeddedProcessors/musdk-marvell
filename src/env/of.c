@@ -102,7 +102,7 @@
 #define OF_DEFAULT_NA 1
 #define OF_DEFAULT_NS 1
 
-#define OF_SH_FILENAME	"./of.sh"
+#define OF_SH_FILENAME	"/tmp/of.sh"
 
 #define OF_MAX_NODES	64
 
@@ -133,7 +133,7 @@ static int create_of_sh(void)
 	}
 	fputs(script_str, of_sh);
 	fclose(of_sh);
-	snprintf(command, sizeof(command), "chmod 755 %s", OF_SH_FILENAME);
+	snprintf(command, sizeof(command), "sync; chmod 755 %s", OF_SH_FILENAME);
 	system(command);
 	return 0;
 }
