@@ -35,9 +35,9 @@ struct q_hw_info {
 #define PCI_EP_PF_HOST_MSIX_NUM		128
 #define PCI_EP_PF_HOST_MSIX_MASK_SIZE	32
 #define PCI_EP_PF_HOST_MSIX_GET_MASK_ARR_INDEX(msix_id) \
-	(msix_id / PCI_EP_VF_HOST_MSIX_MASK_SIZE)
+	(msix_id / PCI_EP_PF_HOST_MSIX_MASK_SIZE)
 #define PCI_EP_PF_HOST_MSIX_GET_MASK(msix_id) \
-	(BIT(msix_id % PCI_EP_VF_HOST_MSIX_MASK_SIZE))
+	(BIT(msix_id % PCI_EP_PF_HOST_MSIX_MASK_SIZE))
 
 struct pcie_config_mem {
 #define PCIE_CFG_STATUS_DEV_READY	(1 << 0)

@@ -839,6 +839,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicpf->gpio_rem_params);
 	struct giu_gpio_outtc_rem_params *outtc;
 	struct msix_table_entry *msix_entry;
+	struct pcie_config_mem *pcie_cfg;
 	s32 active_q_id;
 	u32 msg_tc;
 	u8 bm_idx;
@@ -846,6 +847,7 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 
 	msg_tc = params->ingress_data_q_add.tc_prio;
 	outtc = &(gpio_rem_p->outtcs_params[msg_tc]);
+	pcie_cfg = (struct pcie_config_mem *)nmnicpf->map.cfg_map.virt_addr;
 
 	pr_debug("Host Ingress TC[%d], queue Add (num of queues %d)\n", msg_tc, outtc->num_rem_inqs);
 
@@ -882,7 +884,9 @@ static int nmnicpf_ingress_queue_add_command(struct nmnicpf *nmnicpf,
 		msix_entry = &nmnicpf->msix_table_base[params->ingress_data_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
-		*(u32 *)giu_gpio_q.msix_inf.mask_address = msix_entry->vector_ctrl;
+		giu_gpio_q.msix_inf.mask_address =
+		    &pcie_cfg->msi_x_mask[PCI_EP_PF_HOST_MSIX_GET_MASK_ARR_INDEX(params->ingress_data_q_add.msix_id)];
+		giu_gpio_q.msix_inf.mask_value = PCI_EP_PF_HOST_MSIX_GET_MASK(params->ingress_data_q_add.msix_id);
 		if (nmnicpf->map.type == ft_plat) {
 			giu_get_msi_regs(nmnicpf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
 		} else {
@@ -962,12 +966,14 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 	struct giu_gpio_rem_params *gpio_rem_p = &(nmnicpf->gpio_rem_params);
 	struct giu_gpio_intc_rem_params *intc;
 	struct msix_table_entry *msix_entry;
+	struct pcie_config_mem *pcie_cfg;
 	s32 active_q_id;
 	u32 msg_tc;
 	int err;
 
 	msg_tc = params->egress_q_add.tc_prio;
 	intc = &(gpio_rem_p->intcs_params[msg_tc]);
+	pcie_cfg = (struct pcie_config_mem *)nmnicpf->map.cfg_map.virt_addr;
 
 	pr_debug("Host Egress TC[%d], queue Add (num of queues %d)\n", msg_tc, intc->num_rem_outqs);
 
@@ -994,7 +1000,9 @@ static int nmnicpf_egress_queue_add_command(struct nmnicpf *nmnicpf,
 		msix_entry = &nmnicpf->msix_table_base[params->egress_q_add.msix_id];
 		giu_gpio_q.msix_inf.pa = msix_entry->msg_addr;
 		giu_gpio_q.msix_inf.data = msix_entry->msg_data;
-		*(u32 *)giu_gpio_q.msix_inf.mask_address = msix_entry->vector_ctrl;
+		giu_gpio_q.msix_inf.mask_address =
+			&pcie_cfg->msi_x_mask[PCI_EP_PF_HOST_MSIX_GET_MASK_ARR_INDEX(params->egress_q_add.msix_id)];
+		giu_gpio_q.msix_inf.mask_value = PCI_EP_PF_HOST_MSIX_GET_MASK(params->egress_q_add.msix_id);
 		if (nmnicpf->map.type == ft_plat) {
 			giu_get_msi_regs(nmnicpf->giu, (u64 *)giu_gpio_q.msix_inf.va, &giu_gpio_q.msix_inf.pa);
 		} else {
