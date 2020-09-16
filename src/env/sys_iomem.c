@@ -121,7 +121,6 @@ struct sys_iomem_format {
 
 
 #define MMAP_FILE_NAME	"/dev/mem"
-#define PAGE_SZ		0x400
 
 #define MAX_NAME_STRING_SIZE	64
 #define UIO_VER_INVALID			(-1)
@@ -168,6 +167,8 @@ struct sys_iomem {
 
 /* initialized iomem devices list */
 static struct list iomem_maps_lst = LIST_INIT(iomem_maps_lst);
+
+static size_t pagesize = -1;
 
 static void iomem_uio_add_entry(struct uio_mem_t **headp, struct uio_mem_t *entry)
 {
@@ -340,6 +341,9 @@ static int iomem_mmap_ioinit(struct mem_mmap *mmapm, char *name, int index)
 
 	mmapm->dev_node = mv_of_find_compatible_node_by_indx(NULL, index, NULL, name);
 
+	if (pagesize == -1)
+		pagesize = getpagesize();
+
 	return 0;
 }
 
@@ -386,7 +390,7 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 		tmp_pa = mv_of_translate_address(mmapm->dev_node, uint32_prop);
 	} else {
 		tmp_pa = *pa;
-		tmp_size = PAGE_SZ;
+		tmp_size = pagesize;
 	}
 
 	mmap_nd = (struct mem_mmap_nd *)malloc(sizeof(struct mem_mmap_nd));
@@ -401,8 +405,8 @@ static int iomem_mmap_iomap(struct mem_mmap	*mmapm,
 	/* mmap works only on page-aligned addresses;
 	 * let's align the address and add the offset later on.
 	 */
-	mmap_nd->pa = tmp_pa & ~(PAGE_SZ - 1);
-	mmap_nd->offs = tmp_pa & (PAGE_SZ - 1);
+	mmap_nd->pa = tmp_pa & ~(pagesize - 1);
+	mmap_nd->offs = tmp_pa & (pagesize - 1);
 	mmap_nd->size = tmp_size;
 
 	dev_mem_fd = open(MMAP_FILE_NAME, O_RDWR);
