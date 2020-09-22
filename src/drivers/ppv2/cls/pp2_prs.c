@@ -2184,6 +2184,7 @@ int pp2_prs_eth_start_hdr_set(struct pp2_port *port, enum pp2_ppio_eth_start_hdr
 
 	switch (eth_start_hdr) {
 	case PP2_PPIO_HDR_ETH:
+	case PP2_PPIO_HDR_ETH_CUSTOM:
 		break;
 	case PP2_PPIO_HDR_ETH_DSA:
 		reg_val |= MVPP2_DSA_NON_EXTENDED;
@@ -2290,6 +2291,8 @@ int pp2_prs_eth_start_header_set(struct pp2_port *port, enum pp2_ppio_eth_start_
 		pp2_prs_port_update(port, false, MVPP2_PE_DSA_TAGGED, nri, ri_mask);
 		pp2_prs_port_update(port, false, MVPP2_PE_DSA_UNTAGGED, nri, ri_mask);
 
+		pp2_prs_port_update(port, false, MVPP2_PE_MH_SKIP_PRS, nri, ri_mask);
+
 		break;
 	case MVPP2_TAG_TYPE_DSA:
 		/* Add port to DSA entries */
@@ -2300,6 +2303,8 @@ int pp2_prs_eth_start_header_set(struct pp2_port *port, enum pp2_ppio_eth_start_
 		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_TAGGED, nri, ri_mask);
 		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_UNTAGGED, nri, ri_mask);
 
+		pp2_prs_port_update(port, false, MVPP2_PE_MH_SKIP_PRS, nri, ri_mask);
+
 		break;
 	case MVPP2_TAG_TYPE_MH:
 	case MVPP2_TAG_TYPE_NONE:
@@ -2308,6 +2313,11 @@ int pp2_prs_eth_start_header_set(struct pp2_port *port, enum pp2_ppio_eth_start_
 		pp2_prs_port_update(port, false, MVPP2_PE_DSA_UNTAGGED, nri, ri_mask);
 		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_TAGGED, nri, ri_mask);
 		pp2_prs_port_update(port, false, MVPP2_PE_EDSA_UNTAGGED, nri, ri_mask);
+
+		pp2_prs_port_update(port, false, MVPP2_PE_MH_SKIP_PRS, nri, ri_mask);
+		if (mode == PP2_PPIO_HDR_ETH_CUSTOM)
+			pp2_prs_port_update(port, true, MVPP2_PE_MH_SKIP_PRS, nri, ri_mask);
+
 		break;
 	default:
 		if ((type < 0) || (type > MVPP2_TAG_TYPE_EDSA))

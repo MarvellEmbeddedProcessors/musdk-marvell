@@ -163,6 +163,8 @@ enum pp2_ppio_eth_start_hdr {
 	PP2_PPIO_HDR_ETH_DSA,
 	/** Packets contain Marvell extended DSA header (8 bytes)*/
 	PP2_PPIO_HDR_ETH_EXT_DSA,
+	/** Custom header exist before ethernet header */
+	PP2_PPIO_HDR_ETH_CUSTOM,
 	PP2_PPIO_HDR_OUT_OF_RANGE
 };
 
