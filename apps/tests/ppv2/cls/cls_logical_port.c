@@ -109,6 +109,7 @@ int pp2_cls_cli_ppio_tag_mode(struct pp2_ppio_params *port_params, int argc, cha
 	struct option long_options[] = {
 		{"eth", no_argument, 0, 'n'},
 		{"dsa", no_argument, 0, 'd'},
+		{"custom", no_argument, 0, 'c'},
 		{"extended_dsa", no_argument, 0, 'e'},
 		{0, 0, 0, 0}
 	};
@@ -127,6 +128,9 @@ int pp2_cls_cli_ppio_tag_mode(struct pp2_ppio_params *port_params, int argc, cha
 			break;
 		case 'd':
 			eth_hdr = PP2_PPIO_HDR_ETH_DSA;
+			break;
+		case 'c':
+			eth_hdr = PP2_PPIO_HDR_ETH_CUSTOM;
 			break;
 		case 'e':
 			eth_hdr = PP2_PPIO_HDR_ETH_EXT_DSA;

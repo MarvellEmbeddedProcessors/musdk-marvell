@@ -938,7 +938,8 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 		rc = app_get_line("please enter ethernet start header tag mode\n"
 				  "\t\t\teth:--eth			(no argument)\n"
 				  "\t\t\tdsa:--dsa			(no argument)\n"
-				  "\t\t\textended dsa:--extended_dsa(no argument)\n",
+				  "\t\t\tno_prs:--custom		(no argument)\n"
+				  "\t\t\textended dsa:--extended_dsa	(no argument)\n",
 				  buff, sizeof(buff), &argc_cli, argv);
 		if (rc) {
 			pr_err("app_get_line failed!\n");
