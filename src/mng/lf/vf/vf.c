@@ -721,6 +721,8 @@ static int nmnicvf_egress_tc_add_command(struct nmnicvf *nmnicvf,
 	/* Update queue topology database */
 	nmnicvf->gpio_rem_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs =
 		params->egress_tc_add.num_queues_per_tc;
+	if (!params->egress_tc_add.num_queues_per_dma)
+		params->egress_tc_add.num_queues_per_dma = params->egress_tc_add.num_queues_per_tc;
 	nmnicvf->gpio_rem_params.intcs_params[params->egress_tc_add.tc_prio].num_rem_outqs_per_dma =
 		params->egress_tc_add.num_queues_per_dma;
 
