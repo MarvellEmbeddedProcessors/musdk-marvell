@@ -1513,7 +1513,7 @@ int giu_gpio_probe(char *match, char *buff, struct giu_gpio **gpio)
 			u8 bp_id = 0;
 
 			json_buffer_to_input(sec, "bpid", bp_id);
-			intc->pools[bp_idx] = &giu_bpools[bp_id];
+			intc->pools[bp_idx] = &giu_bpools_guest[bp_id];
 		}
 	}
 

@@ -124,6 +124,7 @@ struct giu_bpool_int {
 
 /* Support only a single GIU */
 struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS] = {0};
+struct giu_bpool giu_bpools_guest[GIU_BPOOL_NUM_POOLS] = {0};
 
 
 int giu_bpool_alloc(void)
@@ -351,7 +352,7 @@ int giu_bpool_probe(char *match, char *buff, struct giu_bpool **bpool)
 		return -ENODEV;
 	}
 
-	_bpool = &giu_bpools[bpool_id];
+	_bpool = &giu_bpools_guest[bpool_id];
 
 	if (_bpool->internal_param) {
 		pr_err("[%s] BPool id %d is already in use\n", __func__, bpool_id);

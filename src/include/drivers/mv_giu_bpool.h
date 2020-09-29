@@ -119,6 +119,8 @@ struct giu_bpool {
 
 /* Support only a single GIU */
 extern struct giu_bpool giu_bpools[GIU_BPOOL_NUM_POOLS];
+extern struct giu_bpool giu_bpools_guest[GIU_BPOOL_NUM_POOLS];
+
 
 struct giu_bpool_params {
 	/** Used for DTS acc to find appropriate "physical" BM-Pool obj;
