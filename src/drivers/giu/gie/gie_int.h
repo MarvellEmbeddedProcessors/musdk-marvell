@@ -150,10 +150,6 @@ struct gie_queue {
 	u64	msg_tail_virt;
 	u64	host_remap;
 	u64	packets;
-	u16	*idx_ring_virt;
-	u16	*idx_ring_phys;
-	u32	idx_ring_size;
-	u32	idx_ring_ptr;
 	u32	prio;
 	u32	desc_format_mask;
 	u16	qlen;

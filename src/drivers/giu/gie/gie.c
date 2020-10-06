@@ -89,14 +89,6 @@ static int gie_init_queue(struct gie *gie, struct gie_queue *q, struct mqa_queue
 	q->msi_data = 0;
 	q->qid = qid;
 
-	q->idx_ring_virt = mv_sys_dma_mem_alloc(sizeof(u16) * q->qlen, sizeof(u16));
-	if (!q->idx_ring_virt)
-		return -ENOMEM;
-
-	q->idx_ring_phys = (u16 *)(uintptr_t)mv_sys_dma_mem_virt2phys(q->idx_ring_virt);
-	q->idx_ring_size = q->qlen;
-	q->idx_ring_ptr = 0;
-
 	q->qe_tail = q->qe_head = 0;
 	q->tail = q->head = 0;
 
@@ -383,21 +375,6 @@ static int gie_dma_copy_single(struct dma_info *dma, struct dma_job *job)
 	q_idx_add(dma->tail, 1, dma->qlen);
 
 	return 0;
-}
-
-/* create a backup of the tail/head idx to be used for DMA copy
- * this allows us to continue changing the main tail/head during DMA operation
- */
-static u64 gie_idx_backup(struct gie_queue *q, u16 idx_val)
-{
-	u64 phys_bkp;
-
-	q->idx_ring_virt[q->idx_ring_ptr] = idx_val;
-	phys_bkp = (u64)(q->idx_ring_phys + q->idx_ring_ptr);
-
-	q_idx_add(q->idx_ring_ptr, 1, q->idx_ring_size);
-
-	return phys_bkp;
 }
 
 static void gie_copy_index(struct dma_info *dma, u64 src, u64 dst)
