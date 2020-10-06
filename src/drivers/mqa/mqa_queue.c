@@ -270,8 +270,8 @@ int mqa_queue_destroy(struct mqa *mqa, struct mqa_q *q)
 		return -EINVAL;
 
 	/* Free the allocated memory */
-	if (q->phy_base_addr != NULL)
-		mv_sys_dma_mem_free(q->phy_base_addr);
+	if (q->virt_base_addr)
+		mv_sys_dma_mem_free(q->virt_base_addr);
 
 	return 0;
 }
