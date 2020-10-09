@@ -115,7 +115,7 @@
 #define LF_MNG_MAX_NUM_CONTAINERS	NMP_MAX_NUM_CONTAINERS
 #define LF_MNG_MAX_NUM_CONTAINER_LFS	NMP_MAX_NUM_LFS
 
-#define SER_FILE_VAR_DIR		"/var/"
+#define SER_FILE_VAR_DIR		"/tmp/"
 #define SER_FILE_NAME_PREFIX		"musdk-serial-cfg"
 #define SER_MAX_FILE_NAME		64
 #define SER_MAX_FILE_SIZE		(30 * 1024)

@@ -148,7 +148,7 @@ static inline void prefetch(const void *ptr)
 #define MVAPPS_PLD_WATERMARK	0xfefafefa
 
 /* JSON Serializatiion definitions */
-#define SER_FILE_VAR_DIR	"/var/"
+#define SER_FILE_VAR_DIR	"/tmp/"
 #define SER_FILE_NAME_PREFIX	"musdk-serial-cfg"
 #define SER_MAX_FILE_NAME	64
 #define SER_MAX_FILE_SIZE	(30 * 1024)
