@@ -118,19 +118,11 @@
 
 #define PLAT_AGNIC_UIO_NAME	"agnic"
 
-#define REGFILE_VAR_DIR		"/var/"
-#define REGFILE_NAME_PREFIX	"nic-vf-"
-#define REGFILE_MAX_FILE_NAME	64
-
 /* TODO: These should be removed. The local queue sizes should match the remote
  * management queue sizes, as received during the init sequence.
  */
 #define LOCAL_CMD_QUEUE_SIZE	256
 #define LOCAL_NOTIFY_QUEUE_SIZE	256
-
-#define REGFILE_VERSION		000002	/* Version Format: XX.XX.XX*/
-
-#define NMP_MAX_BUF_STR_LEN		256
 
 static int nmnicvf_init_host_ready(struct nmlf *nmlf);
 
