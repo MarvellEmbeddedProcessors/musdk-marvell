@@ -689,7 +689,7 @@ int pp2_port_initialize_statistics(struct pp2_port *port)
 		struct ethtool_sset_info hdr;
 		uint32_t buf[1];
 	} sset_info;
-	uint32_t len;
+	uint32_t len = 0;
 	struct ifreq ifr;
 	int rc;
 

@@ -1022,7 +1022,7 @@ int mv_pp2x_cls_hw_flow_hits_dump(uintptr_t cpu_slot)
 int mv_pp2x_cls_hw_lkp_hits_dump(uintptr_t cpu_slot)
 {
 	int index, way = 0;
-	u32 cnt;
+	u32 cnt = 0;
 
 	printk("< ID  WAY >:	HITS\n");
 	for (index = 0; index < MVPP2_CLS_LKP_TBL_SIZE; index++) {

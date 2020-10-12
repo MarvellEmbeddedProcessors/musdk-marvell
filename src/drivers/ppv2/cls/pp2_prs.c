@@ -3094,7 +3094,7 @@ int mv_pp2x_prs_hw_dump(struct pp2_port *port)
 int mv_pp2x_prs_hw_hits_dump(struct pp2_port *port)
 {
 	int index;
-	unsigned int cnt;
+	unsigned int cnt = 0;
 	struct mv_pp2x_prs_entry pe;
 
 	for (index = 0; index < MVPP2_PRS_TCAM_SRAM_SIZE; index++) {
