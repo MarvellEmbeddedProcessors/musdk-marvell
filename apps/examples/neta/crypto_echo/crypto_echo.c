@@ -241,11 +241,11 @@ struct local_arg {
 	struct local_common_args	cmn_args;  /* Keep first */
 
 	struct mv_stack			*stack_hndl;
-	char				enc_name[15];
+	char				enc_name[30];
 	struct sam_cio			*enc_cio;
 	struct sam_sa			*enc_sa;
 	u32				seq_id[MVAPPS_NETA_MAX_NUM_PORTS];
-	char				dec_name[15];
+	char				dec_name[30];
 	struct sam_cio			*dec_cio;
 #ifdef CRYPT_APP_STATS_SUPPORT
 	struct crypto_echo_stats	stats;

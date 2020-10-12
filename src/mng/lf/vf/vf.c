@@ -1746,7 +1746,7 @@ static int nmnicvf_init_gpio_local(struct nmnicvf *nmnicvf)
 {
 	struct giu_gpio_intc_params	*intc;
 	struct giu_bpool_params		 bp_params;
-	char				 name[20];
+	char				 name[35];
 	u8				 tc_id, bm_idx;
 	int				 giu_id = 0; /* Support only a single GIU */
 	int				 ret;

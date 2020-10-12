@@ -403,7 +403,7 @@ int nmnicpf_pp2_init_bpools(struct nmnicpf *nmnicpf)
 	int				 i;
 	struct pp2_bpool_params		 bpool_params;
 	int				 err, pool_id;
-	char				 name[15];
+	char				 name[30];
 	u32				 pcount = 0;
 	struct nmp_pp2_port_desc	*pdesc;
 	u32				 num_pools = 0;
