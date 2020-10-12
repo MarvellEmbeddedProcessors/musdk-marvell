@@ -247,31 +247,31 @@ EncryptedBlockMessage encryptedBlockSessionAddElement(EncryptedBlockPtr encrypte
 		if (encryptedBlock->name[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
 
-		strncpy(encryptedBlock->name, (char *)elementArray, sizeof(encryptedBlock->name));
+		strncpy(encryptedBlock->name, (char *)elementArray, sizeof(encryptedBlock->name) - 1);
 		break;
 	case ALGORITHM:
 		if (encryptedBlock->algorithm[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
 
-		strncpy(encryptedBlock->algorithm, (char *)elementArray, sizeof(encryptedBlock->algorithm));
+		strncpy(encryptedBlock->algorithm, (char *)elementArray, sizeof(encryptedBlock->algorithm) - 1);
 		break;
 	case AUTH_ALGORITHM:
 		if (encryptedBlock->authAlgorithm[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
 
-		strncpy(encryptedBlock->authAlgorithm, (char *)elementArray, sizeof(encryptedBlock->authAlgorithm));
+		strncpy(encryptedBlock->authAlgorithm, (char *)elementArray, sizeof(encryptedBlock->authAlgorithm) - 1);
 		break;
 	case MODE:
 		if (encryptedBlock->mode[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
 
-		strncpy(encryptedBlock->mode, (char *)elementArray, sizeof(encryptedBlock->mode));
+		strncpy(encryptedBlock->mode, (char *)elementArray, sizeof(encryptedBlock->mode) - 1);
 		break;
 	case DIRECTION:
 		if (encryptedBlock->direction[0] != '\0')
 			return ENCRYPTEDBLOCK_ELEMENT_ALREADY_EXIST;
 
-		strncpy(encryptedBlock->direction, (char *)elementArray, sizeof(encryptedBlock->direction));
+		strncpy(encryptedBlock->direction, (char *)elementArray, sizeof(encryptedBlock->direction) - 1);
 		break;
 	default:
 		return ENCRYPTEDBLOCK_NOT_VALID_ARGS;

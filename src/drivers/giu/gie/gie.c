@@ -1077,7 +1077,7 @@ int gie_init(struct gie_params *gie_params, struct gie **gie)
 		return -ENOMEM;
 	}
 
-	strncpy((*gie)->name, gie_params->name_match, GIE_MAX_NAME);
+	strncpy((*gie)->name, gie_params->name_match, GIE_MAX_NAME - 1);
 	dma = &((*gie)->dma);
 
 	/* Open a MUSDK DMAx2 channel */

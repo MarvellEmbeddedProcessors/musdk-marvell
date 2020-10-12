@@ -128,7 +128,6 @@ typedef struct mem_mng {
 static busy_mem_blk_t * create_busy_blk(u64 base, u64 size, const char *name)
 {
 	busy_mem_blk_t	*busy_blk;
-	u32		 n;
 
 	busy_blk = (busy_mem_blk_t *)kmalloc(sizeof(busy_mem_blk_t), GFP_KERNEL);
 	if ( !busy_blk ) {
@@ -139,9 +138,7 @@ static busy_mem_blk_t * create_busy_blk(u64 base, u64 size, const char *name)
 	busy_blk->base = base;
 	busy_blk->end = base + size;
 
-	n = strlen(name);
-	strncpy(busy_blk->name, name, n);
-	busy_blk->name[n] = '\0';
+	strcpy(busy_blk->name, name);
 	busy_blk->next = NULL;
 
 	return busy_blk;

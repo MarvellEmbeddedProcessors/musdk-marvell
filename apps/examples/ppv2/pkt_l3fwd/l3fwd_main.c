@@ -1286,10 +1286,10 @@ static int parse_args(struct glob_arg *garg, int argc, char *argv[])
 			garg->args.route_str[route_index++] = local;
 			break;
 		case 'f':
-			strncpy(&garg->routing_file[0], optarg, sizeof(garg->routing_file));
+			strncpy(&garg->routing_file[0], optarg, sizeof(garg->routing_file) - 1);
 			break;
 		case 'd':
-			strncpy(&garg->mac_dst_file[0], optarg, sizeof(garg->mac_dst_file));
+			strncpy(&garg->mac_dst_file[0], optarg, sizeof(garg->mac_dst_file) - 1);
 			break;
 		case 'b':
 			garg->cmn_args.burst = atoi(optarg);
