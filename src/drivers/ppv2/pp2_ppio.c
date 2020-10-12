@@ -755,7 +755,7 @@ int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *s
 		struct pp2_ppio_outq_statistics tx_stats;
 
 		pp2_ppio_outq_get_statistics(ppio, qid, &tx_stats, reset);
-		cur_stats.tx_packets += tx_stats.enq_desc;
+		cur_stats.tx_packets += tx_stats.deq_desc;
 	}
 
 	if (stats) {
