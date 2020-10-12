@@ -1338,7 +1338,7 @@ int pp2_ppio_probe(char *match, char *buff, struct pp2_ppio **ppio_hdl)
 	/* Search for match (ppio-x:x) */
 	sec = strstr(sec, match);
 	if (!sec) {
-		pr_err("match not found %s %s\n", match, sec);
+		pr_err("match not found %s %s\n", match, lbuff);
 		rc = -EINVAL;
 		goto ppio_probe_exit;
 	}

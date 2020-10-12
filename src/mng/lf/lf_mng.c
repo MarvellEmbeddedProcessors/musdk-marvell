@@ -276,7 +276,7 @@ static int lf_init_done(void *arg, u8 lf_id)
 	char	 file_name[SER_MAX_FILE_NAME];
 	char	 buff[SER_MAX_FILE_SIZE];
 	u32	 size = SER_MAX_FILE_SIZE;
-	char	 dev_name[100], strl[10];
+	char	 dev_name[100], strl[12];
 	size_t	 len, len1, pos = 0;
 	struct lf_mng_lf *lf;
 	int	 ret;

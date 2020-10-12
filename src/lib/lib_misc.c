@@ -144,7 +144,7 @@ int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8
 	tmp_str[strlen(match)] = '\0';
 	tok = mv_strtok(tmp_str, "-");
 	if (!tok) {
-		pr_err("Illegal match str (%s)!\n",tok);
+		pr_err("Illegal match str!\n");
 		return -1;
 	}
 
@@ -156,7 +156,7 @@ int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8
 	if (hierarchy_level == 1) {
 		tok = mv_strtok(NULL, "");
 		if (!tok) {
-			pr_err("Illegal match str (%s)!\n", tok);
+			pr_err("Illegal match str!\n");
 			return -1;
 		}
 		rc = kstrtou8(tok, 10, &id[0]);
@@ -167,7 +167,7 @@ int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8
 	} else if (hierarchy_level == 2) {
 		tok = mv_strtok(NULL, ":");
 		if (!tok) {
-			pr_err("Illegal match str (%s)!\n",tok);
+			pr_err("Illegal match str!\n");
 			return -1;
 		}
 		rc = kstrtou8(tok, 10, &id[0]);
@@ -177,7 +177,7 @@ int mv_sys_match(const char *match, const char* obj_type, u8 hierarchy_level, u8
 		}
 		tok = mv_strtok(NULL, "");
 		if (!tok) {
-			pr_err("Illegal match str (%s)!\n",tok);
+			pr_err("Illegal match str!\n");
 			return -1;
 		}
 		rc = kstrtou8(tok, 10, &id[1]);
