@@ -704,7 +704,8 @@ int pp2_port_initialize_statistics(struct pp2_port *port)
 		pr_err("PORT: unable to get stringset length\n");
 		return -1;
 	}
-	len = sset_info.hdr.sset_mask ? sset_info.hdr.data[0] : 0;
+	if (sset_info.hdr.sset_mask)
+		memcpy(&len, sset_info.hdr.data, sizeof(uint32_t));
 
 	if (!len) {
 		pr_err("PORT: stringset length is zero\n");
