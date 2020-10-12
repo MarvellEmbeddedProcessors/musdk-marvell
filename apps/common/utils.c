@@ -147,24 +147,21 @@ static void rand_permute(int *arr, int n)
  */
 static void update_addresses(struct pkt *pkt, struct ip_range *src_ipr, struct ip_range *dst_ipr)
 {
-	struct ip *ip = &pkt->ip;
-	struct udphdr *udp = &pkt->udp;
-
 	do {
 		/* XXX for now it doesn't handle non-random src, random dst */
-		udp->uh_sport = htons(src_ipr->port_curr++);
+		pkt->udp.uh_sport = htons(src_ipr->port_curr++);
 		if (src_ipr->port_curr >= src_ipr->port1)
 			src_ipr->port_curr = src_ipr->port0;
 
-		ip->ip_src.s_addr = htonl(src_ipr->curr++);
+		pkt->ip.ip_src.s_addr = htonl(src_ipr->curr++);
 		if (src_ipr->curr >= src_ipr->end)
 			src_ipr->curr = src_ipr->start;
 
-		udp->uh_dport = htons(dst_ipr->port_curr++);
+		pkt->udp.uh_dport = htons(dst_ipr->port_curr++);
 		if (dst_ipr->port_curr >= dst_ipr->port1)
 			dst_ipr->port_curr = dst_ipr->port0;
 
-		ip->ip_dst.s_addr = htonl(dst_ipr->curr++);
+		pkt->ip.ip_dst.s_addr = htonl(dst_ipr->curr++);
 		if (dst_ipr->curr >= dst_ipr->end)
 			dst_ipr->curr = dst_ipr->start;
 	} while (0);
@@ -245,8 +242,11 @@ int app_build_pkt_pool(void			**mem,
 		update_addresses((struct pkt *)buffs[i].virt_addr, src_ipr, dst_ipr);
 
 		/* Set IP checksum */
-		pkt->ip.ip_sum = 0;
-		pkt->ip.ip_sum = mv_ip4_csum((u16 *)&pkt->ip, pkt->ip.ip_hl);
+		struct ip pkt_ip;
+
+		memcpy(&pkt_ip, &pkt->ip, sizeof(struct ip));
+		pkt_ip.ip_sum = 0;
+		pkt->ip.ip_sum = mv_ip4_csum((u16 *)&pkt_ip, pkt->ip.ip_hl);
 
 		dat = (u32 *)pkt->body;
 		dat[0] = MVAPPS_PLD_WATERMARK;

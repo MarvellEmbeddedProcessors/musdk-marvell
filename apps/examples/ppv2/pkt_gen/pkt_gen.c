@@ -261,24 +261,21 @@ static struct glob_arg garg = {};
  */
 static void update_addresses(struct pkt *pkt, struct glob_arg *garg)
 {
-	struct ip *ip = &pkt->ip;
-	struct udphdr *udp = &pkt->udp;
-
 	do {
 		/* XXX for now it doesn't handle non-random src, random dst */
-		udp->uh_sport = htons(garg->src_ip.port_curr++);
+		pkt->udp.uh_sport = htons(garg->src_ip.port_curr++);
 		if (garg->src_ip.port_curr >= garg->src_ip.port1)
 			garg->src_ip.port_curr = garg->src_ip.port0;
 
-		ip->ip_src.s_addr = htonl(garg->src_ip.curr++);
+		pkt->ip.ip_src.s_addr = htonl(garg->src_ip.curr++);
 		if (garg->src_ip.curr >= garg->src_ip.end)
 			garg->src_ip.curr = garg->src_ip.start;
 
-		udp->uh_dport = htons(garg->dst_ip.port_curr++);
+		pkt->udp.uh_dport = htons(garg->dst_ip.port_curr++);
 		if (garg->dst_ip.port_curr >= garg->dst_ip.port1)
 			garg->dst_ip.port_curr = garg->dst_ip.port0;
 
-		ip->ip_dst.s_addr = htonl(garg->dst_ip.curr++);
+		pkt->ip.ip_dst.s_addr = htonl(garg->dst_ip.curr++);
 		if (garg->dst_ip.curr >= garg->dst_ip.end)
 			garg->dst_ip.curr = garg->dst_ip.start;
 	} while (0);
