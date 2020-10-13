@@ -1731,15 +1731,22 @@ static void pp2_cls_mng_set_c2_action(struct pp2_port *port,
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 	else if (action->cos) {
-		switch (port->tc[action->cos->tc].tc_config.default_color) {
+		int pkt_action_color;
+
+		if (action->cos->override_color)
+			pkt_action_color = action->cos->pkt_color;
+		else
+			pkt_action_color = port->tc[action->cos->tc].tc_config.default_color;
+
+		switch (pkt_action_color) {
 		case PP2_PPIO_COLOR_GREEN:
-			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN_LOCK;
 			break;
 		case PP2_PPIO_COLOR_YELLOW:
-			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_YELLOW;
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_YELLOW_LOCK;
 			break;
 		case PP2_PPIO_COLOR_RED:
-			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED;
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 			break;
 		}
 	} else {
@@ -1808,15 +1815,22 @@ static void pp2_cls_mng_set_c3_action(struct pp2_port *port,
 	if (action->type == PP2_CLS_TBL_ACT_DROP)
 		pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 	else if (action->cos) {
-		switch (port->tc[action->cos->tc].tc_config.default_color) {
+		int pkt_action_color;
+
+		if (action->cos->override_color)
+			pkt_action_color = action->cos->pkt_color;
+		else
+			pkt_action_color = port->tc[action->cos->tc].tc_config.default_color;
+
+		switch (pkt_action_color) {
 		case PP2_PPIO_COLOR_GREEN:
-			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN;
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_GREEN_LOCK;
 			break;
 		case PP2_PPIO_COLOR_YELLOW:
-			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_YELLOW;
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_YELLOW_LOCK;
 			break;
 		case PP2_PPIO_COLOR_RED:
-			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED;
+			pkt_action->color_act = MVPP2_COLOR_ACTION_TYPE_RED_LOCK;
 			break;
 		}
 	} else {
@@ -1881,6 +1895,8 @@ static int pp2_cls_mng_rule_update_db(struct pp2_cls_tbl_rule *rule, struct pp2_
 		if (!action_db->cos)
 			return -ENOMEM;
 		action_db->cos->tc = action->cos->tc;
+		action_db->cos->override_color = action->cos->override_color;
+		action_db->cos->pkt_color = action->cos->pkt_color;
 	}
 
 	action_db->type = action->type;

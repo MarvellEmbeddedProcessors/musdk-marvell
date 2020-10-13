@@ -99,6 +99,7 @@
 
 #include "mv_std.h"
 #include "mv_pp2.h"
+#include "mv_pp2_ppio.h"
 
 /** @addtogroup grp_pp2_cls Packet Processor: Classifier
  *
@@ -196,8 +197,10 @@ struct pp2_cls_early_drop_params {
 };
 
 struct pp2_cls_cos_desc {
-	struct pp2_ppio	*ppio;
-	u8		 tc;
+	struct pp2_ppio		*ppio;
+	u8			 tc;
+	int			 override_color; /** 0 for default color */
+	enum pp2_ppio_color	 pkt_color; /**< New color for given TC */
 };
 
 struct pp2_cls_tbl_action {

@@ -1580,12 +1580,12 @@ int pp2_cls_db_mng_tbl_list_dump(void)
 		if (tbl_node->tbl.type != PP2_CLS_FLOW_TBL)
 			continue;
 		printk("\n");
-		print_horizontal_line(115, "=");
+		print_horizontal_line(117, "=");
 		printk("|	       |default_action|		  key\n");
 		printk("|type|num_rules| type | tc_num|key_size|num_fields|");
 		printk("       proto        ,              field      |");
 		printk("\n");
-		print_horizontal_line(115, "-");
+		print_horizontal_line(117, "-");
 		printk("|%4d|%9d|", tbl_node->tbl.params.type, tbl_node->tbl.params.max_num_rules);
 		printk("%6d|%7d|", tbl_node->tbl.params.default_act.type, tbl_node->tbl.params.default_act.cos->tc);
 		printk("%8d|%10d|", tbl_node->tbl.params.key.key_size, tbl_node->tbl.params.key.num_fields);
@@ -1601,10 +1601,10 @@ int pp2_cls_db_mng_tbl_list_dump(void)
 				       pp2_g_enum_prs_net_proto_field_str_get(
 						tbl_node->tbl.params.key.proto_field[i].field.eth));
 		}
-		print_horizontal_line(115, "=");
+		print_horizontal_line(117, "=");
 		printk("\n");
 		pp2_cls_db_mng_rule_list_dump(&tbl_node->tbl);
-		print_horizontal_line(115, "=");
+		print_horizontal_line(117, "=");
 		printk("\n");
 	}
 	return 0;
@@ -1636,17 +1636,18 @@ int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl)
 			if (!num_rules)
 				return 0;
 			printk("|num_rules %3d |num_fields | size |               key          |", num_rules);
-			printk("             mask           |   type   | tc |\n");
-			print_horizontal_line(110, "=");
+			printk("             mask           |   type   | tc | color |\n");
+			print_horizontal_line(117, "=");
 			LIST_FOR_EACH_OBJECT(rule_node, struct pp2_cls_rule_node, &tbl_node->pp2_cls_tbl_rule_head,
 					     list_node) {
-				printk("               |%10d | %4d | %26s | %26s | %8s | %2d |\n",
+				printk("               |%10d | %4d | %26s | %26s | %8s | %2d | %3d   |\n",
 					rule_node->rule.num_fields,
 					rule_node->rule.fields[0].size,
 					rule_node->rule.fields[0].key,
 					rule_node->rule.fields[0].mask,
 					pp2_cls_utils_tbl_action_type_str_get(rule_node->action.type),
-					rule_node->action.cos->tc);
+					rule_node->action.cos->tc,
+					rule_node->action.cos->pkt_color);
 
 				for (i = 1; i < rule_node->rule.num_fields; i++) {
 					printk("               |           | %4d | %26s | %26s |          |    |\n",
@@ -1654,7 +1655,7 @@ int pp2_cls_db_mng_rule_list_dump(struct pp2_cls_tbl *tbl)
 						rule_node->rule.fields[i].key,
 						rule_node->rule.fields[i].mask);
 				}
-				print_horizontal_line(110, "-");
+				print_horizontal_line(117, "-");
 			}
 		}
 	}
