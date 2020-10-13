@@ -102,6 +102,10 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
+#include <linux/dma-noncoherent.h>
+#endif
 
 #include <linux/mm.h>
 #include <linux/clk.h>
@@ -227,8 +231,13 @@ static int cma_calloc(struct musdk_cma *cma_mem, void *argp)
 	size  = PAGE_ALIGN(size);
 
 	/* allocate space from CMA */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	ptr->kvaddr = dma_alloc_coherent(cma_mem->dev, size, &paddr,
+			GFP_KERNEL | GFP_DMA);
+#else
 	ptr->kvaddr = dma_zalloc_coherent(cma_mem->dev, size, &paddr,
 			GFP_KERNEL | GFP_DMA);
+#endif
 	if (!ptr->kvaddr) {
 		pr_err("Not enough CMA memory to alloc %lld bytes", size);
 		kfree(ptr);
@@ -456,7 +465,11 @@ static int musdk_cma_probe(struct platform_device *pdev)
 	cma_mem->dev = dev;
 	atomic_set(&cma_mem->refcount, 0);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
+	if (!dev_is_dma_coherent(dev))
+#else
 	if (!dev->archdata.dma_coherent)
+#endif
 		dev_warn(dev, "Not dma_coherent\n");
 
 	dev->dma_mask = kmalloc(sizeof(*dev->dma_mask), GFP_KERNEL);
