@@ -439,6 +439,8 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 	int plcr_idx = -1;
 	int traffic_class = -1;
 	int flow_id = 0;
+	int override_color = 0;
+	int color = 0;
 	int action_type = PP2_CLS_TBL_ACT_DONE;
 	int rc;
 	u32 num_fields;
@@ -468,6 +470,7 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		{"policer_index", required_argument, 0, 'p'},
 		{"drop", no_argument, 0, 'd'},
 		{"tc", required_argument, 0, 'q'},
+		{"color", required_argument, 0, 'c'},
 		{"flow_id", required_argument, 0, 'f'},
 		{0, 0, 0, 0}
 	};
@@ -512,6 +515,10 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 			break;
 		case 'q':
 			traffic_class = strtoul(optarg, &ret_ptr, 0);
+			break;
+		case 'c':
+			color = strtoul(optarg, &ret_ptr, 0);
+			override_color = 1;
 			break;
 		case 'f':
 			flow_id = strtoul(optarg, &ret_ptr, 0);
@@ -622,6 +629,8 @@ static int pp2_cls_cli_cls_rule_key(void *arg, int argc, char *argv[])
 		action->type = action_type;
 		action->flow_id = flow_id;
 		action->cos->tc = traffic_class;
+		action->cos->override_color = override_color;
+		action->cos->pkt_color = color;
 		action->cos->ppio = ports_desc->ppio;
 		action->plcr = plcr;
 
@@ -743,6 +752,7 @@ int register_cli_cls_api_cmds(struct port_desc *arg)
 		"\t\t\t\t\t--remove --table_index --tc --drop(optional) --size --key --mask...\n"
 		"\t\t\t\t--table_index	(dec) index to existing table\n"
 		"\t\t\t\t--tc			(dec) 1..8\n"
+		"\t\t\t\t--color	(optional) 0 for green, 1 for yellow, 2 for red\n"
 		"\t\t\t\t--flow_id		(dec) 1..4095\n"
 		"\t\t\t\t--drop		(optional)(no argument)\n"
 		"\t\t\t\t--policer_index	(optional)(dec) index to existing policer\n"
