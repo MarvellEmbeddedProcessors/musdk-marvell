@@ -109,8 +109,11 @@
 int app_read_nmp_cfg_file(char *cfg_file, struct nmp_params *params);
 
 int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *guest_info,
-					 struct giu_bpools_desc *pools_desc,
-					 u32 num_buffs);
+					 struct giu_bpools_desc *pools_desc);
+
+int app_guest_utils_allocate_all_giu_bpools(struct giu_bpools_desc *pools_desc,
+					    u32 num_buffs);
+
 int app_nmp_guest_giu_port_init(char *buff, struct nmp_guest_info *guest_info, struct giu_port_desc *port);
 
 int app_guest_utils_build_all_pp2_bpools(char *buff, struct nmp_guest_info *guest_info,

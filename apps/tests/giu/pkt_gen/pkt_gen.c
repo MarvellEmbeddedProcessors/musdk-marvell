@@ -651,8 +651,7 @@ static int init_local_modules(struct glob_arg *garg)
 
 	err = app_guest_utils_build_all_giu_bpools(garg->prb_str,
 			&garg->guest_info,
-			&garg->giu_bpools_desc,
-			PKT_GEN_APP_GIU_BP_SIZE);
+			&garg->giu_bpools_desc);
 	if (err)
 		return err;
 
@@ -661,6 +660,12 @@ static int init_local_modules(struct glob_arg *garg)
 			&garg->giu_port_desc);
 	if (err)
 		return err;
+
+	err = app_guest_utils_allocate_all_giu_bpools(&garg->giu_bpools_desc,
+			PKT_GEN_APP_GIU_BP_SIZE);
+	if (err)
+		return err;
+
 
 	garg->cmn_args.num_ports = garg->guest_info.ports_info.num_ports;
 

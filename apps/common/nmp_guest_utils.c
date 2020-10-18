@@ -150,8 +150,7 @@ int app_read_nmp_cfg_file(char *cfg_file, struct nmp_params *params)
 }
 
 int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *guest_info,
-					 struct giu_bpools_desc *pools_desc,
-					 u32 num_buffs)
+					 struct giu_bpools_desc *pools_desc)
 {
 	struct nmp_guest_port_info	*giu_info = &guest_info->giu_info[0];
 	int				 i, err;
@@ -171,13 +170,26 @@ int app_guest_utils_build_all_giu_bpools(char *buff, struct nmp_guest_info *gues
 			pr_err("probe giu-bpool buffs failed!\n");
 			return err;
 		}
+	}
 
-		if (num_buffs) {
-			err = app_giu_build_bpool(pools_desc->bpools[i], num_buffs);
-			if (err) {
-				pr_err("allocate giu-bpool buffs failed!\n");
-				return err;
-			}
+	return 0;
+}
+
+int app_guest_utils_allocate_all_giu_bpools(struct giu_bpools_desc *pools_desc,
+					    u32 num_buffs)
+{
+	int	i, err;
+
+	if (num_buffs == 0) {
+		pr_err("requested buffs equal to zero\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < pools_desc->num_bpools; i++) {
+		err = app_giu_build_bpool(pools_desc->bpools[i], num_buffs);
+		if (err) {
+			pr_err("allocate giu-bpool buffs failed!\n");
+			return err;
 		}
 	}
 
