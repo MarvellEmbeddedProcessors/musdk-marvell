@@ -406,7 +406,6 @@ struct gie {
 	struct gie_prio		prios[GIE_MAX_PRIOS];
 	struct gie_bpool	bpools[GIE_MAX_BPOOLS];
 	struct gie_bpool	*p_bpools[GIE_MAX_BPOOLS];
-	u16			bp_cnt;
 	u16			curr_prio;
 };
 
