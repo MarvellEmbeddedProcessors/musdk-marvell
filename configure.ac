@@ -17,6 +17,8 @@ AC_PREFIX_DEFAULT($(pwd)/usr/local)
 
 AC_SUBST(includedir, '${exec_prefix}')
 
+MUSDK_VERSION=$(git describe --long --always --dirty --tags)
+
 ##########################################################################
 # Set PP2_BUILD - using --enable-pp2
 ##########################################################################
@@ -238,9 +240,9 @@ fi
 
 # Add MUSDK types flags. They are always defined in musdk_lib compilation,
 # and are optional during user compilation.
-MUSDK_CFLAGS+="-DMVCONF_TYPES_PUBLIC "
-MUSDK_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_PUBLIC "
-
+MUSDK_EXT_CFLAGS="-DMVCONF_TYPES_PUBLIC "
+MUSDK_EXT_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_PUBLIC"
+MUSDK_CFLAGS+=$MUSDK_EXT_CFLAGS
 
 # Checks for programs.
 AC_PROG_CC
@@ -267,6 +269,7 @@ LT_INIT
 
 AC_CONFIG_FILES([Makefile
 		src/Makefile
+		src/libmusdk.pc
 		apps/Makefile
 		apps/tests/Makefile
 		apps/examples/Makefile
@@ -303,11 +306,14 @@ AC_SUBST([CPPFLAGS])
 AC_SUBST([CFLAGS])
 AC_SUBST([AM_LDFLAGS])
 AC_SUBST([LDFLAGS])
-
+AC_SUBST([MUSDK_EXT_CFLAGS])
+AC_SUBST([MUSDK_VERSION])
 
 
 AC_OUTPUT
 AC_MSG_RESULT([
+        MUSDK Library name:     ${MUSDK_VERSION}
+
         libdir:                 ${libdir}
         includedir:             ${includedir}
 

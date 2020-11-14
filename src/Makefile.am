@@ -7,6 +7,9 @@ AM_CFLAGS += -I$(top_srcdir)/src/include
 
 AM_LDFLAGS = -lm
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libmusdk.pc
+
 lib_LTLIBRARIES = libmusdk.la
 
 nobase_include_HEADERS  = include/mv_std.h
