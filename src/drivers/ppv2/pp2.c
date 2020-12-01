@@ -126,8 +126,13 @@ struct pp2_lnx_format pp2_frm[] = {
 					.eth_format = "eth%d@0%d0000",
 				},
 				{
-					.ver = LNX_OTHER,
+					.ver = LNX_4_14_x,
 					.devtree_path = "/proc/device-tree/cp%u/config-space/ethernet@0/",
+					.eth_format = "eth%d",
+				},
+				{
+					.ver = LNX_OTHER,
+					.devtree_path = "/proc/device-tree/cp%u/config-space@%x/ethernet@0/",
 					.eth_format = "eth%d",
 				}
 };
@@ -363,7 +368,6 @@ static int pp2_get_hw_data(struct pp2_inst *inst)
 		sys_iomem_deinit(pp2_sys_iomem);
 		return err;
 	}
-
 	/* Assign each CPU (thread) slot its mapped address space. */
 
 	for (reg_id = 0; reg_id < ARRAY_SIZE(hw->base); reg_id++)

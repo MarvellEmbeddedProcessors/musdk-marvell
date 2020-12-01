@@ -298,6 +298,8 @@ enum musdk_lnx_id lnx_id_get(void)
 
 	if ((MAJOR(lk_ver) == 4) && (MINOR(lk_ver) == 4))
 		lnx_id = LNX_4_4_x;
+	else if ((MAJOR(lk_ver) == 4) && (MINOR(lk_ver) == 14))
+		lnx_id = LNX_4_14_x;
 	else
 		lnx_id = LNX_OTHER;
 

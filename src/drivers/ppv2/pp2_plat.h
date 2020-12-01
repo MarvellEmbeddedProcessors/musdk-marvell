@@ -125,7 +125,7 @@
 /* Absolute number of hardware register spaces */
 #define PP2_NUM_REGSPACES            (9)
 /* Absolute number of hardware packet processors */
-#define PP2_MAX_NUM_PACKPROCS        (8)
+#define PP2_MAX_NUM_PACKPROCS        (4)
 
 /* Number of RXQs per port */
 #define PP2_HW_PORT_NUM_RXQS         (32)

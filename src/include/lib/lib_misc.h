@@ -398,7 +398,8 @@ void mv_mem_dump_words(const u32 *p, u32 words, int be);
 enum musdk_lnx_id {
 	LNX_VER_INVALID = -1,
 	LNX_4_4_x = 0,
-	LNX_OTHER = 1 /* Currently LNX_4_14_x */
+	LNX_4_14_x = 1,
+	LNX_OTHER = 2 /* Currently LNX_5_x */
 };
 
 enum musdk_lnx_id lnx_id_get(void);

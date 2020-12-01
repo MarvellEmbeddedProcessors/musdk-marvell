@@ -135,10 +135,11 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 	for (i = 0, cp110_num = 0; i < num_inst; i++, cp110_num++) {
 		err = -1;
 		while (cp110_num < PP2_MAX_NUM_PACKPROCS) {
-			if (lnx_id == LNX_4_4_x)
+			if (lnx_id == LNX_4_4_x || lnx_id == LNX_4_14_x)
 				sprintf(cp110path, pp2_frm[lnx_id].devtree_path, cp110_num);
 			else
-				sprintf(cp110path, pp2_frm[lnx_id].devtree_path, cp110_num);
+				sprintf(cp110path, pp2_frm[lnx_id].devtree_path, cp110_num,
+					0xf2000000 + (cp110_num * 0x2000000));
 			err = access(cp110path, F_OK);
 			if (!err)
 				break;
