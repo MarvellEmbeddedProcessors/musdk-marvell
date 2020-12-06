@@ -1,0 +1,123 @@
+{
+	"nmp_params": {
+		"pp2_en": 0,
+		"num_containers": 1,
+		"containers_params-0": {
+			"num_lfs": 5,
+			"lf_params-0": {
+				"lf_type": 1,
+				"nicpf": {
+					"match": "gpio-0:0",
+					"keep_alive_thresh": 25,
+					"pci_en": 1,
+					"sg_en": 0,
+					"lcl_egress_qs_size": 2048,
+					"lcl_ingress_qs_size": 2048,
+					"lcl_egress_num_qs": 1,
+ 					"lcl_ingress_num_qs": 1,
+					"dflt_pkt_offset": 64,
+					"max_num_tcs": 1,
+					"lcl_num_bpools": 1,
+					"lcl_bpools_params-0": {
+						"max_num_buffs": 2048,
+						"buff_size": 9304
+					}
+					"nicpf_type": 0,
+				}
+			},
+			"lf_params-1": {
+				"lf_type": 2,
+				"nicvf": {
+					"match": "gpio-0:1",
+					"keep_alive_thresh": 25,
+					"pci_en": 1,
+					"sg_en": 1,
+					"lcl_egress_qs_size": 2048,
+					"lcl_ingress_qs_size": 2048,
+					"lcl_egress_num_qs": 1,
+ 					"lcl_ingress_num_qs": 1,
+					"dflt_pkt_offset": 64,
+					"max_num_tcs": 1,
+					"lcl_num_bpools": 1,
+					"lcl_bpools_params-0": {
+						"max_num_buffs": 2048,
+						"buff_size": 9304
+					}
+				}
+			},
+			"lf_params-2": {
+				"lf_type": 2,
+				"nicvf": {
+					"match": "gpio-0:2",
+					"keep_alive_thresh": 25,
+					"pci_en": 1,
+					"sg_en": 1,
+					"lcl_egress_qs_size": 2048,
+					"lcl_ingress_qs_size": 2048,
+					"lcl_egress_num_qs": 1,
+ 					"lcl_ingress_num_qs": 1,
+					"dflt_pkt_offset": 64,
+					"max_num_tcs": 1,
+					"lcl_num_bpools": 1,
+					"lcl_bpools_params-0": {
+						"max_num_buffs": 2048,
+						"buff_size": 9304
+					}
+				}
+			},
+			"lf_params-3": {
+				"lf_type": 2,
+				"nicvf": {
+					"match": "gpio-0:3",
+					"keep_alive_thresh": 25,
+					"pci_en": 1,
+					"sg_en": 1,
+					"lcl_egress_qs_size": 2048,
+					"lcl_ingress_qs_size": 2048,
+					"lcl_egress_num_qs": 1,
+ 					"lcl_ingress_num_qs": 1,
+					"dflt_pkt_offset": 64,
+					"max_num_tcs": 1,
+					"lcl_num_bpools": 1,
+					"lcl_bpools_params-0": {
+						"max_num_buffs": 2048,
+						"buff_size": 9304
+					}
+				}
+			},
+			"lf_params-4": {
+				"lf_type": 2,
+				"nicvf": {
+					"match": "gpio-0:4",
+					"keep_alive_thresh": 25,
+					"pci_en": 1,
+					"sg_en": 1,
+					"lcl_egress_qs_size": 2048,
+					"lcl_ingress_qs_size": 2048,
+					"lcl_egress_num_qs": 1,
+ 					"lcl_ingress_num_qs": 1,
+					"dflt_pkt_offset": 64,
+					"max_num_tcs": 1,
+					"lcl_num_bpools": 1,
+					"lcl_bpools_params-0": {
+						"max_num_buffs": 2048,
+						"buff_size": 9304
+					}
+				}
+			},
+			"guest_id": 2
+		}
+		"dma_engines": {
+			"num-mng": 1,
+			"mng-0": "dmax2-0",
+			"num-in": 4,
+			"in-0": "dmax2-1",
+			"in-1": "dmax2-2",
+			"in-2": "dmax2-3",
+			"in-3": "dmax2-4",
+			"num-out": 1,
+			"out-0": "dmax2-5",
+		}
+	}
+}
+

@@ -107,7 +107,8 @@ musdk_nmp_standalone_SOURCES += ../common/utils.c
 musdk_nmp_standalone_SOURCES += nmp/nmp_standalone/nmp_standalone.c
 
 bin_SCRIPTS = nmp/configs/musdk-nmp-config.txt
-bin_SCRIPTS += nmp/configs/musdk-vfs-nmp-config.txt
+bin_SCRIPTS += nmp/configs/musdk-vfs-nmp-single-cp-config.txt
+bin_SCRIPTS += nmp/configs/musdk-vfs-nmp-multi-cp-config.txt
 endif
 
 if NETA_BUILD
