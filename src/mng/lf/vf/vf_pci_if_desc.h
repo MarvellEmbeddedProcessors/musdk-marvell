@@ -139,8 +139,9 @@ struct pcie_config_mem {
 #define PCIE_CFG_STATUS_HOST_MGMT_CLOSE_DONE	(1 << 30)
 #define PCIE_CFG_STATUS_HOST_RESET	(1 << 31)
 	u32	status;
+	u32	vf_id;
 	u8	mac_addr[6];
-	u8	res[6];
+	u8	res[2];
 	struct q_hw_info cmd_q;
 	struct q_hw_info notif_q;
 	u8	res2[24];

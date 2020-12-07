@@ -437,6 +437,7 @@ static int nmnicvf_mng_chn_init(struct nmnicvf *nmnicvf)
 	vf_cfg_virt = (u64)nmnicvf->map.cfg_map.virt_addr;
 	pcie_cfg    = (struct pcie_config_mem *)vf_cfg_virt;
 
+	pcie_cfg->vf_id = nmnicvf->vf_id;
 	pcie_cfg->mac_addr[0] = mac_addr[0];
 	pcie_cfg->mac_addr[1] = mac_addr[1];
 	pcie_cfg->mac_addr[2] = mac_addr[2];
