@@ -109,14 +109,14 @@
 		}
 		"dma_engines": {
 			"num-mng": 1,
-			"mng-0": "dmax2-0",
+			"mng-0": "dmax2-5",
 			"num-in": 4,
-			"in-0": "dmax2-1",
-			"in-1": "dmax2-2",
-			"in-2": "dmax2-3",
-			"in-3": "dmax2-4",
+			"in-0": "dmax2-0",
+			"in-1": "dmax2-1",
+			"in-2": "dmax2-2",
+			"in-3": "dmax2-3",
 			"num-out": 1,
-			"out-0": "dmax2-5",
+			"out-0": "dmax2-4",
 		}
 	}
 }
