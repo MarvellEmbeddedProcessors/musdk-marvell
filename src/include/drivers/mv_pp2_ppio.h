@@ -1261,6 +1261,52 @@ int pp2_ppio_set_loopback(struct pp2_ppio *ppio, int en);
 int pp2_ppio_get_loopback(struct pp2_ppio *ppio, int *en);
 
 /**
+ * Set ppio port rate limit feature
+ *
+ * @param[in]	ppio			A pointer to a PP-IO object.
+ * @param[in]	rate_limit		ppio port rate limit configuration
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_set_port_rate_limit(struct pp2_ppio *ppio, struct pp2_ppio_rate_limit *rate_limit);
+
+/**
+ * Set ppio queue rate limit feature
+ *
+ * @param[in]	ppio			A pointer to a PP-IO object.
+ * @param[in]	qid			Out queue id.
+ * @param[in]	rate_limit		ppio txq rate limit configuration
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_set_queue_rate_limit(struct pp2_ppio *ppio, u8 qid, struct pp2_ppio_rate_limit *rate_limit);
+
+/**
+ * Get ppio port rate limit feature
+ *
+ * @param[in]	ppio			A pointer to a PP-IO object.
+ * @param[out]	rate_limit		ppio port rate limit configuration
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_get_port_rate_limit(struct pp2_ppio *ppio, struct pp2_ppio_rate_limit *rate_limit);
+
+/**
+ * Get ppio queue rate limit feature
+ *
+ * @param[in]	ppio			A pointer to a PP-IO object.
+ * @param[in]	qid			Out queue id.
+ * @param[out]	rate_limit		ppio txq rate limit configuration
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_get_queue_rate_limit(struct pp2_ppio *ppio, u8 qid, struct pp2_ppio_rate_limit *rate_limit);
+
+/**
  * Set ppio to promiscuous mode
  *
  * @param[in]		ppio	A pointer to a PP-IO object.

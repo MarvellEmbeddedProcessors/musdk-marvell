@@ -549,6 +549,38 @@ int pp2_ppio_get_mtu(struct pp2_ppio *ppio, u16 *mtu)
 	return 0;
 }
 
+int pp2_ppio_set_port_rate_limit(struct pp2_ppio *ppio, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int rc = 0;
+
+	rc = pp2_port_set_rate_limit(GET_PPIO_PORT(ppio), rate_limit);
+	return rc;
+}
+
+int pp2_ppio_set_queue_rate_limit(struct pp2_ppio *ppio, u8 qid, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int rc = 0;
+
+	rc = pp2_port_set_queue_rate_limit(GET_PPIO_PORT(ppio), qid, rate_limit);
+	return rc;
+}
+
+int pp2_ppio_get_port_rate_limit(struct pp2_ppio *ppio, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int rc = 0;
+
+	rc = pp2_port_get_rate_limit(GET_PPIO_PORT(ppio), rate_limit);
+	return rc;
+}
+
+int pp2_ppio_get_queue_rate_limit(struct pp2_ppio *ppio, u8 qid, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int rc = 0;
+
+	rc = pp2_port_get_queue_rate_limit(GET_PPIO_PORT(ppio), qid, rate_limit);
+	return rc;
+}
+
 int pp2_ppio_set_mru(struct pp2_ppio *ppio, u16 len)
 {
 	int rc;

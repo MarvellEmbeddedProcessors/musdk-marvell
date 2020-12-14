@@ -1956,6 +1956,75 @@ void pp2_port_get_mtu(struct pp2_port *port, uint16_t *mtu)
 	*mtu = port->port_mtu;
 }
 
+/* Set port rate limit */
+int pp2_port_set_rate_limit(struct pp2_port *port, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int err = 0;
+
+	/* Stop uplink direction only */
+	pp2_port_egress_disable(port);
+
+	port->enable_port_rate_limit = rate_limit->rate_limit_enable;
+	port->rate_limit_params.cir = rate_limit->rate_limit_params.cir;
+	port->rate_limit_params.cbs = rate_limit->rate_limit_params.cbs;
+
+	/* Update TX sched configuration and start uplink direction */
+	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS) {
+		pp2_port_config_txsched(port);
+		pp2_port_egress_enable(port);
+	}
+
+	return err;
+}
+
+/* Set queue rate limit */
+int pp2_port_set_queue_rate_limit(struct pp2_port *port, u8 qid, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int err = 0;
+	uint32_t txq_mask;
+
+	/* Stop uplink direction only */
+	txq_mask = 1 << qid;
+	pp2_port_egress_disable_qmask(port, txq_mask);
+
+	port->txq_config[qid].rate_limit_enable = rate_limit->rate_limit_enable;
+	port->txq_config[qid].rate_limit_params.cir = rate_limit->rate_limit_params.cir;
+	port->txq_config[qid].rate_limit_params.cbs = rate_limit->rate_limit_params.cbs;
+
+	/* Update TX sched configuration and start uplink direction */
+	if ((port->t_mode & PP2_TRAFFIC_EGRESS) == PP2_TRAFFIC_EGRESS) {
+		pp2_port_config_txsched(port);
+		pp2_port_egress_enable_qmask(port, txq_mask);
+	}
+
+	return err;
+
+}
+
+/* Get port rate limit */
+int pp2_port_get_rate_limit(struct pp2_port *port, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int err = 0;
+
+	rate_limit->rate_limit_enable = port->enable_port_rate_limit;
+	rate_limit->rate_limit_params.cir = port->rate_limit_params.cir;
+	rate_limit->rate_limit_params.cbs = port->rate_limit_params.cbs;
+
+	return err;
+}
+
+/* Get queue rate limit */
+int pp2_port_get_queue_rate_limit(struct pp2_port *port, u8 qid, struct pp2_ppio_rate_limit *rate_limit)
+{
+	int err = 0;
+
+	rate_limit->rate_limit_enable = port->txq_config[qid].rate_limit_enable;
+	rate_limit->rate_limit_params.cir = port->txq_config[qid].rate_limit_params.cir;
+	rate_limit->rate_limit_params.cbs = port->txq_config[qid].rate_limit_params.cbs;
+
+	return err;
+}
+
 static int pp2_port_check_mru_valid(struct pp2_port *port, uint16_t mru)
 {
 	int err = 0;

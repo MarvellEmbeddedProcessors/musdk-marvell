@@ -492,6 +492,18 @@ int pp2_port_set_mtu(struct pp2_port *port, uint16_t mtu);
 /* Get MTU */
 void pp2_port_get_mtu(struct pp2_port *port, uint16_t *mtu);
 
+/* Set port rate limit parameters */
+int pp2_port_set_rate_limit(struct pp2_port *port, struct pp2_ppio_rate_limit *rate_limit);
+
+/* Set queue rate limit parameters */
+int pp2_port_set_queue_rate_limit(struct pp2_port *port, u8 qid, struct pp2_ppio_rate_limit *rate_limit);
+
+/* Get port rate limit parameters */
+int pp2_port_get_rate_limit(struct pp2_port *port, struct pp2_ppio_rate_limit *rate_limit);
+
+/* Get queue rate limit parameters */
+int pp2_port_get_queue_rate_limit(struct pp2_port *port, u8 qid, struct pp2_ppio_rate_limit *rate_limit);
+
 /* Set MRU */
 int pp2_port_set_mru(struct pp2_port *port, uint16_t len);
 
