@@ -130,17 +130,17 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 		/* Get parameters */
 		switch (option) {
 		case 'p':
-			port_params->rate_limit_enable = 1;
+			port_params->rate_limit.rate_limit_enable = 1;
 			break;
 		case 'r':
-			port_params->rate_limit_params.cir = strtoul(optarg, &ret_ptr, 10);
+			port_params->rate_limit.rate_limit_params.cir = strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("port_rate_limit must contain a decimal integer.\n");
 				return -EINVAL;
 			}
 			break;
 		case 'b':
-			port_params->rate_limit_params.cbs = strtoul(optarg, &ret_ptr, 10);
+			port_params->rate_limit.rate_limit_params.cbs = strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("port_burst_size must contain a decimal integer.\n");
 				return -EINVAL;
@@ -152,7 +152,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 				pr_err("Invalid txq id in txq_rate_limit_enable.\n");
 				return -EINVAL;
 			}
-			port_params->outqs_params.outqs_params[txq].rate_limit_enable = 1;
+			port_params->outqs_params.outqs_params[txq].rate_limit.rate_limit_enable = 1;
 			break;
 		case 't':
 			txq = strtoul(optarg, &ret_ptr, 10);
@@ -166,7 +166,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 				return -EINVAL;
 			}
 			optarg = ret_ptr;
-			port_params->outqs_params.outqs_params[txq].rate_limit_params.cir =
+			port_params->outqs_params.outqs_params[txq].rate_limit.rate_limit_params.cir =
 				strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("Invalid rate limit in txq_rate_limit.\n");
@@ -185,7 +185,7 @@ int pp2_egress_scheduler_params(struct pp2_ppio_params *port_params, int argc, c
 				return -EINVAL;
 			}
 			optarg = ret_ptr;
-			port_params->outqs_params.outqs_params[txq].rate_limit_params.cbs =
+			port_params->outqs_params.outqs_params[txq].rate_limit.rate_limit_params.cbs =
 				strtoul(optarg, &ret_ptr, 10);
 			if (ret_ptr == optarg) {
 				pr_err("Invalid burst size in txq_burst_size.\n");

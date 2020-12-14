@@ -823,9 +823,9 @@ static int init_local_modules(struct glob_arg *garg)
 
 #ifdef PKT_GEN_APP_USE_HW_RATE_LMT
 			if (garg->cmn_args.busy_wait) {
-				port->port_params.rate_limit_enable = 1;
-				port->port_params.rate_limit_params.cbs = PKT_GEN_APP_RATE_LMT_CBS;
-				port->port_params.rate_limit_params.cir = garg->cmn_args.busy_wait;
+				port->port_params.rate_limit.rate_limit_enable = 1;
+				port->port_params.rate_limit.rate_limit_params.cbs = PKT_GEN_APP_RATE_LMT_CBS;
+				port->port_params.rate_limit.rate_limit_params.cir = garg->cmn_args.busy_wait;
 				garg->cmn_args.busy_wait = 0;
 			}
 #endif /* PKT_GEN_APP_USE_HW_RATE_LMT */

@@ -500,9 +500,9 @@ int nmnicpf_pp2_init_ppio(struct nmnicpf *nmnicpf)
 		port_params.outqs_params.outqs_params[i].size = pdesc->outq_size;
 		if (pdesc->q_desc[i].rate_limit_enable) {
 			outq_params = &port_params.outqs_params.outqs_params[i];
-			outq_params->rate_limit_enable = 1;
-			outq_params->rate_limit_params.cbs = pdesc->q_desc[i].rate_limit.cbs;
-			outq_params->rate_limit_params.cir = pdesc->q_desc[i].rate_limit.cir;
+			outq_params->rate_limit.rate_limit_enable = 1;
+			outq_params->rate_limit.rate_limit_params.cbs = pdesc->q_desc[i].rate_limit.cbs;
+			outq_params->rate_limit.rate_limit_params.cir = pdesc->q_desc[i].rate_limit.cir;
 		}
 	}
 

@@ -253,6 +253,16 @@ enum pp2_ppio_outq_sched_mode {
 	PP2_PPIO_SCHED_M_SP
 };
 
+/**
+ * ppio rate limit parameters
+ */
+struct pp2_ppio_rate_limit {
+	int					rate_limit_enable;
+
+	/** this field is relevant only if rate-limit enabled */
+	struct pp2_ppio_rate_limit_params	rate_limit_params;
+};
+
 struct pp2_ppio_outq_params {
 	u32	size;	/**< q_size in number of descriptors */
 
@@ -264,10 +274,7 @@ struct pp2_ppio_outq_params {
 	 */
 	u8				weight;
 
-	int				rate_limit_enable;
-
-	/** this field is relevant only if this out-Q has rate-limit enabled */
-	struct pp2_ppio_rate_limit_params rate_limit_params;
+	struct pp2_ppio_rate_limit	rate_limit;
 };
 
 /**
@@ -396,12 +403,10 @@ struct pp2_ppio_params {
 
 	enum pp2_ppio_eth_start_hdr		eth_start_hdr;
 
-	int					rate_limit_enable;
-	/** this field is relevant only if this PP-IO rate-limit is enabled.
-	 * Please note that when PP-IO rate limit is enable, the entire port
+	/** Please note that when PP-IO rate limit is enable, the entire port
 	 * is impact by this setting (i.e. even in case of logical-port).
 	 */
-	struct pp2_ppio_rate_limit_params rate_limit_params;
+	struct pp2_ppio_rate_limit	rate_limit;
 
 /* TODO: do we need extra pools per port?
  *	struct pp2_bpool		*pools[PP2_PPIO_TC_MAX_POOLS];
