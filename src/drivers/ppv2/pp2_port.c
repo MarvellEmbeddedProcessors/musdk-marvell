@@ -203,7 +203,7 @@ pp2_rxq_offset_set(struct pp2_port *port,
 }
 
 static void
-pp2_port_egress_disable(struct pp2_port *port)
+pp2_port_egress_disable_qmask(struct pp2_port *port, uint32_t q_mask)
 {
 	volatile u32 tmo;
 	u32 val = 0;
@@ -212,9 +212,8 @@ pp2_port_egress_disable(struct pp2_port *port)
 
 	/* Issue stop command for active channels only */
 	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-	val = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG) & MVPP2_TXP_SCHED_ENQ_MASK);
-	if (val)
-		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, val << MVPP2_TXP_SCHED_DISQ_OFFSET);
+	if (q_mask)
+		pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, q_mask << MVPP2_TXP_SCHED_DISQ_OFFSET);
 
 	/* TXQs disable. Wait for all Tx activity to terminate. */
 	tmo = 0;
@@ -227,28 +226,39 @@ pp2_port_egress_disable(struct pp2_port *port)
 		usleep_range(1000, 2000);
 		tmo++;
 		val = pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG);
-	} while (val & MVPP2_TXP_SCHED_ENQ_MASK);
+	} while (val & q_mask);
+}
+
+static void
+pp2_port_egress_disable(struct pp2_port *port)
+{
+	u32 q_mask = 0;
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	q_mask = (pp2_reg_read(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG) & MVPP2_TXP_SCHED_ENQ_MASK);
+	pp2_port_egress_disable_qmask(port, q_mask);
+}
+
+static void
+pp2_port_egress_enable_qmask(struct pp2_port *port, uint32_t q_mask)
+{
+	u32 tx_port_num = MVPP2_MAX_TCONT + port->id;
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
+	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, q_mask);
+	pr_debug("Port: Egress enable tx_port_num=%u q_mask=0x%X\n", tx_port_num, q_mask);
 }
 
 static void
 pp2_port_egress_enable(struct pp2_port *port)
 {
-	u32 qmap = 0;
-	u32 queue;
-	u32 tx_port_num = MVPP2_MAX_TCONT + port->id;
-	uintptr_t cpu_slot = port->cpu_slot;
+	u32 q_mask = 0;
 
-	/* TXQs enable */
-	for (queue = 0; queue < port->num_tx_queues; queue++) {
-		struct pp2_tx_queue *txq = port->txqs[queue];
-
-		if (txq->desc_virt_arr)
-			qmap |= (1 << queue);
-	}
-	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_PORT_INDEX_REG, tx_port_num);
-	pp2_reg_write(cpu_slot, MVPP2_TXP_SCHED_Q_CMD_REG, qmap);
-	pr_debug("Port: Egress enable tx_port_num=%u qmap=0x%X\n", tx_port_num, qmap);
+	q_mask = (1 << port->num_tx_queues) - 1;
+	pp2_port_egress_enable_qmask(port, q_mask);
 }
+
 
 static void
 pp2_port_ingress_enable(struct pp2_port *port)
