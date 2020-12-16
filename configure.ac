@@ -19,6 +19,11 @@ AC_SUBST(includedir, '${exec_prefix}')
 
 MUSDK_VERSION=$(git describe --long --always --dirty --tags)
 
+# Add MUSDK types flags. They are always defined in musdk_lib compilation,
+# and are optional during user compilation.
+MUSDK_EXT_CFLAGS="-DMVCONF_TYPES_PUBLIC "
+MUSDK_EXT_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_PUBLIC "
+
 ##########################################################################
 # Set PP2_BUILD - using --enable-pp2
 ##########################################################################
@@ -208,7 +213,7 @@ AC_ARG_ENABLE([dma-addr],
 [if test $enableval -eq 32 -o $enableval -eq 64; then
 	DMA_ADDR_SIZE=$enableval
 fi])
-MUSDK_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_SIZE=$DMA_ADDR_SIZE "
+MUSDK_EXT_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_SIZE=$DMA_ADDR_SIZE "
 ##########################################################################
 # Set MVCONF_SYS_DMA_UIO
 ##########################################################################
@@ -238,10 +243,6 @@ if test x$HUGE_PG = xtrue; then
 	MUSDK_CFLAGS+="-DMVCONF_SYS_DMA_HUGE_PAGE "
 fi
 
-# Add MUSDK types flags. They are always defined in musdk_lib compilation,
-# and are optional during user compilation.
-MUSDK_EXT_CFLAGS="-DMVCONF_TYPES_PUBLIC "
-MUSDK_EXT_CFLAGS+="-DMVCONF_DMA_PHYS_ADDR_T_PUBLIC"
 MUSDK_CFLAGS+=$MUSDK_EXT_CFLAGS
 
 # Checks for programs.
