@@ -115,7 +115,7 @@ struct sys_iomem_format {
 #define PP2_NETDEV_PATH		"/sys/class/net/"
 
 #define UIO_HDR_STR		"uio_%s"
-#define UIO_ID_FORMAT_STR	"_%d"
+#define UIO_ID_FORMAT_STR	"_cp%d"
 #define UIO_MAX_FORMAT_SZ	(sizeof(UIO_HDR_STR) + sizeof(UIO_ID_FORMAT_STR))
 
 
