@@ -366,13 +366,24 @@ static int nmnicvf_mng_chn_host_ready(struct nmnicvf *nmnicvf)
 	struct giu_mng_ch_params mng_ch_params;
 	u64 vf_cfg_virt; /* pointer to HW so it should be volatile */
 	int ret = 0;
+	int timeout = 2000; /* 2 sec */
 
 	/* Get BAR0 Configuration space base address */
 	vf_cfg_virt = (u64)nmnicvf->map.cfg_map.virt_addr;
 	pcie_cfg    = (struct pcie_config_mem *)vf_cfg_virt;
 
-	while (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY))
-		; /* Do Nothing. Wait till state it's updated */
+	pr_info("Waiting for Host-Mgmt to be Ready\n");
+
+	do {
+		if (readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_MGMT_READY)
+			break;
+		udelay(1000);
+	} while (--timeout);
+
+	if (!timeout) {
+		pr_err("host mgmt is not ready. timeout exceeded.\n");
+		return -ETIMEDOUT;
+	}
 
 	pr_info("Host-Mgmt is Ready\n");
 
@@ -706,6 +717,7 @@ static int nmnicvf_local_queue_terminate(struct nmnicvf *nmnicvf)
 static int nmnicvf_mng_chn_terminate(struct nmnicvf *nmnicvf)
 {
 	giu_mng_ch_deinit(nmnicvf->giu_mng_ch);
+	nmnicvf->giu_mng_ch = NULL;
 	return 0;
 }
 
@@ -1681,8 +1693,9 @@ static int nmnicvf_mgmt_close_check(struct nmnicvf *nmnicvf)
 	return 0;
 }
 
-static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
+static int nmnicvf_reset_check(struct nmlf *nmlf)
 {
+	struct nmnicvf *nmnicvf = (struct nmnicvf *)nmlf;
 	struct giu_mng_ch_qs		mng_ch_qs;
 	volatile struct pcie_config_mem *pcie_cfg;
 
@@ -1691,7 +1704,7 @@ static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
 	if (!(readl(&pcie_cfg->status) & PCIE_CFG_STATUS_HOST_RESET))
 		/* reset bit wan't not set */
 		return 0;
-	pr_debug("got 'reset' request\n");
+	pr_info("got 'reset' request\n");
 
 	/* reset bit was set, need to reconfigure VF flow */
 	/* 1. unregister mng queues from dispatcher */
@@ -1699,7 +1712,7 @@ static int nmnicvf_reset_check(struct nmnicvf *nmnicvf)
 		giu_mng_ch_get_qs(nmnicvf->giu_mng_ch, &mng_ch_qs);
 		nmdisp_remove_queue(nmnicvf->nmdisp, CDT_VF, nmnicvf->vf_id, mng_ch_qs.lcl_cmd_q);
 		/* 2. destroy mng queues */
-		giu_mng_ch_deinit(nmnicvf->giu_mng_ch);
+		nmnicvf_mng_chn_terminate(nmnicvf);
 	}
 	/* 3. destroy 'remote' queues */
 	if (nmnicvf->giu_gpio) {
@@ -1726,7 +1739,7 @@ static int nmnicvf_maintenance(struct nmlf *nmlf)
 	int err;
 
 	/* Check for reset signal */
-	err = nmnicvf_reset_check(nmnicvf);
+	err = nmnicvf_reset_check(nmlf);
 	if (err)
 		return err;
 
@@ -1841,8 +1854,10 @@ static int nmnicvf_init_host_ready(struct nmlf *nmlf)
 
 	/* Initialize management queues */
 	err = nmnicvf_mng_chn_host_ready(nmnicvf);
-	if (err)
-		return err;
+	if (err) {
+		nmnicvf->nmlf.f_maintenance_cb = nmnicvf_reset_check;
+		return 0;
+	}
 
 	nmnicvf->nmlf.f_maintenance_cb = nmnicvf_maintenance;
 
