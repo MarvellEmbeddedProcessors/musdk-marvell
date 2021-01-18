@@ -67,11 +67,18 @@
 /* this enum must be compatible to 'enum safexcel_eip_version' in safexcel.h file */
 enum sam_hw_type {
 	O_HW_EIP97 = 0,
-	O_HW_EIP197 = 1,
+	O_HW_EIP197B = 1,
+	O_HW_EIP197D = 2,
 	HW_EIP97IES = BIT(0),
 	HW_EIP197B  = BIT(1),
 	HW_EIP197D  = BIT(2),
 	HW_TYPE_LAST = BIT(3)
+};
+
+enum sam_type {
+	EIP_TYPE_97 = 0,
+	EIP_TYPE_197 = 1,
+	EIP_TYPE_LAST = 2
 };
 
 struct sam_uio_ring_info {
@@ -121,6 +128,25 @@ static int get_lk_version(void)
 	return MKDEV(major, minor);
 }
 
+static inline enum sam_type lnx_ver_to_sam_type(uint32_t lk_ver, uint32_t type)
+{
+	enum sam_type sm_type = EIP_TYPE_LAST;
+
+	if (((MAJOR(lk_ver) >= 5) && (MINOR(lk_ver) >= 4)) ||
+		((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14))) {
+		if ((type == O_HW_EIP197B) || (type == O_HW_EIP197D))
+			sm_type = EIP_TYPE_197;
+		else if (type == O_HW_EIP97)
+			sm_type = EIP_TYPE_97;
+	} else if ((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) {
+		if ((type == HW_EIP197B) || (type == HW_EIP197D))
+			sm_type = EIP_TYPE_197;
+		else if (type == HW_EIP97IES)
+			sm_type = EIP_TYPE_97;
+	}
+	return sm_type;
+}
+
 static inline int sam_uio_get_rings_num(struct sam_uio_pdev_info *pdev_info)
 {
 	u32 *addr, val32;
@@ -128,17 +154,14 @@ static inline int sam_uio_get_rings_num(struct sam_uio_pdev_info *pdev_info)
 
 	lk_ver = get_lk_version();
 
-	if ((((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
-		(pdev_info->type == O_HW_EIP197)) ||
-		(((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
-		((pdev_info->type == HW_EIP197B) || (pdev_info->type == HW_EIP197D))))
+	switch (lnx_ver_to_sam_type(lk_ver, pdev_info->type)) {
+	case EIP_TYPE_197:
 		addr = (u32 *)(pdev_info->regs_vbase + SAM_EIP197_HIA_OPTIONS_REG);
-	else if ((((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
-		(pdev_info->type == O_HW_EIP97)) ||
-		(((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
-		(pdev_info->type == HW_EIP97IES)))
+	break;
+	case EIP_TYPE_97:
 		addr = (u32 *)(pdev_info->regs_vbase + SAM_EIP97_HIA_OPTIONS_REG);
-	else {
+	break;
+	default:
 		dev_err(pdev_info->dev, "unknown HW type %d\n", pdev_info->type);
 		return 0;
 	}
@@ -306,8 +329,16 @@ static int sam_uio_probe(struct platform_device *pdev)
 
 	lk_ver = get_lk_version();
 
-	if (((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
-		(pdev_info->type == O_HW_EIP197)) {
+	if (((MAJOR(lk_ver) >= 5) && (MINOR(lk_ver) >= 4)) &&
+		((pdev_info->type == O_HW_EIP197B) || (pdev_info->type == O_HW_EIP197D))) {
+		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
+		snprintf(pdev_info->name, sizeof(pdev_info->name),
+			(pdev_info->type == O_HW_EIP197B) ?
+			"uio_eip197b_%d" :
+			"uio_eip197d_%d",
+			cpn_count);
+	} else if (((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
+		(pdev_info->type == O_HW_EIP197B)) {
 		xdr_regs_vbase = pdev_info->regs_vbase + SAM_EIP197_xDR_REGS_OFFS;
 		snprintf(pdev_info->name, sizeof(pdev_info->name), "uio_eip197b_%d", cpn_count);
 	} else if (((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
@@ -384,10 +415,7 @@ static int sam_uio_probe(struct platform_device *pdev)
 	}
 
 	/* set same Lookup Table index for all available rings */
-	if ((((MAJOR(lk_ver) < 4) || (MINOR(lk_ver) < 14)) &&
-		(pdev_info->type == O_HW_EIP197)) ||
-		(((MAJOR(lk_ver) >= 4) && (MINOR(lk_ver) >= 14)) &&
-		((pdev_info->type == HW_EIP197B) || (pdev_info->type == HW_EIP197D))))
+	if (lnx_ver_to_sam_type(lk_ver, pdev_info->type) == EIP_TYPE_197)
 		sam_uio_lut_cfg(pdev_info, rings_num);
 
 	dev_info(dev, "Registered %d uio devices, Rings: free = 0x%x, busy = 0x%x\n",
