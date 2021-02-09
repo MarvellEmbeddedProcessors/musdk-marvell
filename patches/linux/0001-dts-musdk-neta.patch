@@ -1,0 +1,82 @@
+From 7c6079ec0e43df973b38b9ccf571200c8003cf59 Mon Sep 17 00:00:00 2001
+From: Meir Levi <mlevi4@marvell.com>
+Date: Mon, 8 Feb 2021 11:24:17 -0500
+Subject: [PATCH 1/2] dts: musdk: neta
+
+Signed-off-by: Meir Levi <mlevi4@marvell.com>
+Change-Id: I9fdbde62172ab30ebe69c7a3e4ce3226a6a9bac1
+---
+ arch/arm64/boot/dts/marvell/Makefile             |  1 +
+ .../boot/dts/marvell/armada-3720-db-single.dts   | 13 +++++++++++++
+ arch/arm64/boot/dts/marvell/armada-37xx.dtsi     | 16 ++++++++++++++++
+ 3 files changed, 30 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/marvell/armada-3720-db-single.dts
+
+diff --git a/arch/arm64/boot/dts/marvell/Makefile b/arch/arm64/boot/dts/marvell/Makefile
+index c91985074b7a..aa4804105cb3 100644
+--- a/arch/arm64/boot/dts/marvell/Makefile
++++ b/arch/arm64/boot/dts/marvell/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ # Mvebu SoC Family
+ dtb-$(CONFIG_ARCH_MVEBU) += armada-3720-db.dtb
++dtb-$(CONFIG_ARCH_MVEBU) += armada-3720-db-single.dtb
+ dtb-$(CONFIG_ARCH_MVEBU) += armada-3720-espressobin.dtb
+ dtb-$(CONFIG_ARCH_MVEBU) += armada-3720-espressobin-emmc.dtb
+ dtb-$(CONFIG_ARCH_MVEBU) += armada-3720-espressobin-v7.dtb
+diff --git a/arch/arm64/boot/dts/marvell/armada-3720-db-single.dts b/arch/arm64/boot/dts/marvell/armada-3720-db-single.dts
+new file mode 100644
+index 000000000000..7336bf270509
+--- /dev/null
++++ b/arch/arm64/boot/dts/marvell/armada-3720-db-single.dts
+@@ -0,0 +1,13 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Device Tree file for Marvell Armada 3720 development board
++ * This dtb supports the armada-3720-db.dts configuration where
++ * Eth0 is kernel-space and Eth1 is user-space
++ */
++
++#include "armada-3720-db.dts"
++
++/* Set Eth0 as Kernel port */
++&eth0 {
++	/delete-property/musdk-status;
++};
+diff --git a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
+index e39b98a074eb..f30a084fcb2e 100644
+--- a/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-37xx.dtsi
+@@ -337,6 +337,7 @@
+ 				   interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+ 				   clocks = <&sb_periph_clk 8>;
+ 				   status = "disabled";
++				   musdk-status = "private";
+ 			};
+
+ 			mdio: mdio@32004 {
+@@ -352,6 +353,21 @@
+ 				interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>;
+ 				clocks = <&sb_periph_clk 7>;
+ 				status = "disabled";
++				musdk-status = "private";
++			};
++
++			uio_neta_0 {
++				compatible = "generic-uio";
++				reg = <0x30000 0x4000>;
++				reg-names = "neta_regs";
++				status = "okay";
++			};
++
++			uio_neta_1 {
++				compatible = "generic-uio";
++				reg = <0x40000 0x4000>;
++				reg-names = "neta_regs";
++				status = "okay";
+ 			};
+
+ 			usb3: usb@58000 {
+--
+2.29.0
+
