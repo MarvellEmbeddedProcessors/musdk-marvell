@@ -125,7 +125,7 @@ do {									  \
 	if ((_level) <= (MVCONF_DBG_LEVEL))	{			  \
 		struct timespec spec;					  \
 		u64 mic_sec;						  \
-		clock_gettime(CLOCK_MONOTONIC, &spec);			  \
+		clock_gettime(CLOCK_BOOTTIME, &spec);			  \
 		mic_sec = spec.tv_nsec / 1e3;				  \
 		printf(log_fmt("[%*lu.%lu] " fmt, 5, spec.tv_sec, mic_sec,\
 		##__VA_ARGS__));					  \
