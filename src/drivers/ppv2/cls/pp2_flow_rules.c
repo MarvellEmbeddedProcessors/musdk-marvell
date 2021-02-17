@@ -3642,17 +3642,17 @@ int pp2_cls_init(struct pp2_inst *inst)
 		goto end;
 	}
 
-	rc = mv_pp2x_cls_hw_lkp_clear_all(cpu_slot);
-	if (rc) {
-		pr_err("mv_pp2x_cls_hw_lkp_clear_all fail rc = %d\n", rc);
-		goto end;
-	}
+	//rc = mv_pp2x_cls_hw_lkp_clear_all(cpu_slot);
+	//if (rc) {
+	//	pr_err("mv_pp2x_cls_hw_lkp_clear_all fail rc = %d\n", rc);
+	//	goto end;
+	//}
 
-	rc = mv_pp2x_cls_hw_flow_clear_all(cpu_slot);
-	if (rc) {
-		pr_err("mv_pp2x_cls_hw_flow_clear_all fail rc = %d\n", rc);
-		goto end;
-	}
+	//rc = mv_pp2x_cls_hw_flow_clear_all(cpu_slot);
+	//if (rc) {
+	//	pr_err("mv_pp2x_cls_hw_flow_clear_all fail rc = %d\n", rc);
+	//	goto end;
+	//}
 
 	/* add rules and set HW */
 	if (fl_rls->fl_len)

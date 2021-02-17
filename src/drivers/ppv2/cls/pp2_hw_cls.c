@@ -144,6 +144,8 @@ int mv_pp2x_cls_hw_lkp_read(uintptr_t cpu_slot, int lkpid, int way,
 
 	fe->data = pp2_reg_read(cpu_slot, MVPP2_CLS_LKP_TBL_REG);
 
+	printf("MVPP2_CLS_LKP_TBL_REG lkpid=%d way=%d data=%x\n", lkpid, way, fe->data);
+
 	return 0;
 }
 
@@ -591,6 +593,8 @@ int mv_pp2x_cls_hw_flow_read(uintptr_t cpu_slot, int index,
 	fe->data[0] = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL0_REG);
 	fe->data[1] = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL1_REG);
 	fe->data[2] = pp2_reg_read(cpu_slot, MVPP2_CLS_FLOW_TBL2_REG);
+
+	printf("MVPP2_CLS_FLOW_INDEX_REG index=%d cpu_slot=%ld data=%x\n", index, cpu_slot, fe->data[0]);
 
 	return 0;
 }

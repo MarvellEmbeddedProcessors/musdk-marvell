@@ -103,18 +103,15 @@
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/version.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
-#include <linux/dma-noncoherent.h>
-#endif
 
 #include <linux/mm.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/cma.h>
 
-#include <linux/dma-contiguous.h>
 #include <linux/of_reserved_mem.h>
 
+#include <linux/dma-map-ops.h>
 
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
