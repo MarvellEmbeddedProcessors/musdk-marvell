@@ -120,16 +120,14 @@
 #define MV_DBG_L_DBG	7
 
 #ifndef MVCONF_SYSLOG
-#define mv_print(_level, fmt, ...)					  \
-do {									  \
-	if ((_level) <= (MVCONF_DBG_LEVEL))	{			  \
-		struct timespec spec;					  \
-		u64 mic_sec;						  \
-		clock_gettime(CLOCK_BOOTTIME, &spec);			  \
-		mic_sec = spec.tv_nsec / 1e3;				  \
-		printf(log_fmt("[%*lu.%lu] " fmt, 5, spec.tv_sec, mic_sec,\
-		##__VA_ARGS__));					  \
-	}								  \
+#define mv_print(_level, fmt, ...)					\
+do {									\
+	if ((_level) <= (MVCONF_DBG_LEVEL))	{			\
+		struct timespec spec;					\
+		clock_gettime(CLOCK_BOOTTIME, &spec);			\
+		printf("[%5lu.%06lu] ", spec.tv_sec, spec.tv_nsec/1000);\
+		printf(log_fmt(fmt, ##__VA_ARGS__));			\
+	}								\
 } while (0)
 #else /* MVCONF_SYSLOG */
 
