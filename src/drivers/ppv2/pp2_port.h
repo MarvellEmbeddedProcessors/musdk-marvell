@@ -543,6 +543,9 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr);
 /* Flush MAC addresses */
 int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc);
 
+/* Set vlan filtering */
+int pp2_port_set_vlan_filtering(struct pp2_port *port, int en);
+
 /* Add vlan */
 int pp2_port_add_vlan(struct pp2_port *port, u16 vlan);
 

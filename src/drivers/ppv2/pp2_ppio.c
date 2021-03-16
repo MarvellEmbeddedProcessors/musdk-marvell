@@ -734,6 +734,14 @@ int pp2_ppio_get_tx_pause(struct pp2_ppio *ppio, int *en)
 
 }
 
+int pp2_ppio_set_vlan_filtering(struct pp2_ppio *ppio, int enable)
+{
+	int rc;
+
+	rc = pp2_port_set_vlan_filtering(GET_PPIO_PORT(ppio), enable);
+	return rc;
+}
+
 int pp2_ppio_add_vlan(struct pp2_ppio *ppio, u16 vlan)
 {
 	int rc;

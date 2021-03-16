@@ -1539,6 +1539,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 
 	port->type = param->type;
 	port->num_vlans = 0;
+	port->vlan_enable = 0;
 
 	/* For MUSDK Ethernet ports, call uio_open to request port ownership from Linux */
 	if (NOT_LPBK_PORT(port) && port->type == PP2_PPIO_T_NIC) {

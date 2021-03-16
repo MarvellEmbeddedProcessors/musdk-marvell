@@ -574,15 +574,20 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 	return 0;
 }
 
-static int pp2_port_set_vlan_filtering(struct pp2_port *port, int enable)
+/* Set vlan filtering */
+int pp2_port_set_vlan_filtering(struct pp2_port *port, int enable)
 {
 	int rc;
 	char buf[PP2_MAX_BUF_STR_LEN];
 
 	if (enable)
 		sprintf(buf, "ethtool -K %s rx-vlan-filter on", port->linux_name);
-	else
+	else if (port->num_vlans == 0)
 		sprintf(buf, "ethtool -K %s rx-vlan-filter off", port->linux_name);
+	else {
+		pr_err("disable vlan filtering not allowed until all the vlans removed\n");
+		return -EPERM;
+	}
 
 	rc = system(buf);
 	if (rc != 0) {
@@ -594,6 +599,7 @@ static int pp2_port_set_vlan_filtering(struct pp2_port *port, int enable)
 		return rc;
 	}
 
+	port->vlan_enable = enable;
 	return 0;
 }
 
@@ -609,10 +615,9 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 		return -EINVAL;
 	}
 
-	if (port->num_vlans == 0) {
-		rc = pp2_port_set_vlan_filtering(port, 1);
-		if (rc != 0)
-			return rc;
+	if ((port->num_vlans == 0) && !port->vlan_enable) {
+		pr_err("vlan filtering should be set before adding vlan\n");
+		return -EPERM;
 	}
 
 	/* build manually the system command */
@@ -621,9 +626,6 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 	rc = system(buf);
 	if (rc != 0) {
 		pr_err("add vlan operation failed\n");
-		if (port->num_vlans == 0)
-			pp2_port_set_vlan_filtering(port, 0);
-
 		return rc;
 	}
 
@@ -656,12 +658,7 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 		return rc;
 	}
 
-	if (--port->num_vlans == 0) {
-		rc = pp2_port_set_vlan_filtering(port, 0);
-		if (rc != 0)
-			return rc;
-	}
-
+	port->num_vlans--;
 	return 0;
 }
 

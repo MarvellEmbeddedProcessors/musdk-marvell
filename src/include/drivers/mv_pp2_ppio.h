@@ -1391,6 +1391,17 @@ int pp2_ppio_flush_mac_addrs(struct pp2_ppio *ppio, int uc, int mc);
 int pp2_ppio_get_phys_in_q(struct pp2_ppio *ppio, u8 tc, u8 qid, u8 *pq);
 
 /**
+ * Set ppio vlan filtering
+ *
+ * @param[in]		ppio	A pointer to a PP-IO object.
+ * @param[in]		en	1 - enabled, 0 - disabled.
+ *
+ * @retval	0 on success
+ * @retval	error-code otherwise
+ */
+int pp2_ppio_set_vlan_filtering(struct pp2_ppio *ppio, int en);
+
+/**
  * Add ppio filtering vlan id
  *
  * @param[in]		ppio	A pointer to a PP-IO object.
