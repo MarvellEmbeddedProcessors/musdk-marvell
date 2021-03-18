@@ -186,6 +186,16 @@ static int ctrl_cb(void *arg)
 	return 0;
 }
 
+static void my_handler(int signum)
+{
+	printf("Received signum %d\n", signum);
+	if (signum == SIGUSR1) {
+		printf("Received SIGUSR1!\n");
+		if (garg.nmp)
+			nmp_dump(garg.nmp, NMP_SCHED_RX);
+	}
+}
+
 static int init_all_modules(void)
 {
 	int			err;
@@ -205,6 +215,8 @@ static int init_all_modules(void)
 	}
 
 	nmp_init(&nmp_params, &(garg.nmp));
+
+	signal(SIGUSR1, my_handler);
 
 	return 0;
 }
