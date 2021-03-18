@@ -291,6 +291,8 @@ int giu_get_msi_regs(struct giu *giu, u64 *va, u64 *pa);
 
 int giu_get_num_dma_engines(struct giu *giu, enum giu_eng eng, u8 *num_dma_engines);
 
+int giu_dump(struct giu *giu);
+
 /** @} */ /* end of grp_giu_init */
 
 #endif /* __MV_GIU_H__ */

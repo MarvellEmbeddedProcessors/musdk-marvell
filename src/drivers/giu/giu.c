@@ -661,3 +661,14 @@ int giu_get_desc_size(struct giu *giu, enum giu_desc_type type)
 
 	return gie_get_desc_size((enum gie_desc_type)type);
 }
+
+int giu_dump(struct giu *giu)
+{
+	for (int gpio_idx = 0; gpio_idx < GIU_MAX_NUM_GPIO; gpio_idx++) {
+		if (giu->gpio_list[gpio_idx] != 0)
+			giu_gpio_dump(giu->gpio_list[gpio_idx]);
+	}
+
+	return 0;
+}
+

@@ -369,6 +369,8 @@ int nmp_set_scheduling_event(struct mv_sys_event *ev, int en);
  */
 int nmp_read_cfg_file(char *cfg_file, struct nmp_params *params);
 
+int nmp_dump(struct nmp *nmp, __maybe_unused enum nmp_sched_type type);
+
 /** @} */ /* end of grp_nmp_init */
 
 #endif /* _MV_NMP_INIT_H */

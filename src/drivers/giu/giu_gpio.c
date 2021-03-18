@@ -342,6 +342,58 @@ static int giu_gpio_update_rss(struct giu_gpio *gpio, u8 tc, struct giu_gpio_des
 	return 0;
 }
 
+int giu_gpio_dump(struct giu_gpio *gpio)
+{
+	struct giu_gpio_interim_q *q;
+	struct giu_gpio_intc *intc;
+	struct giu_gpio_outtc *outtc;
+	struct giu_gpio_rem_q *rem_q;
+	struct giu_gpio_lcl_q *lcl_q;
+	u32 tc, q_idx;
+
+	for (tc = 0; tc < gpio->num_intcs; tc++) {
+		intc = &(gpio->intcs[tc]);
+
+		for (q_idx = 0; q_idx < intc->num_rem_outqs; q_idx++) {
+			rem_q = &(intc->rem_outqs[q_idx]);
+
+			pr_info("[GPIO %s][IN-TC#%d] q-pair %d:\n", gpio->match, tc, q_idx);
+			gie_dump_queue_pair(rem_q->gie, rem_q->q_id);
+		}
+
+		for (q_idx = 0; q_idx < intc->num_interim_qs; q_idx++) {
+			q = &intc->interim_qs[q_idx];
+
+			pr_info("[GPIO %s][IN-TC#%d] interim queue %d:\n", gpio->match, tc, q_idx);
+			pr_info("qid:	%d\n", q->q_id);
+			pr_info("prod:	%u\n", readl_relaxed(q->queue.prod_addr));
+			pr_info("cons:	%u\n", readl_relaxed(q->queue.cons_addr));
+		}
+	}
+
+	for (tc = 0; tc < gpio->num_outtcs; tc++) {
+		outtc = &(gpio->outtcs[tc]);
+
+		for (q_idx = 0; q_idx < outtc->num_outqs; q_idx++) {
+			lcl_q = &(outtc->outqs[q_idx]);
+
+			pr_info("[GPIO %s][OUT-TC#%d] q-pair %d:\n", gpio->match, tc, q_idx);
+			gie_dump_queue_pair(lcl_q->gie, lcl_q->q_id);
+		}
+
+		for (q_idx = 0; q_idx < outtc->num_interim_qs; q_idx++) {
+			q = &outtc->interim_qs[q_idx];
+
+			pr_info("[GPIO %s][OUT-TC#%d] interim queue %d:\n", gpio->match, tc, q_idx);
+			pr_info("qid:	%d\n", q->q_id);
+			pr_info("prod:	%u\n", readl_relaxed(q->queue.prod_addr));
+			pr_info("cons:	%u\n", readl_relaxed(q->queue.cons_addr));
+		}
+	}
+
+	return 0;
+}
+
 /* copies from M interim to N local queues */
 int giu_gpio_pre_gie(struct giu_gpio *gpio)
 {
@@ -726,6 +778,13 @@ int giu_gpio_init(struct giu_gpio_params *params, struct giu_gpio **gpio)
 			intc->interim_qs[q_idx].queue.cons_addr = info.cons_virt;
 			intc->interim_qs[q_idx].queue.payload_offset = 0;
 			memset(info.virt_base_addr, 0, sizeof(struct giu_gpio_desc));
+
+			pr_info("[GPIO %s][IN-TC#%d] queue %d details:\n", (*gpio)->match, tc_idx, q_idx);
+			pr_info("qid:			%d\n", info.q_id);
+			pr_info("prod_virt:	%p\n", info.prod_virt);
+			pr_info("prod_phys:	%p\n", info.prod_phys);
+			pr_info("cons_virt:	%p\n", info.cons_virt);
+			pr_info("cons_phys:	%p\n", info.cons_phys);
 		}
 	}
 

@@ -156,6 +156,11 @@ int nmp_init(struct nmp_params *params, struct nmp **nmp)
 	return 0;
 }
 
+int nmp_dump(struct nmp *nmp, __maybe_unused enum nmp_sched_type type)
+{
+	return giu_dump(nmp->giu);
+}
+
 int nmp_schedule(struct nmp *nmp, enum nmp_sched_type type, u16 *pending)
 {
 	int ans = 0;

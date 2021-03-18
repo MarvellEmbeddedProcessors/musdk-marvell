@@ -321,6 +321,7 @@ int gie_set_event(struct mv_sys_event *ev, int en);
  * @retval      <0 on failure
  */
 int gie_get_queue_stats(void *gie, u16 qid, u64 *pkt_cnt, int reset);
+int gie_dump_queue_pair(void *giu, u16 qid);
 
 int gie_add_bm_queue_reference(void *giu, void *bm_queue_ref);
 int gie_remove_bm_queue_refernce(void *giu, void *bm_queue_ref);

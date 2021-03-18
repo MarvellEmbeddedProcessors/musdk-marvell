@@ -776,11 +776,11 @@ static inline int gie_get_lcl_bpool_buf(struct gie_q_pair *qp, u32 min_buf_size,
 	int			 i;
 
 	/* Find the bpool that matches the min buffer size */
-	for (i = 0; i < GIE_MAX_BPOOLS; i++)
+	for (i = 0; i < GIE_MAX_BM_PER_Q; i++)
 		if (min_buf_size <= qp->dst_bpools[i]->buf_size)
 			break;
 
-	if (unlikely(i == GIE_MAX_BPOOLS)) {
+	if (unlikely(i == GIE_MAX_BM_PER_Q)) {
 		pr_err("Failed to find bpool for buffer size %d\n", min_buf_size);
 		return 0;
 	}
@@ -1593,3 +1593,56 @@ int gie_get_queue_stats(void *giu, u16 qid, u64 *pkt_cnt, int reset)
 
 	return 0;
 }
+
+int gie_dump_queue_pair(void *giu, u16 qid)
+{
+	struct gie *gie = (struct gie *)giu;
+	struct gie_q_pair *qp;
+	struct gie_queue *q;
+
+	qp = gie_find_q_pair(gie, qid);
+	if (qp == NULL) {
+		pr_err("Cannot find queue %d for stats\n", qid);
+		return -ENODEV;
+	}
+
+	if (!(qp->flags & GIE_QPAIR_VALID))
+		return 0;
+
+	q = &qp->src_q;
+	pr_info("[GIE] %s pair, state %s, %s qid %d :\n",
+		(qp->flags & GIE_QPAIR_REMOTE) ? "remote" : "local",
+		(qp->flags & GIE_QPAIR_ACTIVE) ? "enable" : "disable",
+		(q == &qp->src_q) ? "source" : "dest",
+		q->qid);
+
+	pr_info("prod:		%u\n", readl((void *)(q->msg_tail_virt)));
+	pr_info("cons:		%u\n", readl((void *)(q->msg_head_virt)));
+	pr_info("pkt count:	%lu\n", q->packets);
+
+
+	q = &qp->dst_q;
+	pr_info("[GIE] %s pair, state %s, %s qid %d :\n",
+		(qp->flags & GIE_QPAIR_REMOTE) ? "remote" : "local",
+		(qp->flags & GIE_QPAIR_ACTIVE) ? "enable" : "disable",
+		(q == &qp->src_q) ? "source" : "dest",
+		q->qid);
+
+	pr_info("prod:		%u\n", readl((void *)(q->msg_tail_virt)));
+	pr_info("cons:		%u\n", readl((void *)(q->msg_head_virt)));
+	pr_info("pkt count:	%lu\n", q->packets);
+
+
+	for (int i = 0; i < GIE_MAX_BM_PER_Q; i++) {
+		if (!qp->dst_bpools[i]->buf_size)
+			continue;
+		pr_info("[GIE] %s pair, bpool %i :\n",
+			(qp->flags & GIE_QPAIR_REMOTE) ? "remote" : "local",
+			i);
+		pr_info("prod:		%u\n", qp->dst_bpools[i]->src_q.tail);
+		pr_info("cons:		%u\n", qp->dst_bpools[i]->src_q.head);
+	}
+
+	return 0;
+}
+

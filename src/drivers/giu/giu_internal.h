@@ -197,5 +197,6 @@ int giu_gpio_post_gie(struct giu_gpio *gpio);
 int giu_gpio_register(struct giu *giu, struct giu_gpio *gpio, int gpio_idx);
 
 int giu_gpio_unregister(struct giu *giu, struct giu_gpio *gpio, int gpio_idx);
+int giu_gpio_dump(struct giu_gpio *gpio);
 
 #endif /* __GIU_INTERNAL_H__ */
