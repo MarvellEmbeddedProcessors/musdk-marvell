@@ -637,8 +637,8 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 	int rc;
 	char buf[PP2_MAX_BUF_STR_LEN];
 
-	if ((vlan < 1) || (vlan >= 4095)) {
-		pr_err("invalid vid. Range: 1:4095\n");
+	if (vlan >= 4095) {
+		pr_err("invalid vid (%d). Range: 0:4094\n", vlan);
 		return -EINVAL;
 	}
 
