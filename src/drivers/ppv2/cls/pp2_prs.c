@@ -2633,7 +2633,7 @@ static int mv_pp2x_prs_sw_sram_offset_get(struct mv_pp2x_prs_entry *pe,
 		MVPP2_PRS_SRAM_UDF_SIGN_BIT)] &
 		(1 << (MVPP2_PRS_SRAM_UDF_SIGN_BIT % 8));
 	if (sign != 0)
-		*offset = 1 - (*offset);
+		*offset *= -1;
 
 	return 0;
 }
