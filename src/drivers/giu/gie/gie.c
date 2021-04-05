@@ -1610,37 +1610,36 @@ int gie_dump_queue_pair(void *giu, u16 qid)
 		return 0;
 
 	q = &qp->src_q;
-	pr_info("[GIE] %s pair, state %s, %s qid %d :\n",
+	pr_info("%s pair, state %s :\n",
 		(qp->flags & GIE_QPAIR_REMOTE) ? "remote" : "local",
-		(qp->flags & GIE_QPAIR_ACTIVE) ? "enable" : "disable",
+		(qp->flags & GIE_QPAIR_ACTIVE) ? "enable" : "disable");
+
+	pr_info("\t%s qid %d :\n",
 		(q == &qp->src_q) ? "source" : "dest",
 		q->qid);
 
-	pr_info("prod:		%u\n", readl((void *)(q->msg_tail_virt)));
-	pr_info("cons:		%u\n", readl((void *)(q->msg_head_virt)));
-	pr_info("pkt count:	%lu\n", q->packets);
-
+	pr_info("\t\tprod:	%u\n", readl((void *)(q->msg_tail_virt)));
+	pr_info("\t\tcons:	%u\n", readl((void *)(q->msg_head_virt)));
+	pr_info("\t\tpkt count: %lu\n", q->packets);
 
 	q = &qp->dst_q;
-	pr_info("[GIE] %s pair, state %s, %s qid %d :\n",
-		(qp->flags & GIE_QPAIR_REMOTE) ? "remote" : "local",
-		(qp->flags & GIE_QPAIR_ACTIVE) ? "enable" : "disable",
+	pr_info("\t%s qid %d :\n",
 		(q == &qp->src_q) ? "source" : "dest",
 		q->qid);
-
-	pr_info("prod:		%u\n", readl((void *)(q->msg_tail_virt)));
-	pr_info("cons:		%u\n", readl((void *)(q->msg_head_virt)));
-	pr_info("pkt count:	%lu\n", q->packets);
+	pr_info("\t\tprod:	%u\n", readl((void *)(q->msg_tail_virt)));
+	pr_info("\t\tcons:	%u\n", readl((void *)(q->msg_head_virt)));
+	pr_info("\t\tpkt count: %lu\n", q->packets);
 
 
 	for (int i = 0; i < GIE_MAX_BM_PER_Q; i++) {
 		if (!qp->dst_bpools[i]->buf_size)
 			continue;
-		pr_info("[GIE] %s pair, bpool %i :\n",
-			(qp->flags & GIE_QPAIR_REMOTE) ? "remote" : "local",
+		pr_info("\t%s bpool %i :\n",
+			!(qp->flags & GIE_QPAIR_REMOTE) ? "remote" : "local",
 			i);
-		pr_info("prod:		%u\n", qp->dst_bpools[i]->src_q.tail);
-		pr_info("cons:		%u\n", qp->dst_bpools[i]->src_q.head);
+		q = &qp->dst_bpools[i]->src_q;
+		pr_info("\t\tprod:	%u\n", readl((void *)(q->msg_tail_virt)));
+		pr_info("\t\tcons:	%u\n", readl((void *)(q->msg_head_virt)));
 	}
 
 	return 0;
