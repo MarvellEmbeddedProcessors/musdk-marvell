@@ -277,7 +277,6 @@ int pp2_cls_fl_rule_enable(struct pp2_inst *inst, struct pp2_cls_fl_rule_list_t 
 int pp2_cls_fl_rule_disable(struct pp2_inst *inst, u16 *rl_log_id,
 			    u16 rl_log_id_len,
 			    u32 port_id);
-int pp2_cls_fl_hash_rule_set(struct pp2_inst *inst, struct pp2_port *port, int lkpid);
 int pp2_cls_rss_mode_flows_set(struct pp2_port *port, int rss_mode);
 int pp2_cls_udf_field_add(struct pp2_inst *inst, u8 udf_num, u8 offset, u8 size);
 int pp2_cls_udf_field_remove(struct pp2_inst *inst, u8 udf_num);
