@@ -2931,18 +2931,18 @@ static int mv_pp2x_prs_sw_sram_ri_dump(struct mv_pp2x_prs_entry *pe)
 	if (!mask)
 		return 0;
 
-	pr_info("\n       ");
+	printk("\n       ");
 
-	pr_info("S_RI=");
+	printk("S_RI=");
 	for (i = (MVPP2_PRS_SRAM_RI_CTRL_BITS-1); i > -1 ; i--)
 		if (mask & (1 << i)) {
-			pr_info("%d", ((data & (1 << i)) != 0));
+			printk("%d", ((data & (1 << i)) != 0));
 			bitsOffs += sprintf(bits + bitsOffs, "%d:", i);
 		} else
-			pr_info("x");
+			printk("x");
 
 	bits[bitsOffs] = '\0';
-	pr_info(" %s", bits);
+	printk(" %s", bits);
 
 	return 0;
 }
@@ -2961,17 +2961,17 @@ static int mv_pp2x_prs_sw_sram_ai_dump(struct mv_pp2x_prs_entry *pe)
 	if (mask == 0)
 		return 0;
 
-	pr_info("\n       ");
+	printk("\n       ");
 
-	pr_info("S_AI=");
+	printk("S_AI=");
 	for (i = (MVPP2_PRS_SRAM_AI_CTRL_BITS-1); i > -1 ; i--)
 		if (mask & (1 << i)) {
-			pr_info("%d", ((data & (1 << i)) != 0));
+			printk("%d", ((data & (1 << i)) != 0));
 			bitsOffs += sprintf(bits + bitsOffs, "%d:", i);
 		} else
-			pr_info("x");
+			printk("x");
 	bits[bitsOffs] = '\0';
-	pr_info(" %s", bits);
+	printk(" %s", bits);
 	return 0;
 }
 
@@ -2985,51 +2985,51 @@ static int mv_pp2x_prs_sw_dump(struct mv_pp2x_prs_entry *pe)
 		return -1;
 
 	/* hw entry id */
-	pr_info("[%4d] ", pe->index);
+	printk("[%4d] ", pe->index);
 
 	i = MVPP2_PRS_TCAM_WORDS - 1;
-	pr_info("%1.1x ", pe->tcam.word[i--] & 0xF);
+	printk("%1.1x ", pe->tcam.word[i--] & 0xF);
 
 	while (i >= 0)
-		pr_info("%4.4x ", (pe->tcam.word[i--]) & 0xFFFF);
+		printk("%4.4x ", (pe->tcam.word[i--]) & 0xFFFF);
 
-	pr_info("| ");
+	printk("| ");
 
 	/*DBG_MSG(PRS_SRAM_FMT, PRS_SRAM_VAL(pe->sram.word)); */
-	pr_info("%4.4x %8.8x %8.8x %8.8x", pe->sram.word[3] & 0xFFFF,
+	printk("%4.4x %8.8x %8.8x %8.8x", pe->sram.word[3] & 0xFFFF,
 		 pe->sram.word[2],  pe->sram.word[1],  pe->sram.word[0]);
 
-	pr_info("\n       ");
+	printk("\n       ");
 
 	i = MVPP2_PRS_TCAM_WORDS - 1;
-	pr_info("%1.1x ", (pe->tcam.word[i--] >> 16) & 0xF);
+	printk("%1.1x ", (pe->tcam.word[i--] >> 16) & 0xF);
 
 	while (i >= 0)
-		pr_info("%4.4x ", ((pe->tcam.word[i--]) >> 16)  & 0xFFFF);
+		printk("%4.4x ", ((pe->tcam.word[i--]) >> 16)  & 0xFFFF);
 
-	pr_info("| ");
+	printk("| ");
 
 	mv_pp2x_prs_sw_sram_shift_get(pe, &shift);
-	pr_info("SH=%d ", shift);
+	printk("SH=%d ", shift);
 
 	mv_pp2x_prs_sw_sram_offset_get(pe, &type, &offset, &op);
 	if (offset != 0 || ((op >> MVPP2_PRS_SRAM_OP_SEL_SHIFT_BITS) != 0))
-		pr_info("UDFT=%u UDFO=%d ", type, offset);
+		printk("UDFT=%u UDFO=%d ", type, offset);
 
-	pr_info("op=%u ", op);
+	printk("op=%u ", op);
 
 	mv_pp2x_prs_sw_sram_next_lu_get(pe, &lu);
-	pr_info("LU=%u ", lu);
+	printk("LU=%u ", lu);
 
 	mv_pp2x_prs_sw_sram_lu_done_get(pe, &done);
-	pr_info("%s ", done ? "DONE" : "N_DONE");
+	printk("%s ", done ? "DONE" : "N_DONE");
 
 	/*flow id generation bit*/
 	mv_pp2x_prs_sw_sram_flowid_gen_get(pe, &flowid);
-	pr_info("%s ", flowid ? "FIDG" : "N_FIDG");
+	printk("%s ", flowid ? "FIDG" : "N_FIDG");
 
 	if ((pe->tcam.word[MVPP2_PRS_TCAM_INV_WORD] & MVPP2_PRS_TCAM_INV_MASK))
-		pr_info(" [inv]");
+		printk(" [inv]");
 
 	if (mv_pp2x_prs_sw_sram_ri_dump(pe))
 		return -1;
@@ -3037,7 +3037,7 @@ static int mv_pp2x_prs_sw_dump(struct mv_pp2x_prs_entry *pe)
 	if (mv_pp2x_prs_sw_sram_ai_dump(pe))
 		return -1;
 
-	pr_info("\n");
+	printk("\n");
 
 	return 0;
 
@@ -3073,7 +3073,7 @@ int mv_pp2x_prs_hw_dump(struct pp2_port *port)
 	struct mv_pp2x_prs_entry pe;
 
 
-	pr_info("%s\n", __func__);
+	printk("%s\n", __func__);
 
 	for (index = 0; index < MVPP2_PRS_TCAM_SRAM_SIZE; index++) {
 		pe.index = index;
@@ -3084,7 +3084,7 @@ int mv_pp2x_prs_hw_dump(struct pp2_port *port)
 			MVPP2_PRS_TCAM_ENTRY_VALID) {
 			mv_pp2x_prs_sw_dump(&pe);
 			mv_pp2x_prs_hw_tcam_cnt_dump(port, index, NULL);
-			pr_info("-----------------------------------------\n");
+			printk("-----------------------------------------\n");
 		}
 	}
 
@@ -3107,8 +3107,8 @@ int mv_pp2x_prs_hw_hits_dump(struct pp2_port *port)
 			if (cnt == 0)
 				continue;
 			mv_pp2x_prs_sw_dump(&pe);
-			pr_info("INDEX: %d       HITS: %d\n", index, cnt);
-			pr_info("-----------------------------------------\n");
+			printk("INDEX: %d       HITS: %d\n", index, cnt);
+			printk("-----------------------------------------\n");
 		}
 	}
 	return 0;

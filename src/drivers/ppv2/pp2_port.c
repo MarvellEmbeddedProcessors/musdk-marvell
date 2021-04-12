@@ -2630,25 +2630,25 @@ void pp2_port_rxq_cntrs_dump(struct pp2_port *port, int rxq)
 
 	phy_rxq = port->first_rxq + rxq;
 
-	pr_info("\n------ [Port #%d, rxq #%d counters] -----\n", port->id, rxq);
+	printk("\n------ [Port #%d, rxq #%d counters] -----\n", port->id, rxq);
 	pp2_reg_write(port->cpu_slot, MVPP2_CNT_IDX_REG, phy_rxq);
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MV_PP2_RX_PKT_FULLQ_DROP_REG",
 		MVPP2_RX_PKT_FULLQ_DROP_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_RX_PKT_FULLQ_DROP_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_V1_RX_PKT_EARLY_DROP_REG",
 		MVPP2_RX_PKT_EARLY_DROP_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_RX_PKT_EARLY_DROP_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_V1_RX_PKT_BM_DROP_REG",
 		MVPP2_RX_PKT_BM_DROP_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_RX_PKT_BM_DROP_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_V1_RX_DESC_ENQ_REG",
 		MVPP2_RX_DESC_ENQ_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_RX_DESC_ENQ_REG));
@@ -2657,56 +2657,56 @@ void pp2_port_rxq_cntrs_dump(struct pp2_port *port, int rxq)
 
 void pp2_port_txq_cntrs_dump(struct pp2_port *port, int txq)
 {
-	pr_info("\n------ [Port #%d, rxq #%d counters] -----\n", port->id, txq);
+	printk("\n------ [Port #%d, rxq #%d counters] -----\n", port->id, txq);
 
 	pp2_reg_write(port->cpu_slot, MVPP2_CNT_IDX_REG, MVPP2_CNT_IDX_TX(port->id, txq));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_CNT_IDX_REG",
 		MVPP2_CNT_IDX_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_CNT_IDX_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_DESC_ENQ_REG",
 		MVPP2_TX_DESC_ENQ_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_DESC_ENQ_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_DESC_ENQ_TO_DRAM_REG",
 		MVPP2_TX_DESC_ENQ_TO_DRAM_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_DESC_ENQ_TO_DRAM_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_BUF_ENQ_TO_DRAM_REG",
 		MVPP2_TX_BUF_ENQ_TO_DRAM_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_BUF_ENQ_TO_DRAM_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_DESC_HWF_ENQ_REG",
 		MVPP2_TX_DESC_HWF_ENQ_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_DESC_HWF_ENQ_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_PKT_DQ_REG",
 		MVPP2_TX_PKT_DQ_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_PKT_DQ_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_PKT_FULLQ_DROP_REG",
 		MVPP2_TX_PKT_FULLQ_DROP_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_PKT_FULLQ_DROP_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_PKT_EARLY_DROP_REG",
 		MVPP2_TX_PKT_EARLY_DROP_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_PKT_EARLY_DROP_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_PKT_BM_DROP_REG",
 		MVPP2_TX_PKT_BM_DROP_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_PKT_BM_DROP_REG));
 
-	pr_info("  %-32s: 0x%04x = 0x%08x\n",
+	printk("  %-32s: 0x%04x = 0x%08x\n",
 		"MVPP2_TX_PKT_BM_MC_DROP_REG",
 		MVPP2_TX_PKT_BM_MC_DROP_REG,
 		pp2_reg_read(port->cpu_slot, MVPP2_TX_PKT_BM_MC_DROP_REG));
