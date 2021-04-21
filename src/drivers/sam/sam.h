@@ -109,7 +109,7 @@
 #include "sam_hw.h"
 
 /** Maximum number of supported crypto engines */
-#define SAM_HW_DEVICE_NUM	        2
+#define SAM_HW_DEVICE_NUM	        3
 
 /** Maximum number of supported rings per crypto engines */
 #define SAM_HW_RING_NUM			8
