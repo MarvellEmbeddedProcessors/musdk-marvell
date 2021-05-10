@@ -3043,7 +3043,7 @@ static int mv_pp2x_prs_sw_dump(struct mv_pp2x_prs_entry *pe)
 
 }
 
-static int mv_pp2x_prs_hw_tcam_cnt_dump(struct pp2_port *port,
+static int mv_pp2x_prs_hw_tcam_cnt_dump(uintptr_t cpu_slot,
 					int tid, unsigned int *cnt)
 {
 	unsigned int regVal;
@@ -3053,9 +3053,9 @@ static int mv_pp2x_prs_hw_tcam_cnt_dump(struct pp2_port *port,
 		return -1;
 
 	/* write index */
-	pp2_reg_write(port->cpu_slot, MVPP2_PRS_TCAM_HIT_IDX_REG, tid);
+	pp2_reg_write(cpu_slot, MVPP2_PRS_TCAM_HIT_IDX_REG, tid);
 
-	regVal = pp2_reg_read(port->cpu_slot, MVPP2_PRS_TCAM_HIT_CNT_REG);
+	regVal = pp2_reg_read(cpu_slot, MVPP2_PRS_TCAM_HIT_CNT_REG);
 	regVal &= MVPP2_PRS_TCAM_HIT_CNT_MASK;
 
 	if (cnt)
@@ -3067,23 +3067,24 @@ static int mv_pp2x_prs_hw_tcam_cnt_dump(struct pp2_port *port,
 }
 
 
-int mv_pp2x_prs_hw_dump(struct pp2_port *port)
+int mv_pp2x_prs_hw_dump(struct pp2_inst *inst)
 {
 	int index;
 	struct mv_pp2x_prs_entry pe;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 
 	printk("%s\n", __func__);
 
 	for (index = 0; index < MVPP2_PRS_TCAM_SRAM_SIZE; index++) {
 		pe.index = index;
-		mv_pp2x_prs_hw_read(port->cpu_slot, &pe);
+		mv_pp2x_prs_hw_read(cpu_slot, &pe);
 
 		if ((pe.tcam.word[MVPP2_PRS_TCAM_INV_WORD] &
 			MVPP2_PRS_TCAM_INV_MASK) ==
 			MVPP2_PRS_TCAM_ENTRY_VALID) {
 			mv_pp2x_prs_sw_dump(&pe);
-			mv_pp2x_prs_hw_tcam_cnt_dump(port, index, NULL);
+			mv_pp2x_prs_hw_tcam_cnt_dump(cpu_slot, index, NULL);
 			printk("-----------------------------------------\n");
 		}
 	}
@@ -3091,19 +3092,20 @@ int mv_pp2x_prs_hw_dump(struct pp2_port *port)
 	return 0;
 }
 
-int mv_pp2x_prs_hw_hits_dump(struct pp2_port *port)
+int mv_pp2x_prs_hw_hits_dump(struct pp2_inst *inst)
 {
 	int index;
 	unsigned int cnt = 0;
 	struct mv_pp2x_prs_entry pe;
+	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
 
 	for (index = 0; index < MVPP2_PRS_TCAM_SRAM_SIZE; index++) {
 		pe.index = index;
-		mv_pp2x_prs_hw_read(port->cpu_slot, &pe);
+		mv_pp2x_prs_hw_read(cpu_slot, &pe);
 		if ((pe.tcam.word[MVPP2_PRS_TCAM_INV_WORD] &
 			MVPP2_PRS_TCAM_INV_MASK) ==
 			MVPP2_PRS_TCAM_ENTRY_VALID) {
-			mv_pp2x_prs_hw_tcam_cnt_dump(port, index, &cnt);
+			mv_pp2x_prs_hw_tcam_cnt_dump(cpu_slot, index, &cnt);
 			if (cnt == 0)
 				continue;
 			mv_pp2x_prs_sw_dump(&pe);

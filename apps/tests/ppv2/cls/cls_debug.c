@@ -430,17 +430,17 @@ int register_cli_mng_cmds(struct pp2_ppio *ppio)
 
 static int pp2_cli_cls_prs_dump(void *arg, int argc, char *argv[])
 {
-	struct pp2_port *port = (struct pp2_port *)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	mv_pp2x_prs_hw_dump(port);
+	mv_pp2x_prs_hw_dump(inst);
 	return 0;
 }
 
 static int pp2_cli_cls_prs_hits_dump(void *arg, int argc, char *argv[])
 {
-	struct pp2_port *port = (struct pp2_port *)arg;
+	struct pp2_inst *inst = (struct pp2_inst *)arg;
 
-	mv_pp2x_prs_hw_hits_dump(port);
+	mv_pp2x_prs_hw_hits_dump(inst);
 	return 0;
 }
 
@@ -448,8 +448,8 @@ int register_cli_prs_cmds(struct pp2_ppio *ppio)
 {
 	struct cli_cmd_params cmd_params;
 	struct pp2_port *port = GET_PPIO_PORT(ppio);
-#ifdef CLS_DEBUG
 	struct pp2_inst *inst = port->parent;
+#ifdef CLS_DEBUG
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "prs_log_port_negated_proto_dump";
@@ -472,7 +472,7 @@ int register_cli_prs_cmds(struct pp2_ppio *ppio)
 	cmd_params.name		= "prs_dump";
 	cmd_params.desc		= "dumps existing parser entries";
 	cmd_params.format	= "(no arguments)\n";
-	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_prs_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
@@ -480,7 +480,7 @@ int register_cli_prs_cmds(struct pp2_ppio *ppio)
 	cmd_params.name		= "prs_hits_dump";
 	cmd_params.desc		= "dumps hits in parser entries";
 	cmd_params.format	= "(no arguments)\n";
-	cmd_params.cmd_arg	= (void *)port;
+	cmd_params.cmd_arg	= (void *)inst;
 	cmd_params.do_cmd_cb	= (void *)pp2_cli_cls_prs_hits_dump;
 	mvapp_register_cli_cmd(&cmd_params);
 
