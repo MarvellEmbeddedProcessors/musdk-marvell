@@ -330,7 +330,19 @@ static inline void pp2_port_isr_rx_group_write(struct pp2_port *port, int sub_gr
 	pp2_reg_write(cpu_slot,  MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
 
 	val = (num_rx_queues << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET) | start_queue;
+
 	pp2_reg_write(cpu_slot, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
+}
+
+static inline u32 pp2_port_isr_rx_group_read(struct pp2_port *port, int sub_group)
+{
+	int val;
+	uintptr_t cpu_slot = port->cpu_slot;
+
+	val = (port->id << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET) | sub_group;
+	pp2_reg_write(cpu_slot,  MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
+
+	return pp2_reg_read(cpu_slot, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG);
 }
 
 static int pp2_port_check_mtu_valid(struct pp2_port *port, uint32_t mtu)
@@ -683,12 +695,27 @@ static void pp2_port_clear_fc_isr(struct pp2_port *port)
 
 	for (cpu_slot_id = 0; cpu_slot_id < PP2_MAX_NUM_USED_INTERRUPTS; cpu_slot_id++) {
 		/* Configure Group/Subgroup */
+		port->saved_rx_isr[cpu_slot_id] = pp2_port_isr_rx_group_read(port, cpu_slot_id);
 		pp2_port_isr_rx_group_write(port, cpu_slot_id, 0, 0);
 
 		cpu_slot = port->parent->hw.base[cpu_slot_id].va;
 
 		/* Configure RX Exceptions Interrupt Mask */
 		pp2_reg_write(cpu_slot, MVPP2_RX_EX_INT_CAUSE_MASK_REG(port->id), 0);
+	}
+}
+
+static void pp2_port_restore_fc_isr(struct pp2_port *port)
+{
+	int cpu_slot_id, start_queue, num_rx_queues;
+
+	for (cpu_slot_id = 0; cpu_slot_id < PP2_MAX_NUM_USED_INTERRUPTS; cpu_slot_id++) {
+		/* Configure Group/Subgroup */
+		start_queue = port->saved_rx_isr[cpu_slot_id] & MVPP22_ISR_RXQ_SUB_GROUP_STARTQ_MASK;
+		num_rx_queues = (port->saved_rx_isr[cpu_slot_id] & MVPP22_ISR_RXQ_SUB_GROUP_SIZE_MASK) >>
+			MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET;
+
+		pp2_port_isr_rx_group_write(port, cpu_slot_id, start_queue, num_rx_queues);
 	}
 }
 
@@ -935,7 +962,10 @@ pp2_port_rxqs_deinit(struct pp2_port *port)
 {
 	int queue;
 
-	pp2_port_rxqs_fc_state_reset(port);
+	if (NOT_LPBK_PORT(port)) {
+		pp2_port_restore_fc_isr(port);
+		pp2_port_rxqs_fc_state_reset(port);
+	}
 
 	for (queue = 0; queue < port->num_rx_queues; queue++)
 		pp2_rxq_deinit(port, port->rxqs[queue]);
