@@ -3061,7 +3061,7 @@ static int mv_pp2x_prs_hw_tcam_cnt_dump(uintptr_t cpu_slot,
 	if (cnt)
 		*cnt = regVal;
 	else
-		pr_info("HIT COUNTER: %d\n", regVal);
+		printk("HIT COUNTER: %d\n", regVal);
 
 	return 0;
 }
