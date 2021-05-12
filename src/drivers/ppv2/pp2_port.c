@@ -1186,6 +1186,7 @@ pp2_port_clear_prs_vlans(struct pp2_port *port)
 	mv_pp2x_prs_clear_active_vlans(port, vlans);
 	for (i = 0; (i < MVPP2_PRS_VLAN_FILT_MAX) && (vlans[i] != 0); i++)
 		pp2_port_clear_vlan(port, vlans[i]);
+	pp2_port_set_vlan_filtering(port, 0);
 }
 
 static void

@@ -560,6 +560,7 @@ struct pp2_port {
 	int rx_pause_en;
 	/* number of vlan filters */
 	u32 num_vlans;
+	uint64_t vlan_ids[64];
 	/* vlan offload status */
 	u8 vlan_enable;
 	u32 saved_rx_isr[PP2_MAX_NUM_USED_INTERRUPTS];

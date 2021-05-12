@@ -760,8 +760,10 @@ int pp2_ppio_remove_vlan(struct pp2_ppio *ppio, u16 vlan)
 
 int pp2_ppio_flush_vlan(struct pp2_ppio *ppio)
 {
-	pr_err("[%s] routine not supported yet!\n", __func__);
-	return -ENOTSUP;
+	int rc;
+
+	rc = pp2_port_clear_all_vlans(GET_PPIO_PORT(ppio));
+	return rc;
 }
 
 int pp2_ppio_get_statistics(struct pp2_ppio *ppio, struct pp2_ppio_statistics *stats, int reset)

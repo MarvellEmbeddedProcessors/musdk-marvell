@@ -606,7 +606,7 @@ int pp2_port_set_vlan_filtering(struct pp2_port *port, int enable)
 /* Add vlan */
 int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 {
-	int rc;
+	int rc, vidx, vbit;
 
 	char buf[PP2_MAX_BUF_STR_LEN];
 
@@ -629,6 +629,10 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 		return rc;
 	}
 
+	vidx = vlan / 64;
+	vbit = vlan % 64;
+	port->vlan_ids[vidx] |= UINT64_C(1) << vbit;
+
 	port->num_vlans++;
 	return 0;
 }
@@ -636,7 +640,7 @@ int pp2_port_add_vlan(struct pp2_port *port, u16 vlan)
 /* Remove vlan */
 int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 {
-	int rc;
+	int rc, vidx, vbit;
 	char buf[PP2_MAX_BUF_STR_LEN];
 
 	if (vlan >= 4095) {
@@ -658,6 +662,10 @@ int pp2_port_remove_vlan(struct pp2_port *port, u16 vlan)
 		return rc;
 	}
 
+	vidx = vlan / 64;
+	vbit = vlan % 64;
+	port->vlan_ids[vidx] &= ~(UINT64_C(1) << vbit);
+
 	port->num_vlans--;
 	return 0;
 }
@@ -678,6 +686,27 @@ int pp2_port_clear_vlan(struct pp2_port *port, u16 vlan)
 	}
 
 	return 0;
+}
+
+/* Clear all vlans */
+int pp2_port_clear_all_vlans(struct pp2_port *port)
+{
+	int vidx, vbit, rc;
+	uint16_t vlan_id;
+
+	for (vlan_id = 0; vlan_id < 4095; vlan_id++) {
+		vidx = vlan_id / 64;
+		vbit = vlan_id % 64;
+
+		/* Each bit corresponds to a VLAN id */
+		if (port->vlan_ids[vidx] & (UINT64_C(1) << vbit)) {
+			rc = pp2_port_remove_vlan(port, vlan_id);
+			if (rc)
+				return rc;
+		}
+	}
+
+	return pp2_port_set_vlan_filtering(port, 0);
 }
 
 int pp2_port_initialize_statistics(struct pp2_port *port)
