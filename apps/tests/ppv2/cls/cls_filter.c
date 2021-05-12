@@ -361,7 +361,10 @@ static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
 	int long_index = 0;
 	u16 vlan_id = 0;
 	int cmd = -1;
+	int en = -1;
 	struct option long_options[] = {
+		{"enable", no_argument, 0, 'e'},
+		{"disable", no_argument, 0, 'd'},
 		{"set", required_argument, 0, 's'},
 		{"remove", required_argument, 0, 'r'},
 		{"flush", no_argument, 0, 'f'},
@@ -389,6 +392,14 @@ static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
 		case 'f':
 			cmd = 2;
 			break;
+		case 'e':
+			cmd = 3;
+			en = 1;
+			break;
+		case 'd':
+			cmd = 3;
+			en = 0;
+			break;
 		}
 	}
 
@@ -413,6 +424,12 @@ static int pp2_cls_cli_vlan(void *arg, int argc, char *argv[])
 			printf("Unable to flush vlans\n");
 			return -EINVAL;
 		}
+	} else if (cmd == 3) {
+		rc = pp2_ppio_set_vlan_filtering(ppio, en);
+		if (rc) {
+			printf("Unable to %s vlan filtering\n", (en) ? "enable" : "disable");
+			return -EINVAL;
+		}
 	} else {
 		printf("parsing fail, wrong input\n");
 		return -EINVAL;
@@ -428,10 +445,10 @@ int register_cli_filter_cmds(struct pp2_ppio *ppio)
 	cmd_params.name		= "mac_addr";
 	cmd_params.desc		= "set/get/add/remove/flush ppio MAC address";
 	cmd_params.format	= "--set <xx:xx:xx:xx:xx:xx>\n"
-				  "\t\t\t\t\t\t--get\n"
-				  "\t\t\t\t\t\t--add <xx:xx:xx:xx:xx:xx>\n"
-				  "\t\t\t\t\t\t--remove <xx:xx:xx:xx:xx:xx>\n"
-				  "\t\t\t\t\t\t--flush --uc --mc\n";
+				  "\t\t\t\t--get\n"
+				  "\t\t\t\t--add <xx:xx:xx:xx:xx:xx>\n"
+				  "\t\t\t\t--remove <xx:xx:xx:xx:xx:xx>\n"
+				  "\t\t\t\t--flush --uc --mc\n";
 	cmd_params.cmd_arg	= ppio;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_mac_addr;
 	mvapp_register_cli_cmd(&cmd_params);
@@ -454,10 +471,11 @@ int register_cli_filter_cmds(struct pp2_ppio *ppio)
 
 	memset(&cmd_params, 0, sizeof(cmd_params));
 	cmd_params.name		= "vlan";
-	cmd_params.desc		= "set/remove/flush ppio vlan filter";
-	cmd_params.format	= "--set <vlan_id>\n"
-				  "\t\t\t\t\t\t--remove <vlan_id>\n"
-				  "\t\t\t\t\t\t--flush\n";
+	cmd_params.desc		= "enable/disable/set/remove/flush ppio vlan filter";
+	cmd_params.format	= "--enable/disable\n"
+				  "\t\t\t\t--set <vlan_id>\n"
+				  "\t\t\t\t--remove <vlan_id>\n"
+				  "\t\t\t\t--flush\n";
 	cmd_params.cmd_arg	= ppio;
 	cmd_params.do_cmd_cb	= (int (*)(void *, int, char *[]))pp2_cls_cli_vlan;
 	mvapp_register_cli_cmd(&cmd_params);
