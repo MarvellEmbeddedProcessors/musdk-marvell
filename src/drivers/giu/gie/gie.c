@@ -730,7 +730,7 @@ static int gie_copy_buffers_l2r(struct dma_info *dma, struct gie_q_pair *qp, str
 
 	/* we can reach here after 1 pass or no pass at all */
 	if (cnt) {
-		u16 tmp_cnt, tmp_left;
+		u16 tmp_cnt, tmp_left, tmp_enq;
 		int timeout = 1000;
 
 		/* log the job in the dma job queue */
@@ -742,10 +742,12 @@ static int gie_copy_buffers_l2r(struct dma_info *dma, struct gie_q_pair *qp, str
 		job_info->desc_count = cnt;
 
 		tmp_cnt = tmp_left = cnt;
+		tmp_enq = 0;
 		do {
-			dmax2_enq(dma->dmax2, descs, &tmp_cnt);
-			if (tmp_cnt == 0)
+			dmax2_enq(dma->dmax2, descs + tmp_enq, &tmp_cnt);
+			if (tmp_cnt != tmp_left)
 				gie_clean_dma_jobs(dma);
+			tmp_enq += tmp_cnt;
 			tmp_left -= tmp_cnt;
 			tmp_cnt = tmp_left;
 			if (!tmp_cnt)
@@ -882,7 +884,7 @@ static int gie_copy_buffers_r2l(struct dma_info *dma, struct gie_q_pair *qp, str
 	/* we can reach here after 1 pass or no pass at all */
 	if (cnt) {
 		struct dma_job_info	*job_info;
-		u16			 tmp_cnt, tmp_left;
+		u16			 tmp_cnt, tmp_left, tmp_enq;
 		int			 timeout = 1000;
 
 		/* log the job in the dma job queue */
@@ -901,10 +903,12 @@ static int gie_copy_buffers_r2l(struct dma_info *dma, struct gie_q_pair *qp, str
 		job_info->desc_count = cnt;
 
 		tmp_cnt = tmp_left = cnt;
+		tmp_enq = 0;
 		do {
-			dmax2_enq(dma->dmax2, desc, &tmp_cnt);
-			if (tmp_cnt == 0)
+			dmax2_enq(dma->dmax2, desc + tmp_enq, &tmp_cnt);
+			if (tmp_cnt != tmp_left)
 				gie_clean_dma_jobs(dma);
+			tmp_enq += tmp_cnt;
 			tmp_left -= tmp_cnt;
 			tmp_cnt = tmp_left;
 			if (!tmp_cnt)
