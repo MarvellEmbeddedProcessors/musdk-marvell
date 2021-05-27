@@ -509,6 +509,38 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 	return 0;
 }
 
+static int pp2_port_clear_kernel_unicast(struct pp2_port *port)
+{
+	char name[IFNAMSIZ];
+	char buf[PP2_MAX_BUF_STR_LEN], command[PP2_MAX_BUF_STR_LEN];
+	int id, rc;
+	FILE *fp = popen("ls /sys/class/net/", "r");
+
+	if (!fp)
+		return -EACCES;
+
+	while (fgets(buf, sizeof(buf), fp)) {
+		if (sscanf(buf, "%[^.].%d", name, &id) != 2)
+			continue;
+		printf("%s.%d\n", name, id);
+
+		if (strcmp(port->linux_name, name))
+			continue;
+
+		sprintf(name, "%s.%d\n", name, id);
+		printf("new name: %s\n", name);
+		sprintf(command, "ip -d link show %s | grep macvlan", name);
+		rc = system(command);
+		printf("system rc %d\n", rc);
+		if (rc == 0)
+			/* mac interface found */
+			/* same function can be used to remove macvlan interface */
+			pp2_port_clear_vlan(port, id);
+	}
+	pclose(fp);
+	return 0;
+}
+
 int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 {
 	int rc;
@@ -561,6 +593,7 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 								 struct port_uc_addr_node, list_node);
 				pp2_port_remove_mac_addr(port, uc_addr_node->addr);
 			}
+			pp2_port_clear_kernel_unicast(port);
 		} else {
 			rc = write(fd, &buf, strlen(buf) + 1);
 			close(fd);

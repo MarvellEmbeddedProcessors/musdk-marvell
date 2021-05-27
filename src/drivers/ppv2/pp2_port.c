@@ -1595,6 +1595,7 @@ pp2_port_open(struct pp2 *pp2, struct pp2_ppio_params *param, u8 pp2_id, u8 port
 
 	pp2_port_initialize_statistics(port);
 	pp2_port_clear_prs_vlans(port);
+	pp2_port_flush_mac_addrs(port, 1, 1);
 
 	/* Set default tx pause state as disabled */
 	port->tx_pause_en = 0;
