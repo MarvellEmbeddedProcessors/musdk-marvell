@@ -187,6 +187,7 @@ int pp2_ppio_init(struct pp2_ppio_params *params, struct pp2_ppio **ppio)
 
 	pp2_ppio_get_statistics(*ppio, NULL, true);
 	pp2_ppio_set_loopback(*ppio, false);
+	pp2_ppio_set_promisc(*ppio, false);
 
 	pp2_ptr->pp2_inst[pp2_id]->ppios[port_id] = *ppio;
 
