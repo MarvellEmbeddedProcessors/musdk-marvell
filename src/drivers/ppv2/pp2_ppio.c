@@ -201,8 +201,15 @@ void pp2_ppio_deinit(struct pp2_ppio *ppio)
 	port_ptr = GET_PPIO_PORT_PTR(*ppio);
 
 	if (*port_ptr) {
+		pp2_ppio_set_loopback(ppio, false);
+		pp2_ppio_set_promisc(ppio, false);
+		pp2_ppio_flush_vlan(ppio);
+
 		if (pp2_cls_mng_modify_default_flows(ppio, true))
 			pr_err("[%s] ppio deinit failed while default flows\n", __func__);
+
+		if (pp2_cls_mng_eth_start_header_params_set(ppio, PP2_PPIO_HDR_ETH))
+			pr_err("[%s] ppio deinit failed while initialize ethernet start header\n", __func__);
 
 		pp2_port_close(*port_ptr);
 		*port_ptr = NULL;
