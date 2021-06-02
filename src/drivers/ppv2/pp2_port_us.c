@@ -512,26 +512,24 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 static int pp2_port_clear_kernel_unicast(struct pp2_port *port)
 {
 	char name[IFNAMSIZ];
-	char buf[PP2_MAX_BUF_STR_LEN], command[PP2_MAX_BUF_STR_LEN];
-	int id, rc;
+	char buf[PP2_MAX_BUF_STR_LEN], command[PP2_MAX_BUF_STR_LEN], full_name[32];
+	int rc;
+	u8 id;
 	FILE *fp = popen("ls /sys/class/net/", "r");
 
 	if (!fp)
 		return -EACCES;
 
 	while (fgets(buf, sizeof(buf), fp)) {
-		if (sscanf(buf, "%[^.].%d", name, &id) != 2)
+		if (sscanf(buf, "%[^.].%02hhu", name, &id) != 2)
 			continue;
-		printf("%s.%d\n", name, id);
 
 		if (strcmp(port->linux_name, name))
 			continue;
 
-		sprintf(name, "%s.%d\n", name, id);
-		printf("new name: %s\n", name);
-		sprintf(command, "ip -d link show %s | grep macvlan", name);
+		sprintf(full_name, "%s.%u\n", name, id);
+		sprintf(command, "ip -d link show %s | grep macvlan", full_name);
 		rc = system(command);
-		printf("system rc %d\n", rc);
 		if (rc == 0)
 			/* mac interface found */
 			/* same function can be used to remove macvlan interface */
