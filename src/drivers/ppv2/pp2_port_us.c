@@ -739,7 +739,7 @@ int pp2_port_clear_all_vlans(struct pp2_port *port)
 		}
 	}
 
-	return pp2_port_set_vlan_filtering(port, 0);
+	return 0;
 }
 
 int pp2_port_initialize_statistics(struct pp2_port *port)
