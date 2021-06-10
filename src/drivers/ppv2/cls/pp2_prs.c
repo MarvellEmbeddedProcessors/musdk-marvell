@@ -1305,7 +1305,7 @@ static int mv_pp2x_prs_tcam_lu_get(struct mv_pp2x_prs_entry *pe)
 	return pe->tcam.byte[HW_BYTE_OFFS(MVPP2_PRS_TCAM_LU_BYTE)];
 }
 
-static int mv_pp2x_prs_tcam_valid_get(struct mv_pp2x_prs_entry *pe)
+static int mv_pp2x_prs_tcam_invalid_get(struct mv_pp2x_prs_entry *pe)
 {
 	return ((pe->tcam.word[MVPP2_PRS_TCAM_INV_WORD] & MVPP2_PRS_TCAM_INV_MASK) >> MVPP2_PRS_TCAM_INV_OFFS);
 }
@@ -2237,7 +2237,7 @@ static int mv_pp2x_prs_shadow_update(struct pp2_inst *inst)
 		prs_shadow[i].lu = mv_pp2x_prs_tcam_lu_get(&pe);
 		for (j = 0; j < MVPP2_PRS_TCAM_WORDS; j++)
 			prs_shadow[i].tcam.word[j] = pe.tcam.word[j];
-		invalid = mv_pp2x_prs_tcam_valid_get(&pe);
+		invalid = mv_pp2x_prs_tcam_invalid_get(&pe);
 		prs_shadow[i].valid = invalid ? 0 : 1;
 		prs_shadow[i].valid_in_kernel = invalid ? 0 : 1;
 
@@ -2340,7 +2340,7 @@ int pp2_prs_eth_start_header_set(struct pp2_port *port, enum pp2_ppio_eth_start_
  */
 void pp2_cls_prs_deinit(struct pp2_inst *inst)
 {
-	u32 i;
+	u32 i, j;
 	struct mv_pp2x_prs_entry pe;
 	struct mv_pp2x_prs_shadow *prs_shadow = inst->cls_db->prs_db.prs_shadow;
 	uintptr_t cpu_slot = pp2_default_cpu_slot(inst);
@@ -2355,12 +2355,9 @@ void pp2_cls_prs_deinit(struct pp2_inst *inst)
 			mv_pp2x_prs_hw_read(cpu_slot, &pe);
 			pe.sram.word[MVPP2_PRS_SRAM_RI_WORD] = prs_shadow[i].ri;
 			pe.sram.word[MVPP2_PRS_SRAM_RI_CTRL_WORD] = prs_shadow[i].ri_mask;
-			pe.tcam.byte[HW_BYTE_OFFS(MVPP2_PRS_TCAM_EN_OFFS(MVPP2_PRS_TCAM_PORT_BYTE))] =
-				prs_shadow[i].tcam.byte[HW_BYTE_OFFS(MVPP2_PRS_TCAM_EN_OFFS(MVPP2_PRS_TCAM_PORT_BYTE))];
-
-			pr_debug("%d ri %x, mask %x port %x\n", i, pe.sram.word[MVPP2_PRS_SRAM_RI_WORD],
-				pe.sram.word[MVPP2_PRS_SRAM_RI_CTRL_WORD],
-				pe.tcam.byte[HW_BYTE_OFFS(MVPP2_PRS_TCAM_EN_OFFS(MVPP2_PRS_TCAM_PORT_BYTE))]);
+			mv_pp2x_prs_tcam_lu_set(&pe, prs_shadow[i].lu);
+			for (j = 0; j < MVPP2_PRS_TCAM_WORDS; j++)
+				pe.tcam.word[j] = prs_shadow[i].tcam.word[j];
 
 			if (prs_shadow[i].lu == MVPP2_PRS_LU_MH) {
 				mv_pp2x_prs_sram_ri_update(&pe, MVPP2_PRS_RI_UDF7_CLEAR, MVPP2_PRS_RI_UDF7_MASK);
@@ -2378,7 +2375,6 @@ void pp2_cls_prs_deinit(struct pp2_inst *inst)
 
 	/* remove all tables */
 	pp2_cls_db_prs_match_list_remove(inst);
-
 }
 
 /* pp2_cls_prs_init
