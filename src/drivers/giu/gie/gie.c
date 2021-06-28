@@ -306,13 +306,25 @@ static struct gie_q_pair *gie_get_next_q(struct gie *gie, u16 *scanned_prios, u1
 	return NULL;
 }
 
-static inline void gie_msi_pending_state_check(struct gie_queue *q)
+static inline void gie_msi_pending_state_check(struct gie_q_pair *qp)
 {
+	struct gie_queue *q;
+	int is_qp_remote = qp->flags & GIE_QPAIR_REMOTE;
+
+	if (is_qp_remote)
+		/* remote-2-local. need src queue */
+		q = &qp->src_q;
+	else
+		/* local-2-remote. need dest queue */
+		q = &qp->dst_q;
+
 	if (q->msi_pending == 0)
 		return;
 	if (readl(q->msi_mask_address) & q->msi_mask_value) {
 		q->msi_pending = 0;
-		writel(q->msi_data, (void *)q->msi_virt_addr);
+		/* in local-2-remote case, need to check if dest queue is non empty */
+		if (!is_qp_remote && !q_empty(q))
+			writel(q->msi_data, (void *)q->msi_virt_addr);
 	}
 }
 
@@ -327,20 +339,24 @@ static inline void gie_clean_mem(struct dma_job_info *job, struct gie_queue *src
 	 * need to send MSI to source-Q.
 	 */
 	if ((job->flags & DMA_FLAGS_BUFFER_IDX) && (src_q->msi_virt_addr)) {
-		if (readl(src_q->msi_mask_address) & src_q->msi_mask_value)
+		if (readl(src_q->msi_mask_address) & src_q->msi_mask_value) {
 			writel(src_q->msi_data, (void *)src_q->msi_virt_addr);
-		else
+			src_q->msi_pending = 0;
+		} else {
 			src_q->msi_pending = 1;
+		}
 	}
 
 	/* if the transaction was indices, this is local-2-remote;
 	 * need to send MSI to dest-Q.
 	 */
 	if ((job->flags & DMA_FLAGS_PRODUCE_IDX) && (dst_q->msi_virt_addr)) {
-		if (readl(dst_q->msi_mask_address) & dst_q->msi_mask_value)
+		if (readl(dst_q->msi_mask_address) & dst_q->msi_mask_value) {
 			writel(dst_q->msi_data, (void *)dst_q->msi_virt_addr);
-		else
+			dst_q->msi_pending = 0;
+		} else {
 			dst_q->msi_pending = 1;
+		}
 	}
 }
 
@@ -969,7 +985,7 @@ static int gie_process_remote_q(struct dma_info *dma, struct gie_q_pair *qp, int
 	int qes_copied, qes_to_copy, qes_copy_space;
 	int completed = 0;
 
-	gie_msi_pending_state_check(src_q);
+	gie_msi_pending_state_check(qp);
 
 	/* TODO - consider this limitation in the future */
 	(void)qe_limit;
@@ -1018,7 +1034,7 @@ static int gie_process_local_q(struct dma_info *dma, struct gie_q_pair *qp, int 
 	int sg_en = qp->flags & GIE_QPAIR_SG;
 	int qes;
 
-	gie_msi_pending_state_check(dst_q);
+	gie_msi_pending_state_check(qp);
 
 	/* TODO - consider this limitation in the future */
 	(void)qe_limit;
