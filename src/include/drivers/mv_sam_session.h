@@ -290,6 +290,7 @@ struct sam_session_params {
 	enum sam_cipher_mode cipher_mode;/**< cipher mode */
 	u8  *cipher_iv;                  /**< session cipher IV */
 	u8  *cipher_key;                 /**< cipher key */
+	u32 cipher_iv_len;               /**< session cipher IV length */
 	u32 cipher_key_len;              /**< cipher key size (in bytes) */
 	enum sam_auth_alg auth_alg;      /**< authentication algorithm */
 	u8  *auth_key;                   /**< authentication key */
