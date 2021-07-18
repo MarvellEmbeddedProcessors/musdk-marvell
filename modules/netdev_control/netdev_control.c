@@ -39,14 +39,14 @@ static ssize_t netdev_store(struct kobject *kobj, struct kobj_attribute *attr, c
 {
 	struct net_device *netdev = NULL;
 	char netdev_name[MAX_NETDEV_LEN];
-	int queue_state, ret;
+	int queue_state;
 
 	memset(netdev_name, 0, MAX_NETDEV_LEN);
 
 	/* Get netdev name */
-	ret = sscanf(buf, "%s %d", &netdev_name[0], &queue_state);
-	if (ret != 2) {
-		pr_err("*** sscanf error: %d", ret);
+	if (sscanf(buf, "%s %d", &netdev_name[0], &queue_state) != 2 ||
+		((queue_state != 1) && (queue_state != 0))) {
+		pr_err("Wrong input");
 		return -EINVAL;
 	}
 
@@ -59,11 +59,9 @@ static ssize_t netdev_store(struct kobject *kobj, struct kobj_attribute *attr, c
 		netif_tx_wake_all_queues(netdev);
 	else if (queue_state == 0)
 		netif_tx_stop_all_queues(netdev);
-	else
-		ret = -ENOMEM;
 
 	dev_put(netdev);
-	return ret;
+	return count;
 }
 
 void netdev_control_remove(void)
