@@ -106,6 +106,7 @@ struct dmax2_lnx_format {
 
 struct dmax2_lnx_format dmax2_frm[] = {
 		{LNX_4_4_x, "dma_xor"},
+		{LNX_4_14_x, "xor"},
 		{LNX_OTHER, "xor"},
 };
 
