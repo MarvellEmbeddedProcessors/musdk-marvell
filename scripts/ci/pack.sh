@@ -1,8 +1,8 @@
 #!/bin/bash
-# SPDX-License-Identifier:           GPL-2.0
-# https://spdx.org/licenses
-# Copyright (C) 2018 Marvell International Ltd.
+# Copyright (C) 2018 Marvell.
 #
+# SPDX-License-Identifier: BSD-3-Clause
+# https://spdx.org/licenses
 ###############################################################################
 ## This is the pack script for linux kernel                                  ##
 ## This script is called by CI automated builds                              ##

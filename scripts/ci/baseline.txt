@@ -1,7 +1,7 @@
 #
-# SPDX-License-Identifier:           GPL-2.0
+# SPDX-License-Identifier: BSD-3-Clause
 # https://spdx.org/licenses
-# Copyright (C) 2018 Marvell International Ltd.
+# Copyright (C) 2018 Marvell.
 #
 # commit id of base tag for this branch
 5dce9e8b350c9329d7dbd7328f4210944382054d Initial empty repository
