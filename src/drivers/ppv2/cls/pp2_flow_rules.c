@@ -3368,25 +3368,13 @@ int pp2_cls_init(struct pp2_inst *inst)
 		return -ENOMEM;
 	memset(fl_rls, 0, sizeof(struct pp2_cls_fl_rule_list_t));
 
+	/* add flow rules to DB */
 	rc = pp2_cls_add_lkpid_and_flows_to_db(inst, fl_rls);
 	if (rc) {
 		pr_err("pp2_cls_adding_db_current_flows fail rc = %d\n", rc);
 		goto end;
 	}
 
-	rc = mv_pp2x_cls_hw_lkp_clear_all(cpu_slot);
-	if (rc) {
-		pr_err("mv_pp2x_cls_hw_lkp_clear_all fail rc = %d\n", rc);
-		goto end;
-	}
-
-	rc = mv_pp2x_cls_hw_flow_clear_all(cpu_slot);
-	if (rc) {
-		pr_err("mv_pp2x_cls_hw_flow_clear_all fail rc = %d\n", rc);
-		goto end;
-	}
-
-	/* add rules and set HW */
 	if (fl_rls->fl_len)
 		pp2_cls_fl_rule_add(inst, fl_rls);
 

@@ -85,38 +85,6 @@ void mv_pp2x_cls_sw_lkp_clear(struct mv_pp2x_cls_lookup_entry *fe)
 	memset(fe, 0, sizeof(struct mv_pp2x_cls_lookup_entry));
 }
 
-int mv_pp2x_cls_hw_lkp_clear(uintptr_t cpu_slot, int lkpid, int way)
-{
-	struct mv_pp2x_cls_lookup_entry fe;
-
-	if (mv_pp2x_range_validate(lkpid, 0,
-				   MVPP2_CLS_FLOWS_TBL_SIZE) == MV_ERROR)
-		return -EINVAL;
-	if (mv_pp2x_range_validate(way, 0, 1) == MV_ERROR)
-		return -EINVAL;
-
-	/* clear entry */
-	mv_pp2x_cls_sw_lkp_clear(&fe);
-	fe.lkpid = lkpid;
-	fe.way = way;
-	mv_pp2x_cls_hw_lkp_write(cpu_slot, &fe);
-
-	return 0;
-}
-
-int mv_pp2x_cls_hw_lkp_clear_all(uintptr_t cpu_slot)
-{
-	int lkpid;
-
-	for (lkpid = 0; lkpid < MVPP2_CLS_LKP_TBL_SIZE; lkpid++) {
-		if (mv_pp2x_cls_hw_lkp_clear(cpu_slot, lkpid, 0))
-			return -EINVAL;
-		if (mv_pp2x_cls_hw_lkp_clear(cpu_slot, lkpid, 1))
-			return -EINVAL;
-	}
-	return 0;
-}
-
 int mv_pp2x_cls_hw_cls_enable(uintptr_t cpu_slot, uint32_t en)
 {
 	if (mv_pp2x_range_validate(en, 0, 1) == MV_ERROR)
@@ -821,22 +789,6 @@ int mv_pp2x_cls_sw_flow_dump(struct mv_pp2x_cls_flow_entry *fe)
 void mv_pp2x_cls_sw_flow_clear(struct mv_pp2x_cls_flow_entry *fe)
 {
 	memset(fe, 0, sizeof(struct mv_pp2x_cls_flow_entry));
-}
-
-int mv_pp2x_cls_hw_flow_clear_all(uintptr_t cpu_slot)
-{
-	int index;
-
-	struct mv_pp2x_cls_flow_entry fe;
-
-	mv_pp2x_cls_sw_flow_clear(&fe);
-
-	for (index = 0; index < MVPP2_CLS_FLOWS_TBL_SIZE ; index++) {
-		fe.index = index;
-		if (mv_pp2x_cls_hw_flow_write(cpu_slot, &fe))
-			return -EINVAL;
-	}
-	return 0;
 }
 
 static int mv_pp2x_cls_hw_flow_hit_get(uintptr_t cpu_slot, int index, unsigned int *cnt)
