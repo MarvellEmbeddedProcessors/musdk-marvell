@@ -140,6 +140,9 @@ static enum sam_cipher_mode cipher_mode_str_to_val(char *data)
 	if (strcmp(data, "GMAC") == 0)
 		return SAM_CIPHER_GMAC;
 
+	if (strcmp(data, "CMAC") == 0)
+		return SAM_CIPHER_CBC;
+
 	printf("Syntax error in Mode: %s is unknown\n", data);
 	return SAM_CIPHER_MODE_LAST;
 }
@@ -157,6 +160,15 @@ static enum sam_auth_alg auth_algorithm_str_to_val(char *data, int auth_key_len)
 
 	if (strcmp(data, "AES_GMAC") == 0)
 		return SAM_AUTH_AES_GMAC;
+
+	if (strcmp(data, "AES_CMAC128") == 0)
+		return SAM_AUTH_AES_CMAC_128;
+
+	if (strcmp(data, "AES_CMAC192") == 0)
+		return SAM_AUTH_AES_CMAC_192;
+
+	if (strcmp(data, "AES_CMAC256") == 0)
+		return SAM_AUTH_AES_CMAC_256;
 
 	if (auth_key_len > 0) {
 		if (strcmp(data, "MD5") == 0)
@@ -246,7 +258,11 @@ static int create_sessions(struct local_arg *larg, EncryptedBlockPtr *tests_db)
 		larg->sa_params[i].proto = SAM_PROTO_NONE;
 
 		larg->sa_params[i].cipher_alg = cipher_algorithm_str_to_val(encryptedBlockGetAlgorithm(block));
-		if (larg->sa_params[i].cipher_alg != SAM_CIPHER_NONE) {
+		auth_key_len = encryptedBlockGetAuthKeyLen(block);
+		larg->sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block),
+									auth_key_len);
+		if (larg->sa_params[i].cipher_alg != SAM_CIPHER_NONE ||
+		    larg->sa_params[i].auth_alg != SAM_AUTH_NONE) {
 			larg->sa_params[i].cipher_key_len = encryptedBlockGetKeyLen(block);
 			if (larg->sa_params[i].cipher_key_len > sizeof(cipher_key)) {
 				printf("thread #%d (cpu=%d): Cipher key size is too long: %d bytes > %d bytes\n",
@@ -262,9 +278,6 @@ static int create_sessions(struct local_arg *larg, EncryptedBlockPtr *tests_db)
 			/* encryptedBlockGetIvLen(block, idx); - Check IV length with cipher algorithm */
 		}
 
-		auth_key_len = encryptedBlockGetAuthKeyLen(block);
-		larg->sa_params[i].auth_alg = auth_algorithm_str_to_val(encryptedBlockGetAuthAlgorithm(block),
-									auth_key_len);
 		if (larg->sa_params[i].auth_alg != SAM_AUTH_NONE) {
 			larg->sa_params[i].u.basic.auth_then_encrypt = 0;
 			larg->sa_params[i].u.basic.auth_icv_len = encryptedBlockGetIcbLen(block, 0);

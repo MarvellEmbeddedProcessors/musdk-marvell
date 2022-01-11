@@ -1,0 +1,25 @@
+# AES 128 GMAC test configuration file
+
+Algorithm     : NULL
+Authalgorithm : AES_CMAC128
+Name          : Encrypting_AES128_CMAC
+Mode          : CMAC
+Authkey       : 0x2b7e151628aed2a6abf7158809cf4f3c
+Direction     : encryption
+Testcounter   : 1
+Plaintext     : 0x6BC1BEE22E409F96E93D7E117393172A
+Cryptoffset   : 0
+Authoffset    : 0
+ICB           : 0x070a16b46b4d4144f79bdd9dd04a287c
+
+Algorithm     : NULL
+Authalgorithm : AES_CMAC128
+Name          : Decrypting_AES128_CMAC
+Mode          : CMAC
+Authkey       : 0x2b7e151628aed2a6abf7158809cf4f3c
+Direction     : decryption
+Testcounter   : 1
+Plaintext     : 0x6bc1bee22e409f96e93d7e117393172a
+Cryptoffset   : 0
+Authoffset    : 0
+ICB           : 0x070a16b46b4d4144f79bdd9dd04a287c

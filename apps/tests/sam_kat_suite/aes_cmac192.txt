@@ -1,0 +1,25 @@
+# AES 256 GMAC test configuration file
+
+Algorithm     : NULL
+Authalgorithm : AES_CMAC192
+Name          : Encrypting_AES192_CMAC
+Mode          : CMAC
+Authkey       : 0x8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b
+Direction     : encryption
+Testcounter   : 1
+Plaintext     : 0x6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710
+Cryptoffset   : 0
+Authoffset    : 0
+ICB           : 0xa1d5df0eed790f794d77589659f39a11
+
+Algorithm     : NULL
+Authalgorithm : AES_CMAC192
+Name          : Decrypting_AES192_CMAC
+Mode          : CMAC
+Authkey       : 0x8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b
+Direction     : decryption
+Testcounter   : 1
+Plaintext     : 0x6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710
+Cryptoffset   : 0
+Authoffset    : 0
+ICB           : 0xa1d5df0eed790f794d77589659f39a11
