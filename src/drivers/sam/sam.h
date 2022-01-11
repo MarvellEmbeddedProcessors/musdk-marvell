@@ -86,6 +86,7 @@ struct sam_sa {
 	u32				token_words;
 	u32				nonce;
 	u8				auth_inner[64]; /* authentication inner block */
+	u8				auth_inner2[64]; /* authentication inner block */
 	u8				auth_outer[64]; /* authentication outer block */
 	u8				tunnel_header[40]; /* Maximum needed place for tunnel header */
 	void	(*post_proc_cb)(struct sam_cio_op *operation, struct sam_hw_res_desc *res_desc,

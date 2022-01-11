@@ -116,6 +116,13 @@ static void sam_gcm_create_auth_key(u8 *key, int key_len, u8 inner[])
 	}
 }
 
+static inline  void sam_cmac_create_auth_key(u8 *key, int key_len, u8 k1[], u8 k2[])
+{
+	u8 key_input[64] = {0};
+
+	mv_aes_cbc_encrypt(key_input, key, k1, k2, key_len * 8);
+}
+
 static int sam_session_crypto_init(struct sam_sa *session,
 				   SABuilder_Params_t *sa_params)
 {
@@ -174,6 +181,16 @@ static int sam_session_auth_init(struct sam_sa *session,
 		/* Generate authenticationn key from cipher key */
 		sam_gcm_create_auth_key(params->cipher_key, params->cipher_key_len, session->auth_inner);
 		sa_params->AuthKey1_p = session->auth_inner;
+	} else if (params->auth_alg == SAM_AUTH_AES_CMAC_128 ||
+		   params->auth_alg == SAM_AUTH_AES_CMAC_192 ||
+		   params->auth_alg == SAM_AUTH_AES_CMAC_256) {
+		memcpy(session->auth_inner, params->auth_key, params->auth_key_len);
+		sam_cmac_create_auth_key(params->auth_key, params->auth_key_len,
+					 session->auth_inner2, session->auth_outer);
+
+		sa_params->AuthKey1_p = session->auth_inner;
+		sa_params->AuthKey2_p = session->auth_inner2;
+		sa_params->AuthKey3_p = session->auth_outer;
 	} else {
 		if (params->auth_key) {
 			sam_hmac_create_iv(params->auth_alg, params->auth_key, params->auth_key_len,
@@ -184,7 +201,9 @@ static int sam_session_auth_init(struct sam_sa *session,
 	}
 	sa_params->AuthAlgo = (SABuilder_Auth_t)params->auth_alg;
 
-	if ((params->auth_alg == SAM_AUTH_AES_GCM) || (params->auth_alg == SAM_AUTH_AES_GMAC))
+	if ((params->auth_alg == SAM_AUTH_AES_GCM) || (params->auth_alg == SAM_AUTH_AES_GMAC) ||
+	    (params->auth_alg == SAM_AUTH_AES_CMAC_128) || (params->auth_alg == SAM_AUTH_AES_CMAC_192) ||
+	    (params->auth_alg == SAM_AUTH_AES_CMAC_256))
 		sa_params->flags |= SAB_FLAG_SUPPRESS_HEADER;
 
 	return 0;
@@ -463,7 +482,9 @@ int sam_get_capability(struct sam_capability *capa)
 			    BIT(SAM_AUTH_HMAC_SHA2_224) | BIT(SAM_AUTH_HMAC_SHA2_256) |
 			    BIT(SAM_AUTH_HMAC_SHA2_384) | BIT(SAM_AUTH_HMAC_SHA2_512);
 	/* AES-GCM */
-	capa->auth_algos |= BIT(SAM_AUTH_AES_GCM) | BIT(SAM_AUTH_AES_GMAC);
+	capa->auth_algos |= BIT(SAM_AUTH_AES_GCM) | BIT(SAM_AUTH_AES_GMAC) |
+			    BIT(SAM_AUTH_AES_CMAC_128) | BIT(SAM_AUTH_AES_CMAC_192) |
+			    BIT(SAM_AUTH_AES_CMAC_256);
 
 	return 0;
 }

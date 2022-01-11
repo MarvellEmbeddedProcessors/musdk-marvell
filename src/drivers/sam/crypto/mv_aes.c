@@ -349,3 +349,43 @@ void mv_aes_ecb_encrypt(uint8_t *input, const uint8_t *key, uint8_t *output, int
 	/* The next function call encrypts the PlainText with the Key using AES algorithm. */
 	Cipher(key_size);
 }
+
+/*****************************************************************************/
+/* Public functions:                                                         */
+/*****************************************************************************/
+/*
+ * input  -  String length must be evenly divisible by 16byte (str_len % 16 == 0).
+ *	Pad the end of the string with zeros if this is not the case.
+ */
+void mv_aes_cbc_encrypt(uint8_t *input, const uint8_t *key,
+			    uint8_t *k1, uint8_t *k2, int key_size)
+{
+	bool lsb = false;
+	u8 carry = 0;
+	int i;
+
+	mv_aes_ecb_encrypt(input, key, k1, key_size);
+
+	lsb = (k1[0] & 0x80);
+	for (i = 15; i >= 0; --i) {
+		ushort u = (ushort)(k1[i] << 1);
+
+		k1[i] = ((u & 0xff) + carry);
+		carry = ((u & 0xff00) >> 8);
+	}
+
+	if (lsb)
+		k1[15] ^= 0x87;
+
+	lsb = (k1[0] & 0x80);
+
+	for (i = 15; i >= 0; --i) {
+		ushort u = (ushort)(k1[i] << 1);
+
+		k2[i] = ((u & 0xff) + carry);
+		carry = ((u & 0xff00) >> 8);
+	}
+
+	if (lsb)
+		k2[15] ^= 0x87;
+}
