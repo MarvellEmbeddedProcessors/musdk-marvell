@@ -466,13 +466,14 @@ int giu_gpio_post_gie(struct giu_gpio *gpio)
 		u32 free_count[gpio->num_intcs];
 
 		/* get dest (interim) queues info */
-		rmb();
 		for (dst_qid = 0; dst_qid < intc->num_interim_qs; dst_qid++) {
 			dst_q = &intc->interim_qs[dst_qid].queue;
 			prod[dst_qid] = readl_relaxed(dst_q->prod_addr);
 			cons[dst_qid] = readl_relaxed(dst_q->cons_addr);
 			free_count[dst_qid] = QUEUE_SPACE(prod[dst_qid], cons[dst_qid], dst_q->desc_total);
 		}
+
+		rmb();
 
 		break_qid_loop = 0;
 
@@ -528,7 +529,7 @@ int giu_gpio_post_gie(struct giu_gpio *gpio)
 
 			} /* desc_received -loop */
 
-			writel(cons_val, src_q->cons_addr);
+			writel_relaxed(cons_val, src_q->cons_addr);
 
 		} /* qid-loop */
 
