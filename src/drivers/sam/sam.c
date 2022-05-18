@@ -469,7 +469,7 @@ u32 sam_session_get_block_size(enum sam_cipher_alg algo)
 
 int sam_get_capability(struct sam_capability *capa)
 {
-	capa->cipher_algos = BIT(SAM_CIPHER_3DES) | BIT(SAM_CIPHER_AES);
+	capa->cipher_algos = BIT(SAM_CIPHER_3DES) | BIT(SAM_CIPHER_DES) | BIT(SAM_CIPHER_AES);
 	capa->cipher_modes = BIT(SAM_CIPHER_ECB) | BIT(SAM_CIPHER_CBC) |
 			     BIT(SAM_CIPHER_GCM) | BIT(SAM_CIPHER_CTR);
 
