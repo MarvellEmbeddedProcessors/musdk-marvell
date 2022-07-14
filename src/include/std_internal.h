@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>

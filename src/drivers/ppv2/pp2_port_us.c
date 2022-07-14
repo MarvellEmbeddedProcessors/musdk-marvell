@@ -420,16 +420,27 @@ int pp2_port_remove_mac_addr(struct pp2_port *port, const uint8_t *addr)
 static int pp2_port_clear_kernel_unicast(struct pp2_port *port)
 {
 	char name[IFNAMSIZ];
-	char buf[PP2_MAX_BUF_STR_LEN], command[PP2_MAX_BUF_STR_LEN], full_name[32];
+	char command[PP2_MAX_BUF_STR_LEN], full_name[32];
+	struct dirent *dent;
+	char *dir;
+	DIR *d;
 	int rc;
 	u8 id;
-	FILE *fp = popen("ls /sys/class/net/", "r");
 
-	if (!fp)
+	d = opendir("/sys/class/net/");
+	if (!d)
 		return -EACCES;
 
-	while (fgets(buf, sizeof(buf), fp)) {
-		if (sscanf(buf, "%[^.].%02hhu", name, &id) != 2)
+	while (1) {
+		dent = readdir(d);
+		if (!dent)
+			break;
+		dir = dent->d_name;
+
+		if (!strcmp(dir, ".") || !strcmp(dir, ".."))
+			continue;
+
+		if (sscanf(dir, "%[^.].%02hhu", name, &id) != 2)
 			continue;
 
 		if (strcmp(port->linux_name, name))
@@ -443,7 +454,7 @@ static int pp2_port_clear_kernel_unicast(struct pp2_port *port)
 			/* same function can be used to remove macvlan interface */
 			pp2_port_clear_vlan(port, id);
 	}
-	pclose(fp);
+
 	return 0;
 }
 
@@ -516,19 +527,15 @@ int pp2_port_flush_mac_addrs(struct pp2_port *port, uint32_t uc, uint32_t mc)
 /* Set vlan filtering */
 int pp2_port_set_vlan_filtering(struct pp2_port *port, int enable)
 {
+	const char *featstr = "rx-vlan-filter";
 	int rc;
-	char buf[PP2_MAX_BUF_STR_LEN];
 
-	if (enable)
-		sprintf(buf, "ethtool -K %s rx-vlan-filter on", port->linux_name);
-	else if (port->num_vlans == 0)
-		sprintf(buf, "ethtool -K %s rx-vlan-filter off", port->linux_name);
-	else {
+	if (!enable && port->num_vlans != 0) {
 		pr_err("disable vlan filtering not allowed until all the vlans removed\n");
 		return -EPERM;
 	}
 
-	rc = system(buf);
+	rc = mv_netdev_feature_set(port->linux_name, featstr, enable);
 	if (rc != 0) {
 		if (enable)
 			pr_err("failed to enable vlan filtering\n");
