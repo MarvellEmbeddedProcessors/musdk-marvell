@@ -1,9 +1,0 @@
-Required environment variables --
-
-ARCH
-CROSS_COMPILE
-KDIR
-
-Compilation command --
-
-make -C $KDIR M=$PWD modules
