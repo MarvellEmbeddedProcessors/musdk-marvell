@@ -29,6 +29,8 @@ static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
 static int		sam_num_sessions;
 static struct sam_sa	*sam_sessions;
 static struct id_alloc_data *id_alloc_data;
+static spinlock_t	sessions_lock;
+
 
 #ifdef MVCONF_SAM_STATS
 static struct sam_session_stats sam_sa_stats;
@@ -70,7 +72,9 @@ static struct sam_sa *sam_session_alloc(void)
 	u32 id;
 	int ret;
 
+	spin_lock(&sessions_lock);
 	ret = id_alloc_get(id_alloc_data, &id);
+	spin_unlock(&sessions_lock);
 	if (ret == -ENOENT) {
 		pr_err("All sessions are busy\n");
 		return NULL;
@@ -105,7 +109,9 @@ static void sam_session_free(struct sam_sa *sa)
 
 	sa->is_valid = false;
 
+	spin_lock(&sessions_lock);
 	ret = id_alloc_put(id_alloc_data, sa->id);
+	spin_unlock(&sessions_lock);
 	if (ret)
 		pr_err("BUG: session id put failed\n");
 }
@@ -556,6 +562,8 @@ int sam_init(struct sam_init_params *params)
 		ret = -ENOMEM;
 		goto err;
 	}
+
+	spin_lock_init(&sessions_lock);
 
 	id_alloc_data = id_alloc_init(num_sessions);
 	if (!id_alloc_data)
