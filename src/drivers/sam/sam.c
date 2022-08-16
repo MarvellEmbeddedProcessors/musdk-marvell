@@ -12,6 +12,8 @@
 #include "crypto/mv_sha2.h"
 #include "crypto/mv_aes.h"
 
+#include "lib/id_alloc.h"
+
 #include "sam.h"
 
 /* Maximum number of supported CIOs for all devices */
@@ -26,6 +28,7 @@ static int		sam_active_cios;
 static struct sam_cio	*sam_cios[SAM_MAX_CIO_NUM];
 static int		sam_num_sessions;
 static struct sam_sa	*sam_sessions;
+static struct id_alloc_data *id_alloc_data;
 
 #ifdef MVCONF_SAM_STATS
 static struct sam_session_stats sam_sa_stats;
@@ -64,21 +67,47 @@ void sam_dma_buf_free(struct sam_buf_info *dma_buf)
 
 static struct sam_sa *sam_session_alloc(void)
 {
-	int i;
+	u32 id;
+	int ret;
 
-	for (i = 0; i < sam_num_sessions; i++) {
-		if (!sam_sessions[i].is_valid) {
-			sam_sessions[i].is_valid = true;
-			return &sam_sessions[i];
-		}
+	ret = id_alloc_get(id_alloc_data, &id);
+	if (ret == -ENOENT) {
+		pr_err("All sessions are busy\n");
+		return NULL;
 	}
-	pr_err("All sessions are busy\n");
-	return NULL;
+
+	if (ret) {
+		pr_err("BUG: failure during ID allocation\n");
+		return NULL;
+	}
+
+	if (id >= sam_num_sessions) {
+		pr_err("BUG: invalid ID from session allocate\n");
+		return NULL;
+	}
+
+	if (sam_sessions[id].is_valid) {
+		pr_err("BUG: session already valid\n");
+		return NULL;
+	}
+
+	sam_sessions[id].is_valid = true;
+
+	return &sam_sessions[id];
 }
 
 static void sam_session_free(struct sam_sa *sa)
 {
+	int ret;
+
+	if (!sa->is_valid)
+		return;
+
 	sa->is_valid = false;
+
+	ret = id_alloc_put(id_alloc_data, sa->id);
+	if (ret)
+		pr_err("BUG: session id put failed\n");
 }
 
 static void sam_hmac_create_iv(enum sam_auth_alg auth_alg, unsigned char key[], int key_len,
@@ -518,7 +547,7 @@ u8 sam_get_num_inst(void)
 
 int sam_init(struct sam_init_params *params)
 {
-	int i, ret;
+	int i, ret = 0;
 	u32 num_sessions = params->max_num_sessions;
 
 	/* Allocate configured number of sam_sa structures */
@@ -528,6 +557,10 @@ int sam_init(struct sam_init_params *params)
 		goto err;
 	}
 
+	id_alloc_data = id_alloc_init(num_sessions);
+	if (!id_alloc_data)
+		goto err;
+
 	/* Allocate DMA buffer for each session */
 	for (i = 0; i < num_sessions; i++) {
 		if (sam_dma_buf_alloc(SAM_SA_DMABUF_SIZE, &sam_sessions[i].sa_buf)) {
@@ -536,6 +569,7 @@ int sam_init(struct sam_init_params *params)
 			num_sessions = i;
 			break;
 		}
+		sam_sessions[i].id = i;
 	}
 	pr_debug("DMA buffers allocated for %d sessions (%d bytes)\n",
 		num_sessions, SAM_SA_DMABUF_SIZE);
@@ -559,6 +593,11 @@ err:
 void sam_deinit(void)
 {
 	int i;
+
+	if (id_alloc_data) {
+		id_alloc_deinit(id_alloc_data);
+		id_alloc_data = NULL;
+	}
 
 	if (sam_sessions) {
 		for (i = 0; i < sam_num_sessions; i++) {

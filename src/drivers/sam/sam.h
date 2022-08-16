@@ -69,6 +69,7 @@ struct sam_cio {
 
 struct sam_sa {
 	bool is_valid;
+	u32				id;
 	struct sam_session_params	params;
 	struct sam_cio			*ctr_cio; /* control path cio */
 	struct sam_cio			*cio;     /* data path cio */
