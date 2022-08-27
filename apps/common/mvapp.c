@@ -237,12 +237,13 @@ static int print_to_file_cb(const char *fmt, ...)
 		printf("%s: buffer overflow (%d chars)\n", __func__, n);
 	va_end(ap);
 
-	fd = open(mvapp->cli_out_filename, O_CREAT | O_WRONLY | O_APPEND);
+	fd = open(mvapp->cli_out_filename, O_CREAT | O_WRONLY | O_APPEND, S_IWUSR | S_IROTH);
 	if (fd <= 0) {
 		pr_err("can't open CLI file (%s)\n", mvapp->cli_out_filename);
 		return -EIO;
 	}
-	write(fd, buf, n);
+	if (write(fd, buf, n) != n)
+		pr_err("can't write %d chars to CLI file (%s)\n", n, mvapp->cli_out_filename);
 	close(fd);
 	return 0;
 }

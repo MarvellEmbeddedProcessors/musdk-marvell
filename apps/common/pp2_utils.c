@@ -198,8 +198,9 @@ void app_show_port_eth_tool_get(struct port_desc *port_desc)
 {
 	char buf[50] = "ethtool ";
 
-	strcat(buf, port_desc->name);
-	system(buf);
+	strncat(buf, port_desc->name, sizeof(buf) - strlen(buf));
+	if (system(buf) < 0)
+		pr_err("Failed to run command (%s)\n", buf);
 }
 
 int app_is_linux_sysfs_ena(void)
@@ -2138,9 +2139,14 @@ int app_pp2_sysfs_param_get(char *if_name, char *file)
 	}
 
 	sprintf(w_buf, "echo %s > %s/%s", if_name, PP2_SYSFS_MUSDK_PATH, PP2_SYSFS_DEBUG_PORT_SET_FILE);
-	system(w_buf);
+	if (system(w_buf) < 0)
+		pr_err("Failed to run command (%s)\n", w_buf);
 
-	fgets(r_buf, sizeof(r_buf), fp);
+	if (fgets(r_buf, sizeof(r_buf), fp) != r_buf) {
+		pr_err("Failed to read file (%s)\n", file);
+		fclose(fp);
+		return -EIO;
+	}
 	scanned = sscanf(r_buf, "%d\n", &param);
 	if (scanned != 1) {
 		pr_err("Invalid number of parameters read %s\n", r_buf);
@@ -2271,4 +2277,3 @@ int apps_pp2_stat_cmd_cb(void *arg, int argc, char *argv[])
 	}
 	return 0;
 }
-

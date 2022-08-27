@@ -103,10 +103,11 @@
  ***********************/
 int write_buf_to_file(char *file_name, char *buff, u32 size)
 {
+	const mode_t mode = S_IWUSR | S_IROTH;
 	size_t	s;
 	int	fd;
 
-	fd = open(file_name, O_RDWR | O_CREAT);
+	fd = open(file_name, O_RDWR | O_CREAT, mode);
 	if (fd == -1) {
 		pr_err("Failed to open file %s\n", file_name);
 		return -EIO;
@@ -126,7 +127,7 @@ int write_buf_to_file(char *file_name, char *buff, u32 size)
 
 	sync();
 
-	chmod(file_name, S_IWUSR | S_IROTH);
+	chmod(file_name, mode);
 
 	return 0;
 }
@@ -153,4 +154,3 @@ int read_file_to_buf(char *file_name, char *buff, u32 size)
 	close(fd);
 	return 0;
 }
-

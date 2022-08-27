@@ -168,8 +168,13 @@ static int pp2_get_devtree_port_data(struct netdev_if_params *netdev_params)
 			netdev_params[idx].ppio_id = j;
 			netdev_params[idx].pp_id = i;
 
-			fgets(buf, sizeof(buf), fp);
+			if (fgets(buf, sizeof(buf), fp) != buf)
+				err = -EIO;
 			fclose(fp);
+			if (err) {
+				pr_err("error reading file %s\n", fullpath);
+				return err;
+			}
 
 			if (strcmp("disabled", buf) == 0) {
 				pr_debug("port %d:%d is disabled\n", i, j);
