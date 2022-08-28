@@ -136,7 +136,7 @@ do {										\
 	}									\
 	str_len = snprintf(&tmp_buf[tab_len], size - pos, __VA_ARGS__);		\
 	if ((str_len + tab_len) <= (size - pos))				\
-		strncpy(&buff[pos], &tmp_buf[0], (size_t)(str_len + tab_len));	\
+		strcpy(&buff[pos], &tmp_buf[0]);				\
 	else									\
 		pr_warn("skip write (%s): buf too short (%d)!\n",		\
 			tmp_buf, size);						\

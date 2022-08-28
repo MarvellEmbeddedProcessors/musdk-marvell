@@ -990,10 +990,10 @@ static int extract_ip_range(struct ip_range *r, char *argv)
 	}
 	{
 		struct in_addr a;
-		char buf1[16]; /* one ip address */
+		char buf1[INET_ADDRSTRLEN+1]; /* one ip address */
 
 		a.s_addr = htonl(r->end);
-		strncpy(buf1, inet_ntoa(a), sizeof(buf1));
+		strncpy(buf1, inet_ntoa(a), sizeof(buf1) - 1);
 		a.s_addr = htonl(r->start);
 		pr_debug("range is %s:%d to %s:%d\n", inet_ntoa(a), r->port0, buf1, r->port1);
 	}
