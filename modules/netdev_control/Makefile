@@ -1,6 +1,6 @@
 #  SPDX-License-Identifier: GPL-2.0-only
 #
-#  Copyright (C) 2021 Marvell.
+#  Copyright (c) 2021 Marvell.
 
 KDIR ?=/usr/src/linux-headers-`uname -r`/
 

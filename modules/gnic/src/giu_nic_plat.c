@@ -1,6 +1,6 @@
 /*
 ** Copyright (C) 1999 - 2015 Intel Corporation.
-** Copyright (C) 2015-2016 Marvell International Ltd.
+** Copyright (c) 2015 Marvell.
 **
 ** This code was derived from Intel's ixgbe Linux driver.
 **

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) Marvell International Ltd. and its affiliates
+ * Copyright (c) 2016 Marvell. 
  *
  * This software file (the "File") is owned and distributed by Marvell
  * International Ltd. and/or its affiliates ("Marvell") under the following
