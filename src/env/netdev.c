@@ -68,6 +68,7 @@ mv_netdev_get_featstrs(int fd, struct ifreq *ifr, struct netdev_featstrs *fs)
 	ret = ioctl(fd, SIOCETHTOOL, ifr);
 	if (ret) {
 		pr_err("Could not get feature strings (%s)\n", strerror(errno));
+		free(gstrs);
 		return -1;
 	}
 
