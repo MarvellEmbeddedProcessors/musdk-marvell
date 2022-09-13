@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 #include "mv_std.h"
 
-/* convensions */
+ /* convensions */
 
 #define UIO_MAX_NAME_SIZE       64
 #define UIO_MAX_NUM             255
@@ -16,9 +16,11 @@
 #define UIO_INVALID_SIZE        0
 #define UIO_INVALID_ADDR        (~0)
 
-#define UIO_MMAP_NOT_DONE       0
-#define UIO_MMAP_OK             1
-#define UIO_MMAP_FAILED         2
+enum uin_mmap_state {
+	UIO_MMAP_NOT_DONE = 0,
+	UIO_MMAP_OK = 1,
+	UIO_MMAP_FAILED = 2
+};
 
 #define UIO_MEM_NOT_INSTALLED   0x5
 #define UIO_INVALID_FD          -1
@@ -58,65 +60,22 @@ struct uio_mem_t {
 };
 
 /* function prototypes */
-/*
- * Disabled uio_lib_* function prototypes because crash ODP build with:
- * error: 'uio_lib_*' declared 'static' but never defined [-Werror=unused-function]
- *
- * TODO: Remove the prototypes or implement them
- */
-#if 0
-static inline char *uio_lib_name(void);
-static inline char *uio_lib_version(void);
-static inline int uio_lib_ifcurrent(void);
-static inline int uio_lib_ifrevision(void);
-static inline int uio_lib_ifage(void);
-#endif
 
-int uio_get_mem_size(struct uio_info_t *info, int map_num);
-int uio_get_mem_addr(struct uio_info_t *info, int map_num);
-int uio_get_mem_name(struct uio_info_t *info, int map_num);
-int uio_get_event_count(struct uio_info_t *info);
-int uio_get_name(struct uio_info_t *info);
-int uio_get_version(struct uio_info_t *info);
 int uio_get_all_info(struct uio_info_t *info);
-
 void *uio_single_mmap(struct uio_info_t *info, int map_num, int fd);
-
-static inline void uio_mmap(struct uio_info_t *info, int fd);
-static inline void uio_single_munmap(struct uio_info_t *info, int map_num);
-static inline void uio_munmap(struct uio_info_t *info);
-
-static inline void uio_mmap(struct uio_info_t *info, int fd)
-{
-	int map_num;
-
-	if (!fd)
-		return;
-	for (map_num = 0; map_num < MAX_UIO_MAPS; map_num++)
-		uio_single_mmap(info, map_num, fd);
-}
-
 static inline void uio_single_munmap(struct uio_info_t *info, int map_num)
 {
 	munmap(info->maps[map_num].internal_addr, info->maps[map_num].size);
 	info->maps[map_num].mmap_result = UIO_MMAP_NOT_DONE;
 }
 
-static inline void uio_munmap(struct uio_info_t *info)
-{
-	int i;
-
-	for (i = 0; i < MAX_UIO_MAPS; i++)
-		uio_single_munmap(info, i);
-}
-
-void uio_free_dev_attrs(struct uio_info_t *info);
 void uio_free_info(struct uio_info_t *info);
 void uio_free_mem_info(struct uio_mem_t *info);
 
-struct uio_info_t *uio_find_devices(int filter_num);
 struct uio_info_t *uio_find_devices_byname(const char *filter_name);
+struct uio_info_t *uio_find_devices(int filter_num);
 struct uio_mem_t *uio_find_mem_byname(struct uio_info_t *info,
-				      const char *filter);
+	const char *filter);
 
 #endif /* __UIO_HELPER_H__ */
+
