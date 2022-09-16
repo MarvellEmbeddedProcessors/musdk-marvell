@@ -258,7 +258,7 @@ static int quit_cmd_cb(struct cli *cli, int argc, char *argv[])
 
 static void print_logo(cli_t *cli_p)
 {
-	cli_p->print_cb("              ......        ......	Marvell Inc. Copyright (c) 2016\n");
+	cli_p->print_cb("              ......        ......	Copyright (c) 2016 Marvell.\n");
 	cli_p->print_cb("            ##.    .      ##.    .	All Rights Reserved\n");
 	cli_p->print_cb("          ####.    .    ####.    .\n");
 	cli_p->print_cb("        ######.    .  ######.    .\n");
