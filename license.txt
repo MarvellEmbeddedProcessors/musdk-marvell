@@ -1,0 +1,28 @@
+MUSDK License Summary
+====================
+
+The MUSDK contains source code mostly developed by Marvell.
+This file gives a short overview of the various components
+and pointers to their exact license information.
+In the event of a conflict, the license file for a specific file or
+project takes precedence over this file.  This file is a summary only.
+
+Components
+==========
+Component:      musdk kernel modules
+License:        GPL-2.0 (SDPX-License-Identifier: GPL-2.0)
+License Text:   https://spdx.org/licenses/GPL-2.0.html
+Project URL:    N/A
+Directories:    modules/
+
+Component:      safexcel
+License:        Proprietary
+Project URL:    N/A
+Directories:    src/drivers/sam/safexcel/
+Notes:          Not touched by Marvell
+
+Component:      musdk drivers,libs,apps
+License:        BSD3 (SPDX-License-Identifier: BSD-3-Clause)
+License Text:   https://spdx.org/licenses/BSD-3-Clause.html#licenseText
+Project URL:    N/A
+Directories:    Everything Else
