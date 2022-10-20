@@ -1,11 +1,5 @@
-/*
- * ethtool support for Marvell's Armada GIU NIC .
- *
- * Copyright (c) 2014 Marvell.
- *
- * This file is licensed under the terms of the GNU General Public
- * License version 2. This program is licensed "as is" without any
- * warranty of any kind, whether express or implied.
+/* Copyright (c) 2014 Marvell.
+ * SPDX-License-Identifier: GPL-2.0-only
  */
 
 #include <linux/jiffies.h>
