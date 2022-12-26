@@ -83,6 +83,9 @@ int pp2_rss_hw_tbl_set(struct pp2_port *port)
 	rss_entry.sel = MVPP22_RSS_ACCESS_TBL;
 
 	for (i = 0; i < port->num_tcs; i++) {
+		if (port->tc[i].tc_config.num_in_qs == 1)
+			continue;
+
 		hw_tbl = pp2_cls_db_rss_get_hw_tbl_from_in_q(inst, port->tc[i].tc_config.num_in_qs);
 		if (hw_tbl < 0) {
 			pr_err("%s RSS table index not found\n", __func__);
@@ -118,6 +121,9 @@ int pp22_cls_rss_rxq_set(struct pp2_port *port)
 	rss_entry.sel = MVPP22_RSS_ACCESS_POINTER;
 
 	for (i = 0; i < port->num_tcs; i++) {
+		if (port->tc[i].tc_config.num_in_qs == 1)
+			continue;
+
 		/* Set the table index to be used according to rss_map */
 		hw_tbl = pp2_cls_db_rss_get_hw_tbl_from_in_q(inst, port->tc[i].tc_config.num_in_qs);
 		if (hw_tbl < 0) {
